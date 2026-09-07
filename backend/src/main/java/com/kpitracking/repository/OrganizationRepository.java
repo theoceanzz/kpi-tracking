@@ -8,6 +8,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -35,4 +36,24 @@ public interface OrganizationRepository extends JpaRepository<Organization, UUID
            "     OR LOWER(CAST(o.code AS string)) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) " +
            "     OR LOWER(CAST(o.larkTenantName AS string)) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')))")
     Page<Organization> searchLarkEnabled(@Param("keyword") String keyword, Pageable pageable);
+
+    /**
+     * Tìm tổ chức theo số tài khoản nhận tiền, dùng để quy một webhook SePay về
+     * đúng tổ chức khi giao dịch chưa gắn với đơn nạp nào.
+     *
+     * <p>Trả về danh sách chứ không phải {@code Optional}: hai tổ chức khai trùng
+     * số tài khoản là cấu hình sai nhưng không có gì trong hệ thống chặn được, và
+     * khi đó phải để phía gọi coi như KHÔNG xác định được thay vì chọn bừa một
+     * tổ chức rồi ghi có nhầm chỗ.
+     *
+     * <p>So sau khi bỏ ký tự không phải chữ/số, khớp đúng
+     * {@code SepayAccountMatch.normalize} — {@code :account} phải là chuỗi đã
+     * chuẩn hoá sẵn.
+     */
+    @Query(value = """
+            SELECT * FROM organizations o
+             WHERE o.sepay_account_number IS NOT NULL
+               AND regexp_replace(UPPER(o.sepay_account_number), '[^A-Z0-9]', '', 'g') = :account
+            """, nativeQuery = true)
+    List<Organization> findBySepayAccountNumber(@Param("account") String account);
 }

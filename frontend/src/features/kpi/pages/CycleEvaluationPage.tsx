@@ -1,22 +1,29 @@
 import { useState, useMemo, useEffect, Fragment } from 'react'
 import { useAuthStore } from '@/store/authStore'
 import { useKpiCycles } from '../hooks/useKpiCycles'
-import { useUnitCycleSummary } from '../hooks/useCycleEvaluation'
+import ScopeSelectItems from '@/components/common/ScopeSelectItems'
+import { pickCurrentOrNearest } from '@/components/common/dateScope'
+import { useUnitCycleSummary, useCycleApprovalChain } from '../hooks/useCycleEvaluation'
+import CycleApprovalTimeline from '../components/CycleApprovalTimeline'
+import SendEvaluationModal from '../components/SendEvaluationModal'
 import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { useHasPermission } from '@/components/auth/PermissionGate'
-import { getScoringFunctions } from '@/lib/scoring'
-import { exportCycleEvaluationToExcel } from '../utils/cycleEvaluationExport'
+import { getScoringFunctions, SCORING_POOL } from '@/lib/scoring'
+import { exportCycleEvaluationToExcel, exportCycleMemberDetailToExcel } from '../utils/cycleEvaluationExport'
 import { toast } from 'sonner'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import EmptyState from '@/components/common/EmptyState'
-import { cn, getInitials } from '@/lib/utils'
+import { cn } from '@/lib/utils'
+import UserAvatar from '@/components/common/UserAvatar'
 import { format, parseISO } from 'date-fns'
 import type { CycleEvaluationMode, CycleUserEvaluation, CyclePeriodBreakdown } from '@/types/kpi'
+import RewardPrompt from '@/features/rewards/components/RewardPrompt'
+import ConductInlineSheet from '@/features/conduct/components/ConductInlineSheet'
 import {
   CalendarRange, Building2, Search, Award, ChevronRight, CheckCircle2, Lock, LockOpen, MessageSquare,
-  ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle, FileSpreadsheet
+  ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle, FileSpreadsheet, Download, Loader2, Mail
 } from 'lucide-react'
 
 const MODE_LABEL: Record<CycleEvaluationMode, string> = {
@@ -41,12 +48,15 @@ export default function CycleEvaluationPage() {
   const orgId = user?.memberships?.[0]?.organizationId
   const { hasPermission } = useHasPermission()
   const canFinalize = hasPermission('CYCLE_EVAL:FINALIZE')
+  const canSend = hasPermission('CYCLE_EVAL:SEND')
 
   const { data: org } = useOrganization(orgId)
   const { getScoreColor, getScoreBg, getScoreLabel, maxScore } = getScoringFunctions(org)
 
   const { data: cyclesData } = useKpiCycles({ organizationId: orgId, size: 100, sortBy: 'startDate', direction: 'desc' })
-  const cycles = cyclesData?.content || []
+  // Memo hoá vì effect chọn sẵn kỳ mặc định phụ thuộc mảng này — không memo thì mảng đổi
+  // tham chiếu mỗi lần render và effect chạy lại vô ích sau mỗi phím gõ ở ô tìm kiếm.
+  const cycles = useMemo(() => cyclesData?.content ?? [], [cyclesData])
 
   const { data: orgUnitTreeData } = useOrgUnitTree()
   const flatOrgUnits = useMemo(() => orgUnitTreeData ? flattenTree(orgUnitTreeData) : [], [orgUnitTreeData])
@@ -56,18 +66,28 @@ export default function CycleEvaluationPage() {
   const [search, setSearch] = useState('')
   const [detailMember, setDetailMember] = useState<CycleUserEvaluation | null>(null)
   const [showFinalize, setShowFinalize] = useState(false)
+  const [showSend, setShowSend] = useState(false)
   const [comment, setComment] = useState('')
   const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: 'asc' | 'desc' }>({ key: 'userName', direction: 'asc' })
 
-  useEffect(() => { const first = cycles[0]; if (!cycleId && first) setCycleId(first.id) }, [cycles, cycleId])
+  // Chọn sẵn kỳ đang chạy; đang ở kẽ giữa hai kỳ thì giữ nguyên kỳ vừa kết thúc.
+  const defaultCycle = useMemo(() => pickCurrentOrNearest(cycles), [cycles])
+  useEffect(() => { if (!cycleId && defaultCycle) setCycleId(defaultCycle.id) }, [defaultCycle, cycleId])
   useEffect(() => { if (!orgUnitId && flatOrgUnits.length) setOrgUnitId(flatOrgUnits[0].id) }, [flatOrgUnits, orgUnitId])
 
   const {
     data: summary, isLoading, finalize, isFinalizing,
     reopen, isReopening, saveUserScore, isSavingUserScore,
+    sendEvaluation, isSending,
   } = useUnitCycleSummary(cycleId, orgUnitId)
 
   const isFinalized = summary?.status === 'FINALIZED'
+
+  // Chuỗi duyệt: đơn vị đang xem → các đơn vị cha lên tới gốc.
+  // Server tính sẵn quyền chốt/mở khoá nên nút chỉ việc bám theo, thay vì
+  // bấm rồi mới ăn 403.
+  const { data: chain, isLoading: isChainLoading } = useCycleApprovalChain(cycleId, orgUnitId)
+  const currentStep = chain?.find(s => s.current)
 
   // Giữ modal đồng bộ với dữ liệu mới sau khi lưu điểm.
   const activeMember = detailMember
@@ -105,12 +125,27 @@ export default function CycleEvaluationPage() {
     if (!summary) return
     setIsExporting(true)
     try {
-      await exportCycleEvaluationToExcel(summary, { maxScore, getScoreLabel })
+      await exportCycleEvaluationToExcel(summary, { getScoreLabel })
       toast.success('Đã xuất file Excel')
     } catch {
       toast.error('Xuất Excel thất bại')
     } finally {
       setIsExporting(false)
+    }
+  }
+
+  // Xuất chi tiết của riêng 1 nhân viên (kèm điểm từng đợt trong kỳ).
+  const [exportingUserId, setExportingUserId] = useState<string | null>(null)
+  const handleExportMember = async (member: CycleUserEvaluation) => {
+    if (!summary) return
+    setExportingUserId(member.userId)
+    try {
+      await exportCycleMemberDetailToExcel(member, summary, { getScoreLabel })
+      toast.success(`Đã xuất chi tiết của ${member.userName}`)
+    } catch {
+      toast.error('Xuất Excel thất bại')
+    } finally {
+      setExportingUserId(null)
     }
   }
 
@@ -124,11 +159,11 @@ export default function CycleEvaluationPage() {
     && (summary.members?.length ?? 0) > 0
     && summary.members.every(m => m.selfScore == null && m.managerScore == null)
 
-  // Chế độ Định tính: điểm hiển thị vốn là mức 0-5 đã quy đổi sang thang điểm.
+  // Chế độ Định tính: điểm hiển thị vốn là mức 0-5 đã quy đổi sang pool chấm.
   // Đảo ngược để hiện đúng mức gốc (VD 90 → 4.5/5) cho khỏi nhầm.
   const isQualMode = summary?.mode === 'QUALITATIVE'
   const toLevel = (v: number | null): number | null =>
-    v == null || !maxScore ? null : Math.round((v / maxScore) * 5 * 100) / 100
+    v == null ? null : Math.round((v / SCORING_POOL) * 5 * 100) / 100
 
   const LevelChip = ({ score }: { score: number | null }) => {
     const lv = toLevel(score)
@@ -177,13 +212,13 @@ export default function CycleEvaluationPage() {
   }
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] dark:bg-[#020617] p-4 md:p-8">
+    <div className="p-4 md:p-8">
       <div className="max-w-[1600px] mx-auto space-y-8">
 
         {/* Header Section */}
         <div className="relative group">
           <div className="absolute -inset-1 bg-gradient-to-r from-emerald-500 via-teal-500 to-cyan-500 rounded-[40px] blur opacity-10 group-hover:opacity-20 transition duration-1000"></div>
-          <div className="relative bg-white dark:bg-slate-900 rounded-[28px] p-6 border border-slate-200 dark:border-slate-800 shadow-lg overflow-hidden">
+          <div id="tour-cycleeval-header" className="relative bg-white dark:bg-slate-900 rounded-[28px] p-6 border border-slate-200 dark:border-slate-800 shadow-lg overflow-hidden">
             <div className="absolute top-0 right-0 w-64 h-64 bg-emerald-500/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl" />
             <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
               <div className="space-y-3">
@@ -199,6 +234,36 @@ export default function CycleEvaluationPage() {
                   </p>
                 </div>
               </div>
+
+              {/* Xếp loại đơn vị của kỳ: kết quả cuối cùng mà cấp trên đọc, nên đứng tách khỏi
+                  dãy điểm trung bình chứ không lẫn vào một ô chỉ số nữa. */}
+              {summary?.classification && (
+                <div
+                  className="flex items-center gap-3 px-4 py-3 rounded-2xl border shrink-0"
+                  style={{
+                    backgroundColor: `${summary.classificationColor ?? '#64748b'}14`,
+                    borderColor: `${summary.classificationColor ?? '#64748b'}33`,
+                  }}
+                  title={summary.status === 'FINALIZED'
+                    ? 'Xếp loại chụp lúc chốt kỳ'
+                    : 'Xếp loại tạm tính theo điểm kỳ hiện tại — sẽ được chốt cùng đánh giá phòng ban'}
+                >
+                  <Award size={22} style={{ color: summary.classificationColor ?? '#64748b' }} />
+                  <div className="min-w-0">
+                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 leading-none mb-1">
+                      Xếp loại đơn vị {summary.status === 'FINALIZED' ? '· đã chốt' : '· tạm tính'}
+                    </p>
+                    <p className="text-lg font-black leading-none truncate" style={{ color: summary.classificationColor ?? '#64748b' }}>
+                      {summary.classification}
+                    </p>
+                    {summary.classificationProfileName && (
+                      <p className="text-[10px] font-bold text-slate-400 mt-1 truncate">
+                        Hồ sơ: {summary.classificationProfileName}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              )}
 
               <div className={cn(
                 'grid grid-cols-3 gap-2 sm:gap-3 w-full sm:w-auto',
@@ -219,7 +284,7 @@ export default function CycleEvaluationPage() {
         </div>
 
         {/* Toolbar */}
-        <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md p-5 rounded-[32px] border border-slate-200 dark:border-slate-800 shadow-sm space-y-5">
+        <div id="tour-cycleeval-toolbar" className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md p-5 rounded-[32px] border border-slate-200 dark:border-slate-800 shadow-sm space-y-5">
           <div className="flex flex-col lg:flex-row items-center gap-4 w-full">
             <div className="relative flex-1 w-full lg:max-w-md group">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-emerald-500 transition-colors" size={18} />
@@ -257,9 +322,12 @@ export default function CycleEvaluationPage() {
                     </div>
                   </SelectTrigger>
                   <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800 shadow-2xl p-2 max-h-72">
-                    {cycles.map(c => (
-                      <SelectItem key={c.id} value={c.id} className="font-medium rounded-xl focus:bg-emerald-50">{c.name}</SelectItem>
-                    ))}
+                    <ScopeSelectItems
+                      items={cycles}
+                      selectedId={cycleId}
+                      noun="kỳ"
+                      itemClassName="font-medium rounded-xl focus:bg-emerald-50"
+                    />
                   </SelectContent>
                 </Select>
               </div>
@@ -268,50 +336,83 @@ export default function CycleEvaluationPage() {
 
           {/* Trạng thái chốt + hành động */}
           {summary && (
-            <div className="flex flex-col sm:flex-row sm:items-center gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
-              <span className="inline-flex items-center px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 text-[10px] font-black uppercase tracking-widest text-slate-500 border border-slate-100 dark:border-slate-700">
-                Chế độ: {MODE_LABEL[summary.mode]}
-              </span>
-              {summary.status === 'FINALIZED' ? (
-                <span
-                title={summary.fromSnapshot ? 'Các con số là bản chụp lúc chốt — sửa đánh giá đợt cũ không làm đổi số này' : undefined}
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 text-[10px] font-black uppercase tracking-widest border border-emerald-100 dark:border-emerald-800/50"
-                >
-                  <CheckCircle2 size={12} /> Đã chốt{summary.fromSnapshot && ' · số đã lưu'}
-                  {summary.finalizedByName && <span className="normal-case font-bold opacity-80">· {summary.finalizedByName}</span>}
-                  {summary.finalizedAt && <span className="normal-case font-bold opacity-60">· {format(parseISO(summary.finalizedAt), 'HH:mm dd/MM/yyyy')}</span>}
+            <div className="flex flex-col lg:flex-row lg:items-center gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
+              {/* Nhóm thông tin: co lại và cắt bớt khi hẹp, nhường chỗ cho nhóm nút.
+                  Mỗi nhãn đều nowrap để không bị gãy giữa cụm từ như "Đã chốt · số đã lưu". */}
+              <div className="flex flex-wrap items-center gap-2 min-w-0">
+                <span className="inline-flex items-center px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 text-[10px] font-black uppercase tracking-widest text-slate-500 border border-slate-100 dark:border-slate-700 whitespace-nowrap">
+                  Chế độ: {MODE_LABEL[summary.mode]}
                 </span>
-              ) : (
-                <span className="inline-flex items-center px-3 py-1.5 rounded-xl bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 text-[10px] font-black uppercase tracking-widest border border-amber-100 dark:border-amber-800/50">
-                  Bản nháp
-                </span>
-              )}
-              {summary.comment && (
-                <span className="flex items-start gap-1.5 text-xs text-slate-500 dark:text-slate-400 max-w-lg">
-                  <MessageSquare size={14} className="mt-0.5 shrink-0" /> {summary.comment}
-                </span>
-              )}
-              <div className="flex items-center gap-3 sm:ml-auto">
+
+                {summary.status === 'FINALIZED' ? (
+                  <span
+                    title={summary.fromSnapshot ? 'Các con số là bản chụp lúc chốt — sửa đánh giá đợt cũ không làm đổi số này' : undefined}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 text-[10px] font-black uppercase tracking-widest border border-emerald-100 dark:border-emerald-800/50 whitespace-nowrap"
+                  >
+                    <CheckCircle2 size={12} /> Đã chốt{summary.fromSnapshot && ' · số đã lưu'}
+                  </span>
+                ) : (
+                  <span className="inline-flex items-center px-3 py-1.5 rounded-xl bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 text-[10px] font-black uppercase tracking-widest border border-amber-100 dark:border-amber-800/50 whitespace-nowrap">
+                    Bản nháp
+                  </span>
+                )}
+
+                {/* Người chốt + thời điểm tách khỏi huy hiệu: nhét chung làm huy hiệu
+                    dài gấp ba và là thủ phạm khiến nó xuống dòng. */}
+                {summary.status === 'FINALIZED' && (summary.finalizedByName || summary.finalizedAt) && (
+                  <span className="text-[11px] font-bold text-slate-400 whitespace-nowrap">
+                    {summary.finalizedByName}
+                    {summary.finalizedByName && summary.finalizedAt && ' · '}
+                    {summary.finalizedAt && format(parseISO(summary.finalizedAt), 'HH:mm dd/MM/yyyy')}
+                  </span>
+                )}
+
+                {summary.comment && (
+                  <span
+                    title={summary.comment}
+                    className="flex items-center gap-1.5 text-xs text-slate-500 dark:text-slate-400 min-w-0 max-w-xs"
+                  >
+                    <MessageSquare size={14} className="shrink-0" />
+                    <span className="truncate">{summary.comment}</span>
+                  </span>
+                )}
+              </div>
+
+              {/* Nhóm nút: không cho co, luôn nằm trên một hàng riêng khi hẹp. */}
+              <div id="tour-cycleeval-actions" className="flex flex-wrap items-center gap-2 lg:ml-auto shrink-0">
                 <button
                   onClick={handleExport}
                   disabled={isExporting || !summary?.members?.length}
-                  className="flex items-center justify-center gap-2 px-5 h-11 rounded-2xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-[11px] font-black uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-slate-800 transition-all active:scale-95 whitespace-nowrap disabled:opacity-50"
+                  className="flex items-center justify-center gap-2 px-4 h-11 rounded-2xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-[11px] font-black uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-slate-800 transition-all active:scale-95 whitespace-nowrap disabled:opacity-50"
                 >
                   <FileSpreadsheet size={14} /> {isExporting ? 'Đang xuất...' : 'Xuất Excel'}
                 </button>
+                {canSend && (
+                  <button
+                    onClick={() => setShowSend(true)}
+                    disabled={!summary?.members?.length}
+                    title="Gửi kết quả đánh giá kỳ qua email cho nhân viên"
+                    className="flex items-center justify-center gap-2 px-4 h-11 rounded-2xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-[11px] font-black uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-slate-800 transition-all active:scale-95 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <Mail size={14} /> Gửi đánh giá
+                  </button>
+                )}
                 {canFinalize && (
                   isFinalized ? (
                     <button
                       onClick={() => reopen()}
-                      disabled={isReopening}
-                      className="flex items-center justify-center gap-2 px-6 h-11 rounded-2xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-[11px] font-black uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-slate-800 transition-all active:scale-95 whitespace-nowrap disabled:opacity-50"
+                      disabled={isReopening || (!!currentStep && !currentStep.canReopen)}
+                      title={currentStep?.canReopen === false ? currentStep.blockedReason || undefined : undefined}
+                      className="flex items-center justify-center gap-2 px-5 h-11 rounded-2xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 text-[11px] font-black uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-slate-800 transition-all active:scale-95 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       <LockOpen size={14} /> {isReopening ? 'Đang mở khoá...' : 'Mở khoá để chỉnh'}
                     </button>
                   ) : (
                     <button
                       onClick={() => setShowFinalize(true)}
-                      className="flex items-center justify-center gap-2 px-6 h-11 rounded-2xl bg-emerald-600 text-white text-[11px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-500/20 active:scale-95 whitespace-nowrap"
+                      disabled={!!currentStep && !currentStep.canFinalize}
+                      title={currentStep?.canFinalize === false ? currentStep.blockedReason || undefined : undefined}
+                      className="flex items-center justify-center gap-2 px-5 h-11 rounded-2xl bg-emerald-600 text-white text-[11px] font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-500/20 active:scale-95 whitespace-nowrap disabled:opacity-50 disabled:cursor-not-allowed disabled:shadow-none"
                     >
                       <Lock size={14} /> Chốt đánh giá phòng ban
                     </button>
@@ -320,6 +421,17 @@ export default function CycleEvaluationPage() {
               </div>
             </div>
           )}
+        </div>
+
+        {/* Luồng duyệt theo cấp: Trưởng đơn vị → các cấp trên → Giám đốc */}
+        <div id="tour-cycleeval-chain">
+        <CycleApprovalTimeline
+          steps={chain || []}
+          isLoading={isChainLoading}
+          getScoreColor={getScoreColor}
+          getScoreLabel={getScoreLabel}
+          onSelectUnit={setOrgUnitId}
+        />
         </div>
 
         {/* Cảnh báo: chế độ Định tính nhưng chưa có KPI định tính nào được chấm */}
@@ -354,7 +466,7 @@ export default function CycleEvaluationPage() {
             />
           </div>
         ) : (
-          <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-[32px] border border-slate-200 dark:border-slate-800 overflow-hidden shadow-2xl">
+          <div id="tour-cycleeval-table" className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-[32px] border border-slate-200 dark:border-slate-800 overflow-hidden shadow-2xl">
             {/* Desktop table */}
             <div className="hidden md:block overflow-x-auto scrollbar-thin">
               <table className="w-full text-left border-collapse">
@@ -386,9 +498,12 @@ export default function CycleEvaluationPage() {
                       >
                         <td className="px-3 py-4">
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-900/20 dark:to-indigo-900/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-black text-xs border border-indigo-200/50 dark:border-indigo-800/30 shadow-inner">
-                              {getInitials(m.userName || '')}
-                            </div>
+                            <UserAvatar
+                              fullName={m.userName}
+                              avatarUrl={m.userAvatarUrl}
+                              className="w-10 h-10 rounded-2xl border border-indigo-200/50 dark:border-indigo-800/30 shadow-inner"
+                              fallbackClassName="bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-900/20 dark:to-indigo-900/40 font-black text-xs text-indigo-600 dark:text-indigo-400"
+                            />
                             <div>
                               <span className="text-sm font-bold text-slate-900 dark:text-white group-hover:text-emerald-600 transition-colors block whitespace-nowrap">{m.userName}</span>
                               <span className="text-[10px] text-slate-400 font-medium whitespace-nowrap">{m.orgUnitName || 'Nhân viên'}</span>
@@ -428,9 +543,21 @@ export default function CycleEvaluationPage() {
                             : <span className="text-xs font-bold text-slate-300 dark:text-slate-600">—</span>}
                         </td>
                         <td className="px-4 py-4 text-right">
-                          <button className="p-2.5 text-slate-400 hover:text-emerald-600 hover:bg-white dark:hover:bg-slate-800 rounded-xl transition-all shadow-sm border border-transparent hover:border-emerald-200 dark:hover:border-slate-700">
-                            <ChevronRight size={20} />
-                          </button>
+                          <div className="flex items-center justify-end gap-1">
+                            <button
+                              onClick={e => { e.stopPropagation(); handleExportMember(m) }}
+                              disabled={exportingUserId === m.userId}
+                              title={`Xuất chi tiết đánh giá kỳ của ${m.userName}`}
+                              className="p-2.5 text-slate-400 hover:text-emerald-600 hover:bg-white dark:hover:bg-slate-800 rounded-xl transition-all shadow-sm border border-transparent hover:border-emerald-200 dark:hover:border-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
+                            >
+                              {exportingUserId === m.userId
+                                ? <Loader2 size={18} className="animate-spin" />
+                                : <Download size={18} />}
+                            </button>
+                            <button className="p-2.5 text-slate-400 hover:text-emerald-600 hover:bg-white dark:hover:bg-slate-800 rounded-xl transition-all shadow-sm border border-transparent hover:border-emerald-200 dark:hover:border-slate-700">
+                              <ChevronRight size={20} />
+                            </button>
+                          </div>
                         </td>
                       </tr>
                     </Fragment>
@@ -444,13 +571,26 @@ export default function CycleEvaluationPage() {
               {members.map((m: CycleUserEvaluation) => (
                 <div key={m.userId} className="p-5 space-y-4" onClick={() => setDetailMember(m)}>
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-900/20 dark:to-indigo-900/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-black text-xs border border-indigo-200/50 dark:border-indigo-800/30">
-                      {getInitials(m.userName || '')}
-                    </div>
+                    <UserAvatar
+                      fullName={m.userName}
+                      avatarUrl={m.userAvatarUrl}
+                      className="w-10 h-10 rounded-2xl border border-indigo-200/50 dark:border-indigo-800/30"
+                      fallbackClassName="bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-900/20 dark:to-indigo-900/40 font-black text-xs text-indigo-600 dark:text-indigo-400"
+                    />
                     <div className="flex-1 min-w-0">
                       <span className="text-sm font-bold text-slate-900 dark:text-white block truncate">{m.userName}</span>
                       <span className="text-[10px] text-slate-400 font-medium">{m.orgUnitName || 'Nhân viên'}</span>
                     </div>
+                    <button
+                      onClick={e => { e.stopPropagation(); handleExportMember(m) }}
+                      disabled={exportingUserId === m.userId}
+                      title={`Xuất chi tiết đánh giá kỳ của ${m.userName}`}
+                      className="p-2 text-slate-400 hover:text-emerald-600 rounded-xl transition-colors disabled:opacity-50"
+                    >
+                      {exportingUserId === m.userId
+                        ? <Loader2 size={16} className="animate-spin" />
+                        : <Download size={16} />}
+                    </button>
                     <ChevronRight size={18} className="text-slate-400" />
                   </div>
                   <div className="flex flex-wrap items-center gap-3">
@@ -478,6 +618,8 @@ export default function CycleEvaluationPage() {
           <UserScoreModal
             member={activeMember}
             maxScore={maxScore}
+            getScoreColor={getScoreColor}
+            getScoreLabel={getScoreLabel}
             canEdit={canFinalize && !activeMember.locked}
             lockedByUnitName={activeMember.locked ? activeMember.lockedByUnitName : null}
             isSaving={isSavingUserScore}
@@ -485,6 +627,9 @@ export default function CycleEvaluationPage() {
             onSave={async (finalScore, qualScore, cmt) => {
               await saveUserScore({ userId: activeMember.userId, finalScore, qualScore, comment: cmt })
             }}
+            cycleName={summary?.cycleName}
+            cycleId={cycleId}
+            showConduct={org?.enableConduct ?? false}
           />
         )}
 
@@ -502,6 +647,22 @@ export default function CycleEvaluationPage() {
                   <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest mt-0.5">Điểm sẽ được lưu snapshot</p>
                 </div>
               </div>
+              {/* Xếp loại cũng bị khoá theo, nên phải nói trước khi bấm chứ không để người dùng
+                  phát hiện sau lúc sửa luật mà con số không đổi. */}
+              {summary?.classification && (
+                <div className="flex items-center gap-2.5 mb-5 px-4 py-3 rounded-2xl border"
+                  style={{
+                    backgroundColor: `${summary.classificationColor ?? '#64748b'}14`,
+                    borderColor: `${summary.classificationColor ?? '#64748b'}33`,
+                  }}>
+                  <Award size={16} style={{ color: summary.classificationColor ?? '#64748b' }} />
+                  <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400">
+                    Xếp loại đơn vị{' '}
+                    <b style={{ color: summary.classificationColor ?? '#64748b' }}>{summary.classification}</b>
+                    {' '}sẽ được chụp lại cùng điểm.
+                  </p>
+                </div>
+              )}
               <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Nhận xét (tuỳ chọn)</label>
               <textarea
                 value={comment} onChange={e => setComment(e.target.value)} rows={3}
@@ -517,6 +678,19 @@ export default function CycleEvaluationPage() {
             </div>
           </div>
         )}
+
+        {/* Render có điều kiện để lựa chọn nhân viên tự reset mỗi lần mở lại. */}
+        {showSend && (
+          <SendEvaluationModal
+            onClose={() => setShowSend(false)}
+            members={summary?.members || []}
+            cycleName={summary?.cycleName}
+            orgUnitName={summary?.orgUnitName}
+            isFinalized={isFinalized}
+            isSending={isSending}
+            onSend={sendEvaluation}
+          />
+        )}
       </div>
     </div>
   )
@@ -524,23 +698,37 @@ export default function CycleEvaluationPage() {
 
 /** Modal xem chi tiết & nhập điểm chốt kỳ cho một nhân viên. */
 function UserScoreModal({
-  member, maxScore, canEdit, lockedByUnitName, isSaving, onClose, onSave,
+  member, maxScore, getScoreColor, getScoreLabel, canEdit, lockedByUnitName, isSaving, onClose, onSave,
+  cycleName, cycleId, showConduct,
 }: {
   member: CycleUserEvaluation
   maxScore: number
+  getScoreColor: (score: number | null) => string
+  getScoreLabel: (score: number | null) => string
   canEdit: boolean
   lockedByUnitName: string | null
   isSaving: boolean
   onClose: () => void
   onSave: (finalScore: number | null, qualScore: number | null, comment: string) => Promise<void>
+  /** Điền sẵn vào lý do thưởng để ghi chú trong sổ điểm có ngữ cảnh. */
+  cycleName?: string
+  /** Kỳ đang xem — phiếu hạnh kiểm cấp kỳ bám theo đúng kỳ này. */
+  cycleId: string
+  showConduct: boolean
 }) {
   const [score, setScore] = useState<string>(member.finalScore != null ? String(member.finalScore) : '')
   const [qual, setQual] = useState<string>(member.qualScore != null ? String(member.qualScore) : '')
   const [comment, setComment] = useState(member.comment || '')
+  const [saved, setSaved] = useState(false)
 
   const suggested = member.managerScore
   const parsed = score.trim() === '' ? null : Number(score)
   const invalid = parsed != null && (Number.isNaN(parsed) || parsed < 0 || parsed > maxScore)
+  // Vị trí nút kéo: chưa nhập thì đứng ở điểm TB gợi ý, nhập rồi thì kẹp vào [0, maxScore]
+  // để nút không văng ra ngoài khi gõ số quá thang điểm.
+  const sliderScore = parsed == null || Number.isNaN(parsed)
+    ? (suggested != null ? Math.min(Math.max(suggested, 0), maxScore) : 0)
+    : Math.min(Math.max(parsed, 0), maxScore)
 
   // Trung bình các chiều tham chiếu trên những đợt có dữ liệu (bỏ qua đợt trống).
   const avgOf = (pick: (p: CyclePeriodBreakdown) => number | null): number | null => {
@@ -566,14 +754,17 @@ function UserScoreModal({
   const sideDisplay = (v: number | null) => {
     if (v == null) return '—'
     if (!isQualMode) return v
-    const lv = Math.round((v / maxScore) * 5 * 100) / 100
+    const lv = Math.round((v / SCORING_POOL) * 5 * 100) / 100
     return <>{lv}<span className="text-slate-400 text-base font-medium">/5</span></>
   }
 
+  // Lưu xong KHÔNG đóng ngay: hiện lời mời thưởng điểm ngay tại chỗ. Đây là lúc người
+  // chấm còn nhớ rõ nhất vì sao nhân viên xứng đáng — bắt họ sang màn hình khác thưởng
+  // sau thì gần như chắc chắn sẽ quên.
   const handleSave = async () => {
     if (invalid || qualInvalid) return
     await onSave(parsed, parsedQual, comment)
-    onClose()
+    setSaved(true)
   }
 
   return (
@@ -583,9 +774,12 @@ function UserScoreModal({
         <div className="p-8 space-y-6">
           {/* Header */}
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-900/20 dark:to-indigo-900/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-black text-sm border border-indigo-200/50">
-              {getInitials(member.userName || '')}
-            </div>
+            <UserAvatar
+              fullName={member.userName}
+              avatarUrl={member.userAvatarUrl}
+              className="w-12 h-12 rounded-2xl border border-indigo-200/50"
+              fallbackClassName="bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-900/20 dark:to-indigo-900/40 font-black text-sm text-indigo-600 dark:text-indigo-400"
+            />
             <div>
               <h3 className="text-xl font-black text-slate-900 dark:text-white">{member.userName}</h3>
               <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest mt-0.5">
@@ -635,8 +829,17 @@ function UserScoreModal({
           {/* Chi tiết từng đợt */}
           <div className="space-y-2">
             <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Chi tiết từng đợt</span>
-            <PeriodBreakdownTable member={member} maxScore={maxScore} />
+            <PeriodBreakdownTable member={member} />
           </div>
+
+          {/* Hạnh kiểm cấp KỲ chấm ngay tại đây — nó là trục hành vi của xếp loại ma trận
+              bên dưới, nên phải chấm trước khi chốt điểm kỳ. */}
+          {showConduct && (
+            <ConductInlineSheet
+              target={{ scope: 'CYCLE', cycleId, periodId: null }}
+              userId={member.userId}
+            />
+          )}
 
           {/* Nhập điểm chốt — chỉ ở chế độ có chiều định lượng */}
           {showQuant && (
@@ -651,19 +854,66 @@ function UserScoreModal({
                 </button>
               )}
             </div>
-            <input
-              type="number" step="0.01" min={0} max={maxScore}
-              value={score}
-              disabled={!canEdit}
-              onChange={e => setScore(e.target.value)}
-              onWheel={(e) => e.currentTarget.blur()}
-              placeholder={suggested != null ? `Mặc định ${suggested}` : 'Chưa có điểm'}
-              className={cn(
-                'w-full px-5 py-4 rounded-2xl border bg-slate-50/50 dark:bg-slate-800/50 text-lg font-black outline-none transition-all focus:ring-4 focus:ring-emerald-500/10 disabled:opacity-70',
-                invalid ? 'border-rose-300 focus:border-rose-400' : 'border-slate-100 dark:border-slate-800 focus:border-emerald-500/50'
+            <div className={cn(
+              'rounded-[28px] border bg-slate-50/50 dark:bg-slate-800/40 px-6 py-6 space-y-5 text-center',
+              invalid ? 'border-rose-200 dark:border-rose-900/50' : 'border-slate-100 dark:border-slate-800'
+            )}>
+              <div className="space-y-1.5">
+                {/* Điểm hiện tại — mờ đi khi chưa chấm để phân biệt với điểm đã chọn. */}
+                <div className={cn(
+                  'text-6xl font-black tracking-tighter transition-all duration-300',
+                  parsed == null ? 'text-slate-300 dark:text-slate-700' : getScoreColor(invalid ? null : parsed)
+                )}>
+                  {parsed != null ? parsed : sliderScore}
+                </div>
+                <p className={cn(
+                  'text-xs font-black uppercase tracking-[0.2em]',
+                  parsed == null ? 'text-slate-400' : getScoreColor(invalid ? null : parsed)
+                )}>
+                  {getScoreLabel(invalid ? null : parsed)}
+                </p>
+                {/* So sánh với điểm TB các đợt để thấy ngay mình đang nâng hay hạ tay. */}
+                {parsed != null && !invalid && suggested != null && parsed !== suggested && (
+                  <span className={cn(
+                    'inline-flex items-center px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest',
+                    parsed > suggested
+                      ? 'bg-emerald-500/10 text-emerald-600 dark:bg-emerald-500/20'
+                      : 'bg-amber-500/10 text-amber-600 dark:bg-amber-500/20'
+                  )}>
+                    {parsed > suggested ? '+' : ''}{Math.round((parsed - suggested) * 100) / 100} điểm so với TB
+                  </span>
+                )}
+              </div>
+
+              {canEdit && (
+                <div className="relative px-2">
+                  {/* Vạch mốc điểm TB các đợt: canh theo tâm nút kéo (rộng ~16px). */}
+                  {suggested != null && suggested >= 0 && suggested <= maxScore && maxScore > 0 && (
+                    <div
+                      className="absolute top-0 h-2 w-0.5 rounded-full bg-slate-400/70 dark:bg-slate-500 pointer-events-none"
+                      style={{ left: `calc(8px + ${(suggested / maxScore) * 100}% - ${(suggested / maxScore) * 16}px - 1px)` }}
+                      title={`Điểm TB các đợt: ${suggested}`}
+                    />
+                  )}
+                  <input
+                    type="range" min={0} max={maxScore} step={1}
+                    value={sliderScore}
+                    onChange={e => setScore(e.target.value)}
+                    className="w-full accent-emerald-600 h-2 bg-slate-200 dark:bg-slate-700 rounded-full appearance-none cursor-pointer"
+                  />
+                  <div className="flex justify-between mt-3 text-[9px] font-black text-slate-400 uppercase tracking-widest">
+                    <span>0</span>
+                    <span>{Math.round(maxScore / 2)}</span>
+                    <span>{maxScore}</span>
+                  </div>
+                </div>
               )}
-            />
-            {invalid && <p className="text-[11px] font-bold text-rose-500 ml-1">Điểm phải nằm trong khoảng 0 – {maxScore}</p>}
+            </div>
+            {invalid && (
+              <p className="text-[11px] font-bold text-rose-500 ml-1">
+                Điểm cũ ({parsed}) nằm ngoài khoảng 0 – {maxScore}, hãy kéo lại thanh điểm.
+              </p>
+            )}
           </div>
           )}
 
@@ -740,11 +990,22 @@ function UserScoreModal({
             </p>
           )}
 
+          {/* Sau khi lưu điểm mới mời thưởng — tự ẩn nếu tổ chức tắt tính năng thưởng
+              hoặc người chấm không có quyền trao. */}
+          {saved && (
+            <RewardPrompt
+              userId={member.userId}
+              fullName={member.userName || ''}
+              defaultReason={`Thành tích nổi bật trong kỳ${cycleName ? ` ${cycleName}` : ''}`}
+              onDone={onClose}
+            />
+          )}
+
           <div className="flex gap-3 pt-2">
             <button onClick={onClose} className="flex-1 px-6 py-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 text-xs font-black uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-slate-800">
               Đóng
             </button>
-            {canEdit && (
+            {canEdit && !saved && (
               <button onClick={handleSave} disabled={isSaving || invalid} className="flex-1 px-6 py-3.5 rounded-2xl bg-emerald-600 text-white text-xs font-black uppercase tracking-widest hover:bg-emerald-700 shadow-lg shadow-emerald-500/25 disabled:opacity-50">
                 {isSaving ? 'Đang lưu...' : 'Lưu điểm chốt'}
               </button>
@@ -757,18 +1018,18 @@ function UserScoreModal({
 }
 
 /** Chi tiết điểm từng đợt trong kỳ của một nhân viên. */
-function PeriodBreakdownTable({ member, maxScore }: { member: CycleUserEvaluation; maxScore: number }) {
+function PeriodBreakdownTable({ member }: { member: CycleUserEvaluation }) {
   if (!member.periodBreakdown?.length) {
     return <p className="text-xs text-slate-400 italic px-1 py-2">Kỳ này chưa có đợt nào được gán.</p>
   }
   // Chế độ "Cả hai": tách riêng 2 chiều để thấy rõ phần định lượng và định tính.
   const showDimensions = member.mode === 'BOTH'
-  // Chế độ Định tính: hiện lại mức gốc 0-5 thay vì số đã quy đổi sang thang điểm.
+  // Chế độ Định tính: hiện lại mức gốc 0-5 thay vì số đã quy đổi sang pool chấm.
   const isQualMode = member.mode === 'QUALITATIVE'
   const side = (v: number | null) => {
     if (v == null) return '—'
     if (!isQualMode) return v
-    return `${Math.round((v / maxScore) * 5 * 100) / 100}/5`
+    return `${Math.round((v / SCORING_POOL) * 5 * 100) / 100}/5`
   }
 
   return (

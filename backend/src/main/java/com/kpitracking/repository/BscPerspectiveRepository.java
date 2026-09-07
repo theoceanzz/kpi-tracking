@@ -22,7 +22,7 @@ public interface BscPerspectiveRepository extends JpaRepository<BscPerspective, 
 
     boolean existsByOrganizationIdAndCodeAndIdNot(UUID organizationId, String code, UUID id);
 
-    // Thứ tự hiển thị duy nhất TRONG TỪNG viễn cảnh (không phải toàn org).
+    // Thứ tự hiển thị duy nhất TRONG TỪNG lĩnh vực (không phải toàn org).
     boolean existsByOrganizationIdAndFixedPerspectiveAndDisplayOrder(
             UUID organizationId, BscFixedPerspective fixedPerspective, Integer displayOrder);
 
@@ -30,4 +30,9 @@ public interface BscPerspectiveRepository extends JpaRepository<BscPerspective, 
             UUID organizationId, BscFixedPerspective fixedPerspective, Integer displayOrder, UUID id);
 
     long countByOrganizationId(UUID organizationId);
+
+    /** Chỉ lấy cột mã — dùng để suy ra số thứ tự kế tiếp khi sinh mã tự động. */
+    @org.springframework.data.jpa.repository.Query(
+            "SELECT p.code FROM BscPerspective p WHERE p.organization.id = :orgId AND p.code IS NOT NULL")
+    List<String> findCodesByOrganizationId(@org.springframework.data.repository.query.Param("orgId") UUID orgId);
 }

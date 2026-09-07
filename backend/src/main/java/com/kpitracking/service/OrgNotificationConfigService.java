@@ -28,7 +28,7 @@ public class OrgNotificationConfigService {
 
     private static final List<String> ALL_EVENT_CODES = List.of(
             "kpi_submitted", "kpi_assigned", "kpi_approved", "kpi_rejected", "kpi_approval_reverted",
-            "submission_submitted", "submission_reviewed", "reminder_deadline"
+            "submission_submitted", "submission_reviewed", "submission_escalated", "reminder_deadline"
     );
 
     private final OrgNotificationConfigRepository configRepository;

@@ -12,6 +12,7 @@ import com.kpitracking.entity.KeyResultUnitWeight;
 import com.kpitracking.entity.Objective;
 import com.kpitracking.entity.OrgUnit;
 import com.kpitracking.entity.Organization;
+import com.kpitracking.enums.CodeType;
 import com.kpitracking.enums.OkrStatus;
 import com.kpitracking.exception.BusinessException;
 import com.kpitracking.exception.DuplicateResourceException;
@@ -46,6 +47,7 @@ public class OkrService {
     private final OrganizationRepository organizationRepository;
     private final OrgUnitRepository orgUnitRepository;
     private final com.kpitracking.repository.BscPerspectiveRepository bscPerspectiveRepository;
+    private final OrgCodeRuleService orgCodeRuleService;
 
     @Transactional(readOnly = true)
     public List<ObjectiveResponse> getObjectivesByOrganization(UUID organizationId) {
@@ -66,16 +68,20 @@ public class OkrService {
         Organization organization = organizationRepository.findById(organizationId)
                 .orElseThrow(() -> new ResourceNotFoundException("Organization not found"));
 
-        if (objectiveRepository.existsByOrganizationIdAndCode(organizationId, request.getCode())) {
-            throw new DuplicateResourceException("Mục tiêu", "mã", request.getCode());
-        }
-
+        // Đơn vị phải giải xong TRƯỚC khi cấp mã: mẫu mã của tổ chức có thể chứa {UNIT}.
         List<OrgUnit> orgUnits = resolveOrgUnits(request);
+
+        String code = orgCodeRuleService.resolveOnCreate(organization, CodeType.OBJECTIVE, request.getCode(),
+                null, firstUnitCode(orgUnits));
+
+        if (objectiveRepository.existsByOrganizationIdAndCode(organizationId, code)) {
+            throw new DuplicateResourceException("Mục tiêu", "mã", code);
+        }
 
         Objective objective = Objective.builder()
                 .organization(organization)
                 .orgUnits(new ArrayList<>(orgUnits))
-                .code(request.getCode())
+                .code(code)
                 .name(request.getName())
                 .description(request.getDescription())
                 .startDate(request.getStartDate())
@@ -98,12 +104,16 @@ public class OkrService {
         Objective objective = objectiveRepository.findById(objectiveId)
                 .orElseThrow(() -> new ResourceNotFoundException("Objective not found"));
 
+        // Mã sinh tự động và tổ chức không cho ghi đè ⇒ giữ nguyên mã cũ, bỏ qua giá trị gửi lên.
+        String code = orgCodeRuleService.resolveOnUpdate(objective.getOrganization().getId(),
+                CodeType.OBJECTIVE, request.getCode(), objective.getCode());
+
         if (objectiveRepository.existsByOrganizationIdAndCodeAndIdNot(
-                objective.getOrganization().getId(), request.getCode(), objectiveId)) {
-            throw new DuplicateResourceException("Mục tiêu", "mã", request.getCode());
+                objective.getOrganization().getId(), code, objectiveId)) {
+            throw new DuplicateResourceException("Mục tiêu", "mã", code);
         }
 
-        objective.setCode(request.getCode());
+        objective.setCode(code);
         objective.setName(request.getName());
         objective.setDescription(request.getDescription());
         objective.setStartDate(request.getStartDate());
@@ -132,14 +142,17 @@ public class OkrService {
         Objective objective = objectiveRepository.findById(request.getObjectiveId())
                 .orElseThrow(() -> new ResourceNotFoundException("Objective not found"));
 
+        String code = orgCodeRuleService.resolveOnCreate(objective.getOrganization(), CodeType.KEY_RESULT,
+                request.getCode(), objective.getCode(), firstUnitCode(objective.getOrgUnits()));
+
         if (keyResultRepository.existsByObjectiveOrganizationIdAndCode(
-                objective.getOrganization().getId(), request.getCode())) {
-            throw new DuplicateResourceException("Kết quả then chốt", "mã", request.getCode());
+                objective.getOrganization().getId(), code)) {
+            throw new DuplicateResourceException("Kết quả then chốt", "mã", code);
         }
 
         KeyResult keyResult = KeyResult.builder()
                 .objective(objective)
-                .code(request.getCode())
+                .code(code)
                 .name(request.getName())
                 .description(request.getDescription())
                 .targetValue(request.getTargetValue())
@@ -157,12 +170,15 @@ public class OkrService {
         KeyResult keyResult = keyResultRepository.findById(keyResultId)
                 .orElseThrow(() -> new ResourceNotFoundException("Key Result not found"));
 
+        String code = orgCodeRuleService.resolveOnUpdate(keyResult.getObjective().getOrganization().getId(),
+                CodeType.KEY_RESULT, request.getCode(), keyResult.getCode());
+
         if (keyResultRepository.existsByObjectiveOrganizationIdAndCodeAndIdNot(
-                keyResult.getObjective().getOrganization().getId(), request.getCode(), keyResultId)) {
-            throw new DuplicateResourceException("Kết quả then chốt", "mã", request.getCode());
+                keyResult.getObjective().getOrganization().getId(), code, keyResultId)) {
+            throw new DuplicateResourceException("Kết quả then chốt", "mã", code);
         }
 
-        keyResult.setCode(request.getCode());
+        keyResult.setCode(code);
         keyResult.setName(request.getName());
         keyResult.setDescription(request.getDescription());
         keyResult.setTargetValue(request.getTargetValue());
@@ -192,6 +208,12 @@ public class OkrService {
                     .orElseThrow(() -> new ResourceNotFoundException("OrgUnit not found: " + id)));
         }
         return units;
+    }
+
+    /** Mã đơn vị cho token {UNIT} của mẫu mã. Mục tiêu giao cho nhiều đơn vị thì lấy đơn vị đầu. */
+    private String firstUnitCode(List<OrgUnit> units) {
+        if (units == null || units.isEmpty()) return null;
+        return units.get(0).getCode();
     }
 
     private void attachUnitWeights(KeyResult keyResult, List<UnitWeightRequest> weightRequests) {
@@ -339,8 +361,16 @@ public class OkrService {
                     Double krTarget = getCellValueAsDouble(row.getCell(krTargetIdx));
                     String krUnit = getCellValueAsString(row.getCell(krUnitIdx));
 
+                    // Cột mã KR để trống ⇒ cấp mã theo mẫu của tổ chức, thay vì lưu một mã rỗng.
+                    // Mã Objective thì KHÔNG làm vậy: ô trống ở cột đó nghĩa là "cùng mục tiêu
+                    // với dòng trên", tự sinh mã sẽ cắt vụn mục tiêu thành mỗi dòng một cái.
+                    final String effectiveKrCode = (krCode == null || krCode.isBlank())
+                            ? orgCodeRuleService.resolveOnCreate(organization, CodeType.KEY_RESULT, null,
+                                    currentObjective.getCode(), firstUnitCode(currentObjective.getOrgUnits()))
+                            : krCode;
+
                     Optional<KeyResult> existingKr = keyResultRepository.findByObjectiveId(currentObjective.getId())
-                            .stream().filter(kr -> krCode.equals(kr.getCode())).findFirst();
+                            .stream().filter(kr -> effectiveKrCode.equals(kr.getCode())).findFirst();
 
                     KeyResult kr;
                     if (existingKr.isPresent()) {
@@ -352,7 +382,7 @@ public class OkrService {
                     } else {
                         kr = KeyResult.builder()
                                 .objective(currentObjective)
-                                .code(krCode)
+                                .code(effectiveKrCode)
                                 .name(krName)
                                 .description(krDesc)
                                 .targetValue(krTarget != null ? krTarget : 0.0)

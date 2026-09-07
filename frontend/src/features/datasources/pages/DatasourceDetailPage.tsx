@@ -1,11 +1,14 @@
 import { useState, useRef, useEffect } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Plus, Trash2, Type, Hash, Calendar, Link2, CheckCircle2, ListChecks, User as UserIcon, X, Search, ChevronDown } from 'lucide-react'
 import { useDatasource, useDatasourceRows } from '../hooks/useDatasources'
 import { useAddColumn, useDeleteColumn, useAddRow, useUpdateRow, useDeleteRow, useUpdateDatasource } from '../hooks/useDatasourceMutations'
 import { useUsers } from '@/features/users/hooks/useUsers'
 import { format } from 'date-fns'
-import type { ColumnDataType, CellValueRequest, DsColumn } from '@/types/datasource'
+import { addColumnSchema, type AddColumnFormData } from '../schemas/datasourceSchema'
+import type { CellValueRequest, ColumnDataType, DsColumn } from '@/types/datasource'
 
 
 const DATA_TYPE_OPTIONS: { value: ColumnDataType; label: string; icon: React.ReactNode }[] = [
@@ -56,10 +59,19 @@ export default function DatasourceDetailPage() {
   const updateDsMut = useUpdateDatasource()
 
   const [showAddCol, setShowAddCol] = useState(false)
-  const [newColName, setNewColName] = useState('')
-  const [newColType, setNewColType] = useState<ColumnDataType>('TEXT')
-  const [newColOptions, setNewColOptions] = useState<SelectOption[]>([])
-  const [newColIsMultiUser, setNewColIsMultiUser] = useState(false)
+
+  const { register, handleSubmit: handleColumnSubmit, reset: resetColumn, watch: watchColumn, setValue: setColumnValue, formState: { errors: columnErrors } } =
+    useForm<AddColumnFormData>({
+      resolver: zodResolver(addColumnSchema),
+      defaultValues: { name: '', type: 'TEXT', options: [], isMultiUser: false },
+    })
+
+  // Kiểu cột, danh sách tag và công tắc "chọn nhiều" đều là điều khiển tự vẽ.
+  const newColType = watchColumn('type')
+  const newColOptions = watchColumn('options')
+  const newColIsMultiUser = watchColumn('isMultiUser')
+  const setNewColOptions = (fn: (prev: SelectOption[]) => SelectOption[]) =>
+    setColumnValue('options', fn(newColOptions), { shouldValidate: true })
 
   // Edit State
   const [editingCell, setEditingCell] = useState<{ rowId: string; colId: string } | null>(null)
@@ -71,23 +83,24 @@ export default function DatasourceDetailPage() {
   const rows = rowsData?.content || []
 
   // Create Column
-  const handleAddColumn = () => {
-    if (!newColName.trim() || !id) return
+  const handleAddColumn = handleColumnSubmit((data) => {
+    if (!id) return
     const config: ColConfig = {}
-    if (newColType === 'SELECT_ONE' || newColType === 'SELECT_MULTI') {
-      config.options = newColOptions
+    if (data.type === 'SELECT_ONE' || data.type === 'SELECT_MULTI') {
+      config.options = data.options
     }
-    if (newColType === 'USER') {
-      config.isMultiSelect = newColIsMultiUser
+    if (data.type === 'USER') {
+      config.isMultiSelect = data.isMultiUser
     }
 
     addColumnMut.mutate(
-      { datasourceId: id, data: { name: newColName, dataType: newColType, config: JSON.stringify(config) } },
-      { onSuccess: () => { 
-        setShowAddCol(false); setNewColName(''); setNewColType('TEXT'); setNewColOptions([]); setNewColIsMultiUser(false)
+      { datasourceId: id, data: { name: data.name, dataType: data.type, config: JSON.stringify(config) } },
+      { onSuccess: () => {
+        setShowAddCol(false)
+        resetColumn({ name: '', type: 'TEXT', options: [], isMultiUser: false })
       }}
     )
-  }
+  })
 
   const handleAddRow = () => {
     if (!id) return
@@ -417,13 +430,14 @@ export default function DatasourceDetailPage() {
             <div className="space-y-5">
               <div>
                 <label className="block text-[11px] font-black uppercase text-slate-400 mb-2">Tên cột <span className="text-red-500">*</span></label>
-                <input value={newColName} onChange={e => setNewColName(e.target.value)} placeholder="Nhập tên cột..." className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border-none outline-none ring-1 ring-slate-200 dark:ring-slate-700 focus:ring-2 focus:ring-indigo-500 text-sm font-medium" autoFocus />
+                <input {...register('name')} placeholder="Nhập tên cột..." className="w-full px-4 py-3 rounded-xl bg-slate-50 dark:bg-slate-800 border-none outline-none ring-1 ring-slate-200 dark:ring-slate-700 focus:ring-2 focus:ring-indigo-500 text-sm font-medium" autoFocus />
+                {columnErrors.name && <p className="mt-1 text-xs text-red-500 font-medium">{columnErrors.name.message}</p>}
               </div>
               <div>
                 <label className="block text-[11px] font-black uppercase text-slate-400 mb-2">Loại dữ liệu</label>
                 <div className="grid grid-cols-2 gap-2 h-40 overflow-y-auto pr-1">
                   {DATA_TYPE_OPTIONS.map(opt => (
-                    <button key={opt.value} onClick={() => setNewColType(opt.value)} className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border text-sm font-bold transition-all ${newColType === opt.value ? 'bg-indigo-50 border-indigo-200 text-indigo-600 dark:bg-indigo-900/30' : 'border-slate-200 text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300'}`}>
+                    <button key={opt.value} onClick={() => setColumnValue('type', opt.value, { shouldValidate: true })} className={`flex items-center gap-2.5 px-3 py-2.5 rounded-xl border text-sm font-bold transition-all ${newColType === opt.value ? 'bg-indigo-50 border-indigo-200 text-indigo-600 dark:bg-indigo-900/30' : 'border-slate-200 text-slate-600 hover:bg-slate-50 dark:border-slate-700 dark:text-slate-300'}`}>
                       <div className={`p-1.5 rounded-lg ${newColType === opt.value ? 'bg-indigo-100 dark:bg-indigo-900/50' : 'bg-slate-100 dark:bg-slate-800'}`}>{opt.icon}</div>
                       {opt.label}
                     </button>
@@ -443,6 +457,7 @@ export default function DatasourceDetailPage() {
                       </div>
                     ))}
                   </div>
+                  {columnErrors.options && <p className="mb-2 text-xs text-red-500 font-medium">{columnErrors.options.message}</p>}
                   <div className="flex items-center gap-2">
                     <input 
                       id="opt-draft"
@@ -475,7 +490,7 @@ export default function DatasourceDetailPage() {
 
               {/* Settings for User */}
               {newColType === 'USER' && (
-                <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 flex items-center justify-between cursor-pointer" onClick={() => setNewColIsMultiUser(!newColIsMultiUser)}>
+                <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-700 flex items-center justify-between cursor-pointer" onClick={() => setColumnValue('isMultiUser', !newColIsMultiUser)}>
                   <div>
                     <div className="text-sm font-bold text-slate-800 dark:text-slate-200">Cho phép chọn nhiều</div>
                     <div className="text-xs text-slate-500 font-medium">Bật nếu một ô có thuộc tính nhiều nhân sự</div>
@@ -489,7 +504,7 @@ export default function DatasourceDetailPage() {
             
             <div className="flex gap-3 mt-8">
               <button onClick={() => setShowAddCol(false)} className="flex-1 py-3 text-sm font-bold rounded-xl border border-slate-200 dark:border-slate-800 text-slate-600 hover:bg-slate-50 dark:hover:bg-slate-800">Hủy bỏ</button>
-              <button onClick={handleAddColumn} disabled={!newColName.trim() || addColumnMut.isPending} className="flex-[2] py-3 text-sm font-bold rounded-xl bg-indigo-600 text-white shadow-lg shadow-indigo-600/20 hover:bg-indigo-700 disabled:opacity-50">Tạo Cột</button>
+              <button onClick={handleAddColumn} disabled={addColumnMut.isPending} className="flex-[2] py-3 text-sm font-bold rounded-xl bg-indigo-600 text-white shadow-lg shadow-indigo-600/20 hover:bg-indigo-700 disabled:opacity-50">Tạo Cột</button>
             </div>
           </div>
         </div>

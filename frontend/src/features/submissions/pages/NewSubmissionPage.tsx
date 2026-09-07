@@ -32,6 +32,8 @@ import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { useScorecards } from '@/features/bsc/hooks/useBsc'
 import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
 import type { KpiCriteria } from '@/types/kpi'
+import EvaluationFormModal from '@/features/evaluations/components/EvaluationFormModal'
+import { scorecardsForPeriod } from '@/features/bsc/utils/scorecardScope'
 
 function isSubmittableByUser(k: KpiCriteria, userId?: string) {
   const now = new Date()
@@ -44,7 +46,7 @@ function isSubmittableByUser(k: KpiCriteria, userId?: string) {
 
 export default function NewSubmissionPage() {
   const navigate = useNavigate()
-  const { goToNext, nextReachableStage } = useWorkflowNavigator()
+  const { nextReachableStage } = useWorkflowNavigator()
   const nextAfterSubmission = nextReachableStage('SUBMISSION')
   const user = useAuthStore(s => s.user)
   const { data: org } = useOrganization(user?.memberships?.[0]?.organizationId)
@@ -68,6 +70,9 @@ export default function NewSubmissionPage() {
   const [showConfirm, setShowConfirm] = useState(false)
   const [pendingData, setPendingData] = useState<SubmissionFormData | null>(null)
   const [showSuccess, setShowSuccess] = useState(false)
+  // Mở form tự đánh giá tại chỗ. Không điều hướng sang mục "Đánh giá của tôi": mục đó
+  // gác bằng EVALUATION:VIEW_MY nên trưởng đơn vị đi sang là rơi về lưới thẻ của /me.
+  const [selfEvalPeriodId, setSelfEvalPeriodId] = useState<string | null>(null)
   const { data: myKpiData, isLoading: loadingKpis } = useMyKpi({ page: 0, size: 100 })
 
   const { data: existingSubmission, isLoading: loadingExisting } = useQuery({
@@ -177,7 +182,7 @@ export default function NewSubmissionPage() {
     ]
   }, [isEdit, isQualitative, qualitativeLevels.length])
 
-  // Trọng số THẬT = form × %hạng_mục (từ thẻ điểm của đơn vị KPI).
+  // Trọng số THẬT = form × %hạng_mục (từ bộ tiêu chí của đơn vị KPI).
   const enableBsc = org?.enableBsc
   const organizationId = user?.memberships?.[0]?.organizationId
   const { data: bscScorecards } = useScorecards(enableBsc ? organizationId : undefined)
@@ -185,7 +190,7 @@ export default function NewSubmissionPage() {
   const realWeight = useMemo(() => {
     const kpi: any = selectedKpi
     if (!enableBsc || !bscScorecards || !kpi || kpi.weight == null || !kpi.effectivePerspectiveId || !kpi.kpiPeriodId) return null
-    const periodScs = bscScorecards.filter(s => s.kpiPeriodId === kpi.kpiPeriodId)
+    const periodScs = scorecardsForPeriod(bscScorecards, kpi.kpiPeriodId)
     if (!periodScs.length) return null
     const parent = new Map<string, string | null>()
     const walk = (nodes: any[]) => (nodes || []).forEach((n: any) => { parent.set(n.id, n.parentId ?? null); if (n.children) walk(n.children) })
@@ -662,19 +667,14 @@ export default function NewSubmissionPage() {
             </div>
 
             <div className="flex flex-col gap-4">
-              {/* Đích lấy từ cấu hình luồng chứ không viết cứng vào /evaluations: tổ chức tắt bước
-                  tự đánh giá thì nút này phải trỏ sang bước kế tiếp còn bật, không dẫn người dùng
-                  tới một màn hình mà backend đã từ chối phục vụ. */}
-              {nextAfterSubmission && (
-                <button
-                  onClick={() => goToNext('SUBMISSION', { periodId: selectedKpi?.kpiPeriod?.id }, { openCreate: false })}
-                  className="w-full py-5 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-2xl font-black text-sm shadow-2xl hover:bg-indigo-600 dark:hover:bg-indigo-50 transition-all flex items-center justify-center gap-3 uppercase tracking-widest active:scale-95"
-                >
-                  <Sparkles size={20} className="text-amber-400" /> {nextAfterSubmission.label}
-                </button>
-              )}
               <button
-                onClick={() => navigate('/submissions')}
+                onClick={() => { setShowSuccess(false); setSelfEvalPeriodId(selectedKpi?.kpiPeriod?.id ?? null) }}
+                className="w-full py-5 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-2xl font-black text-sm shadow-2xl hover:bg-indigo-600 dark:hover:bg-indigo-50 transition-all flex items-center justify-center gap-3 uppercase tracking-widest active:scale-95"
+              >
+                <Sparkles size={20} className="text-amber-400" /> TIẾN HÀNH TỰ ĐÁNH GIÁ
+              </button>
+              <button
+                onClick={() => navigate('/me?section=my-kpi')}
                 className="w-full py-5 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-2xl font-black text-sm hover:bg-slate-200 dark:hover:bg-slate-700 transition-all uppercase tracking-widest"
               >
                 ĐỂ SAU, QUAY LẠI DANH SÁCH
@@ -683,6 +683,12 @@ export default function NewSubmissionPage() {
           </div>
         </div>
       )}
+
+      <EvaluationFormModal
+        open={!!selfEvalPeriodId}
+        onClose={() => setSelfEvalPeriodId(null)}
+        initialPeriodId={selfEvalPeriodId ?? undefined}
+      />
     </div>
   )
 }

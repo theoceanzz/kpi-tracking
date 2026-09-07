@@ -1,4 +1,4 @@
-import axiosInstance from '@/lib/axios'
+import axiosInstance, { XSRF_COOKIE_NAME } from '@/lib/axios'
 import { ENV } from '@/config/env'
 import type { ApiResponse, PageResponse, PageParams } from '@/types/api'
 
@@ -180,7 +180,7 @@ export interface ChatStreamHandlers {
   onError?: (message: string) => void
 }
 
-/** Đọc cookie theo tên. Chỉ dùng cho XSRF-TOKEN, vốn cố ý KHÔNG phải HttpOnly. */
+/** Đọc cookie theo tên. Chỉ dùng cho cookie CSRF, vốn cố ý KHÔNG phải HttpOnly. */
 function readCookie(name: string): string | null {
   const hit = document.cookie.split('; ').find(c => c.startsWith(name + '='))
   return hit ? decodeURIComponent(hit.slice(name.length + 1)) : null
@@ -197,7 +197,7 @@ export const aiApi = {
    * và thiếu nó Spring Security trả 403 mà không nói gì thêm.
    */
   chatStream: async (request: AiChatRequest, handlers: ChatStreamHandlers) => {
-    const xsrf = readCookie('XSRF-TOKEN')
+    const xsrf = readCookie(XSRF_COOKIE_NAME)
     const res = await fetch(`${ENV.API_BASE_URL}/ai/chat/stream`, {
       method: 'POST',
       credentials: 'include',

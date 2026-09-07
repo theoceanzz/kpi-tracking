@@ -9,7 +9,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * Breakdown điểm BSC của một đánh giá theo từng viễn cảnh.
+ * Breakdown điểm BSC của một đánh giá theo từng lĩnh vực.
  * Lưu để HR đối chiếu/giải thích điểm và truy vết khi tranh chấp.
  */
 @Entity
@@ -33,7 +33,7 @@ public class EvaluationPerspectiveScore {
     @Column(name = "weight_percentage")
     private Double weightPercentage;
 
-    /** Điểm thô viễn cảnh (0..150). NULL = nhân viên không có KPI nào trong viễn cảnh. */
+    /** Điểm thô lĩnh vực (0..150). NULL = nhân viên không có KPI nào trong lĩnh vực. */
     @Column(name = "raw_score")
     private Double rawScore;
 
@@ -44,6 +44,31 @@ public class EvaluationPerspectiveScore {
     @Column(name = "kpi_count", nullable = false)
     @Builder.Default
     private Integer kpiCount = 0;
+
+    /** Tổng thực đạt của các KPI định lượng trong hạng mục — chỉ ghi khi chấm theo mục tiêu hạng mục. */
+    @Column(name = "actual_value")
+    private Double actualValue;
+
+    /** Cách đã dùng để chấm hạng mục này: theo mục tiêu của chính nó hay trung bình các KPI con. */
+    @Column(name = "scored_by_target", nullable = false)
+    @Builder.Default
+    private Boolean scoredByTarget = false;
+
+    /**
+     * Mục tiêu ĐÃ dùng lúc chấm, chụp lại từ dòng bộ tiêu chí. Không đọc lại từ hạng mục khi hiển thị:
+     * từ khi mỗi bộ tiêu chí có mục tiêu riêng (QĐ-2), cùng một hạng mục có nhiều con số khác nhau
+     * tuỳ phòng, nên đọc lại sẽ hiện sai của phòng khác.
+     */
+    @Column(name = "target_value")
+    private Double targetValue;
+
+    /** Ngưỡng sàn ĐÃ dùng lúc chấm. */
+    @Column(name = "minimum_value")
+    private Double minimumValue;
+
+    /** Đơn vị tính ĐÃ dùng lúc chấm. */
+    @Column(name = "unit", length = 50)
+    private String unit;
 
     @CreatedDate
     @Column(name = "created_at", updatable = false)

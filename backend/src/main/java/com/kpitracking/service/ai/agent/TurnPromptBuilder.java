@@ -198,7 +198,7 @@ public class TurnPromptBuilder {
 
     /** Tên gọi người dùng hiểu được của từng nhóm bị chặn. */
     private static final Map<ToolRegistry.Group, String> DENIED_LABEL = Map.of(
-            ToolRegistry.Group.BSC, "thẻ điểm cân bằng (BSC): viễn cảnh, trọng số viễn cảnh, điểm BSC",
+            ToolRegistry.Group.BSC, "bộ tiêu chí BSC (thẻ điểm cân bằng): hạng mục (viễn cảnh), trọng số hạng mục, điểm BSC",
             ToolRegistry.Group.OKR, "mục tiêu và kết quả then chốt (OKR)",
             ToolRegistry.Group.ACTION, "tạo hoặc sửa dữ liệu");
 
@@ -229,7 +229,7 @@ public class TurnPromptBuilder {
                 + "chúng thì NÓI THẲNG là bạn không xem được phần này, và bảo họ liên hệ quản trị nếu "
                 + "cần quyền.\n"
                 + "TUYỆT ĐỐI không lấy dữ liệu khác ra thay thế rồi gọi bằng tên thứ họ vừa hỏi. "
-                + "Trình bày số liệu OKR dưới tiêu đề \"thẻ điểm cân bằng BSC\" là SAI, kể cả khi mọi "
+                + "Trình bày số liệu OKR dưới tiêu đề \"bộ tiêu chí BSC\" là SAI, kể cả khi mọi "
                 + "con số đều lấy từ tool thật.\n";
     }
 

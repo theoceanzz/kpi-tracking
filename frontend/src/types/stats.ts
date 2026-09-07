@@ -13,6 +13,14 @@ export interface OverviewStats {
   approvedSubmissions: number
   rejectedSubmissions: number
   totalEvaluations: number
+  evaluationPeriods?: EvaluationPeriodCount[]
+}
+
+// Matches BE: EvaluationPeriodCountResponse
+export interface EvaluationPeriodCount {
+  kpiPeriodId: string
+  kpiPeriodName: string
+  count: number
 }
 
 // Matches BE: DeptKpiStatsResponse
@@ -37,6 +45,7 @@ export interface EmployeeKpiStats {
   userId: string
   employeeCode: string | null
   fullName: string
+  avatarUrl: string | null
   email: string
   role: string
   rank: number
@@ -140,6 +149,7 @@ export interface OrgUnitDrillSummary {
 export interface EmployeeDrillSummary {
   userId: string
   fullName: string
+  avatarUrl: string | null
   email: string
   roleName: string
   orgUnitId: string | null
@@ -174,6 +184,7 @@ export interface AnalyticsDetailRow {
   userId: string
   employeeCode: string | null
   fullName: string
+  avatarUrl: string | null
   email: string
   orgUnitName: string | null
   roleName: string

@@ -1,6 +1,9 @@
 import { useState } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { kpiApi } from '../api/kpiApi'
+import { rejectKpiSchema, type RejectKpiFormData } from '../schemas/reviewSchema'
 import { toast } from 'sonner'
 import { X, Loader2, CheckCircle, XCircle, Target, Building2, Users, BarChart3, Award, Calendar, Clock, Pencil, Undo2, Layers } from 'lucide-react'
 import { formatNumber, formatDateTime, cn, FREQUENCY_MAP, STATUS_CONFIG } from '@/lib/utils'
@@ -25,7 +28,10 @@ interface KpiReviewModalProps {
 }
 
 export default function KpiReviewModal({ open, onClose, kpi, onEdit }: KpiReviewModalProps) {
-  const [rejectReason, setRejectReason] = useState('')
+  const { register, handleSubmit, reset, formState: { errors } } = useForm<RejectKpiFormData>({
+    resolver: zodResolver(rejectKpiSchema),
+    defaultValues: { rejectReason: '' },
+  })
   const [mode, setMode] = useState<'view' | 'reject'>('view')
   const qc = useQueryClient()
   const { canRevertApproval } = usePermission()
@@ -62,11 +68,11 @@ export default function KpiReviewModal({ open, onClose, kpi, onEdit }: KpiReview
   })
 
   const rejectMutation = useMutation({
-    mutationFn: () => kpiApi.reject(kpi!.id, { reason: rejectReason }),
+    mutationFn: (data: RejectKpiFormData) => kpiApi.reject(kpi!.id, { reason: data.rejectReason }),
     onSuccess: () => { 
       qc.invalidateQueries({ queryKey: ['kpi-criteria'] }); 
       toast.success('Đã trả lại chỉ tiêu'); 
-      setRejectReason(''); 
+      reset({ rejectReason: '' });
       setMode('view'); 
       onClose() 
     },
@@ -312,12 +318,14 @@ export default function KpiReviewModal({ open, onClose, kpi, onEdit }: KpiReview
                     Lý do từ chối <span className="text-red-500">*</span>
                   </label>
                   <textarea
-                    value={rejectReason}
-                    onChange={(e) => setRejectReason(e.target.value)}
+                    {...register('rejectReason')}
                     rows={3}
                     className="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-red-500/20 focus:border-red-400 resize-none transition-all"
                     placeholder="Mô tả lý do cụ thể để người tạo có thể chỉnh sửa..."
                   />
+                  {errors.rejectReason && (
+                    <p className="text-[10px] font-bold text-red-500 mt-1">{errors.rejectReason.message}</p>
+                  )}
                 </div>
                 <div className="flex gap-3">
                   <button 
@@ -327,8 +335,8 @@ export default function KpiReviewModal({ open, onClose, kpi, onEdit }: KpiReview
                     Quay lại
                   </button>
                   <button
-                    onClick={() => rejectMutation.mutate()}
-                    disabled={!rejectReason.trim() || isPending}
+                    onClick={handleSubmit(data => rejectMutation.mutate(data))}
+                    disabled={isPending}
                     className="flex-1 px-6 py-3 rounded-2xl text-sm font-black bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 transition-all flex items-center justify-center gap-2 shadow-lg shadow-red-500/20"
                   >
                     {rejectMutation.isPending && <Loader2 size={16} className="animate-spin" />}

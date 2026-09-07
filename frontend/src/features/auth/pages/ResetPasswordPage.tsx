@@ -1,5 +1,7 @@
 import { useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { resetPasswordSchema, type ResetPasswordFormData } from '../schemas/authSchema'
 import { useMutation } from '@tanstack/react-query'
 import { authApi } from '../api/authApi'
 import { toast } from 'sonner'
@@ -15,8 +17,9 @@ export default function ResetPasswordPage() {
   const [showPassword, setShowPassword] = useState(false)
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
-  const { register, handleSubmit, formState: { errors }, watch, control, setValue } = useForm<{ token: string; newPassword: string; confirmPassword: string }>({
-    defaultValues: { token: urlToken }
+  const { register, handleSubmit, formState: { errors }, control, setValue } = useForm<ResetPasswordFormData>({
+    resolver: zodResolver(resetPasswordSchema),
+    defaultValues: { token: urlToken, newPassword: '', confirmPassword: '' },
   })
 
   const pwd = useWatch({ control, name: 'newPassword', defaultValue: '' })
@@ -123,8 +126,7 @@ export default function ResetPasswordPage() {
                 <Key size={18} className="text-[var(--color-muted-foreground)]" />
              </div>
              <input 
-               {...register('token', { 
-                 required: 'Vui lòng cung cấp mã OTP từ email',
+               {...register('token', {
                  onChange: (e) => e.target.value = e.target.value.toUpperCase()
                })} 
                type="text" 
@@ -142,7 +144,7 @@ export default function ResetPasswordPage() {
              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <Lock size={18} className="text-[var(--color-muted-foreground)]" />
              </div>
-             <input {...register('newPassword', { required: 'Vui lòng nhập mật khẩu', minLength: { value: 8, message: 'Yêu cầu mức độ bảm mật thiểu 8 ký tự' } })} type={showPassword ? 'text' : 'password'} className={inputCls + " pr-20"} placeholder="Nhập ít nhất 8 ký tự an toàn" />
+             <input {...register('newPassword')} type={showPassword ? 'text' : 'password'} className={inputCls + " pr-20"} placeholder="Nhập ít nhất 8 ký tự an toàn" />
              
              {/* Nút Gợi ý MK */}
              <button
@@ -208,7 +210,7 @@ export default function ResetPasswordPage() {
              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <ShieldCheck size={18} className="text-[var(--color-muted-foreground)]" />
              </div>
-             <input {...register('confirmPassword', { required: 'Vui lòng xác minh bảo mật', validate: (v) => v === watch('newPassword') || 'Hai mật khẩu cung cấp không đồng nhất' })} type={showConfirmPassword ? 'text' : 'password'} className={inputCls + " pr-10"} placeholder="Nhập lại mật khẩu khớp chính xác" />
+             <input {...register('confirmPassword')} type={showConfirmPassword ? 'text' : 'password'} className={inputCls + " pr-10"} placeholder="Nhập lại mật khẩu khớp chính xác" />
              
              {/* Nút bật tắt ẩn hiện */}
              <button

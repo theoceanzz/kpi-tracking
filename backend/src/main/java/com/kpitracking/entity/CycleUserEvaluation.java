@@ -54,6 +54,63 @@ public class CycleUserEvaluation {
     @Column(name = "evaluated_at")
     private Instant evaluatedAt;
 
+
+    // ── Cascade BSC: hệ số phòng/công ty và ghi đè (docs/bsc-cascade-design.md — mục 5.3) ──
+    //
+    // Toàn bộ nhóm này là SNAPSHOT lúc chốt. Chính sách hệ số sửa về sau không được làm đổi
+    // kết quả đã công bố; muốn đổi thì mở khoá và tái tính có phiên bản.
+
+    /** Điểm BSC GỐC, trước khi nhân hệ số. */
+    @Column(name = "raw_bsc_score")
+    private Double rawBscScore;
+
+    /** Hệ số suy từ kết quả BSC của đơn vị (đã kẹp trong [floor, cap]). */
+    @Column(name = "unit_factor")
+    private Double unitFactor;
+
+    @Column(name = "company_factor")
+    private Double companyFactor;
+
+    /** MIN(gốc, trần) × hệ số phòng × hệ số công ty. */
+    @Column(name = "recognized_score")
+    private Double recognizedScore;
+
+    // Cơ chế THỦ CÔNG, tách hẳn khỏi hệ số tự động (QĐ-6). Bắt buộc có lý do và dấu vết
+    // vì đây là hành vi ngoại lệ, phải giải trình được về sau.
+
+    @Column(name = "override_score")
+    private Double overrideScore;
+
+    @Column(name = "override_reason_code", length = 50)
+    private String overrideReasonCode;
+
+    @Column(name = "override_comment", columnDefinition = "TEXT")
+    private String overrideComment;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "overridden_by")
+    private User overriddenBy;
+
+    @Column(name = "overridden_at")
+    private Instant overriddenAt;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "cascade_policy_id")
+    private BscCascadePolicy cascadePolicy;
+
+    // ── Hạng mục chặn (QĐ-7): áp TRẦN XẾP LOẠI, không đụng vào điểm ──
+
+    @Column(name = "gate_passed")
+    private Boolean gatePassed;
+
+    /** Trần xếp loại đã tính. Xếp loại cuối = MIN(xếp loại theo điểm, trần này). */
+    @Column(name = "gate_cap_rating")
+    private Integer gateCapRating;
+
+    /** Tên các hạng mục chặn không đạt — để màn hình kết quả nói được lý do. */
+    @Column(name = "gate_failed_items", columnDefinition = "TEXT")
+    private String gateFailedItems;
+
     @CreatedDate
     @Column(name = "created_at", updatable = false)
     private Instant createdAt;

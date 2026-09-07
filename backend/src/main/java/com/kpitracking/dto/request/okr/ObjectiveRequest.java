@@ -1,7 +1,6 @@
 package com.kpitracking.dto.request.okr;
 
 import com.kpitracking.enums.OkrStatus;
-import jakarta.validation.constraints.NotBlank;
 import lombok.*;
 
 import java.time.LocalDate;
@@ -10,7 +9,7 @@ import java.util.UUID;
 
 @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
 public class ObjectiveRequest {
-    @NotBlank
+    /** Bỏ trống nếu tổ chức bật sinh mã tự động — backend cấp mã theo mẫu của tổ chức. */
     private String code;
     private String name;
     private String description;

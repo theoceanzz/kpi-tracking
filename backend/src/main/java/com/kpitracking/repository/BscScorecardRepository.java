@@ -8,33 +8,52 @@ import org.springframework.stereotype.Repository;
 
 import java.util.Collection;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 @Repository
 public interface BscScorecardRepository extends JpaRepository<BscScorecard, UUID> {
 
+    /**
+     * Điều kiện "bộ tiêu chí áp dụng cho đợt :periodId":
+     * gắn TRỰC TIẾP đợt đó (apply_scope = PERIOD) HOẶC gắn KỲ chứa đợt đó (apply_scope = CYCLE).
+     * Vì gắn theo kỳ được suy ra động nên đợt thêm vào kỳ sau này cũng tự áp dụng.
+     */
+    String APPLIES_TO_PERIOD =
+            " AND (EXISTS (SELECT 1 FROM s.kpiPeriods sp WHERE sp.id = :periodId)"
+            + " OR c.id = (SELECT pc.kpiCycle.id FROM KpiPeriod pc WHERE pc.id = :periodId)) ";
+
     List<BscScorecard> findByOrganizationIdOrderByCreatedAtDesc(UUID organizationId);
 
-    /** Thẻ điểm CHỨA một phòng ban cụ thể trong 1 kỳ. */
-    @Query("SELECT s FROM BscScorecard s JOIN s.orgUnits u "
-            + "WHERE s.organization.id = :orgId AND s.kpiPeriod.id = :periodId AND u.id = :unitId")
-    Optional<BscScorecard> findByOrgUnitAndPeriod(@Param("orgId") UUID orgId,
-                                                  @Param("unitId") UUID unitId,
-                                                  @Param("periodId") UUID periodId);
+    /** Bộ tiêu chí CHỨA một phòng ban cụ thể và áp dụng cho đợt này (có thể >1 nếu dữ liệu chồng lấn). */
+    @Query("SELECT DISTINCT s FROM BscScorecard s JOIN s.orgUnits u LEFT JOIN s.kpiCycle c "
+            + "WHERE s.organization.id = :orgId AND u.id = :unitId" + APPLIES_TO_PERIOD)
+    List<BscScorecard> findByOrgUnitAndPeriod(@Param("orgId") UUID orgId,
+                                              @Param("unitId") UUID unitId,
+                                              @Param("periodId") UUID periodId);
 
-    /** Các thẻ điểm CHỨA bất kỳ phòng ban nào trong danh sách (dùng để kiểm tra chồng lấn). */
-    @Query("SELECT DISTINCT s FROM BscScorecard s JOIN s.orgUnits u "
-            + "WHERE s.organization.id = :orgId AND s.kpiPeriod.id = :periodId AND u.id IN :unitIds")
+    /** Các bộ tiêu chí CHỨA bất kỳ phòng ban nào trong danh sách (dùng để kiểm tra chồng lấn). */
+    @Query("SELECT DISTINCT s FROM BscScorecard s JOIN s.orgUnits u LEFT JOIN s.kpiCycle c "
+            + "WHERE s.organization.id = :orgId AND u.id IN :unitIds" + APPLIES_TO_PERIOD)
     List<BscScorecard> findByOrgUnitsAndPeriod(@Param("orgId") UUID orgId,
                                                @Param("unitIds") Collection<UUID> unitIds,
                                                @Param("periodId") UUID periodId);
 
-    /** Thẻ điểm MẶC ĐỊNH toàn org (không gắn phòng ban nào) trong 1 kỳ. */
-    @Query("SELECT s FROM BscScorecard s "
-            + "WHERE s.organization.id = :orgId AND s.kpiPeriod.id = :periodId AND s.orgUnits IS EMPTY")
-    Optional<BscScorecard> findDefaultByPeriod(@Param("orgId") UUID orgId, @Param("periodId") UUID periodId);
+    /** Bộ tiêu chí MẶC ĐỊNH toàn org (không gắn phòng ban nào) áp dụng cho đợt này. */
+    @Query("SELECT DISTINCT s FROM BscScorecard s LEFT JOIN s.kpiCycle c "
+            + "WHERE s.organization.id = :orgId AND s.orgUnits IS EMPTY" + APPLIES_TO_PERIOD)
+    List<BscScorecard> findDefaultByPeriod(@Param("orgId") UUID orgId, @Param("periodId") UUID periodId);
 
-    /** Có BẤT KỲ thẻ điểm nào (theo phòng ban hoặc mặc định) cho org+kỳ không. */
-    boolean existsByOrganizationIdAndKpiPeriodId(UUID organizationId, UUID kpiPeriodId);
+    /** Các bộ tiêu chí con trực tiếp của một bộ tiêu chí trong cây BSC. */
+    List<BscScorecard> findByParentScorecardId(UUID parentScorecardId);
+
+    /** Bộ tiêu chí cấp CÔNG TY áp dụng cho một đợt (dùng để tra hệ số công ty). */
+    @Query("SELECT DISTINCT s FROM BscScorecard s LEFT JOIN s.kpiCycle c "
+            + "WHERE s.organization.id = :orgId "
+            + "AND s.level = com.kpitracking.enums.BscScorecardLevel.COMPANY" + APPLIES_TO_PERIOD)
+    List<BscScorecard> findCompanyByPeriod(@Param("orgId") UUID orgId, @Param("periodId") UUID periodId);
+
+    /** Số bộ tiêu chí (theo phòng ban hoặc mặc định) áp dụng cho org + đợt. */
+    @Query("SELECT COUNT(DISTINCT s) FROM BscScorecard s LEFT JOIN s.kpiCycle c "
+            + "WHERE s.organization.id = :orgId" + APPLIES_TO_PERIOD)
+    long countAppliedToPeriod(@Param("orgId") UUID orgId, @Param("periodId") UUID periodId);
 }

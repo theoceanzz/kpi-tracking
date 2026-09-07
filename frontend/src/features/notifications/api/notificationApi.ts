@@ -8,7 +8,16 @@ export interface NotificationConfigItem {
   systemEnabled: boolean
 }
 
+export interface SendKpiReminderRequest {
+  userId: string
+  subject: string
+  body: string
+}
+
 export const notificationApi = {
+  sendKpiReminder: (data: SendKpiReminderRequest) =>
+    axiosInstance.post<ApiResponse<void>>('/notifications/kpi-reminder', data).then((r) => r.data),
+
   getAll: (page = 0, size = 20) =>
     axiosInstance.get<ApiResponse<PageResponse<Notification>>>('/notifications', { params: { page, size } }).then((r) => r.data.data),
 

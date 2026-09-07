@@ -10,6 +10,7 @@ public interface EvaluationMapper {
 
     @Mapping(source = "user.id", target = "userId")
     @Mapping(source = "user.fullName", target = "userName")
+    @Mapping(source = "user.avatarUrl", target = "userAvatarUrl")
     @Mapping(source = "kpiPeriod.id", target = "kpiPeriodId")
     @Mapping(source = "kpiPeriod.name", target = "kpiPeriodName")
     @Mapping(source = "evaluator.id", target = "evaluatorId")

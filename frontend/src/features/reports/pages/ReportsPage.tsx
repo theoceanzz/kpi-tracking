@@ -1,8 +1,11 @@
 import { useState } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { useNavigate } from 'react-router-dom'
 import { BarChart3, Plus, Search, MoreVertical, Trash2, Edit, FileBarChart } from 'lucide-react'
 import { useReports } from '../hooks/useReports'
 import { useCreateReport, useDeleteReport } from '../hooks/useReportMutations'
+import { createReportSchema, type CreateReportFormData } from '../schemas/reportSchema'
 
 const STATUS_LABELS: Record<string, { label: string; color: string }> = {
   DRAFT: { label: 'Nháp', color: 'text-amber-500 bg-amber-500/10' },
@@ -14,8 +17,6 @@ export default function ReportsPage() {
   const navigate = useNavigate()
   const [page, setPage] = useState(0)
   const [showCreate, setShowCreate] = useState(false)
-  const [newName, setNewName] = useState('')
-  const [newDesc, setNewDesc] = useState('')
   const [search, setSearch] = useState('')
   const [menuOpen, setMenuOpen] = useState<string | null>(null)
 
@@ -27,12 +28,20 @@ export default function ReportsPage() {
     r.name.toLowerCase().includes(search.toLowerCase())
   ) || []
 
-  const handleCreate = () => {
-    if (!newName.trim()) return
-    createMutation.mutate({ name: newName, description: newDesc || undefined }, {
-      onSuccess: (report) => { setShowCreate(false); setNewName(''); setNewDesc(''); navigate(`/reports/${report.id}`) }
+  const { register, handleSubmit, reset, formState: { errors } } = useForm<CreateReportFormData>({
+    resolver: zodResolver(createReportSchema),
+    defaultValues: { name: '', description: '' },
+  })
+
+  const handleCreate = handleSubmit((data) => {
+    createMutation.mutate({ name: data.name, description: data.description || undefined }, {
+      onSuccess: (report) => {
+        setShowCreate(false)
+        reset({ name: '', description: '' })
+        navigate(`/reports/${report.id}`)
+      }
     })
-  }
+  })
 
   const handleDelete = (id: string) => {
     if (confirm('Bạn có chắc muốn xóa báo cáo này?')) {
@@ -167,16 +176,17 @@ export default function ReportsPage() {
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium mb-1.5">Tên báo cáo <span className="text-red-500">*</span></label>
-                <input value={newName} onChange={e => setNewName(e.target.value)} placeholder="VD: Báo cáo doanh thu Q1" className="w-full px-3 py-2.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-card)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/30" autoFocus />
+                <input {...register('name')} placeholder="VD: Báo cáo doanh thu Q1" className="w-full px-3 py-2.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-card)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/30" autoFocus />
+                {errors.name && <p className="mt-1 text-xs text-red-500">{errors.name.message}</p>}
               </div>
               <div>
                 <label className="block text-sm font-medium mb-1.5">Mô tả</label>
-                <textarea value={newDesc} onChange={e => setNewDesc(e.target.value)} placeholder="Mô tả ngắn gọn..." rows={3} className="w-full px-3 py-2.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-card)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/30 resize-none" />
+                <textarea {...register('description')} placeholder="Mô tả ngắn gọn..." rows={3} className="w-full px-3 py-2.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-card)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/30 resize-none" />
               </div>
             </div>
             <div className="flex justify-end gap-3 mt-6">
               <button onClick={() => setShowCreate(false)} className="px-4 py-2 text-sm rounded-lg border border-[var(--color-border)] hover:bg-[var(--color-accent)]">Hủy</button>
-              <button onClick={handleCreate} disabled={!newName.trim() || createMutation.isPending} className="px-4 py-2 text-sm rounded-lg bg-[var(--color-primary)] text-white hover:opacity-90 disabled:opacity-50 font-medium">{createMutation.isPending ? 'Đang tạo...' : 'Tạo'}</button>
+              <button onClick={handleCreate} disabled={createMutation.isPending} className="px-4 py-2 text-sm rounded-lg bg-[var(--color-primary)] text-white hover:opacity-90 disabled:opacity-50 font-medium">{createMutation.isPending ? 'Đang tạo...' : 'Tạo'}</button>
             </div>
           </div>
         </div>

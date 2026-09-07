@@ -1,4 +1,6 @@
 import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { forgotPasswordSchema, type ForgotPasswordFormData } from '../schemas/authSchema'
 import { useMutation } from '@tanstack/react-query'
 import { authApi } from '../api/authApi'
 import { toast } from 'sonner'
@@ -7,7 +9,10 @@ import { Loader2, Mail, ArrowLeft } from 'lucide-react'
 
 export default function ForgotPasswordPage() {
   const navigate = useNavigate()
-  const { register, handleSubmit, formState: { errors } } = useForm<{ email: string }>()
+  const { register, handleSubmit, formState: { errors } } = useForm<ForgotPasswordFormData>({
+    resolver: zodResolver(forgotPasswordSchema),
+    defaultValues: { email: '' },
+  })
 
   const mutation = useMutation({
     mutationFn: (data: { email: string }) => authApi.forgotPassword(data),
@@ -34,7 +39,7 @@ export default function ForgotPasswordPage() {
              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <Mail size={18} className="text-[var(--color-muted-foreground)]" />
              </div>
-             <input {...register('email', { required: 'Vui lòng cung cấp địa chỉ email' })} type="email" placeholder="name@company.com" className={inputCls} />
+             <input {...register('email')} type="email" placeholder="name@company.com" className={inputCls} />
           </div>
           {errors.email && <p className="text-red-500 text-xs mt-1.5 font-medium">{errors.email.message}</p>}
         </div>

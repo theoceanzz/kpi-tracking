@@ -53,6 +53,15 @@ function StatCard({
   )
 }
 
+/** Nhãn Bật/Tắt của một tính năng. Mỗi tính năng một màu riêng để quét bảng theo cột cho nhanh. */
+function FeatureBadge({ on, color }: { on: boolean; color: string }) {
+  return (
+    <span className={cn('px-2 py-0.5 rounded-full text-xs font-medium shrink-0', on ? color : 'bg-gray-100 text-gray-400')}>
+      {on ? 'Bật' : 'Tắt'}
+    </span>
+  )
+}
+
 function AiToggle({ org, onToggle }: { org: OrganizationAdminItem; onToggle: (id: string, val: boolean) => void }) {
   return (
     <button
@@ -222,27 +231,27 @@ export default function PlatformAdminPage() {
                     </div>
                     <div className="flex items-center justify-between bg-gray-50 rounded-lg px-2 py-2">
                       <span className="text-xs text-gray-500 whitespace-nowrap">OKR</span>
-                      <span className={cn('px-2 py-0.5 rounded-full text-xs font-medium', org.enableOkr ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 text-gray-400')}>
-                        {org.enableOkr ? 'Bật' : 'Tắt'}
-                      </span>
+                      <FeatureBadge on={org.enableOkr} color="bg-indigo-100 text-indigo-700" />
                     </div>
                     <div className="flex items-center justify-between gap-2 bg-gray-50 rounded-lg px-2 py-2">
                       <span className="text-xs text-gray-500 whitespace-nowrap">BSC</span>
-                      <span className={cn('px-2 py-0.5 rounded-full text-xs font-medium shrink-0', org.enableBsc ? 'bg-violet-100 text-violet-700' : 'bg-gray-100 text-gray-400')}>
-                        {org.enableBsc ? 'Bật' : 'Tắt'}
-                      </span>
+                      <FeatureBadge on={org.enableBsc} color="bg-violet-100 text-violet-700" />
                     </div>
                     <div className="flex items-center justify-between gap-2 bg-gray-50 rounded-lg px-2 py-2">
                       <span className="text-xs text-gray-500 whitespace-nowrap">Thác nước</span>
-                      <span className={cn('px-2 py-0.5 rounded-full text-xs font-medium shrink-0', org.enableWaterfall ? 'bg-cyan-100 text-cyan-700' : 'bg-gray-100 text-gray-400')}>
-                        {org.enableWaterfall ? 'Bật' : 'Tắt'}
-                      </span>
+                      <FeatureBadge on={org.enableWaterfall} color="bg-cyan-100 text-cyan-700" />
                     </div>
                     <div className="flex items-center justify-between gap-2 bg-gray-50 rounded-lg px-2 py-2">
                       <span className="text-xs text-gray-500 whitespace-nowrap">KPI hành vi</span>
-                      <span className={cn('px-2 py-0.5 rounded-full text-xs font-medium shrink-0', org.enableQualitative ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-400')}>
-                        {org.enableQualitative ? 'Bật' : 'Tắt'}
-                      </span>
+                      <FeatureBadge on={org.enableQualitative} color="bg-emerald-100 text-emerald-700" />
+                    </div>
+                    <div className="flex items-center justify-between gap-2 bg-gray-50 rounded-lg px-2 py-2">
+                      <span className="text-xs text-gray-500 whitespace-nowrap">Thưởng điểm</span>
+                      <FeatureBadge on={org.enableReward} color="bg-amber-100 text-amber-700" />
+                    </div>
+                    <div className="flex items-center justify-between gap-2 bg-gray-50 rounded-lg px-2 py-2">
+                      <span className="text-xs text-gray-500 whitespace-nowrap">Ví tiền</span>
+                      <FeatureBadge on={org.enableCashWallet} color="bg-teal-100 text-teal-700" />
                     </div>
                   </div>
                 </div>
@@ -263,6 +272,8 @@ export default function PlatformAdminPage() {
                     <th className="px-4 py-3 text-center font-medium hidden md:table-cell">BSC</th>
                     <th className="px-4 py-3 text-center font-medium hidden md:table-cell">Thác nước</th>
                     <th className="px-4 py-3 text-center font-medium hidden md:table-cell">KPI hành vi</th>
+                    <th className="px-4 py-3 text-center font-medium hidden md:table-cell">Thưởng điểm</th>
+                    <th className="px-4 py-3 text-center font-medium hidden md:table-cell">Ví tiền</th>
                     <th className="px-4 py-3 text-left font-medium hidden lg:table-cell">Ngày tạo</th>
                   </tr>
                 </thead>
@@ -283,24 +294,22 @@ export default function PlatformAdminPage() {
                         </div>
                       </td>
                       <td className="px-4 py-3.5 text-center hidden md:table-cell">
-                        <span className={cn('px-2 py-0.5 rounded-full text-xs font-medium', org.enableOkr ? 'bg-indigo-100 text-indigo-700' : 'bg-gray-100 text-gray-400')}>
-                          {org.enableOkr ? 'Bật' : 'Tắt'}
-                        </span>
+                        <FeatureBadge on={org.enableOkr} color="bg-indigo-100 text-indigo-700" />
                       </td>
                       <td className="px-4 py-3.5 text-center hidden md:table-cell">
-                        <span className={cn('px-2 py-0.5 rounded-full text-xs font-medium', org.enableBsc ? 'bg-violet-100 text-violet-700' : 'bg-gray-100 text-gray-400')}>
-                          {org.enableBsc ? 'Bật' : 'Tắt'}
-                        </span>
+                        <FeatureBadge on={org.enableBsc} color="bg-violet-100 text-violet-700" />
                       </td>
                       <td className="px-4 py-3.5 text-center hidden md:table-cell">
-                        <span className={cn('px-2 py-0.5 rounded-full text-xs font-medium', org.enableWaterfall ? 'bg-cyan-100 text-cyan-700' : 'bg-gray-100 text-gray-400')}>
-                          {org.enableWaterfall ? 'Bật' : 'Tắt'}
-                        </span>
+                        <FeatureBadge on={org.enableWaterfall} color="bg-cyan-100 text-cyan-700" />
                       </td>
                       <td className="px-4 py-3.5 text-center hidden md:table-cell">
-                        <span className={cn('px-2 py-0.5 rounded-full text-xs font-medium', org.enableQualitative ? 'bg-emerald-100 text-emerald-700' : 'bg-gray-100 text-gray-400')}>
-                          {org.enableQualitative ? 'Bật' : 'Tắt'}
-                        </span>
+                        <FeatureBadge on={org.enableQualitative} color="bg-emerald-100 text-emerald-700" />
+                      </td>
+                      <td className="px-4 py-3.5 text-center hidden md:table-cell">
+                        <FeatureBadge on={org.enableReward} color="bg-amber-100 text-amber-700" />
+                      </td>
+                      <td className="px-4 py-3.5 text-center hidden md:table-cell">
+                        <FeatureBadge on={org.enableCashWallet} color="bg-teal-100 text-teal-700" />
                       </td>
                       <td className="px-4 py-3.5 text-gray-400 text-xs hidden lg:table-cell">
                         {new Date(org.createdAt).toLocaleDateString('vi-VN')}

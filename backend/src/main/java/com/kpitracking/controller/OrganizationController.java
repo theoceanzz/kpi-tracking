@@ -11,9 +11,13 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+
+import java.io.IOException;
 
 import java.util.List;
 import java.util.UUID;
@@ -78,5 +82,16 @@ public class OrganizationController {
     public ResponseEntity<ApiResponse<List<com.kpitracking.dto.response.organization.HierarchyLevelResponse>>> getHierarchyLevels(@PathVariable UUID orgId) {
         List<com.kpitracking.dto.response.organization.HierarchyLevelResponse> response = organizationService.getHierarchyLevels(orgId);
         return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @PostMapping(value = "/{orgId}/branding/{kind}", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PreAuthorize("hasAuthority('COMPANY:UPDATE')")
+    @Operation(summary = "Upload organization logo or cover image", description = "kind = logo | cover")
+    public ResponseEntity<ApiResponse<OrganizationResponse>> uploadBranding(
+            @PathVariable UUID orgId,
+            @PathVariable String kind,
+            @RequestParam("file") MultipartFile file) throws IOException {
+        OrganizationResponse response = organizationService.uploadBranding(orgId, kind, file);
+        return ResponseEntity.ok(ApiResponse.success("Cập nhật ảnh thành công", response));
     }
 }

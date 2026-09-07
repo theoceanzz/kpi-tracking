@@ -252,7 +252,10 @@ export function OrgMindmapView({ data, maxDepth, onAddChild, onEdit, onDelete }:
   }, [layoutedNodes, layoutedEdges, setNodes, setEdges]);
 
   return (
-    <div className="w-full h-full min-h-[300px] border rounded-xl bg-gray-50 overflow-hidden relative group/mindmap">
+    // Chiều cao theo viewport chứ KHÔNG dùng h-full: canvas này giờ nằm trong trang
+    // "Thiết lập công ty", mà height:100% chỉ giải được khi MỌI tổ tiên đều có chiều cao
+    // xác định — chuỗi đó đứt ở khung trang gộp nên ReactFlow tính ra 0 và không vẽ gì.
+    <div className="w-full h-[calc(100vh-320px)] min-h-[420px] border rounded-xl bg-gray-50 overflow-hidden relative group/mindmap">
       <style>{`
         .react-flow__pane {
           cursor: crosshair !important;

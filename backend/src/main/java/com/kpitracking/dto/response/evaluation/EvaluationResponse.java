@@ -14,6 +14,7 @@ public class EvaluationResponse {
     private UUID id;
     private UUID userId;
     private String userName;
+    private String userAvatarUrl;
     private UUID orgUnitId;
     private String orgUnitName;
     private UUID kpiPeriodId;
@@ -45,6 +46,6 @@ public class EvaluationResponse {
     private BscScoringMode bscScoringMode;
     /** Điểm chính thức: = bscScore khi OFFICIAL, ngược lại = systemScore. */
     private Double officialScore;
-    /** Breakdown điểm từng viễn cảnh (giải thích điểm cho HR). */
+    /** Breakdown điểm từng lĩnh vực (giải thích điểm cho HR). */
     private List<PerspectiveScoreResponse> bscPerspectives;
 }

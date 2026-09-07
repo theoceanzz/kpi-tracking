@@ -2,7 +2,8 @@ import { useState, useEffect, useMemo, useRef } from 'react'
 import { createPortal } from 'react-dom'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { useDrillDown, useMatrixOverview, useUnitClassification } from '../hooks/useAnalytics'
-import { cn, getInitials } from '@/lib/utils'
+import { cn } from '@/lib/utils'
+import UserAvatar from '@/components/common/UserAvatar'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
   Users, X, Search, Building2, Target,
@@ -382,9 +383,12 @@ export default function DrillDownTab() {
                               <tr key={emp.userId} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                                 <td className="px-6 py-4">
                                   <div className="flex items-center gap-3">
-                                    <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-[11px] font-black text-slate-600">
-                                      {getInitials(emp.fullName)}
-                                    </div>
+                                    <UserAvatar
+                                      fullName={emp.fullName}
+                                      avatarUrl={emp.avatarUrl}
+                                      className="w-9 h-9 rounded-xl"
+                                      fallbackClassName="bg-slate-100 dark:bg-slate-800 text-[11px] font-black text-slate-600"
+                                    />
                                     <div>
                                       <p className="font-black text-slate-900 dark:text-white leading-none">{emp.fullName}</p>
                                       <p className="text-[11px] font-bold text-slate-400 mt-1">{emp.roleName}</p>
@@ -446,9 +450,12 @@ export default function DrillDownTab() {
                         return (
                           <div key={emp.userId} className="p-4 space-y-3">
                             <div className="flex items-center gap-3">
-                              <div className="w-9 h-9 rounded-xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-[11px] font-black text-slate-600 shrink-0">
-                                {getInitials(emp.fullName)}
-                              </div>
+                              <UserAvatar
+                                fullName={emp.fullName}
+                                avatarUrl={emp.avatarUrl}
+                                className="w-9 h-9 rounded-xl shrink-0"
+                                fallbackClassName="bg-slate-100 dark:bg-slate-800 text-[11px] font-black text-slate-600"
+                              />
                               <div className="min-w-0">
                                 <p className="font-black text-slate-900 dark:text-white leading-none truncate">{emp.fullName}</p>
                                 <p className="text-[11px] font-bold text-slate-400 mt-1">{emp.roleName}</p>

@@ -46,7 +46,7 @@ public final class ToolProgress {
             Map.entry("get_kpi", "Đang tra cứu chỉ tiêu KPI"),
             Map.entry("get_submissions", "Đang xem các báo cáo đã nộp"),
             Map.entry("get_analytics", "Đang tổng hợp số liệu"),
-            Map.entry("get_bsc", "Đang xem thẻ điểm cân bằng"),
+            Map.entry("get_bsc", "Đang xem bộ tiêu chí BSC"),
             Map.entry("get_okr", "Đang xem mục tiêu và kết quả then chốt"),
             Map.entry("compare_org_units", "Đang so sánh các đơn vị"),
             Map.entry("rank", "Đang xếp hạng"),

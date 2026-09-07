@@ -1,6 +1,9 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { submissionApi } from '../api/submissionApi'
+import { createReviewSubmissionSchema, type ReviewSubmissionFormData } from '../schemas/submissionSchema'
 import { toast } from 'sonner'
 import { X, Loader2, CheckCircle, XCircle, User, Calendar, Paperclip, FileText, MessageSquare, Info } from 'lucide-react'
 import { formatDateTime, formatNumber, cn } from '@/lib/utils'
@@ -19,9 +22,6 @@ interface ReviewModalProps {
 }
 export default function ReviewModal({ open, onClose, submission }: ReviewModalProps) {
   const { user } = useAuth()
-  const [reviewNote, setReviewNote] = useState('')
-  const [managerScore, setManagerScore] = useState<number | undefined>(undefined)
-  const [mode, setMode] = useState<'view' | 'reject'>('view')
   const [showStaffEval, setShowStaffEval] = useState(false)
   const qc = useQueryClient()
 
@@ -34,33 +34,44 @@ export default function ReviewModal({ open, onClose, submission }: ReviewModalPr
   const organizationId = user?.memberships?.[0]?.organizationId
   const { data: org } = useOrganization(organizationId)
   const qualitativeLevels = [...(org?.qualitativeLevels ?? [])].sort((a, b) => a.position - b.position)
-  const [selectedLevelId, setSelectedLevelId] = useState<string | undefined>(undefined)
 
-  // Initialize managerScore with autoScore when modal opens
-  useEffect(() => {
-    if (submission && managerScore === undefined) {
-      setManagerScore(Math.round(submission.managerScore ?? submission.autoScore ?? 0))
-    }
-  }, [submission])
+  // KPI định tính chọn mức, KPI định lượng chấm điểm — hai luật khác nhau nên schema
+  // dựng theo loại của bài nộp đang mở.
+  const schema = useMemo(() => createReviewSubmissionSchema({ isQualitative }), [isQualitative])
 
-  // Initialize the qualitative level picker from any previously chosen level
+  const { register, handleSubmit, reset: resetForm, watch, setValue, formState: { errors } } = useForm<ReviewSubmissionFormData>({
+    resolver: zodResolver(schema),
+    defaultValues: { mode: 'view', reviewNote: '', managerScore: undefined, qualitativeLevelId: undefined },
+  })
+
+  const mode = watch('mode')
+  const selectedLevelId = watch('qualitativeLevelId')
+  const setMode = (next: ReviewSubmissionFormData['mode']) => setValue('mode', next)
+  const setSelectedLevelId = (id: string | undefined) =>
+    setValue('qualitativeLevelId', id, { shouldValidate: true })
+
+  // Mở bài nộp nào thì nạp lại điểm/mức đã chấm của bài đó.
   useEffect(() => {
-    if (submission && isQualitative && selectedLevelId === undefined) {
-      setSelectedLevelId(submission.qualitativeLevelId ?? undefined)
-    }
-  }, [submission, isQualitative])
+    if (!submission) return
+    resetForm({
+      mode: 'view',
+      reviewNote: '',
+      managerScore: Math.round(submission.managerScore ?? submission.autoScore ?? 0),
+      qualitativeLevelId: submission.qualitativeLevelId ?? undefined,
+    })
+  }, [submission, resetForm])
 
   const [showAllApproved, setShowAllApproved] = useState(false)
   const [showEvalForm, setShowEvalForm] = useState(false)
 
   const approveMutation = useMutation({
-    mutationFn: () => submissionApi.review(submission!.id, {
+    mutationFn: (data: ReviewSubmissionFormData) => submissionApi.review(submission!.id, {
       status: 'APPROVED',
-      reviewNote: reviewNote || undefined,
+      reviewNote: data.reviewNote || undefined,
       // Qualitative KPIs: send the chosen level; the backend computes managerScore.
       ...(isQualitative
-        ? { qualitativeLevelId: selectedLevelId }
-        : { managerScore }),
+        ? { qualitativeLevelId: data.qualitativeLevelId }
+        : { managerScore: data.managerScore }),
     }),
     onSuccess: (data) => { 
       qc.invalidateQueries({ queryKey: ['submissions'] })
@@ -77,12 +88,13 @@ export default function ReviewModal({ open, onClose, submission }: ReviewModalPr
   })
 
   const rejectMutation = useMutation({
-    mutationFn: () => submissionApi.review(submission!.id, { status: 'REJECTED', reviewNote }),
+    mutationFn: (data: ReviewSubmissionFormData) =>
+      submissionApi.review(submission!.id, { status: 'REJECTED', reviewNote: data.reviewNote }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['submissions'] }); toast.success('Đã trả lại bài nộp'); reset(); onClose() },
     onError: () => toast.error('Từ chối thất bại'),
   })
 
-  const reset = () => { setReviewNote(''); setManagerScore(undefined); setSelectedLevelId(undefined); setMode('view') }
+  const reset = () => resetForm({ mode: 'view', reviewNote: '', managerScore: undefined, qualitativeLevelId: undefined })
 
   if (!open || !submission) return null
 
@@ -180,6 +192,9 @@ export default function ReviewModal({ open, onClose, submission }: ReviewModalPr
                     })}
                   </div>
                 )}
+                {errors.qualitativeLevelId && (
+                  <p className="px-1 text-xs font-bold text-red-500">{errors.qualitativeLevelId.message}</p>
+                )}
                 {submission.managerScore != null && (
                   <p className="text-[11px] font-bold text-slate-500 px-1">Điểm quy đổi hiện tại: <span className="text-emerald-600">{formatNumber(submission.managerScore)}</span></p>
                 )}
@@ -211,8 +226,7 @@ export default function ReviewModal({ open, onClose, submission }: ReviewModalPr
                 <div className="w-20">
                   <input
                     type="number"
-                    value={managerScore}
-                    onChange={e => setManagerScore(Number(e.target.value))}
+                    {...register('managerScore', { setValueAs: v => (v === '' || v == null ? undefined : Number(v)) })}
                     readOnly={!isReviewable}
                     className="w-full bg-transparent text-right text-2xl font-black text-indigo-600 dark:text-indigo-400 outline-none focus:ring-0"
                   />
@@ -311,19 +325,21 @@ export default function ReviewModal({ open, onClose, submission }: ReviewModalPr
                       Lý do từ chối
                     </label>
                     <textarea
-                      value={reviewNote}
-                      onChange={(e) => setReviewNote(e.target.value)}
+                      {...register('reviewNote')}
                       rows={3}
                       className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-red-500/30 focus:border-red-400 resize-none transition-all"
                       placeholder="Phản hồi chi tiết để nhân viên chỉnh sửa..."
                     />
+                    {errors.reviewNote && (
+                      <p className="mt-1 text-xs font-bold text-red-500">{errors.reviewNote.message}</p>
+                    )}
                   </div>
                   <div className="flex gap-3">
                     <button onClick={() => setMode('view')} className="flex-1 px-4 py-3 rounded-xl text-sm font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all">
                       Quay lại
                     </button>
                     <button
-                      onClick={() => rejectMutation.mutate()}
+                      onClick={handleSubmit(data => rejectMutation.mutate(data))}
                       disabled={isPending}
                       className="flex-1 px-4 py-3 rounded-xl text-sm font-bold bg-red-600 text-white hover:bg-red-700 disabled:opacity-50 transition-all flex items-center justify-center gap-2 shadow-lg shadow-red-500/20"
                     >
@@ -339,8 +355,7 @@ export default function ReviewModal({ open, onClose, submission }: ReviewModalPr
                       Nhận xét <span className="text-slate-400 font-normal">(tùy chọn)</span>
                     </label>
                     <textarea
-                      value={reviewNote}
-                      onChange={(e) => setReviewNote(e.target.value)}
+                      {...register('reviewNote')}
                       rows={2}
                       className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 resize-none transition-all"
                       placeholder="Ghi nhận kết quả công việc..."
@@ -348,15 +363,15 @@ export default function ReviewModal({ open, onClose, submission }: ReviewModalPr
                   </div>
                   <div className="flex gap-3">
                     <button
-                      onClick={() => { setMode('reject'); setReviewNote('') }}
+                      onClick={() => { setMode('reject'); setValue('reviewNote', '') }}
                       disabled={isPending}
                       className="flex-1 px-4 py-3 rounded-xl text-sm font-bold border-2 border-red-200 dark:border-red-900/50 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all flex items-center justify-center gap-2"
                     >
                       <XCircle size={18} /> Trả lại
                     </button>
                     <button
-                      onClick={() => approveMutation.mutate()}
-                      disabled={isPending || (isQualitative && !selectedLevelId)}
+                      onClick={handleSubmit(data => approveMutation.mutate(data))}
+                      disabled={isPending}
                       title={isQualitative && !selectedLevelId ? 'Vui lòng chọn mức đánh giá định tính' : undefined}
                       className="flex-1 px-4 py-3 rounded-xl text-sm font-bold bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-50 transition-all flex items-center justify-center gap-2 shadow-lg shadow-emerald-500/20"
                     >

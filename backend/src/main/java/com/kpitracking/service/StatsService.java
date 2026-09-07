@@ -81,11 +81,9 @@ public class StatsService {
     private long countPendingKpiForApproval(User currentUser, UUID organizationId) {
         if (organizationId == null) return 0L;
 
-        List<UUID> sameUnitIds = userRoleOrgUnitRepository.findByUserId(currentUser.getId()).stream()
-                .map(a -> a.getOrgUnit().getId())
-                .distinct()
-                .toList();
-        if (sameUnitIds.isEmpty()) return 0L;
+        com.kpitracking.security.PermissionChecker.KpiVisibilityScope scope =
+                permissionChecker.getKpiVisibilityScope(currentUser.getId());
+        if (scope.isEmpty()) return 0L;
 
         UUID excludeUserId = permissionChecker.hasPermission(currentUser.getId(), "KPI:REVERT_APPROVAL")
                 ? null
@@ -94,7 +92,8 @@ public class StatsService {
                 ? null
                 : com.kpitracking.enums.KpiType.QUANTITATIVE;
 
-        return kpiCriteriaRepository.countPendingApprovalVisibleTo(organizationId, sameUnitIds, excludeUserId, kpiTypeFilter);
+        return kpiCriteriaRepository.countPendingApprovalVisibleTo(organizationId,
+                scope.managerUnitIdsForQuery(), scope.memberUnitIdsForQuery(), excludeUserId, kpiTypeFilter);
     }
 
     @Transactional(readOnly = true)
@@ -143,6 +142,15 @@ public class StatsService {
 
         java.util.List<KpiStatus> activeStatuses = java.util.Arrays.asList(KpiStatus.APPROVED, KpiStatus.EDITED, KpiStatus.EDIT, KpiStatus.PENDING_APPROVAL);
 
+        List<EvaluationPeriodCountResponse> evaluationPeriods = evaluationRepository.countGroupByPeriodForOrgUnits(unitIds)
+                .stream()
+                .map(row -> EvaluationPeriodCountResponse.builder()
+                        .kpiPeriodId((UUID) row[0])
+                        .kpiPeriodName((String) row[1])
+                        .count(((Number) row[2]).longValue())
+                        .build())
+                .toList();
+
         return OverviewStatsResponse.builder()
                 .totalUsers(totalPersonnelCount)
                 .totalOrgUnits((int) kpiCriteriaRepository.countDistinctOrgUnitsOfAssigneesIn(unitIds, activeStatuses))
@@ -157,6 +165,7 @@ public class StatsService {
                 .pendingSubmissions((int) pendingSub)
                 .rejectedSubmissions((int) rejectedSub)
                 .totalEvaluations(evaluationRepository.countByOrgUnitIdIn(unitIds))
+                .evaluationPeriods(evaluationPeriods)
                 .build();
     }
 
@@ -340,6 +349,7 @@ public class StatsService {
                      .userId(u.getId())
                      .employeeCode(u.getEmployeeCode())
                      .fullName(u.getFullName())
+                     .avatarUrl(u.getAvatarUrl())
                      .email(u.getEmail())
                      .role(roleName)
                      .orgUnitName(orgUnitName)
@@ -478,19 +488,10 @@ public class StatsService {
                 mScore = bestSubmission.getManagerScore();
                 mName = bestSubmission.getReviewedBy() != null ? bestSubmission.getReviewedBy().getFullName() : null;
                 
-                // Calculate achievement rate based on manager score, weight and organization multiplier
+                // % đạt = điểm chấm / trọng số: trọng số chính là điểm tối đa của KPI đó,
+                // không còn nhân theo thang điểm tổ chức (xem EvaluationService.SCORING_POOL).
                 if (criteria.getWeight() != null && criteria.getWeight() > 0) {
-                    double multiplier = 1.0;
-                    try {
-                        Organization org = criteria.getOrgUnit().getOrgHierarchyLevel().getOrganization();
-                        if (org.getEvaluationMaxScore() != null) {
-                            multiplier = org.getEvaluationMaxScore() / 100.0;
-                        }
-                    } catch (Exception e) {
-                        // Fallback to 1.0 if any association is missing
-                    }
-                    
-                    achievementForCircle = Math.min(100.0, (mScore / (criteria.getWeight() * multiplier)) * 100.0);
+                    achievementForCircle = Math.min(100.0, (mScore / criteria.getWeight()) * 100.0);
                 } else {
                     achievementForCircle = mScore;
                 }
@@ -743,7 +744,8 @@ public class StatsService {
                     : evaluationService.averagePerformance(java.util.Set.of(u.getId()), evalPeriodIds);
             Double performanceRate = evalPerf != null ? Math.round(evalPerf * 10.0) / 10.0 : null;
             return AnalyticsDrillDownResponse.EmployeeSummary.builder()
-                    .userId(u.getId()).fullName(u.getFullName()).email(u.getEmail()).roleName(m.getRole().getName())
+                    .userId(u.getId()).fullName(u.getFullName()).avatarUrl(u.getAvatarUrl())
+                    .email(u.getEmail()).roleName(m.getRole().getName())
                     .orgUnitId(memberUnit != null ? memberUnit.getId() : null)
                     .orgUnitName(memberUnit != null ? memberUnit.getName() : null)
                     .assignedKpi(kpiCriteriaRepository.countByAssigneeId(u.getId()))
@@ -808,7 +810,8 @@ public class StatsService {
 
             long approvedSub = submissionRepository.countBySubmittedByIdAndStatus(u.getId(), SubmissionStatus.APPROVED);
             allRows.add(AnalyticsDetailRow.builder()
-                    .userId(u.getId()).employeeCode(u.getEmployeeCode()).fullName(u.getFullName()).email(u.getEmail())
+                    .userId(u.getId()).employeeCode(u.getEmployeeCode()).fullName(u.getFullName())
+                    .avatarUrl(u.getAvatarUrl()).email(u.getEmail())
                     .orgUnitName(roles.isEmpty() ? null : roles.get(0).getOrgUnit().getName())
                     .roleName(roles.isEmpty() ? "N/A" : roles.get(0).getRole().getName())
                     .assignedKpi(assignedKpi).completedKpi(approvedSub)
@@ -1276,7 +1279,7 @@ public class StatsService {
                 return AnalyticsSummaryResponse.RankingItem.builder()
                     .userId(u.getId())
                     .name(u.getFullName())
-                    .avatar(null)
+                    .avatar(u.getAvatarUrl())
                     .score(avgScore != null ? avgScore : 0)
                     .performance(performance)
                     .avgProgress(avgProgress)

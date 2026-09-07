@@ -3,7 +3,7 @@ import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { kpiSchema, type KpiFormData } from '../schemas/kpiSchema'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { kpiApi } from '../api/kpiApi'
+import { kpiApi, type AiKpiSuggestion } from '../api/kpiApi'
 import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
 import { useUsers } from '@/features/users/hooks/useUsers'
 import { useAuthStore } from '@/store/authStore'
@@ -11,7 +11,8 @@ import { useFormAssistStore } from '@/store/formAssistStore'
 import { usePermission } from '@/hooks/usePermission'
 import { toast } from 'sonner'
 import { FREQUENCY_MAP, cn, formatDateTime } from '@/lib/utils'
-import { Loader2, X, Check, Sparkles, Target, Users, LayoutGrid, SlidersHorizontal, BarChart3 } from 'lucide-react'
+import UserAvatar from '@/components/common/UserAvatar'
+import { Loader2, X, Check, Sparkles, Target, Users, LayoutGrid, SlidersHorizontal, BarChart3, RotateCcw, RefreshCw } from 'lucide-react'
 import type { KpiCriteria } from '@/types/kpi'
 import { useState } from 'react'
 import { useKpiPeriods } from '../hooks/useKpiPeriods'
@@ -21,6 +22,8 @@ import { useBscPerspectives, useScorecards, useFixedPerspectives } from '@/featu
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { DateTimePicker } from '@/components/common/DateTimePicker'
+import { scorecardsForPeriod } from '@/features/bsc/utils/scorecardScope'
+import { perspectiveHint } from '@/features/bsc/utils/perspectiveHint'
 
 interface KpiFormModalProps {
   open: boolean
@@ -158,7 +161,7 @@ export default function KpiFormModal({
   })
 
   const formKpiPeriodId = watch('kpiPeriodId')
-  const periodHasScorecard = !!formKpiPeriodId && (bscScorecards || []).some(sc => sc.kpiPeriodId === formKpiPeriodId)
+  const periodHasScorecard = scorecardsForPeriod(bscScorecards, formKpiPeriodId).length > 0
   const formOrgUnitIds = watch('orgUnitIds') || []
   const [selectedRole, setSelectedRole] = useState<string>('ALL')
 
@@ -206,6 +209,8 @@ export default function KpiFormModal({
       setUserSearch('')
       setSelectedRole('ALL')
       setAiSuggestions([])
+      setAppliedIdx(null)
+      setBeforeApply(null)
       return
     }
 
@@ -307,6 +312,9 @@ export default function KpiFormModal({
       // Ở chế độ thêm liên tục thì giữ form mở để nhập tiếp cái sau — đóng lại rồi bắt mở lại
       // cho mỗi chỉ tiêu chính là thao tác mà trình thiết lập sinh ra để xoá bỏ.
       if (!keepOpenAfterCreate) onClose()
+      setAppliedIdx(null)
+      setBeforeApply(null)
+      onClose()
     },
     onError: (err: any) => {
       const msg = err?.response?.data?.message || 'Tạo chỉ tiêu thất bại'
@@ -404,7 +412,7 @@ export default function KpiFormModal({
     return null
   }, [watchedKeyResultId, objectives])
 
-  // Bản đồ đơn vị → cha (để resolve thẻ điểm áp dụng: đơn vị → cha → mặc định).
+  // Bản đồ đơn vị → cha (để resolve bộ tiêu chí áp dụng: đơn vị → cha → mặc định).
   const unitParent = useMemo(() => {
     const map = new Map<string, string | null>()
     const walk = (nodes: any[]) => (nodes || []).forEach((n: any) => { map.set(n.id, n.parentId ?? null); if (n.children) walk(n.children) })
@@ -412,13 +420,13 @@ export default function KpiFormModal({
     return map
   }, [orgUnitTreeData])
 
-  // Thẻ điểm HIỆU LỰC cho KPI theo đơn vị đầu tiên được gán (đơn vị → cha → mặc định).
+  // Bộ tiêu chí HIỆU LỰC cho KPI theo đơn vị đầu tiên được gán (đơn vị → cha → mặc định).
   const effectiveScorecard = useMemo(() => {
     if (!formKpiPeriodId) return null
-    const periodScs = (bscScorecards || []).filter(sc => sc.kpiPeriodId === formKpiPeriodId)
+    const periodScs = scorecardsForPeriod(bscScorecards, formKpiPeriodId)
     if (periodScs.length === 0) return null
     const realUnits = formOrgUnitIds.filter(id => id && id !== '00000000-0000-0000-0000-000000000000')
-    if (realUnits.length === 0) return null // chưa chọn đơn vị ⇒ chưa biết thẻ điểm nào
+    if (realUnits.length === 0) return null // chưa chọn đơn vị ⇒ chưa biết bộ tiêu chí nào
     let cur: string | null = realUnits[0]!, guard = 0
     while (cur && guard++ < 100) {
       const found = periodScs.find(s => (s.orgUnits || []).some(u => u.id === cur))
@@ -428,7 +436,28 @@ export default function KpiFormModal({
     return periodScs.find(s => !s.orgUnits || s.orgUnits.length === 0) || null
   }, [bscScorecards, formKpiPeriodId, formOrgUnitIds, unitParent])
 
-  // Trọng số THẬT (chỉ hiển thị) = trọng số form × %hạng_mục (lấy từ thẻ điểm hiệu lực của đơn vị KPI).
+  /**
+   * Con số của từng hạng mục để hiện ngay trong dropdown.
+   *
+   * Lấy từ DÒNG của bộ tiêu chí hiệu lực chứ không từ danh mục hạng mục: cùng một hạng mục
+   * "Doanh thu" nhưng mỗi đơn vị đặt một mục tiêu khác nhau, hiện số của danh mục là hiện nhầm
+   * con số của đơn vị khác. Chưa chọn đủ kỳ/đơn vị để biết bộ tiêu chí nào thì rơi về danh mục.
+   */
+  const perspectiveNumbers = useMemo(() => {
+    const map = new Map<string, string | null>()
+    for (const p of perspectives || []) {
+      const row = effectiveScorecard?.perspectives.find(sp => sp.perspectiveId === p.id)
+      map.set(p.id, perspectiveHint({
+        targetValue: row?.targetValue ?? p.targetValue,
+        minimumValue: row?.minimumValue ?? p.minimumValue,
+        unit: row?.unit ?? p.unit,
+        weightPercentage: row?.weightPercentage ?? null,
+      }))
+    }
+    return map
+  }, [perspectives, effectiveScorecard])
+
+  // Trọng số THẬT (chỉ hiển thị) = trọng số form × %hạng_mục (lấy từ bộ tiêu chí hiệu lực của đơn vị KPI).
   // Form% chỉ để đủ 100%/hạng mục; trọng số thật mới là phần đóng góp vào 100% của đơn vị.
   const watchedWeight = watch('weight')
   const effectivePerspId = useMemo(() => {
@@ -447,14 +476,14 @@ export default function KpiFormModal({
   const realWeight = (watchedWeight != null && !Number.isNaN(Number(watchedWeight)) && categoryWeightPct != null)
     ? (Number(watchedWeight) * categoryWeightPct / 100) : null
 
-  // Lọc hạng mục theo THẺ ĐIỂM của đơn vị KPI được gán: chỉ hiện hạng mục CÓ trong thẻ điểm
-  // áp dụng cho đơn vị đó (union nếu gán nhiều đơn vị). Thiếu ⇒ nhắc thêm vào thẻ điểm.
+  // Lọc hạng mục theo BỘ TIÊU CHÍ của đơn vị KPI được gán: chỉ hiện hạng mục CÓ trong bộ tiêu chí
+  // áp dụng cho đơn vị đó (union nếu gán nhiều đơn vị). Thiếu ⇒ nhắc thêm vào bộ tiêu chí.
   const availablePerspectiveIds = useMemo<Set<string> | null>(() => {
     if (!enableBsc) return null // không bật BSC ⇒ không liên quan (mục hạng mục cũng ẩn)
     const ids = new Set<string>()
     if (!formKpiPeriodId) return ids // chưa chọn kỳ ⇒ rỗng
-    const periodScs = (bscScorecards || []).filter(sc => sc.kpiPeriodId === formKpiPeriodId)
-    if (periodScs.length === 0) return ids // kỳ chưa có thẻ điểm ⇒ rỗng
+    const periodScs = scorecardsForPeriod(bscScorecards, formKpiPeriodId)
+    if (periodScs.length === 0) return ids // kỳ chưa có bộ tiêu chí ⇒ rỗng
     const realUnits = formOrgUnitIds.filter(id => id && id !== '00000000-0000-0000-0000-000000000000')
     if (realUnits.length === 0) return ids // chưa chọn đơn vị ⇒ rỗng
     const resolveForUnit = (unitId: string) => {
@@ -479,7 +508,7 @@ export default function KpiFormModal({
       .filter(g => g.items.length > 0)
   }, [groupedPerspectives, availablePerspectiveIds])
 
-  // Hạng mục đang gán nhưng KHÔNG có trong thẻ điểm của đơn vị ⇒ cảnh báo (sẽ không tính điểm BSC).
+  // Hạng mục đang gán nhưng KHÔNG có trong bộ tiêu chí của đơn vị ⇒ cảnh báo (sẽ không tính điểm BSC).
   // Chỉ cảnh báo khi ĐÃ chọn đơn vị (chưa chọn thì đã có nhắc "chọn đơn vị trước").
   const selectedPerspMissing = !!availablePerspectiveIds && hasRealUnit && !!effectivePerspId && !availablePerspectiveIds.has(effectivePerspId)
 
@@ -497,8 +526,12 @@ export default function KpiFormModal({
   }, [formOrgUnitIds, filteredObjectives, setValue, watch])
 
   // AI Suggestion Logic
-  const [aiSuggestions, setAiSuggestions] = useState<any[]>([])
+  const [aiSuggestions, setAiSuggestions] = useState<AiKpiSuggestion[]>([])
   const [isSuggesting, setIsSuggesting] = useState(false)
+  /** Chỉ số gợi ý vừa áp dụng, để đánh dấu và cho phép hoàn tác. */
+  const [appliedIdx, setAppliedIdx] = useState<number | null>(null)
+  /** Giá trị các trường trước khi áp dụng, dùng cho nút Hoàn tác. */
+  const [beforeApply, setBeforeApply] = useState<Partial<KpiFormData> | null>(null)
   const [userSearch, setUserSearch] = useState('')
 
   const displayUsers = useMemo(() => {
@@ -512,6 +545,28 @@ export default function KpiFormModal({
     )
   }, [availableUsers, userSearch])
 
+  /**
+   * Gom bối cảnh người dùng đang soạn để AI gợi ý bám sát, thay vì trả về cùng một bộ
+   * chung chung mỗi lần bấm. Rỗng thì backend dùng prompt mặc định.
+   */
+  const buildAiContext = () => {
+    const parts: string[] = []
+    const typedName = (watch('name') || '').trim()
+    if (typedName) parts.push(`Tên chỉ tiêu đang gõ: "${typedName}"`)
+    parts.push(isQualitative ? 'Loại KPI: định tính' : 'Loại KPI: định lượng')
+
+    if (selectedPeriod?.name) parts.push(`Đợt: ${selectedPeriod.name}`)
+
+    // Mục tiêu suy ra từ kết quả then chốt đang chọn — form không có trường objectiveId riêng.
+    if (watchedKeyResultId && watchedKeyResultId !== 'NONE') {
+      const obj = (objectives || []).find((o: any) =>
+        o.keyResults?.some((kr: any) => kr.id === watchedKeyResultId))
+      if (obj?.name) parts.push(`Mục tiêu liên quan: ${obj.name}`)
+    }
+
+    return parts.join('. ')
+  }
+
   const handleAiSuggest = async () => {
     const orgUnitId = formOrgUnitIds[0] || user?.memberships?.[0]?.orgUnitId
     if (!orgUnitId) {
@@ -520,30 +575,67 @@ export default function KpiFormModal({
     }
 
     setIsSuggesting(true)
+    // Chỉ số cũ không còn ứng với danh sách mới. Nhưng GIỮ beforeApply để sau khi
+    // xin gợi ý khác, người dùng vẫn hoàn tác được về nội dung tự nhập ban đầu.
+    setAppliedIdx(null)
     try {
-      const suggestions = await kpiApi.getAiSuggestions(orgUnitId)
+      const suggestions = await kpiApi.getAiSuggestions(orgUnitId, buildAiContext())
       setAiSuggestions(suggestions)
       if (suggestions.length === 0) {
         toast.info('AI không tìm thấy gợi ý phù hợp lúc này')
       }
-    } catch (err) {
-      toast.error('Lỗi khi lấy gợi ý từ AI')
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || 'Lỗi khi lấy gợi ý từ AI')
     } finally {
       setIsSuggesting(false)
     }
   }
 
-  const applySuggestion = (sug: any) => {
-    reset({
-      ...watch(),
-      name: sug.name,
-      description: sug.description,
-      unit: sug.unit,
-      targetValue: sug.targetValue,
-      weight: sug.weight,
-      frequency: sug.frequency,
+  /**
+   * Điền gợi ý vào form. Dùng setValue từng trường thay vì reset() cả form:
+   * reset() ghi đè mọi trường khác (người nhận, đơn vị, đợt...) mà người dùng đã chọn.
+   * Danh sách gợi ý vẫn mở để còn đổi sang phương án khác.
+   */
+  const applySuggestion = (sug: AiKpiSuggestion, idx: number) => {
+    if (!beforeApply) {
+      setBeforeApply({
+        name: watch('name'),
+        description: watch('description'),
+        unit: watch('unit'),
+        targetValue: watch('targetValue'),
+        weight: watch('weight'),
+        frequency: watch('frequency'),
+      })
+    }
+
+    const opts = { shouldDirty: true, shouldValidate: true } as const
+    setValue('name', sug.name ?? '', opts)
+    if (sug.description != null) setValue('description', sug.description, opts)
+    // Chỉ tiêu định tính không chấm theo con số nên bỏ qua đơn vị / giá trị mục tiêu.
+    if (!isQualitative) {
+      if (sug.unit != null) setValue('unit', sug.unit, opts)
+      if (sug.targetValue != null) setValue('targetValue', sug.targetValue, opts)
+    }
+    if (sug.weight != null) setValue('weight', sug.weight, opts)
+    if (sug.frequency != null) setValue('frequency', sug.frequency, opts)
+
+    setAppliedIdx(idx)
+  }
+
+  const undoSuggestion = () => {
+    if (!beforeApply) return
+    const opts = { shouldDirty: true, shouldValidate: true } as const
+    Object.entries(beforeApply).forEach(([field, value]) => {
+      setValue(field as keyof KpiFormData, value as never, opts)
     })
+    setBeforeApply(null)
+    setAppliedIdx(null)
+  }
+
+  const closeSuggestions = () => {
     setAiSuggestions([])
+    setAppliedIdx(null)
+    setBeforeApply(null)
   }
 
   const isPending = createMutation.isPending || updateMutation.isPending
@@ -683,14 +775,15 @@ export default function KpiFormModal({
               <div className="flex items-center justify-between mb-1.5">
                 <label className="block text-sm font-bold text-[var(--color-foreground)]">Tên chỉ tiêu <span className="text-red-500">*</span></label>
                 {(canManageOrg || canReview) && !isEdit && (
-                  <button 
+                  <button
                     type="button"
                     onClick={handleAiSuggest}
                     disabled={isSuggesting}
-                    className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-gradient-to-r from-blue-600 to-indigo-600 text-[10px] font-black text-white hover:shadow-lg hover:shadow-blue-500/30 transition-all disabled:opacity-50"
+                    title="AI đọc số liệu của đơn vị và bối cảnh bạn đang nhập để đề xuất chỉ tiêu"
+                    className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-gradient-to-r from-blue-600 to-indigo-600 text-[10px] font-black text-white hover:shadow-lg hover:shadow-blue-500/30 transition-all disabled:opacity-60 disabled:cursor-wait"
                   >
                     {isSuggesting ? <Loader2 size={12} className="animate-spin" /> : <Sparkles size={12} />}
-                    GỢI Ý AI
+                    {isSuggesting ? 'ĐANG PHÂN TÍCH...' : 'GỢI Ý AI'}
                   </button>
                 )}
               </div>
@@ -702,30 +795,108 @@ export default function KpiFormModal({
               {errors.name && <p className="text-red-500 text-xs mt-1 font-medium">{errors.name.message}</p>}
             </div>
 
+            {/* Đang chờ AI: hiện khung chờ ngay tại chỗ kết quả sẽ xuất hiện.
+                Lời gọi có thể mất hàng chục giây nên chỉ quay vòng trên nút là chưa đủ rõ. */}
+            {isSuggesting && aiSuggestions.length === 0 && (
+              <div className="bg-blue-50/60 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-800 rounded-xl p-3 space-y-2 animate-in fade-in">
+                <span className="text-[11px] font-black text-blue-600 dark:text-blue-400 flex items-center gap-1.5 uppercase tracking-wider">
+                  <Loader2 size={12} className="animate-spin" /> AI đang đọc số liệu đơn vị...
+                </span>
+                {[0, 1, 2].map(i => (
+                  <div key={i} className="h-14 rounded-xl bg-white/70 dark:bg-slate-900/50 animate-pulse" />
+                ))}
+              </div>
+            )}
+
             {aiSuggestions.length > 0 && (
-                <div className="bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-800 rounded-xl p-3 space-y-2 animate-in fade-in slide-in-from-top-1">
-                <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-black text-blue-600 dark:text-blue-400 flex items-center gap-1 uppercase tracking-wider">
-                    <Sparkles size={12} /> Chiến lược gợi ý:
-                    </span>
-                    <button type="button" onClick={() => setAiSuggestions([])} className="text-[10px] font-bold text-blue-500 hover:underline hover:opacity-80">Đóng</button>
-                </div>
-                <div className="space-y-1.5">
-                    {aiSuggestions.map((s, idx) => (
+              <div className="bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-800 rounded-xl p-3 space-y-2 animate-in fade-in slide-in-from-top-1">
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="text-[11px] font-black text-blue-600 dark:text-blue-400 flex items-center gap-1 uppercase tracking-wider">
+                    <Sparkles size={12} /> AI đề xuất {aiSuggestions.length} chỉ tiêu
+                  </span>
+                  <span className="ml-auto flex items-center gap-2">
+                    {beforeApply && (
+                      <button
+                        type="button"
+                        onClick={undoSuggestion}
+                        className="flex items-center gap-1 text-[10px] font-bold text-slate-500 hover:text-slate-700 dark:hover:text-slate-300"
+                      >
+                        <RotateCcw size={11} /> Hoàn tác
+                      </button>
+                    )}
                     <button
+                      type="button"
+                      onClick={handleAiSuggest}
+                      disabled={isSuggesting}
+                      className="flex items-center gap-1 text-[10px] font-bold text-blue-600 hover:underline disabled:opacity-50"
+                    >
+                      {isSuggesting
+                        ? <Loader2 size={11} className="animate-spin" />
+                        : <RefreshCw size={11} />} Gợi ý khác
+                    </button>
+                    <button
+                      type="button"
+                      onClick={closeSuggestions}
+                      className="text-[10px] font-bold text-slate-400 hover:text-slate-600"
+                    >
+                      Đóng
+                    </button>
+                  </span>
+                </div>
+
+                <p className="text-[10px] text-slate-500 dark:text-slate-400 font-medium">
+                  Bấm để điền vào biểu mẫu. Các trường khác bạn đã chọn (đơn vị, đợt, người nhận) được giữ nguyên.
+                </p>
+
+                <div className="space-y-1.5">
+                  {aiSuggestions.map((s, idx) => {
+                    const applied = appliedIdx === idx
+                    return (
+                      <button
                         key={idx}
                         type="button"
-                        onClick={() => applySuggestion(s)}
-                        className="w-full text-left p-2.5 rounded-xl bg-[var(--color-background)] border border-blue-100 dark:border-blue-900 shadow-sm hover:border-blue-500 hover:shadow-md transition-all group"
-                    >
-                        <div className="font-bold text-xs group-hover:text-blue-600 transition-colors">{s.name}</div>
-                        <div className="text-[10px] text-[var(--color-muted-foreground)] line-clamp-1 mt-0.5">
-                        <span className="text-blue-600 dark:text-blue-400 font-bold">{s.targetValue} {s.unit}</span> • {s.description}
+                        onClick={() => applySuggestion(s, idx)}
+                        className={cn(
+                          'w-full text-left p-3 rounded-xl border shadow-sm transition-all group',
+                          applied
+                            ? 'bg-blue-600/5 border-blue-500 ring-2 ring-blue-500/20'
+                            : 'bg-[var(--color-background)] border-blue-100 dark:border-blue-900 hover:border-blue-500 hover:shadow-md',
+                        )}
+                      >
+                        <div className="flex items-start gap-2">
+                          <span className={cn(
+                            'font-bold text-xs flex-1 min-w-0 transition-colors',
+                            applied ? 'text-blue-600' : 'group-hover:text-blue-600',
+                          )}>
+                            {s.name}
+                          </span>
+                          {applied && (
+                            <span className="flex items-center gap-1 text-[9px] font-black uppercase tracking-widest text-blue-600 shrink-0">
+                              <Check size={11} /> Đã điền
+                            </span>
+                          )}
                         </div>
-                    </button>
-                    ))}
+
+                        {s.description && (
+                          <p className="text-[10px] text-[var(--color-muted-foreground)] line-clamp-2 mt-1">
+                            {s.description}
+                          </p>
+                        )}
+
+                        {/* Hiện đủ các con số để cân nhắc trước khi điền, thay vì
+                            phải áp dụng rồi mới biết AI đề xuất mục tiêu bao nhiêu. */}
+                        <div className="flex flex-wrap items-center gap-1.5 mt-2">
+                          {!isQualitative && s.targetValue != null && (
+                            <SuggestionChip label="Mục tiêu" value={`${s.targetValue}${s.unit ? ` ${s.unit}` : ''}`} />
+                          )}
+                          {s.weight != null && <SuggestionChip label="Trọng số" value={`${s.weight}%`} />}
+                          {s.frequency && <SuggestionChip label="Tần suất" value={FREQUENCY_MAP[s.frequency] ?? s.frequency} />}
+                        </div>
+                      </button>
+                    )
+                  })}
                 </div>
-                </div>
+              </div>
             )}
 
             <div>
@@ -743,7 +914,7 @@ export default function KpiFormModal({
               {!isQualitative && (
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-[11px] font-black text-[var(--color-muted-foreground)] uppercase tracking-widest mb-1.5">Mục tiêu đạt được <span className="text-red-500">*</span></label>
+                  <label className="block text-[11px] font-black text-[var(--color-muted-foreground)] uppercase tracking-widest mb-1.5">Mục tiêu mong muốn <span className="text-red-500">*</span></label>
                   <input
                     {...register('targetValue', { setValueAs: numOrUndef })}
                     type="number"
@@ -972,9 +1143,12 @@ export default function KpiFormModal({
             {isStaff ? (
                 <div className="bg-white dark:bg-white/5 border border-[var(--color-primary)]/20 rounded-xl p-4 animate-in fade-in slide-in-from-top-1">
                     <div className="flex items-center gap-3">
-                        <div className="w-10 h-10 rounded-full bg-[var(--color-primary)]/10 flex items-center justify-center text-[var(--color-primary)] font-bold text-lg">
-                            {user?.fullName?.charAt(0)}
-                        </div>
+                        <UserAvatar
+                            fullName={user?.fullName}
+                            avatarUrl={user?.avatarUrl}
+                            className="w-10 h-10 rounded-full"
+                            fallbackClassName="bg-[var(--color-primary)]/10 text-[var(--color-primary)] font-bold text-lg"
+                        />
                         <div className="flex-1">
                             <div className="text-sm font-bold">{user?.fullName} <span className="text-[var(--color-primary)]">(Bản thân)</span></div>
                             <div className="text-[10px] text-[var(--color-muted-foreground)] font-medium">{user?.email}</div>
@@ -1197,7 +1371,7 @@ export default function KpiFormModal({
                 <span className="text-[11px] font-black uppercase tracking-widest">Hạng mục BSC</span>
               </div>
               <div className="space-y-1">
-                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-tight">Gắn chỉ tiêu vào hạng mục (theo viễn cảnh)</label>
+                <label className="block text-[10px] font-black text-slate-500 uppercase tracking-tight">Gắn chỉ tiêu vào hạng mục (theo lĩnh vực)</label>
                 <Controller
                   name="perspectiveId"
                   control={control}
@@ -1214,7 +1388,12 @@ export default function KpiFormModal({
                           <div key={group.code}>
                             <div className="px-3 pt-2 pb-1 text-[10px] font-black uppercase tracking-wider text-slate-400">{group.name}</div>
                             {group.items.map(p => (
-                              <SelectItem key={p.id} value={p.id} className="rounded-xl py-2.5 pl-3 pr-3 focus:bg-violet-50 focus:text-violet-700 transition-colors">
+                              <SelectItem key={p.id} value={p.id} className="rounded-xl py-2.5 pl-3 pr-3 focus:bg-violet-50 focus:text-violet-700 transition-colors"
+                                extra={perspectiveNumbers.get(p.id) && (
+                                  <span className="ml-auto pl-3 text-[10px] font-bold text-slate-400 whitespace-nowrap">
+                                    {perspectiveNumbers.get(p.id)}
+                                  </span>
+                                )}>
                                 <span className="flex items-center gap-2">
                                   <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: p.color || '#94a3b8' }} />
                                   <span className="font-semibold text-xs truncate">{p.name}</span>
@@ -1241,31 +1420,31 @@ export default function KpiFormModal({
                 {selectedPerspMissing && (
                   <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400 flex items-start gap-1.5 mt-1.5">
                     <span className="shrink-0">⚠</span>
-                    Hạng mục đang gán <b>chưa có trong thẻ điểm</b> của đơn vị bạn chọn ⇒ KPI sẽ <b>không tính vào điểm BSC</b>. Hãy thêm hạng mục này vào thẻ điểm cho phòng ban đó.
+                    Hạng mục đang gán <b>chưa có trong bộ tiêu chí</b> của đơn vị bạn chọn ⇒ KPI sẽ <b>không tính vào điểm BSC</b>. Hãy thêm hạng mục này vào bộ tiêu chí cho phòng ban đó.
                   </p>
                 )}
                 {availablePerspectiveIds && !formKpiPeriodId && (
                   <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400 flex items-start gap-1.5 mt-1.5">
                     <span className="shrink-0">⚠</span>
-                    Hãy <b>chọn Đợt đánh giá trước</b> — hạng mục hiện theo thẻ điểm của đợt + đơn vị.
+                    Hãy <b>chọn Đợt đánh giá trước</b> — hạng mục hiện theo bộ tiêu chí của đợt + đơn vị.
                   </p>
                 )}
                 {availablePerspectiveIds && formKpiPeriodId && !periodHasScorecard && (
                   <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400 flex items-start gap-1.5 mt-1.5">
                     <span className="shrink-0">⚠</span>
-                    Đợt này <b>chưa có thẻ điểm BSC</b> — hãy tạo thẻ điểm cho đợt (gồm các hạng mục) thì mới chọn được hạng mục.
+                    Đợt này <b>chưa có bộ tiêu chí BSC</b> — hãy tạo bộ tiêu chí cho đợt (gồm các hạng mục) thì mới chọn được hạng mục.
                   </p>
                 )}
                 {availablePerspectiveIds && formKpiPeriodId && periodHasScorecard && !hasRealUnit && (
                   <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400 flex items-start gap-1.5 mt-1.5">
                     <span className="shrink-0">⚠</span>
-                    Hãy <b>chọn Đơn vị thực hiện trước</b> — hạng mục hiện theo thẻ điểm của đơn vị đó.
+                    Hãy <b>chọn Đơn vị thực hiện trước</b> — hạng mục hiện theo bộ tiêu chí của đơn vị đó.
                   </p>
                 )}
                 {availablePerspectiveIds && periodHasScorecard && hasRealUnit && filteredGroupedPerspectives.length === 0 && (
                   <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400 flex items-start gap-1.5 mt-1.5">
                     <span className="shrink-0">⚠</span>
-                    Thẻ điểm của phòng ban bạn chọn <b>chưa có hạng mục nào</b> — hãy thêm hạng mục vào thẻ điểm cho phòng ban đó trước.
+                    Bộ tiêu chí của phòng ban bạn chọn <b>chưa có hạng mục nào</b> — hãy thêm hạng mục vào bộ tiêu chí cho phòng ban đó trước.
                   </p>
                 )}
               </div>
@@ -1307,5 +1486,15 @@ export default function KpiFormModal({
         {formBody}
       </div>
     </div>
+  )
+}
+
+/** Thẻ nhỏ hiện một thông số của gợi ý AI (mục tiêu, trọng số, tần suất). */
+function SuggestionChip({ label, value }: { label: string; value: string }) {
+  return (
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-md bg-blue-50 dark:bg-blue-900/20 border border-blue-100 dark:border-blue-800/50 text-[9px] font-bold text-blue-700 dark:text-blue-300">
+      <span className="uppercase tracking-widest opacity-60">{label}</span>
+      {value}
+    </span>
   )
 }

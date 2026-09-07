@@ -26,4 +26,8 @@ public interface ObjectiveRepository extends JpaRepository<Objective, UUID> {
     boolean existsByOrganizationIdAndCode(UUID organizationId, String code);
 
     boolean existsByOrganizationIdAndCodeAndIdNot(UUID organizationId, String code, UUID id);
+
+    /** Chỉ lấy cột mã — dùng để suy ra số thứ tự kế tiếp khi sinh mã tự động. */
+    @Query("SELECT o.code FROM Objective o WHERE o.organization.id = :orgId AND o.code IS NOT NULL")
+    List<String> findCodesByOrganizationId(@Param("orgId") UUID orgId);
 }

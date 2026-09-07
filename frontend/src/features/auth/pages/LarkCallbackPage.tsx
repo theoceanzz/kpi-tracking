@@ -25,7 +25,7 @@ export default function LarkCallbackPage() {
     },
     onSuccess: (result) => {
       sessionStorage.setItem(LARK_CONNECT_RESULT_KEY, JSON.stringify(result))
-      navigate('/settings')
+      navigate('/company?section=api')
     },
     onError: (err: any) => {
       setError(err.response?.data?.message || err.message || 'Không kết nối được với Lark.')
@@ -84,7 +84,7 @@ export default function LarkCallbackPage() {
             <h1 className="text-2xl font-black text-[var(--color-foreground)]">Không thành công</h1>
             <p className="mt-2 text-sm text-[var(--color-muted-foreground)]">{message}</p>
             <Link
-              to={user ? '/settings' : '/login'}
+              to={user ? '/company?section=api' : '/login'}
               className="mt-6 inline-flex w-full items-center justify-center rounded-xl bg-[var(--color-primary)] py-3.5 font-bold text-white transition-all hover:shadow-lg hover:shadow-[var(--color-primary)]/20"
             >
               {user ? 'Quay lại cài đặt' : 'Quay lại đăng nhập'}

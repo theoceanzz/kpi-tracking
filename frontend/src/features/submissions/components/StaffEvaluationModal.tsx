@@ -1,6 +1,10 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { submissionApi } from '../api/submissionApi'
+import { createStaffEvaluationSchema, type StaffEvaluationFormData } from '../schemas/submissionSchema'
+import { firstErrorMessage } from '@/lib/formErrors'
 import { evaluationApi } from '@/features/evaluations/api/evaluationApi'
 import { toast } from 'sonner'
 import {
@@ -13,8 +17,10 @@ import { useAuthStore } from '@/store/authStore'
 import { formatNumber, cn } from '@/lib/utils'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 
-import { getScoringFunctions } from '@/lib/scoring'
+import { getScoringFunctions, SCORING_POOL } from '@/lib/scoring'
 import EvaluationFormModal from '@/features/evaluations/components/EvaluationFormModal'
+import RewardPrompt from '@/features/rewards/components/RewardPrompt'
+import ConductInlineSheet from '@/features/conduct/components/ConductInlineSheet'
 
 interface StaffEvaluationModalProps {
   open: boolean
@@ -69,10 +75,35 @@ export default function StaffEvaluationModal({
   const qualitativeLevels = [...(org?.qualitativeLevels ?? [])].sort((a, b) => a.position - b.position)
   const userRoleName = user?.memberships?.[0]?.roleName || 'Quản lý'
   const qc = useQueryClient()
-  const [individualScores, setIndividualScores] = useState<Record<string, number>>({})
-  const [individualLevels, setIndividualLevels] = useState<Record<string, string>>({})
-  const [overallComment, setOverallComment] = useState(evaluationComment || '')
-  const [finalScore, setFinalScore] = useState(0)
+  // Trần điểm và danh sách KPI định tính chỉ có sau khi truy vấn trả về, tức là sau khi
+  // form đã dựng — giữ trong ref để schema đọc lúc kiểm tra thay vì dựng lại schema.
+  const scoreCeilingRef = useRef(0)
+  const qualitativeIdsRef = useRef<string[]>([])
+  const schema = useMemo(
+    () => createStaffEvaluationSchema({
+      get qualitativeIds() { return qualitativeIdsRef.current },
+      getScoreCeiling: () => scoreCeilingRef.current,
+    }),
+    [],
+  )
+
+  const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<StaffEvaluationFormData>({
+    resolver: zodResolver(schema),
+    defaultValues: {
+      individualScores: {}, individualLevels: {},
+      overallComment: evaluationComment || '', finalScore: 0,
+    },
+  })
+
+  // Cả bảng chấm tính lại theo từng ô vừa sửa (điểm hành vi, tổng điểm, xếp loại ma trận).
+  const individualScores = watch('individualScores')
+  const individualLevels = watch('individualLevels')
+  const finalScore = watch('finalScore')
+  const setIndividualScores = (next: Record<string, number>) =>
+    setValue('individualScores', next, { shouldValidate: true })
+  const setIndividualLevels = (next: Record<string, string>) =>
+    setValue('individualLevels', next, { shouldValidate: true })
+  const setFinalScore = (next: number) => setValue('finalScore', next, { shouldValidate: true })
   const hasManuallyAdjustedFinal = useRef(false)
 
   const getGrade = (score: number) => {
@@ -107,24 +138,35 @@ export default function StaffEvaluationModal({
   })
   const bscScore = scorePreview?.bscScore ?? null
   const isBscOfficial = scorePreview?.bscScoringMode === 'OFFICIAL' && bscScore != null
+  // KPI thưởng nằm ngoài pool 100% nên điểm của nó cộng THÊM lên trên thang điểm — trần thật
+  // lấy từ backend để khớp đúng giới hạn mà createEvaluation kiểm tra khi lưu.
+  const scoreCeiling = scorePreview?.maxAllowedScore ?? maxScore
+  scoreCeilingRef.current = scoreCeiling
+  const bonusScore = scorePreview?.bonusScore ?? 0
 
   const submissionList = submissions?.content ?? []
+  qualitativeIdsRef.current = submissionList.filter(s => s.kpiType === 'QUALITATIVE').map(s => s.id)
 
   // Full-qualitative: the staff member has only qualitative KPIs, so KPI completion defaults to
-  // 100% -> the final 0..100 score is locked to maxScore (in sync with "100% hoàn thành"),
+  // 100% -> the final score is locked to the full scoring pool (in sync with "100% hoàn thành"),
   // matching EvaluationFormModal's self-score behaviour.
   const isFullQualitative = submissionList.length > 0 && submissionList.every(s => s.kpiType === 'QUALITATIVE')
   // KHÔNG làm tròn: backend lưu đúng bsc_score (vd 82.5) nên UI phải hiện y hệt, tránh lệch 83 vs 82.5.
   const effectiveFinalScore = isBscOfficial
     ? (scorePreview?.officialScore ?? bscScore!)
-    : (isFullQualitative ? maxScore : finalScore)
+    : (isFullQualitative ? SCORING_POOL : finalScore)
 
   // ── Chiều ĐỊNH TÍNH & xếp loại ma trận (để người chấm hiểu điểm cuối từ đâu ra) ──
   const hasQualitative = submissionList.some(s => s.kpiType === 'QUALITATIVE')
 
   // Điểm hành vi tính LIVE theo mức đang chọn (trung bình có trọng số),
   // khớp công thức calculateBehaviorScore() ở backend.
+  //
+  // Không có KPI định tính nào để chấm tay ⇒ lấy đúng con số server đã tính trong
+  // scorePreview: khi tổ chức bật chấm hạnh kiểm, đó chính là điểm hạnh kiểm đã quy về
+  // thang hành vi 0..5 để lấp trục hàng của ma trận.
   const behaviorLive = useMemo(() => {
+    if (!hasQualitative) return scorePreview?.behaviorScore ?? null
     let sum = 0, totalWeight = 0
     for (const s of submissionList) {
       if (s.kpiType !== 'QUALITATIVE') continue
@@ -136,11 +178,13 @@ export default function StaffEvaluationModal({
       totalWeight += weight
     }
     return totalWeight > 0 ? Math.round((sum / totalWeight) * 100) / 100 : null
-  }, [submissionList, individualLevels, qualitativeLevels])
+  }, [submissionList, individualLevels, qualitativeLevels, hasQualitative, scorePreview?.behaviorScore])
 
   // Trục cột của ma trận: % hoàn thành định lượng (không đổi theo thao tác chấm tay).
-  // Không có KPI định lượng ⇒ mặc định 100%.
-  const completionPercent = scorePreview?.kpiCompletionPercent ?? (isFullQualitative ? 100 : null)
+  // Không có KPI định lượng ⇒ TRỐNG, và ma trận không xếp loại. Một loại KPI chỉ cấp được
+  // một trục; muốn đủ hai trục thì tổ chức phải bật chấm hạnh kiểm — khi đó server đã trả
+  // sẵn trục cột đã quy đổi trong kpiCompletionPercent.
+  const completionPercent = scorePreview?.kpiCompletionPercent ?? null
 
   const matrixLive = useMemo(
     () => lookupMatrixRating(behaviorLive, completionPercent, org?.performanceMatrix),
@@ -175,15 +219,15 @@ export default function StaffEvaluationModal({
   useEffect(() => {
     const evalData = existingEval?.content?.[0]
     if (evalData?.comment) {
-      setOverallComment(evalData.comment)
+      setValue('overallComment', evalData.comment)
     } else if (evaluationComment) {
-      setOverallComment(evaluationComment)
+      setValue('overallComment', evaluationComment)
     }
     if (evalData?.score != null) {
       setFinalScore(evalData.score)
       hasManuallyAdjustedFinal.current = true
     }
-  }, [existingEval, evaluationComment])
+  }, [existingEval, evaluationComment, setValue])
 
   // Calculation logic (quantitative only, normalized to fill the 0..100 pool)
   const totalAutoScore = useMemo(() =>
@@ -196,7 +240,7 @@ export default function StaffEvaluationModal({
   [individualScores, submissionList])
 
   // Final score slider starts at the sum of the per-KPI scores above, then can be
-  // dragged independently within [0, maxScore] without being tied back to those scores.
+  // dragged independently within [0, scoreCeiling] without being tied back to those scores.
   useEffect(() => {
     if (!hasManuallyAdjustedFinal.current) {
       setFinalScore(totalManagerScore)
@@ -211,7 +255,7 @@ export default function StaffEvaluationModal({
 
   // Bulk review mutation
   const submitMutation = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (data: StaffEvaluationFormData) => {
       // 1. Bulk Review Submissions — skip when the staff member has no submissions
       let reviewResults: Awaited<ReturnType<typeof submissionApi.bulkReview>> = []
       if (submissionList.length > 0) {
@@ -220,9 +264,9 @@ export default function StaffEvaluationModal({
           commonReview: { status: 'APPROVED', reviewNote: 'Phê duyệt tổng hợp qua bảng đánh giá' },
           individualReviews: submissionList.map(s =>
             s.kpiType === 'QUALITATIVE'
-              ? { submissionId: s.id, qualitativeLevelId: individualLevels[s.id] }
+              ? { submissionId: s.id, qualitativeLevelId: data.individualLevels[s.id] }
               // De-normalize back to the raw weight scale for storage.
-              : { submissionId: s.id, managerScore: (individualScores[s.id] ?? 0) / normFactor }
+              : { submissionId: s.id, managerScore: (data.individualScores[s.id] ?? 0) / normFactor }
           ).filter(ir => ('managerScore' in ir && ir.managerScore != null) || ('qualitativeLevelId' in ir && ir.qualitativeLevelId != null))
         })
       }
@@ -232,7 +276,7 @@ export default function StaffEvaluationModal({
         userId,
         kpiPeriodId: periodId,
         score: effectiveFinalScore,
-        comment: overallComment || `${userRoleName} đánh giá kết quả đợt ${periodName}`
+        comment: data.overallComment || `${userRoleName} đánh giá kết quả đợt ${periodName}`
       })
 
       return reviewResults
@@ -246,7 +290,11 @@ export default function StaffEvaluationModal({
         toast.success('Đã hoàn tất đánh giá và phê duyệt cho nhân viên')
         setShowAllApproved(true)
       } else {
-        onClose()
+        // Chốt xong mới mời thưởng, ngay tại đây — đây là lúc người chấm còn nhớ rõ
+        // nhất vì sao nhân viên xứng đáng. RewardPrompt tự ẩn nếu tổ chức tắt tính năng
+        // hoặc người chấm không có quyền trao, nên không cản luồng của ai.
+        toast.success('Đã chốt đánh giá cho nhân viên')
+        setJustEvaluated(true)
       }
     },
     onError: () => {
@@ -254,6 +302,7 @@ export default function StaffEvaluationModal({
     }
   })
 
+  const [justEvaluated, setJustEvaluated] = useState(false)
   const [showAllApproved, setShowAllApproved] = useState(false)
   const [showEvalForm, setShowEvalForm] = useState(false)
 
@@ -392,7 +441,7 @@ export default function StaffEvaluationModal({
                             {s.kpiType === 'QUALITATIVE' ? (
                               <select
                                 value={individualLevels[s.id] ?? ''}
-                                onChange={e => setIndividualLevels(prev => ({ ...prev, [s.id]: e.target.value }))}
+                                onChange={e => setIndividualLevels({ ...individualLevels, [s.id]: e.target.value })}
                                 disabled={readOnly}
                                 className={cn(
                                   "w-40 px-2 py-2 rounded-xl text-xs font-bold outline-none transition-all",
@@ -410,7 +459,7 @@ export default function StaffEvaluationModal({
                             <input
                               type="number"
                               value={individualScores[s.id] ?? 0}
-                              onChange={e => setIndividualScores(prev => ({ ...prev, [s.id]: Number(e.target.value) }))}
+                              onChange={e => setIndividualScores({ ...individualScores, [s.id]: Number(e.target.value) })}
                               onWheel={(e) => e.currentTarget.blur()}
                               disabled={readOnly}
                               className={cn(
@@ -510,7 +559,7 @@ export default function StaffEvaluationModal({
                                 {s.kpiType === 'QUALITATIVE' ? (
                                   <select
                                     value={individualLevels[s.id] ?? ''}
-                                    onChange={e => setIndividualLevels(prev => ({ ...prev, [s.id]: e.target.value }))}
+                                    onChange={e => setIndividualLevels({ ...individualLevels, [s.id]: e.target.value })}
                                     disabled={readOnly}
                                     className={cn(
                                       "w-44 px-3 py-2 rounded-xl text-sm font-bold outline-none transition-all",
@@ -529,7 +578,7 @@ export default function StaffEvaluationModal({
                                   <input
                                     type="number"
                                     value={individualScores[s.id] ?? 0}
-                                    onChange={e => setIndividualScores(prev => ({ ...prev, [s.id]: Number(e.target.value) }))}
+                                    onChange={e => setIndividualScores({ ...individualScores, [s.id]: Number(e.target.value) })}
                                     onWheel={(e) => e.currentTarget.blur()}
                                     disabled={readOnly}
                                     className={cn(
@@ -560,8 +609,7 @@ export default function StaffEvaluationModal({
                       <MessageSquare size={14} /> Nhận xét chung của {userRoleName}
                     </label>
                     <textarea 
-                      value={overallComment}
-                      onChange={e => setOverallComment(e.target.value)}
+                      {...register('overallComment')}
                       rows={4}
                       disabled={readOnly}
                       className={cn(
@@ -700,8 +748,8 @@ export default function StaffEvaluationModal({
                           hiểu phần định tính đóng góp gì, thay vì chỉ thấy điểm định lượng. */}
 
                       {/* Final score adjustment slider - starts at the sum of per-KPI scores,
-                          can be dragged independently within [0, maxScore].
-                          Full-qualitative locks the score to maxScore instead. */}
+                          can be dragged independently within [0, scoreCeiling].
+                          Full-qualitative locks the score to the full scoring pool instead. */}
                       {isBscOfficial ? (
                         <div className="pt-6 border-t border-white/10 relative z-10 space-y-2">
                            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 backdrop-blur-md text-[10px] font-black uppercase tracking-widest whitespace-nowrap">
@@ -715,13 +763,13 @@ export default function StaffEvaluationModal({
                       ) : isFullQualitative ? (
                         <div className="pt-6 border-t border-white/10 relative z-10">
                            <div className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-white/10 backdrop-blur-md text-[10px] font-black uppercase tracking-widest whitespace-nowrap">
-                              <Lock size={12} className="shrink-0" /> Full định tính · Cố định điểm {maxScore}
+                              <Lock size={12} className="shrink-0" /> Full định tính · Cố định điểm {SCORING_POOL}
                            </div>
                         </div>
                       ) : (
                       <div className="pt-2 relative z-10 space-y-3">
                          <input
-                           type="range" min={0} max={maxScore} step={1}
+                           type="range" min={0} max={scoreCeiling} step={1}
                            value={finalScore}
                            onChange={(e) => {
                              if (readOnly) return
@@ -731,11 +779,21 @@ export default function StaffEvaluationModal({
                            disabled={readOnly}
                            className="w-full accent-white h-2 bg-white/20 rounded-full appearance-none cursor-pointer disabled:cursor-not-allowed"
                          />
+                         {firstErrorMessage(errors) && (
+                           <p className="text-[9px] font-black text-rose-200 uppercase tracking-widest">
+                             {firstErrorMessage(errors)}
+                           </p>
+                         )}
                          <div className="flex justify-between text-[9px] font-black text-indigo-200 uppercase tracking-widest">
                             <span>0</span>
-                            <span>{Math.round(maxScore / 2)}</span>
-                            <span>{maxScore}</span>
+                            <span>{Math.round(scoreCeiling / 2)}</span>
+                            <span>{scoreCeiling}</span>
                          </div>
+                         {bonusScore > 0 && (
+                           <p className="text-[9px] font-black text-emerald-300 uppercase tracking-widest">
+                             Đạt đủ KPI = {SCORING_POOL} điểm · thưởng thêm {bonusScore}
+                           </p>
+                         )}
                       </div>
                       )}
 
@@ -749,7 +807,27 @@ export default function StaffEvaluationModal({
               </div>
             </>
           )}
+
+          {/* Hạnh kiểm chấm ngay trong phiếu của đợt: điểm này chính là trục "Hành vi" của
+              ma trận phía trên, nên chấm xong là thấy xếp loại đổi tại chỗ. Không phụ thuộc
+              bài nộp — nhân viên không nộp gì vẫn phải có điểm hành vi. */}
+          {!isLoading && org?.enableConduct && (
+            <ConductInlineSheet target={{ scope: 'PERIOD', periodId, cycleId: null }} userId={userId} />
+          )}
         </div>
+
+        {/* Chốt đánh giá xong thì mời thưởng ngay tại chỗ, trước khi người dùng đóng
+            modal và quên mất. */}
+        {justEvaluated && (
+          <div className="shrink-0 border-t border-slate-100 px-4 py-4 dark:border-slate-800 sm:px-8">
+            <RewardPrompt
+              userId={userId}
+              fullName={userName}
+              defaultReason={`Kết quả tốt trong đợt${periodName ? ` ${periodName}` : ''}`}
+              onDone={onClose}
+            />
+          </div>
+        )}
 
         {/* Footer */}
         {!readOnly && (
@@ -768,17 +846,19 @@ export default function StaffEvaluationModal({
                 onClick={onClose}
                 className="flex-1 sm:flex-none px-5 sm:px-8 py-3 sm:py-4 rounded-2xl text-xs font-black uppercase tracking-widest text-slate-400 hover:bg-slate-100 transition-all whitespace-nowrap"
               >
-                Hủy bỏ
+                {justEvaluated ? 'Đóng' : 'Hủy bỏ'}
               </button>
-              <button
-                onClick={() => submitMutation.mutate()}
-                disabled={submitMutation.isPending || (submissionList.length === 0 && !periodEnded)}
-                className="flex-1 sm:flex-none px-5 sm:px-10 py-3 sm:py-4 rounded-2xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-black uppercase tracking-[2px] shadow-xl hover:bg-indigo-600 dark:hover:bg-indigo-50 transition-all flex items-center justify-center gap-2 sm:gap-3 active:scale-95 disabled:opacity-50 disabled:scale-100 whitespace-nowrap"
-              >
-                {submitMutation.isPending ? <Loader2 size={16} className="animate-spin shrink-0" /> : <CheckCircle size={16} className="shrink-0 sm:w-[18px] sm:h-[18px]" />}
-                <span className="sm:hidden">Phê duyệt & Chốt</span>
-                <span className="hidden sm:inline">PHÊ DUYỆT & CHỐT ĐÁNH GIÁ</span>
-              </button>
+              {!justEvaluated && (
+                <button
+                  onClick={handleSubmit(data => submitMutation.mutate(data))}
+                  disabled={submitMutation.isPending || (submissionList.length === 0 && !periodEnded)}
+                  className="flex-1 sm:flex-none px-5 sm:px-10 py-3 sm:py-4 rounded-2xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-black uppercase tracking-[2px] shadow-xl hover:bg-indigo-600 dark:hover:bg-indigo-50 transition-all flex items-center justify-center gap-2 sm:gap-3 active:scale-95 disabled:opacity-50 disabled:scale-100 whitespace-nowrap"
+                >
+                  {submitMutation.isPending ? <Loader2 size={16} className="animate-spin shrink-0" /> : <CheckCircle size={16} className="shrink-0 sm:w-[18px] sm:h-[18px]" />}
+                  <span className="sm:hidden">Phê duyệt & Chốt</span>
+                  <span className="hidden sm:inline">PHÊ DUYỆT & CHỐT ĐÁNH GIÁ</span>
+                </button>
+              )}
            </div>
         </div>
         )}

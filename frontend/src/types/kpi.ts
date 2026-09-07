@@ -31,6 +31,8 @@ export interface KpiCycle {
   periodCount: number
 }
 
+export type KpiCyclePayload = Partial<KpiCycle> & { periodIds?: string[] }
+
 // Đánh giá kỳ của 1 nhân viên (TB các đợt). Matches BE: CycleUserEvaluationResponse
 export interface CyclePeriodBreakdown {
   periodId: string
@@ -49,6 +51,7 @@ export interface CyclePeriodBreakdown {
 export interface CycleUserEvaluation {
   userId: string
   userName: string
+  userAvatarUrl: string | null
   orgUnitId: string | null
   orgUnitName: string | null
   mode: CycleEvaluationMode
@@ -87,11 +90,70 @@ export interface CycleUnitEvaluation {
   memberCount: number
   /** true khi các con số là snapshot lúc chốt, không phải tính lại. */
   fromSnapshot: boolean
+  /**
+   * Xếp loại ĐƠN VỊ trong kỳ (áp luật xếp loại lên phân bố mức của thành viên).
+   * Bản nháp tính live; đã chốt thì lấy bản chụp lúc chốt. Null khi chưa ai có điểm kỳ.
+   */
+  classification: string | null
+  classificationColor: string | null
+  /** Hồ sơ luật đã áp (theo đơn vị + hiệu lực theo kỳ); null = dùng preset. */
+  classificationProfileName: string | null
   status: CycleUnitEvalStatus
   comment: string | null
   finalizedByName: string | null
   finalizedAt: string | null
   members: CycleUserEvaluation[]
+}
+
+export type CycleUnitEvalAction = 'FINALIZE' | 'REOPEN'
+
+/** Một mốc lịch sử chốt/mở khoá. Matches BE: CycleUnitEvalEventResponse */
+export interface CycleUnitEvalEvent {
+  action: CycleUnitEvalAction
+  actorName: string | null
+  actorRoleName: string | null
+  managerScore: number | null
+  comment: string | null
+  createdAt: string
+}
+
+/**
+ * Một bước trong chuỗi duyệt: đơn vị đang xem rồi lần lượt các đơn vị cha lên gốc.
+ * Matches BE: CycleApprovalStepResponse
+ */
+export interface CycleApprovalStep {
+  orgUnitId: string
+  orgUnitName: string
+  /** Nhãn người đứng đầu đơn vị, VD "Trưởng phòng", "Giám đốc". */
+  managerRoleLabel: string | null
+  levelOrder: number | null
+  /** true với đơn vị đang được xem trên trang. */
+  current: boolean
+  status: CycleUnitEvalStatus
+  managerScore: number | null
+  qualScore: number | null
+  matrixRating: number | null
+  memberCount: number | null
+  finalizedByName: string | null
+  finalizedByRoleName: string | null
+  finalizedAt: string | null
+  comment: string | null
+  /** Tiến độ chốt của các đơn vị con trực tiếp. */
+  childTotal: number
+  childFinalized: number
+  /** Quyền của người dùng hiện tại, đã tính sẵn ở server. */
+  canFinalize: boolean
+  canReopen: boolean
+  /** Lý do bị chặn — hiện lên tooltip của nút. Null khi không bị chặn. */
+  blockedReason: string | null
+  events: CycleUnitEvalEvent[]
+}
+
+/** Kết quả gửi email hàng loạt. Matches BE: SendCycleEvaluationResult */
+export interface SendEvaluationResult {
+  sent: number
+  /** Tên những người gửi hỏng (sai email, SMTP chặn...). */
+  failed: string[]
 }
 
 // Matches BE: KpiCriteriaResponse

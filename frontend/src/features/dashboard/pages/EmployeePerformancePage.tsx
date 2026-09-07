@@ -1,9 +1,10 @@
 import { useState } from 'react'
 import { useParams, Link } from 'react-router-dom'
 import StatusBadge from '@/components/common/StatusBadge'
+import UserAvatar from '@/components/common/UserAvatar'
 import { useEmployeeProgress } from '../hooks/useEmployeeProgress'
 import { useUsers } from '@/features/users/hooks/useUsers'
-import { formatDateTime, getInitials, cn } from '@/lib/utils'
+import { formatDateTime, cn } from '@/lib/utils'
 import {
   Target, Clock, CheckCircle, Sparkles,
   ChevronLeft, ChevronRight, TrendingUp, AlertCircle, Bell, Calendar
@@ -113,9 +114,12 @@ export default function EmployeePerformancePage() {
               
               <div className="flex items-center gap-4 md:gap-5">
                 <div className="relative shrink-0">
-                  <div className="w-14 h-14 md:w-20 md:h-20 rounded-[20px] md:rounded-[24px] bg-gradient-to-br from-indigo-600 to-purple-600 flex items-center justify-center text-lg md:text-2xl font-black text-white shadow-lg shadow-indigo-500/20">
-                    {getInitials(employee?.fullName ?? 'U')}
-                  </div>
+                  <UserAvatar
+                    fullName={employee?.fullName}
+                    avatarUrl={employee?.avatarUrl}
+                    className="w-14 h-14 md:w-20 md:h-20 rounded-[20px] md:rounded-[24px] shadow-lg shadow-indigo-500/20"
+                    fallbackClassName="bg-gradient-to-br from-indigo-600 to-purple-600 text-lg md:text-2xl font-black text-white"
+                  />
                   <div className="absolute -bottom-0.5 -right-0.5 w-5 h-5 md:w-6 md:h-6 rounded-full bg-emerald-500 border-[3px] md:border-4 border-white dark:border-slate-900 shadow-sm" />
                 </div>
                 

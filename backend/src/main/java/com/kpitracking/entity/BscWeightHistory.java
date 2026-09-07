@@ -9,7 +9,7 @@ import java.time.Instant;
 import java.util.UUID;
 
 /**
- * Lịch sử đổi trọng số viễn cảnh trong một thẻ điểm — phục vụ truy vết khi tranh chấp điểm.
+ * Lịch sử đổi trọng số lĩnh vực trong một bộ tiêu chí — phục vụ truy vết khi tranh chấp điểm.
  * Ghi lại giá trị cũ/mới + người đổi (audit updated_at thông thường không lưu được).
  */
 @Entity

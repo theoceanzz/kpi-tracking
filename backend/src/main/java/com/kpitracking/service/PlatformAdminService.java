@@ -148,6 +148,8 @@ public class PlatformAdminService {
                 .enableWaterfall(org.getEnableWaterfall())
                 .enableQualitative(org.getEnableQualitative())
                 .enableBsc(org.getEnableBsc())
+                .enableReward(org.getEnableReward())
+                .enableCashWallet(org.getEnableCashWallet())
                 .userCount(userCount)
                 .aiMonthlyTokenLimit(org.getAiMonthlyTokenLimit())
                 .createdAt(org.getCreatedAt())

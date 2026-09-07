@@ -328,7 +328,7 @@ export default function AiAssistantWidget() {
     return (
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 w-14 h-14 bg-violet-600 hover:bg-violet-700 text-white rounded-full shadow-lg shadow-violet-200 dark:shadow-none flex items-center justify-center transition-transform hover:scale-110 z-50 group"
+        className="fixed bottom-6 right-6 w-14 h-14 bg-violet-600 hover:bg-violet-700 text-white rounded-full shadow-lg shadow-violet-200 dark:shadow-none flex items-center justify-center transition-transform hover:scale-110 z-[1200] group"
       >
         <Bot size={24} />
         <span className="absolute right-full mr-4 bg-slate-800 text-white text-xs px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
@@ -342,8 +342,16 @@ export default function AiAssistantWidget() {
     <div
       {...dropProps()}
       className={cn(
-        'fixed right-3 bottom-3 sm:right-6 sm:bottom-6 w-[calc(100vw-1.5rem)] sm:w-[450px] bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden transition-all duration-300 z-500',
-        isMinimized ? 'h-[60px]' : 'h-[700px] max-h-[85vh]',
+        // Bề ngang tăng theo cỡ màn: 450px trên laptop 13-14" là vừa, nhưng trên màn 27"
+        // thì đúng khối đó đọc thành một cái tem dán góc, trong khi bảng số liệu AI trả về
+        // lại là thứ cần bề ngang nhất.
+        'fixed right-3 bottom-3 sm:right-6 sm:bottom-6 w-[calc(100vw-1.5rem)] sm:w-[420px] xl:w-[460px] 2xl:w-[520px] bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden transition-all duration-300 z-[1200]',
+        // Chiều cao lấy theo chỗ CÒN LẠI trước, rồi mới chặn trần theo cỡ màn. Cách cũ
+        // (`h-[700px] max-h-[85vh]`) tính 85% của cả khung nhìn nên trên màn 768px cao,
+        // panel trùm lên tận header: 85vh = 653px + 24px lề dưới, chỉ chừa 91px.
+        // `100dvh` chứ không phải `100vh` để trên trình duyệt di động không chui xuống dưới
+        // thanh địa chỉ. 6.5rem = 24px lề dưới + 64px header + 16px thở.
+        isMinimized ? 'h-[60px]' : 'h-[calc(100dvh-6.5rem)] max-h-[640px] xl:max-h-[720px] 2xl:max-h-[840px]',
         isDragActive && 'ring-2 ring-[var(--color-ai)] ring-offset-2',
       )}
     >
@@ -359,13 +367,16 @@ export default function AiAssistantWidget() {
         className="h-[60px] bg-violet-600 px-4 flex items-center justify-between shrink-0 cursor-pointer select-none"
         onClick={() => setIsMinimized(!isMinimized)}
       >
-        <div className="flex items-center gap-3">
-          <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white">
+        {/* `min-w-0` + `truncate`: hạn mức đầy đủ ("Còn 1.000.000/1.000.000 token tháng này")
+            dài hơn cả nửa bề ngang panel, không cắt được thì nó đẩy bốn nút điều khiển tràn
+            ra ngoài mép phải. */}
+        <div className="flex items-center gap-3 min-w-0 flex-1">
+          <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white shrink-0">
             <Bot size={18} />
           </div>
-          <div>
+          <div className="min-w-0">
             <h3 className="text-white font-bold text-sm">Trợ lý AI</h3>
-            <p className="text-violet-200 text-[10px]">
+            <p className="text-violet-200 text-[10px] truncate">
               {quota
                 ? `Còn ${quota.remaining.toLocaleString('vi-VN')}/${quota.spendable.toLocaleString('vi-VN')} token tháng này`
                 : conversationIdRef.current
@@ -375,7 +386,7 @@ export default function AiAssistantWidget() {
           </div>
         </div>
 
-        <div className="flex items-center gap-1">
+        <div className="flex items-center gap-1 shrink-0">
           {/* New chat */}
           <button
             onClick={e => {

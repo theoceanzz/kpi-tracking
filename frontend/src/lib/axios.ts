@@ -2,14 +2,15 @@ import axios from 'axios'
 import { ENV } from '@/config/env'
 import { useAuthStore } from '@/store/authStore'
 
+export const XSRF_COOKIE_NAME = 'kg_csrf'
+
 const axiosInstance = axios.create({
   baseURL: ENV.API_BASE_URL,
   timeout: 100000,
   headers: { 'Content-Type': 'application/json' },
-  // Access token và refresh token nằm trong cookie HttpOnly do backend cấp: JavaScript không
-  // đọc được chúng, trình duyệt tự đính kèm. Cũng nhờ đó axios tự gửi header X-XSRF-TOKEN
-  // lấy từ cookie XSRF-TOKEN mà Spring Security phát ra.
   withCredentials: true,
+  withXSRFToken: true,
+  xsrfCookieName: XSRF_COOKIE_NAME,
 })
 
 let isRefreshing = false

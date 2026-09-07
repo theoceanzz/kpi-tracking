@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { useNavigate, Navigate } from 'react-router-dom'
 import { useForm, useWatch } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
+import { forceChangePasswordSchema, type ForceChangePasswordFormData } from '@/features/auth/schemas/authSchema'
 import { useMutation } from '@tanstack/react-query'
 import { authApi } from '@/features/auth/api/authApi'
 import { useAuthStore } from '@/store/authStore'
@@ -21,9 +23,10 @@ export default function ForceChangePasswordPage() {
   if (user && !user.requirePasswordChange) {
     return <Navigate to="/dashboard" replace />
   }
-  const { register, handleSubmit, watch, control, setValue } = useForm<{
-    newPassword: string; confirmPassword: string
-  }>()
+  const { register, handleSubmit, control, setValue } = useForm<ForceChangePasswordFormData>({
+    resolver: zodResolver(forceChangePasswordSchema),
+    defaultValues: { newPassword: '', confirmPassword: '' },
+  })
 
   const [showNew, setShowNew] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
@@ -99,10 +102,7 @@ export default function ForceChangePasswordPage() {
                     <Lock size={18} />
                   </div>
                   <input
-                    {...register('newPassword', {
-                      required: 'Vui lòng nhập mật khẩu mới',
-                      minLength: { value: 8, message: 'Tối thiểu 8 ký tự' },
-                    })}
+                    {...register('newPassword')}
                     type={showNew ? 'text' : 'password'}
                     className="w-full pl-12 pr-28 py-4 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 text-sm font-bold focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all"
                     placeholder="Đặt mật khẩu bảo mật của bạn"
@@ -162,10 +162,7 @@ export default function ForceChangePasswordPage() {
                     <CheckCircle2 size={18} />
                   </div>
                   <input
-                    {...register('confirmPassword', {
-                      required: 'Vui lòng xác nhận mật khẩu',
-                      validate: (v) => v === watch('newPassword') || 'Mật khẩu không khớp',
-                    })}
+                    {...register('confirmPassword')}
                     type={showConfirm ? 'text' : 'password'}
                     className="w-full pl-12 pr-12 py-4 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 text-sm font-bold focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all"
                     placeholder="Nhập lại mật khẩu mới"

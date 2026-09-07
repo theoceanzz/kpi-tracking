@@ -51,7 +51,9 @@ public class OrganizationService {
     private final com.kpitracking.mapper.EvaluationLevelMapper evaluationLevelMapper;
     private final com.kpitracking.repository.QualitativeLevelRepository qualitativeLevelRepository;
     private final com.kpitracking.mapper.QualitativeLevelMapper qualitativeLevelMapper;
+    private final ConductService conductService;
     private final BscService bscService;
+    private final CloudinaryStorageService cloudinaryStorageService;
 
     /** Whether qualitative KPIs are enabled for the given organization. */
     @Transactional(readOnly = true)
@@ -104,6 +106,10 @@ public class OrganizationService {
         qualitativeLevelRepository.saveAll(defaultQualitativeLevels);
         savedOrg.setQualitativeLevels(new ArrayList<>(defaultQualitativeLevels));
 
+        // Bộ tiêu chí hạnh kiểm mặc định (4 tiêu chí × 25%). Dựng sẵn kể cả khi tính năng
+        // đang tắt: bật lên là chấm được ngay, khỏi bắt người dùng tự gõ lại bộ chuẩn.
+        conductService.seedDefaultCriteria(savedOrg);
+
         // Add default performance rating matrix
         savedOrg.setPerformanceMatrix(com.kpitracking.constant.PerformanceMatrixConstants.DEFAULT_MATRIX_JSON);
         organizationRepository.save(savedOrg);
@@ -152,11 +158,35 @@ public class OrganizationService {
             organization.setStatus(OrganizationStatus.valueOf(request.getStatus().toUpperCase()));
         }
 
+        // Hồ sơ doanh nghiệp. Chuỗi rỗng được coi là "xoá trắng ô này" chứ không phải
+        // "giữ nguyên": giao diện gửi cả form, người dùng xoá ô thì phải mất thật.
+        if (request.getIndustry() != null) {
+            organization.setIndustry(blankToNull(request.getIndustry()));
+        }
+        if (request.getTaxCode() != null) {
+            organization.setTaxCode(blankToNull(request.getTaxCode()));
+        }
+        // Xét "khoá có mặt" chứ không xét "giá trị khác null": gửi null ở đây nghĩa là
+        // người dùng xoá trắng ô quy mô nhân sự, phải xoá thật.
+        if (request.isEmployeeCountPresent()) {
+            organization.setEmployeeCount(request.getEmployeeCount());
+        }
+        if (request.getDescription() != null) {
+            organization.setDescription(blankToNull(request.getDescription()));
+        }
+
         if (request.getHierarchyLevels() != null) {
             syncHierarchyLevels(organization, request.getHierarchyLevels());
         }
 
         if (request.getEvaluationMaxScore() != null) {
+            // Chấm luôn tối đa 100 (trọng số = điểm), thang điểm chỉ là mẫu số xếp loại — đặt
+            // thấp hơn 100 thì ai hoàn thành đủ KPI cũng kịch/vượt trần, xếp loại mất ý nghĩa.
+            if (request.getEvaluationMaxScore() < EvaluationService.SCORING_POOL) {
+                throw new BusinessException("Thang điểm tối đa phải từ "
+                        + (long) EvaluationService.SCORING_POOL + " trở lên, vì hoàn thành đủ 100% KPI đã là "
+                        + (long) EvaluationService.SCORING_POOL + " điểm.");
+            }
             organization.setEvaluationMaxScore(request.getEvaluationMaxScore());
         }
 
@@ -178,8 +208,32 @@ public class OrganizationService {
 
         if (request.getEnableBsc() != null) {
             organization.setEnableBsc(request.getEnableBsc());
-            // Không seed hạng mục mặc định nữa: 4 viễn cảnh cố định nằm ở bảng cha
-            // bsc_fixed_perspectives; org tự tạo hạng mục và gán vào 1 viễn cảnh.
+            // Không seed hạng mục mặc định nữa: 4 lĩnh vực cố định nằm ở bảng cha
+            // bsc_fixed_perspectives; org tự tạo hạng mục và gán vào 1 lĩnh vực.
+        }
+
+        if (request.getEnableConduct() != null) {
+            organization.setEnableConduct(request.getEnableConduct());
+            // Bật lần đầu mà chưa có bộ nào ⇒ dựng sẵn bộ 4 tiêu chí 25% để tổ chức vào là
+            // chấm được ngay; tắt rồi bật lại KHÔNG ghi đè bộ đã tuỳ chỉnh.
+            if (Boolean.TRUE.equals(request.getEnableConduct())) {
+                conductService.ensureDefaultSet(organization);
+            }
+        }
+
+        // Thang điểm hạnh kiểm nay thuộc về TỪNG BỘ tiêu chí (mỗi kỳ một thang riêng được),
+        // sửa ở /conduct/config chứ không còn là một con số của cả tổ chức.
+
+        if (request.getEnableReward() != null) {
+            // Tắt tính năng chỉ ẩn giao diện, KHÔNG đụng vào ví hay sổ cái: điểm đã
+            // phát là dữ liệu tài chính, bật lại phải thấy nguyên vẹn.
+            organization.setEnableReward(request.getEnableReward());
+        }
+
+        if (request.getEnableCashWallet() != null) {
+            // Cùng lý do như trên, và còn nặng hơn: đây là tiền thật. Tắt tính năng
+            // chỉ ẩn giao diện và chặn tạo đơn nạp mới, KHÔNG đụng vào số dư hay sổ cái.
+            organization.setEnableCashWallet(request.getEnableCashWallet());
         }
 
         if (request.getEvaluationLevels() != null) {
@@ -529,4 +583,47 @@ public class OrganizationService {
         }
         return sb.toString();
     }
+
+    /** Ô trống trong form là "không có giá trị", không phải chuỗi rỗng nằm trong DB. */
+    private String blankToNull(String value) {
+        String trimmed = value.trim();
+        return trimmed.isEmpty() ? null : trimmed;
+    }
+
+    /**
+     * Tải logo/ảnh bìa của công ty. Ảnh đi qua đây thay vì nhận URL trong body update:
+     * client không được phép trỏ nhận diện thương hiệu sang máy chủ bất kỳ.
+     */
+    @Transactional
+    public OrganizationResponse uploadBranding(UUID orgId, String kind, org.springframework.web.multipart.MultipartFile file)
+            throws java.io.IOException {
+        Organization organization = organizationRepository.findById(orgId)
+                .orElseThrow(() -> new ResourceNotFoundException("Tổ chức", "id", orgId));
+
+        if (file == null || file.isEmpty()) {
+            throw new BusinessException("Chưa chọn tập tin ảnh");
+        }
+        String contentType = file.getContentType();
+        if (contentType == null || !contentType.startsWith("image/")) {
+            throw new BusinessException("Tập tin phải là ảnh");
+        }
+        if (file.getSize() > MAX_BRANDING_IMAGE_BYTES) {
+            throw new BusinessException("Ảnh không được vượt quá 5MB");
+        }
+
+        boolean isCover = "cover".equalsIgnoreCase(kind);
+        if (!isCover && !"logo".equalsIgnoreCase(kind)) {
+            throw new BusinessException("Loại ảnh không hợp lệ: " + kind);
+        }
+
+        String url = cloudinaryStorageService.uploadFile(file, isCover ? "org-covers" : "org-logos").get("url");
+        if (isCover) {
+            organization.setCoverUrl(url);
+        } else {
+            organization.setLogoUrl(url);
+        }
+        return organizationMapper.toResponse(organizationRepository.save(organization));
+    }
+
+    private static final long MAX_BRANDING_IMAGE_BYTES = 5L * 1024 * 1024;
 }

@@ -57,6 +57,13 @@ public interface EvaluationRepository extends JpaRepository<Evaluation, UUID> {
     long countByOrgUnitPath(@Param("path") String path);
     @Query("SELECT COUNT(e) FROM Evaluation e WHERE e.orgUnit.id IN :orgUnitIds")
     long countByOrgUnitIdIn(@Param("orgUnitIds") java.util.Collection<UUID> orgUnitIds);
+
+    /** Số phiếu đánh giá tách theo ĐỢT (mới nhất trước) → [periodId, periodName, count]. */
+    @Query("SELECT kp.id, kp.name, COUNT(e.id) " +
+           "FROM Evaluation e JOIN e.kpiPeriod kp " +
+           "WHERE e.orgUnit.id IN :orgUnitIds " +
+           "GROUP BY kp.id, kp.name, kp.startDate ORDER BY kp.startDate DESC")
+    java.util.List<Object[]> countGroupByPeriodForOrgUnits(@Param("orgUnitIds") java.util.Collection<UUID> orgUnitIds);
     // ===== Analytics queries =====
 
     @Query("SELECT e FROM Evaluation e WHERE e.user.id = :userId ORDER BY e.createdAt DESC")
@@ -194,7 +201,7 @@ public interface EvaluationRepository extends JpaRepository<Evaluation, UUID> {
     long countByUserId(@Param("userId") UUID userId);
 
     // ============================================================
-    // Thống kê BSC (tab "Viễn cảnh"): gộp điểm bsc_score / system_score ĐÃ LƯU.
+    // Thống kê BSC (tab "Lĩnh vực"): gộp điểm bsc_score / system_score ĐÃ LƯU.
     // Evaluation có @SQLRestriction(deleted_at IS NULL) nên tự loại bản xoá mềm.
     // AVG bỏ NULL; COUNT(e.bscScore) = số đánh giá đã có điểm BSC.
     // ============================================================

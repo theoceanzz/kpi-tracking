@@ -11,15 +11,28 @@ import lombok.*;
 
 @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
 public class PerspectiveRequest {
-    @NotBlank(message = "Vui lòng nhập mã")
+    /**
+     * Bỏ trống nếu tổ chức bật sinh mã tự động — backend cấp mã theo mẫu của tổ chức.
+     * Vì vậy regex dùng {@code *} chứ không phải {@code +}: chuỗi rỗng phải qua được validate.
+     */
     @Size(max = 50, message = "Mã tối đa 50 ký tự")
-    @Pattern(regexp = "^[A-Za-z0-9_]+$", message = "Mã chỉ gồm chữ, số và dấu gạch dưới")
+    @Pattern(regexp = "^[A-Za-z0-9_]*$", message = "Mã chỉ gồm chữ, số và dấu gạch dưới")
     private String code;
 
-    @NotBlank(message = "Vui lòng nhập tên viễn cảnh")
+    @NotBlank(message = "Vui lòng nhập tên lĩnh vực")
     private String name;
 
     private String description;
+
+    /** Mục tiêu mong muốn — mức cần đạt của hạng mục. Bỏ trống nếu chưa đặt con số. */
+    private Double targetValue;
+
+    /** Kết quả tối thiểu — ngưỡng sàn chấp nhận được, không được lớn hơn mục tiêu mong muốn. */
+    private Double minimumValue;
+
+    /** Đơn vị tính của mục tiêu/tối thiểu. */
+    @Size(max = 50, message = "Đơn vị tính tối đa 50 ký tự")
+    private String unit;
 
     @Pattern(regexp = "^#([0-9A-Fa-f]{6})$", message = "Màu không hợp lệ")
     private String color;
@@ -31,6 +44,6 @@ public class PerspectiveRequest {
 
     private BscPerspectiveStatus status;
 
-    @NotNull(message = "Vui lòng chọn viễn cảnh cho hạng mục")
+    @NotNull(message = "Vui lòng chọn lĩnh vực cho hạng mục")
     private BscFixedPerspective fixedPerspective;
 }

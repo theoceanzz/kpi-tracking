@@ -6,11 +6,14 @@ import EvaluationDetailModal from '@/features/evaluations/components/EvaluationD
 import { useOrgUnitSubmissions } from '../hooks/useOrgUnitSubmissions'
 import { useEvaluations } from '@/features/evaluations/hooks/useEvaluations'
 import { useUsers } from '@/features/users/hooks/useUsers'
-import { getInitials, cn } from '@/lib/utils'
+import { cn } from '@/lib/utils'
+import UserAvatar from '@/components/common/UserAvatar'
 import { getScoringFunctions } from '@/lib/scoring'
 import { useAuthStore } from '@/store/authStore'
 import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
 import { useKpiPeriods } from '@/features/kpi/hooks/useKpiPeriods'
+import ScopeSelectItems from '@/components/common/ScopeSelectItems'
+import { pickCurrentOrNearest } from '@/components/common/dateScope'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { useSidebarSettings } from '@/features/organization/hooks/useSidebarSettings'
 import { usePermission } from '@/hooks/usePermission'
@@ -19,8 +22,6 @@ import {
   FileCheck, Search, Building2, Calendar, Clock, ChevronRight, ChevronLeft,
   ArrowUpDown, ArrowUp, ArrowDown, ArrowRight
 } from 'lucide-react'
-import PageTour from '@/components/common/PageTour'
-import { orgUnitSubmissionsSteps } from '@/components/common/tourSteps'
 import { useWorkflowNavigator } from '@/features/kpi/workflow/hooks/useWorkflowNavigator'
 
 export default function OrgUnitSubmissionsPage() {
@@ -35,9 +36,12 @@ export default function OrgUnitSubmissionsPage() {
   const { goToNext, nextReachableStage } = useWorkflowNavigator()
   const nextAfterReview = nextReachableStage('SUBMISSION_REVIEW')
 
+  // Mặc định đẩy người còn bài chờ duyệt lên đầu. Dòng sidebar chỉ mang TỔNG số bài
+  // chờ, nên vào trang mà xếp theo tên là người duyệt lại phải tự dò xem con số đỏ đó
+  // đến từ ai — đúng việc mà badge lẽ ra phải chỉ thẳng.
   const [sortConfig, setSortConfig] = useState<{ key: string; direction: 'asc' | 'desc' | null }>({
-    key: 'fullName',
-    direction: null
+    key: 'pending',
+    direction: 'desc'
   })
 
   const orgId = user?.memberships?.[0]?.organizationId
@@ -46,7 +50,7 @@ export default function OrgUnitSubmissionsPage() {
   const isManager = useMemo(() => user?.memberships?.some(m => m.roleRank === 0), [user])
 
   const { data: customLabels = {} } = useSidebarSettings(orgId!)
-  const rawTitle = ((customLabels as Record<string, string>)['/submissions/org-unit'] || 'Đánh giá Nhân viên')
+  const rawTitle = ((customLabels as Record<string, string>)['submissions-org-unit'] || (customLabels as Record<string, string>)['/submissions/org-unit'] || 'Đánh giá Nhân viên')
     .split(' ')
     .map(word => word.charAt(0).toUpperCase() + word.slice(1))
     .join(' ')
@@ -79,13 +83,12 @@ export default function OrgUnitSubmissionsPage() {
     }
   }, [flatOrgUnits, selectedOrgUnitId, canManageOrg, user])
 
-  const activePeriod = useMemo(() => {
-    if (!periodsData?.content) return undefined
-    const now = new Date()
-    return periodsData.content.find((p: any) =>
-      p.startDate && p.endDate && now >= new Date(p.startDate) && now <= new Date(p.endDate)
-    )
-  }, [periodsData])
+  // Đợt đang chạy; nếu hôm nay rơi vào kẽ giữa hai đợt thì lấy đợt vừa kết thúc
+  // (trước đây để trống, người duyệt vào trang thấy ô đợt rỗng và bảng không có gì).
+  const activePeriod = useMemo(
+    () => pickCurrentOrNearest(periodsData?.content),
+    [periodsData]
+  )
 
   useEffect(() => {
     if (!selectedPeriodId && activePeriod?.id) {
@@ -102,11 +105,46 @@ export default function OrgUnitSubmissionsPage() {
     return new Date() > new Date(selectedPeriod.endDate)
   }, [selectedPeriod])
 
-  // Fetch employees
-  const { data: usersData, isLoading: isLoadingUsers } = useUsers({ 
-    page, 
-    size: pageSize, 
-    orgUnitId: selectedOrgUnitId === 'ALL' ? undefined : selectedOrgUnitId,
+  // Tải trọn danh sách nhân sự của đơn vị rồi mới cắt trang ở client. Xếp "chờ duyệt lên
+  // đầu" trên từng trang 10 người do server cắt sẵn chỉ sắp lại đúng trang đang xem —
+  // người còn bài chờ ở trang 3 vẫn nằm im ở trang 3.
+  /**
+   * Chọn một đơn vị = xem cả nhánh dưới nó, giống trang Đánh giá kỳ — chọn đơn vị gốc là thấy
+   * toàn tổ chức.
+   *
+   * Phải tự gom ở client vì ba API trên trang này không nhất quán: `/evaluations` và `/submissions`
+   * tự mở rộng theo `path` của đơn vị ở backend, còn `/users` lọc KHỚP CHÍNH XÁC theo danh sách id.
+   * Không gom thì chọn đơn vị cha ra danh sách rỗng, trong khi hai khối số liệu kia vẫn có dữ liệu
+   * của cả nhánh — lệch nhau ngay trên cùng một màn hình.
+   */
+  const subtreeUnitIds = useMemo<string[] | undefined>(() => {
+    if (selectedOrgUnitId === 'ALL') return undefined
+    type Node = { id: string; children?: Node[] }
+    const findNode = (nodes: Node[]): Node | null => {
+      for (const n of nodes) {
+        if (n.id === selectedOrgUnitId) return n
+        const hit = findNode(n.children ?? [])
+        if (hit) return hit
+      }
+      return null
+    }
+    const collect = (n: Node, out: string[]) => {
+      out.push(n.id)
+      ;(n.children ?? []).forEach(c => collect(c, out))
+    }
+    const node = findNode((orgUnitTreeData as Node[]) || [])
+    if (!node) return [selectedOrgUnitId] // cây chưa tải xong ⇒ tạm lọc đúng đơn vị đang chọn
+    const out: string[] = []
+    collect(node, out)
+    return out
+  }, [orgUnitTreeData, selectedOrgUnitId])
+
+  const { data: usersData, isLoading: isLoadingUsers } = useUsers({
+    page: 0,
+    size: 1000,
+    // BE nhận orgUnitIds (List). Gửi orgUnitId số ít thì Spring bỏ qua tham số lạ, API trả về
+    // TOÀN BỘ nhân sự của tổ chức mà không báo lỗi gì — bộ lọc đơn vị trông như không hoạt động.
+    orgUnitIds: subtreeUnitIds,
     keyword: search || undefined,
     organizationId: orgId
   })
@@ -174,7 +212,7 @@ export default function OrgUnitSubmissionsPage() {
     return set
   }, [submissionsData])
 
-  const employees = useMemo(() => {
+  const sortedEmployees = useMemo(() => {
     const items = [...(usersData?.content ?? [])]
     if (!sortConfig.key || !sortConfig.direction) return items
 
@@ -201,9 +239,21 @@ export default function OrgUnitSubmissionsPage() {
 
       if (aValue < bValue) return sortConfig.direction === 'asc' ? -1 : 1
       if (aValue > bValue) return sortConfig.direction === 'asc' ? 1 : -1
-      return 0
+      // Bằng điểm/bằng số bài chờ thì xếp theo tên, để thứ tự không nhảy giữa hai lần tải.
+      return (a.fullName ?? '').localeCompare(b.fullName ?? '')
     })
   }, [usersData?.content, sortConfig, pendingByUserId, evaluationsByUserId])
+
+  const totalPages = Math.max(1, Math.ceil(sortedEmployees.length / pageSize))
+
+  // Lọc hẹp lại (đổi đơn vị, gõ tìm kiếm) có thể làm danh sách ngắn hơn trang đang đứng —
+  // kẹp lại ngay khi dựng chứ không đợi một effect gọi setState rồi vẽ lần hai.
+  const safePage = Math.min(page, totalPages - 1)
+
+  const employees = useMemo(
+    () => sortedEmployees.slice(safePage * pageSize, (safePage + 1) * pageSize),
+    [sortedEmployees, safePage, pageSize]
+  )
 
   const isLoading = isLoadingUsers || isLoadingEvals || isLoadingSubs
 
@@ -234,12 +284,12 @@ export default function OrgUnitSubmissionsPage() {
       key,
       direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc'
     }))
+    setPage(0)
   }
 
   return (
-    <div className="min-h-screen bg-[#f8fafc] dark:bg-[#020617] p-4 md:p-8">
+    <div className="p-4 md:p-8">
       <div className="max-w-[1600px] mx-auto space-y-8">
-        <PageTour pageKey="submissions-org" steps={orgUnitSubmissionsSteps} />
         
         {/* Header Section */}
         <div className="relative group">
@@ -311,9 +361,11 @@ export default function OrgUnitSubmissionsPage() {
                     </div>
                   </SelectTrigger>
                   <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800 shadow-2xl p-2">
-                    {periodsData?.content.map((p: any) => (
-                      <SelectItem key={p.id} value={p.id} className="font-medium rounded-xl focus:bg-emerald-50">{p.name}</SelectItem>
-                    ))}
+                    <ScopeSelectItems
+                      items={periodsData?.content}
+                      selectedId={selectedPeriodId}
+                      itemClassName="font-medium rounded-xl focus:bg-emerald-50"
+                    />
                   </SelectContent>
                 </Select>
               </div>
@@ -383,9 +435,12 @@ export default function OrgUnitSubmissionsPage() {
                       >
                         <td className="px-6 py-5">
                           <div className="flex items-center gap-3">
-                            <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-900/20 dark:to-indigo-900/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-black text-xs border border-indigo-200/50 dark:border-indigo-800/30 shadow-inner">
-                              {getInitials(emp.fullName)}
-                            </div>
+                            <UserAvatar
+                              fullName={emp.fullName}
+                              avatarUrl={emp.avatarUrl}
+                              className="w-10 h-10 rounded-2xl border border-indigo-200/50 dark:border-indigo-800/30 shadow-inner"
+                              fallbackClassName="bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-900/20 dark:to-indigo-900/40 font-black text-xs text-indigo-600 dark:text-indigo-400"
+                            />
                             <div>
                               <span className="text-sm font-bold text-slate-900 dark:text-white group-hover:text-emerald-600 transition-colors block">
                                 {emp.fullName}
@@ -498,9 +553,12 @@ export default function OrgUnitSubmissionsPage() {
                   >
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex items-center gap-3 min-w-0">
-                        <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-900/20 dark:to-indigo-900/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center font-black text-xs border border-indigo-200/50 dark:border-indigo-800/30 shadow-inner shrink-0">
-                          {getInitials(emp.fullName)}
-                        </div>
+                        <UserAvatar
+                          fullName={emp.fullName}
+                          avatarUrl={emp.avatarUrl}
+                          className="w-10 h-10 rounded-2xl border border-indigo-200/50 dark:border-indigo-800/30 shadow-inner"
+                          fallbackClassName="bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-900/20 dark:to-indigo-900/40 font-black text-xs text-indigo-600 dark:text-indigo-400"
+                        />
                         <div className="min-w-0">
                           <span className="text-sm font-bold text-slate-900 dark:text-white block truncate">{emp.fullName}</span>
                           <span className="text-[10px] text-slate-400 font-medium">{evaluation?.userRoleName || 'Nhân viên'}</span>
@@ -551,22 +609,22 @@ export default function OrgUnitSubmissionsPage() {
         <div className="flex flex-col sm:flex-row items-center justify-between gap-6 pt-4">
           <div className="flex items-center gap-4 text-sm">
             <p className="font-bold text-slate-400 uppercase tracking-widest text-[10px]">
-              Trang <span className="text-slate-900 dark:text-white">{page + 1}</span> / {usersData?.totalPages || 1}
+              Trang <span className="text-slate-900 dark:text-white">{safePage + 1}</span> / {totalPages}
             </p>
           </div>
 
           <div className="flex items-center gap-2">
             <button
-              onClick={(e) => { e.stopPropagation(); setPage(p => Math.max(0, p - 1)) }}
-              disabled={page === 0}
+              onClick={(e) => { e.stopPropagation(); setPage(Math.max(0, safePage - 1)) }}
+              disabled={safePage === 0}
               className="p-3 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 disabled:opacity-30 hover:border-emerald-500 hover:text-emerald-600 transition-all shadow-sm"
             >
               <ChevronLeft size={18} />
             </button>
             
             <button
-              onClick={(e) => { e.stopPropagation(); setPage(p => p + 1) }}
-              disabled={page >= (usersData?.totalPages || 1) - 1}
+              onClick={(e) => { e.stopPropagation(); setPage(safePage + 1) }}
+              disabled={safePage >= totalPages - 1}
               className="p-3 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 disabled:opacity-30 hover:border-emerald-500 hover:text-emerald-600 transition-all shadow-sm"
             >
               <ChevronRight size={18} />

@@ -22,9 +22,13 @@ public class UnitClassificationResponses {
         /** Bộ mức thành viên (cao → thấp): name + color. */
         private List<LevelInfo> levels;
         private int totalMembers;       // tổng nhân sự subtree
-        private int evaluatedMembers;   // số người có đánh giá ở kỳ hiện tại
+        private int evaluatedMembers;   // số người có đánh giá ở đợt/kỳ đang xét
+        /** Tên đợt gần nhất trong phạm vi — chỉ có khi xem theo ĐỢT. */
         private String currentPeriodName;
-        /** Phân bố người theo mức ở kỳ hiện tại. */
+        /** Kỳ đang xét — chỉ có khi xem theo KỲ (phân bố lấy từ số chốt kỳ, không phải đợt gần nhất). */
+        private UUID cycleId;
+        private String cycleName;
+        /** Phân bố người theo mức ở đợt/kỳ đang xét. */
         private List<Bucket> distribution;
         /** Xếp loại của đơn vị (áp luật lên phân bố hiện tại); null nếu chưa có dữ liệu. */
         private Classification classification;

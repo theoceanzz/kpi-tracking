@@ -12,14 +12,20 @@ public class PerspectiveResponse {
     private String code;
     private String name;
     private String description;
+    /** Mục tiêu mong muốn của hạng mục (null = chưa đặt). */
+    private Double targetValue;
+    /** Kết quả tối thiểu của hạng mục (null = chưa đặt). */
+    private Double minimumValue;
+    /** Đơn vị tính của mục tiêu/tối thiểu. */
+    private String unit;
     private String color;
     private String icon;
     private Integer displayOrder;
     private BscPerspectiveStatus status;
-    /** Viễn cảnh cố định mà hạng mục thuộc về. */
+    /** Lĩnh vực cố định mà hạng mục thuộc về. */
     private BscFixedPerspective fixedPerspective;
-    /** Tên hiển thị của viễn cảnh cố định (VD "Tài chính") — tiện cho FE gộp nhóm. */
+    /** Tên hiển thị của lĩnh vực cố định (VD "Tài chính") — tiện cho FE gộp nhóm. */
     private String fixedPerspectiveName;
-    /** Màu của viễn cảnh cố định. */
+    /** Màu của lĩnh vực cố định. */
     private String fixedPerspectiveColor;
 }

@@ -18,4 +18,5 @@ public class OverviewStatsResponse {
     private long approvedSubmissions;
     private long rejectedSubmissions;
     private long totalEvaluations;
+    private java.util.List<EvaluationPeriodCountResponse> evaluationPeriods;
 }

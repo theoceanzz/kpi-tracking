@@ -44,6 +44,11 @@ services:
       - CORS_ORIGINS=${CORS_ORIGINS:-https://keygo.vn}
       # Cookie xác thực chỉ được gửi qua HTTPS ở production.
       - COOKIE_SECURE=${COOKIE_SECURE:-true}
+      # Domain gốc dùng chung cho SPA (keygo.vn) và API (api.keygo.vn). Bỏ trống biến này =
+      # cookie host-only: mỗi host giữ một kg_csrf riêng và mọi request đổi trạng thái bị
+      # CsrfFilter chặn (trả về 401 vì filter CSRF chạy trước JwtAuthenticationFilter).
+      - COOKIE_DOMAIN=${COOKIE_DOMAIN:-keygo.vn}
+      - COOKIE_SAME_SITE=${COOKIE_SAME_SITE:-Lax}
       - APP_FRONTEND_URL=${FRONTEND_URL:-https://keygo.vn}
 
       # Lark SSO. App ID/Secret của từng công ty lưu trong DB, không cấu hình ở đây.
@@ -68,15 +73,68 @@ services:
       - MAIL_PASSWORD=${MAIL_PASSWORD}
       - MAIL_FROM=${MAIL_FROM}
 
+      # Gom email thông báo theo người nhận: chờ luồng sự kiện của một người lắng xuống
+      # (QUIET_PERIOD) rồi gộp tất cả thành MỘT thư, nhưng không bao giờ chờ quá MAX_DELAY.
+      # Đặt ENABLED=false để quay về gửi rời từng sự kiện như trước.
+      - NOTIFICATION_DIGEST_ENABLED=${NOTIFICATION_DIGEST_ENABLED:-true}
+      - NOTIFICATION_DIGEST_QUIET_PERIOD=${NOTIFICATION_DIGEST_QUIET_PERIOD:-PT3M}
+      - NOTIFICATION_DIGEST_MAX_DELAY=${NOTIFICATION_DIGEST_MAX_DELAY:-PT20M}
+      - NOTIFICATION_DIGEST_SCAN_INTERVAL=${NOTIFICATION_DIGEST_SCAN_INTERVAL:-PT1M}
+      - NOTIFICATION_DIGEST_RETENTION=${NOTIFICATION_DIGEST_RETENTION:-P7D}
+
       # AI
       - GEMINI_API_KEY=${GEMINI_API_KEY}
       - GEMINI_MODEL=${GEMINI_MODEL}
       - CLAUDE_API_KEY=${CLAUDE_API_KEY}
       - CLAUDE_MODEL=${CLAUDE_MODEL}
 
+      # HuggingFace router (đường OpenAI-compatible cho trợ lý tool-use).
+      # Thiếu khóa này là toàn bộ tính năng trợ lý trả lỗi 401 — trước đây chưa hề được truyền vào.
+      - HUGGINGFACE_API_KEY=${HUGGINGFACE_API_KEY}
+      - HUGGINGFACE_API_URL=${HUGGINGFACE_API_URL:-https://router.huggingface.co}
+      # Hậu tố sau ':' là nhà cung cấp chạy model (cerebras / groq / deepinfra).
+      - HUGGINGFACE_API_MODEL=${HUGGINGFACE_API_MODEL:-openai/gpt-oss-120b:cerebras}
+      # gpt-oss là reasoning model: trần output thấp thì reasoning ăn hết token -> trả text rỗng.
+      - AI_MAX_TOKENS=${AI_MAX_TOKENS:-8192}
+      # 'high' chậm + dễ chạm trần token, 'low' chọn sai tool. 'medium' cân bằng cho tool-use.
+      - AI_REASONING_EFFORT=${AI_REASONING_EFFORT:-medium}
+
+      # Chuỗi công đoạn AI. MẶC ĐỊNH TRONG MÃ NGUỒN của bốn cờ đầu là false, nên phải
+      # truyền tường minh thì production mới chạy đúng bộ đã đo ở dev.
+      - AI_TOOL_ROUTING_ENABLED=${AI_TOOL_ROUTING_ENABLED:-true}
+      - AI_PLANNING_ENABLED=${AI_PLANNING_ENABLED:-true}
+      - AI_PLANNING_ENFORCE=${AI_PLANNING_ENFORCE:-true}
+      - AI_FOLLOWUPS_ENABLED=${AI_FOLLOWUPS_ENABLED:-true}
+      # Cơ chế chặn câu trả lời bịa số — tắt là số bịa đến thẳng người dùng.
+      - AI_VALIDATION_ENABLED=${AI_VALIDATION_ENABLED:-true}
+      - AI_STREAMING_ENABLED=${AI_STREAMING_ENABLED:-true}
+
+      # Kho quà eVoucher UrBox. Credential dùng chung cho cả nền tảng (KeyGo là đối tác
+      # ký hợp đồng), phân biệt tổ chức nào đổi quà bằng site_user_id gửi kèm mỗi đơn.
+      # Bật enabled mà để nguyên base-url sandbox = nhân viên nhận mã không dùng được.
+      - URBOX_ENABLED=${URBOX_ENABLED:-false}
+      - URBOX_BASE_URL=${URBOX_BASE_URL:-https://sandapi.urbox.dev}
+      - URBOX_APP_ID=${URBOX_APP_ID:-}
+      - URBOX_APP_SECRET=${URBOX_APP_SECRET:-}
+      - URBOX_CAMPAIGN_CODE=${URBOX_CAMPAIGN_CODE:-}
+      # PROD bắt buộc: UrBox xác thực chữ ký đơn bằng public key đối tác đã gửi lên.
+      - URBOX_PRIVATE_KEY=${URBOX_PRIVATE_KEY:-}
+      # Bật lên là UrBox nhắn tin thẳng cho nhân viên thay vì để KeyGo hiển thị mã.
+      - URBOX_SEND_SMS=${URBOX_SEND_SMS:-false}
+      - URBOX_READ_TIMEOUT=${URBOX_READ_TIMEOUT:-60s}
+
+      # Webhook SePay (nạp tiền vào ví). ĐỂ TRỐNG LÀ CHẶN MỌI WEBHOOK: tiền vào tài khoản
+      # nhưng ví không được cộng. Phải đặt khóa thật trong .env trước khi mở tính năng nạp.
+      - SEPAY_WEBHOOK_API_KEY=${SEPAY_WEBHOOK_API_KEY:-}
+      # Danh sách IP phân tách bằng dấu phẩy. Để trống = tắt lớp kiểm tra IP.
+      - SEPAY_WEBHOOK_ALLOWED_IPS=${SEPAY_WEBHOOK_ALLOWED_IPS:-}
+
       # Rate limit
       - RATE_LIMIT_LOGIN=${RATE_LIMIT_LOGIN:-5}
       - RATE_LIMIT_EMAIL=${RATE_LIMIT_EMAIL:-3}
+      # Mỗi lượt chat AI tốn nhiều lần gọi model (router + planning + trả lời + followup).
+      - RATE_LIMIT_AI_MIN=${RATE_LIMIT_AI_MIN:-15}
+      - RATE_LIMIT_AI_DAY=${RATE_LIMIT_AI_DAY:-200}
 
     depends_on:
       kpitracking-db:

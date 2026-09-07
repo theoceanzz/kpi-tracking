@@ -1,3 +1,4 @@
+
 package com.kpitracking.controller;
 
 import com.kpitracking.dto.request.ai.AiKpiSuggestionRequest;
@@ -204,7 +205,8 @@ public class AiController {
 
         AiTokenUsageRecorder.setFeature(AiTokenUsage.AiFeature.KPI_SUGGESTION);
         try {
-            List<AiKpiSuggestionResponse> suggestions = aiService.suggestKpis(request.getOrgUnitId());
+            List<AiKpiSuggestionResponse> suggestions =
+                    aiService.suggestKpis(request.getOrgUnitId(), request.getContext());
             return ResponseEntity.ok(ApiResponse.success(suggestions));
         } finally {
             AiTokenUsageRecorder.clearFeature();

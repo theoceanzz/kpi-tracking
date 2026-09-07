@@ -1,10 +1,11 @@
 import { useMemo } from 'react'
 import { useAuthStore } from '@/store/authStore'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
+import { usesPerformanceMatrix } from '@/lib/scoring'
 
 /**
  * Thang đo "hiệu suất (đánh giá)" theo cấu hình org:
- * - Org bật performance matrix (`enableQualitative`) → hiệu suất là **điểm** (1..maxScore, maxScore = ô lớn nhất
+ * - Org dùng performance matrix (KPI định tính HOẶC chấm hạnh kiểm) → hiệu suất là **điểm** (1..maxScore, maxScore = ô lớn nhất
  *   trong ma trận của org, mặc định 5). Backend đã trả matrix_rating thay cho % ở các API analytics.
  * - Ngược lại → **%** như cũ.
  *
@@ -35,7 +36,7 @@ export function usePerformanceScale(): PerformanceScale {
   const { data: org } = useOrganization(orgId)
 
   return useMemo(() => {
-    const isMatrix = !!org?.enableQualitative
+    const isMatrix = usesPerformanceMatrix(org)
     let maxScore = 5
     if (isMatrix && org?.performanceMatrix) {
       try {
@@ -64,5 +65,5 @@ export function usePerformanceScale(): PerformanceScale {
       formatShort,
       toPct: (v?: number | null) => (v == null || axisMax <= 0 ? 0 : (v / axisMax) * 100),
     }
-  }, [org?.enableQualitative, org?.performanceMatrix])
+  }, [org?.enableQualitative, org?.enableConduct, org?.performanceMatrix])
 }

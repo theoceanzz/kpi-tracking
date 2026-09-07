@@ -17,6 +17,7 @@ import { useOrgUnitMembers, useRoles, useAssignRole, useRevokeRole, useOrganizat
 import { useOrgUnit, useOrgHierarchyLevels } from '../hooks/useOrganizationStructure'
 import { useUpdateUser } from '@/features/users/hooks/useUsers'
 import { useAuthStore } from '@/store/authStore'
+import UserAvatar from '@/components/common/UserAvatar'
 import { toast } from 'sonner'
 import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
 
@@ -29,6 +30,8 @@ type GroupedMember = {
   userId: string
   userFullName: string
   userEmail: string
+  /** Lấy từ danh sách người dùng của tổ chức — bản ghi phân vai trò không có ảnh. */
+  userAvatarUrl?: string | null
   userStatus?: string
   assignments: {
     roleId: string
@@ -133,6 +136,7 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
           userId: m.userId,
           userFullName: m.userFullName,
           userEmail: m.userEmail,
+          userAvatarUrl: userGlobal?.avatarUrl,
           userStatus: userGlobal?.status || 'ACTIVE',
           assignments: []
         }
@@ -403,9 +407,12 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
                       </td>
                       <td className="px-8 py-5">
                         <div className="flex items-center space-x-3">
-                            <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 font-black text-sm">
-                                {member.userFullName.charAt(0)}
-                            </div>
+                            <UserAvatar
+                                fullName={member.userFullName}
+                                avatarUrl={member.userAvatarUrl}
+                                className="w-10 h-10 rounded-full"
+                                fallbackClassName="bg-blue-50 text-blue-600 font-black text-sm"
+                            />
                             <div>
                                 <p className="text-sm font-black text-gray-900">{member.userFullName}</p>
                                 <p className="text-xs text-gray-500 font-medium">{member.userEmail}</p>
@@ -463,9 +470,12 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
                           }
                         }}
                       />
-                      <div className="w-9 h-9 rounded-full bg-blue-50 flex items-center justify-center text-blue-600 font-black text-sm shrink-0">
-                        {member.userFullName.charAt(0)}
-                      </div>
+                      <UserAvatar
+                        fullName={member.userFullName}
+                        avatarUrl={member.userAvatarUrl}
+                        className="w-9 h-9 rounded-full"
+                        fallbackClassName="bg-blue-50 text-blue-600 font-black text-sm"
+                      />
                       <div className="min-w-0">
                         <p className="text-sm font-black text-gray-900 truncate">{member.userFullName}</p>
                         <p className="text-xs text-gray-500 font-medium truncate">{member.userEmail}</p>
@@ -546,9 +556,12 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
                                                 className={`p-4 cursor-pointer flex items-center justify-between transition-all ${isSelected ? 'bg-blue-600 text-white shadow-lg scale-[0.98]' : 'hover:bg-blue-50 text-gray-700'}`}
                                             >
                                                 <div className="flex items-center space-x-3">
-                                                    <div className={`w-8 h-8 rounded-full flex items-center justify-center text-[10px] font-black ${isSelected ? 'bg-white/20' : 'bg-gray-100'}`}>
-                                                        {user.fullName.charAt(0)}
-                                                    </div>
+                                                    <UserAvatar
+                                                        fullName={user.fullName}
+                                                        avatarUrl={user.avatarUrl}
+                                                        className="w-8 h-8 rounded-full"
+                                                        fallbackClassName={`text-[10px] font-black ${isSelected ? 'bg-white/20' : 'bg-gray-100'}`}
+                                                    />
                                                     <div>
                                                         <p className={`text-sm font-black ${isSelected ? 'text-white' : 'text-gray-900'}`}>{user.fullName}</p>
                                                         <p className={`text-[10px] font-bold ${isSelected ? 'text-blue-100' : 'text-gray-400'}`}>{user.email}</p>

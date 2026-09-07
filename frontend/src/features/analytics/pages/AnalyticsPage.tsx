@@ -1,139 +1,75 @@
-import { useEffect } from 'react'
-import { useNavigate, useParams, useSearchParams } from 'react-router-dom'
-import { useHasPermission } from '@/components/auth/PermissionGate'
-import { cn } from '@/lib/utils'
-import { TrendingUp, Building2, LayoutDashboard, Users, Target, Gauge } from 'lucide-react'
+import { TrendingUp } from 'lucide-react'
+import SettingsSectionLayout from '@/components/common/SettingsSectionLayout'
+import { usePageTitle } from '@/features/organization/hooks/usePageTitle'
+import { useAuthStore } from '@/store/authStore'
+import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import MyStatsTab from './MyStatsTab'
 import DrillDownTab from './DrillDownTab'
 import SummaryTab from './SummaryTab'
 import MyObjectivesTab from './MyObjectivesTab'
 import BscAnalyticsTab from './BscAnalyticsTab'
-import PageTour from '@/components/common/PageTour'
-import { analyticsSteps } from '@/components/common/tourSteps'
 import SubordinateManagementTab from './SubordinateManagementTab'
-import { useAuthStore } from '@/store/authStore'
-import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
-import { useSidebarSettings } from '@/features/organization/hooks/useSidebarSettings'
-import AnalyticsTabSkeleton from '@/components/common/AnalyticsTabSkeleton'
 
-type TabKey = 'my-objectives' | 'my' | 'summary' | 'drilldown' | 'subordinate' | 'bsc'
-
+/**
+ * Các góc nhìn phân tích trong một trang: lưới thẻ để chọn, rồi hàng tab mảnh khi đã
+ * vào một mục — cùng khuôn với Quản lý hiệu suất và hai trang thiết lập.
+ *
+ * Quyền của từng mục nằm ở cây nav; ở đây chỉ quyết định cặp nào hiện theo cờ tính
+ * năng của tổ chức: bật OKR thì xem theo mục tiêu, tắt thì xem theo KPI.
+ */
 export default function AnalyticsPage() {
   const { user } = useAuthStore()
-  const { hasPermission } = useHasPermission()
-  const canDrillDown = hasPermission(['KPI:VIEW']) || hasPermission(['SUBMISSION:REVIEW'])
-  const canSummary = canDrillDown
+  const pageTitle = usePageTitle('analytics', 'Thống kê')
 
   const organizationId = user?.memberships?.[0]?.organizationId
-  const { data: customLabels = {} } = useSidebarSettings(organizationId!)
-  const pageTitle = ((customLabels as Record<string, string>)['/analytics'] || 'Thống kê')
-    .split(' ')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ')
   const { data: org, isLoading: loadingOrg } = useOrganization(organizationId)
   const isOkr = org?.enableOkr ?? false
   const isBsc = org?.enableBsc ?? false
-  const canBsc = hasPermission(['BSC:MANAGE'])
 
-  const tabs: { key: TabKey; label: string; icon: any; visible: boolean }[] = [
-    { key: 'my-objectives', label: 'Mục tiêu của tôi', icon: Target, visible: isOkr },
-    { key: 'subordinate', label: 'Mục tiêu đơn vị', icon: Users, visible: isOkr && canDrillDown },
-    { key: 'my', label: 'KPI của tôi', icon: TrendingUp, visible: !isOkr },
-    { key: 'summary', label: 'KPI đơn vị', icon: LayoutDashboard, visible: !isOkr && canSummary },
-    { key: 'drilldown', label: 'Phân cấp', icon: Building2, visible: true },
-    { key: 'bsc', label: 'Hạng mục (BSC)', icon: Gauge, visible: isBsc && canBsc },
-  ]
-
-  const visibleTabs = tabs.filter(t => t.visible)
-
-  // Tab nằm ở đoạn đường dẫn (`/analytics/summary`) chứ KHÔNG giữ bản sao trong state: mọi thay đổi
-  // URL — kể cả Back/Forward của trình duyệt — phải đổi được tab đang hiện. Bản cũ đọc URL một lần
-  // làm giá trị khởi tạo useState nên lịch sử duyệt chỉ đổi thanh địa chỉ mà không đổi nội dung.
-  const { tab: tabParam } = useParams<{ tab?: string }>()
-  const navigate = useNavigate()
-  const [searchParams] = useSearchParams()
-  const legacyTab = searchParams.get('tab')
-
-  const activeTab = visibleTabs.some(t => t.key === tabParam) ? (tabParam as TabKey) : undefined
-  const firstVisibleKey = visibleTabs[0]?.key
-
-  // Push chứ không replace: Back phải quay về tab trước đó, không văng ra khỏi trang Thống kê.
-  const goToTab = (key: TabKey) => navigate(`/analytics/${key}`)
-
-  // Chuẩn hoá URL sau khi biết cờ tổ chức — `visibleTabs` phụ thuộc OKR/BSC nên chạy sớm hơn sẽ
-  // chuyển hướng nhầm. Chỉ dùng giá trị nguyên thuỷ làm phụ thuộc: `visibleTabs` dựng lại mỗi lần
-  // render nên đưa nguyên mảng vào đây sẽ cho effect chạy liên tục.
-  useEffect(() => {
-    if (loadingOrg || activeTab) return
-    // Link cũ dạng `?tab=bsc`: xét TRƯỚC nhánh dưới, không thì bị nuốt thành tab đầu. Điều hướng bỏ
-    // luôn query string nên khoá rác cũng hội tụ sau một vòng nữa — không lặp vô hạn.
-    if (legacyTab) { navigate(`/analytics/${legacyTab}`, { replace: true }); return }
-    if (firstVisibleKey) navigate(`/analytics/${firstVisibleKey}`, { replace: true })
-    // Cả hai nhánh đều `replace`: push thì Back nảy ngược vào chính chỗ vừa nhảy đến.
-  }, [loadingOrg, activeTab, legacyTab, firstVisibleKey, navigate])
-
-  // Giữ skeleton thêm một nhịp khi URL chưa chuẩn hoá, thay vì nháy một khung trống.
-  if (loadingOrg || (!activeTab && !!firstVisibleKey)) {
+  // Chờ cờ tính năng rồi mới vẽ: dựng lưới bằng giá trị mặc định sẽ hiện nhầm cặp KPI
+  // rồi nháy sang cặp mục tiêu ngay sau đó.
+  if (loadingOrg) {
     return (
-      <div className="max-w-[1600px] mx-auto p-4 md:p-8 space-y-6 animate-pulse">
-        {/* Header skeleton */}
+      <div className="max-w-[1600px] mx-auto px-4 md:px-0 pb-20 space-y-8 animate-pulse">
         <div className="space-y-3">
           <div className="h-6 w-44 bg-[var(--color-muted)] rounded-full" />
           <div className="h-9 w-36 bg-[var(--color-muted)] rounded-xl" />
-          <div className="h-4 w-80 bg-[var(--color-muted)] rounded-lg" />
+          <div className="h-4 w-full max-w-80 bg-[var(--color-muted)] rounded-lg" />
         </div>
-        {/* Tabs skeleton */}
-        <div className="flex gap-2 border-b border-slate-200 dark:border-slate-800 pb-0">
-          {[1, 2, 3].map(i => (
-            <div key={i} className="h-10 w-32 bg-[var(--color-muted)] rounded-t-xl" />
-          ))}
+        {/* Cùng ngưỡng cột với lưới thật trong SettingsSectionLayout — khung xương nhảy
+            khác số cột rồi mới đổ nội dung thì thấy rõ một nhịp giật. */}
+        <div className="@container space-y-3">
+          <div className="h-3 w-24 bg-[var(--color-muted)] rounded-full" />
+          <div className="grid gap-4 grid-cols-1 @lg:grid-cols-2 @3xl:grid-cols-3 @5xl:grid-cols-4">
+            {[1, 2, 3].map(i => (
+              <div key={i} className="h-36 bg-[var(--color-muted)] rounded-2xl" />
+            ))}
+          </div>
         </div>
-        {/* Tab content skeleton */}
-        <AnalyticsTabSkeleton />
       </div>
     )
   }
 
   return (
-    <div className="max-w-[1600px] mx-auto p-4 md:p-8 space-y-6">
-      <PageTour pageKey="analytics" steps={analyticsSteps} />
-
-      {/* Header */}
-      <div id="tour-analytics-header" className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-        <div>
+    <>
+      <SettingsSectionLayout
+        navId="analytics"
+        title={pageTitle}
+        subtitle="Phân tích hiệu suất KPI, bài nộp và đánh giá"
+        eyebrow={
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 text-xs font-black uppercase tracking-widest mb-3">
             <TrendingUp size={14} /> Thống kê & Phân tích
           </div>
-          <h1 className="text-3xl font-black tracking-tight text-slate-900 dark:text-white">{pageTitle}</h1>
-          <p className="text-slate-500 font-medium mt-1">Phân tích hiệu suất KPI, bài nộp và đánh giá</p>
-        </div>
-      </div>
-
-      {/* Tabs */}
-      <div id="tour-analytics-tabs" className="flex items-center border-b border-slate-200 dark:border-slate-800">
-        {visibleTabs.map(t => {
-          const Icon = t.icon
-          return (
-            <button key={t.key} onClick={() => goToTab(t.key)} className={cn(
-              "flex-1 sm:flex-none min-w-0 flex items-center justify-center gap-1.5 sm:gap-2 px-1.5 sm:px-5 py-3 text-xs sm:text-sm font-bold border-b-2 transition-all -mb-px",
-              activeTab === t.key ? "border-indigo-600 text-indigo-600 dark:text-indigo-400" : "border-transparent text-slate-500 hover:text-slate-700"
-            )}>
-              <Icon size={16} className="shrink-0" /> <span className="truncate">{t.label}</span>
-            </button>
-          )
-        })}
-      </div>
-
-      {/* Content */}
-      <div className="bg-transparent">
-        {activeTab === 'my-objectives' && <MyObjectivesTab />}
-        {activeTab === 'my' && <MyStatsTab />}
-        {activeTab === 'summary' && canSummary && <SummaryTab />}
-        {activeTab === 'drilldown' && <DrillDownTab />}
-        {activeTab === 'subordinate' && canDrillDown && <SubordinateManagementTab />}
-        {activeTab === 'bsc' && isBsc && canBsc && <BscAnalyticsTab />}
-      </div>
-    </div>
+        }
+        sections={[
+          { id: 'my-objectives', visible: isOkr, render: () => <MyObjectivesTab /> },
+          { id: 'subordinate', visible: isOkr, render: () => <SubordinateManagementTab /> },
+          { id: 'my', visible: !isOkr, render: () => <MyStatsTab /> },
+          { id: 'summary', visible: !isOkr, render: () => <SummaryTab /> },
+          { id: 'drilldown', render: () => <DrillDownTab /> },
+          { id: 'bsc', visible: isBsc, render: () => <BscAnalyticsTab /> },
+        ]}
+      />
+    </>
   )
 }
-

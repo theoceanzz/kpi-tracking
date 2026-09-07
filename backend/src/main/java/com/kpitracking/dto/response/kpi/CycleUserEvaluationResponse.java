@@ -11,6 +11,7 @@ import java.util.UUID;
 public class CycleUserEvaluationResponse {
     private UUID userId;
     private String userName;
+    private String userAvatarUrl;
     private UUID orgUnitId;
     private String orgUnitName;
     private CycleEvaluationMode mode;

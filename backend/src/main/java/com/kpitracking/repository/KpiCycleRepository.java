@@ -10,6 +10,9 @@ import java.util.UUID;
 @Repository
 public interface KpiCycleRepository extends JpaRepository<KpiCycle, UUID>, JpaSpecificationExecutor<KpiCycle> {
 
+    /** Dùng bởi bộ tự động phát thưởng để quét các kỳ đã kết thúc. */
+    java.util.List<KpiCycle> findByOrganizationId(UUID organizationId);
+
     /** Số đợt (chưa xoá) đang thuộc kỳ này. */
     @org.springframework.data.jpa.repository.Query(
             "SELECT COUNT(p) FROM KpiPeriod p WHERE p.kpiCycle.id = :cycleId AND p.deletedAt IS NULL")

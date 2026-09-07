@@ -15,7 +15,7 @@ export interface UnitClassification { level: string; color: string }
 
 export interface UnitClassTrendPoint {
   periodName: string
-  /** levelName → % người ở mức đó trong kỳ */
+  /** levelName → % người ở mức đó trong đợt */
   percents: Record<string, number>
 }
 
@@ -34,7 +34,11 @@ export interface UnitClassificationOverview {
   levels: UnitClassLevelInfo[]
   totalMembers: number
   evaluatedMembers: number
+  /** Đợt gần nhất trong phạm vi — chỉ có khi xem theo ĐỢT. */
   currentPeriodName: string | null
+  /** Kỳ đang xét — chỉ có khi xem theo KỲ (phân bố lấy từ số chốt kỳ). */
+  cycleId?: string | null
+  cycleName?: string | null
   distribution: UnitClassBucket[]
   classification: UnitClassification | null
   appliedProfileName?: string | null
@@ -46,6 +50,8 @@ export interface UnitClassScopeParams {
   orgUnitId?: string
   periodId?: string
   periodIdTo?: string
+  /** Có cycleId → xếp loại theo KỲ (bỏ qua bộ lọc đợt ở backend). */
+  cycleId?: string
 }
 
 export const unitClassificationApi = {

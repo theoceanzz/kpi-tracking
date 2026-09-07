@@ -14,6 +14,7 @@ import org.springframework.util.StringUtils;
 
 import java.time.Duration;
 import java.util.Arrays;
+import java.util.List;
 
 /**
  * Đọc/ghi cặp cookie xác thực.
@@ -27,11 +28,13 @@ public class AuthCookieService {
 
     public static final String ACCESS_COOKIE = "kg_at";
     public static final String REFRESH_COOKIE = "kg_rt";
+    /** Token CSRF. Không dùng tên mặc định XSRF-TOKEN — xem CSRF_COOKIE ở SecurityConfig. */
+    public static final String CSRF_COOKIE = "kg_csrf";
 
     /** Access token đi kèm mọi request, kể cả handshake WebSocket ở /ws. */
-    private static final String ACCESS_PATH = "/";
+    public static final String ACCESS_PATH = "/";
     /** Refresh token chỉ cần cho /auth/refresh-token và /auth/logout — thu hẹp bề mặt tấn công. */
-    private static final String REFRESH_PATH = "/api/v1/auth";
+    public static final String REFRESH_PATH = "/api/v1/auth";
 
     private final CookieProperties cookieProperties;
     private final JwtConfig jwtConfig;
@@ -61,8 +64,38 @@ public class AuthCookieService {
         return readCookie(request, ACCESS_COOKIE);
     }
 
-    public String readRefreshToken(HttpServletRequest request) {
-        return readCookie(request, REFRESH_COOKIE);
+    public List<String> readAccessTokens(HttpServletRequest request) {
+        return readCookies(request, ACCESS_COOKIE);
+    }
+
+    public List<String> readRefreshTokens(HttpServletRequest request) {
+        return readCookies(request, REFRESH_COOKIE);
+    }
+
+    /** Số cookie mang cùng một tên trong request — >1 nghĩa là đang có bản trùng cần dọn. */
+    public long countCookies(HttpServletRequest request, String name) {
+        Cookie[] cookies = request.getCookies();
+        if (cookies == null) {
+            return 0;
+        }
+        return Arrays.stream(cookies).filter(c -> name.equals(c.getName())).count();
+    }
+
+    /**
+     * Ghi một Set-Cookie đã hết hạn KHÔNG kèm Domain.
+     *
+     * Cookie không có Domain là host-only, nên lệnh xoá này chỉ chạm tới bản host-only trên đúng
+     * host đang phục vụ request và không đụng tới bản mang Domain gốc mà hệ thống đang dùng —
+     * hai cái đó là hai cookie khác nhau dù trùng tên.
+     */
+    public void expireHostOnlyCookie(HttpServletResponse response, String name, String path) {
+        response.addHeader(HttpHeaders.SET_COOKIE, ResponseCookie.from(name, "")
+                .secure(cookieProperties.isSecure())
+                .sameSite(cookieProperties.getSameSite())
+                .path(path)
+                .maxAge(Duration.ZERO)
+                .build()
+                .toString());
     }
 
     private void addCookie(HttpServletResponse response, String name, String value,
@@ -82,15 +115,26 @@ public class AuthCookieService {
     }
 
     private String readCookie(HttpServletRequest request, String name) {
+        return readCookies(request, name).stream().findFirst().orElse(null);
+    }
+
+    /**
+     * Trả về MỌI giá trị của cookie tên {@code name}, không chỉ giá trị đầu tiên.
+     *
+     * Trình duyệt có thể giữ hai cookie trùng tên nhưng khác scope — một bản host-only do cấu hình
+     * cũ ghi, một bản mang Domain gốc do cấu hình hiện tại ghi — và gửi cả hai trong cùng một
+     * request. Thứ tự do trình duyệt quyết định, thường là bản cũ đứng trước, nên nếu chỉ lấy giá
+     * trị đầu tiên thì ta khoá chết phiên của người dùng bằng một token đã hết hiệu lực.
+     */
+    private List<String> readCookies(HttpServletRequest request, String name) {
         Cookie[] cookies = request.getCookies();
         if (cookies == null) {
-            return null;
+            return List.of();
         }
         return Arrays.stream(cookies)
                 .filter(c -> name.equals(c.getName()))
                 .map(Cookie::getValue)
                 .filter(StringUtils::hasText)
-                .findFirst()
-                .orElse(null);
+                .toList();
     }
 }

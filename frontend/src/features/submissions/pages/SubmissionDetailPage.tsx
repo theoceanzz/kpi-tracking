@@ -360,7 +360,7 @@ export default function SubmissionDetailPage() {
                      <Plus size={16} /> Báo cáo mới
                    </Link>
                    <Link 
-                    to="/my-kpi"
+                    to="/me?section=my-kpi"
                     className="w-full flex items-center justify-center gap-2 py-4 bg-white/10 dark:bg-slate-100 text-white dark:text-slate-900 rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-white/20 dark:hover:bg-slate-200 transition-all active:scale-95 border border-white/10 dark:border-slate-200"
                    >
                      QUAY LẠI MỤC TIÊU

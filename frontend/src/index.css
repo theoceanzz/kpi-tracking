@@ -146,6 +146,15 @@ input[type=number] {
 .react-grid-item.dropping {
   visibility: hidden;
 }
+
+/* Người dùng tắt hiệu ứng chuyển động: widget nhảy thẳng tới vị trí cuối, không trượt. */
+@media (prefers-reduced-motion: reduce) {
+  .react-grid-layout,
+  .react-grid-item,
+  .react-grid-placeholder {
+    transition: none !important;
+  }
+}
 .react-grid-placeholder {
   background: var(--color-primary) !important;
   opacity: 0.1 !important;
@@ -215,4 +224,79 @@ input[type=number] {
 
 .animate-float {
   animation: float 3s ease-in-out infinite;
+}
+
+/* Dải tin điểm thưởng chạy ngang (RewardActivityTicker).
+   Chạy hết ĐÚNG một nửa quãng đường vì track chứa hai bản sao giống hệt nhau — lúc
+   bản sao thứ nhất trôi khỏi màn hình thì bản thứ hai đang nằm đúng vị trí xuất phát,
+   nên vòng lặp không có điểm giật. Đổi -50% là mối nối lộ ra ngay. */
+@keyframes reward-marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+
+.animate-reward-marquee {
+  /* Thời lượng do component đặt theo SỐ dòng tin, để tốc độ trôi không đổi khi bảng
+     tin dài ngắn khác nhau. */
+  animation: reward-marquee var(--reward-marquee-duration, 40s) linear infinite;
+}
+
+/* Dừng khi trỏ vào để còn kịp đọc dòng đang quan tâm. */
+.reward-marquee-viewport:hover .animate-reward-marquee {
+  animation-play-state: paused;
+}
+
+/* Người tắt hiệu ứng chuyển động vẫn phải đọc được bảng tin: bỏ animation và trả về
+   một dải cuộn ngang bình thường. */
+@media (prefers-reduced-motion: reduce) {
+  .animate-reward-marquee {
+    animation: none;
+  }
+}
+/* ── In chứng nhận khen thưởng ─────────────────────────────────────
+   Khu vực chứng nhận luôn tồn tại trong DOM ở kích thước in thật nhưng nằm ngoài màn
+   hình. In thẳng cây DOM này (thay vì in một ảnh PNG) để chữ giữ nguyên dạng vector:
+   người dùng chọn "Lưu thành PDF" sẽ ra tệp PDF chữ chọn/tìm kiếm được.
+
+   Đẩy ra ngoài bằng toạ độ chứ KHÔNG dùng display:none — phần tử ẩn hẳn thì không có
+   kích thước, và html-to-image sẽ chụp ra một ảnh rỗng. */
+.certificate-print-root {
+  position: fixed;
+  left: -20000px;
+  top: 0;
+  z-index: -1;
+  pointer-events: none;
+}
+
+@media print {
+  /* Chỉ giấu phần còn lại KHI đang in chứng nhận, để lệnh in thường (Ctrl+P) ở các
+     trang khác không bị ảnh hưởng. */
+  body.certificate-printing > *:not(.certificate-print-root) {
+    display: none !important;
+  }
+
+  body.certificate-printing .certificate-print-root {
+    position: static !important;
+    left: auto !important;
+    z-index: auto !important;
+  }
+
+  .certificate-print-page {
+    break-after: page;
+    page-break-after: always;
+    /* Chặn cứng: nửa pixel thừa do trình duyệt làm tròn cũng đủ đẩy ra một trang trắng. */
+    overflow: hidden;
+  }
+
+  /* Trang cuối không ngắt, nếu không máy in nhả thêm một tờ trắng. */
+  .certificate-print-page:last-child {
+    break-after: auto;
+    page-break-after: auto;
+  }
+
+  /* Nền màu là toàn bộ thiết kế của mấy mẫu tối — trình duyệt mặc định bỏ nền khi in. */
+  body.certificate-printing * {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
 }

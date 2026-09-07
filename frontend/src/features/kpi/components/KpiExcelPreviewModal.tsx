@@ -19,6 +19,7 @@ import { FREQUENCY_MAP } from '@/lib/utils'
 import { kpiApi } from '@/features/kpi/api/kpiApi'
 import { useObjectives } from '@/features/okr/hooks/useOkr'
 import { useBscPerspectives, useScorecards } from '@/features/bsc/hooks/useBsc'
+import { scorecardsForPeriod } from '@/features/bsc/utils/scorecardScope'
 
 interface KpiExcelPreviewModalProps {
   open: boolean
@@ -86,6 +87,9 @@ const qualitativeKpiRowSchema = z.object({
 
 const QUANTITATIVE_CRITICAL_FIELDS = ['Name', 'Weight', 'TargetValue', 'Unit', 'Frequency', 'EmployeeCode', 'Period']
 const QUALITATIVE_CRITICAL_FIELDS = ['Name', 'Weight', 'Frequency', 'EmployeeCode', 'Period']
+
+/** KPI thưởng nằm ngoài 100% trọng số (backend cũng loại nó khỏi tổng), nên không cộng vào cột "Excel". */
+const countsTowardWeight = (row: KpiRow) => row.IsBonusKpi !== 'true'
 
 export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onImport, isImporting }: KpiExcelPreviewModalProps) {
   const [data, setData] = useState<KpiRow[]>([])
@@ -159,8 +163,8 @@ export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onI
     if (!enableBsc || !bscScorecards) return null
     const periodId = periodIdByName.get((row.Period || '').trim().toLowerCase())
     if (!periodId) return null // đợt chưa khớp ⇒ chưa lọc
-    const periodScs = bscScorecards.filter(s => s.kpiPeriodId === periodId)
-    if (!periodScs.length) return new Set<string>() // đợt chưa có thẻ điểm ⇒ rỗng
+    const periodScs = scorecardsForPeriod(bscScorecards, periodId)
+    if (!periodScs.length) return new Set<string>() // đợt chưa có bộ tiêu chí ⇒ rỗng
     const unitIds = (row.OrgUnit || '').split(',').map(s => unitIdByName.get(s.trim().toLowerCase())).filter(Boolean) as string[]
     if (!unitIds.length) return null // chưa khớp đơn vị ⇒ chưa lọc
     const resolve = (uid: string) => {
@@ -470,10 +474,10 @@ export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onI
       if (!matched) {
         errors['Perspective'] = `Hạng mục không tồn tại`
       } else {
-        // Hạng mục phải nằm trong thẻ điểm của (đơn vị + đợt) của dòng này.
+        // Hạng mục phải nằm trong bộ tiêu chí của (đơn vị + đợt) của dòng này.
         const avail = availablePerspIdsForRow(row)
         if (avail && !avail.has(matched.id)) {
-          errors['Perspective'] = `Hạng mục không có trong thẻ điểm của đơn vị/đợt này`
+          errors['Perspective'] = `Hạng mục không có trong bộ tiêu chí của đơn vị/đợt này`
         }
       }
     }
@@ -592,7 +596,7 @@ export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onI
         .filter(r => {
           const codes = r.EmployeeCode.split(',').map((s: string) => s.trim())
           const orgNames = r.OrgUnit.split(',').map((s: string) => s.trim())
-          return codes.includes(empCode) && orgNames.includes(orgName) && r.Period === periodName && r.IsBonusKpi !== 'true'
+          return codes.includes(empCode) && orgNames.includes(orgName) && r.Period === periodName && countsTowardWeight(r)
         })
         .reduce((sum, r) => sum + (parseFloat(r.Weight) || 0), 0)
 
@@ -653,7 +657,7 @@ export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onI
   const hasAnyErrors = data.some(r => r._errors && Object.keys(r._errors).length > 0)
 
   return (
-    <div className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
+    <div className="fixed inset-x-0 top-0 h-screen z-[200] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
       <div className="bg-white dark:bg-slate-900 rounded-[32px] shadow-2xl w-full max-w-[95vw] lg:max-w-7xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200 border border-slate-200 dark:border-slate-800">
         {/* Header */}
         <div className="px-8 py-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/50">
@@ -725,7 +729,7 @@ export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onI
                       // Compute per-person weight totals, then take the max as the unit's representative weight
                       const filteredRows = data.filter(r => {
                         const orgNames = r.OrgUnit.split(',').map((s: string) => s.trim())
-                        return orgNames.includes(unitName) && r.Period === periodName
+                        return orgNames.includes(unitName) && r.Period === periodName && countsTowardWeight(r)
                       })
                       const perEmpWeights: Record<string, number> = {}
                       filteredRows.forEach(r => {
@@ -798,7 +802,7 @@ export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onI
                                   .filter(r => {
                                     const codes = r.EmployeeCode.split(',').map((s: string) => s.trim())
                                     const orgNames = r.OrgUnit.split(',').map((s: string) => s.trim())
-                                    return codes.includes(empCode) && orgNames.includes(unitName) && r.Period === periodName
+                                    return codes.includes(empCode) && orgNames.includes(unitName) && r.Period === periodName && countsTowardWeight(r)
                                   })
                                   .reduce((sum, r) => sum + (parseFloat(r.Weight) || 0), 0)
 

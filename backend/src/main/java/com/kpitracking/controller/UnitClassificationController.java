@@ -28,12 +28,17 @@ public class UnitClassificationController {
 
     @GetMapping("/overview")
     @PreAuthorize("hasAuthority('DASHBOARD:VIEW')")
-    @Operation(summary = "Phân bố + xếp loại đơn vị + xu hướng %/mức theo kỳ + xếp loại đơn vị con")
+    @Operation(summary = "Phân bố + xếp loại đơn vị + xu hướng %/mức + xếp loại đơn vị con",
+            description = "Có cycleId → xếp loại theo KỲ (dựa trên số chốt kỳ của thành viên); "
+                    + "không có → xếp loại theo ĐỢT gần nhất trong phạm vi lọc.")
     public ResponseEntity<ApiResponse<OverviewResponse>> getOverview(
             @RequestParam(required = false) UUID orgUnitId,
             @RequestParam(required = false) UUID periodId,
-            @RequestParam(required = false) UUID periodIdTo) {
-        return ResponseEntity.ok(ApiResponse.success(
-                service.getOverview(orgUnitId, periodHelper.resolvePeriodIds(periodId, periodIdTo))));
+            @RequestParam(required = false) UUID periodIdTo,
+            @RequestParam(required = false) UUID cycleId) {
+        OverviewResponse body = cycleId != null
+                ? service.getCycleOverview(orgUnitId, cycleId)
+                : service.getOverview(orgUnitId, periodHelper.resolvePeriodIds(periodId, periodIdTo));
+        return ResponseEntity.ok(ApiResponse.success(body));
     }
 }

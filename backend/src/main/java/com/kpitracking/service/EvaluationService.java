@@ -47,6 +47,17 @@ public class EvaluationService {
     private final KpiAchievementCalculator achievementCalculator;
     private final BscScoringService bscScoringService;
     private final com.kpitracking.workflow.KpiWorkflowConfigService workflowConfigService;
+    private final BscCascadeService bscCascadeService;
+    private final ConductService conductService;
+
+    /**
+     * Pool điểm khi CHẤM: trọng số chính là điểm — KPI 25% đạt đủ ⇒ 25đ, đủ 100% ⇒ 100đ.
+     *
+     * <p>evaluation_max_score KHÔNG còn là hệ số nhân lúc chấm. Nó là MẪU SỐ để xếp loại
+     * (thang 150 ⇒ người đạt đủ KPI được 100/150) và là khoảng trống trên 100 dành cho
+     * KPI thưởng + phần chỉnh tay của người chấm.
+     */
+    public static final double SCORING_POOL = 100.0;
 
     private User getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -95,8 +106,11 @@ public class EvaluationService {
                 .orElse(evaluatedUserAssignments.get(0).getOrgUnit());
         com.kpitracking.entity.Organization org = targetOrgUnit.getOrgHierarchyLevel().getOrganization();
 
-        if (request.getScore() > org.getEvaluationMaxScore()) {
-            throw new BusinessException("Điểm số không được vượt quá " + org.getEvaluationMaxScore());
+        double maxScore = org.getEvaluationMaxScore();
+        double ceiling = scoreCeiling(evaluatedUser.getId(), kpiPeriod.getId(), maxScore);
+        if (request.getScore() > ceiling) {
+            throw new BusinessException("Điểm số không được vượt quá " + fmt(ceiling)
+                    + (ceiling > maxScore ? " (thang điểm " + fmt(maxScore) + " + " + fmt(ceiling - maxScore) + " điểm KPI thưởng)" : ""));
         }
 
         boolean isSelfEval = currentUser.getId().equals(evaluatedUser.getId());
@@ -150,17 +164,21 @@ public class EvaluationService {
         evaluation.setOrgUnit(targetOrgUnit);
         evaluation.setScore(request.getScore());
         evaluation.setComment(request.getComment());
-        evaluation.setSystemScore(calculateSystemScore(evaluatedUser.getId(), kpiPeriod.getId(), (double) org.getEvaluationMaxScore()));
+        evaluation.setSystemScore(calculateSystemScore(evaluatedUser.getId(), kpiPeriod.getId()));
 
-        // Performance-matrix rating (only when qualitative KPIs are enabled & scored)
+        // Ma trận CHỈ ra kết quả khi có ĐỦ HAI TRỤC THẬT — xem resolveMatrixAxes.
         Double completion = calculateKpiCompletionPercent(evaluatedUser.getId(), kpiPeriod.getId());
         Double behavior = Boolean.TRUE.equals(org.getEnableQualitative())
                 ? calculateBehaviorScore(evaluatedUser.getId(), kpiPeriod.getId()) : null;
-        // No quantitative KPI -> completion axis N/A, treat as on-target (100%) for the matrix.
-        double colCompletion = completion != null ? completion : 100.0;
-        evaluation.setKpiCompletionPercent(completion);
-        evaluation.setBehaviorScore(behavior);
-        evaluation.setMatrixRating(behavior != null ? lookupMatrixRating(behavior, colCompletion, org.getPerformanceMatrix()) : null);
+        // Điểm hạnh kiểm lấp trục còn thiếu (chỉ định lượng ⇒ thành trục hàng; chỉ định tính ⇒ thành trục cột).
+        MatrixAxes axes = resolveMatrixAxes(evaluatedUser.getId(), kpiPeriod.getId(), org, behavior, completion);
+        // LƯU trục đã quy đổi chứ không phải số gốc: thống kê ma trận đọc lại đúng ba cột này
+        // để vẽ heatmap, lưu số khác thì ô trên heatmap lệch với xếp loại đã chấm.
+        evaluation.setKpiCompletionPercent(axes.completion());
+        evaluation.setBehaviorScore(axes.behavior());
+        // Thiếu trục nào thì lookup trả null — không xếp loại, thay vì bịa một trục.
+        evaluation.setMatrixRating(
+                lookupMatrixRating(axes.behavior(), axes.completion(), org.getPerformanceMatrix()));
 
         evaluation.setPeriodStart(kpiPeriod.getStartDate());
         evaluation.setPeriodEnd(kpiPeriod.getEndDate());
@@ -186,13 +204,45 @@ public class EvaluationService {
                         + String.join(", ", bscResult.getUnassignedKpiNames()) + ")");
             }
 
-            // CHÍNH THỨC ⇒ điểm bị KHÓA theo bsc_score: bỏ qua điểm người đánh giá gửi lên.
+            // CASCADE (docs/bsc-cascade-design.md — QĐ-4): quy kết quả BSC của phòng và của công ty
+            // thành hệ số rồi nhân vào điểm gốc. Áp ĐÚNG MỘT LẦN, ở đây, trên điểm gốc — không được
+            // nhúng vào computeForUser, nếu không phần KPI đã roll-up lên BSC phòng bị đếm hai lượt.
+            var cascade = bscResult == null ? null : bscCascadeService.applyForUser(
+                    bscResult.getScorecard(), org.getId(), kpiPeriod.getId(), bscResult.getBscScore());
+            // Hạng mục chặn (QĐ-7) chạy SAU khi có điểm công nhận và KHÔNG đụng vào điểm.
+            var gate = bscCascadeService.evaluateGates(bscResult, BscCascadeService.DEFAULT_MAX_RATING);
+
+            // CHÍNH THỨC ⇒ điểm bị KHÓA theo BSC: bỏ qua điểm người đánh giá gửi lên.
             // Ép ở server (không chỉ khóa UI) để gọi thẳng API cũng không sửa được điểm.
+            // Điểm khoá là điểm CÔNG NHẬN (sau hệ số), không phải điểm gốc.
             if (isOfficial && bscResult.getBscScore() != null) {
-                evaluation.setScore(bscResult.getBscScore());
+                Double official = cascade != null && cascade.recognized() != null
+                        ? cascade.recognized() : bscResult.getBscScore();
+                evaluation.setScore(official);
             }
 
             evaluation.setBscScore(bscResult != null ? bscResult.getBscScore() : null);
+            if (cascade != null) {
+                evaluation.setRawBscScore(cascade.rawScore());
+                evaluation.setUnitFactor(cascade.unitFactor());
+                evaluation.setCompanyFactor(cascade.companyFactor());
+                evaluation.setRecognizedScore(cascade.recognized());
+                evaluation.setCascadePolicy(cascade.policy());
+            }
+            evaluation.setGatePassed(gate.passed());
+            evaluation.setGateCapRating(gate.capRating());
+            evaluation.setGateFailedItems(gate.failedItems());
+            // Chặn tác động lên XẾP LOẠI, không lên điểm: 104 điểm vẫn là 104 điểm, chỉ trần hạ xuống.
+            if (gate.capRating() != null && evaluation.getMatrixRating() != null) {
+                evaluation.setMatrixRating(Math.min(evaluation.getMatrixRating(), gate.capRating()));
+            }
+
+            // Ghi đè thủ công là quyết định của con người (QĐ-6) — tính lại KHÔNG được xoá nó,
+            // nếu không mỗi lần chấm lại là một lần âm thầm huỷ quyết định đã phê duyệt.
+            if (evaluation.getOverrideScore() != null) {
+                evaluation.setScore(evaluation.getOverrideScore());
+            }
+
             bscScoringService.persistBreakdown(evaluation, bscResult);
             evaluation = evaluationRepository.save(evaluation);
         }
@@ -208,14 +258,13 @@ public class EvaluationService {
         com.kpitracking.entity.KpiPeriod kpiPeriod = kpiPeriodRepository.findById(kpiPeriodId)
                 .orElseThrow(() -> new ResourceNotFoundException("Kỳ đánh giá (Đợt)", "id", kpiPeriodId));
 
-        java.util.List<com.kpitracking.entity.UserRoleOrgUnit> evaluatedUserAssignments = userRoleOrgUnitRepository.findByUserId(targetUserId);
-        if (evaluatedUserAssignments.isEmpty()) {
+        // Chỉ cần biết người này có thuộc đơn vị nào không — điểm chấm trên pool 100 chung,
+        // không còn phụ thuộc thang điểm của tổ chức.
+        if (userRoleOrgUnitRepository.findByUserId(targetUserId).isEmpty()) {
             return 0.0;
         }
-        OrgUnit targetOrgUnit = evaluatedUserAssignments.get(0).getOrgUnit();
-        com.kpitracking.entity.Organization org = targetOrgUnit.getOrgHierarchyLevel().getOrganization();
 
-        return calculateSystemScore(targetUserId, kpiPeriodId, (double) org.getEvaluationMaxScore());
+        return calculateSystemScore(targetUserId, kpiPeriodId);
     }
 
     @Transactional(readOnly = true)
@@ -233,23 +282,31 @@ public class EvaluationService {
         }
         com.kpitracking.entity.Organization org = assignments.get(0).getOrgUnit().getOrgHierarchyLevel().getOrganization();
 
-        Double completion = calculateKpiCompletionPercent(targetUserId, kpiPeriodId);
-        Double behavior = Boolean.TRUE.equals(org.getEnableQualitative())
+        Double rawCompletion = calculateKpiCompletionPercent(targetUserId, kpiPeriodId);
+        Double rawBehavior = Boolean.TRUE.equals(org.getEnableQualitative())
                 ? calculateBehaviorScore(targetUserId, kpiPeriodId) : null;
-        // No quantitative KPI -> completion axis N/A, treat as on-target (100%) for the matrix.
-        double colCompletion = completion != null ? completion : 100.0;
-        Integer rating = behavior != null ? lookupMatrixRating(behavior, colCompletion, org.getPerformanceMatrix()) : null;
+        MatrixAxes axes = resolveMatrixAxes(targetUserId, kpiPeriodId, org, rawBehavior, rawCompletion);
+        Double completion = axes.completion();
+        Double behavior = axes.behavior();
+        // Thiếu một trục ⇒ không xếp loại (lookup trả null), không bịa trục thay thế.
+        Integer rating = lookupMatrixRating(behavior, completion, org.getPerformanceMatrix());
 
-        Double systemScore = calculateSystemScore(targetUserId, kpiPeriodId, (double) org.getEvaluationMaxScore());
+        double maxScore = org.getEvaluationMaxScore();
+        double[] parts = quantitativeParts(targetUserId, kpiPeriodId);
+        Double systemScore = systemScoreOf(parts);
+        // Trần điểm gửi kèm để thanh kéo ở giao diện dùng đúng giới hạn mà createEvaluation kiểm tra.
+        double bonus = bonusPoints(parts);
 
         var builder = com.kpitracking.dto.response.evaluation.EvaluationScorePreview.builder()
                 .systemScore(systemScore)
                 .behaviorScore(behavior)
                 .kpiCompletionPercent(completion)
                 .matrixRating(rating)
+                .bonusScore(bonus)
+                .maxAllowedScore(Math.max(maxScore, SCORING_POOL + bonus))
                 .officialScore(systemScore);
 
-        // BSC preview (chỉ khi org bật BSC & kỳ đã có thẻ điểm)
+        // BSC preview (chỉ khi org bật BSC & kỳ đã có bộ tiêu chí)
         if (Boolean.TRUE.equals(org.getEnableBsc())) {
             var bsc = bscScoringService.computeForUser(targetUserId, kpiPeriodId, org.getId(),
                     Boolean.TRUE.equals(org.getEnableWaterfall()));
@@ -267,14 +324,39 @@ public class EvaluationService {
         return builder.build();
     }
 
-    private Double calculateSystemScore(UUID userId, UUID kpiPeriodId, Double maxScore) {
-        // system_score (0..100) is QUANTITATIVE-ONLY, normalized over the non-bonus
-        // quantitative weight pool so it still reaches maxScore at full completion even
-        // when part of the 100% pool is taken by qualitative KPIs (which feed the matrix).
-        double[] p = quantitativeParts(userId, kpiPeriodId); // [0]=Σ(ratio·weight) non-bonus, [1]=Σweight non-bonus, [2]=Σ(ratio·weight) bonus
-        double regular = p[1] > 0 ? (p[0] / p[1]) * maxScore : 0.0;
-        double bonus = p[2] * (maxScore / 100.0);
-        return Math.min(maxScore, (double) Math.round(regular)) + (double) Math.round(bonus);
+    private Double calculateSystemScore(UUID userId, UUID kpiPeriodId) {
+        return systemScoreOf(quantitativeParts(userId, kpiPeriodId));
+    }
+
+    private Double systemScoreOf(double[] p) {
+        // system_score (0..SCORING_POOL) is QUANTITATIVE-ONLY, normalized over the non-bonus
+        // quantitative weight pool so it still reaches 100 at full completion even when part
+        // of the 100% pool is taken by qualitative KPIs (which feed the matrix).
+        // p = [0]=Σ(ratio·weight) non-bonus, [1]=Σweight non-bonus, [2]=Σ(ratio·weight) bonus
+        double regular = p[1] > 0 ? (p[0] / p[1]) * SCORING_POOL : 0.0;
+        return Math.min(SCORING_POOL, (double) Math.round(regular)) + bonusPoints(p);
+    }
+
+    /** Điểm KPI THƯỞNG — trọng số cũng là điểm, cộng THÊM lên trên pool 100. */
+    private double bonusPoints(double[] p) {
+        return Math.round(p[2]);
+    }
+
+    /** 120.0 -> "120", 82.5 -> "82.5" — tránh in "120.0" trong thông báo lỗi. */
+    private static String fmt(double v) {
+        return v == Math.rint(v) ? String.valueOf((long) v) : String.valueOf(Math.round(v * 10) / 10.0);
+    }
+
+    /**
+     * Trần điểm được phép lưu cho MỘT người ở MỘT đợt.
+     *
+     * <p>Thường là thang điểm của tổ chức — khoảng trên 100 chính là chỗ cho KPI thưởng và
+     * phần chỉnh tay. Nhưng KPI thưởng nằm NGOÀI pool 100% nên tổng của nó vẫn có thể vượt
+     * thang (tổ chức để thang 100 mà giao 10% KPI thưởng); khi đó lấy chính điểm tối đa có
+     * thể đạt, nếu không thì điểm hệ thống gợi ý ra lại không lưu được.
+     */
+    private double scoreCeiling(UUID userId, UUID kpiPeriodId, Double maxScore) {
+        return Math.max(maxScore, SCORING_POOL + bonusPoints(quantitativeParts(userId, kpiPeriodId)));
     }
 
     /**
@@ -350,6 +432,34 @@ public class EvaluationService {
         return totalWeight > 0 ? weightedSum / totalWeight : null;
     }
 
+    /** Hai trục của ma trận sau khi đã để điểm hạnh kiểm lấp chỗ trống. */
+    public record MatrixAxes(Double behavior, Double completion) {}
+
+    /**
+     * Hai trục của ma trận cho một ĐỢT. Ma trận chỉ xếp loại được khi có ĐỦ HAI TRỤC THẬT:
+     *
+     * <ol>
+     *   <li>người này có CẢ HAI loại KPI — định lượng cho trục cột, định tính cho trục hàng;</li>
+     *   <li>hoặc tổ chức bật chấm hạnh kiểm — điểm hạnh kiểm bù đúng trục còn trống.</li>
+     * </ol>
+     *
+     * Một loại KPI chỉ nằm ở MỘT trục, nên chỉ có định lượng (hoặc chỉ có định tính) mà không
+     * chấm hạnh kiểm thì thiếu trục ⇒ {@code null} ở trục đó và không ra xếp loại. KHÔNG lấy
+     * 100% làm trục cột mặc định nữa: đó là bịa ra một trục không có thật, làm người chỉ chấm
+     * định tính vẫn nhận xếp loại như thể đã hoàn thành đủ chỉ tiêu định lượng.
+     */
+    public MatrixAxes resolveMatrixAxes(UUID userId, UUID kpiPeriodId,
+                                        com.kpitracking.entity.Organization org,
+                                        Double behavior, Double completion) {
+        if (!Boolean.TRUE.equals(org.getEnableConduct())) return new MatrixAxes(behavior, completion);
+        Double conduct = conductService.effectiveScore(
+                userId, com.kpitracking.enums.ConductScope.PERIOD, kpiPeriodId, org);
+        Double conductMax = conductService.effectiveMaxScore(
+                userId, com.kpitracking.enums.ConductScope.PERIOD, kpiPeriodId, org);
+        var axes = com.kpitracking.util.ConductAxisResolver.resolve(behavior, completion, conduct, conductMax);
+        return new MatrixAxes(axes.behaviorScore(), axes.completionPercent());
+    }
+
     /**
      * Looks up the org's performance_matrix: (behaviorScore rows) × (completion% cols) -> rating 1..5.
      * Logic dải tách về {@link com.kpitracking.util.PerformanceMatrixResolver} để dùng chung với thống kê.
@@ -403,7 +513,7 @@ public class EvaluationService {
         com.kpitracking.entity.Organization org =
                 eff.getOrgUnit() != null && eff.getOrgUnit().getOrgHierarchyLevel() != null
                         ? eff.getOrgUnit().getOrgHierarchyLevel().getOrganization() : null;
-        if (org != null && Boolean.TRUE.equals(org.getEnableQualitative())) {
+        if (com.kpitracking.util.PerformanceMatrixResolver.usesMatrix(org)) {
             return eff.getMatrixRating() != null ? eff.getMatrixRating().doubleValue() : null;
         }
         return eff.getScore();

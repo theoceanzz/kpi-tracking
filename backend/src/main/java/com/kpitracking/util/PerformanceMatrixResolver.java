@@ -28,6 +28,25 @@ public final class PerformanceMatrixResolver {
     /** Ma trận đã parse. {@code cells[row][col]} = rating. */
     public record Matrix(String rowHeader, String colHeader, List<String> rows, List<String> cols, int[][] cells) {}
 
+    /**
+     * Tổ chức có dùng thang "xếp loại theo ma trận" hay không.
+     *
+     * Ma trận cần ĐỦ HAI TRỤC, và một loại KPI chỉ cấp được MỘT trục. Vậy tổ chức đủ hai
+     * trục khi:
+     * <ol>
+     *   <li>bật KPI định tính — có cả hai loại KPI, định lượng ở trục cột và định tính ở trục hàng; hoặc</li>
+     *   <li>bật chấm hạnh kiểm — điểm hạnh kiểm bù đúng trục còn trống (xem {@link ConductAxisResolver}).</li>
+     * </ol>
+     *
+     * Đây là cờ ở cấp TỔ CHỨC (mở/ẩn màn hình, chọn đơn vị hiển thị). Từng người trong từng
+     * đợt vẫn có thể thiếu trục — vd chỉ được giao KPI định tính mà tổ chức không chấm hạnh
+     * kiểm — khi đó không có xếp loại cho người đó, chứ không bịa trục để ép ra hạng.
+     */
+    public static boolean usesMatrix(com.kpitracking.entity.Organization org) {
+        return org != null && (Boolean.TRUE.equals(org.getEnableQualitative())
+                || Boolean.TRUE.equals(org.getEnableConduct()));
+    }
+
     /** Parse JSON cấu hình; trả {@code null} nếu thiếu/hỏng. */
     public static Matrix parse(String matrixJson) {
         if (matrixJson == null || matrixJson.isBlank()) return null;

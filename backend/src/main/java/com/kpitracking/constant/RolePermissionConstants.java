@@ -8,16 +8,17 @@ public class RolePermissionConstants {
 
     public static final List<String> SYSTEM_ONLY = Arrays.asList(
             "SYSTEM:ADMIN", "COMPANY:DELETE", "ROLE:DELETE", "POLICY:DELETE", "PERMISSION:EDIT",
-            // Đặt ngân sách token AI cho toàn công ty + bật/tắt uỷ quyền cho cấp dưới
             "AI_QUOTA:MANAGE"
     );
 
     public static final List<String> PERSONAL_PERMS = Arrays.asList(
-            "KPI:VIEW_MY", "SUBMISSION:VIEW_MY", "EVALUATION:VIEW_MY", "STATS:VIEW_MY", "ADJUSTMENT:VIEW_MY"
+            "KPI:VIEW_MY", "SUBMISSION:VIEW_MY", "EVALUATION:VIEW_MY", "STATS:VIEW_MY", "ADJUSTMENT:VIEW_MY",
+            "REWARD:VIEW_MY", "WALLET:VIEW_MY"
     );
 
     public static final List<String> UNIT_HEAD_PERSONAL_PERMS = Arrays.asList(
-            "KPI:VIEW_MY", "SUBMISSION:VIEW_MY", "STATS:VIEW_MY", "ADJUSTMENT:VIEW_MY"
+            "KPI:VIEW_MY", "SUBMISSION:VIEW_MY", "STATS:VIEW_MY", "ADJUSTMENT:VIEW_MY",
+            "REWARD:VIEW_MY", "WALLET:VIEW_MY"
     );
 
     // ----------------------------------------------------------------
@@ -39,14 +40,25 @@ public class RolePermissionConstants {
             "KPI_PERIOD:VIEW", "KPI_PERIOD:CREATE", "KPI_PERIOD:UPDATE", "KPI_PERIOD:DELETE",
             "AI:SUGGEST_KPI", "AI_QUOTA:ALLOCATE",
             "KPI_CYCLE:VIEW", "KPI_CYCLE:CREATE", "KPI_CYCLE:UPDATE", "KPI_CYCLE:DELETE",
-            "CYCLE_EVAL:VIEW", "CYCLE_EVAL:FINALIZE",
+            "CYCLE_EVAL:VIEW", "CYCLE_EVAL:FINALIZE", "CYCLE_EVAL:SEND",
+            "AI:SUGGEST_KPI",
             "POLICY:VIEW", "POLICY:CREATE", "POLICY:UPDATE", "POLICY:ASSIGN",
             "STATS:VIEW_ORG", "STATS:VIEW_EMPLOYEE",
             "USER_ROLE:VIEW", "USER_ROLE:ASSIGN", "USER_ROLE:REVOKE",
             "ATTACHMENT:UPLOAD", "ATTACHMENT:DELETE",
             "REMINDER:SEND",
-            "BSC:VIEW", "BSC:MANAGE", "BSC:PUBLISH_SCORE",
-            "OKR:VIEW", "OKR:MANAGE"
+            "BSC:VIEW", "BSC:MANAGE", "BSC:MANAGE_UNIT", "BSC:PUBLISH_SCORE", "BSC:APPROVE", "BSC:OVERRIDE_SCORE",
+            "OKR:VIEW", "OKR:MANAGE",
+            // Thưởng điểm: giám đốc có đủ, gồm cả quyền cấu hình ngân sách/chương trình.
+            // REWARD:APPROVE_OWN là bắt buộc — giám đốc là người ĐẶT hạn mức cho người
+            // khác nên thường không tự cấp cho mình; thiếu quyền này thì đề nghị thưởng
+            // của họ kẹt ở trạng thái chờ duyệt mà không còn ai cấp trên để duyệt.
+            "REWARD:VIEW_MY", "REWARD:VIEW", "REWARD:GRANT", "REWARD:APPROVE", "REWARD:APPROVE_OWN",
+            "REWARD:CONFIG", "GIFT:MANAGE", "GIFT:REDEEM", "GIFT:FULFILL",
+            // Ví tiền: giám đốc có đủ, gồm cả cấu hình tỉ giá/tài khoản ngân hàng và
+            // quyền đối soát. WALLET:RECONCILE là đường duy nhất xử lý được tiền đã
+            // về mà hệ thống chưa quy được về ai — không ai giữ nó thì tiền kẹt lại.
+            "WALLET:VIEW_MY", "WALLET:VIEW", "WALLET:CONFIG", "WALLET:RECONCILE"
     );
 
     // ----------------------------------------------------------------
@@ -66,15 +78,22 @@ public class RolePermissionConstants {
             "NOTIF:VIEW", "NOTIF:MANAGE",
             "KPI_PERIOD:VIEW", "KPI_PERIOD:CREATE", "KPI_PERIOD:UPDATE",
             "KPI_CYCLE:VIEW", "KPI_CYCLE:CREATE", "KPI_CYCLE:UPDATE",
-            "CYCLE_EVAL:VIEW", "CYCLE_EVAL:FINALIZE",
+            "CYCLE_EVAL:VIEW", "CYCLE_EVAL:FINALIZE", "CYCLE_EVAL:SEND",
             "AI:SUGGEST_KPI",
             "POLICY:VIEW", "POLICY:CREATE", "POLICY:UPDATE", "POLICY:ASSIGN",
             "STATS:VIEW_ORG", "STATS:VIEW_EMPLOYEE",
             "USER_ROLE:VIEW", "USER_ROLE:ASSIGN",
             "ATTACHMENT:UPLOAD",
             "REMINDER:SEND",
-            "BSC:VIEW", "BSC:MANAGE", "BSC:PUBLISH_SCORE",
-            "OKR:VIEW", "OKR:MANAGE"
+            "BSC:VIEW", "BSC:MANAGE", "BSC:MANAGE_UNIT", "BSC:PUBLISH_SCORE", "BSC:APPROVE", "BSC:OVERRIDE_SCORE",
+            "OKR:VIEW", "OKR:MANAGE",
+            // Thưởng điểm: có duyệt và quản lý quà, KHÔNG có REWARD:CONFIG —
+            // khớp cách repo đang tước quyền cấu hình của cấp phó.
+            "REWARD:VIEW_MY", "REWARD:VIEW", "REWARD:GRANT", "REWARD:APPROVE",
+            "GIFT:MANAGE", "GIFT:REDEEM", "GIFT:FULFILL",
+            // Ví tiền: xem được ví nhân sự, KHÔNG có WALLET:CONFIG — khớp cách repo
+            // đang tước quyền cấu hình của cấp phó ở REWARD:CONFIG.
+            "WALLET:VIEW_MY", "WALLET:VIEW", "WALLET:RECONCILE"
     );
 
     // ----------------------------------------------------------------
@@ -88,13 +107,19 @@ public class RolePermissionConstants {
             "KPI:IMPORT", "KPI:SUBMIT", "KPI:REJECT",
             "SUBMISSION:VIEW", "SUBMISSION:REVIEW", "SUBMISSION:REVIEW_KPI",
             "EVALUATION:VIEW", "EVALUATION:CREATE",
+            "CYCLE_EVAL:VIEW", "CYCLE_EVAL:FINALIZE", "CYCLE_EVAL:SEND",
             "NOTIF:VIEW", "KPI_PERIOD:VIEW", "KPI_CYCLE:VIEW",
             "AI:SUGGEST_KPI", "AI_QUOTA:ALLOCATE",
-            "CYCLE_EVAL:VIEW", "CYCLE_EVAL:FINALIZE",
             "STATS:VIEW_EMPLOYEE",
             "ATTACHMENT:UPLOAD",
             "REMINDER:SEND",
-            "BSC:VIEW", "OKR:VIEW"
+            // Trưởng đơn vị phải tự lập được BSC phòng — đây là kịch bản (b) và (c) của mô hình
+            // phân rã; trước đây họ chỉ có BSC:VIEW nên không làm gì được.
+            "BSC:VIEW", "BSC:MANAGE_UNIT", "OKR:VIEW",
+            // Trao thưởng KHÔNG phải quyền phê duyệt. Giới hạn thật của trưởng đơn vị
+            // là dòng reward_budgets của họ — không cấp hạn mức thì mọi đề nghị đều
+            // phải qua duyệt.
+            "REWARD:VIEW", "REWARD:GRANT", "GIFT:REDEEM"
     );
 
     // ----------------------------------------------------------------
@@ -112,7 +137,8 @@ public class RolePermissionConstants {
             "STATS:VIEW_EMPLOYEE",
             "ATTACHMENT:UPLOAD",
             "REMINDER:SEND",
-            "BSC:VIEW", "OKR:VIEW"
+            "BSC:VIEW", "BSC:MANAGE_UNIT", "OKR:VIEW",
+            "REWARD:VIEW", "REWARD:GRANT", "GIFT:REDEEM"
     );
 
     // ----------------------------------------------------------------
@@ -125,7 +151,9 @@ public class RolePermissionConstants {
             "EVALUATION:VIEW","EVALUATION:CREATE",
             "NOTIF:VIEW", "KPI_PERIOD:VIEW", "KPI_CYCLE:VIEW",
             "ATTACHMENT:UPLOAD",
-            "BSC:VIEW", "OKR:VIEW"
+            "BSC:VIEW", "OKR:VIEW",
+            // REWARD:VIEW_MY vào qua PERSONAL_PERMS
+            "GIFT:REDEEM"
     );
 
     // ================================================================

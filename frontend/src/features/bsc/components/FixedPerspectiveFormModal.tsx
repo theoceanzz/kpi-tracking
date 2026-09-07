@@ -1,8 +1,11 @@
-import { useEffect } from 'react'
+import { useEffect, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { X, Compass, Loader2, Plus, Lock } from 'lucide-react'
-import { FixedPerspectiveResponse, FixedPerspectiveUpdateRequest } from '../types'
+import { cn } from '@/lib/utils'
+import { FixedPerspectiveResponse } from '../types'
 import { useFixedPerspectiveMutations } from '../hooks/useBsc'
+import { createFixedPerspectiveSchema, type FixedPerspectiveFormValues } from '../schemas/perspectiveSchema'
 
 interface FixedPerspectiveFormModalProps {
   isOpen: boolean
@@ -10,12 +13,20 @@ interface FixedPerspectiveFormModalProps {
   organizationId: string
   fixedPerspective?: FixedPerspectiveResponse
   usedOrders?: number[]
+  /** Đè z-index của lớp phủ khi modal này nằm trên một modal khác. */
+  overlayClassName?: string
 }
 
 const PRESET_COLORS = ['#2563eb', '#f59e0b', '#10b981', '#8b5cf6', '#ef4444', '#6366f1', '#0ea5e9', '#ec4899']
 
-export default function FixedPerspectiveFormModal({ isOpen, onClose, organizationId, fixedPerspective, usedOrders = [] }: FixedPerspectiveFormModalProps) {
-  const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<FixedPerspectiveUpdateRequest>({
+export default function FixedPerspectiveFormModal({
+  isOpen, onClose, organizationId, fixedPerspective, usedOrders = [], overlayClassName,
+}: FixedPerspectiveFormModalProps) {
+  // Thứ tự đã bị lĩnh vực khác chiếm là dữ liệu động, nên schema dựng theo ngữ cảnh.
+  const schema = useMemo(() => createFixedPerspectiveSchema(usedOrders), [usedOrders])
+
+  const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<FixedPerspectiveFormValues>({
+    resolver: zodResolver(schema),
     defaultValues: { name: '', color: PRESET_COLORS[0], displayOrder: 0 },
   })
 
@@ -32,7 +43,7 @@ export default function FixedPerspectiveFormModal({ isOpen, onClose, organizatio
     }
   }, [fixedPerspective, reset, isOpen])
 
-  const onSubmit = (data: FixedPerspectiveUpdateRequest) => {
+  const onSubmit = (data: FixedPerspectiveFormValues) => {
     if (!fixedPerspective) return
     updateFixedPerspective.mutate(
       { organizationId, code: fixedPerspective.code, data },
@@ -45,7 +56,7 @@ export default function FixedPerspectiveFormModal({ isOpen, onClose, organizatio
   const isPending = updateFixedPerspective.isPending
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
+    <div className={cn('fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300', overlayClassName)}>
       <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
         <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-gradient-to-r from-indigo-50 to-white dark:from-indigo-950/20 dark:to-slate-900">
           <div className="flex items-center gap-4">
@@ -53,8 +64,8 @@ export default function FixedPerspectiveFormModal({ isOpen, onClose, organizatio
               <Compass size={24} />
             </div>
             <div>
-              <h3 className="text-xl font-black text-slate-900 dark:text-white">Chỉnh sửa viễn cảnh</h3>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">BSC · Viễn cảnh cố định</p>
+              <h3 className="text-xl font-black text-slate-900 dark:text-white">Chỉnh sửa lĩnh vực</h3>
+              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">BSC · Lĩnh vực cố định</p>
             </div>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors">
@@ -66,12 +77,9 @@ export default function FixedPerspectiveFormModal({ isOpen, onClose, organizatio
           <div className="p-6 space-y-4 overflow-y-auto custom-scrollbar">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <div className="sm:col-span-2 space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Tên viễn cảnh <span className="text-red-500">*</span></label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Tên lĩnh vực <span className="text-red-500">*</span></label>
                 <input
-                  {...register('name', {
-                    required: 'Vui lòng nhập tên viễn cảnh',
-                    maxLength: { value: 100, message: 'Tên tối đa 100 ký tự' },
-                  })}
+                  {...register('name')}
                   placeholder="VD: Tài chính"
                   className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all"
                 />
@@ -97,18 +105,7 @@ export default function FixedPerspectiveFormModal({ isOpen, onClose, organizatio
                 type="number"
                 min={0}
                 step={1}
-                {...register('displayOrder', {
-                  valueAsNumber: true,
-                  validate: {
-                    required: v => (v !== undefined && v !== null && !Number.isNaN(v)) || 'Vui lòng nhập thứ tự hiển thị',
-                    integer: v => v == null || Number.isInteger(v) || 'Thứ tự phải là số nguyên',
-                    min: v => v == null || v >= 0 || 'Thứ tự không được âm',
-                    duplicate: v => {
-                      if (v == null || Number.isNaN(v)) return true
-                      return !usedOrders.includes(v) || 'Thứ tự này đã được dùng bởi viễn cảnh khác'
-                    },
-                  },
-                })}
+                {...register('displayOrder', { valueAsNumber: true })}
                 className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all"
               />
               {errors.displayOrder && <p className="text-[10px] font-bold text-red-500 ml-1">{errors.displayOrder.message}</p>}
@@ -118,10 +115,7 @@ export default function FixedPerspectiveFormModal({ isOpen, onClose, organizatio
               <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Màu sắc <span className="text-red-500">*</span></label>
               <input
                 type="hidden"
-                {...register('color', {
-                  required: 'Vui lòng chọn màu sắc',
-                  pattern: { value: /^#([0-9A-Fa-f]{6})$/, message: 'Màu không hợp lệ' },
-                })}
+                {...register('color')}
               />
               <div className="flex flex-wrap gap-2 items-center">
                 {PRESET_COLORS.map(color => (

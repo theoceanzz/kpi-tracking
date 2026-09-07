@@ -68,6 +68,7 @@ public class KpiCriteriaService {
     private final com.kpitracking.repository.KeyResultRepository keyResultRepository;
     private final com.kpitracking.repository.BscPerspectiveRepository bscPerspectiveRepository;
     private final com.kpitracking.repository.BscScorecardRepository bscScorecardRepository;
+    private final com.kpitracking.repository.BscScorecardPerspectiveRepository bscScorecardPerspectiveRepository;
     private final KpiAchievementCalculator achievementCalculator;
     private final OrganizationService organizationService;
     private final BscScoringService bscScoringService;
@@ -364,6 +365,8 @@ public class KpiCriteriaService {
             kpi.setPerspective(perspective);
         }
 
+        applyScorecardLink(kpi, request.getScorecardPerspectiveId());
+
         if (status == KpiStatus.APPROVED) {
             kpi.setApprovedBy(creator);
             kpi.setApprovedAt(Instant.now());
@@ -392,16 +395,31 @@ public class KpiCriteriaService {
     }
 
     @Transactional(readOnly = true)
+    /**
+     * Gắn KPI vào một DÒNG chỉ tiêu của bộ tiêu chí BSC (docs/bsc-cascade-design.md — QĐ-8).
+     *
+     * <p>Gắn xong thì đồng bộ luôn {@code perspective} theo dòng đó: báo cáo và thống kê cũ vẫn
+     * gom theo hạng mục, để lệch nhau thì cùng một KPI xuất hiện ở hai nhóm khác nhau tuỳ màn hình.
+     *
+     * <p>{@code null} = gỡ liên kết, KPI trở lại chỉ tiêu tự do.
+     */
+    private void applyScorecardLink(KpiCriteria kpi, java.util.UUID scorecardPerspectiveId) {
+        if (scorecardPerspectiveId == null) return;
+        com.kpitracking.entity.BscScorecardPerspective row = bscScorecardPerspectiveRepository
+                .findById(scorecardPerspectiveId)
+                .orElseThrow(() -> new ResourceNotFoundException("Chỉ tiêu BSC", "id", scorecardPerspectiveId));
+        kpi.setScorecardPerspective(row);
+        kpi.setPerspective(row.getPerspective());
+    }
+
     public PageResponse<KpiCriteriaResponse> getKpiCriteria(int page, int size, KpiStatus status, UUID orgUnitId, UUID createdById, UUID assigneeId, UUID kpiPeriodId, String keyword, Instant startDate, Instant endDate, String sortBy, String sortDir, UUID objectiveId, UUID keyResultId, UUID perspectiveId, boolean approvalMode, String kpiNature, Boolean isBonusKpi, Boolean isReverseKpi, com.kpitracking.enums.KpiType kpiType) {
         User currentUser = getCurrentUser();
         UUID organizationId = getCurrentUserOrganizationId(currentUser);
 
-        // User's own units: colleagues' KPIs are visible only when APPROVED
-        List<UserRoleOrgUnit> assignments = userRoleOrgUnitRepository.findByUserId(currentUser.getId());
-        List<UUID> sameUnitIds = assignments.stream()
-                .map(a -> a.getOrgUnit().getId())
-                .distinct()
-                .collect(java.util.stream.Collectors.toList());
+        // User's own units: colleagues' KPIs are visible only when APPROVED.
+        // Quản lý thấy cả cây con của đơn vị mình, nhân viên chỉ thấy đúng đơn vị mình.
+        com.kpitracking.security.PermissionChecker.KpiVisibilityScope scope =
+                permissionChecker.getKpiVisibilityScope(currentUser.getId());
 
         // When qualitative KPIs are disabled for the org, hide them entirely by
         // forcing the type filter to QUANTITATIVE (ignoring any incoming qualitative filter).
@@ -422,7 +440,8 @@ public class KpiCriteriaService {
         Page<KpiCriteria> kpiPage = kpiCriteriaRepository.findAllWithFilters(
                 organizationId,
                 currentUser.getId(),
-                sameUnitIds,
+                scope.managerUnitIdsForQuery(),
+                scope.memberUnitIdsForQuery(),
                 approvalMode,
                 createdById,
                 assigneeId,
@@ -656,6 +675,8 @@ public class KpiCriteriaService {
             kpi.setPerspective(perspective);
         }
 
+        applyScorecardLink(kpi, request.getScorecardPerspectiveId());
+
         if (request.getParentId() != null) {
             KpiCriteria parent = kpiCriteriaRepository.findById(request.getParentId())
                     .orElseThrow(() -> new ResourceNotFoundException("KPI Cha", "id", request.getParentId()));
@@ -774,11 +795,11 @@ public class KpiCriteriaService {
 
     /**
      * Khi tổ chức bật BSC: KPI có tham gia tính điểm BSC (cả định lượng lẫn định tính) BẮT BUỘC
-     * phải được gán viễn cảnh trước khi duyệt — để tới kỳ đánh giá mọi KPI đã duyệt đều có viễn cảnh
+     * phải được gán lĩnh vực trước khi duyệt — để tới kỳ đánh giá mọi KPI đã duyệt đều có lĩnh vực
      * (coverage = 100%). KPI thưởng / KPI cha phân rã / KPI huỷ không tính điểm nên không bắt buộc.
      *
-     * CHỈ áp dụng khi KỲ của KPI đã có thẻ điểm — kỳ chưa có thẻ điểm thì không có trọng số viễn cảnh
-     * ⇒ không sinh điểm BSC ⇒ đòi gán viễn cảnh là ép vô ích, chặn duyệt KPI vô cớ.
+     * CHỈ áp dụng khi KỲ của KPI đã có bộ tiêu chí — kỳ chưa có bộ tiêu chí thì không có trọng số lĩnh vực
+     * ⇒ không sinh điểm BSC ⇒ đòi gán lĩnh vực là ép vô ích, chặn duyệt KPI vô cớ.
      */
     /**
      * KPI ngược (càng thấp càng tốt): {@code minimumValue} là NGƯỠNG TỆ NHẤT chấp nhận được
@@ -806,25 +827,25 @@ public class KpiCriteriaService {
         Organization org = kpi.getOrgUnit().getOrgHierarchyLevel().getOrganization();
         if (org == null || !Boolean.TRUE.equals(org.getEnableBsc())) return;
         if (kpi.getKpiPeriod() == null) return;
-        if (!bscScorecardRepository.existsByOrganizationIdAndKpiPeriodId(org.getId(), kpi.getKpiPeriod().getId())) return;
+        if (bscScorecardRepository.countAppliedToPeriod(org.getId(), kpi.getKpiPeriod().getId()) == 0) return;
         if (!achievementCalculator.countsTowardBscScore(kpi)) return;
-        // KPI có thể suy viễn cảnh từ Objective cha (OKR) ⇒ dùng viễn cảnh HIỆU LỰC, không đòi gán trực tiếp.
+        // KPI có thể suy lĩnh vực từ Objective cha (OKR) ⇒ dùng lĩnh vực HIỆU LỰC, không đòi gán trực tiếp.
         if (com.kpitracking.util.BscPerspectiveResolver.effectivePerspective(kpi) == null) {
-            throw new BusinessException("Kỳ '" + kpi.getKpiPeriod().getName() + "' đang áp dụng thẻ điểm BSC: "
+            throw new BusinessException("Kỳ '" + kpi.getKpiPeriod().getName() + "' đang áp dụng bộ tiêu chí BSC: "
                     + "vui lòng gán hạng mục cho chỉ tiêu '" + kpi.getName() + "' (hoặc gán cho Mục tiêu OKR cha) trước khi phê duyệt");
         }
     }
 
     /**
-     * Khi org bật BSC & kỳ có thẻ điểm: tổng trọng số các KPI (tính điểm) trong CÙNG một HẠNG MỤC
-     * — cùng phòng ban + cùng kỳ + cùng viễn cảnh hiệu lực — phải = 100% trước khi duyệt (xem ảnh 3).
+     * Khi org bật BSC & kỳ có bộ tiêu chí: tổng trọng số các KPI (tính điểm) trong CÙNG một HẠNG MỤC
+     * — cùng phòng ban + cùng kỳ + cùng lĩnh vực hiệu lực — phải = 100% trước khi duyệt (xem ảnh 3).
      * Đây là ràng buộc chặn CỨNG lúc duyệt; lúc tạo/sửa chỉ cảnh báo mềm (phía FE) để user xây dần.
      */
     private void requireCategoryWeightSum100OnApprove(KpiCriteria kpi) {
         Organization org = kpi.getOrgUnit().getOrgHierarchyLevel().getOrganization();
         if (org == null || !Boolean.TRUE.equals(org.getEnableBsc())) return;
         if (kpi.getKpiPeriod() == null) return;
-        if (!bscScorecardRepository.existsByOrganizationIdAndKpiPeriodId(org.getId(), kpi.getKpiPeriod().getId())) return;
+        if (bscScorecardRepository.countAppliedToPeriod(org.getId(), kpi.getKpiPeriod().getId()) == 0) return;
         if (!achievementCalculator.countsTowardBscScore(kpi)) return;
 
         com.kpitracking.entity.BscPerspective category =
@@ -916,6 +937,31 @@ public class KpiCriteriaService {
         kpiCriteriaRepository.save(kpi);
     }
 
+    /** Xoá mềm nhiều chỉ tiêu trong một lượt; bỏ qua chỉ tiêu không còn tồn tại. */
+    @Transactional
+    public int bulkDeleteKpiCriteria(List<UUID> kpiIds) {
+        if (kpiIds == null || kpiIds.isEmpty()) return 0;
+        User currentUser = getCurrentUser();
+        int deleted = 0;
+
+        for (UUID kpiId : kpiIds) {
+            KpiCriteria kpi = kpiCriteriaRepository.findById(kpiId).orElse(null);
+            if (kpi == null) continue;
+
+            boolean canDelete = permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "KPI:DELETE", kpi.getOrgUnit().getId());
+            boolean isCreator = kpi.getCreatedBy().getId().equals(currentUser.getId());
+            if (!isCreator && !canDelete) {
+                throw new ForbiddenException("Bạn không có quyền xoá KPI này");
+            }
+
+            kpi.setDeletedAt(Instant.now());
+            kpiCriteriaRepository.save(kpi);
+            deleted++;
+        }
+
+        return deleted;
+    }
+
     @Transactional(readOnly = true)
     public PageResponse<KpiCriteriaResponse> getMyKpi(int page, int size, UUID kpiPeriodId, Instant startDate, Instant endDate, String sortBy, String sortDir, UUID objectiveId, UUID keyResultId) {
         User currentUser = getCurrentUser();
@@ -974,7 +1020,7 @@ public class KpiCriteriaService {
             if (Boolean.TRUE.equals(kpi.getIsBonusKpi())) continue; // Bonus KPIs don't count toward the 100% requirement
             if (hasDecompositionChildren(kpi)) continue; // Parent is just a grouping label; its children carry the real weight
 
-            double weight = effectiveWeight(kpi); // trọng số THẬT = form × %hạng_mục (nếu có BSC + thẻ điểm)
+            double weight = effectiveWeight(kpi); // trọng số THẬT = form × %hạng_mục (nếu có BSC + bộ tiêu chí)
             if (kpi.getAssignees() == null || kpi.getAssignees().isEmpty()) {
                 unassignedWeight += weight;
             } else {
@@ -993,9 +1039,9 @@ public class KpiCriteriaService {
     }
 
     /**
-     * Trọng số THẬT của 1 KPI = form × (%hạng_mục / 100), với %hạng_mục lấy từ thẻ điểm áp dụng cho
-     * đơn vị của KPI (resolve đơn vị → cha → mặc định). Không bật BSC / chưa gán hạng mục / chưa có thẻ điểm
-     * ⇒ giữ nguyên trọng số form (mô hình cũ). Hạng mục KHÔNG có trong thẻ điểm ⇒ 0 (không tính).
+     * Trọng số THẬT của 1 KPI = form × (%hạng_mục / 100), với %hạng_mục lấy từ bộ tiêu chí áp dụng cho
+     * đơn vị của KPI (resolve đơn vị → cha → mặc định). Không bật BSC / chưa gán hạng mục / chưa có bộ tiêu chí
+     * ⇒ giữ nguyên trọng số form (mô hình cũ). Hạng mục KHÔNG có trong bộ tiêu chí ⇒ 0 (không tính).
      */
     private double effectiveWeight(KpiCriteria kpi) {
         double raw = kpi.getWeight() != null ? kpi.getWeight() : 0.0;
@@ -1015,7 +1061,7 @@ public class KpiCriteriaService {
                 }
             }
         }
-        if (pct == null) return 0.0; // hạng mục không nằm trong thẻ điểm đơn vị ⇒ không tính
+        if (pct == null) return 0.0; // hạng mục không nằm trong bộ tiêu chí đơn vị ⇒ không tính
         return raw * pct / 100.0;
     }
 

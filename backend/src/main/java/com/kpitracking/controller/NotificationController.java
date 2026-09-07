@@ -1,12 +1,14 @@
 package com.kpitracking.controller;
 
 import com.kpitracking.dto.request.notification.SaveNotificationConfigRequest;
+import com.kpitracking.dto.request.notification.SendKpiReminderRequest;
 import com.kpitracking.dto.response.ApiResponse;
 import com.kpitracking.dto.response.PageResponse;
 import com.kpitracking.dto.response.notification.NotificationConfigResponse;
 import com.kpitracking.dto.response.notification.NotificationResponse;
 import com.kpitracking.service.NotificationService;
 import com.kpitracking.service.OrgNotificationConfigService;
+import com.kpitracking.service.ReminderService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
@@ -25,6 +27,7 @@ public class NotificationController {
 
     private final NotificationService notificationService;
     private final OrgNotificationConfigService orgNotificationConfigService;
+    private final ReminderService reminderService;
 
     @GetMapping
     @Operation(summary = "Get current user's notifications")
@@ -67,5 +70,12 @@ public class NotificationController {
     public ResponseEntity<ApiResponse<List<NotificationConfigResponse>>> saveNotificationConfig(
             @Valid @RequestBody SaveNotificationConfigRequest request) {
         return ResponseEntity.ok(ApiResponse.success(orgNotificationConfigService.saveMyOrgConfigs(request)));
+    }
+
+    @PostMapping("/kpi-reminder")
+    @Operation(summary = "Gửi email nhắc tiến độ KPI cho một nhân sự trong phạm vi quản lý")
+    public ResponseEntity<ApiResponse<Void>> sendKpiReminder(@Valid @RequestBody SendKpiReminderRequest request) {
+        reminderService.sendProgressReminder(request);
+        return ResponseEntity.ok(ApiResponse.success(null));
     }
 }

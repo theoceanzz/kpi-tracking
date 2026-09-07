@@ -183,9 +183,13 @@ public class AuthService {
         return issueAuthResponse(user, userAgent);
     }
 
+    /**
+     * Nhận danh sách ứng viên vì trình duyệt có thể gửi nhiều cookie kg_rt trùng tên —
+     * xem RefreshTokenService.verifyRefreshToken(List).
+     */
     @Transactional
-    public AuthResponse refreshToken(String refreshTokenStr) {
-        RefreshToken refreshToken = refreshTokenService.verifyRefreshToken(refreshTokenStr);
+    public AuthResponse refreshToken(java.util.List<String> candidateTokens) {
+        RefreshToken refreshToken = refreshTokenService.verifyRefreshToken(candidateTokens);
         User user = refreshToken.getUser();
 
         return issueAuthResponse(user, refreshToken.getDeviceInfo());

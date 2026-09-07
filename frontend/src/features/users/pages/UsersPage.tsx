@@ -18,11 +18,9 @@ import type { OrgUnitTreeResponse } from '@/features/organization/types/org-unit
 import { toast } from 'sonner'
 import { usePermission } from '@/hooks/usePermission'
 import { useAuthStore } from '@/store/authStore'
-import { useSidebarSettings } from '@/features/organization/hooks/useSidebarSettings'
+import { usePageTitle } from '@/features/organization/hooks/usePageTitle'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useRoles } from '@/features/organization/hooks/useRoles'
-import PageTour from '@/components/common/PageTour'
-import { usersSteps } from '@/components/common/tourSteps'
 
 export default function UsersPage() {
   const [keyword, setKeyword] = useState('')
@@ -40,11 +38,7 @@ export default function UsersPage() {
   const fileRef = useRef<HTMLInputElement>(null)
   const user = useAuthStore(state => state.user)
   const organizationId = user?.memberships?.[0]?.organizationId
-  const { data: customLabels = {} } = useSidebarSettings(organizationId!)
-  const pageTitle = ((customLabels as Record<string, string>)['/users'] || 'Quản lý nhân sự')
-    .split(' ')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ')
+  const pageTitle = usePageTitle('users', 'Quản lý nhân sự')
   const { data: hierarchyLevels } = useOrgHierarchyLevels(organizationId)
   const { data: orgTree } = useOrgUnitTree(organizationId)
   const { data: allRoles } = useRoles()
@@ -232,7 +226,6 @@ export default function UsersPage() {
 
   return (
     <div className="space-y-6">
-      <PageTour pageKey="users" steps={usersSteps} />
       <div id="tour-users-header">
         <PageHeader
           title={pageTitle}

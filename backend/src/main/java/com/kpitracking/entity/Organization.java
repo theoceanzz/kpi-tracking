@@ -35,6 +35,30 @@ public class Organization {
     @Builder.Default
     private OrganizationStatus status = OrganizationStatus.ACTIVE;
 
+    // ===== Hồ sơ doanh nghiệp =====
+
+    /** Logo công ty. URL Cloudinary công khai. */
+    @Column(name = "logo_url", columnDefinition = "text")
+    private String logoUrl;
+
+    /** Ảnh bìa trang hồ sơ (khuyến nghị 1200x300). */
+    @Column(name = "cover_url", columnDefinition = "text")
+    private String coverUrl;
+
+    /** Lĩnh vực hoạt động. Chuỗi tự do — danh mục ngành nghề do giao diện gợi ý, không phải enum. */
+    @Column(name = "industry", length = 120)
+    private String industry;
+
+    @Column(name = "tax_code", length = 50)
+    private String taxCode;
+
+    /** Quy mô nhân sự do công ty tự khai, không phải số người dùng thực tế trong hệ thống. */
+    @Column(name = "employee_count")
+    private Integer employeeCount;
+
+    @Column(name = "description", columnDefinition = "text")
+    private String description;
+
     @CreatedDate
     @Column(name = "created_at", updatable = false)
     private Instant createdAt;
@@ -88,6 +112,62 @@ public class Organization {
     @Column(name = "enable_bsc")
     @Builder.Default
     private Boolean enableBsc = false;
+
+    /** Chấm hạnh kiểm theo bộ tiêu chí có trọng số (đợt/kỳ). Mặc định TẮT. */
+    @Column(name = "enable_conduct")
+    @Builder.Default
+    private Boolean enableConduct = false;
+
+    /** Thang điểm mỗi tiêu chí hạnh kiểm (mặc định 4 như phiếu xếp loại hành vi). */
+    @Column(name = "conduct_max_score")
+    @Builder.Default
+    private Double conductMaxScore = 4.0;
+
+    // Bộ tiêu chí hạnh kiểm KHÔNG map thành collection ở đây: nó được đọc/ghi qua
+    // ConductCriteriaRepository, và một collection cascade+orphanRemoval nạp lười ở đây
+    // chỉ tạo nguy cơ xoá nhầm tiêu chí vừa thêm khi lưu tổ chức.
+
+    /** Thưởng điểm & đổi quà. Mặc định TẮT để không tổ chức nào bỗng dưng thấy menu lạ. */
+    @Column(name = "enable_reward")
+    @Builder.Default
+    private Boolean enableReward = false;
+
+    // ===== Ví tiền thật =====
+
+    /** Ví tiền & nạp SePay. Mặc định TẮT, giống enable_reward. */
+    @Column(name = "enable_cash_wallet", nullable = false)
+    @Builder.Default
+    private Boolean enableCashWallet = false;
+
+    /**
+     * Số ĐỒNG đổi được 1 điểm thưởng. Mỗi bút toán quy đổi tự chụp lại tỉ giá tại
+     * thời điểm đó, nên đổi tỉ giá không làm sai lệch lịch sử cũ.
+     */
+    @Column(name = "point_exchange_rate", nullable = false)
+    @Builder.Default
+    private Long pointExchangeRate = 1000L;
+
+    @Column(name = "topup_min_amount", nullable = false)
+    @Builder.Default
+    private Long topupMinAmount = 10_000L;
+
+    @Column(name = "topup_max_amount", nullable = false)
+    @Builder.Default
+    private Long topupMaxAmount = 50_000_000L;
+
+    @Column(name = "topup_expire_minutes", nullable = false)
+    @Builder.Default
+    private Integer topupExpireMinutes = 30;
+
+    /** Tài khoản nhận tiền. Webhook đối chiếu, giao diện dựng ảnh VietQR từ đây. */
+    @Column(name = "sepay_account_number", length = 50)
+    private String sepayAccountNumber;
+
+    @Column(name = "sepay_bank_code", length = 20)
+    private String sepayBankCode;
+
+    @Column(name = "sepay_account_holder")
+    private String sepayAccountHolder;
 
     // ===== Hạn mức token AI =====
 

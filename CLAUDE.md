@@ -73,7 +73,9 @@ KpiCriteria (definition) → KpiCriteriaAssignee (assigned to user/org unit)
 
 ## Environment
 
-Backend reads `backend/.env` locally and `application-prod.yaml` in production (set via `SPRING_PROFILES_ACTIVE=prod`).
+Backend config comes from `application.yaml` (default profile) and `application-prod.yaml` in production (set via `SPRING_PROFILES_ACTIVE=prod`). Every key uses the `${ENV_VAR:default}` form, and the defaults committed in `application.yaml` are what actually runs locally.
+
+`backend/.env` is **not** loaded automatically by anything in this repo — there is no `spring-dotenv` dependency, no IDE EnvFile config, and Docker Compose only reads a `.env` next to `docker-compose.yml` (repo root, where none exists). Treat it as a reference file. So: when adding a new setting, put a working default in `application.yaml`, then wire the env var into `docker-compose.yml` for deployment. Changing only `backend/.env` has no effect.
 
 Frontend reads `frontend/.env`; `VITE_API_BASE_URL` defaults to `/api/v1`.
 
@@ -85,3 +87,6 @@ Database defaults: PostgreSQL on `localhost:5432`, user `postgres`, password `12
 - Permission checks use `@PreAuthorize` or explicit `PermissionChecker` calls — don't bypass these in new endpoints
 - New REST endpoints follow `/api/v1/{resource}` naming and return standard response wrappers
 - Frontend feature folders follow the pattern: `features/{name}/{Name}Page.tsx` as entry point, with co-located API hooks and types
+- **Dropdowns use the shadcn `Select` from `src/components/ui/select.tsx`, never a native `<select>`.** The native element can't be styled consistently across browsers and ignores the theme tokens, so a page mixing both looks broken in dark mode. Compose it as `Select > SelectTrigger > SelectValue` + `SelectContent > SelectItem`; group with `SelectGroup` + `SelectLabel` instead of `<optgroup>`.
+  - `SelectItem` **cannot** take `value=""` — Radix reserves the empty string for "no selection". For an "all"/"default" choice use a sentinel constant (e.g. `'__default__'`) and map it back to `null` when submitting.
+  - `SelectContent` renders in a portal at `z-50`. Inside the app's modals (`z-[1000]`) it opens *behind* the dialog and can't be clicked — pass `className="z-[1100]"`, the way `features/rewards/components/EmployeePicker.tsx` does.

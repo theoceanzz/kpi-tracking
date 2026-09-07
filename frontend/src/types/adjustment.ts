@@ -18,6 +18,9 @@ export interface KpiAdjustmentRequest {
   compensationPercentage: number | null
   reason: string
   status: AdjustmentStatus
+  /** Đơn vị của KPI bị điều chỉnh — dùng để gom danh sách theo Đơn vị → Người → Yêu cầu. */
+  orgUnitId: string | null
+  orgUnitName: string | null
   requesterId: string
   requesterName: string
   reviewerId: string | null

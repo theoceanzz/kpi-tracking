@@ -21,6 +21,8 @@ export default function UnitClassificationSection({ overview, part }: {
 }) {
   const dist = overview?.distribution ?? []
   const cls = overview?.classification
+  // Xem theo kỳ thì phân bố lấy từ số chốt kỳ, không phải một đợt nào cả — nhãn phải nói đúng
+  // nguồn số, nếu không người đọc sẽ tưởng đang nhìn đợt gần nhất.
 
   // Đường phân phối: x = mức (thấp→cao), y = % người ở mức đó (kỳ hiện tại).
   const curve = useMemo(
@@ -58,7 +60,7 @@ export default function UnitClassificationSection({ overview, part }: {
   if (overview && overview.evaluatedMembers === 0) {
     return (
       <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 text-center text-sm text-slate-400 font-medium">
-        Chưa có đánh giá nào để xếp loại đơn vị cho phạm vi/kỳ đang chọn.
+        Chưa có đánh giá nào để xếp loại đơn vị cho phạm vi/đợt/kỳ đang chọn.
       </div>
     )
   }

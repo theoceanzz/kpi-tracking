@@ -1,6 +1,9 @@
-import { useState } from 'react'
+import { useMemo } from 'react'
+import { useForm } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { adjustmentApi } from '../api/adjustmentApi'
+import { createAdjustmentReviewSchema, type AdjustmentReviewFormData } from '../schemas/reviewSchema'
 import { toast } from 'sonner'
 import { X, Loader2, XCircle, Users, Clock, MessageSquare, AlertTriangle, Calendar, Layers } from 'lucide-react'
 import { formatNumber, formatDateTime, cn } from '@/lib/utils'
@@ -13,28 +16,40 @@ interface KpiAdjustmentReviewModalProps {
 }
 
 export default function KpiAdjustmentReviewModal({ open, onClose, request }: KpiAdjustmentReviewModalProps) {
-  const [note, setNote] = useState('')
-  const [compensationPercentage, setCompensationPercentage] = useState('')
-  const [reviewMode, setReviewMode] = useState<'view' | 'reject' | 'approve'>('view')
+  // Ô % bù trừ chỉ hiện khi PHÊ DUYỆT một yêu cầu ngưng KPI, nên ràng buộc theo ngữ cảnh.
+  const needsCompensation = !!request?.deactivationRequest
+  const schema = useMemo(
+    () => createAdjustmentReviewSchema({ needsCompensation }),
+    [needsCompensation],
+  )
+
+  const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<AdjustmentReviewFormData>({
+    resolver: zodResolver(schema),
+    defaultValues: { reviewMode: 'view', note: '', compensationPercentage: '' },
+  })
+
+  // Ba nút Từ chối / Phê duyệt / Quay lại chỉ đổi bước, không phải ô nhập.
+  const reviewMode = watch('reviewMode')
+  const setReviewMode = (mode: AdjustmentReviewFormData['reviewMode']) =>
+    setValue('reviewMode', mode, { shouldValidate: false })
+
   const qc = useQueryClient()
 
   const reviewMutation = useMutation({
-    mutationFn: (status: 'APPROVED' | 'REJECTED') =>
+    mutationFn: (data: AdjustmentReviewFormData) =>
       adjustmentApi.review(request!.id, {
-        status,
-        reviewerNote: note,
-        ...(status === 'APPROVED' && request!.deactivationRequest
-          ? { compensationPercentage: Number(compensationPercentage) }
+        status: data.reviewMode === 'approve' ? 'APPROVED' : 'REJECTED',
+        reviewerNote: data.note,
+        ...(data.reviewMode === 'approve' && request!.deactivationRequest
+          ? { compensationPercentage: Number(data.compensationPercentage) }
           : {}),
       }),
-    onSuccess: (_, status) => {
+    onSuccess: (_, data) => {
       qc.invalidateQueries({ queryKey: ['kpi-adjustments'] })
       qc.invalidateQueries({ queryKey: ['kpi-criteria'] })
-      toast.success(status === 'APPROVED' ? 'Đã phê duyệt yêu cầu điều chỉnh' : 'Đã từ chối yêu cầu điều chỉnh')
+      toast.success(data.reviewMode === 'approve' ? 'Đã phê duyệt yêu cầu điều chỉnh' : 'Đã từ chối yêu cầu điều chỉnh')
       onClose()
-      setReviewMode('view')
-      setNote('')
-      setCompensationPercentage('')
+      reset({ reviewMode: 'view', note: '', compensationPercentage: '' })
     },
     onError: () => toast.error('Xử lý thất bại'),
   })
@@ -44,11 +59,6 @@ export default function KpiAdjustmentReviewModal({ open, onClose, request }: Kpi
   const isPending = reviewMutation.isPending
   const isReviewable = request.status === 'PENDING'
   const needsCompensationInput = reviewMode === 'approve' && request.deactivationRequest
-  const compensationInvalid =
-    needsCompensationInput &&
-    (compensationPercentage.trim() === '' ||
-      Number(compensationPercentage) < 0 ||
-      Number(compensationPercentage) > 150)
 
   return (
     <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
@@ -226,11 +236,13 @@ export default function KpiAdjustmentReviewModal({ open, onClose, request }: Kpi
                       type="number"
                       min={0}
                       max={150}
-                      value={compensationPercentage}
-                      onChange={(e) => setCompensationPercentage(e.target.value)}
+                      {...register('compensationPercentage')}
                       className="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all"
                       placeholder="Ví dụ: 100"
                     />
+                    {errors.compensationPercentage && (
+                      <p className="text-[10px] font-bold text-red-500 mt-1">{errors.compensationPercentage.message}</p>
+                    )}
                     <p className="text-[10px] text-slate-400 mt-1">Nhân viên sẽ được tính KPI này đạt đúng tỷ lệ % nhập ở đây (0-150), thay cho số liệu thực tế.</p>
                   </div>
                 )}
@@ -239,20 +251,22 @@ export default function KpiAdjustmentReviewModal({ open, onClose, request }: Kpi
                     Ghi chú phản hồi {reviewMode === 'reject' && <span className="text-red-500">*</span>}
                   </label>
                   <textarea
-                    value={note}
-                    onChange={(e) => setNote(e.target.value)}
+                    {...register('note')}
                     rows={3}
                     className="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/20 resize-none transition-all"
                     placeholder="Nhập ghi chú cho nhân viên..."
                   />
+                  {errors.note && (
+                    <p className="text-[10px] font-bold text-red-500 mt-1">{errors.note.message}</p>
+                  )}
                 </div>
                 <div className="flex gap-3">
                   <button onClick={() => setReviewMode('view')} className="flex-1 px-3 sm:px-6 py-3 rounded-2xl text-sm font-black text-slate-600 border border-slate-200 hover:bg-white transition-all whitespace-nowrap">
                     Quay lại
                   </button>
                   <button
-                    onClick={() => reviewMutation.mutate(reviewMode === 'approve' ? 'APPROVED' : 'REJECTED')}
-                    disabled={(reviewMode === 'reject' && !note.trim()) || compensationInvalid || isPending}
+                    onClick={handleSubmit(data => reviewMutation.mutate(data))}
+                    disabled={isPending}
                     className={cn(
                       "flex-1 px-3 sm:px-6 py-3 rounded-2xl text-sm font-black text-white transition-all flex items-center justify-center gap-2 whitespace-nowrap",
                       reviewMode === 'approve' ? 'bg-emerald-600 shadow-emerald-500/20 shadow-lg' : 'bg-red-600 shadow-red-500/20 shadow-lg',

@@ -154,6 +154,7 @@ INSERT INTO permissions (id, code, resource, action, description) VALUES
     -- Đánh giá theo kỳ. Việc GÁN quyền làm ở cuối file theo cách data-driven.
     ('00000000-0000-0000-0000-000000000246', 'CYCLE_EVAL:VIEW',          'CYCLE_EVAL',   'VIEW',             'Cho phép xem kết quả đánh giá tổng hợp theo kỳ (nhân viên và phòng ban)'),
     ('00000000-0000-0000-0000-000000000247', 'CYCLE_EVAL:FINALIZE',      'CYCLE_EVAL',   'FINALIZE',         'Cho phép chốt đánh giá tổng hợp phòng ban theo kỳ kèm nhận xét'),
+    ('00000000-0000-0000-0000-000000000248', 'CYCLE_EVAL:SEND',          'CYCLE_EVAL',   'SEND',             'Cho phép gửi kết quả đánh giá kỳ qua email cho nhân viên'),
     -- Submission
     ('00000000-0000-0000-0000-000000000121', 'SUBMISSION:REVIEW',        'SUBMISSION',   'REVIEW',           'Cho phép duyệt/từ chối bài nộp kết quả KPI của nhân viên cấp dưới'),
     ('00000000-0000-0000-0000-000000000127', 'SUBMISSION:REVIEW_KPI',    'SUBMISSION',   'REVIEW_KPI',       'Cho phép xem chi tiết bài nộp KPI của nhân viên để phục vụ việc đánh giá'),
@@ -173,6 +174,9 @@ INSERT INTO permissions (id, code, resource, action, description) VALUES
     ('00000000-0000-0000-0000-000000000220', 'NOTIF:MANAGE',             'NOTIFICATION', 'MANAGE',           'Cho phép quản lý, soạn và gửi thông báo hệ thống đến người dùng khác'),
     -- AI
     ('00000000-0000-0000-0000-000000000221', 'AI:SUGGEST_KPI',           'AI',           'SUGGEST_KPI',      'Cho phép sử dụng tính năng trí tuệ nhân tạo để gợi ý nội dung, chỉ tiêu KPI tự động'),
+    -- Hạn mức token AI. Dải 2xx đã dùng tới 248, BSC 301-303, OKR 311-312, reward 321-329 => dùng 401-402.
+    ('00000000-0000-0000-0000-000000000401', 'AI_QUOTA:MANAGE',          'AI_QUOTA',     'MANAGE',           'Cho phép đặt hạn mức token AI cho toàn công ty và bật/tắt việc uỷ quyền cho quản lý cấp dưới — chỉ quản lý cấp cao nhất'),
+    ('00000000-0000-0000-0000-000000000402', 'AI_QUOTA:ALLOCATE',        'AI_QUOTA',     'ALLOCATE',         'Cho phép chia hạn mức token AI cho nhân sự thuộc đơn vị mình quản lý, trừ vào hạn mức của chính mình'),
     -- Policy
     ('00000000-0000-0000-0000-000000000222', 'POLICY:VIEW',              'POLICY',       'VIEW',             'Cho phép xem nội dung các chính sách, quy định nội bộ của tổ chức'),
     ('00000000-0000-0000-0000-000000000223', 'POLICY:CREATE',            'POLICY',       'CREATE',           'Cho phép soạn thảo, tạo mới chính sách/quy định nội bộ'),
@@ -197,12 +201,33 @@ INSERT INTO permissions (id, code, resource, action, description) VALUES
     -- Adjustment (used in PERSONAL_PERMS / UNIT_HEAD_PERSONAL_PERMS)
     ('00000000-0000-0000-0000-000000000239', 'ADJUSTMENT:VIEW_MY',       'ADJUSTMENT',   'VIEW_MY',          'Cho phép xem các yêu cầu điều chỉnh chỉ tiêu KPI do chính bản thân gửi lên'),
     -- BSC (Balanced Scorecard). Việc GÁN 3 quyền này cho role làm ở cuối file theo cách data-driven.
-    ('00000000-0000-0000-0000-000000000301', 'BSC:VIEW',                 'BSC',          'VIEW',             'Cho phép xem thẻ điểm cân bằng (BSC): viễn cảnh, thẻ điểm, dashboard và bản đồ chiến lược'),
-    ('00000000-0000-0000-0000-000000000302', 'BSC:MANAGE',               'BSC',          'MANAGE',           'Cho phép cấu hình viễn cảnh, dựng thẻ điểm, đặt trọng số và quản lý liên kết BSC'),
-    ('00000000-0000-0000-0000-000000000303', 'BSC:PUBLISH_SCORE',        'BSC',          'PUBLISH_SCORE',    'Cho phép chuyển thẻ điểm sang chế độ chính thức (điểm BSC thay điểm hệ thống) — quyền cấp cao/HR trưởng'),
+    ('00000000-0000-0000-0000-000000000301', 'BSC:VIEW',                 'BSC',          'VIEW',             'Cho phép xem BSC: hạng mục, bộ tiêu chí, dashboard và bản đồ chiến lược'),
+    ('00000000-0000-0000-0000-000000000302', 'BSC:MANAGE',               'BSC',          'MANAGE',           'Cho phép cấu hình hạng mục, dựng bộ tiêu chí, đặt trọng số và quản lý liên kết BSC'),
+    ('00000000-0000-0000-0000-000000000303', 'BSC:PUBLISH_SCORE',        'BSC',          'PUBLISH_SCORE',    'Cho phép chuyển bộ tiêu chí sang chế độ chính thức (điểm BSC thay điểm hệ thống) — quyền cấp cao/HR trưởng'),
+    ('00000000-0000-0000-0000-000000000304', 'BSC:MANAGE_UNIT',          'BSC',          'MANAGE_UNIT',      'Cho phép trưởng đơn vị lập và sửa BSC của chính đơn vị mình — chỉ các chỉ tiêu đơn vị tự thêm, không sửa được chỉ tiêu cấp trên giao'),
+    ('00000000-0000-0000-0000-000000000305', 'BSC:APPROVE',              'BSC',          'APPROVE',          'Cho phép duyệt hoặc trả lại BSC do đơn vị cấp dưới trình, và khoá bộ tiêu chí sau khi duyệt'),
+    ('00000000-0000-0000-0000-000000000306', 'BSC:OVERRIDE_SCORE',       'BSC',          'OVERRIDE_SCORE',   'Cho phép ghi đè điểm công nhận của cá nhân sau khi đã áp hệ số — bắt buộc kèm lý do và lưu vết người thao tác'),
     -- OKR. Tách VIEW/MANAGE giống BSC: mọi archetype cần VIEW để đọc mục tiêu ở form gắn chỉ tiêu KPI,
     ('00000000-0000-0000-0000-000000000311', 'OKR:VIEW',                 'OKR',          'VIEW',             'Cho phép xem danh sách mục tiêu OKR và kết quả then chốt (dùng cả ở form gắn chỉ tiêu KPI)'),
-    ('00000000-0000-0000-0000-000000000312', 'OKR:MANAGE',               'OKR',          'MANAGE',           'Cho phép tạo/sửa/xoá/import mục tiêu OKR và kết quả then chốt')
+    ('00000000-0000-0000-0000-000000000312', 'OKR:MANAGE',               'OKR',          'MANAGE',           'Cho phép tạo/sửa/xoá/import mục tiêu OKR và kết quả then chốt'),
+    -- Thưởng điểm. Dải 2xx đã dùng tới ...248, BSC chiếm 301-303, OKR 311-312 => reward dùng 321-329.
+    ('00000000-0000-0000-0000-000000000321', 'REWARD:VIEW_MY',           'REWARD',       'VIEW_MY',          'Cho phép xem ví điểm thưởng, lịch sử giao dịch điểm và cửa hàng quà của chính bản thân'),
+    ('00000000-0000-0000-0000-000000000322', 'REWARD:VIEW',              'REWARD',       'VIEW',             'Cho phép xem ví điểm và lịch sử điểm thưởng của nhân sự trong phạm vi quản lý'),
+    ('00000000-0000-0000-0000-000000000323', 'REWARD:GRANT',             'REWARD',       'GRANT',            'Cho phép tự chọn nhân viên để trao điểm thưởng kèm lý do'),
+    ('00000000-0000-0000-0000-000000000324', 'REWARD:APPROVE',           'REWARD',       'APPROVE',          'Cho phép duyệt hoặc từ chối đề nghị thưởng vượt hạn mức của cấp dưới'),
+    ('00000000-0000-0000-0000-000000000325', 'REWARD:CONFIG',            'REWARD',       'CONFIG',           'Cho phép cấu hình ngân sách điểm, chương trình thưởng tự động và chạy/thu hồi đợt phát thưởng'),
+    -- Lối thoát BẮT BUỘC cho người đứng đầu: họ ĐẶT hạn mức cho người khác nên thường không tự
+    -- cấp cho mình; thiếu quyền này thì đề nghị của họ kẹt ở chờ duyệt mà không còn ai để duyệt.
+    ('00000000-0000-0000-0000-000000000329', 'REWARD:APPROVE_OWN',       'REWARD',       'APPROVE_OWN',      'Cho phép đề nghị thưởng do chính mình tạo được duyệt ngay mà không cần chờ người khác — dành cho cấp cao nhất'),
+    ('00000000-0000-0000-0000-000000000326', 'GIFT:MANAGE',              'GIFT',         'MANAGE',           'Cho phép quản lý danh mục quà tặng: thêm, sửa, xoá, cập nhật tồn kho và giá điểm'),
+    ('00000000-0000-0000-0000-000000000327', 'GIFT:REDEEM',              'GIFT',         'REDEEM',           'Cho phép tạo yêu cầu dùng điểm thưởng để đổi quà'),
+    ('00000000-0000-0000-0000-000000000328', 'GIFT:FULFILL',             'GIFT',         'FULFILL',          'Cho phép đánh dấu đã giao quà và từ chối các yêu cầu đổi quà'),
+    -- Ví tiền thật. Dải 2xx tới 248, BSC 301-303, OKR 311-312, reward 321-329,
+    -- AI_QUOTA 401-402 => ví tiền dùng 331-334.
+    ('00000000-0000-0000-0000-000000000331', 'WALLET:VIEW_MY',           'WALLET',       'VIEW_MY',          'Cho phép xem ví tiền của chính mình, tạo đơn nạp tiền và quy đổi số dư sang điểm thưởng'),
+    ('00000000-0000-0000-0000-000000000332', 'WALLET:VIEW',              'WALLET',       'VIEW',             'Cho phép xem ví tiền và lịch sử nạp/quy đổi của nhân sự trong phạm vi quản lý'),
+    ('00000000-0000-0000-0000-000000000333', 'WALLET:CONFIG',            'WALLET',       'CONFIG',           'Cho phép cấu hình tỉ giá quy đổi điểm, tài khoản ngân hàng SePay và hạn mức nạp tiền'),
+    ('00000000-0000-0000-0000-000000000334', 'WALLET:RECONCILE',         'WALLET',       'RECONCILE',        'Cho phép xử lý giao dịch SePay chưa khớp đơn, điều chỉnh số dư ví tiền và chạy đối soát sổ cái')
 ON CONFLICT (code) DO NOTHING;
 
 
@@ -244,8 +269,10 @@ WHERE code IN (
     'NOTIF:VIEW', 'NOTIF:MANAGE',
     'KPI_PERIOD:VIEW', 'KPI_PERIOD:CREATE', 'KPI_PERIOD:UPDATE', 'KPI_PERIOD:DELETE',
     'KPI_CYCLE:VIEW', 'KPI_CYCLE:CREATE', 'KPI_CYCLE:UPDATE', 'KPI_CYCLE:DELETE',
-    'CYCLE_EVAL:VIEW', 'CYCLE_EVAL:FINALIZE',
+    'CYCLE_EVAL:VIEW', 'CYCLE_EVAL:FINALIZE', 'CYCLE_EVAL:SEND',
     'AI:SUGGEST_KPI',
+    -- Hạn mức token AI: người đứng đầu vừa ĐẶT ngân sách công ty, vừa tự chia được cho cấp dưới.
+    'AI_QUOTA:MANAGE', 'AI_QUOTA:ALLOCATE',
     'POLICY:VIEW', 'POLICY:CREATE', 'POLICY:UPDATE', 'POLICY:ASSIGN',
     'STATS:VIEW_ORG', 'STATS:VIEW_EMPLOYEE',
     'USER_ROLE:VIEW', 'USER_ROLE:ASSIGN', 'USER_ROLE:REVOKE',
@@ -256,7 +283,15 @@ WHERE code IN (
     -- OKR (cấp cao ⇒ có MANAGE)
     'OKR:VIEW', 'OKR:MANAGE',
     -- SYSTEM_ONLY (isTopLevel=true, archetype=director → full SYSTEM_ONLY)
-    'SYSTEM:ADMIN', 'COMPANY:DELETE', 'ROLE:DELETE', 'POLICY:DELETE', 'PERMISSION:EDIT'
+    'SYSTEM:ADMIN', 'COMPANY:DELETE', 'ROLE:DELETE', 'POLICY:DELETE', 'PERMISSION:EDIT',
+    -- Thưởng điểm: đủ quyền. REWARD:APPROVE_OWN là bắt buộc — giám đốc là người
+    -- ĐẶT hạn mức cho người khác nên thường không tự cấp cho mình; thiếu quyền này
+    -- thì đề nghị thưởng của họ kẹt ở chờ duyệt mà không còn ai cấp trên để duyệt.
+    'REWARD:VIEW_MY', 'REWARD:VIEW', 'REWARD:GRANT', 'REWARD:APPROVE', 'REWARD:APPROVE_OWN',
+    'REWARD:CONFIG', 'GIFT:MANAGE', 'GIFT:REDEEM', 'GIFT:FULFILL',
+    -- Ví tiền: vai trò nào đã được tin để cấu hình thưởng thì cũng được tin để cấu
+    -- hình ví tiền và xử lý đối soát SePay.
+    'WALLET:VIEW_MY', 'WALLET:VIEW', 'WALLET:CONFIG', 'WALLET:RECONCILE'
 )
 ON CONFLICT DO NOTHING;
 
@@ -280,7 +315,7 @@ WHERE code IN (
     'NOTIF:VIEW', 'NOTIF:MANAGE',
     'KPI_PERIOD:VIEW', 'KPI_PERIOD:CREATE', 'KPI_PERIOD:UPDATE',
     'KPI_CYCLE:VIEW', 'KPI_CYCLE:CREATE', 'KPI_CYCLE:UPDATE',
-    'CYCLE_EVAL:VIEW', 'CYCLE_EVAL:FINALIZE',
+    'CYCLE_EVAL:VIEW', 'CYCLE_EVAL:FINALIZE', 'CYCLE_EVAL:SEND',
     'AI:SUGGEST_KPI',
     'POLICY:VIEW', 'POLICY:CREATE', 'POLICY:UPDATE', 'POLICY:ASSIGN',
     'STATS:VIEW_ORG', 'STATS:VIEW_EMPLOYEE',
@@ -292,7 +327,14 @@ WHERE code IN (
     -- OKR (cấp cao ⇒ có MANAGE)
     'OKR:VIEW', 'OKR:MANAGE',
     -- SYSTEM_ONLY without SYSTEM:ADMIN (isTopLevel=true, archetype=deputy_director)
-    'COMPANY:DELETE', 'ROLE:DELETE', 'POLICY:DELETE', 'PERMISSION:EDIT'
+    'COMPANY:DELETE', 'ROLE:DELETE', 'POLICY:DELETE', 'PERMISSION:EDIT',
+    -- Thưởng điểm: có duyệt và quản lý quà, KHÔNG có REWARD:CONFIG — khớp cách hệ
+    -- thống đang tước quyền cấu hình của cấp phó.
+    'REWARD:VIEW_MY', 'REWARD:VIEW', 'REWARD:GRANT', 'REWARD:APPROVE',
+    'GIFT:MANAGE', 'GIFT:REDEEM', 'GIFT:FULFILL',
+    -- Ví tiền: chỉ xem, KHÔNG cấu hình/đối soát — bám theo cách cấp phó bị tước
+    -- REWARD:CONFIG ở trên.
+    'WALLET:VIEW_MY', 'WALLET:VIEW'
 )
 ON CONFLICT DO NOTHING;
 
@@ -313,7 +355,7 @@ WHERE code IN (
     'SUBMISSION:VIEW', 'SUBMISSION:REVIEW', 'SUBMISSION:REVIEW_KPI',
     'EVALUATION:VIEW', 'EVALUATION:CREATE',
     'NOTIF:VIEW', 'KPI_PERIOD:VIEW', 'KPI_CYCLE:VIEW',
-    'CYCLE_EVAL:VIEW', 'CYCLE_EVAL:FINALIZE',
+    'CYCLE_EVAL:VIEW', 'CYCLE_EVAL:FINALIZE', 'CYCLE_EVAL:SEND',
     'AI:SUGGEST_KPI',
     'STATS:VIEW_EMPLOYEE',
     'ATTACHMENT:UPLOAD',
@@ -321,7 +363,15 @@ WHERE code IN (
     -- BSC/OKR (chỉ có KPI:VIEW ⇒ chỉ quyền xem)
     'BSC:VIEW', 'OKR:VIEW',
     -- UNIT_HEAD_PERSONAL_PERMS
-    'KPI:VIEW_MY', 'SUBMISSION:VIEW_MY', 'STATS:VIEW_MY', 'ADJUSTMENT:VIEW_MY'
+    'KPI:VIEW_MY', 'SUBMISSION:VIEW_MY', 'STATS:VIEW_MY', 'ADJUSTMENT:VIEW_MY',
+    -- Chia hạn mức token AI cho nhân sự trong phòng, trừ vào hạn mức của chính mình.
+    -- Chỉ dùng được khi công ty bật uỷ quyền — điều kiện đó kiểm ở AiQuotaAllocationService.
+    'AI_QUOTA:ALLOCATE',
+    -- Trao thưởng KHÔNG phải quyền phê duyệt. Giới hạn thật của trưởng đơn vị là
+    -- dòng reward_budgets của họ — không cấp hạn mức thì mọi đề nghị phải qua duyệt.
+    'REWARD:VIEW_MY', 'REWARD:VIEW', 'REWARD:GRANT', 'GIFT:REDEEM',
+    -- Ví tiền: xem ví của mình và của nhân sự trong phạm vi quản lý.
+    'WALLET:VIEW_MY', 'WALLET:VIEW'
 )
 ON CONFLICT DO NOTHING;
 
@@ -349,7 +399,10 @@ WHERE code IN (
     -- BSC/OKR (chỉ có KPI:VIEW ⇒ chỉ quyền xem)
     'BSC:VIEW', 'OKR:VIEW',
     -- PERSONAL_PERMS
-    'KPI:VIEW_MY', 'SUBMISSION:VIEW_MY', 'EVALUATION:VIEW_MY', 'STATS:VIEW_MY', 'ADJUSTMENT:VIEW_MY'
+    'KPI:VIEW_MY', 'SUBMISSION:VIEW_MY', 'EVALUATION:VIEW_MY', 'STATS:VIEW_MY', 'ADJUSTMENT:VIEW_MY',
+    'REWARD:VIEW_MY', 'REWARD:VIEW', 'REWARD:GRANT', 'GIFT:REDEEM',
+    -- Ví tiền: xem ví của mình và của nhân sự trong phạm vi quản lý.
+    'WALLET:VIEW_MY', 'WALLET:VIEW'
 )
 ON CONFLICT DO NOTHING;
 
@@ -369,7 +422,7 @@ WHERE code IN (
     'SUBMISSION:VIEW', 'SUBMISSION:REVIEW', 'SUBMISSION:REVIEW_KPI',
     'EVALUATION:VIEW', 'EVALUATION:CREATE',
     'NOTIF:VIEW', 'KPI_PERIOD:VIEW', 'KPI_CYCLE:VIEW',
-    'CYCLE_EVAL:VIEW', 'CYCLE_EVAL:FINALIZE',
+    'CYCLE_EVAL:VIEW', 'CYCLE_EVAL:FINALIZE', 'CYCLE_EVAL:SEND',
     'AI:SUGGEST_KPI',
     'STATS:VIEW_EMPLOYEE',
     'ATTACHMENT:UPLOAD',
@@ -377,7 +430,12 @@ WHERE code IN (
     -- BSC/OKR (chỉ có KPI:VIEW ⇒ chỉ quyền xem)
     'BSC:VIEW', 'OKR:VIEW',
     -- UNIT_HEAD_PERSONAL_PERMS
-    'KPI:VIEW_MY', 'SUBMISSION:VIEW_MY', 'STATS:VIEW_MY', 'ADJUSTMENT:VIEW_MY'
+    'KPI:VIEW_MY', 'SUBMISSION:VIEW_MY', 'STATS:VIEW_MY', 'ADJUSTMENT:VIEW_MY',
+    -- Chia hạn mức token AI cho nhân sự trong nhóm (cần công ty bật uỷ quyền).
+    'AI_QUOTA:ALLOCATE',
+    'REWARD:VIEW_MY', 'REWARD:VIEW', 'REWARD:GRANT', 'GIFT:REDEEM',
+    -- Ví tiền: xem ví của mình và của nhân sự trong phạm vi quản lý.
+    'WALLET:VIEW_MY', 'WALLET:VIEW'
 )
 ON CONFLICT DO NOTHING;
 
@@ -404,7 +462,10 @@ WHERE code IN (
     -- BSC/OKR (chỉ có KPI:VIEW ⇒ chỉ quyền xem)
     'BSC:VIEW', 'OKR:VIEW',
     -- PERSONAL_PERMS
-    'KPI:VIEW_MY', 'SUBMISSION:VIEW_MY', 'EVALUATION:VIEW_MY', 'STATS:VIEW_MY', 'ADJUSTMENT:VIEW_MY'
+    'KPI:VIEW_MY', 'SUBMISSION:VIEW_MY', 'EVALUATION:VIEW_MY', 'STATS:VIEW_MY', 'ADJUSTMENT:VIEW_MY',
+    'REWARD:VIEW_MY', 'REWARD:VIEW', 'REWARD:GRANT', 'GIFT:REDEEM',
+    -- Ví tiền: xem ví của mình và của nhân sự trong phạm vi quản lý.
+    'WALLET:VIEW_MY', 'WALLET:VIEW'
 )
 ON CONFLICT DO NOTHING;
 
@@ -426,7 +487,10 @@ WHERE code IN (
     -- BSC/OKR (chỉ có KPI:VIEW ⇒ chỉ quyền xem, để dùng selector viễn cảnh / mục tiêu)
     'BSC:VIEW', 'OKR:VIEW',
     -- PERSONAL_PERMS
-    'KPI:VIEW_MY', 'SUBMISSION:VIEW_MY', 'EVALUATION:VIEW_MY', 'STATS:VIEW_MY', 'ADJUSTMENT:VIEW_MY'
+    'KPI:VIEW_MY', 'SUBMISSION:VIEW_MY', 'EVALUATION:VIEW_MY', 'STATS:VIEW_MY', 'ADJUSTMENT:VIEW_MY',
+    -- Nhân viên: chỉ xem ví của mình và đổi quà. WALLET:VIEW_MY đã bao gồm tạo đơn nạp
+    -- và tự quy đổi số dư sang điểm.
+    'REWARD:VIEW_MY', 'GIFT:REDEEM', 'WALLET:VIEW_MY'
 )
 ON CONFLICT DO NOTHING;
 
@@ -1525,39 +1589,6 @@ VALUES
      '22222222-0000-0000-0000-000000000500', 96.3, 'Xuất sắc', 96.8,
      '2026-06-01 00:00:00+07', '2026-06-30 23:59:59+07');
 
--- ============================================================
--- 10. SIDEBAR CUSTOM LABELS
--- ============================================================
-INSERT INTO sidebar_settings (id, organization_id, menu_key, custom_label) VALUES
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', '/dashboard', 'Tổng quan'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', '/dashboard?view=staff', 'Dashboard cá nhân'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'Thiết lập công ty', 'Thiết lập công ty'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', '/company', 'Thông tin công ty'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', '/okr', 'Quản lý OKR'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'Quản lý BSC', 'Quản lý BSC'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', '/bsc', 'Thẻ điểm BSC'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', '/bsc/dashboard', 'Dashboard BSC'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', '/bsc/strategy-map', 'Bản đồ chiến lược'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'Tổ chức', 'Tổ chức'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', '/roles', 'Phân quyền vai trò'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', '/org-structure', 'Cấu trúc tổ chức'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', '/users', 'Quản lý nhân sự'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', '/settings', 'Cấu hình hệ thống'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', 'Quản lý KPI', 'Quản trị KPI'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', '/kpi-cycles', 'Danh mục kỳ KPI'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', '/kpi-cycles/evaluation', 'Đánh giá kỳ'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', '/kpi-periods', 'Danh mục đợt KPI'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', '/kpi-criteria', 'Thiết lập chỉ tiêu'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', '/kpi-criteria/pending', 'Phê duyệt chỉ tiêu'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', '/kpi-adjustments/pending', 'Duyệt điều chỉnh'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', '/submissions/org-unit', 'Kiểm soát bài nộp'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', '/evaluations', 'Đánh giá xếp loại'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', '/my-kpi', 'KPI của tôi'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', '/my-adjustments', 'Yêu cầu điều chỉnh'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', '/submissions', 'Lịch sử báo cáo'),
-    (gen_random_uuid(), '11111111-1111-1111-1111-111111111111', '/analytics', 'Phân tích & Thống kê');
-
-
 
 -- ===========================================================
 -- Demo Education
@@ -1653,19 +1684,19 @@ ON CONFLICT (id) DO NOTHING;
 
 -- 7. ROLE PERMISSIONS
 INSERT INTO role_permissions (role_id, permission_id)
-SELECT 'c3000000-0000-0000-0000-000000000001', id FROM permissions WHERE code IN ('BSC:VIEW', 'BSC:MANAGE', 'BSC:PUBLISH_SCORE', 'OKR:VIEW', 'OKR:MANAGE', 'DASHBOARD:VIEW', 'COMPANY:VIEW', 'COMPANY:UPDATE', 'ORG:VIEW', 'ORG:CREATE', 'ORG:UPDATE', 'ORG:DELETE', 'USER:VIEW', 'USER:CREATE', 'USER:UPDATE', 'USER:DELETE', 'USER:IMPORT', 'ROLE:VIEW', 'ROLE:ASSIGN', 'ROLE:CREATE', 'ROLE:UPDATE', 'PERMISSION:VIEW', 'KPI:VIEW', 'KPI:CREATE', 'KPI:UPDATE', 'KPI:DELETE', 'KPI:APPROVE_CRITERIA', 'KPI:APPROVE_ADJUSTMENT', 'KPI:APPROVE_OWN', 'KPI:REVERT_APPROVAL', 'KPI:IMPORT', 'KPI:SUBMIT', 'KPI:REJECT', 'KPI_PERIOD:VIEW', 'KPI_PERIOD:CREATE', 'KPI_PERIOD:UPDATE', 'KPI_PERIOD:DELETE', 'KPI_CYCLE:VIEW', 'KPI_CYCLE:CREATE', 'KPI_CYCLE:UPDATE', 'KPI_CYCLE:DELETE', 'CYCLE_EVAL:VIEW', 'CYCLE_EVAL:FINALIZE', 'SUBMISSION:REVIEW', 'SUBMISSION:VIEW', 'SUBMISSION:DELETE', 'SUBMISSION:UPDATE', 'EVALUATION:VIEW', 'EVALUATION:CREATE', 'EVALUATION:UPDATE', 'EVALUATION:DELETE', 'NOTIF:VIEW', 'NOTIF:MANAGE', 'AI:SUGGEST_KPI', 'POLICY:VIEW', 'POLICY:CREATE', 'POLICY:UPDATE', 'POLICY:ASSIGN', 'STATS:VIEW_ORG', 'STATS:VIEW_EMPLOYEE', 'USER_ROLE:VIEW', 'USER_ROLE:ASSIGN', 'USER_ROLE:REVOKE', 'ATTACHMENT:UPLOAD', 'ATTACHMENT:DELETE', 'REMINDER:SEND', 'SYSTEM:ADMIN', 'COMPANY:DELETE', 'ROLE:DELETE', 'POLICY:DELETE', 'PERMISSION:EDIT')
+SELECT 'c3000000-0000-0000-0000-000000000001', id FROM permissions WHERE code IN ('BSC:VIEW', 'BSC:MANAGE_UNIT', 'BSC:APPROVE', 'BSC:OVERRIDE_SCORE', 'BSC:MANAGE', 'BSC:PUBLISH_SCORE', 'OKR:VIEW', 'OKR:MANAGE', 'DASHBOARD:VIEW', 'COMPANY:VIEW', 'COMPANY:UPDATE', 'ORG:VIEW', 'ORG:CREATE', 'ORG:UPDATE', 'ORG:DELETE', 'USER:VIEW', 'USER:CREATE', 'USER:UPDATE', 'USER:DELETE', 'USER:IMPORT', 'ROLE:VIEW', 'ROLE:ASSIGN', 'ROLE:CREATE', 'ROLE:UPDATE', 'PERMISSION:VIEW', 'KPI:VIEW', 'KPI:CREATE', 'KPI:UPDATE', 'KPI:DELETE', 'KPI:APPROVE_CRITERIA', 'KPI:APPROVE_ADJUSTMENT', 'KPI:APPROVE_OWN', 'KPI:REVERT_APPROVAL', 'KPI:IMPORT', 'KPI:SUBMIT', 'KPI:REJECT', 'KPI_PERIOD:VIEW', 'KPI_PERIOD:CREATE', 'KPI_PERIOD:UPDATE', 'KPI_PERIOD:DELETE', 'KPI_CYCLE:VIEW', 'KPI_CYCLE:CREATE', 'KPI_CYCLE:UPDATE', 'KPI_CYCLE:DELETE', 'CYCLE_EVAL:VIEW', 'CYCLE_EVAL:FINALIZE', 'CYCLE_EVAL:SEND', 'SUBMISSION:REVIEW', 'SUBMISSION:VIEW', 'SUBMISSION:DELETE', 'SUBMISSION:UPDATE', 'EVALUATION:VIEW', 'EVALUATION:CREATE', 'EVALUATION:UPDATE', 'EVALUATION:DELETE', 'NOTIF:VIEW', 'NOTIF:MANAGE', 'AI:SUGGEST_KPI', 'POLICY:VIEW', 'POLICY:CREATE', 'POLICY:UPDATE', 'POLICY:ASSIGN', 'STATS:VIEW_ORG', 'STATS:VIEW_EMPLOYEE', 'USER_ROLE:VIEW', 'USER_ROLE:ASSIGN', 'USER_ROLE:REVOKE', 'ATTACHMENT:UPLOAD', 'ATTACHMENT:DELETE', 'REMINDER:SEND', 'SYSTEM:ADMIN', 'COMPANY:DELETE', 'ROLE:DELETE', 'POLICY:DELETE', 'PERMISSION:EDIT', 'AI_QUOTA:MANAGE', 'AI_QUOTA:ALLOCATE', 'REWARD:VIEW_MY', 'REWARD:VIEW', 'REWARD:GRANT', 'REWARD:APPROVE', 'REWARD:APPROVE_OWN', 'REWARD:CONFIG', 'GIFT:MANAGE', 'GIFT:REDEEM', 'GIFT:FULFILL', 'WALLET:VIEW_MY', 'WALLET:VIEW', 'WALLET:CONFIG', 'WALLET:RECONCILE')
 ON CONFLICT DO NOTHING;
 INSERT INTO role_permissions (role_id, permission_id)
-SELECT 'c3000000-0000-0000-0000-000000000002', id FROM permissions WHERE code IN ('BSC:VIEW', 'BSC:MANAGE', 'BSC:PUBLISH_SCORE', 'OKR:VIEW', 'OKR:MANAGE', 'DASHBOARD:VIEW', 'COMPANY:VIEW', 'ORG:VIEW', 'ORG:CREATE', 'ORG:UPDATE', 'USER:VIEW', 'USER:CREATE', 'USER:UPDATE', 'USER:IMPORT', 'ROLE:VIEW', 'ROLE:ASSIGN', 'ROLE:CREATE', 'ROLE:UPDATE', 'PERMISSION:VIEW', 'KPI:VIEW', 'KPI:CREATE', 'KPI:UPDATE', 'KPI:APPROVE_CRITERIA', 'KPI:APPROVE_ADJUSTMENT', 'KPI:APPROVE_OWN', 'KPI:IMPORT', 'KPI:SUBMIT', 'KPI:REJECT', 'KPI_PERIOD:VIEW', 'KPI_PERIOD:CREATE', 'KPI_PERIOD:UPDATE', 'KPI_CYCLE:VIEW', 'KPI_CYCLE:CREATE', 'KPI_CYCLE:UPDATE', 'CYCLE_EVAL:VIEW', 'CYCLE_EVAL:FINALIZE', 'SUBMISSION:REVIEW', 'SUBMISSION:VIEW', 'SUBMISSION:UPDATE', 'EVALUATION:VIEW', 'EVALUATION:CREATE', 'EVALUATION:UPDATE', 'NOTIF:VIEW', 'NOTIF:MANAGE', 'AI:SUGGEST_KPI', 'POLICY:VIEW', 'POLICY:CREATE', 'POLICY:UPDATE', 'POLICY:ASSIGN', 'STATS:VIEW_ORG', 'STATS:VIEW_EMPLOYEE', 'USER_ROLE:VIEW', 'USER_ROLE:ASSIGN', 'ATTACHMENT:UPLOAD', 'REMINDER:SEND', 'COMPANY:DELETE', 'ROLE:DELETE', 'POLICY:DELETE', 'PERMISSION:EDIT')
+SELECT 'c3000000-0000-0000-0000-000000000002', id FROM permissions WHERE code IN ('BSC:VIEW', 'BSC:MANAGE_UNIT', 'BSC:APPROVE', 'BSC:OVERRIDE_SCORE', 'BSC:MANAGE', 'BSC:PUBLISH_SCORE', 'OKR:VIEW', 'OKR:MANAGE', 'DASHBOARD:VIEW', 'COMPANY:VIEW', 'ORG:VIEW', 'ORG:CREATE', 'ORG:UPDATE', 'USER:VIEW', 'USER:CREATE', 'USER:UPDATE', 'USER:IMPORT', 'ROLE:VIEW', 'ROLE:ASSIGN', 'ROLE:CREATE', 'ROLE:UPDATE', 'PERMISSION:VIEW', 'KPI:VIEW', 'KPI:CREATE', 'KPI:UPDATE', 'KPI:APPROVE_CRITERIA', 'KPI:APPROVE_ADJUSTMENT', 'KPI:APPROVE_OWN', 'KPI:IMPORT', 'KPI:SUBMIT', 'KPI:REJECT', 'KPI_PERIOD:VIEW', 'KPI_PERIOD:CREATE', 'KPI_PERIOD:UPDATE', 'KPI_CYCLE:VIEW', 'KPI_CYCLE:CREATE', 'KPI_CYCLE:UPDATE', 'CYCLE_EVAL:VIEW', 'CYCLE_EVAL:FINALIZE', 'CYCLE_EVAL:SEND', 'SUBMISSION:REVIEW', 'SUBMISSION:VIEW', 'SUBMISSION:UPDATE', 'EVALUATION:VIEW', 'EVALUATION:CREATE', 'EVALUATION:UPDATE', 'NOTIF:VIEW', 'NOTIF:MANAGE', 'AI:SUGGEST_KPI', 'POLICY:VIEW', 'POLICY:CREATE', 'POLICY:UPDATE', 'POLICY:ASSIGN', 'STATS:VIEW_ORG', 'STATS:VIEW_EMPLOYEE', 'USER_ROLE:VIEW', 'USER_ROLE:ASSIGN', 'ATTACHMENT:UPLOAD', 'REMINDER:SEND', 'COMPANY:DELETE', 'ROLE:DELETE', 'POLICY:DELETE', 'PERMISSION:EDIT', 'REWARD:VIEW_MY', 'REWARD:VIEW', 'REWARD:GRANT', 'REWARD:APPROVE', 'GIFT:MANAGE', 'GIFT:REDEEM', 'GIFT:FULFILL', 'WALLET:VIEW_MY', 'WALLET:VIEW')
 ON CONFLICT DO NOTHING;
 INSERT INTO role_permissions (role_id, permission_id)
-SELECT 'c4000000-0000-0000-0000-000000000001', id FROM permissions WHERE code IN ('BSC:VIEW', 'OKR:VIEW', 'DASHBOARD:VIEW', 'ORG:VIEW_TREE', 'USER:VIEW_LIST', 'KPI:VIEW', 'KPI:CREATE', 'KPI:UPDATE', 'KPI:DELETE', 'KPI:APPROVE_CRITERIA', 'KPI:APPROVE_ADJUSTMENT', 'KPI:APPROVE_OWN', 'KPI:IMPORT', 'KPI:SUBMIT', 'KPI:REJECT', 'KPI_PERIOD:VIEW', 'KPI_CYCLE:VIEW', 'CYCLE_EVAL:VIEW', 'CYCLE_EVAL:FINALIZE', 'SUBMISSION:VIEW', 'SUBMISSION:REVIEW', 'SUBMISSION:REVIEW_KPI', 'EVALUATION:VIEW', 'EVALUATION:CREATE', 'NOTIF:VIEW', 'AI:SUGGEST_KPI', 'STATS:VIEW_EMPLOYEE', 'ATTACHMENT:UPLOAD', 'REMINDER:SEND', 'KPI:VIEW_MY', 'SUBMISSION:VIEW_MY', 'STATS:VIEW_MY', 'ADJUSTMENT:VIEW_MY')
+SELECT 'c4000000-0000-0000-0000-000000000001', id FROM permissions WHERE code IN ('BSC:VIEW', 'BSC:MANAGE_UNIT', 'OKR:VIEW', 'DASHBOARD:VIEW', 'ORG:VIEW_TREE', 'USER:VIEW_LIST', 'KPI:VIEW', 'KPI:CREATE', 'KPI:UPDATE', 'KPI:DELETE', 'KPI:APPROVE_CRITERIA', 'KPI:APPROVE_ADJUSTMENT', 'KPI:APPROVE_OWN', 'KPI:IMPORT', 'KPI:SUBMIT', 'KPI:REJECT', 'KPI_PERIOD:VIEW', 'KPI_CYCLE:VIEW', 'CYCLE_EVAL:VIEW', 'CYCLE_EVAL:FINALIZE', 'CYCLE_EVAL:SEND', 'SUBMISSION:VIEW', 'SUBMISSION:REVIEW', 'SUBMISSION:REVIEW_KPI', 'EVALUATION:VIEW', 'EVALUATION:CREATE', 'NOTIF:VIEW', 'AI:SUGGEST_KPI', 'AI_QUOTA:ALLOCATE', 'STATS:VIEW_EMPLOYEE', 'ATTACHMENT:UPLOAD', 'REMINDER:SEND', 'KPI:VIEW_MY', 'SUBMISSION:VIEW_MY', 'STATS:VIEW_MY', 'ADJUSTMENT:VIEW_MY', 'REWARD:VIEW_MY', 'REWARD:VIEW', 'REWARD:GRANT', 'GIFT:REDEEM', 'WALLET:VIEW_MY', 'WALLET:VIEW')
 ON CONFLICT DO NOTHING;
 INSERT INTO role_permissions (role_id, permission_id)
-SELECT 'c4000000-0000-0000-0000-000000000002', id FROM permissions WHERE code IN ('BSC:VIEW', 'OKR:VIEW', 'DASHBOARD:VIEW', 'ORG:VIEW_TREE', 'USER:VIEW_LIST', 'KPI:VIEW', 'KPI:CREATE','KPI:UPDATE', 'KPI:DELETE', 'KPI:IMPORT', 'KPI:SUBMIT', 'KPI:REJECT', 'KPI_PERIOD:VIEW', 'KPI_CYCLE:VIEW', 'SUBMISSION:VIEW', 'SUBMISSION:REVIEW_KPI', 'EVALUATION:VIEW', 'EVALUATION:CREATE', 'NOTIF:VIEW', 'AI:SUGGEST_KPI', 'STATS:VIEW_EMPLOYEE', 'ATTACHMENT:UPLOAD', 'REMINDER:SEND', 'KPI:VIEW_MY', 'SUBMISSION:VIEW_MY', 'EVALUATION:VIEW_MY', 'STATS:VIEW_MY', 'ADJUSTMENT:VIEW_MY')
+SELECT 'c4000000-0000-0000-0000-000000000002', id FROM permissions WHERE code IN ('BSC:VIEW', 'BSC:MANAGE_UNIT', 'OKR:VIEW', 'DASHBOARD:VIEW', 'ORG:VIEW_TREE', 'USER:VIEW_LIST', 'KPI:VIEW', 'KPI:CREATE','KPI:UPDATE', 'KPI:DELETE', 'KPI:IMPORT', 'KPI:SUBMIT', 'KPI:REJECT', 'KPI_PERIOD:VIEW', 'KPI_CYCLE:VIEW', 'SUBMISSION:VIEW', 'SUBMISSION:REVIEW_KPI', 'EVALUATION:VIEW', 'EVALUATION:CREATE', 'NOTIF:VIEW', 'AI:SUGGEST_KPI', 'STATS:VIEW_EMPLOYEE', 'ATTACHMENT:UPLOAD', 'REMINDER:SEND', 'KPI:VIEW_MY', 'SUBMISSION:VIEW_MY', 'EVALUATION:VIEW_MY', 'STATS:VIEW_MY', 'ADJUSTMENT:VIEW_MY', 'REWARD:VIEW_MY', 'REWARD:VIEW', 'REWARD:GRANT', 'GIFT:REDEEM', 'WALLET:VIEW_MY', 'WALLET:VIEW')
 ON CONFLICT DO NOTHING;
 INSERT INTO role_permissions (role_id, permission_id)
-SELECT 'c4000000-0000-0000-0000-000000000003', id FROM permissions WHERE code IN ('BSC:VIEW', 'OKR:VIEW', 'DASHBOARD:VIEW', 'KPI:VIEW', 'KPI:CREATE','KPI:UPDATE', 'KPI:DELETE', 'KPI:IMPORT', 'KPI:SUBMIT', 'KPI_PERIOD:VIEW', 'KPI_CYCLE:VIEW', 'SUBMISSION:CREATE', 'EVALUATION:VIEW', 'EVALUATION:CREATE', 'NOTIF:VIEW', 'ATTACHMENT:UPLOAD', 'KPI:VIEW_MY', 'SUBMISSION:VIEW_MY', 'EVALUATION:VIEW_MY', 'STATS:VIEW_MY', 'ADJUSTMENT:VIEW_MY')
+SELECT 'c4000000-0000-0000-0000-000000000003', id FROM permissions WHERE code IN ('BSC:VIEW', 'OKR:VIEW', 'DASHBOARD:VIEW', 'KPI:VIEW', 'KPI:CREATE','KPI:UPDATE', 'KPI:DELETE', 'KPI:IMPORT', 'KPI:SUBMIT', 'KPI_PERIOD:VIEW', 'KPI_CYCLE:VIEW', 'SUBMISSION:CREATE', 'EVALUATION:VIEW', 'EVALUATION:CREATE', 'NOTIF:VIEW', 'ATTACHMENT:UPLOAD', 'KPI:VIEW_MY', 'SUBMISSION:VIEW_MY', 'EVALUATION:VIEW_MY', 'STATS:VIEW_MY', 'ADJUSTMENT:VIEW_MY', 'REWARD:VIEW_MY', 'GIFT:REDEEM', 'WALLET:VIEW_MY')
 ON CONFLICT DO NOTHING;
 
 -- 8. USERS  (12 users, password = Demo123@)
@@ -2286,34 +2317,14 @@ INSERT INTO role_policies (role_id, policy_id) VALUES
 ON CONFLICT DO NOTHING;
 
 -- 17. SIDEBAR CUSTOM LABELS
+-- Chỉ đổi tên những mục mà trường học gọi khác doanh nghiệp, để thấy được là nhãn đổi
+-- theo từng tổ chức. Các mục còn lại KHÔNG seed — không có dòng trong `sidebar_settings`
+-- thì `useNavLabels` lấy thẳng nhãn mặc định trong `frontend/src/config/navigation.tsx`.
 INSERT INTO sidebar_settings (id, organization_id, menu_key, custom_label) VALUES
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', '/dashboard', 'Tổng quan'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', '/dashboard?view=staff', 'Dashboard cá nhân'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', 'Thiết lập công ty', 'Thiệt lập tổ chức'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', '/company', 'Thông tin trường'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', '/okr', 'Mục tiêu OKR'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', 'Quản lý BSC', 'Thẻ điểm cân bằng'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', '/bsc', 'Thẻ điểm BSC'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', '/bsc/dashboard', 'Dashboard BSC'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', '/bsc/strategy-map', 'Bản đồ chiến lược'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', 'Tổ chức', 'Tổ chức'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', '/roles', 'Phân quyền vai trò'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', '/org-structure', 'Cấu trúc Khoa - Bộ môn'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', '/users', 'Quản lý sinh viên & GV'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', '/settings', 'Cấu hình hệ thống'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', 'Quản lý KPI', 'Quản trị KPI học kỳ'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', '/kpi-cycles', 'Danh mục kỳ KPI'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', '/kpi-cycles/evaluation', 'Đánh giá kỳ'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', '/kpi-periods', 'Danh mục đợt KPI'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', '/kpi-criteria', 'Thiết lập chỉ tiêu'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', '/kpi-criteria/pending', 'Phê duyệt chỉ tiêu'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', '/kpi-adjustments/pending', 'Duyệt điều chỉnh'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', '/submissions/org-unit', 'Kiểm soát bài nộp'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', '/evaluations', 'Đánh giá kết quả'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', '/my-kpi', 'KPI của tôi'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', '/my-adjustments', 'Yêu cầu điều chỉnh'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', '/submissions', 'Lịch sử báo cáo'),
-    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', '/analytics', 'Phân tích & Thống kê');
+    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', 'setup-company', 'Thiết lập tổ chức'),
+    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', 'info', 'Thông tin trường'),
+    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', 'org-structure', 'Cấu trúc Khoa - Bộ môn'),
+    (gen_random_uuid(), '22222222-2222-2222-2222-222222222222', 'users', 'Quản lý sinh viên & GV');
 
 -- ====================================================
 -- Notification config defaults (all enabled)
@@ -2454,36 +2465,6 @@ JOIN (VALUES
     (5, 100.0::numeric, 4.5::numeric, 125.0::numeric, 'XUẤT SẮC')    -- hàng5(≥4.5)   × cột5(≥120%)      = 5
 ) AS m(g, score, behavior_score, completion, label) ON m.g = x.g
 WHERE e.id = x.id;
--- ====================================================
--- Quyền quản lý hạn mức token AI
--- ====================================================
-INSERT INTO permissions (id, code, resource, action, description) VALUES
-    ('00000000-0000-0000-0000-000000000401', 'AI_QUOTA:MANAGE',   'AI_QUOTA', 'MANAGE',   'Cho phép đặt hạn mức token AI cho toàn công ty và bật/tắt việc uỷ quyền cho quản lý cấp dưới — chỉ quản lý cấp cao nhất'),
-    ('00000000-0000-0000-0000-000000000402', 'AI_QUOTA:ALLOCATE', 'AI_QUOTA', 'ALLOCATE', 'Cho phép chia hạn mức token AI cho nhân sự thuộc đơn vị mình quản lý, trừ vào hạn mức của chính mình')
-ON CONFLICT (code) DO NOTHING;
-
--- Gán theo thuộc tính vai trò thay vì liệt kê từng role_id: file seed có nhiều bộ role cho
--- nhiều công ty mẫu, và cách này tự đúng cho mọi công ty được thêm sau.
-
--- AI_QUOTA:MANAGE -> vai trò cao nhất công ty, nhận diện bằng việc đã có SYSTEM:ADMIN
-INSERT INTO role_permissions (role_id, permission_id)
-SELECT r.id, p.id
-FROM roles r
-CROSS JOIN permissions p
-WHERE p.code = 'AI_QUOTA:MANAGE'
-  AND EXISTS (SELECT 1 FROM role_permissions rp JOIN permissions sp ON sp.id = rp.permission_id
-              WHERE rp.role_id = r.id AND sp.code = 'SYSTEM:ADMIN')
-ON CONFLICT DO NOTHING;
-
--- AI_QUOTA:ALLOCATE -> mọi vai trò trưởng đơn vị (rank = 0). Cấp dưới chỉ dùng được
--- khi công ty bật uỷ quyền, điều kiện đó kiểm ở AiQuotaAllocationService.
-INSERT INTO role_permissions (role_id, permission_id)
-SELECT r.id, p.id
-FROM roles r
-CROSS JOIN permissions p
-WHERE p.code = 'AI_QUOTA:ALLOCATE' AND r.rank = 0
-ON CONFLICT DO NOTHING;
-
 -- ═══════════════════════════════════════════════════════════════════════════
 -- HẠN MỨC TOKEN AI
 -- Không có hạn mức thì mọi lượt chat AI bị chặn ngay ở cổng kiểm
@@ -2491,12 +2472,17 @@ ON CONFLICT DO NOTHING;
 -- Cấp sẵn hạn mức rộng tay cho dữ liệu mẫu để tính năng dùng được ngay.
 -- ═══════════════════════════════════════════════════════════════════════════
 
--- Ngân sách công ty. Đặt cho MỌI tổ chức, không lọc theo ngân sách hiện có: phần cấp cho từng
--- người bên dưới chạy cho mọi người, nên nếu bỏ sót một tổ chức thì tổng hạn mức của tổ chức đó
--- vượt ngân sách và AiQuotaAllocationService sẽ chặn mọi lần phân bổ về sau.
+-- Ngân sách công ty. Chỉ đặt cho HAI tổ chức demo — đây là file dữ liệu mẫu, không có lý do gì
+-- ghi đè ngân sách của một công ty thật đã tự cấu hình.
+--
+-- Phải phủ ĐỦ hai tổ chức đó: phần cấp cho từng người bên dưới chạy cho mọi nhân sự của chúng, nên
+-- bỏ sót một tổ chức là tổng hạn mức cấp ra vượt ngân sách của nó và AiQuotaAllocationService sẽ
+-- chặn mọi lần phân bổ về sau.
 UPDATE organizations
 SET ai_monthly_token_limit = 50000000,
-    ai_allow_sub_delegation = TRUE;
+    ai_allow_sub_delegation = TRUE
+WHERE id IN ('11111111-1111-1111-1111-111111111111',
+             '22222222-2222-2222-2222-222222222222');
 
 -- Hạn mức từng người, cấp thẳng từ ngân sách công ty (allocated_by = NULL).
 --
@@ -2511,6 +2497,11 @@ SET ai_monthly_token_limit = 50000000,
 INSERT INTO ai_token_quotas (user_id, monthly_limit, allocated_by)
 SELECT DISTINCT uro.user_id, 1000000, NULL::uuid
 FROM user_role_org_units uro
+-- Lọc qua roles chứ không qua org_units: roles giữ thẳng organization_id, còn từ org_unit phải
+-- vòng thêm một chặng org_hierarchy_levels mới ra được tổ chức.
+JOIN roles r ON r.id = uro.role_id
+WHERE r.organization_id IN ('11111111-1111-1111-1111-111111111111',
+                            '22222222-2222-2222-2222-222222222222')
 ON CONFLICT (user_id) DO NOTHING;
 
 -- ═══════════════════════════════════════════════════════════════════════════
@@ -2547,6 +2538,11 @@ ON CONFLICT (organization_id, code) DO NOTHING;
 -- Mỗi tổ chức một hạng mục cho mỗi viễn cảnh cố định. Đây là cấu hình tối giản: công ty thật có thể
 -- tách "Tài chính" thành nhiều hạng mục con, nhưng dữ liệu mẫu không nên dựng sẵn thứ phức tạp hơn
 -- mức cần để thống kê chạy được.
+--
+-- target_value/minimum_value/unit để TRỐNG có chủ đích: đặt mục tiêu riêng sẽ chuyển hạng mục sang
+-- cách chấm kiểu OKR (tổng thực đạt ÷ mục tiêu hạng mục), trong khi evaluation_perspective_scores
+-- bên dưới lại sinh raw_score theo cách chấm mặc định. Hai thứ đó lệch nhau thì màn hình đánh giá
+-- sẽ hiện tiến độ "x/y" không khớp với điểm đã lưu — tức dữ liệu mẫu tự mâu thuẫn.
 INSERT INTO bsc_perspectives
     (organization_id, code, fixed_perspective, name, description, color, icon, display_order, status)
 SELECT o.id, v.code, v.code, v.name, v.descr, v.color, v.icon, v.ord, 'ACTIVE'
@@ -2561,29 +2557,44 @@ WHERE NOT EXISTS (
     SELECT 1 FROM bsc_perspectives p
     WHERE p.organization_id = o.id AND p.code = v.code AND p.deleted_at IS NULL);
 
--- 18.3 Thẻ điểm: một thẻ cho mỗi (tổ chức, kỳ).
--- KHÔNG có thẻ điểm thì BscScoringService.computeUserScore trả null ngay từ dòng đầu, nên chấm lại
--- điểm sẽ không sinh ra gì và chế độ chấm hiện ra là rỗng. Danh sách bsc_scorecard_org_units để
--- TRỐNG = thẻ mặc định của toàn tổ chức.
+-- 18.3 Bộ tiêu chí: một bộ cho mỗi (tổ chức, đợt), gắn theo ĐỢT (apply_scope = 'PERIOD').
+-- KHÔNG có bộ tiêu chí thì BscScoringService.computeUserScore trả null ngay từ dòng đầu, nên chấm
+-- lại điểm sẽ không sinh ra gì và chế độ chấm hiện ra là rỗng. Danh sách bsc_scorecard_org_units
+-- để TRỐNG = bộ tiêu chí mặc định toàn tổ chức, và cũng chính là điều kiện để level = 'COMPANY'.
 --
 -- SHADOW là mặc định đúng cho dữ liệu mẫu: điểm BSC được tính và lưu để xem, nhưng KHÔNG thay điểm
 -- chính thức của nhân viên.
 INSERT INTO bsc_scorecards
-    (organization_id, kpi_period_id, name, vision, status, scoring_mode, empty_perspective_policy)
-SELECT p.organization_id, p.id,
-       'Thẻ điểm cân bằng — ' || p.name,
-       'Cân bằng bốn viễn cảnh: tài chính, khách hàng, quy trình nội bộ, học hỏi và phát triển.',
+    (organization_id, apply_scope, name, vision, status, scoring_mode, empty_perspective_policy)
+SELECT p.organization_id, 'PERIOD',
+       'Bộ tiêu chí — ' || p.name,
+       'Cân bằng bốn lĩnh vực: tài chính, khách hàng, quy trình nội bộ, học hỏi và phát triển.',
        'ACTIVE', 'SHADOW', 'RENORMALIZE'
 FROM kpi_periods p
 WHERE NOT EXISTS (
     SELECT 1 FROM bsc_scorecards s
-    WHERE s.organization_id = p.organization_id AND s.kpi_period_id = p.id AND s.deleted_at IS NULL);
+    WHERE s.organization_id = p.organization_id AND s.deleted_at IS NULL
+      AND s.name = 'Bộ tiêu chí — ' || p.name);
+
+-- Gắn đợt cho thẻ vừa tạo. Ghép theo tên vì tên thẻ được sinh từ chính tên đợt ở câu trên
+-- (INSERT ... SELECT không trả về được cột nguồn để nối trực tiếp).
+INSERT INTO bsc_scorecard_periods (scorecard_id, kpi_period_id)
+SELECT s.id, p.id
+FROM bsc_scorecards s
+JOIN kpi_periods p ON p.organization_id = s.organization_id
+                  AND s.name = 'Bộ tiêu chí — ' || p.name
+WHERE s.deleted_at IS NULL
+ON CONFLICT DO NOTHING;
 
 -- 18.4 Trọng số bốn viễn cảnh trong mỗi thẻ điểm. Tổng PHẢI bằng 100 — BscScoringService chia cho
 -- tổng trọng số của các viễn cảnh CÓ dữ liệu (chính sách RENORMALIZE), nên tổng lệch 100 làm điểm
 -- BSC lệch theo.
-INSERT INTO bsc_scorecard_perspectives (scorecard_id, perspective_id, weight_percentage, display_order)
-SELECT s.id, p.id, w.weight, p.display_order
+-- Chép luôn mục tiêu của hạng mục xuống dòng: từ đây mục tiêu "sống" ở dòng bộ tiêu chí, con số
+-- trên hạng mục chỉ còn là mặc định gợi ý. Chép sẵn để sửa hạng mục về sau không âm thầm làm đổi
+-- điểm của bộ tiêu chí đã dùng.
+INSERT INTO bsc_scorecard_perspectives (scorecard_id, perspective_id, weight_percentage, display_order,
+                                        target_value, minimum_value, unit)
+SELECT s.id, p.id, w.weight, p.display_order, p.target_value, p.minimum_value, p.unit
 FROM bsc_scorecards s
 JOIN bsc_perspectives p ON p.organization_id = s.organization_id AND p.deleted_at IS NULL
 JOIN (VALUES
@@ -2680,15 +2691,21 @@ WHERE p.organization_id = o.organization_id
 -- Độ lệch theo viễn cảnh cộng một chút xê dịch theo người, tất cả TẤT ĐỊNH (băm từ id) chứ không
 -- dùng random(): chạy lại file này phải ra đúng cùng bộ số, nếu không thì ảnh chụp màn hình và tài
 -- liệu hướng dẫn sẽ lệch với dữ liệu.
+--
+-- scored_by_target = FALSE và actual_value = NULL: raw_score dưới đây mô phỏng cách chấm MẶC ĐỊNH
+-- (trung bình có trọng số các KPI con), khớp với việc 18.2 không đặt mục tiêu cho hạng mục nào.
 INSERT INTO evaluation_perspective_scores
-    (evaluation_id, perspective_id, weight_percentage, raw_score, weighted_score, kpi_count)
+    (evaluation_id, perspective_id, weight_percentage, raw_score, weighted_score, kpi_count,
+     actual_value, scored_by_target)
 SELECT e.id,
        p.id,
        w.weight,
        calc.raw,
        CASE WHEN calc.raw IS NULL THEN NULL
             ELSE round((w.weight / 100.0 * calc.raw)::numeric, 2) END,
-       calc.kpi_count
+       calc.kpi_count,
+       NULL::double precision,
+       FALSE
 FROM evaluations e
 JOIN org_units ou ON ou.id = e.org_unit_id
 JOIN org_hierarchy_levels l ON l.id = ou.org_hierarchy_id
@@ -2738,3 +2755,72 @@ FROM (
 ) AS agg
 WHERE agg.evaluation_id = e.id
   AND e.bsc_score IS NULL;
+
+
+-- ====================================================
+-- 19. HẠNH KIỂM: bộ tiêu chí mặc định cho mọi tổ chức
+-- ====================================================
+-- Bộ MẶC ĐỊNH áp cho mọi kỳ chưa được gán bộ riêng — không có nó thì màn chấm hạnh kiểm
+-- mở ra trắng trơn và người dựng môi trường mới tưởng tính năng hỏng.
+--
+-- Thang điểm lấy từ organizations.conduct_max_score (mặc định 4). Bốn tiêu chí chia đều
+-- 25% để tổng đúng 100%.
+INSERT INTO conduct_criteria_sets (organization_id, name, is_default, max_score)
+SELECT o.id, 'Bộ mặc định', TRUE, COALESCE(o.conduct_max_score, 4)
+FROM organizations o
+WHERE NOT EXISTS (
+    SELECT 1 FROM conduct_criteria_sets s
+    WHERE s.organization_id = o.id AND s.deleted_at IS NULL
+);
+
+INSERT INTO conduct_criteria
+    (organization_id, conduct_criteria_set_id, name, description, weight, position_index)
+SELECT s.organization_id, s.id, c.name, c.description, 25, c.position_index
+FROM conduct_criteria_sets s
+CROSS JOIN (VALUES
+    ('Trung thực', 'Ngay thẳng, thật thà, dám nói lên sự thật.
+Tôn trọng lẽ phải, không gian dối từ lời nói đến hành vi.
+Sẵn sàng dũng cảm nói lên sự thật và sẵn sàng nhận lỗi khi phạm sai lầm.
+Khiêm tốn với khả năng của bản thân, thể hiện sự chính trực, đặt lợi ích chung lên hàng đầu, không vụ lợi.', 1),
+    ('Nhân ái', 'Chia sẻ, cảm thông cho nhau những lúc hoạn nạn, khó khăn.
+Sẵn sàng giúp đỡ, thấu hiểu người khác dù trong bất kỳ hoàn cảnh nào, sống chan hoà.
+Không gây bè phái, hiềm khích, hiểu lầm cá nhân, không làm ảnh hưởng tới văn hoá và truyền thống giáo dục của Nhà trường.', 2),
+    ('Trách nhiệm', 'Luôn hoàn thành nhiệm vụ được giao đúng thời hạn.
+Có tính kỷ luật cao, luôn lập kế hoạch thực hiện công việc của mình.
+Có trách nhiệm với mọi công việc được giao.
+Không đổ lỗi, luôn lắng nghe ý kiến đóng góp để hoàn thiện bản thân và công việc.', 3),
+    ('Học tập suốt đời', 'Học bất cứ lúc nào, ở đâu, luôn duy trì việc học ngay cả khi đã đạt được những thành tựu, mục tiêu trong cuộc sống, miễn là khi có điều kiện thuận lợi, đặc biệt là còn sức khoẻ.
+Chủ động nâng cao nhận thức, trình độ; phải học tập, tự học tập, học tập thường xuyên.
+Sẵn sàng đón nhận và tiếp thu những kiến thức, kỹ năng mới. Không ngừng "thay và sửa", áp dụng những kiến thức tiên tiến vào quá trình công tác, làm việc.', 4)
+) AS c(name, description, position_index)
+WHERE s.is_default
+  AND s.deleted_at IS NULL
+  AND NOT EXISTS (
+      SELECT 1 FROM conduct_criteria x
+      WHERE x.conduct_criteria_set_id = s.id AND x.deleted_at IS NULL
+  );
+
+-- ====================================================
+-- 19. CHÍNH SÁCH HỆ SỐ CASCADE — một bản mặc định cho mỗi tổ chức
+--
+-- Seed để tính năng chạy được ngay sau khi deploy thay vì im lặng bỏ qua tầng hệ số. Các dải đúng
+-- bằng ví dụ trong docs/bsc-cascade-design.md: phòng đạt 92% ⇒ 0.95, công ty 97% ⇒ 1.00.
+--
+-- organizations không xoá mềm bằng deleted_at mà đánh dấu qua status, nên lọc theo status.
+-- ====================================================
+
+INSERT INTO bsc_cascade_policies (id, organization_id, name)
+SELECT gen_random_uuid(), o.id, 'Chính sách hệ số mặc định'
+FROM organizations o
+WHERE o.status <> 'ARCHIVED';
+
+INSERT INTO bsc_factor_bands (policy_id, scope, from_percent, to_percent, factor, label, color, display_order)
+SELECT p.id, s.scope, b.from_percent, b.to_percent, b.factor, b.label, b.color, b.display_order
+FROM bsc_cascade_policies p
+CROSS JOIN (VALUES ('UNIT'), ('COMPANY')) AS s(scope)
+CROSS JOIN (VALUES
+    (105.0, NULL::DOUBLE PRECISION, 1.10, 'Vượt trội',     '#10b981', 0),
+    ( 95.0, 105.0,                  1.00, 'Đạt',           '#3b82f6', 1),
+    ( 80.0,  95.0,                  0.95, 'Cần cải thiện', '#f59e0b', 2),
+    (NULL,   80.0,                  0.90, 'Không đạt',     '#ef4444', 3)
+) AS b(from_percent, to_percent, factor, label, color, display_order);

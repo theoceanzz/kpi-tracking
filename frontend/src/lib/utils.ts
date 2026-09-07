@@ -89,6 +89,18 @@ export function formatNumber(value: number, maxDecimals: number = 2): string {
   }).format(value)
 }
 
+/**
+ * Tiền Việt. Backend lưu bằng ĐỒNG (số nguyên) nên ở đây không có phần thập phân —
+ * hiện ".00" sau mỗi số tiền chỉ làm bảng khó đọc mà không thêm thông tin gì.
+ */
+export function formatCurrency(value: number | null | undefined): string {
+  return new Intl.NumberFormat('vi-VN', {
+    style: 'currency',
+    currency: 'VND',
+    maximumFractionDigits: 0,
+  }).format(value ?? 0)
+}
+
 export function formatDate(date: string | Date | null | undefined): string {
   if (!date) return '—'
   const d = typeof date === 'string' ? parseISO(date) : new Date(date)
@@ -112,6 +124,48 @@ export function getInitials(name: string): string {
     .join('')
     .toUpperCase()
     .slice(0, 2)
+}
+
+/** Tiền tố loại đơn vị → viết tắt quen thuộc. Xếp cụm dài trước để khớp đúng ("bộ môn" trước "bộ"). */
+const ORG_UNIT_PREFIXES: Array<[RegExp, string]> = [
+  [/^bộ\s+môn\s+/i, 'BM'],
+  [/^trung\s+tâm\s+/i, 'TT'],
+  [/^chi\s+nhánh\s+/i, 'CN'],
+  [/^phân\s+hiệu\s+/i, 'PH'],
+  [/^công\s+ty\s+/i, 'CT'],
+  [/^phòng\s+ban\s+/i, 'PB'],
+  [/^phòng\s+/i, 'P'],
+  [/^khoa\s+/i, 'K'],
+  [/^viện\s+/i, 'V'],
+  [/^ban\s+/i, 'B'],
+  [/^tổ\s+/i, 'T'],
+  [/^nhóm\s+/i, 'N'],
+  [/^đội\s+/i, 'Đ'],
+]
+
+/**
+ * Rút gọn tên đơn vị để hiển thị trong badge/cột hẹp: "Bộ môn Kỹ thuật phần mềm" → "BM KTPM".
+ * Tên ngắn hơn `maxLength` giữ nguyên. Luôn kèm `title` với tên đầy đủ ở nơi gọi.
+ */
+export function abbreviateOrgUnitName(name?: string | null, maxLength = 18): string {
+  const full = (name || '').normalize('NFC').replace(/\s+/g, ' ').trim()
+  if (!full || full.length <= maxLength) return full
+
+  const initials = (text: string) =>
+    text
+      .split(' ')
+      .filter(Boolean)
+      .map(w => w[0])
+      .join('')
+      .toUpperCase()
+
+  for (const [pattern, abbr] of ORG_UNIT_PREFIXES) {
+    if (pattern.test(full)) {
+      const rest = full.replace(pattern, '').trim()
+      return rest ? `${abbr} ${initials(rest)}` : abbr
+    }
+  }
+  return initials(full)
 }
 
 export function getPrimaryMembership(user: { memberships?: Array<any> }): any | undefined {

@@ -97,6 +97,33 @@ public class PermissionChecker {
     }
 
     /**
+     * Như {@link #hasPermissionInOrgUnit} nhưng đòi thêm người đó phải là TRƯỞNG (rank 0)
+     * của đơn vị đó hoặc của một đơn vị cha — phó (rank 1) không tính.
+     *
+     * Dành cho những việc mà quyền thôi chưa đủ, phải đúng người đứng đầu ký: chấm hạnh
+     * kiểm là một. SYSTEM:ADMIN vẫn đi qua như mọi chỗ khác, nếu không thì quản trị viên
+     * không có vai trò trong cây tổ chức sẽ tự khoá mình ra ngoài.
+     */
+    public boolean hasLeaderPermissionInOrgUnit(UUID userId, String permissionCode, UUID orgUnitId) {
+        List<UserRoleOrgUnit> assignments = userRoleOrgUnitRepository.findByUserId(userId);
+        if (assignments.isEmpty()) return false;
+
+        OrgUnit targetUnit = orgUnitRepository.findById(orgUnitId).orElse(null);
+        if (targetUnit == null) return false;
+
+        Map<UUID, Set<String>> rolePerms = getPermissionsByRole(assignments);
+
+        return assignments.stream()
+                .filter(a -> targetUnit.getPath().startsWith(a.getOrgUnit().getPath()))
+                .anyMatch(a -> {
+                    Set<String> perms = rolePerms.getOrDefault(a.getRole().getId(), Collections.emptySet());
+                    if (perms.contains("SYSTEM:ADMIN")) return true;
+                    Integer rank = a.getRole().getRank();
+                    return rank != null && rank == 0 && perms.contains(permissionCode);
+                });
+    }
+
+    /**
      * Check if a user has any of the specific permission codes for a specific OrgUnit.
      */
     public boolean hasAnyPermissionInOrgUnit(UUID userId, UUID orgUnitId, String... permissionCodes) {
@@ -189,6 +216,61 @@ public class PermissionChecker {
     }
 
     /**
+     * Phạm vi xem KPI suy ra từ membership của một user, tách theo rank.
+     * <p>
+     * Vai trò quản lý (rank 0/1) nhìn được cả cây con của đơn vị được gán; nhân viên
+     * (rank 2 hoặc chưa đặt) chỉ nhìn đúng đơn vị đó. Việc tách này là cần thiết vì
+     * {@code UserService.assignToUnitAndImmediateParent} tự sinh thêm một membership
+     * nhân viên ở đơn vị CHA — với tổ chức hai cấp, đơn vị cha chính là gốc công ty,
+     * nên nếu mở rộng cây con cho cả membership nhân viên thì mọi người sẽ thấy KPI
+     * của tất cả đơn vị anh em.
+     */
+    public record KpiVisibilityScope(List<UUID> managerUnitIds, List<UUID> memberUnitIds) {
+
+        /** UUID không trỏ tới bản ghi nào, dùng để giữ mệnh đề IN hợp lệ khi danh sách rỗng. */
+        private static final UUID NO_MATCH = new UUID(0L, 0L);
+
+        public boolean isEmpty() {
+            return managerUnitIds.isEmpty() && memberUnitIds.isEmpty();
+        }
+
+        /** JPQL không nhận {@code IN ()} rỗng — thay bằng UUID không khớp gì. */
+        public List<UUID> managerUnitIdsForQuery() {
+            return managerUnitIds.isEmpty() ? List.of(NO_MATCH) : managerUnitIds;
+        }
+
+        public List<UUID> memberUnitIdsForQuery() {
+            return memberUnitIds.isEmpty() ? List.of(NO_MATCH) : memberUnitIds;
+        }
+    }
+
+    /**
+     * Split a user's memberships into manager scope (subtree-wide) and member scope (exact unit).
+     */
+    public KpiVisibilityScope getKpiVisibilityScope(UUID userId) {
+        List<UserRoleOrgUnit> assignments = userRoleOrgUnitRepository.findByUserId(userId);
+
+        List<UUID> managerUnitIds = assignments.stream()
+                .filter(a -> isManagerRank(a.getRole().getRank()))
+                .map(a -> a.getOrgUnit().getId())
+                .distinct()
+                .toList();
+
+        List<UUID> memberUnitIds = assignments.stream()
+                .filter(a -> !isManagerRank(a.getRole().getRank()))
+                .map(a -> a.getOrgUnit().getId())
+                .distinct()
+                .toList();
+
+        return new KpiVisibilityScope(managerUnitIds, memberUnitIds);
+    }
+
+    /** Rank rỗng được coi là nhân viên, khớp mặc định của {@link #getMinRankInOrgUnit}. */
+    private static boolean isManagerRank(Integer rank) {
+        return rank != null && rank <= 1;
+    }
+
+    /**
      * Get the minimum (best/highest) rank of a user in a specific OrgUnit.
      * Considers inheritance: rank in a parent unit applies to all child units.
      * Ranks: 0 (Head), 1 (Deputy), 2 (Staff).
@@ -246,5 +328,28 @@ public class PermissionChecker {
                 .filter(Objects::nonNull)
                 .min(Integer::compare)
                 .orElse(4);
+    }
+
+    /**
+     * Khoá sắp xếp thâm niên trong một OrgUnit: {@code level * 1000 + rank}.
+     * NHỎ hơn = cấp cao hơn. Gộp 2 trục (level, rank) thành 1 số để so sánh
+     * "ai trên ai" chỉ bằng một phép so sánh thay vì lặp lại biểu thức lexicographic.
+     */
+    public int seniorityKeyInOrgUnit(UUID userId, UUID orgUnitId) {
+        return getMinLevelInOrgUnit(userId, orgUnitId) * 1000 + getMinRankInOrgUnit(userId, orgUnitId);
+    }
+
+    /** Tên vai trò tốt nhất (cấp cao nhất) của user áp dụng cho OrgUnit này. */
+    public String getBestRoleNameInOrgUnit(UUID userId, UUID orgUnitId) {
+        OrgUnit targetUnit = orgUnitRepository.findById(orgUnitId).orElse(null);
+        if (targetUnit == null) return null;
+
+        return userRoleOrgUnitRepository.findByUserId(userId).stream()
+                .filter(a -> targetUnit.getPath().startsWith(a.getOrgUnit().getPath()))
+                .min(Comparator
+                        .comparingInt((UserRoleOrgUnit a) -> a.getRole().getLevel() != null ? a.getRole().getLevel() : 4)
+                        .thenComparingInt(a -> a.getRole().getRank() != null ? a.getRole().getRank() : 2))
+                .map(a -> a.getRole().getName())
+                .orElse(null);
     }
 }

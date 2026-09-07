@@ -1,8 +1,10 @@
 import { useEffect, useMemo } from 'react'
 import { useForm, Controller } from 'react-hook-form'
+import { zodResolver } from '@hookform/resolvers/zod'
 import { X, Target, Loader2, ChevronDown, Check } from 'lucide-react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
-import { ObjectiveRequest, OkrStatus, ObjectiveResponse } from '../types'
+import { OkrStatus, ObjectiveResponse } from '../types'
+import { createObjectiveSchema, type ObjectiveFormData } from '../schemas/okrSchema'
 import { useOkrMutations } from '../hooks/useOkr'
 import { format } from 'date-fns'
 import { cn } from '@/lib/utils'
@@ -16,7 +18,10 @@ import {
 import { useOrgUnitTree } from '../../orgunits/hooks/useOrgUnitTree'
 import { OrgUnitTreeResponse } from '@/types/orgUnit'
 import { useBscPerspectives } from '@/features/bsc/hooks/useBsc'
+import { perspectiveHint } from '@/features/bsc/utils/perspectiveHint'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
+import { useCodeRule } from '@/features/orgunits/hooks/useCodeRules'
+import CodeField from '@/components/common/CodeField'
 
 interface ObjectiveFormModalProps {
   isOpen: boolean
@@ -28,8 +33,16 @@ interface ObjectiveFormModalProps {
 export default function ObjectiveFormModal({ isOpen, onClose, organizationId, objective }: ObjectiveFormModalProps) {
   const today = format(new Date(), 'yyyy-MM-dd')
 
-  const { register, handleSubmit, reset, control, watch, setValue, formState: { errors } } = useForm<ObjectiveRequest>({
+  // Mã do tổ chức quyết định: tự sinh (ô mã khoá lại) hay nhập tay như trước.
+  const codeRule = useCodeRule('OBJECTIVE', organizationId)
+  const schema = useMemo(() => createObjectiveSchema({ requireCode: !codeRule.optional }), [codeRule.optional])
+
+  const { register, handleSubmit, reset, control, watch, setValue, formState: { errors } } = useForm<ObjectiveFormData>({
+    resolver: zodResolver(schema),
     defaultValues: {
+      code: '',
+      name: '',
+      description: '',
       startDate: today,
       endDate: today,
       status: OkrStatus.ACTIVE,
@@ -121,8 +134,10 @@ export default function ObjectiveFormModal({ isOpen, onClose, organizationId, ob
     setValue('orgUnitIds', nextIds)
   }
 
-  const onSubmit = (data: ObjectiveRequest) => {
+  const onSubmit = (data: ObjectiveFormData) => {
     if (data.perspectiveId === 'NONE' || data.perspectiveId === '') data.perspectiveId = null
+    // Ô mã bị khoá ⇒ không gửi mã lên: backend giữ mã cũ khi sửa, tự cấp mã khi tạo.
+    if (codeRule.locked) data.code = undefined
     if (objective) {
       updateObjective.mutate({ objectiveId: objective.id, data }, {
         onSuccess: () => onClose()
@@ -162,22 +177,21 @@ export default function ObjectiveFormModal({ isOpen, onClose, organizationId, ob
               <div className="sm:col-span-2 space-y-1.5">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Tên mục tiêu <span className="text-red-500">*</span></label>
                 <input
-                  {...register('name', { required: 'Vui lòng nhập tên mục tiêu' })}
+                  {...register('name')}
                   placeholder="VD: Mở rộng thị trường..."
                   className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all"
                 />
                 {errors.name && <p className="text-[10px] font-bold text-red-500 ml-1">{errors.name.message}</p>}
               </div>
 
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Mã <span className="text-red-500">*</span></label>
-                <input
-                  {...register('code', { required: 'Vui lòng nhập mã' })}
-                  placeholder="OBJ001"
-                  className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all"
-                />
-                {errors.code && <p className="text-[10px] font-bold text-red-500 ml-1">{errors.code.message}</p>}
-              </div>
+              <CodeField
+                rule={codeRule}
+                currentCode={objective?.code}
+                error={errors.code?.message}
+                register={register('code')}
+                fallbackPlaceholder="OBJ001"
+                tone="indigo"
+              />
             </div>
 
             <div className="space-y-1.5">
@@ -196,7 +210,7 @@ export default function ObjectiveFormModal({ isOpen, onClose, organizationId, ob
                 <div className="relative">
                   <input
                     type="date"
-                    {...register('startDate', { required: 'Vui lòng chọn ngày bắt đầu' })}
+                    {...register('startDate')}
                     className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all text-transparent"
                   />
                   <div className="absolute inset-0 left-4 flex items-center pointer-events-none text-sm font-bold text-slate-900 dark:text-white">
@@ -210,13 +224,7 @@ export default function ObjectiveFormModal({ isOpen, onClose, organizationId, ob
                 <div className="relative">
                   <input
                     type="date"
-                    {...register('endDate', {
-                      required: 'Vui lòng chọn ngày kết thúc',
-                      validate: value => {
-                        if (!startDate || !value) return true
-                        return new Date(value) >= new Date(startDate) || 'Ngày kết thúc không được trước ngày bắt đầu'
-                      }
-                    })}
+                    {...register('endDate')}
                     className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all text-transparent"
                   />
                   <div className="absolute inset-0 left-4 flex items-center pointer-events-none text-sm font-bold text-slate-900 dark:text-white">
@@ -310,7 +318,16 @@ export default function ObjectiveFormModal({ isOpen, onClose, organizationId, ob
                       <SelectContent className="rounded-xl border-slate-200 dark:border-slate-800 max-h-[280px]">
                         <SelectItem value="NONE" className="text-sm font-bold text-slate-500">-- Chưa gán hạng mục --</SelectItem>
                         {perspectiveOptions.map(p => (
-                          <SelectItem key={p.id} value={p.id} className="text-sm font-bold">
+                          <SelectItem key={p.id} value={p.id} className="text-sm font-bold"
+                            /* Mục tiêu ở đây là con số MẶC ĐỊNH của danh mục hạng mục. Mục tiêu
+                               riêng nằm trên từng bộ tiêu chí, mà objective chưa gắn với một bộ
+                               tiêu chí cụ thể nào nên chưa suy ra được — đủ để định hướng khi
+                               chọn, còn con số chấm điểm thật vẫn theo bộ tiêu chí của đơn vị. */
+                            extra={perspectiveHint(p) && (
+                              <span className="ml-auto pl-3 text-[10px] font-bold text-slate-400 whitespace-nowrap">
+                                {perspectiveHint(p)}
+                              </span>
+                            )}>
                             <span className="flex items-center gap-2">
                               <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: p.color || '#8b5cf6' }} />
                               {p.name}
