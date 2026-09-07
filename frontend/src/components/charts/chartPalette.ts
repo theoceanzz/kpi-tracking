@@ -143,3 +143,44 @@ export function achievementSurface(v?: number | null): string {
   if (v >= 40) return ratingSurface(2)
   return ratingSurface(1)
 }
+
+// ── Quan hệ & loại KPI ──────────────────────────────────────────────────────
+//
+// Các giá trị dưới đây là bản hex của đúng những lớp Tailwind mà `KpiTypeTags` dùng cho huy hiệu.
+// Chúng phải khớp nhau: người dùng thấy huy hiệu "KPI thác nước" màu cyan ở bảng rồi nhìn sang
+// treemap, nếu viền ở đó màu khác thì họ không nối được hai thứ làm một. Không có gì tự ép hai
+// bên đồng bộ — sửa một bên nhớ sửa bên kia.
+
+/** Màu viền ô treemap theo quan hệ với KPI cha. */
+export const RELATION_STROKE: Record<'DECOMPOSITION' | 'DELEGATION', string> = {
+  DECOMPOSITION: '#4f46e5', // indigo-600 — KPI cha / KPI con
+  DELEGATION: '#0891b2',    // cyan-600   — KPI thác nước
+}
+
+/** Màu chấm nhận diện loại KPI. */
+export const KPI_KIND_COLORS = {
+  bonus: '#d97706',       // amber-600
+  qualitative: '#7c3aed', // violet-600
+  reverse: '#e11d48',     // rose-600
+  shared: '#9333ea',      // purple-600
+  replaced: '#475569',    // slate-600
+} as const
+
+export type KpiKind = keyof typeof KPI_KIND_COLORS
+
+export const KPI_KIND_LABELS: Record<KpiKind, string> = {
+  bonus: 'KPI thưởng',
+  qualitative: 'KPI định tính',
+  reverse: 'KPI ngược',
+  shared: 'KPI chung',
+  replaced: 'KPI thay thế',
+}
+
+/** Các bậc của thang tiến độ, để chú giải và `achievementSurface` không lệch nhau. */
+export const ACHIEVEMENT_BANDS: { label: string; from: number }[] = [
+  { label: '< 40%', from: 0 },
+  { label: '40–59%', from: 40 },
+  { label: '60–79%', from: 60 },
+  { label: '80–99%', from: 80 },
+  { label: '≥ 100%', from: 100 },
+]

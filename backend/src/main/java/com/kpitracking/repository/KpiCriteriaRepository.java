@@ -322,4 +322,14 @@ public interface KpiCriteriaRepository extends JpaRepository<KpiCriteria, UUID> 
     @Query("SELECT COUNT(k.id) FROM KpiCriteria k " +
            "WHERE k.orgUnit.id IN :unitIds AND k.replacedBy IS NOT NULL")
     long countReplacedInUnits(@Param("unitIds") Collection<UUID> unitIds);
+
+    /**
+     * Các KPI CŨ đã bị thay bởi một trong {@code ids}.
+     *
+     * <p>Phải tra ngược vì quan hệ thay thế chỉ có một chiều: bản cũ giữ {@code replaced_by_id} trỏ
+     * sang bản mới, còn bản mới không biết gì về bản cũ. Bản mới cũng KHÔNG được đặt {@code parent},
+     * nên mọi phép duyệt cây cha-con đều không thấy cặp thay thế.
+     */
+    @Query("SELECT k FROM KpiCriteria k JOIN FETCH k.replacedBy rb WHERE rb.id IN :ids")
+    java.util.List<KpiCriteria> findPredecessorsOf(@Param("ids") Collection<UUID> ids);
 }

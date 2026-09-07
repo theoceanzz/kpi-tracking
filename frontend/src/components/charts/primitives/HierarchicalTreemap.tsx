@@ -1,6 +1,10 @@
-import { useState } from 'react'
-import { achievementSurface, textOn } from '../chartPalette'
+import { useLayoutEffect, useRef, useState } from 'react'
+import {
+  achievementSurface, textOn,
+  RELATION_STROKE, KPI_KIND_COLORS, KPI_KIND_LABELS, type KpiKind,
+} from '../chartPalette'
 import { labelOnFill } from '../axisLabel'
+import { AssigneeAvatars, type AssigneeBrief } from './AssigneeAvatars'
 
 export type KpiRelation = 'DECOMPOSITION' | 'DELEGATION' | null
 
@@ -16,6 +20,33 @@ export interface TreeNode {
   /** Quan hệ với CHA. Null = nút gốc. */
   relation?: KpiRelation
   children?: TreeNode[]
+
+  // ── Nhận diện loại KPI. Tất cả đều tuỳ chọn: nơi gọi cũ không truyền thì vẽ y như trước. ──
+  isBonus?: boolean
+  isQualitative?: boolean
+  isReverse?: boolean
+  isShared?: boolean
+  /** Tên KPI CŨ mà nút này thay thế. Có giá trị ⇒ đây là một KPI thay thế. */
+  replacedKpiName?: string | null
+  replacementReason?: string | null
+  /** Số liệu thô cho tooltip — chỗ bù lại những gì bảng chi tiết từng hiện. */
+  targetValue?: number | null
+  actualValue?: number | null
+  unit?: string | null
+  periodName?: string | null
+  /** Người đảm nhiệm — hiện thành dãy avatar trong tooltip. */
+  assignees?: AssigneeBrief[]
+}
+
+/** Loại KPI của một nút, theo đúng thứ tự vẽ chấm. */
+function kindsOf(n: TreeNode): KpiKind[] {
+  const out: KpiKind[] = []
+  if (n.isBonus) out.push('bonus')
+  if (n.isQualitative) out.push('qualitative')
+  if (n.isReverse) out.push('reverse')
+  if (n.isShared) out.push('shared')
+  if (n.replacedKpiName) out.push('replaced')
+  return out
 }
 
 interface Props {
@@ -30,6 +61,13 @@ const PAD = 5
 /** Dưới cỡ này thì vẽ con vào chỉ ra những vệt màu không đọc được — dừng đệ quy, để tooltip kể. */
 const MIN_NEST_W = 64
 const MIN_NEST_H = 46
+/** Cạnh con chip loại KPI, và số chip tối đa trước khi cắt (tooltip vẫn kể đủ). */
+const KIND_DOT = 9
+const MAX_KIND_DOTS = 4
+/** Cỡ chữ, tính bằng pixel thật. */
+const NAME_SIZE = 13
+const UNIT_SIZE = 11
+const PCT_SIZE = 15
 
 interface Rect { x: number; y: number; w: number; h: number }
 
@@ -149,15 +187,24 @@ function flatten(nodes: TreeNode[], rect: Rect, depth: number, out: Cell[]): voi
   })
 }
 
-/** Viền nói ra quan hệ với cha; màu nền đã dành cho tiến độ nên không dùng được vào việc này. */
+/**
+ * Viền nói ra quan hệ với cha; màu nền đã dành cho tiến độ nên không dùng được vào việc này.
+ *
+ * <p>Màu lấy từ `RELATION_STROKE` để khớp huy hiệu `KpiTypeTags` — trước đây cả hai quan hệ đều vẽ
+ * đen tuyền, chỉ khác liền/đứt, mà trên ô lá lại vẽ ở 25% độ đục nên gần như vô hình.
+ *
+ * <p>Thác nước giữ CẢ màu LẪN nét đứt: mã hoá dư thừa để người không phân biệt được màu vẫn đọc ra.
+ */
 function strokeFor(relation: KpiRelation, hovered: boolean) {
-  if (hovered) return { stroke: '#0f172a', strokeWidth: 2.5, strokeDasharray: undefined }
+  if (hovered) return { stroke: '#0f172a', strokeWidth: 2.5, dash: undefined, opacity: 1 }
   if (relation === 'DELEGATION') {
     // Nét đứt = KPI này KHÔNG nằm ở đơn vị của cha, nó được giao xuống nơi khác.
-    return { stroke: '#0f172a', strokeWidth: 1.5, strokeDasharray: '5 3' }
+    return { stroke: RELATION_STROKE.DELEGATION, strokeWidth: 2, dash: '5 3', opacity: 0.9 }
   }
-  if (relation === 'DECOMPOSITION') return { stroke: '#0f172a', strokeWidth: 1.5, strokeDasharray: undefined }
-  return { stroke: '#0f172a', strokeWidth: 2, strokeDasharray: undefined }
+  if (relation === 'DECOMPOSITION') {
+    return { stroke: RELATION_STROKE.DECOMPOSITION, strokeWidth: 2, dash: undefined, opacity: 0.9 }
+  }
+  return { stroke: '#0f172a', strokeWidth: 2, dash: undefined, opacity: 0.55 }
 }
 
 /**
@@ -174,23 +221,44 @@ function strokeFor(relation: KpiRelation, hovered: boolean) {
 export default function HierarchicalTreemap({ nodes, height = 300, onSelect }: Props) {
   const [hoveredId, setHoveredId] = useState<string | null>(null)
   const [tip, setTip] = useState<{ node: TreeNode; x: number; y: number } | null>(null)
-  // Toạ độ trong hệ viewBox cố định rồi để SVG tự co giãn — khỏi phải đo DOM bằng ResizeObserver.
-  const VW = 1000
+
+  // Bề rộng THẬT tính bằng pixel, đo từ DOM.
+  //
+  // Bản trước khoá viewBox ở 1000 rồi `preserveAspectRatio="none"` cho SVG tự kéo giãn — tiện,
+  // nhưng nó bóp méo mọi thứ theo phương ngang, kể cả chữ: khung rộng 700px thì mỗi chữ cái bị
+  // nén còn 70% bề ngang, khung 1400px thì bị kéo bè ra. Đặt viewBox đúng bằng số pixel thật thì
+  // tỉ lệ luôn là 1:1 nên chữ không bao giờ méo nữa.
+  const wrapRef = useRef<HTMLDivElement>(null)
+  const [vw, setVw] = useState(1000)
+  useLayoutEffect(() => {
+    const el = wrapRef.current
+    if (!el) return
+    // Đo ngay trong layout effect (trước lượt vẽ) nên không có khung hình nào bị sai tỉ lệ.
+    const measure = () => {
+      const w = Math.round(el.getBoundingClientRect().width)
+      if (w > 0) setVw(prev => (prev === w ? prev : w))
+    }
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [])
+
+  const VW = Math.max(vw, 120)
   const VH = Math.max(height, 120)
 
-  if (nodes.length === 0) {
-    return (
-      <div className="w-full flex items-center justify-center text-sm text-slate-400 font-medium" style={{ height }}>
-        Chưa có dữ liệu để vẽ
-      </div>
-    )
-  }
-
   const cells: Cell[] = []
-  flatten(nodes, { x: 1, y: 1, w: VW - 2, h: VH - 2 }, 0, cells)
+  if (nodes.length > 0) flatten(nodes, { x: 1, y: 1, w: VW - 2, h: VH - 2 }, 0, cells)
 
   return (
-    <div className="w-full relative" style={{ height }}>
+    // Ref phải nằm ở nút LUÔN được render — nếu chỉ gắn khi có dữ liệu thì lúc dữ liệu về,
+    // effect đo đã chạy xong từ lượt trước và không bao giờ chạy lại.
+    <div ref={wrapRef} className="w-full relative" style={{ height }}>
+      {nodes.length === 0 ? (
+        <div className="w-full h-full flex items-center justify-center text-sm text-slate-400 font-medium">
+          Chưa có dữ liệu để vẽ
+        </div>
+      ) : (
       <svg
         viewBox={`0 0 ${VW} ${VH}`}
         preserveAspectRatio="none"
@@ -212,6 +280,7 @@ export default function HierarchicalTreemap({ nodes, height = 300, onSelect }: P
           />
         ))}
       </svg>
+      )}
 
       {tip && <NodeTooltip node={tip.node} x={tip.x} y={tip.y} clickable={!!onSelect} />}
     </div>
@@ -237,8 +306,17 @@ function CellShape({ cell, hovered, clickable, onEnter, onClick }: {
 
   const showLabel = rect.w > 58 && rect.h > 22
   const showPct = !container && rect.h > 40 && node.achievement != null
-  const maxChars = Math.floor(rect.w / 7.2)
-  const name = node.name.length > maxChars ? `${node.name.slice(0, Math.max(maxChars - 1, 1))}…` : node.name
+  // Chấm loại KPI chỉ vẽ khi ô đủ rộng. Ô nhỏ hơn thì bỏ hẳn — tooltip luôn liệt kê đủ bằng chữ
+  // nên không có thông tin nào chỉ tồn tại ở mấy cái chấm này.
+  const kinds = kindsOf(node)
+  const showKinds = kinds.length > 0 && rect.w > 70 && rect.h > 52
+  // Mọi con số ở đây giờ là PIXEL THẬT (viewBox khớp bề rộng đo được), nên bề rộng một chữ cái
+  // tính thẳng từ cỡ chữ: chữ đậm sans trung bình rộng khoảng 0,57 lần cỡ chữ.
+  const fit = (text: string, fontSize: number) => {
+    const max = Math.floor((rect.w - 14) / (fontSize * 0.57))
+    return text.length > max ? `${text.slice(0, Math.max(max - 1, 1))}…` : text
+  }
+  const name = fit(node.name, NAME_SIZE)
 
   return (
     <g
@@ -254,35 +332,49 @@ function CellShape({ cell, hovered, clickable, onEnter, onClick }: {
         fillOpacity={fillOpacity}
         stroke={s.stroke}
         strokeWidth={s.strokeWidth}
-        strokeDasharray={s.strokeDasharray}
-        strokeOpacity={container ? 0.55 : 0.25}
+        strokeDasharray={s.dash}
+        strokeOpacity={s.opacity}
       />
       {showLabel && (
         <>
           <text
             x={rect.x + 7} y={rect.y + 16}
-            fontSize={12} fontWeight={800} {...labelOnFill(headerFg)}
+            fontSize={NAME_SIZE} fontWeight={800} {...labelOnFill(headerFg)}
           >
             {node.relation === 'DELEGATION' ? '↳ ' : ''}{name}
           </text>
           {rect.h > 30 && node.unitName && (
             <text
               x={rect.x + 7} y={rect.y + 29}
-              fontSize={10} fontWeight={600} fill={headerFg} fillOpacity={0.72}
+              fontSize={UNIT_SIZE} fontWeight={600} fill={headerFg} fillOpacity={0.72}
             >
-              {node.unitName.length > maxChars ? `${node.unitName.slice(0, Math.max(maxChars - 1, 1))}…` : node.unitName}
+              {fit(node.unitName, UNIT_SIZE)}
             </text>
           )}
           {showPct && (
             <text
               x={rect.x + 7} y={rect.y + (node.unitName ? 46 : 33)}
-              fontSize={14} fontWeight={900} {...labelOnFill(fg)}
+              fontSize={PCT_SIZE} fontWeight={900} {...labelOnFill(fg)}
             >
               {Math.round(node.achievement!)}%
             </text>
           )}
         </>
       )}
+      {showKinds && kinds.slice(0, MAX_KIND_DOTS).map((k, i) => (
+        // Ô vuông bo góc chứ không phải hình tròn: SVG đặt `preserveAspectRatio="none"` nên hình
+        // tròn bị kéo thành bầu dục ở những khung hẹp, còn ô vuông giãn ra vẫn đọc là một con chip.
+        <rect
+          key={k}
+          x={rect.x + 7 + i * (KIND_DOT + 3)}
+          y={rect.y + rect.h - KIND_DOT - 7}
+          width={KIND_DOT} height={KIND_DOT} rx={2}
+          fill={KPI_KIND_COLORS[k]}
+          stroke="#fff" strokeWidth={1.2}
+        >
+          <title>{KPI_KIND_LABELS[k]}</title>
+        </rect>
+      ))}
       {hovered && clickable && rect.w > 46 && rect.h > 36 && (
         <g pointerEvents="none">
           <circle cx={rect.x + rect.w - 15} cy={rect.y + 15} r={9} fill="#fff" fillOpacity={0.95} />
@@ -309,13 +401,31 @@ function NodeTooltip({ node, x, y, clickable }: {
 }) {
   const kids = node.children ?? []
   const value = nodeValue(node)
+  const kinds = kindsOf(node)
   return (
     <div
       className="absolute z-20 pointer-events-none bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3.5 rounded-xl shadow-lg max-w-[280px]"
       style={{ left: Math.max(x + 12, 4), top: Math.max(y + 12, 4) }}
     >
       <p className="font-bold text-slate-900 dark:text-white break-words">{node.name}</p>
-      {node.unitName && <p className="text-xs text-slate-500 mb-2">{node.unitName}</p>}
+      {(node.unitName || node.periodName) && (
+        <p className="text-xs text-slate-500 mb-2">
+          {[node.unitName, node.periodName].filter(Boolean).join(' · ')}
+        </p>
+      )}
+      {kinds.length > 0 && (
+        <div className="flex flex-wrap gap-1 mb-2">
+          {kinds.map(k => (
+            <span
+              key={k}
+              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-black uppercase text-white"
+              style={{ backgroundColor: KPI_KIND_COLORS[k] }}
+            >
+              {KPI_KIND_LABELS[k]}
+            </span>
+          ))}
+        </div>
+      )}
       <div className="space-y-1 text-sm">
         <Row label="Trọng số" value={String(Math.round(value * 10) / 10)} />
         {node.achievement != null && (
@@ -325,9 +435,36 @@ function NodeTooltip({ node, x, y, clickable }: {
             color={achievementSurface(node.achievement)}
           />
         )}
+        {/* Số liệu thô: bảng chi tiết từng là chỗ duy nhất xem được, giờ nằm ở đây. */}
+        {node.targetValue != null && (
+          <Row
+            label="Mục tiêu"
+            value={`${fmtNum(node.targetValue)}${node.unit ? ` ${node.unit}` : ''}`}
+          />
+        )}
+        {node.actualValue != null && (
+          <Row
+            label="Thực đạt"
+            value={`${fmtNum(node.actualValue)}${node.unit ? ` ${node.unit}` : ''}`}
+          />
+        )}
         {kids.length > 0 && <Row label="Chia xuống" value={`${kids.length} KPI con`} />}
         {node.relation && <Row label="Quan hệ" value={RELATION_LABEL[node.relation] ?? node.relation} />}
       </div>
+      <AssigneeAvatars people={node.assignees ?? []} />
+      {node.replacedKpiName && (
+        <div className="pt-2.5 mt-2.5 border-t border-slate-100 dark:border-slate-800">
+          <p className="text-xs text-slate-500 font-medium">Thay thế KPI:</p>
+          <p className="text-xs font-bold text-slate-800 dark:text-slate-100 break-words">
+            {node.replacedKpiName}
+          </p>
+          {node.replacementReason && (
+            <p className="text-[11px] text-slate-500 italic mt-0.5 break-words">
+              {node.replacementReason}
+            </p>
+          )}
+        </div>
+      )}
       {clickable && node.id && (
         <p className="text-xs font-bold text-indigo-600 dark:text-indigo-400 pt-2.5 mt-2.5 border-t border-slate-100 dark:border-slate-800">
           Bấm để xem chi tiết →
@@ -335,6 +472,11 @@ function NodeTooltip({ node, x, y, clickable }: {
       )}
     </div>
   )
+}
+
+/** Bỏ số 0 thừa sau dấu phẩy: "80" chứ không phải "80.0". */
+function fmtNum(v: number): string {
+  return (Math.round(v * 100) / 100).toLocaleString('vi-VN')
 }
 
 function Row({ label, value, color }: { label: string; value: string; color?: string }) {

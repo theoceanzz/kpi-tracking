@@ -54,6 +54,13 @@ export interface OrgUnitKpiDetail {
   parentRelationType?: KpiParentRelationType | null
   childRelationType?: KpiParentRelationType | null
   children?: OrgUnitKpiDetail[] | null
+  /**
+   * KPI CŨ mà bản này thay thế. Không phải quan hệ cha-con: bản thay thế kế thừa trọng số của bản
+   * cũ chứ không phải một lát cắt của nó, nên nó không có `parentId`.
+   */
+  replacedKpiId?: string | null
+  replacedKpiName?: string | null
+  replacementReason?: string | null
 }
 
 export interface OrgUnitFilterOption {

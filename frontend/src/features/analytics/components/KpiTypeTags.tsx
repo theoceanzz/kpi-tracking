@@ -11,6 +11,8 @@ export interface KpiTypeTagsProps {
   parentRelationType?: RelationType
   /** Loại con của KPI (DECOMPOSITION = KPI cha, DELEGATION = KPI thác nước). */
   childRelationType?: RelationType
+  /** KPI này thay thế một KPI cũ đã bị dừng. */
+  isReplacement?: boolean | null
   className?: string
 }
 
@@ -29,6 +31,7 @@ export function KpiTypeTags({
   isQualitative,
   parentRelationType,
   childRelationType,
+  isReplacement,
   className,
 }: KpiTypeTagsProps) {
   const tags: Tag[] = []
@@ -46,6 +49,9 @@ export function KpiTypeTags({
     tags.push({ label: 'KPI cha', className: 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400' })
   } else if (childRelationType === 'DELEGATION') {
     tags.push({ label: 'KPI thác nước', className: 'bg-cyan-50 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400' })
+  }
+  if (isReplacement) {
+    tags.push({ label: 'KPI thay thế', className: 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200' })
   }
   if (parentRelationType === 'DECOMPOSITION') {
     tags.push({ label: 'KPI con', className: 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300' })
