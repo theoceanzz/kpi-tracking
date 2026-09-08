@@ -56,7 +56,11 @@ interface Props {
 }
 
 // ── Hằng bố cục ─────────────────────────────────────────────────────────────
-const HEADER_H = 26
+// Dải tiêu đề của ô cha, phải chứa HẾT cả tên KPI lẫn tên đơn vị.
+//
+// Trước đây là 26 trong khi tên đơn vị vẽ ở baseline y+36 — tức nằm NGOÀI dải, đè thẳng lên
+// những ô con bên dưới. Con số này phải bám theo `UNIT_BASELINE` cộng phần chân chữ.
+const HEADER_H = 46
 const PAD = 5
 /** Dưới cỡ này thì vẽ con vào chỉ ra những vệt màu không đọc được — dừng đệ quy, để tooltip kể. */
 const MIN_NEST_W = 64
@@ -65,9 +69,18 @@ const MIN_NEST_H = 46
 const KIND_DOT = 9
 const MAX_KIND_DOTS = 4
 /** Cỡ chữ, tính bằng pixel thật. */
-const NAME_SIZE = 13
-const UNIT_SIZE = 11
-const PCT_SIZE = 15
+const NAME_SIZE = 15
+const UNIT_SIZE = 12
+const PCT_SIZE = 18
+
+// Vị trí chân chữ của ba dòng trong ô.
+//
+// Khoảng cách giữa tên KPI và tên đơn vị phải LỚN HƠN cỡ chữ, nếu không hai dòng dính vào nhau:
+// bản trước để 13px cho chữ 13px nên chỉ còn ~2px hở giữa chân chữ dòng trên và đầu chữ dòng dưới.
+const NAME_BASELINE = 19
+const UNIT_BASELINE = 38
+const PCT_BASELINE_WITH_UNIT = 60
+const PCT_BASELINE_ALONE = 42
 
 interface Rect { x: number; y: number; w: number; h: number }
 
@@ -304,19 +317,25 @@ function CellShape({ cell, hovered, clickable, onEnter, onClick }: {
   const fillOpacity = container ? 0.16 : 1
   const headerFg = container ? '#0f172a' : fg
 
-  const showLabel = rect.w > 58 && rect.h > 22
-  const showPct = !container && rect.h > 40 && node.achievement != null
-  // Chấm loại KPI chỉ vẽ khi ô đủ rộng. Ô nhỏ hơn thì bỏ hẳn — tooltip luôn liệt kê đủ bằng chữ
-  // nên không có thông tin nào chỉ tồn tại ở mấy cái chấm này.
+  // Mỗi dòng chỉ vẽ khi ô còn đủ chỗ cho chân chữ của chính nó — suy từ hằng vị trí ở trên
+  // thay vì gõ tay những con số rời, để đổi cỡ chữ không làm chữ bị cắt ngang.
+  const showLabel = rect.w > 58 && rect.h > NAME_BASELINE + 6
+  const showUnit = !!node.unitName && rect.h > UNIT_BASELINE + 6
+  const pctBaseline = showUnit ? PCT_BASELINE_WITH_UNIT : PCT_BASELINE_ALONE
+  const showPct = !container && node.achievement != null && rect.h > pctBaseline + 6
+  // Chấm loại KPI treo ở đáy ô. Ngưỡng phải đủ cao để nó không đè lên dòng phần trăm ở trên;
+  // ô thấp hơn thì bỏ hẳn — tooltip luôn liệt kê đủ bằng chữ.
   const kinds = kindsOf(node)
-  const showKinds = kinds.length > 0 && rect.w > 70 && rect.h > 52
+  const showKinds = kinds.length > 0 && rect.w > 70 && rect.h > pctBaseline + KIND_DOT + 20
   // Mọi con số ở đây giờ là PIXEL THẬT (viewBox khớp bề rộng đo được), nên bề rộng một chữ cái
   // tính thẳng từ cỡ chữ: chữ đậm sans trung bình rộng khoảng 0,57 lần cỡ chữ.
-  const fit = (text: string, fontSize: number) => {
-    const max = Math.floor((rect.w - 14) / (fontSize * 0.57))
+  const fit = (text: string, fontSize: number, reserved = 0) => {
+    const max = Math.floor((rect.w - 14) / (fontSize * 0.57)) - reserved
     return text.length > max ? `${text.slice(0, Math.max(max - 1, 1))}…` : text
   }
-  const name = fit(node.name, NAME_SIZE)
+  // Tiền tố ↳ chiếm chỗ thật, phải trừ vào trước khi cắt — nếu không tên bị tràn ra ngoài ô.
+  const prefix = node.relation === 'DELEGATION' ? '↳ ' : ''
+  const name = fit(node.name, NAME_SIZE, prefix.length)
 
   return (
     <g
@@ -338,18 +357,17 @@ function CellShape({ cell, hovered, clickable, onEnter, onClick }: {
       {showLabel && (
         <>
           <text
-            x={rect.x + 7} y={rect.y + 16}
+            x={rect.x + 7} y={rect.y + NAME_BASELINE}
             fontSize={NAME_SIZE} fontWeight={800} {...labelOnFill(headerFg)}
           >
-            {node.relation === 'DELEGATION' ? '↳ ' : ''}{name}
+            {prefix}{name}
           </text>
           {/* Tên đơn vị dùng CÙNG cách vẽ với tên KPI (viền chữ, không giảm độ đục).
               Trước đây vẽ ở 72% độ đục nên trên ô lá tô kín màu tiến độ thì chìm hẳn — mà từ khi
-              bỏ khung bọc theo đơn vị, đây là chỗ DUY NHẤT nói KPI này của ai.
-              Ngưỡng 34px: tên KPI có baseline ở y+16, dòng này ở y+29, thấp hơn thì bị cắt ngang. */}
-          {rect.h > 34 && node.unitName && (
+              bỏ khung bọc theo đơn vị, đây là chỗ DUY NHẤT nói KPI này của ai. */}
+          {showUnit && node.unitName && (
             <text
-              x={rect.x + 7} y={rect.y + 29}
+              x={rect.x + 7} y={rect.y + UNIT_BASELINE}
               fontSize={UNIT_SIZE} fontWeight={700} {...labelOnFill(headerFg)}
             >
               {fit(node.unitName, UNIT_SIZE)}
@@ -357,7 +375,7 @@ function CellShape({ cell, hovered, clickable, onEnter, onClick }: {
           )}
           {showPct && (
             <text
-              x={rect.x + 7} y={rect.y + (node.unitName ? 46 : 33)}
+              x={rect.x + 7} y={rect.y + pctBaseline}
               fontSize={PCT_SIZE} fontWeight={900} {...labelOnFill(fg)}
             >
               {Math.round(node.achievement!)}%

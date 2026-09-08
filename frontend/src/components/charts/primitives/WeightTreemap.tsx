@@ -97,8 +97,8 @@ function TreemapCell(props: CellProps) {
     return (
       <g>
         <rect x={x} y={y} width={width} height={height} fill="none" stroke="#cbd5e1" strokeWidth={2} />
-        {width > 60 && height > 18 && (
-          <text x={x + 6} y={y + 14} fontSize={11} fontWeight={800} fill="#64748b">{name}</text>
+        {width > 60 && height > 20 && (
+          <text x={x + 6} y={y + 15} fontSize={12} fontWeight={800} fill="#64748b">{name}</text>
         )}
       </g>
     )
@@ -109,7 +109,9 @@ function TreemapCell(props: CellProps) {
   const fg = textOn(bg)
   const clickable = !!(onSelect && props.id)
   const hovered = clickable && hoveredId === props.id
-  const canLabel = width > 54 && height > 26
+  // Cùng cỡ chữ và cùng khoảng cách dòng với HierarchicalTreemap — hai treemap đứng cạnh nhau
+  // trong cùng một trang mà chữ khác cỡ thì đọc như hai chất lượng khác nhau.
+  const canLabel = width > 54 && height > 28
   // Mũi tên ↗ chỉ vẽ khi ô đủ chỗ, nếu không nó sẽ đè lên tên KPI.
   const showCue = hovered && width > 46 && height > 36
   const cueX = x + width - 15
@@ -136,11 +138,11 @@ function TreemapCell(props: CellProps) {
       />
       {canLabel && (
         <>
-          <text x={x + 6} y={y + 16} fontSize={12} fontWeight={800} {...labelOnFill(fg)}>
+          <text x={x + 6} y={y + 18} fontSize={14} fontWeight={800} {...labelOnFill(fg)}>
             {name.length > Math.floor(width / 7) ? `${name.slice(0, Math.floor(width / 7))}…` : name}
           </text>
-          {height > 40 && achievement != null && (
-            <text x={x + 6} y={y + 32} fontSize={14} fontWeight={900} {...labelOnFill(fg)}>
+          {height > 46 && achievement != null && (
+            <text x={x + 6} y={y + 38} fontSize={17} fontWeight={900} {...labelOnFill(fg)}>
               {Math.round(achievement)}%
             </text>
           )}
