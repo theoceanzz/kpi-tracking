@@ -49,11 +49,95 @@ public class KpiSubmissionService {
     private final ApplicationEventPublisher eventPublisher;
     private final PermissionChecker permissionChecker;
     private final KpiAchievementCalculator achievementCalculator;
+    private final com.kpitracking.workflow.KpiWorkflowConfigService workflowConfigService;
+    private final com.kpitracking.workflow.engine.WorkflowEngine workflowEngine;
 
     private User getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("Người dùng", "email", email));
+    }
+
+    /**
+     * Tổ chức của một bản nộp, suy qua đơn vị.
+     *
+     * <p>Chịu được dữ liệu khuyết ở mọi mắt xích và trả {@code null} thay vì nổ: {@code null} ở
+     * đây có nghĩa rõ ràng là "dùng luồng mặc định", nên một bản ghi thiếu liên kết cũng không làm
+     * hỏng cả lượt duyệt.
+     */
+    private UUID organizationIdOf(KpiSubmission submission) {
+        if (submission.getOrgUnit() == null) return null;
+        if (submission.getOrgUnit().getOrgHierarchyLevel() == null) return null;
+        com.kpitracking.entity.Organization org =
+                submission.getOrgUnit().getOrgHierarchyLevel().getOrganization();
+        return org == null ? null : org.getId();
+    }
+
+    private com.kpitracking.workflow.def.WorkflowDefinition definitionOf(KpiSubmission submission) {
+        return workflowConfigService.definitionFor(organizationIdOf(submission));
+    }
+
+    /**
+     * Bản nộp vừa tạo có được duyệt ngay không (Strategy chế độ duyệt).
+     *
+     * <p>Tổ chức tắt bước duyệt bản nộp, hoặc chọn chế độ tự duyệt, thì bản nộp ra đời đã ĐÃ DUYỆT
+     * và không đọng lại ở CHỜ DUYỆT — vì sẽ không có ai đi duyệt nó nữa. Đây là điểm khiến việc
+     * tắt một bước có tác dụng THẬT, chứ không chỉ ẩn một mục menu.
+     *
+     * @return trạng thái sau khi áp chế độ duyệt, và ghi chú tự động nếu có
+     */
+    private SubmissionStatus applyReviewMode(UUID organizationId, SubmissionStatus proposed) {
+        if (proposed != SubmissionStatus.PENDING) return proposed;
+
+        com.kpitracking.workflow.def.WorkflowDefinition definition =
+                workflowConfigService.definitionFor(organizationId);
+        if (!definition.isStageEnabled(com.kpitracking.workflow.WorkflowStage.SUBMISSION_REVIEW)) {
+            return SubmissionStatus.APPROVED;
+        }
+
+        String mode = definition.stageConfig(com.kpitracking.workflow.WorkflowStage.SUBMISSION_REVIEW)
+                .stringOption("mode", "MANUAL");
+        return "AUTO_APPROVE".equals(mode) ? SubmissionStatus.APPROVED : proposed;
+    }
+
+    /** Ghi chú kèm khi hệ thống tự duyệt thay người — để về sau còn biết vì sao bản nộp đã duyệt. */
+    private static final String AUTO_APPROVED_NOTE =
+            "Hệ thống tự động DUYỆT theo cấu hình luồng KPI của tổ chức (không có bước duyệt bản nộp).";
+
+    /**
+     * Trạng thái đích của một lượt duyệt, do BẢNG CHUYỂN quyết định chứ không do client.
+     *
+     * <p>Trước đây phương thức duyệt ghi thẳng {@code request.getStatus()} vào bản ghi sau khi chỉ
+     * kiểm trạng thái NGUỒN. Nghĩa là client gửi lên trạng thái nào cũng được ghi, kể cả đưa một
+     * bản đang CHỜ DUYỆT về NHÁP — một đường đi mà giao diện không có nút nào và luồng nghiệp vụ
+     * không hề dự tính. Đi qua máy trạng thái thì chỉ hai đích DUYỆT và TỪ CHỐI là tới được.
+     */
+    private SubmissionStatus resolveReviewStatus(KpiSubmission submission, User actor, SubmissionStatus requested) {
+        com.kpitracking.workflow.WorkflowAction action = switch (requested == null ? SubmissionStatus.PENDING : requested) {
+            case APPROVED -> com.kpitracking.workflow.WorkflowAction.APPROVE_SUBMISSION;
+            case REJECTED -> com.kpitracking.workflow.WorkflowAction.REJECT_SUBMISSION;
+            default -> throw new BusinessException(
+                    "Kết quả duyệt phải là ĐÃ DUYỆT hoặc TỪ CHỐI");
+        };
+
+        com.kpitracking.workflow.def.WorkflowDefinition definition = definitionOf(submission);
+
+        com.kpitracking.workflow.engine.TransitionContext<SubmissionStatus> ctx =
+                com.kpitracking.workflow.engine.TransitionContext.<SubmissionStatus>builder()
+                        .definition(definition)
+                        .action(action)
+                        .currentStatus(submission.getStatus())
+                        .actor(actor)
+                        .orgUnitId(submission.getOrgUnit().getId())
+                        .target(submission)
+                        .targetOwnerId(submission.getSubmittedBy() == null ? null : submission.getSubmittedBy().getId())
+                        .statusRejectionMessage(
+                                "Chỉ có thể phê duyệt các bản nộp đang ở trạng thái CHỜ DUYỆT hoặc đã ĐÃ DUYỆT (để ghi đè)")
+                        .build();
+
+        // Chốt chặn thẩm quyền đã chạy ở requireCanReview ngay trước lời gọi này — luật ở đó có
+        // thêm vế "không ghi đè được người ngang cấp đã duyệt" mà guard dùng chung chưa mô tả.
+        return workflowEngine.resolve(definition.submission(), ctx, List.of());
     }
 
 
@@ -197,6 +281,17 @@ public class KpiSubmissionService {
             finalStatus = SubmissionStatus.DRAFT;
             autoReviewNote = null;
             reviewedAt = null;
+        }
+
+        // Chế độ duyệt của tổ chức. Đặt SAU nhánh nháp và sau phép kiểm ngưỡng có chủ đích: bản
+        // nháp chưa nộp thì không tự duyệt, và bản đã bị hệ thống từ chối vì vi phạm ngưỡng thì
+        // không được tự duyệt đè lên.
+        SubmissionStatus afterReviewMode = applyReviewMode(
+                kpi.getOrgUnit().getOrgHierarchyLevel().getOrganization().getId(), finalStatus);
+        if (afterReviewMode != finalStatus) {
+            finalStatus = afterReviewMode;
+            autoReviewNote = AUTO_APPROVED_NOTE;
+            reviewedAt = Instant.now();
         }
 
         // Qualitative self-assessment: employee picks a level from the org scale.
@@ -405,27 +500,17 @@ public class KpiSubmissionService {
             throw new ForbiddenException("Bạn không có quyền phê duyệt bản nộp của đơn vị này");
         }
 
+        // Luật cấp bậc dùng chung ở PermissionChecker.isSuperiorTo — trước đây khối so sánh này
+        // được chép nguyên văn ở đây và ở bốn chỗ khác, mỗi bản một bộ thông báo riêng.
         User submitter = submission.getSubmittedBy();
-        int submitterRank = permissionChecker.getMinRankInOrgUnit(submitter.getId(), unitId);
-        int reviewerRank = permissionChecker.getMinRankInOrgUnit(currentUser.getId(), unitId);
-        int submitterLevel = permissionChecker.getMinLevelInOrgUnit(submitter.getId(), unitId);
-        int reviewerLevel = permissionChecker.getMinLevelInOrgUnit(currentUser.getId(), unitId);
-
-        // Số NHỎ hơn là cao hơn, ở cả hai trục. Cấp đơn vị xét trước, cùng cấp mới xét tới chức vụ.
-        boolean isSuperiorToSubmitter = (reviewerLevel < submitterLevel)
-                || (reviewerLevel == submitterLevel && reviewerRank < submitterRank);
-        if (!isSuperiorToSubmitter) {
+        if (!permissionChecker.isSuperiorTo(currentUser.getId(), submitter.getId(), unitId)) {
             throw new ForbiddenException(
                     "Bạn không thể phê duyệt bản nộp của người có cấp bậc hoặc chức vụ tương đương/cao hơn bạn");
         }
 
         if (submission.getStatus() == SubmissionStatus.APPROVED && submission.getReviewedBy() != null) {
             User prevReviewer = submission.getReviewedBy();
-            int prevReviewerRank = permissionChecker.getMinRankInOrgUnit(prevReviewer.getId(), unitId);
-            int prevReviewerLevel = permissionChecker.getMinLevelInOrgUnit(prevReviewer.getId(), unitId);
-            boolean isSuperiorToPrevReviewer = (reviewerLevel < prevReviewerLevel)
-                    || (reviewerLevel == prevReviewerLevel && reviewerRank < prevReviewerRank);
-            if (!isSuperiorToPrevReviewer) {
+            if (!permissionChecker.isSuperiorTo(currentUser.getId(), prevReviewer.getId(), unitId)) {
                 throw new BusinessException("Bản nộp này đã được cấp quản lý tương đương hoặc cao hơn phê duyệt.");
             }
         }
@@ -440,11 +525,7 @@ public class KpiSubmissionService {
 
         requireCanReview(currentUser, submission);
 
-        if (submission.getStatus() != SubmissionStatus.PENDING && submission.getStatus() != SubmissionStatus.APPROVED) {
-            throw new BusinessException("Chỉ có thể phê duyệt các bản nộp đang ở trạng thái CHỜ DUYỆT hoặc đã ĐÃ DUYỆT (để ghi đè)");
-        }
-
-        submission.setStatus(request.getStatus());
+        submission.setStatus(resolveReviewStatus(submission, currentUser, request.getStatus()));
         submission.setReviewedBy(currentUser);
         submission.setReviewNote(request.getReviewNote());
         submission.setReviewedAt(Instant.now());
@@ -609,7 +690,11 @@ public class KpiSubmissionService {
                 submission.setReviewNote(request.getCommonReview().getReviewNote());
             }
 
-            submission.setStatus(request.getCommonReview() != null ? request.getCommonReview().getStatus() : SubmissionStatus.APPROVED);
+            // Cùng một cửa với đường đơn lẻ: trạng thái đích do bảng chuyển quyết định, không do
+            // client. Nếu không, chỉ cần đổi sang gọi bản hàng loạt là lách được máy trạng thái —
+            // đúng kiểu lỗ hổng mà chốt chặn quyền ở trên đã từng mắc.
+            submission.setStatus(resolveReviewStatus(submission, currentUser,
+                    request.getCommonReview() != null ? request.getCommonReview().getStatus() : SubmissionStatus.APPROVED));
             submission.setReviewedBy(currentUser);
             submission.setReviewedAt(Instant.now());
 

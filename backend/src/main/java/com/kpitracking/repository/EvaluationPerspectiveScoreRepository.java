@@ -35,9 +35,17 @@ public interface EvaluationPerspectiveScoreRepository extends JpaRepository<Eval
     List<Object[]> aggregateByPerspective(@Param("unitIds") Collection<UUID> unitIds,
                                           @Param("periodIds") Collection<UUID> periodIds);
 
-    /** Gộp theo KỲ × LĨNH VỰC — dùng cho xu hướng (groupBy=PERIOD).
-     *  → [periodId, periodName, periodStart, perspectiveId, perspectiveName, color, displayOrder, avgRaw] */
-    @Query("SELECT kp.id, kp.name, kp.startDate, p.id, p.name, p.color, p.displayOrder, AVG(eps.rawScore) " +
+    /** Gộp theo KỲ × VIỄN CẢNH — dùng cho xu hướng (groupBy=PERIOD).
+     *  → [periodId, periodName, periodStart, perspectiveId, perspectiveName, color, displayOrder, avgRaw, avgWeighted]
+     *
+     *  <p>Lấy thêm điểm ĐÃ NHÂN TRỌNG SỐ vì chỉ đại lượng đó mới cộng thành một tổng có nghĩa: bốn
+     *  viễn cảnh cộng lại đúng bằng điểm BSC. Điểm thô là bốn thang độc lập — một đơn vị đạt 80 cả
+     *  bốn không có nghĩa là mỗi viễn cảnh "chiếm 25%".
+     *
+     *  <p>Dùng AVG chứ không SUM, khớp với avgRaw ngay cạnh: gộp nhiều đơn vị thì trung bình mới so
+     *  được giữa các kỳ có số đơn vị khác nhau. */
+    @Query("SELECT kp.id, kp.name, kp.startDate, p.id, p.name, p.color, p.displayOrder, " +
+           "AVG(eps.rawScore), AVG(eps.weightedScore) " +
            "FROM EvaluationPerspectiveScore eps JOIN eps.evaluation e JOIN e.kpiPeriod kp JOIN eps.perspective p " +
            "WHERE e.orgUnit.id IN :unitIds AND e.kpiPeriod.id IN :periodIds " +
            "GROUP BY kp.id, kp.name, kp.startDate, p.id, p.name, p.color, p.displayOrder " +

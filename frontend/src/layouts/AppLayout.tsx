@@ -12,6 +12,7 @@ import HeaderBreadcrumb from '@/components/common/HeaderBreadcrumb'
 import CheckinReminderBanner from '@/features/rewards/components/CheckinReminderBanner'
 import { DashboardToolbarSlot } from '@/components/common/dashboard/DashboardToolbarSlot'
 import { useState, useEffect } from 'react'
+import WorkflowHandoffBar from '@/features/kpi/workflow/components/WorkflowHandoffBar'
 
 export default function AppLayout() {
   const { user, logout, refreshUser } = useAuth()
@@ -106,6 +107,11 @@ export default function AppLayout() {
             ? 'flex-1 overflow-hidden w-full max-w-full [overflow-x:clip]'
             : 'flex-1 overflow-y-auto p-4 md:p-6 w-full max-w-full [overflow-x:clip]'
         }>
+          {/* Không còn thanh tiến trình ở đây. Nó lặp lại đúng những mục vốn đã nằm trên sidebar,
+              nên chỉ thêm một hàng nhiễu ở đầu mọi trang KPI. Việc dẫn người dùng đi qua chuỗi
+              thiết lập giờ do trình thiết lập nhanh (/kpi-setup) lo, ở đó thanh bước mới có nghĩa
+              vì nó gắn với một tiến trình thật đang dở. */}
+          <WorkflowHandoffBar className="mb-5" />
           <Outlet />
         </main>
       </div>

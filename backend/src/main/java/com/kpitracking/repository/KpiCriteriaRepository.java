@@ -304,4 +304,54 @@ public interface KpiCriteriaRepository extends JpaRepository<KpiCriteria, UUID> 
            // đi hỏi làm rõ về một KPI khác hẳn, còn tên người dùng vừa nêu thì biến mất.
            "ORDER BY CASE WHEN LOWER(CAST(k.name AS string)) = LOWER(CAST(:keyword AS string)) THEN 0 ELSE 1 END, k.name")
     List<KpiCriteria> searchByKeyword(@Param("orgId") UUID orgId, @Param("keyword") String keyword, Pageable pageable);
+
+    /**
+     * Số KPI ĐÃ DUYỆT mỗi người đang gánh trong phạm vi (đơn vị + đợt) — cho tooltip biểu đồ
+     * tương quan. → [userId, count].
+     *
+     * <p>Đếm theo người được GIAO (bảng {@code kpi_criteria_assignees}), không phải theo đơn vị
+     * sở hữu KPI: một KPI chung giao cho ba người thì cả ba đều đang gánh nó.
+     */
+    @Query("SELECT a.id, COUNT(DISTINCT k.id) FROM KpiCriteria k JOIN k.assignees a " +
+           "WHERE k.orgUnit.id IN :unitIds AND k.kpiPeriod.id IN :periodIds AND k.status = 'APPROVED' " +
+           "GROUP BY a.id")
+    java.util.List<Object[]> approvedKpiCountByAssignee(@Param("unitIds") Collection<UUID> unitIds,
+                                                        @Param("periodIds") Collection<UUID> periodIds);
+
+    // ============================================================
+    // Biểu đồ LUỒNG (tab Phân cấp / KPI đơn vị)
+    // ============================================================
+
+    /**
+     * Các cặp KPI cha - con kèm đơn vị hai đầu, cho biểu đồ Sankey phân rã/uỷ quyền.
+     * → [donViCha, donViCon, loaiQuanHe, tongTrongSo, soKpi].
+     *
+     * <p>Gộp ngay ở SQL theo cặp đơn vị: vẽ từng KPI một sẽ ra hàng trăm dải mảnh không đọc được,
+     * còn gộp theo đơn vị thì mỗi dải trả lời đúng câu "đơn vị này giao xuống đơn vị kia bao nhiêu".
+     */
+    @Query("SELECT pu.name, cu.name, k.parentRelationType, SUM(COALESCE(k.weight, 0)), COUNT(k.id) " +
+           "FROM KpiCriteria k JOIN k.parent p JOIN k.orgUnit cu JOIN p.orgUnit pu " +
+           "WHERE k.orgUnit.id IN :unitIds AND k.parentRelationType IS NOT NULL " +
+           "GROUP BY pu.name, cu.name, k.parentRelationType")
+    java.util.List<Object[]> kpiCascadeEdges(@Param("unitIds") Collection<UUID> unitIds);
+
+    /** Số KPI theo trạng thái trong phạm vi — cho Sankey vòng đời. → [status, count]. */
+    @Query("SELECT k.status, COUNT(k.id) FROM KpiCriteria k " +
+           "WHERE k.orgUnit.id IN :unitIds GROUP BY k.status")
+    java.util.List<Object[]> countByStatusInUnits(@Param("unitIds") Collection<UUID> unitIds);
+
+    /** Số KPI đã bị thay thế bởi bản khác — nhánh cuối của Sankey vòng đời. */
+    @Query("SELECT COUNT(k.id) FROM KpiCriteria k " +
+           "WHERE k.orgUnit.id IN :unitIds AND k.replacedBy IS NOT NULL")
+    long countReplacedInUnits(@Param("unitIds") Collection<UUID> unitIds);
+
+    /**
+     * Các KPI CŨ đã bị thay bởi một trong {@code ids}.
+     *
+     * <p>Phải tra ngược vì quan hệ thay thế chỉ có một chiều: bản cũ giữ {@code replaced_by_id} trỏ
+     * sang bản mới, còn bản mới không biết gì về bản cũ. Bản mới cũng KHÔNG được đặt {@code parent},
+     * nên mọi phép duyệt cây cha-con đều không thấy cặp thay thế.
+     */
+    @Query("SELECT k FROM KpiCriteria k JOIN FETCH k.replacedBy rb WHERE rb.id IN :ids")
+    java.util.List<KpiCriteria> findPredecessorsOf(@Param("ids") Collection<UUID> ids);
 }

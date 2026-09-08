@@ -1,24 +1,14 @@
 import { useMemo } from 'react'
+import { SeriesTooltip } from '@/components/charts/ChartTooltip'
 import { PieChart, Pie, Cell, Tooltip, ResponsiveContainer } from 'recharts'
+import { ratingColor, hexAlpha } from '@/components/charts/chartPalette'
 import { Star, Target, Activity, Users, Grid3x3 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { MatrixOverview } from '../api/matrixAnalyticsApi'
 
 /** Màu theo xếp loại 1..5 (đỏ → xanh). */
-const RATING_COLORS: Record<number, string> = { 1: '#ef4444', 2: '#f97316', 3: '#f59e0b', 4: '#84cc16', 5: '#10b981' }
-const ratingColor = (r?: number | null) => (r == null ? '#94a3b8' : RATING_COLORS[Math.round(r)] ?? '#8b5cf6')
 const fmt1 = (v?: number | null) => (v == null ? '—' : (Math.round(v * 10) / 10).toString())
 const fmt2 = (v?: number | null) => (v == null ? '—' : (Math.round(v * 100) / 100).toString())
-
-/** Chuyển hex (#rrggbb) + alpha (0..1) → rgba(). */
-function hexA(hex: string, alpha: number): string {
-  const h = hex.replace('#', '')
-  if (h.length !== 6) return hex
-  const r = parseInt(h.slice(0, 2), 16)
-  const g = parseInt(h.slice(2, 4), 16)
-  const b = parseInt(h.slice(4, 6), 16)
-  return `rgba(${r}, ${g}, ${b}, ${alpha})`
-}
 
 function Card({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
@@ -78,7 +68,16 @@ export function MatrixMetricCards({ overview }: { overview?: MatrixOverview }) {
 }
 
 /** Phân bố xếp loại (donut) + Heatmap (điểm hành vi × % hoàn thành) — cho khối thu gọn. */
-export function MatrixDistHeatmap({ overview }: { overview?: MatrixOverview }) {
+export function MatrixDistHeatmap({ overview, viewToggle, heatmapSlot }: {
+  overview?: MatrixOverview
+  /** Nút chuyển cách xem, đặt ở góc phải tiêu đề ô bên phải. */
+  viewToggle?: React.ReactNode
+  /**
+   * Khi có, thay phần thân heatmap bằng nội dung này (biểu đồ phân tán). Ô "Phân bố xếp loại"
+   * bên trái giữ nguyên ở cả hai cách xem — nó đếm theo loại, không trùng việc của heatmap.
+   */
+  heatmapSlot?: React.ReactNode
+}) {
   const distData = useMemo(
     () => (overview?.distribution || []).map(b => ({ name: `Loại ${b.rating}`, rating: b.rating, value: b.count })),
     [overview]
@@ -112,7 +111,7 @@ export function MatrixDistHeatmap({ overview }: { overview?: MatrixOverview }) {
                 <Pie data={distData} dataKey="value" nameKey="name" cx="50%" cy="50%" innerRadius={55} outerRadius={85} paddingAngle={2}>
                   {distData.map(d => <Cell key={d.rating} fill={ratingColor(d.rating)} />)}
                 </Pie>
-                <Tooltip formatter={(v: any, n: any) => [`${v} đánh giá`, n]} />
+                <Tooltip content={<SeriesTooltip unit="đánh giá" />} />
               </PieChart>
             </ResponsiveContainer>
             <div className="grid grid-cols-5 gap-1 mt-2">
@@ -129,10 +128,15 @@ export function MatrixDistHeatmap({ overview }: { overview?: MatrixOverview }) {
       </Card>
 
       <Card className="lg:col-span-2">
-        <SectionTitle icon={<Grid3x3 size={14} className="text-indigo-500" />}>
-          {heatmap ? `Heatmap: ${heatmap.rowHeader} × ${heatmap.colHeader}` : 'Heatmap ma trận'}
-        </SectionTitle>
-        {heatmap ? (
+        <div className="flex items-start justify-between gap-2">
+          <SectionTitle icon={<Grid3x3 size={14} className="text-indigo-500" />}>
+            {heatmapSlot
+              ? (heatmap ? `${heatmap.rowHeader} × ${heatmap.colHeader}` : 'Tương quan hành vi × hoàn thành')
+              : (heatmap ? `Heatmap: ${heatmap.rowHeader} × ${heatmap.colHeader}` : 'Heatmap ma trận')}
+          </SectionTitle>
+          {viewToggle}
+        </div>
+        {heatmapSlot ?? (heatmap ? (
           <div className="overflow-x-auto custom-scrollbar">
             <table className="border-separate border-spacing-1 mx-auto">
               <thead>
@@ -156,7 +160,7 @@ export function MatrixDistHeatmap({ overview }: { overview?: MatrixOverview }) {
                         <td key={ci} className="p-0">
                           <div
                             className="w-full h-[52px] min-w-[64px] rounded-lg flex flex-col items-center justify-center border border-black/5"
-                            style={{ backgroundColor: hexA(color, alpha) }}
+                            style={{ backgroundColor: hexAlpha(color, alpha) }}
                             title={`Xếp loại ${rating ?? '—'} · ${count} nhân sự`}
                           >
                             <span className={cn('text-base font-black tabular-nums', count > 0 ? 'text-slate-900 dark:text-white' : 'text-slate-300 dark:text-slate-600')}>{count}</span>
@@ -171,7 +175,7 @@ export function MatrixDistHeatmap({ overview }: { overview?: MatrixOverview }) {
             </table>
             <p className="text-[11px] text-slate-400 font-medium mt-2 text-center">Số trong ô = số nhân sự rơi vào (điểm hành vi × % hoàn thành) đó · màu theo xếp loại của ô.</p>
           </div>
-        ) : <EmptyState>Tổ chức chưa cấu hình ma trận xếp loại</EmptyState>}
+        ) : <EmptyState>Tổ chức chưa cấu hình ma trận xếp loại</EmptyState>)}
       </Card>
     </div>
   )

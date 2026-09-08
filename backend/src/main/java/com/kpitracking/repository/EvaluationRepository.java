@@ -261,4 +261,64 @@ public interface EvaluationRepository extends JpaRepository<Evaluation, UUID> {
            "AND e.matrixRating IS NOT NULL AND e.behaviorScore IS NOT NULL AND e.kpiCompletionPercent IS NOT NULL")
     java.util.List<Object[]> matrixPairs(@Param("unitIds") java.util.Collection<UUID> unitIds,
                                          @Param("periodIds") java.util.Collection<UUID> periodIds);
+
+    // ============================================================
+    // Biểu đồ TƯƠNG QUAN (tab "Chuyên sâu"): giữ nguyên từng đánh giá thay vì gộp
+    // vào ô heatmap, để vẽ được mỗi người một chấm.
+    // ============================================================
+
+    /**
+     * Chấm phân tán hành vi × %HT kèm danh tính.
+     * → [userId, fullName, orgUnitName, behaviorScore, kpiCompletionPercent, matrixRating].
+     *
+     * <p>Khác {@code matrixPairs} ở hai điểm: không lọc {@code matrixRating IS NOT NULL} (tổ chức
+     * chưa cấu hình ma trận thì vẫn có chấm, chỉ là không tô màu được), và kéo theo danh tính để
+     * tooltip hiện được tên — {@code matrixPairs} gộp hết vào ô heatmap nên mất dữ liệu cá nhân.
+     */
+    @Query("SELECT u.id, u.fullName, e.orgUnit.name, e.behaviorScore, e.kpiCompletionPercent, e.matrixRating " +
+           "FROM Evaluation e JOIN e.user u " +
+           "WHERE e.orgUnit.id IN :unitIds AND e.kpiPeriod.id IN :periodIds AND u.deletedAt IS NULL " +
+           "AND e.behaviorScore IS NOT NULL AND e.kpiCompletionPercent IS NOT NULL")
+    java.util.List<Object[]> behaviorCompletionPoints(@Param("unitIds") java.util.Collection<UUID> unitIds,
+                                                      @Param("periodIds") java.util.Collection<UUID> periodIds);
+
+    // ============================================================
+    // Biểu đồ PHÂN PHỐI (tab Phân cấp / KPI đơn vị)
+    // ============================================================
+
+    /** Toàn bộ điểm đánh giá trong phạm vi — service tự chia khoảng (bin) cho histogram. */
+    @Query("SELECT e.score FROM Evaluation e " +
+           "WHERE e.orgUnit.id IN :unitIds AND e.kpiPeriod.id IN :periodIds AND e.score IS NOT NULL")
+    java.util.List<Double> scoresInScope(@Param("unitIds") java.util.Collection<UUID> unitIds,
+                                         @Param("periodIds") java.util.Collection<UUID> periodIds);
+
+    /**
+     * Tứ phân vị điểm theo từng đơn vị — cho biểu đồ hộp.
+     * → [orgUnitId, orgUnitName, min, q1, median, q3, max, count].
+     *
+     * <p>Dùng {@code percentile_cont} của PostgreSQL thay vì kéo toàn bộ bản ghi về rồi tính ở
+     * Java: số đánh giá của một tổ chức lớn có thể lên hàng chục nghìn, mà kết quả cuối cùng chỉ
+     * là 5 con số mỗi đơn vị.
+     */
+    @Query(value = "SELECT ou.id, ou.name, " +
+            "MIN(e.score), " +
+            "percentile_cont(0.25) WITHIN GROUP (ORDER BY e.score), " +
+            "percentile_cont(0.5) WITHIN GROUP (ORDER BY e.score), " +
+            "percentile_cont(0.75) WITHIN GROUP (ORDER BY e.score), " +
+            "MAX(e.score), COUNT(*) " +
+            "FROM evaluations e JOIN org_units ou ON e.org_unit_id = ou.id " +
+            "WHERE e.org_unit_id IN (:unitIds) AND e.kpi_period_id IN (:periodIds) " +
+            "AND e.deleted_at IS NULL AND e.score IS NOT NULL " +
+            "GROUP BY ou.id, ou.name HAVING COUNT(*) > 0 ORDER BY ou.name", nativeQuery = true)
+    java.util.List<Object[]> unitScoreQuartiles(@Param("unitIds") java.util.Collection<UUID> unitIds,
+                                                @Param("periodIds") java.util.Collection<UUID> periodIds);
+
+    /** Điểm từng người kèm trung bình đơn vị — cho biểu đồ phân kỳ. → [userId, fullName, unitName, score]. */
+    @Query("SELECT u.id, u.fullName, e.orgUnit.name, AVG(e.score) " +
+           "FROM Evaluation e JOIN e.user u " +
+           "WHERE e.orgUnit.id IN :unitIds AND e.kpiPeriod.id IN :periodIds " +
+           "AND e.score IS NOT NULL AND u.deletedAt IS NULL " +
+           "GROUP BY u.id, u.fullName, e.orgUnit.name")
+    java.util.List<Object[]> avgScoreByUser(@Param("unitIds") java.util.Collection<UUID> unitIds,
+                                            @Param("periodIds") java.util.Collection<UUID> periodIds);
 }

@@ -33,6 +33,7 @@ public class OrgUnitKpiAnalyticsService {
     private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
     private final PermissionChecker permissionChecker;
     private final EvaluationService evaluationService;
+    private final KpiCriteriaService kpiCriteriaService;
 
     /** ID MỌI nhân sự trong phạm vi (subtree) — để tính hiệu suất đánh giá cấp đơn vị (khớp thẻ Ma trận). */
     private java.util.Set<UUID> memberIdsInScope(UUID orgUnitId) {
@@ -250,8 +251,72 @@ public class OrgUnitKpiAnalyticsService {
                 .orElse(null);
     }
 
+    /**
+     * Bản đồ: id KPI MỚI → KPI CŨ mà nó thay thế.
+     *
+     * <p>Một truy vấn cho cả lô. Gọi trên TOÀN BỘ phạm vi (kể cả KPI con) chứ không chỉ các KPI
+     * top-level, nếu không KPI con sẽ không có nhãn thay thế.
+     */
+    private Map<UUID, KpiCriteria> predecessorMap(Collection<KpiCriteria> scope) {
+        List<UUID> ids = scope.stream().map(KpiCriteria::getId).toList();
+        if (ids.isEmpty()) return Map.of();
+        Map<UUID, KpiCriteria> out = new HashMap<>();
+        for (KpiCriteria old : kpiCriteriaRepository.findPredecessorsOf(ids)) {
+            // Chuỗi thay thế nhiều đời: giữ bản gần nhất, đó là thứ người dùng vừa thấy biến mất.
+            out.putIfAbsent(old.getReplacedBy().getId(), old);
+        }
+        return out;
+    }
+
+    /**
+     * Ngân sách trọng số theo (đơn vị, đợt): con số đem so với mốc 100%.
+     *
+     * <p>Gọi thẳng {@code KpiCriteriaService.calculateTotalWeightByOrgUnit} chứ KHÔNG tự cộng lại.
+     * Đây là cùng một con số mà bước gửi duyệt đem ra chặn, nên hai nơi mà lệch thì người dùng
+     * thấy biểu đồ báo "đủ" rồi bị hệ thống từ chối — hoặc ngược lại.
+     *
+     * <p>Luật đó KHÔNG phải phép cộng: nó bỏ KPI thưởng, bỏ KPI cha phân rã, nhân trọng số với
+     * phần trăm hạng mục khi bật BSC, rồi lấy MAX theo từng người đảm nhiệm cộng phần chưa giao ai.
+     */
+    @Transactional(readOnly = true)
+    public List<UnitWeightBudget> getWeightBudget(UUID orgUnitId, Collection<UUID> periodIds) {
+        List<OrgUnit> subtree = resolveOrgUnitSubtree(orgUnitId);
+        if (subtree.isEmpty()) return List.of();
+
+        List<UUID> unitIds = subtree.stream().map(OrgUnit::getId).toList();
+        // Lấy đúng tập KPI mà widget đang vẽ (cùng `approvedKpisForScope` + `applyPeriodFilter` như
+        // getDetailedKpis), rồi suy ra các cặp (đơn vị, đợt) từ đó. Nhờ vậy dải ngân sách phủ đúng
+        // những đợt đang hiện trên màn hình, kể cả khi người dùng không lọc đợt nào.
+        Map<UUID, Map<UUID, Integer>> present = new HashMap<>();
+        Map<UUID, KpiPeriod> periodById = new HashMap<>();
+        for (KpiCriteria k : applyPeriodFilter(approvedKpisForScope(subtree, unitIds), periodIds)) {
+            if (k.getOrgUnit() == null || k.getKpiPeriod() == null) continue;
+            periodById.putIfAbsent(k.getKpiPeriod().getId(), k.getKpiPeriod());
+            present.computeIfAbsent(k.getOrgUnit().getId(), x -> new HashMap<>())
+                   .merge(k.getKpiPeriod().getId(), 1, Integer::sum);
+        }
+
+        List<UnitWeightBudget> out = new ArrayList<>();
+        for (OrgUnit u : subtree) {
+            Map<UUID, Integer> byPeriod = present.get(u.getId());
+            if (byPeriod == null) continue;
+            for (Map.Entry<UUID, Integer> e : byPeriod.entrySet()) {
+                KpiPeriod p = periodById.get(e.getKey());
+                Double total = kpiCriteriaService.calculateTotalWeightByOrgUnit(u.getId(), e.getKey());
+                out.add(UnitWeightBudget.builder()
+                        .orgUnitId(u.getId()).orgUnitName(u.getName())
+                        .periodId(e.getKey()).periodName(p != null ? p.getName() : null)
+                        .totalWeight(total != null ? total : 0.0)
+                        .kpiCount(e.getValue())
+                        .build());
+            }
+        }
+        return out;
+    }
+
     /** Dựng danh sách KPI con (kèm metrics) cho KPI cha/thác nước để FE expand. Trả null nếu không có con. */
-    private List<OrgUnitKpiDetail> buildChildDetails(KpiCriteria kpi, Instant from, Instant to, Boolean onlyApproved) {
+    private List<OrgUnitKpiDetail> buildChildDetails(KpiCriteria kpi, Instant from, Instant to, Boolean onlyApproved,
+                                                     Map<UUID, KpiCriteria> predecessorOf) {
         List<KpiCriteria> kids = KpiMetricsCalculator.children(kpi);
         if (kids.isEmpty()) return null;
         List<OrgUnitKpiDetail> result = new ArrayList<>();
@@ -274,6 +339,7 @@ public class OrgUnitKpiAnalyticsService {
                     .periodName(child.getKpiPeriod() != null ? child.getKpiPeriod().getName() : null)
                     .weight(child.getWeight())
                     .assigneeName(KpiMetricsCalculator.assigneeNames(child))
+                    .assignees(assigneeBriefs(child))
                     .isShared(child.getAssignees() != null && child.getAssignees().size() > 1)
                     .participantCount(child.getAssignees() != null ? child.getAssignees().size() : 1)
                     .isReverseKpi(Boolean.TRUE.equals(child.getIsReverseKpi()))
@@ -283,10 +349,28 @@ public class OrgUnitKpiAnalyticsService {
                     .parentId(kpi.getId())
                     .parentRelationType(child.getParentRelationType())
                     .childRelationType(KpiMetricsCalculator.childRelationType(child))
-                    .children(buildChildDetails(child, from, to, onlyApproved)) // cây nhiều tầng
+                    .children(buildChildDetails(child, from, to, onlyApproved, predecessorOf)) // cây nhiều tầng
+                    .replacedKpiId(replacedIdOf(predecessorOf, child))
+                    .replacedKpiName(replacedNameOf(predecessorOf, child))
+                    .replacementReason(replacementReasonOf(predecessorOf, child))
                     .build());
         }
         return result;
+    }
+
+    private static UUID replacedIdOf(Map<UUID, KpiCriteria> m, KpiCriteria k) {
+        KpiCriteria old = m.get(k.getId());
+        return old != null ? old.getId() : null;
+    }
+
+    private static String replacedNameOf(Map<UUID, KpiCriteria> m, KpiCriteria k) {
+        KpiCriteria old = m.get(k.getId());
+        return old != null ? old.getName() : null;
+    }
+
+    private static String replacementReasonOf(Map<UUID, KpiCriteria> m, KpiCriteria k) {
+        KpiCriteria old = m.get(k.getId());
+        return old != null ? old.getReplacementReason() : null;
     }
 
     // ── Public endpoints ──────────────────────────────────────────────────────
@@ -432,11 +516,12 @@ public class OrgUnitKpiAnalyticsService {
         if (subtree.isEmpty()) return emptyPagedResponse(page, size);
 
         List<UUID> allUnitIds = subtree.stream().map(OrgUnit::getId).toList();
-        // Chỉ liệt kê KPI top-level (cha/thác nước/đơn lẻ); KPI con hiện inline trong children.
         // Chọn KPI theo chế độ OKR của org (tắt OKR ⇒ lấy cả KPI gắn KeyResult) — nhất quán với thẻ metrics.
-        List<KpiCriteria> kpis = applyPeriodFilter(
-                approvedKpisForScope(subtree, allUnitIds), periodIds)
-                .stream().filter(k -> k.getParent() == null).collect(Collectors.toList());
+        List<KpiCriteria> inScope = applyPeriodFilter(approvedKpisForScope(subtree, allUnitIds), periodIds);
+        // Tra map thay thế TRƯỚC khi lọc top-level — KPI con cũng cần nhãn, mà chúng bị lọc ra ở dòng dưới.
+        Map<UUID, KpiCriteria> predecessorOf = predecessorMap(inScope);
+        // Chỉ liệt kê KPI top-level (cha/thác nước/đơn lẻ); KPI con hiện inline trong children.
+        List<KpiCriteria> kpis = inScope.stream().filter(k -> k.getParent() == null).collect(Collectors.toList());
 
         // Build available org unit filter options (only units that actually have KPIs)
         Set<UUID> unitsWithKpis = kpis.stream()
@@ -481,6 +566,7 @@ public class OrgUnitKpiAnalyticsService {
                     .periodName(kpi.getKpiPeriod() != null ? kpi.getKpiPeriod().getName() : null)
                     .weight(kpi.getWeight())
                     .assigneeName(KpiMetricsCalculator.assigneeNames(kpi))
+                    .assignees(assigneeBriefs(kpi))
                     .isShared(isShared)
                     .participantCount(kpi.getAssignees() != null ? kpi.getAssignees().size() : 1)
                     .isReverseKpi(Boolean.TRUE.equals(kpi.getIsReverseKpi()))
@@ -490,7 +576,10 @@ public class OrgUnitKpiAnalyticsService {
                     .parentId(kpi.getParent() != null ? kpi.getParent().getId() : null)
                     .parentRelationType(kpi.getParentRelationType())
                     .childRelationType(KpiMetricsCalculator.childRelationType(kpi))
-                    .children(buildChildDetails(kpi, from, to, onlyApproved))
+                    .children(buildChildDetails(kpi, from, to, onlyApproved, predecessorOf))
+                    .replacedKpiId(replacedIdOf(predecessorOf, kpi))
+                    .replacedKpiName(replacedNameOf(predecessorOf, kpi))
+                    .replacementReason(replacementReasonOf(predecessorOf, kpi))
                     .build());
         }
 
@@ -747,6 +836,21 @@ public class OrgUnitKpiAnalyticsService {
                 .build();
     }
 
+    /**
+     * Người đảm nhiệm của một KPI. Quan hệ `assignees` đã được nạp sẵn ở chỗ gọi (đang dùng cho
+     * `isShared`/`participantCount`) nên đây không phát sinh truy vấn mới.
+     */
+    private static List<OrgUnitKpiDetail.AssigneeBrief> assigneeBriefs(KpiCriteria kpi) {
+        if (kpi.getAssignees() == null || kpi.getAssignees().isEmpty()) return List.of();
+        return kpi.getAssignees().stream()
+                .map(u -> OrgUnitKpiDetail.AssigneeBrief.builder()
+                        .userId(u.getId())
+                        .fullName(u.getFullName())
+                        .avatarUrl(u.getAvatarUrl())
+                        .build())
+                .collect(Collectors.toList());
+    }
+
     // ── Response DTOs ─────────────────────────────────────────────────────────
 
     @lombok.Data
@@ -767,7 +871,12 @@ public class OrgUnitKpiAnalyticsService {
         private Instant periodEnd;
         private String periodName;   // tên đợt, vd "Tháng 6/2026"
         private Double weight;        // trọng số KPI
-        private String assigneeName;  // người đảm nhiệm
+        private String assigneeName;  // người đảm nhiệm (ghép tên, dùng cho chế độ bảng)
+        /**
+         * Danh sách người đảm nhiệm kèm ảnh — biểu đồ cần vẽ avatar chứ không tách được từ chuỗi
+         * {@code assigneeName}. Rỗng khi KPI chưa gán ai.
+         */
+        private List<AssigneeBrief> assignees;
         private boolean isShared;
         private int participantCount;
 
@@ -781,6 +890,36 @@ public class OrgUnitKpiAnalyticsService {
         private com.kpitracking.enums.KpiParentRelationType parentRelationType;
         private com.kpitracking.enums.KpiParentRelationType childRelationType;
         private List<OrgUnitKpiDetail> children;
+
+        // KPI mà bản này thay thế. Không phải quan hệ cha-con: bản thay thế kế thừa trọng số của
+        // bản cũ chứ không phải một lát cắt của nó, và bản cũ đã rời khỏi phạm vi tính điểm.
+        private UUID replacedKpiId;
+        private String replacedKpiName;
+        private String replacementReason;
+
+        /** Người đảm nhiệm ở mức tối thiểu để vẽ avatar — không kèm gì thêm vì đây là dữ liệu biểu đồ. */
+        @lombok.Data
+        @lombok.Builder
+        @lombok.NoArgsConstructor
+        @lombok.AllArgsConstructor
+        public static class AssigneeBrief {
+            private UUID userId;
+            private String fullName;
+            private String avatarUrl;
+        }
+    }
+
+    /** Một dòng của dải "Ngân sách trọng số": đơn vị này ở đợt này đang ở bao nhiêu phần trăm. */
+    @lombok.Data
+    @lombok.Builder
+    public static class UnitWeightBudget {
+        private UUID orgUnitId;
+        private String orgUnitName;
+        private UUID periodId;
+        private String periodName;
+        /** Con số đem so với 100 — xem doc của `getWeightBudget` để biết nó KHÔNG phải phép cộng. */
+        private double totalWeight;
+        private int kpiCount;
     }
 
     @lombok.Data

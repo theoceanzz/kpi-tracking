@@ -240,7 +240,7 @@ export default function HierarchyPermissionModal({ isOpen, onClose, hierarchyLev
       }
       toast.success(`Đã cập nhật quyền hạn cho ${successCount} vai trò theo phân cấp thực tế của công ty.`)
       onClose()
-    } catch (err) {
+    } catch {
       toast.error('Có lỗi xảy ra khi áp dụng quyền hạn.')
     } finally {
       setIsApplying(false)

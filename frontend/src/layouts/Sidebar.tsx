@@ -21,6 +21,7 @@ import UserAvatar from '@/components/common/UserAvatar'
 import { useNotificationDots } from '../hooks/useNotificationDots'
 import { useSidebarSettings } from '@/features/organization/hooks/useSidebarSettings'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
+import { useStageVisible } from '@/features/kpi/workflow/hooks/useStageVisible'
 import {
   navItems,
   flatNavPaths,
@@ -60,6 +61,7 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
   const enableConduct = org?.enableConduct
 
   const flags: NavFeatureFlags = { enableOkr, enableBsc, enableReward, enableCashWallet, enableAi, enableConduct }
+  const stageVisible = useStageVisible()
 
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({})
 
@@ -115,6 +117,8 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
     items
       .map(item => {
         if (!isFeatureEnabled(item, flags)) return null
+        // Bước bị tổ chức tắt (hoặc người dùng tự ẩn) thì mục menu của nó biến mất.
+        if (!stageVisible([item.path, ...(item.legacyKeys ?? [])])) return null
 
         if (item.children) {
           const children = filterNav(item.children)
@@ -131,7 +135,9 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
         // thấy một trang rỗng. Suy từ chính các mục con nên không phải bảo trì bằng tay
         // một danh sách quyền hợp nhất mỗi lần thêm mục.
         if (item.sections && !item.sections.some(sec =>
-          isFeatureEnabled(sec, flags) && (!sec.permission || hasPermission(sec.permission, sec.requireAllPermissions))
+          isFeatureEnabled(sec, flags)
+          && stageVisible([sec.path, ...(sec.legacyKeys ?? [])])
+          && (!sec.permission || hasPermission(sec.permission, sec.requireAllPermissions))
         )) return null
 
         return { ...item, label: getLabel(item), originalLabel: item.label }

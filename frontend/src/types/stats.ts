@@ -258,6 +258,8 @@ export interface UnitKpiComparison {
 }
 
 export interface RankingItem {
+  /** Có từ backend để biểu đồ xếp hạng mở được trang hiệu suất của người đó. */
+  userId?: string;
   name: string;
   avatar: string | null;
   score: number;
@@ -448,25 +450,6 @@ export interface ScopedDashboardResponse {
 export interface TopScopedEntitiesResponse {
   topItems: TopItem[];
   topUnits: TopUnit[];
-}
-
-export interface TopObjectiveDto {
-  id: string;
-  name: string;
-  code: string;
-  completionRate: number;
-  performanceRate: number;
-}
-
-export interface TopUnitDto {
-  unitName: string;
-  completionRate: number;
-  performanceRate: number;
-}
-
-export interface TopEntitiesDashboardResponse {
-  topObjectives: TopObjectiveDto[];
-  topUnits: TopUnitDto[];
 }
 
 export interface KpiDetailRow {

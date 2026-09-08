@@ -241,7 +241,7 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
         setShowAddModal(false)
         setSelectedUsers([])
       }
-    } catch (error) {
+    } catch {
       toast.error('Không thể gán vai trò')
     }
   }
@@ -270,7 +270,7 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
             })
         }
         setConfirmModal(prev => ({ ...prev, isOpen: false }))
-    } catch (error) {
+    } catch {
         toast.error('Không thể thu hồi vai trò')
     }
   }
@@ -286,7 +286,7 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
         }
         setShowRemoveAllConfirm(false)
         setSelectedMemberIds([])
-    } catch (error) {
+    } catch {
         toast.error('Không thể xóa nhân sự')
     }
   }
@@ -302,7 +302,7 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
               ...showManageModal,
               userStatus: newStatus
           })
-      } catch (error) {
+      } catch {
           // Error handled by mutation
       }
   }

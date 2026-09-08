@@ -1,6 +1,6 @@
 import axiosInstance from '@/lib/axios'
 import type { ApiResponse, PageResponse } from '@/types/api'
-import type { OverviewStats, OrgUnitStats, EmployeeKpiStats, MyKpiProgress, AnalyticsMyStats, DrillDownResponse, AnalyticsDetailRow, AnalyticsSummary, MetricValueResponse, CompletedCountResponse, CountResponse, ComboChartResponse, PagedObjectiveDetailedResponse, OrgUnitFilterDto, TopEntitiesDashboardResponse, ScopedMetrics, TopScopedEntitiesResponse, ExportDetailedPerformanceResponse } from '@/types/stats'
+import type { OverviewStats, OrgUnitStats, EmployeeKpiStats, MyKpiProgress, AnalyticsMyStats, DrillDownResponse, AnalyticsSummary, MetricValueResponse, CompletedCountResponse, CountResponse, ComboChartResponse, PagedObjectiveDetailedResponse, OrgUnitFilterDto, ScopedMetrics, TopScopedEntitiesResponse, ExportDetailedPerformanceResponse } from '@/types/stats'
 
 export const statsApi = {
   getOverview: (organizationId?: string, orgUnitId?: string) =>
@@ -25,11 +25,10 @@ export const statsApi = {
   getDrillDown: (orgUnitId?: string, from?: string, to?: string, periodId?: string, periodIdTo?: string) =>
     axiosInstance.get<ApiResponse<DrillDownResponse>>('/stats/drill-down', { params: { orgUnitId, from, to, periodId, periodIdTo } }).then((r) => r.data.data),
 
-  getDetailTable: (params: { orgUnitId?: string; search?: string; page?: number; size?: number }) =>
-    axiosInstance.get<ApiResponse<PageResponse<AnalyticsDetailRow>>>('/stats/detail-table', { params }).then((r) => r.data.data),
 
-  getSummary: (orgUnitId?: string, rankingUnitId?: string, direction?: string) =>
-    axiosInstance.get<ApiResponse<AnalyticsSummary>>('/stats/summary', { params: { orgUnitId, rankingUnitId, direction } }).then((r) => r.data.data),
+  /** `lite` bỏ qua các phép gom nặng — xem doc của StatsService.getSummary. */
+  getSummary: (orgUnitId?: string, rankingUnitId?: string, direction?: string, lite?: boolean) =>
+    axiosInstance.get<ApiResponse<AnalyticsSummary>>('/stats/summary', { params: { orgUnitId, rankingUnitId, direction, lite } }).then((r) => r.data.data),
 
   getSummaryTrend: (orgUnitId?: string, period: string = '5_MONTHS') =>
     axiosInstance.get<ApiResponse<any[]>>('/stats/summary/trend', { params: { orgUnitId, period } }).then((r) => r.data.data),
@@ -102,9 +101,6 @@ export const statsApi = {
   getKpiScopedTopEntities: (id: string, from?: string, to?: string, onlyApproved?: boolean, periodId?: string, periodIdTo?: string) =>
     axiosInstance.get<ApiResponse<TopScopedEntitiesResponse>>(`/stats/subordinates/kpis/${id}/top-entities`, { params: { from, to, onlyApproved, periodId, periodIdTo } }).then((r) => r.data.data),
 
-  getTopEntitiesDashboard: (filter: 'BEST' | 'WORST', from?: string, to?: string, onlyApproved?: boolean, periodId?: string, periodIdTo?: string) =>
-    axiosInstance.get<ApiResponse<TopEntitiesDashboardResponse>>('/stats/subordinates/top-entities-dashboard', { params: { filter, from, to, onlyApproved, periodId, periodIdTo } }).then((r) => r.data.data),
-  
   getDetailedExportStats: (orgUnitId: string | undefined, kpiPeriodId: string) =>
     axiosInstance.get<ApiResponse<ExportDetailedPerformanceResponse[]>>('/stats/detailed-export', { params: { orgUnitId, kpiPeriodId } }).then((r) => r.data.data),
 }

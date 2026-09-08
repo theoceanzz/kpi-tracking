@@ -1,6 +1,9 @@
 import { useState, useMemo } from 'react'
 import { personalObjectiveApi } from '@/features/dashboard/api/personalObjectiveApi'
 import { useQuery } from '@tanstack/react-query'
+import DumbbellDotPlot from '@/components/charts/primitives/DumbbellDotPlot'
+import { useChartTableView } from '@/components/common/dashboard/useChartTableView'
+import { ViewToggleButtons } from '@/components/common/dashboard/ViewToggleButtons'
 import {
   Target, TrendingUp, AlertTriangle, CheckCircle,
   ChevronDown, ChevronRight,
@@ -42,6 +45,10 @@ type SharedFilter = 'ALL' | 'SHARED' | 'PERSONAL'
 
 const PAGE_SIZE = 10
 
+// Chế độ biểu đồ lấy trọn danh sách thay vì phân trang. Trần này chỉ để chặn trường hợp bất
+// thường; chạm trần thì biểu đồ báo rõ chứ không cắt cụt im lặng.
+const CHART_FETCH_SIZE = 200
+
 const CONFIG_REPORT_NAME = '__MY_OBJECTIVES_DASHBOARD_CONFIG__'
 const DEFAULT_WIDGETS: DashboardWidget[] = [
   { i: 'myobj-trend', type: 'MYOBJ_TREND', title: 'Xu hướng KPI theo thời gian', x: 0, y: 0, w: 12, h: 15, visible: true },
@@ -58,6 +65,17 @@ export default function MyObjectivesTab() {
   const onlyApproved = false
   const { periodId, periodIdTo, from, to, groupBy, controls } = useAnalyticsDateFilter({ selectClassName: 'h-10' })
   const perf = usePerformanceScale()
+  const [selectedKpiId, setSelectedKpiId] = useState<string | null>(null)
+  const { view: detailView, setView: setDetailView } = useChartTableView('myobj-detail')
+
+  // Table controls
+  const [filterObjective, setFilterObjective] = useState('')
+  const [filterKr, setFilterKr] = useState('')
+  const [filterShared, setFilterShared] = useState<SharedFilter>('ALL')
+  const [sortField, setSortField] = useState<SortField | null>('period') // ưu tiên đợt/ngày gần nhất
+  const [sortDir, setSortDir] = useState<SortDir>('desc')
+  const [page, setPage] = useState(0)
+
   const { data: metrics, isLoading: isMetricsLoading } = useQuery({
     queryKey: ['personalObjective', 'metrics', from, to, onlyApproved, periodId, periodIdTo],
     queryFn: () => personalObjectiveApi.getMetrics({ from, to, onlyApproved, periodId, periodIdTo }),
@@ -66,6 +84,56 @@ export default function MyObjectivesTab() {
     queryKey: ['personalObjective', 'chart', from, to, onlyApproved, periodId, periodIdTo, groupBy],
     queryFn: () => personalObjectiveApi.getComboChart({ from, to, onlyApproved, periodId, periodIdTo, groupBy }),
   })
+  // Chế độ biểu đồ lấy TRỌN danh sách, chế độ bảng phân trang như cũ — phân trang là affordance của
+  // bảng, đưa vào biểu đồ thì mỗi trang chỉ còn là một mảnh vụn không so được với nhau.
+  const chartMode = detailView === 'chart'
+  const effectivePage = chartMode ? 0 : page
+  const effectiveSize = chartMode ? CHART_FETCH_SIZE : PAGE_SIZE
+
+  const { data: kpiPage, isLoading: isKpisLoading } = useQuery({
+    queryKey: ['personalObjective', 'details', from, to, onlyApproved, periodId, periodIdTo, sortField, sortDir, filterObjective, filterKr, filterShared, effectivePage, effectiveSize],
+    queryFn: () => personalObjectiveApi.getDetailedKpis({
+      from, to, onlyApproved, periodId, periodIdTo,
+      sortBy: sortField ?? undefined,
+      sortDir,
+      objectiveCode: filterObjective || undefined,
+      keyResultCode: filterKr || undefined,
+      sharedType: filterShared === 'ALL' ? undefined : filterShared,
+      page: effectivePage,
+      size: effectiveSize,
+    }),
+  })
+
+  const toggleSort = (field: SortField) => {
+    if (sortField === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
+    else { setSortField(field); setSortDir('desc') }
+    setPage(0)
+  }
+
+  const handleObjectiveChange = (val: string) => {
+    setFilterObjective(val)
+    setFilterKr('')
+    setPage(0)
+  }
+
+  const clearFilters = () => {
+    setFilterObjective('')
+    setFilterKr('')
+    setFilterShared('ALL')
+    setPage(0)
+  }
+
+  const hasFilters = !!(filterObjective || filterKr || filterShared !== 'ALL')
+
+  // KR options: filter by selected objective if any
+  const krOptions = useMemo(() => {
+    if (!kpiPage?.availableKeyResults) return []
+    if (!filterObjective) return kpiPage.availableKeyResults
+    // Need KRs that belong to selected objective — backend returns all KRs, frontend narrows by current page data
+    // We use the full availableKeyResults (unfiltered) so user can still pick any KR
+    return kpiPage.availableKeyResults
+  }, [kpiPage?.availableKeyResults, filterObjective])
+
   // ── Tuỳ chỉnh giao diện (lưới widget dùng chung) ──────────────────────────
   const dash = useDashboardCustomization({
     configReportName: CONFIG_REPORT_NAME,
@@ -75,6 +143,153 @@ export default function MyObjectivesTab() {
   })
   const { isEditMode, handleTogglePin } = dash
 
+  // Nội dung bảng chi tiết (không bọc card/tiêu đề — ChartWrapper lo phần đó).
+  const renderDetailBody = () => (
+    <div className="flex-1 flex flex-col min-h-0 -mx-6 -mb-6">
+      <div className="px-6 pb-4 border-b border-slate-100 dark:border-slate-800 flex flex-wrap items-center gap-3">
+        <Select value={filterObjective || 'ALL'} onValueChange={v => handleObjectiveChange(v === 'ALL' ? '' : v)}>
+          <SelectTrigger className="h-9 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold w-full sm:w-[300px]">
+            <SelectValue placeholder="Tất cả mục tiêu" />
+          </SelectTrigger>
+          <SelectContent className="w-[var(--radix-select-trigger-width)]">
+            <SelectItem value="ALL">Tất cả mục tiêu</SelectItem>
+            {kpiPage?.availableObjectives?.map(o => (
+              <SelectItem key={o.code} value={o.code}>{o.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <Select value={filterKr || 'ALL'} onValueChange={v => { setFilterKr(v === 'ALL' ? '' : v); setPage(0) }}>
+          <SelectTrigger className="h-9 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold w-full sm:w-[300px]">
+            <SelectValue placeholder="Tất cả Key Result" />
+          </SelectTrigger>
+          <SelectContent className="w-[var(--radix-select-trigger-width)]">
+            <SelectItem value="ALL">Tất cả Key Result</SelectItem>
+            {krOptions.map(o => (
+              <SelectItem key={o.code} value={o.code}>{o.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+
+        <div className="flex gap-0.5 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg">
+          {([['ALL', 'Tất cả'], ['SHARED', 'Mục tiêu chung'], ['PERSONAL', 'Mục tiêu riêng']] as [SharedFilter, string][]).map(([v, label]) => (
+            <button
+              key={v}
+              onClick={() => { setFilterShared(v); setPage(0) }}
+              className={cn(
+                'px-3 py-1 rounded-md text-[11px] font-black transition-all',
+                filterShared === v
+                  ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
+              )}
+            >
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {hasFilters && (
+          <button onClick={clearFilters} className="flex items-center gap-1 h-9 px-3 rounded-lg text-xs font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
+            <X size={13} /> Xóa bộ lọc
+          </button>
+        )}
+      </div>
+
+      <div className="flex-1 overflow-auto custom-scrollbar min-h-0 flex flex-col">
+        <div className="hidden md:block overflow-x-auto custom-scrollbar">
+          <table className="w-full text-left">
+            <thead className="bg-slate-50 dark:bg-slate-800/50">
+              <tr className="text-xs font-black uppercase text-slate-500">
+                <th className="px-6 py-4 w-10"></th>
+                <th className="px-6 py-4">Mục tiêu hướng tới</th>
+                <th className="px-6 py-4">Kết quả chính (KR)</th>
+                <th className="px-6 py-4 whitespace-nowrap">
+                  <SortHeader field="period" active={sortField} dir={sortDir} onToggle={toggleSort}>Đợt</SortHeader>
+                </th>
+                <th className="px-6 py-4 min-w-[250px]">
+                  <SortHeader field="progress" active={sortField} dir={sortDir} onToggle={toggleSort}>Tiến độ KPI</SortHeader>
+                </th>
+                <th className="px-6 py-4">Phân loại</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+              {isKpisLoading
+                ? <TableLoadingRows cols={6} count={2} />
+                : kpiPage?.content?.map(kpi => (
+                    <ExpandableKpiRow key={kpi.kpiId} kpi={kpi} onExpand={() => setSelectedKpiId(kpi.kpiId)} onSelectKpi={setSelectedKpiId} />
+                  ))}
+              {!isKpisLoading && (kpiPage?.totalElements ?? 0) === 0 && (
+                <tr><td colSpan={6} className="text-center py-8 text-slate-400">Không có dữ liệu</td></tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="md:hidden divide-y divide-slate-100 dark:divide-slate-800">
+          {isKpisLoading ? (
+            <div className="p-6 text-sm text-slate-400">Đang tải...</div>
+          ) : kpiPage?.content?.length ? (
+            kpiPage.content.map(kpi => (
+              <MobileKpiCard key={kpi.kpiId} kpi={kpi} onExpand={() => setSelectedKpiId(kpi.kpiId)} />
+            ))
+          ) : (
+            <div className="text-center py-8 text-slate-400">Không có dữ liệu</div>
+          )}
+        </div>
+
+        <SparseTableFiller
+          message={!isKpisLoading && (kpiPage?.content?.length ?? 0) > 0 && (kpiPage?.content?.length ?? 0) < PAGE_SIZE
+            ? `Đã hiển thị tất cả ${kpiPage?.totalElements ?? 0} KPI`
+            : null}
+        />
+      </div>
+
+      {(kpiPage?.totalElements ?? 0) > 0 && (
+        <Pagination currentPage={page} totalPages={kpiPage?.totalPages ?? 1} onPageChange={setPage} totalElements={kpiPage?.totalElements ?? 0} size={PAGE_SIZE} itemLabel="KPI" />
+      )}
+    </div>
+  )
+
+  // Mỗi KPI một đoạn nối thực tế → mục tiêu: chiều dài đoạn CHÍNH LÀ phần còn phải làm.
+  // Thanh tiến độ trong bảng nói cùng nội dung nhưng phải đọc từng dòng mới xếp hạng được mức độ gấp.
+  const renderGapBody = () => {
+    const rows = (kpiPage?.content ?? []).filter(k => k.kpiType !== 'QUALITATIVE' && k.targetValue > 0)
+    const qualitativeCount = (kpiPage?.content ?? []).length - rows.length
+    return (
+      <div className="flex-1 flex flex-col gap-3 min-h-0">
+        {isKpisLoading ? (
+          <div className="py-16 text-center text-slate-400 font-bold">Đang tải...</div>
+        ) : rows.length === 0 ? (
+          <div className="py-16 text-center text-slate-400 font-bold italic">Không có KPI định lượng nào trong kỳ này</div>
+        ) : (
+          <DumbbellDotPlot
+            xLabel="Tiến độ (%)"
+            data={rows.map(k => ({
+              id: k.kpiId,
+              name: k.kpiName,
+              subText: [k.keyResultName, k.periodName].filter(Boolean).join(' · '),
+              from: k.actualValue,
+              to: k.targetValue,
+              unit: k.unit,
+            }))}
+            fromLabel="Thực tế" toLabel="Mục tiêu"
+            onSelect={d => { if (d.id) setSelectedKpiId(d.id) }}
+          />
+        )}
+        {qualitativeCount > 0 && (
+          <p className="text-[11px] text-slate-400 font-medium text-center">
+            {qualitativeCount} KPI định tính không hiện ở đây — xem trong chế độ bảng.
+          </p>
+        )}
+        {(kpiPage?.totalElements ?? 0) > CHART_FETCH_SIZE && (
+          <p className="text-[11px] text-amber-600 font-bold text-center">
+            Có {kpiPage?.totalElements} KPI, biểu đồ chỉ vẽ {CHART_FETCH_SIZE} mục đầu — xem đủ ở chế độ bảng.
+          </p>
+        )}
+      </div>
+    )
+  }
+
   const renderWidget = (w: DashboardWidget) => {
     switch (w.type) {
       case 'MYOBJ_TREND': return (
@@ -82,7 +297,17 @@ export default function MyObjectivesTab() {
           <AnalyticsComboChart data={chartData?.points || []} isLoading={isChartLoading} itemName="KPI đảm nhiệm" fillHeight />
         </ChartWrapper>
       )
-      case 'MYOBJ_DETAIL': return <MyObjectiveDetailSection from={from} to={to} onlyApproved={onlyApproved} periodId={periodId} periodIdTo={periodIdTo} isEditMode={isEditMode} widget={w} onTogglePin={handleTogglePin} />
+      case 'MYOBJ_DETAIL': return (
+        <ChartWrapper title="KPI đang đảm nhiệm" icon={<Target size={20} className="text-indigo-600" />} widget={w} onTogglePin={handleTogglePin} isEditMode={isEditMode}
+          extraHeaderContent={
+            <>
+              <span className="text-xs font-bold text-slate-400">{kpiPage?.totalElements ?? 0} KPI</span>
+              <ViewToggleButtons view={detailView} onChange={setDetailView} />
+            </>
+          }>
+          {detailView === 'chart' ? renderGapBody() : renderDetailBody()}
+        </ChartWrapper>
+      )
       default: return null
     }
   }
@@ -164,206 +389,20 @@ export default function MyObjectivesTab() {
       <div id="tour-analytics-widgets">
         <DashboardCustomizeChrome api={dash} renderWidget={renderWidget} catalog={CATALOG} />
       </div>
-    </div>
-  )
-}
 
-
-/**
- * Bảng chi tiết mục tiêu cá nhân — tự quản bộ lọc/sắp xếp/phân trang/drawer.
- *
- * <p>Tách khỏi thân tab để trang chủ dùng lại được nguyên vẹn (`bare`); xem
- * `OrgUnitKpiDetailSection` bên SummaryTab cho cùng lý do.
- */
-export function MyObjectiveDetailSection({
-  from, to, onlyApproved = false, periodId, periodIdTo, isEditMode, widget, onTogglePin, bare,
-}: {
-  from?: string; to?: string; onlyApproved?: boolean; periodId?: string; periodIdTo?: string
-  isEditMode?: boolean; widget?: DashboardWidget; onTogglePin?: (w: DashboardWidget) => void; bare?: boolean
-}) {
-  const [selectedKpiId, setSelectedKpiId] = useState<string | null>(null)
-  // Table controls
-  const [filterObjective, setFilterObjective] = useState('')
-  const [filterKr, setFilterKr] = useState('')
-  const [filterShared, setFilterShared] = useState<SharedFilter>('ALL')
-  const [sortField, setSortField] = useState<SortField | null>('period') // ưu tiên đợt/ngày gần nhất
-  const [sortDir, setSortDir] = useState<SortDir>('desc')
-  const [page, setPage] = useState(0)
-
-  const { data: kpiPage, isLoading: isKpisLoading } = useQuery({
-    queryKey: ['personalObjective', 'details', from, to, onlyApproved, periodId, periodIdTo, sortField, sortDir, filterObjective, filterKr, filterShared, page],
-    queryFn: () => personalObjectiveApi.getDetailedKpis({
-      from, to, onlyApproved, periodId, periodIdTo,
-      sortBy: sortField ?? undefined,
-      sortDir,
-      objectiveCode: filterObjective || undefined,
-      keyResultCode: filterKr || undefined,
-      sharedType: filterShared === 'ALL' ? undefined : filterShared,
-      page,
-      size: PAGE_SIZE,
-    }),
-  })
-
-  const toggleSort = (field: SortField) => {
-    if (sortField === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
-    else { setSortField(field); setSortDir('desc') }
-    setPage(0)
-  }
-
-  const handleObjectiveChange = (val: string) => {
-    setFilterObjective(val)
-    setFilterKr('')
-    setPage(0)
-  }
-
-  const clearFilters = () => {
-    setFilterObjective('')
-    setFilterKr('')
-    setFilterShared('ALL')
-    setPage(0)
-  }
-
-  const hasFilters = !!(filterObjective || filterKr || filterShared !== 'ALL')
-
-  // KR options: filter by selected objective if any
-  const krOptions = useMemo(() => {
-    if (!kpiPage?.availableKeyResults) return []
-    if (!filterObjective) return kpiPage.availableKeyResults
-    // Need KRs that belong to selected objective — backend returns all KRs, frontend narrows by current page data
-    // We use the full availableKeyResults (unfiltered) so user can still pick any KR
-    return kpiPage.availableKeyResults
-  }, [kpiPage?.availableKeyResults, filterObjective])
-
-  const body = (
-    <div className={cn("flex-1 flex flex-col min-h-0", bare ? "-mx-5 sm:-mx-6 -mb-5 sm:-mb-6" : "-mx-6 -mb-6")}>
-      <div className="px-6 pb-4 border-b border-slate-100 dark:border-slate-800 flex flex-wrap items-center gap-3">
-        <Select value={filterObjective || 'ALL'} onValueChange={v => handleObjectiveChange(v === 'ALL' ? '' : v)}>
-          <SelectTrigger className="h-9 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold w-full sm:w-[300px]">
-            <SelectValue placeholder="Tất cả mục tiêu" />
-          </SelectTrigger>
-          <SelectContent className="w-[var(--radix-select-trigger-width)]">
-            <SelectItem value="ALL">Tất cả mục tiêu</SelectItem>
-            {kpiPage?.availableObjectives?.map(o => (
-              <SelectItem key={o.code} value={o.code}>{o.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <Select value={filterKr || 'ALL'} onValueChange={v => { setFilterKr(v === 'ALL' ? '' : v); setPage(0) }}>
-          <SelectTrigger className="h-9 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-xs font-semibold w-full sm:w-[300px]">
-            <SelectValue placeholder="Tất cả Key Result" />
-          </SelectTrigger>
-          <SelectContent className="w-[var(--radix-select-trigger-width)]">
-            <SelectItem value="ALL">Tất cả Key Result</SelectItem>
-            {krOptions.map(o => (
-              <SelectItem key={o.code} value={o.code}>{o.name}</SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-
-        <div className="flex gap-0.5 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg">
-          {([['ALL', 'Tất cả'], ['SHARED', 'Mục tiêu chung'], ['PERSONAL', 'Mục tiêu riêng']] as [SharedFilter, string][]).map(([v, label]) => (
-            <button
-              key={v}
-              onClick={() => { setFilterShared(v); setPage(0) }}
-              className={cn(
-                'px-3 py-1 rounded-md text-[11px] font-black transition-all',
-                filterShared === v
-                  ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm'
-                  : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
-              )}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-
-        {hasFilters && (
-          <button onClick={clearFilters} className="flex items-center gap-1 h-9 px-3 rounded-lg text-xs font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
-            <X size={13} /> Xóa bộ lọc
-          </button>
-        )}
-      </div>
-
-      <div className="flex-1 overflow-auto custom-scrollbar min-h-0 flex flex-col">
-        <div className="hidden md:block overflow-x-auto custom-scrollbar">
-          <table className="w-full text-left">
-            <thead className="bg-slate-50 dark:bg-slate-800/50">
-              <tr className="text-xs font-black uppercase text-slate-500">
-                <th className="px-6 py-4 w-10"></th>
-                <th className="px-6 py-4">Mục tiêu hướng tới</th>
-                <th className="px-6 py-4">Kết quả chính (KR)</th>
-                <th className="px-6 py-4 whitespace-nowrap">
-                  <SortHeader field="period" active={sortField} dir={sortDir} onToggle={toggleSort}>Đợt</SortHeader>
-                </th>
-                <th className="px-6 py-4 min-w-[250px]">
-                  <SortHeader field="progress" active={sortField} dir={sortDir} onToggle={toggleSort}>Tiến độ KPI</SortHeader>
-                </th>
-                <th className="px-6 py-4">Phân loại</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {isKpisLoading
-                ? <TableLoadingRows cols={7} count={2} />
-                : kpiPage?.content?.map(kpi => (
-                    <ExpandableKpiRow key={kpi.kpiId} kpi={kpi} onExpand={() => setSelectedKpiId(kpi.kpiId)} onSelectKpi={setSelectedKpiId} />
-                  ))}
-              {!isKpisLoading && (kpiPage?.totalElements ?? 0) === 0 && (
-                <tr><td colSpan={6} className="text-center py-8 text-slate-400">Không có dữ liệu</td></tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-
-        <div className="md:hidden divide-y divide-slate-100 dark:divide-slate-800">
-          {isKpisLoading ? (
-            <div className="p-6 text-sm text-slate-400">Đang tải...</div>
-          ) : kpiPage?.content?.length ? (
-            kpiPage.content.map(kpi => (
-              <MobileKpiCard key={kpi.kpiId} kpi={kpi} onExpand={() => setSelectedKpiId(kpi.kpiId)} />
-            ))
-          ) : (
-            <div className="text-center py-8 text-slate-400">Không có dữ liệu</div>
-          )}
-        </div>
-
-        <SparseTableFiller
-          message={!isKpisLoading && (kpiPage?.content?.length ?? 0) > 0 && (kpiPage?.content?.length ?? 0) < PAGE_SIZE
-            ? `Đã hiển thị tất cả ${kpiPage?.totalElements ?? 0} KPI`
-            : null}
+      {selectedKpiId && (
+        <MyObjectiveDrawer
+          kpiId={selectedKpiId}
+          onClose={() => setSelectedKpiId(null)}
+          globalFrom={from}
+          globalTo={to}
+          globalPeriodId={periodId}
+          globalPeriodIdTo={periodIdTo}
         />
-      </div>
-
-      {(kpiPage?.totalElements ?? 0) > 0 && (
-        <Pagination currentPage={page} totalPages={kpiPage?.totalPages ?? 1} onPageChange={setPage} totalElements={kpiPage?.totalElements ?? 0} size={PAGE_SIZE} itemLabel="KPI" />
       )}
     </div>
   )
-
-  const drawer = selectedKpiId ? (
-    <MyObjectiveDrawer
-      kpiId={selectedKpiId}
-      onClose={() => setSelectedKpiId(null)}
-      globalFrom={from}
-      globalTo={to}
-      globalPeriodId={periodId}
-      globalPeriodIdTo={periodIdTo}
-    />
-  ) : null
-
-  if (bare) return <>{body}{drawer}</>
-
-  return (
-    <>
-      <ChartWrapper title="Bảng chi tiết KPI đang đảm nhiệm" icon={<Target size={20} className="text-indigo-600" />} widget={widget!} onTogglePin={onTogglePin!} isEditMode={!!isEditMode}
-        extraHeaderContent={<span className="text-xs font-bold text-slate-400">{kpiPage?.totalElements ?? 0} KPI</span>}>
-        {body}
-      </ChartWrapper>
-      {drawer}
-    </>
-  )
 }
-
 
 
 

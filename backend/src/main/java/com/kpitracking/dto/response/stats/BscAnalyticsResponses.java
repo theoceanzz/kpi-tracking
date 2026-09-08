@@ -77,6 +77,13 @@ public class BscAnalyticsResponses {
         private Double overall;
         /** perspectiveId (string) → điểm đạt trung bình tại mốc này. */
         private Map<String, Double> values;
+        /**
+         * perspectiveId (string) → điểm ĐÃ NHÂN TRỌNG SỐ trung bình tại mốc này.
+         *
+         * <p>Khác {@code values} ở chỗ tổng các giá trị ở đây bằng đúng {@code overall}, nên chỉ
+         * trường này mới vẽ được biểu đồ cơ cấu 100%.
+         */
+        private Map<String, Double> weighted;
     }
 
     /** GĐ "So sánh giữa đơn vị": mỗi đơn vị × điểm từng lĩnh vực + điểm BSC/hệ thống tổng. */

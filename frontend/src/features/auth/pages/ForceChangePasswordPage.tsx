@@ -20,9 +20,6 @@ export default function ForceChangePasswordPage() {
   // useAuth.logout gọi API để backend xoá cookie phiên; logout của store chỉ dọn state cục bộ.
   const { logout } = useAuth()
 
-  if (user && !user.requirePasswordChange) {
-    return <Navigate to="/dashboard" replace />
-  }
   const { register, handleSubmit, control, setValue } = useForm<ForceChangePasswordFormData>({
     resolver: zodResolver(forceChangePasswordSchema),
     defaultValues: { newPassword: '', confirmPassword: '' },
@@ -67,6 +64,16 @@ export default function ForceChangePasswordPage() {
     setValue('confirmPassword', newPwd, { shouldValidate: true })
     setShowNew(true)
     setShowConfirm(true)
+  }
+
+  // Chuyển hướng đặt SAU toàn bộ hook, không phải trước.
+  //
+  // Đổi mật khẩu thành công sẽ gọi `setUser({ ...user, requirePasswordChange: false })`, tức
+  // chính điều kiện này lật ngay trong lúc component còn gắn. Nếu `return` nằm trên các hook thì
+  // lượt render kế tiếp chạy ít hook hơn lượt trước — React ném "Rendered fewer hooks than
+  // expected" và cả trang trắng đúng vào giây người dùng vừa đổi xong mật khẩu.
+  if (user && !user.requirePasswordChange) {
+    return <Navigate to="/dashboard" replace />
   }
 
   return (

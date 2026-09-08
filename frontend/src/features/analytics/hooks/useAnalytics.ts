@@ -18,25 +18,12 @@ export function useDrillDown(orgUnitId?: string, from?: string, to?: string, per
   })
 }
 
-export function useDetailTable(params: { orgUnitId?: string; search?: string; page?: number; size?: number }) {
-  return useQuery({
-    queryKey: ['analytics', 'detail-table', params],
-    queryFn: () => statsApi.getDetailTable(params),
-  })
-}
-
 export function useSummaryStats(orgUnitId?: string, rankingUnitId?: string, direction?: string) {
   return useQuery({
     queryKey: ['analytics', 'summary', orgUnitId, rankingUnitId, direction],
-    queryFn: () => statsApi.getSummary(orgUnitId, rankingUnitId, direction),
-    placeholderData: (previousData) => previousData,
-  })
-}
-
-export function useSummaryTrend(orgUnitId?: string, period: string = '5_MONTHS') {
-  return useQuery({
-    queryKey: ['analytics', 'summary', 'trend', orgUnitId, period],
-    queryFn: () => statsApi.getSummaryTrend(orgUnitId, period),
+    // Cả ba nơi dùng hook này chỉ cần roleDistribution + totalMembers, nên xin bản nhẹ:
+    // bản đầy đủ mất ~3 giây và tính lại đúng những thứ các widget đã tự gọi riêng.
+    queryFn: () => statsApi.getSummary(orgUnitId, rankingUnitId, direction, true),
     placeholderData: (previousData) => previousData,
   })
 }
@@ -45,14 +32,6 @@ export function useSummaryComparison(orgUnitId?: string, from?: string, to?: str
   return useQuery({
     queryKey: ['analytics', 'summary', 'comparison', orgUnitId, from, to, onlyApproved, periodId, periodIdTo],
     queryFn: () => statsApi.getSummaryComparison(orgUnitId, from, to, onlyApproved, periodId, periodIdTo),
-    placeholderData: (previousData) => previousData,
-  })
-}
-
-export function useSummaryRisks(orgUnitId?: string, period: string = 'MONTH') {
-  return useQuery({
-    queryKey: ['analytics', 'summary', 'risks', orgUnitId, period],
-    queryFn: () => statsApi.getSummaryRisks(orgUnitId, period),
     placeholderData: (previousData) => previousData,
   })
 }

@@ -291,6 +291,27 @@ public class PermissionChecker {
     }
 
     /**
+     * Người thao tác có đứng CAO HƠN người sở hữu việc trong đơn vị này không?
+     *
+     * <p>Luật: cấp tốt hơn thắng; cùng cấp thì chức vụ tốt hơn thắng. Số NHỎ hơn là cao hơn ở cả
+     * hai trục. Ngang bằng thì KHÔNG vượt qua — hệ quả là không ai tự duyệt việc của chính mình,
+     * vì với chính mình hai trục luôn bằng nhau.
+     *
+     * <p>Khối này trước đây được chép nguyên văn năm lần: ba lần trong {@code KpiCriteriaService}
+     * (duyệt / từ chối / hoàn duyệt), một lần trong {@code KpiSubmissionService.requireCanReview}
+     * và một lần trong {@code KpiAdjustmentService.reviewRequest}. Gom về một chỗ để sửa luật là
+     * sửa một nơi, và để kiểm thử được nó độc lập.
+     */
+    public boolean isSuperiorTo(UUID actorId, UUID targetUserId, UUID orgUnitId) {
+        int targetLevel = getMinLevelInOrgUnit(targetUserId, orgUnitId);
+        int targetRank = getMinRankInOrgUnit(targetUserId, orgUnitId);
+        int actorLevel = getMinLevelInOrgUnit(actorId, orgUnitId);
+        int actorRank = getMinRankInOrgUnit(actorId, orgUnitId);
+
+        return actorLevel < targetLevel || (actorLevel == targetLevel && actorRank < targetRank);
+    }
+
+    /**
      * Get the minimum (best/highest) level of a user in a specific OrgUnit.
      * Levels: 0 (Group), 1 (Region), 2 (Company), 3 (Department), 4 (Team).
      */

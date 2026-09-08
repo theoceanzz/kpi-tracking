@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { ratingColor } from '@/components/charts/chartPalette'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
@@ -37,8 +38,6 @@ const OP_OPTS: { v: UnitClassOp; label: string }[] = [
 ]
 
 /** Màu theo HẠNG ma trận (1 đỏ → 5 xanh) — khớp heatmap/phân bố ma trận. */
-const RATING_COLORS: Record<number, string> = { 1: '#ef4444', 2: '#f97316', 3: '#f59e0b', 4: '#84cc16', 5: '#10b981' }
-const ratingColor = (n: number) => RATING_COLORS[n] ?? '#8b5cf6'
 
 /** Các HẠNG đầu ra phân biệt của ma trận (giá trị ô), cao → thấp. Fallback về 5..1 (ma trận mặc định) khi chưa lưu. */
 function matrixGrades(org: OrganizationResponse): number[] {

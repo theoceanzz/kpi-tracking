@@ -380,7 +380,7 @@ export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onI
       }
 
       setData(parsed)
-    } catch (error) {
+    } catch {
       toast.error('Lỗi khi đọc file Excel/CSV')
       onClose()
     } finally {
@@ -506,7 +506,7 @@ export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onI
   const handleCellChange = (id: string, field: keyof KpiRow, value: string) => {
     setData(prev => prev.map(row => {
       if (row.id === id) {
-        let updated = { ...row, [field]: value }
+        const updated = { ...row, [field]: value }
         return validateRow(updated)
       }
       return row
@@ -608,7 +608,7 @@ export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onI
       if (userObj?.id && periodId && unitId) {
         try {
           systemWeight = await kpiApi.getTotalWeight(unitId, periodId, userObj.id)
-        } catch (e) {}
+        } catch { /* lỗi ở đây không đổi được gì cho người dùng */ }
       }
 
       const total = systemWeight + excelWeight
@@ -641,7 +641,7 @@ export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onI
       const newFile = new File([blob], file?.name || 'import_kpis.xlsx', { type: blob.type })
 
       onImport(newFile, localKpiType)
-    } catch (e) {
+    } catch {
       toast.error('Lỗi khi tạo file import')
     } finally {
       setLoading(false)

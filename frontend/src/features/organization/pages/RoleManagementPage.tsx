@@ -164,7 +164,7 @@ export default function RoleManagementPage() {
       setIsModalOpen(false)
       // Refresh current user info in case their own role was renamed
       refreshUser()
-    } catch (error) {}
+    } catch { /* lỗi ở đây không đổi được gì cho người dùng */ }
   }
 
   const handleDelete = (role: RoleResponse) => {
@@ -177,7 +177,7 @@ export default function RoleManagementPage() {
       try {
         await deleteMutation.mutateAsync(deleteConfirm.role.id)
         setDeleteConfirm({ isOpen: false, role: null })
-      } catch (error) {}
+      } catch { /* lỗi ở đây không đổi được gì cho người dùng */ }
     }
   }
 

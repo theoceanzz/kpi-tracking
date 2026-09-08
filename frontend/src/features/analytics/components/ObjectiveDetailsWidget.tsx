@@ -1,8 +1,11 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { statsApi } from '@/features/dashboard/api/statsApi'
 import { Loader2, LayoutList } from 'lucide-react'
 import ObjectiveDetailedTable from './ObjectiveDetailedTable'
+import WeightTreemap from '@/components/charts/primitives/WeightTreemap'
+import { useChartTableView } from '@/components/common/dashboard/useChartTableView'
+import { ViewToggleButtons } from '@/components/common/dashboard/ViewToggleButtons'
 import ObjectiveDrawer from './ObjectiveDrawer'
 import ScopedDashboardWidget from './ScopedDashboardWidget'
 import { SparseTableFiller } from './SparseTableFiller'
@@ -53,14 +56,23 @@ export default function ObjectiveDetailsWidget({ dateRange, onlyApproved = false
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
   const [orgUnitId, setOrgUnitId] = useState<string>('')
   const [page, setPage] = useState(0)
+  const { view, setView } = useChartTableView('sub-detail')
 
   const PAGE_SIZE = 10
+  // Chế độ biểu đồ lấy trọn danh sách; chạm trần thì báo rõ chứ không cắt cụt im lặng.
+  const CHART_FETCH_SIZE = 200
+
+  // Treemap là biểu đồ phần-trên-tổng-thể: vẽ 10 mục tiêu của "trang 1/5" là trình bày một mảnh
+  // vụn tuỳ tiện như thể nó là toàn thể. Chế độ bảng thì phân trang vẫn đúng và giữ nguyên.
+  const chartMode = view === 'chart'
+  const effectivePage = chartMode ? 0 : page
+  const effectiveSize = chartMode ? CHART_FETCH_SIZE : PAGE_SIZE
 
   const { data, isLoading } = useQuery({
     queryKey: [
       'subordinate-detailed-objectives',
       dateRange.from, dateRange.to, onlyApproved, periodId, periodIdTo,
-      sortBy, sortDir, orgUnitId, page
+      sortBy, sortDir, orgUnitId, effectivePage, effectiveSize
     ],
     queryFn: () => statsApi.getSubordinateDetailedObjectives({
       from: dateRange.from,
@@ -71,8 +83,8 @@ export default function ObjectiveDetailsWidget({ dateRange, onlyApproved = false
       sortBy,
       sortDir,
       orgUnitId: orgUnitId || undefined,
-      page,
-      size: PAGE_SIZE,
+      page: effectivePage,
+      size: effectiveSize,
     })
   })
 
@@ -125,6 +137,24 @@ export default function ObjectiveDetailsWidget({ dateRange, onlyApproved = false
     );
   }
 
+  // Treemap dựng ở tầng Key Result: tầng Mục tiêu thành nhóm, tầng KPI gộp lại thành diện tích.
+  // Vẽ cả ba tầng lồng nhau sẽ cho ra hàng trăm ô vụn không đọc được trong một ô widget.
+  const treemapLeaves = useMemo(
+    () => (data?.content ?? []).flatMap(obj =>
+      (obj.keyResults ?? [])
+        .filter(kr => (kr.kpis?.length ?? 0) > 0)
+        .map(kr => ({
+          id: kr.id,
+          name: kr.name,
+          group: obj.name,
+          size: kr.kpis?.length ?? 0,
+          achievement: kr.progress,
+          subText: `${obj.name} · ${kr.kpis?.length ?? 0} KPI`,
+        })),
+    ),
+    [data],
+  )
+
   const rowCount = data?.content?.length ?? 0
   const totalElements = data?.totalElements ?? 0
   const fillerMessage = !isLoading && rowCount > 0 && rowCount < PAGE_SIZE
@@ -147,8 +177,13 @@ export default function ObjectiveDetailsWidget({ dateRange, onlyApproved = false
       <div className="flex-1 min-h-0 flex flex-col bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden">
         {/* Card header */}
         <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0">
-          <h3 className="text-sm font-black text-slate-900 dark:text-white">Bảng dữ liệu phân cấp</h3>
-          <span className="text-xs font-bold text-slate-400">{totalElements} mục tiêu</span>
+          <h3 className="text-sm font-black text-slate-900 dark:text-white">
+            {view === 'chart' ? 'Bản đồ trọng số mục tiêu' : 'Bảng dữ liệu phân cấp'}
+          </h3>
+          <div className="flex items-center gap-2">
+            <span className="text-xs font-bold text-slate-400">{totalElements} mục tiêu</span>
+            <ViewToggleButtons view={view} onChange={setView} />
+          </div>
         </div>
 
         {/* Filter toolbar */}
@@ -180,19 +215,44 @@ export default function ObjectiveDetailsWidget({ dateRange, onlyApproved = false
           </div>
         ) : (
           <div className="flex-1 min-h-0 overflow-auto custom-scrollbar flex flex-col">
-            <ObjectiveDetailedTable
-              data={data?.content ?? []}
-              onRowClick={handleRowClick}
-              sortBy={sortBy}
-              sortDir={sortDir}
-              onToggleSort={handleSortToggle}
-            />
-            <SparseTableFiller message={fillerMessage} />
+            {view === 'chart' ? (
+              treemapLeaves.length === 0 ? (
+                <div className="flex-1 flex items-center justify-center text-sm text-slate-400 font-medium py-16">
+                  Chưa có Key Result nào có tiến độ để vẽ
+                </div>
+              ) : (
+                <div className="p-4">
+                  <WeightTreemap
+                    data={treemapLeaves}
+                    onSelect={d => { if (d.id) handleRowClick('KR', { id: d.id, name: d.name }) }}
+                  />
+                  <p className="text-[11px] text-slate-400 font-medium text-center mt-2">
+                    Mỗi ô là một Key Result, gom theo Mục tiêu · Diện tích = số KPI · Màu = tiến độ · Bấm để mở chi tiết
+                  </p>
+                  {totalElements > CHART_FETCH_SIZE && (
+                    <p className="text-[11px] text-amber-600 font-bold text-center mt-1">
+                      Có {totalElements} mục tiêu, biểu đồ chỉ vẽ {CHART_FETCH_SIZE} mục đầu — xem đủ ở chế độ bảng.
+                    </p>
+                  )}
+                </div>
+              )
+            ) : (
+              <>
+                <ObjectiveDetailedTable
+                  data={data?.content ?? []}
+                  onRowClick={handleRowClick}
+                  sortBy={sortBy}
+                  sortDir={sortDir}
+                  onToggleSort={handleSortToggle}
+                />
+                <SparseTableFiller message={fillerMessage} />
+              </>
+            )}
           </div>
         )}
 
-        {/* Pagination */}
-        {totalElements > 0 && (
+        {/* Phân trang chỉ có ở chế độ bảng — xem lý do ở khai báo chartMode phía trên. */}
+        {!chartMode && totalElements > 0 && (
           <div className="shrink-0">
             <Pagination
               currentPage={page}

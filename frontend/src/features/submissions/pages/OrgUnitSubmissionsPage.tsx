@@ -20,8 +20,9 @@ import { usePermission } from '@/hooks/usePermission'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
   FileCheck, Search, Building2, Calendar, Clock, ChevronRight, ChevronLeft,
-  ArrowUpDown, ArrowUp, ArrowDown
+  ArrowUpDown, ArrowUp, ArrowDown, ArrowRight
 } from 'lucide-react'
+import { useWorkflowNavigator } from '@/features/kpi/workflow/hooks/useWorkflowNavigator'
 
 export default function OrgUnitSubmissionsPage() {
   const [search, setSearch] = useState('')
@@ -32,6 +33,8 @@ export default function OrgUnitSubmissionsPage() {
   const [selectedPeriodId, setSelectedPeriodId] = useState('')    
   const { hasPermission } = usePermission()
   const canManageOrg = hasPermission('ROLE:ASSIGN')
+  const { goToNext, nextReachableStage } = useWorkflowNavigator()
+  const nextAfterReview = nextReachableStage('SUBMISSION_REVIEW')
 
   // Mặc định đẩy người còn bài chờ duyệt lên đầu. Dòng sidebar chỉ mang TỔNG số bài
   // chờ, nên vào trang mà xếp theo tên là người duyệt lại phải tự dò xem con số đỏ đó
@@ -642,11 +645,26 @@ export default function OrgUnitSubmissionsPage() {
         )}
         
         {detailEval && (
-          <EvaluationDetailModal 
-            open={!!detailEval} 
-            onClose={() => setDetailEval(null)} 
-            evaluation={detailEval} 
+          <EvaluationDetailModal
+            open={!!detailEval}
+            onClose={() => setDetailEval(null)}
+            evaluation={detailEval}
           />
+        )}
+
+        {/* Lối đi tiếp. Trước đây trang này không có một navigate() hay <Link> nào — duyệt xong
+            là hết đường, người dùng phải tự quay ra sidebar đoán bước kế tiếp. Đích lấy từ cấu
+            hình luồng nên tổ chức tắt bước nào thì nút tự bỏ qua bước đó. */}
+        {nextAfterReview && (
+          <div className="flex justify-end pt-2">
+            <button
+              onClick={() => goToNext('SUBMISSION_REVIEW', { periodId: selectedPeriodId }, { openCreate: false })}
+              className="flex items-center gap-2 rounded-2xl bg-indigo-600 px-6 py-3 text-sm font-black text-white shadow-lg shadow-indigo-500/20 transition-all hover:bg-indigo-700 active:scale-95"
+            >
+              Tiếp theo: {nextAfterReview.label}
+              <ArrowRight size={16} />
+            </button>
+          </div>
         )}
       </div>
     </div>

@@ -88,7 +88,9 @@ export function OrgUnitDrawer({ orgId, drawerState, onClose, hierarchyLevels }: 
     ? minDepth 
     : drawerState.mode === 'create-child' && drawerState.parentNode
       ? Number(drawerState.parentNode.level) + 1
-      : Number(drawerState.currentNode?.level) ?? minDepth
+      // `Number(undefined)` ra NaN chứ không phải null, nên `?? minDepth` trước đây không bao
+      // giờ chạy — thiếu `level` là cả ô nhập cấp hiện NaN. Kiểm null trước rồi mới ép kiểu.
+      : drawerState.currentNode?.level != null ? Number(drawerState.currentNode.level) : minDepth
       
   const parentName = drawerState.parentNode?.name || 'Không có (Root)'
   
