@@ -212,8 +212,23 @@ export default function DrillDownTab() {
     return () => clearTimeout(timer)
   }, [searchInput])
 
-  // Đổi đơn vị đang chọn (đồng bộ URL để back/forward + chia sẻ link).
-  const select = (id: string) => { setSearchParams({ unitId: id }); setEmpPage(0); setSearchInput('') }
+  /**
+   * Đổi đơn vị đang chọn (đồng bộ URL để back/forward + chia sẻ link).
+   *
+   * <p>Phải cập nhật RIÊNG khoá `unitId`. Truyền object literal cho `setSearchParams` sẽ ghi đè
+   * TOÀN BỘ query string, nuốt luôn `?section=drilldown` của SettingsSectionLayout — layout không
+   * còn tìm thấy mục nào đang mở nên rơi về lưới thẻ, tức là bấm chọn đơn vị lại bị văng ra khỏi
+   * tab. Cùng cái bẫy mà KpiApprovalPage đã ghi chú.
+   */
+  const select = (id: string) => {
+    setSearchParams(prev => {
+      const p = new URLSearchParams(prev)
+      p.set('unitId', id)
+      return p
+    })
+    setEmpPage(0)
+    setSearchInput('')
+  }
 
   const rootUnitId = rootData?.orgUnitId || undefined
   const treeNodes = useMemo(() => subtreeOf(tree || [], rootUnitId), [tree, rootUnitId])
