@@ -100,12 +100,27 @@ public class UnitClassificationService {
         String lastPeriodName = null;
         UUID lastPeriodId = null;
         KpiPeriod lastPeriod = null;
+        // Ảnh chụp "đợt hiện tại" phải lấy đợt gần nhất CÓ đánh giá, không phải đợt cuối cùng
+        // theo thời gian. Chỉ cần ai đó tạo một đợt mới (chưa ai chấm) là toàn bộ khối xếp loại
+        // trắng xoá, dù các đợt trước vẫn đầy dữ liệu — người dùng thấy như biểu đồ bị mất.
+        // Đường xu hướng thì vẫn giữ MỌI đợt, kể cả đợt rỗng: đó là chuỗi thời gian, khuyết một
+        // mốc mới là sai.
+        KpiPeriod fallback = null;
         for (KpiPeriod p : periods) {
             Map<String, Integer> counts = countByLevel(memberIds, p.getId(), classifier, levels);
             int evaluated = counts.values().stream().mapToInt(Integer::intValue).sum();
             trend.add(TrendPoint.builder().periodName(p.getName()).percents(percents(counts, evaluated, levels)).build());
-            lastCounts = counts; lastEvaluated = evaluated; lastPeriodName = p.getName(); lastPeriodId = p.getId();
-            lastPeriod = p;
+            fallback = p;
+            if (evaluated > 0) {
+                lastCounts = counts; lastEvaluated = evaluated; lastPeriodName = p.getName(); lastPeriodId = p.getId();
+                lastPeriod = p;
+            }
+        }
+        // Không đợt nào có đánh giá: giữ tên đợt cuối để giao diện còn nói được đang xét đợt nào.
+        if (lastPeriod == null && fallback != null) {
+            lastPeriodName = fallback.getName();
+            lastPeriodId = fallback.getId();
+            lastPeriod = fallback;
         }
 
         // Đợt thuộc kỳ nào thì luật riêng của kỳ đó cũng có hiệu lực ở đây — nếu không,

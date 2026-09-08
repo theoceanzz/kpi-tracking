@@ -57,10 +57,15 @@ export default function UnitClassificationSection({ overview, part }: {
   const showUnit = part !== 'children'
   const showChildren = part !== 'unit'
 
+  // Nguồn của các con số: kỳ (số chốt kỳ) hoặc một đợt cụ thể. Phải nói ra, nếu không người xem
+  // tưởng đang nhìn đợt mới nhất trong khi backend đã lùi về đợt gần nhất CÓ đánh giá.
+  const scopeLabel = overview?.cycleName ? `Kỳ ${overview.cycleName}` : overview?.currentPeriodName
+
   if (overview && overview.evaluatedMembers === 0) {
     return (
       <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 text-center text-sm text-slate-400 font-medium">
         Chưa có đánh giá nào để xếp loại đơn vị cho phạm vi/đợt/kỳ đang chọn.
+        {scopeLabel && <span className="block text-xs mt-1 text-slate-400">Đợt đang xét: {scopeLabel}</span>}
       </div>
     )
   }
@@ -69,6 +74,11 @@ export default function UnitClassificationSection({ overview, part }: {
     <div className="space-y-4">
       {showUnit && (
         <>
+        {scopeLabel && (
+          <p className="text-[11px] font-bold text-slate-400">
+            Số liệu của: <span className="text-slate-600 dark:text-slate-300">{scopeLabel}</span>
+          </p>
+        )}
         {/* Badge xếp loại + phân bố */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {/* Badge lớn */}
