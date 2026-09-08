@@ -4,7 +4,7 @@ import { useSummaryStats, useSummaryRankings } from '../hooks/useAnalytics'
 import { cn } from '@/lib/utils'
 import UserAvatar from '@/components/common/UserAvatar'
 import { KpiTreemapLegend } from '../components/KpiTreemapLegend'
-import { groupKpisByPeriod, unitAsTreeNode } from '../lib/kpiTreeGrouping'
+import { groupKpisByPeriod } from '../lib/kpiTreeGrouping'
 import {
   Target, Star, Users, TrendingUp,
   ChevronRight, AlertTriangle, Medal, ArrowUpRight, ArrowDownRight,
@@ -363,6 +363,7 @@ export default function SummaryTab() {
               Không có KPI nào được đặt trọng số trong khoảng thời gian đang lọc
             </div>
           ) : periods.map(period => {
+            // Chỉ để đếm ở tiêu đề; không còn dựng thành khung bọc quanh KPI.
             const units = [...period.units.values()]
             const open = isExpanded(period.key)
             return (
@@ -386,38 +387,15 @@ export default function SummaryTab() {
                 </button>
 
                 {open && (
-                  <div className="p-4 pt-0 space-y-4">
-                    {/* Cây phân cấp đặt TRƯỚC: đây là thứ không nhìn ra được ở bảng. */}
-                    {period.trees.map(tree => (
-                      <div key={tree.id} className="bg-indigo-50/40 dark:bg-indigo-950/20 rounded-xl p-3 border border-indigo-100 dark:border-indigo-900/40">
-                        <div className="mb-2">
-                          <span className="text-xs font-black text-indigo-700 dark:text-indigo-300">
-                            Mục tiêu chia xuống nhiều cấp
-                          </span>
-                        </div>
-                        <HierarchicalTreemap
-                          nodes={[tree]}
-                          height={treemapHeight(tree)}
-                          onSelect={n => { if (n.id) setSelectedKpiId(n.id) }}
-                        />
-                      </div>
-                    ))}
-
-                    {units.length > 0 && (
-                      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                        {units.map(unit => (
-                          <div key={unit.id} className="bg-slate-50/60 dark:bg-slate-800/30 rounded-xl p-3">
-                            {/* Tên đơn vị nằm ở dải tiêu đề của khung ngoài, tổng trọng số và số
-                                KPI đọc được trong tooltip của chính khung đó. */}
-                            <HierarchicalTreemap
-                              nodes={[unitAsTreeNode(unit)]}
-                              height={Math.max(190, Math.min(340, 110 + unit.kpis.length * 26))}
-                              onSelect={n => { if (n.id) setSelectedKpiId(n.id) }}
-                            />
-                          </div>
-                        ))}
-                      </div>
-                    )}
+                  <div className="p-4 pt-0">
+                    {/* MỘT hình cho cả đợt. Cây phân cấp và KPI độc lập nằm ngang hàng nhau, nên
+                        thứ duy nhất bọc quanh một KPI là một KPI khác — không còn thẻ theo cây
+                        hay khung theo đơn vị xen vào giữa. Đơn vị của từng KPI đọc ngay trong ô. */}
+                    <HierarchicalTreemap
+                      nodes={nodesOf(period)}
+                      height={treemapHeight(nodesOf(period))}
+                      onSelect={n => { if (n.id) setSelectedKpiId(n.id) }}
+                    />
                   </div>
                 )}
               </section>
@@ -606,15 +584,22 @@ function depthOf(n: TreeNode): number {
   return kids.length === 0 ? 1 : 1 + Math.max(...kids.map(depthOf))
 }
 
+/** Cây phân cấp và KPI độc lập của một đợt, ngang hàng nhau trong cùng một hình. */
+function nodesOf(period: { trees: TreeNode[]; leaves: TreeNode[] }): TreeNode[] {
+  return [...period.trees, ...period.leaves]
+}
+
 /**
- * Cây càng sâu càng cần cao.
+ * Càng nhiều nút và càng sâu thì càng cần cao.
  *
- * <p>`HierarchicalTreemap` chỉ vẽ được con vào trong khi ô cha còn ít nhất 64×72; dưới ngưỡng đó
- * nó lặng lẽ vẽ ô đặc và NUỐT cả nhánh con. Với cây ba tầng ở chiều cao cố định 280 chuyện này
- * xảy ra thường xuyên, nên cấp thêm chỗ theo độ sâu.
+ * <p>`HierarchicalTreemap` chỉ vẽ được con vào trong khi ô cha còn ít nhất 64×72 pixel; dưới
+ * ngưỡng đó nó lặng lẽ vẽ ô đặc và NUỐT cả nhánh con. Trước đây mỗi cây chiếm trọn một thẻ nên
+ * chỉ cần tính theo độ sâu; giờ một hình chứa cả cây lẫn hàng chục KPI lá, nên số nút cũng phải
+ * góp vào chiều cao — nếu không cây trọng số nhỏ sẽ rơi xuống dưới ngưỡng và mất hết nhánh con.
  */
-function treemapHeight(tree: TreeNode): number {
-  return Math.min(560, 240 + Math.max(depthOf(tree) - 1, 0) * 90)
+function treemapHeight(nodes: TreeNode[]): number {
+  const deepest = nodes.reduce((m, n) => Math.max(m, depthOf(n)), 1)
+  return Math.min(720, 300 + nodes.length * 10 + Math.max(deepest - 1, 0) * 80)
 }
 
 // ── Widget sub-components (unchanged, no date filter) ─────────────────────────

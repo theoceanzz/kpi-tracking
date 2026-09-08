@@ -343,10 +343,14 @@ function CellShape({ cell, hovered, clickable, onEnter, onClick }: {
           >
             {node.relation === 'DELEGATION' ? '↳ ' : ''}{name}
           </text>
-          {rect.h > 30 && node.unitName && (
+          {/* Tên đơn vị dùng CÙNG cách vẽ với tên KPI (viền chữ, không giảm độ đục).
+              Trước đây vẽ ở 72% độ đục nên trên ô lá tô kín màu tiến độ thì chìm hẳn — mà từ khi
+              bỏ khung bọc theo đơn vị, đây là chỗ DUY NHẤT nói KPI này của ai.
+              Ngưỡng 34px: tên KPI có baseline ở y+16, dòng này ở y+29, thấp hơn thì bị cắt ngang. */}
+          {rect.h > 34 && node.unitName && (
             <text
               x={rect.x + 7} y={rect.y + 29}
-              fontSize={UNIT_SIZE} fontWeight={600} fill={headerFg} fillOpacity={0.72}
+              fontSize={UNIT_SIZE} fontWeight={700} {...labelOnFill(headerFg)}
             >
               {fit(node.unitName, UNIT_SIZE)}
             </text>

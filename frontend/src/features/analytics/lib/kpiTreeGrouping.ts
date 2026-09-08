@@ -13,22 +13,26 @@ export interface PeriodGroup {
   startMs: number
   /** Các cây phân cấp — gốc có ít nhất một con nằm trong tập đang xem. */
   trees: TreeNode[]
-  /** KPI độc lập, gom theo đơn vị sở hữu. */
+  /**
+   * KPI độc lập, gom theo đơn vị sở hữu.
+   *
+   * <p>Chỉ còn dùng để ĐẾM ở tiêu đề đợt. Không dựng thành khung bọc quanh KPI nữa: hình chỉ
+   * được phép có KPI lồng KPI, mọi hộp khác đều là tầng thừa che mất cấu trúc thật.
+   */
   units: Map<string, UnitGroup>
+  /** Chính những KPI độc lập đó, để phẳng — nằm ngang hàng với `trees` trong cùng một treemap. */
+  leaves: TreeNode[]
   kpiCount: number
 }
 
 /**
  * Một dòng KPI → một nút treemap, mang theo ĐỦ thông tin nhận diện loại.
  *
- * <p>Bản trước chỉ chuyển id/tên/trọng số/tiến độ/đơn vị/quan hệ, nên biểu đồ không có cách nào
- * vẽ ra KPI thưởng, định tính, chung hay thay thế dù dữ liệu nằm sẵn trong tay.
+ * <p>Đệ quy theo `k.children` — chính cái cây mà API đã lồng sẵn. Xem `groupKpisByPeriod` để
+ * biết vì sao không dựng cây bằng cách nối `parentId` giữa các dòng.
  */
-export function toTreeNode(
-  k: OrgUnitKpiDetail,
-  kids: OrgUnitKpiDetail[],
-  childrenOf: Map<string, OrgUnitKpiDetail[]>,
-): TreeNode {
+export function toTreeNode(k: OrgUnitKpiDetail): TreeNode {
+  const kids = k.children ?? []
   return {
     id: k.kpiId,
     name: k.kpiName,
@@ -46,20 +50,21 @@ export function toTreeNode(
     actualValue: k.actualValue,
     unit: k.unit,
     periodName: k.periodName ?? null,
-    children: kids.length
-      ? kids.map(c => toTreeNode(c, childrenOf.get(c.kpiId) ?? [], childrenOf))
-      : undefined,
+    children: kids.length ? kids.map(toTreeNode) : undefined,
   }
 }
 
 /**
- * Gom KPI theo đợt, rồi trong mỗi đợt tách thành cây phân cấp và KPI độc lập theo đơn vị.
+ * Gom KPI theo đợt, rồi trong mỗi đợt tách thành cây phân cấp và KPI độc lập.
  *
- * <p>Khoá theo đợt là BẮT BUỘC dù nơi gọi có hiện đợt ra hay không: quan hệ cha-con luôn nằm gọn
- * trong một đợt, dựng cây xuyên đợt sẽ nối KPI tháng 6 vào cha tháng 5.
+ * <p>Cây dựng từ `children` mà API trả về, KHÔNG phải bằng cách nối `parentId` giữa các dòng.
+ * Endpoint `/stats/org-unit/kpis/details` chỉ liệt kê KPI cấp cao nhất — nó lọc `parent == null`
+ * rồi lồng con vào trường `children`. Nên mọi dòng trả về đều có `parentId` rỗng, và bản trước
+ * quét `parentId` giữa các dòng anh em thì không bao giờ khớp: `trees` luôn rỗng và phần lồng
+ * nhau chưa từng hiển thị, dù dữ liệu có sẵn cả cây ba tầng.
  *
- * <p>Cha không nằm trong tập đang xem thì con được coi như gốc — nếu không, KPI đó biến mất khỏi
- * hình mà không ai biết.
+ * <p>Vẫn khoá theo đợt vì tiêu đề accordion đếm theo đợt; bản thân cây thì không cần — con luôn
+ * cùng đợt với cha, do chính API dựng.
  */
 export function groupKpisByPeriod(rows: OrgUnitKpiDetail[]): PeriodGroup[] {
   const byPeriod = new Map<string, OrgUnitKpiDetail[]>()
@@ -71,22 +76,11 @@ export function groupKpisByPeriod(rows: OrgUnitKpiDetail[]): PeriodGroup[] {
 
   return [...byPeriod.entries()]
     .map(([key, periodRows]) => {
-      const ids = new Set(periodRows.map(r => r.kpiId))
-      const childrenOf = new Map<string, OrgUnitKpiDetail[]>()
-      periodRows.forEach(r => {
-        if (r.parentId && ids.has(r.parentId)) {
-          if (!childrenOf.has(r.parentId)) childrenOf.set(r.parentId, [])
-          childrenOf.get(r.parentId)!.push(r)
-        }
-      })
-      const roots = periodRows.filter(r => !r.parentId || !ids.has(r.parentId))
-
       const trees: TreeNode[] = []
       const units = new Map<string, UnitGroup>()
-      roots.forEach(r => {
-        const kids = childrenOf.get(r.kpiId) ?? []
-        if (kids.length > 0) {
-          trees.push(toTreeNode(r, kids, childrenOf))
+      periodRows.forEach(r => {
+        if (r.children?.length) {
+          trees.push(toTreeNode(r))
         } else {
           const uKey = r.orgUnitId ?? r.orgUnitName
           if (!units.has(uKey)) units.set(uKey, { id: uKey, name: r.orgUnitName, kpis: [] })
@@ -100,22 +94,9 @@ export function groupKpisByPeriod(rows: OrgUnitKpiDetail[]): PeriodGroup[] {
         startMs: periodRows[0]?.periodStart ? new Date(periodRows[0].periodStart!).getTime() : 0,
         trees,
         units,
+        leaves: [...units.values()].flatMap(u => u.kpis.map(toTreeNode)),
         kpiCount: periodRows.length,
       }
     })
     .sort((a, b) => b.startMs - a.startMs)
-}
-
-/**
- * Bọc các KPI độc lập của một đơn vị vào một nút tổng hợp mang tên đơn vị.
- *
- * <p>`id` để trống là có chủ ý: nút này KHÔNG phải một KPI nên không được bấm mở chi tiết. Nhờ nó
- * mà khung ngoài có nhãn — đúng dáng sơ đồ phân cấp — thay vì một mảng ô rời không rõ thuộc về ai.
- */
-export function unitAsTreeNode(unit: UnitGroup): TreeNode {
-  return {
-    name: unit.name,
-    value: 0, // diện tích lấy tổng con, xem `nodeValue`
-    children: unit.kpis.map(k => toTreeNode(k, [], new Map())),
-  }
 }
