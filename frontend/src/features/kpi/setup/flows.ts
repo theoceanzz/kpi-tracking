@@ -24,6 +24,11 @@ export interface SetupStep {
   stage?: WorkflowStageCode
   /** Có quyền nào trong này thì BỎ bước — dùng cho "được duyệt luôn thì khỏi chờ duyệt". */
   skipWhenHasAny?: string[]
+  /**
+   * Ngược với `skipWhenHasAny`: chỉ GIỮ bước khi có một trong các quyền này.
+   * Dùng để một luồng nuốt thêm bước của luồng khác khi hai luồng đã liền mạch.
+   */
+  onlyWhenHasAny?: string[]
 }
 
 export interface SetupFlow {
@@ -34,6 +39,12 @@ export interface SetupFlow {
   requiresAny: string[]
   /** Bộ đếm hiện trên thẻ chọn luồng, để biết ngay có việc đang chờ mình hay không. */
   counter?: keyof NotificationCounts
+  /** Ẩn hẳn luồng khi có một trong các quyền này — dùng khi nó đã được gộp vào luồng khác. */
+  hiddenWhenHasAny?: string[]
+  /** Có quyền trong này thì luồng đã nuốt thêm bước, nên đổi sang nhãn dưới đây. */
+  mergedWhenHasAny?: string[]
+  mergedLabel?: string
+  mergedDescription?: string
   steps: SetupStep[]
 }
 
@@ -86,6 +97,11 @@ export const SETUP_FLOWS: SetupFlow[] = [
     label: 'Giao chỉ tiêu',
     description: 'Soạn chỉ tiêu cho đợt rồi gửi đi duyệt',
     requiresAny: ['KPI:CREATE'],
+    // Có quyền tự duyệt thì chỉ tiêu vừa tạo đã có hiệu lực ngay, không có khoảng chờ nào ngăn
+    // cách với việc nộp báo cáo — nên hai luồng nhập làm một mạch thay vì bắt quay ra chọn lại.
+    mergedWhenHasAny: ['KPI:APPROVE_OWN'],
+    mergedLabel: 'Giao chỉ tiêu & nộp báo cáo',
+    mergedDescription: 'Chỉ tiêu bạn tạo có hiệu lực ngay, nên nộp báo cáo được luôn trong cùng một mạch',
     steps: [
       {
         id: 'period',
@@ -122,6 +138,31 @@ export const SETUP_FLOWS: SetupFlow[] = [
         ctaLabel: 'Xem trạng thái chỉ tiêu',
         stage: 'CRITERIA_APPROVAL',
         skipWhenHasAny: ['KPI:APPROVE_OWN'],
+      },
+
+      // Hai bước dưới đây vốn thuộc luồng Nộp báo cáo. Chúng chỉ xuất hiện ở đây khi người dùng
+      // có quyền tự duyệt — lúc đó luồng Nộp báo cáo tự ẩn đi để không bày ra hai lối vào cho
+      // cùng một việc.
+      {
+        id: 'my-kpi',
+        label: 'KPI của tôi',
+        hint: 'Chỉ tiêu vừa tạo đã có hiệu lực — nộp báo cáo được ngay',
+        kind: 'action',
+        route: '/my-kpi',
+        ctaLabel: 'Mở KPI của tôi',
+        counter: 'myPendingTasks',
+        stage: 'SUBMISSION',
+        onlyWhenHasAny: ['KPI:APPROVE_OWN'],
+      },
+      {
+        id: 'self-eval',
+        label: 'Tự đánh giá',
+        hint: 'Chấm điểm cho chính mình khi đã nộp xong cả đợt',
+        kind: 'action',
+        route: '/evaluations',
+        ctaLabel: 'Mở trang đánh giá',
+        stage: 'SELF_EVALUATION',
+        onlyWhenHasAny: ['KPI:APPROVE_OWN'],
       },
     ],
   },
@@ -164,6 +205,9 @@ export const SETUP_FLOWS: SetupFlow[] = [
     description: 'Báo cáo kết quả cho từng chỉ tiêu rồi tự đánh giá',
     requiresAny: ['SUBMISSION:CREATE', 'KPI:VIEW_MY'],
     counter: 'myPendingTasks',
+    // Đã nằm gọn trong luồng Giao chỉ tiêu với người có quyền tự duyệt — bày thêm thẻ riêng ở đây
+    // là hai lối vào cho cùng một việc.
+    hiddenWhenHasAny: ['KPI:APPROVE_OWN'],
     steps: [
       {
         id: 'my-kpi',

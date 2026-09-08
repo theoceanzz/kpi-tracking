@@ -30,6 +30,7 @@ export function useKpiSetupFlow() {
         if (step.stage && !isEnabled(step.stage)) return false
         if (step.requires && !step.requires.some(p => hasPermission(p))) return false
         if (step.skipWhenHasAny?.some(p => hasPermission(p))) return false
+        if (step.onlyWhenHasAny && !step.onlyWhenHasAny.some(p => hasPermission(p))) return false
         return true
       }),
     [isEnabled, hasPermission],
@@ -39,7 +40,18 @@ export function useKpiSetupFlow() {
   const flows = useMemo(
     () =>
       SETUP_FLOWS.filter(f => f.requiresAny.some(p => hasPermission(p)))
-        .map(f => ({ ...f, steps: resolveSteps(f) }))
+        // Luồng đã được gộp vào luồng khác thì không hiện thẻ riêng nữa.
+        .filter(f => !f.hiddenWhenHasAny?.some(p => hasPermission(p)))
+        .map(f => {
+          // Luồng nuốt thêm bước thì nhãn cũ không còn mô tả đúng việc nó làm.
+          const merged = f.mergedWhenHasAny?.some(p => hasPermission(p))
+          return {
+            ...f,
+            label: merged && f.mergedLabel ? f.mergedLabel : f.label,
+            description: merged && f.mergedDescription ? f.mergedDescription : f.description,
+            steps: resolveSteps(f),
+          }
+        })
         .filter(f => f.steps.length > 0),
     [hasPermission, resolveSteps],
   )

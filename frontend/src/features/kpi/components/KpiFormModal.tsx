@@ -55,6 +55,19 @@ interface KpiFormModalProps {
    * kèm "còn thiếu 100%" mà không nói của ai — đọc lên không hiểu đang nói về cái gì.
    */
   onContextChange?: (ctx: { kpiPeriodId?: string; orgUnitIds: string[] }) => void
+  /**
+   * Khoá đợt: form dùng luôn giá trị này và hiện một thẻ chỉ-đọc thay cho ô chọn.
+   *
+   * Trong trình thiết lập, đợt đã được chọn ở bước ngay trước. Bày thêm một ô chọn nữa vừa thừa
+   * vừa mời gọi mâu thuẫn với thẻ "Đang lập cho" bên phải.
+   */
+  lockedPeriodId?: string
+  /** Đơn vị tích sẵn khi mở form — thường là đơn vị người dùng đang trực thuộc. */
+  defaultOrgUnitIds?: string[]
+  /** Thu ô chọn đơn vị thành một dòng gọn, bung ra khi bấm "Đổi". */
+  compactOrgUnits?: boolean
+  /** Bấm một đơn vị là THAY lựa chọn cũ, không cộng dồn — hành vi nút radio. */
+  singleOrgUnit?: boolean
 }
 
 const frequencyOptions = (['DAILY', 'WEEKLY', 'MONTHLY', 'QUARTERLY', 'SEMI_ANNUALLY', 'YEARLY', 'UNLIMITED'] as const).map(value => ({
@@ -79,6 +92,7 @@ function toDatetimeLocal(value?: string | null): string | undefined {
 export default function KpiFormModal({
   open, onClose, editKpi, parentKpi, parentRelationType,
   variant = 'modal', onCreated, keepOpenAfterCreate = false, submitLabel, onContextChange,
+  lockedPeriodId, defaultOrgUnitIds, compactOrgUnits = false, singleOrgUnit = false,
 }: KpiFormModalProps) {
   const isInline = variant === 'inline'
   const isEdit = !!editKpi
@@ -130,10 +144,21 @@ export default function KpiFormModal({
 
   const flatOrgUnits = useMemo(() => {
     if (!orgUnitTreeData) return []
-    const all = flattenTree(orgUnitTreeData)
-    // Filter out root nodes (nodes without parentId are usually the organization root)
-    return all.filter(u => u.parentId !== null)
+    // Giữ CẢ nút gốc. Trước đây lọc `parentId !== null` với lý do "gốc thường là tổ chức", nhưng
+    // backend không luôn trả cây toàn tổ chức: `OrgUnitService.getOrgUnitTree` cắt theo quyền —
+    // ai chỉ có ORG:VIEW_TREE thì nhận về đơn vị CỦA CHÍNH HỌ làm gốc kèm cấp dưới. Lọc gốc đi
+    // nghĩa là trưởng đơn vị không bao giờ giao được KPI cho đơn vị mình, và nếu đơn vị đó lỡ
+    // được chọn sẵn thì nó thành một lựa chọn vô hình không gỡ ra được.
+    //
+    // `flattenTree` đánh cấp bằng số gạch đầu dòng nên gốc tự phân biệt: nó không có gạch nào.
+    return flattenTree(orgUnitTreeData)
   }, [orgUnitTreeData])
+
+  /** Phần `defaultOrgUnitIds` thật sự chọn được — xem ghi chú ở chỗ dùng trong effect khởi tạo. */
+  const selectableDefaultUnitIds = useMemo(
+    () => (defaultOrgUnitIds ?? []).filter(id => flatOrgUnits.some(u => u.id === id)),
+    [defaultOrgUnitIds, flatOrgUnits],
+  )
 
   const { register, handleSubmit, formState: { errors }, reset, watch, setValue, control, getValues } = useForm<KpiFormData>({
     resolver: zodResolver(kpiSchema),
@@ -150,12 +175,12 @@ export default function KpiFormModal({
       unit: '',
       frequency: 'MONTHLY',
       assignedToIds: [],
-      kpiPeriodId: '',
+      kpiPeriodId: lockedPeriodId ?? '',
       keyResultId: null,
       parentId: null,
       parentRelationType: null,
       perspectiveId: null,
-      orgUnitIds: [],
+      orgUnitIds: selectableDefaultUnitIds,
       orgUnitId: '',
     },
   })
@@ -164,6 +189,8 @@ export default function KpiFormModal({
   const periodHasScorecard = scorecardsForPeriod(bscScorecards, formKpiPeriodId).length > 0
   const formOrgUnitIds = watch('orgUnitIds') || []
   const [selectedRole, setSelectedRole] = useState<string>('ALL')
+  /** Chỉ dùng ở chế độ thu gọn: danh sách đơn vị đang bung ra hay không. */
+  const [orgUnitsExpanded, setOrgUnitsExpanded] = useState(false)
 
   // Đẩy bối cảnh đang chọn ra ngoài. Nối chuỗi id để so sánh: `watch('orgUnitIds')` trả về mảng
   // MỚI mỗi lần render, đưa thẳng vào deps thì effect chạy vô hạn.
@@ -253,17 +280,26 @@ export default function KpiFormModal({
         deadline: undefined,
         unit: parentKpi?.unit ?? '',
         frequency: 'MONTHLY',
-        kpiPeriodId: parentKpi?.kpiPeriodId ?? '',
+        // Prop đứng TRƯỚC mọi mặc định khác: effect này chạy ngay khi form mở và ghi đè lên
+        // `defaultValues`, nên nếu không ưu tiên ở đây thì đợt/đơn vị mà trình thiết lập truyền
+        // vào sẽ bị xoá — form hiện đúng tên đợt (đọc từ prop) nhưng zod vẫn báo thiếu vì
+        // form state rỗng.
+        kpiPeriodId: lockedPeriodId ?? parentKpi?.kpiPeriodId ?? '',
         keyResultId: null,
         parentId: parentKpi?.id ?? null,
         parentRelationType: effectiveRelationType,
         perspectiveId: parentKpi?.perspectiveId ?? null,
-        orgUnitIds: canAssignRoles ? [] : (defaultOrgUnitId ? [defaultOrgUnitId] : []),
+        // Chỉ nhận đơn vị THẬT SỰ có trong danh sách. Chọn sẵn một đơn vị không hiện ra được sẽ
+        // tạo lựa chọn vô hình mà người dùng không gỡ nổi — đúng lớp lỗi vừa gặp khi nút gốc còn
+        // bị lọc đi. Lọc rỗng thì lui về mặc định cũ.
+        orgUnitIds: selectableDefaultUnitIds.length > 0
+          ? selectableDefaultUnitIds
+          : (canAssignRoles ? [] : (defaultOrgUnitId ? [defaultOrgUnitId] : [])),
         orgUnitId: parentKpi?.orgUnitId ?? defaultOrgUnitId,
         assignedToIds: isDecomposition ? (parentKpi?.assigneeIds ?? []) : (isStaff ? ([user?.id].filter(Boolean) as string[]) : [])
       })
     }
-  }, [open, reset, editKpi, flatOrgUnits, canManageOrg, parentKpi, parentRelationType, isStaff, user])
+  }, [open, reset, editKpi, flatOrgUnits, canManageOrg, parentKpi, parentRelationType, isStaff, user, lockedPeriodId, selectableDefaultUnitIds, canAssignRoles])
 
   const selectedAssignees = watch('assignedToIds') || []
 
@@ -306,7 +342,27 @@ export default function KpiFormModal({
     onSuccess: (created) => {
       qc.invalidateQueries({ queryKey: ['kpi-criteria'] })
       toast.success('Tạo chỉ tiêu thành công')
-      reset()
+      // Giữ lại BỐI CẢNH, dọn phần còn lại. `reset()` trần đưa form về defaultValues rỗng, nên ở
+      // chế độ thêm liên tục người dùng phải chọn lại đợt, đơn vị và tần suất cho TỪNG chỉ tiêu —
+      // đúng thao tác mà trình thiết lập sinh ra để xoá bỏ.
+      //
+      // Không giữ người thực hiện: đó là trường thay đổi nhiều nhất giữa các chỉ tiêu, giữ lại sẽ
+      // âm thầm giao nhầm người.
+      reset({
+        ...getValues(),
+        name: '',
+        description: '',
+        weight: undefined,
+        targetValue: undefined,
+        minimumValue: undefined,
+        unit: '',
+        deadline: undefined,
+        isReverseKpi: false,
+        isBonusKpi: false,
+        assignedToIds: [],
+        keyResultId: null,
+        perspectiveId: null,
+      })
       setAiSuggestions([])
       onCreated?.(created)
       // Ở chế độ thêm liên tục thì giữ form mở để nhập tiếp cái sau — đóng lại rồi bắt mở lại
@@ -314,7 +370,6 @@ export default function KpiFormModal({
       if (!keepOpenAfterCreate) onClose()
       setAppliedIdx(null)
       setBeforeApply(null)
-      onClose()
     },
     onError: (err: any) => {
       const msg = err?.response?.data?.message || 'Tạo chỉ tiêu thất bại'
@@ -648,10 +703,12 @@ export default function KpiFormModal({
       ...(showTypeTabs ? ['kpiType'] : []),
       ...(isQualitative ? [] : ['targetValue', 'minimumValue', 'unit', 'isReverseKpi']),
       ...(parentKpi ? [] : ['isBonusKpi']),
-      ...(isPendingApproval ? [] : ['kpiPeriodId', 'frequency', 'deadline', 'assignedToIds']),
+      // Đợt bị khoá thì ô đó không còn được vẽ nữa — để lại trong danh sách này là mời trợ lý
+      // điền vào một ô không tồn tại.
+      ...(isPendingApproval ? [] : [...(lockedPeriodId ? [] : ['kpiPeriodId']), 'frequency', 'deadline', 'assignedToIds']),
       ...(!isPendingApproval && flatOrgUnits.length > 0 ? ['orgUnitIds'] : []),
     ]
-  }, [showTypeTabs, isQualitative, parentKpi, isPendingApproval, flatOrgUnits.length])
+  }, [showTypeTabs, isQualitative, parentKpi, isPendingApproval, flatOrgUnits.length, lockedPeriodId])
 
   const onSubmit = (data: KpiFormData) => {
     const payload = { ...data }
@@ -704,17 +761,22 @@ export default function KpiFormModal({
   }
 
   const toggleOrgUnit = (orgId: string) => {
+    // Chế độ một đơn vị: luôn THAY, kể cả khi bấm vào đơn vị đang chọn. Cho bỏ chọn về rỗng sẽ
+    // đẩy người dùng vào trạng thái không đơn vị nào — thẻ trọng số bên phải mất chỗ bám và nút
+    // Tiếp tục tắt mà không rõ vì sao.
+    //
+    // Cố ý KHÔNG gộp với `enableOkr` bên dưới: chế độ OKR cũng chỉ giữ một đơn vị nhưng vẫn cho
+    // bỏ chọn về rỗng, và đó là hành vi có sẵn của nó.
+    if (singleOrgUnit) {
+      setValue('orgUnitIds', [orgId])
+      return
+    }
+
     let current = [...formOrgUnitIds]
     const index = current.indexOf(orgId)
-    if (index > -1) {
-      current.splice(index, 1)
-    } else {
-      if (enableOkr) {
-        current = [orgId]
-      } else {
-        current.push(orgId)
-      }
-    }
+    if (index > -1) current.splice(index, 1)
+    else if (enableOkr) current = [orgId]
+    else current.push(orgId)
     setValue('orgUnitIds', current)
   }
 
@@ -729,13 +791,13 @@ export default function KpiFormModal({
           // Trong modal thì xếp dọc như cũ (bề ngang chỉ 512px). Nhúng vào trình thiết lập thì có
           // cả trang để dùng, nên dàn hai cột: form này có mười khối, xếp dọc hết thì người dùng
           // phải cuộn qua ba màn hình mới tới được nút thêm.
-          className={isInline ? 'grid gap-5 xl:grid-cols-2 xl:items-start' : 'space-y-5'}
+          // Luôn là flex dọc; phần chia hai cột nằm bên trong. Dùng grid hai cột ở cấp form thì
+          // mỗi hàng bị ép cùng chiều cao — bung danh sách đơn vị bên phải là đẩy luôn nội dung
+          // cột trái xuống, để lại một khoảng trống lớn.
+          className="flex flex-col gap-5"
         >
           {showTypeTabs && (
-            <div className={cn(
-              'grid grid-cols-2 gap-2 p-1 rounded-2xl bg-[var(--color-accent)]/30 border border-[var(--color-border)]/40',
-              isInline && 'xl:col-span-2',
-            )}>
+            <div className="grid grid-cols-2 gap-2 p-1 rounded-2xl bg-[var(--color-accent)]/30 border border-[var(--color-border)]/40">
               <button
                 type="button"
                 onClick={() => setValue('kpiType', 'QUANTITATIVE')}
@@ -760,17 +822,14 @@ export default function KpiFormModal({
           )}
 
           {isEdit && isQualitative && (
-            <div className={cn(
-              'flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-900/30 text-emerald-700 dark:text-emerald-400 text-[11px] font-bold',
-              isInline && 'xl:col-span-2',
-            )}>
+            <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-900/30 text-emerald-700 dark:text-emerald-400 text-[11px] font-bold">
               <SlidersHorizontal size={14} /> KPI Định tính — chấm điểm theo thang định tính khi duyệt
             </div>
           )}
 
           {/* Tên + mô tả trải hết bề ngang: đây là ô người dùng gõ nhiều nhất, bó hẹp một nửa
               khiến tên chỉ tiêu dài bị cắt ngay lúc nhập. */}
-          <div className={cn('space-y-4', isInline && 'xl:col-span-2')}>
+          <div className="space-y-4">
             <div>
               <div className="flex items-center justify-between mb-1.5">
                 <label className="block text-sm font-bold text-[var(--color-foreground)]">Tên chỉ tiêu <span className="text-red-500">*</span></label>
@@ -909,6 +968,8 @@ export default function KpiFormModal({
               />
             </div>
           </div>
+          <div className={isInline ? "flex flex-col gap-5 xl:flex-row xl:items-start" : "contents"}>
+          <div className={isInline ? "flex-1 min-w-0 flex flex-col gap-5" : "contents"}>
 
           <div className="bg-[var(--color-accent)]/10 rounded-2xl p-4 border border-[var(--color-border)]/30 space-y-4">
               {!isQualitative && (
@@ -1086,7 +1147,71 @@ export default function KpiFormModal({
                 />
               )}
           </div>
+          {!isPendingApproval && (
+          <div className="grid grid-cols-2 gap-4">
+            {/* Đợt bị khoá thì bỏ hẳn ô này: bước trước của trình thiết lập đã chọn, và thẻ
+                "Đang lập cho" bên phải đã hiện tên đợt. Bày thêm một ô nữa chỉ làm rối. */}
+            {!lockedPeriodId && (
+              <div>
+                <label className="block text-sm font-bold mb-1.5">Đợt đánh giá <span className="text-red-500">*</span></label>
+                <Controller name="kpiPeriodId" control={control}
+                  render={({ field }) => (
+                    <Select value={field.value || ''} onValueChange={field.onChange}>
+                      <SelectTrigger className={cn(inputCls, 'h-auto', errors.kpiPeriodId && 'ring-2 ring-red-500')}>
+                        <SelectValue placeholder="Chọn đợt..." />
+                      </SelectTrigger>
+                      <SelectContent className="z-[300]">
+                        {periodsData?.content.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
+                {errors.kpiPeriodId && <p className="text-red-500 text-[10px] mt-1 font-bold">{errors.kpiPeriodId.message}</p>}
+              </div>
+            )}
+            <div>
+              <label className="block text-sm font-bold mb-1.5">Tần suất chốt <span className="text-red-500">*</span></label>
+              <Controller name="frequency" control={control}
+                render={({ field }) => (
+                  <Select value={field.value || ''} onValueChange={field.onChange}>
+                    <SelectTrigger className={cn(inputCls, 'h-auto')}>
+                      <SelectValue placeholder="Chọn tần suất..." />
+                    </SelectTrigger>
+                    <SelectContent className="z-[300]">
+                      {filteredFrequencyOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+            </div>
+            <div className="col-span-2">
+              <label className="block text-sm font-bold mb-1.5">Hạn chót</label>
+              <Controller name="deadline" control={control}
+                render={({ field }) => (
+                  <DateTimePicker
+                    value={field.value || ''}
+                    onChange={field.onChange}
+                    placeholder="Chưa chọn (mặc định theo đợt)"
+                    className={cn(!selectedPeriod && 'opacity-50 pointer-events-none')}
+                  />
+                )}
+              />
+              {selectedPeriod && (
+                <p className="text-[10px] text-[var(--color-muted-foreground)] mt-1">
+                  Để trống = mặc định theo ngày kết thúc đợt ({formatDateTime(selectedPeriod.endDate)})
+                </p>
+              )}
+            </div>
+          </div>
+          )}
+          </div>
 
+          <div className={isInline ? "flex-1 min-w-0 flex flex-col gap-5" : "contents"}>
+
+          {/* Đơn vị và Thành viên gộp thành MỘT ô lưới: chọn đơn vị xong là danh sách nhân sự
+              nằm ngay dưới. Để rời ra, lưới hai cột đẩy chúng nằm chéo nhau trên màn hình dù
+              về nghiệp vụ cái sau phụ thuộc hoàn toàn vào cái trước. */}
+          <div className="space-y-4">
           {!isPendingApproval && flatOrgUnits.length > 0  && (
             <div className="space-y-2">
                 <div className="flex items-center justify-between">
@@ -1101,11 +1226,41 @@ export default function KpiFormModal({
                         </p>
                       )}
                     </div>
-                    <span className="text-[10px] font-black bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 px-2 py-0.5 rounded-full uppercase">
-                        {formOrgUnitIds.length} đã chọn
-                    </span>
+                    {/* Ở chế độ thu gọn, nút này vừa là nhãn tóm tắt vừa là lối bung danh sách ra. */}
+                    {compactOrgUnits ? (
+                      <button
+                        type="button"
+                        onClick={() => setOrgUnitsExpanded(v => !v)}
+                        className="text-[10px] font-black uppercase tracking-wider text-indigo-600 hover:underline dark:text-indigo-400"
+                      >
+                        {orgUnitsExpanded ? 'Xong' : 'Đổi'}
+                      </button>
+                    ) : (
+                      <span className="text-[10px] font-black bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 px-2 py-0.5 rounded-full uppercase">
+                          {formOrgUnitIds.length} đã chọn
+                      </span>
+                    )}
                 </div>
-                <div className="border border-[var(--color-border)] rounded-xl bg-[var(--color-background)] shadow-inner">
+
+                {/* Thu gọn: một dòng nói rõ đang giao cho đâu, thay cho danh sách cuộn cao 144px
+                    mà lần nào cũng phải tự đi tích dù gần như luôn là đơn vị của chính mình. */}
+                {compactOrgUnits && !orgUnitsExpanded && (
+                  <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-accent)]/20 text-sm font-bold">
+                    <LayoutGrid size={13} className="shrink-0 text-[var(--color-muted-foreground)]" />
+                    <span className="truncate">
+                      {formOrgUnitIds.length === 0
+                        ? 'Chưa chọn đơn vị'
+                        : formOrgUnitIds.length === 1
+                          ? (flatOrgUnits.find(u => u.id === formOrgUnitIds[0])?.name ?? '1 đơn vị')
+                          : `${formOrgUnitIds.length} đơn vị`}
+                    </span>
+                  </div>
+                )}
+
+                <div className={cn(
+                  'border border-[var(--color-border)] rounded-xl bg-[var(--color-background)] shadow-inner',
+                  compactOrgUnits && !orgUnitsExpanded && 'hidden',
+                )}>
                     <div className="max-h-36 overflow-y-auto p-2 space-y-1 custom-scrollbar">
                         {flatOrgUnits.map(unit => (
                             <div 
@@ -1259,60 +1414,8 @@ export default function KpiFormModal({
                 </div>
             )}
           </div>)}
-
-          {!isPendingApproval && (
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-bold mb-1.5">Đợt đánh giá <span className="text-red-500">*</span></label>
-              <Controller name="kpiPeriodId" control={control}
-                render={({ field }) => (
-                  <Select value={field.value || ''} onValueChange={field.onChange}>
-                    <SelectTrigger className={cn(inputCls, 'h-auto', errors.kpiPeriodId && 'ring-2 ring-red-500')}>
-                      <SelectValue placeholder="Chọn đợt..." />
-                    </SelectTrigger>
-                    <SelectContent className="z-[300]">
-                      {periodsData?.content.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-              {errors.kpiPeriodId && <p className="text-red-500 text-[10px] mt-1 font-bold">{errors.kpiPeriodId.message}</p>}
-            </div>
-            <div>
-              <label className="block text-sm font-bold mb-1.5">Tần suất chốt <span className="text-red-500">*</span></label>
-              <Controller name="frequency" control={control}
-                render={({ field }) => (
-                  <Select value={field.value || ''} onValueChange={field.onChange}>
-                    <SelectTrigger className={cn(inputCls, 'h-auto')}>
-                      <SelectValue placeholder="Chọn tần suất..." />
-                    </SelectTrigger>
-                    <SelectContent className="z-[300]">
-                      {filteredFrequencyOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-            </div>
-            <div className="col-span-2">
-              <label className="block text-sm font-bold mb-1.5">Hạn chót</label>
-              <Controller name="deadline" control={control}
-                render={({ field }) => (
-                  <DateTimePicker
-                    value={field.value || ''}
-                    onChange={field.onChange}
-                    placeholder="Chưa chọn (mặc định theo đợt)"
-                    className={cn(!selectedPeriod && 'opacity-50 pointer-events-none')}
-                  />
-                )}
-              />
-              {selectedPeriod && (
-                <p className="text-[10px] text-[var(--color-muted-foreground)] mt-1">
-                  Để trống = mặc định theo ngày kết thúc đợt ({formatDateTime(selectedPeriod.endDate)})
-                </p>
-              )}
-            </div>
           </div>
-          )}
+
 
           {!isPendingApproval && enableOkr && (
             <div className="bg-indigo-50/50 dark:bg-indigo-900/5 p-4 rounded-2xl border border-indigo-100 dark:border-indigo-900/50 space-y-3">
@@ -1450,11 +1553,10 @@ export default function KpiFormModal({
               </div>
             </div>
           )}
+          </div>
+          </div>
 
-          <div className={cn(
-            'flex gap-4 pt-6 border-t border-[var(--color-border)]/50',
-            isInline && 'xl:col-span-2',
-          )}>
+          <div className="flex gap-4 pt-6 border-t border-[var(--color-border)]/50">
             {!isInline && (
               <button type="button" onClick={onClose} className="flex-1 px-4 py-3 rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-[var(--color-accent)] transition-all">Hủy</button>
             )}

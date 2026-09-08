@@ -24,6 +24,8 @@ const statusMap: Record<string, { variant: Variant; label: string }> = {
   OVERDUE: { variant: 'error', label: 'Quá hạn' },
   NOT_STARTED: { variant: 'default', label: 'Chưa nộp' },
   EDIT: { variant: 'warning', label: 'Đang yêu cầu chỉnh sửa' },
+  EDITED: { variant: 'info', label: 'Đã chỉnh sửa' },
+  REPLACED: { variant: 'default', label: 'Đã thay thế' },
 }
 
 interface StatusBadgeProps {
