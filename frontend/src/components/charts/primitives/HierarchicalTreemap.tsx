@@ -450,12 +450,16 @@ function NodeTooltip({ node, x, y, clickable }: {
       )}
       <div className="space-y-1 text-sm">
         <Row label="Trọng số" value={String(Math.round(value * 10) / 10)} />
-        {node.achievement != null && (
+        {node.achievement != null ? (
           <Row
             label="Tiến độ"
             value={`${Math.round(node.achievement)}%`}
             color={achievementSurface(node.achievement)}
           />
+        ) : (
+          // Ô xám. Trước đây bỏ trống hẳn dòng này nên không có chỗ nào giải thích vì sao ô không
+          // mang màu tiến độ nào.
+          <Row label="Tiến độ" value="Chưa có kết quả" color={achievementSurface(null)} />
         )}
         {/* Số liệu thô: bảng chi tiết từng là chỗ duy nhất xem được, giờ nằm ở đây. */}
         {node.targetValue != null && (

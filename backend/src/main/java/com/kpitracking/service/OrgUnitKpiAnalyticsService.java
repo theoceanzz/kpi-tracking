@@ -33,6 +33,7 @@ public class OrgUnitKpiAnalyticsService {
     private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
     private final PermissionChecker permissionChecker;
     private final EvaluationService evaluationService;
+    private final KpiCriteriaService kpiCriteriaService;
 
     /** ID MỌI nhân sự trong phạm vi (subtree) — để tính hiệu suất đánh giá cấp đơn vị (khớp thẻ Ma trận). */
     private java.util.Set<UUID> memberIdsInScope(UUID orgUnitId) {
@@ -263,6 +264,52 @@ public class OrgUnitKpiAnalyticsService {
         for (KpiCriteria old : kpiCriteriaRepository.findPredecessorsOf(ids)) {
             // Chuỗi thay thế nhiều đời: giữ bản gần nhất, đó là thứ người dùng vừa thấy biến mất.
             out.putIfAbsent(old.getReplacedBy().getId(), old);
+        }
+        return out;
+    }
+
+    /**
+     * Ngân sách trọng số theo (đơn vị, đợt): con số đem so với mốc 100%.
+     *
+     * <p>Gọi thẳng {@code KpiCriteriaService.calculateTotalWeightByOrgUnit} chứ KHÔNG tự cộng lại.
+     * Đây là cùng một con số mà bước gửi duyệt đem ra chặn, nên hai nơi mà lệch thì người dùng
+     * thấy biểu đồ báo "đủ" rồi bị hệ thống từ chối — hoặc ngược lại.
+     *
+     * <p>Luật đó KHÔNG phải phép cộng: nó bỏ KPI thưởng, bỏ KPI cha phân rã, nhân trọng số với
+     * phần trăm hạng mục khi bật BSC, rồi lấy MAX theo từng người đảm nhiệm cộng phần chưa giao ai.
+     */
+    @Transactional(readOnly = true)
+    public List<UnitWeightBudget> getWeightBudget(UUID orgUnitId, Collection<UUID> periodIds) {
+        List<OrgUnit> subtree = resolveOrgUnitSubtree(orgUnitId);
+        if (subtree.isEmpty()) return List.of();
+
+        List<UUID> unitIds = subtree.stream().map(OrgUnit::getId).toList();
+        // Lấy đúng tập KPI mà widget đang vẽ (cùng `approvedKpisForScope` + `applyPeriodFilter` như
+        // getDetailedKpis), rồi suy ra các cặp (đơn vị, đợt) từ đó. Nhờ vậy dải ngân sách phủ đúng
+        // những đợt đang hiện trên màn hình, kể cả khi người dùng không lọc đợt nào.
+        Map<UUID, Map<UUID, Integer>> present = new HashMap<>();
+        Map<UUID, KpiPeriod> periodById = new HashMap<>();
+        for (KpiCriteria k : applyPeriodFilter(approvedKpisForScope(subtree, unitIds), periodIds)) {
+            if (k.getOrgUnit() == null || k.getKpiPeriod() == null) continue;
+            periodById.putIfAbsent(k.getKpiPeriod().getId(), k.getKpiPeriod());
+            present.computeIfAbsent(k.getOrgUnit().getId(), x -> new HashMap<>())
+                   .merge(k.getKpiPeriod().getId(), 1, Integer::sum);
+        }
+
+        List<UnitWeightBudget> out = new ArrayList<>();
+        for (OrgUnit u : subtree) {
+            Map<UUID, Integer> byPeriod = present.get(u.getId());
+            if (byPeriod == null) continue;
+            for (Map.Entry<UUID, Integer> e : byPeriod.entrySet()) {
+                KpiPeriod p = periodById.get(e.getKey());
+                Double total = kpiCriteriaService.calculateTotalWeightByOrgUnit(u.getId(), e.getKey());
+                out.add(UnitWeightBudget.builder()
+                        .orgUnitId(u.getId()).orgUnitName(u.getName())
+                        .periodId(e.getKey()).periodName(p != null ? p.getName() : null)
+                        .totalWeight(total != null ? total : 0.0)
+                        .kpiCount(e.getValue())
+                        .build());
+            }
         }
         return out;
     }
@@ -860,6 +907,19 @@ public class OrgUnitKpiAnalyticsService {
             private String fullName;
             private String avatarUrl;
         }
+    }
+
+    /** Một dòng của dải "Ngân sách trọng số": đơn vị này ở đợt này đang ở bao nhiêu phần trăm. */
+    @lombok.Data
+    @lombok.Builder
+    public static class UnitWeightBudget {
+        private UUID orgUnitId;
+        private String orgUnitName;
+        private UUID periodId;
+        private String periodName;
+        /** Con số đem so với 100 — xem doc của `getWeightBudget` để biết nó KHÔNG phải phép cộng. */
+        private double totalWeight;
+        private int kpiCount;
     }
 
     @lombok.Data

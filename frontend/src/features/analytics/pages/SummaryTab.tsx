@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils'
 import UserAvatar from '@/components/common/UserAvatar'
 import { KpiTreemapLegend } from '../components/KpiTreemapLegend'
 import { groupKpisByPeriod } from '../lib/kpiTreeGrouping'
+import { WeightBudgetStrip } from '../components/WeightBudgetStrip'
 import {
   Target, Star, Users, TrendingUp,
   ChevronRight, AlertTriangle, Medal, ArrowUpRight, ArrowDownRight,
@@ -46,7 +47,6 @@ import DashboardCustomizeChrome, { DashboardEditToolbar } from '@/components/com
 
 const CONFIG_REPORT_NAME = '__SUMMARY_DASHBOARD_CONFIG__'
 
-type SharedFilter = 'ALL' | 'SHARED' | 'PERSONAL'
 
 // Biểu đồ phân bổ lấy TRỌN một kỳ chứ không phân trang. Trần này chỉ để chặn một tổ chức bất
 // thường kéo về hàng nghìn dòng; chạm trần thì biểu đồ báo rõ chứ không cắt cụt im lặng.
@@ -213,9 +213,16 @@ export default function SummaryTab() {
     queryFn: () => orgUnitKpiApi.getComboChart({ orgUnitId: selectedUnitId, from, to, onlyApproved, periodId, periodIdTo, groupBy }),
   })
 
+  // Ngân sách trọng số theo (đơn vị, đợt). Phải hỏi backend chứ không cộng ở đây: con số này
+  // tính theo phân bổ nhân sự cao nhất, bỏ KPI thưởng và KPI cha phân rã — cộng thô cho ra kết
+  // luận ngược (đo thật: một chi nhánh ra 200% trong khi luật thật là 70%).
+  const { data: weightBudget } = useQuery({
+    queryKey: ['orgUnitKpi', 'weightBudget', selectedUnitId, periodId, periodIdTo],
+    queryFn: () => orgUnitKpiApi.getWeightBudget({ orgUnitId: selectedUnitId, periodId, periodIdTo }),
+  })
+
   // ── Detail table state ────────────────────────────────────────────────────
   const [filterOrgUnitId, setFilterOrgUnitId] = useState<string | undefined>(undefined)
-  const [filterShared, setFilterShared] = useState<SharedFilter>('ALL')
   const advancedFilter = { orgUnitId: selectedUnitId, periodId, periodIdTo, from, to }
 
   // ── Biểu đồ theo đợt (chế độ biểu đồ của widget "KPI đơn vị") ────────────
@@ -227,24 +234,20 @@ export default function SummaryTab() {
   // Trước đây widget này có thêm chế độ bảng với truy vấn riêng phân trang 5 dòng. Bỏ bảng thì
   // bỏ luôn truy vấn đó — không còn hai chỗ hỏi cùng một endpoint.
   const { data: allocPage, isLoading: isAllocLoading } = useQuery({
-    queryKey: ['orgUnitKpi', 'byPeriod', from, to, onlyApproved, periodId, periodIdTo, selectedUnitId, filterOrgUnitId, filterShared],
+    queryKey: ['orgUnitKpi', 'byPeriod', from, to, onlyApproved, periodId, periodIdTo, selectedUnitId, filterOrgUnitId],
     queryFn: () => orgUnitKpiApi.getDetailedKpis({
       orgUnitId: selectedUnitId,
       from, to, onlyApproved, periodId, periodIdTo,
       filterOrgUnitId,
-      sharedType: filterShared === 'ALL' ? undefined : filterShared,
       page: 0,
       size: ALLOC_FETCH_SIZE,
     }),
   })
 
 
-  const clearTableFilters = () => {
-    setFilterOrgUnitId(undefined)
-    setFilterShared('ALL')
-  }
+  const clearTableFilters = () => setFilterOrgUnitId(undefined)
 
-  const hasTableFilters = !!(filterOrgUnitId || filterShared !== 'ALL')
+  const hasTableFilters = !!filterOrgUnitId
 
   // ── Drawer state ──────────────────────────────────────────────────────────
   const [selectedKpiId, setSelectedKpiId] = useState<string | null>(null)
@@ -279,23 +282,6 @@ export default function SummaryTab() {
           ))}
         </SelectContent>
       </Select>
-
-      <div className="flex gap-0.5 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg">
-        {([['ALL', 'Tất cả'], ['SHARED', 'KPI chung'], ['PERSONAL', 'KPI riêng']] as [SharedFilter, string][]).map(([v, label]) => (
-          <button
-            key={v}
-            onClick={() => setFilterShared(v)}
-            className={cn(
-              'px-3 py-1 rounded-md text-[11px] font-black transition-all',
-              filterShared === v
-                ? 'bg-white dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 shadow-sm'
-                : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
-            )}
-          >
-            {label}
-          </button>
-        ))}
-      </div>
 
       {hasTableFilters && (
         <button onClick={clearTableFilters} className="flex items-center gap-1 h-9 px-3 rounded-lg text-xs font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
@@ -387,7 +373,11 @@ export default function SummaryTab() {
                 </button>
 
                 {open && (
-                  <div className="p-4 pt-0">
+                  <div className="p-4 pt-0 space-y-3">
+                    {/* Đặt TRÊN treemap: treemap nói trọng số dồn vào đâu, dải này nói đơn vị nào
+                        chưa đủ hoặc đã quá tay — hai câu hỏi khác nhau, câu thứ hai phải trả lời
+                        trước vì nó chặn cả bước gửi duyệt. */}
+                    <WeightBudgetStrip rows={(weightBudget ?? []).filter(r => r.periodName === period.name)} />
                     {/* MỘT hình cho cả đợt. Cây phân cấp và KPI độc lập nằm ngang hàng nhau, nên
                         thứ duy nhất bọc quanh một KPI là một KPI khác — không còn thẻ theo cây
                         hay khung theo đơn vị xen vào giữa. Đơn vị của từng KPI đọc ngay trong ô. */}

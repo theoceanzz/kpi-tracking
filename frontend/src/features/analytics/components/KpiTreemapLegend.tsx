@@ -1,6 +1,7 @@
 import {
   achievementSurface,
   ACHIEVEMENT_BANDS,
+  NEUTRAL_COLOR,
   KPI_KIND_COLORS,
   KPI_KIND_LABELS,
   RELATION_STROKE,
@@ -52,6 +53,12 @@ export function KpiTreemapLegend() {
       </Group>
 
       <Group label="Tiến độ">
+        {/* Ô xám chiếm phần không nhỏ trong hình mà chú giải trước đây không hề nhắc tới, nên
+            người xem không có chỗ nào tra ra nó nghĩa là gì. */}
+        <span className="flex items-center gap-1.5">
+          <span className="w-3.5 h-3.5 rounded-[2px]" style={{ backgroundColor: NEUTRAL_COLOR }} />
+          <span>Chưa có kết quả</span>
+        </span>
         {/* Lấy màu qua chính `achievementSurface` chứ không chép lại bảng màu: chú giải mà lệch
             với ô thật thì còn tệ hơn không có chú giải. */}
         <span className="flex items-center gap-1">

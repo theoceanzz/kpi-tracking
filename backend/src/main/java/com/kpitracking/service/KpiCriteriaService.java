@@ -1010,6 +1010,16 @@ public class KpiCriteriaService {
     }
 
     @Transactional(readOnly = true)
+    /**
+     * Tổng trọng số của đơn vị theo bộ trạng thái mặc định — chính con số mà lúc gửi duyệt đem so
+     * với 100%. Có lối vào này để nơi khác không phải biết `WEIGHT_COUNTED_STATUSES` là gì, và
+     * nhất là để không ai chép lại công thức: cộng thô mọi trọng số trong đơn vị cho ra kết quả
+     * NGƯỢC hẳn (đo thật: một chi nhánh ra 200% trong khi luật thật là 70%).
+     */
+    public Double calculateTotalWeightByOrgUnit(UUID orgUnitId, UUID kpiPeriodId) {
+        return calculateTotalWeightByOrgUnit(orgUnitId, kpiPeriodId, WEIGHT_COUNTED_STATUSES);
+    }
+
     public Double calculateTotalWeightByOrgUnit(UUID orgUnitId, UUID kpiPeriodId, List<KpiStatus> statuses) {
         List<KpiCriteria> kpis = kpiCriteriaRepository.findByOrgUnitIdAndKpiPeriodIdAndStatusIn(orgUnitId, kpiPeriodId, statuses);
 
