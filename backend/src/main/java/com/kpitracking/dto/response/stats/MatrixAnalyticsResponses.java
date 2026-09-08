@@ -19,8 +19,14 @@ public class MatrixAnalyticsResponses {
         private Double averageRating;      // /5
         private Double averageBehavior;    // /5
         private Double averageCompletion;  // %
-        private Integer evaluationCount;
-        /** rating 1..5 → số đánh giá (đủ 1..5, thiếu = 0). */
+        /**
+         * Số NHÂN SỰ trong phạm vi, không phải số lượt đánh giá.
+         *
+         * <p>Mỗi người chỉ được tính một lần — bản đánh giá của đợt gần nhất. Gộp mọi đợt thì một
+         * người có bao nhiêu đợt sẽ được đếm bấy nhiêu lần: đo thật, 18 nhân sự × 12 đợt ra 216.
+         */
+        private Integer personCount;
+        /** rating 1..5 → số nhân sự (đủ 1..5, thiếu = 0). */
         private List<RatingBucket> distribution;
         /** null nếu org chưa cấu hình ma trận / cấu hình hỏng. */
         private Heatmap heatmap;

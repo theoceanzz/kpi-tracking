@@ -35,7 +35,7 @@ export function MatrixMetricCards({ overview }: { overview?: MatrixOverview }) {
         <div>
           <p className="text-xs font-bold text-slate-500">Xếp loại trung bình</p>
           <p className="text-2xl font-black tabular-nums" style={{ color: ratingColor(overview?.averageRating) }}>{fmt2(overview?.averageRating)}<span className="text-sm text-slate-400">/5</span></p>
-          <p className="text-[10px] font-bold text-slate-400">{overview?.evaluationCount ?? 0} đánh giá</p>
+          <p className="text-[10px] font-bold text-slate-400">{overview?.personCount ?? 0} nhân sự</p>
         </div>
       </div>
       <div
@@ -59,8 +59,8 @@ export function MatrixMetricCards({ overview }: { overview?: MatrixOverview }) {
       <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 flex items-center gap-4">
         <div className="w-12 h-12 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0"><Users size={24} /></div>
         <div>
-          <p className="text-xs font-bold text-slate-500">Số đánh giá xếp loại</p>
-          <p className="text-2xl font-black tabular-nums">{overview?.evaluationCount ?? 0}</p>
+          <p className="text-xs font-bold text-slate-500">Nhân sự có xếp loại</p>
+          <p className="text-2xl font-black tabular-nums">{overview?.personCount ?? 0}</p>
         </div>
       </div>
     </div>
@@ -91,7 +91,7 @@ export function MatrixDistHeatmap({ overview, viewToggle, heatmapSlot }: {
     return m
   }, [heatmap])
 
-  if (overview && overview.evaluationCount === 0) {
+  if (overview && overview.personCount === 0) {
     return (
       <Card><EmptyState>
         Chưa có đánh giá nào có xếp loại ma trận cho phạm vi/kỳ đang chọn.<br />
@@ -173,7 +173,12 @@ export function MatrixDistHeatmap({ overview, viewToggle, heatmapSlot }: {
                 ))}
               </tbody>
             </table>
-            <p className="text-[11px] text-slate-400 font-medium mt-2 text-center">Số trong ô = số nhân sự rơi vào (điểm hành vi × % hoàn thành) đó · màu theo xếp loại của ô.</p>
+            <p className="text-[11px] text-slate-400 font-medium mt-2 text-center">
+              Số trong ô = số nhân sự rơi vào (điểm hành vi × % hoàn thành) đó · màu theo xếp loại của ô.
+              <br />
+              {/* Không nói rõ chỗ này thì người lọc nhiều đợt sẽ tự hỏi con số đang thuộc đợt nào. */}
+              Mỗi người tính một lần, lấy đánh giá của đợt gần nhất trong khoảng đang lọc.
+            </p>
           </div>
         ) : <EmptyState>Tổ chức chưa cấu hình ma trận xếp loại</EmptyState>)}
       </Card>

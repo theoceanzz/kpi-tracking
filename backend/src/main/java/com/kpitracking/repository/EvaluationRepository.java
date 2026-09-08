@@ -241,26 +241,20 @@ public interface EvaluationRepository extends JpaRepository<Evaluation, UUID> {
     // behavior_score / kpi_completion_percent ĐÃ LƯU. Chỉ tính đánh giá đã có xếp loại.
     // ============================================================
 
-    /** Tổng hợp toàn phạm vi → [avgRating, avgBehavior, avgCompletion, count]. */
-    @Query("SELECT AVG(e.matrixRating), AVG(e.behaviorScore), AVG(e.kpiCompletionPercent), COUNT(e.id) " +
-           "FROM Evaluation e WHERE e.orgUnit.id IN :unitIds AND e.kpiPeriod.id IN :periodIds AND e.matrixRating IS NOT NULL")
-    java.util.List<Object[]> matrixOverall(@Param("unitIds") java.util.Collection<UUID> unitIds,
-                                           @Param("periodIds") java.util.Collection<UUID> periodIds);
-
-    /** Phân bố theo xếp loại → [rating, count]. */
-    @Query("SELECT e.matrixRating, COUNT(e.id) " +
-           "FROM Evaluation e WHERE e.orgUnit.id IN :unitIds AND e.kpiPeriod.id IN :periodIds AND e.matrixRating IS NOT NULL " +
-           "GROUP BY e.matrixRating ORDER BY e.matrixRating")
-    java.util.List<Object[]> matrixDistribution(@Param("unitIds") java.util.Collection<UUID> unitIds,
-                                                @Param("periodIds") java.util.Collection<UUID> periodIds);
-
-
-    /** Cặp (điểm hành vi, %HT) từng đánh giá — để bucket vào ô heatmap ở service. → [behaviorScore, kpiCompletionPercent]. */
-    @Query("SELECT e.behaviorScore, e.kpiCompletionPercent " +
-           "FROM Evaluation e WHERE e.orgUnit.id IN :unitIds AND e.kpiPeriod.id IN :periodIds " +
-           "AND e.matrixRating IS NOT NULL AND e.behaviorScore IS NOT NULL AND e.kpiCompletionPercent IS NOT NULL")
-    java.util.List<Object[]> matrixPairs(@Param("unitIds") java.util.Collection<UUID> unitIds,
-                                         @Param("periodIds") java.util.Collection<UUID> periodIds);
+    /**
+     * Từng đánh giá có xếp loại trong phạm vi, kèm chủ nhân và ngày bắt đầu đợt
+     * → [userId, matrixRating, behaviorScore, kpiCompletionPercent, periodStart].
+     *
+     * <p>Cố ý trả về mức DÒNG chứ không gộp sẵn: ma trận phải đếm mỗi người một lần, mà gộp bằng
+     * SQL rồi thì không lọc trùng người được nữa. Service rút gọn qua
+     * {@code LatestEvaluationPicker} rồi mới tính trung bình, phân bố và ô heatmap — cả ba phải
+     * đi từ CÙNG một danh sách, nếu không ba con số trên một khối sẽ không cộng khớp nhau.
+     */
+    @Query("SELECT e.user.id, e.matrixRating, e.behaviorScore, e.kpiCompletionPercent, p.startDate " +
+           "FROM Evaluation e JOIN e.kpiPeriod p " +
+           "WHERE e.orgUnit.id IN :unitIds AND e.kpiPeriod.id IN :periodIds AND e.matrixRating IS NOT NULL")
+    java.util.List<Object[]> matrixRows(@Param("unitIds") java.util.Collection<UUID> unitIds,
+                                        @Param("periodIds") java.util.Collection<UUID> periodIds);
 
     // ============================================================
     // Biểu đồ TƯƠNG QUAN (tab "Chuyên sâu"): giữ nguyên từng đánh giá thay vì gộp
@@ -275,8 +269,8 @@ public interface EvaluationRepository extends JpaRepository<Evaluation, UUID> {
      * chưa cấu hình ma trận thì vẫn có chấm, chỉ là không tô màu được), và kéo theo danh tính để
      * tooltip hiện được tên — {@code matrixPairs} gộp hết vào ô heatmap nên mất dữ liệu cá nhân.
      */
-    @Query("SELECT u.id, u.fullName, e.orgUnit.name, e.behaviorScore, e.kpiCompletionPercent, e.matrixRating " +
-           "FROM Evaluation e JOIN e.user u " +
+    @Query("SELECT u.id, u.fullName, e.orgUnit.name, e.behaviorScore, e.kpiCompletionPercent, e.matrixRating, p.startDate " +
+           "FROM Evaluation e JOIN e.user u JOIN e.kpiPeriod p " +
            "WHERE e.orgUnit.id IN :unitIds AND e.kpiPeriod.id IN :periodIds AND u.deletedAt IS NULL " +
            "AND e.behaviorScore IS NOT NULL AND e.kpiCompletionPercent IS NOT NULL")
     java.util.List<Object[]> behaviorCompletionPoints(@Param("unitIds") java.util.Collection<UUID> unitIds,

@@ -72,7 +72,14 @@ public class CorrelationAnalyticsService {
         double maxX = 0.0;
         double maxY = 0.0;
 
-        for (Object[] r : evaluationRepository.behaviorCompletionPoints(scope.unitIds(), scope.periodIds())) {
+        // Mỗi người MỘT chấm, lấy đợt gần nhất. Không rút gọn thì một người có bao nhiêu đợt sẽ
+        // thành bấy nhiêu chấm chồng lên nhau — đo thật: 216 chấm cho 18 người. Đây cũng là cách
+        // xem thay thế của chính khối heatmap, nên hai bên phải cho cùng một tổng.
+        List<Object[]> latest = LatestEvaluationPicker.keepLatestPerUser(
+                evaluationRepository.behaviorCompletionPoints(scope.unitIds(), scope.periodIds()),
+                r -> (UUID) r[0],
+                r -> (java.time.Instant) r[6]);
+        for (Object[] r : latest) {
             UUID userId = (UUID) r[0];
             boolean self = userId != null && userId.equals(scope.userId());
             Double behavior = dbl(r[3]);
