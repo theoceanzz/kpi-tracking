@@ -259,7 +259,7 @@ export default function PerspectiveFormModal({
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
               <div className="space-y-1.5">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 flex items-end gap-1 min-h-[26px] leading-tight">
-                  <Target size={11} className="mb-[1px] shrink-0" /> Mục tiêu mong muốn
+                  <Target size={11} className="mb-[1px] shrink-0" /> Mục tiêu mong muốn <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="number"
@@ -274,7 +274,7 @@ export default function PerspectiveFormModal({
               </div>
               <div className="space-y-1.5">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 flex items-end gap-1 min-h-[26px] leading-tight">
-                  <Target size={11} className="mb-[1px] shrink-0" /> Kết quả tối thiểu
+                  <Target size={11} className="mb-[1px] shrink-0" /> Kết quả tối thiểu <span className="text-red-500">*</span>
                 </label>
                 <input
                   type="number"
@@ -288,7 +288,7 @@ export default function PerspectiveFormModal({
                 {errors.minimumValue && <p className="text-[10px] font-bold text-red-500 ml-1">{errors.minimumValue.message}</p>}
               </div>
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 flex items-end gap-1 min-h-[26px] leading-tight">Đơn vị tính</label>
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 flex items-end gap-1 min-h-[26px] leading-tight">Đơn vị tính <span className="text-red-500">*</span></label>
                 <input
                   {...register('unit')}
                   placeholder="VNĐ, %, buổi..."

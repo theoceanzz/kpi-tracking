@@ -8,6 +8,7 @@ import { useOrgUnitTree } from '../hooks/useOrgUnitTree'
 import { useAuthStore } from '@/store/authStore'
 import { useFormAssistStore } from '@/store/formAssistStore'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/apiError'
 import { Loader2, X, Building2, Shield } from 'lucide-react'
 import type { OrgUnitResponse, OrgHierarchyLevelResponse } from '@/types/orgUnit'
 
@@ -130,7 +131,7 @@ export default function OrgUnitFormModal({ open, onClose, editUnit, initialParen
       onClose()
     },
     onError: (err: any) => {
-      toast.error(err?.response?.data?.message || 'Tạo đơn vị thất bại')
+      toast.error(getApiErrorMessage(err, 'Tạo đơn vị thất bại'))
     },
   })
 
@@ -155,7 +156,7 @@ export default function OrgUnitFormModal({ open, onClose, editUnit, initialParen
       onClose()
     },
     onError: (err: any) => {
-      toast.error(err?.response?.data?.message || 'Cập nhật thất bại')
+      toast.error(getApiErrorMessage(err, 'Cập nhật thất bại'))
     },
   })
 

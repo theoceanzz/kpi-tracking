@@ -18,6 +18,13 @@ public interface EvaluationRepository extends JpaRepository<Evaluation, UUID> {
 
     Page<Evaluation> findByKpiPeriodId(UUID kpiPeriodId, Pageable pageable);
 
+    /** Toàn bộ đánh giá của một đợt — lấy một lần rồi lọc trong bộ nhớ, tránh N+1 khi quét nhắc hạn. */
+    java.util.List<Evaluation> findByKpiPeriodId(UUID kpiPeriodId);
+
+    /** Đơn vị của những người đã có đánh giá trong bất kỳ đợt nào thuộc kỳ — tức các đơn vị có hoạt động. */
+    @Query("SELECT DISTINCT e.orgUnit.id FROM Evaluation e WHERE e.kpiPeriod.kpiCycle.id = :cycleId")
+    java.util.List<UUID> findOrgUnitIdsActiveInCycle(@Param("cycleId") UUID cycleId);
+
     Page<Evaluation> findByUserIdAndKpiPeriodId(UUID userId, UUID kpiPeriodId, Pageable pageable);
     java.util.List<Evaluation> findByUserIdAndKpiPeriodId(UUID userId, UUID kpiPeriodId);
 

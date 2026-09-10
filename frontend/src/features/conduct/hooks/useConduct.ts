@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/apiError'
 import {
   conductApi,
   type ConductConfig,
@@ -38,8 +39,7 @@ export function useConductSets(organizationId?: string) {
     toast.success(message)
   }
   const onFail = (fallback: string) => (e: unknown) => {
-    const msg = (e as { response?: { data?: { message?: string } } })?.response?.data?.message
-    toast.error(msg || fallback)
+    toast.error(getApiErrorMessage(e, fallback))
   }
 
   const create = useMutation({
@@ -120,7 +120,7 @@ export function useConductSheet(target: ConductTarget, userId?: string) {
       invalidate()
       toast.success('Đã lưu phần tự đánh giá')
     },
-    onError: (e: any) => toast.error(e?.response?.data?.message || 'Không thể lưu phần tự đánh giá'),
+    onError: (e: any) => toast.error(getApiErrorMessage(e, 'Không thể lưu phần tự đánh giá')),
   })
 
   const saveManager = useMutation({
@@ -130,7 +130,7 @@ export function useConductSheet(target: ConductTarget, userId?: string) {
       invalidate()
       toast.success('Đã lưu điểm hạnh kiểm')
     },
-    onError: (e: any) => toast.error(e?.response?.data?.message || 'Không thể lưu điểm hạnh kiểm'),
+    onError: (e: any) => toast.error(getApiErrorMessage(e, 'Không thể lưu điểm hạnh kiểm')),
   })
 
   return {
@@ -139,6 +139,11 @@ export function useConductSheet(target: ConductTarget, userId?: string) {
     isSavingSelf: saveSelf.isPending,
     saveManager: saveManager.mutate,
     isSavingManager: saveManager.isPending,
+    // Bản async dành cho form CHỦ nó lưu hộ (modal tự đánh giá lưu luôn phiếu hạnh kiểm
+    // khi bấm "Gửi đánh giá"): form phải đợi lưu xong rồi mới gửi tiếp, và phải bắt được
+    // lỗi để dừng lại thay vì gửi đánh giá với điểm hành vi chưa kịp lưu.
+    saveSelfAsync: saveSelf.mutateAsync,
+    saveManagerAsync: saveManager.mutateAsync,
   }
 }
 

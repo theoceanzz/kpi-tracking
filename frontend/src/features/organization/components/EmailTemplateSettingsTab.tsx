@@ -3,8 +3,8 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { createEmailTemplateSchema, type EmailTemplateFormData } from '../schemas/integrationSchema'
-import type { AxiosError } from 'axios'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/apiError'
 import { cn } from '@/lib/utils'
 import { emailTemplateApi, type EmailTemplate } from '../api/emailTemplateApi'
 import EmailEditor from './EmailEditor'
@@ -13,7 +13,7 @@ import {
 } from 'lucide-react'
 
 const serverMessage = (error: unknown, fallback: string) =>
-  (error as AxiosError<{ message?: string }>)?.response?.data?.message || fallback
+  getApiErrorMessage(error, fallback)
 
 /**
  * Cấu hình template email của tổ chức. Danh mục loại mail do backend trả về

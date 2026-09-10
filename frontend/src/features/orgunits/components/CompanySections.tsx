@@ -26,13 +26,13 @@ import {
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import { formatDateTime, cn } from '@/lib/utils'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/apiError'
 import { useAuth } from '@/hooks/useAuth'
-import type { AxiosError } from 'axios'
 import type { UpdateOrganizationRequest } from '../api/organizationApi'
 
 /** Thông báo lỗi do backend trả về, lùi về câu mặc định nếu phản hồi không nói gì. */
 function apiErrorMessage(error: unknown, fallback: string) {
-  return (error as AxiosError<{ message?: string }>)?.response?.data?.message || fallback
+  return getApiErrorMessage(error, fallback)
 }
 
 /**
@@ -515,7 +515,7 @@ export function CompanyHierarchySection() {
         toast.success('Cập nhật cơ cấu tổ chức thành công')
       },
       onError: (error: any) => {
-        const msg = error?.response?.data?.message || 'Có lỗi xảy ra'
+        const msg = getApiErrorMessage(error, 'Có lỗi xảy ra')
         toast.error(msg)
       }
     })

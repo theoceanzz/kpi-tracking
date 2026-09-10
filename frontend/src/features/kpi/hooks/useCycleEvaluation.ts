@@ -1,14 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import type { AxiosError } from 'axios'
 import { kpiCycleEvaluationApi } from '../api/kpiCycleEvaluationApi'
 import { toast } from 'sonner'
-
-/**
- * Ưu tiên message của server: luật chốt/mở khoá theo cấp bậc trả về lý do cụ thể
- * ("do X (Trưởng phòng) chốt…"), hữu ích hơn nhiều so với câu báo lỗi chung.
- */
-const serverMessage = (error: unknown, fallback: string) =>
-  (error as AxiosError<{ message?: string }>)?.response?.data?.message || fallback
+import { getApiErrorMessage } from '@/lib/apiError'
 
 /** Tổng hợp đánh giá phòng ban theo kỳ (kèm danh sách thành viên). */
 export const useUnitCycleSummary = (cycleId?: string, orgUnitId?: string) => {
@@ -33,7 +26,7 @@ export const useUnitCycleSummary = (cycleId?: string, orgUnitId?: string) => {
       invalidate()
       toast.success('Đã chốt đánh giá phòng ban theo kỳ')
     },
-    onError: (error) => toast.error(serverMessage(error, 'Chốt đánh giá thất bại')),
+    onError: (error) => toast.error(getApiErrorMessage(error, 'Chốt đánh giá thất bại')),
   })
 
   const reopenMutation = useMutation({
@@ -42,7 +35,7 @@ export const useUnitCycleSummary = (cycleId?: string, orgUnitId?: string) => {
       invalidate()
       toast.success('Đã mở khoá, có thể chỉnh lại điểm')
     },
-    onError: (error) => toast.error(serverMessage(error, 'Mở khoá thất bại')),
+    onError: (error) => toast.error(getApiErrorMessage(error, 'Mở khoá thất bại')),
   })
 
   const saveUserScoreMutation = useMutation({
@@ -53,7 +46,17 @@ export const useUnitCycleSummary = (cycleId?: string, orgUnitId?: string) => {
       qc.invalidateQueries({ queryKey: ['cycleUnitSummary', cycleId, orgUnitId] })
       toast.success('Đã lưu điểm chốt kỳ')
     },
-    onError: (error) => toast.error(serverMessage(error, 'Lưu điểm chốt kỳ thất bại')),
+    onError: (error) => toast.error(getApiErrorMessage(error, 'Lưu điểm chốt kỳ thất bại')),
+  })
+
+  const saveUnitScoreMutation = useMutation({
+    mutationFn: ({ score, reason }: { score: number | null; reason: string }) =>
+      kpiCycleEvaluationApi.saveUnitScore(cycleId!, orgUnitId!, { score, reason }),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ['cycleUnitSummary', cycleId, orgUnitId] })
+      toast.success(vars.score == null ? 'Đã bỏ chấm tay, quay lại TB thành viên' : 'Đã lưu điểm đơn vị')
+    },
+    onError: (error) => toast.error(getApiErrorMessage(error, 'Lưu điểm đơn vị thất bại')),
   })
 
   const sendEvaluationMutation = useMutation({
@@ -69,7 +72,7 @@ export const useUnitCycleSummary = (cycleId?: string, orgUnitId?: string) => {
         )
       }
     },
-    onError: (error) => toast.error(serverMessage(error, 'Gửi email thất bại')),
+    onError: (error) => toast.error(getApiErrorMessage(error, 'Gửi email thất bại')),
   })
 
   return {
@@ -82,6 +85,8 @@ export const useUnitCycleSummary = (cycleId?: string, orgUnitId?: string) => {
     isReopening: reopenMutation.isPending,
     saveUserScore: saveUserScoreMutation.mutateAsync,
     isSavingUserScore: saveUserScoreMutation.isPending,
+    saveUnitScore: saveUnitScoreMutation.mutateAsync,
+    isSavingUnitScore: saveUnitScoreMutation.isPending,
   }
 }
 

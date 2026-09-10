@@ -10,6 +10,7 @@ import TourHelpButton from '@/components/common/TourHelpButton'
 import AiAssistantWidget from '@/features/analytics/components/AiAssistantWidget'
 import HeaderBreadcrumb from '@/components/common/HeaderBreadcrumb'
 import CheckinReminderBanner from '@/features/rewards/components/CheckinReminderBanner'
+import RewardActivityTicker from '@/features/rewards/components/RewardActivityTicker'
 import { DashboardToolbarSlot } from '@/components/common/dashboard/DashboardToolbarSlot'
 import { useState, useEffect } from 'react'
 
@@ -96,6 +97,13 @@ export default function AppLayout() {
         {/* Nhắc điểm danh: ngoài <main> nên không cuộn mất theo nội dung, và ngay dưới
             header ở mọi trang. Tự ẩn hoàn toàn khi không có gì để nhắc. */}
         <CheckinReminderBanner />
+
+        {/* Bảng tin điểm thưởng: cũng ngoài <main> nên không cuộn mất theo nội dung, và
+            chạy ở mọi trang chứ không nằm trong tab thưởng — cả công ty thấy ai vừa được
+            thưởng mà không phải mở tab nào. Nằm DƯỚI banner điểm danh: kia là việc cần
+            người dùng bấm, đây chỉ là tin để liếc qua. Tự ẩn khi chưa có tin, và ẩn hẳn
+            khi người dùng bấm x cho tới lúc có tin mới hơn. */}
+        <RewardActivityTicker />
 
         {/* Main content — full-page routes opt out of padding */}
         {/* `max-w-full` chứ không phải `max-w-[100vw]`: 100vw tính cả bề rộng thanh cuộn

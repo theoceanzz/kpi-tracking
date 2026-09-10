@@ -12,11 +12,12 @@ import { MicButton } from '@/components/common/MicButton'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { getScoringFunctions, SCORING_POOL, describePerspectiveScore } from '@/lib/scoring'
 import { X, Loader2, Star, Target, Zap, Trophy, CheckCircle2, MessageSquare, Sparkles, Lock, Layers, AlertTriangle } from 'lucide-react'
-import { useMemo, useEffect, useRef } from 'react'
+import { useMemo, useEffect, useRef, type ReactNode } from 'react'
+import { BscScoringMode, type PerspectiveScoreResponse } from '@/features/bsc/types'
 import { useQuery } from '@tanstack/react-query'
 import { evaluationApi } from '../api/evaluationApi'
 import { cn } from '@/lib/utils'
-import ConductInlineSheet from '@/features/conduct/components/ConductInlineSheet'
+import ConductInlineSheet, { type ConductSheetHandle } from '@/features/conduct/components/ConductInlineSheet'
 
 interface EvaluationFormModalProps {
   open: boolean
@@ -50,7 +51,7 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
     return periodsData.content.filter(p => assignedPeriodIds.has(p.id))
   }, [periodsData, assignedPeriodIds])
 
-  const { register, handleSubmit, reset, watch, setValue, getValues } = useForm<EvaluationFormData>({
+  const { register, handleSubmit, reset, watch, setValue, getValues, formState } = useForm<EvaluationFormData>({
     resolver: zodResolver(evaluationSchema),
     defaultValues: { 
       score: 0,
@@ -178,8 +179,19 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
   const canOpenMyEvaluations = hasPermission('EVALUATION:VIEW_MY')
   const canOpenUnitReview = hasPermission('SUBMISSION:REVIEW')
 
-  const onSubmit = (data: EvaluationFormData) => {
+  // Phiếu hạnh kiểm nằm ngay trong form này nên nó lưu theo nút "Gửi đánh giá" luôn —
+  // trước đây người dùng phải bấm lưu riêng cho phiếu, quên là mất điểm hành vi vừa chấm.
+  // Lưu TRƯỚC khi gửi vì điểm hành vi là đầu vào của xếp loại; lưu hỏng thì dừng hẳn, để
+  // họ sửa rồi gửi lại thay vì gửi đánh giá kèm điểm hành vi cũ.
+  const conductRef = useRef<ConductSheetHandle>(null)
+
+  const onSubmit = async (data: EvaluationFormData) => {
     if (readOnly) return
+    try {
+      await conductRef.current?.save()
+    } catch {
+      return // hook của phiếu đã hiện toast lỗi
+    }
     createMutation.mutate(data, {
       onSuccess: () => { 
         reset(); 
@@ -245,86 +257,21 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
 
                 {/* Results Summary if period selected */}
                 {selectedPeriodId && (
-                  <div className="p-6 rounded-[32px] bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700 space-y-4">
-                    <div className="flex items-center justify-between">
-                       <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400">Kết quả đo lường</h4>
-                    </div>
-                    <div className="flex items-center justify-between py-2 border-y border-slate-200/50 dark:border-slate-700/50">
-                       <div className="flex items-center gap-2">
-                          <CheckCircle2 size={16} className="text-emerald-500" />
-                          <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Điểm hệ thống tự tính</span>
-                       </div>
-                       <div className="text-2xl font-black text-slate-900 dark:text-white">{noQuantScore ? '—' : calculatedScore}</div>
-                    </div>
-                    {matrixRating != null && (
-                      <div className="flex items-center justify-between py-2 border-b border-slate-200/50 dark:border-slate-700/50">
-                        <div className="flex items-center gap-2">
-                          <Star size={16} className="text-teal-500 fill-current" />
-                          <div>
-                            <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Xếp loại (ma trận)</span>
-                            <p className="text-[10px] text-slate-400">Hành vi {behaviorScore != null ? behaviorScore.toFixed(1) : '—'}/5 × Hoàn thành {completionPct != null ? Math.round(completionPct) + '%' : '100%'}</p>
-                          </div>
-                        </div>
-                        <div className="text-2xl font-black text-teal-600">{matrixRating}<span className="text-sm text-slate-400">/5</span></div>
-                      </div>
-                    )}
-                    {bscScore != null && (
-                      <div className="py-2 border-b border-slate-200/50 dark:border-slate-700/50 space-y-3">
-                        <div className="flex items-center justify-between">
-                          <div className="flex items-center gap-2">
-                            <Layers size={16} className="text-indigo-500" />
-                            <div>
-                              <span className="text-sm font-bold text-slate-700 dark:text-slate-300">Điểm BSC</span>
-                              <p className="text-[10px] text-slate-400">
-                                {bscMode === 'OFFICIAL'
-                                  ? 'Đang là điểm chính thức (thay điểm hệ thống)'
-                                  : 'Chạy song song — chưa thay điểm hệ thống'}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0">
-                            <span className={cn('text-[9px] font-black uppercase px-2 py-0.5 rounded-full whitespace-nowrap',
-                              bscMode === 'OFFICIAL' ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400' : 'bg-slate-200 text-slate-500 dark:bg-slate-700')}>
-                              {bscMode === 'OFFICIAL' ? 'Chính thức' : 'Song song'}
-                            </span>
-                            <div className="text-2xl font-black text-indigo-600">{bscScore.toFixed(1)}</div>
-                          </div>
-                        </div>
-
-                        {bscPerspectives.length > 0 && (
-                          <div className="flex flex-wrap gap-1.5">
-                            {bscPerspectives.map(p => (
-                              <span key={p.perspectiveId}
-                                className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border"
-                                style={{ color: p.color || '#8b5cf6', borderColor: `${p.color || '#8b5cf6'}44`, backgroundColor: `${p.color || '#8b5cf6'}12` }}
-                                title={describePerspectiveScore(p)}
-                              >
-                                <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: p.color || '#8b5cf6' }} />
-                                {p.name} <b>{p.achievementPercent != null ? `${p.achievementPercent.toFixed(0)}%` : '—'}</b>
-                                {p.scoredByTarget && p.actualValue != null && p.targetValue != null && (
-                                  <span className="opacity-60">{p.actualValue}/{p.targetValue}{p.unit ? ` ${p.unit}` : ''}</span>
-                                )}
-                                <span className="opacity-60">×{p.weightPercentage}%</span>
-                              </span>
-                            ))}
-                          </div>
-                        )}
-
-                        {bscUnassigned.length > 0 && (
-                          <div className="flex items-start gap-2 p-2.5 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200/50 dark:border-amber-900/30">
-                            <AlertTriangle size={14} className="text-amber-600 shrink-0 mt-0.5" />
-                            <p className="text-[10px] text-amber-800 dark:text-amber-300 font-medium leading-relaxed">
-                              <b>{bscUnassigned.length} chỉ tiêu chưa gán hạng mục</b> nên không được tính vào điểm BSC: {bscUnassigned.join(', ')}.
-                              {bscMode === 'OFFICIAL' && ' Kỳ đang chấm chính thức — phải gán đủ mới chốt được đánh giá.'}
-                            </p>
-                          </div>
-                        )}
-                      </div>
-                    )}
-                    {readOnly && (
-                       <p className="text-[10px] text-slate-400 italic">Đây là bản tổng kết tự động sau khi tất cả chỉ tiêu đã được duyệt.</p>
-                    )}
-                  </div>
+                  <MeasurementPanel
+                    maxScore={maxScore}
+                    calculatedScore={calculatedScore}
+                    noQuantScore={noQuantScore}
+                    isBscOfficial={isBscOfficial}
+                    completionPct={completionPct}
+                    matrixRating={matrixRating}
+                    behaviorScore={behaviorScore}
+                    systemScore={rawSystemScore}
+                    bscScore={bscScore}
+                    bscMode={bscMode}
+                    bscPerspectives={bscPerspectives}
+                    bscUnassigned={bscUnassigned}
+                    readOnly={readOnly}
+                  />
                 )}
 
                 {/* Visual Score Picker */}
@@ -413,6 +360,8 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
                     không phải sang "Hạnh kiểm của tôi" làm một lượt nữa. */}
                 {org?.enableConduct && selectedPeriodId && (
                   <ConductInlineSheet
+                    ref={conductRef}
+                    hideActions
                     target={{ scope: 'PERIOD', periodId: selectedPeriodId, cycleId: null }}
                   />
                 )}
@@ -450,10 +399,12 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
                       </button>
                       <button 
                         type="submit"
-                        disabled={createMutation.isPending || !selectedPeriodId}
+                        // isSubmitting phủ cả nhịp lưu phiếu hạnh kiểm chạy trước khi gọi
+                        // createMutation — không có nó, bấm hai lần là lưu phiếu hai lần.
+                        disabled={createMutation.isPending || formState.isSubmitting || !selectedPeriodId}
                         className="flex-[2] py-4 rounded-2xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-black uppercase tracking-[2px] shadow-xl hover:bg-indigo-600 dark:hover:bg-indigo-50 transition-all flex items-center justify-center gap-2 active:scale-95"
                       >
-                        {createMutation.isPending && <Loader2 size={16} className="animate-spin" />}
+                        {(createMutation.isPending || formState.isSubmitting) && <Loader2 size={16} className="animate-spin" />}
                         GỬI ĐÁNH GIÁ
                       </button>
                    </div>
@@ -491,6 +442,210 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
           </div>
         </div>
       </div>
+    </div>
+  )
+}
+
+/** Bỏ số 0 thừa: 80.0 → "80", 82.5 → "82.5". */
+const trim = (v: number) => Number(v.toFixed(1)).toString()
+
+/**
+ * Khối "Kết quả đo lường" — ba con số của một đợt: điểm hệ thống, xếp loại ma trận và
+ * điểm BSC.
+ *
+ * Trước đây cả ba đứng ngang hàng, cùng cỡ chữ, nên không ai biết con số nào thật sự
+ * thành điểm đánh giá của mình. Ở đây CHỈ con số sẽ được dùng làm điểm đứng ở khối lớn
+ * trên cùng (BSC khi kỳ chấm chính thức bằng BSC, còn lại là điểm hệ thống), hai số kia
+ * lùi xuống thành dòng tham chiếu.
+ */
+function MeasurementPanel({
+  maxScore, calculatedScore, noQuantScore, isBscOfficial, completionPct,
+  matrixRating, behaviorScore, systemScore, bscScore, bscMode, bscPerspectives,
+  bscUnassigned, readOnly,
+}: {
+  maxScore: number
+  calculatedScore: number
+  noQuantScore: boolean
+  isBscOfficial: boolean
+  completionPct: number | null
+  matrixRating: number | null
+  behaviorScore: number | null
+  systemScore: number
+  bscScore: number | null
+  bscMode: BscScoringMode | null
+  bscPerspectives: PerspectiveScoreResponse[]
+  bscUnassigned: string[]
+  readOnly: boolean
+}) {
+  const heroCaption = isBscOfficial
+    ? 'Kỳ này chấm chính thức bằng BSC — ô điểm bên dưới khoá theo con số này'
+    : noQuantScore
+      ? 'KPI toàn định tính — không có phần định lượng để tính, hệ thống đề xuất trọn thang điểm'
+      : completionPct != null
+        ? `Hoàn thành ${Math.round(completionPct)}% chỉ tiêu định lượng đã duyệt`
+        : 'Tính từ kết quả các chỉ tiêu đã được duyệt'
+
+  return (
+    <div className="p-5 rounded-[32px] bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-700 space-y-3">
+      <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">Kết quả đo lường</h4>
+
+      {/* Con số sẽ thành điểm — to nhất, nền trắng, tách hẳn khỏi hai dòng tham chiếu. */}
+      <div className="flex items-center justify-between gap-4 p-4 rounded-3xl bg-white dark:bg-slate-900 border border-slate-100 dark:border-slate-800">
+        <div className="min-w-0">
+          <p className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-300">
+            {isBscOfficial
+              ? <Layers size={13} className="text-indigo-500 shrink-0" />
+              : <CheckCircle2 size={13} className="text-emerald-500 shrink-0" />}
+            {isBscOfficial ? 'Điểm chính thức (BSC)' : 'Điểm hệ thống tự tính'}
+          </p>
+          <p className="mt-1 text-[11px] font-medium text-slate-400 leading-relaxed">{heroCaption}</p>
+        </div>
+        <p className={cn(
+          'shrink-0 text-4xl font-black tracking-tighter leading-none tabular-nums',
+          isBscOfficial ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-900 dark:text-white'
+        )}>
+          {noQuantScore && !isBscOfficial ? '—' : trim(calculatedScore)}
+          <span className="text-base text-slate-300 dark:text-slate-600">/{maxScore}</span>
+        </p>
+      </div>
+
+      {/* Điểm hệ thống vẫn hiện khi BSC đã thay nó — người dùng cần biết phần định lượng
+          của mình ra bao nhiêu, dù nó không còn là điểm chính thức. */}
+      {isBscOfficial && !noQuantScore && (
+        <MeasureRow
+          icon={<CheckCircle2 size={14} className="text-emerald-500" />}
+          title="Điểm hệ thống tự tính"
+          caption="Không dùng cho kỳ này vì BSC đang là điểm chính thức"
+          value={<span className="text-slate-400">{trim(systemScore)}</span>}
+        />
+      )}
+
+      {matrixRating != null && (
+        <MeasureRow
+          icon={<Star size={14} className="text-teal-500 fill-current" />}
+          title="Xếp loại theo ma trận"
+          caption={`Tra từ hành vi ${behaviorScore != null ? behaviorScore.toFixed(1) : '—'}/5 và mức hoàn thành ${completionPct != null ? Math.round(completionPct) : 100}%`}
+          value={<span className="text-teal-600 dark:text-teal-400">{matrixRating}<span className="text-sm text-slate-300 dark:text-slate-600">/5</span></span>}
+        />
+      )}
+
+      {bscScore != null && (
+        <MeasureRow
+          icon={<Layers size={14} className="text-indigo-500" />}
+          title="Điểm BSC"
+          badge={isBscOfficial ? undefined : 'Song song'}
+          caption={isBscOfficial
+            ? 'Chi tiết từng hạng mục của điểm chính thức phía trên'
+            : 'Chạy song song để đối chiếu — chưa thay điểm hệ thống'}
+          value={isBscOfficial
+            ? undefined
+            : <span className="text-indigo-600 dark:text-indigo-400">{trim(bscScore)}</span>}
+        >
+          {bscPerspectives.length > 0 && (
+            // Bảng ba cột thay cho dãy chip: chip cũ dán "80% ×16.7%" cạnh nhau, không ai
+            // đoán được số nào là mức đạt, số nào là trọng số.
+            <div className="mt-2.5 space-y-1">
+              <div className="flex items-center gap-2 text-[9px] font-black uppercase tracking-wider text-slate-400">
+                <span className="flex-1">Hạng mục</span>
+                <span className="w-12 text-right">Đạt</span>
+                <span className="w-14 text-right">Trọng số</span>
+              </div>
+              {bscPerspectives.map(p => {
+                const color = p.color || '#8b5cf6'
+                const pct = p.achievementPercent
+                const failedGate = p.isGate && p.gatePassed === false
+                return (
+                  <div key={p.perspectiveId} className="flex items-center gap-2" title={describePerspectiveScore(p)}>
+                    <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                    <span className="flex-1 min-w-0 truncate text-[11px] font-bold text-slate-600 dark:text-slate-300">
+                      {p.name}
+                      {p.isGate && (
+                        <span className={cn(
+                          'ml-1.5 px-1 py-px rounded text-[8px] font-black uppercase tracking-wider align-middle',
+                          failedGate
+                            ? 'bg-red-100 text-red-600 dark:bg-red-900/30 dark:text-red-400'
+                            : 'bg-slate-100 text-slate-400 dark:bg-slate-800'
+                        )}>
+                          Chặn
+                        </span>
+                      )}
+                    </span>
+                    {/* Thanh mức đạt cắt ở 100% để hạng mục vượt chỉ tiêu không đẩy tràn cột. */}
+                    <span className="hidden sm:block w-14 h-1.5 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden shrink-0">
+                      <span
+                        className="block h-full rounded-full"
+                        style={{ width: `${Math.min(100, Math.max(0, pct ?? 0))}%`, backgroundColor: color }}
+                      />
+                    </span>
+                    <span className={cn(
+                      'w-12 text-right text-[11px] font-black tabular-nums',
+                      failedGate ? 'text-red-600 dark:text-red-400' : 'text-slate-700 dark:text-slate-200'
+                    )}>
+                      {pct != null ? `${pct.toFixed(0)}%` : '—'}
+                    </span>
+                    <span className="w-14 text-right text-[11px] font-bold tabular-nums text-slate-400">
+                      ×{p.weightPercentage}%
+                    </span>
+                  </div>
+                )
+              })}
+            </div>
+          )}
+
+          {bscUnassigned.length > 0 && (
+            <div className="mt-2.5 flex items-start gap-2 p-2.5 rounded-xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200/50 dark:border-amber-900/30">
+              <AlertTriangle size={14} className="text-amber-600 shrink-0 mt-0.5" />
+              <p className="text-[10px] text-amber-800 dark:text-amber-300 font-medium leading-relaxed">
+                <b>{bscUnassigned.length} chỉ tiêu chưa gán hạng mục</b> nên không được tính vào điểm BSC: {bscUnassigned.join(', ')}.
+                {bscMode === BscScoringMode.OFFICIAL && ' Kỳ đang chấm chính thức — phải gán đủ mới chốt được đánh giá.'}
+              </p>
+            </div>
+          )}
+        </MeasureRow>
+      )}
+
+      {readOnly && (
+        <p className="px-1 text-[10px] text-slate-400 italic">
+          Đây là bản tổng kết tự động sau khi tất cả chỉ tiêu đã được duyệt.
+        </p>
+      )}
+    </div>
+  )
+}
+
+/** Một dòng tham chiếu trong khối kết quả: nhãn + diễn giải bên trái, con số bên phải. */
+function MeasureRow({
+  icon, title, badge, caption, value, children,
+}: {
+  icon: ReactNode
+  title: string
+  badge?: string
+  caption: string
+  value?: ReactNode
+  children?: ReactNode
+}) {
+  return (
+    <div className="p-3.5 rounded-2xl bg-white/70 dark:bg-slate-900/40 border border-slate-100 dark:border-slate-800">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0 flex items-start gap-2">
+          <span className="shrink-0 mt-0.5">{icon}</span>
+          <div className="min-w-0">
+            <p className="text-xs font-black text-slate-700 dark:text-slate-200 flex items-center gap-1.5 flex-wrap">
+              {title}
+              {badge && (
+                <span className="px-1.5 py-px rounded-full bg-slate-100 dark:bg-slate-800 text-[8px] font-black uppercase tracking-wider text-slate-400">
+                  {badge}
+                </span>
+              )}
+            </p>
+            <p className="mt-0.5 text-[10px] font-medium text-slate-400 leading-relaxed">{caption}</p>
+          </div>
+        </div>
+        {value && (
+          <p className="shrink-0 text-xl font-black leading-none tabular-nums">{value}</p>
+        )}
+      </div>
+      {children}
     </div>
   )
 }

@@ -1,11 +1,13 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/apiError'
 import { bscApi } from '../api/bscApi'
 import type { CascadePolicyRequest, CascadeRequest, BscOverrideRequest } from '../types'
+import { useBscInvalidator } from './useBsc'
 
 /**
  * Hook cho BSC phân cấp (docs/bsc-cascade-design.md): cây, độ phủ, phân rã, vòng đời trình–duyệt,
- * kết quả BSC đơn vị, chính sách hệ số và diễn giải điểm cá nhân.
+ * kết quả BSC đơn vị, chính sách điểm BSC và diễn giải điểm cá nhân.
  *
  * <p>Tách khỏi `useBsc.ts` (danh mục hạng mục + CRUD bộ tiêu chí) cho khớp cách backend đã tách
  * BscController / BscCascadeController.
@@ -13,18 +15,7 @@ import type { CascadePolicyRequest, CascadeRequest, BscOverrideRequest } from '.
 
 const errText = (error: unknown, fallback: string) => {
   const e = error as { response?: { data?: { message?: string } } }
-  return e?.response?.data?.message || fallback
-}
-
-/** Mọi thứ đọc từ cây đều đổi sau một thao tác cascade/duyệt/tính lại, nên dọn chung một mẻ. */
-function useCascadeInvalidator() {
-  const queryClient = useQueryClient()
-  return () => {
-    queryClient.invalidateQueries({ queryKey: ['bsc-scorecard-tree'] })
-    queryClient.invalidateQueries({ queryKey: ['bsc-coverage'] })
-    queryClient.invalidateQueries({ queryKey: ['scorecards'] })
-    queryClient.invalidateQueries({ queryKey: ['bsc-unit-result'] })
-  }
+  return getApiErrorMessage(e, fallback)
 }
 
 export function useScorecardTree(organizationId?: string, kpiPeriodId?: string) {
@@ -80,7 +71,7 @@ export function useLinkedWeight(userId?: string, kpiPeriodId?: string, organizat
 // ================================================================
 
 export function useCascadeMutations() {
-  const invalidate = useCascadeInvalidator()
+  const invalidate = useBscInvalidator()
 
   const cascade = useMutation({
     mutationFn: ({ scorecardId, data }: { scorecardId: string; data: CascadeRequest }) =>
@@ -105,7 +96,7 @@ export function useCascadeMutations() {
     mutationFn: (scorecardId: string) => bscApi.approveScorecard(scorecardId),
     onSuccess: () => {
       invalidate()
-      toast.success('Đã duyệt bộ tiêu chí')
+      toast.success('Đã duyệt và áp dụng bộ tiêu chí')
     },
     onError: e => toast.error(errText(e, 'Duyệt bộ tiêu chí thất bại')),
   })
@@ -147,8 +138,25 @@ export function useCascadeMutations() {
     onError: e => toast.error(errText(e, 'Mở khoá bộ tiêu chí thất bại')),
   })
 
+  const attachParent = useMutation({
+    mutationFn: ({ scorecardId, parentScorecardId, linkItems }: {
+      scorecardId: string
+      parentScorecardId: string | null
+      linkItems?: boolean
+    }) => bscApi.attachScorecardParent(scorecardId, parentScorecardId, linkItems ?? true),
+    onSuccess: (res, vars) => {
+      invalidate()
+      // Server nói rõ nối được mấy chỉ tiêu — dùng đúng câu đó thay vì một câu chung chung.
+      toast.success(res.message || (vars.parentScorecardId
+        ? 'Đã gắn vào bộ tiêu chí cấp trên'
+        : 'Đã gỡ bộ tiêu chí khỏi cây'))
+    },
+    onError: e => toast.error(errText(e, 'Gắn vào cấp trên thất bại')),
+  })
+
   return {
     cascade,
+    attachParent,
     submitScorecard,
     approveScorecard,
     rejectScorecard,
@@ -163,7 +171,7 @@ export function useCascadeMutations() {
 // ================================================================
 
 export function useUnitResultMutations() {
-  const invalidate = useCascadeInvalidator()
+  const invalidate = useBscInvalidator()
 
   const recompute = useMutation({
     mutationFn: ({ scorecardId, kpiPeriodId }: { scorecardId: string; kpiPeriodId: string }) =>
@@ -180,7 +188,7 @@ export function useUnitResultMutations() {
       bscApi.finalizeUnitResult(scorecardId, kpiPeriodId),
     onSuccess: () => {
       invalidate()
-      toast.success('Đã chốt kết quả — hệ số dùng để tính điểm cá nhân từ nay không đổi')
+      toast.success('Đã chốt kết quả BSC của đơn vị')
     },
     onError: e => toast.error(errText(e, 'Chốt kết quả thất bại')),
   })
@@ -210,7 +218,7 @@ export function useUnitResultMutations() {
 }
 
 // ================================================================
-// Chính sách hệ số & ghi đè điểm
+// Chính sách điểm BSC & ghi đè điểm
 // ================================================================
 
 export function useCascadePolicyMutations() {
@@ -222,7 +230,7 @@ export function useCascadePolicyMutations() {
       bscApi.createCascadePolicy(organizationId, data),
     onSuccess: () => {
       invalidate()
-      toast.success('Đã tạo chính sách hệ số')
+      toast.success('Đã tạo chính sách điểm BSC')
     },
     onError: e => toast.error(errText(e, 'Tạo chính sách thất bại')),
   })
@@ -232,7 +240,7 @@ export function useCascadePolicyMutations() {
       bscApi.updateCascadePolicy(policyId, data),
     onSuccess: () => {
       invalidate()
-      toast.success('Đã cập nhật chính sách hệ số')
+      toast.success('Đã cập nhật chính sách điểm BSC')
     },
     onError: e => toast.error(errText(e, 'Cập nhật chính sách thất bại')),
   })
@@ -241,7 +249,7 @@ export function useCascadePolicyMutations() {
     mutationFn: (policyId: string) => bscApi.deleteCascadePolicy(policyId),
     onSuccess: () => {
       invalidate()
-      toast.success('Đã xoá chính sách hệ số')
+      toast.success('Đã xoá chính sách — kỳ đó quay về dùng chính sách mặc định')
     },
     onError: e => toast.error(errText(e, 'Xoá chính sách thất bại')),
   })

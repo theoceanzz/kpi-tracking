@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useRef } from 'react'
+import { useState, useMemo, useEffect, useRef, type ReactNode } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery } from '@tanstack/react-query'
@@ -13,19 +13,21 @@ import UserAvatar from '@/components/common/UserAvatar'
 import type { Evaluation } from '@/types/evaluation'
 import {
   X, Star, User, MessageSquare, TrendingUp,
-  Award, Target, Loader2, Layers
+  Award, Target, Loader2, Layers, HeartHandshake, ArrowUpRight
 } from 'lucide-react'
 import ReviewModal from '@/features/submissions/components/ReviewModal'
 import StaffEvaluationModal from '@/features/submissions/components/StaffEvaluationModal'
 import StaffPerformanceDetailModal from '@/features/submissions/components/StaffPerformanceDetailModal'
 import { usePermission } from '@/hooks/usePermission'
 import TimelineStep from '@/components/common/TimelineStep'
-import ConductInlineSheet from '@/features/conduct/components/ConductInlineSheet'
+import { useConductSheet } from '@/features/conduct/hooks/useConduct'
+import type { ConductSheet } from '@/features/conduct/api/conductApi'
 import BscWaterfallModal from '@/features/bsc/components/BscWaterfallModal'
 
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { evaluationApi } from '../api/evaluationApi'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/apiError'
 
 interface EvaluationDetailModalProps {
   open: boolean
@@ -40,7 +42,7 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
   const [waterfallId, setWaterfallId] = useState<string | null>(null)
   const { user } = useAuthStore()
   const { data: org } = useOrganization(user?.memberships?.[0]?.organizationId)
-  const { getScoreColor, getScoreLabel, maxScore } = getScoringFunctions(org)
+  const { getScoreColor, getScoreBg, getScoreLabel, maxScore } = getScoringFunctions(org)
   const { canReviewSubmission, canCreateEvaluation } = usePermission()
   const isManager = useMemo(() => user?.memberships?.some(m => m.roleRank === 0), [user])
   const isDeputy = useMemo(() => user?.memberships?.some(m => m.roleRank === 1), [user])
@@ -101,8 +103,8 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
       qc.invalidateQueries({ queryKey: ['evaluations'] })
       toast.success('Đã lưu đánh giá thành công')
     },
-    onError: (err: any) => {
-      toast.error(err?.response?.data?.message || 'Có lỗi xảy ra')
+    onError: (err) => {
+      toast.error(getApiErrorMessage(err, 'Lưu đánh giá thất bại'))
     }
   })
 
@@ -337,6 +339,19 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
     kpiPeriodId: evaluation?.kpiPeriodId
   })
 
+  // Phiếu hạnh kiểm của đợt, để dòng thời gian nói được điểm hạnh kiểm THẬT (vd 3/4) chứ
+  // không chỉ hiện con số đã quy về trục ma trận ("hành vi 3.8/5") — người chấm 3/4 nhìn
+  // vào 3.8 không nhận ra đó là điểm mình vừa chấm. Cùng queryKey với phiếu đầy đủ bên
+  // dưới nên React Query dùng chung một lần gọi, không phát sinh request thứ hai.
+  const { data: conductSheet } = useConductSheet(
+    {
+      scope: 'PERIOD',
+      periodId: org?.enableConduct ? (evaluation?.kpiPeriodId ?? null) : null,
+      cycleId: null,
+    },
+    evaluation?.userId
+  )
+
   const calculatedScore = scorePreview?.systemScore ?? null
   const scoreCeiling = scorePreview?.maxAllowedScore ?? maxScore
   scoreCeilingRef.current = scoreCeiling
@@ -408,9 +423,13 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
                 iconColor={step.iconColor}
                 evaluation={step.evaluation}
                 calculatedScore={step.role === 'SELF' ? calculatedScore : undefined}
+                maxScore={maxScore}
+                // Phiếu chưa ai chấm thì không dựng dòng "điểm hạnh kiểm —" cho có.
+                conduct={conductSheet?.effectiveScore != null ? conductSheet : null}
                 lineActive={idx < timelineSteps.length - 1 && !!timelineSteps[idx + 1].evaluation}
                 isLast={idx === timelineSteps.length - 1}
                 getScoreColor={getScoreColor}
+                getScoreBg={getScoreBg}
                 getScoreLabel={getScoreLabel}
                 onClick={step.role === 'SELF' && isDeputy ? () => setShowPerfDetail(true) : undefined}
                 onExplainBsc={setWaterfallId}
@@ -422,17 +441,9 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
 
 
 
-          {/* Phiếu hạnh kiểm của đúng đợt này. Đặt ở đây chứ không chỉ nằm trong modal chấm
-              đợt: nút xuống modal đó đòi phải có bài nộp, nên người không nộp gì mà đã bị
-              chốt đánh giá sẽ không còn đường nào mở phiếu ra. */}
-          {org?.enableConduct && evaluation?.kpiPeriodId && (
-            <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
-              <ConductInlineSheet
-                target={{ scope: 'PERIOD', periodId: evaluation.kpiPeriodId, cycleId: null }}
-                userId={evaluation.userId}
-              />
-            </div>
-          )}
+          {/* KHÔNG dựng phiếu hạnh kiểm ở đây. Màn này là màn XEM LẠI: nhân viên chấm ở
+              modal tự đánh giá, quản lý chấm ở modal chấm đợt — hiện lại cả phiếu chỉ làm
+              modal dài thêm. Con số đã nằm ở dòng "Điểm hạnh kiểm" trên timeline. */}
 
           {/* === Director: Drill-down to StaffEvaluationModal === */}
           {canReviewSubmission && isManager && evaluation?.userId !== user?.id && mySubmissions && mySubmissions.content.length > 0 && (
@@ -588,14 +599,64 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
 
 // --- Sub Components ---
 
-function EvalLayerCard({ title, icon: Icon, iconBg, iconColor, evaluation, lineActive, isLast, calculatedScore, getScoreColor, getScoreLabel, onClick, onExplainBsc }: {
-  title: string; icon: any; iconBg: string; iconColor: string; 
+/**
+ * Một con số phụ của thẻ đánh giá: nhãn + câu giải thích bên trái, con số bên phải.
+ *
+ * Ba con số này (ma trận, hạnh kiểm, BSC) trước đây là ba viên pill chữ 9px in hoa nằm
+ * cùng một dòng với nhau — cùng cỡ, cùng kiểu, không có nhãn nào nói con số nghĩa là gì.
+ * Xếp thành hàng có nhãn thì đọc một lượt là hiểu.
+ */
+function DetailRow({
+  icon, label, badge, caption, value, valueClass, action, children,
+}: {
+  icon: ReactNode
+  label: string
+  badge?: string
+  caption?: string
+  value?: ReactNode
+  valueClass?: string
+  action?: ReactNode
+  children?: ReactNode
+}) {
+  return (
+    <div className="px-3 py-2 rounded-xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
+      <div className="flex items-center gap-2.5">
+        <span className="shrink-0">{icon}</span>
+        <div className="min-w-0 flex-1">
+          <p className="text-[11px] font-black text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
+            {label}
+            {badge && (
+              <span className="px-1.5 py-px rounded-full bg-slate-200/70 dark:bg-slate-700 text-[8px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                {badge}
+              </span>
+            )}
+          </p>
+          {caption && (
+            <p className="text-[10px] font-medium text-slate-400 leading-relaxed">{caption}</p>
+          )}
+        </div>
+        {action}
+        {value != null && (
+          <span className={cn('shrink-0 text-lg font-black leading-none tabular-nums', valueClass)}>{value}</span>
+        )}
+      </div>
+      {children}
+    </div>
+  )
+}
+
+function EvalLayerCard({ title, icon: Icon, iconBg, iconColor, evaluation, lineActive, isLast, calculatedScore, maxScore, conduct, getScoreColor, getScoreBg, getScoreLabel, onClick, onExplainBsc }: {
+  title: string; icon: any; iconBg: string; iconColor: string;
   evaluation: Evaluation | null; lineActive?: boolean; isLast?: boolean;
   calculatedScore?: number | null;
+  maxScore: number;
+  /** Phiếu hạnh kiểm của đợt — null khi tổ chức không chấm hạnh kiểm hoặc phiếu chưa có điểm. */
+  conduct?: ConductSheet | null;
   getScoreColor: (s: number | null) => string;
+  getScoreBg: (s: number | null) => string;
   getScoreLabel: (s: number | null) => string;
   onClick?: () => void;
-  /** Mở màn hình diễn giải điểm BSC (hệ số phòng/công ty, hạng mục chặn, ghi đè). */
+  /** Mở màn hình diễn giải điểm BSC (điểm gốc, trần, hạng mục chặn, ghi đè). */
   onExplainBsc?: (evaluationId: string) => void;
 }) {
 
@@ -612,82 +673,114 @@ function EvalLayerCard({ title, icon: Icon, iconBg, iconColor, evaluation, lineA
     >
       {evaluation ? (
           <>
-            <div className="flex items-center justify-between gap-4 flex-wrap">
+            {/* Hàng đầu: CHỈ điểm chốt của tầng này và người chấm. Mọi con số phụ (ma trận,
+                hạnh kiểm, BSC) xuống khối dưới — trước đây tất cả chen trong một cột trái,
+                cùng cỡ chữ 9px in hoa nên không đọc được cái nào ra cái nào. */}
+            <div className="flex items-start justify-between gap-4">
               <div className="flex items-center gap-3 min-w-0">
-                <div className={cn("p-2 rounded-xl bg-slate-50 dark:bg-slate-800/50 shrink-0", getScoreColor(evaluation.score).replace('text-', 'text-opacity-20 bg-'))}>
+                <div className={cn('w-12 h-12 rounded-2xl border flex items-center justify-center shrink-0', getScoreBg(evaluation.score))}>
                   <TrendingUp size={20} className={getScoreColor(evaluation.score)} />
                 </div>
-                <div className="flex flex-col min-w-0">
-                  <div className="flex items-baseline gap-2 flex-wrap">
-                    <span className={`text-2xl sm:text-3xl font-black tracking-tighter ${getScoreColor(evaluation.score)}`}>{evaluation.score != null ? formatNumber(evaluation.score) : '—'}</span>
-                    <span className={`text-[10px] font-black uppercase tracking-[0.15em] whitespace-nowrap ${getScoreColor(evaluation.score)}`}>{getScoreLabel(evaluation.score)}</span>
+                <div className="min-w-0">
+                  <div className="flex items-baseline gap-1.5 flex-wrap">
+                    <span className={cn('text-3xl font-black tracking-tighter tabular-nums', getScoreColor(evaluation.score))}>
+                      {evaluation.score != null ? formatNumber(evaluation.score) : '—'}
+                    </span>
+                    <span className="text-sm font-black text-slate-300 dark:text-slate-600">/{maxScore}</span>
+                    <span className={cn('ml-1 text-[10px] font-black uppercase tracking-[0.15em] whitespace-nowrap', getScoreColor(evaluation.score))}>
+                      {getScoreLabel(evaluation.score)}
+                    </span>
                   </div>
-
-                  {evaluation.matrixRating != null && (
-                    <div className="mt-1 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest bg-teal-50 text-teal-600 dark:bg-teal-900/20"
-                      title={`Điểm hành vi ${evaluation.behaviorScore != null ? evaluation.behaviorScore.toFixed(1) : '—'}/5 × Hoàn thành ${evaluation.kpiCompletionPercent != null ? Math.round(evaluation.kpiCompletionPercent) + '%' : '—'}`}>
-                      {evaluation.behaviorScore != null && <>Hành vi {evaluation.behaviorScore.toFixed(1)}/5 · </>}Xếp loại ma trận: {evaluation.matrixRating}/5
-                    </div>
-                  )}
-
-                  {/* BSC: điểm + breakdown hạng mục (chỉ hiện khi kỳ có bộ tiêu chí) */}
-                  {evaluation.bscScore != null && (
-                    <div className="mt-2 space-y-1.5">
-                      <div className="flex flex-wrap items-center gap-1.5">
-                        <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest bg-indigo-50 text-indigo-600 dark:bg-indigo-900/20"
-                          title={evaluation.bscScoringMode === 'OFFICIAL'
-                            ? 'Điểm BSC đang là điểm chính thức'
-                            : 'Điểm BSC đang chạy song song để đối chiếu, chưa thay điểm hệ thống'}>
-                          <Layers size={10} />
-                          Điểm BSC: {evaluation.bscScore.toFixed(1)}
-                          <span className="opacity-60">· {evaluation.bscScoringMode === 'OFFICIAL' ? 'Chính thức' : 'Song song'}</span>
-                        </div>
-                        {/* Điểm BSC đứng một mình không giải thích được vì sao ra con số đó —
-                            hệ số phòng/công ty và hạng mục chặn nằm ở màn hình diễn giải. */}
-                        <button type="button" onClick={() => onExplainBsc?.(evaluation.id)}
-                          className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30">
-                          Diễn giải điểm
-                        </button>
-                      </div>
-                      {evaluation.bscPerspectives && evaluation.bscPerspectives.length > 0 && (
-                        <div className="flex flex-wrap gap-1">
-                          {evaluation.bscPerspectives.map(p => (
-                            <span key={p.perspectiveId}
-                              className="inline-flex items-center gap-1 text-[9px] font-bold px-1.5 py-0.5 rounded-md"
-                              style={{ color: p.color || '#8b5cf6', backgroundColor: `${p.color || '#8b5cf6'}14` }}
-                              title={describePerspectiveScore(p)}>
-                              <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: p.color || '#8b5cf6' }} />
-                              {p.name} <b>{p.achievementPercent != null ? `${p.achievementPercent.toFixed(0)}%` : '—'}</b>
-                              {p.scoredByTarget && p.actualValue != null && p.targetValue != null && (
-                                <span className="opacity-60">{p.actualValue}/{p.targetValue}{p.unit ? ` ${p.unit}` : ''}</span>
-                              )}
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  )}
 
                   {evaluation.evaluatorRole === 'SELF' && !(evaluation.behaviorScore != null && evaluation.kpiCompletionPercent == null) && (evaluation.systemScore ?? calculatedScore) != null && evaluation.score !== (evaluation.systemScore ?? calculatedScore) && (
                      <div className={cn(
-                       "mt-1 inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-widest",
-                       evaluation.score! > (evaluation.systemScore ?? calculatedScore!) 
-                        ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20" 
+                       "mt-1.5 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest",
+                       evaluation.score! > (evaluation.systemScore ?? calculatedScore!)
+                        ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20"
                         : "bg-amber-50 text-amber-600 dark:bg-amber-900/20"
                      )}>
-                       {evaluation.score! > (evaluation.systemScore ?? calculatedScore!) ? '+' : ''}{Math.round(evaluation.score! - (evaluation.systemScore ?? calculatedScore!))} điểm hệ thống
+                       {evaluation.score! > (evaluation.systemScore ?? calculatedScore!) ? '+' : ''}{Math.round(evaluation.score! - (evaluation.systemScore ?? calculatedScore!))} so với điểm hệ thống
                      </div>
                   )}
                 </div>
               </div>
 
               {evaluation.evaluatorName && (
-                <div className="text-right shrink-0 ml-auto">
-                  <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Bởi</p>
-                  <p className="text-xs font-bold text-slate-600 dark:text-slate-300">{evaluation.evaluatorName}</p>
-                </div>
+                <p className="shrink-0 text-right text-[11px] font-bold text-slate-400 leading-relaxed">
+                  bởi<br />
+                  <span className="text-slate-600 dark:text-slate-300">{evaluation.evaluatorName}</span>
+                </p>
               )}
             </div>
+
+            {(evaluation.matrixRating != null || conduct != null || evaluation.bscScore != null) && (
+              <div className="mt-4 space-y-1.5">
+                {evaluation.matrixRating != null && (
+                  <DetailRow
+                    icon={<Star size={13} className="text-teal-500 fill-current" />}
+                    label="Xếp loại theo ma trận"
+                    caption={`Tra từ hành vi ${evaluation.behaviorScore != null ? evaluation.behaviorScore.toFixed(1) : '—'}/5 và hoàn thành ${evaluation.kpiCompletionPercent != null ? Math.round(evaluation.kpiCompletionPercent) + '%' : '—'}`}
+                    value={<>{evaluation.matrixRating}<span className="text-xs text-slate-300 dark:text-slate-600">/5</span></>}
+                    valueClass="text-teal-600 dark:text-teal-400"
+                  />
+                )}
+
+                {/* Điểm hạnh kiểm THẬT của phiếu, đúng thang của bộ tiêu chí. */}
+                {conduct != null && (
+                  <DetailRow
+                    icon={<HeartHandshake size={13} className="text-emerald-500" />}
+                    label="Điểm hạnh kiểm"
+                    caption={[
+                      `Tự chấm ${conduct.selfScore != null ? formatNumber(conduct.selfScore) : '—'}`,
+                      `quản lý chấm ${conduct.managerScore != null ? formatNumber(conduct.managerScore) : '—'}`,
+                    ].join(' · ')}
+                    value={<>
+                      {conduct.effectiveScore != null ? formatNumber(conduct.effectiveScore) : '—'}
+                      <span className="text-xs text-slate-300 dark:text-slate-600">/{conduct.maxScore}</span>
+                    </>}
+                    valueClass="text-emerald-600 dark:text-emerald-400"
+                  />
+                )}
+
+                {/* BSC: điểm + breakdown hạng mục (chỉ hiện khi kỳ có bộ tiêu chí) */}
+                {evaluation.bscScore != null && (
+                  <DetailRow
+                    icon={<Layers size={13} className="text-indigo-500" />}
+                    label="Điểm BSC"
+                    badge={evaluation.bscScoringMode === 'OFFICIAL' ? 'Chính thức' : 'Song song'}
+                    caption={evaluation.bscScoringMode === 'OFFICIAL'
+                      ? 'Đang là điểm chính thức của kỳ'
+                      : 'Chạy song song để đối chiếu — chưa thay điểm hệ thống'}
+                    value={evaluation.bscScore.toFixed(1)}
+                    valueClass="text-indigo-600 dark:text-indigo-400"
+                    action={
+                      // Điểm BSC đứng một mình không giải thích được vì sao ra con số đó —
+                      // trần điểm và hạng mục chặn nằm ở màn hình diễn giải.
+                      <button type="button" onClick={e => { e.stopPropagation(); onExplainBsc?.(evaluation.id) }}
+                        className="shrink-0 inline-flex items-center gap-1 px-2 h-6 rounded-lg text-[9px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors">
+                        Diễn giải <ArrowUpRight size={11} />
+                      </button>
+                    }
+                  >
+                    {evaluation.bscPerspectives && evaluation.bscPerspectives.length > 0 && (
+                      <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
+                        {evaluation.bscPerspectives.map(p => (
+                          <span key={p.perspectiveId}
+                            className="inline-flex items-center gap-1.5 text-[10px] font-bold text-slate-500 dark:text-slate-400"
+                            title={describePerspectiveScore(p)}>
+                            <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: p.color || '#8b5cf6' }} />
+                            {p.name}
+                            <b className={cn('tabular-nums', p.achievementPercent == null && 'text-slate-300 dark:text-slate-600')}>
+                              {p.achievementPercent != null ? `${p.achievementPercent.toFixed(0)}%` : 'chưa có'}
+                            </b>
+                          </span>
+                        ))}
+                      </div>
+                    )}
+                  </DetailRow>
+                )}
+              </div>
+            )}
 
             {evaluation.comment && (
               <div className="mt-4 pt-4 border-t border-slate-50 dark:border-slate-800/50">

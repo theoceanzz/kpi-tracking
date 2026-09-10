@@ -1,6 +1,7 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/apiError'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import EmptyState from '@/components/common/EmptyState'
 import KpiAdjustmentReviewModal from '../components/KpiAdjustmentReviewModal'
@@ -346,8 +347,8 @@ export default function KpiAdjustmentApprovalPage() {
         setSelectedIds([])
         setBulkNote('')
       },
-      onError: () => {
-        toast.error('Có lỗi xảy ra khi xử lý hàng loạt')
+      onError: (error) => {
+        toast.error(getApiErrorMessage(error, 'Xử lý hàng loạt thất bại'))
       }
     })
   }

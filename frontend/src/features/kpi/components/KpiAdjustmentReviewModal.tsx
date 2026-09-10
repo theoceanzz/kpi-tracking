@@ -5,6 +5,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { adjustmentApi } from '../api/adjustmentApi'
 import { createAdjustmentReviewSchema, type AdjustmentReviewFormData } from '../schemas/reviewSchema'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/apiError'
 import { X, Loader2, XCircle, Users, Clock, MessageSquare, AlertTriangle, Calendar, Layers } from 'lucide-react'
 import { formatNumber, formatDateTime, cn } from '@/lib/utils'
 import type { KpiAdjustmentRequest } from '@/types/adjustment'
@@ -51,7 +52,7 @@ export default function KpiAdjustmentReviewModal({ open, onClose, request }: Kpi
       onClose()
       reset({ reviewMode: 'view', note: '', compensationPercentage: '' })
     },
-    onError: () => toast.error('Xử lý thất bại'),
+    onError: (error) => toast.error(getApiErrorMessage(error, 'Xử lý yêu cầu điều chỉnh thất bại')),
   })
 
   if (!open || !request) return null

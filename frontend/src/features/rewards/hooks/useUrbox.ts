@@ -1,9 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/apiError'
 import { urboxApi } from '../api/urboxApi'
 import type { ImportUrboxGiftRequest } from '../types'
 
-const errMsg = (error: any, fallback: string) => error?.response?.data?.message || fallback
+const errMsg = (error: any, fallback: string) => getApiErrorMessage(error, fallback)
 
 /**
  * Kết nối UrBox có bật không. Hỏi một lần rồi giữ lâu: đây là cấu hình của bản triển

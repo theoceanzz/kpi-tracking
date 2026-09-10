@@ -41,6 +41,17 @@ interface Row {
   EmptyPolicy?: string
   /** Mã phòng ban áp dụng (phân tách dấu phẩy); rỗng = toàn tổ chức. Đồng bộ theo kỳ. */
   OrgUnitCodes?: string
+  /**
+   * Mô tả HẠNG MỤC — chỉ cần khi mã hạng mục chưa có trong tổ chức, backend sẽ tạo mới từ đây.
+   * Bảng xem trước chỉ bày ô tên (thứ bắt buộc để tạo); các cột còn lại đi xuyên qua nguyên vẹn,
+   * không hiện lên bảng cho đỡ rối nhưng cũng KHÔNG được rơi mất lúc dựng lại tệp.
+   */
+  PerspectiveName?: string
+  FixedPerspective?: string
+  Unit?: string
+  TargetValue?: string
+  MinimumValue?: string
+  Color?: string
   _errors?: Record<string, string>
 }
 
@@ -180,6 +191,12 @@ export default function ScorecardExcelPreviewModal({ open, file, onClose, onImpo
           ScoringMode: (row['ScoringMode'] || '').toString().trim().toUpperCase(),
           EmptyPolicy: (row['EmptyPolicy'] || '').toString().trim().toUpperCase(),
           OrgUnitCodes: (row['OrgUnits'] || row['OrgUnitCode'] || row['OrgUnitCodes'] || '').toString().trim(),
+          PerspectiveName: (row['PerspectiveName'] || '').toString().trim(),
+          FixedPerspective: (row['FixedPerspective'] || row['Perspective'] || '').toString().trim().toUpperCase(),
+          Unit: (row['Unit'] || '').toString().trim(),
+          TargetValue: (row['TargetValue'] ?? '').toString().trim(),
+          MinimumValue: (row['MinimumValue'] ?? '').toString().trim(),
+          Color: (row['Color'] || '').toString().trim(),
         }
       }).filter(r => r.Period || r.PerspectiveCode)
       if (parsed.length === 0) { toast.error('File không có dữ liệu hoặc sai định dạng.'); onClose(); return }
@@ -213,6 +230,12 @@ export default function ScorecardExcelPreviewModal({ open, file, onClose, onImpo
         if (r.Status) o.Status = r.Status
         if (r.ScoringMode) o.ScoringMode = r.ScoringMode
         if (r.EmptyPolicy) o.EmptyPolicy = r.EmptyPolicy
+        if (r.PerspectiveName) o.PerspectiveName = r.PerspectiveName
+        if (r.FixedPerspective) o.FixedPerspective = r.FixedPerspective
+        if (r.Unit) o.Unit = r.Unit
+        if (r.TargetValue) o.TargetValue = r.TargetValue
+        if (r.MinimumValue) o.MinimumValue = r.MinimumValue
+        if (r.Color) o.Color = r.Color
         return o
       })
       const ws = utils.json_to_sheet(exportData)
@@ -264,6 +287,7 @@ export default function ScorecardExcelPreviewModal({ open, file, onClose, onImpo
                         <th className="px-4 py-3 min-w-[180px]">Vision</th>
                         <th className="px-4 py-3 min-w-[200px]">Phòng ban</th>
                         <th className="px-4 py-3 min-w-[160px]">Mã hạng mục <span className="text-rose-500">*</span></th>
+                        <th className="px-4 py-3 min-w-[180px]">Tên hạng mục</th>
                         <th className="px-4 py-3 min-w-[110px]">Trọng số % <span className="text-rose-500">*</span></th>
                         <th className="px-4 py-3 min-w-[140px]">Trạng thái</th>
                         <th className="px-4 py-3 min-w-[150px]">Chế độ điểm</th>
@@ -322,6 +346,12 @@ export default function ScorecardExcelPreviewModal({ open, file, onClose, onImpo
                             {row._errors?.PerspectiveCode && <p className="text-[10px] text-rose-500 mt-1 font-medium px-1">{row._errors.PerspectiveCode}</p>}
                           </td>
                           <td className="px-4 py-2">
+                            <input value={row.PerspectiveName || ''}
+                              onChange={e => change(row.id, 'PerspectiveName', e.target.value)}
+                              placeholder="Bỏ trống nếu mã đã có"
+                              className={inputCls()} />
+                          </td>
+                          <td className="px-4 py-2">
                             <input value={row.Weight} onChange={e => change(row.id, 'Weight', e.target.value)} className={cn(inputCls(row._errors?.Weight), 'text-right font-black')} />
                             {row._errors?.Weight && <p className="text-[10px] text-rose-500 mt-1 font-medium px-1">{row._errors.Weight}</p>}
                           </td>
@@ -340,8 +370,8 @@ export default function ScorecardExcelPreviewModal({ open, file, onClose, onImpo
                           </td>
                           <td className="px-4 py-2">
                             <select value={(row.EmptyPolicy || 'RENORMALIZE').toUpperCase()} onChange={e => change(row.id, 'EmptyPolicy', e.target.value)} className={cn(inputCls(), 'pr-7')}>
-                              <option value="RENORMALIZE">Chuẩn hóa lại</option>
-                              <option value="ZERO_FILL">Tính 0đ</option>
+                              <option value="RENORMALIZE">Bỏ qua hạng mục rỗng</option>
+                              <option value="ZERO_FILL">Tính 0 điểm</option>
                             </select>
                           </td>
                           <td className="px-4 py-2 text-center"><button onClick={() => remove(row.id)} className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded-lg transition-colors"><Trash2 size={16} /></button></td>

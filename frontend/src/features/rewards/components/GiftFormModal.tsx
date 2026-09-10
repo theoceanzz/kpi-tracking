@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Loader2, X, Gift, Upload, ImageOff, Trash2, AlertTriangle } from 'lucide-react'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/apiError'
 import { giftApi } from '../api/giftApi'
 import { useGiftsManage } from '../hooks/useGifts'
 import { giftSchema, numOrUndefined, type GiftFormData } from '../schemas/giftSchema'
@@ -66,7 +67,7 @@ export default function GiftFormModal({ open, onClose, editGift }: GiftFormModal
     try {
       setValue('imageUrl', await giftApi.uploadImage(file), { shouldValidate: true })
     } catch (e: any) {
-      toast.error(e?.response?.data?.message || 'Tải ảnh thất bại')
+      toast.error(getApiErrorMessage(e, 'Tải ảnh thất bại'))
     } finally {
       setUploading(false)
     }

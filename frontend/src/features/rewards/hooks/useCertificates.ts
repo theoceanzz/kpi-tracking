@@ -1,9 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/apiError'
 import { certificateApi } from '../api/certificateApi'
 import type { CertificateTemplateRequest } from '../types'
 
-const errMsg = (error: any, fallback: string) => error?.response?.data?.message || fallback
+const errMsg = (error: any, fallback: string) => getApiErrorMessage(error, fallback)
 
 /**
  * Danh mục mẫu cho màn hình IN.

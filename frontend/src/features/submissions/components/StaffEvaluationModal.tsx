@@ -7,6 +7,7 @@ import { createStaffEvaluationSchema, type StaffEvaluationFormData } from '../sc
 import { firstErrorMessage } from '@/lib/formErrors'
 import { evaluationApi } from '@/features/evaluations/api/evaluationApi'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/apiError'
 import {
   X, Loader2, CheckCircle, Target, TrendingUp,
   MessageSquare, Award, Star, Zap,
@@ -20,7 +21,7 @@ import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { getScoringFunctions, SCORING_POOL } from '@/lib/scoring'
 import EvaluationFormModal from '@/features/evaluations/components/EvaluationFormModal'
 import RewardPrompt from '@/features/rewards/components/RewardPrompt'
-import ConductInlineSheet from '@/features/conduct/components/ConductInlineSheet'
+import ConductInlineSheet, { type ConductSheetHandle } from '@/features/conduct/components/ConductInlineSheet'
 
 interface StaffEvaluationModalProps {
   open: boolean
@@ -106,6 +107,10 @@ export default function StaffEvaluationModal({
   const setFinalScore = (next: number) => setValue('finalScore', next, { shouldValidate: true })
   const hasManuallyAdjustedFinal = useRef(false)
 
+  // Phiếu hạnh kiểm không có nút lưu riêng — "Phê duyệt & chốt" lưu hộ nó. Đổi lại, đóng
+  // modal giữa chừng là mất phần vừa chấm, đúng như mọi ô khác trong form này.
+  const conductRef = useRef<ConductSheetHandle>(null)
+
   const getGrade = (score: number) => {
     return getScoreLabel(score)
   }
@@ -158,6 +163,7 @@ export default function StaffEvaluationModal({
 
   // ── Chiều ĐỊNH TÍNH & xếp loại ma trận (để người chấm hiểu điểm cuối từ đâu ra) ──
   const hasQualitative = submissionList.some(s => s.kpiType === 'QUALITATIVE')
+  const showConduct = !!org?.enableConduct
 
   // Điểm hành vi tính LIVE theo mức đang chọn (trung bình có trọng số),
   // khớp công thức calculateBehaviorScore() ở backend.
@@ -165,8 +171,23 @@ export default function StaffEvaluationModal({
   // Không có KPI định tính nào để chấm tay ⇒ lấy đúng con số server đã tính trong
   // scorePreview: khi tổ chức bật chấm hạnh kiểm, đó chính là điểm hạnh kiểm đã quy về
   // thang hành vi 0..5 để lấp trục hàng của ma trận.
+  // Điểm hạnh kiểm ĐANG gõ trong phiếu bên dưới (chưa lưu). Phiếu không còn nút lưu riêng
+  // nên nếu chỉ trông vào scorePreview thì suốt phiên chấm, ô "Hành vi" và xếp loại vẫn
+  // đứng im cho tới lúc chốt — người chấm không thấy việc mình vừa làm đi tới đâu.
+  const [conductLive, setConductLive] = useState<{ total: number | null; max: number } | null>(null)
+
+  // Quy về trục nào thì theo đúng ConductAxisResolver ở backend: trục hàng (0..5) khi
+  // người này không có KPI định tính, trục cột (%) khi không có KPI định lượng. Chỉ ghi đè
+  // trong hai trường hợp CHẮC CHẮN trục đó không có nguồn nào khác.
+  const conductAsBehavior = !hasQualitative && conductLive?.total != null && conductLive.max > 0
+    ? Math.round(conductLive.total / conductLive.max * 5 * 100) / 100
+    : null
+  const conductAsCompletion = isFullQualitative && conductLive?.total != null && conductLive.max > 0
+    ? Math.round(conductLive.total / conductLive.max * 100 * 100) / 100
+    : null
+
   const behaviorLive = useMemo(() => {
-    if (!hasQualitative) return scorePreview?.behaviorScore ?? null
+    if (!hasQualitative) return conductAsBehavior ?? scorePreview?.behaviorScore ?? null
     let sum = 0, totalWeight = 0
     for (const s of submissionList) {
       if (s.kpiType !== 'QUALITATIVE') continue
@@ -178,13 +199,13 @@ export default function StaffEvaluationModal({
       totalWeight += weight
     }
     return totalWeight > 0 ? Math.round((sum / totalWeight) * 100) / 100 : null
-  }, [submissionList, individualLevels, qualitativeLevels, hasQualitative, scorePreview?.behaviorScore])
+  }, [submissionList, individualLevels, qualitativeLevels, hasQualitative, conductAsBehavior, scorePreview?.behaviorScore])
 
   // Trục cột của ma trận: % hoàn thành định lượng (không đổi theo thao tác chấm tay).
   // Không có KPI định lượng ⇒ TRỐNG, và ma trận không xếp loại. Một loại KPI chỉ cấp được
   // một trục; muốn đủ hai trục thì tổ chức phải bật chấm hạnh kiểm — khi đó server đã trả
   // sẵn trục cột đã quy đổi trong kpiCompletionPercent.
-  const completionPercent = scorePreview?.kpiCompletionPercent ?? null
+  const completionPercent = conductAsCompletion ?? scorePreview?.kpiCompletionPercent ?? null
 
   const matrixLive = useMemo(
     () => lookupMatrixRating(behaviorLive, completionPercent, org?.performanceMatrix),
@@ -256,6 +277,11 @@ export default function StaffEvaluationModal({
   // Bulk review mutation
   const submitMutation = useMutation({
     mutationFn: async (data: StaffEvaluationFormData) => {
+      // 0. Điểm hạnh kiểm đang gõ dở phải vào DB TRƯỚC khi tạo bản ghi đánh giá: bản ghi
+      //    chụp lại trục "Hành vi" từ phiếu hạnh kiểm, lưu sau thì bản đã chốt vẫn mang
+      //    điểm cũ. Không có gì thay đổi thì handle tự bỏ qua, không gọi API.
+      await conductRef.current?.save()
+
       // 1. Bulk Review Submissions — skip when the staff member has no submissions
       let reviewResults: Awaited<ReturnType<typeof submissionApi.bulkReview>> = []
       if (submissionList.length > 0) {
@@ -272,20 +298,23 @@ export default function StaffEvaluationModal({
       }
 
       // 2. Create Evaluation record
-      await evaluationApi.create({
+      const evaluation = await evaluationApi.create({
         userId,
         kpiPeriodId: periodId,
         score: effectiveFinalScore,
         comment: data.overallComment || `${userRoleName} đánh giá kết quả đợt ${periodName}`
       })
 
-      return reviewResults
+      // Cảnh báo khung bell curve đi kèm bản ghi vừa chốt (chế độ "chặn" đã ném lỗi ở trên).
+      return { reviewResults, bellCurveWarning: evaluation?.bellCurveWarning }
     },
     onSuccess: (data) => {
       qc.invalidateQueries({ queryKey: ['submissions'] })
       qc.invalidateQueries({ queryKey: ['evaluations'] })
 
-      const autoApproved = data?.find(s => s.allChildrenApproved && s.parentSubmissionId)
+      if (data?.bellCurveWarning) toast.warning(data.bellCurveWarning, { duration: 8000 })
+
+      const autoApproved = data?.reviewResults?.find(s => s.allChildrenApproved && s.parentSubmissionId)
       if (autoApproved) {
         toast.success('Đã hoàn tất đánh giá và phê duyệt cho nhân viên')
         setShowAllApproved(true)
@@ -297,8 +326,8 @@ export default function StaffEvaluationModal({
         setJustEvaluated(true)
       }
     },
-    onError: () => {
-      toast.error('Có lỗi xảy ra khi lưu đánh giá')
+    onError: (error) => {
+      toast.error(getApiErrorMessage(error, 'Lưu đánh giá thất bại'))
     }
   })
 
@@ -601,31 +630,70 @@ export default function StaffEvaluationModal({
               </div>
               )}
 
-              {/* Summary and Comment */}
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8">
-                {(isFullyApproved || !readOnly) && (
-                  <div className="lg:col-span-7 space-y-4">
-                    <label className="flex items-center gap-2 text-xs font-black text-slate-400 uppercase tracking-widest">
-                      <MessageSquare size={14} /> Nhận xét chung của {userRoleName}
-                    </label>
-                    <textarea 
-                      {...register('overallComment')}
-                      rows={4}
-                      disabled={readOnly}
-                      className={cn(
-                        "w-full px-6 py-5 rounded-[32px] border text-sm font-medium resize-none transition-all",
-                        readOnly
-                          ? "bg-slate-50 dark:bg-slate-800/30 border-slate-200 dark:border-slate-700 cursor-not-allowed"
-                          : "border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 focus:ring-4 focus:ring-indigo-500/10 outline-none"
-                      )}
-                      placeholder={readOnly ? "Chưa có nhận xét nào..." : "Đánh giá tổng quát thái độ, nỗ lực và kết quả làm việc của nhân sự trong đợt này..."}
-                    />
+              {/* Cột trái = việc phải làm (chấm hạnh kiểm, viết nhận xét), cột phải = kết quả.
+                  Trước đây phiếu hạnh kiểm rơi xuống dưới cùng, tách hẳn khỏi thẻ xếp loại mà
+                  chính nó nuôi, còn cạnh thẻ xếp loại thì trống một mảng vì ô nhận xét quá ngắn. */}
+              <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
+                {(isFullyApproved || !readOnly || showConduct) && (
+                  <div className="lg:col-span-7 space-y-6">
+                    {showConduct && (
+                      <div className="space-y-2.5">
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+                            Hạnh kiểm của đợt
+                          </span>
+                          <span className="flex-1 h-px bg-slate-100 dark:bg-slate-800" />
+                        </div>
+
+                        {/* Trục "Hành vi" của ma trận đang trống mà nguồn duy nhất lấp nó là hạnh
+                            kiểm ⇒ nói thẳng, thay vì để người chấm nhìn "Hành vi —/5" rồi tự đoán. */}
+                        {!readOnly && !hasQualitative && behaviorLive == null && !!org?.performanceMatrix && (
+                          <div className="flex items-start gap-2.5 p-3 rounded-2xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200/60 dark:border-amber-900/30">
+                            <AlertCircle size={14} className="text-amber-600 shrink-0 mt-0.5" />
+                            <p className="text-[11px] font-bold text-amber-800 dark:text-amber-300 leading-relaxed">
+                              Chưa chấm hạnh kiểm nên trục <b>Hành vi</b> của ma trận còn trống — chưa ra được
+                              xếp loại. Chấm phiếu dưới đây là xếp loại bên cạnh tự cập nhật.
+                            </p>
+                          </div>
+                        )}
+
+                        <ConductInlineSheet
+                          ref={conductRef}
+                          hideActions
+                          onLiveScore={(total, max) => setConductLive({ total, max })}
+                          target={{ scope: 'PERIOD', periodId, cycleId: null }}
+                          userId={userId}
+                        />
+                      </div>
+                    )}
+
+                    {(isFullyApproved || !readOnly) && (
+                      <div className="space-y-4">
+                        <label className="flex items-center gap-2 text-xs font-black text-slate-400 uppercase tracking-widest">
+                          <MessageSquare size={14} /> Nhận xét chung của {userRoleName}
+                        </label>
+                        <textarea
+                          {...register('overallComment')}
+                          rows={4}
+                          disabled={readOnly}
+                          className={cn(
+                            "w-full px-6 py-5 rounded-[32px] border text-sm font-medium resize-none transition-all",
+                            readOnly
+                              ? "bg-slate-50 dark:bg-slate-800/30 border-slate-200 dark:border-slate-700 cursor-not-allowed"
+                              : "border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800 focus:ring-4 focus:ring-indigo-500/10 outline-none"
+                          )}
+                          placeholder={readOnly ? "Chưa có nhận xét nào..." : "Đánh giá tổng quát thái độ, nỗ lực và kết quả làm việc của nhân sự trong đợt này..."}
+                        />
+                      </div>
+                    )}
                   </div>
                 )}
 
+                {/* Dính đầu khung cuộn: chấm hạnh kiểm ở cột trái mà vẫn thấy xếp loại đổi
+                    theo, không phải cuộn lên xuống để đối chiếu. */}
                 <div className={cn(
-                  "lg:col-span-5",
-                  !(isFullyApproved || !readOnly) && "lg:col-span-12"
+                  "lg:col-span-5 lg:sticky lg:top-2",
+                  !(isFullyApproved || !readOnly || showConduct) && "lg:col-span-12"
                 )}>
                    <div className="p-8 rounded-[40px] bg-gradient-to-br from-indigo-600 to-indigo-800 text-white shadow-2xl shadow-indigo-500/20 space-y-6 relative overflow-hidden group">
                       <div className="absolute -bottom-10 -right-10 opacity-10 group-hover:scale-110 transition-transform duration-700">
@@ -808,12 +876,6 @@ export default function StaffEvaluationModal({
             </>
           )}
 
-          {/* Hạnh kiểm chấm ngay trong phiếu của đợt: điểm này chính là trục "Hành vi" của
-              ma trận phía trên, nên chấm xong là thấy xếp loại đổi tại chỗ. Không phụ thuộc
-              bài nộp — nhân viên không nộp gì vẫn phải có điểm hành vi. */}
-          {!isLoading && org?.enableConduct && (
-            <ConductInlineSheet target={{ scope: 'PERIOD', periodId, cycleId: null }} userId={userId} />
-          )}
         </div>
 
         {/* Chốt đánh giá xong thì mời thưởng ngay tại chỗ, trước khi người dùng đóng

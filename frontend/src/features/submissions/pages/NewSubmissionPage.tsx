@@ -18,6 +18,7 @@ import { useFormAssistStore } from '@/store/formAssistStore'
 import { MicButton } from '@/components/common/MicButton'
 import { ATTACHMENT_ACCEPT, ATTACHMENT_HINT, MAX_ATTACHMENT_BYTES, MAX_ATTACHMENT_FILES, screenEvidence } from '@/lib/attachmentPolicy'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/apiError'
 import { useNavigate, useSearchParams, useParams } from 'react-router-dom'
 import { formatNumber, cn } from '@/lib/utils'
 import { 
@@ -254,7 +255,7 @@ export default function NewSubmissionPage() {
         navigate('/submissions')
       }
     },
-    onError: (err: any) => toast.error(err?.response?.data?.message || 'Thao tác thất bại'),
+    onError: (err) => toast.error(getApiErrorMessage(err, 'Lưu bài nộp thất bại')),
   })
 
   if (loadingKpis || (isEdit && loadingExisting)) return <div className="p-8"><LoadingSkeleton type="form" rows={8} /></div>

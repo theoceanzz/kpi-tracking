@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { userApi } from '../api/userApi'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/apiError'
 import type { CreateUserRequest } from '@/types/user'
 
 export function useCreateUser() {
@@ -14,7 +15,7 @@ export function useCreateUser() {
       toast.success('Tạo nhân sự thành công')
     },
     onError: (error: any) => {
-      const errorMessage = error?.response?.data?.message || error?.message || 'Tạo nhân sự thất bại'
+      const errorMessage = getApiErrorMessage(error, 'Tạo nhân sự thất bại')
       toast.error(errorMessage)
     },
   })

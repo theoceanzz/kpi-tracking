@@ -10,6 +10,7 @@ import {
   ChevronLeft, ChevronRight, TrendingUp, AlertCircle, Bell, Calendar
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/apiError'
 import { reminderApi } from '../api/reminderApi'
 import type { KpiTask } from '@/types/stats'
 
@@ -70,7 +71,7 @@ export default function EmployeePerformancePage() {
       await reminderApi.sendReminder(taskId, userId)
       toast.success('Đã gửi thông báo nhắc nhở nộp KPI')
     } catch (error) {
-      toast.error('Gửi nhắc nhở thất bại')
+      toast.error(getApiErrorMessage(error, 'Gửi nhắc nhở thất bại'))
     } finally {
       setRemindingId(null)
     }
@@ -88,7 +89,7 @@ export default function EmployeePerformancePage() {
       await Promise.all(unfinishedTasks.map(t => reminderApi.sendReminder(t.id, userId!)))
       toast.success(`Đã gửi nhắc nhở cho ${unfinishedTasks.length} nhiệm vụ`)
     } catch (error) {
-      toast.error('Gửi nhắc nhở hàng loạt thất bại')
+      toast.error(getApiErrorMessage(error, 'Gửi nhắc nhở hàng loạt thất bại'))
     } finally {
       setRemindingAll(false)
     }

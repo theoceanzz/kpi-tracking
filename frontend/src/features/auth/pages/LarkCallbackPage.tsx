@@ -5,6 +5,7 @@ import { Loader2, XCircle } from 'lucide-react'
 import { useLarkLogin, LARK_STATE_KEY, LARK_PURPOSE_KEY } from '../hooks/useLarkLogin'
 import { larkSettingApi } from '@/features/organization/api/lark-setting.api'
 import { useAuthStore } from '@/store/authStore'
+import { getApiErrorMessage } from '@/lib/apiError'
 
 /** Nơi tab cấu hình đọc kết quả kết nối sau khi Lark chuyển hướng về. */
 export const LARK_CONNECT_RESULT_KEY = 'lark_connect_result'
@@ -28,7 +29,7 @@ export default function LarkCallbackPage() {
       navigate('/company?section=api')
     },
     onError: (err: any) => {
-      setError(err.response?.data?.message || err.message || 'Không kết nối được với Lark.')
+      setError(getApiErrorMessage(err, 'Không kết nối được với Lark.'))
     },
   })
 
@@ -68,8 +69,9 @@ export default function LarkCallbackPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const apiError = (larkLogin.error || connectMutation.error) as any
-  const message = error || apiError?.response?.data?.message
+  const apiError = larkLogin.error || connectMutation.error
+  // Chuỗi rỗng khi chưa có lỗi: khối cảnh báo bên dưới chỉ hiện khi `message` có nội dung.
+  const message = error || (apiError ? getApiErrorMessage(apiError) : '')
 
   // Trang này KHÔNG nằm trong AuthLayout: luồng kết nối chạy khi quản trị viên đang đăng nhập,
   // mà AuthLayout lại đẩy người đã đăng nhập về /dashboard. Vì vậy tự dựng khung riêng.

@@ -26,7 +26,9 @@ import com.kpitracking.repository.BscUnitResultRepository;
 import com.kpitracking.repository.KpiPeriodRepository;
 import com.kpitracking.repository.OrgUnitRepository;
 import com.kpitracking.repository.UserRepository;
+import com.kpitracking.event.BscEvents;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -56,6 +58,7 @@ public class BscTreeService {
     private final KpiPeriodRepository kpiPeriodRepository;
     private final UserRepository userRepository;
     private final BscAccessGuard accessGuard;
+    private final ApplicationEventPublisher eventPublisher;
 
     /** Sai số cho phép khi so tổng đóng góp với mục tiêu cha: 1% hoặc 0.01 tuyệt đối. */
     private static final double COVERAGE_TOLERANCE_RATIO = 0.01;
@@ -91,6 +94,7 @@ public class BscTreeService {
         BscLinkType linkType = request.getLinkType() != null ? request.getLinkType() : BscLinkType.SUM;
         User actor = currentUserOrNull();
         UUID orgId = parent.getOrganization().getId();
+        List<BscEvents.CascadeAssignment> assignments = new ArrayList<>();
 
         for (CascadeTargetRequest target : request.getTargets()) {
             OrgUnit unit = orgUnitRepository.findById(target.getOrgUnitId())
@@ -141,7 +145,14 @@ public class BscTreeService {
                         ? parentItem.getGateAppliesTo() : BscGateScope.BOTH);
             }
             itemRepository.save(row);
+            assignments.add(new BscEvents.CascadeAssignment(
+                    unit.getId(), child.getId(), row.getContributionValue(), row.getUnit()));
         }
+
+        // Đơn vị nhận chỉ tiêu phải biết mình vừa được giao gì — nếu không, chỉ tiêu nằm im trong
+        // bộ tiêu chí của họ với trọng số 0 cho tới lúc ai đó tình cờ mở ra xem.
+        eventPublisher.publishEvent(new BscEvents.ScorecardCascaded(
+                parent.getId(), idOf(actor), parentItem.getPerspective().getName(), assignments));
 
         return coverage(parentScorecardId);
     }
@@ -406,10 +417,111 @@ public class BscTreeService {
                 .assignedCount(assigned)
                 .gateCount(gates)
                 .achievementPercent(result != null ? result.getAchievementPercent() : null)
-                .bandLabel(result != null ? result.getBandCode() : null)
-                .factor(result != null ? result.getFactor() : null)
                 .children(children)
                 .build();
+    }
+
+    // ============================================================
+    // Gắn thẻ vào cây
+    // ============================================================
+
+    /**
+     * Gắn một bộ tiêu chí ĐÃ TỒN TẠI vào bộ tiêu chí cấp trên (hoặc gỡ ra khi {@code parentId} null).
+     *
+     * <p>Đơn vị tự dựng bộ tiêu chí của mình trước khi cấp trên phân rã là chuyện thường; thẻ đó
+     * nằm mồ côi ở gốc cây, không vào được bảng độ phủ và cấp trên không thấy nó thuộc nhánh nào.
+     * Trước đây chỉ có một đường nối lại: cấp trên phải phân rã một chỉ tiêu xuống chính đơn vị đó
+     * ({@code findOrCreateChild} nhận nuôi thẻ có sẵn) — tức là phải giao thêm chỉ tiêu chỉ để nối
+     * cây. Hàm này tách riêng việc nối, không đụng gì tới chỉ tiêu.
+     *
+     * <p>{@code linkItems = true} thì nối luôn các dòng chỉ tiêu TRÙNG HẠNG MỤC giữa hai thẻ
+     * ({@link #linkItemsByPerspective}) — nếu không, quan hệ cha–con chỉ đổi cách vẽ cây chứ không
+     * đưa được con số nào lên cấp trên.
+     *
+     * @return số dòng chỉ tiêu đã nối được (0 khi chỉ nối cây)
+     */
+    @Transactional
+    public int attachParent(UUID scorecardId, UUID parentId, boolean linkItems) {
+        BscScorecard child = load(scorecardId);
+        accessGuard.assertCanEdit(child);
+
+        if (parentId == null) {
+            child.setParentScorecard(null);
+            scorecardRepository.save(child);
+            return 0;
+        }
+        if (parentId.equals(scorecardId)) {
+            throw new BusinessException("Không thể gắn bộ tiêu chí vào chính nó");
+        }
+
+        BscScorecard parent = load(parentId);
+        if (!parent.getOrganization().getId().equals(child.getOrganization().getId())) {
+            throw new BusinessException("Bộ tiêu chí cấp trên phải thuộc cùng tổ chức");
+        }
+        // Cha nằm trong nhánh con ⇒ nối vào là tạo vòng, cây thành danh sách vòng tròn và mọi hàm
+        // duyệt đệ quy (dựng cây, tra thẻ công ty) sẽ chạy tới khi chạm guard rồi trả kết quả sai.
+        BscScorecard cur = parent;
+        int guard = 0;
+        while (cur != null && guard++ < 100) {
+            if (cur.getId().equals(scorecardId)) {
+                throw new BusinessException("Bộ tiêu chí cấp trên đang nằm dưới chính bộ tiêu chí này");
+            }
+            cur = cur.getParentScorecard();
+        }
+        // Cùng luật với phân rã: cây BSC phải cùng chiều với cây tổ chức.
+        for (OrgUnit unit : child.getOrgUnits() == null ? List.<OrgUnit>of() : child.getOrgUnits()) {
+            assertCascadeTarget(parent, unit);
+        }
+
+        child.setParentScorecard(parent);
+        scorecardRepository.save(child);
+        return linkItems ? linkItemsByPerspective(child, parent) : 0;
+    }
+
+    /**
+     * Nối các dòng chỉ tiêu của thẻ con lên dòng CÙNG HẠNG MỤC của thẻ cha.
+     *
+     * <p>Vì sao cần: mọi thứ có ý nghĩa số liệu của quan hệ cha–con đều bám vào {@code parentItem}
+     * ở mức TỪNG DÒNG chứ không phải quan hệ giữa hai thẻ — độ phủ đếm theo nó, và cấp trên cộng
+     * kết quả từ cấp dưới cũng đi qua nó. Gắn cây suông là một liên kết rỗng về số liệu.
+     *
+     * <p>Khác phân rã ở chỗ đây là quan hệ ĐI LÊN từ dưới: đơn vị tự đặt chỉ tiêu, cấp trên chỉ
+     * công nhận nó thuộc chỉ tiêu nào của mình. Nên dòng vẫn là {@code SELF} và KHÔNG bị khoá —
+     * đơn vị vẫn sửa được. Mức đóng góp lấy chính mục tiêu đơn vị tự đặt, để bảng độ phủ so được
+     * "các đơn vị cộng lại đã đủ mục tiêu của cấp trên chưa"; cấp trên muốn ấn định con số khác
+     * thì phân rã như thường, lúc đó dòng chuyển sang {@code ASSIGNED} và bị khoá.
+     *
+     * <p>Chỉ đụng vào dòng CHƯA có cha: dòng đã nhận phân rã từ nơi khác mà bị nối lại là mất dấu
+     * mục tiêu đã giao.
+     */
+    private int linkItemsByPerspective(BscScorecard child, BscScorecard parent) {
+        List<BscScorecardPerspective> parentRows =
+                itemRepository.findByScorecardIdOrderByDisplayOrderAsc(parent.getId());
+        Map<UUID, BscScorecardPerspective> parentByPerspective = new HashMap<>();
+        for (BscScorecardPerspective row : parentRows) {
+            if (row.getPerspective() != null) {
+                parentByPerspective.putIfAbsent(row.getPerspective().getId(), row);
+            }
+        }
+        if (parentByPerspective.isEmpty()) return 0;
+
+        int linked = 0;
+        for (BscScorecardPerspective row : itemRepository.findByScorecardIdOrderByDisplayOrderAsc(child.getId())) {
+            if (row.getParentItem() != null || row.getPerspective() == null) continue;
+            BscScorecardPerspective parentRow = parentByPerspective.get(row.getPerspective().getId());
+            if (parentRow == null) continue;
+
+            row.setParentItem(parentRow);
+            row.setLinkType(BscLinkType.SUM);
+            if (row.getContributionValue() == null) {
+                Double own = row.getTargetValue() != null
+                        ? row.getTargetValue() : row.getPerspective().getTargetValue();
+                row.setContributionValue(own);
+            }
+            itemRepository.save(row);
+            linked++;
+        }
+        return linked;
     }
 
     // ============================================================
@@ -439,24 +551,41 @@ public class BscTreeService {
             throw new BusinessException("Tổng trọng số phải bằng 100% mới trình được (hiện tại: "
                     + Math.round(total * 10) / 10.0 + "%)");
         }
+        User actor = currentUserOrNull();
         s.setStatus(BscScorecardStatus.SUBMITTED);
-        s.setSubmittedBy(currentUserOrNull());
+        s.setSubmittedBy(actor);
         s.setSubmittedAt(Instant.now());
         s.setRejectReason(null);
-        return scorecardRepository.save(s);
+        BscScorecard saved = scorecardRepository.save(s);
+        eventPublisher.publishEvent(new BscEvents.ScorecardSubmitted(saved.getId(), idOf(actor)));
+        return saved;
     }
 
+    /**
+     * Duyệt là ÁP DỤNG LUÔN — thẻ chuyển thẳng sang {@code ACTIVE}, không dừng ở {@code APPROVED}.
+     *
+     * <p>{@code APPROVED} từng là một bước riêng, nhưng nó không đổi hành vi nào của hệ thống:
+     * {@code BscScoringService.resolveScorecard} tìm thẻ theo đơn vị + đợt và KHÔNG lọc theo trạng
+     * thái, nên thẻ vừa duyệt đã được dùng để chấm dù nhãn vẫn ghi "Đã duyệt". Giữ nó lại chỉ tạo
+     * một cú bấm nữa và một nhãn nói sai điều đang xảy ra.
+     *
+     * <p>Giá trị {@code APPROVED} vẫn còn trong enum cho dữ liệu cũ; {@link #activate} vẫn nhận nó
+     * để những thẻ đang mắc kẹt ở trạng thái đó bấm được một lần cho xong.
+     */
     @Transactional
     public BscScorecard approve(UUID scorecardId) {
         BscScorecard s = load(scorecardId);
         if (s.getStatus() != BscScorecardStatus.SUBMITTED) {
             throw new BusinessException("Chỉ duyệt được bộ tiêu chí đang chờ duyệt");
         }
-        s.setStatus(BscScorecardStatus.APPROVED);
-        s.setApprovedBy(currentUserOrNull());
+        User actor = currentUserOrNull();
+        s.setStatus(BscScorecardStatus.ACTIVE);
+        s.setApprovedBy(actor);
         s.setApprovedAt(Instant.now());
         s.setRejectReason(null);
-        return scorecardRepository.save(s);
+        BscScorecard saved = scorecardRepository.save(s);
+        eventPublisher.publishEvent(new BscEvents.ScorecardApproved(saved.getId(), idOf(actor)));
+        return saved;
     }
 
     /** Trả lại cho cấp dưới sửa. Lý do bắt buộc — người nhận cần biết phải sửa gì. */
@@ -469,21 +598,32 @@ public class BscTreeService {
         if (s.getStatus() != BscScorecardStatus.SUBMITTED) {
             throw new BusinessException("Chỉ trả lại được bộ tiêu chí đang chờ duyệt");
         }
+        // Người trình bị xoá khỏi thẻ ngay dưới đây, nên phải giữ lại trước để còn báo cho họ.
+        UUID submitterId = idOf(s.getSubmittedBy());
         s.setStatus(BscScorecardStatus.DRAFT);
         s.setRejectReason(reason.trim());
         s.setSubmittedAt(null);
         s.setSubmittedBy(null);
-        return scorecardRepository.save(s);
+        BscScorecard saved = scorecardRepository.save(s);
+        eventPublisher.publishEvent(new BscEvents.ScorecardRejected(
+                saved.getId(), submitterId, idOf(currentUserOrNull()), saved.getRejectReason()));
+        return saved;
     }
 
+    /**
+     * Mở lại thẻ đã đóng, và lối thoát cho thẻ cũ còn kẹt ở {@code APPROVED} (xem {@link #approve}).
+     * Luồng duyệt bình thường không đi qua đây nữa.
+     */
     @Transactional
     public BscScorecard activate(UUID scorecardId) {
         BscScorecard s = load(scorecardId);
         if (s.getStatus() != BscScorecardStatus.APPROVED && s.getStatus() != BscScorecardStatus.CLOSED) {
-            throw new BusinessException("Chỉ áp dụng được bộ tiêu chí đã duyệt");
+            throw new BusinessException("Chỉ áp dụng được bộ tiêu chí đã duyệt hoặc đã đóng");
         }
         s.setStatus(BscScorecardStatus.ACTIVE);
-        return scorecardRepository.save(s);
+        BscScorecard saved = scorecardRepository.save(s);
+        eventPublisher.publishEvent(new BscEvents.ScorecardActivated(saved.getId(), idOf(currentUserOrNull())));
+        return saved;
     }
 
     @Transactional
@@ -494,7 +634,9 @@ public class BscTreeService {
         }
         s.setStatus(BscScorecardStatus.LOCKED);
         s.setLockedAt(Instant.now());
-        return scorecardRepository.save(s);
+        BscScorecard saved = scorecardRepository.save(s);
+        eventPublisher.publishEvent(new BscEvents.ScorecardLockChanged(saved.getId(), idOf(currentUserOrNull()), true));
+        return saved;
     }
 
     /** Mở khoá để sửa lại — kết quả đã công bố chỉ đổi khi đi qua đây. */
@@ -506,7 +648,9 @@ public class BscTreeService {
         }
         s.setStatus(BscScorecardStatus.ACTIVE);
         s.setLockedAt(null);
-        return scorecardRepository.save(s);
+        BscScorecard saved = scorecardRepository.save(s);
+        eventPublisher.publishEvent(new BscEvents.ScorecardLockChanged(saved.getId(), idOf(currentUserOrNull()), false));
+        return saved;
     }
 
     // ============================================================
@@ -516,6 +660,11 @@ public class BscTreeService {
     private BscScorecard load(UUID id) {
         return scorecardRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Bộ tiêu chí", "id", id));
+    }
+
+    /** Sự kiện chỉ mang ID — xem {@link BscEvents} để biết vì sao không truyền thẳng entity. */
+    private static UUID idOf(User u) {
+        return u == null ? null : u.getId();
     }
 
     private List<KpiPeriod> effectivePeriodsOf(BscScorecard s) {

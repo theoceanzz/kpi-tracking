@@ -1,6 +1,7 @@
 import { useMemo } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/apiError'
 import { PinOff, Target, Star, TrendingUp, FileText } from 'lucide-react'
 import {
   XAxis, YAxis, CartesianGrid, Tooltip as RechartsTooltip, ResponsiveContainer,
@@ -29,7 +30,7 @@ export function PinnedWidgetCard({ widget, onUnpin, filter }: { widget: ReportWi
       queryClient.invalidateQueries({ queryKey: ['reports', 'widgets', 'pinned'] })
       onUnpin()
     } catch (err) {
-      toast.error('Không thể bỏ ghim')
+      toast.error(getApiErrorMessage(err, 'Không thể bỏ ghim'))
     }
   }
 

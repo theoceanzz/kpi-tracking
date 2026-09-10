@@ -10,6 +10,7 @@ import type {
   ResolveSepayEventRequest,
   SepayEvent,
   TopupOrder,
+  TopupReceipt,
   WalletConfig,
   WalletConfigRequest,
   WalletReconcile,
@@ -42,6 +43,23 @@ export const walletApi = {
   cancelTopup: (id: string) =>
     axiosInstance
       .post<ApiResponse<TopupOrder>>(`/cash/topups/${id}/cancel`)
+      .then((r) => r.data.data),
+
+  // ── Biên nhận thu tiền ─────────────────────────────────────────
+  getTopupReceipt: (orderId: string) =>
+    axiosInstance
+      .get<ApiResponse<TopupReceipt>>(`/cash/topups/${orderId}/receipt`)
+      .then((r) => r.data.data),
+
+  getMyReceipts: (page = 0, size = 20) =>
+    axiosInstance
+      .get<ApiResponse<PageResponse<TopupReceipt>>>('/cash/receipts/me', { params: { page, size } })
+      .then((r) => r.data.data),
+
+  /** Sổ chứng từ của cả tổ chức — cần WALLET:VIEW. */
+  getOrgReceipts: (page = 0, size = 20) =>
+    axiosInstance
+      .get<ApiResponse<PageResponse<TopupReceipt>>>('/cash/receipts', { params: { page, size } })
       .then((r) => r.data.data),
 
   // ── Quy đổi ────────────────────────────────────────────────────

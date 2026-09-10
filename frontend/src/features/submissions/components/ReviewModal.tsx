@@ -5,6 +5,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { submissionApi } from '../api/submissionApi'
 import { createReviewSubmissionSchema, type ReviewSubmissionFormData } from '../schemas/submissionSchema'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/apiError'
 import { X, Loader2, CheckCircle, XCircle, User, Calendar, Paperclip, FileText, MessageSquare, Info } from 'lucide-react'
 import { formatDateTime, formatNumber, cn } from '@/lib/utils'
 import type { Submission } from '@/types/submission'
@@ -84,14 +85,14 @@ export default function ReviewModal({ open, onClose, submission }: ReviewModalPr
         onClose()
       }
     },
-    onError: () => toast.error('Duyệt thất bại'),
+    onError: (error) => toast.error(getApiErrorMessage(error, 'Duyệt bài nộp thất bại')),
   })
 
   const rejectMutation = useMutation({
     mutationFn: (data: ReviewSubmissionFormData) =>
       submissionApi.review(submission!.id, { status: 'REJECTED', reviewNote: data.reviewNote }),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['submissions'] }); toast.success('Đã trả lại bài nộp'); reset(); onClose() },
-    onError: () => toast.error('Từ chối thất bại'),
+    onError: (error) => toast.error(getApiErrorMessage(error, 'Trả lại bài nộp thất bại')),
   })
 
   const reset = () => resetForm({ mode: 'view', reviewNote: '', managerScore: undefined, qualitativeLevelId: undefined })

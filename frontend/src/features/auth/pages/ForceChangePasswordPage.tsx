@@ -8,6 +8,7 @@ import { authApi } from '@/features/auth/api/authApi'
 import { useAuthStore } from '@/store/authStore'
 import { useAuth } from '@/hooks/useAuth'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/apiError'
 import { 
   Lock, Eye, EyeOff, Save, Loader2, ShieldCheck, 
   Wand2, Check, CheckCircle2, X, LogOut
@@ -51,7 +52,7 @@ export default function ForceChangePasswordPage() {
       navigate('/dashboard', { replace: true })
     },
     onError: (error: any) => {
-      const message = error.response?.data?.message || 'Đổi mật khẩu thất bại. Vui lòng thử lại.'
+      const message = getApiErrorMessage(error, 'Đổi mật khẩu thất bại. Vui lòng thử lại.')
       toast.error(message)
     },
   })

@@ -6,6 +6,7 @@ import { useDebounce } from '@/hooks/useDebounce'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import { codeRuleApi, type CodeRule, type CodeType, type UpdateCodeRuleRequest } from '../api/codeRuleApi'
 import { useCodeRules, useUpdateCodeRules } from '../hooks/useCodeRules'
+import { getApiErrorMessage } from '@/lib/apiError'
 
 /**
  * Mẫu mã tự sinh cho Mục tiêu, Kết quả then chốt và Hạng mục BSC — mỗi công ty một kiểu.
@@ -243,8 +244,7 @@ function PreviewLine({
   }
   if (isFetching) return <span className="text-[11px] font-bold text-slate-400">Đang dựng mã…</span>
   if (error) {
-    const message = (error as { response?: { data?: { message?: string } } })?.response?.data?.message
-      ?? 'Mẫu mã không hợp lệ'
+    const message = getApiErrorMessage(error, 'Mẫu mã không hợp lệ')
     return <PreviewError message={message} />
   }
   return <PreviewValue value={data} />

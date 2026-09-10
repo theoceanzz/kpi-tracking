@@ -1,4 +1,3 @@
-import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { resolveEventSchema, type ResolveEventFormData } from '../schemas/reconcileSchema'
@@ -43,22 +42,10 @@ export default function ResolveEventModal({ event, onClose }: ResolveEventModalP
 
   const { resolveEvent, isResolving } = useReconcileActions()
 
-  // Cách xử lý mặc định là ghi có cho người dùng, nhưng đúng cách đó lại bị chặn với
-  // giao dịch chưa xác định được tổ chức — mở modal ra mà ô chọn sẵn là ô mờ đi thì
-  // người dùng không hiểu chuyện gì đang xảy ra.
-  useEffect(() => {
-    if (event?.unattributed) setValue('mode', SepayResolveMode.MATCH_ORDER)
-  }, [event, setValue])
-
   if (!event) return null
 
   const needsUser = mode === SepayResolveMode.CREDIT_USER
   const needsOrder = mode === SepayResolveMode.MATCH_ORDER
-
-  // Chưa quy được giao dịch về tổ chức nào nghĩa là tiền về một tài khoản không ai
-  // khai trong cấu hình ví. Máy chủ chặn đường ghi có thẳng với nhóm này; chặn luôn
-  // ở đây để người xử lý không điền xong cả biểu mẫu rồi mới nhận lỗi.
-  const creditBlocked = event.unattributed
 
   const onSubmit = async (data: ResolveEventFormData) => {
     await resolveEvent({
@@ -101,14 +88,6 @@ export default function ResolveEventModal({ event, onClose }: ResolveEventModalP
           </div>
         )}
 
-        {creditBlocked && (
-          <div className="mb-4 rounded-2xl border border-[var(--color-border)] bg-[var(--color-muted)]/40 px-4 py-3 text-xs leading-relaxed text-[var(--color-muted-foreground)]">
-            Giao dịch này về tài khoản <span className="font-mono">{event.accountNumber || '—'}</span>,
-            chưa tổ chức nào khai số này trong Cấu hình ví. Lưu đúng số tài khoản ở đó sẽ tự gán lại
-            các giao dịch cũ; hoặc gán thẳng vào đơn nạp nếu xác định được đơn.
-          </div>
-        )}
-
         <div className="mb-4 rounded-2xl border border-[var(--color-border)] px-4 py-3 text-sm">
           <div className="flex justify-between gap-3 py-1">
             <span className="text-[var(--color-muted-foreground)]">Số tiền thực nhận</span>
@@ -137,7 +116,6 @@ export default function ResolveEventModal({ event, onClose }: ResolveEventModalP
             <button
               key={m.key}
               type="button"
-              disabled={creditBlocked && m.key === SepayResolveMode.CREDIT_USER}
               onClick={() => setValue('mode', m.key, { shouldValidate: true })}
               className={`w-full rounded-xl border px-4 py-3 text-left transition-colors disabled:cursor-not-allowed disabled:opacity-50 ${
                 mode === m.key
@@ -147,9 +125,7 @@ export default function ResolveEventModal({ event, onClose }: ResolveEventModalP
             >
               <div className="text-sm font-semibold">{m.label}</div>
               <div className="mt-0.5 text-xs text-[var(--color-muted-foreground)]">
-                {creditBlocked && m.key === SepayResolveMode.CREDIT_USER
-                  ? 'Không dùng được: chưa xác định giao dịch này về tài khoản của tổ chức nào.'
-                  : m.hint}
+                {m.hint}
               </div>
             </button>
           ))}

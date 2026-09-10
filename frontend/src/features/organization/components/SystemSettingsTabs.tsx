@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils'
 import { useSidebarSettings, useUpdateSidebarSettings } from '../hooks/useSidebarSettings'
 import { useAuthStore } from '@/store/authStore'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/apiError'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { notificationApi, type NotificationConfigItem } from '@/features/notifications/api/notificationApi'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
@@ -254,6 +255,37 @@ const EVENT_LABELS: Record<string, string> = {
   submission_reviewed: 'Khi bài nộp được chấm điểm',
   submission_escalated: 'Khi cấp dưới đã duyệt xong báo cáo (báo lên cấp trên kế tiếp)',
   reminder_deadline: 'Nhắc nhở sắp đến hạn nộp (24h)',
+  evaluation_period_due: 'Nhắc trưởng đơn vị khi đợt sắp đóng mà còn nhân sự chưa được chấm',
+  evaluation_cycle_due: 'Nhắc trưởng đơn vị khi kỳ sắp đóng mà đơn vị chưa chốt đánh giá',
+  evaluation_finalized: 'Khi có kết quả đánh giá đợt của mình (dành cho người được chấm)',
+  cycle_unit_finalized: 'Khi đơn vị cấp dưới chốt kỳ (dành cho cấp trên kế tiếp)',
+  bsc_scorecard_submitted: 'Khi đơn vị trình bộ tiêu chí BSC (dành cho người duyệt gần nhất)',
+  bsc_scorecard_approved: 'Khi bộ tiêu chí BSC được duyệt',
+  bsc_scorecard_rejected: 'Khi bộ tiêu chí BSC bị trả lại để sửa',
+  bsc_scorecard_activated: 'Khi bộ tiêu chí BSC được áp dụng để chấm',
+  bsc_scorecard_locked: 'Khi bộ tiêu chí BSC bị khoá hoặc được mở khoá',
+  bsc_cascaded: 'Khi được cấp trên giao chỉ tiêu BSC xuống đơn vị',
+  bsc_unit_result_finalized: 'Khi kết quả BSC của đơn vị trong một đợt được chốt',
+  bsc_score_overridden: 'Khi điểm BSC của cá nhân bị ghi đè hoặc huỷ ghi đè',
+  reward_grant_submitted: 'Khi có đề nghị thưởng vượt hạn mức cần duyệt (dành cho người duyệt gần nhất)',
+  reward_grant_approved: 'Khi đề nghị thưởng được cấp trên duyệt',
+  reward_grant_rejected: 'Khi đề nghị thưởng bị từ chối',
+  reward_grant_cancelled: 'Khi người trao rút lại đề nghị đang chờ duyệt (dành cho người duyệt)',
+  reward_points_received: 'Khi được thưởng điểm vào ví',
+  reward_grant_revoked: 'Khi một khoản thưởng đã phát bị thu hồi',
+  reward_budget_assigned: 'Khi được cấp hoặc được điều chỉnh hạn mức thưởng',
+  reward_program_issued: 'Khi chương trình thưởng tự động phát điểm cho người đạt hạng',
+  reward_program_reverted: 'Khi một lần phát thưởng của chương trình bị thu hồi',
+  reward_redemption_created: 'Khi nhân viên đặt đổi quà (dành cho bộ phận xử lý quà)',
+  reward_redemption_approved: 'Khi yêu cầu đổi quà được duyệt',
+  reward_redemption_rejected: 'Khi yêu cầu đổi quà bị từ chối và điểm được hoàn',
+  reward_redemption_delivered: 'Khi quà đã được trao hoặc mã quà đã xuất xong',
+  reward_redemption_failed: 'Khi không xuất được quà và điểm được hoàn lại',
+  reward_redemption_cancelled: 'Khi người đổi tự huỷ yêu cầu (dành cho bộ phận xử lý quà)',
+  wallet_topup_paid: 'Khi tiền chuyển khoản đã về và số dư ví được cộng',
+  wallet_topup_expired: 'Khi đơn nạp hết hạn mà chưa nhận được tiền',
+  wallet_topup_unmatched: 'Khi có tiền về không khớp đơn nào (dành cho người có quyền đối soát)',
+  wallet_converted: 'Khi đổi số dư ví tiền lấy điểm thưởng',
 }
 
 const DEFAULT_SETTINGS: NotificationConfigItem[] = Object.keys(EVENT_LABELS).map(code => ({
@@ -283,8 +315,8 @@ export function NotificationSettingsTab() {
       queryClient.setQueryData(['notification-config'], data)
       toast.success('Đã lưu cấu hình thông báo')
     },
-    onError: () => {
-      toast.error('Lưu cấu hình thất bại')
+    onError: (error) => {
+      toast.error(getApiErrorMessage(error, 'Lưu cấu hình thông báo thất bại'))
     },
   })
 
@@ -294,6 +326,8 @@ export function NotificationSettingsTab() {
 
   return (
     <div className="space-y-6">
+      <EvaluationReminderCard />
+
       <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
         <div id="tour-notif-header" className="p-6 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-3">
@@ -356,6 +390,83 @@ export function NotificationSettingsTab() {
           )}
         </div>
       </div>
+    </div>
+  )
+}
+
+/**
+ * Ngưỡng nhắc hạn ĐÁNH GIÁ (khác với nhắc hạn NỘP báo cáo, vốn tính theo % thời gian của
+ * từng lô nộp và cấu hình ở nơi khác).
+ *
+ * Đặt ngay trên bảng bật/tắt sự kiện vì hai thứ đi cùng nhau: bật `evaluation_period_due`
+ * mà để 0 ngày thì không ai nhận được gì, và ngược lại.
+ */
+function EvaluationReminderCard() {
+  const user = useAuthStore(s => s.user)
+  const orgId = user?.memberships?.[0]?.organizationId
+  const { data: org, updateOrganization, isUpdating } = useOrganization(orgId)
+
+  const [days, setDays] = useState<string>('')
+  // Nạp lại khi tổ chức về, nhưng không đè lên số người dùng đang gõ dở.
+  const [syncedOrgId, setSyncedOrgId] = useState<string | undefined>(undefined)
+  if (org && syncedOrgId !== org.id) {
+    setSyncedOrgId(org.id)
+    setDays(String(org.evaluationReminderDays ?? 3))
+  }
+
+  const parsed = days.trim() === '' ? null : Number(days)
+  const invalid = parsed == null || Number.isNaN(parsed) || parsed < 0 || parsed > 60
+  const dirty = org != null && !invalid && parsed !== (org.evaluationReminderDays ?? 3)
+
+  const save = () => {
+    if (invalid) {
+      toast.error('Số ngày nhắc phải nằm trong khoảng 0 đến 60')
+      return
+    }
+    updateOrganization({ evaluationReminderDays: parsed })
+  }
+
+  return (
+    <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm p-6">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-4">
+        <div className="w-10 h-10 rounded-xl bg-teal-50 dark:bg-teal-900/30 flex items-center justify-center text-teal-600 shrink-0">
+          <Bell size={20} />
+        </div>
+        <div className="min-w-0 flex-1">
+          <h3 className="font-black text-slate-900 dark:text-white">Nhắc hạn đánh giá đợt / kỳ</h3>
+          <p className="text-xs font-medium text-slate-500 leading-relaxed">
+            Nhắc trưởng đơn vị trước khi đợt hoặc kỳ đóng lại, nếu còn nhân sự chưa được chấm
+            hoặc đơn vị chưa chốt. Quá hạn mà vẫn còn tồn thì nhắc thêm một lần nữa.
+          </p>
+        </div>
+        <div className="flex items-end gap-2 shrink-0">
+          <label className="flex flex-col gap-1.5">
+            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Nhắc trước</span>
+            <div className="flex items-center gap-2">
+              <input
+                type="number" min={0} max={60} value={days}
+                onChange={e => setDays(e.target.value)}
+                className={cn(
+                  'w-20 h-11 px-3 rounded-xl border bg-slate-50 dark:bg-slate-950/50 text-sm font-black outline-none focus:ring-4 focus:ring-teal-500/10',
+                  invalid ? 'border-rose-300 dark:border-rose-800' : 'border-slate-200 dark:border-slate-700',
+                )}
+              />
+              <span className="text-xs font-bold text-slate-400">ngày</span>
+            </div>
+          </label>
+          <button
+            onClick={save}
+            disabled={isUpdating || !dirty}
+            className="flex items-center gap-2 h-11 px-5 rounded-xl bg-teal-600 text-white text-sm font-bold hover:bg-teal-700 shadow-lg shadow-teal-500/20 transition-all disabled:opacity-50"
+          >
+            {isUpdating ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+            Lưu
+          </button>
+        </div>
+      </div>
+      <p className="mt-3 text-[11px] font-bold text-slate-400">
+        Đặt <b>0</b> để tắt hẳn nhắc hạn đánh giá.
+      </p>
     </div>
   )
 }

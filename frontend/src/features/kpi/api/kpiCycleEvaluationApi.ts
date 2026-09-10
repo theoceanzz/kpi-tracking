@@ -34,6 +34,12 @@ export const kpiCycleEvaluationApi = {
       .get<ApiResponse<CycleUnitEvaluation>>(`/kpi-cycles/${cycleId}/evaluation/units/${orgUnitId}`)
       .then((r) => r.data.data),
 
+  /** Chấm tay điểm cả đơn vị (ghi đè TB thành viên); score = null để bỏ ghi đè. */
+  saveUnitScore: (cycleId: string, orgUnitId: string, data: { score: number | null; reason: string }) =>
+    axiosInstance
+      .put<ApiResponse<CycleUnitEvaluation>>(`/kpi-cycles/${cycleId}/evaluation/units/${orgUnitId}/score`, data)
+      .then((r) => r.data.data),
+
   /** Chuỗi duyệt từ đơn vị đang xem lên tới gốc, kèm lịch sử chốt/mở khoá. */
   getApprovalChain: (cycleId: string, orgUnitId: string) =>
     axiosInstance

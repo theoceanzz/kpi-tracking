@@ -10,6 +10,7 @@ import {
   Loader2
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/apiError'
 import { useAllPermissions, useUpdateRolePermissions } from '../hooks/useRolePermissions'
 import { useRoles } from '../hooks/useRoles'
 
@@ -241,7 +242,7 @@ export default function HierarchyPermissionModal({ isOpen, onClose, hierarchyLev
       toast.success(`Đã cập nhật quyền hạn cho ${successCount} vai trò theo phân cấp thực tế của công ty.`)
       onClose()
     } catch (err) {
-      toast.error('Có lỗi xảy ra khi áp dụng quyền hạn.')
+      toast.error(getApiErrorMessage(err, 'Áp dụng quyền hạn thất bại.'))
     } finally {
       setIsApplying(false)
     }

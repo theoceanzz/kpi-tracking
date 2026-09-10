@@ -16,6 +16,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { authApi } from '@/features/auth/api/authApi'
 import { userApi } from '@/features/users/api/userApi'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/apiError'
 import {
   User, Mail, Phone, Building2, Shield,
   CheckCircle2, UserCircle2, Loader2, Pencil, X, Save,
@@ -46,7 +47,7 @@ export default function ProfilePage() {
       queryClient.invalidateQueries({ queryKey: ['organization-users'] })
       queryClient.invalidateQueries({ queryKey: ['org-unit-members'] })
     },
-    onError: () => toast.error('Lỗi khi tải ảnh lên'),
+    onError: (error) => toast.error(getApiErrorMessage(error, 'Tải ảnh lên thất bại')),
   })
 
   const handleAvatarSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -201,7 +202,7 @@ function ProfileInfoTab({ user, onUserUpdate }: { user: any; onUserUpdate: (u: a
       onUserUpdate({ ...user, fullName: updated.fullName, phone: updated.phone })
       setEditing(false)
     },
-    onError: () => toast.error('Cập nhật thất bại'),
+    onError: (error) => toast.error(getApiErrorMessage(error, 'Cập nhật hồ sơ thất bại')),
   })
 
   return (
@@ -379,7 +380,7 @@ function SecurityTab() {
       setShowCurrent(false); setShowNew(false); setShowConfirm(false) 
     },
     onError: (error: any) => {
-      const message = error.response?.data?.message || 'Đổi mật khẩu thất bại. Vui lòng thử lại.'
+      const message = getApiErrorMessage(error, 'Đổi mật khẩu thất bại. Vui lòng thử lại.')
       if (message.includes('Mật khẩu hiện tại')) {
         setError('currentPassword', { type: 'manual', message: message })
       } else {

@@ -2,9 +2,10 @@ import { useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/apiError'
 import {
   Award, Plus, Trash2, ArrowUp, ArrowDown, Save, RotateCcw, Wand2,
-  Star, Building2, ChevronRight, ChevronDown, Search, X, CalendarRange, HelpCircle,
+  Star, Building2, ChevronRight, ChevronDown, Search, X, CalendarRange, HelpCircle, Scale, ListChecks,
 } from 'lucide-react'
 import { useUpdateOrganization } from '../hooks/useUpdateOrganization'
 import { useOrgUnitTree } from '../hooks/useOrgUnitTree'
@@ -19,12 +20,15 @@ import {
   type UnitClassificationFormData,
   type UnitClassProfileForm,
 } from '../schemas/organizationSchema'
+import BellCurveEditor from './BellCurveEditor'
+import { bellCurveForLevels } from '../utils/bellCurve'
 import { toastFirstError } from '@/lib/formErrors'
 import { cn } from '@/lib/utils'
 import type { OrgUnitTreeResponse } from '@/types/orgUnit'
 import {
   PRESET_UNIT_RULES_SCORE,
   type OrganizationResponse, type UnitClassRule, type UnitClassProfile, type UnitClassScope, type UnitClassOp,
+  type UnitClassBellCurve,
 } from '../api/organizationApi'
 
 const SCOPE_OPTS: { v: UnitClassScope; label: string }[] = [
@@ -92,6 +96,7 @@ const newKey = () => `p${Date.now()}_${_seq++}`
 
 /** Nạp danh sách hồ sơ ban đầu từ org (tương thích ngược hình dạng cũ {rules:[]}). */
 function initialProfiles(org: OrganizationResponse): EditProfile[] {
+  const levelNames = memberLevels(org).map(l => l.name)
   const fallback = (): EditProfile[] => [
     { _key: newKey(), name: 'Mặc định', isDefault: true, orgUnitIds: [], kpiCycleIds: [], rules: presetFor(org) },
   ]
@@ -107,6 +112,9 @@ function initialProfiles(org: OrganizationResponse): EditProfile[] {
         // Hồ sơ lưu trước khi có tính năng gắn kỳ → không có trường này → áp cho mọi kỳ.
         kpiCycleIds: Array.isArray(p.kpiCycleIds) ? p.kpiCycleIds : [],
         rules: rulesForScale(org, p.rules),
+        // Khung khai theo thang cũ bị bỏ (cùng luật với rule) — giữ lại thì hạn mức treo trên
+        // những cái tên mức không còn tồn tại.
+        bellCurve: bellCurveForLevels(p.bellCurve, levelNames),
       }))
       return normalizeDefaults(profs)
     }
@@ -211,6 +219,7 @@ function HelpPopover() {
         <p>Đơn vị không được gán dùng hồ sơ <b>mặc định</b>. Mỗi tổ chức có đúng một hồ sơ mặc định và nó luôn áp cho <b>mọi kỳ</b> — giới hạn nó theo kỳ sẽ làm các kỳ còn lại không có hồ sơ nào.</p>
         <p>Hồ sơ gắn <b>kỳ</b> chỉ có hiệu lực trong kỳ đó và <b>ghi đè</b> hồ sơ áp cho mọi kỳ.</p>
         <p>Trong một hồ sơ, đơn vị nhận <b>mức cao nhất</b> thoả <b>tất cả</b> điều kiện, xét từ trên xuống. Mức cuối không điều kiện là mặc định.</p>
+        <p>Tab <b>Bell curve</b> là chuyện ngược lại: nó khống chế <b>tỷ lệ % người</b> mà đơn vị được chấm ở mỗi mức. Vượt trần thì hệ thống cảnh báo, hoặc chặn không cho chốt đánh giá.</p>
       </PopoverContent>
     </Popover>
   )
@@ -322,10 +331,12 @@ export default function UnitClassificationConfigSection({ org }: { org: Organiza
       orgUnitIds: p.isDefault ? [] : p.orgUnitIds,
       kpiCycleIds: p.isDefault ? [] : p.kpiCycleIds,
       rules: p.rules,
+      // Khung đã tắt vẫn lưu (enabled=false): bật lại thì tỷ lệ đã kéo còn nguyên.
+      bellCurve: p.bellCurve as UnitClassBellCurve | undefined,
     }))
     update.mutate({ unitClassificationRules: JSON.stringify({ profiles: payload }) }, {
       onSuccess: () => toast.success('Đã lưu luật xếp loại đơn vị'),
-      onError: () => toast.error('Không thể lưu luật xếp loại đơn vị'),
+      onError: (error) => toast.error(getApiErrorMessage(error, 'Không thể lưu luật xếp loại đơn vị')),
     })
   }, toastFirstError)
 
@@ -438,6 +449,9 @@ function ProfileCard({
   // Giữ riêng ý định "chỉ một số kỳ" — nếu suy từ độ dài mảng thì vừa bấm sang chế độ đó
   // (chưa kịp chọn kỳ nào) là giao diện lập tức nhảy ngược về "Mọi kỳ".
   const [cycleScope, setCycleScope] = useState<'all' | 'some'>(p.kpiCycleIds.length ? 'some' : 'all')
+  // Hai thứ khác hẳn nhau nên tách tab thay vì xếp chồng: LUẬT quyết định đơn vị được xếp mức
+  // nào, KHUNG giới hạn đơn vị được chấm bao nhiêu người ở mỗi mức.
+  const [tab, setTab] = useState<'rules' | 'curve'>('rules')
 
   const fieldCls = 'h-9 px-3 rounded-lg bg-slate-50 dark:bg-slate-800 text-sm font-bold border border-transparent outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20'
 
@@ -497,6 +511,14 @@ function ProfileCard({
               </span>
               <span className="text-slate-300 dark:text-slate-600">·</span>
               <span>{p.rules.length} mức</span>
+              {p.bellCurve?.enabled && (
+                <span
+                  className="inline-flex items-center gap-1 text-indigo-500"
+                  title={`Khung bell curve đang bật (${p.bellCurve.mode === 'block' ? 'chặn khi vượt trần' : 'chỉ cảnh báo'})`}
+                >
+                  <Scale size={12} aria-hidden="true" /> bell curve
+                </span>
+              )}
             </span>
           </button>
         )}
@@ -629,8 +651,41 @@ function ProfileCard({
             )}
           </div>
 
-          <div className="p-3">
-            <RuleListEditor rules={p.rules} levels={levels} levelNames={levelNames} onChange={rules => onPatch({ rules })} />
+          <div className="p-3 space-y-3">
+            <div className="inline-flex gap-0.5 p-0.5 rounded-lg bg-slate-100 dark:bg-slate-800">
+              {([
+                ['rules', 'Luật xếp loại', <ListChecks key="i" size={13} aria-hidden="true" />],
+                ['curve', 'Bell curve', <Scale key="i" size={13} aria-hidden="true" />],
+              ] as const).map(([mode, label, icon]) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => setTab(mode)}
+                  aria-pressed={tab === mode}
+                  className={cn(
+                    'inline-flex items-center gap-1.5 px-3 h-7 rounded-md text-[11px] font-black transition-colors cursor-pointer',
+                    tab === mode
+                      ? 'bg-white dark:bg-slate-900 text-indigo-600 shadow-sm'
+                      : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300',
+                  )}
+                >
+                  {icon}{label}
+                  {mode === 'curve' && p.bellCurve?.enabled && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-indigo-500" aria-hidden="true" />
+                  )}
+                </button>
+              ))}
+            </div>
+
+            {tab === 'rules' ? (
+              <RuleListEditor rules={p.rules} levels={levels} levelNames={levelNames} onChange={rules => onPatch({ rules })} />
+            ) : (
+              <BellCurveEditor
+                value={p.bellCurve}
+                levels={levels}
+                onChange={bellCurve => onPatch({ bellCurve })}
+              />
+            )}
           </div>
         </div>
       )}

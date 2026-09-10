@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { useInfiniteQuery, useMutation } from '@tanstack/react-query'
 import { ArrowLeft, Building2, ChevronRight, Loader2, Search } from 'lucide-react'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/apiError'
 import { publicOrgApi, type PublicOrganization } from '../api/publicOrgApi'
 import { authApi } from '../api/authApi'
 import { cn } from '@/lib/utils'
@@ -128,7 +129,7 @@ export default function LarkSelectCompanyPage() {
     },
     onError: (err: any) => {
       setSelectingId(null)
-      toast.error(err.response?.data?.message || 'Không khởi tạo được đăng nhập Lark.')
+      toast.error(getApiErrorMessage(err, 'Không khởi tạo được đăng nhập Lark.'))
     },
   })
 

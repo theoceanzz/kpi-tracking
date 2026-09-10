@@ -19,6 +19,7 @@ import { useUpdateUser } from '@/features/users/hooks/useUsers'
 import { useAuthStore } from '@/store/authStore'
 import UserAvatar from '@/components/common/UserAvatar'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/apiError'
 import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
 
 
@@ -242,7 +243,7 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
         setSelectedUsers([])
       }
     } catch (error) {
-      toast.error('Không thể gán vai trò')
+      toast.error(getApiErrorMessage(error, 'Không thể gán vai trò'))
     }
   }
 
@@ -271,7 +272,7 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
         }
         setConfirmModal(prev => ({ ...prev, isOpen: false }))
     } catch (error) {
-        toast.error('Không thể thu hồi vai trò')
+        toast.error(getApiErrorMessage(error, 'Không thể thu hồi vai trò'))
     }
   }
 
@@ -287,7 +288,7 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
         setShowRemoveAllConfirm(false)
         setSelectedMemberIds([])
     } catch (error) {
-        toast.error('Không thể xóa nhân sự')
+        toast.error(getApiErrorMessage(error, 'Không thể xoá nhân sự'))
     }
   }
 

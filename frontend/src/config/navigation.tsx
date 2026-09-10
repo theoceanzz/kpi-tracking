@@ -35,6 +35,7 @@ import {
   Grid3x3,
   UserCircle,
   HeartHandshake,
+  ArrowRightLeft,
 } from 'lucide-react'
 
 /**
@@ -139,6 +140,7 @@ export const navItems: NavItem[] = [
           { id: 'roles', label: 'Phân quyền vai trò', icon: <Shield size={18} />, permission: 'ROLE:VIEW', legacyKeys: ['/roles'], group: 'Con người' , description: 'Vai trò và quyền hạn kèm theo từng vai trò' },
           { id: 'org-structure', label: 'Cơ cấu tổ chức', icon: <Network size={18} />, permission: 'ORG:VIEW', legacyKeys: ['/org-structure'], group: 'Con người' , description: 'Cây đơn vị, phòng ban và người phụ trách' },
           { id: 'users', label: 'Quản lý nhân viên', icon: <Users size={18} />, permission: 'USER:VIEW', legacyKeys: ['/users'], group: 'Con người' , description: 'Danh sách nhân viên, thêm mới và phân công đơn vị' },
+          { id: 'delegations', label: 'Uỷ quyền chéo đơn vị', icon: <ArrowRightLeft size={18} />, permission: 'ROLE:ASSIGN', group: 'Con người' , description: 'Cho một người quản lý thêm đơn vị không nằm trong cây của họ' },
           // KHÔNG kế thừa khoá '/settings': nhãn cũ ở đó đặt tên cho CẢ trang cấu hình
           // bốn tab, gán vào riêng mục Sidebar là sai nghĩa.
           { id: 'sidebar', label: 'Quản lý Sidebar', icon: <LayoutPanelLeft size={18} />, permission: 'COMPANY:UPDATE', group: 'Hệ thống' , description: 'Đổi tên mục trên sidebar và mục bên trong từng trang' },

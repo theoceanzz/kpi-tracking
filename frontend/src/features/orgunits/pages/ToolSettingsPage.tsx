@@ -2,6 +2,7 @@ import { Wrench } from 'lucide-react'
 import SettingsSectionLayout from '@/components/common/SettingsSectionLayout'
 import { usePageTitle } from '@/features/organization/hooks/usePageTitle'
 import { useAuthStore } from '@/store/authStore'
+import { useNotificationDots } from '@/hooks/useNotificationDots'
 import { useOrganization } from '../hooks/useOrganization'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import { usesPerformanceMatrix } from '@/lib/scoring'
@@ -27,6 +28,8 @@ export default function ToolSettingsPage() {
   const orgId = user?.memberships?.[0]?.organizationId
   const { data: org, isLoading } = useOrganization(orgId)
   const pageTitle = usePageTitle('setup-tools', 'Thiết lập công cụ')
+  // Ba công cụ có hàng chờ thật; các mục còn lại là bảng cấu hình, không có việc tồn.
+  const { counts } = useNotificationDots()
 
   // Thang định tính chỉ có nghĩa khi tổ chức bật KPI hành vi.
   const enableQualitative = org?.enableQualitative ?? false
@@ -86,9 +89,24 @@ export default function ToolSettingsPage() {
           // sidebar vẫn ẩn/hiện chúng trước đây.
           { id: 'kpi-cycles', render: () => <KpiCyclePeriodPage /> },
           { id: 'okr', visible: org.enableOkr ?? false, render: () => <OkrManagementPage /> },
-          { id: 'bsc', visible: org.enableBsc ?? false, render: () => <BscManagementPage /> },
-          { id: 'rewards', visible: org.enableReward ?? false, render: () => <RewardManagementPage /> },
-          { id: 'wallet', visible: org.enableCashWallet ?? false, render: () => <WalletAdminPage /> },
+          {
+            id: 'bsc',
+            visible: org.enableBsc ?? false,
+            badge: counts.pendingScorecards || null,
+            render: () => <BscManagementPage />,
+          },
+          {
+            id: 'rewards',
+            visible: org.enableReward ?? false,
+            badge: counts.pendingRewards || null,
+            render: () => <RewardManagementPage />,
+          },
+          {
+            id: 'wallet',
+            visible: org.enableCashWallet ?? false,
+            badge: counts.pendingWallet || null,
+            render: () => <WalletAdminPage />,
+          },
           { id: 'ai-quota', visible: org.enableAi !== false, render: () => <AiQuotaPage /> },
         ]}
       />

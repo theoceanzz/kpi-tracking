@@ -31,4 +31,26 @@ public class WalletConfigResponse {
      * lỗi đó lộ ra trước khi có người mất tiền.
      */
     private Instant lastWebhookAt;
+
+    // ===== Hồ sơ pháp nhân & biên nhận thu tiền =====
+
+    private Boolean receiptEnabled;
+    private String legalName;
+    private String taxCode;
+    private String businessAddress;
+    private String contactPhone;
+    private String receiptSeriesPrefix;
+    private Integer receiptVatRate;
+    private String receiptIssuerName;
+    private String receiptIssuerTitle;
+
+    /**
+     * Đã khai đủ thông tin pháp nhân để biên nhận có giá trị đối chiếu hay chưa: tên và mã số
+     * thuế người bán là hai nội dung bắt buộc mà không có gì suy ra thay được.
+     *
+     * <p>Ô này tồn tại vì biên nhận vẫn được lập và gửi kể cả khi thiếu — giữ tiền của người
+     * dùng lại chỉ vì tổ chức chưa điền hồ sơ là sai. Nhưng tờ chứng từ khi đó thiếu nội dung
+     * bắt buộc, và đây là chỗ duy nhất người cấu hình nhìn thấy điều đó.
+     */
+    private Boolean legalProfileComplete;
 }

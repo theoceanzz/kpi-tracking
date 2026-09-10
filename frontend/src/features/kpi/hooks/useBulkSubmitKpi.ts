@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { kpiApi } from '../api/kpiApi'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/apiError'
 
 export function useBulkSubmitKpi() {
   const qc = useQueryClient()
@@ -11,9 +12,6 @@ export function useBulkSubmitKpi() {
       qc.invalidateQueries({ queryKey: ['stats'] });
       toast.success(`Đã gửi duyệt ${Array.isArray(data) ? data.length : 0} chỉ tiêu`);
     },
-    onError: (error: any) => {
-      const msg = error?.response?.data?.message || 'Gửi duyệt thất bại';
-      toast.error(msg);
-    },
+    onError: (error) => toast.error(getApiErrorMessage(error, 'Gửi duyệt thất bại')),
   })
 }

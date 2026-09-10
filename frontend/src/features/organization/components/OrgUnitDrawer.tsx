@@ -16,6 +16,7 @@ import { useRoles } from '../hooks/useUserRoles'
 
 import { cn } from '@/lib/utils'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { getApiErrorMessage } from '@/lib/apiError'
 
 
 export type DrawerMode = 'create-root' | 'create-child' | 'edit'
@@ -273,7 +274,7 @@ export function OrgUnitDrawer({ orgId, drawerState, onClose, hierarchyLevels }: 
 
       onClose()
     } catch (error: any) {
-      const message = error?.response?.data?.message || ''
+      const message = getApiErrorMessage(error, '')
       if (message.toLowerCase().includes('tên')) {
         setError('name', { type: 'manual', message: message })
       } else if (message.toLowerCase().includes('mã')) {

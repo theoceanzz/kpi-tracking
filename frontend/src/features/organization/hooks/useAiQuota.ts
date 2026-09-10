@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/apiError'
 import { aiQuotaApi, type AiQuotaAllocationParams } from '../api/ai-quota.api'
 
 const KEYS = {
@@ -42,7 +43,7 @@ export function useSetAiQuotaLimit() {
       toast.success('Đã cập nhật hạn mức')
     },
     onError: (err: any) => {
-      toast.error(err.response?.data?.message || 'Không cập nhật được hạn mức')
+      toast.error(getApiErrorMessage(err, 'Không cập nhật được hạn mức'))
     },
   })
 }
@@ -56,7 +57,7 @@ export function useSetAiDelegation() {
       toast.success('Đã cập nhật')
     },
     onError: (err: any) => {
-      toast.error(err.response?.data?.message || 'Không cập nhật được')
+      toast.error(getApiErrorMessage(err, 'Không cập nhật được'))
     },
   })
 }

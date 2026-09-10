@@ -37,17 +37,34 @@ export default function MySpacePage() {
           </div>
         }
         sections={[
+          // Chỉ những mục có việc TỒN mới mang badge. "Đánh giá của tôi", "Điều chỉnh của
+          // tôi" và "Hạnh kiểm của tôi" là nơi xem kết quả hoặc đang chờ người khác xử lý,
+          // gắn số vào chỉ tổ nhiễu.
           {
             id: 'my-kpi',
-            badge: counts.myPendingTasks > 0 ? true : null,
+            badge: counts.myPendingTasks || null,
             render: () => <MyKpiPage />,
           },
-          { id: 'my-submissions', render: () => <MySubmissionsPage /> },
+          {
+            id: 'my-submissions',
+            badge: counts.myRejectedSubmissions || null,
+            render: () => <MySubmissionsPage />,
+          },
           { id: 'evaluations', render: () => <EvaluationsPage /> },
           { id: 'my-adjustments', render: () => <MyAdjustmentsPage /> },
           { id: 'my-conduct', visible: org?.enableConduct ?? false, render: () => <MyConductPage /> },
-          { id: 'my-rewards', visible: org?.enableReward ?? false, render: () => <MyRewardsPage /> },
-          { id: 'my-cash-wallet', visible: org?.enableCashWallet ?? false, render: () => <MyWalletPage /> },
+          {
+            id: 'my-rewards',
+            visible: org?.enableReward ?? false,
+            badge: counts.myPendingRedemptions || null,
+            render: () => <MyRewardsPage />,
+          },
+          {
+            id: 'my-cash-wallet',
+            visible: org?.enableCashWallet ?? false,
+            badge: counts.myPendingTopups || null,
+            render: () => <MyWalletPage />,
+          },
         ]}
       />
     </>

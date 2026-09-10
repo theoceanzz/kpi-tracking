@@ -28,7 +28,23 @@ public class OrgNotificationConfigService {
 
     private static final List<String> ALL_EVENT_CODES = List.of(
             "kpi_submitted", "kpi_assigned", "kpi_approved", "kpi_rejected", "kpi_approval_reverted",
-            "submission_submitted", "submission_reviewed", "submission_escalated", "reminder_deadline"
+            "submission_submitted", "submission_reviewed", "submission_escalated", "reminder_deadline",
+            // Đánh giá đợt/kỳ. Trước đây cả mảng này không phát một thông báo nào: đợt hết
+            // hạn trong im lặng, chốt xong người bị chấm cũng không hay biết.
+            "evaluation_period_due", "evaluation_cycle_due",
+            "evaluation_finalized", "cycle_unit_finalized",
+            "bsc_scorecard_submitted", "bsc_scorecard_approved", "bsc_scorecard_rejected",
+            "bsc_scorecard_activated", "bsc_scorecard_locked", "bsc_cascaded",
+            "bsc_unit_result_finalized", "bsc_score_overridden",
+            // Điểm thưởng
+            "reward_grant_submitted", "reward_grant_approved", "reward_grant_rejected",
+            "reward_grant_cancelled", "reward_points_received", "reward_grant_revoked",
+            "reward_budget_assigned", "reward_program_issued", "reward_program_reverted",
+            "reward_redemption_created", "reward_redemption_approved", "reward_redemption_rejected",
+            "reward_redemption_delivered", "reward_redemption_failed", "reward_redemption_cancelled",
+            // Ví tiền. Hai mã đầu đã chạy từ trước nhưng chưa từng có mặt trong danh sách này,
+            // nghĩa là không tổ chức nào tắt được chúng dù giao diện cấu hình vẫn hứa là tắt được.
+            "wallet_topup_paid", "wallet_topup_expired", "wallet_topup_unmatched", "wallet_converted"
     );
 
     private final OrgNotificationConfigRepository configRepository;

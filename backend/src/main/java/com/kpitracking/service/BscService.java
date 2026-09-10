@@ -165,6 +165,7 @@ public class BscService {
             throw new DuplicateResourceException("Hạng mục", "thứ tự hiển thị (trong lĩnh vực)", displayOrder);
         }
 
+        requirePerspectiveMeasurement(request);
         validatePerspectiveTargets(request.getTargetValue(), request.getMinimumValue(), request.getName());
 
         BscPerspective perspective = BscPerspective.builder()
@@ -209,6 +210,7 @@ public class BscService {
             throw new DuplicateResourceException("Hạng mục", "thứ tự hiển thị (trong lĩnh vực)", request.getDisplayOrder());
         }
 
+        requirePerspectiveMeasurement(request);
         validatePerspectiveTargets(request.getTargetValue(), request.getMinimumValue(), request.getName());
 
         perspective.setCode(code);
@@ -279,7 +281,10 @@ public class BscService {
                 .kpiCycle(scope.cycle())
                 .name(request.getName())
                 .vision(request.getVision())
-                .status(request.getStatus() != null ? request.getStatus() : BscScorecardStatus.DRAFT)
+                // Trạng thái KHÔNG nhận từ client trừ khi người tạo có quyền duyệt: bộ tiêu chí mới
+                // phải bắt đầu ở NHÁP rồi đi qua trình – duyệt, không thì luồng duyệt vô nghĩa.
+                .status(accessGuard.canApprove() && request.getStatus() != null
+                        ? request.getStatus() : BscScorecardStatus.DRAFT)
                 .scoringMode(request.getScoringMode() != null ? request.getScoringMode() : BscScoringMode.SHADOW)
                 .emptyPerspectivePolicy(request.getEmptyPerspectivePolicy() != null
                         ? request.getEmptyPerspectivePolicy()
@@ -338,7 +343,15 @@ public class BscService {
             scorecard.setParentScorecard(resolveParent(scorecard.getOrganization().getId(),
                     request.getParentScorecardId(), scorecard.getLevel(), scorecardId));
         }
-        if (request.getStatus() != null) scorecard.setStatus(request.getStatus());
+        // Đổi trạng thái là việc của luồng trình – duyệt (submit/approve/lock), không phải của form
+        // sửa. Form chỉ còn đặt được khi thẻ CHƯA vào luồng — nháp hoặc đã lưu trữ; thẻ đang áp
+        // dụng mà kéo ngược về nháp trong form thì bước duyệt thành hình thức, và người đang chấm
+        // điểm theo thẻ đó không hề biết nó vừa bị rút lại.
+        boolean statusEditable = scorecard.getStatus() == BscScorecardStatus.DRAFT
+                || scorecard.getStatus() == BscScorecardStatus.ARCHIVED;
+        if (request.getStatus() != null && statusEditable && accessGuard.canApprove()) {
+            scorecard.setStatus(request.getStatus());
+        }
         if (request.getScoringMode() != null) scorecard.setScoringMode(request.getScoringMode());
         if (request.getEmptyPerspectivePolicy() != null) scorecard.setEmptyPerspectivePolicy(request.getEmptyPerspectivePolicy());
 
@@ -507,7 +520,7 @@ public class BscService {
     }
 
     /** Các đợt bộ tiêu chí đang áp dụng: gắn theo kỳ ⇒ đọc động từ kỳ; gắn theo đợt ⇒ danh sách đã lưu. */
-    private List<KpiPeriod> effectivePeriodsOf(BscScorecard s) {
+    public List<KpiPeriod> effectivePeriodsOf(BscScorecard s) {
         if (s.getApplyScope() == BscScorecardApplyScope.CYCLE && s.getKpiCycle() != null) {
             return kpiPeriodRepository.findByKpiCycleIdOrderByStartDateAsc(s.getKpiCycle().getId());
         }
@@ -749,158 +762,6 @@ public class BscService {
                 .build();
     }
 
-    // ============================================================
-    // Import Excel (.xlsx) — upsert lĩnh vực theo mã
-    // Cột: Code (bắt buộc, ô trống được nếu tổ chức bật sinh mã tự động), Name (bắt buộc), Description, TargetValue, MinimumValue, Unit, Color, DisplayOrder, Status
-    // ============================================================
-
-    @Transactional
-    public ImportBscResponse importPerspectives(UUID organizationId, MultipartFile file) {
-        String filename = file.getOriginalFilename();
-        if (filename == null || !filename.endsWith(".xlsx")) {
-            throw new BusinessException("Chỉ hỗ trợ tập tin định dạng .xlsx");
-        }
-        Organization organization = organizationRepository.findById(organizationId)
-                .orElseThrow(() -> new ResourceNotFoundException("Organization not found"));
-
-        List<String> errors = new ArrayList<>();
-        int successfulImports = 0;
-        int totalRows = 0;
-
-        try (Workbook workbook = new XSSFWorkbook(file.getInputStream())) {
-            Sheet sheet = workbook.getSheetAt(0);
-            Row headerRow = sheet.getRow(0);
-            if (headerRow == null) throw new BusinessException("Tập tin Excel trống");
-
-            int codeIdx = -1, nameIdx = -1, descIdx = -1, colorIdx = -1, orderIdx = -1, statusIdx = -1, fixedIdx = -1;
-            int targetIdx = -1, minimumIdx = -1, unitIdx = -1;
-            for (int i = 0; i < headerRow.getLastCellNum(); i++) {
-                String header = getCellString(headerRow.getCell(i));
-                if (header.equalsIgnoreCase("Code")) codeIdx = i;
-                else if (header.equalsIgnoreCase("Name")) nameIdx = i;
-                else if (header.equalsIgnoreCase("Description")) descIdx = i;
-                else if (header.equalsIgnoreCase("TargetValue")) targetIdx = i;
-                else if (header.equalsIgnoreCase("MinimumValue")) minimumIdx = i;
-                else if (header.equalsIgnoreCase("Unit")) unitIdx = i;
-                else if (header.equalsIgnoreCase("Color")) colorIdx = i;
-                else if (header.equalsIgnoreCase("DisplayOrder")) orderIdx = i;
-                else if (header.equalsIgnoreCase("Status")) statusIdx = i;
-                else if (header.equalsIgnoreCase("FixedPerspective") || header.equalsIgnoreCase("Perspective")) fixedIdx = i;
-            }
-            if (codeIdx == -1 || nameIdx == -1) {
-                throw new BusinessException("Thiếu các cột bắt buộc: Code, Name");
-            }
-
-            int nextOrder = (int) perspectiveRepository.countByOrganizationId(organizationId) + 1;
-            java.util.Set<Integer> seenOrders = new java.util.HashSet<>();
-
-            for (int i = 1; i <= sheet.getLastRowNum(); i++) {
-                Row row = sheet.getRow(i);
-                if (row == null) continue;
-                String code = getCellString(row.getCell(codeIdx));
-                String name = nameIdx != -1 ? getCellString(row.getCell(nameIdx)) : "";
-                if (code.isBlank() && name.isBlank()) continue; // dòng trống
-                totalRows++;
-                try {
-                    if (name.isBlank()) throw new BusinessException("Tên hạng mục là bắt buộc");
-                    // Ô mã để trống ⇒ cấp theo mẫu của tổ chức. Tổ chức tắt tự sinh thì
-                    // resolveOnCreate báo lỗi ngay, và lỗi đó vào danh sách lỗi của dòng này.
-                    if (code.isBlank()) {
-                        code = orgCodeRuleService.resolveOnCreate(
-                                organization, CodeType.BSC_PERSPECTIVE, null, null, null);
-                    }
-                    if (!code.matches("^[A-Za-z0-9_]+$")) throw new BusinessException("Mã '" + code + "' chỉ gồm chữ, số và dấu gạch dưới");
-                    if (isReservedFixedCode(code)) throw new BusinessException("Mã '" + code + "' trùng mã lĩnh vực cố định — vui lòng dùng mã khác cho hạng mục");
-
-                    String desc = descIdx != -1 ? getCellString(row.getCell(descIdx)) : null;
-                    Double target = readOptionalNumber(row, targetIdx, "Mục tiêu mong muốn");
-                    Double minimum = readOptionalNumber(row, minimumIdx, "Kết quả tối thiểu");
-                    String unit = unitIdx != -1 ? trimToNull(getCellString(row.getCell(unitIdx))) : null;
-                    validatePerspectiveTargets(target, minimum, name);
-
-                    String color = colorIdx != -1 ? getCellString(row.getCell(colorIdx)) : null;
-                    if (color != null && !color.isBlank() && !color.matches("^#([0-9A-Fa-f]{6})$")) {
-                        throw new BusinessException("Màu '" + color + "' không hợp lệ (định dạng #RRGGBB)");
-                    }
-                    String statusStr = statusIdx != -1 ? getCellString(row.getCell(statusIdx)) : null;
-                    BscPerspectiveStatus status = BscPerspectiveStatus.ACTIVE;
-                    if (statusStr != null && !statusStr.isBlank()) {
-                        try { status = BscPerspectiveStatus.valueOf(statusStr.trim().toUpperCase()); }
-                        catch (Exception e) { throw new BusinessException("Trạng thái '" + statusStr + "' không hợp lệ (ACTIVE/INACTIVE)"); }
-                    }
-                    Integer displayOrder = null;
-                    if (orderIdx != -1) {
-                        String orderStr = getCellString(row.getCell(orderIdx));
-                        if (!orderStr.isBlank()) {
-                            try { displayOrder = (int) Double.parseDouble(orderStr); }
-                            catch (Exception e) { throw new BusinessException("Thứ tự '" + orderStr + "' phải là số"); }
-                            if (!seenOrders.add(displayOrder)) {
-                                throw new BusinessException("Thứ tự hiển thị '" + displayOrder + "' bị trùng trong tệp");
-                            }
-                        }
-                    }
-
-                    // Lĩnh vực cố định: đọc từ cột (nếu có), không hợp lệ/bỏ trống ⇒ mặc định Quy trình nội bộ.
-                    BscFixedPerspective fixed = BscFixedPerspective.INTERNAL_PROCESS;
-                    if (fixedIdx != -1) {
-                        String fixedStr = getCellString(row.getCell(fixedIdx));
-                        if (fixedStr != null && !fixedStr.isBlank()) {
-                            try { fixed = BscFixedPerspective.valueOf(fixedStr.trim().toUpperCase()); }
-                            catch (Exception e) { fixed = BscFixedPerspective.INTERNAL_PROCESS; }
-                        }
-                    }
-
-                    // Upsert theo mã (chỉ bản ghi chưa xoá mềm)
-                    BscPerspective existing = perspectiveRepository
-                            .findFirstByOrganizationIdAndCodeIgnoreCase(organizationId, code).orElse(null);
-
-                    int order = displayOrder != null ? displayOrder : (existing != null ? existing.getDisplayOrder() : nextOrder++);
-
-                    if (existing != null) {
-                        existing.setName(name);
-                        existing.setDescription(desc);
-                        // Cột vắng mặt ⇒ giữ nguyên giá trị cũ; cột có mà ô trống ⇒ xoá mục tiêu.
-                        if (targetIdx != -1) existing.setTargetValue(target);
-                        if (minimumIdx != -1) existing.setMinimumValue(minimum);
-                        if (unitIdx != -1) existing.setUnit(unit);
-                        if (color != null && !color.isBlank()) existing.setColor(color);
-                        existing.setDisplayOrder(order);
-                        existing.setStatus(status);
-                        if (existing.getFixedPerspective() == null || fixedIdx != -1) existing.setFixedPerspective(fixed);
-                        perspectiveRepository.save(existing);
-                    } else {
-                        perspectiveRepository.save(BscPerspective.builder()
-                                .organization(organization)
-                                .code(code)
-                                .name(name)
-                                .description(desc)
-                                .targetValue(target)
-                                .minimumValue(minimum)
-                                .unit(unit)
-                                .color(color != null && !color.isBlank() ? color : "#8b5cf6")
-                                .displayOrder(order)
-                                .status(status)
-                                .fixedPerspective(fixed)
-                                .build());
-                    }
-                    successfulImports++;
-                } catch (Exception e) {
-                    errors.add("Dòng " + (i + 1) + ": " + e.getMessage());
-                }
-            }
-        } catch (BusinessException e) {
-            throw e;
-        } catch (Exception e) {
-            throw new BusinessException("Lỗi đọc tập tin Excel: " + e.getMessage());
-        }
-
-        return ImportBscResponse.builder()
-                .totalRows(totalRows)
-                .successfulImports(successfulImports)
-                .errors(errors)
-                .build();
-    }
-
     /**
      * Đọc một ô số không bắt buộc: cột vắng mặt hoặc ô trống ⇒ null.
      * Không dùng {@link #getCellString} vì hàm đó ép ô số về long — mục tiêu 95.5 sẽ bị cắt còn 95.
@@ -941,9 +802,15 @@ public class BscService {
     }
 
     // ============================================================
-    // Import Excel bộ tiêu chí (.xlsx) — mỗi dòng = 1 trọng số lĩnh vực trong 1 kỳ
-    // Cột: Period (bắt buộc), ScorecardName (bắt buộc), Vision, PerspectiveCode (bắt buộc),
-    //      Weight (bắt buộc), Status, ScoringMode, EmptyPolicy. Gom nhóm theo Period → upsert scorecard.
+    // Import Excel bộ tiêu chí (.xlsx) — mỗi dòng = 1 hạng mục kèm trọng số trong 1 kỳ
+    //
+    // Cột: Period (bắt buộc), ScorecardName (bắt buộc), Vision, OrgUnits, PerspectiveCode (bắt buộc),
+    //      Weight (bắt buộc), Status, ScoringMode, EmptyPolicy
+    //      + hạng mục: PerspectiveName, FixedPerspective, Unit, TargetValue, MinimumValue, Color.
+    //
+    // MỘT tệp làm cả hai việc: mã hạng mục chưa có trong tổ chức thì TẠO MỚI ngay từ các cột hạng
+    // mục, có rồi thì cập nhật những cột được điền. Trước đây phải import hai lần theo đúng thứ tự
+    // (danh mục hạng mục trước, bộ tiêu chí sau) — quên thứ tự là ăn lỗi "Không tìm thấy hạng mục".
     // ============================================================
 
     @Transactional
@@ -961,6 +828,8 @@ public class BscService {
 
         // period key (normalized) -> gom dữ liệu
         java.util.LinkedHashMap<String, ScorecardImportGroup> groups = new java.util.LinkedHashMap<>();
+        // mã hạng mục (thường hoá) -> mô tả hạng mục lấy từ chính tệp này
+        java.util.LinkedHashMap<String, PerspectiveSpec> perspectiveSpecs = new java.util.LinkedHashMap<>();
 
         try (Workbook workbook = new XSSFWorkbook(file.getInputStream())) {
             Sheet sheet = workbook.getSheetAt(0);
@@ -968,6 +837,7 @@ public class BscService {
             if (headerRow == null) throw new BusinessException("Tập tin Excel trống");
 
             int periodIdx = -1, nameIdx = -1, visionIdx = -1, pCodeIdx = -1, weightIdx = -1, statusIdx = -1, modeIdx = -1, policyIdx = -1, unitsIdx = -1;
+            int pNameIdx = -1, fixedIdx = -1, pUnitIdx = -1, pTargetIdx = -1, pMinimumIdx = -1, pColorIdx = -1;
             for (int i = 0; i < headerRow.getLastCellNum(); i++) {
                 String h = getCellString(headerRow.getCell(i));
                 if (h.equalsIgnoreCase("Period")) periodIdx = i;
@@ -979,6 +849,13 @@ public class BscService {
                 else if (h.equalsIgnoreCase("ScoringMode")) modeIdx = i;
                 else if (h.equalsIgnoreCase("EmptyPolicy")) policyIdx = i;
                 else if (h.equalsIgnoreCase("OrgUnits") || h.equalsIgnoreCase("OrgUnitCode") || h.equalsIgnoreCase("OrgUnitCodes")) unitsIdx = i;
+                // Cột mô tả HẠNG MỤC — có thì tạo/cập nhật hạng mục ngay trong cùng tệp.
+                else if (h.equalsIgnoreCase("PerspectiveName")) pNameIdx = i;
+                else if (h.equalsIgnoreCase("FixedPerspective") || h.equalsIgnoreCase("Perspective")) fixedIdx = i;
+                else if (h.equalsIgnoreCase("Unit")) pUnitIdx = i;
+                else if (h.equalsIgnoreCase("TargetValue")) pTargetIdx = i;
+                else if (h.equalsIgnoreCase("MinimumValue")) pMinimumIdx = i;
+                else if (h.equalsIgnoreCase("Color")) pColorIdx = i;
             }
             if (periodIdx == -1 || nameIdx == -1 || pCodeIdx == -1 || weightIdx == -1) {
                 throw new BusinessException("Thiếu các cột bắt buộc: Period, ScorecardName, PerspectiveCode, Weight");
@@ -1013,6 +890,17 @@ public class BscService {
                     boolean dup = g.weights.keySet().stream().anyMatch(k -> k.equalsIgnoreCase(codeKey));
                     if (dup) throw new BusinessException("Mã hạng mục '" + codeKey + "' bị trùng trong kỳ '" + period.trim() + "'");
                     g.weights.put(codeKey, weight);
+
+                    // Mô tả hạng mục gom theo MÃ, dùng chung cho mọi kỳ trong tệp: cùng một mã thì
+                    // cùng một hạng mục, khai lại tên ở từng kỳ chỉ tổ lệch nhau.
+                    PerspectiveSpec spec = perspectiveSpecs.computeIfAbsent(codeKey.toLowerCase(), k -> new PerspectiveSpec());
+                    spec.code = codeKey;
+                    if (spec.name == null && pNameIdx != -1) spec.name = trimToNull(getCellString(row.getCell(pNameIdx)));
+                    if (spec.fixedStr == null && fixedIdx != -1) spec.fixedStr = trimToNull(getCellString(row.getCell(fixedIdx)));
+                    if (spec.unit == null && pUnitIdx != -1) spec.unit = trimToNull(getCellString(row.getCell(pUnitIdx)));
+                    if (spec.color == null && pColorIdx != -1) spec.color = trimToNull(getCellString(row.getCell(pColorIdx)));
+                    if (spec.target == null && pTargetIdx != -1) spec.target = readOptionalNumber(row, pTargetIdx, "Mục tiêu mong muốn");
+                    if (spec.minimum == null && pMinimumIdx != -1) spec.minimum = readOptionalNumber(row, pMinimumIdx, "Kết quả tối thiểu");
                 } catch (Exception e) {
                     errors.add("Dòng " + (i + 1) + ": " + e.getMessage());
                 }
@@ -1083,9 +971,8 @@ public class BscService {
                 }
                 int order = 0;
                 for (java.util.Map.Entry<String, Double> w : g.weights.entrySet()) {
-                    BscPerspective perspective = perspectiveRepository
-                            .findFirstByOrganizationIdAndCodeIgnoreCase(organizationId, w.getKey())
-                            .orElseThrow(() -> new BusinessException("Không tìm thấy hạng mục mã '" + w.getKey() + "'"));
+                    BscPerspective perspective = upsertPerspectiveFromImport(
+                            organization, w.getKey(), perspectiveSpecs.get(w.getKey().toLowerCase()));
                     BscScorecardPerspective sp = BscScorecardPerspective.builder()
                             .scorecard(scorecard).perspective(perspective)
                             .weightPercentage(w.getValue()).displayOrder(order++).build();
@@ -1103,6 +990,81 @@ public class BscService {
                 .successfulImports(successfulImports)
                 .errors(errors)
                 .build();
+    }
+
+    /** Mô tả một hạng mục đọc từ các cột phụ của tệp bộ tiêu chí. */
+    private static class PerspectiveSpec {
+        String code;
+        String name;
+        String fixedStr;
+        String unit;
+        String color;
+        Double target;
+        Double minimum;
+    }
+
+    /**
+     * Tìm hạng mục theo mã; chưa có thì TẠO từ các cột hạng mục trong chính tệp bộ tiêu chí.
+     *
+     * <p>Đây là chỗ gộp hai lần import thành một. Không có tên hạng mục để tạo thì báo lỗi chỉ
+     * thẳng cột còn thiếu, thay vì câu "Không tìm thấy hạng mục" khiến người dùng phải tự đoán ra
+     * là phải đi import một tệp khác trước.
+     */
+    private BscPerspective upsertPerspectiveFromImport(Organization organization, String code, PerspectiveSpec spec) {
+        UUID organizationId = organization.getId();
+        BscPerspective existing = perspectiveRepository
+                .findFirstByOrganizationIdAndCodeIgnoreCase(organizationId, code).orElse(null);
+
+        BscFixedPerspective fixed = BscFixedPerspective.INTERNAL_PROCESS;
+        if (spec != null && spec.fixedStr != null) {
+            try { fixed = BscFixedPerspective.valueOf(spec.fixedStr.trim().toUpperCase()); }
+            catch (Exception e) {
+                throw new BusinessException("Lĩnh vực '" + spec.fixedStr + "' của hạng mục '" + code
+                        + "' không hợp lệ (FINANCIAL / CUSTOMER / INTERNAL_PROCESS / LEARNING_GROWTH)");
+            }
+        }
+
+        if (existing != null) {
+            // Cột nào có dữ liệu thì cập nhật, cột trống giữ nguyên — tệp bộ tiêu chí không nhất
+            // thiết mô tả lại toàn bộ hạng mục đã có.
+            if (spec != null) {
+                if (spec.name != null) existing.setName(spec.name);
+                if (spec.unit != null) existing.setUnit(spec.unit);
+                if (spec.color != null) existing.setColor(spec.color);
+                if (spec.target != null) existing.setTargetValue(spec.target);
+                if (spec.minimum != null) existing.setMinimumValue(spec.minimum);
+                if (spec.fixedStr != null) existing.setFixedPerspective(fixed);
+                validatePerspectiveTargets(existing.getTargetValue(), existing.getMinimumValue(), existing.getName());
+                perspectiveRepository.save(existing);
+            }
+            return existing;
+        }
+
+        if (spec == null || spec.name == null) {
+            throw new BusinessException("Chưa có hạng mục mã '" + code
+                    + "'. Điền thêm cột PerspectiveName (và FixedPerspective) ở dòng này để hệ thống tạo mới.");
+        }
+        if (!code.matches("^[A-Za-z0-9_]+$")) {
+            throw new BusinessException("Mã hạng mục '" + code + "' chỉ gồm chữ, số và dấu gạch dưới");
+        }
+        if (isReservedFixedCode(code)) {
+            throw new BusinessException("Mã '" + code + "' trùng mã lĩnh vực cố định — dùng mã khác cho hạng mục");
+        }
+        validatePerspectiveTargets(spec.target, spec.minimum, spec.name);
+
+        int order = (int) perspectiveRepository.countByOrganizationId(organizationId) + 1;
+        return perspectiveRepository.save(BscPerspective.builder()
+                .organization(organization)
+                .code(code)
+                .name(spec.name)
+                .unit(spec.unit)
+                .targetValue(spec.target)
+                .minimumValue(spec.minimum)
+                .color(spec.color != null && spec.color.matches("^#([0-9A-Fa-f]{6})$") ? spec.color : "#8b5cf6")
+                .displayOrder(order)
+                .status(BscPerspectiveStatus.ACTIVE)
+                .fixedPerspective(fixed)
+                .build());
     }
 
     private static class ScorecardImportGroup {
@@ -1155,6 +1117,30 @@ public class BscService {
      * phải nhỏ hơn hoặc bằng mục tiêu mong muốn. Đặt ngược lại thì hạng mục không bao giờ đạt sàn.
      * Chỉ kiểm khi cả hai cùng được điền — để trống nghĩa là hạng mục chưa đặt con số.
      */
+    /**
+     * Mục tiêu, kết quả tối thiểu và đơn vị tính là BẮT BUỘC khi tạo/sửa hạng mục qua màn hình.
+     *
+     * <p>Thiếu mục tiêu thì dòng chỉ tiêu của đơn vị không quy con số thực đạt ra %đạt được — nó
+     * rơi về trung bình tỉ lệ đạt của các KPI con, tức đổi nghĩa con số mà không ai biết. Thiếu
+     * đơn vị tính thì bảng kết quả hiện "80 / 100" mà người đọc không biết là tỉ hay buổi.
+     *
+     * <p>Import Excel CỐ Ý không đi qua chốt này: nhập hàng loạt thường dựng khung trước rồi mới
+     * điền mục tiêu, chặn ở đó chỉ khiến người dùng bỏ luôn đường import.
+     */
+    private void requirePerspectiveMeasurement(PerspectiveRequest request) {
+        String label = request.getName() != null && !request.getName().isBlank()
+                ? " '" + request.getName() + "'" : "";
+        if (request.getTargetValue() == null) {
+            throw new BusinessException("Hạng mục" + label + ": vui lòng nhập mục tiêu mong muốn.");
+        }
+        if (request.getMinimumValue() == null) {
+            throw new BusinessException("Hạng mục" + label + ": vui lòng nhập kết quả tối thiểu.");
+        }
+        if (trimToNull(request.getUnit()) == null) {
+            throw new BusinessException("Hạng mục" + label + ": vui lòng nhập đơn vị tính.");
+        }
+    }
+
     private void validatePerspectiveTargets(Double target, Double minimum, String name) {
         String label = name != null && !name.isBlank() ? " '" + name + "'" : "";
         if (target != null && target < 0) {

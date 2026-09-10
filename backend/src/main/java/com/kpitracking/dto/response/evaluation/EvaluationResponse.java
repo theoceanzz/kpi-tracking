@@ -48,4 +48,11 @@ public class EvaluationResponse {
     private Double officialScore;
     /** Breakdown điểm từng lĩnh vực (giải thích điểm cho HR). */
     private List<PerspectiveScoreResponse> bscPerspectives;
+
+    // ── Bell curve ─────────────────────────────────────────────
+    /**
+     * Cảnh báo lệch khung bell curve của đơn vị sau khi chốt đánh giá này (null nếu không lệch
+     * hoặc đơn vị không áp khung). Chế độ "chặn" không đi đường này — nó trả lỗi 400.
+     */
+    private String bellCurveWarning;
 }

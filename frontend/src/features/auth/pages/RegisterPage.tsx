@@ -6,6 +6,7 @@ import { useMutation } from '@tanstack/react-query'
 import { authApi } from '../api/authApi'
 import { useNavigate, Link } from 'react-router-dom'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/apiError'
 // 2. Thêm Eye và EyeOff từ lucide-react
 import { Loader2, Mail, Lock, Building2, User, Phone, Eye, EyeOff, Wand2, Check, Trash2, Layers, Settings2, Clock, ArrowUp, ArrowDown, Plus } from 'lucide-react'
 
@@ -85,8 +86,8 @@ export default function RegisterPage() {
         state: { email: registeredEmail, password: registeredPassword } 
       }), 2000)
     },
-    onError: () => {
-      toast.error('Mã xác thực không hợp lệ hoặc đã hết hạn.')
+    onError: (error) => {
+      toast.error(getApiErrorMessage(error, 'Mã xác thực không hợp lệ hoặc đã hết hạn.'))
       setOtp(['', '', '', '', '', ''])
       otpRefs.current[0]?.focus()
     }
@@ -135,7 +136,7 @@ export default function RegisterPage() {
       setIsSuccess(true)
     },
     onError: (error: any) => {
-      const msg = error?.response?.data?.message || ''
+      const msg = getApiErrorMessage(error, '')
       const lowerMsg = msg.toLowerCase()
       
       if (lowerMsg.includes('email')) {

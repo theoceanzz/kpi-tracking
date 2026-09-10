@@ -1,21 +1,18 @@
 package com.kpitracking.service;
 
 import com.kpitracking.dto.request.bsc.CascadePolicyRequest;
-import com.kpitracking.dto.request.bsc.FactorBandRequest;
 import com.kpitracking.dto.response.bsc.CascadePolicyResponse;
-import com.kpitracking.dto.response.bsc.FactorBandResponse;
+import com.kpitracking.dto.response.bsc.ScorecardPeriodResponse;
 import com.kpitracking.entity.BscCascadePolicy;
-import com.kpitracking.entity.BscFactorBand;
 import com.kpitracking.entity.KpiCycle;
+import com.kpitracking.entity.KpiPeriod;
 import com.kpitracking.entity.Organization;
-import com.kpitracking.enums.BscFactorBasis;
-import com.kpitracking.enums.BscFactorMode;
-import com.kpitracking.enums.BscFactorScope;
 import com.kpitracking.enums.BscLinkedWeightEnforce;
 import com.kpitracking.exception.BusinessException;
 import com.kpitracking.exception.ResourceNotFoundException;
 import com.kpitracking.repository.BscCascadePolicyRepository;
 import com.kpitracking.repository.KpiCycleRepository;
+import com.kpitracking.repository.KpiPeriodRepository;
 import com.kpitracking.repository.OrganizationRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -23,16 +20,23 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
 /**
- * Quản lý chính sách hệ số cascade và bảng dải (QĐ-4, QĐ-8).
+ * Chính sách điểm BSC: trần điểm công nhận và ràng buộc KPI phải liên kết BSC (QĐ-8).
  *
- * <p>Chính sách quyết định mô hình phạt nặng hay nhẹ, nên mọi thay đổi ở đây tác động lên điểm
- * của toàn tổ chức. Kết quả đã chốt không bị ảnh hưởng vì hệ số đã được chụp lại lúc chốt.
+ * <p>Chỉ còn hai con số này là thật sự tác động: trần quyết định điểm công nhận của mọi cá nhân,
+ * ngưỡng liên kết quyết định ai bị cảnh báo (hoặc bị chặn chốt) vì KPI không bám vào cây BSC.
+ * Bảng dải và các tham số hệ số đã bị gỡ cùng lúc với việc bỏ hệ số phòng/công ty.
+ *
+ * <p><b>Phạm vi áp dụng</b> giống bộ tiêu chí: gắn theo ĐỢT (chọn nhiều), theo KỲ (mọi đợt trong
+ * kỳ), hoặc để trống cả hai làm bản MẶC ĐỊNH. Lúc chấm, {@code resolvePolicy} tra từ hẹp tới rộng:
+ * đợt → kỳ → mặc định → hằng số.
+ *
+ * <p>Không có bản ghi chính sách nào thì hệ thống chạy bằng hằng số mặc định trong
+ * {@link BscCascadeService} (120 / 60), nên tổ chức không cấu hình gì vẫn có hành vi xác định.
  */
 @Service
 @RequiredArgsConstructor
@@ -41,6 +45,7 @@ public class BscPolicyService {
     private final BscCascadePolicyRepository policyRepository;
     private final OrganizationRepository organizationRepository;
     private final KpiCycleRepository kpiCycleRepository;
+    private final KpiPeriodRepository kpiPeriodRepository;
 
     @Transactional(readOnly = true)
     public List<CascadePolicyResponse> list(UUID organizationId) {
@@ -55,14 +60,18 @@ public class BscPolicyService {
                 .orElseThrow(() -> new ResourceNotFoundException("Organization not found"));
         validate(request);
 
+        KpiCycle cycle = resolveCycle(request.getKpiCycleId());
+        List<KpiPeriod> periods = resolvePeriods(request.getKpiPeriodIds());
+        assertScopeSane(cycle, periods);
+        assertNoConflict(organizationId, cycle, periods, null);
+
         BscCascadePolicy policy = BscCascadePolicy.builder()
                 .organization(org)
                 .name(request.getName().trim())
-                .kpiCycle(resolveCycle(request.getKpiCycleId()))
+                .kpiCycle(cycle)
+                .kpiPeriods(new ArrayList<>(periods))
                 .build();
         apply(policy, request);
-        policy = policyRepository.save(policy);
-        replaceBands(policy, request.getBands());
         return toResponse(policyRepository.save(policy));
     }
 
@@ -71,13 +80,19 @@ public class BscPolicyService {
         BscCascadePolicy policy = policyRepository.findById(policyId)
                 .orElseThrow(() -> new ResourceNotFoundException("Chính sách hệ số", "id", policyId));
         validate(request);
+        KpiCycle cycle = resolveCycle(request.getKpiCycleId());
+        List<KpiPeriod> periods = resolvePeriods(request.getKpiPeriodIds());
+        assertScopeSane(cycle, periods);
+        assertNoConflict(policy.getOrganization().getId(), cycle, periods, policy.getId());
         policy.setName(request.getName().trim());
-        policy.setKpiCycle(resolveCycle(request.getKpiCycleId()));
+        policy.setKpiCycle(cycle);
+        // Danh sách gửi lên là authoritative: bỏ tick một đợt ở màn cấu hình = gỡ đợt đó khỏi chính sách.
+        policy.getKpiPeriods().clear();
+        policy.getKpiPeriods().addAll(periods);
         apply(policy, request);
         // Sửa chính sách đang dùng = đổi cách chấm cho các kỳ CHƯA chốt. Tăng version để đối chiếu
         // được về sau khi có ai hỏi "sao điểm kỳ này khác kỳ trước".
         policy.setVersion(policy.getVersion() != null ? policy.getVersion() + 1 : 1);
-        replaceBands(policy, request.getBands());
         return toResponse(policyRepository.save(policy));
     }
 
@@ -93,20 +108,12 @@ public class BscPolicyService {
     // ============================================================
 
     private void apply(BscCascadePolicy policy, CascadePolicyRequest r) {
-        if (r.getUnitFactorMode() != null) policy.setUnitFactorMode(r.getUnitFactorMode());
-        if (r.getCompanyFactorMode() != null) policy.setCompanyFactorMode(r.getCompanyFactorMode());
-        if (r.getFactorBasis() != null) policy.setFactorBasis(r.getFactorBasis());
-        if (r.getFactorFloor() != null) policy.setFactorFloor(r.getFactorFloor());
-        if (r.getFactorCap() != null) policy.setFactorCap(r.getFactorCap());
         if (r.getRecognizedCapPercent() != null) policy.setRecognizedCapPercent(r.getRecognizedCapPercent());
         if (r.getMinBscLinkedWeight() != null) policy.setMinBscLinkedWeight(r.getMinBscLinkedWeight());
         if (r.getLinkedWeightEnforce() != null) policy.setLinkedWeightEnforce(r.getLinkedWeightEnforce());
     }
 
     private void validate(CascadePolicyRequest r) {
-        if (r.getFactorFloor() != null && r.getFactorCap() != null && r.getFactorFloor() > r.getFactorCap()) {
-            throw new BusinessException("Sàn hệ số không được lớn hơn trần hệ số");
-        }
         if (r.getRecognizedCapPercent() != null && r.getRecognizedCapPercent() <= 0) {
             throw new BusinessException("Trần điểm công nhận phải lớn hơn 0");
         }
@@ -114,56 +121,56 @@ public class BscPolicyService {
                 && (r.getMinBscLinkedWeight() < 0 || r.getMinBscLinkedWeight() > 100)) {
             throw new BusinessException("Tỉ trọng KPI liên kết BSC phải nằm trong khoảng 0–100%");
         }
-        if (r.getBands() == null) return;
+    }
 
-        // Dải chồng lấn thì hệ số phụ thuộc vào thứ tự duyệt — cùng một kết quả có thể ra hai hệ số
-        // khác nhau tuỳ lần chạy. Chặn ngay lúc cấu hình thay vì để lộ ra ở điểm của nhân viên.
-        for (BscFactorScope scope : BscFactorScope.values()) {
-            List<FactorBandRequest> bands = r.getBands().stream()
-                    .filter(b -> b.getScope() == scope)
-                    .sorted(Comparator.comparing(b -> b.getFromPercent() == null
-                            ? Double.NEGATIVE_INFINITY : b.getFromPercent()))
-                    .toList();
-            for (int i = 0; i < bands.size(); i++) {
-                FactorBandRequest b = bands.get(i);
-                if (b.getFromPercent() != null && b.getToPercent() != null
-                        && b.getFromPercent() >= b.getToPercent()) {
-                    throw new BusinessException("Dải " + label(b) + " có mốc dưới lớn hơn hoặc bằng mốc trên");
-                }
-                if (i > 0) {
-                    FactorBandRequest prev = bands.get(i - 1);
-                    Double prevTo = prev.getToPercent();
-                    Double curFrom = b.getFromPercent();
-                    if (prevTo == null || curFrom == null || curFrom < prevTo) {
-                        throw new BusinessException("Các dải của cấp " + scope + " bị chồng lấn nhau");
-                    }
-                }
+    /** Gắn kỳ hay gắn đợt — chọn một, không nhập nhằng cả hai. */
+    private void assertScopeSane(KpiCycle cycle, List<KpiPeriod> periods) {
+        if (cycle != null && !periods.isEmpty()) {
+            throw new BusinessException("Chọn áp dụng theo KỲ hoặc theo ĐỢT, không chọn cả hai");
+        }
+    }
+
+    /**
+     * Mỗi phạm vi chỉ được MỘT chính sách: một đợt không nằm trong hai chính sách đợt, một kỳ không
+     * có hai chính sách kỳ, và tổ chức chỉ một bản mặc định.
+     *
+     * <p>{@code resolvePolicy} lấy bản ghi đầu tiên khớp, nên hai chính sách cùng phủ một phạm vi
+     * nghĩa là điểm chạy theo bản nào tuỳ thứ tự truy vấn — đúng loại lỗi không ai phát hiện ra cho
+     * tới khi hai người so điểm với nhau. Chặn ngay lúc lưu.
+     *
+     * <p>Chồng lấn giữa các CẤP thì không chặn: gắn riêng một đợt trong khi kỳ của nó đã có chính
+     * sách là chuyện cố ý ("cả kỳ dùng trần 120, riêng đợt cuối năm 130") — cấp hẹp hơn thắng.
+     */
+    private void assertNoConflict(UUID organizationId, KpiCycle cycle, List<KpiPeriod> periods, UUID selfId) {
+        for (KpiPeriod period : periods) {
+            for (BscCascadePolicy p : policyRepository.findActiveByPeriod(organizationId, period.getId())) {
+                if (selfId != null && selfId.equals(p.getId())) continue;
+                throw new BusinessException("Đợt " + period.getName() + " đã nằm trong chính sách '"
+                        + p.getName() + "' — sửa chính sách đó thay vì tạo thêm");
             }
         }
-    }
+        if (!periods.isEmpty()) return;
 
-    private static String label(FactorBandRequest b) {
-        return (b.getLabel() != null ? b.getLabel() : "")
-                + " [" + (b.getFromPercent() != null ? b.getFromPercent() : "-∞")
-                + ", " + (b.getToPercent() != null ? b.getToPercent() : "+∞") + ")";
-    }
-
-    private void replaceBands(BscCascadePolicy policy, List<FactorBandRequest> bands) {
-        if (bands == null) return;
-        policy.getBands().clear();
-        int order = 0;
-        for (FactorBandRequest b : bands) {
-            policy.getBands().add(BscFactorBand.builder()
-                    .policy(policy)
-                    .scope(b.getScope())
-                    .fromPercent(b.getFromPercent())
-                    .toPercent(b.getToPercent())
-                    .factor(b.getFactor())
-                    .label(b.getLabel())
-                    .color(b.getColor())
-                    .displayOrder(b.getDisplayOrder() != null ? b.getDisplayOrder() : order++)
-                    .build());
+        List<BscCascadePolicy> existing = cycle == null
+                ? policyRepository.findActiveDefault(organizationId)
+                : policyRepository.findActiveByCycle(organizationId, cycle.getId());
+        for (BscCascadePolicy p : existing) {
+            if (selfId != null && selfId.equals(p.getId())) continue;
+            throw new BusinessException(cycle == null
+                    ? "Tổ chức đã có chính sách mặc định ('" + p.getName() + "') — sửa chính sách đó thay vì tạo thêm"
+                    : "Kỳ " + cycle.getName() + " đã có chính sách riêng ('" + p.getName()
+                      + "') — sửa chính sách đó thay vì tạo thêm");
         }
+    }
+
+    private List<KpiPeriod> resolvePeriods(List<UUID> periodIds) {
+        if (periodIds == null || periodIds.isEmpty()) return List.of();
+        List<KpiPeriod> periods = new ArrayList<>();
+        for (UUID id : periodIds) {
+            periods.add(kpiPeriodRepository.findById(id)
+                    .orElseThrow(() -> new ResourceNotFoundException("Đợt KPI", "id", id)));
+        }
+        return periods;
     }
 
     private KpiCycle resolveCycle(UUID cycleId) {
@@ -172,39 +179,36 @@ public class BscPolicyService {
                 .orElseThrow(() -> new ResourceNotFoundException("Kỳ đánh giá", "id", cycleId));
     }
 
-    private CascadePolicyResponse toResponse(BscCascadePolicy p) {
-        List<FactorBandResponse> bands = new ArrayList<>();
-        if (p.getBands() != null) {
-            for (BscFactorBand b : p.getBands()) {
-                bands.add(FactorBandResponse.builder()
-                        .id(b.getId())
-                        .scope(b.getScope())
-                        .fromPercent(b.getFromPercent())
-                        .toPercent(b.getToPercent())
-                        .factor(b.getFactor())
-                        .label(b.getLabel())
-                        .color(b.getColor())
-                        .displayOrder(b.getDisplayOrder())
-                        .build());
-            }
+    private List<ScorecardPeriodResponse> periodsOf(BscCascadePolicy p) {
+        if (p.getKpiPeriods() == null) return List.of();
+        return p.getKpiPeriods().stream()
+                .map(x -> ScorecardPeriodResponse.builder().id(x.getId()).name(x.getName()).build())
+                .collect(Collectors.toList());
+    }
+
+    /** Chữ hiển thị trên chip chọn chính sách: tên kỳ, danh sách đợt, hoặc "Mặc định". */
+    private String scopeLabelOf(BscCascadePolicy p) {
+        if (p.getKpiCycle() != null) return p.getKpiCycle().getName();
+        if (p.getKpiPeriods() != null && !p.getKpiPeriods().isEmpty()) {
+            return p.getKpiPeriods().stream().map(KpiPeriod::getName).collect(Collectors.joining(", "));
         }
+        return "Mặc định";
+    }
+
+    private CascadePolicyResponse toResponse(BscCascadePolicy p) {
         return CascadePolicyResponse.builder()
                 .id(p.getId())
                 .name(p.getName())
                 .kpiCycleId(p.getKpiCycle() != null ? p.getKpiCycle().getId() : null)
                 .kpiCycleName(p.getKpiCycle() != null ? p.getKpiCycle().getName() : null)
-                .unitFactorMode(p.getUnitFactorMode() != null ? p.getUnitFactorMode() : BscFactorMode.BAND_TABLE)
-                .companyFactorMode(p.getCompanyFactorMode() != null ? p.getCompanyFactorMode() : BscFactorMode.BAND_TABLE)
-                .factorBasis(p.getFactorBasis() != null ? p.getFactorBasis() : BscFactorBasis.OVERALL)
-                .factorFloor(p.getFactorFloor())
-                .factorCap(p.getFactorCap())
+                .periods(periodsOf(p))
+                .scopeLabel(scopeLabelOf(p))
                 .recognizedCapPercent(p.getRecognizedCapPercent())
                 .minBscLinkedWeight(p.getMinBscLinkedWeight())
                 .linkedWeightEnforce(p.getLinkedWeightEnforce() != null
                         ? p.getLinkedWeightEnforce() : BscLinkedWeightEnforce.WARN)
                 .status(p.getStatus())
                 .version(p.getVersion())
-                .bands(bands)
                 .build();
     }
 }

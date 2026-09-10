@@ -4,6 +4,7 @@ import { useMutation } from '@tanstack/react-query'
 import { authApi } from '../api/authApi'
 import { changePasswordSchema, type ChangePasswordFormData } from '../schemas/authSchema'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/apiError'
 import PageHeader from '@/components/common/PageHeader'
 import { Loader2 } from 'lucide-react'
 
@@ -17,7 +18,7 @@ export default function ChangePasswordPage() {
     mutationFn: (data: ChangePasswordFormData) => authApi.changePassword(data),
     onSuccess: () => { toast.success('Đổi mật khẩu thành công'); reset() },
     onError: (error: any) => {
-      const message = error.response?.data?.message || 'Đổi mật khẩu thất bại'
+      const message = getApiErrorMessage(error, 'Đổi mật khẩu thất bại')
       if (message.includes('Mật khẩu hiện tại')) {
         setError('currentPassword', { type: 'manual', message: message })
       } else {

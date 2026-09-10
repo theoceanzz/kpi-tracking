@@ -13,6 +13,13 @@ public interface KpiCycleRepository extends JpaRepository<KpiCycle, UUID>, JpaSp
     /** Dùng bởi bộ tự động phát thưởng để quét các kỳ đã kết thúc. */
     java.util.List<KpiCycle> findByOrganizationId(UUID organizationId);
 
+    /** Mọi kỳ của MỌI tổ chức kết thúc trong khoảng — cho lượt quét nhắc hạn chốt kỳ. */
+    @org.springframework.data.jpa.repository.Query("SELECT c FROM KpiCycle c WHERE c.endDate IS NOT NULL "
+           + "AND c.endDate >= :from AND c.endDate <= :to ORDER BY c.endDate ASC")
+    java.util.List<KpiCycle> findAllEndingBetween(
+            @org.springframework.data.repository.query.Param("from") java.time.Instant from,
+            @org.springframework.data.repository.query.Param("to") java.time.Instant to);
+
     /** Số đợt (chưa xoá) đang thuộc kỳ này. */
     @org.springframework.data.jpa.repository.Query(
             "SELECT COUNT(p) FROM KpiPeriod p WHERE p.kpiCycle.id = :cycleId AND p.deletedAt IS NULL")

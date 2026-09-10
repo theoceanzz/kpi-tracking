@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { kpiApi } from '../api/kpiApi'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/apiError'
 
 export function useBulkDeleteKpi() {
   const qc = useQueryClient()
@@ -11,9 +12,6 @@ export function useBulkDeleteKpi() {
       qc.invalidateQueries({ queryKey: ['stats'] });
       toast.success(`Đã xoá ${deleted ?? 0} chỉ tiêu`);
     },
-    onError: (error: any) => {
-      const msg = error?.response?.data?.message || 'Xoá thất bại';
-      toast.error(msg);
-    },
+    onError: (error) => toast.error(getApiErrorMessage(error, 'Xoá chỉ tiêu thất bại')),
   })
 }

@@ -3,6 +3,7 @@ import { useQuery, useMutation } from '@tanstack/react-query'
 import { authApi } from '../api/authApi'
 import { CheckCircle, XCircle, Loader2 } from 'lucide-react'
 import { useState } from 'react'
+import { getApiErrorMessage } from '@/lib/apiError'
 
 export default function VerifyEmailPage() {
   const [params] = useSearchParams()
@@ -35,8 +36,8 @@ export default function VerifyEmailPage() {
       setErrorMsg('')
       setTimeout(() => navigate('/login', { state: contextData }), 2000)
     },
-    onError: () => {
-      setErrorMsg('Xác thực thất bại. Mã OTP không hợp lệ hoặc đã hết hạn.')
+    onError: (error) => {
+      setErrorMsg(getApiErrorMessage(error, 'Xác thực thất bại. Mã OTP không hợp lệ hoặc đã hết hạn.'))
       setOtpValues(['', '', '', '', '', ''])
       document.getElementById('otp-0')?.focus()
     }
@@ -49,7 +50,7 @@ export default function VerifyEmailPage() {
       setErrorMsg('')
     },
     onError: (err: any) => {
-      const msg = err.response?.data?.message || 'Không thể gửi lại mã xác thực.'
+      const msg = getApiErrorMessage(err, 'Không thể gửi lại mã xác thực.')
       setErrorMsg(msg)
     }
   })

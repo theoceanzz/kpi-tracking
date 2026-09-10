@@ -1,10 +1,12 @@
-import { useState, useMemo, useEffect, Fragment } from 'react'
+import { useState, useMemo, useEffect, useRef, Fragment } from 'react'
 import { useAuthStore } from '@/store/authStore'
 import { useKpiCycles } from '../hooks/useKpiCycles'
 import ScopeSelectItems from '@/components/common/ScopeSelectItems'
 import { pickCurrentOrNearest } from '@/components/common/dateScope'
 import { useUnitCycleSummary, useCycleApprovalChain } from '../hooks/useCycleEvaluation'
 import CycleApprovalTimeline from '../components/CycleApprovalTimeline'
+import CycleBellCurveCard from '../components/CycleBellCurveCard'
+import FinalizeUnitDialog from '../components/FinalizeUnitDialog'
 import SendEvaluationModal from '../components/SendEvaluationModal'
 import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
@@ -20,10 +22,10 @@ import UserAvatar from '@/components/common/UserAvatar'
 import { format, parseISO } from 'date-fns'
 import type { CycleEvaluationMode, CycleUserEvaluation, CyclePeriodBreakdown } from '@/types/kpi'
 import RewardPrompt from '@/features/rewards/components/RewardPrompt'
-import ConductInlineSheet from '@/features/conduct/components/ConductInlineSheet'
+import ConductInlineSheet, { type ConductSheetHandle } from '@/features/conduct/components/ConductInlineSheet'
 import {
   CalendarRange, Building2, Search, Award, ChevronRight, CheckCircle2, Lock, LockOpen, MessageSquare,
-  ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle, FileSpreadsheet, Download, Loader2, Mail
+  ArrowUpDown, ArrowUp, ArrowDown, AlertTriangle, FileSpreadsheet, Download, Loader2, Mail, PenLine
 } from 'lucide-react'
 
 const MODE_LABEL: Record<CycleEvaluationMode, string> = {
@@ -67,7 +69,6 @@ export default function CycleEvaluationPage() {
   const [detailMember, setDetailMember] = useState<CycleUserEvaluation | null>(null)
   const [showFinalize, setShowFinalize] = useState(false)
   const [showSend, setShowSend] = useState(false)
-  const [comment, setComment] = useState('')
   const [sortConfig, setSortConfig] = useState<{ key: SortKey; direction: 'asc' | 'desc' }>({ key: 'userName', direction: 'asc' })
 
   // Chọn sẵn kỳ đang chạy; đang ở kẽ giữa hai kỳ thì giữ nguyên kỳ vừa kết thúc.
@@ -76,8 +77,9 @@ export default function CycleEvaluationPage() {
   useEffect(() => { if (!orgUnitId && flatOrgUnits.length) setOrgUnitId(flatOrgUnits[0].id) }, [flatOrgUnits, orgUnitId])
 
   const {
-    data: summary, isLoading, finalize, isFinalizing,
+    data: summary, isLoading, finalize,
     reopen, isReopening, saveUserScore, isSavingUserScore,
+    saveUnitScore,
     sendEvaluation, isSending,
   } = useUnitCycleSummary(cycleId, orgUnitId)
 
@@ -94,7 +96,6 @@ export default function CycleEvaluationPage() {
     ? summary?.members.find(m => m.userId === detailMember.userId) || detailMember
     : null
 
-  useEffect(() => { setComment(summary?.comment || '') }, [summary?.comment])
 
   const members = useMemo(() => {
     let list = [...(summary?.members || [])]
@@ -116,9 +117,6 @@ export default function CycleEvaluationPage() {
     setSortConfig(prev => ({ key, direction: prev.key === key && prev.direction === 'asc' ? 'desc' : 'asc' }))
   }
 
-  const handleFinalize = async () => {
-    try { await finalize(comment); setShowFinalize(false) } catch { /* toast in hook */ }
-  }
 
   const [isExporting, setIsExporting] = useState(false)
   const handleExport = async () => {
@@ -367,6 +365,24 @@ export default function CycleEvaluationPage() {
                   </span>
                 )}
 
+                {/* Điểm đơn vị được chấm tay là thứ phải nhìn thấy ngay ở trang, kể cả khi ô
+                    chấm đã dọn vào hộp thoại chốt — đọc số mà không biết có người can thiệp
+                    thì không giải thích được cho ai. */}
+                {summary.overrideScore != null && (
+                  <span
+                    title={[
+                      summary.overrideReason,
+                      summary.overriddenByName && `— ${summary.overriddenByName}`,
+                    ].filter(Boolean).join(' ') || undefined}
+                    className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 text-[10px] font-black uppercase tracking-widest border border-indigo-100 dark:border-indigo-800/50 whitespace-nowrap"
+                  >
+                    <PenLine size={12} /> Chấm tay {summary.overrideScore}
+                    {summary.autoScore != null && (
+                      <span className="text-indigo-400/70 normal-case tracking-normal">TB {summary.autoScore}</span>
+                    )}
+                  </span>
+                )}
+
                 {summary.comment && (
                   <span
                     title={summary.comment}
@@ -433,6 +449,13 @@ export default function CycleEvaluationPage() {
           onSelectUnit={setOrgUnitId}
         />
         </div>
+
+        {/* Phân bố mức của phòng: thứ người chốt kỳ cần nhìn trước khi quyết định điểm đơn vị.
+            Chính ô chấm điểm đơn vị đã dọn vào hộp thoại "Chốt đánh giá phòng ban" — chấm rồi
+            chốt vốn là một nhịp, để hai chỗ chỉ tổ quên bấm lưu. */}
+        {summary?.bellCurve && (
+          <CycleBellCurveCard curve={summary.bellCurve} orgUnitName={summary.orgUnitName} />
+        )}
 
         {/* Cảnh báo: chế độ Định tính nhưng chưa có KPI định tính nào được chấm */}
         {noQualitativeData && (
@@ -633,50 +656,20 @@ export default function CycleEvaluationPage() {
           />
         )}
 
-        {/* Finalize dialog */}
-        {showFinalize && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-            <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-md" onClick={() => setShowFinalize(false)} />
-            <div className="relative bg-white dark:bg-slate-900 rounded-[32px] shadow-2xl w-full max-w-md p-8 border border-slate-200 dark:border-slate-800">
-              <div className="flex items-center gap-4 mb-6">
-                <div className="w-12 h-12 rounded-[18px] bg-emerald-50 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400">
-                  <Lock size={22} />
-                </div>
-                <div>
-                  <h3 className="text-xl font-black text-slate-900 dark:text-white">Chốt đánh giá phòng ban</h3>
-                  <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest mt-0.5">Điểm sẽ được lưu snapshot</p>
-                </div>
-              </div>
-              {/* Xếp loại cũng bị khoá theo, nên phải nói trước khi bấm chứ không để người dùng
-                  phát hiện sau lúc sửa luật mà con số không đổi. */}
-              {summary?.classification && (
-                <div className="flex items-center gap-2.5 mb-5 px-4 py-3 rounded-2xl border"
-                  style={{
-                    backgroundColor: `${summary.classificationColor ?? '#64748b'}14`,
-                    borderColor: `${summary.classificationColor ?? '#64748b'}33`,
-                  }}>
-                  <Award size={16} style={{ color: summary.classificationColor ?? '#64748b' }} />
-                  <p className="text-[11px] font-bold text-slate-500 dark:text-slate-400">
-                    Xếp loại đơn vị{' '}
-                    <b style={{ color: summary.classificationColor ?? '#64748b' }}>{summary.classification}</b>
-                    {' '}sẽ được chụp lại cùng điểm.
-                  </p>
-                </div>
-              )}
-              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Nhận xét (tuỳ chọn)</label>
-              <textarea
-                value={comment} onChange={e => setComment(e.target.value)} rows={3}
-                placeholder="Nhận xét tổng thể cho phòng ban trong kỳ..."
-                className="w-full mt-2 px-4 py-3 rounded-2xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 text-sm font-medium outline-none focus:ring-4 focus:ring-emerald-500/10 resize-none"
-              />
-              <div className="flex gap-3 mt-6">
-                <button onClick={() => setShowFinalize(false)} className="flex-1 px-6 py-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 text-xs font-black uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-slate-800">Huỷ</button>
-                <button onClick={handleFinalize} disabled={isFinalizing} className="flex-1 px-6 py-3.5 rounded-2xl bg-emerald-600 text-white text-xs font-black uppercase tracking-widest hover:bg-emerald-700 shadow-lg shadow-emerald-500/25 disabled:opacity-50">
-                  {isFinalizing ? 'Đang chốt...' : 'Xác nhận chốt'}
-                </button>
-              </div>
-            </div>
-          </div>
+        {/* Hộp thoại chốt: gồm luôn ô chấm điểm cho cả đơn vị. Chỉ dựng khi mở nên mỗi lần
+            mở là đọc lại số mới nhất từ summary, không cần effect đồng bộ ngược. */}
+        {showFinalize && summary && (
+          <FinalizeUnitDialog
+            summary={summary}
+            maxScore={maxScore}
+            isQualMode={isQualMode}
+            canScoreUnit={canFinalize && !isFinalized}
+            onSaveUnitScore={(score, reason) => saveUnitScore({ score, reason })}
+            onFinalize={finalize}
+            onClose={() => setShowFinalize(false)}
+            getScoreColor={getScoreColor}
+            getScoreLabel={getScoreLabel}
+          />
         )}
 
         {/* Render có điều kiện để lựa chọn nhân viên tự reset mỗi lần mở lại. */}
@@ -720,6 +713,8 @@ function UserScoreModal({
   const [qual, setQual] = useState<string>(member.qualScore != null ? String(member.qualScore) : '')
   const [comment, setComment] = useState(member.comment || '')
   const [saved, setSaved] = useState(false)
+  // Phiếu hạnh kiểm không có nút lưu riêng — nút "Lưu điểm chốt kỳ" của modal lưu hộ.
+  const conductRef = useRef<ConductSheetHandle>(null)
 
   const suggested = member.managerScore
   const parsed = score.trim() === '' ? null : Number(score)
@@ -763,6 +758,13 @@ function UserScoreModal({
   // sau thì gần như chắc chắn sẽ quên.
   const handleSave = async () => {
     if (invalid || qualInvalid) return
+    // Hạnh kiểm lưu TRƯỚC: nó là trục hành vi của xếp loại ma trận, lưu sau thì bản ghi
+    // điểm kỳ vừa chốt vẫn mang điểm hành vi cũ. Lưu hỏng thì dừng, đừng chốt tiếp.
+    try {
+      await conductRef.current?.save()
+    } catch {
+      return // toast lỗi đã hiện trong hook của phiếu
+    }
     await onSave(parsed, parsedQual, comment)
     setSaved(true)
   }
@@ -836,6 +838,8 @@ function UserScoreModal({
               bên dưới, nên phải chấm trước khi chốt điểm kỳ. */}
           {showConduct && (
             <ConductInlineSheet
+              ref={conductRef}
+              hideActions
               target={{ scope: 'CYCLE', cycleId, periodId: null }}
               userId={member.userId}
             />

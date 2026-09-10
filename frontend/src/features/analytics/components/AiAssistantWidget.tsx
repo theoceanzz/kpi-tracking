@@ -20,6 +20,7 @@ import { useTypewriter } from '../hooks/useTypewriter'
 import { useNavigate } from 'react-router-dom'
 import InsightCards from './InsightCards'
 import FollowupSuggestions from './FollowupSuggestions'
+import { getApiErrorMessage } from '@/lib/apiError'
 
 interface Message {
   id: string
@@ -262,9 +263,9 @@ export default function AiAssistantWidget() {
       if (status === 402) {
         errorContent = '⚠️ **Hệ thống AI đã đạt giới hạn token.** Vui lòng thử lại sau ít phút hoặc liên hệ quản trị viên.'
       } else if (status === 429) {
-        errorContent = `⚠️ ${error?.response?.data?.message || 'Bạn gửi yêu cầu AI quá nhanh, vui lòng thử lại sau ít phút.'}`
+        errorContent = `⚠️ ${getApiErrorMessage(error, 'Bạn gửi yêu cầu AI quá nhanh, vui lòng thử lại sau ít phút.')}`
       } else {
-        const errorDetail = error?.response?.data?.message || error?.message || 'Lỗi không xác định'
+        const errorDetail = getApiErrorMessage(error, 'Lỗi không xác định')
         errorContent = `Xin lỗi, đã có lỗi xảy ra: ${errorDetail}`
       }
       setMessages(prev => [

@@ -7,6 +7,7 @@ import { kpiApi } from '../api/kpiApi'
 import { useUsers } from '@/features/users/hooks/useUsers'
 import { useAuthStore } from '@/store/authStore'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/apiError'
 import { cn } from '@/lib/utils'
 import { Loader2, X, Check, Target, Info } from 'lucide-react'
 import type { KpiCriteria } from '@/types/kpi'
@@ -104,8 +105,8 @@ export default function KpiDelegationModal({ open, onClose, kpi }: KpiDelegation
       toast.success('Giao việc thành công')
       onClose() 
     },
-    onError: (err: any) => {
-      toast.error(err?.response?.data?.message || 'Giao việc thất bại')
+    onError: (err) => {
+      toast.error(getApiErrorMessage(err, 'Giao việc thất bại'))
     },
   })
 

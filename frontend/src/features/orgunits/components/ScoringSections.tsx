@@ -13,6 +13,7 @@ import {
   Grid3x3, X, ArrowRight
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/apiError'
 import { cn } from '@/lib/utils'
 import WorkspaceHeader from '@/components/common/WorkspaceHeader'
 import type { PerformanceMatrix } from '../api/organizationApi'
@@ -86,7 +87,7 @@ export function ScoringConfigSection({ org }: { org: any }) {
         setIsEditing(false)
         toast.success('Cập nhật thang điểm thành công')
       },
-      onError: () => toast.error('Không thể cập nhật thang điểm')
+      onError: (error) => toast.error(getApiErrorMessage(error, 'Không thể cập nhật thang điểm'))
     })
   }
 
@@ -107,7 +108,7 @@ export function ScoringConfigSection({ org }: { org: any }) {
         setIsEditing(false)
         toast.success('Đã đặt lại về thang điểm mặc định thành công')
       },
-      onError: () => toast.error('Không thể đặt lại thang điểm')
+      onError: (error) => toast.error(getApiErrorMessage(error, 'Không thể đặt lại thang điểm'))
     })
   }
 
@@ -328,7 +329,7 @@ export function QualitativeConfigSection({ org }: { org: any }) {
           setIsEditing(false)
           toast.success('Cập nhật thang điểm định tính thành công')
         },
-        onError: () => toast.error('Không thể cập nhật thang điểm định tính'),
+        onError: (error) => toast.error(getApiErrorMessage(error, 'Không thể cập nhật thang điểm định tính')),
       }
     )
   }
@@ -341,7 +342,7 @@ export function QualitativeConfigSection({ org }: { org: any }) {
           setIsEditing(false)
           toast.success('Đã đặt lại về thang điểm định tính mặc định')
         },
-        onError: () => toast.error('Không thể đặt lại thang điểm định tính'),
+        onError: (error) => toast.error(getApiErrorMessage(error, 'Không thể đặt lại thang điểm định tính')),
       }
     )
   }
@@ -641,7 +642,7 @@ export function PerformanceMatrixSection({ org }: { org: any }) {
           setIsEditing(false)
           toast.success('Cập nhật ma trận xếp loại thành công')
         },
-        onError: () => toast.error('Không thể cập nhật ma trận xếp loại'),
+        onError: (error) => toast.error(getApiErrorMessage(error, 'Không thể cập nhật ma trận xếp loại')),
       }
     )
   }
@@ -660,7 +661,7 @@ export function PerformanceMatrixSection({ org }: { org: any }) {
           setIsEditing(false)
           toast.success('Đã đặt lại về ma trận mặc định')
         },
-        onError: () => toast.error('Không thể đặt lại ma trận'),
+        onError: (error) => toast.error(getApiErrorMessage(error, 'Không thể đặt lại ma trận xếp loại')),
       }
     )
   }

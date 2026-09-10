@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { Layers, Target, GitBranch, SlidersHorizontal, Gift, Wallet, ChevronDown, ArrowRight, AlertTriangle, HeartHandshake } from 'lucide-react'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/apiError'
 import { cn } from '@/lib/utils'
 import { useUpdateOrganization } from '../hooks/useUpdateOrganization'
 
@@ -242,7 +243,7 @@ export function ModuleTogglesSection({ org }: { org: OrgFlags }) {
         setSavingField(null)
         toast.success(`Đã ${next ? 'bật' : 'tắt'} ${mod.toastName}`)
       },
-      onError: () => {
+      onError: (error) => {
         // Bỏ override để công tắc quay về đúng trạng thái máy chủ đang giữ —
         // giao diện không được nói dối về thứ chưa lưu được.
         setSavingField(null)
@@ -251,7 +252,7 @@ export function ModuleTogglesSection({ org }: { org: OrgFlags }) {
           delete rest[mod.field]
           return rest
         })
-        toast.error(`Không thể cập nhật ${mod.toastName}`)
+        toast.error(getApiErrorMessage(error, `Không thể cập nhật ${mod.toastName}`))
       },
     })
   }

@@ -11,6 +11,7 @@ import {
   Loader2,
   RotateCcw,
   Save,
+  Receipt,
   Timer,
   Webhook,
   X,
@@ -24,7 +25,7 @@ import { findBank } from '../constants/banks'
 import { walletConfigSchema, type WalletConfigFormData } from '../schemas/walletConfigSchema'
 import type { WalletConfig, WalletConfigRequest } from '../types'
 
-const EMPTY: WalletConfigRequest = {
+const EMPTY: WalletConfigFormData = {
   pointExchangeRate: 1000,
   topupMinAmount: 10_000,
   topupMaxAmount: 50_000_000,
@@ -32,13 +33,22 @@ const EMPTY: WalletConfigRequest = {
   sepayAccountNumber: '',
   sepayBankCode: '',
   sepayAccountHolder: '',
+  legalName: '',
+  taxCode: '',
+  businessAddress: '',
+  contactPhone: '',
+  receiptEnabled: true,
+  receiptSeriesPrefix: 'PT',
+  receiptVatRate: 0,
+  receiptIssuerName: '',
+  receiptIssuerTitle: '',
 }
 
 const RATE_PRESETS = [500, 1_000, 2_000, 5_000]
 /** Mốc điểm dùng để xem trước tỉ giá. Chọn thưa dần để thấy cả khoản nhỏ lẫn khoản lớn. */
 const PREVIEW_POINTS = [10, 50, 100, 500]
 
-const toForm = (c: WalletConfig): WalletConfigRequest => ({
+const toForm = (c: WalletConfig): WalletConfigFormData => ({
   pointExchangeRate: c.pointExchangeRate,
   topupMinAmount: c.topupMinAmount,
   topupMaxAmount: c.topupMaxAmount,
@@ -46,6 +56,15 @@ const toForm = (c: WalletConfig): WalletConfigRequest => ({
   sepayAccountNumber: c.sepayAccountNumber ?? '',
   sepayBankCode: c.sepayBankCode ?? '',
   sepayAccountHolder: c.sepayAccountHolder ?? '',
+  legalName: c.legalName ?? '',
+  taxCode: c.taxCode ?? '',
+  businessAddress: c.businessAddress ?? '',
+  contactPhone: c.contactPhone ?? '',
+  receiptEnabled: c.receiptEnabled ?? true,
+  receiptSeriesPrefix: c.receiptSeriesPrefix ?? 'PT',
+  receiptVatRate: c.receiptVatRate ?? 0,
+  receiptIssuerName: c.receiptIssuerName ?? '',
+  receiptIssuerTitle: c.receiptIssuerTitle ?? '',
 })
 
 const inputCls =
@@ -363,6 +382,133 @@ export default function WalletConfigForm() {
               </div>
             </div>
           </Card>
+
+          <Card
+            icon={<Receipt size={18} />}
+            id="tour-wallet-receipt"
+            title="Biên nhận thu tiền"
+            subtitle="Chứng từ gửi cho nhân viên sau mỗi lần nạp thành công"
+          >
+            <label className="mb-5 flex cursor-pointer items-start gap-3">
+              <input
+                type="checkbox"
+                checked={form.receiptEnabled}
+                onChange={(e) => setValue('receiptEnabled', e.target.checked, { shouldValidate: true })}
+                className="mt-0.5 h-4 w-4 flex-shrink-0 accent-[var(--color-primary)]"
+              />
+              <span className="min-w-0">
+                <span className="block text-sm font-medium">Gửi biên nhận cho mỗi lần nạp</span>
+                <span className="block text-xs leading-relaxed text-[var(--color-muted-foreground)]">
+                  Tắt nếu đơn vị đã phát hành hoá đơn điện tử qua nhà cung cấp riêng và không muốn
+                  gửi hai loại giấy cho cùng một khoản.
+                </span>
+              </span>
+            </label>
+
+            <div className="grid gap-5 sm:grid-cols-2">
+              <Field
+                label="Tên đơn vị trên chứng từ"
+                hint="Tên pháp nhân theo giấy đăng ký kinh doanh. Bỏ trống thì dùng tên công ty đang lưu."
+              >
+                <input
+                  value={form.legalName ?? ''}
+                  onChange={(e) => setValue('legalName', e.target.value, { shouldValidate: true })}
+                  placeholder="CÔNG TY TNHH ABC"
+                  className={inputCls}
+                />
+              </Field>
+              <Field label="Mã số thuế">
+                <input
+                  value={form.taxCode ?? ''}
+                  onChange={(e) => setValue('taxCode', e.target.value, { shouldValidate: true })}
+                  placeholder="0101234567"
+                  className={`${inputCls} font-mono`}
+                />
+                {errors.taxCode && (
+                  <p className="mt-1.5 text-xs text-rose-600">{errors.taxCode.message}</p>
+                )}
+              </Field>
+              <div className="sm:col-span-2">
+                <Field label="Địa chỉ đơn vị">
+                  <input
+                    value={form.businessAddress ?? ''}
+                    onChange={(e) => setValue('businessAddress', e.target.value, { shouldValidate: true })}
+                    placeholder="Số 1, đường A, phường B, quận C, Hà Nội"
+                    className={inputCls}
+                  />
+                  {errors.businessAddress && (
+                    <p className="mt-1.5 text-xs text-rose-600">{errors.businessAddress.message}</p>
+                  )}
+                </Field>
+              </div>
+              <Field label="Điện thoại liên hệ">
+                <input
+                  value={form.contactPhone ?? ''}
+                  onChange={(e) => setValue('contactPhone', e.target.value, { shouldValidate: true })}
+                  placeholder="024 1234 5678"
+                  className={inputCls}
+                />
+              </Field>
+              <Field
+                label="Thuế suất áp cho khoản nạp"
+                hint="Mặc định 0%: nạp ví là khoản thu trước, nghĩa vụ thuế phát sinh khi nhân viên đổi điểm lấy quà. Đổi theo tư vấn của kế toán đơn vị."
+              >
+                <NumberField
+                  value={form.receiptVatRate}
+                  onChange={(v) => setValue('receiptVatRate', v, { shouldValidate: true })}
+                  suffix="%"
+                  maxDigits={3}
+                />
+              </Field>
+              <Field
+                label="Tiền tố ký hiệu chứng từ"
+                hint={`Ký hiệu đầy đủ là tiền tố cộng năm lập, VD ${form.receiptSeriesPrefix || 'PT'}${new Date().getFullYear()}/00000001. Không đổi được sau khi đã phát chứng từ trong năm.`}
+              >
+                <input
+                  value={form.receiptSeriesPrefix ?? ''}
+                  onChange={(e) =>
+                    setValue('receiptSeriesPrefix', e.target.value.toUpperCase(), { shouldValidate: true })
+                  }
+                  placeholder="PT"
+                  maxLength={10}
+                  className={`${inputCls} font-mono uppercase`}
+                />
+                {errors.receiptSeriesPrefix && (
+                  <p className="mt-1.5 text-xs text-rose-600">{errors.receiptSeriesPrefix.message}</p>
+                )}
+              </Field>
+              <Field label="Người/bộ phận lập chứng từ">
+                <input
+                  value={form.receiptIssuerName ?? ''}
+                  onChange={(e) => setValue('receiptIssuerName', e.target.value, { shouldValidate: true })}
+                  placeholder="Phòng Kế toán"
+                  className={inputCls}
+                />
+              </Field>
+              <div className="sm:col-span-2">
+                <Field label="Chức danh người lập">
+                  <input
+                    value={form.receiptIssuerTitle ?? ''}
+                    onChange={(e) => setValue('receiptIssuerTitle', e.target.value, { shouldValidate: true })}
+                    placeholder="Kế toán trưởng"
+                    className={inputCls}
+                  />
+                </Field>
+              </div>
+            </div>
+
+            {/* Nói thẳng giới hạn pháp lý ngay tại chỗ cấu hình. Người bật tính năng này cần
+                biết họ đang phát cái gì trước khi tờ đầu tiên rời khỏi hệ thống. */}
+            <p className="mt-5 flex items-start gap-2 rounded-xl bg-amber-500/10 px-4 py-3 text-xs leading-relaxed text-amber-800 dark:text-amber-300">
+              <AlertTriangle size={14} className="mt-0.5 flex-shrink-0" />
+              <span>
+                Đây là <strong>biên nhận thu tiền</strong> mang đủ nội dung bắt buộc theo Điều 10
+                Nghị định 123/2020/NĐ-CP, <strong>không phải hoá đơn GTGT</strong>. Hoá đơn điện tử
+                có mã của cơ quan thuế phải phát hành qua tổ chức cung cấp dịch vụ hoá đơn đã đăng
+                ký. Bản in đã ghi rõ điều này để nhân viên không đem đi kê khai thuế.
+              </span>
+            </p>
+          </Card>
         </div>
 
         <aside className="min-w-0 space-y-6 xl:sticky xl:top-6 xl:self-start">
@@ -392,6 +538,15 @@ export default function WalletConfigForm() {
                   data?.lastWebhookAt
                     ? `Gần nhất lúc ${formatDateTime(data.lastWebhookAt)}.`
                     : 'Chưa có giao dịch nào của tài khoản này về hệ thống. Nếu đã liên kết bên SePay mà ô này vẫn trống, nhiều khả năng số tài khoản gõ ở đây khác số đã liên kết.'
+                }
+              />
+              <ChecklistRow
+                done={!form.receiptEnabled || (!!form.taxCode?.trim() && !!form.businessAddress?.trim())}
+                label="Hồ sơ pháp nhân đủ để lập chứng từ"
+                hint={
+                  form.receiptEnabled
+                    ? 'Cần mã số thuế và địa chỉ đơn vị — hai nội dung bắt buộc trên chứng từ thu tiền.'
+                    : 'Đang tắt gửi biên nhận nên không cần khai.'
                 }
               />
               <ChecklistRow

@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/apiError'
 import { dashboardLayoutApi, type DashboardLayoutItem, type DashboardScope } from '@/features/dashboard/api/dashboardLayoutApi'
 import type { DashboardWidget } from './ChartWrapper'
 
@@ -121,7 +122,7 @@ export function useDashboardLayout({ scope, defaultWidgets, availableWidgets }: 
       return widgets
     } catch (err) {
       console.error(err)
-      toast.error('Không thể lưu bố cục')
+      toast.error(getApiErrorMessage(err, 'Không thể lưu bố cục'))
       throw err
     }
   }
@@ -173,7 +174,7 @@ export function useDashboardLayout({ scope, defaultWidgets, availableWidgets }: 
           setRemovedIds(restore.removedIds)
           persist(restore.widgets, restore.removedIds)
             .then(() => toast.success('Đã khôi phục bố cục trước đó'))
-            .catch(() => toast.error('Không thể khôi phục bố cục'))
+            .catch((err) => toast.error(getApiErrorMessage(err, 'Không thể khôi phục bố cục')))
           undoSnapshot.current = null
         },
       },
@@ -193,7 +194,7 @@ export function useDashboardLayout({ scope, defaultWidgets, availableWidgets }: 
       console.error(err)
       setWidgets(snapshot.widgets)
       setRemovedIds(snapshot.removedIds)
-      toast.error('Không thể đặt lại bố cục')
+      toast.error(getApiErrorMessage(err, 'Không thể đặt lại bố cục'))
     }
   }
 
@@ -216,7 +217,7 @@ export function useDashboardLayout({ scope, defaultWidgets, availableWidgets }: 
       console.error(err)
       setWidgets(snapshot.widgets)
       setRemovedIds(snapshot.removedIds)
-      toast.error('Không thể áp dụng bố cục')
+      toast.error(getApiErrorMessage(err, 'Không thể áp dụng bố cục'))
     }
   }
 

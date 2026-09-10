@@ -6,6 +6,7 @@ import {
   ScorecardTreeNodeResponse, ScorecardCoverageResponse, CascadeRequest,
   UnitResultResponse, CascadePolicyResponse, CascadePolicyRequest,
   BscWaterfallResponse, BscOverrideRequest, LinkedWeightCheck,
+  BscKpiPlanResponse,
 } from '../types'
 
 export const bscApi = {
@@ -38,16 +39,6 @@ export const bscApi = {
     axiosInstance
       .delete<ApiResponse<void>>(`/bsc/perspectives/${perspectiveId}`)
       .then(r => r.data.data),
-
-  importPerspectives: (organizationId: string, file: File) => {
-    const formData = new FormData()
-    formData.append('file', file)
-    return axiosInstance
-      .post<ApiResponse<ImportBscResponse>>(`/bsc/organization/${organizationId}/perspectives/import`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      })
-      .then(r => r.data.data)
-  },
 
   // ── Scorecards ──────────────────────────────────────────────
   getScorecards: (organizationId: string) =>
@@ -135,7 +126,20 @@ export const bscApi = {
       })
       .then(r => r.data.data),
 
-  // ── Chính sách hệ số ───────────────────────────────────────
+  /**
+   * Gắn thẻ vào cấp trên; bỏ trống parentScorecardId = gỡ khỏi cây.
+   *
+   * Trả về CẢ `message` của server chứ không chỉ `data`: server là nơi biết nối được bao nhiêu
+   * chỉ tiêu, dựng lại câu đó ở client thì phải đoán.
+   */
+  attachScorecardParent: (scorecardId: string, parentScorecardId: string | null, linkItems = true) =>
+    axiosInstance
+      .put<ApiResponse<ScorecardResponse>>(`/bsc/scorecards/${scorecardId}/parent`, null, {
+        params: parentScorecardId ? { parentScorecardId, linkItems } : {},
+      })
+      .then(r => r.data),
+
+  // ── Chính sách điểm BSC ────────────────────────────────────
   getCascadePolicies: (organizationId: string) =>
     axiosInstance
       .get<ApiResponse<CascadePolicyResponse[]>>(`/bsc/organization/${organizationId}/cascade-policies`)
@@ -163,6 +167,12 @@ export const bscApi = {
   overrideScore: (evaluationId: string, data: BscOverrideRequest) =>
     axiosInstance
       .post<ApiResponse<BscWaterfallResponse>>(`/bsc/evaluations/${evaluationId}/override`, data)
+      .then(r => r.data.data),
+
+  /** Mục tiêu của một chỉ tiêu BSC + các đợt để chia nó thành KPI (kèm phần đã chia). */
+  getKpiPlan: (scorecardPerspectiveId: string) =>
+    axiosInstance
+      .get<ApiResponse<BscKpiPlanResponse>>(`/bsc/scorecard-perspectives/${scorecardPerspectiveId}/kpi-plan`)
       .then(r => r.data.data),
 
   getLinkedWeight: (userId: string, kpiPeriodId: string, organizationId: string) =>

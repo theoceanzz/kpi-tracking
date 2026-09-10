@@ -2,6 +2,7 @@ import axiosInstance from '@/lib/axios'
 import type { ApiResponse, PageResponse } from '@/types/api'
 import type { KpiCriteria, CreateKpiRequest, UpdateKpiRequest, RejectKpiRequest, ImportKpiResult, ReplaceKpiRequest, BatchUpdateWeightRequest, KpiType } from '@/types/kpi'
 import type { KpiStatus, KpiFrequency } from '@/types/kpi'
+import type { CreateKpiFromBscRequest } from '@/features/bsc/types'
 
 /** Một chỉ tiêu AI gợi ý. Matches BE: AiKpiSuggestionResponse */
 export interface AiKpiSuggestion {
@@ -25,6 +26,10 @@ export const kpiApi = {
 
   create: (data: CreateKpiRequest) =>
     axiosInstance.post<ApiResponse<KpiCriteria>>('/kpi-criteria', data).then((r) => r.data.data),
+
+  /** Tạo một loạt KPI bằng cách chia mục tiêu của một chỉ tiêu BSC ra các đợt. */
+  createFromBsc: (data: CreateKpiFromBscRequest) =>
+    axiosInstance.post<ApiResponse<KpiCriteria[]>>('/kpi-criteria/from-bsc', data).then((r) => r.data.data),
 
   update: (id: string, data: UpdateKpiRequest) =>
     axiosInstance.put<ApiResponse<KpiCriteria>>(`/kpi-criteria/${id}`, data).then((r) => r.data.data),

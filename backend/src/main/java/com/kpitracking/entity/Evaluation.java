@@ -70,27 +70,33 @@ public class Evaluation {
     private Instant periodEnd;
 
 
-    // ── Cascade BSC: hệ số phòng/công ty và ghi đè (docs/bsc-cascade-design.md — mục 5.3) ──
+    // ── Cascade BSC: điểm công nhận và ghi đè (docs/bsc-cascade-design.md — mục 5.3) ──
     //
-    // Toàn bộ nhóm này là SNAPSHOT lúc chốt. Chính sách hệ số sửa về sau không được làm đổi
+    // Toàn bộ nhóm này là SNAPSHOT lúc chốt. Chính sách sửa về sau không được làm đổi
     // kết quả đã công bố; muốn đổi thì mở khoá và tái tính có phiên bản.
 
-    /** Điểm BSC GỐC, trước khi nhân hệ số. */
+    /** Điểm BSC GỐC, trước khi chặn trần. */
     @Column(name = "raw_bsc_score")
     private Double rawBscScore;
 
-    /** Hệ số suy từ kết quả BSC của đơn vị (đã kẹp trong [floor, cap]). */
+    /**
+     * KHÔNG CÒN DÙNG — điểm cá nhân không bị nhân hệ số của phòng/công ty nữa. Cột giữ lại để đọc
+     * được các kỳ đã chốt trước đây; luồng chấm điểm hiện tại không ghi vào đây.
+     */
+    @Deprecated
     @Column(name = "unit_factor")
     private Double unitFactor;
 
+    /** KHÔNG CÒN DÙNG — xem {@link #unitFactor}. */
+    @Deprecated
     @Column(name = "company_factor")
     private Double companyFactor;
 
-    /** MIN(gốc, trần) × hệ số phòng × hệ số công ty. */
+    /** MIN(điểm gốc, trần). */
     @Column(name = "recognized_score")
     private Double recognizedScore;
 
-    // Cơ chế THỦ CÔNG, tách hẳn khỏi hệ số tự động (QĐ-6). Bắt buộc có lý do và dấu vết
+    // Cơ chế THỦ CÔNG (QĐ-6). Bắt buộc có lý do và dấu vết
     // vì đây là hành vi ngoại lệ, phải giải trình được về sau.
 
     @Column(name = "override_score")

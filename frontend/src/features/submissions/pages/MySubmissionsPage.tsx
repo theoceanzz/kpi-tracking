@@ -13,6 +13,7 @@ import {
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { submissionApi } from '../api/submissionApi'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/apiError'
 import { useMyKpi } from '@/features/kpi/hooks/useMyKpi'
 import { useKpiPeriods } from '@/features/kpi/hooks/useKpiPeriods'
 import { useAuthStore } from '@/store/authStore'
@@ -110,7 +111,7 @@ export default function MySubmissionsPage() {
         toast.success('Gửi duyệt thành công!')
       }
     },
-    onError: () => toast.error('Gửi duyệt thất bại')
+    onError: (error) => toast.error(getApiErrorMessage(error, 'Gửi duyệt thất bại'))
   })
 
   const allItems = data?.content ?? []

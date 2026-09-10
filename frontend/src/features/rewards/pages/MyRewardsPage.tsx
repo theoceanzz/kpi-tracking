@@ -8,7 +8,6 @@ import EmptyState from '@/components/common/EmptyState'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import { useHasPermission } from '@/components/auth/PermissionGate'
 import CheckinCard from '../components/CheckinCard'
-import RewardActivityTicker from '../components/RewardActivityTicker'
 import RewardBalanceCard from '../components/RewardBalanceCard'
 import RewardLedgerTable from '../components/RewardLedgerTable'
 import GiftShopGrid from '../components/GiftShopGrid'
@@ -78,10 +77,6 @@ export default function MyRewardsPage() {
         title="Điểm thưởng của tôi"
         description="Số dư điểm, đổi quà và toàn bộ lịch sử giao dịch điểm"
       />
-
-      {/* Nhân viên thường chỉ vào trang này — bảng tin phải có ở đây, nếu không thì
-          "để mọi người đều biết" chỉ còn đúng với người có quyền quản lý thưởng. */}
-      <RewardActivityTicker className="mb-6" />
 
       <div id="tour-my-rewards-balance">
         <RewardBalanceCard wallet={wallet} loading={walletLoading} />

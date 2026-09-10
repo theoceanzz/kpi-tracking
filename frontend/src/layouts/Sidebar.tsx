@@ -156,7 +156,15 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
     if (path === '/kpi-criteria/pending' && counts.pendingKpis > 0) return counts.pendingKpis
     if (path === '/kpi-adjustments/pending' && counts.pendingAdjustments > 0) return counts.pendingAdjustments
     if (path === '/submissions/org-unit' && counts.pendingSubmissions > 0) return counts.pendingSubmissions
-    if (path === '/my-kpi' && counts.myPendingTasks > 0) return true // Just a dot for staff tasks
+    // Số việc chứ không phải chấm đỏ: "còn 3 việc" và "còn 30 việc" là hai tình huống
+    // rất khác nhau, một cái chấm thì cả hai trông như nhau.
+    if (path === '/my-kpi' && counts.myPendingTasks > 0) return counts.myPendingTasks
+    if (path === '/submissions' && counts.myRejectedSubmissions > 0) return counts.myRejectedSubmissions
+    if (path === '/rewards/me' && counts.myPendingRedemptions > 0) return counts.myPendingRedemptions
+    if (path === '/wallet/me' && counts.myPendingTopups > 0) return counts.myPendingTopups
+    if (path === '/bsc' && counts.pendingScorecards > 0) return counts.pendingScorecards
+    if (path === '/rewards' && counts.pendingRewards > 0) return counts.pendingRewards
+    if (path === '/wallet' && counts.pendingWallet > 0) return counts.pendingWallet
     return null
   }
 

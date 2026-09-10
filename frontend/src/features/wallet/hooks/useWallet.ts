@@ -1,15 +1,19 @@
+import { useEffect, useRef } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/apiError'
 import { walletApi } from '../api/walletApi'
 import {
   TopupOrderStatus,
+  type CashWallet,
   type ConvertToPointsRequest,
   type CreateTopupRequest,
   type ResolveSepayEventRequest,
+  type WalletConfig,
   type WalletConfigRequest,
 } from '../types'
 
-const errMsg = (error: any, fallback: string) => error?.response?.data?.message || fallback
+const errMsg = (error: any, fallback: string) => getApiErrorMessage(error, fallback)
 
 /**
  * Làm mới mọi thứ đổi theo một giao dịch ví.
@@ -30,10 +34,15 @@ const invalidateWalletData = (qc: ReturnType<typeof useQueryClient>) => {
 
 // ── Ví của tôi ───────────────────────────────────────────────────
 
-export const useMyCashWallet = () =>
+/**
+ * @param enabled Tắt khi tổ chức chưa bật ví tiền hoặc người dùng không có
+ *   `WALLET:VIEW_MY` — gọi lúc đó chỉ nhận 403 và làm bẩn console.
+ */
+export const useMyCashWallet = (enabled = true) =>
   useQuery({
     queryKey: ['cashWallet', 'me'],
     queryFn: () => walletApi.getMyWallet(),
+    enabled,
   })
 
 export const useMyCashTransactions = (page = 0, size = 20) =>
@@ -77,10 +86,11 @@ export const useUserCashTransactions = (userId?: string, page = 0, size = 20) =>
 
 // ── Nạp tiền ─────────────────────────────────────────────────────
 
-export const useMyTopups = (page = 0, size = 20) =>
+export const useMyTopups = (page = 0, size = 20, enabled = true) =>
   useQuery({
     queryKey: ['topupOrders', 'me', page, size],
     queryFn: () => walletApi.getMyTopups(page, size),
+    enabled,
   })
 
 /**
@@ -89,15 +99,37 @@ export const useMyTopups = (page = 0, size = 20) =>
  * <p>Hỏi lại mỗi 5 giây khi đơn còn chờ, và DỪNG khi đã sang trạng thái khác —
  * để nguyên nhịp hỏi sau khi đơn xong là gọi API vô ích suốt thời gian người dùng
  * còn mở tab.
+ *
+ * <p>Khi đơn sang {@code PAID} thì làm mới luôn số dư và sổ cái. Tiền vào ví là do
+ * webhook SePay gây ra, KHÔNG phải do người dùng bấm gì, nên không có mutation nào
+ * chạy ở máy họ để dọn cache: thiếu bước này thì thẻ số dư ngay sau lưng hộp thoại
+ * vẫn hiện con số cũ cho tới khi họ tự tải lại trang.
  */
-export const useTopupOrder = (id?: string) =>
-  useQuery({
+export const useTopupOrder = (id?: string) => {
+  const qc = useQueryClient()
+
+  const query = useQuery({
     queryKey: ['topupOrders', 'detail', id],
     queryFn: () => walletApi.getTopup(id!),
     enabled: !!id,
     refetchInterval: (query) =>
       query.state.data?.status === TopupOrderStatus.PENDING ? 5000 : false,
   })
+
+  // Nhớ đơn đã dọn cache rồi để chỉ chạy một lần cho mỗi đơn. Không có mốc này thì mỗi lần
+  // component vẽ lại sau khi đơn đã PAID lại kích một vòng invalidate nữa.
+  const refreshedFor = useRef<string | null>(null)
+  const status = query.data?.status
+
+  useEffect(() => {
+    if (!id || status !== TopupOrderStatus.PAID) return
+    if (refreshedFor.current === id) return
+    refreshedFor.current = id
+    invalidateWalletData(qc)
+  }, [id, status, qc])
+
+  return query
+}
 
 export const useTopupActions = () => {
   const qc = useQueryClient()
@@ -175,6 +207,34 @@ export const useWalletConfig = (enabled = true) => {
     updateConfig: updateMutation.mutateAsync,
     isUpdating: updateMutation.isPending,
   }
+}
+
+/**
+ * Cấu hình cho hộp thoại nạp tiền, kèm đường lùi khi không đọc được cấu hình.
+ *
+ * <p>Nhân viên thường KHÔNG có `WALLET:CONFIG` nên `/cash/config` sẽ 403 — suy hạn mức
+ * từ chính ví: tỉ giá đã có sẵn ở đó, còn hạn mức nạp thì backend vẫn kiểm lại khi tạo
+ * đơn nên các con số ở đây chỉ là gợi ý hiển thị.
+ */
+export const useTopupConfig = (wallet?: CashWallet): WalletConfig => {
+  const { data: config } = useWalletConfig(false)
+
+  return (
+    config ?? {
+      enableCashWallet: true,
+      pointExchangeRate: wallet?.pointExchangeRate ?? 1000,
+      topupMinAmount: 10_000,
+      topupMaxAmount: 50_000_000,
+      topupExpireMinutes: 30,
+      bankConfigured: true,
+      // Chỉ hộp thoại tạo đơn nạp đọc đối tượng này, và nó không chạm tới phần biên nhận.
+      // Điền mặc định của backend để KIỂU khớp, không phải để hiển thị.
+      receiptEnabled: true,
+      receiptSeriesPrefix: 'PT',
+      receiptVatRate: 0,
+      legalProfileComplete: false,
+    }
+  )
 }
 
 // ── Đối soát ─────────────────────────────────────────────────────

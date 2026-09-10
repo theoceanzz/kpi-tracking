@@ -1,9 +1,10 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/apiError'
 import { programApi } from '../api/programApi'
 import type { RewardProgramRequest, RewardTier } from '../types'
 
-const errMsg = (error: any, fallback: string) => error?.response?.data?.message || fallback
+const errMsg = (error: any, fallback: string) => getApiErrorMessage(error, fallback)
 
 const invalidateProgramData = (qc: ReturnType<typeof useQueryClient>) => {
   qc.invalidateQueries({ queryKey: ['rewardPrograms'] })

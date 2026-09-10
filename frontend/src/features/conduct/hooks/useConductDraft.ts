@@ -88,6 +88,13 @@ export function useConductDraft(sheet: ConductSheet) {
 
   const totalWeight = sheet.items.reduce((s, i) => s + (i.weight || 0), 0)
 
+  // Có gì khác bản trên server không. Dùng để form chủ bỏ qua lời gọi lưu khi người dùng
+  // không đụng tới phiếu — không thì mỗi lần gửi đánh giá lại ghi đè một phiếu y hệt.
+  const dirty = useMemo(
+    () => JSON.stringify(draft) !== JSON.stringify(toDraft(sheet)) || comment !== (sheet.comment ?? ''),
+    [draft, comment, sheet]
+  )
+
   const collect = (side: 'self' | 'manager'): ConductScoreInput[] =>
     sheet.items.map(i => {
       const d = draft[i.position]
@@ -118,5 +125,5 @@ export function useConductDraft(sheet: ConductSheet) {
       }
     })
 
-  return { draft, rowOf, set, comment, setComment, totals, totalWeight, collect, exportRows }
+  return { draft, rowOf, set, comment, setComment, totals, totalWeight, dirty, collect, exportRows }
 }

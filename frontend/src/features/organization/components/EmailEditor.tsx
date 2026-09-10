@@ -6,8 +6,8 @@ import { Placeholder } from '@tiptap/extensions'
 import TextAlign from '@tiptap/extension-text-align'
 import DragHandle from '@tiptap/extension-drag-handle-react'
 import type { LucideIcon } from 'lucide-react'
-import type { AxiosError } from 'axios'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/apiError'
 import { cn } from '@/lib/utils'
 import { emailNodeExtensions } from './emailNodes'
 import { emailTemplateApi } from '../api/emailTemplateApi'
@@ -142,7 +142,7 @@ export default function EmailEditor({
       }).run()
     } catch (err) {
       toast.error(
-        (err as AxiosError<{ message?: string }>)?.response?.data?.message || 'Tải ảnh lên thất bại',
+        getApiErrorMessage(err, 'Tải ảnh lên thất bại'),
       )
     } finally {
       setUploading(false)

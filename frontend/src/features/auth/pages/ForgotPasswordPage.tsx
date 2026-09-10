@@ -4,6 +4,7 @@ import { forgotPasswordSchema, type ForgotPasswordFormData } from '../schemas/au
 import { useMutation } from '@tanstack/react-query'
 import { authApi } from '../api/authApi'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/apiError'
 import { Link, useNavigate } from 'react-router-dom'
 import { Loader2, Mail, ArrowLeft } from 'lucide-react'
 
@@ -20,7 +21,7 @@ export default function ForgotPasswordPage() {
       toast.success('Đã gửi mã khôi phục mật khẩu! Vui lòng kiểm tra email.')
       navigate('/reset-password')
     },
-    onError: () => toast.error('Gửi email thất bại, vui lòng kiểm tra lại địa chỉ.'),
+    onError: (error) => toast.error(getApiErrorMessage(error, 'Gửi email thất bại, vui lòng kiểm tra lại địa chỉ.')),
   })
 
   const inputCls = "w-full pl-10 pr-4 py-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-background)] text-sm focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] outline-none transition-all shadow-sm"

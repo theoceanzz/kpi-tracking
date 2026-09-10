@@ -9,6 +9,7 @@ import { cn } from '@/lib/utils'
 import { authApi } from '../api/authApi'
 import LarkLoginButton from '../components/LarkLoginButton'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/apiError'
 import { useEffect } from 'react'
 import { useMutation } from '@tanstack/react-query'
 
@@ -51,7 +52,7 @@ export default function LoginPage() {
       })
     },
     onError: (err: any) => {
-      const msg = err.response?.data?.message || 'Không thể gửi lại mã xác thực.'
+      const msg = getApiErrorMessage(err, 'Không thể gửi lại mã xác thực.')
       toast.error(msg)
     }
   })
@@ -74,7 +75,7 @@ export default function LoginPage() {
   const inputCls = "w-full pl-10 pr-12 py-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-background)] text-sm focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] outline-none transition-all shadow-sm"
 
   const apiError = loginMutation.error as any
-  const errorMessage = apiError?.response?.data?.message || 'Email hoặc mật khẩu không chính xác. Vui lòng kiểm tra lại!'
+  const errorMessage = getApiErrorMessage(apiError, 'Email hoặc mật khẩu không chính xác. Vui lòng kiểm tra lại!')
   const isUnverified = errorMessage.toLowerCase().includes('xác thực') || 
                       errorMessage.toLowerCase().includes('unverified') ||
                       errorMessage.toLowerCase().includes('verify')

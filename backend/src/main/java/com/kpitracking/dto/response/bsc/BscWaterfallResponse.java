@@ -7,11 +7,11 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Diễn giải đầy đủ điểm của MỘT cá nhân, đúng thứ tự ba bước của mục 5.3 rồi mới tới chặn.
+ * Diễn giải đầy đủ điểm của MỘT cá nhân: điểm gốc → chặn trần → điểm công nhận → ghi đè.
  *
  * <p>Đây là màn hình quyết định nhân viên có chấp nhận kết quả hay không, nên mọi con số trung
- * gian đều phải có mặt: điểm gốc, trần, %đạt của phòng và công ty, dải rơi vào, hệ số suy ra.
- * Hạng mục chặn nằm TÁCH RIÊNG vì nó không đụng vào điểm.
+ * gian đều phải có mặt. Điểm KHÔNG bị nhân hệ số của phòng/công ty. Hạng mục chặn nằm TÁCH RIÊNG
+ * vì nó không đụng vào điểm, chỉ hạ trần xếp loại.
  */
 @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
 public class BscWaterfallResponse {
@@ -22,21 +22,11 @@ public class BscWaterfallResponse {
     private UUID kpiPeriodId;
     private String kpiPeriodName;
 
-    // B1
     private Double rawBscScore;
     private Double recognizedCapPercent;
     private Double cappedScore;
 
-    // B2 — phòng
-    private Double unitAchievementPercent;
-    private String unitBandLabel;
-    private Double unitFactor;
-    // B2 — công ty
-    private Double companyAchievementPercent;
-    private String companyBandLabel;
-    private Double companyFactor;
-
-    // B3
+    /** Điểm công nhận = MIN(điểm gốc, trần). */
     private Double recognizedScore;
 
     // Ghi đè thủ công (QĐ-6)

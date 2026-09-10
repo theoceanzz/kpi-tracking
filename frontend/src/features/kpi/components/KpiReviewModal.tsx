@@ -5,6 +5,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { kpiApi } from '../api/kpiApi'
 import { rejectKpiSchema, type RejectKpiFormData } from '../schemas/reviewSchema'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/apiError'
 import { X, Loader2, CheckCircle, XCircle, Target, Building2, Users, BarChart3, Award, Calendar, Clock, Pencil, Undo2, Layers } from 'lucide-react'
 import { formatNumber, formatDateTime, cn, FREQUENCY_MAP, STATUS_CONFIG } from '@/lib/utils'
 import type { KpiCriteria } from '@/types/kpi'
@@ -53,7 +54,7 @@ export default function KpiReviewModal({ open, onClose, kpi, onEdit }: KpiReview
       toast.success('Đã hoàn duyệt chỉ tiêu, chuyển về trạng thái chờ phê duyệt')
       onClose()
     },
-    onError: () => toast.error('Hoàn duyệt thất bại'),
+    onError: (error) => toast.error(getApiErrorMessage(error, 'Hoàn duyệt thất bại')),
   })
 
   const approveMutation = useMutation({
@@ -64,7 +65,7 @@ export default function KpiReviewModal({ open, onClose, kpi, onEdit }: KpiReview
       onClose(); 
       setMode('view') 
     },
-    onError: () => toast.error('Duyệt thất bại'),
+    onError: (error) => toast.error(getApiErrorMessage(error, 'Duyệt chỉ tiêu thất bại')),
   })
 
   const rejectMutation = useMutation({
@@ -76,7 +77,7 @@ export default function KpiReviewModal({ open, onClose, kpi, onEdit }: KpiReview
       setMode('view'); 
       onClose() 
     },
-    onError: () => toast.error('Từ chối thất bại'),
+    onError: (error) => toast.error(getApiErrorMessage(error, 'Từ chối chỉ tiêu thất bại')),
   })
 
   if (!open || !kpi) return null

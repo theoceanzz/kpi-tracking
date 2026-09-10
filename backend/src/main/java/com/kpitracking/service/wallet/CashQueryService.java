@@ -19,6 +19,7 @@ import com.kpitracking.repository.CashWalletRepository;
 import com.kpitracking.repository.OrgUnitRepository;
 import com.kpitracking.repository.OrganizationRepository;
 import com.kpitracking.repository.SepayWebhookEventRepository;
+import com.kpitracking.repository.TopupReceiptCounterRepository;
 import com.kpitracking.security.PermissionChecker;
 import com.kpitracking.service.reward.RewardContext;
 import lombok.RequiredArgsConstructor;
@@ -45,8 +46,12 @@ public class CashQueryService {
     private final OrganizationRepository organizationRepository;
     private final OrgUnitRepository orgUnitRepository;
     private final SepayWebhookEventRepository sepayEventRepository;
+    private final TopupReceiptCounterRepository receiptCounterRepository;
     private final PermissionChecker permissionChecker;
     private final RewardContext context;
+
+    /** Ký hiệu chứng từ đánh theo năm dương lịch giờ Việt Nam, không theo múi giờ máy chủ. */
+    private static final java.time.ZoneId VN_ZONE = java.time.ZoneId.of("Asia/Ho_Chi_Minh");
 
     @Transactional(readOnly = true)
     public CashWalletResponse getMyWallet() {
@@ -158,6 +163,36 @@ public class CashQueryService {
         org.setSepayBankCode(trimToNull(request.getSepayBankCode()));
         org.setSepayAccountHolder(trimToNull(request.getSepayAccountHolder()));
 
+        // Hồ sơ pháp nhân dùng để in lên biên nhận. Đổi ở đây KHÔNG làm sai chứng từ đã phát:
+        // mỗi biên nhận chụp lại toàn bộ thông tin bên bán lúc lập (xem TopupReceipt).
+        org.setLegalName(trimToNull(request.getLegalName()));
+        org.setTaxCode(trimToNull(request.getTaxCode()));
+        org.setBusinessAddress(trimToNull(request.getBusinessAddress()));
+        org.setContactPhone(trimToNull(request.getContactPhone()));
+        org.setReceiptIssuerName(trimToNull(request.getReceiptIssuerName()));
+        org.setReceiptIssuerTitle(trimToNull(request.getReceiptIssuerTitle()));
+        if (request.getReceiptEnabled() != null) {
+            org.setReceiptEnabled(request.getReceiptEnabled());
+        }
+        if (request.getReceiptVatRate() != null) {
+            org.setReceiptVatRate(request.getReceiptVatRate());
+        }
+
+        // Tiền tố ký hiệu KHÔNG được đổi khi đã phát chứng từ trong năm nay: đổi giữa chừng làm
+        // số thứ tự bắt đầu lại từ 1 dưới một ký hiệu khác, và sổ chứng từ của năm đó gãy làm đôi
+        // đúng vào chỗ kiểm toán sẽ hỏi. Muốn đổi thì đợi sang năm, khi ký hiệu vốn đã đổi.
+        String prefix = trimToNull(request.getReceiptSeriesPrefix());
+        if (prefix != null && !prefix.equals(org.getReceiptSeriesPrefix())) {
+            String currentSeries = org.getReceiptSeriesPrefix() + java.time.Year.now(VN_ZONE).getValue();
+            if (receiptCounterRepository.findByOrganizationIdAndSeries(org.getId(), currentSeries)
+                    .filter(c -> c.getLastNumber() > 0).isPresent()) {
+                throw new BusinessException("Đã phát biên nhận với ký hiệu " + currentSeries
+                        + " trong năm nay nên chưa đổi được tiền tố. Ký hiệu sẽ tự đổi theo năm; "
+                        + "muốn dùng tiền tố mới thì đặt lại vào đầu năm sau.");
+            }
+            org.setReceiptSeriesPrefix(prefix);
+        }
+
         Organization saved = organizationRepository.save(org);
 
         // Gán lại những webhook cũ về đúng số tài khoản vừa khai. Webhook thường về
@@ -237,6 +272,18 @@ public class CashQueryService {
                 .sepayAccountHolder(org.getSepayAccountHolder())
                 .bankConfigured(bankOk)
                 .lastWebhookAt(sepayEventRepository.findLastReceivedAt(org.getId()))
+                .receiptEnabled(org.getReceiptEnabled())
+                .legalName(org.getLegalName())
+                .taxCode(org.getTaxCode())
+                .businessAddress(org.getBusinessAddress())
+                .contactPhone(org.getContactPhone())
+                .receiptSeriesPrefix(org.getReceiptSeriesPrefix())
+                .receiptVatRate(org.getReceiptVatRate())
+                .receiptIssuerName(org.getReceiptIssuerName())
+                .receiptIssuerTitle(org.getReceiptIssuerTitle())
+                // Tên người bán có thể lùi về tên tổ chức, mã số thuế thì không có gì thay được.
+                .legalProfileComplete(org.getTaxCode() != null && !org.getTaxCode().isBlank()
+                        && org.getBusinessAddress() != null && !org.getBusinessAddress().isBlank())
                 .build();
     }
 

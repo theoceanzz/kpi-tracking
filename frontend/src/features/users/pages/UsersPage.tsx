@@ -16,6 +16,7 @@ import { Plus, Upload, Loader2, Filter, ArrowUpDown, Briefcase } from 'lucide-re
 import type { User } from '@/types/user'
 import type { OrgUnitTreeResponse } from '@/features/organization/types/org-unit'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/apiError'
 import { usePermission } from '@/hooks/usePermission'
 import { useAuthStore } from '@/store/authStore'
 import { usePageTitle } from '@/features/organization/hooks/usePageTitle'
@@ -141,7 +142,7 @@ export default function UsersPage() {
       toast.success('Đã xoá nhân sự'); 
       setDeleteUser(null) 
     },
-    onError: () => toast.error('Xoá thất bại'),
+    onError: (error) => toast.error(getApiErrorMessage(error, 'Xoá người dùng thất bại')),
   })
 
   const importMutation = useMutation({
@@ -172,7 +173,7 @@ export default function UsersPage() {
       }
     },
     onError: (error: any) => {
-      const errorMessage = error?.response?.data?.message || error?.message || 'Import thất bại'
+      const errorMessage = getApiErrorMessage(error, 'Import thất bại')
       toast.error(errorMessage)
     },
   })

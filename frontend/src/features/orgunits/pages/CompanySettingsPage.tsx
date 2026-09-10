@@ -6,6 +6,7 @@ import { OrganizationStructurePage } from '@/features/organization/pages/Organiz
 import UsersPage from '@/features/users/pages/UsersPage'
 import RoleManagementPage from '@/features/organization/pages/RoleManagementPage'
 import { SidebarSettingsTab, NotificationSettingsTab } from '@/features/organization/components/SystemSettingsTabs'
+import DelegationSettingsTab from '@/features/organization/components/DelegationSettingsTab'
 import EmailTemplateSettingsTab from '@/features/organization/components/EmailTemplateSettingsTab'
 import LarkSettingsTab from '@/features/organization/components/LarkSettingsTab'
 import { useSearchParams } from 'react-router-dom'
@@ -42,6 +43,7 @@ export default function CompanySettingsPage() {
           { id: 'ranks', render: () => <CompanyHierarchySection /> },
           { id: 'org-structure', render: () => <OrganizationStructurePage /> },
           { id: 'users', render: () => <UsersPage /> },
+          { id: 'delegations', render: () => <DelegationSettingsTab /> },
           { id: 'roles', render: () => <RoleManagementPage /> },
           { id: 'sidebar', render: () => <SidebarSettingsTab /> },
           { id: 'notifications', render: () => <NotificationSettingsTab /> },

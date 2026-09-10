@@ -15,38 +15,29 @@ import {
   useMyCashTransactions,
   useMyCashWallet,
   useMyTopups,
-  useWalletConfig,
+  useTopupConfig,
 } from '../hooks/useWallet'
-import type { WalletConfig } from '../types'
+import type { TopupOrder } from '../types'
 
 type TabKey = 'convert' | 'topups' | 'history'
 
 export default function MyWalletPage() {
   const [page, setPage] = useState(0)
   const [topupOpen, setTopupOpen] = useState(false)
+  // Đơn đang mở lại để chuyển khoản tiếp. null = tạo đơn mới.
+  const [resumeOrder, setResumeOrder] = useState<TopupOrder | null>(null)
   const size = 20
 
   const { data: wallet, isLoading: walletLoading } = useMyCashWallet()
   const { data: txPage, isLoading: txLoading } = useMyCashTransactions(page, size)
   const { data: topupPage, isLoading: topupsLoading } = useMyTopups(0, 50)
 
-  // Cấu hình cần hạn mức nạp tối thiểu/tối đa cho modal. Người dùng thường không
-  // có WALLET:CONFIG nên gọi này sẽ 403 — bọc lại để trang vẫn chạy bình thường.
-  const { data: config } = useWalletConfig(false)
+  // Hạn mức nạp tối thiểu/tối đa cho hộp thoại nạp tiền, suy từ ví khi người dùng
+  // không có quyền đọc cấu hình.
+  const modalConfig = useTopupConfig(wallet)
 
   const transactions = txPage?.content ?? []
   const topups = topupPage?.content ?? []
-
-  // Suy hạn mức từ chính ví khi không đọc được cấu hình: tỉ giá đã có sẵn ở đó,
-  // còn hạn mức thì backend vẫn kiểm lại khi tạo đơn nên đây chỉ là gợi ý.
-  const modalConfig: WalletConfig | undefined = config ?? {
-    enableCashWallet: true,
-    pointExchangeRate: wallet?.pointExchangeRate ?? 1000,
-    topupMinAmount: 10_000,
-    topupMaxAmount: 50_000_000,
-    topupExpireMinutes: 30,
-    bankConfigured: true,
-  }
 
   // Tab lưu ở URL (`?wallet=`) chứ không phải state cục bộ — xem ghi chú cùng loại ở
   // MyRewardsPage. Tên tham số riêng để không đụng các mục khác trong trang "Của tôi".
@@ -80,7 +71,10 @@ export default function MyWalletPage() {
         <button
           id="tour-my-wallet-topup"
           type="button"
-          onClick={() => setTopupOpen(true)}
+          onClick={() => {
+            setResumeOrder(null)
+            setTopupOpen(true)
+          }}
           className="flex items-center gap-2 rounded-xl bg-[var(--color-primary)] px-4 py-2.5 font-semibold text-white"
         >
           <Plus size={18} />
@@ -133,7 +127,13 @@ export default function MyWalletPage() {
               />
             </div>
           ) : (
-            <TopupHistoryTable data={topups} />
+            <TopupHistoryTable
+              data={topups}
+              onResume={(order) => {
+                setResumeOrder(order)
+                setTopupOpen(true)
+              }}
+            />
           )}
         </div>
       )}
@@ -169,7 +169,12 @@ export default function MyWalletPage() {
         </div>
       )}
 
-      <TopupModal open={topupOpen} onClose={() => setTopupOpen(false)} config={modalConfig} />
+      <TopupModal
+        open={topupOpen}
+        onClose={() => setTopupOpen(false)}
+        config={modalConfig}
+        resumeOrder={resumeOrder}
+      />
     </div>
   )
 }

@@ -49,6 +49,29 @@ export interface UnitClassRule {
   color: string
   conditions: UnitClassCondition[]
 }
+/** Chế độ khi đơn vị chấm vượt hạn mức: chỉ nhắc, hay không cho chốt đánh giá. */
+export type BellCurveMode = 'warn' | 'block'
+
+/** Tỷ lệ % người MONG MUỐN ở một mức. */
+export interface UnitBellTarget {
+  level: string
+  percent: number
+}
+
+/**
+ * Khung bell curve (forced distribution) của một hồ sơ: hạn mức % mỗi mức mà đơn vị được phép
+ * chấm cho nhân sự. Trần/sàn của mỗi mức = `percent ± tolerance`.
+ */
+export interface UnitClassBellCurve {
+  enabled: boolean
+  mode: BellCurveMode
+  /** Đơn vị ít hơn ngần này người thì bỏ qua khung — tỷ lệ trên nhóm quá nhỏ không có ý nghĩa. */
+  minMembers: number
+  /** Dung sai ± quanh mốc (điểm %). */
+  tolerance: number
+  targets: UnitBellTarget[]
+}
+
 /** Một HỒ SƠ luật xếp loại: gán cho (các) đơn vị và (tuỳ chọn) (các) kỳ. Đơn vị con kế thừa hồ sơ của cha. */
 export interface UnitClassProfile {
   name: string
@@ -57,6 +80,8 @@ export interface UnitClassProfile {
   /** Kỳ áp dụng — RỖNG nghĩa là áp cho mọi kỳ. Hồ sơ riêng cho kỳ thắng hồ sơ chung ở cùng đơn vị. */
   kpiCycleIds?: string[]
   rules: UnitClassRule[]    // cao → thấp (ưu tiên)
+  /** Khung khống chế tỷ lệ khi chấm nhân sự; vắng mặt = không khống chế. */
+  bellCurve?: UnitClassBellCurve
 }
 export interface UnitClassificationRules {
   profiles?: UnitClassProfile[]  // hình dạng mới
@@ -116,6 +141,8 @@ export interface OrganizationResponse {
   performanceMatrix?: string
   unitClassificationRules?: string
   kpiReminderPercentage: number
+  /** Nhắc trưởng đơn vị chấm/chốt trước ngày kết thúc đợt-kỳ bao nhiêu ngày; 0 = tắt. */
+  evaluationReminderDays?: number
   enableOkr: boolean
   enableWaterfall: boolean
   enableAi: boolean
@@ -147,6 +174,7 @@ export interface UpdateOrganizationRequest {
   performanceMatrix?: string
   unitClassificationRules?: string
   kpiReminderPercentage?: number
+  evaluationReminderDays?: number
   enableOkr?: boolean
   enableWaterfall?: boolean
   enableQualitative?: boolean

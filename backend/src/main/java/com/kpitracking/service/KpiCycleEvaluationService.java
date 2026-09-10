@@ -30,6 +30,7 @@ import java.util.*;
  */
 @Service
 @RequiredArgsConstructor
+@lombok.extern.slf4j.Slf4j
 public class KpiCycleEvaluationService {
 
     private final KpiCycleRepository kpiCycleRepository;
@@ -46,6 +47,7 @@ public class KpiCycleEvaluationService {
     private final ConductService conductService;
     private final com.kpitracking.service.kpi.CycleLockChecker cycleLockChecker;
     private final com.kpitracking.security.PermissionChecker permissionChecker;
+    private final com.kpitracking.service.notification.NotificationDispatcher notificationDispatcher;
 
     // ─────────────────────────────── Per-user ───────────────────────────────
 
@@ -277,15 +279,34 @@ public class KpiCycleEvaluationService {
 
         // Xếp loại đơn vị theo phân bố mức của thành viên TRONG KỲ. Truyền thẳng điểm kỳ vừa tính
         // để con số trên huy hiệu luôn khớp bảng bên dưới, thay vì để service kia tính lại từ DB.
+        List<UnitClassificationService.CycleMemberScore> memberScores =
+                members.stream().map(this::cycleMemberScore).toList();
         UnitClassificationService.UnitClassResult cls = unitClassificationService.classifyCycleUnit(
-                cycle.getId(), unit, members.stream().map(this::cycleMemberScore).toList());
+                cycle.getId(), unit, memberScores);
+        // Cùng bộ điểm đó dựng luôn dữ liệu bell curve của kỳ — người chấm nhìn thấy phòng mình
+        // lệch khung ở đâu ngay tại màn đang chấm, không phải mở tab thống kê khác.
+        var curve = unitClassificationService.cycleCurve(cycle.getId(), unit, memberScores);
+
+        // Điểm đơn vị: TB thành viên là số nền, người có quyền chấm tay thì lấy số chấm tay.
+        // Cả hai cùng trả về để giao diện luôn đối chiếu được, thay vì chỉ thấy con số cuối.
+        Double autoScore = mgrN > 0 ? round(mgrSum / mgrN) : null;
+        CycleUnitEvaluation saved = cycleUnitEvaluationRepository
+                .findByKpiCycleIdAndOrgUnitId(cycleId, orgUnitId).orElse(null);
+        Double override = saved != null ? saved.getOverrideScore() : null;
 
         return CycleUnitEvaluationResponse.builder()
                 .cycleId(cycle.getId()).cycleName(cycle.getName())
                 .orgUnitId(unit.getId()).orgUnitName(unit.getName())
                 .mode(mode)
                 .selfScore(selfN > 0 ? round(selfSum / selfN) : null)
-                .managerScore(mgrN > 0 ? round(mgrSum / mgrN) : null)
+                .managerScore(override != null ? override : autoScore)
+                .autoScore(autoScore)
+                .overrideScore(override)
+                .overrideReason(saved != null ? saved.getOverrideReason() : null)
+                .overriddenByName(saved != null && saved.getOverriddenBy() != null
+                        ? saved.getOverriddenBy().getFullName() : null)
+                .overriddenAt(saved != null ? saved.getOverriddenAt() : null)
+                .bellCurve(curve)
                 .qualScore(qualN > 0 ? round(qualSum / qualN) : null)
                 .matrixRating(matrixN > 0 ? round(matrixSum / matrixN) : null)
                 .memberCount(members.size())
@@ -314,6 +335,61 @@ public class KpiCycleEvaluationService {
             if (n > 0) rating = sum / n;
         }
         return new UnitClassificationService.CycleMemberScore(m.getFinalScore(), rating);
+    }
+
+    /**
+     * Chấm tay điểm CẢ ĐƠN VỊ cho kỳ, ghi đè TB thành viên.
+     *
+     * <p>Trung bình cá nhân không phải lúc nào cũng là kết quả tập thể — phòng toàn người điểm cao
+     * vẫn có thể trượt mục tiêu chung — nên trưởng đơn vị / giám đốc cần chấm lại cả đơn vị.
+     * Số TB vẫn được giữ và trả về nguyên vẹn để đối chiếu.
+     *
+     * <p>{@code score == null} = bỏ ghi đè, quay lại dùng TB tự tính.
+     */
+    @Transactional
+    public CycleUnitEvaluationResponse saveUnitCycleScore(UUID cycleId, UUID orgUnitId,
+                                                          Double score, String reason) {
+        KpiCycle cycle = kpiCycleRepository.findById(cycleId)
+                .orElseThrow(() -> new ResourceNotFoundException("Kỳ đánh giá", "id", cycleId));
+        OrgUnit unit = orgUnitRepository.findById(orgUnitId)
+                .orElseThrow(() -> new ResourceNotFoundException("Đơn vị", "id", orgUnitId));
+        assertCanManageUnit(orgUnitId);
+
+        CycleUnitEvaluation entity = cycleUnitEvaluationRepository
+                .findByKpiCycleIdAndOrgUnitId(cycleId, orgUnitId)
+                .orElseGet(() -> CycleUnitEvaluation.builder().kpiCycle(cycle).orgUnit(unit).build());
+
+        // Đã chốt thì số đã công bố — sửa điểm phải đi qua đúng cửa mở khoá, không lách bằng
+        // đường chấm tay.
+        if (entity.getStatus() == CycleUnitEvalStatus.FINALIZED) {
+            throw new IllegalArgumentException("Đơn vị đã chốt kỳ, không sửa được điểm. "
+                    + "Hãy mở khoá trước khi chấm lại.");
+        }
+        OrgUnit ancestor = lockingAncestor(unit, finalizedUnits(cycleId));
+        if (ancestor != null) {
+            throw new IllegalArgumentException("Đơn vị cấp trên \"" + ancestor.getName()
+                    + "\" đã chốt kỳ. Hãy mở khoá ở đơn vị đó trước khi chấm lại.");
+        }
+
+        double maxScore = maxScore(cycle);
+        if (score != null && (score < 0 || score > maxScore)) {
+            throw new IllegalArgumentException("Điểm đơn vị phải nằm trong khoảng 0 đến " + maxScore);
+        }
+        // Chấm khác TB mà không nêu lý do thì con số công bố không còn giải thích được cho ai.
+        if (score != null && (reason == null || reason.isBlank())) {
+            throw new IllegalArgumentException("Nhập lý do chấm điểm đơn vị khác trung bình thành viên");
+        }
+
+        // Cột NOT NULL: bản ghi tạo lần đầu từ đường chấm tay cũng phải có chế độ của kỳ.
+        entity.setEvaluationMode(cycle.getEvaluationMode() != null
+                ? cycle.getEvaluationMode() : CycleEvaluationMode.BOTH);
+        entity.setOverrideScore(score);
+        entity.setOverrideReason(score != null ? reason.trim() : null);
+        entity.setOverriddenBy(score != null ? getCurrentUser() : null);
+        entity.setOverriddenAt(score != null ? Instant.now() : null);
+        cycleUnitEvaluationRepository.save(entity);
+
+        return getUnitCycleSummary(cycleId, orgUnitId);
     }
 
     @Transactional
@@ -368,7 +444,49 @@ public class KpiCycleEvaluationService {
 
         recordEvent(cycle, unit, CycleUnitEvalAction.FINALIZE, current, summary, comment);
 
+        notifyParentAfterFinalize(cycle, unit, current, summary);
+
         return getUnitCycleSummary(cycleId, orgUnitId);
+    }
+
+    /**
+     * Báo lên cấp trên gần nhất khi một đơn vị chốt kỳ.
+     *
+     * <p>Chuỗi duyệt đi từ dưới lên: cấp trên không chốt được khi còn đơn vị dưới treo, nên
+     * họ cần biết đúng lúc mắt xích cuối vừa xong. Trước đây không có thông báo nào — người
+     * duyệt phải tự mở trang ra dò từng phòng.
+     */
+    private void notifyParentAfterFinalize(KpiCycle cycle, OrgUnit unit, User actor,
+                                           CycleUnitEvaluationResponse summary) {
+        try {
+            OrgUnit parent = unit.getParent();
+            if (parent == null || cycle.getOrganization() == null) return;
+
+            String title = "Đơn vị " + unit.getName() + " đã chốt kỳ " + cycle.getName();
+            String message = String.format(
+                    "%s vừa chốt đánh giá kỳ %s cho đơn vị \"%s\" — điểm %s%s. "
+                            + "Bạn có thể chốt cấp của mình khi các đơn vị dưới đã xong.",
+                    actor.getFullName(), cycle.getName(), unit.getName(),
+                    summary.getManagerScore() != null ? String.valueOf(summary.getManagerScore()) : "—",
+                    summary.getClassification() != null ? " · xếp loại " + summary.getClassification() : "");
+
+            // Gửi cho người thật sự chốt được cấp trên, kể cả người đang được uỷ quyền —
+            // hasPermissionInOrgUnit đã tính cả uỷ quyền chéo đơn vị.
+            for (UserRoleOrgUnit uro : userRoleOrgUnitRepository.findByOrgUnitIdIn(List.of(parent.getId()))) {
+                User recipient = uro.getUser();
+                Integer rank = uro.getRole() != null ? uro.getRole().getRank() : null;
+                if (recipient == null || rank == null || rank > 1) continue;
+                if (recipient.getId().equals(actor.getId())) continue;
+                if (!permissionChecker.hasPermissionInOrgUnit(
+                        recipient.getId(), "CYCLE_EVAL:FINALIZE", parent.getId())) continue;
+
+                notificationDispatcher.dispatch(cycle.getOrganization().getId(), "cycle_unit_finalized",
+                        recipient, parent, title, message, "CYCLE_UNIT_FINALIZED", cycle.getId());
+            }
+        } catch (Exception e) {
+            // Việc chốt đã xong; đây chỉ là lớp báo tin nên không được kéo giao dịch đổ theo.
+            log.warn("Không gửi được thông báo chốt kỳ của đơn vị {}: {}", unit.getId(), e.getMessage());
+        }
     }
 
     /** Mở khoá (đưa về DRAFT) để chỉnh lại điểm sau khi đã chốt. */

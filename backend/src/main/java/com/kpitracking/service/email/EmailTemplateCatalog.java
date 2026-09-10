@@ -78,6 +78,8 @@ public final class EmailTemplateCatalog {
     public static final String GROUP_ACCOUNT = "Tài khoản & bảo mật";
     public static final String GROUP_KPI = "Thông báo KPI";
     public static final String GROUP_EVALUATION = "Đánh giá";
+    /** Chứng từ tiền bạc — không phải thông báo, nên có nhóm riêng và công tắc riêng. */
+    public static final String GROUP_WALLET = "Ví tiền & chứng từ";
 
     private static final Map<String, TemplateDef> BY_CODE = new LinkedHashMap<>();
 
@@ -229,13 +231,99 @@ public final class EmailTemplateCatalog {
         registerNotification("reminder_deadline", "Nhắc hạn nộp",
                 "Nhắc nhở tự động khi sắp tới hạn nộp báo cáo.");
 
-        registerDigest();
+        // ───────────────────────── Thông báo BSC ─────────────────────────
+        registerNotification("bsc_scorecard_submitted", "Bộ tiêu chí BSC cần duyệt",
+                "Khi đơn vị trình bộ tiêu chí BSC lên cấp trên.");
+        registerNotification("bsc_scorecard_approved", "Bộ tiêu chí BSC được duyệt",
+                "Khi cấp trên duyệt bộ tiêu chí BSC của đơn vị.");
+        registerNotification("bsc_scorecard_rejected", "Bộ tiêu chí BSC bị trả lại",
+                "Khi cấp trên trả bộ tiêu chí BSC về cho đơn vị sửa, kèm lý do.");
+        registerNotification("bsc_scorecard_activated", "Bộ tiêu chí BSC được áp dụng",
+                "Khi bộ tiêu chí BSC bắt đầu được dùng để chấm.");
+        registerNotification("bsc_scorecard_locked", "Bộ tiêu chí BSC khoá/mở khoá",
+                "Khi bộ tiêu chí BSC bị khoá hoặc được mở khoá để sửa lại.");
+        registerNotification("bsc_cascaded", "Được giao chỉ tiêu BSC",
+                "Khi cấp trên phân rã một chỉ tiêu BSC xuống đơn vị.");
+        registerNotification("bsc_unit_result_finalized", "Kết quả BSC của đợt đã chốt",
+                "Khi kết quả BSC của một đơn vị trong một đợt được chốt.");
+        registerNotification("bsc_score_overridden", "Điểm BSC bị ghi đè",
+                "Khi điểm BSC của một cá nhân được điều chỉnh thủ công hoặc huỷ ghi đè.");
 
-        // ───────────────────────── Ví tiền ─────────────────────────
+        // ───────────────────────── Thông báo điểm thưởng ─────────────────────────
+        registerNotification("reward_grant_submitted", "Đề nghị thưởng cần duyệt",
+                "Khi một đề nghị thưởng vượt hạn mức được trình lên (dành cho người duyệt gần nhất).");
+        registerNotification("reward_grant_approved", "Đề nghị thưởng được duyệt",
+                "Khi cấp trên duyệt đề nghị thưởng của người trao.");
+        registerNotification("reward_grant_rejected", "Đề nghị thưởng bị từ chối",
+                "Khi cấp trên từ chối đề nghị thưởng, kèm ghi chú.");
+        registerNotification("reward_grant_cancelled", "Đề nghị thưởng được rút lại",
+                "Khi người trao tự rút đề nghị đang chờ duyệt (dành cho người duyệt).");
+        registerNotification("reward_points_received", "Được thưởng điểm",
+                "Khi điểm thưởng vào ví của một nhân viên.");
+        registerNotification("reward_grant_revoked", "Thưởng bị thu hồi",
+                "Khi một khoản thưởng đã phát bị thu hồi và điểm bị trừ lại.");
+        registerNotification("reward_budget_assigned", "Hạn mức thưởng",
+                "Khi một cán bộ quản lý được cấp hoặc được điều chỉnh hạn mức thưởng.");
+        registerNotification("reward_program_issued", "Thưởng từ chương trình",
+                "Khi chương trình thưởng tự động phát điểm cho người đạt hạng.");
+        registerNotification("reward_program_reverted", "Thưởng chương trình bị thu hồi",
+                "Khi một lần phát thưởng của chương trình bị thu hồi.");
+        registerNotification("reward_redemption_created", "Yêu cầu đổi quà mới",
+                "Khi nhân viên đặt đổi điểm lấy quà (dành cho bộ phận xử lý quà).");
+        registerNotification("reward_redemption_approved", "Đổi quà được duyệt",
+                "Khi yêu cầu đổi quà được duyệt và đang chuẩn bị trao.");
+        registerNotification("reward_redemption_rejected", "Đổi quà bị từ chối",
+                "Khi yêu cầu đổi quà bị từ chối và điểm được hoàn lại.");
+        registerNotification("reward_redemption_delivered", "Đã trao quà",
+                "Khi quà đã được trao hoặc mã quà đã xuất xong.");
+        registerNotification("reward_redemption_failed", "Xuất quà thất bại",
+                "Khi nhà cung cấp không xuất được quà, điểm đã hoàn lại.");
+        registerNotification("reward_redemption_cancelled", "Đổi quà bị huỷ",
+                "Khi người đổi tự huỷ yêu cầu (dành cho bộ phận xử lý quà).");
+
+        // ───────────────────────── Thông báo ví tiền ─────────────────────────
         registerNotification("wallet_topup_paid", "Nạp tiền thành công",
                 "Khi tiền chuyển khoản đã về và số dư ví được cộng.");
+        registerNotification("wallet_topup_expired", "Đơn nạp hết hạn",
+                "Khi đơn nạp quá thời gian hiệu lực mà chưa nhận được tiền.");
+        registerNotification("wallet_topup_unmatched", "Tiền về chưa ghi có được",
+                "Khi có tiền về nhưng không khớp đơn nào (dành cho người có quyền đối soát).");
         registerNotification("wallet_converted", "Đã quy đổi sang điểm",
                 "Khi người dùng đổi số dư ví tiền lấy điểm thưởng.");
+
+        registerDigest();
+
+        // ───────────────────── Biên nhận thu tiền nạp ví ─────────────────────
+        //
+        // KHÔNG dùng registerNotification: đây không phải một loại thông báo mà là CHỨNG TỪ xác
+        // nhận đã nhận tiền của một người. Công tắc của nó vì thế cũng không thuộc tab Thiết lập
+        // thông báo (CONTROL_SELF, và cấu hình ví có công tắc riêng) — tắt nhầm nó qua một danh
+        // sách thông báo là chuyện không nên xảy ra bằng một cú bấm nhầm.
+        //
+        // Toàn bộ phần thân chứng từ đi vào qua biến {{bien_nhan}} do TopupReceiptService dựng,
+        // chứ không viết trong template: các nội dung bắt buộc theo Điều 10 Nghị định
+        // 123/2020/NĐ-CP không phải thứ để người dùng sửa hay xoá bớt bằng trình soạn email.
+        register(new TemplateDef(
+                "wallet_topup_receipt", "Biên nhận nạp tiền",
+                "Chứng từ thu tiền gửi cho người nộp sau mỗi lần nạp ví thành công. "
+                + "Phần thân chứng từ do hệ thống dựng và không sửa được.",
+                GROUP_WALLET, "Biên nhận Thu tiền",
+                "Biên nhận thu tiền {{so_bien_nhan}} — {{so_tien}}",
+                "<p>Xin chào <strong>{{ten_nguoi_nhan}}</strong>,</p>"
+                + "<p>Chúng tôi xác nhận đã nhận được <strong>{{so_tien}}</strong> từ đơn nạp "
+                + "<strong>{{ma_don}}</strong>. Số dư ví của bạn đã được cộng đủ số tiền này.</p>"
+                + "<p>Biên nhận thu tiền của khoản trên:</p>"
+                + "{{bien_nhan}}"
+                + "<p style=\"margin-top:16px;\">Vui lòng lưu lại thư này để đối chiếu khi cần.</p>"
+                + button("Xem ví tiền của tôi", "{{link_he_thong}}"),
+                vars("ten_nguoi_nhan", "Họ tên người nộp tiền",
+                        "email", "Email người nộp tiền",
+                        "so_bien_nhan", "Số biên nhận, VD PT2026/00000042",
+                        "so_tien", "Tổng tiền đã nhận",
+                        "ma_don", "Mã đơn nạp / nội dung chuyển khoản",
+                        "bien_nhan", "Toàn bộ nội dung biên nhận do hệ thống dựng",
+                        "link_he_thong", "Đường dẫn tới hệ thống"),
+                List.of("bien_nhan")));
 
         // ───────────────────────── Đánh giá ─────────────────────────
         register(new TemplateDef(

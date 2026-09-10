@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Check, Coins, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/apiError'
 import { cn } from '@/lib/utils'
 import NumberInput from '@/components/common/NumberInput'
 import { platformAdminApi, type OrgAiUsage } from '../api/platformAdminApi'
@@ -22,7 +23,7 @@ function BudgetInput({ row, onSaved }: { row: OrgAiUsage; onSaved: () => void })
       toast.success(`Đã cập nhật ngân sách cho ${row.organizationName}`)
       onSaved()
     },
-    onError: (err: any) => toast.error(err.response?.data?.message || 'Không cập nhật được ngân sách'),
+    onError: (err: any) => toast.error(getApiErrorMessage(err, 'Không cập nhật được ngân sách')),
   })
 
   const dirty = value !== (row.monthlyLimit ?? 0)

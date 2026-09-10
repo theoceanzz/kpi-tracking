@@ -7,7 +7,8 @@ import lombok.*;
 import java.util.UUID;
 
 /**
- * Một dải kết quả BSC → một hệ số. VD: 80–95% ⇒ 0.95.
+ * Một dải kết quả BSC → một NHÃN. VD: 80–95% ⇒ "Cần cải thiện". Dải chỉ dùng để đọc kết quả của
+ * đơn vị/công ty; nó KHÔNG còn sinh ra hệ số nhân vào điểm của nhân viên.
  *
  * <p>Khoảng NỬA MỞ [from, to): ranh giới thuộc về dải TRÊN, nên đúng 95% rơi vào dải 95–105 chứ
  * không phải 80–95. {@code fromPercent = null} là âm vô cùng, {@code toPercent = null} là dương
@@ -37,6 +38,8 @@ public class BscFactorBand {
     @Column(name = "to_percent")
     private Double toPercent;
 
+    /** KHÔNG CÒN DÙNG để tính điểm — giữ lại vì cột NOT NULL và còn dữ liệu các kỳ cũ. */
+    @Deprecated
     @Column(name = "factor", nullable = false)
     private Double factor;
 

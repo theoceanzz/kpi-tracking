@@ -17,13 +17,14 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Chính sách quy kết quả BSC của phòng/công ty thành HỆ SỐ nhân vào điểm cá nhân
- * (docs/bsc-cascade-design.md — QĐ-4).
+ * Chính sách điểm BSC của một tổ chức (docs/bsc-cascade-design.md — QĐ-8).
  *
- * <p>Điểm dễ hiểu sai nhất của mô hình: "nhân viên × phòng × công ty" KHÔNG phải nhân thẳng tỉ lệ
- * đạt. Tỉ lệ đạt được TRA vào {@link BscFactorBand} để ra một hệ số gần 1, rồi mới nhân:
- * <pre>recognized = MIN(điểm gốc, recognizedCapPercent) × f_phòng × f_công_ty</pre>
- * Ví dụ chuẩn: gốc 112, phòng 92% (⇒ 0.95), công ty 97% (⇒ 1.00) = 106.4 — không phải 99.96.
+ * <p>Chỉ còn hai con số có tác dụng: {@code recognizedCapPercent} (điểm công nhận =
+ * MIN(điểm gốc, trần)) và {@code minBscLinkedWeight} + {@code linkedWeightEnforce} (KPI của một
+ * người phải bám vào cây BSC tối thiểu bao nhiêu %, cảnh báo hay chặn hẳn).
+ *
+ * <p>Các cột hệ số và bảng dải bên dưới là DI SẢN của mô hình cũ ("nhân viên × phòng × công ty"),
+ * giữ lại để đọc dữ liệu các kỳ đã chốt — không code nào còn đọc chúng để tính điểm.
  */
 @Entity
 @Table(name = "bsc_cascade_policies")
@@ -43,10 +44,25 @@ public class BscCascadePolicy {
     @Column(name = "name", nullable = false)
     private String name;
 
-    /** Kỳ áp dụng. NULL = chính sách MẶC ĐỊNH của tổ chức, dùng cho mọi kỳ chưa có chính sách riêng. */
+    /**
+     * Kỳ áp dụng. NULL = chính sách MẶC ĐỊNH của tổ chức, dùng cho mọi kỳ chưa có chính sách riêng.
+     *
+     * <p>Loại trừ nhau với {@link #kpiPeriods}: một chính sách gắn theo KỲ hoặc theo ĐỢT, không cả hai.
+     */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "kpi_cycle_id")
     private KpiCycle kpiCycle;
+
+    /**
+     * Các ĐỢT áp dụng riêng — hẹp hơn kỳ, dùng khi chỉ muốn đổi trần điểm cho đúng một vài đợt.
+     * Rỗng nghĩa là chính sách này không gắn đợt nào (gắn theo kỳ, hoặc là bản mặc định).
+     */
+    @ManyToMany(fetch = FetchType.LAZY)
+    @JoinTable(name = "bsc_cascade_policy_periods",
+        joinColumns = @JoinColumn(name = "policy_id"),
+        inverseJoinColumns = @JoinColumn(name = "kpi_period_id"))
+    @Builder.Default
+    private List<KpiPeriod> kpiPeriods = new ArrayList<>();
 
     @Enumerated(EnumType.STRING)
     @Column(name = "unit_factor_mode", nullable = false, length = 20)

@@ -107,6 +107,11 @@ export enum BscMeasurementSource {
   ROLLUP = 'ROLLUP',
   MANUAL = 'MANUAL',
   DATASOURCE = 'DATASOURCE',
+  /**
+   * Chỉ xuất hiện trên dòng KẾT QUẢ, không chọn được lúc cấu hình: chỉ tiêu đã giao xuống cấp dưới
+   * nên con số lấy từ kết quả của các đơn vị con thay vì cộng KPI cá nhân.
+   */
+  CHILD_ROLLUP = 'CHILD_ROLLUP',
 }
 
 /** Hệ quả khi hạng mục chặn không đạt — cả ba đều tác động lên TRẦN XẾP LOẠI, không trừ điểm. */
@@ -122,22 +127,7 @@ export enum BscGateScope {
   BOTH = 'BOTH',
 }
 
-export enum BscFactorMode {
-  BAND_TABLE = 'BAND_TABLE',
-  DIRECT_RATIO = 'DIRECT_RATIO',
-  NONE = 'NONE',
-}
-
-export enum BscFactorBasis {
-  OVERALL = 'OVERALL',
-  LINKED_ITEM = 'LINKED_ITEM',
-}
-
-export enum BscFactorScope {
-  UNIT = 'UNIT',
-  COMPANY = 'COMPANY',
-}
-
+/** WARN = chỉ cảnh báo; BLOCK = không chốt được đánh giá khi chưa đủ tỉ lệ KPI liên kết BSC. */
 export enum BscLinkedWeightEnforce {
   WARN = 'WARN',
   BLOCK = 'BLOCK',
@@ -307,7 +297,7 @@ export interface PerspectiveScoreResponse {
 
 
 // ================================================================
-// BSC phân cấp — cascade, kết quả đơn vị, chính sách hệ số, waterfall
+// BSC phân cấp — cascade, kết quả đơn vị, waterfall
 // (docs/bsc-cascade-design.md)
 // ================================================================
 
@@ -379,8 +369,6 @@ export interface ScorecardTreeNodeResponse {
   assignedCount: number
   gateCount: number
   achievementPercent?: number | null
-  bandLabel?: string | null
-  factor?: number | null
   children: ScorecardTreeNodeResponse[]
 }
 
@@ -409,8 +397,6 @@ export interface UnitResultResponse {
   kpiPeriodId?: string | null
   kpiPeriodName?: string | null
   achievementPercent?: number | null
-  bandLabel?: string | null
-  factor?: number | null
   gatePassed?: boolean | null
   gateFailedItems?: string | null
   status: BscUnitResultStatus
@@ -419,32 +405,18 @@ export interface UnitResultResponse {
   items: UnitResultItemResponse[]
 }
 
-export interface FactorBandRequest {
-  scope: BscFactorScope
-  fromPercent?: number | null
-  toPercent?: number | null
-  factor: number
-  label?: string | null
-  color?: string | null
-  displayOrder?: number
-}
-
-export interface FactorBandResponse extends FactorBandRequest {
-  id: string
-}
-
+/**
+ * Chính sách điểm BSC: trần điểm công nhận + ràng buộc KPI phải liên kết BSC.
+ * Tham số hệ số và bảng dải đã bị gỡ cùng lúc với việc bỏ hệ số phòng/công ty.
+ */
 export interface CascadePolicyRequest {
   name: string
+  /** Gắn KỲ, hoặc gắn ĐỢT, hoặc để trống cả hai làm bản mặc định — không gửi cả hai. */
   kpiCycleId?: string | null
-  unitFactorMode?: BscFactorMode
-  companyFactorMode?: BscFactorMode
-  factorBasis?: BscFactorBasis
-  factorFloor?: number
-  factorCap?: number
+  kpiPeriodIds?: string[]
   recognizedCapPercent?: number
   minBscLinkedWeight?: number
   linkedWeightEnforce?: BscLinkedWeightEnforce
-  bands?: FactorBandRequest[]
 }
 
 export interface CascadePolicyResponse {
@@ -452,22 +424,20 @@ export interface CascadePolicyResponse {
   name: string
   kpiCycleId?: string | null
   kpiCycleName?: string | null
-  unitFactorMode: BscFactorMode
-  companyFactorMode: BscFactorMode
-  factorBasis: BscFactorBasis
-  factorFloor: number
-  factorCap: number
+  /** Các đợt gắn riêng; rỗng khi chính sách gắn theo kỳ hoặc là bản mặc định. */
+  periods?: ScorecardPeriodResponse[]
+  /** Nhãn gộp cho chip chọn chính sách: tên kỳ, danh sách đợt, hoặc "Mặc định". */
+  scopeLabel?: string
   recognizedCapPercent: number
   minBscLinkedWeight: number
   linkedWeightEnforce: BscLinkedWeightEnforce
   status: string
   version: number
-  bands: FactorBandResponse[]
 }
 
 /**
- * Diễn giải điểm cá nhân theo đúng thứ tự B1→B3 rồi mới tới chặn.
- * Hạng mục chặn KHÔNG nằm trong chuỗi nhân — nó chỉ hạ trần xếp loại.
+ * Diễn giải điểm cá nhân: điểm gốc → chặn trần → điểm công nhận → ghi đè.
+ * Điểm KHÔNG bị nhân hệ số phòng/công ty; hạng mục chặn chỉ hạ trần xếp loại.
  */
 export interface BscWaterfallResponse {
   evaluationId: string
@@ -480,13 +450,6 @@ export interface BscWaterfallResponse {
   rawBscScore?: number | null
   recognizedCapPercent?: number | null
   cappedScore?: number | null
-
-  unitAchievementPercent?: number | null
-  unitBandLabel?: string | null
-  unitFactor?: number | null
-  companyAchievementPercent?: number | null
-  companyBandLabel?: string | null
-  companyFactor?: number | null
 
   recognizedScore?: number | null
 
@@ -525,4 +488,64 @@ export interface LinkedWeightCheck {
   satisfied: boolean
   /** true = mức BLOCK (chặn hẳn), false = chỉ cảnh báo. */
   enforced: boolean
+}
+
+// ================================================================
+// Chia chỉ tiêu BSC thành KPI theo từng đợt ("KPI = BSC")
+// ================================================================
+
+export interface BscKpiPlanPeriod {
+  kpiPeriodId: string
+  name: string
+  periodType: string
+  startDate?: string | null
+  endDate?: string | null
+  /** Tổng mục tiêu của các KPI đã gắn chỉ tiêu này trong đợt. */
+  allocatedValue: number
+  /** Tổng trọng số (%) của các KPI đó trong hạng mục. */
+  allocatedWeight: number
+  kpiCount: number
+}
+
+/** Mục tiêu của một chỉ tiêu BSC + các đợt để chia nó ra thành KPI. */
+export interface BscKpiPlanResponse {
+  scorecardId: string
+  scorecardName: string
+  scorecardPerspectiveId: string
+  perspectiveId: string
+  name: string
+  color?: string | null
+  unit?: string | null
+  targetValue?: number | null
+  minimumValue?: number | null
+  weightPercentage?: number | null
+  orgUnits: ScorecardOrgUnitResponse[]
+  periods: BscKpiPlanPeriod[]
+  allocatedValue: number
+  /** Còn lại so với mục tiêu; null khi chỉ tiêu chưa đặt mục tiêu. */
+  remainingValue?: number | null
+}
+
+export interface BscKpiAllocationRequest {
+  kpiPeriodId: string
+  /** Bỏ trống ⇒ backend đặt "{tên hạng mục} — {tên đợt}". */
+  name?: string
+  targetValue: number
+  minimumValue?: number | null
+  weight: number
+  frequency?: string
+  deadline?: string | null
+}
+
+export interface CreateKpiFromBscRequest {
+  scorecardPerspectiveId: string
+  /** Bỏ trống ⇒ các phòng ban của bộ tiêu chí. */
+  orgUnitIds?: string[]
+  assignedToIds?: string[]
+  /** Giao cho toàn bộ nhân sự của từng đơn vị nhận KPI — server tự nở danh sách theo từng đơn vị. */
+  assignToAllUnitMembers?: boolean
+  description?: string
+  unit?: string | null
+  isReverseKpi?: boolean
+  allocations: BscKpiAllocationRequest[]
 }

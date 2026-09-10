@@ -1,7 +1,9 @@
 import { useState } from 'react'
-import { Gift, ImageOff, Coins, PackageX, PackageCheck, Zap } from 'lucide-react'
+import { Gift, ImageOff, Coins, PackageX, PackageCheck, Zap, Wallet } from 'lucide-react'
 import EmptyState from '@/components/common/EmptyState'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
+import { useHasPermission } from '@/components/auth/PermissionGate'
+import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import RedeemGiftModal from './RedeemGiftModal'
 import VoucherModal from './VoucherModal'
 import { useGiftShop } from '../hooks/useGifts'
@@ -18,6 +20,12 @@ export default function GiftShopGrid({ balance }: GiftShopGridProps) {
   // cách chắc chắn nhất để họ tưởng đổi hụt và gọi cho bộ phận hỗ trợ.
   const [issued, setIssued] = useState<Redemption | null>(null)
   const { data: gifts, isLoading } = useGiftShop()
+
+  // Thiếu điểm chỉ là ngõ cụt khi tổ chức KHÔNG bật ví tiền. Bật rồi thì nhân viên mua
+  // thêm điểm ngay trong hộp thoại đổi quà, nên thẻ quà đắt hơn số dư vẫn phải bấm được.
+  const { hasPermission, user } = useHasPermission()
+  const { data: org } = useOrganization(user?.memberships?.[0]?.organizationId)
+  const canTopUp = !!org?.enableCashWallet && hasPermission('WALLET:VIEW_MY')
 
   if (isLoading) return <LoadingSkeleton type="card" rows={3} />
 
@@ -41,6 +49,8 @@ export default function GiftShopGrid({ balance }: GiftShopGridProps) {
           // thiếu điểm thì tích thêm là đổi được. Phải nói rõ là cái nào.
           const outOfStock = !gift.available
           const cannotAfford = !outOfStock && shortBy > 0
+          // Thiếu điểm mà bù được thì không chặn nút — chỉ báo trước là sẽ phải nạp thêm.
+          const blockedByPoints = cannotAfford && !canTopUp
 
           return (
             <div
@@ -123,19 +133,27 @@ export default function GiftShopGrid({ balance }: GiftShopGridProps) {
 
                 <div className="mt-4 flex-1" />
 
-                {cannotAfford ? (
+                {blockedByPoints ? (
                   <div className="rounded-lg bg-[var(--color-muted)] px-3 py-2 text-center text-sm text-[var(--color-muted-foreground)]">
                     Còn thiếu {shortBy.toLocaleString('vi-VN')} điểm
                   </div>
                 ) : (
-                  <button
-                    onClick={() => setRedeeming(gift)}
-                    disabled={outOfStock}
-                    className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-                  >
-                    <Gift size={16} />
-                    {outOfStock ? 'Hết hàng' : 'Đổi quà'}
-                  </button>
+                  <>
+                    {cannotAfford && (
+                      <p className="mb-2 flex items-center justify-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
+                        <Wallet size={12} />
+                        Thiếu {shortBy.toLocaleString('vi-VN')} điểm — nạp thêm khi đổi
+                      </p>
+                    )}
+                    <button
+                      onClick={() => setRedeeming(gift)}
+                      disabled={outOfStock}
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <Gift size={16} />
+                      {outOfStock ? 'Hết hàng' : 'Đổi quà'}
+                    </button>
+                  </>
                 )}
               </div>
             </div>
@@ -146,6 +164,7 @@ export default function GiftShopGrid({ balance }: GiftShopGridProps) {
       <RedeemGiftModal
         gift={redeeming}
         balance={balance}
+        canTopUp={canTopUp}
         onClose={() => setRedeeming(null)}
         onVoucherIssued={setIssued}
       />

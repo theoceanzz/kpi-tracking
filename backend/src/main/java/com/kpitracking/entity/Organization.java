@@ -93,6 +93,14 @@ public class Organization {
     @Builder.Default
     private Integer kpiReminderPercentage = 50;
 
+    /**
+     * Nhắc trưởng đơn vị chấm/chốt trước ngày kết thúc đợt-kỳ bao nhiêu ngày. 0 = tắt.
+     * Cùng khuôn với {@code kpiReminderPercentage}: một con số cho cả tổ chức.
+     */
+    @Column(name = "evaluation_reminder_days")
+    @Builder.Default
+    private Integer evaluationReminderDays = 3;
+
     @Column(name = "enable_okr")
     @Builder.Default
     private Boolean enableOkr = false;
@@ -168,6 +176,59 @@ public class Organization {
 
     @Column(name = "sepay_account_holder")
     private String sepayAccountHolder;
+
+    // ===== Biên nhận thu tiền nạp ví =====
+    //
+    // Các trường dưới đây là nội dung BẮT BUỘC của một chứng từ thu tiền theo Điều 10 Nghị định
+    // 123/2020/NĐ-CP. Chúng nằm ở tổ chức chứ không phải hằng số vì mỗi tổ chức là một pháp nhân
+    // khác nhau, và được CHỤP LẠI vào từng biên nhận lúc lập (xem {@code TopupReceipt}).
+
+    /**
+     * Gửi biên nhận cho mỗi lần nạp tiền thành công. Bật sẵn: người vừa chuyển tiền thật cho
+     * công ty có quyền nhận một chứng từ, và tổ chức nào đã phát hành hoá đơn điện tử qua nhà
+     * cung cấp riêng thì tắt đi để khỏi gửi hai loại giấy cho cùng một khoản.
+     */
+    @Column(name = "receipt_enabled", nullable = false)
+    @Builder.Default
+    private Boolean receiptEnabled = true;
+
+    /**
+     * Tên pháp nhân trên chứng từ, theo giấy đăng ký kinh doanh. Bỏ trống thì dùng {@link #name} —
+     * tên thương hiệu thường trùng tên pháp nhân, và một chứng từ có tên gần đúng vẫn hơn hẳn
+     * một chứng từ trống tên người bán.
+     */
+    @Column(name = "legal_name")
+    private String legalName;
+
+    /** Địa chỉ trụ sở ghi trên chứng từ. */
+    @Column(name = "business_address", columnDefinition = "text")
+    private String businessAddress;
+
+    @Column(name = "contact_phone", length = 50)
+    private String contactPhone;
+
+    /** Tiền tố ký hiệu chứng từ; ký hiệu đầy đủ là tiền tố + năm lập, VD {@code PT2026}. */
+    @Column(name = "receipt_series_prefix", nullable = false, length = 10)
+    @Builder.Default
+    private String receiptSeriesPrefix = "PT";
+
+    /**
+     * Thuế suất phần trăm áp cho khoản tiền nạp ví.
+     *
+     * <p>Mặc định 0 vì nạp ví là khoản THU TRƯỚC — chưa cung cấp hàng hoá dịch vụ nào nên chưa
+     * phát sinh nghĩa vụ thuế; nghĩa vụ đó phát sinh lúc nhân viên đổi điểm lấy quà. Tổ chức nào
+     * được tư vấn khác thì đặt lại ở đây.
+     */
+    @Column(name = "receipt_vat_rate", nullable = false)
+    @Builder.Default
+    private Integer receiptVatRate = 0;
+
+    /** Người đứng tên lập chứng từ, VD "Phòng Kế toán". */
+    @Column(name = "receipt_issuer_name")
+    private String receiptIssuerName;
+
+    @Column(name = "receipt_issuer_title", length = 120)
+    private String receiptIssuerTitle;
 
     // ===== Hạn mức token AI =====
 

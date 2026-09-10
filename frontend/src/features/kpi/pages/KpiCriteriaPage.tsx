@@ -5,6 +5,7 @@ import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import { DatePicker } from '@/components/common/DateTimePicker'
 import EmptyState from '@/components/common/EmptyState'
 import KpiFormModal from '../components/KpiFormModal'
+import BscKpiSplitModal from '../components/BscKpiSplitModal'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
 import { useKpiCriteria } from '../hooks/useKpiCriteria'
 import { useAuthStore } from '@/store/authStore'
@@ -23,6 +24,7 @@ import KpiDetailModal from '../components/KpiDetailModal'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { kpiApi } from '../api/kpiApi'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/apiError'
 import KpiImportGuideModal from '../components/KpiImportGuideModal'
 import UrgentTaskModal from '../components/UrgentTaskModal'
 import { useKpiPeriods } from '../hooks/useKpiPeriods'
@@ -98,6 +100,7 @@ export default function KpiCriteriaPage() {
   const [showBulkConfirm, setShowBulkConfirm] = useState(false)
   const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false)
   const [showUrgentModal, setShowUrgentModal] = useState(false)
+  const [showBscSplit, setShowBscSplit] = useState(false)
   const [collapsedParents, setCollapsedParents] = useState<Set<string>>(new Set())
   
   const [activeTab, setActiveTab] = useState<'ALL' | 'DRAFT' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED'>('ALL')
@@ -124,6 +127,9 @@ export default function KpiCriteriaPage() {
   const qc = useQueryClient()
 
   const user = useAuthStore(s => s.user)
+  const { hasPermission } = usePermission()
+  /** Người lập bộ tiêu chí của đơn vị (hoặc quản trị BSC) — chỉ họ mới chia hạng mục thành KPI. */
+  const canSplitBsc = hasPermission('BSC:MANAGE_UNIT') || hasPermission('BSC:MANAGE')
 
   const organizationId = user?.memberships?.[0]?.organizationId
   const { data: org } = useOrganization(organizationId)
@@ -255,9 +261,8 @@ export default function KpiCriteriaPage() {
         result.errors.forEach((e) => toast.error(e))
       }
     },
-    onError: (error: any) => {
-      const errorMessage = error?.response?.data?.message || error?.message || 'Import thất bại'
-      toast.error(errorMessage)
+    onError: (error) => {
+      toast.error(getApiErrorMessage(error, 'Import thất bại'))
     },
   })
 
@@ -735,6 +740,16 @@ export default function KpiCriteriaPage() {
                       className="cursor-pointer flex items-center gap-2 px-4 h-11 rounded-2xl bg-amber-500 text-white text-xs font-black hover:bg-amber-600 transition-all shadow-sm shadow-amber-500/20 active:scale-95"
                     >
                       <Zap size={16} /> <span className="hidden sm:inline">Task khẩn</span>
+                    </button>
+                  )}
+
+                  {enableBsc && canSplitBsc && (
+                    <button
+                      onClick={() => setShowBscSplit(true)}
+                      title="Lấy mục tiêu của một hạng mục BSC và chia ra KPI theo từng đợt"
+                      className="cursor-pointer flex items-center gap-2 px-4 h-11 rounded-2xl bg-violet-600 text-white text-xs font-black hover:bg-violet-700 transition-all shadow-sm shadow-violet-500/20 active:scale-95"
+                    >
+                      <LayoutGrid size={16} /> <span className="hidden sm:inline">Từ hạng mục BSC</span>
                     </button>
                   )}
 
@@ -1235,7 +1250,9 @@ export default function KpiCriteriaPage() {
           editKpi={editKpi}
           parentKpi={delegateKpi || decomposeKpi}
           parentRelationType={delegateKpi ? 'DELEGATION' : decomposeKpi ? 'DECOMPOSITION' : undefined}
+          onSplitFromBsc={enableBsc && canSplitBsc ? () => { setShowForm(false); setEditKpi(null); setShowBscSplit(true) } : undefined}
         />
+        <BscKpiSplitModal open={showBscSplit} onClose={() => setShowBscSplit(false)} />
         <KpiImportGuideModal 
           open={showImportGuide} 
           onClose={() => setShowImportGuide(false)} 

@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { okrApi } from '../api/okr.api'
 import { ObjectiveRequest, KeyResultRequest } from '../types'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/apiError'
 
 export function useObjectives(organizationId?: string) {
   return useQuery({
@@ -22,7 +23,7 @@ export function useOkrMutations() {
       toast.success('Tạo mục tiêu thành công')
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Tạo mục tiêu thất bại')
+      toast.error(getApiErrorMessage(error, 'Tạo mục tiêu thất bại'))
     }
   })
 
@@ -34,7 +35,7 @@ export function useOkrMutations() {
       toast.success('Cập nhật mục tiêu thành công')
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Cập nhật mục tiêu thất bại')
+      toast.error(getApiErrorMessage(error, 'Cập nhật mục tiêu thất bại'))
     }
   })
 
@@ -45,7 +46,7 @@ export function useOkrMutations() {
       toast.success('Xóa mục tiêu thành công')
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Xóa mục tiêu thất bại')
+      toast.error(getApiErrorMessage(error, 'Xóa mục tiêu thất bại'))
     }
   })
 
@@ -56,7 +57,7 @@ export function useOkrMutations() {
       toast.success('Tạo kết quả then chốt thành công')
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Tạo kết quả then chốt thất bại')
+      toast.error(getApiErrorMessage(error, 'Tạo kết quả then chốt thất bại'))
     }
   })
 
@@ -68,7 +69,7 @@ export function useOkrMutations() {
       toast.success('Cập nhật kết quả then chốt thành công')
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Cập nhật kết quả then chốt thất bại')
+      toast.error(getApiErrorMessage(error, 'Cập nhật kết quả then chốt thất bại'))
     }
   })
 
@@ -79,7 +80,7 @@ export function useOkrMutations() {
       toast.success('Xóa kết quả then chốt thành công')
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Xóa kết quả then chốt thất bại')
+      toast.error(getApiErrorMessage(error, 'Xóa kết quả then chốt thất bại'))
     }
   })
 
@@ -94,7 +95,7 @@ export function useOkrMutations() {
       }
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Import thất bại')
+      toast.error(getApiErrorMessage(error, 'Import thất bại'))
     }
   })
 

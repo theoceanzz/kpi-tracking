@@ -17,6 +17,7 @@ import EmptyState from '@/components/common/EmptyState'
 import { useUrboxCatalog, useUrboxCategories, useUrboxImport, useUrboxStatus } from '../hooks/useUrbox'
 import { htmlToText } from '../utils/html'
 import type { UrboxGift } from '../types'
+import { getApiErrorMessage } from '@/lib/apiError'
 
 interface UrboxCatalogModalProps {
   open: boolean
@@ -174,8 +175,7 @@ export default function UrboxCatalogModal({ open, onClose }: UrboxCatalogModalPr
               // không có nút này thì người dùng kẹt luôn cho tới khi đóng mở modal.
               <div className="space-y-3 rounded-xl border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-700">
                 <p>
-                  {(error as any)?.response?.data?.message ??
-                    'Không đọc được kho quà UrBox. Kiểm tra lại cấu hình kết nối.'}
+                  {getApiErrorMessage(error, 'Không đọc được kho quà UrBox. Kiểm tra lại cấu hình kết nối.')}
                 </p>
                 <button
                   onClick={() => refetch()}

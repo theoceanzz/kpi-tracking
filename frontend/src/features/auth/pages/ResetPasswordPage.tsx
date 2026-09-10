@@ -5,6 +5,7 @@ import { resetPasswordSchema, type ResetPasswordFormData } from '../schemas/auth
 import { useMutation } from '@tanstack/react-query'
 import { authApi } from '../api/authApi'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/apiError'
 import { useSearchParams, Link, useNavigate } from 'react-router-dom'
 import { Loader2, Lock, ShieldCheck, Key, Eye, EyeOff, Wand2, Check, X } from 'lucide-react'
 
@@ -76,7 +77,7 @@ export default function ResetPasswordPage() {
         state: { password: variables.newPassword }
       }), 2000) 
     },
-    onError: () => toast.error('Cập nhật thất bại. Vui lòng xác minh lại mã khôi phục.'),
+    onError: (error) => toast.error(getApiErrorMessage(error, 'Cập nhật mật khẩu thất bại, vui lòng xác minh lại mã khôi phục.')),
   })
 
   const inputCls = "w-full pl-10 pr-4 py-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-background)] text-sm focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] outline-none transition-all shadow-sm"

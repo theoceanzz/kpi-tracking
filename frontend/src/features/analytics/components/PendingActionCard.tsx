@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import { AlertTriangle, Check, ShieldCheck } from 'lucide-react'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/apiError'
 import { aiApi, type PendingAction } from '../api/aiApi'
 
 interface Props {
@@ -72,8 +73,7 @@ export default function PendingActionCard({ action, onDone, consumed }: Props) {
       else toast.success(res.text)
     } catch (e) {
       const message =
-        (e as { response?: { data?: { message?: string } } })?.response?.data?.message ??
-        'Không thực hiện được. Bạn thử lại giúp mình nhé.'
+        getApiErrorMessage(e, 'Không thực hiện được. Bạn thử lại giúp mình nhé.')
       setResult(message)
       toast.error(message)
     } finally {

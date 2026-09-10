@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { X, Loader2, TrendingDown, TrendingUp, ShieldAlert, PenLine, Undo2 } from 'lucide-react'
+import { X, Loader2, ShieldAlert, PenLine, Undo2 } from 'lucide-react'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
@@ -29,9 +29,9 @@ const fmt = (v?: number | null, digits = 1) => (v == null ? '—' : v.toFixed(di
 /**
  * Diễn giải đầy đủ điểm của một cá nhân — màn hình quyết định nhân viên có chấp nhận kết quả hay không.
  *
- * <p>Trình bày đúng thứ tự ba bước của mô hình: điểm gốc → cap 120 → ×hệ số phòng → ×hệ số công ty
- * → điểm công nhận → ghi đè. Hạng mục chặn nằm TÁCH RIÊNG bên dưới vì nó không đụng vào điểm,
- * chỉ hạ trần xếp loại — vẽ nó như một bước trừ điểm là mô tả sai mô hình.
+ * <p>Trình bày đúng thứ tự của mô hình: điểm gốc → cap 120 → điểm công nhận → ghi đè. Điểm cá nhân
+ * KHÔNG bị nhân hệ số của phòng/công ty. Hạng mục chặn nằm TÁCH RIÊNG bên dưới vì nó không đụng vào
+ * điểm, chỉ hạ trần xếp loại — vẽ nó như một bước trừ điểm là mô tả sai mô hình.
  */
 export default function BscWaterfallModal({ open, onClose, evaluationId }: BscWaterfallModalProps) {
   const { data, isLoading } = useWaterfall(open && evaluationId ? evaluationId : undefined)
@@ -114,39 +114,23 @@ export default function BscWaterfallModal({ open, onClose, evaluationId }: BscWa
                 )
               })()}
 
-              {/* ── Chuỗi ba bước ─────────────────────────────── */}
+              {/* ── Chuỗi tính điểm ───────────────────────────── */}
               <div className="rounded-2xl border border-slate-100 dark:border-slate-800 overflow-hidden">
                 <Step
                   label="Điểm gốc của nhân viên"
                   value={fmt(data.rawBscScore)}
-                  hint="Điểm BSC tính từ KPI cá nhân, trước mọi hệ số"
+                  hint="Điểm BSC tính từ KPI cá nhân"
                 />
                 <Step
                   label={`Chặn trần ${fmt(data.recognizedCapPercent, 0)}`}
                   value={fmt(data.cappedScore)}
-                  hint="Vượt trần thì cắt về trần trước khi nhân hệ số"
+                  hint="Vượt trần thì cắt về trần"
                   muted={data.rawBscScore != null && data.cappedScore != null && data.rawBscScore <= data.cappedScore}
-                />
-                <Step
-                  label="× Hệ số phòng ban"
-                  value={data.unitFactor == null ? '—' : `× ${data.unitFactor.toFixed(2)}`}
-                  hint={data.unitAchievementPercent == null
-                    ? 'Chưa có kết quả BSC của đơn vị cho đợt này'
-                    : `BSC đơn vị ${fmt(data.unitAchievementPercent)}%${data.unitBandLabel ? ` → dải "${data.unitBandLabel}"` : ''}`}
-                  direction={data.unitFactor}
-                />
-                <Step
-                  label="× Hệ số công ty"
-                  value={data.companyFactor == null ? '—' : `× ${data.companyFactor.toFixed(2)}`}
-                  hint={data.companyAchievementPercent == null
-                    ? 'Chưa có kết quả BSC công ty cho đợt này'
-                    : `BSC công ty ${fmt(data.companyAchievementPercent)}%${data.companyBandLabel ? ` → dải "${data.companyBandLabel}"` : ''}`}
-                  direction={data.companyFactor}
                 />
                 <Step
                   label="Điểm công nhận"
                   value={fmt(data.recognizedScore)}
-                  hint="MIN(gốc, trần) × hệ số phòng × hệ số công ty"
+                  hint="MIN(điểm gốc, trần) — kết quả BSC của phòng/công ty không nhân vào điểm cá nhân"
                   strong
                 />
                 {data.overrideScore != null && (
@@ -302,17 +286,14 @@ export default function BscWaterfallModal({ open, onClose, evaluationId }: BscWa
   )
 }
 
-function Step({ label, value, hint, strong, muted, accent, direction }: {
+function Step({ label, value, hint, strong, muted, accent }: {
   label: string
   value: string
   hint?: string
   strong?: boolean
   muted?: boolean
   accent?: 'amber'
-  /** Hệ số: >1 tô xanh, <1 tô đỏ — người đọc thấy ngay bước nào kéo điểm lên hay xuống. */
-  direction?: number | null
 }) {
-  const trend = direction == null ? null : direction > 1 ? 'up' : direction < 1 ? 'down' : null
   return (
     <div className={cn('flex items-center gap-3 px-4 py-2.5 border-b last:border-b-0 border-slate-100 dark:border-slate-800',
       strong && 'bg-slate-50/70 dark:bg-slate-800/40',
@@ -324,8 +305,6 @@ function Step({ label, value, hint, strong, muted, accent, direction }: {
         </p>
         {hint && <p className="text-[10px] font-medium text-slate-400 truncate">{hint}</p>}
       </div>
-      {trend === 'up' && <TrendingUp size={13} className="text-emerald-500 shrink-0" />}
-      {trend === 'down' && <TrendingDown size={13} className="text-red-500 shrink-0" />}
       <span className={cn('shrink-0 tabular-nums',
         strong ? 'text-base font-black text-slate-900 dark:text-white' : 'text-sm font-bold text-slate-700 dark:text-slate-200')}>
         {value}

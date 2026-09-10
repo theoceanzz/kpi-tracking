@@ -17,12 +17,27 @@ import { useBscMutations, useBscPerspectives, useFixedPerspectives, useScorecard
 import PerspectiveFormModal from './PerspectiveFormModal'
 import { scorecardSchema, type ScorecardFormData, type WeightRow } from '../schemas/scorecardSchema'
 import { toastFirstError } from '@/lib/formErrors'
+import { SCORECARD_STATUS_CHOICES, scorecardStatusMeta } from '../utils/scorecardStatus'
 import FixedPerspectiveFormModal from './FixedPerspectiveFormModal'
 import {
   ScorecardResponse, ScorecardRequest, BscScorecardStatus, BscScoringMode, BscEmptyPerspectivePolicy,
   BscFixedPerspective, PerspectiveResponse, FixedPerspectiveResponse, BscScorecardApplyScope,
   ScorecardPerspectiveResponse, BscItemOrigin, BscGateEffect, BscGateScope, BscMeasurementSource,
 } from '../types'
+
+/**
+ * Vì sao ô trạng thái bị khoá, nói theo đúng trạng thái đang có và chỉ luôn nút cần bấm.
+ * Câu chung chung "đổi qua luồng duyệt" không giúp người dùng biết phải bấm gì, ở đâu.
+ */
+const STATUS_LOCK_HINT: Partial<Record<BscScorecardStatus, string>> = {
+  [BscScorecardStatus.SUBMITTED]: 'Đang chờ cấp trên duyệt. Cấp trên bấm Duyệt là thẻ áp dụng luôn.',
+  [BscScorecardStatus.ACTIVE]: 'Đang được dùng để chấm điểm. Muốn dừng thì bấm Khoá ở hàng thẻ trên cây.',
+  [BscScorecardStatus.LOCKED]: 'Đã khoá. Bấm Mở khoá ở hàng thẻ trên cây để sửa tiếp.',
+  [BscScorecardStatus.APPROVED]: 'Thẻ cũ còn ở bước chờ áp dụng — bấm Áp dụng ở hàng thẻ trên cây.',
+  [BscScorecardStatus.CLOSED]: 'Đã đóng. Bấm Áp dụng ở hàng thẻ trên cây để mở lại.',
+}
+
+const STATUS_LOCK_HINT_DEFAULT = 'Đổi trạng thái bằng các nút trên hàng thẻ ở cây BSC.'
 
 interface ScorecardFormModalProps {
   isOpen: boolean
@@ -82,6 +97,25 @@ const toRow = (
   enabled,
 })
 
+/**
+ * Hạng mục có mặt trong bộ tiêu chí nhưng chưa KPI nào gắn vào thì tính điểm ra sao.
+ *
+ * <p>Ví dụ dùng chung một tình huống để hai lựa chọn so được với nhau: bộ tiêu chí 4 hạng mục
+ * mỗi hạng mục 25%, chỉ Tài chính có KPI và đạt 150%.
+ */
+const EMPTY_POLICY_META: Record<BscEmptyPerspectivePolicy, { short: string; desc: string; example: string }> = {
+  [BscEmptyPerspectivePolicy.RENORMALIZE]: {
+    short: 'Bỏ qua hạng mục đó (khuyên dùng)',
+    desc: 'Điểm chỉ tính trên phần trọng số có KPI rồi quy về thang 100 — hạng mục rỗng không kéo điểm xuống.',
+    example: 'VD: 4 hạng mục mỗi cái 25%, chỉ Tài chính có KPI và đạt 150% ⇒ điểm BSC = 150.',
+  },
+  [BscEmptyPerspectivePolicy.ZERO_FILL]: {
+    short: 'Tính 0 điểm',
+    desc: 'Hạng mục rỗng vẫn giữ nguyên trọng số nhưng tính 0 điểm, nên kéo điểm chung xuống.',
+    example: 'VD: 4 hạng mục mỗi cái 25%, chỉ Tài chính có KPI và đạt 150% ⇒ điểm BSC = 37.5.',
+  },
+}
+
 export default function ScorecardFormModal({ isOpen, onClose, organizationId, scorecard, autoCreateFixed }: ScorecardFormModalProps) {
   const { data: periodsData } = useKpiPeriods({ organizationId, size: 200, sortBy: 'startDate', direction: 'desc' })
   const { data: cyclesData } = useKpiCycles({ organizationId, size: 200, sortBy: 'startDate', direction: 'desc' })
@@ -93,6 +127,7 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
   const { hasPermission } = usePermission()
   const { user } = useAuthStore()
   const canManage = hasPermission('BSC:MANAGE')
+  const canApprove = hasPermission('BSC:APPROVE')
 
   // Cây đơn vị phẳng GỒM cả node gốc (level 0) — mirror OKR để chọn nhiều & tick cha chọn hết con.
   const flatOrgUnits = useMemo(() => {
@@ -126,6 +161,15 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
   const cycleId = watch('cycleId')
   const scopes = watch('scopes')
   const status = watch('status')
+  /**
+   * Ô trạng thái chỉ mở khi thẻ CHƯA vào luồng trình–duyệt.
+   *
+   * Trạng thái hiện tại đọc từ dữ liệu server (`scorecard`), không phải từ giá trị đang chọn trong
+   * form — lấy theo form thì vừa chọn "Nháp" một cái là ô tự mở khoá cho chính lần chọn đó.
+   */
+  const statusEditable = !scorecard
+    || scorecard.status === BscScorecardStatus.DRAFT
+    || scorecard.status === BscScorecardStatus.ARCHIVED
   const emptyPolicy = watch('emptyPolicy')
   const rows = watch('rows')
 
@@ -751,24 +795,77 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-1.5">
                 <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Trạng thái</label>
-                <Select value={status} onValueChange={v => setValue('status', v as BscScorecardStatus)}>
-                  <SelectTrigger className="w-full h-10 rounded-xl bg-slate-50 dark:bg-slate-800 border-slate-100 dark:border-slate-700 text-sm font-bold outline-none"><SelectValue /></SelectTrigger>
-                  <SelectContent className="rounded-xl border-slate-200 dark:border-slate-800">
-                    <SelectItem value={BscScorecardStatus.DRAFT} className="text-sm font-bold text-slate-500">Nháp</SelectItem>
-                    <SelectItem value={BscScorecardStatus.ACTIVE} className="text-sm font-bold text-emerald-600">Đang áp dụng</SelectItem>
-                    <SelectItem value={BscScorecardStatus.ARCHIVED} className="text-sm font-bold text-amber-600">Lưu trữ</SelectItem>
-                  </SelectContent>
-                </Select>
+                {/* Trạng thái do LUỒNG TRÌNH – DUYỆT quyết định, không phải một ô chọn trong form.
+                    Chỉ sửa được khi thẻ CHƯA vào luồng (nháp / lưu trữ) và người sửa có quyền duyệt —
+                    người quản trị dựng thẻ mới thì đặt thẳng "Đang áp dụng" cho nhanh.
+
+                    Thẻ đã vào luồng thì ô này chỉ để ĐỌC: kéo một thẻ đang áp dụng về nháp ngay
+                    trong form là rút bộ tiêu chí khỏi việc chấm điểm mà không ai được báo, trong
+                    khi hàng nút trên cây đã có sẵn Khoá / Trả lại cho đúng việc đó. */}
+                {canApprove && statusEditable ? (
+                  <Select value={status} onValueChange={v => setValue('status', v as BscScorecardStatus)}>
+                    <SelectTrigger className="w-full h-10 rounded-xl bg-slate-50 dark:bg-slate-800 border-slate-100 dark:border-slate-700 text-sm font-bold outline-none"><SelectValue /></SelectTrigger>
+                    <SelectContent className="rounded-xl border-slate-200 dark:border-slate-800">
+                      {SCORECARD_STATUS_CHOICES.map(value => (
+                        <SelectItem key={value} value={value} className={cn('text-sm font-bold', scorecardStatusMeta(value).textClass)}>
+                          {scorecardStatusMeta(value).label}
+                        </SelectItem>
+                      ))}
+                      {/* Thẻ đang ở giữa luồng (Chờ duyệt / Đã duyệt / Đã khoá): thêm đúng trạng
+                          thái đó dưới dạng KHÔNG bấm được, để trigger có chữ thay vì rỗng. Muốn
+                          đổi thì dùng nút duyệt/khoá ở tab Cây phân rã. */}
+                      {!SCORECARD_STATUS_CHOICES.includes(status) && (
+                        <SelectItem value={status} disabled
+                          className={cn('text-sm font-bold', scorecardStatusMeta(status).textClass)}>
+                          {scorecardStatusMeta(status).label} · đổi qua luồng duyệt
+                        </SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
+                ) : (
+                  <>
+                    <div className="w-full h-10 px-4 rounded-xl bg-slate-100 dark:bg-slate-800/60 border border-slate-100 dark:border-slate-700 flex items-center gap-2">
+                      <Lock size={13} className="text-slate-400 shrink-0" />
+                      <span className={cn('text-sm font-bold', scorecardStatusMeta(status).textClass)}>
+                        {scorecardStatusMeta(status).label}
+                      </span>
+                    </div>
+                    <p className="text-[10px] font-medium text-slate-400 ml-1 leading-relaxed">
+                      {STATUS_LOCK_HINT[status] ?? STATUS_LOCK_HINT_DEFAULT}
+                    </p>
+                  </>
+                )}
               </div>
               <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Chính sách hạng mục rỗng</label>
+                {/* "Chính sách hạng mục rỗng / Chuẩn hoá lại" là chữ của mô hình dữ liệu, người
+                    dùng cuối không đọc ra được hệ quả. Đổi thành câu hỏi đúng tình huống họ gặp,
+                    mỗi lựa chọn kèm một dòng nói rõ điểm bị ảnh hưởng thế nào. */}
+                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                  Khi một hạng mục chưa có KPI nào
+                </label>
                 <Select value={emptyPolicy} onValueChange={v => setValue('emptyPolicy', v as BscEmptyPerspectivePolicy)}>
-                  <SelectTrigger className="w-full h-10 rounded-xl bg-slate-50 dark:bg-slate-800 border-slate-100 dark:border-slate-700 text-sm font-bold outline-none"><SelectValue /></SelectTrigger>
+                  <SelectTrigger className="w-full h-10 rounded-xl bg-slate-50 dark:bg-slate-800 border-slate-100 dark:border-slate-700 text-sm font-bold outline-none">
+                    <SelectValue />
+                  </SelectTrigger>
                   <SelectContent className="rounded-xl border-slate-200 dark:border-slate-800">
-                    <SelectItem value={BscEmptyPerspectivePolicy.RENORMALIZE} className="text-sm font-bold">Chuẩn hóa lại (khuyên dùng)</SelectItem>
-                    <SelectItem value={BscEmptyPerspectivePolicy.ZERO_FILL} className="text-sm font-bold">Tính 0 điểm</SelectItem>
+                    {/* Dòng mô tả đi qua `extra` chứ không nằm trong children: children bị nhân bản
+                        vào ô trigger, để cả đoạn giải thích ở đó là vỡ ô cao 40px. */}
+                    {([BscEmptyPerspectivePolicy.RENORMALIZE, BscEmptyPerspectivePolicy.ZERO_FILL]).map(key => (
+                      <SelectItem key={key} value={key}
+                        className="text-sm font-bold flex-col items-start gap-0.5 py-2 pr-3"
+                        extra={(
+                          <span className="block text-[10px] font-medium text-slate-400 max-w-[20rem] whitespace-normal leading-snug">
+                            {EMPTY_POLICY_META[key].desc}
+                          </span>
+                        )}>
+                        {EMPTY_POLICY_META[key].short}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
+                <p className="text-[10px] font-medium text-slate-400 ml-1 leading-relaxed">
+                  {EMPTY_POLICY_META[emptyPolicy]?.example}
+                </p>
               </div>
             </div>
 

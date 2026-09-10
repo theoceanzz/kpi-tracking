@@ -3,6 +3,7 @@ import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { Loader2, Upload, X, Trash2, RotateCcw } from 'lucide-react'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/apiError'
 import { certificateTemplateSchema, type CertificateTemplateFormData } from '../../schemas/certificateTemplateSchema'
 import { certificateApi } from '../../api/certificateApi'
 import { useCertificateTemplates } from '../../hooks/useCertificates'
@@ -208,7 +209,7 @@ export default function CertificateTemplateModal({
       if (slot === 'logo') setValue('logoUrl', url)
       if (slot === 'background') setValue('backgroundUrl', url)
     } catch (e: any) {
-      toast.error(e?.response?.data?.message || 'Tải ảnh thất bại')
+      toast.error(getApiErrorMessage(e, 'Tải ảnh thất bại'))
     } finally {
       setUploading(null)
     }

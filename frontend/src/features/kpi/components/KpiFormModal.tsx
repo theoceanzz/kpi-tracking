@@ -10,9 +10,10 @@ import { useAuthStore } from '@/store/authStore'
 import { useFormAssistStore } from '@/store/formAssistStore'
 import { usePermission } from '@/hooks/usePermission'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/apiError'
 import { FREQUENCY_MAP, cn, formatDateTime } from '@/lib/utils'
 import UserAvatar from '@/components/common/UserAvatar'
-import { Loader2, X, Check, Sparkles, Target, Users, LayoutGrid, SlidersHorizontal, BarChart3, RotateCcw, RefreshCw } from 'lucide-react'
+import { Loader2, X, Check, Sparkles, Target, Users, LayoutGrid, SlidersHorizontal, BarChart3, RotateCcw, RefreshCw, SplitSquareHorizontal } from 'lucide-react'
 import type { KpiCriteria } from '@/types/kpi'
 import { useState } from 'react'
 import { useKpiPeriods } from '../hooks/useKpiPeriods'
@@ -31,6 +32,11 @@ interface KpiFormModalProps {
   editKpi?: KpiCriteria | null
   parentKpi?: KpiCriteria | null
   parentRelationType?: 'DELEGATION' | 'DECOMPOSITION'
+  /**
+   * Chuyển sang màn chia hạng mục BSC thành KPI theo đợt. Bỏ trống (hoặc org chưa bật BSC) thì
+   * nút không hiện — form này vẫn tạo được KPI thường như cũ.
+   */
+  onSplitFromBsc?: () => void
 }
 
 const frequencyOptions = (['DAILY', 'WEEKLY', 'MONTHLY', 'QUARTERLY', 'SEMI_ANNUALLY', 'YEARLY', 'UNLIMITED'] as const).map(value => ({
@@ -52,7 +58,7 @@ function toDatetimeLocal(value?: string | null): string | undefined {
 }
 
 
-export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parentRelationType }: KpiFormModalProps) {
+export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parentRelationType, onSplitFromBsc }: KpiFormModalProps) {
   const isEdit = !!editKpi
   const qc = useQueryClient()
   const { user } = useAuthStore()
@@ -270,9 +276,8 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
       setBeforeApply(null)
       onClose()
     },
-    onError: (err: any) => {
-      const msg = err?.response?.data?.message || 'Tạo chỉ tiêu thất bại'
-      toast.error(msg)
+    onError: (err) => {
+      toast.error(getApiErrorMessage(err, 'Tạo chỉ tiêu thất bại'))
     },
   })
 
@@ -283,9 +288,8 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
       toast.success('Cập nhật thành công')
       onClose() 
     },
-    onError: (err: any) => {
-      const msg = err?.response?.data?.message || 'Cập nhật thất bại'
-      toast.error(msg)
+    onError: (err) => {
+      toast.error(getApiErrorMessage(err, 'Cập nhật chỉ tiêu thất bại'))
     },
   })
 
@@ -539,7 +543,7 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
         toast.info('AI không tìm thấy gợi ý phù hợp lúc này')
       }
     } catch (err: any) {
-      toast.error(err?.response?.data?.message || 'Lỗi khi lấy gợi ý từ AI')
+      toast.error(getApiErrorMessage(err, 'Lỗi khi lấy gợi ý từ AI'))
     } finally {
       setIsSuggesting(false)
     }
@@ -1321,9 +1325,23 @@ export default function KpiFormModal({ open, onClose, editKpi, parentKpi, parent
 
           {!isPendingApproval && enableBsc && (
             <div className="bg-violet-50/50 dark:bg-violet-900/5 p-4 rounded-2xl border border-violet-100 dark:border-violet-900/50 space-y-3">
-              <div className="flex items-center gap-2 text-violet-600 dark:text-violet-400">
-                <LayoutGrid size={16} />
-                <span className="text-[11px] font-black uppercase tracking-widest">Hạng mục BSC</span>
+              <div className="flex items-center justify-between gap-2 text-violet-600 dark:text-violet-400">
+                <div className="flex items-center gap-2">
+                  <LayoutGrid size={16} />
+                  <span className="text-[11px] font-black uppercase tracking-widest">Hạng mục BSC</span>
+                </div>
+                {/* Đường đi ngược: bắt đầu TỪ con số của hạng mục (VD doanh thu 100 triệu cho kỳ
+                    2 đợt) rồi chia ra KPI từng đợt, thay vì gõ tay rồi mới nhớ gán hạng mục. */}
+                {onSplitFromBsc && !isEdit && !parentKpi && (
+                  <button
+                    type="button"
+                    onClick={onSplitFromBsc}
+                    title="Lấy mục tiêu của hạng mục BSC và chia ra KPI theo từng đợt"
+                    className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl bg-violet-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-violet-700 transition-all active:scale-95"
+                  >
+                    <SplitSquareHorizontal size={13} /> Dùng hạng mục BSC
+                  </button>
+                )}
               </div>
               <div className="space-y-1">
                 <label className="block text-[10px] font-black text-slate-500 uppercase tracking-tight">Gắn chỉ tiêu vào hạng mục (theo lĩnh vực)</label>

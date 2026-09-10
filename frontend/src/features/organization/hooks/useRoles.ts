@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { roleApi, CreateRoleRequest, UpdateRoleRequest } from '../api/role.api'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/apiError'
 
 export function useRoles() {
   return useQuery({
@@ -18,7 +19,7 @@ export function useCreateRole() {
       toast.success('Thêm vai trò mới thành công')
     },
     onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'Có lỗi xảy ra khi thêm vai trò')
+      toast.error(getApiErrorMessage(error, 'Có lỗi xảy ra khi thêm vai trò'))
     }
   })
 }
@@ -40,7 +41,7 @@ export function useUpdateRole() {
       toast.success('Cập nhật vai trò thành công')
     },
     onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'Có lỗi xảy ra khi cập nhật vai trò')
+      toast.error(getApiErrorMessage(error, 'Có lỗi xảy ra khi cập nhật vai trò'))
     }
   })
 }
@@ -61,7 +62,7 @@ export function useDeleteRole() {
       toast.success('Xoá vai trò thành công')
     },
     onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'Không thể xoá vai trò')
+      toast.error(getApiErrorMessage(error, 'Không thể xoá vai trò'))
     }
   })
 }

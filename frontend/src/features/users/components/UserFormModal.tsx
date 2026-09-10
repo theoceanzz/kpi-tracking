@@ -15,6 +15,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { userApi } from '../api/userApi'
 import { roleApi } from '@/features/organization/api/role.api'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/apiError'
 import { Loader2, X, Eye, EyeOff, Wand2, Check, AlertCircle } from 'lucide-react'
 import { usePermission } from '@/hooks/usePermission'
 import { useAuthStore } from '@/store/authStore'
@@ -141,7 +142,7 @@ export default function UserFormModal({ open, onClose, editUser }: UserFormModal
       onClose()
     },
     onError: (error: any) => {
-      const errorMessage = error?.response?.data?.message || error?.message || 'Cập nhật thất bại'
+      const errorMessage = getApiErrorMessage(error, 'Cập nhật thất bại')
       toast.error(errorMessage)
     },
   })

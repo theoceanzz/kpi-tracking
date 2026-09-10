@@ -7,6 +7,7 @@ import { z } from 'zod'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { adjustmentApi } from '../api/adjustmentApi'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/apiError'
 import { 
   X, AlertCircle, Target, MessageSquare, 
   Send, Loader2, Info, BarChart3
@@ -74,8 +75,8 @@ export default function KpiAdjustmentModal({ open, onClose, kpi }: KpiAdjustment
       onClose()
       reset()
     },
-    onError: (err: any) => {
-      toast.error(err?.response?.data?.message || 'Gửi yêu cầu thất bại')
+    onError: (err) => {
+      toast.error(getApiErrorMessage(err, 'Gửi yêu cầu điều chỉnh thất bại'))
     }
   })
 

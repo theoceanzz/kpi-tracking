@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { permissionApi } from '../api/permission.api'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/apiError'
 
 export function useAllPermissions() {
   return useQuery({
@@ -27,7 +28,7 @@ export function useUpdateRolePermissions() {
       toast.success('Cập nhật phân quyền thành công')
     },
     onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'Có lỗi xảy ra khi cập nhật phân quyền')
+      toast.error(getApiErrorMessage(error, 'Có lỗi xảy ra khi cập nhật phân quyền'))
     }
   })
 }

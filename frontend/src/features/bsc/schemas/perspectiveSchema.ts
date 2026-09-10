@@ -48,9 +48,16 @@ export const createPerspectiveSchema = (
       .optional(),
     name: z.string().min(1, 'Vui lòng nhập tên hạng mục'),
     description: z.string().optional(),
-    targetValue: z.number().min(0, 'Mục tiêu mong muốn không được âm').nullable().optional(),
-    minimumValue: z.number().min(0, 'Kết quả tối thiểu không được âm').nullable().optional(),
-    unit: z.string().max(50, 'Đơn vị tính tối đa 50 ký tự').nullable().optional(),
+    // BẮT BUỘC: thiếu một trong ba thì dòng chỉ tiêu của đơn vị không quy ra %đạt được — nó chỉ
+    // rơi về trung bình tỉ lệ đạt của các KPI con, và người xem kết quả không biết "80" là 80 gì.
+    targetValue: z.number({ message: 'Vui lòng nhập mục tiêu mong muốn' })
+      .min(0, 'Mục tiêu mong muốn không được âm'),
+    minimumValue: z.number({ message: 'Vui lòng nhập kết quả tối thiểu' })
+      .min(0, 'Kết quả tối thiểu không được âm'),
+    unit: z.string({ message: 'Vui lòng nhập đơn vị tính' })
+      .trim()
+      .min(1, 'Vui lòng nhập đơn vị tính')
+      .max(50, 'Đơn vị tính tối đa 50 ký tự'),
     color: z.string().min(1, 'Vui lòng chọn màu sắc').regex(HEX_COLOR, 'Màu không hợp lệ'),
     icon: z.string().optional(),
     displayOrder: z.number({ message: 'Vui lòng nhập thứ tự hiển thị' })

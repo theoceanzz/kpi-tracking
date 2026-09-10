@@ -8,6 +8,7 @@ import {
   ChevronLeft, ChevronRight
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/apiError'
 import { cn } from '@/lib/utils'
 
 const STATUS_LABELS: Record<string, string> = {
@@ -104,7 +105,7 @@ export default function PlatformAdminPage() {
       qc.invalidateQueries({ queryKey: ['admin', 'organizations'] })
       qc.invalidateQueries({ queryKey: ['organization', variables.id] })
     },
-    onError: () => toast.error('Cập nhật thất bại'),
+    onError: (error) => toast.error(getApiErrorMessage(error, 'Cập nhật thất bại')),
   })
 
   const stats = statsRes?.data?.data

@@ -35,6 +35,12 @@ export default function SepayEventsTab() {
 
   const events = data?.content ?? []
 
+  // Hàng đợi chỉ chứa giao dịch đã quy được về công ty này. Chưa khai số tài khoản
+  // thì nó luôn trống KỂ CẢ khi tiền đã về thật, nên không được báo "sổ đã sạch" —
+  // đó đúng là lúc người dùng cần biết là chưa nối xong với SePay.
+  const notConfigured = reconcile ? !reconcile.bankConfigured : false
+  const allGood = !!reconcile?.clean && !notConfigured
+
   return (
     <div>
       {/* Đối soát sạch là bất biến của sổ tiền, nên nói thẳng ra chứ không bắt
@@ -43,18 +49,25 @@ export default function SepayEventsTab() {
         <div
           id="tour-sepay-status"
           className={`mb-5 flex flex-wrap items-center gap-3 rounded-2xl border px-5 py-4 text-sm ${
-            reconcile.clean
+            allGood
               ? 'border-emerald-500/40 bg-emerald-500/10'
               : 'border-amber-500/40 bg-amber-500/10'
           }`}
         >
-          {reconcile.clean ? (
+          {allGood ? (
             <CheckCircle2 size={18} className="text-emerald-600" />
           ) : (
             <ShieldAlert size={18} className="text-amber-600" />
           )}
           <span>
-            {reconcile.clean ? (
+            {notConfigured ? (
+              <>
+                Chưa khai số tài khoản nhận tiền trong <strong>Cấu hình ví</strong>. Giao dịch về
+                tài khoản chưa khai không hiện ở đây, kể cả khi tiền đã về — hãy lưu đúng số tài
+                khoản đã liên kết trên SePay, các giao dịch cũ của tài khoản đó sẽ tự được gán về
+                công ty.
+              </>
+            ) : reconcile.clean ? (
               <>Sổ cái ví tiền cân đối, không có giao dịch nào chờ xử lý.</>
             ) : (
               <>
@@ -100,9 +113,11 @@ export default function SepayEventsTab() {
           <EmptyState
             title={scope === 'queue' ? 'Không có gì cần xử lý' : 'Chưa có giao dịch SePay nào'}
             description={
-              scope === 'queue'
-                ? 'Mọi giao dịch chuyển khoản đều đã được ghi có đúng người.'
-                : 'Các callback từ SePay sẽ hiện ở đây ngay khi có tiền về.'
+              notConfigured
+                ? 'Chưa khai số tài khoản nhận tiền nên chưa giao dịch nào được quy về công ty này. Vào Cấu hình ví lưu đúng số tài khoản đã liên kết trên SePay.'
+                : scope === 'queue'
+                  ? 'Mọi giao dịch chuyển khoản đều đã được ghi có đúng người.'
+                  : 'Các callback từ SePay sẽ hiện ở đây ngay khi có tiền về.'
             }
           />
         </div>
@@ -145,14 +160,6 @@ export default function SepayEventsTab() {
                       </span>
                       {e.amountMismatch && (
                         <div className="mt-1 text-xs text-amber-600">Lệch số tiền</div>
-                      )}
-                      {/* Tiền về một tài khoản chưa ai khai. Phải nói ra ở bảng chứ
-                          không đợi tới lúc bấm xử lý mới báo, vì nó là dấu hiệu của
-                          cấu hình sai chứ không phải của một giao dịch cá biệt. */}
-                      {e.unattributed && (
-                        <div className="mt-1 text-xs text-[var(--color-muted-foreground)]">
-                          Chưa xác định tổ chức
-                        </div>
                       )}
                     </td>
                     <td className="px-4 py-3 text-xs">

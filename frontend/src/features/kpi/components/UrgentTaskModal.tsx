@@ -10,6 +10,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { kpiApi } from '../api/kpiApi'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/apiError'
 import { Loader2, X, AlertTriangle, ArrowLeftRight, SlidersHorizontal, Check, ShieldAlert, Target, Users, BarChart3 } from 'lucide-react'
 import { FREQUENCY_MAP, cn, formatNumber, formatDateTime } from '@/lib/utils'
 import UserAvatar from '@/components/common/UserAvatar'
@@ -364,7 +365,7 @@ function ReplaceTab({ kpiList, orgUnitId, period, enableOkr, enableQualitative, 
       reset()
       onSuccess()
     },
-    onError: (err: any) => toast.error(err?.response?.data?.message ?? 'Thay thế KPI thất bại')
+    onError: (err) => toast.error(getApiErrorMessage(err, 'Thay thế KPI thất bại'))
   })
 
   const activeKpis = kpiList.filter(k => k.status !== 'REPLACED' && k.status !== 'INACTIVE')
@@ -676,7 +677,7 @@ function AdjustTab({ kpiList, kpiPeriodId, orgUnitId, period, enableOkr, enableQ
       qc.invalidateQueries({ queryKey: ['stats'] })
       onSuccess()
     } catch (err: any) {
-      toast.error(err?.response?.data?.message ?? 'Có lỗi xảy ra')
+      toast.error(getApiErrorMessage(err, 'Cập nhật trọng số thất bại'))
     }
   }
 

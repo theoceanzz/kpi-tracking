@@ -7,18 +7,23 @@ interface ImportScorecardGuideModalProps {
   onSelectFile: () => void
 }
 
-const SAMPLE_CSV_CONTENT = `Period,ScorecardName,Vision,OrgUnits,PerspectiveCode,Weight,Status,ScoringMode,EmptyPolicy
-Quý 3/2026,Chiến lược Quý 3,Dẫn đầu thị phần khu vực,,DOANH_THU,40,ACTIVE,SHADOW,RENORMALIZE
-Quý 3/2026,,,,HAI_LONG_KH,30,,,
-Quý 3/2026,,,,VAN_HANH,20,,,
-Quý 3/2026,,,,DAO_TAO,10,,,`
+const SAMPLE_CSV_CONTENT = `Period,ScorecardName,Vision,OrgUnits,PerspectiveCode,PerspectiveName,FixedPerspective,Unit,Weight,Status,ScoringMode,EmptyPolicy
+Quý 3/2026,Chiến lược Quý 3,Dẫn đầu thị phần khu vực,,DOANH_THU,Doanh thu thuần,FINANCIAL,tỷ,40,ACTIVE,SHADOW,RENORMALIZE
+Quý 3/2026,,,,HAI_LONG_KH,Hài lòng khách hàng,CUSTOMER,%,30,,,
+Quý 3/2026,,,,VAN_HANH,Chuẩn hoá vận hành,INTERNAL_PROCESS,%,20,,,
+Quý 3/2026,,,,DAO_TAO,Đào tạo nội bộ,LEARNING_GROWTH,giờ,10,,,`
 
 const COLUMNS = [
   { name: 'Period', required: true, desc: 'Tên kỳ KPI (dùng để tìm kỳ & gom nhóm bộ tiêu chí)', example: 'Quý 3/2026' },
   { name: 'ScorecardName', required: true, desc: 'Tên bộ tiêu chí (ghi ở dòng đầu của mỗi kỳ)', example: 'Chiến lược Quý 3' },
   { name: 'Vision', required: false, desc: 'Tuyên bố chiến lược', example: 'Dẫn đầu thị phần' },
   { name: 'OrgUnits', required: false, desc: 'Mã phòng ban áp dụng (nhiều mã cách nhau dấu phẩy, ghi ở dòng đầu của mỗi kỳ). Bỏ trống = toàn tổ chức. Có thể chọn ở bảng xem trước.', example: 'IT, MKT' },
-  { name: 'PerspectiveCode', required: true, desc: 'Mã hạng mục (phải đã tạo trong tổ chức)', example: 'DOANH_THU' },
+  { name: 'PerspectiveCode', required: true, desc: 'Mã hạng mục. Chưa có trong tổ chức thì hệ thống TẠO MỚI theo các cột bên dưới', example: 'DOANH_THU' },
+  { name: 'PerspectiveName', required: false, desc: 'Tên hạng mục — BẮT BUỘC nếu mã chưa tồn tại; mã đã có thì để trống là giữ nguyên tên cũ', example: 'Doanh thu thuần' },
+  { name: 'FixedPerspective', required: false, desc: 'Lĩnh vực BSC: FINANCIAL / CUSTOMER / INTERNAL_PROCESS / LEARNING_GROWTH (mặc định INTERNAL_PROCESS)', example: 'FINANCIAL' },
+  { name: 'Unit', required: false, desc: 'Đơn vị tính của hạng mục', example: 'tỷ' },
+  { name: 'TargetValue', required: false, desc: 'Mục tiêu mong muốn của hạng mục', example: '100' },
+  { name: 'MinimumValue', required: false, desc: 'Kết quả tối thiểu của hạng mục', example: '80' },
   { name: 'Weight', required: true, desc: 'Trọng số % của hạng mục (tổng mỗi kỳ = 100)', example: '40' },
   { name: 'Status', required: false, desc: 'DRAFT / ACTIVE / ARCHIVED (mặc định DRAFT)', example: 'ACTIVE' },
   { name: 'ScoringMode', required: false, desc: 'SHADOW / OFFICIAL (mặc định SHADOW)', example: 'SHADOW' },
@@ -41,16 +46,19 @@ async function downloadTemplate(type: 'csv' | 'xlsx') {
     { header: 'Vision', key: 'Vision', width: 30 },
     { header: 'OrgUnits', key: 'OrgUnits', width: 20 },
     { header: 'PerspectiveCode', key: 'PerspectiveCode', width: 20 },
+    { header: 'PerspectiveName', key: 'PerspectiveName', width: 24 },
+    { header: 'FixedPerspective', key: 'FixedPerspective', width: 20 },
+    { header: 'Unit', key: 'Unit', width: 10 },
     { header: 'Weight', key: 'Weight', width: 12 },
     { header: 'Status', key: 'Status', width: 12 },
     { header: 'ScoringMode', key: 'ScoringMode', width: 14 },
     { header: 'EmptyPolicy', key: 'EmptyPolicy', width: 16 },
   ]
   worksheet.addRows([
-    ['Quý 3/2026', 'Chiến lược Quý 3', 'Dẫn đầu thị phần khu vực', '', 'DOANH_THU', 40, 'ACTIVE', 'SHADOW', 'RENORMALIZE'],
-    ['Quý 3/2026', '', '', '', 'HAI_LONG_KH', 30, '', '', ''],
-    ['Quý 3/2026', '', '', '', 'VAN_HANH', 20, '', '', ''],
-    ['Quý 3/2026', '', '', '', 'DAO_TAO', 10, '', '', ''],
+    ['Quý 3/2026', 'Chiến lược Quý 3', 'Dẫn đầu thị phần khu vực', '', 'DOANH_THU', 'Doanh thu thuần', 'FINANCIAL', 'tỷ', 40, 'ACTIVE', 'SHADOW', 'RENORMALIZE'],
+    ['Quý 3/2026', '', '', '', 'HAI_LONG_KH', 'Hài lòng khách hàng', 'CUSTOMER', '%', 30, '', '', ''],
+    ['Quý 3/2026', '', '', '', 'VAN_HANH', 'Chuẩn hoá vận hành', 'INTERNAL_PROCESS', '%', 20, '', '', ''],
+    ['Quý 3/2026', '', '', '', 'DAO_TAO', 'Đào tạo nội bộ', 'LEARNING_GROWTH', 'giờ', 10, '', '', ''],
   ])
   const headerRow = worksheet.getRow(1)
   headerRow.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 12 }
@@ -161,7 +169,7 @@ export default function ImportScorecardGuideModal({ open, onClose, onSelectFile 
               </div>
               <div className="flex items-start gap-3 p-3 rounded-xl bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-200/50 dark:border-emerald-900/30">
                 <CheckCircle2 size={16} className="text-emerald-600 mt-0.5 shrink-0" />
-                <p className="text-xs text-emerald-800 dark:text-emerald-300 leading-relaxed"><strong>PerspectiveCode</strong> phải là mã <strong>hạng mục</strong> đã tạo. Phòng ban áp dụng được chọn ở bảng xem trước sau khi chọn file. Định dạng import: <strong>.xlsx</strong>.</p>
+                <p className="text-xs text-emerald-800 dark:text-emerald-300 leading-relaxed">Một tệp làm cả hai việc: mã hạng mục <strong>chưa có</strong> thì được tạo mới từ cột <strong>PerspectiveName</strong> + <strong>FixedPerspective</strong>, mã <strong>đã có</strong> thì chỉ gán trọng số. Phòng ban áp dụng chọn ở bảng xem trước. Định dạng import: <strong>.xlsx</strong>.</p>
               </div>
             </div>
           </div>

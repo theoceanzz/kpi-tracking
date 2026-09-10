@@ -23,7 +23,5 @@ public class ScorecardTreeNodeResponse {
     private int gateCount;
     /** %đạt BSC gần nhất của đơn vị này, nếu đã tính cho đợt đang xem. */
     private Double achievementPercent;
-    private String bandLabel;
-    private Double factor;
     private List<ScorecardTreeNodeResponse> children;
 }

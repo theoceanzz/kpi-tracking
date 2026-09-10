@@ -2,7 +2,7 @@ import { useRef } from 'react'
 import { useNotifications, useMarkAllRead, useMarkAsRead } from '../hooks/useNotifications'
 import { formatDateTime } from '@/lib/utils'
 import { cn } from '@/lib/utils'
-import { CheckCheck, Bell, Send, FileSearch, ShieldCheck, Target, Inbox } from 'lucide-react'
+import { CheckCheck, Bell, Send, FileSearch, ShieldCheck, Target, Inbox, Layers, GitBranch, Calculator, Award, Coins, Gift, Wallet, Scale } from 'lucide-react'
 import { Link } from 'react-router-dom'
 
 interface NotificationDropdownProps {
@@ -14,6 +14,14 @@ const typeConfig: Record<string, { icon: any, color: string }> = {
   REVIEW: { icon: FileSearch, color: 'text-amber-500 bg-amber-50 dark:bg-amber-900/20' },
   KPI_APPROVED: { icon: ShieldCheck, color: 'text-emerald-500 bg-emerald-50 dark:bg-emerald-900/20' },
   KPI_ASSIGNED: { icon: Target, color: 'text-indigo-500 bg-indigo-50 dark:bg-indigo-900/20' },
+  BSC_SCORECARD: { icon: Layers, color: 'text-violet-500 bg-violet-50 dark:bg-violet-900/20' },
+  BSC_ASSIGNED: { icon: GitBranch, color: 'text-sky-500 bg-sky-50 dark:bg-sky-900/20' },
+  BSC_RESULT: { icon: Calculator, color: 'text-teal-500 bg-teal-50 dark:bg-teal-900/20' },
+  REWARD_GRANT: { icon: Award, color: 'text-amber-500 bg-amber-50 dark:bg-amber-900/20' },
+  REWARD_POINT: { icon: Coins, color: 'text-yellow-500 bg-yellow-50 dark:bg-yellow-900/20' },
+  REWARD_GIFT: { icon: Gift, color: 'text-pink-500 bg-pink-50 dark:bg-pink-900/20' },
+  WALLET: { icon: Wallet, color: 'text-emerald-500 bg-emerald-50 dark:bg-emerald-900/20' },
+  WALLET_RECONCILE: { icon: Scale, color: 'text-orange-500 bg-orange-50 dark:bg-orange-900/20' },
 }
 
 export default function NotificationDropdown({ onClose }: NotificationDropdownProps) {

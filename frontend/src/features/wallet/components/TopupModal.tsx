@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { createTopupSchema, type TopupFormData } from '../schemas/topupSchema'
@@ -13,6 +13,22 @@ interface TopupModalProps {
   open: boolean
   onClose: () => void
   config?: WalletConfig
+  /**
+   * Số tiền điền sẵn khi mở. Dùng cho lối nạp bắt nguồn từ một việc khác — đổi quà
+   * thiếu điểm chẳng hạn — nơi hệ thống đã biết chính xác cần bao nhiêu.
+   */
+  presetAmount?: number
+  /**
+   * Đơn đang chờ cần mở lại thay vì tạo đơn mới. Đóng tab giữa chừng, chuyển khoản hụt
+   * hay app ngân hàng văng đều để lại một đơn treo — mở lại đúng đơn đó cho người dùng
+   * chuyển tiếp, vì mã QR và nội dung chuyển khoản của nó vẫn còn nguyên giá trị.
+   */
+  resumeOrder?: TopupOrder | null
+  /**
+   * Gọi đúng MỘT lần khi đơn sang trạng thái đã nhận tiền, để bên mở hộp thoại chạy
+   * tiếp việc còn dở. Bên gọi tự quyết định có đóng hộp thoại hay không.
+   */
+  onPaid?: () => void
 }
 
 /** Nút chép chuỗi. `CopyButton` dùng chung của dự án chép ẢNH, không dùng được ở đây. */
@@ -82,7 +98,14 @@ function Countdown({ expiresAt }: { expiresAt: string }) {
   )
 }
 
-export default function TopupModal({ open, onClose, config }: TopupModalProps) {
+export default function TopupModal({
+  open,
+  onClose,
+  config,
+  presetAmount,
+  resumeOrder,
+  onPaid,
+}: TopupModalProps) {
   const [orderId, setOrderId] = useState<string | null>(null)
   const [created, setCreated] = useState<TopupOrder | null>(null)
 
@@ -105,16 +128,35 @@ export default function TopupModal({ open, onClose, config }: TopupModalProps) {
   const order = polled ?? created
   const paid = order?.status === TopupOrderStatus.PAID
 
+  // Dựng lại trạng thái đúng MỘT lần cho mỗi lần mở, đọc tham số qua ref. Để `presetAmount`
+  // hay `resumeOrder` vào deps thì một lần vẽ lại của component cha giữa chừng sẽ ném mất
+  // đúng mã QR mà người dùng đang mở dở trên màn hình.
+  const initRef = useRef({ presetAmount, resumeOrder })
+  initRef.current = { presetAmount, resumeOrder }
+
   useEffect(() => {
     if (!open) {
       reset({ amount: 0 })
       setOrderId(null)
       setCreated(null)
+      return
     }
+    const { presetAmount: preset, resumeOrder: resume } = initRef.current
+    reset({ amount: preset ?? 0 })
+    // Mở lại đơn cũ thì hiện thẳng mã QR đã lưu của nó, bỏ qua bước nhập số tiền.
+    setCreated(resume ?? null)
+    setOrderId(resume?.id ?? null)
   }, [open, reset])
 
+  // Giữ tham chiếu mới nhất mà không đưa callback vào deps: nó thường là hàm vẽ lại mỗi
+  // lần render, để trong deps thì mỗi lần vẽ lại sau khi đơn đã PAID là một lần chạy tiếp.
+  const onPaidRef = useRef(onPaid)
+  onPaidRef.current = onPaid
+
   useEffect(() => {
-    if (paid) toast.success('Đã nhận được tiền, số dư ví của bạn đã được cộng')
+    if (!paid) return
+    toast.success('Đã nhận được tiền, số dư ví của bạn đã được cộng')
+    onPaidRef.current?.()
   }, [paid])
 
   if (!open) return null

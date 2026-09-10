@@ -10,6 +10,7 @@ import { formatNumber, formatAssigneeNames, cn, FREQUENCY_MAP, STATUS_CONFIG } f
 import type { KpiCriteria } from '@/types/kpi'
 import { kpiApi } from '../api/kpiApi'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/apiError'
 import {
   Users, Building2, ChevronRight, ArrowUpDown,
   Calendar, Search, CheckCircle, AlertCircle,
@@ -252,7 +253,7 @@ export default function KpiApprovalPage() {
   const displayRows = buildDisplayRows()
 
   /** Số cột của bảng — header nhóm phải trải hết chiều ngang. */
-  const tableColSpan = 7 + (enableOkr ? 2 : 0) - (unitMode ? 1 : 0)
+  const tableColSpan = 8 + (enableOkr ? 2 : 0) - (unitMode ? 1 : 0)
 
   // Nhận diện KPI cha phân rã trên toàn danh sách đã tải, không tính lại trong từng nhóm.
   const decompositionParentIds = useMemo(() => findDecompositionParentIds(items), [items])
@@ -360,7 +361,7 @@ export default function KpiApprovalPage() {
       toast.success(`Đã phê duyệt thành công ${results.length} chỉ tiêu`)
       setSelectedKpis([])
     },
-    onError: () => toast.error('Đã xảy ra lỗi khi duyệt hàng loạt')
+    onError: (error) => toast.error(getApiErrorMessage(error, 'Duyệt hàng loạt thất bại'))
   })
 
   const toggleSelectAll = () => {
@@ -669,6 +670,7 @@ export default function KpiApprovalPage() {
                         Chỉ tiêu <ArrowUpDown size={12} className="opacity-0 group-hover:opacity-100 transition-opacity" />
                       </button>
                     </th>
+                    <th className="px-4 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 whitespace-nowrap">Mô tả</th>
                     {enableOkr && (
                       <>
                         <th className="px-4 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 whitespace-nowrap">Mục tiêu (OKR)</th>
@@ -822,6 +824,14 @@ export default function KpiApprovalPage() {
                               </div>
                             </button>
                           </div>
+                        </td>
+                        <td className="px-4 py-5">
+                          <p
+                            className="max-w-[240px] text-xs font-medium text-slate-600 dark:text-slate-300 line-clamp-2"
+                            title={kpi.description || undefined}
+                          >
+                            {kpi.description || <span className="text-slate-300 dark:text-slate-600">—</span>}
+                          </p>
                         </td>
                         {enableOkr && (
                           <>

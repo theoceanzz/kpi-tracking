@@ -1,5 +1,8 @@
+import { useState } from 'react'
+import { QrCode, Receipt } from 'lucide-react'
 import { formatCurrency, formatDateTime } from '@/lib/utils'
 import { TopupOrderStatus, type TopupOrder } from '../types'
+import ReceiptModal from './ReceiptModal'
 
 const STATUS_META: Record<TopupOrderStatus, { label: string; cls: string }> = {
   [TopupOrderStatus.PENDING]: {
@@ -22,9 +25,16 @@ const STATUS_META: Record<TopupOrderStatus, { label: string; cls: string }> = {
 
 interface TopupHistoryTableProps {
   data: TopupOrder[]
+  /**
+   * Mở lại một đơn còn chờ để chuyển khoản tiếp. Không có đường này thì đơn lỡ dở là ngõ
+   * cụt: mã QR đã đóng mất, mà tạo đơn mới thì đụng trần 5 đơn treo của backend.
+   */
+  onResume?: (order: TopupOrder) => void
 }
 
-export default function TopupHistoryTable({ data }: TopupHistoryTableProps) {
+export default function TopupHistoryTable({ data, onResume }: TopupHistoryTableProps) {
+  const [receiptOrderId, setReceiptOrderId] = useState<string | null>(null)
+
   return (
     <div className="overflow-x-auto rounded-2xl border border-[var(--color-border)]">
       <table className="w-full min-w-[680px] text-sm">
@@ -35,6 +45,7 @@ export default function TopupHistoryTable({ data }: TopupHistoryTableProps) {
             <th className="px-4 py-3 text-right">Đề nghị</th>
             <th className="px-4 py-3 text-right">Thực nhận</th>
             <th className="px-4 py-3">Trạng thái</th>
+            <th className="px-4 py-3 text-right">Thao tác</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-[var(--color-border)]">
@@ -69,11 +80,41 @@ export default function TopupHistoryTable({ data }: TopupHistoryTableProps) {
                     <div className="mt-1 text-xs text-amber-600">Lệch so với số đề nghị</div>
                   )}
                 </td>
+                <td className="px-4 py-3 text-right">
+                  {/* Chỉ đơn ĐÃ NHẬN TIỀN mới có biên nhận: chứng từ này xác nhận đã thu tiền,
+                      nên nó không tồn tại cho đơn chờ, đơn huỷ hay đơn hết hạn. */}
+                  {o.status === TopupOrderStatus.PAID && (
+                    <button
+                      type="button"
+                      onClick={() => setReceiptOrderId(o.id)}
+                      className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-[var(--color-border)] px-2.5 py-1.5 text-xs font-semibold transition-colors hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]"
+                    >
+                      <Receipt size={13} />
+                      Biên nhận
+                    </button>
+                  )}
+                  {/* Đơn còn chờ thì mở lại được mã QR cũ để chuyển tiếp — cùng một mã đơn,
+                      nên tiền vẫn về đúng chỗ và không sinh thêm đơn treo. */}
+                  {o.status === TopupOrderStatus.PENDING && onResume && (
+                    <button
+                      type="button"
+                      onClick={() => onResume(o)}
+                      className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-[var(--color-primary)] px-2.5 py-1.5 text-xs font-semibold text-[var(--color-primary)] transition-opacity hover:opacity-80"
+                    >
+                      <QrCode size={13} />
+                      Chuyển khoản tiếp
+                    </button>
+                  )}
+                </td>
               </tr>
             )
           })}
         </tbody>
       </table>
+
+      {receiptOrderId && (
+        <ReceiptModal orderId={receiptOrderId} onClose={() => setReceiptOrderId(null)} />
+      )}
     </div>
   )
 }

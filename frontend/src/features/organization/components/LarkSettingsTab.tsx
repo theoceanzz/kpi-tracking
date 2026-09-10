@@ -19,6 +19,7 @@ import {
   Users,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/apiError'
 import { cn } from '@/lib/utils'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useAuthStore } from '@/store/authStore'
@@ -211,7 +212,7 @@ export default function LarkSettingsTab() {
       window.location.href = res.authorizeUrl
     },
     onError: (err: any) => {
-      toast.error(err.response?.data?.message || 'Không mở được trang đăng nhập Lark.')
+      toast.error(getApiErrorMessage(err, 'Không mở được trang đăng nhập Lark.'))
     },
   })
 

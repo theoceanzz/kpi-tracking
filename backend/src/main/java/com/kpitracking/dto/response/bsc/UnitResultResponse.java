@@ -7,7 +7,7 @@ import java.time.Instant;
 import java.util.List;
 import java.util.UUID;
 
-/** Kết quả BSC của một đơn vị trong một đợt — con số dùng để tra hệ số. */
+/** Kết quả BSC của một đơn vị trong một đợt. */
 @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
 public class UnitResultResponse {
     private UUID id;
@@ -17,8 +17,6 @@ public class UnitResultResponse {
     private UUID kpiPeriodId;
     private String kpiPeriodName;
     private Double achievementPercent;
-    private String bandLabel;
-    private Double factor;
     private Boolean gatePassed;
     private String gateFailedItems;
     private BscUnitResultStatus status;

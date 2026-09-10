@@ -226,10 +226,13 @@ input[type=number] {
   animation: float 3s ease-in-out infinite;
 }
 
-/* Dải tin điểm thưởng chạy ngang (RewardActivityTicker).
-   Chạy hết ĐÚNG một nửa quãng đường vì track chứa hai bản sao giống hệt nhau — lúc
-   bản sao thứ nhất trôi khỏi màn hình thì bản thứ hai đang nằm đúng vị trí xuất phát,
-   nên vòng lặp không có điểm giật. Đổi -50% là mối nối lộ ra ngay. */
+/* Dải tin điểm thưởng chạy ngang dưới thanh tiêu đề (RewardActivityTicker).
+   Chạy hết ĐÚNG một nửa quãng đường vì track chứa hai NỬA giống hệt nhau — lúc nửa
+   thứ nhất trôi khỏi màn hình thì nửa thứ hai đang nằm đúng vị trí xuất phát, nên vòng
+   lặp không có điểm giật. Đổi -50% là mối nối lộ ra ngay.
+   Mỗi nửa chứa danh sách tin lặp cho đủ một số thẻ tối thiểu (MIN_ITEMS_PER_HALF ở
+   component), để nửa track luôn rộng hơn khung. Không có bước đó thì công ty ít hoạt
+   động sẽ thấy một khoảng trống trôi qua ở mỗi vòng. */
 @keyframes reward-marquee {
   from { transform: translateX(0); }
   to { transform: translateX(-50%); }
@@ -246,13 +249,10 @@ input[type=number] {
   animation-play-state: paused;
 }
 
-/* Người tắt hiệu ứng chuyển động vẫn phải đọc được bảng tin: bỏ animation và trả về
-   một dải cuộn ngang bình thường. */
-@media (prefers-reduced-motion: reduce) {
-  .animate-reward-marquee {
-    animation: none;
-  }
-}
+/* KHÔNG có override cho prefers-reduced-motion ở đây — có chủ đích, xem javadoc của
+   RewardActivityTicker. Dải tin đứng yên thì mất luôn lý do tồn tại, mà phần lớn máy bật
+   thiết lập đó là vì hiệu năng chứ không phải vì nhạy cảm với chuyển động. Lối thoát là
+   dừng khi trỏ chuột vào (ở trên) và nút x tắt hẳn. */
 /* ── In chứng nhận khen thưởng ─────────────────────────────────────
    Khu vực chứng nhận luôn tồn tại trong DOM ở kích thước in thật nhưng nằm ngoài màn
    hình. In thẳng cây DOM này (thay vì in một ảnh PNG) để chữ giữ nguyên dạng vector:

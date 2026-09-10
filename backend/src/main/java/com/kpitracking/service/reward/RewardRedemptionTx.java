@@ -11,6 +11,7 @@ import com.kpitracking.enums.GiftItemStatus;
 import com.kpitracking.enums.RedemptionStatus;
 import com.kpitracking.enums.RewardSourceType;
 import com.kpitracking.enums.RewardTransactionType;
+import com.kpitracking.event.RewardEvents;
 import com.kpitracking.exception.BusinessException;
 import com.kpitracking.exception.ResourceNotFoundException;
 import com.kpitracking.repository.RewardGiftItemRepository;
@@ -19,6 +20,7 @@ import com.kpitracking.service.RewardWalletService;
 import com.kpitracking.service.reward.fulfillment.RewardFulfillmentProviders;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -58,6 +60,7 @@ public class RewardRedemptionTx {
     private final RewardFulfillmentProviders fulfillmentProviders;
     private final RewardContext context;
     private final ObjectMapper objectMapper;
+    private final ApplicationEventPublisher eventPublisher;
 
     /**
      * Tạo yêu cầu đổi: giữ tồn kho, ghi yêu cầu, trừ điểm — trong một transaction.
@@ -131,7 +134,13 @@ public class RewardRedemptionTx {
                 .build());
 
         redemption.setTransactionId(tx.getId());
-        return redemptionRepository.save(redemption);
+        RewardRedemption saved = redemptionRepository.save(redemption);
+
+        // Phát ở ĐÂY chứ không ở RewardRedemptionService.redeem: hàm kia cố ý không có
+        // @Transactional, mà @TransactionalEventListener(AFTER_COMMIT) chỉ nhận được sự kiện
+        // phát ra bên trong một transaction — phát ngoài là rơi vào hư không, không lỗi, không thư.
+        eventPublisher.publishEvent(new RewardEvents.RedemptionCreated(saved.getId()));
+        return saved;
     }
 
     /**
@@ -168,7 +177,10 @@ public class RewardRedemptionTx {
         r.setHandledBy(actor);
         r.setHandledAt(now);
         if (note != null) r.setNote(note);
-        return redemptionRepository.save(r);
+        RewardRedemption saved = redemptionRepository.save(r);
+        eventPublisher.publishEvent(new RewardEvents.RedemptionSettled(
+                saved.getId(), actor == null ? null : actor.getId()));
+        return saved;
     }
 
     /** Hệ thống ngoài đã xuất quà: ghi mã đơn, lưu mã voucher, đóng yêu cầu. */
@@ -183,7 +195,10 @@ public class RewardRedemptionTx {
         r.setFulfilledAt(now);
         r.setStatus(RedemptionStatus.DELIVERED);
         r.setDeliveredAt(now);
-        return redemptionRepository.save(r);
+        RewardRedemption saved = redemptionRepository.save(r);
+        // Nhà cung cấp xuất quà, không có người nào bấm ⇒ actor null.
+        eventPublisher.publishEvent(new RewardEvents.RedemptionSettled(saved.getId(), null));
+        return saved;
     }
 
     /**
@@ -219,7 +234,9 @@ public class RewardRedemptionTx {
                         gift.getName(), gift.getId());
             }
         }
-        return redemptionRepository.save(r);
+        RewardRedemption saved = redemptionRepository.save(r);
+        eventPublisher.publishEvent(new RewardEvents.RedemptionSettled(saved.getId(), null));
+        return saved;
     }
 
     /**

@@ -5,12 +5,14 @@ import com.kpitracking.dto.request.bsc.CascadePolicyRequest;
 import com.kpitracking.dto.request.bsc.CascadeRequest;
 import com.kpitracking.dto.request.bsc.ScorecardStatusRequest;
 import com.kpitracking.dto.response.ApiResponse;
+import com.kpitracking.dto.response.bsc.BscKpiPlanResponse;
 import com.kpitracking.dto.response.bsc.BscWaterfallResponse;
 import com.kpitracking.dto.response.bsc.CascadePolicyResponse;
 import com.kpitracking.dto.response.bsc.ScorecardCoverageResponse;
 import com.kpitracking.dto.response.bsc.ScorecardTreeNodeResponse;
 import com.kpitracking.dto.response.bsc.UnitResultResponse;
 import com.kpitracking.service.BscCascadeService;
+import com.kpitracking.service.BscKpiPlanService;
 import com.kpitracking.service.BscPolicyService;
 import com.kpitracking.service.BscResultService;
 import com.kpitracking.service.BscService;
@@ -26,7 +28,7 @@ import java.util.UUID;
 
 /**
  * Cây BSC phân cấp: phân rã chỉ tiêu, độ phủ, vòng đời trình–duyệt, kết quả BSC đơn vị,
- * chính sách hệ số và diễn giải điểm cá nhân. Xem docs/bsc-cascade-design.md mục 6.
+ * chính sách điểm BSC và diễn giải điểm cá nhân. Xem docs/bsc-cascade-design.md mục 6.
  *
  * <p>Tách khỏi {@link BscController} (danh mục hạng mục + CRUD bộ tiêu chí) để hai nhóm nghiệp vụ
  * không trộn vào nhau khi cùng phình ra.
@@ -41,6 +43,7 @@ public class BscCascadeController {
     private final BscResultService resultService;
     private final BscPolicyService policyService;
     private final BscService bscService;
+    private final BscKpiPlanService kpiPlanService;
 
     // ============================================================
     // Cây & độ phủ
@@ -62,6 +65,16 @@ public class BscCascadeController {
     }
 
     /**
+     * Bản kế hoạch chia MỘT chỉ tiêu BSC thành KPI theo từng đợt: mục tiêu của chỉ tiêu, các đợt
+     * bộ tiêu chí đang áp dụng, mỗi đợt đã chia được bao nhiêu và còn lại bao nhiêu.
+     */
+    @GetMapping("/scorecard-perspectives/{itemId}/kpi-plan")
+    @PreAuthorize("hasAuthority('BSC:VIEW')")
+    public ResponseEntity<ApiResponse<BscKpiPlanResponse>> kpiPlan(@PathVariable UUID itemId) {
+        return ResponseEntity.ok(ApiResponse.success(kpiPlanService.plan(itemId)));
+    }
+
+    /**
      * Phân rã một chỉ tiêu xuống nhiều đơn vị. Chỉ người quản trị BSC toàn tổ chức mới giao được
      * việc xuống cấp dưới — trưởng đơn vị chỉ thêm chỉ tiêu của chính đơn vị mình.
      */
@@ -72,6 +85,25 @@ public class BscCascadeController {
             @Valid @RequestBody CascadeRequest request) {
         return ResponseEntity.ok(ApiResponse.success("Đã phân rã chỉ tiêu xuống các đơn vị",
                 treeService.cascade(scorecardId, request)));
+    }
+
+    /**
+     * Gắn bộ tiêu chí vào cấp trên (hoặc gỡ khỏi cây khi bỏ trống {@code parentScorecardId}).
+     * Cùng mức quyền với phân rã: đây là thao tác định hình cây, không phải sửa nội dung một thẻ.
+     */
+    @PutMapping("/scorecards/{scorecardId}/parent")
+    @PreAuthorize("hasAuthority('BSC:MANAGE')")
+    public ResponseEntity<ApiResponse<Object>> attachParent(
+            @PathVariable UUID scorecardId,
+            @RequestParam(value = "parentScorecardId", required = false) UUID parentScorecardId,
+            @RequestParam(value = "linkItems", defaultValue = "true") boolean linkItems) {
+        int linked = treeService.attachParent(scorecardId, parentScorecardId, linkItems);
+        String message = parentScorecardId == null
+                ? "Đã gỡ bộ tiêu chí khỏi cây"
+                : linked > 0
+                    ? "Đã gắn vào bộ tiêu chí cấp trên và nối " + linked + " chỉ tiêu trùng hạng mục"
+                    : "Đã gắn vào bộ tiêu chí cấp trên (không có chỉ tiêu nào trùng hạng mục để nối)";
+        return ResponseEntity.ok(ApiResponse.success(message, bscService.getScorecardById(scorecardId)));
     }
 
     // ============================================================
@@ -158,7 +190,7 @@ public class BscCascadeController {
                 resultService.toResponse(result)));
     }
 
-    /** Chốt kết quả — từ đây hệ số dùng để tính điểm cá nhân không đổi nữa. */
+    /** Chốt kết quả BSC của đơn vị — từ đây con số đã công bố không đổi nữa. */
     @PostMapping("/scorecards/{scorecardId}/results/finalize")
     @PreAuthorize("hasAuthority('BSC:PUBLISH_SCORE')")
     public ResponseEntity<ApiResponse<UnitResultResponse>> finalizeResult(
@@ -192,7 +224,7 @@ public class BscCascadeController {
     }
 
     // ============================================================
-    // Chính sách hệ số
+    // Chính sách điểm BSC
     // ============================================================
 
     @GetMapping("/organization/{organizationId}/cascade-policies")
@@ -206,7 +238,7 @@ public class BscCascadeController {
     public ResponseEntity<ApiResponse<CascadePolicyResponse>> createPolicy(
             @PathVariable UUID organizationId,
             @Valid @RequestBody CascadePolicyRequest request) {
-        return ResponseEntity.ok(ApiResponse.success("Đã tạo chính sách hệ số",
+        return ResponseEntity.ok(ApiResponse.success("Đã tạo chính sách điểm BSC",
                 policyService.create(organizationId, request)));
     }
 
@@ -215,7 +247,7 @@ public class BscCascadeController {
     public ResponseEntity<ApiResponse<CascadePolicyResponse>> updatePolicy(
             @PathVariable UUID policyId,
             @Valid @RequestBody CascadePolicyRequest request) {
-        return ResponseEntity.ok(ApiResponse.success("Đã cập nhật chính sách hệ số",
+        return ResponseEntity.ok(ApiResponse.success("Đã cập nhật chính sách điểm BSC",
                 policyService.update(policyId, request)));
     }
 
@@ -223,14 +255,14 @@ public class BscCascadeController {
     @PreAuthorize("hasAuthority('BSC:MANAGE')")
     public ResponseEntity<ApiResponse<Void>> deletePolicy(@PathVariable UUID policyId) {
         policyService.delete(policyId);
-        return ResponseEntity.ok(ApiResponse.success("Đã xoá chính sách hệ số"));
+        return ResponseEntity.ok(ApiResponse.success("Đã xoá chính sách điểm BSC"));
     }
 
     // ============================================================
     // Diễn giải điểm cá nhân
     // ============================================================
 
-    /** Waterfall: điểm gốc → cap → hệ số phòng → hệ số công ty → điểm công nhận → ghi đè → chặn. */
+    /** Waterfall: điểm gốc → cap → điểm công nhận → ghi đè → chặn. */
     @GetMapping("/evaluations/{evaluationId}/waterfall")
     @PreAuthorize("hasAuthority('BSC:VIEW')")
     public ResponseEntity<ApiResponse<BscWaterfallResponse>> waterfall(@PathVariable UUID evaluationId) {
