@@ -28,9 +28,11 @@ export function useCreateDelegation(organizationId?: string) {
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (request: DelegationRequest) => delegationApi.create(organizationId!, request),
-    onSuccess: () => {
+    onSuccess: (created) => {
       invalidateScopeDerived(qc)
-      toast.success('Đã uỷ quyền quản lý đơn vị')
+      toast.success(created.length > 1
+        ? `Đã uỷ quyền quản lý ${created.length} đơn vị`
+        : 'Đã uỷ quyền quản lý đơn vị')
     },
     onError: (error) => toast.error(getApiErrorMessage(error, 'Không thể uỷ quyền quản lý đơn vị')),
   })

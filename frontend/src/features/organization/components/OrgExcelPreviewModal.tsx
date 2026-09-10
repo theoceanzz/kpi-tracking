@@ -157,7 +157,7 @@ export default function OrgExcelPreviewModal({
       }
 
       setData(validateBatch(parsed))
-    } catch (error) {
+    } catch {
       toast.error('Lỗi khi đọc file Excel')
       onClose()
     } finally {
@@ -301,7 +301,7 @@ export default function OrgExcelPreviewModal({
       const newFile = new File([blob], file?.name || 'import_orgs.xlsx', { type: blob.type })
       
       onImport(newFile)
-    } catch (e) {
+    } catch {
       toast.error('Lỗi khi chuẩn bị dữ liệu import')
     }
   }

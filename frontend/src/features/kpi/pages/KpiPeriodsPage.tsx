@@ -79,7 +79,7 @@ export default function KpiPeriodsPage() {
     try {
       await deletePeriod(deleteId)
       setDeleteId(null)
-    } catch (error) {}
+    } catch { /* lỗi ở đây không đổi được gì cho người dùng */ }
   }
 
   const stats = useMemo(() => {

@@ -81,9 +81,9 @@ export default function EvaluationsPage() {
     if (action === 'self-eval' && periodId) {
       setPreSelectedPeriodId(periodId)
       setShowForm(true)
-      // Clean up params after opening
+      // Chỉ xoá 'action' để modal không tự mở lại khi render tiếp. GIỮ 'periodId': đó là bối cảnh
+      // đợt mà thanh tiến trình mang theo suốt luồng, xoá đi là làm hỏng mọi bước phía sau.
       searchParams.delete('action')
-      searchParams.delete('periodId')
       setSearchParams(searchParams, { replace: true })
     }
   }, [searchParams, setSearchParams])

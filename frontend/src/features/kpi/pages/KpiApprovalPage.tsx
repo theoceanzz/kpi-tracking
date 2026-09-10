@@ -1,5 +1,6 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import { WORKFLOW_PARAMS } from '../workflow/hooks/useWorkflowNavigator'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import EmptyState from '@/components/common/EmptyState'
@@ -60,7 +61,9 @@ export default function KpiApprovalPage() {
 
   const [activeTab, setActiveTab] = useState<ApprovalTab>(() => readTab(searchParams.get('tab')))
   
-  const [selectedPeriodId, setSelectedPeriodId] = useState('ALL')
+  // Đợt do bước soạn chỉ tiêu bàn giao qua ?periodId= — lọc sẵn đúng lô vừa gửi duyệt, thay vì
+  // bắt người duyệt tự tìm lại trong danh sách tất cả các đợt.
+  const [selectedPeriodId, setSelectedPeriodId] = useState(searchParams.get(WORKFLOW_PARAMS.period) ?? 'ALL')
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(0)
   const [sortBy, setSortBy] = useState('updatedAt')

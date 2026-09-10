@@ -38,12 +38,12 @@ public class OrgUnitDelegationController {
 
     @PostMapping("/{organizationId}")
     @PreAuthorize("hasAuthority('ROLE:ASSIGN')")
-    @Operation(summary = "Uỷ quyền cho một người quản lý thêm một đơn vị khác cây")
-    public ResponseEntity<ApiResponse<DelegationResponse>> create(
+    @Operation(summary = "Uỷ quyền cho một người quản lý thêm một hoặc nhiều đơn vị khác cây")
+    public ResponseEntity<ApiResponse<List<DelegationResponse>>> create(
             @PathVariable UUID organizationId, @Valid @RequestBody DelegationRequest request) {
-        DelegationResponse response = delegationService.create(organizationId, request);
+        List<DelegationResponse> response = delegationService.create(organizationId, request);
         return ResponseEntity.status(HttpStatus.CREATED)
-                .body(ApiResponse.success("Đã uỷ quyền quản lý đơn vị", response));
+                .body(ApiResponse.success("Đã uỷ quyền quản lý " + response.size() + " đơn vị", response));
     }
 
     @DeleteMapping("/{id}")

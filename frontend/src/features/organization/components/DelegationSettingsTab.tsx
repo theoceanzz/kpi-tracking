@@ -1,6 +1,7 @@
 import { useMemo, useState } from 'react'
 import {
-  ArrowRightLeft, CalendarClock, Crown, Info, Loader2, Network, Plus, ShieldCheck, Trash2, X,
+  ArrowRightLeft, CalendarClock, Check, Crown, Info, Loader2, Network, Plus, Search,
+  ShieldCheck, Trash2, X,
 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { cn } from '@/lib/utils'
@@ -11,7 +12,7 @@ import { useOrganizationUsers } from '../hooks/useUserRoles'
 import { useCreateDelegation, useDelegations, useRevokeDelegation } from '../hooks/useDelegations'
 import type { DelegationResponse } from '../api/delegation.api'
 import {
-  Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
+  Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
 
 /**
@@ -185,20 +186,24 @@ function DelegationRow({
 }
 
 /** Đơn vị trong cây, làm phẳng kèm thụt lề để chọn trong danh sách. */
-type FlatUnit = { id: string; name: string; label: string }
+type FlatUnit = { id: string; name: string; label: string; levelOrder: number | null; typeName?: string }
 
-/** Chỉ ba trường cần cho danh sách chọn — cây trả về nhiều hơn thế. */
-type UnitNode = { id: string; name: string; children?: UnitNode[] }
+/** Chỉ những trường cần cho danh sách chọn — cây trả về nhiều hơn thế. */
+type UnitNode = { id: string; name: string; level?: number; type?: string; children?: UnitNode[] }
 
-function flattenUnits(nodes: UnitNode[], level = 0): FlatUnit[] {
+function flattenUnits(nodes: UnitNode[], depth = 0): FlatUnit[] {
   const out: FlatUnit[] = []
   for (const node of nodes ?? []) {
     out.push({
       id: node.id,
       name: node.name,
-      label: `${'— '.repeat(level)}${node.name}`,
+      label: `${'— '.repeat(depth)}${node.name}`,
+      // `level` của cây là levelOrder của cấp bậc tổ chức (nhỏ = cao), KHÔNG phải độ sâu
+      // trong mảng — hai thứ này lệch nhau khi cây có nhánh bỏ cấp.
+      levelOrder: node.level ?? null,
+      typeName: node.type,
     })
-    if (node.children?.length) out.push(...flattenUnits(node.children, level + 1))
+    if (node.children?.length) out.push(...flattenUnits(node.children, depth + 1))
   }
   return out
 }
@@ -214,23 +219,92 @@ function DelegationFormModal({
   const create = useCreateDelegation(organizationId)
 
   const units = useMemo(() => flattenUnits((tree ?? []) as UnitNode[]), [tree])
-  const users = usersPage?.content ?? []
+  // Bọc useMemo: `?? []` sinh mảng mới mỗi lần render, kéo theo useMemo gom nhóm bên dưới
+  // tính lại vô ích sau mỗi phím gõ ở ô tìm đơn vị.
+  const users = useMemo(() => usersPage?.content ?? [], [usersPage])
+
+  // Nhóm nhân sự theo ĐƠN VỊ. Danh sách phẳng vài trăm người thì không ai dò ra ai —
+  // mà người trao quyền luôn nghĩ theo "phòng nào, ai trong đó" chứ không theo tên.
+  //
+  // Một người có nhiều membership sẽ xuất hiện ở từng đơn vị họ thuộc về: đó là sự thật
+  // của dữ liệu, và tìm họ ở đơn vị nào cũng ra thì đúng hơn là chọn bừa một đơn vị.
+  const usersByUnit = useMemo(() => {
+    const groups = new Map<string, { unitName: string; members: typeof users }>()
+    for (const u of users) {
+      const memberships = u.memberships?.length ? u.memberships : []
+      if (!memberships.length) {
+        const g = groups.get('__none__') ?? { unitName: 'Chưa thuộc đơn vị nào', members: [] }
+        g.members.push(u)
+        groups.set('__none__', g)
+        continue
+      }
+      for (const m of memberships) {
+        const g = groups.get(m.orgUnitId) ?? { unitName: m.orgUnitName, members: [] }
+        if (!g.members.some(x => x.id === u.id)) g.members.push(u)
+        groups.set(m.orgUnitId, g)
+      }
+    }
+    // Xếp theo thứ tự cây đơn vị để danh sách đọc lên giống sơ đồ tổ chức.
+    const order = new Map(units.map((u, i) => [u.id, i]))
+    return [...groups.entries()]
+      .sort((a, b) => (order.get(a[0]) ?? 9999) - (order.get(b[0]) ?? 9999))
+      .map(([id, g]) => ({ id, ...g }))
+  }, [users, units])
 
   const [delegateUserId, setDelegateUserId] = useState('')
-  const [orgUnitId, setOrgUnitId] = useState('')
+  const [orgUnitIds, setOrgUnitIds] = useState<string[]>([])
+  const [unitSearch, setUnitSearch] = useState('')
   const [includeSubtree, setIncludeSubtree] = useState(true)
   const [canActAsLeader, setCanActAsLeader] = useState(true)
   const [reason, setReason] = useState('')
   const [expiresAt, setExpiresAt] = useState('')
 
-  const canSubmit = !!delegateUserId && !!orgUnitId && !create.isPending
+  /**
+   * Cấp CAO NHẤT mà người được chọn đang đứng đầu (levelOrder nhỏ nhất trong các vai trò
+   * trưởng/phó). Đây là trần: chỉ giao được đơn vị ngang cấp hoặc thấp hơn.
+   *
+   * Chỉ tính vai trò quản lý, đúng như luật ở server: mỗi người còn có một membership nhân
+   * viên tự sinh ở đơn vị CHA, lấy cả nó vào thì tổ trưởng nào cũng "thuộc" công ty.
+   */
+  const delegateLevel = useMemo(() => {
+    const u = users.find(x => x.id === delegateUserId)
+    const managed = (u?.memberships ?? []).filter(m => (m.roleRank ?? 9) <= 1)
+    const orders = managed.map(m => m.levelOrder).filter((v): v is number => v != null)
+    return orders.length ? Math.min(...orders) : null
+  }, [users, delegateUserId])
+
+  const eligibleUnits = useMemo(() => {
+    if (delegateLevel == null) return units
+    return units.filter(u => u.levelOrder == null || u.levelOrder >= delegateLevel)
+  }, [units, delegateLevel])
+
+  const blockedCount = units.length - eligibleUnits.length
+
+  const visibleUnits = useMemo(() => {
+    const q = unitSearch.trim().toLowerCase()
+    return q ? eligibleUnits.filter(u => u.name.toLowerCase().includes(q)) : eligibleUnits
+  }, [eligibleUnits, unitSearch])
+
+  // Đổi người được uỷ quyền thì trần cấp bậc đổi theo — bỏ những đơn vị không còn hợp lệ,
+  // nếu không người dùng bấm gửi mới biết mình đang chọn thứ server sẽ từ chối.
+  const [syncedDelegate, setSyncedDelegate] = useState('')
+  if (syncedDelegate !== delegateUserId) {
+    setSyncedDelegate(delegateUserId)
+    const allowed = new Set(eligibleUnits.map(u => u.id))
+    setOrgUnitIds(prev => prev.filter(id => allowed.has(id)))
+  }
+
+  const toggleUnit = (id: string) =>
+    setOrgUnitIds(prev => (prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id]))
+
+  const canSubmit = !!delegateUserId && orgUnitIds.length > 0 && !create.isPending
 
   const submit = () => {
     if (!canSubmit) return
     create.mutate(
       {
         delegateUserId,
-        orgUnitId,
+        orgUnitIds,
         includeSubtree,
         canActAsLeader,
         reason: reason.trim() || null,
@@ -272,27 +346,89 @@ function DelegationFormModal({
               <SelectTrigger className="w-full h-12 rounded-2xl">
                 <SelectValue placeholder="Chọn nhân sự…" />
               </SelectTrigger>
-              <SelectContent className="z-[1100]">
-                {users.map(u => (
-                  <SelectItem key={u.id} value={u.id}>
-                    {u.fullName} · {u.email}
-                  </SelectItem>
+              <SelectContent className="z-[1100] max-h-[320px]">
+                {usersByUnit.map(g => (
+                  <SelectGroup key={g.id}>
+                    <SelectLabel>{g.unitName}</SelectLabel>
+                    {g.members.map(u => (
+                      <SelectItem key={`${g.id}-${u.id}`} value={u.id}>
+                        {u.fullName} · {u.email}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
                 ))}
               </SelectContent>
             </Select>
           </Field>
 
+          {/* Chọn NHIỀU đơn vị. Radix Select chỉ giữ được một giá trị nên ở đây là danh
+              sách tự dựng, cùng kiểu với ô chọn đơn vị của form KPI. */}
           <Field label="Đơn vị được giao quản lý" required>
-            <Select value={orgUnitId} onValueChange={setOrgUnitId}>
-              <SelectTrigger className="w-full h-12 rounded-2xl">
-                <SelectValue placeholder="Chọn đơn vị…" />
-              </SelectTrigger>
-              <SelectContent className="z-[1100]">
-                {units.map(u => (
-                  <SelectItem key={u.id} value={u.id}>{u.label}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
+              <div className="flex items-center gap-2 px-3 py-2 border-b border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40">
+                <Search size={14} className="text-slate-400 shrink-0" />
+                <input
+                  value={unitSearch}
+                  onChange={e => setUnitSearch(e.target.value)}
+                  placeholder="Tìm đơn vị…"
+                  className="flex-1 min-w-0 bg-transparent text-xs font-medium outline-none placeholder:text-slate-400"
+                />
+                {orgUnitIds.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => setOrgUnitIds([])}
+                    className="shrink-0 text-[10px] font-black uppercase tracking-wider text-slate-400 hover:text-rose-600"
+                  >
+                    Bỏ chọn ({orgUnitIds.length})
+                  </button>
+                )}
+              </div>
+
+              <div className="max-h-[200px] overflow-y-auto p-1.5 space-y-0.5">
+                {!delegateUserId ? (
+                  <p className="py-6 text-center text-xs font-medium text-slate-400">
+                    Chọn người được uỷ quyền trước — danh sách đơn vị lọc theo cấp của họ.
+                  </p>
+                ) : visibleUnits.length === 0 ? (
+                  <p className="py-6 text-center text-xs font-medium text-slate-400">
+                    Không có đơn vị nào khớp
+                  </p>
+                ) : visibleUnits.map(u => {
+                  const picked = orgUnitIds.includes(u.id)
+                  return (
+                    <button
+                      key={u.id}
+                      type="button"
+                      onClick={() => toggleUnit(u.id)}
+                      className={cn(
+                        'w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-xs text-left transition-all',
+                        picked
+                          ? 'bg-violet-600 text-white font-bold shadow-sm'
+                          : 'font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800',
+                      )}
+                    >
+                      {/* Khi đang tìm kiếm thì bỏ thụt lề: kết quả lọc không còn liền mạch
+                          theo cây nên gạch thụt chỉ gây hiểu nhầm về cấp bậc. */}
+                      <span className="truncate">{unitSearch.trim() ? u.name : u.label}</span>
+                      {picked && <Check size={14} className="shrink-0" />}
+                    </button>
+                  )
+                })}
+              </div>
+            </div>
+            {blockedCount > 0 && (
+              // Nói thẳng vì sao thiếu đơn vị: người trao đi tìm "Phòng Kinh doanh" mà
+              // không thấy sẽ tưởng dữ liệu lỗi chứ không nghĩ là luật chặn.
+              <p className="mt-1.5 text-[11px] font-medium text-slate-400 leading-relaxed">
+                Đã ẩn {blockedCount} đơn vị ở cấp cao hơn cấp mà người này đang phụ trách —
+                uỷ quyền chỉ giao được đơn vị ngang cấp hoặc thấp hơn.
+              </p>
+            )}
+            {orgUnitIds.length > 1 && (
+              <p className="mt-1.5 text-[11px] font-bold text-violet-600 dark:text-violet-400">
+                Đã chọn {orgUnitIds.length} đơn vị — tạo cùng lúc, hỏng một cái thì không cái nào được tạo.
+              </p>
+            )}
           </Field>
 
           <CheckRow

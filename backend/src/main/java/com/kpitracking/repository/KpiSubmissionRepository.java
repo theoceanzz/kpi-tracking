@@ -553,4 +553,31 @@ public interface KpiSubmissionRepository extends JpaRepository<KpiSubmission, UU
             ORDER BY period_label
             """, nativeQuery = true)
     java.util.List<Object[]> kpiTrendByPeriodAndUser(@Param("kpiId") UUID kpiId, @Param("userId") UUID userId, @Param("datePattern") String datePattern);
+
+    // ============================================================
+    // Biểu đồ CƠ CẤU BÀI NỘP (tab KPI đơn vị)
+    // ============================================================
+
+    /**
+     * Số bài nộp theo THÁNG x trạng thái — cho biểu đồ vùng chồng.
+     * → [thang (yyyy-MM), status, count].
+     *
+     * <p>Gộp theo tháng ở SQL thay vì kéo từng bài nộp về gộp ở Java: một tổ chức chạy vài năm có
+     * hàng chục nghìn bài nộp mà kết quả cuối cùng chỉ vài chục dòng.
+     */
+    @Query(value = "SELECT to_char(s.created_at, 'YYYY-MM') AS thang, s.status, COUNT(*) " +
+            "FROM kpi_submissions s " +
+            "WHERE s.org_unit_id IN (:unitIds) AND s.deleted_at IS NULL " +
+            "AND s.created_at >= :from AND s.created_at <= :to " +
+            "GROUP BY thang, s.status ORDER BY thang", nativeQuery = true)
+    java.util.List<Object[]> submissionCompositionByMonth(@Param("unitIds") java.util.Collection<UUID> unitIds,
+                                                          @Param("from") java.time.Instant from,
+                                                          @Param("to") java.time.Instant to);
+
+    /** Số bài nộp theo ĐƠN VỊ x trạng thái — cho cột chồng 100%. → [orgUnitId, orgUnitName, status, count]. */
+    @Query("SELECT ou.id, ou.name, s.status, COUNT(s.id) " +
+           "FROM KpiSubmission s JOIN s.orgUnit ou " +
+           "WHERE ou.id IN :unitIds " +
+           "GROUP BY ou.id, ou.name, s.status ORDER BY ou.name")
+    java.util.List<Object[]> submissionCompositionByUnit(@Param("unitIds") java.util.Collection<UUID> unitIds);
 }

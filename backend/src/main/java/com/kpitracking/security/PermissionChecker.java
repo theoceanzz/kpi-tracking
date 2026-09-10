@@ -357,14 +357,41 @@ public class PermissionChecker {
         // Người được uỷ quyền ký thay mang theo thâm niên của chính họ sang đơn vị đích —
         // nếu không, mọi luật "ai trên ai" (mở khoá bản chốt của cấp dưới) sẽ coi họ là
         // nhân viên và chặn đúng việc vừa được trao.
+        //
+        // Chỉ mang theo thâm niên của vai trò QUẢN LÝ. UserService
+        // .assignToUnitAndImmediateParent tự sinh cho mỗi người một membership nhân viên ở
+        // đơn vị CHA; tính cả nó thì thâm niên "mang sang" lại lấy từ một vai trò mà người
+        // đó chưa từng quản lý ai.
         boolean asLeader = isDelegatedTo(userId, targetUnit, true);
 
         return assignments.stream()
-                .filter(a -> asLeader || targetUnit.getPath().startsWith(a.getOrgUnit().getPath()))
+                .filter(a -> targetUnit.getPath().startsWith(a.getOrgUnit().getPath())
+                        || (asLeader && isManagerRank(a.getRole().getRank())))
                 .map(a -> a.getRole().getRank())
                 .filter(Objects::nonNull)
                 .min(Integer::compare)
                 .orElse(2);
+    }
+
+    /**
+     * Người thao tác có đứng CAO HƠN người sở hữu việc trong đơn vị này không?
+     *
+     * <p>Luật: cấp tốt hơn thắng; cùng cấp thì chức vụ tốt hơn thắng. Số NHỎ hơn là cao hơn ở cả
+     * hai trục. Ngang bằng thì KHÔNG vượt qua — hệ quả là không ai tự duyệt việc của chính mình,
+     * vì với chính mình hai trục luôn bằng nhau.
+     *
+     * <p>Khối này trước đây được chép nguyên văn năm lần: ba lần trong {@code KpiCriteriaService}
+     * (duyệt / từ chối / hoàn duyệt), một lần trong {@code KpiSubmissionService.requireCanReview}
+     * và một lần trong {@code KpiAdjustmentService.reviewRequest}. Gom về một chỗ để sửa luật là
+     * sửa một nơi, và để kiểm thử được nó độc lập.
+     */
+    public boolean isSuperiorTo(UUID actorId, UUID targetUserId, UUID orgUnitId) {
+        int targetLevel = getMinLevelInOrgUnit(targetUserId, orgUnitId);
+        int targetRank = getMinRankInOrgUnit(targetUserId, orgUnitId);
+        int actorLevel = getMinLevelInOrgUnit(actorId, orgUnitId);
+        int actorRank = getMinRankInOrgUnit(actorId, orgUnitId);
+
+        return actorLevel < targetLevel || (actorLevel == targetLevel && actorRank < targetRank);
     }
 
     /**
@@ -378,10 +405,13 @@ public class PermissionChecker {
         OrgUnit targetUnit = orgUnitRepository.findById(orgUnitId).orElse(null);
         if (targetUnit == null) return 4;
 
+        // Cùng lý do với getMinRankInOrgUnit: chỉ vai trò quản lý mới mang thâm niên sang
+        // đơn vị được uỷ quyền.
         boolean asLeader = isDelegatedTo(userId, targetUnit, true);
 
         return assignments.stream()
-                .filter(a -> asLeader || targetUnit.getPath().startsWith(a.getOrgUnit().getPath()))
+                .filter(a -> targetUnit.getPath().startsWith(a.getOrgUnit().getPath())
+                        || (asLeader && isManagerRank(a.getRole().getRank())))
                 .map(a -> a.getRole().getLevel())
                 .filter(Objects::nonNull)
                 .min(Integer::compare)

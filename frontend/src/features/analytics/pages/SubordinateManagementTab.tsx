@@ -8,8 +8,9 @@ import UnitComparisonBarChart from '../components/UnitComparisonBarChart'
 import MemberRoleChart from '../components/MemberRoleChart'
 import { useSummaryStats } from '../hooks/useAnalytics'
 import { useAnalyticsDateFilter } from '@/components/common/AnalyticsDateFilter'
+import { OkrFlowSection } from '../components/advanced/OkrAdvanced'
 import { usePerformanceScale } from '../hooks/usePerformanceScale'
-import { Target, TrendingUp, CheckCircle2, AlertTriangle, Users } from 'lucide-react'
+import { Target, TrendingUp, CheckCircle2, AlertTriangle, Users, Network } from 'lucide-react'
 import { ChartWrapper, type DashboardWidget } from '@/components/common/dashboard/ChartWrapper'
 import { useDashboardCustomization } from '@/components/common/dashboard/useDashboardCustomization'
 import DashboardCustomizeChrome, { DashboardEditToolbar } from '@/components/common/dashboard/DashboardCustomizeChrome'
@@ -21,12 +22,15 @@ const DEFAULT_WIDGETS: DashboardWidget[] = [
   { i: 'sub-detail', type: 'SUB_DETAIL', title: 'Chi tiết mục tiêu', x: 0, y: 15, w: 12, h: 20, visible: true },
   { i: 'sub-member', type: 'SUB_MEMBER', title: 'Nhân sự & vai trò theo đơn vị', x: 0, y: 35, w: 12, h: 11, visible: true },
   { i: 'sub-unit-perf', type: 'SUB_UNIT_PERF', title: 'Hiệu suất & Tiến độ đơn vị', x: 0, y: 46, w: 12, h: 13, visible: true },
+  // Mặc định ẩn: luồng OKR chỉ có nghĩa khi Key Result đã được phân bổ trọng số xuống đơn vị.
+  { i: 'sub-okr-flow', type: 'SUB_OKR_FLOW', title: 'Luồng phân bổ OKR', x: 0, y: 59, w: 12, h: 13, visible: false },
 ]
 // Loại FE → enum WidgetType hợp lệ ở DB (không cần migration).
 const toBackendWidgetType = (t: string): WidgetType =>
   t === 'SUB_TREND' ? 'TREND_CHART'
   : t === 'SUB_DETAIL' ? 'TABLE'
   : t === 'SUB_MEMBER' ? 'MEMBER_DIST'
+  : t === 'SUB_OKR_FLOW' ? 'HEATMAP'
   : 'UNIT_PERFORMANCE'
 const CATALOG: { template: DashboardWidget; icon: React.ReactNode }[] = DEFAULT_WIDGETS.map(t => ({
   template: t,
@@ -104,6 +108,11 @@ export default function SubordinateManagementTab() {
       case 'SUB_UNIT_PERF': return (
         <ChartWrapper title="Hiệu suất & Tiến độ đơn vị" icon={<TrendingUp size={20} className="text-emerald-500" />} widget={w} onTogglePin={handleTogglePin} isEditMode={isEditMode}>
           <UnitComparisonBarChart from={from} to={to} onlyApproved={onlyApproved} periodId={periodId} periodIdTo={periodIdTo} />
+        </ChartWrapper>
+      )
+      case 'SUB_OKR_FLOW': return (
+        <ChartWrapper title="Luồng phân bổ OKR" icon={<Network size={20} className="text-indigo-500" />} widget={w} onTogglePin={handleTogglePin} isEditMode={isEditMode}>
+          <OkrFlowSection filter={{ periodId, periodIdTo }} />
         </ChartWrapper>
       )
       default: return null

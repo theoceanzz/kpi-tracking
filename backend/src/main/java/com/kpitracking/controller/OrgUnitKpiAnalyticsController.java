@@ -144,6 +144,17 @@ public class OrgUnitKpiAnalyticsController {
         return ResponseEntity.ok(ApiResponse.success(service.getUnitOverdueKpis(unitId)));
     }
 
+    @GetMapping("/weight-budget")
+    @PreAuthorize("hasAuthority('KPI:VIEW')")
+    @Operation(summary = "Tổng trọng số theo (đơn vị, đợt) để đối chiếu với mốc 100%")
+    public ResponseEntity<ApiResponse<List<OrgUnitKpiAnalyticsService.UnitWeightBudget>>> getWeightBudget(
+            @RequestParam(required = false) UUID orgUnitId,
+            @RequestParam(required = false) UUID periodId,
+            @RequestParam(required = false) UUID periodIdTo) {
+        return ResponseEntity.ok(ApiResponse.success(
+                service.getWeightBudget(orgUnitId, periodHelper.resolvePeriodIds(periodId, periodIdTo))));
+    }
+
     @GetMapping("/risks/members/{userId}/overdue-kpis")
     @PreAuthorize("hasAuthority('KPI:VIEW')")
     @Operation(summary = "List of overdue KPIs for a specific member")

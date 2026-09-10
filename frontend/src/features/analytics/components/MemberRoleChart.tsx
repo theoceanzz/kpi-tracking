@@ -1,9 +1,40 @@
 import { useMemo } from 'react'
+import { xAxisLabel } from '@/components/charts/axisLabel'
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts'
+import { seriesColor } from '@/components/charts/chartPalette'
+import ChartTooltip from '@/components/charts/ChartTooltip'
 
 type RoleDist = { unitName: string; roles: { roleName: string; count: number }[] }
 
-const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899']
+
+interface RoleTooltipEntry {
+  name?: string
+  value?: number
+  color?: string
+  payload?: { __total?: number }
+}
+
+function RoleTooltip({ active, payload, label }: {
+  active?: boolean
+  payload?: RoleTooltipEntry[]
+  label?: string
+}) {
+  if (!active || !payload?.length) return null
+  const total = payload[0]?.payload?.__total ?? 0
+  // Bỏ những vai trò không có ai: biểu đồ xếp chồng luôn truyền đủ mọi chuỗi vào payload, nên
+  // đơn vị nhỏ sẽ hiện một danh sách dài toàn số 0 — nhiễu hơn là thông tin.
+  const rows = payload
+    .filter(p => (p.value ?? 0) > 0)
+    .map(p => ({ color: p.color, label: p.name ?? '', value: p.value ?? 0 }))
+  if (rows.length === 0) return null
+  return (
+    <ChartTooltip
+      title={label}
+      rows={rows}
+      footer={<>Tổng <span className="font-bold text-slate-600 dark:text-slate-300 tabular-nums">{total}</span> người</>}
+    />
+  )
+}
 
 /**
  * Segment vai trò tự vẽ: bo tròn góc phải CHỈ ở đoạn cuối cùng CÓ GIÁ TRỊ của mỗi hàng
@@ -71,15 +102,15 @@ export default function MemberRoleChart({ data }: { data?: RoleDist[] }) {
     <div className="flex-1 flex flex-col min-h-0">
       <div className="flex-1 min-h-0">
         <ResponsiveContainer width="100%" height="100%" minHeight={0}>
-          <BarChart data={chartData} layout="vertical" margin={{ top: 4, right: 48, left: 8, bottom: 4 }}>
+          <BarChart data={chartData} layout="vertical" margin={{ top: 4, right: 48, left: 8, bottom: 24 }}>
             <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
-            <XAxis type="number" allowDecimals={false} axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#64748b' }} />
+            <XAxis type="number" label={xAxisLabel('S\u1ed1 ng\u01b0\u1eddi')} allowDecimals={false} axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#64748b' }} />
             <YAxis dataKey="unitName" type="category" axisLine={false} tickLine={false} width={130}
               tick={{ fontSize: 11, fontWeight: 700, fill: '#64748b' }} />
-            <Tooltip cursor={{ fill: '#94a3b8', opacity: 0.06 }} />
+            <Tooltip content={<RoleTooltip />} cursor={{ fill: '#94a3b8', opacity: 0.06 }} />
             <Legend iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: 800, paddingTop: '8px' }} />
             {roleNames.map((roleName, index) => (
-              <Bar key={roleName} dataKey={roleName} stackId="a" fill={COLORS[index % COLORS.length]} name={roleName}
+              <Bar key={roleName} dataKey={roleName} stackId="a" fill={seriesColor(index)} name={roleName}
                 barSize={22} isAnimationActive={false} shape={(p: any) => <RoleSegment {...p} roleName={roleName} />} />
             ))}
           </BarChart>

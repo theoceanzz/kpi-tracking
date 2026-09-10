@@ -1,4 +1,5 @@
 import React, { useState, useMemo } from 'react'
+import { yAxisLabel } from '@/components/charts/axisLabel'
 
 import { personalObjectiveApi } from '@/features/dashboard/api/personalObjectiveApi'
 import { useQuery } from '@tanstack/react-query'
@@ -265,7 +266,7 @@ export default function MyKpiDrawer({
                 <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 5 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
                   <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} />
-                  <YAxis yAxisId="left" orientation="left" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} />
+                  <YAxis yAxisId="left" orientation="left" label={yAxisLabel('Gi\u00e1 tr\u1ecb \u0111\u1ea1t')} axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} />
                   <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} tickFormatter={val => `${Math.round(val)}%`} />
                   <Tooltip content={<DrawerChartTooltip />} cursor={{ fill: '#94a3b8', opacity: 0.06 }} />
                   <Legend wrapperStyle={{ fontSize: '11px', fontWeight: 'bold' }} />

@@ -3,6 +3,7 @@ import { useSearchParams } from 'react-router-dom'
 import { ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useHasPermission } from '@/components/auth/PermissionGate'
+import { useStageVisible } from '@/features/kpi/workflow/hooks/useStageVisible'
 import { useNavLabels } from '@/features/organization/hooks/useNavLabels'
 import { findNavItem, type NavItem } from '@/config/navigation'
 import { useTourScope } from '@/hooks/useTourScope'
@@ -62,6 +63,7 @@ export default function SettingsSectionLayout({
   eyebrow?: ReactNode
 }) {
   const { hasPermission } = useHasPermission()
+  const stageVisible = useStageVisible()
   const { labelOf } = useNavLabels()
   const [searchParams, setSearchParams] = useSearchParams()
 
@@ -71,6 +73,9 @@ export default function SettingsSectionLayout({
   const visible = defs.filter(def => {
     const renderer = sections.find(s => s.id === def.id)
     if (!renderer || renderer.visible === false) return false
+    // Cùng phép lọc như sidebar: tổ chức tắt bước nào thì mục của bước đó biến mất khỏi cả
+    // hàng tab lẫn lưới thẻ, không riêng menu bên trái.
+    if (!stageVisible([def.path, ...(def.legacyKeys ?? [])])) return false
     return !def.permission || hasPermission(def.permission, def.requireAllPermissions)
   })
 
@@ -89,7 +94,7 @@ export default function SettingsSectionLayout({
       if (id) p.set('section', id)
       else p.delete('section')
       return p
-    }, { replace: true })
+    })
   }
 
   /* ── Chưa chọn mục: lưới thẻ ── */

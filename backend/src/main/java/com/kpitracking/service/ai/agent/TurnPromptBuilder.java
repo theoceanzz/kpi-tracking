@@ -198,7 +198,7 @@ public class TurnPromptBuilder {
 
     /** Tên gọi người dùng hiểu được của từng nhóm bị chặn. */
     private static final Map<ToolRegistry.Group, String> DENIED_LABEL = Map.of(
-            ToolRegistry.Group.BSC, "bộ tiêu chí BSC: hạng mục, trọng số hạng mục, điểm BSC",
+            ToolRegistry.Group.BSC, "bộ tiêu chí BSC (thẻ điểm cân bằng): hạng mục (viễn cảnh), trọng số hạng mục, điểm BSC",
             ToolRegistry.Group.OKR, "mục tiêu và kết quả then chốt (OKR)",
             ToolRegistry.Group.ACTION, "tạo hoặc sửa dữ liệu");
 

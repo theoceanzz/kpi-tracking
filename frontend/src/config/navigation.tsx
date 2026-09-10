@@ -1,4 +1,5 @@
 import {
+  Workflow,
   LayoutDashboard,
   Hash,
   Building2,
@@ -246,6 +247,10 @@ export const navItems: NavItem[] = [
       { id: 'bsc', labelKey: 'analytics-bsc', label: 'Hạng mục (BSC)', icon: <Gauge size={18} />, permission: 'BSC:MANAGE', bscOnly: true, group: 'Toàn tổ chức', description: 'Kết quả theo từng hạng mục trong bộ tiêu chí (BSC)' },
     ],
   },
+  // Không gác quyền: phần "Hiển thị của tôi" trong trang này dành cho mọi người, còn phần
+  // cấu hình của tổ chức thì chính trang tự chuyển sang chế độ chỉ-xem khi thiếu
+  // WORKFLOW:MANAGE.
+  { id: 'kpi-workflow', label: 'Luồng KPI', path: '/kpi-workflow', icon: <Workflow size={20} />, end: true },
   { id: 'ai-assistant', label: 'K.AI', path: '/ai-assistant', icon: <Bot size={20} />, permission: 'DASHBOARD:VIEW', end: true, aiOnly: true },
 ]
 

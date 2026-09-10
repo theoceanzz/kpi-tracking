@@ -2715,3 +2715,47 @@ CREATE TRIGGER trg_update_org_subtree
 AFTER UPDATE OF parent_id ON org_units
 FOR EACH ROW
 EXECUTE FUNCTION fn_update_org_subtree();
+
+-- ====================================================
+-- Luồng KPI cấu hình được
+--
+-- Dự án dùng ddl-auto=update nên Hibernate cũng tự tạo được bảng/cột từ entity (bảng
+-- kpi_adjustment_requests là ví dụ — nó không nằm trong file này). Vẫn khai báo tường minh để
+-- lược đồ đọc được từ migration, và dùng IF NOT EXISTS để chạy được cả trên database mà
+-- Hibernate đã kịp tạo trước.
+-- ====================================================
+
+CREATE TABLE IF NOT EXISTS kpi_workflow_configs (
+    id              UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    -- Cố ý KHÔNG đặt CHECK constraint theo enum lên cột này: xem report_widgets.widget_type để
+    -- thấy cái giá của việc đó (enum Java + CHECK SQL + union TS phải sửa cùng lúc).
+    definition      JSONB NOT NULL DEFAULT '{}'::jsonb,
+    version         INT NOT NULL DEFAULT 1,
+    updated_by      UUID REFERENCES users(id) ON DELETE SET NULL,
+    created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+    updated_at      TIMESTAMPTZ,
+    deleted_at      TIMESTAMPTZ
+);
+
+-- Mỗi tổ chức nhiều nhất một cấu hình còn hiệu lực. Index từng phần để bản đã xoá mềm không chiếm chỗ.
+CREATE UNIQUE INDEX IF NOT EXISTS ux_kpi_workflow_configs_org
+    ON kpi_workflow_configs (organization_id) WHERE deleted_at IS NULL;
+
+-- ====================================================
+-- Memento cho yêu cầu điều chỉnh
+--
+-- Trước đây từ chối một yêu cầu điều chỉnh luôn đặt KPI về APPROVED cứng, nên trạng thái trước
+-- khi vào EDIT bị mất. Cột này giữ lại trạng thái đó để trả về đúng chỗ cũ.
+--
+-- Bọc trong khối điều kiện vì bảng kpi_adjustment_requests KHÔNG nằm trong V1 — nó do Hibernate
+-- tạo từ entity nhờ ddl-auto=update. Flyway chạy TRƯỚC Hibernate, nên trên một database sạch bảng
+-- này chưa tồn tại ở thời điểm migration chạy. Trường hợp đó thì bỏ qua ở đây và để Hibernate tự
+-- thêm cột từ mapping của entity; trên database đã có sẵn bảng thì cột được thêm ngay tại đây.
+-- ====================================================
+DO $$
+BEGIN
+    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'kpi_adjustment_requests') THEN
+        ALTER TABLE kpi_adjustment_requests ADD COLUMN IF NOT EXISTS previous_kpi_status VARCHAR(32);
+    END IF;
+END $$;

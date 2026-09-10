@@ -72,6 +72,9 @@ public class KpiCriteriaService {
     private final KpiAchievementCalculator achievementCalculator;
     private final OrganizationService organizationService;
     private final BscScoringService bscScoringService;
+    private final com.kpitracking.workflow.KpiWorkflowConfigService workflowConfigService;
+    private final com.kpitracking.workflow.engine.WorkflowEngine workflowEngine;
+    private final com.kpitracking.workflow.guard.HierarchyAuthorityGuard hierarchyGuard;
 
     private static final List<KpiStatus> WEIGHT_COUNTED_STATUSES = java.util.Arrays.asList(
             KpiStatus.DRAFT,
@@ -94,12 +97,110 @@ public class KpiCriteriaService {
         return roles.get(0).getOrgUnit().getOrgHierarchyLevel().getOrganization().getId();
     }
 
+    private UUID organizationIdOf(KpiCriteria kpi) {
+        Organization org = kpi.getOrgUnit().getOrgHierarchyLevel().getOrganization();
+        return org == null ? null : org.getId();
+    }
+
+    /**
+     * Chạy một phép chuyển trạng thái của chỉ tiêu qua {@code WorkflowEngine}.
+     *
+     * <p>Ba phương thức duyệt / từ chối / hoàn duyệt trước đây mỗi cái tự viết lại cùng một trình
+     * tự: kiểm quyền trong đơn vị, so cấp bậc với người tạo, kiểm trạng thái, rồi mới đổi. Khối so
+     * cấp bậc bị chép nguyên văn ba lần chỉ khác động từ trong thông báo. Giờ trình tự đó nằm ở
+     * engine và luật cấp bậc nằm ở {@code HierarchyAuthorityGuard}, nên ở đây chỉ còn phần thật sự
+     * riêng của từng hành động.
+     */
+    private KpiStatus resolveCriteriaTransition(
+            KpiCriteria kpi, User actor,
+            com.kpitracking.workflow.WorkflowAction action,
+            String permissionCode, String verb, String statusRejectionMessage,
+            List<com.kpitracking.workflow.guard.TransitionGuard> invariants) {
+
+        return resolveCriteriaTransition(kpi, actor, action, statusRejectionMessage,
+                List.of(hierarchyGuard.requiring(permissionCode, verb, "chỉ tiêu", "chỉ tiêu KPI")),
+                invariants);
+    }
+
+    /**
+     * Bản cho phép tự chọn chốt chặn thẩm quyền.
+     *
+     * <p>Cần thiết vì không phải hành động nào cũng là cấp trên xét cấp dưới. Gửi duyệt là việc TỰ
+     * PHỤC VỤ — chính người tạo gửi chỉ tiêu của mình đi — nên áp luật cấp bậc vào đó sẽ so người
+     * gửi với chính họ, mà hai vế luôn bằng nhau nên không ai gửi duyệt được nữa.
+     */
+    private KpiStatus resolveCriteriaTransition(
+            KpiCriteria kpi, User actor,
+            com.kpitracking.workflow.WorkflowAction action,
+            String statusRejectionMessage,
+            List<com.kpitracking.workflow.guard.TransitionGuard> authorityGuards,
+            List<com.kpitracking.workflow.guard.TransitionGuard> invariants) {
+
+        com.kpitracking.workflow.def.WorkflowDefinition definition =
+                workflowConfigService.definitionFor(organizationIdOf(kpi));
+
+        com.kpitracking.workflow.engine.TransitionContext<KpiStatus> ctx =
+                com.kpitracking.workflow.engine.TransitionContext.<KpiStatus>builder()
+                        .definition(definition)
+                        .action(action)
+                        .currentStatus(kpi.getStatus())
+                        .actor(actor)
+                        .orgUnitId(kpi.getOrgUnit().getId())
+                        .target(kpi)
+                        .targetOwnerId(kpi.getCreatedBy() == null ? null : kpi.getCreatedBy().getId())
+                        .statusRejectionMessage(statusRejectionMessage)
+                        .build();
+
+        return workflowEngine.resolve(definition.criteria(), ctx, authorityGuards, invariants);
+    }
+
+    /** Hành động có khả dụng với chỉ tiêu này không (bước còn bật + trạng thái nhận). Không kiểm quyền. */
+    private boolean canTransition(KpiCriteria kpi, com.kpitracking.workflow.WorkflowAction action) {
+        com.kpitracking.workflow.def.WorkflowDefinition definition =
+                workflowConfigService.definitionFor(organizationIdOf(kpi));
+        return workflowEngine.canResolve(definition.criteria(),
+                com.kpitracking.workflow.engine.TransitionContext.<KpiStatus>builder()
+                        .definition(definition)
+                        .action(action)
+                        .currentStatus(kpi.getStatus())
+                        .build());
+    }
+
+    private void requireStageEnabled(KpiCriteria kpi, com.kpitracking.workflow.WorkflowStage stage) {
+        if (!workflowConfigService.definitionFor(organizationIdOf(kpi)).isStageEnabled(stage)) {
+            throw new BusinessException("Tổ chức đã tắt bước duyệt chỉ tiêu trong cấu hình luồng KPI");
+        }
+    }
+
+    /**
+     * Trạng thái của chỉ tiêu ngay khi vừa tạo.
+     *
+     * <p>Trước đây là {@code canApprove ? APPROVED : DRAFT} viết cứng, trong đó {@code canApprove}
+     * là quyền {@code KPI:APPROVE_OWN}. Giờ còn phụ thuộc cấu hình: tổ chức tắt hẳn bước duyệt chỉ
+     * tiêu thì chỉ tiêu ra đời đã duyệt, vì không còn ai để duyệt nó nữa.
+     */
+    private KpiStatus initialCriteriaStatus(UUID organizationId, User creator) {
+        com.kpitracking.workflow.def.WorkflowDefinition definition =
+                workflowConfigService.definitionFor(organizationId);
+
+        if (!definition.isStageEnabled(com.kpitracking.workflow.WorkflowStage.CRITERIA_APPROVAL)) {
+            return KpiStatus.APPROVED;
+        }
+
+        boolean allowSelfApprove = definition
+                .stageConfig(com.kpitracking.workflow.WorkflowStage.CRITERIA_APPROVAL)
+                .booleanOption("allowSelfApprove", true);
+
+        return allowSelfApprove && permissionChecker.hasPermission(creator.getId(), "KPI:APPROVE_OWN")
+                ? KpiStatus.APPROVED
+                : KpiStatus.DRAFT;
+    }
+
     @Transactional
     public KpiCriteriaResponse createKpiCriteria(CreateKpiCriteriaRequest request) {
         User currentUser = getCurrentUser();
-        boolean canApprove = permissionChecker.hasPermission(currentUser.getId(), "KPI:APPROVE_OWN");
 
-        KpiStatus initialStatus = canApprove ? KpiStatus.APPROVED : KpiStatus.DRAFT;
+        KpiStatus initialStatus = initialCriteriaStatus(getCurrentUserOrganizationId(currentUser), currentUser);
 
         com.kpitracking.entity.KpiPeriod kpiPeriod = kpiPeriodRepository.findById(request.getKpiPeriodId())
                 .orElseThrow(() -> new ResourceNotFoundException("Kỳ đánh giá (Đợt)", "id", request.getKpiPeriodId()));
@@ -608,6 +709,10 @@ public class KpiCriteriaService {
         KpiCriteria firstKpi = kpiCriteriaRepository.findById(kpiIds.get(0))
                 .orElseThrow(() -> new ResourceNotFoundException("Chỉ tiêu KPI", "id", kpiIds.get(0)));
 
+        // Bước duyệt chỉ tiêu bị tắt thì không có gì để gửi duyệt. Báo ngay một lần ở đây thay vì
+        // để vòng lặp bên dưới bỏ qua từng bản rồi trả về danh sách rỗng không rõ nguyên nhân.
+        requireStageEnabled(firstKpi, com.kpitracking.workflow.WorkflowStage.CRITERIA_APPROVAL);
+
         // Weight validation (same as single submit)
         Double totalWeight = calculateTotalWeightByOrgUnit(firstKpi.getOrgUnit().getId(), firstKpi.getKpiPeriod().getId(), WEIGHT_COUNTED_STATUSES);
 
@@ -625,7 +730,10 @@ public class KpiCriteriaService {
                  continue;
             }
 
-            if (kpi.getStatus() != KpiStatus.DRAFT && kpi.getStatus() != KpiStatus.REJECTED) {
+            // Trạng thái nào gửi duyệt được là do bảng chuyển quyết định, không còn là điều kiện
+            // viết cứng ở đây. Bỏ qua thay vì ném, vì đây là đường hàng loạt và một bản không hợp
+            // lệ không nên làm hỏng cả lô.
+            if (!canTransition(kpi, com.kpitracking.workflow.WorkflowAction.SUBMIT_CRITERIA)) {
                 continue;
             }
 
@@ -642,7 +750,11 @@ public class KpiCriteriaService {
                 }
             }
 
-            kpi.setStatus(KpiStatus.PENDING_APPROVAL);
+            // Không có chốt chặn thẩm quyền: quyền sở hữu đã được kiểm ngay đầu vòng lặp
+            // (chỉ người tạo mới gửi duyệt được chỉ tiêu của mình).
+            kpi.setStatus(resolveCriteriaTransition(kpi, currentUser,
+                    com.kpitracking.workflow.WorkflowAction.SUBMIT_CRITERIA,
+                    null, List.of(), List.of()));
             kpi.setSubmittedAt(Instant.now());
             kpi.setRejectReason(null);
             kpi = kpiCriteriaRepository.save(kpi);
@@ -659,41 +771,19 @@ public class KpiCriteriaService {
         KpiCriteria kpi = kpiCriteriaRepository.findById(kpiId)
                 .orElseThrow(() -> new ResourceNotFoundException("Chỉ tiêu KPI", "id", kpiId));
 
-        if (!permissionChecker.isGlobalAdmin(currentUser.getId())) {
-            if (!permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "KPI:APPROVE_CRITERIA", kpi.getOrgUnit().getId())) {
-                throw new ForbiddenException("Bạn không có quyền phê duyệt chỉ tiêu KPI cho đơn vị này");
-            }
+        // Bản tham chiếu bất biến cho lambda: biến kpi bị gán lại sau khi lưu nên không dùng
+        // trực tiếp trong guard được.
+        final KpiCriteria target = kpi;
+        KpiStatus next = resolveCriteriaTransition(kpi, currentUser,
+                com.kpitracking.workflow.WorkflowAction.APPROVE_CRITERIA,
+                "KPI:APPROVE_CRITERIA", "phê duyệt",
+                "Chỉ có thể phê duyệt KPI ở trạng thái CHỜ PHÊ DUYỆT",
+                List.of(
+                        ctx -> { requirePerspectiveWhenBscEnabled(target); return com.kpitracking.workflow.engine.GuardResult.ok(); },
+                        ctx -> { requireCategoryWeightSum100OnApprove(target); return com.kpitracking.workflow.engine.GuardResult.ok(); }
+                ));
 
-            // Enhanced Hierarchical Rule: Check level and rank relative to creator
-            User creator = kpi.getCreatedBy();
-            int creatorLevel = permissionChecker.getMinLevelInOrgUnit(creator.getId(), kpi.getOrgUnit().getId());
-            int creatorRank = permissionChecker.getMinRankInOrgUnit(creator.getId(), kpi.getOrgUnit().getId());
-            
-            int reviewerLevel = permissionChecker.getMinLevelInOrgUnit(currentUser.getId(), kpi.getOrgUnit().getId());
-            int reviewerRank = permissionChecker.getMinRankInOrgUnit(currentUser.getId(), kpi.getOrgUnit().getId());
-
-            // Reviewer must have a better level (lower number) OR same level and better rank
-            boolean isSuperior = reviewerLevel < creatorLevel || (reviewerLevel == creatorLevel && reviewerRank < creatorRank);
-
-            if (!isSuperior) {
-                if (reviewerLevel > creatorLevel) {
-                    throw new ForbiddenException("Bạn không thể phê duyệt chỉ tiêu của người có cấp bậc cao hơn bạn");
-                } else if (reviewerLevel == creatorLevel && reviewerRank == creatorRank) {
-                    throw new ForbiddenException("Bạn không thể phê duyệt chỉ tiêu của người có cùng chức vụ");
-                } else {
-                    throw new ForbiddenException("Bạn không đủ thẩm quyền để phê duyệt chỉ tiêu này");
-                }
-            }
-        }
-
-        if (kpi.getStatus() != KpiStatus.PENDING_APPROVAL) {
-            throw new BusinessException("Chỉ có thể phê duyệt KPI ở trạng thái CHỜ PHÊ DUYỆT");
-        }
-
-        requirePerspectiveWhenBscEnabled(kpi);
-        requireCategoryWeightSum100OnApprove(kpi);
-
-        kpi.setStatus(KpiStatus.APPROVED);
+        kpi.setStatus(next);
         kpi.setApprovedBy(currentUser);
         kpi.setApprovedAt(Instant.now());
         kpi = kpiCriteriaRepository.save(kpi);
@@ -793,38 +883,13 @@ public class KpiCriteriaService {
         KpiCriteria kpi = kpiCriteriaRepository.findById(kpiId)
                 .orElseThrow(() -> new ResourceNotFoundException("Chỉ tiêu KPI", "id", kpiId));
 
-        if (!permissionChecker.isGlobalAdmin(currentUser.getId())) {
-            if (!permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "KPI:APPROVE_CRITERIA", kpi.getOrgUnit().getId())) {
-                throw new ForbiddenException("Bạn không có quyền từ chối chỉ tiêu KPI cho đơn vị này");
-            }
+        KpiStatus next = resolveCriteriaTransition(kpi, currentUser,
+                com.kpitracking.workflow.WorkflowAction.REJECT_CRITERIA,
+                "KPI:APPROVE_CRITERIA", "từ chối",
+                "Chỉ có thể từ chối KPI ở trạng thái CHỜ PHÊ DUYỆT",
+                List.of());
 
-            // Enhanced Hierarchical Rule: Check level and rank relative to creator
-            User creator = kpi.getCreatedBy();
-            int creatorLevel = permissionChecker.getMinLevelInOrgUnit(creator.getId(), kpi.getOrgUnit().getId());
-            int creatorRank = permissionChecker.getMinRankInOrgUnit(creator.getId(), kpi.getOrgUnit().getId());
-            
-            int reviewerLevel = permissionChecker.getMinLevelInOrgUnit(currentUser.getId(), kpi.getOrgUnit().getId());
-            int reviewerRank = permissionChecker.getMinRankInOrgUnit(currentUser.getId(), kpi.getOrgUnit().getId());
-
-            // Reviewer must have a better level (lower number) OR same level and better rank
-            boolean isSuperior = reviewerLevel < creatorLevel || (reviewerLevel == creatorLevel && reviewerRank < creatorRank);
-
-            if (!isSuperior) {
-                if (reviewerLevel > creatorLevel) {
-                    throw new ForbiddenException("Bạn không thể từ chối chỉ tiêu của người có cấp bậc cao hơn bạn");
-                } else if (reviewerLevel == creatorLevel && reviewerRank == creatorRank) {
-                    throw new ForbiddenException("Bạn không thể từ chối chỉ tiêu của người có cùng chức vụ");
-                } else {
-                    throw new ForbiddenException("Bạn không đủ thẩm quyền để từ chối chỉ tiêu này");
-                }
-            }
-        }
-
-        if (kpi.getStatus() != KpiStatus.PENDING_APPROVAL) {
-            throw new BusinessException("Chỉ có thể từ chối KPI ở trạng thái CHỜ PHÊ DUYỆT");
-        }
-
-        kpi.setStatus(KpiStatus.REJECTED);
+        kpi.setStatus(next);
         kpi.setRejectReason(request.getReason());
         kpi.setApprovedBy(currentUser);
         kpi = kpiCriteriaRepository.save(kpi);
@@ -840,37 +905,13 @@ public class KpiCriteriaService {
         KpiCriteria kpi = kpiCriteriaRepository.findById(kpiId)
                 .orElseThrow(() -> new ResourceNotFoundException("Chỉ tiêu KPI", "id", kpiId));
 
-        if (!permissionChecker.isGlobalAdmin(currentUser.getId())) {
-            if (!permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "KPI:REVERT_APPROVAL", kpi.getOrgUnit().getId())) {
-                throw new ForbiddenException("Bạn không có quyền hoàn duyệt chỉ tiêu KPI cho đơn vị này");
-            }
+        KpiStatus next = resolveCriteriaTransition(kpi, currentUser,
+                com.kpitracking.workflow.WorkflowAction.REVERT_CRITERIA_APPROVAL,
+                "KPI:REVERT_APPROVAL", "hoàn duyệt",
+                "Chỉ có thể hoàn duyệt KPI đang ở trạng thái ĐÃ DUYỆT",
+                List.of());
 
-            // Same hierarchical rule as approveKpi: reviewer must be superior to the creator
-            User creator = kpi.getCreatedBy();
-            int creatorLevel = permissionChecker.getMinLevelInOrgUnit(creator.getId(), kpi.getOrgUnit().getId());
-            int creatorRank = permissionChecker.getMinRankInOrgUnit(creator.getId(), kpi.getOrgUnit().getId());
-
-            int reviewerLevel = permissionChecker.getMinLevelInOrgUnit(currentUser.getId(), kpi.getOrgUnit().getId());
-            int reviewerRank = permissionChecker.getMinRankInOrgUnit(currentUser.getId(), kpi.getOrgUnit().getId());
-
-            boolean isSuperior = reviewerLevel < creatorLevel || (reviewerLevel == creatorLevel && reviewerRank < creatorRank);
-
-            if (!isSuperior) {
-                if (reviewerLevel > creatorLevel) {
-                    throw new ForbiddenException("Bạn không thể hoàn duyệt chỉ tiêu của người có cấp bậc cao hơn bạn");
-                } else if (reviewerLevel == creatorLevel && reviewerRank == creatorRank) {
-                    throw new ForbiddenException("Bạn không thể hoàn duyệt chỉ tiêu của người có cùng chức vụ");
-                } else {
-                    throw new ForbiddenException("Bạn không đủ thẩm quyền để hoàn duyệt chỉ tiêu này");
-                }
-            }
-        }
-
-        if (kpi.getStatus() != KpiStatus.APPROVED) {
-            throw new BusinessException("Chỉ có thể hoàn duyệt KPI đang ở trạng thái ĐÃ DUYỆT");
-        }
-
-        kpi.setStatus(KpiStatus.PENDING_APPROVAL);
+        kpi.setStatus(next);
         kpi.setApprovedBy(null);
         kpi.setApprovedAt(null);
         kpi = kpiCriteriaRepository.save(kpi);
@@ -969,6 +1010,16 @@ public class KpiCriteriaService {
     }
 
     @Transactional(readOnly = true)
+    /**
+     * Tổng trọng số của đơn vị theo bộ trạng thái mặc định — chính con số mà lúc gửi duyệt đem so
+     * với 100%. Có lối vào này để nơi khác không phải biết `WEIGHT_COUNTED_STATUSES` là gì, và
+     * nhất là để không ai chép lại công thức: cộng thô mọi trọng số trong đơn vị cho ra kết quả
+     * NGƯỢC hẳn (đo thật: một chi nhánh ra 200% trong khi luật thật là 70%).
+     */
+    public Double calculateTotalWeightByOrgUnit(UUID orgUnitId, UUID kpiPeriodId) {
+        return calculateTotalWeightByOrgUnit(orgUnitId, kpiPeriodId, WEIGHT_COUNTED_STATUSES);
+    }
+
     public Double calculateTotalWeightByOrgUnit(UUID orgUnitId, UUID kpiPeriodId, List<KpiStatus> statuses) {
         List<KpiCriteria> kpis = kpiCriteriaRepository.findByOrgUnitIdAndKpiPeriodIdAndStatusIn(orgUnitId, kpiPeriodId, statuses);
 
@@ -1374,7 +1425,7 @@ public class KpiCriteriaService {
 
             validateWaterfallAssignment(creator, finalUnit, assignees);
 
-            boolean canApprove = permissionChecker.hasPermission(creator.getId(), "KPI:APPROVE_OWN");
+            KpiStatus importedStatus = initialCriteriaStatus(organizationId, creator);
 
             KpiCriteria kpi = KpiCriteria.builder()
                     .kpiType(kpiType != null ? kpiType : com.kpitracking.enums.KpiType.QUANTITATIVE)
@@ -1392,7 +1443,7 @@ public class KpiCriteriaService {
                     .orgUnit(finalUnit)
                     .kpiPeriod(finalPeriod)
                     .createdBy(creator)
-                    .status(canApprove ? KpiStatus.APPROVED : KpiStatus.DRAFT)
+                    .status(importedStatus)
                     .build();
 
             if (krCode != null && !krCode.isBlank()) {

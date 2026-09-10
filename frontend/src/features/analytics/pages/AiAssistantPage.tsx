@@ -758,7 +758,7 @@ export default function AiAssistantPage() {
                   placeholder={conversationId ? 'Tiếp tục cuộc trò chuyện...' : 'Hỏi về KPI, hiệu suất, xu hướng...'}
                   disabled={loadingMessages}
                   rows={1}
-                  className="flex-1 bg-transparent text-sm leading-6 focus:outline-none resize-none placeholder:text-[var(--color-muted-foreground)] disabled:opacity-50"
+                  className="flex-1 bg-transparent text-sm leading-6 focus:outline-none resize-none placeholder:text-[var(--color-muted-foreground)] disabled:opacity-50 scrollbar-hide"
                   style={{ maxHeight: '160px', overflowY: 'auto' }}
                 />
                 <Button

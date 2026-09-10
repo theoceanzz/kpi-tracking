@@ -1,0 +1,120 @@
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer } from 'recharts'
+import { AXIS_COLORS, METRIC_COLORS, NEUTRAL_COLOR } from '../chartPalette'
+
+export interface LollipopDatum {
+  /** Khoá để trả về khi người dùng bấm (userId, orgUnitId…). */
+  id?: string
+  name: string
+  value: number
+  /** Dòng phụ dưới tên trong tooltip (đơn vị, email…). */
+  subText?: string
+  color?: string
+}
+
+interface Props {
+  data: LollipopDatum[]
+  /** Đơn vị hiển thị (vd "%", "điểm"). */
+  unit?: string
+  /** Vạch tham chiếu, thường là trung bình toàn tổ chức. */
+  reference?: { value: number; label: string }
+  height?: number
+  domainMax?: number
+  onSelect?: (d: LollipopDatum) => void
+}
+
+/**
+ * Lollipop: mỗi mục một cọng nối từ trục tới một chấm tròn.
+ *
+ * <p>Đọc được nhiều mục hơn hẳn biểu đồ cột: 25 thanh đặc cạnh nhau tạo thành một mảng màu khiến
+ * mắt phải dò từng cái, trong khi 25 chấm thì vị trí chấm là thứ duy nhất đập vào mắt. Dùng khi
+ * xếp hạng đơn vị hoặc nhân sự — nơi số mục thường vượt xa số cột mà biểu đồ cột chịu được.
+ */
+export default function Lollipop({ data, unit = '', reference, height, domainMax, onSelect }: Props) {
+  // Cao theo số mục để nhãn không chồng nhau; sàn 180px cho danh sách rất ngắn.
+  const chartHeight = height ?? Math.max(180, data.length * 28 + 40)
+  const max = domainMax ?? Math.max(...data.map(d => d.value), reference?.value ?? 0, 1)
+
+  return (
+    <ResponsiveContainer width="100%" height={chartHeight}>
+      <BarChart data={data} layout="vertical" margin={{ top: 8, right: 44, left: 8, bottom: 8 }}>
+        <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={AXIS_COLORS.grid} />
+        <XAxis
+          type="number"
+          domain={[0, Math.ceil(max * 1.05)]}
+          axisLine={false}
+          tickLine={false}
+          tick={{ fill: AXIS_COLORS.tick, fontSize: 11, fontWeight: 500 }}
+        />
+        <YAxis
+          type="category"
+          dataKey="name"
+          width={140}
+          axisLine={false}
+          tickLine={false}
+          tick={{ fill: AXIS_COLORS.tick, fontSize: 11, fontWeight: 500 }}
+        />
+        <Tooltip cursor={{ fill: 'rgba(148,163,184,0.12)' }} content={<LollipopTooltip unit={unit} />} />
+
+        {reference && (
+          <ReferenceLine
+            x={reference.value}
+            stroke={NEUTRAL_COLOR}
+            strokeDasharray="4 4"
+            label={{ value: reference.label, position: 'top', fill: NEUTRAL_COLOR, fontSize: 10, fontWeight: 700 }}
+          />
+        )}
+
+        <Bar
+          dataKey="value"
+          isAnimationActive={false}
+          shape={<StemDot unit={unit} />}
+          onClick={onSelect ? ((d: unknown) => onSelect((d as { payload: LollipopDatum }).payload)) : undefined}
+          cursor={onSelect ? 'pointer' : undefined}
+        />
+      </BarChart>
+    </ResponsiveContainer>
+  )
+}
+
+interface ShapeProps {
+  x?: number
+  y?: number
+  width?: number
+  height?: number
+  payload?: LollipopDatum
+  unit?: string
+}
+
+function StemDot({ x = 0, y = 0, width = 0, height = 0, payload, unit = '' }: ShapeProps) {
+  if (!payload) return null
+  const color = payload.color ?? METRIC_COLORS.performance.normal
+  const cy = y + height / 2
+  const end = x + width
+  return (
+    <g>
+      <line x1={x} y1={cy} x2={end} y2={cy} stroke={color} strokeWidth={2} strokeOpacity={0.45} />
+      <circle cx={end} cy={cy} r={5.5} fill={color} />
+      <text x={end + 9} y={cy + 4} fontSize={11} fontWeight={700} fill={AXIS_COLORS.tick}>
+        {Math.round(payload.value * 10) / 10}{unit}
+      </text>
+    </g>
+  )
+}
+
+function LollipopTooltip({ active, payload, unit }: {
+  active?: boolean
+  payload?: { payload: LollipopDatum }[]
+  unit?: string
+}) {
+  const d = payload?.[0]?.payload
+  if (!active || !d) return null
+  return (
+    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3.5 rounded-xl shadow-lg">
+      <p className="font-bold text-slate-900 dark:text-white">{d.name}</p>
+      {d.subText && <p className="text-xs text-slate-500 mb-2">{d.subText}</p>}
+      <p className="font-black text-lg text-slate-900 dark:text-white tabular-nums">
+        {Math.round(d.value * 10) / 10}{unit ? ` ${unit}` : ''}
+      </p>
+    </div>
+  )
+}

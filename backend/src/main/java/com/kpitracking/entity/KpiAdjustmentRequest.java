@@ -45,6 +45,17 @@ public class KpiAdjustmentRequest {
     @Builder.Default
     private AdjustmentStatus status = AdjustmentStatus.PENDING;
 
+    /**
+     * Memento: trạng thái của KPI ngay TRƯỚC khi yêu cầu này đẩy nó sang {@code EDIT}.
+     *
+     * <p>Từ chối một yêu cầu điều chỉnh trước đây luôn đặt KPI về {@code APPROVED} cứng, nên nếu
+     * KPI đang ở trạng thái khác thì trạng thái đó biến mất. Giữ lại ở đây để trả về đúng chỗ cũ;
+     * {@code null} (dữ liệu cũ) thì lui về {@code APPROVED} như trước.
+     */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "previous_kpi_status", length = 32)
+    private com.kpitracking.enums.KpiStatus previousKpiStatus;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "reviewer_id")
     private User reviewer;

@@ -303,7 +303,7 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
               ...showManageModal,
               userStatus: newStatus
           })
-      } catch (error) {
+      } catch {
           // Error handled by mutation
       }
   }

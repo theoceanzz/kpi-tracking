@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom'
+import { useWorkflowNavigator } from '@/features/kpi/workflow/hooks/useWorkflowNavigator'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { evaluationSchema, type EvaluationFormData } from '../schemas/evaluationSchema'
@@ -6,7 +7,6 @@ import { useCreateEvaluation } from '../hooks/useCreateEvaluation'
 import { useKpiPeriods } from '@/features/kpi/hooks/useKpiPeriods'
 import { useMyKpi } from '@/features/kpi/hooks/useMyKpi'
 import { useAuthStore } from '@/store/authStore'
-import { usePermission } from '@/hooks/usePermission'
 import { useFormAssistStore } from '@/store/formAssistStore'
 import { MicButton } from '@/components/common/MicButton'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
@@ -28,7 +28,6 @@ interface EvaluationFormModalProps {
 
 export default function EvaluationFormModal({ open, onClose, readOnly = false, initialPeriodId }: EvaluationFormModalProps) {
   const { user } = useAuthStore()
-  const { hasPermission } = usePermission()
   /** Ô đang thật sự sửa được, cho trợ lý AI. Cập nhật bằng effect riêng bên dưới — điều kiện
    *  khoá điểm khai báo SAU chỗ đăng ký nên không đưa thẳng vào deps được. */
   const fillableRef = useRef<string[]>([])
@@ -165,19 +164,7 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
   }, [calculatedScore, setValue, readOnly, isBscOfficial])
 
   const navigate = useNavigate()
-
-  // Lưu xong đưa người dùng tới nơi họ XEM được kết quả. Điều kiện là QUYỀN chứ không
-  // phải roleRank: hai mục đến đều bị gác bằng quyền, còn roleRank thì suy ra từ một
-  // membership đoán trong danh sách — dựa vào nó là có ngày đẩy người dùng vào đúng
-  // mục họ không mở được, và màn hình đó im lặng rơi về lưới thẻ chứ không báo gì.
-  //
-  //   - Có EVALUATION:VIEW_MY (nhân viên, cấp phó) → mục "Đánh giá của tôi".
-  //   - Không có, nhưng có SUBMISSION:REVIEW (trưởng đơn vị) → "Đánh giá đợt" ở trang
-  //     Quản lý hiệu suất, đúng chỗ họ đang theo dõi đánh giá.
-  //   - Không có cả hai → ở nguyên tại chỗ, danh sách phía sau tự làm mới nhờ
-  //     invalidate ['evaluations'] trong useCreateEvaluation.
-  const canOpenMyEvaluations = hasPermission('EVALUATION:VIEW_MY')
-  const canOpenUnitReview = hasPermission('SUBMISSION:REVIEW')
+  const { goToNext } = useWorkflowNavigator()
 
   // Phiếu hạnh kiểm nằm ngay trong form này nên nó lưu theo nút "Gửi đánh giá" luôn —
   // trước đây người dùng phải bấm lưu riêng cho phiếu, quên là mất điểm hành vi vừa chấm.
@@ -193,11 +180,16 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
       return // hook của phiếu đã hiện toast lỗi
     }
     createMutation.mutate(data, {
-      onSuccess: () => { 
-        reset(); 
-        onClose();
-        if (canOpenMyEvaluations) navigate('/me?section=evaluations')
-        else if (canOpenUnitReview) navigate('/performance?section=submissions-org-unit')
+      onSuccess: () => {
+        reset()
+        onClose()
+
+        // Đích lấy từ cấu hình luồng thay vì đoán qua roleRank rồi điều hướng cứng. Hai cái lợi:
+        // quản lý chấm điểm xong được dẫn tiếp sang bước đánh giá kỳ thay vì quay về chỗ cũ, và
+        // tổ chức tắt bước nào thì nút tự bỏ qua bước đó.
+        const stage = data.userId === user?.id ? 'SELF_EVALUATION' : 'MANAGER_EVALUATION'
+        const movedOn = goToNext(stage, { periodId: data.kpiPeriodId }, { openCreate: false })
+        if (!movedOn) navigate('/evaluations')
       },
     })
   }

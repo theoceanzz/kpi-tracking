@@ -114,7 +114,7 @@ function processData(rawData: Record<string, unknown>[], config: ChartConfig, ty
   })
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let result: any[] = Object.entries(grouped).map(([x, py]) => ({ [xKey]: x, [yKey]: py }))
+  const result: any[] = Object.entries(grouped).map(([x, py]) => ({ [xKey]: x, [yKey]: py }))
 
   // SORTING
   if (config.sort_by && config.sort_by !== 'NONE') {

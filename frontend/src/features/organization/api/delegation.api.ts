@@ -36,7 +36,8 @@ export interface DelegationResponse {
 
 export interface DelegationRequest {
   delegateUserId: string
-  orgUnitId: string
+  /** Giao nhiều đơn vị trong MỘT lần gọi — server tạo cả lô trong một giao dịch. */
+  orgUnitIds: string[]
   fromOrgUnitId?: string | null
   includeSubtree?: boolean
   canActAsLeader?: boolean
@@ -52,7 +53,7 @@ export const delegationApi = {
   },
 
   create: async (organizationId: string, request: DelegationRequest) => {
-    const res = await axiosInstance.post<ApiResponse<DelegationResponse>>(`/delegations/${organizationId}`, request)
+    const res = await axiosInstance.post<ApiResponse<DelegationResponse[]>>(`/delegations/${organizationId}`, request)
     return res.data.data
   },
 

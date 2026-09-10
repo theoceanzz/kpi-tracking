@@ -20,6 +20,12 @@ export interface OrgUnitKpiComboChartData {
 
 export type KpiParentRelationType = 'DELEGATION' | 'DECOMPOSITION'
 
+export interface KpiAssigneeBrief {
+  userId: string
+  fullName: string
+  avatarUrl: string | null
+}
+
 export interface OrgUnitKpiDetail {
   kpiId: string
   kpiName: string
@@ -35,6 +41,8 @@ export interface OrgUnitKpiDetail {
   periodName?: string | null
   weight?: number | null
   assigneeName?: string | null
+  /** Người đảm nhiệm kèm ảnh — biểu đồ vẽ avatar, không tách được từ chuỗi `assigneeName`. */
+  assignees?: KpiAssigneeBrief[]
   shared: boolean
   participantCount: number
   // Nhận diện loại KPI + KPI con (cho tag & expand)
@@ -46,6 +54,13 @@ export interface OrgUnitKpiDetail {
   parentRelationType?: KpiParentRelationType | null
   childRelationType?: KpiParentRelationType | null
   children?: OrgUnitKpiDetail[] | null
+  /**
+   * KPI CŨ mà bản này thay thế. Không phải quan hệ cha-con: bản thay thế kế thừa trọng số của bản
+   * cũ chứ không phải một lát cắt của nó, nên nó không có `parentId`.
+   */
+  replacedKpiId?: string | null
+  replacedKpiName?: string | null
+  replacementReason?: string | null
 }
 
 export interface OrgUnitFilterOption {
@@ -63,6 +78,23 @@ export interface OrgUnitKpiPagedResponse {
   first: boolean
   last: boolean
   availableOrgUnits: OrgUnitFilterOption[]
+}
+
+/**
+ * Ngân sách trọng số của một (đơn vị, đợt).
+ *
+ * `totalWeight` KHÔNG phải tổng trọng số các KPI. Backend tính theo đúng luật chặn lúc gửi duyệt:
+ * bỏ KPI thưởng, bỏ KPI cha phân rã, nhân phần trăm hạng mục khi bật BSC, rồi lấy MAX theo từng
+ * người đảm nhiệm cộng phần chưa giao ai. Cộng tay ở client sẽ ra số khác — có trường hợp đo được
+ * cho kết luận ngược hẳn (70% thành 200%).
+ */
+export interface UnitWeightBudget {
+  orgUnitId: string
+  orgUnitName: string
+  periodId: string
+  periodName: string | null
+  totalWeight: number
+  kpiCount: number
 }
 
 export interface OrgUnitKpiDetailParams {
@@ -211,6 +243,11 @@ export interface OverdueKpiForMember {
 export const orgUnitKpiApi = {
   getMetrics: async (params?: { orgUnitId?: string; from?: string; to?: string; onlyApproved?: boolean; periodId?: string; periodIdTo?: string }) => {
     const res = await axiosClient.get<{ data: OrgUnitKpiMetrics }>('/stats/org-unit/kpis/metrics', { params })
+    return res.data.data
+  },
+
+  getWeightBudget: async (params?: { orgUnitId?: string; periodId?: string; periodIdTo?: string }) => {
+    const res = await axiosClient.get<{ data: UnitWeightBudget[] }>('/stats/org-unit/kpis/weight-budget', { params })
     return res.data.data
   },
 

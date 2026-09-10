@@ -104,6 +104,19 @@ export default function AiAssistantWidget() {
   // Hạn mức token còn lại — chỉ tải khi mở panel, để đóng thì không tốn request nào.
   const { data: quota } = useMyAiQuota(isOpen && isManager)
 
+  // Ô nhập tự giãn theo nội dung, tối đa bằng maxHeight của nó.
+  //
+  // Bắt buộc phải có kể từ khi thanh cuộn của ô này bị ẩn: ô cao cố định một dòng mà không
+  // giãn thì câu hỏi dài bị cắt và KHÔNG còn dấu hiệu nào cho biết còn chữ phía dưới.
+  // Đặt ở effect theo `input` thay vì trong onChange để bắt được cả những lần điền sẵn từ
+  // gợi ý và lần dọn trắng sau khi gửi.
+  useEffect(() => {
+    const el = inputRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = Math.min(el.scrollHeight, 120) + 'px'
+  }, [input])
+
   // Gõ xong thì bỏ cờ, để phần gợi ý câu hỏi tiếp theo hiện ra sau chứ không chen ngang lúc đang gõ.
   useEffect(() => {
     if (!isTyping && typingIdRef.current) {
@@ -553,7 +566,7 @@ export default function AiAssistantWidget() {
                 onChange={e => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Nhập câu hỏi..."
-                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 pr-28 text-sm leading-6 focus:outline-none focus:ring-2 focus:ring-violet-500/50 resize-none transition-shadow"
+                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 pr-28 text-sm leading-6 focus:outline-none focus:ring-2 focus:ring-violet-500/50 resize-none transition-shadow scrollbar-hide"
                 rows={1}
                 style={{ minHeight: '44px', maxHeight: '120px' }}
               />

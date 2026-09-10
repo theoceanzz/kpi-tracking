@@ -19,6 +19,7 @@ import { MicButton } from '@/components/common/MicButton'
 import { ATTACHMENT_ACCEPT, ATTACHMENT_HINT, MAX_ATTACHMENT_BYTES, MAX_ATTACHMENT_FILES, screenEvidence } from '@/lib/attachmentPolicy'
 import { toast } from 'sonner'
 import { getApiErrorMessage } from '@/lib/apiError'
+import { useWorkflowNavigator, WORKFLOW_PARAMS } from '@/features/kpi/workflow/hooks/useWorkflowNavigator'
 import { useNavigate, useSearchParams, useParams } from 'react-router-dom'
 import { formatNumber, cn } from '@/lib/utils'
 import { 
@@ -46,6 +47,8 @@ function isSubmittableByUser(k: KpiCriteria, userId?: string) {
 
 export default function NewSubmissionPage() {
   const navigate = useNavigate()
+  const { nextReachableStage } = useWorkflowNavigator()
+  const nextAfterSubmission = nextReachableStage('SUBMISSION')
   const user = useAuthStore(s => s.user)
   const { data: org } = useOrganization(user?.memberships?.[0]?.organizationId)
   const qualitativeLevels = [...(org?.qualitativeLevels ?? [])].sort((a, b) => a.position - b.position)
@@ -248,7 +251,9 @@ export default function NewSubmissionPage() {
           setShowSuccess(true)
         } else {
           toast.success('Gửi báo cáo thành công!')
-          navigate('/me?section=my-kpi')
+          // Về đúng nơi CÒN VIỆC để làm. Trước đây luôn về /submissions — danh sách những gì đã
+          // nộp xong — nên người dùng phải tự tìm đường quay lại /my-kpi để nộp chỉ tiêu tiếp theo.
+          navigate(`/my-kpi${periodId ? `?${WORKFLOW_PARAMS.period}=${periodId}` : ''}`)
         }
       } else {
         toast.success('Đã lưu bản nháp!')
@@ -655,7 +660,10 @@ export default function NewSubmissionPage() {
             <div className="space-y-4">
               <h3 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight uppercase">Ghi nhận hiệu suất</h3>
               <p className="text-slate-500 dark:text-slate-400 font-medium leading-relaxed">
-                Dữ liệu báo cáo của bạn đã được hệ thống ghi nhận thành công. Để hoàn tất quy trình, mời bạn thực hiện bước <strong>"Tự đánh giá"</strong> cho chu kỳ này.
+                Dữ liệu báo cáo của bạn đã được hệ thống ghi nhận thành công.
+                {nextAfterSubmission && (
+                  <> Để hoàn tất quy trình, mời bạn sang bước <strong>"{nextAfterSubmission.label}"</strong> cho chu kỳ này.</>
+                )}
               </p>
             </div>
 
