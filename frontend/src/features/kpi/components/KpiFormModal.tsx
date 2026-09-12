@@ -1054,11 +1054,11 @@ export default function KpiFormModal({
                             <span className="text-caption group-hover/tooltip:text-[var(--color-warning)] leading-none transition-colors">?</span>
                           </div>
                           <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-64 p-3 rounded-card bg-[var(--color-foreground)] text-[var(--color-background)] text-xs leading-relaxed shadow-2xl opacity-0 group-hover/tooltip:opacity-100 pointer-events-none transition-all duration-200 z-50 scale-95 group-hover/tooltip:scale-100">
-                            <p className="font-semibold text-[var(--color-warning)] mb-1.5">KPI Ngược là gì?</p>
-                            <p className="font-medium opacity-90">Loại KPI mà giá trị thực tế <span className="text-[var(--color-warning)] font-semibold">càng thấp càng tốt</span>.</p>
+                            <p className="font-semibold text-amber-300 dark:text-amber-700 mb-1.5">KPI Ngược là gì?</p>
+                            <p className="font-medium opacity-90">Loại KPI mà giá trị thực tế <span className="text-amber-300 dark:text-amber-700 font-semibold">càng thấp càng tốt</span>.</p>
                             <p className="font-medium opacity-80 mt-1.5">Ví dụ: tỉ lệ lỗi, chi phí vận hành, thời gian xử lý, tỉ lệ nghỉ việc...</p>
-                            <p className="font-medium opacity-80 mt-1.5">Công thức điểm: <span className="text-[var(--color-success)] font-semibold">2 − (thực tế ÷ mục tiêu)</span>, thay vì chia thẳng như KPI thường.</p>
-                            <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-slate-900 dark:border-t-slate-700" />
+                            <p className="font-medium opacity-80 mt-1.5">Công thức điểm: <span className="text-emerald-300 dark:text-emerald-700 font-semibold">2 − (thực tế ÷ mục tiêu)</span>, thay vì chia thẳng như KPI thường.</p>
+                            <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-[var(--color-foreground)]" />
                           </div>
                         </div>
                       </div>
@@ -1105,10 +1105,10 @@ export default function KpiFormModal({
                               <span className="text-caption group-hover/tooltip:text-[var(--color-success)] leading-none transition-colors">?</span>
                             </div>
                             <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-64 p-3 rounded-card bg-[var(--color-foreground)] text-[var(--color-background)] text-xs leading-relaxed shadow-2xl opacity-0 group-hover/tooltip:opacity-100 pointer-events-none transition-all duration-200 z-50 scale-95 group-hover/tooltip:scale-100">
-                              <p className="font-semibold text-[var(--color-success-solid)] mb-1.5">KPI Thưởng là gì?</p>
-                              <p className="font-medium opacity-90">KPI <span className="text-[var(--color-success-solid)] font-semibold">tùy chọn</span>, không tính vào tổng 100% trọng số của đơn vị.</p>
-                              <p className="font-medium opacity-80 mt-1.5">Không làm cũng không sao. Nếu hoàn thành, điểm sẽ được <span className="text-[var(--color-success-solid)] font-semibold">cộng thêm</span> vào tổng điểm đánh giá.</p>
-                              <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-slate-900 dark:border-t-slate-700" />
+                              <p className="font-semibold text-emerald-300 dark:text-emerald-700 mb-1.5">KPI Thưởng là gì?</p>
+                              <p className="font-medium opacity-90">KPI <span className="text-emerald-300 dark:text-emerald-700 font-semibold">tùy chọn</span>, không tính vào tổng 100% trọng số của đơn vị.</p>
+                              <p className="font-medium opacity-80 mt-1.5">Không làm cũng không sao. Nếu hoàn thành, điểm sẽ được <span className="text-emerald-300 dark:text-emerald-700 font-semibold">cộng thêm</span> vào tổng điểm đánh giá.</p>
+                              <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-[var(--color-foreground)]" />
                             </div>
                           </div>
                         </div>

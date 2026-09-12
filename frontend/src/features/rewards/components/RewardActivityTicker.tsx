@@ -215,11 +215,11 @@ export default function RewardActivityTicker() {
   }
 
   return (
-    <div className="reward-marquee-viewport flex items-center gap-2 border-b border-[var(--color-border)] bg-[var(--color-warning-solid)] py-1.5 pl-4 pr-2 md:pl-6">
+    <div className="reward-marquee-viewport flex items-center gap-2 border-b border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] py-1.5 pl-4 pr-2 md:pl-6">
       {/* Nhãn ẩn ở màn hình hẹp: giữ lại thì dải tin chỉ còn một mẩu không đọc nổi. */}
       <span className="hidden flex-shrink-0 items-center gap-1.5 pr-1 sm:flex">
-        <Radio size={13} className="text-[var(--color-primary)]" />
-        <span className="text-eyebrow">
+        <Radio size={13} className="text-[var(--color-warning)]" />
+        <span className="text-eyebrow text-[var(--color-warning)]">
           Bảng tin thưởng
         </span>
       </span>
@@ -254,7 +254,7 @@ export default function RewardActivityTicker() {
 
         {/* Làm mờ mép trái để dòng tin trôi vào thay vì bị cắt cụt ở rìa. Mép phải không
             cần vì nút x đã che sẵn chỗ đó. */}
-        <div className="pointer-events-none absolute inset-y-0 left-0 w-8 bg-[var(--color-muted)]"/>
+        <div className="pointer-events-none absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-[var(--color-warning-bg)] to-transparent" />
       </div>
 
       <Button variant="ghost" size="icon-sm" aria-label="Ẩn bảng tin" onClick={dismiss} title="Ẩn bảng tin">
