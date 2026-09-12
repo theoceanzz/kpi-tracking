@@ -7,6 +7,7 @@ export type SortDir = 'asc' | 'desc'
 /**
  * Header cột có thể sort dùng chung cho các bảng chi tiết thống kê.
  * Icon: chưa sort = ChevronsUpDown (mờ), đang sort tăng = ChevronUp, giảm = ChevronDown.
+ * Cột đang sort đậm màu hơn để nhìn lướt biết bảng đang xếp theo gì.
  */
 export function SortHeader<T extends string>({
   field,
@@ -30,15 +31,19 @@ export function SortHeader<T extends string>({
     <button
       type="button"
       onClick={() => onToggle(field)}
-      className={cn('flex items-center gap-1 group hover:text-indigo-500 transition-colors', className)}
+      className={cn(
+        'group inline-flex items-center gap-1 rounded-sm transition-colors hover:text-[var(--color-foreground)]',
+        isActive ? 'text-[var(--color-foreground)]' : 'text-[var(--color-muted-foreground)]',
+        className,
+      )}
     >
       {children}
-      <span className="ml-0.5">
+      <span className="ml-0.5 shrink-0" aria-hidden="true">
         {isActive
           ? dir === 'asc'
             ? <ChevronUp size={iconSize} />
             : <ChevronDown size={iconSize} />
-          : <ChevronsUpDown size={iconSize} className="opacity-30 group-hover:opacity-60" />}
+          : <ChevronsUpDown size={iconSize} className="opacity-40 group-hover:opacity-80" />}
       </span>
     </button>
   )

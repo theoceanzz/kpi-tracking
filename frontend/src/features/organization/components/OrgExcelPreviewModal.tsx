@@ -1,11 +1,14 @@
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import { z } from 'zod'
 import { read, write, utils } from 'xlsx'
-import { X, Save, Trash2, FileSpreadsheet, Check, CheckSquare, AlertCircle } from 'lucide-react'
+import { Save, Trash2, Check, CheckSquare, AlertCircle, Loader2 } from 'lucide-react'
+import { Dialog, DialogFooter } from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { useRoles } from '../hooks/useUserRoles'
 import { useOrgUnitTree } from '../hooks/useOrganizationStructure'
+import { ChoiceChip } from '@/components/ui/choice-chip'
 
 interface OrgExcelPreviewModalProps {
   open: boolean
@@ -311,218 +314,168 @@ export default function OrgExcelPreviewModal({
   const hasAnyErrors = data.some(r => r._errors && Object.keys(r._errors).length > 0)
 
   return (
-    <div className="fixed inset-0 z-[250] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-slate-900 rounded-[24px] shadow-2xl w-full max-w-[95vw] lg:max-w-7xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-        <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/30">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600">
-              <FileSpreadsheet size={20} />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-slate-900 dark:text-white">Xem trước & Thiết lập vai trò</h2>
-              <p className="text-xs text-slate-500">Tổng cộng {data.length} đơn vị sẽ được import</p>
-            </div>
-          </div>
-          <button onClick={onClose} className="p-2 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors text-slate-400">
-            <X size={20} />
-          </button>
+    <Dialog
+      open
+      onClose={onClose}
+      size="full"
+      dismissible={!isImporting}
+      title="Xem trước & Thiết lập vai trò"
+      description={`Tổng cộng ${data.length} đơn vị sẽ được import`}
+      footer={
+        <DialogFooter
+          note={<><span className="font-medium text-[var(--color-foreground)] tabular-nums">{data.length}</span> đơn vị</>}
+          secondary={<Button variant="outline" onClick={onClose} disabled={isImporting}>Hủy bỏ</Button>}
+          primary={
+            <Button onClick={handleSave} disabled={isImporting || data.length === 0 || hasAnyErrors}>
+              {isImporting ? <><Loader2 className="animate-spin" aria-hidden="true" /> Đang xử lý...</> : <><Save aria-hidden="true" /> Xác nhận & Import</>}
+            </Button>
+          }
+        />
+      }
+    >
+      {loading ? (
+        <div className="flex flex-col items-center justify-center h-64 text-[var(--color-subtle-foreground)]">
+          <div className="w-8 h-8 border-4 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin mb-4" />
+          <p className="font-medium text-sm">Đang tải dữ liệu...</p>
         </div>
-
-        <div className="flex-1 overflow-auto p-6 min-h-0">
-          {loading ? (
-            <div className="flex flex-col items-center justify-center h-64 text-slate-400">
-              <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mb-4" />
-              <p className="font-medium text-sm">Đang tải dữ liệu...</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {hasAnyErrors && (
-                <div className="p-4 bg-red-50 dark:bg-red-900/10 text-red-600 rounded-xl flex items-start gap-3 border border-red-100 dark:border-red-900/20">
-                  <AlertCircle size={20} className="shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-sm font-bold">Phát hiện dữ liệu không hợp lệ</p>
-                    <p className="text-xs mt-1">Vui lòng kiểm tra các ô được tô đỏ. Mã đơn vị cha phải tồn tại trong hệ thống hoặc trong chính file import này.</p>
-                  </div>
-                </div>
-              )}
-
-              <div className="border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm bg-white dark:bg-slate-900">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm text-left border-collapse">
-                    <thead className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 text-slate-500 font-bold uppercase text-[10px] tracking-wider sticky top-0 z-10">
-                      <tr>
-                        <th className="px-4 py-3 w-12 text-center">STT</th>
-                        <th className="px-4 py-3 min-w-[200px]">Tên đơn vị <span className="text-red-500">*</span></th>
-                        <th className="px-4 py-3 min-w-[120px]">Mã đơn vị <span className="text-red-500">*</span></th>
-                        <th className="px-4 py-3 min-w-[120px]">Mã cha</th>
-                        <th className="px-4 py-3 min-w-[400px]">
-                          <div className="flex items-center justify-between">
-                            <span>Phạm vi vai trò (Lọc theo phân cấp)</span>
-                            <button 
-                              onClick={selectAllRolesForBatch}
-                              className="flex items-center gap-1 px-2 py-1 rounded-lg bg-indigo-50 hover:bg-indigo-100 text-indigo-600 transition-colors capitalize text-[9px] font-black"
-                            >
-                              <CheckSquare size={12} /> Chọn cho tất cả dòng
-                            </button>
-                          </div>
-                        </th>
-                        <th className="px-4 py-3 min-w-[150px]">Thông tin khác</th>
-                        <th className="px-4 py-3 w-16 text-center">Xóa</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                      {data.map((row, index) => {
-                        const calculatedLevel = getRowLevel(row, data)
-                        const filteredRoles = getFilteredRoles(calculatedLevel)
-                        const unitTypeLabel = hierarchyLevels[calculatedLevel] || 'Cấp đơn vị'
-
-                        return (
-                          <tr key={row.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors group">
-                            <td className="px-4 py-3 text-center text-slate-400 font-medium"> {index + 1} </td>
-                            <td className="px-4 py-2">
-                              <input
-                                value={row.Name}
-                                onChange={e => handleCellChange(row.id, 'Name', e.target.value)}
-                                className={cn(
-                                  "w-full px-3 py-1.5 rounded-lg border transition-colors bg-transparent text-sm font-bold dark:text-white",
-                                  row._errors?.Name ? "border-red-300 bg-red-50" : "border-transparent hover:border-slate-300 focus:border-indigo-500"
-                                )}
-                                placeholder="Tên đơn vị..."
-                              />
-                              <div className="px-2 py-0.5 mt-1 text-[9px] font-black uppercase tracking-tighter bg-indigo-50 text-indigo-600 rounded inline-block">
-                                {unitTypeLabel}
-                              </div>
-                              {row._errors?.Name && <p className="text-[10px] text-red-500 mt-1 font-medium">{row._errors.Name}</p>}
-                            </td>
-                            <td className="px-4 py-2">
-                              <input
-                                value={row.Code}
-                                onChange={e => handleCellChange(row.id, 'Code', e.target.value)}
-                                className={cn(
-                                  "w-full px-3 py-1.5 rounded-lg border transition-colors bg-transparent text-xs font-mono dark:text-slate-300 uppercase",
-                                  row._errors?.Code ? "border-red-300 bg-red-50" : "border-transparent hover:border-slate-300 focus:border-indigo-500"
-                                )}
-                                placeholder="Mã..."
-                              />
-                              {row._errors?.Code && <p className="text-[10px] text-red-500 mt-1 font-medium">{row._errors.Code}</p>}
-                            </td>
-                            <td className="px-4 py-2">
-                              <input
-                                value={row.ParentCode}
-                                onChange={e => handleCellChange(row.id, 'ParentCode', e.target.value)}
-                                className={cn(
-                                  "w-full px-3 py-1.5 rounded-lg border transition-colors bg-transparent text-xs font-mono dark:text-slate-300 uppercase",
-                                  row._errors?.ParentCode ? "border-red-300 bg-red-50" : "border-transparent hover:border-slate-300 focus:border-indigo-500"
-                                )}
-                                placeholder="Root"
-                              />
-                              {row._errors?.ParentCode && <p className="text-[10px] text-red-500 mt-1 font-medium">{row._errors.ParentCode}</p>}
-                            </td>
-                            <td className="px-4 py-3">
-                              <div className="flex items-center justify-between mb-2">
-                                <span className="text-[10px] text-slate-400 italic">Chọn vai trò được phép:</span>
-                                <button 
-                                  onClick={() => selectAllRolesForRow(row.id)}
-                                  className="text-[9px] font-bold text-indigo-500 hover:text-indigo-700 flex items-center gap-1"
-                                >
-                                  <CheckSquare size={10} /> Chọn tất cả
-                                </button>
-                              </div>
-                              <div className="flex flex-wrap gap-1.5 max-h-[120px] overflow-y-auto pr-2 scrollbar-thin">
-                                {filteredRoles.sort((a,b) => (a.rank||0)-(b.rank||0)).map(role => {
-                                  const isSelected = row.RoleIds.split(',').includes(role.id)
-                                  return (
-                                    <button
-                                      key={role.id}
-                                      onClick={() => toggleRole(row.id, role.id)}
-                                      className={cn(
-                                        "flex items-center gap-1.5 px-2.5 py-1 rounded-full text-[10px] font-black uppercase transition-all border",
-                                        isSelected 
-                                          ? "bg-indigo-600 border-indigo-600 text-white shadow-sm"
-                                          : "bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 text-slate-500 hover:border-indigo-400 group-hover:bg-slate-100"
-                                      )}
-                                    >
-                                      {isSelected && <Check size={10} />}
-                                      {role.name}
-                                    </button>
-                                  )
-                                })}
-                                {filteredRoles.length === 0 && (
-                                  <p className="text-[10px] text-slate-400 italic">Không có vai trò phù hợp cho cấp bậc này</p>
-                                )}
-                              </div>
-                            </td>
-                            <td className="px-4 py-2 space-y-1">
-                              <input
-                                value={row.Email}
-                                onChange={e => handleCellChange(row.id, 'Email', e.target.value)}
-                                className={cn(
-                                  "w-full px-2 py-0.5 rounded text-[10px] border bg-transparent",
-                                  row._errors?.Email ? "border-red-300 bg-red-50" : "border-transparent hover:border-slate-200"
-                                )}
-                                placeholder="Email..."
-                              />
-                              {row._errors?.Email && <p className="text-[10px] text-red-500 font-medium">{row._errors.Email}</p>}
-                              <input
-                                value={row.Phone}
-                                onChange={e => handleCellChange(row.id, 'Phone', e.target.value)}
-                                className="w-full px-2 py-0.5 rounded text-[10px] border border-transparent hover:border-slate-200 bg-transparent"
-                                placeholder="Số điện thoại..."
-                              />
-                            </td>
-                            <td className="px-4 py-2 text-center">
-                              <button
-                                onClick={() => handleRemoveRow(row.id)}
-                                className="p-1.5 text-slate-400 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/10 rounded-lg transition-colors"
-                              >
-                                <Trash2 size={16} />
-                              </button>
-                            </td>
-                          </tr>
-                        )
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+      ) : (
+        <div className="space-y-4">
+          {hasAnyErrors && (
+            <div className="p-4 bg-[var(--color-error-bg)] text-[var(--color-error)] rounded-card flex items-start gap-3 border border-[var(--color-error-border)]">
+              <AlertCircle size={20} className="shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium">Phát hiện dữ liệu không hợp lệ</p>
+                <p className="text-xs mt-1">Vui lòng kiểm tra các ô được tô đỏ. Mã đơn vị cha phải tồn tại trong hệ thống hoặc trong chính file import này.</p>
               </div>
             </div>
           )}
-        </div>
 
-        <div className="px-8 py-5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/30">
-          <div className="flex items-center gap-4 text-sm text-slate-500">
-            <div className="flex items-center gap-2">
-              <div className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-              <span className="font-bold text-slate-900 dark:text-white">{data.length} Đơn vị</span>
+          <div className="border border-[var(--color-border)] rounded-card overflow-hidden shadow-sm bg-[var(--color-card)]">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left border-collapse">
+                <thead className="text-eyebrow bg-[var(--color-muted)] border-b border-[var(--color-border)] sticky top-0 z-10">
+                  <tr>
+                    <th className="px-4 py-3 w-12 text-center">STT</th>
+                    <th className="px-4 py-3 min-w-[200px]">Tên đơn vị <span className="text-[var(--color-error)]">*</span></th>
+                    <th className="px-4 py-3 min-w-[120px]">Mã đơn vị <span className="text-[var(--color-error)]">*</span></th>
+                    <th className="px-4 py-3 min-w-[120px]">Mã cha</th>
+                    <th className="px-4 py-3 min-w-[400px]">
+                      <div className="flex items-center justify-between">
+                        <span>Phạm vi vai trò (Lọc theo phân cấp)</span>
+                        <Button variant="ghost" size="sm" onClick={selectAllRolesForBatch}>
+                          <CheckSquare aria-hidden="true" /> Chọn cho tất cả dòng
+                        </Button>
+                      </div>
+                    </th>
+                    <th className="px-4 py-3 min-w-[150px]">Thông tin khác</th>
+                    <th className="px-4 py-3 w-16 text-center">Xóa</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[var(--color-border)]">
+                  {data.map((row, index) => {
+                    const calculatedLevel = getRowLevel(row, data)
+                    const filteredRoles = getFilteredRoles(calculatedLevel)
+                    const unitTypeLabel = hierarchyLevels[calculatedLevel] || 'Cấp đơn vị'
+
+                    return (
+                      <tr key={row.id} className="hover:bg-[var(--color-muted)] transition-colors group">
+                        <td className="px-4 py-3 text-center text-[var(--color-subtle-foreground)] font-medium"> {index + 1} </td>
+                        <td className="px-4 py-2">
+                          <input
+                            value={row.Name}
+                            onChange={e => handleCellChange(row.id, 'Name', e.target.value)}
+                            className={cn(
+                              "w-full px-3 py-1.5 rounded-control border transition-colors bg-transparent text-sm font-medium",
+                              row._errors?.Name ? "border-[var(--color-error-border)] bg-[var(--color-error-bg)]" : "border-transparent hover:border-[var(--color-border-strong)] focus:border-[var(--color-primary)]"
+                            )}
+                            placeholder="Tên đơn vị..."
+                          />
+                          <div className="px-2 py-0.5 mt-1 text-xs font-medium bg-[var(--color-primary-soft)] text-[var(--color-primary)] rounded inline-block">
+                            {unitTypeLabel}
+                          </div>
+                          {row._errors?.Name && <p className="text-xs text-[var(--color-error)] mt-1 font-medium">{row._errors.Name}</p>}
+                        </td>
+                        <td className="px-4 py-2">
+                          <input
+                            value={row.Code}
+                            onChange={e => handleCellChange(row.id, 'Code', e.target.value)}
+                            className={cn(
+                              "w-full px-3 py-1.5 rounded-control border transition-colors bg-transparent text-xs font-mono",
+                              row._errors?.Code ? "border-[var(--color-error-border)] bg-[var(--color-error-bg)]" : "border-transparent hover:border-[var(--color-border-strong)] focus:border-[var(--color-primary)]"
+                            )}
+                            placeholder="Mã..."
+                          />
+                          {row._errors?.Code && <p className="text-xs text-[var(--color-error)] mt-1 font-medium">{row._errors.Code}</p>}
+                        </td>
+                        <td className="px-4 py-2">
+                          <input
+                            value={row.ParentCode}
+                            onChange={e => handleCellChange(row.id, 'ParentCode', e.target.value)}
+                            className={cn(
+                              "w-full px-3 py-1.5 rounded-control border transition-colors bg-transparent text-xs font-mono",
+                              row._errors?.ParentCode ? "border-[var(--color-error-border)] bg-[var(--color-error-bg)]" : "border-transparent hover:border-[var(--color-border-strong)] focus:border-[var(--color-primary)]"
+                            )}
+                            placeholder="Root"
+                          />
+                          {row._errors?.ParentCode && <p className="text-xs text-[var(--color-error)] mt-1 font-medium">{row._errors.ParentCode}</p>}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-caption italic">Chọn vai trò được phép:</span>
+                            <Button variant="ghost" size="sm" onClick={() => selectAllRolesForRow(row.id)}>
+                              <CheckSquare aria-hidden="true" /> Chọn tất cả
+                            </Button>
+                          </div>
+                          <div className="flex flex-wrap gap-1.5 max-h-[120px] overflow-y-auto pr-2 scrollbar-thin">
+                            {filteredRoles.sort((a,b) => (a.rank||0)-(b.rank||0)).map(role => {
+                              const isSelected = row.RoleIds.split(',').includes(role.id)
+                              return (
+                                <ChoiceChip selected={isSelected} variant="solid" size="sm" className="py-1" key={role.id} onClick={() => toggleRole(row.id, role.id)}>
+                                  {isSelected && <Check />}
+                                  {role.name}
+                                </ChoiceChip>
+                              )
+                            })}
+                            {filteredRoles.length === 0 && (
+                              <p className="text-caption italic">Không có vai trò phù hợp cho cấp bậc này</p>
+                            )}
+                          </div>
+                        </td>
+                        <td className="px-4 py-2 space-y-1">
+                          <input
+                            value={row.Email}
+                            onChange={e => handleCellChange(row.id, 'Email', e.target.value)}
+                            className={cn(
+                              "w-full px-2 py-0.5 rounded text-xs border bg-transparent",
+                              row._errors?.Email ? "border-[var(--color-error-border)] bg-[var(--color-error-bg)]" : "border-transparent hover:border-[var(--color-border)]"
+                            )}
+                            placeholder="Email..."
+                          />
+                          {row._errors?.Email && <p className="text-xs text-[var(--color-error)] font-medium">{row._errors.Email}</p>}
+                          <input
+                            value={row.Phone}
+                            onChange={e => handleCellChange(row.id, 'Phone', e.target.value)}
+                            className="w-full px-2 py-0.5 rounded text-xs border border-transparent hover:border-[var(--color-border)] bg-transparent"
+                            placeholder="Số điện thoại..."
+                          />
+                        </td>
+                        <td className="px-4 py-2 text-center">
+                          <button
+                            onClick={() => handleRemoveRow(row.id)}
+                            className="p-1.5 text-[var(--color-subtle-foreground)] hover:text-[var(--color-error)] hover:bg-[var(--color-error-bg)] dark:hover:bg-[var(--color-error-bg)] rounded-control transition-colors"
+                          >
+                            <Trash2 size={16} />
+                          </button>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
             </div>
           </div>
-          <div className="flex gap-3">
-            <button
-              onClick={onClose}
-              disabled={isImporting}
-              className="px-6 py-2.5 rounded-xl text-sm font-bold border border-slate-200 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800 transition-colors text-slate-600 dark:text-slate-300 disabled:opacity-50"
-            >
-              Hủy bỏ
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={isImporting || data.length === 0 || hasAnyErrors}
-              className="flex items-center gap-2 px-8 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-500/30 disabled:opacity-50 transition-all active:scale-95"
-            >
-              {isImporting ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Đang xử lý...
-                </>
-              ) : (
-                <>
-                  <Save size={16} /> Xác nhận & Import
-                </>
-              )}
-            </button>
-          </div>
         </div>
-      </div>
-    </div>
+      )}
+    </Dialog>
   )
 }

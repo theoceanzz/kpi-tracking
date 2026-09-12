@@ -14,6 +14,7 @@ import RewardActivityTicker from '@/features/rewards/components/RewardActivityTi
 import { DashboardToolbarSlot } from '@/components/common/dashboard/DashboardToolbarSlot'
 import { useState, useEffect } from 'react'
 import WorkflowHandoffBar from '@/features/kpi/workflow/components/WorkflowHandoffBar'
+import { Button } from '@/components/ui/button'
 
 export default function AppLayout() {
   const { user, logout, refreshUser } = useAuth()
@@ -54,19 +55,16 @@ export default function AppLayout() {
 
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden md:pl-0">
         {/* Header */}
-        <header className="sticky top-0 z-30 flex items-center gap-3 h-16 px-4 md:px-6 border-b border-[var(--color-border)] bg-[var(--color-card)]/80 backdrop-blur-md">
+        <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-[var(--color-border)] bg-[var(--color-card)] px-4 md:px-6">
           <div className="flex items-center gap-3 lg:hidden">
-            <button
-              onClick={() => setIsMobileMenuOpen(true)}
-              className="p-2 -ml-2 rounded-lg text-[var(--color-muted-foreground)] hover:bg-[var(--color-accent)] transition-colors"
-            >
-              <Menu size={24} />
-            </button>
+            <Button variant="secondary" size="icon" onClick={() => setIsMobileMenuOpen(true)} aria-label="Mở menu">
+              <Menu aria-hidden="true" />
+            </Button>
             <Link to="/" className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-[var(--color-primary)] flex items-center justify-center">
-                <span className="text-white text-sm font-bold">K</span>
+              <div className="flex h-7 w-7 items-center justify-center rounded-control bg-[var(--color-primary)]">
+                <span className="text-sm font-semibold text-[var(--color-primary-foreground)]">K</span>
               </div>
-              <span className="font-bold hidden sm:inline-block">KPI</span>
+              <span className="hidden text-sm font-semibold tracking-tight sm:inline-block">KeyGo</span>
             </Link>
           </div>
 
@@ -78,20 +76,16 @@ export default function AppLayout() {
             <HeaderBreadcrumb />
           </div>
 
-          <div className="flex items-center gap-1.5 md:gap-2 ml-auto">
+          <div className="ml-auto flex items-center gap-1">
             {/* Cụm tuỳ chỉnh widget của trang chủ bắn vào đây — xem DashboardToolbarSlot. */}
             <DashboardToolbarSlot />
             <TourHelpButton />
             <NotificationBell />
             <ThemeCustomizer />
 
-            <button
-              onClick={logout}
-              className="w-9 h-9 rounded-lg flex items-center justify-center hover:bg-red-100 dark:hover:bg-red-900/30 text-red-500 transition-colors"
-              title="Đăng xuất"
-            >
-              <LogOut size={18} />
-            </button>
+            <Button variant="ghost" size="icon" className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]" onClick={logout} aria-label="Đăng xuất" title="Đăng xuất">
+              <LogOut aria-hidden="true" />
+            </Button>
           </div>
         </header>
 

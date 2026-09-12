@@ -32,17 +32,17 @@ function StatCard({
 }) {
   return (
     <div
-      className={`rounded-2xl border px-5 py-4 ${
+      className={`rounded-card border px-5 py-4 ${
         tone === 'primary'
-          ? 'border-emerald-500/30 bg-emerald-500/5'
+          ? 'border-[var(--color-success-border)] bg-[var(--color-success-bg)]'
           : 'border-[var(--color-border)] bg-[var(--color-card)]'
       }`}
     >
-      <div className="flex items-center gap-2 text-[10px] font-black uppercase tracking-[0.15em] text-[var(--color-muted-foreground)]">
+      <div className="flex items-center gap-2 text-eyebrow">
         {icon}
         {label}
       </div>
-      <div className="mt-1.5 truncate text-2xl font-bold tabular-nums">{value}</div>
+      <div className="mt-1.5 truncate text-2xl font-semibold tabular-nums">{value}</div>
       {hint && (
         <div className="mt-0.5 truncate text-xs text-[var(--color-muted-foreground)]">{hint}</div>
       )}
@@ -142,20 +142,16 @@ export default function CashWalletsTab() {
       {/* Con số ví lệch sổ ở màn hình đối soát chỉ nói CÓ BAO NHIÊU. Đây là đường
           duy nhất xem chúng là ví nào. */}
       {broken > 0 && !onlyInconsistent && (
-        <button
-          type="button"
-          onClick={() => {
+        <button className="flex h-9 w-full items-center gap-2.5 rounded-control px-2.5 text-left text-sm text-[var(--color-foreground)] transition-colors hover:bg-[var(--color-muted)] [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-[var(--color-muted-foreground)] mb-5" type="button" onClick={() => {
             setOnlyInconsistent(true)
             setPage(0)
-          }}
-          className="mb-5 flex w-full items-center gap-3 rounded-2xl border border-rose-500/40 bg-rose-500/10 px-5 py-4 text-left text-sm transition-colors hover:bg-rose-500/15"
-        >
-          <AlertTriangle size={18} className="flex-shrink-0 text-rose-600" />
+          }}>
+          <AlertTriangle aria-hidden="true" className="flex-shrink-0 text-[var(--color-error)]" />
           <span className="min-w-0 flex-1">
             <strong>{broken} ví</strong> có số dư lệch so với sổ cái. Đây là lỗi dữ liệu tiền tệ,
             không phải cảnh báo nghiệp vụ — cần kiểm tra ngay.
           </span>
-          <ChevronRight size={18} className="flex-shrink-0 text-rose-600" />
+          <ChevronRight aria-hidden="true" className="flex-shrink-0 text-[var(--color-error)]" />
         </button>
       )}
 
@@ -173,7 +169,7 @@ export default function CashWalletsTab() {
             }}
             disabled={onlyInconsistent}
             placeholder="Tìm theo tên hoặc email"
-            className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-background)] py-2.5 pl-9 pr-4 text-sm outline-none transition-colors focus:border-[var(--color-primary)] disabled:opacity-50"
+            className="w-full rounded-card border border-[var(--color-border)] bg-[var(--color-background)] py-2.5 pl-9 pr-4 text-sm outline-none transition-colors focus:border-[var(--color-primary)] disabled:opacity-50"
           />
         </div>
 
@@ -188,7 +184,7 @@ export default function CashWalletsTab() {
           }}
           disabled={onlyInconsistent}
         >
-          <SelectTrigger className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-background)] px-4 py-2.5 text-sm disabled:opacity-50 sm:w-56">
+          <SelectTrigger className="w-full rounded-card border border-[var(--color-border)] bg-[var(--color-background)] px-4 py-2.5 text-sm disabled:opacity-50 sm:w-56">
             <SelectValue placeholder="Chọn đơn vị" />
           </SelectTrigger>
           <SelectContent>
@@ -207,7 +203,7 @@ export default function CashWalletsTab() {
               setOnlyInconsistent(false)
               setPage(0)
             }}
-            className="whitespace-nowrap rounded-full border border-rose-500/40 bg-rose-500/10 px-4 py-1.5 text-sm font-semibold text-rose-700 dark:text-rose-400"
+            className="whitespace-nowrap rounded-full border border-[var(--color-error-border)] bg-[var(--color-error-bg)] px-4 py-1.5 text-sm font-semibold text-[var(--color-error)]"
           >
             Đang lọc ví lệch sổ · Bỏ lọc
           </button>
@@ -217,7 +213,7 @@ export default function CashWalletsTab() {
       {isLoading ? (
         <LoadingSkeleton type="table" rows={4} />
       ) : wallets.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-[var(--color-border)]">
+        <div className="rounded-card border border-dashed border-[var(--color-border)]">
           <EmptyState
             title={
               onlyInconsistent
@@ -237,10 +233,10 @@ export default function CashWalletsTab() {
         </div>
       ) : (
         <>
-          <div className="overflow-x-auto rounded-2xl border border-[var(--color-border)]">
+          <div className="overflow-x-auto rounded-card border border-[var(--color-border)]">
             <table className="w-full min-w-[760px] text-sm">
               <thead className="bg-[var(--color-muted)]/50 text-left">
-                <tr className="text-[11px] font-black uppercase tracking-wider text-[var(--color-muted-foreground)]">
+                <tr className="text-eyebrow">
                   <th className="px-4 py-3">Nhân viên</th>
                   <th className="px-4 py-3 text-right">Số dư</th>
                   <th className="px-4 py-3 text-right">Tổng đã nạp</th>
@@ -263,7 +259,7 @@ export default function CashWalletsTab() {
                         {w.email}
                       </div>
                     </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-right font-bold tabular-nums">
+                    <td className="whitespace-nowrap px-4 py-3 text-right font-semibold tabular-nums">
                       {formatCurrency(w.balance)}
                     </td>
                     <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums text-[var(--color-muted-foreground)]">

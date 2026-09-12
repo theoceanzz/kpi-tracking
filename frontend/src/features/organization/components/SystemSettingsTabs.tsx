@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from 'react'
-import { LayoutPanelLeft, Save, Info, Loader2, Search, Bell, PanelLeft, FileText as FileIcon, RotateCcw } from 'lucide-react'
+import { Save, Info, Loader2, Search, Bell, PanelLeft, FileText as FileIcon, RotateCcw } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useSidebarSettings, useUpdateSidebarSettings } from '../hooks/useSidebarSettings'
 import { useAuthStore } from '@/store/authStore'
@@ -9,6 +9,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { notificationApi, type NotificationConfigItem } from '@/features/notifications/api/notificationApi'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { collectNavLabelScopes, type NavLabelEntry } from '@/config/navigation'
+import { Button } from '@/components/ui/button'
 
 /**
  * Hai khối cấu hình hệ thống, tách khỏi trang cũ để gắn vào menu trong trang
@@ -94,7 +95,7 @@ export function SidebarSettingsTab() {
     })
   }
 
-  if (isLoading) return <div className="flex items-center justify-center h-64"><Loader2 className="animate-spin text-indigo-600" /></div>
+  if (isLoading) return <div className="flex items-center justify-center h-64"><Loader2 className="animate-spin text-[var(--color-primary)]" /></div>
 
   const term = searchTerm.trim().toLowerCase()
   const matches = (entry: NavLabelEntry) =>
@@ -117,45 +118,36 @@ export function SidebarSettingsTab() {
 
   return (
     <div className="space-y-4">
-      <div id="tour-sidebar-header" className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <div className="flex items-center gap-3 min-w-0">
-          <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 shrink-0">
-            <LayoutPanelLeft size={20} />
-          </div>
-          <div className="min-w-0">
-            <h3 className="font-black text-slate-900 dark:text-white">Tùy chỉnh nhãn điều hướng</h3>
-            <p className="text-xs font-medium text-slate-500">
+      <div id="tour-sidebar-header" className="rounded-card border border-[var(--color-border)] bg-[var(--color-card)] p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="min-w-0">
+            <h3 className="text-section-title">Tùy chỉnh nhãn điều hướng</h3>
+            <p className="mt-0.5 text-sm text-[var(--color-muted-foreground)]">
               Đổi tên dòng trên sidebar và mục bên trong từng trang cho hợp thuật ngữ công ty
-              {customCount > 0 && <> · <span className="text-indigo-600 font-bold">{customCount} mục đang đổi tên</span></>}
+              {customCount > 0 && <> · <span className="text-[var(--color-primary)] font-semibold">{customCount} mục đang đổi tên</span></>}
             </p>
           </div>
-        </div>
 
         <div className="flex flex-col md:flex-row md:items-center gap-3 shrink-0">
           <div className="relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-subtle-foreground)]" size={16} />
             <input
               type="text"
               placeholder="Tìm mục..."
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
-              className="pl-10 pr-4 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm focus:ring-2 focus:ring-indigo-500/20 outline-none w-full md:w-56"
+              className="pl-10 pr-4 py-2 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] text-sm focus:ring-2 focus:ring-[var(--color-ring)] outline-none w-full md:w-56"
             />
           </div>
-          <button
-            onClick={handleSave}
-            disabled={updateMutation.isPending}
-            className="flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-500/20 transition-all disabled:opacity-50 w-full md:w-auto"
-          >
-            {updateMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+          <Button className="w-full md:w-auto" onClick={handleSave} disabled={updateMutation.isPending}>
+            {updateMutation.isPending ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Save aria-hidden="true" />}
             Lưu thay đổi
-          </button>
+          </Button>
         </div>
       </div>
 
-      <div id="tour-sidebar-note" className="p-4 rounded-2xl bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 flex items-start gap-3">
-        <Info size={18} className="text-blue-600 shrink-0 mt-0.5" />
-        <p className="text-xs text-blue-800 dark:text-blue-300 font-medium leading-relaxed">
+      <div id="tour-sidebar-note" className="p-4 rounded-card bg-[var(--color-info-bg)] border border-[var(--color-info-border)] flex items-start gap-3">
+        <Info size={18} className="text-[var(--color-info)] shrink-0 mt-0.5" />
+        <p className="text-xs text-[var(--color-info)] font-medium leading-relaxed">
           Phần lớn màn hình nay là <b>mục bên trong một trang</b> chứ không còn là dòng riêng trên sidebar —
           chúng được xếp theo từng trang bên dưới. Để trống ô nhập là mục đó quay về tên mặc định.
         </p>
@@ -167,26 +159,26 @@ export function SidebarSettingsTab() {
           <div
             key={scope.id}
             id={isSidebar ? 'tour-sidebar-scope-sidebar' : undefined}
-            className="tour-sidebar-scope bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden"
+            className="tour-sidebar-scope overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-card)]"
           >
-            <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center gap-3">
+            <div className="px-6 py-4 border-b border-[var(--color-border)] flex items-center gap-3">
               <div className={cn(
-                'w-9 h-9 rounded-xl flex items-center justify-center shrink-0',
+                'w-9 h-9 rounded-card flex items-center justify-center shrink-0',
                 isSidebar
-                  ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600'
-                  : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
+                  ? 'bg-[var(--color-primary-soft)] text-[var(--color-primary)]'
+                  : 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)]'
               )}>
                 {isSidebar ? <PanelLeft size={18} /> : <FileIcon size={18} />}
               </div>
               <div className="min-w-0">
-                <h4 className="text-sm font-black text-slate-900 dark:text-white truncate">
+                <h4 className="text-sm font-semibold text-[var(--color-foreground)] truncate">
                   {isSidebar ? scope.title : `Trong trang: ${scope.title}`}
                 </h4>
-                <p className="text-[11px] font-medium text-slate-500">{scope.hint}</p>
+                <p className="text-caption">{scope.hint}</p>
               </div>
             </div>
 
-            <div className="divide-y divide-slate-100 dark:divide-slate-800">
+            <div className="divide-y divide-[var(--color-border)]">
               {scope.entries.map(entry => {
                 const value = valueOf(entry)
                 const renamed = !!value.trim() && value !== entry.defaultLabel
@@ -194,14 +186,14 @@ export function SidebarSettingsTab() {
                   <div key={entry.key} className="px-6 py-3 flex flex-col lg:flex-row lg:items-center gap-3">
                     <div className="lg:w-[38%] min-w-0">
                       <div className="flex items-center gap-2 flex-wrap">
-                        <p className="text-sm font-bold text-slate-700 dark:text-slate-300">{entry.defaultLabel}</p>
+                        <p className="text-sm font-medium text-[var(--color-foreground)]">{entry.defaultLabel}</p>
                         {entry.group && (
-                          <span className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-[10px] font-bold text-slate-500 uppercase">
+                          <span className="px-2 py-0.5 rounded-control bg-[var(--color-muted)] text-eyebrow">
                             {entry.group}
                           </span>
                         )}
                       </div>
-                      <p className="text-[11px] font-mono text-slate-400 mt-0.5 truncate">{entry.key}</p>
+                      <p className="text-xs font-mono text-[var(--color-subtle-foreground)] mt-0.5 truncate">{entry.key}</p>
                     </div>
 
                     <div className="flex-1 flex items-center gap-2 min-w-0">
@@ -211,21 +203,15 @@ export function SidebarSettingsTab() {
                         onChange={(e) => handleChange(entry, e.target.value)}
                         placeholder={entry.defaultLabel}
                         className={cn(
-                          'flex-1 min-w-0 px-4 py-2 rounded-xl border bg-white dark:bg-slate-900 text-sm font-bold outline-none focus:ring-2 focus:ring-indigo-500/20',
+                          'flex-1 min-w-0 px-4 py-2 rounded-card border bg-[var(--color-card)] text-sm font-medium outline-none focus:ring-2 focus:ring-[var(--color-ring)]',
                           renamed
-                            ? 'border-indigo-300 dark:border-indigo-700'
-                            : 'border-slate-200 dark:border-slate-700'
+                            ? 'border-[var(--color-primary)]'
+                            : 'border-[var(--color-border)]'
                         )}
                       />
-                      <button
-                        type="button"
-                        onClick={() => handleChange(entry, '')}
-                        disabled={!value}
-                        title="Về tên mặc định"
-                        className="p-2 rounded-xl text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-all disabled:opacity-30 disabled:hover:bg-transparent disabled:hover:text-slate-400 shrink-0"
-                      >
-                        <RotateCcw size={16} />
-                      </button>
+                      <Button variant="ghost" size="icon-sm" className="shrink-0" aria-label="Về tên mặc định" type="button" onClick={() => handleChange(entry, '')} disabled={!value} title="Về tên mặc định">
+                        <RotateCcw aria-hidden="true" />
+                      </Button>
                     </div>
                   </div>
                 )
@@ -236,7 +222,7 @@ export function SidebarSettingsTab() {
       })}
 
       {visibleScopes.length === 0 && (
-        <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-10 text-center text-sm font-medium text-slate-400">
+        <div className="rounded-card border border-dashed border-[var(--color-border)] bg-[var(--color-card)] p-8 text-center text-sm text-[var(--color-muted-foreground)]">
           Không có mục nào khớp "{searchTerm}"
         </div>
       )}
@@ -328,49 +314,40 @@ export function NotificationSettingsTab() {
     <div className="space-y-6">
       <EvaluationReminderCard />
 
-      <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-        <div id="tour-notif-header" className="p-6 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-900/30 flex items-center justify-center text-amber-600 shrink-0">
-              <Bell size={20} />
-            </div>
-            <div>
-              <h3 className="font-black text-slate-900 dark:text-white">Cấu hình thông báo</h3>
-              <p className="text-xs font-medium text-slate-500">Thiết lập cách thức nhận thông báo của tổ chức</p>
-            </div>
+      <div className="overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
+        <div id="tour-notif-header" className="px-5 py-4 border-b border-[var(--color-border)] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="min-w-0">
+            <h3 className="text-section-title">Cấu hình thông báo</h3>
+              <p className="mt-0.5 text-sm text-[var(--color-muted-foreground)]">Thiết lập cách thức nhận thông báo của tổ chức</p>
           </div>
 
-          <button
-            onClick={() => saveConfig()}
-            disabled={isSaving}
-            className="flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-500/20 transition-all shrink-0 disabled:opacity-60"
-          >
-            {isSaving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+          <Button className="shrink-0" onClick={() => saveConfig()} disabled={isSaving}>
+            {isSaving ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Save aria-hidden="true" />}
             Lưu cấu hình
-          </button>
+          </Button>
         </div>
 
-        <div className="p-6 space-y-4">
-          <div className="p-4 rounded-2xl bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 flex items-start gap-3">
-            <Info size={18} className="text-blue-600 shrink-0 mt-0.5" />
-            <p className="text-xs text-blue-800 dark:text-blue-300 font-medium leading-relaxed">
+        <div className="p-5 space-y-4">
+          <div className="p-4 rounded-card bg-[var(--color-info-bg)] border border-[var(--color-info-border)] flex items-start gap-3">
+            <Info size={18} className="text-[var(--color-info)] shrink-0 mt-0.5" />
+            <p className="text-xs text-[var(--color-info)] font-medium leading-relaxed">
               Các thiết lập này sẽ áp dụng mặc định cho tất cả nhân viên trong tổ chức. Nhân viên có thể tùy chỉnh lại trong trang cá nhân của họ nếu được phép.
             </p>
           </div>
 
           {isLoading ? (
             <div className="flex items-center justify-center py-10">
-              <Loader2 size={24} className="animate-spin text-indigo-500" />
+              <Loader2 size={24} className="animate-spin text-[var(--color-primary)]" />
             </div>
           ) : (
-            <div id="tour-notif-events" className="divide-y divide-slate-100 dark:divide-slate-800">
+            <div id="tour-notif-events" className="divide-y divide-[var(--color-border)]">
               {settings.map((item) => (
                 <div key={item.eventCode} className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
-                    <p className="text-sm font-bold text-slate-700 dark:text-slate-200">
+                    <p className="text-sm font-medium text-[var(--color-foreground)]">
                       {EVENT_LABELS[item.eventCode] ?? item.eventCode}
                     </p>
-                    <p className="text-[10px] text-slate-400 font-medium">Mã sự kiện: {item.eventCode}</p>
+                    <p className="text-caption font-medium">Mã sự kiện: {item.eventCode}</p>
                   </div>
                   <div className="flex items-center gap-8">
                     <ToggleItem
@@ -427,44 +404,40 @@ function EvaluationReminderCard() {
   }
 
   return (
-    <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm p-6">
+    <div className="rounded-card border border-[var(--color-border)] bg-[var(--color-card)] p-6">
       <div className="flex flex-col sm:flex-row sm:items-center gap-4">
-        <div className="w-10 h-10 rounded-xl bg-teal-50 dark:bg-teal-900/30 flex items-center justify-center text-teal-600 shrink-0">
+        <div className="w-10 h-10 rounded-card bg-[var(--color-info-bg)] flex items-center justify-center text-[var(--color-info)] shrink-0">
           <Bell size={20} />
         </div>
         <div className="min-w-0 flex-1">
-          <h3 className="font-black text-slate-900 dark:text-white">Nhắc hạn đánh giá đợt / kỳ</h3>
-          <p className="text-xs font-medium text-slate-500 leading-relaxed">
+          <h3 className="text-section-title">Nhắc hạn đánh giá đợt / kỳ</h3>
+          <p className="text-xs font-medium text-[var(--color-muted-foreground)] leading-relaxed">
             Nhắc trưởng đơn vị trước khi đợt hoặc kỳ đóng lại, nếu còn nhân sự chưa được chấm
             hoặc đơn vị chưa chốt. Quá hạn mà vẫn còn tồn thì nhắc thêm một lần nữa.
           </p>
         </div>
         <div className="flex items-end gap-2 shrink-0">
           <label className="flex flex-col gap-1.5">
-            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Nhắc trước</span>
+            <span className="text-eyebrow">Nhắc trước</span>
             <div className="flex items-center gap-2">
               <input
                 type="number" min={0} max={60} value={days}
                 onChange={e => setDays(e.target.value)}
                 className={cn(
-                  'w-20 h-11 px-3 rounded-xl border bg-slate-50 dark:bg-slate-950/50 text-sm font-black outline-none focus:ring-4 focus:ring-teal-500/10',
-                  invalid ? 'border-rose-300 dark:border-rose-800' : 'border-slate-200 dark:border-slate-700',
+                  'w-20 h-9 px-3 rounded-card border bg-[var(--color-muted)] text-sm font-semibold outline-none focus:ring-4 focus:ring-[var(--color-info-solid)]',
+                  invalid ? 'border-[var(--color-error-border)]' : 'border-[var(--color-border)]',
                 )}
               />
-              <span className="text-xs font-bold text-slate-400">ngày</span>
+              <span className="text-caption">ngày</span>
             </div>
           </label>
-          <button
-            onClick={save}
-            disabled={isUpdating || !dirty}
-            className="flex items-center gap-2 h-11 px-5 rounded-xl bg-teal-600 text-white text-sm font-bold hover:bg-teal-700 shadow-lg shadow-teal-500/20 transition-all disabled:opacity-50"
-          >
-            {isUpdating ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+          <Button onClick={save} disabled={isUpdating || !dirty}>
+            {isUpdating ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Save aria-hidden="true" />}
             Lưu
-          </button>
+          </Button>
         </div>
       </div>
-      <p className="mt-3 text-[11px] font-bold text-slate-400">
+      <p className="mt-3 text-caption">
         Đặt <b>0</b> để tắt hẳn nhắc hạn đánh giá.
       </p>
     </div>
@@ -474,12 +447,12 @@ function EvaluationReminderCard() {
 function ToggleItem({ label, active, onClick }: { label: string, active: boolean, onClick: () => void }) {
   return (
     <div className="flex items-center gap-3">
-      <span className="text-xs font-bold text-slate-400">{label}</span>
+      <span className="text-caption">{label}</span>
       <button 
         onClick={onClick}
         className={cn(
           "w-12 h-6 rounded-full relative transition-all duration-300",
-          active ? "bg-emerald-500" : "bg-slate-200 dark:bg-slate-700"
+          active ? "bg-[var(--color-success-solid)]" : "bg-[var(--color-border)]"
         )}
       >
         <div className={cn(

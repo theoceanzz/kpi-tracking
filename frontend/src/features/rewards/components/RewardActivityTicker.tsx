@@ -7,6 +7,7 @@ import { useHasPermission } from '@/components/auth/PermissionGate'
 import { cn, formatNumber } from '@/lib/utils'
 import { useRewardActivityFeed } from '../hooks/useRewards'
 import { RewardActivityType, type RewardActivity } from '../types'
+import { Button } from '@/components/ui/button'
 
 /** Giây để một thẻ tin đi hết chiều ngang. Nhân với số thẻ ra thời lượng cả vòng. */
 const SECONDS_PER_ITEM = 6
@@ -63,18 +64,18 @@ type Look = {
 const LOOKS: Record<RewardActivityType, Look> = {
   [RewardActivityType.POINTS_AWARDED]: {
     icon: Sparkles,
-    accent: 'text-amber-600 dark:text-amber-400',
-    badge: 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
+    accent: 'text-[var(--color-warning)]',
+    badge: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]',
   },
   [RewardActivityType.BUDGET_GRANTED]: {
     icon: Wallet,
-    accent: 'text-violet-600 dark:text-violet-400',
-    badge: 'bg-violet-500/15 text-violet-600 dark:text-violet-400',
+    accent: 'text-[var(--color-primary)]',
+    badge: 'bg-[var(--color-primary-soft)] text-[var(--color-primary)]',
   },
   [RewardActivityType.GIFT_REDEEMED]: {
     icon: Gift,
-    accent: 'text-emerald-600 dark:text-emerald-400',
-    badge: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
+    accent: 'text-[var(--color-success)]',
+    badge: 'bg-[var(--color-success-bg)] text-[var(--color-success)]',
   },
 }
 
@@ -99,7 +100,7 @@ function Message({ item }: { item: RewardActivity }) {
       return (
         <>
           {name} vừa nhận{' '}
-          <span className={cn('font-bold', accent)}>+{formatNumber(item.points, 0)} điểm</span>
+          <span className={cn('font-semibold', accent)}>+{formatNumber(item.points, 0)} điểm</span>
           {item.actorName ? (
             <> từ {item.actorName}</>
           ) : (
@@ -114,7 +115,7 @@ function Message({ item }: { item: RewardActivity }) {
       return (
         <>
           {name} được cấp hạn mức{' '}
-          <span className={cn('font-bold', accent)}>{formatNumber(item.points, 0)} điểm</span> để
+          <span className={cn('font-semibold', accent)}>{formatNumber(item.points, 0)} điểm</span> để
           thưởng cho nhân viên
         </>
       )
@@ -122,7 +123,7 @@ function Message({ item }: { item: RewardActivity }) {
       return (
         <>
           {name} vừa đổi{' '}
-          <span className={cn('font-bold', accent)}>{item.giftName}</span> với{' '}
+          <span className={cn('font-semibold', accent)}>{item.giftName}</span> với{' '}
           {formatNumber(item.points, 0)} điểm
         </>
       )
@@ -146,12 +147,12 @@ function TickerItem({ item }: { item: RewardActivity }) {
         fullName={item.userName}
         avatarUrl={item.userAvatarUrl}
         className="h-6 w-6 rounded-full ring-2 ring-[var(--color-background)]"
-        fallbackClassName="bg-[var(--color-muted)] text-[9px] font-bold text-[var(--color-muted-foreground)]"
+        fallbackClassName="bg-[var(--color-muted)] text-caption"
       />
       <span className="whitespace-nowrap text-[13px] text-[var(--color-foreground)]">
         <Message item={item} />
       </span>
-      <span className="whitespace-nowrap text-[11px] text-[var(--color-muted-foreground)]">
+      <span className="whitespace-nowrap text-caption">
         {timeAgo(item.occurredAt)}
       </span>
     </li>
@@ -214,11 +215,11 @@ export default function RewardActivityTicker() {
   }
 
   return (
-    <div className="reward-marquee-viewport flex items-center gap-2 border-b border-[var(--color-border)] bg-gradient-to-r from-amber-500/5 via-violet-500/5 to-emerald-500/5 py-1.5 pl-4 pr-2 md:pl-6">
+    <div className="reward-marquee-viewport flex items-center gap-2 border-b border-[var(--color-border)] bg-[var(--color-warning-solid)] py-1.5 pl-4 pr-2 md:pl-6">
       {/* Nhãn ẩn ở màn hình hẹp: giữ lại thì dải tin chỉ còn một mẩu không đọc nổi. */}
       <span className="hidden flex-shrink-0 items-center gap-1.5 pr-1 sm:flex">
         <Radio size={13} className="text-[var(--color-primary)]" />
-        <span className="text-[11px] font-semibold uppercase tracking-wide text-[var(--color-muted-foreground)]">
+        <span className="text-eyebrow">
           Bảng tin thưởng
         </span>
       </span>
@@ -253,16 +254,12 @@ export default function RewardActivityTicker() {
 
         {/* Làm mờ mép trái để dòng tin trôi vào thay vì bị cắt cụt ở rìa. Mép phải không
             cần vì nút x đã che sẵn chỗ đó. */}
-        <div className="pointer-events-none absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-[var(--color-background)] to-transparent" />
+        <div className="pointer-events-none absolute inset-y-0 left-0 w-8 bg-[var(--color-muted)]"/>
       </div>
 
-      <button
-        onClick={dismiss}
-        title="Ẩn bảng tin"
-        className="flex-shrink-0 rounded-lg p-1.5 text-[var(--color-muted-foreground)] transition-colors hover:bg-[var(--color-accent)] hover:text-[var(--color-foreground)]"
-      >
-        <X size={15} />
-      </button>
+      <Button variant="ghost" size="icon-sm" aria-label="Ẩn bảng tin" onClick={dismiss} title="Ẩn bảng tin">
+        <X aria-hidden="true" />
+      </Button>
     </div>
   )
 }

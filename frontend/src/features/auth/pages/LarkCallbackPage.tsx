@@ -76,26 +76,26 @@ export default function LarkCallbackPage() {
   // Trang này KHÔNG nằm trong AuthLayout: luồng kết nối chạy khi quản trị viên đang đăng nhập,
   // mà AuthLayout lại đẩy người đã đăng nhập về /dashboard. Vì vậy tự dựng khung riêng.
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 px-6 dark:bg-slate-950">
+    <div className="flex min-h-screen items-center justify-center bg-[var(--color-muted)] px-6">
       <div className="w-full max-w-md text-center">
         {message ? (
           <div className="animate-in fade-in slide-in-from-bottom-2 duration-500">
-            <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-2xl bg-red-50 dark:bg-red-500/10">
-              <XCircle size={28} className="text-red-500" />
+            <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-card bg-[var(--color-error-bg)]">
+              <XCircle size={28} className="text-[var(--color-error)]" />
             </div>
-            <h1 className="text-2xl font-black text-[var(--color-foreground)]">Không thành công</h1>
+            <h1 className="text-page-title text-[var(--color-foreground)]">Không thành công</h1>
             <p className="mt-2 text-sm text-[var(--color-muted-foreground)]">{message}</p>
             <Link
               to={user ? '/company?section=api' : '/login'}
-              className="mt-6 inline-flex w-full items-center justify-center rounded-xl bg-[var(--color-primary)] py-3.5 font-bold text-white transition-all hover:shadow-lg hover:shadow-[var(--color-primary)]/20"
+              className="mt-6 inline-flex w-full items-center justify-center rounded-card bg-[var(--color-primary)] py-3.5 font-semibold text-[var(--color-primary-foreground)] transition-all"
             >
               {user ? 'Quay lại cài đặt' : 'Quay lại đăng nhập'}
             </Link>
           </div>
         ) : (
-          <div className="animate-in fade-in duration-500">
+          <div className="">
             <Loader2 size={36} className="mx-auto animate-spin text-[var(--color-primary)]" />
-            <h1 className="mt-5 text-2xl font-black text-[var(--color-foreground)]">
+            <h1 className="text-page-title mt-5 text-[var(--color-foreground)]">
               Đang xác thực với Lark
             </h1>
             <p className="mt-2 text-sm text-[var(--color-muted-foreground)]">

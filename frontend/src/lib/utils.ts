@@ -1,5 +1,5 @@
 import { clsx, type ClassValue } from 'clsx'
-import { twMerge } from 'tailwind-merge'
+import { extendTailwindMerge } from 'tailwind-merge'
 import { format, parseISO } from 'date-fns'
 import { vi } from 'date-fns/locale'
 
@@ -66,6 +66,19 @@ export const STATUS_CONFIG: Record<KpiStatus, { label: string; color: string; bg
     icon: X
   }
 }
+
+/**
+ * tailwind-merge không biết các utility chữ tự khai trong `index.css` (`text-caption`, `text-stat`…)
+ * và mặc định coi `text-<gì đó>` là MÀU chữ — nên `cn('text-stat', 'text-[var(--color-error)]')`
+ * sẽ vứt luôn `text-stat`. Khai báo chúng là nhóm cỡ chữ để chỉ đè lẫn nhau, không đè màu.
+ */
+const twMerge = extendTailwindMerge({
+  extend: {
+    classGroups: {
+      'font-size': ['text-page-title', 'text-section-title', 'text-label', 'text-caption', 'text-eyebrow', 'text-stat'],
+    },
+  },
+})
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs))

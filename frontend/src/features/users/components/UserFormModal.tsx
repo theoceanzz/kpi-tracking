@@ -16,7 +16,9 @@ import { userApi } from '../api/userApi'
 import { roleApi } from '@/features/organization/api/role.api'
 import { toast } from 'sonner'
 import { getApiErrorMessage } from '@/lib/apiError'
-import { Loader2, X, Eye, EyeOff, Wand2, Check, AlertCircle } from 'lucide-react'
+import { Loader2, Eye, EyeOff, Wand2, Check, AlertCircle } from 'lucide-react'
+import { Dialog, DialogFooter } from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
 import { usePermission } from '@/hooks/usePermission'
 import { useAuthStore } from '@/store/authStore'
 import { useOrgHierarchyLevels, useOrgUnitTree } from '@/features/organization/hooks/useOrganizationStructure'
@@ -223,22 +225,22 @@ function CreateUserForm({ onClose, onSubmit, isPending, canAssignRoles, dynamicR
   const strengthScore = [hasLength, hasUpper, hasLower, hasNumber, hasSpecial].filter(Boolean).length
 
   let strengthLabel = 'Chưa nhập'
-  let strengthColor = 'bg-gray-200 dark:bg-gray-700'
-  let strengthTextColor = 'text-gray-400'
+  let strengthColor = 'bg-[var(--color-border)]'
+  let strengthTextColor = 'text-[var(--color-subtle-foreground)]'
 
   if (pwd.length > 0) {
     if (strengthScore <= 2) {
       strengthLabel = 'Yếu'
-      strengthColor = 'bg-red-500'
-      strengthTextColor = 'text-red-500'
+      strengthColor = 'bg-[var(--color-error-solid)]'
+      strengthTextColor = 'text-[var(--color-error)]'
     } else if (strengthScore <= 3) {
       strengthLabel = 'Trung bình'
-      strengthColor = 'bg-yellow-500'
-      strengthTextColor = 'text-yellow-500'
+      strengthColor = 'bg-[var(--color-warning-solid)]'
+      strengthTextColor = 'text-[var(--color-warning)]'
     } else {
       strengthLabel = 'Mạnh'
-      strengthColor = 'bg-emerald-500'
-      strengthTextColor = 'text-emerald-500'
+      strengthColor = 'bg-[var(--color-success-solid)]'
+      strengthTextColor = 'text-[var(--color-success)]'
     }
   }
 
@@ -253,165 +255,164 @@ function CreateUserForm({ onClose, onSubmit, isPending, canAssignRoles, dynamicR
     setShowPassword(true)
   }
 
-  const inputCls = "w-full px-3 py-2.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/50 transition-all shadow-sm"
+  const inputCls = "w-full px-3 py-2.5 rounded-control border border-[var(--color-border)] bg-[var(--color-background)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/50 transition-all shadow-sm"
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-[var(--color-card)] rounded-2xl shadow-xl p-6 max-w-md w-full mx-4 animate-in zoom-in-95 max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white">Thêm nhân sự mới</h3>
-          <button onClick={onClose} className="p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"><X size={20} /></button>
-        </div>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-1.5">Họ và tên <span className="text-red-500">*</span></label>
-            <input {...register('fullName')} className={inputCls} placeholder="Nguyễn Văn A" />
-            {errors.fullName && <p className="text-red-500 text-xs mt-1">{errors.fullName.message}</p>}
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1.5">Mã nhân viên</label>
-            <input {...register('employeeCode')} className={inputCls} placeholder="VD: NV001" />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1.5">Email <span className="text-red-500">*</span></label>
-            <input {...register('email')} type="email" className={inputCls} placeholder="name@tochuc.com" />
-            {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>}
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1.5">Mật khẩu <span className="text-red-500">*</span></label>
-            <div className="relative">
-              <input 
-                {...register('password')} 
-                type={showPassword ? 'text' : 'password'} 
-                className={inputCls + " pr-24"} 
-                placeholder="Tối thiểu 8 ký tự" 
-              />
-              
-              <button
-                type="button"
-                onClick={generatePassword}
-                className="absolute inset-y-0 right-10 pr-1 flex items-center text-[var(--color-primary)] hover:text-[var(--color-primary)]/80 transition-colors text-xs font-semibold"
-                title="Gợi ý Mật khẩu"
-              >
-                <Wand2 size={16} className="mr-0.5"/> Gợi ý
-              </button>
-
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute inset-y-0 right-0 pr-3 flex items-center text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)] transition-colors"
-              >
-                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-              </button>
-            </div>
-
-            {pwd && (
-              <div className="mt-2.5 p-3 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 animate-in fade-in slide-in-from-top-1 duration-200">
-                <div className="flex justify-between items-center text-[10px] font-bold uppercase tracking-widest mb-2">
-                  <span className="text-slate-400">Độ mạnh</span>
-                  <span className={strengthTextColor}>{strengthLabel}</span>
-                </div>
-                <div className="h-1.5 w-full bg-slate-200 dark:bg-slate-700/50 rounded-full overflow-hidden flex gap-1 mb-3">
-                  <div className={`h-full flex-1 rounded-full ${strengthScore >= 1 ? strengthColor : 'bg-transparent'} transition-all duration-300`} />
-                  <div className={`h-full flex-1 rounded-full ${strengthScore >= 2 ? strengthColor : 'bg-transparent'} transition-all duration-300`} />
-                  <div className={`h-full flex-1 rounded-full ${strengthScore >= 4 ? strengthColor : 'bg-transparent'} transition-all duration-300`} />
-                  <div className={`h-full flex-1 rounded-full ${strengthScore >= 5 ? strengthColor : 'bg-transparent'} transition-all duration-300`} />
-                </div>
-                
-                <div className="grid grid-cols-2 gap-y-2 gap-x-1 text-[10px] font-medium text-slate-500">
-                  <div className="flex items-center gap-1.5">
-                    <div className={cn("w-3.5 h-3.5 rounded-full flex items-center justify-center transition-colors", hasLength ? 'bg-emerald-500 text-white' : 'bg-slate-200 dark:bg-slate-700 text-transparent')}><Check size={10} strokeWidth={3}/></div>
-                    <span className={hasLength ? "text-slate-900 dark:text-white" : ""}>8+ ký tự</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <div className={cn("w-3.5 h-3.5 rounded-full flex items-center justify-center transition-colors", hasUpper && hasLower ? 'bg-emerald-500 text-white' : 'bg-slate-200 dark:bg-slate-700 text-transparent')}><Check size={10} strokeWidth={3}/></div>
-                    <span className={(hasUpper && hasLower) ? "text-slate-900 dark:text-white" : ""}>Hoa & thường</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <div className={cn("w-3.5 h-3.5 rounded-full flex items-center justify-center transition-colors", hasNumber ? 'bg-emerald-500 text-white' : 'bg-slate-200 dark:bg-slate-700 text-transparent')}><Check size={10} strokeWidth={3}/></div>
-                    <span className={hasNumber ? "text-slate-900 dark:text-white" : ""}>Có chữ số</span>
-                  </div>
-                  <div className="flex items-center gap-1.5">
-                    <div className={cn("w-3.5 h-3.5 rounded-full flex items-center justify-center transition-colors", hasSpecial ? 'bg-emerald-500 text-white' : 'bg-slate-200 dark:bg-slate-700 text-transparent')}><Check size={10} strokeWidth={3}/></div>
-                    <span className={hasSpecial ? "text-slate-900 dark:text-white" : ""}>Ký tự đặc biệt</span>
-                  </div>
-                </div>
-              </div>
-            )}
-            {errors.password && <p className="text-red-500 text-xs mt-1">{errors.password.message}</p>}
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1.5">Số điện thoại</label>
-            <input {...register('phone')} className={inputCls} placeholder="0912 345 678" />
-            {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone.message}</p>}
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1.5">Đơn vị <span className="text-red-500">*</span></label>
-            <Controller
-              name="orgUnitId"
-              control={control}
-              render={({ field }) => (
-                <Select onValueChange={field.onChange} value={field.value}>
-                  <SelectTrigger className={inputCls}>
-                    <SelectValue placeholder="Chọn vai trò" />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-[300px] z-[300]">
-                    {flattenedUnits.map((unit) => (
-                      <SelectItem key={unit.id} value={unit.id}>
-                        <span className="flex items-center">
-                          {'\u00A0'.repeat(Math.max(0, unit.level * 2))}
-                          {unit.name}
-                        </span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            />
-            {errors.orgUnitId && <p className="text-red-500 text-xs mt-1">{errors.orgUnitId.message}</p>}
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1.5">Vai trò <span className="text-red-500">*</span></label>
-            <Controller
-              name="role"
-              control={control}
-              render={({ field }) => (
-                <Select onValueChange={field.onChange} value={field.value} disabled={!canAssignRoles}>
-                  <SelectTrigger className={inputCls}>
-                    <SelectValue placeholder="Chọn vai trò" />
-                  </SelectTrigger>
-                  <SelectContent className="z-[300]">
-                    {filteredRoles.map((opt) => (
-                      <SelectItem key={opt.id} value={opt.name}>
-                        {opt.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            />
-            {!canAssignRoles && <p className="text-[10px] text-amber-600 mt-1 font-medium">Bạn không có quyền thay đổi vai trò hệ thống</p>}
-            {filteredRoles.length === 0 && selectedOrgUnitId && (
-              <p className="text-[10px] text-red-500 mt-1 font-bold italic animate-pulse flex items-center gap-1">
-                <AlertCircle size={12} /> Đơn vị này chưa được thiết lập phạm vi vai trò. Hãy cấu hình ở mục "Sơ đồ tổ chức".
-              </p>
-            )}
-          </div>
-          <div className="flex gap-4 pt-4 border-t border-slate-100 dark:border-slate-800">
-            <button type="button" onClick={onClose} className="flex-1 px-6 py-3.5 rounded-2xl text-sm font-bold text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all">Hủy</button>
-            <button 
-              type="submit" 
-              disabled={isPending} 
-              className="flex-1 px-6 py-3.5 rounded-2xl text-sm font-black bg-[var(--color-primary)] text-white hover:shadow-lg hover:shadow-[var(--color-primary)]/20 disabled:opacity-50 transition-all active:scale-95 flex items-center justify-center gap-2"
-            >
-              {isPending && <Loader2 size={18} className="animate-spin" />}
+    <Dialog
+      open
+      onClose={onClose}
+      size="md"
+      dismissible={!isPending}
+      title="Thêm nhân sự mới"
+      footer={
+        <DialogFooter
+          secondary={<Button variant="outline" onClick={onClose} disabled={isPending}>Hủy</Button>}
+          primary={
+            <Button type="submit" form="create-user-form" disabled={isPending}>
+              {isPending && <Loader2 className="animate-spin" aria-hidden="true" />}
               Tạo mới
+            </Button>
+          }
+        />
+      }
+    >
+      <form id="create-user-form" onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <div>
+          <label className="text-label block font-medium mb-1.5">Họ và tên <span className="text-[var(--color-error)]">*</span></label>
+          <input {...register('fullName')} className={inputCls} placeholder="Nguyễn Văn A" />
+          {errors.fullName && <p className="text-[var(--color-error)] text-xs mt-1">{errors.fullName.message}</p>}
+        </div>
+        <div>
+          <label className="text-label block font-medium mb-1.5">Mã nhân viên</label>
+          <input {...register('employeeCode')} className={inputCls} placeholder="VD: NV001" />
+        </div>
+        <div>
+          <label className="text-label block font-medium mb-1.5">Email <span className="text-[var(--color-error)]">*</span></label>
+          <input {...register('email')} type="email" className={inputCls} placeholder="name@tochuc.com" />
+          {errors.email && <p className="text-[var(--color-error)] text-xs mt-1">{errors.email.message}</p>}
+        </div>
+        <div>
+          <label className="text-label block font-medium mb-1.5">Mật khẩu <span className="text-[var(--color-error)]">*</span></label>
+          <div className="relative">
+            <input 
+              {...register('password')} 
+              type={showPassword ? 'text' : 'password'} 
+              className={inputCls + " pr-24"} 
+              placeholder="Tối thiểu 8 ký tự" 
+            />
+            
+            <button
+              type="button"
+              onClick={generatePassword}
+              className="absolute inset-y-0 right-10 pr-1 flex items-center text-[var(--color-primary)] hover:text-[var(--color-primary)]/80 transition-colors text-xs font-semibold"
+              title="Gợi ý Mật khẩu"
+            >
+              <Wand2 size={16} className="mr-0.5"/> Gợi ý
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setShowPassword(!showPassword)}
+              className="absolute inset-y-0 right-0 pr-3 flex items-center text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)] transition-colors"
+            >
+              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
             </button>
           </div>
-        </form>
-      </div>
-    </div>
+
+          {pwd && (
+            <div className="mt-2.5 p-3 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)] animate-in fade-in slide-in-from-top-1 duration-200">
+              <div className="text-eyebrow flex justify-between items-center mb-2">
+                <span className="text-[var(--color-subtle-foreground)]">Độ mạnh</span>
+                <span className={strengthTextColor}>{strengthLabel}</span>
+              </div>
+              <div className="h-1.5 w-full bg-[var(--color-border)] rounded-full overflow-hidden flex gap-1 mb-3">
+                <div className={`h-full flex-1 rounded-full ${strengthScore >= 1 ? strengthColor : 'bg-transparent'} transition-all duration-300`} />
+                <div className={`h-full flex-1 rounded-full ${strengthScore >= 2 ? strengthColor : 'bg-transparent'} transition-all duration-300`} />
+                <div className={`h-full flex-1 rounded-full ${strengthScore >= 4 ? strengthColor : 'bg-transparent'} transition-all duration-300`} />
+                <div className={`h-full flex-1 rounded-full ${strengthScore >= 5 ? strengthColor : 'bg-transparent'} transition-all duration-300`} />
+              </div>
+              
+              <div className="grid grid-cols-2 gap-y-2 gap-x-1 text-caption">
+                <div className="flex items-center gap-1.5">
+                  <div className={cn("w-3.5 h-3.5 rounded-full flex items-center justify-center transition-colors", hasLength ? 'bg-[var(--color-success-solid)] text-white' : 'bg-[var(--color-border)] text-transparent')}><Check size={10} strokeWidth={3}/></div>
+                  <span className={hasLength ? "text-[var(--color-foreground)]" : ""}>8+ ký tự</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className={cn("w-3.5 h-3.5 rounded-full flex items-center justify-center transition-colors", hasUpper && hasLower ? 'bg-[var(--color-success-solid)] text-white' : 'bg-[var(--color-border)] text-transparent')}><Check size={10} strokeWidth={3}/></div>
+                  <span className={(hasUpper && hasLower) ? "text-[var(--color-foreground)]" : ""}>Hoa & thường</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className={cn("w-3.5 h-3.5 rounded-full flex items-center justify-center transition-colors", hasNumber ? 'bg-[var(--color-success-solid)] text-white' : 'bg-[var(--color-border)] text-transparent')}><Check size={10} strokeWidth={3}/></div>
+                  <span className={hasNumber ? "text-[var(--color-foreground)]" : ""}>Có chữ số</span>
+                </div>
+                <div className="flex items-center gap-1.5">
+                  <div className={cn("w-3.5 h-3.5 rounded-full flex items-center justify-center transition-colors", hasSpecial ? 'bg-[var(--color-success-solid)] text-white' : 'bg-[var(--color-border)] text-transparent')}><Check size={10} strokeWidth={3}/></div>
+                  <span className={hasSpecial ? "text-[var(--color-foreground)]" : ""}>Ký tự đặc biệt</span>
+                </div>
+              </div>
+            </div>
+          )}
+          {errors.password && <p className="text-[var(--color-error)] text-xs mt-1">{errors.password.message}</p>}
+        </div>
+        <div>
+          <label className="text-label block font-medium mb-1.5">Số điện thoại</label>
+          <input {...register('phone')} className={inputCls} placeholder="0912 345 678" />
+          {errors.phone && <p className="text-[var(--color-error)] text-xs mt-1">{errors.phone.message}</p>}
+        </div>
+        <div>
+          <label className="text-label block font-medium mb-1.5">Đơn vị <span className="text-[var(--color-error)]">*</span></label>
+          <Controller
+            name="orgUnitId"
+            control={control}
+            render={({ field }) => (
+              <Select onValueChange={field.onChange} value={field.value}>
+                <SelectTrigger className={inputCls}>
+                  <SelectValue placeholder="Chọn vai trò" />
+                </SelectTrigger>
+                <SelectContent className="max-h-[300px] z-[300]">
+                  {flattenedUnits.map((unit) => (
+                    <SelectItem key={unit.id} value={unit.id}>
+                      <span className="flex items-center">
+                        {'\u00A0'.repeat(Math.max(0, unit.level * 2))}
+                        {unit.name}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          />
+          {errors.orgUnitId && <p className="text-[var(--color-error)] text-xs mt-1">{errors.orgUnitId.message}</p>}
+        </div>
+        <div>
+          <label className="text-label block font-medium mb-1.5">Vai trò <span className="text-[var(--color-error)]">*</span></label>
+          <Controller
+            name="role"
+            control={control}
+            render={({ field }) => (
+              <Select onValueChange={field.onChange} value={field.value} disabled={!canAssignRoles}>
+                <SelectTrigger className={inputCls}>
+                  <SelectValue placeholder="Chọn vai trò" />
+                </SelectTrigger>
+                <SelectContent className="z-[1100]">
+                  {filteredRoles.map((opt) => (
+                    <SelectItem key={opt.id} value={opt.name}>
+                      {opt.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          />
+          {!canAssignRoles && <p className="text-xs text-[var(--color-warning)] mt-1 font-medium">Bạn không có quyền thay đổi vai trò hệ thống</p>}
+          {filteredRoles.length === 0 && selectedOrgUnitId && (
+            <p className="text-xs text-[var(--color-error)] mt-1 font-medium italic animate-pulse flex items-center gap-1">
+              <AlertCircle size={12} /> Đơn vị này chưa được thiết lập phạm vi vai trò. Hãy cấu hình ở mục "Sơ đồ tổ chức".
+            </p>
+          )}
+        </div>
+      </form>
+    </Dialog>
   )
 }
 
@@ -483,121 +484,120 @@ function EditUserForm({ editUser, onClose, onSubmit, isPending, canAssignRoles, 
     return roles
   }, [selectedOrgUnitId, orgTree, dynamicRoles, editUser, rolesData])
 
-  const inputCls = "w-full px-3 py-2.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/50"
+  const inputCls = "w-full px-3 py-2.5 rounded-control border border-[var(--color-border)] bg-[var(--color-background)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/50"
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-[var(--color-card)] rounded-2xl shadow-xl p-6 max-w-md w-full mx-4 animate-in zoom-in-95 max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between mb-6">
-          <h3 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white">Chỉnh sửa nhân sự</h3>
-          <button onClick={onClose} className="p-2 rounded-xl text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all"><X size={20} /></button>
-        </div>
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div>
-            <label className="block text-sm font-medium mb-1.5">Họ và tên</label>
-            <input {...register('fullName')} className={inputCls} />
-            {errors.fullName && <p className="text-red-500 text-xs mt-1">{errors.fullName.message}</p>}
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1.5">Mã nhân viên</label>
-            <input {...register('employeeCode')} className={inputCls} />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1.5">Email</label>
-            <input {...register('email')} type="email" className={inputCls} />
-            {errors.email && <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>}
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1.5">Số điện thoại</label>
-            <input {...register('phone')} className={inputCls} placeholder="0912 345 678" />
-            {errors.phone && <p className="text-red-500 text-xs mt-1">{errors.phone.message}</p>}
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1.5">Đơn vị</label>
-            <Controller
-              name="orgUnitId"
-              control={control}
-              render={({ field }) => (
-                <Select onValueChange={field.onChange} value={field.value}>
-                  <SelectTrigger className={inputCls}>
-                    <SelectValue placeholder="Chọn đơn vị" />
-                  </SelectTrigger>
-                  <SelectContent className="max-h-[300px] z-[300]">
-                    {flattenedUnits.map((unit) => (
-                      <SelectItem key={unit.id} value={unit.id}>
-                        <span className="flex items-center">
-                          {'\u00A0'.repeat(Math.max(0, unit.level * 2))}
-                          {unit.name}
-                        </span>
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            />
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1.5">Vai trò</label>
-            <Controller
-              name="role"
-              control={control}
-              render={({ field }) => (
-                <Select onValueChange={field.onChange} value={field.value} disabled={!canAssignRoles}>
-                  <SelectTrigger className={inputCls}>
-                    <SelectValue placeholder="Chọn vai trò" />
-                  </SelectTrigger>
-                  <SelectContent className="z-[300]">
-                    {filteredRoles.map((opt) => (
-                      <SelectItem key={opt.id} value={opt.name}>
-                        {opt.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            />
-            {!canAssignRoles && <p className="text-[10px] text-amber-600 mt-1 font-medium">Bạn không có quyền thay đổi vai trò hệ thống</p>}
-            {filteredRoles.length === 0 && selectedOrgUnitId && (
-              <p className="text-[10px] text-red-500 mt-1 font-bold italic animate-pulse flex items-center gap-1">
-                <AlertCircle size={12} /> Đơn vị này chưa được thiết lập phạm vi vai trò. Hãy cấu hình ở mục "Sơ đồ tổ chức".
-              </p>
-            )}
-          </div>
-          <div>
-            <label className="block text-sm font-medium mb-1.5">Trạng thái</label>
-            <Controller
-              name="status"
-              control={control}
-              render={({ field }) => (
-                <Select onValueChange={field.onChange} value={field.value}>
-                  <SelectTrigger className={inputCls}>
-                    <SelectValue placeholder="Trạng thái" />
-                  </SelectTrigger>
-                  <SelectContent className="z-[300]">
-                    {statusOptions.map((opt) => (
-                      <SelectItem key={opt.value} value={opt.value}>
-                        {opt.label}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            />
-          </div>
-          <div className="flex gap-4 pt-4 border-t border-slate-100 dark:border-slate-800">
-            <button type="button" onClick={onClose} className="flex-1 px-6 py-3.5 rounded-2xl text-sm font-bold text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all">Hủy</button>
-            <button 
-              type="submit" 
-              disabled={isPending} 
-              className="flex-1 px-6 py-3.5 rounded-2xl text-sm font-black bg-[var(--color-primary)] text-white hover:shadow-lg hover:shadow-[var(--color-primary)]/20 disabled:opacity-50 transition-all active:scale-95 flex items-center justify-center gap-2"
-            >
-              {isPending && <Loader2 size={18} className="animate-spin" />}
+    <Dialog
+      open
+      onClose={onClose}
+      size="md"
+      dismissible={!isPending}
+      title="Chỉnh sửa nhân sự"
+      footer={
+        <DialogFooter
+          secondary={<Button variant="outline" onClick={onClose} disabled={isPending}>Hủy</Button>}
+          primary={
+            <Button type="submit" form="edit-user-form" disabled={isPending}>
+              {isPending && <Loader2 className="animate-spin" aria-hidden="true" />}
               Cập nhật
-            </button>
-          </div>
-        </form>
-      </div>
-    </div>
+            </Button>
+          }
+        />
+      }
+    >
+      <form id="edit-user-form" onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <div>
+          <label className="text-label block font-medium mb-1.5">Họ và tên</label>
+          <input {...register('fullName')} className={inputCls} />
+          {errors.fullName && <p className="text-[var(--color-error)] text-xs mt-1">{errors.fullName.message}</p>}
+        </div>
+        <div>
+          <label className="text-label block font-medium mb-1.5">Mã nhân viên</label>
+          <input {...register('employeeCode')} className={inputCls} />
+        </div>
+        <div>
+          <label className="text-label block font-medium mb-1.5">Email</label>
+          <input {...register('email')} type="email" className={inputCls} />
+          {errors.email && <p className="text-[var(--color-error)] text-xs mt-1">{errors.email.message}</p>}
+        </div>
+        <div>
+          <label className="text-label block font-medium mb-1.5">Số điện thoại</label>
+          <input {...register('phone')} className={inputCls} placeholder="0912 345 678" />
+          {errors.phone && <p className="text-[var(--color-error)] text-xs mt-1">{errors.phone.message}</p>}
+        </div>
+        <div>
+          <label className="text-label block font-medium mb-1.5">Đơn vị</label>
+          <Controller
+            name="orgUnitId"
+            control={control}
+            render={({ field }) => (
+              <Select onValueChange={field.onChange} value={field.value}>
+                <SelectTrigger className={inputCls}>
+                  <SelectValue placeholder="Chọn đơn vị" />
+                </SelectTrigger>
+                <SelectContent className="max-h-[300px] z-[300]">
+                  {flattenedUnits.map((unit) => (
+                    <SelectItem key={unit.id} value={unit.id}>
+                      <span className="flex items-center">
+                        {'\u00A0'.repeat(Math.max(0, unit.level * 2))}
+                        {unit.name}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          />
+        </div>
+        <div>
+          <label className="text-label block font-medium mb-1.5">Vai trò</label>
+          <Controller
+            name="role"
+            control={control}
+            render={({ field }) => (
+              <Select onValueChange={field.onChange} value={field.value} disabled={!canAssignRoles}>
+                <SelectTrigger className={inputCls}>
+                  <SelectValue placeholder="Chọn vai trò" />
+                </SelectTrigger>
+                <SelectContent className="z-[1100]">
+                  {filteredRoles.map((opt) => (
+                    <SelectItem key={opt.id} value={opt.name}>
+                      {opt.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          />
+          {!canAssignRoles && <p className="text-xs text-[var(--color-warning)] mt-1 font-medium">Bạn không có quyền thay đổi vai trò hệ thống</p>}
+          {filteredRoles.length === 0 && selectedOrgUnitId && (
+            <p className="text-xs text-[var(--color-error)] mt-1 font-medium italic animate-pulse flex items-center gap-1">
+              <AlertCircle size={12} /> Đơn vị này chưa được thiết lập phạm vi vai trò. Hãy cấu hình ở mục "Sơ đồ tổ chức".
+            </p>
+          )}
+        </div>
+        <div>
+          <label className="text-label block font-medium mb-1.5">Trạng thái</label>
+          <Controller
+            name="status"
+            control={control}
+            render={({ field }) => (
+              <Select onValueChange={field.onChange} value={field.value}>
+                <SelectTrigger className={inputCls}>
+                  <SelectValue placeholder="Trạng thái" />
+                </SelectTrigger>
+                <SelectContent className="z-[1100]">
+                  {statusOptions.map((opt) => (
+                    <SelectItem key={opt.value} value={opt.value}>
+                      {opt.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            )}
+          />
+        </div>
+      </form>
+    </Dialog>
   )
 }

@@ -4,27 +4,32 @@ import { formatDateTime } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import EmptyState from '@/components/common/EmptyState'
+import PageHeader from '@/components/common/PageHeader'
+import { Button } from '@/components/ui/button'
 import {
   Bell, CheckCheck, Send,
   FileSearch, ShieldCheck, Target,
   CheckCircle2, Layers, GitBranch, Calculator,
-  Award, Coins, Gift, Wallet, Scale
+  Award, Coins, Gift, Wallet, Scale, Inbox
 } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 
-const typeConfig: Record<string, { icon: any, color: string, label: string }> = {
-  SUBMISSION: { icon: Send, color: 'text-blue-500 bg-blue-50 dark:bg-blue-900/20', label: 'Báo cáo mới' },
-  REVIEW: { icon: FileSearch, color: 'text-amber-500 bg-amber-50 dark:bg-amber-900/20', label: 'Đánh giá' },
-  KPI_APPROVED: { icon: ShieldCheck, color: 'text-emerald-500 bg-emerald-50 dark:bg-emerald-900/20', label: 'Duyệt chỉ tiêu' },
-  KPI_ASSIGNED: { icon: Target, color: 'text-indigo-500 bg-indigo-50 dark:bg-indigo-900/20', label: 'Giao chỉ tiêu' },
-  BSC_SCORECARD: { icon: Layers, color: 'text-violet-500 bg-violet-50 dark:bg-violet-900/20', label: 'Bộ tiêu chí BSC' },
-  BSC_ASSIGNED: { icon: GitBranch, color: 'text-sky-500 bg-sky-50 dark:bg-sky-900/20', label: 'Giao chỉ tiêu BSC' },
-  BSC_RESULT: { icon: Calculator, color: 'text-teal-500 bg-teal-50 dark:bg-teal-900/20', label: 'Kết quả BSC' },
-  REWARD_GRANT: { icon: Award, color: 'text-amber-500 bg-amber-50 dark:bg-amber-900/20', label: 'Đề nghị thưởng' },
-  REWARD_POINT: { icon: Coins, color: 'text-yellow-500 bg-yellow-50 dark:bg-yellow-900/20', label: 'Điểm thưởng' },
-  REWARD_GIFT: { icon: Gift, color: 'text-pink-500 bg-pink-50 dark:bg-pink-900/20', label: 'Đổi quà' },
-  WALLET: { icon: Wallet, color: 'text-emerald-500 bg-emerald-50 dark:bg-emerald-900/20', label: 'Ví tiền' },
-  WALLET_RECONCILE: { icon: Scale, color: 'text-orange-500 bg-orange-50 dark:bg-orange-900/20', label: 'Đối soát ví' },
+/** Cùng bảng màu theo nhóm nghiệp vụ với NotificationDropdown. */
+const typeConfig: Record<string, { icon: LucideIcon; color: string; label: string }> = {
+  SUBMISSION: { icon: Send, color: 'bg-[var(--color-info-bg)] text-[var(--color-info)]', label: 'Báo cáo mới' },
+  REVIEW: { icon: FileSearch, color: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]', label: 'Đánh giá' },
+  KPI_APPROVED: { icon: ShieldCheck, color: 'bg-[var(--color-success-bg)] text-[var(--color-success)]', label: 'Duyệt chỉ tiêu' },
+  KPI_ASSIGNED: { icon: Target, color: 'bg-[var(--color-primary-soft)] text-[var(--color-primary)]', label: 'Giao chỉ tiêu' },
+  BSC_SCORECARD: { icon: Layers, color: 'bg-[var(--color-primary-soft)] text-[var(--color-primary)]', label: 'Bộ tiêu chí BSC' },
+  BSC_ASSIGNED: { icon: GitBranch, color: 'bg-[var(--color-primary-soft)] text-[var(--color-primary)]', label: 'Giao chỉ tiêu BSC' },
+  BSC_RESULT: { icon: Calculator, color: 'bg-[var(--color-success-bg)] text-[var(--color-success)]', label: 'Kết quả BSC' },
+  REWARD_GRANT: { icon: Award, color: 'bg-[var(--color-info-bg)] text-[var(--color-info)]', label: 'Đề nghị thưởng' },
+  REWARD_POINT: { icon: Coins, color: 'bg-[var(--color-info-bg)] text-[var(--color-info)]', label: 'Điểm thưởng' },
+  REWARD_GIFT: { icon: Gift, color: 'bg-[var(--color-info-bg)] text-[var(--color-info)]', label: 'Đổi quà' },
+  WALLET: { icon: Wallet, color: 'bg-[var(--color-info-bg)] text-[var(--color-info)]', label: 'Ví tiền' },
+  WALLET_RECONCILE: { icon: Scale, color: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]', label: 'Đối soát ví' },
 }
+const DEFAULT_TYPE = { icon: Bell, color: 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)]', label: 'Thông báo' }
 
 export default function NotificationsPage() {
   // KHÔNG mở kết nối WebSocket ở đây: NotificationBell trong AppLayout đã mở sẵn một cái và
@@ -55,121 +60,120 @@ export default function NotificationsPage() {
     (firstUnreadIds.current?.has(n.id) ?? false) || !n.isRead
   const orderedNotifs = [...filteredNotifs].sort((a, b) => Number(isTopGroup(b)) - Number(isTopGroup(a)))
 
-  return (
-    <div className="max-w-4xl mx-auto p-4 md:p-8 space-y-8 animate-in fade-in duration-500">
-      
-      {/* Header */}
-      <div className="flex flex-col md:flex-row md:items-center justify-between gap-6 bg-white dark:bg-slate-900 p-8 rounded-[32px] border border-slate-200 dark:border-slate-800 shadow-sm relative overflow-hidden">
-        <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 rounded-full -mr-16 -mt-16 blur-2xl" />
-        
-        <div className="relative z-10 space-y-1">
-          <h1 className="text-3xl font-black text-slate-900 dark:text-white flex items-center gap-3">
-            <Bell size={28} className="text-indigo-600" />
-            Trung tâm Thông báo
-          </h1>
-          <p className="text-slate-500 font-medium">Bạn có {unreadCount} thông báo mới chưa đọc.</p>
-        </div>
+  const filters = [
+    { key: 'ALL' as const, label: 'Tất cả', count: notifications.length },
+    { key: 'UNREAD' as const, label: 'Chưa đọc', count: unreadCount },
+  ]
 
-        <div className="relative z-10 flex items-center gap-3">
-          <button 
+  return (
+    <div className="mx-auto max-w-4xl">
+      <PageHeader
+        title="Thông báo"
+        description={unreadCount > 0 ? `${unreadCount} thông báo chưa đọc.` : 'Bạn đã đọc hết thông báo.'}
+        action={
+          <Button
+            variant="outline"
             onClick={() => markAllRead.mutate()}
             disabled={unreadCount === 0 || markAllRead.isPending}
-            className="flex items-center gap-2 px-6 py-3 bg-indigo-600 text-white rounded-2xl text-sm font-bold shadow-lg shadow-indigo-600/20 hover:bg-indigo-700 transition-all disabled:opacity-50 active:scale-95"
           >
-            <CheckCheck size={18} />
+            <CheckCheck aria-hidden="true" />
             Đọc tất cả
-          </button>
+          </Button>
+        }
+      />
+      
+      {/* Bộ lọc */}
+      <div className="mb-4 flex items-center justify-between">
+        <div className="flex items-center gap-1 rounded-control bg-[var(--color-muted)] p-1" role="tablist" aria-label="Lọc thông báo">
+          {filters.map(f => {
+            const active = filter === f.key
+            return (
+              <button
+                key={f.key}
+                type="button"
+                role="tab"
+                aria-selected={active}
+                onClick={() => setFilter(f.key)}
+                className={cn(
+                  'flex h-8 items-center gap-1.5 rounded-sm px-3 text-[13px] font-medium transition-colors',
+                  active
+                    ? 'bg-[var(--color-card)] text-[var(--color-foreground)] shadow-sm'
+                    : 'text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)]'
+                )}
+              >
+                {f.label}
+                <span className={cn('tabular-nums', active ? 'text-[var(--color-muted-foreground)]' : 'text-[var(--color-subtle-foreground)]')}>{f.count}</span>
+              </button>
+            )
+          })}
         </div>
-      </div>
-
-      {/* Toolbar & Filter */}
-      <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-800">
-        <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 p-1 rounded-xl">
-          <button 
-            onClick={() => setFilter('ALL')}
-            className={cn(
-              "px-4 py-1.5 rounded-lg text-xs font-bold transition-all",
-              filter === 'ALL' ? "bg-white dark:bg-slate-700 text-indigo-600 shadow-sm" : "text-slate-500 hover:text-slate-700"
-            )}
-          >
-            Tất cả
-          </button>
-          <button 
-            onClick={() => setFilter('UNREAD')}
-            className={cn(
-              "px-4 py-1.5 rounded-lg text-xs font-bold transition-all",
-              filter === 'UNREAD' ? "bg-white dark:bg-slate-700 text-indigo-600 shadow-sm" : "text-slate-500 hover:text-slate-700"
-            )}
-          >
-            Chưa đọc
-          </button>
+        <p className="flex items-center gap-2 text-caption">
+          <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-[var(--color-success-solid)]" />
+          Cập nhật theo thời gian thực
+        </p>
         </div>
 
-        <div className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">
-          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
-          Thời gian thực
-        </div>
-      </div>
-
-      {/* List */}
-      <div className="space-y-4">
+      {/* Danh sách */}
         {isLoading ? (
           <LoadingSkeleton type="table" rows={6} />
         ) : filteredNotifs.length === 0 ? (
-          <div className="py-20 bg-white dark:bg-slate-900 rounded-[32px] border border-dashed border-slate-200 dark:border-slate-800">
+        <div className="rounded-card border border-dashed border-[var(--color-border)] bg-[var(--color-card)]">
             <EmptyState 
-              title="Hộp thư trống" 
-              description={filter === 'UNREAD' ? "Tuyệt vời! Bạn không có thông báo nào chưa đọc." : "Bạn chưa nhận được thông báo nào từ hệ thống."}
+            icon={Inbox}
+            title={filter === 'UNREAD' ? 'Không còn thông báo chưa đọc' : 'Chưa có thông báo'}
+            description={filter === 'UNREAD' ? 'Mọi thông báo đã được đọc.' : 'Thông báo về chỉ tiêu, bài nộp và đánh giá sẽ hiện ở đây.'}
             />
           </div>
         ) : (
-          <div className="bg-white dark:bg-slate-900 rounded-[32px] border border-slate-200 dark:border-slate-800 divide-y divide-slate-100 dark:divide-slate-800 overflow-hidden shadow-sm">
+        <div className="divide-y divide-[var(--color-border)] overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
             {orderedNotifs.map((n) => {
-              const config = typeConfig[n.type] || { icon: Bell, color: 'text-slate-500 bg-slate-50', label: 'Thông báo' }
+            const config = typeConfig[n.type] || DEFAULT_TYPE
               const Icon = config.icon
               
               return (
                 <div 
                   key={n.id}
+                role={n.isRead ? undefined : 'button'}
+                tabIndex={n.isRead ? undefined : 0}
                   onClick={() => !n.isRead && markRead.mutate(n.id)}
+                onKeyDown={(e) => { if ((e.key === 'Enter' || e.key === '') && !n.isRead) { e.preventDefault(); markRead.mutate(n.id) } }}
                   className={cn(
-                    "group p-6 flex gap-6 cursor-pointer transition-all border-l-4",
+                  'flex gap-4 border-l-2 px-5 py-4 transition-colors',
                     n.isRead 
-                      ? "border-transparent hover:bg-slate-50/50 dark:hover:bg-slate-800/30" 
-                      : "border-indigo-600 bg-indigo-50/30 dark:bg-indigo-900/10 hover:bg-indigo-50/50 dark:hover:bg-indigo-900/20"
+                    ? 'border-transparent'
+                    : 'cursor-pointer border-[var(--color-primary)] bg-[var(--color-primary-soft)] hover:bg-[var(--color-muted)]'
                   )}
                 >
-                  <div className={cn("w-14 h-14 rounded-2xl flex items-center justify-center shrink-0 shadow-sm", config.color)}>
-                    <Icon size={24} />
+                <div className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-card', config.color)} aria-hidden="true">
+                  <Icon size={18} />
                   </div>
 
-                  <div className="flex-1 space-y-1.5">
-                    <div className="flex justify-between items-start gap-4">
-                      <div className="space-y-1">
-                        <span className="text-[10px] font-black uppercase tracking-widest text-indigo-500/70">{config.label}</span>
-                        <h3 className={cn("text-base leading-tight", n.isRead ? "text-slate-700 dark:text-slate-300 font-semibold" : "text-slate-900 dark:text-white font-black")}>
+                <div className="min-w-0 flex-1">
+                  <div className="flex items-start justify-between gap-4">
+                    <div className="min-w-0">
+                      <p className="text-eyebrow">{config.label}</p>
+                      <h3 className={cn('mt-0.5 text-sm leading-5', n.isRead ? 'text-[var(--color-muted-foreground)]' : 'font-medium text-[var(--color-foreground)]')}>
                           {n.title}
                         </h3>
                       </div>
-                      <div className="flex flex-col items-end gap-2 shrink-0">
-                        <span className="text-[10px] font-bold text-slate-400">{formatDateTime(n.createdAt)}</span>
+                    <div className="flex shrink-0 flex-col items-end gap-1.5">
+                      <span className="text-caption tabular-nums">{formatDateTime(n.createdAt)}</span>
                         {!n.isRead && (
-                           <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-md bg-indigo-600/10 text-indigo-600 text-[10px] font-black uppercase tracking-tighter">
-                             <div className="w-1 h-1 rounded-full bg-indigo-600" />
+                        <span className="rounded-control bg-[var(--color-primary)] px-1.5 py-0.5 text-xs font-medium leading-none text-[var(--color-primary-foreground)]">
                              Mới
-                           </div>
+                        </span>
                         )}
                       </div>
                     </div>
                     
-                    <p className="text-sm text-slate-500 dark:text-slate-400 font-medium leading-relaxed max-w-2xl">
+                  <p className="mt-1 max-w-2xl text-sm leading-5 text-[var(--color-muted-foreground)]">
                       {n.message}
                     </p>
 
-                    {n.isRead && (
-                      <div className="flex items-center gap-1.5 text-[10px] font-bold text-slate-400 pt-1">
-                        <CheckCircle2 size={12} /> Đã đọc vào {formatDateTime(n.readAt!)}
-                      </div>
+                  {n.isRead && n.readAt && (
+                    <p className="mt-1.5 flex items-center gap-1.5 text-caption">
+                      <CheckCircle2 size={12} aria-hidden="true" /> Đã đọc lúc {formatDateTime(n.readAt)}
+                    </p>
                     )}
                   </div>
                 </div>
@@ -178,6 +182,5 @@ export default function NotificationsPage() {
           </div>
         )}
       </div>
-    </div>
   )
 }

@@ -1,4 +1,3 @@
-import { UserCircle } from 'lucide-react'
 import SettingsSectionLayout from '@/components/common/SettingsSectionLayout'
 import { usePageTitle } from '@/features/organization/hooks/usePageTitle'
 import { useNotificationDots } from '@/hooks/useNotificationDots'
@@ -31,11 +30,6 @@ export default function MySpacePage() {
         navId="my-space"
         title={pageTitle}
         subtitle="Chỉ tiêu, bài nộp, kết quả đánh giá và ví của riêng bạn"
-        eyebrow={
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 text-xs font-black uppercase tracking-widest mb-3">
-            <UserCircle size={14} /> Cá nhân
-          </div>
-        }
         sections={[
           // Chỉ những mục có việc TỒN mới mang badge. "Đánh giá của tôi", "Điều chỉnh của
           // tôi" và "Hạnh kiểm của tôi" là nơi xem kết quả hoặc đang chờ người khác xử lý,

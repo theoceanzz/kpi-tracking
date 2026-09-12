@@ -150,7 +150,7 @@ const wrap = (C: ComponentType<{ filter?: PinnedFilter }>) =>
  */
 function PinnedDetailPlaceholder() {
   return (
-    <div className="h-full w-full flex flex-col items-center justify-center gap-2 text-center px-4 text-slate-400 dark:text-slate-500 select-none">
+    <div className="h-full w-full flex flex-col items-center justify-center gap-2 text-center px-4 text-[var(--color-subtle-foreground)] select-none">
       <ListChecks className="w-9 h-9 opacity-40" strokeWidth={1.5} />
       <p className="text-xs font-semibold">Widget này đã được gỡ khỏi trang Thống kê</p>
     </div>

@@ -1,5 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
-import { Loader2, Printer, X } from 'lucide-react'
+import { Loader2, Printer } from 'lucide-react'
+import { Dialog } from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
 import { walletApi } from '../api/walletApi'
 import { getApiErrorMessage } from '@/lib/apiError'
 
@@ -46,67 +48,39 @@ export default function ReceiptModal({ orderId, onClose }: ReceiptModalProps) {
   }
 
   return (
-    <div
-      className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50 p-4"
-      onClick={onClose}
+    <Dialog
+      open
+      onClose={onClose}
+      size="lg"
+      title="Biên nhận thu tiền"
+      description={data ? `Số ${data.number}` : undefined}
+      headerExtra={data && (
+        <Button variant="outline" size="sm" onClick={print}>
+          <Printer aria-hidden="true" />
+          In
+        </Button>
+      )}
     >
-      <div
-        className="flex max-h-[90vh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl bg-[var(--color-card)]"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <header className="flex items-center justify-between border-b border-[var(--color-border)] px-6 py-4">
-          <div className="min-w-0">
-            <h3 className="text-sm font-bold">Biên nhận thu tiền</h3>
-            {data && (
-              <p className="truncate text-xs text-[var(--color-muted-foreground)]">
-                Số {data.number}
-              </p>
-            )}
-          </div>
-          <div className="flex items-center gap-2">
-            {data && (
-              <button
-                type="button"
-                onClick={print}
-                className="flex items-center gap-2 rounded-xl border border-[var(--color-border)] px-3 py-2 text-sm font-semibold transition-colors hover:border-[var(--color-primary)]"
-              >
-                <Printer size={16} />
-                In
-              </button>
-            )}
-            <button
-              type="button"
-              onClick={onClose}
-              className="rounded-xl p-2 text-[var(--color-muted-foreground)] transition-colors hover:bg-[var(--color-muted)]"
-            >
-              <X size={18} />
-            </button>
-          </div>
-        </header>
-
-        <div className="overflow-y-auto p-6">
-          {isLoading && (
-            <div className="flex items-center justify-center gap-2 py-12 text-sm text-[var(--color-muted-foreground)]">
-              <Loader2 size={16} className="animate-spin" />
-              Đang tải chứng từ…
-            </div>
-          )}
-
-          {/* Biên nhận có thể không tồn tại: đơn nạp từ trước khi bật tính năng, hoặc tổ chức
-              đã tắt gửi biên nhận. Nói rõ lý do thay vì để một khung trống. */}
-          {error && (
-            <p className="rounded-xl bg-amber-500/10 px-4 py-3 text-sm text-amber-800 dark:text-amber-300">
-              {getApiErrorMessage(
-                error,
-                'Đơn nạp này chưa có biên nhận. Có thể tiền về trước khi đơn vị bật tính năng biên nhận, hoặc đơn vị đã tắt gửi chứng từ.',
-              )}
-            </p>
-          )}
-
-          {/* HTML do máy chủ dựng, mọi giá trị người dùng nhập đã được thoát ở TopupReceiptService. */}
-          {data && <div dangerouslySetInnerHTML={{ __html: data.html }} />}
+      {isLoading && (
+        <div className="flex items-center justify-center gap-2 py-12 text-sm text-[var(--color-muted-foreground)]">
+          <Loader2 size={16} className="animate-spin" />
+          Đang tải chứng từ…
         </div>
-      </div>
-    </div>
+      )}
+
+      {/* Biên nhận có thể không tồn tại: đơn nạp từ trước khi bật tính năng, hoặc tổ chức
+          đã tắt gửi biên nhận. Nói rõ lý do thay vì để một khung trống. */}
+      {error && (
+        <p className="rounded-card bg-[var(--color-warning-bg)] px-4 py-3 text-sm text-[var(--color-warning)]">
+          {getApiErrorMessage(
+            error,
+            'Đơn nạp này chưa có biên nhận. Có thể tiền về trước khi đơn vị bật tính năng biên nhận, hoặc đơn vị đã tắt gửi chứng từ.',
+          )}
+        </p>
+      )}
+
+      {/* HTML do máy chủ dựng, mọi giá trị người dùng nhập đã được thoát ở TopupReceiptService. */}
+      {data && <div dangerouslySetInnerHTML={{ __html: data.html }} />}
+    </Dialog>
   )
 }

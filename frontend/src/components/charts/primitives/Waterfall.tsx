@@ -101,16 +101,16 @@ function WaterfallTooltip({ active, payload, unit }: {
   const u = unit ? ` ${unit}` : ''
   const r1 = (v: number) => Math.round(v * 10) / 10
   return (
-    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3.5 rounded-xl shadow-lg">
-      <p className="font-bold text-slate-900 dark:text-white mb-2">{d.name}</p>
+    <div className="bg-[var(--color-card)] border border-[var(--color-border)] p-3.5 rounded-card shadow-lg">
+      <p className="font-bold text-[var(--color-foreground)] mb-2">{d.name}</p>
       {d.isTotal ? (
-        <p className="font-black text-lg tabular-nums" style={{ color: TOTAL }}>{r1(d.to)}{u}</p>
+        <p className="font-semibold text-lg tabular-nums" style={{ color: TOTAL }}>{r1(d.to)}{u}</p>
       ) : (
         <div className="space-y-1 text-sm">
-          <p className="font-black text-lg tabular-nums" style={{ color: d.value >= 0 ? UP : DOWN }}>
+          <p className="font-semibold text-lg tabular-nums" style={{ color: d.value >= 0 ? UP : DOWN }}>
             {d.value > 0 ? '+' : ''}{r1(d.value)}{u}
           </p>
-          <p className="text-slate-500 font-medium" style={{ color: NEUTRAL_COLOR }}>
+          <p className="text-[var(--color-muted-foreground)] font-medium" style={{ color: NEUTRAL_COLOR }}>
             {r1(d.from)} → {r1(d.to)}{u}
           </p>
         </div>

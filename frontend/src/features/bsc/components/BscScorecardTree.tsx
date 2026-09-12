@@ -21,6 +21,10 @@ import {
 import { scorecardStatusMeta } from '../utils/scorecardStatus'
 import AttachParentModal from './AttachParentModal'
 import RejectScorecardModal from './RejectScorecardModal'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import EmptyState from '@/components/common/EmptyState'
+import { ChoiceChip } from '@/components/ui/choice-chip'
 
 interface BscScorecardTreeProps {
   organizationId?: string
@@ -44,22 +48,22 @@ interface BscScorecardTreeProps {
 const COVERAGE_META: Record<string, { label: string; className: string; hint: string }> = {
   NOT_CASCADED: {
     label: 'Chưa giao',
-    className: 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400',
+    className: 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)]',
     hint: 'Chưa đơn vị nào được giao chỉ tiêu này',
   },
   UNDER: {
     label: 'Còn thiếu',
-    className: 'bg-amber-50 text-amber-600 dark:bg-amber-900/20 dark:text-amber-400',
+    className: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]',
     hint: 'Tổng mức giao cho các đơn vị còn thấp hơn mục tiêu của cấp này',
   },
   OK: {
     label: 'Đủ',
-    className: 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400',
+    className: 'bg-[var(--color-success-bg)] text-[var(--color-success)]',
     hint: 'Tổng mức giao cho các đơn vị khớp mục tiêu của cấp này',
   },
   OVER: {
     label: 'Giao vượt',
-    className: 'bg-sky-50 text-sky-600 dark:bg-sky-900/20 dark:text-sky-400',
+    className: 'bg-[var(--color-info-bg)] text-[var(--color-info)]',
     hint: 'Tổng mức giao cho các đơn vị cao hơn mục tiêu — cố ý để dự phòng thì không sao',
   },
 }
@@ -128,42 +132,40 @@ export default function BscScorecardTree({
       {/* ── Thanh công cụ ─────────────────────────────────────── */}
       <div className="flex flex-wrap items-center gap-2">
         <div className="relative w-full sm:w-[28rem]">
-          <Search size={16} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+          <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-subtle-foreground)]" aria-hidden="true" />
           <input
             value={query}
             onChange={e => setQuery(e.target.value)}
             placeholder="Tìm bộ tiêu chí, đơn vị..."
-            className="w-full h-11 pl-11 pr-4 rounded-2xl bg-white dark:bg-slate-900 border border-[var(--color-border)] text-sm font-bold outline-none focus:border-indigo-300 dark:focus:border-indigo-700 focus:placeholder:text-transparent"
+            aria-label="Tìm bộ tiêu chí"
+            className="h-9 w-full rounded-control border border-[var(--color-border)] bg-[var(--color-card)] pl-9 pr-3 text-sm text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-subtle-foreground)] focus-visible:border-[var(--color-primary)] focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]"
           />
         </div>
 
-        <p className="text-[11px] font-bold text-slate-400 flex-1 min-w-[16rem]">
+        <p className="text-caption flex-1 min-w-[16rem]">
           Bấm vào một bộ tiêu chí để mở hạng mục, độ phủ phân rã và kết quả của đợt.
         </p>
       </div>
 
       {isLoading && (
-        <div className="flex items-center justify-center py-10 text-slate-400">
+        <div className="flex items-center justify-center py-10 text-[var(--color-subtle-foreground)]">
           <Loader2 size={20} className="animate-spin" />
         </div>
       )}
 
       {!isLoading && (!tree || tree.length === 0) && (
-        <div className="flex flex-col items-center justify-center p-16 bg-white dark:bg-slate-900 rounded-3xl border-2 border-dashed border-slate-200 dark:border-slate-800 text-center">
-          <div className="w-16 h-16 bg-indigo-50 dark:bg-indigo-900/30 rounded-2xl flex items-center justify-center text-indigo-600 mb-4">
-            <Target size={32} />
-          </div>
-          <h3 className="text-xl font-bold text-slate-900 dark:text-white">Chưa có bộ tiêu chí nào</h3>
-          <p className="text-slate-500 max-w-md mt-2 text-sm">
-            Bấm <b>"+ Bộ tiêu chí mới"</b> để tạo bộ tiêu chí cho một kỳ (theo phòng ban hoặc toàn tổ chức).
-            Ngay trong đó bạn thêm được hạng mục vào 4 lĩnh vực và chia trọng số cho đủ 100%.
-          </p>
+        <div className="rounded-card border border-dashed border-[var(--color-border)] bg-[var(--color-card)]">
+          <EmptyState
+            icon={Target}
+            title="Chưa có bộ tiêu chí nào"
+            description="Bấm “Bộ tiêu chí mới” để tạo bộ tiêu chí cho một kỳ (theo phòng ban hoặc toàn tổ chức). Ngay trong đó bạn thêm được hạng mục vào 4 lĩnh vực và chia trọng số cho đủ 100%."
+          />
         </div>
       )}
 
       {!isLoading && (tree || []).length > 0 && visible.length === 0 && (
-        <div className="rounded-2xl border border-dashed border-slate-200 dark:border-slate-700 p-8 text-center">
-          <p className="text-sm font-bold text-slate-400">Không có bộ tiêu chí nào khớp "{query}".</p>
+        <div className="rounded-card border border-dashed border-[var(--color-border)] px-6 py-8 text-center">
+          <p className="text-sm text-[var(--color-muted-foreground)]">Không có bộ tiêu chí nào khớp “{query}”.</p>
         </div>
       )}
 
@@ -225,44 +227,40 @@ function TreeNode(props: TreeNodeProps) {
     <div>
       <div className={cn(
         isRoot && 'tour-bsc-scorecard-card',
-        'rounded-2xl border bg-white dark:bg-slate-900 transition-all',
+        'rounded-card border bg-[var(--color-card)] transition-all',
         isDetailOpen
-          ? 'border-indigo-300 dark:border-indigo-700 shadow-lg shadow-indigo-500/5'
-          : 'border-slate-200 dark:border-slate-800 hover:border-slate-300 dark:hover:border-slate-700')}>
+          ? 'border-[var(--color-primary)]'
+          : 'border-[var(--color-border)] hover:border-[var(--color-border-strong)]')}>
 
         <div className="flex items-center gap-2 px-3 py-2.5">
-          <button onClick={() => onToggle(node.id)}
-            title={childrenOpen ? 'Ẩn đơn vị con' : 'Hiện đơn vị con'}
-            className={cn('p-1 rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 shrink-0',
-              node.children.length === 0 && 'invisible')}>
-            {childrenOpen ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
-          </button>
+          <Button variant="ghost" size="icon-sm" className={cn(node.children.length === 0 && 'invisible')}
+            onClick={() => onToggle(node.id)} title={childrenOpen ? 'Ẩn đơn vị con' : 'Hiện đơn vị con'} aria-label={childrenOpen ? 'Ẩn đơn vị con' : 'Hiện đơn vị con'}>
+            {childrenOpen ? <ChevronDown aria-hidden="true" /> : <ChevronRight aria-hidden="true" />}
+          </Button>
 
-          <div className={cn('w-8 h-8 rounded-xl flex items-center justify-center shrink-0 text-white',
-            isCompany ? 'bg-indigo-600' : 'bg-slate-400 dark:bg-slate-600')}>
+          <div className={cn('w-8 h-8 rounded-card flex items-center justify-center shrink-0',
+            isCompany ? 'bg-[var(--color-primary)] text-[var(--color-primary-foreground)]' : 'bg-[var(--color-muted-foreground)] text-[var(--color-card)]')}>
             {isCompany ? <Building2 size={15} /> : <Users size={15} />}
           </div>
 
-          <button onClick={() => onOpen(isDetailOpen ? null : node.id)} className="flex-1 min-w-0 text-left">
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-sm font-black text-slate-800 dark:text-slate-100 truncate">{node.name}</span>
-              <span className={cn('px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest', status.badgeClass)}>
+          <button type="button"
+            className="block min-w-0 flex-1 rounded-control px-2 py-1 text-left transition-colors hover:bg-[var(--color-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]"
+            onClick={() => onOpen(isDetailOpen ? null : node.id)} aria-expanded={isDetailOpen}>
+            <div className="flex flex-wrap items-center gap-1.5">
+              <span className="truncate text-sm font-medium text-[var(--color-foreground)]">{node.name}</span>
+              <span className={cn('inline-flex items-center rounded-control px-2 py-0.5 text-xs font-medium', status.badgeClass)}>
                 {status.label}
               </span>
-              {sc?.scoringMode === BscScoringMode.OFFICIAL && (
-                <span className="px-1.5 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-400">
-                  Chính thức
-                </span>
-              )}
+              {sc?.scoringMode === BscScoringMode.OFFICIAL && <Badge>Chính thức</Badge>}
             </div>
-            <p className="text-[10px] font-bold text-slate-400 truncate mt-0.5">
+            <p className="text-caption truncate mt-0.5">
               {isCompany ? 'BSC công ty' : node.orgUnitName || 'BSC đơn vị'}
               {node.periodLabel ? ` · ${node.periodLabel}` : ''}
               {' · '}{node.itemCount} hạng mục
               {node.assignedCount > 0 && ` (${node.assignedCount} cấp trên giao, ${selfCount} tự thêm)`}
               {node.gateCount > 0 && ` · ${node.gateCount} chặn`}
               {' · '}
-              <span className={weightOk ? 'text-emerald-600' : 'text-red-500'}>
+              <span className={weightOk ? 'text-[var(--color-success)]' : 'text-[var(--color-error)]'}>
                 trọng số {num(node.totalWeight)}%
               </span>
             </p>
@@ -270,28 +268,25 @@ function TreeNode(props: TreeNodeProps) {
 
           {!weightOk && (
             <span title={`Tổng trọng số ${num(node.totalWeight)}% — phải đủ 100% mới trình duyệt được`}>
-              <AlertTriangle size={14} className="text-amber-500 shrink-0" />
+              <AlertTriangle size={14} className="text-[var(--color-warning)] shrink-0" />
             </span>
           )}
 
           {!canEdit && (
             // Vẫn xem được nội dung, chỉ không sửa. Nói lý do ngay ở đây để khỏi đi tìm nút đã bị ẩn.
             <span title="Bộ tiêu chí của đơn vị khác — bạn xem được nhưng không sửa"
-              className="text-slate-300 dark:text-slate-600 shrink-0"><Lock size={14} /></span>
+              className="text-[var(--color-subtle-foreground)] shrink-0"><Lock size={14} /></span>
           )}
 
           {/* Thao tác đứng ngay cạnh tên thẻ: sửa bộ tiêu chí hay trình duyệt là việc làm với CHÍNH
               nhánh này, bắt mở chi tiết ra mới thấy nút thì thêm một cú bấm cho mọi thao tác. */}
           <NodeActions {...props} scorecard={sc} canEdit={canEdit} />
 
-          <button onClick={() => onOpen(isDetailOpen ? null : node.id)}
-            title={isDetailOpen ? 'Đóng chi tiết' : 'Mở chi tiết'}
-            className={cn('p-1.5 rounded-lg shrink-0 transition-colors',
-              isDetailOpen
-                ? 'text-indigo-600 bg-indigo-50 dark:bg-indigo-900/30'
-                : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800')}>
-            {isDetailOpen ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
-          </button>
+          <Button variant={isDetailOpen ? 'secondary' : 'ghost'} size="icon-sm" className="shrink-0"
+            onClick={() => onOpen(isDetailOpen ? null : node.id)}
+            title={isDetailOpen ? 'Đóng chi tiết' : 'Mở chi tiết'} aria-label={isDetailOpen ? 'Đóng chi tiết' : 'Mở chi tiết'}>
+            {isDetailOpen ? <ChevronDown aria-hidden="true" /> : <ChevronRight aria-hidden="true" />}
+          </Button>
         </div>
 
         {isDetailOpen && <NodeDetail {...props} scorecard={sc} canEdit={canEdit} />}
@@ -299,7 +294,7 @@ function TreeNode(props: TreeNodeProps) {
 
       {childrenOpen && node.children.length > 0 && (
         // Đường kẻ dọc thay cho thụt lề bằng margin: nhìn ra ngay nhánh nào thuộc nhánh nào.
-        <div className="ml-[26px] mt-2 pl-4 border-l border-dashed border-slate-200 dark:border-slate-700 space-y-2">
+        <div className="ml-[26px] mt-2 pl-4 border-l border-dashed border-[var(--color-border)] space-y-2">
           {node.children.map(child => (
             <TreeNode key={child.id} {...props} node={child} depth={depth + 1} isRoot={false} />
           ))}
@@ -316,23 +311,19 @@ function NodeDetail({
   const [tab, setTab] = useState<'items' | 'coverage' | 'result'>('items')
 
   return (
-    <div className="px-3 pb-3 space-y-3 border-t border-slate-100 dark:border-slate-800 pt-3 animate-in slide-in-from-top-1 duration-200">
-      {sc?.vision && <p className="text-xs text-slate-500 italic px-1">"{sc.vision}"</p>}
+    <div className="px-3 pb-3 space-y-3 border-t border-[var(--color-border)] pt-3 animate-in slide-in-from-top-1 duration-200">
+      {sc?.vision && <p className="px-1 text-sm italic text-[var(--color-muted-foreground)]">“{sc.vision}”</p>}
 
       {/* ── Ba mục chi tiết ───────────────────────────────────── */}
-      <div className="flex gap-1 p-1 rounded-xl bg-slate-100 dark:bg-slate-800/60 w-fit">
+      <div className="flex w-fit flex-wrap gap-1 rounded-control bg-[var(--color-muted)] p-1" role="tablist">
         {([
           { key: 'items' as const, label: 'Hạng mục & trọng số', icon: <Layers size={12} /> },
           { key: 'coverage' as const, label: 'Độ phủ phân rã', icon: <ListTree size={12} /> },
           { key: 'result' as const, label: 'Kết quả đợt', icon: <Calculator size={12} /> },
         ]).map(t => (
-          <button key={t.key} onClick={() => setTab(t.key)}
-            className={cn('inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-[11px] font-black transition-colors',
-              tab === t.key
-                ? 'bg-white dark:bg-slate-900 text-slate-900 dark:text-white shadow-sm'
-                : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300')}>
+          <ChoiceChip selected={tab === t.key} variant="segment" size="sm" key={t.key} onClick={() => setTab(t.key)} role="tab" aria-selected={tab === t.key}>
             {t.icon} {t.label}
-          </button>
+          </ChoiceChip>
         ))}
       </div>
 
@@ -366,9 +357,9 @@ function UnitResultTab({ scorecardId, periods, canManageUnit }: {
 
   if (periods.length === 0 || !periodId) {
     return (
-      <div className="rounded-2xl border border-dashed border-slate-200 dark:border-slate-700 px-4 py-5 text-center">
-        <p className="text-xs font-bold text-slate-500 dark:text-slate-300">Bộ tiêu chí này chưa gắn đợt nào</p>
-        <p className="text-[11px] font-medium text-slate-400 mt-1">
+      <div className="rounded-card border border-dashed border-[var(--color-border)] px-4 py-5 text-center">
+        <p className="text-caption">Bộ tiêu chí này chưa gắn đợt nào</p>
+        <p className="text-caption mt-1">
           Mở <b>Sửa bộ tiêu chí</b> để gắn kỳ hoặc đợt, rồi quay lại đây tính kết quả.
         </p>
       </div>
@@ -419,21 +410,21 @@ function NodeActions({
     // Sửa nội dung bộ tiêu chí
     [
       canEdit && sc && (
-        <IconAction key="edit" icon={<Edit2 size={14} />} label="Sửa bộ tiêu chí" onClick={() => onEdit(sc)} />
+        <IconAction key="edit" icon={<Edit2 aria-hidden="true" />} label="Sửa bộ tiêu chí" onClick={() => onEdit(sc)} />
       ),
     ],
     // Dựng cây: giao chỉ tiêu xuống, gắn/gỡ nhánh
     [
       canManage && sc && (
-        <IconAction key="cascade" icon={<GitBranch size={14} />} label="Phân rã xuống đơn vị"
+        <IconAction key="cascade" icon={<GitBranch aria-hidden="true" />} label="Phân rã xuống đơn vị"
           onClick={() => onCascade(sc)} />
       ),
       canManage && isOrphan && (
-        <IconAction key="attach" icon={<Link2 size={14} />} label="Gắn vào bộ tiêu chí cấp trên"
+        <IconAction key="attach" icon={<Link2 aria-hidden="true" />} label="Gắn vào bộ tiêu chí cấp trên"
           onClick={() => setAttachOpen(true)} />
       ),
       canManage && sc?.parentScorecardId && (
-        <IconAction key="detach" icon={<Unlink size={14} />} label="Gỡ khỏi cây (thành bộ tiêu chí độc lập)"
+        <IconAction key="detach" icon={<Unlink aria-hidden="true" />} label="Gỡ khỏi cây (thành bộ tiêu chí độc lập)"
           pending={attachParent.isPending}
           onClick={() => attachParent.mutate({ scorecardId: sc.id, parentScorecardId: null })} />
       ),
@@ -441,34 +432,34 @@ function NodeActions({
     // Vòng đời trình – duyệt
     [
       canEdit && node.status === BscScorecardStatus.DRAFT && (
-        <IconAction key="submit" icon={<Send size={14} />} label="Trình duyệt"
+        <IconAction key="submit" icon={<Send aria-hidden="true" />} label="Trình duyệt"
           pending={submitScorecard.isPending}
           onClick={() => submitScorecard.mutate(node.id)} />
       ),
       canApprove && node.status === BscScorecardStatus.SUBMITTED && (
-        <IconAction key="approve" icon={<Check size={14} />} label="Duyệt" accent="emerald"
+        <IconAction key="approve" icon={<Check aria-hidden="true" />} label="Duyệt" accent="emerald"
           pending={approveScorecard.isPending}
           onClick={() => approveScorecard.mutate(node.id)} />
       ),
       canApprove && node.status === BscScorecardStatus.SUBMITTED && (
-        <IconAction key="reject" icon={<Undo2 size={14} />} label="Trả lại để sửa" accent="amber"
+        <IconAction key="reject" icon={<Undo2 aria-hidden="true" />} label="Trả lại để sửa" accent="amber"
           pending={rejectScorecard.isPending}
           onClick={() => setRejectOpen(true)} />
       ),
       // Duyệt là áp dụng luôn, nên nút này chỉ còn cho hai trường hợp: thẻ đã đóng muốn mở lại,
       // và thẻ cũ còn kẹt ở "Đã duyệt" từ thời luồng cũ.
       canApprove && (node.status === BscScorecardStatus.APPROVED || node.status === BscScorecardStatus.CLOSED) && (
-        <IconAction key="activate" icon={<Check size={14} />} label="Áp dụng" accent="emerald"
+        <IconAction key="activate" icon={<Check aria-hidden="true" />} label="Áp dụng" accent="emerald"
           pending={activateScorecard.isPending}
           onClick={() => activateScorecard.mutate(node.id)} />
       ),
       canApprove && node.status === BscScorecardStatus.ACTIVE && (
-        <IconAction key="lock" icon={<Lock size={14} />} label="Khoá bộ tiêu chí"
+        <IconAction key="lock" icon={<Lock aria-hidden="true" />} label="Khoá bộ tiêu chí"
           pending={lockScorecard.isPending}
           onClick={() => lockScorecard.mutate(node.id)} />
       ),
       canApprove && node.status === BscScorecardStatus.LOCKED && (
-        <IconAction key="reopen" icon={<Undo2 size={14} />} label="Mở khoá"
+        <IconAction key="reopen" icon={<Undo2 aria-hidden="true" />} label="Mở khoá"
           pending={reopenScorecard.isPending}
           onClick={() => reopenScorecard.mutate(node.id)} />
       ),
@@ -477,7 +468,7 @@ function NodeActions({
     [
       canPublish && sc && (
         <IconAction key="publish"
-          icon={sc.scoringMode === BscScoringMode.SHADOW ? <ShieldCheck size={14} /> : <Undo2 size={14} />}
+          icon={sc.scoringMode === BscScoringMode.SHADOW ? <ShieldCheck aria-hidden="true" /> : <Undo2 aria-hidden="true" />}
           label={sc.scoringMode === BscScoringMode.SHADOW ? 'Chuyển chấm chính thức' : 'Đưa về chạy song song'}
           onClick={() => onTogglePublish(sc)} />
       ),
@@ -485,7 +476,7 @@ function NodeActions({
     // Xoá — đứng riêng cuối hàng để không bấm nhầm khi đang thao tác việc khác
     [
       canEdit && sc && (
-        <IconAction key="delete" icon={<Trash2 size={14} />} label="Xoá bộ tiêu chí" accent="red"
+        <IconAction key="delete" icon={<Trash2 aria-hidden="true" />} label="Xoá bộ tiêu chí" accent="red"
           onClick={() => onDelete(sc)} />
       ),
     ],
@@ -495,7 +486,7 @@ function NodeActions({
     <div className="flex items-center shrink-0">
       {groups.map((group, index) => (
         <div key={index} className="flex items-center gap-0.5">
-          {index > 0 && <span className="w-px h-4 mx-1.5 bg-slate-200 dark:bg-slate-700 shrink-0" />}
+          {index > 0 && <span className="w-px h-4 mx-1.5 bg-[var(--color-border)] shrink-0" />}
           {group}
         </div>
       ))}
@@ -538,14 +529,14 @@ function IconAction({ icon, label, onClick, pending, accent }: {
   accent?: 'emerald' | 'amber' | 'red'
 }) {
   return (
-    <button onClick={onClick} disabled={pending} title={label} aria-label={label}
-      className={cn('p-1.5 rounded-lg transition-colors disabled:opacity-40 text-slate-400',
-        accent === 'emerald' && 'hover:text-emerald-600 hover:bg-emerald-50 dark:hover:bg-emerald-900/30',
-        accent === 'amber' && 'hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-amber-900/30',
-        accent === 'red' && 'hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30',
-        !accent && 'hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30')}>
-      {pending ? <Loader2 size={14} className="animate-spin" /> : icon}
-    </button>
+    <Button variant="ghost" size="icon-sm" onClick={onClick} disabled={pending} title={label} aria-label={label}
+      className={cn('text-[var(--color-subtle-foreground)]',
+        accent === 'emerald' && 'hover:bg-[var(--color-success-bg)] hover:text-[var(--color-success)]',
+        accent === 'amber' && 'hover:bg-[var(--color-warning-bg)] hover:text-[var(--color-warning)]',
+        accent === 'red' && 'hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]',
+        !accent && 'hover:bg-[var(--color-primary-soft)] hover:text-[var(--color-primary)]')}>
+      {pending ? <Loader2 className="animate-spin" aria-hidden="true" /> : icon}
+    </Button>
   )
 }
 
@@ -558,7 +549,7 @@ function PerspectivePanel({ scorecard: sc, fixedPerspectives, canEdit, onAddPers
 }) {
   if (!sc) {
     return (
-      <div className="rounded-2xl border border-dashed border-slate-200 dark:border-slate-700 px-3 py-4 text-[11px] font-bold text-slate-400">
+      <div className="rounded-card border border-dashed border-[var(--color-border)] px-3 py-4 text-caption">
         Không đọc được chi tiết bộ tiêu chí này (có thể nằm ngoài phạm vi của bạn).
       </div>
     )
@@ -570,14 +561,12 @@ function PerspectivePanel({ scorecard: sc, fixedPerspectives, canEdit, onAddPers
   return (
     <div className="space-y-3">
       <div className="flex items-center gap-2">
-        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
+        <span className="text-eyebrow">
           {sc.perspectives.length} hạng mục
         </span>
-        <span className={cn('text-[10px] font-black px-2 py-0.5 rounded-md uppercase',
-          weightOk ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400'
-            : 'bg-red-50 text-red-600 dark:bg-red-900/20 dark:text-red-400')}>
+        <Badge variant={weightOk ? 'success' : 'destructive'} className="tabular-nums">
           Tổng trọng số {totalWeight.toFixed(1)}%
-        </span>
+        </Badge>
       </div>
 
       {fixedPerspectives.map(fp => {
@@ -589,44 +578,43 @@ function PerspectivePanel({ scorecard: sc, fixedPerspectives, canEdit, onAddPers
           <div key={fp.code} className="space-y-1.5">
             <div className="flex items-center gap-2">
               <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: fp.color }} />
-              <h4 className="text-[11px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400">{fp.name}</h4>
-              <span className="text-[10px] font-bold text-slate-400">{groupWeight.toFixed(1)}%</span>
+              <h4 className="text-label">{fp.name}</h4>
+              <span className="text-caption tabular-nums">{groupWeight.toFixed(1)}%</span>
               {/* Thêm hạng mục là SỬA bộ tiêu chí — cùng một quyền với nút "Sửa bộ tiêu chí" ở trên,
                   nên phải ẩn theo cùng điều kiện, không thì mở nhánh của đơn vị khác vẫn thêm được. */}
               {canEdit && (
-                <button onClick={() => onAddPerspective(sc, fp.code)}
-                  className="ml-auto inline-flex items-center gap-1.5 px-2 py-1 rounded-xl text-[11px] font-black text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors shrink-0">
-                  <PlusCircle size={12} /> Thêm hạng mục
-                </button>
+                <Button variant="ghost" size="sm" className="ml-auto shrink-0" onClick={() => onAddPerspective(sc, fp.code)}>
+                  <PlusCircle aria-hidden="true" /> Thêm hạng mục
+                </Button>
               )}
             </div>
 
             <div className="grid gap-1.5">
               {items.map(p => (
-                <div key={p.id} className="bg-slate-50/70 dark:bg-slate-800/40 px-3 py-2 rounded-xl border border-slate-100 dark:border-slate-800 flex items-center gap-2.5">
-                  <div className="w-7 h-7 rounded-lg flex items-center justify-center shrink-0"
+                <div key={p.id} className="flex items-center gap-2.5 rounded-card border border-[var(--color-border)] bg-[var(--color-card)] px-3 py-2">
+                  <div className="w-7 h-7 rounded-control flex items-center justify-center shrink-0"
                     style={{ backgroundColor: `${p.color || '#8b5cf6'}1a`, color: p.color || '#8b5cf6' }}>
                     <Layers size={13} />
                   </div>
                   <div className="min-w-0 flex-1">
-                    <p className="text-xs font-bold text-slate-800 dark:text-slate-200 truncate">{p.name}</p>
-                    <span className="text-[10px] font-black text-slate-400 uppercase">{p.code}</span>
+                    <p className="truncate text-sm font-medium text-[var(--color-foreground)]">{p.name}</p>
+                    <span className="text-caption font-mono">{p.code}</span>
                     {(p.targetValue != null || p.minimumValue != null) && (
-                      <span className="text-[10px] font-bold text-slate-400 ml-2">
+                      <span className="text-caption ml-2">
                         {p.targetValue != null && <>Mục tiêu {p.targetValue}{p.unit ? ` ${p.unit}` : ''}</>}
                         {p.targetValue != null && p.minimumValue != null && ' · '}
                         {p.minimumValue != null && <>Tối thiểu {p.minimumValue}{p.unit ? ` ${p.unit}` : ''}</>}
                         {p.targetValue != null && p.targetValue > 0 && (
-                          <span className="ml-1.5 text-indigo-500" title="Hạng mục tự chấm theo mục tiêu của chính nó (kiểu OKR)">· tự chấm</span>
+                          <span className="ml-1.5 text-[var(--color-primary)]" title="Hạng mục tự chấm theo mục tiêu của chính nó (kiểu OKR)">· tự chấm</span>
                         )}
                       </span>
                     )}
                   </div>
-                  <span className="text-xs font-black text-slate-700 dark:text-slate-300 shrink-0">{p.weightPercentage}%</span>
+                  <span className="shrink-0 text-sm font-medium tabular-nums text-[var(--color-foreground)]">{p.weightPercentage}%</span>
                 </div>
               ))}
               {items.length === 0 && (
-                <div className="text-[11px] text-slate-400 italic px-3 py-2 rounded-xl border border-dashed border-slate-200 dark:border-slate-800">
+                <div className="rounded-card border border-dashed border-[var(--color-border)] px-3 py-2 text-caption">
                   Chưa có hạng mục nào thuộc lĩnh vực này.
                 </div>
               )}
@@ -656,17 +644,17 @@ function CoveragePanel({ scorecardId, scorecard: sc, canCascade, onCascade }: {
 
   if (isLoading) {
     return (
-      <div className="rounded-2xl border border-slate-100 dark:border-slate-800 px-3 py-6 flex items-center justify-center text-slate-400">
-        <Loader2 size={16} className="animate-spin" />
+      <div className="flex items-center justify-center rounded-card border border-[var(--color-border)] px-3 py-6 text-[var(--color-subtle-foreground)]">
+        <Loader2 size={16} className="animate-spin" aria-hidden="true" />
       </div>
     )
   }
 
   if (!data || data.items.length === 0) {
     return (
-      <div className="rounded-2xl border border-dashed border-slate-200 dark:border-slate-700 px-4 py-5 text-center">
-        <p className="text-xs font-bold text-slate-500 dark:text-slate-300">Chưa có chỉ tiêu nào để giao xuống</p>
-        <p className="text-[11px] font-medium text-slate-400 mt-1">
+      <div className="rounded-card border border-dashed border-[var(--color-border)] px-4 py-5 text-center">
+        <p className="text-caption">Chưa có chỉ tiêu nào để giao xuống</p>
+        <p className="text-caption mt-1">
           Thêm hạng mục ở mục <b>Hạng mục &amp; trọng số</b> trước, rồi quay lại đây giao cho các đơn vị.
         </p>
       </div>
@@ -676,25 +664,24 @@ function CoveragePanel({ scorecardId, scorecard: sc, canCascade, onCascade }: {
   const total = data.items.length
   const done = data.okCount + data.overCount
   const cascadeButton = canCascade && sc && (
-    <button onClick={() => onCascade(sc)}
-      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-black bg-indigo-600 text-white hover:bg-indigo-700 shadow-sm">
-      <GitBranch size={12} /> Phân rã xuống đơn vị
-    </button>
+    <Button size="sm" onClick={() => onCascade(sc)}>
+      <GitBranch aria-hidden="true" /> Phân rã xuống đơn vị
+    </Button>
   )
 
   return (
-    <div className="rounded-2xl border border-slate-100 dark:border-slate-800 overflow-hidden">
-      <div className="px-3 py-2.5 bg-slate-50 dark:bg-slate-800/50 space-y-2">
+    <div className="rounded-card border border-[var(--color-border)] overflow-hidden">
+      <div className="px-3 py-2.5 bg-[var(--color-muted)] space-y-2">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Độ phủ phân rã</span>
-          <span className="text-xs font-black text-slate-700 dark:text-slate-200">
+          <span className="text-label">Độ phủ phân rã</span>
+          <span className="text-caption tabular-nums">
             {done}/{total} chỉ tiêu đã giao xuống đơn vị
           </span>
           <span className="flex-1" />
           {cascadeButton}
         </div>
 
-        <p className="text-[11px] font-medium text-slate-400 leading-relaxed">
+        <p className="text-caption leading-relaxed">
           Phân rã = chia chỉ tiêu của cấp này thành mức đóng góp cho từng đơn vị cấp dưới
           (VD: doanh thu 100 tỷ ⇒ phòng KD 60 tỷ, phòng Dự án 40 tỷ). Chỉ tiêu chưa giao thì cấp dưới
           không có gì để bám vào, và KPI cá nhân cũng không liên kết được vào BSC.
@@ -702,8 +689,8 @@ function CoveragePanel({ scorecardId, scorecard: sc, canCascade, onCascade }: {
 
         {/* Thanh tiến độ: nhìn phát biết còn bao nhiêu việc, không phải đếm dòng. */}
         <div className="flex items-center gap-2">
-          <div className="flex-1 h-1.5 rounded-full bg-slate-200 dark:bg-slate-700 overflow-hidden">
-            <div className="h-full bg-emerald-500 transition-all"
+          <div className="flex-1 h-1.5 rounded-full bg-[var(--color-border)] overflow-hidden">
+            <div className="h-full bg-[var(--color-success-solid)] transition-all"
               style={{ width: `${total > 0 ? (done / total) * 100 : 0}%` }} />
           </div>
           <div className="flex items-center gap-1.5">
@@ -715,7 +702,7 @@ function CoveragePanel({ scorecardId, scorecard: sc, canCascade, onCascade }: {
         </div>
       </div>
 
-      <div className="divide-y divide-slate-100 dark:divide-slate-800">
+      <div className="divide-y divide-[var(--color-border)]">
         {data.items.map(item => {
           const meta = COVERAGE_META[item.status] ?? COVERAGE_META.OK!
           const cascaded = item.cascadedValue ?? 0
@@ -723,26 +710,26 @@ function CoveragePanel({ scorecardId, scorecard: sc, canCascade, onCascade }: {
             <div key={item.scorecardPerspectiveId} className="px-3 py-2.5">
               <div className="flex items-center gap-2">
                 <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: item.color || '#8b5cf6' }} />
-                <span className="flex-1 min-w-0 text-xs font-bold text-slate-700 dark:text-slate-200 truncate">
+                <span className="min-w-0 flex-1 truncate text-sm font-medium text-[var(--color-foreground)]">
                   {item.name}
                 </span>
 
                 {item.targetValue != null ? (
-                  <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400 tabular-nums text-right">
+                  <span className="text-caption tabular-nums text-right">
                     {cascaded.toLocaleString('vi-VN')} / {item.targetValue.toLocaleString('vi-VN')}
                     {item.unit ? ` ${item.unit}` : ''}
-                    <span className="block text-[9px] font-black uppercase tracking-wider text-slate-400">
+                    <span className="block text-caption">
                       đã giao / mục tiêu
                     </span>
                   </span>
                 ) : (
-                  <span className="text-[10px] font-medium text-slate-400 text-right max-w-[10rem]">
+                  <span className="text-caption text-right max-w-[10rem]">
                     chỉ tiêu chưa đặt mục tiêu số
                   </span>
                 )}
 
                 <span title={meta.hint}
-                  className={cn('shrink-0 px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest cursor-help',
+                  className={cn('inline-flex shrink-0 cursor-help items-center rounded-control px-2 py-0.5 text-xs font-medium',
                     meta.className)}>
                   {meta.label}
                 </span>
@@ -750,10 +737,10 @@ function CoveragePanel({ scorecardId, scorecard: sc, canCascade, onCascade }: {
 
               {item.children.length > 0 ? (
                 <div className="mt-1.5 ml-4 flex flex-wrap items-center gap-1">
-                  <span className="text-[9px] font-black uppercase tracking-wider text-slate-400 mr-0.5">Đã giao cho</span>
+                  <span className="mr-0.5 text-caption">Đã giao cho</span>
                   {item.children.map(c => (
                     <span key={c.scorecardPerspectiveId}
-                      className="text-[10px] font-bold px-1.5 py-0.5 rounded-md bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+                      className="rounded-control bg-[var(--color-muted)] px-2 py-0.5 text-xs font-medium text-[var(--color-muted-foreground)]">
                       {c.orgUnitName || c.scorecardName}
                       {c.contributionValue != null && `: ${c.contributionValue.toLocaleString('vi-VN')}`}
                       {c.linkType && c.linkType !== 'SUM' && ` · ${c.linkType}`}
@@ -761,7 +748,7 @@ function CoveragePanel({ scorecardId, scorecard: sc, canCascade, onCascade }: {
                   ))}
                 </div>
               ) : (
-                <p className="mt-1 ml-4 text-[10px] font-medium text-slate-400">
+                <p className="mt-1 ml-4 text-caption">
                   Chưa giao cho đơn vị nào.
                 </p>
               )}
@@ -777,7 +764,7 @@ function CoverageChip({ status, count }: { status: string; count: number }) {
   const meta = COVERAGE_META[status] ?? COVERAGE_META.OK!
   return (
     <span title={meta.hint}
-      className={cn('px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest cursor-help', meta.className)}>
+      className={cn('inline-flex cursor-help items-center rounded-control px-2 py-0.5 text-xs font-medium tabular-nums', meta.className)}>
       {count} {meta.label}
     </span>
   )
@@ -805,116 +792,104 @@ function UnitResultPanel({ scorecardId, kpiPeriodId, periodName, periods, onChan
   const computing = recompute.isPending
 
   return (
-    <div className="rounded-2xl border border-slate-100 dark:border-slate-800 overflow-hidden">
+    <div className="rounded-card border border-[var(--color-border)] overflow-hidden">
       {/* ── Đầu bảng: đợt đang xem + trạng thái + thao tác ───── */}
-      <div className="px-3 py-2.5 bg-slate-50 dark:bg-slate-800/50 flex flex-wrap items-center gap-2">
-        <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Kết quả đợt</span>
+      <div className="px-3 py-2.5 bg-[var(--color-muted)] flex flex-wrap items-center gap-2">
+        <span className="text-label">Kết quả đợt</span>
         {periods.length > 1 ? (
           <Select value={kpiPeriodId} onValueChange={onChangePeriod}>
-            <SelectTrigger className="h-8 w-48 text-xs font-bold"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="h-8 w-48 text-sm"><SelectValue /></SelectTrigger>
             <SelectContent className="z-[1100]">
               {periods.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
             </SelectContent>
           </Select>
         ) : (
-          <span className="text-xs font-black text-slate-700 dark:text-slate-200">{periodName}</span>
+          <span className="text-sm font-medium text-[var(--color-foreground)]">{periodName}</span>
         )}
 
         {data && (
-          <span className={cn('px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest',
-            isDraft
-              ? 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
-              : 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20 dark:text-emerald-400')}>
-            {isDraft ? 'Nháp' : 'Đã chốt'}
-          </span>
+          <Badge variant={isDraft ? 'secondary' : 'success'}>{isDraft ? 'Nháp' : 'Đã chốt'}</Badge>
         )}
 
         <span className="flex-1" />
 
         {canManageUnit && data && (
           <>
-            <button onClick={() => recompute.mutate({ scorecardId, kpiPeriodId })}
-              disabled={computing || !isDraft}
-              title={isDraft ? 'Tính lại từ số liệu hiện tại' : 'Đã chốt — mở khoá trước khi tính lại'}
-              className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-black text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-40">
-              {computing ? <Loader2 size={12} className="animate-spin" /> : <RefreshCw size={12} />}
+            <Button variant="secondary" size="sm" onClick={() => recompute.mutate({ scorecardId, kpiPeriodId })} disabled={computing || !isDraft} title={isDraft ? 'Tính lại từ số liệu hiện tại' : 'Đã chốt — mở khoá trước khi tính lại'}>
+              {computing ? <Loader2 aria-hidden="true" className="animate-spin" /> : <RefreshCw aria-hidden="true" />}
               Tính lại
-            </button>
+            </Button>
             {isDraft ? (
-              <button onClick={() => finalize.mutate({ scorecardId, kpiPeriodId })} disabled={finalize.isPending}
-                title="Chốt con số này — sau khi chốt phải mở khoá mới sửa được"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-black bg-emerald-600 text-white hover:bg-emerald-700 disabled:opacity-40">
-                {finalize.isPending ? <Loader2 size={12} className="animate-spin" /> : <Check size={12} />}
+              <Button size="sm" onClick={() => finalize.mutate({ scorecardId, kpiPeriodId })} disabled={finalize.isPending} title="Chốt con số này — sau khi chốt phải mở khoá mới sửa được">
+                {finalize.isPending ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Check aria-hidden="true" />}
                 Chốt kết quả
-              </button>
+              </Button>
             ) : (
-              <button onClick={() => reopen.mutate({ scorecardId, kpiPeriodId })} disabled={reopen.isPending}
-                className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl text-[11px] font-black text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 disabled:opacity-40">
-                <Undo2 size={12} /> Mở khoá để sửa
-              </button>
+              <Button variant="secondary" size="sm" onClick={() => reopen.mutate({ scorecardId, kpiPeriodId })} disabled={reopen.isPending}>
+                <Undo2 aria-hidden="true" /> Mở khoá để sửa
+              </Button>
             )}
           </>
         )}
       </div>
 
       {isLoading && (
-        <div className="px-3 py-6 flex items-center justify-center text-slate-400">
-          <Loader2 size={16} className="animate-spin" />
+        <div className="flex items-center justify-center px-3 py-6 text-[var(--color-subtle-foreground)]">
+          <Loader2 size={16} className="animate-spin" aria-hidden="true" />
         </div>
       )}
 
       {/* ── Chưa tính: nói rõ việc cần làm và đặt nút ngay đó ── */}
       {!isLoading && !data && (
-        <div className="px-4 py-8 flex flex-col items-center text-center gap-3">
-          <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600">
-            <Calculator size={22} />
+        <div className="flex flex-col items-center gap-3 px-4 py-8 text-center">
+          <div className="flex h-12 w-12 items-center justify-center rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] text-[var(--color-muted-foreground)]">
+            <Calculator size={22} strokeWidth={1.75} aria-hidden="true" />
           </div>
           <div>
-            <p className="text-sm font-black text-slate-800 dark:text-slate-100">
+            <p className="text-section-title">
               Chưa tính kết quả cho {periodName}
             </p>
-            <p className="text-[11px] font-medium text-slate-400 mt-1 max-w-md">
+            <p className="text-caption mt-1 max-w-md">
               Hệ thống cộng số liệu của từng chỉ tiêu trong bộ tiêu chí này rồi quy ra %đạt của đơn vị.
               Tính bao nhiêu lần cũng được, con số chỉ cố định sau khi bấm chốt.
             </p>
           </div>
           {canManageUnit ? (
-            <button onClick={() => recompute.mutate({ scorecardId, kpiPeriodId })} disabled={computing}
-              className="inline-flex items-center gap-2 px-5 h-10 rounded-xl bg-indigo-600 text-white text-xs font-black hover:bg-indigo-700 disabled:opacity-40 shadow-sm">
-              {computing ? <Loader2 size={14} className="animate-spin" /> : <Calculator size={14} />}
+            <Button size="sm" onClick={() => recompute.mutate({ scorecardId, kpiPeriodId })} disabled={computing}>
+              {computing ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Calculator aria-hidden="true" />}
               {computing ? 'Đang tính...' : 'Tính kết quả'}
-            </button>
+            </Button>
           ) : (
-            <p className="text-[11px] font-bold text-slate-400">Chỉ người phụ trách BSC của đơn vị mới tính được.</p>
+            <p className="text-caption">Chỉ người phụ trách BSC của đơn vị mới tính được.</p>
           )}
         </div>
       )}
 
       {data && (
         <>
-          <div className="px-4 py-3 flex items-baseline gap-3 border-b border-slate-100 dark:border-slate-800">
-            <span className="text-3xl font-black text-slate-900 dark:text-white">{num(data.achievementPercent)}%</span>
-            <span className="text-[11px] font-bold text-slate-400">%đạt của đơn vị trong {periodName}</span>
+          <div className="flex items-baseline gap-3 border-b border-[var(--color-border)] px-4 py-3">
+            <span className="text-stat text-[var(--color-foreground)]">{num(data.achievementPercent)}%</span>
+            <span className="text-caption">%đạt của đơn vị trong {periodName}</span>
           </div>
 
           {data.items.length > 0
             && data.items.every(i => i.measurementSource === BscMeasurementSource.ROLLUP && !i.kpiCount) && (
-            <div className="px-3 py-2 bg-amber-50/60 dark:bg-amber-950/20 text-[10px] font-bold text-amber-700 dark:text-amber-400">
+            <div className="border-b border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-3 py-2 text-xs text-[var(--color-warning)]">
               Mọi chỉ tiêu đang lấy số <b>tự cộng từ KPI</b> mà chưa KPI nào gắn vào, nên chưa ra kết quả.
-              Mở <b>Sửa bộ tiêu chí</b> → bấm nút 🎯 trên dòng chỉ tiêu → đổi <b>Nguồn kết quả đơn vị</b>
+              Mở <b>Sửa bộ tiêu chí</b>, bấm nút mục tiêu trên dòng chỉ tiêu rồi đổi <b>Nguồn kết quả đơn vị</b>
               sang <b>Nhập tay</b> nếu muốn tự điền con số của cả đơn vị.
             </div>
           )}
 
           {data.gatePassed === false && (
-            <div className="px-3 py-2 bg-red-50/60 dark:bg-red-950/20 text-[11px] font-bold text-red-600 dark:text-red-400 flex items-start gap-1.5">
-              <ShieldAlert size={12} className="mt-0.5 shrink-0" />
+            <div className="flex items-start gap-1.5 border-b border-[var(--color-error-border)] bg-[var(--color-error-bg)] px-3 py-2 text-xs font-medium text-[var(--color-error)]">
+              <ShieldAlert size={12} className="mt-0.5 shrink-0" aria-hidden="true" />
               <span>Chỉ tiêu chặn không đạt: {data.gateFailedItems}</span>
             </div>
           )}
 
           {/* Tiêu đề cột: thiếu nó thì ba con số bên phải không ai đoán ra là gì. */}
-          <div className="px-3 py-1.5 flex items-center gap-2 bg-slate-50/60 dark:bg-slate-800/30 text-[9px] font-black uppercase tracking-widest text-slate-400">
+          <div className="flex items-center gap-2 bg-[var(--color-muted)] px-3 py-1.5 text-eyebrow">
             <span className="w-2 shrink-0" />
             <span className="flex-1">Chỉ tiêu</span>
             <span className="w-32 text-right">Thực hiện / Mục tiêu</span>
@@ -922,15 +897,15 @@ function UnitResultPanel({ scorecardId, kpiPeriodId, periodName, periods, onChan
             <span className="w-14 text-right">%Đạt</span>
           </div>
 
-          <div className="divide-y divide-slate-100 dark:divide-slate-800">
+          <div className="divide-y divide-[var(--color-border)]">
             {data.items.map(item => (
               <div key={item.id} className="flex items-center gap-2 px-3 py-2">
                 <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: item.color || '#8b5cf6' }} />
-                <span className="flex-1 min-w-0 text-xs font-bold text-slate-700 dark:text-slate-200 truncate">
+                <span className="min-w-0 flex-1 truncate text-sm font-medium text-[var(--color-foreground)]">
                   {item.name}
                   {item.isGate && (
-                    <span className={cn('ml-1.5 text-[9px] font-black uppercase',
-                      item.gatePassed === false ? 'text-red-500' : 'text-slate-400')}>· chặn</span>
+                    <span className={cn('ml-1.5 text-xs font-medium',
+                      item.gatePassed === false ? 'text-[var(--color-error)]' : 'text-[var(--color-subtle-foreground)]')}>· chặn</span>
                   )}
                 </span>
 
@@ -947,12 +922,12 @@ function UnitResultPanel({ scorecardId, kpiPeriodId, periodName, periods, onChan
                         : item.kpiCount
                           ? `Tự cộng từ ${item.kpiCount} KPI cá nhân gắn vào chỉ tiêu này.`
                           : 'Chưa có KPI cá nhân nào gắn vào chỉ tiêu này nên không cộng ra số nào.'}
-                      className={cn('text-right text-[11px] font-bold tabular-nums cursor-help leading-tight',
+                      className={cn('cursor-help text-right text-sm font-medium leading-tight tabular-nums',
                         item.kpiCount || item.measurementSource === BscMeasurementSource.CHILD_ROLLUP
-                          ? 'text-slate-500 dark:text-slate-400' : 'text-amber-500')}>
+                          ? 'text-[var(--color-muted-foreground)]' : 'text-[var(--color-warning)]')}>
                       {item.actualValue == null ? '—' : item.actualValue.toLocaleString('vi-VN')}
                       {item.targetValue != null && ` / ${item.targetValue.toLocaleString('vi-VN')}`}
-                      <span className="block text-[9px] font-black uppercase tracking-wider opacity-70">
+                      <span className="block text-caption">
                         {item.kpiCount ?? 0}{' '}
                         {item.measurementSource === BscMeasurementSource.CHILD_ROLLUP ? 'đơn vị con' : 'KPI'} cộng lên
                       </span>
@@ -970,16 +945,17 @@ function UnitResultPanel({ scorecardId, kpiPeriodId, periodName, periods, onChan
                           }
                         }}
                         placeholder="Nhập số"
-                        className="w-28 px-2 py-1 rounded-lg bg-amber-50/60 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/40 text-[11px] font-bold text-right outline-none disabled:opacity-50 focus:placeholder:text-transparent" />
-                      <span className="block text-[9px] font-black uppercase tracking-wider text-slate-400 mt-0.5">
+                        aria-label="Kết quả nhập tay"
+                        className="h-8 w-28 rounded-control border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-2 text-right text-sm tabular-nums text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-subtle-foreground)] focus-visible:border-[var(--color-primary)] focus-visible:ring-2 focus-visible:ring-[var(--color-ring)] disabled:opacity-50" />
+                      <span className="mt-0.5 block text-caption">
                         nhập tay{item.targetValue != null ? ` · mục tiêu ${item.targetValue.toLocaleString('vi-VN')}` : ''}
                       </span>
                     </div>
                   )}
                 </div>
 
-                <span className="w-12 text-right text-[11px] font-bold text-slate-400">{num(item.weightPercentage, 0)}%</span>
-                <span className="w-14 text-right text-xs font-black text-slate-700 dark:text-slate-200">
+                <span className="w-12 text-right text-caption tabular-nums">{num(item.weightPercentage, 0)}%</span>
+                <span className="w-14 text-right text-sm font-medium tabular-nums text-[var(--color-foreground)]">
                   {num(item.achievementPercent)}
                 </span>
               </div>
@@ -989,7 +965,7 @@ function UnitResultPanel({ scorecardId, kpiPeriodId, periodName, periods, onChan
           {canManageUnit && isDraft && data.items.some(i =>
             i.measurementSource === BscMeasurementSource.MANUAL
             || i.measurementSource === BscMeasurementSource.DATASOURCE) && (
-            <p className="px-3 py-2 text-[10px] font-medium text-slate-400 border-t border-slate-100 dark:border-slate-800">
+            <p className="px-3 py-2 text-caption border-t border-[var(--color-border)]">
               Sửa ô nhập tay xong thì bấm <b>Tính lại</b> để %đạt cập nhật theo số mới.
             </p>
           )}

@@ -84,8 +84,8 @@ export default function PendingActionCard({ action, onDone, consumed }: Props) {
   // Đã chạy ở lượt sau bằng cách nhắn "xác nhận": nói rõ là xong rồi, và KHÔNG còn nút để bấm.
   if (consumed && !result) {
     return (
-      <div className="mt-2 w-full rounded-lg border border-gray-200 bg-gray-50/70 p-3 text-sm dark:border-gray-700 dark:bg-gray-900/40">
-        <div className="flex items-start gap-1.5 text-gray-600 dark:text-gray-400">
+      <div className="mt-2 w-full rounded-control border border-[var(--color-border)] bg-[var(--color-muted)] p-3 text-sm">
+        <div className="flex items-start gap-1.5 text-[var(--color-muted-foreground)] dark:text-[var(--color-subtle-foreground)]">
           <Check className="mt-0.5 h-4 w-4 shrink-0" />
           <span>Đã xác nhận qua tin nhắn — xem kết quả ở câu trả lời bên dưới.</span>
         </div>
@@ -95,8 +95,8 @@ export default function PendingActionCard({ action, onDone, consumed }: Props) {
 
   if (result) {
     return (
-      <div className="mt-2 w-full rounded-lg border border-emerald-200 bg-emerald-50/60 p-3 text-sm dark:border-emerald-800 dark:bg-emerald-950/40">
-        <div className="flex items-start gap-1.5 text-emerald-800 dark:text-emerald-300">
+      <div className="mt-2 w-full rounded-control border border-[var(--color-success-border)] bg-[var(--color-success-bg)] p-3 text-sm dark:border-[var(--color-success-border)] dark:bg-[var(--color-success-bg)]">
+        <div className="flex items-start gap-1.5 text-[var(--color-success)]">
           <Check className="mt-0.5 h-4 w-4 shrink-0" />
           <span className="whitespace-pre-line">{result}</span>
         </div>
@@ -105,13 +105,13 @@ export default function PendingActionCard({ action, onDone, consumed }: Props) {
   }
 
   return (
-    <div className="mt-2 w-full rounded-lg border border-amber-300 bg-amber-50/70 p-3 dark:border-amber-700 dark:bg-amber-950/40">
-      <div className="mb-1.5 flex items-center gap-1.5 text-sm font-semibold text-amber-900 dark:text-amber-200">
+    <div className="mt-2 w-full rounded-control border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] p-3 dark:border-[var(--color-warning-border)] dark:bg-[var(--color-warning-bg)]">
+      <div className="mb-1.5 flex items-center gap-1.5 text-sm font-semibold text-[var(--color-warning)]">
         <ShieldCheck className="h-4 w-4" />
         {action.title}
       </div>
 
-      <p className="mb-2 flex items-start gap-1.5 text-xs text-amber-800 dark:text-amber-300">
+      <p className="mb-2 flex items-start gap-1.5 text-xs text-[var(--color-warning)]">
         <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
         <span>
           Thao tác này {isReject ? 'từ chối' : 'thay đổi'} dữ liệu thật và{' '}
@@ -124,18 +124,18 @@ export default function PendingActionCard({ action, onDone, consumed }: Props) {
           const off = skipped.has(item.id)
           return (
             <li key={item.id}>
-              <label className="flex cursor-pointer items-start gap-2 text-sm">
+              <label className="text-label flex cursor-pointer items-start gap-2">
                 <input
                   type="checkbox"
                   checked={!off}
                   disabled={busy}
                   onChange={() => toggle(item.id)}
-                  className="mt-1 h-3.5 w-3.5 shrink-0 accent-amber-600"
+                  className="mt-1 h-3.5 w-3.5 shrink-0 accent-[var(--color-warning-solid)]"
                 />
                 <span className={off ? 'opacity-40' : undefined}>
-                  <span className="font-medium text-gray-900 dark:text-gray-100">{item.label}</span>
+                  <span className="font-medium text-[var(--color-foreground)]">{item.label}</span>
                   {item.detail && (
-                    <span className="text-gray-600 dark:text-gray-400"> — {item.detail}</span>
+                    <span className="text-[var(--color-muted-foreground)] dark:text-[var(--color-subtle-foreground)]"> — {item.detail}</span>
                   )}
                 </span>
               </label>
@@ -145,7 +145,7 @@ export default function PendingActionCard({ action, onDone, consumed }: Props) {
       </ul>
 
       {action.note && (
-        <p className="mt-2 text-xs italic text-gray-600 dark:text-gray-400">
+        <p className="mt-2 text-xs italic text-[var(--color-muted-foreground)] dark:text-[var(--color-subtle-foreground)]">
           Ghi chú sẽ lưu kèm: {action.note}
         </p>
       )}
@@ -154,8 +154,8 @@ export default function PendingActionCard({ action, onDone, consumed }: Props) {
         type="button"
         onClick={run}
         disabled={busy || chosen.length === 0}
-        className={`mt-2.5 rounded-md px-3 py-1.5 text-sm font-medium text-white transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
-          isReject ? 'bg-red-600 hover:bg-red-700' : 'bg-amber-600 hover:bg-amber-700'
+        className={`mt-2.5 rounded-control px-3 py-1.5 text-sm font-medium text-white transition-colors disabled:cursor-not-allowed disabled:opacity-40 ${
+          isReject ? 'bg-[var(--color-error-solid)] hover:bg-[var(--color-error-solid)]' : 'bg-[var(--color-warning-solid)] hover:bg-[var(--color-warning-solid)]'
         }`}
       >
         {busy

@@ -8,6 +8,7 @@ import { WorkspaceHeaderActions } from '@/components/common/WorkspaceTabs'
 import BudgetFormModal from './BudgetFormModal'
 import { useRewardBudgets } from '../hooks/useRewards'
 import type { RewardBudget } from '../types'
+import { Button } from '@/components/ui/button'
 
 const fmtDate = (iso: string) =>
   new Date(iso).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
@@ -27,8 +28,8 @@ const budgetPhase = (b: RewardBudget): 'active' | 'expired' | 'upcoming' => {
 }
 
 const PHASE_BADGE: Record<ReturnType<typeof budgetPhase>, { label: string; className: string }> = {
-  active: { label: 'Đang hiệu lực', className: 'bg-emerald-500/15 text-emerald-700' },
-  upcoming: { label: 'Chưa bắt đầu', className: 'bg-sky-500/15 text-sky-700' },
+  active: { label: 'Đang hiệu lực', className: 'bg-[var(--color-success-bg)] text-[var(--color-success)]' },
+  upcoming: { label: 'Chưa bắt đầu', className: 'bg-[var(--color-info-bg)] text-[var(--color-info)]' },
   expired: { label: 'Đã hết hiệu lực', className: 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)]' },
 }
 
@@ -43,7 +44,7 @@ export default function BudgetsTab() {
     <div id="tour-budgets-root">
       {/* Câu giải thích tách thành khối riêng, không chen cùng hàng với nút — đặt cạnh
           nhau thì chữ dài bị ép sát vào nút, đọc rất khó chịu. */}
-      <div id="tour-budgets-note" className="mb-4 flex items-start gap-2.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-muted)]/40 px-4 py-3 text-sm">
+      <div id="tour-budgets-note" className="mb-4 flex items-start gap-2.5 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)]/40 px-4 py-3 text-sm">
         <Info size={16} className="mt-0.5 flex-shrink-0 text-[var(--color-muted-foreground)]" />
         <p className="text-[var(--color-muted-foreground)]">
           Người có hạn mức được tự thưởng mà không cần duyệt. Vượt hạn mức hoặc vượt mức tối đa
@@ -64,37 +65,31 @@ export default function BudgetsTab() {
             })()}
         </span>
         <WorkspaceHeaderActions>
-          <button
-            onClick={() => {
+          <Button onClick={() => {
               setEditing(null)
               setFormOpen(true)
-            }}
-            className="inline-flex flex-shrink-0 items-center gap-2 rounded-xl bg-[var(--color-primary)] px-5 h-10 text-sm font-bold text-white shadow-sm transition-opacity hover:opacity-90"
-          >
-            <Plus size={16} />
+            }}>
+            <Plus aria-hidden="true" />
             Cấp hạn mức
-          </button>
+          </Button>
         </WorkspaceHeaderActions>
       </div>
 
       {isLoading ? (
         <LoadingSkeleton type="table" rows={4} />
       ) : (data ?? []).length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-[var(--color-border)]">
+        <div className="rounded-card border border-dashed border-[var(--color-border)]">
           <EmptyState
             title="Chưa cấp hạn mức cho ai"
             description="Khi chưa có hạn mức, mọi đề nghị thưởng của quản lý đều phải qua duyệt. Cấp hạn mức để họ tự chủ động ghi nhận nhân viên."
             action={
-              <button
-                onClick={() => {
+              <Button onClick={() => {
                   setEditing(null)
                   setFormOpen(true)
-                }}
-                className="inline-flex items-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white"
-              >
-                <Plus size={16} />
+                }}>
+                <Plus aria-hidden="true" />
                 Cấp hạn mức đầu tiên
-              </button>
+              </Button>
             }
           />
         </div>
@@ -111,7 +106,7 @@ export default function BudgetsTab() {
                 ? Math.min(100, Math.round((row.usedPoints / row.allocatedPoints) * 100))
                 : 0
             const barColor =
-              pct >= 90 ? 'bg-rose-500' : pct >= 70 ? 'bg-amber-500' : 'bg-emerald-500'
+              pct >= 90 ? 'bg-[var(--color-error-solid)]' : pct >= 70 ? 'bg-[var(--color-warning-solid)]' : 'bg-[var(--color-success-solid)]'
             return (
               <div className="space-y-3">
                 <div>
@@ -143,7 +138,7 @@ export default function BudgetsTab() {
                     </div>
                   )}
                   {row.cycleDatesOutOfSync && (
-                    <div className="mt-1 flex items-center gap-1 text-xs text-amber-700">
+                    <div className="mt-1 flex items-center gap-1 text-xs text-[var(--color-warning)]">
                       <AlertTriangle size={12} />
                       Ngày của {row.kpiPeriodName ? 'đợt' : 'kỳ'} đã thay đổi
                     </div>
@@ -180,13 +175,13 @@ export default function BudgetsTab() {
                         setEditing(row)
                         setFormOpen(true)
                       }}
-                      className="rounded-lg border border-[var(--color-border)] p-2"
+                      className="rounded-control border border-[var(--color-border)] p-2"
                     >
                       <Pencil size={15} />
                     </button>
                     <button
                       onClick={() => setDeleting(row)}
-                      className="rounded-lg border border-rose-500/40 p-2 text-rose-600"
+                      className="rounded-control border border-[var(--color-error-border)] p-2 text-[var(--color-error)]"
                     >
                       <Trash2 size={15} />
                     </button>
@@ -241,7 +236,7 @@ export default function BudgetsTab() {
                       chuyển vì hạn mức đã cấp là một cam kết — chỉ báo để người
                       quản trị tự quyết. */}
                   {row.cycleDatesOutOfSync && (
-                    <div className="mt-0.5 flex items-center gap-1 text-xs text-amber-700">
+                    <div className="mt-0.5 flex items-center gap-1 text-xs text-[var(--color-warning)]">
                       <AlertTriangle size={12} />
                       Ngày của {row.kpiPeriodName ? 'đợt' : 'kỳ'} đã thay đổi
                     </div>
@@ -261,7 +256,7 @@ export default function BudgetsTab() {
                 // Ba ngưỡng màu: dùng nhiều thì đổi màu để người quản trị biết ai sắp
                 // hết hạn mức mà cấp thêm, thay vì đợi họ báo lên.
                 const barColor =
-                  pct >= 90 ? 'bg-rose-500' : pct >= 70 ? 'bg-amber-500' : 'bg-emerald-500'
+                  pct >= 90 ? 'bg-[var(--color-error-solid)]' : pct >= 70 ? 'bg-[var(--color-warning-solid)]' : 'bg-[var(--color-success-solid)]'
                 return (
                   <div className="min-w-[150px]">
                     <div className="flex items-baseline justify-between gap-2 text-sm">
@@ -309,22 +304,21 @@ export default function BudgetsTab() {
                       setEditing(row)
                       setFormOpen(true)
                     }}
-                    className="rounded-lg p-1.5 hover:bg-[var(--color-accent)]"
+                    className="rounded-control p-1.5 hover:bg-[var(--color-accent)]"
                   >
                     <Pencil size={15} />
                   </button>
-                  <button
-                    onClick={() => setDeleting(row)}
-                    disabled={row.usedPoints > 0}
-                    title={
+                  <Button variant="ghost" size="icon-sm" className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]" aria-label={
                       row.usedPoints > 0
                         ? `Đã dùng ${row.usedPoints.toLocaleString('vi-VN')} điểm — không xoá được. Hạ tổng điểm xuống bằng mức đã dùng để dừng quyền tự thưởng.`
                         : 'Xoá'
-                    }
-                    className="rounded-lg p-1.5 text-rose-600 hover:bg-rose-500/10 disabled:cursor-not-allowed disabled:opacity-30"
-                  >
-                    <Trash2 size={15} />
-                  </button>
+                    } onClick={() => setDeleting(row)} disabled={row.usedPoints > 0} title={
+                      row.usedPoints > 0
+                        ? `Đã dùng ${row.usedPoints.toLocaleString('vi-VN')} điểm — không xoá được. Hạ tổng điểm xuống bằng mức đã dùng để dừng quyền tự thưởng.`
+                        : 'Xoá'
+                    }>
+                    <Trash2 aria-hidden="true" />
+                  </Button>
                 </div>
               ),
             },

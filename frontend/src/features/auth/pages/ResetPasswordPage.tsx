@@ -8,6 +8,7 @@ import { toast } from 'sonner'
 import { getApiErrorMessage } from '@/lib/apiError'
 import { useSearchParams, Link, useNavigate } from 'react-router-dom'
 import { Loader2, Lock, ShieldCheck, Key, Eye, EyeOff, Wand2, Check, X } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 
 export default function ResetPasswordPage() {
   const [params] = useSearchParams()
@@ -35,22 +36,22 @@ export default function ResetPasswordPage() {
   const strengthScore = [hasLength, hasUpper, hasLower, hasNumber, hasSpecial].filter(Boolean).length
 
   let strengthLabel = 'Chưa nhập'
-  let strengthColor = 'bg-gray-200 dark:bg-gray-700'
-  let strengthTextColor = 'text-gray-400'
+  let strengthColor = 'bg-[var(--color-border)]'
+  let strengthTextColor = 'text-[var(--color-subtle-foreground)]'
 
   if (pwd.length > 0) {
     if (strengthScore <= 2) {
       strengthLabel = 'Yếu'
-      strengthColor = 'bg-red-500'
-      strengthTextColor = 'text-red-500'
+      strengthColor = 'bg-[var(--color-error-solid)]'
+      strengthTextColor = 'text-[var(--color-error)]'
     } else if (strengthScore <= 3) {
       strengthLabel = 'Trung bình'
-      strengthColor = 'bg-yellow-500'
-      strengthTextColor = 'text-yellow-500'
+      strengthColor = 'bg-[var(--color-warning-solid)]'
+      strengthTextColor = 'text-[var(--color-warning)]'
     } else {
       strengthLabel = 'Mạnh'
-      strengthColor = 'bg-emerald-500'
-      strengthTextColor = 'text-emerald-500'
+      strengthColor = 'bg-[var(--color-success-solid)]'
+      strengthTextColor = 'text-[var(--color-success)]'
     }
   }
 
@@ -80,28 +81,28 @@ export default function ResetPasswordPage() {
     onError: (error) => toast.error(getApiErrorMessage(error, 'Cập nhật mật khẩu thất bại, vui lòng xác minh lại mã khôi phục.')),
   })
 
-  const inputCls = "w-full pl-10 pr-4 py-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-background)] text-sm focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] outline-none transition-all shadow-sm"
+  const inputCls = "h-10 w-full rounded-control border border-[var(--color-border)] bg-[var(--color-card)] pl-10 pr-12 text-sm text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-subtle-foreground)] focus-visible:border-[var(--color-primary)] focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]"
 
   if (isRedirecting) {
     return (
-      <div className="w-full max-w-sm mx-auto text-center space-y-8 animate-in fade-in duration-500">
+      <div className="w-full max-w-sm mx-auto text-center space-y-8">
         <div className="relative">
-          <div className="w-24 h-24 rounded-full border-4 border-indigo-500/20 border-t-indigo-500 animate-spin mx-auto" />
+          <div className="w-24 h-24 rounded-full border-4 border-[var(--color-primary)] border-t-transparent animate-spin mx-auto" />
           <div className="absolute inset-0 flex items-center justify-center">
-             <ShieldCheck className="text-indigo-500 w-10 h-10 animate-pulse" />
+             <ShieldCheck className="text-[var(--color-primary)] w-10 h-10 animate-pulse" />
           </div>
         </div>
         <div className="space-y-3">
-          <h2 className="text-2xl font-extrabold text-[var(--color-foreground)]">Đặt lại thành công!</h2>
+          <h2 className="text-page-title">Đặt lại mật khẩu thành công</h2>
           <p className="text-[var(--color-muted-foreground)] text-sm">
             Mật khẩu của bạn đã được cập nhật an toàn. <br/>
             Đang chuyển hướng bạn đến trang đăng nhập...
           </p>
         </div>
         <div className="flex justify-center gap-1.5">
-           <div className="w-2 h-2 rounded-full bg-indigo-500 animate-bounce [animation-delay:-0.3s]" />
-           <div className="w-2 h-2 rounded-full bg-indigo-500 animate-bounce [animation-delay:-0.15s]" />
-           <div className="w-2 h-2 rounded-full bg-indigo-500 animate-bounce" />
+           <div className="w-2 h-2 rounded-full bg-[var(--color-primary)] animate-bounce [animation-delay:-0.3s]" />
+           <div className="w-2 h-2 rounded-full bg-[var(--color-primary)] animate-bounce [animation-delay:-0.15s]" />
+           <div className="w-2 h-2 rounded-full bg-[var(--color-primary)] animate-bounce" />
         </div>
       </div>
     )
@@ -111,17 +112,17 @@ export default function ResetPasswordPage() {
     <div className="w-full">
       <div className="mb-8 text-center lg:text-left">
         <div className="lg:hidden flex justify-center mb-6">
-           <div className="w-12 h-12 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 flex justify-center items-center">
-              <ShieldCheck className="text-indigo-600 dark:text-indigo-400" size={24} />
+           <div className="w-12 h-12 rounded-card bg-[var(--color-primary-soft)] flex justify-center items-center">
+              <ShieldCheck className="text-[var(--color-primary)]" size={24} />
            </div>
         </div>
-        <h2 className="text-3xl font-extrabold tracking-tight text-[var(--color-foreground)] mb-2">Đặt lại Mật khẩu</h2>
-        <p className="text-[var(--color-muted-foreground)]">Thiết lập mật khẩu mới mạnh mẽ cho tài khoản của bạn.</p>
+        <h2 className="text-page-title mb-1">Đặt lại mật khẩu</h2>
+        <p className="text-sm text-[var(--color-muted-foreground)]">Thiết lập mật khẩu mới mạnh mẽ cho tài khoản của bạn.</p>
       </div>
 
       <form onSubmit={handleSubmit((data) => mutation.mutate(data))} className="space-y-6">
         <div className="space-y-2">
-          <label className="text-sm font-bold text-[var(--color-foreground)]">Mã khôi phục (OTP) <span className="text-red-500">*</span></label>
+          <label className="text-label block">Mã khôi phục (OTP) <span className="text-[var(--color-error)]">*</span></label>
           <div className="relative">
              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <Key size={18} className="text-[var(--color-muted-foreground)]" />
@@ -136,11 +137,11 @@ export default function ResetPasswordPage() {
                placeholder="Nhập mã OTP 6 ký tự..." 
              />
           </div>
-          {errors.token && <p className="text-red-500 text-xs mt-1.5 font-medium">{errors.token.message}</p>}
+          {errors.token && <p className="mt-1 text-xs text-[var(--color-error)]">{errors.token.message}</p>}
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-bold text-[var(--color-foreground)]">Thiết lập mật khẩu mới</label>
+          <label className="text-label block">Thiết lập mật khẩu mới</label>
           <div className="relative">
              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <Lock size={18} className="text-[var(--color-muted-foreground)]" />
@@ -169,12 +170,12 @@ export default function ResetPasswordPage() {
 
           {/* ProgressBar & Logic hiển thị */}
           {pwd && (
-            <div className="mt-2.5 p-3 rounded-lg bg-[var(--color-muted)]/30 border border-[var(--color-border)]/50 animate-in fade-in slide-in-from-top-1">
+            <div className="mt-2.5 p-3 rounded-control bg-[var(--color-muted)]/30 border border-[var(--color-border)]/50 animate-in fade-in slide-in-from-top-1">
               <div className="flex justify-between items-center text-xs font-medium mb-2">
                  <span className="text-[var(--color-muted-foreground)]">Độ mạnh mật khẩu</span>
                  <span className={strengthTextColor}>{strengthLabel}</span>
               </div>
-              <div className="h-1.5 w-full bg-gray-200 dark:bg-gray-700/50 rounded-full overflow-hidden flex gap-1 mb-3">
+              <div className="h-1.5 w-full bg-[var(--color-border)] rounded-full overflow-hidden flex gap-1 mb-3">
                 <div className={`h-full flex-1 rounded-full ${strengthScore >= 1 ? strengthColor : 'bg-transparent'} transition-all duration-300`} />
                 <div className={`h-full flex-1 rounded-full ${strengthScore >= 2 ? strengthColor : 'bg-transparent'} transition-all duration-300`} />
                 <div className={`h-full flex-1 rounded-full ${strengthScore >= 4 ? strengthColor : 'bg-transparent'} transition-all duration-300`} />
@@ -183,30 +184,30 @@ export default function ResetPasswordPage() {
               
               <div className="grid grid-cols-2 gap-y-2 gap-x-1 text-xs text-[var(--color-muted-foreground)]">
                 <div className="flex items-center gap-1.5">
-                  <div className={`w-3.5 h-3.5 rounded-full flex items-center justify-center ${hasLength ? 'bg-emerald-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-transparent'}`}><Check size={10} strokeWidth={3}/></div>
+                  <div className={`w-3.5 h-3.5 rounded-full flex items-center justify-center ${hasLength ? 'bg-[var(--color-success-solid)] text-white' : 'bg-[var(--color-border)] text-transparent'}`}><Check size={10} strokeWidth={3}/></div>
                   <span className={hasLength ? "text-[var(--color-foreground)]" : ""}>8+ ký tự</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <div className={`w-3.5 h-3.5 rounded-full flex items-center justify-center ${hasUpper && hasLower ? 'bg-emerald-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-transparent'}`}><Check size={10} strokeWidth={3}/></div>
+                  <div className={`w-3.5 h-3.5 rounded-full flex items-center justify-center ${hasUpper && hasLower ? 'bg-[var(--color-success-solid)] text-white' : 'bg-[var(--color-border)] text-transparent'}`}><Check size={10} strokeWidth={3}/></div>
                   <span className={(hasUpper && hasLower) ? "text-[var(--color-foreground)]" : ""}>Chữ HOA & thường</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <div className={`w-3.5 h-3.5 rounded-full flex items-center justify-center ${hasNumber ? 'bg-emerald-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-transparent'}`}><Check size={10} strokeWidth={3}/></div>
+                  <div className={`w-3.5 h-3.5 rounded-full flex items-center justify-center ${hasNumber ? 'bg-[var(--color-success-solid)] text-white' : 'bg-[var(--color-border)] text-transparent'}`}><Check size={10} strokeWidth={3}/></div>
                   <span className={hasNumber ? "text-[var(--color-foreground)]" : ""}>Có chữ số (0-9)</span>
                 </div>
                 <div className="flex items-center gap-1.5">
-                  <div className={`w-3.5 h-3.5 rounded-full flex items-center justify-center ${hasSpecial ? 'bg-emerald-500 text-white' : 'bg-gray-200 dark:bg-gray-700 text-transparent'}`}><Check size={10} strokeWidth={3}/></div>
+                  <div className={`w-3.5 h-3.5 rounded-full flex items-center justify-center ${hasSpecial ? 'bg-[var(--color-success-solid)] text-white' : 'bg-[var(--color-border)] text-transparent'}`}><Check size={10} strokeWidth={3}/></div>
                   <span className={hasSpecial ? "text-[var(--color-foreground)]" : ""}>Ký tự đặc biệt (!@#...)</span>
                 </div>
               </div>
             </div>
           )}
 
-          {errors.newPassword && !pwd && <p className="text-red-500 text-xs mt-1.5 font-medium">{errors.newPassword.message}</p>}
+          {errors.newPassword && !pwd && <p className="mt-1 text-xs text-[var(--color-error)]">{errors.newPassword.message}</p>}
         </div>
 
         <div className="space-y-2">
-          <label className="text-sm font-bold text-[var(--color-foreground)]">Xác nhận lại mật khẩu</label>
+          <label className="text-label block">Xác nhận lại mật khẩu</label>
           <div className="relative">
              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <ShieldCheck size={18} className="text-[var(--color-muted-foreground)]" />
@@ -224,22 +225,22 @@ export default function ResetPasswordPage() {
           </div>
           
           {confirmPwd && (
-            <div className={`mt-2 p-2 rounded-lg flex items-center gap-2 text-xs font-semibold animate-in fade-in slide-in-from-top-1 ${pwd === confirmPwd ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600' : 'bg-red-50 dark:bg-red-500/10 text-red-600'}`}>
-              {pwd === confirmPwd ? <Check size={14} className="text-emerald-500" /> : <X size={14} className="text-red-500" />}
+            <div className={`mt-2 p-2 rounded-control flex items-center gap-2 text-xs font-semibold animate-in fade-in slide-in-from-top-1 ${pwd === confirmPwd ? 'bg-[var(--color-success-bg)] text-[var(--color-success)]' : 'bg-[var(--color-error-bg)] text-[var(--color-error)]'}`}>
+              {pwd === confirmPwd ? <Check size={14} className="text-[var(--color-success)]" /> : <X size={14} className="text-[var(--color-error)]" />}
               <span>{pwd === confirmPwd ? '✓ Hai mật khẩu hoàn toàn khớp nhau' : '✗ Hai mật khẩu đang chưa trùng khớp'}</span>
             </div>
           )}
-          {errors.confirmPassword && !confirmPwd && <p className="text-red-500 text-xs mt-1.5 font-medium">{errors.confirmPassword.message}</p>}
+          {errors.confirmPassword && !confirmPwd && <p className="mt-1 text-xs text-[var(--color-error)]">{errors.confirmPassword.message}</p>}
         </div>
 
-        <button type="submit" disabled={mutation.isPending} className="w-full py-3.5 rounded-xl bg-[var(--color-primary)] text-white font-bold hover:shadow-lg hover:shadow-[var(--color-primary)]/20 disabled:opacity-50 transition-all flex items-center justify-center gap-2 mt-2">
-          {mutation.isPending ? <Loader2 size={18} className="animate-spin" /> : <Lock size={18} />}
+        <Button className="w-full mt-2" type="submit" disabled={mutation.isPending}>
+          {mutation.isPending ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Lock aria-hidden="true" />}
           Hoàn tất Cập nhật
-        </button>
+        </Button>
       </form>
 
       <div className="mt-8 text-center text-sm">
-        <Link to="/login" className="text-[var(--color-muted-foreground)] font-semibold hover:text-[var(--color-foreground)] transition-colors">
+        <Link to="/login" className="text-[var(--color-muted-foreground)] font-medium hover:text-[var(--color-foreground)] transition-colors">
           Trở lại hệ thống chính
         </Link>
       </div>

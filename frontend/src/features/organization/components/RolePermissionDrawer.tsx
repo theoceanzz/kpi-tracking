@@ -1,13 +1,10 @@
 import { useState, useEffect, useMemo } from 'react'
-import { 
-  X, 
-  ChevronRight, 
+import {
   Lock, 
   CheckSquare, 
   Square,
   Loader2,
   Save,
-  ShieldCheck,
   Search,
   Zap,
   Check
@@ -16,6 +13,8 @@ import { useAllPermissions, useRolePermissions, useUpdateRolePermissions } from 
 import { RoleResponse } from '../api/role.api'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { Drawer, Dialog, DialogFooter } from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
 
 interface RolePermissionDrawerProps {
   role: RoleResponse | null
@@ -102,7 +101,7 @@ function PermissionTooltip({ text, children }: { text: string; children: React.R
     <div className="relative" onMouseEnter={() => setVisible(true)} onMouseLeave={() => setVisible(false)}>
       {children}
       {visible && (
-        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-64 p-4 bg-gray-900/90 backdrop-blur-md text-white text-[11px] font-medium rounded-2xl shadow-2xl z-[200] animate-in fade-in zoom-in-95 duration-200 pointer-events-none">
+        <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-64 p-4 bg-[var(--color-foreground)] text-[var(--color-background)] text-xs font-medium rounded-card shadow-2xl z-[200] animate-in fade-in zoom-in-95 duration-200 pointer-events-none">
           <div className="relative">
             {text}
             <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-gray-900/90" />
@@ -234,60 +233,46 @@ export default function RolePermissionDrawer({ role, isOpen, onClose, hierarchyL
     toast.success(`Đã đề xuất bộ quyền hạn cho "${showDefaultPreview.type}"`);
   };
 
-  if (!isOpen) return null
-
   return (
-    <div className="fixed inset-0 z-[120] flex justify-end">
-      {/* Overlay */}
-      <div 
-        className="absolute inset-0 bg-gray-900/60 backdrop-blur-sm animate-in fade-in duration-300" 
-        onClick={onClose} 
-      />
-      
-      {/* Drawer Content */}
-      <div className="relative w-full max-w-2xl bg-white h-screen shadow-2xl flex flex-col animate-in slide-in-from-right duration-500 ease-out">
-        {/* Header */}
-        <div className="p-4 md:p-8 border-b bg-gradient-to-r from-gray-50 to-white flex items-center justify-between gap-2">
-          <div className="flex items-center gap-3 min-w-0">
-            <div className="w-10 h-10 md:w-12 md:h-12 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-200 shrink-0">
-              <ShieldCheck className="w-5 h-5 md:w-6 md:h-6" />
-            </div>
-            <div className="min-w-0">
-              <h3 className="text-base md:text-xl font-black text-gray-900 tracking-tight">
-                Thiết lập Phân quyền
-              </h3>
-              <p className="text-xs md:text-sm text-gray-500 font-bold flex items-center mt-0.5 truncate">
-                <ChevronRight className="w-3 h-3 shrink-0 text-gray-400" />
-                Vai trò: <span className="text-indigo-600 ml-1 uppercase truncate">{role?.name}</span>
-              </p>
-            </div>
-          </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <button
-              onClick={handleApplyDefaults}
-              className="flex items-center gap-1.5 px-2.5 py-2 md:px-4 md:py-2.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-xl hover:bg-amber-100 transition-all font-black text-[10px] uppercase tracking-wider shadow-sm whitespace-nowrap"
-            >
-              <Zap size={13} fill="currentColor" />
-              <span className="hidden sm:inline">Áp dụng quyền mặc định</span>
-              <span className="sm:hidden">Mặc định</span>
-            </button>
-            <button
-              onClick={onClose}
-              className="p-2 md:p-3 text-gray-400 hover:text-gray-900 hover:bg-gray-100 rounded-2xl transition-all"
-            >
-              <X className="w-5 h-5 md:w-6 md:h-6" />
-            </button>
-          </div>
-        </div>
-
+    <>
+    <Drawer
+      open={isOpen}
+      onClose={onClose}
+      size="lg"
+      flush
+      dismissible={!updateMutation.isPending}
+      title="Thiết lập Phân quyền"
+      description={<>Vai trò: <span className="font-medium text-[var(--color-foreground)]">{role?.name}</span></>}
+      headerExtra={
+        <Button variant="outline" size="sm" onClick={handleApplyDefaults} className="shrink-0">
+          <Zap aria-hidden="true" />
+          <span className="hidden sm:inline">Áp dụng quyền mặc định</span>
+          <span className="sm:hidden">Mặc định</span>
+        </Button>
+      }
+      footer={
+        <DialogFooter
+          note={<>Đã chọn <span className="font-medium text-[var(--color-foreground)] tabular-nums">{selectedIds.size}</span> quyền hạn</>}
+          secondary={<Button variant="outline" onClick={onClose} disabled={updateMutation.isPending}>Hủy bỏ</Button>}
+          primary={
+            <Button onClick={handleSave} disabled={updateMutation.isPending}>
+              {updateMutation.isPending ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Save aria-hidden="true" />}
+              Lưu phân quyền
+            </Button>
+          }
+        />
+      }
+    >
+      <div className="flex h-full min-h-0 flex-col">
         {/* Search */}
-        <div className="p-6 border-b bg-white">
-          <div className="relative group">
-            <Search className="absolute left-4 top-3.5 w-5 h-5 text-gray-400 group-focus-within:text-indigo-600 transition-colors" />
-            <input 
-              type="text" 
-              placeholder="Tìm kiếm quyền hạn hoặc tài nguyên..." 
-              className="w-full pl-12 pr-4 py-3.5 bg-gray-50 border-none rounded-2xl outline-none focus:ring-2 focus:ring-indigo-600 transition-all font-bold text-sm"
+        <div className="shrink-0 border-b border-[var(--color-border)] bg-[var(--color-card)] px-5 py-3">
+          <div className="relative">
+            <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-subtle-foreground)]" aria-hidden="true" />
+            <input
+              type="text"
+              placeholder="Tìm kiếm quyền hạn hoặc tài nguyên..."
+              aria-label="Tìm quyền hạn"
+              className="h-9 w-full rounded-control border border-[var(--color-border)] bg-[var(--color-card)] pl-9 pr-3 text-sm text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-subtle-foreground)] focus-visible:border-[var(--color-primary)] focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
             />
@@ -295,11 +280,11 @@ export default function RolePermissionDrawer({ role, isOpen, onClose, hierarchyL
         </div>
 
         {/* Body */}
-        <div className="flex-1 overflow-y-auto p-8 space-y-8 custom-scrollbar bg-gray-50/30">
+        <div className="custom-scrollbar min-h-0 flex-1 space-y-6 overflow-y-auto bg-[var(--color-muted)] p-5">
           {(isLoadingAll || isLoadingRole) ? (
             <div className="h-full flex flex-col items-center justify-center space-y-4">
-              <Loader2 className="w-10 h-10 text-indigo-600 animate-spin" />
-              <p className="text-gray-500 font-bold animate-pulse">Đang nạp dữ liệu phân quyền...</p>
+              <Loader2 className="w-10 h-10 text-[var(--color-primary)] animate-spin" />
+              <p className="text-[var(--color-muted-foreground)] font-semibold animate-pulse">Đang nạp dữ liệu phân quyền...</p>
             </div>
           ) : (
             Object.entries(groupedPermissions).map(([resource, permissions]) => {
@@ -308,21 +293,18 @@ export default function RolePermissionDrawer({ role, isOpen, onClose, hierarchyL
               const isAllSelected = selectedCount === allIds.length
 
               return (
-                <div key={resource} className="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden transition-all hover:shadow-md">
-                  <div className="p-6 border-b bg-gray-50/50 flex items-center justify-between">
+                <div key={resource} className="overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-card)] transition-all">
+                  <div className="p-6 border-b bg-[var(--color-muted)] flex items-center justify-between">
                     <div className="flex items-center space-x-3">
-                      <Lock className="w-4 h-4 text-gray-400" />
-                      <h4 className="text-sm font-black text-gray-900 uppercase tracking-widest">{resource}</h4>
-                      <span className="px-2 py-0.5 bg-indigo-50 text-indigo-700 text-[10px] font-black rounded-full">
+                      <Lock className="w-4 h-4 text-[var(--color-subtle-foreground)]" />
+                      <h4 className="text-sm font-semibold text-[var(--color-foreground)]">{resource}</h4>
+                      <span className="px-2 py-0.5 bg-[var(--color-primary-soft)] text-[var(--color-primary)] text-xs font-semibold rounded-full">
                         {selectedCount}/{allIds.length}
                       </span>
                     </div>
-                    <button 
-                      onClick={() => toggleResource(resource, permissions)}
-                      className="text-[10px] font-black text-indigo-600 hover:text-indigo-800 uppercase tracking-tighter"
-                    >
+                    <Button variant="ghost" size="sm" onClick={() => toggleResource(resource, permissions)}>
                       {isAllSelected ? 'Hủy chọn tất cả' : 'Chọn tất cả'}
-                    </button>
+                    </Button>
                   </div>
                   <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-2">
                     {permissions.map(p => (
@@ -330,20 +312,20 @@ export default function RolePermissionDrawer({ role, isOpen, onClose, hierarchyL
                         <button
                           onClick={() => togglePermission(p.id)}
                           className={cn(
-                            "w-full flex items-center space-x-3 px-4 py-3 rounded-2xl border transition-all text-left",
+                            "w-full flex items-center space-x-3 px-4 py-3 rounded-card border transition-all text-left",
                             selectedIds.has(p.id) 
-                              ? "bg-indigo-50/50 border-indigo-200 text-indigo-900 shadow-sm" 
-                              : "bg-white border-gray-100 text-gray-600 hover:border-gray-200"
+                              ? "bg-[var(--color-primary-soft)] border-[var(--color-border)] text-[var(--color-primary)] shadow-sm" 
+                              : "bg-[var(--color-card)] border-[var(--color-border)] text-[var(--color-muted-foreground)] hover:border-[var(--color-border)]"
                           )}
                         >
                           {selectedIds.has(p.id) ? (
-                            <CheckSquare className="w-5 h-5 text-indigo-600 shrink-0" />
+                            <CheckSquare className="w-5 h-5 text-[var(--color-primary)] shrink-0" />
                           ) : (
-                            <Square className="w-5 h-5 text-gray-300 shrink-0" />
+                            <Square className="w-5 h-5 text-[var(--color-subtle-foreground)] shrink-0" />
                           )}
                           <div>
-                            <div className="text-sm font-bold truncate tracking-tight">{p.code}</div>
-                            <div className="text-[10px] font-black text-gray-400 uppercase tracking-tighter">{p.action}</div>
+                            <div className="text-sm font-medium truncate tracking-tight">{p.code}</div>
+                            <div className="text-eyebrow tracking-tighter">{p.action}</div>
                           </div>
                         </button>
                       </PermissionTooltip>
@@ -354,81 +336,31 @@ export default function RolePermissionDrawer({ role, isOpen, onClose, hierarchyL
             })
           )}
         </div>
-
-        {/* Footer */}
-        <div className="p-4 md:p-8 border-t bg-white flex items-center justify-between gap-3">
-          <div className="text-xs md:text-sm shrink-0">
-            <span className="text-gray-400 font-bold">Đã chọn:</span>
-            <span className="text-indigo-600 font-black ml-1 md:ml-2">{selectedIds.size} quyền hạn</span>
-          </div>
-          <div className="flex gap-2 md:gap-3">
-            <button
-              onClick={onClose}
-              className="px-4 py-2.5 md:px-8 md:py-3.5 bg-white border border-gray-200 text-gray-700 rounded-2xl hover:bg-gray-100 font-black transition-all shadow-sm text-sm whitespace-nowrap"
-            >
-              Hủy bỏ
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={updateMutation.isPending}
-              className="px-4 py-2.5 md:px-10 md:py-3.5 bg-indigo-600 text-white rounded-2xl hover:bg-indigo-700 font-black transition-all shadow-xl shadow-indigo-200 disabled:opacity-50 flex items-center gap-1.5 md:gap-2 text-sm whitespace-nowrap"
-            >
-              {updateMutation.isPending ? (
-                <Loader2 className="w-4 h-4 animate-spin" />
-              ) : (
-                <Save className="w-4 h-4" />
-              )}
-              Lưu phân quyền
-            </button>
-          </div>
-        </div>
       </div>
+    </Drawer>
 
-      {/* Default Permission Preview Modal */}
-      {showDefaultPreview.isOpen && (
-        <div className="fixed inset-0 z-[250] flex items-center justify-center p-4">
-          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300" onClick={() => setShowDefaultPreview({ ...showDefaultPreview, isOpen: false })} />
-          <div className="bg-white dark:bg-slate-900 rounded-[2.5rem] shadow-2xl w-full max-w-lg relative z-[251] flex flex-col overflow-hidden animate-in zoom-in-95 duration-300">
-            <div className="p-8 border-b border-slate-100 dark:border-slate-800 bg-amber-50/50">
-               <div className="flex items-center gap-4">
-                  <div className="w-12 h-12 rounded-2xl bg-amber-500 text-white flex items-center justify-center shadow-lg shadow-amber-200">
-                    <Zap size={24} fill="currentColor" />
-                  </div>
-                  <div>
-                    <h4 className="text-xl font-black text-slate-900 dark:text-white">Xem trước quyền mặc định</h4>
-                    <p className="text-sm text-slate-500 font-medium">Gợi ý cho vai trò: <span className="text-amber-600 font-bold uppercase">{showDefaultPreview.type}</span></p>
-                  </div>
-               </div>
+      <Dialog
+        open={showDefaultPreview.isOpen}
+        onClose={() => setShowDefaultPreview({ ...showDefaultPreview, isOpen: false })}
+        size="md"
+        title="Xem trước quyền mặc định"
+        description={<>Gợi ý cho vai trò: <span className="font-medium text-[var(--color-foreground)]">{showDefaultPreview.type}</span></>}
+        footer={
+          <DialogFooter
+            secondary={<Button variant="outline" onClick={() => setShowDefaultPreview({ ...showDefaultPreview, isOpen: false })}>Hủy bỏ</Button>}
+            primary={<Button onClick={confirmApplyDefaults}>Xác nhận áp dụng</Button>}
+          />
+        }
+      >
+        <p className="text-eyebrow mb-3">Danh sách mã quyền sẽ được gán</p>
+        <div className="grid grid-cols-2 gap-2">
+          {showDefaultPreview.codes.map(code => (
+            <div key={code} className="flex items-center gap-2 rounded-control border border-[var(--color-border)] bg-[var(--color-muted)] px-3 py-2 text-caption">
+              <Check size={12} className="shrink-0 text-[var(--color-success)]" strokeWidth={3} aria-hidden="true" /> <span className="truncate">{code}</span>
             </div>
-            <div className="p-8 max-h-[400px] overflow-y-auto custom-scrollbar">
-               <div className="space-y-2">
-                 <p className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4">Danh sách mã quyền sẽ được gán:</p>
-                 <div className="grid grid-cols-2 gap-2">
-                   {showDefaultPreview.codes.map(code => (
-                     <div key={code} className="px-3 py-2 bg-slate-50 dark:bg-slate-800 rounded-xl border border-slate-100 dark:border-slate-700 text-[10px] font-bold text-slate-600 dark:text-slate-400 flex items-center gap-2">
-                        <Check size={12} className="text-emerald-500" strokeWidth={3} /> {code}
-                     </div>
-                   ))}
-                 </div>
-               </div>
-            </div>
-            <div className="p-8 border-t border-slate-100 dark:border-slate-800 flex gap-3">
-              <button 
-                onClick={() => setShowDefaultPreview({ ...showDefaultPreview, isOpen: false })}
-                className="flex-1 px-6 py-4 bg-slate-100 text-slate-600 rounded-2xl font-black text-sm hover:bg-slate-200 transition-all"
-              >
-                Hủy bỏ
-              </button>
-              <button 
-                onClick={confirmApplyDefaults}
-                className="flex-[2] px-6 py-4 bg-amber-500 text-white rounded-2xl font-black text-sm hover:bg-amber-600 transition-all shadow-lg shadow-amber-200"
-              >
-                Xác nhận áp dụng
-              </button>
-            </div>
-          </div>
+          ))}
         </div>
-      )}
-    </div>
+      </Dialog>
+    </>
   )
 }

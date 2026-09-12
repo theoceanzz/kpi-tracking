@@ -16,8 +16,8 @@ export function QualitativeDistributionChart({ distribution }: { distribution?: 
 
   if (total === 0) {
     return (
-      <div className="h-[180px] flex flex-col items-center justify-center gap-2 text-slate-400">
-        <BarChart3 size={28} className="text-slate-300" />
+      <div className="h-[180px] flex flex-col items-center justify-center gap-2 text-[var(--color-subtle-foreground)]">
+        <BarChart3 size={28} className="text-[var(--color-subtle-foreground)]" />
         <p className="text-sm font-medium">Chưa có bài nộp định tính</p>
       </div>
     )

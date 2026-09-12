@@ -8,6 +8,7 @@ import RedeemGiftModal from './RedeemGiftModal'
 import VoucherModal from './VoucherModal'
 import { useGiftShop } from '../hooks/useGifts'
 import type { GiftItem, Redemption } from '../types'
+import { Button } from '@/components/ui/button'
 
 interface GiftShopGridProps {
   /** Số dư hiện tại, để hiện "thiếu bao nhiêu điểm" ngay trên thẻ quà. */
@@ -31,7 +32,7 @@ export default function GiftShopGrid({ balance }: GiftShopGridProps) {
 
   if (!gifts || gifts.length === 0) {
     return (
-      <div className="rounded-2xl border border-dashed border-[var(--color-border)]">
+      <div className="rounded-card border border-dashed border-[var(--color-border)]">
         <EmptyState
           title="Cửa hàng chưa có quà nào"
           description="Khi công ty thêm quà vào danh mục, bạn sẽ thấy chúng ở đây và dùng điểm để đổi."
@@ -55,7 +56,7 @@ export default function GiftShopGrid({ balance }: GiftShopGridProps) {
           return (
             <div
               key={gift.id}
-              className="flex flex-col overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-card)]"
+              className="flex flex-col overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-card)]"
             >
               <div className="relative aspect-[4/3] bg-[var(--color-muted)]">
                 {gift.imageUrl ? (
@@ -89,7 +90,7 @@ export default function GiftShopGrid({ balance }: GiftShopGridProps) {
                     )}
                   </div>
                 )}
-                <h3 className="font-semibold">{gift.name}</h3>
+                <h3 className="text-section-title">{gift.name}</h3>
                 {gift.description && (
                   <p className="mt-1 line-clamp-2 text-sm text-[var(--color-muted-foreground)]">
                     {gift.description}
@@ -98,7 +99,7 @@ export default function GiftShopGrid({ balance }: GiftShopGridProps) {
 
                 <div className="mt-3 flex items-center gap-1.5 text-[var(--color-primary)]">
                   <Coins size={16} />
-                  <span className="text-lg font-bold">
+                  <span className="text-lg font-semibold">
                     {gift.pointCost.toLocaleString('vi-VN')}
                   </span>
                   <span className="text-sm text-[var(--color-muted-foreground)]">điểm</span>
@@ -134,25 +135,21 @@ export default function GiftShopGrid({ balance }: GiftShopGridProps) {
                 <div className="mt-4 flex-1" />
 
                 {blockedByPoints ? (
-                  <div className="rounded-lg bg-[var(--color-muted)] px-3 py-2 text-center text-sm text-[var(--color-muted-foreground)]">
+                  <div className="rounded-control bg-[var(--color-muted)] px-3 py-2 text-center text-sm text-[var(--color-muted-foreground)]">
                     Còn thiếu {shortBy.toLocaleString('vi-VN')} điểm
                   </div>
                 ) : (
                   <>
                     {cannotAfford && (
-                      <p className="mb-2 flex items-center justify-center gap-1.5 text-xs text-amber-600 dark:text-amber-400">
+                      <p className="mb-2 flex items-center justify-center gap-1.5 text-xs text-[var(--color-warning)]">
                         <Wallet size={12} />
                         Thiếu {shortBy.toLocaleString('vi-VN')} điểm — nạp thêm khi đổi
                       </p>
                     )}
-                    <button
-                      onClick={() => setRedeeming(gift)}
-                      disabled={outOfStock}
-                      className="inline-flex w-full items-center justify-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-                    >
-                      <Gift size={16} />
+                    <Button className="w-full" onClick={() => setRedeeming(gift)} disabled={outOfStock}>
+                      <Gift aria-hidden="true" />
                       {outOfStock ? 'Hết hàng' : 'Đổi quà'}
-                    </button>
+                    </Button>
                   </>
                 )}
               </div>

@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react'
 import { format, parseISO, differenceInCalendarDays } from 'date-fns'
-import { Pencil, Plus } from 'lucide-react'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
+import { Dialog, DialogFooter } from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { DateTimePicker } from '@/components/common/DateTimePicker'
 import { useKpiCycles } from '../hooks/useKpiCycles'
@@ -171,27 +172,27 @@ export default function PeriodFormModal({
   const mismatchDescription = `Bạn đã chọn ${selectedDays} ngày, trong khi chu kỳ "${FREQUENCY_MAP[formData.periodType]}" tiêu chuẩn là ${standardDays} ngày. Hệ thống sẽ không tự kiểm tra lại — bạn tự chịu trách nhiệm với khoảng thời gian đã chọn.`
 
   const fields = (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form id="period-form" onSubmit={handleSubmit} className="space-y-5">
       <div className="space-y-2">
-        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Tên đợt KPI <span className="text-red-500">*</span></label>
+        <label className="text-label">Tên đợt KPI <span className="text-[var(--color-error)]">*</span></label>
         <input
           value={formData.name}
           onChange={e => handleFieldChange('name', e.target.value)}
           required
           placeholder="Ví dụ: Tháng 05/2026"
-          className="w-full px-5 py-4 rounded-[20px] border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/50 outline-none text-sm font-bold transition-all placeholder:text-slate-400"
+          className="w-full px-5 py-4 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] focus:ring-4 focus:ring-[var(--color-ring)] focus:border-[var(--color-primary)] outline-none text-sm font-medium transition-all placeholder:text-[var(--color-subtle-foreground)]"
         />
       </div>
 
       <div className="space-y-2">
-        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Loại chu kỳ <span className="text-red-500">*</span></label>
+        <label className="text-label">Loại chu kỳ <span className="text-[var(--color-error)]">*</span></label>
         <Select value={formData.periodType} onValueChange={val => handleFieldChange('periodType', val)}>
-          <SelectTrigger className="w-full px-5 h-[56px] rounded-[20px] border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 text-sm font-bold shadow-sm focus:ring-4 focus:ring-indigo-500/10">
+          <SelectTrigger className="w-full px-5 h-[56px] rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] text-sm font-medium shadow-sm focus:ring-4 focus:ring-[var(--color-ring)]">
             <SelectValue placeholder="Chọn loại chu kỳ" />
           </SelectTrigger>
-          <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800 shadow-2xl p-2">
+          <SelectContent className="rounded-card border-[var(--color-border)] p-2">
             {['DAILY', 'WEEKLY', 'MONTHLY', 'QUARTERLY', 'SEMI_ANNUALLY', 'YEARLY'].map(type => (
-              <SelectItem key={type} value={type} className="rounded-xl focus:bg-indigo-50 dark:focus:bg-indigo-900/30 text-sm font-bold">
+              <SelectItem key={type} value={type} className="rounded-card focus:bg-[var(--color-primary-soft)] text-sm font-medium">
                 {FREQUENCY_MAP[type as KpiFrequency]}
               </SelectItem>
             ))}
@@ -200,22 +201,22 @@ export default function PeriodFormModal({
       </div>
 
       <div className="space-y-2">
-        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Thuộc kỳ đánh giá (tuỳ chọn)</label>
+        <label className="text-label">Thuộc kỳ đánh giá (tuỳ chọn)</label>
         <Select value={formData.cycleId} onValueChange={val => setFormData(prev => ({ ...prev, cycleId: val }))}>
-          <SelectTrigger className="w-full px-5 h-[56px] rounded-[20px] border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 text-sm font-bold shadow-sm focus:ring-4 focus:ring-indigo-500/10">
+          <SelectTrigger className="w-full px-5 h-[56px] rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] text-sm font-medium shadow-sm focus:ring-4 focus:ring-[var(--color-ring)]">
             <SelectValue placeholder="Không thuộc kỳ nào" />
           </SelectTrigger>
-          <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800 shadow-2xl p-2">
-            <SelectItem value="NONE" className="rounded-xl text-sm font-bold text-slate-500">Không thuộc kỳ nào</SelectItem>
+          <SelectContent className="rounded-card border-[var(--color-border)] p-2">
+            <SelectItem value="NONE" className="rounded-card text-sm font-medium text-[var(--color-muted-foreground)]">Không thuộc kỳ nào</SelectItem>
             {cycles.map(cycle => (
-              <SelectItem key={cycle.id} value={cycle.id} className="rounded-xl text-sm font-bold">{cycle.name}</SelectItem>
+              <SelectItem key={cycle.id} value={cycle.id} className="rounded-card text-sm font-medium">{cycle.name}</SelectItem>
             ))}
           </SelectContent>
         </Select>
         {selectedCycle?.startDate && selectedCycle?.endDate && (
-          <p className="text-[11px] text-slate-400 font-medium ml-1">
+          <p className="text-caption font-medium ml-1">
             Đợt phải nằm trong kỳ:{' '}
-            <span className="font-black text-slate-500">
+            <span className="font-semibold text-[var(--color-muted-foreground)]">
               {format(new Date(selectedCycle.startDate), 'dd/MM/yyyy')} – {format(new Date(selectedCycle.endDate), 'dd/MM/yyyy')}
             </span>
           </p>
@@ -225,26 +226,26 @@ export default function PeriodFormModal({
       <div className="space-y-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Bắt đầu <span className="text-red-500">*</span></label>
+            <label className="text-label">Bắt đầu <span className="text-[var(--color-error)]">*</span></label>
             <div className="sm:hidden">
               <DateTimePicker value={formData.startDate} onChange={val => handleFieldChange('startDate', val)} />
             </div>
             <div className="hidden sm:block relative">
-              <input type="datetime-local" value={formData.startDate} onChange={e => handleFieldChange('startDate', e.target.value)} required className="w-full px-5 py-4 rounded-[22px] border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/50 outline-none text-sm font-bold transition-all text-transparent" />
-              <div className="absolute inset-0 left-5 flex items-center pointer-events-none text-sm font-bold text-slate-900 dark:text-white">
+              <input type="datetime-local" value={formData.startDate} onChange={e => handleFieldChange('startDate', e.target.value)} required className="w-full px-5 py-4 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] focus:ring-4 focus:ring-[var(--color-ring)] focus:border-[var(--color-primary)] outline-none text-sm font-medium transition-all text-transparent"/>
+              <div className="absolute inset-0 left-5 flex items-center pointer-events-none text-sm font-medium text-[var(--color-foreground)]">
                 {formData.startDate ? format(new Date(formData.startDate), 'dd/MM/yyyy HH:mm') : ''}
               </div>
             </div>
           </div>
 
           <div className="space-y-2">
-            <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Kết thúc <span className="text-red-500">*</span></label>
+            <label className="text-label">Kết thúc <span className="text-[var(--color-error)]">*</span></label>
             <div className="sm:hidden">
               <DateTimePicker value={formData.endDate} onChange={val => handleFieldChange('endDate', val)} />
             </div>
             <div className="hidden sm:block relative">
-              <input type="datetime-local" value={formData.endDate} onChange={e => handleFieldChange('endDate', e.target.value)} required className="w-full px-5 py-4 rounded-[22px] border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/50 outline-none text-sm font-bold transition-all text-transparent" />
-              <div className="absolute inset-0 left-5 flex items-center pointer-events-none text-sm font-bold text-slate-900 dark:text-white">
+              <input type="datetime-local" value={formData.endDate} onChange={e => handleFieldChange('endDate', e.target.value)} required className="w-full px-5 py-4 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] focus:ring-4 focus:ring-[var(--color-ring)] focus:border-[var(--color-primary)] outline-none text-sm font-medium transition-all text-transparent"/>
+              <div className="absolute inset-0 left-5 flex items-center pointer-events-none text-sm font-medium text-[var(--color-foreground)]">
                 {formData.endDate ? format(new Date(formData.endDate), 'dd/MM/yyyy HH:mm') : ''}
               </div>
             </div>
@@ -252,37 +253,26 @@ export default function PeriodFormModal({
         </div>
 
         <div className="space-y-2">
-          <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Thông báo nhắc nhở (Mặc định 50% thời gian)</label>
+          <label className="text-label">Thông báo nhắc nhở (Mặc định 50% thời gian)</label>
           <div className="sm:hidden">
             <DateTimePicker value={formData.notificationDate} onChange={val => handleFieldChange('notificationDate', val)} />
           </div>
           <div className="hidden sm:block relative">
-            <input type="datetime-local" value={formData.notificationDate} onChange={e => handleFieldChange('notificationDate', e.target.value)} required className="w-full px-6 py-4 rounded-[22px] border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/50 outline-none text-sm font-bold transition-all text-transparent" />
-            <div className="absolute inset-0 left-6 flex items-center pointer-events-none text-sm font-bold text-slate-900 dark:text-white">
+            <input type="datetime-local" value={formData.notificationDate} onChange={e => handleFieldChange('notificationDate', e.target.value)} required className="w-full px-6 py-4 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] focus:ring-4 focus:ring-[var(--color-ring)] focus:border-[var(--color-primary)] outline-none text-sm font-medium transition-all text-transparent"/>
+            <div className="absolute inset-0 left-6 flex items-center pointer-events-none text-sm font-medium text-[var(--color-foreground)]">
               {formData.notificationDate ? format(new Date(formData.notificationDate), 'dd/MM/yyyy HH:mm') : ''}
             </div>
           </div>
         </div>
       </div>
 
-      <div className={isInline ? 'pt-2' : 'flex gap-4 pt-6'}>
-        {!isInline && (
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex-1 px-8 py-4 rounded-[20px] border border-slate-200 dark:border-slate-800 text-xs font-black uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-slate-800 transition-all active:scale-95"
-          >
-            Huỷ
-          </button>
-        )}
-        <button
-          type="submit"
-          disabled={isSubmitting}
-          className="flex-1 w-full px-8 py-4 rounded-[20px] bg-indigo-600 text-white text-xs font-black uppercase tracking-widest hover:bg-indigo-700 transition-all shadow-xl shadow-indigo-500/25 disabled:opacity-50 active:scale-95"
-        >
-          {isSubmitting ? 'Đang lưu...' : (submitLabel ?? 'Xác nhận')}
-        </button>
-      </div>
+      {isInline && (
+        <div className="pt-2">
+          <Button type="submit" className="w-full" disabled={isSubmitting}>
+            {isSubmitting ? 'Đang lưu...' : (submitLabel ?? 'Xác nhận')}
+          </Button>
+        </div>
+      )}
     </form>
   )
 
@@ -308,29 +298,29 @@ export default function PeriodFormModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-md animate-in fade-in duration-300" onClick={onClose} />
-      <div className="relative bg-white dark:bg-slate-900 rounded-[40px] shadow-2xl w-full max-w-lg mx-auto animate-in zoom-in-95 fade-in duration-500 overflow-hidden border border-slate-200 dark:border-slate-800">
-        <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl" />
-
-        <div className="p-10 space-y-8 relative">
-          <div className="flex items-center gap-5">
-            <div className="w-14 h-14 rounded-[22px] bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shadow-inner border border-indigo-100/50 dark:border-indigo-800/50">
-              {editPeriod ? <Pencil size={28} /> : <Plus size={28} />}
-            </div>
-            <div>
-              <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-                {editPeriod ? 'Chỉnh sửa đợt' : 'Tạo đợt mới'}
-              </h3>
-              <p className="text-xs font-black text-slate-400 uppercase tracking-widest mt-1">Cấu hình chu kỳ đánh giá & thời gian</p>
-            </div>
-          </div>
-
-          {fields}
-        </div>
-      </div>
+    <>
+    <Dialog
+      open
+      onClose={onClose}
+      size="md"
+      dismissible={!isSubmitting}
+      title={editPeriod ? 'Chỉnh sửa đợt' : 'Tạo đợt mới'}
+      description="Cấu hình chu kỳ đánh giá & thời gian"
+      footer={
+        <DialogFooter
+          secondary={<Button variant="outline" onClick={onClose} disabled={isSubmitting}>Huỷ</Button>}
+          primary={
+            <Button type="submit" form="period-form" disabled={isSubmitting}>
+              {isSubmitting ? 'Đang lưu...' : (submitLabel ?? 'Xác nhận')}
+            </Button>
+          }
+        />
+      }
+    >
+      {fields}
+    </Dialog>
 
       {mismatchDialog}
-    </div>
+    </>
   )
 }

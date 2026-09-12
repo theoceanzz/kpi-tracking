@@ -13,11 +13,11 @@ export function ProgressCircle({ percentage, size = 32, strokeWidth = 3, color }
   const offset = circumference - (value / 100) * circumference
 
   const defaultColor = () => {
-    if (value >= 100) return 'text-emerald-500'
-    if (value >= 70) return 'text-indigo-500'
-    if (value >= 40) return 'text-blue-500'
-    if (value > 0) return 'text-amber-500'
-    return 'text-slate-200 dark:text-slate-700'
+    if (value >= 100) return 'text-[var(--color-success-solid)]'
+    if (value >= 70) return 'text-[var(--color-primary)]'
+    if (value >= 40) return 'text-[var(--color-info-solid)]'
+    if (value > 0) return 'text-[var(--color-warning-solid)]'
+    return 'text-[var(--color-border)]'
   }
 
   return (
@@ -28,7 +28,7 @@ export function ProgressCircle({ percentage, size = 32, strokeWidth = 3, color }
       aria-label={`Tiến độ ${Math.round(value)} phần trăm`}
     >
       <svg className="transform -rotate-90" width={size} height={size} aria-hidden="true">
-        <circle className="text-slate-100 dark:text-slate-800" strokeWidth={strokeWidth} stroke="currentColor" fill="transparent" r={radius} cx={size / 2} cy={size / 2} />
+        <circle className="text-[var(--color-muted)]" strokeWidth={strokeWidth} stroke="currentColor" fill="transparent" r={radius} cx={size / 2} cy={size / 2} />
         <circle
           className={cn(color || defaultColor(), 'transition-all duration-700 ease-out motion-reduce:transition-none')}
           strokeWidth={strokeWidth}
@@ -42,7 +42,7 @@ export function ProgressCircle({ percentage, size = 32, strokeWidth = 3, color }
           cy={size / 2}
         />
       </svg>
-      <span className="absolute text-[8px] md:text-[10px] font-black text-slate-700 dark:text-slate-300 tabular-nums" aria-hidden="true">
+      <span className="absolute text-xs md:text-xs font-semibold text-[var(--color-foreground)] tabular-nums" aria-hidden="true">
         {Math.round(value)}%
       </span>
     </div>

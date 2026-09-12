@@ -6,7 +6,11 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
+import EmptyState from '@/components/common/EmptyState'
+import { Button } from '@/components/ui/button'
+import { Dialog, Drawer, DialogFooter } from '@/components/ui/dialog'
 import type { DashboardWidget } from './ChartWrapper'
+import { ChoiceChip } from '@/components/ui/choice-chip'
 
 const ResponsiveGridLayout = WidthProvider(Responsive)
 
@@ -63,13 +67,13 @@ export function DashboardEditToolbar({ api }: { api: CustomizationApi }) {
   if (isEditMode) {
     return (
       <>
-        <div className="flex flex-wrap items-center gap-2 bg-indigo-50 dark:bg-indigo-900/20 p-1 rounded-xl border border-indigo-100 dark:border-indigo-800">
-          <button onClick={() => setConfirmReset(true)} className="p-2 text-slate-500 hover:text-slate-700 dark:text-slate-400 cursor-pointer" title="Đặt lại mặc định" aria-label="Đặt lại bố cục mặc định"><RotateCcw size={18} aria-hidden="true" /></button>
-          <button onClick={() => setIsConfigOpen(true)} className="px-3 py-1.5 text-xs font-bold text-indigo-600 dark:text-indigo-400 hover:bg-indigo-100 dark:hover:bg-indigo-900/40 rounded-lg flex items-center gap-2 cursor-pointer"><Layout size={14} aria-hidden="true" /> Ẩn/Hiện</button>
-          <button onClick={() => setIsAddModalOpen(true)} className="px-3 py-1.5 text-xs font-bold text-emerald-600 dark:text-emerald-400 hover:bg-emerald-100 dark:hover:bg-emerald-900/40 rounded-lg flex items-center gap-2 cursor-pointer"><Plus size={14} aria-hidden="true" /> Thêm biểu đồ</button>
-          <div className="w-px h-4 bg-indigo-200 dark:bg-indigo-800 mx-1" />
-          <button onClick={() => setIsEditMode(false)} className="px-4 py-1.5 text-xs font-bold text-slate-500 hover:text-slate-700 cursor-pointer">Huỷ</button>
-          <button onClick={saveConfig} className="px-4 py-1.5 bg-indigo-600 text-white rounded-lg text-xs font-bold hover:bg-indigo-700 shadow-sm flex items-center gap-2 cursor-pointer"><Save size={14} aria-hidden="true" /> Lưu</button>
+        <div role="toolbar" aria-label="Tuỳ chỉnh trang chủ" className="flex flex-wrap items-center gap-1 rounded-control border border-[var(--color-border)] bg-[var(--color-card)] p-1">
+          <Button variant="ghost" size="icon-sm" onClick={() => setConfirmReset(true)} aria-label="Đặt lại bố cục mặc định" title="Đặt lại mặc định"><RotateCcw aria-hidden="true" /></Button>
+          <Button variant="ghost" size="sm" onClick={() => setIsConfigOpen(true)}><Layout aria-hidden="true" /> Ẩn/Hiện</Button>
+          <Button variant="ghost" size="sm" onClick={() => setIsAddModalOpen(true)}><Plus aria-hidden="true" /> Thêm widget</Button>
+          <span className="mx-1 h-4 w-px bg-[var(--color-border)]" aria-hidden="true" />
+          <Button variant="ghost" size="sm" onClick={() => setIsEditMode(false)}>Hủy</Button>
+          <Button size="sm" onClick={saveConfig}><Save aria-hidden="true" /> Lưu bố cục</Button>
         </div>
 
         <ConfirmDialog
@@ -84,9 +88,9 @@ export function DashboardEditToolbar({ api }: { api: CustomizationApi }) {
     )
   }
   return (
-    <button onClick={() => setIsEditMode(true)} className="px-4 py-2 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-xl text-xs font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 flex items-center gap-2 shadow-sm transition-all cursor-pointer">
-      <Settings2 size={16} aria-hidden="true" /> Tuỳ chỉnh
-    </button>
+    <Button variant="outline" size="sm" onClick={() => setIsEditMode(true)}>
+      <Settings2 aria-hidden="true" /> Tuỳ chỉnh
+    </Button>
   )
 }
 
@@ -139,38 +143,28 @@ export default function DashboardCustomizeChrome({ api, renderWidget, catalog, r
     <>
       {/* ── Lưới widget ───────────────────────────────────────────────────── */}
       {ready && (
-        <div className={cn("relative min-h-[400px]", isEditMode && "bg-slate-50/50 dark:bg-slate-800/10 rounded-3xl border-2 border-dashed border-slate-200 dark:border-slate-800")}>
+        <div className={cn('relative min-h-[400px]', isEditMode && 'rounded-widget border-2 border-dashed border-[var(--color-border)] bg-[var(--color-muted)]')}>
           {isEditMode && (
-            <div className="absolute inset-0 flex items-center justify-center pointer-events-none opacity-20">
-              <div className="grid grid-cols-12 w-full h-full gap-4 px-2">
-                {Array.from({ length: 12 }).map((_, i) => <div key={i} className="border-x border-slate-300 dark:border-slate-700 h-full" />)}
+            <div className="pointer-events-none absolute inset-0 flex items-center justify-center opacity-30" aria-hidden="true">
+              <div className="grid h-full w-full grid-cols-12 gap-4 px-2">
+                {Array.from({ length: 12 }).map((_, i) => <div key={i} className="h-full border-x border-[var(--color-border)]" />)}
               </div>
             </div>
           )}
 
           {/* Không còn widget nào hiện: nói rõ phải làm gì thay vì để trang trắng */}
           {visibleCount === 0 && (
-            <div className="flex flex-col items-center justify-center text-center gap-4 py-20 px-6">
-              <div className="w-16 h-16 rounded-3xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400">
-                <LayoutGrid size={30} aria-hidden="true" strokeWidth={1.5} />
+            <EmptyState
+              icon={LayoutGrid}
+              title="Trang chủ đang trống"
+              description="Bạn đã ẩn toàn bộ nội dung. Thêm widget cần theo dõi, hoặc dùng một bố cục gợi ý để bắt đầu nhanh."
+              action={
+                <div className="flex flex-wrap items-center justify-center gap-2">
+                  <Button onClick={() => setIsAddModalOpen(true)}><Plus aria-hidden="true" /> Thêm widget</Button>
+                  {presets?.length ? <Button variant="outline" onClick={() => setPendingPreset(presets[0] ?? null)}><Sparkles aria-hidden="true" /> Dùng bố cục gợi ý</Button> : null}
               </div>
-              <div>
-                <p className="font-black text-lg text-slate-900 dark:text-white">Trang chủ đang trống</p>
-                <p className="mt-1 text-sm text-slate-500 dark:text-slate-400 max-w-sm">
-                  Bạn đã ẩn toàn bộ nội dung. Thêm widget bạn cần theo dõi, hoặc dùng một bố cục gợi ý để bắt đầu nhanh.
-                </p>
-              </div>
-              <div className="flex flex-wrap items-center justify-center gap-3">
-                <button onClick={() => setIsAddModalOpen(true)} className="min-h-[44px] px-5 rounded-2xl bg-indigo-600 text-white font-black text-sm hover:bg-indigo-700 flex items-center gap-2 cursor-pointer">
-                  <Plus size={16} aria-hidden="true" /> Thêm widget
-                </button>
-                {presets?.length ? (
-                  <button onClick={() => setPendingPreset(presets[0] ?? null)} className="min-h-[44px] px-5 rounded-2xl bg-slate-100 dark:bg-slate-800 font-black text-sm hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center gap-2 cursor-pointer">
-                    <Sparkles size={16} aria-hidden="true" /> Dùng bố cục gợi ý
-                  </button>
-                ) : null}
-              </div>
-            </div>
+              }
+            />
           )}
 
           <ResponsiveGridLayout
@@ -193,8 +187,8 @@ export default function DashboardCustomizeChrome({ api, renderWidget, catalog, r
                   // overflow-hidden là hàng rào bắt buộc: widget nào render cao hơn ô lưới
                   // (vd danh sách cảnh báo tự giãn theo nội dung) sẽ tràn ra và ĐÈ lên hàng
                   // dưới. Clip ở đây chặn được mọi trường hợp, không phụ thuộc widget tự lo.
-                  "relative group h-full overflow-hidden rounded-[28px]",
-                  isEditMode && "ring-2 ring-transparent hover:ring-indigo-500 transition-all"
+                  'group relative h-full overflow-hidden rounded-widget',
+                  isEditMode && 'ring-2 ring-transparent transition-shadow hover:ring-[var(--color-primary)]'
                 )}
               >
                 {isEditMode && (
@@ -205,27 +199,23 @@ export default function DashboardCustomizeChrome({ api, renderWidget, catalog, r
                     Kéo-thả chỉ là một cách; các nút bên cạnh là đường đi bắt buộc cho bàn phím
                     và cảm ứng (WCAG 2.2 AA — Dragging Movements), trên mobile là cách duy nhất.
                   */
-                  <div className="absolute top-2 right-2 z-[60] flex items-center gap-1 bg-white/95 dark:bg-slate-800/95 backdrop-blur border border-slate-200 dark:border-slate-700 px-1.5 py-1 rounded-full shadow-lg opacity-80 group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
-                    <span className="drag-handle hidden md:flex cursor-move items-center gap-1 px-2 py-1" aria-hidden="true">
-                      <GripVertical size={14} className="text-slate-400" />
-                      <span className="text-[10px] font-black uppercase tracking-widest text-slate-500">Kéo</span>
+                  <div className="absolute right-2 top-2 z-[60] flex items-center gap-0.5 rounded-control border border-[var(--color-border)] bg-[var(--color-card)] p-0.5 shadow-md">
+                    <span className="drag-handle hidden cursor-move items-center gap-1 px-2 py-1 md:flex" aria-hidden="true">
+                      <GripVertical size={14} className="text-[var(--color-muted-foreground)]" />
+                      <span className="text-caption">Kéo</span>
                     </span>
                     {moveWidget && (
                       <>
-                        <ChromeIconButton label={`Đưa "${block.title}" lên trên`} onClick={() => moveWidget(block.i, 'up')}><ArrowUp size={15} aria-hidden="true" /></ChromeIconButton>
-                        <ChromeIconButton label={`Đưa "${block.title}" xuống dưới`} onClick={() => moveWidget(block.i, 'down')}><ArrowDown size={15} aria-hidden="true" /></ChromeIconButton>
+                        <ChromeIconButton label={`Đưa "${block.title}" lên trên`} onClick={() => moveWidget(block.i, 'up')}><ArrowUp aria-hidden="true" /></ChromeIconButton>
+                        <ChromeIconButton label={`Đưa "${block.title}" xuống dưới`} onClick={() => moveWidget(block.i, 'down')}><ArrowDown aria-hidden="true" /></ChromeIconButton>
                       </>
                     )}
                     {cycleWidth && (
-                      <ChromeIconButton label={`Đổi bề rộng của "${block.title}"`} onClick={() => cycleWidth(block.i)}><MoveHorizontal size={15} aria-hidden="true" /></ChromeIconButton>
+                      <ChromeIconButton label={`Đổi bề rộng của "${block.title}"`} onClick={() => cycleWidth(block.i)}><MoveHorizontal aria-hidden="true" /></ChromeIconButton>
                     )}
-                    <span className="w-px h-5 bg-slate-200 dark:bg-slate-700 mx-0.5" aria-hidden="true" />
-                    <ChromeIconButton
-                      label={`Gỡ "${block.title}" khỏi trang`}
-                      onClick={() => deleteWidget(block.i)}
-                      danger
-                    >
-                      <Trash2 size={15} aria-hidden="true" />
+                    <span className="mx-0.5 h-5 w-px bg-[var(--color-border)]" aria-hidden="true" />
+                    <ChromeIconButton label={`Gỡ "${block.title}" khỏi trang`} onClick={() => deleteWidget(block.i)} danger>
+                      <Trash2 aria-hidden="true" />
                     </ChromeIconButton>
                   </div>
                 )}
@@ -234,7 +224,7 @@ export default function DashboardCustomizeChrome({ api, renderWidget, catalog, r
                   Widget đã tự quản chiều cao (WidgetShell) luôn vừa khít nên lớp này không kích hoạt.
                   Khi chỉnh sửa thì tắt con trỏ để biểu đồ không giành hover/tooltip/mousedown.
                 */}
-                <div className={cn("h-full w-full overflow-y-auto custom-scrollbar", isEditMode && "pointer-events-none")}>
+                <div className={cn('custom-scrollbar h-full w-full overflow-y-auto', isEditMode && 'pointer-events-none')}>
                   {renderWidget(block)}
                 </div>
               </div>
@@ -244,149 +234,104 @@ export default function DashboardCustomizeChrome({ api, renderWidget, catalog, r
       )}
 
       {/* ── Drawer Ẩn/Hiện ────────────────────────────────────────────────── */}
-      {isConfigOpen && (
-        <div className="fixed inset-0 z-[100] flex justify-end bg-black/40 backdrop-blur-sm" onClick={() => setIsConfigOpen(false)}>
-          <div role="dialog" aria-modal="true" aria-label="Ẩn hoặc hiện nội dung" className="w-full max-w-sm bg-white dark:bg-slate-900 h-full shadow-2xl p-6 flex flex-col animate-in slide-in-from-right" onClick={e => e.stopPropagation()}>
-            <div className="flex items-center justify-between mb-8">
-              <h3 className="font-black text-lg">Ẩn/Hiện nội dung</h3>
-              <button onClick={() => setIsConfigOpen(false)} aria-label="Đóng" className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg cursor-pointer"><X size={20} aria-hidden="true" /></button>
-            </div>
-            <div className="space-y-3 flex-1 overflow-auto custom-scrollbar">
+      <Drawer
+        open={isConfigOpen}
+        onClose={() => setIsConfigOpen(false)}
+        size="sm"
+        title="Ẩn / hiện widget"
+        description={`${visibleCount} / ${widgets.length} đang hiển thị`}
+        footer={<DialogFooter primary={<Button onClick={() => setIsConfigOpen(false)}>Xong</Button>} />}
+      >
+        <ul className="space-y-1">
               {widgets.map((b) => (
-                <div key={b.i} className={cn("flex items-center gap-3 p-4 rounded-2xl border transition-all", b.visible ? "border-indigo-200 bg-indigo-50/50 dark:border-indigo-800 dark:bg-indigo-900/10" : "border-slate-200 bg-slate-50 dark:border-slate-800 dark:bg-slate-800/30 opacity-60")}>
-                  <span className="flex-1 text-sm font-bold truncate">{b.title}</span>
-                  <button
+            <li key={b.i} className="flex h-10 items-center gap-3 rounded-control px-2 hover:bg-[var(--color-muted)]">
+              <span className={cn('min-w-0 flex-1 truncate text-sm', b.visible ? 'text-[var(--color-foreground)]' : 'text-[var(--color-muted-foreground)]')} title={b.title}>{b.title}</span>
+              <Button
+                variant="ghost" size="icon-sm"
                     onClick={() => toggleVisibility(b.i)}
                     aria-label={b.visible ? `Ẩn "${b.title}"` : `Hiện "${b.title}"`}
                     aria-pressed={b.visible}
-                    className={cn("p-2.5 rounded-xl transition-colors cursor-pointer", b.visible ? "text-indigo-600 bg-indigo-100 hover:bg-indigo-200" : "text-slate-400 bg-slate-200 hover:bg-slate-300")}
+                className={cn(b.visible ? 'text-[var(--color-primary)]' : 'text-[var(--color-subtle-foreground)]')}
                   >
-                    {b.visible ? <Eye size={18} aria-hidden="true" /> : <EyeOff size={18} aria-hidden="true" />}
-                  </button>
-                </div>
+                {b.visible ? <Eye aria-hidden="true" /> : <EyeOff aria-hidden="true" />}
+              </Button>
+            </li>
               ))}
-            </div>
-            <div className="pt-6 border-t border-slate-100 dark:border-slate-800 mt-auto">
-              <button onClick={() => setIsConfigOpen(false)} className="w-full py-4 rounded-2xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 font-black hover:opacity-90 transition-all cursor-pointer">Đóng</button>
-            </div>
-          </div>
-        </div>
-      )}
+        </ul>
+      </Drawer>
 
       {/* ── Thư viện widget ───────────────────────────────────────────────── */}
-      {isAddModalOpen && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={() => setIsAddModalOpen(false)}>
-          <div role="dialog" aria-modal="true" aria-label="Thư viện widget" className="w-full max-w-3xl max-h-[90vh] flex flex-col bg-white dark:bg-slate-900 rounded-[28px] sm:rounded-[32px] shadow-2xl p-5 sm:p-7 animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
-            <div className="flex items-start justify-between gap-4 mb-5">
-              <div className="min-w-0">
-                <h3 className="font-black text-xl">Thư viện widget</h3>
-                <p className="text-xs font-bold text-slate-400 mt-1">Chọn nội dung bạn muốn theo dõi trên trang chủ</p>
-              </div>
-              <button onClick={() => setIsAddModalOpen(false)} aria-label="Đóng" className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl cursor-pointer shrink-0"><X size={24} aria-hidden="true" /></button>
-            </div>
-
-            <div className="relative mb-5">
-              <Search size={16} aria-hidden="true" className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+      <Dialog
+        open={isAddModalOpen}
+        onClose={() => setIsAddModalOpen(false)}
+        size="xl"
+        title="Thư viện widget"
+        description="Chọn nội dung bạn muốn theo dõi trên trang chủ. Bấm lại một thẻ đã thêm để gỡ."
+        footer={
+          <DialogFooter
+            note={<span className="tabular-nums">{widgets.length} widget trên trang chủ</span>}
+            primary={<Button onClick={() => setIsAddModalOpen(false)}>Xong</Button>}
+          />
+        }
+      >
+        <div className="space-y-5">
+          <label className="relative flex h-9 items-center">
+            <Search size={16} aria-hidden="true" className="pointer-events-none absolute left-3 text-[var(--color-muted-foreground)]" />
               <input
                 type="search"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
                 placeholder="Tìm widget theo tên hoặc mô tả…"
                 aria-label="Tìm widget"
-                className="w-full min-h-[44px] pl-11 pr-4 rounded-2xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500"
+              className="h-9 w-full rounded-control border border-[var(--color-input)] bg-[var(--color-card)] pl-9 pr-3 text-sm text-[var(--color-foreground)] placeholder:text-[var(--color-muted-foreground)] focus:border-[var(--color-ring)] focus:outline-none focus:ring-2 focus:ring-[var(--color-ring)]"
               />
-            </div>
+          </label>
 
             {/* Bố cục gợi ý — lối tắt cho người không muốn tự dựng từng ô */}
             {presets?.length ? (
-              <div className="mb-6">
-                <p className="text-[11px] font-black uppercase tracking-widest text-slate-400 mb-3">Bố cục gợi ý</p>
+            <div>
+              <p className="text-eyebrow mb-2">Bố cục gợi ý</p>
                 <div className="flex flex-wrap gap-2">
                   {presets.map(p => (
-                    <button
-                      key={p.key}
-                      onClick={() => setPendingPreset(p)}
-                      title={p.description}
-                      className="min-h-[44px] px-4 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-bold hover:border-indigo-500 hover:text-indigo-600 flex items-center gap-2 transition-colors cursor-pointer"
-                    >
-                      <Sparkles size={14} aria-hidden="true" /> {p.label}
-                    </button>
+                  <Button key={p.key} variant="outline" size="sm" onClick={() => setPendingPreset(p)} title={p.description}>
+                    <Sparkles aria-hidden="true" /> {p.label}
+                  </Button>
                   ))}
                 </div>
               </div>
             ) : null}
 
-            <div className="flex-1 overflow-auto pr-1 custom-scrollbar space-y-7">
               {groupedCatalog.length === 0 && (
-                <p className="text-center text-sm text-slate-400 py-12">Không tìm thấy widget nào khớp “{search}”.</p>
+            <p className="py-8 text-center text-sm text-[var(--color-muted-foreground)]">Không tìm thấy widget nào khớp “{search}”.</p>
               )}
               {groupedCatalog.map(([groupLabel, entries]) => (
                 <section key={groupLabel}>
-                  <h4 className="text-[11px] font-black uppercase tracking-widest text-slate-400 mb-3">{groupLabel}</h4>
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <h3 className="text-eyebrow mb-2">{groupLabel}</h3>
+              <div className="grid grid-cols-1 gap-2 md:grid-cols-2">
                     {entries.map(({ template, icon, description }) => {
                       // Chặn trùng theo id widget — nhiều widget có thể dùng chung một `type`
                       const isAdded = widgets.some(w => w.i === template.i)
                       return (
-                        <button
-                          key={template.i}
-                          type="button"
-                          // Thẻ là một công tắc: bấm để thêm, bấm lại để gỡ. Trước đây thẻ đã thêm
-                          // bị disabled nên muốn bỏ chọn phải đóng thư viện rồi xoá ngoài lưới.
-                          onClick={() => (isAdded ? deleteWidget(template.i) : addWidget(template))}
-                          aria-pressed={isAdded}
-                          className={cn(
-                            "flex items-start gap-4 p-4 rounded-2xl border text-left transition-all group cursor-pointer",
-                            "focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500",
-                            isAdded
-                              ? "bg-indigo-50/60 dark:bg-indigo-500/10 border-indigo-300 dark:border-indigo-700"
-                              : "bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-indigo-500 hover:shadow-lg"
-                          )}
-                        >
-                          <div className={cn(
-                            "w-11 h-11 shrink-0 rounded-xl flex items-center justify-center",
-                            isAdded
-                              ? "bg-indigo-600 text-white"
-                              : "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600"
-                          )}>
-                            {isAdded ? <Check size={20} aria-hidden="true" /> : icon}
-                          </div>
-                          <div className="flex-1 min-w-0">
-                            <p className="font-black text-sm text-slate-900 dark:text-white">{template.title}</p>
-                            {description && <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">{description}</p>}
-                            {/* Nói rõ bấm lần nữa sẽ gỡ, để trạng thái "đã chọn" không thành ngõ cụt */}
-                            <p className={cn(
-                              "text-[10px] font-black uppercase tracking-wider mt-1.5",
-                              isAdded ? "text-indigo-600 dark:text-indigo-400" : "text-transparent"
-                            )}>
-                              {isAdded ? 'Đã thêm · bấm để gỡ' : ' '}
-                            </p>
-                          </div>
+                        <ChoiceChip selected={isAdded} className="text-left" key={template.i} onClick={() => (isAdded ? deleteWidget(template.i) : addWidget(template))} aria-pressed={isAdded}>
+                      <span className={cn('flex h-9 w-9 shrink-0 items-center justify-center rounded-control [&_svg]:size-[18px]', isAdded ? 'bg-[var(--color-primary)] text-[var(--color-primary-foreground)]' : 'bg-[var(--color-muted)] text-[var(--color-primary)]')} aria-hidden="true">
+                        {isAdded ? <Check /> : icon}
+                      </span>
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-medium text-[var(--color-foreground)]">{template.title}</span>
+                        {description && <span className="mt-0.5 block text-caption">{description}</span>}
+                        {isAdded && <span className="mt-1 block text-caption text-[var(--color-primary)]">Đã thêm · bấm để gỡ</span>}
+                      </span>
                           {isAdded
-                            ? <X size={16} aria-hidden="true" className="text-indigo-400 opacity-0 group-hover:opacity-100 transition-opacity shrink-0 mt-1" />
-                            : <Plus size={16} aria-hidden="true" className="text-slate-300 group-hover:text-indigo-600 transition-colors shrink-0 mt-1" />}
-                        </button>
+                        ? <X aria-hidden="true" className="mt-1 shrink-0 text-[var(--color-primary)] opacity-0 transition-opacity group-hover:opacity-100" />
+                        : <Plus aria-hidden="true" className="mt-1 shrink-0 text-[var(--color-subtle-foreground)] transition-colors group-hover:text-[var(--color-foreground)]" />}
+                        </ChoiceChip>
                       )
                     })}
                   </div>
                 </section>
               ))}
             </div>
-
-            <div className="mt-6 flex items-center justify-between gap-4">
-              <p className="text-xs font-bold text-slate-500 dark:text-slate-400 tabular-nums">
-                Đang hiển thị <span className="text-slate-900 dark:text-white">{widgets.length}</span> widget trên trang chủ
-              </p>
-              <button
-                onClick={() => setIsAddModalOpen(false)}
-                className="min-h-[44px] px-8 rounded-2xl bg-indigo-600 text-white font-black text-sm hover:bg-indigo-700 focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900 transition-colors cursor-pointer"
-              >
-                Xong
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      </Dialog>
 
       {/* Áp preset là ghi đè toàn bộ — cùng chuẩn xác nhận với Đặt lại */}
       <ConfirmDialog
@@ -406,23 +351,19 @@ export default function DashboardCustomizeChrome({ api, renderWidget, catalog, r
   )
 }
 
-/** Nút icon trong thanh điều khiển widget — đủ 44px vùng chạm và có tên cho trình đọc màn hình. */
+/** Nút icon trong thanh điều khiển widget — 32px, có tên cho trình đọc màn hình. */
 function ChromeIconButton({ label, onClick, danger, children }: {
   label: string; onClick: () => void; danger?: boolean; children: React.ReactNode
 }) {
   return (
-    <button
+    <Button
+      variant="ghost" size="icon-sm"
       onClick={onClick}
       aria-label={label}
       title={label}
-      className={cn(
-        "min-w-[36px] min-h-[36px] md:min-w-[32px] md:min-h-[32px] flex items-center justify-center rounded-full focus:outline-none focus-visible:ring-2 transition-colors cursor-pointer",
-        danger
-          ? "text-red-500 hover:text-white hover:bg-red-500 focus-visible:ring-red-500"
-          : "text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 focus-visible:ring-indigo-500"
-      )}
+      className={cn(danger && 'text-[var(--color-error)] hover:bg-[var(--color-error-bg)]')}
     >
       {children}
-    </button>
+    </Button>
   )
 }

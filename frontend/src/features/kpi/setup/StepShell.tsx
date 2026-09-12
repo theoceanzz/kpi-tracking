@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { ArrowLeft } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
 
 interface Props {
   title: string
@@ -31,28 +32,24 @@ export default function StepShell({ title, description, children, footer, onBack
       )}
     >
       <div className="space-y-1">
-        <h2 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white md:text-3xl">{title}</h2>
-        {description && <p className="text-sm font-medium text-slate-500 dark:text-slate-400">{description}</p>}
+        <h2 className="text-page-title">{title}</h2>
+        {description && <p className="text-sm font-medium text-[var(--color-muted-foreground)]">{description}</p>}
       </div>
 
       <div
         className={cn(
           !bare &&
-            'rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 md:p-8',
+            'rounded-card border border-[var(--color-border)] bg-[var(--color-card)] p-6 shadow-sm md:p-8',
         )}
       >
         {children}
       </div>
 
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <button
-          type="button"
-          onClick={onBack}
-          className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-black uppercase tracking-widest text-slate-500 transition-colors hover:bg-white hover:text-slate-800 dark:text-slate-400 dark:hover:bg-slate-900 dark:hover:text-white"
-        >
-          <ArrowLeft size={14} />
+        <Button variant="secondary" type="button" onClick={onBack}>
+          <ArrowLeft aria-hidden="true" />
           {backLabel}
-        </button>
+        </Button>
         {footer}
       </div>
     </div>

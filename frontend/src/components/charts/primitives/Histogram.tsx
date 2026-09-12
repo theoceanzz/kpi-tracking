@@ -37,7 +37,7 @@ export default function Histogram({ bins, thresholds = [], marker, unit = '', he
 
   if (total === 0) {
     return (
-      <div className="w-full flex items-center justify-center text-sm text-slate-400 font-medium" style={{ height }}>
+      <div className="w-full flex items-center justify-center text-sm text-[var(--color-subtle-foreground)] font-medium" style={{ height }}>
         Chưa có dữ liệu để dựng phân phối
       </div>
     )
@@ -103,12 +103,12 @@ function HistTooltip({ active, payload, total, unit }: {
   if (!active || !d) return null
   const pct = total > 0 ? Math.round(d.count * 1000 / total) / 10 : 0
   return (
-    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3.5 rounded-xl shadow-lg">
-      <p className="font-bold text-slate-900 dark:text-white mb-1">
+    <div className="bg-[var(--color-card)] border border-[var(--color-border)] p-3.5 rounded-card shadow-lg">
+      <p className="font-bold text-[var(--color-foreground)] mb-1">
         {d.label}{unit ? ` ${unit}` : ''}
       </p>
-      <p className="font-black text-lg text-slate-900 dark:text-white tabular-nums">{d.count}</p>
-      <p className="text-[11px] text-slate-400 font-medium">{pct}% tổng số</p>
+      <p className="font-semibold text-lg text-[var(--color-foreground)] tabular-nums">{d.count}</p>
+      <p className="text-[11px] text-[var(--color-subtle-foreground)] font-medium">{pct}% tổng số</p>
     </div>
   )
 }

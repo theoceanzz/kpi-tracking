@@ -3,13 +3,14 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { platformAdminApi } from '../api/platformAdminApi'
 import type { OrganizationAdminItem } from '../api/platformAdminApi'
 import AiUsageSection from '../components/AiUsageSection'
-import {
-  Building2, Users, Target, FileText, Bot, TrendingUp,
-  ChevronLeft, ChevronRight
-} from 'lucide-react'
+import { Building2, Users, Target, FileText, Bot, TrendingUp } from 'lucide-react'
 import { toast } from 'sonner'
 import { getApiErrorMessage } from '@/lib/apiError'
-import { cn } from '@/lib/utils'
+import { StatCard } from '@/features/dashboard/widgets/shared/StatCard'
+import WorkspaceHeader from '@/components/common/WorkspaceHeader'
+import Pagination from '@/components/common/Pagination'
+import { Badge } from '@/components/ui/badge'
+import { Switch } from '@/components/ui/switch'
 
 const STATUS_LABELS: Record<string, string> = {
   ACTIVE: 'Hoạt động',
@@ -18,70 +19,20 @@ const STATUS_LABELS: Record<string, string> = {
   ARCHIVED: 'Đã lưu trữ',
 }
 
-const STATUS_COLORS: Record<string, string> = {
-  ACTIVE: 'bg-emerald-100 text-emerald-700',
-  PENDING: 'bg-amber-100 text-amber-700',
-  SUSPENDED: 'bg-red-100 text-red-700',
-  ARCHIVED: 'bg-gray-100 text-gray-600',
-}
-
-function StatCard({
-  label,
-  value,
-  sub,
-  icon: Icon,
-  color,
-}: {
-  label: string
-  value: number | string
-  sub?: string
-  icon: React.ElementType
-  color: string
-}) {
-  return (
-    <div className="bg-white rounded-xl border border-gray-200 px-4 py-3 sm:p-5 flex items-center gap-3 sm:gap-4 shadow-sm">
-      <div className={cn('p-2 sm:p-3 rounded-lg shrink-0', color)}>
-        <Icon className="w-4 h-4 sm:w-5 sm:h-5" />
-      </div>
-      <div className="flex-1 min-w-0 flex sm:block items-center justify-between gap-2">
-        <p className="text-xs sm:text-sm text-gray-500 truncate">{label}</p>
-        <div className="flex items-baseline gap-2 sm:block">
-          <p className="text-xl sm:text-2xl font-bold text-gray-900 sm:mt-0.5 shrink-0">{value.toLocaleString('vi-VN')}</p>
-          {sub && <p className="text-[10px] sm:text-xs text-gray-400 sm:mt-0.5 truncate">{sub}</p>}
-        </div>
-      </div>
-    </div>
-  )
+const STATUS_VARIANT: Record<string, 'success' | 'warning' | 'destructive' | 'secondary'> = {
+  ACTIVE: 'success',
+  PENDING: 'warning',
+  SUSPENDED: 'destructive',
+  ARCHIVED: 'secondary',
 }
 
 /** Nhãn Bật/Tắt của một tính năng. Mỗi tính năng một màu riêng để quét bảng theo cột cho nhanh. */
-function FeatureBadge({ on, color }: { on: boolean; color: string }) {
-  return (
-    <span className={cn('px-2 py-0.5 rounded-full text-xs font-medium shrink-0', on ? color : 'bg-gray-100 text-gray-400')}>
-      {on ? 'Bật' : 'Tắt'}
-    </span>
-  )
+function FeatureBadge({ on }: { on: boolean; color?: string }) {
+  return <Badge variant={on ? 'success' : 'secondary'}>{on ? 'Bật' : 'Tắt'}</Badge>
 }
 
 function AiToggle({ org, onToggle }: { org: OrganizationAdminItem; onToggle: (id: string, val: boolean) => void }) {
-  return (
-    <button
-      onClick={() => onToggle(org.id, !org.enableAi)}
-      className={cn(
-        'relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none',
-        org.enableAi ? 'bg-indigo-500' : 'bg-gray-300'
-      )}
-      role="switch"
-      aria-checked={org.enableAi}
-    >
-      <span
-        className={cn(
-          'pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform',
-          org.enableAi ? 'translate-x-4' : 'translate-x-0'
-        )}
-      />
-    </button>
-  )
+  return <Switch size="sm" checked={org.enableAi} onCheckedChange={v => onToggle(org.id, v)} aria-label={`${org.enableAi ? 'Tắt' : 'Bật'} AI cho ${org.name}`} />
 }
 
 export default function PlatformAdminPage() {
@@ -116,143 +67,95 @@ export default function PlatformAdminPage() {
   }
 
   return (
-    <div className="p-4 md:p-6 space-y-6 max-w-screen-xl mx-auto">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Quản trị nền tảng</h1>
-        <p className="text-sm text-gray-500 mt-1">Thống kê toàn hệ thống và quản lý các công ty</p>
-      </div>
+    <div className="mx-auto max-w-[1600px] space-y-4">
+      <WorkspaceHeader title="Quản trị nền tảng" description="Thống kê toàn hệ thống, bật/tắt tính năng theo công ty và theo dõi ngân sách AI." />
 
       {/* Stats */}
       {loadingStats ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
           {Array.from({ length: 8 }).map((_, i) => (
-            <div key={i} className="h-24 rounded-xl bg-gray-100 animate-pulse" />
+            <div key={i} className="h-24 rounded-card bg-[var(--color-muted)] animate-pulse" />
           ))}
         </div>
       ) : stats ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4 gap-3">
-          <StatCard
-            label="Tổng công ty"
-            value={stats.totalOrgs}
-            sub={`Đang hoạt động: ${stats.orgsByStatus?.ACTIVE ?? 0}`}
-            icon={Building2}
-            color="bg-indigo-50 text-indigo-600"
-          />
-          <StatCard
-            label="Tổng người dùng"
-            value={stats.totalUsers}
-            sub={`Mới tháng này: +${stats.newUsersThisMonth}`}
-            icon={Users}
-            color="bg-blue-50 text-blue-600"
-          />
-          <StatCard
-            label="Tổng KPI"
-            value={stats.totalKpiCriteria}
-            icon={Target}
-            color="bg-emerald-50 text-emerald-600"
-          />
-          <StatCard
-            label="Nộp KPI tháng này"
-            value={stats.totalSubmissionsThisMonth}
-            icon={FileText}
-            color="bg-amber-50 text-amber-600"
-          />
-          <StatCard
-            label="Công ty bật AI"
-            value={stats.orgsWithAiEnabled}
-            sub={`Tổng: ${stats.totalOrgs}`}
-            icon={Bot}
-            color="bg-violet-50 text-violet-600"
-          />
-          <StatCard
-            label="Hội thoại AI"
-            value={stats.totalAiConversations}
-            icon={TrendingUp}
-            color="bg-pink-50 text-pink-600"
-          />
-          <StatCard
-            label="Tin nhắn AI"
-            value={stats.totalAiMessages}
-            icon={Bot}
-            color="bg-cyan-50 text-cyan-600"
-          />
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
+          <StatCard label="Tổng công ty" value={stats.totalOrgs} sub={`Đang hoạt động: ${stats.orgsByStatus?.ACTIVE ?? 0}`} icon={<Building2 />} color="indigo" />
+          <StatCard label="Tổng người dùng" value={stats.totalUsers} sub={`Mới tháng này: +${stats.newUsersThisMonth}`} icon={<Users />} color="blue" />
+          <StatCard label="Tổng KPI" value={stats.totalKpiCriteria} icon={<Target />} color="emerald" />
+          <StatCard label="Nộp KPI tháng này" value={stats.totalSubmissionsThisMonth} icon={<FileText />} color="amber" />
+          <StatCard label="Công ty bật AI" value={stats.orgsWithAiEnabled} sub={`Tổng: ${stats.totalOrgs}`} icon={<Bot />} color="indigo" />
+          <StatCard label="Hội thoại AI" value={stats.totalAiConversations} icon={<TrendingUp />} color="purple" />
+          <StatCard label="Tin nhắn AI" value={stats.totalAiMessages} icon={<Bot />} color="blue" />
           {stats.orgsByStatus?.PENDING != null && stats.orgsByStatus.PENDING > 0 && (
-            <StatCard
-              label="Chờ phê duyệt"
-              value={stats.orgsByStatus.PENDING}
-              icon={Building2}
-              color="bg-amber-50 text-amber-600"
-            />
+            <StatCard label="Chờ phê duyệt" value={stats.orgsByStatus.PENDING} icon={<Building2 />} color="amber" highlight />
           )}
         </div>
       ) : null}
 
       {/* Organizations table */}
-      <div className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">
-        <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
-          <h2 className="font-semibold text-gray-800">Danh sách công ty</h2>
-          <span className="text-sm text-gray-400">{orgsPage?.totalElements ?? 0} công ty</span>
+      <div className="overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
+        <div className="px-5 py-4 border-b border-[var(--color-border)] flex items-center justify-between">
+          <h2 className="text-section-title">Danh sách công ty</h2>
+          <span className="text-caption tabular-nums">{orgsPage?.totalElements ?? 0} công ty</span>
         </div>
 
         {loadingOrgs ? (
           <div className="p-5 space-y-3">
             {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="h-10 rounded-lg bg-gray-100 animate-pulse" />
+              <div key={i} className="h-10 rounded-control bg-[var(--color-muted)] animate-pulse" />
             ))}
           </div>
         ) : (
           <>
             {/* Mobile: card layout */}
-            <div className="sm:hidden divide-y divide-gray-100">
+            <div className="sm:hidden divide-y divide-[var(--color-border)]">
               {orgsPage?.content.map((org) => (
                 <div key={org.id} className="p-4 space-y-3">
                   <div className="flex items-start justify-between gap-2">
                     <div>
-                      <p className="font-semibold text-gray-900 text-sm">{org.name}</p>
-                      <p className="text-xs text-gray-400 font-mono mt-0.5">{org.code}</p>
+                      <p className="font-semibold text-[var(--color-foreground)] text-sm">{org.name}</p>
+                      <p className="text-xs text-[var(--color-subtle-foreground)] font-mono mt-0.5">{org.code}</p>
                     </div>
-                    <span className={cn('px-2 py-0.5 rounded-full text-xs font-medium shrink-0', STATUS_COLORS[org.status] ?? 'bg-gray-100 text-gray-600')}>
-                      {STATUS_LABELS[org.status] ?? org.status}
-                    </span>
+                    <Badge variant={STATUS_VARIANT[org.status] ?? 'secondary'}>{STATUS_LABELS[org.status] ?? org.status}</Badge>
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
-                      <span className="text-gray-500">Người dùng</span>
-                      <span className="font-semibold text-gray-800">{org.userCount}</span>
+                    <div className="flex items-center justify-between bg-[var(--color-muted)] rounded-control px-3 py-2">
+                      <span className="text-[var(--color-muted-foreground)]">Người dùng</span>
+                      <span className="font-semibold text-[var(--color-foreground)]">{org.userCount}</span>
                     </div>
-                    <div className="flex items-center justify-between bg-gray-50 rounded-lg px-3 py-2">
-                      <span className="text-gray-500">Ngày tạo</span>
-                      <span className="font-medium text-gray-600">{new Date(org.createdAt).toLocaleDateString('vi-VN')}</span>
+                    <div className="flex items-center justify-between bg-[var(--color-muted)] rounded-control px-3 py-2">
+                      <span className="text-[var(--color-muted-foreground)]">Ngày tạo</span>
+                      <span className="font-medium text-[var(--color-muted-foreground)]">{new Date(org.createdAt).toLocaleDateString('vi-VN')}</span>
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
-                    <div className="flex items-center gap-2 bg-gray-50 rounded-lg px-2 py-2">
-                      <span className="text-xs text-gray-500 whitespace-nowrap">AI</span>
+                    <div className="flex items-center gap-2 bg-[var(--color-muted)] rounded-control px-2 py-2">
+                      <span className="text-xs text-[var(--color-muted-foreground)] whitespace-nowrap">AI</span>
                       <AiToggle org={org} onToggle={handleToggleAi} />
                     </div>
-                    <div className="flex items-center justify-between bg-gray-50 rounded-lg px-2 py-2">
-                      <span className="text-xs text-gray-500 whitespace-nowrap">OKR</span>
-                      <FeatureBadge on={org.enableOkr} color="bg-indigo-100 text-indigo-700" />
+                    <div className="flex items-center justify-between bg-[var(--color-muted)] rounded-control px-2 py-2">
+                      <span className="text-xs text-[var(--color-muted-foreground)] whitespace-nowrap">OKR</span>
+                      <FeatureBadge on={org.enableOkr} color="bg-[var(--color-primary-soft)] text-[var(--color-primary)]" />
                     </div>
-                    <div className="flex items-center justify-between gap-2 bg-gray-50 rounded-lg px-2 py-2">
-                      <span className="text-xs text-gray-500 whitespace-nowrap">BSC</span>
-                      <FeatureBadge on={org.enableBsc} color="bg-violet-100 text-violet-700" />
+                    <div className="flex items-center justify-between gap-2 bg-[var(--color-muted)] rounded-control px-2 py-2">
+                      <span className="text-xs text-[var(--color-muted-foreground)] whitespace-nowrap">BSC</span>
+                      <FeatureBadge on={org.enableBsc} color="bg-[var(--color-primary-soft)] text-[var(--color-primary)]" />
                     </div>
-                    <div className="flex items-center justify-between gap-2 bg-gray-50 rounded-lg px-2 py-2">
-                      <span className="text-xs text-gray-500 whitespace-nowrap">Thác nước</span>
-                      <FeatureBadge on={org.enableWaterfall} color="bg-cyan-100 text-cyan-700" />
+                    <div className="flex items-center justify-between gap-2 bg-[var(--color-muted)] rounded-control px-2 py-2">
+                      <span className="text-xs text-[var(--color-muted-foreground)] whitespace-nowrap">Thác nước</span>
+                      <FeatureBadge on={org.enableWaterfall} color="bg-[var(--color-info-bg)] text-[var(--color-info)]" />
                     </div>
-                    <div className="flex items-center justify-between gap-2 bg-gray-50 rounded-lg px-2 py-2">
-                      <span className="text-xs text-gray-500 whitespace-nowrap">KPI hành vi</span>
-                      <FeatureBadge on={org.enableQualitative} color="bg-emerald-100 text-emerald-700" />
+                    <div className="flex items-center justify-between gap-2 bg-[var(--color-muted)] rounded-control px-2 py-2">
+                      <span className="text-xs text-[var(--color-muted-foreground)] whitespace-nowrap">KPI hành vi</span>
+                      <FeatureBadge on={org.enableQualitative} color="bg-[var(--color-success-bg)] text-[var(--color-success)]" />
                     </div>
-                    <div className="flex items-center justify-between gap-2 bg-gray-50 rounded-lg px-2 py-2">
-                      <span className="text-xs text-gray-500 whitespace-nowrap">Thưởng điểm</span>
-                      <FeatureBadge on={org.enableReward} color="bg-amber-100 text-amber-700" />
+                    <div className="flex items-center justify-between gap-2 bg-[var(--color-muted)] rounded-control px-2 py-2">
+                      <span className="text-xs text-[var(--color-muted-foreground)] whitespace-nowrap">Thưởng điểm</span>
+                      <FeatureBadge on={org.enableReward} color="bg-[var(--color-warning-bg)] text-[var(--color-warning)]" />
                     </div>
-                    <div className="flex items-center justify-between gap-2 bg-gray-50 rounded-lg px-2 py-2">
-                      <span className="text-xs text-gray-500 whitespace-nowrap">Ví tiền</span>
-                      <FeatureBadge on={org.enableCashWallet} color="bg-teal-100 text-teal-700" />
+                    <div className="flex items-center justify-between gap-2 bg-[var(--color-muted)] rounded-control px-2 py-2">
+                      <span className="text-xs text-[var(--color-muted-foreground)] whitespace-nowrap">Ví tiền</span>
+                      <FeatureBadge on={org.enableCashWallet} color="bg-[var(--color-info-bg)] text-[var(--color-info)]" />
                     </div>
                   </div>
                 </div>
@@ -263,56 +166,54 @@ export default function PlatformAdminPage() {
             <div className="hidden sm:block overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
-                  <tr className="border-b border-gray-100 bg-gray-50 text-gray-500 text-xs uppercase">
-                    <th className="px-4 py-3 text-left font-medium">Tên công ty</th>
-                    <th className="px-4 py-3 text-left font-medium">Mã</th>
-                    <th className="px-4 py-3 text-left font-medium">Trạng thái</th>
-                    <th className="px-4 py-3 text-right font-medium">Người dùng</th>
-                    <th className="px-4 py-3 text-center font-medium">AI</th>
-                    <th className="px-4 py-3 text-center font-medium hidden md:table-cell">OKR</th>
-                    <th className="px-4 py-3 text-center font-medium hidden md:table-cell">BSC</th>
-                    <th className="px-4 py-3 text-center font-medium hidden md:table-cell">Thác nước</th>
-                    <th className="px-4 py-3 text-center font-medium hidden md:table-cell">KPI hành vi</th>
-                    <th className="px-4 py-3 text-center font-medium hidden md:table-cell">Thưởng điểm</th>
-                    <th className="px-4 py-3 text-center font-medium hidden md:table-cell">Ví tiền</th>
-                    <th className="px-4 py-3 text-left font-medium hidden lg:table-cell">Ngày tạo</th>
+                  <tr className="border-b border-[var(--color-border)] bg-[var(--color-muted)]">
+                    <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">Tên công ty</th>
+                    <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">Mã</th>
+                    <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">Trạng thái</th>
+                    <th scope="col" className="px-4 py-2.5 text-right text-eyebrow">Người dùng</th>
+                    <th scope="col" className="px-4 py-2.5 text-center text-eyebrow">AI</th>
+                    <th scope="col" className="px-4 py-2.5 text-center text-eyebrow hidden md:table-cell">OKR</th>
+                    <th scope="col" className="px-4 py-2.5 text-center text-eyebrow hidden md:table-cell">BSC</th>
+                    <th scope="col" className="px-4 py-2.5 text-center text-eyebrow hidden md:table-cell">Thác nước</th>
+                    <th scope="col" className="px-4 py-2.5 text-center text-eyebrow hidden md:table-cell">KPI hành vi</th>
+                    <th scope="col" className="px-4 py-2.5 text-center text-eyebrow hidden md:table-cell">Thưởng điểm</th>
+                    <th scope="col" className="px-4 py-2.5 text-center text-eyebrow hidden md:table-cell">Ví tiền</th>
+                    <th scope="col" className="px-4 py-2.5 text-left text-eyebrow hidden lg:table-cell">Ngày tạo</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-50">
+                <tbody className="divide-y divide-[var(--color-border)]">
                   {orgsPage?.content.map((org) => (
-                    <tr key={org.id} className="hover:bg-gray-50 transition-colors">
-                      <td className="px-4 py-3.5 font-medium text-gray-900">{org.name}</td>
-                      <td className="px-4 py-3.5 text-gray-500 font-mono text-xs">{org.code}</td>
-                      <td className="px-4 py-3.5">
-                        <span className={cn('px-2 py-0.5 rounded-full text-xs font-medium', STATUS_COLORS[org.status] ?? 'bg-gray-100 text-gray-600')}>
-                          {STATUS_LABELS[org.status] ?? org.status}
-                        </span>
+                    <tr key={org.id} className="hover:bg-[var(--color-muted)] transition-colors">
+                      <td className="px-4 py-3 font-medium text-[var(--color-foreground)]">{org.name}</td>
+                      <td className="px-4 py-3 text-[var(--color-muted-foreground)] font-mono text-xs">{org.code}</td>
+                      <td className="px-4 py-3">
+                        <Badge variant={STATUS_VARIANT[org.status] ?? 'secondary'}>{STATUS_LABELS[org.status] ?? org.status}</Badge>
                       </td>
-                      <td className="px-4 py-3.5 text-right text-gray-600">{org.userCount}</td>
-                      <td className="px-4 py-3.5">
+                      <td className="px-4 py-3 text-right text-[var(--color-muted-foreground)]">{org.userCount}</td>
+                      <td className="px-4 py-3">
                         <div className="flex justify-center">
                           <AiToggle org={org} onToggle={handleToggleAi} />
                         </div>
                       </td>
-                      <td className="px-4 py-3.5 text-center hidden md:table-cell">
-                        <FeatureBadge on={org.enableOkr} color="bg-indigo-100 text-indigo-700" />
+                      <td className="px-4 py-3 text-center hidden md:table-cell">
+                        <FeatureBadge on={org.enableOkr} color="bg-[var(--color-primary-soft)] text-[var(--color-primary)]" />
                       </td>
-                      <td className="px-4 py-3.5 text-center hidden md:table-cell">
-                        <FeatureBadge on={org.enableBsc} color="bg-violet-100 text-violet-700" />
+                      <td className="px-4 py-3 text-center hidden md:table-cell">
+                        <FeatureBadge on={org.enableBsc} color="bg-[var(--color-primary-soft)] text-[var(--color-primary)]" />
                       </td>
-                      <td className="px-4 py-3.5 text-center hidden md:table-cell">
-                        <FeatureBadge on={org.enableWaterfall} color="bg-cyan-100 text-cyan-700" />
+                      <td className="px-4 py-3 text-center hidden md:table-cell">
+                        <FeatureBadge on={org.enableWaterfall} color="bg-[var(--color-info-bg)] text-[var(--color-info)]" />
                       </td>
-                      <td className="px-4 py-3.5 text-center hidden md:table-cell">
-                        <FeatureBadge on={org.enableQualitative} color="bg-emerald-100 text-emerald-700" />
+                      <td className="px-4 py-3 text-center hidden md:table-cell">
+                        <FeatureBadge on={org.enableQualitative} color="bg-[var(--color-success-bg)] text-[var(--color-success)]" />
                       </td>
-                      <td className="px-4 py-3.5 text-center hidden md:table-cell">
-                        <FeatureBadge on={org.enableReward} color="bg-amber-100 text-amber-700" />
+                      <td className="px-4 py-3 text-center hidden md:table-cell">
+                        <FeatureBadge on={org.enableReward} color="bg-[var(--color-warning-bg)] text-[var(--color-warning)]" />
                       </td>
-                      <td className="px-4 py-3.5 text-center hidden md:table-cell">
-                        <FeatureBadge on={org.enableCashWallet} color="bg-teal-100 text-teal-700" />
+                      <td className="px-4 py-3 text-center hidden md:table-cell">
+                        <FeatureBadge on={org.enableCashWallet} color="bg-[var(--color-info-bg)] text-[var(--color-info)]" />
                       </td>
-                      <td className="px-4 py-3.5 text-gray-400 text-xs hidden lg:table-cell">
+                      <td className="px-4 py-3 text-[var(--color-subtle-foreground)] text-xs hidden lg:table-cell">
                         {new Date(org.createdAt).toLocaleDateString('vi-VN')}
                       </td>
                     </tr>
@@ -323,26 +224,9 @@ export default function PlatformAdminPage() {
           </>
         )}
 
-        {/* Pagination */}
         {orgsPage && orgsPage.totalPages > 1 && (
-          <div className="px-5 py-3 border-t border-gray-100 flex items-center justify-between text-sm text-gray-500">
-            <span>Trang {page + 1} / {orgsPage.totalPages}</span>
-            <div className="flex gap-2">
-              <button
-                disabled={page === 0}
-                onClick={() => setPage((p) => p - 1)}
-                className="p-1 rounded hover:bg-gray-100 disabled:opacity-30"
-              >
-                <ChevronLeft className="w-4 h-4" />
-              </button>
-              <button
-                disabled={orgsPage.last}
-                onClick={() => setPage((p) => p + 1)}
-                className="p-1 rounded hover:bg-gray-100 disabled:opacity-30"
-              >
-                <ChevronRight className="w-4 h-4" />
-              </button>
-            </div>
+          <div className="border-t border-[var(--color-border)] px-5 py-3">
+            <Pagination currentPage={page} totalPages={orgsPage.totalPages} totalElements={orgsPage.totalElements} size={20} onPageChange={setPage} itemLabel="công ty" />
           </div>
         )}
       </div>

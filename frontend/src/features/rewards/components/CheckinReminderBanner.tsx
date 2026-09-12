@@ -3,6 +3,7 @@ import { Link, useLocation } from 'react-router-dom'
 import { ArrowRight, CalendarCheck, Flame, X } from 'lucide-react'
 import { useHasPermission } from '@/components/auth/PermissionGate'
 import { useMyCheckinStatus } from '../hooks/useCheckin'
+import { Button } from '@/components/ui/button'
 
 /**
  * Ngày đã tắt nhắc, theo giờ Việt Nam (khớp với `today` backend trả về). Lưu NGÀY chứ
@@ -54,9 +55,9 @@ export default function CheckinReminderBanner() {
   const streak = status.streakLength ?? 0
 
   return (
-    <div className="border-b border-amber-500/30 bg-amber-500/10">
+    <div className="border-b border-[var(--color-warning-border)] bg-[var(--color-warning-bg)]">
       <div className="flex items-center gap-3 px-4 py-2.5 md:px-6">
-        <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-amber-500/20 text-amber-600 dark:text-amber-400">
+        <span className="flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-control bg-[var(--color-warning-bg)] text-[var(--color-warning)]">
           <CalendarCheck size={17} />
         </span>
 
@@ -73,7 +74,7 @@ export default function CheckinReminderBanner() {
               <>
                 {' '}và giữ chuỗi{' '}
                 <strong className="inline-flex items-center gap-0.5 text-[var(--color-foreground)]">
-                  <Flame size={13} className="text-orange-500" />
+                  <Flame size={13} className="text-[var(--color-warning)]" />
                   {streak} ngày
                 </strong>
               </>
@@ -84,7 +85,7 @@ export default function CheckinReminderBanner() {
 
         <Link
           to="/me?section=my-rewards"
-          className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-lg bg-amber-500 px-3 py-1.5 text-sm font-semibold text-white transition-opacity hover:opacity-90"
+          className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-control bg-[var(--color-warning-solid)] px-3 py-1.5 text-sm font-semibold text-white transition-opacity hover:opacity-90"
         >
           {/* Nhãn rút gọn ở mobile — chữ đầy đủ sẽ đẩy nút x ra khỏi màn hình hẹp. */}
           <span className="hidden sm:inline">Điểm danh ngay</span>
@@ -92,13 +93,9 @@ export default function CheckinReminderBanner() {
           <ArrowRight size={14} />
         </Link>
 
-        <button
-          onClick={dismiss}
-          title="Ẩn nhắc nhở hôm nay"
-          className="flex-shrink-0 rounded-lg p-1.5 text-[var(--color-muted-foreground)] transition-colors hover:bg-amber-500/20 hover:text-[var(--color-foreground)]"
-        >
-          <X size={16} />
-        </button>
+        <Button variant="ghost" size="icon-sm" aria-label="Ẩn nhắc nhở hôm nay" onClick={dismiss} title="Ẩn nhắc nhở hôm nay">
+          <X aria-hidden="true" />
+        </Button>
       </div>
     </div>
   )

@@ -1,7 +1,9 @@
 import { useEffect, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Loader2, X, Trophy, Info } from 'lucide-react'
+import { Loader2, Info } from 'lucide-react'
+import { Dialog, DialogFooter } from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
 import TierEditor, { maxTierCost, tierError } from './TierEditor'
 import { useQuery } from '@tanstack/react-query'
 import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
@@ -169,8 +171,6 @@ export default function ProgramFormModal({ open, onClose, editProgram }: Program
     if (!orgUnitId && root) setValue('orgUnitId', root.id)
   }, [flatUnits, orgUnitId, setValue])
 
-  if (!open) return null
-
   // Cảnh báo bậc thưởng phải hiện NGAY khi sửa chứ không đợi bấm Lưu, nên vẫn tính tại
   // chỗ; schema gọi cùng hàm này để chặn lúc gửi, hai bên không thể lệch luật.
   const tierMsg = tierError(tiers)
@@ -200,301 +200,287 @@ export default function ProgramFormModal({ open, onClose, editProgram }: Program
   }
 
   const inputCls =
-    'w-full rounded-lg border border-[var(--color-border)] bg-transparent px-3 py-2 text-sm'
+    'w-full rounded-control border border-[var(--color-border)] bg-transparent px-3 py-2 text-sm'
   const totalIfFull = maxTierCost(tiers)
 
   return (
-    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div className="w-full max-w-2xl max-h-[90vh] overflow-y-auto rounded-2xl border border-[var(--color-border)] bg-[var(--color-card)] shadow-xl">
-        <div className="flex items-center justify-between border-b border-[var(--color-border)] px-6 py-4">
-          <div className="flex items-center gap-2">
-            <Trophy size={20} className="text-[var(--color-primary)]" />
-            <h2 className="text-lg font-semibold">
-              {isEdit ? 'Sửa chương trình thưởng' : 'Tạo chương trình thưởng tự động'}
-            </h2>
-          </div>
-          <button onClick={onClose} className="rounded-lg p-1 hover:bg-[var(--color-accent)]">
-            <X size={18} />
-          </button>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      size="lg"
+      dismissible={!(isCreating || isUpdating)}
+      title={isEdit ? 'Sửa chương trình thưởng' : 'Tạo chương trình thưởng tự động'}
+      footer={
+        <DialogFooter
+          secondary={<Button variant="outline" onClick={onClose} disabled={isCreating || isUpdating}>Huỷ</Button>}
+          primary={
+            <Button onClick={handleSubmit(onSubmit)} disabled={isCreating || isUpdating}>
+              {(isCreating || isUpdating) && <Loader2 className="animate-spin" aria-hidden="true" />}
+              {isEdit ? 'Lưu' : 'Tạo chương trình'}
+            </Button>
+          }
+        />
+      }
+    >
+      <div className="space-y-4">
+        <div>
+          <label className="text-label mb-1.5 block font-medium">Tên chương trình</label>
+          <input
+            {...register('name')}
+            placeholder="Ví dụ: Vinh danh Top 3 mỗi quý"
+            className={inputCls}
+          />
+          {errors.name && <p className="mt-1 text-xs text-[var(--color-error)]">{errors.name.message}</p>}
         </div>
 
-        <div className="space-y-4 px-6 py-5">
-          <div>
-            <label className="mb-1.5 block text-sm font-medium">Tên chương trình</label>
-            <input
-              {...register('name')}
-              placeholder="Ví dụ: Vinh danh Top 3 mỗi quý"
-              className={inputCls}
-            />
-            {errors.name && <p className="mt-1 text-xs text-rose-600">{errors.name.message}</p>}
-          </div>
-
-          {/* Quyết định NGAY TỪ ĐẦU: luật thường trực hay chỉ cho một kỳ. Trước đây phải
-              vào màn hình chạy mới tuỳ biến được, người dùng phải hiểu hai khái niệm rời
-              nhau mới dùng nổi. */}
-          <div>
-            <label className="mb-2 block text-sm font-medium">Áp dụng cho</label>
-            <div className="grid gap-2 sm:grid-cols-2">
-              <button
-                type="button"
-                onClick={() => setValue('fixedTargetId', '')}
-                className={`rounded-xl border px-4 py-3 text-left text-sm transition-colors ${
-                  !fixedTargetId
-                    ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/5'
-                    : 'border-[var(--color-border)]'
-                }`}
-              >
-                <div className="font-medium">Mọi {scopeWord}</div>
-                <div className="mt-0.5 text-xs text-[var(--color-muted-foreground)]">
-                  Luật thường trực. Mỗi lần chạy bạn chọn {scopeWord} muốn phát.
-                </div>
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  const first = targetOptions[0]
-                  if (first) setValue('fixedTargetId', first.id)
-                }}
-                disabled={targetOptions.length === 0}
-                className={`rounded-xl border px-4 py-3 text-left text-sm transition-colors disabled:opacity-40 ${
-                  fixedTargetId
-                    ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/5'
-                    : 'border-[var(--color-border)]'
-                }`}
-              >
-                <div className="font-medium">Một {scopeWord} cụ thể</div>
-                <div className="mt-0.5 text-xs text-[var(--color-muted-foreground)]">
-                  Dùng cho đợt thưởng riêng, ví dụ tổng kết cuối năm.
-                </div>
-              </button>
-            </div>
-
-            {fixedTargetId && (
-              <div className="mt-2">
-                <Select value={fixedTargetId} onValueChange={v => setValue('fixedTargetId', v)}>
-                  <SelectTrigger className={inputCls}>
-                    <SelectValue placeholder={`Chọn ${scopeWord}`} />
-                  </SelectTrigger>
-                  <SelectContent className="z-[1100]">
-                    {targetOptions.map((o: any) => (
-                      <SelectItem key={o.id} value={o.id}>
-                        {o.name}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+        {/* Quyết định NGAY TỪ ĐẦU: luật thường trực hay chỉ cho một kỳ. Trước đây phải
+            vào màn hình chạy mới tuỳ biến được, người dùng phải hiểu hai khái niệm rời
+            nhau mới dùng nổi. */}
+        <div>
+          <label className="text-label mb-2 block font-medium">Áp dụng cho</label>
+          <div className="grid gap-2 sm:grid-cols-2">
+            <button
+              type="button"
+              onClick={() => setValue('fixedTargetId', '')}
+              className={`rounded-card border px-4 py-3 text-left text-sm transition-colors ${
+                !fixedTargetId
+                  ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/5'
+                  : 'border-[var(--color-border)]'
+              }`}
+            >
+              <div className="font-medium">Mọi {scopeWord}</div>
+              <div className="mt-0.5 text-xs text-[var(--color-muted-foreground)]">
+                Luật thường trực. Mỗi lần chạy bạn chọn {scopeWord} muốn phát.
               </div>
-            )}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const first = targetOptions[0]
+                if (first) setValue('fixedTargetId', first.id)
+              }}
+              disabled={targetOptions.length === 0}
+              className={`rounded-card border px-4 py-3 text-left text-sm transition-colors disabled:opacity-40 ${
+                fixedTargetId
+                  ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/5'
+                  : 'border-[var(--color-border)]'
+              }`}
+            >
+              <div className="font-medium">Một {scopeWord} cụ thể</div>
+              <div className="mt-0.5 text-xs text-[var(--color-muted-foreground)]">
+                Dùng cho đợt thưởng riêng, ví dụ tổng kết cuối năm.
+              </div>
+            </button>
           </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div>
-              <label className="mb-1.5 block text-sm font-medium">Xếp hạng theo</label>
-              <Select
-                value={scope}
-                onValueChange={(v) => setValue('scope', v as RewardProgramScope)}
-                disabled={hasIssued}
-              >
+          {fixedTargetId && (
+            <div className="mt-2">
+              <Select value={fixedTargetId} onValueChange={v => setValue('fixedTargetId', v)}>
                 <SelectTrigger className={inputCls}>
-                  <SelectValue />
+                  <SelectValue placeholder={`Chọn ${scopeWord}`} />
                 </SelectTrigger>
                 <SelectContent className="z-[1100]">
-                  <SelectItem value={RewardProgramScope.CYCLE}>Kỳ đánh giá</SelectItem>
-                  <SelectItem value={RewardProgramScope.PERIOD}>Đợt đánh giá</SelectItem>
-                </SelectContent>
-              </Select>
-              {hasIssued && (
-                <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">
-                  Đã phát thưởng nên không đổi được phạm vi.
-                </p>
-              )}
-            </div>
-
-            <div>
-              <label className="mb-1.5 block text-sm font-medium">Chỉ số xếp hạng</label>
-              <Select value={metric} onValueChange={(v) => setValue('metric', v as RewardRankingMetric)}>
-                <SelectTrigger className={inputCls}>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent className="z-[1100]">
-                  {availableMetrics.map((m) => (
-                    <SelectItem key={m.value} value={m.value}>
-                      {m.label}
+                  {targetOptions.map((o: any) => (
+                    <SelectItem key={o.id} value={o.id}>
+                      {o.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
-              {!hasMatrix && (
-                <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">
-                  Bật KPI định tính hoặc Chấm hạnh kiểm ở Thiết lập công cụ để xếp hạng theo Xếp loại (ma trận).
-                </p>
-              )}
             </div>
-          </div>
+          )}
+        </div>
 
+        <div className="grid gap-3 sm:grid-cols-2">
           <div>
-            <label className="mb-1.5 block text-sm font-medium">Phạm vi đơn vị</label>
-            <Select value={orgUnitId} onValueChange={v => setValue('orgUnitId', v)}>
+            <label className="text-label mb-1.5 block font-medium">Xếp hạng theo</label>
+            <Select
+              value={scope}
+              onValueChange={(v) => setValue('scope', v as RewardProgramScope)}
+              disabled={hasIssued}
+            >
               <SelectTrigger className={inputCls}>
                 <SelectValue />
               </SelectTrigger>
-              {/* Không có "Toàn tổ chức": đơn vị gốc đã bao trọn cây con nên hai lựa
-                  chọn cho ra cùng một tập người. */}
               <SelectContent className="z-[1100]">
-                {flatUnits.map((u) => (
-                  <SelectItem key={u.id} value={u.id}>
-                    {u.label}
+                <SelectItem value={RewardProgramScope.CYCLE}>Kỳ đánh giá</SelectItem>
+                <SelectItem value={RewardProgramScope.PERIOD}>Đợt đánh giá</SelectItem>
+              </SelectContent>
+            </Select>
+            {hasIssued && (
+              <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">
+                Đã phát thưởng nên không đổi được phạm vi.
+              </p>
+            )}
+          </div>
+
+          <div>
+            <label className="text-label mb-1.5 block font-medium">Chỉ số xếp hạng</label>
+            <Select value={metric} onValueChange={(v) => setValue('metric', v as RewardRankingMetric)}>
+              <SelectTrigger className={inputCls}>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent className="z-[1100]">
+                {availableMetrics.map((m) => (
+                  <SelectItem key={m.value} value={m.value}>
+                    {m.label}
                   </SelectItem>
                 ))}
               </SelectContent>
             </Select>
-          </div>
-
-          {/* ── Bậc thưởng ── */}
-          <div>
-            <label className="mb-2 block text-sm font-medium">Bậc thưởng mặc định</label>
-            <TierEditor tiers={tiers} onChange={t => setValue('tiers', t, { shouldValidate: true })} />
-
-            {tierMsg ? (
-              <p className="mt-2 text-xs text-rose-600">{tierMsg}</p>
-            ) : (
-              <p className="mt-2 text-xs text-[var(--color-muted-foreground)]">
-                Nếu đủ người ở mọi hạng, một lần phát tốn tối đa{' '}
-                <b>{totalIfFull.toLocaleString('vi-VN')} điểm</b>. Bậc này chỉ là mặc định —
-                mỗi lần chạy bạn vẫn sửa được cho riêng kỳ/đợt đó.
+            {!hasMatrix && (
+              <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">
+                Bật KPI định tính hoặc Chấm hạnh kiểm ở Thiết lập công cụ để xếp hạng theo Xếp loại (ma trận).
               </p>
             )}
           </div>
+        </div>
 
-          <div className="grid gap-3 sm:grid-cols-2">
-            <div>
-              <label className="mb-1.5 block text-sm font-medium">
-                Điểm sàn <span className="font-normal text-[var(--color-muted-foreground)]">(tuỳ chọn)</span>
-              </label>
-              <input
-                type="number"
-                {...register('minMetricValue', { setValueAs: numOrUndefined })}
-                placeholder="Không yêu cầu"
-                className={inputCls}
-              />
-              <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">
-                Dưới mức này thì không thưởng, dù xếp hạng cao.
-              </p>
-            </div>
-            <div>
-              <label className="mb-1.5 block text-sm font-medium">
-                Trần điểm mỗi lần phát{' '}
-                <span className="font-normal text-[var(--color-muted-foreground)]">(tuỳ chọn)</span>
-              </label>
-              <input
-                type="number"
-                min={1}
-                {...register('maxPointsPerRun', { setValueAs: numOrUndefined })}
-                placeholder="Không giới hạn"
-                className={inputCls}
-              />
-              {errors.maxPointsPerRun && (
-                <p className="mt-1 text-xs text-rose-600">{errors.maxPointsPerRun.message}</p>
-              )}
-              <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">
-                Chặn cấu hình sai làm phát ra lượng điểm khổng lồ.
-              </p>
-            </div>
-          </div>
+        <div>
+          <label className="text-label mb-1.5 block font-medium">Phạm vi đơn vị</label>
+          <Select value={orgUnitId} onValueChange={v => setValue('orgUnitId', v)}>
+            <SelectTrigger className={inputCls}>
+              <SelectValue />
+            </SelectTrigger>
+            {/* Không có "Toàn tổ chức": đơn vị gốc đã bao trọn cây con nên hai lựa
+                chọn cho ra cùng một tập người. */}
+            <SelectContent className="z-[1100]">
+              {flatUnits.map((u) => (
+                <SelectItem key={u.id} value={u.id}>
+                  {u.label}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
 
+        {/* ── Bậc thưởng ── */}
+        <div>
+          <label className="text-label mb-2 block font-medium">Bậc thưởng mặc định</label>
+          <TierEditor tiers={tiers} onChange={t => setValue('tiers', t, { shouldValidate: true })} />
+
+          {tierMsg ? (
+            <p className="mt-2 text-xs text-[var(--color-error)]">{tierMsg}</p>
+          ) : (
+            <p className="mt-2 text-xs text-[var(--color-muted-foreground)]">
+              Nếu đủ người ở mọi hạng, một lần phát tốn tối đa{' '}
+              <b>{totalIfFull.toLocaleString('vi-VN')} điểm</b>. Bậc này chỉ là mặc định —
+              mỗi lần chạy bạn vẫn sửa được cho riêng kỳ/đợt đó.
+            </p>
+          )}
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2">
           <div>
-            <label className="mb-1.5 block text-sm font-medium">Khi có người đồng hạng</label>
-            <Select value={tiePolicy} onValueChange={(v) => setValue('tiePolicy', v as RewardTiePolicy)}>
-              <SelectTrigger className={inputCls}>
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent className="z-[1100]">
-                <SelectItem value={RewardTiePolicy.SHARE_ALL}>
-                  Cùng hạng cùng nhận (Top 3 có thể trả cho 4 người)
-                </SelectItem>
-                <SelectItem value={RewardTiePolicy.STRICT}>
-                  Trả đúng số người (phá hoà theo thứ tự cố định)
-                </SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
-
-          <label className="flex cursor-pointer items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              {...register('includeUnitHeads')}
-              className="rounded border-[var(--color-border)]"
-            />
-            Tính cả trưởng/phó đơn vị vào bảng xếp hạng
-          </label>
-
-          <label className="flex cursor-pointer items-center gap-2 text-sm">
-            <input
-              type="checkbox"
-              {...register('enabled')}
-              className="rounded border-[var(--color-border)]"
-            />
-            Đang bật
-          </label>
-
-          <div className="rounded-xl border border-[var(--color-border)] px-4 py-3">
-            <label className="flex cursor-pointer items-start gap-2 text-sm">
-              <input
-                type="checkbox"
-                {...register('autoTrigger')}
-                className="mt-0.5 rounded border-[var(--color-border)]"
-              />
-              <span>
-                <span className="font-medium">Tự động phát khi {scopeWord} kết thúc</span>
-                <span className="mt-0.5 block text-xs text-[var(--color-muted-foreground)]">
-                  Hệ thống kiểm mỗi ngày; qua ngày kết thúc của {scopeWord} là phát luôn, không
-                  cần ai bấm. Bạn vẫn phát tay sớm hơn được — phát rồi thì tự động sẽ bỏ qua.
-                </span>
-              </span>
+            <label className="text-label mb-1.5 block font-medium">
+              Điểm sàn <span className="font-normal text-[var(--color-muted-foreground)]">(tuỳ chọn)</span>
             </label>
-
-            {/* Tự động nghĩa là điểm vào ví mà không ai soát lại. Nói thẳng rủi ro và
-                chỉ ra cái van an toàn, thay vì để người dùng phát hiện khi đã muộn. */}
-            {autoTrigger && (
-              <div className="mt-2 flex items-start gap-2 rounded-lg bg-amber-500/10 px-3 py-2 text-xs">
-                <Info size={13} className="mt-0.5 flex-shrink-0 text-amber-600" />
-                <span>
-                  Điểm sẽ vào ví mà không ai soát trước. Nếu điểm đánh giá còn có thể thay đổi
-                  sau ngày kết thúc, nên đặt <b>trần điểm mỗi lần phát</b> ở trên để giới hạn
-                  thiệt hại khi cấu hình sai.
-                </span>
-              </div>
-            )}
+            <input
+              type="number"
+              {...register('minMetricValue', { setValueAs: numOrUndefined })}
+              placeholder="Không yêu cầu"
+              className={inputCls}
+            />
+            <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">
+              Dưới mức này thì không thưởng, dù xếp hạng cao.
+            </p>
           </div>
+          <div>
+            <label className="text-label mb-1.5 block font-medium">
+              Trần điểm mỗi lần phát{' '}
+              <span className="font-normal text-[var(--color-muted-foreground)]">(tuỳ chọn)</span>
+            </label>
+            <input
+              type="number"
+              min={1}
+              {...register('maxPointsPerRun', { setValueAs: numOrUndefined })}
+              placeholder="Không giới hạn"
+              className={inputCls}
+            />
+            {errors.maxPointsPerRun && (
+              <p className="mt-1 text-xs text-[var(--color-error)]">{errors.maxPointsPerRun.message}</p>
+            )}
+            <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">
+              Chặn cấu hình sai làm phát ra lượng điểm khổng lồ.
+            </p>
+          </div>
+        </div>
 
-          {!autoTrigger && (
-            <div className="flex items-start gap-2 rounded-xl bg-[var(--color-muted)]/50 px-4 py-3 text-xs text-[var(--color-muted-foreground)]">
-              <Info size={14} className="mt-0.5 flex-shrink-0" />
+        <div>
+          <label className="text-label mb-1.5 block font-medium">Khi có người đồng hạng</label>
+          <Select value={tiePolicy} onValueChange={(v) => setValue('tiePolicy', v as RewardTiePolicy)}>
+            <SelectTrigger className={inputCls}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent className="z-[1100]">
+              <SelectItem value={RewardTiePolicy.SHARE_ALL}>
+                Cùng hạng cùng nhận (Top 3 có thể trả cho 4 người)
+              </SelectItem>
+              <SelectItem value={RewardTiePolicy.STRICT}>
+                Trả đúng số người (phá hoà theo thứ tự cố định)
+              </SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <label className="text-label flex cursor-pointer items-center gap-2">
+          <input
+            type="checkbox"
+            {...register('includeUnitHeads')}
+            className="rounded border-[var(--color-border)]"
+          />
+          Tính cả trưởng/phó đơn vị vào bảng xếp hạng
+        </label>
+
+        <label className="text-label flex cursor-pointer items-center gap-2">
+          <input
+            type="checkbox"
+            {...register('enabled')}
+            className="rounded border-[var(--color-border)]"
+          />
+          Đang bật
+        </label>
+
+        <div className="rounded-card border border-[var(--color-border)] px-4 py-3">
+          <label className="text-label flex cursor-pointer items-start gap-2">
+            <input
+              type="checkbox"
+              {...register('autoTrigger')}
+              className="mt-0.5 rounded border-[var(--color-border)]"
+            />
+            <span>
+              <span className="font-medium">Tự động phát khi {scopeWord} kết thúc</span>
+              <span className="mt-0.5 block text-xs text-[var(--color-muted-foreground)]">
+                Hệ thống kiểm mỗi ngày; qua ngày kết thúc của {scopeWord} là phát luôn, không
+                cần ai bấm. Bạn vẫn phát tay sớm hơn được — phát rồi thì tự động sẽ bỏ qua.
+              </span>
+            </span>
+          </label>
+
+          {/* Tự động nghĩa là điểm vào ví mà không ai soát lại. Nói thẳng rủi ro và
+              chỉ ra cái van an toàn, thay vì để người dùng phát hiện khi đã muộn. */}
+          {autoTrigger && (
+            <div className="mt-2 flex items-start gap-2 rounded-control bg-[var(--color-warning-bg)] px-3 py-2 text-xs">
+              <Info size={13} className="mt-0.5 flex-shrink-0 text-[var(--color-warning)]" />
               <span>
-                Chương trình không tự chạy. Bạn chủ động bấm <b>Xem trước</b> cho một {scopeWord},
-                kiểm tra danh sách rồi mới <b>Phát thưởng</b>.
+                Điểm sẽ vào ví mà không ai soát trước. Nếu điểm đánh giá còn có thể thay đổi
+                sau ngày kết thúc, nên đặt <b>trần điểm mỗi lần phát</b> ở trên để giới hạn
+                thiệt hại khi cấu hình sai.
               </span>
             </div>
           )}
         </div>
 
-        <div className="flex justify-end gap-2 border-t border-[var(--color-border)] px-6 py-4">
-          <button
-            onClick={onClose}
-            className="rounded-lg border border-[var(--color-border)] px-4 py-2 text-sm"
-          >
-            Huỷ
-          </button>
-          <button
-            onClick={handleSubmit(onSubmit)}
-            disabled={isCreating || isUpdating}
-            className="inline-flex items-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-          >
-            {(isCreating || isUpdating) && <Loader2 size={15} className="animate-spin" />}
-            {isEdit ? 'Lưu' : 'Tạo chương trình'}
-          </button>
-        </div>
+        {!autoTrigger && (
+          <div className="flex items-start gap-2 rounded-card bg-[var(--color-muted)]/50 px-4 py-3 text-xs text-[var(--color-muted-foreground)]">
+            <Info size={14} className="mt-0.5 flex-shrink-0" />
+            <span>
+              Chương trình không tự chạy. Bạn chủ động bấm <b>Xem trước</b> cho một {scopeWord},
+              kiểm tra danh sách rồi mới <b>Phát thưởng</b>.
+            </span>
+          </div>
+        )}
       </div>
-    </div>
+    </Dialog>
   )
 }

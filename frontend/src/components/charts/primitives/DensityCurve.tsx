@@ -45,7 +45,7 @@ export default function DensityCurve({
 
   if (levels.length === 0) {
     return (
-      <div className="w-full flex items-center justify-center text-sm text-slate-400 font-medium" style={{ height }}>
+      <div className="w-full flex items-center justify-center text-sm text-[var(--color-subtle-foreground)] font-medium" style={{ height }}>
         Chưa có dữ liệu phân bố
       </div>
     )
@@ -113,8 +113,8 @@ export default function DensityCurve({
       {/* Nhãn hai mép: nói thẳng đầu nào là yếu, đầu nào là mạnh, khỏi phải suy từ tên mức. */}
       {(lowLabel || highLabel) && (
         <div className="absolute top-1 left-0 right-0 flex justify-between px-10 pointer-events-none">
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{lowLabel}</span>
-          <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">{highLabel}</span>
+          <span className="text-eyebrow">{lowLabel}</span>
+          <span className="text-eyebrow">{highLabel}</span>
         </div>
       )}
     </div>

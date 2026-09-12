@@ -12,9 +12,11 @@ import { formatNumber, formatDateTime, cn } from '@/lib/utils'
 import UserAvatar from '@/components/common/UserAvatar'
 import type { Evaluation } from '@/types/evaluation'
 import {
-  X, Star, User, MessageSquare, TrendingUp,
+  Star, User, MessageSquare, TrendingUp,
   Award, Target, Loader2, Layers, HeartHandshake, ArrowUpRight
 } from 'lucide-react'
+import { Dialog } from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
 import ReviewModal from '@/features/submissions/components/ReviewModal'
 import StaffEvaluationModal from '@/features/submissions/components/StaffEvaluationModal'
 import StaffPerformanceDetailModal from '@/features/submissions/components/StaffPerformanceDetailModal'
@@ -165,8 +167,8 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
       id: 'self',
       title: selfTitle,
       icon: User,
-      iconBg: "bg-slate-50 dark:bg-slate-800/50",
-      iconColor: "text-slate-600 dark:text-slate-400",
+      iconBg: "bg-[var(--color-muted)]",
+      iconColor: "text-[var(--color-muted-foreground)]",
       evaluation: selfEval || null,
       role: 'SELF'
     })
@@ -198,35 +200,35 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
       let roleCode = ''
       let stepTitle = ''
       let icon = Award
-      let iconBg = "bg-blue-100 dark:bg-blue-900/30"
-      let iconColor = "text-blue-600 dark:text-blue-400"
+      let iconBg = "bg-[var(--color-info-bg)]"
+      let iconColor = "text-[var(--color-info)]"
 
       if (mappedRoleLevel === 0) {
         roleCode = 'CEO'
         stepTitle = `${hl.managerRoleLabel || 'Cấp quản lý cao nhất'} Quyết định`
         icon = Star
-        iconBg = "bg-amber-50 dark:bg-amber-900/20"
-        iconColor = "text-amber-600 dark:text-amber-400"
+        iconBg = "bg-[var(--color-warning-bg)]"
+        iconColor = "text-[var(--color-warning)]"
       } else if (mappedRoleLevel === 1) {
         roleCode = 'REGIONAL_DIRECTOR'
         stepTitle = `${hl.managerRoleLabel || 'Cấp quản lý vùng'} đánh giá`
-        iconBg = "bg-purple-50 dark:bg-purple-900/20"
-        iconColor = "text-purple-600 dark:text-purple-400"
+        iconBg = "bg-[var(--color-primary-soft)]"
+        iconColor = "text-[var(--color-primary)]"
       } else if (mappedRoleLevel === 2) {
         roleCode = 'DIRECTOR'
         stepTitle = `${hl.managerRoleLabel || 'Quản lý cấp cao'} đánh giá`
-        iconBg = "bg-blue-50 dark:bg-blue-900/20"
-        iconColor = "text-blue-600 dark:text-blue-400"
+        iconBg = "bg-[var(--color-info-bg)]"
+        iconColor = "text-[var(--color-info)]"
       } else if (mappedRoleLevel === 3) {
         roleCode = 'DEPT_HEAD'
         stepTitle = `${hl.managerRoleLabel || 'Quản lý đơn vị'} đánh giá`
-        iconBg = "bg-indigo-50 dark:bg-indigo-900/20"
-        iconColor = "text-indigo-600 dark:text-indigo-400"
+        iconBg = "bg-[var(--color-primary-soft)]"
+        iconColor = "text-[var(--color-primary)]"
       } else if (mappedRoleLevel === 4) {
         roleCode = 'TEAM_LEADER'
         stepTitle = `${hl.managerRoleLabel || 'Quản lý trực tiếp'} đánh giá`
-        iconBg = "bg-emerald-50 dark:bg-emerald-900/20"
-        iconColor = "text-emerald-600 dark:text-emerald-400"
+        iconBg = "bg-[var(--color-success-bg)]"
+        iconColor = "text-[var(--color-success)]"
       } else {
         roleCode = `LEVEL_${mappedRoleLevel}`
         stepTitle = `${hl.managerRoleLabel || 'Cấp quản lý'} đánh giá`
@@ -365,197 +367,174 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
 
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-white dark:bg-slate-900 rounded-[28px] shadow-2xl w-full max-w-2xl mx-4 animate-in zoom-in-95 fade-in duration-300 max-h-[90vh] overflow-y-auto border border-slate-200 dark:border-slate-800">
+    <>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      size="lg"
+      title="Chi tiết Đánh giá"
+      description={evaluation.kpiPeriodName}
+    >
+      <div className="space-y-6">
 
-        {/* Header */}
-        <div className="sticky top-0 z-20 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 px-7 py-5 flex items-center justify-between rounded-t-[28px]">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-amber-50 dark:bg-amber-900/30 flex items-center justify-center">
-              <Star size={24} className="text-amber-600 dark:text-amber-400" />
-            </div>
+        {/* Subject Info */}
+        <div className="p-5 rounded-card bg-[var(--color-muted)] border border-[var(--color-warning-border)]">
+          <div className="flex items-center gap-4">
+            <UserAvatar
+              fullName={evaluation.userName}
+              avatarUrl={evaluation.userAvatarUrl}
+              className="w-14 h-14 rounded-card"
+              fallbackClassName="bg-[var(--color-warning-bg)] font-semibold text-lg text-[var(--color-warning)]"
+            />
             <div>
-              <h3 className="text-lg font-black text-slate-900 dark:text-white">Chi tiết Đánh giá</h3>
-              <p className="text-xs font-medium text-slate-500">{evaluation.kpiPeriodName}</p>
+              <h4 className="text-lg font-semibold text-[var(--color-foreground)]">{evaluation.userName}</h4>
+              <div className="flex items-center gap-2 mt-0.5 mb-1.5">
+                <span className="text-eyebrow px-1.5 py-0.5 rounded-control bg-[var(--color-info-bg)] text-[var(--color-info)] border border-[var(--color-info-border)]">
+                  {evaluation.userRoleName || 'NHÂN VIÊN'}
+                </span>
+                <span className="text-caption font-medium">{evaluation.orgUnitName}</span>
+              </div>
+              <div className="flex items-center gap-3 text-xs font-medium text-[var(--color-subtle-foreground)]">
+                <span className="flex items-center gap-1"><Target size={12} /> {evaluation.kpiPeriodName}</span>
+              </div>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 transition-all">
-            <X size={20} />
-          </button>
         </div>
 
-        <div className="px-7 py-6 space-y-6">
+        <div className="space-y-4">
+          <h4 className="text-sm font-medium text-[var(--color-subtle-foreground)]">Dòng thời gian đánh giá</h4>
 
-          {/* Subject Info */}
-          <div className="p-5 rounded-2xl bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/10 border border-amber-200/50 dark:border-amber-900/30">
-            <div className="flex items-center gap-4">
-              <UserAvatar
-                fullName={evaluation.userName}
-                avatarUrl={evaluation.userAvatarUrl}
-                className="w-14 h-14 rounded-2xl"
-                fallbackClassName="bg-amber-100 dark:bg-amber-900/50 font-black text-lg text-amber-700 dark:text-amber-300"
-              />
-              <div>
-                <h4 className="text-lg font-black text-slate-900 dark:text-white">{evaluation.userName}</h4>
-                <div className="flex items-center gap-2 mt-0.5 mb-1.5">
-                  <span className="px-1.5 py-0.5 rounded-md bg-blue-50 dark:bg-blue-900/30 text-[8px] font-black text-blue-600 dark:text-blue-400 uppercase tracking-widest border border-blue-100 dark:border-blue-800/50">
-                    {evaluation.userRoleName || 'NHÂN VIÊN'}
-                  </span>
-                  <span className="text-[10px] text-slate-500 font-bold uppercase tracking-tighter">{evaluation.orgUnitName}</span>
-                </div>
-                <div className="flex items-center gap-3 text-xs font-medium text-slate-400">
-                  <span className="flex items-center gap-1"><Target size={12} /> {evaluation.kpiPeriodName}</span>
-                </div>
-              </div>
-            </div>
+          {timelineSteps.map((step, idx) => (
+            <EvalLayerCard
+              key={step.id}
+              title={step.title}
+              icon={step.icon}
+              iconBg={step.iconBg}
+              iconColor={step.iconColor}
+              evaluation={step.evaluation}
+              calculatedScore={step.role === 'SELF' ? calculatedScore : undefined}
+              maxScore={maxScore}
+              // Phiếu chưa ai chấm thì không dựng dòng "điểm hạnh kiểm —" cho có.
+              conduct={conductSheet?.effectiveScore != null ? conductSheet : null}
+              lineActive={idx < timelineSteps.length - 1 && !!timelineSteps[idx + 1].evaluation}
+              isLast={idx === timelineSteps.length - 1}
+              getScoreColor={getScoreColor}
+              getScoreBg={getScoreBg}
+              getScoreLabel={getScoreLabel}
+              onClick={step.role === 'SELF' && isDeputy ? () => setShowPerfDetail(true) : undefined}
+              onExplainBsc={setWaterfallId}
+            />
+
+
+          ))}
+        </div>
+
+
+
+        {/* KHÔNG dựng phiếu hạnh kiểm ở đây. Màn này là màn XEM LẠI: nhân viên chấm ở
+            modal tự đánh giá, quản lý chấm ở modal chấm đợt — hiện lại cả phiếu chỉ làm
+            modal dài thêm. Con số đã nằm ở dòng "Điểm hạnh kiểm" trên timeline. */}
+
+        {/* === Director: Drill-down to StaffEvaluationModal === */}
+        {canReviewSubmission && isManager && evaluation?.userId !== user?.id && mySubmissions && mySubmissions.content.length > 0 && (
+          <div className="pt-4 border-t border-[var(--color-border)]">
+            <Button className="w-full group" onClick={() => setShowStaffEval(true)}>
+              <Target aria-hidden="true" className="group-hover:rotate-45 transition-transform" />
+              {(layers.directorEval || myEvalAtLevel) ? 'Xem Chi tiết bài nộp KPI' : 'Phê duyệt & Đánh giá bài nộp'} ({mySubmissions.content.length})
+            </Button>
+            <p className="text-caption mt-2 text-center italic font-medium">
+              {(layers.directorEval || myEvalAtLevel)
+                ? 'Nhấn để xem lại danh sách chỉ tiêu KPI đã đánh giá.' 
+                : 'Nhấn để xem danh sách chỉ tiêu KPI và thực hiện đánh giá chính thức.'}
+            </p>
           </div>
+        )}
 
-          <div className="space-y-4">
-            <h4 className="text-xs font-black uppercase tracking-widest text-slate-400">Dòng thời gian đánh giá</h4>
-
-            {timelineSteps.map((step, idx) => (
-              <EvalLayerCard
-                key={step.id}
-                title={step.title}
-                icon={step.icon}
-                iconBg={step.iconBg}
-                iconColor={step.iconColor}
-                evaluation={step.evaluation}
-                calculatedScore={step.role === 'SELF' ? calculatedScore : undefined}
-                maxScore={maxScore}
-                // Phiếu chưa ai chấm thì không dựng dòng "điểm hạnh kiểm —" cho có.
-                conduct={conductSheet?.effectiveScore != null ? conductSheet : null}
-                lineActive={idx < timelineSteps.length - 1 && !!timelineSteps[idx + 1].evaluation}
-                isLast={idx === timelineSteps.length - 1}
-                getScoreColor={getScoreColor}
-                getScoreBg={getScoreBg}
-                getScoreLabel={getScoreLabel}
-                onClick={step.role === 'SELF' && isDeputy ? () => setShowPerfDetail(true) : undefined}
-                onExplainBsc={setWaterfallId}
-              />
-
-
-            ))}
-          </div>
-
-
-
-          {/* KHÔNG dựng phiếu hạnh kiểm ở đây. Màn này là màn XEM LẠI: nhân viên chấm ở
-              modal tự đánh giá, quản lý chấm ở modal chấm đợt — hiện lại cả phiếu chỉ làm
-              modal dài thêm. Con số đã nằm ở dòng "Điểm hạnh kiểm" trên timeline. */}
-
-          {/* === Director: Drill-down to StaffEvaluationModal === */}
-          {canReviewSubmission && isManager && evaluation?.userId !== user?.id && mySubmissions && mySubmissions.content.length > 0 && (
-            <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
-              <button 
-                onClick={() => setShowStaffEval(true)}
-                className="w-full py-4 rounded-[20px] bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-[10px] font-black uppercase tracking-widest hover:bg-indigo-600 dark:hover:bg-indigo-50 transition-all flex items-center justify-center gap-2 group"
-              >
-                <Target size={14} className="group-hover:rotate-45 transition-transform" />
-                {(layers.directorEval || myEvalAtLevel) ? 'Xem Chi tiết bài nộp KPI' : 'Phê duyệt & Đánh giá bài nộp'} ({mySubmissions.content.length})
-              </button>
-              <p className="text-[10px] text-slate-400 mt-2 text-center italic font-medium">
-                {(layers.directorEval || myEvalAtLevel)
-                  ? 'Nhấn để xem lại danh sách chỉ tiêu KPI đã đánh giá.' 
-                  : 'Nhấn để xem danh sách chỉ tiêu KPI và thực hiện đánh giá chính thức.'}
-              </p>
+        {/* === Mid-level managers (Trưởng nhóm/Trưởng phòng): Inline evaluation form === */}
+        {!canReviewSubmission && canCreateEvaluation && isManager && evaluation?.userId !== user?.id && !myEvalAtLevel && (
+          <div className="pt-6 border-t border-[var(--color-border)] space-y-6">
+            <div className="flex items-center justify-between">
+              <h4 className="text-eyebrow flex items-center gap-2">
+                <Award size={14} className="text-[var(--color-primary)]" /> Thực hiện đánh giá
+              </h4>
             </div>
-          )}
-
-          {/* === Mid-level managers (Trưởng nhóm/Trưởng phòng): Inline evaluation form === */}
-          {!canReviewSubmission && canCreateEvaluation && isManager && evaluation?.userId !== user?.id && !myEvalAtLevel && (
-            <div className="pt-6 border-t border-slate-100 dark:border-slate-800 space-y-6">
-              <div className="flex items-center justify-between">
-                <h4 className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 flex items-center gap-2">
-                  <Award size={14} className="text-indigo-500" /> Thực hiện đánh giá
-                </h4>
-              </div>
-              
-              {/* Not evaluated yet — show polished slider form */}
-              <div className="space-y-6">
-                {/* Score Display + Slider Card */}
-                <div className="relative group p-8 rounded-[32px] bg-gradient-to-b from-slate-50 to-white dark:from-slate-800/50 dark:to-slate-900 border border-slate-200 dark:border-slate-800 shadow-inner overflow-hidden">
-                  <div className="absolute top-0 right-0 w-32 h-32 bg-indigo-500/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl" />
-                  
-                  <div className="flex flex-col items-center gap-6 relative">
-                    <div className="flex items-baseline justify-center gap-4">
-                      <div className={cn("text-7xl font-black tracking-tighter transition-all duration-700 drop-shadow-sm", getScoreColor(inlineScore))}>
-                        {inlineScore}
-                      </div>
-                      <div className="space-y-1">
-                        <p className={cn("text-sm font-black uppercase tracking-[0.2em] transition-all duration-500", getScoreColor(inlineScore))}>
-                          {getScoreLabel(inlineScore)}
-                        </p>
-                        {layers.selfEval?.score != null && inlineScore !== layers.selfEval.score && (
-                          <div className={cn(
-                            "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-widest shadow-sm animate-in fade-in zoom-in-95 duration-300",
-                            inlineScore > layers.selfEval.score
-                              ? "bg-emerald-50 text-emerald-600 border border-emerald-100 dark:bg-emerald-900/20 dark:border-emerald-900/30"
-                              : "bg-amber-50 text-amber-600 border border-amber-100 dark:bg-amber-900/20 dark:border-amber-900/30"
-                          )}>
-                            {inlineScore > layers.selfEval.score ? <TrendingUp size={10} /> : <Target size={10} />}
-                            {inlineScore > layers.selfEval.score ? '+' : ''}{Math.round(inlineScore - layers.selfEval.score)} so với tự đánh giá
-                          </div>
-                        )}
-                      </div>
+            
+            {/* Not evaluated yet — show polished slider form */}
+            <div className="space-y-6">
+              {/* Score Display + Slider Card */}
+              <div className="relative group p-8 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)] overflow-hidden">
+                
+                <div className="flex flex-col items-center gap-6 relative">
+                  <div className="flex items-baseline justify-center gap-4">
+                    <div className={cn("text-7xl font-semibold tracking-tighter transition-all duration-700 drop-shadow-sm", getScoreColor(inlineScore))}>
+                      {inlineScore}
                     </div>
-
-                    <div className="w-full max-w-md mx-auto space-y-4">
-                      <input
-                        type="range" min={0} max={scoreCeiling} step={1}
-                        value={inlineScore}
-                        onChange={e => setInlineValue('score', Number(e.target.value), { shouldValidate: true })}
-                        className="w-full accent-indigo-600 h-2.5 bg-slate-200 dark:bg-slate-700 rounded-full appearance-none cursor-pointer transition-all hover:h-3"
-                      />
-                      {inlineErrors.score && (
-                        <p className="text-center text-[10px] font-black text-red-500 uppercase tracking-widest">
-                          {inlineErrors.score.message}
-                        </p>
-                      )}
-                      <div className="flex justify-between px-1">
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">0</span>
-                        <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest opacity-50">{Math.round(scoreCeiling / 2)}</span>
-                        <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">{scoreCeiling}</span>
-                      </div>
-                      {bonusScore > 0 && (
-                        <p className="text-center text-[9px] font-black text-emerald-600 uppercase tracking-widest">
-                          Đạt đủ KPI = {SCORING_POOL} điểm · thưởng thêm {bonusScore}
-                        </p>
+                    <div className="space-y-1">
+                      <p className={cn("text-sm font-semibold transition-all duration-500", getScoreColor(inlineScore))}>
+                        {getScoreLabel(inlineScore)}
+                      </p>
+                      {layers.selfEval?.score != null && inlineScore !== layers.selfEval.score && (
+                        <div className={cn(
+                          "text-eyebrow inline-flex items-center gap-1.5 px-3 py-1 rounded-full shadow-sm animate-in fade-in zoom-in-95 duration-300",
+                          inlineScore > layers.selfEval.score
+                            ? "bg-[var(--color-success-bg)] text-[var(--color-success)] border border-[var(--color-success-border)] dark:bg-[var(--color-success-bg)] dark:border-[var(--color-success-border)]"
+                            : "bg-[var(--color-warning-bg)] text-[var(--color-warning)] border border-[var(--color-warning-border)] dark:bg-[var(--color-warning-bg)] dark:border-[var(--color-warning-border)]"
+                        )}>
+                          {inlineScore > layers.selfEval.score ? <TrendingUp size={10} /> : <Target size={10} />}
+                          {inlineScore > layers.selfEval.score ? '+' : ''}{Math.round(inlineScore - layers.selfEval.score)} so với tự đánh giá
+                        </div>
                       )}
                     </div>
                   </div>
-                </div>
 
-                {/* Comment Area */}
-                <div className="space-y-3">
-                  <label className="flex items-center gap-2 text-[10px] font-black text-slate-400 uppercase tracking-[0.2em] ml-2">
-                    <MessageSquare size={14} className="text-indigo-400" /> Nhận xét đánh giá
-                  </label>
-                  <textarea
-                    {...registerInline('comment')}
-                    rows={3}
-                    placeholder="Ghi lại nhận xét chi tiết về nỗ lực và kết quả của nhân viên..."
-                    className="w-full px-6 py-5 rounded-[28px] border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm font-medium focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/50 outline-none resize-none transition-all shadow-sm placeholder:text-slate-400"
-                  />
-                </div>
-
-                <div className="relative group">
-                  <div className="absolute -inset-1 bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl blur opacity-25 group-hover:opacity-40 transition duration-500"></div>
-                  <button
-                    onClick={handleInlineSubmit(data => inlineSubmitMutation.mutate(data))}
-                    disabled={inlineSubmitMutation.isPending}
-                    className="relative w-full py-5 rounded-2xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-black uppercase tracking-[3px] shadow-2xl hover:bg-indigo-600 dark:hover:bg-indigo-50 transition-all flex items-center justify-center gap-3 disabled:opacity-50 active:scale-[0.98]"
-                  >
-                    {inlineSubmitMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <Award size={16} />}
-                    HOÀN TẤT ĐÁNH GIÁ
-                  </button>
+                  <div className="w-full max-w-md mx-auto space-y-4">
+                    <input
+                      type="range" min={0} max={scoreCeiling} step={1}
+                      value={inlineScore}
+                      onChange={e => setInlineValue('score', Number(e.target.value), { shouldValidate: true })}
+                      className="w-full h-2.5 bg-[var(--color-border)] rounded-full appearance-none cursor-pointer transition-all hover:h-3"
+                    />
+                    {inlineErrors.score && (
+                      <p className="text-eyebrow text-center text-[var(--color-error)]">
+                        {inlineErrors.score.message}
+                      </p>
+                    )}
+                    <div className="flex justify-between px-1">
+                      <span className="text-eyebrow">0</span>
+                      <span className="text-eyebrow text-[var(--color-subtle-foreground)] opacity-50">{Math.round(scoreCeiling / 2)}</span>
+                      <span className="text-eyebrow">{scoreCeiling}</span>
+                    </div>
+                    {bonusScore > 0 && (
+                      <p className="text-eyebrow text-center text-[var(--color-success)]">
+                        Đạt đủ KPI = {SCORING_POOL} điểm · thưởng thêm {bonusScore}
+                      </p>
+                    )}
+                  </div>
                 </div>
               </div>
+
+              {/* Comment Area */}
+              <div className="space-y-3">
+                <label className="text-label flex items-center gap-2 ml-2">
+                  <MessageSquare size={14} className="text-[var(--color-primary)]" /> Nhận xét đánh giá
+                </label>
+                <textarea
+                  {...registerInline('comment')}
+                  rows={3}
+                  placeholder="Ghi lại nhận xét chi tiết về nỗ lực và kết quả của nhân viên..."
+                  className="w-full px-6 py-5 rounded-card border border-[var(--color-border)] bg-[var(--color-card)] text-sm font-medium focus:ring-4 focus:ring-[var(--color-ring)] focus:border-[var(--color-primary)] outline-none resize-none transition-all shadow-sm placeholder:text-[var(--color-subtle-foreground)]"
+                />
+              </div>
+
+              <Button className="w-full" onClick={handleInlineSubmit(data => inlineSubmitMutation.mutate(data))} disabled={inlineSubmitMutation.isPending}>
+                {inlineSubmitMutation.isPending ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Award aria-hidden="true" />}
+                Hoàn tất đánh giá
+              </Button>
             </div>
-          )}
-        </div>
+          </div>
+        )}
       </div>
+    </Dialog>
 
       {showStaffEval && evaluation && (
         <StaffEvaluationModal
@@ -592,7 +571,7 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
         onClose={() => setWaterfallId(null)}
         evaluationId={waterfallId}
       />
-    </div>
+    </>
   )
 }
 
@@ -619,25 +598,25 @@ function DetailRow({
   children?: ReactNode
 }) {
   return (
-    <div className="px-3 py-2 rounded-xl bg-slate-50/80 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
+    <div className="px-3 py-2 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)]">
       <div className="flex items-center gap-2.5">
         <span className="shrink-0">{icon}</span>
         <div className="min-w-0 flex-1">
-          <p className="text-[11px] font-black text-slate-600 dark:text-slate-300 flex items-center gap-1.5">
+          <p className="text-caption flex items-center gap-1.5">
             {label}
             {badge && (
-              <span className="px-1.5 py-px rounded-full bg-slate-200/70 dark:bg-slate-700 text-[8px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+              <span className="text-eyebrow px-1.5 py-px rounded-full bg-[var(--color-border)]">
                 {badge}
               </span>
             )}
           </p>
           {caption && (
-            <p className="text-[10px] font-medium text-slate-400 leading-relaxed">{caption}</p>
+            <p className="text-caption leading-relaxed">{caption}</p>
           )}
         </div>
         {action}
         {value != null && (
-          <span className={cn('shrink-0 text-lg font-black leading-none tabular-nums', valueClass)}>{value}</span>
+          <span className={cn('shrink-0 text-lg font-semibold leading-none tabular-nums', valueClass)}>{value}</span>
         )}
       </div>
       {children}
@@ -678,26 +657,26 @@ function EvalLayerCard({ title, icon: Icon, iconBg, iconColor, evaluation, lineA
                 cùng cỡ chữ 9px in hoa nên không đọc được cái nào ra cái nào. */}
             <div className="flex items-start justify-between gap-4">
               <div className="flex items-center gap-3 min-w-0">
-                <div className={cn('w-12 h-12 rounded-2xl border flex items-center justify-center shrink-0', getScoreBg(evaluation.score))}>
+                <div className={cn('w-12 h-12 rounded-card border flex items-center justify-center shrink-0', getScoreBg(evaluation.score))}>
                   <TrendingUp size={20} className={getScoreColor(evaluation.score)} />
                 </div>
                 <div className="min-w-0">
                   <div className="flex items-baseline gap-1.5 flex-wrap">
-                    <span className={cn('text-3xl font-black tracking-tighter tabular-nums', getScoreColor(evaluation.score))}>
+                    <span className={cn('text-3xl font-semibold tracking-tighter tabular-nums', getScoreColor(evaluation.score))}>
                       {evaluation.score != null ? formatNumber(evaluation.score) : '—'}
                     </span>
-                    <span className="text-sm font-black text-slate-300 dark:text-slate-600">/{maxScore}</span>
-                    <span className={cn('ml-1 text-[10px] font-black uppercase tracking-[0.15em] whitespace-nowrap', getScoreColor(evaluation.score))}>
+                    <span className="text-sm font-semibold text-[var(--color-subtle-foreground)]">/{maxScore}</span>
+                    <span className={cn('ml-1 text-eyebrow whitespace-nowrap', getScoreColor(evaluation.score))}>
                       {getScoreLabel(evaluation.score)}
                     </span>
                   </div>
 
                   {evaluation.evaluatorRole === 'SELF' && !(evaluation.behaviorScore != null && evaluation.kpiCompletionPercent == null) && (evaluation.systemScore ?? calculatedScore) != null && evaluation.score !== (evaluation.systemScore ?? calculatedScore) && (
                      <div className={cn(
-                       "mt-1.5 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-lg text-[9px] font-black uppercase tracking-widest",
+                       "text-eyebrow mt-1.5 inline-flex items-center gap-1.5 px-2 py-0.5 rounded-control",
                        evaluation.score! > (evaluation.systemScore ?? calculatedScore!)
-                        ? "bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20"
-                        : "bg-amber-50 text-amber-600 dark:bg-amber-900/20"
+                        ? "bg-[var(--color-success-bg)] text-[var(--color-success)] dark:bg-[var(--color-success-bg)]"
+                        : "bg-[var(--color-warning-bg)] text-[var(--color-warning)] dark:bg-[var(--color-warning-bg)]"
                      )}>
                        {evaluation.score! > (evaluation.systemScore ?? calculatedScore!) ? '+' : ''}{Math.round(evaluation.score! - (evaluation.systemScore ?? calculatedScore!))} so với điểm hệ thống
                      </div>
@@ -706,9 +685,9 @@ function EvalLayerCard({ title, icon: Icon, iconBg, iconColor, evaluation, lineA
               </div>
 
               {evaluation.evaluatorName && (
-                <p className="shrink-0 text-right text-[11px] font-bold text-slate-400 leading-relaxed">
+                <p className="shrink-0 text-right text-caption leading-relaxed">
                   bởi<br />
-                  <span className="text-slate-600 dark:text-slate-300">{evaluation.evaluatorName}</span>
+                  <span className="text-[var(--color-muted-foreground)]">{evaluation.evaluatorName}</span>
                 </p>
               )}
             </div>
@@ -717,18 +696,18 @@ function EvalLayerCard({ title, icon: Icon, iconBg, iconColor, evaluation, lineA
               <div className="mt-4 space-y-1.5">
                 {evaluation.matrixRating != null && (
                   <DetailRow
-                    icon={<Star size={13} className="text-teal-500 fill-current" />}
+                    icon={<Star size={13} className="text-[var(--color-info)] fill-current" />}
                     label="Xếp loại theo ma trận"
                     caption={`Tra từ hành vi ${evaluation.behaviorScore != null ? evaluation.behaviorScore.toFixed(1) : '—'}/5 và hoàn thành ${evaluation.kpiCompletionPercent != null ? Math.round(evaluation.kpiCompletionPercent) + '%' : '—'}`}
-                    value={<>{evaluation.matrixRating}<span className="text-xs text-slate-300 dark:text-slate-600">/5</span></>}
-                    valueClass="text-teal-600 dark:text-teal-400"
+                    value={<>{evaluation.matrixRating}<span className="text-xs text-[var(--color-subtle-foreground)]">/5</span></>}
+                    valueClass="text-[var(--color-info)]"
                   />
                 )}
 
                 {/* Điểm hạnh kiểm THẬT của phiếu, đúng thang của bộ tiêu chí. */}
                 {conduct != null && (
                   <DetailRow
-                    icon={<HeartHandshake size={13} className="text-emerald-500" />}
+                    icon={<HeartHandshake size={13} className="text-[var(--color-success)]" />}
                     label="Điểm hạnh kiểm"
                     caption={[
                       `Tự chấm ${conduct.selfScore != null ? formatNumber(conduct.selfScore) : '—'}`,
@@ -736,41 +715,40 @@ function EvalLayerCard({ title, icon: Icon, iconBg, iconColor, evaluation, lineA
                     ].join(' · ')}
                     value={<>
                       {conduct.effectiveScore != null ? formatNumber(conduct.effectiveScore) : '—'}
-                      <span className="text-xs text-slate-300 dark:text-slate-600">/{conduct.maxScore}</span>
+                      <span className="text-xs text-[var(--color-subtle-foreground)]">/{conduct.maxScore}</span>
                     </>}
-                    valueClass="text-emerald-600 dark:text-emerald-400"
+                    valueClass="text-[var(--color-success)]"
                   />
                 )}
 
                 {/* BSC: điểm + breakdown hạng mục (chỉ hiện khi kỳ có bộ tiêu chí) */}
                 {evaluation.bscScore != null && (
                   <DetailRow
-                    icon={<Layers size={13} className="text-indigo-500" />}
+                    icon={<Layers size={13} className="text-[var(--color-primary)]" />}
                     label="Điểm BSC"
                     badge={evaluation.bscScoringMode === 'OFFICIAL' ? 'Chính thức' : 'Song song'}
                     caption={evaluation.bscScoringMode === 'OFFICIAL'
                       ? 'Đang là điểm chính thức của kỳ'
                       : 'Chạy song song để đối chiếu — chưa thay điểm hệ thống'}
                     value={evaluation.bscScore.toFixed(1)}
-                    valueClass="text-indigo-600 dark:text-indigo-400"
+                    valueClass="text-[var(--color-primary)]"
                     action={
                       // Điểm BSC đứng một mình không giải thích được vì sao ra con số đó —
                       // trần điểm và hạng mục chặn nằm ở màn hình diễn giải.
-                      <button type="button" onClick={e => { e.stopPropagation(); onExplainBsc?.(evaluation.id) }}
-                        className="shrink-0 inline-flex items-center gap-1 px-2 h-6 rounded-lg text-[9px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 transition-colors">
-                        Diễn giải <ArrowUpRight size={11} />
-                      </button>
+                      <Button variant="ghost" size="sm" className="shrink-0" type="button" onClick={e => { e.stopPropagation(); onExplainBsc?.(evaluation.id) }}>
+                        Diễn giải <ArrowUpRight aria-hidden="true" />
+                      </Button>
                     }
                   >
                     {evaluation.bscPerspectives && evaluation.bscPerspectives.length > 0 && (
                       <div className="mt-2 flex flex-wrap gap-x-3 gap-y-1">
                         {evaluation.bscPerspectives.map(p => (
                           <span key={p.perspectiveId}
-                            className="inline-flex items-center gap-1.5 text-[10px] font-bold text-slate-500 dark:text-slate-400"
+                            className="inline-flex items-center gap-1.5 text-caption"
                             title={describePerspectiveScore(p)}>
                             <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: p.color || '#8b5cf6' }} />
                             {p.name}
-                            <b className={cn('tabular-nums', p.achievementPercent == null && 'text-slate-300 dark:text-slate-600')}>
+                            <b className={cn('tabular-nums', p.achievementPercent == null && 'text-[var(--color-subtle-foreground)]')}>
                               {p.achievementPercent != null ? `${p.achievementPercent.toFixed(0)}%` : 'chưa có'}
                             </b>
                           </span>
@@ -783,8 +761,8 @@ function EvalLayerCard({ title, icon: Icon, iconBg, iconColor, evaluation, lineA
             )}
 
             {evaluation.comment && (
-              <div className="mt-4 pt-4 border-t border-slate-50 dark:border-slate-800/50">
-                <p className="text-sm text-slate-500 dark:text-slate-400 italic leading-relaxed">
+              <div className="mt-4 pt-4 border-t border-[var(--color-border)]">
+                <p className="text-sm text-[var(--color-muted-foreground)] italic leading-relaxed">
                   "{evaluation.comment}"
                 </p>
               </div>

@@ -56,14 +56,14 @@ function Shell({ title, icon, children, isEditMode, widget, onTogglePin, bare, e
 
 function Empty({ children, height = 220 }: { children: React.ReactNode; height?: number }) {
   return (
-    <div className="flex items-center justify-center text-sm text-slate-400 font-medium text-center px-4" style={{ height }}>
+    <div className="flex items-center justify-center text-sm text-[var(--color-subtle-foreground)] font-medium text-center px-4" style={{ height }}>
       {children}
     </div>
   )
 }
 
 function Loading({ height = 220 }: { height?: number }) {
-  return <div className="flex items-center justify-center text-slate-400 font-bold" style={{ height }}>Đang tải...</div>
+  return <div className="flex items-center justify-center text-[var(--color-subtle-foreground)] font-semibold" style={{ height }}>Đang tải...</div>
 }
 
 // ============================================================
@@ -80,7 +80,7 @@ export function SubmissionTrendWidget(p: AdvancedWidgetProps) {
     <Shell
       {...p}
       title="Cơ cấu bài nộp theo thời gian"
-      icon={<Activity size={20} className="text-sky-500" />}
+      icon={<Activity size={20} className="text-[var(--color-info)]" />}
       extra={<TrendModeToggle mode={mode} onChange={setMode} />}
     >
       {isLoading ? <Loading /> : !data?.points?.length ? (
@@ -107,7 +107,7 @@ export function SubmissionShareWidget(p: AdvancedWidgetProps) {
   const { data, isLoading } = useSubmissionShare(p.filter)
   const points = (data?.units ?? []).map(u => ({ label: u.name, values: u.percents }))
   return (
-    <Shell {...p} title="Cơ cấu trạng thái bài nộp theo đơn vị" icon={<Layers size={20} className="text-indigo-500" />}>
+    <Shell {...p} title="Cơ cấu trạng thái bài nộp theo đơn vị" icon={<Layers size={20} className="text-[var(--color-primary)]" />}>
       {isLoading ? <Loading /> : points.length === 0 ? (
         <Empty>Chưa có bài nộp nào để so cơ cấu giữa các đơn vị</Empty>
       ) : (
@@ -131,7 +131,7 @@ export function SubmissionShareWidget(p: AdvancedWidgetProps) {
 export function ScoreHistogramWidget(p: AdvancedWidgetProps) {
   const { data, isLoading } = useScoreHistogram(p.filter)
   return (
-    <Shell {...p} title="Phân phối điểm đánh giá" icon={<BarChart3 size={20} className="text-violet-500" />}>
+    <Shell {...p} title="Phân phối điểm đánh giá" icon={<BarChart3 size={20} className="text-[var(--color-primary)]" />}>
       {isLoading ? <Loading /> : !data || data.totalCount === 0 ? (
         <Empty>Chưa có đánh giá nào trong phạm vi này</Empty>
       ) : (
@@ -142,7 +142,7 @@ export function ScoreHistogramWidget(p: AdvancedWidgetProps) {
             marker={data.myScore != null ? { value: data.myScore, label: 'Bạn' } : null}
             unit="điểm"
           />
-          <p className="text-[11px] text-slate-400 font-medium text-center mt-2">
+          <p className="text-caption font-medium text-center mt-2">
             {data.totalCount} đánh giá · trung bình {data.averageScore ?? '—'} điểm
             {data.anonymized ? ' · phân phối đã ẩn danh' : ''}
           </p>
@@ -160,7 +160,7 @@ export function ScoreDeviationWidget(p: AdvancedWidgetProps) {
   const { data, isLoading } = useScoreDeviation(p.filter)
   const rows = data?.rows ?? []
   return (
-    <Shell {...p} title="Chênh lệch điểm so với trung bình" icon={<Scale size={20} className="text-amber-500" />}>
+    <Shell {...p} title="Chênh lệch điểm so với trung bình" icon={<Scale size={20} className="text-[var(--color-warning)]" />}>
       {isLoading ? <Loading /> : rows.length === 0 ? (
         <Empty>Chưa có đủ đánh giá để tính mặt bằng chung</Empty>
       ) : (
@@ -178,7 +178,7 @@ export function ScoreDeviationWidget(p: AdvancedWidgetProps) {
             height={Math.max(200, Math.min(rows.length * 28 + 40, 460))}
           />
           {data?.anonymized && (
-            <p className="text-[11px] text-slate-400 font-medium text-center mt-2">
+            <p className="text-caption font-medium text-center mt-2">
               Chỉ vị trí của bạn có tên; các vạch còn lại đã được gỡ danh tính từ máy chủ.
             </p>
           )}
@@ -196,7 +196,7 @@ export function SelfVsManagerWidget(p: AdvancedWidgetProps) {
   const { data, isLoading } = useSelfVsManager(p.filter)
   const rows = data?.rows ?? []
   return (
-    <Shell {...p} title="Tự đánh giá vs Quản lý đánh giá" icon={<GitCompare size={20} className="text-rose-500" />}>
+    <Shell {...p} title="Tự đánh giá vs Quản lý đánh giá" icon={<GitCompare size={20} className="text-[var(--color-error)]" />}>
       {isLoading ? <Loading /> : rows.length === 0 ? (
         <Empty>
           Chưa có kỳ nào mà cả đơn vị và quản lý đều đã chấm.<br />
@@ -223,7 +223,7 @@ export function SelfVsManagerWidget(p: AdvancedWidgetProps) {
               <Bar dataKey="managerScore" name="Quản lý chấm" fill={METRIC_COLORS.performance.normal} radius={[0, 3, 3, 0]} isAnimationActive={false} />
             </BarChart>
           </ResponsiveContainer>
-          <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 pt-2 text-xs font-medium text-slate-500 dark:text-slate-400">
+          <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 pt-2 text-xs font-medium text-[var(--color-muted-foreground)]">
             <span className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full" style={{ backgroundColor: METRIC_COLORS.completion.normal }} /> Tự chấm
             </span>
@@ -231,7 +231,7 @@ export function SelfVsManagerWidget(p: AdvancedWidgetProps) {
               <span className="w-2 h-2 rounded-full" style={{ backgroundColor: METRIC_COLORS.performance.normal }} /> Quản lý chấm
             </span>
             {data?.averageGap != null && (
-              <span className="text-[11px]">
+              <span className="text-xs">
                 Chênh lệch trung bình {data.averageGap > 0 ? '+' : ''}{data.averageGap} điểm
                 {data.averageGap > 0 ? ' (đơn vị tự chấm cao hơn)' : data.averageGap < 0 ? ' (quản lý chấm cao hơn)' : ''}
               </span>
@@ -250,19 +250,19 @@ function GapTooltip({ active, payload }: {
   const d = payload?.[0]?.payload
   if (!active || !d) return null
   return (
-    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3.5 rounded-xl shadow-lg">
-      <p className="font-bold text-slate-900 dark:text-white mb-2">{d.name}</p>
+    <div className="bg-[var(--color-card)] border border-[var(--color-border)] p-3.5 rounded-card">
+      <p className="font-semibold text-[var(--color-foreground)] mb-2">{d.name}</p>
       <div className="space-y-1 text-sm">
-        <p><span className="text-slate-500 font-medium">Tự chấm: </span><span className="font-bold tabular-nums">{d.selfScore}</span></p>
-        <p><span className="text-slate-500 font-medium">Quản lý chấm: </span><span className="font-bold tabular-nums">{d.managerScore}</span></p>
-        <p className="pt-1.5 border-t border-slate-100 dark:border-slate-800 mt-1.5">
-          <span className="text-slate-500 font-medium">Chênh lệch: </span>
-          <span className="font-black tabular-nums" style={{ color: d.gap > 0 ? '#f59e0b' : d.gap < 0 ? '#3b82f6' : '#64748b' }}>
+        <p><span className="text-[var(--color-muted-foreground)] font-medium">Tự chấm: </span><span className="font-semibold tabular-nums">{d.selfScore}</span></p>
+        <p><span className="text-[var(--color-muted-foreground)] font-medium">Quản lý chấm: </span><span className="font-semibold tabular-nums">{d.managerScore}</span></p>
+        <p className="pt-1.5 border-t border-[var(--color-border)] mt-1.5">
+          <span className="text-[var(--color-muted-foreground)] font-medium">Chênh lệch: </span>
+          <span className="font-semibold tabular-nums" style={{ color: d.gap > 0 ? '#f59e0b' : d.gap < 0 ? '#3b82f6' : '#64748b' }}>
             {d.gap > 0 ? '+' : ''}{d.gap}
           </span>
         </p>
         {d.memberCount != null && d.memberCount > 0 && (
-          <p className="text-[11px] text-slate-400">{d.memberCount} thành viên</p>
+          <p className="text-caption">{d.memberCount} thành viên</p>
         )}
       </div>
     </div>
@@ -277,7 +277,7 @@ export function RankDeltaWidget(p: AdvancedWidgetProps) {
   const { data, isLoading } = useRankDelta(p.filter)
   const rows = data?.rows ?? []
   return (
-    <Shell {...p} title="Biến động thứ hạng giữa hai kỳ" icon={<TrendingUp size={20} className="text-emerald-500" />}>
+    <Shell {...p} title="Biến động thứ hạng giữa hai kỳ" icon={<TrendingUp size={20} className="text-[var(--color-success)]" />}>
       {isLoading ? <Loading /> : !data?.comparable ? (
         <Empty>
           Cần ít nhất hai kỳ đã chốt điểm để so thứ hạng.<br />
@@ -310,7 +310,7 @@ export function RankDeltaWidget(p: AdvancedWidgetProps) {
               </Bar>
             </BarChart>
           </ResponsiveContainer>
-          <p className="text-[11px] text-slate-400 font-medium text-center mt-1">
+          <p className="text-caption font-medium text-center mt-1">
             So {data.currentCycleName} với {data.previousCycleName} · mũi tên là mức thay đổi thứ hạng
           </p>
         </>
@@ -349,15 +349,15 @@ function RankTooltip({ active, payload, cur, prev }: {
   const d = payload?.[0]?.payload
   if (!active || !d) return null
   return (
-    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3.5 rounded-xl shadow-lg">
-      <p className="font-bold text-slate-900 dark:text-white mb-2">{d.name}</p>
+    <div className="bg-[var(--color-card)] border border-[var(--color-border)] p-3.5 rounded-card">
+      <p className="font-semibold text-[var(--color-foreground)] mb-2">{d.name}</p>
       <div className="space-y-1 text-sm">
-        <p><span className="text-slate-500 font-medium">{cur}: </span><span className="font-bold tabular-nums">hạng {d.currentRank} · {d.score} điểm</span></p>
-        <p><span className="text-slate-500 font-medium">{prev}: </span>
-          <span className="font-bold tabular-nums">{d.previousRank != null ? `hạng ${d.previousRank}` : 'chưa có mặt'}</span>
+        <p><span className="text-[var(--color-muted-foreground)] font-medium">{cur}: </span><span className="font-semibold tabular-nums">hạng {d.currentRank} · {d.score} điểm</span></p>
+        <p><span className="text-[var(--color-muted-foreground)] font-medium">{prev}: </span>
+          <span className="font-semibold tabular-nums">{d.previousRank != null ? `hạng ${d.previousRank}` : 'chưa có mặt'}</span>
         </p>
         {d.rankDelta != null && d.rankDelta !== 0 && (
-          <p className="pt-1.5 border-t border-slate-100 dark:border-slate-800 mt-1.5 font-black" style={{ color: d.rankDelta > 0 ? '#10b981' : '#ef4444' }}>
+          <p className="pt-1.5 border-t border-[var(--color-border)] mt-1.5 font-semibold" style={{ color: d.rankDelta > 0 ? '#10b981' : '#ef4444' }}>
             {d.rankDelta > 0 ? `Tăng ${d.rankDelta} bậc` : `Giảm ${Math.abs(d.rankDelta)} bậc`}
             {d.scoreDelta != null && ` (${d.scoreDelta > 0 ? '+' : ''}${d.scoreDelta} điểm)`}
           </p>
@@ -374,13 +374,13 @@ function RankTooltip({ active, payload, cur, prev }: {
 export function KpiLifecycleWidget(p: AdvancedWidgetProps) {
   const { data, isLoading } = useKpiLifecycle(p.filter)
   return (
-    <Shell {...p} title="Vòng đời KPI" icon={<Network size={20} className="text-indigo-500" />}>
+    <Shell {...p} title="Vòng đời KPI" icon={<Network size={20} className="text-[var(--color-primary)]" />}>
       {isLoading ? <Loading /> : !data || data.empty ? (
         <Empty>Chưa có KPI nào trong phạm vi này</Empty>
       ) : (
         <>
           <FlowSankey nodes={data.nodes} links={data.links} valueLabel={data.valueLabel} />
-          <p className="text-[11px] text-slate-400 font-medium text-center mt-1">
+          <p className="text-caption font-medium text-center mt-1">
             Ảnh chụp hiện trạng: mỗi KPI nằm ở đúng một nhánh cuối theo trạng thái hiện tại của nó.
           </p>
         </>

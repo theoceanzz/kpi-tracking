@@ -1,7 +1,9 @@
 import { useEffect, useMemo } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { X, Target, Loader2, ChevronDown, Check } from 'lucide-react'
+import { Loader2, ChevronDown, Check } from 'lucide-react'
+import { Dialog, DialogFooter } from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { OkrStatus, ObjectiveResponse } from '../types'
 import { createObjectiveSchema, type ObjectiveFormData } from '../schemas/okrSchema'
@@ -149,219 +151,195 @@ export default function ObjectiveFormModal({ isOpen, onClose, organizationId, ob
     }
   }
 
-  if (!isOpen) return null
-
   const isPending = createObjective.isPending || updateObjective.isPending
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300">
-      <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
-        <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-gradient-to-r from-indigo-50 to-white dark:from-indigo-950/20 dark:to-slate-900">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-200 dark:shadow-none">
-              <Target size={24} />
-            </div>
-            <div>
-              <h3 className="text-xl font-black text-slate-900 dark:text-white">{objective ? 'Chỉnh sửa mục tiêu' : 'Tạo mục tiêu mới'}</h3>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Objective Configuration</p>
-            </div>
+    <Dialog
+      open={isOpen}
+      onClose={onClose}
+      size="md"
+      dismissible={!isPending}
+      title={objective ? 'Chỉnh sửa mục tiêu' : 'Tạo mục tiêu mới'}
+      description="Cấu hình mục tiêu"
+      footer={
+        <DialogFooter
+          secondary={<Button variant="outline" onClick={onClose} disabled={isPending}>Hủy</Button>}
+          primary={
+            <Button type="submit" form="objective-form" disabled={isPending}>
+              {isPending && <Loader2 className="animate-spin" aria-hidden="true" />}
+              {objective ? 'Lưu thay đổi' : 'Xác nhận tạo'}
+            </Button>
+          }
+        />
+      }
+    >
+      <form id="objective-form" onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="sm:col-span-2 space-y-1.5">
+            <label className="text-label">Tên mục tiêu <span className="text-[var(--color-error)]">*</span></label>
+            <input
+              {...register('name')}
+              placeholder="VD: Mở rộng thị trường..."
+              className="w-full px-4 py-2.5 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)] text-sm font-medium focus:ring-4 focus:ring-[var(--color-ring)] focus:border-[var(--color-primary)] outline-none transition-all"
+            />
+            {errors.name && <p className="text-xs font-medium text-[var(--color-error)] ml-1">{errors.name.message}</p>}
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors">
-            <X size={20} />
-          </button>
+
+          <CodeField
+            rule={codeRule}
+            currentCode={objective?.code}
+            error={errors.code?.message}
+            register={register('code')}
+            fallbackPlaceholder="OBJ001"
+            tone="indigo"
+          />
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col max-h-[85vh]">
-          <div className="p-6 space-y-4 overflow-y-auto custom-scrollbar relative z-10">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="sm:col-span-2 space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Tên mục tiêu <span className="text-red-500">*</span></label>
-                <input
-                  {...register('name')}
-                  placeholder="VD: Mở rộng thị trường..."
-                  className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all"
-                />
-                {errors.name && <p className="text-[10px] font-bold text-red-500 ml-1">{errors.name.message}</p>}
-              </div>
+        <div className="space-y-1.5">
+          <label className="text-label">Mô tả chi tiết</label>
+          <textarea
+            {...register('description')}
+            placeholder="Mô tả cụ thể mục tiêu cần đạt được..."
+            rows={2}
+            className="w-full px-4 py-2.5 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)] text-sm font-medium focus:ring-4 focus:ring-[var(--color-ring)] focus:border-[var(--color-primary)] outline-none transition-all resize-none"
+          />
+        </div>
 
-              <CodeField
-                rule={codeRule}
-                currentCode={objective?.code}
-                error={errors.code?.message}
-                register={register('code')}
-                fallbackPlaceholder="OBJ001"
-                tone="indigo"
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-1.5">
+            <label className="text-label">Ngày bắt đầu <span className="text-[var(--color-error)]">*</span></label>
+            <div className="relative">
+              <input
+                type="date"
+                {...register('startDate')}
+                className="w-full px-4 py-2.5 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)] text-sm font-medium focus:ring-4 focus:ring-[var(--color-ring)] focus:border-[var(--color-primary)] outline-none transition-all text-transparent"
               />
+              <div className="absolute inset-0 left-4 flex items-center pointer-events-none text-sm font-medium text-[var(--color-foreground)]">
+                {startDate ? format(new Date(startDate as string), 'dd/MM/yyyy') : ''}
+              </div>
             </div>
-
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Mô tả chi tiết</label>
-              <textarea
-                {...register('description')}
-                placeholder="Mô tả cụ thể mục tiêu cần đạt được..."
-                rows={2}
-                className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-sm font-medium focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all resize-none"
+            {errors.startDate && <p className="text-xs font-medium text-[var(--color-error)] ml-1">{errors.startDate.message}</p>}
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-label">Ngày kết thúc <span className="text-[var(--color-error)]">*</span></label>
+            <div className="relative">
+              <input
+                type="date"
+                {...register('endDate')}
+                className="w-full px-4 py-2.5 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)] text-sm font-medium focus:ring-4 focus:ring-[var(--color-ring)] focus:border-[var(--color-primary)] outline-none transition-all text-transparent"
               />
+              <div className="absolute inset-0 left-4 flex items-center pointer-events-none text-sm font-medium text-[var(--color-foreground)]">
+                {watch('endDate') ? format(new Date(watch('endDate') as string), 'dd/MM/yyyy') : ''}
+              </div>
             </div>
+            {errors.endDate && <p className="text-xs font-medium text-[var(--color-error)] ml-1">{errors.endDate.message}</p>}
+          </div>
+        </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Ngày bắt đầu <span className="text-red-500">*</span></label>
-                <div className="relative">
-                  <input
-                    type="date"
-                    {...register('startDate')}
-                    className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all text-transparent"
-                  />
-                  <div className="absolute inset-0 left-4 flex items-center pointer-events-none text-sm font-bold text-slate-900 dark:text-white">
-                    {startDate ? format(new Date(startDate as string), 'dd/MM/yyyy') : ''}
-                  </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-1.5">
+            <label className="text-label">Phòng ban</label>
+            <Popover>
+              <PopoverTrigger asChild>
+                <Button variant="outline" className="w-full" type="button">
+                  <span className="truncate">
+                    {selectedOrgUnitIds.length === 0 ? 'Chọn đơn vị' :
+                     selectedOrgUnitIds.length === 1 ? allOrgUnits.find(u => u.id === selectedOrgUnitIds[0])?.name :
+                     `Đã chọn ${selectedOrgUnitIds.length} đơn vị`}
+                  </span>
+                  <ChevronDown aria-hidden="true" className="opacity-50" />
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="p-2 w-[var(--radix-popover-trigger-width)] max-h-[300px] overflow-y-auto custom-scrollbar" align="start">
+                <div className="space-y-1">
+                  {allOrgUnits.map((unit) => {
+                    const isSelected = selectedOrgUnitIds.includes(unit.id)
+                    return (
+                      <div
+                        key={unit.id}
+                        onClick={() => toggleOrgUnit(unit.id)}
+                        className={cn(
+                          "flex items-center gap-3 px-3 py-2 rounded-card cursor-pointer transition-colors group",
+                          isSelected ? "bg-[var(--color-primary-soft)] text-[var(--color-primary)]" : "hover:bg-[var(--color-muted)]"
+                        )}
+                      >
+                        <div className={cn(
+                          "w-4 h-4 rounded border flex items-center justify-center transition-all",
+                          isSelected ? "bg-[var(--color-primary)] border-[var(--color-primary)] text-[var(--color-primary-foreground)]" : "border-[var(--color-border)] group-hover:border-[var(--color-primary)]"
+                        )}>
+                          {isSelected && <Check size={10} strokeWidth={4} />}
+                        </div>
+                        <span className="text-xs font-medium truncate" style={{ marginLeft: `${unit.level * 12}px` }}>
+                          {unit.name}
+                        </span>
+                      </div>
+                    )
+                  })}
                 </div>
-                {errors.startDate && <p className="text-[10px] font-bold text-red-500 ml-1">{errors.startDate.message}</p>}
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Ngày kết thúc <span className="text-red-500">*</span></label>
-                <div className="relative">
-                  <input
-                    type="date"
-                    {...register('endDate')}
-                    className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all text-transparent"
-                  />
-                  <div className="absolute inset-0 left-4 flex items-center pointer-events-none text-sm font-bold text-slate-900 dark:text-white">
-                    {watch('endDate') ? format(new Date(watch('endDate') as string), 'dd/MM/yyyy') : ''}
-                  </div>
-                </div>
-                {errors.endDate && <p className="text-[10px] font-bold text-red-500 ml-1">{errors.endDate.message}</p>}
-              </div>
-            </div>
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Phòng ban</label>
-                <Popover>
-                  <PopoverTrigger asChild>
-                    <button
-                      type="button"
-                      className="w-full h-10 px-4 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-sm font-bold flex items-center justify-between focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all"
-                    >
-                      <span className="truncate">
-                        {selectedOrgUnitIds.length === 0 ? 'Chọn đơn vị' :
-                         selectedOrgUnitIds.length === 1 ? allOrgUnits.find(u => u.id === selectedOrgUnitIds[0])?.name :
-                         `Đã chọn ${selectedOrgUnitIds.length} đơn vị`}
-                      </span>
-                      <ChevronDown size={14} className="opacity-50" />
-                    </button>
-                  </PopoverTrigger>
-                  <PopoverContent className="p-2 w-[var(--radix-popover-trigger-width)] max-h-[300px] overflow-y-auto custom-scrollbar" align="start">
-                    <div className="space-y-1">
-                      {allOrgUnits.map((unit) => {
-                        const isSelected = selectedOrgUnitIds.includes(unit.id)
-                        return (
-                          <div
-                            key={unit.id}
-                            onClick={() => toggleOrgUnit(unit.id)}
-                            className={cn(
-                              "flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-colors group",
-                              isSelected ? "bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400" : "hover:bg-slate-50 dark:hover:bg-slate-800"
-                            )}
-                          >
-                            <div className={cn(
-                              "w-4 h-4 rounded border flex items-center justify-center transition-all",
-                              isSelected ? "bg-indigo-600 border-indigo-600 text-white" : "border-slate-200 dark:border-slate-700 group-hover:border-indigo-400"
-                            )}>
-                              {isSelected && <Check size={10} strokeWidth={4} />}
-                            </div>
-                            <span className="text-xs font-bold truncate" style={{ marginLeft: `${unit.level * 12}px` }}>
-                              {unit.name}
-                            </span>
-                          </div>
-                        )
-                      })}
-                    </div>
-                  </PopoverContent>
-                </Popover>
-              </div>
-
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Trạng thái</label>
-                <Controller
-                  name="status"
-                  control={control}
-                  render={({ field }) => (
-                    <Select value={field.value} onValueChange={field.onChange}>
-                      <SelectTrigger className="w-full h-10 rounded-xl bg-slate-50 dark:bg-slate-800 border-slate-100 dark:border-slate-700 text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all">
-                        <SelectValue placeholder="Trạng thái" />
-                      </SelectTrigger>
-                      <SelectContent className="rounded-xl border-slate-200 dark:border-slate-800">
-                        <SelectItem value={OkrStatus.ACTIVE} className="text-sm font-bold text-emerald-600">Đang thực hiện</SelectItem>
-                        <SelectItem value={OkrStatus.COMPLETED} className="text-sm font-bold text-blue-600">Hoàn thành</SelectItem>
-                        <SelectItem value={OkrStatus.CANCELLED} className="text-sm font-bold text-rose-600">Hủy bỏ</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-              </div>
-            </div>
-
-            {enableBsc && (
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Hạng mục BSC</label>
-                <Controller
-                  name="perspectiveId"
-                  control={control}
-                  render={({ field }) => (
-
-                    <Select key={`${field.value ?? 'NONE'}-${perspectiveOptions.length}`} value={field.value || 'NONE'} onValueChange={field.onChange}>
-                      <SelectTrigger className="w-full h-10 rounded-xl bg-slate-50 dark:bg-slate-800 border-slate-100 dark:border-slate-700 text-sm font-bold outline-none">
-                        <SelectValue placeholder="-- Chưa gán hạng mục --" />
-                      </SelectTrigger>
-                      <SelectContent className="rounded-xl border-slate-200 dark:border-slate-800 max-h-[280px]">
-                        <SelectItem value="NONE" className="text-sm font-bold text-slate-500">-- Chưa gán hạng mục --</SelectItem>
-                        {perspectiveOptions.map(p => (
-                          <SelectItem key={p.id} value={p.id} className="text-sm font-bold"
-                            /* Mục tiêu ở đây là con số MẶC ĐỊNH của danh mục hạng mục. Mục tiêu
-                               riêng nằm trên từng bộ tiêu chí, mà objective chưa gắn với một bộ
-                               tiêu chí cụ thể nào nên chưa suy ra được — đủ để định hướng khi
-                               chọn, còn con số chấm điểm thật vẫn theo bộ tiêu chí của đơn vị. */
-                            extra={perspectiveHint(p) && (
-                              <span className="ml-auto pl-3 text-[10px] font-bold text-slate-400 whitespace-nowrap">
-                                {perspectiveHint(p)}
-                              </span>
-                            )}>
-                            <span className="flex items-center gap-2">
-                              <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: p.color || '#8b5cf6' }} />
-                              {p.name}
-                            </span>
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-                <p className="text-[10px] font-medium text-slate-400 ml-1">KPI thuộc mục tiêu này sẽ tự kế thừa hạng mục (nếu KPI chưa gán trực tiếp).</p>
-              </div>
-            )}
+              </PopoverContent>
+            </Popover>
           </div>
 
-          <div className="p-6 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900 flex gap-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 px-6 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 text-sm font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
-            >
-              Hủy
-            </button>
-            <button
-              type="submit"
-              disabled={isPending}
-              className="flex-[2] px-6 py-2.5 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-500/20 disabled:opacity-50 transition-all flex items-center justify-center gap-2"
-            >
-              {isPending && <Loader2 className="animate-spin" size={18} />}
-              {objective ? 'Lưu thay đổi' : 'Xác nhận tạo'}
-            </button>
+          <div className="space-y-1.5">
+            <label className="text-label">Trạng thái</label>
+            <Controller
+              name="status"
+              control={control}
+              render={({ field }) => (
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <SelectTrigger className="w-full h-10 rounded-card bg-[var(--color-muted)] border-[var(--color-border)] text-sm font-medium focus:ring-4 focus:ring-[var(--color-ring)] focus:border-[var(--color-primary)] outline-none transition-all">
+                    <SelectValue placeholder="Trạng thái" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-card border-[var(--color-border)]">
+                    <SelectItem value={OkrStatus.ACTIVE} className="text-sm font-medium text-[var(--color-success)]">Đang thực hiện</SelectItem>
+                    <SelectItem value={OkrStatus.COMPLETED} className="text-sm font-medium text-[var(--color-info)]">Hoàn thành</SelectItem>
+                    <SelectItem value={OkrStatus.CANCELLED} className="text-sm font-medium text-[var(--color-error)]">Hủy bỏ</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+            />
           </div>
-        </form>
-      </div>
-    </div>
+        </div>
+
+        {enableBsc && (
+          <div className="space-y-1.5">
+            <label className="text-label">Hạng mục BSC</label>
+            <Controller
+              name="perspectiveId"
+              control={control}
+              render={({ field }) => (
+
+                <Select key={`${field.value ?? 'NONE'}-${perspectiveOptions.length}`} value={field.value || 'NONE'} onValueChange={field.onChange}>
+                  <SelectTrigger className="w-full h-10 rounded-card bg-[var(--color-muted)] border-[var(--color-border)] text-sm font-medium outline-none">
+                    <SelectValue placeholder="-- Chưa gán hạng mục --" />
+                  </SelectTrigger>
+                  <SelectContent className="rounded-card border-[var(--color-border)] max-h-[280px]">
+                    <SelectItem value="NONE" className="text-sm font-medium text-[var(--color-muted-foreground)]">-- Chưa gán hạng mục --</SelectItem>
+                    {perspectiveOptions.map(p => (
+                      <SelectItem key={p.id} value={p.id} className="text-sm font-medium"
+                        /* Mục tiêu ở đây là con số MẶC ĐỊNH của danh mục hạng mục. Mục tiêu
+                           riêng nằm trên từng bộ tiêu chí, mà objective chưa gắn với một bộ
+                           tiêu chí cụ thể nào nên chưa suy ra được — đủ để định hướng khi
+                           chọn, còn con số chấm điểm thật vẫn theo bộ tiêu chí của đơn vị. */
+                        extra={perspectiveHint(p) && (
+                          <span className="ml-auto pl-3 text-caption whitespace-nowrap">
+                            {perspectiveHint(p)}
+                          </span>
+                        )}>
+                        <span className="flex items-center gap-2">
+                          <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: p.color || '#8b5cf6' }} />
+                          {p.name}
+                        </span>
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              )}
+            />
+            <p className="text-caption">KPI thuộc mục tiêu này sẽ tự kế thừa hạng mục (nếu KPI chưa gán trực tiếp).</p>
+          </div>
+        )}
+      </form>
+    </Dialog>
   )
 }

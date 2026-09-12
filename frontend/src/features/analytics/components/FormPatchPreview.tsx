@@ -3,6 +3,7 @@ import { Check, PenLine } from 'lucide-react'
 import { toast } from 'sonner'
 import type { FormPatch } from '../api/aiApi'
 import { useFormAssistStore } from '@/store/formAssistStore'
+import { Button } from '@/components/ui/button'
 
 interface Props {
   patch: FormPatch
@@ -44,8 +45,8 @@ export default function FormPatchPreview({ patch }: Props) {
   }
 
   return (
-    <div className="w-full mt-2 rounded-lg border border-violet-200 bg-violet-50/60 p-3 dark:border-violet-800 dark:bg-violet-950/40">
-      <div className="mb-2 flex items-center gap-1.5 text-sm font-medium text-violet-800 dark:text-violet-200">
+    <div className="w-full mt-2 rounded-card border border-[var(--color-ai-line)] bg-[var(--color-ai-soft)] p-3">
+      <div className="mb-2 flex items-center gap-1.5 text-sm font-medium text-[var(--color-ai)]">
         <PenLine className="h-4 w-4" />
         Đề xuất điền form
       </div>
@@ -55,17 +56,17 @@ export default function FormPatchPreview({ patch }: Props) {
           const off = skipped.has(e.field)
           return (
             <li key={e.field}>
-              <label className="flex cursor-pointer items-start gap-2 text-sm">
+              <label className="text-label flex cursor-pointer items-start gap-2">
                 <input
                   type="checkbox"
                   checked={!off}
                   disabled={applied}
                   onChange={() => toggle(e.field)}
-                  className="mt-1 h-3.5 w-3.5 shrink-0 accent-violet-600"
+                  className="mt-1 h-3.5 w-3.5 shrink-0 accent-[var(--color-ai)]"
                 />
                 <span className={off ? 'opacity-40' : undefined}>
-                  <span className="text-gray-600 dark:text-gray-400">{e.label}: </span>
-                  <span className="font-medium text-gray-900 dark:text-gray-100">{e.display}</span>
+                  <span className="text-[var(--color-muted-foreground)] dark:text-[var(--color-subtle-foreground)]">{e.label}: </span>
+                  <span className="font-medium text-[var(--color-foreground)]">{e.display}</span>
                 </span>
               </label>
             </li>
@@ -74,23 +75,18 @@ export default function FormPatchPreview({ patch }: Props) {
       </ul>
 
       {patch.entries[0]?.reason && (
-        <p className="mt-2 text-xs italic text-gray-500 dark:text-gray-400">{patch.entries[0].reason}</p>
+        <p className="mt-2 text-xs italic text-[var(--color-muted-foreground)] dark:text-[var(--color-subtle-foreground)]">{patch.entries[0].reason}</p>
       )}
 
       {applied ? (
-        <div className="mt-2.5 flex items-center gap-1.5 text-sm text-emerald-700 dark:text-emerald-400">
+        <div className="mt-2.5 flex items-center gap-1.5 text-sm text-[var(--color-success)]">
           <Check className="h-4 w-4" />
           Đã điền vào form — bạn kiểm tra lại rồi hãy lưu
         </div>
       ) : (
-        <button
-          type="button"
-          onClick={apply}
-          disabled={chosen.length === 0}
-          className="mt-2.5 rounded-md bg-violet-600 px-3 py-1.5 text-sm font-medium text-white transition-colors hover:bg-violet-700 disabled:cursor-not-allowed disabled:opacity-40"
-        >
+        <Button variant="ghost" size="sm" className="mt-2.5" type="button" onClick={apply} disabled={chosen.length === 0}>
           Điền {chosen.length} ô đã chọn
-        </button>
+        </Button>
       )}
     </div>
   )

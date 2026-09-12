@@ -1,8 +1,10 @@
 import { useMemo, useState } from 'react'
 import {
   ArrowRightLeft, CalendarClock, Check, Crown, Info, Loader2, Network, Plus, Search,
-  ShieldCheck, Trash2, X,
+  ShieldCheck, Trash2,
 } from 'lucide-react'
+import { Dialog, DialogFooter } from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
 import { format, parseISO } from 'date-fns'
 import { cn } from '@/lib/utils'
 import UserAvatar from '@/components/common/UserAvatar'
@@ -14,6 +16,7 @@ import type { DelegationResponse } from '../api/delegation.api'
 import {
   Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
+import { ChoiceChip } from '@/components/ui/choice-chip'
 
 /**
  * Uỷ quyền quản lý CHÉO đơn vị.
@@ -40,32 +43,24 @@ export default function DelegationSettingsTab() {
 
   return (
     <div className="space-y-6">
-      <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-        <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-violet-50 dark:bg-violet-900/30 flex items-center justify-center text-violet-600 shrink-0">
-              <ArrowRightLeft size={20} />
-            </div>
-            <div>
-              <h3 className="font-black text-slate-900 dark:text-white">Uỷ quyền quản lý chéo đơn vị</h3>
-              <p className="text-xs font-medium text-slate-500">
+      <div className="overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
+        <div className="px-5 py-4 border-b border-[var(--color-border)] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="min-w-0">
+            <h3 className="text-section-title">Uỷ quyền quản lý chéo đơn vị</h3>
+              <p className="mt-0.5 text-sm text-[var(--color-muted-foreground)]">
                 Cho một người quản lý thêm đơn vị không nằm trong cây của họ
               </p>
             </div>
-          </div>
 
-          <button
-            onClick={() => setShowForm(true)}
-            className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-violet-600 text-white text-sm font-bold hover:bg-violet-700 shadow-lg shadow-violet-500/20 transition-all shrink-0"
-          >
-            <Plus size={16} /> Uỷ quyền mới
-          </button>
+          <Button className="shrink-0" onClick={() => setShowForm(true)}>
+            <Plus aria-hidden="true" /> Uỷ quyền mới
+          </Button>
         </div>
 
-        <div className="p-6 space-y-4">
-          <div className="p-4 rounded-2xl bg-blue-50 dark:bg-blue-900/10 border border-blue-100 dark:border-blue-900/30 flex items-start gap-3">
-            <Info size={18} className="text-blue-600 shrink-0 mt-0.5" />
-            <p className="text-xs text-blue-800 dark:text-blue-300 font-medium leading-relaxed">
+        <div className="p-5 space-y-4">
+          <div className="p-4 rounded-card bg-[var(--color-info-bg)] border border-[var(--color-info-border)] flex items-start gap-3">
+            <Info size={18} className="text-[var(--color-info)] shrink-0 mt-0.5" />
+            <p className="text-xs text-[var(--color-info)] font-medium leading-relaxed">
               Uỷ quyền chỉ <b>nới phạm vi</b> của quyền sẵn có, không cấp quyền mới: người không
               có quyền chốt kỳ ở đâu cả thì được uỷ quyền cũng vẫn không chốt được. Vai trò và
               ràng buộc "mỗi đơn vị một trưởng, một phó" giữ nguyên.
@@ -74,13 +69,13 @@ export default function DelegationSettingsTab() {
 
           {isLoading ? (
             <div className="flex items-center justify-center py-10">
-              <Loader2 size={24} className="animate-spin text-violet-500" />
+              <Loader2 size={24} className="animate-spin text-[var(--color-primary)]" />
             </div>
           ) : rows.length === 0 ? (
             <div className="py-12 text-center space-y-2">
-              <Network size={40} className="mx-auto text-slate-300" />
-              <p className="text-sm font-black text-slate-900 dark:text-white">Chưa có uỷ quyền nào</p>
-              <p className="text-xs text-slate-500 max-w-md mx-auto leading-relaxed">
+              <Network size={40} className="mx-auto text-[var(--color-subtle-foreground)]" />
+              <p className="text-sm font-semibold text-[var(--color-foreground)]">Chưa có uỷ quyền nào</p>
+              <p className="text-xs text-[var(--color-muted-foreground)] max-w-md mx-auto leading-relaxed">
                 Dùng khi một đơn vị trống trưởng, khi cần người kiêm nhiệm trong lúc trưởng đơn vị
                 đi vắng, hoặc khi hai đơn vị tạm gộp về một đầu mối.
               </p>
@@ -92,7 +87,7 @@ export default function DelegationSettingsTab() {
               ))}
               {inactive.length > 0 && (
                 <>
-                  <p className="pt-2 text-[10px] font-black uppercase tracking-widest text-slate-400">
+                  <p className="text-eyebrow pt-2">
                     Không còn hiệu lực
                   </p>
                   {inactive.map(d => (
@@ -123,30 +118,30 @@ function DelegationRow({
 
   return (
     <div className={cn(
-      'p-4 rounded-2xl border flex flex-col lg:flex-row lg:items-center gap-4',
+      'p-4 rounded-card border flex flex-col lg:flex-row lg:items-center gap-4',
       d.active
-        ? 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800'
-        : 'bg-slate-50 dark:bg-slate-800/40 border-slate-100 dark:border-slate-800 opacity-70',
+        ? 'bg-[var(--color-card)] border-[var(--color-border)]'
+        : 'bg-[var(--color-muted)] border-[var(--color-border)] opacity-70',
     )}>
       <UserAvatar
         fullName={d.delegateUserName}
         avatarUrl={d.delegateUserAvatarUrl}
-        className="w-10 h-10 rounded-xl shrink-0"
-        fallbackClassName="bg-violet-50 dark:bg-violet-900/30 font-black text-xs text-violet-600"
+        className="w-10 h-10 rounded-card shrink-0"
+        fallbackClassName="bg-[var(--color-primary-soft)] font-semibold text-xs text-[var(--color-primary)]"
       />
 
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-black text-slate-900 dark:text-white truncate">{d.delegateUserName}</p>
+        <p className="text-sm font-semibold text-[var(--color-foreground)] truncate">{d.delegateUserName}</p>
         {/* Đường đi của quyền là thứ người đọc cần thấy đầu tiên: từ đơn vị nào sang đơn vị nào. */}
-        <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-[11px] font-bold text-slate-500">
-          <span className="text-slate-400">{d.fromOrgUnitName || 'Đơn vị gốc'}</span>
-          {d.delegateRoleName && <span className="text-slate-300">· {d.delegateRoleName}</span>}
-          <ArrowRightLeft size={11} className="text-violet-500" />
-          <span className="text-violet-600 dark:text-violet-400">{d.orgUnitName}</span>
-          {d.includeSubtree && <span className="text-slate-400">(kèm cấp dưới)</span>}
+        <p className="mt-0.5 flex flex-wrap items-center gap-1.5 text-caption">
+          <span className="text-[var(--color-subtle-foreground)]">{d.fromOrgUnitName || 'Đơn vị gốc'}</span>
+          {d.delegateRoleName && <span className="text-[var(--color-subtle-foreground)]">· {d.delegateRoleName}</span>}
+          <ArrowRightLeft size={11} className="text-[var(--color-primary)]" />
+          <span className="text-[var(--color-primary)]">{d.orgUnitName}</span>
+          {d.includeSubtree && <span className="text-[var(--color-subtle-foreground)]">(kèm cấp dưới)</span>}
         </p>
         {d.reason && (
-          <p className="mt-1 text-[11px] font-medium text-slate-400 italic line-clamp-2">"{d.reason}"</p>
+          <p className="mt-1 text-caption italic line-clamp-2">"{d.reason}"</p>
         )}
       </div>
 
@@ -154,32 +149,27 @@ function DelegationRow({
         {d.canActAsLeader && (
           <span
             title="Được ký thay vai trò trưởng đơn vị — gồm cả chấm hạnh kiểm"
-            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 text-[10px] font-black uppercase tracking-wider border border-amber-100 dark:border-amber-800/50"
+            className="text-eyebrow inline-flex items-center gap-1 px-2.5 py-1 rounded-control bg-[var(--color-warning-bg)] text-[var(--color-warning)] border border-[var(--color-warning-border)]"
           >
             <Crown size={11} /> Ký thay trưởng
           </span>
         )}
         <span className={cn(
-          'inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-[10px] font-black uppercase tracking-wider border',
+          'text-eyebrow inline-flex items-center gap-1 px-2.5 py-1 rounded-control border',
           d.active
-            ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-800/50'
-            : 'bg-slate-100 dark:bg-slate-800 text-slate-500 border-slate-200 dark:border-slate-700',
+            ? 'bg-[var(--color-success-bg)] text-[var(--color-success)] border-[var(--color-success-border)]'
+            : 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)] border-[var(--color-border)]',
         )}>
           <ShieldCheck size={11} /> {statusLabel}
         </span>
         {d.expiresAt && (
-          <span className="inline-flex items-center gap-1 text-[10px] font-bold text-slate-400 whitespace-nowrap">
+          <span className="inline-flex items-center gap-1 text-caption whitespace-nowrap">
             <CalendarClock size={11} /> đến {format(parseISO(d.expiresAt), 'dd/MM/yyyy')}
           </span>
         )}
-        <button
-          onClick={onRevoke}
-          disabled={isRevoking}
-          title="Thu hồi uỷ quyền"
-          className="w-9 h-9 flex items-center justify-center rounded-xl border border-slate-200 dark:border-slate-700 text-slate-400 hover:text-rose-600 hover:border-rose-200 transition-all disabled:opacity-50"
-        >
-          <Trash2 size={14} />
-        </button>
+        <Button variant="outline" size="icon" className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]" aria-label="Thu hồi uỷ quyền" onClick={onRevoke} disabled={isRevoking} title="Thu hồi uỷ quyền">
+          <Trash2 aria-hidden="true" />
+        </Button>
       </div>
     </div>
   )
@@ -317,175 +307,140 @@ function DelegationFormModal({
   }
 
   return (
-    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-md" onClick={onClose} />
-      <div className="relative bg-white dark:bg-slate-900 rounded-[32px] shadow-2xl w-full max-w-lg max-h-[90vh] overflow-y-auto border border-slate-200 dark:border-slate-800 p-8">
-        <div className="flex items-start justify-between gap-4 mb-6">
-          <div className="flex items-center gap-3">
-            <div className="w-11 h-11 rounded-2xl bg-violet-50 dark:bg-violet-900/30 flex items-center justify-center text-violet-600">
-              <ArrowRightLeft size={20} />
+    <Dialog
+      open
+      onClose={onClose}
+      size="md"
+      dismissible={!create.isPending}
+      title="Uỷ quyền quản lý đơn vị"
+      description="Nới phạm vi quyền sẵn có"
+      footer={
+        <DialogFooter
+          secondary={<Button variant="outline" onClick={onClose} disabled={create.isPending}>Huỷ</Button>}
+          primary={
+            <Button onClick={submit} disabled={!canSubmit}>
+              {create.isPending && <Loader2 className="animate-spin" aria-hidden="true" />}
+              Uỷ quyền
+            </Button>
+          }
+        />
+      }
+    >
+      <div className="space-y-4">
+        <Field label="Người được uỷ quyền" required>
+          <Select value={delegateUserId} onValueChange={setDelegateUserId}>
+            <SelectTrigger className="w-full h-12 rounded-card">
+              <SelectValue placeholder="Chọn nhân sự…" />
+            </SelectTrigger>
+            <SelectContent className="z-[1100] max-h-[320px]">
+              {usersByUnit.map(g => (
+                <SelectGroup key={g.id}>
+                  <SelectLabel>{g.unitName}</SelectLabel>
+                  {g.members.map(u => (
+                    <SelectItem key={`${g.id}-${u.id}`} value={u.id}>
+                      {u.fullName} · {u.email}
+                    </SelectItem>
+                  ))}
+                </SelectGroup>
+              ))}
+            </SelectContent>
+          </Select>
+        </Field>
+
+        {/* Chọn NHIỀU đơn vị. Radix Select chỉ giữ được một giá trị nên ở đây là danh
+            sách tự dựng, cùng kiểu với ô chọn đơn vị của form KPI. */}
+        <Field label="Đơn vị được giao quản lý" required>
+          <div className="rounded-card border border-[var(--color-border)] overflow-hidden">
+            <div className="flex items-center gap-2 px-3 py-2 border-b border-[var(--color-border)] bg-[var(--color-muted)]">
+              <Search size={14} className="text-[var(--color-subtle-foreground)] shrink-0" />
+              <input
+                value={unitSearch}
+                onChange={e => setUnitSearch(e.target.value)}
+                placeholder="Tìm đơn vị…"
+                className="flex-1 min-w-0 bg-transparent text-xs font-medium outline-none placeholder:text-[var(--color-subtle-foreground)]"
+              />
+              {orgUnitIds.length > 0 && (
+                <Button variant="ghost" className="shrink-0 text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]" type="button" onClick={() => setOrgUnitIds([])}>
+                  Bỏ chọn ({orgUnitIds.length})
+                </Button>
+              )}
             </div>
-            <div>
-              <h3 className="text-lg font-black text-slate-900 dark:text-white">Uỷ quyền quản lý đơn vị</h3>
-              <p className="text-[11px] font-black text-slate-400 uppercase tracking-widest mt-0.5">
-                Nới phạm vi quyền sẵn có
-              </p>
+
+            <div className="max-h-[200px] overflow-y-auto p-1.5 space-y-0.5">
+              {!delegateUserId ? (
+                <p className="py-6 text-center text-xs font-medium text-[var(--color-subtle-foreground)]">
+                  Chọn người được uỷ quyền trước — danh sách đơn vị lọc theo cấp của họ.
+                </p>
+              ) : visibleUnits.length === 0 ? (
+                <p className="py-6 text-center text-xs font-medium text-[var(--color-subtle-foreground)]">
+                  Không có đơn vị nào khớp
+                </p>
+              ) : visibleUnits.map(u => {
+                const picked = orgUnitIds.includes(u.id)
+                return (
+                  <ChoiceChip selected={picked} variant="solid" size="sm" className="w-full py-2 text-left" key={u.id} onClick={() => toggleUnit(u.id)}>
+                    {/* Khi đang tìm kiếm thì bỏ thụt lề: kết quả lọc không còn liền mạch
+                        theo cây nên gạch thụt chỉ gây hiểu nhầm về cấp bậc. */}
+                    <span className="truncate">{unitSearch.trim() ? u.name : u.label}</span>
+                    {picked && <Check className="shrink-0" />}
+                  </ChoiceChip>
+                )
+              })}
             </div>
           </div>
-          <button
-            onClick={onClose}
-            className="w-9 h-9 flex items-center justify-center rounded-xl text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
-          >
-            <X size={18} />
-          </button>
-        </div>
-
-        <div className="space-y-4">
-          <Field label="Người được uỷ quyền" required>
-            <Select value={delegateUserId} onValueChange={setDelegateUserId}>
-              <SelectTrigger className="w-full h-12 rounded-2xl">
-                <SelectValue placeholder="Chọn nhân sự…" />
-              </SelectTrigger>
-              <SelectContent className="z-[1100] max-h-[320px]">
-                {usersByUnit.map(g => (
-                  <SelectGroup key={g.id}>
-                    <SelectLabel>{g.unitName}</SelectLabel>
-                    {g.members.map(u => (
-                      <SelectItem key={`${g.id}-${u.id}`} value={u.id}>
-                        {u.fullName} · {u.email}
-                      </SelectItem>
-                    ))}
-                  </SelectGroup>
-                ))}
-              </SelectContent>
-            </Select>
-          </Field>
-
-          {/* Chọn NHIỀU đơn vị. Radix Select chỉ giữ được một giá trị nên ở đây là danh
-              sách tự dựng, cùng kiểu với ô chọn đơn vị của form KPI. */}
-          <Field label="Đơn vị được giao quản lý" required>
-            <div className="rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden">
-              <div className="flex items-center gap-2 px-3 py-2 border-b border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40">
-                <Search size={14} className="text-slate-400 shrink-0" />
-                <input
-                  value={unitSearch}
-                  onChange={e => setUnitSearch(e.target.value)}
-                  placeholder="Tìm đơn vị…"
-                  className="flex-1 min-w-0 bg-transparent text-xs font-medium outline-none placeholder:text-slate-400"
-                />
-                {orgUnitIds.length > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setOrgUnitIds([])}
-                    className="shrink-0 text-[10px] font-black uppercase tracking-wider text-slate-400 hover:text-rose-600"
-                  >
-                    Bỏ chọn ({orgUnitIds.length})
-                  </button>
-                )}
-              </div>
-
-              <div className="max-h-[200px] overflow-y-auto p-1.5 space-y-0.5">
-                {!delegateUserId ? (
-                  <p className="py-6 text-center text-xs font-medium text-slate-400">
-                    Chọn người được uỷ quyền trước — danh sách đơn vị lọc theo cấp của họ.
-                  </p>
-                ) : visibleUnits.length === 0 ? (
-                  <p className="py-6 text-center text-xs font-medium text-slate-400">
-                    Không có đơn vị nào khớp
-                  </p>
-                ) : visibleUnits.map(u => {
-                  const picked = orgUnitIds.includes(u.id)
-                  return (
-                    <button
-                      key={u.id}
-                      type="button"
-                      onClick={() => toggleUnit(u.id)}
-                      className={cn(
-                        'w-full flex items-center justify-between gap-2 px-3 py-2 rounded-xl text-xs text-left transition-all',
-                        picked
-                          ? 'bg-violet-600 text-white font-bold shadow-sm'
-                          : 'font-medium text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-800',
-                      )}
-                    >
-                      {/* Khi đang tìm kiếm thì bỏ thụt lề: kết quả lọc không còn liền mạch
-                          theo cây nên gạch thụt chỉ gây hiểu nhầm về cấp bậc. */}
-                      <span className="truncate">{unitSearch.trim() ? u.name : u.label}</span>
-                      {picked && <Check size={14} className="shrink-0" />}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-            {blockedCount > 0 && (
-              // Nói thẳng vì sao thiếu đơn vị: người trao đi tìm "Phòng Kinh doanh" mà
-              // không thấy sẽ tưởng dữ liệu lỗi chứ không nghĩ là luật chặn.
-              <p className="mt-1.5 text-[11px] font-medium text-slate-400 leading-relaxed">
-                Đã ẩn {blockedCount} đơn vị ở cấp cao hơn cấp mà người này đang phụ trách —
-                uỷ quyền chỉ giao được đơn vị ngang cấp hoặc thấp hơn.
-              </p>
-            )}
-            {orgUnitIds.length > 1 && (
-              <p className="mt-1.5 text-[11px] font-bold text-violet-600 dark:text-violet-400">
-                Đã chọn {orgUnitIds.length} đơn vị — tạo cùng lúc, hỏng một cái thì không cái nào được tạo.
-              </p>
-            )}
-          </Field>
-
-          <CheckRow
-            checked={includeSubtree}
-            onChange={setIncludeSubtree}
-            title="Kèm cả các đơn vị cấp dưới"
-            hint="Tắt nếu chỉ giao đúng đơn vị đó, không gồm các tổ/nhóm bên trong."
-          />
-
-          <CheckRow
-            checked={canActAsLeader}
-            onChange={setCanActAsLeader}
-            title="Được ký thay vai trò trưởng đơn vị"
-            hint="Cần bật để chấm hạnh kiểm — việc này đòi đúng người đứng đầu đơn vị. Tắt thì vẫn chấm KPI và chốt đánh giá được."
-          />
-
-          <Field label="Hết hiệu lực">
-            <input
-              type="date"
-              value={expiresAt}
-              onChange={e => setExpiresAt(e.target.value)}
-              className="w-full h-12 px-4 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-950/50 text-sm font-bold outline-none focus:ring-4 focus:ring-violet-500/10"
-            />
-            <p className="mt-1.5 text-[11px] font-medium text-slate-400">
-              Bỏ trống = không hết hạn. Uỷ quyền tạm thời nên đặt hạn để khỏi quên thu hồi.
+          {blockedCount > 0 && (
+            // Nói thẳng vì sao thiếu đơn vị: người trao đi tìm "Phòng Kinh doanh" mà
+            // không thấy sẽ tưởng dữ liệu lỗi chứ không nghĩ là luật chặn.
+            <p className="mt-1.5 text-caption leading-relaxed">
+              Đã ẩn {blockedCount} đơn vị ở cấp cao hơn cấp mà người này đang phụ trách —
+              uỷ quyền chỉ giao được đơn vị ngang cấp hoặc thấp hơn.
             </p>
-          </Field>
+          )}
+          {orgUnitIds.length > 1 && (
+            <p className="mt-1.5 text-xs font-medium text-[var(--color-primary)]">
+              Đã chọn {orgUnitIds.length} đơn vị — tạo cùng lúc, hỏng một cái thì không cái nào được tạo.
+            </p>
+          )}
+        </Field>
 
-          <Field label="Lý do">
-            <textarea
-              value={reason}
-              onChange={e => setReason(e.target.value)}
-              rows={2}
-              placeholder="VD: phòng Backend trống trưởng, giao chị Lan phụ trách tới khi có người mới…"
-              className="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-950/50 text-sm font-medium outline-none focus:ring-4 focus:ring-violet-500/10 resize-y"
-            />
-          </Field>
-        </div>
+        <CheckRow
+          checked={includeSubtree}
+          onChange={setIncludeSubtree}
+          title="Kèm cả các đơn vị cấp dưới"
+          hint="Tắt nếu chỉ giao đúng đơn vị đó, không gồm các tổ/nhóm bên trong."
+        />
 
-        <div className="flex gap-3 mt-6">
-          <button
-            onClick={onClose}
-            className="flex-1 px-6 py-3.5 rounded-2xl border border-slate-200 dark:border-slate-800 text-xs font-black uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-slate-800"
-          >
-            Huỷ
-          </button>
-          <button
-            onClick={submit}
-            disabled={!canSubmit}
-            className="flex-1 inline-flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-violet-600 text-white text-xs font-black uppercase tracking-widest hover:bg-violet-700 shadow-lg shadow-violet-500/25 disabled:opacity-50"
-          >
-            {create.isPending && <Loader2 size={14} className="animate-spin" />}
-            Uỷ quyền
-          </button>
-        </div>
+        <CheckRow
+          checked={canActAsLeader}
+          onChange={setCanActAsLeader}
+          title="Được ký thay vai trò trưởng đơn vị"
+          hint="Cần bật để chấm hạnh kiểm — việc này đòi đúng người đứng đầu đơn vị. Tắt thì vẫn chấm KPI và chốt đánh giá được."
+        />
+
+        <Field label="Hết hiệu lực">
+          <input
+            type="date"
+            value={expiresAt}
+            onChange={e => setExpiresAt(e.target.value)}
+            className="w-full h-12 px-4 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] text-sm font-medium outline-none focus:ring-4 focus:ring-[var(--color-ring)]"
+          />
+          <p className="mt-1.5 text-caption">
+            Bỏ trống = không hết hạn. Uỷ quyền tạm thời nên đặt hạn để khỏi quên thu hồi.
+          </p>
+        </Field>
+
+        <Field label="Lý do">
+          <textarea
+            value={reason}
+            onChange={e => setReason(e.target.value)}
+            rows={2}
+            placeholder="VD: phòng Backend trống trưởng, giao chị Lan phụ trách tới khi có người mới…"
+            className="w-full px-4 py-3 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] text-sm font-medium outline-none focus:ring-4 focus:ring-[var(--color-ring)] resize-y"
+          />
+        </Field>
       </div>
-    </div>
+
+    </Dialog>
   )
 }
 
@@ -498,8 +453,8 @@ function Field({
 }) {
   return (
     <label className="block">
-      <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">
-        {label} {required && <span className="text-red-500">*</span>}
+      <span className="text-eyebrow">
+        {label} {required && <span className="text-[var(--color-error)]">*</span>}
       </span>
       <div className="mt-1.5">{children}</div>
     </label>
@@ -515,26 +470,17 @@ function CheckRow({
   hint: string
 }) {
   return (
-    <button
-      type="button"
-      onClick={() => onChange(!checked)}
-      className={cn(
-        'w-full flex items-start gap-3 p-3.5 rounded-2xl border text-left transition-all',
-        checked
-          ? 'bg-violet-50/50 dark:bg-violet-900/10 border-violet-200 dark:border-violet-800/50'
-          : 'bg-slate-50 dark:bg-slate-800/40 border-slate-200 dark:border-slate-700',
-      )}
-    >
+    <ChoiceChip selected={checked} className="w-full text-left" onClick={() => onChange(!checked)}>
       <span className={cn(
-        'w-5 h-5 rounded-md border-2 flex items-center justify-center shrink-0 mt-0.5 transition-all',
-        checked ? 'bg-violet-600 border-violet-600' : 'border-slate-300 dark:border-slate-600',
+        'w-5 h-5 rounded-control border-2 flex items-center justify-center shrink-0 mt-0.5 transition-all',
+        checked ? 'bg-[var(--color-primary)] border-[var(--color-primary)]' : 'border-[var(--color-border-strong)]',
       )}>
         {checked && <span className="w-2 h-2 rounded-sm bg-white" />}
       </span>
       <span className="min-w-0">
-        <span className="block text-xs font-black text-slate-700 dark:text-slate-200">{title}</span>
-        <span className="block mt-0.5 text-[11px] font-medium text-slate-400 leading-relaxed">{hint}</span>
+        <span className="block text-xs font-semibold text-[var(--color-foreground)]">{title}</span>
+        <span className="block mt-0.5 text-caption leading-relaxed">{hint}</span>
       </span>
-    </button>
+    </ChoiceChip>
   )
 }

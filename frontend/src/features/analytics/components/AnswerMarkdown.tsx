@@ -58,7 +58,7 @@ export default function AnswerMarkdown({ children }: { children: string }) {
         remarkPlugins={[remarkGfm]}
         components={{
           table: ({ children: tableChildren }) => (
-            <div className="not-prose my-2 overflow-x-auto rounded-lg border border-[var(--color-border)]">
+            <div className="not-prose my-2 overflow-x-auto rounded-control border border-[var(--color-border)]">
               <table className="w-full min-w-max border-collapse text-sm">{tableChildren}</table>
             </div>
           ),
@@ -66,7 +66,7 @@ export default function AnswerMarkdown({ children }: { children: string }) {
             <thead className="bg-[var(--color-ai-soft)] text-left">{c}</thead>
           ),
           th: ({ children: c }) => (
-            <th className="px-3 py-2 text-xs font-semibold uppercase tracking-wide text-[var(--color-ai)] whitespace-nowrap">
+            <th className="px-3 py-2 text-xs font-medium text-[var(--color-ai)] whitespace-nowrap">
               {withLineBreaks(c)}
             </th>
           ),

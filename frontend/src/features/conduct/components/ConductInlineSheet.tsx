@@ -11,6 +11,7 @@ import type { ConductScoreInput, ConductSheet, ConductTarget } from '../api/cond
 import { exportConductSheetToExcel } from '../utils/conductSheetExport'
 import { useConductSheet } from '../hooks/useConduct'
 import { fmt, num, useConductDraft, weighted } from '../hooks/useConductDraft'
+import { Button } from '@/components/ui/button'
 
 /**
  * Phiếu hạnh kiểm nhúng thẳng vào modal chấm đợt và modal chốt kỳ — chấm người nào thì
@@ -63,9 +64,9 @@ export default function ConductInlineSheet({
 
   if (isLoading) {
     return (
-      <div className={cn('flex items-center gap-3 p-5 rounded-[28px] border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30', className)}>
-        <Loader2 size={16} className="animate-spin text-indigo-500" />
-        <span className="text-xs font-bold text-slate-400">Đang tải phiếu hạnh kiểm…</span>
+      <div className={cn('flex items-center gap-3 p-5 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)]', className)}>
+        <Loader2 size={16} className="animate-spin text-[var(--color-primary)]" />
+        <span className="text-caption">Đang tải phiếu hạnh kiểm…</span>
       </div>
     )
   }
@@ -163,25 +164,21 @@ function InlineSheet({
   }
 
   return (
-    <div className={cn('rounded-[28px] border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/30 overflow-hidden', className)}>
-      <button
-        type="button"
-        onClick={() => setManualOpen(!open)}
-        className="w-full px-5 py-3.5 flex items-center gap-3 text-left hover:bg-slate-100/60 dark:hover:bg-slate-800/60 transition-all"
-      >
-        <div className="w-9 h-9 rounded-2xl bg-teal-50 dark:bg-teal-900/20 text-teal-600 dark:text-teal-400 flex items-center justify-center shrink-0">
-          <HeartHandshake size={16} />
+    <div className={cn('rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] overflow-hidden', className)}>
+      <button className="flex w-full items-center gap-3 rounded-card p-3 text-left transition-colors hover:bg-[var(--color-muted)]" type="button" onClick={() => setManualOpen(!open)}>
+        <div className="w-9 h-9 rounded-card bg-[var(--color-info-bg)] text-[var(--color-info)] flex items-center justify-center shrink-0">
+          <HeartHandshake aria-hidden="true" />
         </div>
         <div className="min-w-0 flex-1">
-          <p className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
+          <p className="text-sm font-semibold text-[var(--color-foreground)] flex items-center gap-2">
             Chấm hạnh kiểm
             {sheet.locked && (
-              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-md bg-slate-200 dark:bg-slate-700 text-[9px] font-black uppercase tracking-wider text-slate-500 dark:text-slate-300">
-                <Lock size={9} /> Đã khoá
+              <span className="text-eyebrow inline-flex items-center gap-1 px-1.5 py-0.5 rounded-control bg-[var(--color-border)]">
+                <Lock aria-hidden="true" /> Đã khoá
               </span>
             )}
           </p>
-          <p className="text-[10px] font-bold uppercase tracking-widest text-slate-400 truncate">
+          <p className="text-eyebrow truncate">
             {[sheet.criteriaSetName, `thang ${fmt(max)}`].filter(Boolean).join(' · ')}
           </p>
         </div>
@@ -189,28 +186,28 @@ function InlineSheet({
         <div className="flex items-center gap-2.5 shrink-0">
           {editable && (
             <span className={cn(
-              'hidden sm:inline-flex items-center gap-1 px-2 py-1 rounded-lg text-[10px] font-black tabular-nums',
+              'hidden sm:inline-flex items-center gap-1 px-2 py-1 rounded-control text-xs font-semibold tabular-nums',
               done === sheet.items.length
-                ? 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-500'
+                ? 'bg-[var(--color-success-bg)] text-[var(--color-success)]'
+                : 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)]'
             )}>
-              {done === sheet.items.length && <Check size={10} />}
+              {done === sheet.items.length && <Check aria-hidden="true" />}
               {done}/{sheet.items.length}
             </span>
           )}
           <p className={cn(
-            'text-sm font-black tabular-nums',
-            side === 'manager' ? 'text-indigo-600 dark:text-indigo-400' : 'text-teal-600 dark:text-teal-400'
+            'text-sm font-semibold tabular-nums',
+            side === 'manager' ? 'text-[var(--color-primary)]' : 'text-[var(--color-info)]'
           )}>
             {fmt(myTotal)}
-            <span className="text-slate-400 font-bold">/{fmt(max)}</span>
+            <span className="text-[var(--color-subtle-foreground)] font-semibold">/{fmt(max)}</span>
           </p>
-          <ChevronDown size={16} className={cn('text-slate-400 transition-transform', open && 'rotate-180')} />
+          <ChevronDown aria-hidden="true" className={cn('text-[var(--color-subtle-foreground)] transition-transform', open && 'rotate-180')} />
         </div>
       </button>
 
       {open && (
-        <div className="px-5 pb-5 space-y-2.5 border-t border-slate-100 dark:border-slate-800 pt-4">
+        <div className="px-5 pb-5 space-y-2.5 border-t border-[var(--color-border)] pt-4">
           {sheet.locked && (
             <Banner tone="slate" icon={Lock}>
               Đánh giá kỳ của đơn vị{sheet.lockedByUnitName ? ` "${sheet.lockedByUnitName}"` : ''} đã chốt —
@@ -230,16 +227,16 @@ function InlineSheet({
             return (
               <div
                 key={item.position}
-                className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 p-3.5"
+                className="rounded-card border border-[var(--color-border)] bg-[var(--color-card)] p-3.5"
               >
                 <div className="flex items-start gap-2.5">
-                  <span className="w-5 h-5 rounded-md bg-slate-100 dark:bg-slate-800 text-slate-500 text-[10px] font-black flex items-center justify-center shrink-0 mt-0.5">
+                  <span className="w-5 h-5 rounded-control bg-[var(--color-muted)] text-caption font-semibold flex items-center justify-center shrink-0 mt-0.5">
                     {idx + 1}
                   </span>
                   <div className="min-w-0 flex-1">
                     <div className="flex items-start justify-between gap-2">
-                      <p className="text-sm font-black text-slate-900 dark:text-white leading-snug">{item.name}</p>
-                      <span className="shrink-0 px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-[10px] font-black text-slate-500 tabular-nums">
+                      <p className="text-sm font-semibold text-[var(--color-foreground)] leading-snug">{item.name}</p>
+                      <span className="shrink-0 px-2 py-0.5 rounded-control bg-[var(--color-muted)] text-caption tabular-nums">
                         {fmt(item.weight)}%
                       </span>
                     </div>
@@ -299,25 +296,25 @@ function InlineSheet({
               value={comment}
               onChange={setComment}
               placeholder="Nhận xét chung cho cả phiếu…"
-              className="min-h-[44px] px-4 py-3 rounded-2xl text-sm bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 focus:ring-indigo-500/20"
+              className="min-h-[44px] px-4 py-3 rounded-card text-sm bg-[var(--color-card)] border-[var(--color-border)] focus:ring-[var(--color-ring)]"
             />
           )}
 
           {/* Tổng và hành động gộp một hàng: chấm xong là thấy điểm rồi bấm lưu ngay,
               không phải cuộn qua hai khối riêng. */}
-          <div className="flex flex-wrap items-center gap-3 px-4 py-3 rounded-2xl bg-[#1e3a6d] text-white">
+          <div className="flex flex-wrap items-center gap-3 px-4 py-3 rounded-card bg-[#1e3a6d] text-white">
             {/* Nhãn và điểm nằm cùng một dòng — thanh này chỉ có một con số, không đáng
                 chiếm hai dòng ở cuối một phiếu vốn đã dài. */}
             <div className="min-w-0 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-              <p className="text-[9px] font-black uppercase tracking-widest text-white/50">
+              <p className="text-eyebrow text-white/50">
                 Điểm hành vi đã tính trọng số
               </p>
-              <p className="text-lg font-black leading-none tabular-nums">
+              <p className="text-lg font-semibold leading-none tabular-nums">
                 {fmt(myTotal)}
                 <span className="text-sm text-white/50">/{fmt(max)}</span>
                 {/* Điểm phía kia đứng cạnh để so, không cần thêm một khối riêng. */}
                 {(dual || otherTotal != null) && (
-                  <span className="ml-2 text-[10px] font-black uppercase tracking-widest text-white/50">
+                  <span className="text-eyebrow ml-2 text-white/50">
                     {side === 'manager' ? 'Tự ĐG' : 'QLTT'} {fmt(otherTotal)}
                   </span>
                 )}
@@ -326,46 +323,31 @@ function InlineSheet({
 
             <div className="ml-auto flex flex-wrap items-center gap-2">
               {showExport && (
-                <button
-                  type="button"
-                  onClick={handleExport}
-                  title="Xuất phiếu ra Excel"
-                  className="flex items-center gap-2 px-3 h-9 rounded-xl bg-white/10 text-white/80 text-xs font-bold hover:bg-white/20 transition-all active:scale-95"
-                >
-                  <FileSpreadsheet size={14} />
+                <Button variant="secondary" size="sm" type="button" onClick={handleExport} title="Xuất phiếu ra Excel">
+                  <FileSpreadsheet aria-hidden="true" />
                   <span className="hidden sm:inline">Xuất Excel</span>
-                </button>
+                </Button>
               )}
               {!hideActions && sheet.canScoreSelf && (
-                <button
-                  type="button"
-                  onClick={() => onSaveSelf(collect('self'))}
-                  disabled={isSavingSelf}
-                  className="flex items-center gap-2 px-4 h-9 rounded-xl bg-teal-500 text-white text-xs font-bold hover:bg-teal-400 shadow-sm transition-all active:scale-95 disabled:opacity-50"
-                >
-                  {isSavingSelf ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                <Button size="sm" type="button" onClick={() => onSaveSelf(collect('self'))} disabled={isSavingSelf}>
+                  {isSavingSelf ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Save aria-hidden="true" />}
                   Lưu tự đánh giá
-                </button>
+                </Button>
               )}
               {!hideActions && sheet.canScoreManager && (
-                <button
-                  type="button"
-                  onClick={() => onSaveManager({ items: collect('manager'), comment })}
-                  disabled={isSavingManager}
-                  className="flex items-center gap-2 px-4 h-9 rounded-xl bg-white text-[#1e3a6d] text-xs font-bold hover:bg-white/90 shadow-sm transition-all active:scale-95 disabled:opacity-50"
-                >
-                  {isSavingManager ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+                <Button variant="secondary" size="sm" type="button" onClick={() => onSaveManager({ items: collect('manager'), comment })} disabled={isSavingManager}>
+                  {isSavingManager ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Save aria-hidden="true" />}
                   Lưu điểm hạnh kiểm
-                </button>
+                </Button>
               )}
               {!editable && !sheet.locked && (
-                <p className="text-[11px] font-bold text-white/60">Bạn chỉ có quyền xem phiếu này.</p>
+                <p className="text-xs font-medium text-white/60">Bạn chỉ có quyền xem phiếu này.</p>
               )}
             </div>
           </div>
 
           {editable && done < sheet.items.length && (
-            <p className="text-center text-[11px] font-bold text-slate-400">
+            <p className="text-center text-caption">
               Còn {sheet.items.length - done} tiêu chí chưa chấm — phiếu vẫn lưu được phần đang dở.
             </p>
           )}
@@ -388,19 +370,15 @@ function Expectations({ text }: { text?: string | null }) {
   return (
     <ul className="mt-1 space-y-0.5">
       {shown.map((line, i) => (
-        <li key={i} className="text-[11px] font-medium text-slate-500 dark:text-slate-400 leading-relaxed pl-3 relative">
+        <li key={i} className="text-caption leading-relaxed pl-3 relative">
           <span className="absolute left-0">-</span>{line}
         </li>
       ))}
       {lines.length > 2 && (
         <li>
-          <button
-            type="button"
-            onClick={() => setExpanded(!expanded)}
-            className="text-[10px] font-black uppercase tracking-wider text-slate-400 hover:text-[var(--color-primary)] transition-colors"
-          >
+          <Button variant="ghost" type="button" onClick={() => setExpanded(!expanded)}>
             {expanded ? 'Thu gọn' : `+ ${lines.length - 2} biểu hiện khác`}
-          </button>
+          </Button>
         </li>
       )}
     </ul>
@@ -423,14 +401,14 @@ function ScoreBlock({
 }) {
   const w = weighted(num(score), weight)
   const accent = tone === 'self'
-    ? 'text-teal-600 dark:text-teal-400'
-    : 'text-indigo-600 dark:text-indigo-400'
+    ? 'text-[var(--color-info)]'
+    : 'text-[var(--color-primary)]'
 
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between gap-2">
-        <span className={cn('text-[9px] font-black uppercase tracking-widest', accent)}>{label}</span>
-        <span className={cn('text-[10px] font-black tabular-nums', w == null ? 'text-slate-300 dark:text-slate-600' : accent)}>
+        <span className={cn('text-eyebrow', accent)}>{label}</span>
+        <span className={cn('text-xs font-semibold tabular-nums', w == null ? 'text-[var(--color-subtle-foreground)]' : accent)}>
           ×TS {fmt(w)}
         </span>
       </div>
@@ -441,10 +419,10 @@ function ScoreBlock({
         disabled={!editable}
         placeholder={editable ? notePlaceholder : 'Chưa có nội dung'}
         className={cn(
-          'min-h-[36px] px-3 py-2 rounded-xl text-xs',
+          'min-h-[36px] px-3 py-2 rounded-card text-xs',
           editable
-            ? 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 focus:ring-indigo-500/20'
-            : 'bg-slate-50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-800 text-slate-400 cursor-not-allowed'
+            ? 'bg-[var(--color-card)] border-[var(--color-border)] focus:ring-[var(--color-ring)]'
+            : 'bg-[var(--color-muted)] border-[var(--color-border)] text-[var(--color-subtle-foreground)] cursor-not-allowed'
         )}
       />
     </div>
@@ -485,12 +463,12 @@ function ScoreScale({
         disabled={!editable}
         placeholder="—"
         className={cn(
-          'w-24 px-2 py-1.5 rounded-xl text-center text-sm font-black outline-none border transition-all',
+          'w-24 px-2 py-1.5 rounded-card text-center text-sm font-semibold outline-none border transition-all',
           !editable
-            ? 'bg-slate-50 dark:bg-slate-800/50 border-slate-200 dark:border-slate-700 text-slate-400 cursor-not-allowed'
+            ? 'bg-[var(--color-muted)] border-[var(--color-border)] text-[var(--color-subtle-foreground)] cursor-not-allowed'
             : tone === 'self'
-              ? 'bg-teal-50 dark:bg-teal-900/10 border-teal-100 dark:border-teal-800 text-teal-700 dark:text-teal-400 focus:ring-2 focus:ring-teal-500/20'
-              : 'bg-indigo-50 dark:bg-indigo-900/10 border-indigo-100 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400 focus:ring-2 focus:ring-indigo-500/20'
+              ? 'bg-[var(--color-info-bg)] border-[var(--color-info-border)] text-[var(--color-info)] focus:ring-2 focus:ring-[var(--color-info-solid)]'
+              : 'bg-[var(--color-primary-soft)] border-[var(--color-border)] text-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-ring)]'
         )}
       />
     )
@@ -509,17 +487,17 @@ function ScoreScale({
             title={editable ? (active ? 'Bấm lại để bỏ chấm' : `Chấm ${o}/${max}`) : undefined}
             onClick={() => onChange(active ? '' : String(o))}
             className={cn(
-              'min-w-9 h-9 px-2.5 rounded-xl text-sm font-black tabular-nums border transition-all',
+              'min-w-9 h-9 px-2.5 rounded-card text-sm font-semibold tabular-nums border transition-all',
               !editable && 'cursor-not-allowed',
               active
                 ? tone === 'self'
-                  ? 'bg-teal-600 border-teal-600 text-white shadow-sm'
-                  : 'bg-indigo-600 border-indigo-600 text-white shadow-sm'
+                  ? 'bg-[var(--color-info-solid)] border-[var(--color-info-border)] text-white shadow-sm'
+                  : 'bg-[var(--color-primary)] border-[var(--color-primary)] text-[var(--color-primary-foreground)] shadow-sm'
                 : cn(
-                  'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-400',
+                  'bg-[var(--color-card)] border-[var(--color-border)] text-[var(--color-subtle-foreground)]',
                   editable && (tone === 'self'
-                    ? 'hover:border-teal-400 hover:text-teal-600 active:scale-95'
-                    : 'hover:border-indigo-400 hover:text-indigo-600 active:scale-95')
+                    ? 'hover:border-[var(--color-info-border)] hover:text-[var(--color-info)]'
+                    : 'hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]')
                 )
             )}
           >
@@ -528,7 +506,7 @@ function ScoreScale({
         )
       })}
       {editable && current == null && (
-        <span className="ml-1 text-[10px] font-bold text-slate-300 dark:text-slate-600">Chọn mức 0–{max}</span>
+        <span className="ml-1 text-caption">Chọn mức 0–{max}</span>
       )}
     </div>
   )
@@ -539,15 +517,15 @@ function OtherSide({ tone, score, note }: { tone: Side; score: number | null; no
   if (score == null && !note.trim()) return null
   const label = tone === 'self' ? 'Nhân viên tự chấm' : 'Quản lý chấm'
   return (
-    <div className="flex items-start gap-2 px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
+    <div className="flex items-start gap-2 px-3 py-2 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)]">
       <span className={cn(
-        'shrink-0 text-[10px] font-black uppercase tracking-wider',
-        tone === 'self' ? 'text-teal-600 dark:text-teal-400' : 'text-indigo-500 dark:text-indigo-400'
+        'text-eyebrow shrink-0',
+        tone === 'self' ? 'text-[var(--color-info)]' : 'text-[var(--color-primary)]'
       )}>
         {label} {fmt(score)}
       </span>
       {note.trim() && (
-        <span className="text-[11px] font-medium text-slate-500 dark:text-slate-400 leading-relaxed">{note}</span>
+        <span className="text-caption leading-relaxed">{note}</span>
       )}
     </div>
   )
@@ -580,7 +558,7 @@ function AutoTextarea({
       disabled={disabled}
       placeholder={placeholder}
       className={cn(
-        'w-full font-medium leading-relaxed outline-none border transition-all resize-none overflow-hidden text-slate-700 dark:text-slate-200 focus:ring-2',
+        'w-full font-medium leading-relaxed outline-none border transition-all resize-none overflow-hidden text-[var(--color-foreground)] focus:ring-2',
         className
       )}
     />
@@ -596,15 +574,15 @@ function Banner({
 }) {
   return (
     <div className={cn(
-      'flex items-start gap-2.5 p-3 rounded-2xl border',
+      'flex items-start gap-2.5 p-3 rounded-card border',
       tone === 'amber'
-        ? 'bg-amber-50 dark:bg-amber-900/10 border-amber-200 dark:border-amber-800/50'
-        : 'bg-slate-100 dark:bg-slate-800/60 border-slate-200 dark:border-slate-700'
+        ? 'bg-[var(--color-warning-bg)] border-[var(--color-warning-border)]'
+        : 'bg-[var(--color-muted)] border-[var(--color-border)]'
     )}>
-      <Icon size={14} className={cn('shrink-0 mt-0.5', tone === 'amber' ? 'text-amber-600' : 'text-slate-500')} />
+      <Icon size={14} className={cn('shrink-0 mt-0.5', tone === 'amber' ? 'text-[var(--color-warning)]' : 'text-[var(--color-muted-foreground)]')} />
       <p className={cn(
-        'text-[11px] font-bold leading-relaxed',
-        tone === 'amber' ? 'text-amber-800 dark:text-amber-300' : 'text-slate-600 dark:text-slate-300'
+        'text-xs font-medium leading-relaxed',
+        tone === 'amber' ? 'text-[var(--color-warning)]' : 'text-[var(--color-muted-foreground)]'
       )}>
         {children}
       </p>

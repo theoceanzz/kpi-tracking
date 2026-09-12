@@ -27,11 +27,11 @@ function PointTooltip({ active, payload, xLabel, yLabel }: PointTooltipProps) {
   if (!active || !p) return null
   const anonymous = !p.name
   return (
-    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-xl shadow-lg">
-      <p className="font-bold text-slate-900 dark:text-white mb-1">
+    <div className="bg-[var(--color-card)] border border-[var(--color-border)] p-4 rounded-card">
+      <p className="font-semibold text-[var(--color-foreground)] mb-1">
         {p.isSelf ? 'Bạn' : anonymous ? 'Một thành viên khác' : p.name}
       </p>
-      {p.orgUnitName && <p className="text-xs text-slate-500 mb-3">{p.orgUnitName}</p>}
+      {p.orgUnitName && <p className="text-xs text-[var(--color-muted-foreground)] mb-3">{p.orgUnitName}</p>}
       <div className="space-y-1.5 text-sm">
         <Row label={xLabel} value={`${p.completion}%`} />
         <Row label={yLabel} value={String(p.behavior)} />
@@ -48,15 +48,15 @@ function Row({ label, value, color }: { label: string; value: string; color?: st
   return (
     <div className="flex items-center gap-3">
       {color && <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: color }} />}
-      <span className="text-slate-500 font-medium min-w-[120px]">{label}:</span>
-      <span className="font-bold text-slate-900 dark:text-white">{value}</span>
+      <span className="text-[var(--color-muted-foreground)] font-medium min-w-[120px]">{label}:</span>
+      <span className="font-semibold text-[var(--color-foreground)]">{value}</span>
     </div>
   )
 }
 
 function Shell({ children, fillHeight }: { children: React.ReactNode; fillHeight?: boolean }) {
   return (
-    <div className={`w-full ${fillHeight ? 'h-full' : 'h-[420px]'} flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-200 dark:border-slate-800`}>
+    <div className={`w-full ${fillHeight ? 'h-full' : 'h-[420px]'} flex flex-col items-center justify-center bg-[var(--color-muted)] rounded-card border border-[var(--color-border)]`}>
       {children}
     </div>
   )
@@ -82,8 +82,8 @@ export default function BehaviorCompletionScatter({ data, isLoading, fillHeight 
   if (isLoading) {
     return (
       <Shell fillHeight={fillHeight}>
-        <Loader2 className="w-8 h-8 animate-spin text-indigo-500 mb-4" />
-        <p className="text-slate-500 font-medium">Đang tải dữ liệu biểu đồ...</p>
+        <Loader2 className="w-8 h-8 animate-spin text-[var(--color-primary)] mb-4" />
+        <p className="text-[var(--color-muted-foreground)] font-medium">Đang tải dữ liệu biểu đồ...</p>
       </Shell>
     )
   }
@@ -91,7 +91,7 @@ export default function BehaviorCompletionScatter({ data, isLoading, fillHeight 
   if (!ordered.length) {
     return (
       <Shell fillHeight={fillHeight}>
-        <p className="text-slate-500 font-medium">Chưa có đánh giá nào trong phạm vi này</p>
+        <p className="text-[var(--color-muted-foreground)] font-medium">Chưa có đánh giá nào trong phạm vi này</p>
       </Shell>
     )
   }
@@ -104,11 +104,11 @@ export default function BehaviorCompletionScatter({ data, isLoading, fillHeight 
       <div className="flex items-center justify-end gap-3 mb-2">
         <div className="flex items-center gap-3">
           {data?.anonymized && (
-            <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400">
+            <span className="text-eyebrow inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[var(--color-muted)]">
               <EyeOff size={11} /> Người khác đã ẩn danh
             </span>
           )}
-          <p className="text-xs font-bold text-slate-400 dark:text-slate-500">{data?.totalCount ?? 0} đánh giá</p>
+          <p className="text-caption">{data?.totalCount ?? 0} đánh giá</p>
         </div>
       </div>
 
@@ -172,7 +172,7 @@ export default function BehaviorCompletionScatter({ data, isLoading, fillHeight 
         </ResponsiveContainer>
       </div>
 
-      <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 pt-3 text-xs font-medium text-slate-500 dark:text-slate-400">
+      <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 pt-3 text-xs font-medium text-[var(--color-muted-foreground)]">
         {[1, 2, 3, 4, 5].map(r => (
           <span key={r} className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: ratingColor(r) }} />

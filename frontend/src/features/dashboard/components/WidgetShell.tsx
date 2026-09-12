@@ -1,6 +1,8 @@
 import React from 'react'
 import { AlertCircle, RotateCcw } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
+import { Skeleton } from '@/components/ui/skeleton'
 
 interface Props {
   title: string
@@ -22,6 +24,9 @@ interface Props {
 /**
  * Khung chung cho mọi widget trang chủ: tiêu đề, skeleton, trạng thái lỗi và trạng thái rỗng.
  * Trước đây mỗi khối tự vẽ khung riêng nên cùng một trang có nhiều kiểu chờ/rỗng khác nhau.
+ *
+ * Widget là mức bo góc lớn nhất của hệ thống (12px) — thứ duy nhất được phép, vì nó là
+ * khối kéo-thả độc lập trên lưới chứ không phải card nằm trong luồng nội dung.
  */
 export function WidgetShell({
   title, icon, actions, isLoading, error, onRetry, isEmpty, emptyMessage, bare, children,
@@ -29,33 +34,30 @@ export function WidgetShell({
   const body = (() => {
     if (isLoading) {
       return (
-        <div className="flex-1 flex flex-col gap-3 py-2" aria-busy="true" aria-live="polite">
+        <div className="flex flex-1 flex-col gap-3 py-1" aria-busy="true" aria-live="polite">
           <span className="sr-only">Đang tải {title}</span>
-          <div className="h-3 w-2/5 rounded-full bg-slate-200 dark:bg-slate-800 animate-pulse" />
-          <div className="flex-1 min-h-[120px] rounded-2xl bg-slate-100 dark:bg-slate-800/60 animate-pulse" />
+          <Skeleton className="h-3 w-2/5" />
+          <Skeleton className="min-h-[120px] flex-1" />
         </div>
       )
     }
     if (error) {
       return (
-        <div className="flex-1 flex flex-col items-center justify-center text-center gap-3 py-8 px-4">
-          <AlertCircle size={28} aria-hidden="true" className="text-red-500/70" strokeWidth={1.5} />
-          <p className="text-sm font-bold text-slate-600 dark:text-slate-300">Không tải được dữ liệu</p>
+        <div className="flex flex-1 flex-col items-center justify-center gap-3 px-4 py-8 text-center">
+          <AlertCircle size={24} aria-hidden="true" className="text-[var(--color-error)]" strokeWidth={1.75} />
+          <p className="text-sm font-medium text-[var(--color-foreground)]">Không tải được dữ liệu</p>
           {onRetry && (
-            <button
-              onClick={onRetry}
-              className="min-h-[44px] px-5 rounded-2xl bg-slate-100 dark:bg-slate-800 text-sm font-black hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center gap-2 cursor-pointer"
-            >
-              <RotateCcw size={15} aria-hidden="true" /> Thử lại
-            </button>
+            <Button variant="outline" size="sm" onClick={onRetry}>
+              <RotateCcw aria-hidden="true" /> Thử lại
+            </Button>
           )}
         </div>
       )
     }
     if (isEmpty) {
       return (
-        <div className="flex-1 flex items-center justify-center text-center px-6 py-10">
-          <p className="text-sm text-slate-400 dark:text-slate-500 max-w-xs leading-relaxed">
+        <div className="flex flex-1 items-center justify-center px-6 py-10 text-center">
+          <p className="max-w-xs text-sm leading-relaxed text-[var(--color-muted-foreground)]">
             {emptyMessage ?? 'Chưa có dữ liệu trong khoảng thời gian này.'}
           </p>
         </div>
@@ -64,24 +66,23 @@ export function WidgetShell({
     return children
   })()
 
-  if (bare) return <div className="h-full w-full flex flex-col min-h-0">{body}</div>
+  if (bare) return <div className="flex h-full w-full min-h-0 flex-col">{body}</div>
 
   return (
     <section
       aria-label={title}
       className={cn(
-        'bg-white dark:bg-slate-900 p-5 sm:p-6 rounded-[28px] border border-slate-200 dark:border-slate-800',
-        'shadow-sm h-full flex flex-col min-h-0 overflow-hidden'
+        'flex h-full min-h-0 flex-col overflow-hidden rounded-widget border border-[var(--color-border)] bg-[var(--color-card)] p-4 sm:p-5'
       )}
     >
-      <div className="flex items-center justify-between gap-3 mb-4 shrink-0">
-        <h3 className="text-sm sm:text-base font-black text-slate-900 dark:text-white flex items-center gap-2 min-w-0">
-          {icon && <span className="shrink-0 text-indigo-600 dark:text-indigo-400" aria-hidden="true">{icon}</span>}
+      <div className="mb-3 flex shrink-0 items-center justify-between gap-3">
+        <h3 className="flex min-w-0 items-center gap-2 text-section-title">
+          {icon && <span className="shrink-0 text-[var(--color-muted-foreground)]" aria-hidden="true">{icon}</span>}
           <span className="truncate">{title}</span>
         </h3>
-        {actions && <div className="flex items-center gap-2 shrink-0">{actions}</div>}
+        {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
       </div>
-      <div className="flex-1 min-h-0 flex flex-col">{body}</div>
+      <div className="flex min-h-0 flex-1 flex-col">{body}</div>
     </section>
   )
 }

@@ -6,6 +6,7 @@ import { getApiErrorMessage } from '@/lib/apiError'
 import { cn } from '@/lib/utils'
 import NumberInput from '@/components/common/NumberInput'
 import { platformAdminApi, type OrgAiUsage } from '../api/platformAdminApi'
+import { Button } from '@/components/ui/button'
 
 const fmt = (n: number | null | undefined) => (n ?? 0).toLocaleString('vi-VN')
 
@@ -34,16 +35,11 @@ function BudgetInput({ row, onSaved }: { row: OrgAiUsage; onSaved: () => void })
         value={value}
         onChange={setValue}
         disabled={mutation.isPending}
-        className="w-32 rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-right text-sm outline-none focus:border-indigo-500 disabled:opacity-50 dark:border-slate-700 dark:bg-slate-900"
+        className="w-32 rounded-control border border-[var(--color-border)] bg-[var(--color-card)] px-3 py-1.5 text-right text-sm outline-none focus:border-[var(--color-primary)] disabled:opacity-50"
       />
-      <button
-        type="button"
-        onClick={() => mutation.mutate(value)}
-        disabled={!dirty || mutation.isPending}
-        className="rounded-lg bg-indigo-600 px-2.5 py-1.5 text-white transition-all hover:bg-indigo-700 disabled:opacity-40"
-      >
-        {mutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <Check size={14} />}
-      </button>
+      <Button size="sm" type="button" onClick={() => mutation.mutate(value)} disabled={!dirty || mutation.isPending}>
+        {mutation.isPending ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Check aria-hidden="true" />}
+      </Button>
     </div>
   )
 }
@@ -60,33 +56,33 @@ export default function AiUsageSection() {
   const totalUsed = (data ?? []).reduce((s, r) => s + (r.usedTokens ?? 0), 0)
 
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white dark:border-slate-800 dark:bg-slate-900">
-      <div className="flex flex-wrap items-center gap-3 border-b border-slate-200 p-5 dark:border-slate-800">
-        <Coins size={18} className="text-indigo-600" />
+    <div className="rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
+      <div className="flex flex-wrap items-center gap-3 border-b border-[var(--color-border)] p-5">
+        <Coins size={18} className="text-[var(--color-primary)]" />
         <div className="min-w-0 flex-1">
-          <h3 className="text-sm font-bold text-slate-900 dark:text-white">Token AI theo công ty</h3>
-          <p className="text-xs text-slate-500">
-            Tổng đã tiêu trong tháng: <span className="font-bold">{fmt(totalUsed)}</span> token
+          <h3 className="text-section-title">Token AI theo công ty</h3>
+          <p className="text-xs text-[var(--color-muted-foreground)]">
+            Tổng đã tiêu trong tháng: <span className="font-semibold">{fmt(totalUsed)}</span> token
           </p>
         </div>
         <input
           type="month"
           value={month}
           onChange={(e) => setMonth(e.target.value)}
-          className="rounded-lg border border-slate-200 bg-white px-3 py-1.5 text-sm dark:border-slate-700 dark:bg-slate-900"
+          className="rounded-control border border-[var(--color-border)] bg-[var(--color-card)] px-3 py-1.5 text-sm"
         />
       </div>
 
       {isLoading ? (
         <div className="flex justify-center py-12">
-          <Loader2 size={22} className="animate-spin text-indigo-600" />
+          <Loader2 size={22} className="animate-spin text-[var(--color-primary)]" />
         </div>
       ) : (data?.length ?? 0) === 0 ? (
-        <p className="py-12 text-center text-sm text-slate-500">Chưa có dữ liệu tiêu thụ.</p>
+        <p className="py-12 text-center text-sm text-[var(--color-muted-foreground)]">Chưa có dữ liệu tiêu thụ.</p>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
-            <thead className="border-b border-slate-200 bg-slate-50 text-slate-600 dark:border-slate-800 dark:bg-slate-800/50 dark:text-slate-300">
+            <thead className="border-b border-[var(--color-border)] bg-[var(--color-muted)] text-[var(--color-muted-foreground)]">
               <tr>
                 <th className="px-4 py-3 text-left font-medium">Công ty</th>
                 <th className="px-4 py-3 text-right font-medium">Đã tiêu</th>
@@ -95,29 +91,29 @@ export default function AiUsageSection() {
                 <th className="px-4 py-3 text-right font-medium">Ngân sách/tháng</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+            <tbody className="divide-y divide-[var(--color-border)]">
               {data!.map((row) => {
                 const pct = row.usagePercent
                 return (
                   <tr key={row.organizationId}>
                     <td className="px-4 py-3">
-                      <p className="font-semibold text-slate-900 dark:text-white">{row.organizationName}</p>
-                      <p className="text-xs text-slate-500">{row.organizationCode}</p>
+                      <p className="font-semibold text-[var(--color-foreground)]">{row.organizationName}</p>
+                      <p className="text-xs text-[var(--color-muted-foreground)]">{row.organizationCode}</p>
                     </td>
                     <td className="px-4 py-3 text-right font-mono">{fmt(row.usedTokens)}</td>
-                    <td className="hidden px-4 py-3 text-right text-slate-500 sm:table-cell">
+                    <td className="hidden px-4 py-3 text-right text-[var(--color-muted-foreground)] sm:table-cell">
                       {fmt(row.callCount)}
                     </td>
                     <td className="px-4 py-3">
                       {pct === null ? (
-                        <span className="text-xs text-slate-400">Chưa cấp ngân sách</span>
+                        <span className="text-xs text-[var(--color-subtle-foreground)]">Chưa cấp ngân sách</span>
                       ) : (
                         <div className="flex items-center gap-2">
-                          <div className="h-1.5 w-24 overflow-hidden rounded-full bg-slate-200 dark:bg-slate-700">
+                          <div className="h-1.5 w-24 overflow-hidden rounded-full bg-[var(--color-border)]">
                             <div
                               className={cn(
                                 'h-full rounded-full',
-                                pct >= 90 ? 'bg-red-500' : pct >= 70 ? 'bg-amber-500' : 'bg-emerald-500'
+                                pct >= 90 ? 'bg-[var(--color-error-solid)]' : pct >= 70 ? 'bg-[var(--color-warning-solid)]' : 'bg-[var(--color-success-solid)]'
                               )}
                               style={{ width: `${Math.min(100, pct)}%` }}
                             />

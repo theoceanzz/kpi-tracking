@@ -16,13 +16,13 @@ function Panel({ title, icon, hint, children }: {
 }) {
   const ref = useRef<HTMLElement>(null)
   return (
-    <section ref={ref} className="bg-white dark:bg-slate-900 p-6 rounded-[24px] border border-slate-200 dark:border-slate-800 shadow-sm">
+    <section ref={ref} className="bg-[var(--color-card)] p-6 rounded-card border border-[var(--color-border)] shadow-sm">
       <div className="flex items-start justify-between gap-3 mb-4">
         <div className="min-w-0">
-          <h3 className="text-sm font-black flex items-center gap-2 text-slate-700 dark:text-slate-200">
+          <h3 className="text-section-title flex items-center gap-2 text-[var(--color-foreground)]">
             {icon} {title}
           </h3>
-          {hint && <p className="text-[11px] text-slate-400 font-medium mt-1">{hint}</p>}
+          {hint && <p className="text-caption font-medium mt-1">{hint}</p>}
         </div>
         <CopyButton targetRef={ref} />
       </div>
@@ -33,7 +33,7 @@ function Panel({ title, icon, hint, children }: {
 
 function Empty({ children, height = 240 }: { children: React.ReactNode; height?: number }) {
   return (
-    <div className="flex items-center justify-center text-sm text-slate-400 font-medium text-center px-4" style={{ height }}>
+    <div className="flex items-center justify-center text-sm text-[var(--color-subtle-foreground)] font-medium text-center px-4" style={{ height }}>
       {children}
     </div>
   )
@@ -46,7 +46,7 @@ export function KpiCascadeSection({ filter, className }: { filter: AdvancedFilte
     <div className={cn(className)}>
       <Panel
         title="Luồng phân rã & uỷ quyền KPI"
-        icon={<Network size={16} className="text-indigo-600" />}
+        icon={<Network size={16} className="text-[var(--color-primary)]" />}
         hint="Độ dày dải là tổng trọng số KPI chảy từ đơn vị này xuống đơn vị kia"
       >
         {isLoading ? (
@@ -72,7 +72,7 @@ export function UnitBoxplotSection({ filter, className }: { filter: AdvancedFilt
     <div className={cn(className)}>
       <Panel
         title="Phân tán điểm theo đơn vị"
-        icon={<BoxSelect size={16} className="text-sky-600" />}
+        icon={<BoxSelect size={16} className="text-[var(--color-info)]" />}
         hint="Hộp càng cao thì nội bộ đơn vị càng chênh lệch — điều mà điểm trung bình không cho thấy"
       >
         {isLoading ? (

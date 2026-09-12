@@ -4,6 +4,7 @@ import { authApi } from '../api/authApi'
 import { CheckCircle, XCircle, Loader2 } from 'lucide-react'
 import { useState } from 'react'
 import { getApiErrorMessage } from '@/lib/apiError'
+import { Button } from '@/components/ui/button'
 
 export default function VerifyEmailPage() {
   const [params] = useSearchParams()
@@ -110,24 +111,24 @@ export default function VerifyEmailPage() {
 
   if (isRedirecting) {
     return (
-      <div className="w-full max-w-sm mx-auto text-center space-y-8 animate-in fade-in duration-500">
+      <div className="w-full max-w-sm mx-auto text-center space-y-8">
         <div className="relative">
-          <div className="w-24 h-24 rounded-full border-4 border-emerald-500/20 border-t-emerald-500 animate-spin mx-auto" />
+          <div className="w-24 h-24 rounded-full border-4 border-[var(--color-success-border)] border-t-[var(--color-success)] animate-spin mx-auto" />
           <div className="absolute inset-0 flex items-center justify-center">
-             <CheckCircle className="text-emerald-500 w-10 h-10 animate-pulse" />
+             <CheckCircle className="text-[var(--color-success)] w-10 h-10 animate-pulse" />
           </div>
         </div>
         <div className="space-y-3">
-          <h2 className="text-2xl font-extrabold text-[var(--color-foreground)]">Xác thực thành công!</h2>
+          <h2 className="text-page-title">Xác thực thành công</h2>
           <p className="text-[var(--color-muted-foreground)] text-sm">
             Tài khoản của bạn đã được kích hoạt. <br/>
             Đang chuyển hướng bạn đến trang đăng nhập...
           </p>
         </div>
         <div className="flex justify-center gap-1.5">
-           <div className="w-2 h-2 rounded-full bg-emerald-500 animate-bounce [animation-delay:-0.3s]" />
-           <div className="w-2 h-2 rounded-full bg-emerald-500 animate-bounce [animation-delay:-0.15s]" />
-           <div className="w-2 h-2 rounded-full bg-emerald-500 animate-bounce" />
+           <div className="w-2 h-2 rounded-full bg-[var(--color-success-solid)] animate-bounce [animation-delay:-0.3s]" />
+           <div className="w-2 h-2 rounded-full bg-[var(--color-success-solid)] animate-bounce [animation-delay:-0.15s]" />
+           <div className="w-2 h-2 rounded-full bg-[var(--color-success-solid)] animate-bounce" />
         </div>
       </div>
     )
@@ -136,7 +137,7 @@ export default function VerifyEmailPage() {
   if (tokenFromUrl && (isAutoLoading || isAutoError)) {
     return (
       <div className="text-center w-full max-w-sm mx-auto">
-        <h2 className="text-2xl font-extrabold mb-6">Xác thực email</h2>
+        <h2 className="text-page-title mb-4">Xác thực email</h2>
         {isAutoLoading ? (
           <div className="flex flex-col items-center gap-3 text-[var(--color-muted-foreground)]">
             <Loader2 size={40} className="animate-spin text-[var(--color-primary)]" />
@@ -144,12 +145,12 @@ export default function VerifyEmailPage() {
           </div>
         ) : (
           <div className="flex flex-col items-center gap-4">
-            <div className="w-20 h-20 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center">
-              <XCircle className="text-red-500" size={40} />
+            <div className="w-20 h-20 rounded-full bg-[var(--color-error-bg)] flex items-center justify-center">
+              <XCircle className="text-[var(--color-error)]" size={40} />
             </div>
-            <p className="font-bold text-red-500">Xác thực thất bại.</p>
+            <p className="font-semibold text-[var(--color-error)]">Xác thực thất bại.</p>
             <p className="text-sm text-[var(--color-muted-foreground)]">Mã xác thực không hợp lệ hoặc đã hết hạn.</p>
-            <Link to="/verify-email" className="text-[var(--color-primary)] font-bold hover:underline mt-2">
+            <Link to="/verify-email" className="text-[var(--color-primary)] font-medium hover:underline mt-2">
               Thử nhập lại mã OTP
             </Link>
           </div>
@@ -160,12 +161,12 @@ export default function VerifyEmailPage() {
 
   return (
     <div className="text-center w-full max-w-md mx-auto">
-      <h2 className="text-3xl font-extrabold mb-2 text-[var(--color-foreground)] tracking-tight">Xác thực tài khoản</h2>
+      <h2 className="text-page-title mb-1">Xác thực tài khoản</h2>
       <p className="text-[var(--color-muted-foreground)] text-sm mb-2">
         Nhập mã OTP 6 ký tự đã được gửi đến email của bạn.
       </p>
       {contextData?.email && (
-        <p className="text-[var(--color-primary)] font-bold text-base mb-8 animate-in fade-in slide-in-from-top-2">{contextData.email}</p>
+        <p className="text-[var(--color-primary)] font-semibold text-base mb-8 animate-in fade-in slide-in-from-top-2">{contextData.email}</p>
       )}
       {!contextData?.email && <div className="mb-8" />}
 
@@ -180,7 +181,7 @@ export default function VerifyEmailPage() {
               value={value}
               onChange={(e) => handleChange(index, e.target.value)}
               onKeyDown={(e) => handleKeyDown(index, e)}
-              className="w-12 h-14 sm:w-14 sm:h-16 text-center text-xl font-bold border-2 rounded-xl border-[var(--color-border)] bg-[var(--color-background)] focus:border-[var(--color-primary)] focus:ring-4 focus:ring-[var(--color-primary)]/10 outline-none transition-all shadow-sm uppercase"
+              className="w-12 h-14 sm:w-14 sm:h-16 text-center text-xl font-semibold border-2 rounded-card border-[var(--color-border)] bg-[var(--color-background)] focus:border-[var(--color-primary)] focus:ring-4 focus:ring-[var(--color-primary)]/10 outline-none transition-all shadow-sm uppercase"
               autoComplete="one-time-code"
             />
           ))}
@@ -194,25 +195,20 @@ export default function VerifyEmailPage() {
         )}
 
         {(errorMsg || isAutoError) && (
-          <div className="p-3 rounded-lg bg-red-50 dark:bg-red-900/10 border border-red-200 dark:border-red-900/30">
-            <p className="text-red-500 text-sm font-semibold">{errorMsg || 'Xác thực thất bại. Vui lòng thử lại.'}</p>
+          <div className="p-3 rounded-control bg-[var(--color-error-bg)] border border-[var(--color-error-border)]">
+            <p className="text-[var(--color-error)] text-sm font-semibold">{errorMsg || 'Xác thực thất bại. Vui lòng thử lại.'}</p>
           </div>
         )}
       </div>
 
       <div className="mt-8 flex flex-col gap-3">
         {contextData?.email && (
-          <button
-            type="button"
-            onClick={handleResend}
-            disabled={resendMutation.isPending}
-            className="text-xs font-bold text-[var(--color-primary)] hover:underline flex items-center justify-center gap-1 cursor-pointer disabled:opacity-50"
-          >
-            {resendMutation.isPending && <Loader2 size={12} className="animate-spin" />}
+          <Button variant="ghost" size="sm" type="button" onClick={handleResend} disabled={resendMutation.isPending}>
+            {resendMutation.isPending && <Loader2 aria-hidden="true" className="animate-spin" />}
             {resendMutation.isSuccess ? 'Đã gửi lại mã!' : 'Bạn không nhận được mã? Gửi lại ngay'}
-          </button>
+          </Button>
         )}
-        <Link to="/login" className="text-sm text-[var(--color-muted-foreground)] font-semibold hover:text-[var(--color-foreground)] transition-colors">
+        <Link to="/login" className="text-sm text-[var(--color-muted-foreground)] font-medium hover:text-[var(--color-foreground)] transition-colors">
           Trở lại Đăng nhập
         </Link>
       </div>

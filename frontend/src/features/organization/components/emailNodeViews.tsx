@@ -6,6 +6,8 @@ import {
   ALERT_COLORS, ALERT_LABEL, ALERT_VARIANTS, resolveAlertColors, nodeInputClass,
   EMAIL_CONTENT_WIDTH, IMAGE_PRESETS,
 } from './emailNodeStyles'
+import { Button } from '@/components/ui/button'
+import { ChoiceChip } from '@/components/ui/choice-chip'
 
 /**
  * Giao diện chỉnh sửa của từng node email bên trong trình soạn.
@@ -21,7 +23,7 @@ export function ButtonView({ node, updateAttributes, deleteNode }: NodeViewProps
           <LabeledInput label="Đường dẫn" value={node.attrs.url} onChange={v => updateAttributes({ url: v })} />
         </div>
         <div className="mt-3 flex justify-center">
-          <span className="inline-block px-6 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-semibold">
+          <span className="inline-block px-6 py-2.5 rounded-control bg-[var(--color-info-solid)] text-white text-sm font-semibold">
             {node.attrs.label || 'Nút bấm'}
           </span>
         </div>
@@ -38,7 +40,7 @@ export function CodeView({ node, updateAttributes, deleteNode, extension }: Node
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
           <LabeledInput label="Nhãn phía trên" value={node.attrs.label} onChange={v => updateAttributes({ label: v })} />
           <label className="block">
-            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Giá trị hiển thị</span>
+            <span className="text-eyebrow">Giá trị hiển thị</span>
             <select
               value={node.attrs.value}
               onChange={e => updateAttributes({ value: e.target.value })}
@@ -51,9 +53,9 @@ export function CodeView({ node, updateAttributes, deleteNode, extension }: Node
             </select>
           </label>
         </div>
-        <div className="mt-3 rounded-xl bg-slate-100 dark:bg-slate-800 py-4 text-center">
-          <span className="block text-[10px] font-bold uppercase tracking-widest text-slate-500">{node.attrs.label}</span>
-          <span className="block text-2xl font-black tracking-[0.2em] text-blue-600 mt-1">{node.attrs.value || '——'}</span>
+        <div className="mt-3 rounded-card bg-[var(--color-muted)] py-4 text-center">
+          <span className="text-eyebrow block">{node.attrs.label}</span>
+          <span className="block text-2xl font-semibold tracking-[0.2em] text-[var(--color-info)] mt-1">{node.attrs.value || '——'}</span>
         </div>
       </BlockShell>
     </NodeViewWrapper>
@@ -81,7 +83,7 @@ export function AlertView({ node, updateAttributes, deleteNode }: NodeViewProps)
                 onClick={() => updateAttributes({ variant: v, color: null })}
                 style={{ backgroundColor: ALERT_COLORS[v]?.color }}
                 className={cn(
-                  'w-5 h-5 rounded-full transition-transform hover:scale-110',
+                  'w-5 h-5 rounded-full transition-transform',
                   !custom && variant === v
                     ? 'ring-2 ring-offset-2 ring-slate-400 dark:ring-offset-slate-900'
                     : 'opacity-70 hover:opacity-100',
@@ -89,16 +91,16 @@ export function AlertView({ node, updateAttributes, deleteNode }: NodeViewProps)
               />
             ))}
 
-            <span className="w-px h-4 bg-slate-200 dark:bg-slate-700 mx-0.5" />
+            <span className="w-px h-4 bg-[var(--color-border)] mx-0.5" />
 
             {/* Màu tự chọn: input type=color mở bảng màu của hệ điều hành */}
             <label
               title="Chọn màu khác"
               className={cn(
-                'relative w-5 h-5 rounded-full cursor-pointer transition-transform hover:scale-110 overflow-hidden',
+                'relative w-5 h-5 rounded-full cursor-pointer transition-transform overflow-hidden',
                 custom
                   ? 'ring-2 ring-offset-2 ring-slate-400 dark:ring-offset-slate-900'
-                  : 'border border-slate-300 dark:border-slate-600',
+                  : 'border border-[var(--color-border-strong)]',
               )}
               style={custom
                 ? { backgroundColor: custom }
@@ -117,7 +119,7 @@ export function AlertView({ node, updateAttributes, deleteNode }: NodeViewProps)
                 type="button"
                 title="Bỏ màu tự chọn"
                 onClick={() => updateAttributes({ color: null })}
-                className="p-0.5 rounded text-slate-400 hover:text-red-600"
+                className="p-0.5 rounded text-[var(--color-subtle-foreground)] hover:text-[var(--color-error)]"
               >
                 <X size={12} />
               </button>
@@ -127,7 +129,7 @@ export function AlertView({ node, updateAttributes, deleteNode }: NodeViewProps)
       >
         {/* Vùng gõ được bên trong khung — dùng chung mọi định dạng của thanh công cụ */}
         <NodeViewContent
-          className="rounded-xl px-4 py-3 text-sm font-semibold [&_p]:my-1"
+          className="rounded-card px-4 py-3 text-sm font-semibold [&_p]:my-1"
           style={{ backgroundColor: bg, color, borderLeft: `4px solid ${color}` }}
         />
       </BlockShell>
@@ -158,31 +160,22 @@ export function InfoView({ node, updateAttributes, deleteNode, extension }: Node
                 placeholder="Giá trị"
                 className={cn(nodeInputClass, 'flex-1')}
               />
-              <button
-                type="button"
-                title="Xoá dòng"
-                onClick={() => setRows(rows.filter((_, x) => x !== i))}
-                className="p-1.5 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
-              >
-                <Trash2 size={13} />
-              </button>
+              <Button variant="ghost" size="icon-sm" className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]" aria-label="Xoá dòng" type="button" title="Xoá dòng" onClick={() => setRows(rows.filter((_, x) => x !== i))}>
+                <Trash2 aria-hidden="true" />
+              </Button>
             </div>
           ))}
           <div className="flex flex-wrap items-center gap-3">
-            <button
-              type="button"
-              onClick={() => setRows([...rows, { label: '', value: '' }])}
-              className="flex items-center gap-1.5 text-[10px] font-black uppercase tracking-widest text-indigo-500 hover:text-indigo-600"
-            >
-              <Plus size={12} /> Thêm dòng
-            </button>
+            <Button variant="ghost" type="button" onClick={() => setRows([...rows, { label: '', value: '' }])}>
+              <Plus aria-hidden="true" /> Thêm dòng
+            </Button>
             <select
               value=""
               onChange={e => {
                 if (!e.target.value) return
                 setRows([...rows, { label: variables[e.target.value] || e.target.value, value: `{{${e.target.value}}}` }])
               }}
-              className="text-[10px] font-black uppercase tracking-widest text-slate-400 bg-transparent outline-none cursor-pointer"
+              className="text-eyebrow bg-transparent outline-none cursor-pointer"
             >
               <option value="">+ Thêm dòng từ dữ liệu hệ thống</option>
               {Object.entries(variables).map(([name, d]) => <option key={name} value={name}>{d}</option>)}
@@ -231,31 +224,21 @@ export function ImageView({ node, updateAttributes, deleteNode, selected }: Node
     <NodeViewWrapper>
       <div
         className={cn(
-          'my-3 rounded-2xl border transition-colors',
-          selected ? 'border-indigo-400 ring-4 ring-indigo-500/10' : 'border-slate-200 dark:border-slate-700',
+          'my-3 rounded-card border transition-colors',
+          selected ? 'border-[var(--color-primary)] ring-4 ring-[var(--color-ring)]' : 'border-[var(--color-border)]',
         )}
       >
         <div
           contentEditable={false}
-          className="flex flex-wrap items-center gap-2 px-3 py-1.5 border-b border-slate-200/70 dark:border-slate-700/70"
+          className="flex flex-wrap items-center gap-2 px-3 py-1.5 border-b border-[var(--color-border)]"
         >
-          <span className="text-[10px] font-black uppercase tracking-widest text-indigo-500">Ảnh</span>
+          <span className="text-eyebrow text-[var(--color-primary)]">Ảnh</span>
 
           <span className="flex gap-1">
             {IMAGE_PRESETS.map(p => (
-              <button
-                key={p.label}
-                type="button"
-                onClick={() => updateAttributes({ width: p.width })}
-                className={cn(
-                  'px-2 py-0.5 rounded-md text-[9px] font-black uppercase tracking-widest border transition-colors',
-                  width === p.width
-                    ? 'bg-indigo-50 text-indigo-600 border-indigo-200 dark:bg-indigo-900/20'
-                    : 'border-slate-200 dark:border-slate-700 text-slate-400 hover:text-slate-600',
-                )}
-              >
+              <ChoiceChip selected={width === p.width} className="py-0.5" key={p.label} onClick={() => updateAttributes({ width: p.width })}>
                 {p.label}
-              </button>
+              </ChoiceChip>
             ))}
           </span>
 
@@ -265,33 +248,17 @@ export function ImageView({ node, updateAttributes, deleteNode, selected }: Node
               ['center', AlignCenter, 'Căn giữa'],
               ['right', AlignRight, 'Căn phải'],
             ] as const).map(([value, Icon, title]) => (
-              <button
-                key={value}
-                type="button"
-                title={title}
-                onClick={() => updateAttributes({ align: value })}
-                className={cn(
-                  'p-1 rounded-md transition-colors',
-                  align === value
-                    ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600'
-                    : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800',
-                )}
-              >
-                <Icon size={13} />
-              </button>
+              <ChoiceChip selected={align === value} key={value} title={title} onClick={() => updateAttributes({ align: value })}>
+                <Icon />
+              </ChoiceChip>
             ))}
           </span>
 
           <span className="ml-auto flex items-center gap-2">
-            <span className="text-[10px] font-bold text-slate-400 tabular-nums">{width}px</span>
-            <button
-              type="button"
-              title="Xoá ảnh"
-              onClick={deleteNode}
-              className="p-1 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
-            >
-              <Trash2 size={13} />
-            </button>
+            <span className="text-caption tabular-nums">{width}px</span>
+            <Button variant="ghost" size="icon-sm" className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]" aria-label="Xoá ảnh" type="button" title="Xoá ảnh" onClick={deleteNode}>
+              <Trash2 aria-hidden="true" />
+            </Button>
           </span>
         </div>
 
@@ -303,14 +270,14 @@ export function ImageView({ node, updateAttributes, deleteNode, selected }: Node
               alt={alt || ''}
               draggable={false}
               style={{ width: `${width}px`, maxWidth: '100%', height: 'auto' }}
-              className="rounded-lg align-middle"
+              className="rounded-control align-middle"
             />
             {/* Tay cầm đổi kích thước ở góc phải-dưới */}
             <span
               onPointerDown={startResize}
               title="Kéo để đổi kích thước"
               className={cn(
-                'absolute -right-1.5 -bottom-1.5 w-4 h-4 rounded-full border-2 border-white dark:border-slate-900 bg-indigo-500 cursor-nwse-resize shadow',
+                'absolute -right-1.5 -bottom-1.5 w-4 h-4 rounded-full border-2 border-white bg-[var(--color-primary)] cursor-nwse-resize shadow',
                 dragging ? 'scale-125' : 'opacity-0 hover:opacity-100 group-hover:opacity-100',
                 selected && 'opacity-100',
               )}
@@ -338,7 +305,7 @@ export function VariableView({ node, extension }: NodeViewProps) {
     <NodeViewWrapper as="span">
       <span
         title={`{{${name}}}`}
-        className="inline-flex items-center px-2 py-0.5 mx-0.5 rounded-md bg-indigo-100 dark:bg-indigo-900/40 text-indigo-700 dark:text-indigo-300 text-[12px] font-bold align-baseline"
+        className="inline-flex items-center px-2 py-0.5 mx-0.5 rounded-control bg-[var(--color-primary-soft)] text-[var(--color-primary)] text-[12px] font-medium align-baseline"
       >
         {variables[name] || name}
       </span>
@@ -355,7 +322,7 @@ function LabeledInput({ label, value, onChange }: {
 }) {
   return (
     <label className="block">
-      <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{label}</span>
+      <span className="text-eyebrow">{label}</span>
       <input value={value} onChange={e => onChange(e.target.value)} className={nodeInputClass} />
     </label>
   )
@@ -369,21 +336,16 @@ function BlockShell({ label, onDelete, toolbar, children }: {
   children: React.ReactNode
 }) {
   return (
-    <div className="my-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50/60 dark:bg-slate-900/60 overflow-hidden">
+    <div className="my-3 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] overflow-hidden">
       <div
         contentEditable={false}
-        className="flex items-center gap-2 px-3 py-1.5 border-b border-slate-200/70 dark:border-slate-700/70"
+        className="flex items-center gap-2 px-3 py-1.5 border-b border-[var(--color-border)]"
       >
-        <span className="text-[10px] font-black uppercase tracking-widest text-indigo-500 flex-1">{label}</span>
+        <span className="text-eyebrow text-[var(--color-primary)] flex-1">{label}</span>
         {toolbar}
-        <button
-          type="button"
-          title="Xoá khối"
-          onClick={onDelete}
-          className="p-1 rounded-lg text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20"
-        >
-          <Trash2 size={13} />
-        </button>
+        <Button variant="ghost" size="icon-sm" className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]" aria-label="Xoá khối" type="button" title="Xoá khối" onClick={onDelete}>
+          <Trash2 aria-hidden="true" />
+        </Button>
       </div>
       <div className="p-3">{children}</div>
     </div>

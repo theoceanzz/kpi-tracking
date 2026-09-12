@@ -24,8 +24,8 @@ export interface CodeFieldRule {
 }
 
 const TONES = {
-  indigo: 'focus:ring-indigo-500/10 focus:border-indigo-500',
-  emerald: 'focus:ring-emerald-500/10 focus:border-emerald-500',
+  indigo: 'focus:ring-[var(--color-ring)] focus:border-[var(--color-primary)]',
+  emerald: 'focus:ring-[var(--color-ring)] focus:border-[var(--color-success-border)]',
 } as const
 
 export default function CodeField({
@@ -36,7 +36,7 @@ export default function CodeField({
   label = 'Mã',
   fallbackPlaceholder,
   tone = 'indigo',
-  inputClassName = 'rounded-xl py-2.5',
+  inputClassName = 'rounded-card py-2.5',
   className,
 }: {
   rule: CodeFieldRule
@@ -53,19 +53,19 @@ export default function CodeField({
   className?: string
 }) {
   const base = cn(
-    'w-full px-4 bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-sm font-bold focus:ring-4 outline-none transition-all',
+    'w-full px-4 bg-[var(--color-muted)] border border-[var(--color-border)] text-sm font-medium focus:ring-4 outline-none transition-all',
     inputClassName,
     TONES[tone],
   )
 
   return (
     <div className={cn('space-y-1.5', className)}>
-      <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+      <label className="text-label ml-1">
         {label}
         {rule.locked ? (
-          <span className="text-emerald-600 dark:text-emerald-400"> · tự sinh</span>
+          <span className="text-[var(--color-success)]"> · tự sinh</span>
         ) : rule.optional ? null : (
-          <span className="text-red-500"> *</span>
+          <span className="text-[var(--color-error)]"> *</span>
         )}
       </label>
 
@@ -75,10 +75,10 @@ export default function CodeField({
             readOnly
             value={currentCode ?? rule.preview ?? ''}
             placeholder="Tự sinh khi lưu"
-            className={cn(base, 'font-mono cursor-not-allowed text-slate-500 dark:text-slate-400')}
+            className={cn(base, 'font-mono cursor-not-allowed text-[var(--color-muted-foreground)]')}
           />
           {!currentCode && (
-            <p className="flex items-center gap-1 text-[10px] font-bold text-slate-400 ml-1">
+            <p className="flex items-center gap-1 text-caption ml-1">
               <Wand2 size={11} className="shrink-0" />
               Mã do quy tắc của công ty cấp lúc lưu
             </p>
@@ -93,12 +93,12 @@ export default function CodeField({
             className={base}
           />
           {rule.optional && !currentCode && (
-            <p className="text-[10px] font-bold text-slate-400 ml-1">Bỏ trống để dùng mã tự sinh</p>
+            <p className="text-caption ml-1">Bỏ trống để dùng mã tự sinh</p>
           )}
         </>
       )}
 
-      {error && <p className="text-[10px] font-bold text-red-500 ml-1">{error}</p>}
+      {error && <p className="text-xs font-medium text-[var(--color-error)] ml-1">{error}</p>}
     </div>
   )
 }

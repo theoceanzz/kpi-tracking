@@ -207,7 +207,7 @@ export function MyTodoWidget({ source }: { source: 'kpi' | 'objective' }) {
       actions={
         <Link
           to="/me?section=my-kpi"
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-[9px] font-black uppercase tracking-[0.14em] hover:bg-indigo-600 dark:hover:bg-indigo-600 dark:hover:text-white transition-colors"
+          className="inline-flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-control bg-[var(--color-primary)] px-3 text-[13px] font-medium text-[var(--color-primary-foreground)] transition-colors hover:bg-[var(--color-primary-hover)]"
         >
           KPI của tôi <ExternalLink size={11} aria-hidden="true" />
         </Link>
@@ -218,7 +218,7 @@ export function MyTodoWidget({ source }: { source: 'kpi' | 'objective' }) {
 
         {shown.length === 0 ? (
           <div className="flex-1 flex items-center justify-center text-center px-6 py-8">
-            <p className="text-sm text-slate-400 dark:text-slate-500 max-w-xs leading-relaxed">
+            <p className="text-sm text-[var(--color-subtle-foreground)] max-w-xs leading-relaxed">
               {items.length === 0
                 ? 'Không có chỉ tiêu nào đang chờ bạn trong đợt/kỳ đang chọn.'
                 : 'Không có mục nào ở mức ưu tiên này.'}
@@ -247,7 +247,7 @@ function TodoRow({ item, now }: { item: TodoItem; now: number }) {
   const overdue = item.state === 'OVERDUE' || item.state === 'REJECTED'
 
   return (
-    <li className="relative flex items-center gap-3 p-3 pl-4 rounded-2xl border border-slate-200/70 dark:border-slate-800 bg-white dark:bg-slate-900/60 hover:border-slate-300 dark:hover:border-slate-700 transition-colors overflow-hidden">
+    <li className="relative flex items-center gap-3 p-3 pl-4 rounded-card border border-[var(--color-border)] bg-[var(--color-card)] hover:border-[var(--color-border-strong)] transition-colors overflow-hidden">
       <span className={cn('absolute left-0 top-3 bottom-3 w-1 rounded-full', meta.bar)} aria-hidden="true" />
 
       <div className="min-w-0 flex-1 space-y-1.5">
@@ -257,21 +257,21 @@ function TodoRow({ item, now }: { item: TodoItem; now: number }) {
           <PriorityChip
             priority={item.priority}
             label={STATE_LABEL[item.state]}
-            srSuffix={`— mức ${meta.label}`}
+            srSuffix={` — mức ${meta.label}`}
           />
-          <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{item.kpiName}</p>
+          <p className="text-sm font-medium text-[var(--color-foreground)] truncate">{item.kpiName}</p>
         </div>
 
-        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest truncate">
+        <p className="text-eyebrow truncate">
           {item.periodName ? `${item.periodName} · ` : ''}
-          <span className={cn(overdue && 'text-red-500 dark:text-red-400')}>{deadlineText(item.deadlineMs, now)}</span>
+          <span className={cn(overdue && 'text-[var(--color-error)]')}>{deadlineText(item.deadlineMs, now)}</span>
           {item.state === 'BEHIND' && item.elapsedPercent !== null
             ? ` · đợt đã trôi ${Math.round(item.elapsedPercent)}%`
             : ''}
         </p>
 
         {item.progress !== null && (
-          <div className="h-1 w-full max-w-[220px] bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+          <div className="h-1 w-full max-w-[220px] bg-[var(--color-muted)] rounded-full overflow-hidden">
             <div
               className={cn('h-full rounded-full transition-all duration-700 motion-reduce:transition-none', meta.bar)}
               style={{ width: `${clampPercent(item.progress)}%` }}
@@ -281,10 +281,10 @@ function TodoRow({ item, now }: { item: TodoItem; now: number }) {
       </div>
 
       <div className="shrink-0 text-right">
-        <p className="text-base font-black text-slate-900 dark:text-white tabular-nums leading-none">
+        <p className="text-base font-semibold text-[var(--color-foreground)] tabular-nums leading-none">
           {item.progress !== null ? `${Math.round(item.progress)}%` : (item.levelName ?? '—')}
         </p>
-        <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.14em] mt-1">
+        <p className="text-eyebrow mt-1">
           {item.progress !== null ? 'Tiến độ' : 'Kết quả'}
         </p>
       </div>
@@ -292,7 +292,7 @@ function TodoRow({ item, now }: { item: TodoItem; now: number }) {
       <Link
         to={item.action.to}
         aria-label={`${item.action.label}: ${item.kpiName}`}
-        className="shrink-0 inline-flex items-center gap-1 min-h-[36px] px-3 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-[9px] font-black uppercase tracking-[0.12em] hover:bg-indigo-600 dark:hover:bg-indigo-600 dark:hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 transition-colors"
+        className="shrink-0 inline-flex items-center gap-1 min-h-[36px] px-3 rounded-control bg-[var(--color-primary)] text-[var(--color-primary-foreground)] hover:bg-[var(--color-primary-hover)] text-[13px] font-medium focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)] transition-colors"
       >
         {item.action.label} <ArrowUpRight size={12} aria-hidden="true" />
       </Link>

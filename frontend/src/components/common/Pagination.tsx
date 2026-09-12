@@ -1,4 +1,6 @@
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react'
+import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
 
 interface PaginationProps {
   currentPage: number
@@ -9,11 +11,16 @@ interface PaginationProps {
   itemLabel?: string
 }
 
+/**
+ * Phân trang chuẩn: dòng "x–y trong N" bên trái, nút số trang bên phải. Trang hiện tại
+ * là nút nền đặc màu chủ đạo; các nút khác là ghost. Kích thước 32px — đây là điều
+ * khiển phụ, không cần to như nút hành động.
+ */
 export default function Pagination({ currentPage, totalPages, onPageChange, totalElements, size, itemLabel = 'nhân sự' }: PaginationProps) {
   const start = totalElements === 0 ? 0 : currentPage * size + 1
   const end = Math.min((currentPage + 1) * size, totalElements)
 
-  const pages = []
+  const pages: number[] = []
   const delta = 2
   for (let i = 0; i < totalPages; i++) {
     if (i === 0 || i === totalPages - 1 || (i >= currentPage - delta && i <= currentPage + delta)) {
@@ -23,63 +30,55 @@ export default function Pagination({ currentPage, totalPages, onPageChange, tota
     }
   }
 
-  const btnCls = "w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold transition-all border border-transparent"
-  const activeCls = "bg-[var(--color-primary)] text-white shadow-lg shadow-[var(--color-primary)]/20"
-  const inactiveCls = "text-slate-600 dark:text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:border-slate-200 dark:hover:border-slate-700"
-  const disabledCls = "text-slate-300 dark:text-slate-700 cursor-not-allowed"
+  const btn = 'inline-flex h-8 min-w-8 items-center justify-center rounded-control px-2 text-[13px] font-medium tabular-nums transition-colors ' +
+    'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)] focus-visible:ring-offset-2 ' +
+    'disabled:pointer-events-none disabled:opacity-40'
+  const inactive = 'text-[var(--color-muted-foreground)] hover:bg-[var(--color-muted)] hover:text-[var(--color-foreground)]'
+  const active = 'bg-[var(--color-primary)] text-[var(--color-primary-foreground)]'
+
+  const isFirst = currentPage === 0
+  const isLast = currentPage >= totalPages - 1
 
   return (
-    <div className="flex flex-col sm:flex-row items-center justify-between gap-4 px-6 py-4 border-t border-slate-100 dark:border-slate-800">
-      <div className="text-xs font-bold text-slate-500 uppercase tracking-widest">
-        Hiển thị <span className="text-slate-900 dark:text-white">{start} - {end}</span> trong <span className="text-slate-900 dark:text-white">{totalElements}</span> {itemLabel}
-      </div>
+    <div className="flex flex-col items-center justify-between gap-3 border-t border-[var(--color-border)] px-4 py-3 sm:flex-row">
+      <p className="text-caption tabular-nums">
+        Hiển thị <span className="font-medium text-[var(--color-foreground)]">{start}–{end}</span> trong{' '}
+        <span className="font-medium text-[var(--color-foreground)]">{totalElements}</span> {itemLabel}
+      </p>
 
       {totalPages > 1 && (
-        <div className="flex items-center gap-1">
-          <button
-            onClick={() => onPageChange(0)}
-            disabled={currentPage === 0}
-            className={`${btnCls} ${currentPage === 0 ? disabledCls : inactiveCls}`}
-          >
-            <ChevronsLeft size={18} />
-          </button>
-          <button
-            onClick={() => onPageChange(currentPage - 1)}
-            disabled={currentPage === 0}
-            className={`${btnCls} ${currentPage === 0 ? disabledCls : inactiveCls}`}
-          >
-            <ChevronLeft size={18} />
-          </button>
+        <nav aria-label="Phân trang" className="flex items-center gap-0.5">
+          <Button variant="ghost" size="icon-sm" onClick={() => onPageChange(0)} disabled={isFirst} aria-label="Trang đầu">
+            <ChevronsLeft aria-hidden="true" />
+          </Button>
+          <Button variant="ghost" size="icon-sm" onClick={() => onPageChange(currentPage - 1)} disabled={isFirst} aria-label="Trang trước">
+            <ChevronLeft aria-hidden="true" />
+          </Button>
 
-          <div className="flex items-center mx-2 gap-1">
+          <div className="mx-1 flex items-center gap-0.5">
             {pages.map((p, idx) => p === -1 ? (
-              <span key={`gap-${idx}`} className="w-10 text-center text-slate-300">...</span>
+              <span key={`gap-${idx}`} aria-hidden="true" className="w-6 text-center text-[var(--color-subtle-foreground)]">…</span>
             ) : (
               <button
                 key={p}
+                type="button"
                 onClick={() => onPageChange(p)}
-                className={`${btnCls} ${currentPage === p ? activeCls : inactiveCls}`}
+                aria-current={currentPage === p ? 'page' : undefined}
+                aria-label={`Trang ${p + 1}`}
+                className={cn(btn, currentPage === p ? active : inactive)}
               >
                 {p + 1}
               </button>
             ))}
           </div>
 
-          <button
-            onClick={() => onPageChange(currentPage + 1)}
-            disabled={currentPage === totalPages - 1}
-            className={`${btnCls} ${currentPage === totalPages - 1 ? disabledCls : inactiveCls}`}
-          >
-            <ChevronRight size={18} />
-          </button>
-          <button
-            onClick={() => onPageChange(totalPages - 1)}
-            disabled={currentPage === totalPages - 1}
-            className={`${btnCls} ${currentPage === totalPages - 1 ? disabledCls : inactiveCls}`}
-          >
-            <ChevronsRight size={18} />
-          </button>
-        </div>
+          <Button variant="ghost" size="icon-sm" onClick={() => onPageChange(currentPage + 1)} disabled={isLast} aria-label="Trang sau">
+            <ChevronRight aria-hidden="true" />
+          </Button>
+          <Button variant="ghost" size="icon-sm" onClick={() => onPageChange(totalPages - 1)} disabled={isLast} aria-label="Trang cuối">
+            <ChevronsRight aria-hidden="true" />
+          </Button>
+        </nav>
       )}
     </div>
   )

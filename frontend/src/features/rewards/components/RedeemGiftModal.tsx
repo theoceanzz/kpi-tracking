@@ -2,7 +2,9 @@ import { useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { createRedeemGiftSchema, type RedeemGiftFormData } from '../schemas/redeemGiftSchema'
-import { Loader2, X, Gift, Minus, Plus, AlertTriangle, Wallet } from 'lucide-react'
+import { Loader2, Minus, Plus, AlertTriangle, Wallet } from 'lucide-react'
+import { Dialog, DialogFooter } from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
 import { formatCurrency } from '@/lib/utils'
 import TopupModal from '@/features/wallet/components/TopupModal'
 import {
@@ -176,213 +178,195 @@ export default function RedeemGiftModal({
 
   return (
     <>
-      <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-        <div className="w-full max-w-md max-h-[90vh] overflow-y-auto rounded-2xl border border-[var(--color-border)] bg-[var(--color-card)] shadow-xl">
-          <div className="flex items-center justify-between border-b border-[var(--color-border)] px-6 py-4">
-            <div className="flex items-center gap-2">
-              <Gift size={20} className="text-[var(--color-primary)]" />
-              <h2 className="text-lg font-semibold">Đổi quà</h2>
-            </div>
-            <button onClick={onClose} className="rounded-lg p-1 hover:bg-[var(--color-accent)]">
-              <X size={18} />
-            </button>
-          </div>
-
-          <div className="space-y-5 px-6 py-5">
-            <div className="flex gap-3">
-              {gift.imageUrl && (
-                <img
-                  src={gift.imageUrl}
-                  alt={gift.name}
-                  className="h-20 w-20 flex-shrink-0 rounded-xl object-cover"
-                />
-              )}
-              <div className="min-w-0">
-                <div className="font-semibold">{gift.name}</div>
-                <div className="mt-0.5 text-sm text-[var(--color-primary)]">
-                  {gift.pointCost.toLocaleString('vi-VN')} điểm / phần
-                </div>
-                {/* UrBox yêu cầu hiện tên quà, MỆNH GIÁ và điều kiện sử dụng trước khi
-                    người dùng bấm đổi — thiếu là nguồn khiếu nại lúc mang mã đi dùng. */}
-                {gift.externalValue != null && (
-                  <div className="mt-0.5 text-xs text-[var(--color-muted-foreground)]">
-                    Trị giá {gift.externalValue.toLocaleString('vi-VN')} ₫
-                    {gift.externalBrand && ` · ${gift.externalBrand}`}
-                  </div>
-                )}
-                {gift.externalExpireText && (
-                  <div className="text-xs text-[var(--color-muted-foreground)]">
-                    Hạn sử dụng: {gift.externalExpireText}
-                  </div>
-                )}
-                {!gift.unlimitedStock && gift.stockQuantity != null && (
-                  <div className="mt-0.5 text-xs text-[var(--color-muted-foreground)]">
-                    Còn {gift.stockQuantity} phần
-                  </div>
-                )}
-              </div>
-            </div>
-
-            {gift.externalTerms && (
-              <details className="rounded-xl border border-[var(--color-border)]">
-                <summary className="cursor-pointer px-4 py-2.5 text-sm font-medium">
-                  Điều kiện sử dụng
-                </summary>
-                <p className="max-h-56 overflow-y-auto whitespace-pre-line border-t border-[var(--color-border)] px-4 py-3 text-xs leading-relaxed text-[var(--color-muted-foreground)]">
-                  {htmlToText(gift.externalTerms)}
-                </p>
-              </details>
-            )}
-
-            <div>
-              <label className="mb-1.5 block text-sm font-medium">Số lượng</label>
-              <div className="flex items-center gap-3">
-                <button
-                  type="button"
-                  onClick={() => setValue('quantity', Math.max(1, quantity - 1), { shouldValidate: true })}
-                  disabled={quantity <= 1}
-                  className="rounded-lg border border-[var(--color-border)] p-2 disabled:opacity-40"
-                >
-                  <Minus size={16} />
-                </button>
-                <span className="w-10 text-center text-lg font-semibold tabular-nums">{quantity}</span>
-                <button
-                  type="button"
-                  onClick={() => setValue('quantity', Math.min(maxQty, quantity + 1), { shouldValidate: true })}
-                  disabled={quantity >= maxQty}
-                  className="rounded-lg border border-[var(--color-border)] p-2 disabled:opacity-40"
-                >
-                  <Plus size={16} />
-                </button>
-                {maxQty < 2 && (
-                  <span className="text-xs text-[var(--color-muted-foreground)]">
-                    {canBuyPoints || maxByStock < maxByBalance ? 'Chỉ còn 1 phần' : 'Điểm chỉ đủ 1 phần'}
-                  </span>
-                )}
-              </div>
-              {errors.quantity && (
-                <p className="mt-1 text-xs text-rose-600">{errors.quantity.message}</p>
-              )}
-            </div>
-
-            <div className="space-y-1 rounded-xl bg-[var(--color-muted)] px-4 py-3 text-sm">
-              <div className="flex justify-between">
-                <span className="text-[var(--color-muted-foreground)]">Số dư hiện tại</span>
-                <span className="tabular-nums">{balance.toLocaleString('vi-VN')}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-[var(--color-muted-foreground)]">Trừ khi đổi</span>
-                <span className="tabular-nums text-rose-600">−{total.toLocaleString('vi-VN')}</span>
-              </div>
-              <div className="flex justify-between border-t border-[var(--color-border)] pt-1 font-semibold">
-                {notEnough ? (
-                  <>
-                    <span>Còn thiếu</span>
-                    <span className="tabular-nums text-amber-600">
-                      {shortPoints.toLocaleString('vi-VN')}
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    <span>Còn lại</span>
-                    <span className="tabular-nums">{remaining.toLocaleString('vi-VN')}</span>
-                  </>
-                )}
-              </div>
-            </div>
-
-            <div>
-              <label className="mb-1.5 block text-sm font-medium">
-                Ghi chú <span className="font-normal text-[var(--color-muted-foreground)]">(tuỳ chọn)</span>
-              </label>
-              <input
-                {...register('note')}
-                placeholder="Ví dụ: cỡ áo L, giao tại văn phòng Hà Nội"
-                className="w-full rounded-lg border border-[var(--color-border)] bg-transparent px-3 py-2 text-sm"
-              />
-            </div>
-
-            {/* Thiếu điểm không còn là ngõ cụt — nói thẳng cần bù bao nhiêu tiền và bù
-                bằng đường nào, TRƯỚC khi người dùng bấm. */}
-            {notEnough && canBuyPoints ? (
-              <div className="space-y-1.5 rounded-xl border border-amber-500/40 bg-amber-500/10 px-4 py-3 text-sm">
-                <div className="flex items-center gap-2 font-semibold text-amber-700 dark:text-amber-400">
-                  <Wallet size={16} />
-                  Bạn còn thiếu {shortPoints.toLocaleString('vi-VN')} điểm
-                </div>
-                {cashShort <= 0 ? (
-                  <p>
-                    Ví tiền của bạn còn <b>{formatCurrency(cashBalance)}</b>. Dùng{' '}
-                    <b>{formatCurrency(cashNeeded)}</b> đổi lấy{' '}
-                    {shortPoints.toLocaleString('vi-VN')} điểm là đổi được quà này ngay.
-                  </p>
-                ) : (
-                  <p>
-                    Nạp <b>{formatCurrency(topupAmount)}</b> vào ví rồi đổi sang{' '}
-                    {shortPoints.toLocaleString('vi-VN')} điểm để đổi quà này. Tỉ giá hiện tại{' '}
-                    {formatCurrency(rate)} đổi được 1 điểm
-                    {cashBalance > 0 && `, ví bạn đang có ${formatCurrency(cashBalance)}`}.
-                  </p>
-                )}
-              </div>
-            ) : (
-              /* Nói trước điều gì sẽ xảy ra sau khi bấm — và hai loại quà cho ra hai kết
-                 cục khác hẳn nhau, nên không thể dùng chung một câu. */
-              <div className="flex items-start gap-2 rounded-xl border border-sky-500/40 bg-sky-500/10 px-4 py-3 text-sm">
-                <AlertTriangle size={16} className="mt-0.5 flex-shrink-0 text-sky-600" />
-                <span>
-                  {gift.requiresDelivery ? (
-                    <>
-                      Điểm được trừ ngay khi gửi yêu cầu, và bạn <b>nhận quà trực tiếp tại công ty</b>.
-                      Nếu bị từ chối hoặc bạn tự huỷ, điểm sẽ được hoàn lại đầy đủ.
-                    </>
-                  ) : isVoucher ? (
-                    <>
-                      Mã voucher được xuất <b>ngay khi bạn bấm đổi</b> và hiện lên màn hình. Nếu nhà
-                      cung cấp không xuất được quà, điểm sẽ tự động hoàn lại vào ví của bạn.
-                    </>
-                  ) : (
-                    <>
-                      Quà này <b>hoàn tất ngay khi đổi</b> — điểm bị trừ và quyền lợi được ghi nhận
-                      luôn, không cần chờ ai xử lý.
-                    </>
-                  )}
-                </span>
-              </div>
-            )}
-          </div>
-
-          <div className="flex justify-end gap-2 border-t border-[var(--color-border)] px-6 py-4">
-            <button
-              onClick={onClose}
-              className="rounded-lg border border-[var(--color-border)] px-4 py-2 text-sm"
-            >
-              Huỷ
-            </button>
-            {notEnough && canBuyPoints ? (
-              <button
-                onClick={cashShort <= 0 ? buyPointsAndRedeem : () => setTopupOpen(true)}
-                disabled={busy}
-                className="inline-flex items-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-              >
-                {busy ? <Loader2 size={15} className="animate-spin" /> : <Wallet size={15} />}
+      <Dialog
+        open
+        onClose={onClose}
+        size="md"
+        dismissible={!busy}
+        title="Đổi quà"
+        footer={
+          <DialogFooter
+            secondary={<Button variant="outline" onClick={onClose} disabled={busy}>Huỷ</Button>}
+            primary={notEnough && canBuyPoints ? (
+              <Button onClick={cashShort <= 0 ? buyPointsAndRedeem : () => setTopupOpen(true)} disabled={busy}>
+                {busy ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Wallet aria-hidden="true" />}
                 {cashShort <= 0
                   ? `Dùng ${formatCurrency(cashNeeded)} & đổi quà`
                   : `Nạp ${formatCurrency(topupAmount)} & đổi quà`}
-              </button>
+              </Button>
             ) : (
-              <button
-                onClick={handleSubmit(onSubmit)}
-                disabled={notEnough || busy}
-                className="inline-flex items-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-              >
-                {busy && <Loader2 size={15} className="animate-spin" />}
+              <Button onClick={handleSubmit(onSubmit)} disabled={notEnough || busy}>
+                {busy && <Loader2 className="animate-spin" aria-hidden="true" />}
                 {gift.requiresDelivery ? 'Gửi yêu cầu đổi' : isVoucher ? 'Đổi & lấy mã' : 'Đổi ngay'}
+              </Button>
+            )}
+          />
+        }
+      >
+      <div className="space-y-5">
+          <div className="flex gap-3">
+            {gift.imageUrl && (
+              <img
+                src={gift.imageUrl}
+                alt={gift.name}
+                className="h-20 w-20 flex-shrink-0 rounded-card object-cover"
+              />
+            )}
+            <div className="min-w-0">
+              <div className="font-semibold">{gift.name}</div>
+              <div className="mt-0.5 text-sm text-[var(--color-primary)]">
+                {gift.pointCost.toLocaleString('vi-VN')} điểm / phần
+              </div>
+              {/* UrBox yêu cầu hiện tên quà, MỆNH GIÁ và điều kiện sử dụng trước khi
+                  người dùng bấm đổi — thiếu là nguồn khiếu nại lúc mang mã đi dùng. */}
+              {gift.externalValue != null && (
+                <div className="mt-0.5 text-xs text-[var(--color-muted-foreground)]">
+                  Trị giá {gift.externalValue.toLocaleString('vi-VN')} ₫
+                  {gift.externalBrand && ` · ${gift.externalBrand}`}
+                </div>
+              )}
+              {gift.externalExpireText && (
+                <div className="text-xs text-[var(--color-muted-foreground)]">
+                  Hạn sử dụng: {gift.externalExpireText}
+                </div>
+              )}
+              {!gift.unlimitedStock && gift.stockQuantity != null && (
+                <div className="mt-0.5 text-xs text-[var(--color-muted-foreground)]">
+                  Còn {gift.stockQuantity} phần
+                </div>
+              )}
+            </div>
+          </div>
+
+          {gift.externalTerms && (
+            <details className="rounded-card border border-[var(--color-border)]">
+              <summary className="cursor-pointer px-4 py-2.5 text-sm font-medium">
+                Điều kiện sử dụng
+              </summary>
+              <p className="max-h-56 overflow-y-auto whitespace-pre-line border-t border-[var(--color-border)] px-4 py-3 text-xs leading-relaxed text-[var(--color-muted-foreground)]">
+                {htmlToText(gift.externalTerms)}
+              </p>
+            </details>
+          )}
+
+          <div>
+            <label className="text-label mb-1.5 block font-medium">Số lượng</label>
+            <div className="flex items-center gap-3">
+              <button
+                type="button"
+                onClick={() => setValue('quantity', Math.max(1, quantity - 1), { shouldValidate: true })}
+                disabled={quantity <= 1}
+                className="rounded-control border border-[var(--color-border)] p-2 disabled:opacity-40"
+              >
+                <Minus size={16} />
               </button>
+              <span className="w-10 text-center text-lg font-semibold tabular-nums">{quantity}</span>
+              <button
+                type="button"
+                onClick={() => setValue('quantity', Math.min(maxQty, quantity + 1), { shouldValidate: true })}
+                disabled={quantity >= maxQty}
+                className="rounded-control border border-[var(--color-border)] p-2 disabled:opacity-40"
+              >
+                <Plus size={16} />
+              </button>
+              {maxQty < 2 && (
+                <span className="text-xs text-[var(--color-muted-foreground)]">
+                  {canBuyPoints || maxByStock < maxByBalance ? 'Chỉ còn 1 phần' : 'Điểm chỉ đủ 1 phần'}
+                </span>
+              )}
+            </div>
+            {errors.quantity && (
+              <p className="mt-1 text-xs text-[var(--color-error)]">{errors.quantity.message}</p>
             )}
           </div>
+
+          <div className="space-y-1 rounded-card bg-[var(--color-muted)] px-4 py-3 text-sm">
+            <div className="flex justify-between">
+              <span className="text-[var(--color-muted-foreground)]">Số dư hiện tại</span>
+              <span className="tabular-nums">{balance.toLocaleString('vi-VN')}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-[var(--color-muted-foreground)]">Trừ khi đổi</span>
+              <span className="tabular-nums text-[var(--color-error)]">−{total.toLocaleString('vi-VN')}</span>
+            </div>
+            <div className="flex justify-between border-t border-[var(--color-border)] pt-1 font-semibold">
+              {notEnough ? (
+                <>
+                  <span>Còn thiếu</span>
+                  <span className="tabular-nums text-[var(--color-warning)]">
+                    {shortPoints.toLocaleString('vi-VN')}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <span>Còn lại</span>
+                  <span className="tabular-nums">{remaining.toLocaleString('vi-VN')}</span>
+                </>
+              )}
+            </div>
+          </div>
+
+          <div>
+            <label className="text-label mb-1.5 block font-medium">
+              Ghi chú <span className="font-normal text-[var(--color-muted-foreground)]">(tuỳ chọn)</span>
+            </label>
+            <input
+              {...register('note')}
+              placeholder="Ví dụ: cỡ áo L, giao tại văn phòng Hà Nội"
+              className="w-full rounded-control border border-[var(--color-border)] bg-transparent px-3 py-2 text-sm"
+            />
+          </div>
+
+          {/* Thiếu điểm không còn là ngõ cụt — nói thẳng cần bù bao nhiêu tiền và bù
+              bằng đường nào, TRƯỚC khi người dùng bấm. */}
+          {notEnough && canBuyPoints ? (
+            <div className="space-y-1.5 rounded-card border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-4 py-3 text-sm">
+              <div className="flex items-center gap-2 font-semibold text-[var(--color-warning)]">
+                <Wallet size={16} />
+                Bạn còn thiếu {shortPoints.toLocaleString('vi-VN')} điểm
+              </div>
+              {cashShort <= 0 ? (
+                <p>
+                  Ví tiền của bạn còn <b>{formatCurrency(cashBalance)}</b>. Dùng{' '}
+                  <b>{formatCurrency(cashNeeded)}</b> đổi lấy{' '}
+                  {shortPoints.toLocaleString('vi-VN')} điểm là đổi được quà này ngay.
+                </p>
+              ) : (
+                <p>
+                  Nạp <b>{formatCurrency(topupAmount)}</b> vào ví rồi đổi sang{' '}
+                  {shortPoints.toLocaleString('vi-VN')} điểm để đổi quà này. Tỉ giá hiện tại{' '}
+                  {formatCurrency(rate)} đổi được 1 điểm
+                  {cashBalance > 0 && `, ví bạn đang có ${formatCurrency(cashBalance)}`}.
+                </p>
+              )}
+            </div>
+          ) : (
+            /* Nói trước điều gì sẽ xảy ra sau khi bấm — và hai loại quà cho ra hai kết
+               cục khác hẳn nhau, nên không thể dùng chung một câu. */
+            <div className="flex items-start gap-2 rounded-card border border-[var(--color-info-border)] bg-[var(--color-info-bg)] px-4 py-3 text-sm">
+              <AlertTriangle size={16} className="mt-0.5 flex-shrink-0 text-[var(--color-info)]" />
+              <span>
+                {gift.requiresDelivery ? (
+                  <>
+                    Điểm được trừ ngay khi gửi yêu cầu, và bạn <b>nhận quà trực tiếp tại công ty</b>.
+                    Nếu bị từ chối hoặc bạn tự huỷ, điểm sẽ được hoàn lại đầy đủ.
+                  </>
+                ) : isVoucher ? (
+                  <>
+                    Mã voucher được xuất <b>ngay khi bạn bấm đổi</b> và hiện lên màn hình. Nếu nhà
+                    cung cấp không xuất được quà, điểm sẽ tự động hoàn lại vào ví của bạn.
+                  </>
+                ) : (
+                  <>
+                    Quà này <b>hoàn tất ngay khi đổi</b> — điểm bị trừ và quyền lợi được ghi nhận
+                    luôn, không cần chờ ai xử lý.
+                  </>
+                )}
+              </span>
+            </div>
+          )}
         </div>
-      </div>
+      </Dialog>
 
       {/* Nằm sau hộp thoại đổi quà trong cây nên vẽ đè lên trên nó dù cùng z-index. */}
       <TopupModal

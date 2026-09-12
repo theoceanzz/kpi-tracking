@@ -1,6 +1,8 @@
 import { useState, useEffect, useMemo } from 'react'
 import { read, write, utils } from 'xlsx'
-import { X, Save, AlertCircle, Trash2, Plus, FileSpreadsheet } from 'lucide-react'
+import { Save, AlertCircle, Trash2, Plus, Loader2 } from 'lucide-react'
+import { Dialog, DialogFooter } from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 
 import { z } from 'zod'
@@ -428,272 +430,234 @@ export default function ExcelPreviewModal({ open, file, onClose, onImport, isImp
   const hasAnyErrors = data.some((r: UserRow) => r._errors && Object.keys(r._errors).length > 0)
 
   return (
-    <div className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-white rounded-[24px] shadow-2xl w-full max-w-[95vw] lg:max-w-6xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-        {/* Header */}
-        <div className="px-6 py-4 border-b border-gray-100 flex items-center justify-between bg-gray-50/50">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center text-blue-600">
-              <FileSpreadsheet size={20} />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-gray-900">Xem trước & Kiểm tra dữ liệu</h2>
-              <p className="text-xs text-gray-500">File: {file?.name}</p>
-            </div>
-          </div>
-          <button onClick={onClose} className="p-2 rounded-xl hover:bg-gray-200 transition-colors text-gray-500">
-            <X size={20} />
-          </button>
+    <Dialog
+      open
+      onClose={onClose}
+      size="full"
+      dismissible={!isImporting}
+      title="Xem trước & Kiểm tra dữ liệu"
+      description={`File: ${file?.name ?? ''}`}
+      footer={
+        <DialogFooter
+          note={<>Tổng cộng: <span className="font-medium text-[var(--color-foreground)] tabular-nums">{data.length}</span> dòng hợp lệ</>}
+          secondary={<Button variant="outline" onClick={onClose} disabled={isImporting}>Hủy bỏ</Button>}
+          primary={
+            <Button onClick={handleSave} disabled={isImporting || hasCriticalErrors || data.length === 0}>
+              {isImporting ? <><Loader2 className="animate-spin" aria-hidden="true" /> Đang Import...</> : <><Save aria-hidden="true" /> Xác nhận Import</>}
+            </Button>
+          }
+        />
+      }
+    >
+      {loading ? (
+        <div className="flex flex-col items-center justify-center h-64 text-[var(--color-subtle-foreground)]">
+          <div className="w-8 h-8 border-4 border-[var(--color-info-border)] border-t-transparent rounded-full animate-spin mb-4" />
+          <p className="font-medium text-sm">Đang đọc file...</p>
         </div>
-
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto min-h-0 p-6 scrollbar-thin scrollbar-thumb-gray-200">
-          {loading ? (
-            <div className="flex flex-col items-center justify-center h-64 text-gray-400">
-              <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin mb-4" />
-              <p className="font-medium text-sm">Đang đọc file...</p>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {hasAnyErrors && (
-                <div className="p-4 bg-red-50 text-red-600 rounded-xl flex items-start gap-3 border border-red-100">
-                  <AlertCircle size={20} className="shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-sm font-bold">Phát hiện dữ liệu không hợp lệ</p>
-                    <p className="text-xs mt-1">Vui lòng kiểm tra và sửa các ô được tô đỏ trước khi tiến hành Import.</p>
-                  </div>
-                </div>
-              )}
-
-              <div className="border border-gray-200 rounded-2xl overflow-hidden shadow-sm">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm text-left">
-                    <thead className="bg-gray-50 border-b border-gray-200 text-gray-500 font-bold uppercase text-[10px] tracking-wider sticky top-0 z-10">
-                      <tr>
-                        <th className="px-4 py-3 w-12 text-center bg-gray-50">STT</th>
-                        <th className="px-4 py-3 min-w-[250px] bg-gray-50">Email <span className="text-red-500">*</span></th>
-                        <th className="px-4 py-3 min-w-[220px] bg-gray-50">Họ Tên <span className="text-red-500">*</span></th>
-                        <th className="px-4 py-3 min-w-[150px] bg-gray-50">Số điện thoại</th>
-                        <th className="px-4 py-3 min-w-[150px] bg-gray-50">Mã NV</th>
-                        <th className="px-4 py-3 min-w-[200px] bg-gray-50">Chức danh <span className="text-red-500">*</span></th>
-                        <th className="px-4 py-3 min-w-[200px] bg-gray-50">Mật khẩu</th>
-                        <th className="px-4 py-3 min-w-[300px] bg-gray-50">Phòng ban / Đơn vị</th>
-                        <th className="px-4 py-3 w-16 text-center bg-gray-50">Xóa</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-100">
-                      {data.map((row, index) => (
-                        <tr key={row.id} className="hover:bg-gray-50/50 transition-colors">
-                          <td className="px-4 py-3 text-center text-gray-400 font-medium">
-                            {index + 1}
-                          </td>
-                          <td className="px-4 py-2">
-                            <input
-                              value={row.Email}
-                              onChange={e => handleCellChange(row.id, 'Email', e.target.value)}
-                              className={cn(
-                                "w-full px-3 py-1.5 rounded-lg border text-sm transition-colors",
-                                row._errors?.Email 
-                                  ? "border-red-300 bg-red-50 focus:border-red-500 focus:ring-1 focus:ring-red-500" 
-                                  : "border-transparent hover:border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-transparent hover:bg-white focus:bg-white"
-                              )}
-                              placeholder="Nhập email..."
-                            />
-                            {row._errors?.Email && <p className="text-[10px] text-red-500 mt-1 font-medium px-1">{row._errors.Email}</p>}
-                          </td>
-                          <td className="px-4 py-2">
-                            <input
-                              value={row.FullName}
-                              onChange={e => handleCellChange(row.id, 'FullName', e.target.value)}
-                              className={cn(
-                                "w-full px-3 py-1.5 rounded-lg border text-sm transition-colors",
-                                row._errors?.FullName 
-                                  ? "border-red-300 bg-red-50 focus:border-red-500 focus:ring-1 focus:ring-red-500" 
-                                  : "border-transparent hover:border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-transparent hover:bg-white focus:bg-white"
-                              )}
-                              placeholder="Nhập họ tên..."
-                            />
-                            {row._errors?.FullName && <p className="text-[10px] text-red-500 mt-1 font-medium px-1">{row._errors.FullName}</p>}
-                          </td>
-                          <td className="px-4 py-2">
-                            <input
-                              value={row.Phone}
-                              onChange={e => handleCellChange(row.id, 'Phone', e.target.value)}
-                              className="w-full px-3 py-1.5 rounded-lg border border-transparent hover:border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-transparent hover:bg-white focus:bg-white text-sm transition-colors"
-                              placeholder="Trống..."
-                            />
-                          </td>
-                          <td className="px-4 py-2">
-                            <input
-                              value={row.EmployeeCode}
-                              onChange={e => handleCellChange(row.id, 'EmployeeCode', e.target.value)}
-                              className={cn(
-                                "w-full px-3 py-1.5 rounded-lg border text-sm transition-colors",
-                                row._errors?.EmployeeCode 
-                                  ? "border-red-300 bg-red-50 focus:border-red-500 focus:ring-1 focus:ring-red-500" 
-                                  : "border-transparent hover:border-gray-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-transparent hover:bg-white focus:bg-white"
-                              )}
-                              placeholder="Trống..."
-                            />
-                            {row._errors?.EmployeeCode && <p className="text-[10px] text-red-500 mt-1 font-medium px-1">{row._errors.EmployeeCode}</p>}
-                          </td>
-                          <td className="px-4 py-2">
-                            {(() => {
-                              const unitInfo = unitInfoMap.get(row.OrgUnitCode || '')
-                              const filteredRoles = assignableRoles.filter(role => {
-                                if (!unitInfo) return true // Show all if unit not selected yet
-                                
-                                // 1. If explicit allowedRoles exists on unit, use it
-                                if (unitInfo.allowedRoles) {
-                                  if (unitInfo.allowedRoles.length === 0) return false
-                                  return unitInfo.allowedRoles.some(ar => ar.id === role.id)
-                                }
-
-                                return true
-                              })
-
-                              const isCurrentRoleMissing = !filteredRoles.some(r => r.id === row.Role);
-                              return (
-                                <select
-                                  value={row.Role}
-                                  onChange={e => handleCellChange(row.id, 'Role', e.target.value)}
-                                  className={cn(
-                                    "w-full px-4 py-3 rounded-xl border text-sm font-bold transition-all bg-white shadow-sm",
-                                    row._errors?.Role 
-                                      ? "border-red-300 bg-red-50 text-red-900" 
-                                      : "border-gray-200 hover:border-blue-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
-                                  )}
-                                >
-                                  {isCurrentRoleMissing && (
-                                    <option value={row.Role} className="hidden">
-                                      {(() => {
-                                        const r = rolesData?.find((x: any) => x.id === row.Role || x.name === row.Role);
-                                        return r ? r.name : 'Chọn chức danh...';
-                                      })()}
-                                    </option>
-                                  )}
-                                  {filteredRoles.map(role => (
-                                    <option key={role.id} value={role.id}>{role.name}</option>
-                                  ))}
-                                </select>
-                              )
-                            })()}
-                            {row._errors?.Role && <p className="text-[10px] text-red-500 mt-1 font-medium px-1">{row._errors.Role}</p>}
-                            {(() => {
-                              const unitInfo = unitInfoMap.get(row.OrgUnitCode || '')
-                              const hasNoRoles = unitInfo?.allowedRoles && unitInfo.allowedRoles.length === 0
-                              if (hasNoRoles) {
-                                return (
-                                  <p className="text-[9px] text-red-500 mt-1 font-bold italic px-1 flex items-center gap-1">
-                                    <AlertCircle size={10} /> Đơn vị này chưa được thiết lập phạm vi vai trò. Hãy cấu hình ở mục "Sơ đồ tổ chức".
-                                  </p>
-                                )
-                              }
-                              return null
-                            })()}
-                          </td>
-                          <td className="px-4 py-2">
-                            <input
-                              type="text"
-                              value={row.Password}
-                              onChange={e => handleCellChange(row.id, 'Password', e.target.value)}
-                              className={cn(
-                                "w-full px-4 py-3 rounded-xl border text-sm font-bold transition-all bg-white shadow-sm",
-                                row._errors?.Password 
-                                  ? "border-red-300 bg-red-50 text-red-900" 
-                                  : "border-gray-200 hover:border-blue-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-500/10"
-                              )}
-                              placeholder="Tự động sinh..."
-                            />
-                            {row._errors?.Password && <p className="text-[10px] text-red-500 mt-1 font-medium px-1">{row._errors.Password}</p>}
-                          </td>
-                          <td className="px-4 py-2">
-                            <select
-                              value={row.OrgUnitCode || ''}
-                              onChange={e => handleCellChange(row.id, 'OrgUnitCode', e.target.value)}
-                              className={cn(
-                                "w-full px-3 py-1.5 rounded-lg border text-sm transition-colors bg-transparent hover:bg-white focus:bg-white",
-                                row._errors?.OrgUnitCode ? "border-red-300 bg-red-50" : "border-transparent hover:border-gray-300"
-                              )}
-                            >
-                              {Array.from(validUnitCodes).map(code => {
-                                // Try to find the name for this code from orgTree
-                                let name = code
-                                const findName = (nodes: any[]) => {
-                                  for (const n of nodes) {
-                                    if (n.code === code) { name = n.name; return }
-                                    if (n.children) findName(n.children)
-                                  }
-                                }
-                                if (orgTree) findName(orgTree)
-                                return <option key={code} value={code}>{name} ({code})</option>
-                              })}
-                            </select>
-                            {row._errors?.OrgUnitCode && <p className="text-[10px] text-red-500 mt-1 font-medium px-1">{row._errors.OrgUnitCode}</p>}
-                          </td>
-                          <td className="px-4 py-2 text-center">
-                            <button
-                              onClick={() => handleRemoveRow(row.id)}
-                              className="p-1.5 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                {data.length === 0 && (
-                  <div className="text-center py-12 text-gray-500 text-sm">
-                    Không có dòng dữ liệu nào
-                  </div>
-                )}
-                <div className="bg-gray-50 border-t border-gray-200 p-3 flex justify-center">
-                  <button
-                    onClick={handleAddRow}
-                    className="flex items-center gap-2 text-sm font-bold text-blue-600 hover:text-blue-700 hover:bg-blue-50 px-4 py-2 rounded-xl transition-colors"
-                  >
-                    <Plus size={16} /> Thêm dòng mới
-                  </button>
-                </div>
+      ) : (
+        <div className="space-y-4">
+          {hasAnyErrors && (
+            <div className="p-4 bg-[var(--color-error-bg)] text-[var(--color-error)] rounded-card flex items-start gap-3 border border-[var(--color-error-border)]">
+              <AlertCircle size={20} className="shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-medium">Phát hiện dữ liệu không hợp lệ</p>
+                <p className="text-xs mt-1">Vui lòng kiểm tra và sửa các ô được tô đỏ trước khi tiến hành Import.</p>
               </div>
             </div>
           )}
-        </div>
 
-        {/* Footer */}
-        <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-between bg-gray-50/50">
-          <p className="text-sm font-bold text-gray-500">
-            Tổng cộng: <span className="text-gray-900">{data.length}</span> dòng hợp lệ
-          </p>
-          <div className="flex gap-3">
-            <button
-              onClick={onClose}
-              disabled={isImporting}
-              className="px-6 py-2.5 rounded-xl text-sm font-bold border border-gray-200 hover:bg-white transition-colors text-gray-600 disabled:opacity-50"
-            >
-              Hủy bỏ
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={isImporting || hasCriticalErrors || data.length === 0}
-              className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-blue-600 text-white text-sm font-bold hover:bg-blue-700 shadow-lg shadow-blue-500/30 disabled:opacity-50 transition-all active:scale-95"
-            >
-              {isImporting ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Đang Import...
-                </>
-              ) : (
-                <>
-                  <Save size={16} /> Xác nhận Import
-                </>
-              )}
-            </button>
+          <div className="border border-[var(--color-border)] rounded-card overflow-hidden shadow-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left">
+                <thead className="text-eyebrow bg-[var(--color-muted)] border-b border-[var(--color-border)] text-[var(--color-muted-foreground)] sticky top-0 z-10">
+                  <tr>
+                    <th className="px-4 py-3 w-12 text-center bg-[var(--color-muted)]">STT</th>
+                    <th className="px-4 py-3 min-w-[250px] bg-[var(--color-muted)]">Email <span className="text-[var(--color-error)]">*</span></th>
+                    <th className="px-4 py-3 min-w-[220px] bg-[var(--color-muted)]">Họ Tên <span className="text-[var(--color-error)]">*</span></th>
+                    <th className="px-4 py-3 min-w-[150px] bg-[var(--color-muted)]">Số điện thoại</th>
+                    <th className="px-4 py-3 min-w-[150px] bg-[var(--color-muted)]">Mã NV</th>
+                    <th className="px-4 py-3 min-w-[200px] bg-[var(--color-muted)]">Chức danh <span className="text-[var(--color-error)]">*</span></th>
+                    <th className="px-4 py-3 min-w-[200px] bg-[var(--color-muted)]">Mật khẩu</th>
+                    <th className="px-4 py-3 min-w-[300px] bg-[var(--color-muted)]">Phòng ban / Đơn vị</th>
+                    <th className="px-4 py-3 w-16 text-center bg-[var(--color-muted)]">Xóa</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[var(--color-border)]">
+                  {data.map((row, index) => (
+                    <tr key={row.id} className="hover:bg-[var(--color-muted)] transition-colors">
+                      <td className="px-4 py-3 text-center text-[var(--color-subtle-foreground)] font-medium">
+                        {index + 1}
+                      </td>
+                      <td className="px-4 py-2">
+                        <input
+                          value={row.Email}
+                          onChange={e => handleCellChange(row.id, 'Email', e.target.value)}
+                          className={cn(
+                            "w-full px-3 py-1.5 rounded-control border text-sm transition-colors",
+                            row._errors?.Email 
+                              ? "border-[var(--color-error-border)] bg-[var(--color-error-bg)] focus:border-[var(--color-error-border)] focus:ring-1 focus:ring-[var(--color-error-solid)]" 
+                              : "border-transparent hover:border-[var(--color-border-strong)] focus:border-[var(--color-info-border)] focus:ring-1 focus:ring-[var(--color-info-solid)] bg-transparent hover:bg-[var(--color-card)] focus:bg-[var(--color-card)]"
+                          )}
+                          placeholder="Nhập email..."
+                        />
+                        {row._errors?.Email && <p className="text-xs text-[var(--color-error)] mt-1 font-medium px-1">{row._errors.Email}</p>}
+                      </td>
+                      <td className="px-4 py-2">
+                        <input
+                          value={row.FullName}
+                          onChange={e => handleCellChange(row.id, 'FullName', e.target.value)}
+                          className={cn(
+                            "w-full px-3 py-1.5 rounded-control border text-sm transition-colors",
+                            row._errors?.FullName 
+                              ? "border-[var(--color-error-border)] bg-[var(--color-error-bg)] focus:border-[var(--color-error-border)] focus:ring-1 focus:ring-[var(--color-error-solid)]" 
+                              : "border-transparent hover:border-[var(--color-border-strong)] focus:border-[var(--color-info-border)] focus:ring-1 focus:ring-[var(--color-info-solid)] bg-transparent hover:bg-[var(--color-card)] focus:bg-[var(--color-card)]"
+                          )}
+                          placeholder="Nhập họ tên..."
+                        />
+                        {row._errors?.FullName && <p className="text-xs text-[var(--color-error)] mt-1 font-medium px-1">{row._errors.FullName}</p>}
+                      </td>
+                      <td className="px-4 py-2">
+                        <input
+                          value={row.Phone}
+                          onChange={e => handleCellChange(row.id, 'Phone', e.target.value)}
+                          className="w-full px-3 py-1.5 rounded-control border border-transparent hover:border-[var(--color-border-strong)] focus:border-[var(--color-info-border)] focus:ring-1 focus:ring-[var(--color-info-solid)] bg-transparent hover:bg-[var(--color-card)] focus:bg-[var(--color-card)] text-sm transition-colors"
+                          placeholder="Trống..."
+                        />
+                      </td>
+                      <td className="px-4 py-2">
+                        <input
+                          value={row.EmployeeCode}
+                          onChange={e => handleCellChange(row.id, 'EmployeeCode', e.target.value)}
+                          className={cn(
+                            "w-full px-3 py-1.5 rounded-control border text-sm transition-colors",
+                            row._errors?.EmployeeCode 
+                              ? "border-[var(--color-error-border)] bg-[var(--color-error-bg)] focus:border-[var(--color-error-border)] focus:ring-1 focus:ring-[var(--color-error-solid)]" 
+                              : "border-transparent hover:border-[var(--color-border-strong)] focus:border-[var(--color-info-border)] focus:ring-1 focus:ring-[var(--color-info-solid)] bg-transparent hover:bg-[var(--color-card)] focus:bg-[var(--color-card)]"
+                          )}
+                          placeholder="Trống..."
+                        />
+                        {row._errors?.EmployeeCode && <p className="text-xs text-[var(--color-error)] mt-1 font-medium px-1">{row._errors.EmployeeCode}</p>}
+                      </td>
+                      <td className="px-4 py-2">
+                        {(() => {
+                          const unitInfo = unitInfoMap.get(row.OrgUnitCode || '')
+                          const filteredRoles = assignableRoles.filter(role => {
+                            if (!unitInfo) return true // Show all if unit not selected yet
+                            
+                            // 1. If explicit allowedRoles exists on unit, use it
+                            if (unitInfo.allowedRoles) {
+                              if (unitInfo.allowedRoles.length === 0) return false
+                              return unitInfo.allowedRoles.some(ar => ar.id === role.id)
+                            }
+
+                            return true
+                          })
+
+                          const isCurrentRoleMissing = !filteredRoles.some(r => r.id === row.Role);
+                          return (
+                            <select
+                              value={row.Role}
+                              onChange={e => handleCellChange(row.id, 'Role', e.target.value)}
+                              className={cn(
+                                "w-full px-4 py-3 rounded-card border text-sm font-medium transition-all bg-[var(--color-card)] shadow-sm",
+                                row._errors?.Role 
+                                  ? "border-[var(--color-error-border)] bg-[var(--color-error-bg)] text-[var(--color-error)]" 
+                                  : "border-[var(--color-border)] hover:border-[var(--color-info-border)] focus:border-[var(--color-info-border)] focus:ring-4 focus:ring-[var(--color-info-solid)]"
+                              )}
+                            >
+                              {isCurrentRoleMissing && (
+                                <option value={row.Role} className="hidden">
+                                  {(() => {
+                                    const r = rolesData?.find((x: any) => x.id === row.Role || x.name === row.Role);
+                                    return r ? r.name : 'Chọn chức danh...';
+                                  })()}
+                                </option>
+                              )}
+                              {filteredRoles.map(role => (
+                                <option key={role.id} value={role.id}>{role.name}</option>
+                              ))}
+                            </select>
+                          )
+                        })()}
+                        {row._errors?.Role && <p className="text-xs text-[var(--color-error)] mt-1 font-medium px-1">{row._errors.Role}</p>}
+                        {(() => {
+                          const unitInfo = unitInfoMap.get(row.OrgUnitCode || '')
+                          const hasNoRoles = unitInfo?.allowedRoles && unitInfo.allowedRoles.length === 0
+                          if (hasNoRoles) {
+                            return (
+                              <p className="text-xs text-[var(--color-error)] mt-1 font-medium italic px-1 flex items-center gap-1">
+                                <AlertCircle size={10} /> Đơn vị này chưa được thiết lập phạm vi vai trò. Hãy cấu hình ở mục "Sơ đồ tổ chức".
+                              </p>
+                            )
+                          }
+                          return null
+                        })()}
+                      </td>
+                      <td className="px-4 py-2">
+                        <input
+                          type="text"
+                          value={row.Password}
+                          onChange={e => handleCellChange(row.id, 'Password', e.target.value)}
+                          className={cn(
+                            "w-full px-4 py-3 rounded-card border text-sm font-medium transition-all bg-[var(--color-card)] shadow-sm",
+                            row._errors?.Password 
+                              ? "border-[var(--color-error-border)] bg-[var(--color-error-bg)] text-[var(--color-error)]" 
+                              : "border-[var(--color-border)] hover:border-[var(--color-info-border)] focus:border-[var(--color-info-border)] focus:ring-4 focus:ring-[var(--color-info-solid)]"
+                          )}
+                          placeholder="Tự động sinh..."
+                        />
+                        {row._errors?.Password && <p className="text-xs text-[var(--color-error)] mt-1 font-medium px-1">{row._errors.Password}</p>}
+                      </td>
+                      <td className="px-4 py-2">
+                        <select
+                          value={row.OrgUnitCode || ''}
+                          onChange={e => handleCellChange(row.id, 'OrgUnitCode', e.target.value)}
+                          className={cn(
+                            "w-full px-3 py-1.5 rounded-control border text-sm transition-colors bg-transparent hover:bg-[var(--color-card)] focus:bg-[var(--color-card)]",
+                            row._errors?.OrgUnitCode ? "border-[var(--color-error-border)] bg-[var(--color-error-bg)]" : "border-transparent hover:border-[var(--color-border-strong)]"
+                          )}
+                        >
+                          {Array.from(validUnitCodes).map(code => {
+                            // Try to find the name for this code from orgTree
+                            let name = code
+                            const findName = (nodes: any[]) => {
+                              for (const n of nodes) {
+                                if (n.code === code) { name = n.name; return }
+                                if (n.children) findName(n.children)
+                              }
+                            }
+                            if (orgTree) findName(orgTree)
+                            return <option key={code} value={code}>{name} ({code})</option>
+                          })}
+                        </select>
+                        {row._errors?.OrgUnitCode && <p className="text-xs text-[var(--color-error)] mt-1 font-medium px-1">{row._errors.OrgUnitCode}</p>}
+                      </td>
+                      <td className="px-4 py-2 text-center">
+                        <button
+                          onClick={() => handleRemoveRow(row.id)}
+                          className="p-1.5 text-[var(--color-subtle-foreground)] hover:text-[var(--color-error)] hover:bg-[var(--color-error-bg)] rounded-control transition-colors"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {data.length === 0 && (
+              <div className="text-center py-12 text-[var(--color-muted-foreground)] text-sm">
+                Không có dòng dữ liệu nào
+              </div>
+            )}
+            <div className="bg-[var(--color-muted)] border-t border-[var(--color-border)] p-3 flex justify-center">
+              <Button variant="ghost" onClick={handleAddRow}>
+                <Plus aria-hidden="true" /> Thêm dòng mới
+              </Button>
+            </div>
           </div>
         </div>
-      </div>
-    </div>
+      )}
+    </Dialog>
   )
 }

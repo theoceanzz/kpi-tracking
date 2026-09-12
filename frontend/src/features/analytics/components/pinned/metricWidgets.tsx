@@ -40,18 +40,18 @@ function StatTile({ icon, tone, label, children }: {
   children: React.ReactNode
 }) {
   const tones = {
-    indigo: 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400',
-    emerald: 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400',
-    amber: 'bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400',
-    red: 'bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400',
-    teal: 'bg-teal-100 dark:bg-teal-900/40 text-teal-600 dark:text-teal-400',
-    violet: 'bg-violet-100 dark:bg-violet-900/40 text-violet-600 dark:text-violet-400',
+    indigo: 'bg-[var(--color-primary-soft)] text-[var(--color-primary)]',
+    emerald: 'bg-[var(--color-success-bg)] text-[var(--color-success)]',
+    amber: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]',
+    red: 'bg-[var(--color-error-bg)] text-[var(--color-error)]',
+    teal: 'bg-[var(--color-info-bg)] text-[var(--color-info)]',
+    violet: 'bg-[var(--color-primary-soft)] text-[var(--color-primary)]',
   } as const
   return (
-    <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 sm:p-5 border border-slate-200 dark:border-slate-800 flex items-center gap-4">
-      <div className={cn('w-11 h-11 rounded-full flex items-center justify-center shrink-0', tones[tone])}>{icon}</div>
+    <div className="bg-[var(--color-card)] rounded-card p-4 sm:p-5 border border-[var(--color-border)] flex items-center gap-4">
+      <div className={cn('w-11 h-9 rounded-full flex items-center justify-center shrink-0', tones[tone])}>{icon}</div>
       <div className="min-w-0">
-        <p className="text-xs font-bold text-slate-500">{label}</p>
+        <p className="text-caption">{label}</p>
         {children}
       </div>
     </div>
@@ -59,7 +59,7 @@ function StatTile({ icon, tone, label, children }: {
 }
 
 const Big = ({ children }: { children: React.ReactNode }) => (
-  <p className="text-2xl font-black tabular-nums">{children}</p>
+  <p className="text-2xl font-semibold tabular-nums">{children}</p>
 )
 
 /** Chỉ số KPI đơn vị — hàng thẻ đầu tab "KPI đơn vị". */
@@ -83,8 +83,8 @@ export function UnitKpiMetrics({ filter }: { filter?: PinnedFilter }) {
         <Big>{perf.format(metrics?.averagePerformance ?? 0)}</Big>
       </StatTile>
       <StatTile icon={<CheckCircle size={22} />} tone="amber" label="Trạng thái KPI">
-        <p className="text-sm font-black tabular-nums">{metrics?.runningKpis ?? 0} Đang chạy</p>
-        <p className="text-sm font-black text-emerald-600 tabular-nums">{metrics?.completedKpis ?? 0} Hoàn thành</p>
+        <p className="text-sm font-semibold tabular-nums">{metrics?.runningKpis ?? 0} Đang chạy</p>
+        <p className="text-sm font-semibold text-[var(--color-success)] tabular-nums">{metrics?.completedKpis ?? 0} Hoàn thành</p>
       </StatTile>
       <StatTile icon={<AlertTriangle size={22} />} tone="red" label="KPI Rủi ro / Chậm">
         <Big>{metrics?.riskKpis ?? 0}</Big>
@@ -119,7 +119,7 @@ export function MyKpiMetrics({ filter }: { filter?: PinnedFilter }) {
         <Big>{perf.format(metrics?.averagePerformance ?? 0)}</Big>
       </StatTile>
       <StatTile icon={<CheckCircle size={20} />} tone="amber" label="Đang chạy / HT">
-        <p className="text-base font-black tabular-nums">{metrics?.runningKpis ?? 0} / {metrics?.completedKpis ?? 0}</p>
+        <p className="text-base font-semibold tabular-nums">{metrics?.runningKpis ?? 0} / {metrics?.completedKpis ?? 0}</p>
       </StatTile>
       <StatTile icon={<AlertTriangle size={20} />} tone="red" label="Rủi ro / Chậm">
         <Big>{metrics?.riskKpis ?? 0}</Big>
@@ -148,8 +148,8 @@ export function MyObjectiveMetrics({ filter }: { filter?: PinnedFilter }) {
         <Big>{perf.format(metrics?.averagePerformance ?? 0)}</Big>
       </StatTile>
       <StatTile icon={<CheckCircle size={22} />} tone="amber" label="Trạng thái KPI">
-        <p className="text-sm font-black tabular-nums">{metrics?.runningKpis ?? 0} Đang chạy</p>
-        <p className="text-sm font-black text-emerald-600 tabular-nums">{metrics?.completedKpis ?? 0} Hoàn thành</p>
+        <p className="text-sm font-semibold tabular-nums">{metrics?.runningKpis ?? 0} Đang chạy</p>
+        <p className="text-sm font-semibold text-[var(--color-success)] tabular-nums">{metrics?.completedKpis ?? 0} Hoàn thành</p>
       </StatTile>
       <StatTile icon={<AlertTriangle size={22} />} tone="red" label="KPI Rủi ro / Chậm">
         <Big>{metrics?.riskKpis ?? 0}</Big>
@@ -203,14 +203,14 @@ export function SubordinateMetrics({ filter }: { filter?: PinnedFilter }) {
         title="Mục tiêu hoàn thành"
         value={completedCount.data ? `${completedCount.data.completed}/${completedCount.data.total}` : '0/0'}
         subtitle="trên tổng số MT"
-        icon={<CheckCircle2 size={20} className="text-emerald-500" />}
+        icon={<CheckCircle2 size={20} className="text-[var(--color-success)]" />}
         isLoading={completedCount.isLoading}
       />
       <ObjectiveMetricCard
         title="Mục tiêu rủi ro"
         value={atRisk.data?.count ?? 0}
         subtitle="Tiến độ thấp & sắp hết hạn"
-        icon={<AlertTriangle size={20} className="text-rose-500" />}
+        icon={<AlertTriangle size={20} className="text-[var(--color-error)]" />}
         isLoading={atRisk.isLoading}
       />
       <ObjectiveMetricCard

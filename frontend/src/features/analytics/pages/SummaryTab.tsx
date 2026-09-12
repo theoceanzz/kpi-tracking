@@ -10,7 +10,7 @@ import {
   Target, Star, Users, TrendingUp,
   ChevronRight, AlertTriangle, Medal, ArrowUpRight, ArrowDownRight,
   ChevronDown, Filter, ArrowUpDown, MousePointerClick,
-  X, CheckCircle, LayoutDashboard, Building2
+  X, CheckCircle, Building2
 } from 'lucide-react'
 import AnalyticsTabSkeleton from '@/components/common/AnalyticsTabSkeleton'
 import type { RankingItem } from '@/types/stats'
@@ -44,6 +44,10 @@ import { usePerformanceScale } from '../hooks/usePerformanceScale'
 import { ChartWrapper, type DashboardWidget } from '@/components/common/dashboard/ChartWrapper'
 import { useDashboardCustomization } from '@/components/common/dashboard/useDashboardCustomization'
 import DashboardCustomizeChrome, { DashboardEditToolbar } from '@/components/common/dashboard/DashboardCustomizeChrome'
+import AnalyticsTabHeader from '../components/AnalyticsTabHeader'
+import { StatCard } from '@/features/dashboard/widgets/shared/StatCard'
+import { Button } from '@/components/ui/button'
+import { ChoiceChip } from '@/components/ui/choice-chip'
 
 const CONFIG_REPORT_NAME = '__SUMMARY_DASHBOARD_CONFIG__'
 
@@ -267,12 +271,12 @@ export default function SummaryTab() {
   // Thanh lọc dùng CHUNG cho cả hai chế độ của widget. Trước đây nó nằm trong thân bảng nên chế
   // độ biểu đồ không có bộ lọc đơn vị nào của riêng nó.
   const renderKpiFilterBar = () => (
-    <div className="pb-3 mb-3 border-b border-slate-100 dark:border-slate-800 flex flex-wrap items-center gap-3 shrink-0">
+    <div className="pb-3 mb-3 border-b border-[var(--color-border)] flex flex-wrap items-center gap-3 shrink-0">
       <Select
         value={filterOrgUnitId ?? ALL_UNITS}
         onValueChange={v => setFilterOrgUnitId(v === ALL_UNITS ? undefined : v)}
       >
-        <SelectTrigger className="h-9 max-w-[220px] bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-lg text-xs font-semibold text-slate-700 dark:text-slate-300">
+        <SelectTrigger className="h-9 max-w-[220px] bg-[var(--color-muted)] border-[var(--color-border)] rounded-control text-xs font-semibold text-[var(--color-foreground)]">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -284,9 +288,9 @@ export default function SummaryTab() {
       </Select>
 
       {hasTableFilters && (
-        <button onClick={clearTableFilters} className="flex items-center gap-1 h-9 px-3 rounded-lg text-xs font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
-          <X size={13} /> Xóa bộ lọc
-        </button>
+        <Button variant="ghost" size="sm" className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]" onClick={clearTableFilters}>
+          <X aria-hidden="true" /> Xóa bộ lọc
+        </Button>
       )}
     </div>
   )
@@ -330,11 +334,11 @@ export default function SummaryTab() {
         {renderKpiFilterBar()}
         {!isAllocLoading && periods.length > 0 && (
           <div className="shrink-0 space-y-2">
-            <p className="text-[11px] text-slate-500 dark:text-slate-400 font-medium flex items-center gap-1.5">
-              <MousePointerClick size={13} className="text-indigo-500 shrink-0" />
+            <p className="text-caption font-medium flex items-center gap-1.5">
+              <MousePointerClick size={13} className="text-[var(--color-primary)] shrink-0" />
               <span>
                 Bấm vào một ô để mở chi tiết KPI
-                <span className="text-slate-300 dark:text-slate-600 mx-1.5">│</span>
+                <span className="text-[var(--color-subtle-foreground)] mx-1.5">│</span>
                 Diện tích ô = trọng số, màu = tiến độ, ô lồng = KPI được chia xuống
               </span>
             </p>
@@ -343,9 +347,9 @@ export default function SummaryTab() {
         )}
         <div className="flex-1 overflow-auto custom-scrollbar min-h-0 space-y-3 pr-1">
           {isAllocLoading ? (
-            <div className="py-16 text-center text-slate-400 font-bold">Đang tải...</div>
+            <div className="py-16 text-center text-[var(--color-subtle-foreground)] font-semibold">Đang tải...</div>
           ) : periods.length === 0 ? (
-            <div className="py-16 text-center text-slate-400 font-bold italic">
+            <div className="py-16 text-center text-[var(--color-subtle-foreground)] font-semibold italic">
               Không có KPI nào được đặt trọng số trong khoảng thời gian đang lọc
             </div>
           ) : periods.map(period => {
@@ -353,19 +357,16 @@ export default function SummaryTab() {
             const units = [...period.units.values()]
             const open = isExpanded(period.key)
             return (
-              <section key={period.key} className="border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden">
-                <button
-                  onClick={() => togglePeriod(period.key)}
-                  className="w-full text-left p-4 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors"
-                >
+              <section key={period.key} className="border border-[var(--color-border)] rounded-card overflow-hidden">
+                <button type="button" className="flex w-full items-center gap-3 rounded-card p-3 text-left transition-colors hover:bg-[var(--color-muted)]" onClick={() => togglePeriod(period.key)}>
                   <div className="flex items-center justify-between gap-3">
-                    <h4 className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2 min-w-0">
+                    <h4 className="text-sm font-semibold text-[var(--color-foreground)] flex items-center gap-2 min-w-0">
                       {open
-                        ? <ChevronDown size={16} className="text-slate-400 shrink-0" />
-                        : <ChevronRight size={16} className="text-slate-400 shrink-0" />}
+                        ? <ChevronDown aria-hidden="true" className="text-[var(--color-subtle-foreground)] shrink-0" />
+                        : <ChevronRight aria-hidden="true" className="text-[var(--color-subtle-foreground)] shrink-0" />}
                       <span className="truncate">{period.name}</span>
                     </h4>
-                    <span className="text-[11px] font-bold text-slate-400 shrink-0 tabular-nums">
+                    <span className="text-caption shrink-0 tabular-nums">
                       {period.trees.length > 0 && `${period.trees.length} cây phân cấp · `}
                       {units.length} đơn vị · {period.kpiCount} KPI
                     </span>
@@ -394,12 +395,12 @@ export default function SummaryTab() {
         </div>
 
         {skipped > 0 && (
-          <p className="text-[11px] text-slate-400 font-medium text-center shrink-0">
+          <p className="text-caption font-medium text-center shrink-0">
             {skipped} KPI chưa đặt trọng số nên không có diện tích để vẽ. Xem chúng ở trang Quản lý chỉ tiêu.
           </p>
         )}
         {truncated && (
-          <p className="text-[11px] text-amber-600 font-bold text-center shrink-0">
+          <p className="text-xs text-[var(--color-warning)] font-medium text-center shrink-0">
             Khoảng lọc này có {allocPage?.totalElements} KPI, biểu đồ chỉ vẽ {ALLOC_FETCH_SIZE} mục đầu — thu hẹp bộ lọc để xem đủ.
           </p>
         )}
@@ -410,29 +411,29 @@ export default function SummaryTab() {
   const renderWidgetContent = (widget: SummaryWidget) => {
     switch (widget.type) {
       case 'TREND_CHART': return (
-        <ChartWrapper chromeless title="Xu hướng KPI theo thời gian" icon={<TrendingUp size={20} className="text-indigo-500" />} widget={widget} onTogglePin={handleTogglePin} isEditMode={isEditMode}>
+        <ChartWrapper chromeless title="Xu hướng KPI theo thời gian" icon={<TrendingUp size={20} className="text-[var(--color-primary)]" />} widget={widget} onTogglePin={handleTogglePin} isEditMode={isEditMode}>
           <AnalyticsComboChart data={chartData?.points || []} isLoading={isChartLoading} itemName="KPI đơn vị" fillHeight />
         </ChartWrapper>
       )
       case 'KPI_DETAIL': return (
         <ChartWrapper
           title="Phân bổ trọng số & tiến độ KPI"
-          icon={<Target size={20} className="text-indigo-600" />}
+          icon={<Target size={20} className="text-[var(--color-primary)]" />}
           widget={widget} onTogglePin={handleTogglePin} isEditMode={isEditMode}
           extraHeaderContent={
-            <span className="text-xs font-bold text-slate-400">{allocPage?.totalElements ?? 0} KPI</span>
+            <span className="text-caption">{allocPage?.totalElements ?? 0} KPI</span>
           }
         >
           {renderKpiByPeriodBody()}
         </ChartWrapper>
       )
       case 'UNIT_PERFORMANCE': return (
-        <ChartWrapper title="Hiệu suất, tiến độ & tình hình nộp theo đơn vị" icon={<TrendingUp size={20} className="text-emerald-500" />} widget={widget} onTogglePin={handleTogglePin} isEditMode={isEditMode}>
+        <ChartWrapper title="Hiệu suất, tiến độ & tình hình nộp theo đơn vị" icon={<TrendingUp size={20} className="text-[var(--color-success)]" />} widget={widget} onTogglePin={handleTogglePin} isEditMode={isEditMode}>
           <UnitComparisonBarChart orgUnitId={selectedUnitId} from={from} to={to} onlyApproved={onlyApproved} periodId={periodId} periodIdTo={periodIdTo} />
         </ChartWrapper>
       )
       case 'MEMBER_DIST': return (
-        <ChartWrapper title="Nhân sự & vai trò theo đơn vị" icon={<Users size={20} className="text-purple-600" />} widget={widget} onTogglePin={handleTogglePin} isEditMode={isEditMode}>
+        <ChartWrapper title="Nhân sự & vai trò theo đơn vị" icon={<Users size={20} className="text-[var(--color-primary)]" />} widget={widget} onTogglePin={handleTogglePin} isEditMode={isEditMode}>
           <MemberRoleChart data={mainData?.roleDistribution} />
         </ChartWrapper>
       )
@@ -451,35 +452,18 @@ export default function SummaryTab() {
   if (isMainLoading && !mainData) return <AnalyticsTabSkeleton variant="default" className="p-6" />
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500 pb-12">
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <h2 className="text-xl font-black text-slate-900 dark:text-white">Thống kê tổng hợp</h2>
-        <div id="tour-analytics-customize">
-          <DashboardEditToolbar api={dash} />
-        </div>
-      </div>
-
-      {/* ── Global Filter (sticky) ────────────────────────────────────────── */}
-      <div id="tour-analytics-filter" className="sticky top-0 z-20 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm">
-        <div className="flex flex-wrap items-center gap-4 justify-between">
-          <div className="flex items-center gap-2 shrink-0">
-            <div className="p-2 rounded-lg text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30">
-              <LayoutDashboard size={18} />
-            </div>
-            <div>
-              <h2 className="font-bold text-slate-900 dark:text-white text-base">
-                Bộ lọc KPI
-              </h2>
-              <p className="text-xs text-slate-500 font-medium mt-0.5">Lọc dữ liệu đồng bộ cho metrics, biểu đồ và bảng chi tiết</p>
-            </div>
-          </div>
-          <div className="flex flex-wrap items-center gap-4">
+    <div className="space-y-4 pb-12">
+      <AnalyticsTabHeader
+        title="KPI đơn vị"
+        description="Thống kê tổng hợp theo đơn vị: số liệu, biểu đồ và bảng chi tiết cùng dùng một bộ lọc."
+        actions={<DashboardEditToolbar api={dash} />}
+        filters={<>
             <Select
               value={selectedUnitId ?? ALL_UNITS}
               onValueChange={v => setSelectedUnitId(v === ALL_UNITS ? undefined : v)}
             >
-              <SelectTrigger className="h-9 w-full sm:w-[210px] shrink-0">
-                <Building2 size={14} className="mr-1 text-slate-400 shrink-0" />
+              <SelectTrigger className="h-9 w-full sm:w-[210px] shrink-0" aria-label="Đơn vị">
+                <Building2 size={14} className="mr-1 shrink-0 text-[var(--color-muted-foreground)]" aria-hidden="true" />
                 <SelectValue placeholder="Tất cả đơn vị" />
               </SelectTrigger>
               <SelectContent>
@@ -489,56 +473,29 @@ export default function SummaryTab() {
                 ))}
               </SelectContent>
             </Select>
-            {controls}
-          </div>
-        </div>
-      </div>
+            {controls}</>}
+      />
 
       {/* ── Metrics ───────────────────────────────────────────────────────── */}
       {isMetricsLoading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4 animate-pulse">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5 animate-pulse">
           {Array.from({ length: 5 }).map((_, i) => (
-            <div key={i} className="h-24 bg-[var(--color-muted)] rounded-2xl" />
+            <div key={i} className="h-24 bg-[var(--color-muted)] rounded-card" />
           ))}
         </div>
       ) : (
-        <div id="tour-analytics-metrics" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
-          <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 flex items-center gap-4">
-            <div className="w-12 h-12 rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0"><TrendingUp size={24} /></div>
-            <div>
-              <p className="text-xs font-bold text-slate-500">Tiến độ trung bình</p>
-              <p className="text-2xl font-black">{metrics?.averageProgress?.toFixed(1) ?? 0}%</p>
-            </div>
-          </div>
-          <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 flex items-center gap-4">
-            <div className="w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0"><Target size={24} /></div>
-            <div>
-              <p className="text-xs font-bold text-slate-500">Hiệu suất trung bình (đánh giá)</p>
-              <p className="text-2xl font-black">{perf.format(metrics?.averagePerformance ?? 0)}</p>
-            </div>
-          </div>
-          <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 flex items-center gap-4">
-            <div className="w-12 h-12 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0"><CheckCircle size={24} /></div>
-            <div>
-              <p className="text-xs font-bold text-slate-500">Trạng thái KPI</p>
-              <p className="text-sm font-black">{metrics?.runningKpis ?? 0} Đang chạy</p>
-              <p className="text-sm font-black text-emerald-600">{metrics?.completedKpis ?? 0} Hoàn thành</p>
-            </div>
-          </div>
-          <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 flex items-center gap-4">
-            <div className="w-12 h-12 rounded-full bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 flex items-center justify-center shrink-0"><AlertTriangle size={24} /></div>
-            <div>
-              <p className="text-xs font-bold text-slate-500">KPI Rủi ro / Chậm</p>
-              <p className="text-2xl font-black">{metrics?.riskKpis ?? 0}</p>
-            </div>
-          </div>
-          <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 flex items-center gap-4">
-            <div className="w-12 h-12 rounded-full bg-teal-100 dark:bg-teal-900/40 text-teal-600 dark:text-teal-400 flex items-center justify-center shrink-0"><Users size={24} /></div>
-            <div>
-              <p className="text-xs font-bold text-slate-500">Tổng nhân sự</p>
-              <p className="text-2xl font-black">{mainData?.totalMembers ?? '—'}</p>
-            </div>
-          </div>
+        <div id="tour-analytics-metrics" className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <StatCard label="Tiến độ trung bình" value={`${metrics?.averageProgress?.toFixed(1) ?? 0}%`} icon={<TrendingUp />} color="indigo" />
+          <StatCard label="Hiệu suất TB (đánh giá)" value={perf.format(metrics?.averagePerformance ?? 0)} icon={<Target />} color="emerald" />
+          <StatCard
+            label="Trạng thái KPI"
+            value={<p className="text-stat truncate">{metrics?.runningKpis ?? 0} <span className="text-sm font-normal text-[var(--color-muted-foreground)]">đang chạy</span></p>}
+            sub={<span className="text-[var(--color-success)]">{metrics?.completedKpis ?? 0} hoàn thành</span>}
+            icon={<CheckCircle />}
+            color="amber"
+          />
+          <StatCard label="KPI rủi ro / chậm" value={metrics?.riskKpis ?? 0} icon={<AlertTriangle />} color="red" highlight={(metrics?.riskKpis ?? 0) > 0} />
+          <StatCard label="Tổng nhân sự" value={mainData?.totalMembers ?? '—'} icon={<Users />} color="blue" />
         </div>
       )}
 
@@ -599,11 +556,11 @@ function TableSkeletonRows({ cols, count = 5 }: { cols: number; count?: number }
   return (
     <>
       {Array.from({ length: count }).map((_, i) => (
-        <tr key={i} className="border-b border-slate-100 dark:border-slate-800 last:border-0">
+        <tr key={i} className="border-b border-[var(--color-border)] last:border-0">
           {Array.from({ length: cols }).map((_, j) => (
             <td key={j} className="px-4 py-3.5">
               <div
-                className="h-3.5 bg-slate-100 dark:bg-slate-800 rounded-md animate-pulse"
+                className="h-3.5 bg-[var(--color-muted)] rounded-control animate-pulse"
                 style={{ width: j === 0 ? '30%' : widths[j % widths.length] }}
               />
             </td>
@@ -661,59 +618,59 @@ export function EmployeeRankingTableSection({ orgUnitId, from, to, onlyApproved,
         <div className="hidden md:block overflow-x-auto custom-scrollbar">
           <table className="w-full min-w-[700px]">
             <thead>
-              <tr className="text-left text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100 dark:border-slate-800">
+              <tr className="text-eyebrow text-left border-b border-[var(--color-border)]">
                 <th className="px-6 py-4">Hạng</th>
                 <th className="px-6 py-4">Nhân viên</th>
                 <th className="px-6 py-4">Đơn vị</th>
-                <th className="px-6 py-4 text-center cursor-pointer hover:text-indigo-600" onClick={() => handleSort('avgProgress')}>
+                <th className="px-6 py-4 text-center cursor-pointer hover:text-[var(--color-primary)]" onClick={() => handleSort('avgProgress')}>
                   Tiến độ trung bình {sortIcon('avgProgress')}
                 </th>
-                <th className="px-6 py-4 text-center cursor-pointer hover:text-indigo-600" onClick={() => handleSort('performance')}>
+                <th className="px-6 py-4 text-center cursor-pointer hover:text-[var(--color-primary)]" onClick={() => handleSort('performance')}>
                   Hiệu suất {sortIcon('performance')}
                 </th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
+            <tbody className="divide-y divide-[var(--color-border)]">
               {isFetching ? (
                 <TableSkeletonRows cols={5} count={5} />
               ) : pagedRankings.map((item, i) => {
                 const globalRank = rankPage * RANK_PAGE_SIZE + i
                 return (
-                  <tr key={i} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors group">
+                  <tr key={i} className="hover:bg-[var(--color-muted)] transition-colors group">
                     <td className="px-6 py-4">
-                      <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs",
-                        globalRank === 0 ? "bg-amber-500 text-white shadow-lg shadow-amber-200" :
+                      <div className={cn("w-8 h-8 rounded-control flex items-center justify-center font-semibold text-xs",
+                        globalRank === 0 ? "bg-[var(--color-warning-solid)] text-white": 
                         globalRank === 1 ? "bg-slate-400 text-white" :
-                        globalRank === 2 ? "bg-orange-400 text-white" :
-                        "bg-slate-100 dark:bg-slate-800 text-slate-400"
+                        globalRank === 2 ? "bg-[var(--color-warning-solid)] text-white" :
+"bg-[var(--color-muted)] text-[var(--color-subtle-foreground)]"
                       )}>{globalRank + 1}</div>
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
-                        <UserAvatar fullName={item.name} avatarUrl={item.avatar} className="w-9 h-9 rounded-xl" fallbackClassName="bg-indigo-50 dark:bg-indigo-900/20 font-black text-indigo-600 text-xs" />
-                        <p className="font-black text-slate-900 dark:text-white group-hover:text-indigo-600 transition-colors">{item.name}</p>
+                        <UserAvatar fullName={item.name} avatarUrl={item.avatar} className="w-9 h-9 rounded-card" fallbackClassName="bg-[var(--color-primary-soft)] font-semibold text-[var(--color-primary)] text-xs" />
+                        <p className="font-semibold text-[var(--color-foreground)] group-hover:text-[var(--color-primary)] transition-colors">{item.name}</p>
                       </div>
                     </td>
-                    <td className="px-6 py-4 font-bold text-slate-500 text-xs">{item.subText}</td>
+                    <td className="px-6 py-4 font-medium text-[var(--color-muted-foreground)] text-xs">{item.subText}</td>
                     <td className="px-6 py-4 text-center">
                       <div className="flex items-center gap-2 justify-center">
-                        <div className="w-16 h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                        <div className="w-16 h-1.5 bg-[var(--color-muted)] rounded-full overflow-hidden">
                           <div className={cn('h-full rounded-full',
-                            item.avgProgress >= 80 ? 'bg-emerald-500' :
-                            item.avgProgress >= 50 ? 'bg-amber-500' : 'bg-red-500'
+                            item.avgProgress >= 80 ? 'bg-[var(--color-success-solid)]' :
+                            item.avgProgress >= 50 ? 'bg-[var(--color-warning-solid)]' : 'bg-[var(--color-error-solid)]'
                           )} style={{ width: `${Math.min(item.avgProgress, 100)}%` }} />
                         </div>
-                        <span className={cn('font-black text-xs',
-                          item.avgProgress >= 80 ? 'text-emerald-600' :
-                          item.avgProgress >= 50 ? 'text-amber-600' : 'text-red-600'
+                        <span className={cn('font-semibold text-xs',
+                          item.avgProgress >= 80 ? 'text-[var(--color-success)]' :
+                          item.avgProgress >= 50 ? 'text-[var(--color-warning)]' : 'text-[var(--color-error)]'
                         )}>{item.avgProgress.toFixed(1)}%</span>
                       </div>
                     </td>
                     <td className="px-6 py-4 text-center">
-                      <span className={cn("px-3 py-1 rounded-full text-xs font-black",
-                        perf.toPct(item.performance) >= 80 ? "bg-emerald-50 text-emerald-600" :
-                        perf.toPct(item.performance) >= 50 ? "bg-amber-50 text-amber-600" :
-                        "bg-red-50 text-red-600"
+                      <span className={cn("px-3 py-1 rounded-full text-xs font-semibold",
+                        perf.toPct(item.performance) >= 80 ? "bg-[var(--color-success-bg)] text-[var(--color-success)]" :
+                        perf.toPct(item.performance) >= 50 ? "bg-[var(--color-warning-bg)] text-[var(--color-warning)]" :
+                        "bg-[var(--color-error-bg)] text-[var(--color-error)]"
                       )}>{perf.formatShort(item.performance)}</span>
                     </td>
                   </tr>
@@ -722,52 +679,52 @@ export function EmployeeRankingTableSection({ orgUnitId, from, to, onlyApproved,
             </tbody>
           </table>
           {pagedRankings.length === 0 && !isFetching && (
-            <div className="py-16 text-center text-slate-400 font-bold italic">Không có dữ liệu xếp hạng</div>
+            <div className="py-16 text-center text-[var(--color-subtle-foreground)] font-semibold italic">Không có dữ liệu xếp hạng</div>
           )}
         </div>
 
-        <div className="md:hidden divide-y divide-slate-50 dark:divide-slate-800">
+        <div className="md:hidden divide-y divide-[var(--color-border)]">
           {isFetching ? (
-            <div className="p-6 text-sm text-slate-400">Đang tải...</div>
+            <div className="p-6 text-sm text-[var(--color-subtle-foreground)]">Đang tải...</div>
           ) : pagedRankings.length === 0 ? (
-            <div className="py-16 text-center text-slate-400 font-bold italic">Không có dữ liệu xếp hạng</div>
+            <div className="py-16 text-center text-[var(--color-subtle-foreground)] font-semibold italic">Không có dữ liệu xếp hạng</div>
           ) : (
             pagedRankings.map((item, i) => {
               const globalRank = rankPage * RANK_PAGE_SIZE + i
               return (
                 <div key={i} className="p-4 space-y-3">
                   <div className="flex items-center gap-3">
-                    <div className={cn("w-8 h-8 rounded-lg flex items-center justify-center font-black text-xs shrink-0",
-                      globalRank === 0 ? "bg-amber-500 text-white shadow-lg shadow-amber-200" :
+                    <div className={cn("w-8 h-8 rounded-control flex items-center justify-center font-semibold text-xs shrink-0",
+                      globalRank === 0 ? "bg-[var(--color-warning-solid)] text-white": 
                       globalRank === 1 ? "bg-slate-400 text-white" :
-                      globalRank === 2 ? "bg-orange-400 text-white" :
-                      "bg-slate-100 dark:bg-slate-800 text-slate-400"
+                      globalRank === 2 ? "bg-[var(--color-warning-solid)] text-white" :
+"bg-[var(--color-muted)] text-[var(--color-subtle-foreground)]"
                     )}>{globalRank + 1}</div>
-                    <UserAvatar fullName={item.name} avatarUrl={item.avatar} className="w-9 h-9 rounded-xl shrink-0" fallbackClassName="bg-indigo-50 dark:bg-indigo-900/20 font-black text-indigo-600 text-xs" />
+                    <UserAvatar fullName={item.name} avatarUrl={item.avatar} className="w-9 h-9 rounded-card shrink-0" fallbackClassName="bg-[var(--color-primary-soft)] font-semibold text-[var(--color-primary)] text-xs" />
                     <div className="min-w-0">
-                      <p className="font-black text-slate-900 dark:text-white truncate">{item.name}</p>
-                      <p className="text-[11px] font-bold text-slate-400 truncate">{item.subText}</p>
+                      <p className="font-semibold text-[var(--color-foreground)] truncate">{item.name}</p>
+                      <p className="text-caption truncate">{item.subText}</p>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-2">
-                    <div className="flex-1 h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
+                    <div className="flex-1 h-1.5 bg-[var(--color-muted)] rounded-full overflow-hidden">
                       <div className={cn('h-full rounded-full',
-                        item.avgProgress >= 80 ? 'bg-emerald-500' :
-                        item.avgProgress >= 50 ? 'bg-amber-500' : 'bg-red-500'
+                        item.avgProgress >= 80 ? 'bg-[var(--color-success-solid)]' :
+                        item.avgProgress >= 50 ? 'bg-[var(--color-warning-solid)]' : 'bg-[var(--color-error-solid)]'
                       )} style={{ width: `${Math.min(item.avgProgress, 100)}%` }} />
                     </div>
-                    <span className={cn('font-black text-xs shrink-0',
-                      item.avgProgress >= 80 ? 'text-emerald-600' :
-                      item.avgProgress >= 50 ? 'text-amber-600' : 'text-red-600'
+                    <span className={cn('font-semibold text-xs shrink-0',
+                      item.avgProgress >= 80 ? 'text-[var(--color-success)]' :
+                      item.avgProgress >= 50 ? 'text-[var(--color-warning)]' : 'text-[var(--color-error)]'
                     )}>{item.avgProgress.toFixed(1)}%</span>
                   </div>
 
-                  <div className="flex items-center justify-end pt-1 border-t border-slate-100 dark:border-slate-800 text-xs">
-                    <span className={cn("px-3 py-1 rounded-full text-xs font-black",
-                      perf.toPct(item.performance) >= 80 ? "bg-emerald-50 text-emerald-600" :
-                      perf.toPct(item.performance) >= 50 ? "bg-amber-50 text-amber-600" :
-                      "bg-red-50 text-red-600"
+                  <div className="flex items-center justify-end pt-1 border-t border-[var(--color-border)] text-xs">
+                    <span className={cn("px-3 py-1 rounded-full text-xs font-semibold",
+                      perf.toPct(item.performance) >= 80 ? "bg-[var(--color-success-bg)] text-[var(--color-success)]" :
+                      perf.toPct(item.performance) >= 50 ? "bg-[var(--color-warning-bg)] text-[var(--color-warning)]" :
+                      "bg-[var(--color-error-bg)] text-[var(--color-error)]"
                     )}>Hiệu suất {perf.formatShort(item.performance)}</span>
                   </div>
                 </div>
@@ -785,30 +742,21 @@ export function EmployeeRankingTableSection({ orgUnitId, from, to, onlyApproved,
     <div className="flex-1 flex flex-col gap-3 min-h-0">
       <div className="flex items-center gap-1.5 px-1">
         {([['performance', `Hiệu suất (${perf.unit})`], ['avgProgress', 'Tiến độ trung bình (%)']] as const).map(([v, label]) => (
-          <button
-            key={v}
-            onClick={() => handleSort(v)}
-            className={cn(
-              'px-3 py-1 rounded-full text-[11px] font-black transition-all',
-              sf === v
-                ? 'bg-indigo-600 text-white shadow-sm'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300',
-            )}
-          >
+          <ChoiceChip selected={sf === v} variant="solid" size="sm" className="py-1" key={v} onClick={() => handleSort(v)}>
             {label}
-          </button>
+          </ChoiceChip>
         ))}
-        <span className="w-px h-4 bg-slate-200 dark:bg-slate-700 mx-1" />
+        <span className="w-px h-4 bg-[var(--color-border)] mx-1" />
         {/* Bảng xếp hạng sinh ra để xem hai đầu, không phải để lật từng trang ở giữa. */}
         {([['DESC', 'Cao nhất'], ['ASC', 'Thấp nhất']] as const).map(([v, label]) => (
           <button
             key={v}
             onClick={() => setSd(v)}
             className={cn(
-              'px-3 py-1 rounded-full text-[11px] font-black transition-all',
+              'px-3 py-1 rounded-full text-xs font-semibold transition-all',
               sd === v
-                ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-sm'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300',
+                ? 'bg-[var(--color-foreground)] text-[var(--color-background)] shadow-sm'
+                : 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)]',
             )}
           >
             {label}
@@ -816,9 +764,9 @@ export function EmployeeRankingTableSection({ orgUnitId, from, to, onlyApproved,
         ))}
       </div>
       {isChartFetching ? (
-        <div className="py-16 text-center text-slate-400 font-bold">Đang tải...</div>
+        <div className="py-16 text-center text-[var(--color-subtle-foreground)] font-semibold">Đang tải...</div>
       ) : chartRankings.length === 0 ? (
-        <div className="py-16 text-center text-slate-400 font-bold italic">Không có dữ liệu xếp hạng</div>
+        <div className="py-16 text-center text-[var(--color-subtle-foreground)] font-semibold italic">Không có dữ liệu xếp hạng</div>
       ) : (
         <Lollipop
           data={chartRankings.map(item => ({
@@ -833,7 +781,7 @@ export function EmployeeRankingTableSection({ orgUnitId, from, to, onlyApproved,
         />
       )}
       {chartTotal > CHART_TOP_N && (
-        <p className="text-[11px] text-slate-400 font-medium text-center">
+        <p className="text-caption font-medium text-center">
           {sd === 'DESC' ? `${CHART_TOP_N} người cao nhất` : `${CHART_TOP_N} người thấp nhất`} trong {chartTotal} nhân sự — xem đủ ở chế độ bảng.
         </p>
       )}
@@ -846,7 +794,7 @@ export function EmployeeRankingTableSection({ orgUnitId, from, to, onlyApproved,
   return (
     <ChartWrapper
       title="Xếp hạng nhân sự"
-      icon={<Medal size={20} className="text-indigo-600" />}
+      icon={<Medal size={20} className="text-[var(--color-primary)]" />}
       widget={widget!} onTogglePin={onTogglePin!} isEditMode={!!isEditMode}
       extraHeaderContent={
         <>
@@ -855,8 +803,8 @@ export function EmployeeRankingTableSection({ orgUnitId, from, to, onlyApproved,
           value={rankingUnitId ?? ALL_UNITS}
           onValueChange={v => { setRankingUnitId(v === ALL_UNITS ? undefined : v); setRankPage(0) }}
         >
-          <SelectTrigger className="h-auto gap-2 py-2 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-xl text-xs font-bold shadow-sm max-w-[200px]">
-            <Filter size={13} className="text-slate-400 shrink-0" />
+          <SelectTrigger className="h-auto gap-2 py-2 bg-[var(--color-card)] border-[var(--color-border)] rounded-card text-xs font-medium shadow-sm max-w-[200px]">
+            <Filter size={13} className="text-[var(--color-subtle-foreground)] shrink-0" />
             <SelectValue />
           </SelectTrigger>
           <SelectContent>

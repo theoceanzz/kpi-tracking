@@ -5,23 +5,24 @@ import { Ticket } from 'lucide-react'
 import VoucherModal from './VoucherModal'
 import { RedemptionStatus, type Redemption } from '../types'
 import { useMyRedemptions } from '../hooks/useGifts'
+import { Button } from '@/components/ui/button'
 
 export const REDEMPTION_STATUS_STYLE: Record<
   RedemptionStatus,
   { label: string; className: string }
 > = {
-  [RedemptionStatus.PENDING]: { label: 'Chờ giao', className: 'bg-amber-500/15 text-amber-700' },
+  [RedemptionStatus.PENDING]: { label: 'Chờ giao', className: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]' },
   // Giữ lại cho các yêu cầu tạo từ trước khi bỏ bước duyệt — luồng mới không sinh
   // trạng thái này nữa.
   [RedemptionStatus.APPROVED]: {
     label: 'Chờ giao',
-    className: 'bg-amber-500/15 text-amber-700',
+    className: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]',
   },
   [RedemptionStatus.DELIVERED]: {
     label: 'Đã nhận',
-    className: 'bg-emerald-500/15 text-emerald-700',
+    className: 'bg-[var(--color-success-bg)] text-[var(--color-success)]',
   },
-  [RedemptionStatus.REJECTED]: { label: 'Từ chối', className: 'bg-rose-500/15 text-rose-700' },
+  [RedemptionStatus.REJECTED]: { label: 'Từ chối', className: 'bg-[var(--color-error-bg)] text-[var(--color-error)]' },
   [RedemptionStatus.CANCELLED]: {
     label: 'Đã huỷ',
     className: 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)]',
@@ -30,7 +31,7 @@ export const REDEMPTION_STATUS_STYLE: Record<
   // đã tự hoàn. Gộp nhãn sẽ khiến nhân viên tưởng công ty chặn mình.
   [RedemptionStatus.FAILED]: {
     label: 'Không xuất được quà',
-    className: 'bg-orange-500/15 text-orange-700',
+    className: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]',
   },
 }
 
@@ -70,21 +71,15 @@ export default function MyRedemptionsTable({ data }: MyRedemptionsTableProps) {
               <span className="font-semibold">−{row.pointsSpent.toLocaleString('vi-VN')} điểm</span>
             </div>
             {!!row.vouchers?.length && (
-              <button
-                onClick={() => setViewing(row)}
-                className="inline-flex w-full items-center justify-center gap-1.5 rounded-lg bg-[var(--color-primary)] py-2 text-sm font-medium text-white"
-              >
-                <Ticket size={14} />
+              <Button className="w-full" onClick={() => setViewing(row)}>
+                <Ticket aria-hidden="true" />
                 Xem mã quà
-              </button>
+              </Button>
             )}
             {row.status === RedemptionStatus.PENDING && (
-              <button
-                onClick={() => setCancelling(row)}
-                className="w-full rounded-lg border border-[var(--color-border)] py-2 text-sm"
-              >
+              <Button variant="outline" className="w-full" onClick={() => setCancelling(row)}>
                 Huỷ yêu cầu
-              </button>
+              </Button>
             )}
           </div>
         )}
@@ -109,7 +104,7 @@ export default function MyRedemptionsTable({ data }: MyRedemptionsTableProps) {
                   <img
                     src={row.giftImageUrl}
                     alt=""
-                    className="h-9 w-9 flex-shrink-0 rounded-lg object-cover"
+                    className="h-9 w-9 flex-shrink-0 rounded-control object-cover"
                   />
                 )}
                 <div>
@@ -133,7 +128,7 @@ export default function MyRedemptionsTable({ data }: MyRedemptionsTableProps) {
                 {/* Yêu cầu treo hoặc hỏng mà không nói lý do sẽ biến thành một cuộc gọi
                     cho bộ phận hỗ trợ. */}
                 {row.fulfillmentError && (
-                  <div className="mt-0.5 text-xs text-orange-700">{row.fulfillmentError}</div>
+                  <div className="mt-0.5 text-xs text-[var(--color-warning)]">{row.fulfillmentError}</div>
                 )}
               </div>
             ),
@@ -165,21 +160,15 @@ export default function MyRedemptionsTable({ data }: MyRedemptionsTableProps) {
             render: (row) => (
               <div className="flex justify-end gap-1.5">
                 {!!row.vouchers?.length && (
-                  <button
-                    onClick={() => setViewing(row)}
-                    className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-[var(--color-primary)] px-3 py-1.5 text-sm font-medium text-[var(--color-primary)]"
-                  >
-                    <Ticket size={14} />
+                  <Button variant="ghost" size="sm" className="whitespace-nowrap" onClick={() => setViewing(row)}>
+                    <Ticket aria-hidden="true" />
                     Xem mã
-                  </button>
+                  </Button>
                 )}
                 {row.status === RedemptionStatus.PENDING && (
-                  <button
-                    onClick={() => setCancelling(row)}
-                    className="rounded-lg border border-[var(--color-border)] px-3 py-1.5 text-sm"
-                  >
+                  <Button variant="outline" size="sm" onClick={() => setCancelling(row)}>
                     Huỷ
-                  </button>
+                  </Button>
                 )}
               </div>
             ),

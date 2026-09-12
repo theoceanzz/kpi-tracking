@@ -3,26 +3,35 @@ import { useNotifications, useMarkAllRead, useMarkAsRead } from '../hooks/useNot
 import { formatDateTime } from '@/lib/utils'
 import { cn } from '@/lib/utils'
 import { CheckCheck, Bell, Send, FileSearch, ShieldCheck, Target, Inbox, Layers, GitBranch, Calculator, Award, Coins, Gift, Wallet, Scale } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 import { Link } from 'react-router-dom'
+import { Skeleton } from '@/components/ui/skeleton'
+import { Button } from '@/components/ui/button'
 
 interface NotificationDropdownProps {
   onClose: () => void
 }
 
-const typeConfig: Record<string, { icon: any, color: string }> = {
-  SUBMISSION: { icon: Send, color: 'text-blue-500 bg-blue-50 dark:bg-blue-900/20' },
-  REVIEW: { icon: FileSearch, color: 'text-amber-500 bg-amber-50 dark:bg-amber-900/20' },
-  KPI_APPROVED: { icon: ShieldCheck, color: 'text-emerald-500 bg-emerald-50 dark:bg-emerald-900/20' },
-  KPI_ASSIGNED: { icon: Target, color: 'text-indigo-500 bg-indigo-50 dark:bg-indigo-900/20' },
-  BSC_SCORECARD: { icon: Layers, color: 'text-violet-500 bg-violet-50 dark:bg-violet-900/20' },
-  BSC_ASSIGNED: { icon: GitBranch, color: 'text-sky-500 bg-sky-50 dark:bg-sky-900/20' },
-  BSC_RESULT: { icon: Calculator, color: 'text-teal-500 bg-teal-50 dark:bg-teal-900/20' },
-  REWARD_GRANT: { icon: Award, color: 'text-amber-500 bg-amber-50 dark:bg-amber-900/20' },
-  REWARD_POINT: { icon: Coins, color: 'text-yellow-500 bg-yellow-50 dark:bg-yellow-900/20' },
-  REWARD_GIFT: { icon: Gift, color: 'text-pink-500 bg-pink-50 dark:bg-pink-900/20' },
-  WALLET: { icon: Wallet, color: 'text-emerald-500 bg-emerald-50 dark:bg-emerald-900/20' },
-  WALLET_RECONCILE: { icon: Scale, color: 'text-orange-500 bg-orange-50 dark:bg-orange-900/20' },
+/**
+ * Màu icon theo NHÓM nghiệp vụ chứ không theo từng loại: KPI = màu chủ đạo, duyệt/kết
+ * quả = success, cần xử lý = warning, tiền/thưởng = info, còn lại trung tính. Mười hai
+ * màu khác nhau trước đây không mang nghĩa gì mà làm danh sách loang lổ.
+ */
+const typeConfig: Record<string, { icon: LucideIcon; color: string }> = {
+  SUBMISSION: { icon: Send, color: 'bg-[var(--color-info-bg)] text-[var(--color-info)]' },
+  REVIEW: { icon: FileSearch, color: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]' },
+  KPI_APPROVED: { icon: ShieldCheck, color: 'bg-[var(--color-success-bg)] text-[var(--color-success)]' },
+  KPI_ASSIGNED: { icon: Target, color: 'bg-[var(--color-primary-soft)] text-[var(--color-primary)]' },
+  BSC_SCORECARD: { icon: Layers, color: 'bg-[var(--color-primary-soft)] text-[var(--color-primary)]' },
+  BSC_ASSIGNED: { icon: GitBranch, color: 'bg-[var(--color-primary-soft)] text-[var(--color-primary)]' },
+  BSC_RESULT: { icon: Calculator, color: 'bg-[var(--color-success-bg)] text-[var(--color-success)]' },
+  REWARD_GRANT: { icon: Award, color: 'bg-[var(--color-info-bg)] text-[var(--color-info)]' },
+  REWARD_POINT: { icon: Coins, color: 'bg-[var(--color-info-bg)] text-[var(--color-info)]' },
+  REWARD_GIFT: { icon: Gift, color: 'bg-[var(--color-info-bg)] text-[var(--color-info)]' },
+  WALLET: { icon: Wallet, color: 'bg-[var(--color-info-bg)] text-[var(--color-info)]' },
+  WALLET_RECONCILE: { icon: Scale, color: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]' },
 }
+const DEFAULT_TYPE = { icon: Bell, color: 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)]' }
 
 export default function NotificationDropdown({ onClose }: NotificationDropdownProps) {
   const { data, isLoading } = useNotifications()
@@ -55,41 +64,38 @@ export default function NotificationDropdown({ onClose }: NotificationDropdownPr
   const renderSection = (title: string, list: typeof notifications) => {
     if (list.length === 0) return null
     return (
-      <div className="py-2">
-        <div className="px-4 py-1">
-          <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">{title}</span>
-        </div>
+      <div className="py-1">
+        <p className="px-4 pb-1 pt-2 text-eyebrow">{title}</p>
         {list.map((n) => {
-          const config = typeConfig[n.type] || { icon: Bell, color: 'text-slate-500 bg-slate-50 dark:bg-slate-800' }
+          const config = typeConfig[n.type] || DEFAULT_TYPE
           const Icon = config.icon
 
           return (
             <div 
               key={n.id} 
+              role="button"
+              tabIndex={0}
               onClick={() => !n.isRead && markRead.mutate(n.id)}
+              onKeyDown={(e) => { if ((e.key === 'Enter' || e.key === '') && !n.isRead) { e.preventDefault(); markRead.mutate(n.id) } }}
               className={cn(
-                'group px-4 py-4 flex gap-4 cursor-pointer transition-all border-l-4',
-                n.isRead 
-                  ? 'border-transparent hover:bg-slate-50 dark:hover:bg-slate-800/50' 
-                  : 'border-indigo-600 bg-indigo-50/30 dark:bg-indigo-900/10 hover:bg-indigo-50/50 dark:hover:bg-indigo-900/20'
+                'group flex cursor-pointer gap-3 border-l-2 px-4 py-3 transition-colors hover:bg-[var(--color-muted)]',
+                n.isRead ? 'border-transparent' : 'border-[var(--color-primary)] bg-[var(--color-primary-soft)]'
               )}
             >
-              <div className={cn('w-10 h-10 rounded-xl flex items-center justify-center shrink-0 transition-transform group-hover:scale-110', config.color)}>
-                <Icon size={18} />
+              <div className={cn('flex h-8 w-8 shrink-0 items-center justify-center rounded-control', config.color)} aria-hidden="true">
+                <Icon size={16} />
               </div>
-              <div className="flex-1 space-y-1 min-w-0">
-                <div className="flex justify-between items-start gap-2">
-                  <p className={cn('text-sm leading-tight line-clamp-2', n.isRead ? 'text-slate-600 dark:text-slate-400 font-medium' : 'text-slate-900 dark:text-white font-bold')}>
+              <div className="min-w-0 flex-1">
+                <div className="flex items-start justify-between gap-2">
+                  <p className={cn('line-clamp-2 text-sm leading-5', n.isRead ? 'text-[var(--color-muted-foreground)]' : 'font-medium text-[var(--color-foreground)]')}>
                     {n.title}
                   </p>
-                  {!n.isRead && <div className="w-2 h-2 rounded-full bg-indigo-600 shrink-0 mt-1.5" />}
+                  {!n.isRead && <span aria-hidden="true" className="mt-2 h-1.5 w-1.5 shrink-0 rounded-full bg-[var(--color-primary)]" />}
                 </div>
-                <p className="text-xs text-slate-500 dark:text-slate-500 line-clamp-2 leading-relaxed">
+                <p className="mt-0.5 line-clamp-2 text-xs leading-4 text-[var(--color-muted-foreground)]">
                   {n.message}
                 </p>
-                <p className="text-[10px] font-medium text-slate-400 group-hover:text-slate-500 transition-colors">
-                  {formatDateTime(n.createdAt)}
-                </p>
+                <p className="mt-1 text-caption tabular-nums">{formatDateTime(n.createdAt)}</p>
               </div>
             </div>
           )
@@ -99,62 +105,61 @@ export default function NotificationDropdown({ onClose }: NotificationDropdownPr
   }
 
   return (
-      <div className="fixed left-4 right-4 top-16 sm:absolute sm:left-auto sm:right-0 sm:top-12 sm:w-[380px] z-50 bg-white dark:bg-slate-900 rounded-[24px] shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden animate-in fade-in slide-in-from-top-2 duration-200">
-        
+    <div
+      role="dialog"
+      aria-label="Thông báo"
+      className="fixed left-4 right-4 top-14 z-50 overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-popover)] shadow-lg animate-in fade-in-0 motion-reduce:animate-none sm:absolute sm:left-auto sm:right-0 sm:top-11 sm:w-[380px]"
+    >
         {/* Header */}
-        <div className="px-6 py-5 border-b border-slate-100 dark:border-slate-800 bg-white/50 dark:bg-slate-900/50 backdrop-blur-md flex items-center justify-between">
+      <div className="flex h-12 items-center justify-between border-b border-[var(--color-border)] px-4">
           <div className="flex items-center gap-2">
-            <h3 className="font-black text-slate-900 dark:text-white uppercase tracking-tight text-base">Thông báo</h3>
+          <h3 className="text-section-title">Thông báo</h3>
             {unreadCount > 0 && (
-              <span className="px-2 py-0.5 rounded-full bg-indigo-600 text-[10px] font-bold text-white">
+            <span className="rounded-full bg-[var(--color-primary)] px-1.5 py-0.5 text-xs font-medium leading-none tabular-nums text-[var(--color-primary-foreground)]">
                 {unreadCount} mới
               </span>
             )}
           </div>
           {unreadCount > 0 && (
-            <button 
-              onClick={() => markAllRead.mutate()}
-              disabled={markAllRead.isPending}
-              className="flex items-center gap-1.5 text-xs font-bold text-indigo-600 hover:text-indigo-700 transition-colors disabled:opacity-50"
-            >
-              <CheckCheck size={14} />
+            <Button variant="ghost" size="sm" type="button" onClick={() => markAllRead.mutate()} disabled={markAllRead.isPending}>
+            <CheckCheck aria-hidden="true" />
               Đọc tất cả
-            </button>
+            </Button>
           )}
         </div>
 
         {/* Content */}
-        <div className="max-h-[480px] overflow-y-auto custom-scrollbar">
+      <div className="custom-scrollbar max-h-[480px] overflow-y-auto">
           {isLoading ? (
-            <div className="p-6 space-y-4">
+          <div className="space-y-4 p-4" aria-busy="true">
               {[1, 2, 3].map(i => (
-                <div key={i} className="flex gap-4 animate-pulse">
-                  <div className="w-10 h-10 rounded-xl bg-slate-100 dark:bg-slate-800" />
-                  <div className="flex-1 space-y-2 py-1">
-                    <div className="h-4 bg-slate-100 dark:bg-slate-800 rounded w-3/4" />
-                    <div className="h-3 bg-slate-50 dark:bg-slate-800/50 rounded w-full" />
+              <div key={i} className="flex gap-3">
+                <Skeleton className="h-8 w-8" />
+                <div className="flex-1 space-y-2 py-0.5">
+                  <Skeleton className="h-3.5 w-3/4" />
+                  <Skeleton className="h-3 w-full" />
                   </div>
                 </div>
               ))}
             </div>
           ) : notifications.length === 0 ? (
-            <div className="py-20 flex flex-col items-center justify-center text-center px-10">
-              <div className="w-16 h-16 rounded-full bg-slate-50 dark:bg-slate-800 flex items-center justify-center mb-4">
-                <Inbox size={32} className="text-slate-200 dark:text-slate-700" />
+          <div className="flex flex-col items-center justify-center px-8 py-14 text-center">
+            <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-card border border-[var(--color-border)] bg-[var(--color-muted)]">
+              <Inbox size={22} strokeWidth={1.75} className="text-[var(--color-muted-foreground)]" aria-hidden="true" />
               </div>
-              <p className="font-bold text-slate-900 dark:text-white mb-1">Hộp thư trống</p>
-              <p className="text-xs text-slate-400">Bạn chưa có bất kỳ thông báo nào từ hệ thống.</p>
+            <p className="text-sm font-medium text-[var(--color-foreground)]">Chưa có thông báo</p>
+            <p className="mt-1 text-caption">Thông báo về chỉ tiêu, bài nộp và đánh giá sẽ hiện ở đây.</p>
             </div>
           ) : (
             <>
               {renderSection('Chưa đọc', unreadNotifs)}
               {renderSection('Hôm nay', todayNotifs)}
               {renderSection('Trước đó', olderNotifs)}
-              <div className="p-4 border-t border-slate-50 dark:border-slate-800 text-center">
+            <div className="border-t border-[var(--color-border)] p-2">
                 <Link 
                   to="/notifications"
                   onClick={onClose}
-                  className="inline-block text-[10px] font-bold text-slate-400 hover:text-indigo-600 transition-colors uppercase tracking-widest"
+                className="flex h-8 items-center justify-center rounded-control text-[13px] font-medium text-[var(--color-muted-foreground)] transition-colors hover:bg-[var(--color-muted)] hover:text-[var(--color-foreground)]"
                 >
                   Xem tất cả thông báo
                 </Link>

@@ -34,7 +34,7 @@ const fmtDate = (iso: string) =>
 
 /** Dấu và màu bám theo dấu của số tiền, không bám theo loại — ADJUST có thể là cộng hoặc trừ. */
 const AmountCell = ({ amount }: { amount: number }) => (
-  <span className={amount > 0 ? 'font-semibold text-emerald-600' : 'font-semibold text-rose-600'}>
+  <span className={amount > 0 ? 'font-semibold text-[var(--color-success)]' : 'font-semibold text-[var(--color-error)]'}>
     {amount > 0 ? '+' : ''}
     {amount.toLocaleString('vi-VN')}
   </span>

@@ -3,9 +3,11 @@ import { AlertTriangle, CalendarCheck, Gift, Info, Loader2, Plus, Trash2, Users 
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import { useCheckinConfig } from '../hooks/useCheckin'
 import type { CheckinConfigRequest, StreakBonus } from '../types'
+import { Button } from '@/components/ui/button'
+import { ChoiceChip } from '@/components/ui/choice-chip'
 
 const numCls =
-  'rounded-lg border border-[var(--color-border)] bg-transparent px-3 py-2 text-sm tabular-nums outline-none focus:border-[var(--color-primary)]'
+  'rounded-control border border-[var(--color-border)] bg-transparent px-3 py-2 text-sm tabular-nums outline-none focus:border-[var(--color-primary)]'
 
 /**
  * Kiểm cấu hình ở phía giao diện. Backend kiểm lại y hệt — đây chỉ để sếp thấy lỗi ngay
@@ -60,15 +62,15 @@ function Toggle({
 /** Ô chỉ số vận hành. Chỉ đọc — cho sếp biết cấu hình đang thực sự tiêu bao nhiêu điểm. */
 function StatTile({ icon, label, value }: { icon: React.ReactNode; label: string; value: string }) {
   return (
-    <div className="flex items-center gap-3 rounded-2xl border border-[var(--color-border)] px-4 py-3">
-      <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-[var(--color-muted)] text-[var(--color-muted-foreground)]">
+    <div className="flex items-center gap-3 rounded-card border border-[var(--color-border)] px-4 py-3">
+      <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-card bg-[var(--color-muted)] text-[var(--color-muted-foreground)]">
         {icon}
       </div>
       <div className="min-w-0">
-        <div className="text-[10px] font-black uppercase tracking-[0.15em] text-[var(--color-muted-foreground)]">
+        <div className="text-eyebrow">
           {label}
         </div>
-        <div className="mt-0.5 truncate text-lg font-bold tabular-nums">{value}</div>
+        <div className="mt-0.5 truncate text-lg font-semibold tabular-nums">{value}</div>
       </div>
     </div>
   )
@@ -150,7 +152,7 @@ export default function CheckinConfigTab() {
 
   return (
     <div id="tour-checkin-root" className="space-y-6">
-      <div id="tour-checkin-note" className="flex items-start gap-2.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-muted)]/40 px-4 py-3 text-sm">
+      <div id="tour-checkin-note" className="flex items-start gap-2.5 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)]/40 px-4 py-3 text-sm">
         <Info size={16} className="mt-0.5 flex-shrink-0 text-[var(--color-muted-foreground)]" />
         <p className="text-[var(--color-muted-foreground)]">
           Nhân viên tự bấm điểm danh mỗi ngày ở trang “Điểm thưởng của tôi” để nhận điểm. Điểm
@@ -172,7 +174,7 @@ export default function CheckinConfigTab() {
         />
       </div>
 
-      <div id="tour-checkin-form" className="space-y-5 rounded-2xl border border-[var(--color-border)] p-5">
+      <div id="tour-checkin-form" className="space-y-5 rounded-card border border-[var(--color-border)] p-5">
         <Toggle
           checked={form.enabled}
           onChange={(v) => set({ enabled: v })}
@@ -182,7 +184,7 @@ export default function CheckinConfigTab() {
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <label className="mb-1.5 block text-sm font-medium">Điểm mỗi lần điểm danh</label>
+            <label className="text-label mb-1.5 block font-medium">Điểm mỗi lần điểm danh</label>
             <input
               type="number"
               min={1}
@@ -193,7 +195,7 @@ export default function CheckinConfigTab() {
           </div>
 
           <div>
-            <label className="mb-1.5 block text-sm font-medium">Chu kỳ chuỗi (ngày)</label>
+            <label className="text-label mb-1.5 block font-medium">Chu kỳ chuỗi (ngày)</label>
             <input
               type="number"
               min={2}
@@ -220,26 +222,20 @@ export default function CheckinConfigTab() {
         />
       </div>
 
-      <div className="space-y-4 rounded-2xl border border-[var(--color-border)] p-5">
+      <div className="space-y-4 rounded-card border border-[var(--color-border)] p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h3 className="text-sm font-semibold">Mốc thưởng chuỗi</h3>
+            <h3 className="text-section-title">Mốc thưởng chuỗi</h3>
             <p className="text-xs text-[var(--color-muted-foreground)]">
               {trackDays
                 ? 'Bấm vào ngày trong dải bên dưới để thêm hoặc bỏ mốc thưởng.'
                 : 'Thưởng thêm khi chuỗi chạm đúng ngày đó. Bỏ trống nếu chỉ muốn điểm cơ bản.'}
             </p>
           </div>
-          <button
-            type="button"
-            disabled={firstFreeDay == null}
-            onClick={() => firstFreeDay != null && toggleBonusDay(firstFreeDay)}
-            title={firstFreeDay == null ? 'Mọi ngày trong chu kỳ đều đã có mốc' : undefined}
-            className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-lg border border-[var(--color-border)] px-3 py-1.5 text-sm font-medium transition-colors hover:bg-[var(--color-muted)] disabled:cursor-not-allowed disabled:opacity-40"
-          >
-            <Plus size={14} />
+          <Button variant="outline" size="sm" type="button" disabled={firstFreeDay == null} onClick={() => firstFreeDay != null && toggleBonusDay(firstFreeDay)} title={firstFreeDay == null ? 'Mọi ngày trong chu kỳ đều đã có mốc' : undefined}>
+            <Plus aria-hidden="true" />
             Thêm mốc
-          </button>
+          </Button>
         </div>
 
         {/* Dải chu kỳ: thứ sếp thật sự cần thấy là "mỗi ngày nhân viên nhận bao nhiêu",
@@ -251,35 +247,25 @@ export default function CheckinConfigTab() {
               const bonus = bonusByDay.get(n) ?? 0
               const isBonus = bonus > 0
               return (
-                <button
-                  key={n}
-                  type="button"
-                  onClick={() => toggleBonusDay(n)}
-                  title={
+                <ChoiceChip selected={!(isBonus)} key={n} onClick={() => toggleBonusDay(n)} title={
                     isBonus
                       ? `Ngày ${n}: ${form.pointsPerDay} điểm cơ bản + ${bonus} thưởng mốc. Bấm để bỏ mốc.`
                       : `Ngày ${n}: ${form.pointsPerDay} điểm. Bấm để thêm mốc thưởng.`
-                  }
-                  className={`flex h-[62px] w-[62px] flex-col items-center justify-center gap-0.5 rounded-xl border transition-colors ${
-                    isBonus
-                      ? 'border-amber-500/50 bg-amber-500/15 text-amber-700 hover:bg-amber-500/25 dark:text-amber-400'
-                      : 'border-[var(--color-border)] text-[var(--color-muted-foreground)] hover:border-[var(--color-primary)]/50 hover:bg-[var(--color-muted)]'
-                  }`}
-                >
-                  <span className="text-[10px] font-medium uppercase tracking-wide">Ngày {n}</span>
+                  }>
+                  <span className="text-eyebrow">Ngày {n}</span>
                   <span
-                    className={`text-base font-bold tabular-nums ${isBonus ? '' : 'text-[var(--color-foreground)]'}`}
+                    className={`text-base font-semibold tabular-nums ${isBonus ? '' : 'text-[var(--color-foreground)]'}`}
                   >
                     {form.pointsPerDay + bonus}
                   </span>
                   {isBonus ? (
-                    <span className="inline-flex items-center gap-0.5 text-[10px] font-semibold">
-                      <Gift size={9} />+{bonus}
+                    <span className="inline-flex items-center gap-0.5 text-xs font-semibold">
+                      <Gift />+{bonus}
                     </span>
                   ) : (
-                    <span className="text-[10px] opacity-0">—</span>
+                    <span className="text-xs opacity-0">—</span>
                   )}
-                </button>
+                </ChoiceChip>
               )
             })}
             {/* Không đặt chu kỳ thì chuỗi chạy vô hạn — nói thẳng bằng dấu "…" thay vì
@@ -291,14 +277,14 @@ export default function CheckinConfigTab() {
             )}
           </div>
         ) : (
-          <p className="rounded-lg border border-dashed border-[var(--color-border)] px-4 py-3 text-center text-xs text-[var(--color-muted-foreground)]">
+          <p className="rounded-control border border-dashed border-[var(--color-border)] px-4 py-3 text-center text-xs text-[var(--color-muted-foreground)]">
             Chu kỳ {form.streakCycleDays} ngày quá dài để vẽ thành dải — chỉnh trực tiếp ở danh
             sách bên dưới.
           </p>
         )}
 
         {form.streakBonuses.length === 0 ? (
-          <p className="rounded-lg border border-dashed border-[var(--color-border)] px-4 py-5 text-center text-sm text-[var(--color-muted-foreground)]">
+          <p className="rounded-control border border-dashed border-[var(--color-border)] px-4 py-5 text-center text-sm text-[var(--color-muted-foreground)]">
             Chưa có mốc nào — nhân viên nhận đều {form.pointsPerDay} điểm mỗi ngày.
           </p>
         ) : (
@@ -308,9 +294,9 @@ export default function CheckinConfigTab() {
               return (
                 <div
                   key={idx}
-                  className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-[var(--color-border)] bg-[var(--color-muted)]/30 px-3 py-2.5 text-sm"
+                  className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)]/30 px-3 py-2.5 text-sm"
                 >
-                  <span className="inline-flex h-7 items-center gap-1.5 rounded-lg bg-amber-500/15 px-2.5 text-xs font-bold text-amber-700 dark:text-amber-400">
+                  <span className="inline-flex h-7 items-center gap-1.5 rounded-control bg-[var(--color-warning-bg)] px-2.5 text-xs font-medium text-[var(--color-warning)]">
                     <Gift size={12} />
                     Ngày
                   </span>
@@ -340,14 +326,9 @@ export default function CheckinConfigTab() {
                     </strong>
                   </span>
 
-                  <button
-                    type="button"
-                    onClick={() => set({ streakBonuses: form.streakBonuses.filter((_, i) => i !== idx) })}
-                    className="ml-auto rounded-lg p-1.5 text-rose-600 transition-colors hover:bg-rose-500/10"
-                    title="Xoá mốc này"
-                  >
-                    <Trash2 size={14} />
-                  </button>
+                  <Button variant="ghost" size="icon-sm" className="ml-auto text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]" aria-label="Xoá mốc này" type="button" onClick={() => set({ streakBonuses: form.streakBonuses.filter((_, i) => i !== idx) })} title="Xoá mốc này">
+                    <Trash2 aria-hidden="true" />
+                  </Button>
                 </div>
               )
             })}
@@ -357,7 +338,7 @@ export default function CheckinConfigTab() {
         {/* Con số tệ nhất một người có thể nhận. Tách rõ phần cơ bản và phần mốc: gộp
             thành một số thì sếp không biết nên hạ mức ngày hay hạ mốc khi thấy nó quá cao. */}
         {cycleTotal != null && (
-          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-xl bg-[var(--color-muted)]/60 px-4 py-3 text-sm">
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-card bg-[var(--color-muted)]/60 px-4 py-3 text-sm">
             <CalendarCheck size={15} className="text-[var(--color-muted-foreground)]" />
             <span className="text-[var(--color-muted-foreground)]">
               Đi đủ chu kỳ {form.streakCycleDays} ngày, một người nhận
@@ -374,21 +355,17 @@ export default function CheckinConfigTab() {
       </div>
 
       {error && (
-        <p className="flex items-start gap-2 rounded-xl border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-700 dark:text-rose-400">
+        <p className="flex items-start gap-2 rounded-card border border-[var(--color-error-border)] bg-[var(--color-error-bg)] px-4 py-3 text-sm text-[var(--color-error)]">
           <AlertTriangle size={16} className="mt-0.5 flex-shrink-0" />
           {error}
         </p>
       )}
 
       <div className="flex justify-end">
-        <button
-          onClick={() => saveConfig(form)}
-          disabled={!!error || isSaving}
-          className="inline-flex items-center gap-2 rounded-lg bg-[var(--color-primary)] px-5 py-2.5 text-sm font-medium text-white shadow-sm transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          {isSaving && <Loader2 size={16} className="animate-spin" />}
+        <Button onClick={() => saveConfig(form)} disabled={!!error || isSaving}>
+          {isSaving && <Loader2 aria-hidden="true" className="animate-spin" />}
           Lưu cấu hình
-        </button>
+        </Button>
       </div>
     </div>
   )

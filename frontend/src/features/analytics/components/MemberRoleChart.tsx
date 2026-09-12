@@ -31,7 +31,7 @@ function RoleTooltip({ active, payload, label }: {
     <ChartTooltip
       title={label}
       rows={rows}
-      footer={<>Tổng <span className="font-bold text-slate-600 dark:text-slate-300 tabular-nums">{total}</span> người</>}
+      footer={<>Tổng <span className="font-semibold text-[var(--color-muted-foreground)] tabular-nums">{total}</span> người</>}
     />
   )
 }
@@ -54,7 +54,7 @@ function RoleSegment(props: any) {
       <path d={d} fill={fill} />
       {isLast && (
         <text x={right + 8} y={y + height / 2} dominantBaseline="central"
-          className="fill-slate-500 dark:fill-slate-300 text-[11px] font-bold">
+          className="fill-slate-500 dark:fill-slate-300 text-xs font-medium">
           {payload.__total}
         </text>
       )}
@@ -95,7 +95,7 @@ export default function MemberRoleChart({ data }: { data?: RoleDist[] }) {
   }, [dist])
 
   if (dist.length === 0) {
-    return <div className="flex-1 flex items-center justify-center text-slate-400 text-sm">Không có dữ liệu</div>
+    return <div className="flex-1 flex items-center justify-center text-[var(--color-subtle-foreground)] text-sm">Không có dữ liệu</div>
   }
 
   return (
@@ -118,9 +118,9 @@ export default function MemberRoleChart({ data }: { data?: RoleDist[] }) {
       </div>
 
       {/* Tổng + chú thích */}
-      <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800 text-center">
-        <span className="text-[11px] font-bold">Tổng: <span className="text-slate-900 dark:text-white">{total}</span> người</span>
-        <p className="text-[10px] text-slate-400 mt-0.5">Đơn vị hiện tại gồm toàn bộ nhân sự (kể cả đơn vị con) · mỗi người tính theo vai trò ở đơn vị sâu nhất</p>
+      <div className="mt-2 pt-2 border-t border-[var(--color-border)] text-center">
+        <span className="text-xs font-medium">Tổng: <span className="text-[var(--color-foreground)]">{total}</span> người</span>
+        <p className="text-caption mt-0.5">Đơn vị hiện tại gồm toàn bộ nhân sự (kể cả đơn vị con) · mỗi người tính theo vai trò ở đơn vị sâu nhất</p>
       </div>
     </div>
   )

@@ -1,4 +1,3 @@
-import { Wrench } from 'lucide-react'
 import SettingsSectionLayout from '@/components/common/SettingsSectionLayout'
 import { usePageTitle } from '@/features/organization/hooks/usePageTitle'
 import { useAuthStore } from '@/store/authStore'
@@ -43,18 +42,13 @@ export default function ToolSettingsPage() {
         navId="setup-tools"
         title={pageTitle}
         subtitle="Tổ chức dùng những công cụ nào, chấm điểm ra sao, và nơi vận hành từng công cụ"
-        eyebrow={
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 text-xs font-black uppercase tracking-widest mb-3">
-            <Wrench size={14} /> Thiết lập
-          </div>
-        }
         sections={[
           {
             id: 'modules',
             render: () => (
               // Ràng bề ngang: đây là danh sách công tắc, mỗi dòng chỉ có tên và một câu
               // mô tả. Kéo hết 1600px thì công tắc nằm cách tên cả nghìn pixel.
-              <div id="tour-modules-grid" className="max-w-4xl">
+              <div id="tour-modules-grid" className="mx-auto max-w-4xl">
                 <ModuleTogglesSection org={org} />
               </div>
             ),
@@ -79,7 +73,7 @@ export default function ToolSettingsPage() {
             id: 'code-rules',
             visible: (org.enableOkr ?? false) || (org.enableBsc ?? false),
             render: () => (
-              <div className="max-w-4xl">
+              <div className="mx-auto max-w-4xl">
                 <CodeRuleSection organizationId={org.id} />
               </div>
             ),

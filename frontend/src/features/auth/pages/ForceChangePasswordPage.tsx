@@ -14,6 +14,7 @@ import {
   Wand2, Check, CheckCircle2, X, LogOut
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
 
 export default function ForceChangePasswordPage() {
   const navigate = useNavigate()
@@ -78,23 +79,21 @@ export default function ForceChangePasswordPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex flex-col items-center justify-center p-6 relative overflow-hidden">
+    <div className="min-h-screen bg-[var(--color-muted)] flex flex-col items-center justify-center p-6 relative overflow-hidden">
       {/* Background Decor */}
-      <div className="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500" />
-      <div className="absolute -top-24 -left-24 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl" />
-      <div className="absolute -bottom-24 -right-24 w-96 h-96 bg-purple-500/10 rounded-full blur-3xl" />
+      <div className="absolute top-0 left-0 w-full h-1 bg-[var(--color-primary)]"/>
 
       <div className="w-full max-w-xl animate-in fade-in zoom-in duration-500">
-        <div className="bg-white dark:bg-slate-900 rounded-[40px] shadow-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+        <div className="bg-[var(--color-card)] rounded-card border border-[var(--color-border)] overflow-hidden">
           {/* Header */}
           <div className="px-8 pt-10 pb-6 text-center space-y-4">
-            <div className="w-20 h-20 rounded-[28px] bg-indigo-600 flex items-center justify-center text-white mx-auto shadow-xl shadow-indigo-500/40 rotate-3 hover:rotate-0 transition-transform duration-500">
+            <div className="w-20 h-20 rounded-card bg-[var(--color-primary)] flex items-center justify-center text-[var(--color-primary-foreground)] mx-auto rotate-3 hover:rotate-0 transition-transform duration-500">
               <ShieldCheck size={44} strokeWidth={1.5} />
             </div>
             <div className="space-y-2">
-              <h1 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight">Thiết lập mật khẩu mới</h1>
-              <p className="text-slate-500 text-sm font-medium px-8 leading-relaxed">
-                Xin chào <span className="text-indigo-600 font-bold">{user?.fullName}</span>. Vì đây là lần đầu bạn tham gia hệ thống, hãy đặt mật khẩu riêng để bảo vệ tài khoản của mình.
+              <h1 className="text-page-title text-[var(--color-foreground)]">Thiết lập mật khẩu mới</h1>
+              <p className="text-[var(--color-muted-foreground)] text-sm font-medium px-8 leading-relaxed">
+                Xin chào <span className="text-[var(--color-primary)] font-semibold">{user?.fullName}</span>. Vì đây là lần đầu bạn tham gia hệ thống, hãy đặt mật khẩu riêng để bảo vệ tài khoản của mình.
               </p>
             </div>
           </div>
@@ -104,55 +103,47 @@ export default function ForceChangePasswordPage() {
             <div className="space-y-5">
               {/* New Password */}
               <div className="space-y-2">
-                <label className="text-xs font-black uppercase tracking-widest text-slate-400 ml-1">Mật khẩu cá nhân mới</label>
+                <label className="text-label tracking-widest ml-1">Mật khẩu cá nhân mới</label>
                 <div className="relative group">
-                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--color-subtle-foreground)] group-focus-within:text-[var(--color-primary)] transition-colors">
                     <Lock size={18} />
                   </div>
                   <input
                     {...register('newPassword')}
                     type={showNew ? 'text' : 'password'}
-                    className="w-full pl-12 pr-28 py-4 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 text-sm font-bold focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all"
+                    className="w-full pl-12 pr-28 py-4 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] text-sm font-medium focus:outline-none focus:ring-4 focus:ring-[var(--color-ring)] focus:border-[var(--color-primary)] transition-all"
                     placeholder="Đặt mật khẩu bảo mật của bạn"
                   />
                   <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
-                    <button
-                      type="button"
-                      onClick={generatePassword}
-                      className="px-2 py-1.5 rounded-lg text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 text-[10px] font-black uppercase tracking-tighter flex items-center gap-1 transition-all"
-                    >
-                      <Wand2 size={14} /> Gợi ý
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setShowNew(!showNew)}
-                      className="p-1 rounded-lg text-slate-400 hover:text-indigo-500 transition-all"
-                    >
-                      {showNew ? <EyeOff size={18} /> : <Eye size={18} />}
-                    </button>
+                    <Button variant="ghost" size="sm" type="button" onClick={generatePassword}>
+                      <Wand2 aria-hidden="true" /> Gợi ý
+                    </Button>
+                    <Button variant="ghost" type="button" onClick={() => setShowNew(!showNew)}>
+                      {showNew ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
+                    </Button>
                   </div>
                 </div>
 
                 {/* Strength Meter */}
                 {pwd && (
-                  <div className="mt-3 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/80 border border-slate-100 dark:border-slate-700 animate-in fade-in slide-in-from-top-2 duration-300">
-                    <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest mb-3">
-                      <span className="text-slate-400">Độ mạnh mật khẩu</span>
+                  <div className="mt-3 p-4 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)] animate-in fade-in slide-in-from-top-2 duration-300">
+                    <div className="text-eyebrow flex justify-between items-center mb-3">
+                      <span className="text-[var(--color-subtle-foreground)]">Độ mạnh mật khẩu</span>
                       <span className={cn(
-                        "px-2 py-0.5 rounded-full bg-white dark:bg-slate-900 shadow-sm border border-slate-100 dark:border-slate-800",
-                        strengthScore <= 2 ? "text-red-500" : strengthScore <= 4 ? "text-amber-500" : "text-emerald-500"
+                        "px-2 py-0.5 rounded-full bg-[var(--color-card)] shadow-sm border border-[var(--color-border)]",
+                        strengthScore <= 2 ? "text-[var(--color-error)]" : strengthScore <= 4 ? "text-[var(--color-warning)]" : "text-[var(--color-success)]"
                       )}>
                         {strengthScore <= 2 ? "Yếu" : strengthScore <= 4 ? "Trung bình" : "Mạnh"}
                       </span>
                     </div>
-                    <div className="h-1.5 w-full bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden flex gap-1">
+                    <div className="h-1.5 w-full bg-[var(--color-border)] rounded-full overflow-hidden flex gap-1">
                       {[1, 2, 3, 4, 5].map((idx) => (
                         <div 
                           key={idx} 
                           className={cn(
                             "h-full flex-1 rounded-full transition-all duration-500",
                             strengthScore >= idx 
-                              ? (strengthScore <= 2 ? "bg-red-500" : strengthScore <= 4 ? "bg-amber-500" : "bg-emerald-500") 
+                              ? (strengthScore <= 2 ? "bg-[var(--color-error-solid)]" : strengthScore <= 4 ? "bg-[var(--color-warning-solid)]" : "bg-[var(--color-success-solid)]") 
                               : "bg-transparent"
                           )} 
                         />
@@ -164,31 +155,31 @@ export default function ForceChangePasswordPage() {
 
               {/* Confirm Password */}
               <div className="space-y-2">
-                <label className="text-xs font-black uppercase tracking-widest text-slate-400 ml-1">Xác nhận mật khẩu</label>
+                <label className="text-label tracking-widest ml-1">Xác nhận mật khẩu</label>
                 <div className="relative group">
-                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-indigo-500 transition-colors">
+                  <div className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--color-subtle-foreground)] group-focus-within:text-[var(--color-primary)] transition-colors">
                     <CheckCircle2 size={18} />
                   </div>
                   <input
                     {...register('confirmPassword')}
                     type={showConfirm ? 'text' : 'password'}
-                    className="w-full pl-12 pr-12 py-4 rounded-2xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800/50 text-sm font-bold focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 transition-all"
+                    className="w-full pl-12 pr-12 py-4 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] text-sm font-medium focus:outline-none focus:ring-4 focus:ring-[var(--color-ring)] focus:border-[var(--color-primary)] transition-all"
                     placeholder="Nhập lại mật khẩu mới"
                   />
                   <button
                     type="button"
                     onClick={() => setShowConfirm(!showConfirm)}
-                    className="absolute right-4 top-1/2 -translate-y-1/2 p-1 rounded-lg text-slate-400 hover:text-indigo-500 transition-all"
+                    className="absolute right-4 top-1/2 -translate-y-1/2 p-1 rounded-control text-[var(--color-subtle-foreground)] hover:text-[var(--color-primary)] transition-all"
                   >
                     {showConfirm ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
                 </div>
                 {confirmPwd && (
                   <div className={cn(
-                    "mt-2 px-3 py-2 rounded-xl flex items-center gap-2 text-[11px] font-bold animate-in fade-in slide-in-from-top-1",
+                    "mt-2 px-3 py-2 rounded-card flex items-center gap-2 text-xs font-medium animate-in fade-in slide-in-from-top-1",
                     pwd === confirmPwd 
-                      ? "bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 border border-emerald-100 dark:border-emerald-500/20" 
-                      : "bg-red-50 dark:bg-red-500/10 text-red-600 border border-red-100 dark:border-red-500/20"
+                      ? "bg-[var(--color-success-bg)] text-[var(--color-success)] border border-[var(--color-success-border)]" 
+                      : "bg-[var(--color-error-bg)] text-[var(--color-error)] border border-[var(--color-error-border)]"
                   )}>
                     {pwd === confirmPwd ? <Check size={14} /> : <X size={14} />}
                     {pwd === confirmPwd ? "Mật khẩu đã trùng khớp" : "Mật khẩu chưa khớp nhau"}
@@ -198,27 +189,19 @@ export default function ForceChangePasswordPage() {
             </div>
 
             <div className="pt-4 flex flex-col gap-4">
-              <button
-                type="submit"
-                disabled={mutation.isPending || pwd !== confirmPwd || strengthScore < 3}
-                className="w-full py-4 rounded-2xl bg-indigo-600 text-white font-black text-sm hover:bg-indigo-700 shadow-xl shadow-indigo-500/30 disabled:opacity-50 transition-all flex items-center justify-center gap-2 active:scale-95"
-              >
-                {mutation.isPending ? <Loader2 size={20} className="animate-spin" /> : <Save size={20} />}
+              <Button className="w-full" type="submit" disabled={mutation.isPending || pwd !== confirmPwd || strengthScore < 3}>
+                {mutation.isPending ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Save aria-hidden="true" />}
                 Cập nhật & Bắt đầu sử dụng
-              </button>
+              </Button>
 
-              <button
-                type="button"
-                onClick={logout}
-                className="flex items-center justify-center gap-2 text-slate-400 hover:text-red-500 text-sm font-bold transition-all py-2"
-              >
-                <LogOut size={16} /> Thoát tài khoản
-              </button>
+              <Button variant="ghost" className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]" type="button" onClick={logout}>
+                <LogOut aria-hidden="true" /> Thoát tài khoản
+              </Button>
             </div>
           </form>
         </div>
         
-        <p className="mt-8 text-center text-slate-400 text-xs font-medium">
+        <p className="mt-8 text-center text-[var(--color-subtle-foreground)] text-xs font-medium">
           Hệ thống Quản trị KPI & Phân tích hiệu suất © 2026
         </p>
       </div>

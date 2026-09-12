@@ -50,7 +50,7 @@ export default function DumbbellDotPlot({
 
   return (
     <div className="w-full">
-      <div className="flex items-center justify-center gap-6 mb-2 text-xs font-bold text-slate-500 dark:text-slate-400">
+      <div className="flex items-center justify-center gap-6 mb-2 text-xs font-bold text-[var(--color-muted-foreground)]">
         <span className="flex items-center gap-1.5">
           <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: fc }} /> {fromLabel}
         </span>
@@ -136,18 +136,18 @@ function DumbbellTooltip({ active, payload, fromLabel, toLabel, fromColor, toCol
   const r1 = (v: number) => Math.round(v * 10) / 10
   const gap = r1(d.to - d.from)
   return (
-    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3.5 rounded-xl shadow-lg">
-      <p className="font-bold text-slate-900 dark:text-white">{d.name}</p>
-      {d.subText && <p className="text-xs text-slate-500 mb-2">{d.subText}</p>}
+    <div className="bg-[var(--color-card)] border border-[var(--color-border)] p-3.5 rounded-card shadow-lg">
+      <p className="font-bold text-[var(--color-foreground)]">{d.name}</p>
+      {d.subText && <p className="text-xs text-[var(--color-muted-foreground)] mb-2">{d.subText}</p>}
       <div className="space-y-1 text-sm">
         {([[fromLabel, d.from, fromColor], [toLabel, d.to, toColor]] as [string, number, string][]).map(([label, v, color]) => (
           <div key={label} className="flex items-center gap-2.5">
             <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
-            <span className="text-slate-500 font-medium min-w-[110px]">{label}:</span>
-            <span className="font-bold text-slate-900 dark:text-white tabular-nums">{r1(v)}{u}</span>
+            <span className="text-[var(--color-muted-foreground)] font-medium min-w-[110px]">{label}:</span>
+            <span className="font-bold text-[var(--color-foreground)] tabular-nums">{r1(v)}{u}</span>
           </div>
         ))}
-        <p className="text-xs text-slate-400 pt-1.5 border-t border-slate-100 dark:border-slate-800 mt-1.5">
+        <p className="text-xs text-[var(--color-subtle-foreground)] pt-1.5 border-t border-[var(--color-border)] mt-1.5">
           Còn cách {Math.abs(gap)}{u}
         </p>
       </div>

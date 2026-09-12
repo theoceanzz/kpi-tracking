@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils'
 import { formatBytes, screenEvidence } from '@/lib/attachmentPolicy'
 import { useFormAssistStore, type FormFileSink } from '@/store/formAssistStore'
 import { usePinnedFilesStore, attachPinnedTo } from '@/store/pinnedFilesStore'
+import { Button } from '@/components/ui/button'
 
 interface EvidenceAttachBarProps {
   /** Chỗ nhận tệp của form đang mở. Chỉ dùng cho câu gợi ý — GHIM thì không cần form nào cả. */
@@ -60,20 +61,13 @@ export default function EvidenceAttachBar({ sink, disabled }: EvidenceAttachBarP
         className="hidden"
         onChange={e => handlePick(e.target.files)}
       />
-      <button
-        type="button"
-        onClick={() => inputRef.current?.click()}
-        disabled={disabled}
-        title={title}
-        aria-label="Ghim tệp"
-        className={cn(
-          'shrink-0 p-1.5 rounded-lg transition-colors',
-          'text-slate-400 hover:text-[var(--color-ai)] hover:bg-[var(--color-ai-soft)]',
-          'disabled:opacity-40 disabled:hover:text-slate-400 disabled:hover:bg-transparent disabled:cursor-not-allowed',
-        )}
-      >
-        <Paperclip size={16} />
-      </button>
+      <Button variant="ghost" size="icon-sm" className={cn(
+          '',
+          'hover:text-[var(--color-ai)] hover:bg-[var(--color-ai-soft)]',
+          'disabled:hover:text-[var(--color-subtle-foreground)] disabled:hover:bg-transparent',
+        )} type="button" onClick={() => inputRef.current?.click()} disabled={disabled} title={title} aria-label="Ghim tệp">
+        <Paperclip aria-hidden="true" />
+      </Button>
     </>
   )
 }
@@ -94,7 +88,7 @@ export function PinnedChips({ sink }: { sink?: FormFileSink }) {
 
   return (
     <div className="mb-2 flex flex-wrap items-center gap-1.5 animate-in fade-in slide-in-from-bottom-1 duration-300">
-      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[var(--color-ai)]">
+      <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--color-ai)]">
         <Pin size={12} />
         Đang ghim
       </span>
@@ -103,7 +97,7 @@ export function PinnedChips({ sink }: { sink?: FormFileSink }) {
         return (
           <span
             key={`${file.name}-${i}`}
-            className="inline-flex max-w-full items-center gap-1.5 rounded-lg border border-[var(--color-ai-line)] bg-[var(--color-ai-soft)] py-1 pl-2 pr-1 text-[11px] font-bold text-[var(--color-ai)]"
+            className="inline-flex max-w-full items-center gap-1.5 rounded-control border border-[var(--color-ai-line)] bg-[var(--color-ai-soft)] py-1 pl-2 pr-1 text-xs font-medium text-[var(--color-ai)]"
           >
             <Icon size={12} className="shrink-0" />
             <span className="max-w-[140px] truncate">{file.name}</span>
@@ -112,7 +106,7 @@ export function PinnedChips({ sink }: { sink?: FormFileSink }) {
               type="button"
               onClick={() => unpin(file)}
               aria-label={`Bỏ ghim ${file.name}`}
-              className="shrink-0 rounded p-0.5 transition-colors hover:bg-black/10 dark:hover:bg-white/10"
+              className="shrink-0 rounded p-0.5 transition-colors hover:bg-black/10 dark:hover:bg-[var(--color-card)]/10"
             >
               <X size={11} />
             </button>
@@ -127,9 +121,9 @@ export function PinnedChips({ sink }: { sink?: FormFileSink }) {
           ? `Đính ${files.length} tệp vào mục ${sink.label}`
           : 'Mở biểu mẫu có mục đính kèm (ví dụ Gửi báo cáo KPI) trước'}
         className={cn(
-          'inline-flex items-center gap-1 rounded-lg px-2 py-1 text-[11px] font-bold transition-colors',
-          'bg-[var(--color-ai)] text-white hover:brightness-110',
-          'disabled:cursor-not-allowed disabled:bg-slate-200 disabled:text-slate-400 dark:disabled:bg-slate-700',
+          'inline-flex items-center gap-1 rounded-control px-2 py-1 text-xs font-medium transition-colors',
+          'bg-[var(--color-ai-solid)] text-white hover:brightness-110',
+          'disabled:cursor-not-allowed disabled:bg-[var(--color-border)] disabled:text-[var(--color-subtle-foreground)]',
         )}
       >
         <CornerDownRight size={11} />
@@ -151,7 +145,7 @@ export function AttachedChips({ sink }: { sink?: FormFileSink }) {
 
   return (
     <div className="mb-2 flex flex-wrap items-center gap-1.5 animate-in fade-in slide-in-from-bottom-1 duration-300">
-      <span className="inline-flex items-center gap-1 text-[11px] font-bold text-emerald-600 dark:text-emerald-400">
+      <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--color-success)]">
         <CheckCircle2 size={12} />
         Đã đính kèm vào {sink.label}
       </span>
@@ -160,7 +154,7 @@ export function AttachedChips({ sink }: { sink?: FormFileSink }) {
         return (
           <span
             key={`${file.name}-${i}`}
-            className="inline-flex max-w-full items-center gap-1.5 rounded-lg border border-emerald-200 bg-emerald-50 py-1 pl-2 pr-1 text-[11px] font-bold text-emerald-700 dark:border-emerald-900/40 dark:bg-emerald-950/30 dark:text-emerald-300"
+            className="inline-flex max-w-full items-center gap-1.5 rounded-control border border-[var(--color-success-border)] bg-[var(--color-success-bg)] py-1 pl-2 pr-1 text-xs font-medium text-[var(--color-success)] dark:border-[var(--color-success-border)] dark:bg-[var(--color-success-bg)]"
           >
             <Icon size={12} className="shrink-0" />
             <span className="max-w-[140px] truncate">{file.name}</span>
@@ -169,7 +163,7 @@ export function AttachedChips({ sink }: { sink?: FormFileSink }) {
               type="button"
               onClick={() => sink.remove(file)}
               aria-label={`Bỏ ${file.name}`}
-              className="shrink-0 rounded p-0.5 transition-colors hover:bg-black/10 dark:hover:bg-white/10"
+              className="shrink-0 rounded p-0.5 transition-colors hover:bg-black/10 dark:hover:bg-[var(--color-card)]/10"
             >
               <X size={11} />
             </button>

@@ -6,7 +6,7 @@ import { cn } from '@/lib/utils'
 import UserAvatar from '@/components/common/UserAvatar'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import {
-  Users, X, Search, Building2, Target,
+  Users, X, Search, Building2,
   ChevronDown, ChevronRight, Network, Grid3x3, Award,
 } from 'lucide-react'
 import AnalyticsTabSkeleton from '@/components/common/AnalyticsTabSkeleton'
@@ -27,6 +27,9 @@ import { useStatsTier } from '../hooks/useStatsTier'
 import UnitClassificationSection from '../components/UnitClassificationSection'
 import type { EmployeeDrillSummary } from '@/types/stats'
 import type { OrgUnitTreeResponse } from '@/types/orgUnit'
+import AnalyticsTabHeader from '../components/AnalyticsTabHeader'
+import { Button } from '@/components/ui/button'
+import EmptyState from '@/components/common/EmptyState'
 
 const EMP_PAGE_SIZE = 5
 
@@ -63,10 +66,10 @@ function MatrixViewSelect({ view, onChange }: { view: MatrixView; onChange: (v: 
   return (
     <Select value={view} onValueChange={v => onChange(v as MatrixView)}>
       <SelectTrigger
-        className="h-8 w-auto gap-1.5 px-2.5 bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-lg text-[11px] font-semibold text-slate-600 dark:text-slate-300 shrink-0"
+        className="h-8 w-auto gap-1.5 px-2.5 bg-[var(--color-muted)] border-[var(--color-border)] rounded-control text-caption shrink-0"
         title="Cách xem dữ liệu ma trận"
       >
-        <span className="text-slate-400 dark:text-slate-500">Xem:</span>
+        <span className="text-[var(--color-subtle-foreground)]">Xem:</span>
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
@@ -90,19 +93,16 @@ function DrillMatrixSection({ orgUnitId, periodId, periodIdTo }: { orgUnitId?: s
   const scatter = useBehaviorCompletion({ orgUnitId, periodId, periodIdTo }, canView && open && view === 'SCATTER')
   return (
     <div className="space-y-4">
-      <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 ml-1">
-        <Grid3x3 size={12} className="text-indigo-500" /> Ma trận xếp loại (theo đơn vị)
+      <h3 className="text-eyebrow flex items-center gap-1.5 ml-1">
+        <Grid3x3 size={12} className="text-[var(--color-primary)]" /> Ma trận xếp loại (theo đơn vị)
       </h3>
       <MatrixMetricCards overview={overview} />
-      <section className="bg-white dark:bg-slate-900 rounded-[24px] border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-        <button
-          onClick={() => setOpen(o => !o)}
-          className="w-full flex items-center justify-between p-5 text-left hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors"
-        >
-          <h3 className="text-sm font-black flex items-center gap-2 text-slate-700 dark:text-slate-200">
-            <Grid3x3 size={16} className="text-indigo-600" /> Phân bố xếp loại &amp; Heatmap ma trận
+      <section className="bg-[var(--color-card)] rounded-card border border-[var(--color-border)] shadow-sm overflow-hidden">
+        <button type="button" className="flex w-full items-center gap-3 rounded-card p-3 text-left transition-colors hover:bg-[var(--color-muted)]" onClick={() => setOpen(o => !o)}>
+          <h3 className="text-section-title flex items-center gap-2 text-[var(--color-foreground)]">
+            <Grid3x3 aria-hidden="true" className="text-[var(--color-primary)]" /> Phân bố xếp loại &amp; Heatmap ma trận
           </h3>
-          {open ? <ChevronDown size={18} className="text-slate-400" /> : <ChevronRight size={18} className="text-slate-400" />}
+          {open ? <ChevronDown aria-hidden="true" className="text-[var(--color-subtle-foreground)]" /> : <ChevronRight aria-hidden="true" className="text-[var(--color-subtle-foreground)]" />}
         </button>
         {open && (
           <div className="p-5 pt-0">
@@ -132,8 +132,8 @@ function DrillClassificationSection({ orgUnitId, periodId, periodIdTo, part }: {
   return (
     <div className="space-y-4">
       {part !== 'children' && (
-        <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 ml-1">
-          <Award size={12} className="text-emerald-500" /> Xếp loại đơn vị (theo phân bố)
+        <h3 className="text-eyebrow flex items-center gap-1.5 ml-1">
+          <Award size={12} className="text-[var(--color-success)]" /> Xếp loại đơn vị (theo phân bố)
         </h3>
       )}
       <UnitClassificationSection overview={overview} part={part} />
@@ -159,24 +159,21 @@ function DrillSection({ step, title, hint, icon, meta, defaultOpen = true, child
 }) {
   const [open, setOpen] = useState(defaultOpen)
   return (
-    <section className="rounded-[24px] border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900/30 overflow-hidden">
-      <button
-        onClick={() => setOpen(o => !o)}
-        className="w-full flex items-center gap-3 p-5 text-left hover:bg-slate-100/60 dark:hover:bg-slate-800/40 transition-colors"
-      >
-        <span className="w-7 h-7 rounded-xl bg-indigo-600 text-white text-xs font-black flex items-center justify-center shrink-0">
+    <section className="rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] overflow-hidden">
+      <button type="button" className="flex h-9 w-full items-center gap-2.5 rounded-control px-2.5 text-left text-sm text-[var(--color-foreground)] transition-colors hover:bg-[var(--color-muted)] [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-[var(--color-muted-foreground)]" onClick={() => setOpen(o => !o)}>
+        <span className="w-7 h-7 rounded-card bg-[var(--color-primary)] text-[var(--color-primary-foreground)] text-xs font-semibold flex items-center justify-center shrink-0">
           {step}
         </span>
         <span className="min-w-0 flex-1">
-          <span className="text-sm font-black text-slate-900 dark:text-white flex items-center gap-2">
+          <span className="text-sm font-semibold text-[var(--color-foreground)] flex items-center gap-2">
             {icon} {title}
           </span>
-          <span className="block text-[11px] text-slate-500 font-medium mt-0.5 truncate">{hint}</span>
+          <span className="block text-caption font-medium mt-0.5 truncate">{hint}</span>
         </span>
-        {meta && <span className="text-[11px] font-bold text-slate-400 shrink-0 tabular-nums">{meta}</span>}
+        {meta && <span className="text-caption shrink-0 tabular-nums">{meta}</span>}
         {open
-          ? <ChevronDown size={18} className="text-slate-400 shrink-0" />
-          : <ChevronRight size={18} className="text-slate-400 shrink-0" />}
+          ? <ChevronDown aria-hidden="true" className="text-[var(--color-subtle-foreground)] shrink-0" />
+          : <ChevronRight aria-hidden="true" className="text-[var(--color-subtle-foreground)] shrink-0" />}
       </button>
       {open && <div className="space-y-6 p-5 pt-0">{children}</div>}
     </section>
@@ -243,22 +240,12 @@ export default function DrillDownTab() {
 
   // ── Biểu đồ (dùng lại cho khối thu gọn + portal phóng to) ────────────────
   return (
-    <div className="space-y-4 animate-in fade-in duration-300">
-      {/* Bộ lọc thời gian — sticky */}
-      <div className="sticky top-0 z-20 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl p-4 shadow-sm">
-        <div className="flex flex-wrap items-center gap-4 justify-between">
-          <div className="flex items-center gap-2 shrink-0">
-            <div className="p-2 rounded-lg text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30">
-              <Target size={18} />
-            </div>
-            <div>
-              <h2 className="font-bold text-slate-900 dark:text-white text-base">Lọc theo thời gian</h2>
-              <p className="text-xs text-slate-500 font-medium mt-0.5">Dữ liệu phân tích đồng bộ cho tất cả biểu đồ</p>
-            </div>
-          </div>
-          {controls}
-        </div>
-      </div>
+    <div className="space-y-4">
+      <AnalyticsTabHeader
+        title="Phân cấp"
+        description="Chọn một đơn vị trên cây để xem xếp loại, cách KPI chia xuống và danh sách thành viên; lọc thời gian áp cho mọi khối bên dưới."
+        filters={controls}
+      />
 
       {/* Master–detail: cây trái · chi tiết phải */}
       <div className="grid grid-cols-1 lg:grid-cols-[300px_minmax(0,1fr)] gap-6 items-start">
@@ -270,37 +257,28 @@ export default function DrillDownTab() {
         {/* Panel chi tiết */}
         <div className="space-y-6 min-w-0">
           {/* Nút mở cây trên mobile */}
-          <button
-            onClick={() => setMobileTreeOpen(true)}
-            className="lg:hidden w-full flex items-center justify-center gap-2 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm font-bold text-indigo-600 shadow-sm"
-          >
-            <Network size={16} /> Chọn đơn vị
-          </button>
+          <Button variant="outline" className="w-full lg:hidden" onClick={() => setMobileTreeOpen(true)}>
+            <Network aria-hidden="true" /> Chọn đơn vị
+          </Button>
 
-          {/* Banner đơn vị đang chọn */}
+          {/* Đơn vị đang chọn: tên + hai con số, cùng khuôn card như mọi khối khác (không tô nền primary — chữ token không đọc được trên nền màu). */}
           {data && (
-            <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-[24px] p-5 text-white shadow-xl">
-              <div className="flex items-center justify-between gap-4">
-                <div className="min-w-0">
-                  <p className="text-white/70 text-[10px] font-black uppercase tracking-widest">{data.levelName || 'Cấp đơn vị'}</p>
-                  <h2 className="text-lg md:text-2xl font-black mt-0.5 truncate">{data.orgUnitName || 'Tất cả'}</h2>
-                </div>
-                <div className="flex items-center gap-4 md:gap-8 shrink-0">
-                  <div className="flex items-baseline gap-1.5">
-                    <p className="text-xl md:text-2xl font-black">{data.memberCount}</p>
-                    <p className="text-[10px] text-white/70 font-bold uppercase whitespace-nowrap">Nhân sự</p>
-                  </div>
-                  <div className="flex items-baseline gap-1.5">
-                    <p className="text-xl md:text-2xl font-black">{data.totalKpi}</p>
-                    <p className="text-[10px] text-white/70 font-bold uppercase whitespace-nowrap">KPI Tổng</p>
-                  </div>
-                </div>
+            <div className="flex flex-col gap-3 rounded-card border border-[var(--color-border)] bg-[var(--color-card)] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+              <div className="min-w-0">
+                <p className="text-eyebrow">{data.levelName || 'Cấp đơn vị'}</p>
+                <h2 className="mt-0.5 truncate text-section-title">{data.orgUnitName || 'Tất cả'}</h2>
               </div>
+              <dl className="flex shrink-0 items-center gap-6">
+                <div><dt className="text-eyebrow">Nhân sự</dt><dd className="mt-0.5 text-stat">{data.memberCount}</dd></div>
+                <div><dt className="text-eyebrow">KPI tổng</dt><dd className="mt-0.5 text-stat">{data.totalKpi}</dd></div>
+              </dl>
             </div>
           )}
 
           {!data ? (
-            <div className="text-center py-20 text-slate-400">Chọn một đơn vị ở cây bên trái để xem chi tiết</div>
+            <div className="rounded-card border border-dashed border-[var(--color-border)] bg-[var(--color-card)]">
+              <EmptyState icon={Network} title="Chưa chọn đơn vị" description="Chọn một đơn vị ở cây bên trái để xem chi tiết." />
+            </div>
           ) : (
             <>
               {/* ① Đơn vị hiện tại — đặt đầu tiên để vừa vào là biết ngay tình hình đơn vị đang xem */}
@@ -308,7 +286,7 @@ export default function DrillDownTab() {
                 step={1}
                 title="Đơn vị hiện tại"
                 hint="Xếp loại, dịch chuyển chất lượng qua các đợt và cách KPI được chia xuống"
-                icon={<Building2 size={16} className="text-indigo-600" />}
+                icon={<Building2 size={16} className="text-[var(--color-primary)]" />}
               >
                 <DrillClassificationSection orgUnitId={selectedUnitId} periodId={periodId} periodIdTo={periodIdTo} part="unit" />
                 {canViewStats && <KpiCascadeSection filter={advancedFilter} />}
@@ -319,16 +297,16 @@ export default function DrillDownTab() {
                 step={2}
                 title="Thành viên trực thuộc"
                 hint="Danh sách nhân sự và xếp loại từng người"
-                icon={<Users size={16} className="text-indigo-600" />}
+                icon={<Users size={16} className="text-[var(--color-primary)]" />}
                 meta={`${filteredEmployees.length} người`}
               >
                 {/* Bảng thành viên (ưu tiên) */}
                 {data.employees.length > 0 ? (
-                  <section ref={employeeTableRef} className="bg-white dark:bg-slate-900 rounded-[28px] border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-                    <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex flex-col md:flex-row md:items-center justify-between gap-4">
+                  <section ref={employeeTableRef} className="bg-[var(--color-card)] rounded-card border border-[var(--color-border)] shadow-sm overflow-hidden">
+                    <div className="p-5 border-b border-[var(--color-border)] flex flex-col md:flex-row md:items-center justify-between gap-4">
                       <div className="flex items-center gap-2">
-                        <h3 className="font-black text-sm flex items-center gap-2">
-                          <Users size={16} className="text-indigo-600" /> Danh sách nhân sự
+                        <h3 className="text-section-title flex items-center gap-2">
+                          <Users size={16} className="text-[var(--color-primary)]" /> Danh sách nhân sự
                         </h3>
                         <CopyButton targetRef={employeeTableRef} />
                         <ViewToggleButtons view={empView} onChange={setEmpView} />
@@ -339,15 +317,15 @@ export default function DrillDownTab() {
                           placeholder="Tìm tên, email, vai trò..."
                           value={searchInput}
                           onChange={e => setSearchInput(e.target.value)}
-                          className="w-full pl-10 pr-4 py-2 bg-slate-50 dark:bg-slate-800 border-none rounded-xl text-xs font-bold focus:ring-2 focus:ring-indigo-500 transition-all"
+                          className="w-full pl-10 pr-4 py-2 bg-[var(--color-muted)] border-none rounded-card text-xs font-medium focus:ring-2 focus:ring-[var(--color-ring)] transition-all"
                         />
-                        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
+                        <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-subtle-foreground)]" />
                       </div>
                     </div>
                     {empView === 'chart' ? (
                       <div className="p-5">
                         {filteredEmployees.length === 0 ? (
-                          <div className="py-12 text-center text-slate-400 font-bold italic">Không tìm thấy thành viên nào</div>
+                          <div className="py-12 text-center text-[var(--color-subtle-foreground)] font-semibold italic">Không tìm thấy thành viên nào</div>
                         ) : (
                           <Lollipop
                             data={filteredEmployees.map(emp => ({
@@ -367,7 +345,7 @@ export default function DrillDownTab() {
                     <div className="hidden md:block overflow-x-auto scrollbar-hide custom-scrollbar">
                       <table className="w-full text-sm">
                         <thead>
-                          <tr className="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100 dark:border-slate-800">
+                          <tr className="text-eyebrow border-b border-[var(--color-border)]">
                             <th className="px-6 py-4 text-left">Họ tên &amp; Vai trò</th>
                             <th className="px-3 py-4 text-left">Đơn vị trực thuộc</th>
                             <th className="px-3 py-4 text-center">Số KPI được giao</th>
@@ -375,58 +353,58 @@ export default function DrillDownTab() {
                             <th className="px-3 py-4 text-center">Hiệu suất</th>
                           </tr>
                         </thead>
-                        <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
+                        <tbody className="divide-y divide-[var(--color-border)]">
                           {paginatedEmployees.map(emp => {
                             const progressPct = emp.assignedKpi > 0 ? Math.round(emp.approvedSubmissions / emp.assignedKpi * 100) : 0
                             const perfPct = emp.performanceRate != null ? perf.toPct(emp.performanceRate) : null
                             return (
-                              <tr key={emp.userId} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                              <tr key={emp.userId} className="hover:bg-[var(--color-muted)] transition-colors">
                                 <td className="px-6 py-4">
                                   <div className="flex items-center gap-3">
                                     <UserAvatar
                                       fullName={emp.fullName}
                                       avatarUrl={emp.avatarUrl}
-                                      className="w-9 h-9 rounded-xl"
-                                      fallbackClassName="bg-slate-100 dark:bg-slate-800 text-[11px] font-black text-slate-600"
+                                      className="w-9 h-9 rounded-card"
+                                      fallbackClassName="bg-[var(--color-muted)] text-caption"
                                     />
                                     <div>
-                                      <p className="font-black text-slate-900 dark:text-white leading-none">{emp.fullName}</p>
-                                      <p className="text-[11px] font-bold text-slate-400 mt-1">{emp.roleName}</p>
+                                      <p className="font-semibold text-[var(--color-foreground)] leading-none">{emp.fullName}</p>
+                                      <p className="text-caption mt-1">{emp.roleName}</p>
                                     </div>
                                   </div>
                                 </td>
                                 <td className="px-3 py-4">
                                   {emp.orgUnitId && emp.orgUnitId === data.orgUnitId ? (
-                                    <span className="inline-flex items-center gap-1 text-[11px] font-black px-2 py-1 rounded-lg bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-300">
+                                    <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-control bg-[var(--color-primary-soft)] text-[var(--color-primary)]">
                                       <Building2 size={11} /> Đơn vị hiện tại
                                     </span>
                                   ) : (
-                                    <span className="text-[12px] font-bold text-slate-600 dark:text-slate-300">{emp.orgUnitName || '—'}</span>
+                                    <span className="text-[12px] font-medium text-[var(--color-muted-foreground)]">{emp.orgUnitName || '—'}</span>
                                   )}
                                 </td>
                                 <td className="px-3 py-4 text-center">
-                                  <span className="font-black text-slate-800 dark:text-slate-200">{emp.assignedKpi}</span>
-                                  <span className="text-[10px] text-slate-400 ml-1">KPI</span>
+                                  <span className="font-semibold text-[var(--color-foreground)]">{emp.assignedKpi}</span>
+                                  <span className="text-caption ml-1">KPI</span>
                                 </td>
                                 <td className="px-3 py-4">
                                   <div className="flex items-center gap-2 min-w-[80px]">
-                                    <div className="flex-1 h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                                    <div className="flex-1 h-1.5 bg-[var(--color-muted)] rounded-full overflow-hidden">
                                       <div
-                                        className={cn('h-full rounded-full transition-all', progressPct >= 80 ? 'bg-emerald-500' : progressPct >= 50 ? 'bg-amber-500' : 'bg-red-400')}
+                                        className={cn('h-full rounded-full transition-all', progressPct >= 80 ? 'bg-[var(--color-success-solid)]' : progressPct >= 50 ? 'bg-[var(--color-warning-solid)]' : 'bg-[var(--color-error-solid)]')}
                                         style={{ width: `${progressPct}%` }}
                                       />
                                     </div>
-                                    <span className="text-[11px] font-black w-8 text-right">{progressPct}%</span>
+                                    <span className="text-xs font-semibold w-8 text-right">{progressPct}%</span>
                                   </div>
                                 </td>
                                 <td className="px-3 py-4 text-center">
                                   {perfPct === null ? (
-                                    <span className="text-slate-300 text-xs">—</span>
+                                    <span className="text-[var(--color-subtle-foreground)] text-xs">—</span>
                                   ) : (
-                                    <span className={cn('text-xs font-black px-2 py-1 rounded-lg',
-                                      perfPct >= 80 ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20' :
-                                      perfPct >= 50 ? 'bg-amber-50 text-amber-600 dark:bg-amber-900/20' :
-                                      'bg-red-50 text-red-600 dark:bg-red-900/20'
+                                    <span className={cn('text-xs font-semibold px-2 py-1 rounded-control',
+                                      perfPct >= 80 ? 'bg-[var(--color-success-bg)] text-[var(--color-success)] dark:bg-[var(--color-success-bg)]' :
+                                      perfPct >= 50 ? 'bg-[var(--color-warning-bg)] text-[var(--color-warning)] dark:bg-[var(--color-warning-bg)]' :
+                                      'bg-[var(--color-error-bg)] text-[var(--color-error)] dark:bg-[var(--color-error-bg)]'
                                     )}>
                                       {perf.formatShort(emp.performanceRate)}
                                     </span>
@@ -438,12 +416,12 @@ export default function DrillDownTab() {
                         </tbody>
                       </table>
                       {filteredEmployees.length === 0 && (
-                        <div className="py-12 text-center text-slate-400 text-xs italic">Không tìm thấy kết quả phù hợp</div>
+                        <div className="py-12 text-center text-[var(--color-subtle-foreground)] text-xs italic">Không tìm thấy kết quả phù hợp</div>
                       )}
                     </div>
 
                     {/* Mobile cards */}
-                    <div className="md:hidden divide-y divide-slate-50 dark:divide-slate-800">
+                    <div className="md:hidden divide-y divide-[var(--color-border)]">
                       {paginatedEmployees.map(emp => {
                         const progressPct = emp.assignedKpi > 0 ? Math.round(emp.approvedSubmissions / emp.assignedKpi * 100) : 0
                         const perfPct = emp.performanceRate != null ? perf.toPct(emp.performanceRate) : null
@@ -453,42 +431,42 @@ export default function DrillDownTab() {
                               <UserAvatar
                                 fullName={emp.fullName}
                                 avatarUrl={emp.avatarUrl}
-                                className="w-9 h-9 rounded-xl shrink-0"
-                                fallbackClassName="bg-slate-100 dark:bg-slate-800 text-[11px] font-black text-slate-600"
+                                className="w-9 h-9 rounded-card shrink-0"
+                                fallbackClassName="bg-[var(--color-muted)] text-caption"
                               />
                               <div className="min-w-0">
-                                <p className="font-black text-slate-900 dark:text-white leading-none truncate">{emp.fullName}</p>
-                                <p className="text-[11px] font-bold text-slate-400 mt-1">{emp.roleName}</p>
+                                <p className="font-semibold text-[var(--color-foreground)] leading-none truncate">{emp.fullName}</p>
+                                <p className="text-caption mt-1">{emp.roleName}</p>
                               </div>
                               <div className="ml-auto shrink-0">
                                 {emp.orgUnitId && emp.orgUnitId === data.orgUnitId ? (
-                                  <span className="inline-flex items-center gap-1 text-[10px] font-black px-2 py-0.5 rounded-lg bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-300">
+                                  <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-0.5 rounded-control bg-[var(--color-primary-soft)] text-[var(--color-primary)]">
                                     <Building2 size={10} /> Đơn vị hiện tại
                                   </span>
                                 ) : (
-                                  <span className="text-[11px] font-bold text-slate-500 dark:text-slate-400">{emp.orgUnitName || '—'}</span>
+                                  <span className="text-caption">{emp.orgUnitName || '—'}</span>
                                 )}
                               </div>
                             </div>
                             <div className="flex items-center gap-2">
-                              <div className="flex-1 h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                              <div className="flex-1 h-1.5 bg-[var(--color-muted)] rounded-full overflow-hidden">
                                 <div
-                                  className={cn('h-full rounded-full transition-all', progressPct >= 80 ? 'bg-emerald-500' : progressPct >= 50 ? 'bg-amber-500' : 'bg-red-400')}
+                                  className={cn('h-full rounded-full transition-all', progressPct >= 80 ? 'bg-[var(--color-success-solid)]' : progressPct >= 50 ? 'bg-[var(--color-warning-solid)]' : 'bg-[var(--color-error-solid)]')}
                                   style={{ width: `${progressPct}%` }}
                                 />
                               </div>
-                              <span className="text-[11px] font-black w-8 text-right shrink-0">{progressPct}%</span>
+                              <span className="text-xs font-semibold w-8 text-right shrink-0">{progressPct}%</span>
                             </div>
-                            <div className="flex items-center justify-between pt-1 border-t border-slate-100 dark:border-slate-800 text-xs">
+                            <div className="flex items-center justify-between pt-1 border-t border-[var(--color-border)] text-xs">
                               <div>
-                                <span className="font-black text-slate-800 dark:text-slate-200">{emp.assignedKpi}</span>
-                                <span className="text-[10px] text-slate-400 ml-1">KPI</span>
+                                <span className="font-semibold text-[var(--color-foreground)]">{emp.assignedKpi}</span>
+                                <span className="text-caption ml-1">KPI</span>
                               </div>
                               {perfPct !== null && (
-                                <span className={cn('text-xs font-black px-2 py-1 rounded-lg',
-                                  perfPct >= 80 ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20' :
-                                  perfPct >= 50 ? 'bg-amber-50 text-amber-600 dark:bg-amber-900/20' :
-                                  'bg-red-50 text-red-600 dark:bg-red-900/20'
+                                <span className={cn('text-xs font-semibold px-2 py-1 rounded-control',
+                                  perfPct >= 80 ? 'bg-[var(--color-success-bg)] text-[var(--color-success)] dark:bg-[var(--color-success-bg)]' :
+                                  perfPct >= 50 ? 'bg-[var(--color-warning-bg)] text-[var(--color-warning)] dark:bg-[var(--color-warning-bg)]' :
+                                  'bg-[var(--color-error-bg)] text-[var(--color-error)] dark:bg-[var(--color-error-bg)]'
                                 )}>
                                   Hiệu suất {perf.formatShort(emp.performanceRate)}
                                 </span>
@@ -498,7 +476,7 @@ export default function DrillDownTab() {
                         )
                       })}
                       {filteredEmployees.length === 0 && (
-                        <div className="py-12 text-center text-slate-400 text-xs italic">Không tìm thấy kết quả phù hợp</div>
+                        <div className="py-12 text-center text-[var(--color-subtle-foreground)] text-xs italic">Không tìm thấy kết quả phù hợp</div>
                       )}
                     </div>
                     </>
@@ -515,7 +493,7 @@ export default function DrillDownTab() {
                     )}
                   </section>
                 ) : (
-                  <div className="bg-white dark:bg-slate-900 rounded-[24px] border border-slate-200 dark:border-slate-800 shadow-sm py-12 text-center text-slate-400 text-sm">
+                  <div className="bg-[var(--color-card)] rounded-card border border-[var(--color-border)] shadow-sm py-12 text-center text-[var(--color-subtle-foreground)] text-sm">
                     Đơn vị này chưa có nhân sự trực thuộc
                   </div>
                 )}
@@ -531,7 +509,7 @@ export default function DrillDownTab() {
                   step={3}
                   title="Đơn vị con"
                   hint="Xếp loại và mức phân tán điểm giữa các đơn vị bên dưới"
-                  icon={<Building2 size={16} className="text-emerald-600" />}
+                  icon={<Building2 size={16} className="text-[var(--color-success)]" />}
                   defaultOpen={false}
                 >
                   <DrillClassificationSection orgUnitId={selectedUnitId} periodId={periodId} periodIdTo={periodIdTo} part="children" />
@@ -546,11 +524,11 @@ export default function DrillDownTab() {
       {/* Drawer cây trên mobile */}
       {mobileTreeOpen && createPortal(
         <div className="fixed inset-0 z-[900] lg:hidden animate-in fade-in duration-200">
-          <div className="absolute inset-0 bg-slate-900/50 backdrop-blur-sm" onClick={() => setMobileTreeOpen(false)} />
+          <div className="absolute inset-0 bg-slate-950/50" onClick={() => setMobileTreeOpen(false)} />
           <div className="absolute inset-y-0 left-0 w-[85%] max-w-[340px] p-3 animate-in slide-in-from-left duration-200">
             <div className="h-full flex flex-col">
               <div className="flex items-center justify-end mb-2">
-                <button onClick={() => setMobileTreeOpen(false)} className="p-2 rounded-xl bg-white/90 dark:bg-slate-800 text-red-500 shadow"><X size={18} /></button>
+                <button onClick={() => setMobileTreeOpen(false)} className="p-2 rounded-card bg-[var(--color-card)] text-[var(--color-error)] shadow"><X size={18} /></button>
               </div>
               <div className="flex-1 min-h-0">
                 <OrgUnitTreeSidebar nodes={treeNodes} selectedId={treeSelectedId} onSelect={select} onAfterSelect={() => setMobileTreeOpen(false)} />

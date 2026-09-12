@@ -6,7 +6,7 @@ import {
 } from 'recharts'
 import {
   Gauge, TrendingUp, Layers, Scale, AlertTriangle, Award, ShieldCheck, Medal,
-  Building2, Filter, History,
+  Building2, History,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import {
@@ -29,6 +29,9 @@ import StackedComposition from '@/components/charts/primitives/StackedCompositio
 import { SeriesTooltip } from '@/components/charts/ChartTooltip'
 import { TrendModeToggle } from '@/components/common/dashboard/TrendModeToggle'
 import { useTrendMode } from '@/components/common/dashboard/useTrendMode'
+import AnalyticsTabHeader from '../components/AnalyticsTabHeader'
+import { StatCard } from '@/features/dashboard/widgets/shared/StatCard'
+import { ChoiceChip } from '@/components/ui/choice-chip'
 
 const ALL_UNITS = '__ALL__'
 const RANK_PAGE_SIZE = 10
@@ -41,11 +44,11 @@ const fmt = (v?: number | null) => (v == null ? '—' : (Math.round(v * 10) / 10
 
 /** Màu theo ngưỡng điểm (đồng bộ BSC Dashboard). */
 const scoreColor = (v?: number | null) => {
-  if (v == null) return 'text-slate-400'
-  if (v < 50) return 'text-rose-500'
-  if (v < 70) return 'text-amber-500'
-  if (v < 90) return 'text-emerald-500'
-  return 'text-blue-600 dark:text-blue-400'
+  if (v == null) return 'text-[var(--color-subtle-foreground)]'
+  if (v < 50) return 'text-[var(--color-error)]'
+  if (v < 70) return 'text-[var(--color-warning)]'
+  if (v < 90) return 'text-[var(--color-success)]'
+  return 'text-[var(--color-info)]'
 }
 
 function ScoringModeBadge({ mode }: { mode?: string | null }) {
@@ -53,9 +56,9 @@ function ScoringModeBadge({ mode }: { mode?: string | null }) {
   const shadow = mode === 'SHADOW'
   return (
     <span className={cn(
-      'inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider px-2.5 py-1 rounded-full',
-      shadow ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
-             : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
+      'text-eyebrow inline-flex items-center gap-1 px-2.5 py-1 rounded-full',
+      shadow ? 'bg-[var(--color-warning-bg)] text-[var(--color-warning)] dark:bg-[var(--color-warning-bg)]'
+             : 'bg-[var(--color-success-bg)] text-[var(--color-success)] dark:bg-[var(--color-success-bg)]'
     )}>
       {shadow ? 'Chạy song song (SHADOW)' : 'Chính thức (OFFICIAL)'}
     </span>
@@ -64,7 +67,7 @@ function ScoringModeBadge({ mode }: { mode?: string | null }) {
 
 function Card({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={cn('bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm', className)}>
+    <div className={cn('rounded-widget border border-[var(--color-border)] bg-[var(--color-card)] p-5', className)}>
       {children}
     </div>
   )
@@ -73,18 +76,18 @@ function Card({ children, className }: { children: React.ReactNode; className?: 
 function SectionTitle({ icon, children, extra }: { icon: React.ReactNode; children: React.ReactNode; extra?: React.ReactNode }) {
   return (
     <div className="flex items-center justify-between mb-3">
-      <h3 className="text-xs font-black uppercase tracking-widest text-slate-400 flex items-center gap-2">{icon} {children}</h3>
+      <h3 className="flex items-center gap-2 text-section-title">{icon} {children}</h3>
       {extra}
     </div>
   )
 }
 
 function EmptyState({ children }: { children: React.ReactNode }) {
-  return <div className="flex items-center justify-center h-full min-h-[180px] text-sm text-slate-400 font-medium text-center px-4">{children}</div>
+  return <div className="flex h-full min-h-[180px] items-center justify-center px-4 text-center text-sm text-[var(--color-muted-foreground)]">{children}</div>
 }
 
 export default function BscAnalyticsTab() {
-  const { periodId, periodIdTo, groupBy, controls } = useAnalyticsDateFilter({ selectClassName: 'h-10' })
+  const { periodId, periodIdTo, groupBy, controls } = useAnalyticsDateFilter({ selectClassName: 'h-9' })
   const [selectedUnitId, setSelectedUnitId] = useState<string | undefined>(undefined)
   const [vsLevel, setVsLevel] = useState<'UNIT' | 'MEMBER'>('UNIT')
   const [rankPage, setRankPage] = useState(0)
@@ -148,49 +151,30 @@ export default function BscAnalyticsTab() {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-12">
-      {/* Header + badge */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <h2 className="text-xl font-black text-slate-900 dark:text-white flex items-center gap-2">
-            <Gauge className="text-indigo-600" size={22} /> Thống kê theo hạng mục (BSC)
-          </h2>
-          <ScoringModeBadge mode={balance?.scoringMode} />
-        </div>
-      </div>
-
-      {/* Bộ lọc — chung một khuôn với tab "KPI của tôi", "KPI đơn vị" và "Phân cấp":
-          sticky, `flex-wrap` để hàng điều khiển tự xuống dòng khi hẹp. `shrink-0` ở khối
-          tiêu đề và ở ô chọn đơn vị là phần bắt buộc: thiếu nó, flexbox bóp hai khối đó
-          lại thay vì cho xuống dòng, và nhãn dài vỡ thành hai dòng trong ô cao một dòng. */}
-      <div id="tour-analytics-filter" className="sticky top-0 z-20 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl flex flex-wrap items-center gap-4 justify-between p-4 shadow-sm">
-        <div className="flex items-center gap-2 shrink-0">
-          <div className="p-2 rounded-lg text-indigo-600 dark:text-indigo-400 shrink-0 bg-indigo-50 dark:bg-indigo-900/30">
-            <Filter size={18} />
-          </div>
-          <div>
-            <h2 className="font-bold text-slate-900 dark:text-white leading-tight text-base">Bộ lọc hạng mục</h2>
-            <p className="text-xs text-slate-500 font-medium mt-0.5">Lọc dữ liệu đồng bộ cho tất cả biểu đồ</p>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-4">
-          <Select value={selectedUnitId ?? ALL_UNITS} onValueChange={v => setSelectedUnitId(v === ALL_UNITS ? undefined : v)}>
-            <SelectTrigger className="h-9 w-full sm:w-[250px] shrink-0 bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-lg text-xs font-semibold">
-              <Building2 size={14} className="text-indigo-500 mr-1 shrink-0" />
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value={ALL_UNITS}>Tất cả đơn vị (mình quản lý)</SelectItem>
-              {flatUnits.map(u => (
-                <SelectItem key={u.id} value={u.id}>
-                  <span style={{ paddingLeft: u.depth * 12 }}>{u.name}</span>
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-          {controls}
-        </div>
-      </div>
+      <AnalyticsTabHeader
+        title="Hạng mục (BSC)"
+        description="Điểm theo từng hạng mục chiến lược, cân bằng trọng số và xếp hạng đơn vị/nhân sự theo điểm BSC."
+        actions={<ScoringModeBadge mode={balance?.scoringMode} />}
+        filters={
+          <>
+            <Select value={selectedUnitId ?? ALL_UNITS} onValueChange={v => setSelectedUnitId(v === ALL_UNITS ? undefined : v)}>
+              <SelectTrigger className="h-9 w-full sm:w-[250px] shrink-0" aria-label="Đơn vị">
+                <Building2 size={14} className="mr-1 shrink-0 text-[var(--color-muted-foreground)]" aria-hidden="true" />
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value={ALL_UNITS}>Tất cả đơn vị (mình quản lý)</SelectItem>
+                {flatUnits.map(u => (
+                  <SelectItem key={u.id} value={u.id}>
+                    <span style={{ paddingLeft: u.depth * 12 }}>{u.name}</span>
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            {controls}
+          </>
+        }
+      />
 
       {noData && (
         <Card>
@@ -202,39 +186,35 @@ export default function BscAnalyticsTab() {
       )}
 
       {/* ── Thẻ chỉ số cân bằng ─────────────────────────────────────────── */}
-      <div id="tour-analytics-metrics" className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0"><Gauge size={24} /></div>
-          <div>
-            <p className="text-xs font-bold text-slate-500">Điểm BSC trung bình</p>
-            <p className={cn('text-2xl font-black tabular-nums', scoreColor(balance?.averageBscScore))}>{fmt(balance?.averageBscScore)}</p>
-            <p className="text-[10px] font-bold text-slate-400">{balance?.evaluationCount ?? 0} đánh giá</p>
-          </div>
-        </div>
-        <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0"><Award size={24} /></div>
-          <div className="min-w-0">
-            <p className="text-xs font-bold text-slate-500">Hạng mục mạnh nhất</p>
-            <p className="text-sm font-black text-slate-900 dark:text-white truncate">{balance?.strongestPerspective ?? '—'}</p>
-            <p className="text-[11px] font-black text-emerald-600">{fmt(balance?.strongestScore)}%</p>
-          </div>
-        </div>
-        <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-full bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0"><AlertTriangle size={24} /></div>
-          <div className="min-w-0">
-            <p className="text-xs font-bold text-slate-500">Hạng mục yếu nhất</p>
-            <p className="text-sm font-black text-slate-900 dark:text-white truncate">{balance?.weakestPerspective ?? '—'}</p>
-            <p className="text-[11px] font-black text-rose-500">{fmt(balance?.weakestScore)}%</p>
-          </div>
-        </div>
-        <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 flex items-center gap-4">
-          <div className="w-12 h-12 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0"><ShieldCheck size={24} /></div>
-          <div>
-            <p className="text-xs font-bold text-slate-500">Độ phủ hạng mục</p>
-            <p className="text-2xl font-black tabular-nums">{fmt(balance?.coveragePercent)}%</p>
-            <p className="text-[10px] font-bold text-slate-400">{balance?.unmappedKpiCount ?? 0} KPI chưa gán</p>
-          </div>
-        </div>
+      <div id="tour-analytics-metrics" className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+        <StatCard
+          label="Điểm BSC trung bình"
+          value={<p className={cn('text-stat truncate', scoreColor(balance?.averageBscScore))}>{fmt(balance?.averageBscScore)}</p>}
+          sub={`${balance?.evaluationCount ?? 0} đánh giá`}
+          icon={<Gauge />}
+          color="indigo"
+        />
+        <StatCard
+          label="Hạng mục mạnh nhất"
+          value={<p className="truncate text-base font-semibold text-[var(--color-foreground)]">{balance?.strongestPerspective ?? '—'}</p>}
+          sub={<span className="text-[var(--color-success)] tabular-nums">{fmt(balance?.strongestScore)}%</span>}
+          icon={<Award />}
+          color="emerald"
+        />
+        <StatCard
+          label="Hạng mục yếu nhất"
+          value={<p className="truncate text-base font-semibold text-[var(--color-foreground)]">{balance?.weakestPerspective ?? '—'}</p>}
+          sub={<span className="text-[var(--color-error)] tabular-nums">{fmt(balance?.weakestScore)}%</span>}
+          icon={<AlertTriangle />}
+          color="red"
+        />
+        <StatCard
+          label="Độ phủ hạng mục"
+          value={`${fmt(balance?.coveragePercent)}%`}
+          sub={`${balance?.unmappedKpiCount ?? 0} KPI chưa gán`}
+          icon={<ShieldCheck />}
+          color="amber"
+        />
       </div>
 
       {/* ── Cân bằng: card từng hạng mục ────────────────────────────────── */}
@@ -248,24 +228,24 @@ export default function BscAnalyticsTab() {
             const ach = p.averageScore
             const color = p.color || DEFAULT_COLOR
             return (
-              <div key={p.perspectiveId} className="relative overflow-hidden bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm">
+              <div key={p.perspectiveId} className="relative overflow-hidden bg-[var(--color-card)] rounded-widget border border-[var(--color-border)] p-5 shadow-sm">
                 <div className="absolute top-0 left-0 w-1.5 h-full" style={{ backgroundColor: color }} />
                 <div className="flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <div className="flex items-center gap-2">
                       <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
-                      <h3 className="text-sm font-black text-slate-900 dark:text-white truncate">{p.name}</h3>
+                      <h3 className="text-section-title text-[var(--color-foreground)] truncate">{p.name}</h3>
                     </div>
-                    <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight mt-0.5">Trọng số {fmt(p.weightPercentage)}% · {p.kpiCount ?? 0} KPI</p>
+                    <p className="mt-0.5 text-caption">Trọng số {fmt(p.weightPercentage)}% · {p.kpiCount ?? 0} KPI</p>
                   </div>
-                  <p className={cn('text-2xl font-black tabular-nums shrink-0', scoreColor(ach))}>{ach != null ? Math.round(ach) : '—'}<span className="text-sm">%</span></p>
+                  <p className={cn('text-2xl font-semibold tabular-nums shrink-0', scoreColor(ach))}>{ach != null ? Math.round(ach) : '—'}<span className="text-sm">%</span></p>
                 </div>
-                <div className="mt-3 h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+                <div className="mt-3 h-2 rounded-full bg-[var(--color-muted)] overflow-hidden">
                   <div className="h-full rounded-full transition-all duration-700" style={{ width: `${Math.min(100, ach || 0)}%`, backgroundColor: color }} />
                 </div>
-                <div className="flex items-center justify-between mt-2 text-[10px] font-bold text-slate-400">
+                <div className="flex items-center justify-between mt-2 text-caption">
                   <span>Đóng góp</span>
-                  <span className="text-slate-600 dark:text-slate-300">{fmt(p.weightedScore)} đ</span>
+                  <span className="text-[var(--color-muted-foreground)]">{fmt(p.weightedScore)} đ</span>
                 </div>
               </div>
             )
@@ -277,7 +257,7 @@ export default function BscAnalyticsTab() {
       {/* ── Xu hướng điểm hạng mục theo kỳ ──────────────────────────────── */}
       <Card>
         <SectionTitle
-          icon={<TrendingUp size={14} className="text-indigo-500" />}
+          icon={<TrendingUp size={14} className="text-[var(--color-primary)]" />}
           extra={<TrendModeToggle mode={trendMode} onChange={setTrendMode} />}
         >
           Xu hướng điểm hạng mục theo kỳ
@@ -285,7 +265,7 @@ export default function BscAnalyticsTab() {
         {isTrendShare ? (
           trendShare.hasData ? (
             <>
-              <p className="text-[11px] text-slate-500 font-medium mb-2">
+              <p className="text-caption font-medium mb-2">
                 Tỉ trọng đóng góp vào điểm BSC — tính trên điểm đã nhân trọng số, nên bốn hạng mục cộng lại đúng bằng điểm tổng.
               </p>
               <StackedComposition
@@ -322,7 +302,7 @@ export default function BscAnalyticsTab() {
 
       {/* ── So sánh hạng mục giữa các đơn vị ────────────────────────────── */}
       <Card>
-        <SectionTitle icon={<Building2 size={14} className="text-emerald-500" />}>So sánh hạng mục giữa các đơn vị</SectionTitle>
+        <SectionTitle icon={<Building2 size={14} className="text-[var(--color-success)]" />}>So sánh hạng mục giữa các đơn vị</SectionTitle>
         {comparisonData.length ? (
           <ResponsiveContainer width="100%" height={Math.max(300, comparisonData.length * 46)}>
             <BarChart data={comparisonData} layout="vertical" margin={{ top: 8, right: 16, bottom: 8, left: 8 }}>
@@ -343,21 +323,15 @@ export default function BscAnalyticsTab() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <Card className="lg:col-span-2">
           <SectionTitle
-            icon={<Scale size={14} className="text-violet-500" />}
+            icon={<Scale size={14} className="text-[var(--color-primary)]" />}
             extra={
-              <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5">
+              <div className="flex items-center gap-1 bg-[var(--color-muted)] rounded-control p-0.5">
                 {(['UNIT', 'MEMBER'] as const).map(l => (
-                  <button key={l} onClick={() => setVsLevel(l)} className={cn(
-                    'text-[11px] font-bold px-2.5 py-1 rounded-md transition-colors',
-                    vsLevel === l ? 'bg-white dark:bg-slate-700 text-indigo-600 shadow-sm' : 'text-slate-500'
-                  )}>{l === 'UNIT' ? 'Theo đơn vị' : 'Theo nhân sự'}</button>
+                  <ChoiceChip selected={vsLevel === l} variant="segment" size="sm" className="py-1" key={l} onClick={() => setVsLevel(l)}>{l === 'UNIT' ? 'Theo đơn vị' : 'Theo nhân sự'}</ChoiceChip>
                 ))}
-                <span className="w-px h-4 bg-slate-200 dark:bg-slate-700 mx-1" />
+                <span className="w-px h-4 bg-[var(--color-border)] mx-1" />
                 {([['BAR', 'Cột'], ['SCATTER', 'Phân tán']] as const).map(([v, lb]) => (
-                  <button key={v} onClick={() => setVsShape(v)} className={cn(
-                    'text-[11px] font-bold px-2.5 py-1 rounded-md transition-colors',
-                    vsShape === v ? 'bg-white dark:bg-slate-700 text-indigo-600 shadow-sm' : 'text-slate-500'
-                  )}>{lb}</button>
+                  <ChoiceChip selected={vsShape === v} variant="segment" size="sm" className="py-1" key={v} onClick={() => setVsShape(v)}>{lb}</ChoiceChip>
                 ))}
               </div>
             }
@@ -379,21 +353,21 @@ export default function BscAnalyticsTab() {
           ) : <EmptyState>Chưa có điểm để đối chiếu</EmptyState>}
         </Card>
         <Card>
-          <SectionTitle icon={<ShieldCheck size={14} className="text-amber-500" />}>KPI chưa gán hạng mục</SectionTitle>
+          <SectionTitle icon={<ShieldCheck size={14} className="text-[var(--color-warning)]" />}>KPI chưa gán hạng mục</SectionTitle>
           <div className="text-center py-2">
-            <p className={cn('text-4xl font-black tabular-nums', (balance?.coveragePercent ?? 100) >= 100 ? 'text-emerald-500' : 'text-amber-500')}>{fmt(balance?.coveragePercent)}%</p>
-            <p className="text-xs text-slate-400 font-bold mt-1">độ phủ · {balance?.mappedKpiCount ?? 0}/{(balance?.mappedKpiCount ?? 0) + (balance?.unmappedKpiCount ?? 0)} KPI đã gán</p>
+            <p className={cn('text-4xl font-semibold tabular-nums', (balance?.coveragePercent ?? 100) >= 100 ? 'text-[var(--color-success)]' : 'text-[var(--color-warning)]')}>{fmt(balance?.coveragePercent)}%</p>
+            <p className="text-xs text-[var(--color-subtle-foreground)] font-medium mt-1">độ phủ · {balance?.mappedKpiCount ?? 0}/{(balance?.mappedKpiCount ?? 0) + (balance?.unmappedKpiCount ?? 0)} KPI đã gán</p>
           </div>
           {balance?.unmappedKpiNames?.length ? (
             <div className="mt-3 max-h-[220px] overflow-auto custom-scrollbar space-y-1.5">
               {balance.unmappedKpiNames.map((n, i) => (
-                <div key={i} className="flex items-center gap-2 text-xs font-semibold text-slate-600 dark:text-slate-300 bg-amber-50 dark:bg-amber-900/15 rounded-lg px-3 py-2">
-                  <AlertTriangle size={13} className="text-amber-500 shrink-0" /> <span className="truncate">{n}</span>
+                <div key={i} className="flex items-center gap-2 text-xs font-semibold text-[var(--color-muted-foreground)] bg-[var(--color-warning-bg)] rounded-control px-3 py-2">
+                  <AlertTriangle size={13} className="text-[var(--color-warning)] shrink-0" /> <span className="truncate">{n}</span>
                 </div>
               ))}
             </div>
           ) : (
-            <p className="mt-3 text-xs text-center text-emerald-600 font-bold">Tất cả KPI tính điểm đều đã gán hạng mục ✓</p>
+            <p className="mt-3 text-xs text-center text-[var(--color-success)] font-medium">Tất cả KPI tính điểm đều đã gán hạng mục ✓</p>
           )}
         </Card>
       </div>
@@ -401,13 +375,13 @@ export default function BscAnalyticsTab() {
       {/* ── Bong bóng hạng mục & cấu thành điểm ──────────────────────────── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
         <Card>
-          <SectionTitle icon={<Layers size={14} className="text-violet-500" />}>
+          <SectionTitle icon={<Layers size={14} className="text-[var(--color-primary)]" />}>
             Trọng số × Kết quả theo hạng mục
           </SectionTitle>
           <PerspectiveBubbleSection filter={advancedFilter} />
         </Card>
         <Card>
-          <SectionTitle icon={<TrendingUp size={14} className="text-emerald-500" />}>
+          <SectionTitle icon={<TrendingUp size={14} className="text-[var(--color-success)]" />}>
             Cấu thành điểm BSC
           </SectionTitle>
           <BscWaterfallSection filter={advancedFilter} />
@@ -416,7 +390,7 @@ export default function BscAnalyticsTab() {
 
       {/* ── Lịch sử thay đổi trọng số (chỉ cấp tổ chức) ──────────────────── */}
       <Card>
-        <SectionTitle icon={<History size={14} className="text-amber-500" />}>
+        <SectionTitle icon={<History size={14} className="text-[var(--color-warning)]" />}>
           Lịch sử thay đổi trọng số hạng mục
         </SectionTitle>
         <WeightHistorySection filter={advancedFilter} />
@@ -425,15 +399,12 @@ export default function BscAnalyticsTab() {
       {/* ── Xếp hạng nhân sự theo điểm BSC ───────────────────────────────── */}
       <Card>
         <SectionTitle
-          icon={<Medal size={14} className="text-amber-500" />}
+          icon={<Medal size={14} className="text-[var(--color-warning)]" />}
           extra={
             <div className="flex items-center gap-2">
-              <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5">
+              <div className="flex items-center gap-1 bg-[var(--color-muted)] rounded-control p-0.5">
                 {([['bscScore', 'Điểm BSC'], ['systemScore', 'Điểm hệ thống']] as const).map(([k, lb]) => (
-                  <button key={k} onClick={() => { setRankSort(k); setRankPage(0) }} className={cn(
-                    'text-[11px] font-bold px-2.5 py-1 rounded-md transition-colors',
-                    rankSort === k ? 'bg-white dark:bg-slate-700 text-indigo-600 shadow-sm' : 'text-slate-500'
-                  )}>{lb}</button>
+                  <ChoiceChip selected={rankSort === k} variant="segment" size="sm" className="py-1" key={k} onClick={() => { setRankSort(k); setRankPage(0) }}>{lb}</ChoiceChip>
                 ))}
               </div>
               <ViewToggleButtons view={rankView} onChange={setRankView} />
@@ -442,7 +413,7 @@ export default function BscAnalyticsTab() {
         >Xếp hạng nhân sự theo điểm BSC</SectionTitle>
         {rankView === 'chart' ? (
           (ranking?.content?.length ?? 0) === 0 ? (
-            <div className="py-16 text-center text-slate-400 text-sm">Không có dữ liệu xếp hạng</div>
+            <div className="py-16 text-center text-[var(--color-subtle-foreground)] text-sm">Không có dữ liệu xếp hạng</div>
           ) : (
             <Lollipop
               data={(ranking?.content || []).map(row => ({
@@ -458,8 +429,8 @@ export default function BscAnalyticsTab() {
         ) : (
         <div className="overflow-x-auto custom-scrollbar">
           <table className="w-full text-left">
-            <thead className="bg-slate-50 dark:bg-slate-800/50">
-              <tr className="text-[11px] font-black uppercase text-slate-500">
+            <thead className="bg-[var(--color-muted)]">
+              <tr className="text-eyebrow">
                 <th className="px-4 py-3 w-10">#</th>
                 <th className="px-4 py-3">Nhân sự</th>
                 <th className="px-4 py-3 text-right whitespace-nowrap">Điểm BSC</th>
@@ -467,23 +438,23 @@ export default function BscAnalyticsTab() {
                 <th className="px-4 py-3">Breakdown hạng mục</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+            <tbody className="divide-y divide-[var(--color-border)]">
               {(ranking?.content || []).map((row, idx) => (
-                <tr key={row.userId} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
-                  <td className="px-4 py-3 text-sm font-black text-slate-400">{rankPage * RANK_PAGE_SIZE + idx + 1}</td>
+                <tr key={row.userId} className="hover:bg-[var(--color-muted)]">
+                  <td className="px-4 py-3 text-sm font-semibold text-[var(--color-subtle-foreground)]">{rankPage * RANK_PAGE_SIZE + idx + 1}</td>
                   <td className="px-4 py-3">
-                    <p className="text-sm font-bold text-slate-900 dark:text-white">{row.fullName}</p>
-                    <p className="text-[11px] text-slate-400">{row.email}</p>
+                    <p className="text-sm font-medium text-[var(--color-foreground)]">{row.fullName}</p>
+                    <p className="text-caption">{row.email}</p>
                   </td>
-                  <td className={cn('px-4 py-3 text-right text-sm font-black tabular-nums', scoreColor(row.bscScore))}>{fmt(row.bscScore)}</td>
-                  <td className="px-4 py-3 text-right text-sm font-bold tabular-nums text-slate-500">{fmt(row.systemScore)}</td>
+                  <td className={cn('px-4 py-3 text-right text-sm font-semibold tabular-nums', scoreColor(row.bscScore))}>{fmt(row.bscScore)}</td>
+                  <td className="px-4 py-3 text-right text-sm font-medium tabular-nums text-[var(--color-muted-foreground)]">{fmt(row.systemScore)}</td>
                   <td className="px-4 py-3">
                     <div className="flex flex-wrap gap-1.5">
                       {(ranking?.perspectives || []).map(p => {
                         const v = row.perspectiveScores?.[p.id]
                         if (v == null) return null
                         return (
-                          <span key={p.id} className="inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full"
+                          <span key={p.id} className="inline-flex items-center gap-1 text-xs font-medium px-2 py-0.5 rounded-full"
                             style={{ backgroundColor: `${p.color || DEFAULT_COLOR}22`, color: p.color || DEFAULT_COLOR }}>
                             <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: p.color || DEFAULT_COLOR }} />
                             {Math.round(v)}%
@@ -495,14 +466,14 @@ export default function BscAnalyticsTab() {
                 </tr>
               ))}
               {!(ranking?.content?.length) && (
-                <tr><td colSpan={5} className="text-center py-8 text-slate-400 text-sm">Không có dữ liệu xếp hạng</td></tr>
+                <tr><td colSpan={5} className="text-center py-8 text-[var(--color-subtle-foreground)] text-sm">Không có dữ liệu xếp hạng</td></tr>
               )}
             </tbody>
           </table>
         </div>
         )}
         {rankChartMode && (ranking?.totalElements ?? 0) > RANK_CHART_TOP_N && (
-          <p className="text-[11px] text-slate-400 font-medium text-center mt-2">
+          <p className="text-caption font-medium text-center mt-2">
             {RANK_CHART_TOP_N} người dẫn đầu trong {ranking?.totalElements} nhân sự — xem đủ ở chế độ bảng.
           </p>
         )}
@@ -518,7 +489,7 @@ export default function BscAnalyticsTab() {
         )}
       </Card>
 
-      <p className="text-[11px] text-slate-400 font-medium flex items-center gap-1.5">
+      <p className="text-caption font-medium flex items-center gap-1.5">
         <Layers size={12} /> Số liệu gộp từ điểm đánh giá đã lưu theo hạng mục — nhất quán với chỉ số "hiệu suất theo đánh giá".
       </p>
     </div>

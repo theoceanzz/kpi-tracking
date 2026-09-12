@@ -17,6 +17,8 @@ import {
   Type, Undo2, Redo2, Braces, Heading2, GripVertical, Plus, Loader2,
   Image as ImageIcon, MousePointerClick, KeyRound, ListTree, AlertTriangle, Minus,
 } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { ChoiceChip } from '@/components/ui/choice-chip'
 
 // Bộ chọn emoji khá nặng — nạp muộn để không phình bundle của những trang không dùng.
 const EmojiPicker = lazy(() => import('emoji-picker-react'))
@@ -71,7 +73,7 @@ export default function EmailEditor({
     content: value || '',
     editorProps: {
       attributes: {
-        class: 'outline-none px-10 py-4 text-sm leading-relaxed min-h-[380px] [&_p]:my-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_a]:text-indigo-600 [&_a]:underline [&_h2]:text-lg [&_h2]:font-bold [&_h2]:mt-4 [&_h3]:text-base [&_h3]:font-bold [&_hr]:my-6 [&_hr]:border-slate-200 [&_p.is-editor-empty:first-child::before]:content-[attr(data-placeholder)] [&_p.is-editor-empty:first-child::before]:text-slate-400 [&_p.is-editor-empty:first-child::before]:float-left [&_p.is-editor-empty:first-child::before]:h-0 [&_p.is-editor-empty:first-child::before]:pointer-events-none',
+        class: 'outline-none px-10 py-4 text-sm leading-relaxed min-h-[380px] [&_p]:my-2 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5 [&_a]:text-[var(--color-primary)] [&_a]:underline [&_h2]:text-lg [&_h2]:font-medium [&_h2]:mt-4 [&_h3]:text-base [&_h3]:font-medium [&_hr]:my-6 [&_hr]:border-[var(--color-border)] [&_p.is-editor-empty:first-child::before]:content-[attr(data-placeholder)] [&_p.is-editor-empty:first-child::before]:text-[var(--color-subtle-foreground)] [&_p.is-editor-empty:first-child::before]:float-left [&_p.is-editor-empty:first-child::before]:h-0 [&_p.is-editor-empty:first-child::before]:pointer-events-none',
       },
     },
     onUpdate: ({ editor }) => onChange(editor.getHTML()),
@@ -179,10 +181,10 @@ export default function EmailEditor({
   return (
     <div
       ref={wrapRef}
-      className="rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950/50 focus-within:ring-4 focus-within:ring-indigo-500/10 focus-within:border-indigo-500/50 transition-all"
+      className="rounded-card border border-[var(--color-border)] bg-[var(--color-card)] transition-colors focus-within:border-[var(--color-primary)] focus-within:ring-2 focus-within:ring-[var(--color-ring)]"
     >
       {/* Thanh công cụ — dính trên đầu khi cuộn nội dung dài */}
-      <div className="sticky top-0 z-20 flex flex-wrap items-center gap-0.5 px-2 py-1.5 border-b border-slate-100 dark:border-slate-800 bg-slate-50/95 dark:bg-slate-900/95 backdrop-blur rounded-t-2xl">
+      <div className="sticky top-0 z-20 flex flex-wrap items-center gap-0.5 rounded-t-card border-b border-[var(--color-border)] bg-[var(--color-muted)] px-2 py-1.5" role="toolbar" aria-label="Công cụ soạn thảo">
         <Tool icon={Bold} title="Đậm (Ctrl+B)" active={editor.isActive('bold')} onClick={() => editor.chain().focus().toggleBold().run()} />
         <Tool icon={Italic} title="Nghiêng (Ctrl+I)" active={editor.isActive('italic')} onClick={() => editor.chain().focus().toggleItalic().run()} />
         <Tool icon={UnderlineIcon} title="Gạch chân (Ctrl+U)" active={editor.isActive('underline')} onClick={() => editor.chain().focus().toggleUnderline().run()} />
@@ -191,23 +193,18 @@ export default function EmailEditor({
         <Divider />
 
         <Menu open={openMenu === 'size'} onToggle={() => toggleMenu('size')} icon={Type} title="Cỡ chữ">
-          <div className="p-1 w-32">
+          <div className="w-36 p-1" role="menu">
             {FONT_SIZES.map(size => (
-              <button
-                key={size}
-                onMouseDown={e => e.preventDefault()}
-                onClick={() => { editor.chain().focus().setFontSize(size).run(); setOpenMenu(null) }}
-                className="w-full text-left px-2.5 py-1.5 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-800 transition-colors"
-                style={{ fontSize: size }}
-              >
-                {size.replace('px', '')}
+              <button type="button" role="menuitem" key={size}
+                className="flex h-9 w-full items-center justify-between rounded-control px-2.5 text-left text-[var(--color-foreground)] transition-colors hover:bg-[var(--color-muted)] focus-visible:bg-[var(--color-muted)] focus-visible:outline-none"
+                onMouseDown={e => e.preventDefault()} onClick={() => { editor.chain().focus().setFontSize(size).run(); setOpenMenu(null) }}>
+                <span style={{ fontSize: size }}>Aa</span>
+                <span className="text-caption tabular-nums">{size.replace('px', '')}</span>
               </button>
             ))}
-            <button
-              onMouseDown={e => e.preventDefault()}
-              onClick={() => { editor.chain().focus().unsetFontSize().run(); setOpenMenu(null) }}
-              className="w-full text-left px-2.5 py-1.5 rounded-lg text-xs font-bold text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
-            >
+            <button type="button" role="menuitem"
+              className="mt-1 flex h-9 w-full items-center rounded-control border-t border-[var(--color-border)] px-2.5 text-left text-sm text-[var(--color-foreground)] transition-colors hover:bg-[var(--color-muted)] focus-visible:bg-[var(--color-muted)] focus-visible:outline-none"
+              onMouseDown={e => e.preventDefault()} onClick={() => { editor.chain().focus().unsetFontSize().run(); setOpenMenu(null) }}>
               Mặc định
             </button>
           </div>
@@ -225,19 +222,17 @@ export default function EmailEditor({
                   key={color}
                   onMouseDown={e => e.preventDefault()}
                   onClick={() => { editor.chain().focus().setColor(color).run(); setOpenMenu(null) }}
+                  type="button"
                   title={color}
-                  className="w-8 h-8 rounded-lg border border-slate-200 dark:border-slate-700 hover:scale-110 transition-transform"
+                  aria-label={`Màu chữ ${color}`}
+                  className="h-8 w-8 rounded-control border border-[var(--color-border)] transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]"
                   style={{ backgroundColor: color }}
                 />
               ))}
             </div>
-            <button
-              onMouseDown={e => e.preventDefault()}
-              onClick={() => { editor.chain().focus().unsetColor().run(); setOpenMenu(null) }}
-              className="w-full mt-2 px-2 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
-            >
+            <Button variant="outline" size="sm" className="mt-2 w-full" onMouseDown={e => e.preventDefault()} onClick={() => { editor.chain().focus().unsetColor().run(); setOpenMenu(null) }}>
               Bỏ màu
-            </button>
+            </Button>
           </div>
         </Menu>
 
@@ -249,19 +244,17 @@ export default function EmailEditor({
                   key={color}
                   onMouseDown={e => e.preventDefault()}
                   onClick={() => { editor.chain().focus().setBackgroundColor(color).run(); setOpenMenu(null) }}
+                  type="button"
                   title={color}
-                  className="w-11 h-8 rounded-lg border border-slate-200 dark:border-slate-700 hover:scale-105 transition-transform"
+                  aria-label={`Màu nền ${color}`}
+                  className="h-8 w-11 rounded-control border border-[var(--color-border)] transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]"
                   style={{ backgroundColor: color }}
                 />
               ))}
             </div>
-            <button
-              onMouseDown={e => e.preventDefault()}
-              onClick={() => { editor.chain().focus().unsetBackgroundColor().run(); setOpenMenu(null) }}
-              className="w-full mt-2 px-2 py-1.5 rounded-lg text-[10px] font-black uppercase tracking-widest text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
-            >
+            <Button variant="outline" size="sm" className="mt-2 w-full" onMouseDown={e => e.preventDefault()} onClick={() => { editor.chain().focus().unsetBackgroundColor().run(); setOpenMenu(null) }}>
               Bỏ nền
-            </button>
+            </Button>
           </div>
         </Menu>
 
@@ -278,23 +271,12 @@ export default function EmailEditor({
         {/* Liên kết trong dòng — khác với khối "Nút bấm" (nút CTA căn giữa),
             đây là gắn link vào một đoạn chữ đang chọn. */}
         <span className="relative">
-          <button
-            type="button"
-            title={editor.isActive('link') ? 'Sửa hoặc bỏ liên kết' : 'Gắn liên kết vào chữ đang chọn'}
-            onMouseDown={e => e.preventDefault()}
-            onClick={openLinkMenu}
-            className={cn(
-              'p-1.5 rounded-lg transition-colors',
-              openMenu === 'link' || editor.isActive('link')
-                ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600'
-                : 'text-slate-500 hover:bg-slate-200/70 dark:hover:bg-slate-800',
-            )}
-          >
-            <Link2 size={15} />
-          </button>
+          <ChoiceChip selected={openMenu === 'link' || editor.isActive('link')} className="w-8 px-0" title={editor.isActive('link') ? 'Sửa hoặc bỏ liên kết' : 'Gắn liên kết vào chữ đang chọn'} aria-label="Liên kết" onMouseDown={e => e.preventDefault()} onClick={openLinkMenu}>
+            <Link2 aria-hidden="true" />
+          </ChoiceChip>
           {openMenu === 'link' && (
-            <span className="absolute left-0 top-full mt-1 z-50 block w-72 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-2xl p-3">
-              <span className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1.5">
+            <span className="absolute top-full z-50 mt-1 block rounded-card border border-[var(--color-border)] bg-[var(--color-popover)] shadow-lg left-0 w-72 p-3">
+              <span className="mb-1.5 block text-label">
                 Đường dẫn
               </span>
               <input
@@ -306,25 +288,17 @@ export default function EmailEditor({
                   if (e.key === 'Escape') { e.preventDefault(); setOpenMenu(null) }
                 }}
                 placeholder="https://..."
-                className="w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-950/50 text-sm font-medium outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/50"
+                aria-label="Đường dẫn"
+                className="h-9 w-full rounded-control border border-[var(--color-border)] bg-[var(--color-card)] px-3 text-sm text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-subtle-foreground)] focus-visible:border-[var(--color-primary)] focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]"
               />
-              <span className="flex items-center gap-2 mt-2.5">
-                <button
-                  type="button"
-                  onClick={applyLink}
-                  className="flex-1 px-3 py-2 rounded-xl bg-indigo-600 text-white text-[10px] font-black uppercase tracking-widest hover:bg-indigo-700 transition-colors"
-                >
+              <span className="mt-2.5 flex items-center gap-2">
+                <Button size="sm" className="flex-1" type="button" onClick={applyLink}>
                   Áp dụng
-                </button>
+                </Button>
                 {editor.isActive('link') && (
-                  <button
-                    type="button"
-                    onClick={removeLink}
-                    title="Bỏ liên kết"
-                    className="px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-500 hover:text-red-600 hover:border-red-200 transition-colors"
-                  >
-                    <Link2Off size={14} />
-                  </button>
+                  <Button variant="outline" size="icon-sm" className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]" aria-label="Bỏ liên kết" type="button" onClick={removeLink} title="Bỏ liên kết">
+                    <Link2Off aria-hidden="true" />
+                  </Button>
                 )}
               </span>
             </span>
@@ -340,7 +314,7 @@ export default function EmailEditor({
         />
 
         <Menu open={openMenu === 'emoji'} onToggle={() => toggleMenu('emoji')} icon={Smile} title="Chèn biểu tượng cảm xúc" wide>
-          <Suspense fallback={<div className="p-6 text-xs text-slate-400">Đang tải…</div>}>
+          <Suspense fallback={<div className="p-6 text-caption">Đang tải…</div>}>
             <EmojiPicker
               lazyLoadEmojis
               width={320}
@@ -355,16 +329,11 @@ export default function EmailEditor({
 
         {Object.keys(variables).length > 0 && (
           <Menu open={openMenu === 'variable'} onToggle={() => toggleMenu('variable')} icon={Braces} title="Chèn dữ liệu hệ thống" wide>
-            <div className="p-1.5 w-64 max-h-64 overflow-y-auto">
+            <div className="custom-scrollbar max-h-64 w-64 overflow-y-auto p-1.5" role="menu">
               {Object.entries(variables).map(([name, desc]) => (
-                <button
-                  key={name}
-                  onMouseDown={e => e.preventDefault()}
-                  onClick={() => insert({ type: 'emailVariable', attrs: { name } })}
-                  className="w-full text-left px-2.5 py-2 rounded-lg hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors"
-                >
-                  <span className="block text-xs font-bold text-slate-700 dark:text-slate-200">{desc}</span>
-                  <span className="block text-[10px] font-mono text-slate-400">{`{{${name}}}`}</span>
+                <button type="button" role="menuitem" className="flex w-full flex-col items-start rounded-control px-2.5 py-1.5 text-left transition-colors hover:bg-[var(--color-muted)] focus-visible:outline-none focus-visible:bg-[var(--color-muted)]" key={name} onMouseDown={e => e.preventDefault()} onClick={() => insert({ type: 'emailVariable', attrs: { name } })}>
+                  <span className="block w-full truncate text-sm text-[var(--color-foreground)]">{desc}</span>
+                  <span className="block font-mono text-caption">{`{{${name}}}`}</span>
                 </button>
               ))}
             </div>
@@ -378,32 +347,19 @@ export default function EmailEditor({
 
         {/* Chèn khối đặc thù — đẩy sang phải cho nổi bật */}
         <span className="ml-auto relative">
-          <button
-            type="button"
-            onMouseDown={e => e.preventDefault()}
-            onClick={() => toggleMenu('insert')}
-            className={cn(
-              'flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[10px] font-black uppercase tracking-widest transition-colors',
-              openMenu === 'insert'
-                ? 'bg-indigo-600 text-white'
-                : 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 hover:bg-indigo-100 dark:hover:bg-indigo-900/50',
-            )}
-          >
-            <Plus size={13} /> Chèn khối
-          </button>
+          <ChoiceChip selected={openMenu === 'insert'} variant="solid" aria-haspopup="menu" aria-expanded={openMenu === 'insert'} onMouseDown={e => e.preventDefault()} onClick={() => toggleMenu('insert')}>
+            <Plus aria-hidden="true" /> Chèn khối
+          </ChoiceChip>
           {openMenu === 'insert' && (
-            <span className="absolute right-0 top-full mt-1 z-50 block w-72 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-2xl overflow-hidden p-1.5">
+            <span className="absolute top-full z-50 mt-1 block rounded-card border border-[var(--color-border)] bg-[var(--color-popover)] shadow-lg right-0 w-72 p-1.5" role="menu">
               {INSERTABLES.map(item => (
-                <button
-                  key={item.label}
-                  onMouseDown={e => e.preventDefault()}
-                  onClick={item.run}
-                  className="w-full flex items-start gap-2.5 px-2.5 py-2 rounded-xl hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors text-left"
-                >
-                  <item.icon size={15} className="text-indigo-500 mt-0.5 shrink-0" />
+                <button type="button" role="menuitem" className="flex w-full items-start gap-2.5 rounded-control px-2.5 py-2 text-left transition-colors hover:bg-[var(--color-muted)] focus-visible:bg-[var(--color-muted)] focus-visible:outline-none" key={item.label} onMouseDown={e => e.preventDefault()} onClick={item.run}>
+                  <span className="mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-control bg-[var(--color-primary-soft)] text-[var(--color-primary)]">
+                    <item.icon size={15} aria-hidden="true" />
+                  </span>
                   <span className="min-w-0">
-                    <span className="block text-xs font-bold text-slate-700 dark:text-slate-200">{item.label}</span>
-                    <span className="block text-[10px] text-slate-400 font-medium">{item.hint}</span>
+                    <span className="block text-sm font-medium text-[var(--color-foreground)]">{item.label}</span>
+                    <span className="block text-caption">{item.hint}</span>
                   </span>
                 </button>
               ))}
@@ -426,9 +382,9 @@ export default function EmailEditor({
         <DragHandle editor={editor}>
           <div
             title="Kéo để đổi vị trí khối"
-            className="flex items-center justify-center w-6 h-6 -ml-1 rounded-lg cursor-grab active:cursor-grabbing text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/20 transition-colors"
+            className="-ml-1 flex h-6 w-6 cursor-grab items-center justify-center rounded-control text-[var(--color-subtle-foreground)] transition-colors hover:bg-[var(--color-primary-soft)] hover:text-[var(--color-primary)] active:cursor-grabbing"
           >
-            <GripVertical size={16} />
+            <GripVertical size={16} aria-hidden="true" />
           </div>
         </DragHandle>
 
@@ -447,22 +403,9 @@ function Tool({ icon: Icon, title, active, disabled, spin, onClick }: {
   onClick: () => void
 }) {
   return (
-    <button
-      type="button"
-      title={title}
-      disabled={disabled}
-      // Giữ vùng chọn trong trình soạn khi bấm nút, nếu không lệnh sẽ không biết áp vào đâu.
-      onMouseDown={e => e.preventDefault()}
-      onClick={onClick}
-      className={cn(
-        'p-1.5 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed',
-        active
-          ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400'
-          : 'text-slate-500 hover:bg-slate-200/70 dark:hover:bg-slate-800',
-      )}
-    >
-      <Icon size={15} className={spin ? 'animate-spin' : undefined} />
-    </button>
+    <ChoiceChip selected={!!active} className="w-8 px-0" title={title} aria-label={title} disabled={disabled} onMouseDown={e => e.preventDefault()} onClick={onClick}>
+      <Icon className={spin ? 'animate-spin' : undefined} aria-hidden="true" />
+    </ChoiceChip>
   )
 }
 
@@ -476,21 +419,12 @@ function Menu({ open, onToggle, icon: Icon, title, wide, children }: {
 }) {
   return (
     <span className="relative">
-      <button
-        type="button"
-        title={title}
-        onMouseDown={e => e.preventDefault()}
-        onClick={onToggle}
-        className={cn(
-          'p-1.5 rounded-lg transition-colors',
-          open ? 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600' : 'text-slate-500 hover:bg-slate-200/70 dark:hover:bg-slate-800',
-        )}
-      >
-        <Icon size={15} />
-      </button>
+      <ChoiceChip selected={open} className="w-8 px-0" title={title} aria-label={title} aria-haspopup="true" aria-expanded={open} onMouseDown={e => e.preventDefault()} onClick={onToggle}>
+        <Icon aria-hidden="true" />
+      </ChoiceChip>
       {open && (
         <span className={cn(
-          'absolute left-0 top-full mt-1 z-50 block rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 shadow-2xl overflow-hidden',
+          'absolute top-full z-50 mt-1 block rounded-card border border-[var(--color-border)] bg-[var(--color-popover)] shadow-lg left-0 overflow-hidden',
           wide ? '' : 'min-w-max',
         )}>
           {children}
@@ -501,5 +435,5 @@ function Menu({ open, onToggle, icon: Icon, title, wide, children }: {
 }
 
 function Divider() {
-  return <span className="w-px h-5 bg-slate-200 dark:bg-slate-700 mx-1" />
+  return <span className="mx-1 h-5 w-px bg-[var(--color-border)]" role="separator" aria-orientation="vertical" />
 }

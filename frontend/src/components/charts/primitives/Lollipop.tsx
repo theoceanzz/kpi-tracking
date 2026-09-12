@@ -109,10 +109,10 @@ function LollipopTooltip({ active, payload, unit }: {
   const d = payload?.[0]?.payload
   if (!active || !d) return null
   return (
-    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3.5 rounded-xl shadow-lg">
-      <p className="font-bold text-slate-900 dark:text-white">{d.name}</p>
-      {d.subText && <p className="text-xs text-slate-500 mb-2">{d.subText}</p>}
-      <p className="font-black text-lg text-slate-900 dark:text-white tabular-nums">
+    <div className="bg-[var(--color-card)] border border-[var(--color-border)] p-3.5 rounded-card shadow-lg">
+      <p className="font-bold text-[var(--color-foreground)]">{d.name}</p>
+      {d.subText && <p className="text-xs text-[var(--color-muted-foreground)] mb-2">{d.subText}</p>}
+      <p className="font-semibold text-lg text-[var(--color-foreground)] tabular-nums">
         {Math.round(d.value * 10) / 10}{unit ? ` ${unit}` : ''}
       </p>
     </div>

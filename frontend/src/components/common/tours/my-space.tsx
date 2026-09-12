@@ -16,13 +16,13 @@ import {
  */
 
 const note = (text: string) => (
-  <p className="text-[11px] bg-indigo-50 dark:bg-indigo-900/20 p-2 rounded-lg text-indigo-700 dark:text-indigo-300 font-bold italic">
+  <p className="text-xs bg-[var(--color-primary-soft)] p-2 rounded-control text-[var(--color-primary)] font-medium italic">
     💡 {text}
   </p>
 )
 
 const warn = (text: string) => (
-  <p className="text-[11px] bg-amber-50 dark:bg-amber-900/20 p-2 rounded-lg text-amber-700 dark:text-amber-400 font-bold italic border-l-4 border-amber-400">
+  <p className="text-xs bg-[var(--color-warning-bg)] p-2 rounded-control text-[var(--color-warning)] font-medium italic border-l-4 border-[var(--color-warning-border)]">
     ⚠️ {text}
   </p>
 )
@@ -113,7 +113,7 @@ const mySpaceTours: Record<TourKey, TourDef> = {
         placement: 'bottom',
       },
       {
-        target: '#tour-local-tabs',
+        target: '#tour-workspace-tabs',
         title: '🗂️ Bốn tab: tiêu, xem, khoe, nhận',
         content: (
           <div className="space-y-2">
@@ -251,7 +251,7 @@ const mySpaceTours: Record<TourKey, TourDef> = {
         placement: 'bottom',
       },
       {
-        target: '#tour-local-tabs',
+        target: '#tour-workspace-tabs',
         title: '🗂️ Ba tab',
         content: (
           <p>

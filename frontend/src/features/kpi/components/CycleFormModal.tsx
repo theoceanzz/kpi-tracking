@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import { format, parseISO, differenceInCalendarDays } from 'date-fns'
-import { Pencil, Plus } from 'lucide-react'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
+import { Dialog, DialogFooter } from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { DateTimePicker } from '@/components/common/DateTimePicker'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
@@ -124,75 +125,74 @@ export default function CycleFormModal({
   const mismatchDescription = `Bạn đã chọn ${selectedDays} ngày, trong khi loại kỳ "${FREQUENCY_MAP[formData.cycleType]}" tiêu chuẩn là ${standardDays} ngày. Bạn tự chịu trách nhiệm với khoảng thời gian đã chọn.`
 
   const fields = (
-    <form onSubmit={handleSubmit} className="space-y-6">
+    <form id="cycle-form" onSubmit={handleSubmit} className="space-y-5">
       <div className="space-y-2">
-        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Tên kỳ <span className="text-red-500">*</span></label>
+        <label className="text-label">Tên kỳ <span className="text-[var(--color-error)]">*</span></label>
         <input value={formData.name} onChange={e => handleFieldChange('name', e.target.value)} required placeholder="Ví dụ: 6 Tháng đầu năm 2026"
-          className="w-full px-5 py-4 rounded-[20px] border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500/50 outline-none text-sm font-bold transition-all placeholder:text-slate-400" />
+          className="w-full px-5 py-4 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] focus:ring-4 focus:ring-[var(--color-success-solid)] focus:border-[var(--color-success-border)] outline-none text-sm font-medium transition-all placeholder:text-[var(--color-subtle-foreground)]"/>
       </div>
 
       <div className="space-y-2">
-        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Loại kỳ <span className="text-red-500">*</span></label>
+        <label className="text-label">Loại kỳ <span className="text-[var(--color-error)]">*</span></label>
         <Select value={formData.cycleType} onValueChange={val => handleFieldChange('cycleType', val)}>
-          <SelectTrigger className="w-full px-5 h-[56px] rounded-[20px] border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 text-sm font-bold shadow-sm focus:ring-4 focus:ring-emerald-500/10">
+          <SelectTrigger className="w-full px-5 h-[56px] rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] text-sm font-medium shadow-sm focus:ring-4 focus:ring-[var(--color-success-solid)]">
             <SelectValue placeholder="Chọn loại kỳ" />
           </SelectTrigger>
-          <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800 shadow-2xl p-2">
+          <SelectContent className="rounded-card border-[var(--color-border)] p-2">
             {CYCLE_TYPES.map(type => (
-              <SelectItem key={type} value={type} className="rounded-xl text-sm font-bold">{FREQUENCY_MAP[type]}</SelectItem>
+              <SelectItem key={type} value={type} className="rounded-card text-sm font-medium">{FREQUENCY_MAP[type]}</SelectItem>
             ))}
           </SelectContent>
         </Select>
       </div>
 
       <div className="space-y-2">
-        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Chế độ đánh giá cuối kỳ</label>
+        <label className="text-label">Chế độ đánh giá cuối kỳ</label>
         <Select
           value={formData.evaluationMode}
           onValueChange={val => setFormData(p => ({ ...p, evaluationMode: val as CycleEvaluationMode }))}
           disabled={!enableQualitative}
         >
-          <SelectTrigger className="w-full px-5 h-[56px] rounded-[20px] border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 text-sm font-bold shadow-sm focus:ring-4 focus:ring-emerald-500/10 disabled:opacity-70">
+          <SelectTrigger className="w-full px-5 h-[56px] rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] text-sm font-medium shadow-sm focus:ring-4 focus:ring-[var(--color-success-solid)] disabled:opacity-70">
             <SelectValue placeholder="Chọn chế độ đánh giá" />
           </SelectTrigger>
-          <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800 shadow-2xl p-2">
-            <SelectItem value="QUANTITATIVE" className="rounded-xl text-sm font-bold">Định lượng</SelectItem>
-            {enableQualitative && <SelectItem value="QUALITATIVE" className="rounded-xl text-sm font-bold">Định tính</SelectItem>}
-            {enableQualitative && <SelectItem value="BOTH" className="rounded-xl text-sm font-bold">Cả hai</SelectItem>}
+          <SelectContent className="rounded-card border-[var(--color-border)] p-2">
+            <SelectItem value="QUANTITATIVE" className="rounded-card text-sm font-medium">Định lượng</SelectItem>
+            {enableQualitative && <SelectItem value="QUALITATIVE" className="rounded-card text-sm font-medium">Định tính</SelectItem>}
+            {enableQualitative && <SelectItem value="BOTH" className="rounded-card text-sm font-medium">Cả hai</SelectItem>}
           </SelectContent>
         </Select>
         {!enableQualitative && (
-          <p className="text-[11px] text-slate-400 font-medium ml-1">
-            Tổ chức chưa bật KPI định tính nên kỳ chỉ đánh giá theo <span className="font-black text-slate-500">Định lượng</span>.
+          <p className="text-caption font-medium ml-1">
+            Tổ chức chưa bật KPI định tính nên kỳ chỉ đánh giá theo <span className="font-semibold text-[var(--color-muted-foreground)]">Định lượng</span>.
           </p>
         )}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
-          <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Bắt đầu <span className="text-red-500">*</span></label>
+          <label className="text-label">Bắt đầu <span className="text-[var(--color-error)]">*</span></label>
           <DateTimePicker value={formData.startDate} onChange={val => handleFieldChange('startDate', val)} />
         </div>
         <div className="space-y-2">
-          <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Kết thúc <span className="text-red-500">*</span></label>
+          <label className="text-label">Kết thúc <span className="text-[var(--color-error)]">*</span></label>
           <DateTimePicker value={formData.endDate} onChange={val => handleFieldChange('endDate', val)} />
         </div>
       </div>
 
       <div className="space-y-2">
-        <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Mô tả</label>
+        <label className="text-label">Mô tả</label>
         <textarea value={formData.description} onChange={e => setFormData(p => ({ ...p, description: e.target.value }))} rows={2} placeholder="Mục tiêu tổng thể của kỳ..."
-          className="w-full px-5 py-4 rounded-[20px] border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 focus:ring-4 focus:ring-emerald-500/10 focus:border-emerald-500/50 outline-none text-sm font-medium transition-all placeholder:text-slate-400 resize-none" />
+          className="w-full px-5 py-4 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] focus:ring-4 focus:ring-[var(--color-success-solid)] focus:border-[var(--color-success-border)] outline-none text-sm font-medium transition-all placeholder:text-[var(--color-subtle-foreground)] resize-none"/>
       </div>
 
-      <div className={isInline ? 'pt-2' : 'flex gap-4 pt-4'}>
-        {!isInline && (
-          <button type="button" onClick={onClose} className="flex-1 px-8 py-4 rounded-[20px] border border-slate-200 dark:border-slate-800 text-xs font-black uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-slate-800 transition-all active:scale-95">Huỷ</button>
-        )}
-        <button type="submit" disabled={isSubmitting} className="flex-1 w-full px-8 py-4 rounded-[20px] bg-emerald-600 text-white text-xs font-black uppercase tracking-widest hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-500/25 disabled:opacity-50 active:scale-95">
-          {isSubmitting ? 'Đang lưu...' : (submitLabel ?? 'Xác nhận')}
-        </button>
-      </div>
+      {isInline && (
+        <div className="pt-2">
+          <Button type="submit" className="w-full" disabled={isSubmitting}>
+            {isSubmitting ? 'Đang lưu...' : (submitLabel ?? 'Xác nhận')}
+          </Button>
+        </div>
+      )}
     </form>
   )
 
@@ -218,26 +218,29 @@ export default function CycleFormModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-md animate-in fade-in duration-300" onClick={onClose} />
-      <div className="relative bg-white dark:bg-slate-900 rounded-[40px] shadow-2xl w-full max-w-lg mx-auto animate-in zoom-in-95 fade-in duration-500 overflow-hidden border border-slate-200 dark:border-slate-800">
-        <div className="absolute top-0 right-0 w-32 h-32 bg-emerald-500/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl" />
-        <div className="p-10 space-y-8 relative">
-          <div className="flex items-center gap-5">
-            <div className="w-14 h-14 rounded-[22px] bg-emerald-50 dark:bg-emerald-900/30 flex items-center justify-center text-emerald-600 dark:text-emerald-400 shadow-inner border border-emerald-100/50 dark:border-emerald-800/50">
-              {editCycle ? <Pencil size={28} /> : <Plus size={28} />}
-            </div>
-            <div>
-              <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">{editCycle ? 'Chỉnh sửa kỳ' : 'Tạo kỳ mới'}</h3>
-              <p className="text-xs font-black text-slate-400 uppercase tracking-widest mt-1">Cấu hình kỳ đánh giá tổng hợp</p>
-            </div>
-          </div>
-
-          {fields}
-        </div>
-      </div>
+    <>
+    <Dialog
+      open
+      onClose={onClose}
+      size="md"
+      dismissible={!isSubmitting}
+      title={editCycle ? 'Chỉnh sửa kỳ' : 'Tạo kỳ mới'}
+      description="Cấu hình kỳ đánh giá tổng hợp"
+      footer={
+        <DialogFooter
+          secondary={<Button variant="outline" onClick={onClose} disabled={isSubmitting}>Hủy</Button>}
+          primary={
+            <Button type="submit" form="cycle-form" disabled={isSubmitting}>
+              {isSubmitting ? 'Đang lưu...' : (submitLabel ?? 'Xác nhận')}
+            </Button>
+          }
+        />
+      }
+    >
+      {fields}
+    </Dialog>
 
       {mismatchDialog}
-    </div>
+    </>
   )
 }

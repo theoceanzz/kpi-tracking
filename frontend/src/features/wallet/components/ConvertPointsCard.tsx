@@ -4,6 +4,7 @@ import NumberInput from '@/components/common/NumberInput'
 import { formatCurrency } from '@/lib/utils'
 import { useConversion } from '../hooks/useWallet'
 import type { CashWallet } from '../types'
+import { Button } from '@/components/ui/button'
 
 interface ConvertPointsCardProps {
   wallet?: CashWallet
@@ -41,8 +42,8 @@ export default function ConvertPointsCard({ wallet }: ConvertPointsCardProps) {
   }
 
   return (
-    <div className="rounded-3xl border border-[var(--color-border)] bg-[var(--color-card)] p-6">
-      <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.2em] text-[var(--color-muted-foreground)]">
+    <div className="rounded-widget border border-[var(--color-border)] bg-[var(--color-card)] p-6">
+      <div className="flex items-center gap-2 text-eyebrow">
         <Coins size={14} />
         Đổi tiền lấy điểm thưởng
       </div>
@@ -54,13 +55,13 @@ export default function ConvertPointsCard({ wallet }: ConvertPointsCardProps) {
 
       <div className="mt-5 grid items-end gap-4 sm:grid-cols-[1fr_auto_1fr]">
         <div>
-          <label className="mb-1.5 block text-sm font-medium">Số điểm muốn đổi</label>
+          <label className="text-label mb-1.5 block font-medium">Số điểm muốn đổi</label>
           <NumberInput
             value={points}
             onChange={setPoints}
             placeholder="0"
             maxDigits={9}
-            className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-background)] px-4 py-3 text-right text-xl font-bold tabular-nums outline-none focus:border-[var(--color-primary)]"
+            className="w-full rounded-card border border-[var(--color-border)] bg-[var(--color-background)] px-4 py-3 text-right text-xl font-semibold tabular-nums outline-none focus:border-[var(--color-primary)]"
           />
         </div>
 
@@ -69,8 +70,8 @@ export default function ConvertPointsCard({ wallet }: ConvertPointsCardProps) {
         <div>
           <div className="mb-1.5 text-sm font-medium">Số tiền bị trừ</div>
           <div
-            className={`rounded-xl border border-[var(--color-border)] bg-[var(--color-muted)]/40 px-4 py-3 text-right text-xl font-bold tabular-nums ${
-              points > 0 && !affordable ? 'text-rose-600' : ''
+            className={`rounded-card border border-[var(--color-border)] bg-[var(--color-muted)]/40 px-4 py-3 text-right text-xl font-semibold tabular-nums ${
+              points > 0 && !affordable ? 'text-[var(--color-error)]' : ''
             }`}
           >
             {formatCurrency(cost)}
@@ -85,31 +86,21 @@ export default function ConvertPointsCard({ wallet }: ConvertPointsCardProps) {
             {formatCurrency(Math.max(balance - cost, 0))}
           </strong>
         </span>
-        <button
-          type="button"
-          onClick={() => setPoints(maxPoints)}
-          disabled={maxPoints <= 0}
-          className="font-semibold text-[var(--color-primary)] disabled:opacity-40"
-        >
+        <Button variant="ghost" type="button" onClick={() => setPoints(maxPoints)} disabled={maxPoints <= 0}>
           Đổi tối đa ({maxPoints.toLocaleString('vi-VN')} điểm)
-        </button>
+        </Button>
       </div>
 
       {points > 0 && !affordable && (
-        <p className="mt-3 rounded-xl bg-rose-500/10 px-4 py-2.5 text-sm text-rose-700 dark:text-rose-400">
+        <p className="mt-3 rounded-card bg-[var(--color-error-bg)] px-4 py-2.5 text-sm text-[var(--color-error)]">
           Số dư không đủ. Bạn còn thiếu {formatCurrency(cost - balance)}.
         </p>
       )}
 
-      <button
-        type="button"
-        onClick={submit}
-        disabled={!affordable || isConverting}
-        className="mt-5 flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--color-primary)] px-4 py-3 font-semibold text-white transition-opacity disabled:opacity-50"
-      >
-        {isConverting ? <Loader2 size={18} className="animate-spin" /> : <Coins size={18} />}
+      <Button className="mt-5 w-full" type="button" onClick={submit} disabled={!affordable || isConverting}>
+        {isConverting ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Coins aria-hidden="true" />}
         Đổi {points > 0 ? points.toLocaleString('vi-VN') : ''} điểm
-      </button>
+      </Button>
     </div>
   )
 }

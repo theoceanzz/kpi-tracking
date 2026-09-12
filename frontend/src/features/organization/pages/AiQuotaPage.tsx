@@ -10,7 +10,7 @@ import AiQuotaPanel from '../components/AiQuotaPanel'
  */
 export default function AiQuotaPage() {
   return (
-    <div className="space-y-5 animate-in fade-in duration-500">
+    <div className="space-y-5">
       <WorkspaceHeader
         title="Hạn mức AI"
         description="Chia hạn mức token AI hằng tháng cho nhân sự thuộc phạm vi quản lý của bạn."

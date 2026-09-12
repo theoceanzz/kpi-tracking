@@ -8,10 +8,7 @@ import {
   type QualitativeLevelsFormData,
 } from '../schemas/organizationSchema'
 import { toastFirstError } from '@/lib/formErrors'
-import {
-  Edit3, Trash2, Info, Plus, Sparkles, RotateCcw,
-  Grid3x3, X, ArrowRight
-} from 'lucide-react'
+import { Edit3, Trash2, Plus, RotateCcw, X, ArrowRight, Loader2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { getApiErrorMessage } from '@/lib/apiError'
 import { cn } from '@/lib/utils'
@@ -19,6 +16,7 @@ import WorkspaceHeader from '@/components/common/WorkspaceHeader'
 import type { PerformanceMatrix } from '../api/organizationApi'
 import { useUpdateOrganization } from '../hooks/useUpdateOrganization'
 import { SCORING_POOL } from '@/lib/scoring'
+import { Button } from '@/components/ui/button'
 
 /**
  * Các khối cấu hình thang điểm & xếp loại, tách khỏi CompanyPage để dùng cho trang
@@ -99,7 +97,7 @@ export function ScoringConfigSection({ org }: { org: any }) {
       { name: 'TỐT', threshold: 80, color: DEFAULT_LEVEL_COLORS[3] },
       { name: 'XUẤT SẮC', threshold: 90, color: DEFAULT_LEVEL_COLORS[4] },
     ]
-    
+
     updateMutation.mutate({
       evaluationMaxScore: 100,
       evaluationLevels: defaultLevels
@@ -121,156 +119,111 @@ export function ScoringConfigSection({ org }: { org: any }) {
         actions={
           !isEditing && (
             <>
-              <button
-                onClick={handleResetToDefault}
-                className="w-10 h-10 rounded-xl bg-[var(--color-muted)] text-[var(--color-muted-foreground)] hover:text-[var(--color-primary)] border border-[var(--color-border)] transition-all flex items-center justify-center"
-                title="Đặt lại về mặc định"
-              >
-                <RotateCcw size={16} />
-              </button>
-              <button
-                onClick={() => setIsEditing(true)}
-                className="flex items-center gap-2 px-5 h-10 rounded-xl bg-[var(--color-primary)] text-white text-sm font-bold hover:opacity-90 shadow-sm transition-all active:scale-95"
-              >
-                <Edit3 size={16} /> Chỉnh sửa
-              </button>
+              <Button variant="outline" size="icon" aria-label="Đặt lại về mặc định" onClick={handleResetToDefault} title="Đặt lại về mặc định">
+                <RotateCcw aria-hidden="true" />
+              </Button>
+              <Button onClick={() => setIsEditing(true)}>
+                <Edit3 aria-hidden="true" /> Chỉnh sửa
+              </Button>
             </>
           )
         }
       />
 
-      <section className="bg-[var(--color-card)] rounded-2xl border border-[var(--color-border)] shadow-sm overflow-hidden">
-        <div className="p-8 space-y-8">
-            <div id="tour-scoring-max" className="relative p-6 rounded-2xl bg-gradient-to-r from-indigo-600 to-violet-700 text-white overflow-hidden shadow-xl shadow-indigo-500/10">
-               <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/10 rounded-full blur-2xl" />
-               <div className="flex justify-between items-center relative z-10">
-                 <div className="space-y-0.5">
-                   <p className="text-[9px] font-bold text-amber-500 uppercase tracking-widest">Hệ số tối đa</p>
-                   <h4 className="text-xl font-black">Thang {maxScore} điểm</h4>
-                   {/* Thang điểm là MẪU SỐ xếp loại, không phải hệ số nhân lúc chấm — nói rõ ở đây
-                       để HR không tưởng đặt 150 là nhân điểm mọi người lên 1.5 lần. */}
-                   <p className="text-[10px] font-medium text-indigo-100/70 max-w-md leading-relaxed">
-                     Hoàn thành đủ 100% KPI luôn được {SCORING_POOL} điểm (trọng số 25% ⇒ 25 điểm).
-                     {maxScore > SCORING_POOL
-                       ? ` Thang ${maxScore} là mẫu số xếp loại (đạt đủ ⇒ ${SCORING_POOL}/${maxScore}); phần trên ${SCORING_POOL} dành cho KPI thưởng và điểm chỉnh tay.`
-                       : ' Các mức xếp loại bên dưới đặt theo thang này.'}
-                   </p>
-                 </div>
-                 <div className="flex items-center">
-                   {isEditing ? (
-                     <input 
-                        type="number"
-                        value={maxScore}
-                        onChange={e => setMaxScore(Number(e.target.value))}
-                        className="w-20 bg-white/10 border border-white/10 rounded-lg py-2 px-2 text-center text-sm font-bold focus:outline-none focus:ring-1 focus:ring-amber-500"
-                        onWheel={(e) => (e.target as HTMLInputElement).blur()}
-                     />
-                   ) : (
-                     <div className="px-4 py-2 bg-white/10 rounded-lg text-sm font-black border border-white/10">
-                        {maxScore}
-                     </div>
-                   )}
-                 </div>
-               </div>
+      <section className="mx-auto max-w-3xl overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
+        {/* Thang điểm tối đa: một hàng số liệu, không tô nền — nó là MẪU SỐ xếp loại, không phải hệ số nhân */}
+        <div id="tour-scoring-max" className="flex flex-col gap-3 border-b border-[var(--color-border)] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+          <div className="min-w-0">
+            <p className="text-eyebrow">Thang điểm tối đa</p>
+            <p className="mt-1 text-sm text-[var(--color-muted-foreground)]">
+              Hoàn thành đủ 100% KPI luôn được {SCORING_POOL} điểm (trọng số 25% ⇒ 25 điểm).
+              {maxScore > SCORING_POOL
+                ? ` Thang ${maxScore} là mẫu số xếp loại (đạt đủ ⇒ ${SCORING_POOL}/${maxScore}); phần trên ${SCORING_POOL} dành cho KPI thưởng và điểm chỉnh tay.`
+                : ' Các mức xếp loại bên dưới đặt theo thang này.'}
+            </p>
+          </div>
+          {isEditing ? (
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                value={maxScore}
+                onChange={e => setMaxScore(Number(e.target.value))}
+                aria-label="Thang điểm tối đa"
+                className="h-9 w-full rounded-control border border-[var(--color-border)] bg-[var(--color-card)] px-3 text-sm text-[var(--color-foreground)] outline-none focus-visible:border-[var(--color-primary)] focus-visible:ring-2 focus-visible:ring-[var(--color-ring)] w-24 text-center tabular-nums"
+                onWheel={(e) => (e.target as HTMLInputElement).blur()}
+              />
+              <span className="text-sm text-[var(--color-muted-foreground)]">điểm</span>
             </div>
+          ) : (
+            <p className="shrink-0 text-stat">{maxScore} <span className="text-sm font-normal text-[var(--color-muted-foreground)]">điểm</span></p>
+          )}
+        </div>
 
-            <div id="tour-scoring-levels" className="space-y-4">
-                <div className="flex items-center justify-between px-2">
-                  <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Các mức xếp loại</h4>
-                  {isEditing && (
-                    <button 
-                      type="button"
-                      onClick={() => append({ id: undefined, name: 'MỨC MỚI', threshold: 0, color: '#3b82f6' })}
-                      className="text-[10px] font-bold text-indigo-600 hover:text-indigo-700 flex items-center gap-1"
-                    >
-                      <Plus size={14} /> Thêm mức
-                    </button>
-                  )}
-                </div>
-
-                <div className="space-y-3">
-                  {fields.map((field, index) => (
-                    <div key={field.id} className="group relative bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 transition-all hover:shadow-md">
-                      <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
-                        {isEditing ? (
-                          <>
-                            <div className="flex-1 space-y-1">
-                              <label className="text-[9px] font-bold text-slate-400 uppercase">Tên mức</label>
-                              <input
-                                {...register(`evaluationLevels.${index}.name` as const)}
-                                className="w-full bg-white dark:bg-slate-900 px-3 py-2 rounded-lg text-xs font-bold border border-slate-100 dark:border-slate-800 outline-none focus:border-indigo-500"
-                              />
-                            </div>
-                            <div className="flex items-end gap-3">
-                              <div className="w-24 space-y-1">
-                                <label className="text-[9px] font-bold text-slate-400 uppercase">Điểm ≥</label>
-                                <input
-                                  type="number"
-                                  {...register(`evaluationLevels.${index}.threshold` as const, { valueAsNumber: true })}
-                                  className="w-full bg-white dark:bg-slate-900 px-3 py-2 rounded-lg text-xs font-bold border border-slate-100 dark:border-slate-800 outline-none focus:border-indigo-500"
-                                />
-                              </div>
-                              <div className="flex-1 sm:flex-none sm:w-16 space-y-1">
-                                <label className="text-[9px] font-bold text-slate-400 uppercase">Màu</label>
-                                <input
-                                  type="color"
-                                  {...register(`evaluationLevels.${index}.color` as const)}
-                                  className="w-full h-9 bg-transparent border border-slate-100 dark:border-slate-800 outline-none cursor-pointer p-0.5 rounded-lg"
-                                />
-                              </div>
-                              <button
-                                type="button"
-                                onClick={() => remove(index)}
-                                className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors mb-0.5"
-                              >
-                                <Trash2 size={14} />
-                              </button>
-                            </div>
-                          </>
-                        ) : (
-                          <>
-                            <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-sm" style={{ backgroundColor: watchedLevels[index]?.color || '#cbd5e1' }}>
-                              <Sparkles size={18} />
-                            </div>
-                            <div className="flex-1">
-                              <p className="text-sm font-bold text-slate-900 dark:text-white uppercase">{watchedLevels[index]?.name}</p>
-                              <p className="text-[10px] font-medium text-slate-400 uppercase tracking-widest">Xếp loại cho điểm ≥ {watchedLevels[index]?.threshold}</p>
-                            </div>
-                            <div className="text-right">
-                              <span className="text-lg font-black text-slate-900 dark:text-white">{watchedLevels[index]?.threshold}</span>
-                              <span className="text-[10px] font-bold text-slate-400 ml-1">đ</span>
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+        <div id="tour-scoring-levels" className="p-5">
+          <div className="flex items-center justify-between gap-3">
+            <div>
+              <h4 className="text-section-title">Các mức xếp loại</h4>
+              <p className="text-caption">Điểm từ ngưỡng trở lên rơi vào mức đó; mức cao hơn được ưu tiên.</p>
             </div>
-
             {isEditing && (
-              <div className="flex gap-3 pt-2">
-                <button 
-                  type="button" 
-                  onClick={() => {
-                    setIsEditing(false);
-                    reset();
-                  }} 
-                  className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 text-[11px] font-bold uppercase tracking-wider hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
-                >
-                  Hủy
-                </button>
-                <button 
-                  type="button" 
-                  onClick={handleSubmit(handleSave, toastFirstError)}
-                  disabled={updateMutation.isPending}
-                  className="flex-[2] py-2.5 bg-indigo-600 text-white rounded-xl text-[11px] font-bold uppercase tracking-wider shadow-lg hover:bg-indigo-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-                >
-                  {updateMutation.isPending && <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
-                  Lưu cấu hình
-                </button>
-              </div>
+              <Button variant="outline" size="sm" type="button" onClick={() => append({ id: undefined, name: 'MỨC MỚI', threshold: 0, color: '#3b82f6' })}>
+                <Plus aria-hidden="true" /> Thêm mức
+              </Button>
             )}
+          </div>
+
+          {isEditing ? (
+            <div className="mt-4 space-y-2">
+              <div className="hidden grid-cols-[1fr_7rem_4rem_2.25rem] gap-3 px-1 sm:grid">
+                <span className="text-eyebrow">Tên mức</span>
+                <span className="text-eyebrow">Điểm ≥</span>
+                <span className="text-eyebrow">Màu</span>
+                <span className="sr-only">Xoá</span>
+              </div>
+              <ol className="space-y-2">
+                {fields.map((field, index) => (
+                  <li key={field.id} className="grid grid-cols-2 items-end gap-3 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] p-3 sm:grid-cols-[1fr_7rem_4rem_2.25rem] sm:items-center sm:border-0 sm:bg-transparent sm:p-0 sm:px-1">
+                    <div className="col-span-2 sm:col-span-1">
+                      <label className="text-label mb-1 block sm:sr-only">Tên mức</label>
+                      <input {...register(`evaluationLevels.${index}.name` as const)} className="h-9 w-full rounded-control border border-[var(--color-border)] bg-[var(--color-card)] px-3 text-sm text-[var(--color-foreground)] outline-none focus-visible:border-[var(--color-primary)] focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]" aria-label={`Tên mức ${index + 1}`} />
+                    </div>
+                    <div>
+                      <label className="text-label mb-1 block sm:sr-only">Điểm ≥</label>
+                      <input type="number" {...register(`evaluationLevels.${index}.threshold` as const, { valueAsNumber: true })} className="h-9 w-full rounded-control border border-[var(--color-border)] bg-[var(--color-card)] px-3 text-sm text-[var(--color-foreground)] outline-none focus-visible:border-[var(--color-primary)] focus-visible:ring-2 focus-visible:ring-[var(--color-ring)] tabular-nums" aria-label="Ngưỡng điểm" onWheel={(e) => (e.target as HTMLInputElement).blur()} />
+                    </div>
+                    <div className="flex items-end gap-2">
+                      <div className="flex-1">
+                        <label className="text-label mb-1 block sm:sr-only">Màu</label>
+                        <input type="color" {...register(`evaluationLevels.${index}.color` as const)} className="h-9 w-full cursor-pointer rounded-control border border-[var(--color-border)] bg-[var(--color-card)] p-0.5" aria-label="Màu mức" />
+                      </div>
+                      <Button type="button" variant="ghost" size="icon-sm" onClick={() => remove(index)} aria-label="Xoá mức" title="Xoá mức" className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)] sm:hidden"><Trash2 aria-hidden="true" /></Button>
+                    </div>
+                    <Button type="button" variant="ghost" size="icon-sm" onClick={() => remove(index)} aria-label="Xoá mức" title="Xoá mức" className="hidden text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)] sm:inline-flex"><Trash2 aria-hidden="true" /></Button>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          ) : (
+            <ol className="mt-4 divide-y divide-[var(--color-border)] overflow-hidden rounded-card border border-[var(--color-border)]">
+              {fields.map((field, index) => (
+                <li key={field.id} className="flex items-center gap-3 px-4 py-2.5">
+                  <span className="h-3 w-3 shrink-0 rounded-full" style={{ backgroundColor: watchedLevels[index]?.color || '#cbd5e1' }} aria-hidden="true" />
+                  <span className="min-w-0 flex-1 truncate text-sm font-medium text-[var(--color-foreground)]">{watchedLevels[index]?.name}</span>
+                  <span className="text-sm tabular-nums text-[var(--color-muted-foreground)]">≥ <span className="font-medium text-[var(--color-foreground)]">{watchedLevels[index]?.threshold}</span> điểm</span>
+                </li>
+              ))}
+            </ol>
+          )}
+
+          {isEditing && (
+            <div className="mt-4 flex items-center justify-end gap-2 border-t border-[var(--color-border)] pt-4">
+              <Button variant="outline" type="button" onClick={() => { setIsEditing(false); reset() }} disabled={updateMutation.isPending}>Hủy</Button>
+              <Button onClick={handleSubmit(handleSave, toastFirstError)} disabled={updateMutation.isPending}>
+                {updateMutation.isPending && <Loader2 className="animate-spin" aria-hidden="true" />}
+                Lưu cấu hình
+              </Button>
+            </div>
+          )}
         </div>
       </section>
     </div>
@@ -354,162 +307,110 @@ export function QualitativeConfigSection({ org }: { org: any }) {
         actions={
           !isEditing && (
             <>
-              <button
-                onClick={handleResetToDefault}
-                className="w-10 h-10 rounded-xl bg-[var(--color-muted)] text-[var(--color-muted-foreground)] hover:text-[var(--color-primary)] border border-[var(--color-border)] transition-all flex items-center justify-center"
-                title="Đặt lại về mặc định"
-              >
-                <RotateCcw size={16} />
-              </button>
-              <button
-                onClick={() => setIsEditing(true)}
-                className="flex items-center gap-2 px-5 h-10 rounded-xl bg-[var(--color-primary)] text-white text-sm font-bold hover:opacity-90 shadow-sm transition-all active:scale-95"
-              >
-                <Edit3 size={16} /> Chỉnh sửa
-              </button>
+              <Button variant="outline" size="icon" aria-label="Đặt lại về mặc định" onClick={handleResetToDefault} title="Đặt lại về mặc định">
+                <RotateCcw aria-hidden="true" />
+              </Button>
+              <Button onClick={() => setIsEditing(true)}>
+                <Edit3 aria-hidden="true" /> Chỉnh sửa
+              </Button>
             </>
           )
         }
       />
 
-      <section className="bg-[var(--color-card)] rounded-2xl border border-[var(--color-border)] shadow-sm overflow-hidden">
-        <div className="p-8 space-y-8">
-        <div id="tour-qualitative-guide" className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-900/30 flex items-start gap-3">
-          <Info size={18} className="text-emerald-600 shrink-0 mt-0.5" />
-          <p className="text-[11px] text-emerald-700/80 dark:text-emerald-400/80 font-medium leading-relaxed">
-            Quy đổi mỗi mức đánh giá định tính sang một giá trị điểm để tham chiếu. <span className="font-bold">Vị trí</span> là thứ tự cột trong bảng tính, <span className="font-bold">Giá trị</span> là điểm quy đổi tương ứng (dùng cho ma trận hiệu suất).
-            {org?.enableBsc && <> Cột <span className="font-bold text-indigo-600 dark:text-indigo-400">% BSC</span> là mức hoàn thành tương ứng khi tính điểm BSC — độc lập với Giá trị, do bạn tự định nghĩa (VD: KÉM 0% · YẾU 40% · TB 60% · KHÁ 80% · TỐT 100%).</>}
+      <section className="mx-auto max-w-3xl overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
+        <div id="tour-qualitative-guide" className="border-b border-[var(--color-border)] px-5 py-4">
+          <h4 className="text-section-title">Các mức đánh giá</h4>
+          <p className="mt-1 text-sm text-[var(--color-muted-foreground)]">
+            Mỗi mức hành vi quy đổi sang một <b className="font-medium text-[var(--color-foreground)]">giá trị</b> điểm (dùng cho ma trận hiệu suất); <b className="font-medium text-[var(--color-foreground)]">vị trí</b> là thứ tự cột trong bảng tính.
+            {org?.enableBsc && <> Cột <b className="font-medium text-[var(--color-foreground)]">% BSC</b> là mức hoàn thành tương ứng khi tính điểm BSC, do bạn tự đặt (VD: Kém 0% · Yếu 40% · TB 60% · Khá 80% · Tốt 100%).</>}
           </p>
         </div>
 
-        <div id="tour-qualitative-levels" className="space-y-4">
-          <div className="flex items-center justify-between px-2">
-            <h4 className="text-[11px] font-black text-slate-400 uppercase tracking-widest">Các mức đánh giá</h4>
-            {isEditing && (
-              <button
-                type="button"
-                onClick={() => append({ id: undefined, name: 'MỨC MỚI', value: 0, position: fields.length + 1, scorePercent: 0, color: '#3b82f6' })}
-                className="text-[10px] font-bold text-emerald-600 hover:text-emerald-700 flex items-center gap-1"
-              >
-                <Plus size={14} /> Thêm mức
-              </button>
-            )}
-          </div>
-
-          <div className="space-y-3">
-            {fields.map((field, index) => (
-              <div key={field.id} className="group relative bg-slate-50 dark:bg-slate-800/40 p-4 rounded-2xl border border-slate-100 dark:border-slate-800 transition-all hover:shadow-md">
-                <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-4">
-                  {isEditing ? (
-                    <>
-                      <div className="w-16 space-y-1">
-                        <label className="text-[9px] font-bold text-slate-400 uppercase">Vị trí</label>
-                        <input
-                          type="number"
-                          {...register(`qualitativeLevels.${index}.position` as const, { valueAsNumber: true })}
-                          className="w-full bg-white dark:bg-slate-900 px-3 py-2 rounded-lg text-xs font-bold border border-slate-100 dark:border-slate-800 outline-none focus:border-emerald-500"
-                          onWheel={(e) => (e.target as HTMLInputElement).blur()}
-                        />
-                      </div>
-                      <div className="flex-1 space-y-1">
-                        <label className="text-[9px] font-bold text-slate-400 uppercase">Tên mức</label>
-                        <input
-                          {...register(`qualitativeLevels.${index}.name` as const)}
-                          className="w-full bg-white dark:bg-slate-900 px-3 py-2 rounded-lg text-xs font-bold border border-slate-100 dark:border-slate-800 outline-none focus:border-emerald-500"
-                        />
-                      </div>
-                      <div className="flex items-end gap-3">
-                        <div className="w-20 space-y-1">
-                          <label className="text-[9px] font-bold text-slate-400 uppercase">Giá trị</label>
-                          <input
-                            type="number"
-                            step="0.5"
-                            {...register(`qualitativeLevels.${index}.value` as const, { valueAsNumber: true })}
-                            className="w-full bg-white dark:bg-slate-900 px-3 py-2 rounded-lg text-xs font-bold border border-slate-100 dark:border-slate-800 outline-none focus:border-emerald-500"
-                            onWheel={(e) => (e.target as HTMLInputElement).blur()}
-                          />
-                        </div>
-                        <div className="w-24 space-y-1">
-                          <label className="text-[9px] font-bold text-indigo-400 uppercase" title="Mức này tương đương bao nhiêu % hoàn thành khi tính điểm BSC">% BSC</label>
-                          <input
-                            type="number"
-                            step="1"
-                            min="0"
-                            max="100"
-                            {...register(`qualitativeLevels.${index}.scorePercent` as const, { valueAsNumber: true })}
-                            className="w-full bg-white dark:bg-slate-900 px-3 py-2 rounded-lg text-xs font-bold border border-indigo-100 dark:border-indigo-900/50 outline-none focus:border-indigo-500"
-                            onWheel={(e) => (e.target as HTMLInputElement).blur()}
-                          />
-                        </div>
-                        <div className="flex-1 sm:flex-none sm:w-16 space-y-1">
-                          <label className="text-[9px] font-bold text-slate-400 uppercase">Màu</label>
-                          <input
-                            type="color"
-                            {...register(`qualitativeLevels.${index}.color` as const)}
-                            className="w-full h-9 bg-transparent border border-slate-100 dark:border-slate-800 outline-none cursor-pointer p-0.5 rounded-lg"
-                          />
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => remove(index)}
-                          className="p-2 text-red-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-colors mb-0.5"
-                        >
-                          <Trash2 size={14} />
-                        </button>
-                      </div>
-                    </>
-                  ) : (
-                    <>
-                      <div className="w-10 h-10 rounded-xl flex items-center justify-center text-white shadow-sm font-black text-sm" style={{ backgroundColor: watchedLevels[index]?.color || '#cbd5e1' }}>
-                        {watchedLevels[index]?.position}
-                      </div>
-                      <div className="flex-1">
-                        <p className="text-sm font-bold text-slate-900 dark:text-white uppercase">{watchedLevels[index]?.name}</p>
-                        <p className="text-[10px] font-medium text-slate-400 uppercase tracking-widest">Vị trí {watchedLevels[index]?.position} · Điểm quy đổi</p>
-                      </div>
-                      <div className="flex items-center gap-4">
-                        {org?.enableBsc && (
-                          <div className="text-right" title="Quy đổi sang % hoàn thành khi tính điểm BSC">
-                            <span className="text-sm font-black text-indigo-600 dark:text-indigo-400">{watchedLevels[index]?.scorePercent ?? 0}%</span>
-                            <p className="text-[9px] font-bold text-slate-400 uppercase tracking-widest">BSC</p>
-                          </div>
-                        )}
-                        <div className="text-right">
-                          <span className="text-lg font-black text-slate-900 dark:text-white">{watchedLevels[index]?.value}</span>
-                          <span className="text-[10px] font-bold text-slate-400 ml-1">đ</span>
-                        </div>
-                      </div>
-                    </>
-                  )}
-                </div>
+        <div id="tour-qualitative-levels" className="p-5">
+          {isEditing ? (
+            <div className="space-y-2">
+              <div className="hidden grid-cols-[3.5rem_1fr_5rem_5rem_4rem_2.25rem] gap-3 px-1 sm:grid">
+                <span className="text-eyebrow">Vị trí</span>
+                <span className="text-eyebrow">Tên mức</span>
+                <span className="text-eyebrow">Giá trị</span>
+                <span className="text-eyebrow" title="Mức này tương đương bao nhiêu % hoàn thành khi tính điểm BSC">% BSC</span>
+                <span className="text-eyebrow">Màu</span>
+                <span className="sr-only">Xoá</span>
               </div>
-            ))}
-          </div>
-        </div>
+              <ol className="space-y-2">
+                {fields.map((field, index) => (
+                  <li key={field.id} className="grid grid-cols-2 items-end gap-3 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] p-3 sm:grid-cols-[3.5rem_1fr_5rem_5rem_4rem_2.25rem] sm:items-center sm:border-0 sm:bg-transparent sm:p-0 sm:px-1">
+                    <div>
+                      <label className="text-label mb-1 block sm:sr-only">Vị trí</label>
+                      <input type="number" {...register(`qualitativeLevels.${index}.position` as const, { valueAsNumber: true })} className="h-9 w-full rounded-control border border-[var(--color-border)] bg-[var(--color-card)] px-3 text-sm text-[var(--color-foreground)] outline-none focus-visible:border-[var(--color-primary)] focus-visible:ring-2 focus-visible:ring-[var(--color-ring)] tabular-nums" aria-label="Vị trí" onWheel={(e) => (e.target as HTMLInputElement).blur()} />
+                    </div>
+                    <div>
+                      <label className="text-label mb-1 block sm:sr-only">Tên mức</label>
+                      <input {...register(`qualitativeLevels.${index}.name` as const)} className="h-9 w-full rounded-control border border-[var(--color-border)] bg-[var(--color-card)] px-3 text-sm text-[var(--color-foreground)] outline-none focus-visible:border-[var(--color-primary)] focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]" aria-label={`Tên mức ${index + 1}`} />
+                    </div>
+                    <div>
+                      <label className="text-label mb-1 block sm:sr-only">Giá trị</label>
+                      <input type="number" step="0.5" {...register(`qualitativeLevels.${index}.value` as const, { valueAsNumber: true })} className="h-9 w-full rounded-control border border-[var(--color-border)] bg-[var(--color-card)] px-3 text-sm text-[var(--color-foreground)] outline-none focus-visible:border-[var(--color-primary)] focus-visible:ring-2 focus-visible:ring-[var(--color-ring)] tabular-nums" aria-label="Giá trị" onWheel={(e) => (e.target as HTMLInputElement).blur()} />
+                    </div>
+                    <div>
+                      <label className="text-label mb-1 block sm:sr-only">% BSC</label>
+                      <input type="number" step="1" min="0" max="100" {...register(`qualitativeLevels.${index}.scorePercent` as const, { valueAsNumber: true })} className="h-9 w-full rounded-control border border-[var(--color-border)] bg-[var(--color-card)] px-3 text-sm text-[var(--color-foreground)] outline-none focus-visible:border-[var(--color-primary)] focus-visible:ring-2 focus-visible:ring-[var(--color-ring)] tabular-nums" aria-label="% BSC" onWheel={(e) => (e.target as HTMLInputElement).blur()} />
+                    </div>
+                    <div className="flex items-end gap-2">
+                      <div className="flex-1">
+                        <label className="text-label mb-1 block sm:sr-only">Màu</label>
+                        <input type="color" {...register(`qualitativeLevels.${index}.color` as const)} className="h-9 w-full cursor-pointer rounded-control border border-[var(--color-border)] bg-[var(--color-card)] p-0.5" aria-label="Màu mức" />
+                      </div>
+                      <Button type="button" variant="ghost" size="icon-sm" onClick={() => remove(index)} aria-label="Xoá mức" title="Xoá mức" className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)] sm:hidden"><Trash2 aria-hidden="true" /></Button>
+                    </div>
+                    <Button type="button" variant="ghost" size="icon-sm" onClick={() => remove(index)} aria-label="Xoá mức" title="Xoá mức" className="hidden text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)] sm:inline-flex"><Trash2 aria-hidden="true" /></Button>
+                  </li>
+                ))}
+              </ol>
+              <Button variant="outline" size="sm" type="button" className="w-full border-dashed" onClick={() => append({ id: undefined, name: 'MỨC MỚI', value: 0, position: fields.length + 1, scorePercent: 0, color: '#3b82f6' })}>
+                <Plus aria-hidden="true" /> Thêm mức
+              </Button>
+            </div>
+          ) : (
+            <div className="overflow-x-auto rounded-card border border-[var(--color-border)]">
+              <table className="w-full">
+                <thead>
+                  <tr className="border-b border-[var(--color-border)] bg-[var(--color-muted)]">
+                    <th scope="col" className="w-16 px-4 py-2.5 text-left text-eyebrow">Vị trí</th>
+                    <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">Tên mức</th>
+                    <th scope="col" className="px-4 py-2.5 text-right text-eyebrow">Giá trị</th>
+                    {org?.enableBsc && <th scope="col" className="px-4 py-2.5 text-right text-eyebrow" title="Quy đổi sang % hoàn thành khi tính điểm BSC">% BSC</th>}
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[var(--color-border)]">
+                  {fields.map((field, index) => (
+                    <tr key={field.id}>
+                      <td className="px-4 py-2.5 text-sm tabular-nums text-[var(--color-muted-foreground)]">{watchedLevels[index]?.position}</td>
+                      <td className="px-4 py-2.5">
+                        <span className="flex items-center gap-2 text-sm font-medium text-[var(--color-foreground)]">
+                          <span className="h-3 w-3 shrink-0 rounded-full" style={{ backgroundColor: watchedLevels[index]?.color || '#cbd5e1' }} aria-hidden="true" />
+                          {watchedLevels[index]?.name}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2.5 text-right text-sm font-medium tabular-nums text-[var(--color-foreground)]">{watchedLevels[index]?.value}</td>
+                      {org?.enableBsc && <td className="px-4 py-2.5 text-right text-sm tabular-nums text-[var(--color-muted-foreground)]">{watchedLevels[index]?.scorePercent ?? 0}%</td>}
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
 
-        {isEditing && (
-          <div className="flex gap-3 pt-2">
-            <button
-              type="button"
-              onClick={() => {
-                setIsEditing(false)
-                reset()
-              }}
-              className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 text-[11px] font-bold uppercase tracking-wider hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
-            >
-              Hủy
-            </button>
-            <button
-              type="button"
-              onClick={handleSubmit(handleSave, toastFirstError)}
-              disabled={updateMutation.isPending}
-              className="flex-[2] py-2.5 bg-emerald-600 text-white rounded-xl text-[11px] font-bold uppercase tracking-wider shadow-lg hover:bg-emerald-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              {updateMutation.isPending && <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
-              Lưu cấu hình
-            </button>
-          </div>
-        )}
+          {isEditing && (
+            <div className="mt-4 flex items-center justify-end gap-2 border-t border-[var(--color-border)] pt-4">
+              <Button variant="outline" type="button" onClick={() => { setIsEditing(false); reset() }} disabled={updateMutation.isPending}>Hủy</Button>
+              <Button onClick={handleSubmit(handleSave, toastFirstError)} disabled={updateMutation.isPending}>
+                {updateMutation.isPending && <Loader2 className="animate-spin" aria-hidden="true" />}
+                Lưu cấu hình
+              </Button>
+            </div>
+          )}
         </div>
       </section>
     </div>
@@ -532,13 +433,13 @@ const DEFAULT_PERFORMANCE_MATRIX: PerformanceMatrix = {
 
 const cellColor = (v: number) => {
   const map: Record<number, string> = {
-    1: 'bg-rose-100 text-rose-700 dark:bg-rose-900/30 dark:text-rose-300',
-    2: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300',
-    3: 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-300',
-    4: 'bg-indigo-100 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300',
-    5: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300',
+    1: 'bg-[var(--color-error-bg)] text-[var(--color-error)] dark:bg-[var(--color-error-bg)]',
+    2: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)] dark:bg-[var(--color-warning-bg)]',
+    3: 'bg-[var(--color-info-bg)] text-[var(--color-info)] dark:bg-[var(--color-info-bg)]',
+    4: 'bg-[var(--color-primary-soft)] text-[var(--color-primary)]',
+    5: 'bg-[var(--color-success-bg)] text-[var(--color-success)] dark:bg-[var(--color-success-bg)]',
   }
-  return map[v] || 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'
+  return map[v] || 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)]'
 }
 
 function parseMatrix(raw?: string): PerformanceMatrix {
@@ -666,79 +567,46 @@ export function PerformanceMatrixSection({ org }: { org: any }) {
     )
   }
 
-  const inputCls = 'w-full bg-white dark:bg-slate-900 px-2 py-1.5 rounded-lg text-xs font-bold border border-slate-100 dark:border-slate-800 outline-none focus:border-fuchsia-500 text-center'
+  const inputCls = 'h-9 w-full rounded-control border border-[var(--color-border)] bg-[var(--color-card)] px-3 text-sm text-[var(--color-foreground)] outline-none focus-visible:border-[var(--color-primary)] focus-visible:ring-2 focus-visible:ring-[var(--color-ring)] text-center'
 
   return (
-    <section className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-      <div id="tour-matrix-header" className="px-8 py-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
-        <div className="flex items-center gap-4">
-          <div className="w-10 h-10 rounded-xl bg-fuchsia-50 dark:bg-fuchsia-900/30 flex items-center justify-center text-fuchsia-600 dark:text-fuchsia-400">
-            <Grid3x3 size={20} />
-          </div>
-          <div>
-            <h3 className="text-lg font-bold text-slate-900 dark:text-white uppercase tracking-tight">Ma trận xếp loại</h3>
-            <p className="text-[10px] font-medium text-slate-400 uppercase tracking-widest">Hiệu quả làm việc</p>
-          </div>
+    <section className="overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
+      <div id="tour-matrix-header" className="flex flex-col gap-3 border-b border-[var(--color-border)] px-5 py-4 sm:flex-row sm:items-start sm:justify-between">
+        <div className="min-w-0">
+          <h3 className="text-section-title">Ma trận xếp loại</h3>
+          <p id="tour-matrix-guide" className="mt-1 max-w-2xl text-sm text-[var(--color-muted-foreground)]">
+            Ánh xạ <b className="font-medium text-[var(--color-foreground)]">điểm hành vi</b> (hàng) và <b className="font-medium text-[var(--color-foreground)]">% hoàn thành KPI</b> (cột) sang mức xếp loại cuối.
+            Chỉ xếp loại khi có đủ hai trục: người được chấm có cả KPI định lượng lẫn định tính, hoặc tổ chức bật Chấm hạnh kiểm để bù trục còn trống.
+          </p>
         </div>
         {!isEditing && (
-          <div className="flex items-center gap-2">
-            <button
-              onClick={handleResetToDefault}
-              className="w-9 h-9 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-400 hover:text-fuchsia-600 border border-slate-200 dark:border-slate-700 transition-all flex items-center justify-center"
-              title="Đặt lại về mặc định"
-            >
-              <RotateCcw size={16} />
-            </button>
-            <button
-              onClick={() => setIsEditing(true)}
-              className="w-9 h-9 rounded-lg bg-slate-50 dark:bg-slate-800 text-slate-500 hover:text-fuchsia-600 border border-slate-200 dark:border-slate-700 transition-all flex items-center justify-center"
-            >
-              <Edit3 size={16} />
-            </button>
+          <div className="flex shrink-0 items-center gap-2">
+            <Button variant="outline" size="icon" aria-label="Đặt lại về mặc định" onClick={handleResetToDefault} title="Đặt lại về mặc định">
+              <RotateCcw aria-hidden="true" />
+            </Button>
+            <Button variant="outline" onClick={() => setIsEditing(true)}>
+              <Edit3 aria-hidden="true" /> Chỉnh sửa
+            </Button>
           </div>
         )}
       </div>
 
-      <div className="p-8 space-y-6">
-        <div id="tour-matrix-guide" className="p-4 rounded-2xl bg-fuchsia-50 dark:bg-fuchsia-900/10 border border-fuchsia-100 dark:border-fuchsia-900/30 flex items-start gap-3">
-          <Info size={18} className="text-fuchsia-600 shrink-0 mt-0.5" />
-          <div className="space-y-2">
-            <p className="text-[11px] text-fuchsia-700/80 dark:text-fuchsia-400/80 font-medium leading-relaxed">
-              Ánh xạ <span className="font-bold">Điểm hành vi</span> (hàng) và <span className="font-bold">% hoàn thành KPI</span> (cột) sang mức xếp loại cuối cùng. Chỉnh nhãn dải, giá trị ô, thêm/bớt hàng-cột tùy ý.
-            </p>
-            {/* Luật hai trục hay bị hiểu nhầm nhất: người chỉ có một loại KPI vẫn tưởng sẽ ra
-                xếp loại. Nói thẳng ở đây, cạnh chính cái bảng, thay vì để họ tự đoán khi thấy "—". */}
-            <p className="text-[11px] text-fuchsia-700/80 dark:text-fuchsia-400/80 font-medium leading-relaxed">
-              Ma trận chỉ xếp loại khi có <span className="font-bold">đủ hai trục</span>: người được chấm có
-              cả KPI định lượng lẫn định tính, hoặc tổ chức bật <span className="font-bold">Chấm hạnh kiểm</span> để
-              bù trục còn trống. Chỉ một loại KPI thì chỉ có một trục — khi đó không ra xếp loại.
-            </p>
-          </div>
-        </div>
-
+      <div className="space-y-4 p-5">
         {isEditing && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <label className="text-[9px] font-bold text-slate-400 uppercase">Tên trục hàng</label>
-              <input
-                value={matrix.rowHeader || ''}
-                onChange={e => setMatrix({ ...clone(matrix), rowHeader: e.target.value })}
-                className="w-full bg-white dark:bg-slate-900 px-3 py-2 rounded-lg text-xs font-bold border border-slate-100 dark:border-slate-800 outline-none focus:border-fuchsia-500"
-              />
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div>
+              <label className="text-label mb-1 block">Tên trục hàng</label>
+              <input value={matrix.rowHeader || ''} onChange={e => setMatrix({ ...clone(matrix), rowHeader: e.target.value })} className="h-9 w-full rounded-control border border-[var(--color-border)] bg-[var(--color-card)] px-3 text-sm text-[var(--color-foreground)] outline-none focus-visible:border-[var(--color-primary)] focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]" />
             </div>
-            <div className="space-y-1">
-              <label className="text-[9px] font-bold text-slate-400 uppercase">Tên trục cột</label>
-              <input
-                value={matrix.colHeader || ''}
-                onChange={e => setMatrix({ ...clone(matrix), colHeader: e.target.value })}
-                className="w-full bg-white dark:bg-slate-900 px-3 py-2 rounded-lg text-xs font-bold border border-slate-100 dark:border-slate-800 outline-none focus:border-fuchsia-500"
-              />
+            <div>
+              <label className="text-label mb-1 block">Tên trục cột</label>
+              <input value={matrix.colHeader || ''} onChange={e => setMatrix({ ...clone(matrix), colHeader: e.target.value })} className="h-9 w-full rounded-control border border-[var(--color-border)] bg-[var(--color-card)] px-3 text-sm text-[var(--color-foreground)] outline-none focus-visible:border-[var(--color-primary)] focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]" />
             </div>
           </div>
         )}
 
         {!isEditing && (
-          <p className="sm:hidden text-[10px] font-medium text-slate-400 flex items-center gap-1 px-1">
+          <p className="sm:hidden text-caption flex items-center gap-1 px-1">
             <ArrowRight size={12} className="animate-pulse" /> Vuốt ngang để xem đầy đủ bảng
           </p>
         )}
@@ -747,11 +615,11 @@ export function PerformanceMatrixSection({ org }: { org: any }) {
           <table className="border-separate border-spacing-1 min-w-full">
             <thead>
               <tr>
-                <th className="p-2 min-w-[88px] sm:min-w-[120px] text-left align-bottom sticky left-0 z-20 bg-white dark:bg-slate-900">
-                  <span className="text-[9px] font-bold text-slate-400 uppercase leading-tight block">
+                <th className="p-2 min-w-[88px] sm:min-w-[120px] text-left align-bottom sticky left-0 z-20 bg-[var(--color-card)]">
+                  <span className="text-eyebrow leading-tight block">
                     {matrix.rowHeader} ↓
                   </span>
-                  <span className="text-[9px] font-bold text-slate-400 uppercase leading-tight block">
+                  <span className="text-eyebrow leading-tight block">
                     {matrix.colHeader} →
                   </span>
                 </th>
@@ -760,18 +628,12 @@ export function PerformanceMatrixSection({ org }: { org: any }) {
                     {isEditing ? (
                       <div className="flex flex-col gap-1">
                         <input value={col} onChange={e => setColHeader(ci, e.target.value)} className={inputCls} />
-                        <button
-                          type="button"
-                          onClick={() => removeCol(ci)}
-                          className="self-center p-1 text-red-400 hover:text-red-600 disabled:opacity-30"
-                          disabled={matrix.cols.length <= 1}
-                          title="Xóa cột"
-                        >
-                          <X size={12} />
-                        </button>
+                        <Button variant="ghost" size="icon-sm" className="self-center text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]" aria-label="Xóa cột" type="button" onClick={() => removeCol(ci)} disabled={matrix.cols.length <= 1} title="Xóa cột">
+                          <X aria-hidden="true" />
+                        </Button>
                       </div>
                     ) : (
-                      <div className="px-1.5 sm:px-2 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-[10px] sm:text-[11px] font-bold text-slate-700 dark:text-slate-200 text-center">
+                      <div className="px-1.5 sm:px-2 py-2 rounded-control bg-[var(--color-muted)] text-xs sm:text-xs font-medium text-[var(--color-foreground)] text-center">
                         {col}
                       </div>
                     )}
@@ -779,13 +641,9 @@ export function PerformanceMatrixSection({ org }: { org: any }) {
                 ))}
                 {isEditing && (
                   <th className="p-1 align-top">
-                    <button
-                      type="button"
-                      onClick={addCol}
-                      className="h-9 px-3 rounded-lg border border-dashed border-fuchsia-300 text-fuchsia-600 hover:bg-fuchsia-50 dark:hover:bg-fuchsia-900/20 text-[10px] font-bold flex items-center gap-1 whitespace-nowrap"
-                    >
-                      <Plus size={12} /> Cột
-                    </button>
+                    <Button variant="ghost" size="sm" className="whitespace-nowrap" type="button" onClick={addCol}>
+                      <Plus aria-hidden="true" /> Cột
+                    </Button>
                   </th>
                 )}
               </tr>
@@ -793,22 +651,16 @@ export function PerformanceMatrixSection({ org }: { org: any }) {
             <tbody>
               {matrix.rows.map((row, ri) => (
                 <tr key={ri}>
-                  <th className="p-1 min-w-[88px] sm:min-w-[120px] sticky left-0 z-10 bg-white dark:bg-slate-900">
+                  <th className="p-1 min-w-[88px] sm:min-w-[120px] sticky left-0 z-10 bg-[var(--color-card)]">
                     {isEditing ? (
                       <div className="flex items-center gap-1">
                         <input value={row} onChange={e => setRowHeader(ri, e.target.value)} className={inputCls + ' text-left'} />
-                        <button
-                          type="button"
-                          onClick={() => removeRow(ri)}
-                          className="p-1 text-red-400 hover:text-red-600 disabled:opacity-30 shrink-0"
-                          disabled={matrix.rows.length <= 1}
-                          title="Xóa hàng"
-                        >
-                          <Trash2 size={12} />
-                        </button>
+                        <Button variant="ghost" size="icon-sm" className="shrink-0 text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]" aria-label="Xóa hàng" type="button" onClick={() => removeRow(ri)} disabled={matrix.rows.length <= 1} title="Xóa hàng">
+                          <Trash2 aria-hidden="true" />
+                        </Button>
                       </div>
                     ) : (
-                      <div className="px-2 py-2 rounded-lg bg-slate-100 dark:bg-slate-800 text-[10px] sm:text-[11px] font-bold text-slate-700 dark:text-slate-200 text-left">
+                      <div className="px-2 py-2 rounded-control bg-[var(--color-muted)] text-xs sm:text-xs font-medium text-[var(--color-foreground)] text-left">
                         {row}
                       </div>
                     )}
@@ -826,7 +678,7 @@ export function PerformanceMatrixSection({ org }: { org: any }) {
                             className={inputCls}
                           />
                         ) : (
-                          <div className={cn('py-2 sm:py-2.5 rounded-lg text-xs sm:text-sm font-black text-center', cellColor(val))}>
+                          <div className={cn('py-2 sm:py-2.5 rounded-control text-xs sm:text-sm font-semibold text-center', cellColor(val))}>
                             {val}
                           </div>
                         )}
@@ -839,13 +691,9 @@ export function PerformanceMatrixSection({ org }: { org: any }) {
               {isEditing && (
                 <tr>
                   <td className="p-1">
-                    <button
-                      type="button"
-                      onClick={addRow}
-                      className="h-9 px-3 rounded-lg border border-dashed border-fuchsia-300 text-fuchsia-600 hover:bg-fuchsia-50 dark:hover:bg-fuchsia-900/20 text-[10px] font-bold flex items-center gap-1 whitespace-nowrap"
-                    >
-                      <Plus size={12} /> Hàng
-                    </button>
+                    <Button variant="ghost" size="sm" className="whitespace-nowrap" type="button" onClick={addRow}>
+                      <Plus aria-hidden="true" /> Hàng
+                    </Button>
                   </td>
                 </tr>
               )}
@@ -854,23 +702,12 @@ export function PerformanceMatrixSection({ org }: { org: any }) {
         </div>
 
         {isEditing && (
-          <div className="flex gap-3 pt-2">
-            <button
-              type="button"
-              onClick={handleCancel}
-              className="flex-1 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 text-[11px] font-bold uppercase tracking-wider hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
-            >
-              Hủy
-            </button>
-            <button
-              type="button"
-              onClick={handleSave}
-              disabled={updateMutation.isPending}
-              className="flex-[2] py-2.5 bg-fuchsia-600 text-white rounded-xl text-[11px] font-bold uppercase tracking-wider shadow-lg hover:bg-fuchsia-700 transition-all disabled:opacity-50 flex items-center justify-center gap-2"
-            >
-              {updateMutation.isPending && <div className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+          <div className="flex items-center justify-end gap-2 border-t border-[var(--color-border)] pt-4">
+            <Button variant="outline" type="button" onClick={handleCancel} disabled={updateMutation.isPending}>Hủy</Button>
+            <Button onClick={handleSave} disabled={updateMutation.isPending}>
+              {updateMutation.isPending && <Loader2 className="animate-spin" aria-hidden="true" />}
               Lưu ma trận
-            </button>
+            </Button>
           </div>
         )}
       </div>

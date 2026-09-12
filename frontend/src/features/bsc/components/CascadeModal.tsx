@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { X, GitBranch, Loader2, AlertTriangle, Check } from 'lucide-react'
+import { Loader2, AlertTriangle, Check } from 'lucide-react'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
@@ -8,6 +8,9 @@ import { cn } from '@/lib/utils'
 import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
 import { useCascadeMutations, useScorecardCoverage } from '../hooks/useBscCascade'
 import { BscLinkType, type ScorecardResponse, type ScorecardPerspectiveResponse } from '../types'
+import { Dialog, DialogFooter } from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { ChoiceChip } from '@/components/ui/choice-chip'
 
 interface CascadeModalProps {
   open: boolean
@@ -184,137 +187,124 @@ export default function CascadeModal({ open, onClose, scorecard }: CascadeModalP
   }
 
   return (
-    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-      <div className="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-[2rem] shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
-        <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-indigo-600 flex items-center justify-center text-white">
-              <GitBranch size={18} />
-            </div>
-            <div>
-              <h3 className="text-lg font-black text-slate-900 dark:text-white">Phân rã chỉ tiêu xuống đơn vị</h3>
-              <p className="text-[11px] font-bold text-slate-400">{scorecard.name}</p>
-            </div>
+    <Dialog
+      open
+      onClose={onClose}
+      size="lg"
+      dismissible={!cascade.isPending}
+      title="Phân rã chỉ tiêu xuống đơn vị"
+      description={<span className="block truncate" title={scorecard.name}>{scorecard.name}</span>}
+      footer={
+        <DialogFooter
+          secondary={<Button variant="outline" onClick={onClose} disabled={cascade.isPending}>Huỷ</Button>}
+          primary={
+            <Button onClick={submit} disabled={!selectedItem || selected.length === 0 || cascade.isPending}>
+              {cascade.isPending && <Loader2 className="animate-spin" aria-hidden="true" />}
+              {assigned.size > 0 ? 'Cập nhật' : 'Phân rã'} cho {selected.length} đơn vị
+            </Button>
+          }
+        />
+      }
+    >
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="space-y-1.5">
+            <label className="text-label">Chỉ tiêu cần giao</label>
+            {/* value rỗng bị Radix hiểu là "đã chọn giá trị rỗng" nên nó nuốt luôn placeholder —
+                truyền undefined mới ra được ô có chữ gợi ý khi bộ tiêu chí chưa có chỉ tiêu nào. */}
+            <Select value={selectedItem?.id ?? undefined}
+              onValueChange={v => { setItemId(v); setRows({}) }}>
+              <SelectTrigger className="w-full"><SelectValue placeholder="Chưa có chỉ tiêu nào" /></SelectTrigger>
+              <SelectContent className="z-[1100]">
+                {items.map(i => (
+                  <SelectItem key={i.id} value={i.id}>
+                    {i.name}{i.targetValue != null ? ` · ${i.targetValue}${i.unit ? ` ${i.unit}` : ''}` : ''}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl">
-            <X size={18} />
-          </button>
+          <div className="space-y-1.5">
+            <label className="text-label">Loại liên kết</label>
+            <Select value={linkType} onValueChange={v => setLinkType(v as BscLinkType)}>
+              <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+              <SelectContent className="z-[1100]">
+                {Object.entries(LINK_LABELS).map(([value, meta]) => (
+                  <SelectItem key={value} value={value}>{meta.label}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-caption ml-1">{LINK_LABELS[linkType].hint}</p>
+          </div>
         </div>
 
-        <div className="p-5 space-y-4 overflow-y-auto custom-scrollbar">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Chỉ tiêu cần giao</label>
-              {/* value rỗng bị Radix hiểu là "đã chọn giá trị rỗng" nên nó nuốt luôn placeholder —
-                  truyền undefined mới ra được ô có chữ gợi ý khi bộ tiêu chí chưa có chỉ tiêu nào. */}
-              <Select value={selectedItem?.id ?? undefined}
-                onValueChange={v => { setItemId(v); setRows({}) }}>
-                <SelectTrigger className="w-full"><SelectValue placeholder="Chưa có chỉ tiêu nào" /></SelectTrigger>
-                <SelectContent className="z-[1100]">
-                  {items.map(i => (
-                    <SelectItem key={i.id} value={i.id}>
-                      {i.name}{i.targetValue != null ? ` · ${i.targetValue}${i.unit ? ` ${i.unit}` : ''}` : ''}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Loại liên kết</label>
-              <Select value={linkType} onValueChange={v => setLinkType(v as BscLinkType)}>
-                <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-                <SelectContent className="z-[1100]">
-                  {Object.entries(LINK_LABELS).map(([value, meta]) => (
-                    <SelectItem key={value} value={value}>{meta.label}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <p className="text-[10px] font-medium text-slate-400 ml-1">{LINK_LABELS[linkType].hint}</p>
-            </div>
+        {showCoverage && (
+          <div className={cn('rounded-card px-4 py-3 text-xs font-medium flex items-center gap-2',
+            gap != null && Math.abs(gap) <= Math.max(0.01, Math.abs(parentTarget!) * 0.01)
+              ? 'bg-[var(--color-success-bg)] text-[var(--color-success)] dark:bg-[var(--color-success-bg)] dark:text-[var(--color-success)]'
+              : 'bg-[var(--color-warning-bg)] text-[var(--color-warning)] dark:bg-[var(--color-warning-bg)] dark:text-[var(--color-warning)]')}>
+            {gap != null && Math.abs(gap) <= Math.max(0.01, Math.abs(parentTarget!) * 0.01)
+              ? <Check size={14} /> : <AlertTriangle size={14} />}
+            Đã phân bổ {totalContribution.toLocaleString('vi-VN')} / {parentTarget!.toLocaleString('vi-VN')}
+            {selectedItem?.unit ? ` ${selectedItem.unit}` : ''}
+            {gap != null && Math.abs(gap) > 0.009 && (
+              <span>· {gap > 0 ? `còn thiếu ${gap.toLocaleString('vi-VN')}` : `vượt ${Math.abs(gap).toLocaleString('vi-VN')}`}</span>
+            )}
           </div>
+        )}
 
-          {showCoverage && (
-            <div className={cn('rounded-2xl px-4 py-3 text-[11px] font-bold flex items-center gap-2',
-              gap != null && Math.abs(gap) <= Math.max(0.01, Math.abs(parentTarget!) * 0.01)
-                ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/20 dark:text-emerald-400'
-                : 'bg-amber-50 text-amber-700 dark:bg-amber-950/20 dark:text-amber-400')}>
-              {gap != null && Math.abs(gap) <= Math.max(0.01, Math.abs(parentTarget!) * 0.01)
-                ? <Check size={14} /> : <AlertTriangle size={14} />}
-              Đã phân bổ {totalContribution.toLocaleString('vi-VN')} / {parentTarget!.toLocaleString('vi-VN')}
-              {selectedItem?.unit ? ` ${selectedItem.unit}` : ''}
-              {gap != null && Math.abs(gap) > 0.009 && (
-                <span>· {gap > 0 ? `còn thiếu ${gap.toLocaleString('vi-VN')}` : `vượt ${Math.abs(gap).toLocaleString('vi-VN')}`}</span>
-              )}
+        <div className="rounded-card border border-[var(--color-border)] divide-y divide-[var(--color-border)] max-h-[40vh] overflow-y-auto custom-scrollbar">
+          {/* Tiêu đề cột: hai ô nhập bên phải trước đây chỉ có placeholder làm nhãn, mà placeholder
+              thì biến mất ngay khi người dùng gõ chữ đầu tiên — lúc đó không còn gì nói ô nào là gì. */}
+          <div className="flex items-center gap-3 px-4 py-2 bg-[var(--color-muted)] sticky top-0 z-10">
+            <span className="w-4 shrink-0" />
+            <span className="text-eyebrow flex-1">Đơn vị</span>
+            <span className="text-eyebrow w-24 text-right">
+              Đóng góp{selectedItem?.unit ? ` (${selectedItem.unit})` : ''}
+            </span>
+            <span className="text-eyebrow w-20 text-right">Trọng số %</span>
+          </div>
+          {targetUnits.length === 0 && (
+            <div className="px-4 py-6 text-center text-caption">
+              Đơn vị này không có đơn vị cấp dưới nào để giao chỉ tiêu.
             </div>
           )}
-
-          <div className="rounded-2xl border border-slate-100 dark:border-slate-800 divide-y divide-slate-100 dark:divide-slate-800 max-h-[40vh] overflow-y-auto custom-scrollbar">
-            {/* Tiêu đề cột: hai ô nhập bên phải trước đây chỉ có placeholder làm nhãn, mà placeholder
-                thì biến mất ngay khi người dùng gõ chữ đầu tiên — lúc đó không còn gì nói ô nào là gì. */}
-            <div className="flex items-center gap-3 px-4 py-2 bg-slate-50 dark:bg-slate-800/50 sticky top-0 z-10">
-              <span className="w-4 shrink-0" />
-              <span className="flex-1 text-[10px] font-black uppercase tracking-widest text-slate-400">Đơn vị</span>
-              <span className="w-24 text-right text-[10px] font-black uppercase tracking-widest text-slate-400">
-                Đóng góp{selectedItem?.unit ? ` (${selectedItem.unit})` : ''}
-              </span>
-              <span className="w-20 text-right text-[10px] font-black uppercase tracking-widest text-slate-400">Trọng số %</span>
-            </div>
-            {targetUnits.length === 0 && (
-              <div className="px-4 py-6 text-center text-[11px] font-bold text-slate-400">
-                Đơn vị này không có đơn vị cấp dưới nào để giao chỉ tiêu.
+          {targetUnits.map(u => {
+            const r = rowOf(u)
+            const isOwn = ownUnitIds.has(u.id)
+            return (
+              <div key={u.id} className={cn('flex items-center gap-3 px-4 py-2', isOwn && 'opacity-40')}>
+                <ChoiceChip selected={r.selected} variant="solid" className="shrink-0" disabled={isOwn} onClick={() => patch(u, { selected: !r.selected })}>
+                  {r.selected && <span className="text-xs font-semibold">✓</span>}
+                </ChoiceChip>
+                <span className="flex-1 text-sm font-medium text-[var(--color-foreground)] truncate"
+                  style={{ paddingLeft: u.level * 12 }}>
+                  {u.name}
+                  {isOwn && <span className="ml-1.5 text-caption">· đơn vị của thẻ này</span>}
+                </span>
+                {r.selected && (
+                  <>
+                    <input type="number" step="any" value={r.contribution}
+                      onChange={e => patch(u, { contribution: e.target.value })}
+                      placeholder="0"
+                      className="w-24 px-2 py-1.5 rounded-control bg-[var(--color-muted)] border border-[var(--color-border)] text-xs font-medium text-right outline-none focus:placeholder:text-transparent" />
+                    <input type="number" step="0.1" value={r.weight}
+                      onChange={e => patch(u, { weight: e.target.value })}
+                      placeholder="0"
+                      className="w-20 px-2 py-1.5 rounded-control bg-[var(--color-muted)] border border-[var(--color-border)] text-xs font-medium text-right outline-none focus:placeholder:text-transparent" />
+                  </>
+                )}
               </div>
-            )}
-            {targetUnits.map(u => {
-              const r = rowOf(u)
-              const isOwn = ownUnitIds.has(u.id)
-              return (
-                <div key={u.id} className={cn('flex items-center gap-3 px-4 py-2', isOwn && 'opacity-40')}>
-                  <button type="button" disabled={isOwn}
-                    onClick={() => patch(u, { selected: !r.selected })}
-                    className={cn('w-4 h-4 rounded border flex items-center justify-center shrink-0',
-                      r.selected ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-300 dark:border-slate-600')}>
-                    {r.selected && <span className="text-[9px] font-black">✓</span>}
-                  </button>
-                  <span className="flex-1 text-sm font-bold text-slate-700 dark:text-slate-200 truncate"
-                    style={{ paddingLeft: u.level * 12 }}>
-                    {u.name}
-                    {isOwn && <span className="ml-1.5 text-[10px] font-black text-slate-400">· đơn vị của thẻ này</span>}
-                  </span>
-                  {r.selected && (
-                    <>
-                      <input type="number" step="any" value={r.contribution}
-                        onChange={e => patch(u, { contribution: e.target.value })}
-                        placeholder="0"
-                        className="w-24 px-2 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-xs font-bold text-right outline-none focus:placeholder:text-transparent" />
-                      <input type="number" step="0.1" value={r.weight}
-                        onChange={e => patch(u, { weight: e.target.value })}
-                        placeholder="0"
-                        className="w-20 px-2 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-xs font-bold text-right outline-none focus:placeholder:text-transparent" />
-                    </>
-                  )}
-                </div>
-              )
-            })}
-          </div>
-
-          <p className="text-[10px] font-medium text-slate-400">
-            Đơn vị nhận chỉ tiêu ở dạng <b>khoá</b>: trưởng đơn vị không sửa được mục tiêu và trọng số,
-            chỉ gắn KPI con vào. Vì vậy <b>trọng số phải nhập ngay ở đây</b> — để trống thì chỉ tiêu nằm im ở 0%
-            và đơn vị không bao giờ gom đủ 100% để trình duyệt.
-          </p>
+            )
+          })}
         </div>
 
-        <div className="p-4 border-t border-slate-100 dark:border-slate-800 flex justify-end gap-2">
-          <button onClick={onClose} className="px-4 py-2 rounded-xl text-xs font-black text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">
-            Huỷ
-          </button>
-          <button onClick={submit} disabled={!selectedItem || selected.length === 0 || cascade.isPending}
-            className="px-4 py-2 rounded-xl text-xs font-black bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-40 inline-flex items-center gap-2">
-            {cascade.isPending && <Loader2 size={13} className="animate-spin" />}
-            {assigned.size > 0 ? 'Cập nhật' : 'Phân rã'} cho {selected.length} đơn vị
-          </button>
-        </div>
+        <p className="text-caption">
+          Đơn vị nhận chỉ tiêu ở dạng <b>khoá</b>: trưởng đơn vị không sửa được mục tiêu và trọng số,
+          chỉ gắn KPI con vào. Vì vậy <b>trọng số phải nhập ngay ở đây</b> — để trống thì chỉ tiêu nằm im ở 0%
+          và đơn vị không bao giờ gom đủ 100% để trình duyệt.
+        </p>
       </div>
-    </div>
+    </Dialog>
   )
 }

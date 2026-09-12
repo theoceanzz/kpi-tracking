@@ -2,12 +2,17 @@ import { cn } from '@/lib/utils'
 
 type Variant = 'success' | 'warning' | 'error' | 'info' | 'default'
 
-const variantStyles: Record<Variant, string> = {
-  success: 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/30 dark:text-emerald-400',
-  warning: 'bg-amber-100 text-amber-800 dark:bg-amber-900/30 dark:text-amber-400',
-  error: 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400',
-  info: 'bg-blue-100 text-blue-800 dark:bg-blue-900/30 dark:text-blue-400',
-  default: 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)]',
+/**
+ * Cùng công thức với `Badge` ở ui/: nền nhạt + chữ đậm + viền mờ, đi qua token nên
+ * đúng ở cả hai chế độ. Chấm tròn đứng trước chỉ để mắt quét cột trạng thái nhanh
+ * hơn — ý nghĩa vẫn nằm ở nhãn chữ, không ở màu.
+ */
+const variantStyles: Record<Variant, { badge: string; dot: string }> = {
+  success: { badge: 'border-[var(--color-success-border)] bg-[var(--color-success-bg)] text-[var(--color-success)]', dot: 'bg-[var(--color-success)]' },
+  warning: { badge: 'border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] text-[var(--color-warning)]', dot: 'bg-[var(--color-warning)]' },
+  error:   { badge: 'border-[var(--color-error-border)] bg-[var(--color-error-bg)] text-[var(--color-error)]', dot: 'bg-[var(--color-error)]' },
+  info:    { badge: 'border-[var(--color-info-border)] bg-[var(--color-info-bg)] text-[var(--color-info)]', dot: 'bg-[var(--color-info)]' },
+  default: { badge: 'border-transparent bg-[var(--color-muted)] text-[var(--color-muted-foreground)]', dot: 'bg-[var(--color-subtle-foreground)]' },
 }
 
 const statusMap: Record<string, { variant: Variant; label: string }> = {
@@ -35,15 +40,17 @@ interface StatusBadgeProps {
 
 export default function StatusBadge({ status, className }: StatusBadgeProps) {
   const mapped = statusMap[status] ?? { variant: 'default' as Variant, label: status }
+  const style = variantStyles[mapped.variant]
 
   return (
     <span
       className={cn(
-        'inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium',
-        variantStyles[mapped.variant],
+        'inline-flex items-center gap-1.5 rounded-control border px-2 py-0.5 text-xs font-medium leading-4 whitespace-nowrap',
+        style.badge,
         className
       )}
     >
+      <span aria-hidden="true" className={cn('h-1.5 w-1.5 shrink-0 rounded-full', style.dot)} />
       {mapped.label}
     </span>
   )

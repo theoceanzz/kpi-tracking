@@ -11,8 +11,8 @@ export default function AttachmentList({ attachments }: AttachmentListProps) {
 
   if (attachments.length === 0) {
     return (
-      <div className="p-8 border-2 border-dashed border-slate-100 dark:border-slate-800 rounded-2xl text-center">
-        <p className="text-sm text-slate-400 font-medium italic">Không có tài liệu minh chứng đính kèm</p>
+      <div className="p-8 border-2 border-dashed border-[var(--color-border)] rounded-card text-center">
+        <p className="text-sm text-[var(--color-subtle-foreground)] font-medium italic">Không có tài liệu minh chứng đính kèm</p>
       </div>
     )
   }
@@ -31,27 +31,27 @@ export default function AttachmentList({ attachments }: AttachmentListProps) {
           return (
             <div 
               key={a.id} 
-              className="group relative bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-[24px] overflow-hidden hover:shadow-xl hover:shadow-indigo-500/10 hover:border-indigo-200 dark:hover:border-indigo-900/50 transition-all duration-300"
+              className="group relative bg-[var(--color-card)] border border-[var(--color-border)] rounded-card overflow-hidden hover:border-[var(--color-border)] transition-all duration-300"
             >
               {/* Card visual */}
-              <div className="h-32 bg-slate-50 dark:bg-slate-800/50 relative flex items-center justify-center overflow-hidden border-b border-slate-100 dark:border-slate-800">
+              <div className="h-32 bg-[var(--color-muted)] relative flex items-center justify-center overflow-hidden border-b border-[var(--color-border)]">
                 {isImage ? (
-                  <img src={a.fileUrl} alt={a.fileName} className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-500" />
+                  <img src={a.fileUrl} alt={a.fileName} className="w-full h-full object-cover transition-transform duration-500"/>
                 ) : isVideo ? (
                   <video src={a.fileUrl} className="w-full h-full object-cover" preload="metadata" muted />
                 ) : (
-                  <div className="text-slate-300 dark:text-slate-600">
+                  <div className="text-[var(--color-subtle-foreground)]">
                     {isAudio ? <FileAudio size={48} strokeWidth={1.5} /> : <FileIcon size={48} strokeWidth={1.5} />}
                   </div>
                 )}
                 
                 {/* Overlay actions */}
-                <div className="absolute inset-0 bg-indigo-600/0 group-hover:bg-indigo-600/60 backdrop-blur-0 group-hover:backdrop-blur-sm transition-all duration-300 flex items-center justify-center gap-3 opacity-0 group-hover:opacity-100">
+                <div className="absolute inset-0 bg-[var(--color-primary-soft)] group-hover:bg-[var(--color-primary-soft)] transition-all duration-300 flex items-center justify-center gap-3 opacity-0 group-hover:opacity-100">
                   {canPreview && (
                     <button 
                       type="button"
                       onClick={() => setPreviewFile(a)}
-                      className="w-10 h-10 rounded-full bg-white text-indigo-600 flex items-center justify-center shadow-lg hover:bg-indigo-50 transition-colors"
+                      className="w-10 h-10 rounded-full bg-white text-[var(--color-primary)] flex items-center justify-center hover:bg-[var(--color-primary-soft)] transition-colors"
                       title="Xem trước"
                     >
                       <Eye size={18} />
@@ -61,7 +61,7 @@ export default function AttachmentList({ attachments }: AttachmentListProps) {
                     href={a.fileUrl} 
                     target="_blank" 
                     rel="noreferrer"
-                    className="w-10 h-10 rounded-full bg-white text-slate-900 flex items-center justify-center shadow-lg hover:bg-slate-50 transition-colors"
+                    className="w-10 h-10 rounded-full bg-white text-[var(--color-foreground)] flex items-center justify-center hover:bg-[var(--color-muted)] transition-colors"
                     title="Mở trong tab mới"
                   >
                     <ExternalLink size={18} />
@@ -69,7 +69,7 @@ export default function AttachmentList({ attachments }: AttachmentListProps) {
                   <button 
                     type="button"
                     onClick={() => downloadFile(a.fileUrl, a.fileName)}
-                    className="w-10 h-10 rounded-full bg-indigo-500 text-white flex items-center justify-center shadow-lg hover:bg-indigo-600 transition-colors"
+                    className="w-10 h-10 rounded-full bg-[var(--color-primary)] text-[var(--color-primary-foreground)] flex items-center justify-center hover:bg-[var(--color-primary-hover)] transition-colors"
                     title="Tải về"
                   >
                     <Download size={18} />
@@ -77,17 +77,17 @@ export default function AttachmentList({ attachments }: AttachmentListProps) {
                 </div>
 
                 {isPdf && (
-                   <div className="absolute top-2 right-2 px-2 py-0.5 rounded-md bg-red-500 text-white text-[10px] font-black uppercase tracking-widest shadow-sm">
+                   <div className="text-eyebrow absolute top-2 right-2 px-2 py-0.5 rounded-control bg-[var(--color-error-solid)] text-white shadow-sm">
                       PDF
                    </div>
                 )}
                 {isVideo && (
-                   <div className="absolute top-2 right-2 px-2 py-0.5 rounded-md bg-purple-500 text-white text-[10px] font-black uppercase tracking-widest shadow-sm flex items-center gap-1">
+                   <div className="text-eyebrow absolute top-2 right-2 px-2 py-0.5 rounded-control bg-[var(--color-primary)] text-[var(--color-primary-foreground)] shadow-sm flex items-center gap-1">
                       <FileVideo size={10} /> Video
                    </div>
                 )}
                 {isAudio && (
-                   <div className="absolute top-2 right-2 px-2 py-0.5 rounded-md bg-pink-500 text-white text-[10px] font-black uppercase tracking-widest shadow-sm flex items-center gap-1">
+                   <div className="text-eyebrow absolute top-2 right-2 px-2 py-0.5 rounded-control bg-[var(--color-primary)] text-[var(--color-primary-foreground)] flex items-center gap-1">
                       <FileAudio size={10} /> Audio
                    </div>
                 )}
@@ -95,10 +95,10 @@ export default function AttachmentList({ attachments }: AttachmentListProps) {
 
               {/* File Info */}
               <div className="p-4">
-                <h5 className="text-xs font-black text-slate-800 dark:text-slate-100 truncate mb-1" title={a.fileName}>
+                <h5 className="text-xs font-semibold text-[var(--color-foreground)] truncate mb-1" title={a.fileName}>
                   {a.fileName}
                 </h5>
-                <div className="flex items-center justify-between text-[10px] font-bold text-slate-400 uppercase tracking-tight">
+                <div className="flex items-center justify-between text-eyebrow tracking-tight">
                   <span>
                     {isImage ? 'Ảnh' :
                      isPdf ? 'PDF' :

@@ -268,7 +268,7 @@ export default function HierarchicalTreemap({ nodes, height = 300, onSelect }: P
     // effect đo đã chạy xong từ lượt trước và không bao giờ chạy lại.
     <div ref={wrapRef} className="w-full relative" style={{ height }}>
       {nodes.length === 0 ? (
-        <div className="w-full h-full flex items-center justify-center text-sm text-slate-400 font-medium">
+        <div className="w-full h-full flex items-center justify-center text-sm text-[var(--color-subtle-foreground)] font-medium">
           Chưa có dữ liệu để vẽ
         </div>
       ) : (
@@ -426,12 +426,12 @@ function NodeTooltip({ node, x, y, clickable }: {
   const kinds = kindsOf(node)
   return (
     <div
-      className="absolute z-20 pointer-events-none bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3.5 rounded-xl shadow-lg max-w-[280px]"
+      className="absolute z-20 pointer-events-none bg-[var(--color-card)] border border-[var(--color-border)] p-3.5 rounded-card shadow-lg max-w-[280px]"
       style={{ left: Math.max(x + 12, 4), top: Math.max(y + 12, 4) }}
     >
-      <p className="font-bold text-slate-900 dark:text-white break-words">{node.name}</p>
+      <p className="font-bold text-[var(--color-foreground)] break-words">{node.name}</p>
       {(node.unitName || node.periodName) && (
-        <p className="text-xs text-slate-500 mb-2">
+        <p className="text-xs text-[var(--color-muted-foreground)] mb-2">
           {[node.unitName, node.periodName].filter(Boolean).join(' · ')}
         </p>
       )}
@@ -440,7 +440,7 @@ function NodeTooltip({ node, x, y, clickable }: {
           {kinds.map(k => (
             <span
               key={k}
-              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-black uppercase text-white"
+              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[11px] font-semibold uppercase text-white"
               style={{ backgroundColor: KPI_KIND_COLORS[k] }}
             >
               {KPI_KIND_LABELS[k]}
@@ -479,20 +479,20 @@ function NodeTooltip({ node, x, y, clickable }: {
       </div>
       <AssigneeAvatars people={node.assignees ?? []} />
       {node.replacedKpiName && (
-        <div className="pt-2.5 mt-2.5 border-t border-slate-100 dark:border-slate-800">
-          <p className="text-xs text-slate-500 font-medium">Thay thế KPI:</p>
+        <div className="pt-2.5 mt-2.5 border-t border-[var(--color-border)]">
+          <p className="text-xs text-[var(--color-muted-foreground)] font-medium">Thay thế KPI:</p>
           <p className="text-xs font-bold text-slate-800 dark:text-slate-100 break-words">
             {node.replacedKpiName}
           </p>
           {node.replacementReason && (
-            <p className="text-[11px] text-slate-500 italic mt-0.5 break-words">
+            <p className="text-[11px] text-[var(--color-muted-foreground)] italic mt-0.5 break-words">
               {node.replacementReason}
             </p>
           )}
         </div>
       )}
       {clickable && node.id && (
-        <p className="text-xs font-bold text-indigo-600 dark:text-indigo-400 pt-2.5 mt-2.5 border-t border-slate-100 dark:border-slate-800">
+        <p className="text-xs font-bold text-indigo-600 dark:text-indigo-400 pt-2.5 mt-2.5 border-t border-[var(--color-border)]">
           Bấm để xem chi tiết →
         </p>
       )}
@@ -509,8 +509,8 @@ function Row({ label, value, color }: { label: string; value: string; color?: st
   return (
     <div className="flex items-center gap-3">
       {color && <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: color }} />}
-      <span className="text-slate-500 font-medium min-w-[80px]">{label}:</span>
-      <span className="font-bold text-slate-900 dark:text-white tabular-nums">{value}</span>
+      <span className="text-[var(--color-muted-foreground)] font-medium min-w-[80px]">{label}:</span>
+      <span className="font-bold text-[var(--color-foreground)] tabular-nums">{value}</span>
     </div>
   )
 }

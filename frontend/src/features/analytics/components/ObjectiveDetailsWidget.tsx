@@ -165,32 +165,32 @@ export default function ObjectiveDetailsWidget({ dateRange, onlyApproved = false
     <div className="w-full h-full flex flex-col gap-4">
       <div>
         <div className="flex items-center gap-2 mb-1">
-          <div className="p-1.5 bg-indigo-100 dark:bg-indigo-500/20 rounded-lg">
-            <LayoutList className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+          <div className="p-1.5 bg-[var(--color-primary-soft)] rounded-control">
+            <LayoutList className="w-5 h-5 text-[var(--color-primary)]" />
           </div>
-          <h2 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">Chi tiết Mục tiêu</h2>
+          <h2 className="text-section-title text-[var(--color-foreground)] tracking-tight">Chi tiết Mục tiêu</h2>
         </div>
-        <p className="text-sm text-slate-500 ml-9">Theo dõi bảng dữ liệu phân cấp mục tiêu</p>
+        <p className="text-sm text-[var(--color-muted-foreground)] ml-9">Theo dõi bảng dữ liệu phân cấp mục tiêu</p>
       </div>
 
       {/* Card — giãn kín ô widget */}
-      <div className="flex-1 min-h-0 flex flex-col bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+      <div className="flex-1 min-h-0 flex flex-col bg-[var(--color-card)] rounded-widget border border-[var(--color-border)] overflow-hidden">
         {/* Card header */}
-        <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0">
-          <h3 className="text-sm font-black text-slate-900 dark:text-white">
+        <div className="px-5 py-4 border-b border-[var(--color-border)] flex items-center justify-between shrink-0">
+          <h3 className="text-section-title">
             {view === 'chart' ? 'Bản đồ trọng số mục tiêu' : 'Bảng dữ liệu phân cấp'}
           </h3>
           <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-slate-400">{totalElements} mục tiêu</span>
+            <span className="text-caption">{totalElements} mục tiêu</span>
             <ViewToggleButtons view={view} onChange={setView} />
           </div>
         </div>
 
         {/* Filter toolbar */}
-        <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex flex-wrap items-center gap-3 shrink-0">
+        <div className="px-6 py-4 border-b border-[var(--color-border)] flex flex-wrap items-center gap-3 shrink-0">
           <div className="min-w-[220px]">
             <Select value={orgUnitId || ALL_UNITS} onValueChange={handleOrgUnitChange}>
-              <SelectTrigger className="h-9 text-xs font-semibold bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700">
+              <SelectTrigger className="h-9 text-xs font-semibold bg-[var(--color-muted)] border-[var(--color-border)]">
                 <SelectValue placeholder="Tất cả đơn vị" />
               </SelectTrigger>
               <SelectContent>
@@ -209,15 +209,15 @@ export default function ObjectiveDetailsWidget({ dateRange, onlyApproved = false
         {isLoading ? (
           <div className="flex-1 min-h-0 flex items-center justify-center">
             <div className="flex flex-col items-center gap-3">
-              <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
-              <div className="text-sm font-medium text-slate-500">Đang tải chi tiết mục tiêu...</div>
+              <Loader2 className="w-8 h-8 text-[var(--color-primary)] animate-spin" />
+              <div className="text-sm font-medium text-[var(--color-muted-foreground)]">Đang tải chi tiết mục tiêu...</div>
             </div>
           </div>
         ) : (
           <div className="flex-1 min-h-0 overflow-auto custom-scrollbar flex flex-col">
             {view === 'chart' ? (
               treemapLeaves.length === 0 ? (
-                <div className="flex-1 flex items-center justify-center text-sm text-slate-400 font-medium py-16">
+                <div className="flex-1 flex items-center justify-center text-sm text-[var(--color-subtle-foreground)] font-medium py-16">
                   Chưa có Key Result nào có tiến độ để vẽ
                 </div>
               ) : (
@@ -226,11 +226,11 @@ export default function ObjectiveDetailsWidget({ dateRange, onlyApproved = false
                     data={treemapLeaves}
                     onSelect={d => { if (d.id) handleRowClick('KR', { id: d.id, name: d.name }) }}
                   />
-                  <p className="text-[11px] text-slate-400 font-medium text-center mt-2">
+                  <p className="text-caption font-medium text-center mt-2">
                     Mỗi ô là một Key Result, gom theo Mục tiêu · Diện tích = số KPI · Màu = tiến độ · Bấm để mở chi tiết
                   </p>
                   {totalElements > CHART_FETCH_SIZE && (
-                    <p className="text-[11px] text-amber-600 font-bold text-center mt-1">
+                    <p className="text-xs text-[var(--color-warning)] font-medium text-center mt-1">
                       Có {totalElements} mục tiêu, biểu đồ chỉ vẽ {CHART_FETCH_SIZE} mục đầu — xem đủ ở chế độ bảng.
                     </p>
                   )}

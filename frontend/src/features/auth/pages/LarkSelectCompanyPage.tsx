@@ -50,7 +50,7 @@ function OrgAvatar({
         src={avatarUrl}
         alt={name}
         onError={() => setFailed(true)}
-        className="h-10 w-10 shrink-0 rounded-lg object-cover"
+        className="h-10 w-10 shrink-0 rounded-control object-cover"
       />
     )
   }
@@ -58,9 +58,9 @@ function OrgAvatar({
   return (
     <div
       className={cn(
-        'flex h-10 w-10 shrink-0 items-center justify-center rounded-lg text-sm font-black',
+        'flex h-10 w-10 shrink-0 items-center justify-center rounded-control text-sm font-semibold',
         highlighted
-          ? 'bg-[var(--color-primary)] text-white'
+          ? 'bg-[var(--color-primary)] text-[var(--color-primary-foreground)]'
           : 'bg-[var(--color-muted)] text-[var(--color-foreground)]'
       )}
     >
@@ -148,29 +148,24 @@ export default function LarkSelectCompanyPage() {
         Quay lại
       </Link>
 
-      <h1 className="mt-5 text-2xl font-black text-[var(--color-foreground)]">Chọn công ty của bạn</h1>
+      <h1 className="text-page-title mt-5 text-[var(--color-foreground)]">Chọn công ty của bạn</h1>
       <p className="mt-1.5 text-sm text-[var(--color-muted-foreground)]">
         Bạn sẽ đăng nhập bằng tài khoản Lark của công ty này.
       </p>
 
       {lastCompany && !keyword && (
-        <button
-          type="button"
-          onClick={() => handleSelect(lastCompany)}
-          disabled={authorizeMutation.isPending}
-          className="mt-5 w-full flex items-center gap-3 rounded-xl border-2 border-[var(--color-primary)] bg-[var(--color-primary)]/5 p-3.5 text-left transition-all hover:shadow-md disabled:opacity-60"
-        >
-          <OrgAvatar name={lastCompany.name} avatarUrl={lastCompany.avatarUrl} highlighted />
+        <button className="mt-5 flex w-full items-center gap-3 rounded-card border border-[var(--color-primary)] bg-[var(--color-primary-soft)] p-3 text-left transition-colors hover:bg-[var(--color-muted)]" type="button" onClick={() => handleSelect(lastCompany)} disabled={authorizeMutation.isPending}>
+          <OrgAvatar aria-hidden="true" name={lastCompany.name} avatarUrl={lastCompany.avatarUrl} highlighted />
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-bold text-[var(--color-foreground)]">
+            <p className="truncate text-sm font-medium text-[var(--color-foreground)]">
               Tiếp tục với {lastCompany.name}
             </p>
             <p className="text-xs text-[var(--color-muted-foreground)]">Lần đăng nhập gần nhất</p>
           </div>
           {selectingId === lastCompany.id ? (
-            <Loader2 size={18} className="animate-spin text-[var(--color-primary)]" />
+            <Loader2 aria-hidden="true" className="animate-spin text-[var(--color-primary)]" />
           ) : (
-            <ChevronRight size={18} className="text-[var(--color-primary)]" />
+            <ChevronRight aria-hidden="true" className="text-[var(--color-primary)]" />
           )}
         </button>
       )}
@@ -186,7 +181,7 @@ export default function LarkSelectCompanyPage() {
           value={keyword}
           onChange={(e) => setKeyword(e.target.value)}
           placeholder="Tìm theo tên công ty..."
-          className="w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-background)] py-3 pl-11 pr-4 text-sm shadow-sm outline-none transition-all focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/20"
+          className="h-10 w-full rounded-control border border-[var(--color-border)] bg-[var(--color-card)] pl-10 pr-3 text-sm text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-subtle-foreground)] focus-visible:border-[var(--color-primary)] focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]"
         />
       </div>
 
@@ -198,7 +193,7 @@ export default function LarkSelectCompanyPage() {
         )}
 
         {isError && (
-          <p className="py-10 text-center text-sm text-red-500">
+          <p className="py-10 text-center text-sm text-[var(--color-error)]">
             Không tải được danh sách công ty. Vui lòng thử lại.
           </p>
         )}
@@ -218,21 +213,15 @@ export default function LarkSelectCompanyPage() {
         )}
 
         {organizations.map((org: PublicOrganization) => (
-          <button
-            key={org.id}
-            type="button"
-            onClick={() => handleSelect(org)}
-            disabled={authorizeMutation.isPending}
-            className="w-full flex items-center gap-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-background)] p-3.5 text-left transition-all hover:border-[var(--color-primary)]/50 hover:bg-[var(--color-muted)]/40 disabled:opacity-60"
-          >
-            <OrgAvatar name={org.name} avatarUrl={org.avatarUrl} />
+          <button className="flex w-full items-center gap-3 rounded-card border border-[var(--color-border)] bg-[var(--color-card)] p-3 text-left transition-colors hover:bg-[var(--color-muted)]" key={org.id} type="button" onClick={() => handleSelect(org)} disabled={authorizeMutation.isPending}>
+            <OrgAvatar aria-hidden="true" name={org.name} avatarUrl={org.avatarUrl} />
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-bold text-[var(--color-foreground)]">{org.name}</p>
+              <p className="truncate text-sm font-medium text-[var(--color-foreground)]">{org.name}</p>
             </div>
             {selectingId === org.id ? (
-              <Loader2 size={18} className="animate-spin text-[var(--color-primary)]" />
+              <Loader2 aria-hidden="true" className="animate-spin text-[var(--color-primary)]" />
             ) : (
-              <ChevronRight size={18} className="text-[var(--color-muted-foreground)]" />
+              <ChevronRight aria-hidden="true" className="text-[var(--color-muted-foreground)]" />
             )}
           </button>
         ))}

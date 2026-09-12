@@ -1,7 +1,9 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { Loader2, Upload, X, Trash2, RotateCcw } from 'lucide-react'
+import { Loader2, Upload, Trash2, RotateCcw } from 'lucide-react'
+import { Dialog, DialogFooter } from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { getApiErrorMessage } from '@/lib/apiError'
 import { certificateTemplateSchema, type CertificateTemplateFormData } from '../../schemas/certificateTemplateSchema'
@@ -22,6 +24,7 @@ import {
   resolveDesign,
   type CertificateData,
 } from './presets'
+import { ChoiceChip } from '@/components/ui/choice-chip'
 
 interface CertificateTemplateModalProps {
   open: boolean
@@ -283,271 +286,252 @@ export default function CertificateTemplateModal({
   }
 
   return (
-    <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-      <div className="flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-card)] shadow-xl">
-        <div className="flex flex-shrink-0 items-center justify-between border-b border-[var(--color-border)] px-6 py-4">
-          <h2 className="text-lg font-semibold">
-            {isEdit ? 'Sửa mẫu chứng nhận' : 'Tạo mẫu chứng nhận'}
-          </h2>
-          <button onClick={onClose} className="rounded-lg p-1 hover:bg-[var(--color-accent)]">
-            <X size={18} />
-          </button>
-        </div>
+    <Dialog
+      open
+      onClose={onClose}
+      size="full"
+      flush
+      dismissible={!saving}
+      title={isEdit ? 'Sửa mẫu chứng nhận' : 'Tạo mẫu chứng nhận'}
+      footer={
+        <DialogFooter
+          secondary={<Button variant="outline" onClick={onClose} disabled={saving}>Huỷ</Button>}
+          primary={
+            <Button onClick={handleSubmit(onSubmit)} disabled={saving}>
+              {saving && <Loader2 className="animate-spin" aria-hidden="true" />}
+              {isEdit ? 'Lưu thay đổi' : 'Tạo mẫu'}
+            </Button>
+          }
+        />
+      }
+    >
+      <div className="grid flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
+        {/* ── Cột trái: biểu mẫu ── */}
+        <div className="space-y-6 border-b border-[var(--color-border)] p-5 lg:border-b-0 lg:border-r">
+          <Field label="Tên mẫu" hint="Chỉ hiện trong danh sách chọn, không in lên giấy">
+            <input
+              value={name}
+              onChange={(e) => setValue('name', e.target.value, { shouldValidate: true })}
+              placeholder="VD: Nhân viên của tuần"
+              className="w-full rounded-control border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-sm"
+            />
+            {errors.name && <p className="mt-1 text-xs text-[var(--color-error)]">{errors.name.message}</p>}
+          </Field>
 
-        <div className="grid flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
-          {/* ── Cột trái: biểu mẫu ── */}
-          <div className="space-y-6 overflow-y-auto border-b border-[var(--color-border)] p-5 lg:border-b-0 lg:border-r">
-            <Field label="Tên mẫu" hint="Chỉ hiện trong danh sách chọn, không in lên giấy">
+          <div>
+            <div className="mb-2 text-sm font-medium">Kiểu thiết kế</div>
+            <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+              {CERTIFICATE_PRESETS.map((p) => (
+                <button
+                  key={p.key}
+                  onClick={() => handlePresetChange(p.key)}
+                  title={p.tagline}
+                  className={`rounded-card border p-2 text-left transition-colors ${preset === p.key
+                      ? 'border-[var(--color-primary)] ring-2 ring-[var(--color-primary)]/25'
+                      : 'border-[var(--color-border)] hover:bg-[var(--color-accent)]'
+                    }`}
+                >
+                  <PresetSwatch presetKey={p.key} />
+                  <div className="mt-1.5 truncate text-xs font-medium">{p.name}</div>
+                </button>
+              ))}
+            </div>
+            <p className="mt-2 text-xs text-[var(--color-muted-foreground)]">
+              {getPreset(preset).tagline}
+            </p>
+          </div>
+
+          <Field label="Khổ giấy">
+            <div className="flex gap-1.5">
+              {[
+                { key: CertificateOrientation.LANDSCAPE, label: 'Ngang (A4)' },
+                { key: CertificateOrientation.PORTRAIT, label: 'Dọc (A4)' },
+              ].map((o) => (
+                <ChoiceChip selected={orientation === o.key} variant="solid" className="flex-1 py-2" key={o.key} onClick={() => setValue('orientation', o.key)}>
+                  {o.label}
+                </ChoiceChip>
+              ))}
+            </div>
+          </Field>
+
+          <div className="space-y-4 border-t border-[var(--color-border)] pt-5">
+            <div className="text-sm font-semibold">Nội dung in trên giấy</div>
+
+            <PlaceholderHelp />
+
+            <Field label="Dòng dẫn" hint="Chữ nhỏ phía trên tiêu đề">
               <input
-                value={name}
-                onChange={(e) => setValue('name', e.target.value, { shouldValidate: true })}
-                placeholder="VD: Nhân viên của tuần"
-                className="w-full rounded-lg border border-[var(--color-input)] bg-[var(--color-background)] px-3 py-2 text-sm"
+                value={eyebrow}
+                onChange={(e) => setValue('eyebrow', e.target.value)}
+                className="w-full rounded-control border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-sm"
               />
-              {errors.name && <p className="mt-1 text-xs text-rose-600">{errors.name.message}</p>}
             </Field>
 
-            <div>
-              <div className="mb-2 text-sm font-medium">Kiểu thiết kế</div>
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-                {CERTIFICATE_PRESETS.map((p) => (
-                  <button
-                    key={p.key}
-                    onClick={() => handlePresetChange(p.key)}
-                    title={p.tagline}
-                    className={`rounded-xl border p-2 text-left transition-colors ${preset === p.key
-                        ? 'border-[var(--color-primary)] ring-2 ring-[var(--color-primary)]/25'
-                        : 'border-[var(--color-border)] hover:bg-[var(--color-accent)]'
-                      }`}
-                  >
-                    <PresetSwatch presetKey={p.key} />
-                    <div className="mt-1.5 truncate text-xs font-medium">{p.name}</div>
-                  </button>
-                ))}
-              </div>
-              <p className="mt-2 text-xs text-[var(--color-muted-foreground)]">
-                {getPreset(preset).tagline}
-              </p>
-            </div>
-
-            <Field label="Khổ giấy">
-              <div className="flex gap-1.5">
-                {[
-                  { key: CertificateOrientation.LANDSCAPE, label: 'Ngang (A4)' },
-                  { key: CertificateOrientation.PORTRAIT, label: 'Dọc (A4)' },
-                ].map((o) => (
-                  <button
-                    key={o.key}
-                    onClick={() => setValue('orientation', o.key)}
-                    className={`flex-1 rounded-lg border px-3 py-2 text-sm transition-colors ${orientation === o.key
-                        ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/10 font-medium text-[var(--color-primary)]'
-                        : 'border-[var(--color-border)] text-[var(--color-muted-foreground)] hover:bg-[var(--color-accent)]'
-                      }`}
-                  >
-                    {o.label}
-                  </button>
-                ))}
-              </div>
+            <Field label="Tiêu đề">
+              <input
+                value={title}
+                onChange={(e) => setValue('title', e.target.value, { shouldValidate: true })}
+                className="w-full rounded-control border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-sm font-medium"
+              />
+              {errors.title && <p className="mt-1 text-xs text-[var(--color-error)]">{errors.title.message}</p>}
             </Field>
 
-            <div className="space-y-4 border-t border-[var(--color-border)] pt-5">
-              <div className="text-sm font-semibold">Nội dung in trên giấy</div>
+            <Field label="Phụ đề" hint="Dòng ngay trên tên người nhận">
+              <input
+                value={subtitle}
+                onChange={(e) => setValue('subtitle', e.target.value)}
+                className="w-full rounded-control border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-sm"
+              />
+            </Field>
 
-              <PlaceholderHelp />
+            <Field label="Đoạn nội dung">
+              <textarea
+                value={body}
+                onChange={(e) => setValue('body', e.target.value)}
+                rows={3}
+                className="w-full resize-none rounded-control border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-sm"
+              />
+            </Field>
 
-              <Field label="Dòng dẫn" hint="Chữ nhỏ phía trên tiêu đề">
-                <input
-                  value={eyebrow}
-                  onChange={(e) => setValue('eyebrow', e.target.value)}
-                  className="w-full rounded-lg border border-[var(--color-input)] bg-[var(--color-background)] px-3 py-2 text-sm"
-                />
-              </Field>
+            <Field label="Dòng chân trang" hint="Để trống nếu không cần, VD: số quyết định">
+              <input
+                value={footnote}
+                onChange={(e) => setValue('footnote', e.target.value)}
+                className="w-full rounded-control border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-sm"
+              />
+            </Field>
 
-              <Field label="Tiêu đề">
-                <input
-                  value={title}
-                  onChange={(e) => setValue('title', e.target.value, { shouldValidate: true })}
-                  className="w-full rounded-lg border border-[var(--color-input)] bg-[var(--color-background)] px-3 py-2 text-sm font-medium"
-                />
-                {errors.title && <p className="mt-1 text-xs text-rose-600">{errors.title.message}</p>}
-              </Field>
-
-              <Field label="Phụ đề" hint="Dòng ngay trên tên người nhận">
-                <input
-                  value={subtitle}
-                  onChange={(e) => setValue('subtitle', e.target.value)}
-                  className="w-full rounded-lg border border-[var(--color-input)] bg-[var(--color-background)] px-3 py-2 text-sm"
-                />
-              </Field>
-
-              <Field label="Đoạn nội dung">
-                <textarea
-                  value={body}
-                  onChange={(e) => setValue('body', e.target.value)}
-                  rows={3}
-                  className="w-full resize-none rounded-lg border border-[var(--color-input)] bg-[var(--color-background)] px-3 py-2 text-sm"
-                />
-              </Field>
-
-              <Field label="Dòng chân trang" hint="Để trống nếu không cần, VD: số quyết định">
-                <input
-                  value={footnote}
-                  onChange={(e) => setValue('footnote', e.target.value)}
-                  className="w-full rounded-lg border border-[var(--color-input)] bg-[var(--color-background)] px-3 py-2 text-sm"
-                />
-              </Field>
-
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                <Toggle
-                  checked={showLogo}
-                  onChange={v => setValue('showLogo', v)}
-                  label="Hiện logo"
-                />
-                <Toggle
-                  checked={showPoints}
-                  onChange={v => setValue('showPoints', v)}
-                  label="Hiện số điểm"
-                />
-                <Toggle
-                  checked={showReason}
-                  onChange={v => setValue('showReason', v)}
-                  label="Hiện lý do"
-                />
-              </div>
-            </div>
-
-            <div className="space-y-4 border-t border-[var(--color-border)] pt-5">
-              <div className="text-sm font-semibold">Người ký</div>
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <Field label="Tên người ký" hint="Để trống = tên người trao thưởng">
-                  <input
-                    value={signerName}
-                    onChange={(e) => setValue('signerName', e.target.value)}
-                    placeholder="VD: Trần Quốc Hưng"
-                    className="w-full rounded-lg border border-[var(--color-input)] bg-[var(--color-background)] px-3 py-2 text-sm"
-                  />
-                </Field>
-                <Field label="Chức danh">
-                  <input
-                    value={signerTitle}
-                    onChange={(e) => setValue('signerTitle', e.target.value)}
-                    placeholder="VD: Giám đốc điều hành"
-                    className="w-full rounded-lg border border-[var(--color-input)] bg-[var(--color-background)] px-3 py-2 text-sm"
-                  />
-                </Field>
-              </div>
-
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-                <ImageField
-                  label="Chữ ký / con dấu"
-                  value={signatureUrl}
-                  onChange={v => setValue('signatureUrl', v)}
-                  onUpload={(f) => handleUpload('signature', f)}
-                  uploading={uploading === 'signature'}
-                />
-                <ImageField
-                  label="Logo riêng"
-                  hint="Trống = logo công ty"
-                  value={logoUrl}
-                  onChange={v => setValue('logoUrl', v)}
-                  onUpload={(f) => handleUpload('logo', f)}
-                  uploading={uploading === 'logo'}
-                />
-                <ImageField
-                  label="Ảnh nền"
-                  value={backgroundUrl}
-                  onChange={v => setValue('backgroundUrl', v)}
-                  onUpload={(f) => handleUpload('background', f)}
-                  uploading={uploading === 'background'}
-                />
-              </div>
-            </div>
-
-            <div className="space-y-3 border-t border-[var(--color-border)] pt-5">
-              <div className="flex items-center justify-between">
-                <div className="text-sm font-semibold">Màu sắc</div>
-                {(accentColor || inkColor || surfaceColor) && (
-                  <button
-                    onClick={() => {
-                      setValue('accentColor', '')
-                      setValue('inkColor', '')
-                      setValue('surfaceColor', '')
-                    }}
-                    className="flex items-center gap-1 text-xs text-[var(--color-primary)] hover:underline"
-                  >
-                    <RotateCcw size={12} />
-                    Về màu gốc của mẫu
-                  </button>
-                )}
-              </div>
-              <div className="grid grid-cols-3 gap-3">
-                <ColorField
-                  label="Màu nhấn"
-                  value={accentColor}
-                  fallback={getPreset(preset).colors.accent}
-                  onChange={v => setValue('accentColor', v)}
-                />
-                <ColorField
-                  label="Màu chữ"
-                  value={inkColor}
-                  fallback={getPreset(preset).colors.ink}
-                  onChange={v => setValue('inkColor', v)}
-                />
-                <ColorField
-                  label="Màu nền"
-                  value={surfaceColor}
-                  fallback={getPreset(preset).colors.surface}
-                  onChange={v => setValue('surfaceColor', v)}
-                />
-              </div>
-            </div>
-
-            <div className="space-y-3 border-t border-[var(--color-border)] pt-5">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <Toggle
-                checked={isDefault}
-                onChange={v => setValue('isDefault', v)}
-                label="Đặt làm mẫu mặc định"
-                hint="Được chọn sẵn khi mở màn hình in. Mỗi công ty chỉ một mẫu."
+                checked={showLogo}
+                onChange={v => setValue('showLogo', v)}
+                label="Hiện logo"
               />
               <Toggle
-                checked={active}
-                onChange={v => setValue('active', v)}
-                label="Đang dùng"
-                hint="Tắt để giữ lại mẫu nhưng không cho chọn khi in."
+                checked={showPoints}
+                onChange={v => setValue('showPoints', v)}
+                label="Hiện số điểm"
+              />
+              <Toggle
+                checked={showReason}
+                onChange={v => setValue('showReason', v)}
+                label="Hiện lý do"
               />
             </div>
           </div>
 
-          {/* ── Cột phải: xem trước ── */}
-          <div className="overflow-y-auto bg-[var(--color-muted)] p-5">
-            <div className="mb-3 text-xs text-[var(--color-muted-foreground)]">
-              Xem trước với dữ liệu mẫu — số liệu thật sẽ được điền lúc in.
+          <div className="space-y-4 border-t border-[var(--color-border)] pt-5">
+            <div className="text-sm font-semibold">Người ký</div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Field label="Tên người ký" hint="Để trống = tên người trao thưởng">
+                <input
+                  value={signerName}
+                  onChange={(e) => setValue('signerName', e.target.value)}
+                  placeholder="VD: Trần Quốc Hưng"
+                  className="w-full rounded-control border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-sm"
+                />
+              </Field>
+              <Field label="Chức danh">
+                <input
+                  value={signerTitle}
+                  onChange={(e) => setValue('signerTitle', e.target.value)}
+                  placeholder="VD: Giám đốc điều hành"
+                  className="w-full rounded-control border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-sm"
+                />
+              </Field>
             </div>
-            <EditorPreview
-              design={design}
-              data={{ ...SAMPLE, organizationName, organizationLogoUrl }}
+
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+              <ImageField
+                label="Chữ ký / con dấu"
+                value={signatureUrl}
+                onChange={v => setValue('signatureUrl', v)}
+                onUpload={(f) => handleUpload('signature', f)}
+                uploading={uploading === 'signature'}
+              />
+              <ImageField
+                label="Logo riêng"
+                hint="Trống = logo công ty"
+                value={logoUrl}
+                onChange={v => setValue('logoUrl', v)}
+                onUpload={(f) => handleUpload('logo', f)}
+                uploading={uploading === 'logo'}
+              />
+              <ImageField
+                label="Ảnh nền"
+                value={backgroundUrl}
+                onChange={v => setValue('backgroundUrl', v)}
+                onUpload={(f) => handleUpload('background', f)}
+                uploading={uploading === 'background'}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-3 border-t border-[var(--color-border)] pt-5">
+            <div className="flex items-center justify-between">
+              <div className="text-sm font-semibold">Màu sắc</div>
+              {(accentColor || inkColor || surfaceColor) && (
+                <Button variant="ghost" size="sm" onClick={() => {
+                    setValue('accentColor', '')
+                    setValue('inkColor', '')
+                    setValue('surfaceColor', '')
+                  }}>
+                  <RotateCcw aria-hidden="true" />
+                  Về màu gốc của mẫu
+                </Button>
+              )}
+            </div>
+            <div className="grid grid-cols-3 gap-3">
+              <ColorField
+                label="Màu nhấn"
+                value={accentColor}
+                fallback={getPreset(preset).colors.accent}
+                onChange={v => setValue('accentColor', v)}
+              />
+              <ColorField
+                label="Màu chữ"
+                value={inkColor}
+                fallback={getPreset(preset).colors.ink}
+                onChange={v => setValue('inkColor', v)}
+              />
+              <ColorField
+                label="Màu nền"
+                value={surfaceColor}
+                fallback={getPreset(preset).colors.surface}
+                onChange={v => setValue('surfaceColor', v)}
+              />
+            </div>
+          </div>
+
+          <div className="space-y-3 border-t border-[var(--color-border)] pt-5">
+            <Toggle
+              checked={isDefault}
+              onChange={v => setValue('isDefault', v)}
+              label="Đặt làm mẫu mặc định"
+              hint="Được chọn sẵn khi mở màn hình in. Mỗi công ty chỉ một mẫu."
+            />
+            <Toggle
+              checked={active}
+              onChange={v => setValue('active', v)}
+              label="Đang dùng"
+              hint="Tắt để giữ lại mẫu nhưng không cho chọn khi in."
             />
           </div>
         </div>
 
-        <div className="flex flex-shrink-0 items-center justify-end gap-2 border-t border-[var(--color-border)] px-6 py-4">
-          <button
-            onClick={onClose}
-            className="rounded-xl border border-[var(--color-border)] px-4 py-2 text-sm font-medium hover:bg-[var(--color-accent)]"
-          >
-            Huỷ
-          </button>
-          <button
-            onClick={handleSubmit(onSubmit)}
-            disabled={saving}
-            className="flex items-center gap-2 rounded-xl bg-[var(--color-primary)] px-5 py-2 text-sm font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
-          >
-            {saving && <Loader2 size={15} className="animate-spin" />}
-            {isEdit ? 'Lưu thay đổi' : 'Tạo mẫu'}
-          </button>
+        {/* ── Cột phải: xem trước ── */}
+        <div className="bg-[var(--color-muted)] p-5">
+          <div className="mb-3 text-xs text-[var(--color-muted-foreground)]">
+            Xem trước với dữ liệu mẫu — số liệu thật sẽ được điền lúc in.
+          </div>
+          <EditorPreview
+            design={design}
+            data={{ ...SAMPLE, organizationName, organizationLogoUrl }}
+          />
         </div>
       </div>
-    </div>
+
+    </Dialog>
   )
 }
 
@@ -631,7 +615,7 @@ function ColorField({
           type="color"
           value={value || fallback}
           onChange={(e) => onChange(e.target.value.toUpperCase())}
-          className="h-9 w-9 flex-shrink-0 cursor-pointer rounded-lg border border-[var(--color-input)] bg-transparent p-0.5"
+          className="h-9 w-9 flex-shrink-0 cursor-pointer rounded-control border border-[var(--color-border)] bg-transparent p-0.5"
         />
         <span className="min-w-0 truncate font-mono text-xs text-[var(--color-muted-foreground)]">
           {value || 'Mặc định'}
@@ -664,7 +648,7 @@ function ImageField({
         {label}
         {hint && <span className="ml-1 font-normal text-[var(--color-muted-foreground)]">· {hint}</span>}
       </div>
-      <div className="relative flex h-20 items-center justify-center overflow-hidden rounded-lg border border-dashed border-[var(--color-border)] bg-[var(--color-background)]">
+      <div className="relative flex h-20 items-center justify-center overflow-hidden rounded-control border border-dashed border-[var(--color-border)] bg-[var(--color-background)]">
         {uploading ? (
           <Loader2 size={18} className="animate-spin text-[var(--color-muted-foreground)]" />
         ) : value ? (
@@ -680,13 +664,10 @@ function ImageField({
             </button>
           </>
         ) : (
-          <button
-            onClick={() => inputRef.current?.click()}
-            className="flex flex-col items-center gap-1 text-xs text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)]"
-          >
-            <Upload size={16} />
+          <Button variant="ghost" size="sm" onClick={() => inputRef.current?.click()}>
+            <Upload aria-hidden="true" />
             Tải ảnh
-          </button>
+          </Button>
         )}
       </div>
       <input
@@ -707,27 +688,22 @@ function ImageField({
 /** Bảng chỗ giữ, bấm để chép nhanh. */
 function PlaceholderHelp() {
   return (
-    <div className="rounded-xl bg-[var(--color-muted)] p-3">
+    <div className="rounded-card bg-[var(--color-muted)] p-3">
       <div className="mb-2 text-xs font-medium">
         Chèn dữ liệu tự động — bấm để sao chép, rồi dán vào ô bất kỳ bên dưới
       </div>
       <div className="flex flex-wrap gap-1.5">
         {CERTIFICATE_PLACEHOLDERS.map((p) => (
-          <button
-            key={p.token}
-            onClick={() => {
+          <Button variant="outline" size="sm" key={p.token} onClick={() => {
               navigator.clipboard
                 ?.writeText(p.token)
                 .then(() => toast.success(`Đã sao chép ${p.token}`))
                 // Trình duyệt chặn clipboard (thường vì không chạy HTTPS) — chỗ giữ vẫn
                 // hiện rõ trên nút nên người dùng gõ tay được, không cần doạ bằng lỗi đỏ.
                 .catch(() => toast.info(`Hãy gõ tay: ${p.token}`))
-            }}
-            title={p.label}
-            className="rounded-md border border-[var(--color-border)] bg-[var(--color-background)] px-2 py-1 font-mono text-[11px] hover:bg-[var(--color-accent)]"
-          >
+            }} title={p.label}>
             {p.token}
-          </button>
+          </Button>
         ))}
       </div>
     </div>
@@ -739,7 +715,7 @@ function PresetSwatch({ presetKey }: { presetKey: string }) {
   const p = getPreset(presetKey)
   return (
     <div
-      className="flex h-10 w-full items-center justify-center gap-1 rounded-lg border border-black/5"
+      className="flex h-10 w-full items-center justify-center gap-1 rounded-control border border-black/5"
       style={{ backgroundColor: p.colors.surface }}
     >
       <span className="h-4 w-4 rounded-full" style={{ backgroundColor: p.colors.accent }} />
@@ -777,7 +753,7 @@ function EditorPreview({
 
   return (
     <div ref={boxRef} className="flex w-full justify-center">
-      <div className="overflow-hidden rounded-lg shadow-lg ring-1 ring-black/10">
+      <div className="overflow-hidden rounded-control shadow-lg ring-1 ring-black/10">
         <CertificateCanvas design={design} data={data} scale={scale} />
       </div>
     </div>

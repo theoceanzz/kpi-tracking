@@ -3,11 +3,11 @@ import { yAxisLabel } from '@/components/charts/axisLabel'
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts'
 import { Trophy, TrendingDown } from 'lucide-react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { cn } from '@/lib/utils'
 import { useSummaryComparison } from '../hooks/useAnalytics'
 import { usePerformanceScale } from '../hooks/usePerformanceScale'
 import type { UnitComparison } from '@/types/stats'
 import ChartTooltip from '@/components/charts/ChartTooltip'
+import { ChoiceChip } from '@/components/ui/choice-chip'
 
 // Chú thích màu: 2 cột (hiệu suất, tiến độ) + 2 chỉ số trong tooltip (trễ hạn, không nộp).
 const UNIT_CHART_KEYS = [
@@ -45,7 +45,7 @@ function UnitBarTooltip({ active, payload, perf }: any) {
 /** Legend gọn, tự xuống dòng (responsive) — gồm cả trễ hạn / không nộp (chỉ hiện trong tooltip). */
 function UnitChartLegend() {
   return (
-    <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 px-2 text-[11px] font-bold text-slate-600 dark:text-slate-300">
+    <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 px-2 text-caption">
       {UNIT_CHART_KEYS.map((k) => (
         <span key={k.label} className="flex items-center gap-1.5 whitespace-nowrap">
           <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: k.color }} />
@@ -59,21 +59,13 @@ function UnitChartLegend() {
 /** Toggle Tốt nhất / Trì trệ. */
 function RankFilterToggle({ filter, onChange }: { filter: 'BEST' | 'WORST'; onChange: (f: 'BEST' | 'WORST') => void }) {
   return (
-    <div className="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 gap-0.5">
-      <button
-        onClick={() => onChange('BEST')}
-        className={cn('flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold transition-all',
-          filter === 'BEST' ? 'bg-white dark:bg-slate-700 text-emerald-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400')}
-      >
-        <Trophy size={11} /> Tốt nhất
-      </button>
-      <button
-        onClick={() => onChange('WORST')}
-        className={cn('flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold transition-all',
-          filter === 'WORST' ? 'bg-white dark:bg-slate-700 text-rose-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400')}
-      >
-        <TrendingDown size={11} /> Trì trệ
-      </button>
+    <div className="flex bg-[var(--color-muted)] rounded-control p-0.5 gap-0.5">
+      <ChoiceChip selected={filter === 'BEST'} variant="segment" size="sm" className="py-1" onClick={() => onChange('BEST')}>
+        <Trophy /> Tốt nhất
+      </ChoiceChip>
+      <ChoiceChip selected={filter === 'WORST'} variant="segment" size="sm" className="py-1" onClick={() => onChange('WORST')}>
+        <TrendingDown /> Trì trệ
+      </ChoiceChip>
     </div>
   )
 }
@@ -83,7 +75,7 @@ function TopNSelect({ value, onChange }: { value: 'ALL' | '5' | '10'; onChange: 
   return (
     <Select value={value} onValueChange={v => onChange(v as 'ALL' | '5' | '10')}>
       <SelectTrigger
-        className="h-8 w-auto gap-1 px-2 bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-lg text-[11px] font-semibold text-slate-600 dark:text-slate-300"
+        className="h-8 w-auto gap-1 px-2 bg-[var(--color-muted)] border-[var(--color-border)] rounded-control text-caption"
         title="Số đơn vị hiển thị"
       >
         <SelectValue />
@@ -134,7 +126,7 @@ export default function UnitComparisonBarChart({ orgUnitId, from, to, onlyApprov
         <TopNSelect value={topN} onChange={setTopN} />
       </div>
       {chartData.length === 0 ? (
-        <div className="flex-1 flex items-center justify-center text-slate-400 text-sm">Không có dữ liệu</div>
+        <div className="flex-1 flex items-center justify-center text-[var(--color-subtle-foreground)] text-sm">Không có dữ liệu</div>
       ) : (
         <div className="flex-1 min-h-0">
           <ResponsiveContainer width="100%" height="100%" minHeight={0}>

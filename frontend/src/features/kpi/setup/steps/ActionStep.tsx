@@ -6,6 +6,7 @@ import StepShell from '../StepShell'
 import { useKpiSetupFlow } from '../useKpiSetupFlow'
 import { WORKFLOW_PARAMS } from '../../workflow/hooks/useWorkflowNavigator'
 import type { SetupStep } from '../flows'
+import { Button } from '@/components/ui/button'
 
 /**
  * Bước dẫn sang một màn hình có sẵn, kèm số việc đang chờ.
@@ -40,25 +41,21 @@ export default function ActionStep({ step }: { step: SetupStep }) {
       description={step.hint}
       onBack={goBack}
       footer={
-        <button
-          type="button"
-          onClick={() => goNext()}
-          className="flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-2.5 text-xs font-black uppercase tracking-widest text-slate-600 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:bg-slate-900 dark:text-slate-300 dark:hover:bg-slate-800"
-        >
+        <Button variant="outline" type="button" onClick={() => goNext()}>
           {isLast ? 'Xong, về màn chọn luồng' : 'Bước tiếp theo'}
-          <ArrowRight size={14} />
-        </button>
+          <ArrowRight aria-hidden="true" />
+        </Button>
       }
     >
       <div className="flex flex-col items-center gap-6 py-4 text-center">
         <div
           className={cn(
-            'flex h-20 w-20 items-center justify-center rounded-[28px]',
+            'flex h-20 w-20 items-center justify-center rounded-card',
             isWait
-              ? 'bg-amber-50 text-amber-500 dark:bg-amber-900/20'
+              ? 'bg-[var(--color-warning-bg)] text-[var(--color-warning)] dark:bg-[var(--color-warning-bg)]'
               : pending && pending > 0
-                ? 'bg-rose-50 text-rose-500 dark:bg-rose-900/20'
-                : 'bg-emerald-50 text-emerald-500 dark:bg-emerald-900/20',
+                ? 'bg-[var(--color-error-bg)] text-[var(--color-error)] dark:bg-[var(--color-error-bg)]'
+                : 'bg-[var(--color-success-bg)] text-[var(--color-success)] dark:bg-[var(--color-success-bg)]',
           )}
         >
           {isWait ? <Hourglass size={34} /> : pending && pending > 0 ? <ExternalLink size={34} /> : <CheckCircle2 size={34} />}
@@ -66,15 +63,15 @@ export default function ActionStep({ step }: { step: SetupStep }) {
 
         <div className="max-w-md space-y-2">
           {pending !== undefined && (
-            <p className="text-3xl font-black tabular-nums text-slate-900 dark:text-white">
+            <p className="text-3xl font-semibold tabular-nums text-[var(--color-foreground)]">
               {pending}
-              <span className="ml-2 align-middle text-xs font-black uppercase tracking-widest text-slate-400">
+              <span className="ml-2 align-middle text-sm font-medium text-[var(--color-subtle-foreground)]">
                 việc đang chờ
               </span>
             </p>
           )}
 
-          <p className="text-sm font-medium leading-relaxed text-slate-500 dark:text-slate-400">
+          <p className="text-sm font-medium leading-relaxed text-[var(--color-muted-foreground)]">
             {isWait
               ? 'Bước này do người khác thực hiện. Bạn không cần ngồi đợi ở đây — rời đi và quay lại khi có thông báo, chỉ tiêu sẽ tự chuyển sang trạng thái đã duyệt.'
               : pending === 0
@@ -86,7 +83,7 @@ export default function ActionStep({ step }: { step: SetupStep }) {
         {step.route && (
           <Link
             to={target}
-            className="flex items-center gap-2 rounded-2xl bg-indigo-600 px-7 py-3.5 text-xs font-black uppercase tracking-widest text-white shadow-lg shadow-indigo-500/25 transition-all hover:bg-indigo-700 active:scale-95"
+            className="flex items-center gap-2 rounded-card bg-[var(--color-primary)] px-7 py-3.5 text-sm font-medium text-[var(--color-primary-foreground)] transition-all hover:bg-[var(--color-primary-hover)]"
           >
             {step.ctaLabel ?? 'Mở màn hình'}
             <ExternalLink size={14} />

@@ -85,13 +85,13 @@ function DivergingTooltip({ active, payload, unit, baselineLabel }: {
   if (!active || !d) return null
   const v = Math.round(d.value * 10) / 10
   return (
-    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3.5 rounded-xl shadow-lg">
-      <p className="font-bold text-slate-900 dark:text-white">{d.name}</p>
-      {d.subText && <p className="text-xs text-slate-500 mb-2">{d.subText}</p>}
-      <p className="font-black text-lg tabular-nums" style={{ color: d.value >= 0 ? POSITIVE : NEGATIVE }}>
+    <div className="bg-[var(--color-card)] border border-[var(--color-border)] p-3.5 rounded-card shadow-lg">
+      <p className="font-bold text-[var(--color-foreground)]">{d.name}</p>
+      {d.subText && <p className="text-xs text-[var(--color-muted-foreground)] mb-2">{d.subText}</p>}
+      <p className="font-semibold text-lg tabular-nums" style={{ color: d.value >= 0 ? POSITIVE : NEGATIVE }}>
         {v > 0 ? '+' : ''}{v}{unit ? ` ${unit}` : ''}
       </p>
-      {baselineLabel && <p className="text-[11px] text-slate-400 font-medium mt-0.5">{baselineLabel}</p>}
+      {baselineLabel && <p className="text-[11px] text-[var(--color-subtle-foreground)] font-medium mt-0.5">{baselineLabel}</p>}
     </div>
   )
 }

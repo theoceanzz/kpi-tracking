@@ -9,6 +9,7 @@ import CertificateTemplateModal from './certificate/CertificateTemplateModal'
 import { resolveDesign, type CertificateData } from './certificate/presets'
 import { useCertificateTemplates } from '../hooks/useCertificates'
 import { CertificateTemplateStatus, type CertificateTemplate } from '../types'
+import { Button } from '@/components/ui/button'
 
 /** Dữ liệu giả cho ảnh thu nhỏ trong danh sách. */
 const THUMB_DATA: Omit<CertificateData, 'organizationName' | 'organizationLogoUrl'> = {
@@ -52,31 +53,25 @@ export default function CertificatesTab() {
           bạn, có logo, chữ ký và lời văn cố định.
         </p>
         <WorkspaceHeaderActions>
-          <button
-            onClick={openCreate}
-            className="inline-flex flex-shrink-0 items-center justify-center gap-2 rounded-xl bg-[var(--color-primary)] px-5 h-10 text-sm font-bold text-white shadow-sm transition-opacity hover:opacity-90"
-          >
-            <Plus size={16} />
+          <Button onClick={openCreate}>
+            <Plus aria-hidden="true" />
             Tạo mẫu
-          </button>
+          </Button>
         </WorkspaceHeaderActions>
       </div>
 
       {isLoading ? (
         <LoadingSkeleton type="card" rows={3} />
       ) : templates.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-[var(--color-border)]">
+        <div className="rounded-card border border-dashed border-[var(--color-border)]">
           <EmptyState
             title="Chưa có mẫu riêng nào"
             description="Tạo một mẫu để cố định logo, chữ ký của giám đốc và lời chứng nhận — lần sau ai in cũng ra đúng một kiểu."
             action={
-              <button
-                onClick={openCreate}
-                className="inline-flex items-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white"
-              >
-                <Award size={16} />
+              <Button onClick={openCreate}>
+                <Award aria-hidden="true" />
                 Tạo mẫu đầu tiên
-              </button>
+              </Button>
             }
           />
         </div>
@@ -144,7 +139,7 @@ function TemplateCard({
   const inactive = template.status !== CertificateTemplateStatus.ACTIVE
 
   return (
-    <div className="overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-card)]">
+    <div className="overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
       {/* Ảnh thu nhỏ vẽ bằng chính component in thật, không phải ảnh chụp sẵn — sửa mẫu
           là thấy ngay, không có bước đồng bộ nào ở giữa để mà lệch. */}
       <div className="flex justify-center overflow-hidden bg-[var(--color-muted)] p-3">
@@ -164,14 +159,14 @@ function TemplateCard({
             {template.isDefault && (
               <span
                 title="Mẫu mặc định khi in"
-                className="flex flex-shrink-0 items-center gap-1 rounded-full bg-amber-500/15 px-2 py-0.5 text-[11px] font-medium text-amber-700"
+                className="flex flex-shrink-0 items-center gap-1 rounded-full bg-[var(--color-warning-bg)] px-2 py-0.5 text-xs font-medium text-[var(--color-warning)]"
               >
                 <Star size={10} />
                 Mặc định
               </span>
             )}
             {inactive && (
-              <span className="flex-shrink-0 rounded-full bg-[var(--color-muted)] px-2 py-0.5 text-[11px] text-[var(--color-muted-foreground)]">
+              <span className="flex-shrink-0 rounded-full bg-[var(--color-muted)] px-2 py-0.5 text-caption">
                 Đang tắt
               </span>
             )}
@@ -182,20 +177,12 @@ function TemplateCard({
         </div>
 
         <div className="flex flex-shrink-0 gap-1">
-          <button
-            onClick={onEdit}
-            title="Sửa mẫu"
-            className="rounded-lg p-1.5 text-[var(--color-muted-foreground)] hover:bg-[var(--color-accent)]"
-          >
-            <Pencil size={15} />
-          </button>
-          <button
-            onClick={onDelete}
-            title="Xoá mẫu"
-            className="rounded-lg p-1.5 text-[var(--color-muted-foreground)] hover:bg-rose-500/10 hover:text-rose-600"
-          >
-            <Trash2 size={15} />
-          </button>
+          <Button variant="ghost" size="icon-sm" aria-label="Sửa mẫu" onClick={onEdit} title="Sửa mẫu">
+            <Pencil aria-hidden="true" />
+          </Button>
+          <Button variant="ghost" size="icon-sm" className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]" aria-label="Xoá mẫu" onClick={onDelete} title="Xoá mẫu">
+            <Trash2 aria-hidden="true" />
+          </Button>
         </div>
       </div>
     </div>

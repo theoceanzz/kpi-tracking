@@ -30,6 +30,7 @@ import {
   type NavItem,
   type NavFeatureFlags,
 } from '@/config/navigation'
+import { Button } from '@/components/ui/button'
 
 // Mọi path trong cây, phẳng — dùng để biết khi nào một path chỉ đang là TIỀN TỐ của
 // route hiện tại (ví dụ /submissions với /submissions/org-unit) thì không được sáng,
@@ -235,7 +236,7 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
       {/* Mobile overlay */}
       {isMobileOpen && (
         <div 
-          className="fixed inset-0 z-40 bg-black/50 backdrop-blur-sm lg:hidden transition-opacity"
+          className="fixed inset-0 z-40 bg-slate-950/50 lg:hidden"
           onClick={onCloseMobile}
         />
       )}
@@ -244,72 +245,58 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
       <aside 
         id="sidebar-container"
         className={cn(
-          "fixed inset-y-0 left-0 z-50 flex flex-col bg-[var(--color-card)] border-r border-[var(--color-border)] h-screen transition-all duration-300 ease-in-out lg:translate-x-0 lg:static lg:sticky lg:top-0",
-          isCollapsed ? "w-20" : "w-64",
-          isMobileOpen ? "translate-x-0 shadow-2xl w-64" : "-translate-x-full"
+          "fixed inset-y-0 left-0 z-50 flex h-screen flex-col border-r border-[var(--color-border)] bg-[var(--color-card)] transition-[width,transform] duration-200 ease-out motion-reduce:transition-none lg:static lg:sticky lg:top-0 lg:translate-x-0",
+          isCollapsed ? "w-16" : "w-64",
+          isMobileOpen ? "w-64 translate-x-0 shadow-lg" : "-translate-x-full"
         )}
       >
         {/* Đầu thanh bên. Khi thu gọn, chính ô logo là nút mở — không còn chỗ nào khác
             để đặt nút, và người dùng vốn đã nhắm vào góc đó. Rê chuột thì logo mờ đi,
             hiện icon thanh bên để nói rõ bấm vào sẽ ra gì. */}
         <div className={cn(
-          "flex items-center justify-between border-b border-[var(--color-border)] h-[73px]",
-          isCollapsed && !isMobileOpen ? "px-0 justify-center" : "px-6"
+          "flex h-14 items-center justify-between border-b border-[var(--color-border)]",
+          isCollapsed && !isMobileOpen ? "justify-center px-0" : "px-4"
         )}>
           {isCollapsed && !isMobileOpen ? (
             <div className="relative group/toggle">
-              <button
-                onClick={toggleSidebar}
-                aria-label="Mở thanh bên"
-                className="w-11 h-11 rounded-xl flex items-center justify-center hover:bg-[var(--color-accent)] transition-colors"
-              >
-                <span className="relative w-9 h-9 flex items-center justify-center">
-                  <span className="absolute inset-0 rounded-lg bg-[var(--color-primary)] flex items-center justify-center shadow-lg shadow-[var(--color-primary)]/20 transition-opacity duration-150 group-hover/toggle:opacity-0">
-                    <Target className="text-white" size={20} />
+              <Button variant="ghost" size="icon" onClick={toggleSidebar} aria-label="Mở thanh bên">
+                <span className="relative flex h-8 w-8 items-center justify-center">
+                  <span className="absolute inset-0 flex items-center justify-center rounded-control bg-[var(--color-primary)] transition-opacity duration-150 group-hover/toggle:opacity-0">
+                    <Target aria-hidden="true" className="text-[var(--color-primary-foreground)]" size={18} />
                   </span>
-                  <PanelLeft
-                    size={20}
+                  <PanelLeft aria-hidden="true"
                     className="relative opacity-0 group-hover/toggle:opacity-100 transition-opacity duration-150 text-[var(--color-foreground)]"
                   />
                 </span>
-              </button>
+              </Button>
               {/* Nằm ngoài <nav> nên không bị vùng cuộn cắt mất. */}
-              <span className="pointer-events-none absolute left-full top-1/2 -translate-y-1/2 ml-2 z-50 whitespace-nowrap rounded-full bg-slate-900 dark:bg-slate-700 px-3 py-1.5 text-xs font-bold text-white shadow-lg opacity-0 group-hover/toggle:opacity-100 transition-opacity duration-150">
+              <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-2 -translate-y-1/2 whitespace-nowrap rounded-control bg-[var(--color-foreground)] px-2.5 py-1.5 text-xs font-medium text-[var(--color-background)] shadow-md opacity-0 transition-opacity duration-150 group-hover/toggle:opacity-100">
                 Mở thanh bên
               </span>
             </div>
           ) : (
             <>
-              <Link to="/" className="flex items-center gap-3 min-w-0">
-                <div className="w-9 h-9 rounded-lg bg-[var(--color-primary)] flex items-center justify-center shrink-0 shadow-lg shadow-[var(--color-primary)]/20">
-                  <Target className="text-white" size={20} />
+              <Link to="/" className="flex min-w-0 items-center gap-2.5">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-control bg-[var(--color-primary)]">
+                  <Target className="text-[var(--color-primary-foreground)]" size={18} />
                 </div>
-                <span className="font-black text-lg tracking-tight bg-clip-text text-transparent bg-gradient-to-r from-[var(--color-primary)] to-indigo-600">
+                <span className="text-[15px] font-semibold tracking-tight text-[var(--color-foreground)]">
                   KeyGo
                 </span>
               </Link>
 
-              <button
-                onClick={toggleSidebar}
-                aria-label="Thu gọn thanh bên"
-                title="Thu gọn thanh bên"
-                className="hidden lg:flex w-9 h-9 shrink-0 rounded-lg items-center justify-center text-[var(--color-muted-foreground)] hover:bg-[var(--color-accent)] hover:text-[var(--color-foreground)] transition-colors"
-              >
-                <PanelLeft size={18} />
-              </button>
+              <Button variant="ghost" size="icon" className="hidden shrink-0 lg:flex" onClick={toggleSidebar} aria-label="Thu gọn thanh bên" title="Thu gọn thanh bên">
+                <PanelLeft aria-hidden="true" />
+              </Button>
 
-              <button
-                className="lg:hidden p-1.5 rounded-lg text-[var(--color-muted-foreground)] hover:bg-[var(--color-accent)]"
-                onClick={onCloseMobile}
-                aria-label="Đóng menu"
-              >
-                <X size={20} />
-              </button>
+              <Button variant="ghost" size="icon" className="lg:hidden" onClick={onCloseMobile} aria-label="Đóng menu">
+                <X aria-hidden="true" />
+              </Button>
             </>
           )}
         </div>
 
-        <nav className="flex-1 py-4 px-3 space-y-1 overflow-y-auto custom-scrollbar">
+        <nav className="custom-scrollbar flex-1 space-y-0.5 overflow-y-auto px-2 py-3">
           {filteredItems.map((item) => {
             if (item.children) {
               const hasActiveChild = isAnyChildActive(item)
@@ -322,33 +309,33 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
                     id={`nav-group-${item.id}`}
                     onClick={() => toggleMenu(item.id)}
                     className={cn(
-                      'w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-all group relative',
-                      isCollapsed && !isMobileOpen ? 'justify-center px-0 mx-2' : '',
+                      'group relative flex h-9 w-full items-center gap-3 rounded-control px-2.5 text-sm font-medium transition-colors',
+                      isCollapsed && !isMobileOpen ? 'justify-center px-0' : '',
                       hasActiveChild 
-                        ? 'text-[var(--color-primary)] bg-[var(--color-primary)]/5' 
-                        : 'text-[var(--color-muted-foreground)] hover:bg-[var(--color-accent)] hover:text-[var(--color-foreground)]'
+                        ? 'text-[var(--color-foreground)]'
+                        : 'text-[var(--color-muted-foreground)] hover:bg-[var(--color-muted)] hover:text-[var(--color-foreground)]'
                     )}
                     title={isCollapsed ? item.label : ''}
                   >
-                    <div className={cn("shrink-0 transition-transform group-hover:scale-110 relative", isCollapsed && !isMobileOpen ? "m-0" : "")}>
+                    <div className="relative shrink-0">
                       {item.icon}
                       {hasChildBadge && isCollapsed && !isMobileOpen && (
-                        <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-[var(--color-card)] animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
+                        <span aria-hidden="true" className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full border-2 border-[var(--color-card)] bg-[var(--color-destructive)]" />
                       )}
                     </div>
                     {(!isCollapsed || isMobileOpen) && (
                       <>
                         <span className="truncate flex-1 text-left">{item.label}</span>
                         {hasChildBadge && !isExpanded && (
-                          <div className="w-2 h-2 rounded-full bg-red-500 mr-2 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
+                          <span aria-hidden="true" className="mr-1 h-1.5 w-1.5 rounded-full bg-[var(--color-destructive)]" />
                         )}
-                        {isExpanded ? <ChevronUp size={16} /> : <ChevronDown size={16} />}
+                        {isExpanded ? <ChevronUp size={16} className="text-[var(--color-subtle-foreground)]" /> : <ChevronDown size={16} className="text-[var(--color-subtle-foreground)]" />}
                       </>
                     )}
                   </button>
                   
                   {isExpanded && (!isCollapsed || isMobileOpen) && (
-                    <div className="ml-4 space-y-1 border-l border-[var(--color-border)] pl-3">
+                    <div className="ml-[19px] space-y-0.5 border-l border-[var(--color-border)] pl-2">
                       {item.children.map((child) => {
                         const childBadgeValue = aggregateBadge(child)
                         
@@ -364,22 +351,22 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
                                 id={`nav-group-${child.id}`}
                                 onClick={() => toggleMenu(child.id)}
                                 className={cn(
-                                  'w-full flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-bold transition-all group',
+                                  'group flex h-8 w-full items-center gap-2.5 rounded-control px-2.5 text-[13px] font-medium transition-colors',
                                   isSubActive
-                                    ? 'text-[var(--color-primary)]'
-                                    : 'text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)] hover:bg-[var(--color-accent)]'
+                                    ? 'text-[var(--color-foreground)]'
+                                    : 'text-[var(--color-muted-foreground)] hover:bg-[var(--color-muted)] hover:text-[var(--color-foreground)]'
                                 )}
                               >
-                                <div className="shrink-0 opacity-70 group-hover:opacity-100">{child.icon}</div>
-                                <span className="truncate flex-1 text-left">{child.label}</span>
+                                <div className="shrink-0 [&_svg]:size-4">{child.icon}</div>
+                                <span className="flex-1 truncate text-left">{child.label}</span>
                                 {hasSubBadge && !isSubExpanded && (
-                                  <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
+                                  <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-[var(--color-destructive)]" />
                                 )}
                                 {isSubExpanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
                               </button>
 
                               {isSubExpanded && (
-                                <div className="ml-3 space-y-1 border-l border-[var(--color-border)]/50 pl-3">
+                                <div className="ml-[17px] space-y-0.5 border-l border-[var(--color-border)] pl-2">
                                   {child.children.map((subChild) => {
                                     const subBadgeValue = aggregateBadge(subChild)
 
@@ -391,23 +378,23 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
                                         end={subChild.end}
                                         onClick={handleNavClick}
                                         className={cn(
-                                          'flex items-center gap-3 px-3 py-1.5 rounded-lg text-[12px] font-bold transition-all group',
+                                          'group flex h-8 items-center gap-2.5 rounded-control px-2.5 text-[13px] font-medium transition-colors',
                                           isNavPathActive(subChild.path!, subChild.matchPrefix)
-                                            ? 'text-[var(--color-primary)] bg-[var(--color-primary)]/5'
-                                            : 'text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)] hover:bg-[var(--color-accent)]'
+                                            ? 'bg-[var(--color-primary-soft)] text-[var(--color-primary)]'
+                                            : 'text-[var(--color-muted-foreground)] hover:bg-[var(--color-muted)] hover:text-[var(--color-foreground)]'
                                         )}
                                       >
-                                        <div className="shrink-0 opacity-70 group-hover:opacity-100">
+                                        <div className="shrink-0 [&_svg]:size-4">
                                           {subChild.icon}
                                         </div>
-                                        <span className="truncate flex-1">{subChild.label}</span>
+                                        <span className="flex-1 truncate">{subChild.label}</span>
                                         {typeof subBadgeValue === 'number' && (
-                                          <span className="px-1.5 py-0.5 rounded-full bg-red-500 text-[9px] text-white font-black shadow-lg shadow-red-500/20">
+                                          <span className="flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[var(--color-destructive)] px-1 text-xs font-semibold tabular-nums leading-none text-white">
                                             {subBadgeValue}
                                           </span>
                                         )}
                                         {typeof subBadgeValue === 'boolean' && subBadgeValue && (
-                                          <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
+                                          <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-[var(--color-destructive)]" />
                                         )}
                                       </NavLink>
                                     )
@@ -426,23 +413,23 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
                             end={child.end} 
                             onClick={handleNavClick}
                             className={cn(
-                              'flex items-center gap-3 px-3 py-2 rounded-lg text-[13px] font-bold transition-all group relative',
+                              'group relative flex h-8 items-center gap-2.5 rounded-control px-2.5 text-[13px] font-medium transition-colors',
                               isNavPathActive(child.path!, child.matchPrefix)
-                                ? 'text-[var(--color-primary)] bg-[var(--color-primary)]/5'
-                                : 'text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)] hover:bg-[var(--color-accent)]'
+                                ? 'bg-[var(--color-primary-soft)] text-[var(--color-primary)]'
+                                : 'text-[var(--color-muted-foreground)] hover:bg-[var(--color-muted)] hover:text-[var(--color-foreground)]'
                             )}
                           >
-                            <div className="shrink-0 opacity-70 group-hover:opacity-100 transition-opacity">
+                            <div className="shrink-0 [&_svg]:size-4">
                               {child.icon}
                             </div>
-                            <span className="truncate flex-1">{child.label}</span>
+                            <span className="flex-1 truncate">{child.label}</span>
                             {typeof childBadgeValue === 'number' && (
-                              <span className="px-1.5 py-0.5 rounded-full bg-red-500 text-[9px] text-white font-black shadow-lg shadow-red-500/20">
+                              <span className="flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[var(--color-destructive)] px-1 text-xs font-semibold tabular-nums leading-none text-white">
                                 {childBadgeValue}
                               </span>
                             )}
                             {typeof childBadgeValue === 'boolean' && childBadgeValue && (
-                              <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
+                              <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-[var(--color-destructive)]" />
                             )}
                           </NavLink>
                         )
@@ -463,30 +450,30 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
                 end={item.end} 
                 onClick={handleNavClick}
                 className={cn(
-                  'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-all group relative',
-                  isCollapsed && !isMobileOpen ? 'justify-center px-0 mx-2' : '',
+                  'group relative flex h-9 items-center gap-3 rounded-control px-2.5 text-sm font-medium transition-colors',
+                  isCollapsed && !isMobileOpen ? 'justify-center px-0' : '',
                   isNavPathActive(item.path!, item.matchPrefix)
-                    ? 'bg-[var(--color-primary)] text-white shadow-lg shadow-[var(--color-primary)]/25 scale-[1.02]'
-                    : 'text-[var(--color-muted-foreground)] hover:bg-[var(--color-accent)] hover:text-[var(--color-foreground)]'
+                    ? 'bg-[var(--color-primary-soft)] text-[var(--color-primary)]'
+                    : 'text-[var(--color-muted-foreground)] hover:bg-[var(--color-muted)] hover:text-[var(--color-foreground)]'
                 )}
                 title={isCollapsed ? item.label : ''}
               >
-                <div className={cn("shrink-0 transition-transform group-hover:scale-110 relative", isCollapsed && !isMobileOpen ? "m-0" : "")}>
+                <div className="relative shrink-0">
                   {item.icon}
                   {badgeValue && isCollapsed && !isMobileOpen && (
-                    <div className="absolute -top-1 -right-1 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-[var(--color-card)] animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
+                    <span aria-hidden="true" className="absolute -right-1 -top-1 h-2.5 w-2.5 rounded-full border-2 border-[var(--color-card)] bg-[var(--color-destructive)]" />
                   )}
                 </div>
                 {(!isCollapsed || isMobileOpen) && (
                   <>
-                    <span className="truncate flex-1">{item.label}</span>
+                    <span className="flex-1 truncate">{item.label}</span>
                     {typeof badgeValue === 'number' && (
-                      <span className="px-2 py-0.5 rounded-full bg-red-500 text-[10px] text-white font-black shadow-lg shadow-red-500/20 animate-pulse">
+                      <span className="flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[var(--color-destructive)] px-1 text-xs font-semibold tabular-nums leading-none text-white">
                         {badgeValue}
                       </span>
                     )}
                     {typeof badgeValue === 'boolean' && badgeValue && (
-                      <div className="w-2.5 h-2.5 rounded-full bg-red-500 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
+                      <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-[var(--color-destructive)]" />
                     )}
                   </>
                 )}
@@ -499,15 +486,15 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
             <NavLink
               to="/admin"
               className={({ isActive }) => cn(
-                'flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm font-bold transition-all group mt-1',
-                isCollapsed && !isMobileOpen ? 'justify-center px-0 mx-2' : '',
+                'group mt-1 flex h-9 items-center gap-3 rounded-control px-2.5 text-sm font-medium transition-colors',
+                isCollapsed && !isMobileOpen ? 'justify-center px-0' : '',
                 isActive
-                  ? 'bg-[var(--color-primary)] text-white shadow-lg shadow-[var(--color-primary)]/25'
-                  : 'text-[var(--color-muted-foreground)] hover:bg-[var(--color-accent)] hover:text-[var(--color-foreground)]'
+                  ? 'bg-[var(--color-primary-soft)] text-[var(--color-primary)]'
+                  : 'text-[var(--color-muted-foreground)] hover:bg-[var(--color-muted)] hover:text-[var(--color-foreground)]'
               )}
               title={isCollapsed ? 'Quản trị nền tảng' : ''}
             >
-              <ShieldCheck size={20} className="shrink-0 transition-transform group-hover:scale-110" />
+              <ShieldCheck size={20} className="shrink-0" />
               {(!isCollapsed || isMobileOpen) && (
                 <span className="truncate flex-1">Quản trị nền tảng</span>
               )}
@@ -516,15 +503,15 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
         </nav>
 
         {/* User Account Section */}
-        <div id="user-section" className={cn("p-4 border-t border-[var(--color-border)] bg-[var(--color-card)] mt-auto relative", isCollapsed && !isMobileOpen && "p-2")} ref={menuRef}>
+        <div id="user-section" className={cn("relative mt-auto border-t border-[var(--color-border)] bg-[var(--color-card)] p-2", isCollapsed && !isMobileOpen && "p-2")} ref={menuRef}>
           
           {/* Popover Menu */}
           {userMenuOpen && (
-            <div className="absolute bottom-full left-4 right-4 mb-2 bg-[var(--color-card)] border border-[var(--color-border)] rounded-xl shadow-lg py-1 z-50 animate-in fade-in slide-in-from-bottom-2">
+            <div className="absolute bottom-full left-2 right-2 z-50 mb-1 rounded-card border border-[var(--color-border)] bg-[var(--color-popover)] py-1 shadow-lg animate-in fade-in-0 motion-reduce:animate-none">
               <Link 
                 to="/profile" 
                 onClick={() => { setUserMenuOpen(false); onCloseMobile?.() }}
-                className="flex items-center gap-3 px-4 py-2.5 text-sm font-medium hover:bg-[var(--color-accent)] transition-colors"
+                className="flex h-9 items-center gap-2.5 px-3 text-sm transition-colors hover:bg-[var(--color-muted)]"
               >
                 <UserCircle size={16} className="text-[var(--color-muted-foreground)]" />
                 Hồ sơ cá nhân
@@ -532,19 +519,16 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
               <Link 
                 to="/profile?tab=security" 
                 onClick={() => { setUserMenuOpen(false); onCloseMobile?.() }}
-                className="flex items-center gap-3 px-4 py-2.5 text-sm font-medium hover:bg-[var(--color-accent)] transition-colors"
+                className="flex h-9 items-center gap-2.5 px-3 text-sm transition-colors hover:bg-[var(--color-muted)]"
               >
                 <KeyRound size={16} className="text-[var(--color-muted-foreground)]" />
                 Bảo mật & Mật khẩu
               </Link>
               <div className="h-px bg-[var(--color-border)] my-1" />
-              <button 
-                onClick={() => { logout(); setUserMenuOpen(false) }}
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-sm font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors"
-              >
-                <LogOut size={16} />
+              <Button variant="ghost" className="w-full text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]" onClick={() => { logout(); setUserMenuOpen(false) }}>
+                <LogOut aria-hidden="true" />
                 Đăng xuất
-              </button>
+              </Button>
             </div>
           )}
 
@@ -552,7 +536,7 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
           <button 
             onClick={() => setUserMenuOpen(!userMenuOpen)}
             className={cn(
-              "w-full flex items-center justify-between p-2 rounded-xl hover:bg-[var(--color-accent)] transition-all group border border-transparent hover:border-[var(--color-border)]",
+              "group flex w-full items-center justify-between rounded-control p-1.5 transition-colors hover:bg-[var(--color-muted)]",
               isCollapsed && !isMobileOpen ? "justify-center" : ""
             )}
           >
@@ -560,13 +544,13 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
               <UserAvatar
                 fullName={user?.fullName}
                 avatarUrl={user?.avatarUrl}
-                className="w-9 h-9 rounded-xl shadow-md"
-                fallbackClassName="bg-gradient-to-br from-[var(--color-primary)] to-indigo-600 text-xs font-black text-white"
+                className="h-8 w-8 rounded-control"
+                fallbackClassName="bg-[var(--color-primary)] text-xs font-semibold text-[var(--color-primary-foreground)]"
               />
               {(!isCollapsed || isMobileOpen) && (
                 <div className="flex-1 min-w-0 text-left">
-                  <p className="text-sm font-black truncate text-[var(--color-foreground)]">{user?.fullName}</p>
-                  <p className="text-[10px] font-bold text-[var(--color-muted-foreground)] uppercase tracking-widest truncate">
+                  <p className="truncate text-[13px] font-medium text-[var(--color-foreground)]">{user?.fullName}</p>
+                  <p className="truncate text-caption">
                     {(() => {
                       const membership = (() => {
                         const ms = user?.memberships || [];
@@ -581,7 +565,7 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
                 </div>
               )}
             </div>
-            {(!isCollapsed || isMobileOpen) && <MoreVertical size={16} className="text-[var(--color-muted-foreground)] shrink-0" />}
+            {(!isCollapsed || isMobileOpen) && <MoreVertical size={16} className="shrink-0 text-[var(--color-subtle-foreground)]" />}
           </button>
         </div>
       </aside>

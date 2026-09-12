@@ -1,6 +1,7 @@
 import { BarChart3, Table2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { ChartTableView } from './useChartTableView'
+import { ChoiceChip } from '@/components/ui/choice-chip'
 
 /**
  * Cặp nút chuyển biểu đồ ↔ bảng, đặt vào `extraHeaderContent` của ChartWrapper.
@@ -16,23 +17,11 @@ export function ViewToggleButtons({ view, onChange, className }: {
     { value: 'table' as const, icon: <Table2 size={14} />, title: 'Xem dạng bảng' },
   ]
   return (
-    <div className={cn('flex items-center gap-0.5 bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 shrink-0', className)}>
+    <div className={cn('flex items-center gap-0.5 bg-[var(--color-muted)] rounded-control p-0.5 shrink-0', className)}>
       {options.map(o => (
-        <button
-          key={o.value}
-          onClick={() => onChange(o.value)}
-          title={o.title}
-          aria-label={o.title}
-          aria-pressed={view === o.value}
-          className={cn(
-            'p-1.5 rounded-md transition-colors',
-            view === o.value
-              ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
-              : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300',
-          )}
-        >
+        <ChoiceChip selected={view === o.value} variant="segment" key={o.value} onClick={() => onChange(o.value)} title={o.title} aria-label={o.title} aria-pressed={view === o.value}>
           {o.icon}
-        </button>
+        </ChoiceChip>
       ))}
     </div>
   )

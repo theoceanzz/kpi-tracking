@@ -48,7 +48,7 @@ export function PinnedWidgetCard({ widget, onUnpin, filter }: { widget: ReportWi
   return (
     <div
       className={cn(
-        'bg-white dark:bg-slate-900 rounded-[28px] border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden flex flex-col group transition-all hover:shadow-xl',
+        'overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-card)] flex flex-col group transition-all',
         colSpan >= 12 ? 'col-span-12' :
         colSpan >= 8 ? 'col-span-12 lg:col-span-8' :
         colSpan >= 6 ? 'col-span-12 lg:col-span-6' :
@@ -56,9 +56,9 @@ export function PinnedWidgetCard({ widget, onUnpin, filter }: { widget: ReportWi
       )}
       style={{ height: `${height}px` }}
     >
-      <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex justify-between items-center">
-        <h4 className="font-black text-sm text-slate-800 dark:text-white truncate">{widget.title}</h4>
-        <button onClick={handleUnpin} className="p-1.5 text-slate-300 hover:text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 rounded-lg transition-all opacity-0 group-hover:opacity-100">
+      <div className="p-5 border-b border-[var(--color-border)] flex justify-between items-center">
+        <h4 className="truncate text-sm font-medium text-[var(--color-foreground)]">{widget.title}</h4>
+        <button onClick={handleUnpin} className="p-1.5 text-[var(--color-subtle-foreground)] hover:text-[var(--color-error)] hover:bg-[var(--color-error-bg)]">
           <PinOff size={14} />
         </button>
       </div>
@@ -81,7 +81,7 @@ function PinnedWidgetContent({ config, filter }: { config?: any; filter?: Pinned
   const Registered = config?.i ? PINNED_REGISTRY[config.i] : undefined
   if (Registered) return <div className="h-full w-full"><Registered filter={filter} /></div>
   return (
-    <div className="h-full flex items-center justify-center text-xs font-bold text-slate-300 italic px-4 text-center">
+    <div className="h-full flex items-center justify-center text-caption px-4 text-center">
       Chi tiết biểu đồ xem tại trang Thống kê
     </div>
   )

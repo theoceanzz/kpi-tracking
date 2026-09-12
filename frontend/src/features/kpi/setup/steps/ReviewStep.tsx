@@ -8,6 +8,7 @@ import { useBulkSubmitKpi } from '../../hooks/useBulkSubmitKpi'
 import { useWorkflowNavigator } from '../../workflow/hooks/useWorkflowNavigator'
 import StepShell from '../StepShell'
 import { useKpiSetupFlow } from '../useKpiSetupFlow'
+import { Button } from '@/components/ui/button'
 
 /**
  * Bước 4 — Xem lại và gửi duyệt. Đây là lúc "chốt đơn".
@@ -57,28 +58,24 @@ export default function ReviewStep() {
 
   if (done) {
     return (
-      <div className="mx-auto max-w-lg space-y-10 rounded-[48px] border border-slate-200 bg-white p-12 text-center shadow-2xl animate-in zoom-in-95 duration-500 dark:border-slate-800 dark:bg-slate-900">
+      <div className="mx-auto max-w-lg space-y-10 rounded-card border border-[var(--color-border)] bg-[var(--color-card)] p-12 text-center animate-in zoom-in-95 duration-500">
         <div className="relative">
-          <div className="absolute inset-0 scale-150 animate-pulse rounded-full bg-emerald-500/20 blur-3xl" />
-          <div className="relative mx-auto flex h-28 w-28 items-center justify-center rounded-[40px] bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-2xl shadow-emerald-500/40">
+          <div className="relative mx-auto flex h-28 w-28 items-center justify-center rounded-card bg-[var(--color-success-solid)]">
             <CheckCircle2 className="h-14 w-14 text-white" />
           </div>
         </div>
 
         <div className="space-y-4">
-          <h3 className="text-3xl font-black uppercase tracking-tight text-slate-900 dark:text-white">Đã gửi duyệt</h3>
-          <p className="font-medium leading-relaxed text-slate-500 dark:text-slate-400">
+          <h3 className="text-page-title">Đã gửi duyệt</h3>
+          <p className="font-medium leading-relaxed text-[var(--color-muted-foreground)]">
             {items.length} chỉ tiêu của đợt <b>{periodName}</b> đã chuyển sang cấp trên phê duyệt.
           </p>
         </div>
 
-        <button
-          onClick={finish}
-          className="flex w-full items-center justify-center gap-3 rounded-2xl bg-slate-900 py-5 text-sm font-black uppercase tracking-widest text-white shadow-2xl transition-all hover:bg-indigo-600 active:scale-95 dark:bg-white dark:text-slate-900 dark:hover:bg-indigo-50"
-        >
-          <Sparkles size={20} className="text-amber-400" />
+        <Button className="w-full" onClick={finish}>
+          <Sparkles aria-hidden="true" className="text-[var(--color-warning)]" />
           Tới bước tiếp theo
-        </button>
+        </Button>
       </div>
     )
   }
@@ -93,23 +90,18 @@ export default function ReviewStep() {
       }
       onBack={goBack}
       footer={
-        <button
-          type="button"
-          onClick={submit}
-          disabled={bulkSubmit.isPending || items.length === 0}
-          className="flex items-center gap-2 rounded-xl bg-indigo-600 px-6 py-3 text-xs font-black uppercase tracking-widest text-white shadow-lg shadow-indigo-500/25 transition-all hover:bg-indigo-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40"
-        >
-          {bulkSubmit.isPending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+        <Button type="button" onClick={submit} disabled={bulkSubmit.isPending || items.length === 0}>
+          {bulkSubmit.isPending ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Send aria-hidden="true" />}
           {approvalEnabled ? `Gửi duyệt ${items.length} chỉ tiêu` : 'Hoàn tất'}
-        </button>
+        </Button>
       }
     >
       {isLoading ? (
         <div className="flex h-40 items-center justify-center">
-          <Loader2 className="animate-spin text-indigo-600" />
+          <Loader2 className="animate-spin text-[var(--color-primary)]" />
         </div>
       ) : items.length === 0 ? (
-        <p className="py-10 text-center text-sm font-medium text-slate-400">
+        <p className="py-10 text-center text-sm font-medium text-[var(--color-subtle-foreground)]">
           Không còn chỉ tiêu NHÁP nào trong đợt này — có thể bạn đã gửi duyệt rồi.
         </p>
       ) : (
@@ -120,24 +112,24 @@ export default function ReviewStep() {
             <Summary label="Số chỉ tiêu" value={String(items.length)} />
           </dl>
 
-          <ul className="divide-y divide-slate-100 overflow-hidden rounded-2xl border border-slate-200 dark:divide-slate-800 dark:border-slate-800">
+          <ul className="divide-y divide-[var(--color-border)] overflow-hidden rounded-card border border-[var(--color-border)]">
             {items.map(kpi => (
               <li key={kpi.id} className="flex items-center gap-4 p-4">
                 <span className="min-w-0 flex-1">
-                  <span className="block truncate text-sm font-bold text-slate-800 dark:text-slate-100">{kpi.name}</span>
-                  <span className="mt-0.5 block text-[11px] font-bold text-slate-400">
+                  <span className="block truncate text-sm font-medium text-[var(--color-foreground)]">{kpi.name}</span>
+                  <span className="mt-0.5 block text-caption">
                     {kpi.kpiType === 'QUALITATIVE' ? 'Định tính' : 'Định lượng'}
                     {kpi.assigneeNames?.length > 0 && <> · {kpi.assigneeNames.join(', ')}</>}
                   </span>
                 </span>
-                <span className="shrink-0 text-sm font-black tabular-nums text-slate-900 dark:text-white">{kpi.weight ?? 0}%</span>
+                <span className="shrink-0 text-sm font-semibold tabular-nums text-[var(--color-foreground)]">{kpi.weight ?? 0}%</span>
               </li>
             ))}
           </ul>
 
-          <div className="flex items-baseline justify-between rounded-2xl bg-slate-50 px-5 py-4 dark:bg-slate-800/50">
-            <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Tổng trọng số</span>
-            <span className={cn('text-xl font-black tabular-nums', Math.abs(total - 100) < 0.001 ? 'text-emerald-600 dark:text-emerald-400' : 'text-rose-500')}>
+          <div className="flex items-baseline justify-between rounded-card bg-[var(--color-muted)] px-5 py-4">
+            <span className="text-eyebrow">Tổng trọng số</span>
+            <span className={cn('text-xl font-semibold tabular-nums', Math.abs(total - 100) < 0.001 ? 'text-[var(--color-success)]' : 'text-[var(--color-error)]')}>
               {total.toFixed(1)}%
             </span>
           </div>
@@ -149,9 +141,9 @@ export default function ReviewStep() {
 
 function Summary({ label, value }: { label: string; value: string }) {
   return (
-    <div className="rounded-2xl bg-slate-50 px-4 py-3 dark:bg-slate-800/50">
-      <dt className="text-[10px] font-black uppercase tracking-widest text-slate-400">{label}</dt>
-      <dd className="mt-1 truncate text-sm font-black text-slate-900 dark:text-white">{value}</dd>
+    <div className="rounded-card bg-[var(--color-muted)] px-4 py-3">
+      <dt className="text-eyebrow">{label}</dt>
+      <dd className="mt-1 truncate text-sm font-semibold text-[var(--color-foreground)]">{value}</dd>
     </div>
   )
 }

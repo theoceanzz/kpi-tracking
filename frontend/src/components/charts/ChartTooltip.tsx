@@ -28,9 +28,9 @@ interface Props {
  */
 export default function ChartTooltip({ title, rows, footer }: Props) {
   return (
-    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-xl shadow-lg max-w-[300px]">
+    <div className="bg-[var(--color-card)] border border-[var(--color-border)] p-4 rounded-card shadow-lg max-w-[300px]">
       {title != null && title !== '' && (
-        <p className="font-bold text-slate-900 dark:text-white mb-3 break-words">{title}</p>
+        <p className="font-bold text-[var(--color-foreground)] mb-3 break-words">{title}</p>
       )}
       <div className="space-y-2">
         {rows.map((r, i) => (
@@ -38,13 +38,13 @@ export default function ChartTooltip({ title, rows, footer }: Props) {
             {r.color && (
               <span className="w-3 h-3 rounded-sm shrink-0" style={{ backgroundColor: r.color }} />
             )}
-            <span className="text-slate-500 font-medium min-w-[120px]">{r.label}:</span>
-            <span className="font-bold text-slate-900 dark:text-white tabular-nums">{r.value}</span>
+            <span className="text-[var(--color-muted-foreground)] font-medium min-w-[120px]">{r.label}:</span>
+            <span className="font-bold text-[var(--color-foreground)] tabular-nums">{r.value}</span>
           </div>
         ))}
       </div>
       {footer != null && (
-        <p className="text-xs text-slate-400 pt-2.5 mt-2.5 border-t border-slate-100 dark:border-slate-800">
+        <p className="text-xs text-[var(--color-subtle-foreground)] pt-2.5 mt-2.5 border-t border-[var(--color-border)]">
           {footer}
         </p>
       )}

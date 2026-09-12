@@ -175,19 +175,19 @@ function TreemapTooltip({ active, payload, clickable }: {
   if (!active || !d || !d.name) return null
   const people = d.assignees ?? []
   return (
-    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3.5 rounded-xl shadow-lg">
-      <p className="font-bold text-slate-900 dark:text-white">{d.name}</p>
-      {d.subText && <p className="text-xs text-slate-500 mb-2">{d.subText}</p>}
+    <div className="bg-[var(--color-card)] border border-[var(--color-border)] p-3.5 rounded-card shadow-lg">
+      <p className="font-bold text-[var(--color-foreground)]">{d.name}</p>
+      {d.subText && <p className="text-xs text-[var(--color-muted-foreground)] mb-2">{d.subText}</p>}
       <div className="space-y-1 text-sm">
         {d.size != null && (
           <div className="flex items-center gap-3">
-            <span className="text-slate-500 font-medium min-w-[90px]">Trọng số:</span>
-            <span className="font-bold text-slate-900 dark:text-white tabular-nums">{Math.round(d.size * 10) / 10}</span>
+            <span className="text-[var(--color-muted-foreground)] font-medium min-w-[90px]">Trọng số:</span>
+            <span className="font-bold text-[var(--color-foreground)] tabular-nums">{Math.round(d.size * 10) / 10}</span>
           </div>
         )}
         {d.achievement != null && (
           <div className="flex items-center gap-3">
-            <span className="text-slate-500 font-medium min-w-[90px]">Tiến độ:</span>
+            <span className="text-[var(--color-muted-foreground)] font-medium min-w-[90px]">Tiến độ:</span>
             <span className="font-bold tabular-nums" style={{ color: achievementSurface(d.achievement) }}>
               {Math.round(d.achievement)}%
             </span>
@@ -196,7 +196,7 @@ function TreemapTooltip({ active, payload, clickable }: {
       </div>
       <AssigneeAvatars people={people} />
       {clickable && d.id && (
-        <p className="text-xs font-bold text-indigo-600 dark:text-indigo-400 pt-2.5 mt-2.5 border-t border-slate-100 dark:border-slate-800">
+        <p className="text-xs font-bold text-indigo-600 dark:text-indigo-400 pt-2.5 mt-2.5 border-t border-[var(--color-border)]">
           Bấm để xem chi tiết →
         </p>
       )}

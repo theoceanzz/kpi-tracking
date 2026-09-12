@@ -1,5 +1,5 @@
 import { useMemo, useState } from 'react'
-import { X, Sliders, Loader2, Plus, Trash2, Info, Check, ChevronDown } from 'lucide-react'
+import { Loader2, Plus, Trash2, Info, Check, ChevronDown } from 'lucide-react'
 import {
   Select, SelectContent, SelectItem, SelectTrigger, SelectValue,
 } from '@/components/ui/select'
@@ -9,6 +9,9 @@ import { useKpiCycles } from '@/features/kpi/hooks/useKpiCycles'
 import { useKpiPeriods } from '@/features/kpi/hooks/useKpiPeriods'
 import { useCascadePolicies, useCascadePolicyMutations } from '../hooks/useBscCascade'
 import { BscLinkedWeightEnforce, type CascadePolicyResponse } from '../types'
+import { Dialog, DialogFooter } from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { ChoiceChip } from '@/components/ui/choice-chip'
 
 interface CascadePolicyModalProps {
   open: boolean
@@ -162,218 +165,193 @@ export default function CascadePolicyModal({ open, onClose, organizationId }: Ca
     && (scope !== 'PERIOD' || periodIds.length > 0)
 
   return (
-    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm">
-      <div className="bg-white dark:bg-slate-900 w-full max-w-2xl rounded-[2rem] shadow-2xl overflow-hidden flex flex-col max-h-[92vh]">
-        <div className="p-5 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-2xl bg-indigo-600 flex items-center justify-center text-white">
-              <Sliders size={18} />
-            </div>
-            <div>
-              <h3 className="text-lg font-black text-slate-900 dark:text-white">Chính sách điểm BSC</h3>
-              <p className="text-[11px] font-bold text-slate-400">
-                Trần điểm công nhận và ràng buộc KPI phải liên kết BSC
-              </p>
-            </div>
+    <Dialog
+      open
+      onClose={close}
+      size="lg"
+      dismissible={!(createPolicy.isPending || updatePolicy.isPending || deletePolicy.isPending)}
+      title="Chính sách điểm BSC"
+      description="Trần điểm công nhận và ràng buộc KPI phải liên kết BSC"
+      footer={
+        <DialogFooter
+          destructive={!creating && selected && (
+            <Button
+              variant="ghost"
+              className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]"
+              onClick={() => deletePolicy.mutate(selected.id, { onSuccess: close })}
+              disabled={deletePolicy.isPending}
+              title="Xoá chính sách này — phạm vi của nó quay về dùng bản rộng hơn"
+            >
+              <Trash2 aria-hidden="true" /> Xoá
+            </Button>
+          )}
+          secondary={<Button variant="outline" onClick={close}>Huỷ</Button>}
+          primary={
+            <Button onClick={save} disabled={!canSave || createPolicy.isPending || updatePolicy.isPending}>
+              {(createPolicy.isPending || updatePolicy.isPending)
+                ? 'Đang lưu...'
+                : creating ? 'Tạo chính sách' : 'Lưu chính sách'}
+            </Button>
+          }
+        />
+      }
+    >
+      <div className="space-y-5">
+        {isLoading && (
+          <div className="flex items-center justify-center py-10 text-[var(--color-subtle-foreground)]">
+            <Loader2 size={20} className="animate-spin" />
           </div>
-          <button onClick={close} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl">
-            <X size={18} />
-          </button>
-        </div>
+        )}
 
-        <div className="p-5 space-y-5 overflow-y-auto custom-scrollbar">
-          {isLoading && (
-            <div className="flex items-center justify-center py-10 text-slate-400">
-              <Loader2 size={20} className="animate-spin" />
+        {/* ── Danh sách chính sách + tạo mới ───────────────────── */}
+        {!isLoading && (
+          <div className="flex flex-wrap items-center gap-1.5">
+            {list.map(p => (
+              <ChoiceChip selected={!creating && selected?.id === p.id} variant="solid" size="sm" className="py-1.5 max-w-[16rem] truncate" key={p.id} onClick={() => pick(p.id)} title={p.name}>
+                {p.scopeLabel || p.name}
+              </ChoiceChip>
+            ))}
+            <ChoiceChip selected={creating} size="sm" className="py-1.5" onClick={() => pick(null)}>
+              <Plus /> Chính sách mới
+            </ChoiceChip>
+          </div>
+        )}
+
+        {!isLoading && (
+          <div className="rounded-card bg-[var(--color-muted)] px-4 py-3 flex items-start gap-2">
+            <Info size={14} className="text-[var(--color-subtle-foreground)] shrink-0 mt-0.5" />
+            <p className="text-caption leading-relaxed">
+              Chấm điểm một đợt, hệ thống tra từ hẹp tới rộng: <b>chính sách gắn đúng đợt</b> →
+              <b> chính sách của kỳ</b> chứa đợt đó → <b>chính sách mặc định</b> → nếu không có bản
+              nào thì dùng mức có sẵn <b>120 / 60 / chỉ cảnh báo</b>.
+            </p>
+          </div>
+        )}
+
+        {form && !isLoading && (
+          <>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Field label="Tên chính sách">
+                <input value={form.name} onChange={e => patch({ name: e.target.value })}
+                  placeholder={`VD: ${defaultName(form)}`}
+                  className="w-full px-3 py-2 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)] text-sm font-medium outline-none focus:placeholder:text-transparent" />
+              </Field>
+
+              <Field label="Áp dụng cho" hint={SCOPE_HINT[scope]}>
+                <div className="grid grid-cols-3 gap-1.5">
+                  {([
+                    { key: 'DEFAULT' as const, label: 'Toàn tổ chức' },
+                    { key: 'CYCLE' as const, label: 'Một kỳ' },
+                    { key: 'PERIOD' as const, label: 'Một số đợt' },
+                  ]).map(opt => (
+                    <ChoiceChip selected={scope === opt.key} variant="solid" size="sm" key={opt.key} onClick={() => setScope(opt.key)} disabled={opt.key === 'DEFAULT' && defaultTaken && scope !== 'DEFAULT'} title={opt.key === 'DEFAULT' && defaultTaken
+                        ? 'Tổ chức đã có một chính sách áp dụng cho toàn bộ — sửa bản đó thay vì tạo thêm'
+                        : SCOPE_HINT[opt.key]}>
+                      {opt.label}
+                    </ChoiceChip>
+                  ))}
+                </div>
+              </Field>
             </div>
-          )}
 
-          {/* ── Danh sách chính sách + tạo mới ───────────────────── */}
-          {!isLoading && (
-            <div className="flex flex-wrap items-center gap-1.5">
-              {list.map(p => (
-                <button key={p.id} onClick={() => pick(p.id)}
-                  title={p.name}
-                  className={cn('px-3 py-1.5 rounded-xl text-[11px] font-black transition-colors max-w-[16rem] truncate',
-                    !creating && selected?.id === p.id
-                      ? 'bg-indigo-600 text-white'
-                      : 'bg-slate-100 text-slate-500 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-400')}>
-                  {p.scopeLabel || p.name}
-                </button>
-              ))}
-              <button onClick={() => pick(null)}
-                className={cn('inline-flex items-center gap-1 px-3 py-1.5 rounded-xl text-[11px] font-black transition-colors border border-dashed',
-                  creating
-                    ? 'border-indigo-400 text-indigo-600 bg-indigo-50 dark:bg-indigo-900/30'
-                    : 'border-slate-200 text-slate-500 hover:bg-slate-50 dark:border-slate-700 dark:hover:bg-slate-800')}>
-                <Plus size={12} /> Chính sách mới
-              </button>
-            </div>
-          )}
-
-          {!isLoading && (
-            <div className="rounded-2xl bg-slate-50 dark:bg-slate-800/50 px-4 py-3 flex items-start gap-2">
-              <Info size={14} className="text-slate-400 shrink-0 mt-0.5" />
-              <p className="text-[11px] font-medium text-slate-500 dark:text-slate-400 leading-relaxed">
-                Chấm điểm một đợt, hệ thống tra từ hẹp tới rộng: <b>chính sách gắn đúng đợt</b> →
-                <b> chính sách của kỳ</b> chứa đợt đó → <b>chính sách mặc định</b> → nếu không có bản
-                nào thì dùng mức có sẵn <b>120 / 60 / chỉ cảnh báo</b>.
-              </p>
-            </div>
-          )}
-
-          {form && !isLoading && (
-            <>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <Field label="Tên chính sách">
-                  <input value={form.name} onChange={e => patch({ name: e.target.value })}
-                    placeholder={`VD: ${defaultName(form)}`}
-                    className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-sm font-bold outline-none focus:placeholder:text-transparent" />
-                </Field>
-
-                <Field label="Áp dụng cho" hint={SCOPE_HINT[scope]}>
-                  <div className="grid grid-cols-3 gap-1.5">
-                    {([
-                      { key: 'DEFAULT' as const, label: 'Toàn tổ chức' },
-                      { key: 'CYCLE' as const, label: 'Một kỳ' },
-                      { key: 'PERIOD' as const, label: 'Một số đợt' },
-                    ]).map(opt => (
-                      <button key={opt.key} onClick={() => setScope(opt.key)}
-                        disabled={opt.key === 'DEFAULT' && defaultTaken && scope !== 'DEFAULT'}
-                        title={opt.key === 'DEFAULT' && defaultTaken
-                          ? 'Tổ chức đã có một chính sách áp dụng cho toàn bộ — sửa bản đó thay vì tạo thêm'
-                          : SCOPE_HINT[opt.key]}
-                        className={cn('h-10 px-1 rounded-xl text-[11px] font-black transition-colors disabled:opacity-40',
-                          scope === opt.key
-                            ? 'bg-indigo-600 text-white'
-                            : 'bg-slate-50 text-slate-500 border border-slate-100 hover:bg-slate-100 dark:bg-slate-800 dark:border-slate-700')}>
-                        {opt.label}
-                      </button>
-                    ))}
-                  </div>
-                </Field>
-              </div>
-
-              {scope === 'CYCLE' && (
-                <Field label="Kỳ áp dụng" hint="Mọi đợt thuộc kỳ này dùng chính sách, trừ đợt nào có bản riêng.">
-                  <Select value={form.kpiCycleId || undefined}
-                    onValueChange={v => patch({ kpiCycleId: v, periods: [] })}>
-                    <SelectTrigger className="w-full"><SelectValue placeholder="Chọn kỳ đánh giá" /></SelectTrigger>
-                    <SelectContent className="z-[1100]">
-                      {cycles.map(c => (
-                        <SelectItem key={c.id} value={c.id} disabled={takenCycleIds.has(c.id)}>
-                          {c.name}{takenCycleIds.has(c.id) ? ' (đã có chính sách)' : ''}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </Field>
-              )}
-
-              {scope === 'PERIOD' && (
-                <Field label="Đợt áp dụng (chọn nhiều)"
-                  hint="Tick nhiều đợt để dùng chung một chính sách. Cần áp dụng cho cả kỳ thì chuyển sang &quot;Kỳ&quot;.">
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <button type="button"
-                        className="w-full h-10 px-4 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-sm font-bold flex items-center justify-between outline-none transition-all">
-                        <span className={cn('truncate text-left', periodIds.length === 0 && 'text-slate-400')}>
-                          {periodTriggerLabel}
-                        </span>
-                        <ChevronDown size={14} className="opacity-50 shrink-0" />
-                      </button>
-                    </PopoverTrigger>
-                    <PopoverContent align="start"
-                      className="p-2 w-[var(--radix-popover-trigger-width)] max-h-[300px] overflow-y-auto custom-scrollbar z-[1100]">
-                      {allPeriods.length === 0 && (
-                        <p className="px-3 py-2 text-xs font-bold text-slate-400">Chưa có đợt KPI nào</p>
-                      )}
-                      {periodGroups.map(g => (
-                        <div key={g.label} className="mb-1 last:mb-0">
-                          <div className="px-3 py-1">
-                            <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest truncate">{g.label}</span>
-                          </div>
-                          <div className="space-y-1">
-                            {g.items.map(p => {
-                              const isSelected = periodIds.includes(p.id)
-                              const taken = takenPeriodIds.has(p.id)
-                              return (
-                                <div key={p.id}
-                                  onClick={() => { if (!taken) togglePeriod(p.id, p.name) }}
-                                  title={taken ? 'Đợt này đã nằm trong một chính sách khác' : undefined}
-                                  className={cn('flex items-center gap-3 px-3 py-2 rounded-xl transition-colors group',
-                                    taken ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer',
-                                    isSelected
-                                      ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400'
-                                      : !taken && 'hover:bg-slate-50 dark:hover:bg-slate-800')}>
-                                  <div className={cn('w-4 h-4 rounded border flex items-center justify-center transition-all shrink-0',
-                                    isSelected ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-200 dark:border-slate-700')}>
-                                    {isSelected && <Check size={10} strokeWidth={4} />}
-                                  </div>
-                                  <span className="text-xs font-bold truncate">{p.name}</span>
-                                </div>
-                              )
-                            })}
-                          </div>
-                        </div>
-                      ))}
-                    </PopoverContent>
-                  </Popover>
-                </Field>
-              )}
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <Field label="Trần điểm gốc %"
-                  hint="Điểm công nhận = MIN(điểm gốc, trần này). Chặn một cá nhân bay khỏi thang điểm khi chỉ tiêu đặt dễ.">
-                  <NumberBox value={form.recognizedCapPercent} onChange={v => patch({ recognizedCapPercent: v })} step={1} />
-                </Field>
-                <Field label="KPI liên kết BSC %"
-                  hint="Tối thiểu bao nhiêu % tổng trọng số KPI của một người phải gắn vào chỉ tiêu BSC của đơn vị.">
-                  <NumberBox value={form.minBscLinkedWeight} onChange={v => patch({ minBscLinkedWeight: v })} step={1} />
-                </Field>
-              </div>
-
-              <Field label="Mức áp dụng ràng buộc KPI liên kết BSC"
-                hint="Chỉ cảnh báo = hiện cảnh báo ở màn diễn giải điểm. Chặn = KHÔNG chốt được đánh giá của người chưa đủ tỉ lệ này, và chỉ chặn khi bộ tiêu chí đã chuyển sang chấm chính thức. Bật Chặn ngay kỳ đầu sẽ làm kẹt hàng loạt nhân viên chưa kịp gắn KPI vào BSC.">
-                <Select value={form.linkedWeightEnforce}
-                  onValueChange={v => patch({ linkedWeightEnforce: v as BscLinkedWeightEnforce })}>
-                  <SelectTrigger className="w-full sm:w-64"><SelectValue /></SelectTrigger>
+            {scope === 'CYCLE' && (
+              <Field label="Kỳ áp dụng" hint="Mọi đợt thuộc kỳ này dùng chính sách, trừ đợt nào có bản riêng.">
+                <Select value={form.kpiCycleId || undefined}
+                  onValueChange={v => patch({ kpiCycleId: v, periods: [] })}>
+                  <SelectTrigger className="w-full"><SelectValue placeholder="Chọn kỳ đánh giá" /></SelectTrigger>
                   <SelectContent className="z-[1100]">
-                    <SelectItem value={BscLinkedWeightEnforce.WARN}>Chỉ cảnh báo</SelectItem>
-                    <SelectItem value={BscLinkedWeightEnforce.BLOCK}>Chặn không cho chốt</SelectItem>
+                    {cycles.map(c => (
+                      <SelectItem key={c.id} value={c.id} disabled={takenCycleIds.has(c.id)}>
+                        {c.name}{takenCycleIds.has(c.id) ? ' (đã có chính sách)' : ''}
+                      </SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
               </Field>
+            )}
 
-              <p className="text-[10px] font-medium text-slate-400">
-                Kết quả BSC của phòng ban và công ty KHÔNG nhân vào điểm của nhân viên — nhân viên
-                được chấm theo đúng KPI của mình, chỉ bị chặn trần ở con số bên trên.
-              </p>
-            </>
-          )}
-        </div>
+            {scope === 'PERIOD' && (
+              <Field label="Đợt áp dụng (chọn nhiều)"
+                hint="Tick nhiều đợt để dùng chung một chính sách. Cần áp dụng cho cả kỳ thì chuyển sang &quot;Kỳ&quot;.">
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button variant="outline" className="w-full" type="button">
+                      <span className={cn('truncate text-left', periodIds.length === 0 && 'text-[var(--color-subtle-foreground)]')}>
+                        {periodTriggerLabel}
+                      </span>
+                      <ChevronDown aria-hidden="true" className="opacity-50 shrink-0" />
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent align="start"
+                    className="p-2 w-[var(--radix-popover-trigger-width)] max-h-[300px] overflow-y-auto custom-scrollbar z-[1100]">
+                    {allPeriods.length === 0 && (
+                      <p className="px-3 py-2 text-caption">Chưa có đợt KPI nào</p>
+                    )}
+                    {periodGroups.map(g => (
+                      <div key={g.label} className="mb-1 last:mb-0">
+                        <div className="px-3 py-1">
+                          <span className="text-eyebrow truncate">{g.label}</span>
+                        </div>
+                        <div className="space-y-1">
+                          {g.items.map(p => {
+                            const isSelected = periodIds.includes(p.id)
+                            const taken = takenPeriodIds.has(p.id)
+                            return (
+                              <div key={p.id}
+                                onClick={() => { if (!taken) togglePeriod(p.id, p.name) }}
+                                title={taken ? 'Đợt này đã nằm trong một chính sách khác' : undefined}
+                                className={cn('flex items-center gap-3 px-3 py-2 rounded-card transition-colors group',
+                                  taken ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer',
+                                  isSelected
+                                    ? 'bg-[var(--color-primary-soft)] text-[var(--color-primary)]'
+                                    : !taken && 'hover:bg-[var(--color-muted)]')}>
+                                <div className={cn('w-4 h-4 rounded border flex items-center justify-center transition-all shrink-0',
+                                  isSelected ? 'bg-[var(--color-primary)] border-[var(--color-primary)] text-[var(--color-primary-foreground)]' : 'border-[var(--color-border)]')}>
+                                  {isSelected && <Check size={10} strokeWidth={4} />}
+                                </div>
+                                <span className="text-xs font-medium truncate">{p.name}</span>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    ))}
+                  </PopoverContent>
+                </Popover>
+              </Field>
+            )}
 
-        <div className="p-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-end gap-2">
-          {!creating && selected && (
-            <button onClick={() => deletePolicy.mutate(selected.id, { onSuccess: close })}
-              disabled={deletePolicy.isPending}
-              title="Xoá chính sách này — phạm vi của nó quay về dùng bản rộng hơn"
-              className="mr-auto inline-flex items-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black text-slate-400 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-900/30 disabled:opacity-40">
-              <Trash2 size={14} /> Xoá
-            </button>
-          )}
-          <button onClick={close} className="px-4 py-2 rounded-xl text-xs font-black text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800">
-            Huỷ
-          </button>
-          <button onClick={save} disabled={!canSave || createPolicy.isPending || updatePolicy.isPending}
-            className="px-4 py-2 rounded-xl text-xs font-black bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-40">
-            {(createPolicy.isPending || updatePolicy.isPending)
-              ? 'Đang lưu...'
-              : creating ? 'Tạo chính sách' : 'Lưu chính sách'}
-          </button>
-        </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Field label="Trần điểm gốc %"
+                hint="Điểm công nhận = MIN(điểm gốc, trần này). Chặn một cá nhân bay khỏi thang điểm khi chỉ tiêu đặt dễ.">
+                <NumberBox value={form.recognizedCapPercent} onChange={v => patch({ recognizedCapPercent: v })} step={1} />
+              </Field>
+              <Field label="KPI liên kết BSC %"
+                hint="Tối thiểu bao nhiêu % tổng trọng số KPI của một người phải gắn vào chỉ tiêu BSC của đơn vị.">
+                <NumberBox value={form.minBscLinkedWeight} onChange={v => patch({ minBscLinkedWeight: v })} step={1} />
+              </Field>
+            </div>
+
+            <Field label="Mức áp dụng ràng buộc KPI liên kết BSC"
+              hint="Chỉ cảnh báo = hiện cảnh báo ở màn diễn giải điểm. Chặn = KHÔNG chốt được đánh giá của người chưa đủ tỉ lệ này, và chỉ chặn khi bộ tiêu chí đã chuyển sang chấm chính thức. Bật Chặn ngay kỳ đầu sẽ làm kẹt hàng loạt nhân viên chưa kịp gắn KPI vào BSC.">
+              <Select value={form.linkedWeightEnforce}
+                onValueChange={v => patch({ linkedWeightEnforce: v as BscLinkedWeightEnforce })}>
+                <SelectTrigger className="w-full sm:w-64"><SelectValue /></SelectTrigger>
+                <SelectContent className="z-[1100]">
+                  <SelectItem value={BscLinkedWeightEnforce.WARN}>Chỉ cảnh báo</SelectItem>
+                  <SelectItem value={BscLinkedWeightEnforce.BLOCK}>Chặn không cho chốt</SelectItem>
+                </SelectContent>
+              </Select>
+            </Field>
+
+            <p className="text-caption">
+              Kết quả BSC của phòng ban và công ty KHÔNG nhân vào điểm của nhân viên — nhân viên
+              được chấm theo đúng KPI của mình, chỉ bị chặn trần ở con số bên trên.
+            </p>
+          </>
+        )}
       </div>
-    </div>
+    </Dialog>
   )
 }
 
@@ -387,9 +365,9 @@ function defaultName(p: CascadePolicyResponse): string {
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1.5">
-      <label className="block text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">{label}</label>
+      <label className="text-label block">{label}</label>
       {children}
-      {hint && <p className="text-[10px] font-medium text-slate-400 ml-1 leading-relaxed">{hint}</p>}
+      {hint && <p className="text-caption leading-relaxed">{hint}</p>}
     </div>
   )
 }
@@ -402,6 +380,6 @@ function NumberBox({ value, onChange, step }: {
   return (
     <input type="number" step={step ?? 1} value={value ?? ''}
       onChange={e => onChange(Number(e.target.value))}
-      className="w-full px-3 py-2 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-sm font-black text-right outline-none" />
+      className="w-full px-3 py-2 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)] text-sm font-semibold text-right outline-none" />
   )
 }

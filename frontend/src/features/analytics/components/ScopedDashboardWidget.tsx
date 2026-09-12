@@ -43,6 +43,7 @@ import {
 } from 'recharts'
 import { METRIC_COLORS } from '@/components/charts/chartPalette'
 import type { ScopedDashboardResponse } from '@/types/stats'
+import { ChoiceChip } from '@/components/ui/choice-chip'
 
 // Re-use the TopUnit shape from ScopedDashboardResponse directly
 type ScopedTopUnit = ScopedDashboardResponse['topUnits'][number]
@@ -128,11 +129,11 @@ function TopItemsDualChart({
 
   if (sorted.length === 0) {
     return (
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl p-5 shadow-sm min-h-[320px] flex flex-col">
+      <div className="bg-[var(--color-card)] border border-[var(--color-border)] /10 rounded-card p-5 shadow-sm min-h-[320px] flex flex-col">
         <SectionHeader title={title} icon={<Trophy size={18} />}>
           <FilterToggle value={filterType} onChange={onFilterChange} />
         </SectionHeader>
-        <div className="flex-1 flex items-center justify-center text-sm text-slate-500 dark:text-slate-400">
+        <div className="flex-1 flex items-center justify-center text-sm text-[var(--color-muted-foreground)]">
           Chưa có dữ liệu trong khoảng thời gian này
         </div>
       </div>
@@ -145,7 +146,7 @@ function TopItemsDualChart({
   const compDomain = Math.ceil(maxComp / 50) * 50
 
   return (
-    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl p-5 shadow-sm">
+    <div className="bg-[var(--color-card)] border border-[var(--color-border)] /10 rounded-card p-5 shadow-sm">
       <SectionHeader title={title} icon={<Trophy size={18} />}>
         <FilterToggle value={filterType} onChange={onFilterChange} />
       </SectionHeader>
@@ -154,7 +155,7 @@ function TopItemsDualChart({
         {/* LEFT – Completion Rate */}
         <div className="flex flex-col">
           <div className="flex items-center justify-between mb-1">
-            <h4 className="text-xs font-bold text-slate-700 dark:text-slate-200">Tiến độ</h4>
+            <h4 className="text-xs font-medium text-[var(--color-foreground)]">Tiến độ</h4>
           </div>
           <div className="w-full h-[250px]">
             <ResponsiveContainer width="100%" height="100%">
@@ -235,7 +236,7 @@ function TopItemsDualChart({
         {/* RIGHT – Performance Rate */}
         <div className="flex flex-col">
           <div className="flex items-center justify-between mb-1">
-            <h4 className="text-xs font-bold text-slate-700 dark:text-slate-200">Hiệu suất</h4>
+            <h4 className="text-xs font-medium text-[var(--color-foreground)]">Hiệu suất</h4>
           </div>
           <div className="w-full h-[250px]">
             <ResponsiveContainer width="100%" height="100%">
@@ -356,11 +357,11 @@ function TopUnitsDualChartScoped({
 
   if (sorted.length === 0) {
     return (
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl p-5 shadow-sm min-h-[320px] flex flex-col">
+      <div className="bg-[var(--color-card)] border border-[var(--color-border)] /10 rounded-card p-5 shadow-sm min-h-[320px] flex flex-col">
         <SectionHeader title="Top Đơn vị phụ trách" icon={<Building2 size={18} />}>
           <FilterToggle value={filterType} onChange={onFilterChange} />
         </SectionHeader>
-        <div className="flex-1 flex items-center justify-center text-sm text-slate-500 dark:text-slate-400">
+        <div className="flex-1 flex items-center justify-center text-sm text-[var(--color-muted-foreground)]">
           Chưa có dữ liệu đơn vị
         </div>
       </div>
@@ -373,7 +374,7 @@ function TopUnitsDualChartScoped({
   const compDomain = Math.ceil(maxComp / 50) * 50
 
   return (
-    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-white/10 rounded-xl p-5 shadow-sm">
+    <div className="bg-[var(--color-card)] border border-[var(--color-border)] /10 rounded-card p-5 shadow-sm">
       <SectionHeader title="Top Đơn vị phụ trách" icon={<Building2 size={18} />}>
         <FilterToggle value={filterType} onChange={onFilterChange} />
       </SectionHeader>
@@ -382,7 +383,7 @@ function TopUnitsDualChartScoped({
         {/* LEFT – Completion Rate */}
         <div className="flex flex-col">
           <div className="flex items-center justify-between mb-1">
-            <h4 className="text-xs font-bold text-slate-700 dark:text-slate-200">Tiến độ đơn vị</h4>
+            <h4 className="text-xs font-medium text-[var(--color-foreground)]">Tiến độ đơn vị</h4>
           </div>
           <div className="w-full h-[250px]">
             <ResponsiveContainer width="100%" height="100%">
@@ -463,7 +464,7 @@ function TopUnitsDualChartScoped({
         {/* RIGHT — Performance Rate */}
         <div className="flex flex-col">
           <div className="flex items-center justify-between mb-1">
-            <h4 className="text-xs font-bold text-slate-700 dark:text-slate-200">Hiệu suất đơn vị</h4>
+            <h4 className="text-xs font-medium text-[var(--color-foreground)]">Hiệu suất đơn vị</h4>
           </div>
           <div className="w-full h-[250px]">
             <ResponsiveContainer width="100%" height="100%">
@@ -558,10 +559,10 @@ function SectionHeader({
   return (
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-2">
-        <div className="p-1.5 bg-indigo-50 dark:bg-indigo-500/20 rounded-lg text-indigo-500 dark:text-indigo-400">
+        <div className="p-1.5 bg-[var(--color-primary-soft)] rounded-control text-[var(--color-primary)]">
           {icon}
         </div>
-        <h3 className="font-bold text-slate-900 dark:text-white tracking-tight text-sm">{title}</h3>
+        <h3 className="text-section-title text-[var(--color-foreground)] tracking-tight">{title}</h3>
       </div>
       {children}
     </div>
@@ -577,29 +578,15 @@ function FilterToggle({
   onChange: (f: FilterType) => void
 }) {
   return (
-    <div className="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 gap-0.5">
-      <button
-        onClick={() => onChange('BEST')}
-        className={`flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[11px] font-semibold transition-all duration-200 ${
-          value === 'BEST'
-            ? 'bg-white dark:bg-slate-700 text-emerald-600 dark:text-emerald-400 shadow-sm'
-            : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
-        }`}
-      >
-        <Trophy size={11} />
+    <div className="flex bg-[var(--color-muted)] rounded-control p-0.5 gap-0.5">
+      <ChoiceChip selected={value === 'BEST'} variant="segment" className="py-1.5" onClick={() => onChange('BEST')}>
+        <Trophy />
         Tốt nhất
-      </button>
-      <button
-        onClick={() => onChange('WORST')}
-        className={`flex items-center gap-1 px-2.5 py-1.5 rounded-md text-[11px] font-semibold transition-all duration-200 ${
-          value === 'WORST'
-            ? 'bg-white dark:bg-slate-700 text-rose-600 dark:text-rose-400 shadow-sm'
-            : 'text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300'
-        }`}
-      >
-        <TrendingDown size={11} />
+      </ChoiceChip>
+      <ChoiceChip selected={value === 'WORST'} variant="segment" className="py-1.5" onClick={() => onChange('WORST')}>
+        <TrendingDown />
         Trì trệ
-      </button>
+      </ChoiceChip>
     </div>
   )
 }
@@ -609,7 +596,7 @@ function FilterToggle({
 function MetricsBadge({ type }: { type: 'OBJECTIVE' | 'KR' | 'KPI' }) {
   if (type === 'OBJECTIVE') {
     return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/30">
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-[var(--color-primary-soft)] text-[var(--color-primary)] border border-[var(--color-border)]">
         <Target size={10} />
         Mục tiêu
       </span>
@@ -617,14 +604,14 @@ function MetricsBadge({ type }: { type: 'OBJECTIVE' | 'KR' | 'KPI' }) {
   }
   if (type === 'KR') {
     return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-violet-100 dark:bg-violet-500/20 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-500/30">
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-[var(--color-primary-soft)] text-[var(--color-primary)] border border-[var(--color-border)]">
         <TrendingUp size={10} />
         Key Result
       </span>
     )
   }
   return (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-pink-100 dark:bg-pink-500/20 text-pink-700 dark:text-pink-300 border border-pink-200 dark:border-pink-500/30">
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-[var(--color-info-bg)] text-[var(--color-info)] border border-[var(--color-info-border)]">
       <TrendingUp size={10} />
       KPI
     </span>
@@ -738,8 +725,8 @@ export default function ScopedDashboardWidget({ type, id, dateRange: globalDateR
   if (isLoading || !metrics || !comboChart || !topEntities) {
     return (
       <div className="w-full min-h-[400px] flex flex-col items-center justify-center mt-10">
-        <Loader2 className="w-8 h-8 text-indigo-500 animate-spin mb-4" />
-        <p className="text-slate-500 dark:text-slate-400 font-medium">
+        <Loader2 className="w-8 h-8 text-[var(--color-primary)] animate-spin mb-4" />
+        <p className="text-[var(--color-muted-foreground)] font-medium">
           Đang phân tích dữ liệu chuyên sâu...
         </p>
       </div>
@@ -771,18 +758,18 @@ export default function ScopedDashboardWidget({ type, id, dateRange: globalDateR
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div className="flex items-center gap-2">
           <MetricsBadge type={type} />
-          <span className="text-xs text-slate-500 dark:text-slate-400">
+          <span className="text-xs text-[var(--color-muted-foreground)]">
             Phân tích chi tiết theo{' '}
             {type === 'OBJECTIVE' ? 'Mục tiêu' : type === 'KR' ? 'Key Result' : 'KPI'}
           </span>
         </div>
         
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 bg-white dark:bg-slate-900 p-1 rounded-lg border border-slate-200 dark:border-white/10 shadow-sm text-sm w-full sm:w-auto">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 bg-[var(--color-card)] p-1 rounded-control border border-[var(--color-border)] /10 shadow-sm text-sm w-full sm:w-auto">
           <Select 
             value={dateFilterType} 
             onValueChange={(v) => setDateFilterType(v as DateFilterType)}
           >
-            <SelectTrigger className="border-none shadow-none focus:ring-0 bg-transparent h-8 text-slate-700 dark:text-slate-300 font-medium px-2 w-auto">
+            <SelectTrigger className="border-none shadow-none focus:ring-0 bg-transparent h-8 text-[var(--color-foreground)] font-medium px-2 w-auto">
               <SelectValue />
             </SelectTrigger>
             <SelectContent className="w-[var(--radix-select-trigger-width)]">
@@ -796,17 +783,17 @@ export default function ScopedDashboardWidget({ type, id, dateRange: globalDateR
             </SelectContent>
           </Select>
           {dateFilterType === 'CUSTOM' && (
-            <div className="flex items-center gap-2 px-2 border-l border-slate-200 dark:border-white/10">
+            <div className="flex items-center gap-2 px-2 border-l border-[var(--color-border)] /10">
               <input 
                 type="date" 
-                className="bg-transparent border-none outline-none text-slate-700 dark:text-slate-300 text-xs"
+                className="bg-transparent border-none outline-none text-[var(--color-foreground)] text-xs"
                 value={customRange.from}
                 onChange={(e) => setCustomRange(prev => ({ ...prev, from: e.target.value }))}
               />
-              <span className="text-slate-400">-</span>
+              <span className="text-[var(--color-subtle-foreground)]">-</span>
               <input 
                 type="date" 
-                className="bg-transparent border-none outline-none text-slate-700 dark:text-slate-300 text-xs"
+                className="bg-transparent border-none outline-none text-[var(--color-foreground)] text-xs"
                 value={customRange.to}
                 onChange={(e) => setCustomRange(prev => ({ ...prev, to: e.target.value }))}
               />
@@ -818,19 +805,19 @@ export default function ScopedDashboardWidget({ type, id, dateRange: globalDateR
       {isQual ? (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="bg-violet-50 dark:bg-violet-900/20 p-4 rounded-2xl border border-violet-100 dark:border-violet-900/30">
-              <p className="text-[10px] font-bold text-violet-500 mb-1.5">Mức kết quả</p>
+            <div className="bg-[var(--color-primary-soft)] p-4 rounded-card border border-[var(--color-border)]">
+              <p className="text-xs font-medium text-[var(--color-primary)] mb-1.5">Mức kết quả</p>
               <QualitativeResultChip level={metrics.qualitativeLevelName} />
             </div>
-            <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-2xl border border-blue-100 dark:border-blue-900/30">
-              <p className="text-[10px] font-bold text-blue-500 mb-1">Số bài nộp đã chấm</p>
-              <p className="text-xl font-black text-blue-700 dark:text-blue-400">
+            <div className="bg-[var(--color-info-bg)] p-4 rounded-card border border-[var(--color-info-border)]">
+              <p className="text-xs font-medium text-[var(--color-info)] mb-1">Số bài nộp đã chấm</p>
+              <p className="text-xl font-semibold text-[var(--color-info)]">
                 {(metrics.qualitativeDistribution ?? []).reduce((s, d) => s + d.count, 0)}
               </p>
             </div>
           </div>
-          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800">
-            <h3 className="text-sm font-black text-slate-900 dark:text-white mb-3">Phân bố mức đánh giá</h3>
+          <div className="bg-[var(--color-card)] rounded-widget p-6 border border-[var(--color-border)]">
+            <h3 className="text-section-title text-[var(--color-foreground)] mb-3">Phân bố mức đánh giá</h3>
             <QualitativeDistributionChart distribution={metrics.qualitativeDistribution} />
           </div>
         </>
@@ -856,37 +843,37 @@ export default function ScopedDashboardWidget({ type, id, dateRange: globalDateR
             ? `${kpiDrawerData.targetValue.toLocaleString('vi-VN')} ${kpiDrawerData.unit}`
             : `${metrics.completedCount}/${metrics.totalCount}`}
           subtitle={type === 'KPI' ? '' : `Đạt 100% tiến độ`}
-          icon={<CheckCircle2 size={18} className="text-emerald-500" />}
+          icon={<CheckCircle2 size={18} className="text-[var(--color-success)]" />}
         />
         <ObjectiveMetricCard
           title="Rủi ro"
           value={metrics.atRiskCount}
           subtitle="Tiến độ thấp & sắp hết hạn"
-          icon={<AlertTriangle size={18} className="text-rose-500" />}
+          icon={<AlertTriangle size={18} className="text-[var(--color-error)]" />}
         />
       </div>
 
       {/* ── Section 2: Chart ── */}
       <div>
         <div className="flex items-center gap-2 mb-3">
-          <div className="p-1.5 bg-indigo-50 dark:bg-indigo-500/20 rounded-lg text-indigo-500 dark:text-indigo-400">
+          <div className="p-1.5 bg-[var(--color-primary-soft)] rounded-control text-[var(--color-primary)]">
             <TrendingUp size={16} />
           </div>
-          <h3 className="font-bold text-slate-900 dark:text-white tracking-tight text-sm">
+          <h3 className="text-section-title text-[var(--color-foreground)] tracking-tight">
             Xu hướng theo thời gian
           </h3>
         </div>
         <div className="w-full">
           {type === 'KPI' ? (
             /* ── KPI: Member-Picker + Multi-Line Chart ── */
-            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm">
+            <div className="bg-[var(--color-card)] rounded-card border border-[var(--color-border)] p-6 shadow-sm">
               <div className="flex flex-col md:flex-row md:items-center justify-between mb-4 gap-4">
                 <div>
-                  <p className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
+                  <p className="text-lg font-semibold text-[var(--color-foreground)] flex items-center gap-2">
                     Xu hướng Bài nộp: Tiến độ & Hiệu suất
-                    <span className="text-[10px] text-indigo-500 font-bold" title="Theo thành viên">*</span>
+                    <span className="text-xs text-[var(--color-primary)] font-medium" title="Theo thành viên">*</span>
                   </p>
-                  <p className="text-xs text-slate-500 mt-0.5">So sánh số lượng bài nộp đang chạy với tiến độ và hiệu suất đạt được</p>
+                  <p className="text-xs text-[var(--color-muted-foreground)] mt-0.5">So sánh số lượng bài nộp đang chạy với tiến độ và hiệu suất đạt được</p>
                 </div>
                 {/* Member Toggle Buttons */}
                 {kpiDrawerData?.chartData?.availableTeammates && kpiDrawerData.chartData.availableTeammates.length > 0 && (
@@ -896,10 +883,10 @@ export default function ScopedDashboardWidget({ type, id, dateRange: globalDateR
                         key={tm.userId}
                         onClick={() => toggleMember(tm.userId)}
                         className={cn(
-                          'px-2.5 py-1 rounded-full text-[10px] font-bold transition-all border',
+                          'px-2.5 py-1 rounded-full text-xs font-medium transition-all border',
                           activeMembers.includes(tm.userId)
-                            ? 'bg-slate-800 text-white border-slate-800 dark:bg-white dark:text-slate-900 dark:border-white'
-                            : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300 dark:bg-slate-900 dark:border-slate-700'
+                            ? 'bg-[var(--color-foreground)] text-[var(--color-background)]'
+                            : 'bg-white text-[var(--color-muted-foreground)] border-[var(--color-border)] hover:border-[var(--color-border-strong)]'
                         )}
                       >
                         {activeMembers.includes(tm.userId) && '✓ '}{tm.fullName}
@@ -909,7 +896,7 @@ export default function ScopedDashboardWidget({ type, id, dateRange: globalDateR
                 )}
               </div>
 
-              <div className="flex justify-between text-xs font-bold text-slate-400 dark:text-slate-500 mb-2 px-1">
+              <div className="flex justify-between text-caption mb-2 px-1">
                 <span>Đơn vị ({kpiDrawerData?.unit || ''})</span>
                 <span>Hiệu suất (%)</span>
               </div>
@@ -925,8 +912,8 @@ export default function ScopedDashboardWidget({ type, id, dateRange: globalDateR
                       content={({ active, payload, label }: any) => {
                         if (active && payload && payload.length) {
                           return (
-                            <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-xl shadow-lg">
-                              <p className="font-bold text-slate-900 dark:text-white mb-3">{label}</p>
+                            <div className="bg-[var(--color-card)] border border-[var(--color-border)] p-4 rounded-card">
+                              <p className="font-semibold text-[var(--color-foreground)] mb-3">{label}</p>
                               <div className="space-y-2">
                                 {payload.map((p: any, i: number) => {
                                   let valStr = p.value?.toLocaleString('vi-VN')
@@ -936,8 +923,8 @@ export default function ScopedDashboardWidget({ type, id, dateRange: globalDateR
                                   return (
                                     <div key={i} className="flex items-center gap-3 text-sm">
                                       <div className="w-3 h-3 rounded-sm flex-shrink-0" style={{ backgroundColor: p.color }} />
-                                      <span className="text-slate-500 font-medium min-w-[120px]">{p.name}:</span>
-                                      <span className="font-bold text-slate-900 dark:text-white">{valStr}</span>
+                                      <span className="text-[var(--color-muted-foreground)] font-medium min-w-[120px]">{p.name}:</span>
+                                      <span className="font-semibold text-[var(--color-foreground)]">{valStr}</span>
                                     </div>
                                   )
                                 })}
@@ -981,7 +968,7 @@ export default function ScopedDashboardWidget({ type, id, dateRange: globalDateR
               </div>
 
               {activeMembers.length === 0 && (
-                <div className="text-center text-xs text-slate-400 dark:text-slate-500 mt-3">
+                <div className="text-center text-xs text-[var(--color-subtle-foreground)] mt-3">
                   ← Chọn thành viên ở trên để so sánh thêm đường xu hướng của họ
                 </div>
               )}

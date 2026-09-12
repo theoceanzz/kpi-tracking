@@ -37,26 +37,26 @@ export function KpiTypeTags({
   const tags: Tag[] = []
 
   if (isQualitative) {
-    tags.push({ label: 'KPI định tính', className: 'bg-violet-50 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400' })
+    tags.push({ label: 'KPI định tính', className: 'bg-[var(--color-primary-soft)] text-[var(--color-primary)]' })
   }
   if (isBonusKpi) {
-    tags.push({ label: 'KPI thưởng', className: 'bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400' })
+    tags.push({ label: 'KPI thưởng', className: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]' })
   }
   if (isReverseKpi) {
-    tags.push({ label: 'KPI ngược', className: 'bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400' })
+    tags.push({ label: 'KPI ngược', className: 'bg-[var(--color-error-bg)] text-[var(--color-error)]' })
   }
   if (childRelationType === 'DECOMPOSITION') {
-    tags.push({ label: 'KPI cha', className: 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400' })
+    tags.push({ label: 'KPI cha', className: 'bg-[var(--color-primary-soft)] text-[var(--color-primary)]' })
   } else if (childRelationType === 'DELEGATION') {
-    tags.push({ label: 'KPI thác nước', className: 'bg-cyan-50 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400' })
+    tags.push({ label: 'KPI thác nước', className: 'bg-[var(--color-info-bg)] text-[var(--color-info)]' })
   }
   if (isReplacement) {
-    tags.push({ label: 'KPI thay thế', className: 'bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200' })
+    tags.push({ label: 'KPI thay thế', className: 'bg-[var(--color-border)] text-[var(--color-foreground)]' })
   }
   if (parentRelationType === 'DECOMPOSITION') {
-    tags.push({ label: 'KPI con', className: 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300' })
+    tags.push({ label: 'KPI con', className: 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)]' })
   } else if (parentRelationType === 'DELEGATION') {
-    tags.push({ label: 'KPI thác nước', className: 'bg-cyan-50 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400' })
+    tags.push({ label: 'KPI thác nước', className: 'bg-[var(--color-info-bg)] text-[var(--color-info)]' })
   }
 
   // Loại bỏ tag trùng nhãn (vd "KPI thác nước" có thể xuất hiện cả từ child lẫn parent).
@@ -64,7 +64,7 @@ export function KpiTypeTags({
   const uniqueTags = tags.filter((t) => (seen.has(t.label) ? false : (seen.add(t.label), true)))
 
   if (uniqueTags.length === 0) {
-    uniqueTags.push({ label: 'KPI thường', className: 'bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400' })
+    uniqueTags.push({ label: 'KPI thường', className: 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)]' })
   }
 
   return (
@@ -72,7 +72,7 @@ export function KpiTypeTags({
       {uniqueTags.map((t) => (
         <span
           key={t.label}
-          className={cn('inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black uppercase', t.className)}
+          className={cn('inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium', t.className)}
         >
           {t.label}
         </span>

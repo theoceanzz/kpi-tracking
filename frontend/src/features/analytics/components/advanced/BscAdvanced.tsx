@@ -15,14 +15,14 @@ import { useTrendMode } from '@/components/common/dashboard/useTrendMode'
 
 function Empty({ children, height = 240 }: { children: React.ReactNode; height?: number }) {
   return (
-    <div className="flex items-center justify-center text-sm text-slate-400 font-medium text-center px-4" style={{ height }}>
+    <div className="flex items-center justify-center text-sm text-[var(--color-subtle-foreground)] font-medium text-center px-4" style={{ height }}>
       {children}
     </div>
   )
 }
 
 function Loading({ height = 240 }: { height?: number }) {
-  return <div className="flex items-center justify-center text-slate-400 font-bold" style={{ height }}>Đang tải...</div>
+  return <div className="flex items-center justify-center text-[var(--color-subtle-foreground)] font-semibold" style={{ height }}>Đang tải...</div>
 }
 
 // ============================================================
@@ -79,7 +79,7 @@ export function BscVsSystemScatterSection({ filter }: { filter: AdvancedFilter }
           </Scatter>
         </ScatterChart>
       </ResponsiveContainer>
-      <p className="text-[11px] text-slate-400 font-medium text-center mt-1">
+      <p className="text-caption font-medium text-center mt-1">
         {points.length} nhân sự · chấm màu cam là nơi hai cách chấm lệch nhau từ 10 điểm trở lên
         {data?.scoringMode === 'SHADOW' ? ' · BSC đang chạy song song' : ''}
       </p>
@@ -94,21 +94,21 @@ function AgreementTooltip({ active, payload }: {
   const d = payload?.[0]?.payload
   if (!active || !d) return null
   return (
-    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3.5 rounded-xl shadow-lg">
-      <p className="font-bold text-slate-900 dark:text-white mb-2">{d.name ?? 'Một nhân sự'}</p>
+    <div className="bg-[var(--color-card)] border border-[var(--color-border)] p-3.5 rounded-card">
+      <p className="font-semibold text-[var(--color-foreground)] mb-2">{d.name ?? 'Một nhân sự'}</p>
       <div className="space-y-1 text-sm">
-        <p><span className="text-slate-500 font-medium">Điểm BSC: </span><span className="font-bold tabular-nums">{d.bscScore}</span></p>
-        <p><span className="text-slate-500 font-medium">Điểm hệ thống: </span><span className="font-bold tabular-nums">{d.systemScore}</span></p>
-        <p className="pt-1.5 border-t border-slate-100 dark:border-slate-800 mt-1.5">
-          <span className="text-slate-500 font-medium">Lệch: </span>
-          <span className="font-black tabular-nums" style={{ color: Math.abs(d.gap) >= 10 ? '#f59e0b' : '#64748b' }}>
+        <p><span className="text-[var(--color-muted-foreground)] font-medium">Điểm BSC: </span><span className="font-semibold tabular-nums">{d.bscScore}</span></p>
+        <p><span className="text-[var(--color-muted-foreground)] font-medium">Điểm hệ thống: </span><span className="font-semibold tabular-nums">{d.systemScore}</span></p>
+        <p className="pt-1.5 border-t border-[var(--color-border)] mt-1.5">
+          <span className="text-[var(--color-muted-foreground)] font-medium">Lệch: </span>
+          <span className="font-semibold tabular-nums" style={{ color: Math.abs(d.gap) >= 10 ? '#f59e0b' : '#64748b' }}>
             {d.gap > 0 ? '+' : ''}{d.gap}
           </span>
-          <span className="text-[11px] text-slate-400 ml-1">
+          <span className="text-caption ml-1">
             {d.gap > 0 ? '(BSC chấm rộng hơn)' : d.gap < 0 ? '(hệ thống chấm rộng hơn)' : ''}
           </span>
         </p>
-        {d.evaluationCount != null && <p className="text-[11px] text-slate-400">{d.evaluationCount} lần đánh giá</p>}
+        {d.evaluationCount != null && <p className="text-caption">{d.evaluationCount} lần đánh giá</p>}
       </div>
     </div>
   )
@@ -142,7 +142,7 @@ export function PerspectiveBubbleSection({ filter }: { filter: AdvancedFilter })
         quadrant={{ x: data?.avgWeight ?? undefined, y: data?.avgScore ?? undefined }}
         height={320}
       />
-      <p className="text-[11px] text-slate-400 font-medium text-center mt-1">
+      <p className="text-caption font-medium text-center mt-1">
         Góc phải-dưới là nơi cần xử lý trước: hạng mục được giao trọng số lớn nhưng điểm đạt thấp.
       </p>
     </div>
@@ -173,7 +173,7 @@ export function BscWaterfallSection({ filter }: { filter: AdvancedFilter }) {
         unit="điểm"
         height={320}
       />
-      <p className="text-[11px] text-slate-400 font-medium text-center mt-1">
+      <p className="text-caption font-medium text-center mt-1">
         Mỗi cột là phần điểm hạng mục đó góp vào tổng (đã nhân trọng số) · cột cuối là điểm BSC.
       </p>
     </div>
@@ -234,7 +234,7 @@ export function WeightHistorySection({ filter }: { filter: AdvancedFilter }) {
           unit="%"
           height={300}
         />
-        <p className="text-[11px] text-slate-400 font-medium text-center mt-1">
+        <p className="text-caption font-medium text-center mt-1">
           {data?.changeCount} lần điều chỉnh · vùng vẽ bậc thang vì trọng số giữ nguyên cho tới lần đổi kế tiếp.
         </p>
       </div>
@@ -274,7 +274,7 @@ export function WeightHistorySection({ filter }: { filter: AdvancedFilter }) {
           ))}
         </LineChart>
       </ResponsiveContainer>
-      <p className="text-[11px] text-slate-400 font-medium text-center mt-1">
+      <p className="text-caption font-medium text-center mt-1">
         {data?.changeCount} lần điều chỉnh · di chuột lên mốc để xem ai đổi và lý do.
       </p>
     </div>
@@ -291,19 +291,19 @@ function WeightTooltip({ active, payload, label, perspectives }: {
   if (!active || !row) return null
   const note = String(row['__note'] ?? '')
   return (
-    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3.5 rounded-xl shadow-lg max-w-[320px]">
-      <p className="font-bold text-slate-900 dark:text-white mb-2">{label}</p>
+    <div className="bg-[var(--color-card)] border border-[var(--color-border)] p-3.5 rounded-card max-w-[320px]">
+      <p className="font-semibold text-[var(--color-foreground)] mb-2">{label}</p>
       <div className="space-y-1 text-sm">
         {perspectives.map((ps, i) => (
           <div key={ps.id} className="flex items-center gap-2.5">
             <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: resolveColor(ps.color, i) }} />
-            <span className="text-slate-500 font-medium min-w-[120px] truncate">{ps.name}:</span>
-            <span className="font-bold tabular-nums">{row[ps.id] ?? 0}%</span>
+            <span className="text-[var(--color-muted-foreground)] font-medium min-w-[120px] truncate">{ps.name}:</span>
+            <span className="font-semibold tabular-nums">{row[ps.id] ?? 0}%</span>
           </div>
         ))}
       </div>
       {note && (
-        <p className="text-[11px] text-slate-500 font-medium mt-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+        <p className="text-caption font-medium mt-2 pt-2 border-t border-[var(--color-border)]">
           {note}
         </p>
       )}

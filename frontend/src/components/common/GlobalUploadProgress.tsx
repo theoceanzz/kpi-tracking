@@ -15,16 +15,16 @@ export default function GlobalUploadProgress() {
         <div 
           key={task.id}
           className={cn(
-            "pointer-events-auto bg-white dark:bg-slate-900 border rounded-2xl p-4 shadow-2xl animate-in slide-in-from-right-8 duration-500",
-            task.status === 'error' ? "border-rose-200 dark:border-rose-900/30" : "border-slate-200 dark:border-slate-800"
+            "pointer-events-auto bg-[var(--color-card)] border rounded-card p-4 shadow-2xl animate-in slide-in-from-right-8 duration-500",
+            task.status === 'error' ? "border-[var(--color-error-border)]" : "border-[var(--color-border)]"
           )}
         >
           <div className="flex items-center gap-3 mb-3">
             <div className={cn(
-              "w-10 h-10 rounded-xl flex items-center justify-center shrink-0",
-              task.status === 'uploading' ? "bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600" :
-              task.status === 'completed' ? "bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600" :
-              "bg-rose-50 dark:bg-rose-950/20 text-rose-600"
+              "w-10 h-10 rounded-card flex items-center justify-center shrink-0",
+              task.status === 'uploading' ? "bg-[var(--color-primary-soft)] text-[var(--color-primary)]" :
+              task.status === 'completed' ? "bg-[var(--color-success-bg)] text-[var(--color-success)]" :
+              "bg-[var(--color-error-bg)] text-[var(--color-error)]"
             )}>
               {task.status === 'uploading' ? <Loader2 size={20} className="animate-spin" /> :
                task.status === 'completed' ? <CheckCircle2 size={20} /> :
@@ -32,40 +32,40 @@ export default function GlobalUploadProgress() {
             </div>
             
             <div className="flex-1 min-w-0">
-              <p className="text-[11px] font-black text-slate-900 dark:text-white truncate uppercase tracking-tight">
+              <p className="text-xs font-semibold text-[var(--color-foreground)] truncate uppercase tracking-tight">
                 {task.status === 'uploading' ? 'Đang tải lên...' : 
                  task.status === 'completed' ? 'Tải lên hoàn tất' : 
                  'Lỗi tải lên'}
               </p>
-              <p className="text-[10px] font-bold text-slate-400 truncate mt-0.5">
+              <p className="text-caption truncate mt-0.5">
                 {task.fileName}
               </p>
             </div>
 
             <button 
               onClick={() => removeTask(task.id)}
-              className="p-1.5 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg text-slate-400 transition-colors"
+              className="p-1.5 hover:bg-[var(--color-muted)] rounded-control text-[var(--color-subtle-foreground)] transition-colors"
             >
               <X size={14} />
             </button>
           </div>
 
           <div className="space-y-2">
-            <div className="h-1.5 w-full bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+            <div className="h-1.5 w-full bg-[var(--color-muted)] rounded-full overflow-hidden">
               <div 
                 className={cn(
                   "h-full transition-all duration-500 ease-out rounded-full",
-                  task.status === 'error' ? "bg-rose-500" : "bg-indigo-600"
+                  task.status === 'error' ? "bg-[var(--color-error-solid)]" : "bg-[var(--color-primary)]"
                 )}
                 style={{ width: `${task.progress}%` }}
               />
             </div>
             <div className="flex justify-between items-center">
-              <span className="text-[9px] font-black text-slate-400 uppercase tracking-widest">
+              <span className="text-eyebrow">
                 {task.status === 'uploading' ? `${task.progress}%` : ''}
               </span>
               {task.status === 'uploading' && (
-                <div className="flex items-center gap-1 text-[9px] font-black text-indigo-600 uppercase tracking-widest">
+                <div className="text-eyebrow flex items-center gap-1 text-[var(--color-primary)]">
                   <FileUp size={10} /> Đang xử lý
                 </div>
               )}
@@ -73,7 +73,7 @@ export default function GlobalUploadProgress() {
             {/* Lý do máy chủ từ chối. KHÔNG truncate: thông điệp bị cắt cụt thì cũng bằng không có,
                 mà đây lại đúng là chỗ duy nhất người dùng biết được mình phải sửa gì. */}
             {task.status === 'error' && task.message && (
-              <p className="text-[10px] font-bold leading-relaxed text-rose-600 dark:text-rose-400">
+              <p className="text-xs font-medium leading-relaxed text-[var(--color-error)]">
                 {task.message}
               </p>
             )}

@@ -1,4 +1,3 @@
-import { Building2 } from 'lucide-react'
 import SettingsSectionLayout from '@/components/common/SettingsSectionLayout'
 import { usePageTitle } from '@/features/organization/hooks/usePageTitle'
 import { CompanyInfoSection, CompanyHierarchySection } from '../components/CompanySections'
@@ -33,11 +32,6 @@ export default function CompanySettingsPage() {
         navId="setup-company"
         title={pageTitle}
         subtitle="Thông tin, cơ cấu, con người và các thiết lập chung của tổ chức"
-        eyebrow={
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 text-xs font-black uppercase tracking-widest mb-3">
-            <Building2 size={14} /> Thiết lập
-          </div>
-        }
         sections={[
           { id: 'info', render: () => <CompanyInfoSection /> },
           { id: 'ranks', render: () => <CompanyHierarchySection /> },

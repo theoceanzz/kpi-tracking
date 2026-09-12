@@ -1,17 +1,23 @@
 import { useParams, useNavigate, Link } from 'react-router-dom'
 import { useQuery } from '@tanstack/react-query'
+import { useState } from 'react'
 import { submissionApi } from '../api/submissionApi'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import StatusBadge from '@/components/common/StatusBadge'
-import { formatDateTime, formatNumber, downloadFile, cn } from '@/lib/utils'
-import { 
-  ArrowLeft, Target, CheckCircle2, Calendar, User, FileText, 
-  MessageSquare, Trophy, History, Download, Eye, File, Star,
-  ShieldCheck, LayoutDashboard, Pencil, Plus, Clock
-} from 'lucide-react'
-import { useState } from 'react'
+import EmptyState from '@/components/common/EmptyState'
 import MediaPreviewModal from '@/components/common/MediaPreviewModal'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { formatDateTime, formatNumber, downloadFile, cn } from '@/lib/utils'
+import { ArrowLeft, Download, Eye, File as FileIcon, Pencil, Plus, FileText } from 'lucide-react'
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
+
+/**
+ * Chi tiết một bài nộp — trang ĐỌC là chính. Cột trái: kết quả (số liệu lớn) → giải trình →
+ * minh chứng → phản hồi của quản lý; cột phải: ai nộp, ai duyệt, lúc nào, thuộc đợt nào.
+ * Hành động duy nhất là "Sửa" khi còn là bản nháp — đặt ở header, cùng chỗ với mọi trang.
+ */
 export default function SubmissionDetailPage() {
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
@@ -23,399 +29,194 @@ export default function SubmissionDetailPage() {
     enabled: !!id,
   })
 
-  if (isLoading) return <div className="p-8"><LoadingSkeleton type="form" rows={8} /></div>
+  if (isLoading) return <div className="mx-auto max-w-[1200px]"><LoadingSkeleton type="form" rows={6} /></div>
   
-  if (!submission) return (
-    <div className="flex flex-col items-center justify-center py-32 animate-in fade-in zoom-in duration-500">
-      <div className="w-20 h-20 bg-slate-100 dark:bg-slate-800 rounded-[30px] flex items-center justify-center mb-6">
-        <FileText className="w-10 h-10 text-slate-400" />
-      </div>
-      <h2 className="text-xl font-black text-slate-900 dark:text-white mb-2">Không tìm thấy bài nộp</h2>
-      <p className="text-slate-500 mb-8">Dữ liệu bài nộp này có thể đã bị xóa hoặc không tồn tại.</p>
-      <button 
-        type="button" 
-        onClick={() => navigate('/submissions')} 
-        className="px-8 py-3 bg-indigo-600 text-white rounded-2xl font-black text-sm shadow-lg shadow-indigo-500/20 hover:bg-indigo-700 transition-all active:scale-95"
-      >
-        QUAY LẠI DANH SÁCH
-      </button>
-    </div>
-  )
-
-  const isQualitative = submission.kpiType === 'QUALITATIVE'
-  const achievement = submission.targetValue
-    ? Math.round((submission.actualValue / submission.targetValue) * 100)
-    : null
-
-  const getAchievementColor = (val: number): 'emerald' | 'amber' | 'rose' | 'slate' => {
-    if (val >= 100) return 'emerald'
-    if (val >= 70) return 'amber'
-    return 'rose'
-  }
-
+  if (!submission) {
   return (
-    <div className="max-w-[1400px] mx-auto p-4 md:p-6 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-      
-      {/* Header with Navigation */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-        <div className="flex items-center gap-5">
-          <button 
-            type="button"
-            onClick={() => navigate(-1)}
-            className="w-12 h-12 flex items-center justify-center rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-500 hover:text-indigo-600 hover:border-indigo-200 transition-all group shadow-sm active:scale-90"
-          >
-            <ArrowLeft className="w-5 h-5 transition-transform group-hover:-translate-x-1" />
-          </button>
-          <div className="space-y-1">
-            <div className="flex items-center gap-3">
-               <StatusBadge status={submission.status} />
-            </div>
-            <h1 className="text-2xl md:text-3xl font-black tracking-tight text-slate-900 dark:text-white">
-              {submission.kpiCriteriaName}
-            </h1>
-          </div>
-        </div>
-
-        <div className="flex items-center gap-3 shrink-0">
-          {submission.status === 'DRAFT' && (
-            <Link 
-              to={`/submissions/edit/${submission.id}`}
-              className="px-6 py-3 bg-indigo-600 text-white rounded-2xl font-black text-sm shadow-lg shadow-indigo-500/20 hover:bg-indigo-700 transition-all flex items-center gap-2"
-            >
-              <Pencil size={16} /> CHỈNH SỬA
-            </Link>
-          )}
-        </div>
-      </div>
-
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        
-        {/* Main Content (Left) */}
-        <div className="lg:col-span-8 space-y-8">
-          
-          {/* Key Metrics Grid */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            {isQualitative ? (
-              <>
-                <MetricBox
-                  icon={Star}
-                  label="Mức đánh giá"
-                  value={submission.qualitativeLevelName ?? 'Chưa chấm'}
-                  color={submission.qualitativeLevelName ? 'indigo' : 'slate'}
-                  valueClassName="text-xl sm:text-2xl leading-tight whitespace-nowrap"
-                />
-                <MetricBox
-                  icon={Target}
-                  label="Trọng số"
-                  value={`${submission.weight ?? 0}%`}
-                  color="slate"
-                  isBoldValue
-                />
-                <MetricBox
-                  icon={Trophy}
-                  label="Điểm hành vi"
-                  value={submission.qualitativeLevelValue != null ? `${formatNumber(submission.qualitativeLevelValue)}/5` : '—'}
-                  color={submission.qualitativeLevelValue != null ? 'emerald' : 'slate'}
-                  isBoldValue
-                />
-              </>
-            ) : (
-              <>
-                <MetricBox
-                  icon={CheckCircle2}
-                  label="Thực tế"
-                  value={formatNumber(submission.actualValue)}
-                  unit={submission.unit}
-                  color="indigo"
-                />
-                <MetricBox
-                  icon={Target}
-                  label="Mục tiêu"
-                  value={submission.targetValue != null ? formatNumber(submission.targetValue) : '—'}
-                  unit={submission.unit}
-                  color="slate"
-                />
-                <MetricBox
-                  icon={Trophy}
-                  label="Tỷ lệ đạt"
-                  value={achievement != null ? `${achievement}%` : '—'}
-                  color={achievement != null ? getAchievementColor(achievement) : 'slate'}
-                  isBoldValue
-                />
-              </>
-            )}
-          </div>
-
-          {/* Score Banner */}
-          {isQualitative ? (
-            <div className="relative group p-1 rounded-[32px] bg-gradient-to-br from-emerald-500 via-teal-600 to-indigo-700 shadow-2xl shadow-emerald-500/20 overflow-hidden">
-               <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10" />
-               <div className="relative bg-black/5 dark:bg-black/20 p-8 md:p-10 rounded-[31px] flex flex-col md:flex-row md:items-center justify-between items-center text-center md:text-left gap-8">
-                  <div className="space-y-3 flex flex-col items-center md:items-start">
-                     <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/20 backdrop-blur-md text-white text-[10px] font-black uppercase tracking-[0.2em]">
-                        <Star size={12} className="fill-current text-amber-300" /> KPI Định tính
-                     </div>
-                     <h3 className="text-3xl font-black text-white">
-                        {submission.qualitativeLevelName ? `Mức đánh giá: ${submission.qualitativeLevelName}` : 'Chờ quản lý chấm điểm'}
-                     </h3>
-                     <p className="text-emerald-50/70 text-sm font-medium max-w-md leading-relaxed">
-                        Chỉ tiêu định tính không cộng vào điểm 0–100. Mức này quy ra <b className="text-white">điểm hành vi</b>, rồi kết hợp với % hoàn thành KPI định lượng qua <b className="text-white">ma trận</b> để ra xếp loại cuối ở bước đánh giá tổng hợp.
-                     </p>
-                  </div>
-                  <div className="flex items-center justify-center gap-6 bg-white/10 backdrop-blur-2xl p-6 rounded-[28px] border border-white/10 shadow-inner group-hover:scale-105 transition-transform duration-500 w-full md:w-auto overflow-hidden">
-                     <div className="text-center">
-                        <p className="text-[10px] font-black text-emerald-50 uppercase tracking-[0.3em] mb-1 opacity-60">Điểm hành vi</p>
-                        <p className="text-4xl xs:text-5xl md:text-6xl font-black text-white leading-none">{submission.qualitativeLevelValue != null ? formatNumber(submission.qualitativeLevelValue) : '—'}<span className="text-xl opacity-60">/5</span></p>
-                     </div>
-                  </div>
-               </div>
-            </div>
-          ) : submission.autoScore != null && (
-            <div className="relative group p-1 rounded-[32px] bg-gradient-to-br from-indigo-500 via-indigo-600 to-purple-700 shadow-2xl shadow-indigo-500/20 overflow-hidden">
-               <div className="absolute inset-0 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')] opacity-10" />
-               <div className="relative bg-black/5 dark:bg-black/20 p-8 md:p-10 rounded-[31px] flex flex-col md:flex-row md:items-center justify-between items-center text-center md:text-left gap-8">
-                  <div className="space-y-3 flex flex-col items-center md:items-start">
-                     <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/20 backdrop-blur-md text-white text-[10px] font-black uppercase tracking-[0.2em]">
-                        <Star size={12} className="fill-current text-amber-300" /> Hệ thống tính điểm
-                     </div>
-                     <h3 className="text-3xl font-black text-white">Điểm hệ thống: {formatNumber(submission.autoScore)}</h3>
-                     <p className="text-indigo-100/70 text-sm font-medium max-w-md leading-relaxed">
-                        Kết quả được tự động hóa dựa trên Trọng số của KPI ({submission.weight || 0}%) và Tỷ lệ hoàn thành thực tế.
-                     </p>
-                  </div>
-                  <div className="flex items-center justify-center gap-6 bg-white/10 backdrop-blur-2xl p-6 rounded-[28px] border border-white/10 shadow-inner group-hover:scale-105 transition-transform duration-500 w-full md:w-auto overflow-hidden">
-                     <div className="text-center">
-                        <p className="text-[10px] font-black text-indigo-100 uppercase tracking-[0.3em] mb-1 opacity-60">SCORE</p>
-                        <p className="text-4xl xs:text-5xl md:text-6xl font-black text-white leading-none">{formatNumber(submission.autoScore)}</p>
-                     </div>
-                  </div>
-               </div>
-            </div>
-          )}
-
-          {/* Attachments & Evidence */}
-          <div className="bg-white dark:bg-slate-900 rounded-[32px] border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden p-8 space-y-6">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-2xl bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 shrink-0">
-                  <FileText size={20} />
-                </div>
-                <h3 className="text-lg font-black text-slate-900 dark:text-white whitespace-nowrap">Bằng chứng thực hiện</h3>
-              </div>
-              <div className="px-4 py-1.5 bg-slate-50 dark:bg-slate-800 rounded-full text-[10px] md:text-[11px] font-black text-slate-500 uppercase tracking-widest border border-slate-100 dark:border-slate-700 whitespace-nowrap w-fit">
-                {submission.attachments?.length || 0} FILE ĐÍNH KÈM
-              </div>
-            </div>
-
-            {submission.attachments?.length > 0 ? (
-              <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-4">
-                {submission.attachments.map((file: any) => {
-                  const isImage = /\.(jpg|jpeg|png|webp|gif)$/i.test(file.fileName)
-                  return (
-                    <div 
-                      key={file.id} 
-                      className="group relative bg-slate-50 dark:bg-slate-800/50 rounded-2xl border border-slate-100 dark:border-slate-700 overflow-hidden hover:shadow-xl transition-all cursor-pointer aspect-square"
-                      onClick={() => setActiveAttachment(file)}
-                    >
-                      {isImage ? (
-                        <div className="w-full h-full">
-                          <img 
-                            src={file.fileUrl} 
-                            alt={file.fileName} 
-                            className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110" 
-                          />
-                          <div className="absolute inset-0 bg-indigo-900/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
-                            <span className="w-10 h-10 flex items-center justify-center bg-white/20 backdrop-blur-md rounded-full text-white hover:bg-white/40"><Eye size={20} /></span>
-                            <button 
-                              type="button" 
-                              onClick={(e) => { e.stopPropagation(); downloadFile(file.fileUrl, file.fileName) }} 
-                              className="w-10 h-10 flex items-center justify-center bg-white/20 backdrop-blur-md rounded-full text-white hover:bg-white/40"
-                            >
-                              <Download size={20} />
-                            </button>
-                          </div>
-                        </div>
-                      ) : (
-                        <div className="w-full h-full flex flex-col items-center justify-center p-6 space-y-3">
-                           <div className="w-14 h-14 bg-white dark:bg-slate-700 rounded-2xl flex items-center justify-center shadow-sm group-hover:scale-110 transition-transform duration-500">
-                              <File className="w-8 h-8 text-indigo-500" />
-                           </div>
-                           <p className="text-[11px] font-black text-slate-500 text-center truncate w-full uppercase tracking-tighter">{file.fileName}</p>
-                           
-                           <div className="absolute inset-0 bg-indigo-900/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center gap-3">
-                              <span className="w-10 h-10 flex items-center justify-center bg-white/20 backdrop-blur-md rounded-full text-white hover:bg-white/40"><Eye size={20} /></span>
-                              <button 
-                                type="button" 
-                                onClick={(e) => { e.stopPropagation(); downloadFile(file.fileUrl, file.fileName) }} 
-                                className="w-10 h-10 flex items-center justify-center bg-white/20 backdrop-blur-md rounded-full text-white hover:bg-white/40"
-                              >
-                                <Download size={20} />
-                              </button>
-                           </div>
-                        </div>
-                      )}
-                    </div>
-                  )
-                })}
-              </div>
-            ) : (
-              <div className="flex flex-col items-center justify-center py-20 px-6 bg-slate-50/50 dark:bg-slate-800/30 rounded-[32px] border-2 border-dashed border-slate-100 dark:border-slate-800">
-                <div className="p-5 bg-white dark:bg-slate-800 rounded-3xl shadow-sm mb-4">
-                  <FileText size={32} className="text-slate-200" />
-                </div>
-                <p className="text-slate-400 font-bold text-sm text-center">Không có tài liệu chứng minh được đính kèm</p>
-              </div>
-            )}
-          </div>
-
-          {/* Notes & Reviews */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div className="bg-white dark:bg-slate-900 rounded-[32px] p-8 border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
-               <div className="flex items-center gap-3 text-slate-900 dark:text-white mb-2">
-                 <MessageSquare className="w-5 h-5 text-indigo-500" />
-                 <h4 className="font-black text-sm uppercase tracking-widest">Nội dung giải trình</h4>
-               </div>
-               <p className="text-slate-600 dark:text-slate-400 text-sm leading-relaxed whitespace-pre-wrap min-h-[100px]">
-                 {submission.note || "Người nộp không để lại ghi chú giải trình."}
-               </p>
-            </div>
-
-            <div className={cn(
-              "rounded-[32px] p-8 border shadow-sm space-y-4 transition-all",
-              submission.status === 'APPROVED' ? "bg-emerald-50/50 border-emerald-100 dark:bg-emerald-950/10 dark:border-emerald-900/30" : 
-              submission.status === 'REJECTED' ? "bg-rose-50/50 border-rose-100 dark:bg-rose-950/10 dark:border-rose-900/30" :
-              "bg-slate-50/50 border-slate-100 dark:bg-slate-800/50 dark:border-slate-800"
-            )}>
-               <div className="flex items-center gap-3 mb-2">
-                 <History className={cn("w-5 h-5", 
-                   submission.status === 'APPROVED' ? "text-emerald-500" : 
-                   submission.status === 'REJECTED' ? "text-rose-500" : "text-slate-400"
-                 )} />
-                 <h4 className="font-black text-sm uppercase tracking-widest text-slate-900 dark:text-white">Phản hồi từ quản lý</h4>
-               </div>
-               <p className="text-slate-600 dark:text-slate-300 text-sm leading-relaxed italic min-h-[100px]">
-                 {submission.reviewNote ? `"${submission.reviewNote}"` : "Chưa có phản hồi hoặc nhận xét từ người phê duyệt."}
-               </p>
-            </div>
-          </div>
-        </div>
-
-        {/* Info Sidebar (Right) */}
-        <div className="lg:col-span-4 space-y-6">
-          <div className="bg-white dark:bg-slate-900 rounded-[32px] border border-slate-200 dark:border-slate-800 shadow-sm p-8 space-y-8">
-            <h3 className="text-lg font-black text-slate-900 dark:text-white flex items-center gap-2">
-              <ShieldCheck size={20} className="text-indigo-600" /> Thông tin phê duyệt
-            </h3>
-            
-            <div className="space-y-6">
-              <SidebarItem label="Người nộp" value={submission.submittedByName} icon={User} color="indigo" />
-              <SidebarItem label="Thời gian nộp" value={formatDateTime(submission.createdAt)} icon={Calendar} color="indigo" />
-              
-              <div className="h-px bg-slate-100 dark:bg-slate-800 mx-2" />
-              
-              {submission.reviewedByName ? (
-                <>
-                  <SidebarItem label="Người phê duyệt" value={submission.reviewedByName} icon={ShieldCheck} color="emerald" />
-                  <SidebarItem label="Thời gian duyệt" value={formatDateTime(submission.reviewedAt || '')} icon={Calendar} color="emerald" />
-                </>
-              ) : submission.status === 'PENDING' ? (
-                <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-900/30">
-                  <div className="flex items-center gap-3 text-amber-700 dark:text-amber-400">
-                    <Clock size={16} />
-                    <span className="text-[10px] font-black uppercase tracking-widest">Đang chờ xử lý</span>
-                  </div>
-                  <p className="text-xs font-medium text-amber-600/80 mt-1">Bài nộp đang đợi quản lý trực tiếp xem xét và phê duyệt.</p>
-                </div>
-              ) : null}
-
-              {submission.kpiPeriod && (
-                <div className="pt-2">
-                   <div className="p-4 rounded-2xl bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-100 dark:border-indigo-900/30">
-                    <p className="text-[10px] font-black text-indigo-400 uppercase tracking-widest mb-1">Chu kỳ báo cáo</p>
-                    <p className="text-xs font-black text-indigo-600 dark:text-indigo-300">{submission.kpiPeriod.name}</p>
-                    <p className="text-[10px] font-medium text-indigo-400 mt-1">
-                      {formatDateTime(submission.periodStart || '').split(' ')[0]} - {formatDateTime(submission.periodEnd || '').split(' ')[0]}
-                    </p>
-                  </div>
-                </div>
-              )}
-            </div>
-          </div>
-
-          <div className="bg-slate-900 dark:bg-white rounded-[32px] p-8 text-white dark:text-slate-900 shadow-2xl relative overflow-hidden group">
-             <div className="absolute top-0 right-0 -mt-10 -mr-10 w-40 h-40 bg-white/10 dark:bg-black/5 rounded-full blur-3xl transition-all duration-1000 group-hover:scale-150" />
-             <div className="relative z-10 space-y-6">
-                <div className="w-14 h-14 rounded-2xl bg-white/10 dark:bg-slate-100 flex items-center justify-center shadow-lg">
-                   <LayoutDashboard size={24} className="text-white dark:text-indigo-600" />
-                </div>
-                <div>
-                   <h4 className="text-2xl font-black tracking-tight">Hành động nhanh</h4>
-                   <p className="text-xs font-medium opacity-60 mt-1">Lựa chọn các tác vụ tiếp theo cho kết quả KPI này.</p>
-                </div>
-                <div className="space-y-3">
-                   <Link 
-                    to="/submissions/new"
-                    className="w-full flex items-center justify-center gap-2 py-4 bg-white dark:bg-slate-900 text-slate-900 dark:text-white rounded-2xl text-xs font-black uppercase tracking-widest hover:scale-[1.02] transition-all active:scale-95 shadow-xl"
-                   >
-                     <Plus size={16} /> Báo cáo mới
-                   </Link>
-                   <Link 
-                    to="/me?section=my-kpi"
-                    className="w-full flex items-center justify-center gap-2 py-4 bg-white/10 dark:bg-slate-100 text-white dark:text-slate-900 rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-white/20 dark:hover:bg-slate-200 transition-all active:scale-95 border border-white/10 dark:border-slate-200"
-                   >
-                     QUAY LẠI MỤC TIÊU
-                   </Link>
-                </div>
-             </div>
-          </div>
-        </div>
-      </div>
-
-      <MediaPreviewModal 
-        isOpen={!!activeAttachment} 
-        onClose={() => setActiveAttachment(null)} 
-        url={activeAttachment?.fileUrl || ''} 
-        fileName={activeAttachment?.fileName || ''}
-        contentType={activeAttachment?.contentType}
+      <div className="mx-auto max-w-[1200px] rounded-card border border-dashed border-[var(--color-border)] bg-[var(--color-card)]">
+        <EmptyState
+          icon={FileText}
+          title="Không tìm thấy bài nộp"
+          description="Bài nộp này có thể đã bị xoá hoặc bạn không có quyền xem."
+          action={<Button variant="outline" onClick={() => navigate('/me?section=my-submissions')}><ArrowLeft aria-hidden="true" /> Về Báo cáo của tôi</Button>}
       />
     </div>
   )
 }
 
-function MetricBox({ icon: Icon, label, value, unit, color, isBoldValue, valueClassName }: { icon: any; label: string; value: string; unit?: string | null; color: string; isBoldValue?: boolean; valueClassName?: string }) {
-  const colors: Record<string, string> = {
-    indigo: "text-indigo-600 bg-indigo-50/50 dark:bg-indigo-900/20 border-indigo-100 dark:border-indigo-900/30",
-    emerald: "text-emerald-600 bg-emerald-50/50 dark:bg-emerald-900/20 border-emerald-100 dark:border-emerald-900/30",
-    amber: "text-amber-600 bg-amber-50/50 dark:bg-amber-900/20 border-amber-100 dark:border-amber-900/30",
-    rose: "text-rose-600 bg-rose-50/50 dark:bg-rose-900/20 border-rose-100 dark:border-rose-900/30",
-    slate: "text-slate-600 bg-slate-50/50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-800",
-  }
+  const isQualitative = submission.kpiType === 'QUALITATIVE'
+  const achievement = submission.targetValue ? Math.round((submission.actualValue / submission.targetValue) * 100) : null
+  const achievementTone = achievement == null ? 'text-[var(--color-foreground)]'
+    : achievement >= 100 ? 'text-[var(--color-success)]' : achievement >= 70 ? 'text-[var(--color-warning)]' : 'text-[var(--color-error)]'
+  const attachments: any[] = submission.attachments ?? []
+
   return (
-    <div className={cn("p-8 rounded-[32px] border shadow-sm relative group overflow-hidden transition-all hover:shadow-lg", colors[color])}>
-      <Icon className="absolute top-4 right-4 w-12 h-12 opacity-5 group-hover:scale-110 transition-transform duration-500" />
-      <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60 mb-3">{label}</p>
-      <div className="flex items-baseline gap-1.5">
-        <span className={cn("font-black tracking-tight", isBoldValue ? "text-slate-900 dark:text-white" : "text-current", valueClassName ?? "text-3xl")}>{value}</span>
-        {unit && <span className="text-xs font-bold opacity-60">{unit}</span>}
+    <div className="mx-auto max-w-[1200px] space-y-4">
+      {/* Header */}
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div className="flex min-w-0 items-start gap-3">
+          <Button variant="outline" size="icon" onClick={() => navigate(-1)} aria-label="Quay lại" className="shrink-0"><ArrowLeft aria-hidden="true" /></Button>
+          <div className="min-w-0">
+            <div className="flex flex-wrap items-center gap-2">
+              <h1 className="text-page-title truncate" title={submission.kpiCriteriaName}>{submission.kpiCriteriaName}</h1>
+              <StatusBadge status={submission.status} />
       </div>
+            <p className="mt-1 text-sm text-[var(--color-muted-foreground)]">
+              {submission.kpiPeriod?.name ?? 'Chưa gắn đợt'}
+              {submission.periodStart && submission.periodEnd && (
+                <span className="tabular-nums"> · {formatDateTime(submission.periodStart).split(' ')[0]} – {formatDateTime(submission.periodEnd).split(' ')[0]}</span>
+              )}
+            </p>
+          </div>
+        </div>
+        {submission.status === 'DRAFT' && (
+          <Button asChild className="shrink-0">
+            <Link to={`/submissions/edit/${submission.id}`}><Pencil aria-hidden="true" /> Sửa bản nháp</Link>
+          </Button>
+        )}
+      </div>
+
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-12">
+        {/* Cột trái */}
+        <div className="space-y-4 lg:col-span-8">
+          {/* Kết quả */}
+          <section aria-label="Kết quả" className="grid grid-cols-3 gap-px overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-border)]">
+            {isQualitative ? (
+              <>
+                <Metric label="Mức đánh giá" value={submission.qualitativeLevelName ?? 'Chưa chấm'} />
+                <Metric label="Trọng số" value={`${submission.weight ?? 0}%`} />
+                <Metric label="Điểm hành vi" value={submission.qualitativeLevelValue != null ? `${formatNumber(submission.qualitativeLevelValue)} / 5` : '—'} />
+              </>
+            ) : (
+              <>
+                <Metric label="Thực tế" value={formatNumber(submission.actualValue)} unit={submission.unit} />
+                <Metric label="Mục tiêu" value={submission.targetValue != null ? formatNumber(submission.targetValue) : '—'} unit={submission.unit} />
+                <Metric label="Tỷ lệ đạt" value={achievement != null ? `${achievement}%` : '—'} className={achievementTone} />
+              </>
+            )}
+          </section>
+
+          {!isQualitative && submission.autoScore != null && (
+            <section className="flex items-center justify-between gap-4 rounded-card border border-[var(--color-border)] bg-[var(--color-card)] px-4 py-3">
+              <div>
+                <h2 className="text-eyebrow">Điểm hệ thống</h2>
+                <p className="text-caption">Tính tự động từ tỷ lệ đạt và thang điểm của tổ chức. Quản lý có thể điều chỉnh khi chấm.</p>
+              </div>
+              <p className="text-stat">{formatNumber(submission.autoScore)}</p>
+            </section>
+          )}
+
+          {/* Giải trình */}
+          <section className="rounded-card border border-[var(--color-border)] bg-[var(--color-card)] p-4">
+            <h2 className="text-section-title">Giải trình</h2>
+            {submission.note
+              ? <p className="mt-2 whitespace-pre-wrap text-sm leading-5 text-[var(--color-foreground)]">{submission.note}</p>
+              : <p className="mt-2 text-caption">Không có ghi chú giải trình.</p>}
+          </section>
+
+          {/* Minh chứng */}
+          <section className="rounded-card border border-[var(--color-border)] bg-[var(--color-card)] p-4">
+            <div className="flex items-center justify-between gap-3">
+              <h2 className="text-section-title">Minh chứng</h2>
+              <span className="text-caption tabular-nums">{attachments.length} tệp</span>
+            </div>
+            {attachments.length === 0 ? (
+              <p className="mt-2 text-caption">Không đính kèm tệp nào.</p>
+            ) : (
+              <ul className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 md:grid-cols-4">
+                {attachments.map((file: any) => {
+                  const isImage = /\.(jpg|jpeg|png|webp|gif)$/i.test(file.fileName)
+                  return (
+                    <li key={file.id} className="group overflow-hidden rounded-card border border-[var(--color-border)]">
+                      <button className="block w-full text-left" type="button" onClick={() => setActiveAttachment(file)} aria-label={`Xem ${file.fileName}`}>
+                        <div className="flex aspect-[4/3] items-center justify-center bg-[var(--color-muted)]">
+                          {isImage
+                            ? <img src={file.fileUrl} alt={file.fileName} className="h-full w-full object-cover" loading="lazy" />
+                            : <FileIcon aria-hidden="true" strokeWidth={1.5} className="text-[var(--color-muted-foreground)]" />}
+                        </div>
+                      </button>
+                      <div className="flex items-center gap-1 px-2 py-1.5">
+                        <p className="min-w-0 flex-1 truncate text-caption" title={file.fileName}>{file.fileName}</p>
+                        <Button variant="ghost" size="icon-sm" onClick={() => setActiveAttachment(file)} aria-label="Xem" title="Xem"><Eye aria-hidden="true" /></Button>
+                        <Button variant="ghost" size="icon-sm" onClick={() => downloadFile(file.fileUrl, file.fileName)} aria-label="Tải xuống" title="Tải xuống"><Download aria-hidden="true" /></Button>
+                      </div>
+                    </li>
+                  )
+                })}
+              </ul>
+            )}
+          </section>
+
+          {/* Phản hồi của quản lý */}
+          {submission.status !== 'DRAFT' && (
+            <section className={cn('rounded-card border p-4', submission.status === 'REJECTED' ? 'border-[var(--color-error-border)] bg-[var(--color-error-bg)]' : 'border-[var(--color-border)] bg-[var(--color-card)]')}>
+              <h2 className="text-section-title">Phản hồi của quản lý</h2>
+              {submission.reviewNote
+                ? <p className="mt-2 whitespace-pre-wrap text-sm leading-5 text-[var(--color-foreground)]">{submission.reviewNote}</p>
+                : <p className="mt-2 text-caption">{submission.status === 'PENDING' ? 'Đang chờ quản lý xem xét.' : 'Không có nhận xét.'}</p>}
+            </section>
+          )}
+        </div>
+
+        {/* Cột phải */}
+        <aside className="space-y-4 lg:col-span-4">
+          <section className="rounded-card border border-[var(--color-border)] bg-[var(--color-card)] p-4">
+            <h2 className="text-eyebrow">Thông tin nộp</h2>
+            <dl className="mt-3 space-y-3 text-sm">
+              <Row label="Người nộp" value={submission.submittedByName} />
+              <Row label="Thời gian nộp" value={formatDateTime(submission.createdAt)} mono />
+              {submission.reviewedByName && (
+                <>
+                  <Row label="Người duyệt" value={submission.reviewedByName} />
+                  <Row label="Thời gian duyệt" value={formatDateTime(submission.reviewedAt || '')} mono />
+                </>
+              )}
+              {submission.kpiPeriod && <Row label="Đợt đánh giá" value={submission.kpiPeriod.name} />}
+              {!isQualitative && <Row label="Trọng số" value={`${submission.weight ?? 0}%`} mono />}
+              <Row label="Loại" value={<Badge variant="outline">{isQualitative ? 'Định tính' : 'Định lượng'}</Badge>} />
+            </dl>
+          </section>
+
+          <section className="rounded-card border border-[var(--color-border)] bg-[var(--color-card)] p-4">
+            <h2 className="text-eyebrow">Tiếp theo</h2>
+            <div className="mt-3 flex flex-col gap-2">
+              <Button asChild variant="outline"><Link to="/submissions/new"><Plus aria-hidden="true" /> Nộp báo cáo khác</Link></Button>
+              <Button asChild variant="ghost"><Link to="/me?section=my-kpi">Xem KPI của tôi</Link></Button>
+            </div>
+          </section>
+        </aside>
+      </div>
+
+      {activeAttachment && (
+        <MediaPreviewModal
+          url={activeAttachment.fileUrl}
+          fileName={activeAttachment.fileName}
+          contentType={activeAttachment.contentType}
+          isOpen={!!activeAttachment}
+          onClose={() => setActiveAttachment(null)}
+        />
+      )}
     </div>
   )
 }
 
-function SidebarItem({ label, value, icon: Icon, color }: { label: string; value: string; icon: any; color: string }) {
-  const iconColors: Record<string, string> = {
-    indigo: "bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600",
-    emerald: "bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600",
-  }
+function Metric({ label, value, unit, className }: { label: string; value: string; unit?: string | null; className?: string }) {
   return (
-    <div className="flex items-start gap-4">
-      <div className={cn("w-10 h-10 rounded-xl flex items-center justify-center shrink-0 shadow-sm", iconColors[color])}>
-        <Icon size={18} />
-      </div>
-      <div className="min-w-0">
-        <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest mb-0.5">{label}</p>
-        <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{value}</p>
-      </div>
+    <div className="bg-[var(--color-card)] px-4 py-3">
+      <p className="text-eyebrow">{label}</p>
+      <p className={cn('mt-1 flex items-baseline gap-1 text-stat', className)}>
+        {value}
+        {unit && <span className="text-caption">{unit}</span>}
+      </p>
+    </div>
+  )
+}
+
+function Row({ label, value, mono }: { label: string; value: React.ReactNode; mono?: boolean }) {
+  return (
+    <div className="flex items-start justify-between gap-3">
+      <dt className="shrink-0 text-[var(--color-muted-foreground)]">{label}</dt>
+      <dd className={cn('min-w-0 text-right text-[var(--color-foreground)]', mono && 'tabular-nums')}>{value}</dd>
     </div>
   )
 }

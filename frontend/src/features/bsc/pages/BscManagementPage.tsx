@@ -14,6 +14,7 @@ import ConfirmDialog from '@/components/common/ConfirmDialog'
 import BscScorecardTree from '../components/BscScorecardTree'
 import CascadeModal from '../components/CascadeModal'
 import CascadePolicyModal from '../components/CascadePolicyModal'
+import { Button } from '@/components/ui/button'
 
 /**
  * BSC chỉ còn MỘT luồng: bộ tiêu chí. Hạng mục không còn màn riêng mà được tạo/sửa ngay
@@ -118,22 +119,18 @@ export default function BscManagementPage() {
                 Import ghi đè bộ tiêu chí của NHIỀU đơn vị theo mã trong tệp, không gác theo phạm vi
                 từng dòng được — nên chỉ người quản trị BSC toàn tổ chức mới thấy nút này. */}
             {canManageBsc && (
-              <button onClick={() => setIsScorecardImportGuideOpen(true)}
-                className="flex items-center gap-2 px-4 h-10 rounded-xl border border-[var(--color-border)] text-sm font-bold text-[var(--color-muted-foreground)] hover:bg-[var(--color-muted)] transition-all shadow-sm active:scale-95">
-                <FileUp size={16} /> Import
-              </button>
+              <Button variant="outline" onClick={() => setIsScorecardImportGuideOpen(true)}>
+                <FileUp aria-hidden="true" /> Import
+              </Button>
             )}
             {canManageBsc && (
-              <button onClick={() => setIsPolicyOpen(true)}
-                title="Trần điểm công nhận và ràng buộc KPI phải liên kết BSC"
-                className="flex items-center gap-2 px-4 h-10 rounded-xl border border-[var(--color-border)] text-sm font-bold text-[var(--color-muted-foreground)] hover:bg-[var(--color-muted)] transition-all shadow-sm active:scale-95">
-                <Sliders size={16} /> Chính sách
-              </button>
+              <Button variant="outline" onClick={() => setIsPolicyOpen(true)} title="Trần điểm công nhận và ràng buộc KPI phải liên kết BSC">
+                <Sliders aria-hidden="true" /> Chính sách
+              </Button>
             )}
-            <button onClick={() => setScorecardModal({})}
-              className="flex items-center gap-2 px-5 h-10 bg-[var(--color-primary)] text-white rounded-xl text-sm font-bold hover:opacity-90 shadow-sm transition-all active:scale-95">
-              <Plus size={16} /> Bộ tiêu chí mới
-            </button>
+            <Button onClick={() => setScorecardModal({})}>
+              <Plus aria-hidden="true" /> Bộ tiêu chí mới
+            </Button>
           </>
         }
       />

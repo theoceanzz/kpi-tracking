@@ -3,15 +3,16 @@ import { QrCode, Receipt } from 'lucide-react'
 import { formatCurrency, formatDateTime } from '@/lib/utils'
 import { TopupOrderStatus, type TopupOrder } from '../types'
 import ReceiptModal from './ReceiptModal'
+import { Button } from '@/components/ui/button'
 
 const STATUS_META: Record<TopupOrderStatus, { label: string; cls: string }> = {
   [TopupOrderStatus.PENDING]: {
     label: 'Chờ chuyển khoản',
-    cls: 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+    cls: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)] dark:bg-[var(--color-warning-bg)] dark:text-[var(--color-warning)]',
   },
   [TopupOrderStatus.PAID]: {
     label: 'Đã nhận tiền',
-    cls: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
+    cls: 'bg-[var(--color-success-bg)] text-[var(--color-success)] dark:bg-[var(--color-success-bg)] dark:text-[var(--color-success)]',
   },
   [TopupOrderStatus.EXPIRED]: {
     label: 'Hết hạn',
@@ -36,10 +37,10 @@ export default function TopupHistoryTable({ data, onResume }: TopupHistoryTableP
   const [receiptOrderId, setReceiptOrderId] = useState<string | null>(null)
 
   return (
-    <div className="overflow-x-auto rounded-2xl border border-[var(--color-border)]">
+    <div className="overflow-x-auto rounded-card border border-[var(--color-border)]">
       <table className="w-full min-w-[680px] text-sm">
         <thead className="bg-[var(--color-muted)]/50 text-left">
-          <tr className="text-[11px] font-black uppercase tracking-wider text-[var(--color-muted-foreground)]">
+          <tr className="text-eyebrow">
             <th className="px-4 py-3">Thời gian</th>
             <th className="px-4 py-3">Mã đơn</th>
             <th className="px-4 py-3 text-right">Đề nghị</th>
@@ -63,7 +64,7 @@ export default function TopupHistoryTable({ data, onResume }: TopupHistoryTableP
                 </td>
                 <td
                   className={`whitespace-nowrap px-4 py-3 text-right font-semibold tabular-nums ${
-                    mismatch ? 'text-amber-600' : ''
+                    mismatch ? 'text-[var(--color-warning)]' : ''
                   }`}
                 >
                   {o.paidAmount != null ? formatCurrency(o.paidAmount) : '—'}
@@ -77,33 +78,25 @@ export default function TopupHistoryTable({ data, onResume }: TopupHistoryTableP
                   {/* Đơn đã huỷ hoặc hết hạn VẪN có thể nhận tiền về sau — webhook
                       cố ý ghi có cho chúng. Không được để người dùng tưởng là mất tiền. */}
                   {mismatch && (
-                    <div className="mt-1 text-xs text-amber-600">Lệch so với số đề nghị</div>
+                    <div className="mt-1 text-xs text-[var(--color-warning)]">Lệch so với số đề nghị</div>
                   )}
                 </td>
                 <td className="px-4 py-3 text-right">
                   {/* Chỉ đơn ĐÃ NHẬN TIỀN mới có biên nhận: chứng từ này xác nhận đã thu tiền,
                       nên nó không tồn tại cho đơn chờ, đơn huỷ hay đơn hết hạn. */}
                   {o.status === TopupOrderStatus.PAID && (
-                    <button
-                      type="button"
-                      onClick={() => setReceiptOrderId(o.id)}
-                      className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-[var(--color-border)] px-2.5 py-1.5 text-xs font-semibold transition-colors hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]"
-                    >
-                      <Receipt size={13} />
+                    <Button variant="outline" size="sm" className="whitespace-nowrap" type="button" onClick={() => setReceiptOrderId(o.id)}>
+                      <Receipt aria-hidden="true" />
                       Biên nhận
-                    </button>
+                    </Button>
                   )}
                   {/* Đơn còn chờ thì mở lại được mã QR cũ để chuyển tiếp — cùng một mã đơn,
                       nên tiền vẫn về đúng chỗ và không sinh thêm đơn treo. */}
                   {o.status === TopupOrderStatus.PENDING && onResume && (
-                    <button
-                      type="button"
-                      onClick={() => onResume(o)}
-                      className="inline-flex items-center gap-1.5 whitespace-nowrap rounded-lg border border-[var(--color-primary)] px-2.5 py-1.5 text-xs font-semibold text-[var(--color-primary)] transition-opacity hover:opacity-80"
-                    >
-                      <QrCode size={13} />
+                    <Button variant="ghost" size="sm" className="whitespace-nowrap" type="button" onClick={() => onResume(o)}>
+                      <QrCode aria-hidden="true" />
                       Chuyển khoản tiếp
-                    </button>
+                    </Button>
                   )}
                 </td>
               </tr>
