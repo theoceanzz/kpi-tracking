@@ -17,7 +17,7 @@ export default function AuthLayout() {
         <div className="relative z-10 max-w-xl w-full">
           <Link to="/" className="flex items-center gap-3 mb-10 hover:opacity-80 transition-opacity">
             <div className="w-10 h-10 rounded-card bg-white/10 flex items-center justify-center border border-white/20">
-              <Target className="text-[var(--color-info)]" size={24} />
+              <Target className="text-white" size={24} />
             </div>
             <span className="font-semibold text-2xl tracking-tight text-white">KeyGo</span>
           </Link>
@@ -54,7 +54,7 @@ export default function AuthLayout() {
           {/* Logo for mobile only */}
           <Link to="/" className="lg:hidden flex justify-center mb-8 transition-transform">
             <div className="w-12 h-12 rounded-card bg-[var(--color-primary)] flex items-center justify-center shadow-lg">
-              <Target className="text-white" size={26} />
+              <Target className="text-[var(--color-primary-foreground)]" size={26} />
             </div>
           </Link>
           <Outlet />

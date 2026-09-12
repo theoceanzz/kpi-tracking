@@ -104,7 +104,7 @@ function PermissionTooltip({ text, children }: { text: string; children: React.R
         <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-3 w-64 p-4 bg-[var(--color-foreground)] text-[var(--color-background)] text-xs font-medium rounded-card shadow-2xl z-[200] animate-in fade-in zoom-in-95 duration-200 pointer-events-none">
           <div className="relative">
             {text}
-            <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-gray-900/90" />
+            <div className="absolute top-full left-1/2 -translate-x-1/2 w-0 h-0 border-l-[6px] border-l-transparent border-r-[6px] border-r-transparent border-t-[6px] border-t-[var(--color-foreground)]" />
           </div>
         </div>
       )}

@@ -806,7 +806,7 @@ export default function StaffEvaluationModal({
                         Full-qualitative locks the score to the full scoring pool instead. */}
                     {isBscOfficial ? (
                       <div className="pt-6 border-t border-white/10 relative z-10 space-y-2">
-                         <div className="text-eyebrow inline-flex items-center gap-2 px-4 py-2 rounded-card bg-white/10 whitespace-nowrap">
+                         <div className="text-eyebrow inline-flex items-center gap-2 px-4 py-2 rounded-card bg-white/10 text-[var(--color-primary-foreground)] whitespace-nowrap">
                             <Lock size={12} className="shrink-0" /> Điểm chính thức theo BSC — không sửa tay
                          </div>
                          <p className="text-xs font-medium text-[var(--color-primary-foreground)]/60 leading-relaxed">
@@ -816,7 +816,7 @@ export default function StaffEvaluationModal({
                       </div>
                     ) : isFullQualitative ? (
                       <div className="pt-6 border-t border-white/10 relative z-10">
-                         <div className="text-eyebrow inline-flex items-center gap-2 px-4 py-2 rounded-card bg-white/10 whitespace-nowrap">
+                         <div className="text-eyebrow inline-flex items-center gap-2 px-4 py-2 rounded-card bg-white/10 text-[var(--color-primary-foreground)] whitespace-nowrap">
                             <Lock size={12} className="shrink-0" /> Full định tính · Cố định điểm {SCORING_POOL}
                          </div>
                       </div>
@@ -834,7 +834,7 @@ export default function StaffEvaluationModal({
                          className="w-full accent-white h-2 bg-white/20 rounded-full appearance-none cursor-pointer disabled:cursor-not-allowed"
                        />
                        {firstErrorMessage(errors) && (
-                         <p className="text-eyebrow text-[var(--color-error)]">
+                         <p className="text-eyebrow text-rose-200 dark:text-rose-950">
                            {firstErrorMessage(errors)}
                          </p>
                        )}
@@ -844,7 +844,7 @@ export default function StaffEvaluationModal({
                           <span>{scoreCeiling}</span>
                        </div>
                        {bonusScore > 0 && (
-                         <p className="text-eyebrow text-[var(--color-success)]">
+                         <p className="text-eyebrow text-emerald-200 dark:text-emerald-950">
                            Đạt đủ KPI = {SCORING_POOL} điểm · thưởng thêm {bonusScore}
                          </p>
                        )}
@@ -852,7 +852,7 @@ export default function StaffEvaluationModal({
                     )}
 
                     <div className="pt-2 relative z-10">
-                       <div className="text-eyebrow px-4 py-2 rounded-card bg-white/10 inline-flex items-center gap-2">
+                       <div className="text-eyebrow px-4 py-2 rounded-card bg-white/10 text-[var(--color-primary-foreground)] inline-flex items-center gap-2">
                           <Award size={14} /> Tự động xếp loại: {getGrade(effectiveFinalScore)}
                        </div>
                     </div>

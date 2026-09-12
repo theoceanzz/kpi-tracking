@@ -578,7 +578,7 @@ export default function AiAssistantPage() {
                 </Button>
                 <div className="relative shrink-0">
                   <div className="w-10 h-10 rounded-card bg-[var(--color-primary)] flex items-center justify-center">
-                    <Bot size={20} className="text-white" />
+                    <Bot size={20} className="text-[var(--color-primary-foreground)]" />
                   </div>
                   <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-[var(--color-success-solid)] rounded-full border-2 border-white" />
                 </div>
@@ -698,7 +698,7 @@ export default function AiAssistantPage() {
                 {isLoading && (
                   <div className="flex items-end gap-3">
                     <div className="w-8 h-8 rounded-full bg-[var(--color-primary)] flex items-center justify-center shadow-sm">
-                      <Sparkles size={14} className="text-white" />
+                      <Sparkles size={14} className="text-[var(--color-primary-foreground)]" />
                     </div>
                     <div className="bg-[var(--color-card)] border border-[var(--color-border)] rounded-card rounded-bl-sm px-5 py-4 shadow-sm">
                       <div className="flex items-center gap-2.5">

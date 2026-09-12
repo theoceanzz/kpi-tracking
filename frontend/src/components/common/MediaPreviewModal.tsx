@@ -134,7 +134,7 @@ export default function MediaPreviewModal({ url, fileName, contentType, isOpen, 
         ) : isOfficeDoc ? (
           isLocalFile ? (
             <div className="bg-white/5 p-12 rounded-widget border border-white/10 flex flex-col items-center text-center max-w-sm">
-              <div className="w-20 h-20 rounded-card bg-[var(--color-warning-solid)] flex items-center justify-center text-[var(--color-warning)] mb-6">
+              <div className="w-20 h-20 rounded-card bg-[var(--color-warning-solid)] flex items-center justify-center text-white mb-6">
                 <FileText size={40} />
               </div>
               <h4 className="text-white text-lg font-semibold mb-2">Chưa thể xem trước nội dung</h4>
