@@ -18,17 +18,17 @@ export function KpiPeriodCell({
 }) {
   const fmt = (d: string | null) => (d ? format(new Date(d), 'dd/MM/yyyy') : '—')
   return (
-    <div className={cn('inline-flex flex-col gap-1 text-[11px]', className)}>
+    <div className={cn('inline-flex flex-col gap-1 text-xs', className)}>
       {periodName && (
-        <span className="font-bold text-slate-700 dark:text-slate-200">{periodName}</span>
+        <span className="font-semibold text-[var(--color-foreground)]">{periodName}</span>
       )}
       <div className="flex items-center gap-1.5">
-        <span className="font-bold text-slate-400 uppercase tracking-wider w-[26px] shrink-0">Từ</span>
-        <span className="font-semibold text-slate-600 dark:text-slate-300 tabular-nums">{fmt(start)}</span>
+        <span className="w-[26px] shrink-0 font-medium text-[var(--color-subtle-foreground)]">Từ</span>
+        <span className="font-semibold text-[var(--color-muted-foreground)] tabular-nums">{fmt(start)}</span>
       </div>
       <div className="flex items-center gap-1.5">
-        <span className="font-bold text-indigo-400 uppercase tracking-wider w-[26px] shrink-0">Đến</span>
-        <span className="font-semibold text-slate-600 dark:text-slate-300 tabular-nums">{fmt(end)}</span>
+        <span className="w-[26px] shrink-0 font-medium text-[var(--color-primary)]">Đến</span>
+        <span className="font-semibold text-[var(--color-muted-foreground)] tabular-nums">{fmt(end)}</span>
       </div>
     </div>
   )

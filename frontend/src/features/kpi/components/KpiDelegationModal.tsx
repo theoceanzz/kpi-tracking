@@ -7,8 +7,11 @@ import { kpiApi } from '../api/kpiApi'
 import { useUsers } from '@/features/users/hooks/useUsers'
 import { useAuthStore } from '@/store/authStore'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/apiError'
 import { cn } from '@/lib/utils'
-import { Loader2, X, Check, Target, Info } from 'lucide-react'
+import { Loader2, Check, Target, Info } from 'lucide-react'
+import { Dialog, DialogFooter } from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
 import type { KpiCriteria } from '@/types/kpi'
 import { useKpiPeriods } from '../hooks/useKpiPeriods'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
@@ -80,7 +83,8 @@ export default function KpiDelegationModal({ open, onClose, kpi }: KpiDelegation
   const { data: usersData, isLoading: isLoadingUsers } = useUsers({ 
     page: 0, 
     size: 200, 
-    orgUnitId: kpi.orgUnitId ?? undefined
+    // BE nhận orgUnitIds (List) — xem chú thích ở OrgUnitSubmissionsPage.
+    orgUnitIds: kpi.orgUnitId ? [kpi.orgUnitId] : undefined,
   })
 
   const displayUsers = useMemo(() => {
@@ -103,8 +107,8 @@ export default function KpiDelegationModal({ open, onClose, kpi }: KpiDelegation
       toast.success('Giao việc thành công')
       onClose() 
     },
-    onError: (err: any) => {
-      toast.error(err?.response?.data?.message || 'Giao việc thất bại')
+    onError: (err) => {
+      toast.error(getApiErrorMessage(err, 'Giao việc thất bại'))
     },
   })
 
@@ -131,187 +135,178 @@ export default function KpiDelegationModal({ open, onClose, kpi }: KpiDelegation
     return objectives.filter((obj: any) => obj.orgUnitIds?.includes(kpi.orgUnitId))
   }, [objectives, kpi.orgUnitId])
 
-  if (!open) return null
-
-
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-white dark:bg-slate-950 rounded-3xl shadow-2xl p-8 max-w-xl w-full mx-4 animate-in zoom-in-95 slide-in-from-bottom-4 duration-300 max-h-[92vh] overflow-y-auto border border-slate-100 dark:border-slate-800">
-        <div className="flex items-center justify-between mb-8">
-          <div className="space-y-1">
-            <h3 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white">Giao việc & Ủy quyền</h3>
-            <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">Phân bổ chỉ tiêu cho nhân sự cấp dưới</p>
+    <>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      size="md"
+      dismissible={!updateMutation.isPending}
+      title="Giao việc & Ủy quyền"
+      description="Phân bổ chỉ tiêu cho nhân sự cấp dưới"
+      footer={
+        <DialogFooter
+          secondary={<Button variant="outline" onClick={onClose} disabled={updateMutation.isPending}>Đóng</Button>}
+          primary={!isAlreadyDelegated && (
+            <Button type="submit" form="kpi-delegation-form" disabled={updateMutation.isPending || selectedAssignees.length === 0}>
+              {updateMutation.isPending ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Check aria-hidden="true" />}
+              Xác nhận Giao việc
+            </Button>
+          )}
+        />
+      }
+    >
+      <form id="kpi-delegation-form" onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+        {/* 1. Assignees Section */}
+        <div className="bg-[var(--color-primary-soft)] p-6 rounded-widget border border-[var(--color-border)] shadow-sm space-y-4">
+          <div className="flex items-center justify-between">
+            <label className="text-label">Người thực hiện</label>
+            <span className="text-xs font-medium text-[var(--color-primary)] bg-[var(--color-primary-soft)] px-3 py-1 rounded-full border border-[var(--color-border)] shadow-sm">
+              {kpi.hasChildren && kpi.delegatedToNames && kpi.delegatedToNames.length > 0 
+                ? `Đã giao cho: ${kpi.delegatedToNames.join(', ')}`
+                : delegatedStaffCount > 0 
+                  ? `Đã chọn ${delegatedStaffCount} nhân sự`
+                  : 'Chưa giao cho ai'}
+            </span>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-full transition-colors text-slate-400 hover:text-slate-900">
-            <X size={24} />
-          </button>
+          
+          {isAlreadyDelegated && (
+            <div className="mb-2 px-3 py-2 bg-[var(--color-warning-bg)] border border-[var(--color-warning-border)] rounded-card flex items-center gap-2">
+              <div className="w-1.5 h-1.5 rounded-full bg-[var(--color-warning-solid)]"/>
+              <p className="text-xs font-medium text-[var(--color-warning)] tracking-tight">Chỉ tiêu đã được giao việc. Danh sách người thực hiện đã được khóa.</p>
+            </div>
+          )}
+
+          <div className="bg-[var(--color-card)] rounded-card border border-[var(--color-border)] overflow-hidden">
+            <div className="p-3 bg-[var(--color-muted)] border-b border-[var(--color-border)]">
+              <input 
+                type="text" 
+                placeholder="Tìm theo tên hoặc email..." 
+                value={userSearch} 
+                onChange={e => setUserSearch(e.target.value)}
+                className="w-full bg-transparent text-xs font-medium outline-none placeholder:text-[var(--color-subtle-foreground)]"
+              />
+            </div>
+            <div className="max-h-52 overflow-y-auto p-2 space-y-1">
+              {isLoadingUsers ? (
+                <div className="py-8 text-center"><Loader2 className="animate-spin mx-auto text-[var(--color-primary)]" size={20} /></div>
+              ) : displayUsers.map((u) => {
+                const isSelected = selectedAssignees.includes(u.id) || kpi.delegatedToIds?.includes(u.id)
+                const isDisabled = isAlreadyDelegated
+                
+                return (
+                  <button
+                    key={u.id}
+                    type="button"
+                    disabled={isDisabled}
+                    onClick={() => {
+                      if (isDisabled) return
+                      const current = [...selectedAssignees]
+                      if (isSelected) {
+                        setValue('assignedToIds', current.filter(id => id !== u.id))
+                      } else {
+                        setValue('assignedToIds', [...current, u.id])
+                      }
+                    }}
+                    className={cn(
+                      "w-full px-4 py-4 flex items-center justify-between rounded-card transition-all",
+                      isSelected ? "bg-[var(--color-primary)] text-[var(--color-primary-foreground)]" : "hover:bg-[var(--color-muted)] text-[var(--color-muted-foreground)]",
+                      isDisabled && isSelected ? "opacity-90" : isDisabled ? "opacity-50 grayscale cursor-not-allowed" : ""
+                    )}
+                  >
+                    <div className="flex flex-col text-left">
+                      <span className="text-sm font-medium tracking-tight">{u.fullName}</span>
+                      <span className={cn("text-xs", isSelected ? "text-[var(--color-primary-foreground)]" : "text-[var(--color-subtle-foreground)]")}>{u.email}</span>
+                    </div>
+                    {isSelected && <Check size={18} />}
+                  </button>
+                )
+              })}
+            </div>
+          </div>
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
-          {/* 1. Assignees Section */}
-          <div className="bg-indigo-50/50 dark:bg-indigo-900/10 p-6 rounded-3xl border border-indigo-100 dark:border-indigo-800/50 shadow-sm space-y-4">
-            <div className="flex items-center justify-between">
-              <label className="text-sm font-black uppercase tracking-[0.15em] text-indigo-600 dark:text-indigo-400">Người thực hiện</label>
-              <span className="text-[10px] font-bold text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-3 py-1 rounded-full border border-indigo-100 dark:border-indigo-800/50 shadow-sm">
-                {kpi.hasChildren && kpi.delegatedToNames && kpi.delegatedToNames.length > 0 
-                  ? `Đã giao cho: ${kpi.delegatedToNames.join(', ')}`
-                  : delegatedStaffCount > 0 
-                    ? `Đã chọn ${delegatedStaffCount} nhân sự`
-                    : 'Chưa giao cho ai'}
-              </span>
-            </div>
-            
-            {isAlreadyDelegated && (
-              <div className="mb-2 px-3 py-2 bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-900/30 rounded-xl flex items-center gap-2">
-                <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse" />
-                <p className="text-[10px] font-bold text-amber-700 dark:text-amber-400 uppercase tracking-tight">Chỉ tiêu đã được giao việc. Danh sách người thực hiện đã được khóa.</p>
-              </div>
-            )}
-
-            <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-100 dark:border-slate-800 overflow-hidden shadow-inner">
-              <div className="p-3 bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
-                <input 
-                  type="text" 
-                  placeholder="Tìm theo tên hoặc email..." 
-                  value={userSearch} 
-                  onChange={e => setUserSearch(e.target.value)}
-                  className="w-full bg-transparent text-xs font-medium outline-none placeholder:text-slate-400"
-                />
-              </div>
-              <div className="max-h-52 overflow-y-auto p-2 space-y-1">
-                {isLoadingUsers ? (
-                  <div className="py-8 text-center"><Loader2 className="animate-spin mx-auto text-indigo-500" size={20} /></div>
-                ) : displayUsers.map((u) => {
-                  const isSelected = selectedAssignees.includes(u.id) || kpi.delegatedToIds?.includes(u.id)
-                  const isDisabled = isAlreadyDelegated
-                  
-                  return (
-                    <button
-                      key={u.id}
-                      type="button"
-                      disabled={isDisabled}
-                      onClick={() => {
-                        if (isDisabled) return
-                        const current = [...selectedAssignees]
-                        if (isSelected) {
-                          setValue('assignedToIds', current.filter(id => id !== u.id))
-                        } else {
-                          setValue('assignedToIds', [...current, u.id])
-                        }
-                      }}
-                      className={cn(
-                        "w-full px-4 py-4 flex items-center justify-between rounded-xl transition-all",
-                        isSelected ? "bg-indigo-600 text-white shadow-lg" : "hover:bg-slate-50 dark:hover:bg-slate-800/50 text-slate-600 dark:text-slate-400",
-                        isDisabled && isSelected ? "opacity-90" : isDisabled ? "opacity-50 grayscale cursor-not-allowed" : ""
-                      )}
-                    >
-                      <div className="flex flex-col text-left">
-                        <span className="text-sm font-bold tracking-tight">{u.fullName}</span>
-                        <span className={cn("text-[10px]", isSelected ? "text-indigo-100" : "text-slate-400")}>{u.email}</span>
-                      </div>
-                      {isSelected && <Check size={18} />}
-                    </button>
-                  )
-                })}
-              </div>
-            </div>
-          </div>
-
-          {/* 2. Strategy Section */}
-          {enableOkr && (
-            <div className="bg-violet-50/50 dark:bg-violet-900/10 p-5 rounded-3xl border border-violet-100 dark:border-violet-800/50 space-y-3">
-               <div className="flex items-center gap-2 text-violet-600 dark:text-violet-400">
-                 <Target size={18} />
-                 <span className="text-xs font-black uppercase tracking-widest">OKR Chiến lược</span>
-               </div>
-               <Controller
-                 name="keyResultId"
-                 control={control}
-                 render={({ field }) => (
-                   <Select 
-                     onValueChange={field.onChange} 
-                     value={field.value || "NONE"}
-                     disabled={!!kpi.keyResultId || isAlreadyDelegated}
-                   >
-                     <SelectTrigger className={cn(
-                       "w-full rounded-xl border-violet-200 dark:border-violet-800 bg-white dark:bg-slate-900 focus:ring-violet-500/20 transition-all h-10",
-                       (!!kpi.keyResultId || isAlreadyDelegated) && "bg-slate-50 dark:bg-slate-800/50 cursor-not-allowed opacity-70"
-                     )}>
-                       <SelectValue placeholder="-- Không liên kết --" />
-                     </SelectTrigger>
-                     <SelectContent className="rounded-xl border-violet-100 dark:border-violet-800 shadow-xl max-h-[300px]">
-                       <SelectItem value="NONE" className="font-medium">-- Không liên kết --</SelectItem>
-                       {filteredObjectives.map(obj => (
-                         <SelectGroup key={obj.id}>
-                           <SelectLabel className="px-2 py-1.5 text-[10px] font-black uppercase tracking-widest text-violet-600 dark:text-violet-400 bg-violet-50/50 dark:bg-violet-900/20 rounded-md my-1">
-                             {obj.name}
-                           </SelectLabel>
-                           {obj.keyResults.map((kr: any) => (
-                             <SelectItem key={kr.id} value={kr.id} className="rounded-lg">
-                               {kr.name}
-                             </SelectItem>
-                           ))}
-                         </SelectGroup>
-                       ))}
-                     </SelectContent>
-                   </Select>
-                 )}
-               />
-            </div>
-          )}
-
-          {/* 3. Core Info Summary (Clickable for Detail) */}
-          <div 
-            onClick={() => setShowDetail(true)}
-            className="group/info bg-slate-50/50 dark:bg-slate-900/50 p-6 rounded-3xl border border-slate-100 dark:border-slate-800/50 space-y-4 cursor-pointer hover:bg-white dark:hover:bg-slate-800 hover:border-indigo-200 dark:hover:border-indigo-900/50 hover:shadow-xl hover:shadow-indigo-500/5 transition-all duration-300"
-          >
-             <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                   <Info size={16} className="text-slate-400 group-hover/info:text-indigo-500 transition-colors" />
-                   <span className="text-[10px] font-black uppercase tracking-widest text-slate-400 group-hover/info:text-indigo-400 transition-colors">Thông tin chỉ tiêu gốc</span>
-                </div>
-                <div className="text-[9px] font-black uppercase tracking-widest text-indigo-600 bg-indigo-50 dark:bg-indigo-900/30 px-2 py-0.5 rounded-full opacity-0 group-hover/info:opacity-100 transition-all transform translate-x-2 group-hover/info:translate-x-0">
-                   Xem chi tiết
-                </div>
+        {/* 2. Strategy Section */}
+        {enableOkr && (
+          <div className="bg-[var(--color-primary-soft)] p-5 rounded-widget border border-[var(--color-border)] space-y-3">
+             <div className="flex items-center gap-2 text-[var(--color-primary)]">
+               <Target size={18} />
+               <span className="text-sm font-medium">OKR Chiến lược</span>
              </div>
-             <div className="grid grid-cols-1 gap-4">
-                <div className="space-y-1">
-                   <p className="text-[10px] font-bold text-slate-400 uppercase">Tên chỉ tiêu</p>
-                   <p className="text-sm font-bold text-slate-700 dark:text-slate-200 group-hover/info:text-indigo-600 dark:group-hover/info:text-indigo-400 transition-colors">{kpi.name}</p>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-                   <div className="space-y-1">
-                      <p className="text-[10px] font-bold text-slate-400 uppercase">Mục tiêu</p>
-                      <p className="text-sm font-black text-indigo-600">{kpi.targetValue} {kpi.unit}</p>
-                   </div>
-                   <div className="space-y-1">
-                      <p className="text-[10px] font-bold text-slate-400 uppercase">Trọng số</p>
-                      <p className="text-sm font-black text-indigo-600">{kpi.weight}%</p>
-                   </div>
-                   <div className="space-y-1">
-                      <p className="text-[10px] font-bold text-slate-400 uppercase">Kỳ đánh giá</p>
-                      <p className="text-sm font-bold text-slate-600 dark:text-slate-400">{periodsData?.content.find(p => p.id === kpi.kpiPeriodId)?.name || '...'}</p>
-                   </div>
-                </div>
-             </div>
+             <Controller
+               name="keyResultId"
+               control={control}
+               render={({ field }) => (
+                 <Select 
+                   onValueChange={field.onChange} 
+                   value={field.value || "NONE"}
+                   disabled={!!kpi.keyResultId || isAlreadyDelegated}
+                 >
+                   <SelectTrigger className={cn(
+                     "w-full rounded-card border-[var(--color-border)] bg-[var(--color-card)] focus:ring-[var(--color-ring)] transition-all h-10",
+                     (!!kpi.keyResultId || isAlreadyDelegated) && "bg-[var(--color-muted)] cursor-not-allowed opacity-70"
+                   )}>
+                     <SelectValue placeholder="-- Không liên kết --" />
+                   </SelectTrigger>
+                   <SelectContent className="rounded-card border-[var(--color-border)] max-h-[300px]">
+                     <SelectItem value="NONE" className="font-medium">-- Không liên kết --</SelectItem>
+                     {filteredObjectives.map(obj => (
+                       <SelectGroup key={obj.id}>
+                         <SelectLabel className="text-eyebrow px-2 py-1.5 text-[var(--color-primary)] bg-[var(--color-primary-soft)] rounded-control my-1">
+                           {obj.name}
+                         </SelectLabel>
+                         {obj.keyResults.map((kr: any) => (
+                           <SelectItem key={kr.id} value={kr.id} className="rounded-control">
+                             {kr.name}
+                           </SelectItem>
+                         ))}
+                       </SelectGroup>
+                     ))}
+                   </SelectContent>
+                 </Select>
+               )}
+             />
           </div>
+        )}
 
-          {!isAlreadyDelegated && (
-            <div className="flex gap-4 pt-4">
-              <button type="button" onClick={onClose} className="flex-1 py-4 rounded-2xl text-sm font-black uppercase tracking-widest text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-800 transition-all">Đóng</button>
-              <button 
-                type="submit" 
-                disabled={updateMutation.isPending || selectedAssignees.length === 0} 
-                className="flex-2 py-4 px-8 rounded-2xl text-sm font-black uppercase tracking-widest bg-indigo-600 text-white hover:bg-indigo-700 shadow-xl shadow-indigo-200 dark:shadow-none disabled:opacity-50 transition-all flex items-center justify-center gap-3"
-              >
-                {updateMutation.isPending ? <Loader2 className="animate-spin" size={18} /> : <Check size={18} />}
-                Xác nhận Giao việc
-              </button>
-            </div>
-          )}
-        </form>
-      </div>
+        {/* 3. Core Info Summary (Clickable for Detail) */}
+        <div 
+          onClick={() => setShowDetail(true)}
+          className="group/info bg-[var(--color-muted)] p-6 rounded-widget border border-[var(--color-border)] space-y-4 cursor-pointer hover:bg-[var(--color-card)] hover:border-[var(--color-border)] transition-all duration-300"
+        >
+           <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                 <Info size={16} className="text-[var(--color-subtle-foreground)] group-hover/info:text-[var(--color-primary)] transition-colors" />
+                 <span className="text-eyebrow group-hover/info:text-[var(--color-primary)] transition-colors">Thông tin chỉ tiêu gốc</span>
+              </div>
+              <div className="text-eyebrow text-[var(--color-primary)] bg-[var(--color-primary-soft)] px-2 py-0.5 rounded-full opacity-0 group-hover/info:opacity-100 transition-all transform translate-x-2 group-hover/info:translate-x-0">
+                 Xem chi tiết
+              </div>
+           </div>
+           <div className="grid grid-cols-1 gap-4">
+              <div className="space-y-1">
+                 <p className="text-eyebrow">Tên chỉ tiêu</p>
+                 <p className="text-sm font-medium text-[var(--color-foreground)] group-hover/info:text-[var(--color-primary)] dark:group-hover/info:text-[var(--color-primary)] transition-colors">{kpi.name}</p>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                 <div className="space-y-1">
+                    <p className="text-eyebrow">Mục tiêu</p>
+                    <p className="text-sm font-semibold text-[var(--color-primary)]">{kpi.targetValue} {kpi.unit}</p>
+                 </div>
+                 <div className="space-y-1">
+                    <p className="text-eyebrow">Trọng số</p>
+                    <p className="text-sm font-semibold text-[var(--color-primary)]">{kpi.weight}%</p>
+                 </div>
+                 <div className="space-y-1">
+                    <p className="text-eyebrow">Kỳ đánh giá</p>
+                    <p className="text-sm font-medium text-[var(--color-muted-foreground)]">{periodsData?.content.find(p => p.id === kpi.kpiPeriodId)?.name || '...'}</p>
+                 </div>
+              </div>
+           </div>
+        </div>
+
+      </form>
+    </Dialog>
 
       {/* Existing KPI Detail Modal */}
       <KpiDetailModal 
@@ -319,6 +314,6 @@ export default function KpiDelegationModal({ open, onClose, kpi }: KpiDelegation
         onClose={() => setShowDetail(false)} 
         kpi={kpi} 
       />
-    </div>
+    </>
   )
 }

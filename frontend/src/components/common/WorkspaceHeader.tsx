@@ -27,7 +27,7 @@ export interface WorkspaceHeaderProps {
  * ngay trên mặt card, rồi tới mô tả, số liệu và nút hành động.
  *
  * Tab cấp 2 cố ý KHÔNG dùng khối pill nền xám như trước. Pill có nền riêng, chữ
- * `uppercase font-black` và padding rộng nên đọc nặng hơn cả hàng tab cấp 1 ở trên nó
+ * `uppercase font-semibold` và padding rộng nên đọc nặng hơn cả hàng tab cấp 1 ở trên nó
  * — phân cấp bị lộn ngược. Ở đây tab cấp 2 nhỏ hơn cấp 1 một bậc và nằm trong viền
  * card, nên quan hệ "tab này điều khiển card này" thấy được ngay mà không cần thêm màu
  * hay khối nào.
@@ -76,7 +76,7 @@ export default function WorkspaceHeader({
       // sửa từng file. Trang nào cần neo riêng thì truyền `id` như cũ và ghi đè.
       id={id ?? 'tour-workspace-card'}
       className={cn(
-        'rounded-2xl border border-[var(--color-border)] bg-[var(--color-card)] shadow-sm overflow-hidden',
+        'overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-card)]',
         className
       )}
     >
@@ -96,16 +96,16 @@ export default function WorkspaceHeader({
                 aria-current={isActive ? 'page' : undefined}
                 onClick={() => ctx?.setActiveTab(tab.key)}
                 className={cn(
-                  'flex items-center gap-2 px-3 py-2.5 text-[13px] font-semibold border-b-2 -mb-px whitespace-nowrap shrink-0 transition-colors cursor-pointer',
+                  '-mb-px flex h-11 shrink-0 cursor-pointer items-center gap-2 whitespace-nowrap border-b-2 px-3 text-[13px] font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--color-ring)]',
                   isActive
-                    ? 'border-[var(--color-primary)] text-[var(--color-primary)]'
-                    : 'border-transparent text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)]'
+                    ? 'border-[var(--color-primary)] text-[var(--color-foreground)]'
+                    : 'border-transparent text-[var(--color-muted-foreground)] hover:border-[var(--color-border-strong)] hover:text-[var(--color-foreground)]'
                 )}
               >
-                <Icon size={15} className={cn('shrink-0', isActive ? 'opacity-100' : 'opacity-60')} />
+                <Icon size={16} className={cn('shrink-0', isActive ? 'text-[var(--color-primary)]' : 'text-[var(--color-muted-foreground)]')} aria-hidden="true" />
                 {tab.label}
                 {!!tab.badge && (
-                  <span className="rounded-full bg-amber-500/15 px-1.5 py-0.5 text-[11px] font-bold text-amber-700 dark:text-amber-400">
+                  <span className="rounded-full bg-[var(--color-warning-bg)] px-1.5 py-0.5 text-xs font-medium tabular-nums text-[var(--color-warning)]">
                     {tab.badge}
                   </span>
                 )}
@@ -121,7 +121,7 @@ export default function WorkspaceHeader({
             {(title || description) && (
               <div className="min-w-0">
                 {title && (
-                  <h1 className="text-xl font-bold tracking-tight text-[var(--color-foreground)]">{title}</h1>
+                  <h1 className="text-page-title">{title}</h1>
                 )}
                 {description && (
                   <p
@@ -139,16 +139,16 @@ export default function WorkspaceHeader({
             {(ctx || stats?.length || actions) && (
               <div className="flex flex-wrap items-center gap-3 lg:ml-auto lg:justify-end">
                 {!!stats?.length && (
-                  <dl id="tour-workspace-stats" className="flex items-stretch divide-x divide-[var(--color-border)] rounded-xl border border-[var(--color-border)] bg-[var(--color-muted)]/40">
+                  <dl id="tour-workspace-stats" className="flex items-stretch divide-x divide-[var(--color-border)] rounded-card border border-[var(--color-border)] bg-[var(--color-muted)]">
                     {stats.map(stat => {
                       const Icon = stat.icon
                       return (
                         <div key={stat.label} className="px-4 py-2 text-center">
-                          <dd className="flex items-center justify-center gap-1.5 text-lg font-bold tabular-nums text-[var(--color-foreground)]">
+                          <dd className="flex items-center justify-center gap-1.5 text-lg font-semibold tabular-nums text-[var(--color-foreground)]">
                             {Icon && <Icon size={15} className="text-[var(--color-primary)]" />}
                             {stat.value}
                           </dd>
-                          <dt className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-muted-foreground)] whitespace-nowrap">
+                          <dt className="whitespace-nowrap text-eyebrow">
                             {stat.label}
                           </dt>
                         </div>

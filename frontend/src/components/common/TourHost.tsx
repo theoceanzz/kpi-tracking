@@ -25,27 +25,27 @@ function CustomTooltip({
          được hộp chứ không thu nhỏ nó — hộp cao quá thì phần cuối, tức hai nút điều
          hướng, nằm ngoài màn hình và người dùng kẹt lại ở bước đó. Chặn trần rồi cho
          thân bài tự cuộn thì đầu và chân bài luôn thấy được. */
-      className="flex flex-col w-[min(400px,calc(100vw-2rem))] max-h-[min(80vh,34rem)] bg-white dark:bg-slate-900 rounded-2xl shadow-2xl shadow-indigo-500/20 border border-slate-100 dark:border-slate-800 overflow-hidden animate-in fade-in zoom-in-95 duration-300"
+      className="flex flex-col w-[min(400px,calc(100vw-2rem))] max-h-[min(80vh,34rem)] bg-[var(--color-card)] rounded-card shadow-2xl border border-[var(--color-border)] overflow-hidden animate-in fade-in zoom-in-95 duration-300"
     >
-      <div className="h-1 w-full shrink-0 bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500" />
+      <div className="h-1 w-full shrink-0 bg-[var(--color-primary)]"/>
 
       <div className="shrink-0 px-5 pt-5 pb-3 space-y-2">
         <div className="flex items-start justify-between">
-          <div className="flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 text-[10px] font-black uppercase tracking-widest w-fit">
+          <div className="text-eyebrow flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-[var(--color-primary-soft)] text-[var(--color-primary)] w-fit">
             <span>Bước {index + 1}</span>
             <span className="opacity-30">/</span>
             <span className="opacity-60">{size}</span>
           </div>
           <button
             {...closeProps}
-            className="text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 transition-colors p-1 hover:bg-slate-50 dark:hover:bg-slate-800 rounded-lg"
+            className="text-[var(--color-subtle-foreground)] hover:text-[var(--color-muted-foreground)] transition-colors p-1 hover:bg-[var(--color-muted)] rounded-control"
           >
             <X size={16} />
           </button>
         </div>
 
         {step.title && (
-          <h3 className="text-lg font-black text-slate-900 dark:text-white tracking-tight leading-tight">
+          <h3 className="text-section-title text-[var(--color-foreground)] tracking-tight leading-tight">
             {step.title}
           </h3>
         )}
@@ -53,14 +53,14 @@ function CustomTooltip({
 
       {/* Chỉ thân bài cuộn. `overscroll-contain` để cuộn hết bài thì dừng, không đẩy
           tiếp trang phía sau — trang cuộn là điểm neo trôi đi và vùng tô sáng lệch. */}
-      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-3 text-[13px] text-slate-500 dark:text-slate-400 font-medium leading-relaxed">
+      <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain px-5 pb-3 text-[13px] text-[var(--color-muted-foreground)] font-medium leading-relaxed">
         {step.content}
       </div>
 
-      <div className="shrink-0 flex items-center justify-between gap-4 px-5 py-3 border-t border-slate-100 dark:border-slate-800/50">
+      <div className="shrink-0 flex items-center justify-between gap-4 px-5 py-3 border-t border-[var(--color-border)]">
         <button
           {...skipProps}
-          className="text-[10px] font-bold text-slate-400 hover:text-slate-600 dark:hover:text-slate-300 transition-colors uppercase tracking-wider"
+          className="text-eyebrow hover:text-[var(--color-muted-foreground)] transition-colors"
         >
           BỎ QUA
         </button>
@@ -69,14 +69,14 @@ function CustomTooltip({
           {index > 0 && (
             <button
               {...backProps}
-              className="flex items-center justify-center w-8 h-8 rounded-xl bg-slate-50 dark:bg-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all active:scale-95"
+              className="flex items-center justify-center w-8 h-8 rounded-card bg-[var(--color-muted)] text-[var(--color-muted-foreground)] hover:bg-[var(--color-muted)] transition-all"
             >
               <ArrowLeft size={14} />
             </button>
           )}
           <button
             {...primaryProps}
-            className="flex items-center gap-2 px-5 py-2 rounded-xl bg-indigo-600 text-white text-[11px] font-black uppercase tracking-wider shadow-lg shadow-indigo-600/30 hover:bg-indigo-700 transition-all active:scale-95 group"
+            className="text-eyebrow flex items-center gap-2 px-5 py-2 rounded-card bg-[var(--color-primary)] text-[var(--color-primary-foreground)] shadow-lg hover:bg-[var(--color-primary-hover)] transition-all group"
           >
             <span>{isLastStep ? 'XONG' : 'TIẾP TỤC'}</span>
             {!isLastStep && <ArrowRight size={12} className="group-hover:translate-x-1 transition-transform" />}
@@ -84,9 +84,9 @@ function CustomTooltip({
         </div>
       </div>
 
-      <div className="shrink-0 h-0.5 bg-indigo-100 dark:bg-slate-800 w-full overflow-hidden">
+      <div className="shrink-0 h-0.5 bg-[var(--color-primary-soft)] w-full overflow-hidden">
         <div
-          className="h-full bg-indigo-500 transition-all duration-500"
+          className="h-full bg-[var(--color-primary)] transition-all duration-500"
           style={{ width: `${((index + 1) / size) * 100}%` }}
         />
       </div>

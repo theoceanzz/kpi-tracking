@@ -117,7 +117,7 @@ export default function EmployeePicker({
   }, [userPage, selectedIds])
 
   const inputCls =
-    'w-full rounded-lg border border-[var(--color-border)] bg-transparent px-3 py-2 text-sm'
+    'w-full rounded-control border border-[var(--color-border)] bg-transparent px-3 py-2 text-sm'
 
   return (
     <div>
@@ -156,7 +156,7 @@ export default function EmployeePicker({
           thanh cuộn thì người dùng không biết còn nhân sự phía dưới. Lớp này chỉ bỏ hai
           nút mũi tên xấu của Windows và làm thanh mảnh lại. */}
       <div
-        className={`${listClassName} custom-scrollbar overflow-y-auto rounded-lg border border-[var(--color-border)]`}
+        className={`${listClassName} custom-scrollbar overflow-y-auto rounded-control border border-[var(--color-border)]`}
       >
         {isFetching && (
           <div className="px-3 py-4 text-center text-sm text-[var(--color-muted-foreground)]">
@@ -172,12 +172,7 @@ export default function EmployeePicker({
         )}
         {!isFetching &&
           candidates.map((u: any) => (
-            <button
-              key={u.id}
-              type="button"
-              onClick={() => onPick({ id: u.id, fullName: u.fullName, email: u.email })}
-              className="block w-full px-3 py-2 text-left text-sm hover:bg-[var(--color-accent)]"
-            >
+            <button className="flex h-9 w-full items-center gap-2.5 rounded-control px-2.5 text-left text-sm text-[var(--color-foreground)] transition-colors hover:bg-[var(--color-muted)] [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-[var(--color-muted-foreground)]" key={u.id} type="button" onClick={() => onPick({ id: u.id, fullName: u.fullName, email: u.email })}>
               {u.fullName}
               <span className="ml-2 text-[var(--color-muted-foreground)]">{u.email}</span>
             </button>

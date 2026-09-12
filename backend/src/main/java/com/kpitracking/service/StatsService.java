@@ -873,7 +873,22 @@ public class StatsService {
     }
 
     @Transactional(readOnly = true)
+    /**
+     * Tổng hợp cho màn Thống kê.
+     *
+     * <p>{@code lite = true} bỏ qua bốn phép gom nặng (so sánh đơn vị, rủi ro, xếp hạng, xu hướng) và
+     * vòng lặp tính % qua TẮT CẢ KPI. Đo trên dữ liệu thật: bản đầy đủ mất ~3 giây cho 11KB, trong
+     * khi toàn bộ nơi gọi ở frontend chỉ dùng {@code roleDistribution} và {@code totalMembers} — mấy
+     * phần còn lại đều được các widget tự gọi qua endpoint riêng, tức đang tính hai lần.
+     *
+     * <p>Mặc định vẫn là bản đầy đủ để không phá hợp đồng cũ của API.
+     */
     public AnalyticsSummaryResponse getSummary(UUID orgUnitId, UUID rankingUnitId, String direction) {
+        return getSummary(orgUnitId, rankingUnitId, direction, false);
+    }
+
+    @Transactional(readOnly = true)
+    public AnalyticsSummaryResponse getSummary(UUID orgUnitId, UUID rankingUnitId, String direction, boolean lite) {
         User currentUser = getCurrentUser();
         List<UserRoleOrgUnit> userRoles = userRoleOrgUnitRepository.findByUserId(currentUser.getId());
         if (userRoles.isEmpty()) return AnalyticsSummaryResponse.builder().build();
@@ -890,9 +905,12 @@ public class StatsService {
         // Tiến độ tổng = trung bình % từng KPI (KPI ngược tính theo hướng riêng)
         double sumKpiPct = 0;
         int kpiPctCount = 0;
-        for (KpiCriteria kpi : allKpis) {
-            sumKpiPct += kpiUnitPercent(kpi, subtreeIds, null, null);
-            kpiPctCount++;
+        // Mỗi vòng lặp là một truy vấn bài nộp — với ~209 KPI là ~209 vòng đi về DB.
+        if (!lite) {
+            for (KpiCriteria kpi : allKpis) {
+                sumKpiPct += kpiUnitPercent(kpi, subtreeIds, null, null);
+                kpiPctCount++;
+            }
         }
         long kpiCompletionRate = kpiPctCount > 0 ? Math.round(sumKpiPct / kpiPctCount) : 0;
         
@@ -948,23 +966,30 @@ public class StatsService {
                     .map(e -> new AnalyticsSummaryResponse.RoleCount(e.getKey(), e.getValue())).toList()));
         }
 
-        // Data for initial load
+        AnalyticsSummaryResponse.AnalyticsSummaryResponseBuilder out = AnalyticsSummaryResponse.builder()
+                .orgUnitId(targetUnit.getId()).orgUnitName(targetUnit.getName())
+                .levelName(targetUnit.getOrgHierarchyLevel().getUnitTypeName())
+                .totalMembers((long) allMembers.size()).activeKpis((long) allKpis.size())
+                .memberDistribution(memberDist)
+                .roleDistribution(roleDist);
+
+        if (lite) return out.build();
+
+        // Từ đây trở xuống là phần nặng: bốn phép gom này mỗi cái tương đương một endpoint riêng.
         SummarySubData.UnitComparisonData comp = getUnitComparison(targetUnit.getId(), null, null, false, null);
         SummarySubData.RiskData risks = getRisks(targetUnit.getId(), "MONTH");
         SummarySubData.RankingData rankings = getRankings(targetUnit.getId(), rankingUnitId, null, null, false);
+        // Gọi MỘT lần rồi dùng lại — trước đây biểu thức ba ngôi gọi hàm này hai lần.
+        Double avgScore = evaluationRepository.avgScoreByOrgUnitIdIn(subtreeIds);
 
-        return AnalyticsSummaryResponse.builder()
-                .orgUnitId(targetUnit.getId()).orgUnitName(targetUnit.getName()).levelName(targetUnit.getOrgHierarchyLevel().getUnitTypeName())
+        return out
                 .kpiCompletionRate(kpiCompletionRate)
-                .avgPerformanceScore(evaluationRepository.avgScoreByOrgUnitIdIn(subtreeIds) != null ? evaluationRepository.avgScoreByOrgUnitIdIn(subtreeIds) : 0)
+                .avgPerformanceScore(avgScore != null ? avgScore : 0)
                 .overdueKpiRate(allKpis.isEmpty() ? 0 : (pendingSubs * 10.0 / allKpis.size()))
-                .totalMembers((long) allMembers.size()).activeKpis((long) allKpis.size())
                 .trendData(getTrend(targetUnit.getId(), "5_MONTHS"))
                 .topPerformingUnits(comp.getTopPerformingUnits())
                 .worstPerformingUnits(comp.getWorstPerformingUnits())
                 .unitKpiData(comp.getUnitKpiData())
-                .memberDistribution(memberDist)
-                .roleDistribution(roleDist)
                 .unitRisks(risks.getUnitRisks())
                 .userRisks(risks.getUserRisks())
                 .rankings(rankings.getRankings())
@@ -1252,6 +1277,7 @@ public class StatsService {
                 Double avgScore = evaluationRepository.avgScoreByUserId(u.getId());
 
                 return AnalyticsSummaryResponse.RankingItem.builder()
+                    .userId(u.getId())
                     .name(u.getFullName())
                     .avatar(u.getAvatarUrl())
                     .score(avgScore != null ? avgScore : 0)

@@ -54,6 +54,22 @@ public class EvaluationPerspectiveScore {
     @Builder.Default
     private Boolean scoredByTarget = false;
 
+    /**
+     * Mục tiêu ĐÃ dùng lúc chấm, chụp lại từ dòng bộ tiêu chí. Không đọc lại từ hạng mục khi hiển thị:
+     * từ khi mỗi bộ tiêu chí có mục tiêu riêng (QĐ-2), cùng một hạng mục có nhiều con số khác nhau
+     * tuỳ phòng, nên đọc lại sẽ hiện sai của phòng khác.
+     */
+    @Column(name = "target_value")
+    private Double targetValue;
+
+    /** Ngưỡng sàn ĐÃ dùng lúc chấm. */
+    @Column(name = "minimum_value")
+    private Double minimumValue;
+
+    /** Đơn vị tính ĐÃ dùng lúc chấm. */
+    @Column(name = "unit", length = 50)
+    private String unit;
+
     @CreatedDate
     @Column(name = "created_at", updatable = false)
     private Instant createdAt;

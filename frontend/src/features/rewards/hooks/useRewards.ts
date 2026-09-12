@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/apiError'
 import { rewardApi } from '../api/rewardApi'
 import type {
   CreateRewardGrantRequest,
@@ -9,7 +10,7 @@ import type {
 } from '../types'
 
 const errMsg = (error: any, fallback: string) =>
-  error?.response?.data?.message || fallback
+  getApiErrorMessage(error, fallback)
 
 /**
  * Làm mới mọi thứ liên quan đến điểm sau khi phát/thu hồi: ví, sổ cái, danh sách đề
@@ -22,6 +23,9 @@ const invalidateRewardData = (qc: ReturnType<typeof useQueryClient>) => {
   qc.invalidateQueries({ queryKey: ['rewardGrants'] })
   qc.invalidateQueries({ queryKey: ['rewardBudget'] })
   qc.invalidateQueries({ queryKey: ['rewardBudgets'] })
+  // Người có REWARD:APPROVE_OWN tự thưởng cho chính mình thì vừa là người trao vừa là người
+  // nhận — thiếu khoá này thì tab "Phần thưởng của tôi" của họ vẫn trống sau khi vừa trao.
+  qc.invalidateQueries({ queryKey: ['myAwards'] })
 }
 
 // ── Ví của tôi ───────────────────────────────────────────────────
@@ -53,12 +57,15 @@ export const useWallets = (keyword: string, page = 0, size = 20) =>
  * <p>KHÔNG nằm trong `invalidateRewardData` — dải tin đang chạy mà bị thay dữ liệu giữa
  * chừng sẽ nhảy vị trí trước mắt người đọc. Chờ nhịp làm mới kế tiếp là đủ.
  */
-export const useRewardActivityFeed = (limit = 30) =>
+export const useRewardActivityFeed = (limit = 30, enabled = true) =>
   useQuery({
     queryKey: ['rewardActivity', limit],
     queryFn: () => rewardApi.getActivityFeed(limit),
     refetchInterval: 60_000,
     staleTime: 30_000,
+    // Dải tin giờ nằm ở AppLayout nên chạy trên MỌI trang. Không có cờ này thì mỗi tài
+    // khoản thiếu quyền sẽ nện một request 403 mỗi phút, suốt phiên làm việc.
+    enabled,
   })
 
 // ── Đề nghị thưởng ───────────────────────────────────────────────

@@ -35,6 +35,9 @@ export interface Evaluation {
   /** Điểm chính thức: = bscScore khi OFFICIAL, ngược lại = systemScore */
   officialScore?: number | null
   bscPerspectives?: PerspectiveScoreResponse[] | null
+  // ── Bell curve ──
+  /** Cảnh báo lệch khung bell curve của đơn vị sau khi chốt đánh giá này (chế độ "chặn" trả lỗi 400). */
+  bellCurveWarning?: string | null
 }
 
 // Matches BE: CreateEvaluationRequest

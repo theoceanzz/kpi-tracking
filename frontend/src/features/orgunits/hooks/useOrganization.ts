@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { organizationApi, UpdateOrganizationRequest } from '../api/organizationApi'
 import { invalidateOrgDerived } from '@/lib/queryClient'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/apiError'
 
 export function useOrganization(id?: string) {
   const queryClient = useQueryClient()
@@ -19,7 +20,7 @@ export function useOrganization(id?: string) {
       toast.success('Cập nhật thông tin công ty thành công')
     },
     onError: (error: any) => {
-      toast.error(error.response?.data?.message || 'Có lỗi xảy ra khi cập nhật')
+      toast.error(getApiErrorMessage(error, 'Có lỗi xảy ra khi cập nhật'))
     }
   })
 

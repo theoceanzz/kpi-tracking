@@ -1,8 +1,13 @@
 import { z } from 'zod'
 import { OkrStatus } from '../types'
 
-export const objectiveSchema = z.object({
-  code: z.string().min(1, 'Vui lòng nhập mã'),
+/**
+ * Mã Objective/KR để `optional()`: tổ chức có thể bật sinh mã tự động, lúc đó ô mã bị khoá
+ * và backend cấp mã theo mẫu riêng của công ty. Chỉ khi tổ chức TẮT tự sinh thì mã mới là
+ * bắt buộc — vế đó truyền qua `requireCode` chứ không khai cứng trong schema.
+ */
+const objectiveShape = z.object({
+  code: z.string().optional(),
   name: z.string().min(1, 'Vui lòng nhập tên mục tiêu'),
   description: z.string().optional(),
   startDate: z.string().min(1, 'Vui lòng chọn ngày bắt đầu'),
@@ -10,15 +15,26 @@ export const objectiveSchema = z.object({
   status: z.enum(OkrStatus).optional(),
   orgUnitIds: z.array(z.string()).optional(),
   perspectiveId: z.string().nullable().optional(),
-}).refine(
-  data => !data.startDate || !data.endDate || new Date(data.endDate) >= new Date(data.startDate),
-  { path: ['endDate'], message: 'Ngày kết thúc không được trước ngày bắt đầu' },
-)
+})
 
-export type ObjectiveFormData = z.infer<typeof objectiveSchema>
+export const createObjectiveSchema = ({ requireCode = false }: { requireCode?: boolean } = {}) =>
+  objectiveShape.superRefine((data, ctx) => {
+    if (requireCode && !data.code?.trim()) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['code'], message: 'Vui lòng nhập mã' })
+    }
+    if (data.startDate && data.endDate && new Date(data.endDate) < new Date(data.startDate)) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['endDate'],
+        message: 'Ngày kết thúc không được trước ngày bắt đầu',
+      })
+    }
+  })
 
-export const keyResultSchema = z.object({
-  code: z.string().min(1, 'Vui lòng nhập mã KR'),
+export type ObjectiveFormData = z.infer<typeof objectiveShape>
+
+const keyResultShape = z.object({
+  code: z.string().optional(),
   name: z.string().min(1, 'Vui lòng nhập tên KR'),
   description: z.string().optional(),
   unit: z.string().optional(),
@@ -27,4 +43,11 @@ export const keyResultSchema = z.object({
   objectiveId: z.string().min(1),
 })
 
-export type KeyResultFormData = z.infer<typeof keyResultSchema>
+export const createKeyResultSchema = ({ requireCode = false }: { requireCode?: boolean } = {}) =>
+  keyResultShape.superRefine((data, ctx) => {
+    if (requireCode && !data.code?.trim()) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['code'], message: 'Vui lòng nhập mã KR' })
+    }
+  })
+
+export type KeyResultFormData = z.infer<typeof keyResultShape>

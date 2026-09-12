@@ -50,4 +50,11 @@ public class CreateKpiCriteriaRequest {
     private UUID parentId;
     private KpiParentRelationType parentRelationType;
     private UUID perspectiveId;
+
+    /**
+     * Dòng chỉ tiêu CỤ THỂ của bộ tiêu chí BSC mà KPI này bám vào (docs/bsc-cascade-design.md).
+     * Cụ thể hơn {@link #perspectiveId}: cùng một hạng mục xuất hiện ở nhiều bộ tiêu chí với mục
+     * tiêu khác nhau. Đây cũng là căn cứ đo tỉ lệ trọng số KPI liên kết BSC (QĐ-8).
+     */
+    private UUID scorecardPerspectiveId;
 }

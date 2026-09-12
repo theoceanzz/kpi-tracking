@@ -24,6 +24,10 @@ spring:
       hibernate:
         format_sql: true
         dialect: org.hibernate.dialect.PostgreSQLDialect
+        # Gom cac lan nap quan he LAZY thanh truy van IN theo lo.
+        # Khong co no, mot request /org-unit-kpi/detailed voi ~200 KPI se cham getSubmissions(),
+        # getAssignees(), getOrgUnit(), getKpiPeriod() cho TUNG KPI -> hang tram vong di ve DB.
+        default_batch_fetch_size: 100
 
   flyway:
     enabled: true

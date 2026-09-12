@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { orgUnitApi } from '../api/org-unit.api'
 import type { CreateOrgUnitRequest, UpdateOrgUnitRequest } from '../types/org-unit'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/apiError'
 
 export function useOrgUnitTree(orgId: string | undefined) {
   return useQuery({
@@ -40,7 +41,7 @@ export function useCreateOrgUnit() {
       toast.success('Thêm thành phần tổ chức thành công')
     },
     onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'Có lỗi xảy ra khi tạo thành phần tổ chức')
+      toast.error(getApiErrorMessage(error, 'Có lỗi xảy ra khi tạo thành phần tổ chức'))
     }
   })
 }
@@ -61,7 +62,7 @@ export function useUpdateOrgUnit() {
       toast.success('Cập nhật thành công')
     },
     onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'Có lỗi xảy ra khi cập nhật thành phần')
+      toast.error(getApiErrorMessage(error, 'Có lỗi xảy ra khi cập nhật thành phần'))
     }
   })
 }
@@ -110,7 +111,7 @@ export function useUploadLogo() {
       toast.success('Tải logo lên thành công')
     },
     onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'Có lỗi xảy ra khi tải logo')
+      toast.error(getApiErrorMessage(error, 'Có lỗi xảy ra khi tải logo'))
     }
   })
 }
@@ -129,7 +130,7 @@ export function useDeleteOrgUnit() {
       toast.success('Xoá thành phần tổ chức thành công')
     },
     onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'Hệ thống chặn chức năng hoặc có lỗi')
+      toast.error(getApiErrorMessage(error, 'Hệ thống chặn chức năng hoặc có lỗi'))
     }
   })
 }
@@ -158,7 +159,7 @@ export function useImportOrgUnits() {
       }
     },
     onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'Import thất bại')
+      toast.error(getApiErrorMessage(error, 'Import thất bại'))
     }
   })
 }

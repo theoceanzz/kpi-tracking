@@ -30,6 +30,7 @@ import { Badge } from '@/components/ui/badge'
 import { formatDistanceToNow } from 'date-fns'
 import { vi } from 'date-fns/locale'
 import { useTourScope } from '@/hooks/useTourScope'
+import { getApiErrorMessage } from '@/lib/apiError'
 
 function truncateWords(text: string, max = 15): string {
   const words = text.trim().split(/\s+/)
@@ -309,9 +310,9 @@ export default function AiAssistantPage() {
       if (status === 402) {
         errorContent = '⚠️ **Hệ thống AI đã đạt giới hạn token.** Vui lòng thử lại sau ít phút hoặc liên hệ quản trị viên.'
       } else if (status === 429) {
-        errorContent = `⚠️ ${error?.response?.data?.message || 'Bạn gửi yêu cầu AI quá nhanh, vui lòng thử lại sau ít phút.'}`
+        errorContent = `⚠️ ${getApiErrorMessage(error, 'Bạn gửi yêu cầu AI quá nhanh, vui lòng thử lại sau ít phút.')}`
       } else {
-        const detail = error?.response?.data?.message || error?.message || 'Lỗi không xác định'
+        const detail = getApiErrorMessage(error, 'Lỗi không xác định')
         errorContent = `⚠️ ${detail}`
       }
       setMessages(prev => [
@@ -377,10 +378,10 @@ export default function AiAssistantPage() {
         {/* ═══ SIDEBAR ═══ */}
         <aside className={cn(
           'flex flex-col border-r border-[var(--color-border)] transition-all duration-300',
-          'bg-gradient-to-b from-slate-50 to-white dark:from-slate-900 dark:to-slate-950',
+'bg-[var(--color-muted)]',
           'fixed inset-y-0 left-0 z-40 w-[272px] md:static md:z-auto md:shrink-0',
           collapsed ? 'md:w-[60px]' : 'md:w-[272px]',
-          mobileSidebarOpen ? 'translate-x-0 shadow-2xl' : '-translate-x-full md:translate-x-0',
+          mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
         )}>
           {/* Sidebar top bar */}
           <div className={cn(
@@ -426,7 +427,7 @@ export default function AiAssistantPage() {
                 <Button
                   variant="ghost"
                   size="icon"
-                  className="mx-auto h-9 w-9 text-violet-600"
+                  className="mx-auto h-9 w-9 text-[var(--color-ai)]"
                   onClick={handleNewChat}
                 >
                   <SquarePen size={16} />
@@ -445,13 +446,13 @@ export default function AiAssistantPage() {
                 {loadingConversations ? (
                   <div className="space-y-2 px-1 pt-1">
                     {Array.from({ length: 6 }).map((_, i) => (
-                      <div key={i} className="animate-pulse h-14 rounded-xl bg-[var(--color-muted)]" />
+                      <div key={i} className="animate-pulse h-14 rounded-card bg-[var(--color-muted)]" />
                     ))}
                   </div>
                 ) : conversations.length === 0 ? (
                   <div className="flex flex-col items-center justify-center py-12 text-center gap-3">
-                    <div className="w-12 h-12 rounded-2xl bg-violet-50 dark:bg-violet-900/30 flex items-center justify-center">
-                      <MessageSquare size={22} className="text-violet-400" />
+                    <div className="flex h-12 w-12 items-center justify-center rounded-card border border-[var(--color-border)] bg-[var(--color-muted)]">
+                      <MessageSquare size={22} strokeWidth={1.75} className="text-[var(--color-muted-foreground)]" aria-hidden="true" />
                     </div>
                     <div>
                       <p className="text-sm font-medium text-[var(--color-foreground)]">Chưa có cuộc trò chuyện</p>
@@ -466,29 +467,27 @@ export default function AiAssistantPage() {
                         key={conv.id}
                         onClick={() => handleSelectConversation(conv)}
                         className={cn(
-                          'w-full text-left px-3 py-2.5 rounded-xl transition-all duration-150 group relative',
+                          'group relative w-full rounded-control px-2.5 py-2 text-left transition-colors',
                           isActive
-                            ? 'bg-violet-600 text-white shadow-sm shadow-violet-200 dark:shadow-none'
-                            : 'hover:bg-[var(--color-muted)] text-[var(--color-foreground)]',
+                            ? 'bg-[var(--color-ai-soft)] text-[var(--color-foreground)]'
+                            : 'text-[var(--color-foreground)] hover:bg-[var(--color-muted)]',
                         )}
                       >
                         <div className="flex items-start gap-2.5 pr-6">
                           <div className={cn(
-                            'w-7 h-7 rounded-lg flex items-center justify-center shrink-0 mt-0.5',
-                            isActive ? 'bg-white/20' : 'bg-violet-50 dark:bg-violet-900/30',
+                            'mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-control',
+                            isActive ? 'bg-[var(--color-card)] text-[var(--color-ai)]' : 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)]',
                           )}>
-                            <MessageSquare size={13} className={isActive ? 'text-white' : 'text-violet-500'} />
+                            <MessageSquare size={13} />
                           </div>
                           <div className="min-w-0 flex-1">
                             <p className={cn(
-                              'text-sm font-medium leading-tight',
-                              isActive ? 'text-white' : 'text-[var(--color-foreground)]',
+                              'text-sm font-medium leading-tight text-[var(--color-foreground)]',
                             )}>
                               {truncateWords(conv.title || 'Cuộc trò chuyện', 6)}
                             </p>
                             <p className={cn(
-                              'text-[11px] mt-0.5 flex items-center gap-1',
-                              isActive ? 'text-violet-200' : 'text-[var(--color-muted-foreground)]',
+                              'mt-0.5 flex items-center gap-1 text-caption',
                             )}>
                               <Clock size={10} />
                               {formatDistanceToNow(new Date(conv.createdAt), { addSuffix: true, locale: vi })}
@@ -502,10 +501,7 @@ export default function AiAssistantPage() {
                               role="button"
                               onClick={e => handleDelete(conv.id, e)}
                               className={cn(
-                                'absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg transition-all opacity-0 group-hover:opacity-100',
-                                isActive
-                                  ? 'hover:bg-white/20 text-violet-200 hover:text-white'
-                                  : 'hover:bg-red-100 dark:hover:bg-red-900/30 text-[var(--color-muted-foreground)] hover:text-red-500',
+                                'absolute right-1.5 top-1/2 -translate-y-1/2 rounded-control p-1.5 text-[var(--color-muted-foreground)] opacity-0 transition-colors group-hover:opacity-100 focus-visible:opacity-100 hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]',
                               )}
                             >
                               {deletingId === conv.id
@@ -534,10 +530,10 @@ export default function AiAssistantPage() {
                       <button
                         onClick={() => handleSelectConversation(conv)}
                         className={cn(
-                          'w-9 h-9 rounded-xl flex items-center justify-center transition-colors',
+                          'flex h-9 w-9 items-center justify-center rounded-control transition-colors',
                           conversationId === conv.id
-                            ? 'bg-violet-600 text-white'
-                            : 'hover:bg-[var(--color-muted)] text-[var(--color-muted-foreground)]',
+                            ? 'bg-[var(--color-ai-soft)] text-[var(--color-ai)]'
+                            : 'text-[var(--color-muted-foreground)] hover:bg-[var(--color-muted)]',
                         )}
                       >
                         <MessageSquare size={15} />
@@ -564,7 +560,7 @@ export default function AiAssistantPage() {
           {/* Lớp phủ khi đang kéo tệp qua. pointer-events-none để nó không nuốt mất sự kiện drop. */}
           {isDragActive && (
             <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-[var(--color-ai-soft)]/90">
-              <p className="text-sm font-bold text-[var(--color-ai)]">Thả tệp vào đây để ghim</p>
+              <p className="text-sm font-medium text-[var(--color-ai)]">Thả tệp vào đây để ghim</p>
             </div>
           )}
 
@@ -581,19 +577,19 @@ export default function AiAssistantPage() {
                   <MessageSquare size={18} />
                 </Button>
                 <div className="relative shrink-0">
-                  <div className="w-10 h-10 rounded-2xl bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-md shadow-violet-200 dark:shadow-none">
+                  <div className="w-10 h-10 rounded-card bg-[var(--color-primary)] flex items-center justify-center">
                     <Bot size={20} className="text-white" />
                   </div>
-                  <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-400 rounded-full border-2 border-white dark:border-slate-900" />
+                  <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-[var(--color-success-solid)] rounded-full border-2 border-white" />
                 </div>
                 <div>
-                  <h1 className="text-base font-bold leading-tight text-[var(--color-foreground)]">Trợ lý AI Analytics</h1>
+                  <h1 className="text-page-title leading-tight text-[var(--color-foreground)]">Trợ lý AI Analytics</h1>
                   <p className="text-xs text-[var(--color-muted-foreground)]">Khai thác dữ liệu KPI bằng ngôn ngữ tự nhiên</p>
                 </div>
               </div>
               {conversationId && (
                 <Badge variant="secondary" className="hidden sm:flex gap-1.5 shrink-0">
-                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-400" />
+                  <div className="w-1.5 h-1.5 rounded-full bg-[var(--color-success-solid)]" />
                   Đang trong cuộc trò chuyện
                 </Badge>
               )}
@@ -611,7 +607,7 @@ export default function AiAssistantPage() {
                       <div key={i} className={cn('flex items-end gap-3', i % 2 !== 0 && 'flex-row-reverse')}>
                         <div className="w-8 h-8 rounded-full animate-pulse bg-[var(--color-muted)] shrink-0" />
                         <div
-                          className="animate-pulse h-14 rounded-2xl bg-[var(--color-muted)]"
+                          className="animate-pulse h-14 rounded-card bg-[var(--color-muted)]"
                           style={{ width: `${w}%` }}
                         />
                       </div>
@@ -624,7 +620,7 @@ export default function AiAssistantPage() {
                         /* Lượt người dùng: rãnh dọc + nhãn nhỏ thay cho bong bóng và avatar.
                            Avatar cũ ăn 44px mỗi bên và chính nó tạo cảm giác "chatbot mặc định". */
                         <div className="border-l-2 border-[var(--color-ai-line)] pl-3 py-0.5">
-                          <div className="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-ai)]">
+                          <div className="text-eyebrow text-[var(--color-ai)]">
                             Bạn hỏi
                           </div>
                           <div className="mt-0.5 text-sm whitespace-pre-wrap text-[var(--color-foreground)]">
@@ -701,16 +697,16 @@ export default function AiAssistantPage() {
                 {/* Typing indicator */}
                 {isLoading && (
                   <div className="flex items-end gap-3">
-                    <div className="w-8 h-8 rounded-full bg-gradient-to-br from-violet-500 to-purple-600 flex items-center justify-center shadow-sm">
+                    <div className="w-8 h-8 rounded-full bg-[var(--color-primary)] flex items-center justify-center shadow-sm">
                       <Sparkles size={14} className="text-white" />
                     </div>
-                    <div className="bg-[var(--color-card)] border border-[var(--color-border)] rounded-2xl rounded-bl-sm px-5 py-4 shadow-sm">
+                    <div className="bg-[var(--color-card)] border border-[var(--color-border)] rounded-card rounded-bl-sm px-5 py-4 shadow-sm">
                       <div className="flex items-center gap-2.5">
                         <div className="flex items-center gap-1.5">
                           {[0, 1, 2].map(i => (
                             <span
                               key={i}
-                              className="w-2 h-2 bg-violet-400 rounded-full animate-bounce"
+                              className="h-2 w-2 rounded-full bg-[var(--color-ai-line)] animate-bounce motion-reduce:animate-none"
                               style={{ animationDelay: `${i * 150}ms` }}
                             />
                           ))}
@@ -738,7 +734,7 @@ export default function AiAssistantPage() {
             <div className="max-w-3xl mx-auto">
               <PinnedChips sink={fileSink} />
               <AttachedChips sink={fileSink} />
-              <div className="flex items-center gap-2 bg-[var(--color-card)] border border-[var(--color-border)] rounded-2xl shadow-sm hover:shadow-md transition-shadow focus-within:ring-2 focus-within:ring-violet-500/40 focus-within:border-violet-300 px-4 py-2.5">
+              <div className="flex items-center gap-2 rounded-card border border-[var(--color-border)] bg-[var(--color-card)] px-3 py-2 transition-colors focus-within:border-[var(--color-ai-accent)] focus-within:ring-2 focus-within:ring-[var(--color-ai-accent)]">
                 <MicButton
                   onText={text => {
                     setInput(text)
@@ -757,14 +753,15 @@ export default function AiAssistantPage() {
                   placeholder={conversationId ? 'Tiếp tục cuộc trò chuyện...' : 'Hỏi về KPI, hiệu suất, xu hướng...'}
                   disabled={loadingMessages}
                   rows={1}
-                  className="flex-1 bg-transparent text-sm leading-6 focus:outline-none resize-none placeholder:text-[var(--color-muted-foreground)] disabled:opacity-50"
+                  className="flex-1 bg-transparent text-sm leading-6 focus:outline-none resize-none placeholder:text-[var(--color-muted-foreground)] disabled:opacity-50 scrollbar-hide"
                   style={{ maxHeight: '160px', overflowY: 'auto' }}
                 />
                 <Button
                   onClick={handleSend}
                   disabled={!input.trim() || isLoading || loadingMessages}
                   size="icon"
-                  className="h-8 w-8 rounded-xl shadow-sm shrink-0"
+                  aria-label="Gửi"
+                  className="h-8 w-8 shrink-0 bg-[var(--color-ai-solid)] text-white hover:bg-[var(--color-ai)] hover:opacity-90"
                 >
                   {isLoading
                     ? <Loader2 size={15} className="animate-spin" />
@@ -774,11 +771,11 @@ export default function AiAssistantPage() {
               </div>
 
               <div className="flex items-center justify-between mt-1.5 px-1">
-                <div className="flex items-center gap-1.5 text-[11px] text-[var(--color-muted-foreground)]">
+                <div className="flex items-center gap-1.5 text-caption">
                   <Database size={10} />
                   Dữ liệu từ hệ thống KPI của tổ chức
                 </div>
-                <p className="text-[11px] text-[var(--color-muted-foreground)]">
+                <p className="text-caption">
                   Shift + Enter để xuống dòng
                 </p>
               </div>

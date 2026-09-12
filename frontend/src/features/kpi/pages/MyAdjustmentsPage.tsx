@@ -1,303 +1,193 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import EmptyState from '@/components/common/EmptyState'
 import StatusBadge from '@/components/common/StatusBadge'
+import WorkspaceHeader from '@/components/common/WorkspaceHeader'
+import DataTable from '@/components/common/DataTable'
+import Pagination from '@/components/common/Pagination'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
 import { useMyAdjustments } from '../hooks/useMyAdjustments'
 import { cn, formatDateTime, formatNumber } from '@/lib/utils'
-import {
-  AlertCircle, ChevronRight, ChevronLeft,
-  Target, Award, Clock, History, Settings2
-} from 'lucide-react'
+import { Clock, History, Settings2, Send, ListChecks, CheckCircle2 } from 'lucide-react'
 import { usePageTitle } from '@/features/organization/hooks/usePageTitle'
 import AdjustmentKpiPickerModal from '../components/AdjustmentKpiPickerModal'
 import KpiAdjustmentModal from '../components/KpiAdjustmentModal'
 import type { KpiCriteria } from '@/types/kpi'
 
-const CountdownTimer = ({ createdAt, status }: { createdAt: string, status: string }) => {
-  const [timeLeft, setTimeLeft] = useState<string>('')
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
+/**
+ * Đếm ngược 24h kể từ lúc gửi — quản lý phải trả lời trong khung này.
+ * Chỉ chạy khi còn chờ duyệt; đã xử lý thì hiện dấu gạch để cột không trống.
+ */
+function useTimeLeft(createdAt: string, active: boolean) {
+  const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
-    if (status !== 'PENDING') {
-      setTimeLeft('---')
-      return
-    }
+    if (!active) return
+    const id = setInterval(() => setNow(Date.now()), 60_000)
+    return () => clearInterval(id)
+  }, [active])
+  if (!active) return null
+  const diff = new Date(createdAt).getTime() + 24 * 60 * 60 * 1000 - now
+  if (diff <= 0) return { text: 'Quá hạn phản hồi', expired: true }
+  const h = Math.floor(diff / 3_600_000)
+  const m = Math.floor((diff % 3_600_000) / 60_000)
+  return { text: h > 0 ? `Còn ${h} giờ ${m} phút` : `Còn ${m} phút`, expired: false }
+}
 
-    const targetTime = new Date(createdAt).getTime() + 24 * 60 * 60 * 1000
-    
-    const update = () => {
-      const now = new Date().getTime()
-      const diff = targetTime - now
-      
-      if (diff <= 0) {
-        setTimeLeft('Hết hạn')
-        return
-      }
-      
-      const hours = Math.floor(diff / (1000 * 60 * 60))
-      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
-      const seconds = Math.floor((diff % (1000 * 60)) / 1000)
-      
-      setTimeLeft(`${hours}h ${minutes}m ${seconds}s`)
-    }
-    
-    update()
-    const timer = setInterval(update, 1000)
-    return () => clearInterval(timer)
-  }, [createdAt, status])
-
-  if (status !== 'PENDING') return <span className="text-slate-300">---</span>
-
+function TimeLeft({ createdAt, status }: { createdAt: string; status: string }) {
+  const label = useTimeLeft(createdAt, status === 'PENDING')
+  if (!label) return <span className="text-caption">—</span>
   return (
-    <div className="flex flex-col">
-      <span className={cn(
-        "text-[11px] font-black tracking-tighter",
-        timeLeft === 'Hết hạn' ? 'text-red-500' : 'text-amber-500 animate-pulse'
-      )}>
-        {timeLeft}
-      </span>
-      <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Còn lại</span>
-    </div>
+    <span className={cn('text-xs tabular-nums', label.expired ? 'text-[var(--color-error)]' : 'text-[var(--color-warning)]')}>
+      {label.text}
+    </span>
+  )
+}
+
+/** Tóm tắt "hiện tại → đề xuất" cho những trường thực sự đổi. */
+function ChangeSummary({ adj }: { adj: any }) {
+  if (adj.deactivationRequest) return <Badge variant="destructive">Xin dừng chỉ tiêu</Badge>
+  const items: { label: string; from: string; to: string }[] = []
+  if (adj.requestedTargetValue != null && adj.requestedTargetValue !== adj.currentTargetValue)
+    items.push({ label: 'Mục tiêu', from: formatNumber(adj.currentTargetValue ?? 0), to: formatNumber(adj.requestedTargetValue) })
+  if (adj.requestedWeight != null && adj.requestedWeight !== adj.currentWeight)
+    items.push({ label: 'Trọng số', from: `${adj.currentWeight ?? 0}%`, to: `${adj.requestedWeight}%` })
+  if (adj.requestedMinimumValue != null && adj.requestedMinimumValue !== adj.currentMinimumValue)
+    items.push({ label: 'Tối thiểu', from: formatNumber(adj.currentMinimumValue ?? 0), to: formatNumber(adj.requestedMinimumValue) })
+  if (items.length === 0) return <span className="text-caption">Không đổi số liệu</span>
+  return (
+    <ul className="space-y-0.5">
+      {items.map(it => (
+        <li key={it.label} className="flex items-center gap-1.5 text-xs tabular-nums">
+          <span className="text-[var(--color-muted-foreground)]">{it.label}</span>
+          <span className="text-[var(--color-subtle-foreground)] line-through">{it.from}</span>
+          <span aria-hidden="true" className="text-[var(--color-subtle-foreground)]">→</span>
+          <span className="font-medium text-[var(--color-foreground)]">{it.to}</span>
+        </li>
+      ))}
+    </ul>
   )
 }
 
 export default function MyAdjustmentsPage() {
   const [page, setPage] = useState(0)
-  const [pageSize] = useState(10)
+  const pageSize = 10
   const [pickerOpen, setPickerOpen] = useState(false)
   const [adjustKpi, setAdjustKpi] = useState<KpiCriteria | null>(null)
 
-  const { data, isLoading } = useMyAdjustments({
-    page,
-    size: pageSize,
-  })
-
+  const { data, isLoading } = useMyAdjustments({ page, size: pageSize })
   const adjustments = data?.content ?? []
-
   const pageTitle = usePageTitle('my-adjustments', 'Điều chỉnh của tôi')
 
+  const stats = useMemo(() => ({
+    total: data?.totalElements ?? 0,
+    pending: adjustments.filter((a: any) => a.status === 'PENDING').length,
+    approved: adjustments.filter((a: any) => a.status === 'APPROVED').length,
+  }), [data?.totalElements, adjustments])
+
+  const columns = [
+    { key: 'status', header: 'Trạng thái', render: (adj: any) => <StatusBadge status={adj.status} />, className: 'w-32' },
+    {
+      key: 'kpi', header: 'Chỉ tiêu',
+      render: (adj: any) => <p className="max-w-[260px] truncate font-medium text-[var(--color-foreground)]" title={adj.kpiCriteriaName}>{adj.kpiCriteriaName}</p>,
+    },
+    { key: 'change', header: 'Thay đổi', render: (adj: any) => <ChangeSummary adj={adj} /> },
+    {
+      key: 'reason', header: 'Lý do',
+      render: (adj: any) => <p className="max-w-[220px] truncate text-[var(--color-muted-foreground)]" title={adj.reason}>{adj.reason}</p>,
+    },
+    {
+      key: 'sent', header: 'Ngày gửi',
+      render: (adj: any) => (
+        <div className="whitespace-nowrap">
+          <p className="tabular-nums">{formatDateTime(adj.createdAt).split(' ')[0]}</p>
+          <TimeLeft createdAt={adj.createdAt} status={adj.status} />
+        </div>
+      ),
+    },
+    {
+      key: 'reply', header: 'Phản hồi',
+      render: (adj: any) => adj.reviewerNote
+        ? <p className="max-w-[220px] truncate" title={adj.reviewerNote}>{adj.reviewerNote}</p>
+        : <span className="text-caption">{adj.status === 'PENDING' ? 'Đang chờ quản lý' : 'Không có nhận xét'}</span>,
+    },
+  ]
+
   return (
-    <div className="max-w-[1440px] mx-auto p-4 md:p-6 space-y-6 animate-in fade-in duration-500">
-      
-      {/* Header Section */}
-      <div id="tour-myadj-header" className="bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm transition-all">
-        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400">
-              <History size={20} />
-              <span className="text-xs font-black uppercase tracking-[2px]">Lịch sử điều chỉnh</span>
-            </div>
-            <h1 className="text-2xl md:text-3xl font-black tracking-tight text-slate-900 dark:text-white">
-              {pageTitle}
-            </h1>
-            <p className="text-sm text-slate-500 font-medium">Theo dõi trạng thái các yêu cầu thay đổi mục tiêu hoặc trọng số của bạn.</p>
+    <div className="mx-auto max-w-[1600px] space-y-4">
+      <WorkspaceHeader
+        id="tour-myadj-header"
+        title={pageTitle}
+        description="Yêu cầu đổi mục tiêu, trọng số hoặc xin dừng chỉ tiêu bạn đã gửi. Quản lý trực tiếp có 24 giờ để phản hồi."
+        stats={[
+          { label: 'Yêu cầu', value: stats.total, icon: ListChecks },
+          { label: 'Đang chờ', value: stats.pending, icon: Clock },
+          { label: 'Đã duyệt', value: stats.approved, icon: CheckCircle2 },
+        ]}
+        actions={
+          <Button onClick={() => setPickerOpen(true)}>
+            <Send aria-hidden="true" /> Tạo yêu cầu điều chỉnh
+          </Button>
+        }
+      />
+
+      <div id="tour-myadj-table">
+        {isLoading ? (
+          <LoadingSkeleton type="table" rows={6} />
+        ) : adjustments.length === 0 ? (
+          <div className="rounded-card border border-dashed border-[var(--color-border)] bg-[var(--color-card)]">
+            <EmptyState
+              icon={History}
+              title="Chưa có yêu cầu nào"
+              description="Khi mục tiêu không còn phù hợp, hãy chọn chỉ tiêu và gửi đề nghị điều chỉnh cho quản lý."
+              action={
+                <Button onClick={() => setPickerOpen(true)}>
+                  <Settings2 aria-hidden="true" /> Chọn chỉ tiêu để điều chỉnh
+                </Button>
+              }
+            />
           </div>
-
-          <button
-            onClick={() => setPickerOpen(true)}
-            className="shrink-0 px-5 py-3 rounded-2xl text-sm font-black text-white bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-500/20 transition-all flex items-center justify-center gap-2"
-          >
-            <Settings2 size={18} />
-            Tạo yêu cầu điều chỉnh
-          </button>
-        </div>
-      </div>
-
-      {/* Content Area */}
-      {isLoading ? (
-        <LoadingSkeleton type="table" rows={6} />
-      ) : adjustments.length === 0 ? (
-        <div id="tour-myadj-table" className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-20 shadow-sm">
-          <EmptyState
-            title="Chưa có yêu cầu nào"
-            description="Bạn chưa gửi yêu cầu điều chỉnh KPI nào. Chọn một chỉ tiêu ngay tại đây để gửi yêu cầu đầu tiên."
-            action={
-              <button
-                onClick={() => setPickerOpen(true)}
-                className="px-5 py-3 rounded-2xl text-sm font-black text-white bg-indigo-600 hover:bg-indigo-700 shadow-lg shadow-indigo-500/20 transition-all flex items-center gap-2"
-              >
-                <Settings2 size={18} />
-                Chọn KPI để điều chỉnh
-              </button>
-            }
-          />
-        </div>
-      ) : (
-        <div id="tour-myadj-table" className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm transition-all">
-          <div className="hidden md:block overflow-x-auto">
-          <table className="w-full text-left border-collapse min-w-[1000px]">
-            <thead>
-              <tr className="bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
-                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Trạng thái</th>
-                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Chỉ tiêu</th>
-                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Thay đổi</th>
-                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Đếm ngược (24h)</th>
-                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Lý do</th>
-                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400">Ngày gửi</th>
-                <th className="px-6 py-4 text-[10px] font-black uppercase tracking-widest text-slate-400 text-right">Phản hồi</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-              {adjustments.map((adj) => (
-                <tr key={adj.id} className="group hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
-                  <td className="px-6 py-4">
-                    <StatusBadge status={adj.status} />
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="max-w-xs">
-                      <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{adj.kpiCriteriaName}</p>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex flex-col gap-1.5">
-                      {adj.deactivationRequest ? (
-                        <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-600 border border-red-100 dark:border-red-900/30 w-fit">
-                          <AlertCircle size={12} />
-                          <span className="text-[10px] font-black uppercase tracking-widest">Yêu cầu dừng</span>
-                        </div>
-                      ) : (
-                        <div className="flex flex-wrap gap-2">
-                           {adj.requestedTargetValue !== null && adj.requestedTargetValue !== adj.currentTargetValue && (
-                            <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 border border-indigo-100 dark:border-indigo-900/30">
-                              <Target size={12} />
-                              <span className="text-[10px] font-black uppercase tracking-widest">{formatNumber(adj.requestedTargetValue)}</span>
-                            </div>
-                           )}
-                           {adj.requestedWeight !== null && adj.requestedWeight !== adj.currentWeight && (
-                            <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-violet-50 dark:bg-violet-900/20 text-violet-600 border border-violet-100 dark:border-violet-900/30">
-                              <Award size={12} />
-                              <span className="text-[10px] font-black uppercase tracking-widest">{adj.requestedWeight}%</span>
-                            </div>
-                           )}
-                           {adj.requestedMinimumValue !== null && adj.requestedMinimumValue !== adj.currentMinimumValue && (
-                            <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-amber-50 dark:bg-amber-900/20 text-amber-600 border border-amber-100 dark:border-amber-900/30">
-                              <AlertCircle size={12} />
-                              <span className="text-[10px] font-black uppercase tracking-widest">{formatNumber(adj.requestedMinimumValue)}</span>
-                            </div>
-                           )}
-                        </div>
-                      )}
-                    </div>
-                  </td>
-                  <td className="px-6 py-4">
-                    <CountdownTimer createdAt={adj.createdAt} status={adj.status} />
-                  </td>
-                  <td className="px-6 py-4">
-                    <p className="text-xs text-slate-600 dark:text-slate-400 truncate max-w-[200px] italic whitespace-nowrap">
-                      "{adj.reason}"
-                    </p>
-                  </td>
-                  <td className="px-6 py-4">
-                    <div className="flex items-center gap-1.5 text-slate-500">
-                      <Clock size={12} />
-                      <span className="text-[11px] font-bold">{formatDateTime(adj.createdAt).split(' ')[0]}</span>
-                    </div>
-                  </td>
-                  <td className="px-6 py-4 text-right">
-                    {adj.reviewerNote ? (
-                      <p className="text-xs font-medium text-slate-500 max-w-[200px] ml-auto truncate italic whitespace-nowrap">
-                        "{adj.reviewerNote}"
-                      </p>
-                    ) : (
-                      <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest italic">Chưa có phản hồi</span>
-                    )}
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          </div>
-
-          <div className="md:hidden divide-y divide-slate-100 dark:divide-slate-800">
-            {adjustments.map((adj) => (
-              <div key={adj.id} className="p-4 space-y-3">
+        ) : (
+          <DataTable
+            columns={columns}
+            data={adjustments}
+            keyExtractor={(adj: any) => adj.id}
+            renderMobileCard={(adj: any) => (
+              <div className="space-y-2">
                 <div className="flex items-start justify-between gap-2">
-                  <p className="text-sm font-bold text-slate-900 dark:text-white flex-1">{adj.kpiCriteriaName}</p>
+                  <p className="min-w-0 flex-1 font-medium text-[var(--color-foreground)]">{adj.kpiCriteriaName}</p>
                   <StatusBadge status={adj.status} />
                 </div>
-
-                <div className="flex flex-wrap gap-2">
-                  {adj.deactivationRequest ? (
-                    <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-red-50 dark:bg-red-900/20 text-red-600 border border-red-100 dark:border-red-900/30 w-fit">
-                      <AlertCircle size={12} />
-                      <span className="text-[10px] font-black uppercase tracking-widest">Yêu cầu dừng</span>
-                    </div>
-                  ) : (
-                    <>
-                      {adj.requestedTargetValue !== null && adj.requestedTargetValue !== adj.currentTargetValue && (
-                        <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 border border-indigo-100 dark:border-indigo-900/30">
-                          <Target size={12} />
-                          <span className="text-[10px] font-black uppercase tracking-widest">{formatNumber(adj.requestedTargetValue)}</span>
-                        </div>
-                      )}
-                      {adj.requestedWeight !== null && adj.requestedWeight !== adj.currentWeight && (
-                        <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-violet-50 dark:bg-violet-900/20 text-violet-600 border border-violet-100 dark:border-violet-900/30">
-                          <Award size={12} />
-                          <span className="text-[10px] font-black uppercase tracking-widest">{adj.requestedWeight}%</span>
-                        </div>
-                      )}
-                      {adj.requestedMinimumValue !== null && adj.requestedMinimumValue !== adj.currentMinimumValue && (
-                        <div className="flex items-center gap-1.5 px-2 py-1 rounded-lg bg-amber-50 dark:bg-amber-900/20 text-amber-600 border border-amber-100 dark:border-amber-900/30">
-                          <AlertCircle size={12} />
-                          <span className="text-[10px] font-black uppercase tracking-widest">{formatNumber(adj.requestedMinimumValue)}</span>
-                        </div>
-                      )}
-                    </>
-                  )}
+                <ChangeSummary adj={adj} />
+                <p className="text-caption">{adj.reason}</p>
+                <div className="flex items-center justify-between border-t border-[var(--color-border)] pt-2 text-xs">
+                  <span className="tabular-nums text-[var(--color-muted-foreground)]">Gửi {formatDateTime(adj.createdAt).split(' ')[0]}</span>
+                  <TimeLeft createdAt={adj.createdAt} status={adj.status} />
                 </div>
-
-                <p className="text-xs text-slate-600 dark:text-slate-400 italic">"{adj.reason}"</p>
-
-                <div className="flex items-center justify-between gap-2 pt-1 border-t border-slate-100 dark:border-slate-800 text-xs">
-                  <div className="flex items-center gap-1.5 text-slate-500">
-                    <Clock size={12} />
-                    <span className="font-bold">{formatDateTime(adj.createdAt).split(' ')[0]}</span>
-                  </div>
-                  <CountdownTimer createdAt={adj.createdAt} status={adj.status} />
-                </div>
-
-                {adj.reviewerNote ? (
-                  <p className="text-xs font-medium text-slate-500 italic">"{adj.reviewerNote}"</p>
-                ) : (
-                  <span className="text-[10px] font-black text-slate-300 uppercase tracking-widest italic">Chưa có phản hồi</span>
-                )}
+                {adj.reviewerNote && <p className="text-xs text-[var(--color-foreground)]">Phản hồi: {adj.reviewerNote}</p>}
               </div>
-            ))}
-          </div>
-        </div>
-      )}
+            )}
+          />
+        )}
+      </div>
 
-      {/* Pagination */}
-      {data && data.totalElements > 0 && (
-        <div className="flex items-center justify-between pt-4">
-          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
-            {page * pageSize + 1}-{Math.min((page + 1) * pageSize, data.totalElements)} / {data.totalElements} yêu cầu
-          </p>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setPage(p => Math.max(0, p - 1))}
-              disabled={page === 0}
-              className="p-2 rounded-xl border border-slate-200 dark:border-slate-800 disabled:opacity-30 hover:bg-slate-50 transition-all"
-            >
-              <ChevronLeft size={18} />
-            </button>
-            <button
-              onClick={() => setPage(p => Math.min(data.totalPages - 1, p + 1))}
-              disabled={page === data.totalPages - 1}
-              className="p-2 rounded-xl border border-slate-200 dark:border-slate-800 disabled:opacity-30 hover:bg-slate-50 transition-all"
-            >
-              <ChevronRight size={18} />
-            </button>
-          </div>
-        </div>
+      {data && data.totalPages > 1 && (
+        <Pagination
+          currentPage={page}
+          totalPages={data.totalPages}
+          totalElements={data.totalElements}
+          size={pageSize}
+          onPageChange={setPage}
+          itemLabel="yêu cầu"
+        />
       )}
 
       {pickerOpen && (
         <AdjustmentKpiPickerModal
           onClose={() => setPickerOpen(false)}
-          onSelect={(kpi) => {
-            setPickerOpen(false)
-            setAdjustKpi(kpi)
-          }}
+          onSelect={(kpi) => { setPickerOpen(false); setAdjustKpi(kpi) }}
         />
       )}
       <KpiAdjustmentModal open={!!adjustKpi} onClose={() => setAdjustKpi(null)} kpi={adjustKpi} />

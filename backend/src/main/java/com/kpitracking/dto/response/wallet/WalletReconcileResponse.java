@@ -22,6 +22,17 @@ public class WalletReconcileResponse {
     /** Sự kiện đã ghi có nhưng lệch số tiền, chưa ai xác nhận. */
     private Long amountMismatchCount;
 
+    /**
+     * Tổ chức đã khai số tài khoản nhận tiền hay chưa.
+     *
+     * <p>Chưa khai thì hàng đợi đối soát LUÔN trống, kể cả khi tiền đã thật sự về
+     * tài khoản: webhook không quy được về tổ chức nào và không hiện ở đâu cả.
+     * Giao diện phải dựa vào cờ này để nói "chưa nối xong với SePay" thay vì báo
+     * sổ đã sạch — báo sạch trong tình huống đó là câu trả lời sai nguy hiểm nhất
+     * của cả màn hình.
+     */
+    private Boolean bankConfigured;
+
     /** Sạch hay không, để giao diện khỏi phải tự suy. */
     private Boolean clean;
 }

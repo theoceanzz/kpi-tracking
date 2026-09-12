@@ -1,7 +1,9 @@
 import { useEffect, useMemo } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import { X, Layers, Loader2, Plus, Scale, Target } from 'lucide-react'
+import { Loader2, Plus, Scale, Target } from 'lucide-react'
+import { Dialog, DialogFooter } from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
 import {
   Select,
   SelectContent,
@@ -18,6 +20,8 @@ import {
   numOrUndefined,
   type PerspectiveFormValues,
 } from '../schemas/perspectiveSchema'
+import { useCodeRule } from '@/features/orgunits/hooks/useCodeRules'
+import CodeField from '@/components/common/CodeField'
 
 interface PerspectiveFormModalProps {
   isOpen: boolean
@@ -27,7 +31,6 @@ interface PerspectiveFormModalProps {
   /** Chọn sẵn lĩnh vực khi tạo — dùng khi mở từ đúng nhóm lĩnh vực trong bộ tiêu chí. */
   defaultFixedPerspective?: BscFixedPerspective
   /** Đè z-index của lớp phủ khi modal này nằm trên một modal khác. */
-  overlayClassName?: string
   /** Hiện thêm ô trọng số % — dùng khi mở từ modal bộ tiêu chí. */
   showWeight?: boolean
   /** Trọng số khởi tạo: trọng số hiện tại khi sửa, thường là 0 khi tạo mới. */
@@ -41,16 +44,23 @@ interface PerspectiveFormModalProps {
 const PRESET_COLORS = ['#2563eb', '#f59e0b', '#10b981', '#8b5cf6', '#ef4444', '#6366f1', '#0ea5e9', '#ec4899']
 
 export default function PerspectiveFormModal({
-  isOpen, onClose, organizationId, perspective, defaultFixedPerspective, overlayClassName,
+  isOpen, onClose, organizationId, perspective, defaultFixedPerspective,
   showWeight, defaultWeight = 0, otherWeightTotal = 0, onWeightSubmit,
 }: PerspectiveFormModalProps) {
   const { data: allPerspectives } = useBscPerspectives(organizationId)
 
   // Ràng buộc trùng mã / trùng thứ tự phải đối chiếu danh sách hiện có, nên schema dựng lại
   // mỗi khi danh sách đổi (react-hook-form đọc resolver mới ở mỗi lần render).
+  // Mã hạng mục do tổ chức quyết định: tự sinh (ô mã khoá lại) hay nhập tay như trước.
+  const codeRule = useCodeRule('BSC_PERSPECTIVE', organizationId)
+
   const schema = useMemo(
-    () => createPerspectiveSchema({ existing: allPerspectives || [], currentId: perspective?.id }),
-    [allPerspectives, perspective?.id],
+    () => createPerspectiveSchema({
+      existing: allPerspectives || [],
+      currentId: perspective?.id,
+      requireCode: !codeRule.optional,
+    }),
+    [allPerspectives, perspective?.id, codeRule.optional],
   )
 
   const { register, handleSubmit, reset, control, watch, setValue, formState: { errors } } = useForm<PerspectiveFormValues>({
@@ -93,7 +103,6 @@ export default function PerspectiveFormModal({
   // Select/Popover của Radix portal thẳng ra <body> với z-50 cố định. Khi modal này được
   // đẩy lên z-[60] (nằm trên modal bộ tiêu chí) thì danh sách chọn rơi xuống DƯỚI lớp phủ —
   // nhìn như dropdown bấm không mở. Nâng theo cùng nhịp với lớp phủ.
-  const layerClass = overlayClassName ? 'z-[70]' : ''
 
   // Thứ tự hiển thị phải không trùng TRONG CÙNG lĩnh vực, nên gợi ý sẵn số kế tiếp.
   // Để mặc định 0 thì hạng mục thứ hai của mỗi lĩnh vực luôn báo lỗi trùng.
@@ -138,6 +147,8 @@ export default function PerspectiveFormModal({
 
   const onSubmit = ({ weightPercentage, ...data }: PerspectiveFormValues) => {
     const weight = Number.isFinite(Number(weightPercentage)) ? Number(weightPercentage) : 0
+    // Ô mã bị khoá ⇒ không gửi mã lên: backend giữ mã cũ khi sửa, tự cấp mã khi tạo.
+    if (codeRule.locked) data.code = undefined
     if (perspective) {
       updatePerspective.mutate({ perspectiveId: perspective.id, data }, {
         onSuccess: () => {
@@ -156,290 +167,264 @@ export default function PerspectiveFormModal({
     }
   }
 
-  if (!isOpen) return null
-
   const isPending = createPerspective.isPending || updatePerspective.isPending
 
   return (
-    <div className={cn('fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/60 backdrop-blur-sm animate-in fade-in duration-300', overlayClassName)}>
-      <div className="bg-white dark:bg-slate-900 w-full max-w-lg rounded-[2.5rem] shadow-2xl overflow-hidden animate-in zoom-in-95 duration-300">
-        <div className="p-8 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-gradient-to-r from-indigo-50 to-white dark:from-indigo-950/20 dark:to-slate-900">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-200 dark:shadow-none">
-              <Layers size={24} />
-            </div>
-            <div>
-              <h3 className="text-xl font-black text-slate-900 dark:text-white">{perspective ? 'Chỉnh sửa hạng mục' : 'Tạo hạng mục mới'}</h3>
-              <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">BSC · Hạng mục</p>
-            </div>
+    <Dialog
+      open={isOpen}
+      onClose={onClose}
+      size="md"
+      dismissible={!isPending}
+      title={perspective ? 'Chỉnh sửa hạng mục' : 'Tạo hạng mục mới'}
+      description="BSC · Hạng mục"
+      footer={
+        <DialogFooter
+          secondary={<Button variant="outline" onClick={onClose} disabled={isPending}>Hủy</Button>}
+          primary={
+            <Button type="submit" form="perspective-form" disabled={isPending}>
+              {isPending && <Loader2 className="animate-spin" aria-hidden="true" />}
+              {perspective ? 'Lưu thay đổi' : 'Xác nhận tạo'}
+            </Button>
+          }
+        />
+      }
+    >
+      <form id="perspective-form" onSubmit={handleSubmit(onSubmit)} className="space-y-4">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+          <div className="sm:col-span-2 space-y-1.5">
+            <label className="text-label">Tên hạng mục <span className="text-[var(--color-error)]">*</span></label>
+            <input
+              {...register('name')}
+              placeholder="VD: Công tác giảng dạy"
+              className="w-full px-4 py-2.5 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)] text-sm font-medium focus:ring-4 focus:ring-[var(--color-ring)] focus:border-[var(--color-primary)] outline-none transition-all"
+            />
+            {errors.name && <p className="text-caption text-[var(--color-error)]">{errors.name.message}</p>}
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl transition-colors">
-            <X size={20} />
-          </button>
+          <CodeField
+            rule={codeRule}
+            currentCode={perspective?.code}
+            error={errors.code?.message}
+            register={register('code')}
+            fallbackPlaceholder="GIANG_DAY"
+            tone="indigo"
+          />
         </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="flex flex-col max-h-[85vh]">
-          <div className="p-6 space-y-4 overflow-y-auto custom-scrollbar">
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              <div className="sm:col-span-2 space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Tên hạng mục <span className="text-red-500">*</span></label>
-                <input
-                  {...register('name')}
-                  placeholder="VD: Công tác giảng dạy"
-                  className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all"
-                />
-                {errors.name && <p className="text-[10px] font-bold text-red-500 ml-1">{errors.name.message}</p>}
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Mã <span className="text-red-500">*</span></label>
-                <input
-                  {...register('code')}
-                  placeholder="FINANCIAL"
-                  className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all"
-                />
-                {errors.code && <p className="text-[10px] font-bold text-red-500 ml-1">{errors.code.message}</p>}
-              </div>
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Lĩnh vực BSC <span className="text-red-500">*</span></label>
-              <Controller
-                name="fixedPerspective"
-                control={control}
-                render={({ field }) => (
-                  <Select
-                    key={`${field.value ?? 'NONE'}-${(fixedPerspectives || []).length}`}
-                    value={field.value ?? ''}
-                    onValueChange={v => {
-                      field.onChange(v)
-                      // Đổi lĩnh vực là đổi luôn dãy thứ tự phải tránh trùng.
-                      if (!perspective) setValue('displayOrder', nextOrderIn(v as BscFixedPerspective), { shouldValidate: true })
-                    }}
-                  >
-                    <SelectTrigger className="w-full h-10 rounded-xl bg-slate-50 dark:bg-slate-800 border-slate-100 dark:border-slate-700 text-sm font-bold outline-none">
-                      <SelectValue placeholder="Chọn 1 trong 4 lĩnh vực cố định" />
-                    </SelectTrigger>
-                    <SelectContent className={cn('rounded-xl border-slate-200 dark:border-slate-800', layerClass)}>
-                      {(fixedPerspectives || []).map(fp => (
-                        <SelectItem key={fp.code} value={fp.code} className="text-sm font-bold">
-                          <span className="inline-flex items-center gap-2">
-                            <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: fp.color }} />
-                            {fp.name}
-                          </span>
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-              <p className="text-[10px] font-medium text-slate-400 ml-1">Hạng mục này thuộc lĩnh vực nào trong 4 lĩnh vực cố định của bộ tiêu chí.</p>
-              {errors.fixedPerspective && <p className="text-[10px] font-bold text-red-500 ml-1">{errors.fixedPerspective.message}</p>}
-            </div>
-
-            <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Mô tả</label>
-              <textarea
-                {...register('description')}
-                placeholder="Nhóm các chỉ tiêu liên quan..."
-                rows={2}
-                className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-sm font-medium focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all resize-none"
-              />
-            </div>
-
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-1">
-                  <Target size={11} /> Mục tiêu mong muốn
-                </label>
-                <input
-                  type="number"
-                  step="any"
-                  min={0}
-                  onWheel={e => (e.target as HTMLInputElement).blur()}
-                  {...register('targetValue', { setValueAs: numOrNull })}
-                  placeholder="VD: 100"
-                  className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all"
-                />
-                {errors.targetValue && <p className="text-[10px] font-bold text-red-500 ml-1">{errors.targetValue.message}</p>}
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-1">
-                  <Target size={11} /> Kết quả tối thiểu
-                </label>
-                <input
-                  type="number"
-                  step="any"
-                  min={0}
-                  onWheel={e => (e.target as HTMLInputElement).blur()}
-                  {...register('minimumValue', { setValueAs: numOrNull })}
-                  placeholder="VD: 80"
-                  className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all"
-                />
-                {errors.minimumValue && <p className="text-[10px] font-bold text-red-500 ml-1">{errors.minimumValue.message}</p>}
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Đơn vị tính</label>
-                <input
-                  {...register('unit')}
-                  placeholder="VNĐ, %, buổi..."
-                  className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all"
-                />
-                {errors.unit && <p className="text-[10px] font-bold text-red-500 ml-1">{errors.unit.message}</p>}
-              </div>
-            </div>
-            <div className={cn('p-3 rounded-xl border text-[10px] font-medium leading-relaxed',
-              hasOwnTarget
-                ? 'bg-indigo-50 dark:bg-indigo-900/10 border-indigo-100 dark:border-indigo-900/30 text-indigo-700 dark:text-indigo-300'
-                : 'bg-slate-50 dark:bg-slate-800/50 border-slate-100 dark:border-slate-800 text-slate-500')}>
-              {hasOwnTarget ? (
-                <>
-                  <b>Hạng mục này tự chấm theo mục tiêu của chính nó (kiểu OKR).</b> Điểm hạng mục ={' '}
-                  tổng giá trị thực đạt của các KPI <b>định lượng</b> trong hạng mục ÷ {targetValue}
-                  {unitLabel} × 100 (trần 150%){minimumLabel}. KPI định tính trong hạng mục không tham gia phép cộng này —
-                  hãy đảm bảo các KPI cùng đơn vị tính.
-                </>
-              ) : (
-                <>Bỏ trống mục tiêu ⇒ hạng mục chấm như cũ: trung bình có trọng số tỉ lệ đạt của các KPI con.
-                  Điền mục tiêu ⇒ hạng mục tự chấm theo mục tiêu của chính nó giống OKR.</>
-              )}
-            </div>
-
-            <div className={cn('grid gap-4', showWeight ? 'grid-cols-2 sm:grid-cols-3' : 'grid-cols-2')}>
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Thứ tự hiển thị <span className="text-red-500">*</span></label>
-                <input
-                  type="number"
-                  min={0}
-                  step={1}
-                  {...register('displayOrder', { valueAsNumber: true })}
-                  className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-sm font-bold focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all"
-                />
-                {errors.displayOrder && <p className="text-[10px] font-bold text-red-500 ml-1">{errors.displayOrder.message}</p>}
-              </div>
-              <div className="space-y-1.5">
-                <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Trạng thái</label>
-                <Controller
-                  name="status"
-                  control={control}
-                  render={({ field }) => (
-                    <Select value={field.value} onValueChange={field.onChange}>
-                      <SelectTrigger className="w-full h-10 rounded-xl bg-slate-50 dark:bg-slate-800 border-slate-100 dark:border-slate-700 text-sm font-bold outline-none">
-                        <SelectValue placeholder="Trạng thái" />
-                      </SelectTrigger>
-                      <SelectContent className={cn('rounded-xl border-slate-200 dark:border-slate-800', layerClass)}>
-                        <SelectItem value={BscPerspectiveStatus.ACTIVE} className="text-sm font-bold text-emerald-600">Đang dùng</SelectItem>
-                        <SelectItem value={BscPerspectiveStatus.INACTIVE} className="text-sm font-bold text-slate-500">Tạm ẩn</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-              </div>
-              {showWeight && (
-                <div className="space-y-1.5">
-                  <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1 flex items-center gap-1">
-                    <Scale size={11} /> Trọng số (%)
-                  </label>
-                  {/* Bỏ trống = 0 khi gửi, nên map về undefined để schema cho qua thay vì báo NaN. */}
-                  <input
-                    type="number"
-                    min={0}
-                    max={100}
-                    step={0.1}
-                    {...register('weightPercentage', { setValueAs: numOrUndefined })}
-                    className="w-full px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-sm font-black text-right focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all"
-                  />
-                  {errors.weightPercentage && <p className="text-[10px] font-bold text-red-500 ml-1">{errors.weightPercentage.message}</p>}
-                </div>
-              )}
-            </div>
-
-            {showWeight && (
-              <p className="text-[10px] font-medium text-slate-400 ml-1">
-                Trọng số của hạng mục trong bộ tiêu chí đang mở — vẫn sửa lại được ở danh sách bên ngoài.
-                {' '}Tổng sau khi lưu: <span className={cn('font-black', Math.abs(totalAfterSave - 100) <= 0.01 ? 'text-emerald-600' : 'text-amber-600')}>{totalAfterSave}%</span>.
-                {missingWeight > 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setValue('weightPercentage', missingWeight, { shouldValidate: true })}
-                    className="ml-1 font-black text-indigo-600 hover:text-indigo-700 underline underline-offset-2"
-                  >
-                    Dùng {missingWeight}% còn thiếu
-                  </button>
-                )}
-              </p>
+        <div className="space-y-1.5">
+          <label className="text-label">Lĩnh vực BSC <span className="text-[var(--color-error)]">*</span></label>
+          <Controller
+            name="fixedPerspective"
+            control={control}
+            render={({ field }) => (
+              <Select
+                key={`${field.value ?? 'NONE'}-${(fixedPerspectives || []).length}`}
+                value={field.value ?? ''}
+                onValueChange={v => {
+                  field.onChange(v)
+                  // Đổi lĩnh vực là đổi luôn dãy thứ tự phải tránh trùng.
+                  if (!perspective) setValue('displayOrder', nextOrderIn(v as BscFixedPerspective), { shouldValidate: true })
+                }}
+              >
+                <SelectTrigger className="w-full h-10 rounded-card bg-[var(--color-muted)] border-[var(--color-border)] text-sm font-medium outline-none">
+                  <SelectValue placeholder="Chọn 1 trong 4 lĩnh vực cố định" />
+                </SelectTrigger>
+                <SelectContent className={'z-[1100]'}>
+                  {(fixedPerspectives || []).map(fp => (
+                    <SelectItem key={fp.code} value={fp.code} className="text-sm font-medium">
+                      <span className="inline-flex items-center gap-2">
+                        <span className="w-2.5 h-2.5 rounded-full" style={{ backgroundColor: fp.color }} />
+                        {fp.name}
+                      </span>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             )}
+          />
+          <p className="text-caption ml-1">Hạng mục này thuộc lĩnh vực nào trong 4 lĩnh vực cố định của bộ tiêu chí.</p>
+          {errors.fixedPerspective && <p className="text-caption text-[var(--color-error)]">{errors.fixedPerspective.message}</p>}
+        </div>
 
+        <div className="space-y-1.5">
+          <label className="text-label">Mô tả</label>
+          <textarea
+            {...register('description')}
+            placeholder="Nhóm các chỉ tiêu liên quan..."
+            rows={2}
+            className="w-full px-4 py-2.5 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)] text-sm font-medium focus:ring-4 focus:ring-[var(--color-ring)] focus:border-[var(--color-primary)] outline-none transition-all resize-none"
+          />
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+          <div className="space-y-1.5">
+            <label className="text-label ml-1 flex items-end gap-1 min-h-[26px] leading-tight">
+              <Target size={11} className="mb-[1px] shrink-0" /> Mục tiêu mong muốn <span className="text-[var(--color-error)]">*</span>
+            </label>
+            <input
+              type="number"
+              step="any"
+              min={0}
+              onWheel={e => (e.target as HTMLInputElement).blur()}
+              {...register('targetValue', { setValueAs: numOrNull })}
+              placeholder="VD: 100"
+              className="w-full px-4 py-2.5 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)] text-sm font-medium focus:ring-4 focus:ring-[var(--color-ring)] focus:border-[var(--color-primary)] outline-none transition-all"
+            />
+            {errors.targetValue && <p className="text-caption text-[var(--color-error)]">{errors.targetValue.message}</p>}
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-label ml-1 flex items-end gap-1 min-h-[26px] leading-tight">
+              <Target size={11} className="mb-[1px] shrink-0" /> Kết quả tối thiểu <span className="text-[var(--color-error)]">*</span>
+            </label>
+            <input
+              type="number"
+              step="any"
+              min={0}
+              onWheel={e => (e.target as HTMLInputElement).blur()}
+              {...register('minimumValue', { setValueAs: numOrNull })}
+              placeholder="VD: 80"
+              className="w-full px-4 py-2.5 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)] text-sm font-medium focus:ring-4 focus:ring-[var(--color-ring)] focus:border-[var(--color-primary)] outline-none transition-all"
+            />
+            {errors.minimumValue && <p className="text-caption text-[var(--color-error)]">{errors.minimumValue.message}</p>}
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-label ml-1 flex items-end gap-1 min-h-[26px] leading-tight">Đơn vị tính <span className="text-[var(--color-error)]">*</span></label>
+            <input
+              {...register('unit')}
+              placeholder="VNĐ, %, buổi..."
+              className="w-full px-4 py-2.5 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)] text-sm font-medium focus:ring-4 focus:ring-[var(--color-ring)] focus:border-[var(--color-primary)] outline-none transition-all"
+            />
+            {errors.unit && <p className="text-caption text-[var(--color-error)]">{errors.unit.message}</p>}
+          </div>
+        </div>
+        <div className={cn('p-3 rounded-card border text-xs font-medium leading-relaxed',
+          hasOwnTarget
+            ? 'bg-[var(--color-primary-soft)] border-[var(--color-border)] text-[var(--color-primary)]'
+            : 'bg-[var(--color-muted)] border-[var(--color-border)] text-[var(--color-muted-foreground)]')}>
+          {hasOwnTarget ? (
+            <>
+              <b>Hạng mục này tự chấm theo mục tiêu của chính nó (kiểu OKR).</b> Điểm hạng mục ={' '}
+              tổng giá trị thực đạt của các KPI <b>định lượng</b> trong hạng mục ÷ {targetValue}
+              {unitLabel} × 100 (trần 150%){minimumLabel}. KPI định tính trong hạng mục không tham gia phép cộng này —
+              hãy đảm bảo các KPI cùng đơn vị tính.
+            </>
+          ) : (
+            <>Bỏ trống mục tiêu ⇒ hạng mục chấm như cũ: trung bình có trọng số tỉ lệ đạt của các KPI con.
+              Điền mục tiêu ⇒ hạng mục tự chấm theo mục tiêu của chính nó giống OKR.</>
+          )}
+        </div>
+
+        <div className={cn('grid gap-4', showWeight ? 'grid-cols-2 sm:grid-cols-3' : 'grid-cols-2')}>
+          <div className="space-y-1.5">
+            <label className="text-label">Thứ tự hiển thị <span className="text-[var(--color-error)]">*</span></label>
+            <input
+              type="number"
+              min={0}
+              step={1}
+              {...register('displayOrder', { valueAsNumber: true })}
+              className="w-full px-4 py-2.5 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)] text-sm font-medium focus:ring-4 focus:ring-[var(--color-ring)] focus:border-[var(--color-primary)] outline-none transition-all"
+            />
+            {errors.displayOrder && <p className="text-caption text-[var(--color-error)]">{errors.displayOrder.message}</p>}
+          </div>
+          <div className="space-y-1.5">
+            <label className="text-label">Trạng thái</label>
+            <Controller
+              name="status"
+              control={control}
+              render={({ field }) => (
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <SelectTrigger className="w-full h-10 rounded-card bg-[var(--color-muted)] border-[var(--color-border)] text-sm font-medium outline-none">
+                    <SelectValue placeholder="Trạng thái" />
+                  </SelectTrigger>
+                  <SelectContent className={'z-[1100]'}>
+                    <SelectItem value={BscPerspectiveStatus.ACTIVE} className="text-sm font-medium text-[var(--color-success)]">Đang dùng</SelectItem>
+                    <SelectItem value={BscPerspectiveStatus.INACTIVE} className="text-sm font-medium text-[var(--color-muted-foreground)]">Tạm ẩn</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+            />
+          </div>
+          {showWeight && (
             <div className="space-y-1.5">
-              <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">Màu sắc <span className="text-red-500">*</span></label>
+              <label className="text-label ml-1 flex items-center gap-1">
+                <Scale size={11} /> Trọng số (%)
+              </label>
+              {/* Bỏ trống = 0 khi gửi, nên map về undefined để schema cho qua thay vì báo NaN. */}
               <input
-                type="hidden"
-                {...register('color')}
+                type="number"
+                min={0}
+                max={100}
+                step={0.1}
+                {...register('weightPercentage', { setValueAs: numOrUndefined })}
+                className="w-full px-4 py-2.5 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)] text-sm font-semibold text-right focus:ring-4 focus:ring-[var(--color-ring)] focus:border-[var(--color-primary)] outline-none transition-all"
               />
-              <div className="flex flex-wrap gap-2 items-center">
-                {PRESET_COLORS.map(color => (
-                  <button
-                    key={color}
-                    type="button"
-                    onClick={() => setValue('color', color, { shouldValidate: true })}
-                    className="w-8 h-8 rounded-lg transition-all"
-                    style={{
-                      backgroundColor: color,
-                      outline: selectedColor === color ? `2px solid ${color}` : 'none',
-                      outlineOffset: '2px',
-                    }}
-                  />
-                ))}
-                {/* Chọn màu tùy ý */}
-                <label
-                  className="w-8 h-8 rounded-lg cursor-pointer relative overflow-hidden border border-dashed border-slate-300 dark:border-slate-600 flex items-center justify-center"
-                  style={{
-                    background: !PRESET_COLORS.includes(selectedColor || '') && /^#([0-9A-Fa-f]{6})$/.test(selectedColor || '')
-                      ? selectedColor
-                      : 'conic-gradient(#ef4444,#f59e0b,#10b981,#3b82f6,#8b5cf6,#ec4899,#ef4444)',
-                    outline: !PRESET_COLORS.includes(selectedColor || '') && /^#([0-9A-Fa-f]{6})$/.test(selectedColor || '') ? `2px solid ${selectedColor}` : 'none',
-                    outlineOffset: '2px',
-                  }}
-                  title="Chọn màu tùy ý"
-                >
-                  <Plus size={14} className="text-white drop-shadow" />
-                  <input
-                    type="color"
-                    value={/^#([0-9A-Fa-f]{6})$/.test(selectedColor || '') ? selectedColor : PRESET_COLORS[0]}
-                    onChange={e => setValue('color', e.target.value, { shouldValidate: true })}
-                    className="absolute inset-0 opacity-0 cursor-pointer"
-                  />
-                </label>
-                {/* Nhập mã hex */}
-                <input
-                  value={selectedColor || ''}
-                  onChange={e => setValue('color', e.target.value, { shouldValidate: true })}
-                  placeholder="#RRGGBB"
-                  className="w-28 px-3 py-1.5 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-sm font-mono outline-none focus:ring-2 focus:ring-indigo-500/20"
-                />
-              </div>
-              {errors.color && <p className="text-[10px] font-bold text-red-500 ml-1">{errors.color.message}</p>}
+              {errors.weightPercentage && <p className="text-caption text-[var(--color-error)]">{errors.weightPercentage.message}</p>}
             </div>
-          </div>
+          )}
+        </div>
 
-          <div className="p-6 border-t border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-900 flex gap-4">
-            <button
-              type="button"
-              onClick={onClose}
-              className="flex-1 px-6 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 text-sm font-bold text-slate-600 dark:text-slate-400 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
+        {showWeight && (
+          <p className="text-caption ml-1">
+            Trọng số của hạng mục trong bộ tiêu chí đang mở — vẫn sửa lại được ở danh sách bên ngoài.
+            {' '}Tổng sau khi lưu: <span className={cn('font-semibold', Math.abs(totalAfterSave - 100) <= 0.01 ? 'text-[var(--color-success)]' : 'text-[var(--color-warning)]')}>{totalAfterSave}%</span>.
+            {missingWeight > 0 && (
+              <Button variant="ghost" className="ml-1" type="button" onClick={() => setValue('weightPercentage', missingWeight, { shouldValidate: true })}>
+                Dùng {missingWeight}% còn thiếu
+              </Button>
+            )}
+          </p>
+        )}
+
+        <div className="space-y-1.5">
+          <label className="text-label">Màu sắc <span className="text-[var(--color-error)]">*</span></label>
+          <input
+            type="hidden"
+            {...register('color')}
+          />
+          <div className="flex flex-wrap gap-2 items-center">
+            {PRESET_COLORS.map(color => (
+              <button
+                key={color}
+                type="button"
+                onClick={() => setValue('color', color, { shouldValidate: true })}
+                className="w-8 h-8 rounded-control transition-all"
+                style={{
+                  backgroundColor: color,
+                  outline: selectedColor === color ? `2px solid ${color}` : 'none',
+                  outlineOffset: '2px',
+                }}
+              />
+            ))}
+            {/* Chọn màu tùy ý */}
+            <label
+              className="w-8 h-8 rounded-control cursor-pointer relative overflow-hidden border border-dashed border-[var(--color-border-strong)] flex items-center justify-center"
+              style={{
+                background: !PRESET_COLORS.includes(selectedColor || '') && /^#([0-9A-Fa-f]{6})$/.test(selectedColor || '')
+                  ? selectedColor
+                  : 'conic-gradient(#ef4444,#f59e0b,#10b981,#3b82f6,#8b5cf6,#ec4899,#ef4444)',
+                outline: !PRESET_COLORS.includes(selectedColor || '') && /^#([0-9A-Fa-f]{6})$/.test(selectedColor || '') ? `2px solid ${selectedColor}` : 'none',
+                outlineOffset: '2px',
+              }}
+              title="Chọn màu tùy ý"
             >
-              Hủy
-            </button>
-            <button
-              type="submit"
-              disabled={isPending}
-              className="flex-[2] px-6 py-2.5 bg-indigo-600 text-white rounded-xl font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-500/20 disabled:opacity-50 transition-all flex items-center justify-center gap-2"
-            >
-              {isPending && <Loader2 className="animate-spin" size={18} />}
-              {perspective ? 'Lưu thay đổi' : 'Xác nhận tạo'}
-            </button>
+              <Plus size={14} className="text-white drop-shadow" />
+              <input
+                type="color"
+                value={/^#([0-9A-Fa-f]{6})$/.test(selectedColor || '') ? selectedColor : PRESET_COLORS[0]}
+                onChange={e => setValue('color', e.target.value, { shouldValidate: true })}
+                className="absolute inset-0 opacity-0 cursor-pointer"
+              />
+            </label>
+            {/* Nhập mã hex */}
+            <input
+              value={selectedColor || ''}
+              onChange={e => setValue('color', e.target.value, { shouldValidate: true })}
+              placeholder="#RRGGBB"
+              className="w-28 px-3 py-1.5 rounded-control bg-[var(--color-muted)] border border-[var(--color-border)] text-sm font-mono outline-none focus:ring-2 focus:ring-[var(--color-ring)]"
+            />
           </div>
-        </form>
-      </div>
-    </div>
+          {errors.color && <p className="text-caption text-[var(--color-error)]">{errors.color.message}</p>}
+        </div>
+      </form>
+    </Dialog>
   )
 }

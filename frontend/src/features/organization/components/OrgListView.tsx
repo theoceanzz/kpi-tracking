@@ -13,35 +13,35 @@ interface OrgListViewProps {
 
 export function OrgListView({ data, onAddChild, onEdit, onDelete, maxDepth }: OrgListViewProps) {
   return (
-    <div className="bg-white rounded-xl shadow-sm border p-4 space-y-4">
+    <div className="bg-[var(--color-card)] rounded-card shadow-sm border p-4 space-y-4">
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
-        <h2 className="text-lg font-semibold whitespace-nowrap">Danh sách tổ chức</h2>
+        <h2 className="text-section-title whitespace-nowrap">Danh sách tổ chức</h2>
         <div className="relative w-full sm:w-auto">
-          <Search className="w-4 h-4 absolute left-3 top-2.5 text-gray-400" />
+          <Search className="w-4 h-4 absolute left-3 top-2.5 text-[var(--color-subtle-foreground)]" />
           <input
             type="text"
             placeholder="Tìm kiếm..."
-            className="pl-9 pr-4 py-2 border rounded-md focus:ring-2 focus:ring-blue-500 outline-none text-sm w-full sm:w-auto"
+            className="pl-9 pr-4 py-2 border rounded-control focus:ring-2 focus:ring-[var(--color-info-solid)] outline-none text-sm w-full sm:w-auto"
           />
         </div>
       </div>
       
       {data.length === 0 ? (
-        <div className="border rounded-md px-4 py-8 text-center text-gray-500">
+        <div className="border rounded-control px-4 py-8 text-center text-[var(--color-muted-foreground)]">
           Chưa có dữ liệu
         </div>
       ) : (
         <>
-          <div className="hidden md:block border rounded-md overflow-x-auto">
+          <div className="hidden md:block border rounded-control overflow-x-auto">
             <table className="w-full text-sm text-left">
-              <thead className="bg-gray-50 border-b">
+              <thead className="bg-[var(--color-muted)] border-b">
                 <tr>
-                  <th className="px-4 py-3 font-medium text-gray-600">Tên</th>
-                  <th className="px-4 py-3 font-medium text-gray-600">Mã</th>
-                  <th className="px-4 py-3 font-medium text-gray-600">Phân loại</th>
-                  <th className="px-4 py-3 font-medium text-gray-600">Cấp bậc</th>
-                  <th className="px-4 py-3 font-medium text-gray-600">Trạng thái</th>
-                  <th className="px-4 py-3 font-medium text-gray-600 text-right">Thao tác</th>
+                  <th className="px-4 py-3 font-medium text-[var(--color-muted-foreground)]">Tên</th>
+                  <th className="px-4 py-3 font-medium text-[var(--color-muted-foreground)]">Mã</th>
+                  <th className="px-4 py-3 font-medium text-[var(--color-muted-foreground)]">Phân loại</th>
+                  <th className="px-4 py-3 font-medium text-[var(--color-muted-foreground)]">Cấp bậc</th>
+                  <th className="px-4 py-3 font-medium text-[var(--color-muted-foreground)]">Trạng thái</th>
+                  <th className="px-4 py-3 font-medium text-[var(--color-muted-foreground)] text-right">Thao tác</th>
                 </tr>
               </thead>
               <tbody>
@@ -60,7 +60,7 @@ export function OrgListView({ data, onAddChild, onEdit, onDelete, maxDepth }: Or
             </table>
           </div>
 
-          <div className="md:hidden border rounded-md divide-y">
+          <div className="md:hidden border rounded-control divide-y">
             {data.map(node => (
               <TreeNodeCard
                 key={node.id}
@@ -80,6 +80,7 @@ export function OrgListView({ data, onAddChild, onEdit, onDelete, maxDepth }: Or
 }
 
 import { useRef } from 'react'
+import { Button } from '@/components/ui/button'
 
 function TreeNodeRow({ 
   node, 
@@ -113,7 +114,7 @@ function TreeNodeRow({
 
   return (
     <>
-      <tr className="border-b hover:bg-gray-50/50 transition-colors group relative hover:z-20">
+      <tr className="border-b hover:bg-[var(--color-muted)] transition-colors group relative hover:z-20">
         <td className="px-4 py-3">
           <div className="flex items-center" style={{ paddingLeft: `${level * 24}px` }}>
             <button 
@@ -123,27 +124,27 @@ function TreeNodeRow({
               {isExpanded ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
             </button>
             <span 
-              className="font-medium text-blue-600 hover:underline cursor-pointer"
+              className="font-medium text-[var(--color-info)] hover:underline cursor-pointer"
               onClick={() => navigate(`/org-units/${node.id}`)}
             >
               {node.name}
             </span>
           </div>
         </td>
-        <td className="px-4 py-3 text-gray-600">
-          <code className="text-xs font-mono bg-gray-50 px-1.5 py-0.5 rounded border border-gray-100">{node.code || '—'}</code>
+        <td className="px-4 py-3 text-[var(--color-muted-foreground)]">
+          <code className="text-xs font-mono bg-[var(--color-muted)] px-1.5 py-0.5 rounded border border-[var(--color-border)]">{node.code || '—'}</code>
         </td>
-        <td className="px-4 py-3 text-gray-600">
-          <span className="px-2.5 py-1 bg-gray-100 text-gray-700 rounded-lg text-[10px] font-bold uppercase tracking-wider">{node.type}</span>
+        <td className="px-4 py-3 text-[var(--color-muted-foreground)]">
+          <span className="text-eyebrow px-2.5 py-1 bg-[var(--color-muted)] text-[var(--color-foreground)] rounded-control">{node.type}</span>
         </td>
-        <td className="px-4 py-3 text-gray-600">Level {node.level}</td>
+        <td className="px-4 py-3 text-[var(--color-muted-foreground)]">Level {node.level}</td>
         <td className="px-4 py-3">
-          <span className="px-2 py-1 bg-green-50 text-green-700 rounded-md text-[10px] font-bold">HOẠT ĐỘNG</span>
+          <span className="px-2 py-1 bg-[var(--color-success-bg)] text-[var(--color-success)] rounded-control text-xs font-medium">HOẠT ĐỘNG</span>
         </td>
         <td className="px-4 py-3 text-right">
           <div className="flex justify-end">
             <div className="relative inline-block text-left group/menu" ref={menuRef} onMouseEnter={handleMouseEnter} onFocus={handleMouseEnter}>
-              <button className="p-1.5 hover:bg-white hover:shadow-sm border border-transparent hover:border-gray-200 rounded-lg text-gray-400 hover:text-gray-600 transition-all">
+              <button className="p-1.5 hover:bg-[var(--color-card)] hover:shadow-sm border border-transparent hover:border-[var(--color-border)] rounded-control text-[var(--color-subtle-foreground)] hover:text-[var(--color-muted-foreground)] transition-all">
                 <MoreVertical className="w-4 h-4" />
               </button>
               
@@ -151,27 +152,21 @@ function TreeNodeRow({
               <div className="absolute right-0 h-2 w-10 -bottom-2 bg-transparent hidden group-hover/menu:block" />
 
               {/* Dropdown menu */}
-              <div className={`absolute right-0 w-40 ${openUp ? 'bottom-full mb-1.5 origin-bottom-right' : 'top-full mt-1.5 origin-top-right'} bg-white border border-gray-200 rounded-xl shadow-xl hidden group-hover/menu:block z-[110] animate-in fade-in zoom-in-95 duration-100`}>
+              <div className={`absolute right-0 w-40 ${openUp ? 'bottom-full mb-1.5 origin-bottom-right' : 'top-full mt-1.5 origin-top-right'} bg-white border border-gray-200 rounded-card shadow-xl hidden group-hover/menu:block z-[110] animate-in fade-in zoom-in-95 duration-100`}>
                 <div className="py-2 text-left">
                   {canAddChild && (
-                    <button 
-                      onClick={() => onAddChild(node.id, node.name, node.level)}
-                      className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 transition-colors"
-                    >
-                      <Plus className="w-4 h-4 mr-2 text-blue-500" /> Thêm con
-                    </button>
+                    <Button variant="ghost" className="w-full" onClick={() => onAddChild(node.id, node.name, node.level)}>
+                      <Plus aria-hidden="true" className="w-4 h-4 mr-2 text-[var(--color-info)]" /> Thêm con
+                    </Button>
                   )}
-                  <button 
-                    onClick={() => onEdit(node)}
-                    className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 transition-colors"
-                  >
-                    <Edit2 className="w-4 h-4 mr-2 text-amber-500" /> Sửa
-                  </button>
-                  <div className="h-px bg-gray-100 my-1" />
+                  <Button variant="ghost" className="w-full" onClick={() => onEdit(node)}>
+                    <Edit2 aria-hidden="true" className="w-4 h-4 mr-2 text-[var(--color-warning)]" /> Sửa
+                  </Button>
+                  <div className="h-px bg-[var(--color-muted)] my-1" />
                   <button 
                     onClick={() => onDelete(node.id)}
                     disabled={hasChildren}
-                    className={`flex items-center w-full px-4 py-2 text-sm transition-colors ${!hasChildren ? 'text-red-600 hover:bg-red-50' : 'text-gray-300 cursor-not-allowed'}`}
+                    className={`flex items-center w-full px-4 py-2 text-sm transition-colors ${!hasChildren ? 'text-[var(--color-error)] hover:bg-[var(--color-error-bg)]' : 'text-[var(--color-subtle-foreground)] cursor-not-allowed'}`}
                   >
                     <Trash2 className="w-4 h-4 mr-2" /> Xoá
                   </button>
@@ -225,50 +220,44 @@ function TreeNodeCard({
             </button>
             <div className="min-w-0 flex-1">
               <span
-                className="font-medium text-blue-600 hover:underline cursor-pointer block truncate"
+                className="font-medium text-[var(--color-info)] hover:underline cursor-pointer block truncate"
                 onClick={() => navigate(`/org-units/${node.id}`)}
               >
                 {node.name}
               </span>
               <div className="flex items-center gap-1.5 mt-1 flex-wrap">
-                <code className="text-xs font-mono bg-gray-50 px-1.5 py-0.5 rounded border border-gray-100">{node.code || '—'}</code>
-                <span className="px-2 py-0.5 bg-gray-100 text-gray-700 rounded text-[10px] font-bold uppercase tracking-wider">{node.type}</span>
-                <span className="text-[11px] text-gray-500">Level {node.level}</span>
-                <span className="px-2 py-0.5 bg-green-50 text-green-700 rounded text-[10px] font-bold">HOẠT ĐỘNG</span>
+                <code className="text-xs font-mono bg-[var(--color-muted)] px-1.5 py-0.5 rounded border border-[var(--color-border)]">{node.code || '—'}</code>
+                <span className="text-eyebrow px-2 py-0.5 bg-[var(--color-muted)] text-[var(--color-foreground)] rounded">{node.type}</span>
+                <span className="text-caption">Level {node.level}</span>
+                <span className="px-2 py-0.5 bg-[var(--color-success-bg)] text-[var(--color-success)] rounded text-xs font-medium">HOẠT ĐỘNG</span>
               </div>
             </div>
           </div>
           <div className="relative shrink-0">
             <button
               onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className="p-1.5 hover:bg-white hover:shadow-sm border border-transparent hover:border-gray-200 rounded-lg text-gray-400 hover:text-gray-600 transition-all"
+              className="p-1.5 hover:bg-[var(--color-card)] hover:shadow-sm border border-transparent hover:border-[var(--color-border)] rounded-control text-[var(--color-subtle-foreground)] hover:text-[var(--color-muted-foreground)] transition-all"
             >
               <MoreVertical className="w-4 h-4" />
             </button>
             {isMenuOpen && (
               <>
                 <div className="fixed inset-0 z-[100]" onClick={() => setIsMenuOpen(false)} />
-                <div className="absolute right-0 top-full mt-1.5 w-40 bg-white border border-gray-200 rounded-xl shadow-xl z-[110] animate-in fade-in zoom-in-95 duration-100 origin-top-right">
+                <div className="absolute right-0 top-full mt-1.5 w-40 bg-[var(--color-card)] border border-[var(--color-border)] rounded-card shadow-xl z-[110] animate-in fade-in zoom-in-95 duration-100 origin-top-right">
                   <div className="py-2 text-left">
                     {canAddChild && (
-                      <button
-                        onClick={() => { setIsMenuOpen(false); onAddChild(node.id, node.name, node.level) }}
-                        className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 transition-colors"
-                      >
-                        <Plus className="w-4 h-4 mr-2 text-blue-500" /> Thêm con
-                      </button>
+                      <Button variant="ghost" className="w-full" onClick={() => { setIsMenuOpen(false); onAddChild(node.id, node.name, node.level) }}>
+                        <Plus aria-hidden="true" className="w-4 h-4 mr-2 text-[var(--color-info)]" /> Thêm con
+                      </Button>
                     )}
-                    <button
-                      onClick={() => { setIsMenuOpen(false); onEdit(node) }}
-                      className="flex items-center w-full px-4 py-2 text-sm text-gray-700 hover:bg-blue-50 transition-colors"
-                    >
-                      <Edit2 className="w-4 h-4 mr-2 text-amber-500" /> Sửa
-                    </button>
-                    <div className="h-px bg-gray-100 my-1" />
+                    <Button variant="ghost" className="w-full" onClick={() => { setIsMenuOpen(false); onEdit(node) }}>
+                      <Edit2 aria-hidden="true" className="w-4 h-4 mr-2 text-[var(--color-warning)]" /> Sửa
+                    </Button>
+                    <div className="h-px bg-[var(--color-muted)] my-1" />
                     <button
                       onClick={() => { setIsMenuOpen(false); onDelete(node.id) }}
                       disabled={hasChildren}
-                      className={`flex items-center w-full px-4 py-2 text-sm transition-colors ${!hasChildren ? 'text-red-600 hover:bg-red-50' : 'text-gray-300 cursor-not-allowed'}`}
+                      className={`flex items-center w-full px-4 py-2 text-sm transition-colors ${!hasChildren ? 'text-[var(--color-error)] hover:bg-[var(--color-error-bg)]' : 'text-[var(--color-subtle-foreground)] cursor-not-allowed'}`}
                     >
                       <Trash2 className="w-4 h-4 mr-2" /> Xoá
                     </button>

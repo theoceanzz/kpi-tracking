@@ -17,10 +17,10 @@ export default function KpiCriteriaTable({ data, onAction, onDelete, enableOkr }
   const columns = [
     { key: 'name', header: 'Tên chỉ tiêu', render: (k: KpiCriteria) => (
       <div className="flex flex-col">
-        <span className="font-bold text-slate-900 dark:text-white">{k.name}</span>
+        <span className="font-semibold text-[var(--color-foreground)]">{k.name}</span>
         {enableOkr && k.keyResultName && (
-          <span className="text-[10px] font-black text-violet-600 dark:text-violet-400 uppercase tracking-tight flex items-center gap-1 mt-0.5">
-            <span className="w-1.5 h-1.5 rounded-full bg-violet-500" />
+          <span className="mt-0.5 flex items-center gap-1 text-xs font-medium text-[var(--color-primary)]">
+            <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-primary)]" />
             KR: {k.keyResultName}
           </span>
         )}
@@ -37,7 +37,7 @@ export default function KpiCriteriaTable({ data, onAction, onDelete, enableOkr }
       key: 'actions',
       header: '',
       render: (k: KpiCriteria) => (
-        <button onClick={(e) => { e.stopPropagation(); onDelete(k) }} className="p-1.5 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 text-[var(--color-muted-foreground)] hover:text-red-500 transition">
+        <button onClick={(e) => { e.stopPropagation(); onDelete(k) }} className="p-1.5 rounded-control hover:bg-[var(--color-error-bg)] dark:hover:bg-[var(--color-error-bg)] text-[var(--color-muted-foreground)] hover:text-[var(--color-error)] transition">
           <Trash2 size={14} />
         </button>
       ),
@@ -48,16 +48,16 @@ export default function KpiCriteriaTable({ data, onAction, onDelete, enableOkr }
     <div className="space-y-2">
       <div className="flex items-start justify-between gap-2">
         <div className="flex flex-col">
-          <span className="font-bold text-slate-900 dark:text-white">{k.name}</span>
+          <span className="font-semibold text-[var(--color-foreground)]">{k.name}</span>
           {enableOkr && k.keyResultName && (
-            <span className="text-[10px] font-black text-violet-600 dark:text-violet-400 uppercase tracking-tight flex items-center gap-1 mt-0.5">
-              <span className="w-1.5 h-1.5 rounded-full bg-violet-500" />
+            <span className="mt-0.5 flex items-center gap-1 text-xs font-medium text-[var(--color-primary)]">
+              <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-primary)]" />
               KR: {k.keyResultName}
             </span>
           )}
         </div>
         {onDelete && (
-          <button onClick={(e) => { e.stopPropagation(); onDelete(k) }} className="p-1.5 rounded-md hover:bg-red-50 dark:hover:bg-red-900/20 text-[var(--color-muted-foreground)] hover:text-red-500 transition shrink-0">
+          <button onClick={(e) => { e.stopPropagation(); onDelete(k) }} className="p-1.5 rounded-control hover:bg-[var(--color-error-bg)] dark:hover:bg-[var(--color-error-bg)] text-[var(--color-muted-foreground)] hover:text-[var(--color-error)] transition shrink-0">
             <Trash2 size={14} />
           </button>
         )}

@@ -57,11 +57,11 @@ function DrillBarTooltip({ active, payload, perf }: DrillTooltipProps) {
   const val = payload[0]?.value ?? 0
   const pct = perf.toPct(val)
   return (
-    <div className="bg-slate-900 text-white px-3 py-2 rounded-xl text-xs shadow-xl border border-white/10 max-w-[220px]">
-      <p className="font-bold mb-1.5 break-words leading-tight">{name}</p>
+    <div className="bg-[var(--color-primary)] text-[var(--color-primary-foreground)] px-3 py-2 rounded-card text-xs border border-white/10 max-w-[220px]">
+      <p className="font-semibold mb-1.5 break-words leading-tight">{name}</p>
       <p className="flex items-center gap-1.5">
         <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: pct >= 80 ? '#10b981' : pct >= 50 ? '#f59e0b' : '#ef4444' }} />
-        Hiệu suất: <span className="font-black ml-1">{perf.formatShort(val)}</span>
+        Hiệu suất: <span className="font-semibold ml-1">{perf.formatShort(val)}</span>
       </p>
     </div>
   )
@@ -76,9 +76,9 @@ function useDrillData(filter?: PinnedFilter) {
 }
 
 const NoChildren = () => (
-  <div className="flex-1 min-h-[200px] flex flex-col items-center justify-center gap-3 text-slate-400">
-    <Building2 size={32} className="text-slate-300" />
-    <p className="text-xs font-bold">Không có đơn vị con trực thuộc</p>
+  <div className="flex-1 min-h-[200px] flex flex-col items-center justify-center gap-3 text-[var(--color-subtle-foreground)]">
+    <Building2 size={32} className="text-[var(--color-subtle-foreground)]" />
+    <p className="text-xs font-medium">Không có đơn vị con trực thuộc</p>
   </div>
 )
 
@@ -103,22 +103,22 @@ export function DrillUnitTreeWidget({ filter }: { filter?: PinnedFilter }) {
 /** Thẻ tóm tắt đơn vị đang chọn: cấp, tên, số nhân sự, tổng KPI. */
 export function DrillUnitSummaryWidget({ filter }: { filter?: PinnedFilter }) {
   const { data } = useDrillData(filter)
-  if (!data) return <div className="flex-1 flex items-center justify-center text-sm text-slate-400">Chưa có dữ liệu đơn vị</div>
+  if (!data) return <div className="flex-1 flex items-center justify-center text-sm text-[var(--color-subtle-foreground)]">Chưa có dữ liệu đơn vị</div>
   return (
-    <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-[24px] p-5 text-white shadow-xl">
+    <div className="bg-[var(--color-primary)] rounded-card p-5 text-[var(--color-primary-foreground)]">
       <div className="flex flex-wrap items-center justify-between gap-4">
         <div className="min-w-0">
-          <p className="text-white/70 text-[10px] font-black uppercase tracking-widest">{data.levelName || 'Cấp đơn vị'}</p>
-          <h3 className="text-lg md:text-2xl font-black mt-0.5 truncate">{data.orgUnitName || 'Tất cả'}</h3>
+          <p className="text-eyebrow text-white/70">{data.levelName || 'Cấp đơn vị'}</p>
+          <h3 className="text-section-title md:text-2xl mt-0.5 truncate">{data.orgUnitName || 'Tất cả'}</h3>
         </div>
         <div className="flex items-center gap-4 md:gap-8 shrink-0">
           <div className="flex items-baseline gap-1.5">
-            <p className="text-xl md:text-2xl font-black tabular-nums">{data.memberCount}</p>
-            <p className="text-[10px] text-white/70 font-bold uppercase whitespace-nowrap">Nhân sự</p>
+            <p className="text-xl md:text-2xl font-semibold tabular-nums">{data.memberCount}</p>
+            <p className="text-xs text-white/70 whitespace-nowrap">Nhân sự</p>
           </div>
           <div className="flex items-baseline gap-1.5">
-            <p className="text-xl md:text-2xl font-black tabular-nums">{data.totalKpi}</p>
-            <p className="text-[10px] text-white/70 font-bold uppercase whitespace-nowrap">KPI Tổng</p>
+            <p className="text-xl md:text-2xl font-semibold tabular-nums">{data.totalKpi}</p>
+            <p className="text-xs text-white/70 whitespace-nowrap">KPI Tổng</p>
           </div>
         </div>
       </div>
@@ -155,14 +155,14 @@ export function DrillEmployeeTableWidget({ filter }: { filter?: PinnedFilter }) 
   const paginated = filtered.slice(page * EMP_PAGE_SIZE, page * EMP_PAGE_SIZE + EMP_PAGE_SIZE)
 
   if (!employees?.length) {
-    return <div className="flex-1 flex items-center justify-center text-sm text-slate-400">Đơn vị này chưa có nhân sự trực thuộc</div>
+    return <div className="flex-1 flex items-center justify-center text-sm text-[var(--color-subtle-foreground)]">Đơn vị này chưa có nhân sự trực thuộc</div>
   }
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
       <div className="flex flex-wrap items-center justify-between gap-3 pb-3">
-        <p className="text-xs font-black text-slate-500 flex items-center gap-1.5">
-          <Users size={14} className="text-indigo-600" /> {filtered.length} thành viên
+        <p className="text-xs font-semibold text-[var(--color-muted-foreground)] flex items-center gap-1.5">
+          <Users size={14} className="text-[var(--color-primary)]" /> {filtered.length} thành viên
         </p>
         <div className="relative w-full sm:w-56">
           <input
@@ -171,16 +171,16 @@ export function DrillEmployeeTableWidget({ filter }: { filter?: PinnedFilter }) 
             value={searchInput}
             onChange={e => setSearchInput(e.target.value)}
             aria-label="Tìm thành viên"
-            className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-slate-800 border-none rounded-xl text-xs font-bold focus:ring-2 focus:ring-indigo-500 transition-all"
+            className="w-full pl-9 pr-3 py-2 bg-[var(--color-muted)] border-none rounded-card text-xs font-medium focus:ring-2 focus:ring-[var(--color-ring)] transition-all"
           />
-          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
+          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-subtle-foreground)] pointer-events-none" />
         </div>
       </div>
 
       <div className="flex-1 min-h-0 overflow-auto custom-scrollbar">
         <table className="w-full text-sm">
-          <thead className="sticky top-0 bg-white dark:bg-slate-900 z-10">
-            <tr className="text-[10px] font-black uppercase tracking-widest text-slate-400 border-b border-slate-100 dark:border-slate-800">
+          <thead className="sticky top-0 bg-[var(--color-card)] z-10">
+            <tr className="text-eyebrow border-b border-[var(--color-border)]">
               <th className="px-3 py-3 text-left">Họ tên &amp; Vai trò</th>
               <th className="px-3 py-3 text-left hidden lg:table-cell">Đơn vị</th>
               <th className="px-3 py-3 text-center">KPI</th>
@@ -188,53 +188,53 @@ export function DrillEmployeeTableWidget({ filter }: { filter?: PinnedFilter }) 
               <th className="px-3 py-3 text-center">Hiệu suất</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
+          <tbody className="divide-y divide-[var(--color-border)]">
             {paginated.map(emp => {
               const progressPct = emp.assignedKpi > 0 ? Math.round(emp.approvedSubmissions / emp.assignedKpi * 100) : 0
               const perfPct = emp.performanceRate != null ? perf.toPct(emp.performanceRate) : null
               return (
-                <tr key={emp.userId} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
+                <tr key={emp.userId} className="hover:bg-[var(--color-muted)] transition-colors">
                   <td className="px-3 py-3">
                     <div className="flex items-center gap-2.5 min-w-0">
                       <UserAvatar
                         fullName={emp.fullName}
                         avatarUrl={emp.avatarUrl}
-                        className="w-8 h-8 rounded-xl shrink-0"
-                        fallbackClassName="bg-slate-100 dark:bg-slate-800 text-[11px] font-black text-slate-600"
+                        className="w-8 h-8 rounded-card shrink-0"
+                        fallbackClassName="bg-[var(--color-muted)] text-caption"
                       />
                       <div className="min-w-0">
-                        <p className="font-black text-slate-900 dark:text-white leading-none truncate">{emp.fullName}</p>
-                        <p className="text-[11px] font-bold text-slate-400 mt-1 truncate">{emp.roleName}</p>
+                        <p className="font-semibold text-[var(--color-foreground)] leading-none truncate">{emp.fullName}</p>
+                        <p className="text-caption mt-1 truncate">{emp.roleName}</p>
                       </div>
                     </div>
                   </td>
                   <td className="px-3 py-3 hidden lg:table-cell">
                     {emp.orgUnitId && emp.orgUnitId === data?.orgUnitId ? (
-                      <span className="inline-flex items-center gap-1 text-[11px] font-black px-2 py-1 rounded-lg bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-300">
+                      <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-control bg-[var(--color-primary-soft)] text-[var(--color-primary)]">
                         <Building2 size={11} /> Đơn vị hiện tại
                       </span>
                     ) : (
-                      <span className="text-[12px] font-bold text-slate-600 dark:text-slate-300">{emp.orgUnitName || '—'}</span>
+                      <span className="text-[12px] font-medium text-[var(--color-muted-foreground)]">{emp.orgUnitName || '—'}</span>
                     )}
                   </td>
-                  <td className="px-3 py-3 text-center font-black text-slate-800 dark:text-slate-200 tabular-nums">{emp.assignedKpi}</td>
+                  <td className="px-3 py-3 text-center font-semibold text-[var(--color-foreground)] tabular-nums">{emp.assignedKpi}</td>
                   <td className="px-3 py-3">
                     <div className="flex items-center gap-2 min-w-[80px]">
-                      <div className="flex-1 h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                      <div className="flex-1 h-1.5 bg-[var(--color-muted)] rounded-full overflow-hidden">
                         <div
-                          className={cn('h-full rounded-full transition-all', progressPct >= 80 ? 'bg-emerald-500' : progressPct >= 50 ? 'bg-amber-500' : 'bg-red-400')}
+                          className={cn('h-full rounded-full transition-all', progressPct >= 80 ? 'bg-[var(--color-success-solid)]' : progressPct >= 50 ? 'bg-[var(--color-warning-solid)]' : 'bg-[var(--color-error-solid)]')}
                           style={{ width: `${progressPct}%` }}
                         />
                       </div>
-                      <span className="text-[11px] font-black w-8 text-right tabular-nums">{progressPct}%</span>
+                      <span className="text-xs font-semibold w-8 text-right tabular-nums">{progressPct}%</span>
                     </div>
                   </td>
                   <td className="px-3 py-3 text-center">
-                    {perfPct === null ? <span className="text-slate-300 text-xs">—</span> : (
-                      <span className={cn('text-xs font-black px-2 py-1 rounded-lg whitespace-nowrap',
-                        perfPct >= 80 ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20' :
-                        perfPct >= 50 ? 'bg-amber-50 text-amber-600 dark:bg-amber-900/20' :
-                        'bg-red-50 text-red-600 dark:bg-red-900/20'
+                    {perfPct === null ? <span className="text-[var(--color-subtle-foreground)] text-xs">—</span> : (
+                      <span className={cn('text-xs font-semibold px-2 py-1 rounded-control whitespace-nowrap',
+                        perfPct >= 80 ? 'bg-[var(--color-success-bg)] text-[var(--color-success)] dark:bg-[var(--color-success-bg)]' :
+                        perfPct >= 50 ? 'bg-[var(--color-warning-bg)] text-[var(--color-warning)] dark:bg-[var(--color-warning-bg)]' :
+                        'bg-[var(--color-error-bg)] text-[var(--color-error)] dark:bg-[var(--color-error-bg)]'
                       )}>
                         {perf.formatShort(emp.performanceRate)}
                       </span>
@@ -246,7 +246,7 @@ export function DrillEmployeeTableWidget({ filter }: { filter?: PinnedFilter }) 
           </tbody>
         </table>
         {filtered.length === 0 && (
-          <div className="py-12 text-center text-slate-400 text-xs italic">Không tìm thấy kết quả phù hợp</div>
+          <div className="py-12 text-center text-[var(--color-subtle-foreground)] text-xs italic">Không tìm thấy kết quả phù hợp</div>
         )}
       </div>
 
@@ -306,7 +306,7 @@ export function DrillHeatmapWidget({ filter }: { filter?: PinnedFilter }) {
 
   if ((data?.childUnits?.length ?? 0) === 0) return <NoChildren />
   if (ys.length === 0) {
-    return <div className="flex-1 flex items-center justify-center text-slate-400 text-xs italic">Chưa có dữ liệu heatmap</div>
+    return <div className="flex-1 flex items-center justify-center text-[var(--color-subtle-foreground)] text-xs italic">Chưa có dữ liệu heatmap</div>
   }
 
   return (
@@ -314,22 +314,22 @@ export function DrillHeatmapWidget({ filter }: { filter?: PinnedFilter }) {
       <table className="w-full border-separate border-spacing-1">
         <thead>
           <tr>
-            <th className="sticky top-0 left-0 bg-white dark:bg-slate-900 z-20" />
+            <th className="sticky top-0 left-0 bg-[var(--color-card)] z-20" />
             {xs.map(x => (
-              <th key={x} className="sticky top-0 bg-white dark:bg-slate-900 z-10 text-[9px] font-black uppercase text-slate-400 p-1 min-w-[80px] text-center">{x}</th>
+              <th key={x} className="sticky top-0 bg-[var(--color-card)] z-10 text-xs font-medium text-[var(--color-subtle-foreground)] p-1 min-w-[80px] text-center">{x}</th>
             ))}
           </tr>
         </thead>
         <tbody>
           {ys.map(y => (
             <tr key={y}>
-              <td className="sticky left-0 bg-white dark:bg-slate-900 z-10 text-[9px] font-bold text-slate-500 pr-2 max-w-[100px] truncate">{y}</td>
+              <td className="sticky left-0 bg-[var(--color-card)] z-10 text-caption pr-2 max-w-[100px] truncate">{y}</td>
               {xs.map(x => {
                 const val = data!.heatmapData.find(p => p.x === x && p.y === y)?.value || 0
                 return (
                   <td key={`${x}-${y}`} className="p-0">
                     <div
-                      className="h-8 rounded-sm flex items-center justify-center text-[8px] font-bold text-white"
+                      className="h-8 rounded-sm flex items-center justify-center text-xs font-medium text-white"
                       title={`${y} · ${x}: ${Math.round(val)}%`}
                       style={{
                         backgroundColor: val >= 80 ? '#10b981' : val >= 50 ? '#f59e0b' : val > 0 ? '#ef4444' : '#f1f5f9',
@@ -370,22 +370,22 @@ export function DrillClassificationWidget({ filter }: { filter?: PinnedFilter })
     <div className="flex-1 min-h-0 flex flex-col gap-3">
       {cycles.length > 0 && (
         <div className="flex items-center gap-1.5 shrink-0">
-          <CalendarRange size={13} className="text-slate-400" />
+          <CalendarRange size={13} className="text-[var(--color-subtle-foreground)]" />
           <Select value={cycleId || BY_PERIOD} onValueChange={v => setCycleId(v === BY_PERIOD ? '' : v)}>
             <SelectTrigger
               aria-label="Phạm vi xếp loại"
-              className="h-8 w-auto gap-1.5 px-2 rounded-lg bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-[11px] font-bold text-slate-600 dark:text-slate-300 focus:ring-2 focus:ring-emerald-500/30 focus:ring-offset-0"
+              className="h-8 w-auto gap-1.5 px-2 rounded-control bg-[var(--color-card)] border-[var(--color-border)] text-caption focus:ring-2 focus:ring-[var(--color-success-solid)] focus:ring-offset-0"
               title="Xếp loại theo kỳ dùng điểm chốt kỳ, bỏ qua bộ lọc đợt"
             >
               <SelectValue />
             </SelectTrigger>
-            <SelectContent className="text-[11px]">
-              <SelectItem value={BY_PERIOD} className="text-[11px] font-bold">Theo đợt (bộ lọc đơn vị)</SelectItem>
+            <SelectContent className="text-xs">
+              <SelectItem value={BY_PERIOD} className="text-xs font-medium">Theo đợt (bộ lọc đơn vị)</SelectItem>
               <ScopeSelectItems
                 items={cycles}
                 selectedId={cycleId}
                 noun="kỳ"
-                itemClassName="text-[11px] font-bold"
+                itemClassName="text-xs font-medium"
                 renderLabel={c => `Kỳ: ${c.name}`}
               />
             </SelectContent>
@@ -409,8 +409,8 @@ export function DrillMatrixWidget({ filter }: { filter?: PinnedFilter }) {
     <div className="flex-1 min-h-0 overflow-auto custom-scrollbar space-y-4">
       <MatrixMetricCards overview={overview} />
       <div>
-        <h4 className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 mb-2">
-          <Grid3x3 size={12} className="text-indigo-500" /> Phân bố xếp loại &amp; Heatmap
+        <h4 className="text-eyebrow flex items-center gap-1.5 mb-2">
+          <Grid3x3 size={12} className="text-[var(--color-primary)]" /> Phân bố xếp loại &amp; Heatmap
         </h4>
         <MatrixDistHeatmap overview={overview} />
       </div>

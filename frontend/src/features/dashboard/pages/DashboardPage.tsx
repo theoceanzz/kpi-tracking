@@ -1,10 +1,11 @@
 import { useHasPermission } from '@/components/auth/PermissionGate'
 import { useSearchParams, Navigate } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
-import { cn } from '@/lib/utils'
+import WorkflowStartCard from '@/features/kpi/workflow/components/WorkflowStartCard'
 import { Building2, UserCircle } from 'lucide-react'
 import type { DashboardScope } from '../api/dashboardLayoutApi'
 import RoleDashboard from './RoleDashboard'
+import { ChoiceChip } from '@/components/ui/choice-chip'
 
 const DashboardPage = () => {
   const { hasPermission } = useHasPermission()
@@ -66,13 +67,20 @@ const DashboardPage = () => {
   // Không có quyền vào bảng nào thì về trang cá nhân
   if (!scope) return <Navigate to="/profile" replace />
 
-  const dashboard = <RoleDashboard key={scope} scope={scope} />
+  // Thẻ khởi động đứng TRÊN mọi biến thể dashboard: nó tự ẩn với người không có quyền ở bước
+  // đầu của luồng, nên không cần lặp lại phép kiểm vai trò ở đây.
+  const dashboard = (
+    <>
+      <WorkflowStartCard />
+      <RoleDashboard key={scope} scope={scope} />
+    </>
+  )
 
   if (!showViewSwitch) return dashboard
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-1.5 p-1.5 rounded-2xl bg-slate-100 dark:bg-slate-800/60 w-full sm:w-fit">
+      <div className="flex items-center gap-1.5 p-1.5 rounded-card bg-[var(--color-muted)] w-full sm:w-fit">
         <ViewTab active={!isStaffView} onClick={() => setView('unit')} icon={<Building2 size={16} />} label="Tổng quan đơn vị" />
         <ViewTab active={isStaffView} onClick={() => setView('staff')} icon={<UserCircle size={16} />} label="Dashboard cá nhân" />
       </div>
@@ -83,18 +91,10 @@ const DashboardPage = () => {
 
 function ViewTab({ active, onClick, icon, label }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string }) {
   return (
-    <button
-      onClick={onClick}
-      className={cn(
-        'flex-1 sm:flex-none flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all whitespace-nowrap',
-        active
-          ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
-          : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
-      )}
-    >
+    <ChoiceChip selected={active} variant="segment" className="flex-1 sm:flex-none py-2.5" onClick={onClick}>
       {icon}
       {label}
-    </button>
+    </ChoiceChip>
   )
 }
 

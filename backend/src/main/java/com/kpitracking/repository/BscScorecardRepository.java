@@ -43,6 +43,15 @@ public interface BscScorecardRepository extends JpaRepository<BscScorecard, UUID
             + "WHERE s.organization.id = :orgId AND s.orgUnits IS EMPTY" + APPLIES_TO_PERIOD)
     List<BscScorecard> findDefaultByPeriod(@Param("orgId") UUID orgId, @Param("periodId") UUID periodId);
 
+    /** Các bộ tiêu chí con trực tiếp của một bộ tiêu chí trong cây BSC. */
+    List<BscScorecard> findByParentScorecardId(UUID parentScorecardId);
+
+    /** Bộ tiêu chí cấp CÔNG TY áp dụng cho một đợt (dùng để tra hệ số công ty). */
+    @Query("SELECT DISTINCT s FROM BscScorecard s LEFT JOIN s.kpiCycle c "
+            + "WHERE s.organization.id = :orgId "
+            + "AND s.level = com.kpitracking.enums.BscScorecardLevel.COMPANY" + APPLIES_TO_PERIOD)
+    List<BscScorecard> findCompanyByPeriod(@Param("orgId") UUID orgId, @Param("periodId") UUID periodId);
+
     /** Số bộ tiêu chí (theo phòng ban hoặc mặc định) áp dụng cho org + đợt. */
     @Query("SELECT COUNT(DISTINCT s) FROM BscScorecard s LEFT JOIN s.kpiCycle c "
             + "WHERE s.organization.id = :orgId" + APPLIES_TO_PERIOD)

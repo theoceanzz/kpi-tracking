@@ -2,16 +2,30 @@ import * as React from 'react'
 import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '@/lib/utils'
 
+/**
+ * Nhãn trạng thái / phân loại. Luôn là NỀN NHẠT + CHỮ ĐẬM + VIỀN MỜ — không bao giờ
+ * nền đặc, để không lẫn với nút hành động ngay cả khi màu chủ đạo trùng tông với
+ * một màu ngữ nghĩa (emerald ≈ success, amber ≈ warning, rose ≈ error).
+ */
 const badgeVariants = cva(
-  'inline-flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-semibold transition-colors',
+  'inline-flex items-center gap-1.5 rounded-control border px-2 py-0.5 text-xs font-medium leading-4 whitespace-nowrap',
   {
     variants: {
       variant: {
-        default: 'border-transparent bg-indigo-600 text-white',
-        secondary: 'border-transparent bg-[var(--color-muted)] text-[var(--color-muted-foreground)]',
-        success: 'border-transparent bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
-        destructive: 'border-transparent bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
-        outline: 'border-[var(--color-border)] text-[var(--color-foreground)]',
+        default:
+          'border-transparent bg-[var(--color-primary-soft)] text-[var(--color-primary)]',
+        secondary:
+          'border-transparent bg-[var(--color-muted)] text-[var(--color-muted-foreground)]',
+        success:
+          'border-[var(--color-success-border)] bg-[var(--color-success-bg)] text-[var(--color-success)]',
+        warning:
+          'border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] text-[var(--color-warning)]',
+        destructive:
+          'border-[var(--color-error-border)] bg-[var(--color-error-bg)] text-[var(--color-error)]',
+        info:
+          'border-[var(--color-info-border)] bg-[var(--color-info-bg)] text-[var(--color-info)]',
+        outline:
+          'border-[var(--color-border)] bg-transparent text-[var(--color-foreground)]',
       },
     },
     defaultVariants: { variant: 'default' },
@@ -19,11 +33,11 @@ const badgeVariants = cva(
 )
 
 export interface BadgeProps
-  extends React.HTMLAttributes<HTMLDivElement>,
+  extends React.HTMLAttributes<HTMLSpanElement>,
     VariantProps<typeof badgeVariants> {}
 
 function Badge({ className, variant, ...props }: BadgeProps) {
-  return <div className={cn(badgeVariants({ variant }), className)} {...props} />
+  return <span className={cn(badgeVariants({ variant }), className)} {...props} />
 }
 
 export { Badge, badgeVariants }

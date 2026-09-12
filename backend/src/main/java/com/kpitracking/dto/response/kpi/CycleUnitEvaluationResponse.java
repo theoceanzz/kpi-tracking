@@ -19,7 +19,15 @@ public class CycleUnitEvaluationResponse {
 
     /** Điểm gộp toàn phòng (TB thành viên). */
     private Double selfScore;
+    /** Điểm CUỐI CÙNG của đơn vị: điểm chấm tay nếu có, không thì TB thành viên. */
     private Double managerScore;
+    /** TB điểm chốt kỳ của thành viên — luôn có, để đối chiếu với điểm chấm tay. */
+    private Double autoScore;
+    /** Điểm đơn vị do người có quyền chấm tay; null = đang dùng TB tự tính. */
+    private Double overrideScore;
+    private String overrideReason;
+    private String overriddenByName;
+    private Instant overriddenAt;
     /** TB mức định tính (0..5) và TB xếp loại ma trận (1..5) của thành viên. */
     private Double qualScore;
     private Double matrixRating;
@@ -42,6 +50,12 @@ public class CycleUnitEvaluationResponse {
     private String comment;
     private String finalizedByName;
     private Instant finalizedAt;
+
+    /**
+     * Phân bố mức của thành viên trong kỳ, đối chiếu với khung bell curve đang áp cho đơn vị.
+     * Tính từ CHÍNH danh sách thành viên bên dưới nên con số luôn khớp bảng.
+     */
+    private com.kpitracking.dto.response.stats.UnitClassificationResponses.CycleCurveResponse bellCurve;
 
     private List<CycleUserEvaluationResponse> members;
 }

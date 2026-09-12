@@ -7,6 +7,11 @@ import java.util.UUID;
 @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
 public class PerspectiveScoreResponse {
     private UUID perspectiveId;
+    /**
+     * Dòng chỉ tiêu CỤ THỂ của bộ tiêu chí đã dùng để chấm. Cần cho phần hạng mục chặn và cho
+     * màn hình waterfall: cùng một hạng mục ở hai bộ tiêu chí có mục tiêu và cấu hình chặn khác nhau.
+     */
+    private UUID scorecardPerspectiveId;
     private String code;
     private String name;
     private String color;
@@ -33,4 +38,14 @@ public class PerspectiveScoreResponse {
     private String unit;
     /** Tổng thực đạt của các KPI định lượng trong hạng mục — null khi không chấm theo mục tiêu. */
     private Double actualValue;
+
+    // ── Hạng mục chặn (QĐ-7) ──────────────────────────
+    // Kết quả chặn tính SẴN ở đây để màn hình kết quả nói được lý do mà không phải hỏi thêm API.
+
+    /** Dòng này có phải hạng mục chặn không. */
+    private Boolean isGate;
+    /** Ngưỡng %đạt tối thiểu để qua chặn. */
+    private Double gateMinPercent;
+    /** Đã qua chặn chưa. NULL = dòng không phải hạng mục chặn hoặc chưa có dữ liệu để kết luận. */
+    private Boolean gatePassed;
 }

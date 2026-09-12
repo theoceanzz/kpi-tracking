@@ -1,5 +1,6 @@
 import { Plus, Trash2 } from 'lucide-react'
 import type { RewardTier } from '../types'
+import { Button } from '@/components/ui/button'
 
 interface TierEditorProps {
   tiers: RewardTier[]
@@ -41,7 +42,7 @@ export default function TierEditor({ tiers, onChange }: TierEditorProps) {
     onChange(tiers.map((t, i) => (i === idx ? { ...t, ...patch } : t)))
 
   const numCls =
-    'rounded-lg border border-[var(--color-border)] bg-transparent px-2 py-1.5 text-center'
+    'rounded-control border border-[var(--color-border)] bg-transparent px-2 py-1.5 text-center'
 
   return (
     <div className="space-y-2">
@@ -76,24 +77,20 @@ export default function TierEditor({ tiers, onChange }: TierEditorProps) {
             type="button"
             onClick={() => onChange(tiers.filter((_, i) => i !== idx))}
             disabled={tiers.length === 1}
-            className="ml-auto rounded-lg p-1.5 text-rose-600 hover:bg-rose-500/10 disabled:opacity-30"
+            className="ml-auto rounded-control p-1.5 text-[var(--color-error)] hover:bg-[var(--color-error-bg)] disabled:opacity-30"
           >
             <Trash2 size={14} />
           </button>
         </div>
       ))}
 
-      <button
-        type="button"
-        onClick={() => {
+      <Button variant="outline" size="sm" type="button" onClick={() => {
           const maxTo = Math.max(0, ...tiers.map((t) => t.toRank))
           onChange([...tiers, { fromRank: maxTo + 1, toRank: maxTo + 1, points: 100 }])
-        }}
-        className="inline-flex items-center gap-1 rounded-lg border border-[var(--color-border)] px-2.5 py-1 text-xs"
-      >
-        <Plus size={13} />
+        }}>
+        <Plus aria-hidden="true" />
         Thêm bậc
-      </button>
+      </Button>
     </div>
   )
 }

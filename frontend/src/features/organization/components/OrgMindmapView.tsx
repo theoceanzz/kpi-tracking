@@ -92,7 +92,7 @@ function CustomNode({ data }: NodeProps<AppNode>) {
 
   return (
     <div 
-      className="px-4 py-3 shadow-md rounded-lg bg-white border border-gray-200 w-[220px] relative group hover:border-blue-400 hover:shadow-lg transition-all cursor-pointer z-0 hover:z-[1000]"
+      className="px-4 py-3 shadow-md rounded-control bg-[var(--color-card)] border border-[var(--color-border)] w-[220px] relative group hover:border-[var(--color-info-border)] hover:shadow-lg transition-all cursor-pointer z-0 hover:z-[1000]"
       onClick={() => {
         if (isMenuOpen) {
           setIsMenuOpen(false);
@@ -105,10 +105,10 @@ function CustomNode({ data }: NodeProps<AppNode>) {
       
       <div className="flex justify-between items-start">
         <div className="flex-1 min-w-0 pr-6">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-blue-600 mb-0.5">{data.type}</div>
-          <div className="text-sm font-bold text-gray-800 truncate">{data.name}</div>
+          <div className="text-eyebrow text-[var(--color-info)] mb-0.5">{data.type}</div>
+          <div className="text-sm font-medium text-[var(--color-foreground)] truncate">{data.name}</div>
           {data.code && (
-            <div className="text-[10px] font-mono text-gray-400 mt-0.5 truncate bg-gray-50 px-1.5 py-0.5 rounded border border-gray-100 w-fit">
+            <div className="text-xs font-mono text-[var(--color-subtle-foreground)] mt-0.5 truncate bg-[var(--color-muted)] px-1.5 py-0.5 rounded border border-[var(--color-border)] w-fit">
               {data.code}
             </div>
           )}
@@ -123,10 +123,10 @@ function CustomNode({ data }: NodeProps<AppNode>) {
                 handleMouseEnter(); // Calculate openUp direction
                 setIsMenuOpen(!isMenuOpen);
               }}
-              className={`p-1.5 rounded-lg transition-all duration-200 border shadow-sm ${
+              className={`p-1.5 rounded-control transition-all duration-200 border shadow-sm ${
                 isMenuOpen 
-                  ? 'bg-blue-600 border-blue-600 text-white scale-110 shadow-lg' 
-                  : 'bg-white/80 backdrop-blur-sm border-gray-200 text-gray-400 opacity-0 group-hover:opacity-100 hover:text-gray-600 hover:border-gray-300 hover:bg-white'
+                  ? 'bg-[var(--color-info-solid)] border-[var(--color-info-border)] text-white scale-110' 
+                  : 'bg-[var(--color-card)] border-[var(--color-border)] text-[var(--color-subtle-foreground)] opacity-0 group-hover:opacity-100 hover:text-[var(--color-muted-foreground)] hover:border-[var(--color-border-strong)] hover:bg-[var(--color-card)]'
               }`}
               title="Thao tác"
             >
@@ -134,29 +134,23 @@ function CustomNode({ data }: NodeProps<AppNode>) {
             </button>
             
             {isMenuOpen && (
-              <div className={`absolute right-0 w-40 ${openUp ? 'bottom-full mb-2 origin-bottom-right' : 'top-full mt-2 origin-top-right'} bg-white border border-gray-200 rounded-xl shadow-2xl z-[110] animate-in fade-in zoom-in-95 duration-200 ring-1 ring-black/5`}>
+              <div className={`absolute right-0 w-40 ${openUp ? 'bottom-full mb-2 origin-bottom-right' : 'top-full mt-2 origin-top-right'} bg-white border border-gray-200 rounded-card shadow-2xl z-[110] animate-in fade-in zoom-in-95 duration-200 ring-1 ring-black/5`}>
                   <div className="py-2">
                     {canAddChild && (
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); data.onAddChild(data.id, data.name, data.level); }}
-                        className="flex items-center w-full px-4 py-2.5 text-sm text-left text-gray-700 hover:bg-blue-50 hover:text-blue-600 transition-colors group/item"
-                      >
-                        <Plus className="w-4 h-4 mr-2.5 text-blue-500 group-hover/item:scale-110 transition-transform" /> 
+                      <button type="button" className="flex h-9 w-full items-center gap-2.5 rounded-control px-2.5 text-left text-sm text-[var(--color-foreground)] transition-colors hover:bg-[var(--color-muted)] [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-[var(--color-muted-foreground)]" onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); data.onAddChild(data.id, data.name, data.level); }}>
+                        <Plus aria-hidden="true" className="w-4 h-4 mr-2.5 text-[var(--color-info)] group-hover/item:scale-110 transition-transform" /> 
                         <span className="font-medium">Thêm con</span>
                       </button>
                     )}
-                    <button 
-                      onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); data.onEdit(data.node); }}
-                      className="flex items-center w-full px-4 py-2.5 text-sm text-left text-gray-700 hover:bg-amber-50 hover:text-amber-600 transition-colors group/item"
-                    >
-                      <Edit2 className="w-4 h-4 mr-2.5 text-amber-500 group-hover/item:scale-110 transition-transform" /> 
+                    <button type="button" className="flex h-9 w-full items-center gap-2.5 rounded-control px-2.5 text-left text-sm text-[var(--color-foreground)] transition-colors hover:bg-[var(--color-muted)] [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-[var(--color-muted-foreground)]" onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); data.onEdit(data.node); }}>
+                      <Edit2 aria-hidden="true" className="w-4 h-4 mr-2.5 text-[var(--color-warning)] group-hover/item:scale-110 transition-transform" /> 
                       <span className="font-medium">Sửa</span>
                     </button>
-                    <div className="h-px bg-gray-100 my-1 mx-2" />
+                    <div className="h-px bg-[var(--color-muted)] my-1 mx-2" />
                     <button 
                       onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); data.onDelete(data.id); }}
                       disabled={data.hasChildren}
-                      className={`flex items-center w-full px-4 py-2.5 text-sm text-left transition-colors group/item ${!data.hasChildren ? 'text-red-600 hover:bg-red-50' : 'text-gray-300 cursor-not-allowed'}`}
+                      className={`flex items-center w-full px-4 py-2.5 text-sm text-left transition-colors group/item ${!data.hasChildren ? 'text-[var(--color-error)] hover:bg-[var(--color-error-bg)]' : 'text-[var(--color-subtle-foreground)] cursor-not-allowed'}`}
                     >
                       <Trash2 className={`w-4 h-4 mr-2.5 ${!data.hasChildren ? 'group-hover/item:scale-110 transition-transform' : ''}`} /> 
                       <span className="font-medium">Xoá</span>
@@ -255,7 +249,7 @@ export function OrgMindmapView({ data, maxDepth, onAddChild, onEdit, onDelete }:
     // Chiều cao theo viewport chứ KHÔNG dùng h-full: canvas này giờ nằm trong trang
     // "Thiết lập công ty", mà height:100% chỉ giải được khi MỌI tổ tiên đều có chiều cao
     // xác định — chuỗi đó đứt ở khung trang gộp nên ReactFlow tính ra 0 và không vẽ gì.
-    <div className="w-full h-[calc(100vh-320px)] min-h-[420px] border rounded-xl bg-gray-50 overflow-hidden relative group/mindmap">
+    <div className="w-full h-[calc(100vh-320px)] min-h-[420px] border rounded-card bg-[var(--color-muted)] overflow-hidden relative group/mindmap">
       <style>{`
         .react-flow__pane {
           cursor: crosshair !important;

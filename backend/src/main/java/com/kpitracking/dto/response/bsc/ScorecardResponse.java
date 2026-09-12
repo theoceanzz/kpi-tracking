@@ -2,6 +2,7 @@ package com.kpitracking.dto.response.bsc;
 
 import com.kpitracking.enums.BscEmptyPerspectivePolicy;
 import com.kpitracking.enums.BscScorecardApplyScope;
+import com.kpitracking.enums.BscScorecardLevel;
 import com.kpitracking.enums.BscScorecardStatus;
 import com.kpitracking.enums.BscScoringMode;
 import lombok.*;
@@ -27,6 +28,11 @@ public class ScorecardResponse {
     private List<ScorecardOrgUnitResponse> orgUnits;
     /** Nhãn gộp tên các phòng ban (tiện hiển thị); null nếu là mặc định toàn tổ chức. */
     private String orgUnitName;
+    /** Cấp trong cây BSC — suy từ việc có gắn phòng ban hay không, client không đặt được. */
+    private BscScorecardLevel level;
+    /** Bộ tiêu chí cấp trên (null với BSC công ty hoặc BSC đơn vị chưa gắn cha). */
+    private UUID parentScorecardId;
+    private String parentScorecardName;
     private BscScorecardStatus status;
     private BscScoringMode scoringMode;
     private BscEmptyPerspectivePolicy emptyPerspectivePolicy;

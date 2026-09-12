@@ -45,7 +45,8 @@ export interface PerspectiveResponse {
 }
 
 export interface PerspectiveRequest {
-  code: string
+  /** Bỏ trống khi tổ chức bật sinh mã tự động — backend cấp mã theo mẫu của công ty. */
+  code?: string
   name: string
   description?: string
   targetValue?: number | null
@@ -64,9 +65,17 @@ export interface ImportBscResponse {
   errors: string[]
 }
 
+/**
+ * Vòng đời bộ tiêu chí. ARCHIVED là trạng thái CŨ, giữ để dữ liệu đã tạo không vỡ —
+ * bản ghi mới dùng CLOSED.
+ */
 export enum BscScorecardStatus {
   DRAFT = 'DRAFT',
+  SUBMITTED = 'SUBMITTED',
+  APPROVED = 'APPROVED',
   ACTIVE = 'ACTIVE',
+  CLOSED = 'CLOSED',
+  LOCKED = 'LOCKED',
   ARCHIVED = 'ARCHIVED',
 }
 
@@ -78,6 +87,56 @@ export enum BscScoringMode {
 export enum BscEmptyPerspectivePolicy {
   RENORMALIZE = 'RENORMALIZE',
   ZERO_FILL = 'ZERO_FILL',
+}
+
+/** Nguồn gốc một dòng chỉ tiêu / một KPI: cấp trên giao hay cấp đó tự thêm. */
+export enum BscItemOrigin {
+  ASSIGNED = 'ASSIGNED',
+  SELF = 'SELF',
+}
+
+/** Quan hệ với chỉ tiêu cha. Chỉ SUM tham gia phép cộng khi đo độ phủ. */
+export enum BscLinkType {
+  SUM = 'SUM',
+  SHARED = 'SHARED',
+  SUPPORT = 'SUPPORT',
+  CUSTOM = 'CUSTOM',
+}
+
+export enum BscMeasurementSource {
+  ROLLUP = 'ROLLUP',
+  MANUAL = 'MANUAL',
+  DATASOURCE = 'DATASOURCE',
+  /**
+   * Chỉ xuất hiện trên dòng KẾT QUẢ, không chọn được lúc cấu hình: chỉ tiêu đã giao xuống cấp dưới
+   * nên con số lấy từ kết quả của các đơn vị con thay vì cộng KPI cá nhân.
+   */
+  CHILD_ROLLUP = 'CHILD_ROLLUP',
+}
+
+/** Hệ quả khi hạng mục chặn không đạt — cả ba đều tác động lên TRẦN XẾP LOẠI, không trừ điểm. */
+export enum BscGateEffect {
+  BLOCK_EXCELLENT = 'BLOCK_EXCELLENT',
+  CAP_AT_RATING = 'CAP_AT_RATING',
+  WARN_ONLY = 'WARN_ONLY',
+}
+
+export enum BscGateScope {
+  INDIVIDUAL = 'INDIVIDUAL',
+  UNIT = 'UNIT',
+  BOTH = 'BOTH',
+}
+
+/** WARN = chỉ cảnh báo; BLOCK = không chốt được đánh giá khi chưa đủ tỉ lệ KPI liên kết BSC. */
+export enum BscLinkedWeightEnforce {
+  WARN = 'WARN',
+  BLOCK = 'BLOCK',
+}
+
+export enum BscUnitResultStatus {
+  DRAFT = 'DRAFT',
+  FINALIZED = 'FINALIZED',
+  LOCKED = 'LOCKED',
 }
 
 export interface ScorecardPerspectiveResponse {
@@ -94,6 +153,23 @@ export interface ScorecardPerspectiveResponse {
   fixedPerspective?: BscFixedPerspective
   fixedPerspectiveName?: string
   fixedPerspectiveColor?: string
+
+  /** ASSIGNED = cấp trên giao (khoá mục tiêu/trọng số), SELF = đơn vị tự thêm. */
+  origin?: BscItemOrigin
+  locked?: boolean
+  parentItemId?: string | null
+  parentItemName?: string | null
+  parentScorecardName?: string | null
+  linkType?: BscLinkType | null
+  contributionValue?: number | null
+  contributionPercent?: number | null
+
+  measurementSource?: BscMeasurementSource
+  isGate?: boolean
+  gateMinPercent?: number | null
+  gateEffect?: BscGateEffect | null
+  gateCapRating?: number | null
+  gateAppliesTo?: BscGateScope
 }
 
 export interface ScorecardOrgUnitResponse {
@@ -102,6 +178,12 @@ export interface ScorecardOrgUnitResponse {
 }
 
 /** Cách bộ tiêu chí gắn với thời gian: nhiều ĐỢT cụ thể, hay MỘT KỲ (mọi đợt thuộc kỳ). */
+/** Cấp của bộ tiêu chí trong cây BSC. Backend suy từ phạm vi phòng ban, client không đặt được. */
+export enum BscScorecardLevel {
+  COMPANY = 'COMPANY',
+  UNIT = 'UNIT',
+}
+
 export enum BscScorecardApplyScope {
   PERIOD = 'PERIOD',
   CYCLE = 'CYCLE',
@@ -127,6 +209,11 @@ export interface ScorecardResponse {
   orgUnits?: ScorecardOrgUnitResponse[]
   /** Nhãn gộp tên phòng ban (tiện hiển thị). */
   orgUnitName?: string | null
+  /** Cấp trong cây BSC — COMPANY khi không gắn phòng ban nào, UNIT khi có. */
+  level?: BscScorecardLevel
+  /** Bộ tiêu chí cấp trên (null với BSC công ty hoặc BSC đơn vị chưa gắn cha). */
+  parentScorecardId?: string | null
+  parentScorecardName?: string | null
   status: BscScorecardStatus
   scoringMode: BscScoringMode
   emptyPerspectivePolicy: BscEmptyPerspectivePolicy
@@ -140,6 +227,20 @@ export interface ScorecardPerspectiveWeightRequest {
   perspectiveId: string
   weightPercentage: number
   displayOrder?: number
+  /**
+   * Mục tiêu RIÊNG của hạng mục trong bộ tiêu chí này (công ty 100 tỷ, phòng KD 60 tỷ...).
+   * Danh sách gửi lên là authoritative: null = xoá mục tiêu riêng, dòng tạo mới không gửi gì
+   * thì kế thừa mặc định của hạng mục.
+   */
+  targetValue?: number | null
+  minimumValue?: number | null
+  unit?: string | null
+  measurementSource?: BscMeasurementSource | null
+  isGate?: boolean | null
+  gateMinPercent?: number | null
+  gateEffect?: BscGateEffect | null
+  gateCapRating?: number | null
+  gateAppliesTo?: BscGateScope | null
   reason?: string
 }
 
@@ -153,6 +254,8 @@ export interface ScorecardRequest {
   kpiCycleId?: string
   /** Các phòng ban áp dụng; rỗng/bỏ trống = toàn tổ chức. */
   orgUnitIds?: string[]
+  /** Bộ tiêu chí cấp trên trong cây BSC; chỉ hợp lệ với thẻ có gắn phòng ban. */
+  parentScorecardId?: string | null
   status?: BscScorecardStatus
   scoringMode?: BscScoringMode
   emptyPerspectivePolicy?: BscEmptyPerspectivePolicy
@@ -178,8 +281,271 @@ export interface PerspectiveScoreResponse {
   unit?: string | null
   /** Tổng thực đạt của các KPI định lượng trong hạng mục — chỉ có khi chấm theo mục tiêu. */
   actualValue?: number | null
+
+  /** Dòng chỉ tiêu cụ thể đã dùng để chấm (cùng hạng mục ở hai bộ tiêu chí có mục tiêu khác nhau). */
+  scorecardPerspectiveId?: string | null
+  /** Hạng mục chặn: kết quả tính sẵn để màn hình kết quả nói được lý do. */
+  isGate?: boolean | null
+  gateMinPercent?: number | null
+  /** null = không phải hạng mục chặn, hoặc chưa đủ dữ liệu để kết luận. */
+  gatePassed?: boolean | null
 }
 
 // `PerspectiveScoreResponse` ở trên vẫn dùng: điểm hạng mục đính kèm trong Evaluation
 // (xem `@/types/evaluation`). Các kiểu của dashboard bộ tiêu chí và bản đồ chiến lược đã
 // gỡ cùng hai màn đó.
+
+
+// ================================================================
+// BSC phân cấp — cascade, kết quả đơn vị, waterfall
+// (docs/bsc-cascade-design.md)
+// ================================================================
+
+export interface CascadeTargetRequest {
+  orgUnitId: string
+  contributionValue?: number | null
+  contributionPercent?: number | null
+  targetValue?: number | null
+  minimumValue?: number | null
+  unit?: string | null
+  weightPercentage?: number | null
+}
+
+export interface CascadeRequest {
+  scorecardPerspectiveId: string
+  linkType?: BscLinkType
+  targets: CascadeTargetRequest[]
+}
+
+export interface CoverageChildResponse {
+  scorecardPerspectiveId: string
+  scorecardId: string
+  scorecardName: string
+  orgUnitId?: string | null
+  orgUnitName?: string | null
+  linkType?: BscLinkType | null
+  contributionValue?: number | null
+  contributionPercent?: number | null
+  targetValue?: number | null
+  weightPercentage?: number | null
+}
+
+/** NOT_CASCADED = chưa phân rã dòng nào; UNDER/OVER = tổng đóng góp lệch so với mục tiêu cha. */
+export type CoverageStatus = 'NOT_CASCADED' | 'UNDER' | 'OK' | 'OVER'
+
+export interface CoverageItemResponse {
+  scorecardPerspectiveId: string
+  perspectiveId: string
+  name: string
+  color?: string
+  targetValue?: number | null
+  unit?: string | null
+  cascadedValue?: number | null
+  status: CoverageStatus
+  gap?: number | null
+  children: CoverageChildResponse[]
+}
+
+export interface ScorecardCoverageResponse {
+  scorecardId: string
+  scorecardName: string
+  notCascadedCount: number
+  underCount: number
+  okCount: number
+  overCount: number
+  items: CoverageItemResponse[]
+}
+
+export interface ScorecardTreeNodeResponse {
+  id: string
+  name: string
+  level: BscScorecardLevel
+  status: BscScorecardStatus
+  orgUnitName?: string | null
+  periodLabel?: string | null
+  totalWeight: number
+  itemCount: number
+  /** Số chỉ tiêu do cấp trên giao — phần còn lại là đơn vị tự thêm. */
+  assignedCount: number
+  gateCount: number
+  achievementPercent?: number | null
+  children: ScorecardTreeNodeResponse[]
+}
+
+export interface UnitResultItemResponse {
+  id: string
+  scorecardPerspectiveId: string
+  name: string
+  color?: string
+  actualValue?: number | null
+  targetValue?: number | null
+  unit?: string | null
+  achievementPercent?: number | null
+  weightPercentage?: number | null
+  weightedScore?: number | null
+  kpiCount?: number
+  isGate?: boolean
+  gatePassed?: boolean | null
+  measurementSource?: BscMeasurementSource
+}
+
+export interface UnitResultResponse {
+  id: string
+  scorecardId: string
+  scorecardName: string
+  orgUnitName?: string | null
+  kpiPeriodId?: string | null
+  kpiPeriodName?: string | null
+  achievementPercent?: number | null
+  gatePassed?: boolean | null
+  gateFailedItems?: string | null
+  status: BscUnitResultStatus
+  finalizedByName?: string | null
+  finalizedAt?: string | null
+  items: UnitResultItemResponse[]
+}
+
+/**
+ * Chính sách điểm BSC: trần điểm công nhận + ràng buộc KPI phải liên kết BSC.
+ * Tham số hệ số và bảng dải đã bị gỡ cùng lúc với việc bỏ hệ số phòng/công ty.
+ */
+export interface CascadePolicyRequest {
+  name: string
+  /** Gắn KỲ, hoặc gắn ĐỢT, hoặc để trống cả hai làm bản mặc định — không gửi cả hai. */
+  kpiCycleId?: string | null
+  kpiPeriodIds?: string[]
+  recognizedCapPercent?: number
+  minBscLinkedWeight?: number
+  linkedWeightEnforce?: BscLinkedWeightEnforce
+}
+
+export interface CascadePolicyResponse {
+  id: string
+  name: string
+  kpiCycleId?: string | null
+  kpiCycleName?: string | null
+  /** Các đợt gắn riêng; rỗng khi chính sách gắn theo kỳ hoặc là bản mặc định. */
+  periods?: ScorecardPeriodResponse[]
+  /** Nhãn gộp cho chip chọn chính sách: tên kỳ, danh sách đợt, hoặc "Mặc định". */
+  scopeLabel?: string
+  recognizedCapPercent: number
+  minBscLinkedWeight: number
+  linkedWeightEnforce: BscLinkedWeightEnforce
+  status: string
+  version: number
+}
+
+/**
+ * Diễn giải điểm cá nhân: điểm gốc → chặn trần → điểm công nhận → ghi đè.
+ * Điểm KHÔNG bị nhân hệ số phòng/công ty; hạng mục chặn chỉ hạ trần xếp loại.
+ */
+export interface BscWaterfallResponse {
+  evaluationId: string
+  userId?: string | null
+  userName?: string | null
+  orgUnitName?: string | null
+  kpiPeriodId?: string | null
+  kpiPeriodName?: string | null
+
+  rawBscScore?: number | null
+  recognizedCapPercent?: number | null
+  cappedScore?: number | null
+
+  recognizedScore?: number | null
+
+  overrideScore?: number | null
+  overrideReasonCode?: string | null
+  overrideComment?: string | null
+  overriddenByName?: string | null
+  overriddenAt?: string | null
+
+  finalScore?: number | null
+
+  gatePassed?: boolean | null
+  gateCapRating?: number | null
+  gateFailedItems?: string | null
+  matrixRating?: number | null
+
+  perspectives: PerspectiveScoreResponse[]
+  /** Cách xử lý hạng mục không có KPI nào — quyết định độ lớn của điểm gốc. */
+  emptyPerspectivePolicy?: BscEmptyPerspectivePolicy | null
+
+  linkedWeightPercent?: number | null
+  linkedWeightRequired?: number | null
+  linkedWeightSatisfied?: boolean | null
+}
+
+export interface BscOverrideRequest {
+  /** null = huỷ ghi đè, trả điểm về con số hệ thống tính. */
+  score?: number | null
+  reasonCode: string
+  comment?: string
+}
+
+export interface LinkedWeightCheck {
+  linkedPercent: number
+  minRequired: number
+  satisfied: boolean
+  /** true = mức BLOCK (chặn hẳn), false = chỉ cảnh báo. */
+  enforced: boolean
+}
+
+// ================================================================
+// Chia chỉ tiêu BSC thành KPI theo từng đợt ("KPI = BSC")
+// ================================================================
+
+export interface BscKpiPlanPeriod {
+  kpiPeriodId: string
+  name: string
+  periodType: string
+  startDate?: string | null
+  endDate?: string | null
+  /** Tổng mục tiêu của các KPI đã gắn chỉ tiêu này trong đợt. */
+  allocatedValue: number
+  /** Tổng trọng số (%) của các KPI đó trong hạng mục. */
+  allocatedWeight: number
+  kpiCount: number
+}
+
+/** Mục tiêu của một chỉ tiêu BSC + các đợt để chia nó ra thành KPI. */
+export interface BscKpiPlanResponse {
+  scorecardId: string
+  scorecardName: string
+  scorecardPerspectiveId: string
+  perspectiveId: string
+  name: string
+  color?: string | null
+  unit?: string | null
+  targetValue?: number | null
+  minimumValue?: number | null
+  weightPercentage?: number | null
+  orgUnits: ScorecardOrgUnitResponse[]
+  periods: BscKpiPlanPeriod[]
+  allocatedValue: number
+  /** Còn lại so với mục tiêu; null khi chỉ tiêu chưa đặt mục tiêu. */
+  remainingValue?: number | null
+}
+
+export interface BscKpiAllocationRequest {
+  kpiPeriodId: string
+  /** Bỏ trống ⇒ backend đặt "{tên hạng mục} — {tên đợt}". */
+  name?: string
+  targetValue: number
+  minimumValue?: number | null
+  weight: number
+  frequency?: string
+  deadline?: string | null
+}
+
+export interface CreateKpiFromBscRequest {
+  scorecardPerspectiveId: string
+  /** Bỏ trống ⇒ các phòng ban của bộ tiêu chí. */
+  orgUnitIds?: string[]
+  assignedToIds?: string[]
+  /** Giao cho toàn bộ nhân sự của từng đơn vị nhận KPI — server tự nở danh sách theo từng đơn vị. */
+  assignToAllUnitMembers?: boolean
+  description?: string
+  unit?: string | null
+  isReverseKpi?: boolean
+  allocations: BscKpiAllocationRequest[]
+}

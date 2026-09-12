@@ -76,6 +76,35 @@ export interface CycleUserEvaluation {
 }
 
 // Đánh giá tổng hợp phòng ban theo kỳ. Matches BE: CycleUnitEvaluationResponse
+/** Một mức trên biểu đồ bell curve của kỳ: số thực tế đặt cạnh hạn mức đã cấu hình. */
+export interface CycleCurveBucket {
+  level: string
+  color: string
+  count: number
+  /** % trên TỔNG nhân sự — cùng mẫu số với hạn mức. */
+  percent: number
+  /** Null khi đơn vị không áp khung bell curve nào. */
+  targetPercent: number | null
+  minPercent: number | null
+  maxPercent: number | null
+  minCount: number | null
+  maxCount: number | null
+  over: boolean
+  under: boolean
+}
+
+/** Phân bố mức của đơn vị trong kỳ + khung bell curve đang áp. */
+export interface CycleCurve {
+  configured: boolean
+  profileName: string | null
+  mode: 'warn' | 'block' | null
+  tolerance: number
+  headcount: number
+  evaluated: number
+  /** Cao → thấp. */
+  buckets: CycleCurveBucket[]
+}
+
 export interface CycleUnitEvaluation {
   cycleId: string
   cycleName: string
@@ -83,7 +112,17 @@ export interface CycleUnitEvaluation {
   orgUnitName: string
   mode: CycleEvaluationMode
   selfScore: number | null
+  /** Điểm CUỐI CÙNG của đơn vị: điểm chấm tay nếu có, không thì TB thành viên. */
   managerScore: number | null
+  /** TB điểm chốt kỳ của thành viên — luôn có, để đối chiếu với điểm chấm tay. */
+  autoScore?: number | null
+  /** Điểm đơn vị do người có quyền chấm tay; null = đang dùng TB tự tính. */
+  overrideScore?: number | null
+  overrideReason?: string | null
+  overriddenByName?: string | null
+  overriddenAt?: string | null
+  /** Dữ liệu vẽ bell curve của kỳ cho đơn vị này. */
+  bellCurve?: CycleCurve | null
   /** TB mức định tính (0-5) và TB xếp loại ma trận (1-5) của thành viên. */
   qualScore: number | null
   matrixRating: number | null

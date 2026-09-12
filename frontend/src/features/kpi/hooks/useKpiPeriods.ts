@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { kpiPeriodApi } from '../api/kpiPeriodApi'
 import type { KpiPeriod } from '@/types/kpi'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/apiError'
 
 interface UseKpiPeriodsOptions {
   page?: number
@@ -30,7 +31,7 @@ export const useKpiPeriods = (options: UseKpiPeriodsOptions = {}) => {
       qc.invalidateQueries({ queryKey: ['kpiCycles'] })
       toast.success('Đã tạo đợt KPI mới')
     },
-    onError: () => toast.error('Tạo đợt KPI thất bại'),
+    onError: (error) => toast.error(getApiErrorMessage(error, 'Tạo đợt KPI thất bại')),
   })
 
   const updateMutation = useMutation({
@@ -40,7 +41,7 @@ export const useKpiPeriods = (options: UseKpiPeriodsOptions = {}) => {
       qc.invalidateQueries({ queryKey: ['kpiCycles'] })
       toast.success('Đã cập nhật đợt KPI')
     },
-    onError: () => toast.error('Cập nhật đợt KPI thất bại'),
+    onError: (error) => toast.error(getApiErrorMessage(error, 'Cập nhật đợt KPI thất bại')),
   })
 
   const deleteMutation = useMutation({
@@ -50,7 +51,7 @@ export const useKpiPeriods = (options: UseKpiPeriodsOptions = {}) => {
       qc.invalidateQueries({ queryKey: ['kpiCycles'] })
       toast.success('Đã xoá đợt KPI')
     },
-    onError: () => toast.error('Xoá đợt KPI thất bại'),
+    onError: (error) => toast.error(getApiErrorMessage(error, 'Xoá đợt KPI thất bại')),
   })
 
   return {

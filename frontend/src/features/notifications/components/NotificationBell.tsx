@@ -4,7 +4,12 @@ import { useWebSocketNotifications } from '../hooks/useWebSocketNotifications'
 import { useState, useRef } from 'react'
 import NotificationDropdown from './NotificationDropdown'
 import { useOnClickOutside } from '@/hooks/useOnClickOutside'
+import { Button } from '@/components/ui/button'
 
+/**
+ * Chuông thông báo trên header. Số chưa đọc là huy hiệu nhỏ góc trên phải — không nhấp
+ * nháy, không bóng: nó phải thấy được khi liếc qua chứ không được kéo mắt liên tục.
+ */
 export default function NotificationBell() {
   useWebSocketNotifications()
   const { data: unreadCount } = useUnreadCount()
@@ -13,19 +18,21 @@ export default function NotificationBell() {
 
   useOnClickOutside(containerRef, () => setOpen(false))
 
+  const hasUnread = unreadCount != null && unreadCount > 0
+
   return (
     <div className="relative" ref={containerRef}>
-      <button
-        onClick={() => setOpen(!open)}
-        className="w-9 h-9 rounded-lg flex items-center justify-center hover:bg-[var(--color-accent)] transition-colors relative"
-      >
-        <Bell size={18} />
-        {unreadCount != null && unreadCount > 0 && (
-          <span className="absolute -top-1 -right-1 min-w-[16px] h-4 px-1 rounded-full bg-red-600 text-white text-[9px] flex items-center justify-center font-black border-2 border-white dark:border-slate-900 shadow-sm leading-none translate-x-1/4 -translate-y-1/4">
+      <Button variant="secondary" type="button" onClick={() => setOpen(!open)} aria-label={hasUnread ? `Thông báo, ${unreadCount} chưa đọc` : 'Thông báo'} aria-expanded={open} aria-haspopup="dialog">
+        <Bell aria-hidden="true" />
+        {hasUnread && (
+          <span
+            aria-hidden="true"
+            className="absolute right-1 top-1 flex h-4 min-w-4 items-center justify-center rounded-full border-2 border-[var(--color-card)] bg-[var(--color-destructive)] px-1 text-xs font-semibold leading-none tabular-nums text-white"
+          >
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         )}
-      </button>
+      </Button>
       {open && <NotificationDropdown onClose={() => setOpen(false)} />}
     </div>
   )

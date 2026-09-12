@@ -25,14 +25,14 @@ export function PinnedWidgetsSection({ widgets, onUnpin }: { widgets?: ReportWid
   return (
     <section className="space-y-4">
       <div className="flex items-center justify-between">
-        <h3 className="font-black text-slate-900 dark:text-white flex items-center gap-2">
-          <Pin size={18} className="text-indigo-600 rotate-45" /> Thống kê đã ghim
+        <h3 className="text-section-title text-[var(--color-foreground)] flex items-center gap-2">
+          <Pin size={16} className="rotate-45 text-[var(--color-muted-foreground)]" aria-hidden="true" /> Thống kê đã ghim
         </h3>
       </div>
 
       {/* Thanh lọc — sticky trong phạm vi mục ghim, tự ẩn khi cuộn hết mục */}
-      <div className="sticky top-0 z-20 bg-white/95 dark:bg-slate-900/95 backdrop-blur border border-slate-200 dark:border-slate-800 rounded-2xl shadow-sm p-3 flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
-        <span className="text-xs font-bold text-slate-400">Bộ lọc áp cho biểu đồ đã ghim</span>
+      <div className="sticky top-0 z-20 bg-[var(--color-card)] border border-[var(--color-border)] rounded-card shadow-sm p-3 flex flex-col sm:flex-row sm:items-center gap-3 justify-between">
+        <span className="text-caption">Bộ lọc áp cho biểu đồ đã ghim</span>
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-4">
           {controls}
         </div>

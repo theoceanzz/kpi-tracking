@@ -44,6 +44,11 @@ export interface BscTrendPoint {
   overall?: number | null
   /** perspectiveId → điểm đạt tại mốc này. */
   values: Record<string, number>
+  /**
+   * perspectiveId → điểm ĐÃ NHÂN TRỌNG SỐ tại mốc này. Tổng các giá trị bằng đúng `overall`, nên
+   * chỉ trường này mới vẽ được cơ cấu 100% — `values` là bốn thang điểm độc lập, cộng lại vô nghĩa.
+   */
+  weighted?: Record<string, number>
 }
 export interface BscTrend {
   perspectives: BscPerspectiveMeta[]

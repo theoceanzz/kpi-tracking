@@ -1,4 +1,5 @@
 import { useState, useMemo } from 'react'
+import ChartTooltip from '@/components/charts/ChartTooltip'
 import { useQuery } from '@tanstack/react-query'
 import { Users, Activity, Trophy, TrendingDown, ClipboardList } from 'lucide-react'
 import {
@@ -15,6 +16,7 @@ import {
   Cell,
   Label,
 } from 'recharts'
+import { METRIC_COLORS } from '@/components/charts/chartPalette'
 import {
   Select,
   SelectContent,
@@ -30,26 +32,26 @@ import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import ObjectiveDrawer from './ObjectiveDrawer'
 import { QualitativeDistributionChart } from './QualitativeDistributionChart'
 import { QualitativeResultChip } from './QualitativeResultChip'
+import { ChoiceChip } from '@/components/ui/choice-chip'
 
 // Bộ lọc thời gian trong drawer — đơn giản (đồng bộ với các drawer khác), không dùng chọn đợt/khoảng đợt.
 type DateFilterType = 'GLOBAL' | 'THIS_WEEK' | 'THIS_MONTH' | 'THIS_QUARTER' | '6_MONTHS' | 'THIS_YEAR' | 'CUSTOM'
 type RankFilter = 'BEST' | 'WORST'
 
 const ASSIGNEE_COLORS = ['#f59e0b', '#8b5cf6', '#ec4899', '#0ea5e9', '#14b8a6', '#f97316', '#a855f7']
-const COMPLETION_COLORS = { normal: '#10b981', dim: '#10b98140' }
 
 // ── Trend chart tooltip ───────────────────────────────────────────────────────
 function TrendTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null
   return (
-    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-xl shadow-lg">
-      <p className="font-bold text-slate-900 dark:text-white mb-3">{label}</p>
+    <div className="bg-[var(--color-card)] border border-[var(--color-border)] p-4 rounded-card">
+      <p className="font-semibold text-[var(--color-foreground)] mb-3">{label}</p>
       <div className="space-y-2">
         {payload.map((p: any, i: number) => (
           <div key={i} className="flex items-center gap-3 text-sm">
             <div className="w-3 h-3 rounded-sm flex-shrink-0" style={{ backgroundColor: p.color }} />
-            <span className="text-slate-500 font-medium min-w-[120px]">{p.name}:</span>
-            <span className="font-bold text-slate-900 dark:text-white">
+            <span className="text-[var(--color-muted-foreground)] font-medium min-w-[120px]">{p.name}:</span>
+            <span className="font-semibold text-[var(--color-foreground)]">
               {p.name.includes('%') ? `${Math.round(p.value)}%` : p.value?.toLocaleString('vi-VN')}
             </span>
           </div>
@@ -62,17 +64,11 @@ function TrendTooltip({ active, payload, label }: any) {
 // ── Generic bar tooltip ───────────────────────────────────────────────────────
 function BarTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null
-  const displayName = payload[0]?.payload?.tooltipName || label
   return (
-    <div className="bg-slate-900 text-white px-3 py-2 rounded-lg text-xs shadow-xl border border-white/10 max-w-[220px]">
-      <p className="font-bold mb-1 break-words">{displayName}</p>
-      {payload.map((p: any, i: number) => (
-        <p key={i} className="flex items-center gap-1.5">
-          <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: p.color }} />
-          {p.name}: <span className="font-bold">{Math.round(p.value)}%</span>
-        </p>
-      ))}
-    </div>
+    <ChartTooltip
+      title={payload[0]?.payload?.tooltipName || label}
+      rows={payload.map((p: any) => ({ color: p.color, label: p.name, value: `${Math.round(p.value)}%` }))}
+    />
   )
 }
 
@@ -89,29 +85,13 @@ function BarTopLabel({ x, y, width, value }: any) {
 // ── BEST/WORST toggle header ──────────────────────────────────────────────────
 function RankToggle({ filter, onChange }: { filter: RankFilter; onChange: (f: RankFilter) => void }) {
   return (
-    <div className="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 gap-0.5">
-      <button
-        onClick={() => onChange('BEST')}
-        className={cn(
-          'flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold transition-all',
-          filter === 'BEST'
-            ? 'bg-white dark:bg-slate-700 text-emerald-600 dark:text-emerald-400 shadow-sm'
-            : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
-        )}
-      >
-        <Trophy size={11} /> Tốt nhất
-      </button>
-      <button
-        onClick={() => onChange('WORST')}
-        className={cn(
-          'flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold transition-all',
-          filter === 'WORST'
-            ? 'bg-white dark:bg-slate-700 text-rose-600 dark:text-rose-400 shadow-sm'
-            : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
-        )}
-      >
-        <TrendingDown size={11} /> Trì trệ
-      </button>
+    <div className="flex bg-[var(--color-muted)] rounded-control p-0.5 gap-0.5">
+      <ChoiceChip selected={filter === 'BEST'} variant="segment" size="sm" className="py-1" onClick={() => onChange('BEST')}>
+        <Trophy /> Tốt nhất
+      </ChoiceChip>
+      <ChoiceChip selected={filter === 'WORST'} variant="segment" size="sm" className="py-1" onClick={() => onChange('WORST')}>
+        <TrendingDown /> Trì trệ
+      </ChoiceChip>
     </div>
   )
 }
@@ -154,12 +134,12 @@ function AssigneeBarPanel({
   const domain = Math.ceil(maxVal / 50) * 50
   const barSize = Math.max(20, Math.min(44, Math.floor(180 / Math.max(chartData.length, 1))))
 
-  if (!data.length) return <div className="h-[280px] flex items-center justify-center text-slate-400 text-sm">Không có dữ liệu</div>
+  if (!data.length) return <div className="h-[280px] flex items-center justify-center text-[var(--color-subtle-foreground)] text-sm">Không có dữ liệu</div>
 
   return (
-    <div className="bg-white dark:bg-slate-900/60 rounded-xl border border-slate-200 dark:border-white/10 p-5 shadow-sm">
+    <div className="bg-[var(--color-card)] rounded-card border border-[var(--color-border)] /10 p-5 shadow-sm">
       <div className="flex items-center justify-between mb-4">
-        <h4 className="text-sm font-bold text-slate-700 dark:text-slate-200">{title}</h4>
+        <h4 className="text-sm font-medium text-[var(--color-foreground)]">{title}</h4>
         <RankToggle filter={filter} onChange={onFilterChange} />
       </div>
       <div className="h-[260px]">
@@ -227,12 +207,12 @@ function SubmissionBarPanel({
   const maxVal = Math.max(...chartData.map(d => d[dataKey] as number), 100)
   const domain = Math.ceil(maxVal / 50) * 50
 
-  if (!data.length) return <div className="h-[280px] flex items-center justify-center text-slate-400 text-sm">Không có dữ liệu</div>
+  if (!data.length) return <div className="h-[280px] flex items-center justify-center text-[var(--color-subtle-foreground)] text-sm">Không có dữ liệu</div>
 
   return (
-    <div className="bg-white dark:bg-slate-900/60 rounded-xl border border-slate-200 dark:border-white/10 p-5 shadow-sm">
+    <div className="bg-[var(--color-card)] rounded-card border border-[var(--color-border)] /10 p-5 shadow-sm">
       <div className="flex items-center justify-between mb-4">
-        <h4 className="text-sm font-bold text-slate-700 dark:text-slate-200">{title}</h4>
+        <h4 className="text-sm font-medium text-[var(--color-foreground)]">{title}</h4>
         <RankToggle filter={filter} onChange={onFilterChange} />
       </div>
       <div className="h-[260px]">
@@ -271,13 +251,13 @@ function SubmissionBarPanel({
 
 // ── Context badge (thông tin ngữ cảnh cạnh tiêu đề) ──────────────────────────
 const BADGE_STYLES: Record<string, string> = {
-  violet: 'bg-violet-50 text-violet-600 border-violet-200 dark:bg-violet-900/20 dark:text-violet-400 dark:border-violet-900/40',
-  slate: 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700',
-  blue: 'bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-900/40',
+  violet: 'bg-[var(--color-primary-soft)] text-[var(--color-primary)] border-[var(--color-border)]',
+  slate: 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)] border-[var(--color-border)]',
+  blue: 'bg-[var(--color-info-bg)] text-[var(--color-info)] border-[var(--color-info-border)] dark:bg-[var(--color-info-bg)] dark:text-[var(--color-info)] dark:border-[var(--color-info-border)]',
 }
 function ContextBadge({ color, label }: { color: keyof typeof BADGE_STYLES; label: string }) {
   return (
-    <span className={cn('inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold border', BADGE_STYLES[color])}>
+    <span className={cn('inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border', BADGE_STYLES[color])}>
       {label}
     </span>
   )
@@ -362,23 +342,23 @@ export default function OrgUnitKpiDrawer({
     setActiveAssignees(prev => prev.includes(uid) ? prev.filter(x => x !== uid) : [...prev, uid])
 
   const kpiTypeBadge = data?.isBonusKpi
-    ? { label: 'KPI thưởng', cls: 'bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-500/30' }
+    ? { label: 'KPI thưởng', cls: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)] border-[var(--color-warning-border)]' }
     : data?.isReverseKpi
-    ? { label: 'KPI ngược', cls: 'bg-violet-100 dark:bg-violet-900/40 text-violet-600 dark:text-violet-400 border-violet-200 dark:border-violet-500/30' }
-    : { label: 'KPI thường', cls: 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700' }
+    ? { label: 'KPI ngược', cls: 'bg-[var(--color-primary-soft)] text-[var(--color-primary)] border-[var(--color-border)]' }
+    : { label: 'KPI thường', cls: 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)] border-[var(--color-border)]' }
 
   const customTitle = (
     <div className="flex items-center flex-wrap gap-2">
-      <span className="text-base font-bold text-slate-900 dark:text-white leading-snug">
+      <span className="text-base font-semibold text-[var(--color-foreground)] leading-snug">
         {data?.kpiName || 'Chi tiết KPI'}
       </span>
       {data && (
-        <span className={cn('inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black uppercase border flex-shrink-0', kpiTypeBadge.cls)}>
+        <span className={cn('inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border flex-shrink-0', kpiTypeBadge.cls)}>
           {kpiTypeBadge.label}
         </span>
       )}
       {data?.isShared && (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400 text-[10px] font-black uppercase border border-purple-200 dark:border-purple-500/30 flex-shrink-0">
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[var(--color-primary-soft)] text-[var(--color-primary)] text-xs font-medium border border-[var(--color-border)] flex-shrink-0">
           <Users size={10} /> KPI chung
         </span>
       )}
@@ -403,7 +383,7 @@ export default function OrgUnitKpiDrawer({
             </div>
             <div className="flex flex-col sm:flex-row sm:flex-wrap sm:justify-end items-stretch sm:items-center gap-2">
               <Select value={dateFilterType} onValueChange={(v) => setDateFilterType(v as DateFilterType)}>
-                <SelectTrigger className="h-8 w-full sm:w-[220px] bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-300">
+                <SelectTrigger className="h-8 w-full sm:w-[220px] bg-[var(--color-muted)] border border-[var(--color-border)] rounded-control text-sm font-semibold text-[var(--color-foreground)]">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="w-[var(--radix-select-trigger-width)]">
@@ -418,10 +398,10 @@ export default function OrgUnitKpiDrawer({
               </Select>
               {dateFilterType === 'CUSTOM' && (
                 <div className="flex items-center gap-2">
-                  <input type="date" className="h-8 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 text-xs text-slate-700 dark:text-slate-300"
+                  <input type="date" className="h-8 bg-[var(--color-muted)] border border-[var(--color-border)] rounded-control px-2 text-xs text-[var(--color-foreground)]"
                     value={customRange.from} onChange={(e) => setCustomRange(prev => ({ ...prev, from: e.target.value }))} />
-                  <span className="text-slate-400">-</span>
-                  <input type="date" className="h-8 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 text-xs text-slate-700 dark:text-slate-300"
+                  <span className="text-[var(--color-subtle-foreground)]">-</span>
+                  <input type="date" className="h-8 bg-[var(--color-muted)] border border-[var(--color-border)] rounded-control px-2 text-xs text-[var(--color-foreground)]"
                     value={customRange.to} onChange={(e) => setCustomRange(prev => ({ ...prev, to: e.target.value }))} />
                 </div>
               )}
@@ -432,26 +412,26 @@ export default function OrgUnitKpiDrawer({
           {isQual && (
             <>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="bg-violet-50 dark:bg-violet-900/20 p-4 rounded-2xl border border-violet-100 dark:border-violet-900/30">
-                  <p className="text-[10px] font-bold text-violet-500 mb-1.5">Mức kết quả</p>
+                <div className="bg-[var(--color-primary-soft)] p-4 rounded-card border border-[var(--color-border)]">
+                  <p className="text-xs font-medium text-[var(--color-primary)] mb-1.5">Mức kết quả</p>
                   <QualitativeResultChip level={data?.qualitativeLevelName} />
                 </div>
-                <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-2xl border border-blue-100 dark:border-blue-900/30">
-                  <p className="text-[10px] font-bold text-blue-500 mb-1">Tổng bài nộp</p>
-                  <p className="text-xl font-black text-blue-700 dark:text-blue-400">{data?.topSubmissions?.length ?? 0}</p>
+                <div className="bg-[var(--color-info-bg)] p-4 rounded-card border border-[var(--color-info-border)]">
+                  <p className="text-xs font-medium text-[var(--color-info)] mb-1">Tổng bài nộp</p>
+                  <p className="text-xl font-semibold text-[var(--color-info)]">{data?.topSubmissions?.length ?? 0}</p>
                 </div>
               </div>
-              <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
-                <h3 className="text-sm font-black text-slate-900 dark:text-white mb-3">Phân bố mức đánh giá</h3>
+              <div className="bg-[var(--color-card)] p-5 rounded-card border border-[var(--color-border)] shadow-sm">
+                <h3 className="text-section-title text-[var(--color-foreground)] mb-3">Phân bố mức đánh giá</h3>
                 <QualitativeDistributionChart distribution={data?.qualitativeDistribution} />
               </div>
               {(data?.topSubmissions?.length ?? 0) > 0 && (
-                <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
-                  <h3 className="text-sm font-black text-slate-900 dark:text-white mb-3">Bài nộp gần đây</h3>
+                <div className="bg-[var(--color-card)] p-5 rounded-card border border-[var(--color-border)] shadow-sm">
+                  <h3 className="text-section-title text-[var(--color-foreground)] mb-3">Bài nộp gần đây</h3>
                   <div className="space-y-2">
                     {data!.topSubmissions.map((s, i) => (
-                      <div key={i} className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 dark:border-slate-800 px-3 py-2">
-                        <span className="text-sm font-bold text-slate-700 dark:text-slate-200 truncate">{s.submitterName}</span>
+                      <div key={i} className="flex items-center justify-between gap-3 rounded-card border border-[var(--color-border)] px-3 py-2">
+                        <span className="text-sm font-medium text-[var(--color-foreground)] truncate">{s.submitterName}</span>
                         <QualitativeResultChip level={s.qualitativeLevelName} />
                       </div>
                     ))}
@@ -464,36 +444,36 @@ export default function OrgUnitKpiDrawer({
           {/* Metrics số — chỉ tiến độ (KPI định lượng) */}
           {!isQual && (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="bg-slate-50 dark:bg-slate-900/60 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
-              <p className="text-[10px] font-bold text-slate-500 mb-1">Mục tiêu yêu cầu</p>
-              <p className="text-xl font-black text-slate-900 dark:text-white">
-                {data?.targetValue?.toLocaleString('vi-VN')} <span className="text-xs font-medium text-slate-500">{data?.unit}</span>
+            <div className="bg-[var(--color-muted)] p-4 rounded-card border border-[var(--color-border)]">
+              <p className="text-caption mb-1">Mục tiêu yêu cầu</p>
+              <p className="text-xl font-semibold text-[var(--color-foreground)]">
+                {data?.targetValue?.toLocaleString('vi-VN')} <span className="text-xs font-medium text-[var(--color-muted-foreground)]">{data?.unit}</span>
               </p>
             </div>
-            <div className="bg-violet-50 dark:bg-violet-900/20 p-4 rounded-2xl border border-violet-100 dark:border-violet-900/30">
-              <p className="text-[10px] font-bold text-violet-500 mb-1">Lũy kế tổng</p>
-              <p className="text-xl font-black text-violet-700 dark:text-violet-400">
-                {data?.totalActualValue?.toLocaleString('vi-VN')} <span className="text-xs font-medium text-violet-400">{data?.unit}</span>
+            <div className="bg-[var(--color-primary-soft)] p-4 rounded-card border border-[var(--color-border)]">
+              <p className="text-xs font-medium text-[var(--color-primary)] mb-1">Lũy kế tổng</p>
+              <p className="text-xl font-semibold text-[var(--color-primary)]">
+                {data?.totalActualValue?.toLocaleString('vi-VN')} <span className="text-xs font-medium text-[var(--color-primary)]">{data?.unit}</span>
               </p>
-              <p className="text-[10px] font-bold text-violet-500 mt-1">Đạt {data?.totalProgress?.toFixed(1)}%</p>
+              <p className="text-xs font-medium text-[var(--color-primary)] mt-1">Đạt {data?.totalProgress?.toFixed(1)}%</p>
             </div>
-            <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-2xl border border-blue-100 dark:border-blue-900/30">
-              <p className="text-[10px] font-bold text-blue-500 mb-1">Tổng bài nộp</p>
-              <p className="text-xl font-black text-blue-700 dark:text-blue-400">{data?.topSubmissions?.length ?? 0}</p>
+            <div className="bg-[var(--color-info-bg)] p-4 rounded-card border border-[var(--color-info-border)]">
+              <p className="text-xs font-medium text-[var(--color-info)] mb-1">Tổng bài nộp</p>
+              <p className="text-xl font-semibold text-[var(--color-info)]">{data?.topSubmissions?.length ?? 0}</p>
             </div>
           </div>
           )}
 
           {/* Trend chart */}
           {!isQual && data?.chartPoints && data.chartPoints.length > 0 && (
-            <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800">
+            <div className="bg-[var(--color-card)] rounded-widget p-6 border border-[var(--color-border)]">
               {/* Header */}
               <div className="mb-4">
-                <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  <Activity size={18} className="text-violet-500" />
+                <h3 className="text-section-title text-[var(--color-foreground)] flex items-center gap-2">
+                  <Activity size={18} className="text-[var(--color-primary)]" />
                   Xu hướng tiến độ theo thời gian
                 </h3>
-                <p className="text-sm text-slate-500 mt-1">
+                <p className="text-sm text-[var(--color-muted-foreground)] mt-1">
                   So sánh lũy kế thực tế với mục tiêu theo từng mốc thời gian
                 </p>
               </div>
@@ -506,10 +486,10 @@ export default function OrgUnitKpiDrawer({
                       key={a.userId}
                       onClick={() => toggleAssignee(a.userId)}
                       className={cn(
-                        'px-2.5 py-1 rounded-full text-[10px] font-bold transition-all border',
+                        'px-2.5 py-1 rounded-full text-xs font-medium transition-all border',
                         activeAssignees.includes(a.userId)
                           ? 'text-white border-transparent'
-                          : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300 dark:bg-slate-900 dark:border-slate-700'
+                          : 'bg-white text-[var(--color-muted-foreground)] border-[var(--color-border)] hover:border-[var(--color-border-strong)]'
                       )}
                       style={activeAssignees.includes(a.userId)
                         ? { backgroundColor: ASSIGNEE_COLORS[idx % ASSIGNEE_COLORS.length], borderColor: ASSIGNEE_COLORS[idx % ASSIGNEE_COLORS.length] }
@@ -522,7 +502,7 @@ export default function OrgUnitKpiDrawer({
                 </div>
               )}
 
-              <div className="text-xs font-bold text-slate-400 dark:text-slate-500 mb-2 px-1">
+              <div className="text-caption mb-2 px-1">
                 <span>Đơn vị ({data.unit || ''})</span>
               </div>
               <div className="h-[320px]">
@@ -551,14 +531,14 @@ export default function OrgUnitKpiDrawer({
 
           {/* ── Top người đảm nhiệm ──────────────────────────────────────────── */}
           {!isQual && data?.assigneeStats && data.assigneeStats.length > 0 && (
-            <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800">
+            <div className="bg-[var(--color-card)] rounded-widget p-6 border border-[var(--color-border)]">
               <div className="flex items-center gap-2.5 mb-6">
-                <div className="p-2 bg-gradient-to-br from-amber-400 to-orange-500 rounded-xl shadow-lg shadow-amber-500/20">
+                <div className="p-2 bg-[var(--color-warning-solid)] rounded-card">
                   <Users size={16} className="text-white" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-black text-slate-900 dark:text-white">Top người đảm nhiệm</h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Tiến độ hoàn thành theo từng người thực hiện</p>
+                  <h3 className="text-section-title">Top người đảm nhiệm</h3>
+                  <p className="text-xs text-[var(--color-muted-foreground)]">Tiến độ hoàn thành theo từng người thực hiện</p>
                 </div>
               </div>
               <div className="grid grid-cols-1 gap-6">
@@ -568,7 +548,7 @@ export default function OrgUnitKpiDrawer({
                   data={data.assigneeStats}
                   filter={assigneeCompFilter}
                   onFilterChange={setAssigneeCompFilter}
-                  colors={COMPLETION_COLORS}
+                  colors={METRIC_COLORS.completion}
                   hoveredId={hoveredAssigneeId}
                   onHoverChange={setHoveredAssigneeId}
                 />
@@ -578,14 +558,14 @@ export default function OrgUnitKpiDrawer({
 
           {/* ── Top bài nộp ──────────────────────────────────────────────────── */}
           {!isQual && data?.topSubmissions && data.topSubmissions.length > 0 && (
-            <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800">
+            <div className="bg-[var(--color-card)] rounded-widget p-6 border border-[var(--color-border)]">
               <div className="flex items-center gap-2.5 mb-6">
-                <div className="p-2 bg-gradient-to-br from-violet-500 to-indigo-600 rounded-xl shadow-lg shadow-indigo-500/20">
+                <div className="p-2 bg-[var(--color-primary)] rounded-card">
                   <ClipboardList size={16} className="text-white" />
                 </div>
                 <div>
-                  <h3 className="text-sm font-black text-slate-900 dark:text-white">Top bài nộp</h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Tiến độ đóng góp theo từng bài nộp</p>
+                  <h3 className="text-section-title">Top bài nộp</h3>
+                  <p className="text-xs text-[var(--color-muted-foreground)]">Tiến độ đóng góp theo từng bài nộp</p>
                 </div>
               </div>
               <div className="grid grid-cols-1 gap-6">
@@ -595,7 +575,7 @@ export default function OrgUnitKpiDrawer({
                   data={data.topSubmissions}
                   filter={subCompFilter}
                   onFilterChange={setSubCompFilter}
-                  colors={COMPLETION_COLORS}
+                  colors={METRIC_COLORS.completion}
                   hoveredId={hoveredSubmissionId}
                   onHoverChange={setHoveredSubmissionId}
                 />

@@ -1,6 +1,7 @@
 import { CalendarCheck, Check, Flame, Gift, Loader2 } from 'lucide-react'
 import { useCheckin, useMyCheckinStatus } from '../hooks/useCheckin'
 import type { CheckinDay, CheckinStatus } from '../types'
+import { Button } from '@/components/ui/button'
 
 const WEEKDAY = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7']
 
@@ -17,16 +18,16 @@ const dayOfMonth = (iso: string) => Number(iso.split('-')[2])
  */
 function DayDot({ day, isToday }: { day: CheckinDay; isToday: boolean }) {
   const base =
-    'flex h-9 w-9 items-center justify-center rounded-xl border text-xs font-semibold transition-colors'
+    'flex h-9 w-9 items-center justify-center rounded-card border text-xs font-semibold transition-colors'
   const cls = day.checkedIn
-    ? 'border-transparent bg-emerald-500 text-white'
+    ? 'border-transparent bg-[var(--color-success-solid)] text-white'
     : day.restDay
       ? 'border-dashed border-[var(--color-border)] text-[var(--color-muted-foreground)]/50'
       : 'border-[var(--color-border)] text-[var(--color-muted-foreground)]'
 
   return (
     <div className="flex flex-col items-center gap-1">
-      <span className="text-[10px] font-medium text-[var(--color-muted-foreground)]">
+      <span className="text-caption">
         {weekdayOf(day.date)}
       </span>
       <div
@@ -60,7 +61,7 @@ function StreakBonusStrip({ status }: { status: CheckinStatus }) {
             key={b.day}
             className={`inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-medium ${
               reached
-                ? 'bg-amber-500/15 text-amber-700 dark:text-amber-400'
+                ? 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]'
                 : 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)]'
             }`}
           >
@@ -82,7 +83,7 @@ export default function CheckinCard() {
   const { mutate: checkin, isPending } = useCheckin()
 
   if (isLoading) {
-    return <div className="h-36 animate-pulse rounded-3xl bg-[var(--color-muted)]" />
+    return <div className="h-36 animate-pulse rounded-widget bg-[var(--color-muted)]" />
   }
   if (!status?.enabled) return null
 
@@ -94,19 +95,19 @@ export default function CheckinCard() {
       : null
 
   return (
-    <div className="rounded-3xl border border-[var(--color-border)] bg-[var(--color-card)] p-5 sm:p-6">
+    <div className="rounded-widget border border-[var(--color-border)] bg-[var(--color-card)] p-5 sm:p-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0">
-          <div className="flex items-center gap-2 text-[11px] font-black uppercase tracking-[0.2em] text-[var(--color-muted-foreground)]">
+          <div className="flex items-center gap-2 text-eyebrow">
             <CalendarCheck size={14} />
             Điểm danh hàng ngày
           </div>
 
           <div className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
-            <span className="inline-flex items-center gap-1.5 text-2xl font-black tracking-tight">
+            <span className="inline-flex items-center gap-1.5 text-2xl font-semibold tracking-tight">
               <Flame
                 size={22}
-                className={status.streakLength > 0 ? 'text-orange-500' : 'text-[var(--color-muted-foreground)]'}
+                className={status.streakLength > 0 ? 'text-[var(--color-warning)]' : 'text-[var(--color-muted-foreground)]'}
               />
               {status.streakLength} ngày
             </span>
@@ -127,29 +128,25 @@ export default function CheckinCard() {
 
         {/* Nút nêu thẳng con số sắp nhận. "Điểm danh" trơ trọi thì nhân viên phải bấm
             mới biết được bao nhiêu, mà mốc thưởng chuỗi lại làm con số đó thay đổi. */}
-        <button
-          onClick={() => checkin()}
-          disabled={!status.canCheckin || isPending}
-          className="inline-flex flex-shrink-0 items-center gap-2 rounded-xl bg-[var(--color-primary)] px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-        >
+        <Button onClick={() => checkin()} disabled={!status.canCheckin || isPending}>
           {isPending ? (
-            <Loader2 size={16} className="animate-spin" />
+            <Loader2 aria-hidden="true" className="animate-spin" />
           ) : status.checkedInToday ? (
-            <Check size={16} strokeWidth={3} />
+            <Check aria-hidden="true" strokeWidth={3} />
           ) : (
-            <CalendarCheck size={16} />
+            <CalendarCheck aria-hidden="true" />
           )}
           {status.checkedInToday
             ? 'Đã điểm danh'
             : status.canCheckin
               ? `Điểm danh +${status.nextPoints}`
               : 'Điểm danh'}
-        </button>
+        </Button>
       </div>
 
       {/* Chỉ báo trước phần thưởng mốc khi nó thực sự sắp rơi vào lần bấm này. */}
       {status.canCheckin && (status.nextBonusPoints ?? 0) > 0 && (
-        <p className="mt-3 inline-flex items-center gap-1.5 rounded-lg bg-amber-500/10 px-3 py-1.5 text-sm font-medium text-amber-700 dark:text-amber-400">
+        <p className="mt-3 inline-flex items-center gap-1.5 rounded-control bg-[var(--color-warning-bg)] px-3 py-1.5 text-sm font-medium text-[var(--color-warning)]">
           <Gift size={14} />
           Điểm danh hôm nay chạm mốc ngày {status.streakDay} — thưởng thêm {status.nextBonusPoints} điểm!
         </p>

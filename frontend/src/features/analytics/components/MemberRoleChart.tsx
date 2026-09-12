@@ -1,9 +1,40 @@
 import { useMemo } from 'react'
+import { xAxisLabel } from '@/components/charts/axisLabel'
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts'
+import { seriesColor } from '@/components/charts/chartPalette'
+import ChartTooltip from '@/components/charts/ChartTooltip'
 
 type RoleDist = { unitName: string; roles: { roleName: string; count: number }[] }
 
-const COLORS = ['#6366f1', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#ec4899']
+
+interface RoleTooltipEntry {
+  name?: string
+  value?: number
+  color?: string
+  payload?: { __total?: number }
+}
+
+function RoleTooltip({ active, payload, label }: {
+  active?: boolean
+  payload?: RoleTooltipEntry[]
+  label?: string
+}) {
+  if (!active || !payload?.length) return null
+  const total = payload[0]?.payload?.__total ?? 0
+  // Bỏ những vai trò không có ai: biểu đồ xếp chồng luôn truyền đủ mọi chuỗi vào payload, nên
+  // đơn vị nhỏ sẽ hiện một danh sách dài toàn số 0 — nhiễu hơn là thông tin.
+  const rows = payload
+    .filter(p => (p.value ?? 0) > 0)
+    .map(p => ({ color: p.color, label: p.name ?? '', value: p.value ?? 0 }))
+  if (rows.length === 0) return null
+  return (
+    <ChartTooltip
+      title={label}
+      rows={rows}
+      footer={<>Tổng <span className="font-semibold text-[var(--color-muted-foreground)] tabular-nums">{total}</span> người</>}
+    />
+  )
+}
 
 /**
  * Segment vai trò tự vẽ: bo tròn góc phải CHỈ ở đoạn cuối cùng CÓ GIÁ TRỊ của mỗi hàng
@@ -23,7 +54,7 @@ function RoleSegment(props: any) {
       <path d={d} fill={fill} />
       {isLast && (
         <text x={right + 8} y={y + height / 2} dominantBaseline="central"
-          className="fill-slate-500 dark:fill-slate-300 text-[11px] font-bold">
+          className="fill-slate-500 dark:fill-slate-300 text-xs font-medium">
           {payload.__total}
         </text>
       )}
@@ -64,22 +95,22 @@ export default function MemberRoleChart({ data }: { data?: RoleDist[] }) {
   }, [dist])
 
   if (dist.length === 0) {
-    return <div className="flex-1 flex items-center justify-center text-slate-400 text-sm">Không có dữ liệu</div>
+    return <div className="flex-1 flex items-center justify-center text-[var(--color-subtle-foreground)] text-sm">Không có dữ liệu</div>
   }
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
       <div className="flex-1 min-h-0">
         <ResponsiveContainer width="100%" height="100%" minHeight={0}>
-          <BarChart data={chartData} layout="vertical" margin={{ top: 4, right: 48, left: 8, bottom: 4 }}>
+          <BarChart data={chartData} layout="vertical" margin={{ top: 4, right: 48, left: 8, bottom: 24 }}>
             <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
-            <XAxis type="number" allowDecimals={false} axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#64748b' }} />
+            <XAxis type="number" label={xAxisLabel('S\u1ed1 ng\u01b0\u1eddi')} allowDecimals={false} axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#64748b' }} />
             <YAxis dataKey="unitName" type="category" axisLine={false} tickLine={false} width={130}
               tick={{ fontSize: 11, fontWeight: 700, fill: '#64748b' }} />
-            <Tooltip cursor={{ fill: '#94a3b8', opacity: 0.06 }} />
+            <Tooltip content={<RoleTooltip />} cursor={{ fill: '#94a3b8', opacity: 0.06 }} />
             <Legend iconType="circle" wrapperStyle={{ fontSize: '10px', fontWeight: 800, paddingTop: '8px' }} />
             {roleNames.map((roleName, index) => (
-              <Bar key={roleName} dataKey={roleName} stackId="a" fill={COLORS[index % COLORS.length]} name={roleName}
+              <Bar key={roleName} dataKey={roleName} stackId="a" fill={seriesColor(index)} name={roleName}
                 barSize={22} isAnimationActive={false} shape={(p: any) => <RoleSegment {...p} roleName={roleName} />} />
             ))}
           </BarChart>
@@ -87,9 +118,9 @@ export default function MemberRoleChart({ data }: { data?: RoleDist[] }) {
       </div>
 
       {/* Tổng + chú thích */}
-      <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800 text-center">
-        <span className="text-[11px] font-bold">Tổng: <span className="text-slate-900 dark:text-white">{total}</span> người</span>
-        <p className="text-[10px] text-slate-400 mt-0.5">Đơn vị hiện tại gồm toàn bộ nhân sự (kể cả đơn vị con) · mỗi người tính theo vai trò ở đơn vị sâu nhất</p>
+      <div className="mt-2 pt-2 border-t border-[var(--color-border)] text-center">
+        <span className="text-xs font-medium">Tổng: <span className="text-[var(--color-foreground)]">{total}</span> người</span>
+        <p className="text-caption mt-0.5">Đơn vị hiện tại gồm toàn bộ nhân sự (kể cả đơn vị con) · mỗi người tính theo vai trò ở đơn vị sâu nhất</p>
       </div>
     </div>
   )

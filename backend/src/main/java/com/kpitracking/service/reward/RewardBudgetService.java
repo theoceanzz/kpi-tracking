@@ -7,6 +7,7 @@ import com.kpitracking.entity.KpiPeriod;
 import com.kpitracking.entity.Organization;
 import com.kpitracking.entity.RewardBudget;
 import com.kpitracking.entity.User;
+import com.kpitracking.event.RewardEvents;
 import com.kpitracking.exception.BusinessException;
 import com.kpitracking.exception.ResourceNotFoundException;
 import com.kpitracking.repository.KpiCycleRepository;
@@ -16,6 +17,7 @@ import com.kpitracking.repository.RewardBudgetRepository;
 import com.kpitracking.repository.RewardGrantRepository;
 import com.kpitracking.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -45,6 +47,7 @@ public class RewardBudgetService {
     private final RewardGrantRepository grantRepository;
     private final OrganizationRepository organizationRepository;
     private final UserRepository userRepository;
+    private final ApplicationEventPublisher eventPublisher;
     private final KpiCycleRepository kpiCycleRepository;
     private final KpiPeriodRepository kpiPeriodRepository;
     private final RewardContext context;
@@ -79,6 +82,8 @@ public class RewardBudgetService {
             throw new BusinessException("Người này đã có hạn mức trong khoảng thời gian trùng với khoảng bạn chọn. "
                     + "Mỗi người tại một thời điểm chỉ được có một hạn mức — hãy sửa hạn mức cũ hoặc chọn khoảng khác.");
         }
+        eventPublisher.publishEvent(new RewardEvents.BudgetAssigned(
+                budget.getId(), context.getCurrentUser().getId(), false));
         return toResponse(budget);
     }
 
@@ -119,6 +124,8 @@ public class RewardBudgetService {
         } catch (DataIntegrityViolationException ex) {
             throw new BusinessException("Khoảng thời gian mới bị trùng với một hạn mức khác của người này.");
         }
+        eventPublisher.publishEvent(new RewardEvents.BudgetAssigned(
+                budget.getId(), context.getCurrentUser().getId(), true));
         return toResponse(budget);
     }
 

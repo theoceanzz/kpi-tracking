@@ -25,6 +25,15 @@ export function toFileSlug(value: string): string {
   )
 }
 
+/** Phần tử đã tự sơn nền hay chưa (màu trong suốt hoàn toàn thì coi như chưa). */
+function hasOwnBackground(node: HTMLElement): boolean {
+  const color = getComputedStyle(node).backgroundColor
+  if (!color || color === 'transparent') return false
+
+  const alpha = color.match(/^rgba\([^)]*,\s*([\d.]+)\s*\)$/)
+  return alpha ? Number(alpha[1]) > 0 : true
+}
+
 /**
  * Chụp một tờ chứng nhận thành PNG.
  *
@@ -37,8 +46,10 @@ export async function certificateToPngBlob(node: HTMLElement): Promise<Blob> {
     pixelRatio: PIXEL_RATIO,
     // Bỏ qua bộ nhớ đệm ảnh: logo vừa đổi mà vẫn lấy bản cũ là lỗi rất khó hiểu.
     cacheBust: true,
-    // Nền trắng phòng khi mẫu để nền trong suốt — PNG trong suốt in ra sẽ mất nền màu.
-    backgroundColor: '#ffffff',
+    // Nền trắng CHỈ khi tờ chứng nhận không tự có nền: `backgroundColor` của
+    // html-to-image ghi đè thẳng vào style của bản sao gốc, nên truyền vô điều kiện sẽ
+    // xoá mất nền của các mẫu tối — chữ trắng nằm trên nền trắng và biến mất khỏi ảnh.
+    ...(hasOwnBackground(node) ? {} : { backgroundColor: '#ffffff' }),
   })
 
   const response = await fetch(dataUrl)

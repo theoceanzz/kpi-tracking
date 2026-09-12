@@ -15,6 +15,10 @@ import ExcelJS from 'exceljs'
 import { toast } from 'sonner'
 import { orgUnitApi } from '../api/org-unit.api'
 import { useRef } from 'react'
+import { Button } from '@/components/ui/button'
+import WorkspaceHeader from '@/components/common/WorkspaceHeader'
+import { SegmentedControl } from '@/components/common/FilterBar'
+import EmptyState from '@/components/common/EmptyState'
 
 export function OrganizationStructurePage() {
   const { user } = useAuthStore()
@@ -26,7 +30,7 @@ export function OrganizationStructurePage() {
   const { data: hierarchyLevelsData = [], isLoading: isLevelsLoading } = useOrgHierarchyLevels(orgId)
   const deleteMutation = useDeleteOrgUnit()
   const importMutation = useImportOrgUnits()
-  
+
   const [viewMode, setViewMode] = useState<'mindmap' | 'list'>('mindmap')
   const [isExporting, setIsExporting] = useState(false)
   const [showImportGuide, setShowImportGuide] = useState(false)
@@ -107,7 +111,7 @@ export function OrganizationStructurePage() {
     setIsExporting(true)
     try {
       const data = await orgUnitApi.exportUnits(orgId)
-      
+
       const workbook = new ExcelJS.Workbook()
       const worksheet = workbook.addWorksheet("Sơ đồ tổ chức")
 
@@ -194,14 +198,14 @@ export function OrganizationStructurePage() {
   }
 
   if (isTreeLoading || isLevelsLoading) {
-    return <div className="p-8 flex justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-600"></div></div>
+    return <div className="p-8 flex justify-center"><div className="animate-spin rounded-full h-8 w-8 border-b-2 border-[var(--color-info-border)]"></div></div>
   }
 
   if (!orgId) {
     return (
-      <div className="flex flex-col items-center justify-center p-12 bg-white rounded-xl shadow-sm border text-center">
-        <h2 className="text-xl font-semibold mb-2">Lỗi truy cập</h2>
-        <p className="text-gray-500">Tài khoản của bạn không thuộc tổ chức nào.</p>
+      <div className="flex flex-col items-center justify-center p-12 bg-[var(--color-card)] rounded-card shadow-sm border text-center">
+        <h2 className="text-section-title mb-2">Lỗi truy cập</h2>
+        <p className="text-[var(--color-muted-foreground)]">Tài khoản của bạn không thuộc tổ chức nào.</p>
       </div>
     )
   }
@@ -214,87 +218,58 @@ export function OrganizationStructurePage() {
   const fitToScreen = false
 
   return (
-    <div className={`container mx-auto px-4 md:px-0 ${fitToScreen ? 'h-full flex flex-col gap-6' : 'space-y-6'}`}>
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 shrink-0">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">{pageTitle}</h1>
-          <p className="text-sm text-gray-500 mt-1">Quản lý sơ đồ phân cấp phòng ban, chi nhánh</p>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-2">
-          <input 
-            type="file" 
-            ref={fileInputRef} 
-            className="hidden" 
-            accept=".xlsx,.xls,.csv" 
-            onChange={handleFileChange} 
-          />
-          <button
-            onClick={() => setShowImportGuide(true)}
-            disabled={importMutation.isPending}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-emerald-200 bg-emerald-50/50 text-emerald-700 text-sm font-bold hover:bg-emerald-100 hover:border-emerald-300 transition-all shadow-sm active:scale-95 disabled:opacity-50"
-          >
-            {importMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} className="text-emerald-500" />}
-            Import Hệ thống
-          </button>
-          <button
-            onClick={handleExport}
-            disabled={isExporting}
-            className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-blue-200 bg-blue-50/50 text-blue-700 text-sm font-bold hover:bg-blue-100 hover:border-blue-300 transition-all shadow-sm active:scale-95 disabled:opacity-50"
-          >
-            {isExporting ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} className="text-blue-500" />}
-            Xuất Excel
-          </button>
-        </div>
-        
-        {treeData.length > 0 && (
-          <div id="tour-org-view-mode" className="flex items-center space-x-2 bg-gray-100 p-1 rounded-xl w-full sm:w-auto">
-            <button 
-              onClick={() => setViewMode('mindmap')}
-              className={`flex-1 sm:flex-none flex items-center justify-center px-4 py-2 rounded-lg text-sm font-semibold transition-all ${viewMode === 'mindmap' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-600 hover:text-gray-900'}`}
-            >
-              <LayoutGrid className="w-4 h-4 mr-2" />
-              Sơ đồ
-            </button>
-            <button 
-              onClick={() => setViewMode('list')}
-              className={`flex-1 sm:flex-none flex items-center justify-center px-4 py-2 rounded-lg text-sm font-semibold transition-all ${viewMode === 'list' ? 'bg-white shadow-sm text-blue-600' : 'text-gray-600 hover:text-gray-900'}`}
-            >
-              <ListIcon className="w-4 h-4 mr-2" />
-              Danh sách
-            </button>
+    <div className={`mx-auto max-w-[1600px] ${fitToScreen ? 'flex h-full flex-col gap-4' : 'space-y-4'}`}>
+      <WorkspaceHeader
+        id="tour-org-header"
+        title={pageTitle}
+        description="Sơ đồ phân cấp phòng ban, chi nhánh. Bấm một đơn vị để xem thành viên và đơn vị trực thuộc."
+        className="shrink-0"
+        actions={
+          <div className="flex flex-wrap items-center gap-2">
+            <input type="file" ref={fileInputRef} className="hidden" accept=".xlsx,.xls,.csv" onChange={handleFileChange} />
+            <Button variant="outline" onClick={() => setShowImportGuide(true)} disabled={importMutation.isPending}>
+              {importMutation.isPending ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Upload aria-hidden="true" />}
+              Nhập Excel
+            </Button>
+            <Button variant="outline" onClick={handleExport} disabled={isExporting}>
+              {isExporting ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Download aria-hidden="true" />}
+              Xuất Excel
+            </Button>
+            {treeData.length > 0 && (
+              <div id="tour-org-view-mode">
+                <SegmentedControl ariaLabel="Dạng hiển thị" value={viewMode} onChange={setViewMode}
+                  options={[
+                    { value: 'mindmap', label: <><LayoutGrid aria-hidden="true" /> Sơ đồ</>, title: 'Sơ đồ' },
+                    { value: 'list', label: <><ListIcon aria-hidden="true" /> Danh sách</>, title: 'Danh sách' },
+                  ]} />
+              </div>
+            )}
           </div>
-        )}
-      </div>
+        }
+      />
 
       {!treeData || treeData.length === 0 ? (
-        <div className="flex flex-col items-center justify-center p-16 bg-white rounded-xl shadow-sm border text-center">
-          <div className="w-16 h-16 bg-blue-50 text-blue-500 rounded-full flex items-center justify-center mb-4">
-            <LayoutGrid className="w-8 h-8" />
-          </div>
-          <h2 className="text-xl font-semibold mb-2">Bạn chưa có tổ chức nào.</h2>
-          <p className="text-gray-500 mb-6 max-w-md">Hãy tạo thành phần tổ chức gốc (Ví dụ: Tên công ty) để bắt đầu xây dựng sơ đồ phân cấp.</p>
-          <button 
-            onClick={handleCreateRoot}
-            className="flex items-center px-6 py-2.5 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-medium transition-colors shadow-sm"
-          >
-            <PlusCircle className="w-5 h-5 mr-2" />
-            Tạo tổ chức gốc
-          </button>
+        <div className="rounded-card border border-dashed border-[var(--color-border)] bg-[var(--color-card)]">
+          <EmptyState
+            icon={LayoutGrid}
+            title="Chưa có đơn vị nào"
+            description="Tạo đơn vị gốc (thường là tên công ty) rồi thêm các phòng ban, chi nhánh bên dưới."
+            action={<Button onClick={handleCreateRoot}><PlusCircle aria-hidden="true" /> Tạo đơn vị gốc</Button>}
+          />
         </div>
       ) : (
         <div id="tour-org-content" className={`fade-in ${fitToScreen ? 'flex-1 min-h-0' : ''}`}>
           {viewMode === 'mindmap' ? (
-            <OrgMindmapView 
-              data={treeData} 
+            <OrgMindmapView
+              data={treeData}
               maxDepth={maxDepth}
               onAddChild={handleAddChild}
               onEdit={handleEdit}
               onDelete={handleDelete}
             />
           ) : (
-            <OrgListView 
-              data={treeData} 
+            <OrgListView
+              data={treeData}
               maxDepth={maxDepth}
               onAddChild={handleAddChild}
               onEdit={handleEdit}
@@ -305,10 +280,10 @@ export function OrganizationStructurePage() {
       )}
 
       {showImportGuide && (
-        <OrgImportGuideModal 
-          open={showImportGuide} 
-          onClose={() => setShowImportGuide(false)} 
-          onSelectFile={() => fileInputRef.current?.click()} 
+        <OrgImportGuideModal
+          open={showImportGuide}
+          onClose={() => setShowImportGuide(false)}
+          onSelectFile={() => fileInputRef.current?.click()}
         />
       )}
 
@@ -325,7 +300,7 @@ export function OrganizationStructurePage() {
       )}
 
       {drawerState.isOpen && (
-        <OrgUnitDrawer 
+        <OrgUnitDrawer
           orgId={orgId}
           drawerState={drawerState}
           onClose={handleCloseDrawer}
@@ -333,7 +308,7 @@ export function OrganizationStructurePage() {
         />
       )}
 
-      <ConfirmDialog 
+      <ConfirmDialog
         open={deleteConfirm.isOpen}
         onClose={() => setDeleteConfirm({ isOpen: false, unitId: null })}
         onConfirm={handleConfirmDelete}

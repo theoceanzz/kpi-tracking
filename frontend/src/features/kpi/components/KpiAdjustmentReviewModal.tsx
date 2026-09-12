@@ -5,36 +5,44 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { adjustmentApi } from '../api/adjustmentApi'
 import { createAdjustmentReviewSchema, type AdjustmentReviewFormData } from '../schemas/reviewSchema'
 import { toast } from 'sonner'
-import { X, Loader2, XCircle, Users, Clock, MessageSquare, AlertTriangle, Calendar, Layers } from 'lucide-react'
-import { formatNumber, formatDateTime, cn } from '@/lib/utils'
+import { getApiErrorMessage } from '@/lib/apiError'
+import { Loader2, XCircle, CheckCircle, ArrowRight } from 'lucide-react'
+import { formatNumber, formatDateTime } from '@/lib/utils'
 import type { KpiAdjustmentRequest } from '@/types/adjustment'
+import { Dialog, DialogFooter } from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import StatusBadge from '@/components/common/StatusBadge'
 
 interface KpiAdjustmentReviewModalProps {
   open: boolean
   onClose: () => void
   request: KpiAdjustmentRequest | null
+  /** Mở thẳng ở bước nhập lý do từ chối / xác nhận duyệt (từ nút trên hàng bảng). */
+  initialMode?: 'view' | 'approve' | 'reject'
 }
 
-export default function KpiAdjustmentReviewModal({ open, onClose, request }: KpiAdjustmentReviewModalProps) {
+/**
+ * Xem một yêu cầu điều chỉnh và duyệt / từ chối ngay trong hộp thoại — cùng khuôn với
+ * `KpiReviewModal` (UX_PATTERNS.md P1/P4). Thân: lý do → bảng "hiện tại → đề xuất" → audit.
+ * Duyệt yêu cầu ngưng KPI cần thêm % bù trừ nên bước duyệt cũng có form.
+ */
+export default function KpiAdjustmentReviewModal({ open, onClose, request, initialMode = 'view' }: KpiAdjustmentReviewModalProps) {
   // Ô % bù trừ chỉ hiện khi PHÊ DUYỆT một yêu cầu ngưng KPI, nên ràng buộc theo ngữ cảnh.
   const needsCompensation = !!request?.deactivationRequest
-  const schema = useMemo(
-    () => createAdjustmentReviewSchema({ needsCompensation }),
-    [needsCompensation],
-  )
+  const schema = useMemo(() => createAdjustmentReviewSchema({ needsCompensation }), [needsCompensation])
 
   const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<AdjustmentReviewFormData>({
     resolver: zodResolver(schema),
-    defaultValues: { reviewMode: 'view', note: '', compensationPercentage: '' },
+    defaultValues: { reviewMode: initialMode, note: '', compensationPercentage: '' },
   })
 
-  // Ba nút Từ chối / Phê duyệt / Quay lại chỉ đổi bước, không phải ô nhập.
+  // Ba nút Từ chối / Duyệt / Quay lại chỉ đổi bước, không phải ô nhập.
   const reviewMode = watch('reviewMode')
-  const setReviewMode = (mode: AdjustmentReviewFormData['reviewMode']) =>
-    setValue('reviewMode', mode, { shouldValidate: false })
+  const setReviewMode = (mode: AdjustmentReviewFormData['reviewMode']) => setValue('reviewMode', mode, { shouldValidate: false })
+  const close = () => { reset({ reviewMode: 'view', note: '', compensationPercentage: '' }); onClose() }
 
   const qc = useQueryClient()
-
   const reviewMutation = useMutation({
     mutationFn: (data: AdjustmentReviewFormData) =>
       adjustmentApi.review(request!.id, {
@@ -47,255 +55,169 @@ export default function KpiAdjustmentReviewModal({ open, onClose, request }: Kpi
     onSuccess: (_, data) => {
       qc.invalidateQueries({ queryKey: ['kpi-adjustments'] })
       qc.invalidateQueries({ queryKey: ['kpi-criteria'] })
-      toast.success(data.reviewMode === 'approve' ? 'Đã phê duyệt yêu cầu điều chỉnh' : 'Đã từ chối yêu cầu điều chỉnh')
-      onClose()
-      reset({ reviewMode: 'view', note: '', compensationPercentage: '' })
+      toast.success(data.reviewMode === 'approve' ? 'Đã duyệt yêu cầu điều chỉnh' : 'Đã từ chối yêu cầu điều chỉnh')
+      close()
     },
-    onError: () => toast.error('Xử lý thất bại'),
+    onError: (error) => toast.error(getApiErrorMessage(error, 'Xử lý yêu cầu điều chỉnh thất bại')),
   })
 
-  if (!open || !request) return null
+  if (!request) return null
 
   const isPending = reviewMutation.isPending
   const isReviewable = request.status === 'PENDING'
+  const inForm = isReviewable && reviewMode !== 'view'
   const needsCompensationInput = reviewMode === 'approve' && request.deactivationRequest
+  const realWeight = (w: number | null) =>
+    w == null ? null : request.categoryWeightPercent != null ? `${(w * request.categoryWeightPercent / 100).toFixed(1)}% / ${w}%` : `${w}%`
+
+  const footer = isReviewable
+    ? inForm
+      ? (
+        <DialogFooter
+          note="Người yêu cầu sẽ nhận thông báo kèm phản hồi."
+          secondary={<Button variant="outline" onClick={() => setReviewMode('view')} disabled={isPending}>Quay lại</Button>}
+          primary={
+            <Button variant={reviewMode === 'approve' ? 'default' : 'destructive'} onClick={handleSubmit(d => reviewMutation.mutate(d))} disabled={isPending}>
+              {isPending ? <Loader2 className="animate-spin" aria-hidden="true" /> : reviewMode === 'approve' ? <CheckCircle aria-hidden="true" /> : <XCircle aria-hidden="true" />}
+              {reviewMode === 'approve' ? 'Duyệt' : 'Từ chối'}
+            </Button>
+          }
+        />
+      ) : (
+        <DialogFooter
+          destructive={
+            <Button variant="outline" onClick={() => setReviewMode('reject')} className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)]">
+              <XCircle aria-hidden="true" /> Từ chối
+            </Button>
+          }
+          secondary={<Button variant="outline" onClick={close}>Đóng</Button>}
+          primary={<Button onClick={() => setReviewMode('approve')}><CheckCircle aria-hidden="true" /> Duyệt</Button>}
+        />
+      )
+    : <DialogFooter primary={<Button variant="outline" onClick={close}>Đóng</Button>} />
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/60 backdrop-blur-sm transition-opacity" onClick={onClose} />
-      
-      <div className="relative bg-white dark:bg-slate-900 rounded-[32px] shadow-2xl w-full max-w-2xl mx-4 animate-in zoom-in-95 fade-in duration-300 max-h-[90vh] overflow-hidden border border-slate-200 dark:border-slate-800 flex flex-col">
-        
-        {/* Header Section */}
-        <div className="px-4 sm:px-8 py-4 sm:py-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between gap-3 shrink-0">
-          <div className="flex items-center gap-2 sm:gap-4 min-w-0">
-            <div className="w-9 h-9 sm:w-12 sm:h-12 rounded-2xl bg-amber-500 flex items-center justify-center text-white shadow-lg shadow-amber-500/20 shrink-0">
-              <MessageSquare size={18} className="sm:hidden" />
-              <MessageSquare size={24} className="hidden sm:block" />
-            </div>
-            <div className="min-w-0">
-              <h3 className="text-base sm:text-xl font-black text-slate-900 dark:text-white whitespace-nowrap">Yêu cầu Điều chỉnh KPI</h3>
-              <div className={cn(
-                "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[9px] font-black uppercase tracking-widest mt-1 whitespace-nowrap",
-                request.status === 'PENDING' ? 'bg-amber-100 border-amber-200 text-amber-600' :
-                request.status === 'APPROVED' ? 'bg-emerald-100 border-emerald-200 text-emerald-600' :
-                'bg-red-100 border-red-200 text-red-600'
-              )}>
-                <Clock size={10} className={request.status === 'PENDING' ? 'animate-pulse' : ''} /> {
-                  request.status === 'PENDING' ? 'Đang chờ xử lý' :
-                  request.status === 'APPROVED' ? 'Đã chấp thuận' : 'Đã từ chối'
-                }
-              </div>
-            </div>
-          </div>
-          <button onClick={onClose} className="p-2 sm:p-2.5 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 transition-all hover:rotate-90 shrink-0">
-            <X size={20} />
-          </button>
+    <Dialog
+      open={open}
+      onClose={close}
+      size="lg"
+      dismissible={!isPending}
+      title={request.kpiCriteriaName}
+      description={`${request.requesterName} · gửi ${formatDateTime(request.createdAt)}`}
+      headerExtra={<StatusBadge status={request.status} />}
+      footer={footer}
+    >
+      <div className="space-y-6">
+        <div className="flex flex-wrap items-center gap-1.5">
+          {request.deactivationRequest ? <Badge variant="destructive">Đề nghị ngưng KPI</Badge> : <Badge variant="warning">Điều chỉnh số liệu</Badge>}
+          {request.kpiType === 'QUALITATIVE' && <Badge variant="outline">Định tính</Badge>}
+          {request.perspectiveName && (
+            <Badge variant="outline" title={`Hạng mục BSC: ${request.perspectiveName}`}>
+              <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: request.perspectiveColor || 'var(--color-primary)' }} aria-hidden="true" />
+              {request.perspectiveName}
+            </Badge>
+          )}
         </div>
 
-        {/* Content Section */}
-        <div className="flex-1 overflow-y-auto p-8 space-y-8">
+        <section>
+          <h3 className="text-eyebrow mb-1">Lý do điều chỉnh</h3>
+          <p className="text-sm leading-5 text-[var(--color-foreground)]">{request.reason}</p>
+        </section>
           
-          <div className="space-y-4">
-            <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">Chỉ tiêu bị ảnh hưởng</p>
-            <h4 className="text-xl font-black text-slate-900 dark:text-white leading-tight">{request.kpiCriteriaName}</h4>
-            {request.perspectiveName && (
-              <span
-                className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider border"
-                style={{
-                  color: request.perspectiveColor || '#8b5cf6',
-                  borderColor: `${request.perspectiveColor || '#8b5cf6'}55`,
-                  backgroundColor: `${request.perspectiveColor || '#8b5cf6'}1a`,
-                }}
-                title={`Hạng mục BSC: ${request.perspectiveName}`}
-              >
-                <Layers size={12} />
-                {request.perspectiveName}
-              </span>
-            )}
-
-            <div className="p-5 rounded-2xl bg-amber-50/50 dark:bg-amber-900/10 border border-amber-100 dark:border-amber-900/30">
-               <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 mb-2">
-                 <AlertTriangle size={16} />
-                 <span className="text-[10px] font-black uppercase tracking-widest">Lý do điều chỉnh</span>
-               </div>
-               <p className="text-sm text-amber-900 dark:text-amber-200 leading-relaxed font-medium">
-                 {request.reason}
-               </p>
-            </div>
-          </div>
-
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            <div className="space-y-4">
-               <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Giá trị hiện tại</p>
-               <div className="space-y-3">
-                  {request.kpiType !== 'QUALITATIVE' && (
-                  <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
-                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">Mục tiêu</p>
-                    <p className="text-lg font-black text-slate-900 dark:text-white">{formatNumber(request.currentTargetValue)}</p>
-                  </div>
-                  )}
-                  <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
-                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">{request.categoryWeightPercent != null ? 'Trọng số thật' : 'Trọng số'}</p>
-                    <p className="text-lg font-black text-slate-900 dark:text-white" title={request.categoryWeightPercent != null ? `form ${request.currentWeight}% × ${request.categoryWeightPercent}% hạng mục` : undefined}>
-                      {request.categoryWeightPercent != null ? `${(request.currentWeight * request.categoryWeightPercent / 100).toFixed(1)}%` : `${request.currentWeight}%`}
-                      {request.categoryWeightPercent != null && <span className="text-xs font-bold text-slate-400 ml-1">/ {request.currentWeight}%</span>}
-                    </p>
-                  </div>
-                  {request.kpiType !== 'QUALITATIVE' && (
-                  <div className="p-4 rounded-xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800">
-                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">Tối thiểu</p>
-                    <p className="text-lg font-black text-slate-900 dark:text-white">{request.currentMinimumValue != null ? formatNumber(request.currentMinimumValue) : '0'}</p>
-                  </div>
-                  )}
-               </div>
-            </div>
-
-            <div className="space-y-4">
-               <p className="text-[10px] font-black uppercase tracking-widest text-indigo-500">Đề xuất thay đổi</p>
-               <div className="space-y-3">
+        {/* Hiện tại → đề xuất: một bảng ba cột để mắt so theo hàng, không phải hai cột thẻ rời */}
+        <section className="overflow-hidden rounded-card border border-[var(--color-border)]">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-[var(--color-border)] bg-[var(--color-muted)]">
+                <th scope="col" className="px-4 py-2 text-left text-eyebrow">Chỉ số</th>
+                <th scope="col" className="px-4 py-2 text-right text-eyebrow">Hiện tại</th>
+                <th scope="col" className="w-8 px-0 py-2" aria-hidden="true" />
+                <th scope="col" className="px-4 py-2 text-right text-eyebrow">Đề xuất</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[var(--color-border)] tabular-nums">
                   {request.deactivationRequest ? (
-                    <div className="p-4 rounded-xl bg-red-50 dark:bg-red-900/20 border border-red-200 dark:border-red-900/30 flex items-center justify-center h-full min-h-[140px] flex-col gap-2">
-                      <XCircle size={32} className="text-red-500" />
-                      <p className="text-sm font-black text-red-600 dark:text-red-400 uppercase tracking-widest">Yêu cầu Huỷ bỏ KPI</p>
-                      {request.compensationPercentage != null && (
-                        <p className="text-xs font-bold text-red-500">Đã bù thành tích: {request.compensationPercentage}%</p>
-                      )}
-                    </div>
+                <tr>
+                  <td className="px-4 py-3 text-[var(--color-muted-foreground)]">Trạng thái KPI</td>
+                  <td className="px-4 py-3 text-right">Đang áp dụng</td>
+                  <td className="px-0 py-3 text-center text-[var(--color-subtle-foreground)]"><ArrowRight size={14} className="inline" aria-hidden="true" /></td>
+                  <td className="px-4 py-3 text-right font-medium text-[var(--color-error)]">
+                    Ngưng{request.compensationPercentage != null ? ` · bù ${request.compensationPercentage}%` : ''}
+                  </td>
+                </tr>
                   ) : (
                     <>
                       {request.kpiType !== 'QUALITATIVE' && (
-                      <div className="p-4 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-900/30">
-                        <p className="text-[9px] font-black uppercase tracking-widest text-indigo-400 mb-1">Mục tiêu mới</p>
-                        <p className="text-lg font-black text-indigo-600 dark:text-indigo-300">
-                          {request.requestedTargetValue != null ? formatNumber(request.requestedTargetValue) : 'Không đổi'}
-                        </p>
-                      </div>
+                    <ChangeRow label="Mục tiêu" from={formatNumber(request.currentTargetValue)} to={request.requestedTargetValue != null ? formatNumber(request.requestedTargetValue) : null} />
                       )}
-                      <div className="p-4 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-900/30">
-                        <p className="text-[9px] font-black uppercase tracking-widest text-indigo-400 mb-1">{request.categoryWeightPercent != null && request.requestedWeight != null ? 'Trọng số thật mới' : 'Trọng số mới'}</p>
-                        <p className="text-lg font-black text-indigo-600 dark:text-indigo-300"
-                          title={request.categoryWeightPercent != null && request.requestedWeight != null ? `trên ${request.requestedWeight}% × ${request.categoryWeightPercent}% hạng mục` : undefined}>
-                          {request.requestedWeight != null
-                            ? (request.categoryWeightPercent != null ? `${(request.requestedWeight * request.categoryWeightPercent / 100).toFixed(1)}% / ${request.requestedWeight}%` : `${request.requestedWeight}%`)
-                            : 'Không đổi'}
-                        </p>
-                      </div>
+                  <ChangeRow label={request.categoryWeightPercent != null ? 'Trọng số thật / form' : 'Trọng số'} from={realWeight(request.currentWeight) ?? '—'} to={realWeight(request.requestedWeight)} />
                       {request.kpiType !== 'QUALITATIVE' && (
-                      <div className="p-4 rounded-xl bg-indigo-50 dark:bg-indigo-900/20 border border-indigo-200 dark:border-indigo-900/30">
-                        <p className="text-[9px] font-black uppercase tracking-widest text-indigo-400 mb-1">Tối thiểu mới</p>
-                        <p className="text-lg font-black text-indigo-600 dark:text-indigo-300">
-                          {request.requestedMinimumValue != null ? formatNumber(request.requestedMinimumValue) : 'Không đổi'}
-                        </p>
-                      </div>
+                    <ChangeRow label="Tối thiểu" from={request.currentMinimumValue != null ? formatNumber(request.currentMinimumValue) : '0'} to={request.requestedMinimumValue != null ? formatNumber(request.requestedMinimumValue) : null} />
                       )}
                     </>
                   )}
-               </div>
-            </div>
-          </div>
+            </tbody>
+          </table>
+        </section>
 
-          <div className="pt-8 border-t border-slate-100 dark:border-slate-800 flex flex-wrap gap-x-8 gap-y-4">
-             <div className="flex items-center gap-2">
-                <Users size={14} className="text-slate-400" />
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Người yêu cầu: {request.requesterName}</span>
-             </div>
-             <div className="flex items-center gap-2">
-                <Calendar size={14} className="text-slate-400" />
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">Ngày gửi: {formatDateTime(request.createdAt)}</span>
-             </div>
-          </div>
-        </div>
+        {!isReviewable && request.reviewerNote && (
+          <section className="rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] p-4">
+            <h3 className="text-eyebrow mb-1">Phản hồi của {request.reviewerName || 'người duyệt'}</h3>
+            <p className="text-sm leading-5 text-[var(--color-foreground)]">{request.reviewerNote}</p>
+          </section>
+        )}
 
-        {/* Actions Footer */}
-        <div className="px-8 py-6 bg-slate-50 dark:bg-slate-800/50 border-t border-slate-100 dark:border-slate-800 shrink-0">
-          {isReviewable ? (
-            reviewMode === 'view' ? (
-              <div className="flex gap-4">
-                <button
-                  onClick={() => setReviewMode('reject')}
-                  className="flex-1 px-3 sm:px-6 py-4 rounded-2xl text-sm font-black border-2 border-red-100 dark:border-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/10 transition-all whitespace-nowrap"
-                >
-                  Từ chối yêu cầu
-                </button>
-                <button
-                  onClick={() => setReviewMode('approve')}
-                  className="flex-1 px-3 sm:px-6 py-4 rounded-2xl text-sm font-black bg-emerald-600 text-white hover:bg-emerald-700 transition-all shadow-xl shadow-emerald-500/20 whitespace-nowrap"
-                >
-                  Phê duyệt thay đổi
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-4">
+        {inForm && (
+          <section className={`space-y-4 rounded-card border p-4 ${reviewMode === 'reject' ? 'border-[var(--color-error-border)]' : 'border-[var(--color-border)]'}`}>
                 {needsCompensationInput && (
                   <div>
-                    <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">
-                      Tỷ lệ % bù trừ thành tích <span className="text-red-500">*</span>
+                <label htmlFor="adj-compensation" className="text-label block">
+                  Tỷ lệ bù trừ thành tích (%) <span className="text-[var(--color-error)]" aria-hidden="true">*</span>
                     </label>
                     <input
-                      type="number"
-                      min={0}
-                      max={150}
+                  id="adj-compensation"
+                  type="number" min={0} max={150} inputMode="numeric"
                       {...register('compensationPercentage')}
-                      className="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/20 transition-all"
-                      placeholder="Ví dụ: 100"
+                  aria-invalid={!!errors.compensationPercentage}
+                  className="mt-1.5 h-9 w-40 rounded-control border border-[var(--color-input)] bg-[var(--color-card)] px-3 text-sm tabular-nums text-[var(--color-foreground)] focus:border-[var(--color-ring)] focus:outline-none focus:ring-2 focus:ring-[var(--color-ring)]"
+                  placeholder="100"
                     />
-                    {errors.compensationPercentage && (
-                      <p className="text-[10px] font-bold text-red-500 mt-1">{errors.compensationPercentage.message}</p>
-                    )}
-                    <p className="text-[10px] text-slate-400 mt-1">Nhân viên sẽ được tính KPI này đạt đúng tỷ lệ % nhập ở đây (0-150), thay cho số liệu thực tế.</p>
+                {errors.compensationPercentage && <p className="mt-1 text-caption text-[var(--color-error)]">{errors.compensationPercentage.message}</p>}
+                <p className="mt-1 text-caption">KPI này được tính đạt đúng tỷ lệ nhập ở đây (0–150) thay cho kết quả thực tế.</p>
                   </div>
                 )}
                 <div>
-                  <label className="block text-[10px] font-black uppercase tracking-widest text-slate-400 mb-2">
-                    Ghi chú phản hồi {reviewMode === 'reject' && <span className="text-red-500">*</span>}
+              <label htmlFor="adj-note" className="text-label block">
+                Phản hồi cho người yêu cầu {reviewMode === 'reject' && <span className="text-[var(--color-error)]" aria-hidden="true">*</span>}
                   </label>
                   <textarea
+                id="adj-note"
                     {...register('note')}
                     rows={3}
-                    className="w-full px-4 py-3 rounded-2xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-medium focus:outline-none focus:ring-2 focus:ring-indigo-500/20 resize-none transition-all"
-                    placeholder="Nhập ghi chú cho nhân viên..."
+                autoFocus
+                aria-invalid={!!errors.note}
+                className="mt-1.5 w-full resize-none rounded-control border border-[var(--color-input)] bg-[var(--color-card)] px-3 py-2 text-sm text-[var(--color-foreground)] placeholder:text-[var(--color-muted-foreground)] focus:border-[var(--color-ring)] focus:outline-none focus:ring-2 focus:ring-[var(--color-ring)]"
+                placeholder={reviewMode === 'reject' ? 'Nêu rõ vì sao không chấp nhận điều chỉnh này.' : 'Ghi chú thêm (không bắt buộc).'}
                   />
-                  {errors.note && (
-                    <p className="text-[10px] font-bold text-red-500 mt-1">{errors.note.message}</p>
+              {errors.note && <p className="mt-1 text-caption text-[var(--color-error)]">{errors.note.message}</p>}
+            </div>
+          </section>
                   )}
                 </div>
-                <div className="flex gap-3">
-                  <button onClick={() => setReviewMode('view')} className="flex-1 px-3 sm:px-6 py-3 rounded-2xl text-sm font-black text-slate-600 border border-slate-200 hover:bg-white transition-all whitespace-nowrap">
-                    Quay lại
-                  </button>
-                  <button
-                    onClick={handleSubmit(data => reviewMutation.mutate(data))}
-                    disabled={isPending}
-                    className={cn(
-                      "flex-1 px-3 sm:px-6 py-3 rounded-2xl text-sm font-black text-white transition-all flex items-center justify-center gap-2 whitespace-nowrap",
-                      reviewMode === 'approve' ? 'bg-emerald-600 shadow-emerald-500/20 shadow-lg' : 'bg-red-600 shadow-red-500/20 shadow-lg',
-                      "disabled:opacity-50"
-                    )}
-                  >
-                    {isPending && <Loader2 size={16} className="animate-spin shrink-0" />}
-                    Xác nhận {reviewMode === 'approve' ? 'Phê duyệt' : 'Từ chối'}
-                  </button>
-                </div>
-              </div>
-            )
-          ) : (
-             <div className="space-y-4">
-               {request.reviewerNote && (
-                 <div className="p-4 rounded-xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-                    <p className="text-[9px] font-black uppercase tracking-widest text-slate-400 mb-1">Ghi chú từ {request.reviewerName}</p>
-                    <p className="text-sm font-medium text-slate-700 dark:text-slate-300">{request.reviewerNote}</p>
-                 </div>
-               )}
-               <div className="flex justify-end">
-                 <button onClick={onClose} className="px-10 py-3 rounded-2xl bg-white border border-slate-200 text-sm font-black text-slate-700 hover:bg-slate-50 transition-all shadow-sm">
-                   Đóng
-                 </button>
-               </div>
-             </div>
-          )}
-        </div>
-      </div>
-    </div>
+    </Dialog>
+  )
+}
+
+function ChangeRow({ label, from, to }: { label: string; from: string; to: string | null }) {
+  const changed = to != null && to !== from
+  return (
+    <tr>
+      <td className="px-4 py-3 text-[var(--color-muted-foreground)]">{label}</td>
+      <td className="px-4 py-3 text-right text-[var(--color-foreground)]">{from}</td>
+      <td className="px-0 py-3 text-center text-[var(--color-subtle-foreground)]"><ArrowRight size={14} className="inline" aria-hidden="true" /></td>
+      <td className={`px-4 py-3 text-right ${changed ? 'font-medium text-[var(--color-foreground)]' : 'text-[var(--color-muted-foreground)]'}`}>
+        {to ?? 'Không đổi'}
+      </td>
+    </tr>
   )
 }

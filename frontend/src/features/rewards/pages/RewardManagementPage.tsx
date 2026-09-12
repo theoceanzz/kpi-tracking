@@ -10,7 +10,6 @@ import RedemptionsTab from '../components/RedemptionsTab'
 import ProgramsTab from '../components/ProgramsTab'
 import CheckinConfigTab from '../components/CheckinConfigTab'
 import CertificatesTab from '../components/CertificatesTab'
-import RewardActivityTicker from '../components/RewardActivityTicker'
 import { useRewardGrants } from '../hooks/useRewards'
 import { useRedemptions } from '../hooks/useGifts'
 import { RedemptionStatus, RewardGrantStatus } from '../types'
@@ -72,9 +71,6 @@ export default function RewardManagementPage() {
       setActiveTab={key => setActiveTab(key as TabKey)}
     >
       <div className="space-y-5">
-        {/* TRÊN các tab: bảng tin là chuyện của cả tổ chức, không thuộc riêng tab nào. */}
-        <RewardActivityTicker />
-
         <WorkspaceHeader description="Trao điểm cho nhân viên, duyệt đề nghị vượt hạn mức và cấp hạn mức cho quản lý." />
 
         {activeTab === 'grants' && <GrantsTab />}

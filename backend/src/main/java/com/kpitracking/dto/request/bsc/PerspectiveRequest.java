@@ -11,9 +11,12 @@ import lombok.*;
 
 @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
 public class PerspectiveRequest {
-    @NotBlank(message = "Vui lòng nhập mã")
+    /**
+     * Bỏ trống nếu tổ chức bật sinh mã tự động — backend cấp mã theo mẫu của tổ chức.
+     * Vì vậy regex dùng {@code *} chứ không phải {@code +}: chuỗi rỗng phải qua được validate.
+     */
     @Size(max = 50, message = "Mã tối đa 50 ký tự")
-    @Pattern(regexp = "^[A-Za-z0-9_]+$", message = "Mã chỉ gồm chữ, số và dấu gạch dưới")
+    @Pattern(regexp = "^[A-Za-z0-9_]*$", message = "Mã chỉ gồm chữ, số và dấu gạch dưới")
     private String code;
 
     @NotBlank(message = "Vui lòng nhập tên lĩnh vực")

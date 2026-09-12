@@ -35,7 +35,8 @@ public class LlmIntentStrategy implements IntentStrategy {
             KPI     - chỉ tiêu KPI, kỳ đánh giá, bài nộp, ai chưa nộp, tổng quan KPI của đơn vị
             INSIGHT - xếp hạng, so sánh đơn vị, xu hướng theo thời gian, cảnh báo rủi ro,
                       bức tranh toàn đơn vị (quân số + số đơn vị con + số kỳ)
-            BSC     - thẻ điểm cân bằng, viễn cảnh (tài chính/khách hàng/quy trình/học hỏi),
+            BSC     - bộ tiêu chí (người dùng còn gọi là thẻ điểm cân bằng), hạng mục/lĩnh vực
+                      (tài chính/khách hàng/quy trình/học hỏi),
                       cân bằng viễn cảnh, điểm BSC
             OKR     - mục tiêu (objective), kết quả then chốt (key result), tiến độ mục tiêu
             ACTION  - người dùng RA LỆNH thay đổi dữ liệu: duyệt / phê duyệt / từ chối bài nộp,

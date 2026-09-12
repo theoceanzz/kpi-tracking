@@ -102,6 +102,21 @@ public class KpiCriteria {
     @JoinColumn(name = "perspective_id")
     private BscPerspective perspective;
 
+    /**
+     * Dòng chỉ tiêu CỤ THỂ của một bộ tiêu chí mà KPI này bám vào (docs/bsc-cascade-design.md).
+     * Cụ thể hơn {@link #perspective} vì cùng một hạng mục xuất hiện ở nhiều bộ tiêu chí với
+     * mục tiêu khác nhau. Đây là căn cứ đo "bao nhiêu % trọng số KPI thực sự liên kết BSC" (QĐ-8).
+     */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "scorecard_perspective_id")
+    private BscScorecardPerspective scorecardPerspective;
+
+    /** ASSIGNED = quản lý giao xuống, SELF = nhân viên tự khai (QĐ-3, áp dụng cho tầng cá nhân). */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "origin", nullable = false, length = 20)
+    @Builder.Default
+    private com.kpitracking.enums.BscItemOrigin origin = com.kpitracking.enums.BscItemOrigin.SELF;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "parent_id")
     private KpiCriteria parent;

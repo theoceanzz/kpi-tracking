@@ -11,6 +11,7 @@ import com.kpitracking.entity.RewardGiftItem;
 import com.kpitracking.entity.RewardRedemption;
 import com.kpitracking.entity.User;
 import com.kpitracking.enums.RedemptionStatus;
+import com.kpitracking.event.RewardEvents;
 import com.kpitracking.exception.BusinessException;
 import com.kpitracking.exception.ForbiddenException;
 import com.kpitracking.exception.ResourceNotFoundException;
@@ -21,6 +22,7 @@ import com.kpitracking.service.reward.fulfillment.RewardFulfillmentProviders;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -57,6 +59,7 @@ public class RewardRedemptionService {
     private final RewardContext context;
     private final RewardFulfillmentProviders fulfillmentProviders;
     private final ObjectMapper objectMapper;
+    private final ApplicationEventPublisher eventPublisher;
 
     // ────────────────────────────── ĐẶT ĐỔI ──────────────────────────────
 
@@ -111,7 +114,9 @@ public class RewardRedemptionService {
         r.setHandledBy(actor);
         r.setHandledAt(Instant.now());
         if (request != null && request.getNote() != null) r.setNote(request.getNote());
-        return toManagerResponse(redemptionRepository.save(r));
+        RewardRedemption saved = redemptionRepository.save(r);
+        eventPublisher.publishEvent(new RewardEvents.RedemptionSettled(saved.getId(), actor.getId()));
+        return toManagerResponse(saved);
     }
 
     @Transactional
@@ -124,7 +129,9 @@ public class RewardRedemptionService {
         r.setHandledBy(actor);
         r.setHandledAt(Instant.now());
         if (request != null && request.getNote() != null) r.setNote(request.getNote());
-        return toManagerResponse(redemptionRepository.save(r));
+        RewardRedemption saved = redemptionRepository.save(r);
+        eventPublisher.publishEvent(new RewardEvents.RedemptionSettled(saved.getId(), actor.getId()));
+        return toManagerResponse(saved);
     }
 
     /** Người đổi tự huỷ khi yêu cầu còn đang chờ xử lý. */
@@ -146,7 +153,9 @@ public class RewardRedemptionService {
 
         r.setStatus(RedemptionStatus.CANCELLED);
         r.setHandledAt(Instant.now());
-        return toOwnerResponse(redemptionRepository.save(r));
+        RewardRedemption saved = redemptionRepository.save(r);
+        eventPublisher.publishEvent(new RewardEvents.RedemptionSettled(saved.getId(), me.getId()));
+        return toOwnerResponse(saved);
     }
 
     /**

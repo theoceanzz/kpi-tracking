@@ -1,4 +1,5 @@
 import { PieChart, Pie, Cell, ResponsiveContainer} from 'recharts'
+import { SUBMISSION_STATUS_COLORS, SUBMISSION_STATUS_LABELS } from './chartPalette'
 
 interface SubmissionStatusChartProps {
   pending: number
@@ -6,14 +7,15 @@ interface SubmissionStatusChartProps {
   rejected: number
 }
 
-const COLORS = ['#f59e0b', '#10b981', '#ef4444']
 
 export default function SubmissionStatusChart({ pending, approved, rejected }: SubmissionStatusChartProps) {
+  // Gắn màu theo MÃ trạng thái chứ không theo vị trí trong mảng: đổi thứ tự lát bánh sau này
+  // sẽ không âm thầm đổi màu "Đã duyệt" thành màu của "Từ chối".
   const data = [
-    { name: 'Chờ duyệt', value: pending },
-    { name: 'Đã duyệt', value: approved },
-    { name: 'Từ chối', value: rejected },
-  ]
+    { status: 'PENDING', value: pending },
+    { status: 'APPROVED', value: approved },
+    { status: 'REJECTED', value: rejected },
+  ].map(d => ({ ...d, name: SUBMISSION_STATUS_LABELS[d.status] ?? d.status }))
 
   const total = pending + approved + rejected
   if (total === 0) {
@@ -33,10 +35,10 @@ export default function SubmissionStatusChart({ pending, approved, rejected }: S
           dataKey="value"
           stroke="none"
         >
-          {data.map((_, index) => (
+          {data.map((d, index) => (
             <Cell 
               key={index} 
-              fill={COLORS[index % COLORS.length]} 
+              fill={SUBMISSION_STATUS_COLORS[d.status]} 
               className="outline-none"
             />
           ))}

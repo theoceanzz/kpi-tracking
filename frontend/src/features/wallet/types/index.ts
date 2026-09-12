@@ -116,12 +116,6 @@ export interface SepayEvent {
   resolutionNote?: string | null
   resolutionTransactionId?: string | null
   inQueue: boolean
-  /**
-   * Chưa quy được về tổ chức nào — tiền về một tài khoản chưa ai khai trong cấu
-   * hình ví. Nhóm này hiện trong hàng đợi của mọi tổ chức và KHÔNG ghi có thẳng
-   * cho người dùng được.
-   */
-  unattributed: boolean
   receivedAt: string
 }
 
@@ -147,12 +141,60 @@ export interface WalletConfig {
   bankConfigured: boolean
   /** Lần cuối nhận webhook SePay về tài khoản này. Null nghĩa là chưa nối xong. */
   lastWebhookAt?: string | null
+
+  // ── Hồ sơ pháp nhân & biên nhận thu tiền ──
+  receiptEnabled: boolean
+  legalName?: string | null
+  taxCode?: string | null
+  businessAddress?: string | null
+  contactPhone?: string | null
+  receiptSeriesPrefix: string
+  receiptVatRate: number
+  receiptIssuerName?: string | null
+  receiptIssuerTitle?: string | null
+  /**
+   * Đã khai đủ mã số thuế và địa chỉ để biên nhận có giá trị đối chiếu hay chưa.
+   * Thiếu thì biên nhận vẫn được lập và gửi — giữ tiền người dùng lại vì tổ chức chưa điền
+   * hồ sơ là sai — nhưng tờ chứng từ khi đó thiếu nội dung bắt buộc.
+   */
+  legalProfileComplete: boolean
+}
+
+/**
+ * Biên nhận thu tiền của một lần nạp ví.
+ *
+ * `html` là bản in đầy đủ do máy chủ dựng; giao diện chỉ hiển thị, KHÔNG dựng lại từ các trường
+ * rời — các nội dung bắt buộc theo Điều 10 Nghị định 123/2020/NĐ-CP phải giống hệt nhau trên
+ * email và trên màn hình, và hai nơi cùng dựng là hai nơi có thể lệch.
+ */
+export interface TopupReceipt {
+  id: string
+  topupOrderId: string
+  /** VD `PT2026/00000042`. */
+  number: string
+  issuedDate: string
+  sellerName: string
+  buyerName: string
+  description: string
+  amountBeforeTax: number
+  vatRate: number
+  vatAmount: number
+  totalAmount: number
+  totalInWords: string
+  paymentMethod: string
+  paymentReference?: string | null
+  html: string
 }
 
 export interface WalletReconcile {
   inconsistentWalletIds: string[]
   unresolvedEventCount: number
   amountMismatchCount: number
+  /**
+   * Tổ chức đã khai số tài khoản nhận tiền chưa. Chưa khai thì hàng đợi luôn
+   * trống kể cả khi tiền đã về, nên `clean` một mình không đủ để nói sổ đã sạch.
+   */
+  bankConfigured: boolean
   clean: boolean
 }
 
@@ -186,4 +228,15 @@ export interface WalletConfigRequest {
   sepayAccountNumber?: string | null
   sepayBankCode?: string | null
   sepayAccountHolder?: string | null
+
+  // ── Hồ sơ pháp nhân & biên nhận thu tiền ──
+  legalName?: string | null
+  taxCode?: string | null
+  businessAddress?: string | null
+  contactPhone?: string | null
+  receiptEnabled?: boolean
+  receiptSeriesPrefix?: string | null
+  receiptVatRate?: number
+  receiptIssuerName?: string | null
+  receiptIssuerTitle?: string | null
 }

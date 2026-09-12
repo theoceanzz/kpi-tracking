@@ -76,14 +76,6 @@ public class BscController {
         return ResponseEntity.ok(ApiResponse.success(null));
     }
 
-    @PostMapping("/organization/{organizationId}/perspectives/import")
-    @PreAuthorize("hasAuthority('BSC:MANAGE')")
-    public ResponseEntity<ApiResponse<ImportBscResponse>> importPerspectives(
-            @PathVariable UUID organizationId,
-            @RequestParam("file") MultipartFile file) {
-        return ResponseEntity.ok(ApiResponse.success(bscService.importPerspectives(organizationId, file)));
-    }
-
     // ============================================================
     // Scorecards (bộ tiêu chí)
     // ============================================================
@@ -101,7 +93,7 @@ public class BscController {
     }
 
     @PostMapping("/organization/{organizationId}/scorecards")
-    @PreAuthorize("hasAuthority('BSC:MANAGE')")
+    @PreAuthorize("hasAnyAuthority('BSC:MANAGE', 'BSC:MANAGE_UNIT')")
     public ResponseEntity<ApiResponse<ScorecardResponse>> createScorecard(
             @PathVariable UUID organizationId,
             @Valid @RequestBody ScorecardRequest request) {
@@ -109,7 +101,7 @@ public class BscController {
     }
 
     @PutMapping("/scorecards/{scorecardId}")
-    @PreAuthorize("hasAuthority('BSC:MANAGE')")
+    @PreAuthorize("hasAnyAuthority('BSC:MANAGE', 'BSC:MANAGE_UNIT')")
     public ResponseEntity<ApiResponse<ScorecardResponse>> updateScorecard(
             @PathVariable UUID scorecardId,
             @Valid @RequestBody ScorecardRequest request) {
@@ -117,7 +109,7 @@ public class BscController {
     }
 
     @DeleteMapping("/scorecards/{scorecardId}")
-    @PreAuthorize("hasAuthority('BSC:MANAGE')")
+    @PreAuthorize("hasAnyAuthority('BSC:MANAGE', 'BSC:MANAGE_UNIT')")
     public ResponseEntity<ApiResponse<Void>> deleteScorecard(@PathVariable UUID scorecardId) {
         bscService.deleteScorecard(scorecardId);
         return ResponseEntity.ok(ApiResponse.success(null));

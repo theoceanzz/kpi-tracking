@@ -2,6 +2,10 @@ import { z } from 'zod'
 import {
   BscEmptyPerspectivePolicy,
   BscFixedPerspective,
+  BscGateEffect,
+  BscGateScope,
+  BscItemOrigin,
+  BscMeasurementSource,
   BscScorecardApplyScope,
   BscScorecardStatus,
 } from '../types'
@@ -19,6 +23,18 @@ const weightRowSchema = z.object({
   unit: z.string().nullable().optional(),
   weight: z.number(),
   enabled: z.boolean(),
+  // Cascade: dòng ASSIGNED do cấp trên giao xuống và bị khoá mục tiêu/trọng số.
+  origin: z.enum(BscItemOrigin).optional(),
+  locked: z.boolean().optional(),
+  parentItemName: z.string().nullable().optional(),
+  parentScorecardName: z.string().nullable().optional(),
+  measurementSource: z.enum(BscMeasurementSource).optional(),
+  // Hạng mục chặn: áp trần xếp loại, KHÔNG trừ điểm.
+  isGate: z.boolean().optional(),
+  gateMinPercent: z.number().nullable().optional(),
+  gateEffect: z.enum(BscGateEffect).nullable().optional(),
+  gateCapRating: z.number().nullable().optional(),
+  gateAppliesTo: z.enum(BscGateScope).optional(),
 })
 
 export type WeightRow = z.infer<typeof weightRowSchema>
@@ -45,11 +61,44 @@ export const scorecardSchema = z.object({
     ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['periodIds'], message: 'Vui lòng chọn ít nhất một đợt áp dụng' })
   }
 
+  // Bỏ lựa chọn "toàn tổ chức" mơ hồ: công ty giờ là NODE GỐC trong cây đơn vị, chọn tường minh
+  // như mọi đơn vị khác. Để trống không còn nghĩa gì nên chặn luôn.
+  if (data.scopes.length === 0) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      path: ['scopes'],
+      message: 'Vui lòng chọn đơn vị áp dụng (chọn đơn vị gốc nếu đây là BSC của cả công ty)',
+    })
+  }
+
   const enabled = data.rows.filter(r => r.enabled)
   if (enabled.length === 0) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['rows'], message: 'Bộ tiêu chí cần ít nhất một hạng mục đang bật' })
     return
   }
+  // Mục tiêu riêng của từng dòng: sàn không được cao hơn mức cần đạt, nếu không hạng mục
+  // vĩnh viễn 0 điểm mà không ai hiểu vì sao. Backend cũng chặn, kiểm ở đây để báo sớm.
+  for (const r of enabled) {
+    if (r.targetValue != null && r.minimumValue != null && r.minimumValue > r.targetValue) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['rows'],
+        message: `Hạng mục "${r.name}": kết quả tối thiểu (${r.minimumValue}) không được lớn hơn mục tiêu (${r.targetValue})`,
+      })
+    }
+  }
+
+  for (const r of enabled) {
+    if (!r.isGate) continue
+    if (r.gateEffect === BscGateEffect.CAP_AT_RATING && r.gateCapRating == null) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        path: ['rows'],
+        message: `Hạng mục chặn "${r.name}": chọn kiểu giới hạn xếp loại thì phải chỉ rõ mức trần`,
+      })
+    }
+  }
+
   const total = enabled.reduce((sum, r) => sum + (Number(r.weight) || 0), 0)
   if (Math.abs(total - 100) > 0.01) {
     ctx.addIssue({

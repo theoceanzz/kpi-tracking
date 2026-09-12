@@ -1,5 +1,6 @@
 import { cn } from '@/lib/utils'
 import { PRIORITY_META, type Priority, type PriorityFilter } from './priority'
+import { Button } from '@/components/ui/button'
 
 /**
  * Hàng thẻ lọc theo mức ưu tiên, dùng chung cho hai widget "việc cần xử lý".
@@ -15,7 +16,7 @@ export function PriorityTabs({ counts, total, value, onChange }: {
   onChange: (v: PriorityFilter) => void
 }) {
   const tabs: { key: PriorityFilter; label: string; count: number; hint: string; dot: string }[] = [
-    { key: 'ALL', label: 'Tất cả', count: total, hint: 'Toàn bộ mục đang mở', dot: 'bg-indigo-500' },
+    { key: 'ALL', label: 'Tất cả', count: total, hint: 'Toàn bộ mục đang mở', dot: 'bg-[var(--color-primary)]' },
     ...(['URGENT', 'REVIEW', 'MONITOR'] as Priority[]).map(p => ({
       key: p, label: PRIORITY_META[p].label, count: counts[p], hint: PRIORITY_META[p].hint, dot: PRIORITY_META[p].dot,
     })),
@@ -33,25 +34,25 @@ export function PriorityTabs({ counts, total, value, onChange }: {
             title={t.hint}
             onClick={() => onChange(t.key)}
             className={cn(
-              'flex items-center justify-between gap-2 px-3 py-2 rounded-2xl border transition-all active:scale-[0.98] cursor-pointer',
-              'focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500',
+              'flex items-center justify-between gap-2 px-3 py-2 rounded-card border transition-all cursor-pointer',
+              'focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]',
               active
-                ? 'border-slate-900 dark:border-white bg-slate-900 dark:bg-white'
-                : 'border-slate-200 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/40 hover:border-slate-300 dark:hover:border-slate-700',
+                ? 'border-[var(--color-primary)] bg-[var(--color-primary-soft)]'
+                : 'border-[var(--color-border)] bg-[var(--color-card)] hover:border-[var(--color-border-strong)]',
             )}
           >
             <span className="flex items-center gap-1.5 min-w-0">
               <span className={cn('w-1.5 h-1.5 rounded-full shrink-0', t.dot)} aria-hidden="true" />
               <span className={cn(
-                'text-[9px] font-black uppercase tracking-[0.14em] truncate',
-                active ? 'text-white dark:text-slate-900' : 'text-slate-400',
+                'text-eyebrow truncate',
+                active ? 'text-[var(--color-primary)]' : 'text-[var(--color-muted-foreground)]',
               )}>
                 {t.label}
               </span>
             </span>
             <span className={cn(
-              'text-sm font-black tabular-nums shrink-0',
-              active ? 'text-white dark:text-slate-900' : 'text-slate-900 dark:text-white',
+              'text-sm font-semibold tabular-nums shrink-0',
+              'text-[var(--color-foreground)]',
             )}>
               {t.count}
             </span>
@@ -72,7 +73,7 @@ export function PriorityChip({ priority, label, srSuffix }: {
   const meta = PRIORITY_META[priority]
   return (
     <span className={cn(
-      'inline-flex items-center px-2 py-0.5 rounded-lg border text-[9px] font-black uppercase tracking-[0.14em] shrink-0',
+      'inline-flex items-center px-2 py-0.5 rounded-control border text-eyebrow shrink-0',
       meta.chip,
     )}>
       {label ?? meta.label}
@@ -90,11 +91,8 @@ export function ShowMoreButton({ hidden, expanded, onMore, onLess }: {
 }) {
   if (hidden <= 0 && !expanded) return null
   return (
-    <button
-      onClick={hidden > 0 ? onMore : onLess}
-      className="w-full py-2.5 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700 text-[10px] font-black uppercase tracking-[0.18em] text-slate-500 hover:text-indigo-600 hover:border-indigo-300 dark:hover:border-indigo-500/40 transition-all cursor-pointer shrink-0"
-    >
+    <Button variant="outline" className="w-full shrink-0" onClick={hidden > 0 ? onMore : onLess}>
       {hidden > 0 ? `Xem thêm ${hidden} mục` : 'Thu gọn'}
-    </button>
+    </Button>
   )
 }

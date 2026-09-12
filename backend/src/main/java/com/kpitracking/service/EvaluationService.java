@@ -16,6 +16,8 @@ import com.kpitracking.mapper.EvaluationMapper;
 import com.kpitracking.repository.*;
 import com.kpitracking.security.PermissionChecker;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -46,7 +48,16 @@ public class EvaluationService {
     private final PermissionChecker permissionChecker;
     private final KpiAchievementCalculator achievementCalculator;
     private final BscScoringService bscScoringService;
+    private final com.kpitracking.workflow.KpiWorkflowConfigService workflowConfigService;
+    private final BscCascadeService bscCascadeService;
     private final ConductService conductService;
+    private final com.kpitracking.service.notification.NotificationDispatcher notificationDispatcher;
+
+    // Khung bell curve cần đọc lại phân bố xếp loại của cả đơn vị, mà UnitClassificationService
+    // lại dựa vào chính service này để lấy đánh giá đại diện — @Lazy cắt vòng phụ thuộc đó.
+    @Lazy
+    @Autowired
+    private UnitClassificationService unitClassificationService;
 
     /**
      * Pool điểm khi CHẤM: trọng số chính là điểm — KPI 25% đạt đủ ⇒ 25đ, đủ 100% ⇒ 100đ.
@@ -61,6 +72,22 @@ public class EvaluationService {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("Người dùng", "email", email));
+    }
+
+    /**
+     * Nhánh tự đánh giá và nhánh quản lý chấm điểm là hai BƯỚC riêng trong luồng, nên tổ chức tắt
+     * được từng cái một: có nơi bỏ hẳn tự đánh giá, có nơi chỉ dùng tự đánh giá.
+     */
+    private void requireEvaluationStageEnabled(UUID organizationId, boolean isSelfEval) {
+        com.kpitracking.workflow.WorkflowStage stage = isSelfEval
+                ? com.kpitracking.workflow.WorkflowStage.SELF_EVALUATION
+                : com.kpitracking.workflow.WorkflowStage.MANAGER_EVALUATION;
+
+        if (!workflowConfigService.definitionFor(organizationId).isStageEnabled(stage)) {
+            throw new BusinessException(isSelfEval
+                    ? "Tổ chức đã tắt bước tự đánh giá trong cấu hình luồng KPI"
+                    : "Tổ chức đã tắt bước đánh giá nhân viên trong cấu hình luồng KPI");
+        }
     }
 
     @Transactional
@@ -97,6 +124,10 @@ public class EvaluationService {
 
         boolean isSelfEval = currentUser.getId().equals(evaluatedUser.getId());
         boolean canEvaluateOthers = permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "EVALUATION:CREATE", targetOrgUnit.getId());
+
+        // Tổ chức có thể tắt riêng từng nhánh đánh giá. Chặn ở đây chứ không chỉ ẩn nút, nếu không
+        // thì bước đã tắt vẫn gọi được thẳng qua API và dữ liệu vẫn sinh ra như thường.
+        requireEvaluationStageEnabled(org.getId(), isSelfEval);
 
         if (!isSelfEval) {
             if (!canEvaluateOthers) {
@@ -182,18 +213,98 @@ public class EvaluationService {
                         + String.join(", ", bscResult.getUnassignedKpiNames()) + ")");
             }
 
-            // CHÍNH THỨC ⇒ điểm bị KHÓA theo bsc_score: bỏ qua điểm người đánh giá gửi lên.
+            // Ràng buộc trọng số KPI liên kết BSC (QĐ-8). Chính sách để BLOCK thì chặn THẬT ở đây,
+            // không chỉ hiện cảnh báo ở màn diễn giải — trước đây cờ này được tính rồi bỏ không,
+            // nên chọn "Chặn không cho trình" hay "Chỉ cảnh báo" đều ra cùng một hành vi.
+            //
+            // Chỉ chặn khi kỳ đã chạy CHÍNH THỨC, cùng lý do với ràng buộc ngay trên: ở SHADOW,
+            // BSC mới là bản chạy song song để đối chiếu — chặn chốt đánh giá vì nó là làm kẹt cả
+            // tổ chức vì một con số chưa dùng để tính lương. Ở SHADOW cũng không tốn truy vấn.
+            if (isOfficial) {
+                var linkedWeight = bscCascadeService.checkLinkedWeight(
+                        evaluatedUser.getId(), kpiPeriod.getId(), org.getId());
+                if (linkedWeight.enforced() && !linkedWeight.satisfied()) {
+                    throw new BusinessException(String.format(
+                            "Không thể chốt đánh giá: chỉ %.0f%% trọng số KPI của %s bám vào chỉ tiêu BSC, "
+                            + "trong khi chính sách yêu cầu tối thiểu %.0f%%. Gán thêm KPI vào chỉ tiêu BSC, "
+                            + "hoặc đổi chính sách điểm BSC sang mức \"Chỉ cảnh báo\".",
+                            linkedWeight.linkedPercent(), evaluatedUser.getFullName(), linkedWeight.minRequired()));
+                }
+            }
+
+            // Điểm công nhận: chỉ chặn trần theo chính sách, KHÔNG nhân hệ số phòng/công ty —
+            // kết quả BSC của đơn vị và công ty được theo dõi riêng, không kéo điểm cá nhân.
+            var cascade = bscResult == null ? null : bscCascadeService.applyForUser(
+                    org.getId(), kpiPeriod.getId(), bscResult.getBscScore());
+            // Hạng mục chặn (QĐ-7) chạy SAU khi có điểm công nhận và KHÔNG đụng vào điểm.
+            var gate = bscCascadeService.evaluateGates(bscResult, BscCascadeService.DEFAULT_MAX_RATING);
+
+            // CHÍNH THỨC ⇒ điểm bị KHÓA theo BSC: bỏ qua điểm người đánh giá gửi lên.
             // Ép ở server (không chỉ khóa UI) để gọi thẳng API cũng không sửa được điểm.
+            // Điểm khoá là điểm CÔNG NHẬN (điểm gốc sau khi chặn trần).
             if (isOfficial && bscResult.getBscScore() != null) {
-                evaluation.setScore(bscResult.getBscScore());
+                Double official = cascade != null && cascade.recognized() != null
+                        ? cascade.recognized() : bscResult.getBscScore();
+                evaluation.setScore(official);
             }
 
             evaluation.setBscScore(bscResult != null ? bscResult.getBscScore() : null);
+            if (cascade != null) {
+                evaluation.setRawBscScore(cascade.rawScore());
+                evaluation.setRecognizedScore(cascade.recognized());
+                evaluation.setCascadePolicy(cascade.policy());
+            }
+            evaluation.setGatePassed(gate.passed());
+            evaluation.setGateCapRating(gate.capRating());
+            evaluation.setGateFailedItems(gate.failedItems());
+            // Chặn tác động lên XẾP LOẠI, không lên điểm: 104 điểm vẫn là 104 điểm, chỉ trần hạ xuống.
+            if (gate.capRating() != null && evaluation.getMatrixRating() != null) {
+                evaluation.setMatrixRating(Math.min(evaluation.getMatrixRating(), gate.capRating()));
+            }
+
+            // Ghi đè thủ công là quyết định của con người (QĐ-6) — tính lại KHÔNG được xoá nó,
+            // nếu không mỗi lần chấm lại là một lần âm thầm huỷ quyết định đã phê duyệt.
+            if (evaluation.getOverrideScore() != null) {
+                evaluation.setScore(evaluation.getOverrideScore());
+            }
+
             bscScoringService.persistBreakdown(evaluation, bscResult);
             evaluation = evaluationRepository.save(evaluation);
         }
 
-        return enrichResponse(evaluation);
+        // Bell curve (khống chế tỷ lệ) soi SAU khi đã chốt điểm & xếp loại: mức của người này chỉ
+        // biết chắc sau khi ma trận và BSC chạy xong. Chế độ "chặn" ném lỗi ⇒ giao dịch cuộn lại,
+        // bản ghi vừa lưu không còn — không cần xoá tay.
+        //
+        // TỰ ĐÁNH GIÁ thì bỏ qua: khung là hạn mức cho người CHẤM phân bổ, chặn nhân viên tự chấm
+        // vì phòng đã kín suất là bắt họ chịu hạn mức mà họ không có quyền phân bổ.
+        EvaluationResponse response = enrichResponse(evaluation);
+        if (!isSelfEval) {
+            UnitClassificationService.BellCurveCheck curve = unitClassificationService.checkBellCurve(
+                    targetOrgUnit,
+                    kpiPeriod.getKpiCycle() != null ? kpiPeriod.getKpiCycle().getId() : null,
+                    kpiPeriod.getId(), evaluatedUser.getId());
+            if (curve.blocked()) throw new BusinessException(curve.message());
+            response.setBellCurveWarning(curve.message());
+
+            // Người bị chấm phải được biết. Trước đây chốt xong là im lặng: nhân viên chỉ
+            // phát hiện khi tự mở màn "Đánh giá của tôi", nên phản hồi hay khiếu nại đều
+            // đến muộn hơn hẳn thời điểm còn sửa được.
+            //
+            // Đặt SAU bell curve vì chế độ "chặn" ném lỗi làm cuộn giao dịch — báo trước
+            // là báo một kết quả có thể chưa bao giờ tồn tại.
+            String label = evaluation.getScore() != null
+                    ? String.valueOf(Math.round(evaluation.getScore() * 100.0) / 100.0) : "—";
+            notificationDispatcher.dispatch(org.getId(), "evaluation_finalized",
+                    evaluatedUser, targetOrgUnit,
+                    "Kết quả đánh giá đợt " + kpiPeriod.getName(),
+                    String.format("%s đã chấm đánh giá đợt %s của bạn: %s điểm%s.",
+                            currentUser.getFullName(), kpiPeriod.getName(), label,
+                            evaluation.getMatrixRating() != null
+                                    ? " · xếp loại " + evaluation.getMatrixRating() + "/5" : ""),
+                    "EVALUATION_RESULT", evaluation.getId());
+        }
+        return response;
     }
 
     @Transactional(readOnly = true)

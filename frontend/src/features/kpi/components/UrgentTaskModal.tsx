@@ -10,6 +10,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { kpiApi } from '../api/kpiApi'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/apiError'
 import { Loader2, X, AlertTriangle, ArrowLeftRight, SlidersHorizontal, Check, ShieldAlert, Target, Users, BarChart3 } from 'lucide-react'
 import { FREQUENCY_MAP, cn, formatNumber, formatDateTime } from '@/lib/utils'
 import UserAvatar from '@/components/common/UserAvatar'
@@ -26,11 +27,15 @@ import { Select, SelectContent, SelectItem, SelectGroup, SelectLabel, SelectTrig
 import { LayoutGrid } from 'lucide-react'
 import { DateTimePicker } from '@/components/common/DateTimePicker'
 import { scorecardsForPeriod } from '@/features/bsc/utils/scorecardScope'
+import { perspectiveHint } from '@/features/bsc/utils/perspectiveHint'
+import type { ScorecardPerspectiveResponse } from '@/features/bsc/types'
 import { toastFirstError } from '@/lib/formErrors'
+import { Button } from '@/components/ui/button'
+import { ChoiceChip } from '@/components/ui/choice-chip'
 
 
-const inputCls = "w-full px-3 py-2.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/50 transition-all shadow-sm"
-const labelCls = "block text-[11px] font-black text-[var(--color-muted-foreground)] uppercase tracking-widest mb-1.5"
+const inputCls = "w-full px-3 py-2.5 rounded-control border border-[var(--color-border)] bg-[var(--color-background)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/50 transition-all shadow-sm"
+const labelCls = "text-eyebrow block mb-1.5"
 
 const frequencyOptions = (['DAILY', 'WEEKLY', 'MONTHLY', 'QUARTERLY', 'SEMI_ANNUALLY', 'YEARLY', 'UNLIMITED'] as const)
 
@@ -96,26 +101,26 @@ function AssigneeSelector({ orgUnitId, selectedIds, onChange, hint, isStaff, cur
 
   if (isStaff && currentUser) {
     return (
-      <div className="bg-[var(--color-primary)]/5 rounded-2xl p-4 border border-[var(--color-primary)]/10">
-        <label className="text-sm font-bold flex items-center gap-2 mb-3">
+      <div className="bg-[var(--color-primary)]/5 rounded-card p-4 border border-[var(--color-primary)]/10">
+        <label className="text-label flex items-center gap-2 mb-3">
           <Users size={15} className="text-[var(--color-primary)]" />
           Giao thực hiện
         </label>
-        <div className="bg-[var(--color-background)] border border-[var(--color-primary)]/20 rounded-xl p-4">
+        <div className="bg-[var(--color-background)] border border-[var(--color-primary)]/20 rounded-card p-4">
           <div className="flex items-center gap-3">
             <UserAvatar
               fullName={currentUser.fullName}
               avatarUrl={currentUser.avatarUrl}
               className="w-10 h-10 rounded-full"
-              fallbackClassName="bg-[var(--color-primary)]/10 text-[var(--color-primary)] font-bold text-lg"
+              fallbackClassName="bg-[var(--color-primary)]/10 text-[var(--color-primary)] font-semibold text-lg"
             />
             <div className="flex-1 min-w-0">
-              <div className="text-sm font-bold">{currentUser.fullName} <span className="text-[var(--color-primary)]">(Bản thân)</span></div>
-              <div className="text-[10px] text-[var(--color-muted-foreground)] font-medium truncate">{currentUser.email}</div>
+              <div className="text-sm font-medium">{currentUser.fullName} <span className="text-[var(--color-primary)]">(Bản thân)</span></div>
+              <div className="text-caption font-medium truncate">{currentUser.email}</div>
             </div>
             <div className="flex items-center gap-2 shrink-0">
-              <span className="px-2 py-0.5 rounded-full bg-[var(--color-primary)]/10 text-[var(--color-primary)] text-[9px] font-black uppercase">Đang chọn</span>
-              <div className="bg-[var(--color-primary)] text-white rounded-full p-1">
+              <span className="px-2 py-0.5 rounded-full bg-[var(--color-primary)]/10 text-[var(--color-primary)] text-xs font-medium">Đang chọn</span>
+              <div className="bg-[var(--color-primary)] text-[var(--color-primary-foreground)] rounded-full p-1">
                 <Check size={12} strokeWidth={3} />
               </div>
             </div>
@@ -126,45 +131,40 @@ function AssigneeSelector({ orgUnitId, selectedIds, onChange, hint, isStaff, cur
   }
 
   return (
-    <div className="bg-[var(--color-primary)]/5 rounded-2xl p-4 space-y-3 border border-[var(--color-primary)]/10">
+    <div className="bg-[var(--color-primary)]/5 rounded-card p-4 space-y-3 border border-[var(--color-primary)]/10">
       <div className="flex items-center justify-between">
-        <label className="text-sm font-bold flex items-center gap-2">
+        <label className="text-label flex items-center gap-2">
           <Users size={15} className="text-[var(--color-primary)]" />
           Giao thực hiện
-          {hint && <span className="text-[10px] font-medium text-[var(--color-muted-foreground)]">({hint})</span>}
+          {hint && <span className="text-caption">({hint})</span>}
         </label>
-        <div className="px-2.5 py-1 rounded-full bg-[var(--color-primary)]/10 text-[var(--color-primary)] text-[10px] font-black uppercase tracking-wider">
+        <div className="text-eyebrow px-2.5 py-1 rounded-full bg-[var(--color-primary)]/10 text-[var(--color-primary)]">
           {usersData?.totalElements ?? 0} nhân sự khả dụng
         </div>
       </div>
 
       {/* Role filter chips */}
       <div className="flex flex-wrap gap-2 items-center">
-        <span className="text-[10px] font-black text-[var(--color-muted-foreground)] uppercase shrink-0">Role:</span>
+        <span className="text-eyebrow shrink-0">Role:</span>
         {[{ name: 'ALL', label: 'Tất cả' }, ...availableRoles].map(r => (
-          <button key={r.name} type="button" onClick={() => setSelectedRole(r.name)}
-            className={cn('px-2.5 py-1 rounded-full text-[10px] font-black border uppercase tracking-tight transition-all shrink-0',
-              selectedRole === r.name
-                ? 'bg-[var(--color-primary)] text-white border-[var(--color-primary)] shadow-sm'
-                : 'bg-[var(--color-background)] border-[var(--color-border)] hover:border-[var(--color-primary)] text-[var(--color-muted-foreground)]'
-            )}>
+          <ChoiceChip selected={selectedRole === r.name} variant="solid" size="sm" className="py-1 shrink-0" key={r.name} onClick={() => setSelectedRole(r.name)}>
             {r.label}
-          </button>
+          </ChoiceChip>
         ))}
       </div>
 
       {/* Search + list */}
-      <div className="border border-[var(--color-border)] rounded-xl overflow-hidden bg-[var(--color-background)] shadow-inner">
+      <div className="border border-[var(--color-border)] rounded-card overflow-hidden bg-[var(--color-background)]">
         <div className="p-2 border-b border-[var(--color-border)] bg-[var(--color-accent)]/5">
           <input type="text" placeholder="Họ tên hoặc Email..."
             value={userSearch} onChange={e => setUserSearch(e.target.value)}
-            className="w-full px-3 py-2 text-xs rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] outline-none focus:ring-2 focus:ring-[var(--color-primary)]/50 transition-all shadow-sm" />
+            className="w-full px-3 py-2 text-xs rounded-control border border-[var(--color-border)] bg-[var(--color-background)] outline-none focus:ring-2 focus:ring-[var(--color-primary)]/50 transition-all shadow-sm" />
         </div>
         <div className="max-h-48 overflow-y-auto p-1.5 space-y-1 custom-scrollbar">
           {isLoading ? (
-            <div className="p-12 flex flex-col items-center justify-center gap-3 text-xs text-[var(--color-muted-foreground)] font-bold">
+            <div className="p-12 flex flex-col items-center justify-center gap-3 text-xs text-[var(--color-muted-foreground)] font-medium">
               <Loader2 size={24} className="animate-spin text-[var(--color-primary)]" />
-              <span className="uppercase tracking-widest opacity-50">Đang đồng bộ...</span>
+              <span className="opacity-60">Đang đồng bộ...</span>
             </div>
           ) : displayUsers.length === 0 ? (
             <div className="p-8 text-center text-xs text-[var(--color-muted-foreground)] font-medium italic">
@@ -172,19 +172,19 @@ function AssigneeSelector({ orgUnitId, selectedIds, onChange, hint, isStaff, cur
             </div>
           ) : displayUsers.map(u => (
             <div key={u.id} onClick={() => toggle(u.id)}
-              className={cn('flex items-center justify-between px-3 py-2.5 rounded-xl cursor-pointer transition-all',
+              className={cn('flex items-center justify-between px-3 py-2.5 rounded-card cursor-pointer transition-all',
                 selectedIds.includes(u.id)
-                  ? 'bg-[var(--color-primary)] text-white shadow-lg shadow-[var(--color-primary)]/20 scale-[1.01] font-bold'
+                  ? 'bg-[var(--color-primary)] text-[var(--color-primary-foreground)] scale-[1.01] font-semibold'
                   : 'hover:bg-[var(--color-accent)]'
               )}>
               <div className="flex flex-col">
                 <span className="text-sm">{u.fullName}</span>
                 <div className="flex items-center gap-2 mt-0.5">
-                  <span className={cn('text-[9px] font-medium opacity-70',
+                  <span className={cn('text-xs font-medium opacity-70',
                     selectedIds.includes(u.id) ? 'text-white' : 'text-[var(--color-muted-foreground)]'
                   )}>{u.email}</span>
                   {u.memberships?.[0]?.roleDisplayName && (
-                    <span className={cn('px-1.5 py-0.5 rounded text-[8px] font-black uppercase tracking-tighter',
+                    <span className={cn('px-1.5 py-0.5 rounded text-xs font-medium',
                       selectedIds.includes(u.id)
                         ? 'bg-white/20 text-white'
                         : 'bg-[var(--color-primary)]/10 text-[var(--color-primary)]'
@@ -211,15 +211,13 @@ function AssigneeSelector({ orgUnitId, selectedIds, onChange, hint, isStaff, cur
 
 function KpiTypeTabs({ value, onChange }: { value: KpiType; onChange: (t: KpiType) => void }) {
   return (
-    <div className="grid grid-cols-2 gap-2 p-1 rounded-2xl bg-[var(--color-accent)]/30 border border-[var(--color-border)]/40">
-      <button type="button" onClick={() => onChange('QUANTITATIVE')}
-        className={cn('flex items-center justify-center gap-2 py-2 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all',
-          value !== 'QUALITATIVE' ? 'bg-indigo-600 text-white shadow-md' : 'text-[var(--color-muted-foreground)] hover:bg-[var(--color-accent)]')}>
-        <BarChart3 size={13} /> Định lượng
-      </button>
+    <div className="grid grid-cols-2 gap-2 p-1 rounded-card bg-[var(--color-accent)]/30 border border-[var(--color-border)]/40">
+      <ChoiceChip selected={value !== 'QUALITATIVE'} variant="solid" className="py-2" onClick={() => onChange('QUANTITATIVE')}>
+        <BarChart3 /> Định lượng
+      </ChoiceChip>
       <button type="button" onClick={() => onChange('QUALITATIVE')}
-        className={cn('flex items-center justify-center gap-2 py-2 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all',
-          value === 'QUALITATIVE' ? 'bg-emerald-600 text-white shadow-md' : 'text-[var(--color-muted-foreground)] hover:bg-[var(--color-accent)]')}>
+        className={cn('text-eyebrow flex items-center justify-center gap-2 py-2 rounded-card transition-all',
+          value === 'QUALITATIVE' ? 'bg-[var(--color-success-solid)] text-white' : 'text-[var(--color-muted-foreground)] hover:bg-[var(--color-accent)]')}>
         <SlidersHorizontal size={13} /> Định tính
       </button>
     </div>
@@ -237,11 +235,17 @@ interface TabSharedProps {
   perspectives: any[]
   /** Hạng mục CÓ trong bộ tiêu chí của đơn vị (null = không lọc). Lọc dropdown giống form tạo KPI. */
   availablePerspectiveIds?: Set<string> | null
+  /**
+   * Dòng phụ "MT … · sàn … · …%" của từng hạng mục, dựng sẵn ở component cha từ BỘ TIÊU CHÍ
+   * HIỆU LỰC. Không lấy từ danh mục hạng mục: cùng một hạng mục nhưng mỗi đơn vị đặt mục tiêu
+   * khác nhau, hiện số danh mục là hiện nhầm con số của đơn vị khác.
+   */
+  perspectiveHints?: Map<string, string | null>
 }
 
 // ─── Shared BSC perspective selector ─────────────────────────────────────────
 
-function PerspectiveSelect({ control, name, perspectives, availablePerspectiveIds }: { control: any; name: string; perspectives: any[]; availablePerspectiveIds?: Set<string> | null }) {
+function PerspectiveSelect({ control, name, perspectives, availablePerspectiveIds, perspectiveHints }: { control: any; name: string; perspectives: any[]; availablePerspectiveIds?: Set<string> | null; perspectiveHints?: Map<string, string | null> }) {
   const { data: fixedPerspectives } = useFixedPerspectives()
   const grouped = useMemo(() => {
     const order = (fixedPerspectives || []).map((fp: any) => fp.code)
@@ -260,24 +264,29 @@ function PerspectiveSelect({ control, name, perspectives, availablePerspectiveId
   const noCategory = !!availablePerspectiveIds && grouped.length === 0
 
   return (
-    <div className="bg-violet-50/50 dark:bg-violet-900/5 p-4 rounded-2xl border border-violet-100 dark:border-violet-900/50 space-y-3">
-      <div className="flex items-center gap-2 text-violet-600 dark:text-violet-400">
+    <div className="bg-[var(--color-primary-soft)] p-4 rounded-card border border-[var(--color-border)] space-y-3">
+      <div className="flex items-center gap-2 text-[var(--color-primary)]">
         <LayoutGrid size={16} />
-        <span className="text-[11px] font-black uppercase tracking-widest">Hạng mục BSC</span>
+        <span className="text-eyebrow">Hạng mục BSC</span>
       </div>
       <Controller name={name} control={control}
         render={({ field }: any) => (
           <Select onValueChange={field.onChange} value={field.value || 'NONE'}>
-            <SelectTrigger className="w-full rounded-xl border-violet-100 dark:border-violet-900 bg-white dark:bg-slate-900 h-11 shadow-sm overflow-hidden">
+            <SelectTrigger className="w-full rounded-card border-[var(--color-border)] bg-[var(--color-card)] h-11 shadow-sm overflow-hidden">
               <SelectValue placeholder="-- Chưa gán hạng mục --" />
             </SelectTrigger>
-            <SelectContent className="z-[300] rounded-2xl max-h-[300px]">
-              <SelectItem value="NONE" className="font-bold py-3">-- Chưa gán hạng mục --</SelectItem>
+            <SelectContent className="z-[300] rounded-card max-h-[300px]">
+              <SelectItem value="NONE" className="font-semibold py-3">-- Chưa gán hạng mục --</SelectItem>
               {grouped.map(group => (
                 <div key={group.code}>
-                  <div className="px-3 pt-2 pb-1 text-[10px] font-black uppercase tracking-wider text-slate-400">{group.name}</div>
+                  <div className="text-eyebrow px-3 pt-2 pb-1">{group.name}</div>
                   {group.items.map((p: any) => (
-                    <SelectItem key={p.id} value={p.id} className="rounded-xl py-2.5">
+                    <SelectItem key={p.id} value={p.id} className="rounded-card py-2.5"
+                      extra={perspectiveHints?.get(p.id) && (
+                        <span className="ml-auto pl-3 text-caption whitespace-nowrap">
+                          {perspectiveHints.get(p.id)}
+                        </span>
+                      )}>
                       <span className="flex items-center gap-2">
                         <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: p.color || '#94a3b8' }} />
                         <span className="font-semibold text-xs">{p.name}</span>
@@ -290,9 +299,9 @@ function PerspectiveSelect({ control, name, perspectives, availablePerspectiveId
           </Select>
         )}
       />
-      <p className="text-[10px] font-medium text-slate-500 dark:text-slate-400">Tổng trọng số các chỉ tiêu trong 1 hạng mục phải bằng 100% (chặn khi duyệt).</p>
+      <p className="text-caption">Tổng trọng số các chỉ tiêu trong 1 hạng mục phải bằng 100% (chặn khi duyệt).</p>
       {noCategory && (
-        <p className="text-[10px] font-bold text-amber-600 dark:text-amber-400 flex items-start gap-1.5">
+        <p className="text-xs font-medium text-[var(--color-warning)] flex items-start gap-1.5">
           <span className="shrink-0">⚠</span>
           Bộ tiêu chí của đơn vị này <b>chưa có hạng mục nào</b> — hãy thêm hạng mục vào bộ tiêu chí cho đơn vị đó trước.
         </p>
@@ -301,7 +310,7 @@ function PerspectiveSelect({ control, name, perspectives, availablePerspectiveId
   )
 }
 
-function ReplaceTab({ kpiList, orgUnitId, period, enableOkr, enableQualitative, enableBsc, objectives, perspectives, availablePerspectiveIds, onSuccess }: { kpiList: KpiCriteria[]; orgUnitId: string; onSuccess: () => void } & TabSharedProps) {
+function ReplaceTab({ kpiList, orgUnitId, period, enableOkr, enableQualitative, enableBsc, objectives, perspectives, availablePerspectiveIds, perspectiveHints, onSuccess }: { kpiList: KpiCriteria[]; orgUnitId: string; onSuccess: () => void } & TabSharedProps) {
   const qc = useQueryClient()
   const { user: currentUser } = useAuthStore()
   const isStaff = currentUser?.memberships?.[0]?.roleRank === 2
@@ -351,26 +360,26 @@ function ReplaceTab({ kpiList, orgUnitId, period, enableOkr, enableQualitative, 
       reset()
       onSuccess()
     },
-    onError: (err: any) => toast.error(err?.response?.data?.message ?? 'Thay thế KPI thất bại')
+    onError: (err) => toast.error(getApiErrorMessage(err, 'Thay thế KPI thất bại'))
   })
 
   const activeKpis = kpiList.filter(k => k.status !== 'REPLACED' && k.status !== 'INACTIVE')
 
   return (
     <form onSubmit={handleSubmit(d => mutate(d), toastFirstError)} className="space-y-5">
-      <div className="rounded-xl border border-amber-200 bg-amber-50 dark:bg-amber-900/20 dark:border-amber-800/50 p-3 flex gap-2.5">
-        <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" />
-        <p className="text-xs font-medium text-amber-800 dark:text-amber-300">
+      <div className="rounded-card border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] dark:border-[var(--color-warning-border)] p-3 flex gap-2.5">
+        <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0 text-[var(--color-warning)]" />
+        <p className="text-xs font-medium text-[var(--color-warning)]">
           KPI được chọn sẽ bị đánh dấu <strong>Đã thay thế</strong> và không tính vào điểm. KPI mới sẽ kế thừa trọng số.
         </p>
       </div>
 
       <div>
-        <label className={labelCls}>KPI cần thay thế <span className="text-red-500">*</span></label>
+        <label className={labelCls}>KPI cần thay thế <span className="text-[var(--color-error)]">*</span></label>
         <Controller name="replacedKpiId" control={control}
           render={({ field }) => (
             <Select value={field.value} onValueChange={field.onChange}>
-              <SelectTrigger className={cn(inputCls, 'h-auto truncate', errors.replacedKpiId && 'ring-2 ring-red-500')}>
+              <SelectTrigger className={cn(inputCls, 'h-auto truncate', errors.replacedKpiId && 'ring-2 ring-[var(--color-error-solid)]')}>
                 <SelectValue placeholder="— Chọn KPI cần thay thế —" />
               </SelectTrigger>
               <SelectContent className="z-[300]">
@@ -385,7 +394,7 @@ function ReplaceTab({ kpiList, orgUnitId, period, enableOkr, enableQualitative, 
           )}
         />
         {selectedKpi && (
-          <p className="mt-1.5 text-[10px] font-bold text-[var(--color-muted-foreground)]">
+          <p className="mt-1.5 text-caption">
             Trọng số kế thừa: <span className="text-[var(--color-primary)]">{selectedKpi.weight ?? 0}%</span>
             {' · '}Tần suất: {FREQUENCY_MAP[selectedKpi.frequency]}
             {selectedKpi.assigneeNames?.length > 0 && <> · Giao cho: {selectedKpi.assigneeNames.join(', ')}</>}
@@ -401,7 +410,7 @@ function ReplaceTab({ kpiList, orgUnitId, period, enableOkr, enableQualitative, 
       </div>
 
       <div className="space-y-4">
-        <p className="text-[11px] font-black text-[var(--color-muted-foreground)] uppercase tracking-widest">Thông tin KPI thay thế</p>
+        <p className="text-eyebrow">Thông tin KPI thay thế</p>
 
         {enableQualitative && (
           <Controller name="kpiType" control={control}
@@ -409,9 +418,9 @@ function ReplaceTab({ kpiList, orgUnitId, period, enableOkr, enableQualitative, 
         )}
 
         <div>
-          <label className={labelCls}>Tên KPI mới <span className="text-red-500">*</span></label>
+          <label className={labelCls}>Tên KPI mới <span className="text-[var(--color-error)]">*</span></label>
           <input {...register('name')} placeholder="VD: Xử lý yêu cầu khẩn khách hàng Q3"
-            className={cn(inputCls, errors.name && 'ring-2 ring-red-500')} />
+            className={cn(inputCls, errors.name && 'ring-2 ring-[var(--color-error-solid)]')} />
         </div>
 
         <div>
@@ -421,27 +430,27 @@ function ReplaceTab({ kpiList, orgUnitId, period, enableOkr, enableQualitative, 
             className={inputCls + ' resize-none'} />
         </div>
 
-        <div className="bg-[var(--color-accent)]/10 rounded-2xl p-4 border border-[var(--color-border)]/30 space-y-3">
+        <div className="bg-[var(--color-accent)]/10 rounded-card p-4 border border-[var(--color-border)]/30 space-y-3">
           {!isQual && (
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className={labelCls}>Mục tiêu mong muốn <span className="text-red-500">*</span></label>
+              <label className={labelCls}>Mục tiêu mong muốn <span className="text-[var(--color-error)]">*</span></label>
               <input type="number" step="any" onWheel={e => (e.target as HTMLInputElement).blur()}
                 {...register('targetValue')}
-                placeholder="1000" className={cn(inputCls, errors.targetValue && 'ring-2 ring-red-500')} />
+                placeholder="1000" className={cn(inputCls, errors.targetValue && 'ring-2 ring-[var(--color-error-solid)]')} />
             </div>
             <div>
-              <label className={labelCls}>Mục tiêu tối thiểu <span className="text-red-500">*</span></label>
+              <label className={labelCls}>Mục tiêu tối thiểu <span className="text-[var(--color-error)]">*</span></label>
               <input type="number" step="any" onWheel={e => (e.target as HTMLInputElement).blur()}
                 {...register('minimumValue')}
-                placeholder="800" className={cn(inputCls, errors.minimumValue && 'ring-2 ring-red-500')} />
+                placeholder="800" className={cn(inputCls, errors.minimumValue && 'ring-2 ring-[var(--color-error-solid)]')} />
             </div>
           </div>
           )}
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className={labelCls}>Tần suất <span className="text-red-500">*</span></label>
+              <label className={labelCls}>Tần suất <span className="text-[var(--color-error)]">*</span></label>
               <Controller name="frequency" control={control}
                 render={({ field }) => (
                   <Select value={field.value} onValueChange={field.onChange}>
@@ -455,9 +464,9 @@ function ReplaceTab({ kpiList, orgUnitId, period, enableOkr, enableQualitative, 
             </div>
             {!isQual && (
             <div>
-              <label className={labelCls}>Đơn vị tính <span className="text-red-500">*</span></label>
+              <label className={labelCls}>Đơn vị tính <span className="text-[var(--color-error)]">*</span></label>
               <input {...register('unit')}
-                placeholder="VNĐ, %, KPI..." className={cn(inputCls, errors.unit && 'ring-2 ring-red-500')} />
+                placeholder="VNĐ, %, KPI..." className={cn(inputCls, errors.unit && 'ring-2 ring-[var(--color-error-solid)]')} />
             </div>
             )}
           </div>
@@ -466,14 +475,14 @@ function ReplaceTab({ kpiList, orgUnitId, period, enableOkr, enableQualitative, 
           <Controller name="isReverseKpi" control={control}
             render={({ field }) => (
               <button type="button" onClick={() => field.onChange(!field.value)}
-                className={cn('w-full flex items-center justify-between px-4 py-3 rounded-xl border-2 transition-all text-left',
-                  field.value ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/10' : 'border-[var(--color-border)] bg-[var(--color-background)] hover:border-[var(--color-primary)]/50'
+                className={cn('w-full flex items-center justify-between px-4 py-3 rounded-card border-2 transition-all text-left',
+                  field.value ? 'border-[var(--color-warning-border)] bg-[var(--color-warning-bg)]' : 'border-[var(--color-border)] bg-[var(--color-background)] hover:border-[var(--color-primary)]/50'
                 )}>
                 <div>
-                  <span className={cn('text-sm font-bold', field.value ? 'text-orange-600 dark:text-orange-400' : 'text-[var(--color-foreground)]')}>KPI Ngược</span>
-                  <p className="text-[10px] text-[var(--color-muted-foreground)] mt-0.5">Giá trị mục tiêu càng thấp càng tốt (VD: tỉ lệ lỗi, chi phí)</p>
+                  <span className={cn('text-sm font-medium', field.value ? 'text-[var(--color-warning)]' : 'text-[var(--color-foreground)]')}>KPI Ngược</span>
+                  <p className="text-caption mt-0.5">Giá trị mục tiêu càng thấp càng tốt (VD: tỉ lệ lỗi, chi phí)</p>
                 </div>
-                <div className={cn('w-10 h-6 rounded-full transition-all relative flex-shrink-0', field.value ? 'bg-orange-500' : 'bg-[var(--color-muted-foreground)]/30')}>
+                <div className={cn('w-10 h-6 rounded-full transition-all relative flex-shrink-0', field.value ? 'bg-[var(--color-warning-solid)]' : 'bg-[var(--color-muted-foreground)]/30')}>
                   <div className={cn('absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-all', field.value ? 'left-5' : 'left-1')} />
                 </div>
               </button>
@@ -484,14 +493,14 @@ function ReplaceTab({ kpiList, orgUnitId, period, enableOkr, enableQualitative, 
           <Controller name="isBonusKpi" control={control}
             render={({ field }) => (
               <button type="button" onClick={() => field.onChange(!field.value)}
-                className={cn('w-full flex items-center justify-between px-4 py-3 rounded-xl border-2 transition-all text-left',
-                  field.value ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/10' : 'border-[var(--color-border)] bg-[var(--color-background)] hover:border-[var(--color-primary)]/50'
+                className={cn('w-full flex items-center justify-between px-4 py-3 rounded-card border-2 transition-all text-left',
+                  field.value ? 'border-[var(--color-success-border)] bg-[var(--color-success-bg)]' : 'border-[var(--color-border)] bg-[var(--color-background)] hover:border-[var(--color-primary)]/50'
                 )}>
                 <div>
-                  <span className={cn('text-sm font-bold', field.value ? 'text-emerald-600 dark:text-emerald-400' : 'text-[var(--color-foreground)]')}>KPI Thưởng</span>
-                  <p className="text-[10px] text-[var(--color-muted-foreground)] mt-0.5">Không bắt buộc, không tính vào 100% trọng số, hoàn thành thì được cộng điểm thêm</p>
+                  <span className={cn('text-sm font-medium', field.value ? 'text-[var(--color-success)]' : 'text-[var(--color-foreground)]')}>KPI Thưởng</span>
+                  <p className="text-caption mt-0.5">Không bắt buộc, không tính vào 100% trọng số, hoàn thành thì được cộng điểm thêm</p>
                 </div>
-                <div className={cn('w-10 h-6 rounded-full transition-all relative flex-shrink-0', field.value ? 'bg-emerald-500' : 'bg-[var(--color-muted-foreground)]/30')}>
+                <div className={cn('w-10 h-6 rounded-full transition-all relative flex-shrink-0', field.value ? 'bg-[var(--color-success-solid)]' : 'bg-[var(--color-muted-foreground)]/30')}>
                   <div className={cn('absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-all', field.value ? 'left-5' : 'left-1')} />
                 </div>
               </button>
@@ -506,7 +515,7 @@ function ReplaceTab({ kpiList, orgUnitId, period, enableOkr, enableQualitative, 
 
       {/* Deadline */}
       <div>
-        <label className="block text-sm font-bold mb-1.5">Hạn chốt</label>
+        <label className="text-label block mb-1.5">Hạn chốt</label>
         <Controller name="deadline" control={control}
           render={({ field }) => (
             <DateTimePicker
@@ -518,7 +527,7 @@ function ReplaceTab({ kpiList, orgUnitId, period, enableOkr, enableQualitative, 
           )}
         />
         {period && (
-          <p className="text-[10px] text-[var(--color-muted-foreground)] mt-1">
+          <p className="text-caption mt-1">
             Để trống = mặc định theo ngày kết thúc đợt ({formatDateTime(period.endDate)})
           </p>
         )}
@@ -526,29 +535,29 @@ function ReplaceTab({ kpiList, orgUnitId, period, enableOkr, enableQualitative, 
 
       {/* OKR Key Result */}
       {enableOkr && (
-        <div className="bg-indigo-50/50 dark:bg-indigo-900/5 p-4 rounded-2xl border border-indigo-100 dark:border-indigo-900/50 space-y-3">
-          <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400">
+        <div className="bg-[var(--color-primary-soft)] p-4 rounded-card border border-[var(--color-border)] space-y-3">
+          <div className="flex items-center gap-2 text-[var(--color-primary)]">
             <Target size={16} />
-            <span className="text-[11px] font-black uppercase tracking-widest">Đẩy tiến độ OKR Chiến lược</span>
+            <span className="text-eyebrow">Đẩy tiến độ OKR Chiến lược</span>
           </div>
           <div className="space-y-1">
-            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-tight">Gắn kết Kết quả then chốt (KR)</label>
+            <label className="text-label block text-[var(--color-muted-foreground)] tracking-tight">Gắn kết Kết quả then chốt (KR)</label>
             <Controller name="keyResultId" control={control}
               render={({ field }) => (
                 <Select onValueChange={field.onChange} value={field.value || 'NONE'}>
-                  <SelectTrigger className="w-full rounded-xl border-indigo-100 dark:border-indigo-900 bg-white dark:bg-slate-900 h-11 shadow-sm overflow-hidden">
+                  <SelectTrigger className="w-full rounded-card border-[var(--color-border)] bg-[var(--color-card)] h-11 shadow-sm overflow-hidden">
                     <SelectValue placeholder="-- Không liên kết --" />
                   </SelectTrigger>
-                  <SelectContent className="z-[300] rounded-2xl max-h-[300px]">
-                    <SelectItem value="NONE" className="font-bold py-3">-- Không liên kết mục tiêu --</SelectItem>
+                  <SelectContent className="z-[300] rounded-card max-h-[300px]">
+                    <SelectItem value="NONE" className="font-semibold py-3">-- Không liên kết mục tiêu --</SelectItem>
                     {objectives.map((obj: any) => (
                       <SelectGroup key={obj.id} className="p-1">
-                        <SelectLabel className="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400 bg-indigo-50/50 dark:bg-indigo-900/20 rounded-xl my-1.5 flex items-start justify-between gap-2">
+                        <SelectLabel className="text-eyebrow px-3 py-2 text-[var(--color-primary)] bg-[var(--color-primary-soft)] rounded-card my-1.5 flex items-start justify-between gap-2">
                           <span>OBJ: {obj.name}</span>
-                          <span className="text-[8px] border border-indigo-200 rounded px-1 py-0.5 shrink-0 font-black">OKR</span>
+                          <span className="text-xs border border-[var(--color-border)] rounded px-1 py-0.5 shrink-0 font-semibold">OKR</span>
                         </SelectLabel>
                         {obj.keyResults?.map((kr: any) => (
-                          <SelectItem key={kr.id} value={kr.id} className="rounded-xl py-2.5 pl-8">
+                          <SelectItem key={kr.id} value={kr.id} className="rounded-card py-2.5 pl-8">
                             <span className="font-semibold text-xs">{kr.name}</span>
                           </SelectItem>
                         ))}
@@ -563,18 +572,16 @@ function ReplaceTab({ kpiList, orgUnitId, period, enableOkr, enableQualitative, 
       )}
 
       {/* BSC perspective */}
-      {enableBsc && <PerspectiveSelect control={control} name="perspectiveId" perspectives={perspectives} availablePerspectiveIds={availablePerspectiveIds} />}
+      {enableBsc && <PerspectiveSelect control={control} name="perspectiveId" perspectives={perspectives} availablePerspectiveIds={availablePerspectiveIds} perspectiveHints={perspectiveHints} />}
 
       <div className="flex gap-4 pt-2 border-t border-[var(--color-border)]/50">
-        <button type="button" onClick={onSuccess}
-          className="flex-1 px-4 py-3 rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-[var(--color-accent)] transition-all">
+        <Button variant="ghost" className="flex-1" type="button" onClick={onSuccess}>
           Hủy
-        </button>
-        <button type="submit" disabled={isPending || !replacedKpiId}
-          className="flex-1 px-4 py-3 rounded-2xl text-xs font-black uppercase tracking-widest bg-gradient-to-r from-amber-500 to-orange-500 text-white shadow-xl shadow-amber-500/20 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 transition-all flex items-center justify-center gap-2">
-          {isPending && <Loader2 size={16} className="animate-spin" />}
+        </Button>
+        <Button className="flex-1" type="submit" disabled={isPending || !replacedKpiId}>
+          {isPending && <Loader2 aria-hidden="true" className="animate-spin" />}
           Thay thế KPI
-        </button>
+        </Button>
       </div>
     </form>
   )
@@ -582,7 +589,7 @@ function ReplaceTab({ kpiList, orgUnitId, period, enableOkr, enableQualitative, 
 
 // ─── Tab 2: Reduce weights + Add new KPI ────────────────────────────────────
 
-function AdjustTab({ kpiList, kpiPeriodId, orgUnitId, period, enableOkr, enableQualitative, enableBsc, objectives, perspectives, availablePerspectiveIds, perspectiveWeightPct, onSuccess }: { kpiList: KpiCriteria[]; kpiPeriodId: string; orgUnitId: string; onSuccess: () => void; perspectiveWeightPct?: Map<string, number> } & TabSharedProps) {
+function AdjustTab({ kpiList, kpiPeriodId, orgUnitId, period, enableOkr, enableQualitative, enableBsc, objectives, perspectives, availablePerspectiveIds, perspectiveHints, perspectiveWeightPct, onSuccess }: { kpiList: KpiCriteria[]; kpiPeriodId: string; orgUnitId: string; onSuccess: () => void; perspectiveWeightPct?: Map<string, number> } & TabSharedProps) {
   const qc = useQueryClient()
   const { user: currentUser } = useAuthStore()
   const isStaff = currentUser?.memberships?.[0]?.roleRank === 2
@@ -663,7 +670,7 @@ function AdjustTab({ kpiList, kpiPeriodId, orgUnitId, period, enableOkr, enableQ
       qc.invalidateQueries({ queryKey: ['stats'] })
       onSuccess()
     } catch (err: any) {
-      toast.error(err?.response?.data?.message ?? 'Có lỗi xảy ra')
+      toast.error(getApiErrorMessage(err, 'Cập nhật trọng số thất bại'))
     }
   }
 
@@ -671,9 +678,9 @@ function AdjustTab({ kpiList, kpiPeriodId, orgUnitId, period, enableOkr, enableQ
     <form onSubmit={handleSubmit(onSubmit, toastFirstError)} className="space-y-5">
       {adjustableKpis.length > 0 && (
         <div className="space-y-2">
-          <p className="text-[11px] font-black text-[var(--color-muted-foreground)] uppercase tracking-widest">Điều chỉnh trọng số KPI hiện có</p>
-          <div className="rounded-xl border border-[var(--color-border)] overflow-hidden bg-[var(--color-background)] shadow-sm">
-            <div className="grid grid-cols-[1fr_88px_52px_76px] text-[10px] font-black uppercase tracking-widest text-[var(--color-muted-foreground)] bg-[var(--color-accent)]/30 px-3 py-2 border-b border-[var(--color-border)]">
+          <p className="text-eyebrow">Điều chỉnh trọng số KPI hiện có</p>
+          <div className="rounded-card border border-[var(--color-border)] overflow-hidden bg-[var(--color-background)] shadow-sm">
+            <div className="text-eyebrow grid grid-cols-[1fr_88px_52px_76px] bg-[var(--color-accent)]/30 px-3 py-2 border-b border-[var(--color-border)]">
               <span>Tên KPI</span>
               <span className="text-center whitespace-nowrap">Trạng thái</span>
               <span className="text-center whitespace-nowrap">Cũ (%)</span>
@@ -688,7 +695,7 @@ function AdjustTab({ kpiList, kpiPeriodId, orgUnitId, period, enableOkr, enableQ
                 return (
                   <div key={field.id} className="grid grid-cols-[1fr_88px_52px_76px] items-center px-3 py-2.5 gap-2">
                     <span className="text-sm font-medium text-[var(--color-foreground)] truncate">{kpi?.name}</span>
-                    <span className={`text-center text-[9px] font-black uppercase whitespace-nowrap ${kpi?.status === 'APPROVED' ? 'text-emerald-600 dark:text-emerald-400' : 'text-amber-600 dark:text-amber-400'}`}>
+                    <span className={`text-center text-xs font-semibold uppercase whitespace-nowrap ${kpi?.status === 'APPROVED' ? 'text-[var(--color-success)]' : 'text-[var(--color-warning)]'}`}>
                       {kpi?.status === 'APPROVED' ? 'Đã duyệt' : kpi?.status === 'PENDING_APPROVAL' ? 'Chờ duyệt' : 'Nháp'}
                     </span>
                     <span className="text-center text-sm text-[var(--color-muted-foreground)]"
@@ -698,8 +705,8 @@ function AdjustTab({ kpiList, kpiPeriodId, orgUnitId, period, enableOkr, enableQ
                     <div>
                       <input type="number" step="0.1" min="0" max="100"
                         {...register(`weights.${idx}.newWeight`, { valueAsNumber: true })}
-                        className="w-full px-2 py-1.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] text-sm text-center focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/50 shadow-sm" />
-                      {realNew != null && <p className="text-[8px] font-bold text-violet-500 text-center mt-0.5">thật {realNew.toFixed(1)}%</p>}
+                        className="w-full px-2 py-1.5 rounded-control border border-[var(--color-border)] bg-[var(--color-background)] text-sm text-center focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/50 shadow-sm" />
+                      {realNew != null && <p className="text-xs font-medium text-[var(--color-primary)] text-center mt-0.5">thật {realNew.toFixed(1)}%</p>}
                     </div>
                   </div>
                 )
@@ -710,7 +717,7 @@ function AdjustTab({ kpiList, kpiPeriodId, orgUnitId, period, enableOkr, enableQ
       )}
 
       <div className="space-y-4">
-        <p className="text-[11px] font-black text-[var(--color-muted-foreground)] uppercase tracking-widest">KPI khẩn cấp mới</p>
+        <p className="text-eyebrow">KPI khẩn cấp mới</p>
 
         {enableQualitative && (
           <Controller name="newKpiType" control={control}
@@ -718,9 +725,9 @@ function AdjustTab({ kpiList, kpiPeriodId, orgUnitId, period, enableOkr, enableQ
         )}
 
         <div>
-          <label className={labelCls}>Tên KPI mới <span className="text-red-500">*</span></label>
+          <label className={labelCls}>Tên KPI mới <span className="text-[var(--color-error)]">*</span></label>
           <input {...register('newName')} placeholder="VD: Xử lý yêu cầu khẩn cấp tháng 7"
-            className={cn(inputCls, errors.newName && 'ring-2 ring-red-500')} />
+            className={cn(inputCls, errors.newName && 'ring-2 ring-[var(--color-error-solid)]')} />
         </div>
 
         <div>
@@ -730,43 +737,43 @@ function AdjustTab({ kpiList, kpiPeriodId, orgUnitId, period, enableOkr, enableQ
             className={inputCls + ' resize-none'} />
         </div>
 
-        <div className="bg-[var(--color-accent)]/10 rounded-2xl p-4 border border-[var(--color-border)]/30 space-y-3">
+        <div className="bg-[var(--color-accent)]/10 rounded-card p-4 border border-[var(--color-border)]/30 space-y-3">
           {!isQual && (
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className={labelCls}>Mục tiêu mong muốn <span className="text-red-500">*</span></label>
+              <label className={labelCls}>Mục tiêu mong muốn <span className="text-[var(--color-error)]">*</span></label>
               <input type="number" step="any" onWheel={e => (e.target as HTMLInputElement).blur()}
                 {...register('newTargetValue')}
-                placeholder="1000" className={cn(inputCls, errors.newTargetValue && 'ring-2 ring-red-500')} />
+                placeholder="1000" className={cn(inputCls, errors.newTargetValue && 'ring-2 ring-[var(--color-error-solid)]')} />
             </div>
             <div>
-              <label className={labelCls}>Mục tiêu tối thiểu <span className="text-red-500">*</span></label>
+              <label className={labelCls}>Mục tiêu tối thiểu <span className="text-[var(--color-error)]">*</span></label>
               <input type="number" step="any" onWheel={e => (e.target as HTMLInputElement).blur()}
                 {...register('newMinimumValue')}
-                placeholder="800" className={cn(inputCls, errors.newMinimumValue && 'ring-2 ring-red-500')} />
+                placeholder="800" className={cn(inputCls, errors.newMinimumValue && 'ring-2 ring-[var(--color-error-solid)]')} />
             </div>
           </div>
           )}
 
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label className={labelCls}>Trọng số (%) <span className="text-red-500">*</span></label>
+              <label className={labelCls}>Trọng số (%) <span className="text-[var(--color-error)]">*</span></label>
               <input type="number" step="0.1" min="0" max="100"
                 onWheel={e => (e.target as HTMLInputElement).blur()}
                 {...register('newWeight')}
-                placeholder="20" className={cn(inputCls, errors.newWeight && 'ring-2 ring-red-500')} />
+                placeholder="20" className={cn(inputCls, errors.newWeight && 'ring-2 ring-[var(--color-error-solid)]')} />
             </div>
             {!isQual && (
             <div>
-              <label className={labelCls}>Đơn vị tính <span className="text-red-500">*</span></label>
+              <label className={labelCls}>Đơn vị tính <span className="text-[var(--color-error)]">*</span></label>
               <input {...register('newUnit')}
-                placeholder="VNĐ, %, KPI..." className={cn(inputCls, errors.newUnit && 'ring-2 ring-red-500')} />
+                placeholder="VNĐ, %, KPI..." className={cn(inputCls, errors.newUnit && 'ring-2 ring-[var(--color-error-solid)]')} />
             </div>
             )}
           </div>
 
           <div>
-            <label className={labelCls}>Tần suất <span className="text-red-500">*</span></label>
+            <label className={labelCls}>Tần suất <span className="text-[var(--color-error)]">*</span></label>
             <Controller name="newFrequency" control={control}
               render={({ field }) => (
                 <Select value={field.value} onValueChange={field.onChange}>
@@ -783,14 +790,14 @@ function AdjustTab({ kpiList, kpiPeriodId, orgUnitId, period, enableOkr, enableQ
           <Controller name="newIsReverseKpi" control={control}
             render={({ field }) => (
               <button type="button" onClick={() => field.onChange(!field.value)}
-                className={cn('w-full flex items-center justify-between px-4 py-3 rounded-xl border-2 transition-all text-left',
-                  field.value ? 'border-orange-500 bg-orange-50 dark:bg-orange-900/10' : 'border-[var(--color-border)] bg-[var(--color-background)] hover:border-[var(--color-primary)]/50'
+                className={cn('w-full flex items-center justify-between px-4 py-3 rounded-card border-2 transition-all text-left',
+                  field.value ? 'border-[var(--color-warning-border)] bg-[var(--color-warning-bg)]' : 'border-[var(--color-border)] bg-[var(--color-background)] hover:border-[var(--color-primary)]/50'
                 )}>
                 <div>
-                  <span className={cn('text-sm font-bold', field.value ? 'text-orange-600 dark:text-orange-400' : 'text-[var(--color-foreground)]')}>KPI Ngược</span>
-                  <p className="text-[10px] text-[var(--color-muted-foreground)] mt-0.5">Giá trị mục tiêu càng thấp càng tốt (VD: tỉ lệ lỗi, chi phí)</p>
+                  <span className={cn('text-sm font-medium', field.value ? 'text-[var(--color-warning)]' : 'text-[var(--color-foreground)]')}>KPI Ngược</span>
+                  <p className="text-caption mt-0.5">Giá trị mục tiêu càng thấp càng tốt (VD: tỉ lệ lỗi, chi phí)</p>
                 </div>
-                <div className={cn('w-10 h-6 rounded-full transition-all relative flex-shrink-0', field.value ? 'bg-orange-500' : 'bg-[var(--color-muted-foreground)]/30')}>
+                <div className={cn('w-10 h-6 rounded-full transition-all relative flex-shrink-0', field.value ? 'bg-[var(--color-warning-solid)]' : 'bg-[var(--color-muted-foreground)]/30')}>
                   <div className={cn('absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-all', field.value ? 'left-5' : 'left-1')} />
                 </div>
               </button>
@@ -801,14 +808,14 @@ function AdjustTab({ kpiList, kpiPeriodId, orgUnitId, period, enableOkr, enableQ
           <Controller name="newIsBonusKpi" control={control}
             render={({ field }) => (
               <button type="button" onClick={() => field.onChange(!field.value)}
-                className={cn('w-full flex items-center justify-between px-4 py-3 rounded-xl border-2 transition-all text-left',
-                  field.value ? 'border-emerald-500 bg-emerald-50 dark:bg-emerald-900/10' : 'border-[var(--color-border)] bg-[var(--color-background)] hover:border-[var(--color-primary)]/50'
+                className={cn('w-full flex items-center justify-between px-4 py-3 rounded-card border-2 transition-all text-left',
+                  field.value ? 'border-[var(--color-success-border)] bg-[var(--color-success-bg)]' : 'border-[var(--color-border)] bg-[var(--color-background)] hover:border-[var(--color-primary)]/50'
                 )}>
                 <div>
-                  <span className={cn('text-sm font-bold', field.value ? 'text-emerald-600 dark:text-emerald-400' : 'text-[var(--color-foreground)]')}>KPI Thưởng</span>
-                  <p className="text-[10px] text-[var(--color-muted-foreground)] mt-0.5">Không bắt buộc, không tính vào 100% trọng số, hoàn thành thì được cộng điểm thêm</p>
+                  <span className={cn('text-sm font-medium', field.value ? 'text-[var(--color-success)]' : 'text-[var(--color-foreground)]')}>KPI Thưởng</span>
+                  <p className="text-caption mt-0.5">Không bắt buộc, không tính vào 100% trọng số, hoàn thành thì được cộng điểm thêm</p>
                 </div>
-                <div className={cn('w-10 h-6 rounded-full transition-all relative flex-shrink-0', field.value ? 'bg-emerald-500' : 'bg-[var(--color-muted-foreground)]/30')}>
+                <div className={cn('w-10 h-6 rounded-full transition-all relative flex-shrink-0', field.value ? 'bg-[var(--color-success-solid)]' : 'bg-[var(--color-muted-foreground)]/30')}>
                   <div className={cn('absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-all', field.value ? 'left-5' : 'left-1')} />
                 </div>
               </button>
@@ -826,7 +833,7 @@ function AdjustTab({ kpiList, kpiPeriodId, orgUnitId, period, enableOkr, enableQ
 
       {/* Deadline */}
       <div>
-        <label className="block text-sm font-bold mb-1.5">Hạn chốt</label>
+        <label className="text-label block mb-1.5">Hạn chốt</label>
         <Controller name="newDeadline" control={control}
           render={({ field }) => (
             <DateTimePicker
@@ -838,7 +845,7 @@ function AdjustTab({ kpiList, kpiPeriodId, orgUnitId, period, enableOkr, enableQ
           )}
         />
         {period && (
-          <p className="text-[10px] text-[var(--color-muted-foreground)] mt-1">
+          <p className="text-caption mt-1">
             Để trống = mặc định theo ngày kết thúc đợt ({formatDateTime(period.endDate)})
           </p>
         )}
@@ -846,29 +853,29 @@ function AdjustTab({ kpiList, kpiPeriodId, orgUnitId, period, enableOkr, enableQ
 
       {/* OKR Key Result */}
       {enableOkr && (
-        <div className="bg-indigo-50/50 dark:bg-indigo-900/5 p-4 rounded-2xl border border-indigo-100 dark:border-indigo-900/50 space-y-3">
-          <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400">
+        <div className="bg-[var(--color-primary-soft)] p-4 rounded-card border border-[var(--color-border)] space-y-3">
+          <div className="flex items-center gap-2 text-[var(--color-primary)]">
             <Target size={16} />
-            <span className="text-[11px] font-black uppercase tracking-widest">Đẩy tiến độ OKR Chiến lược</span>
+            <span className="text-eyebrow">Đẩy tiến độ OKR Chiến lược</span>
           </div>
           <div className="space-y-1">
-            <label className="block text-[10px] font-black text-slate-500 uppercase tracking-tight">Gắn kết Kết quả then chốt (KR)</label>
+            <label className="text-label block text-[var(--color-muted-foreground)] tracking-tight">Gắn kết Kết quả then chốt (KR)</label>
             <Controller name="newKeyResultId" control={control}
               render={({ field }) => (
                 <Select onValueChange={field.onChange} value={field.value || 'NONE'}>
-                  <SelectTrigger className="w-full rounded-xl border-indigo-100 dark:border-indigo-900 bg-white dark:bg-slate-900 h-11 shadow-sm overflow-hidden">
+                  <SelectTrigger className="w-full rounded-card border-[var(--color-border)] bg-[var(--color-card)] h-11 shadow-sm overflow-hidden">
                     <SelectValue placeholder="-- Không liên kết --" />
                   </SelectTrigger>
-                  <SelectContent className="z-[300] rounded-2xl max-h-[300px]">
-                    <SelectItem value="NONE" className="font-bold py-3">-- Không liên kết mục tiêu --</SelectItem>
+                  <SelectContent className="z-[300] rounded-card max-h-[300px]">
+                    <SelectItem value="NONE" className="font-semibold py-3">-- Không liên kết mục tiêu --</SelectItem>
                     {objectives.map((obj: any) => (
                       <SelectGroup key={obj.id} className="p-1">
-                        <SelectLabel className="px-3 py-2 text-[10px] font-black uppercase tracking-widest text-indigo-600 dark:text-indigo-400 bg-indigo-50/50 dark:bg-indigo-900/20 rounded-xl my-1.5 flex items-start justify-between gap-2">
+                        <SelectLabel className="text-eyebrow px-3 py-2 text-[var(--color-primary)] bg-[var(--color-primary-soft)] rounded-card my-1.5 flex items-start justify-between gap-2">
                           <span>OBJ: {obj.name}</span>
-                          <span className="text-[8px] border border-indigo-200 rounded px-1 py-0.5 shrink-0 font-black">OKR</span>
+                          <span className="text-xs border border-[var(--color-border)] rounded px-1 py-0.5 shrink-0 font-semibold">OKR</span>
                         </SelectLabel>
                         {obj.keyResults?.map((kr: any) => (
-                          <SelectItem key={kr.id} value={kr.id} className="rounded-xl py-2.5 pl-8">
+                          <SelectItem key={kr.id} value={kr.id} className="rounded-card py-2.5 pl-8">
                             <span className="font-semibold text-xs">{kr.name}</span>
                           </SelectItem>
                         ))}
@@ -883,32 +890,30 @@ function AdjustTab({ kpiList, kpiPeriodId, orgUnitId, period, enableOkr, enableQ
       )}
 
       {/* BSC perspective */}
-      {enableBsc && <PerspectiveSelect control={control} name="newPerspectiveId" perspectives={perspectives} availablePerspectiveIds={availablePerspectiveIds} />}
+      {enableBsc && <PerspectiveSelect control={control} name="newPerspectiveId" perspectives={perspectives} availablePerspectiveIds={availablePerspectiveIds} perspectiveHints={perspectiveHints} />}
 
-      <div className={cn('rounded-xl px-4 py-3 flex items-center justify-between border',
+      <div className={cn('rounded-card px-4 py-3 flex items-center justify-between border',
         isValid
-          ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800/50 text-emerald-800 dark:text-emerald-300'
-          : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800/50 text-red-800 dark:text-red-300'
+          ? 'bg-[var(--color-success-bg)] border-[var(--color-success-border)] text-[var(--color-success)]'
+          : 'bg-[var(--color-error-bg)] border-[var(--color-error-border)] text-[var(--color-error)]'
       )}>
-        <span className="text-sm font-bold">Tổng trọng số sau khi lưu</span>
+        <span className="text-sm font-medium">Tổng trọng số sau khi lưu</span>
         <div className="text-right">
-          <span className="text-lg font-black">{formatNumber(totalAll)}%</span>
-          {!isValid && <p className="text-[10px] font-bold mt-0.5">
+          <span className="text-lg font-semibold">{formatNumber(totalAll)}%</span>
+          {!isValid && <p className="text-xs font-medium mt-0.5">
             {remaining > 0 ? `Còn thiếu ${formatNumber(remaining)}%` : `Đang thừa ${formatNumber(Math.abs(remaining))}%`}
           </p>}
         </div>
       </div>
 
       <div className="flex gap-4 pt-2 border-t border-[var(--color-border)]/50">
-        <button type="button" onClick={onSuccess}
-          className="flex-1 px-4 py-3 rounded-2xl text-xs font-black uppercase tracking-widest hover:bg-[var(--color-accent)] transition-all">
+        <Button variant="ghost" className="flex-1" type="button" onClick={onSuccess}>
           Hủy
-        </button>
-        <button type="submit" disabled={isPending}
-          className="flex-1 px-4 py-3 rounded-2xl text-xs font-black uppercase tracking-widest bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-xl shadow-blue-500/20 hover:scale-[1.02] active:scale-[0.98] disabled:opacity-50 transition-all flex items-center justify-center gap-2">
-          {isPending && <Loader2 size={16} className="animate-spin" />}
+        </Button>
+        <Button className="flex-1" type="submit" disabled={isPending}>
+          {isPending && <Loader2 aria-hidden="true" className="animate-spin" />}
           Lưu & Thêm KPI
-        </button>
+        </Button>
       </div>
     </form>
   )
@@ -1011,6 +1016,26 @@ export default function UrgentTaskModal({ open, onClose, kpiPeriodId: initPeriod
     return ids
   }, [enableBsc, bscScorecards, selectedPeriodId, selectedOrgUnitId, effectiveScorecard])
 
+  // Con số của từng hạng mục để hiện ngay trong dropdown — lấy từ dòng của bộ tiêu chí hiệu lực,
+  // rơi về danh mục khi bộ tiêu chí chưa đặt riêng (đúng thứ tự backend đang dùng để chấm điểm).
+  const perspectiveHints = useMemo(() => {
+    const map = new Map<string, string | null>()
+    const rows = new Map<string, ScorecardPerspectiveResponse>()
+    for (const row of (effectiveScorecard?.perspectives || []) as ScorecardPerspectiveResponse[]) {
+      rows.set(row.perspectiveId, row)
+    }
+    for (const p of perspectives || []) {
+      const row = rows.get(p.id)
+      map.set(p.id, perspectiveHint({
+        targetValue: row?.targetValue ?? p.targetValue,
+        minimumValue: row?.minimumValue ?? p.minimumValue,
+        unit: row?.unit ?? p.unit,
+        weightPercentage: row?.weightPercentage ?? null,
+      }))
+    }
+    return map
+  }, [perspectives, effectiveScorecard])
+
   // %hạng_mục theo perspectiveId (từ bộ tiêu chí đơn vị) → để tính trọng số THẬT = form × %hạng_mục.
   const perspectiveWeightPct = useMemo(() => {
     const map = new Map<string, number>()
@@ -1022,13 +1047,13 @@ export default function UrgentTaskModal({ open, onClose, kpiPeriodId: initPeriod
 
   return (
     <div className="fixed inset-x-0 top-0 h-screen z-[200] flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-md transition-opacity" onClick={onClose} />
-      <div className="relative bg-[var(--color-card)] rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[92vh] flex flex-col border border-[var(--color-border)]/50 animate-in zoom-in-95">
+      <div className="absolute inset-0 bg-black/40 transition-opacity" onClick={onClose} />
+      <div className="relative bg-[var(--color-card)] rounded-card w-full max-w-lg mx-4 max-h-[92vh] flex flex-col border border-[var(--color-border)]/50 animate-in zoom-in-95">
 
         {/* Header */}
         <div className="flex items-center justify-between px-6 py-5 border-b border-[var(--color-border)]/50">
           <div className="space-y-0.5">
-            <h3 className="text-lg font-extrabold tracking-tight text-[var(--color-foreground)]">Thêm task khẩn cấp</h3>
+            <h3 className="text-section-title tracking-tight text-[var(--color-foreground)]">Thêm task khẩn cấp</h3>
             <p className="text-xs text-[var(--color-muted-foreground)] font-medium">Thay thế KPI hoặc điều chỉnh trọng số để bổ sung công việc mới</p>
           </div>
           <button onClick={onClose}
@@ -1039,10 +1064,10 @@ export default function UrgentTaskModal({ open, onClose, kpiPeriodId: initPeriod
 
         {/* Period + Org Unit filter */}
         <div className="px-6 py-4 border-b border-[var(--color-border)]/50 space-y-3 bg-[var(--color-accent)]/5">
-          <p className="text-[10px] font-black text-[var(--color-muted-foreground)] uppercase tracking-widest">Chọn phạm vi áp dụng</p>
+          <p className="text-eyebrow">Chọn phạm vi áp dụng</p>
           <div className="flex gap-3">
             <div className="flex-1 min-w-0">
-              <label className="block text-[10px] font-black text-[var(--color-muted-foreground)] uppercase mb-1.5 truncate">Kỳ đánh giá <span className="text-red-500">*</span></label>
+              <label className="text-label block text-[var(--color-muted-foreground)] mb-1.5 truncate">Kỳ đánh giá <span className="text-[var(--color-error)]">*</span></label>
               <Select value={selectedPeriodId} onValueChange={setSelectedPeriodId}>
                 <SelectTrigger className={cn(inputCls, 'h-auto truncate')}>
                   <SelectValue placeholder="— Chọn đợt —" />
@@ -1056,7 +1081,7 @@ export default function UrgentTaskModal({ open, onClose, kpiPeriodId: initPeriod
             </div>
             {!isStaff && (
               <div className="flex-1 min-w-0">
-                <label className="block text-[10px] font-black text-[var(--color-muted-foreground)] uppercase mb-1.5 truncate">Đơn vị <span className="text-red-500">*</span></label>
+                <label className="text-label block text-[var(--color-muted-foreground)] mb-1.5 truncate">Đơn vị <span className="text-[var(--color-error)]">*</span></label>
                 <Select value={selectedOrgUnitId} onValueChange={setSelectedOrgUnitId}>
                   <SelectTrigger className={cn(inputCls, 'h-auto truncate')}>
                     <SelectValue placeholder="— Chọn đơn vị —" />
@@ -1073,12 +1098,12 @@ export default function UrgentTaskModal({ open, onClose, kpiPeriodId: initPeriod
 
           {/* Weight status */}
           {ready && (
-            <div className={cn('rounded-xl px-3 py-2 flex items-center justify-between text-xs font-bold border',
+            <div className={cn('rounded-card px-3 py-2 flex items-center justify-between text-xs font-medium border',
               isLoadingWeight
                 ? 'bg-[var(--color-accent)] border-[var(--color-border)] text-[var(--color-muted-foreground)]'
                 : weightIs100
-                  ? 'bg-emerald-50 dark:bg-emerald-900/20 border-emerald-200 dark:border-emerald-800/50 text-emerald-700 dark:text-emerald-300'
-                  : 'bg-red-50 dark:bg-red-900/20 border-red-200 dark:border-red-800/50 text-red-700 dark:text-red-300'
+                  ? 'bg-[var(--color-success-bg)] border-[var(--color-success-border)] text-[var(--color-success)]'
+                  : 'bg-[var(--color-error-bg)] border-[var(--color-error-border)] text-[var(--color-error)]'
             )}>
               <span className="flex items-center gap-1.5">
                 {isLoadingWeight
@@ -1100,7 +1125,7 @@ export default function UrgentTaskModal({ open, onClose, kpiPeriodId: initPeriod
                 }
               </span>
               {!isLoadingWeight && (
-                <span className="text-sm font-black ml-2 shrink-0">{formatNumber(totalWeight ?? 0)}%</span>
+                <span className="text-sm font-semibold ml-2 shrink-0">{formatNumber(totalWeight ?? 0)}%</span>
               )}
             </div>
           )}
@@ -1110,13 +1135,13 @@ export default function UrgentTaskModal({ open, onClose, kpiPeriodId: initPeriod
         {ready && !isLoadingWeight && weightIs100 && (
           <div className="flex border-b border-[var(--color-border)]/50 px-6">
             <button onClick={() => setTab('replace')}
-              className={cn('flex items-center gap-2 py-3 pr-6 text-xs font-black uppercase tracking-wider border-b-2 -mb-px transition-colors',
+              className={cn('flex items-center gap-2 py-3 pr-6 text-sm font-medium border-b-2 -mb-px transition-colors',
                 tab === 'replace' ? 'border-[var(--color-primary)] text-[var(--color-primary)]' : 'border-transparent text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)]'
               )}>
               <ArrowLeftRight size={14} /> Thay thế KPI
             </button>
             <button onClick={() => setTab('adjust')}
-              className={cn('flex items-center gap-2 py-3 pr-6 text-xs font-black uppercase tracking-wider border-b-2 -mb-px transition-colors',
+              className={cn('flex items-center gap-2 py-3 pr-6 text-sm font-medium border-b-2 -mb-px transition-colors',
                 tab === 'adjust' ? 'border-[var(--color-primary)] text-[var(--color-primary)]' : 'border-transparent text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)]'
               )}>
               <SlidersHorizontal size={14} /> Điều chỉnh trọng số
@@ -1129,36 +1154,35 @@ export default function UrgentTaskModal({ open, onClose, kpiPeriodId: initPeriod
           {!ready ? (
             <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
               <ShieldAlert size={36} className="text-[var(--color-muted-foreground)] opacity-30" />
-              <p className="text-sm font-bold text-[var(--color-muted-foreground)]">Chọn kỳ đánh giá và đơn vị để tiếp tục</p>
+              <p className="text-sm font-medium text-[var(--color-muted-foreground)]">Chọn kỳ đánh giá và đơn vị để tiếp tục</p>
             </div>
           ) : isLoadingWeight || isLoadingKpis ? (
             <div className="flex flex-col items-center justify-center gap-3 py-16">
               <Loader2 className="h-8 w-8 animate-spin text-[var(--color-primary)]" />
-              <span className="text-[10px] font-black uppercase tracking-widest text-[var(--color-muted-foreground)] opacity-50">Đang tải...</span>
+              <span className="text-eyebrow opacity-50">Đang tải...</span>
             </div>
           ) : !weightIs100 ? (
             <div className="flex flex-col items-center justify-center gap-4 py-16 text-center">
-              <div className="rounded-full bg-red-100 dark:bg-red-900/30 p-4">
-                <ShieldAlert size={32} className="text-red-500 dark:text-red-400" />
+              <div className="rounded-full bg-[var(--color-error-bg)] p-4">
+                <ShieldAlert size={32} className="text-[var(--color-error)]" />
               </div>
               <div className="space-y-1">
-                <p className="text-sm font-black text-[var(--color-foreground)]">Chưa thể thực hiện thao tác này</p>
+                <p className="text-sm font-semibold text-[var(--color-foreground)]">Chưa thể thực hiện thao tác này</p>
                 <p className="text-xs text-[var(--color-muted-foreground)] max-w-xs leading-relaxed">
-                  Tổng trọng số KPI của đơn vị đang là <strong className="text-red-500">{formatNumber(totalWeight ?? 0)}%</strong>, chưa đạt mức 100% bắt buộc.
+                  Tổng trọng số KPI của đơn vị đang là <strong className="text-[var(--color-error)]">{formatNumber(totalWeight ?? 0)}%</strong>, chưa đạt mức 100% bắt buộc.
                   Hãy vào <strong>Tạo mới KPI</strong> để bổ sung KPI cho đủ 100% trọng số trước khi thêm task khẩn cấp.
                 </p>
               </div>
-              <button onClick={onClose}
-                className="mt-2 px-6 py-2.5 rounded-2xl text-xs font-black uppercase tracking-widest bg-gradient-to-r from-blue-600 to-indigo-600 text-white shadow-lg hover:scale-[1.02] active:scale-[0.98] transition-all">
+              <Button className="mt-2" onClick={onClose}>
                 Đóng & Tạo mới KPI
-              </button>
+              </Button>
             </div>
           ) : kpiList.length === 0 ? (
             <p className="text-center text-sm font-medium text-[var(--color-muted-foreground)] py-16 italic">Chưa có KPI nào trong kỳ này</p>
           ) : tab === 'replace' ? (
-            <ReplaceTab kpiList={kpiList} orgUnitId={selectedOrgUnitId} period={selectedPeriod} enableOkr={enableOkr} enableQualitative={enableQualitative} enableBsc={enableBsc} objectives={filteredObjectives} perspectives={perspectives ?? []} availablePerspectiveIds={availablePerspectiveIds} onSuccess={onClose} />
+            <ReplaceTab kpiList={kpiList} orgUnitId={selectedOrgUnitId} period={selectedPeriod} enableOkr={enableOkr} enableQualitative={enableQualitative} enableBsc={enableBsc} objectives={filteredObjectives} perspectives={perspectives ?? []} availablePerspectiveIds={availablePerspectiveIds} perspectiveHints={perspectiveHints} onSuccess={onClose} />
           ) : (
-            <AdjustTab kpiList={kpiList} kpiPeriodId={selectedPeriodId} orgUnitId={selectedOrgUnitId} period={selectedPeriod} enableOkr={enableOkr} enableQualitative={enableQualitative} enableBsc={enableBsc} objectives={filteredObjectives} perspectives={perspectives ?? []} availablePerspectiveIds={availablePerspectiveIds} perspectiveWeightPct={perspectiveWeightPct} onSuccess={onClose} />
+            <AdjustTab kpiList={kpiList} kpiPeriodId={selectedPeriodId} orgUnitId={selectedOrgUnitId} period={selectedPeriod} enableOkr={enableOkr} enableQualitative={enableQualitative} enableBsc={enableBsc} objectives={filteredObjectives} perspectives={perspectives ?? []} availablePerspectiveIds={availablePerspectiveIds} perspectiveHints={perspectiveHints} perspectiveWeightPct={perspectiveWeightPct} onSuccess={onClose} />
           )}
         </div>
       </div>

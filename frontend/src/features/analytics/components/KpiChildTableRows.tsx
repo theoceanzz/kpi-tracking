@@ -51,12 +51,12 @@ function KpiChildTr({
   const isQual = node.kpiType === 'QUALITATIVE'
   const isBonus = node.progress == null
   const pct = Math.round(node.progress ?? 0)
-  const barColor = accent === 'violet' ? 'bg-violet-500' : 'bg-indigo-500'
+  const barColor = accent === 'violet' ? 'bg-[var(--color-primary)]' : 'bg-[var(--color-primary)]'
 
   const chevron = hasKids ? (
     <button
       onClick={(e) => { e.stopPropagation(); setOpen((v) => !v) }}
-      className="p-0.5 rounded text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-800 shrink-0"
+      className="p-0.5 rounded text-[var(--color-subtle-foreground)] hover:text-[var(--color-muted-foreground)] hover:bg-[var(--color-muted)] shrink-0"
     >
       {open ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
     </button>
@@ -68,7 +68,7 @@ function KpiChildTr({
 
   const nameBlock = (
     <div className="min-w-0">
-      <div className="text-sm font-bold text-slate-800 dark:text-slate-100 truncate max-w-[240px]">{node.name}</div>
+      <div className="text-sm font-medium text-[var(--color-foreground)] truncate max-w-[240px]">{node.name}</div>
       <div className="flex items-center gap-1.5 flex-wrap mt-1">
         <KpiTypeTags
           isReverseKpi={node.isReverseKpi}
@@ -80,8 +80,8 @@ function KpiChildTr({
         <KpiWeightPill weight={node.weight} />
       </div>
       {!showPersonColumn && node.assigneeName && (
-        <div className="flex items-center gap-1 text-[11px] text-slate-500 mt-1">
-          <User size={11} className="text-slate-400" /> {node.assigneeName}
+        <div className="flex items-center gap-1 text-caption mt-1">
+          <User size={11} className="text-[var(--color-subtle-foreground)]" /> {node.assigneeName}
         </div>
       )}
     </div>
@@ -90,17 +90,17 @@ function KpiChildTr({
   const progressCell = isQual ? (
     <QualitativeResultChip level={node.qualitativeLevelName} />
   ) : isBonus ? (
-    <span className="text-slate-400 text-xs font-black">—</span>
+    <span className="text-[var(--color-subtle-foreground)] text-xs font-semibold">—</span>
   ) : (
     <>
       <div className="flex items-center gap-3">
-        <div className="flex-1 h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-          <div className={cn('h-full rounded-full', pct >= 100 ? 'bg-emerald-500' : barColor)} style={{ width: `${Math.min(pct, 100)}%` }} />
+        <div className="flex-1 h-2 bg-[var(--color-muted)] rounded-full overflow-hidden">
+          <div className={cn('h-full rounded-full', pct >= 100 ? 'bg-[var(--color-success-solid)]' : barColor)} style={{ width: `${Math.min(pct, 100)}%` }} />
         </div>
-        <span className="text-xs font-black">{pct}%</span>
+        <span className="text-xs font-semibold">{pct}%</span>
       </div>
       {node.targetValue != null && (
-        <div className="text-[10px] text-slate-500 mt-1">
+        <div className="text-caption mt-1">
           {(node.actualValue ?? 0).toLocaleString('vi-VN')} / {node.targetValue.toLocaleString('vi-VN')} {node.unit ?? ''}
         </div>
       )}
@@ -110,7 +110,7 @@ function KpiChildTr({
   return (
     <>
       <tr
-        className={cn('bg-white/60 dark:bg-slate-900/30 transition-colors', onSelect && 'cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/40')}
+        className={cn('bg-[var(--color-card)] transition-colors', onSelect && 'cursor-pointer hover:bg-[var(--color-muted)]')}
         onClick={onSelect ? () => onSelect(node.id) : undefined}
       >
         {leadingChevronCol && (
@@ -165,9 +165,9 @@ export function KpiChildTableRows({
   return (
     <>
       {headingColSpan != null && (
-        <tr className="bg-slate-50/70 dark:bg-slate-800/20">
+        <tr className="bg-[var(--color-muted)]">
           <td colSpan={headingColSpan} className="px-6 pt-4 pb-1">
-            <span className="text-[11px] font-black uppercase tracking-wider text-slate-500">{heading}</span>
+            <span className="text-eyebrow">{heading}</span>
           </td>
         </tr>
       )}

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import { ChevronRight, ChevronDown, Search, Building2, Users } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { OrgUnitTreeResponse } from '@/types/orgUnit'
+import { Button } from '@/components/ui/button'
 
 interface Props {
   nodes: OrgUnitTreeResponse[]
@@ -69,7 +70,8 @@ export default function OrgUnitTreeSidebar({ nodes, selectedId, onSelect, onAfte
   const toggle = (id: string) =>
     setExpanded(prev => {
       const s = new Set(prev)
-      s.has(id) ? s.delete(id) : s.add(id)
+      if (s.has(id)) s.delete(id)
+      else s.add(id)
       return s
     })
 
@@ -82,26 +84,22 @@ export default function OrgUnitTreeSidebar({ nodes, selectedId, onSelect, onAfte
     return (
       <div key={n.id}>
         <div
-          className={cn('flex items-center rounded-lg pr-1.5 transition-colors',
-            isSel ? 'bg-indigo-50 dark:bg-indigo-900/30' : 'hover:bg-slate-50 dark:hover:bg-slate-800/60')}
+          className={cn('flex items-center rounded-control pr-1.5 transition-colors',
+            isSel ? 'bg-[var(--color-primary-soft)]' : 'hover:bg-[var(--color-muted)]')}
           style={{ paddingLeft: depth * 14 }}
         >
-          <button
-            onClick={() => { if (hasKids) toggle(n.id) }}
-            className="p-1 shrink-0 text-slate-400 hover:text-slate-600"
-            aria-label={hasKids ? 'Mở/thu nhánh' : undefined}
-          >
-            {hasKids ? (open ? <ChevronDown size={14} /> : <ChevronRight size={14} />) : <span className="inline-block w-[14px]" />}
-          </button>
-          <button onClick={() => pick(n.id)} className="flex-1 min-w-0 flex items-center gap-2 py-1.5 text-left">
-            <span className={cn('truncate text-[13px] font-bold',
-              isSel ? 'text-indigo-700 dark:text-indigo-300' : 'text-slate-700 dark:text-slate-200')}>{n.name}</span>
+          <Button variant="ghost" className="shrink-0" onClick={() => { if (hasKids) toggle(n.id) }} aria-label={hasKids ? 'Mở/thu nhánh' : undefined}>
+            {hasKids ? (open ? <ChevronDown aria-hidden="true" /> : <ChevronRight aria-hidden="true" />) : <span className="inline-block w-[14px]" />}
+          </Button>
+          <button type="button" className="flex h-9 w-full items-center gap-2.5 rounded-control px-2.5 text-left text-sm text-[var(--color-foreground)] transition-colors hover:bg-[var(--color-muted)] [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-[var(--color-muted-foreground)] flex-1 min-w-0" onClick={() => pick(n.id)}>
+            <span className={cn('truncate text-[13px] font-medium',
+              isSel ? 'text-[var(--color-primary)]' : 'text-[var(--color-foreground)]')}>{n.name}</span>
             {n.memberCount != null && (
               <span
-                className="ml-auto shrink-0 text-[10px] font-bold text-slate-400 flex items-center gap-0.5"
+                className="ml-auto shrink-0 text-caption flex items-center gap-0.5"
                 title="Tổng số nhân sự (gồm cả đơn vị con)"
               >
-                <Users size={10} />{rollup.get(n.id) ?? n.memberCount}
+                <Users aria-hidden="true" />{rollup.get(n.id) ?? n.memberCount}
               </span>
             )}
           </button>
@@ -112,9 +110,9 @@ export default function OrgUnitTreeSidebar({ nodes, selectedId, onSelect, onAfte
   }
 
   return (
-    <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col overflow-hidden h-full">
-      <div className="p-3 border-b border-slate-100 dark:border-slate-800 shrink-0">
-        <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 mb-2">
+    <div className="bg-[var(--color-card)] rounded-card border border-[var(--color-border)] shadow-sm flex flex-col overflow-hidden h-full">
+      <div className="p-3 border-b border-[var(--color-border)] shrink-0">
+        <h3 className="text-eyebrow flex items-center gap-1.5 mb-2">
           <Building2 size={12} /> Sơ đồ đơn vị
         </h3>
         <div className="relative">
@@ -122,14 +120,14 @@ export default function OrgUnitTreeSidebar({ nodes, selectedId, onSelect, onAfte
             value={query}
             onChange={e => setQuery(e.target.value)}
             placeholder="Tìm đơn vị..."
-            className="w-full pl-8 pr-3 py-1.5 bg-slate-50 dark:bg-slate-800 rounded-lg text-xs font-semibold focus:ring-2 focus:ring-indigo-500 border-none outline-none"
+            className="w-full pl-8 pr-3 py-1.5 bg-[var(--color-muted)] rounded-control text-xs font-semibold focus:ring-2 focus:ring-[var(--color-ring)] border-none outline-none"
           />
-          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+          <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--color-subtle-foreground)]" />
         </div>
       </div>
       <div className="p-1.5 overflow-auto custom-scrollbar flex-1 min-h-0">
         {shown.length ? shown.map(n => renderNode(n, 0)) : (
-          <p className="text-center text-xs text-slate-400 py-6">Không tìm thấy đơn vị</p>
+          <p className="text-center text-xs text-[var(--color-subtle-foreground)] py-6">Không tìm thấy đơn vị</p>
         )}
       </div>
     </div>

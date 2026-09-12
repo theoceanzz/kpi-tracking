@@ -5,6 +5,8 @@ import { useAuthStore } from '@/store/authStore'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { cn } from '@/lib/utils'
 import type { KpiType } from '@/types/kpi'
+import { Button } from '@/components/ui/button'
+import { ChoiceChip } from '@/components/ui/choice-chip'
 
 // Columns that only apply to quantitative KPIs (dropped for qualitative import).
 const QUANTITATIVE_ONLY_COLUMNS = ['TargetValue', 'MinimumValue', 'IsReverseKpi', 'Unit']
@@ -251,23 +253,23 @@ export default function KpiImportGuideModal({ open, onClose, onSelectFile }: Kpi
   return (
     <div className="fixed inset-x-0 top-0 h-screen z-[200] flex items-center justify-center p-4">
       {/* Overlay */}
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
 
       {/* Modal */}
-      <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white dark:bg-slate-900 rounded-[28px] border border-slate-200 dark:border-slate-800 shadow-2xl animate-in fade-in zoom-in-95 duration-300">
+      <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-[var(--color-card)] rounded-card border border-[var(--color-border)] animate-in fade-in zoom-in-95 duration-300">
         
         {/* Header */}
-        <div className="sticky top-0 z-10 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 px-4 sm:px-8 py-6 flex items-center justify-between rounded-t-[28px]">
+        <div className="sticky top-0 z-10 bg-[var(--color-card)] border-b border-[var(--color-border)] px-4 sm:px-8 py-6 flex items-center justify-between rounded-t-card">
           <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center">
-              <FileSpreadsheet size={24} className="text-indigo-600" />
+            <div className="w-12 h-12 rounded-card bg-[var(--color-primary-soft)] flex items-center justify-center">
+              <FileSpreadsheet size={24} className="text-[var(--color-primary)]" />
             </div>
             <div>
-              <h2 className="text-xl font-black text-slate-900 dark:text-white">Import Chỉ tiêu Hàng loạt</h2>
-              <p className="text-sm font-medium text-slate-500">Giao chỉ tiêu cho nhân sự qua Excel/CSV</p>
+              <h2 className="text-section-title">Import Chỉ tiêu Hàng loạt</h2>
+              <p className="text-sm font-medium text-[var(--color-muted-foreground)]">Giao chỉ tiêu cho nhân sự qua Excel/CSV</p>
             </div>
           </div>
-          <button onClick={onClose} className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 transition-all">
+          <button onClick={onClose} className="p-2 rounded-card hover:bg-[var(--color-muted)] text-[var(--color-subtle-foreground)] hover:text-[var(--color-muted-foreground)] transition-all">
             <X size={20} />
           </button>
         </div>
@@ -276,23 +278,16 @@ export default function KpiImportGuideModal({ open, onClose, onSelectFile }: Kpi
 
           {/* KPI type tabs (only when qualitative enabled) */}
           {enableQualitative && (
-            <div className="grid grid-cols-2 gap-2 p-1 rounded-2xl bg-slate-100 dark:bg-slate-800/60">
-              <button
-                type="button"
-                onClick={() => setImportType('QUANTITATIVE')}
-                className={cn(
-                  "flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all",
-                  !isQualitative ? "bg-indigo-600 text-white shadow-md" : "text-slate-500 hover:bg-white/60 dark:hover:bg-slate-700/50"
-                )}
-              >
-                <BarChart3 size={14} /> KPI Định lượng
-              </button>
+            <div className="grid grid-cols-2 gap-2 p-1 rounded-card bg-[var(--color-muted)]">
+              <ChoiceChip selected={!isQualitative} variant="solid" className="py-2.5" onClick={() => setImportType('QUANTITATIVE')}>
+                <BarChart3 /> KPI Định lượng
+              </ChoiceChip>
               <button
                 type="button"
                 onClick={() => setImportType('QUALITATIVE')}
                 className={cn(
-                  "flex items-center justify-center gap-2 py-2.5 rounded-xl text-xs font-black uppercase tracking-wider transition-all",
-                  isQualitative ? "bg-emerald-600 text-white shadow-md" : "text-slate-500 hover:bg-white/60 dark:hover:bg-slate-700/50"
+                  "flex items-center justify-center gap-2 py-2.5 rounded-card text-sm font-medium transition-all",
+                  isQualitative ? "bg-[var(--color-success-solid)] text-white" : "text-[var(--color-muted-foreground)] hover:bg-[var(--color-card)]"
                 )}
               >
                 <SlidersHorizontal size={14} /> KPI Định tính
@@ -301,9 +296,9 @@ export default function KpiImportGuideModal({ open, onClose, onSelectFile }: Kpi
           )}
 
           {isQualitative && (
-            <div className="p-4 rounded-2xl bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-100 dark:border-emerald-900/30 flex items-start gap-3">
-              <Info size={18} className="text-emerald-600 shrink-0 mt-0.5" />
-              <p className="text-xs text-emerald-800 dark:text-emerald-300 leading-relaxed font-medium">
+            <div className="p-4 rounded-card bg-[var(--color-success-bg)] border border-[var(--color-success-border)] flex items-start gap-3">
+              <Info size={18} className="text-[var(--color-success)] shrink-0 mt-0.5" />
+              <p className="text-xs text-[var(--color-success)] leading-relaxed font-medium">
                 File mẫu định tính <strong>không có</strong> cột Mục tiêu / Tối thiểu / Đơn vị / KPI Ngược.
                 KPI định tính được quản lý chấm điểm theo thang định tính khi duyệt.
               </p>
@@ -312,77 +307,71 @@ export default function KpiImportGuideModal({ open, onClose, onSelectFile }: Kpi
 
           {/* Steps */}
           <div>
-            <h3 className="text-sm font-black uppercase tracking-widest text-slate-400 mb-4">Quy trình thực hiện</h3>
+            <h3 className="text-eyebrow mb-3">Quy trình thực hiện</h3>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               {STEPS.map((step) => (
-                <div key={step.num} className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 space-y-2">
-                  <div className="w-8 h-8 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 flex items-center justify-center text-xs font-black">
+                <div key={step.num} className="p-4 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)] space-y-2">
+                  <div className="w-8 h-8 rounded-control bg-[var(--color-primary-soft)] text-[var(--color-primary)] flex items-center justify-center text-xs font-semibold">
                     {step.num}
                   </div>
-                  <h4 className="font-bold text-sm text-slate-900 dark:text-white">{step.title}</h4>
-                  <p className="text-xs text-slate-500 leading-relaxed">{step.desc}</p>
+                  <h4 className="font-medium text-sm text-[var(--color-foreground)]">{step.title}</h4>
+                  <p className="text-xs text-[var(--color-muted-foreground)] leading-relaxed">{step.desc}</p>
                 </div>
               ))}
             </div>
           </div>
 
           {/* Download Template */}
-          <div className="p-6 rounded-[24px] bg-slate-50 dark:bg-slate-800/30 border border-slate-100 dark:border-slate-800 shadow-sm space-y-4">
+          <div className="p-6 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)] shadow-sm space-y-4">
             <div className="flex items-center gap-3">
-              <Download size={20} className="text-indigo-600 shrink-0" />
+              <Download size={20} className="text-[var(--color-primary)] shrink-0" />
               <div>
-                <p className="font-black text-sm text-slate-900 dark:text-white uppercase tracking-tight">Tải file mẫu nhập liệu</p>
-                <p className="text-xs text-slate-500 font-medium mt-0.5">Chọn định dạng phù hợp với công cụ của bạn</p>
+                <p className="font-semibold text-sm text-[var(--color-foreground)]">Tải file mẫu nhập liệu</p>
+                <p className="text-xs text-[var(--color-muted-foreground)] font-medium mt-0.5">Chọn định dạng phù hợp với công cụ của bạn</p>
               </div>
             </div>
             
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <button
-                    onClick={downloadXlsxTemplate}
-                    className="flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-emerald-600 text-white font-black text-sm hover:bg-emerald-700 transition-all shadow-lg shadow-emerald-500/20 active:scale-95 group"
-                >
-                    <FileBox size={18} className="group-hover:rotate-12 transition-transform" /> Tải mẫu .XLSX (Excel)
-                </button>
-                <button
-                    onClick={downloadCsvTemplate}
-                    className="flex items-center justify-center gap-2 px-6 py-3.5 rounded-2xl bg-indigo-600 text-white font-black text-sm hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-500/20 active:scale-95 group"
-                >
-                    <FileText size={18} className="group-hover:rotate-12 transition-transform" /> Tải mẫu .CSV (Text)
-                </button>
+                <Button className="group" onClick={downloadXlsxTemplate}>
+                    <FileBox aria-hidden="true" className="group-hover:rotate-12 transition-transform" /> Tải mẫu .XLSX (Excel)
+                </Button>
+                <Button className="group" onClick={downloadCsvTemplate}>
+                    <FileText aria-hidden="true" className="group-hover:rotate-12 transition-transform" /> Tải mẫu .CSV (Text)
+                </Button>
             </div>
           </div>
 
           {/* Column Specification */}
           <div>
-            <h3 className="text-sm font-black uppercase tracking-widest text-slate-400 mb-4">Danh sách các cột</h3>
-            <div className="rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
+            <h3 className="text-eyebrow mb-3">Danh sách các cột</h3>
+            <div className="rounded-card border border-[var(--color-border)] overflow-hidden shadow-sm">
               <div className="overflow-x-auto">
                 <table className="w-full text-left">
                   <thead>
-                    <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
-                      <th className="px-3 py-3 text-xs font-black uppercase tracking-wider text-slate-500 whitespace-nowrap">Tên cột</th>
-                      <th className="px-3 py-3 text-xs font-black uppercase tracking-wider text-slate-500 whitespace-nowrap">Bắt buộc</th>
-                      <th className="px-3 py-3 text-xs font-black uppercase tracking-wider text-slate-500">Mô tả</th>
+                    <tr className="bg-[var(--color-muted)] border-b border-[var(--color-border)]">
+                      <th className="px-3 py-3 text-sm font-medium text-[var(--color-muted-foreground)] whitespace-nowrap">Tên cột</th>
+                      <th className="px-3 py-3 text-sm font-medium text-[var(--color-muted-foreground)] whitespace-nowrap">Bắt buộc</th>
+                      <th className="px-3 py-3 text-sm font-medium text-[var(--color-muted-foreground)]">Mô tả</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+                  <tbody className="divide-y divide-[var(--color-border)]">
                     {COLUMNS.map((col) => (
-                      <tr key={col.name} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
+                      <tr key={col.name} className="hover:bg-[var(--color-muted)] transition-colors">
                         <td className="px-3 py-3 align-top">
-                          <code className="px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-800 text-xs font-bold text-indigo-600 dark:text-indigo-400 whitespace-nowrap">{col.name}</code>
+                          <code className="px-2 py-0.5 rounded-control bg-[var(--color-muted)] text-xs font-medium text-[var(--color-primary)] whitespace-nowrap">{col.name}</code>
                         </td>
                         <td className="px-3 py-3 align-top">
                           {col.required ? (
-                            <span className="inline-flex items-center gap-1 text-xs font-bold text-red-500 whitespace-nowrap">
+                            <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--color-error)] whitespace-nowrap">
                               <AlertTriangle size={12} /> Có
                             </span>
                           ) : (
-                            <span className="text-xs font-bold text-slate-400 whitespace-nowrap">Không</span>
+                            <span className="text-caption whitespace-nowrap">Không</span>
                           )}
                         </td>
                         <td className="px-3 py-3 align-top">
-                          <p className="text-xs text-slate-700 dark:text-slate-300 font-semibold">{col.desc}</p>
-                          <p className="text-[10px] text-slate-400 mt-1 font-mono">Ví dụ: {col.example}</p>
+                          <p className="text-xs text-[var(--color-foreground)] font-semibold">{col.desc}</p>
+                          <p className="text-caption mt-1 font-mono">Ví dụ: {col.example}</p>
                         </td>
                       </tr>
                     ))}
@@ -394,24 +383,24 @@ export default function KpiImportGuideModal({ open, onClose, onSelectFile }: Kpi
 
           {/* Important Notes */}
           <div className="space-y-4">
-            <h3 className="text-sm font-black uppercase tracking-widest text-slate-400">Lưu ý khi nhập liệu</h3>
+            <h3 className="text-eyebrow">Lưu ý khi nhập liệu</h3>
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-              <div className="flex items-start gap-3 p-4 rounded-2xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200/50 dark:border-amber-900/30">
-                <Info size={18} className="text-amber-600 shrink-0 mt-0.5" />
-                <p className="text-xs text-amber-800 dark:text-amber-300 leading-relaxed font-medium">
+              <div className="flex items-start gap-3 p-4 rounded-card bg-[var(--color-warning-bg)] border border-[var(--color-warning-border)]">
+                <Info size={18} className="text-[var(--color-warning)] shrink-0 mt-0.5" />
+                <p className="text-xs text-[var(--color-warning)] leading-relaxed font-medium">
                   <strong>EmployeeCode</strong> phải chính xác và nhân viên đó phải thuộc đơn vị bạn quản lý.
                 </p>
               </div>
-              <div className="flex items-start gap-3 p-4 rounded-2xl bg-blue-50 dark:bg-blue-900/10 border border-blue-200/50 dark:border-blue-900/30">
-                <CheckCircle2 size={18} className="text-blue-600 shrink-0 mt-0.5" />
-                <p className="text-xs text-blue-800 dark:text-blue-300 leading-relaxed font-medium">
+              <div className="flex items-start gap-3 p-4 rounded-card bg-[var(--color-info-bg)] border border-[var(--color-info-border)]">
+                <CheckCircle2 size={18} className="text-[var(--color-info)] shrink-0 mt-0.5" />
+                <p className="text-xs text-[var(--color-info)] leading-relaxed font-medium">
                   Trọng số (Weight) là số nguyên 1-100. Đảm bảo tổng trọng số của nhân viên trong kỳ đạt 100%.
                 </p>
               </div>
               {enableBsc && (
-                <div className="flex items-start gap-3 p-4 rounded-2xl bg-violet-50 dark:bg-violet-900/10 border border-violet-200/50 dark:border-violet-900/30 md:col-span-2">
-                  <Info size={18} className="text-violet-600 shrink-0 mt-0.5" />
-                  <p className="text-xs text-violet-800 dark:text-violet-300 leading-relaxed font-medium">
+                <div className="flex items-start gap-3 p-4 rounded-card bg-[var(--color-primary-soft)] border border-[var(--color-border)] md:col-span-2">
+                  <Info size={18} className="text-[var(--color-primary)] shrink-0 mt-0.5" />
+                  <p className="text-xs text-[var(--color-primary)] leading-relaxed font-medium">
                     <strong>Hạng mục BSC (Perspective)</strong> chỉ chọn được hạng mục <strong>có trong bộ tiêu chí của đơn vị + đợt</strong> ở dòng đó. Nếu hạng mục chưa có trong bộ tiêu chí của đơn vị, hãy thêm vào bộ tiêu chí trước — nếu không KPI sẽ không tính vào điểm BSC.
                   </p>
                 </div>
@@ -421,19 +410,13 @@ export default function KpiImportGuideModal({ open, onClose, onSelectFile }: Kpi
         </div>
 
         {/* Footer */}
-        <div className="sticky bottom-0 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 px-4 sm:px-8 py-5 flex items-center justify-end gap-3 rounded-b-[28px]">
-          <button
-            onClick={onClose}
-            className="px-6 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-sm font-bold text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all"
-          >
+        <div className="sticky bottom-0 bg-[var(--color-card)] border-t border-[var(--color-border)] px-4 sm:px-8 py-5 flex items-center justify-end gap-3 rounded-b-card">
+          <Button variant="outline" onClick={onClose}>
             Hủy bỏ
-          </button>
-          <button
-            onClick={() => { onSelectFile(isQualitative ? 'QUALITATIVE' : 'QUANTITATIVE'); onClose() }}
-            className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 transition-all shadow-lg shadow-indigo-500/20 active:scale-95"
-          >
-            <FileSpreadsheet size={16} /> Chọn file & Import
-          </button>
+          </Button>
+          <Button onClick={() => { onSelectFile(isQualitative ? 'QUALITATIVE' : 'QUANTITATIVE'); onClose() }}>
+            <FileSpreadsheet aria-hidden="true" /> Chọn file & Import
+          </Button>
         </div>
       </div>
     </div>

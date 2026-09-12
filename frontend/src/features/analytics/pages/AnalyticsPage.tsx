@@ -1,4 +1,3 @@
-import { TrendingUp } from 'lucide-react'
 import SettingsSectionLayout from '@/components/common/SettingsSectionLayout'
 import { usePageTitle } from '@/features/organization/hooks/usePageTitle'
 import { useAuthStore } from '@/store/authStore'
@@ -33,8 +32,8 @@ export default function AnalyticsPage() {
       <div className="max-w-[1600px] mx-auto px-4 md:px-0 pb-20 space-y-8 animate-pulse">
         <div className="space-y-3">
           <div className="h-6 w-44 bg-[var(--color-muted)] rounded-full" />
-          <div className="h-9 w-36 bg-[var(--color-muted)] rounded-xl" />
-          <div className="h-4 w-full max-w-80 bg-[var(--color-muted)] rounded-lg" />
+          <div className="h-9 w-36 bg-[var(--color-muted)] rounded-card" />
+          <div className="h-4 w-full max-w-80 bg-[var(--color-muted)] rounded-control" />
         </div>
         {/* Cùng ngưỡng cột với lưới thật trong SettingsSectionLayout — khung xương nhảy
             khác số cột rồi mới đổ nội dung thì thấy rõ một nhịp giật. */}
@@ -42,7 +41,7 @@ export default function AnalyticsPage() {
           <div className="h-3 w-24 bg-[var(--color-muted)] rounded-full" />
           <div className="grid gap-4 grid-cols-1 @lg:grid-cols-2 @3xl:grid-cols-3 @5xl:grid-cols-4">
             {[1, 2, 3].map(i => (
-              <div key={i} className="h-36 bg-[var(--color-muted)] rounded-2xl" />
+              <div key={i} className="h-36 bg-[var(--color-muted)] rounded-card" />
             ))}
           </div>
         </div>
@@ -56,11 +55,6 @@ export default function AnalyticsPage() {
         navId="analytics"
         title={pageTitle}
         subtitle="Phân tích hiệu suất KPI, bài nộp và đánh giá"
-        eyebrow={
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 text-xs font-black uppercase tracking-widest mb-3">
-            <TrendingUp size={14} /> Thống kê & Phân tích
-          </div>
-        }
         sections={[
           { id: 'my-objectives', visible: isOkr, render: () => <MyObjectivesTab /> },
           { id: 'subordinate', visible: isOkr, render: () => <SubordinateManagementTab /> },

@@ -8,6 +8,8 @@ import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import { REDEMPTION_STATUS_STYLE } from './MyRedemptionsTable'
 import { useRedemptions } from '../hooks/useGifts'
 import { RedemptionStatus, type Redemption } from '../types'
+import { Button } from '@/components/ui/button'
+import { ChoiceChip } from '@/components/ui/choice-chip'
 
 const fmtDate = (iso: string) =>
   new Date(iso).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
@@ -36,27 +38,19 @@ export default function RedemptionsTab() {
           string,
           string,
         ][]).map(([key, label]) => (
-          <button
-            key={key || 'all'}
-            onClick={() => {
+          <ChoiceChip selected={status === key} variant="solid" className="py-1.5 sm:text-sm" key={key || 'all'} onClick={() => {
               setStatus(key as RedemptionStatus | '')
               setPage(0)
-            }}
-            className={`whitespace-nowrap rounded-full border px-3 py-1.5 text-xs transition-colors sm:text-sm ${
-              status === key
-                ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/10 font-medium text-[var(--color-primary)]'
-                : 'border-[var(--color-border)] text-[var(--color-muted-foreground)] hover:bg-[var(--color-accent)]'
-            }`}
-          >
+            }}>
             {label}
-          </button>
+          </ChoiceChip>
         ))}
       </div>
 
       {isLoading ? (
         <LoadingSkeleton type="table" rows={4} />
       ) : rows.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-[var(--color-border)]">
+        <div className="rounded-card border border-dashed border-[var(--color-border)]">
           <EmptyState
             title={status ? 'Không có yêu cầu nào ở trạng thái này' : 'Chưa có yêu cầu đổi quà nào'}
             description={
@@ -95,7 +89,7 @@ export default function RedemptionsTab() {
                   </span>
                 </div>
                 {row.note && (
-                  <div className="rounded-lg bg-[var(--color-muted)] px-3 py-2 text-xs">
+                  <div className="rounded-control bg-[var(--color-muted)] px-3 py-2 text-xs">
                     {row.note}
                   </div>
                 )}
@@ -103,22 +97,15 @@ export default function RedemptionsTab() {
                   {(row.status === RedemptionStatus.PENDING ||
                     row.status === RedemptionStatus.APPROVED) && (
                     <>
-                      <button
-                        onClick={() => deliverRedemption({ id: row.id })}
-                        disabled={isDelivering}
-                        className="flex-1 rounded-lg bg-[var(--color-primary)] py-2 text-sm text-white"
-                      >
+                      <Button className="flex-1" onClick={() => deliverRedemption({ id: row.id })} disabled={isDelivering}>
                         {/* Với quà ngoài, nút này KHÔNG phải là "tôi đã trao tay" mà là
                             hỏi lại nhà cung cấp bằng đúng mã giao dịch cũ. Gọi nhầm tên
                             sẽ khiến người quản lý tưởng mình đang xác nhận khống. */}
                         {row.externalProvider ? 'Lấy lại quà' : 'Đã giao quà'}
-                      </button>
-                      <button
-                        onClick={() => setRejecting(row)}
-                        className="rounded-lg border border-rose-500/40 px-3 py-2 text-sm text-rose-600"
-                      >
+                      </Button>
+                      <Button variant="ghost" className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]" onClick={() => setRejecting(row)}>
                         Từ chối
-                      </button>
+                      </Button>
                     </>
                   )}
                 </div>
@@ -158,10 +145,10 @@ export default function RedemptionsTab() {
                       <img
                         src={row.giftImageUrl}
                         alt=""
-                        className="h-9 w-9 flex-shrink-0 rounded-lg object-cover"
+                        className="h-9 w-9 flex-shrink-0 rounded-control object-cover"
                       />
                     ) : (
-                      <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg bg-[var(--color-muted)] text-[var(--color-muted-foreground)]">
+                      <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-control bg-[var(--color-muted)] text-[var(--color-muted-foreground)]">
                         <ImageOff size={14} />
                       </div>
                     )}
@@ -186,7 +173,7 @@ export default function RedemptionsTab() {
                       {row.note || '—'}
                     </span>
                     {row.fulfillmentError && (
-                      <div className="mt-0.5 text-xs text-orange-700">{row.fulfillmentError}</div>
+                      <div className="mt-0.5 text-xs text-[var(--color-warning)]">{row.fulfillmentError}</div>
                     )}
                     {row.externalOrderId && (
                       <div className="mt-0.5 text-xs text-[var(--color-muted-foreground)]">
@@ -232,25 +219,20 @@ export default function RedemptionsTab() {
                     {(row.status === RedemptionStatus.PENDING ||
                       row.status === RedemptionStatus.APPROVED) && (
                       <>
-                        <button
-                          onClick={() => deliverRedemption({ id: row.id })}
-                          disabled={isDelivering}
-                          title={
+                        <Button variant="ghost" size="icon-sm" aria-label={
                             row.externalProvider
                               ? 'Hỏi lại nhà cung cấp và lấy mã quà về'
                               : 'Đánh dấu đã trao quà'
-                          }
-                          className="rounded-lg p-1.5 text-[var(--color-primary)] hover:bg-[var(--color-accent)]"
-                        >
-                          <PackageCheck size={16} />
-                        </button>
-                        <button
-                          onClick={() => setRejecting(row)}
-                          title="Từ chối và hoàn điểm"
-                          className="rounded-lg p-1.5 text-rose-600 hover:bg-rose-500/10"
-                        >
-                          <XIcon size={16} />
-                        </button>
+                          } onClick={() => deliverRedemption({ id: row.id })} disabled={isDelivering} title={
+                            row.externalProvider
+                              ? 'Hỏi lại nhà cung cấp và lấy mã quà về'
+                              : 'Đánh dấu đã trao quà'
+                          }>
+                          <PackageCheck aria-hidden="true" />
+                        </Button>
+                        <Button variant="ghost" size="icon-sm" className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]" aria-label="Từ chối và hoàn điểm" onClick={() => setRejecting(row)} title="Từ chối và hoàn điểm">
+                          <XIcon aria-hidden="true" />
+                        </Button>
                       </>
                     )}
                   </div>

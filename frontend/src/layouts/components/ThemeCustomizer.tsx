@@ -1,9 +1,10 @@
 import { useState, useRef } from 'react'
-import { useThemeStore, THEME_COLORS } from '@/store/themeStore'
+import { useThemeStore, THEME_COLORS, isVioletLike } from '@/store/themeStore'
 import { cn } from '@/lib/utils'
-import { Sun, Moon, Palette, Check, Pipette } from 'lucide-react'
+import { Sun, Moon, Palette, Check, Pipette, Info } from 'lucide-react'
 import { useOnClickOutside } from '@/hooks/useOnClickOutside'
-
+import { Button } from '@/components/ui/button'
+import { ChoiceChip } from '@/components/ui/choice-chip'
 
 export default function ThemeCustomizer() {
   const { isDark, setDark, primaryColor, setPrimaryColor } = useThemeStore()
@@ -12,89 +13,98 @@ export default function ThemeCustomizer() {
 
   useOnClickOutside(containerRef, () => setIsOpen(false))
 
+  const isPreset = THEME_COLORS.some(c => c.value.toLowerCase() === primaryColor.toLowerCase())
+
   return (
     <div className="relative" ref={containerRef}>
-      <button
-        onClick={() => setIsOpen(!isOpen)}
-        className="w-9 h-9 rounded-lg flex items-center justify-center hover:bg-[var(--color-accent)] transition-all active:scale-95"
-        title="Tùy chỉnh giao diện"
-      >
-        <Palette size={18} className="text-[var(--color-primary)]" />
-      </button>
+      <Button variant="secondary" size="icon" type="button" onClick={() => setIsOpen(!isOpen)} aria-label="Tùy chỉnh giao diện" aria-expanded={isOpen} aria-haspopup="dialog" title="Tùy chỉnh giao diện">
+        <Palette aria-hidden="true" />
+      </Button>
 
       {isOpen && (
-        <div className="absolute right-0 top-12 z-50 w-72 bg-white dark:bg-slate-900 rounded-[24px] shadow-2xl border border-slate-200 dark:border-slate-800 p-6 animate-in fade-in zoom-in-95 duration-200">
-            
-            <div className="space-y-6">
-              {/* Theme Mode */}
-              <div className="space-y-3">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Giao diện</p>
-                <div className="grid grid-cols-2 gap-2 p-1 bg-slate-50 dark:bg-slate-800 rounded-xl">
-                  <button
-                    onClick={() => setDark(false)}
-                    className={cn(
-                      "flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold transition-all",
-                      !isDark ? "bg-white dark:bg-slate-700 text-indigo-600 shadow-sm" : "text-slate-500 hover:text-slate-700"
-                    )}
-                  >
-                    <Sun size={14} /> Sáng
-                  </button>
-                  <button
-                    onClick={() => setDark(true)}
-                    className={cn(
-                      "flex items-center justify-center gap-2 py-2 rounded-lg text-xs font-bold transition-all",
-                      isDark ? "bg-white dark:bg-slate-700 text-indigo-600 shadow-sm" : "text-slate-500 hover:text-slate-700"
-                    )}
-                  >
-                    <Moon size={14} /> Tối
-                  </button>
+        <div
+          role="dialog"
+          aria-label="Tùy chỉnh giao diện"
+          className="absolute right-0 top-11 z-50 w-72 rounded-card border border-[var(--color-border)] bg-[var(--color-popover)] p-4 shadow-lg animate-in fade-in-0 motion-reduce:animate-none"
+        >
+          <div className="space-y-5">
+            {/* Chế độ sáng / tối */}
+            <div className="space-y-2">
+              <p className="text-eyebrow">Chế độ</p>
+              <div className="grid grid-cols-2 gap-1 rounded-control bg-[var(--color-muted)] p-1">
+                {([
+                  { dark: false, label: 'Sáng', Icon: Sun },
+                  { dark: true, label: 'Tối', Icon: Moon },
+                ] as const).map(({ dark, label, Icon }) => {
+                  const active = isDark === dark
+                  return (
+                  <ChoiceChip selected={active} variant="segment" key={label} onClick={() => setDark(dark)} aria-pressed={active}>
+                      <Icon /> {label}
+                  </ChoiceChip>
+                  )
+                })}
                 </div>
               </div>
 
-              {/* Primary Color */}
-              <div className="space-y-3">
-                <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Màu chủ đạo</p>
-                <div className="grid grid-cols-4 gap-2">
-                  {THEME_COLORS.map((color) => (
+            {/* Màu chủ đạo */}
+            <div className="space-y-2">
+              <p className="text-eyebrow">Màu chủ đạo</p>
+              <div className="grid grid-cols-8 gap-1">
+                {THEME_COLORS.map((color) => {
+                  const active = primaryColor.toLowerCase() === color.value.toLowerCase()
+                  return (
                     <button
                       key={color.value}
+                      type="button"
                       onClick={() => setPrimaryColor(color.value)}
-                      className={cn(
-                        "w-full aspect-square rounded-xl flex items-center justify-center transition-all hover:scale-110 active:scale-95 border-2",
-                        primaryColor === color.value ? "border-slate-900 dark:border-white" : "border-transparent"
-                      )}
-                      style={{ backgroundColor: color.value }}
+                      aria-label={color.name}
+                      aria-pressed={active}
                       title={color.name}
+                      className={cn(
+                        'h-7 w-7 rounded-control flex items-center justify-center border-2 transition-colors',
+                        active ? 'border-[var(--color-foreground)]' : 'border-transparent hover:border-[var(--color-border-strong)]'
+                      )}
+                      style={{ backgroundColor: isDark ? color.dark.primary : color.light.primary }}
                     >
-                      {primaryColor === color.value && <Check size={16} className="text-white drop-shadow-md" />}
+                      {active && <Check size={14} style={{ color: isDark ? color.dark.foreground : color.light.foreground }} />}
                     </button>
-                  ))}
+                  )
+                })}
+              </div>
+
+              {/* Màu tự chọn */}
+              <label className="text-label relative mt-2 flex h-9 items-center gap-2 rounded-control border border-[var(--color-input)] bg-[var(--color-card)] px-3 text-[var(--color-muted-foreground)] focus-within:border-[var(--color-ring)] focus-within:ring-2 focus-within:ring-[var(--color-ring)]">
+                <Pipette size={14} aria-hidden="true" />
+                <span className="flex-1">{isPreset ? 'Màu tùy chỉnh' : primaryColor.toUpperCase()}</span>
+                <span
+                  aria-hidden="true"
+                  className="h-4 w-4 rounded-sm border border-[var(--color-border)]"
+                  style={{ backgroundColor: primaryColor }}
+                />
+                <input
+                  type="color"
+                  aria-label="Chọn màu tùy chỉnh"
+                  value={primaryColor}
+                  onChange={(e) => setPrimaryColor(e.target.value)}
+                  className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                />
+              </label>
+
+              {/* Dải tím trùng với nhận diện của K.AI: báo cho người dùng biết vì sao
+                  khu vực trợ lý đổi sang màu lam. Với màu tự chọn quá nhạt, chữ trên
+                  nút sẽ tự chuyển sang tối để còn đọc được. */}
+              {isVioletLike(primaryColor) && (
+                <p className="flex items-start gap-1.5 text-caption">
+                  <Info size={13} className="mt-0.5 shrink-0" aria-hidden="true" />
+                  Màu tím trùng với nhận diện của K.AI, nên khu vực trợ lý sẽ dùng màu lam để phân biệt.
+                </p>
+              )}
                 </div>
               </div>
 
-              {/* Custom Color */}
-              <div className="space-y-3 pt-2 border-t border-slate-100 dark:border-slate-800">
-                <div className="flex items-center justify-between">
-                  <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 px-1">Màu tùy chỉnh</p>
-                  <div className="w-5 h-5 rounded-full border border-slate-200 dark:border-slate-700 shadow-inner" style={{ backgroundColor: primaryColor }} />
-                </div>
-                <div className="relative group">
-                  <Pipette size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none group-focus-within:text-indigo-600" />
-                  <input
-                    type="color"
-                    value={primaryColor}
-                    onChange={(e) => setPrimaryColor(e.target.value)}
-                    className="w-full h-10 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 p-1 cursor-pointer focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all pl-9"
-                  />
-                </div>
-              </div>
-            </div>
-            
-            <div className="mt-6 pt-4 border-t border-slate-100 dark:border-slate-800">
-              <p className="text-[9px] text-center text-slate-400 font-medium leading-relaxed">
-                Các thiết lập sẽ được lưu tự động cho tài khoản của bạn.
+          <p className="mt-4 border-t border-[var(--color-border)] pt-3 text-caption">
+            Thiết lập được lưu trên trình duyệt này.
               </p>
-            </div>
           </div>
       )}
     </div>

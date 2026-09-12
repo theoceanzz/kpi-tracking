@@ -86,6 +86,9 @@ export default function NumberInput({
       ref={inputRef}
       value={text}
       onChange={handleChange}
+      // Focus là trống trơn cho dễ gõ số mới. Chỉ xoá phần hiển thị, không gọi onChange,
+      // nên rời ô mà chưa gõ gì thì onBlur bên dưới in lại đúng giá trị cũ.
+      onFocus={() => setText('')}
       onBlur={() => setText(format(value))}
       disabled={disabled}
       placeholder={placeholder}

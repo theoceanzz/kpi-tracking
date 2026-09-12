@@ -21,7 +21,8 @@ export function useRoles() {
 export function useOrganizationUsers(orgUnitId?: string) {
   return useQuery({
     queryKey: ['organization-users', orgUnitId],
-    queryFn: () => userApi.getAll({ page: 0, size: 1000, orgUnitId }) // Filter by root unit to only see company users
+    // BE nhận orgUnitIds (List) — xem chú thích ở userApi.getAll.
+    queryFn: () => userApi.getAll({ page: 0, size: 1000, orgUnitIds: orgUnitId ? [orgUnitId] : undefined })
   })
 }
 

@@ -1,11 +1,13 @@
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { read, write, utils } from 'xlsx'
 import {
-  X, Save, AlertCircle, Trash2, Plus, FileSpreadsheet,
+  X, Save, AlertCircle, Trash2, Plus, Loader2,
   ListPlus, Search, User, UserCheck, Check,
   Scale, ArrowRight, ChevronDown, ChevronUp, BarChart3, SlidersHorizontal
 } from 'lucide-react'
 import type { KpiType } from '@/types/kpi'
+import { Dialog, DialogFooter } from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
 import { useKpiTotalWeight } from '@/features/kpi/hooks/useKpiTotalWeight'
 import { toast } from 'sonner'
 import { z } from 'zod'
@@ -20,6 +22,7 @@ import { kpiApi } from '@/features/kpi/api/kpiApi'
 import { useObjectives } from '@/features/okr/hooks/useOkr'
 import { useBscPerspectives, useScorecards } from '@/features/bsc/hooks/useBsc'
 import { scorecardsForPeriod } from '@/features/bsc/utils/scorecardScope'
+import { ChoiceChip } from '@/components/ui/choice-chip'
 
 interface KpiExcelPreviewModalProps {
   open: boolean
@@ -380,7 +383,7 @@ export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onI
       }
 
       setData(parsed)
-    } catch (error) {
+    } catch {
       toast.error('Lỗi khi đọc file Excel/CSV')
       onClose()
     } finally {
@@ -506,7 +509,7 @@ export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onI
   const handleCellChange = (id: string, field: keyof KpiRow, value: string) => {
     setData(prev => prev.map(row => {
       if (row.id === id) {
-        let updated = { ...row, [field]: value }
+        const updated = { ...row, [field]: value }
         return validateRow(updated)
       }
       return row
@@ -608,7 +611,7 @@ export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onI
       if (userObj?.id && periodId && unitId) {
         try {
           systemWeight = await kpiApi.getTotalWeight(unitId, periodId, userObj.id)
-        } catch (e) {}
+        } catch { /* lỗi ở đây không đổi được gì cho người dùng */ }
       }
 
       const total = systemWeight + excelWeight
@@ -641,7 +644,7 @@ export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onI
       const newFile = new File([blob], file?.name || 'import_kpis.xlsx', { type: blob.type })
 
       onImport(newFile, localKpiType)
-    } catch (e) {
+    } catch {
       toast.error('Lỗi khi tạo file import')
     } finally {
       setLoading(false)
@@ -657,829 +660,777 @@ export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onI
   const hasAnyErrors = data.some(r => r._errors && Object.keys(r._errors).length > 0)
 
   return (
-    <div className="fixed inset-x-0 top-0 h-screen z-[200] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-slate-900 rounded-[32px] shadow-2xl w-full max-w-[95vw] lg:max-w-7xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200 border border-slate-200 dark:border-slate-800">
-        {/* Header */}
-        <div className="px-8 py-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/50">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-2xl bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600">
-              <FileSpreadsheet size={24} />
-            </div>
-            <div>
-              <h2 className="text-xl font-black text-slate-900 dark:text-white">Xem trước & Kiểm tra Chỉ tiêu</h2>
-              <p className="text-xs font-bold text-slate-500 uppercase tracking-widest mt-1">File: {file?.name}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            {enableQualitative ? (
-              <div className="flex items-center gap-1 p-1 rounded-2xl bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700">
-                <button type="button" onClick={() => setLocalKpiType('QUANTITATIVE')}
-                  className={cn('flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all',
-                    !isQualitative ? 'bg-indigo-600 text-white shadow' : 'text-slate-500 hover:text-slate-700')}>
-                  <BarChart3 size={13} /> Định lượng
-                </button>
-                <button type="button" onClick={() => setLocalKpiType('QUALITATIVE')}
-                  className={cn('flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-[11px] font-black uppercase tracking-wider transition-all',
-                    isQualitative ? 'bg-emerald-600 text-white shadow' : 'text-slate-500 hover:text-slate-700')}>
-                  <SlidersHorizontal size={13} /> Định tính
-                </button>
-              </div>
-            ) : (
-              <span className="px-3 py-1.5 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 text-[11px] font-black uppercase tracking-wider">
-                {isQualitative ? 'KPI Định tính' : 'KPI Định lượng'}
-              </span>
-            )}
-            <button onClick={onClose} className="p-2.5 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors text-slate-500">
-              <X size={20} />
-            </button>
-          </div>
+    <>
+    <Dialog
+      open
+      onClose={onClose}
+      size="full"
+      dismissible={!isImporting}
+      title="Xem trước & Kiểm tra Chỉ tiêu"
+      description={`File: ${file?.name ?? ''}`}
+      headerExtra={enableQualitative ? (
+        <div className="flex items-center gap-1 rounded-control border border-[var(--color-border)] bg-[var(--color-muted)] p-0.5" role="group" aria-label="Loại chỉ tiêu">
+          <ChoiceChip selected={!isQualitative} variant="segment" size="sm" onClick={() => setLocalKpiType('QUANTITATIVE')} aria-pressed={!isQualitative}>
+            <BarChart3 aria-hidden="true" /> Định lượng
+          </ChoiceChip>
+          <ChoiceChip selected={isQualitative} variant="segment" size="sm" onClick={() => setLocalKpiType('QUALITATIVE')} aria-pressed={isQualitative}>
+            <SlidersHorizontal aria-hidden="true" /> Định tính
+          </ChoiceChip>
         </div>
-
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto p-8 scrollbar-thin scrollbar-thumb-slate-200">
-          {loading ? (
-            <div className="flex flex-col items-center justify-center h-64 text-slate-400">
-              <div className="w-10 h-10 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mb-4" />
-              <p className="font-black text-sm uppercase tracking-tighter">Đang phân tích dữ liệu...</p>
+      ) : (
+        <span className="rounded-full bg-[var(--color-primary-soft)] px-2.5 py-0.5 text-xs font-medium text-[var(--color-primary)]">
+          {isQualitative ? 'KPI Định tính' : 'KPI Định lượng'}
+        </span>
+      )}
+      footer={
+        <DialogFooter
+          note={<>Tổng cộng: <span className="font-medium text-[var(--color-foreground)] tabular-nums">{data.length}</span> chỉ tiêu sẵn sàng</>}
+          secondary={<Button variant="outline" onClick={onClose} disabled={isImporting}>Hủy bỏ</Button>}
+          primary={
+            <Button onClick={handleSave} disabled={isImporting || hasCriticalErrors || data.length === 0}>
+              {isImporting ? <><Loader2 className="animate-spin" aria-hidden="true" /> Đang Import...</> : <><Save aria-hidden="true" /> Xác nhận Import</>}
+            </Button>
+          }
+        />
+      }
+    >
+      {loading ? (
+        <div className="flex flex-col items-center justify-center h-64 text-[var(--color-subtle-foreground)]">
+          <div className="w-10 h-10 border-4 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin mb-4" />
+          <p className="font-semibold text-sm">Đang phân tích dữ liệu...</p>
+        </div>
+      ) : (
+        <div className="space-y-6">
+          {/* Real-time Weight Summary Panel */}
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-semibold text-[var(--color-foreground)] flex items-center gap-2">
+                <Scale size={18} className="text-[var(--color-primary)]" />
+                Trạng thái trọng số
+              </h3>
             </div>
-          ) : (
-            <div className="space-y-6">
-              {/* Real-time Weight Summary Panel */}
-              <div className="space-y-4">
-                <div className="flex items-center justify-between">
-                  <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight flex items-center gap-2">
-                    <Scale size={18} className="text-indigo-600" />
-                    Trạng thái trọng số
-                  </h3>
-                </div>
-                
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {(() => {
-                    const uniquePairs = Array.from(new Set(data.flatMap(r => {
-                      const orgNames = r.OrgUnit.split(',').map((s: string) => s.trim()).filter(Boolean)
-                      return orgNames.map(name => `${name}|${r.Period}`)
-                    })))
-                    return uniquePairs.map(pair => {
-                      const [unitName, periodName] = pair.split('|')
-                      if (!unitName || !periodName) return null
+            
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {(() => {
+                const uniquePairs = Array.from(new Set(data.flatMap(r => {
+                  const orgNames = r.OrgUnit.split(',').map((s: string) => s.trim()).filter(Boolean)
+                  return orgNames.map(name => `${name}|${r.Period}`)
+                })))
+                return uniquePairs.map(pair => {
+                  const [unitName, periodName] = pair.split('|')
+                  if (!unitName || !periodName) return null
 
-                      const unitId = flatOrgUnits.find(u => u.name === unitName)?.id
-                      const periodId = periodsData?.content?.find((p: any) => p.name === periodName)?.id
+                  const unitId = flatOrgUnits.find(u => u.name === unitName)?.id
+                  const periodId = periodsData?.content?.find((p: any) => p.name === periodName)?.id
 
-                      // Compute per-person weight totals, then take the max as the unit's representative weight
-                      const filteredRows = data.filter(r => {
-                        const orgNames = r.OrgUnit.split(',').map((s: string) => s.trim())
-                        return orgNames.includes(unitName) && r.Period === periodName && countsTowardWeight(r)
-                      })
-                      const perEmpWeights: Record<string, number> = {}
-                      filteredRows.forEach(r => {
-                        const codes = r.EmployeeCode.split(',').map((s: string) => s.trim()).filter(Boolean)
-                        codes.forEach(code => {
-                          perEmpWeights[code] = (perEmpWeights[code] || 0) + (parseFloat(r.Weight) || 0)
-                        })
-                      })
-                      const excelWeight = Object.values(perEmpWeights).length > 0
-                        ? Math.max(...Object.values(perEmpWeights))
-                        : 0
-
-                      return (
-                        <UnitWeightStatus
-                          key={`unit-${pair}`}
-                          unitId={unitId}
-                          unitName={unitName}
-                          periodId={periodId}
-                          periodName={periodName}
-                          excelWeight={excelWeight}
-                        />
-                      )
+                  // Compute per-person weight totals, then take the max as the unit's representative weight
+                  const filteredRows = data.filter(r => {
+                    const orgNames = r.OrgUnit.split(',').map((s: string) => s.trim())
+                    return orgNames.includes(unitName) && r.Period === periodName && countsTowardWeight(r)
+                  })
+                  const perEmpWeights: Record<string, number> = {}
+                  filteredRows.forEach(r => {
+                    const codes = r.EmployeeCode.split(',').map((s: string) => s.trim()).filter(Boolean)
+                    codes.forEach(code => {
+                      perEmpWeights[code] = (perEmpWeights[code] || 0) + (parseFloat(r.Weight) || 0)
                     })
-                  })()}
-                </div>
+                  })
+                  const excelWeight = Object.values(perEmpWeights).length > 0
+                    ? Math.max(...Object.values(perEmpWeights))
+                    : 0
 
-                {/* Employee Weight Table */}
-                <div className="mt-8 space-y-4">
-                  <button 
-                    onClick={() => setIsEmpTableOpen(!isEmpTableOpen)}
-                    className="flex items-center gap-3 group"
-                  >
-                    <h4 className="text-[10px] font-black text-slate-400 group-hover:text-indigo-600 transition-colors uppercase tracking-[0.2em] px-1">Chi tiết trọng số theo nhân viên</h4>
-                    <div className="w-5 h-5 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400 group-hover:bg-indigo-600 group-hover:text-white transition-all">
-                      {isEmpTableOpen ? <ChevronUp size={12} /> : <ChevronDown size={12} />}
-                    </div>
+                  return (
+                    <UnitWeightStatus
+                      key={`unit-${pair}`}
+                      unitId={unitId}
+                      unitName={unitName}
+                      periodId={periodId}
+                      periodName={periodName}
+                      excelWeight={excelWeight}
+                    />
+                  )
+                })
+              })()}
+            </div>
+
+            {/* Employee Weight Table */}
+            <div className="mt-8 space-y-4">
+              <button type="button" className="flex w-full items-center gap-3 rounded-card p-3 text-left transition-colors hover:bg-[var(--color-muted)] group" onClick={() => setIsEmpTableOpen(!isEmpTableOpen)}>
+                <h4 className="text-eyebrow group-hover:text-[var(--color-primary)] transition-colors px-1">Chi tiết trọng số theo nhân viên</h4>
+                <div className="w-5 h-5 rounded-full bg-[var(--color-muted)] flex items-center justify-center text-[var(--color-subtle-foreground)] group-hover:bg-[var(--color-primary)] group-hover:text-[var(--color-primary-foreground)] transition-all">
+                  {isEmpTableOpen ? <ChevronUp aria-hidden="true" /> : <ChevronDown aria-hidden="true" />}
+                </div>
+              </button>
+
+              {isEmpTableOpen && (
+                <div className="border border-[var(--color-border)] rounded-card overflow-hidden shadow-sm bg-[var(--color-card)] animate-in slide-in-from-top-2 duration-300">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-sm text-left">
+                      <thead className="text-eyebrow bg-[var(--color-muted)] border-b border-[var(--color-border)]">
+                        <tr>
+                          <th className="px-6 py-4">Nhân viên</th>
+                          <th className="px-6 py-4">Đợt / Đơn vị</th>
+                          <th className="px-6 py-4 text-center">Hiện tại</th>
+                          <th className="px-6 py-4 text-center">Excel</th>
+                          <th className="px-6 py-4 text-center">Tổng cộng</th>
+                          <th className="px-6 py-4">Trạng thái</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-[var(--color-border)]">
+                        {(() => {
+                          const uniqueEmpPairs = Array.from(new Set(data.flatMap(r => {
+                            const codes = r.EmployeeCode.split(',').map((s: string) => s.trim()).filter(Boolean)
+                            const orgNames = r.OrgUnit.split(',').map((s: string) => s.trim()).filter(Boolean)
+                            return codes.flatMap(c => orgNames.map(org => `${c}|${r.Period}|${org}`))
+                          })))
+
+                          return uniqueEmpPairs.map(pair => {
+                            const [empCode, periodName, unitName] = pair.split('|')
+                            if (!empCode || !periodName || !unitName) return null
+
+                            const userObj = allUsers.find(u => u.employeeCode === empCode)
+                            const periodId = periodsData?.content?.find((p: any) => p.name === periodName)?.id
+                            const unitId = flatOrgUnits.find(u => u.name === unitName)?.id
+
+                            const excelWeight = data
+                              .filter(r => {
+                                const codes = r.EmployeeCode.split(',').map((s: string) => s.trim())
+                                const orgNames = r.OrgUnit.split(',').map((s: string) => s.trim())
+                                return codes.includes(empCode) && orgNames.includes(unitName) && r.Period === periodName && countsTowardWeight(r)
+                              })
+                              .reduce((sum, r) => sum + (parseFloat(r.Weight) || 0), 0)
+
+                            return (
+                              <EmployeeWeightRow
+                                key={`emp-row-${pair}`}
+                                userId={userObj?.id}
+                                orgUnitId={unitId}
+                                fullName={userObj?.fullName || empCode}
+                                empCode={empCode}
+                                unitName={unitName || ''}
+                                periodId={periodId}
+                                periodName={periodName}
+                                excelWeight={excelWeight}
+                              />
+                            )
+                          })
+                        })()}
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+          {hasAnyErrors && (
+            <div className="p-5 bg-[var(--color-error-bg)] text-[var(--color-error)] rounded-widget flex items-start gap-4 border border-[var(--color-error-border)] shadow-sm animate-in shake duration-500">
+              <AlertCircle size={24} className="shrink-0 mt-0.5" />
+              <div>
+                <p className="text-sm font-semibold">Phát hiện dữ liệu không hợp lệ</p>
+                <p className="text-xs mt-1 font-medium opacity-80">Vui lòng kiểm tra và sửa các ô được đánh dấu đỏ trước khi tiến hành Import chính thức.</p>
+              </div>
+            </div>
+          )}
+
+          {/* Bulk Assignment Panel */}
+          <div className="p-6 bg-[var(--color-primary-soft)] rounded-card border border-[var(--color-border)] relative z-20">
+            <div className="flex items-center gap-3 mb-6">
+              <div className="w-10 h-10 rounded-card bg-[var(--color-primary)] flex items-center justify-center text-[var(--color-primary-foreground)]">
+                <ListPlus size={20} />
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-[var(--color-foreground)]">Thiết lập hàng loạt</h3>
+                <p className="text-eyebrow">Gán nhanh thông tin cho tất cả các dòng</p>
+              </div>
+              </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-5 gap-4">
+              <div className="space-y-1.5">
+                <label className="text-label px-1">Tần suất</label>
+                <select 
+                  value={bulkFreq}
+                  onChange={e => setBulkFreq(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-card bg-[var(--color-card)] border-none shadow-sm text-sm font-medium focus:ring-2 focus:ring-[var(--color-ring)]"
+                >
+                  <option value="">-- Chọn tần suất --</option>
+                  {frequencyOptions.map(opt => (
+                    <option key={opt} value={opt}>
+                      {FREQUENCY_MAP[opt as keyof typeof FREQUENCY_MAP] || opt}
+                    </option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-label px-1">Đợt KPI</label>
+                <select 
+                  value={bulkPeriod}
+                  onChange={e => setBulkPeriod(e.target.value)}
+                  className="w-full px-4 py-2.5 rounded-card bg-[var(--color-card)] border-none shadow-sm text-sm font-medium focus:ring-2 focus:ring-[var(--color-ring)]"
+                >
+                  <option value="">-- Chọn đợt --</option>
+                  {periodsData?.content?.map((p: any) => <option key={p.id} value={p.name}>{p.name}</option>)}
+                </select>
+              </div>
+
+              <div className="space-y-1.5">
+                <label className="text-label px-1 flex flex-col">
+                  <span>Phòng ban {bulkOrgUnits.length > 0 && <span className="text-[var(--color-primary)]">({bulkOrgUnits.length})</span>}</span>
+                  {enableOkr && <span className="text-xs text-[var(--color-primary)] italic lowercase font-medium">* Chỉ chọn 1 do đang bật OKR</span>}
+                </label>
+                <div className="relative" ref={bulkOrgDropdownRef}>
+                  {isBulkOrgOpen && (
+                    <div className="fixed inset-0 z-40" onClick={() => setIsBulkOrgOpen(false)} />
+                  )}
+                  <button className="flex h-9 w-full items-center gap-2.5 rounded-control px-2.5 text-left text-sm text-[var(--color-foreground)] transition-colors hover:bg-[var(--color-muted)] [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-[var(--color-muted-foreground)]" type="button" onClick={() => setIsBulkOrgOpen(v => !v)}>
+                    <span className={cn(bulkOrgUnits.length === 0 ? 'text-[var(--color-subtle-foreground)]' : 'text-[var(--color-foreground)]')}>
+                      {bulkOrgUnits.length === 0 ? '-- Chọn phòng ban --' : `${bulkOrgUnits.length} phòng ban đã chọn`}
+                    </span>
+                    <ChevronDown aria-hidden="true" className={cn('text-[var(--color-subtle-foreground)] transition-transform', isBulkOrgOpen && 'rotate-180')} />
                   </button>
 
-                  {isEmpTableOpen && (
-                    <div className="border border-slate-200 dark:border-slate-800 rounded-[24px] overflow-hidden shadow-sm bg-white dark:bg-slate-900 animate-in slide-in-from-top-2 duration-300">
-                      <div className="overflow-x-auto">
-                        <table className="w-full text-sm text-left">
-                          <thead className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700 text-slate-400 font-black uppercase text-[9px] tracking-widest">
-                            <tr>
-                              <th className="px-6 py-4">Nhân viên</th>
-                              <th className="px-6 py-4">Đợt / Đơn vị</th>
-                              <th className="px-6 py-4 text-center">Hiện tại</th>
-                              <th className="px-6 py-4 text-center">Excel</th>
-                              <th className="px-6 py-4 text-center">Tổng cộng</th>
-                              <th className="px-6 py-4">Trạng thái</th>
-                            </tr>
-                          </thead>
-                          <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                            {(() => {
-                              const uniqueEmpPairs = Array.from(new Set(data.flatMap(r => {
-                                const codes = r.EmployeeCode.split(',').map((s: string) => s.trim()).filter(Boolean)
-                                const orgNames = r.OrgUnit.split(',').map((s: string) => s.trim()).filter(Boolean)
-                                return codes.flatMap(c => orgNames.map(org => `${c}|${r.Period}|${org}`))
-                              })))
+                  {isBulkOrgOpen && (
+                    <div className="absolute top-full left-0 w-full mt-1 bg-[var(--color-card)] rounded-card shadow-2xl border border-[var(--color-border)] z-50 max-h-56 overflow-y-auto p-2 space-y-0.5">
+                      {flatOrgUnits.map((u: any) => {
+                        const isChecked = bulkOrgUnits.includes(u.name)
+                        return (
+                          <button
+                            key={u.id}
+                            type="button"
+                            onClick={() => setBulkOrgUnits(prev => {
+                              if (isChecked) return prev.filter(n => n !== u.name)
+                              if (enableOkr) return [u.name]
+                              return [...prev, u.name]
+                            })}
+                            className={cn(
+                              'w-full text-left px-3 py-2 rounded-card flex items-center justify-between transition-colors',
+                              isChecked
+                                ? 'bg-[var(--color-primary-soft)] text-[var(--color-primary)]'
+                                : 'hover:bg-[var(--color-muted)]'
+                            )}
+                          >
+                            <div className="flex flex-col">
+                              <span className="text-sm font-medium">{u.name}</span>
+                              <span className="text-eyebrow font-medium">{u.code}</span>
+                            </div>
+                            {isChecked && <Check size={14} className="text-[var(--color-primary)] shrink-0" />}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
 
-                              return uniqueEmpPairs.map(pair => {
-                                const [empCode, periodName, unitName] = pair.split('|')
-                                if (!empCode || !periodName || !unitName) return null
-
-                                const userObj = allUsers.find(u => u.employeeCode === empCode)
-                                const periodId = periodsData?.content?.find((p: any) => p.name === periodName)?.id
-                                const unitId = flatOrgUnits.find(u => u.name === unitName)?.id
-
-                                const excelWeight = data
-                                  .filter(r => {
-                                    const codes = r.EmployeeCode.split(',').map((s: string) => s.trim())
-                                    const orgNames = r.OrgUnit.split(',').map((s: string) => s.trim())
-                                    return codes.includes(empCode) && orgNames.includes(unitName) && r.Period === periodName && countsTowardWeight(r)
-                                  })
-                                  .reduce((sum, r) => sum + (parseFloat(r.Weight) || 0), 0)
-
-                                return (
-                                  <EmployeeWeightRow
-                                    key={`emp-row-${pair}`}
-                                    userId={userObj?.id}
-                                    orgUnitId={unitId}
-                                    fullName={userObj?.fullName || empCode}
-                                    empCode={empCode}
-                                    unitName={unitName || ''}
-                                    periodId={periodId}
-                                    periodName={periodName}
-                                    excelWeight={excelWeight}
-                                  />
-                                )
-                              })
-                            })()}
-                          </tbody>
-                        </table>
-                      </div>
+                  {bulkOrgUnits.length > 0 && (
+                    <div className="flex flex-wrap gap-1 mt-2">
+                      {bulkOrgUnits.map(name => (
+                        <span key={name} className="flex items-center gap-1 pl-2.5 pr-1.5 py-1 bg-[var(--color-primary-soft)] text-[var(--color-primary)] rounded-control text-xs font-semibold max-w-full">
+                          <span className="truncate max-w-[120px]">{name}</span>
+                          <button
+                            type="button"
+                            onClick={() => setBulkOrgUnits(prev => prev.filter(n => n !== name))}
+                            className="hover:text-[var(--color-primary)] ml-0.5 shrink-0"
+                          >
+                            <X size={10} />
+                          </button>
+                        </span>
+                      ))}
                     </div>
                   )}
                 </div>
               </div>
-              {hasAnyErrors && (
-                <div className="p-5 bg-rose-50 dark:bg-rose-900/20 text-rose-600 dark:text-rose-400 rounded-3xl flex items-start gap-4 border border-rose-100 dark:border-rose-900/30 shadow-sm animate-in shake duration-500">
-                  <AlertCircle size={24} className="shrink-0 mt-0.5" />
-                  <div>
-                    <p className="text-sm font-black uppercase tracking-tight">Phát hiện dữ liệu không hợp lệ</p>
-                    <p className="text-xs mt-1 font-medium opacity-80">Vui lòng kiểm tra và sửa các ô được đánh dấu đỏ trước khi tiến hành Import chính thức.</p>
-                  </div>
-                </div>
-              )}
 
-              {/* Bulk Assignment Panel */}
-              <div className="p-6 bg-indigo-50/50 dark:bg-indigo-900/10 rounded-[32px] border border-indigo-100 dark:border-indigo-900/30 relative z-20">
-                <div className="flex items-center gap-3 mb-6">
-                  <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-lg shadow-indigo-200 dark:shadow-none">
-                    <ListPlus size={20} />
-                  </div>
-                  <div>
-                    <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight">Thiết lập hàng loạt</h3>
-                    <p className="text-[10px] font-bold text-slate-500 uppercase tracking-widest">Gán nhanh thông tin cho tất cả các dòng</p>
-                  </div>
-                  </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-5 gap-4">
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Tần suất</label>
-                    <select 
-                      value={bulkFreq}
-                      onChange={e => setBulkFreq(e.target.value)}
-                      className="w-full px-4 py-2.5 rounded-2xl bg-white dark:bg-slate-800 border-none shadow-sm text-sm font-bold focus:ring-2 focus:ring-indigo-500"
-                    >
-                      <option value="">-- Chọn tần suất --</option>
-                      {frequencyOptions.map(opt => (
-                        <option key={opt} value={opt}>
-                          {FREQUENCY_MAP[opt as keyof typeof FREQUENCY_MAP] || opt}
-                        </option>
-                      ))}
-                    </select>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Đợt KPI</label>
-                    <select 
-                      value={bulkPeriod}
-                      onChange={e => setBulkPeriod(e.target.value)}
-                      className="w-full px-4 py-2.5 rounded-2xl bg-white dark:bg-slate-800 border-none shadow-sm text-sm font-bold focus:ring-2 focus:ring-indigo-500"
-                    >
-                      <option value="">-- Chọn đợt --</option>
-                      {periodsData?.content?.map((p: any) => <option key={p.id} value={p.name}>{p.name}</option>)}
-                    </select>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1 flex flex-col">
-                      <span>Phòng ban {bulkOrgUnits.length > 0 && <span className="text-indigo-600">({bulkOrgUnits.length})</span>}</span>
-                      {enableOkr && <span className="text-[9px] text-indigo-500 italic lowercase font-bold">* Chỉ chọn 1 do đang bật OKR</span>}
-                    </label>
-                    <div className="relative" ref={bulkOrgDropdownRef}>
-                      {isBulkOrgOpen && (
-                        <div className="fixed inset-0 z-40" onClick={() => setIsBulkOrgOpen(false)} />
-                      )}
-                      <button
-                        type="button"
-                        onClick={() => setIsBulkOrgOpen(v => !v)}
-                        className="w-full px-4 py-2.5 rounded-2xl bg-white dark:bg-slate-800 shadow-sm text-sm font-bold text-left flex items-center justify-between relative z-50"
-                      >
-                        <span className={cn(bulkOrgUnits.length === 0 ? 'text-slate-400' : 'text-slate-900 dark:text-white')}>
-                          {bulkOrgUnits.length === 0 ? '-- Chọn phòng ban --' : `${bulkOrgUnits.length} phòng ban đã chọn`}
-                        </span>
-                        <ChevronDown size={14} className={cn('text-slate-400 transition-transform', isBulkOrgOpen && 'rotate-180')} />
-                      </button>
-
-                      {isBulkOrgOpen && (
-                        <div className="absolute top-full left-0 w-full mt-1 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-700 z-50 max-h-56 overflow-y-auto p-2 space-y-0.5">
-                          {flatOrgUnits.map((u: any) => {
-                            const isChecked = bulkOrgUnits.includes(u.name)
-                            return (
-                              <button
-                                key={u.id}
-                                type="button"
-                                onClick={() => setBulkOrgUnits(prev => {
-                                  if (isChecked) return prev.filter(n => n !== u.name)
-                                  if (enableOkr) return [u.name]
-                                  return [...prev, u.name]
-                                })}
-                                className={cn(
-                                  'w-full text-left px-3 py-2 rounded-xl flex items-center justify-between transition-colors',
-                                  isChecked
-                                    ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300'
-                                    : 'hover:bg-slate-50 dark:hover:bg-slate-700/50'
-                                )}
-                              >
-                                <div className="flex flex-col">
-                                  <span className="text-sm font-bold">{u.name}</span>
-                                  <span className="text-[10px] text-slate-400 uppercase font-bold">{u.code}</span>
-                                </div>
-                                {isChecked && <Check size={14} className="text-indigo-600 shrink-0" />}
-                              </button>
-                            )
-                          })}
-                        </div>
-                      )}
-
-                      {bulkOrgUnits.length > 0 && (
-                        <div className="flex flex-wrap gap-1 mt-2">
-                          {bulkOrgUnits.map(name => (
-                            <span key={name} className="flex items-center gap-1 pl-2.5 pr-1.5 py-1 bg-indigo-100 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300 rounded-lg text-[10px] font-black max-w-full">
-                              <span className="truncate max-w-[120px]">{name}</span>
-                              <button
-                                type="button"
-                                onClick={() => setBulkOrgUnits(prev => prev.filter(n => n !== name))}
-                                className="hover:text-indigo-900 dark:hover:text-indigo-100 ml-0.5 shrink-0"
-                              >
-                                <X size={10} />
-                              </button>
-                            </span>
-                          ))}
-                        </div>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest px-1">Mã nhân viên (S)</label>
-                    <div className="relative group/search">
-                      <input 
-                        value={bulkEmpCode}
-                        onChange={e => setBulkEmpCode(e.target.value)}
-                        placeholder="Chọn hoặc nhập mã..."
-                        className="w-full px-4 py-2.5 pl-10 rounded-2xl bg-white dark:bg-slate-800 border-none shadow-sm text-sm font-black focus:ring-2 focus:ring-indigo-500"
-                      />
-                      <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
+              <div className="space-y-1.5">
+                <label className="text-label px-1">Mã nhân viên (S)</label>
+                <div className="relative group/search">
+                  <input 
+                    value={bulkEmpCode}
+                    onChange={e => setBulkEmpCode(e.target.value)}
+                    placeholder="Chọn hoặc nhập mã..."
+                    className="w-full px-4 py-2.5 pl-10 rounded-card bg-[var(--color-card)] border-none shadow-sm text-sm font-semibold focus:ring-2 focus:ring-[var(--color-ring)]"
+                  />
+                  <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--color-subtle-foreground)]" />
+                  
+                  {/* Search results dropdown */}
+                  <div className="absolute top-full left-0 w-full mt-2 bg-[var(--color-card)] rounded-card shadow-2xl border border-[var(--color-border)] z-50 max-h-60 overflow-y-auto p-2 space-y-1 hidden group-focus-within/search:block">
+                    {(() => {
+                      const selectedCodes = bulkEmpCode.split(',').map(s => s.trim()).filter(Boolean)
+                      const parts = bulkEmpCode.split(',')
+                      const lastPart = (parts[parts.length - 1] ?? '').trim().toLowerCase()
                       
-                      {/* Search results dropdown */}
-                      <div className="absolute top-full left-0 w-full mt-2 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-700 z-50 max-h-60 overflow-y-auto p-2 space-y-1 hidden group-focus-within/search:block">
-                        {(() => {
-                          const selectedCodes = bulkEmpCode.split(',').map(s => s.trim()).filter(Boolean)
-                          const parts = bulkEmpCode.split(',')
-                          const lastPart = (parts[parts.length - 1] ?? '').trim().toLowerCase()
-                          
-                          // If last part is an exact match of an already selected code, treat it as "not searching"
-                          const isExactMatch = selectedCodes.some(c => c.toLowerCase() === lastPart)
-                          const effectiveSearch = isExactMatch ? '' : lastPart
+                      // If last part is an exact match of an already selected code, treat it as "not searching"
+                      const isExactMatch = selectedCodes.some(c => c.toLowerCase() === lastPart)
+                      const effectiveSearch = isExactMatch ? '' : lastPart
 
-                          const filtered = allUsers.filter(u => {
-                            const matchesOrg = !bulkOrgUnits.length || bulkOrgUnits.some(orgName =>
-                              u.memberships?.some(m =>
-                                m.orgUnitName?.toLowerCase().trim() === orgName.toLowerCase().trim()
-                              )
-                            )
-                            const isSelected = u.employeeCode && selectedCodes.includes(u.employeeCode)
-                            const matchesSearch = !effectiveSearch ||
-                              u.fullName.toLowerCase().includes(effectiveSearch) ||
-                              u.employeeCode?.toLowerCase().includes(effectiveSearch)
-                            const isLeader = u.memberships?.some(m => m.roleRank === 0) || u.permissions?.includes('SUBMISSION:REVIEW')
-                            const waterfallCheck = !enableWaterfall || isLeader || isSelected
+                      const filtered = allUsers.filter(u => {
+                        const matchesOrg = !bulkOrgUnits.length || bulkOrgUnits.some(orgName =>
+                          u.memberships?.some(m =>
+                            m.orgUnitName?.toLowerCase().trim() === orgName.toLowerCase().trim()
+                          )
+                        )
+                        const isSelected = u.employeeCode && selectedCodes.includes(u.employeeCode)
+                        const matchesSearch = !effectiveSearch ||
+                          u.fullName.toLowerCase().includes(effectiveSearch) ||
+                          u.employeeCode?.toLowerCase().includes(effectiveSearch)
+                        const isLeader = u.memberships?.some(m => m.roleRank === 0) || u.permissions?.includes('SUBMISSION:REVIEW')
+                        const waterfallCheck = !enableWaterfall || isLeader || isSelected
 
-                            return matchesOrg && (isSelected || matchesSearch) && waterfallCheck
-                          })
+                        return matchesOrg && (isSelected || matchesSearch) && waterfallCheck
+                      })
 
-                          // Sort: selected ones first
-                          return filtered.sort((a, b) => {
-                            const aSel = a.employeeCode && selectedCodes.includes(a.employeeCode) ? 1 : 0
-                            const bSel = b.employeeCode && selectedCodes.includes(b.employeeCode) ? 1 : 0
-                            return bSel - aSel
-                          }).slice(0, 50).map(u => (
-                            <button
-                              key={u.id}
-                              onMouseDown={(e) => {
-                                e.preventDefault()
-                                const current = bulkEmpCode.split(',').map(s => s.trim()).filter(Boolean)
-                                if (u.employeeCode) {
-                                  if (current.includes(u.employeeCode)) {
-                                    setBulkEmpCode(current.filter(c => c !== u.employeeCode).join(', ') + (current.length > 0 ? ', ' : ''))
-                                  } else {
-                                    setBulkEmpCode([...current, u.employeeCode].join(', ') + ', ')
-                                  }
-                                }
-                              }}
-                              className={cn(
-                                "w-full text-left px-4 py-2 rounded-xl flex items-center justify-between group transition-colors",
-                                u.employeeCode && selectedCodes.includes(u.employeeCode) 
-                                  ? "bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 font-bold" 
-                                  : "hover:bg-slate-50 dark:hover:bg-slate-700/50"
-                              )}
-                            >
-                              <div className="flex flex-col">
-                                <span className="text-sm">{u.fullName}</span>
-                                <span className="text-[10px] text-slate-500 font-bold uppercase">{u.employeeCode}</span>
-                              </div>
-                              <UserCheck 
-                                size={14} 
-                                className={cn(
-                                  "text-indigo-500 transition-opacity",
-                                  u.employeeCode && selectedCodes.includes(u.employeeCode) ? "opacity-100" : "opacity-0 group-hover:opacity-50"
-                                )} 
-                              />
-                            </button>
-                          ))
-                        })()}
-                        {allUsers.length === 0 && (
-                          <p className="p-3 text-center text-xs text-slate-400 font-bold uppercase">Không có dữ liệu nhân viên</p>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-
-                  <div className="flex items-end">
-                    <button 
-                      onClick={handleBulkApply}
-                      className="w-full bg-slate-900 dark:bg-indigo-600 text-white py-2.5 rounded-2xl text-xs font-black uppercase tracking-tighter hover:bg-slate-800 dark:hover:bg-indigo-700 transition-all shadow-lg active:scale-95"
-                    >
-                      Áp dụng tất cả
-                    </button>
+                      // Sort: selected ones first
+                      return filtered.sort((a, b) => {
+                        const aSel = a.employeeCode && selectedCodes.includes(a.employeeCode) ? 1 : 0
+                        const bSel = b.employeeCode && selectedCodes.includes(b.employeeCode) ? 1 : 0
+                        return bSel - aSel
+                      }).slice(0, 50).map(u => (
+                        <button
+                          key={u.id}
+                          onMouseDown={(e) => {
+                            e.preventDefault()
+                            const current = bulkEmpCode.split(',').map(s => s.trim()).filter(Boolean)
+                            if (u.employeeCode) {
+                              if (current.includes(u.employeeCode)) {
+                                setBulkEmpCode(current.filter(c => c !== u.employeeCode).join(', ') + (current.length > 0 ? ', ' : ''))
+                              } else {
+                                setBulkEmpCode([...current, u.employeeCode].join(', ') + ', ')
+                              }
+                            }
+                          }}
+                          className={cn(
+                            "w-full text-left px-4 py-2 rounded-card flex items-center justify-between group transition-colors",
+                            u.employeeCode && selectedCodes.includes(u.employeeCode) 
+                              ? "bg-[var(--color-primary-soft)] text-[var(--color-primary)] font-semibold" 
+                              : "hover:bg-[var(--color-muted)]"
+                          )}
+                        >
+                          <div className="flex flex-col">
+                            <span className="text-sm">{u.fullName}</span>
+                            <span className="text-eyebrow">{u.employeeCode}</span>
+                          </div>
+                          <UserCheck 
+                            size={14} 
+                            className={cn(
+                              "text-[var(--color-primary)] transition-opacity",
+                              u.employeeCode && selectedCodes.includes(u.employeeCode) ? "opacity-100" : "opacity-0 group-hover:opacity-50"
+                            )} 
+                          />
+                        </button>
+                      ))
+                    })()}
+                    {allUsers.length === 0 && (
+                      <p className="p-3 text-center text-xs text-[var(--color-subtle-foreground)] font-medium">Không có dữ liệu nhân viên</p>
+                    )}
                   </div>
                 </div>
               </div>
 
-              <div className="border border-slate-200 dark:border-slate-800 rounded-[24px] overflow-hidden shadow-sm bg-white dark:bg-slate-900">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm text-left">
-                    <thead className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700 text-slate-400 font-black uppercase text-[10px] tracking-widest sticky top-0 z-10">
-                      <tr>
-                        <th className="px-5 py-4 w-12 text-center">STT</th>
-                        <th className="px-5 py-4 min-w-[200px]">Tên chỉ tiêu <span className="text-rose-500">*</span></th>
-                        <th className="px-5 py-4 min-w-[150px]">Trọng số <span className="text-rose-500">*</span></th>
-                        {!isQualitative && <th className="px-5 py-4 min-w-[150px]">Mục tiêu <span className="text-rose-500">*</span></th>}
-                        {!isQualitative && <th className="px-5 py-4 min-w-[150px]">Tối thiểu <span className="text-rose-500">*</span></th>}
-                        <th className="px-5 py-4 min-w-[160px]">Hạn chót riêng</th>
-                        {!isQualitative && <th className="px-5 py-4 min-w-[120px]">KPI Ngược</th>}
-                        <th className="px-5 py-4 min-w-[120px]">KPI Thưởng</th>
-                        {!isQualitative && <th className="px-5 py-4 min-w-[150px]">Đơn vị <span className="text-rose-500">*</span></th>}
-                        <th className="px-5 py-4 min-w-[180px]">Tần suất <span className="text-rose-500">*</span></th>
-                        <th className="px-5 py-4 min-w-[160px]">Mã nhân viên <span className="text-rose-500">*</span></th>
-                        <th className="px-5 py-4 min-w-[220px]">Đợt KPI <span className="text-rose-500">*</span></th>
-                        <th className="px-5 py-4 min-w-[300px]">Phòng ban / Đơn vị <span className="text-rose-500">*</span></th>
-                        {enableOkr && (
-                          <>
-                            <th className="px-5 py-4 min-w-[200px]">Mã Mục tiêu</th>
-                            <th className="px-5 py-4 min-w-[200px]">Mã KR</th>
-                          </>
-                        )}
-                        {enableBsc && <th className="px-5 py-4 min-w-[200px]">Hạng mục BSC</th>}
-                        <th className="px-5 py-4 w-16 text-center">Xóa</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                      {data.map((row, index) => (
-                        <tr key={row.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors group">
-                          <td className="px-5 py-4 text-center text-slate-400 font-black text-xs">
-                            {index + 1}
-                          </td>
-                          <td className="px-5 py-3">
-                            <input
-                              value={row.Name}
-                              onChange={e => handleCellChange(row.id, 'Name', e.target.value)}
-                              className={cn(
-                                "w-full px-4 py-2 rounded-xl border text-sm font-bold transition-all",
-                                row._errors?.Name 
-                                  ? "border-rose-300 bg-rose-50 dark:bg-rose-900/10 focus:border-rose-500 focus:ring-2 focus:ring-rose-500/20" 
-                                  : "border-transparent hover:border-slate-200 dark:hover:border-slate-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 bg-transparent hover:bg-white dark:hover:bg-slate-800"
-                              )}
-                              placeholder="Nhập tên..."
-                            />
-                            {row._errors?.Name && <p className="text-[9px] text-rose-500 mt-1 font-black uppercase px-2">{row._errors.Name}</p>}
-                          </td>
-                          <td className="px-5 py-3">
-                            <div className="relative">
-                                <input
-                                value={row.Weight}
-                                onChange={e => handleCellChange(row.id, 'Weight', e.target.value)}
-                                className={cn(
-                                    "w-full px-4 py-2 pr-8 rounded-xl border text-sm font-black transition-all",
-                                    row._errors?.Weight ? "border-rose-300 bg-rose-50 dark:bg-rose-900/10" : "border-transparent hover:border-slate-200 focus:border-indigo-500"
-                                )}
-                                />
-                                <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] font-bold text-slate-400">%</span>
-                            </div>
-                            {row._errors?.Weight && <p className="text-[9px] text-rose-500 mt-1 font-black uppercase px-2">{row._errors.Weight}</p>}
-                          </td>
-                          {!isQualitative && (
-                          <td className="px-5 py-3">
-                            <input
-                              value={row.TargetValue}
-                              onChange={e => handleCellChange(row.id, 'TargetValue', e.target.value)}
-                              className={cn(
-                                "w-full px-4 py-2 rounded-xl border text-sm font-black transition-all",
-                                row._errors?.TargetValue ? "border-rose-300 bg-rose-50 dark:bg-rose-900/10" : "border-transparent hover:border-slate-200 focus:border-indigo-500"
-                              )}
-                            />
-                            {row._errors?.TargetValue && <p className="text-[9px] text-rose-500 mt-1 font-black uppercase px-2">{row._errors.TargetValue}</p>}
-                          </td>
-                          )}
-                          {!isQualitative && (
-                          <td className="px-5 py-3">
-                            <input
-                              value={row.MinimumValue || ''}
-                              onChange={e => handleCellChange(row.id, 'MinimumValue', e.target.value)}
-                              className={cn(
-                                "w-full px-4 py-2 rounded-xl border text-sm font-black transition-all",
-                                row._errors?.MinimumValue ? "border-rose-300 bg-rose-50 dark:bg-rose-900/10" : "border-transparent hover:border-slate-200 focus:border-indigo-500"
-                              )}
-                            />
-                            {row._errors?.MinimumValue && <p className="text-[9px] text-rose-500 mt-1 font-black uppercase px-2">{row._errors.MinimumValue}</p>}
-                          </td>
-                          )}
-                          <td className="px-5 py-3">
-                            <input
-                              value={row.Deadline || ''}
-                              onChange={e => handleCellChange(row.id, 'Deadline', e.target.value)}
-                              placeholder="dd/MM/yyyy HH:mm"
-                              className={cn(
-                                "w-full px-4 py-2 rounded-xl border text-sm font-black transition-all",
-                                row._errors?.Deadline ? "border-rose-300 bg-rose-50 dark:bg-rose-900/10" : "border-transparent hover:border-slate-200 focus:border-indigo-500"
-                              )}
-                            />
-                            {row._errors?.Deadline && <p className="text-[9px] text-rose-500 mt-1 font-black uppercase px-2">{row._errors.Deadline}</p>}
-                          </td>
-                          {!isQualitative && (
-                          <td className="px-5 py-3">
-                            <button
-                              type="button"
-                              onClick={() => handleCellChange(row.id, 'IsReverseKpi', row.IsReverseKpi === 'true' ? 'false' : 'true')}
-                              className={cn(
-                                'relative w-10 h-6 rounded-full transition-all flex-shrink-0',
-                                row.IsReverseKpi === 'true' ? 'bg-orange-500' : 'bg-slate-200 dark:bg-slate-700'
-                              )}
-                            >
-                              <div className={cn(
-                                'absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-all',
-                                row.IsReverseKpi === 'true' ? 'left-5' : 'left-1'
-                              )} />
-                            </button>
-                          </td>
-                          )}
-                          <td className="px-5 py-3">
-                            <button
-                              type="button"
-                              onClick={() => handleCellChange(row.id, 'IsBonusKpi', row.IsBonusKpi === 'true' ? 'false' : 'true')}
-                              className={cn(
-                                'relative w-10 h-6 rounded-full transition-all flex-shrink-0',
-                                row.IsBonusKpi === 'true' ? 'bg-emerald-500' : 'bg-slate-200 dark:bg-slate-700'
-                              )}
-                            >
-                              <div className={cn(
-                                'absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-all',
-                                row.IsBonusKpi === 'true' ? 'left-5' : 'left-1'
-                              )} />
-                            </button>
-                          </td>
-                          {!isQualitative && (
-                          <td className="px-5 py-3">
-                            <input
-                              value={row.Unit}
-                              onChange={e => handleCellChange(row.id, 'Unit', e.target.value)}
-                              className={cn(
-                                "w-full px-4 py-2 rounded-xl border text-sm font-bold transition-all",
-                                row._errors?.Unit ? "border-rose-300 bg-rose-50 dark:bg-rose-900/10" : "border-transparent hover:border-slate-200 focus:border-indigo-500"
-                              )}
-                              placeholder="VD: VND, %..."
-                            />
-                            {row._errors?.Unit && <p className="text-[9px] text-rose-500 mt-1 font-black uppercase px-2">{row._errors.Unit}</p>}
-                          </td>
-                          )}
-                          <td className="px-5 py-3">
-                            <select
-                              value={row.Frequency}
-                              onChange={e => handleCellChange(row.id, 'Frequency', e.target.value)}
-                              className={cn(
-                                "w-full px-4 py-2 rounded-xl border text-sm font-bold transition-all bg-transparent outline-none",
-                                row._errors?.Frequency ? "border-rose-300 bg-rose-50" : "border-transparent hover:border-slate-200 focus:border-indigo-500"
-                              )}
-                            >
-                              <option value="">-- Chọn --</option>
-                              {frequencyOptions.map(opt => (
-                                <option key={opt} value={opt}>
-                                  {FREQUENCY_MAP[opt as keyof typeof FREQUENCY_MAP] || opt}
-                                </option>
-                              ))}
-                            </select>
-                            {row._errors?.Frequency && <p className="text-[9px] text-rose-500 mt-1 font-black uppercase px-2">{row._errors.Frequency}</p>}
-                          </td>
-                          <td className="px-5 py-3 min-w-[200px]">
-                            <div className="relative group/cell">
-                              <input
-                                value={row.EmployeeCode}
-                                onChange={e => handleCellChange(row.id, 'EmployeeCode', e.target.value)}
-                                className={cn(
-                                  "w-full px-4 py-2 pl-9 rounded-xl border text-sm font-bold transition-all bg-transparent outline-none",
-                                  row._errors?.EmployeeCode ? "border-rose-300 bg-rose-50" : "border-transparent hover:border-slate-200 focus:border-indigo-500"
-                                )}
-                                placeholder="Chọn NV..."
-                              />
-                              <User size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" />
-                              
-                              <div className={cn(
-                                "absolute left-0 w-64 z-50 max-h-48 overflow-y-auto p-2 space-y-1 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-700 hidden group-focus-within/cell:block",
-                                index >= data.length / 2 ? "bottom-full mb-1" : "top-full mt-1"
-                              )}>
-                                {(() => {
-                                  const selectedCodes = row.EmployeeCode.split(',').map(s => s.trim()).filter(Boolean)
-                                  const parts = row.EmployeeCode.split(',')
-                                  const lastPart = (parts[parts.length - 1] ?? '').trim().toLowerCase()
-
-                                  // If last part is an exact match of an already selected code, treat it as "not searching"
-                                  const isExactMatch = selectedCodes.some(c => c.toLowerCase() === lastPart)
-                                  const effectiveSearch = isExactMatch ? '' : lastPart
-
-                                  const filtered = allUsers.filter(u => {
-                                    const rowOrgNames = row.OrgUnit
-                                      ? row.OrgUnit.split(',').map((s: string) => s.trim()).filter(Boolean)
-                                      : []
-                                    const matchesOrg = !rowOrgNames.length || rowOrgNames.some(orgName =>
-                                      u.memberships?.some(m =>
-                                        m.orgUnitName?.toLowerCase().trim() === orgName.toLowerCase().trim()
-                                      )
-                                    )
-                                    const isSelected = u.employeeCode && selectedCodes.includes(u.employeeCode)
-                                    const matchesSearch = !effectiveSearch || 
-                                      u.fullName.toLowerCase().includes(effectiveSearch) || 
-                                      u.employeeCode?.toLowerCase().includes(effectiveSearch)
-                                    const isLeader = u.memberships?.some(m => m.roleRank === 0) || u.permissions?.includes('SUBMISSION:REVIEW')
-                                    const waterfallCheck = !enableWaterfall || isLeader || isSelected
-                                    
-                                    return matchesOrg && (isSelected || matchesSearch) && waterfallCheck
-                                  })
-
-                                  return filtered.sort((a, b) => {
-                                    const aSel = a.employeeCode && selectedCodes.includes(a.employeeCode) ? 1 : 0
-                                    const bSel = b.employeeCode && selectedCodes.includes(b.employeeCode) ? 1 : 0
-                                    return bSel - aSel
-                                  }).slice(0, 10).map(u => (
-                                    <button
-                                      key={u.id}
-                                      onMouseDown={(e) => {
-                                        e.preventDefault()
-                                        const current = row.EmployeeCode.split(',').map(s => s.trim()).filter(Boolean)
-                                        if (u.employeeCode) {
-                                          let newValue = ''
-                                          if (current.includes(u.employeeCode)) {
-                                            newValue = current.filter(c => c !== u.employeeCode).join(', ') + (current.length > 0 ? ', ' : '')
-                                          } else {
-                                            newValue = [...current, u.employeeCode].join(', ') + ', '
-                                          }
-                                          handleCellChange(row.id, 'EmployeeCode', newValue)
-                                        }
-                                      }}
-                                      className={cn(
-                                        "w-full text-left px-3 py-2 rounded-xl flex items-center gap-3 transition-colors",
-                                        u.employeeCode && selectedCodes.includes(u.employeeCode)
-                                          ? "bg-indigo-50 dark:bg-indigo-900/30"
-                                          : "hover:bg-slate-50 dark:hover:bg-slate-700/50"
-                                      )}
-                                    >
-                                      <div className={cn(
-                                        "w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-black transition-colors",
-                                        u.employeeCode && selectedCodes.includes(u.employeeCode)
-                                          ? "bg-indigo-600 text-white"
-                                          : "bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600"
-                                      )}>
-                                        {u.employeeCode && selectedCodes.includes(u.employeeCode) ? <Check size={12} /> : u.fullName.charAt(0)}
-                                      </div>
-                                      <div className="flex flex-col flex-1">
-                                        <span className={cn(
-                                          "text-xs font-bold transition-colors",
-                                          u.employeeCode && selectedCodes.includes(u.employeeCode) ? "text-indigo-600" : "text-slate-900 dark:text-white"
-                                        )}>{u.fullName}</span>
-                                        <span className="text-[10px] text-slate-500 font-bold uppercase">{u.employeeCode}</span>
-                                      </div>
-                                      {u.employeeCode && selectedCodes.includes(u.employeeCode) && (
-                                        <UserCheck size={12} className="text-indigo-600" />
-                                      )}
-                                    </button>
-                                  ))
-                                })()}
-                              </div>
-                            </div>
-                            {row._errors?.EmployeeCode && <p className="text-[9px] text-rose-500 mt-1 font-black uppercase px-2">{row._errors.EmployeeCode}</p>}
-                          </td>
-                          <td className="px-5 py-3">
-                            <select
-                              value={row.Period}
-                              onChange={e => handleCellChange(row.id, 'Period', e.target.value)}
-                              className={cn(
-                                "w-full px-4 py-2 rounded-xl border text-sm font-bold transition-all bg-transparent outline-none",
-                                row._errors?.Period ? "border-rose-300 bg-rose-50" : "border-transparent hover:border-slate-200 focus:border-indigo-500"
-                              )}
-                            >
-
-                              {periodsData?.content?.map((p: any) => <option key={p.id} value={p.name}>{p.name}</option>)}
-                            </select>
-                            {row._errors?.Period && <p className="text-[9px] text-rose-500 mt-1 font-black uppercase px-2">{row._errors.Period}</p>}
-                          </td>
-                          <td className="px-5 py-3 min-w-[240px]">
-                            {(() => {
-                              const selectedOrgNames = row.OrgUnit
-                                ? row.OrgUnit.split(',').map((s: string) => s.trim()).filter(Boolean)
-                                : []
-                              return (
-                                <div>
-                                  <button
-                                    type="button"
-                                    onClick={(e) => {
-                                      if (openOrgDropdownId === row.id) {
-                                        setOpenOrgDropdownId(null)
-                                        setOrgDropdownPos(null)
-                                      } else {
-                                        const rect = e.currentTarget.getBoundingClientRect()
-                                        const dropdownH = 220
-                                        const showAbove = rect.bottom + dropdownH > window.innerHeight && rect.top > dropdownH
-                                        setOrgDropdownPos({
-                                          top: showAbove ? rect.top - dropdownH - 4 : rect.bottom + 4,
-                                          left: rect.left,
-                                        })
-                                        setOpenOrgDropdownId(row.id)
-                                      }
-                                    }}
-                                    className={cn(
-                                      'w-full px-3 py-2 rounded-xl border text-sm font-bold transition-all text-left flex items-center justify-between',
-                                      row._errors?.OrgUnit
-                                        ? 'border-rose-300 bg-rose-50 dark:bg-rose-900/10'
-                                        : 'border-transparent hover:border-slate-200 dark:hover:border-slate-700'
-                                    )}
-                                  >
-                                    <span className={cn('truncate', !selectedOrgNames.length && 'text-slate-400 font-normal')}>
-                                      {selectedOrgNames.length ? selectedOrgNames.join(', ') : '-- Chọn --'}
-                                    </span>
-                                    <ChevronDown size={12} className="text-slate-400 shrink-0 ml-1" />
-                                  </button>
-                                </div>
-                              )
-                            })()}
-                            {row._errors?.OrgUnit && <p className="text-[9px] text-rose-500 mt-1 font-black uppercase px-2">{row._errors.OrgUnit}</p>}
-                          </td>
-                          {enableOkr && (
-                            <>
-                              <td className="px-5 py-3">
-                                <select
-                                  value={row.ObjectiveCode || ''}
-                                  onChange={e => handleCellChange(row.id, 'ObjectiveCode', e.target.value)}
-                                  className="w-full px-4 py-2 rounded-xl border border-transparent hover:border-slate-200 focus:border-indigo-500 text-sm font-bold transition-all bg-transparent outline-none"
-                                >
-                                  <option value="">-- Trống --</option>
-                                  {objectives.map((obj: any) => (
-                                    <option key={obj.id} value={obj.code}>{obj.name} ({obj.code})</option>
-                                  ))}
-                                </select>
-                              </td>
-                              <td className="px-5 py-3">
-                                <select
-                                  value={row.KeyResultCode || ''}
-                                  onChange={e => handleCellChange(row.id, 'KeyResultCode', e.target.value)}
-                                  className="w-full px-4 py-2 rounded-xl border border-transparent hover:border-slate-200 focus:border-indigo-500 text-sm font-bold transition-all bg-transparent outline-none"
-                                  disabled={!row.ObjectiveCode}
-                                >
-                                  <option value="">-- Trống --</option>
-                                  {(() => {
-                                    const selectedObj = objectives.find((obj: any) => obj.code === row.ObjectiveCode)
-                                    if (!selectedObj || !selectedObj.keyResults) return null
-                                    return selectedObj.keyResults.map((kr: any) => (
-                                      <option key={kr.id} value={kr.code}>{kr.name} ({kr.code})</option>
-                                    ))
-                                  })()}
-                                </select>
-                              </td>
-                            </>
-                          )}
-                          {enableBsc && (
-                            <td className="px-5 py-3">
-                              <select
-                                value={(() => {
-                                  const v = (row.Perspective || '').toLowerCase()
-                                  const m = perspectives.find((p: any) => p.code?.toLowerCase() === v || p.name?.toLowerCase() === v)
-                                  return m ? m.code : ''
-                                })()}
-                                onChange={e => handleCellChange(row.id, 'Perspective', e.target.value)}
-                                className="w-full px-4 py-2 rounded-xl border border-transparent hover:border-slate-200 focus:border-indigo-500 text-sm font-bold transition-all bg-transparent outline-none"
-                              >
-                                <option value="">-- Trống --</option>
-                                {(() => {
-                                  const avail = availablePerspIdsForRow(row)
-                                  const list = avail ? perspectives.filter((p: any) => avail.has(p.id)) : perspectives
-                                  return list.map((p: any) => (
-                                    <option key={p.id} value={p.code}>{p.name} ({p.code})</option>
-                                  ))
-                                })()}
-                              </select>
-                              {row._errors?.Perspective && <p className="text-[9px] text-rose-500 mt-1 font-black uppercase px-2">{row._errors.Perspective}</p>}
-                            </td>
-                          )}
-                          <td className="px-5 py-3 text-center">
-                            <button
-                              onClick={() => handleRemoveRow(row.id)}
-                              className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded-xl transition-all"
-                            >
-                              <Trash2 size={16} />
-                            </button>
-                          </td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                {data.length === 0 && (
-                  <div className="text-center py-20 text-slate-400 font-bold italic">
-                    Không có dữ liệu để hiển thị
-                  </div>
-                )}
-                <div className="bg-slate-50 dark:bg-slate-800/50 border-t border-slate-200 dark:border-slate-700 p-4 flex justify-center">
-                  <button
-                    onClick={handleAddRow}
-                    className="flex items-center gap-2 text-sm font-black text-indigo-600 hover:text-indigo-700 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 px-6 py-2.5 rounded-2xl transition-all shadow-sm hover:shadow-md"
-                  >
-                    <Plus size={18} /> Thêm dòng mới
-                  </button>
-                </div>
+              <div className="flex items-end">
+                <Button className="w-full" onClick={handleBulkApply}>
+                  Áp dụng tất cả
+                </Button>
               </div>
             </div>
-          )}
-        </div>
+          </div>
 
-        {/* Footer */}
-        <div className="px-8 py-6 border-t border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row items-center justify-between gap-4 bg-slate-50/50 dark:bg-slate-800/50">
-          <p className="text-xs font-black text-slate-400 uppercase tracking-widest">
-            Tổng cộng: <span className="text-slate-900 dark:text-white">{data.length}</span> chỉ tiêu sẵn sàng
-          </p>
-          <div className="flex gap-4">
-            <button
-              onClick={onClose}
-              disabled={isImporting}
-              className="px-8 py-3 rounded-2xl text-sm font-black text-slate-500 hover:bg-white dark:hover:bg-slate-800 transition-all border border-transparent hover:border-slate-200 disabled:opacity-50"
-            >
-              Hủy bỏ
-            </button>
-            <button
-              onClick={handleSave}
-              disabled={isImporting || hasCriticalErrors || data.length === 0}
-              className="flex items-center gap-2 px-10 py-3 rounded-2xl bg-indigo-600 text-white text-sm font-black hover:bg-indigo-700 shadow-xl shadow-indigo-500/20 disabled:opacity-50 transition-all active:scale-95"
-            >
-              {isImporting ? (
-                <>
-                  <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  Đang Import...
-                </>
-              ) : (
-                <>
-                  <Save size={18} /> Xác nhận Import
-                </>
-              )}
-            </button>
+          <div className="border border-[var(--color-border)] rounded-card overflow-hidden shadow-sm bg-[var(--color-card)]">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left">
+                <thead className="text-eyebrow bg-[var(--color-muted)] border-b border-[var(--color-border)] sticky top-0 z-10">
+                  <tr>
+                    <th className="px-5 py-4 w-12 text-center">STT</th>
+                    <th className="px-5 py-4 min-w-[200px]">Tên chỉ tiêu <span className="text-[var(--color-error)]">*</span></th>
+                    <th className="px-5 py-4 min-w-[150px]">Trọng số <span className="text-[var(--color-error)]">*</span></th>
+                    {!isQualitative && <th className="px-5 py-4 min-w-[150px]">Mục tiêu <span className="text-[var(--color-error)]">*</span></th>}
+                    {!isQualitative && <th className="px-5 py-4 min-w-[150px]">Tối thiểu <span className="text-[var(--color-error)]">*</span></th>}
+                    <th className="px-5 py-4 min-w-[160px]">Hạn chót riêng</th>
+                    {!isQualitative && <th className="px-5 py-4 min-w-[120px]">KPI Ngược</th>}
+                    <th className="px-5 py-4 min-w-[120px]">KPI Thưởng</th>
+                    {!isQualitative && <th className="px-5 py-4 min-w-[150px]">Đơn vị <span className="text-[var(--color-error)]">*</span></th>}
+                    <th className="px-5 py-4 min-w-[180px]">Tần suất <span className="text-[var(--color-error)]">*</span></th>
+                    <th className="px-5 py-4 min-w-[160px]">Mã nhân viên <span className="text-[var(--color-error)]">*</span></th>
+                    <th className="px-5 py-4 min-w-[220px]">Đợt KPI <span className="text-[var(--color-error)]">*</span></th>
+                    <th className="px-5 py-4 min-w-[300px]">Phòng ban / Đơn vị <span className="text-[var(--color-error)]">*</span></th>
+                    {enableOkr && (
+                      <>
+                        <th className="px-5 py-4 min-w-[200px]">Mã Mục tiêu</th>
+                        <th className="px-5 py-4 min-w-[200px]">Mã KR</th>
+                      </>
+                    )}
+                    {enableBsc && <th className="px-5 py-4 min-w-[200px]">Hạng mục BSC</th>}
+                    <th className="px-5 py-4 w-16 text-center">Xóa</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[var(--color-border)]">
+                  {data.map((row, index) => (
+                    <tr key={row.id} className="hover:bg-[var(--color-muted)] transition-colors group">
+                      <td className="px-5 py-4 text-center text-[var(--color-subtle-foreground)] font-semibold text-xs">
+                        {index + 1}
+                      </td>
+                      <td className="px-5 py-3">
+                        <input
+                          value={row.Name}
+                          onChange={e => handleCellChange(row.id, 'Name', e.target.value)}
+                          className={cn(
+                            "w-full px-4 py-2 rounded-card border text-sm font-medium transition-all",
+                            row._errors?.Name 
+                              ? "border-[var(--color-error-border)] bg-[var(--color-error-bg)] focus:border-[var(--color-error-border)] focus:ring-2 focus:ring-[var(--color-error-solid)]" 
+                              : "border-transparent hover:border-[var(--color-border)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-ring)] bg-transparent hover:bg-[var(--color-card)]"
+                          )}
+                          placeholder="Nhập tên..."
+                        />
+                        {row._errors?.Name && <p className="text-xs text-[var(--color-error)] mt-1 font-semibold px-2">{row._errors.Name}</p>}
+                      </td>
+                      <td className="px-5 py-3">
+                        <div className="relative">
+                            <input
+                            value={row.Weight}
+                            onChange={e => handleCellChange(row.id, 'Weight', e.target.value)}
+                            className={cn(
+                                "w-full px-4 py-2 pr-8 rounded-card border text-sm font-semibold transition-all",
+                                row._errors?.Weight ? "border-[var(--color-error-border)] bg-[var(--color-error-bg)]" : "border-transparent hover:border-[var(--color-border)] focus:border-[var(--color-primary)]"
+                            )}
+                            />
+                            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-caption">%</span>
+                        </div>
+                        {row._errors?.Weight && <p className="text-xs text-[var(--color-error)] mt-1 font-semibold px-2">{row._errors.Weight}</p>}
+                      </td>
+                      {!isQualitative && (
+                      <td className="px-5 py-3">
+                        <input
+                          value={row.TargetValue}
+                          onChange={e => handleCellChange(row.id, 'TargetValue', e.target.value)}
+                          className={cn(
+                            "w-full px-4 py-2 rounded-card border text-sm font-semibold transition-all",
+                            row._errors?.TargetValue ? "border-[var(--color-error-border)] bg-[var(--color-error-bg)]" : "border-transparent hover:border-[var(--color-border)] focus:border-[var(--color-primary)]"
+                          )}
+                        />
+                        {row._errors?.TargetValue && <p className="text-xs text-[var(--color-error)] mt-1 font-semibold px-2">{row._errors.TargetValue}</p>}
+                      </td>
+                      )}
+                      {!isQualitative && (
+                      <td className="px-5 py-3">
+                        <input
+                          value={row.MinimumValue || ''}
+                          onChange={e => handleCellChange(row.id, 'MinimumValue', e.target.value)}
+                          className={cn(
+                            "w-full px-4 py-2 rounded-card border text-sm font-semibold transition-all",
+                            row._errors?.MinimumValue ? "border-[var(--color-error-border)] bg-[var(--color-error-bg)]" : "border-transparent hover:border-[var(--color-border)] focus:border-[var(--color-primary)]"
+                          )}
+                        />
+                        {row._errors?.MinimumValue && <p className="text-xs text-[var(--color-error)] mt-1 font-semibold px-2">{row._errors.MinimumValue}</p>}
+                      </td>
+                      )}
+                      <td className="px-5 py-3">
+                        <input
+                          value={row.Deadline || ''}
+                          onChange={e => handleCellChange(row.id, 'Deadline', e.target.value)}
+                          placeholder="dd/MM/yyyy HH:mm"
+                          className={cn(
+                            "w-full px-4 py-2 rounded-card border text-sm font-semibold transition-all",
+                            row._errors?.Deadline ? "border-[var(--color-error-border)] bg-[var(--color-error-bg)]" : "border-transparent hover:border-[var(--color-border)] focus:border-[var(--color-primary)]"
+                          )}
+                        />
+                        {row._errors?.Deadline && <p className="text-xs text-[var(--color-error)] mt-1 font-semibold px-2">{row._errors.Deadline}</p>}
+                      </td>
+                      {!isQualitative && (
+                      <td className="px-5 py-3">
+                        <button
+                          type="button"
+                          onClick={() => handleCellChange(row.id, 'IsReverseKpi', row.IsReverseKpi === 'true' ? 'false' : 'true')}
+                          className={cn(
+                            'relative w-10 h-6 rounded-full transition-all flex-shrink-0',
+                            row.IsReverseKpi === 'true' ? 'bg-[var(--color-warning-solid)]' : 'bg-[var(--color-border)]'
+                          )}
+                        >
+                          <div className={cn(
+                            'absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-all',
+                            row.IsReverseKpi === 'true' ? 'left-5' : 'left-1'
+                          )} />
+                        </button>
+                      </td>
+                      )}
+                      <td className="px-5 py-3">
+                        <button
+                          type="button"
+                          onClick={() => handleCellChange(row.id, 'IsBonusKpi', row.IsBonusKpi === 'true' ? 'false' : 'true')}
+                          className={cn(
+                            'relative w-10 h-6 rounded-full transition-all flex-shrink-0',
+                            row.IsBonusKpi === 'true' ? 'bg-[var(--color-success-solid)]' : 'bg-[var(--color-border)]'
+                          )}
+                        >
+                          <div className={cn(
+                            'absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-all',
+                            row.IsBonusKpi === 'true' ? 'left-5' : 'left-1'
+                          )} />
+                        </button>
+                      </td>
+                      {!isQualitative && (
+                      <td className="px-5 py-3">
+                        <input
+                          value={row.Unit}
+                          onChange={e => handleCellChange(row.id, 'Unit', e.target.value)}
+                          className={cn(
+                            "w-full px-4 py-2 rounded-card border text-sm font-medium transition-all",
+                            row._errors?.Unit ? "border-[var(--color-error-border)] bg-[var(--color-error-bg)]" : "border-transparent hover:border-[var(--color-border)] focus:border-[var(--color-primary)]"
+                          )}
+                          placeholder="VD: VND, %..."
+                        />
+                        {row._errors?.Unit && <p className="text-xs text-[var(--color-error)] mt-1 font-semibold px-2">{row._errors.Unit}</p>}
+                      </td>
+                      )}
+                      <td className="px-5 py-3">
+                        <select
+                          value={row.Frequency}
+                          onChange={e => handleCellChange(row.id, 'Frequency', e.target.value)}
+                          className={cn(
+                            "w-full px-4 py-2 rounded-card border text-sm font-medium transition-all bg-transparent outline-none",
+                            row._errors?.Frequency ? "border-[var(--color-error-border)] bg-[var(--color-error-bg)]" : "border-transparent hover:border-[var(--color-border)] focus:border-[var(--color-primary)]"
+                          )}
+                        >
+                          <option value="">-- Chọn --</option>
+                          {frequencyOptions.map(opt => (
+                            <option key={opt} value={opt}>
+                              {FREQUENCY_MAP[opt as keyof typeof FREQUENCY_MAP] || opt}
+                            </option>
+                          ))}
+                        </select>
+                        {row._errors?.Frequency && <p className="text-xs text-[var(--color-error)] mt-1 font-semibold px-2">{row._errors.Frequency}</p>}
+                      </td>
+                      <td className="px-5 py-3 min-w-[200px]">
+                        <div className="relative group/cell">
+                          <input
+                            value={row.EmployeeCode}
+                            onChange={e => handleCellChange(row.id, 'EmployeeCode', e.target.value)}
+                            className={cn(
+                              "w-full px-4 py-2 pl-9 rounded-card border text-sm font-medium transition-all bg-transparent outline-none",
+                              row._errors?.EmployeeCode ? "border-[var(--color-error-border)] bg-[var(--color-error-bg)]" : "border-transparent hover:border-[var(--color-border)] focus:border-[var(--color-primary)]"
+                            )}
+                            placeholder="Chọn NV..."
+                          />
+                          <User size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-subtle-foreground)]" />
+                          
+                          <div className={cn(
+                            "absolute left-0 w-64 z-50 max-h-48 overflow-y-auto p-2 space-y-1 bg-[var(--color-card)] rounded-card shadow-2xl border border-[var(--color-border)] hidden group-focus-within/cell:block",
+                            index >= data.length / 2 ? "bottom-full mb-1" : "top-full mt-1"
+                          )}>
+                            {(() => {
+                              const selectedCodes = row.EmployeeCode.split(',').map(s => s.trim()).filter(Boolean)
+                              const parts = row.EmployeeCode.split(',')
+                              const lastPart = (parts[parts.length - 1] ?? '').trim().toLowerCase()
+
+                              // If last part is an exact match of an already selected code, treat it as "not searching"
+                              const isExactMatch = selectedCodes.some(c => c.toLowerCase() === lastPart)
+                              const effectiveSearch = isExactMatch ? '' : lastPart
+
+                              const filtered = allUsers.filter(u => {
+                                const rowOrgNames = row.OrgUnit
+                                  ? row.OrgUnit.split(',').map((s: string) => s.trim()).filter(Boolean)
+                                  : []
+                                const matchesOrg = !rowOrgNames.length || rowOrgNames.some(orgName =>
+                                  u.memberships?.some(m =>
+                                    m.orgUnitName?.toLowerCase().trim() === orgName.toLowerCase().trim()
+                                  )
+                                )
+                                const isSelected = u.employeeCode && selectedCodes.includes(u.employeeCode)
+                                const matchesSearch = !effectiveSearch || 
+                                  u.fullName.toLowerCase().includes(effectiveSearch) || 
+                                  u.employeeCode?.toLowerCase().includes(effectiveSearch)
+                                const isLeader = u.memberships?.some(m => m.roleRank === 0) || u.permissions?.includes('SUBMISSION:REVIEW')
+                                const waterfallCheck = !enableWaterfall || isLeader || isSelected
+                                
+                                return matchesOrg && (isSelected || matchesSearch) && waterfallCheck
+                              })
+
+                              return filtered.sort((a, b) => {
+                                const aSel = a.employeeCode && selectedCodes.includes(a.employeeCode) ? 1 : 0
+                                const bSel = b.employeeCode && selectedCodes.includes(b.employeeCode) ? 1 : 0
+                                return bSel - aSel
+                              }).slice(0, 10).map(u => (
+                                <button
+                                  key={u.id}
+                                  onMouseDown={(e) => {
+                                    e.preventDefault()
+                                    const current = row.EmployeeCode.split(',').map(s => s.trim()).filter(Boolean)
+                                    if (u.employeeCode) {
+                                      let newValue = ''
+                                      if (current.includes(u.employeeCode)) {
+                                        newValue = current.filter(c => c !== u.employeeCode).join(', ') + (current.length > 0 ? ', ' : '')
+                                      } else {
+                                        newValue = [...current, u.employeeCode].join(', ') + ', '
+                                      }
+                                      handleCellChange(row.id, 'EmployeeCode', newValue)
+                                    }
+                                  }}
+                                  className={cn(
+                                    "w-full text-left px-3 py-2 rounded-card flex items-center gap-3 transition-colors",
+                                    u.employeeCode && selectedCodes.includes(u.employeeCode)
+                                      ? "bg-[var(--color-primary-soft)]"
+                                      : "hover:bg-[var(--color-muted)]"
+                                  )}
+                                >
+                                  <div className={cn(
+                                    "w-7 h-7 rounded-control flex items-center justify-center text-xs font-semibold transition-colors",
+                                    u.employeeCode && selectedCodes.includes(u.employeeCode)
+                                      ? "bg-[var(--color-primary)] text-[var(--color-primary-foreground)]"
+                                      : "bg-[var(--color-primary-soft)] text-[var(--color-primary)]"
+                                  )}>
+                                    {u.employeeCode && selectedCodes.includes(u.employeeCode) ? <Check size={12} /> : u.fullName.charAt(0)}
+                                  </div>
+                                  <div className="flex flex-col flex-1">
+                                    <span className={cn(
+                                      "text-xs font-medium transition-colors",
+                                      u.employeeCode && selectedCodes.includes(u.employeeCode) ? "text-[var(--color-primary)]" : "text-[var(--color-foreground)]"
+                                    )}>{u.fullName}</span>
+                                    <span className="text-eyebrow">{u.employeeCode}</span>
+                                  </div>
+                                  {u.employeeCode && selectedCodes.includes(u.employeeCode) && (
+                                    <UserCheck size={12} className="text-[var(--color-primary)]" />
+                                  )}
+                                </button>
+                              ))
+                            })()}
+                          </div>
+                        </div>
+                        {row._errors?.EmployeeCode && <p className="text-xs text-[var(--color-error)] mt-1 font-semibold px-2">{row._errors.EmployeeCode}</p>}
+                      </td>
+                      <td className="px-5 py-3">
+                        <select
+                          value={row.Period}
+                          onChange={e => handleCellChange(row.id, 'Period', e.target.value)}
+                          className={cn(
+                            "w-full px-4 py-2 rounded-card border text-sm font-medium transition-all bg-transparent outline-none",
+                            row._errors?.Period ? "border-[var(--color-error-border)] bg-[var(--color-error-bg)]" : "border-transparent hover:border-[var(--color-border)] focus:border-[var(--color-primary)]"
+                          )}
+                        >
+
+                          {periodsData?.content?.map((p: any) => <option key={p.id} value={p.name}>{p.name}</option>)}
+                        </select>
+                        {row._errors?.Period && <p className="text-xs text-[var(--color-error)] mt-1 font-semibold px-2">{row._errors.Period}</p>}
+                      </td>
+                      <td className="px-5 py-3 min-w-[240px]">
+                        {(() => {
+                          const selectedOrgNames = row.OrgUnit
+                            ? row.OrgUnit.split(',').map((s: string) => s.trim()).filter(Boolean)
+                            : []
+                          return (
+                            <div>
+                              <button
+                                type="button"
+                                onClick={(e) => {
+                                  if (openOrgDropdownId === row.id) {
+                                    setOpenOrgDropdownId(null)
+                                    setOrgDropdownPos(null)
+                                  } else {
+                                    const rect = e.currentTarget.getBoundingClientRect()
+                                    const dropdownH = 220
+                                    const showAbove = rect.bottom + dropdownH > window.innerHeight && rect.top > dropdownH
+                                    setOrgDropdownPos({
+                                      top: showAbove ? rect.top - dropdownH - 4 : rect.bottom + 4,
+                                      left: rect.left,
+                                    })
+                                    setOpenOrgDropdownId(row.id)
+                                  }
+                                }}
+                                className={cn(
+                                  'w-full px-3 py-2 rounded-card border text-sm font-medium transition-all text-left flex items-center justify-between',
+                                  row._errors?.OrgUnit
+                                    ? 'border-[var(--color-error-border)] bg-[var(--color-error-bg)]'
+                                    : 'border-transparent hover:border-[var(--color-border)]'
+                                )}
+                              >
+                                <span className={cn('truncate', !selectedOrgNames.length && 'text-[var(--color-subtle-foreground)] font-normal')}>
+                                  {selectedOrgNames.length ? selectedOrgNames.join(', ') : '-- Chọn --'}
+                                </span>
+                                <ChevronDown size={12} className="text-[var(--color-subtle-foreground)] shrink-0 ml-1" />
+                              </button>
+                            </div>
+                          )
+                        })()}
+                        {row._errors?.OrgUnit && <p className="text-xs text-[var(--color-error)] mt-1 font-semibold px-2">{row._errors.OrgUnit}</p>}
+                      </td>
+                      {enableOkr && (
+                        <>
+                          <td className="px-5 py-3">
+                            <select
+                              value={row.ObjectiveCode || ''}
+                              onChange={e => handleCellChange(row.id, 'ObjectiveCode', e.target.value)}
+                              className="w-full px-4 py-2 rounded-card border border-transparent hover:border-[var(--color-border)] focus:border-[var(--color-primary)] text-sm font-medium transition-all bg-transparent outline-none"
+                            >
+                              <option value="">-- Trống --</option>
+                              {objectives.map((obj: any) => (
+                                <option key={obj.id} value={obj.code}>{obj.name} ({obj.code})</option>
+                              ))}
+                            </select>
+                          </td>
+                          <td className="px-5 py-3">
+                            <select
+                              value={row.KeyResultCode || ''}
+                              onChange={e => handleCellChange(row.id, 'KeyResultCode', e.target.value)}
+                              className="w-full px-4 py-2 rounded-card border border-transparent hover:border-[var(--color-border)] focus:border-[var(--color-primary)] text-sm font-medium transition-all bg-transparent outline-none"
+                              disabled={!row.ObjectiveCode}
+                            >
+                              <option value="">-- Trống --</option>
+                              {(() => {
+                                const selectedObj = objectives.find((obj: any) => obj.code === row.ObjectiveCode)
+                                if (!selectedObj || !selectedObj.keyResults) return null
+                                return selectedObj.keyResults.map((kr: any) => (
+                                  <option key={kr.id} value={kr.code}>{kr.name} ({kr.code})</option>
+                                ))
+                              })()}
+                            </select>
+                          </td>
+                        </>
+                      )}
+                      {enableBsc && (
+                        <td className="px-5 py-3">
+                          <select
+                            value={(() => {
+                              const v = (row.Perspective || '').toLowerCase()
+                              const m = perspectives.find((p: any) => p.code?.toLowerCase() === v || p.name?.toLowerCase() === v)
+                              return m ? m.code : ''
+                            })()}
+                            onChange={e => handleCellChange(row.id, 'Perspective', e.target.value)}
+                            className="w-full px-4 py-2 rounded-card border border-transparent hover:border-[var(--color-border)] focus:border-[var(--color-primary)] text-sm font-medium transition-all bg-transparent outline-none"
+                          >
+                            <option value="">-- Trống --</option>
+                            {(() => {
+                              const avail = availablePerspIdsForRow(row)
+                              const list = avail ? perspectives.filter((p: any) => avail.has(p.id)) : perspectives
+                              return list.map((p: any) => (
+                                <option key={p.id} value={p.code}>{p.name} ({p.code})</option>
+                              ))
+                            })()}
+                          </select>
+                          {row._errors?.Perspective && <p className="text-xs text-[var(--color-error)] mt-1 font-semibold px-2">{row._errors.Perspective}</p>}
+                        </td>
+                      )}
+                      <td className="px-5 py-3 text-center">
+                        <button
+                          onClick={() => handleRemoveRow(row.id)}
+                          className="p-2 text-[var(--color-subtle-foreground)] hover:text-[var(--color-error)] hover:bg-[var(--color-error-bg)] dark:hover:bg-[var(--color-error-bg)] rounded-card transition-all"
+                        >
+                          <Trash2 size={16} />
+                        </button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {data.length === 0 && (
+              <div className="text-center py-20 text-[var(--color-subtle-foreground)] font-semibold italic">
+                Không có dữ liệu để hiển thị
+              </div>
+            )}
+            <div className="bg-[var(--color-muted)] border-t border-[var(--color-border)] p-4 flex justify-center">
+              <Button variant="outline" onClick={handleAddRow}>
+                <Plus aria-hidden="true" /> Thêm dòng mới
+              </Button>
+            </div>
           </div>
         </div>
-      </div>
+      )}
+    </Dialog>
 
       {/* OrgUnit multi-select dropdown — rendered fixed outside the table to avoid overflow clipping */}
       {openOrgDropdownId && orgDropdownPos && (() => {
@@ -1496,7 +1447,7 @@ export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onI
             />
             <div
               style={{ top: orgDropdownPos.top, left: orgDropdownPos.left }}
-              className="fixed w-64 bg-white dark:bg-slate-800 rounded-2xl shadow-2xl border border-slate-100 dark:border-slate-700 z-[9999] max-h-[220px] overflow-y-auto p-2 space-y-0.5"
+              className="fixed w-64 bg-[var(--color-card)] rounded-card shadow-2xl border border-[var(--color-border)] z-[9999] max-h-[220px] overflow-y-auto p-2 space-y-0.5"
             >
               {flatOrgUnits.map((u: any) => {
                 const checked = selectedOrgNames.includes(u.name)
@@ -1511,17 +1462,17 @@ export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onI
                         handleCellChange(openOrgDropdownId, 'OrgUnit', newVal)
                     }}
                     className={cn(
-                      'w-full text-left px-3 py-2 rounded-xl flex items-center justify-between transition-colors',
+                      'w-full text-left px-3 py-2 rounded-card flex items-center justify-between transition-colors',
                       checked
-                        ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300'
-                        : 'hover:bg-slate-50 dark:hover:bg-slate-700/50'
+                        ? 'bg-[var(--color-primary-soft)] text-[var(--color-primary)]'
+                        : 'hover:bg-[var(--color-muted)]'
                     )}
                   >
                     <div>
-                      <span className="text-sm font-bold">{u.name}</span>
-                      <span className="text-[10px] text-slate-400 ml-1">({u.code})</span>
+                      <span className="text-sm font-medium">{u.name}</span>
+                      <span className="text-caption ml-1">({u.code})</span>
                     </div>
-                    {checked && <Check size={12} className="text-indigo-600 shrink-0" />}
+                    {checked && <Check size={12} className="text-[var(--color-primary)] shrink-0" />}
                   </button>
                 )
               })}
@@ -1529,7 +1480,7 @@ export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onI
           </>
         )
       })()}
-    </div>
+    </>
   )
 }
 
@@ -1543,56 +1494,56 @@ function UnitWeightStatus({ unitId, unitName, periodId, periodName, excelWeight 
 
   return (
     <div className={cn(
-      "p-4 rounded-[24px] border transition-all duration-300 shadow-sm",
+      "p-4 rounded-card border transition-all duration-300 shadow-sm",
       isPerfect 
-        ? "bg-emerald-50/50 border-emerald-100 dark:bg-emerald-900/10 dark:border-emerald-900/30" 
+        ? "bg-[var(--color-success-bg)] border-[var(--color-success-border)] dark:bg-[var(--color-success-bg)] dark:border-[var(--color-success-border)]" 
         : isOver
-          ? "bg-rose-50/50 border-rose-100 dark:bg-rose-900/10 dark:border-rose-900/30"
-          : "bg-amber-50/50 border-amber-100 dark:bg-amber-900/10 dark:border-amber-900/30"
+          ? "bg-[var(--color-error-bg)] border-[var(--color-error-border)] dark:bg-[var(--color-error-bg)] dark:border-[var(--color-error-border)]"
+          : "bg-[var(--color-warning-bg)] border-[var(--color-warning-border)] dark:bg-[var(--color-warning-bg)] dark:border-[var(--color-warning-border)]"
     )}>
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
           <div className={cn(
-            "w-8 h-8 rounded-lg flex items-center justify-center",
-            isPerfect ? "bg-emerald-500 text-white" : isOver ? "bg-rose-500 text-white" : "bg-amber-500 text-white"
+            "w-8 h-8 rounded-control flex items-center justify-center",
+            isPerfect ? "bg-[var(--color-success-solid)] text-white" : isOver ? "bg-[var(--color-error-solid)] text-white" : "bg-[var(--color-warning-solid)] text-white"
           )}>
             <Scale size={16} />
           </div>
           <div>
-            <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Phòng ban</p>
-            <p className="text-sm font-black text-slate-900 dark:text-white truncate max-w-[120px]">{unitName}</p>
+            <p className="text-eyebrow leading-none">Phòng ban</p>
+            <p className="text-sm font-semibold text-[var(--color-foreground)] truncate max-w-[120px]">{unitName}</p>
           </div>
         </div>
         <div className="text-right">
-          <p className="text-[10px] font-black text-slate-400 uppercase tracking-widest leading-none">Đợt</p>
-          <p className="text-xs font-bold text-slate-600 dark:text-slate-400">{periodName}</p>
+          <p className="text-eyebrow leading-none">Đợt</p>
+          <p className="text-caption">{periodName}</p>
         </div>
       </div>
 
-      <div className="flex items-center justify-between gap-2 p-2.5 bg-white dark:bg-slate-800/50 rounded-2xl border border-inherit">
+      <div className="flex items-center justify-between gap-2 p-2.5 bg-[var(--color-card)] rounded-card border border-inherit">
         <div className="text-center flex-1">
-          <p className="text-[9px] font-black text-slate-400 uppercase mb-0.5">Hiện tại</p>
-          <p className="text-sm font-black text-slate-700 dark:text-slate-300">{systemWeight}%</p>
+          <p className="text-eyebrow mb-0.5">Hiện tại</p>
+          <p className="text-sm font-semibold text-[var(--color-foreground)]">{systemWeight}%</p>
         </div>
-        <Plus size={12} className="text-slate-300" />
+        <Plus size={12} className="text-[var(--color-subtle-foreground)]" />
         <div className="text-center flex-1">
-          <p className="text-[9px] font-black text-indigo-500 uppercase mb-0.5">Excel</p>
-          <p className="text-sm font-black text-indigo-600 dark:text-indigo-400">{excelWeight}%</p>
+          <p className="text-eyebrow text-[var(--color-primary)] mb-0.5">Excel</p>
+          <p className="text-sm font-semibold text-[var(--color-primary)]">{excelWeight}%</p>
         </div>
-        <ArrowRight size={12} className="text-slate-300" />
+        <ArrowRight size={12} className="text-[var(--color-subtle-foreground)]" />
         <div className="text-center flex-1">
-          <p className="text-[9px] font-black text-slate-400 uppercase mb-0.5">Tổng cộng</p>
+          <p className="text-eyebrow mb-0.5">Tổng cộng</p>
           <p className={cn(
-            "text-sm font-black",
-            isPerfect ? "text-emerald-600" : isOver ? "text-rose-600" : "text-amber-600"
+            "text-sm font-semibold",
+            isPerfect ? "text-[var(--color-success)]" : isOver ? "text-[var(--color-error)]" : "text-[var(--color-warning)]"
           )}>{total.toFixed(1)}%</p>
         </div>
       </div>
       
       {!isPerfect && (
         <p className={cn(
-          "text-[10px] font-bold mt-2 text-center uppercase tracking-tight",
-          isOver ? "text-rose-500" : "text-amber-500"
+          "text-xs font-medium mt-2 text-center",
+          isOver ? "text-[var(--color-error)]" : "text-[var(--color-warning)]"
         )}>
           {isOver ? "Vượt quá 100% trọng số!" : `Còn thiếu ${(100 - total).toFixed(1)}% để đạt 100%`}
         </p>
@@ -1610,47 +1561,47 @@ function EmployeeWeightRow({ userId, orgUnitId, fullName, empCode, unitName, per
   const isOver = total > 100.01
 
   return (
-    <tr className="hover:bg-slate-50/50 dark:hover:bg-slate-800/20 transition-colors">
+    <tr className="hover:bg-[var(--color-muted)] transition-colors">
       <td className="px-6 py-4">
         <div className="flex items-center gap-3">
           <div className={cn(
-            "w-8 h-8 rounded-lg flex items-center justify-center text-[10px] font-black",
-            isPerfect ? "bg-emerald-100 text-emerald-600" : isOver ? "bg-rose-100 text-rose-600" : "bg-amber-100 text-amber-600"
+            "w-8 h-8 rounded-control flex items-center justify-center text-xs font-semibold",
+            isPerfect ? "bg-[var(--color-success-bg)] text-[var(--color-success)]" : isOver ? "bg-[var(--color-error-bg)] text-[var(--color-error)]" : "bg-[var(--color-warning-bg)] text-[var(--color-warning)]"
           )}>
             {fullName.charAt(0)}
           </div>
           <div>
-            <p className="text-sm font-black text-slate-900 dark:text-white">{fullName}</p>
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-tight">{empCode}</p>
+            <p className="text-sm font-semibold text-[var(--color-foreground)]">{fullName}</p>
+            <p className="text-eyebrow tracking-tight">{empCode}</p>
           </div>
         </div>
       </td>
       <td className="px-6 py-4">
-        <p className="text-xs font-bold text-slate-600 dark:text-slate-400">{periodName}</p>
-        <p className="text-[10px] font-medium text-slate-400 truncate max-w-[150px]">{unitName}</p>
+        <p className="text-caption">{periodName}</p>
+        <p className="text-caption truncate max-w-[150px]">{unitName}</p>
       </td>
       <td className="px-6 py-4 text-center">
-        <span className="text-xs font-bold text-slate-500">{systemWeight}%</span>
+        <span className="text-caption">{systemWeight}%</span>
       </td>
       <td className="px-6 py-4 text-center">
-        <span className="text-xs font-black text-indigo-600">{excelWeight}%</span>
+        <span className="text-xs font-semibold text-[var(--color-primary)]">{excelWeight}%</span>
       </td>
       <td className="px-6 py-4 text-center">
         <span className={cn(
-          "text-sm font-black",
-          isPerfect ? "text-emerald-600" : isOver ? "text-rose-600" : "text-amber-600"
+          "text-sm font-semibold",
+          isPerfect ? "text-[var(--color-success)]" : isOver ? "text-[var(--color-error)]" : "text-[var(--color-warning)]"
         )}>
           {total.toFixed(1)}%
         </span>
       </td>
       <td className="px-6 py-4">
         <div className={cn(
-          "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[9px] font-black uppercase tracking-wider",
+          "text-eyebrow inline-flex items-center gap-1.5 px-3 py-1 rounded-full",
           isPerfect 
-            ? "bg-emerald-100 text-emerald-600 dark:bg-emerald-900/30" 
+            ? "bg-[var(--color-success-bg)] text-[var(--color-success)] dark:bg-[var(--color-success-bg)]" 
             : isOver
-              ? "bg-rose-100 text-rose-600 dark:bg-rose-900/30"
-              : "bg-amber-100 text-amber-600 dark:bg-amber-900/30"
+              ? "bg-[var(--color-error-bg)] text-[var(--color-error)] dark:bg-[var(--color-error-bg)]"
+              : "bg-[var(--color-warning-bg)] text-[var(--color-warning)] dark:bg-[var(--color-warning-bg)]"
         )}>
           {isPerfect ? (
             <><Check size={10} /> Đạt 100%</>

@@ -1,5 +1,7 @@
 import { useQuery } from '@tanstack/react-query'
-import { Loader2, X, Undo2, AlertTriangle } from 'lucide-react'
+import { Loader2, AlertTriangle } from 'lucide-react'
+import { Dialog, DialogFooter } from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
 import { rewardApi } from '../api/rewardApi'
 import { useRewardGrants } from '../hooks/useRewards'
 import type { RewardGrant } from '../types'
@@ -36,97 +38,85 @@ export default function RevokeGrantModal({ grant, onClose }: RevokeGrantModalPro
   }
 
   return (
-    <div className="fixed inset-0 z-[1000] flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div className="w-full max-w-lg max-h-[90vh] overflow-y-auto rounded-2xl border border-[var(--color-border)] bg-[var(--color-card)] shadow-xl">
-        <div className="flex items-center justify-between border-b border-[var(--color-border)] px-6 py-4">
-          <div className="flex items-center gap-2">
-            <Undo2 size={20} className="text-rose-600" />
-            <h2 className="text-lg font-semibold">Thu hồi điểm thưởng</h2>
-          </div>
-          <button onClick={onClose} className="rounded-lg p-1 hover:bg-[var(--color-accent)]">
-            <X size={18} />
-          </button>
-        </div>
+    <Dialog
+      open
+      onClose={onClose}
+      size="md"
+      dismissible={!isRevoking}
+      title="Thu hồi điểm thưởng"
+      footer={
+        <DialogFooter
+          note="Ghi một giao dịch bù trừ vào sổ cái, không hoàn tác được."
+          secondary={<Button variant="outline" onClick={onClose} disabled={isRevoking}>Huỷ</Button>}
+          primary={
+            <Button variant="destructive" onClick={handleConfirm} disabled={isLoading || isRevoking}>
+              {isRevoking && <Loader2 className="animate-spin" aria-hidden="true" />}
+              Xác nhận thu hồi
+            </Button>
+          }
+        />
+      }
+    >
+      <div className="space-y-4">
+        <p className="text-sm text-[var(--color-foreground)]">
+          Thu hồi <b className="font-semibold tabular-nums">{grant.totalPoints.toLocaleString('vi-VN')} điểm</b> đã thưởng cho{' '}
+          <b className="font-semibold">{grant.recipients.length} nhân viên</b> với lý do “{grant.reason}”.
+        </p>
 
-        <div className="space-y-4 px-6 py-5">
-          <div className="text-sm">
-            Thu hồi <b>{grant.totalPoints.toLocaleString('vi-VN')} điểm</b> đã thưởng cho{' '}
-            <b>{grant.recipients.length} nhân viên</b> với lý do “{grant.reason}”.
+        {isLoading ? (
+          <div className="flex items-center gap-2 py-6 text-sm text-[var(--color-muted-foreground)]">
+            <Loader2 size={15} className="animate-spin" aria-hidden="true" />
+            Đang tính ảnh hưởng...
           </div>
-
-          {isLoading ? (
-            <div className="flex items-center gap-2 py-6 text-sm text-[var(--color-muted-foreground)]">
-              <Loader2 size={15} className="animate-spin" />
-              Đang tính ảnh hưởng...
-            </div>
-          ) : (
-            <>
-              <div className="overflow-hidden rounded-xl border border-[var(--color-border)]">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="bg-[var(--color-muted)] text-xs uppercase tracking-wider text-[var(--color-muted-foreground)]">
-                      <th className="px-3 py-2 text-left font-semibold">Nhân viên</th>
-                      <th className="px-3 py-2 text-right font-semibold">Trừ</th>
-                      <th className="px-3 py-2 text-right font-semibold">Số dư sau</th>
+        ) : (
+          <>
+            <div className="overflow-hidden rounded-card border border-[var(--color-border)]">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="bg-[var(--color-muted)]">
+                    <th className="px-3 py-2 text-left text-eyebrow">Nhân viên</th>
+                    <th className="px-3 py-2 text-right text-eyebrow">Trừ</th>
+                    <th className="px-3 py-2 text-right text-eyebrow">Số dư sau</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[var(--color-border)]">
+                  {preview?.items.map((it) => (
+                    <tr key={it.userId}>
+                      <td className="px-3 py-2">{it.fullName}</td>
+                      <td className="px-3 py-2 text-right tabular-nums text-[var(--color-error)]">
+                        −{it.points.toLocaleString('vi-VN')}
+                      </td>
+                      <td
+                        className={`px-3 py-2 text-right font-medium tabular-nums ${it.goesNegative ? 'text-[var(--color-error)]' : ''}`}
+                      >
+                        {it.balanceAfter.toLocaleString('vi-VN')}
+                      </td>
                     </tr>
-                  </thead>
-                  <tbody className="divide-y divide-[var(--color-border)]">
-                    {preview?.items.map((it) => (
-                      <tr key={it.userId}>
-                        <td className="px-3 py-2">{it.fullName}</td>
-                        <td className="px-3 py-2 text-right tabular-nums text-rose-600">
-                          −{it.points.toLocaleString('vi-VN')}
-                        </td>
-                        <td
-                          className={`px-3 py-2 text-right font-medium tabular-nums ${it.goesNegative ? 'text-rose-600' : ''}`}
-                        >
-                          {it.balanceAfter.toLocaleString('vi-VN')}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {preview?.anyGoesNegative ? (
+              <div className="flex items-start gap-2 rounded-card border border-[var(--color-error-border)] bg-[var(--color-error-bg)] px-4 py-3 text-sm">
+                <AlertTriangle size={16} className="mt-0.5 flex-shrink-0 text-[var(--color-error)]" aria-hidden="true" />
+                <span>
+                  Một số nhân viên <b>đã tiêu số điểm này</b> nên số dư của họ sẽ xuống âm. Điểm
+                  thưởng họ nhận sau đó sẽ bù vào phần âm trước. Quà đã đổi không bị thu lại.
+                </span>
               </div>
+            ) : (
+              <div className="rounded-card bg-[var(--color-muted)] px-4 py-3 text-sm text-[var(--color-muted-foreground)]">
+                Tất cả nhân viên còn đủ điểm — không ai bị âm số dư sau khi thu hồi.
+              </div>
+            )}
 
-              {preview?.anyGoesNegative ? (
-                <div className="flex items-start gap-2 rounded-xl border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-sm">
-                  <AlertTriangle size={16} className="mt-0.5 flex-shrink-0 text-rose-600" />
-                  <span>
-                    Một số nhân viên <b>đã tiêu số điểm này</b> nên số dư của họ sẽ xuống âm. Điểm
-                    thưởng họ nhận sau đó sẽ bù vào phần âm trước. Quà đã đổi không bị thu lại.
-                  </span>
-                </div>
-              ) : (
-                <div className="rounded-xl bg-[var(--color-muted)] px-4 py-3 text-sm text-[var(--color-muted-foreground)]">
-                  Tất cả nhân viên còn đủ điểm — không ai bị âm số dư sau khi thu hồi.
-                </div>
-              )}
-
-              <p className="text-xs text-[var(--color-muted-foreground)]">
-                Thao tác này ghi một giao dịch bù trừ vào sổ cái và không hoàn tác được. Muốn trả
-                lại điểm, bạn phải tạo một lần thưởng mới.
-              </p>
-            </>
-          )}
-        </div>
-
-        <div className="flex justify-end gap-2 border-t border-[var(--color-border)] px-6 py-4">
-          <button
-            onClick={onClose}
-            className="rounded-lg border border-[var(--color-border)] px-4 py-2 text-sm"
-          >
-            Huỷ
-          </button>
-          <button
-            onClick={handleConfirm}
-            disabled={isLoading || isRevoking}
-            className="inline-flex items-center gap-2 rounded-lg bg-rose-600 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-          >
-            {isRevoking && <Loader2 size={15} className="animate-spin" />}
-            Xác nhận thu hồi
-          </button>
-        </div>
+            <p className="text-caption">
+              Muốn trả lại điểm, bạn phải tạo một lần thưởng mới.
+            </p>
+          </>
+        )}
       </div>
-    </div>
+    </Dialog>
   )
 }

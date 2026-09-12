@@ -1,4 +1,3 @@
-import { Building2 } from 'lucide-react'
 import SettingsSectionLayout from '@/components/common/SettingsSectionLayout'
 import { usePageTitle } from '@/features/organization/hooks/usePageTitle'
 import { CompanyInfoSection, CompanyHierarchySection } from '../components/CompanySections'
@@ -6,6 +5,7 @@ import { OrganizationStructurePage } from '@/features/organization/pages/Organiz
 import UsersPage from '@/features/users/pages/UsersPage'
 import RoleManagementPage from '@/features/organization/pages/RoleManagementPage'
 import { SidebarSettingsTab, NotificationSettingsTab } from '@/features/organization/components/SystemSettingsTabs'
+import DelegationSettingsTab from '@/features/organization/components/DelegationSettingsTab'
 import EmailTemplateSettingsTab from '@/features/organization/components/EmailTemplateSettingsTab'
 import LarkSettingsTab from '@/features/organization/components/LarkSettingsTab'
 import { useSearchParams } from 'react-router-dom'
@@ -32,16 +32,12 @@ export default function CompanySettingsPage() {
         navId="setup-company"
         title={pageTitle}
         subtitle="Thông tin, cơ cấu, con người và các thiết lập chung của tổ chức"
-        eyebrow={
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 text-xs font-black uppercase tracking-widest mb-3">
-            <Building2 size={14} /> Thiết lập
-          </div>
-        }
         sections={[
           { id: 'info', render: () => <CompanyInfoSection /> },
           { id: 'ranks', render: () => <CompanyHierarchySection /> },
           { id: 'org-structure', render: () => <OrganizationStructurePage /> },
           { id: 'users', render: () => <UsersPage /> },
+          { id: 'delegations', render: () => <DelegationSettingsTab /> },
           { id: 'roles', render: () => <RoleManagementPage /> },
           { id: 'sidebar', render: () => <SidebarSettingsTab /> },
           { id: 'notifications', render: () => <NotificationSettingsTab /> },

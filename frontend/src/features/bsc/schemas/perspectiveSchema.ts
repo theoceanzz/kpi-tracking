@@ -2,7 +2,8 @@ import { z } from 'zod'
 import { BscFixedPerspective, BscPerspectiveStatus, type PerspectiveResponse } from '../types'
 
 const HEX_COLOR = /^#([0-9A-Fa-f]{6})$/
-const CODE_PATTERN = /^[A-Za-z0-9_]+$/
+// Cho phép chuỗi RỖNG: tổ chức bật sinh mã tự động thì ô mã bỏ trống là hợp lệ.
+const CODE_PATTERN = /^[A-Za-z0-9_]*$/
 
 /** Mã của 4 lĩnh vực cố định — hạng mục tự tạo không được trùng. */
 const RESERVED_CODES = ['FINANCIAL', 'CUSTOMER', 'INTERNAL_PROCESS', 'LEARNING_GROWTH']
@@ -21,31 +22,42 @@ interface PerspectiveSchemaContext {
   existing?: PerspectiveResponse[]
   /** Id hạng mục đang sửa, để loại chính nó khỏi phép kiểm trùng. */
   currentId?: string
+  /** Tổ chức TẮT sinh mã tự động ⇒ mã là bắt buộc. Mặc định không bắt buộc. */
+  requireCode?: boolean
 }
 
 /**
  * Vài ràng buộc phải đối chiếu với dữ liệu đang có trên server (trùng mã, trùng thứ tự
  * trong cùng lĩnh vực) nên schema được dựng theo ngữ cảnh thay vì khai báo tĩnh.
  */
-export const createPerspectiveSchema = ({ existing = [], currentId }: PerspectiveSchemaContext = {}) =>
+export const createPerspectiveSchema = (
+  { existing = [], currentId, requireCode = false }: PerspectiveSchemaContext = {},
+) =>
   z.object({
     code: z.string()
-      .min(1, 'Vui lòng nhập mã')
       .max(50, 'Mã tối đa 50 ký tự')
       .regex(CODE_PATTERN, 'Mã chỉ gồm chữ, số và dấu gạch dưới (không dấu cách, không tiếng Việt)')
       .refine(
-        v => !RESERVED_CODES.includes(v.trim().toUpperCase()),
+        v => !v.trim() || !RESERVED_CODES.includes(v.trim().toUpperCase()),
         'Mã này trùng mã lĩnh vực cố định — hãy dùng mã khác',
       )
       .refine(
-        v => !existing.some(p => p.code?.toLowerCase() === v.trim().toLowerCase() && p.id !== currentId),
+        v => !v.trim() || !existing.some(p => p.code?.toLowerCase() === v.trim().toLowerCase() && p.id !== currentId),
         'Mã này đã được dùng bởi hạng mục khác',
-      ),
+      )
+      .optional(),
     name: z.string().min(1, 'Vui lòng nhập tên hạng mục'),
     description: z.string().optional(),
-    targetValue: z.number().min(0, 'Mục tiêu mong muốn không được âm').nullable().optional(),
-    minimumValue: z.number().min(0, 'Kết quả tối thiểu không được âm').nullable().optional(),
-    unit: z.string().max(50, 'Đơn vị tính tối đa 50 ký tự').nullable().optional(),
+    // BẮT BUỘC: thiếu một trong ba thì dòng chỉ tiêu của đơn vị không quy ra %đạt được — nó chỉ
+    // rơi về trung bình tỉ lệ đạt của các KPI con, và người xem kết quả không biết "80" là 80 gì.
+    targetValue: z.number({ message: 'Vui lòng nhập mục tiêu mong muốn' })
+      .min(0, 'Mục tiêu mong muốn không được âm'),
+    minimumValue: z.number({ message: 'Vui lòng nhập kết quả tối thiểu' })
+      .min(0, 'Kết quả tối thiểu không được âm'),
+    unit: z.string({ message: 'Vui lòng nhập đơn vị tính' })
+      .trim()
+      .min(1, 'Vui lòng nhập đơn vị tính')
+      .max(50, 'Đơn vị tính tối đa 50 ký tự'),
     color: z.string().min(1, 'Vui lòng chọn màu sắc').regex(HEX_COLOR, 'Màu không hợp lệ'),
     icon: z.string().optional(),
     displayOrder: z.number({ message: 'Vui lòng nhập thứ tự hiển thị' })
@@ -59,6 +71,9 @@ export const createPerspectiveSchema = ({ existing = [], currentId }: Perspectiv
       .max(100, 'Trọng số phải trong khoảng 0 – 100')
       .optional(),
   }).superRefine((data, ctx) => {
+    if (requireCode && !data.code?.trim()) {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['code'], message: 'Vui lòng nhập mã' })
+    }
     // Tối thiểu là SÀN nên không được vượt mục tiêu; hạng mục không có cờ "KPI ngược".
     if (data.minimumValue != null && data.targetValue != null && data.minimumValue > data.targetValue) {
       ctx.addIssue({

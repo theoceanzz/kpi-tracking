@@ -1,5 +1,7 @@
 import {
+  Workflow,
   LayoutDashboard,
+  Hash,
   Building2,
   Users,
   Target,
@@ -34,6 +36,7 @@ import {
   Grid3x3,
   UserCircle,
   HeartHandshake,
+  ArrowRightLeft,
 } from 'lucide-react'
 
 /**
@@ -138,6 +141,7 @@ export const navItems: NavItem[] = [
           { id: 'roles', label: 'Phân quyền vai trò', icon: <Shield size={18} />, permission: 'ROLE:VIEW', legacyKeys: ['/roles'], group: 'Con người' , description: 'Vai trò và quyền hạn kèm theo từng vai trò' },
           { id: 'org-structure', label: 'Cơ cấu tổ chức', icon: <Network size={18} />, permission: 'ORG:VIEW', legacyKeys: ['/org-structure'], group: 'Con người' , description: 'Cây đơn vị, phòng ban và người phụ trách' },
           { id: 'users', label: 'Quản lý nhân viên', icon: <Users size={18} />, permission: 'USER:VIEW', legacyKeys: ['/users'], group: 'Con người' , description: 'Danh sách nhân viên, thêm mới và phân công đơn vị' },
+          { id: 'delegations', label: 'Uỷ quyền chéo đơn vị', icon: <ArrowRightLeft size={18} />, permission: 'ROLE:ASSIGN', group: 'Con người' , description: 'Cho một người quản lý thêm đơn vị không nằm trong cây của họ' },
           // KHÔNG kế thừa khoá '/settings': nhãn cũ ở đó đặt tên cho CẢ trang cấu hình
           // bốn tab, gán vào riêng mục Sidebar là sai nghĩa.
           { id: 'sidebar', label: 'Quản lý Sidebar', icon: <LayoutPanelLeft size={18} />, permission: 'COMPANY:UPDATE', group: 'Hệ thống' , description: 'Đổi tên mục trên sidebar và mục bên trong từng trang' },
@@ -164,11 +168,17 @@ export const navItems: NavItem[] = [
           { id: 'scoring', label: 'Thang điểm', icon: <SlidersHorizontal size={18} />, permission: ADMIN_ALL, requireAllPermissions: true, legacyKeys: ['/settings/scoring', 'quantitative'], group: 'Cấu hình', description: 'Thang điểm định lượng và các mức đánh giá định tính' },
           { id: 'matrix', label: 'Ma trận đánh giá', icon: <Grid3x3 size={18} />, permission: ADMIN_ALL, requireAllPermissions: true, group: 'Cấu hình', description: 'Ánh xạ điểm hành vi và % KPI sang xếp loại cuối cùng' },
           { id: 'unit-class', label: 'Xếp loại đơn vị', icon: <Scale size={18} />, permission: ADMIN_ALL, requireAllPermissions: true, group: 'Cấu hình', description: 'Tiêu chuẩn xếp loại áp cho từng đơn vị' },
+          // Chỉ hiện khi tổ chức bật OKR hoặc BSC — xem `visible` ở ToolSettingsPage. Cây nav
+          // không có cờ "bật A HOẶC B" nên vế đó do trang quyết định.
+          { id: 'code-rules', label: 'Quy tắc sinh mã', icon: <Hash size={18} />, permission: ADMIN_ALL, requireAllPermissions: true, group: 'Cấu hình', description: 'Mẫu mã tự sinh cho Mục tiêu, Kết quả then chốt và hạng mục BSC' },
 
           // Sáu công cụ quản lý. Quyền lấy đúng theo cổng route cũ của từng cái.
           { id: 'kpi-cycles', label: 'Quản lý kỳ/đợt đánh giá', icon: <CalendarRange size={18} />, permission: ['KPI_CYCLE:CREATE', 'KPI_PERIOD:CREATE'], legacyKeys: ['/kpi-cycles', '/kpi-periods'], group: 'Công cụ', description: 'Kỳ đánh giá tổng hợp và các đợt bên trong mỗi kỳ' },
           { id: 'okr', label: 'Quản lý OKR', icon: <Target size={18} />, permission: 'OKR:MANAGE', okrOnly: true, legacyKeys: ['/okr'], group: 'Công cụ', description: 'Mục tiêu và kết quả then chốt của toàn tổ chức' },
-          { id: 'bsc', label: 'Quản lý BSC', icon: <LayoutGrid size={18} />, permission: 'BSC:MANAGE', bscOnly: true, legacyKeys: ['/bsc', 'Quản lý BSC'], group: 'Công cụ', description: 'Dựng bộ tiêu chí từng kỳ: hạng mục theo 4 lĩnh vực và trọng số' },
+          // Trưởng đơn vị cũng vào đây — họ phải tự lập được BSC của phòng mình (kịch bản (b) và (c)
+          // của mô hình phân rã). Vào rồi thì mỗi nút bên trong tự gác quyền của nó, và backend
+          // chặn tiếp: người chỉ có MANAGE_UNIT không đụng được bộ tiêu chí của đơn vị khác.
+          { id: 'bsc', label: 'Quản lý BSC', icon: <LayoutGrid size={18} />, permission: ['BSC:MANAGE', 'BSC:MANAGE_UNIT'], bscOnly: true, legacyKeys: ['/bsc', 'Quản lý BSC'], group: 'Công cụ', description: 'Dựng bộ tiêu chí từng kỳ: hạng mục theo 4 lĩnh vực và trọng số' },
           { id: 'rewards', label: 'Quản lý thưởng', icon: <Gift size={18} />, permission: ['REWARD:GRANT', 'REWARD:APPROVE', 'REWARD:CONFIG', 'REWARD:VIEW'], rewardOnly: true, legacyKeys: ['/rewards'], group: 'Công cụ', description: 'Đề nghị thưởng, hạn mức, điểm danh và quà tặng' },
           { id: 'wallet', label: 'Quản lý ví', icon: <Landmark size={18} />, permission: ['WALLET:VIEW', 'WALLET:CONFIG', 'WALLET:RECONCILE'], walletOnly: true, legacyKeys: ['/wallet'], group: 'Công cụ', description: 'Số dư nhân sự, cấu hình nạp tiền và đối soát' },
           { id: 'ai-quota', label: 'Quản lý token AI', icon: <Coins size={18} />, permission: 'AI_QUOTA:ALLOCATE', aiOnly: true, legacyKeys: ['/ai-quota'], group: 'Công cụ', description: 'Chia hạn mức token AI cho các đơn vị cấp dưới' },
@@ -237,6 +247,10 @@ export const navItems: NavItem[] = [
       { id: 'bsc', labelKey: 'analytics-bsc', label: 'Hạng mục (BSC)', icon: <Gauge size={18} />, permission: 'BSC:MANAGE', bscOnly: true, group: 'Toàn tổ chức', description: 'Kết quả theo từng hạng mục trong bộ tiêu chí (BSC)' },
     ],
   },
+  // Không gác quyền: phần "Hiển thị của tôi" trong trang này dành cho mọi người, còn phần
+  // cấu hình của tổ chức thì chính trang tự chuyển sang chế độ chỉ-xem khi thiếu
+  // WORKFLOW:MANAGE.
+  { id: 'kpi-workflow', label: 'Luồng KPI', path: '/kpi-workflow', icon: <Workflow size={20} />, end: true },
   { id: 'ai-assistant', label: 'K.AI', path: '/ai-assistant', icon: <Bot size={20} />, permission: 'DASHBOARD:VIEW', end: true, aiOnly: true },
 ]
 

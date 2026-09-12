@@ -28,7 +28,7 @@ export default function PeriodFilterSelect({ value, onChange, className }: Perio
   return (
     <select
       className={cn(
-        'h-10 px-3 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-300 outline-none focus:ring-2 focus:ring-violet-500/50',
+        'h-10 px-3 bg-[var(--color-muted)] border border-[var(--color-border)] rounded-control text-sm font-semibold text-[var(--color-foreground)] outline-none focus:ring-2 focus:ring-[var(--color-ring)]',
         className
       )}
       value={value ?? ''}

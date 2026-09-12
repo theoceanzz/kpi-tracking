@@ -7,8 +7,8 @@ export function KpiWeightPill({ weight, className }: { weight?: number | null; c
   return (
     <span
       className={cn(
-        'inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black uppercase',
-        'bg-violet-50 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400',
+        'inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium',
+        'bg-[var(--color-primary-soft)] text-[var(--color-primary)]',
         className,
       )}
       title="Trọng số"

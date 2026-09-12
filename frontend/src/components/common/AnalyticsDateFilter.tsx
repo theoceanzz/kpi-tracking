@@ -18,6 +18,7 @@ import type { KpiFrequency, KpiPeriod, KpiCycle } from '@/types/kpi'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Checkbox } from '@/components/ui/checkbox'
 import { cn } from '@/lib/utils'
+import { Button } from '@/components/ui/button'
 
 export interface AnalyticsDateFilterValue {
   periodId?: string
@@ -83,6 +84,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { ChoiceChip } from '@/components/ui/choice-chip'
 
 /**
  * Hook bộ lọc thời gian dùng chung cho các trang thống kê.
@@ -276,29 +278,20 @@ export function useAnalyticsDateFilter(opts: Options = {}): AnalyticsDateFilterV
   const active = mode === 'CYCLE' ? cycleValue : mode === 'RANGE' ? rangeValue : value
 
   const baseTrigger = cn(
-    'bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-300 outline-none focus:ring-2 focus:ring-violet-500/50 w-full sm:w-auto',
+    'bg-[var(--color-muted)] border border-[var(--color-border)] rounded-control text-sm font-semibold text-[var(--color-foreground)] outline-none focus:ring-2 focus:ring-[var(--color-ring)] w-full sm:w-auto',
     selectClassName ?? 'h-10'
   )
 
   const modeBtn = (m: FilterMode, label: string) => (
-    <button
-      type="button"
-      onClick={() => switchMode(m)}
-      className={cn(
-        'px-3 py-1 rounded-md text-xs font-bold transition-all whitespace-nowrap',
-        mode === m
-          ? 'bg-white dark:bg-slate-700 text-violet-600 dark:text-violet-300 shadow-sm'
-          : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
-      )}
-    >
+    <ChoiceChip selected={mode === m} variant="segment" size="sm" className="py-1" onClick={() => switchMode(m)}>
       {label}
-    </button>
+    </ChoiceChip>
   )
 
   const controls = (
     <div className={cn('flex flex-col sm:flex-row items-stretch sm:items-center gap-3', className)}>
       {/* Toggle chế độ */}
-      <div className="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 gap-0.5 shrink-0 self-start sm:self-auto">
+      <div className="flex bg-[var(--color-muted)] rounded-control p-0.5 gap-0.5 shrink-0 self-start sm:self-auto">
         {modeBtn('SINGLE', 'Một đợt')}
         {modeBtn('RANGE', 'Khoảng đợt')}
         {modeBtn('CYCLE', 'Theo kỳ')}
@@ -404,7 +397,7 @@ export function useAnalyticsDateFilter(opts: Options = {}): AnalyticsDateFilterV
                 value={customRange.from}
                 onChange={e => setCustomRange(prev => ({ ...prev, from: e.target.value }))}
               />
-              <span className="hidden sm:inline text-slate-400">-</span>
+              <span className="hidden sm:inline text-[var(--color-subtle-foreground)]">-</span>
               <input
                 type="date"
                 className={baseTrigger}
@@ -426,7 +419,7 @@ export function useAnalyticsDateFilter(opts: Options = {}): AnalyticsDateFilterV
               <ScopeSelectItems items={periods} selectedId={rangeFromId} />
             </SelectContent>
           </Select>
-          <span className="hidden sm:inline text-slate-400 self-center">→</span>
+          <span className="hidden sm:inline text-[var(--color-subtle-foreground)] self-center">→</span>
           <Select value={rangeToId} onValueChange={v => setRangeToId(v)}>
             <SelectTrigger className={cn(baseTrigger, "md:w-[240px]")}>
               <SelectValue placeholder="Đến đợt..." />
@@ -505,45 +498,37 @@ function CyclePicker({
       </PopoverTrigger>
       <PopoverContent align="start" className="w-[300px] p-0">
         {cycles.length > 6 && (
-          <div className="p-2 border-b border-slate-100 dark:border-slate-800">
+          <div className="p-2 border-b border-[var(--color-border)]">
             <div className="relative">
-              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
+              <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--color-subtle-foreground)]" />
               <input
                 value={q}
                 onChange={e => setQ(e.target.value)}
                 placeholder="Tìm kỳ…"
-                className="w-full h-8 pl-8 pr-2 rounded-lg bg-slate-50 dark:bg-slate-800 text-xs border-none outline-none focus:ring-2 focus:ring-violet-500"
+                className="w-full h-8 pl-8 pr-2 rounded-control bg-[var(--color-muted)] text-xs border-none outline-none focus:ring-2 focus:ring-[var(--color-ring)]"
               />
             </div>
           </div>
         )}
         <div className="max-h-64 overflow-auto p-1.5">
           {shown.length ? shown.map(c => (
-            <label key={c.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer">
+            <label key={c.id} className="flex items-center gap-2 px-2 py-1.5 rounded-control hover:bg-[var(--color-muted)] cursor-pointer">
               <Checkbox checked={selected.includes(c.id)} onCheckedChange={() => toggle(c.id)} />
-              <span className="truncate text-[13px] font-bold text-slate-700 dark:text-slate-200">{c.name}</span>
+              <span className="truncate text-[13px] font-medium text-[var(--color-foreground)]">{c.name}</span>
             </label>
           )) : hiddenPastCount === 0 && (
-            <p className="text-[11px] italic text-slate-400 p-2">Không có kỳ nào.</p>
+            <p className="text-xs italic text-[var(--color-subtle-foreground)] p-2">Không có kỳ nào.</p>
           )}
 
           {hiddenPastCount > 0 && (
-            <button
-              type="button"
-              onClick={() => setShowPast(true)}
-              className="mt-1 flex w-full items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-500 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800/60 dark:hover:text-slate-100"
-            >
-              <History size={13} /> Xem {hiddenPastCount} kỳ đã qua
-            </button>
+            <Button variant="secondary" size="sm" className="mt-1 w-full" type="button" onClick={() => setShowPast(true)}>
+              <History aria-hidden="true" /> Xem {hiddenPastCount} kỳ đã qua
+            </Button>
           )}
           {showPast && !searching && past.length > 0 && (
-            <button
-              type="button"
-              onClick={() => setShowPast(false)}
-              className="mt-1 flex w-full items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-500 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800/60 dark:hover:text-slate-100"
-            >
-              <ChevronUp size={13} /> Ẩn kỳ đã qua
-            </button>
+            <Button variant="secondary" size="sm" className="mt-1 w-full" type="button" onClick={() => setShowPast(false)}>
+              <ChevronUp aria-hidden="true" /> Ẩn kỳ đã qua
+            </Button>
           )}
         </div>
       </PopoverContent>

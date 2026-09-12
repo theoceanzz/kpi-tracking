@@ -75,12 +75,19 @@ public class BscScoringService {
         private final List<String> unassignedKpiNames;
         /** Chế độ chấm điểm của bộ tiêu chí ĐÃ ÁP DỤNG cho nhân viên này (theo phòng ban). */
         private final BscScoringMode scoringMode;
+        /**
+         * Bộ tiêu chí đã dùng để chấm. Tầng cascade cần chính THẺ NÀY (không phải thẻ nào khác
+         * cùng phòng) để biết tra hệ số theo kết quả của đơn vị nào.
+         */
+        private final BscScorecard scorecard;
 
-        BscUserScore(Double bscScore, List<PerspectiveScoreResponse> perspectives, List<String> unassignedKpiNames, BscScoringMode scoringMode) {
+        BscUserScore(Double bscScore, List<PerspectiveScoreResponse> perspectives, List<String> unassignedKpiNames,
+                     BscScoringMode scoringMode, BscScorecard scorecard) {
             this.bscScore = bscScore;
             this.perspectives = perspectives;
             this.unassignedKpiNames = unassignedKpiNames;
             this.scoringMode = scoringMode;
+            this.scorecard = scorecard;
         }
 
         public int getUnassignedKpiCount() { return unassignedKpiNames.size(); }
@@ -127,12 +134,23 @@ public class BscScoringService {
             for (KpiCriteria kpi : kpis) {
                 // BSC tính CẢ KPI định lượng lẫn định tính (định tính quy ra % theo score_percent do HR cấu hình).
                 if (!achievementCalculator.countsTowardBscScore(kpi)) continue;
+                // KPI đã gắn ĐÚNG một dòng bộ tiêu chí thì chỉ thuộc về dòng đó — không suy diễn thêm
+                // qua hạng mục, nếu không nó sẽ rơi vào cả dòng của bộ tiêu chí khác dùng chung hạng mục.
+                if (kpi.getScorecardPerspective() != null) {
+                    if (kpi.getScorecardPerspective().getId().equals(sp.getId())) ownKpis.add(kpi);
+                    continue;
+                }
                 UUID eff = effectivePerspectiveId(kpi);
                 if (eff != null && eff.equals(pid)) ownKpis.add(kpi);
             }
             int kpiCount = ownKpis.size();
 
-            boolean byTarget = scoresByOwnTarget(perspective);
+            // Mục tiêu lấy theo DÒNG của bộ tiêu chí này (QĐ-2), chỉ rơi về hạng mục khi dòng chưa đặt.
+            Double target = effectiveTarget(sp);
+            Double minimum = effectiveMinimum(sp);
+            String unit = effectiveUnit(sp);
+
+            boolean byTarget = scoresByOwnTarget(sp);
             Double raw, actual = null;
             if (byTarget) {
                 // Kiểu OKR: cộng dồn giá trị thực đạt rồi so với mục tiêu của chính hạng mục.
@@ -146,8 +164,7 @@ public class BscScoringService {
                 }
                 if (contributing > 0) {
                     actual = actualSum;
-                    raw = achievementCalculator.perspectiveRatioFromActual(
-                            perspective.getTargetValue(), perspective.getMinimumValue(), actualSum) * 100.0;
+                    raw = achievementCalculator.perspectiveRatioFromActual(target, minimum, actualSum) * 100.0;
                 } else {
                     // Hạng mục có mục tiêu nhưng không có KPI định lượng nào ⇒ coi như rỗng,
                     // để chính sách hạng mục rỗng quyết định, thay vì ép 0 điểm oan.
@@ -170,8 +187,23 @@ public class BscScoringService {
                 presentWeight += weight;
             }
 
+            // Hạng mục chặn: chỉ kết luận được khi dòng CÓ điểm. Không có KPI nào trong hạng mục
+            // (raw = null) thì để null chứ không kết luận "trượt" — chặn oan một người vì hạng mục
+            // rỗng là lỗi nặng hơn nhiều so với bỏ sót.
+            boolean gateRow = Boolean.TRUE.equals(sp.getIsGate())
+                    && sp.getGateAppliesTo() != com.kpitracking.enums.BscGateScope.UNIT;
+            Boolean gatePassed = null;
+            if (gateRow && raw != null) {
+                double min = sp.getGateMinPercent() != null ? sp.getGateMinPercent() : 100.0;
+                gatePassed = raw >= min;
+            }
+
             breakdown.add(PerspectiveScoreResponse.builder()
                     .perspectiveId(pid)
+                    .scorecardPerspectiveId(sp.getId())
+                    .isGate(gateRow)
+                    .gateMinPercent(sp.getGateMinPercent())
+                    .gatePassed(gatePassed)
                     .code(perspective.getCode())
                     .name(perspective.getName())
                     .color(perspective.getColor())
@@ -183,9 +215,9 @@ public class BscScoringService {
                     .achievementPercent(raw)
                     .weightedScore(weighted)
                     .scoredByTarget(byTarget)
-                    .targetValue(perspective.getTargetValue())
-                    .minimumValue(perspective.getMinimumValue())
-                    .unit(perspective.getUnit())
+                    .targetValue(target)
+                    .minimumValue(minimum)
+                    .unit(unit)
                     .actualValue(actual)
                     .build());
         }
@@ -200,11 +232,11 @@ public class BscScoringService {
         // KPI tính điểm BSC (cả định lượng lẫn định tính) nhưng CHƯA gán lĩnh vực → cảnh báo coverage
         List<String> unassigned = kpis.stream()
                 .filter(achievementCalculator::countsTowardBscScore)
-                .filter(k -> effectivePerspectiveId(k) == null)
+                .filter(k -> k.getScorecardPerspective() == null && effectivePerspectiveId(k) == null)
                 .map(KpiCriteria::getName)
                 .toList();
 
-        return new BscUserScore(bsc, breakdown, unassigned, scorecard.getScoringMode());
+        return new BscUserScore(bsc, breakdown, unassigned, scorecard.getScoringMode(), scorecard);
     }
 
     /**
@@ -212,8 +244,32 @@ public class BscScoringService {
      * Suy ra từ dữ liệu (có "mục tiêu mong muốn" > 0) chứ không phải một cờ riêng — hạng mục
      * chưa đặt mục tiêu giữ nguyên cách chấm cũ, nên bật/tắt chỉ bằng việc điền hay xoá con số.
      */
-    private static boolean scoresByOwnTarget(BscPerspective p) {
-        return p.getTargetValue() != null && p.getTargetValue() > 0;
+    private static boolean scoresByOwnTarget(BscScorecardPerspective sp) {
+        Double target = effectiveTarget(sp);
+        return target != null && target > 0;
+    }
+
+    // ------------------------------------------------------------
+    // Mục tiêu hiệu lực của một dòng bộ tiêu chí (QĐ-2)
+    //
+    // Ưu tiên con số đặt RIÊNG cho bộ tiêu chí này; chỉ khi dòng bỏ trống mới rơi về giá trị mặc
+    // định của hạng mục trong danh mục. Nhờ vậy công ty và từng phòng đặt được mục tiêu khác nhau
+    // trên cùng một hạng mục, còn dữ liệu cũ (dòng chưa có con số riêng) vẫn chấm y như trước.
+    // ------------------------------------------------------------
+
+    private static Double effectiveTarget(BscScorecardPerspective sp) {
+        if (sp.getTargetValue() != null) return sp.getTargetValue();
+        return sp.getPerspective() != null ? sp.getPerspective().getTargetValue() : null;
+    }
+
+    private static Double effectiveMinimum(BscScorecardPerspective sp) {
+        if (sp.getMinimumValue() != null) return sp.getMinimumValue();
+        return sp.getPerspective() != null ? sp.getPerspective().getMinimumValue() : null;
+    }
+
+    private static String effectiveUnit(BscScorecardPerspective sp) {
+        if (sp.getUnit() != null && !sp.getUnit().isBlank()) return sp.getUnit();
+        return sp.getPerspective() != null ? sp.getPerspective().getUnit() : null;
     }
 
     /** Lưu breakdown điểm từng lĩnh vực của một đánh giá (ghi đè bản cũ). */
@@ -233,6 +289,11 @@ public class BscScoringService {
                     .kpiCount(p.getKpiCount() != null ? p.getKpiCount() : 0)
                     .actualValue(p.getActualValue())
                     .scoredByTarget(Boolean.TRUE.equals(p.getScoredByTarget()))
+                    // Chụp lại mục tiêu đã dùng — mỗi bộ tiêu chí có con số riêng nên không đọc
+                    // lại từ hạng mục lúc hiển thị được nữa.
+                    .targetValue(p.getTargetValue())
+                    .minimumValue(p.getMinimumValue())
+                    .unit(p.getUnit())
                     .build());
         }
     }
@@ -254,11 +315,12 @@ public class BscScoringService {
                         .achievementPercent(s.getRawScore())
                         .weightedScore(s.getWeightedScore())
                         .scoredByTarget(s.getScoredByTarget())
-                        // Mục tiêu/đơn vị đọc từ hạng mục HIỆN TẠI (có thể đã đổi sau khi chấm);
-                        // con số đã dùng lúc chấm nằm ở actualValue/rawScore đã lưu.
-                        .targetValue(s.getPerspective().getTargetValue())
-                        .minimumValue(s.getPerspective().getMinimumValue())
-                        .unit(s.getPerspective().getUnit())
+                        // Mục tiêu/đơn vị lấy từ SNAPSHOT lúc chấm. Bản ghi cũ chưa có snapshot thì
+                        // mới rơi về hạng mục hiện tại — dữ liệu ghi qua service luôn có snapshot nên đây chỉ là
+                        // lưới an toàn cho dữ liệu ghi ngoài luồng.
+                        .targetValue(s.getTargetValue() != null ? s.getTargetValue() : s.getPerspective().getTargetValue())
+                        .minimumValue(s.getMinimumValue() != null ? s.getMinimumValue() : s.getPerspective().getMinimumValue())
+                        .unit(s.getUnit() != null ? s.getUnit() : s.getPerspective().getUnit())
                         .actualValue(s.getActualValue())
                         .build())
                 .toList();
@@ -302,6 +364,17 @@ public class BscScoringService {
                 .filter(sc -> sc.getApplyScope() == com.kpitracking.enums.BscScorecardApplyScope.PERIOD)
                 .findFirst()
                 .orElse(matches.get(0));
+    }
+
+    /**
+     * Bộ tiêu chí hiệu lực cho MỘT NHÂN VIÊN — cùng đường tra mà {@link #computeForUser} dùng.
+     *
+     * <p>Mở ra public để nơi khác (kiểm tra trọng số KPI liên kết BSC) hỏi được đúng bộ tiêu chí
+     * đang chấm cho người này, thay vì tự dựng lại luật đi ngược cây tổ chức rồi lệch nhau.
+     */
+    @Transactional(readOnly = true)
+    public BscScorecard resolveScorecardForUser(UUID userId, UUID organizationId, UUID kpiPeriodId) {
+        return resolveScorecard(userOrgUnit(userId), organizationId, kpiPeriodId);
     }
 
     /** Phòng ban của một nhân viên (lấy role đầu tiên) — null nếu không xác định được. */

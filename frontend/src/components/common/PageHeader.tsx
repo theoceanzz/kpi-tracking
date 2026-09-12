@@ -7,16 +7,15 @@ interface PageHeaderProps {
   className?: string
 }
 
+/** Đầu trang: tiêu đề cấp 1 + mô tả một dòng, nút hành động chính căn phải. */
 export default function PageHeader({ title, description, action, className }: PageHeaderProps) {
   return (
-    <div className={cn('flex flex-col sm:flex-row sm:items-center sm:justify-between flex-wrap gap-4 mb-6', className)}>
-      <div className="min-w-[200px]">
-        <h1 className="text-2xl font-bold tracking-tight">{title}</h1>
-        {description && (
-          <p className="text-[var(--color-muted-foreground)] mt-1">{description}</p>
-        )}
+    <div className={cn('mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between', className)}>
+      <div className="min-w-0">
+        <h1 className="text-page-title">{title}</h1>
+        {description && <p className="mt-1 text-sm text-[var(--color-muted-foreground)]">{description}</p>}
       </div>
-      {action && <div className="flex-shrink-0">{action}</div>}
+      {action && <div className="flex shrink-0 items-center gap-2">{action}</div>}
     </div>
   )
 }

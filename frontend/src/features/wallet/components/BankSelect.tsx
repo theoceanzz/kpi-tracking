@@ -2,6 +2,7 @@ import { useMemo, useRef, useState } from 'react'
 import { Check, ChevronDown, Search, X } from 'lucide-react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { VIETQR_BANKS, bankLogoUrl, findBank, type BankOption } from '../constants/banks'
+import { ChoiceChip } from '@/components/ui/choice-chip'
 
 /** Bỏ dấu để gõ "vietcom" hay "kỹ thương" đều ra kết quả. */
 const norm = (s: string) =>
@@ -19,7 +20,7 @@ function BankLogo({ bank, size = 28 }: { bank?: BankOption; size?: number }) {
   if (!bank || failed) {
     return (
       <span
-        className="flex flex-shrink-0 items-center justify-center rounded-lg bg-[var(--color-muted)] text-[10px] font-black text-[var(--color-muted-foreground)]"
+        className="flex flex-shrink-0 items-center justify-center rounded-control bg-[var(--color-muted)] text-caption"
         style={{ width: size, height: size }}
       >
         {(bank?.code ?? '?').slice(0, 2).toUpperCase()}
@@ -33,7 +34,7 @@ function BankLogo({ bank, size = 28 }: { bank?: BankOption; size?: number }) {
       alt=""
       loading="lazy"
       onError={() => setFailed(true)}
-      className="flex-shrink-0 rounded-lg border border-[var(--color-border)] bg-white object-contain p-0.5"
+      className="flex-shrink-0 rounded-control border border-[var(--color-border)] bg-[var(--color-card)] object-contain p-0.5"
       style={{ width: size, height: size }}
     />
   )
@@ -78,9 +79,9 @@ export default function BankSelect({ value, onChange, className = '' }: Props) {
       <PopoverTrigger asChild>
         <button
           type="button"
-          className={`flex w-full items-center gap-2.5 rounded-xl border px-3 py-2 text-left text-sm outline-none transition-colors ${
+          className={`flex w-full items-center gap-2.5 rounded-card border px-3 py-2 text-left text-sm outline-none transition-colors ${
             unknown
-              ? 'border-amber-500/60 bg-amber-500/5'
+              ? 'border-[var(--color-warning-border)] bg-[var(--color-warning-bg)]'
               : 'border-[var(--color-border)] bg-[var(--color-background)] hover:border-[var(--color-primary)]'
           } ${open ? 'border-[var(--color-primary)]' : ''} ${className}`}
         >
@@ -96,7 +97,7 @@ export default function BankSelect({ value, onChange, className = '' }: Props) {
             ) : unknown ? (
               <>
                 <span className="block truncate font-semibold">{value}</span>
-                <span className="block truncate text-xs text-amber-600">
+                <span className="block truncate text-xs text-[var(--color-warning)]">
                   Không có trong danh sách VietQR — chọn lại cho chắc
                 </span>
               </>
@@ -118,7 +119,7 @@ export default function BankSelect({ value, onChange, className = '' }: Props) {
       <PopoverContent
         align="start"
         sideOffset={6}
-        className="w-[var(--radix-popover-trigger-width)] min-w-[280px] overflow-hidden rounded-2xl border-[var(--color-border)] bg-[var(--color-card)] p-0 text-[var(--color-foreground)]"
+        className="w-[var(--radix-popover-trigger-width)] min-w-[280px] overflow-hidden rounded-card border-[var(--color-border)] bg-[var(--color-card)] p-0 text-[var(--color-foreground)]"
       >
         <div className="relative border-b border-[var(--color-border)]">
           <Search
@@ -156,14 +157,7 @@ export default function BankSelect({ value, onChange, className = '' }: Props) {
             results.map((b) => {
               const active = selected?.code === b.code
               return (
-                <button
-                  key={b.code}
-                  type="button"
-                  onClick={() => pick(b.code)}
-                  className={`flex w-full items-center gap-2.5 rounded-xl px-2.5 py-2 text-left transition-colors ${
-                    active ? 'bg-[var(--color-primary)]/10' : 'hover:bg-[var(--color-muted)]'
-                  }`}
-                >
+                <ChoiceChip selected={active} variant="solid" className="w-full py-2 text-left" key={b.code} onClick={() => pick(b.code)}>
                   <BankLogo key={b.id} bank={b} size={26} />
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-semibold">{b.code}</span>
@@ -171,13 +165,13 @@ export default function BankSelect({ value, onChange, className = '' }: Props) {
                       {b.name}
                     </span>
                   </span>
-                  <span className="flex-shrink-0 font-mono text-[10px] text-[var(--color-muted-foreground)]">
+                  <span className="flex-shrink-0 font-mono text-caption">
                     {b.bin}
                   </span>
                   {active && (
-                    <Check size={14} className="flex-shrink-0 text-[var(--color-primary)]" />
+                    <Check className="flex-shrink-0 text-[var(--color-primary)]" />
                   )}
-                </button>
+                </ChoiceChip>
               )
             })
           )}

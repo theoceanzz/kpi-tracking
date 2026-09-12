@@ -13,6 +13,7 @@ import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -41,16 +42,27 @@ public interface TopupOrderRepository extends JpaRepository<TopupOrder, UUID> {
 
     /**
      * Hết hạn hàng loạt bằng MỘT câu UPDATE có điều kiện, không load-rồi-ghi.
-     * Điều kiện {@code status = PENDING} nằm ngay trong WHERE nên đơn vừa được
+     * Điều kiện {@code status = 'PENDING'} nằm ngay trong WHERE nên đơn vừa được
      * webhook chuyển sang PAID sẽ không khớp và không bị đụng tới.
+     *
+     * <p>Trả về id của ĐÚNG những đơn vừa bị đổi, để bộ chạy nền báo cho từng chủ đơn.
+     * Phải là {@code UPDATE ... RETURNING} chứ không phải "chọn trước rồi cập nhật":
+     * chọn trước mở ra khe hở webhook trả tiền cho một đơn nằm trong danh sách vừa
+     * chọn, và chủ đơn nhận thư "đơn đã hết hạn" cho khoản tiền đã vào ví. Một câu
+     * lệnh thì tập trả về đúng bằng tập thực sự bị đổi.
+     *
+     * <p>Native vì JPQL không có {@code RETURNING}. Kéo theo là phải tự viết
+     * {@code deleted_at IS NULL} — {@code @SQLRestriction} của entity chỉ áp cho
+     * câu lệnh do Hibernate sinh.
      */
     @Modifying(clearAutomatically = true, flushAutomatically = true)
-    @Query("""
-            UPDATE TopupOrder o
-               SET o.status = com.kpitracking.enums.TopupOrderStatus.EXPIRED,
-                   o.updatedAt = :now
-             WHERE o.status = com.kpitracking.enums.TopupOrderStatus.PENDING
-               AND o.expiresAt < :now
-            """)
-    int expireOverdue(@Param("now") Instant now);
+    @Query(value = """
+            UPDATE topup_orders
+               SET status = 'EXPIRED', updated_at = :now
+             WHERE status = 'PENDING'
+               AND expires_at < :now
+               AND deleted_at IS NULL
+            RETURNING id
+            """, nativeQuery = true)
+    List<UUID> expireOverdue(@Param("now") Instant now);
 }

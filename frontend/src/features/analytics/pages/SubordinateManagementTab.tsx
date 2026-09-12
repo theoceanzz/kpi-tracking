@@ -8,12 +8,14 @@ import UnitComparisonBarChart from '../components/UnitComparisonBarChart'
 import MemberRoleChart from '../components/MemberRoleChart'
 import { useSummaryStats } from '../hooks/useAnalytics'
 import { useAnalyticsDateFilter } from '@/components/common/AnalyticsDateFilter'
+import { OkrFlowSection } from '../components/advanced/OkrAdvanced'
 import { usePerformanceScale } from '../hooks/usePerformanceScale'
-import { Target, TrendingUp, CheckCircle2, AlertTriangle, Users } from 'lucide-react'
+import { Target, TrendingUp, CheckCircle2, AlertTriangle, Users, Network } from 'lucide-react'
 import { ChartWrapper, type DashboardWidget } from '@/components/common/dashboard/ChartWrapper'
 import { useDashboardCustomization } from '@/components/common/dashboard/useDashboardCustomization'
 import DashboardCustomizeChrome, { DashboardEditToolbar } from '@/components/common/dashboard/DashboardCustomizeChrome'
 import type { WidgetType } from '@/types/datasource'
+import AnalyticsTabHeader from '../components/AnalyticsTabHeader'
 
 const CONFIG_REPORT_NAME = '__SUBORDINATE_DASHBOARD_CONFIG__'
 const DEFAULT_WIDGETS: DashboardWidget[] = [
@@ -21,12 +23,15 @@ const DEFAULT_WIDGETS: DashboardWidget[] = [
   { i: 'sub-detail', type: 'SUB_DETAIL', title: 'Chi tiết mục tiêu', x: 0, y: 15, w: 12, h: 20, visible: true },
   { i: 'sub-member', type: 'SUB_MEMBER', title: 'Nhân sự & vai trò theo đơn vị', x: 0, y: 35, w: 12, h: 11, visible: true },
   { i: 'sub-unit-perf', type: 'SUB_UNIT_PERF', title: 'Hiệu suất & Tiến độ đơn vị', x: 0, y: 46, w: 12, h: 13, visible: true },
+  // Mặc định ẩn: luồng OKR chỉ có nghĩa khi Key Result đã được phân bổ trọng số xuống đơn vị.
+  { i: 'sub-okr-flow', type: 'SUB_OKR_FLOW', title: 'Luồng phân bổ OKR', x: 0, y: 59, w: 12, h: 13, visible: false },
 ]
 // Loại FE → enum WidgetType hợp lệ ở DB (không cần migration).
 const toBackendWidgetType = (t: string): WidgetType =>
   t === 'SUB_TREND' ? 'TREND_CHART'
   : t === 'SUB_DETAIL' ? 'TABLE'
   : t === 'SUB_MEMBER' ? 'MEMBER_DIST'
+  : t === 'SUB_OKR_FLOW' ? 'HEATMAP'
   : 'UNIT_PERFORMANCE'
 const CATALOG: { template: DashboardWidget; icon: React.ReactNode }[] = DEFAULT_WIDGETS.map(t => ({
   template: t,
@@ -37,7 +42,7 @@ const CATALOG: { template: DashboardWidget; icon: React.ReactNode }[] = DEFAULT_
 
 export default function SubordinateManagementTab() {
   const onlyApproved = false
-  const { periodId, periodIdTo, from, to, groupBy, controls } = useAnalyticsDateFilter({ selectClassName: 'h-10' })
+  const { periodId, periodIdTo, from, to, groupBy, controls } = useAnalyticsDateFilter({ selectClassName: 'h-9' })
   const perf = usePerformanceScale()
   const dateRange = useMemo(() => ({ from, to }), [from, to])
 
@@ -87,23 +92,28 @@ export default function SubordinateManagementTab() {
   const renderWidget = (w: DashboardWidget) => {
     switch (w.type) {
       case 'SUB_TREND': return (
-        <ChartWrapper chromeless title="Xu hướng mục tiêu theo thời gian" icon={<TrendingUp size={20} className="text-indigo-500" />} widget={w} onTogglePin={handleTogglePin} isEditMode={isEditMode}>
+        <ChartWrapper chromeless title="Xu hướng mục tiêu theo thời gian" icon={<TrendingUp size={20} className="text-[var(--color-primary)]" />} widget={w} onTogglePin={handleTogglePin} isEditMode={isEditMode}>
           <AnalyticsComboChart data={chartQuery.data?.points ?? []} isLoading={chartQuery.isLoading} itemName="Mục tiêu" fillHeight />
         </ChartWrapper>
       )
       case 'SUB_DETAIL': return (
-        <ChartWrapper chromeless title="Chi tiết mục tiêu" icon={<Target size={20} className="text-indigo-600" />} widget={w} onTogglePin={handleTogglePin} isEditMode={isEditMode}>
+        <ChartWrapper chromeless title="Chi tiết mục tiêu" icon={<Target size={20} className="text-[var(--color-primary)]" />} widget={w} onTogglePin={handleTogglePin} isEditMode={isEditMode}>
           <ObjectiveDetailsWidget dateRange={dateRange} onlyApproved={onlyApproved} periodId={periodId} periodIdTo={periodIdTo} />
         </ChartWrapper>
       )
       case 'SUB_MEMBER': return (
-        <ChartWrapper title="Nhân sự & vai trò theo đơn vị" icon={<Users size={20} className="text-purple-600" />} widget={w} onTogglePin={handleTogglePin} isEditMode={isEditMode}>
+        <ChartWrapper title="Nhân sự & vai trò theo đơn vị" icon={<Users size={20} className="text-[var(--color-primary)]" />} widget={w} onTogglePin={handleTogglePin} isEditMode={isEditMode}>
           <MemberRoleChart data={summary?.roleDistribution} />
         </ChartWrapper>
       )
       case 'SUB_UNIT_PERF': return (
-        <ChartWrapper title="Hiệu suất & Tiến độ đơn vị" icon={<TrendingUp size={20} className="text-emerald-500" />} widget={w} onTogglePin={handleTogglePin} isEditMode={isEditMode}>
+        <ChartWrapper title="Hiệu suất & Tiến độ đơn vị" icon={<TrendingUp size={20} className="text-[var(--color-success)]" />} widget={w} onTogglePin={handleTogglePin} isEditMode={isEditMode}>
           <UnitComparisonBarChart from={from} to={to} onlyApproved={onlyApproved} periodId={periodId} periodIdTo={periodIdTo} />
+        </ChartWrapper>
+      )
+      case 'SUB_OKR_FLOW': return (
+        <ChartWrapper title="Luồng phân bổ OKR" icon={<Network size={20} className="text-[var(--color-primary)]" />} widget={w} onTogglePin={handleTogglePin} isEditMode={isEditMode}>
+          <OkrFlowSection filter={{ periodId, periodIdTo }} />
         </ChartWrapper>
       )
       default: return null
@@ -111,31 +121,13 @@ export default function SubordinateManagementTab() {
   }
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500 pb-20">
-      {/* Tiêu đề + nút Tuỳ chỉnh */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <h2 className="text-xl font-black text-slate-900 dark:text-white">Tổng quan mục tiêu cấp dưới</h2>
-        <div id="tour-analytics-customize">
-          <DashboardEditToolbar api={dash} />
-        </div>
-      </div>
-
-      {/* Global Filter Toolbar */}
-      <div id="tour-analytics-filter" className="sticky top-0 z-20 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl flex flex-wrap items-center gap-4 justify-between p-4 shadow-sm">
-        <div className="flex items-center gap-2 min-w-0">
-          <div className="p-2 rounded-lg text-indigo-600 dark:text-indigo-400 shrink-0 bg-indigo-50 dark:bg-indigo-900/30">
-            <Target size={18} />
-          </div>
-          <div className="min-w-0">
-            <h2 className="font-bold text-slate-900 dark:text-white leading-tight text-base">Tổng quan mục tiêu cấp dưới</h2>
-            <p className="text-xs text-slate-500 font-medium mt-0.5">Lọc dữ liệu đồng bộ cho tất cả biểu đồ</p>
-          </div>
-        </div>
-
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 sm:gap-5 w-full lg:w-auto">
-          {controls}
-        </div>
-      </div>
+    <div className="space-y-4 pb-20">
+      <AnalyticsTabHeader
+        title="Mục tiêu đơn vị"
+        description="Tổng quan mục tiêu và KPI của các đơn vị, nhân sự thuộc quyền quản lý của bạn."
+        actions={<DashboardEditToolbar api={dash} />}
+        filters={<>{controls}</>}
+      />
 
       {/* Metrics Grid */}
       <div id="tour-analytics-metrics" className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
@@ -155,14 +147,14 @@ export default function SubordinateManagementTab() {
           title="Mục tiêu hoàn thành"
           value={completedCountQuery.data ? `${completedCountQuery.data.completed}/${completedCountQuery.data.total}` : '0/0'}
           subtitle="trên tổng số MT"
-          icon={<CheckCircle2 size={20} className="text-emerald-500" />}
+          icon={<CheckCircle2 size={20} className="text-[var(--color-success)]" />}
           isLoading={completedCountQuery.isLoading}
         />
         <ObjectiveMetricCard
           title="Mục tiêu rủi ro"
           value={atRiskQuery.data?.count ?? 0}
           subtitle="Tiến độ thấp & sắp hết hạn"
-          icon={<AlertTriangle size={20} className="text-rose-500" />}
+          icon={<AlertTriangle size={20} className="text-[var(--color-error)]" />}
           isLoading={atRiskQuery.isLoading}
         />
         <ObjectiveMetricCard

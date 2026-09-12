@@ -35,18 +35,18 @@ export function PersonGroupBadge({ label, value, tone = 'slate' }: {
   tone?: 'slate' | 'amber' | 'emerald' | 'rose' | 'indigo'
 }) {
   const tones: Record<string, string> = {
-    slate: 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700',
-    amber: 'bg-amber-50 text-amber-600 border-amber-100 dark:bg-amber-900/20 dark:text-amber-400 dark:border-amber-900/40',
-    emerald: 'bg-emerald-50 text-emerald-600 border-emerald-100 dark:bg-emerald-900/20 dark:text-emerald-400 dark:border-emerald-900/40',
-    rose: 'bg-rose-50 text-rose-600 border-rose-100 dark:bg-rose-900/20 dark:text-rose-400 dark:border-rose-900/40',
-    indigo: 'bg-indigo-50 text-indigo-600 border-indigo-100 dark:bg-indigo-900/20 dark:text-indigo-400 dark:border-indigo-900/40',
+    slate: 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)] border-[var(--color-border)]',
+    amber: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)] border-[var(--color-warning-border)]',
+    emerald: 'bg-[var(--color-success-bg)] text-[var(--color-success)] border-[var(--color-success-border)]',
+    rose: 'bg-[var(--color-error-bg)] text-[var(--color-error)] border-[var(--color-error-border)]',
+    indigo: 'bg-[var(--color-primary-soft)] text-[var(--color-primary)] border-[var(--color-border)]',
   }
   return (
     <span className={cn(
-      'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg border text-[9px] font-black uppercase tracking-widest whitespace-nowrap',
+      'text-eyebrow inline-flex items-center gap-1.5 px-2.5 py-1 rounded-control border whitespace-nowrap',
       tones[tone]
     )}>
-      <span className="text-[11px] leading-none">{value}</span> {label}
+      <span className="text-xs leading-none">{value}</span> {label}
     </span>
   )
 }
@@ -57,46 +57,40 @@ function HeaderContent({ person, expanded, onToggle, badges, actions, isCurrentU
 
   return (
     <div className={cn("flex items-center gap-3 sm:gap-4 w-full", indent && "pl-4 sm:pl-8")}>
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-expanded={expanded}
-        className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0 text-left group/person cursor-pointer"
-      >
-        <ChevronDown
-          size={18}
+      <button className="flex w-full items-center gap-3 rounded-card p-3 text-left transition-colors hover:bg-[var(--color-muted)] sm:gap-4 flex-1 min-w-0" type="button" onClick={onToggle} aria-expanded={expanded}>
+        <ChevronDown aria-hidden="true"
           className={cn(
-            'shrink-0 text-slate-400 transition-transform duration-300 group-hover/person:text-indigo-600',
+            'shrink-0 text-[var(--color-subtle-foreground)] transition-transform duration-300 group-hover/person:text-[var(--color-primary)]',
             !expanded && '-rotate-90'
           )}
         />
 
         {isUnassigned ? (
-          <div className="w-10 h-10 rounded-2xl shrink-0 flex items-center justify-center bg-slate-100 dark:bg-slate-800 text-slate-400">
-            <UserX size={18} />
+          <div className="w-10 h-10 rounded-card shrink-0 flex items-center justify-center bg-[var(--color-muted)] text-[var(--color-subtle-foreground)]">
+            <UserX aria-hidden="true" />
           </div>
         ) : (
-          <UserAvatar
+          <UserAvatar aria-hidden="true"
             fullName={person.name}
             avatarUrl={person.avatarUrl}
-            className="w-10 h-10 rounded-2xl border border-indigo-200/50 dark:border-indigo-800/30 shadow-inner"
-            fallbackClassName="bg-gradient-to-br from-indigo-50 to-indigo-100 dark:from-indigo-900/20 dark:to-indigo-900/40 font-black text-xs text-indigo-600 dark:text-indigo-400"
+            className="w-10 h-10 rounded-card border border-[var(--color-border)] shadow-inner"
+            fallbackClassName="bg-[var(--color-primary-soft)] font-semibold text-xs text-[var(--color-primary)]"
           />
         )}
 
         <div className="min-w-0">
           <div className="flex items-center gap-2">
-            <span className="text-sm font-black text-slate-900 dark:text-white truncate group-hover/person:text-indigo-600 transition-colors">
+            <span className="text-sm font-semibold text-[var(--color-foreground)] truncate group-hover/person:text-[var(--color-primary)] transition-colors">
               {person.name}
             </span>
             {isCurrentUser && (
-              <span className="px-1.5 py-0.5 rounded-md bg-indigo-100 dark:bg-indigo-900/40 text-[8px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest shrink-0">
+              <span className="text-eyebrow px-1.5 py-0.5 rounded-control bg-[var(--color-primary-soft)] text-[var(--color-primary)] shrink-0">
                 Bạn
               </span>
             )}
           </div>
           {person.orgUnitName && (
-            <span className="text-[10px] text-slate-400 font-bold uppercase tracking-tight truncate block">
+            <span className="text-caption font-medium uppercase tracking-tight truncate block">
               {person.orgUnitName}
             </span>
           )}
@@ -116,7 +110,7 @@ function HeaderContent({ person, expanded, onToggle, badges, actions, isCurrentU
 /** Biến thể dùng bên trong <tbody> — chiếm trọn chiều ngang bảng. */
 export function PersonGroupHeaderRow({ colSpan, ...props }: PersonGroupHeaderProps & { colSpan: number }) {
   return (
-    <tr className="bg-slate-50/80 dark:bg-slate-800/40 border-y border-slate-100 dark:border-slate-800">
+    <tr className="bg-[var(--color-muted)] border-y border-[var(--color-border)]">
       <td colSpan={colSpan} className="px-4 py-3">
         <HeaderContent {...props} />
       </td>
@@ -127,7 +121,7 @@ export function PersonGroupHeaderRow({ colSpan, ...props }: PersonGroupHeaderPro
 /** Biến thể dùng cho chế độ thẻ và bản mobile. */
 export function PersonGroupHeaderCard(props: PersonGroupHeaderProps) {
   return (
-    <div className="px-4 py-3 rounded-[20px] bg-slate-50/80 dark:bg-slate-800/40 border border-slate-100 dark:border-slate-800">
+    <div className="px-4 py-3 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)]">
       <HeaderContent {...props} />
     </div>
   )
@@ -142,33 +136,27 @@ function UnitHeaderContent({ unit, expanded, onToggle, badges, actions, isCurren
 
   return (
     <div className="flex items-center gap-3 sm:gap-4 w-full">
-      <button
-        type="button"
-        onClick={onToggle}
-        aria-expanded={expanded}
-        className="flex items-center gap-3 sm:gap-4 flex-1 min-w-0 text-left group/unit cursor-pointer"
-      >
-        <ChevronDown
-          size={20}
+      <button className="flex w-full items-center gap-3 rounded-card p-3 text-left transition-colors hover:bg-[var(--color-muted)] sm:gap-4 flex-1 min-w-0" type="button" onClick={onToggle} aria-expanded={expanded}>
+        <ChevronDown aria-hidden="true"
           className={cn(
-            'shrink-0 text-slate-500 dark:text-slate-400 transition-transform duration-300 group-hover/unit:text-indigo-600',
+            'shrink-0 text-[var(--color-muted-foreground)] transition-transform duration-300 group-hover/unit:text-[var(--color-primary)]',
             !expanded && '-rotate-90'
           )}
         />
         <div className={cn(
-          'w-10 h-10 rounded-2xl shrink-0 flex items-center justify-center shadow-inner',
+          'w-10 h-10 rounded-card shrink-0 flex items-center justify-center shadow-inner',
           isUnknown
-            ? 'bg-slate-100 dark:bg-slate-800 text-slate-400'
-            : 'bg-gradient-to-br from-slate-900 to-slate-700 dark:from-slate-100 dark:to-slate-300 text-white dark:text-slate-900'
+            ? 'bg-[var(--color-muted)] text-[var(--color-subtle-foreground)]'
+            : 'bg-[var(--color-foreground)] text-[var(--color-background)]'
         )}>
-          <Building2 size={18} />
+          <Building2 aria-hidden="true" />
         </div>
         <div className="min-w-0 flex items-center gap-2">
-          <span className="text-sm font-black uppercase tracking-tight text-slate-900 dark:text-white truncate group-hover/unit:text-indigo-600 transition-colors">
+          <span className="text-sm font-semibold uppercase tracking-tight text-[var(--color-foreground)] truncate group-hover/unit:text-[var(--color-primary)] transition-colors">
             {unit.name}
           </span>
           {isCurrentUnit && (
-            <span className="px-1.5 py-0.5 rounded-md bg-indigo-100 dark:bg-indigo-900/40 text-[8px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-widest shrink-0">
+            <span className="text-eyebrow px-1.5 py-0.5 rounded-control bg-[var(--color-primary-soft)] text-[var(--color-primary)] shrink-0">
               Đơn vị của bạn
             </span>
           )}
@@ -187,7 +175,7 @@ function UnitHeaderContent({ unit, expanded, onToggle, badges, actions, isCurren
 
 export function UnitGroupHeaderRow({ colSpan, ...props }: UnitGroupHeaderProps & { colSpan: number }) {
   return (
-    <tr className="bg-slate-100/80 dark:bg-slate-800/70 border-y-2 border-slate-200 dark:border-slate-700">
+    <tr className="bg-[var(--color-muted)] border-y-2 border-[var(--color-border)]">
       <td colSpan={colSpan} className="px-4 py-3.5">
         <UnitHeaderContent {...props} />
       </td>
@@ -197,7 +185,7 @@ export function UnitGroupHeaderRow({ colSpan, ...props }: UnitGroupHeaderProps &
 
 export function UnitGroupHeaderCard(props: UnitGroupHeaderProps) {
   return (
-    <div className="px-4 py-3.5 rounded-[20px] bg-slate-100/80 dark:bg-slate-800/70 border-2 border-slate-200 dark:border-slate-700">
+    <div className="px-4 py-3.5 rounded-card bg-[var(--color-muted)] border-2 border-[var(--color-border)]">
       <UnitHeaderContent {...props} />
     </div>
   )

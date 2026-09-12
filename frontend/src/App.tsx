@@ -5,14 +5,17 @@ import { queryClient } from '@/lib/queryClient'
 import { router } from '@/router'
 import { useEffect } from 'react'
 import GlobalUploadProgress from '@/components/common/GlobalUploadProgress'
-import { useThemeStore } from '@/store/themeStore'
+import { useThemeStore, applyTheme } from '@/store/themeStore'
+import { useClearNumberInputOnFocus } from '@/hooks/useClearNumberInputOnFocus'
 
 export default function App() {
   const { isDark, primaryColor } = useThemeStore()
 
+  useClearNumberInputOnFocus()
+
+  // Giá trị persist chỉ nằm trong localStorage; phải ghi lên <html> một lần khi khởi động.
   useEffect(() => {
-    document.documentElement.classList.toggle('dark', isDark)
-    document.documentElement.style.setProperty('--color-primary', primaryColor)
+    applyTheme(primaryColor, isDark)
   }, [isDark, primaryColor])
 
   return (
