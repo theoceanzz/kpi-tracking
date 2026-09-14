@@ -5,6 +5,8 @@ import { ArrowLeft, Plus, Database, Trash2, BarChart3, LineChart as LineChartIco
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import { Responsive, WidthProvider } from 'react-grid-layout/legacy'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
+import { xAxisLabel, yAxisLabel } from '@/components/charts/axisLabel'
+import { SeriesTooltip } from '@/components/charts/ChartTooltip'
 import { useReport } from '../hooks/useReports'
 import { useAddReportDatasource, useRemoveReportDatasource, useAddWidget, useUpdateWidget, useDeleteWidget } from '../hooks/useReportMutations'
 import { useDatasources, useDatasourceDataQueries } from '@/features/datasources/hooks/useDatasources'
@@ -144,31 +146,34 @@ const ChartRenderer = memo(({ widget, rawData, allColumns, users }: { widget: Re
   const keys = Object.keys(rawData[0] || {})
   const xKey = config.x_axis?.label || keys[0] || 'x'
   const yKey = config.y_axis?.label || keys[1] || 'y'
+  // Trục ở đây do NGƯỜI DÙNG chọn lúc chạy, nên nhãn trục chính là tên cột/phép gộp họ đã chọn —
+  // không có nhãn cố định nào đúng hơn thế.
+  const seriesName = config.agg_type === 'SUM' ? `Tổng ${yKey}` : 'Số lượng'
 
   switch (widget.widgetType) {
     case 'BAR':
       return (
         <ResponsiveContainer width="100%" height="100%">
-          <BarChart data={data} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+          <BarChart data={data} margin={{ top: 5, right: 20, bottom: 30, left: 14 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-            <XAxis dataKey={xKey} tick={{ fontSize: 12 }} stroke="var(--color-muted-foreground)" />
-            <YAxis tick={{ fontSize: 12 }} stroke="var(--color-muted-foreground)" />
-            <Tooltip contentStyle={{ background: 'var(--color-card)', border: '1px solid var(--color-border)', borderRadius: '8px', fontSize: '12px' }} />
-            <Legend wrapperStyle={{ fontSize: '12px' }} />
-            <Bar dataKey={yKey} fill={COLORS[0]} radius={[4, 4, 0, 0]} name={config.agg_type === 'SUM' ? `Tổng ${yKey}` : `Số lượng`} isAnimationActive={false} />
+            <XAxis dataKey={xKey} label={xAxisLabel(xKey)} tick={{ fontSize: 12 }} stroke="var(--color-muted-foreground)" />
+            <YAxis label={yAxisLabel(seriesName)} tick={{ fontSize: 12 }} stroke="var(--color-muted-foreground)" />
+            <Tooltip content={<SeriesTooltip />} />
+            <Legend verticalAlign="top" align="right" iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '12px', paddingBottom: 8 }} />
+            <Bar dataKey={yKey} fill={COLORS[0]} radius={[4, 4, 0, 0]} name={seriesName} isAnimationActive={false} />
           </BarChart>
         </ResponsiveContainer>
       )
     case 'LINE':
       return (
         <ResponsiveContainer width="100%" height="100%">
-          <LineChart data={data} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+          <LineChart data={data} margin={{ top: 5, right: 20, bottom: 30, left: 14 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-            <XAxis dataKey={xKey} tick={{ fontSize: 12 }} stroke="var(--color-muted-foreground)" />
-            <YAxis tick={{ fontSize: 12 }} stroke="var(--color-muted-foreground)" />
-            <Tooltip contentStyle={{ background: 'var(--color-card)', border: '1px solid var(--color-border)', borderRadius: '8px', fontSize: '12px' }} />
-            <Legend wrapperStyle={{ fontSize: '12px' }} />
-            <Line type="monotone" dataKey={yKey} stroke={COLORS[0]} strokeWidth={3} dot={{ r: 4 }} name={config.agg_type === 'SUM' ? `Tổng ${yKey}` : `Số lượng`} isAnimationActive={false} />
+            <XAxis dataKey={xKey} label={xAxisLabel(xKey)} tick={{ fontSize: 12 }} stroke="var(--color-muted-foreground)" />
+            <YAxis label={yAxisLabel(seriesName)} tick={{ fontSize: 12 }} stroke="var(--color-muted-foreground)" />
+            <Tooltip content={<SeriesTooltip />} />
+            <Legend verticalAlign="top" align="right" iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '12px', paddingBottom: 8 }} />
+            <Line type="monotone" dataKey={yKey} stroke={COLORS[0]} strokeWidth={3} dot={{ r: 4 }} name={seriesName} isAnimationActive={false} />
           </LineChart>
         </ResponsiveContainer>
       )
@@ -238,13 +243,13 @@ const ChartRenderer = memo(({ widget, rawData, allColumns, users }: { widget: Re
     case 'AREA':
       return (
         <ResponsiveContainer width="100%" height="100%">
-          <AreaChart data={data} margin={{ top: 5, right: 20, bottom: 5, left: 0 }}>
+          <AreaChart data={data} margin={{ top: 5, right: 20, bottom: 30, left: 14 }}>
             <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" />
-            <XAxis dataKey={xKey} tick={{ fontSize: 12 }} stroke="var(--color-muted-foreground)" />
-            <YAxis tick={{ fontSize: 12 }} stroke="var(--color-muted-foreground)" />
-            <Tooltip contentStyle={{ background: 'var(--color-card)', border: '1px solid var(--color-border)', borderRadius: '8px', fontSize: '12px' }} />
-            <Legend wrapperStyle={{ fontSize: '12px' }} />
-            <Area type="monotone" dataKey={yKey} stroke={COLORS[0]} fill={COLORS[0]} fillOpacity={0.2} name={config.agg_type === 'SUM' ? `Tổng ${yKey}` : `Số lượng`} isAnimationActive={false} />
+            <XAxis dataKey={xKey} label={xAxisLabel(xKey)} tick={{ fontSize: 12 }} stroke="var(--color-muted-foreground)" />
+            <YAxis label={yAxisLabel(seriesName)} tick={{ fontSize: 12 }} stroke="var(--color-muted-foreground)" />
+            <Tooltip content={<SeriesTooltip />} />
+            <Legend verticalAlign="top" align="right" iconType="circle" iconSize={8} wrapperStyle={{ fontSize: '12px', paddingBottom: 8 }} />
+            <Area type="monotone" dataKey={yKey} stroke={COLORS[0]} fill={COLORS[0]} fillOpacity={0.2} name={seriesName} isAnimationActive={false} />
           </AreaChart>
         </ResponsiveContainer>
       )

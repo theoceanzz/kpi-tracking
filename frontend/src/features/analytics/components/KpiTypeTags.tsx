@@ -37,7 +37,7 @@ export function KpiTypeTags({
   const tags: Tag[] = []
 
   if (isQualitative) {
-    tags.push({ label: 'KPI định tính', className: 'bg-violet-50 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400' })
+    tags.push({ label: 'KPI định tính', className: 'bg-indigo-50 dark:bg-indigo-900/30 text-[var(--color-primary)] dark:text-indigo-400' })
   }
   if (isBonusKpi) {
     tags.push({ label: 'KPI thưởng', className: 'bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400' })
@@ -46,7 +46,7 @@ export function KpiTypeTags({
     tags.push({ label: 'KPI ngược', className: 'bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400' })
   }
   if (childRelationType === 'DECOMPOSITION') {
-    tags.push({ label: 'KPI cha', className: 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400' })
+    tags.push({ label: 'KPI cha', className: 'bg-indigo-50 dark:bg-indigo-900/30 text-[var(--color-primary)] dark:text-indigo-400' })
   } else if (childRelationType === 'DELEGATION') {
     tags.push({ label: 'KPI thác nước', className: 'bg-cyan-50 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400' })
   }
@@ -72,7 +72,7 @@ export function KpiTypeTags({
       {uniqueTags.map((t) => (
         <span
           key={t.label}
-          className={cn('inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black uppercase', t.className)}
+          className={cn('inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold', t.className)}
         >
           {t.label}
         </span>

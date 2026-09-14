@@ -31,7 +31,7 @@ function RoleTooltip({ active, payload, label }: {
     <ChartTooltip
       title={label}
       rows={rows}
-      footer={<>Tổng <span className="font-bold text-slate-600 dark:text-slate-300 tabular-nums">{total}</span> người</>}
+      footer={<>Tổng <span className="font-semibold text-slate-600 dark:text-slate-300 tabular-nums">{total}</span> người</>}
     />
   )
 }
@@ -54,7 +54,7 @@ function RoleSegment(props: any) {
       <path d={d} fill={fill} />
       {isLast && (
         <text x={right + 8} y={y + height / 2} dominantBaseline="central"
-          className="fill-slate-500 dark:fill-slate-300 text-[11px] font-bold">
+          className="fill-slate-500 dark:fill-slate-300 text-xs font-semibold">
           {payload.__total}
         </text>
       )}
@@ -103,8 +103,8 @@ export default function MemberRoleChart({ data }: { data?: RoleDist[] }) {
       <div className="flex-1 min-h-0">
         <ResponsiveContainer width="100%" height="100%" minHeight={0}>
           <BarChart data={chartData} layout="vertical" margin={{ top: 4, right: 48, left: 8, bottom: 24 }}>
-            <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
-            <XAxis type="number" label={xAxisLabel('S\u1ed1 ng\u01b0\u1eddi')} allowDecimals={false} axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#64748b' }} />
+            <CartesianGrid stroke="var(--color-border)" horizontal={false} />
+            <XAxis type="number" label={xAxisLabel('S\u1ed1 ng\u01b0\u1eddi')} allowDecimals={false} axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} />
             <YAxis dataKey="unitName" type="category" axisLine={false} tickLine={false} width={130}
               tick={{ fontSize: 11, fontWeight: 700, fill: '#64748b' }} />
             <Tooltip content={<RoleTooltip />} cursor={{ fill: '#94a3b8', opacity: 0.06 }} />
@@ -119,8 +119,8 @@ export default function MemberRoleChart({ data }: { data?: RoleDist[] }) {
 
       {/* Tổng + chú thích */}
       <div className="mt-2 pt-2 border-t border-slate-100 dark:border-slate-800 text-center">
-        <span className="text-[11px] font-bold">Tổng: <span className="text-slate-900 dark:text-white">{total}</span> người</span>
-        <p className="text-[10px] text-slate-400 mt-0.5">Đơn vị hiện tại gồm toàn bộ nhân sự (kể cả đơn vị con) · mỗi người tính theo vai trò ở đơn vị sâu nhất</p>
+        <span className="text-xs font-semibold">Tổng: <span className="text-slate-900 dark:text-white">{total}</span> người</span>
+        <p className="text-xs text-slate-400 mt-0.5">Đơn vị hiện tại gồm toàn bộ nhân sự (kể cả đơn vị con) · mỗi người tính theo vai trò ở đơn vị sâu nhất</p>
       </div>
     </div>
   )

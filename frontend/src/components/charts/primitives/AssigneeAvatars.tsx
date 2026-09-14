@@ -21,7 +21,7 @@ export function AssigneeAvatar({ name, url }: { name: string; url?: string | nul
     return (
       <span
         title={name}
-        className={`${base} bg-slate-200 dark:bg-slate-700 text-[10px] font-black text-slate-600 dark:text-slate-200 flex items-center justify-center`}
+        className={`${base} bg-slate-200 dark:bg-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-200 flex items-center justify-center`}
       >
         {name.trim().charAt(0).toUpperCase() || '?'}
       </span>
@@ -51,13 +51,13 @@ export function AssigneeAvatars({ people, label = 'Đảm nhiệm:' }: {
           </span>
         ))}
         {people.length > MAX_AVATARS && (
-          <span className="ml-1.5 text-xs font-bold text-slate-500 tabular-nums">
+          <span className="ml-1.5 text-xs font-medium text-slate-500 tabular-nums">
             +{people.length - MAX_AVATARS}
           </span>
         )}
       </span>
       {people.length === 1 && (
-        <span className="text-xs font-bold text-slate-700 dark:text-slate-200 truncate">
+        <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 truncate">
           {people[0]!.fullName}
         </span>
       )}

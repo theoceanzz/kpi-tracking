@@ -45,7 +45,7 @@ function UnitBarTooltip({ active, payload, perf }: any) {
 /** Legend gọn, tự xuống dòng (responsive) — gồm cả trễ hạn / không nộp (chỉ hiện trong tooltip). */
 function UnitChartLegend() {
   return (
-    <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 px-2 text-[11px] font-bold text-slate-600 dark:text-slate-300">
+    <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 px-2 text-xs font-semibold text-slate-600 dark:text-slate-300">
       {UNIT_CHART_KEYS.map((k) => (
         <span key={k.label} className="flex items-center gap-1.5 whitespace-nowrap">
           <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: k.color }} />
@@ -83,7 +83,7 @@ function TopNSelect({ value, onChange }: { value: 'ALL' | '5' | '10'; onChange: 
   return (
     <Select value={value} onValueChange={v => onChange(v as 'ALL' | '5' | '10')}>
       <SelectTrigger
-        className="h-8 w-auto gap-1 px-2 bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-lg text-[11px] font-semibold text-slate-600 dark:text-slate-300"
+        className="h-8 w-auto gap-1 px-2 bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-lg text-xs font-semibold text-slate-600 dark:text-slate-300"
         title="Số đơn vị hiển thị"
       >
         <SelectValue />
@@ -102,11 +102,26 @@ function TopNSelect({ value, onChange }: { value: 'ALL' | '5' | '10'; onChange: 
  * Trễ hạn / Không nộp) + BEST/WORST + Top-N. Tự fetch qua unit-comparison.
  * Dùng chung cho SummaryTab (bọc ChartWrapper) và SubordinateManagementTab (bọc card).
  */
-export default function UnitComparisonBarChart({ orgUnitId, from, to, onlyApproved, periodId, periodIdTo }: {
+export type RankSide = 'BEST' | 'WORST'
+export type TopN = 'ALL' | '5' | '10'
+
+export default function UnitComparisonBarChart({
+  orgUnitId, from, to, onlyApproved, periodId, periodIdTo,
+  rank, topN: topNProp, hideControls, meta,
+}: {
   orgUnitId?: string; from?: string; to?: string; onlyApproved?: boolean; periodId?: string; periodIdTo?: string
+  /** Do bảng cấu hình của ô điều khiển. Bỏ trống thì component tự giữ (thẻ trang chủ). */
+  rank?: RankSide
+  topN?: TopN
+  /** Ẩn cụm nút tại chỗ khi việc chọn đã nằm trong bảng cấu hình. */
+  hideControls?: boolean
+  /** Dòng tóm tắt cấu hình do lưới cấp. */
+  meta?: React.ReactNode
 }) {
-  const [filter, setFilter] = useState<'BEST' | 'WORST'>('BEST')
-  const [topN, setTopN] = useState<'ALL' | '5' | '10'>('ALL')
+  const [localFilter, setFilter] = useState<RankSide>('BEST')
+  const [localTopN, setTopN] = useState<TopN>('ALL')
+  const filter = rank ?? localFilter
+  const topN = topNProp ?? localTopN
   const { data } = useSummaryComparison(orgUnitId, from, to, onlyApproved, periodId, periodIdTo)
   const perf = usePerformanceScale()
 
@@ -129,10 +144,17 @@ export default function UnitComparisonBarChart({ orgUnitId, from, to, onlyApprov
 
   return (
     <div className="relative flex-1 flex flex-col min-h-0">
-      <div className="flex items-center justify-end gap-2 mb-2">
-        <RankFilterToggle filter={filter} onChange={setFilter} />
-        <TopNSelect value={topN} onChange={setTopN} />
-      </div>
+      {(meta || !hideControls) && (
+        <div className="flex items-center justify-between gap-2 mb-2">
+          <div className="min-w-0">{meta}</div>
+          {!hideControls && (
+            <div className="flex items-center gap-2 shrink-0">
+              <RankFilterToggle filter={filter} onChange={setFilter} />
+              <TopNSelect value={topN} onChange={setTopN} />
+            </div>
+          )}
+        </div>
+      )}
       {chartData.length === 0 ? (
         <div className="flex-1 flex items-center justify-center text-slate-400 text-sm">Không có dữ liệu</div>
       ) : (
@@ -140,13 +162,13 @@ export default function UnitComparisonBarChart({ orgUnitId, from, to, onlyApprov
           <ResponsiveContainer width="100%" height="100%" minHeight={0}>
             <BarChart data={chartData} barGap={0} barCategoryGap="20%"
               margin={{ top: 8, right: 12, left: 0, bottom: 24 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" strokeOpacity={0.8} />
+              <CartesianGrid stroke="var(--color-border)" vertical={false} />
               <XAxis dataKey="displayName" type="category" interval={0} height={50}
                 tick={{ fontSize: 11, fontWeight: 600, fill: '#64748b' }} tickMargin={8}
                 angle={chartData.length > 4 ? -25 : 0} textAnchor={chartData.length > 4 ? 'end' : 'middle'}
                 axisLine={false} tickLine={false} />
               <YAxis yAxisId="pct" type="number" label={yAxisLabel('T\u1ec9 l\u1ec7 (%)')} domain={[0, 100]} tickFormatter={v => `${v}%`} width={38}
-                tick={{ fontSize: 10, fill: '#64748b' }} axisLine={false} tickLine={false} />
+                tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
               {/* Trục ẩn thang điểm cho cột Hiệu suất khi org dùng matrix (để cột không bị dí thấp). */}
               {perf.isMatrix && <YAxis yAxisId="perf" type="number" domain={[0, perf.axisMax]} hide />}
               <Tooltip content={<UnitBarTooltip perf={perf} />} cursor={{ fill: '#94a3b8', opacity: 0.06 }} />

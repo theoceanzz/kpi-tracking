@@ -28,7 +28,8 @@ export default function App() {
         closeButton
         duration={4000}
         toastOptions={{
-          style: { fontFamily: 'Inter, sans-serif' },
+          // Theo phông của body (Be Vietnam Pro) thay vì ghim cứng Inter.
+          style: { fontFamily: 'inherit' },
         }}
       />
     </QueryClientProvider>

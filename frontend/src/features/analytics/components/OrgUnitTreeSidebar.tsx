@@ -95,11 +95,11 @@ export default function OrgUnitTreeSidebar({ nodes, selectedId, onSelect, onAfte
             {hasKids ? (open ? <ChevronDown size={14} /> : <ChevronRight size={14} />) : <span className="inline-block w-[14px]" />}
           </button>
           <button onClick={() => pick(n.id)} className="flex-1 min-w-0 flex items-center gap-2 py-1.5 text-left">
-            <span className={cn('truncate text-[13px] font-bold',
+            <span className={cn('truncate text-[13px] font-semibold',
               isSel ? 'text-indigo-700 dark:text-indigo-300' : 'text-slate-700 dark:text-slate-200')}>{n.name}</span>
             {n.memberCount != null && (
               <span
-                className="ml-auto shrink-0 text-[10px] font-bold text-slate-400 flex items-center gap-0.5"
+                className="ml-auto shrink-0 text-xs font-medium text-slate-400 flex items-center gap-0.5"
                 title="Tổng số nhân sự (gồm cả đơn vị con)"
               >
                 <Users size={10} />{rollup.get(n.id) ?? n.memberCount}
@@ -115,7 +115,7 @@ export default function OrgUnitTreeSidebar({ nodes, selectedId, onSelect, onAfte
   return (
     <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm flex flex-col overflow-hidden h-full">
       <div className="p-3 border-b border-slate-100 dark:border-slate-800 shrink-0">
-        <h3 className="text-[10px] font-black uppercase tracking-widest text-slate-400 flex items-center gap-1.5 mb-2">
+        <h3 className="text-xs font-medium text-slate-400 flex items-center gap-1.5 mb-2">
           <Building2 size={12} /> Sơ đồ đơn vị
         </h3>
         <div className="relative">
@@ -123,7 +123,7 @@ export default function OrgUnitTreeSidebar({ nodes, selectedId, onSelect, onAfte
             value={query}
             onChange={e => setQuery(e.target.value)}
             placeholder="Tìm đơn vị..."
-            className="w-full pl-8 pr-3 py-1.5 bg-slate-50 dark:bg-slate-800 rounded-lg text-xs font-semibold focus:ring-2 focus:ring-indigo-500 border-none outline-none"
+            className="w-full pl-8 pr-3 py-1.5 bg-slate-50 dark:bg-slate-800 rounded-lg text-xs font-semibold focus:ring-2 focus:ring-[var(--color-primary)] border-none outline-none"
           />
           <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
         </div>

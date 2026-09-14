@@ -34,11 +34,11 @@ export default function AnalyticsTabSkeleton({ variant = 'default', className }:
           <div className="h-[320px] bg-[var(--color-muted)] rounded-2xl" />
 
           {/* Table */}
-          <div className="rounded-3xl overflow-hidden">
+          <div className="rounded-2xl overflow-hidden">
             <div className="h-14 bg-[var(--color-muted)]" />
             <div className="p-4 space-y-3">
               {[1, 2, 3].map(i => (
-                <div key={i} className="h-12 bg-[var(--color-muted)] rounded-xl opacity-60" />
+                <div key={i} className="h-12 bg-[var(--color-muted)] rounded-lg opacity-60" />
               ))}
             </div>
           </div>

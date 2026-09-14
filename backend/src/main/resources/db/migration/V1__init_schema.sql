@@ -2238,18 +2238,26 @@ CREATE INDEX idx_ai_quota_allocated_by ON ai_token_quotas (allocated_by)
 -- DEPUTY tách khỏi HEAD: phó đơn vị có bộ widget riêng (phạm vi hẹp theo mảng phụ trách,
 -- phần lớn là theo dõi thay vì hành động). Dùng chung scope HEAD thì hai người đổi bố cục
 -- của nhau.
+-- `scope` là "khu vực lưới nào", không chỉ là vai trò: trang chủ (DIRECTOR/HEAD/DEPUTY/STAFF) và
+-- các tab Thống kê (ANALYTICS_*) dùng chung lưới kéo thả này. Không liệt kê giá trị trong CHECK
+-- vì mỗi khu vực lưới mới sẽ lại cần migration, trong khi enum `DashboardScope` phía Java đã chặn
+-- giá trị lạ ngay ở bước deserialize; ràng buộc ở đây chỉ chặn rác: đúng dạng CHỮ_HOA_GẠCH_DƯỚI.
 CREATE TABLE user_dashboard_layouts (
     id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     user_id    UUID        NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-    scope      VARCHAR(20) NOT NULL CHECK (scope IN ('DIRECTOR', 'HEAD', 'DEPUTY', 'STAFF')),
-    -- Mảng [{i, x, y, w, h, visible}] — server lưu nguyên văn, frontend tự lọc id lạ khi hydrate
+    scope      VARCHAR(40) NOT NULL,
+    -- Mảng [{i, x, y, w, h, visible, s?}] — server lưu nguyên văn, frontend tự lọc id lạ khi hydrate
     layout     JSONB       NOT NULL DEFAULT '[]',
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW(),
-    CONSTRAINT uq_user_dashboard_layout UNIQUE (user_id, scope)
+    CONSTRAINT uq_user_dashboard_layout UNIQUE (user_id, scope),
+    CONSTRAINT user_dashboard_layouts_scope_format CHECK (scope ~ '^[A-Z][A-Z_]*$')
 );
 
 CREATE INDEX idx_user_dashboard_layouts_user ON user_dashboard_layouts (user_id);
+
+COMMENT ON COLUMN user_dashboard_layouts.scope IS
+    'Khu vực lưới sở hữu bố cục này: vai trò ở trang chủ (DIRECTOR/HEAD/DEPUTY/STAFF) hoặc một tab Thống kê (ANALYTICS_*). Giá trị hợp lệ do enum DashboardScope quyết định.';
 
 
 -- ====================================================

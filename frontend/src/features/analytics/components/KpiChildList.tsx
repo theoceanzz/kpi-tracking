@@ -80,7 +80,7 @@ export function toChildNodes(children?: DetailLike[] | null): KpiChildNode[] {
 function PerfDonut({ value }: { value: number }) {
   const v = Math.round(value)
   const color =
-    v >= 100 ? 'text-emerald-500' : v >= 80 ? 'text-indigo-500' : v >= 50 ? 'text-amber-500' : 'text-red-500'
+    v >= 100 ? 'text-emerald-500' : v >= 80 ? 'text-[var(--color-primary)]' : v >= 50 ? 'text-amber-500' : 'text-red-500'
   return (
     <div className="inline-flex relative items-center justify-center w-11 h-11">
       <svg className="w-11 h-11 transform -rotate-90">
@@ -98,7 +98,7 @@ function PerfDonut({ value }: { value: number }) {
           cy="22"
         />
       </svg>
-      <span className="absolute text-[10px] font-black">{v}%</span>
+      <span className="absolute text-xs font-semibold">{v}%</span>
     </div>
   )
 }
@@ -112,9 +112,9 @@ function KpiChildRow({ node, depth, onSelect }: { node: KpiChildNode; depth: num
   const perf = Math.round(node.performance ?? 0)
 
   return (
-    <div className="rounded-xl border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900/40">
+    <div className="rounded-lg border border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900/40">
       <div
-        className={cn('flex items-center gap-4 px-4 py-3', onSelect && 'cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/40 rounded-xl transition-colors')}
+        className={cn('flex items-center gap-4 px-4 py-3', onSelect && 'cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/40 rounded-lg transition-colors')}
         style={{ paddingLeft: 16 + depth * 16 }}
         onClick={onSelect ? () => onSelect(node.id) : undefined}
       >
@@ -132,7 +132,7 @@ function KpiChildRow({ node, depth, onSelect }: { node: KpiChildNode; depth: num
         {/* Tên + tag + trọng số */}
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
-            <span className="text-sm font-bold text-slate-800 dark:text-slate-100 truncate max-w-[220px]">{node.name}</span>
+            <span className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate max-w-[220px]">{node.name}</span>
             <KpiTypeTags
               isReverseKpi={node.isReverseKpi}
               isBonusKpi={node.isBonusKpi}
@@ -145,14 +145,14 @@ function KpiChildRow({ node, depth, onSelect }: { node: KpiChildNode; depth: num
         </div>
 
         {/* Người đảm nhiệm (cột giữa, căn như cột đơn vị/người của KPI cha) */}
-        <div className="hidden lg:flex w-44 shrink-0 items-center gap-1 text-[12px] font-semibold text-slate-600 dark:text-slate-300">
+        <div className="hidden lg:flex w-44 shrink-0 items-center gap-1 text-xs font-semibold text-slate-600 dark:text-slate-300">
           {node.assigneeName ? (
             <>
               <User size={12} className="shrink-0 text-slate-400" />
               <span className="truncate">{node.assigneeName}</span>
             </>
           ) : (
-            <span className="text-slate-300 dark:text-slate-600">—</span>
+            <span className="text-slate-300 dark:text-slate-600">-</span>
           )}
         </div>
 
@@ -166,7 +166,7 @@ function KpiChildRow({ node, depth, onSelect }: { node: KpiChildNode; depth: num
           {isQual ? (
             <QualitativeResultChip level={node.qualitativeLevelName} />
           ) : isBonus ? (
-            <span className="text-slate-400 text-xs font-black">—</span>
+            <span className="text-slate-400 text-xs font-medium">-</span>
           ) : (
             <>
               <div className="flex items-center gap-2">
@@ -176,10 +176,10 @@ function KpiChildRow({ node, depth, onSelect }: { node: KpiChildNode; depth: num
                     style={{ width: `${Math.min(pct, 100)}%` }}
                   />
                 </div>
-                <span className="text-[11px] font-black w-10 text-right">{pct}%</span>
+                <span className="text-xs font-semibold w-10 text-right">{pct}%</span>
               </div>
               {node.targetValue != null && (
-                <div className="text-[10px] text-slate-400 mt-1">
+                <div className="text-xs text-slate-400 mt-1">
                   {(node.actualValue ?? 0).toLocaleString('vi-VN')} / {node.targetValue.toLocaleString('vi-VN')} {node.unit ?? ''}
                 </div>
               )}
@@ -189,7 +189,7 @@ function KpiChildRow({ node, depth, onSelect }: { node: KpiChildNode; depth: num
 
         {/* Hiệu suất (donut giống cha) */}
         <div className="w-12 shrink-0 flex justify-center">
-          {isBonus || isQual ? <span className="text-slate-400 text-xs font-black">—</span> : <PerfDonut value={perf} />}
+          {isBonus || isQual ? <span className="text-slate-400 text-xs font-medium">-</span> : <PerfDonut value={perf} />}
         </div>
       </div>
 
@@ -221,7 +221,7 @@ export function KpiChildList({
   if (!nodes || nodes.length === 0) return null
   return (
     <div className="w-full space-y-2">
-      <h4 className="text-xs font-black uppercase tracking-wider text-slate-500">{heading}</h4>
+      <h4 className="text-xs font-medium text-slate-500">{heading}</h4>
       <div className="flex flex-col gap-2">
         {nodes.map((n) => (
           <KpiChildRow key={n.id} node={n} depth={0} onSelect={onSelect} />

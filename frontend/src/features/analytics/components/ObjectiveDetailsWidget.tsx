@@ -24,6 +24,14 @@ interface Props {
   onlyApproved?: boolean
   periodId?: string
   periodIdTo?: string
+  /** Chế độ biểu đồ/bảng do lưới điều khiển; bỏ trống thì component tự nhớ bằng localStorage. */
+  viewControl?: { value?: 'chart' | 'table'; onChange?: (v: 'chart' | 'table') => void }
+  /** Đơn vị do bảng cấu hình của ô chọn. Bỏ trống thì component tự giữ (thẻ trang chủ). */
+  orgUnitId?: string
+  /** Ẩn nút biểu đồ/bảng và ô chọn đơn vị tại chỗ khi việc chọn đã nằm trong bảng cấu hình. */
+  hideControls?: boolean
+  /** Dòng tóm tắt cấu hình do lưới cấp. */
+  meta?: React.ReactNode
 }
 
 function flattenOrgUnits(units: OrgUnitFilterDto[]): OrgUnitFilterDto[] {
@@ -45,7 +53,7 @@ function depthPrefix(depth: number): string {
   return '  '.repeat(depth) + '- '
 }
 
-export default function ObjectiveDetailsWidget({ dateRange, onlyApproved = false, periodId, periodIdTo }: Props) {
+export default function ObjectiveDetailsWidget({ dateRange, onlyApproved = false, periodId, periodIdTo, viewControl, orgUnitId: orgUnitProp, hideControls, meta }: Props) {
   const [drawerState, setDrawerState] = useState<{
     isOpen: boolean;
     type: 'OBJECTIVE' | 'KR' | 'KPI';
@@ -54,9 +62,10 @@ export default function ObjectiveDetailsWidget({ dateRange, onlyApproved = false
 
   const [sortBy, setSortBy] = useState<'progress' | 'period'>('period')
   const [sortDir, setSortDir] = useState<'asc' | 'desc'>('desc')
-  const [orgUnitId, setOrgUnitId] = useState<string>('')
+  const [localOrgUnitId, setOrgUnitId] = useState<string>('')
+  const orgUnitId = orgUnitProp ?? localOrgUnitId
   const [page, setPage] = useState(0)
-  const { view, setView } = useChartTableView('sub-detail')
+  const { view, setView } = useChartTableView('sub-detail', 'chart', viewControl)
 
   const PAGE_SIZE = 10
   // Chế độ biểu đồ lấy trọn danh sách; chạm trần thì báo rõ chứ không cắt cụt im lặng.
@@ -166,27 +175,29 @@ export default function ObjectiveDetailsWidget({ dateRange, onlyApproved = false
       <div>
         <div className="flex items-center gap-2 mb-1">
           <div className="p-1.5 bg-indigo-100 dark:bg-indigo-500/20 rounded-lg">
-            <LayoutList className="w-5 h-5 text-indigo-600 dark:text-indigo-400" />
+            <LayoutList className="w-5 h-5 text-[var(--color-primary)] dark:text-indigo-400" />
           </div>
-          <h2 className="text-xl font-bold text-slate-900 dark:text-white tracking-tight">Chi tiết Mục tiêu</h2>
+          <h2 className="text-xl font-semibold text-slate-900 dark:text-white">Chi tiết Mục tiêu</h2>
         </div>
         <p className="text-sm text-slate-500 ml-9">Theo dõi bảng dữ liệu phân cấp mục tiêu</p>
+        {meta && <div className="ml-9 mt-2">{meta}</div>}
       </div>
 
       {/* Card — giãn kín ô widget */}
-      <div className="flex-1 min-h-0 flex flex-col bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+      <div className="flex-1 min-h-0 flex flex-col bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
         {/* Card header */}
         <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0">
-          <h3 className="text-sm font-black text-slate-900 dark:text-white">
+          <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
             {view === 'chart' ? 'Bản đồ trọng số mục tiêu' : 'Bảng dữ liệu phân cấp'}
           </h3>
           <div className="flex items-center gap-2">
-            <span className="text-xs font-bold text-slate-400">{totalElements} mục tiêu</span>
-            <ViewToggleButtons view={view} onChange={setView} />
+            <span className="text-xs font-medium text-slate-400">{totalElements} mục tiêu</span>
+            {!hideControls && <ViewToggleButtons view={view} onChange={setView} />}
           </div>
         </div>
 
-        {/* Filter toolbar */}
+        {/* Filter toolbar — ẩn khi việc chọn đơn vị đã nằm trong bảng cấu hình của ô */}
+        {!hideControls && (
         <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex flex-wrap items-center gap-3 shrink-0">
           <div className="min-w-[220px]">
             <Select value={orgUnitId || ALL_UNITS} onValueChange={handleOrgUnitChange}>
@@ -204,12 +215,13 @@ export default function ObjectiveDetailsWidget({ dateRange, onlyApproved = false
             </Select>
           </div>
         </div>
+        )}
 
         {/* Table — vùng cuộn lấp đầy phần còn lại */}
         {isLoading ? (
           <div className="flex-1 min-h-0 flex items-center justify-center">
             <div className="flex flex-col items-center gap-3">
-              <Loader2 className="w-8 h-8 text-indigo-500 animate-spin" />
+              <Loader2 className="w-8 h-8 text-[var(--color-primary)] animate-spin" />
               <div className="text-sm font-medium text-slate-500">Đang tải chi tiết mục tiêu...</div>
             </div>
           </div>
@@ -226,12 +238,12 @@ export default function ObjectiveDetailsWidget({ dateRange, onlyApproved = false
                     data={treemapLeaves}
                     onSelect={d => { if (d.id) handleRowClick('KR', { id: d.id, name: d.name }) }}
                   />
-                  <p className="text-[11px] text-slate-400 font-medium text-center mt-2">
+                  <p className="text-xs text-slate-400 font-medium text-center mt-2">
                     Mỗi ô là một Key Result, gom theo Mục tiêu · Diện tích = số KPI · Màu = tiến độ · Bấm để mở chi tiết
                   </p>
                   {totalElements > CHART_FETCH_SIZE && (
-                    <p className="text-[11px] text-amber-600 font-bold text-center mt-1">
-                      Có {totalElements} mục tiêu, biểu đồ chỉ vẽ {CHART_FETCH_SIZE} mục đầu — xem đủ ở chế độ bảng.
+                    <p className="text-xs text-amber-600 font-semibold text-center mt-1">
+                      Có {totalElements} mục tiêu, biểu đồ chỉ vẽ {CHART_FETCH_SIZE} mục đầu. Xem đủ ở chế độ bảng.
                     </p>
                   )}
                 </div>

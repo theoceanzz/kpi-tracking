@@ -26,9 +26,9 @@ const ProgressBar = ({ value, subText }: { value: number, subText: string }) => 
             style={{ width: `${Math.min(pct, 100)}%` }}
           />
         </div>
-        <span className="text-xs font-black text-slate-800 dark:text-slate-200">{pct}%</span>
+        <span className="text-xs font-semibold text-slate-800 dark:text-slate-200">{pct}%</span>
       </div>
-      <div className="text-[10px] text-slate-500 font-medium">{subText}</div>
+      <div className="text-xs text-slate-500 font-medium">{subText}</div>
     </div>
   )
 }
@@ -41,7 +41,7 @@ const StatusBadge = ({ status }: { status: string }) => {
   else if (status === 'CHƯA NỘP' || status === 'OVERDUE') bg = 'bg-amber-50 dark:bg-amber-500/10 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-500/20'
   else if (status === 'CHƯA ĐƯỢC GIAO') bg = 'bg-slate-200 dark:bg-slate-800 text-slate-600 dark:text-slate-500 border-slate-300 dark:border-slate-700'
   
-  return <span className={`px-2.5 py-1 rounded-md text-[10px] font-semibold border ${bg} whitespace-nowrap`}>{status}</span>
+  return <span className={`px-2.5 py-1 rounded-md text-xs font-semibold border ${bg} whitespace-nowrap`}>{status}</span>
 }
 
 interface Props {
@@ -60,36 +60,36 @@ function MobileObjectiveCard({ obj, onRowClick }: { obj: ObjectiveDetailedDto; o
     <div className="p-4 border-b border-slate-100 dark:border-slate-800 space-y-3 active:bg-slate-50 dark:active:bg-white/5 transition-colors" onClick={() => onRowClick('OBJECTIVE', obj)}>
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
-          <p className="font-bold text-sm text-slate-900 dark:text-white leading-tight">{obj.name}</p>
+          <p className="font-semibold text-sm text-slate-900 dark:text-white leading-tight">{obj.name}</p>
           <div className="flex items-center gap-2 mt-1">
-            <span className="text-[11px] text-slate-500 truncate">{obj.unitName}</span>
-            <span className="text-[10px] text-slate-300 dark:text-slate-600">|</span>
-            <span className="text-[10px] font-mono text-slate-400">{obj.unitCode}</span>
+            <span className="text-xs text-slate-500 truncate">{obj.unitName}</span>
+            <span className="text-xs text-slate-300 dark:text-slate-600">|</span>
+            <span className="text-xs font-mono text-slate-400">{obj.unitCode}</span>
           </div>
           <div className="mt-2 inline-flex items-center px-1.5 py-0.5 rounded bg-slate-100 dark:bg-slate-800 border border-slate-200/50 dark:border-slate-700/50">
-            <span className="text-[9px] font-bold text-slate-500 tracking-tight">{obj.code}</span>
+            <span className="text-xs font-medium text-slate-500">{obj.code}</span>
           </div>
         </div>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 text-[11px] text-slate-400 font-medium">
+      <div className="flex flex-wrap items-center gap-2 text-xs text-slate-400 font-medium">
         {(obj.periodCount ?? 0) > 1 ? (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-violet-50 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400 text-[10px] font-black uppercase" title={obj.periodNames?.join(', ')}>
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-900/30 text-[var(--color-primary)] dark:text-indigo-400 text-xs font-semibold" title={obj.periodNames?.join(', ')}>
             <Layers size={11} /> Nhiều đợt ({obj.periodCount})
           </span>
         ) : obj.periodCount === 1 && obj.periodNames?.[0] ? (
-          <span className="font-bold text-slate-600 dark:text-slate-300">{obj.periodNames[0]}</span>
+          <span className="font-semibold text-slate-600 dark:text-slate-300">{obj.periodNames[0]}</span>
         ) : null}
         <span>{formatDate(obj.startDate)}</span>
-        <span className="text-slate-200 dark:text-slate-800">—</span>
+        <span className="text-slate-200 dark:text-slate-800">-</span>
         <span>{formatDate(obj.endDate)}</span>
       </div>
 
       <div className="flex items-center gap-4 pt-1 border-t border-slate-50 dark:border-slate-800/50">
         <div className="flex-1">
           <div className="flex items-center justify-between mb-1">
-            <span className="text-[10px] text-slate-500 uppercase font-black tracking-widest">Tiến độ</span>
-            <span className="text-[11px] font-black">{pct}%</span>
+            <span className="text-xs text-slate-500 font-medium">Tiến độ</span>
+            <span className="text-xs font-semibold">{pct}%</span>
           </div>
           <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden shadow-inner">
             <div className={cn('h-full rounded-full shadow-sm', pct >= 100 ? 'bg-emerald-500' : 'bg-indigo-500')} style={{ width: `${Math.min(pct, 100)}%` }} />
@@ -126,14 +126,14 @@ export default function ObjectiveDetailedTable({ data, onRowClick, sortBy, sortD
   const formatDate = (d: string | null) => d ? format(new Date(d), 'dd/MM/yyyy') : '---'
 
 const DateRange = ({ start, end }: { start: string | null; end: string | null }) => (
-  <div className="inline-flex flex-col gap-1 text-[11px]">
+  <div className="inline-flex flex-col gap-1 text-xs">
     <div className="flex items-center gap-1.5">
-      <span className="font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider w-[26px] shrink-0">Từ</span>
+      <span className="font-medium text-slate-400 dark:text-slate-500 w-[26px] shrink-0">Từ</span>
       <span className="font-semibold text-slate-700 dark:text-slate-300 tabular-nums">{formatDate(start)}</span>
     </div>
     <div className="w-full h-px bg-slate-100 dark:bg-slate-800" />
     <div className="flex items-center gap-1.5">
-      <span className="font-bold text-indigo-400 dark:text-indigo-500 uppercase tracking-wider w-[26px] shrink-0">Đến</span>
+      <span className="font-semibold text-indigo-400 dark:text-[var(--color-primary)] w-[26px] shrink-0">Đến</span>
       <span className="font-semibold text-slate-700 dark:text-slate-300 tabular-nums">{formatDate(end)}</span>
     </div>
   </div>
@@ -154,7 +154,7 @@ const ObjectivePeriodCell = ({ periodCount, periodNames, start, end }: {
   if ((periodCount ?? 0) > 1) {
     return (
       <div className="flex flex-col gap-1.5" title={periodNames?.join(', ')}>
-        <span className="inline-flex w-fit items-center gap-1 px-2 py-0.5 rounded-full bg-violet-50 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400 text-[10px] font-black uppercase">
+        <span className="inline-flex w-fit items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-900/30 text-[var(--color-primary)] dark:text-indigo-400 text-xs font-semibold">
           <Layers size={11} /> Nhiều đợt ({periodCount})
         </span>
         <DateRange start={start} end={end} />
@@ -181,16 +181,16 @@ const ObjectivePeriodCell = ({ periodCount, periodNames, start, end }: {
       <div className="hidden md:block overflow-x-auto custom-scrollbar">
         <table className="w-full text-sm text-left whitespace-nowrap">
           <thead className="bg-slate-50 dark:bg-slate-800/50">
-            <tr className="text-xs font-black uppercase text-slate-500">
+            <tr className="text-xs font-medium text-slate-500">
               <th className="px-6 py-4 w-[30%]">Tên Mục tiêu / Yếu tố</th>
               <th className="px-6 py-4 w-[20%]">Đơn vị / Người đảm nhiệm</th>
               <th className="px-6 py-4 w-[15%]" title="Sắp theo thời gian bắt đầu">
-                <SortHeader field="period" active={sortBy} dir={sortDir} onToggle={onToggleSort} className="uppercase">
+                <SortHeader field="period" active={sortBy} dir={sortDir} onToggle={onToggleSort} className="">
                   Đợt
                 </SortHeader>
               </th>
               <th className="px-6 py-4 w-[25%]">
-                <SortHeader field="progress" active={sortBy} dir={sortDir} onToggle={onToggleSort} className="uppercase">
+                <SortHeader field="progress" active={sortBy} dir={sortDir} onToggle={onToggleSort} className="">
                   Tiến độ
                 </SortHeader>
               </th>
@@ -215,14 +215,14 @@ const ObjectivePeriodCell = ({ periodCount, periodNames, start, end }: {
                       {isObjExp ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                     </button>
                     <div>
-                      <div className="font-bold text-slate-900 dark:text-slate-200 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors leading-tight mb-1.5">{obj.name}</div>
-                      <div className="text-[11px] font-mono text-slate-500 bg-slate-100 dark:bg-slate-800/50 inline-block px-1.5 rounded">{obj.code}</div>
+                      <div className="font-semibold text-slate-900 dark:text-slate-200 group-hover:text-[var(--color-primary)] dark:group-hover:text-indigo-400 transition-colors leading-tight mb-1.5">{obj.name}</div>
+                      <div className="text-xs font-mono text-slate-500 bg-slate-100 dark:bg-slate-800/50 inline-block px-1.5 rounded">{obj.code}</div>
                     </div>
                   </div>
                 </td>
                 <td className="px-6 py-4 align-top whitespace-normal">
                   <div className="font-semibold text-slate-800 dark:text-slate-300">{obj.unitName}</div>
-                  <div className="text-[11px] text-slate-500 mt-1">{obj.unitCode}</div>
+                  <div className="text-xs text-slate-500 mt-1">{obj.unitCode}</div>
                 </td>
                 <td className="px-6 py-4 align-middle">
                   <ObjectivePeriodCell periodCount={obj.periodCount} periodNames={obj.periodNames} start={obj.startDate} end={obj.endDate} />
@@ -255,8 +255,8 @@ const ObjectivePeriodCell = ({ periodCount, periodNames, start, end }: {
                           {isKrExp ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
                         </button>
                         <div>
-                          <div className="font-medium text-slate-800 dark:text-slate-300 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors leading-tight mb-1.5">{kr.name}</div>
-                          <div className="text-[10px] font-mono text-slate-500 bg-white dark:bg-slate-800/50 inline-block px-1.5 rounded border border-slate-200 dark:border-transparent">{kr.code}</div>
+                          <div className="font-medium text-slate-800 dark:text-slate-300 group-hover:text-[var(--color-primary)] dark:group-hover:text-indigo-400 transition-colors leading-tight mb-1.5">{kr.name}</div>
+                          <div className="text-xs font-mono text-slate-500 bg-white dark:bg-slate-800/50 inline-block px-1.5 rounded border border-slate-200 dark:border-transparent">{kr.code}</div>
                         </div>
                       </div>
                     </td>
@@ -266,12 +266,12 @@ const ObjectivePeriodCell = ({ periodCount, periodNames, start, end }: {
                           {kr.assignedUnits.map(u => (
                             <span
                               key={u.orgUnitId}
-                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 text-[11px] font-semibold"
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-50 dark:bg-indigo-900/30 text-[var(--color-primary)] dark:text-indigo-400 text-xs font-semibold"
                               title={u.orgUnitCode || u.orgUnitName}
                             >
                               {u.orgUnitName}
                               {u.weightPercentage != null && (
-                                <span className="text-indigo-400 dark:text-indigo-500">· {Math.round(u.weightPercentage)}%</span>
+                                <span className="text-indigo-400 dark:text-[var(--color-primary)]">· {Math.round(u.weightPercentage)}%</span>
                               )}
                             </span>
                           ))}
@@ -279,7 +279,7 @@ const ObjectivePeriodCell = ({ periodCount, periodNames, start, end }: {
                       ) : (
                         <>
                           <div className="font-semibold text-slate-800 dark:text-slate-300">{kr.unitName || '---'}</div>
-                          {kr.unitCode && <div className="text-[11px] text-slate-500 mt-1">{kr.unitCode}</div>}
+                          {kr.unitCode && <div className="text-xs text-slate-500 mt-1">{kr.unitCode}</div>}
                         </>
                       )}
                     </td>
@@ -323,7 +323,7 @@ const ObjectivePeriodCell = ({ periodCount, periodNames, start, end }: {
                                 <div className="w-5 h-5 flex-shrink-0" />
                               )}
                               <div>
-                                <div className="text-[13px] font-medium text-slate-700 dark:text-slate-300 leading-tight mb-1 group-hover:text-indigo-600 dark:group-hover:text-indigo-400 transition-colors">
+                                <div className="text-[13px] font-medium text-slate-700 dark:text-slate-300 leading-tight mb-1 group-hover:text-[var(--color-primary)] dark:group-hover:text-indigo-400 transition-colors">
                                   {kpi.name}
                                 </div>
                                 <div className="flex items-center gap-1.5 flex-wrap">
@@ -341,7 +341,7 @@ const ObjectivePeriodCell = ({ periodCount, periodNames, start, end }: {
                           </td>
                           <td className="px-6 py-4 align-top whitespace-normal">
                             <KpiResponsibleCell assigneeName={kpi.assigneeName} orgUnitName={kpi.unitName} />
-                            {!kpi.assigneeName && kpi.unitCode && <div className="text-[11px] text-slate-500 mt-1">{kpi.unitCode}</div>}
+                            {!kpi.assigneeName && kpi.unitCode && <div className="text-xs text-slate-500 mt-1">{kpi.unitCode}</div>}
                           </td>
                           <td className="px-6 py-4 align-middle">
                             <KpiPeriodCell periodName={kpi.periodName} start={kpi.startDate} end={kpi.endDate} />
@@ -350,12 +350,12 @@ const ObjectivePeriodCell = ({ periodCount, periodNames, start, end }: {
                             {kpi.kpiType === 'QUALITATIVE' ? (
                               <div className="flex flex-col gap-1 min-w-[150px]">
                                 <QualitativeResultChip level={kpi.qualitativeLevelName} className="w-fit" />
-                                <div className="text-[10px] text-slate-500 font-medium">{`${kpi.participants?.length || 0} người tham gia`}</div>
+                                <div className="text-xs text-slate-500 font-medium">{`${kpi.participants?.length || 0} người tham gia`}</div>
                               </div>
                             ) : kpi.progress == null ? (
                               <div className="flex flex-col gap-1 min-w-[150px]">
-                                <span className="inline-flex w-fit items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 text-[10px] font-black uppercase">Thưởng</span>
-                                <div className="text-[10px] text-slate-500 font-medium">{`${kpi.participants?.length || 0} người tham gia`}</div>
+                                <span className="inline-flex w-fit items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 text-xs font-semibold">Thưởng</span>
+                                <div className="text-xs text-slate-500 font-medium">{`${kpi.participants?.length || 0} người tham gia`}</div>
                               </div>
                             ) : (
                               <ProgressBar
@@ -382,7 +382,7 @@ const ObjectivePeriodCell = ({ periodCount, periodNames, start, end }: {
                             <td colSpan={4} className="p-0 border-b-0">
                               <div className="py-5 pr-6 pl-24">
                                 {/* PARTICIPANTS SECTION */}
-                                <div className="text-xs font-bold text-slate-500 dark:text-slate-400 uppercase tracking-widest mb-3 ml-2 flex items-center gap-2">
+                                <div className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-3 ml-2 flex items-center gap-2">
                                   <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 dark:bg-indigo-500"></span>
                                   {kpi.childRelationType === 'DELEGATION' ? 'Người chịu trách nhiệm' : 'Các thành viên đảm nhiệm'}
                                 </div>
@@ -393,7 +393,7 @@ const ObjectivePeriodCell = ({ periodCount, periodNames, start, end }: {
                                     const hasSubmissions = p.submissions && p.submissions.length > 0;
                                     
                                     return (
-                                      <div key={pKey} className="bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden transition-all hover:shadow-md">
+                                      <div key={pKey} className="bg-white dark:bg-slate-800 rounded-lg border border-slate-200 dark:border-slate-700 shadow-sm overflow-hidden transition-all hover:shadow-md">
                                         {/* Participant Header (Card) */}
                                         <div 
                                           className={`p-4 flex items-center justify-between cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-700/50 transition-colors ${isParticipantExp ? 'border-b border-slate-100 dark:border-slate-700/50 bg-slate-50/50 dark:bg-slate-700/30' : ''}`}
@@ -401,7 +401,7 @@ const ObjectivePeriodCell = ({ periodCount, periodNames, start, end }: {
                                         >
                                           <div className="flex items-center gap-4 min-w-[280px]">
                                             {hasSubmissions ? (
-                                              <button className="text-slate-400 hover:text-indigo-500 dark:hover:text-indigo-400 transition-colors p-1 bg-slate-100 dark:bg-slate-700 rounded-md">
+                                              <button className="text-slate-400 hover:text-[var(--color-primary)] dark:hover:text-indigo-400 transition-colors p-1 bg-slate-100 dark:bg-slate-700 rounded-md">
                                                 {isParticipantExp ? <ChevronDown className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
                                               </button>
                                             ) : (
@@ -412,13 +412,13 @@ const ObjectivePeriodCell = ({ periodCount, periodNames, start, end }: {
                                               {p.avatarUrl ? (
                                                 <img src={p.avatarUrl} alt="" className="w-10 h-10 rounded-full object-cover border border-slate-200 dark:border-slate-600 shadow-sm" />
                                               ) : (
-                                                <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-sm font-bold text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-600 shadow-sm">
+                                                <div className="w-10 h-10 rounded-full bg-slate-100 dark:bg-slate-700 flex items-center justify-center text-sm font-medium text-slate-500 dark:text-slate-400 border border-slate-200 dark:border-slate-600 shadow-sm">
                                                   {p.fullName.charAt(0).toUpperCase()}
                                                 </div>
                                               )}
                                               <div>
-                                                <div className="font-bold text-slate-800 dark:text-slate-200 text-sm mb-0.5">{p.fullName}</div>
-                                                {p.employeeCode && <div className="text-[10px] font-mono text-slate-500 bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded inline-block">{p.employeeCode}</div>}
+                                                <div className="font-semibold text-slate-800 dark:text-slate-200 text-sm mb-0.5">{p.fullName}</div>
+                                                {p.employeeCode && <div className="text-xs font-mono text-slate-500 bg-slate-100 dark:bg-slate-700 px-1.5 py-0.5 rounded inline-block">{p.employeeCode}</div>}
                                               </div>
                                             </div>
                                           </div>
@@ -432,16 +432,16 @@ const ObjectivePeriodCell = ({ periodCount, periodNames, start, end }: {
                                             {kpi.kpiType === 'QUALITATIVE' ? (
                                               <div className="flex-1 flex items-center justify-end px-6">
                                                 <div className="flex flex-col items-end gap-1.5">
-                                                  <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">Mức đánh giá</span>
+                                                  <span className="text-xs font-semibold text-slate-500">Mức đánh giá</span>
                                                   <QualitativeResultChip level={p.qualitativeLevelName} />
                                                 </div>
                                               </div>
                                             ) : (
                                             <>
                                             <div className="flex-1 max-w-[320px] px-6">
-                                              <div className="flex justify-between items-center mb-1 text-[11px] font-medium uppercase tracking-wider text-slate-500">
+                                              <div className="flex justify-between items-center mb-1 text-xs font-medium text-slate-500">
                                                 <span>Tiến độ cá nhân</span>
-                                                <span className="font-bold text-slate-700 dark:text-slate-200">{Math.round(p.progress)}%</span>
+                                                <span className="font-semibold text-slate-700 dark:text-slate-200">{Math.round(p.progress)}%</span>
                                               </div>
                                               <div className="h-2.5 w-full bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden border border-slate-200 dark:border-slate-600">
                                                 <div
@@ -452,7 +452,7 @@ const ObjectivePeriodCell = ({ periodCount, periodNames, start, end }: {
                                                   style={{ width: `${Math.min(p.progress, 100)}%` }}
                                                 />
                                               </div>
-                                              <div className={`text-[11px] font-bold mt-1.5 ${
+                                              <div className={`text-xs font-semibold mt-1.5 ${
                                                 p.progress >= 100 ? 'text-emerald-600 dark:text-emerald-400' :
                                                 p.progress >= 50 ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400'
                                               }`}>
@@ -461,8 +461,8 @@ const ObjectivePeriodCell = ({ periodCount, periodNames, start, end }: {
                                             </div>
 
                                             <div className="flex flex-col items-center justify-center ml-8 min-w-[80px]">
-                                              <span className="text-[10px] font-semibold uppercase tracking-wider text-slate-500 mb-1">Hiệu suất</span>
-                                              <span className="text-lg font-bold text-indigo-600 dark:text-indigo-400">{Math.round(p.performance)}%</span>
+                                              <span className="text-xs font-semibold text-slate-500 mb-1">Hiệu suất</span>
+                                              <span className="text-lg font-semibold text-[var(--color-primary)] dark:text-indigo-400">{Math.round(p.performance)}%</span>
                                             </div>
                                             </>
                                             )}
@@ -472,21 +472,21 @@ const ObjectivePeriodCell = ({ periodCount, periodNames, start, end }: {
                                         {/* Participant Submissions */}
                                         {isParticipantExp && hasSubmissions && (
                                           <div className="bg-slate-50/80 dark:bg-slate-800/40 p-4 pt-3 pb-5">
-                                            <div className="text-[10px] font-bold text-slate-400 uppercase tracking-widest mb-3 ml-12">Lịch sử bài nộp</div>
+                                            <div className="text-xs font-medium text-slate-400 mb-3 ml-12">Lịch sử bài nộp</div>
                                             <div className="space-y-2.5 pl-12 pr-4">
                                               {p.submissions!.map(sub => {
                                                 const subProgress = (sub.actualValue / (kpi.targetValue || 1)) * 100;
                                                 return (
                                                   <div key={sub.id} className="flex items-center bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg p-3.5 shadow-sm hover:shadow-md transition-shadow">
                                                     <div className="min-w-[220px] pr-4">
-                                                      <div className="font-bold text-[13px] text-slate-800 dark:text-slate-200 flex items-center gap-2">
+                                                      <div className="font-semibold text-[13px] text-slate-800 dark:text-slate-200 flex items-center gap-2">
                                                         <span className="w-1.5 h-1.5 rounded-full bg-slate-300 dark:bg-slate-600"></span>
                                                         {sub.note || `SUB#${sub.id.substring(0, 4).toUpperCase()}`}
                                                       </div>
                                                     </div>
                                                     
                                                     <div className="min-w-[140px] pr-4">
-                                                      <div className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Thời gian nộp</div>
+                                                      <div className="text-xs font-semibold text-slate-500 mb-1">Thời gian nộp</div>
                                                       <div className="text-xs font-medium text-slate-700 dark:text-slate-300">
                                                         {sub.createdAt ? format(new Date(sub.createdAt), 'HH:mm dd/MM/yyyy') : '---'}
                                                       </div>
@@ -494,15 +494,15 @@ const ObjectivePeriodCell = ({ periodCount, periodNames, start, end }: {
                                                     
                                                     {kpi.kpiType === 'QUALITATIVE' ? (
                                                       <div className="flex-1 px-5 border-x border-slate-100 dark:border-slate-700/50 flex items-center gap-2">
-                                                        <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider">Mức</span>
+                                                        <span className="text-xs font-semibold text-slate-500">Mức</span>
                                                         <QualitativeResultChip level={sub.qualitativeLevelName} />
                                                       </div>
                                                     ) : (
                                                     <>
                                                     <div className="flex-1 px-5 border-x border-slate-100 dark:border-slate-700/50">
-                                                      <div className="flex justify-between items-center text-[11px] font-medium uppercase tracking-wider mb-1 text-slate-500">
+                                                      <div className="flex justify-between items-center text-xs font-medium mb-1 text-slate-500">
                                                         <span>Đóng góp</span>
-                                                        <span className="font-bold text-slate-700 dark:text-slate-200">{subProgress.toFixed(1)}%</span>
+                                                        <span className="font-semibold text-slate-700 dark:text-slate-200">{subProgress.toFixed(1)}%</span>
                                                       </div>
                                                       <div className="h-1.5 w-full bg-slate-100 dark:bg-slate-700 rounded-full overflow-hidden">
                                                         <div
@@ -513,15 +513,15 @@ const ObjectivePeriodCell = ({ periodCount, periodNames, start, end }: {
                                                           style={{ width: `${Math.min(subProgress, 100)}%` }}
                                                         />
                                                       </div>
-                                                      <div className={`text-[10.5px] font-bold mt-1.5 ${
+                                                      <div className={`text-xs font-semibold mt-1.5 ${
                                                         subProgress >= 100 ? 'text-emerald-600 dark:text-emerald-400' :
                                                         subProgress >= 50 ? 'text-amber-600 dark:text-amber-400' : 'text-rose-600 dark:text-rose-400'
                                                       }`}>+{sub.actualValue} {kpi.unit || ''}</div>
                                                     </div>
 
                                                     <div className="min-w-[120px] flex flex-col items-center justify-center px-4">
-                                                      <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider mb-1">Hiệu suất</span>
-                                                      <span className="text-sm font-bold text-indigo-600 dark:text-indigo-400">{subProgress.toFixed(1)}%</span>
+                                                      <span className="text-xs font-semibold text-slate-500 mb-1">Hiệu suất</span>
+                                                      <span className="text-sm font-semibold text-[var(--color-primary)] dark:text-indigo-400">{subProgress.toFixed(1)}%</span>
                                                     </div>
                                                     </>
                                                     )}

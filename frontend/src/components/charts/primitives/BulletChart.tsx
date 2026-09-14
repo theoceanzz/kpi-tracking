@@ -1,5 +1,6 @@
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer, Cell } from 'recharts'
 import { AXIS_COLORS, NEUTRAL_COLOR, ratingColor } from '../chartPalette'
+import { xAxisLabel } from '../axisLabel'
 
 export interface BulletDatum {
   id?: string
@@ -19,6 +20,8 @@ export interface BulletDatum {
 
 interface Props {
   data: BulletDatum[]
+  /** Nhãn trục đại lượng (trục NGANG). Trục dọc là tên KPI nên không gắn nhãn. */
+  valueLabel?: string
   height?: number
   onSelect?: (d: BulletDatum) => void
 }
@@ -42,7 +45,7 @@ function achievement(d: BulletDatum): number {
  *
  * <p>Vạch 100% là mục tiêu; vạch ngưỡng tối thiểu vẽ riêng cho từng dòng nên nằm trong shape.
  */
-export default function BulletChart({ data, height, onSelect }: Props) {
+export default function BulletChart({ data, valueLabel, height, onSelect }: Props) {
   const rows = data.map(d => ({
     ...d,
     pct: achievement(d),
@@ -53,8 +56,8 @@ export default function BulletChart({ data, height, onSelect }: Props) {
 
   return (
     <ResponsiveContainer width="100%" height={chartHeight}>
-      <BarChart data={rows} layout="vertical" margin={{ top: 12, right: 30, left: 8, bottom: 8 }}>
-        <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={AXIS_COLORS.grid} />
+      <BarChart data={rows} layout="vertical" margin={{ top: 12, right: 30, left: 8, bottom: 30 }}>
+        <CartesianGrid stroke="var(--color-border)" horizontal={false} />
         <XAxis
           type="number"
           domain={[0, Math.ceil(Math.min(max * 1.05, 200))]}
@@ -62,6 +65,7 @@ export default function BulletChart({ data, height, onSelect }: Props) {
           tickLine={false}
           tick={{ fill: AXIS_COLORS.tick, fontSize: 11, fontWeight: 500 }}
           tickFormatter={(v: number) => `${v}%`}
+          label={xAxisLabel(valueLabel ?? 'Tiến độ (%)')}
         />
         <YAxis
           type="category"
@@ -76,7 +80,7 @@ export default function BulletChart({ data, height, onSelect }: Props) {
           x={100}
           stroke={NEUTRAL_COLOR}
           strokeDasharray="4 4"
-          label={{ value: 'Mục tiêu', position: 'top', fill: NEUTRAL_COLOR, fontSize: 10, fontWeight: 700 }}
+          label={{ value: 'Mục tiêu', position: 'top', fill: NEUTRAL_COLOR, fontSize: 11, fontWeight: 700 }}
         />
         <Bar
           dataKey="pct"
@@ -112,17 +116,17 @@ function BulletTooltip({ active, payload }: { active?: boolean; payload?: { payl
   const u = d.unit ? ` ${d.unit}` : ''
   const r1 = (v: number) => Math.round(v * 10) / 10
   return (
-    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3.5 rounded-xl shadow-lg">
-      <p className="font-bold text-slate-900 dark:text-white">{d.name}</p>
+    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3.5 rounded-lg shadow-lg">
+      <p className="font-semibold text-slate-900 dark:text-white">{d.name}</p>
       {d.subText && <p className="text-xs text-slate-500 mb-2">{d.subText}</p>}
-      <p className="font-black text-lg tabular-nums mb-2" style={{ color: bandColor(d.pct) }}>
+      <p className="font-semibold text-lg tabular-nums mb-2" style={{ color: bandColor(d.pct) }}>
         {d.pct}% mục tiêu
       </p>
       <div className="space-y-1 text-sm">
         <Row label="Thực tế" value={`${r1(d.actual)}${u}`} />
         <Row label="Mục tiêu" value={`${r1(d.target)}${u}`} />
         {d.minimum != null && <Row label="Ngưỡng tối thiểu" value={`${r1(d.minimum)}${u}`} />}
-        {d.isReverse && <p className="text-[11px] text-amber-600 font-bold pt-1">KPI ngược — càng thấp càng tốt</p>}
+        {d.isReverse && <p className="text-xs text-amber-600 font-semibold pt-1">KPI ngược: càng thấp càng tốt</p>}
       </div>
     </div>
   )
@@ -132,7 +136,7 @@ function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center gap-3">
       <span className="text-slate-500 font-medium min-w-[120px]">{label}:</span>
-      <span className="font-bold text-slate-900 dark:text-white tabular-nums">{value}</span>
+      <span className="font-semibold text-slate-900 dark:text-white tabular-nums">{value}</span>
     </div>
   )
 }

@@ -41,7 +41,7 @@ export default function Boxplot({ data, unit = '', height = 320, yLabel, onSelec
   return (
     <ResponsiveContainer width="100%" height={height}>
       <BarChart data={rows} margin={{ top: 10, right: 16, left: 0, bottom: 8 }}>
-        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={AXIS_COLORS.grid} />
+        <CartesianGrid stroke="var(--color-border)" vertical={false} />
         <XAxis
           dataKey="name"
           axisLine={false}
@@ -128,13 +128,13 @@ function BoxTooltip({ active, payload, unit }: {
     ['Cao nhất', d.max], ['Q3 (75%)', d.q3], ['Trung vị', d.median], ['Q1 (25%)', d.q1], ['Thấp nhất', d.min],
   ]
   return (
-    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3.5 rounded-xl shadow-lg">
-      <p className="font-bold text-slate-900 dark:text-white mb-2">{d.name}</p>
+    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3.5 rounded-lg shadow-lg">
+      <p className="font-semibold text-slate-900 dark:text-white mb-2">{d.name}</p>
       <div className="space-y-1 text-sm">
         {rows.map(([label, v]) => (
           <div key={label} className="flex items-center gap-3">
             <span className="text-slate-500 font-medium min-w-[90px]">{label}:</span>
-            <span className="font-bold text-slate-900 dark:text-white tabular-nums">
+            <span className="font-semibold text-slate-900 dark:text-white tabular-nums">
               {Math.round(v * 10) / 10}{u}
             </span>
           </div>

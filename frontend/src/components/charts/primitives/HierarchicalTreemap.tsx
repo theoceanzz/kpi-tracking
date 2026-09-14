@@ -1,4 +1,5 @@
 import { useLayoutEffect, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import {
   achievementSurface, textOn,
   RELATION_STROKE, KPI_KIND_COLORS, KPI_KIND_LABELS, type KpiKind,
@@ -286,8 +287,8 @@ export default function HierarchicalTreemap({ nodes, height = 300, onSelect }: P
             clickable={!!(onSelect && c.node.id)}
             onEnter={(e) => {
               setHoveredId(c.node.id ?? null)
-              const box = (e.currentTarget.ownerSVGElement ?? e.currentTarget).getBoundingClientRect()
-              setTip({ node: c.node, x: e.clientX - box.left, y: e.clientY - box.top })
+              // Toạ độ viewport: tooltip vẽ qua portal ra body (xem NodeTooltip).
+              setTip({ node: c.node, x: e.clientX, y: e.clientY })
             }}
             onClick={() => { if (onSelect && c.node.id) onSelect(c.node) }}
           />
@@ -415,6 +416,14 @@ const RELATION_LABEL: Record<string, string> = {
   DELEGATION: 'KPI thác nước (giao xuống)',
 }
 
+/**
+ * Tooltip của ô treemap.
+ *
+ * <p>Vẽ qua portal ra `document.body` với toạ độ viewport, KHÔNG đặt `absolute` trong khung treemap:
+ * ô lưới và thẻ bọc ngoài đều `overflow-hidden`, nên tooltip của ô ở hàng cuối bị cắt cụt ngay dưới
+ * tiêu đề (chỉ thấy tên + dòng đơn vị, mất tiến độ/mục tiêu). Đo kích thước thật rồi lật sang trái
+ * / lên trên khi sát mép màn hình.
+ */
 function NodeTooltip({ node, x, y, clickable }: {
   node: TreeNode
   x: number
@@ -424,12 +433,28 @@ function NodeTooltip({ node, x, y, clickable }: {
   const kids = node.children ?? []
   const value = nodeValue(node)
   const kinds = kindsOf(node)
-  return (
+  const ref = useRef<HTMLDivElement>(null)
+  // Ghi thẳng vào style sau khi đo (không setState trong effect): tooltip là lớp trang trí, không
+  // ai đọc lại vị trí của nó.
+  useLayoutEffect(() => {
+    const el = ref.current
+    if (!el) return
+    const { width, height } = el.getBoundingClientRect()
+    const GAP = 12
+    let left = x + GAP
+    let top = y + GAP
+    if (left + width > window.innerWidth - 8) left = Math.max(8, x - GAP - width)
+    if (top + height > window.innerHeight - 8) top = Math.max(8, y - GAP - height)
+    el.style.left = `${left}px`
+    el.style.top = `${top}px`
+  }, [x, y, node])
+  return createPortal(
     <div
-      className="absolute z-20 pointer-events-none bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3.5 rounded-xl shadow-lg max-w-[280px]"
-      style={{ left: Math.max(x + 12, 4), top: Math.max(y + 12, 4) }}
+      ref={ref}
+      className="fixed z-[130] pointer-events-none bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3.5 rounded-lg shadow-md max-w-[280px]"
+      style={{ left: x + 12, top: y + 12 }}
     >
-      <p className="font-bold text-slate-900 dark:text-white break-words">{node.name}</p>
+      <p className="font-semibold text-slate-900 dark:text-white break-words">{node.name}</p>
       {(node.unitName || node.periodName) && (
         <p className="text-xs text-slate-500 mb-2">
           {[node.unitName, node.periodName].filter(Boolean).join(' · ')}
@@ -440,7 +465,7 @@ function NodeTooltip({ node, x, y, clickable }: {
           {kinds.map(k => (
             <span
               key={k}
-              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-[10px] font-black uppercase text-white"
+              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-semibold text-white"
               style={{ backgroundColor: KPI_KIND_COLORS[k] }}
             >
               {KPI_KIND_LABELS[k]}
@@ -481,22 +506,23 @@ function NodeTooltip({ node, x, y, clickable }: {
       {node.replacedKpiName && (
         <div className="pt-2.5 mt-2.5 border-t border-slate-100 dark:border-slate-800">
           <p className="text-xs text-slate-500 font-medium">Thay thế KPI:</p>
-          <p className="text-xs font-bold text-slate-800 dark:text-slate-100 break-words">
+          <p className="text-xs font-semibold text-slate-800 dark:text-slate-100 break-words">
             {node.replacedKpiName}
           </p>
           {node.replacementReason && (
-            <p className="text-[11px] text-slate-500 italic mt-0.5 break-words">
+            <p className="text-xs text-slate-500 italic mt-0.5 break-words">
               {node.replacementReason}
             </p>
           )}
         </div>
       )}
       {clickable && node.id && (
-        <p className="text-xs font-bold text-indigo-600 dark:text-indigo-400 pt-2.5 mt-2.5 border-t border-slate-100 dark:border-slate-800">
+        <p className="text-xs font-semibold text-[var(--color-primary)] dark:text-indigo-400 pt-2.5 mt-2.5 border-t border-slate-100 dark:border-slate-800">
           Bấm để xem chi tiết →
         </p>
       )}
-    </div>
+    </div>,
+    document.body,
   )
 }
 
@@ -510,7 +536,7 @@ function Row({ label, value, color }: { label: string; value: string; color?: st
     <div className="flex items-center gap-3">
       {color && <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: color }} />}
       <span className="text-slate-500 font-medium min-w-[80px]">{label}:</span>
-      <span className="font-bold text-slate-900 dark:text-white tabular-nums">{value}</span>
+      <span className="font-semibold text-slate-900 dark:text-white tabular-nums">{value}</span>
     </div>
   )
 }

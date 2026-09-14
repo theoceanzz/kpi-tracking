@@ -21,7 +21,7 @@ export function KpiResponsibleCell({
         className={cn('inline-flex items-center gap-2 min-w-0', className)}
         title={`Người đảm nhiệm: ${assigneeName}`}
       >
-        <span className="flex items-center justify-center w-6 h-6 rounded-full bg-indigo-100 dark:bg-indigo-500/25 text-indigo-600 dark:text-indigo-300 text-[10px] font-black shrink-0">
+        <span className="flex items-center justify-center w-6 h-6 rounded-full bg-indigo-100 dark:bg-indigo-500/25 text-[var(--color-primary)] dark:text-indigo-300 text-xs font-semibold shrink-0">
           {getInitials(assigneeName)}
         </span>
         <span className="text-sm font-semibold text-slate-700 dark:text-slate-200 truncate">{assigneeName}</span>
@@ -32,7 +32,7 @@ export function KpiResponsibleCell({
     return (
       <span
         className={cn(
-          'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-xs font-bold text-slate-600 dark:text-slate-300',
+          'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-xs font-semibold text-slate-600 dark:text-slate-300',
           className,
         )}
         title={`Đơn vị đảm nhiệm: ${orgUnitName}`}
@@ -42,7 +42,7 @@ export function KpiResponsibleCell({
       </span>
     )
   }
-  return <span className={cn('text-slate-300 dark:text-slate-600', className)}>—</span>
+  return <span className={cn('text-slate-300 dark:text-slate-600', className)}>-</span>
 }
 
 export default KpiResponsibleCell

@@ -32,6 +32,7 @@ import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import ObjectiveDrawer from './ObjectiveDrawer'
 import { QualitativeDistributionChart } from './QualitativeDistributionChart'
 import { QualitativeResultChip } from './QualitativeResultChip'
+import { yAxisLabel } from '@/components/charts/axisLabel'
 
 // Bộ lọc thời gian trong drawer — đơn giản (đồng bộ với các drawer khác), không dùng chọn đợt/khoảng đợt.
 type DateFilterType = 'GLOBAL' | 'THIS_WEEK' | 'THIS_MONTH' | 'THIS_QUARTER' | '6_MONTHS' | 'THIS_YEAR' | 'CUSTOM'
@@ -43,14 +44,14 @@ const ASSIGNEE_COLORS = ['#f59e0b', '#8b5cf6', '#ec4899', '#0ea5e9', '#14b8a6', 
 function TrendTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null
   return (
-    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-xl shadow-lg">
-      <p className="font-bold text-slate-900 dark:text-white mb-3">{label}</p>
+    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-lg shadow-md">
+      <p className="font-semibold text-slate-900 dark:text-white mb-3">{label}</p>
       <div className="space-y-2">
         {payload.map((p: any, i: number) => (
           <div key={i} className="flex items-center gap-3 text-sm">
             <div className="w-3 h-3 rounded-sm flex-shrink-0" style={{ backgroundColor: p.color }} />
             <span className="text-slate-500 font-medium min-w-[120px]">{p.name}:</span>
-            <span className="font-bold text-slate-900 dark:text-white">
+            <span className="font-semibold text-slate-900 dark:text-white">
               {p.name.includes('%') ? `${Math.round(p.value)}%` : p.value?.toLocaleString('vi-VN')}
             </span>
           </div>
@@ -152,20 +153,20 @@ function AssigneeBarPanel({
   if (!data.length) return <div className="h-[280px] flex items-center justify-center text-slate-400 text-sm">Không có dữ liệu</div>
 
   return (
-    <div className="bg-white dark:bg-slate-900/60 rounded-xl border border-slate-200 dark:border-white/10 p-5 shadow-sm">
+    <div className="bg-white dark:bg-slate-900/60 rounded-lg border border-slate-200 dark:border-white/10 p-5 shadow-sm">
       <div className="flex items-center justify-between mb-4">
-        <h4 className="text-sm font-bold text-slate-700 dark:text-slate-200">{title}</h4>
+        <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-200">{title}</h4>
         <RankToggle filter={filter} onChange={onFilterChange} />
       </div>
       <div className="h-[260px]">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={chartData} margin={{ top: 25, right: 10, left: 15, bottom: 20 }} onMouseLeave={() => onHoverChange(null)}>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#94a3b8" strokeOpacity={0.15} />
+            <CartesianGrid stroke="var(--color-border)" vertical={false} />
             <XAxis dataKey="displayName" tick={{ fill: '#64748b', fontSize: 11, fontWeight: 500 }} axisLine={false} tickLine={false} dy={5}>
-              <Label value="Người thực hiện" offset={-5} position="insideBottom" style={{ fill: '#64748b', fontSize: 10, fontWeight: 700 }} />
+              <Label value="Người thực hiện" offset={-5} position="insideBottom" style={{ fill: '#64748b', fontSize: 11, fontWeight: 700 }} />
             </XAxis>
             <YAxis tickFormatter={v => `${Math.round(v)}%`} domain={[0, domain]} tick={{ fill: '#64748b', fontSize: 11 }} axisLine={false} tickLine={false}>
-              <Label value="(%) Tỷ lệ" angle={-90} position="insideLeft" style={{ textAnchor: 'middle', fill: '#64748b', fontSize: 10, fontWeight: 700 }} />
+              <Label value="(%) Tỷ lệ" angle={-90} position="insideLeft" style={{ textAnchor: 'middle', fill: '#64748b', fontSize: 11, fontWeight: 700 }} />
             </YAxis>
             <Tooltip content={<BarTooltip />} cursor={{ fill: '#94a3b8', opacity: 0.08 }} />
             <Legend verticalAlign="top" align="right" iconType="circle" iconSize={8} wrapperStyle={{ paddingBottom: '12px', fontSize: 11, fontWeight: 500 }} />
@@ -225,17 +226,17 @@ function SubmissionBarPanel({
   if (!data.length) return <div className="h-[280px] flex items-center justify-center text-slate-400 text-sm">Không có dữ liệu</div>
 
   return (
-    <div className="bg-white dark:bg-slate-900/60 rounded-xl border border-slate-200 dark:border-white/10 p-5 shadow-sm">
+    <div className="bg-white dark:bg-slate-900/60 rounded-lg border border-slate-200 dark:border-white/10 p-5 shadow-sm">
       <div className="flex items-center justify-between mb-4">
-        <h4 className="text-sm font-bold text-slate-700 dark:text-slate-200">{title}</h4>
+        <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-200">{title}</h4>
         <RankToggle filter={filter} onChange={onFilterChange} />
       </div>
       <div className="h-[260px]">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={chartData} layout="vertical" margin={{ top: 10, right: 50, left: 15, bottom: 25 }} onMouseLeave={() => onHoverChange(null)}>
-            <CartesianGrid strokeDasharray="3 3" horizontal={false} vertical={true} stroke="#94a3b8" strokeOpacity={0.1} />
-            <XAxis type="number" domain={[0, domain]} tickFormatter={v => `${Math.round(v)}%`} tick={{ fill: '#64748b', fontSize: 10 }} axisLine={false} tickLine={false}>
-              <Label value="(%) Tỷ lệ" offset={-5} position="insideBottom" style={{ fill: '#64748b', fontSize: 10, fontWeight: 700 }} />
+            <CartesianGrid stroke="var(--color-border)" horizontal={false} vertical={true} />
+            <XAxis type="number" domain={[0, domain]} tickFormatter={v => `${Math.round(v)}%`} tick={{ fill: '#64748b', fontSize: 11 }} axisLine={false} tickLine={false}>
+              <Label value="(%) Tỷ lệ" offset={-5} position="insideBottom" style={{ fill: '#64748b', fontSize: 11, fontWeight: 700 }} />
             </XAxis>
             <YAxis dataKey="displayLabel" type="category" width={130} tick={{ fill: '#64748b', fontSize: 11, fontWeight: 500 }} axisLine={false} tickLine={false} />
             <Tooltip content={<BarTooltip />} cursor={{ fill: '#94a3b8', opacity: 0.06 }} />
@@ -247,7 +248,7 @@ function SubmissionBarPanel({
               radius={[0, 6, 6, 0]}
               barSize={16}
               isAnimationActive={false}
-              label={{ position: 'right', fill: '#64748b', fontSize: 10, fontWeight: 600, formatter: (v: any) => `${Math.round(v)}%` }}
+              label={{ position: 'right', fill: '#64748b', fontSize: 11, fontWeight: 600, formatter: (v: any) => `${Math.round(v)}%` }}
             >
               {chartData.map((item, idx) => (
                 <Cell
@@ -266,13 +267,13 @@ function SubmissionBarPanel({
 
 // ── Context badge (thông tin ngữ cảnh cạnh tiêu đề) ──────────────────────────
 const BADGE_STYLES: Record<string, string> = {
-  violet: 'bg-violet-50 text-violet-600 border-violet-200 dark:bg-violet-900/20 dark:text-violet-400 dark:border-violet-900/40',
+  violet: 'bg-indigo-50 text-[var(--color-primary)] border-indigo-200 dark:bg-indigo-900/20 dark:text-indigo-400 dark:border-indigo-900/40',
   slate: 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700',
   blue: 'bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-900/40',
 }
 function ContextBadge({ color, label }: { color: keyof typeof BADGE_STYLES; label: string }) {
   return (
-    <span className={cn('inline-flex items-center px-2.5 py-1 rounded-full text-[11px] font-bold border', BADGE_STYLES[color])}>
+    <span className={cn('inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border', BADGE_STYLES[color])}>
       {label}
     </span>
   )
@@ -359,21 +360,21 @@ export default function OrgUnitKpiDrawer({
   const kpiTypeBadge = data?.isBonusKpi
     ? { label: 'KPI thưởng', cls: 'bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-500/30' }
     : data?.isReverseKpi
-    ? { label: 'KPI ngược', cls: 'bg-violet-100 dark:bg-violet-900/40 text-violet-600 dark:text-violet-400 border-violet-200 dark:border-violet-500/30' }
+    ? { label: 'KPI ngược', cls: 'bg-indigo-100 dark:bg-indigo-900/40 text-[var(--color-primary)] dark:text-indigo-400 border-indigo-200 dark:border-[var(--color-primary)]/30' }
     : { label: 'KPI thường', cls: 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700' }
 
   const customTitle = (
     <div className="flex items-center flex-wrap gap-2">
-      <span className="text-base font-bold text-slate-900 dark:text-white leading-snug">
+      <span className="text-base font-semibold text-slate-900 dark:text-white leading-snug">
         {data?.kpiName || 'Chi tiết KPI'}
       </span>
       {data && (
-        <span className={cn('inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-black uppercase border flex-shrink-0', kpiTypeBadge.cls)}>
+        <span className={cn('inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold border flex-shrink-0', kpiTypeBadge.cls)}>
           {kpiTypeBadge.label}
         </span>
       )}
       {data?.isShared && (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400 text-[10px] font-black uppercase border border-purple-200 dark:border-purple-500/30 flex-shrink-0">
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-[var(--color-primary)] dark:text-indigo-400 text-xs font-semibold border border-indigo-200 dark:border-[var(--color-primary)]/30 flex-shrink-0">
           <Users size={10} /> KPI chung
         </span>
       )}
@@ -427,26 +428,26 @@ export default function OrgUnitKpiDrawer({
           {isQual && (
             <>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="bg-violet-50 dark:bg-violet-900/20 p-4 rounded-2xl border border-violet-100 dark:border-violet-900/30">
-                  <p className="text-[10px] font-bold text-violet-500 mb-1.5">Mức kết quả</p>
+                <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-2xl border border-indigo-100 dark:border-indigo-900/30">
+                  <p className="text-xs font-semibold text-[var(--color-primary)] mb-1.5">Mức kết quả</p>
                   <QualitativeResultChip level={data?.qualitativeLevelName} />
                 </div>
                 <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-2xl border border-blue-100 dark:border-blue-900/30">
-                  <p className="text-[10px] font-bold text-blue-500 mb-1">Tổng bài nộp</p>
-                  <p className="text-xl font-black text-blue-700 dark:text-blue-400">{data?.topSubmissions?.length ?? 0}</p>
+                  <p className="text-xs font-semibold text-blue-500 mb-1">Tổng bài nộp</p>
+                  <p className="text-xl font-semibold text-blue-700 dark:text-blue-400">{data?.topSubmissions?.length ?? 0}</p>
                 </div>
               </div>
               <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
-                <h3 className="text-sm font-black text-slate-900 dark:text-white mb-3">Phân bố mức đánh giá</h3>
+                <h3 className="text-sm font-semibold text-slate-900 dark:text-white mb-3">Phân bố mức đánh giá</h3>
                 <QualitativeDistributionChart distribution={data?.qualitativeDistribution} />
               </div>
               {(data?.topSubmissions?.length ?? 0) > 0 && (
                 <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
-                  <h3 className="text-sm font-black text-slate-900 dark:text-white mb-3">Bài nộp gần đây</h3>
+                  <h3 className="text-sm font-semibold text-slate-900 dark:text-white mb-3">Bài nộp gần đây</h3>
                   <div className="space-y-2">
                     {data!.topSubmissions.map((s, i) => (
-                      <div key={i} className="flex items-center justify-between gap-3 rounded-xl border border-slate-100 dark:border-slate-800 px-3 py-2">
-                        <span className="text-sm font-bold text-slate-700 dark:text-slate-200 truncate">{s.submitterName}</span>
+                      <div key={i} className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 dark:border-slate-800 px-3 py-2">
+                        <span className="text-sm font-semibold text-slate-700 dark:text-slate-200 truncate">{s.submitterName}</span>
                         <QualitativeResultChip level={s.qualitativeLevelName} />
                       </div>
                     ))}
@@ -460,32 +461,32 @@ export default function OrgUnitKpiDrawer({
           {!isQual && (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="bg-slate-50 dark:bg-slate-900/60 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
-              <p className="text-[10px] font-bold text-slate-500 mb-1">Mục tiêu yêu cầu</p>
-              <p className="text-xl font-black text-slate-900 dark:text-white">
+              <p className="text-xs font-medium text-slate-500 mb-1">Mục tiêu yêu cầu</p>
+              <p className="text-xl font-semibold text-slate-900 dark:text-white">
                 {data?.targetValue?.toLocaleString('vi-VN')} <span className="text-xs font-medium text-slate-500">{data?.unit}</span>
               </p>
             </div>
-            <div className="bg-violet-50 dark:bg-violet-900/20 p-4 rounded-2xl border border-violet-100 dark:border-violet-900/30">
-              <p className="text-[10px] font-bold text-violet-500 mb-1">Lũy kế tổng</p>
-              <p className="text-xl font-black text-violet-700 dark:text-violet-400">
-                {data?.totalActualValue?.toLocaleString('vi-VN')} <span className="text-xs font-medium text-violet-400">{data?.unit}</span>
+            <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-2xl border border-indigo-100 dark:border-indigo-900/30">
+              <p className="text-xs font-semibold text-[var(--color-primary)] mb-1">Lũy kế tổng</p>
+              <p className="text-xl font-semibold text-indigo-700 dark:text-indigo-400">
+                {data?.totalActualValue?.toLocaleString('vi-VN')} <span className="text-xs font-medium text-indigo-400">{data?.unit}</span>
               </p>
-              <p className="text-[10px] font-bold text-violet-500 mt-1">Đạt {data?.totalProgress?.toFixed(1)}%</p>
+              <p className="text-xs font-semibold text-[var(--color-primary)] mt-1">Đạt {data?.totalProgress?.toFixed(1)}%</p>
             </div>
             <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-2xl border border-blue-100 dark:border-blue-900/30">
-              <p className="text-[10px] font-bold text-blue-500 mb-1">Tổng bài nộp</p>
-              <p className="text-xl font-black text-blue-700 dark:text-blue-400">{data?.topSubmissions?.length ?? 0}</p>
+              <p className="text-xs font-semibold text-blue-500 mb-1">Tổng bài nộp</p>
+              <p className="text-xl font-semibold text-blue-700 dark:text-blue-400">{data?.topSubmissions?.length ?? 0}</p>
             </div>
           </div>
           )}
 
           {/* Trend chart */}
           {!isQual && data?.chartPoints && data.chartPoints.length > 0 && (
-            <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-200 dark:border-slate-800">
               {/* Header */}
               <div className="mb-4">
-                <h3 className="text-lg font-bold text-slate-900 dark:text-white flex items-center gap-2">
-                  <Activity size={18} className="text-violet-500" />
+                <h3 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+                  <Activity size={18} className="text-[var(--color-primary)]" />
                   Xu hướng tiến độ theo thời gian
                 </h3>
                 <p className="text-sm text-slate-500 mt-1">
@@ -501,7 +502,7 @@ export default function OrgUnitKpiDrawer({
                       key={a.userId}
                       onClick={() => toggleAssignee(a.userId)}
                       className={cn(
-                        'px-2.5 py-1 rounded-full text-[10px] font-bold transition-all border',
+                        'px-2.5 py-1 rounded-full text-xs font-medium transition-all border',
                         activeAssignees.includes(a.userId)
                           ? 'text-white border-transparent'
                           : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300 dark:bg-slate-900 dark:border-slate-700'
@@ -517,15 +518,15 @@ export default function OrgUnitKpiDrawer({
                 </div>
               )}
 
-              <div className="text-xs font-bold text-slate-400 dark:text-slate-500 mb-2 px-1">
+              <div className="text-xs font-medium text-slate-400 dark:text-slate-500 mb-2 px-1">
                 <span>Đơn vị ({data.unit || ''})</span>
               </div>
               <div className="h-[320px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <ComposedChart data={trendChartData} margin={{ top: 10, right: 10, left: 0, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                  <ComposedChart data={trendChartData} margin={{ top: 10, right: 10, left: 14, bottom: 5 }}>
+                    <CartesianGrid stroke="var(--color-border)" vertical={false} />
                     <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} />
-                    <YAxis yAxisId="left" orientation="left" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} />
+                    <YAxis yAxisId="left" orientation="left" label={yAxisLabel('Giá trị đạt')} axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} />
                     <Tooltip content={<TrendTooltip />} cursor={{ fill: '#94a3b8', opacity: 0.06 }} />
                     <Legend wrapperStyle={{ fontSize: '11px', fontWeight: 'bold' }} />
                     <Line yAxisId="left" type="step" dataKey="targetValue" name="Mục tiêu" stroke="#ef4444" strokeWidth={2} dot={false} strokeDasharray="5 5" />
@@ -546,13 +547,13 @@ export default function OrgUnitKpiDrawer({
 
           {/* ── Top người đảm nhiệm ──────────────────────────────────────────── */}
           {!isQual && data?.assigneeStats && data.assigneeStats.length > 0 && (
-            <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-200 dark:border-slate-800">
               <div className="flex items-center gap-2.5 mb-6">
-                <div className="p-2 bg-gradient-to-br from-amber-400 to-orange-500 rounded-xl shadow-lg shadow-amber-500/20">
-                  <Users size={16} className="text-white" />
+                <div className="p-2 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-lg">
+                  <Users size={16} />
                 </div>
                 <div>
-                  <h3 className="text-sm font-black text-slate-900 dark:text-white">Top người đảm nhiệm</h3>
+                  <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Top người đảm nhiệm</h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400">Tiến độ hoàn thành theo từng người thực hiện</p>
                 </div>
               </div>
@@ -573,13 +574,13 @@ export default function OrgUnitKpiDrawer({
 
           {/* ── Top bài nộp ──────────────────────────────────────────────────── */}
           {!isQual && data?.topSubmissions && data.topSubmissions.length > 0 && (
-            <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800">
+            <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-200 dark:border-slate-800">
               <div className="flex items-center gap-2.5 mb-6">
-                <div className="p-2 bg-gradient-to-br from-violet-500 to-indigo-600 rounded-xl shadow-lg shadow-indigo-500/20">
-                  <ClipboardList size={16} className="text-white" />
+                <div className="p-2 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-lg">
+                  <ClipboardList size={16} />
                 </div>
                 <div>
-                  <h3 className="text-sm font-black text-slate-900 dark:text-white">Top bài nộp</h3>
+                  <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Top bài nộp</h3>
                   <p className="text-xs text-slate-500 dark:text-slate-400">Tiến độ đóng góp theo từng bài nộp</p>
                 </div>
               </div>

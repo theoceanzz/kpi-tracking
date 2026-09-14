@@ -1,5 +1,6 @@
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer } from 'recharts'
 import { AXIS_COLORS, METRIC_COLORS, NEUTRAL_COLOR } from '../chartPalette'
+import { xAxisLabel } from '../axisLabel'
 
 export interface LollipopDatum {
   /** Khoá để trả về khi người dùng bấm (userId, orgUnitId…). */
@@ -15,6 +16,11 @@ interface Props {
   data: LollipopDatum[]
   /** Đơn vị hiển thị (vd "%", "điểm"). */
   unit?: string
+  /**
+   * Nhãn trục đại lượng (trục NGANG vì biểu đồ nằm ngang). Trục dọc là tên người/đơn vị nên cố ý
+   * không gắn nhãn — dán chữ "Nhân sự" cạnh một cột toàn tên người là chú thích thừa.
+   */
+  valueLabel?: string
   /** Vạch tham chiếu, thường là trung bình toàn tổ chức. */
   reference?: { value: number; label: string }
   height?: number
@@ -29,21 +35,22 @@ interface Props {
  * mắt phải dò từng cái, trong khi 25 chấm thì vị trí chấm là thứ duy nhất đập vào mắt. Dùng khi
  * xếp hạng đơn vị hoặc nhân sự — nơi số mục thường vượt xa số cột mà biểu đồ cột chịu được.
  */
-export default function Lollipop({ data, unit = '', reference, height, domainMax, onSelect }: Props) {
+export default function Lollipop({ data, unit = '', valueLabel, reference, height, domainMax, onSelect }: Props) {
   // Cao theo số mục để nhãn không chồng nhau; sàn 180px cho danh sách rất ngắn.
   const chartHeight = height ?? Math.max(180, data.length * 28 + 40)
   const max = domainMax ?? Math.max(...data.map(d => d.value), reference?.value ?? 0, 1)
 
   return (
     <ResponsiveContainer width="100%" height={chartHeight}>
-      <BarChart data={data} layout="vertical" margin={{ top: 8, right: 44, left: 8, bottom: 8 }}>
-        <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={AXIS_COLORS.grid} />
+      <BarChart data={data} layout="vertical" margin={{ top: 8, right: 44, left: 8, bottom: 30 }}>
+        <CartesianGrid stroke="var(--color-border)" horizontal={false} />
         <XAxis
           type="number"
           domain={[0, Math.ceil(max * 1.05)]}
           axisLine={false}
           tickLine={false}
           tick={{ fill: AXIS_COLORS.tick, fontSize: 11, fontWeight: 500 }}
+          label={xAxisLabel(valueLabel ?? (unit ? `Giá trị (${unit.trim()})` : 'Giá trị'))}
         />
         <YAxis
           type="category"
@@ -60,7 +67,7 @@ export default function Lollipop({ data, unit = '', reference, height, domainMax
             x={reference.value}
             stroke={NEUTRAL_COLOR}
             strokeDasharray="4 4"
-            label={{ value: reference.label, position: 'top', fill: NEUTRAL_COLOR, fontSize: 10, fontWeight: 700 }}
+            label={{ value: reference.label, position: 'top', fill: NEUTRAL_COLOR, fontSize: 11, fontWeight: 700 }}
           />
         )}
 
@@ -109,10 +116,10 @@ function LollipopTooltip({ active, payload, unit }: {
   const d = payload?.[0]?.payload
   if (!active || !d) return null
   return (
-    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3.5 rounded-xl shadow-lg">
-      <p className="font-bold text-slate-900 dark:text-white">{d.name}</p>
+    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3.5 rounded-lg shadow-lg">
+      <p className="font-semibold text-slate-900 dark:text-white">{d.name}</p>
       {d.subText && <p className="text-xs text-slate-500 mb-2">{d.subText}</p>}
-      <p className="font-black text-lg text-slate-900 dark:text-white tabular-nums">
+      <p className="font-semibold text-lg text-slate-900 dark:text-white tabular-nums">
         {Math.round(d.value * 10) / 10}{unit ? ` ${unit}` : ''}
       </p>
     </div>

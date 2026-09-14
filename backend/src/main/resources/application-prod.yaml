@@ -34,7 +34,10 @@ spring:
     locations: classpath:db/migration
     baseline-on-migrate: true
     repair-on-migrate: true
-    clean-disabled: false
+    # KHÔNG cho phép xoá schema ở production. FlywayConfig chỉ gọi clean() khi lịch sử migration
+    # hỏng thật (sai checksum, mất file); với cờ này, thay vì xoá trắng dữ liệu khách hàng, ứng dụng
+    # dừng khởi động và một người phải vào xem. Đã từng xoá nhầm DB dev một lần vì cờ này bật.
+    clean-disabled: true
 
   mail:
     host: ${MAIL_HOST:smtp.gmail.com}

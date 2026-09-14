@@ -26,7 +26,7 @@ export function WeightBudgetStrip({ rows }: { rows: UnitWeightBudget[] }) {
   // vị lệch, nên bảy thanh xanh giống hệt nhau chỉ tổ chiếm chỗ của phần đáng nhìn.
   if (off.length === 0) {
     return (
-      <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 text-[11px] font-bold text-emerald-700 dark:text-emerald-400">
+      <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-emerald-50 dark:bg-emerald-950/30 text-xs font-semibold text-emerald-700 dark:text-emerald-400">
         <CheckCircle2 size={14} className="shrink-0" />
         {rows.length}/{rows.length} đơn vị đủ trọng số (100%)
       </div>
@@ -39,12 +39,12 @@ export function WeightBudgetStrip({ rows }: { rows: UnitWeightBudget[] }) {
   const sorted = [...rows].sort((a, b) => Math.abs(b.totalWeight - TARGET) - Math.abs(a.totalWeight - TARGET))
 
   return (
-    <div className="rounded-xl border border-amber-200 dark:border-amber-900/50 bg-amber-50/40 dark:bg-amber-950/20 p-3 space-y-2">
-      <div className="flex items-center gap-1.5 text-[11px] font-black text-amber-700 dark:text-amber-400">
+    <div className="rounded-lg border border-amber-200 dark:border-amber-900/50 bg-amber-50/40 dark:bg-amber-950/20 p-3 space-y-2">
+      <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-700 dark:text-amber-400">
         <AlertTriangle size={13} className="shrink-0" />
         {off.length}/{rows.length} đơn vị lệch trọng số
-        <span className="font-bold text-slate-500 dark:text-slate-400 normal-case">
-          — tính theo phân bổ nhân sự cao nhất, đúng con số chặn lúc gửi duyệt
+        <span className="font-medium text-slate-500 dark:text-slate-400 normal-case">
+          tính theo phân bổ nhân sự cao nhất, đúng con số chặn lúc gửi duyệt
         </span>
       </div>
 
@@ -55,7 +55,7 @@ export function WeightBudgetStrip({ rows }: { rows: UnitWeightBudget[] }) {
           const over = delta > 0
           return (
             <div key={`${r.periodId}-${r.orgUnitId}`} className="flex items-center gap-2">
-              <span className="w-[132px] shrink-0 truncate text-[11px] font-bold text-slate-600 dark:text-slate-300">
+              <span className="w-[132px] shrink-0 truncate text-xs font-semibold text-slate-600 dark:text-slate-300">
                 {r.orgUnitName}
               </span>
 
@@ -73,10 +73,10 @@ export function WeightBudgetStrip({ rows }: { rows: UnitWeightBudget[] }) {
                 />
               </div>
 
-              <span className={cn('w-[92px] shrink-0 text-right text-[11px] font-black tabular-nums',
+              <span className={cn('w-[92px] shrink-0 text-right text-xs font-semibold tabular-nums',
                 ok ? 'text-emerald-600' : over ? 'text-orange-600' : 'text-sky-600')}>
                 {Math.round(r.totalWeight * 10) / 10}%
-                <span className="font-bold opacity-70">
+                <span className="font-semibold opacity-70">
                   {ok ? '' : over ? ` (+${Math.round(delta)})` : ` (${Math.round(delta)})`}
                 </span>
               </span>

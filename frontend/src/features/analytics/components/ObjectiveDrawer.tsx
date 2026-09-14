@@ -80,17 +80,17 @@ export default function ObjectiveDrawer({
 
   const typeBadge =
     type === 'OBJECTIVE' ? (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-indigo-100 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-indigo-500/30 flex-shrink-0">
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-100 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-[var(--color-primary)]/30 flex-shrink-0">
         <Target size={10} />
         Mục tiêu
       </span>
     ) : type === 'KR' ? (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-violet-100 dark:bg-violet-500/20 text-violet-700 dark:text-violet-300 border border-violet-200 dark:border-violet-500/30 flex-shrink-0">
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-100 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-[var(--color-primary)]/30 flex-shrink-0">
         <TrendingUp size={10} />
         Key Result
       </span>
     ) : type === 'KPI' ? (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-bold bg-pink-100 dark:bg-pink-500/20 text-pink-700 dark:text-pink-300 border border-pink-200 dark:border-pink-500/30 flex-shrink-0">
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-pink-100 dark:bg-pink-500/20 text-pink-700 dark:text-pink-300 border border-pink-200 dark:border-pink-500/30 flex-shrink-0">
         <TrendingUp size={10} />
         KPI
       </span>
@@ -117,7 +117,7 @@ export default function ObjectiveDrawer({
         role="dialog"
         aria-modal="true"
         aria-label={typeof title === 'string' ? title : undefined}
-        className={`relative w-full md:w-[60vw] max-w-none h-full bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-white/10 shadow-2xl flex flex-col transition-transform duration-300 ease-out ${
+        className={`relative w-full md:w-[60vw] max-w-none h-full bg-white dark:bg-slate-900 border-l border-slate-200 dark:border-white/10 shadow-lg flex flex-col transition-transform duration-300 ease-out ${
           visible ? 'translate-x-0' : 'translate-x-full'
         }`}
       >
@@ -125,7 +125,7 @@ export default function ObjectiveDrawer({
         <div className="flex items-center justify-between px-5 py-4 border-b border-slate-200 dark:border-white/10 bg-slate-50 dark:bg-slate-800/60 flex-shrink-0">
           <div className="flex flex-col gap-1 min-w-0">
             {typeBadge && <div>{typeBadge}</div>}
-            <h2 className="text-base font-bold text-slate-900 dark:text-white line-clamp-2 pr-2 leading-snug">
+            <h2 className="text-base font-semibold text-slate-900 dark:text-white line-clamp-2 pr-2 leading-snug">
               {title}
             </h2>
           </div>

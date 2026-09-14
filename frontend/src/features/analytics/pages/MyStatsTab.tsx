@@ -5,10 +5,10 @@ import { personalKpiApi } from '@/features/dashboard/api/personalKpiApi'
 import { useMyAnalytics } from '../hooks/useAnalytics'
 import { useQuery } from '@tanstack/react-query'
 import {
-  Target, TrendingUp, AlertTriangle, CheckCircle,
+  Target, TrendingUp,
   ChevronDown, ChevronRight,
-  User, Users, X, Star, Search, ChevronLeft,
-  Activity, BarChart3 as BarChartIcon, PieChart as PieChartIcon, Info,
+  User, Users, Star, Search, ChevronLeft,
+  Activity, PieChart as PieChartIcon, Info,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { KpiTypeTags } from '../components/KpiTypeTags'
@@ -18,14 +18,13 @@ import { KpiChildTableRows } from '../components/KpiChildTableRows'
 import { KpiPeriodCell } from '../components/KpiPeriodCell'
 import { KpiWeightPill } from '../components/KpiWeightPill'
 import {
-  BarChart, Bar, PieChart, Pie, Cell,
+  PieChart, Pie, Cell,
   XAxis, YAxis, CartesianGrid, Tooltip, Legend,
   ResponsiveContainer, AreaChart, Area,
 } from 'recharts'
 import { seriesColor } from '@/components/charts/chartPalette'
 import BulletChart from '@/components/charts/primitives/BulletChart'
 import { useChartTableView } from '@/components/common/dashboard/useChartTableView'
-import { ViewToggleButtons } from '@/components/common/dashboard/ViewToggleButtons'
 import { ScoreHistogramWidget } from '../components/advanced/SummaryAdvanced'
 
 import AnalyticsComboChart from '../components/AnalyticsComboChart'
@@ -33,13 +32,16 @@ import { SparseTableFiller } from '../components/SparseTableFiller'
 import MyKpiDrawer from '../components/MyKpiDrawer'
 import AnalyticsTabSkeleton, { TableLoadingRows } from '@/components/common/AnalyticsTabSkeleton'
 import Pagination from '@/components/common/Pagination'
-import { useAnalyticsDateFilter } from '@/components/common/AnalyticsDateFilter'
-import { usePerformanceScale } from '../hooks/usePerformanceScale'
 import { SortHeader } from '@/components/common/SortHeader'
 import { ChartWrapper, type DashboardWidget } from '@/components/common/dashboard/ChartWrapper'
-import { useDashboardCustomization } from '@/components/common/dashboard/useDashboardCustomization'
 import DashboardCustomizeChrome, { DashboardEditToolbar } from '@/components/common/dashboard/DashboardCustomizeChrome'
-import type { WidgetType } from '@/types/datasource'
+import {
+  useAnalyticsGrid, useAnalyticsScopeData, widgetFilter, widgetVariant, tableViewControl, optionOf, PAGE_DEFAULT_INTENT,
+} from '../grid/analyticsGrid'
+import { usePinToHome } from '../grid/usePinToHome'
+import WidgetConfigPanel from '../grid/WidgetConfigPanel'
+import WidgetConfigSummary from '../grid/WidgetConfigSummary'
+import { MyKpiMetrics } from '../components/pinned/metricWidgets'
 
 import { format } from 'date-fns'
 
@@ -54,58 +56,89 @@ const PAGE_SIZE = 5
 // thường; chạm trần thì biểu đồ báo rõ chứ không cắt cụt im lặng.
 const CHART_FETCH_SIZE = 200
 
-const CONFIG_REPORT_NAME = '__MY_KPI_DASHBOARD_CONFIG__'
+/** Tên "report ẩn" của kho cũ — chỉ còn dùng để vớt bố cục một lần. */
+const LEGACY_REPORT_NAME = '__MY_KPI_DASHBOARD_CONFIG__'
 const DEFAULT_WIDGETS: DashboardWidget[] = [
-  { i: 'mykpi-trend', type: 'MYKPI_TREND', title: 'Xu hướng KPI theo thời gian', x: 0, y: 0, w: 12, h: 15, visible: true },
-  { i: 'mykpi-detail', type: 'MYKPI_DETAIL', title: 'Bảng chi tiết KPI đang đảm nhiệm', x: 0, y: 15, w: 12, h: 18, visible: true },
-  // Bốn khối dưới đây trước nằm NGOÀI lưới nên không ẩn/hiện/kéo-thả/ghim được, trong khi hai
-  // widget trên thì được — cùng một trang mà hai cách hành xử. Nay đưa hết vào lưới.
-  { i: 'mykpi-submission-status', type: 'SUBMISSION_STATUS', title: 'Trạng thái bài nộp', x: 0, y: 33, w: 6, h: 10, visible: true },
-  { i: 'mykpi-status-dist', type: 'KPI_STATUS_DIST', title: 'Phân bổ trạng thái KPI', x: 6, y: 33, w: 6, h: 10, visible: true },
-  { i: 'mykpi-eval-history', type: 'EVAL_HISTORY', title: 'Lịch sử & xu hướng điểm đánh giá', x: 0, y: 43, w: 12, h: 12, visible: true },
-  { i: 'mykpi-histogram', type: 'MY_SCORE_HISTOGRAM', title: 'Vị trí của bạn trong phân phối điểm', x: 0, y: 55, w: 12, h: 12, visible: false },
+  // Hàng thẻ chỉ số từng nằm NGOÀI lưới, bám nút khoảng thời gian trên đầu trang. Nút đó nay nằm
+  // trong bảng cấu hình từng ô, nên hàng thẻ cũng là một ô — cùng id với danh mục trang chủ.
+  { i: 'mykpi-metrics', type: 'STATS', title: 'Số liệu tổng hợp', x: 0, y: 0, w: 12, h: 4, visible: true },
+  { i: 'mykpi-trend', type: 'MYKPI_TREND', title: 'Xu hướng KPI theo thời gian', x: 0, y: 4, w: 12, h: 15, visible: true },
+  { i: 'mykpi-detail', type: 'MYKPI_DETAIL', title: 'KPI đang đảm nhiệm', x: 0, y: 19, w: 12, h: 18, visible: true },
+  // Các khối dưới đây trước nằm NGOÀI lưới nên không ẩn/hiện/kéo-thả/ghim được, trong khi hai
+  // widget trên thì được: cùng một trang mà hai cách hành xử. Nay đưa hết vào lưới.
+  { i: 'mykpi-submission-status', type: 'SUBMISSION_STATUS', title: 'Trạng thái bài nộp', x: 0, y: 37, w: 6, h: 10, visible: true },
+  { i: 'mykpi-eval-history', type: 'EVAL_HISTORY', title: 'Lịch sử & xu hướng điểm đánh giá', x: 6, y: 37, w: 6, h: 10, visible: true },
+  { i: 'mykpi-histogram', type: 'MY_SCORE_HISTOGRAM', title: 'Phân phối điểm đánh giá', x: 0, y: 47, w: 12, h: 12, visible: false },
 ]
-/**
- * DB có check-constraint trên `widget_type` nên loại riêng của FE lưu xuống dưới enum sẵn có;
- * loại thật suy lại từ `chartConfig.i` khi tải lên nên không cần migration.
- */
-const FE_ONLY_WIDGET_TYPES: Record<string, WidgetType> = {
-  MYKPI_TREND: 'TREND_CHART',
-  MYKPI_DETAIL: 'TABLE',
-  SUBMISSION_STATUS: 'PIE',
-  KPI_STATUS_DIST: 'BAR',
-  EVAL_HISTORY: 'AREA',
-  MY_SCORE_HISTOGRAM: 'BAR',
+const GROUP_OF: Record<string, string> = {
+  'mykpi-metrics': 'Số liệu',
+  'mykpi-trend': 'Biểu đồ xu hướng',
+  'mykpi-eval-history': 'Biểu đồ xu hướng',
+  'mykpi-detail': 'Biểu đồ so sánh',
+  'mykpi-histogram': 'Biểu đồ phân phối',
+  'mykpi-submission-status': 'Từ bộ phận đến tổng thể',
 }
-
-const toBackendWidgetType = (t: string): WidgetType => FE_ONLY_WIDGET_TYPES[t] ?? 'TABLE'
-const CATALOG: { template: DashboardWidget; icon: React.ReactNode }[] = DEFAULT_WIDGETS.map(t => ({
+const PREVIEW_OF: Record<string, 'line' | 'area' | 'bullet' | 'bar' | 'histogram' | 'donut' | 'metricCard'> = {
+  'mykpi-metrics': 'metricCard',
+  'mykpi-trend': 'line',
+  'mykpi-eval-history': 'area',
+  'mykpi-detail': 'bullet',
+  'mykpi-histogram': 'histogram',
+  'mykpi-submission-status': 'donut',
+}
+const DESC_OF: Record<string, string> = {
+  'mykpi-metrics': 'Tổng KPI, tiến độ, hiệu suất, số đang chạy/hoàn thành và số rủi ro.',
+  'mykpi-trend': 'Số KPI bạn đảm nhiệm và hiệu suất qua từng mốc thời gian.',
+  'mykpi-detail': 'Toàn bộ KPI bạn đang đảm nhiệm, tiến độ và phân loại từng chỉ tiêu.',
+  'mykpi-submission-status': 'Tỷ trọng bài nộp đã duyệt, chờ duyệt và bị từ chối.',
+  'mykpi-eval-history': 'Phiếu đánh giá bạn đã nhận và điểm qua từng đợt.',
+  'mykpi-histogram': 'Vị trí của bạn trong phân phối điểm toàn tổ chức.',
+}
+const CATALOG = DEFAULT_WIDGETS.map(t => ({
   template: t,
-  icon: t.type === 'MYKPI_TREND' ? <TrendingUp size={24} /> : <Target size={24} />,
+  icon: null,
+  groupLabel: GROUP_OF[t.i],
+  preview: PREVIEW_OF[t.i],
+  description: DESC_OF[t.i],
 }))
 
 export default function MyStatsTab() {
   const onlyApproved = false
-  const { periodId, periodIdTo, from, to, groupBy, controls } = useAnalyticsDateFilter({ selectClassName: 'h-10' })
-  const perf = usePerformanceScale()
+  const { periods, cycles } = useAnalyticsScopeData()
+  // Không còn bộ lọc cấp trang: khoảng thời gian nằm trong cài đặt từng ô; "mặc định" chỉ còn là
+  // hằng số cho ô chưa đặt gì.
+  const pageIntent = PAGE_DEFAULT_INTENT
+  const pin = usePinToHome()
+  const dash = useAnalyticsGrid({
+    scope: 'ANALYTICS_MY_KPI',
+    defaultWidgets: DEFAULT_WIDGETS,
+    legacyReportName: LEGACY_REPORT_NAME,
+  })
+  /** Khoảng của một ô cụ thể: riêng nếu đã đặt, không thì theo mặc định. */
+  const filterOf = (i: string) => widgetFilter(dash.widgets.find(w => w.i === i), pageIntent, periods, cycles)
+  const trendF = filterOf('mykpi-trend')
+  const detailF = filterOf('mykpi-detail')
 
   const [selectedKpiId, setSelectedKpiId] = useState<string | null>(null)
-  const { view: detailView, setView: setDetailView } = useChartTableView('mykpi-detail')
-  const { view: evalView, setView: setEvalView } = useChartTableView('mykpi-eval-history')
+  const { view: detailView } = useChartTableView('mykpi-detail', 'chart',
+    tableViewControl(dash.widgets.find(w => w.i === 'mykpi-detail'), dash.updateWidgetSettings))
+  const { view: evalView } = useChartTableView('mykpi-eval-history', 'chart',
+    tableViewControl(dash.widgets.find(w => w.i === 'mykpi-eval-history'), dash.updateWidgetSettings))
 
-  const [filterShared, setFilterShared] = useState<SharedFilter>('ALL')
+  // Lọc chung/riêng nằm trong cài đặt ô (chọn ở bảng cấu hình), không còn là dải nút trong thân bảng.
+  const filterShared = (optionOf(dash.widgets.find(w => w.i === 'mykpi-detail'), 'shared') ?? 'ALL') as SharedFilter
   const [sortField, setSortField] = useState<SortField | null>('period') // ưu tiên đợt/ngày gần nhất
   const [sortDir, setSortDir] = useState<SortDir>('desc')
-  const [page, setPage] = useState(0)
+  // Đổi bộ lọc thì về trang đầu. Trước đây nút lọc tự gọi setPage(0); nay lọc đến từ cài đặt ô nên
+  // trang được nhớ KÈM khoá lọc lúc đặt — khoá khác là coi như trang 0, không cần effect.
+  const [pageAt, setPageAt] = useState({ key: filterShared, page: 0 })
+  const page = pageAt.key === filterShared ? pageAt.page : 0
+  const setPage = (p: number) => setPageAt({ key: filterShared, page: p })
 
   // ── New KPI analytics (standalone KPIs without KeyResult) ────────────────
-  const { data: metrics, isLoading: isMetricsLoading } = useQuery({
-    queryKey: ['personalKpi', 'metrics', from, to, onlyApproved, periodId, periodIdTo],
-    queryFn: () => personalKpiApi.getMetrics({ from, to, onlyApproved, periodId, periodIdTo }),
-  })
   const { data: chartData, isLoading: isChartLoading } = useQuery({
-    queryKey: ['personalKpi', 'chart', from, to, onlyApproved, periodId, periodIdTo, groupBy],
-    queryFn: () => personalKpiApi.getComboChart({ from, to, onlyApproved, periodId, periodIdTo, groupBy }),
+    queryKey: ['personalKpi', 'chart', trendF.from, trendF.to, onlyApproved, trendF.periodId, trendF.periodIdTo, trendF.groupBy],
+    queryFn: () => personalKpiApi.getComboChart({ from: trendF.from, to: trendF.to, onlyApproved, periodId: trendF.periodId, periodIdTo: trendF.periodIdTo, groupBy: trendF.groupBy }),
   })
   // Chế độ biểu đồ lấy TRỌN danh sách, chế độ bảng phân trang như cũ. Phân trang là affordance của
   // bảng: một biểu đồ hiện "5 trong 107 KPI, trang 1/22" thì mỗi trang là một mảnh vụn tuỳ tiện,
@@ -115,9 +148,9 @@ export default function MyStatsTab() {
   const effectiveSize = chartMode ? CHART_FETCH_SIZE : PAGE_SIZE
 
   const { data: kpiPage, isLoading: isKpisLoading } = useQuery({
-    queryKey: ['personalKpi', 'details', from, to, onlyApproved, periodId, periodIdTo, sortField, sortDir, filterShared, effectivePage, effectiveSize],
+    queryKey: ['personalKpi', 'details', detailF.from, detailF.to, onlyApproved, detailF.periodId, detailF.periodIdTo, sortField, sortDir, filterShared, effectivePage, effectiveSize],
     queryFn: () => personalKpiApi.getDetailedKpis({
-      from, to, onlyApproved, periodId, periodIdTo,
+      from: detailF.from, to: detailF.to, onlyApproved, periodId: detailF.periodId, periodIdTo: detailF.periodIdTo,
       sortBy: sortField ?? undefined,
       sortDir,
       sharedType: filterShared === 'ALL' ? undefined : filterShared,
@@ -127,7 +160,12 @@ export default function MyStatsTab() {
   })
 
   // ── Old analytics data ───────────────────────────────────────────────────
-  const { data: analyticsData } = useMyAnalytics(from, to, periodId, periodIdTo)
+  // Hai ô cùng đọc một endpoint nhưng mỗi ô một khoảng riêng. Trước đây cả hai bám khoảng cấp trang
+  // nên đặt khoảng riêng cho ô không có tác dụng. Cùng khoá thì React Query gộp, không tốn thêm.
+  const subF = filterOf('mykpi-submission-status')
+  const evalF = filterOf('mykpi-eval-history')
+  const { data: subData } = useMyAnalytics(subF.from, subF.to, subF.periodId, subF.periodIdTo)
+  const { data: evalData } = useMyAnalytics(evalF.from, evalF.to, evalF.periodId, evalF.periodIdTo)
 
   const toggleSort = (field: SortField) => {
     if (sortField === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
@@ -135,46 +173,15 @@ export default function MyStatsTab() {
     setPage(0)
   }
 
-  // ── Tuỳ chỉnh giao diện (lưới widget dùng chung) ──────────────────────────
-  const dash = useDashboardCustomization({
-    configReportName: CONFIG_REPORT_NAME,
-    reportDescription: 'Cấu hình giao diện KPI của tôi',
-    defaultWidgets: DEFAULT_WIDGETS,
-    toBackendWidgetType,
-  })
-  const { isEditMode, handleTogglePin } = dash
+
 
   const renderDetailBody = () => (
     <div className="flex-1 flex flex-col min-h-0 -mx-6 -mb-6">
-      <div className="px-6 pb-4 border-b border-slate-100 dark:border-slate-800 flex flex-wrap items-center gap-3">
-        <div className="flex gap-0.5 p-1 bg-slate-100 dark:bg-slate-800 rounded-lg">
-          {([['ALL', 'Tất cả'], ['SHARED', 'Mục tiêu chung'], ['PERSONAL', 'Mục tiêu riêng']] as [SharedFilter, string][]).map(([v, label]) => (
-            <button
-              key={v}
-              onClick={() => { setFilterShared(v); setPage(0) }}
-              className={cn(
-                'px-3 py-1 rounded-md text-[11px] font-black transition-all',
-                filterShared === v
-                  ? 'bg-white dark:bg-slate-700 text-violet-600 dark:text-violet-400 shadow-sm'
-                  : 'text-slate-500 hover:text-slate-700 dark:hover:text-slate-300'
-              )}
-            >
-              {label}
-            </button>
-          ))}
-        </div>
-        {filterShared !== 'ALL' && (
-          <button onClick={() => { setFilterShared('ALL'); setPage(0) }} className="flex items-center gap-1 h-9 px-3 rounded-lg text-xs font-bold text-red-500 hover:bg-red-50 dark:hover:bg-red-900/20 transition-colors">
-            <X size={13} /> Xóa bộ lọc
-          </button>
-        )}
-      </div>
-
       <div className="flex-1 overflow-auto custom-scrollbar min-h-0 flex flex-col">
         <div className="hidden md:block overflow-x-auto custom-scrollbar">
           <table className="w-full text-left">
             <thead className="bg-slate-50 dark:bg-slate-800/50">
-              <tr className="text-xs font-black uppercase text-slate-500">
+              <tr className="text-xs font-medium text-slate-500">
                 <th className="px-6 py-4 w-10"></th>
                 <th className="px-6 py-4">Tên KPI</th>
                 <th className="px-6 py-4 whitespace-nowrap">
@@ -233,9 +240,9 @@ export default function MyStatsTab() {
     return (
       <div className="flex-1 flex flex-col gap-3 min-h-0">
         {isKpisLoading ? (
-          <div className="py-16 text-center text-slate-400 font-bold">Đang tải...</div>
+          <div className="py-16 text-center text-slate-400 font-medium">Đang tải...</div>
         ) : rows.length === 0 ? (
-          <div className="py-16 text-center text-slate-400 font-bold italic">Không có KPI định lượng nào trong kỳ này</div>
+          <div className="py-16 text-center text-slate-400 font-medium italic">Không có KPI định lượng nào trong kỳ này</div>
         ) : (
           <BulletChart
             data={rows.map(k => ({
@@ -251,43 +258,61 @@ export default function MyStatsTab() {
           />
         )}
         {qualitativeCount > 0 && (
-          <p className="text-[11px] text-slate-400 font-medium text-center">
-            {qualitativeCount} KPI định tính không hiện ở đây — xem trong chế độ bảng.
+          <p className="text-xs text-slate-400 font-medium text-center">
+            {qualitativeCount} KPI định tính không hiện ở đây. Xem trong chế độ bảng.
           </p>
         )}
         {(kpiPage?.totalElements ?? 0) > CHART_FETCH_SIZE && (
-          <p className="text-[11px] text-amber-600 font-bold text-center">
-            Có {kpiPage?.totalElements} KPI, biểu đồ chỉ vẽ {CHART_FETCH_SIZE} mục đầu — xem đủ ở chế độ bảng.
+          <p className="text-xs text-amber-600 font-semibold text-center">
+            Có {kpiPage?.totalElements} KPI, biểu đồ chỉ vẽ {CHART_FETCH_SIZE} mục đầu. Xem đủ ở chế độ bảng.
           </p>
         )}
       </div>
     )
   }
 
-  const renderWidget = (w: DashboardWidget) => {
+  const renderWidget = (w: DashboardWidget, ctx: { openConfig: () => void }) => {
+    const histF = filterOf('mykpi-histogram')
+    // Dòng tóm tắt "ô này đang theo cấu hình gì" — bấm vào là mở đúng bảng cấu hình của ô.
+    const meta = (
+      <WidgetConfigSummary widget={w} pageIntent={pageIntent} periods={periods} cycles={cycles} onOpen={ctx.openConfig} />
+    )
+    const f = filterOf(w.i)
     switch (w.type) {
+      case 'STATS': return (
+        // Chromeless: mỗi thẻ đã là một card. Chip ở trên cho biết hàng số này đang theo khoảng nào.
+        <div id="tour-analytics-metrics" className="h-full flex flex-col gap-2 min-h-0">
+          {meta}
+          <MyKpiMetrics filter={{ from: f.from, to: f.to, periodId: f.periodId, periodIdTo: f.periodIdTo, onlyApproved }} />
+        </div>
+      )
       case 'MYKPI_TREND': return (
-        <ChartWrapper chromeless title="Xu hướng KPI theo thời gian" icon={<TrendingUp size={20} className="text-violet-500" />} widget={w} onTogglePin={handleTogglePin} isEditMode={isEditMode}>
-          <AnalyticsComboChart data={chartData?.points || []} isLoading={isChartLoading} itemName="KPI đảm nhiệm" fillHeight />
+        <ChartWrapper chromeless title="Xu hướng KPI theo thời gian" icon={<TrendingUp size={20} className="text-slate-400" />}>
+          <AnalyticsComboChart
+            data={chartData?.points || []}
+            isLoading={isChartLoading}
+            itemName="KPI đảm nhiệm"
+            fillHeight
+            mode={widgetVariant(w) === 'area' ? 'share' : 'trend'}
+            onModeChange={m => dash.updateWidgetSettings(w.i, { v: m === 'share' ? 'area' : 'line' })}
+            hideModeToggle
+            meta={meta}
+          />
         </ChartWrapper>
       )
       case 'MYKPI_DETAIL': return (
-        <ChartWrapper title="KPI đang đảm nhiệm" icon={<Target size={20} className="text-violet-600" />} widget={w} onTogglePin={handleTogglePin} isEditMode={isEditMode}
-          extraHeaderContent={
-            <>
-              <span className="text-xs font-bold text-slate-400">{kpiPage?.totalElements ?? 0} KPI</span>
-              <ViewToggleButtons view={detailView} onChange={setDetailView} />
-            </>
-          }>
+        <ChartWrapper title="KPI đang đảm nhiệm" icon={<Target size={20} className="text-slate-400" />}
+          meta={meta}
+          extraHeaderContent={<span className="text-xs font-medium text-slate-400">{kpiPage?.totalElements ?? 0} KPI</span>}>
           {detailView === 'chart' ? renderBulletBody() : renderDetailBody()}
         </ChartWrapper>
       )
       case 'SUBMISSION_STATUS': return (
-        <ChartWrapper title="Trạng thái bài nộp" icon={<PieChartIcon size={20} className="text-indigo-500" />} widget={w} onTogglePin={handleTogglePin} isEditMode={isEditMode}>
+        <ChartWrapper title="Trạng thái bài nộp" icon={<PieChartIcon size={20} className="text-slate-400" />} meta={meta}>
           {submissionsPieData.length === 0 ? <EmptyChart /> : (
             <ResponsiveContainer width="100%" height="100%" minHeight={200}>
               <PieChart>
-                <Pie data={submissionsPieData} innerRadius="50%" outerRadius="78%" paddingAngle={5} dataKey="value"
+                <Pie isAnimationActive={false} data={submissionsPieData} innerRadius="50%" outerRadius="78%" paddingAngle={5} dataKey="value"
                   label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`} labelLine={false}>
                   {submissionsPieData.map((_, i) => <Cell key={i} fill={seriesColor(i)} />)}
                 </Pie>
@@ -298,34 +323,16 @@ export default function MyStatsTab() {
           )}
         </ChartWrapper>
       )
-      case 'KPI_STATUS_DIST': return (
-        <ChartWrapper title="Phân bổ trạng thái KPI" icon={<BarChartIcon size={20} className="text-violet-500" />} widget={w} onTogglePin={handleTogglePin} isEditMode={isEditMode}>
-          {kpiStatusDistData.length === 0 ? <EmptyChart /> : (
-            <ResponsiveContainer width="100%" height="100%" minHeight={200}>
-              <BarChart data={kpiStatusDistData}>
-                <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                <XAxis dataKey="name" fontSize={10} axisLine={false} tickLine={false} />
-                <YAxis label={yAxisLabel('S\u1ed1 KPI')} fontSize={10} axisLine={false} tickLine={false} allowDecimals={false} width={48} />
-                <Tooltip content={<SeriesTooltip />} />
-                <Bar dataKey="value" name="Số KPI" radius={[6, 6, 0, 0]}>
-                  {kpiStatusDistData.map((_, i) => <Cell key={i} fill={seriesColor(i)} />)}
-                </Bar>
-              </BarChart>
-            </ResponsiveContainer>
-          )}
-        </ChartWrapper>
-      )
       case 'EVAL_HISTORY': return (
         <ChartWrapper
           title="Lịch sử & xu hướng điểm đánh giá"
-          icon={<Activity size={20} className="text-indigo-500" />}
-          widget={w} onTogglePin={handleTogglePin} isEditMode={isEditMode}
-          extraHeaderContent={<ViewToggleButtons view={evalView} onChange={setEvalView} />}
+          icon={<Activity size={20} className="text-slate-400" />}
+          meta={meta}
         >
           {/* Bảng lịch sử và đường xu hướng trước đây là hai khối cạnh nhau đọc CÙNG một mảng
               evaluationHistory — nay là hai cách xem của một widget. */}
           {evalView === 'table'
-            ? <EvaluationTableWidget data={analyticsData?.evaluationHistory ?? []} title="Lịch sử đánh giá" bare />
+            ? <EvaluationTableWidget data={evalData?.evaluationHistory ?? []} title="Lịch sử đánh giá" bare />
             : evalTrendData.length === 0 ? <EmptyChart /> : (
               <ResponsiveContainer width="100%" height="100%" minHeight={220}>
                 <AreaChart data={evalTrendData}>
@@ -335,11 +342,11 @@ export default function MyStatsTab() {
                       <stop offset="95%" stopColor="#6366f1" stopOpacity={0} />
                     </linearGradient>
                   </defs>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} />
-                  <XAxis dataKey="name" fontSize={10} axisLine={false} tickLine={false} />
-                  <YAxis label={yAxisLabel('\u0110i\u1ec3m')} fontSize={10} axisLine={false} tickLine={false} domain={[0, 100]} width={48} />
+                  <CartesianGrid stroke="var(--color-border)" vertical={false} />
+                  <XAxis dataKey="name" fontSize={11} axisLine={false} tickLine={false} />
+                  <YAxis label={yAxisLabel('\u0110i\u1ec3m')} fontSize={11} axisLine={false} tickLine={false} domain={[0, 100]} width={48} />
                   <Tooltip content={<SeriesTooltip />} />
-                  <Area type="monotone" dataKey="value" name="Điểm" stroke="#6366f1" strokeWidth={2} fillOpacity={1} fill="url(#evalGrad)" dot={{ r: 4, fill: '#6366f1' }} />
+                  <Area isAnimationActive={false} type="monotone" dataKey="value" name="Điểm" stroke="#6366f1" strokeWidth={2} fillOpacity={1} fill="url(#evalGrad)" dot={{ r: 4, fill: '#6366f1' }} />
                 </AreaChart>
               </ResponsiveContainer>
             )}
@@ -347,34 +354,26 @@ export default function MyStatsTab() {
       )
       case 'MY_SCORE_HISTOGRAM': return (
         <ScoreHistogramWidget
-          filter={{ periodId, periodIdTo, from, to }}
-          widget={w} onTogglePin={handleTogglePin} isEditMode={isEditMode}
+          filter={{ periodId: histF.periodId, periodIdTo: histF.periodIdTo, from: histF.from, to: histF.to }}
+          meta={meta}
         />
       )
       default: return null
     }
   }
 
-  if (isMetricsLoading || isChartLoading)
+  if (isChartLoading)
     return <AnalyticsTabSkeleton variant="default" className="p-6" />
 
   // ── Old chart data preparation ───────────────────────────────────────────
   const submissionsPieData = [
-    { name: 'Đã duyệt', value: analyticsData?.approvedSubmissions ?? 0 },
-    { name: 'Chờ duyệt', value: analyticsData?.pendingSubmissions ?? 0 },
-    { name: 'Từ chối',   value: analyticsData?.rejectedSubmissions ?? 0 },
+    { name: 'Đã duyệt', value: subData?.approvedSubmissions ?? 0 },
+    { name: 'Chờ duyệt', value: subData?.pendingSubmissions ?? 0 },
+    { name: 'Từ chối',   value: subData?.rejectedSubmissions ?? 0 },
   ].filter(v => v.value > 0)
 
-  const kpiStatusDistData = (() => {
-    const dist: Record<string, number> = {}
-    for (const k of analyticsData?.kpiItems ?? []) {
-      dist[k.status] = (dist[k.status] ?? 0) + 1
-    }
-    return Object.entries(dist).map(([name, value]) => ({ name, value }))
-  })()
-
   // Xu hướng điểm số theo từng đợt (backend đã gom 1 dòng/đợt, sắp tăng dần theo đợt).
-  const evalTrendData = (analyticsData?.evaluationHistory ?? [])
+  const evalTrendData = (evalData?.evaluationHistory ?? [])
     .map(e => ({
       name: e.kpiName,
       value: e.score ?? 0,
@@ -384,91 +383,37 @@ export default function MyStatsTab() {
     <div className="space-y-6">
       {/* Tiêu đề + nút Tuỳ chỉnh */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <h2 className="text-xl font-black text-slate-900 dark:text-white">KPI của tôi</h2>
-        <div id="tour-analytics-customize">
+        <h2 className="text-xl font-semibold text-slate-900 dark:text-white">KPI của tôi</h2>
+        <div id="tour-analytics-customize" className="flex items-center gap-3 flex-wrap">
           <DashboardEditToolbar api={dash} />
         </div>
       </div>
 
-      {/* ── Global Filter Toolbar ──────────────────────────────────────────── */}
-      <div id="tour-analytics-filter" className="sticky top-0 z-20 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl flex flex-wrap items-center gap-4 justify-between p-4 shadow-sm">
-        <div className="flex items-center gap-2">
-          <div className="p-2 bg-violet-50 dark:bg-violet-900/30 rounded-lg text-violet-600 dark:text-violet-400">
-            <Target size={18} />
-          </div>
-          <div>
-            <h2 className="text-base font-bold text-slate-900 dark:text-white">Bộ lọc KPI của tôi</h2>
-            <p className="text-xs text-slate-500 font-medium mt-0.5">Lọc dữ liệu đồng bộ cho tất cả biểu đồ</p>
-          </div>
-        </div>
-
-        <div className="flex flex-wrap items-center gap-5">
-          {controls}
-        </div>
-      </div>
-
-      {/* ── New Metric Cards ────────────────────────────────────────────────── */}
-      <div id="tour-analytics-metrics" className="grid grid-cols-2 md:grid-cols-5 gap-4">
-        <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 flex items-center gap-4">
-          <div className="w-11 h-11 rounded-full bg-violet-100 dark:bg-violet-900/40 text-violet-600 dark:text-violet-400 flex items-center justify-center shrink-0">
-            <Target size={20} />
-          </div>
-          <div>
-            <p className="text-xs font-bold text-slate-500">Tổng KPI</p>
-            <p className="text-2xl font-black">{(metrics?.runningKpis ?? 0) + (metrics?.completedKpis ?? 0)}</p>
-          </div>
-        </div>
-        <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 flex items-center gap-4">
-          <div className="w-11 h-11 rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400 flex items-center justify-center shrink-0">
-            <TrendingUp size={20} />
-          </div>
-          <div>
-            <p className="text-xs font-bold text-slate-500">Tiến độ TB</p>
-            <p className="text-2xl font-black">{metrics?.averageProgress?.toFixed(1) ?? 0}%</p>
-          </div>
-        </div>
-        <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 flex items-center gap-4">
-          <div className="w-11 h-11 rounded-full bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400 flex items-center justify-center shrink-0">
-            <Target size={20} />
-          </div>
-          <div>
-            <p className="text-xs font-bold text-slate-500">Hiệu suất TB (đánh giá)</p>
-            <p className="text-2xl font-black">{perf.format(metrics?.averagePerformance ?? 0)}</p>
-          </div>
-        </div>
-        <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 flex items-center gap-4">
-          <div className="w-11 h-11 rounded-full bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 flex items-center justify-center shrink-0">
-            <CheckCircle size={20} />
-          </div>
-          <div>
-            <p className="text-xs font-bold text-slate-500">Đang chạy / HT</p>
-            <p className="text-base font-black">{metrics?.runningKpis ?? 0} / {metrics?.completedKpis ?? 0}</p>
-          </div>
-        </div>
-        <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 flex items-center gap-4">
-          <div className="w-11 h-11 rounded-full bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400 flex items-center justify-center shrink-0">
-            <AlertTriangle size={20} />
-          </div>
-          <div>
-            <p className="text-xs font-bold text-slate-500">Rủi ro / Chậm</p>
-            <p className="text-2xl font-black">{metrics?.riskKpis ?? 0}</p>
-          </div>
-        </div>
-      </div>
+      {/* Hàng thẻ chỉ số nay là ô đầu lưới (mykpi-metrics), khoảng thời gian của nó nằm trong bảng
+          cấu hình như mọi ô khác. */}
 
       {/* Lưới widget tuỳ chỉnh: Xu hướng + Bảng chi tiết */}
       <div id="tour-analytics-widgets">
-        <DashboardCustomizeChrome api={dash} renderWidget={renderWidget} catalog={CATALOG} />
+        <DashboardCustomizeChrome
+          api={dash}
+          renderWidget={renderWidget}
+          catalog={CATALOG}
+          onTogglePin={pin.enabled ? pin.toggle : undefined}
+          isPinned={pin.isPinned}
+          renderConfig={(w, update) => (
+            <WidgetConfigPanel widget={w} update={update} pageIntent={pageIntent} periods={periods} cycles={cycles} />
+          )}
+        />
       </div>
 
       {selectedKpiId && (
         <MyKpiDrawer
           kpiId={selectedKpiId}
           onClose={() => setSelectedKpiId(null)}
-          globalFrom={from}
-          globalTo={to}
-          globalPeriodId={periodId}
-          globalPeriodIdTo={periodIdTo}
+          globalFrom={detailF.from}
+          globalTo={detailF.to}
+          globalPeriodId={detailF.periodId}
+          globalPeriodIdTo={detailF.periodIdTo}
         />
       )}
     </div>
@@ -479,33 +424,33 @@ export default function MyStatsTab() {
 
 function MobileKpiCard({ kpi, onOpenDrawer }: { kpi: any; onOpenDrawer: () => void }) {
   const pct = Math.round(kpi.progress || 0)
-  const fmt = (d: string | null) => d ? format(new Date(d), 'dd/MM/yyyy') : '—'
+  const fmt = (d: string | null) => d ? format(new Date(d), 'dd/MM/yyyy') : '-'
 
   return (
     <div className="p-4 space-y-3 active:bg-slate-50 dark:active:bg-slate-800/30" onClick={onOpenDrawer}>
       <div className="flex items-start justify-between gap-2">
-        <p className="font-bold text-sm text-slate-900 dark:text-white truncate min-w-0">{kpi.kpiName}</p>
+        <p className="font-semibold text-sm text-slate-900 dark:text-white truncate min-w-0">{kpi.kpiName}</p>
         {kpi.shared ? (
-          <div className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 text-[9px] font-black uppercase shrink-0">
+          <div className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-indigo-50 dark:bg-indigo-900/30 text-[var(--color-primary)] dark:text-indigo-400 text-xs font-semibold shrink-0">
             <Users size={10} /> Chung
           </div>
         ) : (
-          <div className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-[9px] font-black uppercase shrink-0">
+          <div className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-xs font-semibold shrink-0">
             <User size={10} /> Riêng
           </div>
         )}
       </div>
 
-      <p className="text-[11px] text-slate-400">{fmt(kpi.periodStart)} — {fmt(kpi.periodEnd)}</p>
+      <p className="text-xs text-slate-400">{fmt(kpi.periodStart)} - {fmt(kpi.periodEnd)}</p>
 
       <div className="flex items-center gap-4 pt-1 border-t border-slate-100 dark:border-slate-800">
         <div className="flex-1">
           <div className="flex items-center justify-between mb-1">
-            <span className="text-[10px] text-slate-500">Tiến độ</span>
-            <span className="text-[10px] font-black">{pct}%</span>
+            <span className="text-xs text-slate-500">Tiến độ</span>
+            <span className="text-xs font-semibold">{pct}%</span>
           </div>
           <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
-            <div className={cn('h-full rounded-full', pct >= 100 ? 'bg-emerald-500' : 'bg-violet-500')} style={{ width: `${Math.min(pct, 100)}%` }} />
+            <div className={cn('h-full rounded-full', pct >= 100 ? 'bg-emerald-500' : 'bg-indigo-500')} style={{ width: `${Math.min(pct, 100)}%` }} />
           </div>
         </div>
       </div>
@@ -530,7 +475,7 @@ function ExpandableKpiRow({ kpi, onOpenDrawer, onSelectKpi }: { kpi: any; onOpen
           </button>
         </td>
         <td className="px-6 py-4 cursor-pointer" onClick={onOpenDrawer}>
-          <div className="font-bold text-sm text-slate-900 hover:text-violet-500 dark:text-white dark:hover:text-violet-400 transition-colors truncate max-w-[240px]">{kpi.kpiName}</div>
+          <div className="font-semibold text-sm text-slate-900 hover:text-[var(--color-primary)] dark:text-white dark:hover:text-indigo-400 transition-colors truncate max-w-[240px]">{kpi.kpiName}</div>
           <div className="flex items-center gap-1.5 flex-wrap mt-1">
             <KpiTypeTags
               isReverseKpi={kpi.isReverseKpi}
@@ -548,15 +493,15 @@ function ExpandableKpiRow({ kpi, onOpenDrawer, onSelectKpi }: { kpi: any; onOpen
         <td className="px-6 py-4">
           {isQual ? (
             <div className="flex flex-col gap-1">
-              <span className="text-[10px] text-slate-500 uppercase font-bold">Mức đánh giá</span>
+              <span className="text-xs text-slate-500 font-medium">Mức đánh giá</span>
               <QualitativeResultChip level={kpi.qualitativeLevelName} />
             </div>
           ) : isBonus ? (
             <div className="flex flex-col gap-1">
-              <span className="inline-flex w-fit items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 text-[10px] font-black uppercase">
+              <span className="inline-flex w-fit items-center gap-1 px-2.5 py-1 rounded-full bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 text-xs font-semibold">
                 Thưởng
               </span>
-              <div className="text-[10px] text-slate-500">
+              <div className="text-xs text-slate-500">
                 {kpi.actualValue?.toLocaleString('vi-VN')} / {kpi.targetValue?.toLocaleString('vi-VN')} {kpi.unit}
               </div>
             </div>
@@ -565,13 +510,13 @@ function ExpandableKpiRow({ kpi, onOpenDrawer, onSelectKpi }: { kpi: any; onOpen
               <div className="flex items-center gap-3">
                 <div className="flex-1 h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                   <div
-                    className={cn('h-full rounded-full transition-all', pct >= 100 ? 'bg-emerald-500' : 'bg-violet-500')}
+                    className={cn('h-full rounded-full transition-all', pct >= 100 ? 'bg-emerald-500' : 'bg-indigo-500')}
                     style={{ width: `${Math.min(pct, 100)}%` }}
                   />
                 </div>
-                <span className="text-xs font-black">{pct}%</span>
+                <span className="text-xs font-semibold">{pct}%</span>
               </div>
-              <div className="text-[10px] text-slate-500 mt-1">
+              <div className="text-xs text-slate-500 mt-1">
                 {kpi.actualValue?.toLocaleString('vi-VN')} / {kpi.targetValue?.toLocaleString('vi-VN')} {kpi.unit}
               </div>
             </>
@@ -579,11 +524,11 @@ function ExpandableKpiRow({ kpi, onOpenDrawer, onSelectKpi }: { kpi: any; onOpen
         </td>
         <td className="px-6 py-4">
           {kpi.shared ? (
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-purple-50 dark:bg-purple-900/30 text-purple-600 dark:text-purple-400 text-[10px] font-black uppercase">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-indigo-50 dark:bg-indigo-900/30 text-[var(--color-primary)] dark:text-indigo-400 text-xs font-semibold">
               <Users size={12} /> Chung ({kpi.participantCount})
             </div>
           ) : (
-            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-[10px] font-black uppercase">
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400 text-xs font-semibold">
               <User size={12} /> Riêng
             </div>
           )}
@@ -600,18 +545,18 @@ function ExpandableKpiRow({ kpi, onOpenDrawer, onSelectKpi }: { kpi: any; onOpen
       {expanded && (!hasChildren || (kpi.mySubmissions?.length ?? 0) > 0 || kpi.shared) && (
         <tr>
           <td colSpan={5} className="p-0 border-b border-slate-100 dark:border-slate-800">
-            <div className="bg-slate-50/50 dark:bg-slate-900/50 p-6 flex flex-col gap-6 border-l-4 border-violet-500">
+            <div className="bg-slate-50/50 dark:bg-slate-900/50 p-6 flex flex-col gap-6 border-l-4 border-[var(--color-primary)]">
               <div className="w-full space-y-4">
-                <h4 className="text-xs font-black uppercase tracking-wider text-slate-500">Lịch sử bài nộp của tôi</h4>
+                <h4 className="text-xs font-medium text-slate-500">Lịch sử bài nộp của tôi</h4>
                 {kpi.mySubmissions && kpi.mySubmissions.length > 0 ? (
                   <div className="space-y-3">
                     {kpi.mySubmissions.map((sub: any) => (
-                      <div key={sub.id} className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 flex items-center justify-between gap-4">
+                      <div key={sub.id} className="bg-white dark:bg-slate-800 p-4 rounded-lg shadow-sm border border-slate-100 dark:border-slate-700 flex items-center justify-between gap-4">
                         <div className="w-[120px]">
-                          <p className="text-sm font-bold">{sub.code}</p>
+                          <p className="text-sm font-semibold">{sub.code}</p>
                         </div>
                         <div className="w-[150px]">
-                          <p className="text-[10px] text-slate-500 uppercase font-bold mb-1">Thời gian nộp</p>
+                          <p className="text-xs text-slate-500 font-medium mb-1">Thời gian nộp</p>
                           <p className="text-xs font-medium text-slate-700 dark:text-slate-300">
                             {new Date(sub.submitDate).toLocaleString('vi-VN', {
                               hour: '2-digit', minute: '2-digit',
@@ -621,30 +566,30 @@ function ExpandableKpiRow({ kpi, onOpenDrawer, onSelectKpi }: { kpi: any; onOpen
                         </div>
                         {isQual ? (
                           <div className="flex-1 max-w-[200px]">
-                            <p className="text-[10px] text-slate-500 uppercase font-bold mb-1">Mức đánh giá</p>
+                            <p className="text-xs text-slate-500 font-medium mb-1">Mức đánh giá</p>
                             <QualitativeResultChip level={sub.qualitativeLevelName} />
                           </div>
                         ) : (
                           <>
                             <div className="flex-1 max-w-[200px]">
                               <div className="flex items-center justify-between mb-1">
-                                <span className="text-[10px] text-slate-500">Đóng góp</span>
-                                <span className="text-[10px] font-black">{sub.contributionProgress?.toFixed(1)}%</span>
+                                <span className="text-xs text-slate-500">Đóng góp</span>
+                                <span className="text-xs font-semibold">{sub.contributionProgress?.toFixed(1)}%</span>
                               </div>
                               <div className="h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full">
-                                <div className="h-full bg-violet-500 rounded-full" style={{ width: `${Math.min(sub.contributionProgress, 100)}%` }} />
+                                <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${Math.min(sub.contributionProgress, 100)}%` }} />
                               </div>
-                              <p className="text-[10px] font-bold text-violet-600 dark:text-violet-400 mt-1">+{sub.actualValue?.toLocaleString('vi-VN')} {kpi.unit}</p>
+                              <p className="text-xs font-semibold text-[var(--color-primary)] dark:text-indigo-400 mt-1">+{sub.actualValue?.toLocaleString('vi-VN')} {kpi.unit}</p>
                             </div>
                             <div className="text-center w-[100px]">
-                              <p className="text-[10px] text-slate-500">Hiệu suất</p>
-                              <p className="text-sm font-black text-violet-500">{sub.performance?.toFixed(1)}%</p>
+                              <p className="text-xs text-slate-500">Hiệu suất</p>
+                              <p className="text-sm font-semibold text-[var(--color-primary)]">{sub.performance?.toFixed(1)}%</p>
                             </div>
                           </>
                         )}
                         <div>
                           <span className={cn(
-                            'px-2 py-1 rounded text-[10px] font-black uppercase',
+                            'px-2 py-1 rounded text-xs font-semibold',
                             sub.status === 'APPROVED' ? 'bg-emerald-100 text-emerald-700' :
                             sub.status === 'REJECTED' ? 'bg-red-100 text-red-700' : 'bg-amber-100 text-amber-700'
                           )}>
@@ -661,39 +606,39 @@ function ExpandableKpiRow({ kpi, onOpenDrawer, onSelectKpi }: { kpi: any; onOpen
 
               {kpi.shared && kpi.teammates?.length > 0 && kpi.childRelationType !== 'DECOMPOSITION' && (
                 <div className="w-full space-y-4 pt-6 border-t border-slate-200 dark:border-slate-700">
-                  <h4 className="text-xs font-black uppercase tracking-wider text-slate-500">Đồng đội cùng thực hiện</h4>
+                  <h4 className="text-xs font-medium text-slate-500">Đồng đội cùng thực hiện</h4>
                   <div className="space-y-3">
                     {kpi.teammates.map((tm: any) => (
-                      <div key={tm.userId} className="bg-white dark:bg-slate-800 p-4 rounded-xl shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+                      <div key={tm.userId} className="bg-white dark:bg-slate-800 p-4 rounded-lg shadow-sm border border-slate-100 dark:border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
                         <div className="flex items-center gap-3 w-[250px]">
                           {tm.avatarUrl
                             ? <img src={tm.avatarUrl} alt="" className="w-10 h-10 rounded-full" />
-                            : <div className="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-sm font-bold">{tm.fullName.charAt(0)}</div>
+                            : <div className="w-10 h-10 rounded-full bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-sm font-semibold">{tm.fullName.charAt(0)}</div>
                           }
                           <div className="min-w-0">
-                            <p className="text-sm font-bold truncate">{tm.fullName}</p>
-                            <p className="text-[10px] text-slate-500">{tm.employeeCode}</p>
+                            <p className="text-sm font-semibold truncate">{tm.fullName}</p>
+                            <p className="text-xs text-slate-500">{tm.employeeCode}</p>
                           </div>
                         </div>
                         {isQual ? (
                           <div className="flex-1 max-w-[250px]">
-                            <p className="text-[10px] text-slate-500 uppercase font-bold mb-1">Mức đánh giá</p>
+                            <p className="text-xs text-slate-500 font-medium mb-1">Mức đánh giá</p>
                             <QualitativeResultChip level={tm.qualitativeLevelName} />
                           </div>
                         ) : (
                           <>
                             <div className="flex-1 max-w-[250px]">
                               <div className="flex items-center justify-between mb-1">
-                                <span className="text-[10px] text-slate-500">Tiến độ cá nhân</span>
-                                <span className="text-[10px] font-black">{tm.progress?.toFixed(1)}%</span>
+                                <span className="text-xs text-slate-500">Tiến độ cá nhân</span>
+                                <span className="text-xs font-semibold">{tm.progress?.toFixed(1)}%</span>
                               </div>
                               <div className="h-1.5 bg-slate-100 dark:bg-slate-700 rounded-full">
-                                <div className="h-full bg-purple-500 rounded-full" style={{ width: `${Math.min(tm.progress, 100)}%` }} />
+                                <div className="h-full bg-indigo-500 rounded-full" style={{ width: `${Math.min(tm.progress, 100)}%` }} />
                               </div>
                             </div>
                             <div className="text-center sm:text-right w-[100px]">
-                              <p className="text-[10px] text-slate-500">Hiệu suất</p>
-                              <p className="text-sm font-black text-violet-500">{tm.performance?.toFixed(1)}%</p>
+                              <p className="text-xs text-slate-500">Hiệu suất</p>
+                              <p className="text-sm font-semibold text-[var(--color-primary)]">{tm.performance?.toFixed(1)}%</p>
                             </div>
                           </>
                         )}
@@ -714,7 +659,7 @@ function EmptyChart() {
   return (
     <div className="h-[240px] flex flex-col items-center justify-center text-slate-400 gap-2">
       <Info size={24} className="opacity-20" />
-      <span className="text-[10px] font-bold uppercase tracking-wider">Chưa có dữ liệu</span>
+      <span className="text-xs font-semibold">Chưa có dữ liệu</span>
     </div>
   )
 }
@@ -770,7 +715,7 @@ function EvaluationTableWidget({ data, title, bare }: { data: any[]; title: stri
         bare ? 'pb-3' : 'p-5 border-b border-slate-100 dark:border-slate-800',
       )}>
         {!bare && (
-          <h3 className="font-black text-sm flex items-center gap-2 shrink-0">
+          <h3 className="font-semibold text-sm flex items-center gap-2 shrink-0">
             <Star size={16} className="text-amber-500" /> {title}
           </h3>
         )}
@@ -781,14 +726,14 @@ function EvaluationTableWidget({ data, title, bare }: { data: any[]; title: stri
             placeholder="Tìm kiếm..."
             value={filter}
             onChange={e => { setFilter(e.target.value); setPage(1) }}
-            className="w-full pl-9 pr-3 py-1.5 bg-slate-50 dark:bg-slate-800 border-none rounded-lg text-xs outline-none focus:ring-2 focus:ring-indigo-500 transition-all"
+            className="w-full pl-9 pr-3 py-1.5 bg-slate-50 dark:bg-slate-800 border-none rounded-lg text-xs outline-none focus:ring-2 focus:ring-[var(--color-primary)] transition-all"
           />
         </div>
       </div>
       <div className="flex-1 overflow-auto custom-scrollbar">
         <table className="w-full text-left border-collapse">
           <thead className="sticky top-0 bg-slate-50 dark:bg-slate-800/50 z-10">
-            <tr className="text-[10px] font-black uppercase tracking-wider text-slate-400">
+            <tr className="text-xs font-medium text-slate-400">
               <th className="px-5 py-3">
                 <SortHeader field="score" active={sortConfig?.key ?? null} dir={sortConfig?.direction ?? 'asc'} onToggle={handleSort} iconSize={10}>Điểm</SortHeader>
               </th>
@@ -812,16 +757,16 @@ function EvaluationTableWidget({ data, title, bare }: { data: any[]; title: stri
             {paginatedData.map(e => (
               <tr key={e.id} className="hover:bg-slate-50 dark:hover:bg-slate-800/30 transition-colors">
                 <td className="px-5 py-3">
-                  <div className={cn('w-10 h-10 rounded-xl flex items-center justify-center text-sm font-black shadow-sm',
+                  <div className={cn('w-10 h-10 rounded-lg flex items-center justify-center text-sm font-semibold shadow-sm',
                     (e.score ?? 0) >= 80 ? 'bg-emerald-100 text-emerald-700' :
                     (e.score ?? 0) >= 50 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
-                  )}>{e.score?.toFixed(1) ?? '—'}</div>
+                  )}>{e.score?.toFixed(1) ?? '-'}</div>
                 </td>
                 <td className="px-3 py-3">
-                  <p className="text-sm font-bold text-slate-900 dark:text-white truncate max-w-[180px]">{e.kpiName}</p>
+                  <p className="text-sm font-semibold text-slate-900 dark:text-white truncate max-w-[180px]">{e.kpiName}</p>
                 </td>
                 <td className="px-3 py-3 text-sm text-slate-600 dark:text-slate-400 font-medium">{e.evaluatorName}</td>
-                <td className="px-3 py-3 text-right text-[11px] text-slate-500 font-bold">
+                <td className="px-3 py-3 text-right text-xs text-slate-500 font-medium">
                   {new Date(e.createdAt).toLocaleDateString('vi-VN')}
                 </td>
               </tr>
@@ -831,7 +776,7 @@ function EvaluationTableWidget({ data, title, bare }: { data: any[]; title: stri
       </div>
       {totalPages > 1 && (
         <div className="p-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/30">
-          <span className="text-[10px] font-bold text-slate-500 uppercase">Trang {page} / {totalPages}</span>
+          <span className="text-xs font-medium text-slate-500">Trang {page} / {totalPages}</span>
           <div className="flex items-center gap-1">
             <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
               className="p-1.5 rounded-lg hover:bg-white dark:hover:bg-slate-700 disabled:opacity-30 transition-colors shadow-sm border border-transparent hover:border-slate-200">

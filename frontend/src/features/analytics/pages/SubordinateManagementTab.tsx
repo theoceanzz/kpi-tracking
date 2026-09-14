@@ -1,118 +1,154 @@
-import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { statsApi } from '@/features/dashboard/api/statsApi'
-import ObjectiveMetricCard from '../components/ObjectiveMetricCard'
 import AnalyticsComboChart from '../components/AnalyticsComboChart'
 import ObjectiveDetailsWidget from '../components/ObjectiveDetailsWidget'
 import UnitComparisonBarChart from '../components/UnitComparisonBarChart'
 import MemberRoleChart from '../components/MemberRoleChart'
 import { useSummaryStats } from '../hooks/useAnalytics'
-import { useAnalyticsDateFilter } from '@/components/common/AnalyticsDateFilter'
 import { OkrFlowSection } from '../components/advanced/OkrAdvanced'
-import { usePerformanceScale } from '../hooks/usePerformanceScale'
-import { Target, TrendingUp, CheckCircle2, AlertTriangle, Users, Network } from 'lucide-react'
+import { Target, TrendingUp, Users, Network } from 'lucide-react'
 import { ChartWrapper, type DashboardWidget } from '@/components/common/dashboard/ChartWrapper'
-import { useDashboardCustomization } from '@/components/common/dashboard/useDashboardCustomization'
 import DashboardCustomizeChrome, { DashboardEditToolbar } from '@/components/common/dashboard/DashboardCustomizeChrome'
-import type { WidgetType } from '@/types/datasource'
+import {
+  useAnalyticsGrid, useAnalyticsScopeData, useUnitOptions, widgetFilter, widgetVariant, tableViewControl, optionOf, PAGE_DEFAULT_INTENT,
+} from '../grid/analyticsGrid'
+import { usePinToHome } from '../grid/usePinToHome'
+import WidgetConfigPanel from '../grid/WidgetConfigPanel'
+import WidgetConfigSummary from '../grid/WidgetConfigSummary'
+import { SubordinateMetrics } from '../components/pinned/metricWidgets'
 
-const CONFIG_REPORT_NAME = '__SUBORDINATE_DASHBOARD_CONFIG__'
+/** Tên "report ẩn" của kho cũ — chỉ còn dùng để vớt bố cục một lần. */
+const LEGACY_REPORT_NAME = '__SUBORDINATE_DASHBOARD_CONFIG__'
+
 const DEFAULT_WIDGETS: DashboardWidget[] = [
-  { i: 'sub-trend', type: 'SUB_TREND', title: 'Xu hướng mục tiêu theo thời gian', x: 0, y: 0, w: 12, h: 15, visible: true },
-  { i: 'sub-detail', type: 'SUB_DETAIL', title: 'Chi tiết mục tiêu', x: 0, y: 15, w: 12, h: 20, visible: true },
-  { i: 'sub-member', type: 'SUB_MEMBER', title: 'Nhân sự & vai trò theo đơn vị', x: 0, y: 35, w: 12, h: 11, visible: true },
-  { i: 'sub-unit-perf', type: 'SUB_UNIT_PERF', title: 'Hiệu suất & Tiến độ đơn vị', x: 0, y: 46, w: 12, h: 13, visible: true },
+  // Hàng thẻ chỉ số từng nằm NGOÀI lưới, bám nút khoảng thời gian trên đầu trang. Nút đó nay nằm
+  // trong bảng cấu hình từng ô, nên hàng thẻ cũng là một ô — cùng id với danh mục trang chủ. Thẻ
+  // kiểu ObjectiveMetricCard cao hơn thẻ icon-tròn nên ô này cần 5 hàng.
+  { i: 'sub-metrics', type: 'STATS', title: 'Số liệu tổng hợp', x: 0, y: 0, w: 12, h: 5, visible: true },
+  { i: 'sub-trend', type: 'SUB_TREND', title: 'Xu hướng mục tiêu theo thời gian', x: 0, y: 5, w: 12, h: 15, visible: true },
+  { i: 'sub-detail', type: 'SUB_DETAIL', title: 'Chi tiết mục tiêu', x: 0, y: 20, w: 12, h: 20, visible: true },
+  { i: 'sub-member', type: 'SUB_MEMBER', title: 'Nhân sự & vai trò theo đơn vị', x: 0, y: 40, w: 12, h: 11, visible: true },
+  { i: 'sub-unit-perf', type: 'SUB_UNIT_PERF', title: 'Hiệu suất & tiến độ đơn vị', x: 0, y: 51, w: 12, h: 13, visible: true },
   // Mặc định ẩn: luồng OKR chỉ có nghĩa khi Key Result đã được phân bổ trọng số xuống đơn vị.
-  { i: 'sub-okr-flow', type: 'SUB_OKR_FLOW', title: 'Luồng phân bổ OKR', x: 0, y: 59, w: 12, h: 13, visible: false },
+  { i: 'sub-okr-flow', type: 'SUB_OKR_FLOW', title: 'Luồng phân bổ OKR', x: 0, y: 64, w: 12, h: 13, visible: false },
 ]
-// Loại FE → enum WidgetType hợp lệ ở DB (không cần migration).
-const toBackendWidgetType = (t: string): WidgetType =>
-  t === 'SUB_TREND' ? 'TREND_CHART'
-  : t === 'SUB_DETAIL' ? 'TABLE'
-  : t === 'SUB_MEMBER' ? 'MEMBER_DIST'
-  : t === 'SUB_OKR_FLOW' ? 'HEATMAP'
-  : 'UNIT_PERFORMANCE'
-const CATALOG: { template: DashboardWidget; icon: React.ReactNode }[] = DEFAULT_WIDGETS.map(t => ({
-  template: t,
-  icon: t.type === 'SUB_DETAIL' ? <Target size={24} />
-    : t.type === 'SUB_MEMBER' ? <Users size={24} />
-    : <TrendingUp size={24} />,
+
+const GROUP_OF: Record<string, string> = {
+  'sub-metrics': 'Số liệu',
+  'sub-trend': 'Biểu đồ xu hướng',
+  'sub-detail': 'Từ bộ phận đến tổng thể',
+  'sub-member': 'Từ bộ phận đến tổng thể',
+  'sub-unit-perf': 'Biểu đồ so sánh',
+  'sub-okr-flow': 'Biểu đồ luồng',
+}
+const PREVIEW_OF: Record<string, 'metricCard' | 'line' | 'treemap' | 'stackedBar' | 'groupedBar' | 'sankey'> = {
+  'sub-metrics': 'metricCard',
+  'sub-trend': 'line',
+  'sub-detail': 'treemap',
+  'sub-member': 'stackedBar',
+  'sub-unit-perf': 'groupedBar',
+  'sub-okr-flow': 'sankey',
+}
+const DESC_OF: Record<string, string> = {
+  'sub-metrics': 'Tiến độ, hiệu suất, số mục tiêu hoàn thành, số rủi ro và tổng nhân sự.',
+  'sub-trend': 'Số mục tiêu và hiệu suất của cấp dưới qua từng mốc thời gian.',
+  'sub-detail': 'Tiến độ từng mục tiêu và kết quả then chốt của người thuộc quyền bạn.',
+  'sub-member': 'Cơ cấu nhân sự theo vai trò trong từng đơn vị.',
+  'sub-unit-perf': 'So sánh hiệu suất, tiến độ và tình hình nộp giữa các đơn vị.',
+  'sub-okr-flow': 'Trọng số Key Result chảy xuống từng đơn vị.',
+}
+const CATALOG = DEFAULT_WIDGETS.map(t => ({
+  template: t, icon: null, groupLabel: GROUP_OF[t.i], preview: PREVIEW_OF[t.i], description: DESC_OF[t.i],
 }))
 
 export default function SubordinateManagementTab() {
   const onlyApproved = false
-  const { periodId, periodIdTo, from, to, groupBy, controls } = useAnalyticsDateFilter({ selectClassName: 'h-10' })
-  const perf = usePerformanceScale()
-  const dateRange = useMemo(() => ({ from, to }), [from, to])
+  const { periods, cycles } = useAnalyticsScopeData()
+  const unitOptions = useUnitOptions()
+  // Không còn bộ lọc cấp trang: khoảng thời gian nằm trong cài đặt từng ô; "mặc định" chỉ còn là
+  // hằng số cho ô chưa đặt gì.
+  const pageIntent = PAGE_DEFAULT_INTENT
 
-  // Independent queries for each metric with onlyApproved
-  const completionQuery = useQuery({
-    queryKey: ['subordinate-completion', dateRange.from, dateRange.to, onlyApproved, periodId, periodIdTo],
-    queryFn: () => statsApi.getSubordinateCompletion(dateRange.from, dateRange.to, onlyApproved, periodId, periodIdTo)
+  const pin = usePinToHome()
+  const dash = useAnalyticsGrid({
+    scope: 'ANALYTICS_SUBORDINATE',
+    defaultWidgets: DEFAULT_WIDGETS,
+    legacyReportName: LEGACY_REPORT_NAME,
   })
 
-  const performanceQuery = useQuery({
-    queryKey: ['subordinate-performance', dateRange.from, dateRange.to, onlyApproved, periodId, periodIdTo],
-    queryFn: () => statsApi.getSubordinatePerformance(dateRange.from, dateRange.to, onlyApproved, periodId, periodIdTo)
-  })
+  /** Khoảng của một ô cụ thể: riêng nếu đã đặt, không thì theo mặc định. */
+  const filterOf = (i: string) => widgetFilter(dash.widgets.find(w => w.i === i), pageIntent, periods, cycles)
 
-  const completedCountQuery = useQuery({
-    queryKey: ['subordinate-completed-count', dateRange.from, dateRange.to, onlyApproved, periodId, periodIdTo],
-    queryFn: () => statsApi.getSubordinateCompletedCount(dateRange.from, dateRange.to, onlyApproved, periodId, periodIdTo)
-  })
-
-  const atRiskQuery = useQuery({
-    queryKey: ['subordinate-at-risk', dateRange.from, dateRange.to, onlyApproved, periodId, periodIdTo],
-    queryFn: () => statsApi.getSubordinateAtRisk(dateRange.from, dateRange.to, onlyApproved, periodId, periodIdTo)
-  })
-
-  const personnelQuery = useQuery({
-    queryKey: ['subordinate-personnel'],
-    queryFn: () => statsApi.getSubordinatePersonnel()
-  })
-
+  // Biểu đồ xu hướng bám khoảng RIÊNG của chính ô đó.
+  const trend = filterOf('sub-trend')
   const chartQuery = useQuery({
-    queryKey: ['subordinate-combo-chart', dateRange.from, dateRange.to, onlyApproved, periodId, periodIdTo, groupBy],
-    queryFn: () => statsApi.getSubordinateComboChart(dateRange.from, dateRange.to, onlyApproved, periodId, periodIdTo, groupBy)
+    queryKey: ['subordinate-combo-chart', trend.from, trend.to, onlyApproved, trend.periodId, trend.periodIdTo, trend.groupBy],
+    queryFn: () => statsApi.getSubordinateComboChart(trend.from, trend.to, onlyApproved, trend.periodId, trend.periodIdTo, trend.groupBy)
   })
 
   // Cấu trúc nhân sự / vai trò (theo đơn vị của user + đơn vị con) — không phụ thuộc thời gian.
   const { data: summary } = useSummaryStats()
 
-  // ── Tuỳ chỉnh giao diện (lưới widget dùng chung) ──────────────────────────
-  const dash = useDashboardCustomization({
-    configReportName: CONFIG_REPORT_NAME,
-    reportDescription: 'Cấu hình giao diện Tổng quan mục tiêu cấp dưới',
-    defaultWidgets: DEFAULT_WIDGETS,
-    toBackendWidgetType,
-  })
-  const { isEditMode, handleTogglePin } = dash
-
-  const renderWidget = (w: DashboardWidget) => {
+  const renderWidget = (w: DashboardWidget, ctx: { openConfig: () => void }) => {
+    const f = filterOf(w.i)
+    const meta = (
+      <WidgetConfigSummary
+        widget={w} pageIntent={pageIntent} periods={periods} cycles={cycles}
+        unitOptions={unitOptions} onOpen={ctx.openConfig}
+      />
+    )
     switch (w.type) {
+      case 'STATS': return (
+        // Chromeless: mỗi thẻ đã là một card. Chip ở trên cho biết hàng số này đang theo khoảng nào.
+        // Năm truy vấn của hàng thẻ nằm trong SubordinateMetrics — cùng component trang chủ dùng.
+        <div id="tour-analytics-metrics" className="h-full flex flex-col gap-2 min-h-0">
+          {meta}
+          <SubordinateMetrics filter={{ from: f.from, to: f.to, periodId: f.periodId, periodIdTo: f.periodIdTo, onlyApproved }} />
+        </div>
+      )
       case 'SUB_TREND': return (
-        <ChartWrapper chromeless title="Xu hướng mục tiêu theo thời gian" icon={<TrendingUp size={20} className="text-indigo-500" />} widget={w} onTogglePin={handleTogglePin} isEditMode={isEditMode}>
-          <AnalyticsComboChart data={chartQuery.data?.points ?? []} isLoading={chartQuery.isLoading} itemName="Mục tiêu" fillHeight />
+        <ChartWrapper chromeless title="Xu hướng mục tiêu theo thời gian" icon={<TrendingUp size={20} className="text-slate-400" />}>
+          <AnalyticsComboChart
+            data={chartQuery.data?.points ?? []}
+            isLoading={chartQuery.isLoading}
+            itemName="Mục tiêu"
+            fillHeight
+            mode={widgetVariant(w) === 'area' ? 'share' : 'trend'}
+            onModeChange={m => dash.updateWidgetSettings(w.i, { v: m === 'share' ? 'area' : 'line' })}
+            hideModeToggle
+            meta={meta}
+          />
         </ChartWrapper>
       )
       case 'SUB_DETAIL': return (
-        <ChartWrapper chromeless title="Chi tiết mục tiêu" icon={<Target size={20} className="text-indigo-600" />} widget={w} onTogglePin={handleTogglePin} isEditMode={isEditMode}>
-          <ObjectiveDetailsWidget dateRange={dateRange} onlyApproved={onlyApproved} periodId={periodId} periodIdTo={periodIdTo} />
+        <ChartWrapper chromeless title="Chi tiết mục tiêu" icon={<Target size={20} className="text-slate-400" />}>
+          <ObjectiveDetailsWidget
+            dateRange={{ from: f.from, to: f.to }} onlyApproved={onlyApproved} periodId={f.periodId} periodIdTo={f.periodIdTo}
+            viewControl={tableViewControl(w, dash.updateWidgetSettings)}
+            orgUnitId={w.s?.orgUnitId ?? ''}
+            hideControls
+            meta={meta}
+          />
         </ChartWrapper>
       )
       case 'SUB_MEMBER': return (
-        <ChartWrapper title="Nhân sự & vai trò theo đơn vị" icon={<Users size={20} className="text-purple-600" />} widget={w} onTogglePin={handleTogglePin} isEditMode={isEditMode}>
+        <ChartWrapper title="Nhân sự & vai trò theo đơn vị" icon={<Users size={20} className="text-slate-400" />} meta={meta}>
           <MemberRoleChart data={summary?.roleDistribution} />
         </ChartWrapper>
       )
       case 'SUB_UNIT_PERF': return (
-        <ChartWrapper title="Hiệu suất & Tiến độ đơn vị" icon={<TrendingUp size={20} className="text-emerald-500" />} widget={w} onTogglePin={handleTogglePin} isEditMode={isEditMode}>
-          <UnitComparisonBarChart from={from} to={to} onlyApproved={onlyApproved} periodId={periodId} periodIdTo={periodIdTo} />
+        <ChartWrapper title="Hiệu suất & tiến độ đơn vị" icon={<TrendingUp size={20} className="text-slate-400" />} meta={meta}>
+          <UnitComparisonBarChart
+            from={f.from} to={f.to} onlyApproved={onlyApproved} periodId={f.periodId} periodIdTo={f.periodIdTo}
+            rank={optionOf(w, 'rank') as 'BEST' | 'WORST'}
+            topN={optionOf(w, 'topN') as 'ALL' | '5' | '10'}
+            hideControls
+          />
         </ChartWrapper>
       )
       case 'SUB_OKR_FLOW': return (
-        <ChartWrapper title="Luồng phân bổ OKR" icon={<Network size={20} className="text-indigo-500" />} widget={w} onTogglePin={handleTogglePin} isEditMode={isEditMode}>
-          <OkrFlowSection filter={{ periodId, periodIdTo }} />
+        <ChartWrapper title="Luồng phân bổ OKR" icon={<Network size={20} className="text-slate-400" />} meta={meta}>
+          <OkrFlowSection filter={{ periodId: f.periodId, periodIdTo: f.periodIdTo }} />
         </ChartWrapper>
       )
       default: return null
@@ -121,70 +157,32 @@ export default function SubordinateManagementTab() {
 
   return (
     <div className="space-y-6 animate-in fade-in duration-500 pb-20">
-      {/* Tiêu đề + nút Tuỳ chỉnh */}
+      {/* Tiêu đề + khoảng mặc định + thêm biểu đồ */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <h2 className="text-xl font-black text-slate-900 dark:text-white">Tổng quan mục tiêu cấp dưới</h2>
-        <div id="tour-analytics-customize">
+        <h2 className="text-xl font-semibold text-slate-900 dark:text-white">Mục tiêu đơn vị tôi phụ trách</h2>
+        <div id="tour-analytics-customize" className="flex items-center gap-3 flex-wrap">
           <DashboardEditToolbar api={dash} />
         </div>
       </div>
 
-      {/* Global Filter Toolbar */}
-      <div id="tour-analytics-filter" className="sticky top-0 z-20 bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-2xl flex flex-wrap items-center gap-4 justify-between p-4 shadow-sm">
-        <div className="flex items-center gap-2 min-w-0">
-          <div className="p-2 rounded-lg text-indigo-600 dark:text-indigo-400 shrink-0 bg-indigo-50 dark:bg-indigo-900/30">
-            <Target size={18} />
-          </div>
-          <div className="min-w-0">
-            <h2 className="font-bold text-slate-900 dark:text-white leading-tight text-base">Tổng quan mục tiêu cấp dưới</h2>
-            <p className="text-xs text-slate-500 font-medium mt-0.5">Lọc dữ liệu đồng bộ cho tất cả biểu đồ</p>
-          </div>
-        </div>
-
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-4 sm:gap-5 w-full lg:w-auto">
-          {controls}
-        </div>
-      </div>
-
-      {/* Metrics Grid */}
-      <div id="tour-analytics-metrics" className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-5 gap-4">
-        <ObjectiveMetricCard
-          title="Tiến độ tổng quan"
-          value={completionQuery.data?.value !== undefined ? `${completionQuery.data.value.toFixed(1)}%` : '0%'}
-          icon={<Target size={20} />}
-          isLoading={completionQuery.isLoading}
-        />
-        <ObjectiveMetricCard
-          title="Hiệu suất tổng quan"
-          value={performanceQuery.data?.value !== undefined ? perf.format(performanceQuery.data.value) : perf.format(0)}
-          icon={<TrendingUp size={20} />}
-          isLoading={performanceQuery.isLoading}
-        />
-        <ObjectiveMetricCard
-          title="Mục tiêu hoàn thành"
-          value={completedCountQuery.data ? `${completedCountQuery.data.completed}/${completedCountQuery.data.total}` : '0/0'}
-          subtitle="trên tổng số MT"
-          icon={<CheckCircle2 size={20} className="text-emerald-500" />}
-          isLoading={completedCountQuery.isLoading}
-        />
-        <ObjectiveMetricCard
-          title="Mục tiêu rủi ro"
-          value={atRiskQuery.data?.count ?? 0}
-          subtitle="Tiến độ thấp & sắp hết hạn"
-          icon={<AlertTriangle size={20} className="text-rose-500" />}
-          isLoading={atRiskQuery.isLoading}
-        />
-        <ObjectiveMetricCard
-          title="Tổng nhân sự"
-          value={personnelQuery.data?.count ?? 0}
-          icon={<Users size={20} />}
-          isLoading={personnelQuery.isLoading}
-        />
-      </div>
+      {/* Hàng thẻ chỉ số nay là ô đầu lưới (sub-metrics), khoảng thời gian của nó nằm trong bảng
+          cấu hình như mọi ô khác. */}
 
       {/* Lưới widget tuỳ chỉnh: Xu hướng + Chi tiết + Nhân sự/vai trò + Hiệu suất đơn vị */}
       <div id="tour-analytics-widgets">
-        <DashboardCustomizeChrome api={dash} renderWidget={renderWidget} catalog={CATALOG} />
+        <DashboardCustomizeChrome
+          api={dash}
+          renderWidget={renderWidget}
+          catalog={CATALOG}
+          onTogglePin={pin.enabled ? pin.toggle : undefined}
+          isPinned={pin.isPinned}
+          renderConfig={(w, update) => (
+            <WidgetConfigPanel
+              widget={w} update={update} pageIntent={pageIntent} periods={periods} cycles={cycles}
+              unitOptions={unitOptions}
+            />
+          )}
+        />
       </div>
     </div>
   )

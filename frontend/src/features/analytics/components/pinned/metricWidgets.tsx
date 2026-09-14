@@ -20,13 +20,16 @@ import type { PinnedFilter } from './pinnedWidgetRegistry'
  * xem `DashboardFilterContext`.
  */
 
-/** Lưới thẻ tự xuống dòng: ô trên trang chủ hẹp hơn cả một tab thống kê. */
-function MetricGrid({ children, cols }: { children: React.ReactNode; cols: 4 | 5 }) {
+/**
+ * Hàng thẻ chỉ số nằm trong MỘT ô lưới cao cố định (trang chủ lẫn tab Thống kê), nên không được
+ * xuống dòng: xuống dòng là hàng thứ hai bị `overflow-hidden` của ô cắt mất. Hẹp quá thì cuộn ngang
+ * trong ô — mọi thẻ vẫn đọc được, thay vì hàng dưới biến mất không dấu vết.
+ */
+function MetricGrid({ children }: { children: React.ReactNode; cols: 4 | 5 }) {
   return (
-    <div className={cn(
-      'grid gap-3 sm:gap-4 grid-cols-1 sm:grid-cols-2',
-      cols === 5 ? 'lg:grid-cols-3 xl:grid-cols-5' : 'lg:grid-cols-4',
-    )}>
+    // `@container`: thẻ co đệm/chữ theo bề rộng CỦA Ô (khi bảng cấu hình mở, lưới hẹp lại còn
+    // ~1000px mà viewport không đổi — breakpoint theo viewport không biết điều đó).
+    <div className="@container grid grid-flow-col auto-cols-[minmax(172px,1fr)] gap-3 sm:gap-4 overflow-x-auto custom-scrollbar pb-1">
       {children}
     </div>
   )
@@ -39,19 +42,21 @@ function StatTile({ icon, tone, label, children }: {
   label: string
   children: React.ReactNode
 }) {
+  // Một màu cho mọi icon; chỉ thẻ Rủi ro giữ đỏ, vì đó là thẻ duy nhất cần bật lên trước.
+  const neutral = 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
   const tones = {
-    indigo: 'bg-indigo-100 dark:bg-indigo-900/40 text-indigo-600 dark:text-indigo-400',
-    emerald: 'bg-emerald-100 dark:bg-emerald-900/40 text-emerald-600 dark:text-emerald-400',
-    amber: 'bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400',
+    indigo: neutral,
+    emerald: neutral,
+    amber: neutral,
     red: 'bg-red-100 dark:bg-red-900/40 text-red-600 dark:text-red-400',
-    teal: 'bg-teal-100 dark:bg-teal-900/40 text-teal-600 dark:text-teal-400',
-    violet: 'bg-violet-100 dark:bg-violet-900/40 text-violet-600 dark:text-violet-400',
+    teal: neutral,
+    violet: neutral,
   } as const
   return (
-    <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 sm:p-5 border border-slate-200 dark:border-slate-800 flex items-center gap-4">
-      <div className={cn('w-11 h-11 rounded-full flex items-center justify-center shrink-0', tones[tone])}>{icon}</div>
+    <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 @min-[1100px]:p-5 border border-slate-200 dark:border-slate-800 flex items-center gap-3 @min-[1100px]:gap-4">
+      <div className={cn('w-10 h-10 @min-[1100px]:w-11 @min-[1100px]:h-11 rounded-full flex items-center justify-center shrink-0', tones[tone])}>{icon}</div>
       <div className="min-w-0">
-        <p className="text-xs font-bold text-slate-500">{label}</p>
+        <p className="text-xs font-medium text-slate-500">{label}</p>
         {children}
       </div>
     </div>
@@ -59,20 +64,25 @@ function StatTile({ icon, tone, label, children }: {
 }
 
 const Big = ({ children }: { children: React.ReactNode }) => (
-  <p className="text-2xl font-black tabular-nums">{children}</p>
+  <p className="text-xl @min-[1100px]:text-2xl font-semibold tabular-nums">{children}</p>
 )
 
-/** Chỉ số KPI đơn vị — hàng thẻ đầu tab "KPI đơn vị". */
-export function UnitKpiMetrics({ filter }: { filter?: PinnedFilter }) {
+/**
+ * Chỉ số KPI đơn vị — hàng thẻ đầu tab "KPI đơn vị".
+ *
+ * <p>`orgUnitId` thu phạm vi về một đơn vị (và cây con) — tab Tổng quan truyền từ cài đặt của ô;
+ * trang chủ không có phạm vi đơn vị nên bỏ trống.
+ */
+export function UnitKpiMetrics({ filter, orgUnitId }: { filter?: PinnedFilter; orgUnitId?: string }) {
   const perf = usePerformanceScale()
   const { from, to, periodId, periodIdTo } = filter ?? {}
   const onlyApproved = filter?.onlyApproved ?? false
 
   const { data: metrics } = useQuery({
-    queryKey: ['orgUnitKpi', 'metrics', from, to, onlyApproved, periodId, periodIdTo],
-    queryFn: () => orgUnitKpiApi.getMetrics({ from, to, onlyApproved, periodId, periodIdTo }),
+    queryKey: ['orgUnitKpi', 'metrics', from, to, onlyApproved, periodId, periodIdTo, orgUnitId],
+    queryFn: () => orgUnitKpiApi.getMetrics({ orgUnitId, from, to, onlyApproved, periodId, periodIdTo }),
   })
-  const { data: mainData } = useSummaryStats()
+  const { data: mainData } = useSummaryStats(orgUnitId)
 
   return (
     <MetricGrid cols={5}>
@@ -83,14 +93,14 @@ export function UnitKpiMetrics({ filter }: { filter?: PinnedFilter }) {
         <Big>{perf.format(metrics?.averagePerformance ?? 0)}</Big>
       </StatTile>
       <StatTile icon={<CheckCircle size={22} />} tone="amber" label="Trạng thái KPI">
-        <p className="text-sm font-black tabular-nums">{metrics?.runningKpis ?? 0} Đang chạy</p>
-        <p className="text-sm font-black text-emerald-600 tabular-nums">{metrics?.completedKpis ?? 0} Hoàn thành</p>
+        <p className="text-sm font-semibold tabular-nums">{metrics?.runningKpis ?? 0} Đang chạy</p>
+        <p className="text-sm font-semibold text-emerald-600 tabular-nums">{metrics?.completedKpis ?? 0} Hoàn thành</p>
       </StatTile>
       <StatTile icon={<AlertTriangle size={22} />} tone="red" label="KPI Rủi ro / Chậm">
         <Big>{metrics?.riskKpis ?? 0}</Big>
       </StatTile>
       <StatTile icon={<Users size={22} />} tone="teal" label="Tổng nhân sự">
-        <Big>{mainData?.totalMembers ?? '—'}</Big>
+        <Big>{mainData?.totalMembers ?? '-'}</Big>
       </StatTile>
     </MetricGrid>
   )
@@ -119,7 +129,7 @@ export function MyKpiMetrics({ filter }: { filter?: PinnedFilter }) {
         <Big>{perf.format(metrics?.averagePerformance ?? 0)}</Big>
       </StatTile>
       <StatTile icon={<CheckCircle size={20} />} tone="amber" label="Đang chạy / HT">
-        <p className="text-base font-black tabular-nums">{metrics?.runningKpis ?? 0} / {metrics?.completedKpis ?? 0}</p>
+        <p className="text-base font-semibold tabular-nums">{metrics?.runningKpis ?? 0} / {metrics?.completedKpis ?? 0}</p>
       </StatTile>
       <StatTile icon={<AlertTriangle size={20} />} tone="red" label="Rủi ro / Chậm">
         <Big>{metrics?.riskKpis ?? 0}</Big>
@@ -148,8 +158,8 @@ export function MyObjectiveMetrics({ filter }: { filter?: PinnedFilter }) {
         <Big>{perf.format(metrics?.averagePerformance ?? 0)}</Big>
       </StatTile>
       <StatTile icon={<CheckCircle size={22} />} tone="amber" label="Trạng thái KPI">
-        <p className="text-sm font-black tabular-nums">{metrics?.runningKpis ?? 0} Đang chạy</p>
-        <p className="text-sm font-black text-emerald-600 tabular-nums">{metrics?.completedKpis ?? 0} Hoàn thành</p>
+        <p className="text-sm font-semibold tabular-nums">{metrics?.runningKpis ?? 0} Đang chạy</p>
+        <p className="text-sm font-semibold text-emerald-600 tabular-nums">{metrics?.completedKpis ?? 0} Hoàn thành</p>
       </StatTile>
       <StatTile icon={<AlertTriangle size={22} />} tone="red" label="KPI Rủi ro / Chậm">
         <Big>{metrics?.riskKpis ?? 0}</Big>
@@ -203,14 +213,14 @@ export function SubordinateMetrics({ filter }: { filter?: PinnedFilter }) {
         title="Mục tiêu hoàn thành"
         value={completedCount.data ? `${completedCount.data.completed}/${completedCount.data.total}` : '0/0'}
         subtitle="trên tổng số MT"
-        icon={<CheckCircle2 size={20} className="text-emerald-500" />}
+        icon={<CheckCircle2 size={20} className="text-slate-400" />}
         isLoading={completedCount.isLoading}
       />
       <ObjectiveMetricCard
         title="Mục tiêu rủi ro"
         value={atRisk.data?.count ?? 0}
         subtitle="Tiến độ thấp & sắp hết hạn"
-        icon={<AlertTriangle size={20} className="text-rose-500" />}
+        icon={<AlertTriangle size={20} className="text-red-500" />}
         isLoading={atRisk.isLoading}
       />
       <ObjectiveMetricCard

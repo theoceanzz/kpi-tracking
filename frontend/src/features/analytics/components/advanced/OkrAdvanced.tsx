@@ -14,7 +14,7 @@ export function OkrFlowSection({ filter }: { filter: AdvancedFilter }) {
 
   if (isLoading) {
     return (
-      <div className="h-[300px] flex items-center justify-center text-slate-400 font-bold">
+      <div className="h-[300px] flex items-center justify-center text-slate-400 font-medium">
         Đang tải luồng OKR...
       </div>
     )
@@ -32,7 +32,7 @@ export function OkrFlowSection({ filter }: { filter: AdvancedFilter }) {
   return (
     <div className="w-full">
       <FlowSankey nodes={data.nodes} links={data.links} valueLabel={data.valueLabel} height={340} />
-      <p className="text-[11px] text-slate-400 font-medium text-center mt-1">
+      <p className="text-xs text-slate-400 font-medium text-center mt-1">
         Độ dày dải là trọng số phân bổ (%) · ba tầng: Mục tiêu → Key Result → Đơn vị thực hiện.
       </p>
     </div>

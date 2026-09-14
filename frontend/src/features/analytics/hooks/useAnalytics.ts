@@ -15,6 +15,8 @@ export function useDrillDown(orgUnitId?: string, from?: string, to?: string, per
   return useQuery({
     queryKey: ['analytics', 'drill-down', orgUnitId, from, to, periodId, periodIdTo],
     queryFn: () => statsApi.getDrillDown(orgUnitId, from, to, periodId, periodIdTo),
+    // Đổi đơn vị ở cây thì giữ số cũ tới khi số mới về — không nháy "Chưa có dữ liệu" mỗi lần bấm.
+    placeholderData: previous => previous,
   })
 }
 

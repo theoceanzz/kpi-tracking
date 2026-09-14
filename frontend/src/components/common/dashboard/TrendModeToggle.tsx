@@ -27,9 +27,9 @@ export function TrendModeToggle({ mode, onChange, className }: {
           title={o.title}
           aria-pressed={mode === o.value}
           className={cn(
-            'flex items-center gap-1 px-2 py-1 rounded-md text-[11px] font-bold transition-colors',
+            'flex items-center gap-1 px-2 py-1 rounded-md text-xs font-medium transition-colors',
             mode === o.value
-              ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
+              ? 'bg-white dark:bg-slate-900 text-[var(--color-primary)] dark:text-indigo-400 shadow-sm'
               : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300',
           )}
         >

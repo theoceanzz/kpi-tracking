@@ -115,21 +115,21 @@ function SankeyTooltip({ active, payload, nodes, valueLabel }: {
   const note = p['note'] as string | undefined
 
   return (
-    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3.5 rounded-xl shadow-lg">
+    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3.5 rounded-lg shadow-lg">
       {isLink ? (
-        <p className="font-bold text-slate-900 dark:text-white mb-1.5">
+        <p className="font-semibold text-slate-900 dark:text-white mb-1.5">
           {nameOf(source)} <span className="text-slate-400">→</span> {nameOf(target)}
         </p>
       ) : (
-        <p className="font-bold text-slate-900 dark:text-white mb-1.5">{String(p['name'] ?? '')}</p>
+        <p className="font-semibold text-slate-900 dark:text-white mb-1.5">{String(p['name'] ?? '')}</p>
       )}
       <p className="text-sm">
         <span className="text-slate-500 font-medium">{valueLabel}: </span>
-        <span className="font-bold text-slate-900 dark:text-white tabular-nums">
+        <span className="font-semibold text-slate-900 dark:text-white tabular-nums">
           {Math.round(value * 10) / 10}
         </span>
       </p>
-      {note && <p className="text-[11px] text-slate-400 font-medium mt-1">{note}</p>}
+      {note && <p className="text-xs text-slate-400 font-medium mt-1">{note}</p>}
     </div>
   )
 }

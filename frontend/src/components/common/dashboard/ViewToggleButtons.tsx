@@ -27,7 +27,7 @@ export function ViewToggleButtons({ view, onChange, className }: {
           className={cn(
             'p-1.5 rounded-md transition-colors',
             view === o.value
-              ? 'bg-white dark:bg-slate-900 text-indigo-600 dark:text-indigo-400 shadow-sm'
+              ? 'bg-white dark:bg-slate-900 text-[var(--color-primary)] dark:text-indigo-400 shadow-sm'
               : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300',
           )}
         >

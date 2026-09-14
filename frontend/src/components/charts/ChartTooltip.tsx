@@ -28,9 +28,9 @@ interface Props {
  */
 export default function ChartTooltip({ title, rows, footer }: Props) {
   return (
-    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-xl shadow-lg max-w-[300px]">
+    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-lg shadow-md max-w-[300px]">
       {title != null && title !== '' && (
-        <p className="font-bold text-slate-900 dark:text-white mb-3 break-words">{title}</p>
+        <p className="font-semibold text-slate-900 dark:text-white mb-3 break-words">{title}</p>
       )}
       <div className="space-y-2">
         {rows.map((r, i) => (
@@ -39,7 +39,7 @@ export default function ChartTooltip({ title, rows, footer }: Props) {
               <span className="w-3 h-3 rounded-sm shrink-0" style={{ backgroundColor: r.color }} />
             )}
             <span className="text-slate-500 font-medium min-w-[120px]">{r.label}:</span>
-            <span className="font-bold text-slate-900 dark:text-white tabular-nums">{r.value}</span>
+            <span className="font-semibold text-slate-900 dark:text-white tabular-nums">{r.value}</span>
           </div>
         ))}
       </div>
@@ -81,7 +81,7 @@ export function SeriesTooltip({ active, payload, label, unit = '', labelPrefix =
 }) {
   if (!active || !payload?.length) return null
   // Bỏ dòng không có giá trị: chuỗi bỏ trống ở một mốc vẫn nằm trong payload, hiện ra thành
-  // một dòng "—" vô nghĩa thay vì biến mất như trên biểu đồ.
+  // một dòng "-" vô nghĩa thay vì biến mất như trên biểu đồ.
   const rows = payload
     .filter(p => p.value != null && p.value !== '')
     .map(p => ({

@@ -32,14 +32,6 @@ export function useBscVsSystemScatter(f: AdvancedFilter, enabled = true) {
   })
 }
 
-export function usePerspectiveBubble(f: AdvancedFilter, enabled = true) {
-  return useQuery({
-    queryKey: key('perspective-bubble', f),
-    queryFn: () => advancedAnalyticsApi.getPerspectiveBubble(f),
-    enabled,
-  })
-}
-
 export function useScoreHistogram(f: AdvancedFilter, enabled = true) {
   return useQuery({
     queryKey: key('score-histogram', f),
@@ -52,30 +44,6 @@ export function useUnitBoxplot(f: AdvancedFilter, enabled = true) {
   return useQuery({
     queryKey: key('unit-boxplot', f),
     queryFn: () => advancedAnalyticsApi.getUnitBoxplot(f),
-    enabled,
-  })
-}
-
-export function useSubmissionComposition(f: AdvancedFilter, enabled = true) {
-  return useQuery({
-    queryKey: key('submission-composition', f),
-    queryFn: () => advancedAnalyticsApi.getSubmissionComposition(f),
-    enabled,
-  })
-}
-
-export function useSubmissionShare(f: AdvancedFilter, enabled = true) {
-  return useQuery({
-    queryKey: key('submission-share', f),
-    queryFn: () => advancedAnalyticsApi.getSubmissionShare(f),
-    enabled,
-  })
-}
-
-export function useBscWaterfall(f: AdvancedFilter, enabled = true) {
-  return useQuery({
-    queryKey: key('bsc-waterfall', f),
-    queryFn: () => advancedAnalyticsApi.getBscWaterfall(f),
     enabled,
   })
 }
@@ -96,26 +64,10 @@ export function useKpiCascade(f: AdvancedFilter, enabled = true) {
   })
 }
 
-export function useKpiLifecycle(f: AdvancedFilter, enabled = true) {
-  return useQuery({
-    queryKey: key('kpi-lifecycle', f),
-    queryFn: () => advancedAnalyticsApi.getKpiLifecycle(f),
-    enabled,
-  })
-}
-
 export function useOkrFlow(f: AdvancedFilter, enabled = true) {
   return useQuery({
     queryKey: key('okr-flow', f),
     queryFn: () => advancedAnalyticsApi.getOkrFlow(f),
-    enabled,
-  })
-}
-
-export function useScoreDeviation(f: AdvancedFilter, enabled = true) {
-  return useQuery({
-    queryKey: key('deviation', f),
-    queryFn: () => advancedAnalyticsApi.getDeviation(f),
     enabled,
   })
 }
@@ -128,10 +80,3 @@ export function useSelfVsManager(f: AdvancedFilter, enabled = true) {
   })
 }
 
-export function useRankDelta(f: AdvancedFilter, enabled = true) {
-  return useQuery({
-    queryKey: key('rank-delta', f),
-    queryFn: () => advancedAnalyticsApi.getRankDelta(f),
-    enabled,
-  })
-}

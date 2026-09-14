@@ -127,7 +127,7 @@ export default function StackedComposition({
         <ResponsiveContainer width="100%" height={height}>
           {variant === 'area' ? (
             <AreaChart data={rows} margin={{ top: 10, right: 16, left: 0, bottom: 8 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={AXIS_COLORS.grid} />
+              <CartesianGrid stroke="var(--color-border)" vertical={false} />
               {xAxis}
               {yAxis}
               {tooltip}
@@ -146,7 +146,7 @@ export default function StackedComposition({
             </AreaChart>
           ) : (
             <BarChart data={rows} margin={{ top: 10, right: 16, left: 0, bottom: 8 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={AXIS_COLORS.grid} />
+              <CartesianGrid stroke="var(--color-border)" vertical={false} />
               {xAxis}
               {yAxis}
               {tooltip}
@@ -181,8 +181,8 @@ function CompositionTooltip({ active, payload, label, series, normalize, unit }:
   if (!active || !row) return null
   const total = Number(row['__total'] ?? 0)
   return (
-    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3.5 rounded-xl shadow-lg">
-      <p className="font-bold text-slate-900 dark:text-white mb-2">{label}</p>
+    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3.5 rounded-lg shadow-lg">
+      <p className="font-semibold text-slate-900 dark:text-white mb-2">{label}</p>
       <div className="space-y-1 text-sm">
         {series.map(s => {
           const raw = Number(row[`__raw_${s.code}`] ?? 0)
@@ -192,7 +192,7 @@ function CompositionTooltip({ active, payload, label, series, normalize, unit }:
             <div key={s.code} className="flex items-center gap-2.5">
               <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: s.color }} />
               <span className="text-slate-500 font-medium min-w-[92px]">{s.label}:</span>
-              <span className="font-bold text-slate-900 dark:text-white tabular-nums">
+              <span className="font-semibold text-slate-900 dark:text-white tabular-nums">
                 {normalize ? `${shown}% (${raw})` : `${raw}${unit ? ` ${unit}` : ''}`}
               </span>
             </div>

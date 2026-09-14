@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react'
-import { yAxisLabel } from '@/components/charts/axisLabel'
+import { yAxisLabel, yAxisLabelRight } from '@/components/charts/axisLabel'
 
 import { personalObjectiveApi } from '@/features/dashboard/api/personalObjectiveApi'
 import { useQuery } from '@tanstack/react-query'
@@ -22,8 +22,8 @@ type DateFilterType = 'GLOBAL' | 'THIS_WEEK' | 'THIS_MONTH' | 'THIS_QUARTER' | '
 function DrawerChartTooltip({ active, payload, label }: any) {
   if (active && payload && payload.length) {
     return (
-      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-xl shadow-lg">
-        <p className="font-bold text-slate-900 dark:text-white mb-3">{label}</p>
+      <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-lg shadow-md">
+        <p className="font-semibold text-slate-900 dark:text-white mb-3">{label}</p>
         <div className="space-y-2">
           {payload.map((p: any, i: number) => {
             let valStr = p.value?.toLocaleString('vi-VN')
@@ -34,7 +34,7 @@ function DrawerChartTooltip({ active, payload, label }: any) {
               <div key={i} className="flex items-center gap-3 text-sm">
                 <div className="w-3 h-3 rounded-sm flex-shrink-0" style={{ backgroundColor: p.color }} />
                 <span className="text-slate-500 font-medium min-w-[120px]">{p.name}:</span>
-                <span className="font-bold text-slate-900 dark:text-white">{valStr}</span>
+                <span className="font-semibold text-slate-900 dark:text-white">{valStr}</span>
               </div>
             )
           })}
@@ -111,11 +111,11 @@ export default function MyObjectiveDrawer({ kpiId, onClose, globalFrom, globalTo
   const customTitle = (
     <div className="flex flex-col gap-1">
       <div className="flex items-center flex-wrap gap-2">
-        <span className="text-base font-bold text-slate-900 dark:text-white leading-snug">
+        <span className="text-base font-semibold text-slate-900 dark:text-white leading-snug">
           {data?.kpiName || 'Chi tiết KPI'}
         </span>
         {data?.shared && (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-purple-100 dark:bg-purple-900/40 text-purple-600 dark:text-purple-400 text-[10px] font-black uppercase border border-purple-200 dark:border-purple-500/30 flex-shrink-0">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-[var(--color-primary)] dark:text-indigo-400 text-xs font-semibold border border-indigo-200 dark:border-[var(--color-primary)]/30 flex-shrink-0">
             <Users size={10} /> Mục tiêu chung
           </span>
         )}
@@ -183,35 +183,35 @@ export default function MyObjectiveDrawer({ kpiId, onClose, globalFrom, globalTo
           {/* Metrics Grid */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="bg-slate-50 dark:bg-slate-900/60 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
-              <p className="text-[10px] font-bold text-slate-500 mb-1">Mục tiêu yêu cầu</p>
-              <p className="text-xl font-black text-slate-900 dark:text-white">{data?.targetValue?.toLocaleString('vi-VN')}</p>
+              <p className="text-xs font-medium text-slate-500 mb-1">Mục tiêu yêu cầu</p>
+              <p className="text-xl font-semibold text-slate-900 dark:text-white">{data?.targetValue?.toLocaleString('vi-VN')}</p>
             </div>
             <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-2xl border border-indigo-100 dark:border-indigo-900/30">
-              <p className="text-[10px] font-bold text-indigo-500 mb-1">Cá nhân: Lũy kế</p>
-              <p className="text-xl font-black text-indigo-700 dark:text-indigo-400">{data?.myActualValue?.toLocaleString('vi-VN')}</p>
-              <p className="text-[10px] font-bold text-indigo-500 mt-1">Đạt {data?.myProgress?.toFixed(1)}%</p>
+              <p className="text-xs font-semibold text-[var(--color-primary)] mb-1">Cá nhân: Lũy kế</p>
+              <p className="text-xl font-semibold text-indigo-700 dark:text-indigo-400">{data?.myActualValue?.toLocaleString('vi-VN')}</p>
+              <p className="text-xs font-semibold text-[var(--color-primary)] mt-1">Đạt {data?.myProgress?.toFixed(1)}%</p>
             </div>
             {data?.shared && (
-              <div className="bg-purple-50 dark:bg-purple-900/20 p-4 rounded-2xl border border-purple-100 dark:border-purple-900/30">
-                <p className="text-[10px] font-bold text-purple-500 mb-1">Nhóm: Lũy kế tổng</p>
-                <p className="text-xl font-black text-purple-700 dark:text-purple-400">{data?.totalActualValue?.toLocaleString('vi-VN')}</p>
-                <p className="text-[10px] font-bold text-purple-500 mt-1">Đạt {data?.totalProgress?.toFixed(1)}%</p>
+              <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-2xl border border-indigo-100 dark:border-indigo-900/30">
+                <p className="text-xs font-semibold text-[var(--color-primary)] mb-1">Nhóm: Lũy kế tổng</p>
+                <p className="text-xl font-semibold text-indigo-700 dark:text-indigo-400">{data?.totalActualValue?.toLocaleString('vi-VN')}</p>
+                <p className="text-xs font-semibold text-[var(--color-primary)] mt-1">Đạt {data?.totalProgress?.toFixed(1)}%</p>
               </div>
             )}
             <div className="bg-emerald-50 dark:bg-emerald-900/20 p-4 rounded-2xl border border-emerald-100 dark:border-emerald-900/30">
-              <p className="text-[10px] font-bold text-emerald-500 mb-1">Hiệu suất cá nhân</p>
-              <p className="text-xl font-black text-emerald-700 dark:text-emerald-400">{data?.myPerformance?.toFixed(1)}%</p>
+              <p className="text-xs font-semibold text-emerald-500 mb-1">Hiệu suất cá nhân</p>
+              <p className="text-xl font-semibold text-emerald-700 dark:text-emerald-400">{data?.myPerformance?.toFixed(1)}%</p>
               {data?.shared && (
-                <p className="text-[10px] font-bold text-emerald-500 mt-1">Nhóm: {data?.teamPerformance?.toFixed(1)}%</p>
+                <p className="text-xs font-semibold text-emerald-500 mt-1">Nhóm: {data?.teamPerformance?.toFixed(1)}%</p>
               )}
             </div>
           </div>
 
           {/* Multi-axis Chart */}
-          <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800">
+          <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-200 dark:border-slate-800">
             <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
-              <h3 className="text-sm font-black flex items-center gap-2">
-                <Activity size={18} className="text-indigo-500" />
+              <h3 className="text-sm font-semibold flex items-center gap-2">
+                <Activity size={18} className="text-[var(--color-primary)]" />
                 Biểu đồ phân tích chuyên sâu
               </h3>
               {/* Custom Legend for Teammates */}
@@ -222,7 +222,7 @@ export default function MyObjectiveDrawer({ kpiId, onClose, globalFrom, globalTo
                       key={tm.userId}
                       onClick={() => toggleTeammate(tm.userId)}
                       className={cn(
-                        "px-2.5 py-1 rounded-full text-[10px] font-bold transition-all border",
+                        "px-2.5 py-1 rounded-full text-xs font-medium transition-all border",
                         activeTeammates.includes(tm.userId) 
                           ? "bg-slate-800 text-white border-slate-800 dark:bg-white dark:text-slate-900 dark:border-white" 
                           : "bg-white text-slate-500 border-slate-200 hover:border-slate-300 dark:bg-slate-900 dark:border-slate-700"
@@ -236,7 +236,7 @@ export default function MyObjectiveDrawer({ kpiId, onClose, globalFrom, globalTo
             </div>
 
             {/* Nhãn đơn vị đo nằm ngang ở phía trên */}
-            <div className="flex justify-between text-xs font-bold text-slate-400 dark:text-slate-500 mb-2 px-1">
+            <div className="flex justify-between text-xs font-medium text-slate-400 dark:text-slate-500 mb-2 px-1">
               <span>Đơn vị ({data?.unit || ''})</span>
               <span>Hiệu suất (%)</span>
             </div>
@@ -244,7 +244,7 @@ export default function MyObjectiveDrawer({ kpiId, onClose, globalFrom, globalTo
             <div className="h-[350px]">
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                  <CartesianGrid stroke="var(--color-border)" vertical={false} />
                   <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{fontSize: 11, fill: '#64748b'}} />
                   <YAxis 
                     yAxisId="left" 
@@ -257,6 +257,7 @@ export default function MyObjectiveDrawer({ kpiId, onClose, globalFrom, globalTo
                   <YAxis 
                     yAxisId="right" 
                     orientation="right" 
+                    label={yAxisLabelRight('Tiến độ (%)')}
                     axisLine={false} 
                     tickLine={false} 
                     tick={{fontSize: 11, fill: '#64748b'}}
@@ -296,27 +297,27 @@ export default function MyObjectiveDrawer({ kpiId, onClose, globalFrom, globalTo
 
           {/* Contribution Bar Chart */}
           {data?.shared && contributions.length > 0 && (
-            <div className="bg-white dark:bg-slate-900 rounded-3xl p-6 border border-slate-200 dark:border-slate-800">
-              <h3 className="text-sm font-black mb-6 flex items-center gap-2">
-                <Target size={18} className="text-purple-500" />
+            <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-200 dark:border-slate-800">
+              <h3 className="text-sm font-semibold mb-6 flex items-center gap-2">
+                <Target size={18} className="text-[var(--color-primary)]" />
                 Mức độ đóng góp của từng thành viên
               </h3>
               <div className="space-y-4">
                 {contributions.map((c, i) => (
                   <div key={c.userId}>
                     <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-xs font-bold text-slate-700 dark:text-slate-200 flex items-center gap-2">
-                        <span className="w-5 h-5 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-[10px] text-slate-500">{i + 1}</span>
+                      <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 flex items-center gap-2">
+                        <span className="w-5 h-5 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-xs text-slate-500">{i + 1}</span>
                         {c.fullName}
                       </span>
                       <div className="text-right">
-                        <span className="text-[10px] text-slate-500 mr-2">{c.actualValue?.toLocaleString('vi-VN')}</span>
-                        <span className="text-xs font-black text-purple-600 dark:text-purple-400">{c.contributionPercentage?.toFixed(1)}%</span>
+                        <span className="text-xs text-slate-500 mr-2">{c.actualValue?.toLocaleString('vi-VN')}</span>
+                        <span className="text-xs font-semibold text-[var(--color-primary)] dark:text-indigo-400">{c.contributionPercentage?.toFixed(1)}%</span>
                       </div>
                     </div>
                     <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
                       <div 
-                        className="h-full rounded-full bg-gradient-to-r from-purple-400 to-purple-600" 
+                        className="h-full rounded-full bg-gradient-to-r from-indigo-400 to-indigo-600" 
                         style={{ width: `${Math.min(c.contributionPercentage, 100)}%` }} 
                       />
                     </div>

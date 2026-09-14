@@ -1,17 +1,13 @@
-import { useEffect, useMemo } from 'react'
-import { useSearchParams } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useMemo } from 'react'
 import { useAuthStore } from '@/store/authStore'
 import { useHasPermission } from '@/components/auth/PermissionGate'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
-import { reportApi } from '@/features/reports/api/reportApi'
 import DashboardCustomizeChrome, { DashboardEditToolbar } from '@/components/common/dashboard/DashboardCustomizeChrome'
 import { DashboardToolbarPortal } from '@/components/common/dashboard/DashboardToolbarSlot'
 import { useDashboardLayout } from '@/components/common/dashboard/useDashboardLayout'
 import { useTourScope } from '@/hooks/useTourScope'
 import type { DashboardScope } from '../api/dashboardLayoutApi'
 import { DashboardFilterProvider } from '../context/DashboardFilterContext'
-import { PinnedWidgetsSection } from '../components/PinnedWidgetsSection'
 import CompletedPeriodEvaluationPrompt from '../components/CompletedPeriodEvaluationPrompt'
 import {
   getAnalyticsCatalog, getAnalyticsDefaultLayout, getAnalyticsPresets, getAnalyticsWidgets,
@@ -67,7 +63,6 @@ function RoleDashboardGrid({ scope, organization }: {
   organization: ReturnType<typeof useOrganization>['data']
 }) {
   const { hasPermission } = useHasPermission()
-  const [searchParams, setSearchParams] = useSearchParams()
 
   const flags = useMemo<OrgFlags>(() => ({
     enableOkr: organization?.enableOkr ?? false,
@@ -92,24 +87,6 @@ function RoleDashboardGrid({ scope, organization }: {
 
   const dash = useDashboardLayout({ scope, defaultWidgets, availableWidgets })
 
-  // Cho phép mở thẳng chế độ tuỳ chỉnh bằng URL (?edit=1)
-  useEffect(() => {
-    if (searchParams.get('edit') === '1' && !dash.isEditMode) {
-      dash.setIsEditMode(true)
-      setSearchParams(prev => {
-        const p = new URLSearchParams(prev)
-        p.delete('edit')
-        return p
-      }, { replace: true })
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams])
-
-  const { data: pinnedWidgets, refetch: refetchPinned } = useQuery({
-    queryKey: ['reports', 'widgets', 'pinned'],
-    queryFn: () => reportApi.getPinnedWidgets(),
-  })
-
   return (
     <div className="max-w-[1600px] mx-auto space-y-6">
       <DashboardToolbarPortal>
@@ -127,9 +104,6 @@ function RoleDashboardGrid({ scope, organization }: {
           renderWidget={w => renderAnalyticsWidget(w.i, flags, viewer)}
         />
       </div>
-
-      {/* Biểu đồ ghim từ trang Thống kê — giữ nguyên để người đang ghim không mất gì */}
-      <PinnedWidgetsSection widgets={pinnedWidgets} onUnpin={refetchPinned} />
 
       {/* Luồng bắt buộc, không phải widget: nhắc tự đánh giá khi một kỳ vừa hoàn tất */}
       {scope === 'STAFF' && <CompletedPeriodEvaluationPrompt />}

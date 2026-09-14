@@ -51,7 +51,7 @@ function KpiChildTr({
   const isQual = node.kpiType === 'QUALITATIVE'
   const isBonus = node.progress == null
   const pct = Math.round(node.progress ?? 0)
-  const barColor = accent === 'violet' ? 'bg-violet-500' : 'bg-indigo-500'
+  const barColor = accent === 'violet' ? 'bg-indigo-500' : 'bg-indigo-500'
 
   const chevron = hasKids ? (
     <button
@@ -68,7 +68,7 @@ function KpiChildTr({
 
   const nameBlock = (
     <div className="min-w-0">
-      <div className="text-sm font-bold text-slate-800 dark:text-slate-100 truncate max-w-[240px]">{node.name}</div>
+      <div className="text-sm font-semibold text-slate-800 dark:text-slate-100 truncate max-w-[240px]">{node.name}</div>
       <div className="flex items-center gap-1.5 flex-wrap mt-1">
         <KpiTypeTags
           isReverseKpi={node.isReverseKpi}
@@ -80,7 +80,7 @@ function KpiChildTr({
         <KpiWeightPill weight={node.weight} />
       </div>
       {!showPersonColumn && node.assigneeName && (
-        <div className="flex items-center gap-1 text-[11px] text-slate-500 mt-1">
+        <div className="flex items-center gap-1 text-xs text-slate-500 mt-1">
           <User size={11} className="text-slate-400" /> {node.assigneeName}
         </div>
       )}
@@ -90,17 +90,17 @@ function KpiChildTr({
   const progressCell = isQual ? (
     <QualitativeResultChip level={node.qualitativeLevelName} />
   ) : isBonus ? (
-    <span className="text-slate-400 text-xs font-black">—</span>
+    <span className="text-slate-400 text-xs font-medium">-</span>
   ) : (
     <>
       <div className="flex items-center gap-3">
         <div className="flex-1 h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
           <div className={cn('h-full rounded-full', pct >= 100 ? 'bg-emerald-500' : barColor)} style={{ width: `${Math.min(pct, 100)}%` }} />
         </div>
-        <span className="text-xs font-black">{pct}%</span>
+        <span className="text-xs font-semibold">{pct}%</span>
       </div>
       {node.targetValue != null && (
-        <div className="text-[10px] text-slate-500 mt-1">
+        <div className="text-xs text-slate-500 mt-1">
           {(node.actualValue ?? 0).toLocaleString('vi-VN')} / {node.targetValue.toLocaleString('vi-VN')} {node.unit ?? ''}
         </div>
       )}
@@ -126,7 +126,7 @@ function KpiChildTr({
           <td key={`x${i}`} className="px-6 py-4" />
         ))}
         {showPersonColumn && (
-          <td className="px-6 py-4 align-top text-[12px]">{person}</td>
+          <td className="px-6 py-4 align-top text-xs">{person}</td>
         )}
         <td className="px-6 py-4 align-top">
           <KpiPeriodCell periodName={node.periodName} start={node.periodStart ?? null} end={node.periodEnd ?? null} />
@@ -167,7 +167,7 @@ export function KpiChildTableRows({
       {headingColSpan != null && (
         <tr className="bg-slate-50/70 dark:bg-slate-800/20">
           <td colSpan={headingColSpan} className="px-6 pt-4 pb-1">
-            <span className="text-[11px] font-black uppercase tracking-wider text-slate-500">{heading}</span>
+            <span className="text-xs font-medium text-slate-500">{heading}</span>
           </td>
         </tr>
       )}
