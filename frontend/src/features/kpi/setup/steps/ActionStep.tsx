@@ -10,9 +10,13 @@ import type { SetupStep } from '../flows'
 /**
  * Bước dẫn sang một màn hình có sẵn, kèm số việc đang chờ.
  *
- * Vì sao dẫn đi chứ không nhúng: sáu màn hình đích đều là trang lớn 600–900 dòng, mỗi trang có bộ
- * lọc, phân trang và modal riêng. Nhúng chúng vào wizard đòi tách nhỏ từng cái — nhiều rủi ro cho
- * các màn đang chạy ổn, đổi lại rất ít lợi ích so với một cú nhấp.
+ * Vì sao dẫn đi chứ không nhúng: các màn hình đích còn lại đều là trang lớn 600–900 dòng, mỗi
+ * trang có bộ lọc, phân trang và modal riêng. Nhúng chúng vào wizard đòi tách nhỏ từng cái —
+ * nhiều rủi ro cho các màn đang chạy ổn, đổi lại rất ít lợi ích so với một cú nhấp.
+ *
+ * Hai ngoại lệ đã được nhúng hẳn thành bước dựng sẵn (`SubmitStep`, `SelfEvalStep`): ở đó việc
+ * phải làm chỉ là điền vài con số, mà cái giá của việc dẫn đi lại là rời trang một lần cho MỖI
+ * chỉ tiêu. Khi việc nhỏ hơn thao tác đi lại thì phép đánh đổi trên đảo chiều.
  *
  * Biến thể `wait` dùng cho bước phải chờ NGƯỜI KHÁC (chờ cấp trên duyệt). Nó nói thẳng rằng không
  * có gì để làm ở đây, thay vì bày ra một nút giả vờ có việc.

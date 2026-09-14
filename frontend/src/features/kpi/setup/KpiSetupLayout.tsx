@@ -14,7 +14,7 @@ import { useKpiSetupFlow } from './useKpiSetupFlow'
  */
 export default function KpiSetupLayout() {
   const navigate = useNavigate()
-  const { currentFlow, steps, currentIndex, isReachable, goTo, isLoading } = useKpiSetupFlow()
+  const { currentFlow, steps, currentIndex, blockReason, goTo, isLoading } = useKpiSetupFlow()
   const [showExitConfirm, setShowExitConfirm] = useState(false)
 
   if (isLoading) {
@@ -76,7 +76,7 @@ export default function KpiSetupLayout() {
             <WizardStepper
               steps={steps}
               currentIndex={currentIndex}
-              isReachable={isReachable}
+              blockReason={blockReason}
               onJump={goTo}
             />
           </div>

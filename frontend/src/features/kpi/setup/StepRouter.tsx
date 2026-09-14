@@ -5,6 +5,8 @@ import CycleStep from './steps/CycleStep'
 import PeriodStep from './steps/PeriodStep'
 import CriteriaStep from './steps/CriteriaStep'
 import ReviewStep from './steps/ReviewStep'
+import SubmitStep from './steps/SubmitStep'
+import SelfEvalStep from './steps/SelfEvalStep'
 
 /**
  * Chọn component cho bước hiện tại.
@@ -34,6 +36,8 @@ export default function StepRouter() {
     case 'period': return <PeriodStep />
     case 'criteria': return <CriteriaStep />
     case 'review': return <ReviewStep />
+    case 'submit': return <SubmitStep />
+    case 'self-eval': return <SelfEvalStep />
     default: return <Navigate to="/kpi-setup" replace />
   }
 }

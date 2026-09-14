@@ -31,18 +31,9 @@ import { useAuthStore } from '@/store/authStore'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { useScorecards } from '@/features/bsc/hooks/useBsc'
 import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
-import type { KpiCriteria } from '@/types/kpi'
 import EvaluationFormModal from '@/features/evaluations/components/EvaluationFormModal'
 import { scorecardsForPeriod } from '@/features/bsc/utils/scorecardScope'
-
-function isSubmittableByUser(k: KpiCriteria, userId?: string) {
-  const now = new Date()
-  return (k.status === 'APPROVED' || k.status === 'EDITED' || k.status === 'EDIT') &&
-    k.submissionCount < k.expectedSubmissions &&
-    !!userId && k.assigneeIds?.includes(userId) &&
-    (!k.kpiPeriod?.startDate || new Date(k.kpiPeriod.startDate) <= now) &&
-    (!k.kpiPeriod?.endDate || new Date(k.kpiPeriod.endDate) >= now)
-}
+import { isSubmittableByUser } from '../utils/submittable'
 
 export default function NewSubmissionPage() {
   const navigate = useNavigate()

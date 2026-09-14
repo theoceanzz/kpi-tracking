@@ -54,7 +54,7 @@ interface KpiFormModalProps {
    * phải nói được "đơn vị này, đợt này còn thiếu bao nhiêu %". Trước khi có nó, thẻ chỉ hiện 0%
    * kèm "còn thiếu 100%" mà không nói của ai — đọc lên không hiểu đang nói về cái gì.
    */
-  onContextChange?: (ctx: { kpiPeriodId?: string; orgUnitIds: string[] }) => void
+  onContextChange?: (ctx: { kpiPeriodId?: string; orgUnitIds: string[]; assigneeNames: string[] }) => void
   /**
    * Khoá đợt: form dùng luôn giá trị này và hiện một thẻ chỉ-đọc thay cho ô chọn.
    *
@@ -68,6 +68,28 @@ interface KpiFormModalProps {
   compactOrgUnits?: boolean
   /** Bấm một đơn vị là THAY lựa chọn cũ, không cộng dồn — hành vi nút radio. */
   singleOrgUnit?: boolean
+  /**
+   * Chỉ liệt kê những đơn vị người dùng đang trực thuộc, thay vì cả cây họ được phép xem.
+   *
+   * Dùng cùng `lockAssignees` ở luồng tự giao: chỉ tiêu ghi tên chính họ nên đơn vị thực hiện chỉ
+   * có thể là đơn vị họ thuộc về. Một người có thể ở nhiều đơn vị nên vẫn phải cho chọn.
+   */
+  onlyMyOrgUnits?: boolean
+  /**
+   * Khoá người thực hiện: bỏ hẳn ô chọn, chỉ hiện một thẻ gọn xác nhận người nhận.
+   *
+   * Dùng ở luồng "giao chỉ tiêu cho bản thân" — bày ra một danh sách nhân sự để chọn trong khi câu
+   * trả lời luôn là chính họ vừa tốn chỗ vừa mời gọi chọn nhầm. Đi kèm `defaultAssigneeIds`.
+   */
+  lockAssignees?: boolean
+  /**
+   * Người thực hiện tích sẵn, và GIỮ LẠI sau mỗi lần tạo ở chế độ thêm liên tục.
+   *
+   * Mặc định form cố ý xoá người thực hiện sau mỗi lần lưu, vì đó là trường thay đổi nhiều nhất
+   * giữa các chỉ tiêu và giữ lại sẽ âm thầm giao nhầm người. Nhưng ở luồng "giao chỉ tiêu cho bản
+   * thân" thì ngược hẳn: người nhận luôn là chính họ, bắt tích lại cho từng chỉ tiêu mới là sai.
+   */
+  defaultAssigneeIds?: string[]
 }
 
 const frequencyOptions = (['DAILY', 'WEEKLY', 'MONTHLY', 'QUARTERLY', 'SEMI_ANNUALLY', 'YEARLY', 'UNLIMITED'] as const).map(value => ({
@@ -92,7 +114,7 @@ function toDatetimeLocal(value?: string | null): string | undefined {
 export default function KpiFormModal({
   open, onClose, editKpi, parentKpi, parentRelationType,
   variant = 'modal', onCreated, keepOpenAfterCreate = false, submitLabel, onContextChange,
-  lockedPeriodId, defaultOrgUnitIds, compactOrgUnits = false, singleOrgUnit = false,
+  lockedPeriodId, defaultOrgUnitIds, compactOrgUnits = false, singleOrgUnit = false, defaultAssigneeIds, lockAssignees = false, onlyMyOrgUnits = false,
 }: KpiFormModalProps) {
   const isInline = variant === 'inline'
   const isEdit = !!editKpi
@@ -142,6 +164,12 @@ export default function KpiFormModal({
     return result
   }
 
+  /** Đơn vị người dùng TRỰC THUỘC — lấy từ phiên đăng nhập, không phụ thuộc cây tổ chức. */
+  const myOrgUnitIds = useMemo(
+    () => new Set((user?.memberships ?? []).map(m => m.orgUnitId).filter(Boolean)),
+    [user?.memberships],
+  )
+
   const flatOrgUnits = useMemo(() => {
     if (!orgUnitTreeData) return []
     // Giữ CẢ nút gốc. Trước đây lọc `parentId !== null` với lý do "gốc thường là tổ chức", nhưng
@@ -151,8 +179,19 @@ export default function KpiFormModal({
     // được chọn sẵn thì nó thành một lựa chọn vô hình không gỡ ra được.
     //
     // `flattenTree` đánh cấp bằng số gạch đầu dòng nên gốc tự phân biệt: nó không có gạch nào.
-    return flattenTree(orgUnitTreeData)
-  }, [orgUnitTreeData])
+    const all = flattenTree(orgUnitTreeData)
+    if (!onlyMyOrgUnits) return all
+
+    // Luồng tự giao: chỉ tiêu là của CHÍNH người dùng, nên đơn vị thực hiện phải là đơn vị họ
+    // đang trực thuộc. Cả cây (gồm cấp dưới họ quản lý) là danh sách của việc giao cho người khác.
+    //
+    // Bỏ gạch đầu dòng đánh cấp: danh sách này phẳng và ngắn, dấu gạch chỉ còn là nhiễu.
+    const mine = all.filter(u => myOrgUnitIds.has(u.id)).map(u => ({ ...u, levelLabel: u.name }))
+
+    // Không khớp được cái nào thì trả cả cây, đừng đưa ra danh sách rỗng: đơn vị rỗng là không tạo
+    // được chỉ tiêu nào, tệ hơn hẳn so với một danh sách rộng hơn cần thiết.
+    return mine.length > 0 ? mine : all
+  }, [orgUnitTreeData, onlyMyOrgUnits, myOrgUnitIds])
 
   /** Phần `defaultOrgUnitIds` thật sự chọn được — xem ghi chú ở chỗ dùng trong effect khởi tạo. */
   const selectableDefaultUnitIds = useMemo(
@@ -192,17 +231,6 @@ export default function KpiFormModal({
   /** Chỉ dùng ở chế độ thu gọn: danh sách đơn vị đang bung ra hay không. */
   const [orgUnitsExpanded, setOrgUnitsExpanded] = useState(false)
 
-  // Đẩy bối cảnh đang chọn ra ngoài. Nối chuỗi id để so sánh: `watch('orgUnitIds')` trả về mảng
-  // MỚI mỗi lần render, đưa thẳng vào deps thì effect chạy vô hạn.
-  const contextKey = `${formKpiPeriodId ?? ''}|${formOrgUnitIds.join(',')}`
-  useEffect(() => {
-    const [periodPart, unitsPart] = contextKey.split('|')
-    onContextChange?.({
-      kpiPeriodId: periodPart || undefined,
-      orgUnitIds: unitsPart ? unitsPart.split(',') : [],
-    })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [contextKey])
   /** Ô đang thật sự sửa được, cho trợ lý AI. Cập nhật bằng effect riêng — các điều kiện dưới
    *  đây khai báo SAU chỗ đăng ký nên không đưa thẳng vào deps được (lỗi vùng chết). */
   const fillableRef = useRef<string[]>([])
@@ -296,10 +324,12 @@ export default function KpiFormModal({
           ? selectableDefaultUnitIds
           : (canAssignRoles ? [] : (defaultOrgUnitId ? [defaultOrgUnitId] : [])),
         orgUnitId: parentKpi?.orgUnitId ?? defaultOrgUnitId,
-        assignedToIds: isDecomposition ? (parentKpi?.assigneeIds ?? []) : (isStaff ? ([user?.id].filter(Boolean) as string[]) : [])
+        assignedToIds: isDecomposition
+          ? (parentKpi?.assigneeIds ?? [])
+          : (defaultAssigneeIds ?? (isStaff ? ([user?.id].filter(Boolean) as string[]) : []))
       })
     }
-  }, [open, reset, editKpi, flatOrgUnits, canManageOrg, parentKpi, parentRelationType, isStaff, user, lockedPeriodId, selectableDefaultUnitIds, canAssignRoles])
+  }, [open, reset, editKpi, flatOrgUnits, canManageOrg, parentKpi, parentRelationType, isStaff, user, lockedPeriodId, selectableDefaultUnitIds, canAssignRoles, defaultAssigneeIds])
 
   const selectedAssignees = watch('assignedToIds') || []
 
@@ -334,6 +364,34 @@ export default function KpiFormModal({
     return usersData?.content || []
   }, [usersData])
 
+  /**
+   * Tên người thực hiện đang chọn.
+   *
+   * Người dùng hiện tại được tra thẳng từ phiên đăng nhập, không qua `availableUsers`: danh sách đó
+   * lọc theo đơn vị đang chọn, mà người tự giao chỉ tiêu cho mình có thể đang lập cho một đơn vị
+   * họ không nằm trong đó — khi ấy tên chính họ sẽ không tra ra.
+   */
+  const assigneeNames = selectedAssignees
+    .map(id => (id === user?.id ? (user?.fullName ?? 'Bạn') : (availableUsers.find(u => u.id === id)?.fullName ?? '')))
+    .filter(Boolean)
+
+  // Đẩy bối cảnh đang chọn ra ngoài. So sánh bằng chuỗi JSON: `watch()` trả về mảng MỚI mỗi lần
+  // render, đưa thẳng vào deps thì effect chạy vô hạn.
+  const contextKey = JSON.stringify({
+    kpiPeriodId: formKpiPeriodId ?? '',
+    orgUnitIds: formOrgUnitIds,
+    assigneeNames,
+  })
+  useEffect(() => {
+    const ctx = JSON.parse(contextKey) as { kpiPeriodId: string; orgUnitIds: string[]; assigneeNames: string[] }
+    onContextChange?.({
+      kpiPeriodId: ctx.kpiPeriodId || undefined,
+      orgUnitIds: ctx.orgUnitIds,
+      assigneeNames: ctx.assigneeNames,
+    })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contextKey])
+
 
   const createMutation = useMutation({
     mutationFn: (data: KpiFormData) => kpiApi.create(data),
@@ -347,7 +405,8 @@ export default function KpiFormModal({
       // đúng thao tác mà trình thiết lập sinh ra để xoá bỏ.
       //
       // Không giữ người thực hiện: đó là trường thay đổi nhiều nhất giữa các chỉ tiêu, giữ lại sẽ
-      // âm thầm giao nhầm người.
+      // âm thầm giao nhầm người. Trừ khi chủ trang chỉ định sẵn — luồng "cho bản thân" thì người
+      // nhận luôn là chính họ, xoá đi mới là bắt làm thừa.
       reset({
         ...getValues(),
         name: '',
@@ -359,7 +418,7 @@ export default function KpiFormModal({
         deadline: undefined,
         isReverseKpi: false,
         isBonusKpi: false,
-        assignedToIds: [],
+        assignedToIds: defaultAssigneeIds ?? [],
         keyResultId: null,
         perspectiveId: null,
       })
@@ -1288,14 +1347,16 @@ export default function KpiFormModal({
                     <Users size={16} className="text-[var(--color-primary)]" />
                     Giao thực hiện
                 </label>
-                {!isStaff && (
+                {!isStaff && !lockAssignees && (
                     <div className="px-2.5 py-1 rounded-full bg-[var(--color-primary)]/10 text-[var(--color-primary)] text-[10px] font-black uppercase tracking-wider">
                         {totalMemberCount} nhân sự khả dụng
                     </div>
                 )}
             </div>
 
-            {isStaff ? (
+            {/* `lockAssignees` dùng chung đúng thẻ gọn này với nhân viên: cả hai đều là "người nhận
+                chỉ là chính bạn", chỉ khác lý do — một bên do quyền, một bên do luồng. */}
+            {isStaff || lockAssignees ? (
                 <div className="bg-white dark:bg-white/5 border border-[var(--color-primary)]/20 rounded-xl p-4 animate-in fade-in slide-in-from-top-1">
                     <div className="flex items-center gap-3">
                         <UserAvatar
@@ -1414,6 +1475,7 @@ export default function KpiFormModal({
                 </div>
             )}
           </div>)}
+
           </div>
 
 

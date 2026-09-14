@@ -23,9 +23,18 @@ interface EvaluationFormModalProps {
   onClose: () => void
   readOnly?: boolean
   initialPeriodId?: string
+  /** `inline` bỏ lớp phủ và nút đóng để nhúng thẳng vào một trang (trình thiết lập KPI). */
+  variant?: 'modal' | 'inline'
+  /**
+   * Có thì thay hẳn phần tự điều hướng sau khi lưu — chủ trang quyết định đi đâu.
+   *
+   * Cần thiết khi nhúng: mặc định form gọi `goToNext` rồi `navigate('/evaluations')`, tức là lưu
+   * xong lại đá người dùng ra khỏi trang đang đứng.
+   */
+  onSaved?: () => void
 }
 
-export default function EvaluationFormModal({ open, onClose, readOnly = false, initialPeriodId }: EvaluationFormModalProps) {
+export default function EvaluationFormModal({ open, onClose, readOnly = false, initialPeriodId, variant = 'modal', onSaved }: EvaluationFormModalProps) {
   const { user } = useAuthStore()
   /** Ô đang thật sự sửa được, cho trợ lý AI. Cập nhật bằng effect riêng bên dưới — điều kiện
    *  khoá điểm khai báo SAU chỗ đăng ký nên không đưa thẳng vào deps được. */
@@ -170,6 +179,14 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
     createMutation.mutate(data, {
       onSuccess: () => {
         reset()
+
+        // Chủ trang đã nhận việc điều hướng thì dừng ở đây — nhúng trong một luồng khác mà vẫn tự
+        // nhảy đi là kéo người dùng ra khỏi trang họ đang đứng.
+        if (onSaved) {
+          onSaved()
+          return
+        }
+
         onClose()
 
         // Đích lấy từ cấu hình luồng thay vì đoán qua roleRank rồi điều hướng cứng. Hai cái lợi:
@@ -184,13 +201,18 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
 
   if (!open) return null
 
+  const isInline = variant === 'inline'
 
+  const card = (
+      <div
+        className={cn(
+          'relative bg-white dark:bg-slate-900 rounded-[48px] w-full overflow-hidden border border-slate-200 dark:border-slate-800',
+          isInline
+            ? 'shadow-sm'
+            : 'shadow-2xl max-w-2xl lg:max-w-4xl mx-auto animate-in zoom-in-95 slide-in-from-bottom-10 duration-700',
+        )}
+      >
 
-  return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-500" onClick={onClose} />
-      <div className="relative bg-white dark:bg-slate-900 rounded-[48px] shadow-2xl w-full max-w-2xl lg:max-w-4xl mx-auto overflow-hidden border border-slate-200 dark:border-slate-800 animate-in zoom-in-95 slide-in-from-bottom-10 duration-700">
-        
         {/* Header with Background Pattern */}
         <div className="relative bg-slate-900 p-10 text-white overflow-hidden">
            <div className="absolute top-0 right-0 p-8 opacity-10 rotate-12">
@@ -208,9 +230,12 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
                     {readOnly ? 'Xem lại kết quả nỗ lực của bạn trong đợt này.' : 'Hãy dành chút thời gian để phản ánh lại kết quả làm việc.'}
                  </p>
               </div>
-              <button onClick={onClose} className="w-12 h-12 flex items-center justify-center rounded-2xl bg-white/5 hover:bg-white/10 transition-all">
-                 <X size={24} />
-              </button>
+              {/* Nhúng trong trang thì không có gì để đóng — thanh bước của wizard là lối ra. */}
+              {!isInline && (
+                <button onClick={onClose} className="w-12 h-12 flex items-center justify-center rounded-2xl bg-white/5 hover:bg-white/10 transition-all">
+                   <X size={24} />
+                </button>
+              )}
            </div>
         </div>
 
@@ -451,9 +476,9 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
                    </div>
                 )}
                 
-                {readOnly && (
-                  <button 
-                    type="button" 
+                {readOnly && !isInline && (
+                  <button
+                    type="button"
                     onClick={onClose}
                     className="w-full py-4 rounded-2xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-xs font-black uppercase tracking-[2px] shadow-xl hover:bg-indigo-600 dark:hover:bg-indigo-50 transition-all flex items-center justify-center gap-2 active:scale-95"
                   >
@@ -483,6 +508,14 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
           </div>
         </div>
       </div>
+  )
+
+  if (isInline) return card
+
+  return (
+    <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-500" onClick={onClose} />
+      {card}
     </div>
   )
 }

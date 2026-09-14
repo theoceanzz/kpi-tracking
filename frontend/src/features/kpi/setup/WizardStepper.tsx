@@ -1,11 +1,13 @@
-import { Check } from 'lucide-react'
+import { Check, Lock } from 'lucide-react'
+import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import type { SetupStep } from './flows'
 
 interface Props {
   steps: SetupStep[]
   currentIndex: number
-  isReachable: (id: string) => boolean
+  /** Lý do bước chưa mở được, `undefined` nghĩa là vào được. */
+  blockReason: (id: string) => string | undefined
   onJump: (id: string) => void
 }
 
@@ -16,7 +18,7 @@ interface Props {
  * Đánh số theo VỊ TRÍ trong danh sách đã lọc, không theo mã bước — tổ chức tắt "Quản lý kỳ" thì
  * "Đợt" thành bước 1 chứ không phải bước 2 bị hụt.
  */
-export default function WizardStepper({ steps, currentIndex, isReachable, onJump }: Props) {
+export default function WizardStepper({ steps, currentIndex, blockReason, onJump }: Props) {
   return (
     <nav aria-label="Các bước thiết lập" className="w-full">
       {/* Đường tiến độ mảnh — mẫu duy nhất trong dự án, lấy từ PageTour để không lệch phong cách. */}
@@ -31,19 +33,25 @@ export default function WizardStepper({ steps, currentIndex, isReachable, onJump
         {steps.map((step, index) => {
           const isDone = index < currentIndex
           const isCurrent = index === currentIndex
-          const canJump = isReachable(step.id) && index !== currentIndex
+          const reason = blockReason(step.id)
+          const isBlocked = !!reason && index !== currentIndex
+          const canJump = !reason && index !== currentIndex
 
           return (
             <li key={step.id} className="flex min-w-0 flex-1 items-start gap-1 sm:gap-2">
+              {/* Bước chưa mở được vẫn BẤM ĐƯỢC, chỉ là bấm vào thì nói ra lý do. Vô hiệu hoá nút
+                  là cách im lặng nhất để từ chối: người dùng bấm mãi mà không biết mình thiếu gì. */}
               <button
                 type="button"
-                disabled={!canJump}
-                onClick={() => canJump && onJump(step.id)}
+                disabled={index === currentIndex}
+                onClick={() => (reason ? toast.error(reason) : onJump(step.id))}
+                title={reason}
                 aria-current={isCurrent ? 'step' : undefined}
                 className={cn(
                   'group flex min-w-0 flex-1 flex-col items-center gap-2 rounded-2xl px-1 py-2 text-center transition-colors sm:px-2',
                   canJump && 'hover:bg-slate-50 dark:hover:bg-slate-800/60',
-                  !canJump && 'cursor-default',
+                  isBlocked && 'cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-800/60',
+                  isCurrent && 'cursor-default',
                 )}
               >
                 <span
@@ -54,7 +62,7 @@ export default function WizardStepper({ steps, currentIndex, isReachable, onJump
                     !isCurrent && !isDone && 'bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500',
                   )}
                 >
-                  {isDone ? <Check size={16} strokeWidth={3} /> : index + 1}
+                  {isDone ? <Check size={16} strokeWidth={3} /> : isBlocked ? <Lock size={14} strokeWidth={3} /> : index + 1}
                 </span>
 
                 <span className="min-w-0">
