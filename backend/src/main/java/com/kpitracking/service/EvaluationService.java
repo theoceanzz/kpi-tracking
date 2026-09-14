@@ -761,7 +761,7 @@ public class EvaluationService {
         }
 
         // Director or Global Admin can see everything
-        boolean isGlobalAdmin = permissionChecker.isGlobalAdmin(currentUser.getId());
+        boolean isGlobalAdmin = permissionChecker.isGlobalAdminOverUser(currentUser.getId(), evaluation.getUser().getId());
         if (isGlobalAdmin) {
             return enrichResponse(evaluation);
         }

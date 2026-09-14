@@ -98,7 +98,11 @@ public class AiController {
         // AiRateLimiter và AiTokenUsageRecorder đều đọc SecurityContextHolder — đó là ThreadLocal
         // duy nhất còn lại trên đường này. Trạng thái theo lượt nằm trong AgentState và đi cùng
         // ToolContext, nên nó chạy ở luồng nào cũng đúng và không có gì phải dọn.
-        new DelegatingSecurityContextExecutor(streamExecutor, SecurityContextHolder.getContext())
+        // MdcPropagatingExecutor bên trong: task chạy ở pool riêng phải mang cả requestId/user của
+        // request gốc, nếu không log của lượt AI (đúng chỗ hay lỗi nhất) không nối được với request.
+        new DelegatingSecurityContextExecutor(
+                new com.kpitracking.logging.MdcPropagatingExecutor(streamExecutor),
+                SecurityContextHolder.getContext())
                 .execute(() -> withEntityManager(() -> {
                     try {
                         listener.done(runTurn(request, listener));

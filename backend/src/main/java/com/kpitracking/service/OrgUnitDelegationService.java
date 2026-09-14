@@ -141,7 +141,7 @@ public class OrgUnitDelegationService {
 
             // Người trao phải thật sự quản được đơn vị đích, nếu không thì đây là đường vòng
             // để tự trao cho mình quyền ở một phòng chẳng liên quan.
-            if (!permissionChecker.isGlobalAdmin(actor.getId())
+            if (!permissionChecker.isGlobalAdminOfOrganization(actor.getId(), organizationId)
                     && !permissionChecker.hasPermissionInOrgUnit(actor.getId(), "ROLE:ASSIGN", target.getId())) {
                 throw new ForbiddenException("Bạn không có quyền uỷ quyền quản lý đơn vị \""
                         + target.getName() + "\"");
@@ -209,7 +209,7 @@ public class OrgUnitDelegationService {
                 .orElseThrow(() -> new ResourceNotFoundException("Uỷ quyền", "id", id));
 
         User actor = currentUser();
-        if (!permissionChecker.isGlobalAdmin(actor.getId())
+        if (!permissionChecker.isGlobalAdminIn(actor.getId(), delegation.getOrgUnit().getId())
                 && !permissionChecker.hasPermissionInOrgUnit(actor.getId(), "ROLE:ASSIGN",
                         delegation.getOrgUnit().getId())) {
             throw new ForbiddenException("Bạn không có quyền thu hồi uỷ quyền của đơn vị này");

@@ -50,7 +50,7 @@ public class CloudinaryStorageService {
             // The stored public_id includes the folder
             String fullPublicId = (String) uploadResult.get("public_id");
 
-            log.info("File uploaded to Cloudinary successfully: {}", secureUrl);
+            log.info("Cloudinary upload xong: folder={} size={}B", folder, file.getSize());
             return Map.of(
                     "url", secureUrl,
                     "public_id", fullPublicId

@@ -54,6 +54,15 @@ public class OrganizationService {
     private final ConductService conductService;
     private final BscService bscService;
     private final CloudinaryStorageService cloudinaryStorageService;
+    private final com.kpitracking.repository.UserRepository userRepository;
+    private final com.kpitracking.security.PermissionChecker permissionChecker;
+
+    private User getCurrentUser() {
+        String email = org.springframework.security.core.context.SecurityContextHolder
+                .getContext().getAuthentication().getName();
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "email", email));
+    }
 
     /** Whether qualitative KPIs are enabled for the given organization. */
     @Transactional(readOnly = true)
@@ -532,6 +541,10 @@ public class OrganizationService {
     public long countMembers(UUID orgId) {
         if (!organizationRepository.existsById(orgId)) {
             throw new ResourceNotFoundException("Tổ chức", "id", orgId);
+        }
+        // orgId do client gửi: chỉ thành viên của tổ chức mới được biết quy mô nhân sự.
+        if (!permissionChecker.isMemberOfOrganization(getCurrentUser().getId(), orgId)) {
+            throw new com.kpitracking.exception.ForbiddenException("Bạn không thuộc tổ chức này");
         }
         return userRoleOrgUnitRepository.countUsersByOrganizationId(orgId);
     }

@@ -88,9 +88,19 @@ public class ModelGateway {
      *             cờ streaming đang bật — tắt cờ thì đường đi giống từng bước với bản đã đo.
      */
     public ChatResponse call(Prompt prompt, Consumer<String> sink) {
-        ChatResponse response = streamingEnabled && sink != null
-                ? streamAndAggregate(prompt, sink)
-                : chatModel.call(prompt);
+        boolean streaming = streamingEnabled && sink != null;
+        long start = System.nanoTime();
+        ChatResponse response;
+        try {
+            response = streaming ? streamAndAggregate(prompt, sink) : chatModel.call(prompt);
+        } catch (RuntimeException e) {
+            // Boundary ra nhà cung cấp AI: log lớp lỗi + thời gian, KHÔNG log prompt/response.
+            log.warn("Gọi model {} thất bại sau {} ms: {}", streaming ? "stream" : "call",
+                    (System.nanoTime() - start) / 1_000_000, e.getClass().getSimpleName());
+            throw e;
+        }
+        log.info("Gọi model {} xong sau {} ms, messages={}", streaming ? "stream" : "call",
+                (System.nanoTime() - start) / 1_000_000, prompt.getInstructions().size());
         recordUsage(response);
         return response;
     }

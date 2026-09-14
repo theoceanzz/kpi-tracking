@@ -13,6 +13,11 @@ public class ApiResponse<T> {
     private String message;
     private T data;
     private Instant timestamp;
+    /**
+     * Mã tra cứu (= header X-Request-Id = MDC requestId trong log). Chỉ gắn vào phản hồi lỗi
+     * (RequestIdResponseAdvice) để người dùng báo CSKH kèm mã; null thì Jackson bỏ qua field.
+     */
+    private String requestId;
 
     public static <T> ApiResponse<T> success(T data) {
         return ApiResponse.<T>builder()

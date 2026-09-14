@@ -39,8 +39,13 @@ public class LarkOAuthClient {
 
     @PostConstruct
     void init() {
+        // Không đặt timeout thì JDK mặc định chờ VÔ HẠN: Lark treo là thread Tomcat treo theo.
+        var factory = new org.springframework.http.client.SimpleClientHttpRequestFactory();
+        factory.setConnectTimeout(java.time.Duration.ofSeconds(10));
+        factory.setReadTimeout(java.time.Duration.ofSeconds(30));
         this.restClient = RestClient.builder()
                 .baseUrl(larkProperties.getOpenBaseUrl())
+                .requestFactory(factory)
                 .build();
     }
 
@@ -54,6 +59,10 @@ public class LarkOAuthClient {
                 + "&response_type=code"
                 + "&state=" + encode(state)
                 + "&scope=" + encode(SCOPE);
+    }
+
+    private static long elapsedMs(long startNanos) {
+        return (System.nanoTime() - startNanos) / 1_000_000;
     }
 
     private static String encode(String value) {
@@ -72,6 +81,7 @@ public class LarkOAuthClient {
         );
 
         TokenResponse response;
+        long start = System.nanoTime();
         try {
             response = restClient.post()
                     .uri("/open-apis/authen/v2/oauth/token")
@@ -80,9 +90,11 @@ public class LarkOAuthClient {
                     .retrieve()
                     .body(TokenResponse.class);
         } catch (RestClientException e) {
-            log.error("Không gọi được Lark oauth/token: {}", e.getMessage());
+            // Chỉ log lớp lỗi + thời gian; message của RestClientException có thể chứa body phản hồi.
+            log.error("Lark oauth/token thất bại sau {} ms: {}", elapsedMs(start), e.getClass().getSimpleName());
             throw new BusinessException("Không kết nối được tới Lark. Vui lòng thử lại sau.");
         }
+        log.info("Lark oauth/token xong sau {} ms, code={}", elapsedMs(start), response == null ? null : response.code());
 
         // Lark trả HTTP 200 kể cả khi lỗi -> phải kiểm tra field code
         if (response == null || response.code() != 0) {

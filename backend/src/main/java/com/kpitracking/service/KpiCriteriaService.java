@@ -319,7 +319,8 @@ public class KpiCriteriaService {
             if (relationType == com.kpitracking.enums.KpiParentRelationType.DECOMPOSITION) {
                 boolean isParentOwner = parent.getCreatedBy() != null && parent.getCreatedBy().getId().equals(creator.getId());
                 boolean isParentAssignee = parent.getAssignees() != null && parent.getAssignees().stream().anyMatch(a -> a.getId().equals(creator.getId()));
-                if (!isParentOwner && !isParentAssignee && !permissionChecker.isGlobalAdmin(creator.getId())) {
+                if (!isParentOwner && !isParentAssignee
+                        && !permissionChecker.isGlobalAdminIn(creator.getId(), parent.getOrgUnit() != null ? parent.getOrgUnit().getId() : null)) {
                     throw new ForbiddenException("Bạn chỉ có thể chia nhỏ KPI do chính mình tạo hoặc được giao thực hiện");
                 }
 
@@ -1109,7 +1110,7 @@ public class KpiCriteriaService {
                     }
                 }
                 
-                if (!hasPermission && !permissionChecker.isGlobalAdmin(currentUser.getId())) {
+                if (!hasPermission && !permissionChecker.isGlobalAdminOverUser(currentUser.getId(), targetUser.getId())) {
                     throw new ForbiddenException("Bạn không có quyền xem thông tin trọng số của người dùng này");
                 }
             }

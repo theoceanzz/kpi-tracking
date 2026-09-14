@@ -26,6 +26,31 @@ public class PermissionService {
     private final RolePermissionRepository rolePermissionRepository;
     private final RoleRepository roleRepository;
     private final PermissionMapper permissionMapper;
+    private final com.kpitracking.repository.UserRepository userRepository;
+    private final com.kpitracking.security.PermissionChecker permissionChecker;
+    private final com.kpitracking.security.audit.SecurityAuditService securityAudit;
+
+    /**
+     * roleId đến từ đường dẫn: vai trò phải thuộc tổ chức mà người gọi đang có PERMISSION:EDIT
+     * (hoặc SYSTEM:ADMIN). Không có bước này thì một quản trị viên chỉnh được bộ quyền của
+     * công ty khác.
+     */
+    private Role requireEditableRole(UUID roleId) {
+        Role role = roleRepository.findById(roleId)
+                .orElseThrow(() -> new ResourceNotFoundException("Role", "id", roleId));
+        String email = org.springframework.security.core.context.SecurityContextHolder
+                .getContext().getAuthentication().getName();
+        UUID me = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "email", email)).getId();
+        UUID roleOrgId = role.getOrganization() != null ? role.getOrganization().getId() : null;
+        if (!permissionChecker.hasPermissionInOrganization(me, "PERMISSION:EDIT", roleOrgId)) {
+            securityAudit.record(com.kpitracking.security.audit.SecurityAuditEvent.ACCESS_DENIED,
+                    com.kpitracking.security.audit.SecurityAuditService.BLOCKED,
+                    "ROLE", roleId.toString(), "Sửa quyền của vai trò ngoài tổ chức");
+            throw new com.kpitracking.exception.ForbiddenException("Bạn không có quyền chỉnh sửa vai trò này");
+        }
+        return role;
+    }
 
     @Transactional(readOnly = true)
     public List<PermissionResponse> listAllPermissions() {
@@ -46,8 +71,7 @@ public class PermissionService {
 
     @Transactional
     public void assignPermissionsToRole(UUID roleId, AssignPermissionRequest request) {
-        Role role = roleRepository.findById(roleId)
-                .orElseThrow(() -> new ResourceNotFoundException("Role", "id", roleId));
+        Role role = requireEditableRole(roleId);
 
         if (Boolean.TRUE.equals(role.getIsSystem())) {
              throw new com.kpitracking.exception.BusinessException("Không thể chỉnh sửa quyền cho vai trò hệ thống");
@@ -81,13 +105,23 @@ public class PermissionService {
                             .build();
                     rolePermissionRepository.save(rp);
                 });
+
+        securityAudit.record(com.kpitracking.security.audit.SecurityAuditEvent.PERMISSION_CHANGED,
+                com.kpitracking.security.audit.SecurityAuditService.OK,
+                "ROLE", roleId.toString(),
+                "Cập nhật bộ quyền vai trò " + role.getName() + ": " + currentPermissionIds.size()
+                        + " -> " + newPermissionIds.size() + " quyền");
     }
 
     @Transactional
     public void removePermissionFromRole(UUID roleId, UUID permissionId) {
+        Role role = requireEditableRole(roleId);
         if (!rolePermissionRepository.existsByRoleIdAndPermissionId(roleId, permissionId)) {
             throw new ResourceNotFoundException("Không tìm thấy thông tin quyền hạn của vai trò");
         }
         rolePermissionRepository.deleteByRoleIdAndPermissionId(roleId, permissionId);
+        securityAudit.record(com.kpitracking.security.audit.SecurityAuditEvent.PERMISSION_CHANGED,
+                com.kpitracking.security.audit.SecurityAuditService.OK,
+                "ROLE", roleId.toString(), "Gỡ quyền " + permissionId + " khỏi vai trò " + role.getName());
     }
 }

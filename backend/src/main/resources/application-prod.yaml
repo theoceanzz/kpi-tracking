@@ -1,6 +1,12 @@
 server:
   port: 8081
   forward-headers-strategy: framework
+  # Mặc định của Boot đã là never/never; ghi rõ để ai đổi profile cũng không vô tình bật.
+  error:
+    include-stacktrace: never
+    include-message: never
+    include-binding-errors: never
+    include-exception: false
 
 spring:
   application:
@@ -9,7 +15,8 @@ spring:
   datasource:
     url: ${DB_URL:jdbc:postgresql://kpitracking-db:5432/kpitracking}
     username: ${DB_USERNAME:postgres}
-    password: ${DB_PASSWORD:123456}
+    # Không có default: prod thiếu DB_PASSWORD thì phải dừng ngay, không được âm thầm dùng mật khẩu dev.
+    password: ${DB_PASSWORD}
     hikari:
       maximum-pool-size: 20
       minimum-idle: 5
@@ -34,7 +41,12 @@ spring:
     locations: classpath:db/migration
     baseline-on-migrate: true
     repair-on-migrate: true
-    clean-disabled: false
+    # true = Flyway từ chối clean() dù code có gọi. Prod không bao giờ được tự xoá dữ liệu.
+    clean-disabled: true
+    placeholders:
+      # false -> V4 vô hiệu hoá 31 tài khoản seed (admin@keygo.vn, *@demo.com) còn dùng mật khẩu
+      # mặc định ghi công khai trong V2__seed_data.sql. Xem docs/SECURITY_AUDIT.md C3.
+      seedAccountsEnabled: ${SEED_ACCOUNTS_ENABLED:false}
 
   mail:
     host: ${MAIL_HOST:smtp.gmail.com}
@@ -88,7 +100,9 @@ spring:
       on-http-codes-to-retry:
 
 jwt:
-  secret: ${JWT_SECRET:your-256-bit-secret-your-256-bit-secret}
+  # Không có default: khoá ký token mà rơi về giá trị commit trong git thì ai đọc repo cũng
+  # tự phát hành được phiên đăng nhập. Thiếu JWT_SECRET → ứng dụng không khởi động.
+  secret: ${JWT_SECRET}
   access-token-expiry: ${JWT_ACCESS_EXPIRY:9000000}
   refresh-token-expiry: ${JWT_REFRESH_EXPIRY:604800000}
 
@@ -181,8 +195,29 @@ app:
     # => CsrfFilter chặn mọi POST/PUT/PATCH/DELETE. Đặt domain gốc để hai host dùng chung
     # đúng một cookie.
     domain: ${COOKIE_DOMAIN:keygo.vn}
+  flyway:
+    # Ghi đè cứng: application.yaml (profile mặc định, luôn được nạp) đặt true cho dev.
+    # Prod không bao giờ được clean; validate lỗi -> repair() rồi migrate.
+    clean-on-validation-error: false
   rate-limit:
-    login-per-minute: ${RATE_LIMIT_LOGIN:5}
+    # Giới hạn tần suất các endpoint xác thực (AuthRateLimitFilter) + khoá tài khoản sau nhiều
+    # lần sai (LoginAttemptService). Số là request/IP/cửa sổ; đếm trong bộ nhớ từng instance.
+    enabled: ${RATE_LIMIT_ENABLED:true}
+    # CHỈ bật khi backend đứng sau nginx/reverse proxy — client gọi thẳng mà bật thì tự đặt
+    # được X-Forwarded-For để né giới hạn.
+    trust-forwarded-headers: ${RATE_LIMIT_TRUST_PROXY:true}
+    window-seconds: ${RATE_LIMIT_WINDOW_SECONDS:60}
+    login: ${RATE_LIMIT_LOGIN:20}
+    register: ${RATE_LIMIT_REGISTER:5}
+    forgot-password: ${RATE_LIMIT_FORGOT:5}
+    reset-password: ${RATE_LIMIT_RESET:10}
+    verify-email: ${RATE_LIMIT_VERIFY:20}
+    resend-verification: ${RATE_LIMIT_RESEND:5}
+    refresh-token: ${RATE_LIMIT_REFRESH:60}
+    change-password: ${RATE_LIMIT_CHANGE_PASSWORD:10}
+    lark: ${RATE_LIMIT_LARK:30}
+    max-failed-logins: ${LOGIN_MAX_FAILED:10}
+    lockout-minutes: ${LOGIN_LOCKOUT_MINUTES:15}
     email-per-hour: ${RATE_LIMIT_EMAIL:3}
     ai-per-minute: ${RATE_LIMIT_AI_MIN:15}
     ai-per-day: ${RATE_LIMIT_AI_DAY:200}
@@ -209,17 +244,31 @@ claude:
     model: ${CLAUDE_MODEL:claude-3-5-sonnet-20241022}
 
 springdoc:
+  # Tắt ở prod: OpenAPI liệt kê toàn bộ endpoint + schema cho người ngoài. Bật tạm bằng
+  # SWAGGER_ENABLED=true khi cần và tắt lại ngay.
   api-docs:
     path: /v3/api-docs
+    enabled: ${SWAGGER_ENABLED:false}
   swagger-ui:
     path: /swagger-ui.html
     operations-sorter: method
+    enabled: ${SWAGGER_ENABLED:false}
 
 logging:
   level:
     root: info
-    com.kpitracking: DEBUG
-    org.springframework.security: DEBUG
+    # DEBUG của Spring Security in header, principal và chuỗi filter cho MỌI request —
+    # quá nhiều dữ liệu nhạy cảm cho log prod. Nới tạm bằng LOG_LEVEL_APP/LOG_LEVEL_SECURITY.
+    com.kpitracking: ${LOG_LEVEL_APP:INFO}
+    org.springframework.security: ${LOG_LEVEL_SECURITY:WARN}
+    # Ghi đè CỨNG các mức mà application.yaml (profile mặc định, luôn được nạp dưới file này) đặt DEBUG:
+    # SimpleLoggerAdvisor ở DEBUG in NGUYÊN VĂN prompt + câu trả lời AI (tên KPI, tên nhân viên, số liệu)
+    # qua "request: {}" / "response: {}". Không có env để nới — muốn soi thì soi ở local.
+    org.springframework.ai: INFO
+    org.springframework.ai.chat.client.advisor: INFO
+    # Không in SQL / tham số bind ra log prod (chứa dữ liệu bảng).
+    org.hibernate.SQL: "OFF"
+    org.hibernate.orm.jdbc.bind: "OFF"
 management:
   endpoints:
     web:

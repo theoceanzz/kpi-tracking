@@ -99,8 +99,12 @@ public class SubmissionAttachmentService {
                 .orElseThrow(() -> new ResourceNotFoundException("Submission", "id", submissionId));
 
         boolean isSubmitter = submission.getSubmittedBy().getId().equals(currentUser.getId());
-        boolean canReview = permissionChecker.hasAnyPermission(currentUser.getId(), "SUBMISSION:REVIEW", "SUBMISSION:REVIEW_KPI");
-        
+        // Quyền duyệt phải xét trên đúng đơn vị của bản nộp — quyền ở công ty khác không tính.
+        UUID unitId = submission.getOrgUnit() != null ? submission.getOrgUnit().getId() : null;
+        boolean canReview = unitId != null && (
+                permissionChecker.hasAnyPermissionInOrgUnit(currentUser.getId(), unitId, "SUBMISSION:REVIEW", "SUBMISSION:REVIEW_KPI")
+                || permissionChecker.isGlobalAdminIn(currentUser.getId(), unitId));
+
         if (!isSubmitter && !canReview) {
              throw new com.kpitracking.exception.ForbiddenException("You can only view attachments for your own or authorized submissions");
         }

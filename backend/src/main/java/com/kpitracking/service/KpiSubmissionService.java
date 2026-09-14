@@ -132,7 +132,7 @@ public class KpiSubmissionService {
                         .target(submission)
                         .targetOwnerId(submission.getSubmittedBy() == null ? null : submission.getSubmittedBy().getId())
                         .statusRejectionMessage(
-                                "Chỉ có thể phê duyệt các bản nộp đang ở trạng thái CHỜ DUYỆT hoặc đã ĐÃ DUYỆT (để ghi đè)")
+                                "Chỉ có thể phê duyệt các bản nộp đang ở trạng thái CHỜ DUYỆT, ĐÃ DUYỆT hoặc TỪ CHỐI (để ghi đè)")
                         .build();
 
         // Chốt chặn thẩm quyền đã chạy ở requireCanReview ngay trước lời gọi này — luật ở đó có
@@ -460,7 +460,7 @@ public class KpiSubmissionService {
         KpiSubmission submission = submissionRepository.findById(submissionId)
                 .orElseThrow(() -> new ResourceNotFoundException("Bản nộp", "id", submissionId));
 
-        boolean isGlobalAdmin = permissionChecker.isGlobalAdmin(currentUser.getId());
+        boolean isGlobalAdmin = permissionChecker.isGlobalAdminIn(currentUser.getId(), submission.getOrgUnit().getId());
         boolean hasReviewPermission = permissionChecker.hasAnyPermissionInOrgUnit(currentUser.getId(), submission.getOrgUnit().getId(), "SUBMISSION:REVIEW");
         boolean isSubmitter = submission.getSubmittedBy().getId().equals(currentUser.getId());
 
@@ -493,9 +493,9 @@ public class KpiSubmissionService {
      */
     private void requireCanReview(User currentUser, KpiSubmission submission) {
         // Quản trị toàn hệ thống ghi đè được cả bản người khác đã duyệt — đúng như bản đơn lẻ vẫn làm.
-        if (permissionChecker.isGlobalAdmin(currentUser.getId())) return;
-
         UUID unitId = submission.getOrgUnit().getId();
+        if (permissionChecker.isGlobalAdminIn(currentUser.getId(), unitId)) return;
+
         if (!permissionChecker.hasAnyPermissionInOrgUnit(currentUser.getId(), unitId, "SUBMISSION:REVIEW")) {
             throw new ForbiddenException("Bạn không có quyền phê duyệt bản nộp của đơn vị này");
         }

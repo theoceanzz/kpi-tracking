@@ -1,6 +1,7 @@
 package com.kpitracking.config;
 
 import com.kpitracking.security.AuthCookieService;
+import com.kpitracking.security.AuthRateLimitFilter;
 import com.kpitracking.security.JwtAuthenticationFilter;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
@@ -41,6 +42,7 @@ import java.util.List;
 public class SecurityConfig {
 
     private final JwtAuthenticationFilter jwtAuthenticationFilter;
+    private final AuthRateLimitFilter authRateLimitFilter;
     private final UserDetailsService userDetailsService;
     private final CookieProperties cookieProperties;
     private static final String CSRF_COOKIE = AuthCookieService.CSRF_COOKIE;
@@ -99,8 +101,9 @@ public class SecurityConfig {
                 .ignoringRequestMatchers(PUBLIC_ENDPOINTS))
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
             .exceptionHandling(exceptions -> exceptions
-                .authenticationEntryPoint((request, response, authException) -> 
-                    response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized"))
+                .authenticationEntryPoint((request, response, authException) ->
+                    com.kpitracking.logging.RequestIdResponseAdvice.writeError(
+                            response, HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized"))
             )
             .sessionManagement(session ->
                 session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
@@ -112,8 +115,18 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .anyRequest().authenticated()
             )
+            .headers(headers -> headers
+                // Spring đã mặc định nosniff, X-Frame-Options DENY, Cache-Control no-store và HSTS
+                // (HSTS chỉ phát trên kết nối HTTPS). Bổ sung hai header còn thiếu:
+                .referrerPolicy(referrer -> referrer.policy(
+                        org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter.ReferrerPolicy.STRICT_ORIGIN_WHEN_CROSS_ORIGIN))
+                .permissionsPolicy(permissions -> permissions.policy(
+                        "camera=(), microphone=(), geolocation=(), payment=(), usb=()"))
+            )
             .authenticationProvider(authenticationProvider())
-            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+            // Đếm tần suất trước khi tốn công đọc user/đối chiếu mật khẩu.
+            .addFilterBefore(authRateLimitFilter, JwtAuthenticationFilter.class);
 
         return http.build();
     }

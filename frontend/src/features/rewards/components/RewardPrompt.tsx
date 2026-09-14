@@ -1,9 +1,7 @@
 import { useState } from 'react'
 import { Gift, Loader2, X, Check } from 'lucide-react'
-import { useHasPermission } from '@/components/auth/PermissionGate'
-import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
-import { useAuthStore } from '@/store/authStore'
 import { useMyBudget, useRewardGrants } from '../hooks/useRewards'
+import { useCanPromptReward } from '../hooks/useCanPromptReward'
 import { Button } from '@/components/ui/button'
 
 interface RewardPromptProps {
@@ -22,7 +20,9 @@ interface RewardPromptProps {
  * bắt họ nhớ để vào màn hình khác thưởng sau là gần như chắc chắn sẽ quên.
  *
  * <p>Tự ẩn hoàn toàn khi tổ chức tắt tính năng thưởng hoặc người dùng không có quyền
- * trao — không làm phiền bằng một lời mời họ không dùng được.
+ * trao — không làm phiền bằng một lời mời họ không dùng được. Lúc ẩn thì `onDone` KHÔNG
+ * được gọi, nên màn hình cha phải hỏi {@link useCanPromptReward} trước khi chờ prompt này
+ * để đóng.
  */
 export default function RewardPrompt({
   userId,
@@ -35,17 +35,12 @@ export default function RewardPrompt({
   const [points, setPoints] = useState<number | ''>('')
   const [reason, setReason] = useState(defaultReason ?? '')
 
-  const { user } = useAuthStore()
-  const { data: org } = useOrganization(user?.memberships?.[0]?.organizationId ?? '')
-  const { hasPermission } = useHasPermission()
+  const canPrompt = useCanPromptReward()
   const { data: budget } = useMyBudget(expanded)
   const { createGrant, isCreating } = useRewardGrants({ size: 1 })
 
-  const canGrant = hasPermission('REWARD:GRANT')
-  const enabled = org?.enableReward === true
-
   // Không có quyền hoặc tổ chức tắt tính năng ⇒ biến mất hẳn, không chiếm chỗ.
-  if (!enabled || !canGrant) return null
+  if (!canPrompt) return null
 
   if (done) {
     return (

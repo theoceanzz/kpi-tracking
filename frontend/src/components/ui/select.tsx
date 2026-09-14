@@ -6,7 +6,22 @@ import { Check, ChevronDown, ChevronUp } from "lucide-react"
 
 import { cn } from "@/lib/utils"
 
-const Select = SelectPrimitive.Root
+/**
+ * Bọc Root để nuốt lần `onValueChange('')` giả của Radix.
+ *
+ * Khi Select nằm trong `<form>`, Radix gắn thêm một `<select>` ẩn để form đọc được giá trị, và
+ * mỗi lần `value` đổi nó gán `select.value = value` rồi bắn sự kiện change. Nếu giá trị được đặt
+ * bằng code (setValue/reset của react-hook-form) ngay khi danh sách vừa hiện — trước lúc các
+ * `<option>` ẩn kịp đăng ký — thì gán không khớp option nào, `select.value` thành '' và Radix gọi
+ * `onValueChange('')`, xoá sạch giá trị form vừa đặt. `SelectItem` không được phép có value ''
+ * nên '' không bao giờ là lựa chọn thật của người dùng; bỏ qua là an toàn.
+ */
+const Select = ({ onValueChange, ...props }: React.ComponentProps<typeof SelectPrimitive.Root>) => (
+  <SelectPrimitive.Root
+    {...props}
+    onValueChange={onValueChange && ((value) => { if (value !== '') onValueChange(value) })}
+  />
+)
 
 const SelectGroup = SelectPrimitive.Group
 

@@ -200,9 +200,11 @@ export function DialogFooter({ primary, secondary, destructive, note }: {
   primary?: ReactNode; secondary?: ReactNode; destructive?: ReactNode; note?: ReactNode
 }) {
   return (
-    <div className="flex shrink-0 items-center gap-2 border-t border-[var(--color-border)] bg-[var(--color-card)] px-5 py-3">
+    // Dưới 640px hộp thoại là bottom-sheet: ghi chú nằm trên, hàng nút chia đều bề ngang —
+    // để chung một hàng thì ghi chú bị ép thành cột hẹp, mỗi dòng một chữ.
+    <div className="flex shrink-0 flex-col gap-2 border-t border-[var(--color-border)] bg-[var(--color-card)] px-4 py-3 sm:flex-row sm:items-center sm:px-5">
       {destructive ?? (note && <p className="text-caption">{note}</p>)}
-      <div className="ml-auto flex items-center gap-2">
+      <div className="flex items-center gap-2 sm:ml-auto [&>*]:flex-1 sm:[&>*]:flex-none">
         {secondary}
         {primary}
       </div>

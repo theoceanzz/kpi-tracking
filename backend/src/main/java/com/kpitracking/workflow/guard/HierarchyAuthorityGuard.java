@@ -49,7 +49,7 @@ public class HierarchyAuthorityGuard {
             UUID orgUnitId = ctx.getOrgUnitId();
 
             // Quản trị toàn hệ thống đi thẳng, không vướng cấp bậc.
-            if (permissionChecker.isGlobalAdmin(actorId)) return GuardResult.ok();
+            if (orgUnitId != null && permissionChecker.isGlobalAdminIn(actorId, orgUnitId)) return GuardResult.ok();
 
             if (orgUnitId == null || !permissionChecker.hasPermissionInOrgUnit(actorId, permissionCode, orgUnitId)) {
                 return GuardResult.forbidden("Bạn không có quyền " + verb + " " + permissionNoun + " cho đơn vị này");

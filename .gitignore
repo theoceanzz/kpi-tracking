@@ -5,3 +5,8 @@
 #   !docs/ten-file-cong-khai.md
 docs/
 scripts/
+
+# Secret cho docker-compose (JWT_SECRET, DB_PASSWORD, API key...). Chỉ .env.example được lên git.
+.env
+.env.*
+!.env.example

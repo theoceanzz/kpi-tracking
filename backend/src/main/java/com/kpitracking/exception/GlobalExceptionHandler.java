@@ -19,7 +19,24 @@ import java.util.Map;
 
 @RestControllerAdvice
 @Slf4j
+@lombok.RequiredArgsConstructor
 public class GlobalExceptionHandler {
+
+    private final com.kpitracking.security.audit.SecurityAuditService securityAudit;
+
+    /** Ghi 403 vào nhật ký bảo mật kèm đường dẫn: nhiều 403 liên tiếp trên id lạ là dấu hiệu dò IDOR. */
+    private void auditDenied(String reason) {
+        try {
+            var attrs = org.springframework.web.context.request.RequestContextHolder.getRequestAttributes();
+            String path = attrs instanceof org.springframework.web.context.request.ServletRequestAttributes sra
+                    ? sra.getRequest().getMethod() + " " + sra.getRequest().getRequestURI()
+                    : null;
+            securityAudit.record(com.kpitracking.security.audit.SecurityAuditEvent.ACCESS_DENIED,
+                    com.kpitracking.security.audit.SecurityAuditService.BLOCKED, "HTTP", path, reason);
+        } catch (Exception ignored) {
+            // nhật ký không được làm hỏng phản hồi lỗi
+        }
+    }
 
     @ExceptionHandler(ResourceNotFoundException.class)
     public ResponseEntity<ApiResponse<Void>> handleResourceNotFound(ResourceNotFoundException ex) {
@@ -57,6 +74,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(ForbiddenException.class)
     public ResponseEntity<ApiResponse<Void>> handleForbidden(ForbiddenException ex) {
         log.warn("Forbidden: {}", ex.getMessage());
+        auditDenied(ex.getMessage());
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
                 .body(ApiResponse.error(ex.getMessage()));
     }
@@ -86,10 +104,25 @@ public class GlobalExceptionHandler {
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
     }
 
+    /**
+     * Chỉ trả thông điệp của từng ràng buộc, không kèm property path
+     * ({@code createUser.request.email: ...}) — path lộ tên method/tham số nội bộ.
+     */
     @ExceptionHandler(ConstraintViolationException.class)
     public ResponseEntity<ApiResponse<Void>> handleConstraintViolation(ConstraintViolationException ex) {
         log.warn("Constraint violation: {}", ex.getMessage());
+        String message = ex.getConstraintViolations().stream()
+                .map(jakarta.validation.ConstraintViolation::getMessage)
+                .distinct()
+                .collect(java.util.stream.Collectors.joining("; "));
         return ResponseEntity.status(HttpStatus.BAD_REQUEST)
+                .body(ApiResponse.error(message.isBlank() ? "Dữ liệu không hợp lệ" : message));
+    }
+
+    @ExceptionHandler(AccountLockedException.class)
+    public ResponseEntity<ApiResponse<Void>> handleAccountLocked(AccountLockedException ex) {
+        log.warn("SECURITY login_locked_attempt: {}", ex.getMessage());
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
                 .body(ApiResponse.error(ex.getMessage()));
     }
 
@@ -110,6 +143,7 @@ public class GlobalExceptionHandler {
     @ExceptionHandler(AccessDeniedException.class)
     public ResponseEntity<ApiResponse<Void>> handleAccessDenied(AccessDeniedException ex) {
         log.warn("Access denied: {}", ex.getMessage());
+        auditDenied("Thiếu quyền (@PreAuthorize): " + ex.getMessage());
         return ResponseEntity.status(HttpStatus.FORBIDDEN)
                 .body(ApiResponse.error("Truy cập bị từ chối. Bạn không có quyền thực hiện hành động này."));
     }

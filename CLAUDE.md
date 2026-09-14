@@ -41,7 +41,7 @@ Standard layered architecture: `Controller → Service → Repository → Entity
 - **DTOs** live separately from entities; **MapStruct** mappers convert between them (never map manually in services)
 - **Multi-tenancy**: Every data query is scoped to an `Organization`. Org units form a tree with configurable `OrgHierarchyLevels`
 - **Auth**: Stateless JWT via `JwtAuthenticationFilter`. Access tokens (~150min) + refresh tokens (7 days). `PermissionChecker` enforces fine-grained RBAC on top of role checks
-- **Database migrations**: Flyway in `src/main/resources/db/migration/` — always add new migrations, never edit existing ones
+- **Database migrations**: Flyway in `src/main/resources/db/migration/` — by project decision there are exactly two files, `V1__init_schema.sql` (schema) and `V2__seed_data.sql` (seed). **Edit those directly; do not create V3+.** Consequences to state whenever you touch them: an already-migrated DB (prod) only gets a checksum `repair()` — new DDL there comes from `spring.jpa.hibernate.ddl-auto: update`, new seed/UPDATE rows do not run; a dev DB is `clean()`ed and re-seeded (`app.flyway.clean-on-validation-error=true` locally only)
 - **Soft deletes**: Entities use `deleted_at`; repositories filter by `deleted_at IS NULL`
 - **AI integration**: Spring AI 1.1.5 supports Ollama (default), OpenAI, and Gemini. Prompt templates are in `src/main/resources/promptTemplates/`
 - **File uploads**: Cloudinary SDK. Excel/CSV import/export via Apache POI

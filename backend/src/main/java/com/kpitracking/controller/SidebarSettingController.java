@@ -25,9 +25,15 @@ public class SidebarSettingController {
             @PathVariable UUID organizationId,
             @RequestBody Map<String, String> request) {
         
-        request.forEach((key, value) -> 
-            sidebarSettingService.updateCustomLabel(organizationId, key, value)
-        );
+        if (request.size() > 50) {
+            throw new com.kpitracking.exception.BusinessException("Quá nhiều mục trong một lần cập nhật");
+        }
+        request.forEach((key, value) -> {
+            if (key == null || key.isBlank() || key.length() > 64 || (value != null && value.length() > 100)) {
+                throw new com.kpitracking.exception.BusinessException("Khoá hoặc nhãn không hợp lệ");
+            }
+            sidebarSettingService.updateCustomLabel(organizationId, key, value);
+        });
         return ResponseEntity.ok().build();
     }
 }

@@ -88,7 +88,7 @@ export function SegmentedControl<T extends string>({ value, onChange, options, a
   ariaLabel: string
 }) {
   return (
-    <div role="group" aria-label={ariaLabel} className="flex h-9 items-center gap-0.5 rounded-control bg-[var(--color-muted)] p-0.5">
+    <div role="group" aria-label={ariaLabel} className="custom-scrollbar flex h-9 max-w-full items-center gap-0.5 overflow-x-auto rounded-control bg-[var(--color-muted)] p-0.5">
       {options.map(o => {
         const active = o.value === value
         return (

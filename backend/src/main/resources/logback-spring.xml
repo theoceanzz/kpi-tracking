@@ -1,0 +1,63 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!--
+  App log (chẩn đoán vận hành) — tách khỏi audit log (bảng security_audit_logs).
+  - Local (không profile): text có màu, kèm requestId để dev cũng thấy correlation.
+  - prod: JSON một dòng (LogstashEncoder), MDC (requestId/user/userId/orgId/ip/job/jobId/wsSession)
+    tự thành field; secret bị che ở mọi giá trị chuỗi.
+  Mức log (level) vẫn nằm trong application*.yaml để LOG_LEVEL_APP env còn tác dụng.
+-->
+<configuration>
+    <include resource="org/springframework/boot/logging/logback/defaults.xml"/>
+
+    <!-- %maskedMsg = message đã qua SecretMasker (lưới an toàn thứ hai, xem SECURITY_AUDIT.md mục App Logging) -->
+    <conversionRule conversionWord="maskedMsg" class="com.kpitracking.logging.SecretMaskingConverter"/>
+
+    <springProfile name="!prod">
+        <appender name="CONSOLE" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder>
+                <pattern>%clr(%d{HH:mm:ss.SSS}){faint} %clr(%5p) %clr([%15.15t]){faint} %clr(%-36.36logger{36}){cyan} %clr([%X{requestId:-}%X{job:-}]){magenta} : %maskedMsg%n%wEx</pattern>
+                <charset>UTF-8</charset>
+            </encoder>
+        </appender>
+        <root>
+            <appender-ref ref="CONSOLE"/>
+        </root>
+    </springProfile>
+
+    <springProfile name="prod">
+        <appender name="JSON" class="ch.qos.logback.core.ConsoleAppender">
+            <encoder class="net.logstash.logback.encoder.LogstashEncoder">
+                <timeZone>UTC</timeZone>
+                <includeMdc>true</includeMdc>
+                <includeContext>false</includeContext>
+                <shortenedLoggerNameLength>36</shortenedLoggerNameLength>
+                <customFields>{"service":"keygo-backend","env":"prod"}</customFields>
+                <fieldNames>
+                    <timestamp>ts</timestamp>
+                    <version>[ignore]</version>
+                    <levelValue>[ignore]</levelValue>
+                    <logger>logger</logger>
+                    <thread>thread</thread>
+                </fieldNames>
+                <throwableConverter class="net.logstash.logback.stacktrace.ShortenedThrowableConverter">
+                    <maxDepthPerThrowable>30</maxDepthPerThrowable>
+                    <maxLength>8192</maxLength>
+                    <shortenedClassNameLength>30</shortenedClassNameLength>
+                    <exclude>sun\.reflect\..*</exclude>
+                    <exclude>jdk\.internal\..*</exclude>
+                    <exclude>org\.springframework\.(aop|cglib|security\.web\.FilterChainProxy|web\.filter)\..*</exclude>
+                    <exclude>org\.apache\.catalina\..*</exclude>
+                    <exclude>org\.apache\.tomcat\..*</exclude>
+                    <rootCauseFirst>true</rootCauseFirst>
+                </throwableConverter>
+                <!-- Che secret trong mọi giá trị chuỗi (message, mdc, stack) -->
+                <jsonGeneratorDecorator class="net.logstash.logback.mask.MaskingJsonGeneratorDecorator">
+                    <valueMasker class="com.kpitracking.logging.SecretMaskingValueMasker"/>
+                </jsonGeneratorDecorator>
+            </encoder>
+        </appender>
+        <root>
+            <appender-ref ref="JSON"/>
+        </root>
+    </springProfile>
+</configuration>

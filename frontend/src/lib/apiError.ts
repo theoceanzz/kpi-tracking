@@ -6,6 +6,8 @@ type ApiErrorBody = {
   message?: string
   /** Lỗi @Valid trả thêm map field -> message ở đây. */
   data?: unknown
+  /** Mã tra cứu = X-Request-Id = requestId trong log server; backend chỉ gắn vào phản hồi lỗi. */
+  requestId?: string
 }
 
 const DEFAULT_FALLBACK = 'Đã có lỗi xảy ra, vui lòng thử lại'
@@ -75,12 +77,17 @@ export function getApiErrorMessage(error: unknown, fallback: string = DEFAULT_FA
   const body = response.data
   const serverMessage = typeof body?.message === 'string' ? body.message.trim() : ''
   const details = fieldMessages(body?.data)
+  // Người dùng báo CSKH kèm 8 ký tự đầu của mã là đủ để tìm đúng dòng log; lỗi 4xx do nhập sai
+  // (400/422) không cần mã — chỉ gắn cho lỗi hệ thống / quyền / quá tải.
+  const requestId = typeof body?.requestId === 'string' ? body.requestId : ''
+  const needsRef = response.status >= 500 || response.status === 403 || response.status === 429
+  const withRef = (msg: string) => (requestId && needsRef ? `${msg} (mã: ${requestId.slice(0, 8)})` : msg)
 
   if (details.length > 0) {
     // Chi tiết từng field cụ thể hơn câu tổng quát, nên đứng trước.
     return details.join('; ')
   }
-  if (serverMessage) return serverMessage
+  if (serverMessage) return withRef(serverMessage)
 
-  return messageByStatus(response.status, fallback)
+  return withRef(messageByStatus(response.status, fallback))
 }

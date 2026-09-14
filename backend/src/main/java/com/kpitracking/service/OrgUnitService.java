@@ -320,14 +320,19 @@ public class OrgUnitService {
 
         com.kpitracking.entity.User currentUser = getCurrentUser();
         
+        // orgId đến từ client: quyền phải được xét trong đúng tổ chức đó, không phải "ở đâu đó".
+        if (!permissionChecker.isMemberOfOrganization(currentUser.getId(), orgId)) {
+            throw new com.kpitracking.exception.ForbiddenException("Bạn không thuộc tổ chức này");
+        }
+
         // 1. If user has ORG:VIEW (Global Admin/Director), show everything
-        if (permissionChecker.hasPermission(currentUser.getId(), "ORG:VIEW")) {
+        if (permissionChecker.hasPermissionInOrganization(currentUser.getId(), "ORG:VIEW", orgId)) {
             List<OrgUnit> allUnits = orgUnitRepository.findByOrgHierarchyLevel_Organization_IdAndDeletedAtIsNull(orgId);
             return buildTree(allUnits);
         }
 
         // 2. If user has ORG:VIEW_TREE (Manager/Deputy), show their units + descendants
-        if (permissionChecker.hasPermission(currentUser.getId(), "ORG:VIEW_TREE")) {
+        if (permissionChecker.hasPermissionInOrganization(currentUser.getId(), "ORG:VIEW_TREE", orgId)) {
             List<UUID> baseUnitIds = permissionChecker.getOrgUnitsWithPermission(currentUser.getId(), "ORG:VIEW_TREE");
             if (baseUnitIds.isEmpty()) return Collections.emptyList();
             

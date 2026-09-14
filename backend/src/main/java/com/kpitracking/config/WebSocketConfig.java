@@ -98,7 +98,26 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
             @Override
             public Message<?> preSend(Message<?> message, MessageChannel channel) {
                 StompHeaderAccessor accessor = MessageHeaderAccessor.getAccessor(message, StompHeaderAccessor.class);
-                if (accessor != null && StompCommand.CONNECT.equals(accessor.getCommand())) {
+                if (accessor == null) return message;
+
+                // Frame STOMP chạy trên thread broker, không đi qua MdcRequestContextFilter nên không có
+                // requestId; gắn phiên STOMP + user để log WebSocket vẫn tra được. Dọn ở finally.
+                try {
+                    if (accessor.getSessionId() != null) {
+                        org.slf4j.MDC.put(com.kpitracking.logging.MdcKeys.WS_SESSION, accessor.getSessionId());
+                    }
+                    if (accessor.getUser() != null) {
+                        org.slf4j.MDC.put(com.kpitracking.logging.MdcKeys.USER, accessor.getUser().getName());
+                    }
+                    return handleFrame(message, accessor);
+                } finally {
+                    org.slf4j.MDC.remove(com.kpitracking.logging.MdcKeys.WS_SESSION);
+                    org.slf4j.MDC.remove(com.kpitracking.logging.MdcKeys.USER);
+                }
+            }
+
+            private Message<?> handleFrame(Message<?> message, StompHeaderAccessor accessor) {
+                if (StompCommand.CONNECT.equals(accessor.getCommand())) {
                     String token = resolveToken(accessor);
                     if (StringUtils.hasText(token)) {
                         if (jwtTokenProvider.isTokenValid(token)) {
@@ -107,12 +126,19 @@ public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
                             UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
                                     userDetails, null, userDetails.getAuthorities());
                             accessor.setUser(auth);
+                            org.slf4j.MDC.put(com.kpitracking.logging.MdcKeys.USER, email);
                             log.debug("WebSocket authenticated: {}", email);
                         } else {
-                            log.warn("WebSocket CONNECT rejected: invalid token");
+                            log.warn("SECURITY ws_connect_rejected reason=invalid_token");
+                            throw new org.springframework.messaging.MessageDeliveryException(
+                                    message, "Phiên đăng nhập không hợp lệ");
                         }
                     } else {
-                        log.warn("WebSocket CONNECT without credentials");
+                        // Không có token thì không có kết nối: kênh /queue mang thông báo
+                        // riêng của từng người, không phục vụ khách ẩn danh.
+                        log.warn("SECURITY ws_connect_rejected reason=no_credentials");
+                        throw new org.springframework.messaging.MessageDeliveryException(
+                                message, "Chưa đăng nhập");
                     }
                 }
                 return message;

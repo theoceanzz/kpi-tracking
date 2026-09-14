@@ -441,6 +441,7 @@ public class KpiCycleEvaluationService {
         entity.setFinalizedRoleLevel(permissionChecker.getMinLevelInOrgUnit(current.getId(), orgUnitId));
         entity.setFinalizedRoleRank(permissionChecker.getMinRankInOrgUnit(current.getId(), orgUnitId));
         cycleUnitEvaluationRepository.save(entity);
+        log.info("Chốt kỳ đánh giá cycleId={} orgUnitId={} by userId={}", cycleId, orgUnitId, current.getId());
 
         recordEvent(cycle, unit, CycleUnitEvalAction.FINALIZE, current, summary, comment);
 
@@ -514,6 +515,7 @@ public class KpiCycleEvaluationService {
         entity.setFinalizedRoleLevel(null);
         entity.setFinalizedRoleRank(null);
         cycleUnitEvaluationRepository.save(entity);
+        log.info("Mở khoá kỳ đánh giá cycleId={} orgUnitId={}", cycleId, orgUnitId);
 
         recordEvent(entity.getKpiCycle(), entity.getOrgUnit(), CycleUnitEvalAction.REOPEN,
                 current, null, null);
@@ -545,7 +547,7 @@ public class KpiCycleEvaluationService {
         User locker = entity.getFinalizedBy();
         if (locker == null) return null;                                   // không rõ ai chốt ⇒ không chặn
         if (locker.getId().equals(currentUserId)) return null;             // tự mở khoá của mình
-        if (permissionChecker.isGlobalAdmin(currentUserId)) return null;
+        if (permissionChecker.isGlobalAdminIn(currentUserId, orgUnitId)) return null;
 
         // Ưu tiên snapshot; bản ghi cũ chưa có snapshot thì tính lại live.
         int lockedLevel = entity.getFinalizedRoleLevel() != null
