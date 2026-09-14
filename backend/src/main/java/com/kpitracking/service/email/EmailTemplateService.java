@@ -186,12 +186,19 @@ public class EmailTemplateService {
      * Thay {{bien}} bằng giá trị. Biến không có giá trị được thay bằng chuỗi rỗng
      * thay vì để nguyên — tránh gửi đi email lòi ra "{{ten_nhan_vien}}".
      */
+    /**
+     * Mọi giá trị biến đều được escape HTML trước khi chèn: họ tên, tên KPI, nội dung thông báo
+     * là dữ liệu người dùng gõ; không escape thì một cái tên chứa {@code <a href=...>} sẽ thành
+     * liên kết lừa đảo trong email gửi tới người khác. Escape cũng không làm hỏng URL trong
+     * {@code href} — {@code &amp;} là dạng đúng của {@code &} trong thuộc tính HTML.
+     */
     private String substitute(String text, Map<String, String> vars) {
         if (text == null) return "";
         Matcher m = PLACEHOLDER.matcher(text);
         StringBuilder sb = new StringBuilder();
         while (m.find()) {
-            String value = vars.getOrDefault(m.group(1), "");
+            String value = org.springframework.web.util.HtmlUtils.htmlEscape(
+                    vars.getOrDefault(m.group(1), ""));
             m.appendReplacement(sb, Matcher.quoteReplacement(value));
         }
         m.appendTail(sb);

@@ -26,6 +26,7 @@ import UserAvatar from '@/components/common/UserAvatar'
 import { format, parseISO } from 'date-fns'
 import type { CycleEvaluationMode, CycleUserEvaluation, CyclePeriodBreakdown } from '@/types/kpi'
 import RewardPrompt from '@/features/rewards/components/RewardPrompt'
+import { useCanPromptReward } from '@/features/rewards/hooks/useCanPromptReward'
 import ConductInlineSheet, { type ConductSheetHandle } from '@/features/conduct/components/ConductInlineSheet'
 import { Dialog, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
@@ -578,6 +579,7 @@ function UserScoreModal({
   const [qual, setQual] = useState<string>(member.qualScore != null ? String(member.qualScore) : '')
   const [comment, setComment] = useState(member.comment || '')
   const [saved, setSaved] = useState(false)
+  const canPromptReward = useCanPromptReward()
   // Phiếu hạnh kiểm không có nút lưu riêng — nút "Lưu điểm chốt kỳ" của modal lưu hộ.
   const conductRef = useRef<ConductSheetHandle>(null)
 
@@ -620,7 +622,8 @@ function UserScoreModal({
 
   // Lưu xong KHÔNG đóng ngay: hiện lời mời thưởng điểm ngay tại chỗ. Đây là lúc người
   // chấm còn nhớ rõ nhất vì sao nhân viên xứng đáng — bắt họ sang màn hình khác thưởng
-  // sau thì gần như chắc chắn sẽ quên.
+  // sau thì gần như chắc chắn sẽ quên. Nhưng tổ chức tắt thưởng (hoặc không có quyền
+  // trao) thì RewardPrompt ẩn và không gọi onDone ⇒ đóng luôn, không thì modal đứng im.
   const handleSave = async () => {
     if (invalid || qualInvalid) return
     // Hạnh kiểm lưu TRƯỚC: nó là trục hành vi của xếp loại ma trận, lưu sau thì bản ghi
@@ -631,7 +634,8 @@ function UserScoreModal({
       return // toast lỗi đã hiện trong hook của phiếu
     }
     await onSave(parsed, parsedQual, comment)
-    setSaved(true)
+    if (canPromptReward) setSaved(true)
+    else onClose()
   }
 
   return (

@@ -29,7 +29,7 @@ trong footer, hàng filter dài bao nhiêu, nút "Xem chi tiết" nằm đâu.
 | Lỗi form | Lỗi từng trường ngay dưới ô (`text-caption text-[var(--color-error)]`); lỗi chung của API hiện thành một khối `bg-[var(--color-error-bg)]` **ngay trên footer**, không toast |
 | Đang lưu | `dismissible={false}`, nút chính `disabled` + nhãn "Đang lưu…"; không spinner toàn modal |
 | Đóng khi có thay đổi chưa lưu | Hỏi qua `ConfirmDialog` ("Bỏ thay đổi?") — không đóng lặng lẽ |
-| Mobile | Dialog dán đáy màn (`items-end`), bo góc trên; Drawer full-width |
+| Mobile | Dialog dán đáy màn (`items-end`), bo góc trên; Drawer full-width. Dưới 640px `DialogFooter` xếp dọc: `note` một dòng trên, hàng nút dưới chia đều bề ngang (`[&>*]:flex-1`) — không để note đứng cạnh nút, nó bị ép thành cột mỗi dòng một chữ (lỗi 14/09 ở Đánh giá tổng hợp) |
 | Trong modal | `SelectContent className="z-[1100]"`; không lồng modal trong modal (trừ ConfirmDialog) |
 | Ví dụ mẫu | `components/common/ConfirmDialog.tsx` |
 

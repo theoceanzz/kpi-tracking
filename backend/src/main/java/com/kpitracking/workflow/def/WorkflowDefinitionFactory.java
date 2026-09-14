@@ -66,7 +66,9 @@ public class WorkflowDefinitionFactory {
      * KpiSubmission. Nguồn: {@code KpiSubmissionService.updateSubmission / reviewSubmission}.
      *
      * <p>Cho phép duyệt lại bản đã APPROVED là có chủ ý: đó là đường ghi đè mà
-     * {@code requireCanReview} bảo vệ bằng luật cấp bậc, không phải sơ suất.
+     * {@code requireCanReview} bảo vệ bằng luật cấp bậc, không phải sơ suất. Bản đã REJECTED
+     * cũng chấm lại được: trưởng đơn vị chấm điểm theo đợt vẫn thấy bản bị từ chối trong danh
+     * sách, nếu chặn ở đây thì họ không có cách nào chấm hay sửa quyết định cho bản đó.
      */
     private static List<Transition<SubmissionStatus>> defaultSubmissionTransitions() {
         return List.of(
@@ -74,10 +76,10 @@ public class WorkflowDefinitionFactory {
                         EnumSet.of(SubmissionStatus.DRAFT, SubmissionStatus.REJECTED),
                         SubmissionStatus.PENDING),
                 new Transition<>(WorkflowAction.APPROVE_SUBMISSION,
-                        EnumSet.of(SubmissionStatus.PENDING, SubmissionStatus.APPROVED),
+                        EnumSet.of(SubmissionStatus.PENDING, SubmissionStatus.APPROVED, SubmissionStatus.REJECTED),
                         SubmissionStatus.APPROVED),
                 new Transition<>(WorkflowAction.REJECT_SUBMISSION,
-                        EnumSet.of(SubmissionStatus.PENDING, SubmissionStatus.APPROVED),
+                        EnumSet.of(SubmissionStatus.PENDING, SubmissionStatus.APPROVED, SubmissionStatus.REJECTED),
                         SubmissionStatus.REJECTED)
         );
     }

@@ -108,6 +108,7 @@ class KpiSubmissionReviewGuardTest {
 
         // Mặc định: người duyệt là trưởng phòng cấp trên, người nộp là nhân viên cấp dưới.
         when(permissionChecker.isGlobalAdmin(any())).thenReturn(false);
+        when(permissionChecker.isGlobalAdminIn(any(), any())).thenReturn(false);
         when(permissionChecker.hasAnyPermissionInOrgUnit(eq(reviewer.getId()), eq(unitId), any()))
                 .thenReturn(true);
         when(permissionChecker.getMinLevelInOrgUnit(reviewer.getId(), unitId)).thenReturn(LEVEL_PHONG);
@@ -257,9 +258,21 @@ class KpiSubmissionReviewGuardTest {
     void bulkLetsGlobalAdminThrough() {
         // Chốt chặn phải KHÔNG chặn nhầm, nếu không bản vá này biến thành một lỗi khác.
         KpiSubmission s = submissionIn(otherUnitId);
-        when(permissionChecker.isGlobalAdmin(reviewer.getId())).thenReturn(true);
+        // Admin của đúng tổ chức sở hữu đơn vị bản nộp.
+        when(permissionChecker.isGlobalAdminIn(reviewer.getId(), otherUnitId)).thenReturn(true);
 
         assertThatCode(() -> service.bulkReview(bulkOf(s))).doesNotThrowAnyException();
         verify(submissionRepository).save(any());
+    }
+
+    @Test
+    @DisplayName("HÀNG LOẠT: quản trị của tổ chức KHÁC không đi thẳng được")
+    void bulkBlocksAdminOfAnotherOrg() {
+        KpiSubmission s = submissionIn(otherUnitId);
+        when(permissionChecker.isGlobalAdmin(reviewer.getId())).thenReturn(true);
+        when(permissionChecker.isGlobalAdminIn(reviewer.getId(), otherUnitId)).thenReturn(false);
+
+        assertThatThrownBy(() -> service.bulkReview(bulkOf(s)))
+                .isInstanceOf(ForbiddenException.class);
     }
 }

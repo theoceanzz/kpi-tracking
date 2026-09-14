@@ -24,6 +24,7 @@ import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { getScoringFunctions, SCORING_POOL } from '@/lib/scoring'
 import EvaluationFormModal from '@/features/evaluations/components/EvaluationFormModal'
 import RewardPrompt from '@/features/rewards/components/RewardPrompt'
+import { useCanPromptReward } from '@/features/rewards/hooks/useCanPromptReward'
 import ConductInlineSheet, { type ConductSheetHandle } from '@/features/conduct/components/ConductInlineSheet'
 
 interface StaffEvaluationModalProps {
@@ -76,6 +77,7 @@ export default function StaffEvaluationModal({
   const orgId = user?.memberships?.[0]?.organizationId
   const { data: org } = useOrganization(orgId)
   const { getScoreLabel, maxScore } = getScoringFunctions(org)
+  const canPromptReward = useCanPromptReward()
   const qualitativeLevels = [...(org?.qualitativeLevels ?? [])].sort((a, b) => a.position - b.position)
   const userRoleName = user?.memberships?.[0]?.roleName || 'Quản lý'
   const qc = useQueryClient()
@@ -323,10 +325,12 @@ export default function StaffEvaluationModal({
         setShowAllApproved(true)
       } else {
         // Chốt xong mới mời thưởng, ngay tại đây — đây là lúc người chấm còn nhớ rõ
-        // nhất vì sao nhân viên xứng đáng. RewardPrompt tự ẩn nếu tổ chức tắt tính năng
-        // hoặc người chấm không có quyền trao, nên không cản luồng của ai.
+        // nhất vì sao nhân viên xứng đáng. Tổ chức tắt thưởng hoặc người chấm không có
+        // quyền trao thì RewardPrompt ẩn và không bao giờ gọi onDone ⇒ phải tự đóng,
+        // không thì modal đứng im sau khi chốt.
         toast.success('Đã chốt đánh giá cho nhân viên')
-        setJustEvaluated(true)
+        if (canPromptReward) setJustEvaluated(true)
+        else onClose()
       }
     },
     onError: (error) => {
@@ -463,7 +467,7 @@ export default function StaffEvaluationModal({
                               onChange={e => setIndividualLevels({ ...individualLevels, [s.id]: e.target.value })}
                               disabled={readOnly}
                               className={cn(
-                                "w-40 px-2 py-2 rounded-card text-xs font-medium outline-none transition-all",
+                                "w-36 px-2 py-2 rounded-card text-xs font-medium outline-none transition-all",
                                 readOnly
                                   ? "bg-[var(--color-muted)] border border-[var(--color-border)] text-[var(--color-muted-foreground)] cursor-not-allowed"
                                   : "bg-[var(--color-info-bg)] border border-[var(--color-info-border)] text-[var(--color-info)] focus:ring-2 focus:ring-[var(--color-info-solid)]"

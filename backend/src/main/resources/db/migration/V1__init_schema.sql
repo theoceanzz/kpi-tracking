@@ -973,6 +973,37 @@ CREATE INDEX idx_refresh_tokens_token ON refresh_tokens(token);
 CREATE INDEX idx_refresh_tokens_user_id ON refresh_tokens(user_id);
 
 -- ====================================================
+-- Security Audit Log
+-- ====================================================
+-- Nhật ký bảo mật có cấu trúc: ai (user/org/ip/user-agent) làm gì (event) trên cái gì (target).
+-- KHÔNG chứa mật khẩu, token, OTP, secret — detail chỉ là mô tả ngắn / lý do.
+CREATE TABLE security_audit_logs (
+    id              UUID         PRIMARY KEY DEFAULT gen_random_uuid(),
+    event           VARCHAR(64)  NOT NULL,
+    -- Thành công / thất bại / bị chặn: để lọc nhanh các hành vi đáng ngờ.
+    outcome         VARCHAR(16)  NOT NULL,
+    -- Không FK tới users: log phải sống lâu hơn tài khoản, và đăng nhập sai có thể nhắm vào email chưa tồn tại.
+    user_id         UUID,
+    user_email      VARCHAR(255),
+    organization_id UUID,
+    ip              VARCHAR(64),
+    user_agent      VARCHAR(512),
+    -- Correlation id của request HTTP (= MDC requestId = header X-Request-Id): từ một dòng audit tra
+    -- ngược được app log cùng request và ngược lại. NULL với sự kiện không có request (job nền).
+    request_id      VARCHAR(64),
+    target_type     VARCHAR(64),
+    target_id       VARCHAR(128),
+    detail          VARCHAR(1000),
+    created_at      TIMESTAMPTZ  NOT NULL DEFAULT now()
+);
+
+CREATE INDEX idx_security_audit_logs_created_at ON security_audit_logs (created_at DESC);
+CREATE INDEX idx_security_audit_logs_user_email ON security_audit_logs (user_email, created_at DESC);
+CREATE INDEX idx_security_audit_logs_org_event ON security_audit_logs (organization_id, event, created_at DESC);
+CREATE INDEX idx_security_audit_logs_ip ON security_audit_logs (ip, created_at DESC);
+CREATE INDEX idx_security_audit_logs_request_id ON security_audit_logs (request_id);
+
+-- ====================================================
 -- Data Sources — mỗi record = 1 bảng dữ liệu (sheet)
 -- ====================================================
 CREATE TABLE datasources (

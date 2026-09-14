@@ -65,6 +65,13 @@ public class LarkSettingsService {
     private final OAuthStateService oAuthStateService;
     private final LarkProperties larkProperties;
     private final DataProtection dataProtection;
+    private final com.kpitracking.security.audit.SecurityAuditService securityAudit;
+
+    private void auditLark(Organization org, String detail) {
+        securityAudit.record(com.kpitracking.security.audit.SecurityAuditEvent.LARK_SETTINGS_CHANGED,
+                com.kpitracking.security.audit.SecurityAuditService.OK,
+                "ORGANIZATION", org.getId().toString(), detail);
+    }
 
     @Transactional(readOnly = true)
     public LarkSettingsResponse getSettings(UUID orgId) {
@@ -116,6 +123,10 @@ public class LarkSettingsService {
             org.setLarkEnabled(request.getLarkEnabled());
         }
 
+        // Không ghi App Secret vào nhật ký — chỉ ghi CÓ đổi hay không.
+        auditLark(org, "Cập nhật cấu hình Lark"
+                + (request.getAppSecret() != null && !request.getAppSecret().isBlank() ? " (đổi App Secret)" : "")
+                + (request.getLarkEnabled() != null ? ", larkEnabled=" + request.getLarkEnabled() : ""));
         return toResponse(organizationRepository.save(org));
     }
 
@@ -238,6 +249,7 @@ public class LarkSettingsService {
         org.setLarkVerifiedAt(Instant.now());
 
         log.info("Tổ chức {} đã liên kết với Lark", org.getName());
+        auditLark(org, "Xác nhận liên kết tenant Lark");
         return toResponse(organizationRepository.save(org));
     }
 
@@ -246,6 +258,7 @@ public class LarkSettingsService {
         Organization org = loadAuthorized(orgId);
         clearVerification(org);
         org.setLarkEnabled(false);
+        auditLark(org, "Ngắt liên kết Lark");
         return toResponse(organizationRepository.save(org));
     }
 

@@ -139,11 +139,11 @@ export default function WorkspaceHeader({
             {(ctx || stats?.length || actions) && (
               <div className="flex flex-wrap items-center gap-3 lg:ml-auto lg:justify-end">
                 {!!stats?.length && (
-                  <dl id="tour-workspace-stats" className="flex items-stretch divide-x divide-[var(--color-border)] rounded-card border border-[var(--color-border)] bg-[var(--color-muted)]">
+                  <dl id="tour-workspace-stats" className="custom-scrollbar flex max-w-full items-stretch divide-x divide-[var(--color-border)] overflow-x-auto rounded-card border border-[var(--color-border)] bg-[var(--color-muted)]">
                     {stats.map(stat => {
                       const Icon = stat.icon
                       return (
-                        <div key={stat.label} className="px-4 py-2 text-center">
+                        <div key={stat.label} className="shrink-0 px-3 py-2 text-center sm:px-4">
                           <dd className="flex items-center justify-center gap-1.5 text-lg font-semibold tabular-nums text-[var(--color-foreground)]">
                             {Icon && <Icon size={15} className="text-[var(--color-primary)]" />}
                             {stat.value}

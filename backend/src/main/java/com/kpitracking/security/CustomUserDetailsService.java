@@ -63,14 +63,20 @@ public class CustomUserDetailsService implements UserDetailsService {
             authorities.add(new SimpleGrantedAuthority("ROLE_USER"));
         }
 
-        return new org.springframework.security.core.userdetails.User(
+        // Tổ chức của vai trò đầu tiên — chỉ để ghi MDC/log, không dùng cho phân quyền.
+        java.util.UUID organizationId = userRoles.stream()
+                .map(uro -> com.kpitracking.security.PermissionChecker.organizationIdOf(uro.getOrgUnit()))
+                .filter(java.util.Objects::nonNull)
+                .findFirst()
+                .orElse(null);
+
+        return new AppUserPrincipal(
                 user.getEmail(),
                 user.getPassword(),
                 user.getStatus() == com.kpitracking.enums.UserStatus.ACTIVE,
-                true,
-                true,
-                true,
-                authorities
+                authorities,
+                user.getId(),
+                organizationId
         );
     }
 }

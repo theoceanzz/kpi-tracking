@@ -40,6 +40,14 @@ public class KpiCycleService {
                 .orElseThrow(() -> new ResourceNotFoundException("Người dùng", "email", email));
     }
 
+    /** Chỉ cho sắp xếp theo cột đã biết; tên lạ (do client gửi) rơi về mặc định thay vì nổ 500. */
+    private static final java.util.Set<String> SORTABLE = java.util.Set.of(
+            "name", "startDate", "endDate", "createdAt", "updatedAt", "status");
+
+    private static String safeSort(String sortBy) {
+        return sortBy != null && SORTABLE.contains(sortBy) ? sortBy : "startDate";
+    }
+
     private UUID getCurrentUserOrganizationId(com.kpitracking.entity.User user) {
         java.util.List<com.kpitracking.entity.UserRoleOrgUnit> roles = userRoleOrgUnitRepository.findByUserId(user.getId());
         if (roles.isEmpty()) return null;
@@ -54,9 +62,11 @@ public class KpiCycleService {
 
         com.kpitracking.entity.User currentUser = getCurrentUser();
         UUID userOrgId = getCurrentUserOrganizationId(currentUser);
-        UUID effectiveOrgId = organizationId != null ? organizationId : userOrgId;
+        // organizationId do client gửi chỉ có nghĩa với platform admin (không thuộc tổ chức nào);
+        // người dùng thường luôn bị khoá vào tổ chức của chính mình.
+        UUID effectiveOrgId = userOrgId != null ? userOrgId : organizationId;
 
-        Sort sort = direction.equalsIgnoreCase("asc") ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending();
+        Sort sort = "asc".equalsIgnoreCase(direction) ? Sort.by(safeSort(sortBy)).ascending() : Sort.by(safeSort(sortBy)).descending();
         Pageable pageable = PageRequest.of(page, size, sort);
 
         Specification<KpiCycle> spec = Specification.where(null);

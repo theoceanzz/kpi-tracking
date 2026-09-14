@@ -16,6 +16,9 @@ import com.kpitracking.exception.ResourceNotFoundException;
 import com.kpitracking.mapper.UserMapper;
 import com.kpitracking.repository.*;
 import com.kpitracking.security.JwtTokenProvider;
+import com.kpitracking.security.LoginAttemptService;
+import com.kpitracking.security.audit.SecurityAuditEvent;
+import com.kpitracking.security.audit.SecurityAuditService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.AuthenticationManager;
@@ -52,6 +55,18 @@ public class AuthService {
     private final RolePermissionRepository rolePermissionRepository;
     private final PermissionRepository permissionRepository;
     private final EvaluationLevelRepository evaluationLevelRepository;
+    private final LoginAttemptService loginAttemptService;
+    private final SecurityAuditService securityAudit;
+    private final com.kpitracking.security.DataProtection dataProtection;
+
+    /**
+     * OTP đặt lại mật khẩu / xác thực email chỉ lưu dưới dạng HMAC (blind index) — cùng cơ chế
+     * bảo vệ tenant_key của Lark. Lộ DB không kéo theo lộ mã đang còn hiệu lực; tra cứu vẫn là
+     * một phép so bằng trên cột đã index. Chuẩn hoá chữ hoa vì người dùng gõ tay mã 6 ký tự.
+     */
+    private String otpHash(String otp) {
+        return dataProtection.blindIndex(otp.trim().toUpperCase(java.util.Locale.ROOT));
+    }
 
     @Transactional
     public AuthResponse register(RegisterRequest request, String userAgent) {
@@ -126,7 +141,7 @@ public class AuthService {
                 .phone(request.getPhone())
                 .status(UserStatus.ACTIVE)
                 .isEmailVerified(false)
-                .verifyEmailToken(verifyToken)
+                .verifyEmailToken(otpHash(verifyToken))
                 .verifyEmailTokenExpiry(Instant.now().plusSeconds(86400)) // 24 hours
                 .build();
         user = userRepository.save(user);
@@ -166,8 +181,30 @@ public class AuthService {
 
     @Transactional
     public AuthResponse login(LoginRequest request, String userAgent) {
-        authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
+        if (loginAttemptService.isLocked(request.getEmail())) {
+            long seconds = loginAttemptService.lockSecondsRemaining(request.getEmail());
+            securityAudit.recordForEmail(SecurityAuditEvent.LOGIN_LOCKED, SecurityAuditService.BLOCKED,
+                    request.getEmail(), "Đăng nhập khi tài khoản đang bị khoá tạm");
+            throw new com.kpitracking.exception.AccountLockedException(
+                    "Tài khoản tạm thời bị khoá do đăng nhập sai nhiều lần. Vui lòng thử lại sau "
+                            + Math.max(seconds / 60, 1) + " phút.");
+        }
+
+        try {
+            authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(request.getEmail(), request.getPassword()));
+        } catch (org.springframework.security.core.AuthenticationException e) {
+            loginAttemptService.recordFailure(request.getEmail(), currentRequestIp());
+            boolean nowLocked = loginAttemptService.isLocked(request.getEmail());
+            securityAudit.recordForEmail(
+                    nowLocked ? SecurityAuditEvent.LOGIN_LOCKED : SecurityAuditEvent.LOGIN_FAILED,
+                    SecurityAuditService.FAIL, request.getEmail(),
+                    nowLocked ? "Sai quá số lần cho phép, khoá tạm tài khoản" : "Sai email hoặc mật khẩu");
+            throw e;
+        }
+        loginAttemptService.recordSuccess(request.getEmail());
+        securityAudit.recordForEmail(SecurityAuditEvent.LOGIN_SUCCESS, SecurityAuditService.OK,
+                request.getEmail(), null);
 
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new ResourceNotFoundException("Người dùng", "email", request.getEmail()));
@@ -237,15 +274,27 @@ public class AuthService {
         userRepository.save(user);
 
         refreshTokenService.revokeAllUserTokens(user.getId());
+        securityAudit.record(SecurityAuditEvent.PASSWORD_CHANGED, SecurityAuditService.OK,
+                "USER", user.getId().toString(), "Đổi mật khẩu, thu hồi mọi refresh token");
     }
 
+    /**
+     * Luôn kết thúc êm dù email không tồn tại: phản hồi khác nhau là cách để dò xem
+     * email nào có tài khoản trong hệ thống.
+     */
     @Transactional
     public void forgotPassword(ForgotPasswordRequest request) {
-        User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new ResourceNotFoundException("User", "email", request.getEmail()));
+        User user = userRepository.findByEmail(request.getEmail()).orElse(null);
+        if (user == null) {
+            securityAudit.recordForEmail(SecurityAuditEvent.PASSWORD_RESET_REQUESTED, SecurityAuditService.FAIL,
+                    request.getEmail(), "Email không tồn tại (đã trả 200 để không lộ)");
+            return;
+        }
+        securityAudit.recordForEmail(SecurityAuditEvent.PASSWORD_RESET_REQUESTED, SecurityAuditService.OK,
+                request.getEmail(), null);
 
         String resetPasswordToken = generateAlphanumericOTP(6);
-        user.setResetPasswordToken(resetPasswordToken);
+        user.setResetPasswordToken(otpHash(resetPasswordToken));
         user.setResetPasswordTokenExpiry(Instant.now().plusSeconds(3600)); // 1 hour
         userRepository.save(user);
 
@@ -258,10 +307,18 @@ public class AuthService {
             throw new BusinessException("New password and confirm password do not match");
         }
 
-        User user = userRepository.findByResetPasswordToken(request.getToken())
-                .orElseThrow(() -> new BusinessException("Mã đặt lại mật khẩu không hợp lệ"));
+        User user = request.getToken() == null ? null
+                : userRepository.findByResetPasswordToken(otpHash(request.getToken())).orElse(null);
+        if (user == null) {
+            // Không ghi token vào log: đó là thứ kẻ dò đang thử.
+            securityAudit.recordAnonymous(SecurityAuditEvent.PASSWORD_RESET, SecurityAuditService.FAIL,
+                    null, null, "Mã đặt lại không khớp người dùng nào");
+            throw new BusinessException("Mã đặt lại mật khẩu không hợp lệ");
+        }
 
         if (user.getResetPasswordTokenExpiry() != null && user.getResetPasswordTokenExpiry().isBefore(Instant.now())) {
+            securityAudit.recordForEmail(SecurityAuditEvent.PASSWORD_RESET, SecurityAuditService.FAIL,
+                    user.getEmail(), "Mã đặt lại đã hết hạn");
             throw new BusinessException("Mã đặt lại mật khẩu đã hết hạn");
         }
 
@@ -271,11 +328,14 @@ public class AuthService {
         userRepository.save(user);
 
         refreshTokenService.revokeAllUserTokens(user.getId());
+        securityAudit.recordForEmail(SecurityAuditEvent.PASSWORD_RESET, SecurityAuditService.OK,
+                user.getEmail(), "Đặt lại mật khẩu qua OTP, thu hồi mọi refresh token");
     }
 
     @Transactional
     public void verifyEmail(String token) {
-        User user = userRepository.findByVerifyEmailToken(token)
+        User user = (token == null ? java.util.Optional.<User>empty()
+                : userRepository.findByVerifyEmailToken(otpHash(token)))
                 .orElseThrow(() -> new BusinessException("Mã xác thực không hợp lệ"));
 
         if (user.getVerifyEmailTokenExpiry() != null && user.getVerifyEmailTokenExpiry().isBefore(Instant.now())) {
@@ -288,17 +348,18 @@ public class AuthService {
         userRepository.save(user);
     }
 
+    /** Như {@link #forgotPassword}: không tiết lộ email có tồn tại / đã xác thực hay chưa. */
     @Transactional
     public void resendVerificationToken(String email) {
-        User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "email", email));
-
-        if (Boolean.TRUE.equals(user.getIsEmailVerified())) {
-            throw new BusinessException("Email already verified");
+        User user = userRepository.findByEmail(email).orElse(null);
+        if (user == null || Boolean.TRUE.equals(user.getIsEmailVerified())) {
+            log.warn("SECURITY resend_verification_skipped ip={} reason={}",
+                    currentRequestIp(), user == null ? "unknown_email" : "already_verified");
+            return;
         }
 
         String verifyToken = generateAlphanumericOTP(6);
-        user.setVerifyEmailToken(verifyToken);
+        user.setVerifyEmailToken(otpHash(verifyToken));
         user.setVerifyEmailTokenExpiry(Instant.now().plusSeconds(86400)); // 24 hours
         userRepository.save(user);
 
@@ -310,6 +371,8 @@ public class AuthService {
         try {
             RefreshToken refreshToken = refreshTokenService.verifyRefreshToken(refreshTokenStr);
             refreshTokenService.revokeToken(refreshToken);
+            securityAudit.recordForEmail(SecurityAuditEvent.LOGOUT, SecurityAuditService.OK,
+                    refreshToken.getUser().getEmail(), null);
         } catch (Exception e) {
             log.warn("Logout called with invalid token: {}", e.getMessage());
         }
@@ -439,6 +502,15 @@ public class AuthService {
                 
         roles.addAll(permissions);
         return roles;
+    }
+
+    /** IP của request hiện tại để ghi log giám sát; null nếu gọi ngoài ngữ cảnh web. */
+    private String currentRequestIp() {
+        var attrs = org.springframework.web.context.request.RequestContextHolder.getRequestAttributes();
+        if (attrs instanceof org.springframework.web.context.request.ServletRequestAttributes sra) {
+            return SecurityAuditService.clientIp(sra.getRequest());
+        }
+        return null;
     }
 
     private String generateAlphanumericOTP(int length) {

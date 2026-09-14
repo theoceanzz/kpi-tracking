@@ -205,18 +205,105 @@ public class PermissionChecker {
 
     /**
      * Check if user has global admin access (SYSTEM:ADMIN permission at the root unit).
+     *
+     * <p><b>Không gắn tenant.</b> Chỉ dùng để trả lời "người này có phải quản trị viên
+     * tổ chức của họ không" (ẩn/hiện menu, chọn phạm vi truy vấn của chính họ). Khi đang
+     * kiểm tra quyền trên MỘT resource cụ thể (user, bản nộp, đơn vị… lấy theo id do client
+     * gửi) thì phải dùng {@link #isGlobalAdminIn}, {@link #isGlobalAdminOfOrganization} hoặc
+     * {@link #isGlobalAdminOverUser} — nếu không, admin của công ty A đi qua được dữ liệu
+     * của công ty B.
      */
     public boolean isGlobalAdmin(UUID userId) {
+        return !adminOrganizationIds(userId).isEmpty();
+    }
+
+    /** Các tổ chức mà người này giữ SYSTEM:ADMIN ở đơn vị gốc. */
+    private Set<UUID> adminOrganizationIds(UUID userId) {
         List<UserRoleOrgUnit> assignments = userRoleOrgUnitRepository.findByUserId(userId);
-        if (assignments.isEmpty()) return false;
+        if (assignments.isEmpty()) return Collections.emptySet();
 
         Map<UUID, Set<String>> rolePerms = getPermissionsByRole(assignments);
 
         return assignments.stream()
                 .filter(a -> a.getOrgUnit().getParent() == null) // Root unit only
-                .anyMatch(a -> {
-                    Set<String> perms = rolePerms.getOrDefault(a.getRole().getId(), Collections.emptySet());
-                    return perms.contains("SYSTEM:ADMIN");
+                .filter(a -> rolePerms.getOrDefault(a.getRole().getId(), Collections.emptySet())
+                        .contains("SYSTEM:ADMIN"))
+                .map(a -> organizationIdOf(a.getOrgUnit()))
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+    }
+
+    /** Tổ chức sở hữu một đơn vị; {@code null} nếu đơn vị không có cấp/tổ chức. */
+    public static UUID organizationIdOf(OrgUnit unit) {
+        if (unit == null || unit.getOrgHierarchyLevel() == null
+                || unit.getOrgHierarchyLevel().getOrganization() == null) {
+            return null;
+        }
+        return unit.getOrgHierarchyLevel().getOrganization().getId();
+    }
+
+    /** Quản trị viên (SYSTEM:ADMIN ở đơn vị gốc) của đúng tổ chức {@code organizationId}. */
+    public boolean isGlobalAdminOfOrganization(UUID userId, UUID organizationId) {
+        if (organizationId == null) return false;
+        return adminOrganizationIds(userId).contains(organizationId);
+    }
+
+    /** Quản trị viên của tổ chức đang sở hữu đơn vị {@code orgUnitId}. */
+    public boolean isGlobalAdminIn(UUID userId, UUID orgUnitId) {
+        if (orgUnitId == null) return false;
+        OrgUnit unit = orgUnitRepository.findById(orgUnitId).orElse(null);
+        return unit != null && isGlobalAdminOfOrganization(userId, organizationIdOf(unit));
+    }
+
+    /**
+     * Quản trị viên của (ít nhất) một tổ chức mà {@code targetUserId} đang là thành viên.
+     *
+     * <p>Người chưa được gán vào đơn vị nào (vừa tạo, chờ xếp chỗ) không thuộc tenant nào
+     * để đối chiếu; giữ hành vi cũ — admin bất kỳ vẫn quản lý được — vì họ chưa nắm dữ liệu
+     * của tổ chức nào.
+     */
+    public boolean isGlobalAdminOverUser(UUID userId, UUID targetUserId) {
+        Set<UUID> myOrgs = adminOrganizationIds(userId);
+        if (myOrgs.isEmpty()) return false;
+
+        Set<UUID> targetOrgs = organizationIdsOf(targetUserId);
+        if (targetOrgs.isEmpty()) return true;
+
+        return targetOrgs.stream().anyMatch(myOrgs::contains);
+    }
+
+    /** Các tổ chức mà người này có ít nhất một vai trò. */
+    public Set<UUID> organizationIdsOf(UUID userId) {
+        return userRoleOrgUnitRepository.findByUserId(userId).stream()
+                .map(a -> organizationIdOf(a.getOrgUnit()))
+                .filter(Objects::nonNull)
+                .collect(Collectors.toSet());
+    }
+
+    /** Người này có vai trò nào trong tổ chức {@code organizationId} không. */
+    public boolean isMemberOfOrganization(UUID userId, UUID organizationId) {
+        return organizationId != null && organizationIdsOf(userId).contains(organizationId);
+    }
+
+    /**
+     * Như {@link #hasPermission} nhưng chỉ tính những vai trò nằm trong tổ chức
+     * {@code organizationId}. Dùng khi resource được định danh bằng orgId do client gửi
+     * (sơ đồ tổ chức, cấu hình tổ chức…) — quyền ở công ty khác không được tính.
+     */
+    public boolean hasPermissionInOrganization(UUID userId, String permissionCode, UUID organizationId) {
+        if (organizationId == null) return false;
+        List<UserRoleOrgUnit> assignments = userRoleOrgUnitRepository.findByUserId(userId).stream()
+                .filter(a -> organizationId.equals(organizationIdOf(a.getOrgUnit())))
+                .toList();
+        if (assignments.isEmpty()) return false;
+
+        Map<UUID, Set<String>> rolePerms = getPermissionsByRole(assignments);
+        return assignments.stream()
+                .map(a -> a.getRole().getId())
+                .distinct()
+                .anyMatch(roleId -> {
+                    Set<String> perms = rolePerms.getOrDefault(roleId, Collections.emptySet());
+                    return perms.contains(permissionCode) || perms.contains("SYSTEM:ADMIN");
                 });
     }
 

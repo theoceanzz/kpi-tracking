@@ -15,6 +15,7 @@ import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
@@ -52,6 +53,7 @@ class HierarchyAuthorityGuardTest {
         owner = user();
 
         when(permissionChecker.isGlobalAdmin(any())).thenReturn(false);
+        when(permissionChecker.isGlobalAdminIn(any(), any())).thenReturn(false);
         when(permissionChecker.hasPermissionInOrgUnit(actor.getId(), "KPI:APPROVE_CRITERIA", unitId))
                 .thenReturn(true);
         rank(actor, LEVEL_PHONG, RANK_TRUONG);
@@ -99,13 +101,26 @@ class HierarchyAuthorityGuardTest {
     }
 
     @Test
-    @DisplayName("Quản trị toàn hệ thống đi thẳng, không vướng quyền theo đơn vị lẫn cấp bậc")
+    @DisplayName("Quản trị của ĐÚNG tổ chức đi thẳng, không vướng quyền theo đơn vị lẫn cấp bậc")
     void globalAdminBypasses() {
+        // Bypass chỉ áp dụng khi actor là admin của tổ chức sở hữu đơn vị đích — admin của
+        // tổ chức khác (isGlobalAdmin=true nhưng isGlobalAdminIn=false) không đi qua được.
         when(permissionChecker.isGlobalAdmin(actor.getId())).thenReturn(true);
+        when(permissionChecker.isGlobalAdminIn(eq(actor.getId()), any())).thenReturn(true);
         when(permissionChecker.hasPermissionInOrgUnit(any(), any(), any())).thenReturn(false);
         when(permissionChecker.isSuperiorTo(any(), any(), any())).thenReturn(false);
 
         assertThat(guard.check(ctx()).allowed()).isTrue();
+    }
+
+    @Test
+    @DisplayName("Quản trị của tổ chức KHÁC không được đi thẳng")
+    void adminOfAnotherOrgDoesNotBypass() {
+        when(permissionChecker.isGlobalAdmin(actor.getId())).thenReturn(true);
+        when(permissionChecker.isGlobalAdminIn(eq(actor.getId()), any())).thenReturn(false);
+        when(permissionChecker.hasPermissionInOrgUnit(any(), any(), any())).thenReturn(false);
+
+        assertThat(guard.check(ctx()).allowed()).isFalse();
     }
 
     @Test

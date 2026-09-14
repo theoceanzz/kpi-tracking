@@ -393,7 +393,7 @@ public class StatsService {
         // 0. Permission check
         if (!currentUser.getId().equals(userId)) {
             // Check if current user is global admin or has USER:VIEW in target user's org units
-            if (!permissionChecker.isGlobalAdmin(currentUser.getId())) {
+            if (!permissionChecker.isGlobalAdminOverUser(currentUser.getId(), userId)) {
                 List<UserRoleOrgUnit> targetUserAssignments = userRoleOrgUnitRepository.findByUserId(userId);
                 boolean hasAccess = targetUserAssignments.stream()
                         .anyMatch(a -> permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "USER:VIEW", a.getOrgUnit().getId()) ||

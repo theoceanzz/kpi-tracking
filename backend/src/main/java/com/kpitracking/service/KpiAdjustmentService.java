@@ -174,7 +174,7 @@ public class KpiAdjustmentService {
         boolean isCreator = adj.getKpiCriteria().getCreatedBy() != null &&
                            adj.getKpiCriteria().getCreatedBy().getId().equals(currentUser.getId());
 
-        if (!permissionChecker.isGlobalAdmin(currentUser.getId()) && !isCreator) {
+        if (!permissionChecker.isGlobalAdminIn(currentUser.getId(), adj.getKpiCriteria().getOrgUnit().getId()) && !isCreator) {
             // Manager check: must have KPI:APPROVE in the org unit
             boolean hasPermission = permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "KPI:APPROVE_ADJUSTMENT", adj.getKpiCriteria().getOrgUnit().getId());
             if (!hasPermission) {

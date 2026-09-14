@@ -50,6 +50,7 @@ public class OrgNotificationConfigService {
     private final OrgNotificationConfigRepository configRepository;
     private final UserRepository userRepository;
     private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
+    private final com.kpitracking.security.PermissionChecker permissionChecker;
 
     private User getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -97,6 +98,10 @@ public class OrgNotificationConfigService {
     @Transactional
     public List<NotificationConfigResponse> saveMyOrgConfigs(SaveNotificationConfigRequest request) {
         UUID orgId = getCurrentUserOrgId();
+        // Cấu hình thông báo là của cả tổ chức: nhân viên thường xem được nhưng không được sửa.
+        if (!permissionChecker.hasPermissionInOrganization(getCurrentUser().getId(), "COMPANY:UPDATE", orgId)) {
+            throw new com.kpitracking.exception.ForbiddenException("Bạn không có quyền thay đổi cấu hình thông báo của tổ chức");
+        }
         Organization org = new Organization();
         org.setId(orgId);
 

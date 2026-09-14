@@ -64,10 +64,27 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
             authToken.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
             SecurityContextHolder.getContext().setAuthentication(authToken);
+            putUserIntoMdc(userDetails);
             return true;
         } catch (Exception e) {
             log.debug("Bỏ qua một access token không dùng được: {}", e.getMessage());
             return false;
+        }
+    }
+
+    /**
+     * Bổ sung ngữ cảnh người dùng vào MDC (requestId/ip đã do MdcRequestContextFilter đặt).
+     * MdcRequestContextFilter clear MDC ở finally nên không cần dọn ở đây.
+     */
+    static void putUserIntoMdc(UserDetails userDetails) {
+        org.slf4j.MDC.put(com.kpitracking.logging.MdcKeys.USER, userDetails.getUsername());
+        if (userDetails instanceof AppUserPrincipal p) {
+            if (p.getUserId() != null) {
+                org.slf4j.MDC.put(com.kpitracking.logging.MdcKeys.USER_ID, p.getUserId().toString());
+            }
+            if (p.getOrganizationId() != null) {
+                org.slf4j.MDC.put(com.kpitracking.logging.MdcKeys.ORG_ID, p.getOrganizationId().toString());
+            }
         }
     }
 
@@ -82,13 +99,18 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private List<String> resolveTokens(HttpServletRequest request) {
         List<String> tokens = new ArrayList<>();
 
-        for (String fromCookie : authCookieService.readAccessTokens(request)) {
-            tokens.add(normalize(fromCookie));
-        }
-
+        // Có header Authorization thì CHỈ tin header, bỏ qua cookie. SecurityConfig miễn CSRF cho
+        // request mang Bearer với lập luận "trình duyệt không tự gắn header này" — lập luận đó chỉ
+        // đúng khi phiên cũng đến từ header. Nếu vẫn đọc cookie ở đây, một request mang
+        // "Authorization: Bearer rác" + cookie hợp lệ sẽ vừa được miễn CSRF vừa được xác thực.
         String authHeader = request.getHeader("Authorization");
         if (StringUtils.hasText(authHeader) && authHeader.startsWith("Bearer ")) {
             tokens.add(normalize(authHeader.substring(7)));
+            return tokens;
+        }
+
+        for (String fromCookie : authCookieService.readAccessTokens(request)) {
+            tokens.add(normalize(fromCookie));
         }
 
         return tokens;

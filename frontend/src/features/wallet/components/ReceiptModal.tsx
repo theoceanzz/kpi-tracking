@@ -1,4 +1,6 @@
+import { useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
+import DOMPurify from 'dompurify'
 import { Loader2, Printer } from 'lucide-react'
 import { Dialog } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
@@ -34,13 +36,20 @@ export default function ReceiptModal({ orderId, onClose }: ReceiptModalProps) {
    * tối của modal vào tờ giấy. Chứng từ đem đi đối chiếu thì phải là chứng từ, không phải ảnh
    * chụp màn hình ứng dụng.
    */
+  // Máy chủ đã escape mọi giá trị người dùng nhập, nhưng HTML này vẫn được nhét thẳng vào DOM
+  // (và vào cửa sổ in) nên lọc thêm một lớp: chỉ giữ thẻ/thuộc tính trình bày, bỏ script, handler.
+  const safeHtml = useMemo(
+    () => (data ? DOMPurify.sanitize(data.html, { USE_PROFILES: { html: true } }) : ''),
+    [data],
+  )
+
   const print = () => {
     if (!data) return
     const w = window.open('', '_blank', 'width=820,height=1000')
     if (!w) return
     w.document.write(
       `<!doctype html><html><head><meta charset="utf-8"><title>${data.number}</title>`
-      + `<style>body{margin:24px;background:#fff;}</style></head><body>${data.html}</body></html>`,
+      + `<style>body{margin:24px;background:#fff;}</style></head><body>${safeHtml}</body></html>`,
     )
     w.document.close()
     w.focus()
@@ -79,8 +88,8 @@ export default function ReceiptModal({ orderId, onClose }: ReceiptModalProps) {
         </p>
       )}
 
-      {/* HTML do máy chủ dựng, mọi giá trị người dùng nhập đã được thoát ở TopupReceiptService. */}
-      {data && <div dangerouslySetInnerHTML={{ __html: data.html }} />}
+      {/* HTML do máy chủ dựng (đã escape ở TopupReceiptService) và lọc lại bằng DOMPurify ở trên. */}
+      {data && <div dangerouslySetInnerHTML={{ __html: safeHtml }} />}
     </Dialog>
   )
 }
