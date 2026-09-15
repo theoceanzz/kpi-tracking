@@ -1,5 +1,10 @@
 -- ====================================================================================
--- V3: Hoà giải schema prod về đúng V1 (baseline 2026-09-15) + index cho quy mô lớn
+-- V8: Hoà giải schema prod về đúng V1 (baseline 2026-09-15) + index cho quy mô lớn
+--
+-- VÌ SAO LÀ V8: flyway_schema_history trên prod còn các dòng version 3..7 từ thời chưa gộp
+-- V3–V7 vào V1/V2 (commit 12cf4b) — file không còn nhưng dòng history còn. Đặt V3 thì Flyway
+-- coi là "đã chạy" và bỏ qua (đã xảy ra 2026-09-15 16:32). Số mới phải > 7; các dòng cũ được bỏ
+-- qua bằng spring.flyway.ignore-migration-patterns=*:missing.
 --
 -- BỐI CẢNH: từ lần deploy đầu tiên, prod chỉ được Flyway repair() checksum, còn schema tiến
 -- hoá bằng Hibernate ddl-auto=update. Hibernate tạo bảng/cột theo cách của nó (VARCHAR(255)
@@ -10,7 +15,7 @@
 -- File này chạy trên CẢ dev (DB sạch V1+V2 → phải là no-op) lẫn prod (bù phần lệch), nên mọi
 -- câu đều idempotent: IF NOT EXISTS / IF EXISTS / kiểm tra pg_catalog trước khi ALTER.
 --
--- CHẠY NGOÀI TRANSACTION (V3__reconcile_prod.sql.conf: executeInTransaction=false) vì
+-- CHẠY NGOÀI TRANSACTION (V8__reconcile_prod.sql.conf: executeInTransaction=false) vì
 -- CREATE/DROP INDEX CONCURRENTLY không chạy được trong transaction. Hệ quả: nếu lỗi giữa
 -- chừng, phần đã chạy không rollback — nhưng chạy lại là an toàn nhờ idempotent; index
 -- INVALID do bị ngắt được dọn ở bước 0.
@@ -25,7 +30,7 @@
 --   giết container giữa lúc tạo index):
 --   ./mvnw flyway:migrate -Dflyway.url=jdbc:postgresql://localhost:5433/kpitracking ...
 -- ROLLBACK: file này chỉ thêm/nới/đổi tên, không xoá cột, không xoá dữ liệu. Lùi lại = drop
---   các index mới + DELETE FROM flyway_schema_history WHERE version = '3'. Ba constraint bị drop
+--   các index mới + DELETE FROM flyway_schema_history WHERE version = '8'. Ba constraint bị drop
 --   (2 CHECK enum của Hibernate, 1 FK RESTRICT) có ghi câu tạo lại ở chỗ tương ứng.
 -- KHÔNG LÀM: thu hẹp kiểu cột (prod varchar(255) nơi V1 là varchar(20/50/100)) — không rewrite
 --   nhưng phải quét kiểm tra và có thể fail nếu dữ liệu dài hơn; để nguyên, không ảnh hưởng app.
@@ -43,7 +48,7 @@ BEGIN
              WHERE NOT i.indisvalid AND c.relnamespace = 'public'::regnamespace
     LOOP
         EXECUTE format('DROP INDEX %s', r.idx);
-        RAISE NOTICE 'V3: đã bỏ index INVALID %', r.idx;
+        RAISE NOTICE 'V8: đã bỏ index INVALID %', r.idx;
     END LOOP;
 END $$;
 
@@ -92,7 +97,7 @@ BEGIN
                     WHERE table_schema = 'public' AND table_name = t AND column_name = c
                       AND data_type = 'character varying') THEN
             EXECUTE format('ALTER TABLE %I ALTER COLUMN %I TYPE TEXT', t, c);
-            RAISE NOTICE 'V3: %.% varchar -> text', t, c;
+            RAISE NOTICE 'V8: %.% varchar -> text', t, c;
         END IF;
     END LOOP;
 END $$;
@@ -139,7 +144,7 @@ BEGIN
         ALTER TABLE reward_certificate_templates ALTER COLUMN preset SET NOT NULL;
         ALTER TABLE reward_certificate_templates ALTER COLUMN title  SET NOT NULL;
     ELSE
-        RAISE WARNING 'V3: reward_certificate_templates có dòng preset/title NULL — bỏ qua SET NOT NULL, cần sửa dữ liệu tay';
+        RAISE WARNING 'V8: reward_certificate_templates có dòng preset/title NULL — bỏ qua SET NOT NULL, cần sửa dữ liệu tay';
     END IF;
 END $$;
 
@@ -165,7 +170,7 @@ BEGIN
         IF EXISTS (SELECT 1 FROM pg_constraint WHERE conname = renames[i][2])
            AND NOT EXISTS (SELECT 1 FROM pg_constraint WHERE conname = renames[i][3]) THEN
             EXECUTE format('ALTER TABLE %I RENAME CONSTRAINT %I TO %I', renames[i][1], renames[i][2], renames[i][3]);
-            RAISE NOTICE 'V3: rename constraint % -> %', renames[i][2], renames[i][3];
+            RAISE NOTICE 'V8: rename constraint % -> %', renames[i][2], renames[i][3];
         END IF;
     END LOOP;
 
@@ -179,7 +184,7 @@ BEGIN
         IF EXISTS (SELECT 1 FROM pg_constraint p2 WHERE p2.conrelid = r.tbl::regclass
                     AND p2.conname <> r.conname AND pg_get_constraintdef(p2.oid) = r.def) THEN
             EXECUTE format('ALTER TABLE %s DROP CONSTRAINT %I', r.tbl, r.conname);
-            RAISE NOTICE 'V3: bỏ FK hash trùng %', r.conname;
+            RAISE NOTICE 'V8: bỏ FK hash trùng %', r.conname;
         END IF;
     END LOOP;
 END $$;
@@ -219,7 +224,7 @@ BEGIN
                 AND conname ~ '^uk[0-9a-z]{20,}$'
     LOOP
         EXECUTE format('ALTER TABLE messages DROP CONSTRAINT %I', r.conname);
-        RAISE NOTICE 'V3: bỏ unique trùng % trên messages', r.conname;
+        RAISE NOTICE 'V8: bỏ unique trùng % trên messages', r.conname;
     END LOOP;
 END $$;
 
@@ -293,7 +298,7 @@ BEGIN
             -- bảng nhỏ, DROP giữ lock vài ms), đổi tên bản tạm.
             EXECUTE format('DROP INDEX %I', pairs[i][1]);
             EXECUTE format('ALTER INDEX %I RENAME TO %I', tmp, pairs[i][1]);
-            RAISE NOTICE 'V3: thay index % bằng định nghĩa V1', pairs[i][1];
+            RAISE NOTICE 'V8: thay index % bằng định nghĩa V1', pairs[i][1];
         ELSE
             -- đã đúng (DB dev): bỏ bản tạm
             EXECUTE format('DROP INDEX IF EXISTS %I', tmp);
@@ -334,6 +339,6 @@ BEGIN
     SELECT count(*) INTO n FROM pg_index i JOIN pg_class c ON c.oid = i.indexrelid
      WHERE NOT i.indisvalid AND c.relnamespace = 'public'::regnamespace;
     IF n > 0 THEN
-        RAISE EXCEPTION 'V3: còn % index INVALID — xem NOTICE phía trên, sửa dữ liệu rồi chạy lại', n;
+        RAISE EXCEPTION 'V8: còn % index INVALID — xem NOTICE phía trên, sửa dữ liệu rồi chạy lại', n;
     END IF;
 END $$;

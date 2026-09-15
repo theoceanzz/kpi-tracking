@@ -29,7 +29,7 @@ spring:
   jpa:
     hibernate:
       # validate: Hibernate chi kiem tra entity khop schema, KHONG tao bang/cot nua (nguon goc drift
-      # prod, docs/DATABASE_SCALING.md C1). Bat sau khi V3__reconcile_prod da chay tren prod.
+      # prod, docs/DATABASE_SCALING.md C1). Bat sau khi V8__reconcile_prod da chay tren prod.
       # Neu boot loi vi lech schema chua luong truoc: dat JPA_DDL_AUTO=update tren Coolify de len
       # tam, roi viet V{n} sua schema.
       ddl-auto: ${JPA_DDL_AUTO:validate}
@@ -58,6 +58,8 @@ spring:
     postgresql:
       # Session-level advisory lock de CREATE INDEX CONCURRENTLY trong migration khong bi chan.
       transactional-lock: false
+    # History prod con dong version 3..7 cua cac file da gop vao V1/V2 -> bo qua, migration moi tu V8.
+    ignore-migration-patterns: "*:missing"
     placeholders:
       # false -> V4 vô hiệu hoá 31 tài khoản seed (admin@keygo.vn, *@demo.com) còn dùng mật khẩu
       # mặc định ghi công khai trong V2__seed_data.sql. Xem docs/SECURITY_AUDIT.md C3.
