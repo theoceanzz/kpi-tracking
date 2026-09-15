@@ -1,6 +1,6 @@
 package com.kpitracking.service;
 
-import com.kpitracking.dto.response.PageResponse;
+import com.kpitracking.dto.response.CursorPageResponse;
 import com.kpitracking.dto.response.notification.NotificationResponse;
 import com.kpitracking.entity.Notification;
 import com.kpitracking.entity.OrgUnit;
@@ -12,15 +12,14 @@ import com.kpitracking.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Lazy;
-import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
-import org.springframework.data.domain.Pageable;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.List;
 import java.util.UUID;
 
 @Service
@@ -56,22 +55,60 @@ public class NotificationService {
         return notification;
     }
 
+    /** Giới hạn trên của {@code size} — bảng thông báo có thể rất lớn, không cho client kéo cả bảng. */
+    private static final int MAX_PAGE_SIZE = 100;
+
+    /**
+     * Danh sách thông báo của người dùng theo con trỏ (keyset pagination).
+     *
+     * <p>{@code cursor} là {@code <createdAt ISO-8601>_<id>} của phần tử cuối trang trước (chuỗi
+     * mờ do server phát, client chỉ gửi lại). Không có OFFSET và không có COUNT(*): chi phí mỗi
+     * trang không đổi dù người dùng có 20 hay 20.000 thông báo. Xem docs/DATABASE_SCALING.md H1.
+     */
     @Transactional(readOnly = true)
-    public PageResponse<NotificationResponse> getMyNotifications(int page, int size) {
+    public CursorPageResponse<NotificationResponse> getMyNotifications(int size, String cursor) {
         User currentUser = getCurrentUser();
-        Pageable pageable = PageRequest.of(page, size);
+        int limit = Math.max(1, Math.min(size, MAX_PAGE_SIZE));
 
-        Page<Notification> notifPage = notificationRepository
-                .findByUserIdOrderByCreatedAtDesc(currentUser.getId(), pageable);
+        // Lấy dư 1 dòng để biết còn trang sau hay không mà không cần đếm.
+        List<Notification> rows;
+        if (cursor == null || cursor.isBlank()) {
+            rows = notificationRepository.findByUserIdOrderByCreatedAtDescIdDesc(
+                    currentUser.getId(), PageRequest.of(0, limit + 1));
+        } else {
+            Cursor c = Cursor.parse(cursor);
+            rows = notificationRepository.findPageBefore(currentUser.getId(), c.createdAt(), c.id(), limit + 1);
+        }
 
-        return PageResponse.<NotificationResponse>builder()
-                .content(notifPage.getContent().stream().map(this::toResponse).toList())
-                .page(notifPage.getNumber())
-                .size(notifPage.getSize())
-                .totalElements(notifPage.getTotalElements())
-                .totalPages(notifPage.getTotalPages())
-                .last(notifPage.isLast())
+        boolean hasMore = rows.size() > limit;
+        List<Notification> pageRows = hasMore ? rows.subList(0, limit) : rows;
+        String nextCursor = hasMore ? Cursor.of(pageRows.get(pageRows.size() - 1)) : null;
+
+        return CursorPageResponse.<NotificationResponse>builder()
+                .content(pageRows.stream().map(this::toResponse).toList())
+                .size(limit)
+                .nextCursor(nextCursor)
+                .hasMore(hasMore)
                 .build();
+    }
+
+    /** Con trỏ keyset: (created_at, id) của phần tử cuối trang. */
+    private record Cursor(Instant createdAt, UUID id) {
+        static String of(Notification n) {
+            return n.getCreatedAt() + "_" + n.getId();
+        }
+
+        static Cursor parse(String raw) {
+            int sep = raw.lastIndexOf('_');
+            if (sep <= 0 || sep == raw.length() - 1) {
+                throw new com.kpitracking.exception.BusinessException("Con trỏ phân trang không hợp lệ");
+            }
+            try {
+                return new Cursor(Instant.parse(raw.substring(0, sep)), UUID.fromString(raw.substring(sep + 1)));
+            } catch (java.time.format.DateTimeParseException | IllegalArgumentException e) {
+                throw new com.kpitracking.exception.BusinessException("Con trỏ phân trang không hợp lệ");
+            }
+        }
     }
 
     @Transactional

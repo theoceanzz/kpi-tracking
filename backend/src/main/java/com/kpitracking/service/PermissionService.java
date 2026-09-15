@@ -29,6 +29,7 @@ public class PermissionService {
     private final com.kpitracking.repository.UserRepository userRepository;
     private final com.kpitracking.security.PermissionChecker permissionChecker;
     private final com.kpitracking.security.audit.SecurityAuditService securityAudit;
+    private final com.kpitracking.security.UserAuthorityCache userAuthorityCache;
 
     /**
      * roleId đến từ đường dẫn: vai trò phải thuộc tổ chức mà người gọi đang có PERMISSION:EDIT
@@ -120,6 +121,8 @@ public class PermissionService {
             throw new ResourceNotFoundException("Không tìm thấy thông tin quyền hạn của vai trò");
         }
         rolePermissionRepository.deleteByRoleIdAndPermissionId(roleId, permissionId);
+        // Câu DELETE bulk (@Modifying @Query) không đi qua AuthorityCacheInvalidator.
+        userAuthorityCache.invalidateAll();
         securityAudit.record(com.kpitracking.security.audit.SecurityAuditEvent.PERMISSION_CHANGED,
                 com.kpitracking.security.audit.SecurityAuditService.OK,
                 "ROLE", roleId.toString(), "Gỡ quyền " + permissionId + " khỏi vai trò " + role.getName());

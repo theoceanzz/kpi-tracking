@@ -359,7 +359,21 @@ export default function StaffEvaluationModal({
       headerExtra={isFullyApproved
         ? <Badge variant="success">Đã phê duyệt</Badge>
         : <Badge variant="warning">Đang chờ chấm điểm</Badge>}
-      footer={!readOnly ? (
+      footer={readOnly ? undefined : justEvaluated && canPromptReward ? (
+        // Chốt đánh giá xong thì mời thưởng ngay tại chỗ, trước khi người dùng đóng modal
+        // và quên mất. Đặt ở footer (ngoài vùng cuộn) chứ không ở cuối thân modal: thân
+        // dài, lời mời nằm dưới đáy thì người chấm không cuộn xuống sẽ không thấy. Lúc này
+        // lời mời THAY hàng nút: "Bỏ qua" của nó đã đóng modal, để thêm "Đóng" bên cạnh
+        // thì hai nút cùng một việc, người dùng không biết bấm cái nào.
+        <div className="shrink-0 border-t border-[var(--color-border)] px-4 py-3 sm:px-5">
+          <RewardPrompt
+            userId={userId}
+            fullName={userName}
+            defaultReason={`Kết quả tốt trong đợt${periodName ? ` ${periodName}` : ''}`}
+            onDone={onClose}
+          />
+        </div>
+      ) : (
         <DialogFooter
           note="Phê duyệt đồng loạt các bài nộp và lưu kết quả đánh giá chính thức vào hồ sơ nhân sự."
           secondary={<Button variant="outline" onClick={onClose} disabled={submitMutation.isPending}>{justEvaluated ? 'Đóng' : 'Hủy bỏ'}</Button>}
@@ -373,7 +387,7 @@ export default function StaffEvaluationModal({
             </Button>
           )}
         />
-      ) : undefined}
+      )}
     >
       <div className="space-y-6 p-5">
 
@@ -867,19 +881,6 @@ export default function StaffEvaluationModal({
         )}
 
       </div>
-
-      {/* Chốt đánh giá xong thì mời thưởng ngay tại chỗ, trước khi người dùng đóng
-          modal và quên mất. */}
-      {justEvaluated && (
-        <div className="border-t border-[var(--color-border)] px-5 py-4">
-          <RewardPrompt
-            userId={userId}
-            fullName={userName}
-            defaultReason={`Kết quả tốt trong đợt${periodName ? ` ${periodName}` : ''}`}
-            onDone={onClose}
-          />
-        </div>
-      )}
     </Dialog>
 
       {/* Đã duyệt hết KPI con → hỏi tự đánh giá */}

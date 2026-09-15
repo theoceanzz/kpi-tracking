@@ -646,7 +646,19 @@ function UserScoreModal({
       dismissible={!isSaving}
       title={member.userName}
       description={`${member.orgUnitName || 'Nhân viên'} · Chế độ ${MODE_LABEL[member.mode]}`}
-      footer={
+      footer={saved && canPromptReward ? (
+        // Sau khi lưu điểm mới mời thưởng. Đặt ở footer (ngoài vùng cuộn) để người chấm
+        // thấy ngay, và THAY hàng nút: "Bỏ qua" của lời mời đã đóng modal, thêm "Đóng"
+        // bên cạnh thì hai nút cùng một việc, người dùng không biết bấm cái nào.
+        <div className="shrink-0 border-t border-[var(--color-border)] px-4 py-3 sm:px-5">
+          <RewardPrompt
+            userId={member.userId}
+            fullName={member.userName || ''}
+            defaultReason={`Thành tích nổi bật trong kỳ${cycleName ? ` ${cycleName}` : ''}`}
+            onDone={onClose}
+          />
+        </div>
+      ) : (
         <DialogFooter
           secondary={<Button variant="outline" onClick={onClose} disabled={isSaving}>Đóng</Button>}
           primary={canEdit && !saved && (
@@ -655,7 +667,7 @@ function UserScoreModal({
             </Button>
           )}
         />
-      }
+      )}
     >
       <div className="space-y-5">
         {/* Điểm tham chiếu */}
@@ -861,18 +873,6 @@ function UserScoreModal({
             {member.evaluatedAt && ` · ${format(parseISO(member.evaluatedAt), 'HH:mm dd/MM/yyyy')}`}
           </p>
         )}
-
-        {/* Sau khi lưu điểm mới mời thưởng — tự ẩn nếu tổ chức tắt tính năng thưởng
-            hoặc người chấm không có quyền trao. */}
-        {saved && (
-          <RewardPrompt
-            userId={member.userId}
-            fullName={member.userName || ''}
-            defaultReason={`Thành tích nổi bật trong kỳ${cycleName ? ` ${cycleName}` : ''}`}
-            onDone={onClose}
-          />
-        )}
-
       </div>
     </Dialog>
   )

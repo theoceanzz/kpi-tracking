@@ -327,9 +327,24 @@ public class KpiSubmissionService {
     }
 
     private SubmissionResponse mapToResponse(KpiSubmission submission) {
+        return mapToResponse(submission, new java.util.HashMap<>());
+    }
+
+    /**
+     * Map một trang bài nộp. {@code managerMemo} nhớ kết quả kiểm tra quyền theo người nộp:
+     * {@code permissionChecker.hasAnyPermission} tốn 2 truy vấn, mà một trang 20 bài thường chỉ có
+     * vài người nộp — không memo thì 40 truy vấn thay vì ~6 (docs/DATABASE_SCALING.md H2).
+     */
+    private List<SubmissionResponse> mapPageToResponse(Page<KpiSubmission> subPage) {
+        java.util.Map<UUID, Boolean> managerMemo = new java.util.HashMap<>();
+        return subPage.getContent().stream().map(s -> mapToResponse(s, managerMemo)).toList();
+    }
+
+    private SubmissionResponse mapToResponse(KpiSubmission submission, java.util.Map<UUID, Boolean> managerMemo) {
         SubmissionResponse res = submissionMapper.toResponse(submission);
         // PBAC: Check if submitter has review permission to label them as a manager in UI
-        boolean isManager = permissionChecker.hasAnyPermission(submission.getSubmittedBy().getId(), "SUBMISSION:REVIEW");
+        boolean isManager = managerMemo.computeIfAbsent(submission.getSubmittedBy().getId(),
+                id -> permissionChecker.hasAnyPermission(id, "SUBMISSION:REVIEW"));
         res.setSubmittedByManager(isManager);
         return res;
     }
@@ -378,7 +393,7 @@ public class KpiSubmissionService {
         );
 
         return PageResponse.<SubmissionResponse>builder()
-                .content(subPage.getContent().stream().map(this::mapToResponse).toList())
+                .content(mapPageToResponse(subPage))
                 .page(subPage.getNumber())
                 .size(subPage.getSize())
                 .totalElements(subPage.getTotalElements())
@@ -761,7 +776,7 @@ public class KpiSubmissionService {
         );
 
         return PageResponse.<SubmissionResponse>builder()
-                .content(subPage.getContent().stream().map(this::mapToResponse).toList())
+                .content(mapPageToResponse(subPage))
                 .page(subPage.getNumber())
                 .size(subPage.getSize())
                 .totalElements(subPage.getTotalElements())

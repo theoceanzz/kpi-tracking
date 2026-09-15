@@ -60,6 +60,7 @@ class RoleAndPermissionTenantGuardTest {
     @Mock PermissionMapper permissionMapper;
     @Mock PermissionChecker permissionChecker;
     @Mock SecurityAuditService securityAudit;
+    @Mock UserAuthorityCache userAuthorityCache;
 
     UserRoleService userRoleService;
     PermissionService permissionService;
@@ -73,7 +74,7 @@ class RoleAndPermissionTenantGuardTest {
         userRoleService = new UserRoleService(userRoleOrgUnitRepository, userRepository, roleRepository,
                 orgUnitRepository, userRoleMapper, permissionChecker, securityAudit);
         permissionService = new PermissionService(permissionRepository, rolePermissionRepository,
-                roleRepository, permissionMapper, userRepository, permissionChecker, securityAudit);
+                roleRepository, permissionMapper, userRepository, permissionChecker, securityAudit, userAuthorityCache);
 
         me = User.builder().id(UUID.randomUUID()).email("manager@a.vn").build();
         when(userRepository.findByEmail(me.getEmail())).thenReturn(Optional.of(me));

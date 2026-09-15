@@ -54,6 +54,16 @@ public final class EmailTemplateCatalog {
         }
     }
 
+    /**
+     * Biến mang cả một KHỐI HTML do hệ thống dựng sẵn (danh sách thông báo gộp, bảng điểm
+     * từng đợt, biên nhận thu tiền). Khi thay vào template thì chèn nguyên văn, KHÔNG escape —
+     * escape là ra thẻ HTML nằm chình ình trong thư. Đổi lại, nơi dựng các khối này phải tự
+     * escape mọi chuỗi người dùng nhập (tên, tiêu đề, ghi chú) trước khi ghép; mọi biến khác
+     * vẫn được escape ở {@code EmailTemplateService.substitute}.
+     */
+    public static final java.util.Set<String> HTML_BLOCK_VARIABLES = java.util.Set.of(
+            "danh_sach_thong_bao", "bang_diem_dot", "bien_nhan");
+
     /** Bật/tắt ngay tại màn hình template. */
     public static final String CONTROL_SELF = "self";
     /**

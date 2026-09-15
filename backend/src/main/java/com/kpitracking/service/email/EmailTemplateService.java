@@ -191,14 +191,21 @@ public class EmailTemplateService {
      * là dữ liệu người dùng gõ; không escape thì một cái tên chứa {@code <a href=...>} sẽ thành
      * liên kết lừa đảo trong email gửi tới người khác. Escape cũng không làm hỏng URL trong
      * {@code href} — {@code &amp;} là dạng đúng của {@code &} trong thuộc tính HTML.
+     *
+     * <p>Ngoại lệ duy nhất: các biến trong {@link EmailTemplateCatalog#HTML_BLOCK_VARIABLES} là
+     * khối HTML hệ thống dựng sẵn và đã tự escape phần người dùng nhập — chèn nguyên văn, nếu
+     * không cả lá thư gộp hiện ra toàn thẻ {@code <p style=...>}.
      */
     private String substitute(String text, Map<String, String> vars) {
         if (text == null) return "";
         Matcher m = PLACEHOLDER.matcher(text);
         StringBuilder sb = new StringBuilder();
         while (m.find()) {
-            String value = org.springframework.web.util.HtmlUtils.htmlEscape(
-                    vars.getOrDefault(m.group(1), ""));
+            String name = m.group(1);
+            String raw = vars.getOrDefault(name, "");
+            String value = EmailTemplateCatalog.HTML_BLOCK_VARIABLES.contains(name)
+                    ? raw
+                    : org.springframework.web.util.HtmlUtils.htmlEscape(raw);
             m.appendReplacement(sb, Matcher.quoteReplacement(value));
         }
         m.appendTail(sb);

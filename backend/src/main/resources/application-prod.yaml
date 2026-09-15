@@ -18,8 +18,11 @@ spring:
     # Không có default: prod thiếu DB_PASSWORD thì phải dừng ngay, không được âm thầm dùng mật khẩu dev.
     password: ${DB_PASSWORD}
     hikari:
-      maximum-pool-size: 20
-      minimum-idle: 5
+      # Moi instance backend giu toi da N ket noi. Postgres compose mac dinh max_connections=100
+      # -> toi da 4 instance voi 20. Dat theo vCPU cua Postgres (~ 2 x core), xem
+      # docs/DATABASE_SCALING.md H6. Bien moi truong de chinh khong can build lai.
+      maximum-pool-size: ${HIKARI_MAX_POOL:20}
+      minimum-idle: ${HIKARI_MIN_IDLE:5}
       connection-timeout: 30000
       idle-timeout: 600000
 
@@ -34,7 +37,12 @@ spring:
         # Gom cac lan nap quan he LAZY thanh truy van IN theo lo.
         # Khong co no, mot request /org-unit-kpi/detailed voi ~200 KPI se cham getSubmissions(),
         # getAssignees(), getOrgUnit(), getKpiPeriod() cho TUNG KPI -> hang tram vong di ve DB.
+        # (application.yaml mac dinh cung dat 100 + jdbc.batch_size; giu o day de prod ro rang.)
         default_batch_fetch_size: 100
+        jdbc:
+          batch_size: 50
+        order_inserts: true
+        order_updates: true
 
   flyway:
     enabled: true
@@ -199,6 +207,26 @@ app:
     # Ghi đè cứng: application.yaml (profile mặc định, luôn được nạp) đặt true cho dev.
     # Prod không bao giờ được clean; validate lỗi -> repair() rồi migrate.
     clean-on-validation-error: false
+  cache:
+    authorities:
+      # Cache quyen theo user (Caffeine, in-process) trong CustomUserDetailsService. 0 = tat.
+      # Quyen bi go con hieu luc toi da TTL tren instance KHAC. docs/DATABASE_SCALING.md C2.
+      ttl-seconds: ${AUTHORITY_CACHE_TTL_SECONDS:30}
+      max-entries: ${AUTHORITY_CACHE_MAX_ENTRIES:50000}
+  retention:
+    # Job don du lieu ghi lien tuc (DataRetentionScheduler). MAC DINH TAT — bat sau khi da chay
+    # backend/db/ops/002 + 003 tren prod va xac nhan TTL voi nghiep vu. docs/DATABASE_SCALING.md C3.
+    enabled: ${APP_RETENTION_ENABLED:false}
+    batch-size: ${APP_RETENTION_BATCH_SIZE:5000}
+    max-batches-per-run: ${APP_RETENTION_MAX_BATCHES:200}
+    refresh-tokens:
+      expired-days: ${APP_RETENTION_REFRESH_EXPIRED_DAYS:1}
+      revoked-days: ${APP_RETENTION_REFRESH_REVOKED_DAYS:7}
+    notifications:
+      read-days: ${APP_RETENTION_NOTIF_READ_DAYS:90}
+      unread-days: ${APP_RETENTION_NOTIF_UNREAD_DAYS:180}
+    security-audit-logs:
+      days: ${APP_RETENTION_AUDIT_DAYS:180}
   rate-limit:
     # Giới hạn tần suất các endpoint xác thực (AuthRateLimitFilter) + khoá tài khoản sau nhiều
     # lần sai (LoginAttemptService). Số là request/IP/cửa sổ; đếm trong bộ nhớ từng instance.
