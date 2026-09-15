@@ -2855,9 +2855,8 @@ ON CONFLICT DO NOTHING;
 -- ═══════════════════════════════════════════════════════════════════════════════════════════════
 --
 --
--- ⚠️  Flyway chạy TRƯỚC Hibernate ddl-auto=update, nên file này KHÔNG được tham chiếu những thứ
---     chỉ tồn tại ở tầng entity: kpi_criteria.expected_submissions, kpi_submissions.manager_score,
---     bảng kpi_adjustment_requests. (Riêng cycle_unit_evaluations.manager_score CÓ trong V1.)
+-- (Từ 2026-09-15 mọi cột/bảng của entity đều đã khai báo trong V1 — kpi_criteria.expected_submissions,
+--  kpi_submissions.manager_score, kpi_adjustment_requests — nên file này được phép tham chiếu chúng.)
 --
 -- VÌ SAO CẦN FILE NÀY
 -- V2 seed đủ để chạy nghiệp vụ nhưng 6 bảng vẫn trống hoàn toàn, làm 6 biểu đồ mới không có gì để
