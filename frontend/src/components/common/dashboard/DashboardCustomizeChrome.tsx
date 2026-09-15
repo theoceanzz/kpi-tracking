@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react'
-import { Responsive, WidthProvider } from 'react-grid-layout/legacy'
+import { StableGridLayout, WidgetErrorBoundary } from './StableGridLayout'
 import {
   Settings2, Save, RotateCcw, Plus, Layout, X, Eye, EyeOff, GripVertical, Trash2,
   ArrowUp, ArrowDown, MoveHorizontal, Search, LayoutGrid, Sparkles, Check,
@@ -12,7 +12,6 @@ import { Dialog, Drawer, DialogFooter } from '@/components/ui/dialog'
 import type { DashboardWidget } from './ChartWrapper'
 import { ChoiceChip } from '@/components/ui/choice-chip'
 
-const ResponsiveGridLayout = WidthProvider(Responsive)
 
 /** Hình học một ô trên lưới, đúng phần react-grid-layout trả về khi kéo-thả. */
 export interface GridLayoutItem { i: string; x: number; y: number; w: number; h: number }
@@ -167,7 +166,7 @@ export default function DashboardCustomizeChrome({ api, renderWidget, catalog, r
             />
           )}
 
-          <ResponsiveGridLayout
+          <StableGridLayout
             className="layout"
             layouts={gridLayouts}
             breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
@@ -225,11 +224,11 @@ export default function DashboardCustomizeChrome({ api, renderWidget, catalog, r
                   Khi chỉnh sửa thì tắt con trỏ để biểu đồ không giành hover/tooltip/mousedown.
                 */}
                 <div className={cn('custom-scrollbar h-full w-full overflow-y-auto', isEditMode && 'pointer-events-none')}>
-                  {renderWidget(block)}
+                  <WidgetErrorBoundary title={block.title}>{renderWidget(block)}</WidgetErrorBoundary>
                 </div>
               </div>
             ))}
-          </ResponsiveGridLayout>
+          </StableGridLayout>
         </div>
       )}
 

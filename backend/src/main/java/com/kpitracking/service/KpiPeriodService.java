@@ -27,6 +27,7 @@ import java.util.UUID;
 public class KpiPeriodService {
 
     private final KpiPeriodRepository kpiPeriodRepository;
+    private final com.kpitracking.repository.KpiCriteriaRepository kpiCriteriaRepository;
     private final com.kpitracking.repository.KpiCycleRepository kpiCycleRepository;
     private final OrganizationRepository organizationRepository;
     private final UserRepository userRepository;
@@ -184,6 +185,13 @@ public class KpiPeriodService {
     public void deleteKpiPeriod(UUID id) {
         KpiPeriod period = kpiPeriodRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Đợt KPI", "id", id));
+        // KPI vẫn trỏ tới đợt sau khi đợt bị xoá mềm -> mọi màn hình đọc KPI đó (dashboard, bài nộp,
+        // đánh giá) ném EntityNotFoundException. Bắt xoá/chuyển KPI trước (prod 2026-09-15: 7 KPI mồ côi).
+        long inUse = kpiCriteriaRepository.countByKpiPeriodId(id);
+        if (inUse > 0) {
+            throw new com.kpitracking.exception.BusinessException(
+                    "Đợt này còn " + inUse + " KPI đang dùng. Hãy xoá hoặc chuyển các KPI đó sang đợt khác trước khi xoá đợt.");
+        }
         period.setDeletedAt(java.time.Instant.now());
         kpiPeriodRepository.save(period);
     }

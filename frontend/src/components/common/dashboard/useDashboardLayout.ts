@@ -1,4 +1,5 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { buildGridLayouts } from './gridLayouts'
 import { toast } from 'sonner'
 import { getApiErrorMessage } from '@/lib/apiError'
 import { dashboardLayoutApi, type DashboardLayoutItem, type DashboardScope } from '@/features/dashboard/api/dashboardLayoutApi'
@@ -252,13 +253,7 @@ export function useDashboardLayout({ scope, defaultWidgets, availableWidgets }: 
   }
 
   // Bố cục theo breakpoint: lg/md giữ vị trí tuỳ chỉnh; sm/xs/xxs xếp chồng full-width.
-  const visibleWidgets = widgets.filter(b => b.visible)
-  const orderedVisible = [...visibleWidgets].sort((a, b) => a.y - b.y || a.x - b.x)
-  const stackFull = (cols: number) => orderedVisible.map((w, i) => ({ i: w.i, x: 0, y: i, w: cols, h: w.h }))
-  const gridLayouts = {
-    lg: visibleWidgets, md: visibleWidgets,
-    sm: stackFull(12), xs: stackFull(6), xxs: stackFull(4),
-  }
+  const gridLayouts = useMemo(() => buildGridLayouts(widgets), [widgets])
 
   return {
     widgets, setWidgets, isLoading,

@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { buildGridLayouts } from './gridLayouts'
 import { useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { reportApi } from '@/features/reports/api/reportApi'
@@ -142,14 +143,7 @@ export function useDashboardCustomization({
     }
   }
 
-  // Bố cục lưới theo breakpoint: lg/md giữ vị trí tùy chỉnh; sm/xs/xxs xếp chồng full-width.
-  const visibleWidgets = widgets.filter(b => b.visible)
-  const orderedVisible = [...visibleWidgets].sort((a, b) => a.y - b.y || a.x - b.x)
-  const stackFull = (cols: number) => orderedVisible.map((w, i) => ({ i: w.i, x: 0, y: i, w: cols, h: w.h }))
-  const gridLayouts = {
-    lg: visibleWidgets, md: visibleWidgets,
-    sm: stackFull(12), xs: stackFull(6), xxs: stackFull(4),
-  }
+  const gridLayouts = useMemo(() => buildGridLayouts(widgets), [widgets])
 
   return {
     widgets, setWidgets,
