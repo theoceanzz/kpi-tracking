@@ -28,6 +28,7 @@ public class StatsService {
 
     private final UserRepository userRepository;
     private final OrgUnitRepository orgUnitRepository;
+    private final com.kpitracking.mapper.SoftDeletedRefs softDeletedRefs;
     private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
     private final KpiCriteriaRepository kpiCriteriaRepository;
     private final KpiSubmissionRepository submissionRepository;
@@ -429,6 +430,9 @@ public class StatsService {
 
         for (KpiCriteria criteria : assignedCriteria) {
             if (!activeStatuses.contains(criteria.getStatus())) continue;
+            // Đợt đã xoá mềm: proxy không nạp được (EntityNotFoundException) -> coi như KPI không có đợt,
+            // không để một đợt bị xoá làm đổ cả dashboard (prod 2026-09-15).
+            KpiPeriod period = softDeletedRefs.periodAlive(criteria.getKpiPeriod()) ? criteria.getKpiPeriod() : null;
 
             // Find submissions for this criteria
             List<KpiSubmission> criteriaSubs = mySubmissions.stream()
@@ -448,8 +452,8 @@ public class StatsService {
             Instant deadline = criteria.getEffectiveDeadline();
             Instant actualDeadline = deadline;
             if (criteria.getFrequency() != com.kpitracking.enums.KpiFrequency.UNLIMITED
-                    && deadline != null && criteria.getKpiPeriod() != null && criteria.getKpiPeriod().getStartDate() != null) {
-                long start = criteria.getKpiPeriod().getStartDate().toEpochMilli();
+                    && deadline != null && period != null && period.getStartDate() != null) {
+                long start = period.getStartDate().toEpochMilli();
                 long end = deadline.toEpochMilli();
                 int totalExpected = criteria.getExpectedSubmissions() != null ? criteria.getExpectedSubmissions() : calculateExpectedSubmissions(criteria);
                 int currentSub = criteriaSubs.size();
@@ -461,7 +465,7 @@ public class StatsService {
                 }
             }
 
-            Instant periodStart = criteria.getKpiPeriod() != null ? criteria.getKpiPeriod().getStartDate() : null;
+            Instant periodStart = period != null ? period.getStartDate() : null;
             boolean notOpenedYet = periodStart != null && periodStart.isAfter(now);
 
             if (!notOpenedYet
@@ -500,9 +504,9 @@ public class StatsService {
             allTasks.add(KpiTaskResponse.builder()
                     .id(criteria.getId())
                     .name(criteria.getName())
-                    .periodName(criteria.getKpiPeriod() != null ? criteria.getKpiPeriod().getName() : "N/A")
+                    .periodName(period != null ? period.getName() : "N/A")
                     .deadline(actualDeadline)
-                    .startDate(criteria.getKpiPeriod() != null ? criteria.getKpiPeriod().getStartDate() : null)
+                    .startDate(period != null ? period.getStartDate() : null)
                     .status(status)
                     .submissionCount(criteriaSubs.size())
                     .expectedSubmissions(criteria.getExpectedSubmissions() != null ? criteria.getExpectedSubmissions() : calculateExpectedSubmissions(criteria))
@@ -553,13 +557,16 @@ public class StatsService {
     }
 
     private int calculateExpectedSubmissions(KpiCriteria kpi) {
-        if (kpi.getFrequency() == null || kpi.getKpiPeriod() == null || kpi.getKpiPeriod().getPeriodType() == null) {
+        // Đợt đã xoá mềm -> periodType null -> 1 lần nộp (không ném EntityNotFoundException).
+        com.kpitracking.enums.KpiFrequency periodTypeOrNull = kpi.getKpiPeriod() == null ? null
+                : com.kpitracking.mapper.SoftDeletedRefs.orNull(() -> kpi.getKpiPeriod().getPeriodType());
+        if (kpi.getFrequency() == null || periodTypeOrNull == null) {
             return 1;
         }
         if (kpi.getFrequency() == com.kpitracking.enums.KpiFrequency.UNLIMITED) return Integer.MAX_VALUE;
 
         com.kpitracking.enums.KpiFrequency kpiFreq = kpi.getFrequency();
-        com.kpitracking.enums.KpiFrequency periodType = kpi.getKpiPeriod().getPeriodType();
+        com.kpitracking.enums.KpiFrequency periodType = periodTypeOrNull;
         
         if (kpiFreq == periodType) return 1;
         if (kpiFreq == com.kpitracking.enums.KpiFrequency.DAILY) {
@@ -644,7 +651,8 @@ public class StatsService {
         // Gom đánh giá theo ĐỢT; mỗi đợt 1 dòng, điểm = hiệu suất đánh giá hiệu lực (công thức trước đó).
         Map<UUID, KpiPeriod> periodById = new java.util.LinkedHashMap<>();
         for (Evaluation e : evaluations) {
-            if (e.getKpiPeriod() != null) periodById.putIfAbsent(e.getKpiPeriod().getId(), e.getKpiPeriod());
+            // Bỏ qua đợt đã xoá mềm (sort theo startDate bên dưới sẽ ném EntityNotFoundException).
+            if (softDeletedRefs.periodAlive(e.getKpiPeriod())) periodById.putIfAbsent(e.getKpiPeriod().getId(), e.getKpiPeriod());
         }
         List<AnalyticsMyStatsResponse.EvaluationItem> evalItems = periodById.values().stream()
             .sorted(Comparator.comparing(KpiPeriod::getStartDate, Comparator.nullsLast(Comparator.naturalOrder())))
@@ -656,7 +664,7 @@ public class StatsService {
                         .kpiName(p.getName())
                         .score(eff.getScore())
                         .comment(eff.getComment())
-                        .evaluatorName(eff.getEvaluator() != null ? eff.getEvaluator().getFullName() : null)
+                        .evaluatorName(softDeletedRefs.userName(eff.getEvaluator()))
                         .createdAt(eff.getCreatedAt())
                         .build();
             })

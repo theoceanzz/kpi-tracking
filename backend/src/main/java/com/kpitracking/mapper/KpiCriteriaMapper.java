@@ -10,7 +10,8 @@ import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
 import org.mapstruct.MappingTarget;
 
-@Mapper(componentModel = "spring")
+// uses = SoftDeletedRefs: tên người tạo/duyệt và đợt KPI đọc được cả khi đã xoá mềm (xem SubmissionMapper).
+@Mapper(componentModel = "spring", uses = SoftDeletedRefs.class)
 public interface KpiCriteriaMapper {
     @AfterMapping
     default void mapOrgUnitIds(com.kpitracking.entity.KpiCriteria kpi, @MappingTarget KpiCriteriaResponse response) {
@@ -35,12 +36,14 @@ public interface KpiCriteriaMapper {
     @Mapping(source = "orgUnit.name", target = "orgUnitName")
     @Mapping(source = "assignees", target = "assignees")
     @Mapping(source = "createdBy.id", target = "createdById")
-    @Mapping(source = "createdBy.fullName", target = "createdByName")
+    @Mapping(source = "createdBy", target = "createdByName", qualifiedByName = "userName")
     @Mapping(source = "approvedBy.id", target = "approvedById")
-    @Mapping(source = "approvedBy.fullName", target = "approvedByName")
+    @Mapping(source = "approvedBy", target = "approvedByName", qualifiedByName = "userName")
     @Mapping(source = "assignees", target = "assigneeIds", qualifiedByName = "mapAssigneeIds")
     @Mapping(source = "assignees", target = "assigneeNames", qualifiedByName = "mapAssigneeNames")
     @Mapping(source = "kpiPeriod.id", target = "kpiPeriodId")
+    // Đợt đã xoá mềm -> null thay vì EntityNotFoundException khi map lồng.
+    @Mapping(target = "kpiPeriod", expression = "java(SoftDeletedRefs.orNull(() -> toKpiPeriodResponse(kpiCriteria.getKpiPeriod())))")
     @Mapping(source = "keyResult.id", target = "keyResultId")
     @Mapping(source = "keyResult.name", target = "keyResultName")
     @Mapping(source = "keyResult.code", target = "keyResultCode")

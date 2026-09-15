@@ -74,6 +74,9 @@ public interface KpiCriteriaRepository extends JpaRepository<KpiCriteria, UUID> 
 
     List<KpiCriteria> findByKpiPeriodIdAndStatusIn(UUID kpiPeriodId, List<KpiStatus> statuses);
 
+    /** KPI chưa xoá mềm (@SQLRestriction) còn thuộc đợt — chặn xoá đợt đang dùng. */
+    long countByKpiPeriodId(UUID kpiPeriodId);
+
     @Query("SELECT k FROM KpiCriteria k WHERE k.perspective IS NOT NULL AND k.keyResult IS NULL " +
            "AND k.orgUnit.orgHierarchyLevel.organization.id = :organizationId")
     List<KpiCriteria> findByOrganizationIdAndPerspectiveNotNullAndKeyResultIsNull(@Param("organizationId") UUID organizationId);
