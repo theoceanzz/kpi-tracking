@@ -45,6 +45,9 @@ services:
       # Pool ket noi moi instance; max_connections cua Postgres phai >= so instance x pool + 10.
       # Xem docs/DATABASE_SCALING.md H6.
       - HIKARI_MAX_POOL=${HIKARI_MAX_POOL:-20}
+      # validate = Hibernate khong tu tao bang/cot; moi thay doi schema qua Flyway V{n}. Neu boot loi
+      # vi lech schema, dat tam =update de len roi viet migration sua. DATABASE_SCALING.md C1.
+      - JPA_DDL_AUTO=${JPA_DDL_AUTO:-validate}
       - HIKARI_MIN_IDLE=${HIKARI_MIN_IDLE:-5}
       # Job don du lieu ghi lien tuc (refresh_tokens / notifications / security_audit_logs).
       # MAC DINH TAT — bat sau khi chay backend/db/ops/002 + 003 va xac nhan TTL (DATABASE_SCALING.md C3).

@@ -368,11 +368,13 @@ CREATE TABLE roles (
   UNIQUE (name, organization_id)
 );
 
+-- ON DELETE SET NULL: xoá đơn vị/vai trò mặc định của Lark chỉ làm org mất cấu hình mặc định,
+-- không chặn xoá (prod đang chạy đúng như vậy — V3 chỉ đổi tên constraint cho khớp).
 ALTER TABLE organizations
     ADD CONSTRAINT fk_org_lark_default_org_unit
-        FOREIGN KEY (lark_default_org_unit_id) REFERENCES org_units (id),
+        FOREIGN KEY (lark_default_org_unit_id) REFERENCES org_units (id) ON DELETE SET NULL,
     ADD CONSTRAINT fk_org_lark_default_role
-        FOREIGN KEY (lark_default_role_id) REFERENCES roles (id);
+        FOREIGN KEY (lark_default_role_id) REFERENCES roles (id) ON DELETE SET NULL;
 
 -- ====================================================
 -- User Role Org Units
@@ -697,6 +699,9 @@ CREATE TABLE kpi_criteria (
     parent_id       UUID            REFERENCES kpi_criteria(id) ON DELETE SET NULL,
     parent_relation_type VARCHAR(20),
     is_bonus_kpi    BOOLEAN         NOT NULL DEFAULT FALSE,
+    -- Số lần nộp kỳ vọng trong kỳ (entity KpiCriteria.expectedSubmissions). Trước đây chỉ có ở
+    -- entity nên Hibernate tự thêm trên prod (drift) — khai báo tường minh.
+    expected_submissions INTEGER,
     deadline        TIMESTAMPTZ,
     status          VARCHAR(20)     NOT NULL DEFAULT 'DRAFT',
     created_by      UUID            NOT NULL REFERENCES users(id),
@@ -764,6 +769,9 @@ CREATE TABLE kpi_submissions (
     submitted_by        UUID            NOT NULL REFERENCES users(id),
     actual_value        DOUBLE PRECISION,
     auto_score          DOUBLE PRECISION,
+    -- Điểm quản lý chấm (entity KpiSubmission.managerScore). Trước đây chỉ có ở entity — Hibernate
+    -- tự thêm trên prod (drift) — khai báo tường minh.
+    manager_score       DOUBLE PRECISION,
     qualitative_level_id UUID           REFERENCES qualitative_levels(id),
     note                TEXT,
     status              VARCHAR(20)     NOT NULL DEFAULT 'PENDING',

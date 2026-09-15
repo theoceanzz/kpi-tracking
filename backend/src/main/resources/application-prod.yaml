@@ -28,7 +28,11 @@ spring:
 
   jpa:
     hibernate:
-      ddl-auto: update
+      # validate: Hibernate chi kiem tra entity khop schema, KHONG tao bang/cot nua (nguon goc drift
+      # prod, docs/DATABASE_SCALING.md C1). Bat sau khi V8__reconcile_prod da chay tren prod.
+      # Neu boot loi vi lech schema chua luong truoc: dat JPA_DDL_AUTO=update tren Coolify de len
+      # tam, roi viet V{n} sua schema.
+      ddl-auto: ${JPA_DDL_AUTO:validate}
     show-sql: false
     properties:
       hibernate:
@@ -51,6 +55,11 @@ spring:
     repair-on-migrate: true
     # true = Flyway từ chối clean() dù code có gọi. Prod không bao giờ được tự xoá dữ liệu.
     clean-disabled: true
+    postgresql:
+      # Session-level advisory lock de CREATE INDEX CONCURRENTLY trong migration khong bi chan.
+      transactional-lock: false
+    # History prod con dong version 3..7 cua cac file da gop vao V1/V2 -> bo qua, migration moi tu V8.
+    ignore-migration-patterns: "*:missing"
     placeholders:
       # false -> V4 vô hiệu hoá 31 tài khoản seed (admin@keygo.vn, *@demo.com) còn dùng mật khẩu
       # mặc định ghi công khai trong V2__seed_data.sql. Xem docs/SECURITY_AUDIT.md C3.
@@ -204,9 +213,9 @@ app:
     # đúng một cookie.
     domain: ${COOKIE_DOMAIN:keygo.vn}
   flyway:
-    # Ghi đè cứng: application.yaml (profile mặc định, luôn được nạp) đặt true cho dev.
-    # Prod không bao giờ được clean; validate lỗi -> repair() rồi migrate.
-    clean-on-validation-error: false
+    # Prod khong bao gio clean. Validate loi (V1/V2 doi checksum sau khi dong bang) -> repair() roi
+    # migrate tiep. Xem FlywayConfig.
+    on-validation-error: repair
   cache:
     authorities:
       # Cache quyen theo user (Caffeine, in-process) trong CustomUserDetailsService. 0 = tat.
