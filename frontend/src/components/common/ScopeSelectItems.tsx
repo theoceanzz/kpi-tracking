@@ -49,7 +49,7 @@ export default function ScopeSelectItems<T extends DatedScope>({
   }
 
   const toggleClass =
-    'mt-1 flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-md px-2 py-1.5 text-[11px] font-bold uppercase tracking-wider text-slate-500 hover:bg-slate-100 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800 dark:hover:text-slate-100'
+    'text-eyebrow mt-1 flex w-full cursor-pointer items-center justify-center gap-1.5 rounded-control px-2 py-1.5 hover:bg-[var(--color-muted)] hover:text-[var(--color-foreground)]'
 
   return (
     <>
@@ -59,7 +59,7 @@ export default function ScopeSelectItems<T extends DatedScope>({
         <>
           {upcoming.length > 0 && <SelectSeparator />}
           {showPast && (
-            <div className="px-2 py-1 text-[10px] font-black uppercase tracking-widest text-slate-400 dark:text-slate-500">
+            <div className="text-eyebrow px-2 py-1">
               {noun} đã qua
             </div>
           )}
@@ -68,7 +68,7 @@ export default function ScopeSelectItems<T extends DatedScope>({
       )}
 
       {upcoming.length === 0 && visiblePast.length === 0 && hiddenPastCount === 0 && (
-        <div className="px-2 py-3 text-center text-xs font-semibold text-slate-400 dark:text-slate-500">
+        <div className="px-2 py-3 text-center text-xs font-semibold text-[var(--color-subtle-foreground)]">
           Chưa có {noun} nào
         </div>
       )}

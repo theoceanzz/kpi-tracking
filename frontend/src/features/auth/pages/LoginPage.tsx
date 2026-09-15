@@ -9,8 +9,10 @@ import { cn } from '@/lib/utils'
 import { authApi } from '../api/authApi'
 import LarkLoginButton from '../components/LarkLoginButton'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/apiError'
 import { useEffect } from 'react'
 import { useMutation } from '@tanstack/react-query'
+import { Button } from '@/components/ui/button'
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false) // 3. Tạo state quản lý ẩn hiện
@@ -51,7 +53,7 @@ export default function LoginPage() {
       })
     },
     onError: (err: any) => {
-      const msg = err.response?.data?.message || 'Không thể gửi lại mã xác thực.'
+      const msg = getApiErrorMessage(err, 'Không thể gửi lại mã xác thực.')
       toast.error(msg)
     }
   })
@@ -71,10 +73,10 @@ export default function LoginPage() {
     loginMutation.mutate(data)
   }
 
-  const inputCls = "w-full pl-10 pr-12 py-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-background)] text-sm focus:ring-2 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)] outline-none transition-all shadow-sm"
+  const inputCls = "h-10 w-full rounded-control border border-[var(--color-border)] bg-[var(--color-card)] pl-10 pr-12 text-sm text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-subtle-foreground)] focus-visible:border-[var(--color-primary)] focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]"
 
   const apiError = loginMutation.error as any
-  const errorMessage = apiError?.response?.data?.message || 'Email hoặc mật khẩu không chính xác. Vui lòng kiểm tra lại!'
+  const errorMessage = getApiErrorMessage(apiError, 'Email hoặc mật khẩu không chính xác. Vui lòng kiểm tra lại!')
   const isUnverified = errorMessage.toLowerCase().includes('xác thực') || 
                       errorMessage.toLowerCase().includes('unverified') ||
                       errorMessage.toLowerCase().includes('verify')
@@ -82,15 +84,15 @@ export default function LoginPage() {
   return (
     <div className="w-full">
       <div className="mb-10 text-center lg:text-left">
-        <h2 className="text-3xl font-extrabold tracking-tight text-[var(--color-foreground)] mb-2">Đăng nhập</h2>
-        <p className="text-[var(--color-muted-foreground)]">Chào mừng trở lại! Vui lòng nhập thông tin của bạn.</p>
+        <h2 className="text-page-title mb-1">Đăng nhập</h2>
+        <p className="text-sm text-[var(--color-muted-foreground)]">Nhập email và mật khẩu để vào hệ thống.</p>
       </div>
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
         {/* Quick Demo Access - Top Placement */}
-        <div className="bg-indigo-50/30 dark:bg-indigo-500/5 border border-indigo-100/50 dark:border-indigo-500/20 rounded-[20px] p-4 mb-8 animate-in fade-in slide-in-from-top-4 duration-1000 delay-300">
-           <div className="flex items-center gap-2 mb-3 text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-[0.2em]">
-              <div className="w-4 h-4 rounded-full bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center">
+        <div className="bg-[var(--color-primary-soft)] border border-[var(--color-border)] rounded-card p-4 mb-8">
+           <div className="flex items-center gap-2 mb-3 text-eyebrow text-[var(--color-primary)]">
+              <div className="w-4 h-4 rounded-full bg-[var(--color-primary-soft)] flex items-center justify-center">
                  <PlayCircle size={10} />
               </div>
               Truy cập nhanh Demo
@@ -109,25 +111,25 @@ export default function LoginPage() {
                       toast.success('Đã điền tài khoản demo!', { id: 'demo-fill' })
                     }}
                     className={cn(
-                      "group relative flex flex-col items-center justify-center gap-2 p-3 rounded-xl border bg-white dark:bg-slate-900/50 transition-all duration-300",
-                      "hover:border-indigo-400 dark:hover:border-indigo-500 hover:shadow-lg hover:shadow-indigo-500/10 hover:-translate-y-1 active:scale-95",
-                      "border-slate-100 dark:border-slate-800"
+                      "group relative flex flex-col items-center justify-center gap-2 p-3 rounded-card border bg-[var(--color-card)] transition-all duration-300",
+                      "hover:border-[var(--color-primary)]",
+                      "border-[var(--color-border)]"
                     )}
                   >
                     <div className={cn(
-                      "w-10 h-10 rounded-full flex items-center justify-center transition-transform duration-500 group-hover:scale-110 group-hover:rotate-6",
-                      idx === 0 ? "bg-indigo-50 text-indigo-600" : "bg-emerald-50 text-emerald-600"
+                      "w-10 h-10 rounded-full flex items-center justify-center transition-transform duration-500 group-hover:rotate-6",
+                      idx === 0 ? "bg-[var(--color-primary-soft)] text-[var(--color-primary)]" : "bg-[var(--color-success-bg)] text-[var(--color-success)]"
                     )}>
                       <Icon size={18} />
                     </div>
                     <div className="text-center">
                        <p className={cn(
-                         "text-[11px] font-black uppercase tracking-tight",
-                         idx === 0 ? "text-indigo-600" : "text-emerald-600"
+                         "text-xs font-medium",
+                         idx === 0 ? "text-[var(--color-primary)]" : "text-[var(--color-success)]"
                        )}>
                           {account.role}
                        </p>
-                       <p className="text-[9px] text-slate-400 font-bold">
+                       <p className="text-caption font-medium">
                           {account.org}
                        </p>
                     </div>
@@ -139,7 +141,7 @@ export default function LoginPage() {
 
         {/* Email Field */}
         <div className="space-y-2">
-          <label className="text-sm font-bold text-[var(--color-foreground)]">Địa chỉ Email</label>
+          <label className="text-label block">Địa chỉ Email</label>
           <div className="relative">
              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-muted-foreground">
                 <Mail size={18} className="text-[var(--color-muted-foreground)]" />
@@ -151,14 +153,14 @@ export default function LoginPage() {
               className={inputCls}
             />
           </div>
-          {errors.email && <p className="text-red-500 text-xs mt-1.5 font-medium">{errors.email.message}</p>}
+          {errors.email && <p className="mt-1 text-xs text-[var(--color-error)]">{errors.email.message}</p>}
         </div>
 
         {/* Password Field */}
         <div className="space-y-2">
           <div className="flex items-center justify-between">
-            <label className="text-sm font-bold text-[var(--color-foreground)]">Mật khẩu</label>
-            <Link to="/forgot-password" className="text-sm font-semibold text-[var(--color-primary)] hover:text-[var(--color-primary)]/80 transition-colors">
+            <label className="text-label block">Mật khẩu</label>
+            <Link to="/forgot-password" className="text-sm font-medium text-[var(--color-primary)] hover:text-[var(--color-primary)]/80 transition-colors">
               Quên mật khẩu?
             </Link>
           </div>
@@ -184,45 +186,36 @@ export default function LoginPage() {
               {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
             </button>
           </div>
-          {errors.password && <p className="text-red-500 text-xs mt-1.5 font-medium">{errors.password.message}</p>}
+          {errors.password && <p className="mt-1 text-xs text-[var(--color-error)]">{errors.password.message}</p>}
         </div>
 
         {loginMutation.isError && (
-          <div className="p-3 rounded-lg bg-red-50/80 border border-red-200 dark:bg-red-500/10 dark:border-red-500/20 text-red-600 dark:text-red-400 text-sm font-medium flex flex-col gap-2 animate-in fade-in slide-in-from-top-1">
+          <div className="p-3 rounded-control bg-[var(--color-error-bg)] border border-[var(--color-error-border)] dark:bg-[var(--color-error-bg)] dark:border-[var(--color-error-border)] text-[var(--color-error)] text-sm font-medium flex flex-col gap-2 animate-in fade-in slide-in-from-top-1">
             <div className="flex items-start gap-2.5">
-              <div className="h-1.5 w-1.5 rounded-full bg-red-500 shrink-0 mt-1.5" />
+              <div className="h-1.5 w-1.5 rounded-full bg-[var(--color-error-solid)] shrink-0 mt-1.5" />
               <p>{errorMessage}</p>
             </div>
             {isUnverified && (
-              <button
-                type="button"
-                onClick={handleResendVerification}
-                disabled={resendMutation.isPending}
-                className="ml-4 text-xs font-bold text-[var(--color-primary)] hover:underline flex items-center gap-1 cursor-pointer disabled:opacity-50"
-              >
-                {resendMutation.isPending && <Loader2 size={12} className="animate-spin" />}
+              <Button variant="ghost" size="sm" className="ml-4" type="button" onClick={handleResendVerification} disabled={resendMutation.isPending}>
+                {resendMutation.isPending && <Loader2 aria-hidden="true" className="animate-spin" />}
                 Gửi lại mã xác thực ngay
-              </button>
+              </Button>
             )}
           </div>
         )}
 
-        <button
-          type="submit"
-          disabled={loginMutation.isPending}
-          className="w-full py-3.5 rounded-xl bg-[var(--color-primary)] text-white font-bold hover:shadow-lg hover:shadow-[var(--color-primary)]/20 disabled:opacity-50 transition-all flex items-center justify-center gap-2 mt-4"
-        >
-          {loginMutation.isPending && <Loader2 size={18} className="animate-spin" />}
+        <Button className="w-full mt-4" type="submit" disabled={loginMutation.isPending}>
+          {loginMutation.isPending && <Loader2 aria-hidden="true" className="animate-spin" />}
           Đăng nhập hệ thống
-        </button>
+        </Button>
       </form>
 
       <div className="relative my-6">
         <div className="absolute inset-0 flex items-center">
           <span className="w-full border-t border-[var(--color-border)]" />
         </div>
-        <div className="relative flex justify-center text-xs uppercase">
-          <span className="bg-slate-50 dark:bg-slate-950 px-2 font-semibold tracking-wider text-[var(--color-muted-foreground)]">
+        <div className="relative flex justify-center text-caption">
+          <span className="bg-[var(--color-muted)] px-2 font-semibold tracking-wider text-[var(--color-muted-foreground)]">
             Hoặc
           </span>
         </div>
@@ -230,10 +223,10 @@ export default function LoginPage() {
 
       <LarkLoginButton />
 
-      <div className="mt-8 text-center bg-[var(--color-muted)]/30 rounded-xl p-4 border border-[var(--color-border)]/50">
+      <div className="mt-8 text-center bg-[var(--color-muted)]/30 rounded-card p-4 border border-[var(--color-border)]/50">
         <p className="text-sm text-[var(--color-muted-foreground)]">
           Cổng thông tin chưa có tài khoản?{' '}
-          <Link to="/register" className="text-[var(--color-foreground)] font-bold hover:text-[var(--color-primary)] transition-colors underline decoration-[var(--color-primary)]/30 underline-offset-4">
+          <Link to="/register" className="text-[var(--color-foreground)] font-medium hover:text-[var(--color-primary)] transition-colors underline decoration-[var(--color-primary)]/30 underline-offset-4">
             Đăng ký doanh nghiệp
           </Link>
         </p>

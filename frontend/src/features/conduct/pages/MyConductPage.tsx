@@ -25,16 +25,20 @@ export default function MyConductPage() {
 
   if (org && !org.enableConduct) {
     return (
-      <EmptyState
-        title="Tổ chức chưa bật chấm hạnh kiểm"
-        description="Quản trị viên bật tính năng này ở Thiết lập công cụ → Module & tính năng."
-      />
+      <div className="rounded-card border border-dashed border-[var(--color-border)] bg-[var(--color-card)]">
+        <EmptyState
+          icon={HeartHandshake}
+          title="Tổ chức chưa bật chấm hạnh kiểm"
+          description="Quản trị viên bật tính năng này ở Thiết lập công cụ, mục Module & tính năng."
+        />
+      </div>
     )
   }
 
   return (
-    <div className="space-y-5">
+    <div className="mx-auto max-w-[1600px] space-y-4">
       <WorkspaceHeader
+        title="Hạnh kiểm của tôi"
         description="Tự chấm điểm hành vi theo bộ tiêu chí của tổ chức và nêu dẫn chứng cho từng tiêu chí."
         stats={
           sheet
@@ -56,10 +60,13 @@ export default function MyConductPage() {
       {isLoading && <LoadingSkeleton rows={6} />}
 
       {!isLoading && !sheet && (
-        <EmptyState
-          title="Chưa chọn đợt/kỳ"
-          description="Chọn một đợt hoặc một kỳ ở trên để mở phiếu chấm hạnh kiểm."
-        />
+        <div className="rounded-card border border-dashed border-[var(--color-border)] bg-[var(--color-card)]">
+          <EmptyState
+            icon={HeartHandshake}
+            title="Chưa chọn đợt/kỳ"
+            description="Chọn một đợt hoặc một kỳ ở trên để mở phiếu chấm hạnh kiểm."
+          />
+        </div>
       )}
 
       {!isLoading && sheet && (

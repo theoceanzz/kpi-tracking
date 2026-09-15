@@ -7,12 +7,14 @@ import { formatCurrency, formatDateTime } from '@/lib/utils'
 import { useSepayEvents, useWalletReconcile } from '../hooks/useWallet'
 import ResolveEventModal from './ResolveEventModal'
 import { SepayEventStatus, type SepayEvent } from '../types'
+import { Button } from '@/components/ui/button'
+import { ChoiceChip } from '@/components/ui/choice-chip'
 
 const STATUS_CLS: Record<SepayEventStatus, string> = {
   [SepayEventStatus.MATCHED]:
-    'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
+    'bg-[var(--color-success-bg)] text-[var(--color-success)] dark:bg-[var(--color-success-bg)] dark:text-[var(--color-success)]',
   [SepayEventStatus.UNMATCHED]:
-    'bg-rose-50 text-rose-700 dark:bg-rose-900/30 dark:text-rose-400',
+    'bg-[var(--color-error-bg)] text-[var(--color-error)] dark:bg-[var(--color-error-bg)] dark:text-[var(--color-error)]',
   [SepayEventStatus.DUPLICATE]: 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)]',
   [SepayEventStatus.IGNORED]: 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)]',
 }
@@ -35,6 +37,12 @@ export default function SepayEventsTab() {
 
   const events = data?.content ?? []
 
+  // Hàng đợi chỉ chứa giao dịch đã quy được về công ty này. Chưa khai số tài khoản
+  // thì nó luôn trống KỂ CẢ khi tiền đã về thật, nên không được báo "sổ đã sạch" —
+  // đó đúng là lúc người dùng cần biết là chưa nối xong với SePay.
+  const notConfigured = reconcile ? !reconcile.bankConfigured : false
+  const allGood = !!reconcile?.clean && !notConfigured
+
   return (
     <div>
       {/* Đối soát sạch là bất biến của sổ tiền, nên nói thẳng ra chứ không bắt
@@ -42,19 +50,26 @@ export default function SepayEventsTab() {
       {reconcile && (
         <div
           id="tour-sepay-status"
-          className={`mb-5 flex flex-wrap items-center gap-3 rounded-2xl border px-5 py-4 text-sm ${
-            reconcile.clean
-              ? 'border-emerald-500/40 bg-emerald-500/10'
-              : 'border-amber-500/40 bg-amber-500/10'
+          className={`mb-5 flex flex-wrap items-center gap-3 rounded-card border px-5 py-4 text-sm ${
+            allGood
+              ? 'border-[var(--color-success-border)] bg-[var(--color-success-bg)]'
+              : 'border-[var(--color-warning-border)] bg-[var(--color-warning-bg)]'
           }`}
         >
-          {reconcile.clean ? (
-            <CheckCircle2 size={18} className="text-emerald-600" />
+          {allGood ? (
+            <CheckCircle2 size={18} className="text-[var(--color-success)]" />
           ) : (
-            <ShieldAlert size={18} className="text-amber-600" />
+            <ShieldAlert size={18} className="text-[var(--color-warning)]" />
           )}
           <span>
-            {reconcile.clean ? (
+            {notConfigured ? (
+              <>
+                Chưa khai số tài khoản nhận tiền trong <strong>Cấu hình ví</strong>. Giao dịch về
+                tài khoản chưa khai không hiện ở đây, kể cả khi tiền đã về — hãy lưu đúng số tài
+                khoản đã liên kết trên SePay, các giao dịch cũ của tài khoản đó sẽ tự được gán về
+                công ty.
+              </>
+            ) : reconcile.clean ? (
               <>Sổ cái ví tiền cân đối, không có giao dịch nào chờ xử lý.</>
             ) : (
               <>
@@ -75,43 +90,36 @@ export default function SepayEventsTab() {
 
       <div id="tour-sepay-scope" className="mb-4 flex gap-2">
         {(['queue', 'all'] as const).map((s) => (
-          <button
-            key={s}
-            type="button"
-            onClick={() => {
+          <ChoiceChip selected={scope === s} variant="solid" className="py-1.5" key={s} onClick={() => {
               setScope(s)
               setPage(0)
-            }}
-            className={`rounded-full border px-4 py-1.5 text-sm font-semibold transition-colors ${
-              scope === s
-                ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/10 text-[var(--color-primary)]'
-                : 'border-[var(--color-border)] text-[var(--color-muted-foreground)]'
-            }`}
-          >
+            }}>
             {s === 'queue' ? 'Cần xử lý' : 'Toàn bộ lịch sử'}
-          </button>
+          </ChoiceChip>
         ))}
       </div>
 
       {isLoading ? (
         <LoadingSkeleton type="table" rows={4} />
       ) : events.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-[var(--color-border)]">
+        <div className="rounded-card border border-dashed border-[var(--color-border)]">
           <EmptyState
             title={scope === 'queue' ? 'Không có gì cần xử lý' : 'Chưa có giao dịch SePay nào'}
             description={
-              scope === 'queue'
-                ? 'Mọi giao dịch chuyển khoản đều đã được ghi có đúng người.'
-                : 'Các callback từ SePay sẽ hiện ở đây ngay khi có tiền về.'
+              notConfigured
+                ? 'Chưa khai số tài khoản nhận tiền nên chưa giao dịch nào được quy về công ty này. Vào Cấu hình ví lưu đúng số tài khoản đã liên kết trên SePay.'
+                : scope === 'queue'
+                  ? 'Mọi giao dịch chuyển khoản đều đã được ghi có đúng người.'
+                  : 'Các callback từ SePay sẽ hiện ở đây ngay khi có tiền về.'
             }
           />
         </div>
       ) : (
         <>
-          <div className="overflow-x-auto rounded-2xl border border-[var(--color-border)]">
+          <div className="overflow-x-auto rounded-card border border-[var(--color-border)]">
             <table className="w-full min-w-[900px] text-sm">
               <thead className="bg-[var(--color-muted)]/50 text-left">
-                <tr className="text-[11px] font-black uppercase tracking-wider text-[var(--color-muted-foreground)]">
+                <tr className="text-eyebrow">
                   <th className="px-4 py-3">Nhận lúc</th>
                   <th className="px-4 py-3 text-right">Số tiền</th>
                   <th className="px-4 py-3">Nội dung</th>
@@ -126,7 +134,7 @@ export default function SepayEventsTab() {
                     <td className="whitespace-nowrap px-4 py-3 text-[var(--color-muted-foreground)]">
                       {formatDateTime(e.receivedAt)}
                     </td>
-                    <td className="whitespace-nowrap px-4 py-3 text-right font-bold tabular-nums">
+                    <td className="whitespace-nowrap px-4 py-3 text-right font-semibold tabular-nums">
                       {formatCurrency(e.transferAmount ?? 0)}
                     </td>
                     <td className="max-w-[260px] px-4 py-3">
@@ -144,15 +152,7 @@ export default function SepayEventsTab() {
                         {STATUS_LABEL[e.status]}
                       </span>
                       {e.amountMismatch && (
-                        <div className="mt-1 text-xs text-amber-600">Lệch số tiền</div>
-                      )}
-                      {/* Tiền về một tài khoản chưa ai khai. Phải nói ra ở bảng chứ
-                          không đợi tới lúc bấm xử lý mới báo, vì nó là dấu hiệu của
-                          cấu hình sai chứ không phải của một giao dịch cá biệt. */}
-                      {e.unattributed && (
-                        <div className="mt-1 text-xs text-[var(--color-muted-foreground)]">
-                          Chưa xác định tổ chức
-                        </div>
+                        <div className="mt-1 text-xs text-[var(--color-warning)]">Lệch số tiền</div>
                       )}
                     </td>
                     <td className="px-4 py-3 text-xs">
@@ -172,13 +172,9 @@ export default function SepayEventsTab() {
                     </td>
                     <td className="px-4 py-3 text-right">
                       {e.inQueue && (
-                        <button
-                          type="button"
-                          onClick={() => setSelected(e)}
-                          className="whitespace-nowrap rounded-lg bg-[var(--color-primary)] px-3 py-1.5 text-xs font-semibold text-white"
-                        >
+                        <Button size="sm" className="whitespace-nowrap" type="button" onClick={() => setSelected(e)}>
                           Xử lý
-                        </button>
+                        </Button>
                       )}
                     </td>
                   </tr>

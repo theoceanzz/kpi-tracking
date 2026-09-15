@@ -115,10 +115,10 @@ function DashboardSkeleton() {
   return (
     <div className="max-w-[1600px] mx-auto space-y-4 animate-pulse" aria-busy="true" aria-live="polite">
       <span className="sr-only">Đang tải trang chủ</span>
-      <div className="h-[420px] rounded-[28px] bg-[var(--color-muted)]" />
+      <div className="h-[420px] rounded-card bg-[var(--color-muted)]"/>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-        <div className="h-56 rounded-[28px] bg-[var(--color-muted)]" />
-        <div className="h-56 rounded-[28px] bg-[var(--color-muted)]" />
+        <div className="h-56 rounded-card bg-[var(--color-muted)]"/>
+        <div className="h-56 rounded-card bg-[var(--color-muted)]"/>
       </div>
     </div>
   )

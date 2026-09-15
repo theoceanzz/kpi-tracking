@@ -77,6 +77,23 @@ public class KpiCycleEvaluationController {
                 kpiCycleEvaluationService.getUnitCycleSummary(cycleId, orgUnitId)));
     }
 
+    /**
+     * Chấm tay điểm CẢ ĐƠN VỊ (ghi đè TB thành viên). {@code score} null = bỏ ghi đè.
+     * Cùng quyền với chốt kỳ: người chấm được điểm đơn vị cũng là người chịu trách nhiệm chốt.
+     */
+    @PutMapping("/units/{orgUnitId}/score")
+    @PreAuthorize("hasAuthority('CYCLE_EVAL:FINALIZE')")
+    public ResponseEntity<ApiResponse<CycleUnitEvaluationResponse>> saveUnitScore(
+            @PathVariable UUID cycleId, @PathVariable UUID orgUnitId,
+            @RequestBody Map<String, Object> body) {
+        Object rawScore = body != null ? body.get("score") : null;
+        Double score = rawScore instanceof Number ? ((Number) rawScore).doubleValue() : null;
+        Object rawReason = body != null ? body.get("reason") : null;
+        String reason = rawReason != null ? rawReason.toString() : null;
+        return ResponseEntity.ok(ApiResponse.success(
+                kpiCycleEvaluationService.saveUnitCycleScore(cycleId, orgUnitId, score, reason)));
+    }
+
     /** Chuỗi duyệt từ đơn vị đang xem lên tới gốc, kèm lịch sử chốt/mở khoá. */
     @GetMapping("/units/{orgUnitId}/chain")
     @PreAuthorize("hasAuthority('CYCLE_EVAL:VIEW')")

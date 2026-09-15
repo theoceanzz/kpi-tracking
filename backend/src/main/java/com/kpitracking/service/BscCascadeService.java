@@ -2,7 +2,6 @@ package com.kpitracking.service;
 
 import com.kpitracking.dto.response.bsc.PerspectiveScoreResponse;
 import com.kpitracking.entity.BscCascadePolicy;
-import com.kpitracking.entity.BscFactorBand;
 import com.kpitracking.entity.BscScorecard;
 import com.kpitracking.entity.BscScorecardPerspective;
 import com.kpitracking.entity.BscUnitResult;
@@ -11,12 +10,10 @@ import com.kpitracking.entity.KpiCriteria;
 import com.kpitracking.entity.KpiPeriod;
 import com.kpitracking.entity.OrgUnit;
 import com.kpitracking.entity.User;
-import com.kpitracking.enums.BscFactorMode;
-import com.kpitracking.enums.BscFactorScope;
 import com.kpitracking.enums.BscGateEffect;
+import com.kpitracking.enums.BscLinkType;
 import com.kpitracking.enums.BscGateScope;
 import com.kpitracking.enums.BscMeasurementSource;
-import com.kpitracking.enums.BscScorecardLevel;
 import com.kpitracking.enums.BscUnitResultStatus;
 import com.kpitracking.enums.KpiType;
 import com.kpitracking.exception.BusinessException;
@@ -29,35 +26,33 @@ import com.kpitracking.repository.BscUnitResultRepository;
 import com.kpitracking.repository.KpiCriteriaRepository;
 import com.kpitracking.repository.KpiPeriodRepository;
 import com.kpitracking.repository.UserRepository;
+import com.kpitracking.event.BscEvents;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import java.util.UUID;
 
 /**
- * Tầng CASCADE của BSC: quy kết quả của phòng ban và công ty thành hệ số nhân vào điểm cá nhân,
- * và áp trần xếp loại của các hạng mục chặn. Xem docs/bsc-cascade-design.md mục 5.
+ * Tầng CASCADE của BSC: chốt điểm công nhận của cá nhân và áp trần xếp loại của các hạng mục chặn.
+ * Xem docs/bsc-cascade-design.md mục 5.
  *
- * <p><b>ĐIỀU DỄ HIỂU SAI NHẤT</b> — "nhân viên × phòng × công ty" KHÔNG phải nhân thẳng tỉ lệ đạt.
- * Ba bước, đúng thứ tự:
+ * <p><b>ĐIỂM CÁ NHÂN KHÔNG BỊ NHÂN HỆ SỐ CỦA PHÒNG/CÔNG TY.</b> Kết quả BSC của đơn vị và của
+ * công ty vẫn được tính và theo dõi riêng, nhưng KHÔNG kéo điểm của nhân viên lên hay xuống —
+ * nhân viên vẫn được chấm theo đúng KPI của mình. Điểm công nhận chỉ còn một bước:
  * <pre>
- *   B1. capped     = MIN(điểm gốc, recognizedCapPercent)          mặc định cap 120
- *   B2. f_unit     = tra bảng dải theo BSC đơn vị    (kẹp [floor, cap])
- *       f_company  = tra bảng dải theo BSC công ty
- *   B3. recognized = capped × f_unit × f_company
+ *   recognized = MIN(điểm gốc, recognizedCapPercent)              mặc định cap 120
  * </pre>
- * Ví dụ chuẩn: gốc 112, phòng 92% (⇒ 0.95), công ty 97% (⇒ 1.00) = <b>106.4</b>.
- * KHÔNG phải 112 × 0.92 × 0.97 = 99.96.
  *
- * <p>Hệ số áp ĐÚNG MỘT LẦN, ở tầng ngoài cùng, trên điểm gốc. Không được nhúng vào
- * {@link BscScoringService#computeForUser} — KPI cá nhân đã roll-up lên dòng BSC phòng rồi lại
- * nhân hệ số phòng ở tầng trong thì một phần kết quả bị đếm hai lượt.
+ * <p>Hạng mục chặn (QĐ-7) giữ nguyên: nó hạ TRẦN XẾP LOẠI chứ không đụng vào điểm.
  */
 @Slf4j
 @Service
@@ -73,10 +68,9 @@ public class BscCascadeService {
     private final KpiPeriodRepository kpiPeriodRepository;
     private final KpiAchievementCalculator achievementCalculator;
     private final UserRepository userRepository;
+    private final BscScoringService bscScoringService;
     private final BscAccessGuard accessGuard;
-
-    /** Hệ số khi không có chính sách hoặc chế độ NONE — nhân 1 tức không đổi gì. */
-    private static final double NEUTRAL_FACTOR = 1.0;
+    private final ApplicationEventPublisher eventPublisher;
 
     /**
      * Mức cao nhất của thang xếp loại (ma trận hiệu suất trả 1..5). Dùng cho BLOCK_EXCELLENT:
@@ -84,23 +78,25 @@ public class BscCascadeService {
      */
     public static final int DEFAULT_MAX_RATING = 5;
 
+    /**
+     * Trần điểm gốc và tỉ lệ KPI phải liên kết BSC khi tổ chức KHÔNG có bản ghi chính sách riêng.
+     *
+     * <p>Màn cấu hình chính sách đã bị gỡ (nó chỉ còn để chỉnh hai con số này và một bảng nhãn
+     * không ai dùng), nên đây là giá trị thực tế chạy cho phần lớn tổ chức. Tổ chức nào còn bản
+     * ghi cũ trong {@code bsc_cascade_policies} thì vẫn ưu tiên con số đã lưu ở đó.
+     */
+    public static final double DEFAULT_RECOGNIZED_CAP_PERCENT = 120.0;
+    public static final double DEFAULT_MIN_LINKED_WEIGHT = 60.0;
+
     // ============================================================
     // Kết quả của một lần áp cascade
     // ============================================================
 
     /**
-     * @param unitAchievement    %đạt BSC của đơn vị (null = không có bộ tiêu chí đơn vị)
-     * @param companyAchievement %đạt BSC của công ty
-     * @param recognized         điểm công nhận sau ba bước B1–B3
+     * @param recognized điểm công nhận = MIN(điểm gốc, trần của chính sách)
      */
     public record CascadeOutcome(Double rawScore,
-                                 Double unitAchievement,
-                                 Double companyAchievement,
-                                 Double unitFactor,
-                                 Double companyFactor,
                                  Double recognized,
-                                 String unitBandLabel,
-                                 String companyBandLabel,
                                  BscCascadePolicy policy) {}
 
     /**
@@ -127,6 +123,10 @@ public class BscCascadeService {
     public BscCascadePolicy resolvePolicy(UUID organizationId, UUID kpiPeriodId) {
         if (organizationId == null) return null;
         if (kpiPeriodId != null) {
+            // Hẹp nhất thắng: chính sách gắn đúng đợt này, rồi mới tới chính sách của kỳ chứa nó.
+            List<BscCascadePolicy> byPeriod = policyRepository.findActiveByPeriod(organizationId, kpiPeriodId);
+            if (!byPeriod.isEmpty()) return byPeriod.get(0);
+
             KpiPeriod period = kpiPeriodRepository.findById(kpiPeriodId).orElse(null);
             if (period != null && period.getKpiCycle() != null) {
                 List<BscCascadePolicy> byCycle =
@@ -192,6 +192,24 @@ public class BscCascadeService {
         List<BscScorecardPerspective> rows =
                 scorecardPerspectiveRepository.findByScorecardIdOrderByDisplayOrderAsc(scorecardId);
 
+        // Kết quả của các ĐƠN VỊ CON đã nhận phân rã từ những dòng này. Nạp một lượt cho cả bảng
+        // thay vì hỏi lại theo từng dòng — bộ tiêu chí nào cũng có vài chỉ tiêu, mỗi chỉ tiêu vài
+        // đơn vị con, hỏi lẻ là vài chục vòng đi lại DB cho một lần bấm "Tính".
+        List<UUID> rowIds = rows.stream().map(BscScorecardPerspective::getId).toList();
+        List<BscScorecardPerspective> childRows = rowIds.isEmpty() ? List.of()
+                : scorecardPerspectiveRepository.findByParentItemIdIn(rowIds);
+        java.util.Map<UUID, List<BscScorecardPerspective>> childrenByParent = new java.util.HashMap<>();
+        for (BscScorecardPerspective child : childRows) {
+            childrenByParent.computeIfAbsent(child.getParentItem().getId(), k -> new ArrayList<>()).add(child);
+        }
+        java.util.Map<UUID, BscUnitResultItem> childResults = new java.util.HashMap<>();
+        if (!childRows.isEmpty()) {
+            List<UUID> childIds = childRows.stream().map(BscScorecardPerspective::getId).toList();
+            for (BscUnitResultItem item : unitResultItemRepository.findByPeriodAndRowIds(kpiPeriodId, childIds)) {
+                childResults.put(item.getScorecardPerspective().getId(), item);
+            }
+        }
+
         // KPI của đơn vị trong đợt, nạp MỘT lần rồi chia về từng dòng chỉ tiêu ở dưới.
         List<UUID> unitIds = scorecard.getOrgUnits() == null ? List.of()
                 : scorecard.getOrgUnits().stream().map(OrgUnit::getId).toList();
@@ -218,7 +236,18 @@ public class BscCascadeService {
             BscMeasurementSource source = row.getMeasurementSource() != null
                     ? row.getMeasurementSource() : BscMeasurementSource.ROLLUP;
 
-            if (source == BscMeasurementSource.ROLLUP) {
+            // Chỉ tiêu ĐÃ GIAO XUỐNG cấp dưới thì con số của nó nằm ở kết quả của các đơn vị con,
+            // không phải ở KPI gắn trực tiếp vào đơn vị này. Đây cũng là cách DUY NHẤT để thẻ công
+            // ty (không gắn đơn vị nào nên không có KPI nào để cộng) ra được kết quả.
+            ChildRollup fromChildren = source == BscMeasurementSource.ROLLUP
+                    ? rollupFromChildren(childrenByParent.get(row.getId()), childResults, target, minimum)
+                    : null;
+
+            if (fromChildren != null) {
+                actual = fromChildren.actual();
+                achievement = fromChildren.achievement();
+                source = BscMeasurementSource.CHILD_ROLLUP;
+            } else if (source == BscMeasurementSource.ROLLUP) {
                 // Cộng thực đạt của MỌI người trong đơn vị (targetUserId = null), vì đây là kết quả
                 // của đơn vị chứ không của một cá nhân.
                 double sum = 0.0;
@@ -273,7 +302,7 @@ public class BscCascadeService {
                     .achievementPercent(achievement)
                     .weightPercentage(weight)
                     .weightedScore(weighted)
-                    .kpiCount(kpis.size())
+                    .kpiCount(fromChildren != null ? fromChildren.childCount() : kpis.size())
                     .gatePassed(gatePassed)
                     .measurementSource(source)
                     .build());
@@ -287,17 +316,69 @@ public class BscCascadeService {
         result.setGatePassed(gateFailures.isEmpty());
         result.setGateFailedItems(gateFailures.isEmpty() ? null : String.join(", ", gateFailures));
 
-        // Dải/hệ số tính sẵn ngay ở bản nháp để người dùng thấy trước tác động; con số CHỐT
-        // vẫn là con số được ghi lại lúc finalize.
-        BscCascadePolicy policy = resolvePolicy(scorecard.getOrganization().getId(), kpiPeriodId);
-        BscFactorScope scope = scorecard.getLevel() == BscScorecardLevel.COMPANY
-                ? BscFactorScope.COMPANY : BscFactorScope.UNIT;
-        BscFactorBand band = matchBand(policy, scope, achievementPercent);
-        result.setBandCode(band != null ? band.getLabel() : null);
-        result.setFactor(factorOf(policy, scope, achievementPercent));
-
         unitResultItemRepository.saveAll(items);
         return unitResultRepository.save(result);
+    }
+
+    /**
+     * @param childCount số đơn vị con thực sự đóng góp con số (dùng làm nhãn ở màn kết quả)
+     */
+    private record ChildRollup(Double actual, Double achievement, int childCount) {}
+
+    /**
+     * Cộng kết quả của các đơn vị con đã nhận phân rã một chỉ tiêu.
+     *
+     * <p>Loại quan hệ quyết định cách cộng, không được dùng một công thức cho tất cả:
+     * <ul>
+     *   <li>{@code SUM} — cộng dồn thực đạt của con.</li>
+     *   <li>{@code SHARED} — nhiều đơn vị cùng chịu MỘT chỉ tiêu, cộng vào là đếm nhiều lần cùng
+     *       một kết quả; chỉ lấy %đạt của chúng để tính trung bình.</li>
+     *   <li>{@code SUPPORT}, {@code CUSTOM} — không đóng góp con số, bỏ qua hoàn toàn.</li>
+     * </ul>
+     *
+     * <p>Trả null khi chưa đơn vị con nào có kết quả cho đợt này — khi đó dòng quay về cách cũ
+     * (cộng KPI cá nhân), chứ không phải ra 0 làm tụt điểm cả bộ tiêu chí.
+     */
+    private ChildRollup rollupFromChildren(List<BscScorecardPerspective> children,
+                                           java.util.Map<UUID, BscUnitResultItem> childResults,
+                                           Double target, Double minimum) {
+        if (children == null || children.isEmpty()) return null;
+
+        double sumActual = 0.0;
+        int actualCount = 0, contributing = 0;
+        double achievementSum = 0.0;
+        int achievementCount = 0;
+
+        for (BscScorecardPerspective child : children) {
+            BscLinkType link = child.getLinkType() != null ? child.getLinkType() : BscLinkType.SUM;
+            if (link == BscLinkType.SUPPORT || link == BscLinkType.CUSTOM) continue;
+
+            BscUnitResultItem res = childResults.get(child.getId());
+            if (res == null) continue;
+            contributing++;
+
+            if (link == BscLinkType.SUM && res.getActualValue() != null) {
+                sumActual += res.getActualValue();
+                actualCount++;
+            }
+            if (res.getAchievementPercent() != null) {
+                achievementSum += res.getAchievementPercent();
+                achievementCount++;
+            }
+        }
+        if (contributing == 0) return null;
+
+        Double actual = actualCount > 0 ? sumActual : null;
+        Double achievement = null;
+        if (actual != null && target != null && target > 0) {
+            achievement = achievementCalculator.perspectiveRatioFromActual(target, minimum, actual) * 100.0;
+        } else if (achievementCount > 0) {
+            // Không quy ra % từ con số tuyệt đối được (chỉ tiêu không đặt mục tiêu, hoặc quan hệ
+            // SHARED) ⇒ lấy trung bình %đạt của các đơn vị con.
+            achievement = achievementSum / achievementCount;
+        }
+        if (actual == null && achievement == null) return null;
+        return new ChildRollup(actual, achievement, contributing);
     }
 
     /** Kết quả đã tính của một đợt (rỗng nếu chưa tính lần nào). */
@@ -318,7 +399,10 @@ public class BscCascadeService {
         result.setStatus(BscUnitResultStatus.FINALIZED);
         result.setFinalizedBy(actor);
         result.setFinalizedAt(Instant.now());
-        return unitResultRepository.save(result);
+        BscUnitResult saved = unitResultRepository.save(result);
+        eventPublisher.publishEvent(new BscEvents.UnitResultFinalized(
+                scorecardId, kpiPeriodId, actor != null ? actor.getId() : null));
+        return saved;
     }
 
     /** Mở khoá để tính lại — bắt buộc đi qua đây thay vì sửa thẳng, để còn dấu vết ai mở. */
@@ -367,99 +451,21 @@ public class BscCascadeService {
                 .orElse(null);
     }
 
-    // ============================================================
-    // Hệ số
-    // ============================================================
-
-    /** Dải khớp với một %đạt (null nếu không có chính sách hoặc không dải nào phủ). */
-    public BscFactorBand matchBand(BscCascadePolicy policy, BscFactorScope scope, Double achievementPercent) {
-        if (policy == null || achievementPercent == null) return null;
-        return policy.getBands().stream()
-                .filter(b -> b.getScope() == scope)
-                .filter(b -> b.contains(achievementPercent))
-                .findFirst()
-                .orElse(null);
-    }
-
     /**
-     * Hệ số của một cấp. Đây là bước B2 của mục 5.3 — nơi quyết định mô hình phạt nặng hay nhẹ.
-     *
-     * <p>BAND_TABLE (mặc định) tra dải; DIRECT_RATIO nhân thẳng tỉ lệ (%/100); NONE bỏ qua.
-     * Kết quả luôn bị kẹp trong [factorFloor, factorCap] — kể cả DIRECT_RATIO, nhờ vậy sàn 0.85
-     * bảo đảm không ai mất quá 15% chỉ vì kết quả của cấp trên.
-     */
-    public double factorOf(BscCascadePolicy policy, BscFactorScope scope, Double achievementPercent) {
-        if (policy == null || achievementPercent == null) return NEUTRAL_FACTOR;
-        BscFactorMode mode = scope == BscFactorScope.COMPANY
-                ? policy.getCompanyFactorMode() : policy.getUnitFactorMode();
-        if (mode == null || mode == BscFactorMode.NONE) return NEUTRAL_FACTOR;
-
-        double raw;
-        if (mode == BscFactorMode.DIRECT_RATIO) {
-            raw = achievementPercent / 100.0;
-        } else {
-            BscFactorBand band = matchBand(policy, scope, achievementPercent);
-            if (band == null) return NEUTRAL_FACTOR;
-            raw = band.getFactor() != null ? band.getFactor() : NEUTRAL_FACTOR;
-        }
-        double floor = policy.getFactorFloor() != null ? policy.getFactorFloor() : 0.0;
-        double cap = policy.getFactorCap() != null ? policy.getFactorCap() : Double.MAX_VALUE;
-        return Math.min(Math.max(raw, floor), cap);
-    }
-
-    /**
-     * Ba bước B1–B3 cho MỘT cá nhân.
-     *
-     * @param scorecard bộ tiêu chí đã dùng để chấm điểm gốc của người này
+     * Điểm công nhận của MỘT cá nhân: chỉ chặn trần, KHÔNG nhân hệ số phòng/công ty.
      */
     @Transactional(readOnly = true)
-    public CascadeOutcome applyForUser(BscScorecard scorecard, UUID organizationId, UUID kpiPeriodId, Double rawScore) {
+    public CascadeOutcome applyForUser(UUID organizationId, UUID kpiPeriodId, Double rawScore) {
         BscCascadePolicy policy = resolvePolicy(organizationId, kpiPeriodId);
-
-        // Thẻ dùng để chấm điểm gốc CHÍNH LÀ thẻ công ty ⇒ không có tầng đơn vị riêng. Không được
-        // tra cùng một con số làm cả hệ số phòng lẫn hệ số công ty, nếu không lệch bị phạt hai lần.
-        boolean unitLevel = scorecard != null && scorecard.getLevel() == BscScorecardLevel.UNIT;
-
-        Double unitAchievement = unitLevel ? achievementOf(scorecard.getId(), kpiPeriodId) : null;
-
-        BscScorecard companyScorecard = companyScorecardOf(organizationId, kpiPeriodId, scorecard, unitLevel);
-        Double companyAchievement = companyScorecard != null
-                ? achievementOf(companyScorecard.getId(), kpiPeriodId) : null;
-
-        double unitFactor = unitLevel ? factorOf(policy, BscFactorScope.UNIT, unitAchievement) : NEUTRAL_FACTOR;
-        double companyFactor = factorOf(policy, BscFactorScope.COMPANY, companyAchievement);
 
         Double recognized = null;
         if (rawScore != null) {
             double cap = policy != null && policy.getRecognizedCapPercent() != null
-                    ? policy.getRecognizedCapPercent() : Double.MAX_VALUE;
-            double capped = Math.min(rawScore, cap);            // B1
-            recognized = capped * unitFactor * companyFactor;   // B3
+                    ? policy.getRecognizedCapPercent() : DEFAULT_RECOGNIZED_CAP_PERCENT;
+            recognized = Math.min(rawScore, cap);
         }
 
-        BscFactorBand unitBand = unitLevel ? matchBand(policy, BscFactorScope.UNIT, unitAchievement) : null;
-        BscFactorBand companyBand = matchBand(policy, BscFactorScope.COMPANY, companyAchievement);
-
-        return new CascadeOutcome(rawScore, unitAchievement, companyAchievement,
-                unitFactor, companyFactor, recognized,
-                unitBand != null ? unitBand.getLabel() : null,
-                companyBand != null ? companyBand.getLabel() : null,
-                policy);
-    }
-
-    /** Bộ tiêu chí cấp công ty của đợt. Trả null khi tổ chức chưa dựng BSC công ty. */
-    private BscScorecard companyScorecardOf(UUID organizationId, UUID kpiPeriodId,
-                                            BscScorecard userScorecard, boolean unitLevel) {
-        if (!unitLevel) return userScorecard;   // thẻ của chính người này đã là thẻ công ty
-        // Ưu tiên cha trực tiếp trong cây; không có thì lấy thẻ công ty của đợt.
-        BscScorecard cur = userScorecard;
-        int guard = 0;
-        while (cur != null && guard++ < 100) {
-            if (cur.getLevel() == BscScorecardLevel.COMPANY) return cur;
-            cur = cur.getParentScorecard();
-        }
-        List<BscScorecard> company = scorecardRepository.findCompanyByPeriod(organizationId, kpiPeriodId);
-        return company.isEmpty() ? null : company.get(0);
+        return new CascadeOutcome(rawScore, recognized, policy);
     }
 
     // ============================================================
@@ -529,9 +535,30 @@ public class BscCascadeService {
     @Transactional(readOnly = true)
     public LinkedWeightCheck checkLinkedWeight(UUID userId, UUID kpiPeriodId, UUID organizationId) {
         BscCascadePolicy policy = resolvePolicy(organizationId, kpiPeriodId);
-        double min = policy != null && policy.getMinBscLinkedWeight() != null ? policy.getMinBscLinkedWeight() : 0.0;
+        double min = policy != null && policy.getMinBscLinkedWeight() != null
+                ? policy.getMinBscLinkedWeight() : DEFAULT_MIN_LINKED_WEIGHT;
         boolean enforced = policy != null
                 && policy.getLinkedWeightEnforce() == com.kpitracking.enums.BscLinkedWeightEnforce.BLOCK;
+
+        // Không có bộ tiêu chí nào áp dụng cho người này ⇒ không có gì để bám vào, cảnh báo ở đây
+        // chỉ là tiếng ồn.
+        BscScorecard scorecard = bscScoringService.resolveScorecardForUser(userId, organizationId, kpiPeriodId);
+        if (scorecard == null) {
+            return new LinkedWeightCheck(100.0, min, true, enforced);
+        }
+
+        // Đếm theo ĐÚNG luật của lúc chấm điểm (BscScoringService.computeForUser): một KPI được coi
+        // là bám vào BSC khi nó gắn thẳng vào một DÒNG của bộ tiêu chí này, HOẶC gắn hạng mục mà bộ
+        // tiêu chí có dòng cho hạng mục đó.
+        //
+        // Trước đây chỗ này chỉ đếm trường hợp thứ nhất, nên KPI gắn hạng mục vẫn ra điểm ở bảng
+        // diễn giải mà dòng cảnh báo lại báo 0% — hai con số của cùng một màn hình nói ngược nhau.
+        Set<UUID> rowIds = new HashSet<>();
+        Set<UUID> perspectiveIds = new HashSet<>();
+        for (BscScorecardPerspective row : scorecard.getScorecardPerspectives()) {
+            rowIds.add(row.getId());
+            if (row.getPerspective() != null) perspectiveIds.add(row.getPerspective().getId());
+        }
 
         List<KpiCriteria> kpis = kpiCriteriaRepository.findAllByAssigneeAndPeriod(
                 userId, kpiPeriodId, BscScoringService.ACTIVE_STATUSES);
@@ -541,7 +568,14 @@ public class BscCascadeService {
             if (!achievementCalculator.countsTowardBscScore(kpi)) continue;
             double w = kpi.getWeight() != null ? kpi.getWeight() : 0.0;
             total += w;
-            if (kpi.getScorecardPerspective() != null) linked += w;
+
+            if (kpi.getScorecardPerspective() != null) {
+                // Gắn thẳng một dòng thì chỉ thuộc dòng ĐÓ — dòng của bộ tiêu chí khác không tính.
+                if (rowIds.contains(kpi.getScorecardPerspective().getId())) linked += w;
+                continue;
+            }
+            UUID eff = com.kpitracking.util.BscPerspectiveResolver.effectivePerspectiveId(kpi);
+            if (eff != null && perspectiveIds.contains(eff)) linked += w;
         }
         // Chưa có KPI nào thì không có gì để đánh giá — coi như đạt, tránh cảnh báo vô nghĩa
         // cho người vừa được tạo tài khoản.
@@ -563,7 +597,7 @@ public class BscCascadeService {
      * chưa KPI nào mang {@code scorecardPerspective} cả — trong khi điểm cá nhân của cùng những
      * KPI đó vẫn tính ra bình thường. Hai tầng lệch luật nhau là chuyện không giải thích được.
      */
-    private List<KpiCriteria> kpisOfRow(List<KpiCriteria> unitKpis, BscScorecardPerspective row) {
+    public List<KpiCriteria> kpisOfRow(List<KpiCriteria> unitKpis, BscScorecardPerspective row) {
         UUID perspectiveId = row.getPerspective() != null ? row.getPerspective().getId() : null;
         List<KpiCriteria> out = new ArrayList<>();
         for (KpiCriteria kpi : unitKpis) {
@@ -600,12 +634,12 @@ public class BscCascadeService {
         }
     }
 
-    private static Double effectiveTarget(BscScorecardPerspective sp) {
+    public static Double effectiveTarget(BscScorecardPerspective sp) {
         if (sp.getTargetValue() != null) return sp.getTargetValue();
         return sp.getPerspective() != null ? sp.getPerspective().getTargetValue() : null;
     }
 
-    private static Double effectiveMinimum(BscScorecardPerspective sp) {
+    public static Double effectiveMinimum(BscScorecardPerspective sp) {
         if (sp.getMinimumValue() != null) return sp.getMinimumValue();
         return sp.getPerspective() != null ? sp.getPerspective().getMinimumValue() : null;
     }

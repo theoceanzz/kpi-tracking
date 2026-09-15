@@ -18,14 +18,14 @@ import { useFormAssistStore } from '@/store/formAssistStore'
 import { MicButton } from '@/components/common/MicButton'
 import { ATTACHMENT_ACCEPT, ATTACHMENT_HINT, MAX_ATTACHMENT_BYTES, MAX_ATTACHMENT_FILES, screenEvidence } from '@/lib/attachmentPolicy'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/apiError'
 import { useWorkflowNavigator, WORKFLOW_PARAMS } from '@/features/kpi/workflow/hooks/useWorkflowNavigator'
 import { useNavigate, useSearchParams, useParams } from 'react-router-dom'
 import { formatNumber, cn } from '@/lib/utils'
-import { 
-  Loader2, Target, Activity, 
-  MessageSquare, Paperclip, ChevronLeft, Send, Sparkles, Save,
-  AlertCircle, Calendar, Info, CheckCircle2, ShieldAlert
-} from 'lucide-react'
+import { Loader2, ArrowLeft, Send, Save, AlertCircle, Star } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Dialog, DialogFooter } from '@/components/ui/dialog'
+import EmptyState from '@/components/common/EmptyState'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import { useAuthStore } from '@/store/authStore'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
@@ -240,212 +240,157 @@ export default function NewSubmissionPage() {
         if (isAllFinished) {
           setShowSuccess(true)
         } else {
-          toast.success('Gửi báo cáo thành công!')
+          toast.success('Đã gửi báo cáo để duyệt')
           // Về đúng nơi CÒN VIỆC để làm. Trước đây luôn về /submissions — danh sách những gì đã
           // nộp xong — nên người dùng phải tự tìm đường quay lại /my-kpi để nộp chỉ tiêu tiếp theo.
           navigate(`/my-kpi${periodId ? `?${WORKFLOW_PARAMS.period}=${periodId}` : ''}`)
         }
       } else {
-        toast.success('Đã lưu bản nháp!')
+        toast.success('Đã lưu bản nháp')
         navigate('/submissions')
       }
     },
-    onError: (err: any) => toast.error(err?.response?.data?.message || 'Thao tác thất bại'),
+    onError: (err) => toast.error(getApiErrorMessage(err, 'Lưu bài nộp thất bại')),
   })
 
-  if (loadingKpis || (isEdit && loadingExisting)) return <div className="p-8"><LoadingSkeleton type="form" rows={8} /></div>
+  if (loadingKpis || (isEdit && loadingExisting)) return <div className="mx-auto max-w-[1200px]"><LoadingSkeleton type="form" rows={6} /></div>
 
   // Check if editable
   if (isEdit && existingSubmission && existingSubmission.status !== 'DRAFT') {
     return (
-      <div className="flex flex-col items-center justify-center py-32 animate-in fade-in zoom-in duration-500">
-        <div className="w-20 h-20 bg-rose-50 dark:bg-rose-950/20 rounded-[30px] flex items-center justify-center mb-6 border border-rose-100 dark:border-rose-900/30">
-          <AlertCircle className="w-10 h-10 text-rose-500" />
-        </div>
-        <h2 className="text-xl font-black text-slate-900 dark:text-white mb-2">Không thể chỉnh sửa</h2>
-        <p className="text-slate-500 mb-8 max-w-md text-center">Báo cáo này đã được phê duyệt hoặc đang chờ xử lý, không thể thay đổi thông tin tại thời điểm này.</p>
-        <button 
-          onClick={() => navigate(-1)} 
-          className="px-8 py-3 bg-indigo-600 text-white rounded-2xl font-black text-sm shadow-lg shadow-indigo-500/20 hover:bg-indigo-700 transition-all active:scale-95"
-        >
-          QUAY LẠI
-        </button>
+      <div className="mx-auto max-w-[1200px] rounded-card border border-dashed border-[var(--color-border)] bg-[var(--color-card)]">
+        <EmptyState
+          icon={AlertCircle}
+          title="Không sửa được báo cáo này"
+          description="Báo cáo đã gửi duyệt hoặc đã được chấm. Chỉ bản nháp mới sửa được."
+          action={<Button variant="outline" onClick={() => navigate(-1)}><ArrowLeft aria-hidden="true" /> Quay lại</Button>}
+        />
       </div>
     )
   }
-
   const approvedKpis = myKpiData?.content?.filter(k => isSubmittableByUser(k, user?.id)) || []
+  const inputCls = 'w-full rounded-control border border-[var(--color-input)] bg-[var(--color-card)] px-3 text-sm text-[var(--color-foreground)] placeholder:text-[var(--color-muted-foreground)] focus:border-[var(--color-ring)] focus:outline-none focus:ring-2 focus:ring-[var(--color-ring)]'
 
   return (
-    <div className="max-w-[1200px] mx-auto p-4 md:p-6 space-y-8 animate-in fade-in slide-in-from-bottom-4 duration-700">
-      
-      {/* Dynamic Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-        <div className="flex items-center gap-5">
-           <button 
-            type="button" 
-            onClick={() => navigate(-1)}
-            className="w-12 h-12 flex items-center justify-center rounded-2xl bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 text-slate-500 hover:text-indigo-600 hover:border-indigo-200 transition-all group shadow-sm active:scale-90"
-          >
-            <ChevronLeft className="w-5 h-5 transition-transform group-hover:-translate-x-1" />
-          </button>
-          <div className="space-y-1">
-             <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 text-[10px] font-black uppercase tracking-widest border border-indigo-100 dark:border-indigo-900/30">
-               <Sparkles size={12} className="fill-current" /> {isEdit ? 'Hiệu chỉnh dữ liệu' : 'Cập nhật kết quả'}
-             </div>
-             <h1 className="text-2xl md:text-3xl font-black tracking-tight text-slate-900 dark:text-white">
-                {isEdit ? 'Cập nhật Báo cáo KPI' : 'Báo cáo Chỉ tiêu KPI'}
-             </h1>
-          </div>
+    <div className="mx-auto max-w-[1200px] space-y-4">
+      {/* Header */}
+      <div className="flex min-w-0 items-start gap-3">
+        <Button variant="outline" size="icon" onClick={() => navigate(-1)} aria-label="Quay lại" className="shrink-0"><ArrowLeft aria-hidden="true" /></Button>
+        <div className="min-w-0">
+          <h1 className="text-page-title">{isEdit ? 'Sửa báo cáo' : 'Nộp báo cáo'}</h1>
+          <p className="mt-1 text-sm text-[var(--color-muted-foreground)]">
+            {isEdit ? 'Bản nháp chưa gửi — sửa xong có thể lưu tiếp hoặc gửi duyệt.' : 'Chọn chỉ tiêu, nhập kết quả và đính kèm minh chứng. Có thể lưu nháp để gửi sau.'}
+          </p>
         </div>
       </div>
 
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        
-        {/* Main Form (Left) */}
-        <div className="lg:col-span-8 space-y-6">
-          <div className="bg-white dark:bg-slate-900 rounded-[40px] border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden p-8 md:p-10 space-y-10">
-            
-            {/* KPI Selection */}
-            <div className="space-y-4">
-              <label className="flex items-center gap-2 text-sm font-black text-slate-900 dark:text-white uppercase tracking-widest opacity-70">
-                <Target size={18} className="text-indigo-600" /> KPI cần báo cáo <span className="text-rose-500">*</span>
-              </label>
-              <div className="relative group">
+      <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-12">
+        {/* Form */}
+        <form className="space-y-4 lg:col-span-8" onSubmit={e => e.preventDefault()} noValidate>
+          <section className="space-y-5 rounded-card border border-[var(--color-border)] bg-[var(--color-card)] p-5">
+            {/* Chỉ tiêu */}
+            <div>
+              <label className="text-label block" htmlFor="sub-kpi">Chỉ tiêu <span className="text-[var(--color-error)]" aria-hidden="true">*</span></label>
                 <Controller
                   name="kpiCriteriaId"
                   control={control}
                   render={({ field }) => (
-                    <Select 
-                      onValueChange={field.onChange} 
-                      value={field.value} 
-                      disabled={isEdit}
-                    >
-                      <SelectTrigger className="w-full pl-6 pr-10 py-4 h-auto rounded-2xl border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/50 text-sm font-bold text-slate-900 dark:text-white focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-400 appearance-none transition-all disabled:opacity-50 cursor-pointer group-hover:bg-slate-100">
-                        <SelectValue placeholder="-- Hãy chọn một chỉ tiêu KPI --" />
-                      </SelectTrigger>
-                      <SelectContent className="max-h-[300px] rounded-2xl border-slate-200 dark:border-slate-800 shadow-xl">
+                  <Select onValueChange={field.onChange} value={field.value} disabled={isEdit}>
+                    <SelectTrigger id="sub-kpi" className="mt-1.5 w-full" aria-invalid={!!errors.kpiCriteriaId}><SelectValue placeholder="Chọn chỉ tiêu cần báo cáo" /></SelectTrigger>
+                    <SelectContent>
                         {isEdit ? (
-                          <SelectItem value={existingSubmission?.kpiCriteriaId || ''}>
-                            {existingSubmission?.kpiCriteriaName}
+                        <SelectItem value={existingSubmission?.kpiCriteriaId || ''}>{existingSubmission?.kpiCriteriaName}</SelectItem>
+                      ) : approvedKpis.map(k => (
+                        <SelectItem key={k.id} value={k.id} extra={k.targetValue != null ? <span className="ml-2 text-caption">Mục tiêu {formatNumber(k.targetValue)} {k.unit ?? ''}</span> : undefined}>
+                          {k.name}
                           </SelectItem>
-                        ) : (
-                          approvedKpis.map((k) => (
-                            <SelectItem key={k.id} value={k.id}>
-                              <div className="flex items-center gap-2 py-0.5">
-                                <span className="font-bold">{k.name}</span>
-                                {k.targetValue != null && (
-                                  <span className="text-[10px] text-slate-400 uppercase tracking-tighter opacity-80">
-                                    — Mục tiêu: {formatNumber(k.targetValue)} {k.unit ?? ''}
-                                  </span>
-                                )}
-                              </div>
-                            </SelectItem>
-                          ))
-                        )}
+                      ))}
                       </SelectContent>
                     </Select>
                   )}
                 />
-              </div>
+              {errors.kpiCriteriaId && <p className="mt-1 text-caption text-[var(--color-error)]">{errors.kpiCriteriaId.message}</p>}
               {approvedKpis.length === 0 && !isEdit && (
-                <div className="p-4 rounded-2xl bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/30 flex items-center gap-3">
-                   <Info size={18} className="text-amber-500 shrink-0" />
-                   <p className="text-xs font-bold text-amber-700 dark:text-amber-400">Bạn đã hoàn thành tất cả các báo cáo dự kiến hoặc không có KPI nào đã được duyệt.</p>
-                </div>
+                <p role="status" className="mt-2 rounded-card border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-3 py-2 text-sm text-[var(--color-foreground)]">
+                  Bạn đã nộp đủ báo cáo dự kiến, hoặc chưa có chỉ tiêu nào được duyệt để báo cáo.
+                </p>
               )}
             </div>
 
-            {/* Actual Value Input — quantitative only */}
-            {selectedKpi?.kpiType === 'QUALITATIVE' ? (
-              <div className="space-y-4">
-                <label className="flex items-center gap-2 text-sm font-black text-slate-900 dark:text-white uppercase tracking-widest opacity-70">
-                  <Activity size={18} className="text-teal-600" /> Tự đánh giá mức đạt được
-                </label>
-                <p className="text-xs font-medium text-slate-500 -mt-2">Chọn mức bạn tự thấy phù hợp; quản lý sẽ xác nhận hoặc điều chỉnh khi duyệt.</p>
+            {/* Kết quả */}
+            {isQualitative ? (
+              <fieldset>
+                <legend className="text-label">Mức tự đánh giá</legend>
+                <p className="mt-0.5 text-caption">Chọn mức bạn thấy phù hợp; quản lý sẽ xác nhận hoặc điều chỉnh khi chấm.</p>
                 {qualitativeLevels.length === 0 ? (
-                  <p className="text-xs font-bold text-amber-600">Chưa cấu hình thang điểm định tính ở trang Công ty.</p>
+                  <p className="mt-2 text-caption text-[var(--color-warning)]">Tổ chức chưa cấu hình thang điểm định tính (Thiết lập công cụ → Thang điểm).</p>
                 ) : (
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
                     {qualitativeLevels.map(level => {
                       const active = watch('qualitativeLevelId') === level.id
                       return (
                         <button
                           key={level.id}
                           type="button"
-                          onClick={() => setValue('qualitativeLevelId', level.id)}
+                          role="radio"
+                          aria-checked={active}
+                          onClick={() => setValue('qualitativeLevelId', level.id, { shouldValidate: true, shouldDirty: true })}
                           className={cn(
-                            "flex items-center justify-between px-4 py-3 rounded-2xl border-2 transition-all text-left",
-                            active ? "border-teal-500 bg-teal-50 dark:bg-teal-900/10 ring-2 ring-teal-500/10" : "border-slate-200 dark:border-slate-800 hover:border-teal-300"
+                            'flex h-9 items-center justify-between gap-3 rounded-control border px-3 text-left transition-colors',
+                            active ? 'border-[var(--color-primary)] bg-[var(--color-primary-soft)]' : 'border-[var(--color-border)] hover:border-[var(--color-border-strong)] hover:bg-[var(--color-muted)]'
                           )}
                         >
-                          <div className="flex items-center gap-3">
-                            <span className="w-7 h-7 rounded-lg flex items-center justify-center text-white text-xs font-black" style={{ backgroundColor: level.color || '#14b8a6' }}>{level.position}</span>
-                            <span className={cn("text-sm font-bold", active ? "text-teal-700 dark:text-teal-400" : "text-slate-700 dark:text-slate-200")}>{level.name}</span>
-                          </div>
-                          <span className="text-sm font-black text-slate-500">{formatNumber(level.value)} đ</span>
+                          <span className="flex min-w-0 items-center gap-2">
+                            <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: level.color }} aria-hidden="true" />
+                            <span className={cn('truncate text-sm', active ? 'font-medium text-[var(--color-foreground)]' : 'text-[var(--color-foreground)]')}>{level.name}</span>
+                          </span>
+                          <span className="shrink-0 text-caption tabular-nums">{formatNumber(level.value)} đ</span>
                         </button>
                       )
                     })}
                   </div>
                 )}
-              </div>
+              </fieldset>
             ) : (
-            <div className="space-y-4">
-              <label className="flex items-center gap-2 text-sm font-black text-slate-900 dark:text-white uppercase tracking-widest opacity-70">
-                <Activity size={18} className="text-emerald-600" /> Trị số thực tế đã đạt <span className="text-rose-500">*</span>
-              </label>
-              <div className="relative">
-                <div className="absolute inset-y-0 left-6 flex items-center pointer-events-none text-slate-400">
-                   <span className="text-xl font-black">#</span>
-                </div>
+              <div>
+                <label className="text-label block" htmlFor="sub-actual">Kết quả thực tế <span className="text-[var(--color-error)]" aria-hidden="true">*</span></label>
+                <div className="relative mt-1.5 w-full sm:w-72">
                 <input
+                    id="sub-actual"
                   {...register('actualValue', { valueAsNumber: true })}
                   type="number"
                   step="any"
+                    inputMode="decimal"
                   onWheel={(e) => e.currentTarget.blur()}
-                  className="w-full pl-14 pr-24 py-6 rounded-3xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-3xl font-black focus:outline-none focus:ring-8 focus:ring-indigo-500/5 focus:border-indigo-400 transition-all [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none shadow-inner"
-                  placeholder="0.00"
+                    aria-invalid={!!errors.actualValue}
+                    className={cn(inputCls, 'h-11 text-lg font-medium tabular-nums', selectedKpi?.unit && 'pr-16')}
+                    placeholder="0"
                 />
-                {selectedKpi?.unit && (
-                  <div className="absolute inset-y-0 right-6 flex items-center pointer-events-none">
-                     <span className="px-4 py-2 bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-300 rounded-xl font-black text-xs uppercase tracking-widest border border-indigo-100 dark:border-indigo-900/40">
-                       {selectedKpi.unit}
-                     </span>
+                  {selectedKpi?.unit && <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-caption">{selectedKpi.unit}</span>}
                   </div>
+                {selectedKpi?.targetValue != null && (
+                  <p className="mt-1 text-caption tabular-nums">Mục tiêu {formatNumber(selectedKpi.targetValue)}{selectedKpi.unit ? ` ${selectedKpi.unit}` : ''}{selectedKpi.minimumValue != null ? ` · tối thiểu ${formatNumber(selectedKpi.minimumValue)}` : ''}</p>
                 )}
-              </div>
-              {errors.actualValue && <p className="text-rose-500 text-xs font-bold ml-2 flex items-center gap-1.5"><AlertCircle size={14} /> {errors.actualValue.message}</p>}
+                {errors.actualValue && <p className="mt-1 text-caption text-[var(--color-error)]">{errors.actualValue.message}</p>}
             </div>
             )}
 
-            {/* Explanation & Evidence */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4">
-               <div className="space-y-4">
+            {/* Giải trình */}
+            <div>
                   <div className="flex items-center justify-between gap-2">
-                    <label className="flex items-center gap-2 text-sm font-black text-slate-900 dark:text-white uppercase tracking-widest opacity-70">
-                      <MessageSquare size={18} className="text-indigo-600" /> Báo cáo giải trình
-                    </label>
-                    {/* Ghi qua setValue chứ KHÔNG sửa DOM: sửa DOM thì React Hook Form không
-                        thấy, giá trị không vào handleSubmit và Zod cũng không chạy. */}
-                    <MicButton
-                      getBaseText={() => getValues("note") ?? ""}
-                      onText={text => setValue("note", text, { shouldValidate: true, shouldDirty: true })}
-                    />
+                <label className="text-label" htmlFor="sub-note">Giải trình</label>
+                {/* Ghi qua setValue chứ KHÔNG sửa DOM: sửa DOM thì React Hook Form không thấy. */}
+                <MicButton getBaseText={() => getValues('note') ?? ''} onText={text => setValue('note', text, { shouldValidate: true, shouldDirty: true })} />
                   </div>
-                  <textarea 
-                    {...register('note')} 
-                    rows={8} 
-                    className="w-full px-6 py-5 rounded-[28px] border border-slate-200 dark:border-slate-800 bg-slate-50 dark:bg-slate-800/30 text-sm font-medium focus:outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-400 resize-none transition-all placeholder:text-slate-400" 
-                    placeholder="Mô tả cụ thể cách bạn đạt được kết quả này..." 
-                  />
+              <textarea id="sub-note" {...register('note')} rows={5} className={cn(inputCls, 'mt-1.5 resize-y py-2')} placeholder="Cách bạn đạt kết quả này, khó khăn gặp phải, việc cần hỗ trợ…" />
+              {errors.note && <p className="mt-1 text-caption text-[var(--color-error)]">{errors.note.message}</p>}
                </div>
 
-               <div className="space-y-4">
-                  <label className="flex items-center gap-2 text-sm font-black text-slate-900 dark:text-white uppercase tracking-widest opacity-70">
-                    <Paperclip size={18} className="text-indigo-600" /> Tài liệu Chứng minh
-                  </label>
-                  <div className="flex-1">
+            {/* Minh chứng */}
+            <div>
+              <p className="text-label">Minh chứng</p>
+              <p className="mt-0.5 text-caption">Ảnh, PDF, Word, Excel — tăng độ tin cậy khi quản lý chấm.</p>
+              <div className="mt-1.5">
                     <FileDropzone
                       onFilesSelected={(acc) => setFiles(prev => [...prev, ...acc])}
                       files={files}
@@ -457,238 +402,104 @@ export default function NewSubmissionPage() {
                     />
                   </div>
                </div>
-            </div>
 
-            {/* Action Buttons */}
-            <div className="pt-10 flex flex-col-reverse sm:flex-row gap-4 border-t border-slate-100 dark:border-slate-800">
-               <button 
-                type="button" 
-                onClick={() => navigate(-1)} 
-                className="px-8 py-4 rounded-2xl text-xs font-black uppercase tracking-widest bg-slate-50 dark:bg-slate-800 text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all active:scale-95"
-              >
-                Hủy bỏ
-              </button>
-              
-              <div className="flex-1 flex gap-2 md:gap-4">
-                <button 
-                  type="button"
-                  disabled={mutation.isPending}
-                  onClick={handleSubmit(data => mutation.mutate({ data, isDraft: true }))}
-                  className="flex-1 px-3 md:px-8 py-4 rounded-2xl text-[10px] md:text-xs font-black uppercase tracking-widest border-2 border-slate-200 dark:border-slate-800 text-slate-600 dark:text-slate-300 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all flex items-center justify-center gap-2 whitespace-nowrap"
-                >
-                  <Save size={16} className="shrink-0" /> <span className="truncate">Lưu Nháp</span>
-                </button>
-                <button 
-                  type="button"
-                  disabled={mutation.isPending} 
-                  onClick={handleSubmit(data => {
-                    setPendingData(data)
-                    setShowConfirm(true)
-                  })}
-                  className="flex-1 px-3 md:px-8 py-4 rounded-2xl text-[10px] md:text-xs font-black uppercase tracking-widest bg-indigo-600 text-white hover:bg-indigo-700 shadow-xl shadow-indigo-500/20 disabled:opacity-50 transition-all flex items-center justify-center gap-2 active:scale-95 whitespace-nowrap"
-                >
-                  {mutation.isPending ? <Loader2 size={16} className="animate-spin shrink-0" /> : <Send size={16} className="shrink-0" />}
-                  <span className="truncate">
-                    {isEdit && existingSubmission?.status === 'DRAFT' ? 'Hoàn tất & Gửi' : 'Gửi báo cáo'}
-                  </span>
-                </button>
+            {/* Nút: thứ tự cố định [Hủy] … [Lưu nháp] [Gửi duyệt] */}
+            <div className="flex flex-col-reverse gap-2 border-t border-[var(--color-border)] pt-4 sm:flex-row sm:items-center">
+              <Button type="button" variant="ghost" onClick={() => navigate(-1)} disabled={mutation.isPending}>Hủy</Button>
+              <div className="flex gap-2 sm:ml-auto">
+                <Button type="button" variant="outline" disabled={mutation.isPending} onClick={handleSubmit(data => mutation.mutate({ data, isDraft: true }))}>
+                  <Save aria-hidden="true" /> Lưu nháp
+                </Button>
+                <Button type="button" disabled={mutation.isPending} onClick={handleSubmit(data => { setPendingData(data); setShowConfirm(true) })}>
+                  {mutation.isPending ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Send aria-hidden="true" />}
+                  {isEdit && existingSubmission?.status === 'DRAFT' ? 'Gửi duyệt' : 'Gửi báo cáo'}
+                </Button>
               </div>
             </div>
-          </div>
-        </div>
+          </section>
+        </form>
 
-        {/* Info Cards (Right) */}
-        <div className="lg:col-span-4 space-y-6">
-          {selectedKpi && (
-            <div className="bg-indigo-600 rounded-[40px] p-8 text-white relative overflow-hidden shadow-2xl animate-in zoom-in-95 duration-500">
-               <div className="absolute top-0 right-0 -mt-10 -mr-10 w-40 h-40 bg-white/10 rounded-full blur-3xl" />
-               <div className="relative z-10 space-y-8">
-                  <div className="flex items-center gap-4">
-                    <div className="w-12 h-12 rounded-2xl bg-white/20 backdrop-blur-xl flex items-center justify-center border border-white/10">
-                      <Target size={24} />
-                    </div>
-                    <div>
-                      <p className="text-[10px] font-black uppercase tracking-[0.2em] opacity-60">KPI Hiện tại</p>
-                      <h4 className="text-sm font-black line-clamp-1">Thông tin tham chiếu</h4>
-                    </div>
-                  </div>
-
-                  <div className="space-y-1">
-                    <p className="text-3xl font-black leading-tight tracking-tight">{selectedKpi.name}</p>
-                    <p className="text-xs font-medium opacity-60">{selectedKpi.description || 'Không có mô tả chi tiết cho chỉ tiêu này.'}</p>
-                  </div>
-
-                  <div className="grid grid-cols-2 lg:grid-cols-3 gap-3">
-                    {selectedKpi.kpiType !== 'QUALITATIVE' && (
-                    <div className="bg-black/20 backdrop-blur-md rounded-2xl p-4 border border-white/10">
-                        <p className="text-[9px] font-black uppercase tracking-widest opacity-60 mb-1">Tối thiểu</p>
-                        <div className="flex flex-wrap items-baseline gap-x-1">
-                          <span className="text-lg font-black break-all">
-                            {selectedKpi.minimumValue != null ? formatNumber(selectedKpi.minimumValue) : '0'}
-                          </span>
-                          {selectedKpi.unit && (
-                            <span className="text-[10px] font-bold opacity-60 shrink-0">{selectedKpi.unit}</span>
-                          )}
-                        </div>
-                    </div>
-                    )}
-                    {selectedKpi.kpiType !== 'QUALITATIVE' && (
-                    <div className="bg-black/20 backdrop-blur-md rounded-2xl p-4 border border-white/10">
-                        <p className="text-[9px] font-black uppercase tracking-widest opacity-60 mb-1">Mục tiêu</p>
-                        <div className="flex flex-wrap items-baseline gap-x-1">
-                          <span className="text-lg font-black break-all">
-                            {selectedKpi.targetValue != null ? formatNumber(selectedKpi.targetValue) : '—'}
-                          </span>
-                          {selectedKpi.unit && (
-                            <span className="text-[10px] font-bold opacity-60 shrink-0">{selectedKpi.unit}</span>
-                          )}
-                        </div>
-                    </div>
-                    )}
-                    <div className="bg-black/20 backdrop-blur-md rounded-2xl p-4 border border-white/10">
-                        <p className="text-[9px] font-black uppercase tracking-widest opacity-60 mb-1">{realWeight != null ? 'Trọng số thật' : 'Trọng số'}</p>
-                        <p className="text-lg font-black leading-tight whitespace-nowrap" title={realWeight != null ? `trên ${selectedKpi.weight}% × %hạng mục` : undefined}>
-                          {realWeight != null ? `${realWeight.toFixed(1)}%` : `${selectedKpi.weight}%`}
-                        </p>
-                        {realWeight != null && <p className="text-[10px] font-bold opacity-50 leading-tight whitespace-nowrap">trên {selectedKpi.weight}%</p>}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-3 p-4 bg-white/10 backdrop-blur-md rounded-2xl border border-white/10">
-                    <Calendar size={18} className="text-indigo-200" />
-                    <div>
-                       <p className="text-[9px] font-black uppercase tracking-widest opacity-60">Hạn báo cáo</p>
-                       <p className="text-[11px] font-bold">
-                          {selectedKpi.kpiPeriod?.name || 'Vô thời hạn'}
-                       </p>
-                    </div>
-                  </div>
-               </div>
-            </div>
+        {/* Tham chiếu chỉ tiêu */}
+        <aside className="space-y-4 lg:col-span-4">
+          {selectedKpi ? (
+            <section className="rounded-card border border-[var(--color-border)] bg-[var(--color-card)] p-4">
+              <h2 className="text-eyebrow">Chỉ tiêu đang báo cáo</h2>
+              <p className="mt-1 text-sm font-medium text-[var(--color-foreground)]">{selectedKpi.name}</p>
+              {selectedKpi.description && <p className="mt-1 text-caption">{selectedKpi.description}</p>}
+              <dl className="mt-3 divide-y divide-[var(--color-border)] text-sm">
+                {!isQualitative && <Ref label="Mục tiêu" value={selectedKpi.targetValue != null ? `${formatNumber(selectedKpi.targetValue)}${selectedKpi.unit ? ' ' + selectedKpi.unit : ''}` : '—'} />}
+                {!isQualitative && <Ref label="Tối thiểu" value={`${selectedKpi.minimumValue != null ? formatNumber(selectedKpi.minimumValue) : '0'}${selectedKpi.unit ? ' ' + selectedKpi.unit : ''}`} />}
+                <Ref label={realWeight != null ? 'Trọng số thật' : 'Trọng số'} value={realWeight != null ? `${realWeight.toFixed(1)}% / ${selectedKpi.weight}%` : `${selectedKpi.weight}%`} hint={realWeight != null ? `${selectedKpi.weight}% × tỷ trọng hạng mục` : undefined} />
+                <Ref label="Đợt đánh giá" value={selectedKpi.kpiPeriod?.name || 'Không giới hạn'} />
+                <Ref label="Đã nộp" value={`${selectedKpi.submissionCount || 0} / ${selectedKpi.expectedSubmissions || 1} lần`} />
+              </dl>
+            </section>
+          ) : (
+            <section className="rounded-card border border-dashed border-[var(--color-border)] bg-[var(--color-card)] p-4">
+              <p className="text-caption">Chọn chỉ tiêu để xem mục tiêu, trọng số và số lần đã nộp.</p>
+            </section>
           )}
 
-          <div className="bg-white dark:bg-slate-900 rounded-[40px] border border-slate-200 dark:border-slate-800 p-8 space-y-6 shadow-sm">
-             <div className="flex items-center gap-3 mb-2">
-                <div className="w-10 h-10 rounded-2xl bg-amber-50 dark:bg-amber-900/30 flex items-center justify-center text-amber-600">
-                   <Info size={20} />
-                </div>
-                <h4 className="font-black text-sm uppercase tracking-widest">Lưu ý khi nộp bài</h4>
-             </div>
-             <ul className="space-y-4">
-                {selectedKpi?.kpiType === 'QUALITATIVE' ? (
-                  <ListItem icon={CheckCircle2} text="Chỉ tiêu định tính không nhập số. Hãy giải trình kết quả và đính kèm minh chứng; quản lý sẽ chấm điểm theo thang định tính khi duyệt." />
-                ) : (
-                  <ListItem icon={CheckCircle2} text="Dữ liệu thực tế phải được nhập bằng số để hệ thống có thể tính toán điểm thưởng." />
-                )}
-                <ListItem icon={CheckCircle2} text="Hãy đính kèm hình ảnh hoặc file tài liệu (PDF, Word, Excel...) để tăng độ tin cậy của báo cáo." />
-                <ListItem icon={CheckCircle2} text="Báo cáo ở trạng thái Nháp có thể chỉnh sửa bất cứ lúc nào trước khi Gửi duyệt." />
-             </ul>
-          </div>
-        </div>
-      </div>
+          <section className="rounded-card border border-[var(--color-border)] bg-[var(--color-card)] p-4">
+            <h2 className="text-eyebrow">Lưu ý</h2>
+            <ul className="mt-2 list-disc space-y-1.5 pl-4 text-caption">
+              <li>{isQualitative ? 'Chỉ tiêu định tính không nhập số — hãy giải trình và đính kèm minh chứng.' : 'Kết quả nhập bằng số để hệ thống tính điểm tự động.'}</li>
+              <li>Bản nháp sửa được bất cứ lúc nào; sau khi gửi duyệt thì không.</li>
+              <li>Tối đa {MAX_ATTACHMENT_FILES} tệp minh chứng mỗi báo cáo.</li>
+            </ul>
+          </section>
+        </aside>
+            </div>
 
-      {/* Confirmation Modal - Premium Dangerous Style */}
-      {showConfirm && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 animate-in fade-in duration-500">
-          <div className="absolute inset-0 bg-slate-950/80 backdrop-blur-md" onClick={() => setShowConfirm(false)} />
-          <div className="relative bg-white dark:bg-slate-900 rounded-[48px] border border-rose-200 dark:border-rose-900/30 shadow-[0_32px_64px_-16px_rgba(244,63,94,0.3)] max-w-md w-full overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-8 duration-500">
-            {/* Top Danger Bar */}
-            <div className="h-2 bg-gradient-to-r from-rose-500 via-orange-500 to-rose-500" />
-            
-            <div className="p-10 text-center space-y-8">
-              <div className="relative">
-                <div className="absolute inset-0 bg-rose-500/20 blur-3xl rounded-full scale-150 animate-pulse" />
-                <div className="relative w-24 h-24 bg-gradient-to-br from-rose-500 to-rose-600 rounded-[32px] flex items-center justify-center mx-auto shadow-2xl shadow-rose-500/40 rotate-3">
-                  <ShieldAlert className="w-12 h-12 text-white" />
-                </div>
-              </div>
+      <Dialog
+        open={showConfirm}
+        onClose={() => setShowConfirm(false)}
+        size="sm"
+        dismissible={!mutation.isPending}
+        title="Gửi báo cáo để duyệt?"
+        description="Sau khi gửi, bạn không sửa được nữa cho tới khi quản lý trả lại."
+        footer={
+          <DialogFooter
+            secondary={<Button variant="outline" onClick={() => setShowConfirm(false)} disabled={mutation.isPending}>Hủy</Button>}
+            primary={
+              <Button disabled={mutation.isPending} onClick={() => { if (pendingData) { mutation.mutate({ data: pendingData, isDraft: false }); setShowConfirm(false) } }}>
+                <Send aria-hidden="true" /> Gửi duyệt
+              </Button>
+            }
+          />
+        }
+              >
+        <p className="text-sm text-[var(--color-muted-foreground)]">Quản lý trực tiếp sẽ nhận thông báo và chấm điểm báo cáo này.</p>
+      </Dialog>
               
-              <div className="space-y-3">
-                <h3 className="text-2xl font-black text-slate-900 dark:text-white uppercase tracking-tight">Xác nhận nộp báo cáo?</h3>
-                <p className="text-slate-500 dark:text-slate-400 text-sm font-medium leading-relaxed">
-                  Hành động này sẽ gửi kết quả trực tiếp đến quản lý. <br/>
-                  <span className="text-rose-500 font-bold">Lưu ý:</span> Bạn sẽ không thể tự ý sửa đổi sau khi đã gửi đi.
-                </p>
-              </div>
-
-              <div className="flex flex-col gap-4 pt-4">
-                <button
-                  onClick={() => {
-                    if (pendingData) {
-                      mutation.mutate({ data: pendingData, isDraft: false })
-                      setShowConfirm(false)
-                    }
-                  }}
-                  className="w-full py-5 bg-gradient-to-r from-rose-600 to-rose-500 text-white rounded-2xl font-black text-sm shadow-2xl shadow-rose-500/40 hover:shadow-rose-500/60 hover:-translate-y-1 transition-all active:scale-95 uppercase tracking-widest"
+      <Dialog
+        open={showSuccess}
+        onClose={() => setShowSuccess(false)}
+        size="sm"
+        title="Đã nộp đủ báo cáo của đợt"
+        description="Bạn đã hoàn thành toàn bộ chỉ tiêu trong đợt này."
+        footer={
+          <DialogFooter
+            secondary={<Button variant="outline" onClick={() => navigate('/me?section=my-kpi')}>Về KPI của tôi</Button>}
+            primary={<Button onClick={() => { setShowSuccess(false); setSelfEvalPeriodId(selectedKpi?.kpiPeriod?.id ?? null) }}><Star aria-hidden="true" /> Tự đánh giá ngay</Button>}
+          />
+        }
                 >
-                  TÔI ĐÃ KIỂM TRA & GỬI NGAY
-                </button>
-                <button
-                  onClick={() => setShowConfirm(false)}
-                  className="w-full py-5 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-2xl font-black text-sm hover:bg-slate-200 dark:hover:bg-slate-700 transition-all uppercase tracking-widest"
-                >
-                  ĐỢI ĐÃ, QUAY LẠI
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+        <p className="text-sm text-[var(--color-muted-foreground)]">
+          {nextAfterSubmission ? `Bước tiếp theo trong luồng: ${nextAfterSubmission.label}.` : 'Bước tiếp theo là tự đánh giá kết quả của đợt để quản lý có căn cứ chấm điểm.'}
+        </p>
+      </Dialog>
 
-      {/* Success Modal - Smart Flow */}
-      {showSuccess && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 animate-in fade-in duration-500">
-          <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-xl" />
-          <div className="relative bg-white dark:bg-slate-900 rounded-[48px] border border-slate-200 dark:border-slate-800 shadow-2xl max-w-lg w-full p-12 text-center space-y-10 animate-in zoom-in-95 duration-500">
-            <div className="relative">
-              <div className="absolute inset-0 bg-emerald-500/20 blur-3xl rounded-full scale-150 animate-pulse" />
-              <div className="relative w-28 h-28 bg-gradient-to-br from-emerald-400 to-emerald-600 rounded-[40px] flex items-center justify-center mx-auto shadow-2xl shadow-emerald-500/40">
-                <CheckCircle2 className="w-14 h-14 text-white" />
-              </div>
-            </div>
-
-            <div className="space-y-4">
-              <h3 className="text-3xl font-black text-slate-900 dark:text-white tracking-tight uppercase">Ghi nhận hiệu suất</h3>
-              <p className="text-slate-500 dark:text-slate-400 font-medium leading-relaxed">
-                Dữ liệu báo cáo của bạn đã được hệ thống ghi nhận thành công.
-                {nextAfterSubmission && (
-                  <> Để hoàn tất quy trình, mời bạn sang bước <strong>"{nextAfterSubmission.label}"</strong> cho chu kỳ này.</>
-                )}
-              </p>
-            </div>
-
-            <div className="flex flex-col gap-4">
-              <button
-                onClick={() => { setShowSuccess(false); setSelfEvalPeriodId(selectedKpi?.kpiPeriod?.id ?? null) }}
-                className="w-full py-5 bg-slate-900 dark:bg-white text-white dark:text-slate-900 rounded-2xl font-black text-sm shadow-2xl hover:bg-indigo-600 dark:hover:bg-indigo-50 transition-all flex items-center justify-center gap-3 uppercase tracking-widest active:scale-95"
-              >
-                <Sparkles size={20} className="text-amber-400" /> TIẾN HÀNH TỰ ĐÁNH GIÁ
-              </button>
-              <button
-                onClick={() => navigate('/me?section=my-kpi')}
-                className="w-full py-5 bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 rounded-2xl font-black text-sm hover:bg-slate-200 dark:hover:bg-slate-700 transition-all uppercase tracking-widest"
-              >
-                ĐỂ SAU, QUAY LẠI DANH SÁCH
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <EvaluationFormModal
-        open={!!selfEvalPeriodId}
-        onClose={() => setSelfEvalPeriodId(null)}
-        initialPeriodId={selfEvalPeriodId ?? undefined}
-      />
+      <EvaluationFormModal open={!!selfEvalPeriodId} onClose={() => setSelfEvalPeriodId(null)} initialPeriodId={selfEvalPeriodId ?? undefined} />
     </div>
   )
 }
 
-function ListItem({ icon: Icon, text }: { icon: any; text: string }) {
+function Ref({ label, value, hint }: { label: string; value: string; hint?: string }) {
   return (
-    <li className="flex items-start gap-3">
-      <Icon size={16} className="text-indigo-500 shrink-0 mt-0.5" />
-      <p className="text-xs font-medium text-slate-500 leading-relaxed">{text}</p>
-    </li>
+    <div className="flex items-start justify-between gap-3 py-2" title={hint}>
+      <dt className="text-[var(--color-muted-foreground)]">{label}</dt>
+      <dd className="text-right tabular-nums text-[var(--color-foreground)]">{value}</dd>
+    </div>
   )
 }

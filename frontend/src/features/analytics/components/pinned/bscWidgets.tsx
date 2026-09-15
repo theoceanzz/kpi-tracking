@@ -4,6 +4,7 @@ import {
 } from 'recharts'
 import { Gauge, Award, AlertTriangle, ShieldCheck } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { ChoiceChip } from '@/components/ui/choice-chip'
 import Pagination from '@/components/common/Pagination'
 import { useOptionalDashboardUnit } from '@/features/dashboard/context/DashboardFilterContext'
 import {
@@ -76,32 +77,32 @@ export function BscBalanceMetrics({ filter }: { filter?: PinnedFilter }) {
         </span>
       )}
       <div className="grid grid-flow-col auto-cols-[minmax(172px,1fr)] gap-3 overflow-x-auto custom-scrollbar pb-1">
-        <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-200 dark:border-slate-800 flex items-center gap-3">
-          <div className="w-11 h-11 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center justify-center shrink-0"><Gauge size={22} /></div>
+        <div className="bg-[var(--color-card)] rounded-widget p-4 border border-[var(--color-border)] flex items-center gap-3">
+          <div className="w-11 h-11 rounded-full bg-[var(--color-muted)] text-[var(--color-muted-foreground)] flex items-center justify-center shrink-0"><Gauge size={22} /></div>
           <div className="min-w-0">
             <p className="text-xs font-medium text-slate-500">Điểm BSC trung bình</p>
             <p className={cn('text-2xl font-semibold tabular-nums', scoreColor(balance?.averageBscScore))}>{fmt(balance?.averageBscScore)}</p>
             <p className="text-xs font-medium text-slate-400">{balance?.evaluationCount ?? 0} đánh giá</p>
           </div>
         </div>
-        <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-200 dark:border-slate-800 flex items-center gap-3">
-          <div className="w-11 h-11 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center justify-center shrink-0"><Award size={22} /></div>
+        <div className="bg-[var(--color-card)] rounded-widget p-4 border border-[var(--color-border)] flex items-center gap-3">
+          <div className="w-11 h-11 rounded-full bg-[var(--color-muted)] text-[var(--color-muted-foreground)] flex items-center justify-center shrink-0"><Award size={22} /></div>
           <div className="min-w-0">
             <p className="text-xs font-medium text-slate-500">Hạng mục mạnh nhất</p>
-            <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">{balance?.strongestPerspective ?? '-'}</p>
+            <p className="text-sm font-semibold text-[var(--color-foreground)] truncate">{balance?.strongestPerspective ?? '-'}</p>
             <p className="text-xs font-semibold text-emerald-600">{fmt(balance?.strongestScore)}%</p>
           </div>
         </div>
-        <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-200 dark:border-slate-800 flex items-center gap-3">
+        <div className="bg-[var(--color-card)] rounded-widget p-4 border border-[var(--color-border)] flex items-center gap-3">
           <div className="w-11 h-11 rounded-full bg-rose-100 dark:bg-rose-900/40 text-rose-600 dark:text-rose-400 flex items-center justify-center shrink-0"><AlertTriangle size={22} /></div>
           <div className="min-w-0">
             <p className="text-xs font-medium text-slate-500">Hạng mục yếu nhất</p>
-            <p className="text-sm font-semibold text-slate-900 dark:text-white truncate">{balance?.weakestPerspective ?? '-'}</p>
+            <p className="text-sm font-semibold text-[var(--color-foreground)] truncate">{balance?.weakestPerspective ?? '-'}</p>
             <p className="text-xs font-semibold text-rose-500">{fmt(balance?.weakestScore)}%</p>
           </div>
         </div>
-        <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 border border-slate-200 dark:border-slate-800 flex items-center gap-3">
-          <div className="w-11 h-11 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 flex items-center justify-center shrink-0"><ShieldCheck size={22} /></div>
+        <div className="bg-[var(--color-card)] rounded-widget p-4 border border-[var(--color-border)] flex items-center gap-3">
+          <div className="w-11 h-11 rounded-full bg-[var(--color-muted)] text-[var(--color-muted-foreground)] flex items-center justify-center shrink-0"><ShieldCheck size={22} /></div>
           <div className="min-w-0">
             <p className="text-xs font-medium text-slate-500">Độ phủ hạng mục</p>
             <p className="text-2xl font-semibold tabular-nums">{fmt(balance?.coveragePercent)}%</p>
@@ -126,13 +127,13 @@ export function BscPerspectiveCards({ filter }: { filter?: PinnedFilter }) {
           const ach = p.averageScore
           const color = p.color || DEFAULT_COLOR
           return (
-            <div key={p.perspectiveId} className="relative overflow-hidden bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-4 shadow-sm">
+            <div key={p.perspectiveId} className="relative overflow-hidden bg-[var(--color-card)] rounded-widget border border-[var(--color-border)] p-4 shadow-sm">
               <div className="absolute top-0 left-0 w-1.5 h-full" style={{ backgroundColor: color }} />
               <div className="flex items-start justify-between gap-2 pl-2">
                 <div className="min-w-0">
                   <div className="flex items-center gap-2">
                     <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
-                    <h4 className="text-sm font-semibold text-slate-900 dark:text-white truncate">{p.name}</h4>
+                    <h4 className="text-sm font-semibold text-[var(--color-foreground)] truncate">{p.name}</h4>
                   </div>
                   <p className="text-xs font-medium text-slate-400 mt-0.5">
                     Trọng số {fmt(p.weightPercentage)}% · {p.kpiCount ?? 0} KPI
@@ -142,12 +143,12 @@ export function BscPerspectiveCards({ filter }: { filter?: PinnedFilter }) {
                   {ach != null ? Math.round(ach) : '-'}<span className="text-sm">%</span>
                 </p>
               </div>
-              <div className="mt-3 ml-2 h-2 rounded-full bg-slate-100 dark:bg-slate-800 overflow-hidden">
+              <div className="mt-3 ml-2 h-2 rounded-full bg-[var(--color-muted)] overflow-hidden">
                 <div className="h-full rounded-full transition-all duration-700" style={{ width: `${Math.min(100, ach || 0)}%`, backgroundColor: color }} />
               </div>
               <div className="flex items-center justify-between mt-2 ml-2 text-xs font-medium text-slate-400">
                 <span>Đóng góp</span>
-                <span className="text-slate-600 dark:text-slate-300">{fmt(p.weightedScore)} đ</span>
+                <span className="text-[var(--color-muted-foreground)]">{fmt(p.weightedScore)} đ</span>
               </div>
             </div>
           )
@@ -298,15 +299,11 @@ export function BscVsSystemWidget({ filter, level: levelProp, shape = 'bar', hid
   return (
     <div className="flex-1 min-h-0 flex flex-col gap-3">
       {meta}
-      {!hideControls && <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 self-start shrink-0">
+      {!hideControls && <div className="flex items-center gap-0.5 bg-[var(--color-muted)] rounded-control p-0.5 self-start shrink-0">
         {(['UNIT', 'MEMBER'] as const).map(l => (
-          <button
-            key={l} onClick={() => setLevel(l)} aria-pressed={level === l}
-            className={cn('text-xs font-medium px-2.5 py-1 rounded-md transition-colors cursor-pointer',
-              level === l ? 'bg-white dark:bg-slate-700 text-[var(--color-primary)] shadow-sm' : 'text-slate-500')}
-          >
+          <ChoiceChip key={l} selected={level === l} variant="segment" size="sm" onClick={() => setLevel(l)}>
             {l === 'UNIT' ? 'Theo đơn vị' : 'Theo nhân sự'}
-          </button>
+          </ChoiceChip>
         ))}
       </div>}
       {rows.length === 0 ? <EmptyState>Chưa có điểm để đối chiếu</EmptyState> : (
@@ -345,7 +342,7 @@ export function BscCoverageWidget({ filter }: { filter?: PinnedFilter }) {
       {balance?.unmappedKpiNames?.length ? (
         <div className="mt-3 flex-1 min-h-0 overflow-auto custom-scrollbar space-y-1.5">
           {balance.unmappedKpiNames.map((n, i) => (
-            <div key={i} className="flex items-center gap-2 text-xs font-semibold text-slate-600 dark:text-slate-300 bg-amber-50 dark:bg-amber-900/15 rounded-lg px-3 py-2">
+            <div key={i} className="flex items-center gap-2 text-xs font-semibold text-[var(--color-muted-foreground)] bg-amber-50 dark:bg-amber-900/15 rounded-lg px-3 py-2">
               <AlertTriangle size={13} className="text-amber-500 shrink-0" /> <span className="truncate">{n}</span>
             </div>
           ))}
@@ -391,15 +388,11 @@ export function BscRankingWidget({ filter, sortBy: sortProp, viewControl, hideCo
           {!hideControls && <ViewToggleButtons view={view} onChange={setView} />}
         </div>
       )}
-      {!hideControls && <div className="flex items-center gap-1 bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 self-start shrink-0">
+      {!hideControls && <div className="flex items-center gap-0.5 bg-[var(--color-muted)] rounded-control p-0.5 self-start shrink-0">
         {([['bscScore', 'Điểm BSC'], ['systemScore', 'Điểm hệ thống']] as const).map(([k, lb]) => (
-          <button
-            key={k} onClick={() => setSortBy(k)} aria-pressed={sortBy === k}
-            className={cn('text-xs font-medium px-2.5 py-1 rounded-md transition-colors cursor-pointer',
-              sortBy === k ? 'bg-white dark:bg-slate-700 text-[var(--color-primary)] shadow-sm' : 'text-slate-500')}
-          >
+          <ChoiceChip key={k} selected={sortBy === k} variant="segment" size="sm" onClick={() => setSortBy(k)}>
             {lb}
-          </button>
+          </ChoiceChip>
         ))}
       </div>}
 
@@ -431,7 +424,7 @@ export function BscRankingWidget({ filter, sortBy: sortProp, viewControl, hideCo
       ) : (
       <div className="flex-1 min-h-0 overflow-auto custom-scrollbar">
         <table className="w-full text-left">
-          <thead className="bg-slate-50 dark:bg-slate-800/50 sticky top-0 z-10">
+          <thead className="bg-[var(--color-muted)] sticky top-0 z-10">
             <tr className="text-xs font-medium text-slate-500">
               <th className="px-3 py-3 w-10">#</th>
               <th className="px-3 py-3">Nhân sự</th>
@@ -440,12 +433,12 @@ export function BscRankingWidget({ filter, sortBy: sortProp, viewControl, hideCo
               <th className="px-3 py-3 hidden lg:table-cell">Breakdown hạng mục</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+          <tbody className="divide-y divide-[var(--color-border)]">
             {(ranking?.content || []).map((row, idx) => (
               <tr key={row.userId} className="hover:bg-slate-50 dark:hover:bg-slate-800/40">
                 <td className="px-3 py-3 text-sm font-medium text-slate-400 tabular-nums">{page * RANK_PAGE_SIZE + idx + 1}</td>
                 <td className="px-3 py-3">
-                  <p className="text-sm font-semibold text-slate-900 dark:text-white">{row.fullName}</p>
+                  <p className="text-sm font-semibold text-[var(--color-foreground)]">{row.fullName}</p>
                   <p className="text-xs text-slate-400">{row.email}</p>
                 </td>
                 <td className={cn('px-3 py-3 text-right text-sm font-semibold tabular-nums', scoreColor(row.bscScore))}>{fmt(row.bscScore)}</td>

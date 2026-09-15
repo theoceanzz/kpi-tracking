@@ -27,8 +27,8 @@ function PointTooltip({ active, payload, xLabel, yLabel }: PointTooltipProps) {
   if (!active || !p) return null
   const anonymous = !p.name
   return (
-    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-lg shadow-md">
-      <p className="font-semibold text-slate-900 dark:text-white mb-1">
+    <div className="bg-[var(--color-card)] border border-[var(--color-border)] p-4 rounded-lg shadow-md">
+      <p className="font-semibold text-[var(--color-foreground)] mb-1">
         {p.isSelf ? 'Bạn' : anonymous ? 'Một thành viên khác' : p.name}
       </p>
       {p.orgUnitName && <p className="text-xs text-slate-500 mb-3">{p.orgUnitName}</p>}
@@ -49,14 +49,14 @@ function Row({ label, value, color }: { label: string; value: string; color?: st
     <div className="flex items-center gap-3">
       {color && <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: color }} />}
       <span className="text-slate-500 font-medium min-w-[120px]">{label}:</span>
-      <span className="font-semibold text-slate-900 dark:text-white">{value}</span>
+      <span className="font-semibold text-[var(--color-foreground)]">{value}</span>
     </div>
   )
 }
 
 function Shell({ children, fillHeight }: { children: React.ReactNode; fillHeight?: boolean }) {
   return (
-    <div className={`w-full ${fillHeight ? 'h-full' : 'h-[420px]'} flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-200 dark:border-slate-800`}>
+    <div className={`w-full ${fillHeight ? 'h-full' : 'h-[420px]'} flex flex-col items-center justify-center bg-[var(--color-muted)] rounded-2xl border border-[var(--color-border)]`}>
       {children}
     </div>
   )
@@ -172,7 +172,7 @@ export default function BehaviorCompletionScatter({ data, isLoading, fillHeight 
         </ResponsiveContainer>
       </div>
 
-      <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 pt-3 text-xs font-medium text-slate-500 dark:text-slate-400">
+      <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 pt-3 text-xs font-medium text-[var(--color-muted-foreground)]">
         {[1, 2, 3, 4, 5].map(r => (
           <span key={r} className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: ratingColor(r) }} />

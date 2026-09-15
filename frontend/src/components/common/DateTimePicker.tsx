@@ -5,23 +5,24 @@ import { DayPicker } from 'react-day-picker'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { cn } from '@/lib/utils'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
+import { Button } from '@/components/ui/button'
 
 const DAY_PICKER_CLASS_NAMES = {
   months: 'flex flex-col',
   month: 'space-y-2',
   month_caption: 'flex justify-center relative items-center h-9 px-8',
-  caption_label: 'text-sm font-bold text-slate-900 dark:text-white',
+  caption_label: 'text-sm font-medium text-[var(--color-foreground)]',
   nav: 'absolute inset-x-0 top-0 flex justify-between',
-  button_previous: 'h-9 w-9 flex items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors',
-  button_next: 'h-9 w-9 flex items-center justify-center rounded-xl text-slate-500 hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors',
+  button_previous: 'h-9 w-9 flex items-center justify-center rounded-card text-[var(--color-muted-foreground)] hover:bg-[var(--color-muted)] transition-colors',
+  button_next: 'h-9 w-9 flex items-center justify-center rounded-card text-[var(--color-muted-foreground)] hover:bg-[var(--color-muted)] transition-colors',
   weekdays: 'flex',
-  weekday: 'w-9 h-8 text-center text-[11px] font-black text-slate-400 uppercase',
+  weekday: 'w-9 h-8 text-center text-caption uppercase',
   weeks: '',
   week: 'flex mt-1',
   day: 'w-9 h-9 p-0 text-center flex items-center justify-center',
-  day_button: 'w-9 h-9 rounded-xl text-sm font-medium transition-colors hover:bg-slate-100 dark:hover:bg-slate-700',
-  selected: 'bg-indigo-600 text-white rounded-xl hover:bg-indigo-700 font-bold',
-  today: 'text-indigo-600 dark:text-indigo-400 font-bold',
+  day_button: 'w-9 h-9 rounded-card text-sm font-medium transition-colors hover:bg-[var(--color-muted)]',
+  selected: 'bg-[var(--color-primary)] text-[var(--color-primary-foreground)] rounded-card hover:bg-[var(--color-primary-hover)] font-semibold',
+  today: 'text-[var(--color-primary)] font-semibold',
   outside: 'opacity-30',
   disabled: 'opacity-20 cursor-not-allowed',
   hidden: 'invisible',
@@ -50,30 +51,30 @@ export function DatePicker({ value, onChange, placeholder = 'Chọn ngày', clas
         <button
           type="button"
           className={cn(
-            'flex items-center gap-1.5 pl-2.5 pr-2 py-2 rounded-xl',
-            'border border-slate-100 dark:border-slate-800',
-            'bg-slate-50/50 dark:bg-slate-800/50 text-left transition-all',
-            'hover:border-indigo-300 dark:hover:border-indigo-700 outline-none',
+            'flex items-center gap-1.5 pl-2.5 pr-2 py-2 rounded-card',
+            'border border-[var(--color-border)]',
+            'bg-[var(--color-muted)] text-left transition-all',
+            'hover:border-[var(--color-primary)] outline-none',
             className
           )}
         >
-          <CalendarIcon size={13} className="text-slate-400 shrink-0" />
-          <span className={cn('text-[11px] font-black uppercase text-slate-600 dark:text-slate-400', !value && 'text-slate-400')}>
+          <CalendarIcon size={13} className="text-[var(--color-subtle-foreground)] shrink-0" />
+          <span className={cn('text-xs font-semibold uppercase text-[var(--color-muted-foreground)]', !value && 'text-[var(--color-subtle-foreground)]')}>
             {value && validSelected ? format(validSelected, 'dd/MM/yyyy') : placeholder}
           </span>
           {value && onClear && (
             <button
               type="button"
               onClick={e => { e.stopPropagation(); onClear() }}
-              className="ml-0.5 p-0.5 rounded-md hover:bg-slate-200 dark:hover:bg-slate-700 transition-colors"
+              className="ml-0.5 p-0.5 rounded-control hover:bg-[var(--color-muted)] transition-colors"
             >
-              <X size={11} className="text-slate-400" />
+              <X size={11} className="text-[var(--color-subtle-foreground)]" />
             </button>
           )}
         </button>
       </PopoverTrigger>
       <PopoverContent
-        className="w-auto p-3 z-[300] border-slate-200 dark:border-slate-800 shadow-2xl"
+        className="w-auto p-3 z-[300] border-[var(--color-border)] shadow-2xl"
         align="start"
         collisionPadding={12}
         sideOffset={6}
@@ -138,18 +139,18 @@ export function DateTimePicker({ value, onChange, placeholder = 'Chọn ngày gi
           value={value || ''}
           onChange={e => onChange(e.target.value)}
           className={cn(
-            'w-full px-6 py-4 rounded-[22px]',
-            'border border-slate-100 dark:border-slate-800',
-            'bg-slate-50/50 dark:bg-slate-800/50',
-            'focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/50 outline-none',
-            'text-sm font-bold transition-all text-transparent',
+            'w-full px-6 py-4 rounded-card',
+            'border border-[var(--color-border)]',
+            'bg-[var(--color-muted)]',
+            'focus:ring-4 focus:ring-[var(--color-ring)] focus:border-[var(--color-primary)] outline-none',
+            'text-sm font-medium transition-all text-transparent',
             '[color-scheme:light] dark:[color-scheme:dark]'
           )}
         />
-        <div className="absolute inset-0 left-6 flex items-center pointer-events-none text-sm font-bold">
+        <div className="absolute inset-0 left-6 flex items-center pointer-events-none text-sm font-medium">
           {value
-            ? <span className="text-slate-900 dark:text-white">{format(new Date(value), 'dd/MM/yyyy HH:mm')}</span>
-            : <span className="text-slate-400 font-medium">{placeholder}</span>
+            ? <span className="text-[var(--color-foreground)]">{format(new Date(value), 'dd/MM/yyyy HH:mm')}</span>
+            : <span className="text-[var(--color-subtle-foreground)] font-medium">{placeholder}</span>
           }
         </div>
       </div>
@@ -163,23 +164,23 @@ export function DateTimePicker({ value, onChange, placeholder = 'Chọn ngày gi
         <button
           type="button"
           className={cn(
-            'w-full flex items-center gap-3 px-5 py-4 rounded-[20px]',
-            'border border-slate-100 dark:border-slate-800',
-            'bg-slate-50/50 dark:bg-slate-800/50 text-left transition-all',
-            'hover:border-indigo-300 dark:hover:border-indigo-700',
-            'focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/50 outline-none',
+            'w-full flex items-center gap-3 px-5 py-4 rounded-card',
+            'border border-[var(--color-border)]',
+            'bg-[var(--color-muted)] text-left transition-all',
+            'hover:border-[var(--color-primary)]',
+            'focus:ring-4 focus:ring-[var(--color-ring)] focus:border-[var(--color-primary)] outline-none',
             className
           )}
         >
-          <CalendarIcon size={16} className="text-slate-400 shrink-0" />
-          <span className={cn('flex-1 text-sm font-bold text-slate-900 dark:text-white', !value && 'text-slate-400 font-medium')}>
+          <CalendarIcon size={16} className="text-[var(--color-subtle-foreground)] shrink-0" />
+          <span className={cn('flex-1 text-sm font-medium text-[var(--color-foreground)]', !value && 'text-[var(--color-subtle-foreground)] font-medium')}>
             {value ? format(new Date(value), 'dd/MM/yyyy HH:mm') : placeholder}
           </span>
         </button>
       </PopoverTrigger>
 
       <PopoverContent
-        className="w-auto p-0 z-[300] border-slate-200 dark:border-slate-800 shadow-2xl"
+        className="w-auto p-0 z-[300] border-[var(--color-border)] shadow-2xl"
         align="start"
         collisionPadding={12}
         sideOffset={6}
@@ -195,43 +196,39 @@ export function DateTimePicker({ value, onChange, placeholder = 'Chọn ngày gi
         />
 
         {/* Custom time picker */}
-        <div className="border-t border-slate-100 dark:border-slate-800 px-3 py-2 flex items-center gap-3">
+        <div className="border-t border-[var(--color-border)] px-3 py-2 flex items-center gap-3">
           {/* Hour */}
           <div className="flex flex-col items-center gap-0.5">
-            <button type="button" onClick={() => changeHour(1)} className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors text-slate-500">
+            <button type="button" onClick={() => changeHour(1)} className="p-1 rounded-control hover:bg-[var(--color-muted)] transition-colors text-[var(--color-muted-foreground)]">
               <ChevronUp size={16} />
             </button>
-            <span className="w-10 text-center text-lg font-black text-slate-900 dark:text-white tabular-nums leading-none py-1">
+            <span className="w-10 text-center text-lg font-semibold text-[var(--color-foreground)] tabular-nums leading-none py-1">
               {String(hour).padStart(2, '0')}
             </span>
-            <button type="button" onClick={() => changeHour(-1)} className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors text-slate-500">
+            <button type="button" onClick={() => changeHour(-1)} className="p-1 rounded-control hover:bg-[var(--color-muted)] transition-colors text-[var(--color-muted-foreground)]">
               <ChevronDown size={16} />
             </button>
           </div>
 
-          <span className="text-xl font-black text-slate-400 leading-none mb-0.5">:</span>
+          <span className="text-xl font-semibold text-[var(--color-subtle-foreground)] leading-none mb-0.5">:</span>
 
           {/* Minute */}
           <div className="flex flex-col items-center gap-0.5">
-            <button type="button" onClick={() => changeMinute(5)} className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors text-slate-500">
+            <button type="button" onClick={() => changeMinute(5)} className="p-1 rounded-control hover:bg-[var(--color-muted)] transition-colors text-[var(--color-muted-foreground)]">
               <ChevronUp size={16} />
             </button>
-            <span className="w-10 text-center text-lg font-black text-slate-900 dark:text-white tabular-nums leading-none py-1">
+            <span className="w-10 text-center text-lg font-semibold text-[var(--color-foreground)] tabular-nums leading-none py-1">
               {String(minute).padStart(2, '0')}
             </span>
-            <button type="button" onClick={() => changeMinute(-5)} className="p-1 rounded-lg hover:bg-slate-100 dark:hover:bg-slate-700 transition-colors text-slate-500">
+            <button type="button" onClick={() => changeMinute(-5)} className="p-1 rounded-control hover:bg-[var(--color-muted)] transition-colors text-[var(--color-muted-foreground)]">
               <ChevronDown size={16} />
             </button>
           </div>
 
-          <button
-            type="button"
-            onClick={() => setOpen(false)}
-            className="ml-auto flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-600 text-white text-xs font-black hover:bg-indigo-700 transition-colors"
-          >
-            <Check size={13} />
+          <Button size="sm" className="ml-auto" type="button" onClick={() => setOpen(false)}>
+            <Check aria-hidden="true" />
             Xong
-          </button>
+          </Button>
         </div>
       </PopoverContent>
     </Popover>
@@ -279,7 +276,7 @@ export function DateField({ value, onChange, placeholder = 'Chọn ngày', class
             type="button"
             className={cn(className, 'flex items-center gap-2 text-left')}
           >
-            <CalendarIcon size={15} className="text-slate-400 shrink-0" />
+            <CalendarIcon size={15} className="text-[var(--color-subtle-foreground)] shrink-0" />
             {valid
               ? <span className="flex-1">{format(valid, 'dd/MM/yyyy')}</span>
               : <span className="flex-1 text-[var(--color-muted-foreground)]">{placeholder}</span>
@@ -289,7 +286,7 @@ export function DateField({ value, onChange, placeholder = 'Chọn ngày', class
         {/* z-[1100]: DateField chủ yếu dùng trong modal (z-[1000]), để mặc định z-50
             thì lịch mở ra nằm phía sau modal và không bấm được. */}
         <PopoverContent
-          className="w-auto p-3 z-[1100] border-slate-200 dark:border-slate-800 shadow-2xl"
+          className="w-auto p-3 z-[1100] border-[var(--color-border)] shadow-2xl"
           align="start"
           collisionPadding={12}
           sideOffset={6}

@@ -1,11 +1,12 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/apiError'
 import { checkinApi } from '../api/checkinApi'
 import type { CheckinConfigRequest } from '../types'
 
 /** Lấy thông báo nghiệp vụ backend trả về; các lỗi này là câu tiếng Việt viết sẵn cho người dùng. */
 const errMsg = (error: unknown, fallback: string) =>
-  (error as { response?: { data?: { message?: string } } })?.response?.data?.message || fallback
+  getApiErrorMessage(error, fallback)
 
 /**
  * Trạng thái điểm danh của tôi. Dùng ở thẻ trong "Điểm thưởng của tôi" và ở banner nhắc

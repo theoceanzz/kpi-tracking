@@ -15,7 +15,7 @@ import type { TourDef } from './registry'
  */
 
 const note = (text: string) => (
-  <p className="text-[11px] bg-indigo-50 dark:bg-indigo-900/20 p-2 rounded-lg text-indigo-700 dark:text-indigo-300 font-bold italic">
+  <p className="text-xs bg-[var(--color-primary-soft)] p-2 rounded-control text-[var(--color-primary)] font-medium italic">
     💡 {text}
   </p>
 )
@@ -39,7 +39,7 @@ const commonSteps: Step[] = [
           Mỗi ô ở đây là <strong>đúng biểu đồ và đúng số liệu</strong> bên trang Phân tích &amp; Thống kê,
           không phải một bản dựng lại — nên con số hai nơi luôn khớp nhau.
         </p>
-        <p className="text-[11px] text-slate-500">
+        <p className="text-caption">
           Bố cục được lưu theo từng người và từng vai trò, nên bạn sắp thế nào thì lần sau mở ra vẫn thế.
         </p>
       </div>
@@ -69,7 +69,7 @@ const commonSteps: Step[] = [
           Trong chế độ chỉnh sửa, <strong>Thêm biểu đồ</strong> mở thư viện widget: bấm một thẻ để thêm,
           bấm lại để gỡ. <strong>Ẩn/Hiện</strong> giữ widget lại nhưng tạm cất khỏi lưới.
         </p>
-        <p className="text-[11px] text-slate-500">
+        <p className="text-caption">
           Chưa biết bắt đầu từ đâu thì chọn một <strong>bố cục gợi ý</strong> ngay đầu thư viện, rồi sửa dần.
           Lỡ tay vẫn còn nút Hoàn tác trong thông báo hiện ra.
         </p>

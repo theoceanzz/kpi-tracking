@@ -154,7 +154,7 @@ export default function BscAnalyticsTab() {
   return (
     <div className="space-y-6 pb-12">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <h2 className="text-xl font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+        <h2 className="text-xl font-semibold text-[var(--color-foreground)] flex items-center gap-2">
           <Gauge size={20} className="text-slate-400" /> Hạng mục BSC
         </h2>
         <div id="tour-analytics-customize" className="flex items-center gap-3 flex-wrap">

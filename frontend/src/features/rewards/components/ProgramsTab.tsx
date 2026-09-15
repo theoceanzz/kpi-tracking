@@ -14,6 +14,7 @@ import {
   RewardRankingMetric,
   type RewardProgram,
 } from '../types'
+import { Button } from '@/components/ui/button'
 
 const SCOPE_LABEL: Record<RewardProgramScope, string> = {
   [RewardProgramScope.CYCLE]: 'Theo kỳ',
@@ -32,7 +33,7 @@ const tierSummary = (p: RewardProgram) =>
     .map((t) =>
       t.fromRank === t.toRank
         ? `Hạng ${t.fromRank}: ${t.points}`
-        : `Hạng ${t.fromRank}–${t.toRank}: ${t.points}`,
+        : `Hạng ${t.fromRank} –${t.toRank}: ${t.points}`,
     )
     .join(' · ')
 
@@ -47,7 +48,7 @@ export default function ProgramsTab() {
 
   return (
     <div id="tour-programs-root">
-      <div id="tour-programs-note" className="mb-4 flex items-start gap-2.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-muted)]/40 px-4 py-3 text-sm">
+      <div id="tour-programs-note" className="mb-4 flex items-start gap-2.5 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)]/40 px-4 py-3 text-sm">
         <Info size={16} className="mt-0.5 flex-shrink-0 text-[var(--color-muted-foreground)]" />
         <p className="text-[var(--color-muted-foreground)]">
           Chương trình <b>không tự chạy</b>. Bấm <b>▷ Chạy</b> để chọn một đợt/kỳ, sửa bậc thưởng
@@ -62,37 +63,31 @@ export default function ProgramsTab() {
           {(data ?? []).length > 0 && `${(data ?? []).length} chương trình`}
         </span>
         <WorkspaceHeaderActions>
-          <button
-            onClick={() => {
+          <Button onClick={() => {
               setEditing(null)
               setFormOpen(true)
-            }}
-            className="inline-flex flex-shrink-0 items-center gap-2 rounded-xl bg-[var(--color-primary)] px-5 h-10 text-sm font-bold text-white shadow-sm transition-opacity hover:opacity-90"
-          >
-            <Plus size={16} />
+            }}>
+            <Plus aria-hidden="true" />
             Tạo chương trình
-          </button>
+          </Button>
         </WorkspaceHeaderActions>
       </div>
 
       {isLoading ? (
         <LoadingSkeleton type="table" rows={3} />
       ) : (data ?? []).length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-[var(--color-border)]">
+        <div className="rounded-card border border-dashed border-[var(--color-border)]">
           <EmptyState
             title="Chưa có chương trình thưởng tự động"
             description="Thay vì chọn tay từng người, hãy đặt luật một lần: ai lọt top của đợt/kỳ thì được bao nhiêu điểm."
             action={
-              <button
-                onClick={() => {
+              <Button onClick={() => {
                   setEditing(null)
                   setFormOpen(true)
-                }}
-                className="inline-flex items-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white"
-              >
-                <Plus size={16} />
+                }}>
+                <Plus aria-hidden="true" />
                 Tạo chương trình đầu tiên
-              </button>
+              </Button>
             }
           />
         </div>
@@ -119,16 +114,12 @@ export default function ProgramsTab() {
               </div>
               <div className="text-xs text-[var(--color-muted-foreground)]">{tierSummary(row)}</div>
               <div className="flex gap-2 border-t border-[var(--color-border)] pt-2.5">
-                <button
-                  onClick={() => setRunning(row)}
-                  disabled={!row.enabled}
-                  className="flex-1 rounded-lg bg-[var(--color-primary)] py-2 text-sm text-white disabled:opacity-40"
-                >
+                <Button className="flex-1" onClick={() => setRunning(row)} disabled={!row.enabled}>
                   Chạy
-                </button>
+                </Button>
                 <button
                   onClick={() => setViewingRuns(row)}
-                  className="rounded-lg border border-[var(--color-border)] px-3 py-2"
+                  className="rounded-control border border-[var(--color-border)] px-3 py-2"
                 >
                   <History size={15} />
                 </button>
@@ -137,7 +128,7 @@ export default function ProgramsTab() {
                     setEditing(row)
                     setFormOpen(true)
                   }}
-                  className="rounded-lg border border-[var(--color-border)] px-3 py-2"
+                  className="rounded-control border border-[var(--color-border)] px-3 py-2"
                 >
                   <Pencil size={15} />
                 </button>
@@ -203,7 +194,7 @@ export default function ProgramsTab() {
               render: (row) => (
                 <div>
                   {row.enabled ? (
-                    <span className="inline-block rounded-full bg-emerald-500/15 px-2.5 py-1 text-xs font-medium text-emerald-700">
+                    <span className="inline-block rounded-full bg-[var(--color-success-bg)] px-2.5 py-1 text-xs font-medium text-[var(--color-success)]">
                       Đang bật
                     </span>
                   ) : (
@@ -217,7 +208,7 @@ export default function ProgramsTab() {
                     <div className="mt-0.5 flex items-center gap-1 text-xs text-[var(--color-muted-foreground)]">
                       {row.autoTrigger ? (
                         <>
-                          <Zap size={11} className="text-amber-600" />
+                          <Zap size={11} className="text-[var(--color-warning)]" />
                           Tự phát khi kết thúc
                         </>
                       ) : (
@@ -234,46 +225,40 @@ export default function ProgramsTab() {
               header: '',
               render: (row) => (
                 <div className="flex justify-end gap-1">
-                  <button
-                    onClick={() => setRunning(row)}
-                    disabled={!row.enabled}
-                    title={
+                  <Button variant="ghost" size="icon-sm" aria-label={
                       row.enabled
                         ? 'Chạy: chọn kỳ/đợt, sửa bậc riêng nếu cần, xem trước rồi phát thưởng'
                         : 'Chương trình đang tắt'
-                    }
-                    className="rounded-lg p-1.5 text-[var(--color-primary)] hover:bg-[var(--color-accent)] disabled:opacity-30"
-                  >
-                    <Play size={16} />
-                  </button>
-                  <button
-                    onClick={() => setViewingRuns(row)}
-                    title="Lịch sử phát thưởng"
-                    className="rounded-lg p-1.5 hover:bg-[var(--color-accent)]"
-                  >
-                    <History size={15} />
-                  </button>
+                    } onClick={() => setRunning(row)} disabled={!row.enabled} title={
+                      row.enabled
+                        ? 'Chạy: chọn kỳ/đợt, sửa bậc riêng nếu cần, xem trước rồi phát thưởng'
+                        : 'Chương trình đang tắt'
+                    }>
+                    <Play aria-hidden="true" />
+                  </Button>
+                  <Button variant="ghost" size="icon-sm" aria-label="Lịch sử phát thưởng" onClick={() => setViewingRuns(row)} title="Lịch sử phát thưởng">
+                    <History aria-hidden="true" />
+                  </Button>
                   <button
                     onClick={() => {
                       setEditing(row)
                       setFormOpen(true)
                     }}
-                    className="rounded-lg p-1.5 hover:bg-[var(--color-accent)]"
+                    className="rounded-control p-1.5 hover:bg-[var(--color-accent)]"
                   >
                     <Pencil size={15} />
                   </button>
-                  <button
-                    onClick={() => setDeleting(row)}
-                    disabled={row.issuedRunCount > 0}
-                    title={
+                  <Button variant="ghost" size="icon-sm" className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]" aria-label={
                       row.issuedRunCount > 0
                         ? 'Đã phát thưởng — không xoá được, hãy tắt chương trình'
                         : 'Xoá'
-                    }
-                    className="rounded-lg p-1.5 text-rose-600 hover:bg-rose-500/10 disabled:cursor-not-allowed disabled:opacity-30"
-                  >
-                    <Trash2 size={15} />
-                  </button>
+                    } onClick={() => setDeleting(row)} disabled={row.issuedRunCount > 0} title={
+                      row.issuedRunCount > 0
+                        ? 'Đã phát thưởng — không xoá được, hãy tắt chương trình'
+                        : 'Xoá'
+                    }>
+                    <Trash2 aria-hidden="true" />
+                  </Button>
                 </div>
               ),
             },

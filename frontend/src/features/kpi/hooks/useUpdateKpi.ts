@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { kpiApi } from '../api/kpiApi'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/apiError'
 import type { UpdateKpiRequest } from '@/types/kpi'
 
 export function useUpdateKpi() {
@@ -12,6 +13,6 @@ export function useUpdateKpi() {
       qc.invalidateQueries({ queryKey: ['stats'] });
       toast.success('Cập nhật chỉ tiêu thành công') 
     },
-    onError: () => toast.error('Cập nhật thất bại'),
+    onError: (error) => toast.error(getApiErrorMessage(error, 'Cập nhật chỉ tiêu thất bại')),
   })
 }

@@ -127,18 +127,18 @@ export function DrillUnitSummaryWidget({ filter }: { filter?: PinnedFilter }) {
   if (!data) return <div className="flex-1 flex items-center justify-center text-sm text-slate-400">Chưa có dữ liệu đơn vị</div>
   // Thẻ trung tính thay cho banner gradient: cùng vỏ với thẻ số liệu ở các tab khác.
   return (
-    <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 flex flex-wrap items-center justify-between gap-4">
+    <div className="bg-[var(--color-card)] rounded-widget border border-[var(--color-border)] p-5 flex flex-wrap items-center justify-between gap-4">
       <div className="min-w-0">
         <p className="text-xs font-medium text-slate-500">{data.levelName || 'Cấp đơn vị'}</p>
-        <h3 className="text-xl font-semibold text-slate-900 dark:text-white mt-0.5 truncate">{data.orgUnitName || 'Tất cả'}</h3>
+        <h3 className="text-xl font-semibold text-[var(--color-foreground)] mt-0.5 truncate">{data.orgUnitName || 'Tất cả'}</h3>
       </div>
       <div className="flex items-center gap-8 shrink-0">
         <div>
-          <p className="text-2xl font-semibold text-slate-900 dark:text-white leading-none">{data.memberCount}</p>
+          <p className="text-2xl font-semibold text-[var(--color-foreground)] leading-none">{data.memberCount}</p>
           <p className="text-xs font-medium text-slate-500 mt-1">Nhân sự</p>
         </div>
         <div>
-          <p className="text-2xl font-semibold text-slate-900 dark:text-white leading-none">{data.totalKpi}</p>
+          <p className="text-2xl font-semibold text-[var(--color-foreground)] leading-none">{data.totalKpi}</p>
           <p className="text-xs font-medium text-slate-500 mt-1">KPI tổng</p>
         </div>
       </div>
@@ -206,7 +206,7 @@ export function DrillEmployeeTableWidget({ filter, viewControl, hideControls, me
             value={searchInput}
             onChange={e => setSearchInput(e.target.value)}
             aria-label="Tìm thành viên"
-            className="w-full pl-9 pr-3 py-2 bg-slate-50 dark:bg-slate-800 border-none rounded-lg text-xs font-semibold focus:ring-2 focus:ring-[var(--color-primary)] transition-all"
+            className="w-full pl-9 pr-3 py-2 bg-[var(--color-muted)] border-none rounded-lg text-xs font-semibold focus:ring-2 focus:ring-[var(--color-primary)] transition-all"
           />
           <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
         </div>
@@ -234,8 +234,8 @@ export function DrillEmployeeTableWidget({ filter, viewControl, hideControls, me
       ) : (
       <div className="flex-1 min-h-0 overflow-auto custom-scrollbar">
         <table className="w-full text-sm">
-          <thead className="sticky top-0 bg-white dark:bg-slate-900 z-10">
-            <tr className="text-xs font-medium text-slate-400 border-b border-slate-100 dark:border-slate-800">
+          <thead className="sticky top-0 bg-[var(--color-card)] z-10">
+            <tr className="text-xs font-medium text-slate-400 border-b border-[var(--color-border)]">
               <th className="px-3 py-3 text-left">Họ tên &amp; Vai trò</th>
               <th className="px-3 py-3 text-left hidden lg:table-cell">Đơn vị</th>
               <th className="px-3 py-3 text-center">KPI</th>
@@ -255,10 +255,10 @@ export function DrillEmployeeTableWidget({ filter, viewControl, hideControls, me
                         fullName={emp.fullName}
                         avatarUrl={emp.avatarUrl}
                         className="w-8 h-8 rounded-lg shrink-0"
-                        fallbackClassName="bg-slate-100 dark:bg-slate-800 text-xs font-semibold text-slate-600"
+                        fallbackClassName="bg-[var(--color-muted)] text-xs font-semibold text-slate-600"
                       />
                       <div className="min-w-0">
-                        <p className="font-semibold text-slate-900 dark:text-white leading-none truncate">{emp.fullName}</p>
+                        <p className="font-semibold text-[var(--color-foreground)] leading-none truncate">{emp.fullName}</p>
                         <p className="text-xs font-medium text-slate-400 mt-1 truncate">{emp.roleName}</p>
                       </div>
                     </div>
@@ -269,13 +269,13 @@ export function DrillEmployeeTableWidget({ filter, viewControl, hideControls, me
                         <Building2 size={11} /> Đơn vị hiện tại
                       </span>
                     ) : (
-                      <span className="text-xs font-semibold text-slate-600 dark:text-slate-300">{emp.orgUnitName || '-'}</span>
+                      <span className="text-xs font-semibold text-[var(--color-muted-foreground)]">{emp.orgUnitName || '-'}</span>
                     )}
                   </td>
                   <td className="px-3 py-3 text-center font-semibold text-slate-800 dark:text-slate-200 tabular-nums">{emp.assignedKpi}</td>
                   <td className="px-3 py-3">
                     <div className="flex items-center gap-2 min-w-[80px]">
-                      <div className="flex-1 h-1.5 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                      <div className="flex-1 h-1.5 bg-[var(--color-muted)] rounded-full overflow-hidden">
                         <div
                           className={cn('h-full rounded-full transition-all', progressPct >= 80 ? 'bg-emerald-500' : progressPct >= 50 ? 'bg-amber-500' : 'bg-red-400')}
                           style={{ width: `${progressPct}%` }}
@@ -395,7 +395,7 @@ export function DrillClassificationWidget({ filter, part, cycleId: cycleProp, hi
           <Select value={cycleId || BY_PERIOD} onValueChange={v => setLocalCycle(v === BY_PERIOD ? '' : v)}>
             <SelectTrigger
               aria-label="Phạm vi xếp loại"
-              className="h-8 w-auto gap-1.5 px-2 rounded-lg bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 text-xs font-semibold text-slate-600 dark:text-slate-300 focus:ring-2 focus:ring-emerald-500/30 focus:ring-offset-0"
+              className="h-8 w-auto gap-1.5 px-2 rounded-lg bg-[var(--color-card)] border-[var(--color-border)] text-xs font-semibold text-[var(--color-muted-foreground)] focus:ring-2 focus:ring-emerald-500/30 focus:ring-offset-0"
               title="Xếp loại theo kỳ dùng điểm chốt kỳ, bỏ qua bộ lọc đợt"
             >
               <SelectValue />
@@ -458,7 +458,7 @@ function MatrixViewSelect({ view, onChange }: { view: MatrixView; onChange: (v: 
   return (
     <Select value={view} onValueChange={v => onChange(v as MatrixView)}>
       <SelectTrigger
-        className="h-8 w-auto gap-1.5 px-2.5 bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium text-slate-600 dark:text-slate-300 shrink-0"
+        className="h-8 w-auto gap-1.5 px-2.5 bg-[var(--color-muted)] border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium text-[var(--color-muted-foreground)] shrink-0"
         title="Cách xem dữ liệu ma trận"
       >
         <span className="text-slate-400 dark:text-slate-500">Xem:</span>

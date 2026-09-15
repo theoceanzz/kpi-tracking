@@ -1,17 +1,21 @@
 import { useState, useMemo } from 'react'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import EmptyState from '@/components/common/EmptyState'
+import WorkspaceHeader from '@/components/common/WorkspaceHeader'
+import FilterBar, { SegmentedControl } from '@/components/common/FilterBar'
+import Pagination from '@/components/common/Pagination'
+import StatusBadge from '@/components/common/StatusBadge'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import KpiTagChips from '../components/KpiTagChips'
 import { useMyKpi } from '../hooks/useMyKpi'
 import { Link } from 'react-router-dom'
-import { cn, formatNumber, FREQUENCY_MAP, STATUS_CONFIG } from '@/lib/utils'
+import { cn, formatNumber } from '@/lib/utils'
 import { parseISO, isAfter } from 'date-fns'
-
 import {
-  Target, Search, Star,
-  CheckCircle2, ChevronRight,
-  LayoutGrid, List, ChevronLeft, Settings2, Filter, Calendar, GitBranch, ChevronDown, CornerDownRight
+  ChevronDown, CornerDownRight, Settings2, GitBranch, CheckCircle2, Star, List, LayoutGrid,
+  Inbox, ListChecks, Clock, AlertCircle, Send,
 } from 'lucide-react'
-
 import { useAuthStore } from '@/store/authStore'
 import { usePageTitle } from '@/features/organization/hooks/usePageTitle'
 import { useKpiPeriods } from '../hooks/useKpiPeriods'
@@ -21,7 +25,6 @@ import { useEvaluations } from '@/features/evaluations/hooks/useEvaluations'
 import { useSearchParams } from 'react-router-dom'
 import { WORKFLOW_PARAMS } from '../workflow/hooks/useWorkflowNavigator'
 import KpiDetailModal from '../components/KpiDetailModal'
-
 import KpiAdjustmentModal from '../components/KpiAdjustmentModal'
 import KpiDelegationModal from '../components/KpiDelegationModal'
 import EvaluationFormModal from '@/features/evaluations/components/EvaluationFormModal'
@@ -33,7 +36,9 @@ import { useScorecards } from '@/features/bsc/hooks/useBsc'
 import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
 import { scorecardsForPeriod } from '@/features/bsc/utils/scorecardScope'
 
+/* eslint-disable @typescript-eslint/no-explicit-any */
 
+const fmtDate = (iso?: string | null) => (iso ? new Date(iso).toLocaleDateString('vi-VN') : '—')
 
 export default function MyKpiPage() {
   const user = useAuthStore(s => s.user)
@@ -60,10 +65,7 @@ export default function MyKpiPage() {
 
   const { data: periodsData } = useKpiPeriods({ organizationId: user?.memberships?.[0]?.organizationId })
   const organizationId = user?.memberships?.[0]?.organizationId
-  const pageTitle = `Danh sách ${usePageTitle('my-kpi', 'KPI của tôi')}`
-    .split(' ')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ')
+  const pageTitle = usePageTitle('my-kpi', 'KPI của tôi')
   const { data: org } = useOrganization(organizationId)
   const enableWaterfall = org?.enableWaterfall
   const enableOkr = org?.enableOkr
@@ -161,629 +163,268 @@ export default function MyKpiPage() {
   }
 
 
+  /* ── Số liệu đầu trang: chỉ những con số đổi hành vi (còn gì phải nộp, gì đã quá hạn) ── */
+  const now = new Date()
+  const headerStats = useMemo(() => {
+    let toSubmit = 0, overdue = 0
+    for (const k of allKpis) {
+      const done = (k.submissionCount || 0) >= (k.expectedSubmissions || 1)
+      const ended = !!k.kpiPeriod?.endDate && isAfter(now, parseISO(k.kpiPeriod.endDate))
+      if (!done && !ended) toSubmit++
+      const next = getNextDeadline(k)
+      if (!done && next && isAfter(now, next)) overdue++
+    }
+    return { total: allKpis.length, toSubmit, overdue }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [allKpis])
+
+  const rowActions = (kpi: KpiCriteria, childKpis: KpiCriteria[]) => {
+    const isStarted = !kpi.kpiPeriod?.startDate || !isAfter(parseISO(kpi.kpiPeriod.startDate), now)
+    const isPeriodEnded = !!kpi.kpiPeriod?.endDate && isAfter(now, parseISO(kpi.kpiPeriod.endDate))
+    const isDelegated = !!kpi.hasChildren
+    const isDecompositionParent = childKpis.some(c => c.parentRelationType === 'DECOMPOSITION')
+    const remaining = (kpi.submissionCount || 0) < (kpi.expectedSubmissions || 1)
+
+    // Trạng thái nộp — một nhãn, hoặc nút "Nộp bài" khi là việc phải làm ngay
+    let main: React.ReactNode
+    if (isDecompositionParent) main = <Badge variant="success">Đã chia KPI con</Badge>
+    else if (!remaining) main = <Badge variant="success"><CheckCircle2 size={12} aria-hidden="true" /> Đã xong</Badge>
+    else if (!isStarted) main = <Badge variant="secondary">Chưa mở</Badge>
+    else if (isPeriodEnded) main = <Badge variant="destructive">Quá hạn</Badge>
+    else if (enableWaterfall && isUserLeader) main = <Badge variant="info">Đang theo dõi</Badge>
+    else main = (
+      <Button asChild size="sm">
+        <Link to={`/submissions/new?kpiId=${kpi.id}`}><Send aria-hidden="true" /> Nộp bài</Link>
+      </Button>
+    )
+
   return (
-    <div className="max-w-[1440px] mx-auto p-4 md:p-6 space-y-6 animate-in fade-in duration-500 transition-all duration-500 ease-in-out">
+      <div className="flex items-center justify-end gap-1">
+        {remaining && !isPeriodEnded && (
+          <Button variant="ghost" size="icon-sm" onClick={() => setAdjustKpi(kpi)} aria-label="Đề nghị điều chỉnh" title="Đề nghị điều chỉnh"><Settings2 aria-hidden="true" /></Button>
+        )}
+        {isUserLeader && enableWaterfall && (
+          <Button variant="ghost" size="icon-sm" onClick={() => setEditKpi(kpi)} aria-label={isDelegated ? 'Đã giao — điều chỉnh' : 'Giao cho nhân viên'} title={isDelegated ? 'Đã giao — bấm để điều chỉnh' : 'Giao cho nhân viên'} className={cn(isDelegated && 'text-[var(--color-success)]')}>
+            <GitBranch aria-hidden="true" />
+          </Button>
+        )}
+        {main}
+      </div>
+    )
+  }
       
-      {/* Refined Header */}
-      <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6 bg-white dark:bg-slate-900 p-6 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm transition-all">
-        <div className="space-y-1 shrink-0">
-          <div className="flex items-center gap-2 text-indigo-600 dark:text-indigo-400">
-            <Target size={18} />
-            <span className="text-[10px] font-black uppercase tracking-[0.2em] whitespace-nowrap">Mục tiêu cá nhân</span>
-          </div>
-          <h1 className="text-2xl font-black tracking-tight text-slate-900 dark:text-white whitespace-nowrap">
-            {pageTitle}
-          </h1>
-        </div>
+  const progressCell = (kpi: KpiCriteria, childKpis: KpiCriteria[]) => {
+    const p = getDisplayProgress(kpi, childKpis)
+    const text = kpi.frequency === 'UNLIMITED' ? `${kpi.submissionCount || 0}/∞` : `${p.count}/${p.expected}`
+    const done = kpi.frequency !== 'UNLIMITED' && p.isComplete
+    return <span className={cn('text-sm tabular-nums', done ? 'text-[var(--color-success)]' : 'text-[var(--color-foreground)]')}>{text} lần</span>
+  }
 
-        <div id="tour-my-kpi-toolbar" className="flex flex-col gap-3 w-full lg:flex-1 lg:max-w-4xl">
-          <div className="flex flex-col gap-3 w-full">
-            <div className="flex flex-col md:flex-row items-center gap-3 w-full">
-              <div className="flex items-center gap-3 w-full md:flex-1">
-                <div className="relative flex-1">
-                  <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={16} />
-                  <input 
-                    value={search}
-                    onChange={e => { setSearch(e.target.value); setPage(0) }}
-                    placeholder="Tìm tên KPI..." 
-                    className="w-full pl-11 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 text-sm focus:ring-2 focus:ring-indigo-500/20 outline-none transition-all"
-                  />
-                </div>
+  const deadlineCell = (kpi: KpiCriteria) => {
+    const next = getNextDeadline(kpi)
+    const done = (kpi.submissionCount || 0) >= (kpi.expectedSubmissions || 1)
+    const overdue = !done && next && isAfter(now, next)
+    return <span className={cn('text-sm tabular-nums', overdue ? 'font-medium text-[var(--color-error)]' : 'text-[var(--color-muted-foreground)]')}>{next ? next.toLocaleDateString('vi-VN') : '—'}</span>
+  }
 
-                {/* Toggle for mobile */}
-                <div className="flex md:hidden items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-xl shrink-0">
-                  <button 
-                    onClick={() => setViewMode('TABLE')}
-                    className={`p-1.5 rounded-lg transition-all ${viewMode === 'TABLE' ? 'bg-white dark:bg-slate-700 shadow-sm text-indigo-600' : 'text-slate-400'}`}
-                  >
-                    <List size={18} />
-                  </button>
-                  <button 
-                    onClick={() => setViewMode('CARD')}
-                    className={`p-1.5 rounded-lg transition-all ${viewMode === 'CARD' ? 'bg-white dark:bg-slate-700 shadow-sm text-indigo-600' : 'text-slate-400'}`}
-                  >
-                    <LayoutGrid size={18} />
-                  </button>
+  const nameCell = (kpi: KpiCriteria, depth: number, childKpis: KpiCriteria[]) => {
+    const isChildRow = depth > 0
+    return (
+      <div className="flex items-start gap-1.5" style={{ paddingLeft: isChildRow ? 24 : 0 }}>
+        {!isChildRow && childKpis.length > 0 && (
+          <Button variant="secondary" size="icon" className="mt-0.5 shrink-0" type="button" onClick={() => toggleParentCollapse(kpi.id)} aria-expanded={!collapsedParents.has(kpi.id)} aria-label={collapsedParents.has(kpi.id) ? 'Mở rộng KPI con' : 'Thu gọn KPI con'}>
+            <ChevronDown aria-hidden="true" className={cn('transition-transform', collapsedParents.has(kpi.id) && '-rotate-90')} />
+                  </Button>
+        )}
+        {isChildRow && <CornerDownRight size={14} className="mt-1 shrink-0 text-[var(--color-subtle-foreground)]" aria-hidden="true" />}
+        <div className="min-w-0 max-w-[360px]">
+          <button className="max-w-full truncate text-left text-sm font-medium text-[var(--color-foreground)] transition-colors hover:text-[var(--color-primary)] hover:underline max-w-full" type="button" onClick={() => setViewKpi(kpi)} title={kpi.name}>{kpi.name}</button>
+          <div className="mt-0.5"><KpiTagChips kpi={kpi} childCount={childKpis.length} isChildRow={isChildRow} /></div>
                 </div>
               </div>
+    )
+  }
 
-              <div className="relative w-full md:w-64 shrink-0">
-                <Filter className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" size={14} />
+  const weightCell = (kpi: KpiCriteria) => {
+    const real = realWeightById.get(kpi.id)
+    return (
+      <span className="tabular-nums" title={real != null ? `Trọng số thật = ${kpi.weight}% × tỷ trọng hạng mục` : undefined}>
+        {real != null ? <><span className="font-medium text-[var(--color-foreground)]">{real.toFixed(1)}%</span><span className="text-caption"> / {kpi.weight}%</span></> : <span className="font-medium text-[var(--color-foreground)]">{kpi.weight}%</span>}
+      </span>
+    )
+  }
+
+  /* ── Header của một đợt: tên + khoảng ngày + tự đánh giá ── */
+  const periodHeader = (periodId: string, periodKpis: KpiCriteria[]) => {
+    const period = periodsData?.content.find(p => p.id === periodId)
+    const isPeriodDone = periodKpis.every(isKpiReadyForEval)
+    const hasEvaluation = myEvals?.content.some(ev => ev.kpiPeriodId === periodId && ev.evaluatorId === user?.id)
+    return (
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--color-border)] bg-[var(--color-muted)] px-4 py-2.5">
+        <div className="min-w-0">
+          <h3 className="truncate text-sm font-medium text-[var(--color-foreground)]">{period?.name || 'Chưa gắn đợt'}</h3>
+          <p className="text-caption tabular-nums">{fmtDate(period?.startDate)} – {fmtDate(period?.endDate)} · {periodKpis.length} chỉ tiêu</p>
+        </div>
+        {isPeriodDone && !hasEvaluation && (
+          <Button size="sm" onClick={() => setSelfEvalPeriodId(periodId)}><Star aria-hidden="true" /> Tự đánh giá đợt này</Button>
+        )}
+        {isPeriodDone && hasEvaluation && <Badge variant="success"><CheckCircle2 size={12} aria-hidden="true" /> Đã tự đánh giá</Badge>}
+      </div>
+    )
+  }
+
+  const emptyTitle = search ? 'Không tìm thấy chỉ tiêu' : selectedPeriodId !== 'ALL' ? 'Đợt này chưa có chỉ tiêu của bạn' : 'Bạn chưa được giao chỉ tiêu'
+  const emptyDesc = search ? 'Thử từ khoá khác hoặc xoá tìm kiếm.' : 'Khi trưởng đơn vị giao và chỉ tiêu được duyệt, chúng sẽ hiện ở đây.'
+
+  return (
+    <div className="mx-auto max-w-[1600px] space-y-4">
+      <WorkspaceHeader
+        id="tour-my-kpi-header"
+        title={pageTitle}
+        description="Chỉ tiêu bạn đang đảm nhận, gom theo đợt. Nộp báo cáo, đề nghị điều chỉnh, hoặc tự đánh giá khi đợt kết thúc."
+        stats={[
+          { label: 'Chỉ tiêu', value: headerStats.total, icon: ListChecks },
+          { label: 'Cần nộp', value: headerStats.toSubmit, icon: Clock },
+          { label: 'Quá hạn', value: headerStats.overdue, icon: AlertCircle },
+        ]}
+      />
+
+      <FilterBar
+        id="tour-my-kpi-toolbar"
+        search={{ value: search, onChange: v => { setSearch(v); setPage(0) }, placeholder: 'Tìm tên chỉ tiêu…' }}
+        trailing={
+          <SegmentedControl ariaLabel="Dạng hiển thị" value={viewMode} onChange={setViewMode}
+            options={[{ value: 'TABLE', label: <List aria-hidden="true" />, title: 'Dạng bảng' }, { value: 'CARD', label: <LayoutGrid aria-hidden="true" />, title: 'Dạng thẻ' }]} />
+        }
+      >
                 <Select value={selectedPeriodId} onValueChange={val => { setSelectedPeriodId(val); setPage(0) }}>
-                  <SelectTrigger className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 text-sm shadow-sm h-10 [&>span]:line-clamp-1 [&>span]:truncate">
-                    <SelectValue placeholder="Tất cả kỳ..." />
-                  </SelectTrigger>
-                  <SelectContent className="rounded-xl border-[var(--color-border)] shadow-lg max-h-[300px]">
-                    <SelectItem value="ALL" className="font-medium cursor-pointer rounded-lg text-sm truncate">Tất cả kỳ...</SelectItem>
-                    {periodsData?.content.map(p => (
-                      <SelectItem key={p.id} value={p.id} className="font-medium cursor-pointer rounded-lg text-sm truncate">{p.name}</SelectItem>
-                    ))}
+          <SelectTrigger className="w-full sm:w-52" aria-label="Đợt đánh giá"><SelectValue placeholder="Đợt đánh giá" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ALL">Tất cả các đợt</SelectItem>
+            {periodsData?.content.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                   </SelectContent>
                 </Select>
-              </div>
-
-              {/* Toggle for desktop */}
-              <div className="hidden md:flex items-center bg-slate-100 dark:bg-slate-800 p-0.5 rounded-xl shrink-0">
-                <button 
-                  onClick={() => setViewMode('TABLE')}
-                  className={`p-1.5 rounded-lg transition-all ${viewMode === 'TABLE' ? 'bg-white dark:bg-slate-700 shadow-sm text-indigo-600' : 'text-slate-400'}`}
-                >
-                  <List size={18} />
-                </button>
-                <button 
-                  onClick={() => setViewMode('CARD')}
-                  className={`p-1.5 rounded-lg transition-all ${viewMode === 'CARD' ? 'bg-white dark:bg-slate-700 shadow-sm text-indigo-600' : 'text-slate-400'}`}
-                >
-                  <LayoutGrid size={18} />
-                </button>
-              </div>
-            </div>
-
             {enableOkr && (
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-3 w-full">
-                <div className="relative w-full min-w-0">
-                  <Target className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 z-10" size={14} />
+          <>
                   <Select value={selectedObjectiveId} onValueChange={(v) => { setSelectedObjectiveId(v); setSelectedKeyResultId('ALL'); setPage(0) }}>
-                    <SelectTrigger className="w-full pl-10 pr-4 py-2.5 h-10 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 text-sm overflow-hidden [&>span]:truncate [&>span]:block [&>span]:w-full">
-                      <SelectValue placeholder="Chọn Mục tiêu" />
-                    </SelectTrigger>
-                    <SelectContent className="rounded-xl border-slate-200 dark:border-slate-800 shadow-lg w-[var(--radix-select-trigger-width)]" position="popper" sideOffset={4}>
-                      <SelectItem value="ALL" className="font-bold">Tất cả Mục tiêu</SelectItem>
-                      {objectivesData?.map(obj => (
-                        <SelectItem key={obj.id} value={obj.id} className="font-medium whitespace-normal leading-snug">[{obj.code}] {obj.name}</SelectItem>
-                      ))}
+              <SelectTrigger className="w-full sm:w-56" aria-label="Mục tiêu OKR"><SelectValue placeholder="Mục tiêu" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">Tất cả mục tiêu</SelectItem>
+                {objectivesData?.map(obj => <SelectItem key={obj.id} value={obj.id}>{obj.code} · {obj.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
-                </div>
-
-                <div className="relative w-full min-w-0">
-                  <GitBranch className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 z-10" size={14} />
                   <Select value={selectedKeyResultId} onValueChange={(v) => { setSelectedKeyResultId(v); setPage(0) }} disabled={selectedObjectiveId === 'ALL'}>
-                    <SelectTrigger className="w-full pl-10 pr-4 py-2.5 h-10 rounded-xl border border-slate-200 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 text-sm overflow-hidden [&>span]:truncate [&>span]:block [&>span]:w-full">
-                      <SelectValue placeholder="Chọn Kết quả" />
-                    </SelectTrigger>
-                    <SelectContent className="rounded-xl border-slate-200 dark:border-slate-800 shadow-lg w-[var(--radix-select-trigger-width)]" position="popper" sideOffset={4}>
-                      <SelectItem value="ALL" className="font-bold">Tất cả Kết quả</SelectItem>
-                      {keyResults.map(kr => (
-                        <SelectItem key={kr.id} value={kr.id} className="font-medium whitespace-normal leading-snug">[{kr.code}] {kr.name}</SelectItem>
-                      ))}
+              <SelectTrigger className="w-full sm:w-56" aria-label="Kết quả then chốt"><SelectValue placeholder="Kết quả then chốt" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">Tất cả kết quả</SelectItem>
+                {keyResults.map(kr => <SelectItem key={kr.id} value={kr.id}>{kr.code} · {kr.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
-                </div>
-              </div>
+          </>
             )}
-          </div>
-        </div>
-      </div>
+      </FilterBar>
 
-      <div id="tour-my-kpi-table" className="min-h-[400px]">
+      <div id="tour-my-kpi-table" className="space-y-4">
         {isLoading ? (
           <LoadingSkeleton type="table" rows={6} />
         ) : filteredKpis.length === 0 ? (
-          <div className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 p-20 shadow-sm transition-all">
-            <EmptyState 
-              title={search || selectedPeriodId ? "Không tìm thấy" : "Trống"} 
-              description="Bạn chưa có chỉ tiêu KPI nào trong danh sách hiện tại." 
-            />
+          <div className="rounded-card border border-dashed border-[var(--color-border)] bg-[var(--color-card)]">
+            <EmptyState icon={Inbox} title={emptyTitle} description={emptyDesc} />
           </div>
-        ) : viewMode === 'TABLE' ? (
-          <div className="space-y-8">
-            {periodIds.map(periodId => {
+        ) : periodIds.map(periodId => {
               const periodKpis = kpisByPeriod[periodId]
               if (!periodKpis) return null
+          const { rows, childrenByParentId } = buildKpiRows(periodKpis, collapsedParents)
+          return (
+            <section key={periodId} aria-label={periodsData?.content.find(p => p.id === periodId)?.name} className="overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
+              {periodHeader(periodId, periodKpis)}
               
-              const period = periodsData?.content.find(p => p.id === periodId)
-
-              const isPeriodDone = periodKpis.every(isKpiReadyForEval)
-              const hasEvaluation = myEvals?.content.some(ev => ev.kpiPeriodId === periodId && ev.evaluatorId === user?.id)
-              const { rows: periodKpiRows, childrenByParentId } = buildKpiRows(periodKpis, collapsedParents)
-
+              {viewMode === 'TABLE' && (
+                <div className="hidden overflow-x-auto md:block">
+                  <table className="w-full">
+                    <thead>
+                      <tr className="border-b border-[var(--color-border)]">
+                        <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">Chỉ tiêu</th>
+                        {enableOkr && <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">Mục tiêu / KR</th>}
+                        <th scope="col" className="px-4 py-2.5 text-right text-eyebrow">Mục tiêu</th>
+                        <th scope="col" className="px-4 py-2.5 text-right text-eyebrow">Trọng số</th>
+                        <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">Tiến độ</th>
+                        <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">Hạn nộp</th>
+                        <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">Trạng thái</th>
+                        <th scope="col" className="px-3 py-2.5 text-right text-eyebrow">Hành động</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[var(--color-border)]">
+                      {rows.map(({ kpi, depth }) => {
+                        const childKpis = childrenByParentId.get(kpi.id) ?? []
               return (
-                <div key={periodId} className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm transition-all">
-                  <div className="px-6 py-4 bg-slate-50/50 dark:bg-slate-800/40 border-b border-slate-100 dark:border-slate-800 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-xl bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 shrink-0">
-                        <Calendar size={16} />
+                          <tr key={kpi.id} className={cn('transition-colors hover:bg-[var(--color-muted)]', depth > 0 && 'bg-[var(--color-background)]')}>
+                            <td className="px-4 py-3">{nameCell(kpi, depth, childKpis)}</td>
+                            {enableOkr && (
+                              <td className="px-4 py-3">
+                                <div className="max-w-[200px]">
+                                  <p className="truncate text-sm text-[var(--color-foreground)]" title={kpi.objectiveName || undefined}>{kpi.objectiveName || '—'}</p>
+                                  {kpi.keyResultName && <p className="truncate text-caption" title={kpi.keyResultName}>{kpi.keyResultCode ? `${kpi.keyResultCode} ·` : ''}{kpi.keyResultName}</p>}
                       </div>
-                      <div>
-                        <h3 className="text-sm font-black text-slate-900 dark:text-white uppercase tracking-tight">{period?.name || 'Không xác định'}</h3>
-                        <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                          {period?.startDate ? new Date(period.startDate).toLocaleDateString('vi-VN') : '—'} - {period?.endDate ? new Date(period.endDate).toLocaleDateString('vi-VN') : '—'}
-                        </p>
-                      </div>
-                    </div>
-
-                    {isPeriodDone && !hasEvaluation && (
-                      <button
-                        onClick={() => setSelfEvalPeriodId(periodId)}
-                        className="flex items-center justify-center gap-2 px-4 py-2 bg-amber-500 hover:bg-amber-600 text-white rounded-xl text-[10px] font-black uppercase tracking-widest transition-all shadow-lg shadow-amber-500/20 shrink-0"
-                      >
-                        <Star size={14} className="fill-current" /> Tiến hành Tự đánh giá
-                      </button>
-                    )}
-
-                    {isPeriodDone && hasEvaluation && (
-                      <div className="flex items-center gap-2 px-4 py-2 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 border border-emerald-100 dark:border-emerald-900/30 rounded-xl text-[10px] font-black uppercase tracking-widest">
-                        <CheckCircle2 size={14} /> Đã hoàn thành đánh giá
+                              </td>
+                            )}
+                            <td className="px-4 py-3 text-right tabular-nums whitespace-nowrap">
+                              {kpi.kpiType === 'QUALITATIVE' ? <span className="text-caption">—</span> : <><span className="font-medium text-[var(--color-foreground)]">{formatNumber(kpi.targetValue || 0)}</span>{kpi.unit && <span className="text-caption"> {kpi.unit}</span>}</>}
+                            </td>
+                            <td className="px-4 py-3 text-right whitespace-nowrap">{weightCell(kpi)}</td>
+                            <td className="px-4 py-3 whitespace-nowrap">{progressCell(kpi, childKpis)}</td>
+                            <td className="px-4 py-3 whitespace-nowrap">{deadlineCell(kpi)}</td>
+                            <td className="px-4 py-3"><StatusBadge status={kpi.status} /></td>
+                            <td className="px-3 py-2 text-right whitespace-nowrap">{rowActions(kpi, childKpis)}</td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
                       </div>
                     )}
+
+              <div className={cn('grid grid-cols-1 gap-3 p-3', viewMode === 'CARD' ? 'md:grid-cols-2 xl:grid-cols-3' : 'md:hidden')}>
+                {rows.map(({ kpi, depth }) => {
+                  const childKpis = childrenByParentId.get(kpi.id) ?? []
+                  return (
+                    <div key={kpi.id} className={cn('rounded-card border border-[var(--color-border)] bg-[var(--color-card)] p-4', depth > 0 && 'ml-4')}>
+                      <div className="flex items-start justify-between gap-3">
+                        <div className="min-w-0 flex-1">
+                          <button className="max-w-full truncate text-left text-sm font-medium text-[var(--color-foreground)] transition-colors hover:text-[var(--color-primary)] hover:underline" type="button" onClick={() => setViewKpi(kpi)}>{kpi.name}</button>
+                          <div className="mt-1"><KpiTagChips kpi={kpi} childCount={childKpis.length} isChildRow={depth > 0} /></div>
+                      </div>
+                        <StatusBadge status={kpi.status} />
                   </div>
-                  
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-left border-collapse">
-                      <thead>
-                        <tr className="bg-slate-50/20 dark:bg-slate-800/20 border-b border-slate-100 dark:border-slate-800">
-                          <th className="px-3 py-3 text-[9px] font-black uppercase tracking-widest text-slate-400 whitespace-nowrap">Trạng thái</th>
-                          <th className="px-3 py-3 text-[9px] font-black uppercase tracking-widest text-slate-400 whitespace-nowrap">Chỉ tiêu</th>
-                          {enableOkr && (
-                            <>
-                              <th className="px-3 py-3 text-[9px] font-black uppercase tracking-widest text-slate-400 whitespace-nowrap">Mục tiêu (OKR)</th>
-                              <th className="px-3 py-3 text-[9px] font-black uppercase tracking-widest text-slate-400 whitespace-nowrap">Kết quả (KR)</th>
-                            </>
-                          )}
-                          <th className="px-3 py-3 text-[9px] font-black uppercase tracking-widest text-slate-400 text-right whitespace-nowrap">Mục tiêu</th>
-                          <th className="px-3 py-3 text-[9px] font-black uppercase tracking-widest text-slate-400 text-center whitespace-nowrap">Trọng số</th>
-                          <th className="px-3 py-3 text-[9px] font-black uppercase tracking-widest text-slate-400 whitespace-nowrap">Tiến độ</th>
-                          <th className="px-3 py-3 text-[9px] font-black uppercase tracking-widest text-slate-400 whitespace-nowrap">Hạn nộp</th>
-                          <th className="px-3 py-3 text-[9px] font-black uppercase tracking-widest text-slate-400 text-right whitespace-nowrap">Thao tác</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                        {periodKpiRows.map(({ kpi, depth }) => (
-                          <MyKpiTableRow
-                            key={kpi.id}
-                            kpi={kpi}
-                            depth={depth}
-                            childKpis={childrenByParentId.get(kpi.id) ?? []}
-                            isCollapsed={collapsedParents.has(kpi.id)}
-                            onToggleCollapse={() => toggleParentCollapse(kpi.id)}
-                            enableOkr={enableOkr}
-                            enableWaterfall={enableWaterfall}
-                            onView={() => setViewKpi(kpi)}
-                            onAdjust={() => setAdjustKpi(kpi)}
-                            onAssign={() => setEditKpi(kpi)}
-                            isLeader={isUserLeader}
-                            realWeight={realWeightById.get(kpi.id) ?? null}
-                          />
-                        ))}
-                      </tbody>
-                    </table>
+                      {enableOkr && kpi.objectiveName && <p className="mt-2 truncate text-caption">OKR: {kpi.objectiveName}</p>}
+                      <dl className="mt-3 grid grid-cols-3 gap-2 text-sm">
+                        <div><dt className="text-eyebrow">Mục tiêu</dt><dd className="mt-0.5 tabular-nums">{kpi.kpiType === 'QUALITATIVE' ? '—' : `${formatNumber(kpi.targetValue || 0)}${kpi.unit ? ' ' + kpi.unit : ''}`}</dd></div>
+                        <div><dt className="text-eyebrow">Trọng số</dt><dd className="mt-0.5">{weightCell(kpi)}</dd></div>
+                        <div><dt className="text-eyebrow">Tiến độ</dt><dd className="mt-0.5">{progressCell(kpi, childKpis)}</dd></div>
+                      </dl>
+                      <div className="mt-3 flex items-center justify-between gap-3 border-t border-[var(--color-border)] pt-3">
+                        <span className="text-caption">Hạn: {deadlineCell(kpi)}</span>
+                        {rowActions(kpi, childKpis)}
                   </div>
                 </div>
               )
             })}
           </div>
-
-      ) : (
-        <div className="space-y-12">
-          {periodIds.map(periodId => {
-            const periodKpis = kpisByPeriod[periodId]
-            if (!periodKpis) return null
-
-            const period = periodsData?.content.find(p => p.id === periodId)
-
-            const isPeriodDone = periodKpis.every(isKpiReadyForEval)
-            const hasEvaluation = myEvals?.content.some(ev => ev.kpiPeriodId === periodId && ev.evaluatorId === user?.id)
-            const { rows: periodKpiRows, childrenByParentId } = buildKpiRows(periodKpis, collapsedParents)
-
-            return (
-              <div key={periodId} className="space-y-6">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 px-2">
-                  <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-2xl bg-white dark:bg-slate-800 shadow-sm flex items-center justify-center text-indigo-600 border border-slate-100 dark:border-slate-800 shrink-0">
-                      <Calendar size={20} />
-                    </div>
-                    <div>
-                      <h3 className="text-base font-black text-slate-900 dark:text-white uppercase tracking-tight">{period?.name || 'Không xác định'}</h3>
-                      <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                        {period?.startDate ? new Date(period.startDate).toLocaleDateString('vi-VN') : '—'} - {period?.endDate ? new Date(period.endDate).toLocaleDateString('vi-VN') : '—'}
-                      </p>
-                    </div>
-                  </div>
-
-                  {isPeriodDone && !hasEvaluation && (
-                    <button
-                      onClick={() => setSelfEvalPeriodId(periodId)}
-                      className="flex items-center justify-center gap-2 px-5 py-2.5 bg-amber-500 hover:bg-amber-600 text-white rounded-2xl text-[10px] font-black uppercase tracking-[1px] transition-all shadow-xl shadow-amber-500/20 shrink-0"
-                    >
-                      <Star size={16} className="fill-current" /> Tự đánh giá ngay
-                    </button>
-                  )}
-                </div>
-
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 2xl:grid-cols-4 gap-6 transition-all duration-500">
-                  {periodKpiRows.map(({ kpi, depth }, idx) => (
-                    <MyKpiCard
-                      key={kpi.id}
-                      kpi={kpi}
-                      depth={depth}
-                      childKpis={childrenByParentId.get(kpi.id) ?? []}
-                      isCollapsed={collapsedParents.has(kpi.id)}
-                      onToggleCollapse={() => toggleParentCollapse(kpi.id)}
-                      delay={idx * 40}
-                      enableWaterfall={enableWaterfall}
-                      onView={() => setViewKpi(kpi)}
-                      onAdjust={() => setAdjustKpi(kpi)}
-                      onAssign={() => setEditKpi(kpi)}
-                      isLeader={isUserLeader}
-                      realWeight={realWeightById.get(kpi.id) ?? null}
-                    />
-                  ))}
-                </div>
-              </div>
+            </section>
             )
           })}
         </div>
 
+      {data && data.totalElements > pageSize && (
+        <div className="rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
+          <Pagination currentPage={page} totalPages={data.totalPages} onPageChange={setPage} totalElements={data.totalElements} size={pageSize} itemLabel="chỉ tiêu" />
+        </div>
       )}
-      </div>
 
-      {/* Pagination & Modals (remains similar but refined) */}
       <KpiDetailModal open={!!viewKpi} onClose={() => setViewKpi(null)} kpi={viewKpi} />
       <KpiAdjustmentModal open={!!adjustKpi} onClose={() => setAdjustKpi(null)} kpi={adjustKpi} />
       {editKpi && <KpiDelegationModal open={!!editKpi} onClose={() => setEditKpi(null)} kpi={editKpi} />}
-      <EvaluationFormModal
-        open={!!selfEvalPeriodId}
-        onClose={() => setSelfEvalPeriodId(null)}
-        initialPeriodId={selfEvalPeriodId ?? undefined}
-      />
-
-      {data && data.totalElements > 0 && (
-        <div className="flex items-center justify-between pt-4 transition-all">
-          <p className="text-xs font-bold text-slate-400 uppercase tracking-widest">
-            {page * pageSize + 1}-{Math.min((page + 1) * pageSize, data.totalElements)} / {data.totalElements} KPI
-          </p>
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => setPage(p => Math.max(0, p - 1))}
-              disabled={page === 0}
-              className="p-2 rounded-xl border border-slate-200 dark:border-slate-800 disabled:opacity-30 hover:bg-slate-50 transition-all"
-            >
-              <ChevronLeft size={18} />
-            </button>
-            <button
-              onClick={() => setPage(p => Math.min(data.totalPages - 1, p + 1))}
-              disabled={page === data.totalPages - 1}
-              className="p-2 rounded-xl border border-slate-200 dark:border-slate-800 disabled:opacity-30 hover:bg-slate-50 transition-all"
-            >
-              <ChevronRight size={18} />
-            </button>
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-function MyKpiTableRow({ kpi, depth = 0, childKpis = [], isCollapsed, onToggleCollapse, enableOkr, enableWaterfall, onView, onAdjust, onAssign, isLeader, realWeight }: {
-  kpi: KpiCriteria; depth?: number; childKpis?: KpiCriteria[]; isCollapsed?: boolean; onToggleCollapse?: () => void;
-  enableOkr?: boolean; enableWaterfall?: boolean; onView: () => void; onAdjust: () => void; onAssign: () => void; isLeader?: boolean; realWeight?: number | null
-}) {
-  const status = STATUS_CONFIG[kpi.status as keyof typeof STATUS_CONFIG] ?? STATUS_CONFIG['DRAFT']!
-  const nextDeadline = getNextDeadline(kpi)
-  const now = new Date()
-  const isOverdue = nextDeadline && isAfter(now, nextDeadline)
-
-  const isStarted = !kpi.kpiPeriod?.startDate || !isAfter(parseISO(kpi.kpiPeriod.startDate), now)
-  const isPeriodEnded = !!kpi.kpiPeriod?.endDate && isAfter(now, parseISO(kpi.kpiPeriod.endDate))
-  const isDelegated = !!kpi.hasChildren
-  const isChildRow = depth > 0
-  const isDecompositionParent = childKpis.some(c => c.parentRelationType === 'DECOMPOSITION')
-  const progress = getDisplayProgress(kpi, childKpis)
-
-
-  return (
-    <tr className={cn("group hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors", isChildRow && "bg-slate-50/30 dark:bg-slate-800/10")}>
-      <td className="px-3 py-4 whitespace-nowrap">
-        <div className={`inline-flex items-center gap-1 px-2.5 py-1 rounded-lg border text-[9px] font-black uppercase tracking-widest ${status.bgColor} ${status.color}`}>
-          {status.label}
-        </div>
-      </td>
-      <td className="px-3 py-4">
-        <div className="flex items-start gap-1.5" style={{ paddingLeft: isChildRow ? 28 : 0 }}>
-          {!isChildRow && childKpis.length > 0 && (
-            <button
-              onClick={(e) => { e.stopPropagation(); onToggleCollapse?.() }}
-              className="shrink-0 mt-1 w-5 h-5 rounded-md flex items-center justify-center text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-indigo-600 transition-all"
-              title={isCollapsed ? 'Mở rộng KPI con' : 'Thu gọn KPI con'}
-            >
-              <ChevronDown size={14} className={cn("transition-transform", isCollapsed && "-rotate-90")} />
-            </button>
-          )}
-          {isChildRow && (
-            <CornerDownRight size={14} className="shrink-0 mt-1 text-slate-300 dark:text-slate-600" />
-          )}
-          <button onClick={onView} className="text-left focus:outline-none flex flex-col gap-1 min-w-[100px]">
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-sm font-bold text-slate-900 dark:text-white group-hover:text-indigo-600 transition-colors line-clamp-2 leading-snug">{kpi.name}</span>
-              {!isChildRow && childKpis.length > 0 && (
-                <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[9px] font-black uppercase tracking-wider border border-slate-200 dark:border-slate-700 whitespace-nowrap">
-                  {childKpis.length} KPI con
-                </span>
-              )}
-            </div>
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <span className="text-[9px] text-slate-400 font-black uppercase bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded w-fit whitespace-nowrap">{FREQUENCY_MAP[kpi.frequency as keyof typeof FREQUENCY_MAP]}</span>
-              {kpi.kpiType === 'QUALITATIVE' && (
-                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-teal-100 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400 text-[9px] font-black uppercase tracking-wider border border-teal-200 dark:border-teal-800/50 whitespace-nowrap">
-                  ★ Định tính
-                </span>
-              )}
-              {kpi.isReverseKpi && (
-                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 text-[9px] font-black uppercase tracking-wider border border-orange-200 dark:border-orange-800/50 whitespace-nowrap">
-                  ↓ KPI Ngược
-                </span>
-              )}
-              {kpi.isBonusKpi && (
-                <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 text-[9px] font-black uppercase tracking-wider border border-emerald-200 dark:border-emerald-800/50 whitespace-nowrap">
-                  + KPI Thưởng
-                </span>
-              )}
-              {isChildRow && kpi.parentRelationType && (
-                <span className={cn(
-                  "inline-flex items-center gap-0.5 px-1.5 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border whitespace-nowrap",
-                  kpi.parentRelationType === 'DECOMPOSITION'
-                    ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/50"
-                    : "bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400 border-cyan-200 dark:border-cyan-800/50"
-                )}>
-                  {kpi.parentRelationType === 'DECOMPOSITION' ? 'Chia nhỏ' : 'Phân rã'}
-                </span>
-              )}
-            </div>
-          </button>
-        </div>
-      </td>
-      {enableOkr && (
-        <>
-          <td className="px-3 py-4">
-            <div className="flex flex-col gap-0.5 min-w-[100px]">
-              <span className="text-[10px] font-black text-indigo-600 dark:text-indigo-400 uppercase tracking-tight whitespace-nowrap">{kpi.objectiveCode || 'N/A'}</span>
-              <span className="text-xs font-bold text-slate-700 dark:text-slate-300 line-clamp-2 leading-tight">{kpi.objectiveName || 'N/A'}</span>
-            </div>
-          </td>
-          <td className="px-3 py-4">
-            <div className="flex flex-col gap-0.5 min-w-[100px]">
-              <span className="text-[10px] font-black text-violet-600 dark:text-violet-400 uppercase tracking-tight whitespace-nowrap">{kpi.keyResultCode || 'N/A'}</span>
-              <span className="text-xs font-bold text-slate-700 dark:text-slate-300 line-clamp-2 leading-tight">{kpi.keyResultName || 'N/A'}</span>
-            </div>
-          </td>
-        </>
-      )}
-      <td className="px-3 py-4 text-right whitespace-nowrap">
-        <span className="text-sm font-black text-slate-900 dark:text-white">
-          {formatNumber(kpi.targetValue || 0)} <span className="text-[10px] text-slate-400 font-medium">{kpi.unit}</span>
-        </span>
-      </td>
-      <td className="px-3 py-4 text-center whitespace-nowrap">
-        <span className="text-xs font-black text-indigo-600 dark:text-indigo-400 bg-indigo-50 dark:bg-indigo-900/30 px-2.5 py-1 rounded-lg"
-          title={realWeight != null ? `Trọng số thật: ${realWeight.toFixed(1)}% (form ${kpi.weight}% × %hạng mục)` : undefined}>
-          {realWeight != null ? `${realWeight.toFixed(1)}%` : `${kpi.weight}%`}
-          {realWeight != null && <span className="ml-1 text-[9px] font-bold text-slate-400">/ {kpi.weight}%</span>}
-        </span>
-      </td>
-      <td className="px-3 py-4 whitespace-nowrap">
-        <span className={`text-xs font-black ${kpi.frequency === 'UNLIMITED' || !progress.isComplete ? 'text-amber-600' : 'text-emerald-600'}`}>
-          {kpi.frequency === 'UNLIMITED' ? `${kpi.submissionCount || 0}/∞ lần` : `${progress.count}/${progress.expected} lần`}
-        </span>
-      </td>
-      <td className="px-3 py-4 whitespace-nowrap">
-        <span className={`text-[11px] font-bold ${isOverdue ? 'text-red-500' : 'text-slate-500'}`}>
-          {nextDeadline?.toLocaleDateString('vi-VN') || '—'}
-        </span>
-      </td>
-      <td className="px-3 py-4 text-right whitespace-nowrap">
-        <div className="flex items-center justify-end gap-2">
-          {kpi.submissionCount < (kpi.expectedSubmissions || 1) && !isPeriodEnded && (
-            <button onClick={onAdjust} className="p-2 text-slate-400 hover:text-indigo-600 hover:bg-indigo-50 dark:hover:bg-indigo-900/40 rounded-lg transition-all">
-              <Settings2 size={16} />
-            </button>
-          )}
-          {isLeader && enableWaterfall && (
-            <button 
-              onClick={onAssign} 
-              className={cn(
-                "p-2 rounded-lg transition-all",
-                isDelegated ? "text-emerald-500 bg-emerald-50 hover:bg-emerald-100" : "text-indigo-500 hover:text-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-900/40"
-              )} 
-              title={isDelegated ? "Đã giao việc - Nhấn để điều chỉnh" : "Giao cho nhân viên"}
-            >
-              <GitBranch size={16} />
-            </button>
-          )}
-          {isDecompositionParent ? (
-            <div className="px-4 py-2 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 border border-emerald-100 dark:border-emerald-900/30 rounded-xl text-[10px] font-black uppercase tracking-widest italic" title="Đã chia nhỏ thành các KPI con, nộp báo cáo ở từng KPI con tương ứng">
-              Đã chia KPI con
-            </div>
-          ) : kpi.submissionCount < (kpi.expectedSubmissions || 1) ? (
-            !isStarted ? (
-              <div className="px-4 py-2 bg-slate-100 dark:bg-slate-800 text-slate-400 rounded-xl text-[10px] font-black uppercase tracking-widest border border-slate-200 dark:border-slate-700 cursor-not-allowed">
-                Chưa mở
-              </div>
-            ) : isPeriodEnded ? (
-              <div className="px-4 py-2 bg-red-50 dark:bg-red-900/20 text-red-500 border border-red-100 dark:border-red-900/30 rounded-xl text-[10px] font-black uppercase tracking-widest cursor-not-allowed" title="Kỳ đánh giá đã kết thúc, không thể nộp báo cáo cho kỳ này nữa">
-                Quá hạn
-              </div>
-            ) : (
-              // Hide Submit button if it's already delegated to others when Waterfall is ON
-              (!enableWaterfall || !isLeader) ? (
-                <Link to={`/submissions/new?kpiId=${kpi.id}`} className="px-4 py-2 bg-slate-900 dark:bg-slate-700 text-white hover:bg-indigo-600 rounded-xl text-[10px] font-black uppercase tracking-widest transition-all">
-                  Nộp bài
-                </Link>
-              ) : (
-                <div className="px-4 py-2 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 border border-indigo-100 dark:border-indigo-900/30 rounded-xl text-[10px] font-black uppercase tracking-widest italic shadow-sm" title="Kết quả sẽ được tự động cộng dồn từ nhân viên đã được giao">
-                  Đang theo dõi
-                </div>
-              )
-            )
-          ) : (
-
-             <div className="px-4 py-2 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 border border-emerald-100 dark:border-emerald-900/30 rounded-xl text-[10px] font-black uppercase tracking-widest flex items-center gap-1.5">
-               <CheckCircle2 size={12} /> Đã Xong
-             </div>
-          )}
-        </div>
-      </td>
-    </tr>
-  )
-}
-
-function MyKpiCard({ kpi, depth = 0, childKpis = [], isCollapsed, onToggleCollapse, delay, onView, onAdjust, onAssign, isLeader, enableWaterfall, realWeight }: {
-  kpi: KpiCriteria; depth?: number; childKpis?: KpiCriteria[]; isCollapsed?: boolean; onToggleCollapse?: () => void;
-  delay: number; onView: () => void; onAdjust: () => void; onAssign: () => void; isLeader?: boolean; enableWaterfall?: boolean; realWeight?: number | null
-}) {
-  const status = STATUS_CONFIG[kpi.status as keyof typeof STATUS_CONFIG] ?? STATUS_CONFIG['DRAFT']!
-  const now = new Date()
-  const isPeriodEnded = !!kpi.kpiPeriod?.endDate && isAfter(now, parseISO(kpi.kpiPeriod.endDate))
-  const isDelegated = !!kpi.hasChildren
-  const isChildCard = depth > 0
-  const isDecompositionParent = childKpis.some(c => c.parentRelationType === 'DECOMPOSITION')
-
-  return (
-    <div
-      className={cn(
-        "group bg-white dark:bg-slate-900 rounded-3xl border shadow-sm hover:shadow-lg transition-all duration-300 animate-in fade-in slide-in-from-bottom-4 flex flex-col h-full overflow-hidden",
-        isChildCard ? "border-l-4 border-l-emerald-400 dark:border-l-emerald-600 border-slate-200 dark:border-slate-800 ml-4 lg:ml-8" : "border-slate-200 dark:border-slate-800"
-      )}
-      style={{ animationDelay: `${delay}ms` }}
-    >
-      <div className="p-5 flex-1 space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white shadow-md">
-            <Target size={20} />
-          </div>
-          <div className="flex items-center gap-2">
-            {!isChildCard && childKpis.length > 0 && (
-              <button
-                onClick={(e) => { e.stopPropagation(); onToggleCollapse?.() }}
-                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-slate-100 dark:bg-slate-800 text-slate-500 dark:text-slate-400 text-[9px] font-black uppercase tracking-wider hover:bg-slate-200 dark:hover:bg-slate-700 transition-all"
-              >
-                <ChevronDown size={11} className={cn("transition-transform", isCollapsed && "-rotate-90")} />
-                {childKpis.length} KPI con
-              </button>
-            )}
-            <div className={`px-3 py-1 rounded-lg border text-[9px] font-black uppercase tracking-widest ${status.bgColor} ${status.color}`}>
-              {status.label}
-            </div>
-          </div>
-        </div>
-
-        <button onClick={onView} className="text-left w-full group-hover:text-indigo-600 transition-colors">
-          <h3 className="text-lg font-black text-slate-900 dark:text-white line-clamp-2 leading-tight">{kpi.name}</h3>
-          <div className="flex items-center gap-1.5 flex-wrap mt-1">
-            <p className="text-[10px] font-bold text-slate-400 uppercase tracking-widest">{FREQUENCY_MAP[kpi.frequency as keyof typeof FREQUENCY_MAP]}</p>
-            {kpi.kpiType === 'QUALITATIVE' && (
-              <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-teal-100 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400 text-[9px] font-black uppercase tracking-wider border border-teal-200 dark:border-teal-800/50">
-                ★ Định tính
-              </span>
-            )}
-            {kpi.isReverseKpi && (
-              <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-orange-100 dark:bg-orange-900/30 text-orange-600 dark:text-orange-400 text-[9px] font-black uppercase tracking-wider border border-orange-200 dark:border-orange-800/50">
-                ↓ KPI Ngược
-              </span>
-            )}
-            {kpi.isBonusKpi && (
-              <span className="inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 text-[9px] font-black uppercase tracking-wider border border-emerald-200 dark:border-emerald-800/50">
-                + KPI Thưởng
-              </span>
-            )}
-            {isChildCard && kpi.parentRelationType && (
-              <span className={cn(
-                "inline-flex items-center gap-0.5 px-2 py-0.5 rounded-full text-[9px] font-black uppercase tracking-wider border",
-                kpi.parentRelationType === 'DECOMPOSITION'
-                  ? "bg-emerald-100 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 border-emerald-200 dark:border-emerald-800/50"
-                  : "bg-cyan-100 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400 border-cyan-200 dark:border-cyan-800/50"
-              )}>
-                {kpi.parentRelationType === 'DECOMPOSITION' ? 'Chia nhỏ' : 'Phân rã'}
-              </span>
-            )}
-          </div>
-        </button>
-
-        <div className="grid grid-cols-2 gap-3">
-          <div className="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-100 dark:border-slate-800">
-            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Mục tiêu</p>
-            <p className="text-sm font-black text-slate-900 dark:text-white">{formatNumber(kpi.targetValue ?? 0)} <span className="text-[10px]">{kpi.unit}</span></p>
-          </div>
-          <div className="p-3 bg-slate-50 dark:bg-slate-800/40 rounded-2xl border border-slate-100 dark:border-slate-800">
-            <p className="text-[9px] font-black text-slate-400 uppercase tracking-widest mb-1">Trọng số</p>
-            <p className="text-sm font-black text-indigo-600 dark:text-indigo-400"
-              title={realWeight != null ? `Trọng số thật (form ${kpi.weight}% × %hạng mục)` : undefined}>
-              {realWeight != null ? `${realWeight.toFixed(1)}%` : `${kpi.weight}%`}
-              {realWeight != null && <span className="ml-1 text-[10px] font-bold text-slate-400">/ {kpi.weight}%</span>}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      <div className="p-5 pt-0 mt-auto flex items-center gap-3">
-        {kpi.submissionCount < (kpi.expectedSubmissions || 1) && !isPeriodEnded && (
-          <button onClick={onAdjust} className="p-3 bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-indigo-600 hover:bg-indigo-50 rounded-2xl transition-all">
-            <Settings2 size={18} />
-          </button>
-        )}
-        {isLeader && enableWaterfall && (
-          <button 
-            onClick={onAssign} 
-            className={cn(
-              "p-3 rounded-2xl transition-all",
-              isDelegated ? "bg-emerald-50 text-emerald-600 hover:bg-emerald-100" : "bg-indigo-50 dark:bg-indigo-900/40 text-indigo-600 hover:bg-indigo-100"
-            )} 
-            title={isDelegated ? "Đã giao việc - Nhấn để điều chỉnh" : "Giao cho nhân viên"}
-          >
-            <GitBranch size={18} />
-          </button>
-        )}
-        {isDecompositionParent ? (
-          <div className="flex-1 px-6 py-3 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 border border-emerald-100 dark:border-emerald-900/30 rounded-2xl font-black text-xs text-center uppercase tracking-widest italic" title="Đã chia nhỏ thành các KPI con, nộp báo cáo ở từng KPI con tương ứng">
-            Đã chia KPI con
-          </div>
-        ) : kpi.submissionCount < (kpi.expectedSubmissions || 1) ? (
-          (kpi.kpiPeriod?.startDate && isAfter(parseISO(kpi.kpiPeriod.startDate), now)) ? (
-            <div className="flex-1 px-6 py-3 bg-slate-100 dark:bg-slate-800 text-slate-400 rounded-2xl font-black text-xs text-center uppercase tracking-widest border border-slate-200 dark:border-slate-700 cursor-not-allowed">
-              Chưa mở nộp
-            </div>
-          ) : isPeriodEnded ? (
-            <div className="flex-1 px-6 py-3 bg-red-50 dark:bg-red-900/20 text-red-500 border border-red-100 dark:border-red-900/30 rounded-2xl font-black text-xs text-center uppercase tracking-widest cursor-not-allowed" title="Kỳ đánh giá đã kết thúc, không thể nộp báo cáo cho kỳ này nữa">
-              Quá hạn
-            </div>
-          ) : (
-            (!enableWaterfall || !isDelegated) ? (
-              <Link to={`/submissions/new?kpiId=${kpi.id}`} className="flex-1 px-6 py-3 bg-slate-900 dark:bg-slate-800 text-white hover:bg-indigo-600 rounded-2xl font-black text-xs text-center transition-all uppercase tracking-widest">
-                Nộp báo cáo
-              </Link>
-            ) : (
-              <div className="flex-1 px-6 py-3 bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 border border-indigo-100 dark:border-indigo-900/30 rounded-2xl font-black text-xs text-center uppercase tracking-widest italic" title="Kết quả sẽ được tự động cộng dồn từ nhân viên đã được giao">
-                Đang theo dõi
-              </div>
-            )
-          )
-        ) : (
-
-          <div className="flex-1 px-6 py-3 bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 border border-emerald-100 dark:border-emerald-900/30 rounded-2xl font-black text-xs text-center flex items-center justify-center gap-2 uppercase tracking-widest">
-            <CheckCircle2 size={16} /> Hoàn thành
-          </div>
-        )}
-      </div>
+      <EvaluationFormModal open={!!selfEvalPeriodId} onClose={() => setSelfEvalPeriodId(null)} initialPeriodId={selfEvalPeriodId ?? undefined} />
     </div>
   )
 }

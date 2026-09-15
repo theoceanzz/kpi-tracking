@@ -1,3 +1,4 @@
+import WorkspaceHeader from '@/components/common/WorkspaceHeader'
 import MyWorkflowPanel from '../components/MyWorkflowPanel'
 import OrgWorkflowPanel from '../components/OrgWorkflowPanel'
 
@@ -16,15 +17,11 @@ import OrgWorkflowPanel from '../components/OrgWorkflowPanel'
  */
 export default function KpiWorkflowPage() {
   return (
-    <div className="mx-auto max-w-5xl space-y-8 animate-in fade-in duration-500">
-      <div>
-        <h1 className="text-3xl font-black tracking-tight text-slate-900 dark:text-white">
-          Luồng KPI
-        </h1>
-        <p className="font-medium text-slate-500">
-          Chọn những bước bạn muốn thấy, và xem quy trình mà tổ chức đang áp dụng
-        </p>
-      </div>
+    <div className="mx-auto max-w-5xl space-y-4">
+      <WorkspaceHeader
+        title="Luồng KPI"
+        description="Chọn những bước bạn muốn thấy, và xem quy trình mà tổ chức đang áp dụng."
+      />
 
       <MyWorkflowPanel />
       <OrgWorkflowPanel />

@@ -2,6 +2,8 @@ import { useState, useMemo, useEffect, useRef } from 'react'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import EmptyState from '@/components/common/EmptyState'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
+import { Dialog, DialogFooter } from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
 import { format, parseISO, addMonths, addYears, subDays, differenceInCalendarDays } from 'date-fns'
 import { useKpiCycles } from '../hooks/useKpiCycles'
 import { useKpiPeriods } from '../hooks/useKpiPeriods'
@@ -10,8 +12,7 @@ import { useAuthStore } from '@/store/authStore'
 import { formatDateTime, FREQUENCY_MAP, cn } from '@/lib/utils'
 import type { KpiCycle, KpiCyclePayload, KpiPeriod, KpiFrequency, CycleEvaluationMode } from '@/types/kpi'
 import {
-  CalendarRange, Plus, Pencil, Trash2, Layers,
-  ChevronLeft, ChevronRight, Search, Filter, X, Calendar, ArrowRight,
+  CalendarRange, Plus, Pencil, Trash2, Layers, Calendar,
   List, LayoutGrid, Check, AlertTriangle
 } from 'lucide-react'
 import WorkspaceHeader from '@/components/common/WorkspaceHeader'
@@ -19,6 +20,11 @@ import { useDebounce } from '@/hooks/useDebounce'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { DateTimePicker, DatePicker } from '@/components/common/DateTimePicker'
 import { toast } from 'sonner'
+import FilterBar, { SegmentedControl } from '@/components/common/FilterBar'
+import Pagination from '@/components/common/Pagination'
+import { Badge } from '@/components/ui/badge'
+import EntityCard from '@/components/common/EntityCard'
+import { ChoiceChip } from '@/components/ui/choice-chip'
 
 // Loại kỳ: Tháng / Quý / 6 Tháng / Năm — mẫu gợi ý, thời gian vẫn chỉnh tự do.
 const CYCLE_TYPES: KpiFrequency[] = ['MONTHLY', 'QUARTERLY', 'SEMI_ANNUALLY', 'YEARLY']
@@ -131,9 +137,7 @@ export default function KpiCyclesPage() {
   return (
     // Không tự bọc `max-w`/padding: khung `SettingsSectionLayout` bên ngoài đã lo phần
     // đó. Bọc thêm ở đây là nguyên nhân cũ khiến card thụt vào ~40px so với hàng tab.
-    <div className="space-y-5">
-
-        {/* Header */}
+    <div className="space-y-4">
         <WorkspaceHeader
           id="tour-cycles-header"
           description="Một kỳ (Tháng/Quý/6 Tháng/Năm) gom nhiều đợt để đánh giá tổng thể."
@@ -142,209 +146,112 @@ export default function KpiCyclesPage() {
             { label: 'Đợt đã gom', value: stats.periods, icon: Layers },
           ]}
           actions={
-            <button
-              onClick={() => { setEditCycle(null); setShowForm(true) }}
-              className="cursor-pointer group flex items-center justify-center gap-2 px-5 h-10 rounded-xl bg-[var(--color-primary)] text-white text-sm font-bold hover:opacity-90 transition-all shadow-sm active:scale-95 whitespace-nowrap"
-            >
-              <Plus size={16} className="group-hover:rotate-90 transition-transform duration-500" />
-              Tạo kỳ mới
-            </button>
+            <Button onClick={() => { setEditCycle(null); setShowForm(true) }}>
+              <Plus aria-hidden="true" /> Tạo kỳ mới
+            </Button>
           }
         />
 
-        {/* Toolbar */}
-        <div id="tour-cycles-toolbar" className="flex flex-col md:flex-row items-stretch gap-3 p-3 bg-[var(--color-card)] rounded-2xl border border-[var(--color-border)] shadow-sm">
-          <div className="relative group flex-1">
-            <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[var(--color-primary)] transition-colors" size={18} />
-            <input
-              type="text"
-              placeholder="Tìm kiếm tên kỳ..."
-              value={keyword}
-              onChange={(e) => { setKeyword(e.target.value); setPage(0) }}
-              className="w-full pl-12 pr-12 py-2.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-muted)]/40 text-sm font-medium focus:ring-4 focus:ring-[var(--color-primary)]/20 focus:border-[var(--color-primary)]/50 outline-none transition-all placeholder:text-slate-400"
-            />
-            {keyword && (
-              <button onClick={() => { setKeyword(''); setPage(0) }} className="absolute right-4 top-1/2 -translate-y-1/2 p-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 rounded-xl transition-all">
-                <X size={14} className="text-slate-500" />
-              </button>
-            )}
-          </div>
+        <FilterBar
+          id="tour-cycles-toolbar"
+          search={{ value: keyword, onChange: v => { setKeyword(v); setPage(0) }, placeholder: 'Tìm tên kỳ…' }}
+          overflowActiveCount={(startDateFilter ? 1 : 0) + (endDateFilter ? 1 : 0)}
+          overflow={
+            <div className="space-y-3">
+              <div>
+                <label className="text-label mb-1 block">Bắt đầu từ ngày</label>
+                <DatePicker value={startDateFilter} onChange={(v) => { setStartDateFilter(v); setPage(0) }} onClear={() => { setStartDateFilter(''); setPage(0) }} placeholder="Từ ngày" className="w-full" />
+              </div>
+              <div>
+                <label className="text-label mb-1 block">Kết thúc trước ngày</label>
+                <DatePicker value={endDateFilter} onChange={(v) => { setEndDateFilter(v); setPage(0) }} onClear={() => { setEndDateFilter(''); setPage(0) }} placeholder="Đến ngày" className="w-full" />
+              </div>
+            </div>
+          }
+          trailing={
+            <SegmentedControl ariaLabel="Dạng hiển thị" value={viewMode} onChange={setViewMode}
+              options={[{ value: 'TABLE', label: <List aria-hidden="true" />, title: 'Dạng bảng' }, { value: 'CARD', label: <LayoutGrid aria-hidden="true" />, title: 'Dạng thẻ' }]} />
+          }
+        >
           <Select value={cycleType} onValueChange={val => { setCycleType(val); setPage(0) }}>
-            <SelectTrigger className="w-full md:w-56 h-[42px] rounded-xl border-[var(--color-border)] bg-[var(--color-muted)]/40 font-bold text-sm">
-              <Filter size={16} className="text-slate-400 mr-2" />
-              <SelectValue placeholder="Tất cả loại kỳ" />
-            </SelectTrigger>
-            <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800 shadow-2xl p-2">
-              <SelectItem value="ALL" className="rounded-xl text-xs font-black uppercase">Tất cả loại kỳ</SelectItem>
-              {CYCLE_TYPES.map(type => (
-                <SelectItem key={type} value={type} className="rounded-xl text-sm font-bold">{FREQUENCY_MAP[type]}</SelectItem>
-              ))}
+            <SelectTrigger className="w-full sm:w-48" aria-label="Loại kỳ"><SelectValue placeholder="Tất cả loại kỳ" /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="ALL">Tất cả loại kỳ</SelectItem>
+              {CYCLE_TYPES.map(type => <SelectItem key={type} value={type}>{FREQUENCY_MAP[type]}</SelectItem>)}
             </SelectContent>
           </Select>
+        </FilterBar>
 
-          {/* Mobile: custom date picker */}
-          <div className="flex md:hidden items-center gap-2 w-full">
-            <DatePicker value={startDateFilter} onChange={(v) => { setStartDateFilter(v); setPage(0) }} onClear={() => { setStartDateFilter(''); setPage(0) }} placeholder="Từ ngày" className="flex-1" />
-            <ArrowRight size={12} className="text-slate-300 shrink-0" />
-            <DatePicker value={endDateFilter} onChange={(v) => { setEndDateFilter(v); setPage(0) }} onClear={() => { setEndDateFilter(''); setPage(0) }} placeholder="Đến ngày" className="flex-1" />
-          </div>
-          {/* Desktop: native date inputs */}
-          <div className="hidden md:flex items-center gap-2">
-            <div className="relative">
-              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 z-10" size={14} />
-              <input type="date" value={startDateFilter} onChange={(e) => { setStartDateFilter(e.target.value); setPage(0) }}
-                className="pl-9 pr-3 py-2.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-muted)]/40 text-[11px] font-black uppercase outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20 transition-all text-transparent w-[140px]" title="Từ ngày" />
-              <div className="absolute inset-0 left-9 flex items-center pointer-events-none text-[11px] font-black uppercase text-slate-600 dark:text-slate-400">
-                {startDateFilter ? format(new Date(startDateFilter), 'dd/MM/yyyy') : 'Từ ngày'}
-              </div>
-            </div>
-            <ArrowRight size={12} className="text-slate-300" />
-            <div className="relative">
-              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 z-10" size={14} />
-              <input type="date" value={endDateFilter} onChange={(e) => { setEndDateFilter(e.target.value); setPage(0) }}
-                className="pl-9 pr-3 py-2.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-muted)]/40 text-[11px] font-black uppercase outline-none focus:ring-2 focus:ring-[var(--color-primary)]/20 transition-all text-transparent w-[140px]" title="Đến ngày" />
-              <div className="absolute inset-0 left-9 flex items-center pointer-events-none text-[11px] font-black uppercase text-slate-600 dark:text-slate-400">
-                {endDateFilter ? format(new Date(endDateFilter), 'dd/MM/yyyy') : 'Đến ngày'}
-              </div>
-            </div>
-          </div>
-
-          {/* View toggle */}
-          <div className="flex bg-[var(--color-muted)] p-1 rounded-xl shrink-0 md:ml-auto">
-            <button onClick={() => setViewMode('TABLE')} className={cn("p-2 rounded-lg transition-all duration-300", viewMode === 'TABLE' ? 'bg-[var(--color-card)] shadow-sm text-[var(--color-primary)]' : 'text-slate-400 hover:text-slate-600')}>
-              <List size={18} />
-            </button>
-            <button onClick={() => setViewMode('CARD')} className={cn("p-2 rounded-lg transition-all duration-300", viewMode === 'CARD' ? 'bg-[var(--color-card)] shadow-sm text-[var(--color-primary)]' : 'text-slate-400 hover:text-slate-600')}>
-              <LayoutGrid size={18} />
-            </button>
-          </div>
-        </div>
-
-        {/* Content */}
         <div id="tour-cycles-content" className="min-w-0">
         {isLoading ? (
-          <div className="bg-[var(--color-card)] rounded-2xl p-8 border border-[var(--color-border)] shadow-sm">
-            <LoadingSkeleton type="table" rows={pageSize} />
-          </div>
+          <LoadingSkeleton type="table" rows={pageSize} />
         ) : !data?.content.length ? (
-          <div className="bg-[var(--color-card)]/50 rounded-2xl border border-dashed border-[var(--color-border)] p-16 shadow-sm text-center">
+          <div className="rounded-card border border-dashed border-[var(--color-border)] bg-[var(--color-card)]">
             <EmptyState
-              title="Chưa có kỳ đánh giá nào"
-              description={keyword || cycleType !== 'ALL' || startDateFilter || endDateFilter ? 'Không tìm thấy kỳ phù hợp với bộ lọc hiện tại.' : 'Hãy tạo kỳ đầu tiên để gom các đợt lại đánh giá tổng hợp.'}
+              icon={CalendarRange}
+              title={keyword || cycleType !== 'ALL' || startDateFilter || endDateFilter ? 'Không tìm thấy kỳ phù hợp' : 'Chưa có kỳ đánh giá nào'}
+              description={keyword || cycleType !== 'ALL' || startDateFilter || endDateFilter ? 'Thử đổi từ khoá hoặc bỏ bớt bộ lọc.' : 'Tạo kỳ đầu tiên để gom các đợt lại đánh giá tổng hợp.'}
+              action={!(keyword || cycleType !== 'ALL' || startDateFilter || endDateFilter) ? <Button onClick={() => { setEditCycle(null); setShowForm(true) }}><Plus aria-hidden="true" /> Tạo kỳ mới</Button> : undefined}
             />
           </div>
         ) : viewMode === 'TABLE' ? (
-          <div className="bg-[var(--color-card)] rounded-2xl border border-[var(--color-border)] overflow-hidden shadow-sm">
-            <div className="overflow-x-auto scrollbar-thin">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
-                    <th className="px-4 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 whitespace-nowrap">Tên kỳ</th>
-                    <th className="px-4 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 whitespace-nowrap">Loại</th>
-                    <th className="px-4 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 whitespace-nowrap">Bắt đầu</th>
-                    <th className="px-4 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 whitespace-nowrap">Kết thúc</th>
-                    <th className="px-4 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 whitespace-nowrap">Số đợt</th>
-                    <th className="px-4 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 text-right whitespace-nowrap">Thao tác</th>
+          <div className="overflow-x-auto rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
+            <table className="w-full">
+              <thead>
+                <tr className="border-b border-[var(--color-border)] bg-[var(--color-muted)]">
+                  <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">Tên kỳ</th>
+                  <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">Loại</th>
+                  <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">Bắt đầu</th>
+                  <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">Kết thúc</th>
+                  <th scope="col" className="px-4 py-2.5 text-right text-eyebrow">Số đợt</th>
+                  <th scope="col" className="px-3 py-2.5 text-right text-eyebrow">Hành động</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[var(--color-border)]">
+                {data.content.map((cycle) => (
+                  <tr key={cycle.id} className="transition-colors hover:bg-[var(--color-muted)]">
+                    <td className="px-4 py-3">
+                      <p className="text-sm font-medium text-[var(--color-foreground)]">{cycle.name}</p>
+                      {cycle.description && <p className="line-clamp-1 text-caption">{cycle.description}</p>}
+                    </td>
+                    <td className="px-4 py-3"><Badge variant="outline">{FREQUENCY_MAP[cycle.cycleType]}</Badge></td>
+                    <td className="px-4 py-3 text-sm tabular-nums text-[var(--color-muted-foreground)]">{cycle.startDate ? formatDateTime(cycle.startDate) : '—'}</td>
+                    <td className="px-4 py-3 text-sm tabular-nums text-[var(--color-muted-foreground)]">{cycle.endDate ? formatDateTime(cycle.endDate) : '—'}</td>
+                    <td className="px-4 py-3 text-right text-sm tabular-nums text-[var(--color-foreground)]">{cycle.periodCount}</td>
+                    <td className="px-3 py-3 text-right">
+                      <div className="flex items-center justify-end gap-1">
+                        <Button variant="ghost" size="icon-sm" onClick={() => { setEditCycle(cycle); setShowForm(true) }} aria-label="Chỉnh sửa" title="Chỉnh sửa"><Pencil aria-hidden="true" /></Button>
+                        <Button variant="ghost" size="icon-sm" onClick={() => setDeleteId(cycle.id)} aria-label="Xoá" title="Xoá" className="text-[var(--color-muted-foreground)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]"><Trash2 aria-hidden="true" /></Button>
+                      </div>
+                    </td>
                   </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50 dark:divide-slate-800/50">
-                  {data.content.map((cycle) => (
-                    <tr key={cycle.id} className="group hover:bg-slate-50/80 dark:hover:bg-slate-800/40 transition-colors">
-                      <td className="px-4 py-5">
-                        <div className="flex items-center gap-4">
-                          <div className="w-12 h-12 rounded-2xl bg-[var(--color-primary)]/10 flex items-center justify-center text-[var(--color-primary)] shrink-0 shadow-sm border border-[var(--color-primary)]/15 group-hover:scale-110 transition-transform duration-500">
-                            <CalendarRange size={20} />
-                          </div>
-                          <div>
-                            <span className="text-sm font-black text-slate-900 dark:text-white block">{cycle.name}</span>
-                            {cycle.description && <span className="text-xs text-slate-400 line-clamp-1">{cycle.description}</span>}
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-4 py-5">
-                        <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-xl bg-slate-50 dark:bg-slate-800 text-[10px] font-black uppercase tracking-widest text-slate-600 dark:text-slate-400 border border-slate-100 dark:border-slate-700">
-                          {FREQUENCY_MAP[cycle.cycleType]}
-                        </div>
-                      </td>
-                      <td className="px-4 py-5"><span className="text-xs font-bold text-slate-500 dark:text-slate-400">{cycle.startDate ? formatDateTime(cycle.startDate) : '—'}</span></td>
-                      <td className="px-4 py-5"><span className="text-xs font-bold text-slate-500 dark:text-slate-400">{cycle.endDate ? formatDateTime(cycle.endDate) : '—'}</span></td>
-                      <td className="px-4 py-5">
-                        <span className="inline-flex items-center gap-1.5 text-[10px] font-black text-[var(--color-primary)] bg-[var(--color-primary)]/10 px-2.5 py-1 rounded-lg border border-[var(--color-primary)]/15">
-                          <Layers size={12} /> {cycle.periodCount} đợt
-                        </span>
-                      </td>
-                      <td className="px-4 py-5 text-right">
-                        <div className="flex items-center justify-end gap-1.5">
-                          <button onClick={() => { setEditCycle(cycle); setShowForm(true) }} className="p-2.5 text-slate-400 hover:text-[var(--color-primary)] hover:bg-[var(--color-muted)] rounded-xl transition-all shadow-sm border border-transparent hover:border-[var(--color-border)]" title="Chỉnh sửa">
-                            <Pencil size={18} />
-                          </button>
-                          <button onClick={() => setDeleteId(cycle.id)} className="p-2.5 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded-xl transition-all shadow-sm border border-transparent hover:border-rose-200" title="Xoá">
-                            <Trash2 size={18} />
-                          </button>
-                        </div>
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
+                ))}
+              </tbody>
+            </table>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6">
+          <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {data.content.map((cycle) => (
-              <div key={cycle.id} className="group relative bg-[var(--color-card)] rounded-2xl border border-[var(--color-border)] p-6 shadow-sm hover:shadow-lg hover:-translate-y-1 transition-all duration-300">
-                <div className="flex items-start justify-between mb-6 relative">
-                  <div className="w-12 h-12 rounded-2xl bg-[var(--color-primary)]/10 flex items-center justify-center text-[var(--color-primary)] shadow-inner">
-                    <CalendarRange size={22} />
-                  </div>
-                  <div className="flex gap-1">
-                    <button onClick={() => { setEditCycle(cycle); setShowForm(true) }} className="p-2 text-slate-400 hover:text-[var(--color-primary)] hover:bg-[var(--color-muted)] rounded-xl transition-all"><Pencil size={16} /></button>
-                    <button onClick={() => setDeleteId(cycle.id)} className="p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded-xl transition-all"><Trash2 size={16} /></button>
-                  </div>
-                </div>
-
-                <h3 className="text-lg font-black text-slate-900 dark:text-white mb-2 line-clamp-1">{cycle.name}</h3>
-                {cycle.description && <p className="text-xs text-slate-400 mb-4 line-clamp-2">{cycle.description}</p>}
-                <div className="flex flex-wrap items-center gap-1.5 mb-6">
-                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-50 dark:bg-slate-800 text-[9px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 border border-slate-100 dark:border-slate-800">
-                    {FREQUENCY_MAP[cycle.cycleType]}
-                  </div>
-                  <div className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-[var(--color-primary)]/10 text-[9px] font-black text-[var(--color-primary)] border border-[var(--color-primary)]/15">
-                    <Layers size={10} /> {cycle.periodCount} đợt
-                  </div>
-                </div>
-
-                <div className="space-y-3 pt-4 border-t border-slate-50 dark:border-slate-800">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Bắt đầu</span>
-                    <span className="text-xs font-bold text-slate-700 dark:text-slate-200">{cycle.startDate ? formatDateTime(cycle.startDate).split(' ')[0] : '—'}</span>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-black text-slate-400 uppercase tracking-tighter">Kết thúc</span>
-                    <span className="text-xs font-bold text-slate-700 dark:text-slate-200">{cycle.endDate ? formatDateTime(cycle.endDate).split(' ')[0] : '—'}</span>
-                  </div>
-                </div>
-              </div>
+              <EntityCard
+                key={cycle.id}
+                leading={<CalendarRange />}
+                title={cycle.name}
+                description={cycle.description}
+                meta={<><Badge variant="outline">{FREQUENCY_MAP[cycle.cycleType]}</Badge><span>{cycle.periodCount} đợt</span></>}
+                footerLeft={<span>Từ {cycle.startDate ? formatDateTime(cycle.startDate).split(' ')[0] : '—'}</span>}
+                footerRight={<span>đến {cycle.endDate ? formatDateTime(cycle.endDate).split(' ')[0] : '—'}</span>}
+                menu={[
+                  { label: 'Chỉnh sửa', icon: <Pencil />, onClick: () => { setEditCycle(cycle); setShowForm(true) } },
+                  { label: 'Xoá', icon: <Trash2 />, destructive: true, onClick: () => setDeleteId(cycle.id) },
+                ]}
+              />
             ))}
           </div>
         )}
         </div>
 
-        {/* Pagination */}
         {data && data.totalPages > 1 && (
-          <div className="flex items-center justify-end gap-2 px-4">
-            <button onClick={() => setPage(p => Math.max(0, p - 1))} disabled={page === 0} className="w-10 h-10 flex items-center justify-center rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 disabled:opacity-30 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all">
-              <ChevronLeft size={18} />
-            </button>
-            {[...Array(data.totalPages)].map((_, i) => (
-              <button key={i} onClick={() => setPage(i)} className={cn("w-10 h-10 rounded-xl text-xs font-black transition-all", page === i ? 'bg-[var(--color-primary)] text-white shadow-sm' : 'hover:bg-[var(--color-muted)] text-[var(--color-muted-foreground)]')}>
-                {i + 1}
-              </button>
-            ))}
-            <button onClick={() => setPage(p => Math.min(data.totalPages - 1, p + 1))} disabled={page === data.totalPages - 1} className="w-10 h-10 flex items-center justify-center rounded-xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 disabled:opacity-30 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all">
-              <ChevronRight size={18} />
-            </button>
-          </div>
+          <Pagination currentPage={page} totalPages={data.totalPages} totalElements={data.totalElements} size={pageSize} onPageChange={setPage} itemLabel="kỳ" />
         )}
 
         {showForm && (
@@ -380,10 +287,10 @@ export default function KpiCyclesPage() {
  */
 function DerivedDateBox({ value, hasPeriods }: { value: string; hasPeriods: boolean }) {
   return (
-    <div className="w-full px-6 py-4 rounded-[22px] border border-dashed border-slate-200 dark:border-slate-700 bg-slate-50/50 dark:bg-slate-800/30 text-sm font-bold">
+    <div className="w-full px-6 py-4 rounded-card border border-dashed border-[var(--color-border)] bg-[var(--color-muted)] text-sm font-medium">
       {hasPeriods && value
-        ? <span className="text-slate-900 dark:text-white">{format(new Date(value), 'dd/MM/yyyy HH:mm')}</span>
-        : <span className="text-slate-400 font-medium">Tự điền theo đợt</span>}
+        ? <span className="text-[var(--color-foreground)]">{format(new Date(value), 'dd/MM/yyyy HH:mm')}</span>
+        : <span className="text-[var(--color-subtle-foreground)] font-medium">Tự điền theo đợt</span>}
     </div>
   )
 }
@@ -573,227 +480,214 @@ function CycleFormModal({ onClose, editCycle, organizationId, onSubmit, isSubmit
   const mismatchDescription = `Bạn đã chọn ${selectedDays} ngày, trong khi loại kỳ "${FREQUENCY_MAP[formData.cycleType]}" tiêu chuẩn là ${standardDays} ngày. Bạn tự chịu trách nhiệm với khoảng thời gian đã chọn.`
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-slate-950/40 backdrop-blur-md animate-in fade-in duration-300" onClick={onClose} />
-      <div className="relative bg-white dark:bg-slate-900 rounded-[40px] shadow-2xl w-full max-w-lg mx-auto animate-in zoom-in-95 fade-in duration-500 overflow-y-auto overflow-x-hidden max-h-[92vh] scrollbar-thin border border-slate-200 dark:border-slate-800">
-        <div className="absolute top-0 right-0 w-32 h-32 bg-[var(--color-primary)]/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl" />
-        <div className="p-10 space-y-8 relative">
-          <div className="flex items-center gap-5">
-            <div className="w-14 h-14 rounded-[22px] bg-[var(--color-primary)]/10 flex items-center justify-center text-[var(--color-primary)] shadow-inner border border-[var(--color-primary)]/15">
-              {editCycle ? <Pencil size={28} /> : <Plus size={28} />}
+    <>
+    <Dialog
+      open
+      onClose={onClose}
+      size="md"
+      dismissible={!isSubmitting}
+      title={editCycle ? 'Chỉnh sửa kỳ' : 'Tạo kỳ mới'}
+      description="Cấu hình kỳ đánh giá tổng hợp"
+      footer={
+        <DialogFooter
+          secondary={<Button variant="outline" onClick={onClose} disabled={isSubmitting}>Hủy</Button>}
+          primary={
+            <Button type="submit" form="cycle-form-page" disabled={isSubmitting}>
+              {isSubmitting ? 'Đang lưu...' : 'Xác nhận'}
+            </Button>
+          }
+        />
+      }
+    >
+      <div className="space-y-5">
+      {/* Hai đường dựng kỳ. Đổi qua lại không mất dữ liệu đã nhập. */}
+      <div className="space-y-2">
+        <span className="text-label block">Cách dựng kỳ</span>
+        <div className="grid grid-cols-2 gap-2 p-1.5 rounded-card bg-[var(--color-muted)]">
+          {([
+            { key: 'TIME_FIRST', icon: <Calendar size={14} />, label: 'Chọn thời gian trước' },
+            { key: 'PERIOD_FIRST', icon: <Layers size={14} />, label: 'Chọn đợt trước' },
+          ] as const).map(opt => (
+            <ChoiceChip selected={mode === opt.key} variant="segment" className="py-2.5" key={opt.key} onClick={() => setMode(opt.key)}>
+              {opt.icon}
+              <span className="truncate">{opt.label}</span>
+            </ChoiceChip>
+          ))}
+        </div>
+        <p className="text-caption font-medium ml-1 leading-relaxed">
+          {isPeriodFirst
+            ? 'Chọn các đợt cần gom, thời gian kỳ tự ôm trọn từ đợt sớm nhất tới đợt muộn nhất.'
+            : 'Đặt thời gian kỳ trước, sau đó nhặt các đợt nằm trọn trong khoảng đó.'}
+        </p>
+      </div>
+
+      <form id="cycle-form-page" onSubmit={handleSubmit} className="space-y-5">
+        <div className="space-y-2">
+          <label className="text-label">Tên kỳ <span className="text-[var(--color-error)]">*</span></label>
+          <input value={formData.name} onChange={e => handleFieldChange('name', e.target.value)} required placeholder="Ví dụ: 6 Tháng đầu năm 2026"
+            className="w-full px-5 py-4 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] focus:ring-4 focus:ring-[var(--color-primary)]/15 focus:border-[var(--color-primary)]/50 outline-none text-sm font-medium transition-all placeholder:text-[var(--color-subtle-foreground)]"/>
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-label">Loại kỳ <span className="text-[var(--color-error)]">*</span></label>
+          <Select value={formData.cycleType} onValueChange={val => handleFieldChange('cycleType', val)}>
+            <SelectTrigger className="w-full px-5 h-[56px] rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] text-sm font-medium shadow-sm focus:ring-4 focus:ring-[var(--color-primary)]/15">
+              <SelectValue placeholder="Chọn loại kỳ" />
+            </SelectTrigger>
+            <SelectContent className="rounded-card border-[var(--color-border)] p-2">
+              {CYCLE_TYPES.map(type => (
+                <SelectItem key={type} value={type} className="rounded-card text-sm font-medium">{FREQUENCY_MAP[type]}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-label">Chế độ đánh giá cuối kỳ</label>
+          <Select
+            value={formData.evaluationMode}
+            onValueChange={val => setFormData(p => ({ ...p, evaluationMode: val as CycleEvaluationMode }))}
+            disabled={!enableQualitative}
+          >
+            <SelectTrigger className="w-full px-5 h-[56px] rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] text-sm font-medium shadow-sm focus:ring-4 focus:ring-[var(--color-primary)]/15 disabled:opacity-70">
+              <SelectValue placeholder="Chọn chế độ đánh giá" />
+            </SelectTrigger>
+            <SelectContent className="rounded-card border-[var(--color-border)] p-2">
+              <SelectItem value="QUANTITATIVE" className="rounded-card text-sm font-medium">Định lượng</SelectItem>
+              {enableQualitative && <SelectItem value="QUALITATIVE" className="rounded-card text-sm font-medium">Định tính</SelectItem>}
+              {enableQualitative && <SelectItem value="BOTH" className="rounded-card text-sm font-medium">Cả hai</SelectItem>}
+            </SelectContent>
+          </Select>
+          {!enableQualitative && (
+            <p className="text-caption font-medium ml-1">
+              Tổ chức chưa bật KPI định tính nên kỳ chỉ đánh giá theo <span className="font-semibold text-[var(--color-muted-foreground)]">Định lượng</span>.
+            </p>
+          )}
+        </div>
+
+        {/* Chọn đợt trước thì danh sách đợt phải đứng trên thời gian — thời gian là kết quả. */}
+        <div className={cn('flex flex-col gap-6', isPeriodFirst && 'flex-col-reverse')}>
+
+        <div className="space-y-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-label">Bắt đầu <span className="text-[var(--color-error)]">*</span></label>
+              {isPeriodFirst ? (
+                <DerivedDateBox value={formData.startDate} hasPeriods={selectedPeriodIds.length > 0} />
+              ) : (
+                <DateTimePicker value={formData.startDate} onChange={val => handleFieldChange('startDate', val)} />
+              )}
             </div>
-            <div>
-              <h3 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">{editCycle ? 'Chỉnh sửa kỳ' : 'Tạo kỳ mới'}</h3>
-              <p className="text-xs font-black text-slate-400 uppercase tracking-widest mt-1">Cấu hình kỳ đánh giá tổng hợp</p>
+            <div className="space-y-2">
+              <label className="text-label">Kết thúc <span className="text-[var(--color-error)]">*</span></label>
+              {isPeriodFirst ? (
+                <DerivedDateBox value={formData.endDate} hasPeriods={selectedPeriodIds.length > 0} />
+              ) : (
+                <DateTimePicker value={formData.endDate} onChange={val => handleFieldChange('endDate', val)} />
+              )}
             </div>
           </div>
+          {isPeriodFirst && (
+            <p className="text-caption font-medium ml-1 leading-relaxed">
+              {selectedPeriodIds.length > 0
+                ? <>Suy ra từ {selectedPeriodIds.length} đợt đã chọn — dài <span className="font-semibold text-[var(--color-muted-foreground)]">{selectedDays} ngày</span>, gần nhất với loại kỳ <span className="font-semibold text-[var(--color-muted-foreground)]">{FREQUENCY_MAP[formData.cycleType]}</span> ({standardDays} ngày). Muốn tự chỉnh giờ/ngày thì đổi sang "Chọn thời gian trước".</>
+                : 'Chọn đợt ở trên để hệ thống điền thời gian kỳ.'}
+            </p>
+          )}
+        </div>
 
-          {/* Hai đường dựng kỳ. Đổi qua lại không mất dữ liệu đã nhập. */}
-          <div className="space-y-2">
-            <span className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Cách dựng kỳ</span>
-            <div className="grid grid-cols-2 gap-2 p-1.5 rounded-[22px] bg-slate-100/70 dark:bg-slate-800/70">
-              {([
-                { key: 'TIME_FIRST', icon: <Calendar size={14} />, label: 'Chọn thời gian trước' },
-                { key: 'PERIOD_FIRST', icon: <Layers size={14} />, label: 'Chọn đợt trước' },
-              ] as const).map(opt => (
+        {/* Gom đợt vào kỳ ngay khi tạo — khỏi phải sang tab Đợt chỉnh từng đợt. */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between gap-3 ml-1">
+            <label className="text-label">
+              Đợt trong kỳ
+              {selectedPeriodIds.length > 0 && (
+                <span className="ml-2 text-[var(--color-primary)]">({selectedPeriodIds.length})</span>
+              )}
+            </label>
+            {eligiblePeriods.length > 0 && (
+              <Button variant="ghost" type="button" onClick={toggleAllEligible}>
+                {allEligibleSelected ? 'Bỏ chọn tất cả' : `Chọn tất cả (${eligiblePeriods.length})`}
+              </Button>
+            )}
+          </div>
+
+          <div className="rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] p-2 max-h-56 overflow-y-auto scrollbar-thin">
+            {isLoadingPeriods ? (
+              <p className="px-3 py-4 text-caption text-center">Đang tải danh sách đợt...</p>
+            ) : !sortedPeriods.length ? (
+              <p className="px-3 py-4 text-caption text-center">Chưa có đợt nào trong tổ chức.</p>
+            ) : !eligiblePeriods.length ? (
+              <p className="px-3 py-4 text-caption text-center">
+                {isPeriodFirst
+                  ? 'Các đợt hiện có đều thiếu ngày bắt đầu hoặc kết thúc.'
+                  : 'Không có đợt nào nằm trọn trong thời gian kỳ đã chọn.'}
+              </p>
+            ) : sortedPeriods.map(period => {
+              const eligible = canPick(period)
+              const selected = selectedPeriodIds.includes(period.id)
+              const fromOtherCycle = !!period.cycleId && period.cycleId !== editCycle?.id
+              return (
                 <button
-                  key={opt.key}
+                  key={period.id}
                   type="button"
-                  onClick={() => setMode(opt.key)}
+                  disabled={!eligible}
+                  onClick={() => togglePeriod(period.id)}
                   className={cn(
-                    'flex items-center justify-center gap-2 px-3 py-2.5 rounded-[16px] text-[10px] font-black uppercase tracking-widest transition-all',
-                    mode === opt.key
-                      ? 'bg-white dark:bg-slate-900 text-[var(--color-primary)] shadow-sm'
-                      : 'text-slate-400 hover:text-slate-600 dark:hover:text-slate-300'
+                    'w-full flex items-center gap-3 px-3 py-2.5 rounded-card text-left transition-all',
+                    eligible ? 'hover:bg-[var(--color-card)] cursor-pointer' : 'opacity-40 cursor-not-allowed',
+                    selected && 'bg-[var(--color-card)] shadow-sm'
                   )}
                 >
-                  {opt.icon}
-                  <span className="truncate">{opt.label}</span>
+                  <span className={cn(
+                    'w-5 h-5 rounded-control border flex items-center justify-center shrink-0 transition-all',
+                    selected ? 'bg-[var(--color-primary)] border-[var(--color-primary)] text-[var(--color-primary-foreground)]' : 'border-[var(--color-border-strong)]'
+                  )}>
+                    {selected && <Check size={13} strokeWidth={3} />}
+                  </span>
+                  <span className="min-w-0 flex-1">
+                    <span className="flex items-center gap-2">
+                      <span className="text-xs font-semibold text-[var(--color-foreground)] truncate">{period.name}</span>
+                      <span className="text-eyebrow shrink-0">
+                        {FREQUENCY_MAP[period.periodType]}
+                      </span>
+                    </span>
+                    <span className="block text-caption mt-0.5">
+                      {period.startDate ? format(parseISO(period.startDate), 'dd/MM/yyyy') : '—'}
+                      {' – '}
+                      {period.endDate ? format(parseISO(period.endDate), 'dd/MM/yyyy') : '—'}
+                    </span>
+                    {!eligible ? (
+                      <span className="block text-caption mt-0.5">
+                        {isPeriodFirst ? 'Đợt chưa có ngày bắt đầu/kết thúc' : 'Ngoài thời gian kỳ'}
+                      </span>
+                    ) : fromOtherCycle && (
+                      <span className="flex items-center gap-1 text-xs font-medium text-[var(--color-warning)] mt-0.5">
+                        <AlertTriangle size={10} /> Đang thuộc kỳ "{period.cycleName}"{selected && ' — sẽ chuyển sang kỳ này'}
+                      </span>
+                    )}
+                  </span>
                 </button>
-              ))}
-            </div>
-            <p className="text-[11px] text-slate-400 font-medium ml-1 leading-relaxed">
-              {isPeriodFirst
-                ? 'Chọn các đợt cần gom, thời gian kỳ tự ôm trọn từ đợt sớm nhất tới đợt muộn nhất.'
-                : 'Đặt thời gian kỳ trước, sau đó nhặt các đợt nằm trọn trong khoảng đó.'}
-            </p>
+              )
+            })}
           </div>
-
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Tên kỳ <span className="text-red-500">*</span></label>
-              <input value={formData.name} onChange={e => handleFieldChange('name', e.target.value)} required placeholder="Ví dụ: 6 Tháng đầu năm 2026"
-                className="w-full px-5 py-4 rounded-[20px] border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 focus:ring-4 focus:ring-[var(--color-primary)]/15 focus:border-[var(--color-primary)]/50 outline-none text-sm font-bold transition-all placeholder:text-slate-400" />
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Loại kỳ <span className="text-red-500">*</span></label>
-              <Select value={formData.cycleType} onValueChange={val => handleFieldChange('cycleType', val)}>
-                <SelectTrigger className="w-full px-5 h-[56px] rounded-[20px] border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 text-sm font-bold shadow-sm focus:ring-4 focus:ring-[var(--color-primary)]/15">
-                  <SelectValue placeholder="Chọn loại kỳ" />
-                </SelectTrigger>
-                <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800 shadow-2xl p-2">
-                  {CYCLE_TYPES.map(type => (
-                    <SelectItem key={type} value={type} className="rounded-xl text-sm font-bold">{FREQUENCY_MAP[type]}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Chế độ đánh giá cuối kỳ</label>
-              <Select
-                value={formData.evaluationMode}
-                onValueChange={val => setFormData(p => ({ ...p, evaluationMode: val as CycleEvaluationMode }))}
-                disabled={!enableQualitative}
-              >
-                <SelectTrigger className="w-full px-5 h-[56px] rounded-[20px] border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 text-sm font-bold shadow-sm focus:ring-4 focus:ring-[var(--color-primary)]/15 disabled:opacity-70">
-                  <SelectValue placeholder="Chọn chế độ đánh giá" />
-                </SelectTrigger>
-                <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800 shadow-2xl p-2">
-                  <SelectItem value="QUANTITATIVE" className="rounded-xl text-sm font-bold">Định lượng</SelectItem>
-                  {enableQualitative && <SelectItem value="QUALITATIVE" className="rounded-xl text-sm font-bold">Định tính</SelectItem>}
-                  {enableQualitative && <SelectItem value="BOTH" className="rounded-xl text-sm font-bold">Cả hai</SelectItem>}
-                </SelectContent>
-              </Select>
-              {!enableQualitative && (
-                <p className="text-[11px] text-slate-400 font-medium ml-1">
-                  Tổ chức chưa bật KPI định tính nên kỳ chỉ đánh giá theo <span className="font-black text-slate-500">Định lượng</span>.
-                </p>
-              )}
-            </div>
-
-            {/* Chọn đợt trước thì danh sách đợt phải đứng trên thời gian — thời gian là kết quả. */}
-            <div className={cn('flex flex-col gap-6', isPeriodFirst && 'flex-col-reverse')}>
-
-            <div className="space-y-2">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Bắt đầu <span className="text-red-500">*</span></label>
-                  {isPeriodFirst ? (
-                    <DerivedDateBox value={formData.startDate} hasPeriods={selectedPeriodIds.length > 0} />
-                  ) : (
-                    <DateTimePicker value={formData.startDate} onChange={val => handleFieldChange('startDate', val)} />
-                  )}
-                </div>
-                <div className="space-y-2">
-                  <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Kết thúc <span className="text-red-500">*</span></label>
-                  {isPeriodFirst ? (
-                    <DerivedDateBox value={formData.endDate} hasPeriods={selectedPeriodIds.length > 0} />
-                  ) : (
-                    <DateTimePicker value={formData.endDate} onChange={val => handleFieldChange('endDate', val)} />
-                  )}
-                </div>
-              </div>
-              {isPeriodFirst && (
-                <p className="text-[11px] text-slate-400 font-medium ml-1 leading-relaxed">
-                  {selectedPeriodIds.length > 0
-                    ? <>Suy ra từ {selectedPeriodIds.length} đợt đã chọn — dài <span className="font-black text-slate-500">{selectedDays} ngày</span>, gần nhất với loại kỳ <span className="font-black text-slate-500">{FREQUENCY_MAP[formData.cycleType]}</span> ({standardDays} ngày). Muốn tự chỉnh giờ/ngày thì đổi sang "Chọn thời gian trước".</>
-                    : 'Chọn đợt ở trên để hệ thống điền thời gian kỳ.'}
-                </p>
-              )}
-            </div>
-
-            {/* Gom đợt vào kỳ ngay khi tạo — khỏi phải sang tab Đợt chỉnh từng đợt. */}
-            <div className="space-y-2">
-              <div className="flex items-center justify-between gap-3 ml-1">
-                <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400">
-                  Đợt trong kỳ
-                  {selectedPeriodIds.length > 0 && (
-                    <span className="ml-2 text-[var(--color-primary)]">({selectedPeriodIds.length})</span>
-                  )}
-                </label>
-                {eligiblePeriods.length > 0 && (
-                  <button type="button" onClick={toggleAllEligible}
-                    className="text-[10px] font-black uppercase tracking-widest text-[var(--color-primary)] hover:underline">
-                    {allEligibleSelected ? 'Bỏ chọn tất cả' : `Chọn tất cả (${eligiblePeriods.length})`}
-                  </button>
-                )}
-              </div>
-
-              <div className="rounded-[20px] border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 p-2 max-h-56 overflow-y-auto scrollbar-thin">
-                {isLoadingPeriods ? (
-                  <p className="px-3 py-4 text-xs font-bold text-slate-400 text-center">Đang tải danh sách đợt...</p>
-                ) : !sortedPeriods.length ? (
-                  <p className="px-3 py-4 text-xs font-bold text-slate-400 text-center">Chưa có đợt nào trong tổ chức.</p>
-                ) : !eligiblePeriods.length ? (
-                  <p className="px-3 py-4 text-xs font-bold text-slate-400 text-center">
-                    {isPeriodFirst
-                      ? 'Các đợt hiện có đều thiếu ngày bắt đầu hoặc kết thúc.'
-                      : 'Không có đợt nào nằm trọn trong thời gian kỳ đã chọn.'}
-                  </p>
-                ) : sortedPeriods.map(period => {
-                  const eligible = canPick(period)
-                  const selected = selectedPeriodIds.includes(period.id)
-                  const fromOtherCycle = !!period.cycleId && period.cycleId !== editCycle?.id
-                  return (
-                    <button
-                      key={period.id}
-                      type="button"
-                      disabled={!eligible}
-                      onClick={() => togglePeriod(period.id)}
-                      className={cn(
-                        'w-full flex items-center gap-3 px-3 py-2.5 rounded-2xl text-left transition-all',
-                        eligible ? 'hover:bg-white dark:hover:bg-slate-800 cursor-pointer' : 'opacity-40 cursor-not-allowed',
-                        selected && 'bg-white dark:bg-slate-800 shadow-sm'
-                      )}
-                    >
-                      <span className={cn(
-                        'w-5 h-5 rounded-lg border flex items-center justify-center shrink-0 transition-all',
-                        selected ? 'bg-[var(--color-primary)] border-[var(--color-primary)] text-white' : 'border-slate-300 dark:border-slate-600'
-                      )}>
-                        {selected && <Check size={13} strokeWidth={3} />}
-                      </span>
-                      <span className="min-w-0 flex-1">
-                        <span className="flex items-center gap-2">
-                          <span className="text-xs font-black text-slate-700 dark:text-slate-200 truncate">{period.name}</span>
-                          <span className="text-[9px] font-black uppercase tracking-widest text-slate-400 shrink-0">
-                            {FREQUENCY_MAP[period.periodType]}
-                          </span>
-                        </span>
-                        <span className="block text-[10px] font-bold text-slate-400 mt-0.5">
-                          {period.startDate ? format(parseISO(period.startDate), 'dd/MM/yyyy') : '—'}
-                          {' – '}
-                          {period.endDate ? format(parseISO(period.endDate), 'dd/MM/yyyy') : '—'}
-                        </span>
-                        {!eligible ? (
-                          <span className="block text-[10px] font-bold text-slate-400 mt-0.5">
-                            {isPeriodFirst ? 'Đợt chưa có ngày bắt đầu/kết thúc' : 'Ngoài thời gian kỳ'}
-                          </span>
-                        ) : fromOtherCycle && (
-                          <span className="flex items-center gap-1 text-[10px] font-bold text-amber-600 dark:text-amber-500 mt-0.5">
-                            <AlertTriangle size={10} /> Đang thuộc kỳ "{period.cycleName}"{selected && ' — sẽ chuyển sang kỳ này'}
-                          </span>
-                        )}
-                      </span>
-                    </button>
-                  )
-                })}
-              </div>
-              <p className="text-[11px] text-slate-400 font-medium ml-1">
-                {isPeriodFirst
-                  ? 'Chọn đợt nào cũng được, kể cả đợt rời rạc — thời gian kỳ sẽ trải từ đợt sớm nhất tới đợt muộn nhất.'
-                  : 'Chỉ chọn được đợt nằm trọn trong thời gian kỳ. Đổi thời gian kỳ sẽ tự bỏ các đợt không còn phù hợp.'}
-              </p>
-            </div>
-
-            </div>
-
-            <div className="space-y-2">
-              <label className="text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 ml-1">Mô tả</label>
-              <textarea value={formData.description} onChange={e => setFormData(p => ({ ...p, description: e.target.value }))} rows={2} placeholder="Mục tiêu tổng thể của kỳ..."
-                className="w-full px-5 py-4 rounded-[20px] border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/50 focus:ring-4 focus:ring-[var(--color-primary)]/15 focus:border-[var(--color-primary)]/50 outline-none text-sm font-medium transition-all placeholder:text-slate-400 resize-none" />
-            </div>
-
-            <div className="flex gap-4 pt-4">
-              <button type="button" onClick={onClose} className="flex-1 px-8 py-4 rounded-[20px] border border-slate-200 dark:border-slate-800 text-xs font-black uppercase tracking-widest hover:bg-slate-50 dark:hover:bg-slate-800 transition-all active:scale-95">Huỷ</button>
-              <button type="submit" disabled={isSubmitting} className="flex-1 px-8 py-4 rounded-[20px] bg-[var(--color-primary)] text-white text-xs font-black uppercase tracking-widest hover:opacity-90 transition-all shadow-lg disabled:opacity-50 active:scale-95">
-                {isSubmitting ? 'Đang lưu...' : 'Xác nhận'}
-              </button>
-            </div>
-          </form>
+          <p className="text-caption font-medium ml-1">
+            {isPeriodFirst
+              ? 'Chọn đợt nào cũng được, kể cả đợt rời rạc — thời gian kỳ sẽ trải từ đợt sớm nhất tới đợt muộn nhất.'
+              : 'Chỉ chọn được đợt nằm trọn trong thời gian kỳ. Đổi thời gian kỳ sẽ tự bỏ các đợt không còn phù hợp.'}
+          </p>
         </div>
+
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-label">Mô tả</label>
+          <textarea value={formData.description} onChange={e => setFormData(p => ({ ...p, description: e.target.value }))} rows={2} placeholder="Mục tiêu tổng thể của kỳ..."
+            className="w-full px-5 py-4 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] focus:ring-4 focus:ring-[var(--color-primary)]/15 focus:border-[var(--color-primary)]/50 outline-none text-sm font-medium transition-all placeholder:text-[var(--color-subtle-foreground)] resize-none"/>
+        </div>
+        </form>
       </div>
+    </Dialog>
 
       <ConfirmDialog
         open={showMismatchConfirm}
@@ -804,6 +698,6 @@ function CycleFormModal({ onClose, editCycle, organizationId, onSubmit, isSubmit
         onClose={() => setShowMismatchConfirm(false)}
         loading={isSubmitting}
       />
-    </div>
+    </>
   )
 }

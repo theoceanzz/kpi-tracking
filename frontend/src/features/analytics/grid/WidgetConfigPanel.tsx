@@ -72,7 +72,7 @@ export default function WidgetConfigPanel({
                     'focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]',
                     active
                       ? 'border-[var(--color-primary)] bg-indigo-50/60 dark:bg-indigo-500/10 text-[var(--color-primary)]'
-                      : 'border-slate-200 dark:border-slate-800 text-slate-500 hover:border-indigo-400 hover:text-[var(--color-primary)]'
+                      : 'border-[var(--color-border)] text-slate-500 hover:border-indigo-400 hover:text-[var(--color-primary)]'
                   )}
                 >
                   <ChartTypePreview shape={key === 'table' ? 'table' : 'bar'} className="w-16 h-11" />
@@ -105,7 +105,7 @@ export default function WidgetConfigPanel({
                     'focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]',
                     active
                       ? 'border-[var(--color-primary)] bg-indigo-50/60 dark:bg-indigo-500/10 text-[var(--color-primary)]'
-                      : 'border-slate-200 dark:border-slate-800 text-slate-500 hover:border-indigo-400 hover:text-[var(--color-primary)]'
+                      : 'border-[var(--color-border)] text-slate-500 hover:border-indigo-400 hover:text-[var(--color-primary)]'
                   )}
                 >
                   <ChartTypePreview shape={v.shape} className="w-16 h-11" />
@@ -130,7 +130,7 @@ export default function WidgetConfigPanel({
               const value = widget.s?.o?.[f.key] ?? f.default
               return (
                 <div key={f.key}>
-                  <p className="text-xs font-medium text-slate-500 dark:text-slate-400 mb-1.5">{f.label}</p>
+                  <p className="text-xs font-medium text-[var(--color-muted-foreground)] mb-1.5">{f.label}</p>
                   {f.kind === 'pills' ? (
                     <div className="flex flex-wrap gap-1.5">
                       {f.choices.map(c => {
@@ -146,7 +146,7 @@ export default function WidgetConfigPanel({
                               'focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]',
                               active
                                 ? 'border-[var(--color-primary)] bg-indigo-50/60 dark:bg-indigo-500/10 text-[var(--color-primary)]'
-                                : 'border-slate-200 dark:border-slate-800 text-slate-500 hover:border-indigo-400 hover:text-[var(--color-primary)]'
+                                : 'border-[var(--color-border)] text-slate-500 hover:border-indigo-400 hover:text-[var(--color-primary)]'
                             )}
                           >
                             {c.label}

@@ -14,14 +14,13 @@ import java.util.List;
 import java.util.UUID;
 
 /**
- * Kết quả BSC của MỘT ĐƠN VỊ trong MỘT ĐỢT — con số "BSC phòng đạt 92%" dùng để tra hệ số.
+ * Kết quả BSC của MỘT ĐƠN VỊ trong MỘT ĐỢT — con số "BSC phòng đạt 92%".
  *
  * <p>Khác {@link CycleUnitEvaluation}: bảng kia gộp NGƯỢC LÊN từ điểm của nhân sự trong phòng,
  * bảng này đo chỉ tiêu của chính đơn vị theo hướng TỪ TRÊN XUỐNG. Hai con số song song và được
  * đối chiếu trên dashboard — lệch nhau nhiều là tín hiệu chỉ tiêu chưa phân rã đúng.
  *
- * <p>{@code bandCode}/{@code factor} được CHỤP LẠI lúc chốt: sửa chính sách hệ số về sau không
- * được làm đổi kết quả đã công bố.
+ * <p>Con số này chỉ để ĐỌC kết quả của đơn vị — nó KHÔNG nhân vào điểm của nhân viên.
  */
 @Entity
 @Table(name = "bsc_unit_results")
@@ -49,11 +48,19 @@ public class BscUnitResult {
     @Column(name = "achievement_percent")
     private Double achievementPercent;
 
-    /** Nhãn dải đã rơi vào, chụp lại lúc chốt. */
+    /**
+     * KHÔNG CÒN DÙNG — nhãn dải đã bỏ cùng với màn cấu hình chính sách. Cột giữ lại để đọc các
+     * đợt đã chốt trước đây; luồng tính hiện tại không ghi vào đây nữa.
+     */
+    @Deprecated
     @Column(name = "band_code", length = 100)
     private String bandCode;
 
-    /** Hệ số suy từ dải, chụp lại lúc chốt. */
+    /**
+     * KHÔNG CÒN DÙNG — kết quả BSC của đơn vị không còn quy thành hệ số nhân vào điểm cá nhân.
+     * Cột giữ lại để đọc các đợt đã chốt trước đây.
+     */
+    @Deprecated
     @Column(name = "factor")
     private Double factor;
 

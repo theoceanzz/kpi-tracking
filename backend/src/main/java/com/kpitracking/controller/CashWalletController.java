@@ -22,6 +22,7 @@ public class CashWalletController {
     private final TopupOrderService topupService;
     private final PointConversionService conversionService;
     private final SepayReconcileService reconcileService;
+    private final TopupReceiptService receiptService;
 
     // ===== Ví của tôi =====
 
@@ -69,6 +70,34 @@ public class CashWalletController {
     @PreAuthorize("hasAuthority('WALLET:VIEW_MY')")
     public ResponseEntity<ApiResponse<TopupOrderResponse>> cancelTopup(@PathVariable UUID id) {
         return ResponseEntity.ok(ApiResponse.success("Đã huỷ đơn nạp tiền", topupService.cancel(id)));
+    }
+
+    // ===== Biên nhận thu tiền =====
+    //
+    // Người nộp tiền luôn xem được biên nhận của chính mình, nên chỉ cần WALLET:VIEW_MY ở đây;
+    // việc chặn xem chứng từ của NGƯỜI KHÁC nằm trong service, nơi biết chủ của từng tờ.
+
+    @GetMapping("/topups/{id}/receipt")
+    @PreAuthorize("hasAuthority('WALLET:VIEW_MY')")
+    public ResponseEntity<ApiResponse<TopupReceiptResponse>> getTopupReceipt(@PathVariable UUID id) {
+        return ResponseEntity.ok(ApiResponse.success(receiptService.getByOrderId(id)));
+    }
+
+    @GetMapping("/receipts/me")
+    @PreAuthorize("hasAuthority('WALLET:VIEW_MY')")
+    public ResponseEntity<ApiResponse<PageResponse<TopupReceiptResponse>>> getMyReceipts(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(ApiResponse.success(receiptService.getMine(page, size)));
+    }
+
+    /** Sổ chứng từ của cả tổ chức, dành cho kế toán đối chiếu với sao kê ngân hàng. */
+    @GetMapping("/receipts")
+    @PreAuthorize("hasAuthority('WALLET:VIEW')")
+    public ResponseEntity<ApiResponse<PageResponse<TopupReceiptResponse>>> getOrgReceipts(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "20") int size) {
+        return ResponseEntity.ok(ApiResponse.success(receiptService.getForOrg(page, size)));
     }
 
     // ===== Quy đổi sang điểm =====

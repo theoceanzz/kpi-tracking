@@ -14,7 +14,7 @@ export function OkrFlowSection({ filter }: { filter: AdvancedFilter }) {
 
   if (isLoading) {
     return (
-      <div className="h-[300px] flex items-center justify-center text-slate-400 font-medium">
+      <div className="h-[300px] flex items-center justify-center text-[var(--color-subtle-foreground)] font-semibold">
         Đang tải luồng OKR...
       </div>
     )
@@ -22,7 +22,7 @@ export function OkrFlowSection({ filter }: { filter: AdvancedFilter }) {
 
   if (!data || data.empty) {
     return (
-      <div className="h-[300px] flex items-center justify-center text-sm text-slate-400 font-medium text-center px-4">
+      <div className="h-[300px] flex items-center justify-center text-sm text-[var(--color-subtle-foreground)] font-medium text-center px-4">
         Chưa có Key Result nào được phân bổ trọng số xuống đơn vị.<br />
         Luồng xuất hiện khi Key Result được gán trọng số cho ít nhất một đơn vị.
       </div>
@@ -32,7 +32,7 @@ export function OkrFlowSection({ filter }: { filter: AdvancedFilter }) {
   return (
     <div className="w-full">
       <FlowSankey nodes={data.nodes} links={data.links} valueLabel={data.valueLabel} height={340} />
-      <p className="text-xs text-slate-400 font-medium text-center mt-1">
+      <p className="text-caption font-medium text-center mt-1">
         Độ dày dải là trọng số phân bổ (%) · ba tầng: Mục tiêu → Key Result → Đơn vị thực hiện.
       </p>
     </div>

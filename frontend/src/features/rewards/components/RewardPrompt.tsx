@@ -4,6 +4,7 @@ import { useHasPermission } from '@/components/auth/PermissionGate'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { useAuthStore } from '@/store/authStore'
 import { useMyBudget, useRewardGrants } from '../hooks/useRewards'
+import { Button } from '@/components/ui/button'
 
 interface RewardPromptProps {
   userId: string
@@ -48,8 +49,8 @@ export default function RewardPrompt({
 
   if (done) {
     return (
-      <div className="flex items-center gap-2 rounded-2xl border border-emerald-500/40 bg-emerald-500/10 px-4 py-3 text-sm">
-        <Check size={16} className="flex-shrink-0 text-emerald-600" />
+      <div className="flex items-center gap-2 rounded-card border border-[var(--color-success-border)] bg-[var(--color-success-bg)] px-4 py-3 text-sm">
+        <Check size={16} className="flex-shrink-0 text-[var(--color-success)]" />
         <span>
           Đã thưởng <b>{typeof points === 'number' ? points.toLocaleString('vi-VN') : ''} điểm</b> cho{' '}
           {fullName}.
@@ -71,26 +72,18 @@ export default function RewardPrompt({
 
   if (!expanded) {
     return (
-      <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-[var(--color-border)] bg-[var(--color-muted)]/40 px-4 py-3">
+      <div className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)]/40 px-4 py-3">
         <span className="flex items-center gap-2 text-sm">
           <Gift size={16} className="text-[var(--color-primary)]" />
           Thưởng điểm cho <b>{fullName}</b>?
         </span>
         <div className="flex gap-2">
-          <button
-            type="button"
-            onClick={() => setExpanded(true)}
-            className="rounded-lg bg-[var(--color-primary)] px-4 py-1.5 text-sm font-medium text-white"
-          >
+          <Button size="sm" type="button" onClick={() => setExpanded(true)}>
             Có
-          </button>
-          <button
-            type="button"
-            onClick={() => onDone?.()}
-            className="rounded-lg border border-[var(--color-border)] px-4 py-1.5 text-sm"
-          >
+          </Button>
+          <Button variant="outline" size="sm" type="button" onClick={() => onDone?.()}>
             Bỏ qua
-          </button>
+          </Button>
         </div>
       </div>
     )
@@ -99,7 +92,7 @@ export default function RewardPrompt({
   const canSubmit = typeof points === 'number' && points > 0 && reason.trim().length > 0
 
   return (
-    <div className="space-y-3 rounded-2xl border border-[var(--color-primary)]/40 bg-[var(--color-primary)]/5 px-4 py-3">
+    <div className="space-y-3 rounded-card border border-[var(--color-primary)]/40 bg-[var(--color-primary)]/5 px-4 py-3">
       <div className="flex items-center justify-between">
         <span className="flex items-center gap-2 text-sm font-medium">
           <Gift size={16} className="text-[var(--color-primary)]" />
@@ -108,7 +101,7 @@ export default function RewardPrompt({
         <button
           type="button"
           onClick={() => setExpanded(false)}
-          className="rounded-lg p-1 hover:bg-[var(--color-accent)]"
+          className="rounded-control p-1 hover:bg-[var(--color-accent)]"
         >
           <X size={15} />
         </button>
@@ -128,23 +121,18 @@ export default function RewardPrompt({
           value={points}
           onChange={(e) => setPoints(e.target.value === '' ? '' : Number(e.target.value))}
           placeholder="Số điểm"
-          className="w-full rounded-lg border border-[var(--color-border)] bg-[var(--color-card)] px-3 py-2 text-sm sm:w-32"
+          className="w-full rounded-control border border-[var(--color-border)] bg-[var(--color-card)] px-3 py-2 text-sm sm:w-32"
         />
         <input
           value={reason}
           onChange={(e) => setReason(e.target.value)}
           placeholder="Lý do thưởng"
-          className="w-full flex-1 rounded-lg border border-[var(--color-border)] bg-[var(--color-card)] px-3 py-2 text-sm"
+          className="w-full flex-1 rounded-control border border-[var(--color-border)] bg-[var(--color-card)] px-3 py-2 text-sm"
         />
-        <button
-          type="button"
-          onClick={handleSubmit}
-          disabled={!canSubmit || isCreating}
-          className="inline-flex items-center justify-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-        >
-          {isCreating && <Loader2 size={14} className="animate-spin" />}
+        <Button type="button" onClick={handleSubmit} disabled={!canSubmit || isCreating}>
+          {isCreating && <Loader2 aria-hidden="true" className="animate-spin" />}
           Thưởng
-        </button>
+        </Button>
       </div>
 
       <p className="text-xs text-[var(--color-muted-foreground)]">

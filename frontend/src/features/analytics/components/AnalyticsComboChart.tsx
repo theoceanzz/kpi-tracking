@@ -61,7 +61,7 @@ const CustomTooltip = ({ active, payload, label, perf, itemName }: any) => {
       footer={row && (
         <>
           Tính trên{' '}
-          <span className="font-semibold text-slate-600 dark:text-slate-300 tabular-nums">{totalItems(row)}</span>
+          <span className="font-semibold text-[var(--color-muted-foreground)] tabular-nums">{totalItems(row)}</span>
           {' '}{String(itemName ?? '').toLowerCase()}{' '}
           <span className="tabular-nums">({row.oldItems ?? 0} cũ · {row.newItems ?? 0} mới)</span>
         </>
@@ -84,7 +84,7 @@ export default function AnalyticsComboChart({
 
   if (isLoading) {
     return (
-      <div className={`w-full ${fillHeight ? 'h-full' : 'h-[400px]'} flex flex-col items-center justify-center bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-200 dark:border-slate-800`}>
+      <div className={`w-full ${fillHeight ? 'h-full' : 'h-[400px]'} flex flex-col items-center justify-center bg-[var(--color-muted)] rounded-2xl border border-[var(--color-border)]`}>
         <Loader2 className="w-8 h-8 animate-spin text-[var(--color-primary)] mb-4" />
         <p className="text-slate-500 font-medium">Đang tải dữ liệu biểu đồ...</p>
       </div>
@@ -93,7 +93,7 @@ export default function AnalyticsComboChart({
 
   if (!data || data.length === 0) {
     return (
-      <div className={`w-full ${fillHeight ? 'h-full' : 'h-[400px]'} flex items-center justify-center bg-slate-50 dark:bg-slate-900/50 rounded-2xl border border-slate-200 dark:border-slate-800`}>
+      <div className={`w-full ${fillHeight ? 'h-full' : 'h-[400px]'} flex items-center justify-center bg-[var(--color-muted)] rounded-2xl border border-[var(--color-border)]`}>
         <p className="text-slate-500 font-medium">Không có dữ liệu trong thời gian này</p>
       </div>
     )
@@ -122,10 +122,10 @@ export default function AnalyticsComboChart({
   }
 
   return (
-    <div className={`w-full ${fillHeight ? 'h-full' : 'min-h-[510px]'} bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 shadow-sm relative flex flex-col`}>
+    <div className={`w-full ${fillHeight ? 'h-full' : 'min-h-[510px]'} bg-[var(--color-card)] rounded-widget border border-[var(--color-border)] p-6 shadow-sm relative flex flex-col`}>
       <div className="flex justify-between items-start gap-3 mb-4">
         <div className="min-w-0">
-          <h3 className="text-base font-semibold text-slate-900 dark:text-white">
+          <h3 className="text-base font-semibold text-[var(--color-foreground)]">
             {isShare ? `Cơ cấu ${itemName} theo thời gian` : `Xu hướng ${itemName}: tiến độ & hiệu suất`}
           </h3>
           <p className="text-sm text-slate-500 mt-1">
@@ -223,7 +223,7 @@ export default function AnalyticsComboChart({
         </div>
 
         {/* Custom legend rendered in normal flow so it never overlaps chart content on narrow screens */}
-        <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 pt-4 text-xs font-medium text-slate-500 dark:text-slate-400">
+        <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 pt-4 text-xs font-medium text-[var(--color-muted-foreground)]">
           <LegendItem color="#10b981" label="Xu hướng Tiến độ" />
           <LegendItem color="#f59e0b" label="Xu hướng Hiệu suất" />
           {/* Không có dòng này thì cỡ chấm chỉ là nhiễu thị giác. */}

@@ -1,7 +1,9 @@
 import { useState, useEffect, useMemo } from 'react'
 import { z } from 'zod'
 import { read, write, utils } from 'xlsx'
-import { X, Save, AlertCircle, Trash2, Plus, FileSpreadsheet, ChevronDown, Check } from 'lucide-react'
+import { Save, AlertCircle, Trash2, Plus, ChevronDown, Check, Loader2 } from 'lucide-react'
+import { Dialog, DialogFooter } from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/authStore'
@@ -41,6 +43,17 @@ interface Row {
   EmptyPolicy?: string
   /** Mã phòng ban áp dụng (phân tách dấu phẩy); rỗng = toàn tổ chức. Đồng bộ theo kỳ. */
   OrgUnitCodes?: string
+  /**
+   * Mô tả HẠNG MỤC — chỉ cần khi mã hạng mục chưa có trong tổ chức, backend sẽ tạo mới từ đây.
+   * Bảng xem trước chỉ bày ô tên (thứ bắt buộc để tạo); các cột còn lại đi xuyên qua nguyên vẹn,
+   * không hiện lên bảng cho đỡ rối nhưng cũng KHÔNG được rơi mất lúc dựng lại tệp.
+   */
+  PerspectiveName?: string
+  FixedPerspective?: string
+  Unit?: string
+  TargetValue?: string
+  MinimumValue?: string
+  Color?: string
   _errors?: Record<string, string>
 }
 
@@ -180,6 +193,12 @@ export default function ScorecardExcelPreviewModal({ open, file, onClose, onImpo
           ScoringMode: (row['ScoringMode'] || '').toString().trim().toUpperCase(),
           EmptyPolicy: (row['EmptyPolicy'] || '').toString().trim().toUpperCase(),
           OrgUnitCodes: (row['OrgUnits'] || row['OrgUnitCode'] || row['OrgUnitCodes'] || '').toString().trim(),
+          PerspectiveName: (row['PerspectiveName'] || '').toString().trim(),
+          FixedPerspective: (row['FixedPerspective'] || row['Perspective'] || '').toString().trim().toUpperCase(),
+          Unit: (row['Unit'] || '').toString().trim(),
+          TargetValue: (row['TargetValue'] ?? '').toString().trim(),
+          MinimumValue: (row['MinimumValue'] ?? '').toString().trim(),
+          Color: (row['Color'] || '').toString().trim(),
         }
       }).filter(r => r.Period || r.PerspectiveCode)
       if (parsed.length === 0) { toast.error('File không có dữ liệu hoặc sai định dạng.'); onClose(); return }
@@ -213,6 +232,12 @@ export default function ScorecardExcelPreviewModal({ open, file, onClose, onImpo
         if (r.Status) o.Status = r.Status
         if (r.ScoringMode) o.ScoringMode = r.ScoringMode
         if (r.EmptyPolicy) o.EmptyPolicy = r.EmptyPolicy
+        if (r.PerspectiveName) o.PerspectiveName = r.PerspectiveName
+        if (r.FixedPerspective) o.FixedPerspective = r.FixedPerspective
+        if (r.Unit) o.Unit = r.Unit
+        if (r.TargetValue) o.TargetValue = r.TargetValue
+        if (r.MinimumValue) o.MinimumValue = r.MinimumValue
+        if (r.Color) o.Color = r.Color
         return o
       })
       const ws = utils.json_to_sheet(exportData)
@@ -226,149 +251,152 @@ export default function ScorecardExcelPreviewModal({ open, file, onClose, onImpo
 
   if (!open) return null
 
-  const inputCls = (err?: string) => cn('w-full px-3 py-1.5 rounded-lg border text-sm transition-colors dark:bg-slate-900 dark:text-white',
-    err ? 'border-rose-300 bg-rose-50 dark:bg-rose-900/20 focus:border-rose-500 focus:ring-1 focus:ring-rose-500'
-      : 'border-transparent hover:border-slate-300 dark:hover:border-slate-700 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 bg-transparent hover:bg-white focus:bg-white')
+  const inputCls = (err?: string) => cn('w-full px-3 py-1.5 rounded-control border text-sm transition-colors',
+    err ? 'border-[var(--color-error-border)] bg-[var(--color-error-bg)] focus:border-[var(--color-error-border)] focus:ring-1 focus:ring-[var(--color-error-solid)]'
+      : 'border-transparent hover:border-[var(--color-border-strong)] focus:border-[var(--color-primary)] focus:ring-1 focus:ring-[var(--color-ring)] bg-transparent hover:bg-[var(--color-card)] focus:bg-[var(--color-card)]')
 
   return (
-    <div className="fixed inset-0 z-[200] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
-      <div className="bg-white dark:bg-slate-900 rounded-[24px] shadow-2xl w-full max-w-[95vw] lg:max-w-6xl max-h-[90vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-        <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/30">
-          <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-indigo-100 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400"><FileSpreadsheet size={20} /></div>
-            <div><h2 className="text-lg font-bold text-slate-900 dark:text-white">Xem trước & Kiểm tra bộ tiêu chí BSC</h2><p className="text-xs text-slate-500">File: {file?.name}</p></div>
-          </div>
-          <button onClick={onClose} className="p-2 rounded-xl hover:bg-slate-200 dark:hover:bg-slate-800 transition-colors text-slate-500"><X size={20} /></button>
-        </div>
-
-        <div className="flex-1 overflow-y-auto min-h-0 p-6">
-          {loading ? (
-            <div className="flex flex-col items-center justify-center h-64 text-slate-400"><div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin mb-4" /><p className="font-medium text-sm">Đang đọc file...</p></div>
-          ) : (
-            <div className="space-y-4">
-              {hasErrors && (
-                <div className="p-4 bg-rose-50 dark:bg-rose-900/10 text-rose-600 dark:text-rose-400 rounded-xl flex items-start gap-3 border border-rose-100 dark:border-rose-900/30">
-                  <AlertCircle size={20} className="shrink-0 mt-0.5" />
-                  <div><p className="text-sm font-bold">Phát hiện dữ liệu không hợp lệ</p><p className="text-xs mt-1">Kiểm tra các ô đỏ — đặc biệt tổng trọng số mỗi kỳ phải bằng 100%.</p></div>
-                </div>
-              )}
-
-              <div className="border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden shadow-sm">
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm text-left">
-                    <thead className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-800 text-slate-500 dark:text-slate-400 font-bold uppercase text-[10px] tracking-wider sticky top-0 z-10">
-                      <tr>
-                        <th className="px-4 py-3 w-12 text-center">STT</th>
-                        <th className="px-4 py-3 min-w-[180px]">Kỳ <span className="text-rose-500">*</span></th>
-                        <th className="px-4 py-3 min-w-[170px]">Tên bộ tiêu chí <span className="text-rose-500">*</span></th>
-                        <th className="px-4 py-3 min-w-[180px]">Vision</th>
-                        <th className="px-4 py-3 min-w-[200px]">Phòng ban</th>
-                        <th className="px-4 py-3 min-w-[160px]">Mã hạng mục <span className="text-rose-500">*</span></th>
-                        <th className="px-4 py-3 min-w-[110px]">Trọng số % <span className="text-rose-500">*</span></th>
-                        <th className="px-4 py-3 min-w-[140px]">Trạng thái</th>
-                        <th className="px-4 py-3 min-w-[150px]">Chế độ điểm</th>
-                        <th className="px-4 py-3 min-w-[190px]">Hạng mục rỗng</th>
-                        <th className="px-4 py-3 w-16 text-center">Xóa</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                      {data.map((row, index) => (
-                        <tr key={row.id} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30 transition-colors">
-                          <td className="px-4 py-3 text-center text-slate-400 font-medium">{index + 1}</td>
-                          <td className="px-4 py-2">
-                            <Select value={matchPeriod(row.Period)} onValueChange={v => change(row.id, 'Period', v)}>
-                              <SelectTrigger className={cn('h-9 rounded-lg text-sm font-bold', row._errors?.Period ? 'border-rose-300 bg-rose-50 dark:bg-rose-900/20' : 'border-slate-200 dark:border-slate-700')}>
-                                <SelectValue placeholder="— Chọn kỳ —" />
-                              </SelectTrigger>
-                              <SelectContent className="z-[300] max-h-[260px]">
-                                {periodNames.map(n => <SelectItem key={n} value={n} className="text-sm font-bold">{n}</SelectItem>)}
-                              </SelectContent>
-                            </Select>
-                            {row._errors?.Period && <p className="text-[10px] text-rose-500 mt-1 font-medium px-1">{row._errors.Period}</p>}
-                          </td>
-                          <td className="px-4 py-2"><input value={row.ScorecardName} onChange={e => change(row.id, 'ScorecardName', e.target.value)} className={inputCls()} /></td>
-                          <td className="px-4 py-2"><input value={row.Vision || ''} onChange={e => change(row.id, 'Vision', e.target.value)} className={inputCls()} /></td>
-                          <td className="px-4 py-2">
-                            <Popover>
-                              <PopoverTrigger asChild>
-                                <button type="button" className="w-full min-h-[36px] px-3 py-1.5 rounded-lg border border-transparent hover:border-slate-300 dark:hover:border-slate-700 bg-transparent hover:bg-white dark:hover:bg-slate-900 text-xs font-bold transition-all flex items-center justify-between group focus:ring-1 focus:ring-indigo-500">
-                                  <span className="truncate max-w-[160px]">{unitLabel(row)}</span>
-                                  <ChevronDown size={14} className="opacity-40 group-hover:opacity-70 ml-2 shrink-0" />
-                                </button>
-                              </PopoverTrigger>
-                              <PopoverContent className="z-[300] p-2 w-[280px] max-h-[300px] overflow-y-auto custom-scrollbar" align="start">
-                                <div className="space-y-1">
-                                  {flatOrgUnits.map(unit => {
-                                    const codes = (row.OrgUnitCodes || '').split(',').map(c => c.trim()).filter(Boolean)
-                                    const isSelected = codes.includes(unit.code)
-                                    return (
-                                      <div key={unit.id} onClick={() => toggleUnitInGroup(row, unit.code)}
-                                        className={cn('flex items-center gap-3 px-3 py-2 rounded-xl cursor-pointer transition-colors group',
-                                          isSelected ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400' : 'hover:bg-slate-50 dark:hover:bg-slate-800')}>
-                                        <div className={cn('w-4 h-4 rounded border flex items-center justify-center transition-all shrink-0',
-                                          isSelected ? 'bg-indigo-600 border-indigo-600 text-white' : 'border-slate-200 dark:border-slate-700 group-hover:border-indigo-400')}>
-                                          {isSelected && <Check size={10} strokeWidth={4} />}
-                                        </div>
-                                        <span className="text-xs font-bold truncate" style={{ marginLeft: `${unit.level * 12}px` }}>{unit.name}</span>
-                                      </div>
-                                    )
-                                  })}
-                                </div>
-                              </PopoverContent>
-                            </Popover>
-                          </td>
-                          <td className="px-4 py-2">
-                            <input value={row.PerspectiveCode} onChange={e => change(row.id, 'PerspectiveCode', e.target.value)} className={cn(inputCls(row._errors?.PerspectiveCode), 'font-mono text-xs')} />
-                            {row._errors?.PerspectiveCode && <p className="text-[10px] text-rose-500 mt-1 font-medium px-1">{row._errors.PerspectiveCode}</p>}
-                          </td>
-                          <td className="px-4 py-2">
-                            <input value={row.Weight} onChange={e => change(row.id, 'Weight', e.target.value)} className={cn(inputCls(row._errors?.Weight), 'text-right font-black')} />
-                            {row._errors?.Weight && <p className="text-[10px] text-rose-500 mt-1 font-medium px-1">{row._errors.Weight}</p>}
-                          </td>
-                          <td className="px-4 py-2">
-                            <select value={(row.Status || 'DRAFT').toUpperCase()} onChange={e => change(row.id, 'Status', e.target.value)} className={cn(inputCls(), 'pr-7')}>
-                              <option value="DRAFT">Nháp</option>
-                              <option value="ACTIVE">Áp dụng</option>
-                              <option value="ARCHIVED">Lưu trữ</option>
-                            </select>
-                          </td>
-                          <td className="px-4 py-2">
-                            <select value={(row.ScoringMode || 'SHADOW').toUpperCase()} onChange={e => change(row.id, 'ScoringMode', e.target.value)} className={cn(inputCls(), 'pr-7')}>
-                              <option value="SHADOW">Song song</option>
-                              <option value="OFFICIAL">Chính thức</option>
-                            </select>
-                          </td>
-                          <td className="px-4 py-2">
-                            <select value={(row.EmptyPolicy || 'RENORMALIZE').toUpperCase()} onChange={e => change(row.id, 'EmptyPolicy', e.target.value)} className={cn(inputCls(), 'pr-7')}>
-                              <option value="RENORMALIZE">Chuẩn hóa lại</option>
-                              <option value="ZERO_FILL">Tính 0đ</option>
-                            </select>
-                          </td>
-                          <td className="px-4 py-2 text-center"><button onClick={() => remove(row.id)} className="p-1.5 text-slate-400 hover:text-rose-500 hover:bg-rose-50 dark:hover:bg-rose-900/30 rounded-lg transition-colors"><Trash2 size={16} /></button></td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-                {data.length === 0 && <div className="text-center py-12 text-slate-500 text-sm">Không có dòng dữ liệu nào</div>}
-                <div className="bg-slate-50 dark:bg-slate-800/50 border-t border-slate-200 dark:border-slate-800 p-3 flex justify-center">
-                  <button onClick={add} className="flex items-center gap-2 text-sm font-bold text-indigo-600 hover:text-indigo-700 hover:bg-indigo-50 dark:hover:bg-indigo-900/30 px-4 py-2 rounded-xl transition-colors"><Plus size={16} /> Thêm dòng mới</button>
-                </div>
-              </div>
+    <Dialog
+      open
+      onClose={onClose}
+      size="full"
+      dismissible={!isImporting}
+      title="Xem trước & Kiểm tra bộ tiêu chí BSC"
+      description={`File: ${file?.name ?? ''}`}
+      footer={
+        <DialogFooter
+          note={<>Tổng cộng: <span className="font-medium text-[var(--color-foreground)] tabular-nums">{periodCount}</span> bộ tiêu chí ({data.length} dòng)</>}
+          secondary={<Button variant="outline" onClick={onClose} disabled={isImporting}>Hủy bỏ</Button>}
+          primary={
+            <Button onClick={save} disabled={isImporting || hasErrors || data.length === 0}>
+              {isImporting ? <><Loader2 className="animate-spin" aria-hidden="true" /> Đang Import...</> : <><Save aria-hidden="true" /> Xác nhận Import</>}
+            </Button>
+          }
+        />
+      }
+    >
+      {loading ? (
+        <div className="flex flex-col items-center justify-center h-64 text-[var(--color-subtle-foreground)]"><div className="w-8 h-8 border-4 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin mb-4" /><p className="font-medium text-sm">Đang đọc file...</p></div>
+      ) : (
+        <div className="space-y-4">
+          {hasErrors && (
+            <div className="p-4 bg-[var(--color-error-bg)] text-[var(--color-error)] rounded-card flex items-start gap-3 border border-[var(--color-error-border)]">
+              <AlertCircle size={20} className="shrink-0 mt-0.5" />
+              <div><p className="text-sm font-medium">Phát hiện dữ liệu không hợp lệ</p><p className="text-xs mt-1">Kiểm tra các ô đỏ — đặc biệt tổng trọng số mỗi kỳ phải bằng 100%.</p></div>
             </div>
           )}
-        </div>
 
-        <div className="px-6 py-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/30">
-          <p className="text-sm font-bold text-slate-500">Tổng cộng: <span className="text-slate-900 dark:text-white">{periodCount}</span> bộ tiêu chí ({data.length} dòng)</p>
-          <div className="flex gap-3">
-            <button onClick={onClose} disabled={isImporting} className="px-6 py-2.5 rounded-xl text-sm font-bold border border-slate-200 dark:border-slate-700 hover:bg-white dark:hover:bg-slate-800 transition-colors text-slate-600 dark:text-slate-300 disabled:opacity-50">Hủy bỏ</button>
-            <button onClick={save} disabled={isImporting || hasErrors || data.length === 0} className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 shadow-lg shadow-indigo-500/30 disabled:opacity-50 transition-all active:scale-95">
-              {isImporting ? <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Đang Import...</> : <><Save size={16} /> Xác nhận Import</>}
-            </button>
+          <div className="border border-[var(--color-border)] rounded-card overflow-hidden shadow-sm">
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm text-left">
+                <thead className="text-eyebrow bg-[var(--color-muted)] border-b border-[var(--color-border)] sticky top-0 z-10">
+                  <tr>
+                    <th className="px-4 py-3 w-12 text-center">STT</th>
+                    <th className="px-4 py-3 min-w-[180px]">Kỳ <span className="text-[var(--color-error)]">*</span></th>
+                    <th className="px-4 py-3 min-w-[170px]">Tên bộ tiêu chí <span className="text-[var(--color-error)]">*</span></th>
+                    <th className="px-4 py-3 min-w-[180px]">Vision</th>
+                    <th className="px-4 py-3 min-w-[200px]">Phòng ban</th>
+                    <th className="px-4 py-3 min-w-[160px]">Mã hạng mục <span className="text-[var(--color-error)]">*</span></th>
+                    <th className="px-4 py-3 min-w-[180px]">Tên hạng mục</th>
+                    <th className="px-4 py-3 min-w-[110px]">Trọng số % <span className="text-[var(--color-error)]">*</span></th>
+                    <th className="px-4 py-3 min-w-[140px]">Trạng thái</th>
+                    <th className="px-4 py-3 min-w-[150px]">Chế độ điểm</th>
+                    <th className="px-4 py-3 min-w-[190px]">Hạng mục rỗng</th>
+                    <th className="px-4 py-3 w-16 text-center">Xóa</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-[var(--color-border)]">
+                  {data.map((row, index) => (
+                    <tr key={row.id} className="hover:bg-[var(--color-muted)] transition-colors">
+                      <td className="px-4 py-3 text-center text-[var(--color-subtle-foreground)] font-medium">{index + 1}</td>
+                      <td className="px-4 py-2">
+                        <Select value={matchPeriod(row.Period)} onValueChange={v => change(row.id, 'Period', v)}>
+                          <SelectTrigger className={cn('h-9 rounded-control text-sm font-medium', row._errors?.Period ? 'border-[var(--color-error-border)] bg-[var(--color-error-bg)]' : 'border-[var(--color-border)]')}>
+                            <SelectValue placeholder="— Chọn kỳ —" />
+                          </SelectTrigger>
+                          <SelectContent className="z-[300] max-h-[260px]">
+                            {periodNames.map(n => <SelectItem key={n} value={n} className="text-sm font-medium">{n}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
+                        {row._errors?.Period && <p className="text-xs text-[var(--color-error)] mt-1 font-medium px-1">{row._errors.Period}</p>}
+                      </td>
+                      <td className="px-4 py-2"><input value={row.ScorecardName} onChange={e => change(row.id, 'ScorecardName', e.target.value)} className={inputCls()} /></td>
+                      <td className="px-4 py-2"><input value={row.Vision || ''} onChange={e => change(row.id, 'Vision', e.target.value)} className={inputCls()} /></td>
+                      <td className="px-4 py-2">
+                        <Popover>
+                          <PopoverTrigger asChild>
+                            <button type="button" className="w-full min-h-[36px] px-3 py-1.5 rounded-control border border-transparent hover:border-[var(--color-border-strong)] bg-transparent hover:bg-[var(--color-card)] text-xs font-medium transition-all flex items-center justify-between group focus:ring-1 focus:ring-[var(--color-ring)]">
+                              <span className="truncate max-w-[160px]">{unitLabel(row)}</span>
+                              <ChevronDown size={14} className="opacity-40 group-hover:opacity-70 ml-2 shrink-0" />
+                            </button>
+                          </PopoverTrigger>
+                          <PopoverContent className="z-[300] p-2 w-[280px] max-h-[300px] overflow-y-auto custom-scrollbar" align="start">
+                            <div className="space-y-1">
+                              {flatOrgUnits.map(unit => {
+                                const codes = (row.OrgUnitCodes || '').split(',').map(c => c.trim()).filter(Boolean)
+                                const isSelected = codes.includes(unit.code)
+                                return (
+                                  <div key={unit.id} onClick={() => toggleUnitInGroup(row, unit.code)}
+                                    className={cn('flex items-center gap-3 px-3 py-2 rounded-card cursor-pointer transition-colors group',
+                                      isSelected ? 'bg-[var(--color-primary-soft)] text-[var(--color-primary)]' : 'hover:bg-[var(--color-muted)]')}>
+                                    <div className={cn('w-4 h-4 rounded border flex items-center justify-center transition-all shrink-0',
+                                      isSelected ? 'bg-[var(--color-primary)] border-[var(--color-primary)] text-[var(--color-primary-foreground)]' : 'border-[var(--color-border)] group-hover:border-[var(--color-primary)]')}>
+                                      {isSelected && <Check size={10} strokeWidth={4} />}
+                                    </div>
+                                    <span className="text-xs font-medium truncate" style={{ marginLeft: `${unit.level * 12}px` }}>{unit.name}</span>
+                                  </div>
+                                )
+                              })}
+                            </div>
+                          </PopoverContent>
+                        </Popover>
+                      </td>
+                      <td className="px-4 py-2">
+                        <input value={row.PerspectiveCode} onChange={e => change(row.id, 'PerspectiveCode', e.target.value)} className={cn(inputCls(row._errors?.PerspectiveCode), 'font-mono text-xs')} />
+                        {row._errors?.PerspectiveCode && <p className="text-xs text-[var(--color-error)] mt-1 font-medium px-1">{row._errors.PerspectiveCode}</p>}
+                      </td>
+                      <td className="px-4 py-2">
+                        <input value={row.PerspectiveName || ''}
+                          onChange={e => change(row.id, 'PerspectiveName', e.target.value)}
+                          placeholder="Bỏ trống nếu mã đã có"
+                          className={inputCls()} />
+                      </td>
+                      <td className="px-4 py-2">
+                        <input value={row.Weight} onChange={e => change(row.id, 'Weight', e.target.value)} className={cn(inputCls(row._errors?.Weight), 'text-right font-semibold')} />
+                        {row._errors?.Weight && <p className="text-xs text-[var(--color-error)] mt-1 font-medium px-1">{row._errors.Weight}</p>}
+                      </td>
+                      <td className="px-4 py-2">
+                        <select value={(row.Status || 'DRAFT').toUpperCase()} onChange={e => change(row.id, 'Status', e.target.value)} className={cn(inputCls(), 'pr-7')}>
+                          <option value="DRAFT">Nháp</option>
+                          <option value="ACTIVE">Áp dụng</option>
+                          <option value="ARCHIVED">Lưu trữ</option>
+                        </select>
+                      </td>
+                      <td className="px-4 py-2">
+                        <select value={(row.ScoringMode || 'SHADOW').toUpperCase()} onChange={e => change(row.id, 'ScoringMode', e.target.value)} className={cn(inputCls(), 'pr-7')}>
+                          <option value="SHADOW">Song song</option>
+                          <option value="OFFICIAL">Chính thức</option>
+                        </select>
+                      </td>
+                      <td className="px-4 py-2">
+                        <select value={(row.EmptyPolicy || 'RENORMALIZE').toUpperCase()} onChange={e => change(row.id, 'EmptyPolicy', e.target.value)} className={cn(inputCls(), 'pr-7')}>
+                          <option value="RENORMALIZE">Bỏ qua hạng mục rỗng</option>
+                          <option value="ZERO_FILL">Tính 0 điểm</option>
+                        </select>
+                      </td>
+                      <td className="px-4 py-2 text-center"><button onClick={() => remove(row.id)} className="p-1.5 text-[var(--color-subtle-foreground)] hover:text-[var(--color-error)] hover:bg-[var(--color-error-bg)] dark:hover:bg-[var(--color-error-bg)] rounded-control transition-colors"><Trash2 size={16} /></button></td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {data.length === 0 && <div className="text-center py-12 text-[var(--color-muted-foreground)] text-sm">Không có dòng dữ liệu nào</div>}
+            <div className="bg-[var(--color-muted)] border-t border-[var(--color-border)] p-3 flex justify-center">
+              <Button variant="ghost" onClick={add}><Plus aria-hidden="true" /> Thêm dòng mới</Button>
+            </div>
           </div>
         </div>
-      </div>
-    </div>
+      )}
+    </Dialog>
   )
 }

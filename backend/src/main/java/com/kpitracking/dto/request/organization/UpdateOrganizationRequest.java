@@ -27,6 +27,9 @@ public class UpdateOrganizationRequest {
     private String unitClassificationRules;
 
     private Integer kpiReminderPercentage;
+
+    /** Nhắc trưởng đơn vị chấm/chốt trước ngày kết thúc đợt-kỳ bao nhiêu ngày; 0 = tắt. */
+    private Integer evaluationReminderDays;
     private Boolean enableOkr;
     private Boolean enableWaterfall;
     private Boolean enableQualitative;

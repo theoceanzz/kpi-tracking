@@ -241,7 +241,7 @@ export default function SummaryTab() {
       <div className="flex-1 flex flex-col gap-3 min-h-0">
         {!isAllocLoading && periods.length > 0 && (
           <div className="shrink-0 space-y-2">
-            <p className="text-xs text-slate-500 dark:text-slate-400 font-medium flex items-center gap-1.5">
+            <p className="text-xs text-[var(--color-muted-foreground)] font-medium flex items-center gap-1.5">
               <MousePointerClick size={13} className="text-[var(--color-primary)] shrink-0" />
               <span>
                 Bấm vào một ô để mở chi tiết KPI
@@ -264,13 +264,13 @@ export default function SummaryTab() {
             const units = [...period.units.values()]
             const open = isExpanded(period.key)
             return (
-              <section key={period.key} className="border border-slate-200 dark:border-slate-800 rounded-2xl overflow-hidden">
+              <section key={period.key} className="border border-[var(--color-border)] rounded-2xl overflow-hidden">
                 <button
                   onClick={() => togglePeriod(period.key)}
                   className="w-full text-left p-4 hover:bg-slate-50 dark:hover:bg-slate-800/40 transition-colors"
                 >
                   <div className="flex items-center justify-between gap-3">
-                    <h4 className="text-sm font-semibold text-slate-900 dark:text-white flex items-center gap-2 min-w-0">
+                    <h4 className="text-sm font-semibold text-[var(--color-foreground)] flex items-center gap-2 min-w-0">
                       {open
                         ? <ChevronDown size={16} className="text-slate-400 shrink-0" />
                         : <ChevronRight size={16} className="text-slate-400 shrink-0" />}
@@ -405,7 +405,7 @@ export default function SummaryTab() {
   return (
     <div className="space-y-8 animate-in fade-in duration-500 pb-12">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <h2 className="text-xl font-semibold text-slate-900 dark:text-white">KPI đơn vị tôi phụ trách</h2>
+        <h2 className="text-xl font-semibold text-[var(--color-foreground)]">KPI đơn vị tôi phụ trách</h2>
         <div id="tour-analytics-customize" className="flex items-center gap-3 flex-wrap">
           <DashboardEditToolbar api={dash} />
         </div>
@@ -484,11 +484,11 @@ function TableSkeletonRows({ cols, count = 5 }: { cols: number; count?: number }
   return (
     <>
       {Array.from({ length: count }).map((_, i) => (
-        <tr key={i} className="border-b border-slate-100 dark:border-slate-800 last:border-0">
+        <tr key={i} className="border-b border-[var(--color-border)] last:border-0">
           {Array.from({ length: cols }).map((_, j) => (
             <td key={j} className="px-4 py-3.5">
               <div
-                className="h-3.5 bg-slate-100 dark:bg-slate-800 rounded-md animate-pulse"
+                className="h-3.5 bg-[var(--color-muted)] rounded-md animate-pulse"
                 style={{ width: j === 0 ? '30%' : widths[j % widths.length] }}
               />
             </td>
@@ -566,7 +566,7 @@ export function EmployeeRankingTableSection({
         <div className="hidden md:block overflow-x-auto custom-scrollbar">
           <table className="w-full min-w-[700px]">
             <thead>
-              <tr className="text-left text-xs font-medium text-slate-400 border-b border-slate-100 dark:border-slate-800">
+              <tr className="text-left text-xs font-medium text-slate-400 border-b border-[var(--color-border)]">
                 <th className="px-6 py-4">Hạng</th>
                 <th className="px-6 py-4">Nhân viên</th>
                 <th className="px-6 py-4">Đơn vị</th>
@@ -590,13 +590,13 @@ export function EmployeeRankingTableSection({
                         globalRank === 0 ? "bg-amber-500 text-white shadow-sm" :
                         globalRank === 1 ? "bg-slate-400 text-white" :
                         globalRank === 2 ? "bg-orange-400 text-white" :
-                        "bg-slate-100 dark:bg-slate-800 text-slate-400"
+                        "bg-[var(--color-muted)] text-slate-400"
                       )}>{globalRank + 1}</div>
                     </td>
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-3">
                         <UserAvatar fullName={item.name} avatarUrl={item.avatar} className="w-9 h-9 rounded-lg" fallbackClassName="bg-indigo-50 dark:bg-indigo-900/20 font-semibold text-[var(--color-primary)] text-xs" />
-                        <p className="font-semibold text-slate-900 dark:text-white group-hover:text-[var(--color-primary)] transition-colors">{item.name}</p>
+                        <p className="font-semibold text-[var(--color-foreground)] group-hover:text-[var(--color-primary)] transition-colors">{item.name}</p>
                       </div>
                     </td>
                     <td className="px-6 py-4 font-medium text-slate-500 text-xs">{item.subText}</td>
@@ -646,11 +646,11 @@ export function EmployeeRankingTableSection({
                       globalRank === 0 ? "bg-amber-500 text-white shadow-sm" :
                       globalRank === 1 ? "bg-slate-400 text-white" :
                       globalRank === 2 ? "bg-orange-400 text-white" :
-                      "bg-slate-100 dark:bg-slate-800 text-slate-400"
+                      "bg-[var(--color-muted)] text-slate-400"
                     )}>{globalRank + 1}</div>
                     <UserAvatar fullName={item.name} avatarUrl={item.avatar} className="w-9 h-9 rounded-lg shrink-0" fallbackClassName="bg-indigo-50 dark:bg-indigo-900/20 font-semibold text-[var(--color-primary)] text-xs" />
                     <div className="min-w-0">
-                      <p className="font-semibold text-slate-900 dark:text-white truncate">{item.name}</p>
+                      <p className="font-semibold text-[var(--color-foreground)] truncate">{item.name}</p>
                       <p className="text-xs font-medium text-slate-400 truncate">{item.subText}</p>
                     </div>
                   </div>
@@ -668,7 +668,7 @@ export function EmployeeRankingTableSection({
                     )}>{item.avgProgress.toFixed(1)}%</span>
                   </div>
 
-                  <div className="flex items-center justify-end pt-1 border-t border-slate-100 dark:border-slate-800 text-xs">
+                  <div className="flex items-center justify-end pt-1 border-t border-[var(--color-border)] text-xs">
                     <span className={cn("px-3 py-1 rounded-full text-xs font-semibold",
                       perf.toPct(item.performance) >= 80 ? "bg-emerald-50 text-emerald-600" :
                       perf.toPct(item.performance) >= 50 ? "bg-amber-50 text-amber-600" :
@@ -698,7 +698,7 @@ export function EmployeeRankingTableSection({
               'px-3 py-1 rounded-full text-xs font-medium transition-all',
               sf === v
                 ? 'bg-[var(--color-primary)] text-white shadow-sm'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300',
+                : 'bg-[var(--color-muted)] text-slate-500 hover:text-slate-700 dark:hover:text-slate-300',
             )}
           >
             {label}
@@ -714,7 +714,7 @@ export function EmployeeRankingTableSection({
               'px-3 py-1 rounded-full text-xs font-medium transition-all',
               sd === v
                 ? 'bg-slate-900 dark:bg-white text-white dark:text-slate-900 shadow-sm'
-                : 'bg-slate-100 dark:bg-slate-800 text-slate-500 hover:text-slate-700 dark:hover:text-slate-300',
+                : 'bg-[var(--color-muted)] text-slate-500 hover:text-slate-700 dark:hover:text-slate-300',
             )}
           >
             {label}

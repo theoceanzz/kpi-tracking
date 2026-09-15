@@ -1,8 +1,4 @@
-import { 
-  GitBranch, 
-  ChevronRight, 
-  Building2 
-} from 'lucide-react'
+import { ChevronRight, Building2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { OrgUnitTreeResponse } from '../types/org-unit'
 
@@ -10,38 +6,38 @@ interface SubUnitListProps {
   units: OrgUnitTreeResponse[]
 }
 
+/** Danh sách đơn vị con trực thuộc — mỗi dòng bấm được để đi xuống một cấp. */
 export function SubUnitList({ units }: SubUnitListProps) {
   const navigate = useNavigate()
 
   if (units.length === 0) return null
 
   return (
-    <div className="bg-white rounded-2xl shadow-sm border p-8">
-      <h2 className="text-lg font-bold text-gray-900 mb-6 flex items-center">
-        <GitBranch className="w-5 h-5 mr-3 text-blue-600" />
-        Đơn vị trực thuộc ({units.length})
-      </h2>
-      
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {units.map(child => (
-          <div 
-            key={child.id}
-            onClick={() => navigate(`/org-units/${child.id}`)}
-            className="group p-4 border border-gray-100 rounded-xl hover:border-blue-200 hover:bg-blue-50/30 cursor-pointer transition-all flex items-center justify-between"
-          >
-            <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 rounded-lg bg-gray-50 group-hover:bg-blue-100 flex items-center justify-center transition-colors">
-                <Building2 className="w-4 h-4 text-gray-400 group-hover:text-blue-600" />
-              </div>
-              <div>
-                <p className="text-sm font-bold text-gray-900 line-clamp-1">{child.name}</p>
-                <p className="text-[10px] text-gray-400 font-bold uppercase tracking-wider">{child.type}</p>
-              </div>
-            </div>
-            <ChevronRight className="w-4 h-4 text-gray-300 group-hover:text-blue-600 group-hover:translate-x-0.5 transition-all" />
-          </div>
-        ))}
+    <section className="rounded-card border border-[var(--color-border)] bg-[var(--color-card)] p-5">
+      <div className="flex items-center justify-between gap-3">
+        <h2 className="text-section-title">Đơn vị trực thuộc</h2>
+        <span className="text-caption tabular-nums">{units.length} đơn vị</span>
       </div>
-    </div>
+      <ul className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
+        {units.map(child => (
+          <li key={child.id}>
+            <button
+              type="button"
+              onClick={() => navigate(`/org-units/${child.id}`)}
+              className="flex w-full items-center gap-3 rounded-card border border-[var(--color-border)] px-3 py-2.5 text-left transition-colors hover:border-[var(--color-border-strong)] hover:bg-[var(--color-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]"
+            >
+              <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-control bg-[var(--color-muted)] text-[var(--color-muted-foreground)]" aria-hidden="true">
+                <Building2 size={16} />
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-medium text-[var(--color-foreground)]">{child.name}</span>
+                <span className="block text-caption">{child.type}</span>
+              </span>
+              <ChevronRight size={16} className="shrink-0 text-[var(--color-subtle-foreground)]" aria-hidden="true" />
+            </button>
+          </li>
+        ))}
+      </ul>
+    </section>
   )
 }

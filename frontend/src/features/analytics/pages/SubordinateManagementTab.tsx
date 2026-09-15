@@ -159,7 +159,7 @@ export default function SubordinateManagementTab() {
     <div className="space-y-6 animate-in fade-in duration-500 pb-20">
       {/* Tiêu đề + khoảng mặc định + thêm biểu đồ */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <h2 className="text-xl font-semibold text-slate-900 dark:text-white">Mục tiêu đơn vị tôi phụ trách</h2>
+        <h2 className="text-xl font-semibold text-[var(--color-foreground)]">Mục tiêu đơn vị tôi phụ trách</h2>
         <div id="tour-analytics-customize" className="flex items-center gap-3 flex-wrap">
           <DashboardEditToolbar api={dash} />
         </div>

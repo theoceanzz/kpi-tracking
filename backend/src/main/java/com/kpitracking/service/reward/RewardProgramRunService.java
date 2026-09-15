@@ -8,12 +8,14 @@ import com.kpitracking.enums.RewardRunStatus;
 import com.kpitracking.enums.RewardSourceType;
 import com.kpitracking.enums.RewardTiePolicy;
 import com.kpitracking.enums.RewardTransactionType;
+import com.kpitracking.event.RewardEvents;
 import com.kpitracking.exception.BusinessException;
 import com.kpitracking.exception.ResourceNotFoundException;
 import com.kpitracking.repository.*;
 import com.kpitracking.service.RewardWalletService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -55,6 +57,7 @@ public class RewardProgramRunService {
     private final RewardRankingService rankingService;
     private final RewardWalletService walletService;
     private final RewardContext context;
+    private final ApplicationEventPublisher eventPublisher;
 
     /** Kết quả tính toán chưa lưu — dùng chung cho xem trước và cho lúc so hash khi phát. */
     private record Computed(
@@ -215,6 +218,11 @@ public class RewardProgramRunService {
         run.setExecutedAt(Instant.now());
         runRepository.save(run);
 
+        // actor null khi bộ chạy nền tự phát: listener soạn câu không nhắc tên ai cả, đúng với
+        // việc không có người nào bấm nút.
+        eventPublisher.publishEvent(new RewardEvents.RunIssued(
+                runId, actor == null ? null : actor.getId()));
+
         return toResponse(run, fresh.items(), fresh.skipped());
     }
 
@@ -256,6 +264,8 @@ public class RewardProgramRunService {
         run.setRevertedBy(actor);
         run.setRevertedAt(Instant.now());
         runRepository.save(run);
+
+        eventPublisher.publishEvent(new RewardEvents.RunReverted(runId, actor.getId()));
 
         return toResponse(run, toItemDtos(items), List.of());
     }

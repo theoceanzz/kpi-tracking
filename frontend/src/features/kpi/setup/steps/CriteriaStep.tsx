@@ -19,6 +19,7 @@ import KpiDetailModal from '../../components/KpiDetailModal'
 import StepShell from '../StepShell'
 import { useKpiSetupFlow } from '../useKpiSetupFlow'
 import type { KpiCriteria } from '@/types/kpi'
+import { Button } from '@/components/ui/button'
 
 /** Chỉ cần đúng ba trường này để tra tên; khai riêng để khỏi kéo cả kiểu OrgUnit đầy đủ vào đây. */
 interface UnitNode {
@@ -241,31 +242,22 @@ export default function CriteriaStep() {
       // Nút KHÔNG bị vô hiệu hoá: bấm vào phải nói ra còn thiếu gì. Nút xám không giải thích được
       // vì sao nó xám, mà đây đúng là chỗ người dùng hay mắc kẹt nhất.
       footer={
-        <button
-          type="button"
-          onClick={onContinue}
-          className={cn(
-            'flex items-center gap-2 rounded-xl px-6 py-3 text-xs font-black uppercase tracking-widest text-white shadow-lg transition-all active:scale-95',
-            isComplete
-              ? 'bg-indigo-600 shadow-indigo-500/25 hover:bg-indigo-700'
-              : 'bg-slate-300 shadow-none hover:bg-slate-400 dark:bg-slate-700 dark:hover:bg-slate-600',
-          )}
-        >
+        <Button type="button" variant={isComplete ? 'default' : 'secondary'} onClick={onContinue}>
           Tiếp tục
-          <ArrowRight size={14} />
-        </button>
+          <ArrowRight aria-hidden="true" />
+        </Button>
       }
     >
       <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_360px]">
         {/* Trái: form nhập, ở lại sau mỗi lần thêm */}
-        <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm dark:border-slate-800 dark:bg-slate-900 md:p-8">
+        <div className="rounded-card border border-[var(--color-border)] bg-[var(--color-card)] p-6 shadow-sm md:p-8">
           <div className="mb-6 flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30">
+            <div className="flex h-10 w-10 items-center justify-center rounded-card bg-[var(--color-primary-soft)] text-[var(--color-primary)]">
               <Target size={20} />
             </div>
             <div>
-              <h3 className="text-sm font-black text-slate-900 dark:text-white">Chỉ tiêu mới</h3>
-              <p className="text-[11px] font-bold text-slate-400">Thêm xong, form tự dọn để bạn nhập tiếp</p>
+              <h3 className="text-section-title">Chỉ tiêu mới</h3>
+              <p className="text-caption">Thêm xong, form tự dọn để bạn nhập tiếp</p>
             </div>
           </div>
 
@@ -289,10 +281,10 @@ export default function CriteriaStep() {
 
         {/* Phải: chỉ tiêu hiện có của đơn vị đang trỏ tới */}
         <aside className="space-y-4 xl:sticky xl:top-44 xl:self-start">
-          <div className="overflow-hidden rounded-[28px] border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
+          <div className="overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-card)] shadow-sm">
             {/* Bối cảnh: trả lời "con số bên dưới là của ai" trước khi đưa ra con số nào. */}
-            <div className="space-y-2.5 border-b border-slate-100 p-5 dark:border-slate-800">
-              <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Đang lập cho</p>
+            <div className="space-y-2.5 border-b border-[var(--color-border)] p-5">
+              <p className="text-eyebrow">Đang lập cho</p>
 
               <ContextRow
                 icon={<CalendarRange size={14} />}
@@ -318,17 +310,17 @@ export default function CriteriaStep() {
             </div>
 
             {!ready ? (
-              <p className="p-8 text-center text-xs font-medium leading-relaxed text-slate-400">
+              <p className="p-8 text-center text-xs font-medium leading-relaxed text-[var(--color-subtle-foreground)]">
                 {multipleUnits
                   ? 'Bạn đang giao cho nhiều đơn vị cùng lúc. Mỗi đơn vị có mức 100% riêng, nên phần theo dõi trọng số chỉ hiện khi chọn đúng một đơn vị.'
                   : 'Chọn đợt và đơn vị thực hiện, phần theo dõi trọng số sẽ hiện ở đây.'}
               </p>
             ) : (
               <>
-                <div className="flex items-center gap-3 border-b border-slate-100 px-5 py-4 dark:border-slate-800">
-                  <ShoppingBasket size={18} className="text-slate-400" />
-                  <h3 className="flex-1 text-sm font-black text-slate-900 dark:text-white">Chỉ tiêu của đơn vị</h3>
-                  <span className="rounded-full bg-slate-100 px-2.5 py-0.5 text-[11px] font-black text-slate-500 dark:bg-slate-800">
+                <div className="flex items-center gap-3 border-b border-[var(--color-border)] px-5 py-4">
+                  <ShoppingBasket size={18} className="text-[var(--color-subtle-foreground)]" />
+                  <h3 className="text-section-title flex-1 text-[var(--color-foreground)]">Chỉ tiêu của đơn vị</h3>
+                  <span className="rounded-full bg-[var(--color-muted)] px-2.5 py-0.5 text-caption">
                     {items.length}
                   </span>
                 </div>
@@ -336,10 +328,10 @@ export default function CriteriaStep() {
                 <div className="max-h-[440px] overflow-y-auto">
                   {isLoading ? (
                     <div className="flex h-24 items-center justify-center">
-                      <Loader2 className="animate-spin text-indigo-600" size={20} />
+                      <Loader2 className="animate-spin text-[var(--color-primary)]" size={20} />
                     </div>
                   ) : items.length === 0 ? (
-                    <p className="p-6 text-center text-xs font-medium text-slate-400">
+                    <p className="p-6 text-center text-xs font-medium text-[var(--color-subtle-foreground)]">
                       Đơn vị này chưa có chỉ tiêu nào trong đợt.
                     </p>
                   ) : (
@@ -350,25 +342,25 @@ export default function CriteriaStep() {
                         <section key={group.id}>
                           {/* Tiêu đề nhóm là nơi DUY NHẤT nói được người này đã đủ 100% hay chưa —
                               thanh phía dưới chỉ nói về cả đơn vị. */}
-                          <header className="sticky top-0 z-10 flex items-center gap-2 border-b border-slate-100 bg-slate-50/95 px-5 py-2.5 backdrop-blur dark:border-slate-800 dark:bg-slate-800/95">
+                          <header className="sticky top-0 z-10 flex items-center gap-2 border-b border-[var(--color-border)] bg-[var(--color-muted)]/95 px-5 py-2.5 backdrop-blur">
                             <span
                               className={cn(
                                 'h-1.5 w-1.5 shrink-0 rounded-full',
-                                group.id === UNASSIGNED_ID ? 'bg-slate-300' : groupDone ? 'bg-emerald-500' : 'bg-indigo-500',
+                                group.id === UNASSIGNED_ID ? 'bg-[var(--color-border-strong)]' : groupDone ? 'bg-[var(--color-success-solid)]' : 'bg-[var(--color-primary)]',
                               )}
                             />
-                            <span className="min-w-0 flex-1 truncate text-[11px] font-black text-slate-700 dark:text-slate-200">
+                            <span className="min-w-0 flex-1 truncate text-xs font-semibold text-[var(--color-foreground)]">
                               {group.name}
                             </span>
                             <span
                               className={cn(
-                                'shrink-0 text-[11px] font-black tabular-nums',
-                                groupDone ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-500 dark:text-slate-400',
+                                'shrink-0 text-xs font-semibold tabular-nums',
+                                groupDone ? 'text-[var(--color-success)]' : 'text-[var(--color-muted-foreground)]',
                               )}
                             >
                               {formatNumber(groupWeight)}%
                               {!groupDone && group.id !== UNASSIGNED_ID && (
-                                <span className="font-bold text-slate-400">
+                                <span className="font-medium text-[var(--color-subtle-foreground)]">
                                   {groupWeight > 100
                                     ? ` · vượt ${formatNumber(groupWeight - 100)}%`
                                     : ` · thiếu ${formatNumber(100 - groupWeight)}%`}
@@ -377,7 +369,7 @@ export default function CriteriaStep() {
                             </span>
                           </header>
 
-                          <ul className="divide-y divide-slate-100 dark:divide-slate-800">
+                          <ul className="divide-y divide-[var(--color-border)]">
                             {group.items.map(kpi => {
                               const shown = kpi.weight ?? 0
                               const real = realWeightById.get(kpi.id)
@@ -394,20 +386,20 @@ export default function CriteriaStep() {
                                         setDetailKpi(kpi)
                                       }
                                     }}
-                                    className="group flex w-full cursor-pointer items-start gap-3 p-4 text-left transition-colors hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                                    className="group flex w-full cursor-pointer items-start gap-3 p-4 text-left transition-colors hover:bg-[var(--color-muted)]"
                                   >
                                     <span className="min-w-0 flex-1">
-                                      <span className="block truncate text-xs font-black text-slate-800 dark:text-slate-100">{kpi.name}</span>
+                                      <span className="block truncate text-xs font-semibold text-[var(--color-foreground)]">{kpi.name}</span>
                                       <span className="mt-1 flex flex-wrap items-center gap-1.5">
-                                        <KpiStatusBadge status={kpi.status} className="px-2 py-0 text-[10px] font-bold" />
-                                        <span className="text-[11px] font-bold text-slate-400">
+                                        <KpiStatusBadge status={kpi.status} className="px-2 py-0 text-xs font-medium" />
+                                        <span className="text-caption">
                                           {formatNumber(shown)}%
                                           {/* Bật BSC thì đây mới là con số backend đem cộng. */}
                                           {realDiffers && <> → {formatNumber(real)}% thật</>}
                                           {kpi.isBonusKpi && <> · thưởng, không tính vào 100%</>}
                                         </span>
                                       </span>
-                                      <span className="mt-1 block truncate text-[11px] font-medium text-slate-400">
+                                      <span className="mt-1 block truncate text-caption">
                                         {describeKpi(kpi, org?.enableBsc)}
                                       </span>
                                     </span>
@@ -415,7 +407,9 @@ export default function CriteriaStep() {
                                         trạng thái, nên một nút thùng rác cạnh chỉ tiêu ĐÃ DUYỆT là
                                         cái bẫy. */}
                                     {REMOVABLE_STATUSES.includes(kpi.status) && (
-                                      <button
+                                      <Button
+                                        variant="ghost"
+                                        size="icon-sm"
                                         type="button"
                                         disabled={isDeleting}
                                         // Chặn nổi bọt: không có dòng này thì xoá xong lại mở luôn
@@ -425,10 +419,11 @@ export default function CriteriaStep() {
                                           deleteKpi(kpi.id)
                                         }}
                                         title="Bỏ khỏi danh sách"
-                                        className="shrink-0 rounded-lg p-1.5 text-slate-300 opacity-0 transition-all hover:bg-rose-50 hover:text-rose-500 group-hover:opacity-100 disabled:opacity-30 dark:hover:bg-rose-900/20"
+                                        aria-label="Bỏ khỏi danh sách"
+                                        className="shrink-0 text-[var(--color-error)] opacity-0 hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)] group-hover:opacity-100 focus-visible:opacity-100"
                                       >
-                                        <Trash2 size={14} />
-                                      </button>
+                                        <Trash2 aria-hidden="true" />
+                                      </Button>
                                     )}
                                   </div>
                                 </li>
@@ -441,20 +436,20 @@ export default function CriteriaStep() {
                   )}
                 </div>
 
-                <div className="border-t border-slate-100 p-5 dark:border-slate-800">
+                <div className="border-t border-[var(--color-border)] p-5">
                   <div className="mb-2 flex items-baseline justify-between">
-                    <span className="text-[10px] font-black uppercase tracking-widest text-slate-400">Tổng trọng số</span>
-                    <span className={cn('text-lg font-black tabular-nums', isComplete ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-900 dark:text-white')}>
+                    <span className="text-eyebrow">Tổng trọng số</span>
+                    <span className={cn('text-lg font-semibold tabular-nums', isComplete ? 'text-[var(--color-success)]' : 'text-[var(--color-foreground)]')}>
                       {total.toFixed(1)}%
                     </span>
                   </div>
-                  <div className="h-2 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+                  <div className="h-2 w-full overflow-hidden rounded-full bg-[var(--color-muted)]">
                     <div
-                      className={cn('h-full rounded-full transition-all duration-500', isComplete ? 'bg-emerald-500' : total > 100 ? 'bg-rose-500' : 'bg-indigo-500')}
+                      className={cn('h-full rounded-full transition-all duration-500', isComplete ? 'bg-[var(--color-success-solid)]' : total > 100 ? 'bg-[var(--color-error-solid)]' : 'bg-[var(--color-primary)]')}
                       style={{ width: `${Math.min(total, 100)}%` }}
                     />
                   </div>
-                  <p className={cn('mt-2 text-[11px] font-bold', isComplete ? 'text-emerald-600 dark:text-emerald-400' : total > 100 ? 'text-rose-500' : 'text-slate-400')}>
+                  <p className={cn('mt-2 text-xs font-medium', isComplete ? 'text-[var(--color-success)]' : total > 100 ? 'text-[var(--color-error)]' : 'text-[var(--color-subtle-foreground)]')}>
                     {isComplete
                       ? 'Đủ 100% — sẵn sàng gửi duyệt'
                       : total > 100
@@ -463,7 +458,7 @@ export default function CriteriaStep() {
                   </p>
                   {/* Câu luật cố định, không phải cảnh báo có điều kiện: đây là thứ người dùng
                       không suy ra được từ danh sách, và nó đúng ở mọi lúc. */}
-                  <p className="mt-2 text-[11px] font-medium leading-snug text-slate-400">
+                  <p className="mt-2 text-xs font-medium leading-snug text-[var(--color-subtle-foreground)]">
                     Tổng của đơn vị = phần chưa giao ai + người có tổng cao nhất.
                   </p>
                 </div>
@@ -509,12 +504,12 @@ function ContextRow({
 }) {
   return (
     <div className="flex items-center gap-2.5">
-      <span className={cn('shrink-0', value ? 'text-indigo-500' : 'text-slate-300 dark:text-slate-600')}>{icon}</span>
-      <span className="w-12 shrink-0 text-[11px] font-bold text-slate-400">{label}</span>
+      <span className={cn('shrink-0', value ? 'text-[var(--color-primary)]' : 'text-[var(--color-subtle-foreground)]')}>{icon}</span>
+      <span className="w-12 shrink-0 text-caption">{label}</span>
       <span
         className={cn(
           'min-w-0 flex-1 truncate text-xs',
-          value ? 'font-black text-slate-800 dark:text-slate-100' : 'font-medium italic text-slate-400',
+          value ? 'font-semibold text-[var(--color-foreground)]' : 'font-medium italic text-[var(--color-subtle-foreground)]',
         )}
       >
         {value || placeholder}

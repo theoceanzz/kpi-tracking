@@ -15,6 +15,7 @@ import com.kpitracking.enums.TopupOrderStatus;
 import com.kpitracking.event.WalletEvents;
 import com.kpitracking.exception.BusinessException;
 import com.kpitracking.exception.ResourceNotFoundException;
+import com.kpitracking.repository.OrganizationRepository;
 import com.kpitracking.repository.SepayWebhookEventRepository;
 import com.kpitracking.repository.TopupOrderRepository;
 import com.kpitracking.service.CashWalletService;
@@ -46,6 +47,7 @@ public class SepayReconcileService {
 
     private final SepayWebhookEventRepository eventRepository;
     private final TopupOrderRepository orderRepository;
+    private final OrganizationRepository organizationRepository;
     private final CashWalletService cashWalletService;
     private final ApplicationEventPublisher eventPublisher;
     private final RewardContext context;
@@ -76,10 +78,18 @@ public class SepayReconcileService {
         long unresolved = eventRepository.countUnresolved(orgId);
         long mismatch = eventRepository.countAmountMismatch(orgId);
 
+        // Hàng đợi chỉ chứa sự kiện đã quy được về tổ chức này, nên tổ chức chưa
+        // khai số tài khoản luôn thấy hàng đợi trống — kể cả khi tiền đã về thật.
+        // Trả cờ này ra để giao diện nói đúng "chưa nối xong" thay vì "sổ đã sạch".
+        boolean bankConfigured = organizationRepository.findById(orgId)
+                .map(o -> o.getSepayAccountNumber() != null && !o.getSepayAccountNumber().isBlank())
+                .orElse(false);
+
         return WalletReconcileResponse.builder()
                 .inconsistentWalletIds(inconsistent)
                 .unresolvedEventCount(unresolved)
                 .amountMismatchCount(mismatch)
+                .bankConfigured(bankConfigured)
                 .clean(inconsistent.isEmpty() && unresolved == 0 && mismatch == 0)
                 .build();
     }
@@ -103,8 +113,14 @@ public class SepayReconcileService {
 
         // Sự kiện của tổ chức khác thì coi như không tồn tại: id là UUID nên không
         // đoán được, nhưng nó vẫn đi qua đây được nếu ai đó chép lại từ nơi khác.
+        //
+        // Sự kiện CHƯA quy được về tổ chức nào cũng bị chặn ở đây, cùng một lý do:
+        // tiền về một tài khoản chưa ai khai thì không tổ chức nào chứng minh được
+        // nó là của mình, và nhóm đó cũng không còn hiện trong hàng đợi của ai
+        // (xem SepayWebhookEventRepository). Đường ra là khai đúng số tài khoản
+        // trong Cấu hình ví — lúc lưu, các sự kiện cũ được gán về tổ chức.
         UUID orgId = context.getCurrentOrgId();
-        if (event.getOrganization() != null && !event.getOrganization().getId().equals(orgId)) {
+        if (event.getOrganization() == null || !event.getOrganization().getId().equals(orgId)) {
             throw new ResourceNotFoundException("Sự kiện SePay", "id", eventId);
         }
 
@@ -181,9 +197,6 @@ public class SepayReconcileService {
         orderRepository.save(order);
 
         event.setMatchedOrder(order);
-        // Gán tay cũng là lúc xác định được chủ sở hữu của một sự kiện trước đó chưa
-        // quy được về tổ chức nào.
-        event.setOrganization(order.getOrganization());
         event.setAmountMismatch(received != order.getAmount());
         eventPublisher.publishEvent(new WalletEvents.TopupPaidEvent(this, order, received));
         return tx;
@@ -201,18 +214,6 @@ public class SepayReconcileService {
                                        ResolveSepayEventRequest request, User actor) {
         if (request.getUserId() == null) {
             throw new BusinessException("Vui lòng chọn người được ghi có.");
-        }
-
-        // Chưa quy được giao dịch về tổ chức nào nghĩa là tiền về một tài khoản
-        // KHÔNG tổ chức nào khai. Cho ghi có ở đây là mở đúng đường để tự cộng tiền
-        // cho nhân viên mình từ một khoản tiền chưa chắc là của mình. Đường ra là
-        // sửa cấu hình ví: lưu đúng số tài khoản sẽ tự gán lại các sự kiện cũ.
-        if (event.getOrganization() == null) {
-            throw new BusinessException("Chưa xác định được giao dịch này về tài khoản của tổ chức "
-                    + "nào nên không ghi có thẳng được. Hãy kiểm tra số tài khoản trong Cấu hình ví "
-                    + "có đúng tài khoản đã liên kết trên SePay không rồi lưu lại — các giao dịch cũ "
-                    + "của tài khoản đó sẽ tự được gán về tổ chức. Nếu xác định được đơn nạp tương "
-                    + "ứng thì dùng cách 'Gán vào đơn nạp'.");
         }
 
         long received = requireReceivedAmount(event);
@@ -280,7 +281,6 @@ public class SepayReconcileService {
                 .resolutionNote(e.getResolutionNote())
                 .resolutionTransactionId(e.getResolutionTransactionId())
                 .inQueue(e.isInReconcileQueue())
-                .unattributed(e.getOrganization() == null)
                 .receivedAt(e.getReceivedAt())
                 .build();
     }

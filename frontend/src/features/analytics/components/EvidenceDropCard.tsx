@@ -54,10 +54,10 @@ export default function EvidenceDropCard({ sink, disabled }: EvidenceDropCardPro
   // vừa phải đi sửa ở lượt trước.
   if (!sink) {
     return (
-      <div className="mt-3 rounded-2xl border border-[var(--color-border)] px-4 py-4 text-center">
-        <FolderOpen size={18} className="mx-auto mb-2 text-slate-400" />
-        <p className="text-sm font-bold text-slate-500">Chưa mở biểu mẫu nào nhận tệp</p>
-        <p className="mt-1 text-[11px] font-semibold text-slate-400">
+      <div className="mt-3 rounded-card border border-[var(--color-border)] px-4 py-4 text-center">
+        <FolderOpen size={18} className="mx-auto mb-2 text-[var(--color-subtle-foreground)]" />
+        <p className="text-sm font-medium text-[var(--color-muted-foreground)]">Chưa mở biểu mẫu nào nhận tệp</p>
+        <p className="mt-1 text-caption">
           Ghim tệp vẫn được, nhưng phải mở màn hình Gửi báo cáo KPI thì mới đính vào đâu đó được.
         </p>
       </div>
@@ -68,7 +68,7 @@ export default function EvidenceDropCard({ sink, disabled }: EvidenceDropCardPro
     <div
       {...getRootProps()}
       className={cn(
-        'mt-3 rounded-2xl border-2 border-dashed px-4 py-5 text-center transition-all duration-300',
+        'mt-3 rounded-card border-2 border-dashed px-4 py-5 text-center transition-all duration-300',
         full
           ? 'border-[var(--color-border)] opacity-60 cursor-not-allowed'
           : 'cursor-pointer border-[var(--color-ai-line)] hover:bg-[var(--color-ai-soft)]',
@@ -78,15 +78,15 @@ export default function EvidenceDropCard({ sink, disabled }: EvidenceDropCardPro
       <input {...getInputProps()} />
       <div
         className={cn(
-          'mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-xl transition-transform duration-300',
+          'mx-auto mb-2 flex h-10 w-10 items-center justify-center rounded-card transition-transform duration-300',
           isDragActive
-            ? 'bg-[var(--color-ai)] text-white rotate-6 scale-110'
+            ? 'bg-[var(--color-ai-solid)] text-white rotate-6 scale-110'
             : 'bg-[var(--color-ai-soft)] text-[var(--color-ai)]',
         )}
       >
         {isDragActive ? <Upload size={18} /> : <Paperclip size={18} />}
       </div>
-      <p className="text-sm font-bold text-[var(--color-ai)]">
+      <p className="text-sm font-medium text-[var(--color-ai)]">
         {full
           ? `Đã đủ ${sink?.maxFiles} tệp`
           : isDragActive
@@ -94,7 +94,7 @@ export default function EvidenceDropCard({ sink, disabled }: EvidenceDropCardPro
             : 'Kéo thả tệp vào đây để ghim'}
       </p>
       {!full && (
-        <p className="mt-1 text-[11px] font-semibold uppercase tracking-wide text-slate-400">
+        <p className="text-eyebrow mt-1">
           {sink?.hint ?? 'Ảnh, PDF, Word, Excel'}
         </p>
       )}

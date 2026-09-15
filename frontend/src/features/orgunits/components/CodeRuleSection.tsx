@@ -4,8 +4,11 @@ import { Hash, Loader2, RotateCcw, Wand2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useDebounce } from '@/hooks/useDebounce'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
+import { Button } from '@/components/ui/button'
 import { codeRuleApi, type CodeRule, type CodeType, type UpdateCodeRuleRequest } from '../api/codeRuleApi'
 import { useCodeRules, useUpdateCodeRules } from '../hooks/useCodeRules'
+import { getApiErrorMessage } from '@/lib/apiError'
+import { Switch as SwitchControl } from '@/components/ui/switch'
 
 /**
  * Mẫu mã tự sinh cho Mục tiêu, Kết quả then chốt và Hạng mục BSC — mỗi công ty một kiểu.
@@ -80,7 +83,7 @@ export default function CodeRuleSection({ organizationId }: { organizationId: st
 
   if (isLoading) {
     return (
-      <section className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm p-8">
+      <section className="rounded-card border border-[var(--color-border)] bg-[var(--color-card)] p-8">
         <LoadingSkeleton rows={4} />
       </section>
     )
@@ -88,29 +91,29 @@ export default function CodeRuleSection({ organizationId }: { organizationId: st
   if (!rules) return null
 
   return (
-    <section className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-      <div className="px-6 sm:px-8 py-6 border-b border-slate-100 dark:border-slate-800">
-        <h3 className="text-lg font-bold text-slate-900 dark:text-white uppercase tracking-tight">Quy tắc sinh mã</h3>
-        <p className="text-[10px] font-medium text-slate-400 uppercase tracking-widest">
-          Mã Mục tiêu, Kết quả then chốt và Hạng mục BSC do hệ thống tự cấp theo mẫu của công ty
+    <section className="mx-auto max-w-4xl overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
+      <div className="border-b border-[var(--color-border)] px-5 py-4">
+        <h3 className="text-section-title">Quy tắc sinh mã</h3>
+        <p className="mt-0.5 text-sm text-[var(--color-muted-foreground)]">
+          Mã Mục tiêu, Kết quả then chốt và Hạng mục BSC do hệ thống tự cấp theo mẫu của công ty.
         </p>
       </div>
 
-      <div className="divide-y divide-slate-100 dark:divide-slate-800">
+      <div className="divide-y divide-[var(--color-border)]">
         {rules.map(rule => {
           const draft = draftOf(rule)
           const isDirty = changed.some(c => c.codeType === rule.codeType)
 
           return (
-            <div key={rule.codeType} className="px-6 sm:px-8 py-6 space-y-4">
+            <div key={rule.codeType} className="space-y-4 px-5 py-4">
               <div className="flex items-start gap-4">
-                <div className="w-10 h-10 shrink-0 rounded-xl flex items-center justify-center bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400">
+                <div className="w-10 h-10 shrink-0 rounded-card flex items-center justify-center bg-[var(--color-primary-soft)] text-[var(--color-primary)]">
                   <Hash size={18} />
                 </div>
 
                 <div className="flex-1 min-w-0">
-                  <h4 className="text-sm font-black text-slate-900 dark:text-white">{rule.label}</h4>
-                  <p className="text-[12px] font-medium text-slate-500 leading-relaxed">
+                  <h4 className="text-sm font-semibold text-[var(--color-foreground)]">{rule.label}</h4>
+                  <p className="text-[12px] font-medium text-[var(--color-muted-foreground)] leading-relaxed">
                     {draft.autoGenerate
                       ? draft.allowManualOverride
                         ? 'Tự sinh, nhưng người dùng được phép gõ mã riêng khi tạo'
@@ -137,7 +140,7 @@ export default function CodeRuleSection({ organizationId }: { organizationId: st
               {draft.autoGenerate && (
                 <div className="pl-0 sm:pl-14 space-y-3">
                   <div className="space-y-1.5">
-                    <label className="text-[10px] font-black text-slate-400 uppercase tracking-widest ml-1">
+                    <label className="text-label ml-1">
                       Mẫu mã
                     </label>
                     <div className="flex flex-wrap items-center gap-3">
@@ -146,44 +149,34 @@ export default function CodeRuleSection({ organizationId }: { organizationId: st
                         onChange={e => patch(rule, { pattern: e.target.value })}
                         spellCheck={false}
                         placeholder={rule.codeType === 'BSC_PERSPECTIVE' ? 'PSP_{##}' : 'OBJ-{YYYY}-{###}'}
-                        className="w-full sm:w-72 px-4 py-2.5 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-100 dark:border-slate-700 text-sm font-mono font-bold focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500 outline-none transition-all"
+                        className="h-9 w-full rounded-control border border-[var(--color-border)] bg-[var(--color-card)] px-3 font-mono text-sm text-[var(--color-foreground)] outline-none focus-visible:border-[var(--color-primary)] focus-visible:ring-2 focus-visible:ring-[var(--color-ring)] sm:w-72"
                       />
                       <PreviewLine organizationId={organizationId} rule={rule} pattern={draft.pattern} />
                       {draft.pattern !== rule.pattern && (
-                        <button
-                          type="button"
-                          onClick={() => patch(rule, { pattern: rule.pattern })}
-                          className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-indigo-600 transition-colors"
-                        >
-                          <RotateCcw size={12} /> Mẫu đang lưu
-                        </button>
+                        <Button variant="ghost" size="sm" type="button" onClick={() => patch(rule, { pattern: rule.pattern })}>
+                          <RotateCcw aria-hidden="true" /> Về mẫu đang lưu
+                        </Button>
                       )}
                     </div>
                   </div>
 
                   <div className="flex flex-wrap gap-1.5">
                     {[...rule.supportedTokens, '{###}'].map(token => (
-                      <button
-                        key={token}
-                        type="button"
-                        title={TOKEN_HINTS[token] ?? token}
-                        onClick={() => patch(rule, { pattern: draft.pattern + token })}
-                        className="px-2 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-[11px] font-mono font-bold text-slate-500 hover:bg-indigo-50 hover:text-indigo-600 dark:hover:bg-indigo-900/30 transition-colors"
-                      >
+                      <Button variant="secondary" size="sm" key={token} type="button" title={TOKEN_HINTS[token] ?? token} onClick={() => patch(rule, { pattern: draft.pattern + token })}>
                         {token}
-                      </button>
+                      </Button>
                     ))}
                   </div>
 
-                  <p className="text-[11px] font-medium text-slate-400 leading-relaxed">
-                    Mẫu phải có đúng một ô số thứ tự. Có <span className="font-mono font-bold">{'{YYYY}'}</span> thì
+                  <p className="text-caption leading-relaxed">
+                    Mẫu phải có đúng một ô số thứ tự. Có <span className="font-mono font-semibold">{'{YYYY}'}</span> thì
                     số tự đánh lại từ 1 mỗi năm; mã cũ giữ nguyên khi đổi mẫu.
                   </p>
                 </div>
               )}
 
               {isDirty && (
-                <p className="pl-0 sm:pl-14 text-[11px] font-bold text-amber-600 dark:text-amber-400">
+                <p className="pl-0 sm:pl-14 text-xs font-medium text-[var(--color-warning)]">
                   Chưa lưu
                 </p>
               )}
@@ -192,24 +185,14 @@ export default function CodeRuleSection({ organizationId }: { organizationId: st
         })}
       </div>
 
-      <div className="px-6 sm:px-8 py-5 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between gap-4">
-        <p className="text-[11px] font-medium text-slate-400">
-          Mã đã cấp cho dữ liệu cũ không bị đánh số lại.
+      <div className="flex items-center justify-between gap-4 border-t border-[var(--color-border)] px-5 py-3">
+        <p className="text-caption">
+          {changed.length > 0 ? `${changed.length} quy tắc chưa lưu · ` : ''}Mã đã cấp cho dữ liệu cũ không bị đánh số lại.
         </p>
-        <button
-          type="button"
-          onClick={handleSave}
-          disabled={changed.length === 0 || updateMutation.isPending}
-          className={cn(
-            'px-5 py-2.5 rounded-xl text-xs font-black uppercase tracking-widest transition-all flex items-center gap-2',
-            changed.length === 0 || updateMutation.isPending
-              ? 'bg-slate-100 dark:bg-slate-800 text-slate-400 cursor-not-allowed'
-              : 'bg-indigo-600 text-white hover:bg-indigo-700 shadow-lg shadow-indigo-600/20'
-          )}
-        >
-          {updateMutation.isPending ? <Loader2 size={14} className="animate-spin" /> : <Wand2 size={14} />}
+        <Button onClick={handleSave} disabled={changed.length === 0 || updateMutation.isPending}>
+          {updateMutation.isPending ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Wand2 aria-hidden="true" />}
           Lưu quy tắc
-        </button>
+        </Button>
       </div>
     </section>
   )
@@ -241,10 +224,9 @@ function PreviewLine({
     if (rule.previewError) return <PreviewError message={rule.previewError} />
     return <PreviewValue value={rule.preview} />
   }
-  if (isFetching) return <span className="text-[11px] font-bold text-slate-400">Đang dựng mã…</span>
+  if (isFetching) return <span className="text-caption">Đang dựng mã…</span>
   if (error) {
-    const message = (error as { response?: { data?: { message?: string } } })?.response?.data?.message
-      ?? 'Mẫu mã không hợp lệ'
+    const message = getApiErrorMessage(error, 'Mẫu mã không hợp lệ')
     return <PreviewError message={message} />
   }
   return <PreviewValue value={data} />
@@ -253,9 +235,9 @@ function PreviewLine({
 function PreviewValue({ value }: { value?: string | null }) {
   if (!value) return null
   return (
-    <span className="inline-flex items-center gap-2 text-[11px] font-bold text-slate-400 uppercase tracking-widest">
+    <span className="text-eyebrow inline-flex items-center gap-2">
       Mã kế tiếp
-      <code className="px-2 py-1 rounded-lg bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400 text-xs font-mono font-black normal-case tracking-normal">
+      <code className="px-2 py-1 rounded-control bg-[var(--color-success-bg)] text-[var(--color-success)] text-xs font-mono font-semibold normal-case tracking-normal">
         {value}
       </code>
     </span>
@@ -263,7 +245,7 @@ function PreviewValue({ value }: { value?: string | null }) {
 }
 
 function PreviewError({ message }: { message: string }) {
-  return <span className="text-[11px] font-bold text-red-500 max-w-md">{message}</span>
+  return <span className="text-xs font-medium text-[var(--color-error)] max-w-md">{message}</span>
 }
 
 function Switch({
@@ -280,29 +262,12 @@ function Switch({
   return (
     <div className="flex flex-col items-center gap-1.5">
       <span className={cn(
-        'text-[9px] font-black uppercase tracking-widest',
-        disabled ? 'text-slate-300 dark:text-slate-600' : 'text-slate-400'
+        'text-eyebrow',
+        disabled && 'opacity-60'
       )}>
         {label}
       </span>
-      <button
-        type="button"
-        role="switch"
-        aria-checked={checked}
-        aria-label={label}
-        disabled={disabled}
-        onClick={() => onChange(!checked)}
-        className={cn(
-          'w-12 h-6 shrink-0 rounded-full relative transition-all duration-300',
-          disabled && 'opacity-40 cursor-not-allowed',
-          checked ? 'bg-emerald-500' : 'bg-slate-200 dark:bg-slate-700'
-        )}
-      >
-        <div className={cn(
-          'absolute top-1 w-4 h-4 rounded-full bg-white transition-all duration-300 shadow-sm',
-          checked ? 'left-7' : 'left-1'
-        )} />
-      </button>
+      <SwitchControl checked={checked} onCheckedChange={onChange} disabled={disabled} aria-label={label} />
     </div>
   )
 }

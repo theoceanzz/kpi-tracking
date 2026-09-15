@@ -137,7 +137,9 @@ public class RolePermissionConstants {
             "STATS:VIEW_EMPLOYEE",
             "ATTACHMENT:UPLOAD",
             "REMINDER:SEND",
-            "BSC:VIEW", "BSC:MANAGE_UNIT", "OKR:VIEW",
+            // Phó đơn vị KHÔNG lập BSC: một đơn vị chỉ nên có MỘT người chịu trách nhiệm bộ tiêu
+            // chí, hai người cùng sửa thì trọng số và chỉ tiêu đè lên nhau mà không ai biết.
+            "BSC:VIEW", "OKR:VIEW",
             "REWARD:VIEW", "REWARD:GRANT", "GIFT:REDEEM"
     );
 

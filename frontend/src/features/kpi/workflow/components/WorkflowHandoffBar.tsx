@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils'
 import { useKpiWorkflow } from '../hooks/useKpiWorkflow'
 import { useWorkflowNavigator, WORKFLOW_PARAMS } from '../hooks/useWorkflowNavigator'
 import type { WorkflowStageCode } from '../types'
+import { Button } from '@/components/ui/button'
 
 /**
  * Lối quay lại sau khi hệ thống tự nhảy sang bước kế tiếp.
@@ -52,39 +53,30 @@ export default function WorkflowHandoffBar({ className }: { className?: string }
   return (
     <div
       className={cn(
-        'flex flex-wrap items-center gap-x-3 gap-y-2 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-2.5',
-        'dark:border-emerald-900/50 dark:bg-emerald-900/20',
+        'flex flex-wrap items-center gap-x-3 gap-y-2 rounded-card border border-[var(--color-success-border)] bg-[var(--color-success-bg)] px-4 py-2.5',
+        'dark:border-[var(--color-success-border)] dark:bg-[var(--color-success-bg)]',
         className,
       )}
     >
-      <CheckCircle2 size={16} className="shrink-0 text-emerald-600 dark:text-emerald-400" />
+      <CheckCircle2 size={16} className="shrink-0 text-[var(--color-success)]" />
 
-      <p className="min-w-0 flex-1 text-xs font-bold text-emerald-800 dark:text-emerald-300">
-        Đã xong bước <span className="font-black">{fromStage.label}</span>
+      <p className="min-w-0 flex-1 text-xs font-medium text-[var(--color-success)]">
+        Đã xong bước <span className="font-semibold">{fromStage.label}</span>
         {currentStage && (
           <>
-            {' '}— bạn đang ở <span className="font-black">{currentStage.label}</span>
+            {' '}— bạn đang ở <span className="font-semibold">{currentStage.label}</span>
           </>
         )}
       </p>
 
-      <button
-        type="button"
-        onClick={goBack}
-        className="flex shrink-0 items-center gap-1.5 rounded-xl bg-white px-3 py-1.5 text-xs font-bold text-emerald-700 shadow-sm transition-colors hover:bg-emerald-100 dark:bg-slate-900 dark:text-emerald-300 dark:hover:bg-slate-800"
-      >
-        <ArrowLeft size={13} />
+      <Button variant="ghost" size="sm" className="shrink-0" type="button" onClick={goBack}>
+        <ArrowLeft aria-hidden="true" />
         Quay lại {fromStage.label.toLowerCase()}
-      </button>
+      </Button>
 
-      <button
-        type="button"
-        onClick={dismiss}
-        title="Ẩn thông báo này"
-        className="shrink-0 rounded-lg p-1 text-emerald-600 transition-colors hover:bg-emerald-100 dark:text-emerald-400 dark:hover:bg-emerald-900/40"
-      >
-        <X size={14} />
-      </button>
+      <Button variant="ghost" size="icon-sm" className="shrink-0" aria-label="Ẩn thông báo này" type="button" onClick={dismiss} title="Ẩn thông báo này">
+        <X aria-hidden="true" />
+      </Button>
     </div>
   )
 }

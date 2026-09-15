@@ -20,15 +20,15 @@ export function KpiPeriodCell({
   return (
     <div className={cn('inline-flex flex-col gap-1 text-xs', className)}>
       {periodName && (
-        <span className="font-semibold text-slate-700 dark:text-slate-200">{periodName}</span>
+        <span className="font-semibold text-[var(--color-foreground)]">{periodName}</span>
       )}
       <div className="flex items-center gap-1.5">
-        <span className="font-medium text-slate-400 w-[26px] shrink-0">Từ</span>
-        <span className="font-semibold text-slate-600 dark:text-slate-300 tabular-nums">{fmt(start)}</span>
+        <span className="w-[26px] shrink-0 font-medium text-[var(--color-subtle-foreground)]">Từ</span>
+        <span className="font-semibold text-[var(--color-muted-foreground)] tabular-nums">{fmt(start)}</span>
       </div>
       <div className="flex items-center gap-1.5">
-        <span className="font-semibold text-indigo-400 w-[26px] shrink-0">Đến</span>
-        <span className="font-semibold text-slate-600 dark:text-slate-300 tabular-nums">{fmt(end)}</span>
+        <span className="w-[26px] shrink-0 font-medium text-[var(--color-primary)]">Đến</span>
+        <span className="font-semibold text-[var(--color-muted-foreground)] tabular-nums">{fmt(end)}</span>
       </div>
     </div>
   )

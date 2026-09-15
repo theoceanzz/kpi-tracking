@@ -116,8 +116,8 @@ function BulletTooltip({ active, payload }: { active?: boolean; payload?: { payl
   const u = d.unit ? ` ${d.unit}` : ''
   const r1 = (v: number) => Math.round(v * 10) / 10
   return (
-    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3.5 rounded-lg shadow-lg">
-      <p className="font-semibold text-slate-900 dark:text-white">{d.name}</p>
+    <div className="bg-[var(--color-card)] border border-[var(--color-border)] p-3.5 rounded-lg shadow-lg">
+      <p className="font-semibold text-[var(--color-foreground)]">{d.name}</p>
       {d.subText && <p className="text-xs text-slate-500 mb-2">{d.subText}</p>}
       <p className="font-semibold text-lg tabular-nums mb-2" style={{ color: bandColor(d.pct) }}>
         {d.pct}% mục tiêu
@@ -136,7 +136,7 @@ function Row({ label, value }: { label: string; value: string }) {
   return (
     <div className="flex items-center gap-3">
       <span className="text-slate-500 font-medium min-w-[120px]">{label}:</span>
-      <span className="font-semibold text-slate-900 dark:text-white tabular-nums">{value}</span>
+      <span className="font-semibold text-[var(--color-foreground)] tabular-nums">{value}</span>
     </div>
   )
 }

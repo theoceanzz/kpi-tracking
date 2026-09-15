@@ -20,6 +20,8 @@ import { useTypewriter } from '../hooks/useTypewriter'
 import { useNavigate } from 'react-router-dom'
 import InsightCards from './InsightCards'
 import FollowupSuggestions from './FollowupSuggestions'
+import { getApiErrorMessage } from '@/lib/apiError'
+import { Button } from '@/components/ui/button'
 
 interface Message {
   id: string
@@ -102,6 +104,19 @@ export default function AiAssistantWidget() {
 
   // Hạn mức token còn lại — chỉ tải khi mở panel, để đóng thì không tốn request nào.
   const { data: quota } = useMyAiQuota(isOpen && isManager)
+
+  // Ô nhập tự giãn theo nội dung, tối đa bằng maxHeight của nó.
+  //
+  // Bắt buộc phải có kể từ khi thanh cuộn của ô này bị ẩn: ô cao cố định một dòng mà không
+  // giãn thì câu hỏi dài bị cắt và KHÔNG còn dấu hiệu nào cho biết còn chữ phía dưới.
+  // Đặt ở effect theo `input` thay vì trong onChange để bắt được cả những lần điền sẵn từ
+  // gợi ý và lần dọn trắng sau khi gửi.
+  useEffect(() => {
+    const el = inputRef.current
+    if (!el) return
+    el.style.height = 'auto'
+    el.style.height = Math.min(el.scrollHeight, 120) + 'px'
+  }, [input])
 
   // Gõ xong thì bỏ cờ, để phần gợi ý câu hỏi tiếp theo hiện ra sau chứ không chen ngang lúc đang gõ.
   useEffect(() => {
@@ -262,9 +277,9 @@ export default function AiAssistantWidget() {
       if (status === 402) {
         errorContent = '⚠️ **Hệ thống AI đã đạt giới hạn token.** Vui lòng thử lại sau ít phút hoặc liên hệ quản trị viên.'
       } else if (status === 429) {
-        errorContent = `⚠️ ${error?.response?.data?.message || 'Bạn gửi yêu cầu AI quá nhanh, vui lòng thử lại sau ít phút.'}`
+        errorContent = `⚠️ ${getApiErrorMessage(error, 'Bạn gửi yêu cầu AI quá nhanh, vui lòng thử lại sau ít phút.')}`
       } else {
-        const errorDetail = error?.response?.data?.message || error?.message || 'Lỗi không xác định'
+        const errorDetail = getApiErrorMessage(error, 'Lỗi không xác định')
         errorContent = `Xin lỗi, đã có lỗi xảy ra: ${errorDetail}`
       }
       setMessages(prev => [
@@ -328,11 +343,12 @@ export default function AiAssistantWidget() {
     return (
       <button
         onClick={() => setIsOpen(true)}
-        className="fixed bottom-6 right-6 w-14 h-14 bg-violet-600 hover:bg-violet-700 text-white rounded-full shadow-lg shadow-violet-200 dark:shadow-none flex items-center justify-center transition-transform hover:scale-110 z-[1200] group"
+        aria-label="Mở K.AI"
+        className="group fixed bottom-6 right-6 z-[1200] flex h-12 w-12 items-center justify-center rounded-full border border-[var(--color-ai-line)] bg-[var(--color-card)] text-[var(--color-ai)] shadow-lg transition-colors hover:bg-[var(--color-ai-soft)]"
       >
-        <Bot size={24} />
-        <span className="absolute right-full mr-4 bg-slate-800 text-white text-xs px-3 py-1.5 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity whitespace-nowrap pointer-events-none">
-          Trợ lý AI
+        <Bot size={22} />
+        <span className="pointer-events-none absolute right-full mr-3 whitespace-nowrap rounded-control bg-[var(--color-foreground)] px-2.5 py-1.5 text-xs font-medium text-[var(--color-background)] opacity-0 transition-opacity group-hover:opacity-100">
+          K.AI
         </span>
       </button>
     )
@@ -345,13 +361,13 @@ export default function AiAssistantWidget() {
         // Bề ngang tăng theo cỡ màn: 450px trên laptop 13-14" là vừa, nhưng trên màn 27"
         // thì đúng khối đó đọc thành một cái tem dán góc, trong khi bảng số liệu AI trả về
         // lại là thứ cần bề ngang nhất.
-        'fixed right-3 bottom-3 sm:right-6 sm:bottom-6 w-[calc(100vw-1.5rem)] sm:w-[420px] xl:w-[460px] 2xl:w-[520px] bg-white dark:bg-slate-900 rounded-2xl shadow-2xl border border-slate-200 dark:border-slate-800 flex flex-col overflow-hidden transition-all duration-300 z-[1200]',
+        'fixed right-3 bottom-3 sm:right-6 sm:bottom-6 w-[calc(100vw-1.5rem)] sm:w-[420px] xl:w-[460px] 2xl:w-[520px] bg-[var(--color-card)] rounded-card shadow-lg border border-[var(--color-border)] flex flex-col overflow-hidden transition-[height,width] duration-200 motion-reduce:transition-none z-[1200]',
         // Chiều cao lấy theo chỗ CÒN LẠI trước, rồi mới chặn trần theo cỡ màn. Cách cũ
         // (`h-[700px] max-h-[85vh]`) tính 85% của cả khung nhìn nên trên màn 768px cao,
         // panel trùm lên tận header: 85vh = 653px + 24px lề dưới, chỉ chừa 91px.
         // `100dvh` chứ không phải `100vh` để trên trình duyệt di động không chui xuống dưới
         // thanh địa chỉ. 6.5rem = 24px lề dưới + 64px header + 16px thở.
-        isMinimized ? 'h-[60px]' : 'h-[calc(100dvh-6.5rem)] max-h-[640px] xl:max-h-[720px] 2xl:max-h-[840px]',
+        isMinimized ? 'h-14' : 'h-[calc(100dvh-6.5rem)] max-h-[640px] xl:max-h-[720px] 2xl:max-h-[840px]',
         isDragActive && 'ring-2 ring-[var(--color-ai)] ring-offset-2',
       )}
     >
@@ -359,24 +375,24 @@ export default function AiAssistantWidget() {
           không nuốt mất sự kiện drop của chính vùng bên dưới. */}
       {isDragActive && (
         <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-[var(--color-ai-soft)]/90">
-          <p className="text-sm font-bold text-[var(--color-ai)]">Thả tệp vào đây để ghim</p>
+          <p className="text-sm font-medium text-[var(--color-ai)]">Thả tệp vào đây để ghim</p>
         </div>
       )}
       {/* Header */}
       <div
-        className="h-[60px] bg-violet-600 px-4 flex items-center justify-between shrink-0 cursor-pointer select-none"
+        className="flex h-14 shrink-0 cursor-pointer select-none items-center justify-between border-b border-[var(--color-border)] border-l-2 border-l-[var(--color-ai-line)] bg-[var(--color-card)] px-3"
         onClick={() => setIsMinimized(!isMinimized)}
       >
         {/* `min-w-0` + `truncate`: hạn mức đầy đủ ("Còn 1.000.000/1.000.000 token tháng này")
             dài hơn cả nửa bề ngang panel, không cắt được thì nó đẩy bốn nút điều khiển tràn
             ra ngoài mép phải. */}
         <div className="flex items-center gap-3 min-w-0 flex-1">
-          <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center text-white shrink-0">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-control bg-[var(--color-ai-soft)] text-[var(--color-ai)]" aria-hidden="true">
             <Bot size={18} />
           </div>
           <div className="min-w-0">
-            <h3 className="text-white font-bold text-sm">Trợ lý AI</h3>
-            <p className="text-violet-200 text-[10px] truncate">
+            <h3 className="text-section-title text-[var(--color-ai)]">K.AI</h3>
+            <p className="truncate text-caption tabular-nums">
               {quota
                 ? `Còn ${quota.remaining.toLocaleString('vi-VN')}/${quota.spendable.toLocaleString('vi-VN')} token tháng này`
                 : conversationIdRef.current
@@ -388,63 +404,49 @@ export default function AiAssistantWidget() {
 
         <div className="flex items-center gap-1 shrink-0">
           {/* New chat */}
-          <button
-            onClick={e => {
+          <Button variant="secondary" size="icon" onClick={e => {
               e.stopPropagation()
               handleNewChat()
-            }}
-            className="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
-            title="Cuộc trò chuyện mới"
-          >
-            <SquarePen size={15} />
-          </button>
+            }} aria-label="Cuộc trò chuyện mới" title="Cuộc trò chuyện mới">
+            <SquarePen aria-hidden="true" />
+          </Button>
 
           {/* Expand to full screen */}
-          <button
-            onClick={e => {
+          <Button variant="secondary" size="icon" onClick={e => {
               e.stopPropagation()
               setIsOpen(false)
               navigate('/ai-assistant')
-            }}
-            className="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
-            title="Mở toàn màn hình"
-          >
-            <Expand size={15} />
-          </button>
+            }} aria-label="Mở toàn màn hình" title="Mở toàn màn hình">
+            <Expand aria-hidden="true" />
+          </Button>
 
-          <button
-            onClick={e => {
+          <Button variant="secondary" size="sm" onClick={e => {
               e.stopPropagation()
               setIsMinimized(!isMinimized)
-            }}
-            className="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
-          >
-            {isMinimized ? <Maximize2 size={16} /> : <Minimize2 size={16} />}
-          </button>
+            }} aria-label={isMinimized ? 'Mở rộng' : 'Thu nhỏ'}>
+            {isMinimized ? <Maximize2 aria-hidden="true" /> : <Minimize2 aria-hidden="true" />}
+          </Button>
 
-          <button
-            onClick={e => {
+          <Button variant="secondary" size="icon" onClick={e => {
               e.stopPropagation()
               setIsOpen(false)
-            }}
-            className="p-2 text-white/70 hover:text-white hover:bg-white/10 rounded-lg transition-colors"
-          >
-            <X size={18} />
-          </button>
+            }} aria-label="Đóng">
+            <X aria-hidden="true" />
+          </Button>
         </div>
       </div>
 
       {!isMinimized && (
         <>
           {/* Chat Area */}
-          <div className="flex-1 overflow-y-auto p-4 space-y-4 custom-scrollbar bg-slate-50 dark:bg-slate-900/50">
+          <div className="custom-scrollbar flex-1 space-y-4 overflow-y-auto bg-[var(--color-background)] p-4">
             {messages.map(msg => (
               <div key={msg.id} className="flex flex-col">
                 {msg.role === 'user' ? (
                   /* Lượt người dùng: KHÔNG bong bóng đặc. Một rãnh dọc màu AI + nhãn nhỏ là đủ
                      phân định lượt, mà không ăn mất chiều ngang của câu trả lời bên dưới. */
                   <div className="border-l-2 border-[var(--color-ai-line)] pl-3 py-0.5">
-                    <div className="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-ai)]">
+                    <div className="text-eyebrow text-[var(--color-ai)]">
                       Bạn hỏi
                     </div>
                     <div className="mt-0.5 text-sm whitespace-pre-wrap text-[var(--color-foreground)]">
@@ -525,15 +527,15 @@ export default function AiAssistantWidget() {
 
             {isLoading && (
               <div className="flex items-start">
-                <div className="flex items-center gap-2 bg-white dark:bg-slate-800 border border-slate-100 dark:border-slate-700 rounded-2xl rounded-tl-sm px-4 py-3 shadow-sm">
-                  <Loader2 size={16} className="animate-spin text-violet-500" />
+                <div className="flex items-center gap-2 rounded-card border border-[var(--color-border)] bg-[var(--color-card)] px-3 py-2">
+                  <Loader2 size={16} className="animate-spin text-[var(--color-ai)]" aria-hidden="true" />
                   {/* Vòng gọi tool chiếm phần lớn 10-15 giây của một lượt; nói rõ đang làm gì
                       thì quãng chờ đỡ như treo máy. */}
                   {stageLabel && (
-                    <span className="text-xs text-slate-500 dark:text-slate-400">{stageLabel}…</span>
+                    <span className="text-xs text-[var(--color-muted-foreground)]">{stageLabel}…</span>
                   )}
                   {elapsedSec > 0 && (
-                    <span className="text-xs tabular-nums text-slate-400 dark:text-slate-500">{elapsedSec}s</span>
+                    <span className="text-xs tabular-nums text-[var(--color-subtle-foreground)]">{elapsedSec}s</span>
                   )}
                 </div>
               </div>
@@ -542,7 +544,7 @@ export default function AiAssistantWidget() {
           </div>
 
           {/* Input Area */}
-          <div className="p-4 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 shrink-0">
+          <div className="shrink-0 border-t border-[var(--color-border)] bg-[var(--color-card)] p-3">
             <PinnedChips sink={fileSink} />
             <AttachedChips sink={fileSink} />
             <div className="relative flex items-center gap-2">
@@ -552,7 +554,7 @@ export default function AiAssistantWidget() {
                 onChange={e => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Nhập câu hỏi..."
-                className="w-full bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-xl px-4 py-2.5 pr-28 text-sm leading-6 focus:outline-none focus:ring-2 focus:ring-violet-500/50 resize-none transition-shadow"
+                className="scrollbar-hide w-full resize-none rounded-control border border-[var(--color-input)] bg-[var(--color-card)] px-3 py-2 pr-24 text-sm leading-6 text-[var(--color-foreground)] transition-colors placeholder:text-[var(--color-muted-foreground)] focus:border-[var(--color-ai-accent)] focus:outline-none focus:ring-2 focus:ring-[var(--color-ai-accent)]"
                 rows={1}
                 style={{ minHeight: '44px', maxHeight: '120px' }}
               />
@@ -565,16 +567,12 @@ export default function AiAssistantWidget() {
                   className="p-1.5"
                 />
                 <EvidenceAttachBar sink={fileSink} disabled={isLoading} />
-                <button
-                  onClick={handleSend}
-                  disabled={!input.trim() || isLoading}
-                  className="p-1.5 bg-violet-600 hover:bg-violet-700 disabled:bg-slate-300 dark:disabled:bg-slate-700 text-white rounded-lg transition-colors"
-                >
-                  <Send size={16} />
-                </button>
+                <Button variant="ghost" size="icon-sm" onClick={handleSend} disabled={!input.trim() || isLoading} aria-label="Gửi">
+                  <Send aria-hidden="true" />
+                </Button>
               </div>
             </div>
-            <p className="text-[10px] text-center text-slate-400 mt-2">
+            <p className="mt-2 text-center text-caption">
               AI có thể cung cấp thông tin không chính xác. Hãy kiểm tra lại.
             </p>
           </div>

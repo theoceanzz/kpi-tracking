@@ -7,6 +7,7 @@ import { useAuthStore } from '@/store/authStore'
 import CertificateModal from './certificate/CertificateModal'
 import { useMyAwards } from '../hooks/useCertificates'
 import type { RewardGrant } from '../types'
+import { Button } from '@/components/ui/button'
 
 const fmtDate = (iso?: string | null) =>
   iso
@@ -33,7 +34,7 @@ export default function MyCertificatesTab() {
 
   if (awards.length === 0) {
     return (
-      <div className="rounded-2xl border border-dashed border-[var(--color-border)]">
+      <div className="rounded-card border border-dashed border-[var(--color-border)]">
         <EmptyState
           title="Bạn chưa có chứng nhận nào"
           description="Chứng nhận chỉ có ở những lần thưởng được cấp trên kèm giấy khen — không phải lần thưởng điểm nào cũng có. Khi được trao, giấy khen sẽ hiện ở đây để bạn tải về hoặc in ra."
@@ -50,14 +51,14 @@ export default function MyCertificatesTab() {
           return (
             <div
               key={award.id}
-              className="flex flex-col rounded-2xl border border-[var(--color-border)] bg-[var(--color-card)] p-4"
+              className="flex flex-col rounded-card border border-[var(--color-border)] bg-[var(--color-card)] p-4"
             >
               <div className="flex items-start justify-between gap-2">
-                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-xl bg-amber-500/12 text-amber-600">
+                <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-card bg-[var(--color-warning-bg)] text-[var(--color-warning)]">
                   <Award size={18} />
                 </div>
                 <div className="text-right">
-                  <div className="text-lg font-bold text-emerald-600">
+                  <div className="text-lg font-semibold text-[var(--color-success)]">
                     +{(mine?.points ?? 0).toLocaleString('vi-VN')}
                   </div>
                   <div className="text-xs text-[var(--color-muted-foreground)]">điểm</div>
@@ -70,13 +71,10 @@ export default function MyCertificatesTab() {
                 {award.grantorName} trao · {fmtDate(award.approvedAt ?? award.createdAt)}
               </div>
 
-              <button
-                onClick={() => setPrinting(award)}
-                className="mt-3 flex items-center justify-center gap-2 rounded-xl border border-[var(--color-border)] px-4 py-2 text-sm font-medium transition-colors hover:bg-[var(--color-accent)]"
-              >
-                <Printer size={15} />
+              <Button variant="outline" className="mt-3" onClick={() => setPrinting(award)}>
+                <Printer aria-hidden="true" />
                 Xem & in chứng nhận
-              </button>
+              </Button>
             </div>
           )
         })}

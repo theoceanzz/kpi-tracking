@@ -1,20 +1,58 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { formatDistanceToNow, parseISO } from 'date-fns'
 import { vi } from 'date-fns/locale'
-import { Gift, Radio, Sparkles, Wallet } from 'lucide-react'
+import { Gift, Radio, Sparkles, Wallet, X } from 'lucide-react'
 import UserAvatar from '@/components/common/UserAvatar'
+import { useHasPermission } from '@/components/auth/PermissionGate'
 import { cn, formatNumber } from '@/lib/utils'
 import { useRewardActivityFeed } from '../hooks/useRewards'
 import { RewardActivityType, type RewardActivity } from '../types'
+import { Button } from '@/components/ui/button'
 
-/** Giây để một dòng tin đi hết chiều ngang. Nhân với số dòng ra thời lượng cả vòng. */
+/** Giây để một thẻ tin đi hết chiều ngang. Nhân với số thẻ ra thời lượng cả vòng. */
 const SECONDS_PER_ITEM = 6
 
 /**
- * Dưới ngưỡng này thì hai bản sao vẫn không phủ kín màn hình rộng, mối nối của vòng lặp
- * sẽ lộ ra thành một khoảng trống trôi qua. Ít tin thì thà đứng yên còn hơn chạy mà hở.
+ * Số thẻ tối thiểu trong MỘT nửa track.
+ *
+ * <p>Vòng lặp chạy bằng {@code translateX(-50%)} nên track phải gồm hai nửa giống hệt nhau, và
+ * mỗi nửa phải rộng hơn khung — nửa hẹp hơn khung thì mỗi vòng lộ ra một khoảng trống trôi qua.
+ * Công ty mới có một hai hoạt động thì danh sách gốc quá ngắn, nên lặp nó lên cho đủ số thẻ này.
+ *
+ * <p>Con số CỐ ĐỊNH, cố ý không đo bề rộng thật rồi tính số bản cần lặp: cách đo phải giữ một
+ * state, mà mỗi lần state đổi thì thời lượng animation đổi theo và hoạt ảnh khởi động lại từ
+ * đầu — chỉ cần phép đo dao động giữa hai giá trị là dải tin đứng im tại chỗ trông như hỏng.
+ * 12 thẻ phủ dư một màn hình rộng ở mọi cỡ thẻ thực tế, và đây chỉ là vài chục nút DOM tĩnh.
  */
-const MIN_ITEMS_TO_SCROLL = 4
+const MIN_ITEMS_PER_HALF = 12
+
+/**
+ * Mốc thời gian của tin MỚI NHẤT lúc người dùng bấm x.
+ *
+ * <p>Lưu mốc chứ không lưu cờ true/false: cờ thì tắt một lần là dải tin im mãi mãi, kể cả khi
+ * công ty có tin mới — mà cái hay của bảng tin là tin mới tự trôi tới. Có tin mới hơn mốc đã
+ * tắt thì hiện lại; không có gì mới thì im, đúng ý "ấn x đi thì mới mất".
+ */
+const STORAGE_KEY = 'rewardTickerDismissedAt'
+
+const readDismissed = () => {
+  try {
+    return localStorage.getItem(STORAGE_KEY)
+  } catch {
+    // Trình duyệt chặn localStorage (chế độ riêng tư, cookie bị khoá). Coi như chưa tắt
+    // còn hơn để cả dải tin chết vì một API lưu trữ không thiết yếu.
+    return null
+  }
+}
+
+const isNewerThanDismissed = (occurredAt: string, dismissedAt: string | null) => {
+  if (!dismissedAt) return true
+  const a = Date.parse(occurredAt)
+  const b = Date.parse(dismissedAt)
+  // Mốc hỏng (người dùng sửa tay localStorage, đổi định dạng ngày) thì coi như chưa tắt.
+  if (Number.isNaN(a) || Number.isNaN(b)) return true
+  return a > b
+}
 
 type Look = {
   icon: typeof Sparkles
@@ -26,34 +64,19 @@ type Look = {
 const LOOKS: Record<RewardActivityType, Look> = {
   [RewardActivityType.POINTS_AWARDED]: {
     icon: Sparkles,
-    accent: 'text-amber-600 dark:text-amber-400',
-    badge: 'bg-amber-500/15 text-amber-600 dark:text-amber-400',
+    accent: 'text-[var(--color-warning)]',
+    badge: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]',
   },
   [RewardActivityType.BUDGET_GRANTED]: {
     icon: Wallet,
-    accent: 'text-violet-600 dark:text-violet-400',
-    badge: 'bg-violet-500/15 text-violet-600 dark:text-violet-400',
+    accent: 'text-[var(--color-primary)]',
+    badge: 'bg-[var(--color-primary-soft)] text-[var(--color-primary)]',
   },
   [RewardActivityType.GIFT_REDEEMED]: {
     icon: Gift,
-    accent: 'text-emerald-600 dark:text-emerald-400',
-    badge: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400',
+    accent: 'text-[var(--color-success)]',
+    badge: 'bg-[var(--color-success-bg)] text-[var(--color-success)]',
   },
-}
-
-/** Người dùng đã tắt hiệu ứng chuyển động ở hệ điều hành. */
-function usePrefersReducedMotion() {
-  const [reduced, setReduced] = useState(
-    () => window.matchMedia?.('(prefers-reduced-motion: reduce)').matches ?? false,
-  )
-  useEffect(() => {
-    const mq = window.matchMedia?.('(prefers-reduced-motion: reduce)')
-    if (!mq) return
-    const onChange = () => setReduced(mq.matches)
-    mq.addEventListener('change', onChange)
-    return () => mq.removeEventListener('change', onChange)
-  }, [])
-  return reduced
 }
 
 function timeAgo(iso: string) {
@@ -77,7 +100,7 @@ function Message({ item }: { item: RewardActivity }) {
       return (
         <>
           {name} vừa nhận{' '}
-          <span className={cn('font-bold', accent)}>+{formatNumber(item.points, 0)} điểm</span>
+          <span className={cn('font-semibold', accent)}>+{formatNumber(item.points, 0)} điểm</span>
           {item.actorName ? (
             <> từ {item.actorName}</>
           ) : (
@@ -92,7 +115,7 @@ function Message({ item }: { item: RewardActivity }) {
       return (
         <>
           {name} được cấp hạn mức{' '}
-          <span className={cn('font-bold', accent)}>{formatNumber(item.points, 0)} điểm</span> để
+          <span className={cn('font-semibold', accent)}>{formatNumber(item.points, 0)} điểm</span> để
           thưởng cho nhân viên
         </>
       )
@@ -100,7 +123,7 @@ function Message({ item }: { item: RewardActivity }) {
       return (
         <>
           {name} vừa đổi{' '}
-          <span className={cn('font-bold', accent)}>{item.giftName}</span> với{' '}
+          <span className={cn('font-semibold', accent)}>{item.giftName}</span> với{' '}
           {formatNumber(item.points, 0)} điểm
         </>
       )
@@ -113,23 +136,23 @@ function TickerItem({ item }: { item: RewardActivity }) {
 
   return (
     // Khoảng cách giữa các dòng tin nằm ở `mr-3` của chính từng dòng, KHÔNG dùng `gap`
-    // của track. Với `gap`, hai bản sao trong track không rộng bằng nhau (bản đầu thiếu
-    // một khoảng hở ở mối nối), nên translateX(-50%) lệch đi vài pixel mỗi vòng và dải
-    // tin trôi dần khỏi vị trí.
-    <li className="mr-3 flex shrink-0 items-center gap-2.5 rounded-full border border-[var(--color-border)] bg-[var(--color-card)] py-1.5 pl-1.5 pr-4 shadow-sm">
-      <span className={cn('flex h-7 w-7 items-center justify-center rounded-full', look.badge)}>
-        <Icon size={15} />
+    // của track. Với `gap`, hai nửa của track không rộng bằng nhau (nửa đầu thiếu một
+    // khoảng hở ở mối nối), nên translateX(-50%) lệch đi vài pixel mỗi vòng và dải tin
+    // trôi dần khỏi vị trí.
+    <li className="mr-3 flex shrink-0 items-center gap-2 rounded-full border border-[var(--color-border)] bg-[var(--color-card)] py-1 pl-1 pr-3.5 shadow-sm">
+      <span className={cn('flex h-6 w-6 items-center justify-center rounded-full', look.badge)}>
+        <Icon size={13} />
       </span>
       <UserAvatar
         fullName={item.userName}
         avatarUrl={item.userAvatarUrl}
-        className="h-7 w-7 rounded-full ring-2 ring-[var(--color-background)]"
-        fallbackClassName="bg-[var(--color-muted)] text-[10px] font-bold text-[var(--color-muted-foreground)]"
+        className="h-6 w-6 rounded-full ring-2 ring-[var(--color-background)]"
+        fallbackClassName="bg-[var(--color-muted)] text-caption"
       />
-      <span className="whitespace-nowrap text-sm text-[var(--color-foreground)]">
+      <span className="whitespace-nowrap text-[13px] text-[var(--color-foreground)]">
         <Message item={item} />
       </span>
-      <span className="whitespace-nowrap text-xs text-[var(--color-muted-foreground)]">
+      <span className="whitespace-nowrap text-caption">
         {timeAgo(item.occurredAt)}
       </span>
     </li>
@@ -137,83 +160,106 @@ function TickerItem({ item }: { item: RewardActivity }) {
 }
 
 /**
- * Dải tin điểm thưởng chạy ngang, kiểu bảng thông báo trong game: ai vừa được thưởng,
- * ai vừa được cấp hạn mức, ai vừa đổi quà — cả công ty cùng thấy mà không phải mở tab nào.
+ * Dải tin điểm thưởng chạy ngang dưới thanh tiêu đề ở MỌI trang: ai vừa được thưởng, ai vừa
+ * được cấp hạn mức, ai vừa đổi quà — cả công ty cùng thấy mà không phải mở tab nào.
  *
- * <p>Tự ẩn khi chưa có tin nào (và khi API lỗi): một khung rỗng nằm trên đầu mọi trang
- * thưởng chỉ tổ chiếm chỗ. Cũng không có khung chờ tải, vì đây không phải nội dung chính
- * của trang — nó hiện ra khi có là đủ.
+ * <p>Tự ẩn hoàn toàn khi chưa có tin nào (và khi API lỗi): một dải rỗng chạy suốt trên đầu mọi
+ * trang chỉ tổ chiếm chỗ. Cũng không có khung chờ tải — đây không phải nội dung chính, nó hiện
+ * ra khi có là đủ.
+ *
+ * <p>Chạy LIÊN TỤC, không có ngưỡng tối thiểu số tin: danh sách gốc được lặp cho đủ
+ * {@link MIN_ITEMS_PER_HALF} thẻ mỗi nửa nên dù chỉ có một hai tin thì mối nối vẫn kín.
+ *
+ * <p><b>Cố ý KHÔNG nhường {@code prefers-reduced-motion}.</b> Bảng tin là thứ chạy để loan báo —
+ * đứng yên thì nó chỉ còn là một dòng chữ chiếm chỗ trên đầu mọi trang, và bản thân việc "trôi
+ * qua" là lý do tính năng tồn tại. Rất nhiều máy Windows tắt hiệu ứng chuyển động vì lý do hiệu
+ * năng chứ không phải vì người dùng nhạy cảm với chuyển động, nên nhường thiết lập đó sẽ tắt tính
+ * năng cho một nhóm lớn không hề cần được tắt. Lối thoát cho người thật sự khó chịu: trỏ chuột
+ * vào là dừng ngay (xem {@code .reward-marquee-viewport:hover} ở index.css), và nút x tắt hẳn.
  */
-export default function RewardActivityTicker({ className }: { className?: string }) {
-  const { data } = useRewardActivityFeed()
-  const reducedMotion = usePrefersReducedMotion()
+export default function RewardActivityTicker() {
+  const { hasPermission } = useHasPermission()
+  const { data } = useRewardActivityFeed(30, hasPermission('REWARD:VIEW_MY'))
+  const [dismissedAt, setDismissedAt] = useState(readDismissed)
 
-  // Giữ tham chiếu ổn định giữa các lần render, nếu không `rendered` bên dưới sẽ dựng
-  // lại mảng nhân đôi mỗi nhịp và dải tin bị vẽ lại từ đầu.
   const items = useMemo(() => data ?? [], [data])
-  const scrolling = !reducedMotion && items.length >= MIN_ITEMS_TO_SCROLL
 
-  // Chỉ nhân đôi khi thật sự chạy. Ở chế độ đứng yên, bản sao thứ hai là nội dung lặp
-  // vô nghĩa mà trình đọc màn hình vẫn đọc lên.
-  const rendered = useMemo(() => (scrolling ? [...items, ...items] : items), [items, scrolling])
+  /**
+   * Nội dung của MỘT nửa track: danh sách gốc lặp lại cho đủ {@link MIN_ITEMS_PER_HALF} thẻ.
+   *
+   * <p>Chỉ là một phép tính thuần từ `items` — không state, không đo đạc, không effect. Nhờ vậy
+   * số thẻ và thời lượng animation đứng yên suốt vòng đời component, và hoạt ảnh không bao giờ
+   * bị khởi động lại giữa chừng.
+   */
+  const half = useMemo(() => {
+    if (items.length === 0) return []
+    const times = Math.ceil(MIN_ITEMS_PER_HALF / items.length)
+    return Array.from({ length: times }, () => items).flat()
+  }, [items])
 
-  if (items.length === 0) return null
+  // Tin mới nhất đứng đầu danh sách — vừa là thứ quyết định có hiện dải tin nữa hay
+  // không, vừa là mốc lưu lại khi bấm x. Lấy ra biến rồi kiểm tra để không phải chỉ mục
+  // vào mảng ở ba chỗ khác nhau.
+  const newest = items[0]
+  if (!newest) return null
+  if (!isNewerThanDismissed(newest.occurredAt, dismissedAt)) return null
+
+  const dismiss = () => {
+    try {
+      localStorage.setItem(STORAGE_KEY, newest.occurredAt)
+    } catch {
+      // Không lưu được thì dải tin hiện lại ở lần tải trang sau. Chấp nhận được; ném lỗi
+      // ở đây sẽ làm hỏng cả lượt bấm x.
+    }
+    setDismissedAt(newest.occurredAt)
+  }
 
   return (
-    <div
-      className={cn(
-        'reward-marquee-viewport relative overflow-hidden rounded-2xl border border-[var(--color-border)] bg-gradient-to-r from-amber-500/5 via-violet-500/5 to-emerald-500/5 py-2.5',
-        className,
-      )}
-    >
-      <div className="mb-2 flex items-center gap-1.5 px-4">
-        <Radio size={13} className="text-[var(--color-primary)]" />
-        <span className="text-xs font-semibold uppercase tracking-wide text-[var(--color-muted-foreground)]">
-          Bảng tin điểm thưởng
+    <div className="reward-marquee-viewport flex items-center gap-2 border-b border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] py-1.5 pl-4 pr-2 md:pl-6">
+      {/* Nhãn ẩn ở màn hình hẹp: giữ lại thì dải tin chỉ còn một mẩu không đọc nổi. */}
+      <span className="hidden flex-shrink-0 items-center gap-1.5 pr-1 sm:flex">
+        <Radio size={13} className="text-[var(--color-warning)]" />
+        <span className="text-eyebrow text-[var(--color-warning)]">
+          Bảng tin thưởng
         </span>
-      </div>
+      </span>
 
-      <div
-        className={cn(
-          'relative',
-          // Không chạy thì phải cuộn được bằng tay, nếu không những tin phía sau sẽ
-          // không có cách nào xem tới.
-          scrolling ? 'overflow-hidden' : 'overflow-x-auto scrollbar-hide',
-        )}
-      >
-        <ul
-          className={cn(
-            'flex w-max items-center',
-            // Lề trái chỉ đặt khi ĐỨNG YÊN. Lúc chạy, mọi khoảng đệm trên track đều phá
-            // vỡ tính đối xứng mà translateX(-50%) dựa vào.
-            scrolling ? 'animate-reward-marquee' : 'pl-4',
-          )}
+      <div className="relative min-w-0 flex-1 overflow-hidden">
+        <div
+          className="animate-reward-marquee flex w-max items-center"
           style={
-            scrolling
-              ? ({
-                  '--reward-marquee-duration': `${items.length * SECONDS_PER_ITEM}s`,
-                } as React.CSSProperties)
-              : undefined
+            {
+              // Thời lượng theo số thẻ của MỘT nửa — đó đúng bằng quãng đường một vòng
+              // chạy (-50%), nên tốc độ trôi không đổi dù bảng tin dài ngắn khác nhau.
+              '--reward-marquee-duration': `${half.length * SECONDS_PER_ITEM}s`,
+            } as React.CSSProperties
           }
         >
-          {rendered.map((item, index) => (
-            // Bản sao thứ hai dùng lại đúng id, nên khoá phải kèm vị trí. `type` cũng
-            // phải có vì id chỉ duy nhất trong từng loại nguồn.
-            <TickerItem key={`${item.type}-${item.id}-${index}`} item={item} />
-          ))}
-        </ul>
+          <ul className="flex items-center">
+            {half.map((item, index) => (
+              // Bản lặp dùng lại đúng id, nên khoá phải kèm vị trí. `type` cũng phải có
+              // vì id chỉ duy nhất trong từng loại nguồn.
+              <TickerItem key={`${item.type}-${item.id}-${index}`} item={item} />
+            ))}
+          </ul>
 
-        {/* Làm mờ hai mép để dòng tin trôi ra/vào thay vì bị cắt cụt ở rìa khung. Chỉ phủ
-            hàng tin — trùm cả nhãn "Bảng tin điểm thưởng" ở trên sẽ làm nhãn bạc màu.
-            Chỉ khi đang chạy: trong khung cuộn tay, lớp phủ tuyệt đối trôi theo nội dung
-            nên sẽ nằm giữa dải tin thay vì ở rìa. */}
-        {scrolling && (
-          <>
-            <div className="pointer-events-none absolute inset-y-0 left-0 w-10 bg-gradient-to-r from-[var(--color-background)] to-transparent" />
-            <div className="pointer-events-none absolute inset-y-0 right-0 w-10 bg-gradient-to-l from-[var(--color-background)] to-transparent" />
-          </>
-        )}
+          {/* Nửa thứ hai chỉ để vá mối nối của vòng lặp — trình đọc màn hình bỏ qua, nếu
+              không nó sẽ đọc lại toàn bộ bảng tin lần thứ hai. */}
+          <ul aria-hidden className="flex items-center">
+            {half.map((item, index) => (
+              <TickerItem key={`dup-${item.type}-${item.id}-${index}`} item={item} />
+            ))}
+          </ul>
+        </div>
+
+        {/* Làm mờ mép trái để dòng tin trôi vào thay vì bị cắt cụt ở rìa. Mép phải không
+            cần vì nút x đã che sẵn chỗ đó. */}
+        <div className="pointer-events-none absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-[var(--color-warning-bg)] to-transparent" />
       </div>
+
+      <Button variant="ghost" size="icon-sm" aria-label="Ẩn bảng tin" onClick={dismiss} title="Ẩn bảng tin">
+        <X aria-hidden="true" />
+      </Button>
     </div>
   )
 }

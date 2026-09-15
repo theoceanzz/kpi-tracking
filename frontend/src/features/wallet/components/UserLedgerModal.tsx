@@ -1,8 +1,8 @@
 import { useState } from 'react'
-import { X } from 'lucide-react'
 import Pagination from '@/components/common/Pagination'
 import EmptyState from '@/components/common/EmptyState'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
+import { Dialog } from '@/components/ui/dialog'
 import { formatCurrency } from '@/lib/utils'
 import { useUserCashTransactions } from '../hooks/useWallet'
 import CashLedgerTable from './CashLedgerTable'
@@ -30,69 +30,60 @@ export default function UserLedgerModal({ wallet, onClose }: UserLedgerModalProp
   if (!wallet) return null
 
   return (
-    <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50 p-4">
-      <div className="flex max-h-[90vh] w-full max-w-4xl flex-col overflow-hidden rounded-3xl border border-[var(--color-border)] bg-[var(--color-card)] shadow-2xl">
-        <header className="flex items-start justify-between gap-4 border-b border-[var(--color-border)] px-6 py-5">
-          <div className="min-w-0">
-            <h2 className="truncate text-lg font-bold">{wallet.fullName}</h2>
-            <p className="truncate text-sm text-[var(--color-muted-foreground)]">
-              {wallet.employeeCode ? `${wallet.employeeCode} · ` : ''}
-              {wallet.email}
-            </p>
+    <Dialog
+      open
+      onClose={onClose}
+      size="xl"
+      flush
+      title={wallet.fullName}
+      description={
+        <span className="block truncate">
+          {wallet.employeeCode ? `${wallet.employeeCode} · ` : ''}
+          {wallet.email}
+        </span>
+      }
+    >
+      <div className="grid grid-cols-3 gap-px border-b border-[var(--color-border)] bg-[var(--color-border)]">
+        {[
+          { label: 'Số dư', value: formatCurrency(wallet.balance) },
+          { label: 'Đã nạp', value: formatCurrency(wallet.lifetimeTopup) },
+          { label: 'Đã đổi ra điểm', value: formatCurrency(wallet.lifetimeConverted) },
+        ].map((s) => (
+          <div key={s.label} className="bg-[var(--color-card)] px-5 py-3">
+            <p className="text-eyebrow">{s.label}</p>
+            <p className="mt-1 truncate text-stat">{s.value}</p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="flex-shrink-0 rounded-lg p-1 text-[var(--color-muted-foreground)] hover:bg-[var(--color-muted)]"
-          >
-            <X size={20} />
-          </button>
-        </header>
-
-        <div className="grid grid-cols-3 gap-px border-b border-[var(--color-border)] bg-[var(--color-border)]">
-          {[
-            { label: 'Số dư', value: formatCurrency(wallet.balance) },
-            { label: 'Đã nạp', value: formatCurrency(wallet.lifetimeTopup) },
-            { label: 'Đã đổi ra điểm', value: formatCurrency(wallet.lifetimeConverted) },
-          ].map((s) => (
-            <div key={s.label} className="bg-[var(--color-card)] px-6 py-4">
-              <div className="text-[10px] font-black uppercase tracking-[0.15em] text-[var(--color-muted-foreground)]">
-                {s.label}
-              </div>
-              <div className="mt-1 truncate text-lg font-bold tabular-nums">{s.value}</div>
-            </div>
-          ))}
-        </div>
-
-        <div className="min-h-0 flex-1 overflow-y-auto p-6">
-          {isLoading ? (
-            <LoadingSkeleton type="table" rows={4} />
-          ) : transactions.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-[var(--color-border)]">
-              <EmptyState
-                title="Chưa có giao dịch nào"
-                description="Ví này được tạo nhưng chưa phát sinh nạp tiền hay quy đổi."
-              />
-            </div>
-          ) : (
-            <>
-              <CashLedgerTable data={transactions} />
-              {(data?.totalPages ?? 0) > 1 && (
-                <div className="mt-4">
-                  <Pagination
-                    currentPage={page}
-                    totalPages={data?.totalPages ?? 0}
-                    totalElements={data?.totalElements ?? 0}
-                    size={size}
-                    onPageChange={setPage}
-                    itemLabel="giao dịch"
-                  />
-                </div>
-              )}
-            </>
-          )}
-        </div>
+        ))}
       </div>
-    </div>
+
+      <div className="p-5">
+        {isLoading ? (
+          <LoadingSkeleton type="table" rows={4} />
+        ) : transactions.length === 0 ? (
+          <div className="rounded-card border border-dashed border-[var(--color-border)]">
+            <EmptyState
+              title="Chưa có giao dịch nào"
+              description="Ví này được tạo nhưng chưa phát sinh nạp tiền hay quy đổi."
+            />
+          </div>
+        ) : (
+          <>
+            <CashLedgerTable data={transactions} />
+            {(data?.totalPages ?? 0) > 1 && (
+              <div className="mt-4">
+                <Pagination
+                  currentPage={page}
+                  totalPages={data?.totalPages ?? 0}
+                  totalElements={data?.totalElements ?? 0}
+                  size={size}
+                  onPageChange={setPage}
+                  itemLabel="giao dịch"
+                />
+              </div>
+            )}
+          </>
+        )}
+      </div>
+    </Dialog>
   )
 }

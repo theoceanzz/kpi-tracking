@@ -1,6 +1,8 @@
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
-import { Award, Download, Loader2, Printer, X } from 'lucide-react'
+import { Download, Loader2, Printer } from 'lucide-react'
+import { Dialog } from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
 import {
   Select,
@@ -26,6 +28,7 @@ import {
   resolveDesign,
   type CertificateData,
 } from './presets'
+import { ChoiceChip } from '@/components/ui/choice-chip'
 
 interface CertificateModalProps {
   /** null = đóng. */
@@ -172,172 +175,150 @@ export default function CertificateModal({
   if (!grant) return null
 
   return (
-    <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-      <div className="flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-card)] shadow-xl">
-        <div className="flex flex-shrink-0 items-center justify-between border-b border-[var(--color-border)] px-6 py-4">
-          <div className="flex items-center gap-2">
-            <Award size={20} className="text-[var(--color-primary)]" />
-            <h2 className="text-lg font-semibold">Chứng nhận khen thưởng</h2>
-          </div>
-          <button onClick={onClose} className="rounded-lg p-1 hover:bg-[var(--color-accent)]">
-            <X size={18} />
-          </button>
-        </div>
-
-        <div className="grid flex-1 grid-cols-1 gap-0 overflow-y-auto lg:grid-cols-[320px_1fr]">
-          {/* ── Cột trái: chọn mẫu và người nhận ── */}
-          <div className="space-y-5 border-b border-[var(--color-border)] p-5 lg:border-b-0 lg:border-r">
-            <div>
-              <div className="mb-2 text-sm font-medium">Mẫu chứng nhận</div>
-              {isLoading ? (
-                <div className="h-9 animate-pulse rounded-lg bg-[var(--color-muted)]" />
-              ) : lockedRecipientId ? (
-                // Người nhận không đổi mẫu: giấy khen là thứ công ty trao cho họ, không
-                // phải tấm thiệp họ tự thiết kế. Hiện tên mẫu cho biết đang in bằng gì.
-                <div className="rounded-lg border border-[var(--color-border)] bg-[var(--color-muted)] px-3 py-2 text-sm">
-                  {template?.name ?? design.preset.name}
-                </div>
-              ) : (
-                <Select value={picked} onValueChange={setPicked}>
-                  <SelectTrigger className="w-full rounded-lg border-[var(--color-border)] bg-[var(--color-background)]">
-                    {/* Có placeholder vì `picked` rỗng trong nhịp đầu, trước khi effect
-                        chốt được mẫu ưu tiên — không có thì ô trống trơn một thoáng. */}
-                    <SelectValue placeholder="Chọn mẫu" />
-                  </SelectTrigger>
-                  <SelectContent className={SELECT_CONTENT_Z}>
-                    {!!catalog?.templates.length && (
-                      <SelectGroup>
-                        <SelectLabel>Mẫu của công ty</SelectLabel>
-                        {catalog.templates.map((t) => (
-                          <SelectItem key={t.id} value={`tpl:${t.id}`}>
-                            {t.name}
-                            {t.isDefault ? ' (mặc định)' : ''}
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                    )}
+    <>
+    <Dialog
+      open
+      onClose={onClose}
+      size="full"
+      flush
+      title="Chứng nhận khen thưởng"
+    >
+      <div className="grid grid-cols-1 gap-0 lg:grid-cols-[320px_1fr]">
+        {/* ── Cột trái: chọn mẫu và người nhận ── */}
+        <div className="space-y-5 border-b border-[var(--color-border)] p-5 lg:border-b-0 lg:border-r">
+          <div>
+            <div className="mb-2 text-sm font-medium">Mẫu chứng nhận</div>
+            {isLoading ? (
+              <div className="h-9 animate-pulse rounded-control bg-[var(--color-muted)]" />
+            ) : lockedRecipientId ? (
+              // Người nhận không đổi mẫu: giấy khen là thứ công ty trao cho họ, không
+              // phải tấm thiệp họ tự thiết kế. Hiện tên mẫu cho biết đang in bằng gì.
+              <div className="rounded-control border border-[var(--color-border)] bg-[var(--color-muted)] px-3 py-2 text-sm">
+                {template?.name ?? design.preset.name}
+              </div>
+            ) : (
+              <Select value={picked} onValueChange={setPicked}>
+                <SelectTrigger className="w-full rounded-control border-[var(--color-border)] bg-[var(--color-background)]">
+                  {/* Có placeholder vì `picked` rỗng trong nhịp đầu, trước khi effect
+                      chốt được mẫu ưu tiên — không có thì ô trống trơn một thoáng. */}
+                  <SelectValue placeholder="Chọn mẫu" />
+                </SelectTrigger>
+                <SelectContent className={SELECT_CONTENT_Z}>
+                  {!!catalog?.templates.length && (
                     <SelectGroup>
-                      <SelectLabel>Mẫu dựng sẵn</SelectLabel>
-                      {CERTIFICATE_PRESETS.map((p) => (
-                        <SelectItem key={p.key} value={`preset:${p.key}`}>
-                          {p.name}
+                      <SelectLabel>Mẫu của công ty</SelectLabel>
+                      {catalog.templates.map((t) => (
+                        <SelectItem key={t.id} value={`tpl:${t.id}`}>
+                          {t.name}
+                          {t.isDefault ? ' (mặc định)' : ''}
                         </SelectItem>
                       ))}
                     </SelectGroup>
-                  </SelectContent>
-                </Select>
-              )}
-              <p className="mt-2 text-xs text-[var(--color-muted-foreground)]">
-                {template ? template.name : design.preset.tagline}
-              </p>
-            </div>
+                  )}
+                  <SelectGroup>
+                    <SelectLabel>Mẫu dựng sẵn</SelectLabel>
+                    {CERTIFICATE_PRESETS.map((p) => (
+                      <SelectItem key={p.key} value={`preset:${p.key}`}>
+                        {p.name}
+                      </SelectItem>
+                    ))}
+                  </SelectGroup>
+                </SelectContent>
+              </Select>
+            )}
+            <p className="mt-2 text-xs text-[var(--color-muted-foreground)]">
+              {template ? template.name : design.preset.tagline}
+            </p>
+          </div>
 
+          <div>
+            <div className="mb-2 text-sm font-medium">Khổ giấy</div>
+            <div className="flex gap-1.5">
+              {[
+                { key: CertificateOrientation.LANDSCAPE, label: 'Ngang' },
+                { key: CertificateOrientation.PORTRAIT, label: 'Dọc' },
+              ].map((o) => (
+                <ChoiceChip selected={design.orientation === o.key} variant="solid" className="flex-1 py-2" key={o.key} onClick={() => setOrientation(o.key)}>
+                  {o.label}
+                </ChoiceChip>
+              ))}
+            </div>
+          </div>
+
+          {recipients.length > 1 && (
             <div>
-              <div className="mb-2 text-sm font-medium">Khổ giấy</div>
-              <div className="flex gap-1.5">
-                {[
-                  { key: CertificateOrientation.LANDSCAPE, label: 'Ngang' },
-                  { key: CertificateOrientation.PORTRAIT, label: 'Dọc' },
-                ].map((o) => (
-                  <button
-                    key={o.key}
-                    onClick={() => setOrientation(o.key)}
-                    className={`flex-1 rounded-lg border px-3 py-2 text-sm transition-colors ${
-                      design.orientation === o.key
-                        ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/10 font-medium text-[var(--color-primary)]'
-                        : 'border-[var(--color-border)] text-[var(--color-muted-foreground)] hover:bg-[var(--color-accent)]'
-                    }`}
+              <div className="mb-2 flex items-center justify-between text-sm font-medium">
+                <span>Người nhận ({selectedIds.length}/{recipients.length})</span>
+                <Button variant="ghost" size="sm" onClick={() =>
+                    setSelectedIds(
+                      selectedIds.length === recipients.length ? [] : recipients.map((r) => r.userId)
+                    )
+                  }>
+                  {selectedIds.length === recipients.length ? 'Bỏ chọn hết' : 'Chọn hết'}
+                </Button>
+              </div>
+              <div className="max-h-56 space-y-1 overflow-y-auto rounded-control border border-[var(--color-border)] p-1.5">
+                {recipients.map((r) => (
+                  <label
+                    key={r.userId}
+                    className="flex cursor-pointer items-center gap-2.5 rounded-md px-2 py-1.5 text-sm hover:bg-[var(--color-accent)]"
                   >
-                    {o.label}
-                  </button>
+                    <input
+                      type="checkbox"
+                      checked={selectedIds.includes(r.userId)}
+                      onChange={(e) =>
+                        setSelectedIds((prev) =>
+                          e.target.checked
+                            ? [...prev, r.userId]
+                            : prev.filter((id) => id !== r.userId)
+                        )
+                      }
+                      className="h-4 w-4 accent-[var(--color-primary)]"
+                    />
+                    <span className="min-w-0 flex-1 truncate">{r.fullName}</span>
+                    <span className="flex-shrink-0 text-xs text-[var(--color-muted-foreground)]">
+                      {r.points.toLocaleString('vi-VN')}đ
+                    </span>
+                  </label>
                 ))}
               </div>
-            </div>
-
-            {recipients.length > 1 && (
-              <div>
-                <div className="mb-2 flex items-center justify-between text-sm font-medium">
-                  <span>Người nhận ({selectedIds.length}/{recipients.length})</span>
-                  <button
-                    onClick={() =>
-                      setSelectedIds(
-                        selectedIds.length === recipients.length ? [] : recipients.map((r) => r.userId)
-                      )
-                    }
-                    className="text-xs font-normal text-[var(--color-primary)] hover:underline"
-                  >
-                    {selectedIds.length === recipients.length ? 'Bỏ chọn hết' : 'Chọn hết'}
-                  </button>
-                </div>
-                <div className="max-h-56 space-y-1 overflow-y-auto rounded-lg border border-[var(--color-border)] p-1.5">
-                  {recipients.map((r) => (
-                    <label
-                      key={r.userId}
-                      className="flex cursor-pointer items-center gap-2.5 rounded-md px-2 py-1.5 text-sm hover:bg-[var(--color-accent)]"
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selectedIds.includes(r.userId)}
-                        onChange={(e) =>
-                          setSelectedIds((prev) =>
-                            e.target.checked
-                              ? [...prev, r.userId]
-                              : prev.filter((id) => id !== r.userId)
-                          )
-                        }
-                        className="h-4 w-4 accent-[var(--color-primary)]"
-                      />
-                      <span className="min-w-0 flex-1 truncate">{r.fullName}</span>
-                      <span className="flex-shrink-0 text-xs text-[var(--color-muted-foreground)]">
-                        {r.points.toLocaleString('vi-VN')}đ
-                      </span>
-                    </label>
-                  ))}
-                </div>
-                <p className="mt-2 text-xs text-[var(--color-muted-foreground)]">
-                  Mỗi người một tờ riêng, in liền một lượt.
-                </p>
-              </div>
-            )}
-
-            <div className="space-y-2 border-t border-[var(--color-border)] pt-4">
-              <button
-                onClick={() => printCertificateArea(design.orientation)}
-                disabled={!chosen.length}
-                className="flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--color-primary)] px-4 py-2.5 text-sm font-bold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
-              >
-                <Printer size={16} />
-                In / Lưu PDF
-              </button>
-              <button
-                onClick={handleDownload}
-                disabled={!chosen.length || busy === 'png'}
-                className="flex w-full items-center justify-center gap-2 rounded-xl border border-[var(--color-border)] px-4 py-2.5 text-sm font-medium transition-colors hover:bg-[var(--color-accent)] disabled:opacity-50"
-              >
-                {busy === 'png' ? <Loader2 size={16} className="animate-spin" /> : <Download size={16} />}
-                {progress && progress.total > 1
-                  ? `Đang tải ${progress.done}/${progress.total}…`
-                  : 'Tải ảnh PNG'}
-              </button>
-              <p className="text-xs text-[var(--color-muted-foreground)]">
-                Trong hộp thoại in, chọn máy in là <strong>Lưu thành PDF</strong> nếu bạn muốn
-                một tệp PDF thay vì in ra giấy.
+              <p className="mt-2 text-xs text-[var(--color-muted-foreground)]">
+                Mỗi người một tờ riêng, in liền một lượt.
               </p>
             </div>
-          </div>
+          )}
 
-          {/* ── Cột phải: xem trước ── */}
-          <div className="flex items-start justify-center bg-[var(--color-muted)] p-5">
-            {previewRecipient ? (
-              <PreviewFrame design={design} data={buildData(previewRecipient)} />
-            ) : (
-              <p className="py-16 text-sm text-[var(--color-muted-foreground)]">
-                Chọn ít nhất một người nhận để xem trước.
-              </p>
-            )}
+          <div className="space-y-2 border-t border-[var(--color-border)] pt-4">
+            <Button className="w-full" onClick={() => printCertificateArea(design.orientation)} disabled={!chosen.length}>
+              <Printer aria-hidden="true" />
+              In / Lưu PDF
+            </Button>
+            <Button variant="outline" className="w-full" onClick={handleDownload} disabled={!chosen.length || busy === 'png'}>
+              {busy === 'png' ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Download aria-hidden="true" />}
+              {progress && progress.total > 1
+                ? `Đang tải ${progress.done}/${progress.total}…`
+                : 'Tải ảnh PNG'}
+            </Button>
+            <p className="text-xs text-[var(--color-muted-foreground)]">
+              Trong hộp thoại in, chọn máy in là <strong>Lưu thành PDF</strong> nếu bạn muốn
+              một tệp PDF thay vì in ra giấy.
+            </p>
           </div>
         </div>
+
+        {/* ── Cột phải: xem trước ── */}
+        <div className="flex items-start justify-center bg-[var(--color-muted)] p-5">
+          {previewRecipient ? (
+            <PreviewFrame design={design} data={buildData(previewRecipient)} />
+          ) : (
+            <p className="py-16 text-sm text-[var(--color-muted-foreground)]">
+              Chọn ít nhất một người nhận để xem trước.
+            </p>
+          )}
+        </div>
       </div>
+    </Dialog>
+
 
       {/*
         Khu vực in: luôn dựng ở kích thước A4 thật, nằm ngoài màn hình. Đây cũng chính là
@@ -363,7 +344,7 @@ export default function CertificateModal({
         </div>,
         document.body
       )}
-    </div>
+    </>
   )
 }
 
@@ -401,7 +382,7 @@ function PreviewFrame({
 
   return (
     <div ref={boxRef} className="flex w-full justify-center">
-      <div className="overflow-hidden rounded-lg shadow-lg ring-1 ring-black/10">
+      <div className="overflow-hidden rounded-control shadow-lg ring-1 ring-black/10">
         <CertificateCanvas design={design} data={data} scale={scale} />
       </div>
     </div>

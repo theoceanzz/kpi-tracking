@@ -14,6 +14,7 @@ import { useKpiCycles } from '@/features/kpi/hooks/useKpiCycles'
 import { useConductConfig, useConductSets } from '../hooks/useConduct'
 import type { ConductSet } from '../api/conductApi'
 import type { OrganizationResponse } from '@/features/orgunits/api/organizationApi'
+import { Button } from '@/components/ui/button'
 
 /**
  * Các BỘ tiêu chí hạnh kiểm của tổ chức — cùng khuôn với hồ sơ luật của "xếp loại đơn vị":
@@ -80,10 +81,10 @@ function IconButton({
       title={label}
       aria-label={label}
       className={cn(
-        'w-8 h-8 inline-flex items-center justify-center rounded-lg transition-colors cursor-pointer',
+        'w-8 h-8 inline-flex items-center justify-center rounded-control transition-colors cursor-pointer',
         danger
-          ? 'text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 hover:text-red-500'
-          : 'text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 hover:text-slate-600 dark:hover:text-slate-200',
+          ? 'text-[var(--color-error)] hover:bg-[var(--color-error-bg)] dark:hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]'
+          : 'text-[var(--color-subtle-foreground)] hover:bg-[var(--color-muted)] hover:text-[var(--color-muted-foreground)]',
       )}
     >
       {children}
@@ -218,20 +219,15 @@ export default function ConductConfigSection({ org }: { org: OrganizationRespons
         actions={
           <>
             <HelpPopover />
-            <button
-              type="button"
-              onClick={() => resetSet(undefined)}
-              className="inline-flex items-center justify-center gap-1.5 px-4 h-10 rounded-xl text-sm font-bold bg-[var(--color-muted)] text-[var(--color-muted-foreground)] hover:text-[var(--color-primary)] border border-[var(--color-border)] transition-all cursor-pointer"
-              title="Đặt bộ mặc định về 4 tiêu chí × 25%"
-            >
-              <RotateCcw size={16} aria-hidden="true" /> Đặt lại bộ mặc định
-            </button>
+            <Button variant="outline" type="button" onClick={() => resetSet(undefined)} title="Đặt bộ mặc định về 4 tiêu chí × 25%">
+              <RotateCcw aria-hidden="true" /> Đặt lại bộ mặc định
+            </Button>
           </>
         }
       />
 
       {!hasDefault && (
-        <p className="flex items-start gap-2 rounded-xl bg-amber-50 dark:bg-amber-900/20 px-3 py-2 text-[11px] font-bold text-amber-600 dark:text-amber-400">
+        <p className="flex items-start gap-2 rounded-card bg-[var(--color-warning-bg)] px-3 py-2 text-xs font-medium text-[var(--color-warning)]">
           <AlertTriangle size={14} className="shrink-0 mt-px" aria-hidden="true" />
           Chưa có bộ mặc định — các kỳ không được gán sẽ không mở được phiếu chấm.
         </p>
@@ -262,16 +258,10 @@ export default function ConductConfigSection({ org }: { org: OrganizationRespons
         ))}
       </div>
 
-      <button
-        id="tour-conduct-add-set"
-        type="button"
-        onClick={handleAdd}
-        disabled={isCreating}
-        className="w-full h-10 rounded-xl border border-dashed border-slate-300 dark:border-slate-700 text-xs font-bold text-slate-500 hover:border-teal-400 hover:text-teal-600 inline-flex items-center justify-center gap-1.5 disabled:opacity-50 cursor-pointer"
-      >
-        {isCreating ? <Loader2 size={14} className="animate-spin" aria-hidden="true" /> : <Plus size={14} aria-hidden="true" />}
+      <Button variant="outline" className="w-full" id="tour-conduct-add-set" type="button" onClick={handleAdd} disabled={isCreating}>
+        {isCreating ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Plus aria-hidden="true" />}
         Thêm bộ tiêu chí
-      </button>
+      </Button>
     </div>
   )
 }
@@ -281,15 +271,11 @@ function HelpPopover() {
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <button
-          type="button"
-          aria-label="Bộ tiêu chí hạnh kiểm hoạt động thế nào"
-          className="w-10 h-10 inline-flex items-center justify-center rounded-xl bg-[var(--color-muted)] text-[var(--color-muted-foreground)] hover:text-[var(--color-primary)] border border-[var(--color-border)] transition-all cursor-pointer"
-        >
-          <HelpCircle size={16} aria-hidden="true" />
-        </button>
+        <Button variant="outline" size="icon" type="button" aria-label="Bộ tiêu chí hạnh kiểm hoạt động thế nào">
+          <HelpCircle aria-hidden="true" />
+        </Button>
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-[320px] text-xs leading-relaxed text-slate-600 dark:text-slate-300 space-y-2">
+      <PopoverContent align="end" className="w-[320px] text-xs leading-relaxed text-[var(--color-muted-foreground)] space-y-2">
         <p>Mỗi <b>bộ</b> là một cách chấm hạnh kiểm. Gán bộ cho <b>kỳ</b> nào thì mọi đợt trong kỳ đó chấm theo bộ ấy.</p>
         <p>Kỳ không được gán dùng bộ <b>mặc định</b>. Một kỳ chỉ thuộc một bộ — gán sang bộ khác thì bộ cũ tự mất kỳ đó.</p>
         <p>Điểm tổng = Σ(điểm × trọng số), nên <b>tổng trọng số phải bằng 100%</b>.</p>
@@ -348,25 +334,19 @@ function SetCard({
     onPatch({ criteria: d.criteria.map((c, i) => ({ ...c, weight: String(i === n - 1 ? rest : each) })) })
   }
 
-  const fieldCls = 'h-9 px-3 rounded-lg bg-slate-50 dark:bg-slate-800 text-sm font-bold border border-transparent outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20'
+  const fieldCls = 'h-9 px-3 rounded-control bg-[var(--color-muted)] text-sm font-medium border border-transparent outline-none focus:border-[var(--color-info-border)] focus:ring-2 focus:ring-[var(--color-info-solid)]'
 
   return (
     <div className={cn(
-      'rounded-2xl border transition-colors',
-      isOpen ? 'border-slate-300 dark:border-slate-700' : 'border-slate-200 dark:border-slate-800',
-      d.isDefault && 'border-teal-300 dark:border-teal-800',
+      'rounded-card border transition-colors',
+      isOpen ? 'border-[var(--color-border-strong)]' : 'border-[var(--color-border)]',
+      d.isDefault && 'border-[var(--color-info-border)]',
     )}>
       {/* ── Dòng tiêu đề: đóng thì là bản tóm tắt, mở thì là thanh công cụ của bộ ── */}
       <div className="flex items-center gap-2 p-2.5 max-sm:flex-wrap">
-        <button
-          type="button"
-          onClick={onToggle}
-          aria-expanded={isOpen}
-          aria-label={isOpen ? `Thu gọn bộ ${d.name}` : `Mở bộ ${d.name}`}
-          className="w-7 h-7 shrink-0 inline-flex items-center justify-center rounded-lg text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800 cursor-pointer"
-        >
-          {isOpen ? <ChevronDown size={16} aria-hidden="true" /> : <ChevronRight size={16} aria-hidden="true" />}
-        </button>
+        <Button variant="secondary" className="shrink-0" type="button" onClick={onToggle} aria-expanded={isOpen} aria-label={isOpen ? `Thu gọn bộ ${d.name}` : `Mở bộ ${d.name}`}>
+          {isOpen ? <ChevronDown aria-hidden="true" /> : <ChevronRight aria-hidden="true" />}
+        </Button>
 
         {d.isDefault && (
           <Badge className="gap-1 shrink-0 whitespace-nowrap"><Star size={11} className="fill-white" aria-hidden="true" /> Mặc định</Badge>
@@ -380,23 +360,19 @@ function SetCard({
             onChange={e => onPatch({ name: e.target.value })}
             placeholder="Tên bộ tiêu chí"
             aria-label="Tên bộ tiêu chí"
-            className={cn(fieldCls, 'flex-1 min-w-[140px] max-w-xs font-black')}
+            className={cn(fieldCls, 'flex-1 min-w-[140px] max-w-xs font-semibold')}
           />
         ) : (
-          <button
-            type="button"
-            onClick={onToggle}
-            className="flex-1 min-w-0 flex items-center gap-2 text-left cursor-pointer"
-          >
-            <span className="font-black text-sm truncate">{d.name || 'Bộ tiêu chí'}</span>
-            <span className="ml-auto flex items-center gap-2 shrink-0 text-[11px] font-bold text-slate-400 max-sm:hidden">
+          <button className="flex h-9 w-full items-center gap-2.5 rounded-control px-2.5 text-left text-sm text-[var(--color-foreground)] transition-colors hover:bg-[var(--color-muted)] [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-[var(--color-muted-foreground)] flex-1 min-w-0" type="button" onClick={onToggle}>
+            <span className="font-semibold text-sm truncate">{d.name || 'Bộ tiêu chí'}</span>
+            <span className="ml-auto flex items-center gap-2 shrink-0 text-caption max-sm:hidden">
               <span>{d.criteria.length} tiêu chí</span>
-              <span className="text-slate-300 dark:text-slate-600">·</span>
+              <span className="text-[var(--color-subtle-foreground)]">·</span>
               <span>thang {d.maxScore}</span>
-              <span className="text-slate-300 dark:text-slate-600">·</span>
-              <span className={totalOff ? 'text-rose-500' : 'text-emerald-500'}>{total}%</span>
-              <span className="text-slate-300 dark:text-slate-600">·</span>
-              <CycleSummary draft={d} cycleNameById={cycleNameById} />
+              <span className="text-[var(--color-subtle-foreground)]">·</span>
+              <span className={totalOff ? 'text-[var(--color-error)]' : 'text-[var(--color-success)]'}>{total}%</span>
+              <span className="text-[var(--color-subtle-foreground)]">·</span>
+              <CycleSummary aria-hidden="true" draft={d} cycleNameById={cycleNameById} />
             </span>
           </button>
         )}
@@ -409,36 +385,31 @@ function SetCard({
             <IconButton label="Nhân bản bộ này" onClick={onDuplicate}><Copy size={15} /></IconButton>
             <IconButton label="Đặt bộ này về 4 tiêu chí mặc định" onClick={onReset}><RotateCcw size={15} /></IconButton>
             {canDelete && <IconButton label="Xoá bộ này" onClick={onRemove} danger><Trash2 size={15} /></IconButton>}
-            <button
-              type="button"
-              onClick={onSave}
-              disabled={isSaving}
-              className="ml-1.5 inline-flex items-center justify-center gap-1.5 px-3 h-9 rounded-xl text-xs font-black bg-teal-600 hover:bg-teal-700 text-white disabled:opacity-50 cursor-pointer"
-            >
-              {isSaving ? <Loader2 size={14} className="animate-spin" aria-hidden="true" /> : <Save size={14} aria-hidden="true" />} Lưu
-            </button>
+            <Button size="sm" className="ml-1.5" type="button" onClick={onSave} disabled={isSaving}>
+              {isSaving ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Save aria-hidden="true" />} Lưu
+            </Button>
           </div>
         )}
       </div>
 
       {isOpen && (
-        <div className="border-t border-slate-100 dark:border-slate-800">
+        <div className="border-t border-[var(--color-border)]">
           {/* ── Một hàng thuộc tính: kỳ áp dụng + thang điểm + tổng trọng số ──
               Trước đây là ba khối xếp dọc, mỗi khối có nền và chú thích riêng — cao gần
               200px cho ba con số. */}
-          <div className="px-3 py-2.5 flex flex-wrap items-center gap-x-5 gap-y-2.5 border-b border-slate-100 dark:border-slate-800">
+          <div className="px-3 py-2.5 flex flex-wrap items-center gap-x-5 gap-y-2.5 border-b border-[var(--color-border)]">
             <div className="flex items-center gap-2 flex-wrap min-w-0">
-              <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-slate-400 shrink-0">
+              <span className="text-eyebrow inline-flex items-center gap-1 shrink-0">
                 <CalendarRange size={12} aria-hidden="true" /> Kỳ áp dụng
               </span>
               {d.isDefault ? (
                 <span
-                  className="text-[11px] font-bold text-slate-500 dark:text-slate-400"
+                  className="text-caption"
                   title="Bộ mặc định luôn áp cho mọi kỳ chưa gán — giới hạn nó theo kỳ sẽ làm các kỳ còn lại không chấm được"
                 >
                   Mọi kỳ chưa gán bộ riêng
                   {unassignedCount > 0 && (
-                    <span className="text-slate-400"> ({unassignedCount} kỳ)</span>
+                    <span className="text-[var(--color-subtle-foreground)]"> ({unassignedCount} kỳ)</span>
                   )}
                 </span>
               ) : (
@@ -446,14 +417,9 @@ function SetCard({
                   {d.kpiCycleIds.map(id => (
                     <Badge key={id} variant="secondary" className="gap-1 pr-1 max-w-[180px]">
                       <span className="truncate">{cycleNameById[id] ?? 'Kỳ'}</span>
-                      <button
-                        type="button"
-                        onClick={() => onPatch({ kpiCycleIds: d.kpiCycleIds.filter(x => x !== id) })}
-                        className="shrink-0 hover:text-red-500 cursor-pointer"
-                        aria-label={`Bỏ gán kỳ ${cycleNameById[id] ?? ''}`}
-                      >
-                        <X size={11} aria-hidden="true" />
-                      </button>
+                      <Button variant="ghost" size="icon" className="shrink-0 text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]" type="button" onClick={() => onPatch({ kpiCycleIds: d.kpiCycleIds.filter(x => x !== id) })} aria-label={`Bỏ gán kỳ ${cycleNameById[id] ?? ''}`}>
+                        <X aria-hidden="true" />
+                      </Button>
                     </Badge>
                   ))}
                   <CyclePickerPopover
@@ -465,14 +431,14 @@ function SetCard({
                     })}
                   />
                   {d.kpiCycleIds.length === 0 && (
-                    <span className="text-[11px] font-bold text-amber-500">chưa gán kỳ nào</span>
+                    <span className="text-xs font-medium text-[var(--color-warning)]">chưa gán kỳ nào</span>
                   )}
                 </>
               )}
             </div>
 
             <label className="flex items-center gap-2 shrink-0">
-              <span className="inline-flex items-center gap-1 text-[10px] font-black uppercase tracking-wider text-slate-400">
+              <span className="text-eyebrow inline-flex items-center gap-1">
                 <Scale size={12} aria-hidden="true" /> Thang điểm
               </span>
               <input
@@ -487,19 +453,14 @@ function SetCard({
             </label>
 
             <div className="flex items-center gap-2 shrink-0 sm:ml-auto">
-              <span className="text-[10px] font-black uppercase tracking-wider text-slate-400">Tổng trọng số</span>
-              <span className={cn('text-base font-black tabular-nums', totalOff ? 'text-rose-500' : 'text-emerald-500')}>
+              <span className="text-eyebrow">Tổng trọng số</span>
+              <span className={cn('text-base font-semibold tabular-nums', totalOff ? 'text-[var(--color-error)]' : 'text-[var(--color-success)]')}>
                 {total}%
               </span>
               {totalOff && (
-                <button
-                  type="button"
-                  onClick={splitEvenly}
-                  className="px-2 h-7 rounded-lg text-[11px] font-black bg-rose-50 dark:bg-rose-900/20 text-rose-500 hover:bg-rose-100 dark:hover:bg-rose-900/30 cursor-pointer"
-                  title="Chia đều 100% cho các tiêu chí"
-                >
+                <Button variant="ghost" size="sm" className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]" type="button" onClick={splitEvenly} title="Chia đều 100% cho các tiêu chí">
                   Chia đều
-                </button>
+                </Button>
               )}
             </div>
           </div>
@@ -510,9 +471,9 @@ function SetCard({
               const lines = row.description.split('\n').map(l => l.trim()).filter(Boolean)
               const descOpen = openDesc.has(idx)
               return (
-                <div key={idx} className="rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/50 dark:bg-slate-800/20">
+                <div key={idx} className="rounded-card border border-[var(--color-border)] bg-[var(--color-muted)]">
                   <div className="flex items-center gap-2 p-2 max-sm:flex-wrap">
-                    <span className="w-6 h-6 shrink-0 rounded-md bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 flex items-center justify-center text-[10px] font-black text-slate-500 tabular-nums">
+                    <span className="w-6 h-6 shrink-0 rounded-control bg-[var(--color-card)] border border-[var(--color-border)] flex items-center justify-center text-caption tabular-nums">
                       {idx + 1}
                     </span>
                     <input
@@ -520,7 +481,7 @@ function SetCard({
                       onChange={e => setCriteria(idx, { name: e.target.value })}
                       placeholder="Tên tiêu chí"
                       aria-label={`Tên tiêu chí ${idx + 1}`}
-                      className={cn(fieldCls, 'flex-1 min-w-[120px] bg-white dark:bg-slate-900')}
+                      className={cn(fieldCls, 'flex-1 min-w-[120px] bg-[var(--color-card)]')}
                     />
                     <div className="flex items-center gap-1 shrink-0">
                       <input
@@ -531,9 +492,9 @@ function SetCard({
                         onChange={e => setCriteria(idx, { weight: e.target.value })}
                         onWheel={e => e.currentTarget.blur()}
                         aria-label={`Trọng số tiêu chí ${idx + 1} (%)`}
-                        className={cn(fieldCls, 'w-16 text-center bg-white dark:bg-slate-900 tabular-nums')}
+                        className={cn(fieldCls, 'w-16 text-center bg-[var(--color-card)] tabular-nums')}
                       />
-                      <span className="text-xs font-black text-slate-400">%</span>
+                      <span className="text-xs font-semibold text-[var(--color-subtle-foreground)]">%</span>
                     </div>
                     {/* Gập "biểu hiện" nhưng vẫn nói rõ đang có bao nhiêu dòng, để không ai
                         tưởng tiêu chí này chưa được mô tả. */}
@@ -542,10 +503,10 @@ function SetCard({
                       onClick={() => toggleDesc(idx)}
                       aria-expanded={descOpen}
                       className={cn(
-                        'shrink-0 inline-flex items-center gap-1 px-2 h-9 rounded-lg text-[11px] font-bold cursor-pointer transition-colors',
+                        'shrink-0 inline-flex items-center gap-1 px-2 h-9 rounded-control text-xs font-medium cursor-pointer transition-colors',
                         lines.length
-                          ? 'bg-white dark:bg-slate-900 text-slate-500 hover:text-teal-600 border border-slate-200 dark:border-slate-700'
-                          : 'text-slate-400 hover:text-teal-600',
+                          ? 'bg-[var(--color-card)] text-[var(--color-muted-foreground)] hover:text-[var(--color-info)] border border-[var(--color-border)]'
+                          : 'text-[var(--color-subtle-foreground)] hover:text-[var(--color-info)]',
                       )}
                     >
                       {descOpen ? <ChevronDown size={13} aria-hidden="true" /> : <ChevronRight size={13} aria-hidden="true" />}
@@ -568,7 +529,7 @@ function SetCard({
                         placeholder="Các biểu hiện cụ thể — mỗi dòng một ý"
                         aria-label={`Biểu hiện cụ thể của tiêu chí ${idx + 1}`}
                         rows={4}
-                        className="w-full px-3 py-2 rounded-lg bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-xs font-medium leading-relaxed outline-none focus:border-teal-500 focus:ring-2 focus:ring-teal-500/20 resize-y"
+                        className="w-full px-3 py-2 rounded-control bg-[var(--color-card)] border border-[var(--color-border)] text-xs font-medium leading-relaxed outline-none focus:border-[var(--color-info-border)] focus:ring-2 focus:ring-[var(--color-info-solid)] resize-y"
                       />
                     </div>
                   )}
@@ -576,13 +537,9 @@ function SetCard({
               )
             })}
 
-            <button
-              type="button"
-              onClick={() => onPatch({ criteria: [...d.criteria, { name: '', description: '', weight: '0' }] })}
-              className="w-full h-9 rounded-xl border border-dashed border-slate-200 dark:border-slate-700 text-[11px] font-bold text-slate-400 hover:text-teal-600 hover:border-teal-400 transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
-            >
-              <Plus size={14} aria-hidden="true" /> Thêm tiêu chí
-            </button>
+            <Button variant="outline" className="w-full" type="button" onClick={() => onPatch({ criteria: [...d.criteria, { name: '', description: '', weight: '0' }] })}>
+              <Plus aria-hidden="true" /> Thêm tiêu chí
+            </Button>
           </div>
         </div>
       )}
@@ -598,7 +555,7 @@ function CycleSummary({
   cycleNameById: Record<string, string>
 }) {
   if (d.isDefault) return <span>mọi kỳ chưa gán</span>
-  if (d.kpiCycleIds.length === 0) return <span className="text-amber-500">chưa gán kỳ</span>
+  if (d.kpiCycleIds.length === 0) return <span className="text-[var(--color-warning)]">chưa gán kỳ</span>
   const names = d.kpiCycleIds.map(id => cycleNameById[id] ?? 'Kỳ')
   return (
     <span className="max-w-[220px] truncate" title={names.join(', ')}>
@@ -629,38 +586,38 @@ function CyclePickerPopover({
       <PopoverTrigger asChild>
         <button
           type="button"
-          className="inline-flex items-center gap-1 h-7 px-2.5 rounded-full text-[11px] font-bold border border-dashed border-slate-300 dark:border-slate-700 text-slate-500 hover:border-teal-400 hover:text-teal-600 cursor-pointer"
+          className="inline-flex items-center gap-1 h-7 px-2.5 rounded-full text-xs font-medium border border-dashed border-[var(--color-border-strong)] text-[var(--color-muted-foreground)] hover:border-[var(--color-info-border)] hover:text-[var(--color-info)] cursor-pointer"
         >
           <Plus size={13} aria-hidden="true" /> Chọn kỳ
         </button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-[280px] p-0">
-        <div className="p-2 border-b border-slate-100 dark:border-slate-800">
+        <div className="p-2 border-b border-[var(--color-border)]">
           <div className="relative">
-            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" aria-hidden="true" />
+            <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--color-subtle-foreground)]" aria-hidden="true" />
             <input
               value={query}
               onChange={e => setQuery(e.target.value)}
               placeholder="Tìm kỳ…"
               aria-label="Tìm kỳ đánh giá"
-              className="w-full h-8 pl-8 pr-2 rounded-lg bg-slate-50 dark:bg-slate-800 text-xs border-none outline-none focus:ring-2 focus:ring-teal-500"
+              className="w-full h-8 pl-8 pr-2 rounded-control bg-[var(--color-muted)] text-xs border-none outline-none focus:ring-2 focus:ring-[var(--color-info-solid)]"
             />
           </div>
         </div>
         <div className="max-h-64 overflow-auto p-1.5">
           {shown.length ? shown.map(c => (
-            <label key={c.id} className="flex items-center gap-2 py-1.5 px-1.5 rounded-lg cursor-pointer hover:bg-slate-50 dark:hover:bg-slate-800/60">
+            <label key={c.id} className="flex items-center gap-2 py-1.5 px-1.5 rounded-control cursor-pointer hover:bg-[var(--color-muted)]">
               <Checkbox checked={selected.includes(c.id)} onCheckedChange={() => onToggle(c.id)} />
-              <span className="truncate text-[13px] font-bold text-slate-700 dark:text-slate-200">{c.name}</span>
+              <span className="truncate text-[13px] font-medium text-[var(--color-foreground)]">{c.name}</span>
               {ownedBy[c.id] && !selected.includes(c.id) && (
-                <span className="ml-auto shrink-0 text-[10px] font-bold text-amber-500 truncate max-w-[90px]" title={`Đang thuộc bộ "${ownedBy[c.id]}"`}>
+                <span className="ml-auto shrink-0 text-xs font-medium text-[var(--color-warning)] truncate max-w-[90px]" title={`Đang thuộc bộ"${ownedBy[c.id]}"`}>
                   {ownedBy[c.id]}
                 </span>
               )}
             </label>
-          )) : <p className="text-[11px] italic text-slate-400 p-2">Không tìm thấy kỳ.</p>}
+          )) : <p className="text-xs italic text-[var(--color-subtle-foreground)] p-2">Không tìm thấy kỳ.</p>}
         </div>
-        <div className="px-3 py-2 border-t border-slate-100 dark:border-slate-800 text-[10px] text-slate-400">
+        <div className="px-3 py-2 border-t border-[var(--color-border)] text-caption">
           Một kỳ chỉ thuộc một bộ — chọn ở đây sẽ gỡ kỳ khỏi bộ đang giữ.
         </div>
       </PopoverContent>

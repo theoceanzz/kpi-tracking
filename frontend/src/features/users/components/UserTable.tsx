@@ -19,13 +19,13 @@ interface UserTableProps {
 
 // Dynamic role styling - generates consistent colors for any role name
 const roleColorPalette = [
-  'bg-purple-100 text-purple-700 border-purple-200 dark:bg-purple-900/30 dark:text-purple-400',
-  'bg-amber-100 text-amber-700 border-amber-200 dark:bg-amber-900/30 dark:text-amber-400',
-  'bg-indigo-100 text-indigo-700 border-indigo-200 dark:bg-indigo-900/30 dark:text-indigo-400',
-  'bg-emerald-100 text-emerald-700 border-emerald-200 dark:bg-emerald-900/30 dark:text-emerald-400',
-  'bg-rose-100 text-rose-700 border-rose-200 dark:bg-rose-900/30 dark:text-rose-400',
-  'bg-cyan-100 text-cyan-700 border-cyan-200 dark:bg-cyan-900/30 dark:text-cyan-400',
-  'bg-slate-100 text-slate-700 border-slate-200 dark:bg-slate-800 dark:text-slate-300',
+  'bg-[var(--color-primary-soft)] text-[var(--color-primary)] border-[var(--color-border)]',
+  'bg-[var(--color-warning-bg)] text-[var(--color-warning)] border-[var(--color-warning-border)] dark:bg-[var(--color-warning-bg)] dark:text-[var(--color-warning)]',
+  'bg-[var(--color-primary-soft)] text-[var(--color-primary)] border-[var(--color-border)]',
+  'bg-[var(--color-success-bg)] text-[var(--color-success)] border-[var(--color-success-border)] dark:bg-[var(--color-success-bg)] dark:text-[var(--color-success)]',
+  'bg-[var(--color-error-bg)] text-[var(--color-error)] border-[var(--color-error-border)] dark:bg-[var(--color-error-bg)] dark:text-[var(--color-error)]',
+  'bg-[var(--color-info-bg)] text-[var(--color-info)] border-[var(--color-info-border)] dark:bg-[var(--color-info-bg)] dark:text-[var(--color-info)]',
+  'bg-[var(--color-muted)] text-[var(--color-foreground)] border-[var(--color-border)]',
 ]
 
 function getRoleStyle(roleName: string) {
@@ -56,9 +56,10 @@ export default function UserTable({ users, orgUnitMap, rootUnitId, onRowClick, o
 
   if (!users || users.length === 0) {
     return (
-       <div className="flex flex-col items-center justify-center p-12 bg-slate-50 dark:bg-slate-900/50 rounded-2xl">
-          <UserIcon size={32} className="text-slate-400 mb-4" />
-          <p className="font-bold text-slate-600 dark:text-slate-300">Không có dữ liệu nhân sự</p>
+       <div className="flex flex-col items-center justify-center rounded-card border border-dashed border-[var(--color-border)] bg-[var(--color-card)] p-12 text-center">
+          <UserIcon size={32} className="mb-3 text-[var(--color-subtle-foreground)]" aria-hidden="true" />
+          <p className="text-sm font-medium text-[var(--color-foreground)]">Không có nhân sự phù hợp</p>
+          <p className="mt-1 text-caption">Thử đổi từ khoá hoặc bộ lọc.</p>
        </div>
     )
   }
@@ -67,21 +68,21 @@ export default function UserTable({ users, orgUnitMap, rootUnitId, onRowClick, o
 
   return (
     <>
-    <div className="hidden md:block overflow-x-auto pb-10">
+    <div className="hidden overflow-x-auto rounded-card border border-[var(--color-border)] bg-[var(--color-card)] pb-10 md:block">
       <table className="w-full min-w-[1000px] text-left border-collapse">
         <thead>
-          <tr className="border-b border-slate-200 dark:border-slate-800">
-            <th className="py-4 px-2.5 text-xs font-black uppercase tracking-widest text-[var(--color-muted-foreground)] whitespace-nowrap">Thông tin</th>
-            <th className="py-4 px-2.5 text-xs font-black uppercase tracking-widest text-[var(--color-muted-foreground)] whitespace-nowrap">Mã NV</th>
-            <th className="py-4 px-2.5 text-xs font-black uppercase tracking-widest text-[var(--color-muted-foreground)] whitespace-nowrap">Mã phòng ban</th>
-            <th className="py-4 px-2.5 text-xs font-black uppercase tracking-widest text-[var(--color-muted-foreground)] whitespace-nowrap">Vai trò</th>
-            <th className="py-4 px-2.5 text-xs font-black uppercase tracking-widest text-[var(--color-muted-foreground)] hidden md:table-cell whitespace-nowrap">Đơn vị</th>
-            <th className="py-4 px-2.5 text-xs font-black uppercase tracking-widest text-[var(--color-muted-foreground)] hidden sm:table-cell whitespace-nowrap">Liên lạc</th>
-            <th className="py-4 px-2.5 text-xs font-black uppercase tracking-widest text-[var(--color-muted-foreground)] whitespace-nowrap">Trạng thái</th>
-            {hasAnyAction && <th className="py-4 px-2.5 text-xs font-black uppercase tracking-widest text-right text-[var(--color-muted-foreground)] whitespace-nowrap">Công cụ</th>}
+          <tr className="border-b border-[var(--color-border)] bg-[var(--color-muted)]">
+            <th scope="col" className="px-3 py-2.5 text-eyebrow whitespace-nowrap">Thông tin</th>
+            <th scope="col" className="px-3 py-2.5 text-eyebrow whitespace-nowrap">Mã NV</th>
+            <th scope="col" className="px-3 py-2.5 text-eyebrow whitespace-nowrap">Mã phòng ban</th>
+            <th scope="col" className="px-3 py-2.5 text-eyebrow whitespace-nowrap">Vai trò</th>
+            <th scope="col" className="px-3 py-2.5 text-eyebrow hidden md:table-cell whitespace-nowrap">Đơn vị</th>
+            <th scope="col" className="px-3 py-2.5 text-eyebrow hidden sm:table-cell whitespace-nowrap">Liên lạc</th>
+            <th scope="col" className="px-3 py-2.5 text-eyebrow whitespace-nowrap">Trạng thái</th>
+            {hasAnyAction && <th scope="col" className="px-3 py-2.5 text-right text-eyebrow whitespace-nowrap">Hành động</th>}
           </tr>
         </thead>
-        <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
+        <tbody className="divide-y divide-[var(--color-border)]">
           {users.map((u, index) => {
             const highestRole = getHighestRole(u)
             const roleConf = getRoleStyle(highestRole)
@@ -92,45 +93,45 @@ export default function UserTable({ users, orgUnitMap, rootUnitId, onRowClick, o
             return (
               <tr 
                  key={u.id} 
-                 className="group hover:bg-slate-50 dark:hover:bg-slate-900/50 transition-colors"
+                 className="group hover:bg-[var(--color-muted)] transition-colors"
                  onClick={() => setOpenActionId(null)}
               >
                 {/* 1. Identity Col */}
-                <td className="py-4 px-2.5">
+                <td className="px-3 py-3">
                   <div className="flex items-center gap-2.5">
                      <UserAvatar
                         fullName={u.fullName}
                         avatarUrl={u.avatarUrl}
-                        className="w-9 h-9 rounded-[10px]"
-                        fallbackClassName={`font-bold text-xs border ${roleConf.color.split(' ').slice(0, 3).join(' ')}`}
+                        className="w-9 h-9 rounded-card"
+                        fallbackClassName={`font-semibold text-xs border ${roleConf.color.split(' ').slice(0, 3).join(' ')}`}
                      />
                      <div className="min-w-0">
-                        <p className="font-bold text-[13px] text-slate-900 dark:text-slate-100 truncate flex items-center gap-1.5">
+                        <p className="flex items-center gap-1.5 truncate text-sm font-medium text-[var(--color-foreground)]">
                            {u.fullName}
                         </p>
-                        <p className="text-xs text-slate-500 font-medium truncate flex items-center gap-1 mt-1">
-                           <Mail size={12} className="text-slate-400" /> {u.email}
+                        <p className="mt-0.5 flex items-center gap-1 truncate text-caption">
+                           <Mail size={12} className="text-[var(--color-subtle-foreground)]" /> {u.email}
                         </p>
                      </div>
                   </div>
                 </td>
 
-                <td className="py-4 px-2.5">
-                   <span className="text-sm font-black text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-lg">
+                <td className="px-3 py-3">
+                   <span className="font-mono text-sm text-[var(--color-foreground)]">
                       {u.employeeCode || '---'}
                    </span>
                 </td>
 
                 {/* 1.7. Dept Code Col */}
-                <td className="py-4 px-2.5">
+                <td className="px-3 py-3">
                   {(() => {
                     const nonRootMembership = u.memberships?.find(m => m.orgUnitId !== rootUnitId)
                     const deptCode = nonRootMembership ? orgUnitMap?.[nonRootMembership.orgUnitId] : null
                     
-                    if (!deptCode) return <span className="text-xs text-slate-400 italic">---</span>
+                    if (!deptCode) return <span className="text-xs text-[var(--color-subtle-foreground)] italic">---</span>
                     
                     return (
-                      <span className="text-sm font-black text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-1 rounded-lg border border-emerald-100 dark:border-emerald-800">
+                      <span className="text-sm font-semibold text-[var(--color-success)] bg-[var(--color-success-bg)] px-2 py-1 rounded-control border border-[var(--color-success-border)]">
                         {deptCode}
                       </span>
                     )
@@ -139,7 +140,7 @@ export default function UserTable({ users, orgUnitMap, rootUnitId, onRowClick, o
 
                 {/* 2. Role Col */}
                  <td className="py-4 px-2.5 whitespace-nowrap">
-                  <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${roleConf.color}`}>
+                  <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border ${roleConf.color}`}>
                      <RoleIcon size={12} /> {highestRole}
                   </span>
                 </td>
@@ -149,28 +150,28 @@ export default function UserTable({ users, orgUnitMap, rootUnitId, onRowClick, o
                   {u.memberships && u.memberships.length > 0 ? (
                      <div className="flex flex-wrap gap-2 max-w-[280px]">
                         {u.memberships.map((m, idx) => (
-                            <div key={idx} className="flex items-center gap-1.5 px-2 py-0.5 rounded-md border border-slate-200 dark:border-slate-800 bg-slate-50 text-slate-600 dark:bg-slate-800/40 dark:text-slate-400 text-[11px] font-semibold whitespace-nowrap">
+                            <div key={idx} className="flex items-center gap-1.5 px-2 py-0.5 rounded-control border border-[var(--color-border)] bg-[var(--color-muted)] text-caption font-semibold whitespace-nowrap">
                                <Building2 size={10} className="shrink-0" />
                                <span className="truncate max-w-[150px]" title={m.orgUnitName}>{m.orgUnitName}</span>
                                {m.roleName && (
-                                 <span className="opacity-50 text-[10px] whitespace-nowrap">({m.roleDisplayName || m.roleName})</span>
+                                 <span className="opacity-50 text-xs whitespace-nowrap">({m.roleDisplayName || m.roleName})</span>
                                )}
                             </div>
                         ))}
                      </div>
                   ) : (
-                     <span className="text-xs text-slate-400 italic font-medium">Chưa phân bổ</span>
+                     <span className="text-xs text-[var(--color-subtle-foreground)] italic font-medium">Chưa phân bổ</span>
                   )}
                 </td>
 
                 {/* 3. Contact Col */}
                 <td className="py-4 px-2.5 hidden sm:table-cell">
                   {u.phone ? (
-                     <div className="flex items-center gap-1.5 text-sm font-medium text-slate-600 dark:text-slate-400 whitespace-nowrap">
-                        <Phone size={14} className="text-slate-400" /> {formatPhoneNumber(u.phone)}
+                     <div className="flex items-center gap-1.5 text-sm font-medium text-[var(--color-muted-foreground)] whitespace-nowrap">
+                        <Phone size={14} className="text-[var(--color-subtle-foreground)]" /> {formatPhoneNumber(u.phone)}
                      </div>
                   ) : (
-                     <span className="text-xs text-slate-400 italic font-medium">Chưa cung cấp</span>
+                     <span className="text-xs text-[var(--color-subtle-foreground)] italic font-medium">Chưa cung cấp</span>
                   )}
                 </td>
 
@@ -185,7 +186,7 @@ export default function UserTable({ users, orgUnitMap, rootUnitId, onRowClick, o
                     <div className="relative inline-block text-left" onClick={e => e.stopPropagation()}>
                       <button 
                         onClick={() => setOpenActionId(isActionOpen ? null : u.id)}
-                        className="p-2 rounded-xl border border-transparent hover:border-slate-200 dark:hover:border-slate-700 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 outline-none hover:bg-white dark:hover:bg-slate-800 transition-all"
+                        className="p-2 rounded-card border border-transparent hover:border-[var(--color-border)] text-[var(--color-subtle-foreground)] hover:text-[var(--color-foreground)] outline-none hover:bg-[var(--color-card)] transition-all"
                       >
                         <MoreVertical size={16} />
                       </button>
@@ -193,31 +194,25 @@ export default function UserTable({ users, orgUnitMap, rootUnitId, onRowClick, o
                       {/* Popover Menu */}
                       {isActionOpen && (
                         <div className={cn(
-                          "absolute right-0 w-56 rounded-[20px] bg-white dark:bg-slate-800 shadow-2xl border border-slate-200/60 dark:border-slate-700 overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-200",
+                          "absolute right-0 w-56 rounded-card bg-[var(--color-card)] shadow-2xl border border-[var(--color-border)] overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-200",
                           index >= users.length / 2 ? "bottom-full mb-2 origin-bottom-right" : "top-full mt-2 origin-top-right"
                         )}>
                             <div className="p-2 space-y-1">
                               {canUpdate && (
-                                <button 
-                                  onClick={() => { onRowClick?.(u); setOpenActionId(null) }}
-                                  className="w-full flex items-center gap-3 px-3.5 py-2.5 text-sm font-bold rounded-[14px] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-all whitespace-nowrap group"
-                                >
-                                  <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
-                                      <Pencil size={15} className="text-blue-600" />
+                                <button type="button" className="flex w-full items-center gap-3 rounded-card p-3 text-left transition-colors hover:bg-[var(--color-muted)] whitespace-nowrap group" onClick={() => { onRowClick?.(u); setOpenActionId(null) }}>
+                                  <div className="w-8 h-8 rounded-control bg-[var(--color-info-bg)] flex items-center justify-center shrink-0 transition-transform">
+                                      <Pencil aria-hidden="true" className="text-[var(--color-info)]" />
                                   </div>
                                   Chỉnh sửa hồ sơ
                                 </button>
                               )}
 
-                              {canUpdate && canDelete && <div className="h-px bg-slate-100 dark:bg-slate-700/50 mx-2 my-1" />}
+                              {canUpdate && canDelete && <div className="h-px bg-[var(--color-muted)] mx-2 my-1" />}
 
                               {canDelete && (
-                                <button 
-                                  onClick={() => { onDelete?.(u); setOpenActionId(null) }}
-                                  className="w-full flex items-center gap-3 px-3.5 py-2.5 text-sm font-bold rounded-[14px] text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all whitespace-nowrap group"
-                                >
-                                  <div className="w-8 h-8 rounded-lg bg-red-50 dark:bg-red-900/20 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
-                                      <Trash2 size={15} className="text-red-600" />
+                                <button type="button" className="flex w-full items-center gap-3 rounded-card p-3 text-left transition-colors hover:bg-[var(--color-muted)] whitespace-nowrap group text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]" onClick={() => { onDelete?.(u); setOpenActionId(null) }}>
+                                  <div className="w-8 h-8 rounded-control bg-[var(--color-error-bg)] flex items-center justify-center shrink-0 transition-transform">
+                                      <Trash2 aria-hidden="true" className="text-[var(--color-error)]" />
                                   </div>
                                   Ngắt quyền hệ thống
                                 </button>
@@ -248,7 +243,7 @@ export default function UserTable({ users, orgUnitMap, rootUnitId, onRowClick, o
         return (
           <div
             key={u.id}
-            className="rounded-2xl border border-slate-200 dark:border-slate-800 p-4 space-y-3"
+            className="rounded-card border border-[var(--color-border)] p-4 space-y-3"
             onClick={() => setOpenActionId(null)}
           >
             <div className="flex items-start justify-between gap-2">
@@ -256,13 +251,13 @@ export default function UserTable({ users, orgUnitMap, rootUnitId, onRowClick, o
                 <UserAvatar
                   fullName={u.fullName}
                   avatarUrl={u.avatarUrl}
-                  className="w-9 h-9 rounded-[10px]"
-                  fallbackClassName={`font-bold text-xs border ${roleConf.color.split(' ').slice(0, 3).join(' ')}`}
+                  className="w-9 h-9 rounded-card"
+                  fallbackClassName={`font-semibold text-xs border ${roleConf.color.split(' ').slice(0, 3).join(' ')}`}
                 />
                 <div className="min-w-0">
-                  <p className="font-bold text-[13px] text-slate-900 dark:text-slate-100 truncate">{u.fullName}</p>
-                  <p className="text-xs text-slate-500 font-medium truncate flex items-center gap-1 mt-1">
-                    <Mail size={12} className="text-slate-400" /> {u.email}
+                  <p className="font-medium text-[13px] text-[var(--color-foreground)] truncate">{u.fullName}</p>
+                  <p className="mt-0.5 flex items-center gap-1 truncate text-caption">
+                    <Mail size={12} className="text-[var(--color-subtle-foreground)]" /> {u.email}
                   </p>
                 </div>
               </div>
@@ -270,33 +265,27 @@ export default function UserTable({ users, orgUnitMap, rootUnitId, onRowClick, o
                 <div className="relative inline-block text-left shrink-0" onClick={e => e.stopPropagation()}>
                   <button
                     onClick={() => setOpenActionId(isActionOpen ? null : u.id)}
-                    className="p-2 rounded-xl border border-transparent hover:border-slate-200 dark:hover:border-slate-700 text-slate-400 hover:text-slate-700 dark:hover:text-slate-200 outline-none hover:bg-white dark:hover:bg-slate-800 transition-all"
+                    className="p-2 rounded-card border border-transparent hover:border-[var(--color-border)] text-[var(--color-subtle-foreground)] hover:text-[var(--color-foreground)] outline-none hover:bg-[var(--color-card)] transition-all"
                   >
                     <MoreVertical size={16} />
                   </button>
 
                   {isActionOpen && (
-                    <div className="absolute right-0 top-full mt-2 w-56 rounded-[20px] bg-white dark:bg-slate-800 shadow-2xl border border-slate-200/60 dark:border-slate-700 overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-200 origin-top-right">
+                    <div className="absolute right-0 top-full mt-2 w-56 rounded-card bg-[var(--color-card)] shadow-2xl border border-[var(--color-border)] overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-200 origin-top-right">
                       <div className="p-2 space-y-1">
                         {canUpdate && (
-                          <button
-                            onClick={() => { onRowClick?.(u); setOpenActionId(null) }}
-                            className="w-full flex items-center gap-3 px-3.5 py-2.5 text-sm font-bold rounded-[14px] text-slate-700 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/50 transition-all whitespace-nowrap group"
-                          >
-                            <div className="w-8 h-8 rounded-lg bg-blue-50 dark:bg-blue-900/20 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
-                              <Pencil size={15} className="text-blue-600" />
+                          <button type="button" className="flex w-full items-center gap-3 rounded-card p-3 text-left transition-colors hover:bg-[var(--color-muted)] whitespace-nowrap group" onClick={() => { onRowClick?.(u); setOpenActionId(null) }}>
+                            <div className="w-8 h-8 rounded-control bg-[var(--color-info-bg)] flex items-center justify-center shrink-0 transition-transform">
+                              <Pencil aria-hidden="true" className="text-[var(--color-info)]" />
                             </div>
                             Chỉnh sửa hồ sơ
                           </button>
                         )}
-                        {canUpdate && canDelete && <div className="h-px bg-slate-100 dark:bg-slate-700/50 mx-2 my-1" />}
+                        {canUpdate && canDelete && <div className="h-px bg-[var(--color-muted)] mx-2 my-1" />}
                         {canDelete && (
-                          <button
-                            onClick={() => { onDelete?.(u); setOpenActionId(null) }}
-                            className="w-full flex items-center gap-3 px-3.5 py-2.5 text-sm font-bold rounded-[14px] text-red-600 dark:text-red-400 hover:bg-red-50 dark:hover:bg-red-900/20 transition-all whitespace-nowrap group"
-                          >
-                            <div className="w-8 h-8 rounded-lg bg-red-50 dark:bg-red-900/20 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
-                              <Trash2 size={15} className="text-red-600" />
+                          <button type="button" className="flex w-full items-center gap-3 rounded-card p-3 text-left transition-colors hover:bg-[var(--color-muted)] whitespace-nowrap group text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]" onClick={() => { onDelete?.(u); setOpenActionId(null) }}>
+                            <div className="w-8 h-8 rounded-control bg-[var(--color-error-bg)] flex items-center justify-center shrink-0 transition-transform">
+                              <Trash2 aria-hidden="true" className="text-[var(--color-error)]" />
                             </div>
                             Ngắt quyền hệ thống
                           </button>
@@ -309,33 +298,33 @@ export default function UserTable({ users, orgUnitMap, rootUnitId, onRowClick, o
             </div>
 
             <div className="flex items-center gap-2 flex-wrap">
-              <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold border ${roleConf.color}`}>
+              <span className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border ${roleConf.color}`}>
                 <RoleIcon size={12} /> {highestRole}
               </span>
               <StatusBadge status={u.status} />
               {u.employeeCode && (
-                <span className="text-xs font-black text-slate-700 dark:text-slate-300 bg-slate-100 dark:bg-slate-800 px-2 py-1 rounded-lg">{u.employeeCode}</span>
+                <span className="text-xs font-semibold text-[var(--color-foreground)] bg-[var(--color-muted)] px-2 py-1 rounded-control">{u.employeeCode}</span>
               )}
               {deptCode && (
-                <span className="text-xs font-black text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-900/20 px-2 py-1 rounded-lg border border-emerald-100 dark:border-emerald-800">{deptCode}</span>
+                <span className="text-xs font-semibold text-[var(--color-success)] bg-[var(--color-success-bg)] px-2 py-1 rounded-control border border-[var(--color-success-border)]">{deptCode}</span>
               )}
             </div>
 
             {u.memberships && u.memberships.length > 0 && (
-              <div className="flex flex-wrap gap-2 pt-1 border-t border-slate-100 dark:border-slate-800">
+              <div className="flex flex-wrap gap-2 pt-1 border-t border-[var(--color-border)]">
                 {u.memberships.map((m, idx) => (
-                  <div key={idx} className="flex items-center gap-1.5 px-2 py-0.5 rounded-md border border-slate-200 dark:border-slate-800 bg-slate-50 text-slate-600 dark:bg-slate-800/40 dark:text-slate-400 text-[11px] font-semibold">
+                  <div key={idx} className="flex items-center gap-1.5 px-2 py-0.5 rounded-control border border-[var(--color-border)] bg-[var(--color-muted)] text-caption font-semibold">
                     <Building2 size={10} className="shrink-0" />
                     <span className="truncate max-w-[150px]">{m.orgUnitName}</span>
-                    {m.roleName && <span className="opacity-50 text-[10px]">({m.roleDisplayName || m.roleName})</span>}
+                    {m.roleName && <span className="opacity-50 text-xs">({m.roleDisplayName || m.roleName})</span>}
                   </div>
                 ))}
               </div>
             )}
 
             {u.phone && (
-              <div className="flex items-center gap-1.5 text-sm font-medium text-slate-600 dark:text-slate-400">
-                <Phone size={14} className="text-slate-400" /> {formatPhoneNumber(u.phone)}
+              <div className="flex items-center gap-1.5 text-sm font-medium text-[var(--color-muted-foreground)]">
+                <Phone size={14} className="text-[var(--color-subtle-foreground)]" /> {formatPhoneNumber(u.phone)}
               </div>
             )}
           </div>

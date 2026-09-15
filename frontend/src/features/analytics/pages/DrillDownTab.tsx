@@ -230,7 +230,7 @@ export default function DrillDownTab() {
   return (
     <div className="space-y-6 pb-12">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <h2 className="text-xl font-semibold text-slate-900 dark:text-white">So sánh các đơn vị</h2>
+        <h2 className="text-xl font-semibold text-[var(--color-foreground)]">So sánh các đơn vị</h2>
         <div id="tour-analytics-customize" className="flex items-center gap-3 flex-wrap">
           <DashboardEditToolbar api={dash} />
         </div>
@@ -245,7 +245,7 @@ export default function DrillDownTab() {
         <div className="space-y-4 min-w-0">
           <button
             onClick={() => setMobileTreeOpen(true)}
-            className="lg:hidden w-full flex items-center justify-center gap-2 py-2.5 rounded-lg border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-900 text-sm font-semibold text-[var(--color-primary)]"
+            className="lg:hidden w-full flex items-center justify-center gap-2 py-2.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-card)] text-sm font-semibold text-[var(--color-primary)]"
           >
             <Network size={16} /> Chọn đơn vị: {unitName}
           </button>
@@ -275,7 +275,7 @@ export default function DrillDownTab() {
           <div className="absolute inset-y-0 left-0 w-[85%] max-w-[340px] p-3">
             <div className="h-full flex flex-col">
               <div className="flex items-center justify-end mb-2">
-                <button onClick={() => setMobileTreeOpen(false)} aria-label="Đóng" className="p-2 rounded-lg bg-white dark:bg-slate-800 text-slate-600 dark:text-slate-300 shadow-sm"><X size={18} /></button>
+                <button onClick={() => setMobileTreeOpen(false)} aria-label="Đóng" className="p-2 rounded-lg bg-white dark:bg-slate-800 text-[var(--color-muted-foreground)] shadow-sm"><X size={18} /></button>
               </div>
               <div className="flex-1 min-h-0">
                 <OrgUnitTreeSidebar nodes={treeNodes} selectedId={treeSelectedId} onSelect={select} onAfterSelect={() => setMobileTreeOpen(false)} />

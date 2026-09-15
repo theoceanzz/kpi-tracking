@@ -101,6 +101,15 @@ const unitClassRuleSchema = z.object({
   conditions: z.array(unitClassConditionSchema),
 })
 
+/** Khung bell curve: hạn mức % mỗi mức khi chấm nhân sự (xem BellCurveEditor). */
+const unitBellCurveSchema = z.object({
+  enabled: z.boolean(),
+  mode: z.enum(['warn', 'block']),
+  minMembers: z.number(),
+  tolerance: z.number(),
+  targets: z.array(z.object({ level: z.string(), percent: z.number() })),
+})
+
 const unitClassProfileSchema = z.object({
   _key: z.string(),
   name: z.string(),
@@ -109,6 +118,8 @@ const unitClassProfileSchema = z.object({
   /** Kỳ áp dụng — rỗng = áp cho mọi kỳ. */
   kpiCycleIds: z.array(z.string()),
   rules: z.array(unitClassRuleSchema),
+  /** Vắng mặt = hồ sơ không khống chế tỷ lệ. */
+  bellCurve: unitBellCurveSchema.optional(),
 })
 
 /**
@@ -140,6 +151,23 @@ export const unitClassificationSchema = z.object({
     if (p.rules.some(r => !r.levelName.trim())) return fail(`Hồ sơ "${p.name}": tên mức không được để trống`)
     if (p.rules.some(r => r.conditions.some(c => !c.level || c.percent < 0 || c.percent > 100))) {
       return fail(`Hồ sơ "${p.name}": điều kiện chưa hợp lệ (% phải 0–100 và chọn mức)`)
+    }
+
+    // Khung bell curve chỉ có nghĩa khi các mức phủ đúng 100% nhân sự: tổng 90% thì 10% còn lại
+    // không thuộc mức nào, tổng 110% thì hạn mức rộng hơn cả đơn vị.
+    const bc = p.bellCurve
+    if (bc?.enabled) {
+      if (bc.targets.some(t => t.percent < 0 || t.percent > 100)) {
+        return fail(`Hồ sơ "${p.name}": tỷ lệ bell curve phải nằm trong 0–100%`)
+      }
+      const total = Math.round(bc.targets.reduce((a, t) => a + (t.percent || 0), 0) * 10) / 10
+      if (Math.abs(total - 100) > 0.5) {
+        return fail(`Hồ sơ "${p.name}": tổng tỷ lệ bell curve phải bằng 100% (đang ${total}%)`)
+      }
+      if (bc.tolerance < 0 || bc.tolerance > 50) {
+        return fail(`Hồ sơ "${p.name}": dung sai bell curve phải nằm trong 0–50%`)
+      }
+      if (bc.minMembers < 0) return fail(`Hồ sơ "${p.name}": quy mô tối thiểu không được âm`)
     }
   }
 })

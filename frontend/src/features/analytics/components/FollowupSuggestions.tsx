@@ -2,6 +2,7 @@ import { useMemo, useState } from 'react'
 import { ChevronRight, LayoutGrid, Users, Wrench } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { FollowupPools } from '../api/aiApi'
+import { Button } from '@/components/ui/button'
 
 type Pool = 'all' | 'technical' | 'management'
 
@@ -71,7 +72,7 @@ export default function FollowupSuggestions({
   return (
     <div className="mt-3 border-t border-[var(--color-ai-line)]/30 pt-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
-        <span className="text-[10px] font-semibold uppercase tracking-widest text-[var(--color-ai)]">
+        <span className="text-eyebrow text-[var(--color-ai)]">
           Hỏi tiếp
         </span>
         <div className="flex flex-wrap items-center gap-1">
@@ -82,7 +83,7 @@ export default function FollowupSuggestions({
               onClick={() => setPool(id)}
               aria-pressed={pool === id}
               className={cn(
-                'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[11px] transition-colors cursor-pointer',
+                'inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-xs transition-colors cursor-pointer',
                 pool === id
                   ? 'bg-[var(--color-ai-soft)] text-[var(--color-ai)] font-medium'
                   : 'text-[var(--color-muted-foreground)] hover:text-[var(--color-ai)]',
@@ -126,14 +127,10 @@ export default function FollowupSuggestions({
         })}
       </ul>
 
-      <button
-        type="button"
-        onClick={onShowInsights}
-        className="mt-1 inline-flex items-center gap-1 text-[11px] text-[var(--color-muted-foreground)] hover:text-[var(--color-ai)] transition-colors cursor-pointer"
-      >
-        <LayoutGrid size={12} aria-hidden="true" />
+      <Button variant="ghost" className="mt-1" type="button" onClick={onShowInsights}>
+        <LayoutGrid aria-hidden="true" />
         Xem insights khác
-      </button>
+      </Button>
     </div>
   )
 }

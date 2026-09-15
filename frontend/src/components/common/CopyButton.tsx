@@ -63,13 +63,13 @@ export function CopyButton({ targetRef, className, label }: CopyButtonProps) {
       onClick={handleCopy}
       disabled={isCopying}
       className={cn(
-        "p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-xl text-slate-400 transition-all active:scale-95 disabled:opacity-50 flex items-center gap-2 border border-transparent hover:border-slate-200 dark:hover:border-slate-700",
+        "p-2 hover:bg-[var(--color-muted)] rounded-card text-[var(--color-subtle-foreground)] transition-all disabled:opacity-50 flex items-center gap-2 border border-transparent hover:border-[var(--color-border)]",
         className
       )}
       title="Sao chép ảnh vào Clipboard"
     >
-      {isCopying ? <Loader2 size={16} className="animate-spin text-indigo-600" /> : <Copy size={16} />}
-      {label && <span className="text-[10px] font-black uppercase tracking-tight">{label}</span>}
+      {isCopying ? <Loader2 size={16} className="animate-spin text-[var(--color-primary)]" /> : <Copy size={16} />}
+      {label && <span className="text-xs font-semibold uppercase tracking-tight">{label}</span>}
     </button>
   )
 }

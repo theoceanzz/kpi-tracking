@@ -177,17 +177,17 @@ export default function ObjectiveDetailsWidget({ dateRange, onlyApproved = false
           <div className="p-1.5 bg-indigo-100 dark:bg-indigo-500/20 rounded-lg">
             <LayoutList className="w-5 h-5 text-[var(--color-primary)] dark:text-indigo-400" />
           </div>
-          <h2 className="text-xl font-semibold text-slate-900 dark:text-white">Chi tiết Mục tiêu</h2>
+          <h2 className="text-xl font-semibold text-[var(--color-foreground)]">Chi tiết Mục tiêu</h2>
         </div>
         <p className="text-sm text-slate-500 ml-9">Theo dõi bảng dữ liệu phân cấp mục tiêu</p>
         {meta && <div className="ml-9 mt-2">{meta}</div>}
       </div>
 
       {/* Card — giãn kín ô widget */}
-      <div className="flex-1 min-h-0 flex flex-col bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
+      <div className="flex-1 min-h-0 flex flex-col bg-[var(--color-card)] rounded-2xl border border-[var(--color-border)] overflow-hidden">
         {/* Card header */}
-        <div className="p-6 border-b border-slate-100 dark:border-slate-800 flex items-center justify-between shrink-0">
-          <h3 className="text-sm font-semibold text-slate-900 dark:text-white">
+        <div className="p-6 border-b border-[var(--color-border)] flex items-center justify-between shrink-0">
+          <h3 className="text-sm font-semibold text-[var(--color-foreground)]">
             {view === 'chart' ? 'Bản đồ trọng số mục tiêu' : 'Bảng dữ liệu phân cấp'}
           </h3>
           <div className="flex items-center gap-2">
@@ -198,10 +198,10 @@ export default function ObjectiveDetailsWidget({ dateRange, onlyApproved = false
 
         {/* Filter toolbar — ẩn khi việc chọn đơn vị đã nằm trong bảng cấu hình của ô */}
         {!hideControls && (
-        <div className="px-6 py-4 border-b border-slate-100 dark:border-slate-800 flex flex-wrap items-center gap-3 shrink-0">
+        <div className="px-6 py-4 border-b border-[var(--color-border)] flex flex-wrap items-center gap-3 shrink-0">
           <div className="min-w-[220px]">
             <Select value={orgUnitId || ALL_UNITS} onValueChange={handleOrgUnitChange}>
-              <SelectTrigger className="h-9 text-xs font-semibold bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700">
+              <SelectTrigger className="h-9 text-xs font-semibold bg-[var(--color-muted)] border-slate-200 dark:border-slate-700">
                 <SelectValue placeholder="Tất cả đơn vị" />
               </SelectTrigger>
               <SelectContent>

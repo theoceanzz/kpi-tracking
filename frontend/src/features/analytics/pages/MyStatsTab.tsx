@@ -180,7 +180,7 @@ export default function MyStatsTab() {
       <div className="flex-1 overflow-auto custom-scrollbar min-h-0 flex flex-col">
         <div className="hidden md:block overflow-x-auto custom-scrollbar">
           <table className="w-full text-left">
-            <thead className="bg-slate-50 dark:bg-slate-800/50">
+            <thead className="bg-[var(--color-muted)]">
               <tr className="text-xs font-medium text-slate-500">
                 <th className="px-6 py-4 w-10"></th>
                 <th className="px-6 py-4">Tên KPI</th>
@@ -193,7 +193,7 @@ export default function MyStatsTab() {
                 <th className="px-6 py-4">Phân loại</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+            <tbody className="divide-y divide-[var(--color-border)]">
               {isKpisLoading
                 ? <TableLoadingRows cols={5} count={2} />
                 : kpiPage?.content?.map(kpi => (
@@ -206,7 +206,7 @@ export default function MyStatsTab() {
           </table>
         </div>
 
-        <div className="md:hidden divide-y divide-slate-100 dark:divide-slate-800">
+        <div className="md:hidden divide-y divide-[var(--color-border)]">
           {isKpisLoading ? (
             <div className="p-6 text-sm text-slate-400">Đang tải...</div>
           ) : kpiPage?.content?.length ? (
@@ -383,7 +383,7 @@ export default function MyStatsTab() {
     <div className="space-y-6">
       {/* Tiêu đề + nút Tuỳ chỉnh */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <h2 className="text-xl font-semibold text-slate-900 dark:text-white">KPI của tôi</h2>
+        <h2 className="text-xl font-semibold text-[var(--color-foreground)]">KPI của tôi</h2>
         <div id="tour-analytics-customize" className="flex items-center gap-3 flex-wrap">
           <DashboardEditToolbar api={dash} />
         </div>
@@ -429,7 +429,7 @@ function MobileKpiCard({ kpi, onOpenDrawer }: { kpi: any; onOpenDrawer: () => vo
   return (
     <div className="p-4 space-y-3 active:bg-slate-50 dark:active:bg-slate-800/30" onClick={onOpenDrawer}>
       <div className="flex items-start justify-between gap-2">
-        <p className="font-semibold text-sm text-slate-900 dark:text-white truncate min-w-0">{kpi.kpiName}</p>
+        <p className="font-semibold text-sm text-[var(--color-foreground)] truncate min-w-0">{kpi.kpiName}</p>
         {kpi.shared ? (
           <div className="inline-flex items-center gap-1 px-2 py-1 rounded-full bg-indigo-50 dark:bg-indigo-900/30 text-[var(--color-primary)] dark:text-indigo-400 text-xs font-semibold shrink-0">
             <Users size={10} /> Chung
@@ -443,13 +443,13 @@ function MobileKpiCard({ kpi, onOpenDrawer }: { kpi: any; onOpenDrawer: () => vo
 
       <p className="text-xs text-slate-400">{fmt(kpi.periodStart)} - {fmt(kpi.periodEnd)}</p>
 
-      <div className="flex items-center gap-4 pt-1 border-t border-slate-100 dark:border-slate-800">
+      <div className="flex items-center gap-4 pt-1 border-t border-[var(--color-border)]">
         <div className="flex-1">
           <div className="flex items-center justify-between mb-1">
             <span className="text-xs text-slate-500">Tiến độ</span>
             <span className="text-xs font-semibold">{pct}%</span>
           </div>
-          <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+          <div className="h-2 bg-[var(--color-muted)] rounded-full overflow-hidden">
             <div className={cn('h-full rounded-full', pct >= 100 ? 'bg-emerald-500' : 'bg-indigo-500')} style={{ width: `${Math.min(pct, 100)}%` }} />
           </div>
         </div>
@@ -508,7 +508,7 @@ function ExpandableKpiRow({ kpi, onOpenDrawer, onSelectKpi }: { kpi: any; onOpen
           ) : (
             <>
               <div className="flex items-center gap-3">
-                <div className="flex-1 h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                <div className="flex-1 h-2 bg-[var(--color-muted)] rounded-full overflow-hidden">
                   <div
                     className={cn('h-full rounded-full transition-all', pct >= 100 ? 'bg-emerald-500' : 'bg-indigo-500')}
                     style={{ width: `${Math.min(pct, 100)}%` }}
@@ -544,7 +544,7 @@ function ExpandableKpiRow({ kpi, onOpenDrawer, onSelectKpi }: { kpi: any; onOpen
       )}
       {expanded && (!hasChildren || (kpi.mySubmissions?.length ?? 0) > 0 || kpi.shared) && (
         <tr>
-          <td colSpan={5} className="p-0 border-b border-slate-100 dark:border-slate-800">
+          <td colSpan={5} className="p-0 border-b border-[var(--color-border)]">
             <div className="bg-slate-50/50 dark:bg-slate-900/50 p-6 flex flex-col gap-6 border-l-4 border-[var(--color-primary)]">
               <div className="w-full space-y-4">
                 <h4 className="text-xs font-medium text-slate-500">Lịch sử bài nộp của tôi</h4>
@@ -708,11 +708,11 @@ function EvaluationTableWidget({ data, title, bare }: { data: any[]; title: stri
       'overflow-hidden flex flex-col',
       bare
         ? 'flex-1 min-h-0'
-        : 'bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm',
+        : 'bg-[var(--color-card)] rounded-widget border border-[var(--color-border)] shadow-sm',
     )}>
       <div className={cn(
         'flex items-center justify-between gap-4',
-        bare ? 'pb-3' : 'p-5 border-b border-slate-100 dark:border-slate-800',
+        bare ? 'pb-3' : 'p-5 border-b border-[var(--color-border)]',
       )}>
         {!bare && (
           <h3 className="font-semibold text-sm flex items-center gap-2 shrink-0">
@@ -726,13 +726,13 @@ function EvaluationTableWidget({ data, title, bare }: { data: any[]; title: stri
             placeholder="Tìm kiếm..."
             value={filter}
             onChange={e => { setFilter(e.target.value); setPage(1) }}
-            className="w-full pl-9 pr-3 py-1.5 bg-slate-50 dark:bg-slate-800 border-none rounded-lg text-xs outline-none focus:ring-2 focus:ring-[var(--color-primary)] transition-all"
+            className="w-full pl-9 pr-3 py-1.5 bg-[var(--color-muted)] border-none rounded-lg text-xs outline-none focus:ring-2 focus:ring-[var(--color-primary)] transition-all"
           />
         </div>
       </div>
       <div className="flex-1 overflow-auto custom-scrollbar">
         <table className="w-full text-left border-collapse">
-          <thead className="sticky top-0 bg-slate-50 dark:bg-slate-800/50 z-10">
+          <thead className="sticky top-0 bg-[var(--color-muted)] z-10">
             <tr className="text-xs font-medium text-slate-400">
               <th className="px-5 py-3">
                 <SortHeader field="score" active={sortConfig?.key ?? null} dir={sortConfig?.direction ?? 'asc'} onToggle={handleSort} iconSize={10}>Điểm</SortHeader>
@@ -763,7 +763,7 @@ function EvaluationTableWidget({ data, title, bare }: { data: any[]; title: stri
                   )}>{e.score?.toFixed(1) ?? '-'}</div>
                 </td>
                 <td className="px-3 py-3">
-                  <p className="text-sm font-semibold text-slate-900 dark:text-white truncate max-w-[180px]">{e.kpiName}</p>
+                  <p className="text-sm font-semibold text-[var(--color-foreground)] truncate max-w-[180px]">{e.kpiName}</p>
                 </td>
                 <td className="px-3 py-3 text-sm text-slate-600 dark:text-slate-400 font-medium">{e.evaluatorName}</td>
                 <td className="px-3 py-3 text-right text-xs text-slate-500 font-medium">
@@ -775,7 +775,7 @@ function EvaluationTableWidget({ data, title, bare }: { data: any[]; title: stri
         </table>
       </div>
       {totalPages > 1 && (
-        <div className="p-4 border-t border-slate-100 dark:border-slate-800 flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/30">
+        <div className="p-4 border-t border-[var(--color-border)] flex items-center justify-between bg-slate-50/50 dark:bg-slate-800/30">
           <span className="text-xs font-medium text-slate-500">Trang {page} / {totalPages}</span>
           <div className="flex items-center gap-1">
             <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}

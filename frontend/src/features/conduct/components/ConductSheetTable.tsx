@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils'
 import type { ConductScoreInput, ConductSheet } from '../api/conductApi'
 import { exportConductSheetToExcel } from '../utils/conductSheetExport'
 import { EMPTY_DRAFT, fmt, num, useConductDraft, weighted } from '../hooks/useConductDraft'
+import { Button } from '@/components/ui/button'
 
 /**
  * Phiếu "Đánh giá xếp loại hành vi theo triết lý giáo dục", dựng đúng theo bảng giấy:
@@ -42,30 +43,30 @@ export default function ConductSheetTable({
 
   const scoreInputCls = (editable: boolean, tone: 'self' | 'manager') =>
     cn(
-      'w-20 px-2 py-2 rounded-xl text-center text-sm font-black outline-none transition-all',
+      'w-20 px-2 py-2 rounded-card text-center text-sm font-semibold outline-none transition-all',
       !editable
-        ? 'bg-slate-50 dark:bg-slate-800/30 border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-400 cursor-not-allowed'
+        ? 'bg-[var(--color-muted)] border border-[var(--color-border)] text-[var(--color-muted-foreground)] cursor-not-allowed'
         : tone === 'self'
-          ? 'bg-teal-50/50 dark:bg-teal-900/10 border border-teal-100 dark:border-teal-800 text-teal-700 dark:text-teal-400 focus:ring-2 focus:ring-teal-500/20'
-          : 'bg-indigo-50/50 dark:bg-indigo-900/10 border border-indigo-100 dark:border-indigo-800 text-indigo-600 dark:text-indigo-400 focus:ring-2 focus:ring-indigo-500/20'
+          ? 'bg-[var(--color-info-bg)] border border-[var(--color-info-border)] text-[var(--color-info)] focus:ring-2 focus:ring-[var(--color-info-solid)]'
+          : 'bg-[var(--color-primary-soft)] border border-[var(--color-border)] text-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-ring)]'
     )
 
   const textAreaCls = (editable: boolean) =>
     cn(
-      'w-full min-h-[64px] px-3 py-2 rounded-xl text-xs font-medium leading-relaxed outline-none transition-all resize-y',
+      'w-full min-h-[64px] px-3 py-2 rounded-card text-xs font-medium leading-relaxed outline-none transition-all resize-y',
       editable
-        ? 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 focus:ring-2 focus:ring-indigo-500/20'
-        : 'bg-slate-50 dark:bg-slate-800/30 border border-slate-100 dark:border-slate-800 text-slate-500 cursor-not-allowed'
+        ? 'bg-[var(--color-card)] border border-[var(--color-border)] text-[var(--color-foreground)] focus:ring-2 focus:ring-[var(--color-ring)]'
+        : 'bg-[var(--color-muted)] border border-[var(--color-border)] text-[var(--color-muted-foreground)] cursor-not-allowed'
     )
 
-  const th = 'px-3 py-2 text-[10px] font-black uppercase tracking-wider text-white/90 border border-white/15 text-center align-middle'
+  const th = 'text-eyebrow px-3 py-2 text-white/90 border border-white/15 text-center align-middle'
 
   return (
     <div className="space-y-4">
       {sheet.locked && (
-        <div className="flex items-start gap-3 p-4 rounded-2xl bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700">
-          <Lock size={16} className="text-slate-500 shrink-0 mt-0.5" />
-          <p className="text-xs font-bold text-slate-600 dark:text-slate-300">
+        <div className="flex items-start gap-3 p-4 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)]">
+          <Lock size={16} className="text-[var(--color-muted-foreground)] shrink-0 mt-0.5" />
+          <p className="text-caption">
             Đánh giá kỳ của đơn vị{sheet.lockedByUnitName ? ` "${sheet.lockedByUnitName}"` : ''} đã được chốt —
             phiếu này chỉ còn để xem. Điểm hạnh kiểm là đầu vào của xếp loại kỳ nên phải mở khoá ở đơn vị đó
             trước khi sửa.
@@ -74,16 +75,16 @@ export default function ConductSheetTable({
       )}
 
       {Math.abs(totalWeight - 100) > 0.01 && (
-        <div className="flex items-start gap-3 p-4 rounded-2xl bg-amber-50 dark:bg-amber-900/10 border border-amber-200 dark:border-amber-800/50">
-          <Info size={16} className="text-amber-600 shrink-0 mt-0.5" />
-          <p className="text-xs font-bold text-amber-800 dark:text-amber-300">
+        <div className="flex items-start gap-3 p-4 rounded-card bg-[var(--color-warning-bg)] border border-[var(--color-warning-border)]">
+          <Info size={16} className="text-[var(--color-warning)] shrink-0 mt-0.5" />
+          <p className="text-xs font-medium text-[var(--color-warning)]">
             Tổng trọng số của bộ tiêu chí đang là {fmt(totalWeight)}% (khác 100%) — điểm tổng sẽ không đạt
             đủ thang {fmt(max)}. Hãy chỉnh lại ở phần thiết lập tiêu chí hạnh kiểm.
           </p>
         </div>
       )}
 
-      <div id="tour-conduct-sheet" className="rounded-3xl border border-slate-200 dark:border-slate-800 overflow-hidden shadow-sm">
+      <div id="tour-conduct-sheet" className="rounded-widget border border-[var(--color-border)] overflow-hidden shadow-sm">
         <div className="overflow-x-auto">
           <table className="w-full min-w-[1100px] border-collapse">
             <thead>
@@ -91,7 +92,7 @@ export default function ConductSheetTable({
                 <th className={cn(th, 'w-12')} rowSpan={2}>STT</th>
                 <th className={cn(th, 'w-[280px] text-left')} rowSpan={2}>
                   Các tiêu chí định tính
-                  <span className="block text-[9px] font-bold normal-case tracking-normal text-white/60">
+                  <span className="block text-xs font-medium normal-case tracking-normal text-white/60">
                     (Thái độ, hành vi…)
                   </span>
                 </th>
@@ -112,22 +113,22 @@ export default function ConductSheetTable({
               </tr>
             </thead>
 
-            <tbody className="bg-white dark:bg-slate-900">
+            <tbody className="bg-[var(--color-card)]">
               {sheet.items.map((item, idx) => {
                 const d = draft[item.position] ?? EMPTY_DRAFT
                 const selfW = weighted(num(d.selfScore), item.weight)
                 const mgrW = weighted(num(d.managerScore), item.weight)
                 return (
-                  <tr key={item.position} className="border-b border-slate-100 dark:border-slate-800 align-top">
-                    <td className="px-3 py-4 text-center text-sm font-black text-slate-500">{idx + 1}</td>
+                  <tr key={item.position} className="border-b border-[var(--color-border)] align-top">
+                    <td className="px-3 py-4 text-center text-sm font-semibold text-[var(--color-muted-foreground)]">{idx + 1}</td>
                     <td className="px-3 py-4">
-                      <p className="text-sm font-black text-slate-900 dark:text-white">{item.name}</p>
+                      <p className="text-sm font-semibold text-[var(--color-foreground)]">{item.name}</p>
                       {item.description && (
                         // Mô tả lưu nhiều dòng, mỗi dòng là một biểu hiện — giữ nguyên xuống dòng
                         // thay vì gộp thành một đoạn văn khó đọc.
                         <ul className="mt-1.5 space-y-1">
                           {item.description.split('\n').filter(Boolean).map((line, i) => (
-                            <li key={i} className="text-[11px] font-medium text-slate-500 dark:text-slate-400 leading-relaxed pl-3 relative">
+                            <li key={i} className="text-caption leading-relaxed pl-3 relative">
                               <span className="absolute left-0">-</span>
                               {line.trim()}
                             </li>
@@ -135,7 +136,7 @@ export default function ConductSheetTable({
                         </ul>
                       )}
                     </td>
-                    <td className="px-3 py-4 text-center text-sm font-black text-slate-700 dark:text-slate-200">
+                    <td className="px-3 py-4 text-center text-sm font-semibold text-[var(--color-foreground)]">
                       {fmt(item.weight)}%
                     </td>
 
@@ -187,10 +188,10 @@ export default function ConductSheetTable({
                       />
                     </td>
 
-                    <td className="px-3 py-4 text-center text-sm font-black text-teal-600 dark:text-teal-400">
+                    <td className="px-3 py-4 text-center text-sm font-semibold text-[var(--color-info)]">
                       {fmt(selfW)}
                     </td>
-                    <td className="px-3 py-4 text-center text-sm font-black text-indigo-600 dark:text-indigo-400">
+                    <td className="px-3 py-4 text-center text-sm font-semibold text-[var(--color-primary)]">
                       {fmt(mgrW)}
                     </td>
                   </tr>
@@ -200,11 +201,11 @@ export default function ConductSheetTable({
 
             <tfoot>
               <tr className="bg-[#1e3a6d] text-white">
-                <td colSpan={7} className="px-4 py-3 text-right text-xs font-black uppercase tracking-widest">
+                <td colSpan={7} className="px-4 py-3 text-right text-sm font-medium">
                   Điểm hành vi đã tính đến trọng số (thang {fmt(max)}):
                 </td>
-                <td className="px-3 py-3 text-center text-base font-black">{fmt(totals.self)}</td>
-                <td className="px-3 py-3 text-center text-base font-black">{fmt(totals.manager)}</td>
+                <td className="px-3 py-3 text-center text-base font-semibold">{fmt(totals.self)}</td>
+                <td className="px-3 py-3 text-center text-base font-semibold">{fmt(totals.manager)}</td>
               </tr>
             </tfoot>
           </table>
@@ -213,45 +214,34 @@ export default function ConductSheetTable({
 
       {sheet.canScoreManager && (
         <div className="space-y-2">
-          <p className="text-[10px] font-black uppercase tracking-widest text-slate-400">Nhận xét chung của cán bộ quản lý</p>
+          <p className="text-eyebrow">Nhận xét chung của cán bộ quản lý</p>
           <textarea
             value={comment}
             onChange={e => setComment(e.target.value)}
             placeholder="Nhận xét chung cho cả phiếu…"
-            className="w-full min-h-[80px] px-4 py-3 rounded-2xl text-sm font-medium bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-700 text-slate-700 dark:text-slate-200 outline-none focus:ring-2 focus:ring-indigo-500/20 resize-y"
+            className="w-full min-h-[80px] px-4 py-3 rounded-card text-sm font-medium bg-[var(--color-card)] border border-[var(--color-border)] text-[var(--color-foreground)] outline-none focus:ring-2 focus:ring-[var(--color-ring)] resize-y"
           />
         </div>
       )}
 
       <div id="tour-conduct-sheet-actions" className="flex flex-wrap items-center justify-end gap-3">
-        <button
-          onClick={handleExport}
-          className="mr-auto flex items-center gap-2 px-4 h-10 rounded-xl bg-[var(--color-muted)] text-[var(--color-muted-foreground)] text-sm font-bold hover:text-[var(--color-primary)] border border-[var(--color-border)] transition-all active:scale-95"
-        >
-          <FileSpreadsheet size={16} /> Xuất Excel
-        </button>
+        <Button variant="outline" className="mr-auto" onClick={handleExport}>
+          <FileSpreadsheet aria-hidden="true" /> Xuất Excel
+        </Button>
         {sheet.canScoreSelf && (
-          <button
-            onClick={() => onSaveSelf(collect('self'))}
-            disabled={isSavingSelf}
-            className="flex items-center gap-2 px-5 h-10 rounded-xl bg-teal-600 text-white text-sm font-bold hover:opacity-90 shadow-sm transition-all active:scale-95 disabled:opacity-50"
-          >
-            {isSavingSelf ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+          <Button onClick={() => onSaveSelf(collect('self'))} disabled={isSavingSelf}>
+            {isSavingSelf ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Save aria-hidden="true" />}
             Lưu tự đánh giá
-          </button>
+          </Button>
         )}
         {sheet.canScoreManager && (
-          <button
-            onClick={() => onSaveManager({ items: collect('manager'), comment })}
-            disabled={isSavingManager}
-            className="flex items-center gap-2 px-5 h-10 rounded-xl bg-[var(--color-primary)] text-white text-sm font-bold hover:opacity-90 shadow-sm transition-all active:scale-95 disabled:opacity-50"
-          >
-            {isSavingManager ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+          <Button onClick={() => onSaveManager({ items: collect('manager'), comment })} disabled={isSavingManager}>
+            {isSavingManager ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Save aria-hidden="true" />}
             Lưu điểm quản lý
-          </button>
+          </Button>
         )}
         {!sheet.canScoreSelf && !sheet.canScoreManager && !sheet.locked && (
-          <p className="text-xs font-bold text-slate-400">Bạn chỉ có quyền xem phiếu này.</p>
+          <p className="text-caption">Bạn chỉ có quyền xem phiếu này.</p>
         )}
       </div>
     </div>

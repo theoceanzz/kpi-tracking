@@ -43,7 +43,7 @@ function StatTile({ icon, tone, label, children }: {
   children: React.ReactNode
 }) {
   // Một màu cho mọi icon; chỉ thẻ Rủi ro giữ đỏ, vì đó là thẻ duy nhất cần bật lên trước.
-  const neutral = 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300'
+  const neutral = 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)]'
   const tones = {
     indigo: neutral,
     emerald: neutral,
@@ -53,7 +53,7 @@ function StatTile({ icon, tone, label, children }: {
     violet: neutral,
   } as const
   return (
-    <div className="bg-white dark:bg-slate-900 rounded-2xl p-4 @min-[1100px]:p-5 border border-slate-200 dark:border-slate-800 flex items-center gap-3 @min-[1100px]:gap-4">
+    <div className="bg-[var(--color-card)] rounded-widget p-4 @min-[1100px]:p-5 border border-[var(--color-border)] flex items-center gap-3 @min-[1100px]:gap-4">
       <div className={cn('w-10 h-10 @min-[1100px]:w-11 @min-[1100px]:h-11 rounded-full flex items-center justify-center shrink-0', tones[tone])}>{icon}</div>
       <div className="min-w-0">
         <p className="text-xs font-medium text-slate-500">{label}</p>

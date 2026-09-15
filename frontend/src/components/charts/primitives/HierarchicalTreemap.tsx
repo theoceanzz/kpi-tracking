@@ -451,10 +451,10 @@ function NodeTooltip({ node, x, y, clickable }: {
   return createPortal(
     <div
       ref={ref}
-      className="fixed z-[130] pointer-events-none bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3.5 rounded-lg shadow-md max-w-[280px]"
+      className="fixed z-[130] pointer-events-none bg-[var(--color-card)] border border-[var(--color-border)] p-3.5 rounded-lg shadow-md max-w-[280px]"
       style={{ left: x + 12, top: y + 12 }}
     >
-      <p className="font-semibold text-slate-900 dark:text-white break-words">{node.name}</p>
+      <p className="font-semibold text-[var(--color-foreground)] break-words">{node.name}</p>
       {(node.unitName || node.periodName) && (
         <p className="text-xs text-slate-500 mb-2">
           {[node.unitName, node.periodName].filter(Boolean).join(' · ')}
@@ -504,9 +504,9 @@ function NodeTooltip({ node, x, y, clickable }: {
       </div>
       <AssigneeAvatars people={node.assignees ?? []} />
       {node.replacedKpiName && (
-        <div className="pt-2.5 mt-2.5 border-t border-slate-100 dark:border-slate-800">
+        <div className="pt-2.5 mt-2.5 border-t border-[var(--color-border)]">
           <p className="text-xs text-slate-500 font-medium">Thay thế KPI:</p>
-          <p className="text-xs font-semibold text-slate-800 dark:text-slate-100 break-words">
+          <p className="text-xs font-semibold text-[var(--color-foreground)] break-words">
             {node.replacedKpiName}
           </p>
           {node.replacementReason && (
@@ -517,7 +517,7 @@ function NodeTooltip({ node, x, y, clickable }: {
         </div>
       )}
       {clickable && node.id && (
-        <p className="text-xs font-semibold text-[var(--color-primary)] dark:text-indigo-400 pt-2.5 mt-2.5 border-t border-slate-100 dark:border-slate-800">
+        <p className="text-xs font-semibold text-[var(--color-primary)] dark:text-indigo-400 pt-2.5 mt-2.5 border-t border-[var(--color-border)]">
           Bấm để xem chi tiết →
         </p>
       )}
@@ -536,7 +536,7 @@ function Row({ label, value, color }: { label: string; value: string; color?: st
     <div className="flex items-center gap-3">
       {color && <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: color }} />}
       <span className="text-slate-500 font-medium min-w-[80px]">{label}:</span>
-      <span className="font-semibold text-slate-900 dark:text-white tabular-nums">{value}</span>
+      <span className="font-semibold text-[var(--color-foreground)] tabular-nums">{value}</span>
     </div>
   )
 }

@@ -16,11 +16,15 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { authApi } from '@/features/auth/api/authApi'
 import { userApi } from '@/features/users/api/userApi'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/apiError'
 import {
-  User, Mail, Phone, Building2, Shield,
+  Building2, Shield,
   CheckCircle2, UserCircle2, Loader2, Pencil, X, Save,
-  Eye, EyeOff, Lock, Camera, Wand2, Check, KeyRound, AlertCircle
+  Eye, EyeOff, Camera, Wand2, Check, KeyRound, AlertCircle
 } from 'lucide-react'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { ChoiceChip } from '@/components/ui/choice-chip'
 
 
 export default function ProfilePage() {
@@ -46,7 +50,7 @@ export default function ProfilePage() {
       queryClient.invalidateQueries({ queryKey: ['organization-users'] })
       queryClient.invalidateQueries({ queryKey: ['org-unit-members'] })
     },
-    onError: () => toast.error('Lỗi khi tải ảnh lên'),
+    onError: (error) => toast.error(getApiErrorMessage(error, 'Tải ảnh lên thất bại')),
   })
 
   const handleAvatarSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -60,70 +64,50 @@ export default function ProfilePage() {
   if (!user) return null
 
   return (
-    <div className="max-w-[1100px] mx-auto p-4 md:p-8 space-y-8 animate-in fade-in duration-500">
+    <div className="mx-auto max-w-[1100px] space-y-4">
+      {/* Đầu trang: ảnh đại diện + tên + vai trò/đơn vị — cùng khuôn card như mọi trang, không tô nền primary */}
+      <section className="flex flex-col items-start gap-4 rounded-card border border-[var(--color-border)] bg-[var(--color-card)] p-5 sm:flex-row sm:items-center">
+        <div className="relative shrink-0">
+          <button
+            type="button"
+            onClick={() => !uploadAvatarMutation.isPending && fileInputRef.current?.click()}
+            disabled={uploadAvatarMutation.isPending}
+            aria-label="Đổi ảnh đại diện"
+            title="Đổi ảnh đại diện"
+            className="group relative block h-20 w-20 overflow-hidden rounded-card ring-2 ring-[var(--color-border)] focus-visible:outline-none focus-visible:ring-[var(--color-ring)]"
+          >
+            {user.avatarUrl ? (
+              <img src={user.avatarUrl} alt="" className="h-full w-full object-cover" />
+            ) : (
+              <span className="flex h-full w-full items-center justify-center bg-[var(--color-primary-soft)] text-2xl font-semibold text-[var(--color-primary)]">
+                {getInitials(user.fullName)}
+              </span>
+            )}
+            <span className="absolute inset-0 flex items-center justify-center bg-slate-950/0 transition-colors group-hover:bg-slate-950/40">
+              <Camera size={20} className="text-white opacity-0 transition-opacity group-hover:opacity-100" aria-hidden="true" />
+            </span>
+            {uploadAvatarMutation.isPending && (
+              <span className="absolute inset-0 flex items-center justify-center bg-[var(--color-card)]/80">
+                <Loader2 size={20} className="animate-spin text-[var(--color-primary)]" aria-hidden="true" />
+              </span>
+            )}
+          </button>
+          <input type="file" ref={fileInputRef} className="hidden" accept="image/jpeg,image/png,image/webp" onChange={handleAvatarSelect} />
+        </div>
 
-      {/* Hero Banner */}
-      <div className="relative rounded-[28px] overflow-hidden shadow-xl">
-        {/* Gradient Background */}
-        <div className="absolute inset-0 bg-gradient-to-r from-indigo-600 via-blue-600 to-purple-600" />
-        <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PHBhdGggZD0iTTM2IDM0djJoLTJ2LTJoMnptMC00aDJ2MmgtMnYtMnptLTQgMHYyaC0ydi0yaDJ6bTQgMGgydjJoLTJ2LTJ6Ii8+PC9nPjwvZz48L3N2Zz4=')] opacity-50" />
-        
-        <div className="relative z-10 px-8 py-10 md:px-12 md:py-14">
-          <div className="flex flex-col md:flex-row items-center gap-8">
-            {/* Avatar */}
-            <div className="relative group cursor-pointer" onClick={() => !uploadAvatarMutation.isPending && fileInputRef.current?.click()}>
-              {user.avatarUrl ? (
-                <img src={user.avatarUrl} alt="Avatar" className="w-28 h-28 rounded-[32px] object-cover shadow-2xl ring-4 ring-white/30" />
-              ) : (
-                <div className="w-28 h-28 rounded-[32px] bg-white shadow-2xl flex items-center justify-center text-4xl font-black text-indigo-600 ring-4 ring-white/30">
-                  {getInitials(user.fullName)}
-                </div>
-              )}
-              
-              <div className="absolute inset-0 bg-black/40 rounded-[32px] items-center justify-center hidden group-hover:flex transition-all">
-                <Camera size={24} className="text-white" />
-              </div>
-
-              <div className="absolute -bottom-1 -right-1 w-9 h-9 rounded-xl bg-emerald-500 flex items-center justify-center shadow-lg border-2 border-white z-10">
-                <CheckCircle2 size={18} className="text-white" />
-              </div>
-
-              {uploadAvatarMutation.isPending && (
-                <div className="absolute inset-0 bg-white/60 rounded-[32px] flex items-center justify-center backdrop-blur-sm z-20">
-                  <Loader2 size={24} className="text-indigo-600 animate-spin" />
-                </div>
-              )}
-
-              <input
-                type="file"
-                ref={fileInputRef}
-                className="hidden"
-                accept="image/jpeg,image/png,image/webp"
-                onChange={handleAvatarSelect}
-              />
-            </div>
-
-            {/* Info */}
-            <div className="text-center md:text-left flex-1 text-white">
-              <h1 className="text-3xl md:text-4xl font-black tracking-tight mb-3">{user.fullName}</h1>
-              <div className="flex flex-wrap items-center justify-center md:justify-start gap-3">
-                <span className="flex items-center gap-1.5 bg-white/15 backdrop-blur-sm px-4 py-1.5 rounded-full text-sm font-bold">
-                  <Shield size={14} /> {user.memberships?.[0]?.roleName || user.roles?.[0] || 'N/A'}
-                </span>
-                <span className="flex items-center gap-1.5 bg-white/15 backdrop-blur-sm px-4 py-1.5 rounded-full text-sm font-bold">
-                  <Building2 size={14} /> {user.memberships?.[0]?.orgUnitName || 'N/A'}
-                </span>
-                <span className="flex items-center gap-1.5 bg-emerald-500/30 backdrop-blur-sm px-4 py-1.5 rounded-full text-sm font-bold">
-                  <CheckCircle2 size={14} /> Đang hoạt động
-                </span>
-              </div>
-            </div>
+        <div className="min-w-0 flex-1">
+          <h1 className="text-page-title truncate">{user.fullName}</h1>
+          <p className="mt-1 truncate text-sm text-[var(--color-muted-foreground)]">{user.email}</p>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <Badge variant="outline"><Shield size={12} aria-hidden="true" /> {user.memberships?.[0]?.roleName || user.roles?.[0] || 'Chưa có vai trò'}</Badge>
+            <Badge variant="outline"><Building2 size={12} aria-hidden="true" /> {user.memberships?.[0]?.orgUnitName || 'Chưa có đơn vị'}</Badge>
+            <Badge variant="success"><CheckCircle2 size={12} aria-hidden="true" /> Đang hoạt động</Badge>
           </div>
         </div>
-      </div>
+      </section>
 
       {/* Tab Navigation + Content */}
-      <div className="grid grid-cols-1 lg:grid-cols-4 gap-6">
+      <div className="grid grid-cols-1 gap-4 lg:grid-cols-4">
 
         {/* Sidebar Navigation */}
         <div className="lg:col-span-1 space-y-2">
@@ -161,22 +145,13 @@ function NavTab({ active, onClick, icon: Icon, label, description }: {
   active: boolean; onClick: () => void; icon: any; label: string; description: string
 }) {
   return (
-    <button
-      onClick={onClick}
-      className={`w-full flex items-center gap-4 p-4 rounded-2xl text-left transition-all ${
-        active
-          ? 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/20'
-          : 'bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 hover:border-indigo-200 dark:hover:border-indigo-900/50 text-slate-700 dark:text-slate-300'
-      }`}
-    >
-      <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${active ? 'bg-white/20' : 'bg-slate-50 dark:bg-slate-800'}`}>
-        <Icon size={20} className={active ? 'text-white' : 'text-slate-500'} />
-      </div>
-      <div>
-        <p className="text-sm font-bold">{label}</p>
-        <p className={`text-xs ${active ? 'text-white/70' : 'text-slate-400'}`}>{description}</p>
-      </div>
-    </button>
+    <ChoiceChip selected={active} className="w-full py-2.5 text-left" onClick={onClick} aria-current={active ? 'page' : undefined}>
+      <Icon className={cn('shrink-0', active ? 'text-[var(--color-primary)]' : 'text-[var(--color-muted-foreground)]')} aria-hidden="true" />
+      <span className="min-w-0">
+        <span className={cn('block text-sm font-medium', active ? 'text-[var(--color-primary)]' : 'text-[var(--color-foreground)]')}>{label}</span>
+        <span className="block text-caption">{description}</span>
+      </span>
+    </ChoiceChip>
   )
 }
 
@@ -201,113 +176,87 @@ function ProfileInfoTab({ user, onUserUpdate }: { user: any; onUserUpdate: (u: a
       onUserUpdate({ ...user, fullName: updated.fullName, phone: updated.phone })
       setEditing(false)
     },
-    onError: () => toast.error('Cập nhật thất bại'),
+    onError: (error) => toast.error(getApiErrorMessage(error, 'Cập nhật hồ sơ thất bại')),
   })
 
   return (
-    <div className="bg-white dark:bg-slate-900 rounded-[28px] border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
+    <div className="overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
       {/* Header */}
-      <div className="border-b border-slate-100 dark:border-slate-800 px-8 py-6 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center text-indigo-600 dark:text-indigo-400 shrink-0">
-            <User size={20} />
-          </div>
-          <div>
-            <h2 className="font-black text-lg text-slate-900 dark:text-white">Thông tin cá nhân</h2>
-            <p className="text-xs font-medium text-slate-500">Thông tin hồ sơ và liên hệ của bạn</p>
-          </div>
+      <div className="flex flex-col gap-3 border-b border-[var(--color-border)] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-section-title">Thông tin cá nhân</h2>
+          <p className="mt-0.5 text-sm text-[var(--color-muted-foreground)]">Họ tên và số điện thoại sửa được; email, đơn vị và chức vụ do quản trị viên cập nhật.</p>
         </div>
-        {!editing ? (
-          <button
-            onClick={() => setEditing(true)}
-            className="flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 transition-all shadow-md shadow-indigo-500/20 active:scale-95 shrink-0 self-end sm:self-auto"
-          >
-            <Pencil size={14} /> Chỉnh sửa
-          </button>
-        ) : (
-          <button onClick={() => { setEditing(false); reset() }} className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 transition-all shrink-0 self-end sm:self-auto">
-            <X size={20} />
-          </button>
+        {!editing && (
+          <Button variant="outline" className="shrink-0" onClick={() => setEditing(true)}>
+            <Pencil aria-hidden="true" /> Chỉnh sửa
+          </Button>
         )}
       </div>
 
-      {/* Content */}
-      <div className="p-8">
+      <div className="p-5">
         {editing ? (
-          <form onSubmit={handleSubmit((data) => updateMutation.mutate(data))} className="space-y-6 max-w-lg animate-in fade-in duration-300">
+          <form onSubmit={handleSubmit((data) => updateMutation.mutate(data))} className="max-w-lg space-y-4">
             <div className="space-y-2">
-              <label className="flex items-center gap-1.5 text-xs font-bold text-slate-500">
-                <User size={13} /> Họ và tên
-              </label>
+              <label className="text-label block">Họ và tên</label>
               <input
                 {...register('fullName')}
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 transition-all"
+                className="h-9 w-full rounded-control border border-[var(--color-border)] bg-[var(--color-card)] px-3 text-sm text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-subtle-foreground)] focus-visible:border-[var(--color-primary)] focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]"
                 placeholder="Nguyễn Văn A"
               />
-              {errors.fullName && <p className="text-red-500 text-xs mt-1">{(errors.fullName as any).message}</p>}
+              {errors.fullName && <p className="text-[var(--color-error)] text-xs mt-1">{(errors.fullName as any).message}</p>}
             </div>
 
             <div className="space-y-2">
-              <label className="flex items-center gap-1.5 text-xs font-bold text-slate-500">
-                <Phone size={13} /> Số điện thoại
-              </label>
+              <label className="text-label block">Số điện thoại</label>
               <input
                 {...register('phone')}
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 transition-all"
+                className="h-9 w-full rounded-control border border-[var(--color-border)] bg-[var(--color-card)] px-3 text-sm text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-subtle-foreground)] focus-visible:border-[var(--color-primary)] focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]"
                 placeholder="0912 345 678"
               />
-              {errors.phone && <p className="text-red-500 text-xs mt-1">{(errors.phone as any).message}</p>}
+              {errors.phone && <p className="text-[var(--color-error)] text-xs mt-1">{(errors.phone as any).message}</p>}
             </div>
 
             {/* Non-editable fields */}
             <div className="space-y-2">
-              <label className="flex items-center gap-1.5 text-xs font-bold text-slate-400">
-                <Mail size={13} /> Email <span className="text-[10px] ml-1 opacity-60">(không thể thay đổi)</span>
-              </label>
-              <div className="px-4 py-3 rounded-xl bg-slate-100 dark:bg-slate-800/80 border border-slate-200 dark:border-slate-700 text-sm font-semibold text-slate-500 cursor-not-allowed">
+              <label className="text-label block">Email <span className="font-normal text-[var(--color-subtle-foreground)]">(không đổi được)</span></label>
+              <div className="flex h-9 items-center rounded-control border border-[var(--color-border)] bg-[var(--color-muted)] px-3 text-sm text-[var(--color-muted-foreground)]">
                 {user.email}
               </div>
             </div>
 
-            <div className="flex gap-3 pt-4 border-t border-slate-100 dark:border-slate-800">
-              <button type="button" onClick={() => { setEditing(false); reset() }} className="flex-1 px-4 py-3 rounded-xl text-sm font-bold border border-slate-200 dark:border-slate-700 hover:bg-slate-50 dark:hover:bg-slate-800 transition-all">
+            <div className="flex items-center justify-end gap-2 border-t border-[var(--color-border)] pt-4">
+              <Button variant="outline" type="button" onClick={() => { setEditing(false); reset() }} disabled={updateMutation.isPending}>
                 Hủy
-              </button>
-              <button type="submit" disabled={updateMutation.isPending} className="flex-1 px-4 py-3 rounded-xl text-sm font-bold bg-indigo-600 text-white hover:bg-indigo-700 disabled:opacity-50 transition-all flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/20">
-                {updateMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+              </Button>
+              <Button type="submit" disabled={updateMutation.isPending}>
+                {updateMutation.isPending ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Save aria-hidden="true" />}
                 Lưu thay đổi
-              </button>
+              </Button>
             </div>
           </form>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5 animate-in fade-in duration-300">
-            <InfoField icon={User} iconColor="text-indigo-500" iconBg="bg-indigo-50 dark:bg-indigo-900/20" label="Họ và tên" value={user.fullName} />
-            <InfoField icon={User} iconColor="text-indigo-600" iconBg="bg-indigo-100 dark:bg-indigo-900/30" label="Mã nhân viên" value={user.employeeCode || 'Chưa cập nhật'} />
-            <InfoField icon={Mail} iconColor="text-blue-500" iconBg="bg-blue-50 dark:bg-blue-900/20" label="Địa chỉ Email" value={user.email} />
-            <InfoField icon={Phone} iconColor="text-emerald-500" iconBg="bg-emerald-50 dark:bg-emerald-900/20" label="Số điện thoại" value={formatPhoneNumber(user.phone) || 'Chưa cập nhật'} />
-            <InfoField icon={Building2} iconColor="text-amber-500" iconBg="bg-amber-50 dark:bg-amber-900/20" label="Đơn vị" value={`${user.memberships?.[0]?.orgUnitName || 'Chưa cập nhật'}${user.memberships?.[0]?.unitTypeLabel ? ` (${user.memberships[0].unitTypeLabel})` : ''}`} />
-            <InfoField icon={Building2} iconColor="text-orange-500" iconBg="bg-orange-50 dark:bg-orange-900/20" label="Mã đơn vị" value={user.memberships?.[0]?.orgUnitCode || 'Chưa cập nhật'} />
-            <InfoField icon={Shield} iconColor="text-purple-500" iconBg="bg-purple-50 dark:bg-purple-900/20" label="Chức vụ" value={user.memberships?.[0]?.roleName || user.roles?.[0] || 'N/A'} />
-            <InfoField icon={CheckCircle2} iconColor="text-emerald-500" iconBg="bg-emerald-50 dark:bg-emerald-900/20" label="Trạng thái" value="Đang hoạt động" />
-          </div>
+          <dl className="grid grid-cols-1 gap-x-6 gap-y-4 text-sm sm:grid-cols-2">
+            <InfoField label="Họ và tên" value={user.fullName} />
+            <InfoField label="Mã nhân viên" value={user.employeeCode || 'Chưa cập nhật'} />
+            <InfoField label="Email" value={user.email} />
+            <InfoField label="Số điện thoại" value={formatPhoneNumber(user.phone) || 'Chưa cập nhật'} />
+            <InfoField label="Đơn vị" value={`${user.memberships?.[0]?.orgUnitName || 'Chưa cập nhật'}${user.memberships?.[0]?.unitTypeLabel ? ` (${user.memberships[0].unitTypeLabel})` : ''}`} />
+            <InfoField label="Mã đơn vị" value={user.memberships?.[0]?.orgUnitCode || 'Chưa cập nhật'} />
+            <InfoField label="Chức vụ" value={user.memberships?.[0]?.roleName || user.roles?.[0] || 'Chưa có'} />
+            <InfoField label="Trạng thái" value="Đang hoạt động" />
+          </dl>
         )}
       </div>
     </div>
   )
 }
 
-function InfoField({ icon: Icon, iconColor, iconBg, label, value }: {
-  icon: any; iconColor: string; iconBg: string; label: string; value: string
-}) {
+function InfoField({ label, value }: { label: string; value: string }) {
   return (
-    <div className="flex items-start gap-4 p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 hover:border-indigo-200 dark:hover:border-indigo-900/40 transition-all group">
-      <div className={`w-10 h-10 rounded-xl ${iconBg} flex items-center justify-center shrink-0 group-hover:scale-105 transition-transform`}>
-        <Icon size={20} className={iconColor} />
-      </div>
-      <div className="min-w-0">
-        <p className="text-[10px] font-black uppercase tracking-widest text-slate-400 mb-1">{label}</p>
-        <p className="text-sm font-bold text-slate-800 dark:text-slate-200 truncate">{value}</p>
-      </div>
+    <div className="min-w-0">
+      <dt className="text-eyebrow">{label}</dt>
+      <dd className="mt-0.5 truncate text-[var(--color-foreground)]" title={value}>{value}</dd>
     </div>
   )
 }
@@ -336,28 +285,28 @@ function SecurityTab() {
   const strengthScore = [hasLength, hasUpper, hasLower, hasNumber, hasSpecial].filter(Boolean).length
 
   let strengthLabel = 'Chưa nhập'
-  let strengthColor = 'bg-gray-200 dark:bg-gray-700'
-  let strengthTextColor = 'text-gray-400'
+  let strengthColor = 'bg-[var(--color-border)]'
+  let strengthTextColor = 'text-[var(--color-subtle-foreground)]'
 
   if (pwd.length > 0) {
     if (strengthScore <= 2) {
       strengthLabel = 'Yếu'
-      strengthColor = 'bg-red-500'
-      strengthTextColor = 'text-red-500'
+      strengthColor = 'bg-[var(--color-error-solid)]'
+      strengthTextColor = 'text-[var(--color-error)]'
     } else if (strengthScore <= 3) {
       strengthLabel = 'Trung bình'
-      strengthColor = 'bg-yellow-500'
-      strengthTextColor = 'text-yellow-500'
+      strengthColor = 'bg-[var(--color-warning-solid)]'
+      strengthTextColor = 'text-[var(--color-warning)]'
     } else {
       strengthLabel = 'Mạnh'
-      strengthColor = 'bg-emerald-500'
-      strengthTextColor = 'text-emerald-500'
+      strengthColor = 'bg-[var(--color-success-solid)]'
+      strengthTextColor = 'text-[var(--color-success)]'
     }
   }
 
   const generatePassword = () => {
     const chars = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*'
-    let newPwd = 'A' + 'a' + '1' + '!' 
+    let newPwd = 'A' + 'a' + '1' + '!'
     for (let i = 0; i < 8; i++) {
       newPwd += chars.charAt(Math.floor(Math.random() * chars.length))
     }
@@ -370,16 +319,16 @@ function SecurityTab() {
 
   const mutation = useMutation({
     mutationFn: (data: { currentPassword: string; newPassword: string; confirmPassword: string }) => authApi.changePassword(data),
-    onSuccess: () => { 
+    onSuccess: () => {
       toast.success('Đổi mật khẩu bảo mật thành công')
       if (user) {
         setUser({ ...user, requirePasswordChange: false })
       }
       reset()
-      setShowCurrent(false); setShowNew(false); setShowConfirm(false) 
+      setShowCurrent(false); setShowNew(false); setShowConfirm(false)
     },
     onError: (error: any) => {
-      const message = error.response?.data?.message || 'Đổi mật khẩu thất bại. Vui lòng thử lại.'
+      const message = getApiErrorMessage(error, 'Đổi mật khẩu thất bại. Vui lòng thử lại.')
       if (message.includes('Mật khẩu hiện tại')) {
         setError('currentPassword', { type: 'manual', message: message })
       } else {
@@ -388,37 +337,23 @@ function SecurityTab() {
     },
   })
 
-  const inputCls = "w-full px-4 py-3 rounded-xl border border-slate-200 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-indigo-500/30 focus:border-indigo-400 transition-all"
+  const inputCls = "w-full px-4 py-3 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] text-sm font-semibold focus:outline-none focus:ring-2 focus:ring-[var(--color-ring)] focus:border-[var(--color-primary)] transition-all"
 
   return (
-    <div className="bg-white dark:bg-slate-900 rounded-[28px] border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden animate-in fade-in slide-in-from-right-4 duration-500">
+    <div className="overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
       {/* Header */}
-      <div className="border-b border-slate-100 dark:border-slate-800 px-8 py-6">
-        <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-xl bg-amber-50 dark:bg-amber-900/30 flex items-center justify-center text-amber-600 dark:text-amber-400">
-            <Lock size={20} />
-          </div>
-          <div>
-            <h2 className="font-black text-lg text-slate-900 dark:text-white">Bảo mật tài khoản</h2>
-            <p className="text-xs font-medium text-slate-500">Quản lý mật khẩu và các thiết lập an toàn</p>
-          </div>
-        </div>
+      <div className="border-b border-[var(--color-border)] px-5 py-4">
+        <h2 className="text-section-title">Bảo mật tài khoản</h2>
+        <p className="mt-0.5 text-sm text-[var(--color-muted-foreground)]">Đổi mật khẩu đăng nhập. Nên đổi định kỳ 3–6 tháng một lần.</p>
       </div>
 
-      <div className="p-8">
-        <div className="max-w-lg space-y-8">
-          {/* Security Alert */}
-          <div className="p-4 rounded-2xl bg-indigo-50 dark:bg-indigo-900/10 border border-indigo-100 dark:border-indigo-900/30 flex items-start gap-3">
-            <Shield size={18} className="text-indigo-600 dark:text-indigo-400 shrink-0 mt-0.5" />
-            <div className="text-xs text-indigo-900 dark:text-indigo-300 leading-relaxed font-medium">
-              Bạn nên đổi mật khẩu định kỳ 3 - 6 tháng một lần để đảm bảo an toàn tối đa cho tài khoản tổ chức.
-            </div>
-          </div>
+      <div className="p-5">
+        <div className="max-w-lg space-y-5">
 
-          <form onSubmit={handleSubmit((data) => mutation.mutate(data))} className="space-y-6">
+          <form onSubmit={handleSubmit((data) => mutation.mutate(data))} className="space-y-4">
             {/* Current Password */}
             <div className="space-y-2">
-              <label className="flex items-center gap-1.5 text-xs font-bold text-slate-500 uppercase tracking-widest pl-1">
+              <label className="text-label block">
                 Mật khẩu hiện tại
               </label>
               <div className="relative">
@@ -431,17 +366,17 @@ function SecurityTab() {
                 <button
                   type="button"
                   onClick={() => setShowCurrent(!showCurrent)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-control text-[var(--color-subtle-foreground)] hover:text-[var(--color-muted-foreground)] hover:bg-[var(--color-muted)] transition-all"
                 >
                   {showCurrent ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
-              {errors.currentPassword && <p className="text-red-500 text-xs font-medium pl-1">{errors.currentPassword.message}</p>}
+              {errors.currentPassword && <p className="text-[var(--color-error)] text-xs font-medium pl-1">{errors.currentPassword.message}</p>}
             </div>
 
             {/* New Password */}
             <div className="space-y-3">
-              <label className="flex items-center gap-1.5 text-xs font-bold text-slate-500 uppercase tracking-widest pl-1">
+              <label className="text-label block">
                 Mật khẩu mới
               </label>
               <div className="relative">
@@ -451,12 +386,12 @@ function SecurityTab() {
                   className={inputCls + " pr-24"}
                   placeholder="Nhập ít nhất 8 ký tự an toàn"
                 />
-                
+
                 {/* Suggestion Button */}
                 <button
                   type="button"
                   onClick={generatePassword}
-                  className="absolute inset-y-0 right-10 pr-1 flex items-center text-indigo-600 dark:text-indigo-400 hover:text-indigo-700 transition-colors text-xs font-bold"
+                  className="absolute inset-y-0 right-10 pr-1 flex items-center text-[var(--color-primary)] hover:text-[var(--color-primary)] transition-colors text-xs font-medium"
                   title="Gợi ý Mật khẩu"
                 >
                   <Wand2 size={16} className="mr-0.5"/> Gợi ý
@@ -465,7 +400,7 @@ function SecurityTab() {
                 <button
                   type="button"
                   onClick={() => setShowNew(!showNew)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-control text-[var(--color-subtle-foreground)] hover:text-[var(--color-muted-foreground)] hover:bg-[var(--color-muted)] transition-all"
                 >
                   {showNew ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
@@ -473,7 +408,7 @@ function SecurityTab() {
 
               {/* Match Current Password Error */}
               {pwd && watch('currentPassword') && pwd === watch('currentPassword') && (
-                <div className="mt-2.5 px-3 py-2 rounded-xl flex items-center gap-2 text-[11px] font-bold bg-red-50 dark:bg-red-500/10 text-red-600 border border-red-100 dark:border-red-500/20 animate-in fade-in slide-in-from-top-1 duration-200">
+                <div className="mt-2.5 px-3 py-2 rounded-card flex items-center gap-2 text-xs font-medium bg-[var(--color-error-bg)] text-[var(--color-error)] border border-[var(--color-error-border)] animate-in fade-in slide-in-from-top-1 duration-200">
                   <AlertCircle size={14} />
                   <span>Mật khẩu mới không được trùng với mật khẩu hiện tại</span>
                 </div>
@@ -481,20 +416,20 @@ function SecurityTab() {
 
               {/* Strength Meter & Checklist */}
               {pwd && (
-                <div className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 animate-in fade-in slide-in-from-top-2 duration-300">
-                  <div className="flex justify-between items-center text-[10px] font-black uppercase tracking-widest mb-2.5">
-                    <span className="text-slate-400">Độ mạnh mật khẩu</span>
-                    <span className={cn("px-2 py-0.5 rounded-full bg-white dark:bg-slate-900 shadow-sm", strengthTextColor)}>{strengthLabel}</span>
+                <div className="p-4 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)] animate-in fade-in slide-in-from-top-2 duration-300">
+                  <div className="text-eyebrow flex justify-between items-center mb-2.5">
+                    <span className="text-[var(--color-subtle-foreground)]">Độ mạnh mật khẩu</span>
+                    <span className={cn("px-2 py-0.5 rounded-full bg-[var(--color-card)] shadow-sm", strengthTextColor)}>{strengthLabel}</span>
                   </div>
-                  
-                  <div className="h-1.5 w-full bg-slate-200 dark:bg-slate-700 rounded-full overflow-hidden flex gap-1 mb-4">
+
+                  <div className="h-1.5 w-full bg-[var(--color-border)] rounded-full overflow-hidden flex gap-1 mb-4">
                     <div className={`h-full flex-1 rounded-full ${strengthScore >= 1 ? strengthColor : 'bg-transparent'} transition-all duration-300`} />
                     <div className={`h-full flex-1 rounded-full ${strengthScore >= 2 ? strengthColor : 'bg-transparent'} transition-all duration-300`} />
                     <div className={`h-full flex-1 rounded-full ${strengthScore >= 4 ? strengthColor : 'bg-transparent'} transition-all duration-300`} />
                     <div className={`h-full flex-1 rounded-full ${strengthScore >= 5 ? strengthColor : 'bg-transparent'} transition-all duration-300`} />
                   </div>
-                  
-                  <div className="grid grid-cols-2 gap-y-2.5 gap-x-2 text-[10px] font-bold text-slate-500">
+
+                  <div className="grid grid-cols-2 gap-y-2.5 gap-x-2 text-caption">
                     <CheckItem condition={hasLength} label="8+ ký tự" />
                     <CheckItem condition={hasUpper && hasLower} label="Hoa & thường" />
                     <CheckItem condition={hasNumber} label="Có chữ số" />
@@ -502,12 +437,12 @@ function SecurityTab() {
                   </div>
                 </div>
               )}
-              {errors.newPassword && <p className="text-red-500 text-xs font-medium pl-1">{errors.newPassword.message}</p>}
+              {errors.newPassword && <p className="text-[var(--color-error)] text-xs font-medium pl-1">{errors.newPassword.message}</p>}
             </div>
 
             {/* Confirm Password */}
             <div className="space-y-2">
-              <label className="flex items-center gap-1.5 text-xs font-bold text-slate-500 uppercase tracking-widest pl-1">
+              <label className="text-label block">
                 Xác nhận mật khẩu mới
               </label>
               <div className="relative">
@@ -520,36 +455,32 @@ function SecurityTab() {
                 <button
                   type="button"
                   onClick={() => setShowConfirm(!showConfirm)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-slate-400 hover:text-slate-600 hover:bg-slate-100 dark:hover:bg-slate-700 transition-all"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 p-1.5 rounded-control text-[var(--color-subtle-foreground)] hover:text-[var(--color-muted-foreground)] hover:bg-[var(--color-muted)] transition-all"
                 >
                   {showConfirm ? <EyeOff size={18} /> : <Eye size={18} />}
                 </button>
               </div>
-              
+
               {confirmPwd && (
                 <div className={cn(
-                  "mt-2.5 px-3 py-2 rounded-xl flex items-center gap-2 text-[11px] font-bold animate-in fade-in slide-in-from-top-1 duration-200",
-                  pwd === confirmPwd 
-                    ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-600 dark:text-emerald-400 border border-emerald-100 dark:border-emerald-500/20' 
-                    : 'bg-red-50 dark:bg-red-500/10 text-red-600 dark:text-red-400 border border-red-100 dark:border-red-500/20'
+                  "mt-2.5 px-3 py-2 rounded-card flex items-center gap-2 text-xs font-medium animate-in fade-in slide-in-from-top-1 duration-200",
+                  pwd === confirmPwd
+                    ? 'bg-[var(--color-success-bg)] text-[var(--color-success)] border border-[var(--color-success-border)]'
+                    : 'bg-[var(--color-error-bg)] text-[var(--color-error)] border border-[var(--color-error-border)]'
                 )}>
                   {pwd === confirmPwd ? <CheckCircle2 size={14} /> : <X size={14} />}
                   <span>{pwd === confirmPwd ? 'Mật khẩu đã khớp nhau' : 'Hai mật khẩu chưa trùng khớp'}</span>
                 </div>
               )}
-              {errors.confirmPassword && !confirmPwd && <p className="text-red-500 text-xs font-medium pl-1">{errors.confirmPassword.message}</p>}
+              {errors.confirmPassword && !confirmPwd && <p className="text-[var(--color-error)] text-xs font-medium pl-1">{errors.confirmPassword.message}</p>}
             </div>
 
             {/* Submit */}
-            <div className="pt-6 border-t border-slate-100 dark:border-slate-800">
-              <button
-                type="submit"
-                disabled={mutation.isPending || (pwd.length > 0 && (pwd !== confirmPwd || pwd === watch('currentPassword') || strengthScore < 3))}
-                className="w-full md:w-auto px-10 py-3.5 rounded-2xl bg-indigo-600 text-white font-black text-sm hover:bg-indigo-700 shadow-xl shadow-indigo-500/30 disabled:opacity-50 transition-all flex items-center justify-center gap-2 active:scale-95"
-              >
-                {mutation.isPending ? <Loader2 size={18} className="animate-spin" /> : <Save size={18} />}
+            <div className="pt-6 border-t border-[var(--color-border)]">
+              <Button className="w-full md:w-auto" type="submit" disabled={mutation.isPending || (pwd.length > 0 && (pwd !== confirmPwd || pwd === watch('currentPassword') || strengthScore < 3))}>
+                {mutation.isPending ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Save aria-hidden="true" />}
                 Cập nhật bảo mật
-              </button>
+              </Button>
             </div>
           </form>
         </div>
@@ -563,11 +494,11 @@ function CheckItem({ condition, label }: { condition: boolean; label: string }) 
     <div className="flex items-center gap-2">
       <div className={cn(
         "w-4 h-4 rounded-full flex items-center justify-center transition-all duration-300",
-        condition ? "bg-emerald-500 text-white shadow-sm" : "bg-slate-200 dark:bg-slate-700 text-transparent"
+        condition ? "bg-[var(--color-success-solid)] text-white shadow-sm" : "bg-[var(--color-border)] text-transparent"
       )}>
         <Check size={10} strokeWidth={4} />
       </div>
-      <span className={cn("transition-colors duration-300", condition ? "text-slate-900 dark:text-white" : "text-slate-400")}>
+      <span className={cn("transition-colors duration-300", condition ? "text-[var(--color-foreground)]" : "text-[var(--color-subtle-foreground)]")}>
         {label}
       </span>
     </div>

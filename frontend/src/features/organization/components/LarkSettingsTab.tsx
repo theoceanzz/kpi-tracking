@@ -19,6 +19,7 @@ import {
   Users,
 } from 'lucide-react'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/apiError'
 import { cn } from '@/lib/utils'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useAuthStore } from '@/store/authStore'
@@ -34,6 +35,7 @@ import {
 } from '../hooks/useLarkSettings'
 import { LARK_CONNECT_RESULT_KEY } from '@/features/auth/pages/LarkCallbackPage'
 import { LARK_PURPOSE_KEY, LARK_STATE_KEY } from '@/features/auth/hooks/useLarkLogin'
+import { Button } from '@/components/ui/button'
 
 const LARK_CONSOLE_URL = 'https://open.larksuite.com/app'
 
@@ -59,7 +61,7 @@ function StepCard({
     <div
       id={id}
       className={cn(
-        'rounded-2xl border p-5 transition-all',
+        'rounded-card border p-5 transition-all',
         disabled
           ? 'border-[var(--color-border)] bg-[var(--color-muted)]/20 opacity-55'
           : 'border-[var(--color-border)] bg-[var(--color-card)]'
@@ -68,18 +70,18 @@ function StepCard({
       <div className="flex items-start gap-3">
         <div
           className={cn(
-            'flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-black',
+            'flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-semibold',
             done
-              ? 'bg-emerald-500 text-white'
+              ? 'bg-[var(--color-success-solid)] text-white'
               : disabled
                 ? 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)]'
-                : 'bg-[var(--color-primary)] text-white'
+                : 'bg-[var(--color-primary)] text-[var(--color-primary-foreground)]'
           )}
         >
           {done ? <Check size={14} strokeWidth={4} /> : step}
         </div>
         <div className="min-w-0 flex-1">
-          <h3 className="text-sm font-bold text-[var(--color-foreground)]">{title}</h3>
+          <h3 className="text-section-title">{title}</h3>
           {description && (
             <p className="mt-1 text-xs leading-relaxed text-[var(--color-muted-foreground)]">
               {description}
@@ -107,21 +109,16 @@ function CopyRow({ label, value }: { label: string; value: string }) {
   }
 
   return (
-    <div className="flex items-center gap-2 rounded-lg border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2">
+    <div className="flex items-center gap-2 rounded-control border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2">
       <div className="min-w-0 flex-1">
-        <p className="text-[10px] font-bold uppercase tracking-wider text-[var(--color-muted-foreground)]">
+        <p className="text-eyebrow">
           {label}
         </p>
         <p className="truncate font-mono text-xs text-[var(--color-foreground)]">{value}</p>
       </div>
-      <button
-        type="button"
-        onClick={handleCopy}
-        title="Sao chép"
-        className="shrink-0 rounded-lg p-2 text-[var(--color-muted-foreground)] transition-colors hover:bg-[var(--color-muted)] hover:text-[var(--color-foreground)]"
-      >
-        {copied ? <Check size={15} className="text-emerald-500" /> : <Copy size={15} />}
-      </button>
+      <Button variant="secondary" className="shrink-0" type="button" onClick={handleCopy} title="Sao chép">
+        {copied ? <Check aria-hidden="true" className="text-[var(--color-success)]" /> : <Copy aria-hidden="true" />}
+      </Button>
     </div>
   )
 }
@@ -137,7 +134,7 @@ function TenantLogo({ url, size = 44 }: { url?: string | null; size?: number }) 
         alt="Logo công ty"
         onError={() => setFailed(true)}
         style={{ width: size, height: size }}
-        className="shrink-0 rounded-xl object-cover"
+        className="shrink-0 rounded-card object-cover"
       />
     )
   }
@@ -145,7 +142,7 @@ function TenantLogo({ url, size = 44 }: { url?: string | null; size?: number }) 
   return (
     <div
       style={{ width: size, height: size }}
-      className="flex shrink-0 items-center justify-center rounded-xl bg-[var(--color-muted)]"
+      className="flex shrink-0 items-center justify-center rounded-card bg-[var(--color-muted)]"
     >
       <Building2 size={size * 0.45} className="text-[var(--color-primary)]" />
     </div>
@@ -153,7 +150,7 @@ function TenantLogo({ url, size = 44 }: { url?: string | null; size?: number }) 
 }
 
 const inputCls =
-  'w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-background)] px-3.5 py-2.5 text-sm outline-none transition-all focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/20'
+  'w-full rounded-card border border-[var(--color-border)] bg-[var(--color-background)] px-3.5 py-2.5 text-sm outline-none transition-all focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/20'
 
 export default function LarkSettingsTab() {
   const user = useAuthStore((s) => s.user)
@@ -211,7 +208,7 @@ export default function LarkSettingsTab() {
       window.location.href = res.authorizeUrl
     },
     onError: (err: any) => {
-      toast.error(err.response?.data?.message || 'Không mở được trang đăng nhập Lark.')
+      toast.error(getApiErrorMessage(err, 'Không mở được trang đăng nhập Lark.'))
     },
   })
 
@@ -235,9 +232,9 @@ export default function LarkSettingsTab() {
       <div
         id="tour-lark-status"
         className={cn(
-          'flex flex-wrap items-center gap-3 rounded-2xl border p-4',
+          'flex flex-wrap items-center gap-3 rounded-card border p-4',
           settings.larkEnabled
-            ? 'border-emerald-200 bg-emerald-50 dark:border-emerald-500/20 dark:bg-emerald-500/10'
+            ? 'border-[var(--color-success-border)] bg-[var(--color-success-bg)] dark:border-[var(--color-success-border)] dark:bg-[var(--color-success-bg)]'
             : 'border-[var(--color-border)] bg-[var(--color-muted)]/30'
         )}
       >
@@ -247,9 +244,9 @@ export default function LarkSettingsTab() {
           <AlertCircle size={20} className="text-[var(--color-muted-foreground)]" />
         )}
         <div className="min-w-0 flex-1">
-          <p className="flex items-center gap-1.5 text-sm font-bold text-[var(--color-foreground)]">
+          <p className="flex items-center gap-1.5 text-sm font-medium text-[var(--color-foreground)]">
             {settings.larkEnabled && (
-              <CheckCircle2 size={15} className="text-emerald-600 dark:text-emerald-400" />
+              <CheckCircle2 size={15} className="text-[var(--color-success)]" />
             )}
             {settings.larkEnabled ? 'Đang bật đăng nhập bằng Lark' : 'Chưa bật đăng nhập bằng Lark'}
           </p>
@@ -260,28 +257,23 @@ export default function LarkSettingsTab() {
           )}
         </div>
         {isVerified && (
-          <button
-            type="button"
-            onClick={() => disconnect.mutate()}
-            disabled={disconnect.isPending}
-            className="inline-flex items-center gap-1.5 rounded-lg border border-[var(--color-border)] px-3 py-1.5 text-xs font-bold text-[var(--color-muted-foreground)] transition-colors hover:border-red-300 hover:text-red-600 disabled:opacity-50"
-          >
-            {disconnect.isPending ? <Loader2 size={13} className="animate-spin" /> : <Unlink size={13} />}
+          <Button variant="outline" size="sm" className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]" type="button" onClick={() => disconnect.mutate()} disabled={disconnect.isPending}>
+            {disconnect.isPending ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Unlink aria-hidden="true" />}
             Huỷ liên kết
-          </button>
+          </Button>
         )}
       </div>
 
       {/* Thẻ xác nhận sau khi quản trị viên đăng nhập Lark */}
       {pendingConnect && (
-        <div className="animate-in fade-in slide-in-from-top-1 rounded-2xl border-2 border-[var(--color-primary)] bg-[var(--color-primary)]/5 p-5">
-          <h3 className="text-sm font-bold text-[var(--color-foreground)]">
+        <div className="animate-in fade-in slide-in-from-top-1 rounded-card border-2 border-[var(--color-primary)] bg-[var(--color-primary)]/5 p-5">
+          <h3 className="text-section-title">
             Đây có đúng là công ty của bạn?
           </h3>
-          <div className="mt-4 flex items-center gap-3 rounded-xl bg-[var(--color-background)] p-3.5">
+          <div className="mt-4 flex items-center gap-3 rounded-card bg-[var(--color-background)] p-3.5">
             <TenantLogo url={pendingConnect.tenantAvatarUrl} />
             <div className="min-w-0">
-              <p className="truncate text-sm font-bold text-[var(--color-foreground)]">
+              <p className="truncate text-sm font-medium text-[var(--color-foreground)]">
                 {pendingConnect.tenantName || 'Tổ chức Lark của bạn'}
               </p>
               <p className="truncate text-xs text-[var(--color-muted-foreground)]">
@@ -304,7 +296,7 @@ export default function LarkSettingsTab() {
           )}
 
           {pendingConnect.alreadyLinked && (
-            <p className="mt-3 flex items-start gap-2 text-xs font-semibold text-red-600 dark:text-red-400">
+            <p className="mt-3 flex items-start gap-2 text-xs font-semibold text-[var(--color-error)]">
               <AlertCircle size={14} className="mt-0.5 shrink-0" />
               Tổ chức Lark này đã được liên kết với công ty{' '}
               {pendingConnect.alreadyLinkedOrganizationName}. Không thể liên kết thêm.
@@ -312,26 +304,17 @@ export default function LarkSettingsTab() {
           )}
 
           <div className="mt-4 flex gap-2">
-            <button
-              type="button"
-              disabled={pendingConnect.alreadyLinked || confirmConnection.isPending}
-              onClick={() =>
+            <Button type="button" disabled={pendingConnect.alreadyLinked || confirmConnection.isPending} onClick={() =>
                 confirmConnection.mutate(pendingConnect.pendingToken, {
                   onSuccess: () => setPendingConnect(null),
                 })
-              }
-              className="inline-flex items-center gap-2 rounded-xl bg-[var(--color-primary)] px-4 py-2.5 text-sm font-bold text-white transition-all hover:shadow-md disabled:opacity-50"
-            >
-              {confirmConnection.isPending && <Loader2 size={15} className="animate-spin" />}
+              }>
+              {confirmConnection.isPending && <Loader2 aria-hidden="true" className="animate-spin" />}
               Xác nhận liên kết
-            </button>
-            <button
-              type="button"
-              onClick={() => setPendingConnect(null)}
-              className="rounded-xl border border-[var(--color-border)] px-4 py-2.5 text-sm font-bold text-[var(--color-muted-foreground)] transition-colors hover:bg-[var(--color-muted)]/50"
-            >
+            </Button>
+            <Button variant="outline" type="button" onClick={() => setPendingConnect(null)}>
               Huỷ
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -343,10 +326,10 @@ export default function LarkSettingsTab() {
             title="Tạo ứng dụng trên Lark"
             description="Cần tài khoản quản trị Lark. Vào Lark Developer Console, tạo một Custom App, đặt tên tuỳ ý (ví dụ: KeyGo)."
           >
-            <div className="mb-3 flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 p-3 dark:border-amber-500/20 dark:bg-amber-500/10">
-              <AlertCircle size={15} className="mt-0.5 shrink-0 text-amber-600 dark:text-amber-400" />
-              <p className="text-xs leading-relaxed text-amber-800 dark:text-amber-200">
-                Ứng dụng phải được tạo <span className="font-bold">bên trong tổ chức Lark của chính
+            <div className="mb-3 flex items-start gap-2 rounded-card border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] p-3 dark:border-[var(--color-warning-border)] dark:bg-[var(--color-warning-bg)]">
+              <AlertCircle size={15} className="mt-0.5 shrink-0 text-[var(--color-warning)]" />
+              <p className="text-xs leading-relaxed text-[var(--color-warning)]">
+                Ứng dụng phải được tạo <span className="font-semibold">bên trong tổ chức Lark của chính
                 công ty này</span>. Nếu dùng ứng dụng của một tổ chức Lark khác, nhân viên sẽ bị Lark
                 chặn ngay khi đăng nhập — Custom App chỉ phục vụ đúng tổ chức đã tạo ra nó.
               </p>
@@ -355,7 +338,7 @@ export default function LarkSettingsTab() {
               href={LARK_CONSOLE_URL}
               target="_blank"
               rel="noreferrer"
-              className="inline-flex items-center gap-2 rounded-xl border border-[var(--color-border)] px-4 py-2.5 text-sm font-bold text-[var(--color-foreground)] transition-colors hover:bg-[var(--color-muted)]/50"
+              className="inline-flex items-center gap-2 rounded-card border border-[var(--color-border)] px-4 py-2.5 text-sm font-medium text-[var(--color-foreground)] transition-colors hover:bg-[var(--color-muted)]/50"
             >
               Mở Lark Developer Console
               <ExternalLink size={14} />
@@ -378,11 +361,11 @@ export default function LarkSettingsTab() {
               hiển thị tên và logo công ty khi xác nhận.
             </p>
 
-            <div className="mt-4 space-y-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-muted)]/25 p-3.5">
+            <div className="mt-4 space-y-3 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)]/25 p-3.5">
               <div className="flex items-start gap-2">
                 <Users size={15} className="mt-0.5 shrink-0 text-[var(--color-primary)]" />
                 <div>
-                  <p className="text-xs font-bold text-[var(--color-foreground)]">
+                  <p className="text-xs font-medium text-[var(--color-foreground)]">
                     Phạm vi sử dụng (Availability)
                   </p>
                   <p className="mt-1 text-xs leading-relaxed text-[var(--color-muted-foreground)]">
@@ -397,7 +380,7 @@ export default function LarkSettingsTab() {
               <div className="flex items-start gap-2 border-t border-[var(--color-border)] pt-3">
                 <Rocket size={15} className="mt-0.5 shrink-0 text-[var(--color-primary)]" />
                 <div>
-                  <p className="text-xs font-bold text-[var(--color-foreground)]">
+                  <p className="text-xs font-medium text-[var(--color-foreground)]">
                     Phát hành phiên bản
                   </p>
                   <p className="mt-1 text-xs leading-relaxed text-[var(--color-muted-foreground)]">
@@ -420,7 +403,7 @@ export default function LarkSettingsTab() {
           >
             <div className="grid gap-3 sm:grid-cols-2">
               <div>
-                <label className="mb-1.5 block text-xs font-bold text-[var(--color-foreground)]">
+                <label className="text-label mb-1.5 block text-[var(--color-foreground)]">
                   App ID
                 </label>
                 <input
@@ -428,10 +411,10 @@ export default function LarkSettingsTab() {
                   placeholder="cli_xxxxxxxxxxxxxxxx"
                   className={inputCls}
                 />
-                {errors.appId && <p className="mt-1 text-xs text-rose-600">{errors.appId.message}</p>}
+                {errors.appId && <p className="mt-1 text-xs text-[var(--color-error)]">{errors.appId.message}</p>}
               </div>
               <div>
-                <label className="mb-1.5 block text-xs font-bold text-[var(--color-foreground)]">
+                <label className="text-label mb-1.5 block text-[var(--color-foreground)]">
                   App Secret
                 </label>
                 <input
@@ -444,30 +427,20 @@ export default function LarkSettingsTab() {
             </div>
 
             <div className="mt-3 flex flex-wrap items-center gap-2">
-              <button
-                type="button"
-                onClick={handleCredentialsSubmit((data) =>
+              <Button type="button" onClick={handleCredentialsSubmit((data) =>
                   updateSettings.mutate({
                     appId: data.appId.trim(),
                     appSecret: data.appSecret.trim() || undefined,
                   }, { onSuccess: () => setValue('appSecret', '') })
-                )}
-                disabled={updateSettings.isPending}
-                className="inline-flex items-center gap-2 rounded-xl bg-[var(--color-primary)] px-4 py-2.5 text-sm font-bold text-white transition-all hover:shadow-md disabled:opacity-50"
-              >
-                {updateSettings.isPending && <Loader2 size={15} className="animate-spin" />}
+                )} disabled={updateSettings.isPending}>
+                {updateSettings.isPending && <Loader2 aria-hidden="true" className="animate-spin" />}
                 Lưu
-              </button>
+              </Button>
 
-              <button
-                type="button"
-                onClick={() => testConnection.mutate()}
-                disabled={testConnection.isPending || !hasCredentials}
-                className="inline-flex items-center gap-2 rounded-xl border border-[var(--color-border)] px-4 py-2.5 text-sm font-bold text-[var(--color-foreground)] transition-colors hover:bg-[var(--color-muted)]/50 disabled:opacity-50"
-              >
-                {testConnection.isPending && <Loader2 size={15} className="animate-spin" />}
+              <Button variant="outline" type="button" onClick={() => testConnection.mutate()} disabled={testConnection.isPending || !hasCredentials}>
+                {testConnection.isPending && <Loader2 aria-hidden="true" className="animate-spin" />}
                 Kiểm tra kết nối
-              </button>
+              </Button>
             </div>
 
             {testConnection.data && (
@@ -475,8 +448,8 @@ export default function LarkSettingsTab() {
                 className={cn(
                   'mt-3 flex items-start gap-2 text-xs font-semibold',
                   testConnection.data.ok
-                    ? 'text-emerald-600 dark:text-emerald-400'
-                    : 'text-red-600 dark:text-red-400'
+                    ? 'text-[var(--color-success)]'
+                    : 'text-[var(--color-error)]'
                 )}
               >
                 {testConnection.data.ok ? (
@@ -499,19 +472,14 @@ export default function LarkSettingsTab() {
         done={isVerified}
         disabled={isCustomApp && !hasCredentials}
       >
-        <button
-          type="button"
-          onClick={() => connectMutation.mutate()}
-          disabled={connectMutation.isPending}
-          className="inline-flex items-center gap-2 rounded-xl bg-[var(--color-primary)] px-4 py-2.5 text-sm font-bold text-white transition-all hover:shadow-md disabled:opacity-50"
-        >
-          {connectMutation.isPending && <Loader2 size={15} className="animate-spin" />}
+        <Button type="button" onClick={() => connectMutation.mutate()} disabled={connectMutation.isPending}>
+          {connectMutation.isPending && <Loader2 aria-hidden="true" className="animate-spin" />}
           {isVerified ? 'Liên kết lại' : 'Kết nối với Lark'}
-        </button>
+        </Button>
 
         {/* Đã liên kết nhưng Lark không trả tên -> ứng dụng thiếu quyền đọc thông tin doanh nghiệp */}
         {isVerified && !settings.tenantName && (
-          <div className="mt-3 rounded-xl border border-[var(--color-border)] bg-[var(--color-muted)]/30 p-3">
+          <div className="mt-3 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)]/30 p-3">
             <p className="text-xs leading-relaxed text-[var(--color-muted-foreground)]">
               Chưa lấy được tên và logo công ty từ Lark. Bật thêm quyền dưới đây trong ứng dụng Lark
               rồi bấm <span className="font-semibold">Liên kết lại</span> để hiển thị đúng tên và
@@ -534,7 +502,7 @@ export default function LarkSettingsTab() {
       >
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
-            <label className="mb-1.5 block text-xs font-bold text-[var(--color-foreground)]">
+            <label className="text-label mb-1.5 block text-[var(--color-foreground)]">
               Đơn vị mặc định
             </label>
             <Select
@@ -558,7 +526,7 @@ export default function LarkSettingsTab() {
           </div>
 
           <div>
-            <label className="mb-1.5 block text-xs font-bold text-[var(--color-foreground)]">
+            <label className="text-label mb-1.5 block text-[var(--color-foreground)]">
               Vai trò mặc định
             </label>
             <Select
@@ -588,7 +556,7 @@ export default function LarkSettingsTab() {
         disabled={!canEnable && !settings.larkEnabled}
       >
         {!canEnable && !settings.larkEnabled ? (
-          <p className="flex items-start gap-2 text-xs font-semibold text-amber-600 dark:text-amber-400">
+          <p className="flex items-start gap-2 text-xs font-semibold text-[var(--color-warning)]">
             <Lock size={14} className="mt-0.5 shrink-0" />
             Còn thiếu: {settings.missingRequirements.join('; ')}
           </p>
@@ -598,10 +566,10 @@ export default function LarkSettingsTab() {
             onClick={() => updateSettings.mutate({ larkEnabled: !settings.larkEnabled })}
             disabled={updateSettings.isPending}
             className={cn(
-              'inline-flex items-center gap-2 rounded-xl px-4 py-2.5 text-sm font-bold transition-all disabled:opacity-50',
+              'inline-flex items-center gap-2 rounded-card px-4 py-2.5 text-sm font-medium transition-all disabled:opacity-50',
               settings.larkEnabled
                 ? 'border border-[var(--color-border)] text-[var(--color-foreground)] hover:bg-[var(--color-muted)]/50'
-                : 'bg-emerald-600 text-white hover:shadow-md'
+                : 'bg-[var(--color-success-solid)] text-white'
             )}
           >
             {updateSettings.isPending && <Loader2 size={15} className="animate-spin" />}
@@ -641,18 +609,13 @@ function TroubleshootingSection() {
   ]
 
   return (
-    <div className="rounded-2xl border border-[var(--color-border)] bg-[var(--color-card)]">
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        className="flex w-full items-center gap-3 p-5 text-left"
-      >
-        <HelpCircle size={18} className="shrink-0 text-[var(--color-muted-foreground)]" />
-        <span className="flex-1 text-sm font-bold text-[var(--color-foreground)]">
+    <div className="rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
+      <button className="flex h-9 w-full items-center gap-2.5 rounded-control px-2.5 text-left text-sm text-[var(--color-foreground)] transition-colors hover:bg-[var(--color-muted)] [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-[var(--color-muted-foreground)]" type="button" onClick={() => setOpen((v) => !v)}>
+        <HelpCircle aria-hidden="true" className="shrink-0 text-[var(--color-muted-foreground)]" />
+        <span className="flex-1 text-sm font-medium text-[var(--color-foreground)]">
           Nhân viên không đăng nhập được?
         </span>
-        <ChevronDown
-          size={18}
+        <ChevronDown aria-hidden="true"
           className={cn(
             'shrink-0 text-[var(--color-muted-foreground)] transition-transform',
             open && 'rotate-180'
@@ -665,9 +628,9 @@ function TroubleshootingSection() {
           {items.map((item) => (
             <div
               key={item.symptom}
-              className="rounded-xl border border-[var(--color-border)] bg-[var(--color-muted)]/20 p-3.5"
+              className="rounded-card border border-[var(--color-border)] bg-[var(--color-muted)]/20 p-3.5"
             >
-              <p className="text-xs font-bold text-[var(--color-foreground)]">
+              <p className="text-xs font-medium text-[var(--color-foreground)]">
                 Nhân viên thấy: <span className="font-mono font-normal">{item.symptom}</span>
               </p>
               <p className="mt-1.5 text-xs text-[var(--color-muted-foreground)]">{item.cause}</p>

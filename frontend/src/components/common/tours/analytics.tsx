@@ -17,13 +17,13 @@ import type { TourDef } from './registry'
  */
 
 const note = (text: string) => (
-  <p className="text-[11px] bg-indigo-50 dark:bg-indigo-900/20 p-2 rounded-lg text-indigo-700 dark:text-indigo-300 font-bold italic">
+  <p className="text-xs bg-[var(--color-primary-soft)] p-2 rounded-control text-[var(--color-primary)] font-medium italic">
     💡 {text}
   </p>
 )
 
 const warn = (text: string) => (
-  <p className="text-[11px] bg-amber-50 dark:bg-amber-900/20 p-2 rounded-lg text-amber-700 dark:text-amber-400 font-bold italic border-l-4 border-amber-400">
+  <p className="text-xs bg-[var(--color-warning-bg)] p-2 rounded-control text-[var(--color-warning)] font-medium italic border-l-4 border-[var(--color-warning-border)]">
     ⚠️ {text}
   </p>
 )
@@ -57,7 +57,7 @@ const analyticsTours: Record<TourKey, TourDef> = {
               Hai cụm đầu đổi theo cấu hình tổ chức: <strong>bật OKR</strong> thì xem theo mục tiêu
               và kết quả then chốt; <strong>tắt OKR</strong> thì xem theo chỉ tiêu KPI.
             </p>
-            <p className="text-[11px] text-slate-500">
+            <p className="text-caption">
               Không phải hai bộ thẻ song song — mỗi lúc chỉ một cặp hiện ra, nên bạn sẽ không thấy đủ cả
               bốn thẻ.
             </p>
@@ -219,10 +219,10 @@ const analyticsTours: Record<TourKey, TourDef> = {
         title: '🥧 Ba khối trả lời ba câu hỏi',
         content: (
           <div className="space-y-2">
-            <ul className="text-[11px] space-y-1.5 list-disc pl-4 text-slate-500 font-medium">
-              <li><strong className="text-slate-900 dark:text-white">Phân bổ trạng thái KPI:</strong> việc của tôi đang đọng ở khâu nào.</li>
-              <li><strong className="text-slate-900 dark:text-white">Trạng thái bài nộp:</strong> tôi có đang trễ bài nào không.</li>
-              <li><strong className="text-slate-900 dark:text-white">Xu hướng điểm số:</strong> tôi đang tiến bộ hay đi xuống qua các đợt.</li>
+            <ul className="text-xs space-y-1.5 list-disc pl-4 text-[var(--color-muted-foreground)] font-medium">
+              <li><strong className="text-[var(--color-foreground)]">Phân bổ trạng thái KPI:</strong> việc của tôi đang đọng ở khâu nào.</li>
+              <li><strong className="text-[var(--color-foreground)]">Trạng thái bài nộp:</strong> tôi có đang trễ bài nào không.</li>
+              <li><strong className="text-[var(--color-foreground)]">Xu hướng điểm số:</strong> tôi đang tiến bộ hay đi xuống qua các đợt.</li>
             </ul>
           </div>
         ),

@@ -83,8 +83,8 @@ export default function WorkflowRail({ previewStages, preview = false, className
     <nav
       aria-label="Các bước của luồng KPI"
       className={cn(
-        'flex items-center gap-1 overflow-x-auto rounded-2xl border border-slate-200 bg-white/70 p-1.5',
-        'dark:border-slate-800 dark:bg-slate-900/60',
+        'flex items-center gap-1 overflow-x-auto rounded-card border border-[var(--color-border)] bg-[var(--color-card)] p-1.5',
+        '',
         className,
       )}
     >
@@ -92,7 +92,7 @@ export default function WorkflowRail({ previewStages, preview = false, className
         const isCurrent = current?.code === stage.code
         const content = (
           <>
-            <span className={cn('shrink-0', isCurrent ? 'text-indigo-600 dark:text-indigo-400' : 'text-slate-400')}>
+            <span className={cn('shrink-0', isCurrent ? 'text-[var(--color-primary)]' : 'text-[var(--color-subtle-foreground)]')}>
               {stageIcon(stage.code, 16)}
             </span>
             <span className="whitespace-nowrap">{labelOf(stage)}</span>
@@ -100,15 +100,15 @@ export default function WorkflowRail({ previewStages, preview = false, className
         )
 
         const shared = cn(
-          'flex items-center gap-2 rounded-xl px-3 py-2 text-xs font-bold transition-colors',
+          'flex items-center gap-2 rounded-card px-3 py-2 text-xs font-medium transition-colors',
           isCurrent
-            ? 'bg-indigo-50 text-indigo-700 dark:bg-indigo-900/30 dark:text-indigo-300'
-            : 'text-slate-600 hover:bg-slate-100 dark:text-slate-300 dark:hover:bg-slate-800',
+            ? 'bg-[var(--color-primary-soft)] text-[var(--color-primary)]'
+            : 'text-[var(--color-muted-foreground)] hover:bg-[var(--color-muted)]',
         )
 
         return (
           <div key={stage.code} className="flex items-center">
-            {index > 0 && <ChevronRight size={14} className="mx-0.5 shrink-0 text-slate-300 dark:text-slate-700" />}
+            {index > 0 && <ChevronRight size={14} className="mx-0.5 shrink-0 text-[var(--color-subtle-foreground)]" />}
             {preview ? (
               <span className={shared} title={STAGE_HINTS[stage.code]}>
                 {content}

@@ -62,7 +62,7 @@ export default function UnitClassificationSection({ overview, part }: {
 
   if (overview && overview.evaluatedMembers === 0) {
     return (
-      <div className="bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-6 text-center text-sm text-slate-400 font-medium">
+      <div className="bg-[var(--color-card)] rounded-2xl border border-[var(--color-border)] p-6 text-center text-sm text-slate-400 font-medium">
         Chưa có đánh giá nào để xếp loại đơn vị cho phạm vi/đợt/kỳ đang chọn.
         {scopeLabel && <span className="block text-xs mt-1 text-slate-400">Đợt đang xét: {scopeLabel}</span>}
       </div>
@@ -75,13 +75,13 @@ export default function UnitClassificationSection({ overview, part }: {
         <>
         {scopeLabel && (
           <p className="text-xs font-medium text-slate-400">
-            Số liệu của: <span className="text-slate-600 dark:text-slate-300">{scopeLabel}</span>
+            Số liệu của: <span className="text-[var(--color-muted-foreground)]">{scopeLabel}</span>
           </p>
         )}
         {/* Badge xếp loại + phân bố */}
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
           {/* Badge lớn */}
-          <div className="rounded-2xl border border-slate-200 dark:border-slate-800 p-5 flex flex-col items-center justify-center gap-2 text-center"
+          <div className="rounded-2xl border border-[var(--color-border)] p-5 flex flex-col items-center justify-center gap-2 text-center"
             style={{ backgroundColor: cls ? `${cls.color}14` : undefined }}>
             <div className="w-12 h-12 rounded-full flex items-center justify-center shrink-0"
               style={{ backgroundColor: cls ? `${cls.color}22` : '#94a3b822', color: cls?.color ?? '#94a3b8' }}>
@@ -99,10 +99,10 @@ export default function UnitClassificationSection({ overview, part }: {
           </div>
 
           {/* Phân bố người theo mức */}
-          <div className="lg:col-span-2 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 bg-white dark:bg-slate-900">
+          <div className="lg:col-span-2 rounded-2xl border border-[var(--color-border)] p-5 bg-[var(--color-card)]">
             <h4 className="text-xs font-medium text-slate-400 mb-3">Phân bố người theo mức</h4>
             {/* Thanh ngang xếp chồng */}
-            <div className="w-full h-3 rounded-full overflow-hidden flex bg-slate-100 dark:bg-slate-800 mb-3">
+            <div className="w-full h-3 rounded-full overflow-hidden flex bg-[var(--color-muted)] mb-3">
               {dist.filter(d => d.percent > 0).map(d => (
                 <div key={d.level} style={{ width: `${d.percent}%`, backgroundColor: d.color }} title={`${d.level}: ${fmt1(d.percent)}%`} />
               ))}
@@ -111,7 +111,7 @@ export default function UnitClassificationSection({ overview, part }: {
               {dist.map(d => (
                 <div key={d.level} className="text-center">
                   <div className="w-full h-1.5 rounded-full" style={{ backgroundColor: d.color }} />
-                  <p className="text-[13px] font-semibold text-slate-800 dark:text-slate-100 mt-1">{d.count}</p>
+                  <p className="text-[13px] font-semibold text-[var(--color-foreground)] mt-1">{d.count}</p>
                   <p className="text-xs font-medium text-slate-400 truncate" title={d.level}>{d.level}</p>
                   <p className="text-xs font-semibold" style={{ color: d.color }}>{fmt1(d.percent)}%</p>
                 </div>
@@ -122,7 +122,7 @@ export default function UnitClassificationSection({ overview, part }: {
 
         {/* Tỉ trọng xếp loại qua các đợt — 100% stacked area */}
         {sharePoints.length > 1 && (
-          <div className="rounded-2xl border border-slate-200 dark:border-slate-800 p-5 bg-white dark:bg-slate-900">
+          <div className="rounded-2xl border border-[var(--color-border)] p-5 bg-[var(--color-card)]">
             <h4 className="text-sm font-semibold flex items-center gap-2 mb-1">
               <TrendingUp size={16} className="text-emerald-600" /> Tỉ trọng xếp loại qua các đợt
             </h4>
@@ -145,15 +145,15 @@ export default function UnitClassificationSection({ overview, part }: {
 
       {/* Xếp loại nhanh các đơn vị con */}
       {showChildren && (overview?.children?.length ?? 0) > 0 && (
-        <div className="rounded-2xl border border-slate-200 dark:border-slate-800 p-5 bg-white dark:bg-slate-900">
+        <div className="rounded-2xl border border-[var(--color-border)] p-5 bg-[var(--color-card)]">
           <h4 className="text-sm font-semibold flex items-center gap-2 mb-4">
             <Building2 size={16} className="text-[var(--color-primary)]" /> Xếp loại đơn vị con
           </h4>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {overview!.children.map(c => (
-              <div key={c.orgUnitId} className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 dark:border-slate-800 px-4 py-3">
+              <div key={c.orgUnitId} className="flex items-center justify-between gap-3 rounded-lg border border-[var(--color-border)] px-4 py-3">
                 <div className="min-w-0">
-                  <p className="text-[13px] font-semibold text-slate-800 dark:text-slate-100 truncate">{c.orgUnitName}</p>
+                  <p className="text-[13px] font-semibold text-[var(--color-foreground)] truncate">{c.orgUnitName}</p>
                   <p className="text-xs font-medium text-slate-400">
                     {c.evaluatedMembers} người đánh giá
                     {c.appliedProfileName ? ` · ${c.appliedProfileName}` : ''}

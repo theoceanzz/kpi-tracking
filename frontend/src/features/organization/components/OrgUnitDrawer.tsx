@@ -3,7 +3,7 @@ import { useForm, SubmitHandler, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import * as z from 'zod'
 import { useFormAssistStore } from '@/store/formAssistStore'
-import { X, Upload, Building2, MapPin, Phone, Mail, Image as ImageIcon } from 'lucide-react'
+import { Upload, Building2, MapPin, Phone, Mail, Image as ImageIcon } from 'lucide-react'
 import { 
   useCreateOrgUnit, 
   useUpdateOrgUnit, 
@@ -16,6 +16,9 @@ import { useRoles } from '../hooks/useUserRoles'
 
 import { cn } from '@/lib/utils'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { getApiErrorMessage } from '@/lib/apiError'
+import { Drawer, DialogFooter } from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
 
 
 export type DrawerMode = 'create-root' | 'create-child' | 'edit'
@@ -30,8 +33,8 @@ const NONE = '__NONE__'
 const dropdownCls = 'z-[300]'
 
 const triggerCls =
-  'h-auto w-full px-3 py-2 rounded-lg border-gray-300 bg-white text-sm font-normal transition-all ' +
-  'focus:ring-2 focus:ring-blue-500 focus:ring-offset-0 disabled:bg-gray-50 disabled:text-gray-400'
+  'w-full text-sm font-normal ' +
+  'disabled:bg-[var(--color-muted)] disabled:text-[var(--color-subtle-foreground)]'
 
 export interface DrawerState {
   isOpen: boolean
@@ -275,7 +278,7 @@ export function OrgUnitDrawer({ orgId, drawerState, onClose, hierarchyLevels }: 
 
       onClose()
     } catch (error: any) {
-      const message = error?.response?.data?.message || ''
+      const message = getApiErrorMessage(error, '')
       if (message.toLowerCase().includes('tên')) {
         setError('name', { type: 'manual', message: message })
       } else if (message.toLowerCase().includes('mã')) {
@@ -285,297 +288,268 @@ export function OrgUnitDrawer({ orgId, drawerState, onClose, hierarchyLevels }: 
     }
   }
 
-  if (!drawerState.isOpen) return null
-
   return (
-    <div 
-      className="fixed inset-0 z-[200] flex justify-end bg-black/50 transition-opacity"
-      onClick={onClose}
+    <Drawer
+      open={drawerState.isOpen}
+      onClose={onClose}
+      size="md"
+      dismissible={!(createMutation.isPending || updateMutation.isPending || uploadLogoMutation.isPending)}
+      title={drawerState.mode === 'edit' ? 'Chỉnh sửa thành phần' : 'Thêm thành phần mới'}
+      footer={
+        <DialogFooter
+          secondary={<Button variant="outline" onClick={onClose}>Hủy</Button>}
+          primary={
+            <Button type="submit" form="org-form" disabled={createMutation.isPending || updateMutation.isPending || uploadLogoMutation.isPending}>
+              {(createMutation.isPending || updateMutation.isPending || uploadLogoMutation.isPending) ? 'Đang xử lý...' : 'Lưu thay đổi'}
+            </Button>
+          }
+        />
+      }
     >
-      <div
-        className="w-full max-w-[500px] bg-white h-full shadow-2xl flex flex-col animate-in slide-in-from-right duration-300"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between p-4 border-b">
-          <div className="flex items-center space-x-2">
-            <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center">
-              <Building2 className="w-5 h-5 text-blue-600" />
+      <form id="org-form" onSubmit={handleSubmit(onSubmit as any)} className="space-y-6">
+        
+        {/* Logo Upload Section */}
+        <div className="space-y-2">
+          <label className="text-label text-[var(--color-foreground)]">Logo</label>
+          <div className="flex items-center space-x-4">
+            <div className="w-20 h-20 rounded-card border-2 border-dashed border-[var(--color-border)] bg-[var(--color-muted)] flex items-center justify-center overflow-hidden relative group">
+              {logoPreview ? (
+                <img src={logoPreview} alt="Logo preview" className="w-full h-full object-cover" />
+              ) : (
+                <ImageIcon className="w-8 h-8 text-[var(--color-subtle-foreground)]" />
+              )}
+              <label className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer">
+                <Upload className="w-5 h-5 text-white" />
+                <input type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
+              </label>
             </div>
-            <h2 className="text-lg font-bold text-gray-900">
-              {drawerState.mode === 'edit' ? 'Chỉnh sửa thành phần' : 'Thêm thành phần mới'}
-            </h2>
+            <div className="flex-1">
+              <p className="text-xs text-[var(--color-muted-foreground)] mb-2">Định dạng hỗ trợ: PNG, JPG, WEBP. Tối đa 2MB.</p>
+              <label className="text-label cursor-pointer inline-flex items-center px-3 py-1.5 border border-[var(--color-border-strong)] rounded-control font-medium text-[var(--color-foreground)] bg-[var(--color-card)] hover:bg-[var(--color-muted)] transition-colors">
+                <Upload className="w-4 h-4 mr-2" />
+                Thay đổi logo
+                <input type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
+              </label>
+            </div>
           </div>
-          <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded-full transition-colors">
-            <X className="w-5 h-5 text-gray-500" />
-          </button>
         </div>
 
-        <div className="flex-1 overflow-y-auto p-6">
-          <form id="org-form" onSubmit={handleSubmit(onSubmit as any)} className="space-y-6">
-            
-            {/* Logo Upload Section */}
-            <div className="space-y-2">
-              <label className="text-sm font-semibold text-gray-700">Logo</label>
-              <div className="flex items-center space-x-4">
-                <div className="w-20 h-20 rounded-xl border-2 border-dashed border-gray-200 bg-gray-50 flex items-center justify-center overflow-hidden relative group">
-                  {logoPreview ? (
-                    <img src={logoPreview} alt="Logo preview" className="w-full h-full object-cover" />
-                  ) : (
-                    <ImageIcon className="w-8 h-8 text-gray-300" />
-                  )}
-                  <label className="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center cursor-pointer">
-                    <Upload className="w-5 h-5 text-white" />
-                    <input type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
-                  </label>
-                </div>
-                <div className="flex-1">
-                  <p className="text-xs text-gray-500 mb-2">Định dạng hỗ trợ: PNG, JPG, WEBP. Tối đa 2MB.</p>
-                  <label className="cursor-pointer inline-flex items-center px-3 py-1.5 border border-gray-300 rounded-md text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 transition-colors">
-                    <Upload className="w-4 h-4 mr-2" />
-                    Thay đổi logo
-                    <input type="file" className="hidden" accept="image/*" onChange={handleFileChange} />
-                  </label>
-                </div>
-              </div>
+        <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-1">
+            <label className="text-label text-[var(--color-foreground)]">Trực thuộc</label>
+            <input 
+              type="text" 
+              value={parentName} 
+              disabled 
+              className="w-full px-3 py-2 border rounded-control bg-[var(--color-muted)] text-[var(--color-muted-foreground)] text-sm border-[var(--color-border)]"
+            />
+          </div>
+          <div className="space-y-1">
+            <label className="text-label text-[var(--color-foreground)]">Cấp bậc</label>
+            <div className="px-3 py-2 border rounded-control bg-[var(--color-info-bg)] text-[var(--color-info)] text-sm border-[var(--color-info-border)] font-medium">
+              Phân cấp
             </div>
+          </div>
+        </div>
 
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-1">
-                <label className="text-sm font-semibold text-gray-700">Trực thuộc</label>
+        <div className="space-y-1">
+          <label className="text-label text-[var(--color-foreground)]">Tên thành phần <span className="text-[var(--color-error)]">*</span></label>
+          <input 
+            type="text" 
+            {...register('name')}
+            placeholder="VD: Phòng Kỹ thuật, Chi nhánh Hà Nội..."
+            className="w-full px-3 py-2 border rounded-control focus:ring-2 focus:ring-[var(--color-info-solid)] outline-none border-[var(--color-border-strong)] transition-all font-medium"
+          />
+          {errors.name && <p className="text-xs text-[var(--color-error)] mt-1">{errors.name.message}</p>}
+        </div>
+
+        <div className="space-y-1">
+          <label className="text-label text-[var(--color-foreground)]">Mã thành phần <span className="text-[var(--color-error)]">*</span></label>
+          <input 
+            type="text" 
+            {...register('code')}
+            disabled={drawerState.mode === 'create-root'}
+            placeholder="VD: PKT, ACC, HR..."
+            className={`w-full px-3 py-2 border rounded-control outline-none transition-all ${drawerState.mode === 'create-root' ? 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)] border-[var(--color-border)]' : 'border-[var(--color-border-strong)] focus:ring-2 focus:ring-[var(--color-info-solid)] font-medium'}`}
+          />
+          {errors.code && <p className="text-xs text-[var(--color-error)] mt-1">{errors.code.message}</p>}
+        </div>
+
+        <div className="space-y-1">
+          <label className="text-label text-[var(--color-foreground)]">Loại thành phần <span className="text-[var(--color-error)]">*</span></label>
+          <input 
+            type="text" 
+            {...register('unitTypeName')}
+            disabled={drawerState.mode === 'edit' || drawerState.mode === 'create-child'}
+            placeholder="VD: Công ty, Phòng ban..."
+            className={`w-full px-3 py-2 border rounded-control outline-none transition-all ${drawerState.mode !== 'create-root' ? 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)] border-[var(--color-border)]' : 'border-[var(--color-border-strong)] focus:ring-2 focus:ring-[var(--color-info-solid)]'}`}
+          />
+          {errors.unitTypeName && <p className="text-xs text-[var(--color-error)] mt-1">{errors.unitTypeName.message}</p>}
+        </div>
+
+        {drawerState.mode === 'edit' && (
+          <div className="space-y-1">
+            <label className="text-label text-[var(--color-foreground)]">Trạng thái vận hành</label>
+            <Controller
+              name="status"
+              control={control}
+              render={({ field }) => (
+                <Select value={field.value || 'ACTIVE'} onValueChange={field.onChange}>
+                  <SelectTrigger className={cn(triggerCls, 'font-semibold')}>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent className={dropdownCls}>
+                    <SelectItem value="ACTIVE">HOẠT ĐỘNG</SelectItem>
+                    <SelectItem value="TRIAL">DÙNG THỬ (MỚI)</SelectItem>
+                    <SelectItem value="INACTIVE">TẠM DỪNG / NGƯNG</SelectItem>
+                    <SelectItem value="SUSPENDED">ĐÌNH CHỈ / KHÓA</SelectItem>
+                  </SelectContent>
+                </Select>
+              )}
+            />
+          </div>
+        )}
+
+        <div className="pt-4 border-t">
+          <h3 className="text-section-title text-[var(--color-foreground)] mb-4 flex items-center">
+            <Mail className="w-4 h-4 mr-2 text-[var(--color-subtle-foreground)]" /> Thông tin liên hệ
+          </h3>
+          <div className="space-y-4">
+            <div className="space-y-1">
+              <label className="text-label text-[var(--color-foreground)]">Email</label>
+              <input 
+                type="email" 
+                {...register('email')}
+                placeholder="example@company.com"
+                className="w-full px-3 py-2 border rounded-control focus:ring-2 focus:ring-[var(--color-info-solid)] outline-none border-[var(--color-border-strong)] transition-all"
+              />
+              {errors.email && <p className="text-xs text-[var(--color-error)] mt-1">{errors.email.message}</p>}
+            </div>
+            <div className="space-y-1">
+              <label className="text-label text-[var(--color-foreground)]">Số điện thoại</label>
+              <div className="relative">
+                <Phone className="w-4 h-4 absolute left-3 top-3 text-[var(--color-subtle-foreground)]" />
                 <input 
                   type="text" 
-                  value={parentName} 
-                  disabled 
-                  className="w-full px-3 py-2 border rounded-lg bg-gray-50 text-gray-500 text-sm border-gray-200"
+                  {...register('phone')}
+                  placeholder="0912 345 678"
+                  className="w-full pl-9 pr-3 py-2 border rounded-control focus:ring-2 focus:ring-[var(--color-info-solid)] outline-none border-[var(--color-border-strong)] transition-all"
                 />
               </div>
+              {errors.phone && <p className="text-xs text-[var(--color-error)] mt-1">{errors.phone.message}</p>}
+            </div>
+          </div>
+        </div>
+
+        <div className="pt-4 border-t">
+          <h3 className="text-section-title text-[var(--color-foreground)] mb-4 flex items-center">
+            <MapPin className="w-4 h-4 mr-2 text-[var(--color-subtle-foreground)]" /> Địa điểm
+          </h3>
+          <div className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
               <div className="space-y-1">
-                <label className="text-sm font-semibold text-gray-700">Cấp bậc</label>
-                <div className="px-3 py-2 border rounded-lg bg-blue-50 text-blue-700 text-sm border-blue-100 font-bold uppercase tracking-widest">
-                  Phân cấp
-                </div>
-              </div>
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-sm font-semibold text-gray-700">Tên thành phần <span className="text-red-500">*</span></label>
-              <input 
-                type="text" 
-                {...register('name')}
-                placeholder="VD: Phòng Kỹ thuật, Chi nhánh Hà Nội..."
-                className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none border-gray-300 transition-all font-medium"
-              />
-              {errors.name && <p className="text-xs text-red-500 mt-1">{errors.name.message}</p>}
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-sm font-semibold text-gray-700">Mã thành phần <span className="text-red-500">*</span></label>
-              <input 
-                type="text" 
-                {...register('code')}
-                disabled={drawerState.mode === 'create-root'}
-                placeholder="VD: PKT, ACC, HR..."
-                className={`w-full px-3 py-2 border rounded-lg outline-none transition-all ${drawerState.mode === 'create-root' ? 'bg-gray-50 text-gray-500 border-gray-200' : 'border-gray-300 focus:ring-2 focus:ring-blue-500 font-medium'}`}
-              />
-              {errors.code && <p className="text-xs text-red-500 mt-1">{errors.code.message}</p>}
-            </div>
-
-            <div className="space-y-1">
-              <label className="text-sm font-semibold text-gray-700">Loại thành phần <span className="text-red-500">*</span></label>
-              <input 
-                type="text" 
-                {...register('unitTypeName')}
-                disabled={drawerState.mode === 'edit' || drawerState.mode === 'create-child'}
-                placeholder="VD: Công ty, Phòng ban..."
-                className={`w-full px-3 py-2 border rounded-lg outline-none transition-all ${drawerState.mode !== 'create-root' ? 'bg-gray-50 text-gray-500 border-gray-200' : 'border-gray-300 focus:ring-2 focus:ring-blue-500'}`}
-              />
-              {errors.unitTypeName && <p className="text-xs text-red-500 mt-1">{errors.unitTypeName.message}</p>}
-            </div>
-
-            {drawerState.mode === 'edit' && (
-              <div className="space-y-1">
-                <label className="text-sm font-semibold text-gray-700">Trạng thái vận hành</label>
+                <label className="text-label text-[var(--color-foreground)]">Tỉnh/Thành phố</label>
                 <Controller
-                  name="status"
+                  name="provinceId"
                   control={control}
                   render={({ field }) => (
-                    <Select value={field.value || 'ACTIVE'} onValueChange={field.onChange}>
-                      <SelectTrigger className={cn(triggerCls, 'font-bold')}>
+                    <Select
+                      value={field.value || NONE}
+                      onValueChange={(v) => {
+                        field.onChange(v === NONE ? '' : v)
+                        // Đổi tỉnh thì quận cũ không còn thuộc tỉnh mới nữa; không xoá thì
+                        // form vẫn giữ districtId cũ và gửi lên một quận lệch tỉnh.
+                        setValue('districtId', '')
+                      }}
+                    >
+                      <SelectTrigger className={triggerCls}>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent className={dropdownCls}>
-                        <SelectItem value="ACTIVE">HOẠT ĐỘNG</SelectItem>
-                        <SelectItem value="TRIAL">DÙNG THỬ (MỚI)</SelectItem>
-                        <SelectItem value="INACTIVE">TẠM DỪNG / NGƯNG</SelectItem>
-                        <SelectItem value="SUSPENDED">ĐÌNH CHỈ / KHÓA</SelectItem>
+                        <SelectItem value={NONE}>Chọn Tỉnh/Thành</SelectItem>
+                        {provinces.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   )}
                 />
               </div>
-            )}
-
-            <div className="pt-4 border-t">
-              <h3 className="text-sm font-bold text-gray-900 mb-4 flex items-center">
-                <Mail className="w-4 h-4 mr-2 text-gray-400" /> Thông tin liên hệ
-              </h3>
-              <div className="space-y-4">
-                <div className="space-y-1">
-                  <label className="text-sm font-semibold text-gray-700">Email</label>
-                  <input 
-                    type="email" 
-                    {...register('email')}
-                    placeholder="example@company.com"
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none border-gray-300 transition-all"
-                  />
-                  {errors.email && <p className="text-xs text-red-500 mt-1">{errors.email.message}</p>}
-                </div>
-                <div className="space-y-1">
-                  <label className="text-sm font-semibold text-gray-700">Số điện thoại</label>
-                  <div className="relative">
-                    <Phone className="w-4 h-4 absolute left-3 top-3 text-gray-400" />
-                    <input 
-                      type="text" 
-                      {...register('phone')}
-                      placeholder="0912 345 678"
-                      className="w-full pl-9 pr-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none border-gray-300 transition-all"
-                    />
-                  </div>
-                  {errors.phone && <p className="text-xs text-red-500 mt-1">{errors.phone.message}</p>}
-                </div>
-              </div>
-            </div>
-
-            <div className="pt-4 border-t">
-              <h3 className="text-sm font-bold text-gray-900 mb-4 flex items-center">
-                <MapPin className="w-4 h-4 mr-2 text-gray-400" /> Địa điểm
-              </h3>
-              <div className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
-                  <div className="space-y-1">
-                    <label className="text-sm font-semibold text-gray-700">Tỉnh/Thành phố</label>
-                    <Controller
-                      name="provinceId"
-                      control={control}
-                      render={({ field }) => (
-                        <Select
-                          value={field.value || NONE}
-                          onValueChange={(v) => {
-                            field.onChange(v === NONE ? '' : v)
-                            // Đổi tỉnh thì quận cũ không còn thuộc tỉnh mới nữa; không xoá thì
-                            // form vẫn giữ districtId cũ và gửi lên một quận lệch tỉnh.
-                            setValue('districtId', '')
-                          }}
-                        >
-                          <SelectTrigger className={triggerCls}>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent className={dropdownCls}>
-                            <SelectItem value={NONE}>Chọn Tỉnh/Thành</SelectItem>
-                            {provinces.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
-                      )}
-                    />
-                  </div>
-                  <div className="space-y-1">
-                    <label className="text-sm font-semibold text-gray-700">Quận/Huyện</label>
-                    <Controller
-                      name="districtId"
-                      control={control}
-                      render={({ field }) => (
-                        <Select
-                          value={field.value || NONE}
-                          onValueChange={(v) => field.onChange(v === NONE ? '' : v)}
-                          disabled={!selectedProvinceId}
-                        >
-                          <SelectTrigger className={triggerCls}>
-                            <SelectValue />
-                          </SelectTrigger>
-                          <SelectContent className={dropdownCls}>
-                            <SelectItem value={NONE}>Chọn Quận/Huyện</SelectItem>
-                            {districts.map(d => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
-                          </SelectContent>
-                        </Select>
-                      )}
-                    />
-                  </div>
-                </div>
-                <div className="space-y-1">
-                  <label className="text-sm font-semibold text-gray-700">Địa chỉ chi tiết</label>
-                  <input 
-                    type="text" 
-                    {...register('address')}
-                    placeholder="Số nhà, tên đường..."
-                    className="w-full px-3 py-2 border rounded-lg focus:ring-2 focus:ring-blue-500 outline-none border-gray-300 transition-all"
-                  />
-                </div>
-              </div>
-            </div>
-
-            <div className="pt-4 border-t">
-              <h3 className="text-sm font-bold text-gray-900 mb-4 flex items-center">
-                <Building2 className="w-4 h-4 mr-2 text-gray-400" /> Phạm vi vai trò được phép
-              </h3>
-              <p className="text-xs text-gray-500 mb-4 italic">Giới hạn các vai trò có thể gán cho thành viên trong đơn vị này. Nếu không chọn, sẽ không có vai trò nào được phép gán.</p>
-              <div className="grid grid-cols-2 gap-3">
-                {[...filteredRoles].sort((a, b) => (a.level ?? 0) - (b.level ?? 0)).map(role => {
-                  const disableReason = getRoleDisableReason(role)
-                  const isDisabled = !!disableReason
-
-                  return (
-                    <label 
-                      key={role.id} 
-                      className={cn(
-                        "flex items-center p-3 rounded-xl border border-gray-100 transition-all cursor-pointer group",
-                        isDisabled ? "opacity-50 cursor-not-allowed bg-gray-50" : "hover:bg-gray-50"
-                      )}
+              <div className="space-y-1">
+                <label className="text-label text-[var(--color-foreground)]">Quận/Huyện</label>
+                <Controller
+                  name="districtId"
+                  control={control}
+                  render={({ field }) => (
+                    <Select
+                      value={field.value || NONE}
+                      onValueChange={(v) => field.onChange(v === NONE ? '' : v)}
+                      disabled={!selectedProvinceId}
                     >
-                      <input 
-                        type="checkbox"
-                        className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500 disabled:opacity-50"
-                        value={role.id}
-                        disabled={isDisabled}
-                        {...register('roleIds')}
-                      />
-                      <div className="ml-3">
-                        <p className="text-sm font-black text-gray-700 group-hover:text-blue-700 transition-colors uppercase">
-                          {role.name}
-                        </p>
-                        <div className="flex items-center space-x-2">
-                          <p className="text-[10px] text-gray-400 font-bold uppercase">{role.isSystem ? 'Hệ thống' : 'Tùy chỉnh'}</p>
-                        </div>
-                        {isDisabled && (
-                          <p className="text-[9px] text-red-500 font-bold mt-1 uppercase">{disableReason}</p>
-                        )}
-                      </div>
-                    </label>
-                  )
-                })}
+                      <SelectTrigger className={triggerCls}>
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent className={dropdownCls}>
+                        <SelectItem value={NONE}>Chọn Quận/Huyện</SelectItem>
+                        {districts.map(d => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
+                      </SelectContent>
+                    </Select>
+                  )}
+                />
               </div>
             </div>
-          </form>
+            <div className="space-y-1">
+              <label className="text-label text-[var(--color-foreground)]">Địa chỉ chi tiết</label>
+              <input 
+                type="text" 
+                {...register('address')}
+                placeholder="Số nhà, tên đường..."
+                className="w-full px-3 py-2 border rounded-control focus:ring-2 focus:ring-[var(--color-info-solid)] outline-none border-[var(--color-border-strong)] transition-all"
+              />
+            </div>
+          </div>
         </div>
 
-        <div className="p-4 border-t bg-gray-50 flex justify-end space-x-3 rounded-b-2xl">
-          <button 
-            type="button"
-            onClick={onClose}
-            className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-white text-gray-700 font-semibold transition-all shadow-sm"
-          >
-            Hủy
-          </button>
-          <button 
-            type="submit"
-            form="org-form"
-            disabled={createMutation.isPending || updateMutation.isPending || uploadLogoMutation.isPending}
-            className="px-8 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 font-bold transition-all shadow-md shadow-blue-100 disabled:opacity-50"
-          >
-            {(createMutation.isPending || updateMutation.isPending || uploadLogoMutation.isPending) ? 'Đang xử lý...' : 'Lưu thay đổi'}
-          </button>
+        <div className="pt-4 border-t">
+          <h3 className="text-section-title text-[var(--color-foreground)] mb-4 flex items-center">
+            <Building2 className="w-4 h-4 mr-2 text-[var(--color-subtle-foreground)]" /> Phạm vi vai trò được phép
+          </h3>
+          <p className="text-xs text-[var(--color-muted-foreground)] mb-4 italic">Giới hạn các vai trò có thể gán cho thành viên trong đơn vị này. Nếu không chọn, sẽ không có vai trò nào được phép gán.</p>
+          <div className="grid grid-cols-2 gap-3">
+            {[...filteredRoles].sort((a, b) => (a.level ?? 0) - (b.level ?? 0)).map(role => {
+              const disableReason = getRoleDisableReason(role)
+              const isDisabled = !!disableReason
+
+              return (
+                <label 
+                  key={role.id} 
+                  className={cn(
+                    "flex items-center p-3 rounded-card border border-[var(--color-border)] transition-all cursor-pointer group",
+                    isDisabled ? "opacity-50 cursor-not-allowed bg-[var(--color-muted)]" : "hover:bg-[var(--color-muted)]"
+                  )}
+                >
+                  <input 
+                    type="checkbox"
+                    className="w-4 h-4 rounded border-[var(--color-border-strong)] text-[var(--color-info)] focus:ring-[var(--color-info-solid)] disabled:opacity-50"
+                    value={role.id}
+                    disabled={isDisabled}
+                    {...register('roleIds')}
+                  />
+                  <div className="ml-3">
+                    <p className="text-sm font-semibold text-[var(--color-foreground)] group-hover:text-[var(--color-info)] transition-colors">
+                      {role.name}
+                    </p>
+                    <div className="flex items-center space-x-2">
+                      <p className="text-eyebrow">{role.isSystem ? 'Hệ thống' : 'Tùy chỉnh'}</p>
+                    </div>
+                    {isDisabled && (
+                      <p className="text-xs text-[var(--color-error)] font-medium mt-1">{disableReason}</p>
+                    )}
+                  </div>
+                </label>
+              )
+            })}
+          </div>
         </div>
-      </div>
-    </div>
+      </form>
+    </Drawer>
   )
 }
-

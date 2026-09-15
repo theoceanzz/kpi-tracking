@@ -1,4 +1,3 @@
-import { Gauge } from 'lucide-react'
 import SettingsSectionLayout from '@/components/common/SettingsSectionLayout'
 import { usePageTitle } from '@/features/organization/hooks/usePageTitle'
 import { useNotificationDots } from '@/hooks/useNotificationDots'
@@ -25,11 +24,6 @@ export default function PerformancePage() {
         navId="performance"
         title={pageTitle}
         subtitle="Đặt chỉ tiêu, phê duyệt và chấm điểm theo từng đợt, từng kỳ"
-        eyebrow={
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 text-xs font-black uppercase tracking-widest mb-3">
-            <Gauge size={14} /> Hiệu suất
-          </div>
-        }
         sections={[
           { id: 'kpi-criteria', render: () => <KpiCriteriaPage /> },
           {

@@ -5,39 +5,39 @@ import type { InsightCard, InsightType } from '../api/aiApi'
 const TYPE_STYLES: Record<InsightType, { icon: typeof AlertTriangle; ring: string; chip: string; iconColor: string }> = {
   DEADLINE_RISK: {
     icon: AlertTriangle,
-    ring: 'border-red-200 dark:border-red-900/50 hover:border-red-300',
-    chip: 'bg-red-100 text-red-700 dark:bg-red-900/40 dark:text-red-300',
-    iconColor: 'text-red-500',
+    ring: 'border-[var(--color-error-border)] hover:border-[var(--color-error-border)]',
+    chip: 'bg-[var(--color-error-bg)] text-[var(--color-error)] dark:bg-[var(--color-error-bg)]',
+    iconColor: 'text-[var(--color-error)]',
   },
   BELOW: {
     icon: TrendingDown,
-    ring: 'border-orange-200 dark:border-orange-900/50 hover:border-orange-300',
-    chip: 'bg-orange-100 text-orange-700 dark:bg-orange-900/40 dark:text-orange-300',
-    iconColor: 'text-orange-500',
+    ring: 'border-[var(--color-warning-border)] hover:border-[var(--color-warning-border)]',
+    chip: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)] dark:bg-[var(--color-warning-bg)]',
+    iconColor: 'text-[var(--color-warning)]',
   },
   DROP: {
     icon: ArrowDownRight,
-    ring: 'border-amber-200 dark:border-amber-900/50 hover:border-amber-300',
-    chip: 'bg-amber-100 text-amber-700 dark:bg-amber-900/40 dark:text-amber-300',
-    iconColor: 'text-amber-500',
+    ring: 'border-[var(--color-warning-border)] hover:border-[var(--color-warning-border)]',
+    chip: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)] dark:bg-[var(--color-warning-bg)]',
+    iconColor: 'text-[var(--color-warning)]',
   },
   SPIKE: {
     icon: ArrowUpRight,
-    ring: 'border-blue-200 dark:border-blue-900/50 hover:border-blue-300',
-    chip: 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300',
-    iconColor: 'text-blue-500',
+    ring: 'border-[var(--color-info-border)] hover:border-[var(--color-info-border)]',
+    chip: 'bg-[var(--color-info-bg)] text-[var(--color-info)] dark:bg-[var(--color-info-bg)]',
+    iconColor: 'text-[var(--color-info)]',
   },
   EXCEED: {
     icon: TrendingUp,
-    ring: 'border-emerald-200 dark:border-emerald-900/50 hover:border-emerald-300',
-    chip: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300',
-    iconColor: 'text-emerald-500',
+    ring: 'border-[var(--color-success-border)] hover:border-[var(--color-success-border)]',
+    chip: 'bg-[var(--color-success-bg)] text-[var(--color-success)] dark:bg-[var(--color-success-bg)]',
+    iconColor: 'text-[var(--color-success)]',
   },
   SUMMARY: {
     icon: BarChart3,
-    ring: 'border-violet-200 dark:border-violet-900/50 hover:border-violet-300',
-    chip: 'bg-violet-100 text-violet-700 dark:bg-violet-900/40 dark:text-violet-300',
-    iconColor: 'text-violet-500',
+    ring: 'border-[var(--color-ai-line)]',
+    chip: 'bg-[var(--color-ai-soft)] text-[var(--color-ai)]',
+    iconColor: 'text-[var(--color-ai)]',
   },
 }
 
@@ -53,7 +53,7 @@ export default function InsightCards({ insights, onSelectQuestion, selectedQuest
     return (
       <div className="space-y-2.5">
         {Array.from({ length: 3 }).map((_, i) => (
-          <div key={i} className="animate-pulse h-[88px] rounded-2xl bg-slate-100 dark:bg-slate-800" />
+          <div key={i} className="animate-pulse h-[88px] rounded-card bg-[var(--color-muted)]" />
         ))}
       </div>
     )
@@ -63,8 +63,8 @@ export default function InsightCards({ insights, onSelectQuestion, selectedQuest
 
   return (
     <div className="space-y-2.5">
-      <div className="flex items-center gap-1.5 text-xs font-bold text-slate-500 dark:text-slate-400 px-1">
-        <Sparkles size={13} className="text-violet-500" />
+      <div className="flex items-center gap-1.5 text-caption px-1">
+        <Sparkles size={13} className="text-[var(--color-ai)]" aria-hidden="true" />
         Phân tích nổi bật từ dữ liệu của bạn
       </div>
 
@@ -75,9 +75,9 @@ export default function InsightCards({ insights, onSelectQuestion, selectedQuest
           <div
             key={insight.id}
             className={cn(
-              'bg-white dark:bg-slate-800/60 rounded-2xl border p-3.5 shadow-sm hover:shadow-md transition-all cursor-pointer',
+              'bg-[var(--color-card)] rounded-card border p-3.5 shadow-sm transition-all cursor-pointer',
               selectedQuestion === insight.questionText
-                ? 'ring-2 ring-violet-500 shadow-lg'
+                ? 'ring-2 ring-[var(--color-ai)]'
                 : style.ring,
             )}
           >
@@ -86,10 +86,10 @@ export default function InsightCards({ insights, onSelectQuestion, selectedQuest
                 <Icon size={18} />
               </div>
               <div className="min-w-0 flex-1">
-                <span className={cn('inline-block text-[10px] font-bold px-2 py-0.5 rounded-full mb-1.5', style.chip)}>
+                <span className={cn('inline-block text-xs font-medium px-2 py-0.5 rounded-full mb-1.5', style.chip)}>
                   {insight.title}
                 </span>
-                <p className="text-[13px] leading-snug text-slate-700 dark:text-slate-200">
+                <p className="text-[13px] leading-snug text-[var(--color-foreground)]">
                   {insight.insightText}
                 </p>
                 <button
@@ -97,8 +97,8 @@ export default function InsightCards({ insights, onSelectQuestion, selectedQuest
                   className={cn(
                     'group mt-2 inline-flex items-center gap-1 text-[13px] font-semibold transition-all text-left',
                     selectedQuestion === insight.questionText
-                      ? 'text-violet-700 dark:text-violet-200'
-                      : 'text-violet-600 dark:text-violet-400 hover:text-violet-700 dark:hover:text-violet-300',
+                      ? 'text-[var(--color-ai)]'
+                      : 'text-[var(--color-ai)] hover:underline underline-offset-4',
                   )}
                 >
                   {insight.questionText}

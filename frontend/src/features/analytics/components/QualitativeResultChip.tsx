@@ -6,10 +6,10 @@ export function QualitativeResultChip({ level, className }: { level?: string | n
   return (
     <span
       className={cn(
-        'inline-flex items-center px-2.5 py-1 rounded-lg text-xs font-medium',
+        'inline-flex items-center px-2.5 py-1 rounded-control text-xs font-medium',
         scored
-          ? 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-700 dark:text-indigo-300'
-          : 'bg-slate-100 dark:bg-slate-800 text-slate-400',
+          ? 'bg-[var(--color-primary-soft)] text-[var(--color-primary)]'
+          : 'bg-[var(--color-muted)] text-[var(--color-subtle-foreground)]',
         className,
       )}
     >

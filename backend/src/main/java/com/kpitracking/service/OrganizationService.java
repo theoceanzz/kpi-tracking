@@ -194,6 +194,15 @@ public class OrganizationService {
             organization.setKpiReminderPercentage(request.getKpiReminderPercentage());
         }
 
+        if (request.getEvaluationReminderDays() != null) {
+            int days = request.getEvaluationReminderDays();
+            if (days < 0 || days > 60) {
+                throw new com.kpitracking.exception.BusinessException(
+                        "Số ngày nhắc hạn đánh giá phải nằm trong khoảng 0 đến 60 (0 = tắt nhắc)");
+            }
+            organization.setEvaluationReminderDays(days);
+        }
+
         if (request.getEnableOkr() != null) {
             organization.setEnableOkr(request.getEnableOkr());
         }

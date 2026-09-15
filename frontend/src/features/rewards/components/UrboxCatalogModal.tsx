@@ -9,14 +9,20 @@ import {
   Loader2,
   PackageX,
   Search,
-  Store,
-  X,
 } from 'lucide-react'
+import { Dialog } from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { Badge } from '@/components/ui/badge'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+
+/** Radix không nhận value rỗng nên "tất cả" dùng giá trị canh gác rồi đổi về '' khi lọc. */
+const ALL_CATEGORIES = '__all__'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import EmptyState from '@/components/common/EmptyState'
 import { useUrboxCatalog, useUrboxCategories, useUrboxImport, useUrboxStatus } from '../hooks/useUrbox'
 import { htmlToText } from '../utils/html'
 import type { UrboxGift } from '../types'
+import { getApiErrorMessage } from '@/lib/apiError'
 
 interface UrboxCatalogModalProps {
   open: boolean
@@ -101,27 +107,20 @@ export default function UrboxCatalogModal({ open, onClose }: UrboxCatalogModalPr
   const totalPages = data?.totalPages ?? 1
 
   return (
-    <div className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm">
-      <div className="flex max-h-[92vh] w-full max-w-6xl flex-col overflow-hidden rounded-2xl border border-[var(--color-border)] bg-[var(--color-card)] shadow-xl">
-        <div className="flex items-center justify-between border-b border-[var(--color-border)] px-6 py-4">
-          <div className="flex items-center gap-2">
-            <Store size={20} className="text-[var(--color-primary)]" />
-            <h2 className="text-lg font-semibold">Kho quà UrBox</h2>
-            {data?.totalResult && (
-              <span className="text-sm text-[var(--color-muted-foreground)]">
-                {data.totalResult} món
-              </span>
-            )}
-          </div>
-          <button onClick={onClose} className="rounded-lg p-1 hover:bg-[var(--color-accent)]">
-            <X size={18} />
-          </button>
-        </div>
-
+    <Dialog
+      open
+      onClose={onClose}
+      size="full"
+      flush
+      className="h-[calc(100dvh-2rem)]"
+      title="Kho quà UrBox"
+      headerExtra={data?.totalResult ? <span className="text-sm text-[var(--color-muted-foreground)] tabular-nums">{data.totalResult} món</span> : undefined}
+    >
+      <div className="flex h-full min-h-0 flex-col">
         {/* Nói thẳng đây là môi trường thử — nếu không, quản trị viên sẽ tưởng mình vừa
             mua voucher thật và đem mã đi dùng. */}
         {status?.sandbox && (
-          <div className="flex items-start gap-2 border-b border-amber-500/30 bg-amber-500/10 px-6 py-2.5 text-sm text-amber-800">
+          <div className="flex items-start gap-2 border-b border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-6 py-2.5 text-sm text-[var(--color-warning)]">
             <AlertTriangle size={15} className="mt-0.5 flex-shrink-0" />
             <span>
               Đang kết nối <b>môi trường thử (sandbox)</b> của UrBox. Quà đổi ra là mã thử
@@ -130,69 +129,65 @@ export default function UrboxCatalogModal({ open, onClose }: UrboxCatalogModalPr
           </div>
         )}
 
-        <div className="flex flex-wrap items-center gap-2 border-b border-[var(--color-border)] px-6 py-3">
+        <div className="flex flex-wrap items-center gap-2 border-b border-[var(--color-border)] px-5 py-3">
           <div className="relative min-w-[220px] flex-1">
-            <Search
-              size={15}
-              className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-muted-foreground)]"
-            />
+            <Search size={16} className="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-subtle-foreground)]" aria-hidden="true" />
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               placeholder="Tìm theo tên quà…"
-              className="w-full rounded-lg border border-[var(--color-border)] bg-transparent py-2 pl-9 pr-3 text-sm"
+              aria-label="Tìm quà"
+              className="h-9 w-full rounded-control border border-[var(--color-border)] bg-[var(--color-card)] pl-9 pr-3 text-sm text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-subtle-foreground)] focus-visible:border-[var(--color-primary)] focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]"
             />
           </div>
-          <select
-            value={catId}
-            onChange={(e) => {
-              setCatId(e.target.value)
+          <Select
+            value={catId || ALL_CATEGORIES}
+            onValueChange={(v) => {
+              setCatId(v === ALL_CATEGORIES ? '' : v)
               setPage(0)
             }}
-            className="rounded-lg border border-[var(--color-border)] bg-transparent px-3 py-2 text-sm"
           >
-            <option value="">Tất cả danh mục</option>
-            {(categories ?? []).map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name}
-              </option>
-            ))}
-          </select>
+            <SelectTrigger className="w-[200px]" aria-label="Danh mục"><SelectValue /></SelectTrigger>
+            <SelectContent className="z-[1100]">
+              <SelectItem value={ALL_CATEGORIES}>Tất cả danh mục</SelectItem>
+              {(categories ?? []).map((c) => (
+                <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
           {isFetching && (
-            <Loader2 size={16} className="animate-spin text-[var(--color-muted-foreground)]" />
+            <Loader2 size={16} className="animate-spin text-[var(--color-muted-foreground)]" aria-hidden="true" />
           )}
+          {data?.totalResult != null && <span className="ml-auto text-caption tabular-nums">{data.totalResult} món</span>}
         </div>
 
         <div className="flex min-h-0 flex-1">
           {/* Màn hình hẹp không đủ chỗ cho hai cột: khi đã chọn quà thì nhường hẳn chỗ
               cho bảng nhập, nếu không nút "Thêm vào danh mục" sẽ nằm ngoài tầm nhìn. */}
           <div
-            className={`min-w-0 flex-1 overflow-y-auto px-6 py-4 ${selected ? 'hidden lg:block' : ''}`}
+            className={`min-w-0 flex-1 overflow-y-auto px-5 py-4 ${selected ? 'hidden lg:block' : ''}`}
           >
             {error ? (
               // Kho quà được giữ lại 10 phút nên đổi bộ lọc chưa chắc gọi lại UrBox —
               // không có nút này thì người dùng kẹt luôn cho tới khi đóng mở modal.
-              <div className="space-y-3 rounded-xl border border-rose-500/40 bg-rose-500/10 px-4 py-3 text-sm text-rose-700">
+              <div className="space-y-3 rounded-card border border-[var(--color-error-border)] bg-[var(--color-error-bg)] px-4 py-3 text-sm text-[var(--color-error)]">
                 <p>
-                  {(error as any)?.response?.data?.message ??
-                    'Không đọc được kho quà UrBox. Kiểm tra lại cấu hình kết nối.'}
+                  {getApiErrorMessage(error, 'Không đọc được kho quà UrBox. Kiểm tra lại cấu hình kết nối.')}
                 </p>
-                <button
-                  onClick={() => refetch()}
-                  disabled={isFetching}
-                  className="inline-flex items-center gap-2 rounded-lg border border-rose-500/40 px-3 py-1.5 font-medium disabled:opacity-50"
-                >
-                  {isFetching && <Loader2 size={14} className="animate-spin" />}
+                <Button variant="ghost" size="sm" onClick={() => refetch()} disabled={isFetching}>
+                  {isFetching && <Loader2 aria-hidden="true" className="animate-spin" />}
                   Thử lại
-                </button>
+                </Button>
               </div>
             ) : isLoading ? (
               <LoadingSkeleton type="card" rows={3} />
             ) : (data?.items ?? []).length === 0 ? (
-              <EmptyState
-                title="Không có quà nào khớp"
-                description="Thử bỏ bớt bộ lọc hoặc tìm bằng từ khoá khác."
-              />
+              <div className="rounded-card border border-dashed border-[var(--color-border)]">
+                <EmptyState
+                  title="Không có quà nào khớp"
+                  description="Thử bỏ bớt bộ lọc hoặc tìm bằng từ khoá khác."
+                />
+              </div>
             ) : (
               <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
                 {(data?.items ?? []).map((gift) => {
@@ -202,13 +197,15 @@ export default function UrboxCatalogModal({ open, onClose }: UrboxCatalogModalPr
                       key={gift.urboxGiftId}
                       onClick={() => setSelected(gift)}
                       disabled={gift.imported}
-                      className={`flex gap-3 rounded-xl border p-3 text-left transition-colors disabled:cursor-not-allowed ${
+                      type="button"
+                      aria-pressed={isSelected}
+                      className={`flex gap-3 rounded-card border p-3 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)] disabled:cursor-not-allowed ${
                         isSelected
-                          ? 'border-[var(--color-primary)] bg-[var(--color-accent)]'
-                          : 'border-[var(--color-border)] hover:bg-[var(--color-accent)]'
+                          ? 'border-[var(--color-primary)] bg-[var(--color-primary-soft)]'
+                          : 'border-[var(--color-border)] bg-[var(--color-card)] hover:border-[var(--color-border-strong)] hover:bg-[var(--color-muted)]'
                       } ${gift.imported ? 'opacity-60' : ''}`}
                     >
-                      <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-lg bg-[var(--color-muted)]">
+                      <div className="h-16 w-16 flex-shrink-0 overflow-hidden rounded-control bg-[var(--color-muted)]">
                         {gift.imageUrl ? (
                           <img
                             src={gift.imageUrl}
@@ -223,14 +220,14 @@ export default function UrboxCatalogModal({ open, onClose }: UrboxCatalogModalPr
                       </div>
 
                       <div className="min-w-0 flex-1">
-                        <div className="line-clamp-2 text-sm font-medium">{gift.name}</div>
+                        <div className="line-clamp-2 text-sm font-medium text-[var(--color-foreground)]">{gift.name}</div>
                         {gift.brandName && (
                           <div className="mt-0.5 truncate text-xs text-[var(--color-muted-foreground)]">
                             {gift.brandName}
                           </div>
                         )}
                         <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-                          <span className="font-semibold">{fmtVnd(gift.value)}</span>
+                          <span className="font-medium tabular-nums text-[var(--color-foreground)]">{fmtVnd(gift.value)}</span>
                           {gift.suggestedPointCost != null && (
                             <span className="inline-flex items-center gap-1 text-[var(--color-primary)]">
                               <Coins size={11} />
@@ -240,16 +237,10 @@ export default function UrboxCatalogModal({ open, onClose }: UrboxCatalogModalPr
                         </div>
                         <div className="mt-1 flex flex-wrap gap-1">
                           {gift.imported && (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 px-2 py-0.5 text-[11px] font-medium text-emerald-700">
-                              <Check size={10} />
-                              Đã có trong danh mục
-                            </span>
+                            <Badge variant="success"><Check size={10} aria-hidden="true" /> Đã có trong danh mục</Badge>
                           )}
                           {!gift.inStock && (
-                            <span className="inline-flex items-center gap-1 rounded-full bg-[var(--color-muted)] px-2 py-0.5 text-[11px] text-[var(--color-muted-foreground)]">
-                              <PackageX size={10} />
-                              UrBox đang hết
-                            </span>
+                            <Badge variant="secondary"><PackageX size={10} aria-hidden="true" /> UrBox đang hết</Badge>
                           )}
                         </div>
                       </div>
@@ -261,25 +252,17 @@ export default function UrboxCatalogModal({ open, onClose }: UrboxCatalogModalPr
 
             {totalPages > 1 && (
               <div className="mt-4 flex items-center justify-center gap-3 text-sm">
-                <button
-                  onClick={() => setPage((p) => Math.max(0, p - 1))}
-                  disabled={page === 0}
-                  className="inline-flex items-center gap-1 rounded-lg border border-[var(--color-border)] px-3 py-1.5 disabled:opacity-40"
-                >
-                  <ChevronLeft size={15} />
+                <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page === 0}>
+                  <ChevronLeft aria-hidden="true" />
                   Trước
-                </button>
+                </Button>
                 <span className="text-[var(--color-muted-foreground)]">
                   Trang {page + 1} / {totalPages}
                 </span>
-                <button
-                  onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))}
-                  disabled={page >= totalPages - 1}
-                  className="inline-flex items-center gap-1 rounded-lg border border-[var(--color-border)] px-3 py-1.5 disabled:opacity-40"
-                >
+                <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1}>
                   Sau
-                  <ChevronRight size={15} />
-                </button>
+                  <ChevronRight aria-hidden="true" />
+                </Button>
               </div>
             )}
           </div>
@@ -290,15 +273,16 @@ export default function UrboxCatalogModal({ open, onClose }: UrboxCatalogModalPr
           {selected && (
             <aside className="flex w-full flex-shrink-0 flex-col border-l border-[var(--color-border)] lg:w-[340px]">
               <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
-                <div className="font-semibold">{selected.name}</div>
+                <p className="text-eyebrow">Thêm vào danh mục</p>
+                <div className="mt-1 text-sm font-medium text-[var(--color-foreground)]">{selected.name}</div>
                 <div className="mt-1 text-sm text-[var(--color-muted-foreground)]">
                   {[selected.brandName, selected.categoryName].filter(Boolean).join(' · ') || '—'}
                 </div>
 
-                <dl className="mt-3 space-y-1.5 rounded-xl bg-[var(--color-muted)] px-4 py-3 text-sm">
+                <dl className="mt-3 space-y-1.5 rounded-card bg-[var(--color-muted)] px-4 py-3 text-sm">
                   <div className="flex justify-between gap-3">
                     <dt className="text-[var(--color-muted-foreground)]">Mệnh giá</dt>
-                    <dd className="font-semibold">{fmtVnd(selected.value)}</dd>
+                    <dd className="font-medium tabular-nums text-[var(--color-foreground)]">{fmtVnd(selected.value)}</dd>
                   </div>
                   <div className="flex justify-between gap-3">
                     <dt className="text-[var(--color-muted-foreground)]">Hạn sử dụng</dt>
@@ -311,7 +295,7 @@ export default function UrboxCatalogModal({ open, onClose }: UrboxCatalogModalPr
                 </dl>
 
                 <div className="mt-4">
-                  <label className="mb-1.5 block text-sm font-medium">Giá đổi (điểm)</label>
+                  <label className="text-label mb-1.5 block">Giá đổi (điểm)</label>
                   <input
                     type="number"
                     min={1}
@@ -319,7 +303,7 @@ export default function UrboxCatalogModal({ open, onClose }: UrboxCatalogModalPr
                     onChange={(e) =>
                       setPointCost(e.target.value === '' ? '' : Number(e.target.value))
                     }
-                    className="w-full rounded-lg border border-[var(--color-border)] bg-transparent px-3 py-2 text-sm"
+                    className="h-9 w-full rounded-control border border-[var(--color-border)] bg-[var(--color-card)] px-3 text-sm text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-subtle-foreground)] focus-visible:border-[var(--color-primary)] focus-visible:ring-2 focus-visible:ring-[var(--color-ring)] tabular-nums"
                   />
                   {selected.suggestedPointCost != null && (
                     <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">
@@ -329,7 +313,7 @@ export default function UrboxCatalogModal({ open, onClose }: UrboxCatalogModalPr
                   )}
                 </div>
 
-                <label className="mt-4 flex items-start gap-2 text-sm">
+                <label className="text-label mt-4 flex items-start gap-2">
                   <input
                     type="checkbox"
                     checked={limitStock}
@@ -352,7 +336,7 @@ export default function UrboxCatalogModal({ open, onClose }: UrboxCatalogModalPr
                       setStockQuantity(e.target.value === '' ? '' : Number(e.target.value))
                     }
                     placeholder="Số lượt tối đa"
-                    className="mt-2 w-full rounded-lg border border-[var(--color-border)] bg-transparent px-3 py-2 text-sm"
+                    className="mt-2 h-9 w-full rounded-control border border-[var(--color-border)] bg-[var(--color-card)] px-3 text-sm text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-subtle-foreground)] focus-visible:border-[var(--color-primary)] focus-visible:ring-2 focus-visible:ring-[var(--color-ring)] tabular-nums"
                   />
                 )}
 
@@ -360,7 +344,7 @@ export default function UrboxCatalogModal({ open, onClose }: UrboxCatalogModalPr
                     "còn hàng" thì vẫn có thể hết lúc đặt (đã gặp thật: món báo còn gần
                     100.000 mã nhưng đặt trả mã 225). Nói trước để người quản lý không
                     tưởng mình chọn nhầm khi nhân viên đổi hụt. */}
-                <p className="mt-4 rounded-xl bg-[var(--color-muted)] px-3 py-2 text-xs leading-relaxed text-[var(--color-muted-foreground)]">
+                <p className="mt-4 rounded-card bg-[var(--color-muted)] px-3 py-2 text-xs leading-relaxed text-[var(--color-muted-foreground)]">
                   Số lượng UrBox báo về chỉ mang tính tham khảo — quà đang hiện còn hàng
                   vẫn có thể hết đúng lúc nhân viên đổi. Khi đó điểm được hoàn lại ngay và
                   quà tự ẩn khỏi cửa hàng.
@@ -368,8 +352,8 @@ export default function UrboxCatalogModal({ open, onClose }: UrboxCatalogModalPr
 
                 {selected.terms && (
                   <div className="mt-4">
-                    <div className="mb-1 text-sm font-medium">Điều kiện sử dụng</div>
-                    <p className="max-h-48 overflow-y-auto whitespace-pre-line rounded-xl border border-[var(--color-border)] px-3 py-2 text-xs leading-relaxed text-[var(--color-muted-foreground)]">
+                    <div className="mb-1 text-label">Điều kiện sử dụng</div>
+                    <p className="max-h-48 overflow-y-auto whitespace-pre-line rounded-card border border-[var(--color-border)] px-3 py-2 text-xs leading-relaxed text-[var(--color-muted-foreground)]">
                       {htmlToText(selected.terms)}
                     </p>
                     <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">
@@ -380,25 +364,16 @@ export default function UrboxCatalogModal({ open, onClose }: UrboxCatalogModalPr
               </div>
 
               <div className="flex gap-2 border-t border-[var(--color-border)] px-5 py-4">
-                <button
-                  onClick={() => setSelected(null)}
-                  className="rounded-lg border border-[var(--color-border)] px-4 py-2 text-sm"
-                >
-                  Bỏ chọn
-                </button>
-                <button
-                  onClick={handleImport}
-                  disabled={isImporting || typeof pointCost !== 'number' || pointCost < 1}
-                  className="inline-flex flex-1 items-center justify-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
-                >
-                  {isImporting && <Loader2 size={15} className="animate-spin" />}
+                <Button variant="outline" onClick={() => setSelected(null)}>Bỏ chọn</Button>
+                <Button className="flex-1" onClick={handleImport} disabled={isImporting || typeof pointCost !== 'number' || pointCost < 1}>
+                  {isImporting && <Loader2 className="animate-spin" aria-hidden="true" />}
                   Thêm vào danh mục
-                </button>
+                </Button>
               </div>
             </aside>
           )}
         </div>
       </div>
-    </div>
+    </Dialog>
   )
 }

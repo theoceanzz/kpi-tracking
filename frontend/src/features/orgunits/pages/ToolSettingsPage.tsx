@@ -1,7 +1,7 @@
-import { Wrench } from 'lucide-react'
 import SettingsSectionLayout from '@/components/common/SettingsSectionLayout'
 import { usePageTitle } from '@/features/organization/hooks/usePageTitle'
 import { useAuthStore } from '@/store/authStore'
+import { useNotificationDots } from '@/hooks/useNotificationDots'
 import { useOrganization } from '../hooks/useOrganization'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import { usesPerformanceMatrix } from '@/lib/scoring'
@@ -27,6 +27,8 @@ export default function ToolSettingsPage() {
   const orgId = user?.memberships?.[0]?.organizationId
   const { data: org, isLoading } = useOrganization(orgId)
   const pageTitle = usePageTitle('setup-tools', 'Thiết lập công cụ')
+  // Ba công cụ có hàng chờ thật; các mục còn lại là bảng cấu hình, không có việc tồn.
+  const { counts } = useNotificationDots()
 
   // Thang định tính chỉ có nghĩa khi tổ chức bật KPI hành vi.
   const enableQualitative = org?.enableQualitative ?? false
@@ -40,18 +42,13 @@ export default function ToolSettingsPage() {
         navId="setup-tools"
         title={pageTitle}
         subtitle="Tổ chức dùng những công cụ nào, chấm điểm ra sao, và nơi vận hành từng công cụ"
-        eyebrow={
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 text-xs font-black uppercase tracking-widest mb-3">
-            <Wrench size={14} /> Thiết lập
-          </div>
-        }
         sections={[
           {
             id: 'modules',
             render: () => (
               // Ràng bề ngang: đây là danh sách công tắc, mỗi dòng chỉ có tên và một câu
               // mô tả. Kéo hết 1600px thì công tắc nằm cách tên cả nghìn pixel.
-              <div id="tour-modules-grid" className="max-w-4xl">
+              <div id="tour-modules-grid" className="mx-auto max-w-4xl">
                 <ModuleTogglesSection org={org} />
               </div>
             ),
@@ -76,7 +73,7 @@ export default function ToolSettingsPage() {
             id: 'code-rules',
             visible: (org.enableOkr ?? false) || (org.enableBsc ?? false),
             render: () => (
-              <div className="max-w-4xl">
+              <div className="mx-auto max-w-4xl">
                 <CodeRuleSection organizationId={org.id} />
               </div>
             ),
@@ -86,9 +83,24 @@ export default function ToolSettingsPage() {
           // sidebar vẫn ẩn/hiện chúng trước đây.
           { id: 'kpi-cycles', render: () => <KpiCyclePeriodPage /> },
           { id: 'okr', visible: org.enableOkr ?? false, render: () => <OkrManagementPage /> },
-          { id: 'bsc', visible: org.enableBsc ?? false, render: () => <BscManagementPage /> },
-          { id: 'rewards', visible: org.enableReward ?? false, render: () => <RewardManagementPage /> },
-          { id: 'wallet', visible: org.enableCashWallet ?? false, render: () => <WalletAdminPage /> },
+          {
+            id: 'bsc',
+            visible: org.enableBsc ?? false,
+            badge: counts.pendingScorecards || null,
+            render: () => <BscManagementPage />,
+          },
+          {
+            id: 'rewards',
+            visible: org.enableReward ?? false,
+            badge: counts.pendingRewards || null,
+            render: () => <RewardManagementPage />,
+          },
+          {
+            id: 'wallet',
+            visible: org.enableCashWallet ?? false,
+            badge: counts.pendingWallet || null,
+            render: () => <WalletAdminPage />,
+          },
           { id: 'ai-quota', visible: org.enableAi !== false, render: () => <AiQuotaPage /> },
         ]}
       />

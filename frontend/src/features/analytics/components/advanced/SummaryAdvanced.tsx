@@ -119,7 +119,7 @@ export function SelfVsManagerWidget(p: AdvancedWidgetProps) {
               <Bar dataKey="managerScore" name="Quản lý chấm" fill={METRIC_COLORS.performance.normal} radius={[0, 3, 3, 0]} isAnimationActive={false} />
             </BarChart>
           </ResponsiveContainer>
-          <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 pt-2 text-xs font-medium text-slate-500 dark:text-slate-400">
+          <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 pt-2 text-xs font-medium text-[var(--color-muted-foreground)]">
             <span className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full" style={{ backgroundColor: METRIC_COLORS.completion.normal }} /> Tự chấm
             </span>
@@ -146,12 +146,12 @@ function GapTooltip({ active, payload }: {
   const d = payload?.[0]?.payload
   if (!active || !d) return null
   return (
-    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3.5 rounded-lg shadow-lg">
-      <p className="font-semibold text-slate-900 dark:text-white mb-2">{d.name}</p>
+    <div className="bg-[var(--color-card)] border border-[var(--color-border)] p-3.5 rounded-lg shadow-lg">
+      <p className="font-semibold text-[var(--color-foreground)] mb-2">{d.name}</p>
       <div className="space-y-1 text-sm">
         <p><span className="text-slate-500 font-medium">Tự chấm: </span><span className="font-semibold tabular-nums">{d.selfScore}</span></p>
         <p><span className="text-slate-500 font-medium">Quản lý chấm: </span><span className="font-semibold tabular-nums">{d.managerScore}</span></p>
-        <p className="pt-1.5 border-t border-slate-100 dark:border-slate-800 mt-1.5">
+        <p className="pt-1.5 border-t border-[var(--color-border)] mt-1.5">
           <span className="text-slate-500 font-medium">Chênh lệch: </span>
           <span className="font-semibold tabular-nums" style={{ color: d.gap > 0 ? '#f59e0b' : d.gap < 0 ? '#3b82f6' : '#64748b' }}>
             {d.gap > 0 ? '+' : ''}{d.gap}

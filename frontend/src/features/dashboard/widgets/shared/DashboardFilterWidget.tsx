@@ -19,15 +19,15 @@ export function DashboardFilterWidget({ scope }: { scope: FilterScope }) {
   return (
     <section
       aria-label={title}
-      className="h-full bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 rounded-[28px] p-4 shadow-sm flex flex-wrap items-center gap-4 justify-between overflow-auto custom-scrollbar"
+      className="h-full bg-[var(--color-card)] border border-[var(--color-border)] rounded-card p-4 shadow-sm flex flex-wrap items-center gap-4 justify-between overflow-auto custom-scrollbar"
     >
       <div className="flex items-center gap-2 min-w-0">
-        <div className="p-2 rounded-lg text-indigo-600 dark:text-indigo-400 shrink-0 bg-indigo-50 dark:bg-indigo-900/30">
+        <div className="p-2 rounded-control text-[var(--color-primary)] shrink-0 bg-[var(--color-primary-soft)]">
           <SlidersHorizontal size={18} aria-hidden="true" />
         </div>
         <div className="min-w-0">
-          <h3 className="font-bold text-slate-900 dark:text-white leading-tight text-base">{title}</h3>
-          <p className="text-xs text-slate-500 font-medium mt-0.5">{hint}</p>
+          <h3 className="text-section-title text-[var(--color-foreground)] leading-tight">{title}</h3>
+          <p className="text-xs text-[var(--color-muted-foreground)] font-medium mt-0.5">{hint}</p>
         </div>
       </div>
 

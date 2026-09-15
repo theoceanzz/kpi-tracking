@@ -2,6 +2,7 @@ package com.kpitracking.controller;
 
 import com.kpitracking.dto.request.kpi.BatchUpdateWeightRequest;
 import com.kpitracking.dto.request.kpi.CreateKpiCriteriaRequest;
+import com.kpitracking.dto.request.kpi.CreateKpiFromBscRequest;
 import com.kpitracking.dto.request.kpi.RejectKpiRequest;
 import com.kpitracking.dto.request.kpi.ReplaceKpiRequest;
 import com.kpitracking.dto.request.kpi.UpdateKpiCriteriaRequest;
@@ -9,6 +10,7 @@ import com.kpitracking.dto.response.ApiResponse;
 import com.kpitracking.dto.response.PageResponse;
 import com.kpitracking.dto.response.kpi.KpiCriteriaResponse;
 import com.kpitracking.enums.KpiStatus;
+import com.kpitracking.service.BscKpiPlanService;
 import com.kpitracking.service.KpiCriteriaService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -28,6 +30,7 @@ import java.util.UUID;
 public class KpiCriteriaController {
 
     private final KpiCriteriaService kpiCriteriaService;
+    private final BscKpiPlanService bscKpiPlanService;
 
     @PostMapping
     @PreAuthorize("hasAuthority('KPI:CREATE')")
@@ -37,6 +40,22 @@ public class KpiCriteriaController {
         KpiCriteriaResponse response = kpiCriteriaService.createKpiCriteria(request);
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success("KPI criteria created successfully", response));
+    }
+
+    /**
+     * Tạo một loạt KPI từ MỘT chỉ tiêu BSC, mỗi đợt một KPI ("KPI = BSC").
+     *
+     * <p>Cùng quyền với tạo KPI thường: đây vẫn là thao tác tạo KPI cho đơn vị mình, chỉ khác ở
+     * chỗ con số và hạng mục được lấy thẳng từ bộ tiêu chí thay vì gõ tay.
+     */
+    @PostMapping("/from-bsc")
+    @PreAuthorize("hasAuthority('KPI:CREATE')")
+    @Operation(summary = "Create KPIs by splitting one BSC scorecard item across its periods")
+    public ResponseEntity<ApiResponse<java.util.List<KpiCriteriaResponse>>> createFromBsc(
+            @Valid @RequestBody CreateKpiFromBscRequest request) {
+        java.util.List<KpiCriteriaResponse> created = bscKpiPlanService.createFromBsc(request);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(ApiResponse.success("Đã tạo " + created.size() + " chỉ tiêu từ hạng mục BSC", created));
     }
 
     @GetMapping

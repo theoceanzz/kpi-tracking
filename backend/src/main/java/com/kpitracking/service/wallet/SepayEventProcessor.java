@@ -222,6 +222,13 @@ public class SepayEventProcessor {
         event.setErrorMessage(message);
         eventRepository.save(event);
         log.warn("Sự kiện SePay chưa khớp đơn: {}", message);
+
+        // Báo cho người đối soát. Chỉ khi đã quy được về một tổ chức: sự kiện chưa xác định
+        // được chủ không hiện trong hàng đợi của ai (xem resolveOrganization), nên báo đi là gửi
+        // người ta đi tìm một dòng không tồn tại trên màn hình của họ.
+        if (event.getOrganization() != null) {
+            eventPublisher.publishEvent(new WalletEvents.SepayUnmatched(event.getId()));
+        }
         return SepayEventStatus.UNMATCHED;
     }
 
@@ -231,8 +238,14 @@ public class SepayEventProcessor {
      * <p>Trả {@code null} khi không tổ chức nào khai số tài khoản đó, hoặc khi có
      * NHIỀU tổ chức cùng khai — đoán bừa một tổ chức tệ hơn hẳn việc nói thẳng là
      * chưa xác định được, vì người đối soát sẽ tin vào con số hiện ra trước mắt.
-     * Sự kiện không quy được về đâu vẫn nằm trong hàng đợi của mọi tổ chức nhưng
-     * không cho ghi có thẳng, xem {@code SepayReconcileService}.
+     *
+     * <p><b>Sự kiện trả {@code null} sẽ không hiện trong hàng đợi của bất kỳ tổ
+     * chức nào</b> (xem {@code SepayWebhookEventRepository}): nội dung chuyển
+     * khoản kèm tên người chuyển là dữ liệu của tổ chức chủ tài khoản, không phải
+     * thứ đem cho mọi tổ chức khác đọc chỉ vì chưa ai khai số. Nó vẫn được lưu đủ
+     * payload thô và sẽ tự hiện ra ngay khi tổ chức đúng lưu số tài khoản vào Cấu
+     * hình ví. Trong lúc đó, dòng log dưới đây là dấu vết duy nhất, nên đừng hạ
+     * mức của nó.
      */
     private Organization resolveOrganization(SepayWebhookPayload p) {
         for (String candidate : new String[]{p.getSubAccount(), p.getAccountNumber()}) {
@@ -249,6 +262,10 @@ public class SepayEventProcessor {
                 return null;
             }
         }
+        log.warn("Tiền về tài khoản {} (subAccount={}) nhưng chưa tổ chức nào khai số này trong "
+                + "Cấu hình ví — sự kiện được lưu nhưng không hiện trong hàng đợi của tổ chức nào "
+                + "cho tới khi có tổ chức khai đúng số tài khoản",
+                p.getAccountNumber(), p.getSubAccount());
         return null;
     }
 

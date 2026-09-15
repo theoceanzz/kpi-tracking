@@ -76,14 +76,6 @@ public class BscController {
         return ResponseEntity.ok(ApiResponse.success(null));
     }
 
-    @PostMapping("/organization/{organizationId}/perspectives/import")
-    @PreAuthorize("hasAuthority('BSC:MANAGE')")
-    public ResponseEntity<ApiResponse<ImportBscResponse>> importPerspectives(
-            @PathVariable UUID organizationId,
-            @RequestParam("file") MultipartFile file) {
-        return ResponseEntity.ok(ApiResponse.success(bscService.importPerspectives(organizationId, file)));
-    }
-
     // ============================================================
     // Scorecards (bộ tiêu chí)
     // ============================================================

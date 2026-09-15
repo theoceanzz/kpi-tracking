@@ -4,6 +4,7 @@ import { LayoutGrid, Loader2, Workflow, X } from 'lucide-react'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
 import WizardStepper from './WizardStepper'
 import { useKpiSetupFlow } from './useKpiSetupFlow'
+import { Button } from '@/components/ui/button'
 
 /**
  * Khung của trình thiết lập KPI — một trang toàn màn hình, không sidebar, không header ứng dụng.
@@ -19,25 +20,25 @@ export default function KpiSetupLayout() {
 
   if (isLoading) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-slate-50 dark:bg-slate-950">
-        <Loader2 className="animate-spin text-indigo-600" size={28} />
+      <div className="flex min-h-screen items-center justify-center bg-[var(--color-muted)]">
+        <Loader2 className="animate-spin text-[var(--color-primary)]" size={28} />
       </div>
     )
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-slate-50 dark:bg-slate-950">
-      <header className="sticky top-0 z-30 border-b border-slate-200 bg-white/85 backdrop-blur-xl dark:border-slate-800 dark:bg-slate-900/85">
+    <div className="flex min-h-screen flex-col bg-[var(--color-muted)]">
+      <header className="sticky top-0 z-30 border-b border-[var(--color-border)] bg-white">
         <div className="mx-auto flex max-w-5xl items-center justify-between gap-4 px-4 py-4 md:px-8">
           <div className="flex min-w-0 items-center gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-lg shadow-indigo-500/25">
+            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-card bg-[var(--color-primary)] text-[var(--color-primary-foreground)]">
               <Workflow size={20} />
             </div>
             <div className="min-w-0">
-              <p className="truncate text-sm font-black tracking-tight text-slate-900 dark:text-white">
+              <p className="truncate text-sm font-semibold tracking-tight text-[var(--color-foreground)]">
                 {currentFlow?.label ?? 'Thiết lập KPI'}
               </p>
-              <p className="truncate text-[11px] font-bold text-slate-400">
+              <p className="truncate text-caption">
                 {currentFlow && currentIndex >= 0
                   ? `Bước ${currentIndex + 1} / ${steps.length} — ${steps[currentIndex]?.label}`
                   : 'Chọn việc bạn muốn làm'}
@@ -51,22 +52,17 @@ export default function KpiSetupLayout() {
               <Link
                 to="/kpi-setup"
                 title="Chọn luồng khác"
-                className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-xs font-black uppercase tracking-widest text-slate-500 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800"
+                className="flex items-center gap-2 rounded-card border border-[var(--color-border)] px-3 py-2 text-sm font-medium text-[var(--color-muted-foreground)] transition-colors hover:bg-[var(--color-muted)]"
               >
                 <LayoutGrid size={14} />
                 <span className="hidden sm:inline">Luồng khác</span>
               </Link>
             )}
 
-            <button
-              type="button"
-              onClick={() => setShowExitConfirm(true)}
-              title="Thoát trình thiết lập"
-              className="flex items-center gap-2 rounded-xl border border-slate-200 px-3 py-2 text-xs font-black uppercase tracking-widest text-slate-500 transition-colors hover:bg-slate-50 dark:border-slate-700 dark:text-slate-400 dark:hover:bg-slate-800"
-            >
-              <X size={14} />
+            <Button variant="outline" type="button" onClick={() => setShowExitConfirm(true)} title="Thoát trình thiết lập">
+              <X aria-hidden="true" />
               <span className="hidden sm:inline">Thoát</span>
-            </button>
+            </Button>
           </div>
         </div>
 

@@ -1,8 +1,10 @@
 package com.kpitracking.security;
 
 import com.kpitracking.entity.OrgUnit;
+import com.kpitracking.entity.OrgUnitDelegation;
 import com.kpitracking.entity.RolePermission;
 import com.kpitracking.entity.UserRoleOrgUnit;
+import com.kpitracking.repository.OrgUnitDelegationRepository;
 import com.kpitracking.repository.OrgUnitRepository;
 import com.kpitracking.repository.RolePermissionRepository;
 import com.kpitracking.repository.UserRepository;
@@ -30,6 +32,49 @@ public class PermissionChecker {
     private final RolePermissionRepository rolePermissionRepository;
     private final OrgUnitRepository orgUnitRepository;
     private final UserRepository userRepository;
+    private final OrgUnitDelegationRepository delegationRepository;
+
+    // ────────────────────────────────────────────────────────────────────────
+    // UỶ QUYỀN CHÉO ĐƠN VỊ
+    //
+    // Quyền vốn chỉ chảy XUỐNG theo cây (target.path bắt đầu bằng assignment.path), nên
+    // đơn vị anh em nằm ngoài tầm với. Uỷ quyền nới PHẠM VI của bộ quyền sẵn có sang đơn
+    // vị đích — không cấp quyền mới: người không có CYCLE_EVAL:FINALIZE ở đâu cả thì được
+    // uỷ quyền cũng vẫn không chốt được.
+    //
+    // Mọi chỗ dưới đây chỉ hỏi tới bảng uỷ quyền KHI đường trực tiếp đã tắc, để người dùng
+    // bình thường không phải gánh thêm một truy vấn ở mỗi lần kiểm tra quyền.
+    // ────────────────────────────────────────────────────────────────────────
+
+    /**
+     * Đơn vị đích có nằm trong phạm vi được uỷ quyền của người này không.
+     *
+     * @param requireLeader chỉ tính những uỷ quyền có cờ "ký thay trưởng đơn vị"
+     */
+    private boolean isDelegatedTo(UUID userId, OrgUnit targetUnit, boolean requireLeader) {
+        if (targetUnit == null) return false;
+        for (OrgUnitDelegation d : delegationRepository.findActiveByDelegate(userId)) {
+            if (requireLeader && !Boolean.TRUE.equals(d.getCanActAsLeader())) continue;
+            OrgUnit scope = d.getOrgUnit();
+            if (scope == null) continue;
+            boolean covered = Boolean.TRUE.equals(d.getIncludeSubtree())
+                    ? targetUnit.getPath().startsWith(scope.getPath())
+                    : targetUnit.getId().equals(scope.getId());
+            if (covered) return true;
+        }
+        return false;
+    }
+
+    /** Các đơn vị đích đang được uỷ quyền cho người này. */
+    private List<UUID> delegatedUnitIds(UUID userId, boolean requireLeader) {
+        return delegationRepository.findActiveByDelegate(userId).stream()
+                .filter(d -> !requireLeader || Boolean.TRUE.equals(d.getCanActAsLeader()))
+                .map(OrgUnitDelegation::getOrgUnit)
+                .filter(Objects::nonNull)
+                .map(OrgUnit::getId)
+                .distinct()
+                .toList();
+    }
 
     /**
      * Internal helper to fetch assignments and their associated permission codes.
@@ -113,14 +158,21 @@ public class PermissionChecker {
 
         Map<UUID, Set<String>> rolePerms = getPermissionsByRole(assignments);
 
-        return assignments.stream()
+        java.util.function.Predicate<UserRoleOrgUnit> isLeaderWithCode = a -> {
+            Set<String> perms = rolePerms.getOrDefault(a.getRole().getId(), Collections.emptySet());
+            if (perms.contains("SYSTEM:ADMIN")) return true;
+            Integer rank = a.getRole().getRank();
+            return rank != null && rank == 0 && perms.contains(permissionCode);
+        };
+
+        boolean direct = assignments.stream()
                 .filter(a -> targetUnit.getPath().startsWith(a.getOrgUnit().getPath()))
-                .anyMatch(a -> {
-                    Set<String> perms = rolePerms.getOrDefault(a.getRole().getId(), Collections.emptySet());
-                    if (perms.contains("SYSTEM:ADMIN")) return true;
-                    Integer rank = a.getRole().getRank();
-                    return rank != null && rank == 0 && perms.contains(permissionCode);
-                });
+                .anyMatch(isLeaderWithCode);
+        if (direct) return true;
+
+        // Uỷ quyền có cờ "ký thay trưởng đơn vị" mới đi qua cửa này: người được uỷ quyền
+        // phải đang là TRƯỞNG ở đơn vị gốc của họ, không phải ai cũng ký thay được.
+        return isDelegatedTo(userId, targetUnit, true) && assignments.stream().anyMatch(isLeaderWithCode);
     }
 
     /**
@@ -136,12 +188,19 @@ public class PermissionChecker {
         Map<UUID, Set<String>> rolePerms = getPermissionsByRole(assignments);
         Set<String> targetCodes = Set.of(permissionCodes);
 
-        return assignments.stream()
+        java.util.function.Predicate<UserRoleOrgUnit> hasCode = a -> {
+            Set<String> perms = rolePerms.getOrDefault(a.getRole().getId(), Collections.emptySet());
+            return perms.contains("SYSTEM:ADMIN") || perms.stream().anyMatch(targetCodes::contains);
+        };
+
+        boolean direct = assignments.stream()
                 .filter(a -> targetUnit.getPath().startsWith(a.getOrgUnit().getPath()))
-                .anyMatch(a -> {
-                    Set<String> perms = rolePerms.getOrDefault(a.getRole().getId(), Collections.emptySet());
-                    return perms.contains("SYSTEM:ADMIN") || perms.stream().anyMatch(targetCodes::contains);
-                });
+                .anyMatch(hasCode);
+        if (direct) return true;
+
+        // Ngoài cây của mình: chỉ đi tiếp khi đơn vị đích được uỷ quyền, và vẫn phải tự có
+        // quyền đó ở đâu đó — uỷ quyền nới chỗ dùng, không phát quyền.
+        return isDelegatedTo(userId, targetUnit, false) && assignments.stream().anyMatch(hasCode);
     }
 
     /**
@@ -181,12 +240,21 @@ public class PermissionChecker {
 
         Map<UUID, Set<String>> rolePerms = getPermissionsByRole(assignments);
 
-        return assignments.stream()
-                .filter(a -> {
-                    Set<String> perms = rolePerms.getOrDefault(a.getRole().getId(), Collections.emptySet());
-                    return perms.contains(permissionCode) || perms.contains("SYSTEM:ADMIN");
-                })
-                .map(a -> a.getOrgUnit().getId())
+        boolean hasAnywhere = assignments.stream().anyMatch(a -> {
+            Set<String> perms = rolePerms.getOrDefault(a.getRole().getId(), Collections.emptySet());
+            return perms.contains(permissionCode) || perms.contains("SYSTEM:ADMIN");
+        });
+
+        return java.util.stream.Stream.concat(
+                assignments.stream()
+                        .filter(a -> {
+                            Set<String> perms = rolePerms.getOrDefault(a.getRole().getId(), Collections.emptySet());
+                            return perms.contains(permissionCode) || perms.contains("SYSTEM:ADMIN");
+                        })
+                        .map(a -> a.getOrgUnit().getId()),
+                // Đơn vị được uỷ quyền cũng phải có mặt, nếu không thì màn hình danh sách
+                // vẫn lọc mất đơn vị mà người này vừa được trao quyền quản lý.
+                hasAnywhere ? delegatedUnitIds(userId, false).stream() : java.util.stream.Stream.<UUID>empty())
                 .distinct()
                 .toList();
     }
@@ -205,12 +273,16 @@ public class PermissionChecker {
         Map<UUID, Set<String>> rolePerms = getPermissionsByRole(assignments);
         Set<String> targetCodes = Set.of(permissionCodes);
 
-        return assignments.stream()
-                .filter(a -> {
-                    Set<String> perms = rolePerms.getOrDefault(a.getRole().getId(), Collections.emptySet());
-                    return perms.contains("SYSTEM:ADMIN") || perms.stream().anyMatch(targetCodes::contains);
-                })
-                .map(a -> a.getOrgUnit().getId())
+        java.util.function.Predicate<UserRoleOrgUnit> hasCode = a -> {
+            Set<String> perms = rolePerms.getOrDefault(a.getRole().getId(), Collections.emptySet());
+            return perms.contains("SYSTEM:ADMIN") || perms.stream().anyMatch(targetCodes::contains);
+        };
+
+        return java.util.stream.Stream.concat(
+                assignments.stream().filter(hasCode).map(a -> a.getOrgUnit().getId()),
+                assignments.stream().anyMatch(hasCode)
+                        ? delegatedUnitIds(userId, false).stream()
+                        : java.util.stream.Stream.<UUID>empty())
                 .distinct()
                 .toList();
     }
@@ -282,8 +354,19 @@ public class PermissionChecker {
         OrgUnit targetUnit = orgUnitRepository.findById(orgUnitId).orElse(null);
         if (targetUnit == null) return 2;
 
+        // Người được uỷ quyền ký thay mang theo thâm niên của chính họ sang đơn vị đích —
+        // nếu không, mọi luật "ai trên ai" (mở khoá bản chốt của cấp dưới) sẽ coi họ là
+        // nhân viên và chặn đúng việc vừa được trao.
+        //
+        // Chỉ mang theo thâm niên của vai trò QUẢN LÝ. UserService
+        // .assignToUnitAndImmediateParent tự sinh cho mỗi người một membership nhân viên ở
+        // đơn vị CHA; tính cả nó thì thâm niên "mang sang" lại lấy từ một vai trò mà người
+        // đó chưa từng quản lý ai.
+        boolean asLeader = isDelegatedTo(userId, targetUnit, true);
+
         return assignments.stream()
-                .filter(a -> targetUnit.getPath().startsWith(a.getOrgUnit().getPath())) // Target is in subtree of assignment
+                .filter(a -> targetUnit.getPath().startsWith(a.getOrgUnit().getPath())
+                        || (asLeader && isManagerRank(a.getRole().getRank())))
                 .map(a -> a.getRole().getRank())
                 .filter(Objects::nonNull)
                 .min(Integer::compare)
@@ -322,8 +405,13 @@ public class PermissionChecker {
         OrgUnit targetUnit = orgUnitRepository.findById(orgUnitId).orElse(null);
         if (targetUnit == null) return 4;
 
+        // Cùng lý do với getMinRankInOrgUnit: chỉ vai trò quản lý mới mang thâm niên sang
+        // đơn vị được uỷ quyền.
+        boolean asLeader = isDelegatedTo(userId, targetUnit, true);
+
         return assignments.stream()
-                .filter(a -> targetUnit.getPath().startsWith(a.getOrgUnit().getPath()))
+                .filter(a -> targetUnit.getPath().startsWith(a.getOrgUnit().getPath())
+                        || (asLeader && isManagerRank(a.getRole().getRank())))
                 .map(a -> a.getRole().getLevel())
                 .filter(Objects::nonNull)
                 .min(Integer::compare)

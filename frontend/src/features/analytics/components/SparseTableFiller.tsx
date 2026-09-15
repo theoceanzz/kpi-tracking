@@ -8,7 +8,7 @@ import { ListChecks } from 'lucide-react'
 export function SparseTableFiller({ message }: { message?: string | null }) {
   if (!message) return <div className="flex-1 min-h-0" aria-hidden />
   return (
-    <div className="flex-1 min-h-0 flex flex-col items-center justify-center gap-2 py-8 text-slate-300 dark:text-slate-600 select-none pointer-events-none">
+    <div className="flex-1 min-h-0 flex flex-col items-center justify-center gap-2 py-8 text-[var(--color-subtle-foreground)] select-none pointer-events-none">
       <ListChecks className="w-9 h-9 opacity-40" strokeWidth={1.5} />
       <p className="text-xs font-semibold">{message}</p>
     </div>

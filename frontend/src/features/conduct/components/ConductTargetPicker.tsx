@@ -1,12 +1,12 @@
 import { useEffect, useMemo } from 'react'
 import { CalendarRange, CalendarDays } from 'lucide-react'
-import { cn } from '@/lib/utils'
 import { Select, SelectContent, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useKpiCycles } from '@/features/kpi/hooks/useKpiCycles'
 import { useKpiPeriods } from '@/features/kpi/hooks/useKpiPeriods'
 import ScopeSelectItems from '@/components/common/ScopeSelectItems'
 import { pickCurrentOrNearest } from '@/components/common/dateScope'
 import type { ConductScope, ConductTarget } from '../api/conductApi'
+import { ChoiceChip } from '@/components/ui/choice-chip'
 
 /**
  * Chọn chấm hạnh kiểm theo ĐỢT hay theo KỲ, rồi chọn đúng đợt/kỳ đó.
@@ -58,17 +58,9 @@ export default function ConductTargetPicker({
   }
 
   const tab = (scope: ConductScope, label: string, Icon: typeof CalendarDays) => (
-    <button
-      onClick={() => setScope(scope)}
-      className={cn(
-        'flex items-center gap-2 px-4 h-10 rounded-xl text-xs font-black uppercase tracking-widest transition-all',
-        value.scope === scope
-          ? 'bg-[var(--color-primary)] text-white shadow-sm'
-          : 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)] hover:text-[var(--color-primary)]'
-      )}
-    >
-      <Icon size={14} /> {label}
-    </button>
+    <ChoiceChip selected={value.scope === scope} variant="solid" onClick={() => setScope(scope)}>
+      <Icon /> {label}
+    </ChoiceChip>
   )
 
   return (

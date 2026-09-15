@@ -22,18 +22,18 @@ export function KpiTreemapLegend() {
   const kinds = Object.keys(KPI_KIND_COLORS) as KpiKind[]
 
   return (
-    <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-xs font-medium text-slate-500 dark:text-slate-400">
+    <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-caption">
       <Group label="Quan hệ">
         <span className="flex items-center gap-1.5">
           <span
-            className="w-4 h-3.5 rounded-sm border-2"
+            className="w-4 h-3.5 rounded-control border-2"
             style={{ borderColor: RELATION_STROKE.DECOMPOSITION }}
           />
           Phân rã (cha, con)
         </span>
         <span className="flex items-center gap-1.5">
           <span
-            className="w-4 h-3.5 rounded-sm border-2 border-dashed"
+            className="w-4 h-3.5 rounded-control border-2 border-dashed"
             style={{ borderColor: RELATION_STROKE.DELEGATION }}
           />
           Thác nước
@@ -44,7 +44,7 @@ export function KpiTreemapLegend() {
         {kinds.map(k => (
           <span key={k} className="flex items-center gap-1.5">
             <span
-              className="w-2.5 h-2.5 rounded-sm ring-1 ring-white dark:ring-slate-900"
+              className="w-2.5 h-2.5 rounded-control ring-1 ring-white dark:ring-slate-900"
               style={{ backgroundColor: KPI_KIND_COLORS[k] }}
             />
             {KPI_KIND_LABELS[k]}
@@ -56,7 +56,7 @@ export function KpiTreemapLegend() {
         {/* Ô xám chiếm phần không nhỏ trong hình mà chú giải trước đây không hề nhắc tới, nên
             người xem không có chỗ nào tra ra nó nghĩa là gì. */}
         <span className="flex items-center gap-1.5">
-          <span className="w-3.5 h-3.5 rounded-sm" style={{ backgroundColor: NEUTRAL_COLOR }} />
+          <span className="w-3.5 h-3.5 rounded-control" style={{ backgroundColor: NEUTRAL_COLOR }} />
           <span>Chưa có kết quả</span>
         </span>
         {/* Lấy màu qua chính `achievementSurface` chứ không chép lại bảng màu: chú giải mà lệch
@@ -65,7 +65,7 @@ export function KpiTreemapLegend() {
           {ACHIEVEMENT_BANDS.map(b => (
             <span key={b.label} className="flex items-center gap-1">
               <span
-                className="w-3.5 h-3.5 rounded-sm"
+                className="w-3.5 h-3.5 rounded-control"
                 style={{ backgroundColor: achievementSurface(b.from) }}
               />
               <span className="tabular-nums">{b.label}</span>
@@ -80,7 +80,7 @@ export function KpiTreemapLegend() {
 function Group({ label, children }: { label: string; children: React.ReactNode }) {
   return (
     <div className="flex items-center gap-2 flex-wrap">
-      <span className=" text-slate-400 dark:text-slate-500">{label}</span>
+      <span className="text-[var(--color-subtle-foreground)]">{label}</span>
       {children}
     </div>
   )

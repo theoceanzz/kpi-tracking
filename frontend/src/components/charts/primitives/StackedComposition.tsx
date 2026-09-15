@@ -54,7 +54,7 @@ export default function StackedComposition({
 }: Props) {
   if (!points.length) {
     return (
-      <div className="w-full flex items-center justify-center text-sm text-slate-400 font-medium" style={{ height }}>
+      <div className="w-full flex items-center justify-center text-sm text-[var(--color-subtle-foreground)] font-medium" style={{ height }}>
         Chưa có dữ liệu trong phạm vi này
       </div>
     )
@@ -108,7 +108,7 @@ export default function StackedComposition({
     />
   )
   const legend = (
-    <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 pt-3 text-xs font-medium text-slate-500 dark:text-slate-400">
+    <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 pt-3 text-xs font-medium text-[var(--color-muted-foreground)]">
       {series.map(s => (
         <span key={s.code} className="flex items-center gap-1.5">
           <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: s.color }} />
@@ -181,8 +181,8 @@ function CompositionTooltip({ active, payload, label, series, normalize, unit }:
   if (!active || !row) return null
   const total = Number(row['__total'] ?? 0)
   return (
-    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3.5 rounded-lg shadow-lg">
-      <p className="font-semibold text-slate-900 dark:text-white mb-2">{label}</p>
+    <div className="bg-[var(--color-card)] border border-[var(--color-border)] p-3.5 rounded-card shadow-lg">
+      <p className="font-bold text-[var(--color-foreground)] mb-2">{label}</p>
       <div className="space-y-1 text-sm">
         {series.map(s => {
           const raw = Number(row[`__raw_${s.code}`] ?? 0)
@@ -191,14 +191,14 @@ function CompositionTooltip({ active, payload, label, series, normalize, unit }:
           return (
             <div key={s.code} className="flex items-center gap-2.5">
               <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: s.color }} />
-              <span className="text-slate-500 font-medium min-w-[92px]">{s.label}:</span>
-              <span className="font-semibold text-slate-900 dark:text-white tabular-nums">
+              <span className="text-[var(--color-muted-foreground)] font-medium min-w-[92px]">{s.label}:</span>
+              <span className="font-bold text-[var(--color-foreground)] tabular-nums">
                 {normalize ? `${shown}% (${raw})` : `${raw}${unit ? ` ${unit}` : ''}`}
               </span>
             </div>
           )
         })}
-        <p className="text-xs text-slate-400 pt-1.5 border-t border-slate-100 dark:border-slate-800 mt-1.5">
+        <p className="text-xs text-[var(--color-subtle-foreground)] pt-1.5 border-t border-[var(--color-border)] mt-1.5">
           Tổng {total}{unit ? ` ${unit}` : ''}
         </p>
       </div>

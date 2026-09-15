@@ -25,6 +25,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
+import { ChoiceChip } from '@/components/ui/choice-chip'
 import { orgUnitKpiApi } from '@/features/dashboard/api/orgUnitKpiApi'
 import type { OrgUnitAssigneeStat, OrgUnitSubmissionStat } from '@/features/dashboard/api/orgUnitKpiApi'
 import { subDays, subMonths, startOfYear } from 'date-fns'
@@ -44,14 +45,14 @@ const ASSIGNEE_COLORS = ['#f59e0b', '#8b5cf6', '#ec4899', '#0ea5e9', '#14b8a6', 
 function TrendTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null
   return (
-    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-4 rounded-lg shadow-md">
-      <p className="font-semibold text-slate-900 dark:text-white mb-3">{label}</p>
+    <div className="bg-[var(--color-card)] border border-[var(--color-border)] p-4 rounded-lg shadow-md">
+      <p className="font-semibold text-[var(--color-foreground)] mb-3">{label}</p>
       <div className="space-y-2">
         {payload.map((p: any, i: number) => (
           <div key={i} className="flex items-center gap-3 text-sm">
             <div className="w-3 h-3 rounded-sm flex-shrink-0" style={{ backgroundColor: p.color }} />
             <span className="text-slate-500 font-medium min-w-[120px]">{p.name}:</span>
-            <span className="font-semibold text-slate-900 dark:text-white">
+            <span className="font-semibold text-[var(--color-foreground)]">
               {p.name.includes('%') ? `${Math.round(p.value)}%` : p.value?.toLocaleString('vi-VN')}
             </span>
           </div>
@@ -85,29 +86,13 @@ function BarTopLabel({ x, y, width, value }: any) {
 // ── BEST/WORST toggle header ──────────────────────────────────────────────────
 function RankToggle({ filter, onChange }: { filter: RankFilter; onChange: (f: RankFilter) => void }) {
   return (
-    <div className="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 gap-0.5">
-      <button
-        onClick={() => onChange('BEST')}
-        className={cn(
-          'flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold transition-all',
-          filter === 'BEST'
-            ? 'bg-white dark:bg-slate-700 text-emerald-600 dark:text-emerald-400 shadow-sm'
-            : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
-        )}
-      >
-        <Trophy size={11} /> Tốt nhất
-      </button>
-      <button
-        onClick={() => onChange('WORST')}
-        className={cn(
-          'flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold transition-all',
-          filter === 'WORST'
-            ? 'bg-white dark:bg-slate-700 text-rose-600 dark:text-rose-400 shadow-sm'
-            : 'text-slate-500 hover:text-slate-700 dark:text-slate-400'
-        )}
-      >
-        <TrendingDown size={11} /> Trì trệ
-      </button>
+    <div className="flex bg-[var(--color-muted)] rounded-control p-0.5 gap-0.5">
+      <ChoiceChip selected={filter === 'BEST'} variant="segment" size="sm" className="py-1" onClick={() => onChange('BEST')}>
+        <Trophy /> Tốt nhất
+      </ChoiceChip>
+      <ChoiceChip selected={filter === 'WORST'} variant="segment" size="sm" className="py-1" onClick={() => onChange('WORST')}>
+        <TrendingDown /> Trì trệ
+      </ChoiceChip>
     </div>
   )
 }
@@ -153,9 +138,9 @@ function AssigneeBarPanel({
   if (!data.length) return <div className="h-[280px] flex items-center justify-center text-slate-400 text-sm">Không có dữ liệu</div>
 
   return (
-    <div className="bg-white dark:bg-slate-900/60 rounded-lg border border-slate-200 dark:border-white/10 p-5 shadow-sm">
+    <div className="bg-[var(--color-card)]/60 rounded-lg border border-slate-200 dark:border-white/10 p-5 shadow-sm">
       <div className="flex items-center justify-between mb-4">
-        <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-200">{title}</h4>
+        <h4 className="text-sm font-semibold text-[var(--color-foreground)]">{title}</h4>
         <RankToggle filter={filter} onChange={onFilterChange} />
       </div>
       <div className="h-[260px]">
@@ -226,9 +211,9 @@ function SubmissionBarPanel({
   if (!data.length) return <div className="h-[280px] flex items-center justify-center text-slate-400 text-sm">Không có dữ liệu</div>
 
   return (
-    <div className="bg-white dark:bg-slate-900/60 rounded-lg border border-slate-200 dark:border-white/10 p-5 shadow-sm">
+    <div className="bg-[var(--color-card)]/60 rounded-lg border border-slate-200 dark:border-white/10 p-5 shadow-sm">
       <div className="flex items-center justify-between mb-4">
-        <h4 className="text-sm font-semibold text-slate-700 dark:text-slate-200">{title}</h4>
+        <h4 className="text-sm font-semibold text-[var(--color-foreground)]">{title}</h4>
         <RankToggle filter={filter} onChange={onFilterChange} />
       </div>
       <div className="h-[260px]">
@@ -361,11 +346,11 @@ export default function OrgUnitKpiDrawer({
     ? { label: 'KPI thưởng', cls: 'bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-500/30' }
     : data?.isReverseKpi
     ? { label: 'KPI ngược', cls: 'bg-indigo-100 dark:bg-indigo-900/40 text-[var(--color-primary)] dark:text-indigo-400 border-indigo-200 dark:border-[var(--color-primary)]/30' }
-    : { label: 'KPI thường', cls: 'bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-300 border-slate-200 dark:border-slate-700' }
+    : { label: 'KPI thường', cls: 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)] border-slate-200 dark:border-slate-700' }
 
   const customTitle = (
     <div className="flex items-center flex-wrap gap-2">
-      <span className="text-base font-semibold text-slate-900 dark:text-white leading-snug">
+      <span className="text-base font-semibold text-[var(--color-foreground)] leading-snug">
         {data?.kpiName || 'Chi tiết KPI'}
       </span>
       {data && (
@@ -399,7 +384,7 @@ export default function OrgUnitKpiDrawer({
             </div>
             <div className="flex flex-col sm:flex-row sm:flex-wrap sm:justify-end items-stretch sm:items-center gap-2">
               <Select value={dateFilterType} onValueChange={(v) => setDateFilterType(v as DateFilterType)}>
-                <SelectTrigger className="h-8 w-full sm:w-[220px] bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-300">
+                <SelectTrigger className="h-8 w-full sm:w-[220px] bg-[var(--color-muted)] border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-semibold text-slate-700 dark:text-slate-300">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="w-[var(--radix-select-trigger-width)]">
@@ -414,10 +399,10 @@ export default function OrgUnitKpiDrawer({
               </Select>
               {dateFilterType === 'CUSTOM' && (
                 <div className="flex items-center gap-2">
-                  <input type="date" className="h-8 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 text-xs text-slate-700 dark:text-slate-300"
+                  <input type="date" className="h-8 bg-[var(--color-muted)] border border-slate-200 dark:border-slate-700 rounded-lg px-2 text-xs text-slate-700 dark:text-slate-300"
                     value={customRange.from} onChange={(e) => setCustomRange(prev => ({ ...prev, from: e.target.value }))} />
                   <span className="text-slate-400">-</span>
-                  <input type="date" className="h-8 bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg px-2 text-xs text-slate-700 dark:text-slate-300"
+                  <input type="date" className="h-8 bg-[var(--color-muted)] border border-slate-200 dark:border-slate-700 rounded-lg px-2 text-xs text-slate-700 dark:text-slate-300"
                     value={customRange.to} onChange={(e) => setCustomRange(prev => ({ ...prev, to: e.target.value }))} />
                 </div>
               )}
@@ -437,17 +422,17 @@ export default function OrgUnitKpiDrawer({
                   <p className="text-xl font-semibold text-blue-700 dark:text-blue-400">{data?.topSubmissions?.length ?? 0}</p>
                 </div>
               </div>
-              <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
-                <h3 className="text-sm font-semibold text-slate-900 dark:text-white mb-3">Phân bố mức đánh giá</h3>
+              <div className="bg-[var(--color-card)] p-5 rounded-2xl border border-[var(--color-border)] shadow-sm">
+                <h3 className="text-sm font-semibold text-[var(--color-foreground)] mb-3">Phân bố mức đánh giá</h3>
                 <QualitativeDistributionChart distribution={data?.qualitativeDistribution} />
               </div>
               {(data?.topSubmissions?.length ?? 0) > 0 && (
-                <div className="bg-white dark:bg-slate-900 p-5 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
-                  <h3 className="text-sm font-semibold text-slate-900 dark:text-white mb-3">Bài nộp gần đây</h3>
+                <div className="bg-[var(--color-card)] p-5 rounded-2xl border border-[var(--color-border)] shadow-sm">
+                  <h3 className="text-sm font-semibold text-[var(--color-foreground)] mb-3">Bài nộp gần đây</h3>
                   <div className="space-y-2">
                     {data!.topSubmissions.map((s, i) => (
-                      <div key={i} className="flex items-center justify-between gap-3 rounded-lg border border-slate-100 dark:border-slate-800 px-3 py-2">
-                        <span className="text-sm font-semibold text-slate-700 dark:text-slate-200 truncate">{s.submitterName}</span>
+                      <div key={i} className="flex items-center justify-between gap-3 rounded-lg border border-[var(--color-border)] px-3 py-2">
+                        <span className="text-sm font-semibold text-[var(--color-foreground)] truncate">{s.submitterName}</span>
                         <QualitativeResultChip level={s.qualitativeLevelName} />
                       </div>
                     ))}
@@ -460,9 +445,9 @@ export default function OrgUnitKpiDrawer({
           {/* Metrics số — chỉ tiến độ (KPI định lượng) */}
           {!isQual && (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="bg-slate-50 dark:bg-slate-900/60 p-4 rounded-2xl border border-slate-100 dark:border-slate-800">
+            <div className="bg-slate-50 dark:bg-slate-900/60 p-4 rounded-2xl border border-[var(--color-border)]">
               <p className="text-xs font-medium text-slate-500 mb-1">Mục tiêu yêu cầu</p>
-              <p className="text-xl font-semibold text-slate-900 dark:text-white">
+              <p className="text-xl font-semibold text-[var(--color-foreground)]">
                 {data?.targetValue?.toLocaleString('vi-VN')} <span className="text-xs font-medium text-slate-500">{data?.unit}</span>
               </p>
             </div>
@@ -482,10 +467,10 @@ export default function OrgUnitKpiDrawer({
 
           {/* Trend chart */}
           {!isQual && data?.chartPoints && data.chartPoints.length > 0 && (
-            <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-200 dark:border-slate-800">
+            <div className="bg-[var(--color-card)] rounded-2xl p-6 border border-[var(--color-border)]">
               {/* Header */}
               <div className="mb-4">
-                <h3 className="text-lg font-semibold text-slate-900 dark:text-white flex items-center gap-2">
+                <h3 className="text-lg font-semibold text-[var(--color-foreground)] flex items-center gap-2">
                   <Activity size={18} className="text-[var(--color-primary)]" />
                   Xu hướng tiến độ theo thời gian
                 </h3>
@@ -547,14 +532,14 @@ export default function OrgUnitKpiDrawer({
 
           {/* ── Top người đảm nhiệm ──────────────────────────────────────────── */}
           {!isQual && data?.assigneeStats && data.assigneeStats.length > 0 && (
-            <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-200 dark:border-slate-800">
+            <div className="bg-[var(--color-card)] rounded-2xl p-6 border border-[var(--color-border)]">
               <div className="flex items-center gap-2.5 mb-6">
-                <div className="p-2 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-lg">
+                <div className="p-2 bg-[var(--color-muted)] text-slate-500 rounded-lg">
                   <Users size={16} />
                 </div>
                 <div>
-                  <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Top người đảm nhiệm</h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Tiến độ hoàn thành theo từng người thực hiện</p>
+                  <h3 className="text-sm font-semibold text-[var(--color-foreground)]">Top người đảm nhiệm</h3>
+                  <p className="text-xs text-[var(--color-muted-foreground)]">Tiến độ hoàn thành theo từng người thực hiện</p>
                 </div>
               </div>
               <div className="grid grid-cols-1 gap-6">
@@ -574,14 +559,14 @@ export default function OrgUnitKpiDrawer({
 
           {/* ── Top bài nộp ──────────────────────────────────────────────────── */}
           {!isQual && data?.topSubmissions && data.topSubmissions.length > 0 && (
-            <div className="bg-white dark:bg-slate-900 rounded-2xl p-6 border border-slate-200 dark:border-slate-800">
+            <div className="bg-[var(--color-card)] rounded-2xl p-6 border border-[var(--color-border)]">
               <div className="flex items-center gap-2.5 mb-6">
-                <div className="p-2 bg-slate-100 dark:bg-slate-800 text-slate-500 rounded-lg">
+                <div className="p-2 bg-[var(--color-muted)] text-slate-500 rounded-lg">
                   <ClipboardList size={16} />
                 </div>
                 <div>
-                  <h3 className="text-sm font-semibold text-slate-900 dark:text-white">Top bài nộp</h3>
-                  <p className="text-xs text-slate-500 dark:text-slate-400">Tiến độ đóng góp theo từng bài nộp</p>
+                  <h3 className="text-sm font-semibold text-[var(--color-foreground)]">Top bài nộp</h3>
+                  <p className="text-xs text-[var(--color-muted-foreground)]">Tiến độ đóng góp theo từng bài nộp</p>
                 </div>
               </div>
               <div className="grid grid-cols-1 gap-6">

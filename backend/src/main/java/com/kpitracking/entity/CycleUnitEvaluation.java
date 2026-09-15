@@ -57,6 +57,25 @@ public class CycleUnitEvaluation {
     private Integer memberCount;
 
     /**
+     * Điểm ĐƠN VỊ do người có quyền chấm tay, thay cho TB thành viên; null = dùng TB tự tính.
+     * Giữ riêng khỏi {@code managerScore} (số cuối cùng) để lúc nào cũng đối chiếu được
+     * "người chấm cho bao nhiêu" với "trung bình thành viên là bao nhiêu".
+     */
+    @Column(name = "override_score")
+    private Double overrideScore;
+
+    /** Lý do chấm khác TB — bắt buộc nhập, vì số công bố phải giải thích được. */
+    @Column(name = "override_reason")
+    private String overrideReason;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "overridden_by")
+    private User overriddenBy;
+
+    @Column(name = "overridden_at")
+    private Instant overriddenAt;
+
+    /**
      * Xếp loại ĐƠN VỊ (áp luật xếp loại lên phân bố mức của thành viên trong kỳ), CHỤP LẠI lúc chốt.
      * Không tính lại live vì luật xếp loại và đánh giá các đợt cũ đều có thể bị sửa sau khi chốt,
      * làm đổi kết quả đã công bố.

@@ -9,6 +9,7 @@ import { useDashboardFilter } from '../../context/DashboardFilterContext'
 import { orgUnitKpiApi, type MemberRiskRow } from '../../api/orgUnitKpiApi'
 import { PRIORITY_META, PRIORITY_ORDER, countByPriority, type Priority, type PriorityFilter } from './priority'
 import { PriorityChip, PriorityTabs, ShowMoreButton } from './PriorityParts'
+import { Button } from '@/components/ui/button'
 
 const PAGE_SIZE = 5
 const ALL_UNITS = '__ALL__'
@@ -125,7 +126,7 @@ export function TeamFocusWidget() {
               value={unitId ?? ALL_UNITS}
               onValueChange={v => { setUnitId(v === ALL_UNITS ? undefined : v); setVisible(PAGE_SIZE) }}
             >
-              <SelectTrigger className="h-8 max-w-[150px] gap-1 bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-lg text-[11px] font-semibold text-slate-600 dark:text-slate-300">
+              <SelectTrigger className="h-8 max-w-[150px] gap-1 bg-[var(--color-muted)] border-[var(--color-border)] rounded-control text-caption">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -139,7 +140,7 @@ export function TeamFocusWidget() {
           )}
           <Link
             to="/performance?section=submissions-org-unit"
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 text-[9px] font-black uppercase tracking-[0.14em] hover:bg-indigo-600 dark:hover:bg-indigo-600 dark:hover:text-white transition-colors"
+            className="inline-flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-control bg-[var(--color-primary)] px-3 text-[13px] font-medium text-[var(--color-primary-foreground)] transition-colors hover:bg-[var(--color-primary-hover)]"
           >
             Trung tâm duyệt <ExternalLink size={11} aria-hidden="true" />
           </Link>
@@ -150,22 +151,22 @@ export function TeamFocusWidget() {
         <PriorityTabs counts={counts} total={rows.length} value={filter} onChange={changeFilter} />
 
         <div className="relative shrink-0">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400" size={14} aria-hidden="true" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-subtle-foreground)]" size={14} aria-hidden="true" />
           <input
             value={search}
             onChange={e => { setSearch(e.target.value); setVisible(PAGE_SIZE) }}
             placeholder="Tìm nhân sự, đơn vị, lý do…"
             aria-label="Tìm trong danh sách nhân sự cần can thiệp"
-            className="w-full h-9 pl-9 pr-3 rounded-xl bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 focus:border-indigo-500 focus:ring-2 focus:ring-indigo-500/20 outline-none text-xs font-semibold transition-all"
+            className="w-full h-9 pl-9 pr-3 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-ring)] outline-none text-xs font-semibold transition-all"
           />
         </div>
 
         {shown.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center text-center px-6 py-8 gap-3">
-            <div className="w-12 h-12 rounded-full bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-center text-emerald-500">
+            <div className="w-12 h-12 rounded-full bg-[var(--color-success-bg)] border border-[var(--color-success-border)] flex items-center justify-center text-[var(--color-success)]">
               <ShieldCheck size={24} aria-hidden="true" />
             </div>
-            <p className="text-sm text-slate-500 dark:text-slate-400 max-w-xs leading-relaxed">
+            <p className="text-sm text-[var(--color-muted-foreground)] max-w-xs leading-relaxed">
               {members.length === 0
                 ? 'Chưa có nhân sự nào được giao chỉ tiêu trong đợt/kỳ đang chọn.'
                 : rows.length === 0
@@ -200,7 +201,7 @@ export function TeamFocusWidget() {
 
         {/* Mẫu số của bức tranh: bao nhiêu người KHÔNG nằm trong danh sách trên */}
         {members.length > 0 && (
-          <p className="shrink-0 text-[10px] font-bold text-slate-400 uppercase tracking-widest text-center">
+          <p className="text-eyebrow shrink-0 text-center">
             {healthy} / {members.length} nhân sự đang bám đúng tiến độ
           </p>
         )}
@@ -219,14 +220,14 @@ function FocusRowItem({ row, periodId, periodIdTo, expanded, onToggle }: {
   const meta = PRIORITY_META[row.priority]
 
   return (
-    <li className="relative rounded-2xl border border-slate-200/70 dark:border-slate-800 bg-white dark:bg-slate-900/60 overflow-hidden">
+    <li className="relative rounded-card border border-[var(--color-border)] bg-[var(--color-card)] overflow-hidden">
       <span className={cn('absolute left-0 top-3 bottom-3 w-1 rounded-full', meta.bar)} aria-hidden="true" />
 
       <div className="flex items-center gap-3 p-3 pl-4">
         {row.avatarUrl
           ? <img src={row.avatarUrl} alt="" className="w-9 h-9 rounded-full object-cover shrink-0" />
           : (
-            <div className="w-9 h-9 rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-xs font-black text-slate-500 shrink-0" aria-hidden="true">
+            <div className="w-9 h-9 rounded-full bg-[var(--color-muted)] flex items-center justify-center text-xs font-semibold text-[var(--color-muted-foreground)] shrink-0" aria-hidden="true">
               {row.fullName.charAt(0).toUpperCase()}
             </div>
           )}
@@ -234,15 +235,15 @@ function FocusRowItem({ row, periodId, periodIdTo, expanded, onToggle }: {
         <div className="min-w-0 flex-1 space-y-1.5">
           <div className="flex items-center gap-2 min-w-0">
             <PriorityChip priority={row.priority} />
-            <p className="text-sm font-bold text-slate-900 dark:text-white truncate">{row.fullName}</p>
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-widest truncate">
+            <p className="text-sm font-medium text-[var(--color-foreground)] truncate">{row.fullName}</p>
+            <span className="text-eyebrow truncate">
               · {row.orgUnitName || 'Chưa gán đơn vị'}
             </span>
           </div>
 
-          <p className="text-[11px] font-semibold text-slate-500 dark:text-slate-400 leading-snug">{row.reason}</p>
+          <p className="text-caption leading-snug">{row.reason}</p>
 
-          <div className="h-1 w-full max-w-[220px] bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+          <div className="h-1 w-full max-w-[220px] bg-[var(--color-muted)] rounded-full overflow-hidden">
             <div
               className={cn('h-full rounded-full transition-all duration-700 motion-reduce:transition-none', meta.bar)}
               style={{ width: `${Math.max(0, Math.min(100, row.avgProgress))}%` }}
@@ -250,19 +251,14 @@ function FocusRowItem({ row, periodId, periodIdTo, expanded, onToggle }: {
           </div>
         </div>
 
-        <div className="hidden sm:flex items-center gap-5 shrink-0 border-l border-slate-100 dark:border-slate-800 pl-4">
+        <div className="hidden sm:flex items-center gap-5 shrink-0 border-l border-[var(--color-border)] pl-4">
           <Metric label="Tiến độ TB" value={`${row.avgProgress.toFixed(1)}%`} />
           <Metric label="Trễ hạn" value={`${row.overdueCount}/${row.totalKpis}`} highlight={row.overdueCount > 0} />
         </div>
 
-        <button
-          onClick={onToggle}
-          aria-expanded={expanded}
-          aria-label={`Chi tiết của ${row.fullName}`}
-          className="shrink-0 w-9 h-9 rounded-xl bg-slate-900 dark:bg-white text-white dark:text-slate-900 flex items-center justify-center hover:bg-indigo-600 dark:hover:bg-indigo-600 dark:hover:text-white focus:outline-none focus-visible:ring-2 focus-visible:ring-indigo-500 transition-colors cursor-pointer"
-        >
-          <ChevronDown size={16} className={cn('transition-transform', expanded && 'rotate-180')} aria-hidden="true" />
-        </button>
+        <Button size="icon" className="shrink-0" onClick={onToggle} aria-expanded={expanded} aria-label={`Chi tiết của ${row.fullName}`}>
+          <ChevronDown aria-hidden="true" className={cn('transition-transform', expanded && 'rotate-180')} />
+        </Button>
       </div>
 
       {/* Trên màn hẹp hai chỉ số xuống dòng riêng thay vì bị cắt mất */}
@@ -279,10 +275,10 @@ function FocusRowItem({ row, periodId, periodIdTo, expanded, onToggle }: {
 function Metric({ label, value, highlight }: { label: string; value: string; highlight?: boolean }) {
   return (
     <div className="text-center">
-      <p className="text-[9px] font-black text-slate-400 uppercase tracking-[0.14em]">{label}</p>
+      <p className="text-eyebrow">{label}</p>
       <p className={cn(
-        'text-sm font-black tabular-nums mt-0.5',
-        highlight ? 'text-red-600 dark:text-red-400' : 'text-slate-900 dark:text-white',
+        'text-sm font-semibold tabular-nums mt-0.5',
+        highlight ? 'text-[var(--color-error)]' : 'text-[var(--color-foreground)]',
       )}>
         {value}
       </p>
@@ -299,13 +295,13 @@ function OverdueDetail({ row, periodId, periodIdTo }: { row: FocusRow; periodId?
   const kpis = data ?? []
 
   return (
-    <div className="mx-3 mb-3 ml-4 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/70 dark:bg-slate-800/30 p-3 space-y-2">
+    <div className="mx-3 mb-3 ml-4 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] p-3 space-y-2">
       {isFetching ? (
-        <p className="text-[11px] font-semibold text-slate-400 flex items-center gap-2">
+        <p className="text-caption flex items-center gap-2">
           <Loader2 size={12} className="animate-spin" aria-hidden="true" /> Đang tải chi tiết…
         </p>
       ) : kpis.length === 0 ? (
-        <p className="text-[11px] font-semibold text-slate-400">
+        <p className="text-caption">
           Không có chỉ tiêu nào nộp sau hạn — vấn đề nằm ở tiến độ, không ở lịch nộp.
         </p>
       ) : (
@@ -314,8 +310,8 @@ function OverdueDetail({ row, periodId, periodIdTo }: { row: FocusRow; periodId?
             const last = k.submissions[k.submissions.length - 1]
             return (
               <li key={k.kpiId} className="flex items-baseline justify-between gap-3">
-                <span className="text-[11px] font-bold text-slate-700 dark:text-slate-200 truncate">{k.kpiName}</span>
-                <span className="text-[10px] font-semibold text-slate-400 whitespace-nowrap tabular-nums">
+                <span className="text-xs font-medium text-[var(--color-foreground)] truncate">{k.kpiName}</span>
+                <span className="text-caption whitespace-nowrap tabular-nums">
                   hạn {formatDate(k.deadline)}
                   {last?.submittedAt ? ` · nộp ${formatDate(last.submittedAt)}` : ''}
                 </span>
@@ -327,7 +323,7 @@ function OverdueDetail({ row, periodId, periodIdTo }: { row: FocusRow; periodId?
 
       <Link
         to={`/employees/${row.userId}/performance`}
-        className="inline-flex items-center gap-1.5 text-[10px] font-black uppercase tracking-[0.14em] text-indigo-600 dark:text-indigo-400 hover:underline"
+        className="inline-flex items-center gap-1.5 text-[13px] font-medium text-[var(--color-primary)] hover:underline"
       >
         <UserRoundSearch size={12} aria-hidden="true" /> Xem hồ sơ hiệu suất
       </Link>

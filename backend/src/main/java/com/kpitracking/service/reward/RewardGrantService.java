@@ -14,6 +14,7 @@ import com.kpitracking.enums.RewardTransactionType;
 import com.kpitracking.enums.UserStatus;
 import com.kpitracking.exception.BusinessException;
 import com.kpitracking.exception.ForbiddenException;
+import com.kpitracking.event.RewardEvents;
 import com.kpitracking.exception.ResourceNotFoundException;
 import com.kpitracking.repository.*;
 import com.kpitracking.security.PermissionChecker;
@@ -21,6 +22,7 @@ import com.kpitracking.service.RewardWalletService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.data.domain.Page;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -69,6 +71,7 @@ public class RewardGrantService {
     private final OrgUnitRepository orgUnitRepository;
     private final PermissionChecker permissionChecker;
     private final RewardContext context;
+    private final ApplicationEventPublisher eventPublisher;
 
     // ────────────────────────────── TẠO ──────────────────────────────
 
@@ -132,6 +135,9 @@ public class RewardGrantService {
 
         if (autoApproved) {
             issuePoints(grant, items, grantor);
+            eventPublisher.publishEvent(new RewardEvents.GrantIssued(grant.getId(), grantor.getId()));
+        } else {
+            eventPublisher.publishEvent(new RewardEvents.GrantSubmitted(grant.getId(), grantor.getId()));
         }
 
         RewardGrantResponse response = toResponse(grant, items);
@@ -285,6 +291,12 @@ public class RewardGrantService {
         List<RewardGrantItem> items = grantItemRepository.findByGrantId(grantId);
         issuePoints(grant, items, approver);
 
+        // Hai sự kiện cho một cú bấm, hai phía người nhận khác nhau: người trao cần biết đề nghị
+        // của mình đã qua, còn từng người nhận cần biết điểm đã vào ví. Gộp làm một thì một trong
+        // hai phía im lặng.
+        eventPublisher.publishEvent(new RewardEvents.GrantApproved(grantId, approver.getId()));
+        eventPublisher.publishEvent(new RewardEvents.GrantIssued(grantId, approver.getId()));
+
         return toResponse(grant, items);
     }
 
@@ -301,6 +313,8 @@ public class RewardGrantService {
         grantRepository.save(grant);
 
         // Không cần trả lại hạn mức: đề nghị REJECTED tự rơi khỏi tổng đang tính.
+        eventPublisher.publishEvent(new RewardEvents.GrantRejected(
+                grantId, approver.getId(), request != null ? request.getNote() : null));
         return toResponse(grant, grantItemRepository.findByGrantId(grantId));
     }
 
@@ -313,6 +327,7 @@ public class RewardGrantService {
         }
         grant.setStatus(RewardGrantStatus.CANCELLED);
         grantRepository.save(grant);
+        eventPublisher.publishEvent(new RewardEvents.GrantCancelled(grantId, me.getId()));
         return toResponse(grant, grantItemRepository.findByGrantId(grantId));
     }
 
@@ -413,6 +428,8 @@ public class RewardGrantService {
         grant.setStatus(RewardGrantStatus.REVOKED);
         grant.setDecisionNote(request != null ? request.getNote() : null);
         grantRepository.save(grant);
+        eventPublisher.publishEvent(new RewardEvents.GrantRevoked(
+                grantId, actor.getId(), request != null ? request.getNote() : null));
         // Hạn mức tự trả lại: REVOKED rơi khỏi tổng đang tính.
         return toResponse(grant, items);
     }

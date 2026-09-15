@@ -1,14 +1,13 @@
 import { useState } from 'react'
 import { History, Store, PackageCheck, Award } from 'lucide-react'
 import { useTabParam } from '@/hooks/useTabParam'
-import { useTourTabScope } from '@/hooks/useTourScope'
-import PageHeader from '@/components/common/PageHeader'
+import WorkspaceHeader from '@/components/common/WorkspaceHeader'
+import { WorkspaceTabsProvider } from '@/components/common/WorkspaceTabs'
 import Pagination from '@/components/common/Pagination'
 import EmptyState from '@/components/common/EmptyState'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import { useHasPermission } from '@/components/auth/PermissionGate'
 import CheckinCard from '../components/CheckinCard'
-import RewardActivityTicker from '../components/RewardActivityTicker'
 import RewardBalanceCard from '../components/RewardBalanceCard'
 import RewardLedgerTable from '../components/RewardLedgerTable'
 import GiftShopGrid from '../components/GiftShopGrid'
@@ -70,52 +69,24 @@ export default function MyRewardsPage() {
     ],
     { param: 'rewards' }
   )
-  useTourTabScope(activeTab)
-
   return (
-    <div className="mx-auto max-w-7xl p-4 sm:p-6">
-      <PageHeader
+    <WorkspaceTabsProvider tabs={visibleTabs} activeTab={activeTab} setActiveTab={key => setActiveTab(key as TabKey)}>
+    <div className="mx-auto max-w-[1600px] space-y-4">
+      <WorkspaceHeader
+        id="tour-my-rewards-header"
         title="Điểm thưởng của tôi"
-        description="Số dư điểm, đổi quà và toàn bộ lịch sử giao dịch điểm"
+        description="Số dư điểm, điểm danh mỗi ngày, đổi quà và toàn bộ lịch sử giao dịch điểm."
       />
-
-      {/* Nhân viên thường chỉ vào trang này — bảng tin phải có ở đây, nếu không thì
-          "để mọi người đều biết" chỉ còn đúng với người có quyền quản lý thưởng. */}
-      <RewardActivityTicker className="mb-6" />
 
       <div id="tour-my-rewards-balance">
         <RewardBalanceCard wallet={wallet} loading={walletLoading} />
       </div>
 
-      {/* Ngay dưới số dư, TRÊN các tab: điểm danh là việc phải làm mỗi ngày, để nó nằm
+      {/* Ngay dưới số dư, TRÊN nội dung tab: điểm danh là việc phải làm mỗi ngày, để nó nằm
           trong một tab thì hôm nào nhân viên không mở tab đó là mất chuỗi. Thẻ tự ẩn
           khi tổ chức chưa bật, nên không chiếm chỗ vô ích. */}
-      <div id="tour-my-rewards-checkin" className="mt-6">
+      <div id="tour-my-rewards-checkin">
         <CheckinCard />
-      </div>
-
-      {/* Xuống dòng chứ không cuộn ngang — xem ghi chú ở RewardManagementPage. */}
-      {/* Neo cho hướng dẫn: hàng tab này tự vẽ chứ không đi qua WorkspaceHeader. */}
-      <div id="tour-local-tabs" className="mb-6 mt-8 flex flex-wrap gap-1 sm:border-b sm:border-[var(--color-border)]">
-        {visibleTabs.map((t) => (
-          <button
-            key={t.key}
-            onClick={() => setActiveTab(t.key)}
-            className={`flex items-center gap-1.5 whitespace-nowrap border-b-2 px-3 py-2.5 text-sm font-medium transition-colors sm:-mb-px sm:gap-2 sm:px-4 sm:py-3 ${
-              activeTab === t.key
-                ? 'border-[var(--color-primary)] text-[var(--color-primary)]'
-                : 'border-transparent text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)]'
-            }`}
-          >
-            <t.icon size={16} />
-            {t.label}
-            {t.badge != null && (
-              <span className="rounded-full bg-[var(--color-muted)] px-2 py-0.5 text-xs font-medium text-[var(--color-muted-foreground)]">
-                {t.badge}
-              </span>
-            )}
-          </button>
-        ))}
       </div>
 
       {/* Cửa hàng cần số dư để hiện "còn thiếu bao nhiêu điểm" ngay trên từng thẻ quà,
@@ -127,7 +98,7 @@ export default function MyRewardsPage() {
           {txLoading ? (
             <LoadingSkeleton type="table" rows={4} />
           ) : transactions.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-[var(--color-border)]">
+            <div className="rounded-card border border-dashed border-[var(--color-border)]">
               <EmptyState
                 title="Chưa có giao dịch nào"
                 description="Mọi lần bạn được thưởng điểm hoặc dùng điểm đổi quà đều được ghi lại đầy đủ ở đây."
@@ -160,7 +131,7 @@ export default function MyRewardsPage() {
           {redemptionsLoading ? (
             <LoadingSkeleton type="table" rows={3} />
           ) : redemptions.length === 0 ? (
-            <div className="rounded-2xl border border-dashed border-[var(--color-border)]">
+            <div className="rounded-card border border-dashed border-[var(--color-border)]">
               <EmptyState
                 title="Bạn chưa đổi quà nào"
                 description="Sang tab Cửa hàng quà để xem những gì bạn có thể đổi bằng số điểm đang có."
@@ -172,5 +143,6 @@ export default function MyRewardsPage() {
         </div>
       )}
     </div>
+    </WorkspaceTabsProvider>
   )
 }

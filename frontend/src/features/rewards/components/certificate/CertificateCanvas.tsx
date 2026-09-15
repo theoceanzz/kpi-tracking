@@ -142,7 +142,7 @@ const CertificateCanvas = forwardRef<HTMLDivElement, CertificateCanvasProps>(
                   fontSize: t(14),
                   fontWeight: 600,
                   letterSpacing: '0.24em',
-                  textTransform: 'uppercase',
+                  textTransform: '',
                   color: soft(0.62),
                 }}
               >
@@ -285,7 +285,7 @@ const CertificateCanvas = forwardRef<HTMLDivElement, CertificateCanvasProps>(
                   style={{
                     fontSize: t(11),
                     letterSpacing: '0.2em',
-                    textTransform: 'uppercase',
+                    textTransform: '',
                     color: soft(0.45),
                   }}
                 >
@@ -301,7 +301,7 @@ const CertificateCanvas = forwardRef<HTMLDivElement, CertificateCanvasProps>(
                     textAlign: 'center',
                     fontSize: t(11),
                     letterSpacing: '0.16em',
-                    textTransform: 'uppercase',
+                    textTransform: '',
                     color: soft(0.42),
                   }}
                 >
@@ -364,7 +364,7 @@ function Eyebrow({ design, text, size }: { design: ResolvedDesign; text: string;
     fontSize: size,
     fontWeight: 700,
     letterSpacing: '0.4em',
-    textTransform: 'uppercase',
+    textTransform: '',
   }
 
   if (pill) {

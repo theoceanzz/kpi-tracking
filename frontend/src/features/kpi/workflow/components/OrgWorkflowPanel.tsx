@@ -9,6 +9,8 @@ import {
 import WorkflowRail from './WorkflowRail'
 import { stageIcon, STAGE_HINTS } from '../workflowStageIcons'
 import type { WorkflowStage, WorkflowStageCode } from '../types'
+import { Button } from '@/components/ui/button'
+import { Switch as SwitchControl } from '@/components/ui/switch'
 
 /**
  * Cấu hình luồng KPI cho toàn tổ chức.
@@ -105,7 +107,7 @@ export default function OrgWorkflowPanel() {
   if (isLoading) {
     return (
       <div className="flex h-64 items-center justify-center">
-        <Loader2 className="animate-spin text-indigo-600" />
+        <Loader2 className="animate-spin text-[var(--color-primary)]" />
       </div>
     )
   }
@@ -114,22 +116,22 @@ export default function OrgWorkflowPanel() {
   // nào là thông tin hữu ích cho mọi người, chỉ có quyền SỬA mới cần gác.
   if (!canManage) {
     return (
-      <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <div className="flex items-center gap-3 border-b border-slate-100 p-6 dark:border-slate-800">
-          <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-slate-100 text-slate-400 dark:bg-slate-800">
+      <div className="overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-card)] shadow-sm">
+        <div className="flex items-center gap-3 border-b border-[var(--color-border)] p-6">
+          <div className="flex h-10 w-10 items-center justify-center rounded-card bg-[var(--color-muted)] text-[var(--color-subtle-foreground)]">
             <Lock size={20} />
           </div>
           <div>
-            <h3 className="font-black text-slate-900 dark:text-white">Luồng của tổ chức</h3>
-            <p className="text-xs font-medium text-slate-500">
+            <h3 className="text-section-title">Luồng của tổ chức</h3>
+            <p className="mt-0.5 text-sm text-[var(--color-muted-foreground)]">
               Chỉ người có quyền cấu hình luồng mới sửa được phần này
             </p>
           </div>
         </div>
 
         <div className="p-6">
-          <p className="mb-3 text-[10px] font-black uppercase tracking-widest text-slate-400">Các bước đang bật</p>
-          <WorkflowRail preview previewStages={enabledPreview} className="bg-slate-50 dark:bg-slate-800/40" />
+          <p className="text-eyebrow mb-3">Các bước đang bật</p>
+          <WorkflowRail preview previewStages={enabledPreview} className="bg-[var(--color-muted)]" />
         </div>
       </div>
     )
@@ -137,52 +139,44 @@ export default function OrgWorkflowPanel() {
 
   return (
     <div className="space-y-6">
-      <div className="overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm dark:border-slate-800 dark:bg-slate-900">
-        <div className="flex flex-col gap-4 border-b border-slate-100 p-6 md:flex-row md:items-center md:justify-between dark:border-slate-800">
+      <div className="overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-card)] shadow-sm">
+        <div className="flex flex-col gap-4 border-b border-[var(--color-border)] p-6 md:flex-row md:items-center md:justify-between">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-indigo-50 text-indigo-600 dark:bg-indigo-900/30">
+            <div className="flex h-10 w-10 items-center justify-center rounded-card bg-[var(--color-primary-soft)] text-[var(--color-primary)]">
               <Workflow size={20} />
             </div>
             <div>
-              <h3 className="font-black text-slate-900 dark:text-white">Luồng của tổ chức</h3>
-              <p className="text-xs font-medium text-slate-500">
+              <h3 className="text-section-title">Luồng của tổ chức</h3>
+              <p className="mt-0.5 text-sm text-[var(--color-muted-foreground)]">
                 Áp dụng cho <b>mọi người</b> — bật/tắt bước ở đây đổi cả luật nghiệp vụ của hệ thống
               </p>
             </div>
           </div>
 
           <div className="flex flex-col gap-3 md:flex-row md:items-center">
-            <button
-              onClick={() => resetMutation.mutate()}
-              disabled={resetMutation.isPending}
-              className="flex items-center justify-center gap-2 rounded-xl border border-slate-200 px-4 py-2.5 text-sm font-bold text-slate-600 transition-all hover:bg-slate-50 disabled:opacity-50 dark:border-slate-700 dark:text-slate-300 dark:hover:bg-slate-800"
-            >
-              {resetMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <RotateCcw size={16} />}
+            <Button variant="outline" onClick={() => resetMutation.mutate()} disabled={resetMutation.isPending}>
+              {resetMutation.isPending ? <Loader2 aria-hidden="true" className="animate-spin" /> : <RotateCcw aria-hidden="true" />}
               Đặt lại mặc định
-            </button>
-            <button
-              onClick={save}
-              disabled={updateMutation.isPending || !dirty || warnings.length > 0}
-              className="flex items-center justify-center gap-2 rounded-xl bg-indigo-600 px-6 py-2.5 text-sm font-bold text-white shadow-lg shadow-indigo-500/20 transition-all hover:bg-indigo-700 disabled:opacity-50"
-            >
-              {updateMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+            </Button>
+            <Button onClick={save} disabled={updateMutation.isPending || !dirty || warnings.length > 0}>
+              {updateMutation.isPending ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Save aria-hidden="true" />}
               Lưu thay đổi
-            </button>
+            </Button>
           </div>
         </div>
 
         {/* Bản xem trước: chính thanh tiến trình mà người dùng sẽ thấy trên mọi trang KPI. */}
-        <div className="border-b border-slate-100 bg-slate-50/60 p-6 dark:border-slate-800 dark:bg-slate-800/30">
-          <p className="mb-3 text-[10px] font-black uppercase tracking-widest text-slate-400">
+        <div className="border-b border-[var(--color-border)] bg-[var(--color-muted)] p-6">
+          <p className="text-eyebrow mb-3">
             Luồng sau khi lưu
           </p>
-          <WorkflowRail preview previewStages={enabledPreview} className="bg-white dark:bg-slate-900" />
+          <WorkflowRail preview previewStages={enabledPreview} className="bg-[var(--color-card)]" />
         </div>
 
         {warnings.length > 0 && (
-          <div className="border-b border-amber-200 bg-amber-50 p-4 dark:border-amber-900/50 dark:bg-amber-900/20">
+          <div className="border-b border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] p-4 dark:border-[var(--color-warning-border)] dark:bg-[var(--color-warning-bg)]">
             {warnings.map((w) => (
-              <p key={w} className="flex items-start gap-2 text-xs font-bold text-amber-700 dark:text-amber-400">
+              <p key={w} className="flex items-start gap-2 text-xs font-medium text-[var(--color-warning)]">
                 <AlertTriangle size={14} className="mt-0.5 shrink-0" />
                 {w}
               </p>
@@ -190,7 +184,7 @@ export default function OrgWorkflowPanel() {
           </div>
         )}
 
-        <div className="divide-y divide-slate-100 dark:divide-slate-800">
+        <div className="divide-y divide-[var(--color-border)]">
           {draft
             .slice()
             .sort((a, b) => a.order - b.order)
@@ -236,7 +230,7 @@ function StageRow({
             onClick={() => onMove(-1)}
             disabled={isFirst}
             title="Đưa lên trước"
-            className="rounded-md p-0.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 disabled:opacity-25 disabled:hover:bg-transparent dark:hover:bg-slate-800"
+            className="rounded-control p-0.5 text-[var(--color-subtle-foreground)] transition-colors hover:bg-[var(--color-muted)] hover:text-[var(--color-muted-foreground)] disabled:opacity-25 disabled:hover:bg-transparent"
           >
             <ChevronUp size={14} />
           </button>
@@ -245,29 +239,29 @@ function StageRow({
             onClick={() => onMove(1)}
             disabled={isLast}
             title="Đưa xuống sau"
-            className="rounded-md p-0.5 text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-600 disabled:opacity-25 disabled:hover:bg-transparent dark:hover:bg-slate-800"
+            className="rounded-control p-0.5 text-[var(--color-subtle-foreground)] transition-colors hover:bg-[var(--color-muted)] hover:text-[var(--color-muted-foreground)] disabled:opacity-25 disabled:hover:bg-transparent"
           >
             <ChevronDown size={14} />
           </button>
         </div>
 
-        <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-slate-500 dark:bg-slate-800">
+        <div className="mt-0.5 flex h-9 w-9 shrink-0 items-center justify-center rounded-card bg-[var(--color-muted)] text-[var(--color-muted-foreground)]">
           {stageIcon(stage.code)}
         </div>
 
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2">
-            <h4 className="font-bold text-slate-900 dark:text-white">{stage.label}</h4>
+            <h4 className="font-semibold text-[var(--color-foreground)]">{stage.label}</h4>
             {stage.required && (
               <span
-                className="flex items-center gap-1 rounded-md bg-slate-100 px-1.5 py-0.5 text-[10px] font-black uppercase text-slate-500 dark:bg-slate-800"
+                className="flex items-center gap-1 rounded-control bg-[var(--color-muted)] px-1.5 py-0.5 text-xs font-medium text-[var(--color-muted-foreground)]"
                 title="Bước lõi của luồng, không thể tắt"
               >
                 <Lock size={10} /> Bắt buộc
               </span>
             )}
           </div>
-          <p className="mt-1 text-xs font-medium text-slate-500">{STAGE_HINTS[stage.code]}</p>
+          <p className="mt-1 text-xs font-medium text-[var(--color-muted-foreground)]">{STAGE_HINTS[stage.code]}</p>
 
           {stage.enabled && <StageOptions stage={stage} onOption={onOption} />}
         </div>
@@ -317,7 +311,7 @@ function StageOptions({
   if (stage.code === 'CRITERIA_ADJUSTMENT') {
     return (
       <OptionBox>
-        <label className="flex items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-300">
+        <label className="text-label flex items-center gap-2 text-[var(--color-muted-foreground)]">
           Tự động từ chối sau
           <input
             type="number"
@@ -325,7 +319,7 @@ function StageOptions({
             max={720}
             value={Number(o.autoRejectAfterHours ?? 24)}
             onChange={(e) => onOption('autoRejectAfterHours', Number(e.target.value))}
-            className="w-20 rounded-lg border border-slate-200 bg-slate-50 px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800"
+            className="w-20 rounded-control border border-[var(--color-border)] bg-[var(--color-muted)] px-2 py-1 text-sm outline-none focus:ring-2 focus:ring-[var(--color-ring)]"
           />
           giờ
         </label>
@@ -371,7 +365,7 @@ function StageOptions({
 
 function OptionBox({ children }: { children: React.ReactNode }) {
   return (
-    <div className="mt-3 flex flex-col gap-2 rounded-xl bg-slate-50 p-3 dark:bg-slate-800/50">{children}</div>
+    <div className="mt-3 flex flex-col gap-2 rounded-card bg-[var(--color-muted)] p-3">{children}</div>
   )
 }
 
@@ -385,12 +379,12 @@ function Check({
   onChange: (v: boolean) => void
 }) {
   return (
-    <label className="flex cursor-pointer items-center gap-2 text-xs font-bold text-slate-600 dark:text-slate-300">
+    <label className="text-label flex cursor-pointer items-center gap-2 text-[var(--color-muted-foreground)]">
       <input
         type="checkbox"
         checked={checked}
         onChange={(e) => onChange(e.target.checked)}
-        className="h-4 w-4 rounded border-slate-300 text-indigo-600 focus:ring-indigo-500"
+        className="h-4 w-4 rounded border-[var(--color-border-strong)] text-[var(--color-primary)] focus:ring-[var(--color-ring)]"
       />
       {label}
     </label>
@@ -409,12 +403,12 @@ function Select({
   options: Array<{ value: string; label: string }>
 }) {
   return (
-    <label className="flex flex-col gap-1 text-xs font-bold text-slate-600 dark:text-slate-300">
+    <label className="text-label flex flex-col gap-1 text-[var(--color-muted-foreground)]">
       {label}
       <select
         value={value}
         onChange={(e) => onChange(e.target.value)}
-        className="rounded-lg border border-slate-200 bg-white px-2 py-1.5 text-sm font-medium outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-slate-700 dark:bg-slate-800"
+        className="rounded-control border border-[var(--color-border)] bg-[var(--color-card)] px-2 py-1.5 text-sm font-medium outline-none focus:ring-2 focus:ring-[var(--color-ring)]"
       >
         {options.map((opt) => (
           <option key={opt.value} value={opt.value}>
@@ -438,25 +432,6 @@ function Switch({
   title?: string
 }) {
   return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      disabled={disabled}
-      onClick={onChange}
-      title={title}
-      className={cn(
-        'relative mt-1 h-6 w-11 shrink-0 rounded-full transition-colors',
-        checked ? 'bg-indigo-600' : 'bg-slate-300 dark:bg-slate-700',
-        disabled && 'cursor-not-allowed opacity-50',
-      )}
-    >
-      <span
-        className={cn(
-          'absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-transform',
-          checked ? 'translate-x-[22px]' : 'translate-x-0.5',
-        )}
-      />
-    </button>
+    <SwitchControl checked={checked} onCheckedChange={onChange} disabled={disabled} title={title} className="mt-1" />
   )
 }

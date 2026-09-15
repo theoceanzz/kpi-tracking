@@ -12,19 +12,19 @@ import type { TourDef } from './registry'
  */
 
 const note = (text: string) => (
-  <p className="text-[11px] bg-indigo-50 dark:bg-indigo-900/20 p-2 rounded-lg text-indigo-700 dark:text-indigo-300 font-bold italic">
+  <p className="text-xs bg-[var(--color-primary-soft)] p-2 rounded-control text-[var(--color-primary)] font-medium italic">
     💡 {text}
   </p>
 )
 
 const warn = (text: string) => (
-  <p className="text-[11px] bg-amber-50 dark:bg-amber-900/20 p-2 rounded-lg text-amber-700 dark:text-amber-400 font-bold italic border-l-4 border-amber-400">
+  <p className="text-xs bg-[var(--color-warning-bg)] p-2 rounded-control text-[var(--color-warning)] font-medium italic border-l-4 border-[var(--color-warning-border)]">
     ⚠️ {text}
   </p>
 )
 
 const danger = (text: string) => (
-  <p className="text-[11px] bg-red-50 dark:bg-red-900/20 p-2 rounded-lg text-red-700 dark:text-red-400 font-bold italic border-l-4 border-red-400">
+  <p className="text-xs bg-[var(--color-error-bg)] p-2 rounded-control text-[var(--color-error)] font-medium italic border-l-4 border-[var(--color-error-border)]">
     ⛔ {text}
   </p>
 )
@@ -43,7 +43,7 @@ const setupCompanyTours: Record<TourKey, TourDef> = {
               <strong>Con người</strong> — ai làm ở đâu, được làm gì.{' '}
               <strong>Hệ thống</strong> — app nói chuyện với nhân viên như thế nào.
             </p>
-            <p className="text-[11px] text-slate-500">
+            <p className="text-caption">
               Bấm một thẻ để mở. Lưới sẽ thu lại thành hàng tab mảnh nhường chỗ cho nội dung, và đường dẫn
               ghi lại mục đang xem nên bookmark được.
             </p>
@@ -89,7 +89,7 @@ const setupCompanyTours: Record<TourKey, TourDef> = {
               Bốn mục Hệ thống cho phép <strong>đổi tên mọi mục trên menu</strong> theo ngôn ngữ của công
               ty bạn, chọn sự kiện nào gửi thông báo, sửa nội dung email hệ thống, và nối với Lark.
             </p>
-            <p className="text-[11px] text-slate-500">
+            <p className="text-caption">
               Không bắt buộc để chạy được, nhưng là phần làm app trông giống của riêng tổ chức bạn.
             </p>
           </div>
@@ -185,7 +185,7 @@ const setupCompanyTours: Record<TourKey, TourDef> = {
         content: (
           <div className="space-y-2">
             <p>Vai trò vừa là chức danh chuẩn hoá trong toàn công ty, vừa là bộ quyền đi kèm.</p>
-            <p className="text-[11px] text-slate-500">
+            <p className="text-caption">
               Gán <strong>quyền (Permissions)</strong> cho vai trò, rồi gán vai trò cho người — không cấp
               quyền lẻ cho từng cá nhân.
             </p>
@@ -235,7 +235,7 @@ const setupCompanyTours: Record<TourKey, TourDef> = {
         content: (
           <div className="space-y-2">
             <p>Cùng dữ liệu, hai cách xem tuỳ việc bạn đang làm:</p>
-            <ul className="text-[11px] space-y-1 list-disc pl-4 text-slate-500">
+            <ul className="text-xs space-y-1 list-disc pl-4 text-[var(--color-muted-foreground)]">
               <li><strong>Sơ đồ:</strong> nhìn tổng thể luồng quản lý và quan hệ giữa các đơn vị.</li>
               <li><strong>Danh sách:</strong> tìm nhanh và sửa hàng loạt.</li>
             </ul>
@@ -305,7 +305,7 @@ const setupCompanyTours: Record<TourKey, TourDef> = {
         content: (
           <div className="space-y-2">
             <p>Lọc theo đơn vị, vai trò hoặc trạng thái tài khoản.</p>
-            <p className="text-[11px] text-slate-500 italic">
+            <p className="text-caption italic">
               Mẹo: lọc theo trạng thái để soát các tài khoản đang bị khoá trước mỗi kỳ đánh giá.
             </p>
           </div>
@@ -318,7 +318,7 @@ const setupCompanyTours: Record<TourKey, TourDef> = {
         content: (
           <div className="space-y-2">
             <p>Bấm vào từng người để hoàn thiện hồ sơ:</p>
-            <ul className="text-[11px] space-y-1 list-disc pl-4 text-slate-500">
+            <ul className="text-xs space-y-1 list-disc pl-4 text-[var(--color-muted-foreground)]">
               <li>Gán vào <strong>đơn vị</strong> trong cây tổ chức.</li>
               <li>Cấp <strong>vai trò</strong> đúng với công việc của họ.</li>
             </ul>

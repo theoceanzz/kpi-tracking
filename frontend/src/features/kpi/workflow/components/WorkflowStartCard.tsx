@@ -35,42 +35,42 @@ export default function WorkflowStartCard({ className }: { className?: string })
       // mà trang quản lý là màn hình danh sách có bộ lọc và phân trang — không phải nơi để bắt đầu.
       onClick={() => navigate('/kpi-setup')}
       className={cn(
-        'group flex w-full items-center gap-4 rounded-2xl border border-indigo-200 bg-gradient-to-r from-indigo-50 to-white px-5 py-4 text-left transition-all',
-        'hover:border-indigo-300 hover:shadow-lg hover:shadow-indigo-500/10 active:scale-[0.995]',
-        'dark:border-indigo-900/50 dark:from-indigo-900/20 dark:to-slate-900',
+'group flex w-full items-center gap-4 rounded-card border border-[var(--color-border)] bg-[var(--color-primary-soft)] px-5 py-4 text-left transition-all',
+        'hover:border-[var(--color-primary)]',
+        '',
         className,
       )}
     >
-      <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-indigo-600 text-white shadow-lg shadow-indigo-500/25">
+      <div className="flex h-9 w-11 shrink-0 items-center justify-center rounded-card bg-[var(--color-primary)] text-[var(--color-primary-foreground)]">
         <Workflow size={20} />
       </div>
 
       <div className="min-w-0 flex-1">
-        <p className="flex items-center gap-2 text-sm font-black text-slate-900 dark:text-white">
+        <p className="flex items-center gap-2 text-sm font-semibold text-[var(--color-foreground)]">
           Bắt đầu thiết lập KPI
           {waiting > 0 && (
-            <span className="rounded-full bg-rose-100 px-2 py-0.5 text-[11px] font-black text-rose-600 dark:bg-rose-900/30 dark:text-rose-400">
+            <span className="rounded-full bg-[var(--color-error-bg)] px-2 py-0.5 text-xs font-semibold text-[var(--color-error)] dark:bg-[var(--color-error-bg)] dark:text-[var(--color-error)]">
               {waiting} việc chờ bạn
             </span>
           )}
         </p>
-        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[11px] font-bold text-slate-500 dark:text-slate-400">
+        <div className="mt-1 flex flex-wrap items-center gap-1.5 text-caption">
           {preview.map((stage, index) => (
             <span key={stage.code} className="flex items-center gap-1.5">
-              {index > 0 && <span className="text-slate-300 dark:text-slate-700">›</span>}
-              <span className="text-slate-400">{stageIcon(stage.code, 12)}</span>
+              {index > 0 && <span className="text-[var(--color-subtle-foreground)]">›</span>}
+              <span className="text-[var(--color-subtle-foreground)]">{stageIcon(stage.code, 12)}</span>
               {stage.label}
             </span>
           ))}
           {enabledStages.length > preview.length && (
-            <span className="text-slate-300 dark:text-slate-700">› …</span>
+            <span className="text-[var(--color-subtle-foreground)]">› …</span>
           )}
         </div>
       </div>
 
       <ArrowRight
         size={18}
-        className="shrink-0 text-indigo-600 transition-transform group-hover:translate-x-1 dark:text-indigo-400"
+        className="shrink-0 text-[var(--color-primary)] transition-transform group-hover:translate-x-1"
       />
     </button>
   )

@@ -240,7 +240,7 @@ export default function DashboardCustomizeChrome({
       <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-[var(--color-border)] shrink-0">
         <div className="min-w-0">
           <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Cấu hình biểu đồ</p>
-          <p className="font-semibold text-sm truncate text-slate-900 dark:text-white">{configWidget.title}</p>
+          <p className="font-semibold text-sm truncate text-[var(--color-foreground)]">{configWidget.title}</p>
         </div>
         <button onClick={closeConfig} aria-label="Đóng cấu hình" className="p-2 rounded-lg hover:bg-[var(--color-accent)] cursor-pointer shrink-0">
           <X size={18} aria-hidden="true" />
@@ -264,12 +264,12 @@ export default function DashboardCustomizeChrome({
               {/* Không còn widget nào hiện: nói rõ phải làm gì thay vì để trang trắng */}
               {visibleCount === 0 && (
                 <div className="flex flex-col items-center justify-center text-center gap-4 py-20 px-6">
-                  <div className="w-16 h-16 rounded-2xl bg-slate-100 dark:bg-slate-800 flex items-center justify-center text-slate-400">
+                  <div className="w-16 h-16 rounded-2xl bg-[var(--color-muted)] flex items-center justify-center text-slate-400">
                     <LayoutGrid size={30} aria-hidden="true" strokeWidth={1.5} />
                   </div>
                   <div>
-                    <p className="font-semibold text-lg text-slate-900 dark:text-white">Chưa có biểu đồ nào</p>
-                    <p className="mt-1 text-sm text-slate-500 dark:text-slate-400 max-w-sm">
+                    <p className="font-semibold text-lg text-[var(--color-foreground)]">Chưa có biểu đồ nào</p>
+                    <p className="mt-1 text-sm text-[var(--color-muted-foreground)] max-w-sm">
                       Thêm nội dung bạn cần theo dõi, hoặc dùng một bố cục gợi ý để bắt đầu nhanh.
                     </p>
                   </div>
@@ -278,7 +278,7 @@ export default function DashboardCustomizeChrome({
                       <Plus size={16} aria-hidden="true" /> Thêm biểu đồ
                     </button>
                     {presets?.length ? (
-                      <button onClick={() => setPendingPreset(presets[0] ?? null)} className="min-h-[44px] px-5 rounded-lg bg-slate-100 dark:bg-slate-800 font-semibold text-sm hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center gap-2 cursor-pointer">
+                      <button onClick={() => setPendingPreset(presets[0] ?? null)} className="min-h-[44px] px-5 rounded-lg bg-[var(--color-muted)] font-semibold text-sm hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center gap-2 cursor-pointer">
                         <Sparkles size={16} aria-hidden="true" /> Dùng bố cục gợi ý
                       </button>
                     ) : null}
@@ -317,7 +317,7 @@ export default function DashboardCustomizeChrome({
                       // overflow-hidden là hàng rào bắt buộc: widget nào render cao hơn ô lưới
                       // (vd danh sách cảnh báo tự giãn theo nội dung) sẽ tràn ra và ĐÈ lên hàng
                       // dưới. Clip ở đây chặn được mọi trường hợp, không phụ thuộc widget tự lo.
-                      'relative group h-full overflow-hidden rounded-2xl',
+                      'relative group h-full overflow-hidden rounded-widget',
                       configFor === block.i && 'ring-2 ring-[var(--color-primary)]'
                     )}
                   >
@@ -445,7 +445,7 @@ export default function DashboardCustomizeChrome({
       {/* ── Thư viện biểu đồ ──────────────────────────────────────────────── */}
       {isAddModalOpen && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={() => setIsAddModalOpen(false)}>
-          <div role="dialog" aria-modal="true" aria-label="Thư viện biểu đồ" className="w-full max-w-4xl max-h-[90vh] flex flex-col bg-white dark:bg-slate-900 rounded-2xl shadow-lg p-5 sm:p-7" onClick={e => e.stopPropagation()}>
+          <div role="dialog" aria-modal="true" aria-label="Thư viện biểu đồ" className="w-full max-w-4xl max-h-[90vh] flex flex-col bg-[var(--color-card)] rounded-2xl shadow-lg p-5 sm:p-7" onClick={e => e.stopPropagation()}>
             <div className="flex items-start justify-between gap-4 mb-5">
               <div className="min-w-0">
                 <h3 className="font-semibold text-xl">Thêm biểu đồ</h3>
@@ -462,7 +462,7 @@ export default function DashboardCustomizeChrome({
                 onChange={e => setSearch(e.target.value)}
                 placeholder="Tìm biểu đồ theo tên hoặc mô tả…"
                 aria-label="Tìm biểu đồ"
-                className="w-full min-h-[44px] pl-11 pr-4 rounded-lg bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
+                className="w-full min-h-[44px] pl-11 pr-4 rounded-lg bg-[var(--color-muted)] border border-slate-200 dark:border-slate-700 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
               />
             </div>
 
@@ -476,7 +476,7 @@ export default function DashboardCustomizeChrome({
                       key={p.key}
                       onClick={() => setPendingPreset(p)}
                       title={p.description}
-                      className="min-h-[44px] px-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-900 text-sm font-semibold hover:border-[var(--color-primary)] hover:text-[var(--color-primary)] flex items-center gap-2 transition-colors cursor-pointer"
+                      className="min-h-[44px] px-4 rounded-lg border border-slate-200 dark:border-slate-700 bg-[var(--color-card)] text-sm font-semibold hover:border-[var(--color-primary)] hover:text-[var(--color-primary)] flex items-center gap-2 transition-colors cursor-pointer"
                     >
                       <Sparkles size={14} aria-hidden="true" /> {p.label}
                     </button>
@@ -533,7 +533,7 @@ export default function DashboardCustomizeChrome({
                               'focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]',
                               isAdded
                                 ? 'bg-indigo-50/60 dark:bg-indigo-500/10 border-indigo-300 dark:border-indigo-700'
-                                : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-800 hover:border-[var(--color-primary)]'
+                                : 'bg-[var(--color-card)] border-[var(--color-border)] hover:border-[var(--color-primary)]'
                             )}
                           >
                             <div className={cn(
@@ -546,8 +546,8 @@ export default function DashboardCustomizeChrome({
                                 : preview ? <ChartTypePreview shape={preview} /> : icon}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className="font-semibold text-sm text-slate-900 dark:text-white">{template.title}</p>
-                              {description && <p className="text-xs text-slate-500 dark:text-slate-400 mt-0.5 leading-relaxed">{description}</p>}
+                              <p className="font-semibold text-sm text-[var(--color-foreground)]">{template.title}</p>
+                              {description && <p className="text-xs text-[var(--color-muted-foreground)] mt-0.5 leading-relaxed">{description}</p>}
                               {/* Nói rõ bấm lần nữa sẽ gỡ, để trạng thái "đã chọn" không thành ngõ cụt */}
                               <p className={cn(
                                 'text-xs font-medium mt-1.5',
@@ -616,7 +616,7 @@ export default function DashboardCustomizeChrome({
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-')
 
 function MenuSeparator() {
-  return <div className="my-1 h-px bg-slate-100 dark:bg-slate-800" role="separator" />
+  return <div className="my-1 h-px bg-[var(--color-muted)]" role="separator" />
 }
 
 /** Một dòng trong menu của widget — đủ 36px chiều cao chạm và có icon dẫn hướng. */
@@ -632,7 +632,7 @@ function MenuItem({ icon, children, onClick, danger }: {
         'focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]',
         danger
           ? 'text-red-600 hover:bg-red-50 dark:text-red-400 dark:hover:bg-red-500/10'
-          : 'text-slate-700 dark:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800'
+          : 'text-[var(--color-foreground)] hover:bg-slate-100 dark:hover:bg-slate-800'
       )}
     >
       <span className="shrink-0 opacity-70" aria-hidden="true">{icon}</span>

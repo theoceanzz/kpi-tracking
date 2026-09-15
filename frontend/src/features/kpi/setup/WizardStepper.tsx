@@ -22,9 +22,9 @@ export default function WizardStepper({ steps, currentIndex, blockReason, onJump
   return (
     <nav aria-label="Các bước thiết lập" className="w-full">
       {/* Đường tiến độ mảnh — mẫu duy nhất trong dự án, lấy từ PageTour để không lệch phong cách. */}
-      <div className="mb-5 h-0.5 w-full overflow-hidden rounded-full bg-slate-100 dark:bg-slate-800">
+      <div className="mb-5 h-0.5 w-full overflow-hidden rounded-full bg-[var(--color-muted)]">
         <div
-          className="h-full bg-indigo-500 transition-all duration-500"
+          className="h-full bg-[var(--color-primary)] transition-all duration-500"
           style={{ width: `${((currentIndex + 1) / steps.length) * 100}%` }}
         />
       </div>
@@ -48,18 +48,18 @@ export default function WizardStepper({ steps, currentIndex, blockReason, onJump
                 title={reason}
                 aria-current={isCurrent ? 'step' : undefined}
                 className={cn(
-                  'group flex min-w-0 flex-1 flex-col items-center gap-2 rounded-2xl px-1 py-2 text-center transition-colors sm:px-2',
-                  canJump && 'hover:bg-slate-50 dark:hover:bg-slate-800/60',
-                  isBlocked && 'cursor-not-allowed hover:bg-slate-50 dark:hover:bg-slate-800/60',
+                  'group flex min-w-0 flex-1 flex-col items-center gap-2 rounded-card px-1 py-2 text-center transition-colors sm:px-2',
+                  canJump && 'hover:bg-[var(--color-muted)]',
+                  isBlocked && 'cursor-not-allowed hover:bg-[var(--color-muted)]',
                   isCurrent && 'cursor-default',
                 )}
               >
                 <span
                   className={cn(
-                    'flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-black transition-all',
-                    isCurrent && 'bg-indigo-600 text-white shadow-lg shadow-indigo-500/30 ring-4 ring-indigo-500/15',
-                    isDone && 'bg-emerald-500 text-white',
-                    !isCurrent && !isDone && 'bg-slate-100 text-slate-400 dark:bg-slate-800 dark:text-slate-500',
+                    'flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-xs font-semibold transition-all',
+                    isCurrent && 'bg-[var(--color-primary)] text-[var(--color-primary-foreground)] ring-4 ring-[var(--color-ring)]',
+                    isDone && 'bg-[var(--color-success-solid)] text-white',
+                    !isCurrent && !isDone && 'bg-[var(--color-muted)] text-[var(--color-subtle-foreground)]',
                   )}
                 >
                   {isDone ? <Check size={16} strokeWidth={3} /> : isBlocked ? <Lock size={14} strokeWidth={3} /> : index + 1}
@@ -68,15 +68,15 @@ export default function WizardStepper({ steps, currentIndex, blockReason, onJump
                 <span className="min-w-0">
                   <span
                     className={cn(
-                      'block truncate text-[11px] font-black uppercase tracking-widest',
-                      isCurrent ? 'text-indigo-600 dark:text-indigo-400' : isDone ? 'text-emerald-600 dark:text-emerald-400' : 'text-slate-400',
+                      'text-eyebrow block truncate',
+                      isCurrent ? 'text-[var(--color-primary)]' : isDone ? 'text-[var(--color-success)]' : 'text-[var(--color-subtle-foreground)]',
                     )}
                   >
                     {step.label}
                   </span>
                   {/* Gợi ý chỉ hiện ở bước đang đứng: bốn dòng mô tả cùng lúc là nhiễu, không phải hướng dẫn. */}
                   {isCurrent && (
-                    <span className="mt-1 hidden text-[11px] font-medium leading-snug text-slate-400 sm:block">
+                    <span className="mt-1 hidden text-xs font-medium leading-snug text-[var(--color-subtle-foreground)] sm:block">
                       {step.hint}
                     </span>
                   )}
@@ -88,7 +88,7 @@ export default function WizardStepper({ steps, currentIndex, blockReason, onJump
                   aria-hidden
                   className={cn(
                     'mt-4 h-0.5 w-4 shrink-0 rounded-full sm:w-8',
-                    index < currentIndex ? 'bg-emerald-400' : 'bg-slate-200 dark:bg-slate-700',
+                    index < currentIndex ? 'bg-[var(--color-success-solid)]' : 'bg-[var(--color-border)]',
                   )}
                 />
               )}

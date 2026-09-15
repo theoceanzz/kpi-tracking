@@ -1,22 +1,27 @@
 import { useState, useMemo, useEffect } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/apiError'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import EmptyState from '@/components/common/EmptyState'
+import WorkspaceHeader from '@/components/common/WorkspaceHeader'
+import FilterBar, { SegmentedControl } from '@/components/common/FilterBar'
+import BulkActionBar from '@/components/common/BulkActionBar'
+import StatusBadge from '@/components/common/StatusBadge'
+import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
+import { Dialog, DialogFooter } from '@/components/ui/dialog'
 import KpiAdjustmentReviewModal from '../components/KpiAdjustmentReviewModal'
 import { useKpiAdjustments, useBulkReviewAdjustments } from '../hooks/useKpiAdjustments'
-import { cn } from '@/lib/utils'
+import { cn, formatNumber } from '@/lib/utils'
 import type { KpiAdjustmentRequest, AdjustmentStatus } from '@/types/adjustment'
 import {
-  Clock, CheckCircle2, XCircle,
-  Users, ChevronRight, ChevronDown, Calendar,
-  Search, MessageSquare, Target, GitBranch,
-  LayoutGrid, List
+  CheckCircle, XCircle, Eye, Clock, Undo2, AlertCircle, Loader2, LayoutGrid, List,
+  ChevronsDownUp, ChevronsUpDown, Inbox, ArrowRight,
 } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
 import { useKpiPeriods } from '../hooks/useKpiPeriods'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Checkbox } from '@/components/ui/checkbox'
 import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { useObjectives } from '../../okr/hooks/useOkr'
@@ -34,62 +39,97 @@ import { usePersonGroupCollapse } from '@/hooks/usePersonGroupCollapse'
 const GROUP_PAGE_SIZE = 10
 /** Trần số yêu cầu tải về một lần để gom nhóm. */
 const GROUPING_FETCH_SIZE = 1000
+/** Hạn xử lý một yêu cầu: 24 giờ kể từ lúc gửi. */
+const REVIEW_WINDOW_MS = 24 * 60 * 60 * 1000
 
-const statusConfig: Record<string, { label: string; color: string; bgColor: string; icon: any }> = {
-  PENDING: { label: 'Đợi xử lý', color: 'text-amber-600 dark:text-amber-400', bgColor: 'bg-amber-50/50 border-amber-200/50 dark:bg-amber-900/20 dark:border-amber-900/30', icon: Clock },
-  APPROVED: { label: 'Đã chấp thuận', color: 'text-emerald-600 dark:text-emerald-400', bgColor: 'bg-emerald-50/50 border-emerald-200/50 dark:bg-emerald-900/20 dark:border-emerald-900/30', icon: CheckCircle2 },
-  REJECTED: { label: 'Đã từ chối', color: 'text-red-600 dark:text-red-400', bgColor: 'bg-red-50/50 border-red-200/50 dark:bg-red-900/20 dark:border-red-900/30', icon: XCircle },
+/** Thời gian còn lại để xử lý — cập nhật mỗi phút là đủ, không cần đếm giây. */
+function useTimeLeft(createdAt: string, active: boolean) {
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    if (!active) return
+    const t = setInterval(() => setNow(Date.now()), 60_000)
+    return () => clearInterval(t)
+  }, [active])
+  const diff = new Date(createdAt).getTime() + REVIEW_WINDOW_MS - now
+  if (!active) return null
+  if (diff <= 0) return { expired: true, label: 'Quá hạn' }
+  const h = Math.floor(diff / 3_600_000), m = Math.floor((diff % 3_600_000) / 60_000)
+  return { expired: false, label: h > 0 ? `Còn ${h} giờ ${m} phút` : `Còn ${m} phút` }
 }
 
-const CountdownTimer = ({ createdAt, status }: { createdAt: string, status: string }) => {
-  const [timeLeft, setTimeLeft] = useState<string>('')
-
-  useEffect(() => {
-    if (status !== 'PENDING') {
-      setTimeLeft('---')
-      return
+function Deadline({ request }: { request: KpiAdjustmentRequest }) {
+  const t = useTimeLeft(request.createdAt, request.status === 'PENDING')
+  if (!t) return <span className="text-caption">—</span>
+  return (
+    <span className={cn('text-[13px] tabular-nums', t.expired ? 'font-medium text-[var(--color-error)]' : 'text-[var(--color-muted-foreground)]')}>
+      {t.label}
+    </span>
+  )
     }
 
-    const targetTime = new Date(createdAt).getTime() + 24 * 60 * 60 * 1000
-    
-    const update = () => {
-      const now = new Date().getTime()
-      const diff = targetTime - now
-      
-      if (diff <= 0) {
-        setTimeLeft('Hết hạn')
-        return
+/** Tóm tắt thay đổi trên một dòng: "Mục tiêu 120 → 100 · Trọng số 20% → 15%". */
+function ChangeSummary({ request }: { request: KpiAdjustmentRequest }) {
+  if (request.deactivationRequest) {
+    return <span className="text-sm text-[var(--color-error)]">Ngưng KPI{request.compensationPercentage != null ? ` · bù ${request.compensationPercentage}%` : ''}</span>
+  }
+  const parts: { label: string; from: string; to: string }[] = []
+  if (request.kpiType !== 'QUALITATIVE' && request.requestedTargetValue != null && request.requestedTargetValue !== request.currentTargetValue)
+    parts.push({ label: 'Mục tiêu', from: formatNumber(request.currentTargetValue), to: formatNumber(request.requestedTargetValue) })
+  if (request.requestedWeight != null && request.requestedWeight !== request.currentWeight)
+    parts.push({ label: 'Trọng số', from: `${request.currentWeight}%`, to: `${request.requestedWeight}%` })
+  if (request.kpiType !== 'QUALITATIVE' && request.requestedMinimumValue != null && request.requestedMinimumValue !== request.currentMinimumValue)
+    parts.push({ label: 'Tối thiểu', from: formatNumber(request.currentMinimumValue ?? 0), to: formatNumber(request.requestedMinimumValue) })
+  if (parts.length === 0) return <span className="text-caption">Không đổi số liệu</span>
+  return (
+    <span className="flex flex-wrap gap-x-3 gap-y-0.5 text-sm tabular-nums">
+      {parts.map(p => (
+        <span key={p.label} className="whitespace-nowrap">
+          <span className="text-[var(--color-muted-foreground)]">{p.label} </span>
+          {p.from} <ArrowRight size={12} className="inline text-[var(--color-subtle-foreground)]" aria-hidden="true" /> <span className="font-medium text-[var(--color-foreground)]">{p.to}</span>
+        </span>
+      ))}
+    </span>
+  )
       }
       
-      const hours = Math.floor(diff / (1000 * 60 * 60))
-      const minutes = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60))
-      const seconds = Math.floor((diff % (1000 * 60)) / 1000)
-      
-      setTimeLeft(`${hours}h ${minutes}m ${seconds}s`)
-    }
-    
-    update()
-    const timer = setInterval(update, 1000)
-    return () => clearInterval(timer)
-  }, [createdAt, status])
-
-  if (status !== 'PENDING') return <span className="text-slate-300">---</span>
-
+function RequestTags({ request }: { request: KpiAdjustmentRequest }) {
   return (
-    <div className="flex flex-col">
-      <span className={cn(
-        "text-[11px] font-black tracking-tighter",
-        timeLeft === 'Hết hạn' ? 'text-red-500' : 'text-amber-500 animate-pulse'
-      )}>
-        {timeLeft}
-      </span>
-      <span className="text-[9px] text-slate-400 font-bold uppercase tracking-widest">Thời hạn duyệt</span>
+    <div className="flex flex-wrap items-center gap-1">
+      {request.deactivationRequest ? <Badge variant="destructive">Ngưng KPI</Badge> : <Badge variant="warning">Điều chỉnh số liệu</Badge>}
+      {request.kpiType === 'QUALITATIVE' && <Badge variant="outline">Định tính</Badge>}
+      {request.perspectiveName && (
+        <Badge variant="outline" title={`Hạng mục BSC: ${request.perspectiveName}`}>
+          <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: request.perspectiveColor || 'var(--color-primary)' }} aria-hidden="true" />
+          {request.perspectiveName}
+        </Badge>
+      )}
     </div>
   )
 }
 
+/** Ba nút hành động của một hàng — cùng vị trí, cùng icon với trang Phê duyệt chỉ tiêu. */
+function RowActions({ request, onView, onApprove, onReject, busy }: {
+  request: KpiAdjustmentRequest; onView: () => void; onApprove: () => void; onReject: () => void; busy: boolean
+}) {
+  const pending = request.status === 'PENDING'
+  return (
+    <div className="flex items-center justify-end gap-0.5">
+      <Button variant="ghost" size="icon-sm" onClick={onView} aria-label="Xem chi tiết" title="Xem chi tiết"><Eye aria-hidden="true" /></Button>
+      {pending && (
+        <>
+          <Button variant="ghost" size="icon-sm" onClick={onApprove} disabled={busy} aria-label="Duyệt" title="Duyệt" className="text-[var(--color-success)] hover:bg-[var(--color-success-bg)]"><CheckCircle aria-hidden="true" /></Button>
+          <Button variant="ghost" size="icon-sm" onClick={onReject} disabled={busy} aria-label="Từ chối" title="Từ chối" className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)]"><XCircle aria-hidden="true" /></Button>
+        </>
+      )}
+    </div>
+  )
+}
+
+const CHECKBOX = 'h-4 w-4 cursor-pointer rounded-sm border border-[var(--color-border-strong)] bg-[var(--color-card)] accent-[var(--color-primary)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)] focus-visible:ring-offset-2'
+
 type AdjustmentTab = AdjustmentStatus | 'ALL'
 const ADJUSTMENT_TABS: AdjustmentTab[] = ['PENDING', 'APPROVED', 'REJECTED', 'ALL']
+const TAB_LABELS: Record<AdjustmentTab, string> = { PENDING: 'Chờ xử lý', APPROVED: 'Đã duyệt', REJECTED: 'Đã từ chối', ALL: 'Tất cả' }
 
 // `?tab=` dùng chung query string với các mục khác của /performance, nên phải lọc:
 // tab của trang duyệt chỉ tiêu lọt sang đây sẽ thành bộ lọc rỗng.
@@ -252,7 +292,7 @@ export default function KpiAdjustmentApprovalPage() {
   const displayRows = buildDisplayRows()
 
   /** Số cột của bảng — header nhóm phải trải hết chiều ngang. */
-  const tableColSpan = 6 + (activeTab === 'PENDING' ? 0 : 1) - (personMode ? 1 : 0)
+  const tableColSpan = 7 + (activeTab === 'PENDING' ? 0 : 1) + (personMode ? 0 : 1)
 
   /** Số liệu tóm tắt của một đơn vị. */
   const renderUnitBadges = (unit: UnitGroup<KpiAdjustmentRequest>) => {
@@ -287,21 +327,14 @@ export default function KpiAdjustmentApprovalPage() {
     if (ids.length === 0) return null
     const allSelected = ids.every(id => selectedIds.includes(id))
     return (
-      <button
-        onClick={() => setSelectedIds(prev => allSelected
-          ? prev.filter(id => !ids.includes(id))
-          : Array.from(new Set([...prev, ...ids]))
-        )}
+      <Button
+        variant={allSelected ? 'secondary' : 'outline'} size="sm"
+        onClick={() => setSelectedIds(prev => allSelected ? prev.filter(id => !ids.includes(id)) : Array.from(new Set([...prev, ...ids])))}
         title={`Chọn ${ids.length} yêu cầu đang chờ của người này`}
-        className={cn(
-          'flex items-center gap-2 px-3 h-8 rounded-xl border text-[9px] font-black uppercase tracking-widest transition-all active:scale-95',
-          allSelected
-            ? 'bg-amber-500 border-amber-500 text-white'
-            : 'bg-white dark:bg-slate-900 border-slate-200 dark:border-slate-700 text-slate-500 hover:text-amber-600 hover:border-amber-300'
-        )}
+        aria-pressed={allSelected}
       >
-        <CheckCircle2 size={12} /> {allSelected ? 'Bỏ chọn' : `Chọn ${ids.length}`}
-      </button>
+        {allSelected ? 'Bỏ chọn' : `Chọn ${ids.length}`}
+      </Button>
     )
   }
 
@@ -310,13 +343,7 @@ export default function KpiAdjustmentApprovalPage() {
   const keyResults = selectedObjective?.keyResults || []
 
   const { data: customLabels = {} } = useSidebarSettings(organizationId!)
-  const rawTitle = ((customLabels as Record<string, string>)['/kpi-criteria/adjustments'] || 'Duyệt điều chỉnh')
-    .split(' ')
-    .map(word => word.charAt(0).toUpperCase() + word.slice(1))
-    .join(' ')
-  const titleParts = rawTitle.trim().split(' ')
-  const lastWord = titleParts.length > 1 ? titleParts.pop() : ''
-  const mainTitle = titleParts.join(' ')
+  const rawTitle = (customLabels as Record<string, string>)['/kpi-criteria/adjustments'] || 'Điều chỉnh chỉ tiêu'
 
   const toggleSelect = (id: string) => {
     setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])
@@ -342,12 +369,12 @@ export default function KpiAdjustmentApprovalPage() {
 
     bulkReviewMutation.mutate({ ids: selectedIds, status, reviewerNote: bulkNote }, {
       onSuccess: () => {
-        toast.success(`Đã ${status === 'APPROVED' ? 'duyệt' : 'từ chối'} ${selectedIds.length} yêu cầu thành công`)
+        toast.success(`Đã ${status === 'APPROVED' ? 'duyệt' : 'từ chối'} ${selectedIds.length} yêu cầu`)
         setSelectedIds([])
         setBulkNote('')
       },
-      onError: () => {
-        toast.error('Có lỗi xảy ra khi xử lý hàng loạt')
+      onError: (error) => {
+        toast.error(getApiErrorMessage(error, 'Xử lý hàng loạt thất bại'))
       }
     })
   }
@@ -370,589 +397,283 @@ export default function KpiAdjustmentApprovalPage() {
     }
   }, [allAdjustmentsData])
 
+  const [reviewMode, setReviewMode] = useState<'view' | 'approve' | 'reject'>('view')
+  const [bulkRejectOpen, setBulkRejectOpen] = useState(false)
+  const busy = bulkReviewMutation.isPending
+  const openReview = (r: KpiAdjustmentRequest, mode: 'view' | 'approve' | 'reject' = 'view') => { setReviewMode(mode); setReviewAdjustment(r) }
+  const approveOne = (id: string) =>
+    bulkReviewMutation.mutate({ ids: [id], status: 'APPROVED', reviewerNote: '' }, {
+      onSuccess: () => { toast.success('Đã duyệt yêu cầu'); setSelectedIds(prev => prev.filter(x => x !== id)) },
+      onError: (error) => toast.error(getApiErrorMessage(error, 'Duyệt yêu cầu thất bại')),
+    })
+
+  const selectableIds = items.filter(i => i.status === 'PENDING' && !i.deactivationRequest).map(i => i.id)
+  const allSelected = selectableIds.length > 0 && selectableIds.every(id => selectedIds.includes(id))
+  const someSelected = selectedIds.length > 0 && !allSelected
+  const showFeedbackCol = activeTab !== 'PENDING'
+
+  const renderRow = (request: KpiAdjustmentRequest) => {
+    const isSelected = selectedIds.includes(request.id)
+    const canSelect = request.status === 'PENDING' && !request.deactivationRequest
   return (
-    <div className="p-4 md:p-8">
-      <div className="max-w-[1600px] mx-auto space-y-8 animate-in fade-in duration-700">
-        
-        {/* Header Section with Glass Card */}
-        <div className="relative group" id="tour-adj-header">
-          <div className="absolute -inset-1 bg-gradient-to-r from-amber-500 via-orange-500 to-red-500 rounded-[40px] blur opacity-10 group-hover:opacity-20 transition duration-1000"></div>
-          <div className="relative bg-white dark:bg-slate-900 rounded-[28px] p-6 border border-slate-200 dark:border-slate-800 shadow-lg overflow-hidden">
-            <div className="absolute top-0 right-0 w-64 h-64 bg-amber-500/5 rounded-full -translate-y-1/2 translate-x-1/2 blur-3xl" />
-            <div className="absolute bottom-0 left-0 w-48 h-48 bg-orange-500/5 rounded-full translate-y-1/2 -translate-x-1/2 blur-3xl" />
-
-            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-6">
-              <div className="space-y-3">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400 text-[10px] font-black uppercase tracking-[0.2em] shadow-sm">
-                  <MessageSquare size={12} className="animate-pulse" /> Trung tâm Yêu cầu
-                </div>
-                <div className="space-y-0.5">
-                  <h1 className="text-3xl md:text-4xl font-black tracking-tight text-slate-900 dark:text-white">
-                    {mainTitle} <span className="text-transparent bg-clip-text bg-gradient-to-r from-amber-600 to-orange-600">{lastWord}</span>
-                  </h1>
-                  <p className="text-slate-500 dark:text-slate-400 font-medium text-sm max-w-xl leading-relaxed">
-                    Xử lý các đề xuất thay đổi hoặc hủy bỏ chỉ tiêu từ nhân viên.
-                  </p>
-                </div>
-              </div>
-
-              <div className="grid grid-cols-3 gap-2 sm:gap-3 w-full sm:w-auto">
-                <StatChip label="Đợi xử lý" value={stats.pending} color="amber" />
-                <StatChip label="Từ chối" value={stats.rejected} color="red" />
-                <StatChip label="Chấp thuận" value={stats.approved} color="emerald" />
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Toolbar */}
-        <div id="tour-adj-toolbar" className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-md p-6 rounded-[28px] border border-slate-200 dark:border-slate-800 shadow-sm space-y-4">
-          {/* Row 1: Primary Filters */}
-          <div className="flex flex-col md:flex-row md:items-center gap-3 w-full">
-            <div className="relative group flex-1 w-full">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-amber-500 transition-colors" size={18} />
-              <input
-                value={search}
-                onChange={e => { setSearch(e.target.value); setPage(0) }}
-                placeholder="Tìm tên chỉ tiêu, người yêu cầu..."
-                className="w-full h-11 pl-12 pr-4 rounded-2xl border border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 text-sm font-medium focus:ring-2 focus:ring-amber-500/20 focus:border-amber-500/50 outline-none transition-all placeholder:text-slate-400"
-              />
-            </div>
-
-            {/* Mở/đóng nhanh mọi nhóm đang hiển thị — đặt cạnh nút đổi chế độ xem vì
-                cùng là thao tác lên cách hiển thị danh sách, không phải bộ lọc. */}
-            {(unitMode || personMode) && (
-              <div className="flex items-center gap-1 p-1 rounded-2xl bg-slate-100 dark:bg-slate-800 self-start md:self-auto shrink-0">
-                <button
-                  onClick={() => {
-                    if (unitMode) unitCollapse.expandAll(visibleUnits.map(u => u.id))
-                    else personCollapse.expandAll(visibleGroups.map(g => g.id))
-                  }}
-                  title="Mở tất cả nhóm"
-                  className="flex items-center gap-1.5 h-9 px-3 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-amber-600 hover:bg-white dark:hover:bg-slate-700 transition-all active:scale-95"
-                >
-                  <ChevronDown size={14} /> Mở
+      <tr key={request.id} aria-selected={isSelected || undefined} className={cn('transition-colors', isSelected ? 'bg-[var(--color-primary-soft)]' : 'hover:bg-[var(--color-muted)]')}>
+        <td className="w-10 px-3 py-3">
+          {canSelect && <input type="checkbox" aria-label="Chọn yêu cầu" checked={isSelected} onChange={() => toggleSelect(request.id)} className={CHECKBOX} />}
+        </td>
+        <td className="px-4 py-3">
+          <div className="min-w-0 max-w-[320px]">
+            <button className="max-w-full truncate text-left text-sm font-medium text-[var(--color-foreground)] transition-colors hover:text-[var(--color-primary)] hover:underline max-w-full" type="button" onClick={() => openReview(request)} title={request.kpiCriteriaName}>
+              {request.kpiCriteriaName}
                 </button>
-                <button
-                  onClick={() => { unitCollapse.collapseAll(); personCollapse.collapseAll() }}
-                  title="Đóng tất cả nhóm"
-                  className="flex items-center gap-1.5 h-9 px-3 rounded-xl text-[10px] font-black uppercase tracking-widest text-slate-500 hover:text-amber-600 hover:bg-white dark:hover:bg-slate-700 transition-all active:scale-95"
-                >
-                  <ChevronRight size={14} /> Đóng
-                </button>
-              </div>
-            )}
-
-            <div className="flex items-center gap-1 p-1 rounded-2xl bg-slate-100 dark:bg-slate-800 self-start md:self-auto shrink-0">
-              <button
-                onClick={() => setViewMode('list')}
-                title="Dạng danh sách"
-                className={cn(
-                  "w-9 h-9 flex items-center justify-center rounded-xl transition-all",
-                  viewMode === 'list' ? 'bg-white dark:bg-slate-700 shadow-sm text-amber-600' : 'text-slate-400 hover:text-slate-600'
-                )}
-              >
-                <List size={18} />
-              </button>
-              <button
-                onClick={() => setViewMode('card')}
-                title="Dạng thẻ"
-                className={cn(
-                  "w-9 h-9 flex items-center justify-center rounded-xl transition-all",
-                  viewMode === 'card' ? 'bg-white dark:bg-slate-700 shadow-sm text-amber-600' : 'text-slate-400 hover:text-slate-600'
-                )}
-              >
-                <LayoutGrid size={18} />
-              </button>
-            </div>
-
-            {/* Danh sách đã gom theo Đơn vị → Người nên bỏ hẳn bộ lọc "Chọn đơn vị". */}
-
-            <div className="w-full md:w-52">
-              <Select value={selectedPeriodId} onValueChange={(v) => { setSelectedPeriodId(v); setPage(0); resetGroups() }}>
-                <SelectTrigger className="h-11 rounded-2xl border-slate-200 dark:border-slate-800 bg-white dark:bg-slate-950 font-bold text-xs focus:ring-2 focus:ring-amber-500/20">
-                  <div className="flex items-center gap-2">
-                    <Calendar size={14} className="text-amber-500 shrink-0" />
-                    <SelectValue placeholder="Đợt KPI..." />
-                  </div>
-                </SelectTrigger>
-                <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800">
-                  <SelectItem value="ALL" className="font-bold">Tất cả đợt KPI</SelectItem>
-                  {periodsData?.content.map(p => (
-                    <SelectItem key={p.id} value={p.id} className="font-medium">{p.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {/* Row 2: Strategic Filters (OKR) */}
-          {enableOkr && (
-            <div className="flex flex-col md:flex-row items-center gap-4 w-full pt-4 border-t border-slate-100 dark:border-slate-800 animate-in slide-in-from-top-2 duration-500">
-              <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 min-w-[140px] px-2">
-                <Target size={18} className="animate-bounce" />
-                <span className="text-[10px] font-black uppercase tracking-[0.2em] whitespace-nowrap">Bộ lọc OKR</span>
-              </div>
-              
-              <div className="w-full md:flex-1 md:max-w-[480px]">
-                <Select value={selectedObjectiveId} onValueChange={(v) => { setSelectedObjectiveId(v); setSelectedKeyResultId('ALL'); setPage(0) }}>
-                  <SelectTrigger className="h-12 rounded-2xl border-amber-100 dark:border-amber-900/50 bg-amber-50/30 dark:bg-amber-900/10 font-bold text-sm text-amber-900 dark:text-amber-100">
-                    <div className="flex items-center gap-2 overflow-hidden">
-                      <Target size={16} className="text-amber-400 shrink-0" />
-                      <div className="truncate">
-                        <SelectValue placeholder="Chọn Mục tiêu chiến lược" />
-                      </div>
-                    </div>
-                  </SelectTrigger>
-                  <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800">
-                    <SelectItem value="ALL" className="font-bold">Tất cả Mục tiêu</SelectItem>
-                    {objectivesData?.map(obj => (
-                      <SelectItem key={obj.id} value={obj.id} className="font-medium">[{obj.code}] {obj.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="w-full md:flex-1 md:max-w-[480px]">
-                <Select value={selectedKeyResultId} onValueChange={(v) => { setSelectedKeyResultId(v); setPage(0) }} disabled={selectedObjectiveId === 'ALL'}>
-                  <SelectTrigger className="h-12 rounded-2xl border-amber-100 dark:border-amber-900/50 bg-amber-50/30 dark:bg-amber-900/10 font-bold text-sm text-amber-900 dark:text-amber-100 disabled:opacity-50 transition-all">
-                    <div className="flex items-center gap-2 overflow-hidden">
-                      <GitBranch size={16} className="text-amber-400 shrink-0" />
-                      <div className="truncate">
-                        <SelectValue placeholder="Chọn Kết quả then chốt" />
-                      </div>
-                    </div>
-                  </SelectTrigger>
-                  <SelectContent className="rounded-2xl border-slate-200 dark:border-slate-800">
-                    <SelectItem value="ALL" className="font-bold">Tất cả Kết quả</SelectItem>
-                    {keyResults.map(kr => (
-                      <SelectItem key={kr.id} value={kr.id} className="font-medium">[{kr.code}] {kr.name}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Status Tabs Row */}
-        <div id="tour-adj-tabs" className="flex flex-wrap items-center gap-3 py-2">
-          {(['PENDING', 'APPROVED', 'REJECTED', 'ALL'] as const).map((tab) => {
-            const labels: Record<string, string> = { 
-              PENDING: 'Đợi xử lý', 
-              APPROVED: 'Đã chấp thuận', 
-              REJECTED: 'Từ chối', 
-              ALL: 'Tất cả' 
-            }
-            const active = activeTab === tab
-            return (
-              <button
-                key={tab}
-                onClick={() => handleTabChange(tab)}
-                className={cn(
-                  "px-7 py-3 rounded-full text-[11px] font-black uppercase tracking-[0.15em] transition-all duration-300 border-2 shadow-sm whitespace-nowrap",
-                  active 
-                    ? 'bg-slate-900 border-slate-900 text-white dark:bg-white dark:border-white dark:text-slate-900 shadow-amber-500/10 scale-105' 
-                    : 'bg-white border-transparent text-slate-500 hover:border-slate-200 hover:text-slate-900 dark:bg-slate-900 dark:text-slate-400 dark:hover:text-white'
-                )}
-              >
-                {labels[tab]}
-              </button>
-            )
-          })}
-        </div>
-
-        {hitFetchCap && (
-          <div className="flex items-center gap-3 px-6 py-4 rounded-[20px] bg-amber-50 dark:bg-amber-900/20 border border-amber-100 dark:border-amber-900/40">
-            <Clock size={18} className="text-amber-500 shrink-0" />
-            <p className="text-xs font-bold text-amber-700 dark:text-amber-400">
-              Dữ liệu quá lớn nên chỉ hiển thị {GROUPING_FETCH_SIZE} yêu cầu gần nhất — hãy lọc thêm theo đợt hoặc phòng ban để xem đầy đủ.
-            </p>
-          </div>
-        )}
-
-        {/* Content Section */}
-        {isLoading ? (
-          <div className="bg-white dark:bg-slate-900 rounded-[32px] p-8 border border-slate-100 dark:border-slate-800 shadow-sm">
-            <LoadingSkeleton type="table" rows={8} />
-          </div>
-        ) : items.length === 0 ? (
-          <div className="bg-white/50 dark:bg-slate-900/50 backdrop-blur-md rounded-[40px] border border-dashed border-slate-300 dark:border-slate-700 p-24 shadow-sm text-center">
-            <EmptyState 
-              title={activeTab === 'PENDING' ? 'Không có yêu cầu nào đang chờ' : 'Không có dữ liệu'} 
-              description="Hệ thống hiện tại không có yêu cầu điều chỉnh chỉ tiêu nào khớp với bộ lọc." 
-            />
-          </div>
-        ) : (
-          <div className="bg-white/80 dark:bg-slate-900/80 backdrop-blur-xl rounded-[32px] border border-slate-200 dark:border-slate-800 overflow-hidden shadow-2xl animate-in zoom-in-95 duration-500">
-            {viewMode === 'list' && <div className="overflow-x-auto scrollbar-thin">
-              <table className="w-full text-left border-collapse">
-                <thead>
-                  <tr className="bg-slate-50/50 dark:bg-slate-800/50 border-b border-slate-100 dark:border-slate-800">
-                    <th className="pl-6 py-5 w-10">
-                      {items.some(i => i.status === 'PENDING' && !i.deactivationRequest) && (
-                        <Checkbox
-                          checked={items.length > 0 && items.filter(i => i.status === 'PENDING' && !i.deactivationRequest).every(i => selectedIds.includes(i.id))}
-                          onCheckedChange={toggleSelectAll}
-                          className="border-slate-300"
-                        />
-                      )}
-                    </th>
-                    <th className="px-6 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 whitespace-nowrap">Trạng thái</th>
-                    <th className="px-6 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 whitespace-nowrap">Chỉ tiêu đề xuất</th>
-                    {/* Gom theo người rồi thì tên người yêu cầu đã nằm ở header nhóm. */}
-                    {!personMode && <th className="px-6 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 whitespace-nowrap">Người yêu cầu</th>}
-                    <th className="px-6 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 whitespace-nowrap">Hạn xử lý (24h)</th>
-                    <th className="px-6 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 whitespace-nowrap">Lý do điều chỉnh</th>
-                    {(activeTab === 'APPROVED' || activeTab === 'REJECTED' || activeTab === 'ALL') && (
-                      <th className="px-6 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 whitespace-nowrap">Phản hồi của bạn</th>
-                    )}
-                    <th className="px-8 py-5 text-[10px] font-black uppercase tracking-[0.2em] text-slate-400 text-right whitespace-nowrap">Thao tác</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-50 dark:divide-slate-800/50">
-                  {displayRows.map((row, i) => {
-                    if (row.kind === 'unit') {
-                      return (
-                        <UnitGroupHeaderRow
-                          key={`unit-${row.unit.id}`}
-                          colSpan={tableColSpan}
-                          unit={row.unit}
-                          expanded={unitCollapse.isExpanded(row.unit.id)}
-                          onToggle={() => unitCollapse.toggle(row.unit.id)}
-                          isCurrentUnit={row.unit.id === myUnitId}
-                          badges={renderUnitBadges(row.unit)}
-                        />
-                      )
-                    }
-                    if (row.kind === 'person') {
-                      return (
-                        <PersonGroupHeaderRow
-                          key={`person-${row.key}`}
-                          colSpan={tableColSpan}
-                          indent={unitMode}
-                          person={row.group}
-                          expanded={personCollapse.isExpanded(row.key)}
-                          onToggle={() => personCollapse.toggle(row.key)}
-                          isCurrentUser={row.group.id === user?.id}
-                          badges={renderPersonBadges(row.group.items)}
-                          actions={renderPersonSelectAction(row.group.items)}
-                        />
-                      )
-                    }
-                    const { request } = row
-                    const status = statusConfig[request.status] ?? statusConfig['PENDING']!
-                    const StatusIcon = status.icon
-                    const isSelected = selectedIds.includes(request.id)
-                    return (
-                      <tr 
-                        key={request.id} 
-                        className={cn(
-                          "group hover:bg-amber-50/30 dark:hover:bg-amber-900/10 transition-all duration-300",
-                          isSelected && "bg-amber-50/50 dark:bg-amber-900/20"
-                        )} 
-                        style={{ animationDelay: `${i * 30}ms` }}
-                      >
-                        <td className="pl-6 py-5">
-                          {request.status === 'PENDING' && !request.deactivationRequest && (
-                            <Checkbox
-                              checked={isSelected}
-                              onCheckedChange={() => toggleSelect(request.id)}
-                              className="border-slate-300"
-                            />
-                          )}
-                        </td>
-                        <td className="px-6 py-5">
-                          <div className="flex flex-col items-start gap-1.5">
-                            <div className={cn(
-                              "inline-flex items-center gap-2 px-3 py-1.5 rounded-full border text-[10px] font-black uppercase tracking-widest shadow-sm whitespace-nowrap",
-                              status.bgColor, status.color
-                            )}>
-                              <StatusIcon size={12} className={request.status === 'PENDING' ? 'animate-pulse' : ''} /> {status.label}
-                            </div>
-                            {request.perspectiveName && (
-                              <span
-                                className="inline-flex items-center gap-1 text-[9px] font-black px-2 py-0.5 rounded-full uppercase whitespace-nowrap"
-                                style={{ color: request.perspectiveColor || '#8b5cf6', backgroundColor: `${request.perspectiveColor || '#8b5cf6'}1a` }}
-                                title={`Hạng mục BSC: ${request.perspectiveName}`}
-                              >
-                                <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: request.perspectiveColor || '#8b5cf6' }} />
-                                {request.perspectiveName}
-                              </span>
-                            )}
+            <div className="mt-0.5"><RequestTags request={request} /></div>
                           </div>
                         </td>
-                        <td className="px-6 py-5">
-                          <button onClick={() => setReviewAdjustment(request)} className="text-left group/name focus:outline-none">
-                            <p className="text-sm font-black text-slate-900 dark:text-white group-hover/name:text-amber-600 transition-colors line-clamp-1">
-                              {request.kpiCriteriaName}
-                            </p>
-                            <div className="flex items-center gap-2 mt-1 flex-wrap">
-                              {request.kpiType === 'QUALITATIVE' && (
-                                <span className="text-[9px] font-black bg-teal-100 text-teal-600 px-1.5 py-0.5 rounded uppercase">★ Định tính</span>
-                              )}
-                              {request.deactivationRequest ? (
-                                <span className="text-[9px] font-black bg-red-100 text-red-600 px-1.5 py-0.5 rounded uppercase">Huỷ bỏ KPI</span>
-                              ) : (
-                                <span className="text-[9px] font-black bg-amber-100 text-amber-600 px-1.5 py-0.5 rounded uppercase">Điều chỉnh số liệu</span>
-                              )}
-                            </div>
-                          </button>
-                        </td>
                         {!personMode && (
-                          <td className="px-6 py-5">
-                            <div className="flex items-center gap-2">
-                              <Users size={12} className="text-slate-400" />
-                              <span className="text-xs font-bold text-slate-700 dark:text-slate-300">{request.requesterName}</span>
-                            </div>
+          <td className="px-4 py-3">
+            <p className="max-w-[180px] truncate text-sm text-[var(--color-foreground)]" title={request.requesterName}>{request.requesterName}</p>
+            {!unitMode && request.orgUnitName && <p className="max-w-[180px] truncate text-caption" title={request.orgUnitName}>{request.orgUnitName}</p>}
                           </td>
                         )}
-                        <td className="px-6 py-5">
-                           <CountdownTimer createdAt={request.createdAt} status={request.status} />
+        <td className="px-4 py-3"><ChangeSummary request={request} /></td>
+        <td className="px-4 py-3">
+          <p className="line-clamp-2 max-w-[260px] text-sm text-[var(--color-muted-foreground)]" title={request.reason}>{request.reason}</p>
                         </td>
-                        <td className="px-6 py-5">
-                           <p className="text-xs text-slate-500 font-medium line-clamp-1 italic">"{request.reason}"</p>
-                        </td>
-                        {(activeTab === 'APPROVED' || activeTab === 'REJECTED' || activeTab === 'ALL') && (
-                          <td className="px-6 py-5">
-                            {request.reviewerNote ? (
-                              <p className="text-xs text-emerald-600 dark:text-emerald-400 font-bold line-clamp-1">{request.reviewerNote}</p>
-                            ) : (
-                              <span className="text-[10px] text-slate-400 italic">Không có phản hồi</span>
-                            )}
+        {showFeedbackCol && (
+          <td className="px-4 py-3">
+            {request.reviewerNote
+              ? <p className="line-clamp-2 max-w-[220px] text-sm text-[var(--color-foreground)]" title={request.reviewerNote}>{request.reviewerNote}</p>
+              : <span className="text-caption">—</span>}
                           </td>
                         )}
-                        <td className="px-8 py-5 text-right">
-                          <button 
-                            onClick={() => setReviewAdjustment(request)}
-                            className="p-2.5 text-slate-400 hover:text-amber-600 hover:bg-white dark:hover:bg-slate-800 rounded-xl transition-all shadow-sm border border-transparent hover:border-amber-200 dark:hover:border-slate-700"
-                          >
-                            <ChevronRight size={20} />
-                          </button>
+        <td className="px-4 py-3 whitespace-nowrap"><Deadline request={request} /></td>
+        <td className="px-4 py-3"><StatusBadge status={request.status} /></td>
+        <td className="px-3 py-2 text-right">
+          <RowActions request={request} busy={busy} onView={() => openReview(request)} onApprove={() => request.deactivationRequest ? openReview(request, 'approve') : approveOne(request.id)} onReject={() => openReview(request, 'reject')} />
                         </td>
                       </tr>
                     )
-                  })}
-                </tbody>
-              </table>
-            </div>}
+  }
 
-            {/* Card View */}
-            {viewMode === 'card' && (
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3 p-3">
-                {displayRows.map((row) => {
-                  // Header đơn vị/người chiếm trọn hàng để ngắt lưới thẻ thành từng khối.
-                  if (row.kind === 'unit') {
+  const renderCard = (request: KpiAdjustmentRequest) => {
+    const isSelected = selectedIds.includes(request.id)
+    const canSelect = request.status === 'PENDING' && !request.deactivationRequest
                     return (
-                      <div key={`unit-${row.unit.id}`} className="col-span-full">
-                        <UnitGroupHeaderCard
-                          unit={row.unit}
-                          expanded={unitCollapse.isExpanded(row.unit.id)}
-                          onToggle={() => unitCollapse.toggle(row.unit.id)}
-                          isCurrentUnit={row.unit.id === myUnitId}
-                          badges={renderUnitBadges(row.unit)}
-                        />
+      <div key={request.id} className={cn('rounded-card border bg-[var(--color-card)] p-4', isSelected ? 'border-[var(--color-primary)] bg-[var(--color-primary-soft)]' : 'border-[var(--color-border)]')}>
+        <div className="flex items-start gap-3">
+          {canSelect && <input type="checkbox" aria-label="Chọn yêu cầu" checked={isSelected} onChange={() => toggleSelect(request.id)} className={cn(CHECKBOX, 'mt-0.5')} />}
+          <div className="min-w-0 flex-1">
+            <button className="max-w-full truncate text-left text-sm font-medium text-[var(--color-foreground)] transition-colors hover:text-[var(--color-primary)] hover:underline" type="button" onClick={() => openReview(request)}>{request.kpiCriteriaName}</button>
+            <div className="mt-1"><RequestTags request={request} /></div>
                       </div>
-                    )
-                  }
-                  if (row.kind === 'person') {
-                    return (
-                      <div key={`person-${row.key}`} className={cn("col-span-full", unitMode && "pl-4 sm:pl-8")}>
-                        <PersonGroupHeaderCard
-                          person={row.group}
-                          expanded={personCollapse.isExpanded(row.key)}
-                          onToggle={() => personCollapse.toggle(row.key)}
-                          isCurrentUser={row.group.id === user?.id}
-                          badges={renderPersonBadges(row.group.items)}
-                          actions={renderPersonSelectAction(row.group.items)}
-                        />
+          <StatusBadge status={request.status} />
                       </div>
-                    )
-                  }
-                  const { request } = row
-                  const status = statusConfig[request.status] ?? statusConfig['PENDING']!
-                  const StatusIcon = status.icon
-                  const isSelected = selectedIds.includes(request.id)
-                  return (
-                    <div
-                      key={request.id}
-                      className={cn(
-                        "relative bg-white dark:bg-slate-900 rounded-2xl border overflow-hidden shadow-sm transition-all active:scale-[0.98]",
-                        isSelected ? "border-amber-300 dark:border-amber-700 ring-2 ring-amber-500/20" : "border-slate-200 dark:border-slate-800"
-                      )}
-                    >
-                      <div className={cn("h-1 w-full",
-                        request.status === 'APPROVED' ? 'bg-emerald-400' :
-                        request.status === 'REJECTED' ? 'bg-red-400' : 'bg-amber-400'
-                      )} />
-                      <div className="p-4 space-y-3">
-                        {/* Header */}
-                        <div className="flex items-start gap-2">
-                          {request.status === 'PENDING' && !request.deactivationRequest && (
-                            <Checkbox
-                              checked={isSelected}
-                              onCheckedChange={() => toggleSelect(request.id)}
-                              className="border-slate-300 mt-0.5 shrink-0"
-                            />
-                          )}
-                          <button onClick={() => setReviewAdjustment(request)} className="text-left flex-1 min-w-0">
-                            <p className="text-sm font-black text-slate-900 dark:text-white line-clamp-2 leading-snug">{request.kpiCriteriaName}</p>
-                            <div className="flex items-center gap-2 mt-1 flex-wrap">
-                              {request.kpiType === 'QUALITATIVE' && (
-                                <span className="text-[9px] font-black bg-teal-100 text-teal-600 px-1.5 py-0.5 rounded uppercase">★ Định tính</span>
-                              )}
-                              {request.deactivationRequest ? (
-                                <span className="text-[9px] font-black bg-red-100 text-red-600 px-1.5 py-0.5 rounded uppercase">Huỷ bỏ KPI</span>
-                              ) : (
-                                <span className="text-[9px] font-black bg-amber-100 text-amber-600 px-1.5 py-0.5 rounded uppercase">Điều chỉnh số liệu</span>
-                              )}
-                            </div>
-                          </button>
-                          <div className="flex flex-col items-end gap-1.5 shrink-0">
-                            <div className={cn("inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border text-[9px] font-black uppercase tracking-widest shadow-sm", status.bgColor, status.color)}>
-                              <StatusIcon size={10} className={request.status === 'PENDING' ? 'animate-pulse' : ''} />
-                              {status.label}
-                            </div>
-                            {request.perspectiveName && (
-                              <span
-                                className="inline-flex items-center gap-1 text-[9px] font-black px-2 py-0.5 rounded-full uppercase whitespace-nowrap"
-                                style={{ color: request.perspectiveColor || '#8b5cf6', backgroundColor: `${request.perspectiveColor || '#8b5cf6'}1a` }}
-                                title={`Hạng mục BSC: ${request.perspectiveName}`}
-                              >
-                                <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: request.perspectiveColor || '#8b5cf6' }} />
-                                {request.perspectiveName}
-                              </span>
-                            )}
-                          </div>
-                        </div>
-
-                        {/* Requester + Timer */}
-                        <div className={cn("flex items-center gap-2", personMode ? "justify-end" : "justify-between")}>
-                          {!personMode && (
-                            <div className="flex items-center gap-1.5 text-[11px] font-bold text-slate-600 dark:text-slate-400">
-                              <Users size={11} className="text-slate-400 shrink-0" />
-                              <span className="truncate">{request.requesterName}</span>
-                            </div>
-                          )}
-                          <CountdownTimer createdAt={request.createdAt} status={request.status} />
-                        </div>
-
-                        {/* Reason */}
-                        <p className="text-[11px] text-slate-500 font-medium italic line-clamp-2 bg-slate-50 dark:bg-slate-800/50 px-3 py-2 rounded-xl">"{request.reason}"</p>
-
-                        {/* Reviewer note */}
-                        {(activeTab === 'APPROVED' || activeTab === 'REJECTED' || activeTab === 'ALL') && (
-                          <div className="pt-2 border-t border-slate-100 dark:border-slate-800">
-                            {request.reviewerNote ? (
-                              <p className="text-[11px] text-emerald-600 dark:text-emerald-400 font-bold line-clamp-1">{request.reviewerNote}</p>
-                            ) : (
-                              <span className="text-[10px] text-slate-400 italic">Không có phản hồi</span>
-                            )}
-                          </div>
-                        )}
-
-                        {/* Footer action */}
-                        <div className="flex justify-end pt-1 border-t border-slate-100 dark:border-slate-800">
-                          <button
-                            onClick={() => setReviewAdjustment(request)}
-                            className="p-2 text-slate-400 hover:text-amber-600 hover:bg-amber-50 dark:hover:bg-slate-800 rounded-xl transition-all"
-                          >
-                            <ChevronRight size={18} />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-        )}
-
-        {/* Bulk Actions Bar */}
-        {selectedIds.length > 0 && (
-          <div className="fixed bottom-4 sm:bottom-8 left-1/2 -translate-x-1/2 z-50 bg-slate-900 dark:bg-white text-white dark:text-slate-900 px-4 sm:px-6 py-3 rounded-[24px] shadow-2xl flex flex-col sm:flex-row items-stretch sm:items-center gap-3 sm:gap-5 animate-in slide-in-from-bottom-10 duration-500 border border-slate-700/50 dark:border-slate-200/50 backdrop-blur-xl w-[92vw] sm:w-auto max-w-xl">
-             <div className="flex items-center justify-between sm:justify-start gap-4 sm:pr-5 sm:border-r border-slate-700/50 dark:border-slate-200/50 whitespace-nowrap">
-                <div className="flex flex-col items-start">
-                  <span className="text-[10px] font-black uppercase tracking-widest text-white/50 dark:text-slate-400">Đã chọn</span>
-                  <span className="text-sm font-black uppercase tracking-tight">{selectedIds.length} mục</span>
-                </div>
-                <button onClick={() => { setSelectedIds([]); setBulkNote('') }} className="text-[10px] font-black uppercase tracking-widest bg-white/10 dark:bg-slate-100 px-2 py-1 rounded-lg hover:bg-white/20 transition-all">Bỏ chọn</button>
-             </div>
-
-             <div className="flex items-center gap-3">
-               <input
-                 value={bulkNote}
-                 onChange={e => setBulkNote(e.target.value)}
-                 placeholder="Nhập phản hồi chung..."
-                 className="bg-slate-800 dark:bg-slate-50 text-[11px] font-bold px-4 py-2.5 rounded-xl border border-slate-700 dark:border-slate-200 outline-none focus:ring-2 focus:ring-amber-500/50 w-full sm:w-64 transition-all"
-               />
-             </div>
-
-             <div className="flex items-center gap-2">
-                <button
-                  onClick={() => handleBulkReview('REJECTED')}
-                  disabled={bulkReviewMutation.isPending}
-                  className="flex-1 sm:flex-none px-5 py-2.5 rounded-xl bg-red-500/10 text-red-500 hover:bg-red-500 text-[10px] font-black uppercase tracking-widest hover:text-white transition-all disabled:opacity-50 whitespace-nowrap"
-                >
-                   Từ chối
-                </button>
-                <button
-                  onClick={() => handleBulkReview('APPROVED')}
-                  disabled={bulkReviewMutation.isPending}
-                  className="flex-1 sm:flex-none px-5 py-2.5 rounded-xl bg-emerald-500 text-white hover:bg-emerald-600 text-[10px] font-black uppercase tracking-widest shadow-lg shadow-emerald-500/20 transition-all disabled:opacity-50 whitespace-nowrap"
-                >
-                   Duyệt hàng loạt
-                </button>
-             </div>
-          </div>
-        )}
-
-        {/* Phân trang theo ĐƠN VỊ (hoặc theo NGƯỜI khi chỉ có một đơn vị); danh sách phẳng chỉ cần dòng đếm. */}
-        {items.length > 0 && (
-          <div className="bg-white/60 dark:bg-slate-900/60 backdrop-blur-md rounded-[28px] border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-            {unitMode || personMode ? (
-              <Pagination
-                currentPage={groupPage}
-                totalPages={totalPages}
-                onPageChange={setPage}
-                totalElements={totalGroups}
-                size={GROUP_PAGE_SIZE}
-                itemLabel={unitMode ? 'đơn vị' : 'nhân sự'}
-              />
-            ) : (
-              <p className="px-6 py-4 text-[10px] font-bold text-slate-400 uppercase tracking-widest">
-                Tổng <span className="text-slate-900 dark:text-white">{totalElements}</span> mục
-              </p>
-            )}
-          </div>
-        )}
-
-        <KpiAdjustmentReviewModal 
-          open={!!reviewAdjustment} 
-          onClose={() => setReviewAdjustment(null)} 
-          request={reviewAdjustment} 
-        />
+        {!personMode && <p className="mt-2 truncate text-caption">{request.requesterName}{!unitMode && request.orgUnitName ? ` · ${request.orgUnitName}` : ''}</p>}
+        <div className="mt-2"><ChangeSummary request={request} /></div>
+        <p className="mt-2 line-clamp-2 text-sm text-[var(--color-muted-foreground)]">{request.reason}</p>
+        <div className="mt-3 flex items-center justify-between gap-3 border-t border-[var(--color-border)] pt-3">
+          <Deadline request={request} />
+          <RowActions request={request} busy={busy} onView={() => openReview(request)} onApprove={() => request.deactivationRequest ? openReview(request, 'approve') : approveOne(request.id)} onReject={() => openReview(request, 'reject')} />
       </div>
     </div>
   )
 }
 
-function StatChip({ label, value, color }: { label: string; value: number; color: 'amber' | 'emerald' | 'red' | 'indigo' }) {
-  const colorMap = {
-    amber: 'bg-amber-50 dark:bg-amber-900/20 text-amber-600 dark:text-amber-400 border-amber-100 dark:border-amber-900/30',
-    emerald: 'bg-emerald-50 dark:bg-emerald-900/20 text-emerald-600 dark:text-emerald-400 border-emerald-100 dark:border-emerald-900/30',
-    red: 'bg-red-50 dark:bg-red-900/20 text-red-600 dark:text-red-400 border-red-100 dark:border-red-900/30',
-    indigo: 'bg-indigo-50 dark:bg-indigo-900/20 text-indigo-600 dark:text-indigo-400 border-indigo-100 dark:border-indigo-900/30',
-  }
+  const viewToggle = (
+    <SegmentedControl ariaLabel="Dạng hiển thị" value={viewMode} onChange={setViewMode}
+      options={[{ value: 'list', label: <List aria-hidden="true" />, title: 'Dạng bảng' }, { value: 'card', label: <LayoutGrid aria-hidden="true" />, title: 'Dạng thẻ' }]} />
+  )
+  const groupToggle = (unitMode || personMode) && (
+    <>
+      <Button variant="ghost" size="icon-sm" title="Mở tất cả nhóm" aria-label="Mở tất cả nhóm" onClick={() => { if (unitMode) unitCollapse.expandAll(visibleUnits.map(u => u.id)); else personCollapse.expandAll(visibleGroups.map(g => g.id)) }}><ChevronsUpDown aria-hidden="true" /></Button>
+      <Button variant="ghost" size="icon-sm" title="Thu gọn tất cả nhóm" aria-label="Thu gọn tất cả nhóm" onClick={() => { unitCollapse.collapseAll(); personCollapse.collapseAll() }}><ChevronsDownUp aria-hidden="true" /></Button>
+    </>
+  )
+
+  const emptyTitle = activeTab === 'PENDING' ? 'Không có yêu cầu nào chờ xử lý'
+    : activeTab === 'APPROVED' ? 'Chưa có yêu cầu nào được duyệt'
+    : activeTab === 'REJECTED' ? 'Chưa có yêu cầu nào bị từ chối' : 'Không có yêu cầu điều chỉnh'
+  const emptyDesc = selectedPeriodId === 'ALL' ? 'Khi nhân sự đề nghị sửa chỉ tiêu giữa đợt, yêu cầu sẽ hiện ở đây.' : 'Thử chọn đợt khác hoặc bỏ bộ lọc.'
   
   return (
-    <div className={cn(
-      "flex flex-col items-center justify-center min-w-0 px-2 sm:px-4 py-2.5 rounded-2xl border backdrop-blur-sm transition-all hover:scale-105 duration-300",
-      colorMap[color]
-    )}>
-      <span className="text-xl font-black tracking-tighter">{value}</span>
-      <span className="text-[9px] font-bold uppercase tracking-widest opacity-60 truncate">{label}</span>
+    <div className="mx-auto max-w-[1600px] space-y-4">
+      <WorkspaceHeader
+        id="tour-adj-header"
+        title={rawTitle}
+        description="Xử lý đề nghị sửa mục tiêu, trọng số hoặc ngưng chỉ tiêu giữa đợt. Mỗi yêu cầu có 24 giờ để xử lý."
+        stats={[
+          { label: 'Chờ xử lý', value: stats.pending, icon: Clock },
+          { label: 'Đã duyệt', value: stats.approved, icon: CheckCircle },
+          { label: 'Đã từ chối', value: stats.rejected, icon: Undo2 },
+        ]}
+      />
+
+      <FilterBar
+        id="tour-adj-toolbar"
+        search={{ value: search, onChange: v => { setSearch(v); setPage(0) }, placeholder: 'Tìm chỉ tiêu, người yêu cầu…' }}
+        trailing={<>{groupToggle}{viewToggle}</>}
+      >
+        <Select value={selectedPeriodId} onValueChange={(v) => { setSelectedPeriodId(v); setPage(0); resetGroups() }}>
+          <SelectTrigger className="w-full sm:w-52" aria-label="Đợt đánh giá"><SelectValue placeholder="Đợt đánh giá" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ALL">Tất cả các đợt</SelectItem>
+            {periodsData?.content.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        {enableOkr && (
+          <>
+            <Select value={selectedObjectiveId} onValueChange={(v) => { setSelectedObjectiveId(v); setSelectedKeyResultId('ALL'); setPage(0) }}>
+              <SelectTrigger className="w-full sm:w-56" aria-label="Mục tiêu OKR"><SelectValue placeholder="Mục tiêu" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">Tất cả mục tiêu</SelectItem>
+                {objectivesData?.map(obj => <SelectItem key={obj.id} value={obj.id}>{obj.code} · {obj.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+            <Select value={selectedKeyResultId} onValueChange={(v) => { setSelectedKeyResultId(v); setPage(0) }} disabled={selectedObjectiveId === 'ALL'}>
+              <SelectTrigger className="w-full sm:w-56" aria-label="Kết quả then chốt"><SelectValue placeholder="Kết quả then chốt" /></SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ALL">Tất cả kết quả</SelectItem>
+                {keyResults.map(kr => <SelectItem key={kr.id} value={kr.id}>{kr.code} · {kr.name}</SelectItem>)}
+              </SelectContent>
+            </Select>
+          </>
+        )}
+      </FilterBar>
+
+      <div id="tour-adj-tabs" className="flex items-center justify-between gap-3">
+        <SegmentedControl
+          ariaLabel="Lọc theo trạng thái"
+          value={activeTab}
+          onChange={handleTabChange}
+          options={ADJUSTMENT_TABS.map(tab => ({
+            value: tab,
+            label: (
+              <>
+                {TAB_LABELS[tab]}
+                <span className="text-[var(--color-muted-foreground)] tabular-nums">
+                  {tab === 'ALL' ? stats.total : tab === 'PENDING' ? stats.pending : tab === 'APPROVED' ? stats.approved : stats.rejected}
+                </span>
+              </>
+            ),
+          }))}
+        />
+        {!isLoading && items.length > 0 && !(unitMode || personMode) && <p className="text-caption tabular-nums">{totalElements} yêu cầu</p>}
+      </div>
+
+      {hitFetchCap && (
+        <div role="status" className="flex items-start gap-2 rounded-card border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-4 py-3">
+          <AlertCircle size={16} className="mt-0.5 shrink-0 text-[var(--color-warning)]" aria-hidden="true" />
+          <p className="text-sm text-[var(--color-foreground)]">Chỉ hiển thị {GROUPING_FETCH_SIZE} yêu cầu gần nhất. Lọc theo đợt để xem đủ.</p>
+        </div>
+      )}
+
+      {isLoading ? (
+        <LoadingSkeleton type="table" rows={8} />
+      ) : items.length === 0 ? (
+        <div className="rounded-card border border-dashed border-[var(--color-border)] bg-[var(--color-card)]">
+          <EmptyState icon={Inbox} title={emptyTitle} description={emptyDesc} />
+        </div>
+      ) : viewMode === 'list' ? (
+        <div className="hidden overflow-x-auto rounded-card border border-[var(--color-border)] bg-[var(--color-card)] md:block">
+          <table className="w-full">
+            <thead>
+              <tr className="border-b border-[var(--color-border)] bg-[var(--color-muted)]">
+                <th scope="col" className="w-10 px-3 py-2.5">
+                  {selectableIds.length > 0 && (
+                    <input type="checkbox" aria-label={allSelected ? 'Bỏ chọn tất cả' : 'Chọn tất cả yêu cầu chờ xử lý'} checked={allSelected} ref={el => { if (el) el.indeterminate = someSelected }} onChange={toggleSelectAll} className={CHECKBOX} />
+                  )}
+                </th>
+                <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">Chỉ tiêu</th>
+                {!personMode && <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">Người yêu cầu</th>}
+                <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">Thay đổi</th>
+                <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">Lý do</th>
+                {showFeedbackCol && <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">Phản hồi</th>}
+                <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">Hạn xử lý</th>
+                <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">Trạng thái</th>
+                <th scope="col" className="px-3 py-2.5 text-right text-eyebrow">Hành động</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-[var(--color-border)]">
+              {displayRows.map(row => {
+                if (row.kind === 'unit') {
+                  return <UnitGroupHeaderRow key={`unit-${row.unit.id}`} colSpan={tableColSpan} unit={row.unit} expanded={unitCollapse.isExpanded(row.unit.id)} onToggle={() => unitCollapse.toggle(row.unit.id)} isCurrentUnit={row.unit.id === myUnitId} badges={renderUnitBadges(row.unit)} />
+                }
+                if (row.kind === 'person') {
+                  return <PersonGroupHeaderRow key={`person-${row.key}`} colSpan={tableColSpan} indent={unitMode} person={row.group} expanded={personCollapse.isExpanded(row.key)} onToggle={() => personCollapse.toggle(row.key)} isCurrentUser={row.group.id === user?.id} badges={renderPersonBadges(row.group.items)} actions={renderPersonSelectAction(row.group.items)} />
+                }
+                return renderRow(row.request)
+              })}
+            </tbody>
+          </table>
+        </div>
+      ) : null}
+
+      {!isLoading && items.length > 0 && (
+        <div className={cn('grid grid-cols-1 gap-3', viewMode === 'card' ? 'md:grid-cols-2 xl:grid-cols-3' : 'md:hidden')}>
+          {displayRows.map(row => {
+            if (row.kind === 'unit') {
+              return <div key={`unit-${row.unit.id}`} className="col-span-full"><UnitGroupHeaderCard unit={row.unit} expanded={unitCollapse.isExpanded(row.unit.id)} onToggle={() => unitCollapse.toggle(row.unit.id)} isCurrentUnit={row.unit.id === myUnitId} badges={renderUnitBadges(row.unit)} /></div>
+            }
+            if (row.kind === 'person') {
+              return <div key={`person-${row.key}`} className={cn('col-span-full', unitMode && 'pl-4')}><PersonGroupHeaderCard person={row.group} expanded={personCollapse.isExpanded(row.key)} onToggle={() => personCollapse.toggle(row.key)} isCurrentUser={row.group.id === user?.id} badges={renderPersonBadges(row.group.items)} actions={renderPersonSelectAction(row.group.items)} /></div>
+            }
+            return renderCard(row.request)
+          })}
+        </div>
+      )}
+
+      {items.length > 0 && (unitMode || personMode) && (
+        <div className="rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
+          <Pagination currentPage={groupPage} totalPages={totalPages} onPageChange={setPage} totalElements={totalGroups} size={GROUP_PAGE_SIZE} itemLabel={unitMode ? 'đơn vị' : 'nhân sự'} />
+        </div>
+      )}
+
+      <BulkActionBar count={selectedIds.length} onClear={() => { setSelectedIds([]); setBulkNote('') }} itemLabel="yêu cầu">
+        <Button variant="outline" onClick={() => setBulkRejectOpen(true)} disabled={busy} className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)]">
+          <XCircle aria-hidden="true" /> Từ chối…
+        </Button>
+        <Button onClick={() => handleBulkReview('APPROVED')} disabled={busy}>
+          {busy ? <Loader2 className="animate-spin" aria-hidden="true" /> : <CheckCircle aria-hidden="true" />}
+          Duyệt {selectedIds.length} yêu cầu
+        </Button>
+      </BulkActionBar>
+
+      {/* Từ chối hàng loạt cần một lý do chung — hỏi trong hộp thoại nhỏ, không nhét ô nhập vào thanh dính đáy. */}
+      <Dialog
+        open={bulkRejectOpen}
+        onClose={() => setBulkRejectOpen(false)}
+        size="sm"
+        dismissible={!busy}
+        title={`Từ chối ${selectedIds.length} yêu cầu`}
+        description="Một lý do chung sẽ gửi tới tất cả người yêu cầu đã chọn."
+        footer={
+          <DialogFooter
+            secondary={<Button variant="outline" onClick={() => setBulkRejectOpen(false)} disabled={busy}>Hủy</Button>}
+            primary={
+              <Button variant="destructive" disabled={busy || !bulkNote.trim()} onClick={() => { handleBulkReview('REJECTED'); setBulkRejectOpen(false) }}>
+                {busy ? <Loader2 className="animate-spin" aria-hidden="true" /> : <XCircle aria-hidden="true" />} Từ chối
+              </Button>
+            }
+          />
+        }
+      >
+        <label htmlFor="bulk-reject-note" className="text-label block">Lý do từ chối <span className="text-[var(--color-error)]" aria-hidden="true">*</span></label>
+        <textarea
+          id="bulk-reject-note"
+          value={bulkNote}
+          onChange={e => setBulkNote(e.target.value)}
+          rows={3}
+          className="mt-1.5 w-full resize-none rounded-control border border-[var(--color-input)] bg-[var(--color-card)] px-3 py-2 text-sm text-[var(--color-foreground)] placeholder:text-[var(--color-muted-foreground)] focus:border-[var(--color-ring)] focus:outline-none focus:ring-2 focus:ring-[var(--color-ring)]"
+          placeholder="Nêu rõ vì sao không chấp nhận các điều chỉnh này."
+        />
+      </Dialog>
+
+      <KpiAdjustmentReviewModal
+        key={reviewAdjustment?.id ?? 'none'}
+        open={!!reviewAdjustment}
+        onClose={() => setReviewAdjustment(null)}
+        request={reviewAdjustment}
+        initialMode={reviewMode}
+      />
     </div>
   )
 }

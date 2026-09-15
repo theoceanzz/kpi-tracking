@@ -1,5 +1,7 @@
-import { X, Download, FileSpreadsheet, AlertTriangle, CheckCircle2, Info, FileText, FileBarChart } from 'lucide-react'
+import { Download, FileSpreadsheet, AlertTriangle, CheckCircle2, Info, FileText, FileBarChart } from 'lucide-react'
 import ExcelJS from 'exceljs'
+import { Dialog, DialogFooter } from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
 
 interface OrgImportGuideModalProps {
   open: boolean
@@ -128,141 +130,116 @@ export default function OrgImportGuideModal({ open, onClose, onSelectFile }: Org
   if (!open) return null
 
   return (
-    <div className="fixed inset-0 z-[200] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative w-full max-w-2xl max-h-[90vh] overflow-y-auto bg-white dark:bg-slate-900 rounded-[28px] border border-slate-200 dark:border-slate-800 shadow-2xl animate-in fade-in zoom-in-95 duration-300">
-        
-        <div className="sticky top-0 z-10 bg-white dark:bg-slate-900 border-b border-slate-100 dark:border-slate-800 px-8 py-6 flex items-center justify-between rounded-t-[28px]">
-          <div className="flex items-center gap-3">
-            <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center">
-              <FileSpreadsheet size={24} className="text-indigo-600" />
-            </div>
-            <div>
-              <h2 className="text-xl font-black text-slate-900 dark:text-white">Import Sơ đồ Tổ chức</h2>
-              <p className="text-sm font-medium text-slate-500">Xây dựng cấu trúc phòng ban hàng loạt</p>
-            </div>
+    <Dialog
+      open
+      onClose={onClose}
+      size="lg"
+      title="Import Sơ đồ Tổ chức"
+      description="Xây dựng cấu trúc phòng ban hàng loạt"
+      footer={
+        <DialogFooter
+          secondary={<Button variant="outline" onClick={onClose}>Đóng</Button>}
+          primary={<Button onClick={() => { onSelectFile(); onClose() }}><FileSpreadsheet aria-hidden="true" /> Chọn file & Import</Button>}
+        />
+      }
+    >
+      <div className="space-y-6">
+        <div>
+          <h3 className="text-eyebrow mb-3">Các bước thực hiện</h3>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            {STEPS.map((step) => (
+              <div key={step.num} className="p-4 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)] space-y-2">
+                <div className="w-8 h-8 rounded-control bg-[var(--color-primary-soft)] text-[var(--color-primary)] flex items-center justify-center text-xs font-semibold">
+                  {step.num}
+                </div>
+                <h4 className="font-medium text-sm text-[var(--color-foreground)]">{step.title}</h4>
+                <p className="text-xs text-[var(--color-muted-foreground)]">{step.desc}</p>
+              </div>
+            ))}
           </div>
-          <button onClick={onClose} className="p-2 rounded-xl hover:bg-slate-100 dark:hover:bg-slate-800 text-slate-400 hover:text-slate-600 transition-all">
-            <X size={20} />
-          </button>
         </div>
 
-        <div className="px-8 py-6 space-y-8">
-          <div>
-            <h3 className="text-sm font-black uppercase tracking-widest text-slate-400 mb-4">Các bước thực hiện</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-              {STEPS.map((step) => (
-                <div key={step.num} className="p-4 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-100 dark:border-slate-800 space-y-2">
-                  <div className="w-8 h-8 rounded-lg bg-indigo-100 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 flex items-center justify-center text-xs font-black">
-                    {step.num}
-                  </div>
-                  <h4 className="font-bold text-sm text-slate-900 dark:text-white">{step.title}</h4>
-                  <p className="text-xs text-slate-500">{step.desc}</p>
-                </div>
-              ))}
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div className="p-5 rounded-card bg-[var(--color-primary-soft)] border border-[var(--color-border)] space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-card bg-[var(--color-primary)] flex items-center justify-center text-[var(--color-primary-foreground)]">
+                <FileBarChart size={20} />
+              </div>
+              <div>
+                <p className="font-medium text-sm text-[var(--color-foreground)]">Template XLSX</p>
+                <p className="text-xs text-[var(--color-muted-foreground)]">Định dạng khuyến nghị</p>
+              </div>
             </div>
+            <Button className="w-full" onClick={() => downloadTemplate('xlsx')}>
+              <Download aria-hidden="true" /> Tải mẫu .XLSX
+            </Button>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="p-5 rounded-2xl bg-gradient-to-br from-indigo-50 to-blue-50 dark:from-indigo-900/20 dark:to-blue-900/10 border border-indigo-200/50 dark:border-indigo-900/30 space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-indigo-600 flex items-center justify-center text-white">
-                  <FileBarChart size={20} />
-                </div>
-                <div>
-                  <p className="font-bold text-sm text-slate-900 dark:text-indigo-100">Template XLSX</p>
-                  <p className="text-xs text-slate-500 dark:text-indigo-300/60">Định dạng khuyến nghị</p>
-                </div>
+          <div className="p-5 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)] space-y-4">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-card bg-[var(--color-border)] flex items-center justify-center text-[var(--color-muted-foreground)]">
+                <FileText size={20} />
               </div>
-              <button
-                onClick={() => downloadTemplate('xlsx')}
-                className="w-full flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl bg-indigo-600 text-white font-bold text-sm hover:bg-indigo-700 transition-all active:scale-95"
-              >
-                <Download size={16} /> Tải mẫu .XLSX
-              </button>
-            </div>
-
-            <div className="p-5 rounded-2xl bg-slate-50 dark:bg-slate-800/50 border border-slate-200 dark:border-slate-800 space-y-4">
-              <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-slate-200 dark:bg-slate-700 flex items-center justify-center text-slate-600 dark:text-slate-400">
-                  <FileText size={20} />
-                </div>
-                <div>
-                  <p className="font-bold text-sm text-slate-900 dark:text-white">Mẫu CSV</p>
-                  <p className="text-xs text-slate-500">Đơn giản, gọn nhẹ</p>
-                </div>
+              <div>
+                <p className="font-medium text-sm text-[var(--color-foreground)]">Mẫu CSV</p>
+                <p className="text-xs text-[var(--color-muted-foreground)]">Đơn giản, gọn nhẹ</p>
               </div>
-              <button
-                onClick={() => downloadTemplate('csv')}
-                className="w-full flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-slate-600 dark:text-slate-300 font-bold text-sm hover:bg-slate-100 dark:hover:bg-slate-800 transition-all active:scale-95"
-              >
-                <Download size={16} /> Tải mẫu .CSV
-              </button>
             </div>
+            <Button variant="outline" className="w-full" onClick={() => downloadTemplate('csv')}>
+              <Download aria-hidden="true" /> Tải mẫu .CSV
+            </Button>
           </div>
+        </div>
 
-          <div>
-            <h3 className="text-sm font-black uppercase tracking-widest text-slate-400 mb-4">Mô tả các cột</h3>
-            <div className="rounded-2xl border border-slate-200 dark:border-slate-800 overflow-hidden">
-              <div className="overflow-x-auto">
-              <table className="w-full text-left">
-                <thead>
-                  <tr className="bg-slate-50 dark:bg-slate-800/50 border-b border-slate-200 dark:border-slate-700">
-                    <th className="px-4 py-3 text-xs font-black uppercase text-slate-500">Cột</th>
-                    <th className="px-4 py-3 text-xs font-black uppercase text-slate-500">Bắt buộc</th>
-                    <th className="px-4 py-3 text-xs font-black uppercase text-slate-500">Ví dụ</th>
+        <div>
+          <h3 className="text-eyebrow mb-3">Mô tả các cột</h3>
+          <div className="rounded-card border border-[var(--color-border)] overflow-hidden">
+            <div className="overflow-x-auto">
+            <table className="w-full text-left">
+              <thead>
+                <tr className="bg-[var(--color-muted)] border-b border-[var(--color-border)]">
+                  <th className="px-4 py-2.5 text-eyebrow">Cột</th>
+                  <th className="px-4 py-2.5 text-eyebrow">Bắt buộc</th>
+                  <th className="px-4 py-2.5 text-eyebrow">Ví dụ</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[var(--color-border)]">
+                {COLUMNS.map((col) => (
+                  <tr key={col.name} className="hover:bg-[var(--color-muted)]">
+                    <td className="px-4 py-3">
+                      <code className="text-xs font-medium text-[var(--color-primary)]">{col.name}</code>
+                    </td>
+                    <td className="px-4 py-3 text-xs">
+                      {col.required ? (
+                        <span className="inline-flex items-center gap-1 text-[var(--color-error)] font-semibold">
+                          <AlertTriangle size={12} /> Có
+                        </span>
+                      ) : (
+                        <span className="text-[var(--color-subtle-foreground)]">Không</span>
+                      )}
+                    </td>
+                    <td className="px-4 py-3 text-xs text-[var(--color-muted-foreground)]">{col.example}</td>
                   </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
-                  {COLUMNS.map((col) => (
-                    <tr key={col.name} className="hover:bg-slate-50/50 dark:hover:bg-slate-800/30">
-                      <td className="px-4 py-3">
-                        <code className="text-xs font-bold text-indigo-600">{col.name}</code>
-                      </td>
-                      <td className="px-4 py-3 text-xs">
-                        {col.required ? (
-                          <span className="inline-flex items-center gap-1 text-red-600 font-bold">
-                            <AlertTriangle size={12} /> Có
-                          </span>
-                        ) : (
-                          <span className="text-slate-400">Không</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3 text-xs text-slate-600 dark:text-slate-400">{col.example}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              </div>
+                ))}
+              </tbody>
+            </table>
             </div>
           </div>
-
-              <div className="flex items-start gap-3 p-3 rounded-xl bg-emerald-50 dark:bg-emerald-900/10 border border-emerald-200/50 dark:border-emerald-900/30">
-                <CheckCircle2 size={16} className="text-emerald-600 mt-0.5 shrink-0" />
-                <p className="text-xs text-emerald-800 dark:text-emerald-300 leading-relaxed">
-                  Cột <code>Code</code> của các đơn vị phải là duy nhất. Nếu hệ thống tìm thấy mã trùng, nó sẽ cập nhật thay vì tạo mới.
-                </p>
-              </div>
-              <div className="flex items-start gap-3 p-3 rounded-xl bg-blue-50 dark:bg-blue-900/10 border border-blue-200/50 dark:border-blue-900/30">
-                <Info size={16} className="text-blue-600 mt-0.5 shrink-0" />
-                <p className="text-xs text-blue-800 dark:text-blue-300 leading-relaxed">
-                  Cột <code>ParentCode</code> rất quan trọng để hệ thống tự động sắp xếp các phòng ban vào đúng vị trí trên sơ đồ. Hãy đảm bảo mã đơn vị cha được nhập chính xác.
-                </p>
-              </div>
         </div>
 
-        <div className="sticky bottom-0 bg-white dark:bg-slate-900 border-t border-slate-100 dark:border-slate-800 px-8 py-5 flex items-center justify-end gap-3 rounded-b-[28px]">
-          <button onClick={onClose} className="px-6 py-2.5 rounded-xl border border-slate-200 dark:border-slate-700 text-sm font-bold text-slate-600 dark:text-slate-300 transition-all">
-            Đóng
-          </button>
-          <button
-            onClick={() => { onSelectFile(); onClose() }}
-            className="flex items-center gap-2 px-6 py-2.5 rounded-xl bg-indigo-600 text-white text-sm font-bold hover:bg-indigo-700 transition-all shadow-lg active:scale-95"
-          >
-            <FileSpreadsheet size={16} /> Chọn file & Import
-          </button>
-        </div>
+            <div className="flex items-start gap-3 p-3 rounded-card bg-[var(--color-success-bg)] border border-[var(--color-success-border)]">
+              <CheckCircle2 size={16} className="text-[var(--color-success)] mt-0.5 shrink-0" />
+              <p className="text-xs text-[var(--color-success)] leading-relaxed">
+                Cột <code>Code</code> của các đơn vị phải là duy nhất. Nếu hệ thống tìm thấy mã trùng, nó sẽ cập nhật thay vì tạo mới.
+              </p>
+            </div>
+            <div className="flex items-start gap-3 p-3 rounded-card bg-[var(--color-info-bg)] border border-[var(--color-info-border)]">
+              <Info size={16} className="text-[var(--color-info)] mt-0.5 shrink-0" />
+              <p className="text-xs text-[var(--color-info)] leading-relaxed">
+                Cột <code>ParentCode</code> rất quan trọng để hệ thống tự động sắp xếp các phòng ban vào đúng vị trí trên sơ đồ. Hãy đảm bảo mã đơn vị cha được nhập chính xác.
+              </p>
+            </div>
       </div>
-    </div>
+    </Dialog>
   )
 }

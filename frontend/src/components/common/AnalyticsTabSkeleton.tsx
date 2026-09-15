@@ -11,7 +11,7 @@ export default function AnalyticsTabSkeleton({ variant = 'default', className }:
   return (
     <div className={cn('animate-pulse space-y-6', className)}>
       {/* Filter bar */}
-      <div className="h-16 bg-[var(--color-muted)] rounded-2xl" />
+      <div className="h-16 bg-[var(--color-muted)] rounded-card" />
 
       {/* Metric cards */}
       <div className={cn(
@@ -19,26 +19,26 @@ export default function AnalyticsTabSkeleton({ variant = 'default', className }:
         metricCount === 4 ? 'grid-cols-2 md:grid-cols-4' : 'grid-cols-2 md:grid-cols-5'
       )}>
         {Array.from({ length: metricCount }).map((_, i) => (
-          <div key={i} className="h-20 bg-[var(--color-muted)] rounded-2xl" />
+          <div key={i} className="h-20 bg-[var(--color-muted)] rounded-card" />
         ))}
       </div>
 
       {variant === 'drilldown' ? (
         <>
-          <div className="h-8 w-64 bg-[var(--color-muted)] rounded-lg" />
-          <div className="h-64 bg-[var(--color-muted)] rounded-2xl" />
+          <div className="h-8 w-64 bg-[var(--color-muted)] rounded-control" />
+          <div className="h-64 bg-[var(--color-muted)] rounded-card" />
         </>
       ) : (
         <>
           {/* Chart area */}
-          <div className="h-[320px] bg-[var(--color-muted)] rounded-2xl" />
+          <div className="h-[320px] bg-[var(--color-muted)] rounded-card" />
 
           {/* Table */}
-          <div className="rounded-2xl overflow-hidden">
+          <div className="rounded-widget overflow-hidden">
             <div className="h-14 bg-[var(--color-muted)]" />
             <div className="p-4 space-y-3">
               {[1, 2, 3].map(i => (
-                <div key={i} className="h-12 bg-[var(--color-muted)] rounded-lg opacity-60" />
+                <div key={i} className="h-12 bg-[var(--color-muted)] rounded-card opacity-60" />
               ))}
             </div>
           </div>

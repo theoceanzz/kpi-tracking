@@ -3,7 +3,7 @@ import { yAxisLabel } from '@/components/charts/axisLabel'
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts'
 import { Trophy, TrendingDown } from 'lucide-react'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { cn } from '@/lib/utils'
+import { ChoiceChip } from '@/components/ui/choice-chip'
 import { useSummaryComparison } from '../hooks/useAnalytics'
 import { usePerformanceScale } from '../hooks/usePerformanceScale'
 import type { UnitComparison } from '@/types/stats'
@@ -45,7 +45,7 @@ function UnitBarTooltip({ active, payload, perf }: any) {
 /** Legend gọn, tự xuống dòng (responsive) — gồm cả trễ hạn / không nộp (chỉ hiện trong tooltip). */
 function UnitChartLegend() {
   return (
-    <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 px-2 text-xs font-semibold text-slate-600 dark:text-slate-300">
+    <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 px-2 text-xs font-semibold text-[var(--color-muted-foreground)]">
       {UNIT_CHART_KEYS.map((k) => (
         <span key={k.label} className="flex items-center gap-1.5 whitespace-nowrap">
           <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: k.color }} />
@@ -59,21 +59,13 @@ function UnitChartLegend() {
 /** Toggle Tốt nhất / Trì trệ. */
 function RankFilterToggle({ filter, onChange }: { filter: 'BEST' | 'WORST'; onChange: (f: 'BEST' | 'WORST') => void }) {
   return (
-    <div className="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 gap-0.5">
-      <button
-        onClick={() => onChange('BEST')}
-        className={cn('flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold transition-all',
-          filter === 'BEST' ? 'bg-white dark:bg-slate-700 text-emerald-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400')}
-      >
-        <Trophy size={11} /> Tốt nhất
-      </button>
-      <button
-        onClick={() => onChange('WORST')}
-        className={cn('flex items-center gap-1 px-2.5 py-1 rounded-md text-xs font-semibold transition-all',
-          filter === 'WORST' ? 'bg-white dark:bg-slate-700 text-rose-600 shadow-sm' : 'text-slate-500 hover:text-slate-700 dark:text-slate-400')}
-      >
-        <TrendingDown size={11} /> Trì trệ
-      </button>
+    <div className="flex bg-[var(--color-muted)] rounded-control p-0.5 gap-0.5">
+      <ChoiceChip selected={filter === 'BEST'} variant="segment" size="sm" className="py-1" onClick={() => onChange('BEST')}>
+        <Trophy /> Tốt nhất
+      </ChoiceChip>
+      <ChoiceChip selected={filter === 'WORST'} variant="segment" size="sm" className="py-1" onClick={() => onChange('WORST')}>
+        <TrendingDown /> Trì trệ
+      </ChoiceChip>
     </div>
   )
 }
@@ -83,7 +75,7 @@ function TopNSelect({ value, onChange }: { value: 'ALL' | '5' | '10'; onChange: 
   return (
     <Select value={value} onValueChange={v => onChange(v as 'ALL' | '5' | '10')}>
       <SelectTrigger
-        className="h-8 w-auto gap-1 px-2 bg-slate-50 dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-lg text-xs font-semibold text-slate-600 dark:text-slate-300"
+        className="h-8 w-auto gap-1 px-2 bg-[var(--color-muted)] border-slate-200 dark:border-slate-700 rounded-lg text-xs font-semibold text-[var(--color-muted-foreground)]"
         title="Số đơn vị hiển thị"
       >
         <SelectValue />

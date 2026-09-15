@@ -92,12 +92,12 @@ function AgreementTooltip({ active, payload }: {
   const d = payload?.[0]?.payload
   if (!active || !d) return null
   return (
-    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3.5 rounded-lg shadow-lg">
-      <p className="font-semibold text-slate-900 dark:text-white mb-2">{d.name ?? 'Một nhân sự'}</p>
+    <div className="bg-[var(--color-card)] border border-[var(--color-border)] p-3.5 rounded-lg shadow-lg">
+      <p className="font-semibold text-[var(--color-foreground)] mb-2">{d.name ?? 'Một nhân sự'}</p>
       <div className="space-y-1 text-sm">
         <p><span className="text-slate-500 font-medium">Điểm BSC: </span><span className="font-semibold tabular-nums">{d.bscScore}</span></p>
         <p><span className="text-slate-500 font-medium">Điểm hệ thống: </span><span className="font-semibold tabular-nums">{d.systemScore}</span></p>
-        <p className="pt-1.5 border-t border-slate-100 dark:border-slate-800 mt-1.5">
+        <p className="pt-1.5 border-t border-[var(--color-border)] mt-1.5">
           <span className="text-slate-500 font-medium">Lệch: </span>
           <span className="font-semibold tabular-nums" style={{ color: Math.abs(d.gap) >= 10 ? '#f59e0b' : '#64748b' }}>
             {d.gap > 0 ? '+' : ''}{d.gap}
@@ -224,8 +224,8 @@ function WeightTooltip({ active, payload, label, perspectives }: {
   if (!active || !row) return null
   const note = String(row['__note'] ?? '')
   return (
-    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3.5 rounded-lg shadow-lg max-w-[320px]">
-      <p className="font-semibold text-slate-900 dark:text-white mb-2">{label}</p>
+    <div className="bg-[var(--color-card)] border border-[var(--color-border)] p-3.5 rounded-lg shadow-lg max-w-[320px]">
+      <p className="font-semibold text-[var(--color-foreground)] mb-2">{label}</p>
       <div className="space-y-1 text-sm">
         {perspectives.map((ps, i) => (
           <div key={ps.id} className="flex items-center gap-2.5">
@@ -236,7 +236,7 @@ function WeightTooltip({ active, payload, label, perspectives }: {
         ))}
       </div>
       {note && (
-        <p className="text-xs text-slate-500 font-medium mt-2 pt-2 border-t border-slate-100 dark:border-slate-800">
+        <p className="text-xs text-slate-500 font-medium mt-2 pt-2 border-t border-[var(--color-border)]">
           {note}
         </p>
       )}

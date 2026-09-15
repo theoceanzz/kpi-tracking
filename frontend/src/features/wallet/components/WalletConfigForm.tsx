@@ -11,6 +11,7 @@ import {
   Loader2,
   RotateCcw,
   Save,
+  Receipt,
   Timer,
   Webhook,
   X,
@@ -23,8 +24,10 @@ import BankSelect from './BankSelect'
 import { findBank } from '../constants/banks'
 import { walletConfigSchema, type WalletConfigFormData } from '../schemas/walletConfigSchema'
 import type { WalletConfig, WalletConfigRequest } from '../types'
+import { Button } from '@/components/ui/button'
+import { ChoiceChip } from '@/components/ui/choice-chip'
 
-const EMPTY: WalletConfigRequest = {
+const EMPTY: WalletConfigFormData = {
   pointExchangeRate: 1000,
   topupMinAmount: 10_000,
   topupMaxAmount: 50_000_000,
@@ -32,13 +35,22 @@ const EMPTY: WalletConfigRequest = {
   sepayAccountNumber: '',
   sepayBankCode: '',
   sepayAccountHolder: '',
+  legalName: '',
+  taxCode: '',
+  businessAddress: '',
+  contactPhone: '',
+  receiptEnabled: true,
+  receiptSeriesPrefix: 'PT',
+  receiptVatRate: 0,
+  receiptIssuerName: '',
+  receiptIssuerTitle: '',
 }
 
 const RATE_PRESETS = [500, 1_000, 2_000, 5_000]
 /** Mốc điểm dùng để xem trước tỉ giá. Chọn thưa dần để thấy cả khoản nhỏ lẫn khoản lớn. */
 const PREVIEW_POINTS = [10, 50, 100, 500]
 
-const toForm = (c: WalletConfig): WalletConfigRequest => ({
+const toForm = (c: WalletConfig): WalletConfigFormData => ({
   pointExchangeRate: c.pointExchangeRate,
   topupMinAmount: c.topupMinAmount,
   topupMaxAmount: c.topupMaxAmount,
@@ -46,10 +58,19 @@ const toForm = (c: WalletConfig): WalletConfigRequest => ({
   sepayAccountNumber: c.sepayAccountNumber ?? '',
   sepayBankCode: c.sepayBankCode ?? '',
   sepayAccountHolder: c.sepayAccountHolder ?? '',
+  legalName: c.legalName ?? '',
+  taxCode: c.taxCode ?? '',
+  businessAddress: c.businessAddress ?? '',
+  contactPhone: c.contactPhone ?? '',
+  receiptEnabled: c.receiptEnabled ?? true,
+  receiptSeriesPrefix: c.receiptSeriesPrefix ?? 'PT',
+  receiptVatRate: c.receiptVatRate ?? 0,
+  receiptIssuerName: c.receiptIssuerName ?? '',
+  receiptIssuerTitle: c.receiptIssuerTitle ?? '',
 })
 
 const inputCls =
-  'w-full rounded-xl border border-[var(--color-border)] bg-[var(--color-background)] px-4 py-2.5 text-sm outline-none transition-colors focus:border-[var(--color-primary)]'
+  'w-full rounded-card border border-[var(--color-border)] bg-[var(--color-background)] px-4 py-2.5 text-sm outline-none transition-colors focus:border-[var(--color-primary)]'
 
 function Card({
   id,
@@ -66,13 +87,13 @@ function Card({
   children: React.ReactNode
 }) {
   return (
-    <section id={id} className="rounded-3xl border border-[var(--color-border)] bg-[var(--color-card)]">
+    <section id={id} className="rounded-widget border border-[var(--color-border)] bg-[var(--color-card)]">
       <header className="flex items-center gap-3 border-b border-[var(--color-border)] px-6 py-4">
-        <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-xl bg-[var(--color-primary)]/10 text-[var(--color-primary)]">
+        <div className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-card bg-[var(--color-primary)]/10 text-[var(--color-primary)]">
           {icon}
         </div>
         <div className="min-w-0">
-          <h3 className="text-sm font-bold">{title}</h3>
+          <h3 className="text-section-title">{title}</h3>
           {subtitle && (
             <p className="truncate text-xs text-[var(--color-muted-foreground)]">{subtitle}</p>
           )}
@@ -94,7 +115,7 @@ function Field({
 }) {
   return (
     <div className="min-w-0">
-      <label className="mb-1.5 block text-sm font-medium">{label}</label>
+      <label className="text-label mb-1.5 block font-medium">{label}</label>
       {children}
       {hint && (
         <p className="mt-1.5 text-xs leading-relaxed text-[var(--color-muted-foreground)]">{hint}</p>
@@ -121,7 +142,7 @@ function NumberField({
         value={value}
         onChange={onChange}
         maxDigits={maxDigits}
-        className={`${inputCls} pr-14 text-right font-bold tabular-nums`}
+        className={`${inputCls} pr-14 text-right font-semibold tabular-nums`}
       />
       <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm font-medium text-[var(--color-muted-foreground)]">
         {suffix}
@@ -136,7 +157,7 @@ function ChecklistRow({ done, label, hint }: { done: boolean; label: string; hin
       <span
         className={`mt-0.5 flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full ${
           done
-            ? 'bg-emerald-100 text-emerald-600 dark:bg-emerald-900/40 dark:text-emerald-400'
+            ? 'bg-[var(--color-success-bg)] text-[var(--color-success)] dark:bg-[var(--color-success-bg)] dark:text-[var(--color-success)]'
             : 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)]'
         }`}
       >
@@ -183,8 +204,8 @@ export default function WalletConfigForm() {
   return (
     <div className="pb-24">
       {!data?.bankConfigured && (
-        <div className="mb-6 flex items-start gap-3 rounded-2xl border border-amber-500/40 bg-amber-500/10 px-5 py-4 text-sm">
-          <AlertTriangle size={18} className="mt-0.5 flex-shrink-0 text-amber-600" />
+        <div className="mb-6 flex items-start gap-3 rounded-card border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-5 py-4 text-sm">
+          <AlertTriangle size={18} className="mt-0.5 flex-shrink-0 text-[var(--color-warning)]" />
           <div>
             <p className="font-semibold">Chưa nhận được tiền</p>
             <p className="mt-0.5 text-[var(--color-muted-foreground)]">
@@ -199,8 +220,8 @@ export default function WalletConfigForm() {
           nhầm số tài khoản, hoặc chưa liên kết bên SePay. Cả hai đều im lặng: nhân
           viên vẫn quét được QR, tiền vẫn đi, chỉ là không bao giờ được ghi có. */}
       {data?.bankConfigured && !data?.lastWebhookAt && (
-        <div className="mb-6 flex items-start gap-3 rounded-2xl border border-sky-500/40 bg-sky-500/10 px-5 py-4 text-sm">
-          <Info size={18} className="mt-0.5 flex-shrink-0 text-sky-600" />
+        <div className="mb-6 flex items-start gap-3 rounded-card border border-[var(--color-info-border)] bg-[var(--color-info-bg)] px-5 py-4 text-sm">
+          <Info size={18} className="mt-0.5 flex-shrink-0 text-[var(--color-info)]" />
           <div>
             <p className="font-semibold">Chưa nhận được giao dịch nào từ tài khoản này</p>
             <p className="mt-0.5 text-[var(--color-muted-foreground)]">
@@ -237,26 +258,17 @@ export default function WalletConfigForm() {
                 />
                 <div className="mt-2.5 flex flex-wrap gap-1.5">
                   {RATE_PRESETS.map((v) => (
-                    <button
-                      key={v}
-                      type="button"
-                      onClick={() => setValue('pointExchangeRate', v, { shouldValidate: true })}
-                      className={`rounded-full border px-2.5 py-1 text-xs font-semibold transition-colors ${
-                        form.pointExchangeRate === v
-                          ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/10 text-[var(--color-primary)]'
-                          : 'border-[var(--color-border)] text-[var(--color-muted-foreground)] hover:border-[var(--color-primary)]'
-                      }`}
-                    >
+                    <ChoiceChip selected={form.pointExchangeRate === v} variant="solid" className="py-1" key={v} onClick={() => setValue('pointExchangeRate', v, { shouldValidate: true })}>
                       {v.toLocaleString('vi-VN')}đ
-                    </button>
+                    </ChoiceChip>
                   ))}
                 </div>
               </Field>
 
               {/* Con số tỉ giá đơn lẻ khó hình dung. Bảng quy đổi cho thấy ngay hệ
                   quả của nó lên các mức nhân viên hay đổi. */}
-              <div className="rounded-2xl bg-[var(--color-muted)]/40 p-4">
-                <div className="mb-2 text-[10px] font-black uppercase tracking-[0.15em] text-[var(--color-muted-foreground)]">
+              <div className="rounded-card bg-[var(--color-muted)]/40 p-4">
+                <div className="mb-2 text-eyebrow">
                   Nhân viên sẽ thấy
                 </div>
                 <ul className="space-y-1.5">
@@ -308,12 +320,12 @@ export default function WalletConfigForm() {
             </div>
 
             {rangeInvalid && (
-              <p className="mt-4 rounded-xl bg-rose-500/10 px-4 py-2.5 text-sm text-rose-700 dark:text-rose-400">
+              <p className="mt-4 rounded-card bg-[var(--color-error-bg)] px-4 py-2.5 text-sm text-[var(--color-error)]">
                 Số tiền tối đa đang nhỏ hơn tối thiểu.
               </p>
             )}
             {(errors.pointExchangeRate || errors.topupMinAmount || errors.topupExpireMinutes) && (
-              <p className="mt-2 text-xs text-rose-600">
+              <p className="mt-2 text-xs text-[var(--color-error)]">
                 {errors.pointExchangeRate?.message
                   ?? errors.topupMinAmount?.message
                   ?? errors.topupExpireMinutes?.message}
@@ -357,17 +369,144 @@ export default function WalletConfigForm() {
                     value={form.sepayAccountHolder ?? ''}
                     onChange={(e) => setValue('sepayAccountHolder', e.target.value, { shouldValidate: true })}
                     placeholder="CONG TY ABC"
-                    className={`${inputCls} uppercase`}
+                    className={`${inputCls}`}
                   />
                 </Field>
               </div>
             </div>
           </Card>
+
+          <Card
+            icon={<Receipt size={18} />}
+            id="tour-wallet-receipt"
+            title="Biên nhận thu tiền"
+            subtitle="Chứng từ gửi cho nhân viên sau mỗi lần nạp thành công"
+          >
+            <label className="mb-5 flex cursor-pointer items-start gap-3">
+              <input
+                type="checkbox"
+                checked={form.receiptEnabled}
+                onChange={(e) => setValue('receiptEnabled', e.target.checked, { shouldValidate: true })}
+                className="mt-0.5 h-4 w-4 flex-shrink-0 accent-[var(--color-primary)]"
+              />
+              <span className="min-w-0">
+                <span className="block text-sm font-medium">Gửi biên nhận cho mỗi lần nạp</span>
+                <span className="block text-xs leading-relaxed text-[var(--color-muted-foreground)]">
+                  Tắt nếu đơn vị đã phát hành hoá đơn điện tử qua nhà cung cấp riêng và không muốn
+                  gửi hai loại giấy cho cùng một khoản.
+                </span>
+              </span>
+            </label>
+
+            <div className="grid gap-5 sm:grid-cols-2">
+              <Field
+                label="Tên đơn vị trên chứng từ"
+                hint="Tên pháp nhân theo giấy đăng ký kinh doanh. Bỏ trống thì dùng tên công ty đang lưu."
+              >
+                <input
+                  value={form.legalName ?? ''}
+                  onChange={(e) => setValue('legalName', e.target.value, { shouldValidate: true })}
+                  placeholder="CÔNG TY TNHH ABC"
+                  className={inputCls}
+                />
+              </Field>
+              <Field label="Mã số thuế">
+                <input
+                  value={form.taxCode ?? ''}
+                  onChange={(e) => setValue('taxCode', e.target.value, { shouldValidate: true })}
+                  placeholder="0101234567"
+                  className={`${inputCls} font-mono`}
+                />
+                {errors.taxCode && (
+                  <p className="mt-1.5 text-xs text-[var(--color-error)]">{errors.taxCode.message}</p>
+                )}
+              </Field>
+              <div className="sm:col-span-2">
+                <Field label="Địa chỉ đơn vị">
+                  <input
+                    value={form.businessAddress ?? ''}
+                    onChange={(e) => setValue('businessAddress', e.target.value, { shouldValidate: true })}
+                    placeholder="Số 1, đường A, phường B, quận C, Hà Nội"
+                    className={inputCls}
+                  />
+                  {errors.businessAddress && (
+                    <p className="mt-1.5 text-xs text-[var(--color-error)]">{errors.businessAddress.message}</p>
+                  )}
+                </Field>
+              </div>
+              <Field label="Điện thoại liên hệ">
+                <input
+                  value={form.contactPhone ?? ''}
+                  onChange={(e) => setValue('contactPhone', e.target.value, { shouldValidate: true })}
+                  placeholder="024 1234 5678"
+                  className={inputCls}
+                />
+              </Field>
+              <Field
+                label="Thuế suất áp cho khoản nạp"
+                hint="Mặc định 0%: nạp ví là khoản thu trước, nghĩa vụ thuế phát sinh khi nhân viên đổi điểm lấy quà. Đổi theo tư vấn của kế toán đơn vị."
+              >
+                <NumberField
+                  value={form.receiptVatRate}
+                  onChange={(v) => setValue('receiptVatRate', v, { shouldValidate: true })}
+                  suffix="%"
+                  maxDigits={3}
+                />
+              </Field>
+              <Field
+                label="Tiền tố ký hiệu chứng từ"
+                hint={`Ký hiệu đầy đủ là tiền tố cộng năm lập, VD ${form.receiptSeriesPrefix || 'PT'}${new Date().getFullYear()}/00000001. Không đổi được sau khi đã phát chứng từ trong năm.`}
+              >
+                <input
+                  value={form.receiptSeriesPrefix ?? ''}
+                  onChange={(e) =>
+                    setValue('receiptSeriesPrefix', e.target.value.toUpperCase(), { shouldValidate: true })
+                  }
+                  placeholder="PT"
+                  maxLength={10}
+                  className={`${inputCls} font-mono`}
+                />
+                {errors.receiptSeriesPrefix && (
+                  <p className="mt-1.5 text-xs text-[var(--color-error)]">{errors.receiptSeriesPrefix.message}</p>
+                )}
+              </Field>
+              <Field label="Người/bộ phận lập chứng từ">
+                <input
+                  value={form.receiptIssuerName ?? ''}
+                  onChange={(e) => setValue('receiptIssuerName', e.target.value, { shouldValidate: true })}
+                  placeholder="Phòng Kế toán"
+                  className={inputCls}
+                />
+              </Field>
+              <div className="sm:col-span-2">
+                <Field label="Chức danh người lập">
+                  <input
+                    value={form.receiptIssuerTitle ?? ''}
+                    onChange={(e) => setValue('receiptIssuerTitle', e.target.value, { shouldValidate: true })}
+                    placeholder="Kế toán trưởng"
+                    className={inputCls}
+                  />
+                </Field>
+              </div>
+            </div>
+
+            {/* Nói thẳng giới hạn pháp lý ngay tại chỗ cấu hình. Người bật tính năng này cần
+                biết họ đang phát cái gì trước khi tờ đầu tiên rời khỏi hệ thống. */}
+            <p className="mt-5 flex items-start gap-2 rounded-card bg-[var(--color-warning-bg)] px-4 py-3 text-xs leading-relaxed text-[var(--color-warning)]">
+              <AlertTriangle size={14} className="mt-0.5 flex-shrink-0" />
+              <span>
+                Đây là <strong>biên nhận thu tiền</strong> mang đủ nội dung bắt buộc theo Điều 10
+                Nghị định 123/2020/NĐ-CP, <strong>không phải hoá đơn GTGT</strong>. Hoá đơn điện tử
+                có mã của cơ quan thuế phải phát hành qua tổ chức cung cấp dịch vụ hoá đơn đã đăng
+                ký. Bản in đã ghi rõ điều này để nhân viên không đem đi kê khai thuế.
+              </span>
+            </p>
+          </Card>
         </div>
 
         <aside className="min-w-0 space-y-6 xl:sticky xl:top-6 xl:self-start">
-          <section className="rounded-3xl border border-[var(--color-border)] bg-[var(--color-card)] p-6">
-            <h3 className="mb-4 text-[10px] font-black uppercase tracking-[0.15em] text-[var(--color-muted-foreground)]">
+          <section className="rounded-widget border border-[var(--color-border)] bg-[var(--color-card)] p-6">
+            <h3 className="mb-4 text-eyebrow">
               Tình trạng thiết lập
             </h3>
             <ul className="space-y-3.5">
@@ -395,6 +534,15 @@ export default function WalletConfigForm() {
                 }
               />
               <ChecklistRow
+                done={!form.receiptEnabled || (!!form.taxCode?.trim() && !!form.businessAddress?.trim())}
+                label="Hồ sơ pháp nhân đủ để lập chứng từ"
+                hint={
+                  form.receiptEnabled
+                    ? 'Cần mã số thuế và địa chỉ đơn vị — hai nội dung bắt buộc trên chứng từ thu tiền.'
+                    : 'Đang tắt gửi biên nhận nên không cần khai.'
+                }
+              />
+              <ChecklistRow
                 done={form.pointExchangeRate > 0}
                 label="Đã đặt tỉ giá quy đổi"
                 hint={`Hiện ${formatCurrency(form.pointExchangeRate)} đổi được 1 điểm.`}
@@ -404,8 +552,8 @@ export default function WalletConfigForm() {
 
           {/* Cho người cấu hình thấy đúng thứ nhân viên sẽ nhìn, thay vì phải tự
               tạo một đơn nạp thật để kiểm tra mình gõ có đúng không. */}
-          <section className="rounded-3xl border border-dashed border-[var(--color-border)] bg-[var(--color-muted)]/20 p-6">
-            <h3 className="mb-4 text-[10px] font-black uppercase tracking-[0.15em] text-[var(--color-muted-foreground)]">
+          <section className="rounded-widget border border-dashed border-[var(--color-border)] bg-[var(--color-muted)]/20 p-6">
+            <h3 className="mb-4 text-eyebrow">
               Nhân viên sẽ thấy
             </h3>
             <dl className="space-y-2.5 text-sm">
@@ -437,10 +585,10 @@ export default function WalletConfigForm() {
             </p>
           </section>
 
-          <section className="rounded-3xl border border-[var(--color-border)] bg-[var(--color-card)] p-6">
+          <section className="rounded-widget border border-[var(--color-border)] bg-[var(--color-card)] p-6">
             <div className="mb-4 flex items-center gap-2">
               <Webhook size={16} className="text-[var(--color-muted-foreground)]" />
-              <h3 className="text-[10px] font-black uppercase tracking-[0.15em] text-[var(--color-muted-foreground)]">
+              <h3 className="text-eyebrow">
                 Nối với SePay
               </h3>
             </div>
@@ -452,19 +600,19 @@ export default function WalletConfigForm() {
                   ở mục <strong>Ngân hàng</strong> trên dashboard SePay
                 </>,
                 <>
-                  Trỏ webhook về <code className="rounded bg-[var(--color-muted)] px-1 py-0.5 text-[11px]">/api/v1/webhooks/sepay</code>
+                  Trỏ webhook về <code className="rounded bg-[var(--color-muted)] px-1 py-0.5 text-xs">/api/v1/webhooks/sepay</code>
                 </>,
                 <>
                   Đặt tiền tố mã đối soát là <strong>NAP</strong>
                 </>,
                 <>
                   Đặt khoá API vào biến môi trường{' '}
-                  <code className="rounded bg-[var(--color-muted)] px-1 py-0.5 text-[11px]">SEPAY_WEBHOOK_API_KEY</code>{' '}
+                  <code className="rounded bg-[var(--color-muted)] px-1 py-0.5 text-xs">SEPAY_WEBHOOK_API_KEY</code>{' '}
                   của máy chủ
                 </>,
               ].map((step, i) => (
                 <li key={i} className="flex gap-3 text-xs leading-relaxed">
-                  <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-[var(--color-muted)] text-[10px] font-black">
+                  <span className="flex h-5 w-5 flex-shrink-0 items-center justify-center rounded-full bg-[var(--color-muted)] text-xs font-semibold">
                     {i + 1}
                   </span>
                   <span className="text-[var(--color-muted-foreground)]">{step}</span>
@@ -487,26 +635,17 @@ export default function WalletConfigForm() {
       {/* Thanh lưu dính đáy: form dài hơn một màn hình, để nút ở cuối thì sửa ô đầu
           xong phải cuộn xuống cuối mới lưu được. */}
       {dirty && (
-        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--color-border)] bg-[var(--color-card)]/95 px-4 py-3 backdrop-blur sm:px-6">
+        <div className="fixed inset-x-0 bottom-0 z-40 border-t border-[var(--color-border)] bg-[var(--color-card)] px-4 py-3 sm:px-6">
           <div className="mx-auto flex max-w-7xl items-center justify-end gap-3">
             <div className="flex flex-shrink-0 gap-2">
-              <button
-                type="button"
-                onClick={() => data && reset(toForm(data))}
-                className="flex items-center gap-2 rounded-xl border border-[var(--color-border)] px-4 py-2.5 text-sm font-semibold transition-colors hover:bg-[var(--color-muted)]"
-              >
-                <RotateCcw size={16} />
+              <Button variant="outline" type="button" onClick={() => data && reset(toForm(data))}>
+                <RotateCcw aria-hidden="true" />
                 Hoàn tác
-              </button>
-              <button
-                type="button"
-                onClick={handleSubmit(d => updateConfig(d as WalletConfigRequest))}
-                disabled={isUpdating}
-                className="flex items-center gap-2 rounded-xl bg-[var(--color-primary)] px-5 py-2.5 text-sm font-semibold text-white transition-opacity disabled:opacity-50"
-              >
-                {isUpdating ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
+              </Button>
+              <Button type="button" onClick={handleSubmit(d => updateConfig(d as WalletConfigRequest))} disabled={isUpdating}>
+                {isUpdating ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Save aria-hidden="true" />}
                 Lưu cấu hình
-              </button>
+              </Button>
             </div>
           </div>
         </div>

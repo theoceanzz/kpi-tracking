@@ -10,6 +10,7 @@ import UrboxCatalogModal from './UrboxCatalogModal'
 import { useGiftsManage } from '../hooks/useGifts'
 import { useUrboxStatus } from '../hooks/useUrbox'
 import { GiftItemStatus, type GiftItem } from '../types'
+import { Button } from '@/components/ui/button'
 
 export default function GiftsTab() {
   const [formOpen, setFormOpen] = useState(false)
@@ -28,7 +29,7 @@ export default function GiftsTab() {
     ) : (
       // Hết hàng tô đỏ để người quản lý thấy ngay món nào cần nhập thêm — quà hết mà
       // vẫn nằm trong cửa hàng chỉ làm nhân viên thất vọng.
-      <span className={(row.stockQuantity ?? 0) === 0 ? 'font-medium text-rose-600' : ''}>
+      <span className={(row.stockQuantity ?? 0) === 0 ? 'font-medium text-[var(--color-error)]' : ''}>
         {(row.stockQuantity ?? 0).toLocaleString('vi-VN')}
       </span>
     )
@@ -41,45 +42,36 @@ export default function GiftsTab() {
         </span>
         <WorkspaceHeaderActions>
           {urbox?.enabled && (
-            <button
-              onClick={() => setUrboxOpen(true)}
-              className="inline-flex items-center gap-2 rounded-xl border border-[var(--color-border)] px-4 h-10 text-sm font-bold text-[var(--color-muted-foreground)] transition-colors hover:bg-[var(--color-muted)]"
-            >
-              <Store size={16} />
+            <Button variant="outline" onClick={() => setUrboxOpen(true)}>
+              <Store aria-hidden="true" />
               Kho quà UrBox
-            </button>
+            </Button>
           )}
-          <button
-            onClick={() => {
+          <Button onClick={() => {
               setEditing(null)
               setFormOpen(true)
-            }}
-            className="inline-flex items-center gap-2 rounded-xl bg-[var(--color-primary)] px-5 h-10 text-sm font-bold text-white shadow-sm transition-opacity hover:opacity-90"
-          >
-            <Plus size={16} />
+            }}>
+            <Plus aria-hidden="true" />
             Thêm quà
-          </button>
+          </Button>
         </WorkspaceHeaderActions>
       </div>
 
       {isLoading ? (
         <LoadingSkeleton type="table" rows={4} />
       ) : (data ?? []).length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-[var(--color-border)]">
+        <div className="rounded-card border border-dashed border-[var(--color-border)]">
           <EmptyState
             title="Danh mục quà đang trống"
             description="Nhân viên tích được điểm nhưng chưa có gì để đổi. Thêm vài món quà để điểm thưởng có ý nghĩa."
             action={
-              <button
-                onClick={() => {
+              <Button onClick={() => {
                   setEditing(null)
                   setFormOpen(true)
-                }}
-                className="inline-flex items-center gap-2 rounded-lg bg-[var(--color-primary)] px-4 py-2 text-sm font-medium text-white"
-              >
-                <Plus size={16} />
+                }}>
+                <Plus aria-hidden="true" />
                 Thêm quà đầu tiên
-              </button>
+              </Button>
             }
           />
         </div>
@@ -92,9 +84,9 @@ export default function GiftsTab() {
             <div className="space-y-3">
               <div className="flex gap-3">
                 {row.imageUrl ? (
-                  <img src={row.imageUrl} alt="" className="h-14 w-14 rounded-lg object-cover" />
+                  <img src={row.imageUrl} alt="" className="h-14 w-14 rounded-control object-cover" />
                 ) : (
-                  <div className="flex h-14 w-14 items-center justify-center rounded-lg bg-[var(--color-muted)] text-[var(--color-muted-foreground)]">
+                  <div className="flex h-14 w-14 items-center justify-center rounded-control bg-[var(--color-muted)] text-[var(--color-muted-foreground)]">
                     <ImageOff size={18} />
                   </div>
                 )}
@@ -116,18 +108,15 @@ export default function GiftsTab() {
                 </div>
               </div>
               <div className="flex gap-2 border-t border-[var(--color-border)] pt-2.5">
-                <button
-                  onClick={() => {
+                <Button variant="outline" className="flex-1" onClick={() => {
                     setEditing(row)
                     setFormOpen(true)
-                  }}
-                  className="flex-1 rounded-lg border border-[var(--color-border)] py-2 text-sm"
-                >
+                  }}>
                   Sửa
-                </button>
+                </Button>
                 <button
                   onClick={() => setDeleting(row)}
-                  className="rounded-lg border border-rose-500/40 px-3 py-2 text-rose-600"
+                  className="rounded-control border border-[var(--color-error-border)] px-3 py-2 text-[var(--color-error)]"
                 >
                   <Trash2 size={15} />
                 </button>
@@ -145,10 +134,10 @@ export default function GiftsTab() {
                     <img
                       src={row.imageUrl}
                       alt=""
-                      className="h-10 w-10 flex-shrink-0 rounded-lg object-cover"
+                      className="h-10 w-10 flex-shrink-0 rounded-control object-cover"
                     />
                   ) : (
-                    <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-lg bg-[var(--color-muted)] text-[var(--color-muted-foreground)]">
+                    <div className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-control bg-[var(--color-muted)] text-[var(--color-muted-foreground)]">
                       <ImageOff size={16} />
                     </div>
                   )}
@@ -166,7 +155,7 @@ export default function GiftsTab() {
                       {/* Quà UrBox tốn tiền thật mỗi lượt đổi, khác hẳn quà nội bộ —
                           người quản lý cần phân biệt được ngay trên danh sách. */}
                       {row.externalProvider && (
-                        <span className="inline-flex items-center gap-1 rounded-full bg-violet-500/15 px-2 py-0.5 text-[11px] font-medium text-violet-700">
+                        <span className="inline-flex items-center gap-1 rounded-full bg-[var(--color-primary-soft)] px-2 py-0.5 text-xs font-medium text-[var(--color-primary)]">
                           <Store size={10} />
                           UrBox
                           {row.externalValue != null &&
@@ -201,7 +190,7 @@ export default function GiftsTab() {
                   {/* Nói trước lý do quà bị khoá sửa/xoá, thay vì để người dùng bấm
                       rồi mới nhận thông báo lỗi. */}
                   {!!row.pendingRedemptionCount && (
-                    <div className="mt-0.5 whitespace-nowrap text-xs text-amber-700">
+                    <div className="mt-0.5 whitespace-nowrap text-xs text-[var(--color-warning)]">
                       {row.pendingRedemptionCount} đang giữ chỗ
                     </div>
                   )}
@@ -214,7 +203,7 @@ export default function GiftsTab() {
               header: 'Cách nhận',
               render: (row) =>
                 row.requiresDelivery ? (
-                  <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-sky-500/15 px-2.5 py-1 text-xs font-medium text-sky-700">
+                  <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-[var(--color-info-bg)] px-2.5 py-1 text-xs font-medium text-[var(--color-info)]">
                     <PackageCheck size={12} />
                     Cần trao tay
                   </span>
@@ -231,7 +220,7 @@ export default function GiftsTab() {
               header: 'Trạng thái',
               render: (row) =>
                 row.status === GiftItemStatus.ACTIVE ? (
-                  <span className="inline-block rounded-full bg-emerald-500/15 px-2.5 py-1 text-xs font-medium text-emerald-700">
+                  <span className="inline-block rounded-full bg-[var(--color-success-bg)] px-2.5 py-1 text-xs font-medium text-[var(--color-success)]">
                     Đang bày bán
                   </span>
                 ) : (
@@ -251,22 +240,21 @@ export default function GiftsTab() {
                       setEditing(row)
                       setFormOpen(true)
                     }}
-                    className="rounded-lg p-1.5 hover:bg-[var(--color-accent)]"
+                    className="rounded-control p-1.5 hover:bg-[var(--color-accent)]"
                   >
                     <Pencil size={15} />
                   </button>
-                  <button
-                    onClick={() => setDeleting(row)}
-                    disabled={!!row.pendingRedemptionCount}
-                    title={
+                  <Button variant="ghost" size="icon-sm" className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]" aria-label={
                       row.pendingRedemptionCount
                         ? 'Đang có yêu cầu đổi chờ xử lý — không xoá được'
                         : 'Xoá'
-                    }
-                    className="rounded-lg p-1.5 text-rose-600 hover:bg-rose-500/10 disabled:cursor-not-allowed disabled:opacity-30"
-                  >
-                    <Trash2 size={15} />
-                  </button>
+                    } onClick={() => setDeleting(row)} disabled={!!row.pendingRedemptionCount} title={
+                      row.pendingRedemptionCount
+                        ? 'Đang có yêu cầu đổi chờ xử lý — không xoá được'
+                        : 'Xoá'
+                    }>
+                    <Trash2 aria-hidden="true" />
+                  </Button>
                 </div>
               ),
             },

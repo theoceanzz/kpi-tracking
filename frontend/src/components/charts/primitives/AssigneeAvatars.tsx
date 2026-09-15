@@ -21,7 +21,7 @@ export function AssigneeAvatar({ name, url }: { name: string; url?: string | nul
     return (
       <span
         title={name}
-        className={`${base} bg-slate-200 dark:bg-slate-700 text-xs font-semibold text-slate-600 dark:text-slate-200 flex items-center justify-center`}
+        className={`${base} bg-slate-200 dark:bg-slate-700 text-[11px] font-semibold text-slate-600 dark:text-slate-200 flex items-center justify-center`}
       >
         {name.trim().charAt(0).toUpperCase() || '?'}
       </span>
@@ -42,8 +42,8 @@ export function AssigneeAvatars({ people, label = 'Đảm nhiệm:' }: {
 }) {
   if (people.length === 0) return null
   return (
-    <div className="flex items-center gap-2 pt-2.5 mt-2.5 border-t border-slate-100 dark:border-slate-800">
-      <span className="text-xs text-slate-500 font-medium shrink-0">{label}</span>
+    <div className="flex items-center gap-2 pt-2.5 mt-2.5 border-t border-[var(--color-border)]">
+      <span className="text-xs text-[var(--color-muted-foreground)] font-medium shrink-0">{label}</span>
       <span className="flex items-center">
         {people.slice(0, MAX_AVATARS).map((p, i) => (
           <span key={p.userId} className={i === 0 ? '' : '-ml-1.5'}>
@@ -51,13 +51,13 @@ export function AssigneeAvatars({ people, label = 'Đảm nhiệm:' }: {
           </span>
         ))}
         {people.length > MAX_AVATARS && (
-          <span className="ml-1.5 text-xs font-medium text-slate-500 tabular-nums">
+          <span className="ml-1.5 text-xs font-bold text-[var(--color-muted-foreground)] tabular-nums">
             +{people.length - MAX_AVATARS}
           </span>
         )}
       </span>
       {people.length === 1 && (
-        <span className="text-xs font-semibold text-slate-700 dark:text-slate-200 truncate">
+        <span className="text-xs font-bold text-[var(--color-foreground)] truncate">
           {people[0]!.fullName}
         </span>
       )}

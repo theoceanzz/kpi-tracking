@@ -44,6 +44,21 @@ public class BscAccessGuard {
         }
     }
 
+    /**
+     * Người duyệt BSC. Chỉ họ mới đặt được trạng thái trực tiếp — người khác phải đi qua luồng
+     * trình duyệt, nếu không "trình – duyệt" chỉ còn là hình thức: ai cũng tự chuyển thẳng bộ tiêu
+     * chí của mình sang ĐANG ÁP DỤNG mà không cần ai xem qua.
+     */
+    public boolean canApprove() {
+        try {
+            Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+            return auth != null && auth.getAuthorities().stream()
+                    .anyMatch(a -> "BSC:APPROVE".equals(a.getAuthority()));
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
     /** Chặn thao tác lên một bộ tiêu chí nằm ngoài phạm vi phụ trách. */
     public void assertCanEdit(BscScorecard scorecard) {
         assertCanEdit(scorecard.getOrgUnits());

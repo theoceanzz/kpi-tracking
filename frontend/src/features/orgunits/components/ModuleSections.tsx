@@ -2,8 +2,11 @@ import { useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
 import { Layers, Target, GitBranch, SlidersHorizontal, Gift, Wallet, ChevronDown, ArrowRight, AlertTriangle, HeartHandshake } from 'lucide-react'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/apiError'
 import { cn } from '@/lib/utils'
 import { useUpdateOrganization } from '../hooks/useUpdateOrganization'
+import { Button } from '@/components/ui/button'
+import { Switch } from '@/components/ui/switch'
 
 /**
  * Bật/tắt module của tổ chức.
@@ -48,13 +51,13 @@ function Steps({ items, tone }: { items: [string, string][]; tone: string }) {
   return (
     <ol className="grid grid-cols-1 sm:grid-cols-3 gap-2">
       {items.map(([name, desc], i) => (
-        <li key={name} className="flex items-start gap-3 p-3 rounded-xl border border-slate-100 dark:border-slate-800 bg-slate-50/60 dark:bg-slate-800/40">
-          <span className={cn('w-6 h-6 shrink-0 rounded-full bg-white dark:bg-slate-900 flex items-center justify-center text-[10px] font-black shadow-sm', tone)}>
+        <li key={name} className="flex items-start gap-3 p-3 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)]">
+          <span className={cn('w-6 h-6 shrink-0 rounded-full bg-[var(--color-card)] flex items-center justify-center text-xs font-semibold shadow-sm', tone)}>
             {i + 1}
           </span>
           <div className="min-w-0">
-            <p className="text-[11px] font-bold text-slate-700 dark:text-slate-200">{name}</p>
-            <p className="text-[11px] text-slate-400 font-medium leading-relaxed">{desc}</p>
+            <p className="text-xs font-medium text-[var(--color-foreground)]">{name}</p>
+            <p className="text-caption font-medium leading-relaxed">{desc}</p>
           </div>
         </li>
       ))}
@@ -66,7 +69,7 @@ const MODULES: ModuleDef[] = [
   {
     field: 'enableOkr',
     icon: <Target size={18} />,
-    tone: 'bg-violet-50 dark:bg-violet-900/30 text-violet-600 dark:text-violet-400',
+    tone: 'bg-[var(--color-primary-soft)] text-[var(--color-primary)]',
     title: 'OKR',
     subtitle: 'Mục tiêu chiến lược và kết quả then chốt',
     toastName: 'tính năng OKR',
@@ -79,7 +82,7 @@ const MODULES: ModuleDef[] = [
           (Key Results). KPI được liên kết trực tiếp vào Key Result để đo tiến độ thực hiện mục tiêu.
         </p>
         <Steps
-          tone="text-violet-600"
+          tone="text-[var(--color-primary)]"
           items={[
             ['Objective (định tính)', 'Xác định các mục tiêu chiến lược của tổ chức.'],
             ['Key Result (định lượng)', 'Chỉ số then chốt đo việc hoàn thành Objective.'],
@@ -92,7 +95,7 @@ const MODULES: ModuleDef[] = [
   {
     field: 'enableQualitative',
     icon: <SlidersHorizontal size={18} />,
-    tone: 'bg-emerald-50 dark:bg-emerald-900/30 text-emerald-600 dark:text-emerald-400',
+    tone: 'bg-[var(--color-success-bg)] text-[var(--color-success)]',
     title: 'KPI hành vi',
     subtitle: 'Chấm điểm bằng mức đánh giá thay vì con số',
     toastName: 'KPI hành vi',
@@ -101,16 +104,16 @@ const MODULES: ModuleDef[] = [
     detail: (
       <p>
         Dành cho KPI không đo được bằng con số. Loại này không chấm tự động — quản lý chọn một
-        mức trong <span className="font-bold">Thang điểm định tính</span>. Khi tắt, hệ thống chỉ
+        mức trong <span className="font-semibold">Thang điểm định tính</span>. Khi tắt, hệ thống chỉ
         hiển thị và tính điểm KPI định lượng; Ma trận đánh giá cũng ẩn theo, trừ khi bạn bật
-        <span className="font-bold"> Chấm hạnh kiểm</span> để bù trục còn thiếu.
+        <span className="font-semibold"> Chấm hạnh kiểm</span> để bù trục còn thiếu.
       </p>
     ),
   },
   {
     field: 'enableConduct',
     icon: <HeartHandshake size={18} />,
-    tone: 'bg-rose-50 dark:bg-rose-900/30 text-rose-600 dark:text-rose-400',
+    tone: 'bg-[var(--color-error-bg)] text-[var(--color-error)]',
     title: 'Chấm hạnh kiểm',
     subtitle: 'Điểm hành vi theo bộ tiêu chí có trọng số',
     toastName: 'chấm hạnh kiểm',
@@ -121,11 +124,11 @@ const MODULES: ModuleDef[] = [
         <p>
           Mỗi đợt hoặc mỗi kỳ, nhân sự tự chấm và nêu dẫn chứng cho từng tiêu chí hành vi, cán bộ
           quản lý trực tiếp chấm lại và nhận xét. Điểm hạnh kiểm ={' '}
-          <span className="font-bold">Σ(điểm tiêu chí × trọng số)</span>. Mặc định là 4 tiêu chí —
+          <span className="font-semibold">Σ(điểm tiêu chí × trọng số)</span>. Mặc định là 4 tiêu chí —
           Trung thực, Nhân ái, Trách nhiệm, Học tập suốt đời — mỗi tiêu chí 25%, sửa được tuỳ ý.
         </p>
         <p>
-          Điểm này còn <span className="font-bold">lấp trục còn thiếu của Ma trận đánh giá</span>:
+          Điểm này còn <span className="font-semibold">lấp trục còn thiếu của Ma trận đánh giá</span>:
           tổ chức chỉ có KPI định lượng thì hạnh kiểm thành trục điểm hành vi; chỉ có KPI định tính
           thì hạnh kiểm thành trục % hoàn thành. Có đủ cả hai loại KPI thì ma trận giữ nguyên hai
           trục cũ, hạnh kiểm vẫn được chấm và lưu riêng.
@@ -136,7 +139,7 @@ const MODULES: ModuleDef[] = [
   {
     field: 'enableBsc',
     icon: <Layers size={18} />,
-    tone: 'bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400',
+    tone: 'bg-[var(--color-primary-soft)] text-[var(--color-primary)]',
     title: 'Bộ tiêu chí (BSC)',
     subtitle: 'Quản trị chiến lược theo 4 lĩnh vực',
     toastName: 'bộ tiêu chí (BSC)',
@@ -153,7 +156,7 @@ const MODULES: ModuleDef[] = [
   {
     field: 'enableWaterfall',
     icon: <GitBranch size={18} />,
-    tone: 'bg-cyan-50 dark:bg-cyan-900/30 text-cyan-600 dark:text-cyan-400',
+    tone: 'bg-[var(--color-info-bg)] text-[var(--color-info)]',
     title: 'KPI thác nước',
     subtitle: 'Phân rã chỉ tiêu xuống dưới, cộng dồn kết quả lên trên',
     toastName: 'tính năng KPI Thác nước',
@@ -164,7 +167,7 @@ const MODULES: ModuleDef[] = [
           Kết quả của nhân viên tự động cộng dồn lên kết quả của cấp quản lý.
         </p>
         <Steps
-          tone="text-cyan-600"
+          tone="text-[var(--color-info)]"
           items={[
             ['Giao xuống', 'Trưởng đơn vị chia nhỏ 1 tỷ doanh số cho 3 nhân viên.'],
             ['Thực hiện', 'Nhân viên nộp báo cáo kết quả phần việc được giao.'],
@@ -177,7 +180,7 @@ const MODULES: ModuleDef[] = [
   {
     field: 'enableReward',
     icon: <Gift size={18} />,
-    tone: 'bg-amber-50 dark:bg-amber-900/30 text-amber-600 dark:text-amber-400',
+    tone: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]',
     title: 'Thưởng điểm',
     subtitle: 'Trao điểm ghi nhận, đổi quà',
     toastName: 'tính năng thưởng điểm',
@@ -186,7 +189,7 @@ const MODULES: ModuleDef[] = [
     detail: (
       <p>
         Quản lý trao điểm cho nhân viên trong hạn mức được cấp; vượt hạn mức thì đề nghị chuyển
-        sang chờ duyệt. Điểm thưởng <span className="font-bold">tách biệt hoàn toàn</span> với
+        sang chờ duyệt. Điểm thưởng <span className="font-semibold">tách biệt hoàn toàn</span> với
         điểm đánh giá KPI — không cộng vào kết quả đánh giá của bất kỳ ai. Tắt chỉ ẩn menu,
         không xoá điểm đã phát; bật lại thấy nguyên số dư và lịch sử.
       </p>
@@ -195,7 +198,7 @@ const MODULES: ModuleDef[] = [
   {
     field: 'enableCashWallet',
     icon: <Wallet size={18} />,
-    tone: 'bg-teal-50 dark:bg-teal-900/30 text-teal-600 dark:text-teal-400',
+    tone: 'bg-[var(--color-info-bg)] text-[var(--color-info)]',
     title: 'Ví tiền',
     subtitle: 'Nạp tiền thật qua VietQR để đổi sang điểm',
     toastName: 'tính năng ví tiền',
@@ -242,7 +245,7 @@ export function ModuleTogglesSection({ org }: { org: OrgFlags }) {
         setSavingField(null)
         toast.success(`Đã ${next ? 'bật' : 'tắt'} ${mod.toastName}`)
       },
-      onError: () => {
+      onError: (error) => {
         // Bỏ override để công tắc quay về đúng trạng thái máy chủ đang giữ —
         // giao diện không được nói dối về thứ chưa lưu được.
         setSavingField(null)
@@ -251,21 +254,21 @@ export function ModuleTogglesSection({ org }: { org: OrgFlags }) {
           delete rest[mod.field]
           return rest
         })
-        toast.error(`Không thể cập nhật ${mod.toastName}`)
+        toast.error(getApiErrorMessage(error, `Không thể cập nhật ${mod.toastName}`))
       },
     })
   }
 
   return (
-    <section className="bg-white dark:bg-slate-900 rounded-3xl border border-slate-200 dark:border-slate-800 shadow-sm overflow-hidden">
-      <div className="px-6 sm:px-8 py-6 border-b border-slate-100 dark:border-slate-800">
-        <h3 className="text-lg font-bold text-slate-900 dark:text-white uppercase tracking-tight">Module & tính năng</h3>
-        <p className="text-[10px] font-medium text-slate-400 uppercase tracking-widest">
-          Tắt module nào thì mục menu và các bước liên quan cũng biến mất theo
+    <section className="mx-auto max-w-4xl overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
+      <div className="border-b border-[var(--color-border)] px-5 py-4">
+        <h3 className="text-section-title">Module & tính năng</h3>
+        <p className="mt-0.5 text-sm text-[var(--color-muted-foreground)]">
+          Tắt module nào thì mục menu và các bước liên quan cũng biến mất theo.
         </p>
       </div>
 
-      <div className="divide-y divide-slate-100 dark:divide-slate-800">
+      <div className="divide-y divide-[var(--color-border)]">
         {MODULES.map(mod => {
           const enabled = isEnabled(mod.field)
           const isOpen = openField === mod.field
@@ -273,42 +276,39 @@ export function ModuleTogglesSection({ org }: { org: OrgFlags }) {
           return (
             <div key={mod.field}>
               {mod.field === REWARD_GROUP_START && (
-                <div className="px-6 sm:px-8 py-2.5 bg-slate-50/70 dark:bg-slate-800/40">
-                  <span className="text-[10px] font-black text-slate-400 uppercase tracking-widest">Ghi nhận & thưởng</span>
+                <div className="bg-[var(--color-muted)] px-5 py-2">
+                  <span className="text-eyebrow">Ghi nhận & thưởng</span>
                 </div>
               )}
 
-              <div className="px-6 sm:px-8 py-5 flex items-start gap-4">
-                <div className={cn('w-10 h-10 shrink-0 rounded-xl flex items-center justify-center', mod.tone)}>
+              <div className="flex items-start gap-4 px-5 py-4">
+                <div className={cn('w-10 h-10 shrink-0 rounded-card flex items-center justify-center', mod.tone)}>
                   {mod.icon}
                 </div>
 
                 <div className="flex-1 min-w-0 space-y-1">
-                  <h4 className="text-sm font-black text-slate-900 dark:text-white">{mod.title}</h4>
-                  <p className="text-[12px] font-medium text-slate-500 leading-relaxed">{mod.subtitle}</p>
+                  <h4 className="text-sm font-semibold text-[var(--color-foreground)]">{mod.title}</h4>
+                  <p className="text-caption leading-relaxed">{mod.subtitle}</p>
 
                   {mod.caution && (
-                    <p className="flex items-start gap-1.5 text-[11px] font-bold text-amber-600 dark:text-amber-400 pt-0.5">
+                    <p className="flex items-start gap-1.5 text-xs font-medium text-[var(--color-warning)] pt-0.5">
                       <AlertTriangle size={13} className="shrink-0 mt-px" />
                       {mod.caution}
                     </p>
                   )}
 
                   <div className="flex items-center gap-4 pt-1">
-                    <button
-                      onClick={() => setOpenField(isOpen ? null : mod.field)}
-                      className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-slate-400 hover:text-indigo-600 transition-colors"
-                    >
+                    <Button variant="ghost" size="sm" type="button" onClick={() => setOpenField(isOpen ? null : mod.field)} aria-expanded={isOpen}>
                       Chi tiết
-                      <ChevronDown size={12} className={cn('transition-transform', isOpen && 'rotate-180')} />
-                    </button>
+                      <ChevronDown aria-hidden="true" className={cn('transition-transform', isOpen && 'rotate-180')} />
+                    </Button>
 
                     {/* Chỉ hiện khi đã bật: module đang tắt thì trang quản lý của nó cũng
                         không vào được, đưa link ra chỉ dẫn tới ngõ cụt. */}
                     {enabled && mod.manageTo && (
                       <Link
                         to={mod.manageTo}
-                        className="flex items-center gap-1 text-[10px] font-black uppercase tracking-widest text-indigo-600 hover:text-indigo-700 transition-colors"
+                        className="flex items-center gap-1 text-xs font-medium text-[var(--color-primary)] hover:underline"
                       >
                         {mod.manageLabel}
                         <ArrowRight size={12} />
@@ -317,7 +317,7 @@ export function ModuleTogglesSection({ org }: { org: OrgFlags }) {
                   </div>
 
                   {isOpen && (
-                    <div className="pt-3 text-[12px] text-slate-500 dark:text-slate-400 font-medium leading-relaxed space-y-3 animate-in fade-in slide-in-from-top-1 duration-200">
+                    <div className="space-y-3 pt-3 text-caption leading-relaxed">
                       {mod.detail}
                     </div>
                   )}
@@ -325,22 +325,13 @@ export function ModuleTogglesSection({ org }: { org: OrgFlags }) {
 
                 {/* Công tắc thẳng một cột bên phải ở mọi dòng — đây là thứ duy nhất
                     người dùng đến trang này để bấm. */}
-                <button
-                  onClick={() => handleToggle(mod)}
+                <Switch
+                  checked={enabled}
+                  onCheckedChange={() => handleToggle(mod)}
                   disabled={savingField === mod.field}
-                  role="switch"
-                  aria-checked={enabled}
                   aria-label={`${enabled ? 'Tắt' : 'Bật'} ${mod.title}`}
-                  className={cn(
-                    'w-12 h-6 shrink-0 mt-0.5 rounded-full relative transition-all duration-300 disabled:opacity-50',
-                    enabled ? 'bg-emerald-500' : 'bg-slate-200 dark:bg-slate-700'
-                  )}
-                >
-                  <div className={cn(
-                    'absolute top-1 w-4 h-4 rounded-full bg-white transition-all duration-300 shadow-sm',
-                    enabled ? 'left-7' : 'left-1'
-                  )} />
-                </button>
+                  className="mt-0.5"
+                />
               </div>
             </div>
           )

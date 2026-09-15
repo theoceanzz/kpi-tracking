@@ -1,6 +1,7 @@
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { datasourceApi } from '../api/datasourceApi'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/apiError'
 import type { CreateDatasourceRequest, UpdateDatasourceRequest, UpsertColumnRequest, UpsertRowRequest } from '@/types/datasource'
 
 export function useCreateDatasource() {
@@ -8,7 +9,7 @@ export function useCreateDatasource() {
   return useMutation({
     mutationFn: (data: CreateDatasourceRequest) => datasourceApi.create(data),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['datasources'] }); toast.success('Tạo datasource thành công') },
-    onError: () => toast.error('Tạo datasource thất bại'),
+    onError: (error) => toast.error(getApiErrorMessage(error, 'Tạo datasource thất bại')),
   })
 }
 
@@ -17,7 +18,7 @@ export function useUpdateDatasource() {
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: UpdateDatasourceRequest }) => datasourceApi.update(id, data),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['datasources'] }); toast.success('Cập nhật thành công') },
-    onError: () => toast.error('Cập nhật thất bại'),
+    onError: (error) => toast.error(getApiErrorMessage(error, 'Cập nhật datasource thất bại')),
   })
 }
 
@@ -26,7 +27,7 @@ export function useDeleteDatasource() {
   return useMutation({
     mutationFn: (id: string) => datasourceApi.delete(id),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['datasources'] }); toast.success('Xóa datasource thành công') },
-    onError: () => toast.error('Xóa thất bại'),
+    onError: (error) => toast.error(getApiErrorMessage(error, 'Xoá datasource thất bại')),
   })
 }
 
@@ -36,7 +37,7 @@ export function useAddColumn() {
     mutationFn: ({ datasourceId, data }: { datasourceId: string; data: UpsertColumnRequest }) =>
       datasourceApi.addColumn(datasourceId, data),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['datasources'] }); qc.invalidateQueries({ queryKey: ['datasource-rows'] }); toast.success('Thêm cột thành công') },
-    onError: () => toast.error('Thêm cột thất bại'),
+    onError: (error) => toast.error(getApiErrorMessage(error, 'Thêm cột thất bại')),
   })
 }
 
@@ -46,7 +47,7 @@ export function useUpdateColumn() {
     mutationFn: ({ columnId, data }: { columnId: string; data: UpsertColumnRequest }) =>
       datasourceApi.updateColumn(columnId, data),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['datasources'] }); toast.success('Cập nhật cột thành công') },
-    onError: () => toast.error('Cập nhật cột thất bại'),
+    onError: (error) => toast.error(getApiErrorMessage(error, 'Cập nhật cột thất bại')),
   })
 }
 
@@ -55,7 +56,7 @@ export function useDeleteColumn() {
   return useMutation({
     mutationFn: (columnId: string) => datasourceApi.deleteColumn(columnId),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['datasources'] }); qc.invalidateQueries({ queryKey: ['datasource-rows'] }); toast.success('Xóa cột thành công') },
-    onError: () => toast.error('Xóa cột thất bại'),
+    onError: (error) => toast.error(getApiErrorMessage(error, 'Xoá cột thất bại')),
   })
 }
 
@@ -82,6 +83,6 @@ export function useDeleteRow() {
   return useMutation({
     mutationFn: (rowId: string) => datasourceApi.deleteRow(rowId),
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['datasource-rows'] }); qc.invalidateQueries({ queryKey: ['datasources'] }); toast.success('Xóa hàng thành công') },
-    onError: () => toast.error('Xóa hàng thất bại'),
+    onError: (error) => toast.error(getApiErrorMessage(error, 'Xoá hàng thất bại')),
   })
 }

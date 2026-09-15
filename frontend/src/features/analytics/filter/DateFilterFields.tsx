@@ -102,7 +102,7 @@ export default function DateFilterFields({
   }, [periods, rangeFromPeriod])
 
   const baseTrigger = cn(
-    'bg-slate-50 dark:bg-slate-800 border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-300 outline-none focus:ring-2 focus:ring-[var(--color-primary)]/50 w-full sm:w-auto whitespace-nowrap [&>span]:truncate',
+    'bg-[var(--color-muted)] border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-300 outline-none focus:ring-2 focus:ring-[var(--color-primary)]/50 w-full sm:w-auto whitespace-nowrap [&>span]:truncate',
     selectClassName ?? 'h-10'
   )
 
@@ -124,7 +124,7 @@ export default function DateFilterFields({
   return (
     <div className={cn('flex flex-col sm:flex-row items-stretch sm:items-center gap-3', className)}>
       {/* Toggle chế độ */}
-      <div className="flex bg-slate-100 dark:bg-slate-800 rounded-lg p-0.5 gap-0.5 shrink-0 self-start sm:self-auto">
+      <div className="flex bg-[var(--color-muted)] rounded-lg p-0.5 gap-0.5 shrink-0 self-start sm:self-auto">
         {modeBtn('SINGLE', 'Một đợt')}
         {modeBtn('RANGE', 'Khoảng đợt')}
         {modeBtn('CYCLE', 'Theo kỳ')}
@@ -339,14 +339,14 @@ function CyclePicker({
       </PopoverTrigger>
       <PopoverContent align="start" className="w-[300px] p-0">
         {cycles.length > 6 && (
-          <div className="p-2 border-b border-slate-100 dark:border-slate-800">
+          <div className="p-2 border-b border-[var(--color-border)]">
             <div className="relative">
               <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-slate-400" />
               <input
                 value={q}
                 onChange={e => setQ(e.target.value)}
                 placeholder="Tìm kỳ…"
-                className="w-full h-8 pl-8 pr-2 rounded-lg bg-slate-50 dark:bg-slate-800 text-xs border-none outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
+                className="w-full h-8 pl-8 pr-2 rounded-lg bg-[var(--color-muted)] text-xs border-none outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
               />
             </div>
           </div>
@@ -355,7 +355,7 @@ function CyclePicker({
           {shown.length ? shown.map(c => (
             <label key={c.id} className="flex items-center gap-2 px-2 py-1.5 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-800/60 cursor-pointer">
               <Checkbox checked={selected.includes(c.id)} onCheckedChange={() => toggle(c.id)} />
-              <span className="truncate text-[13px] font-semibold text-slate-700 dark:text-slate-200">{c.name}</span>
+              <span className="truncate text-[13px] font-semibold text-[var(--color-foreground)]">{c.name}</span>
             </label>
           )) : hiddenPastCount === 0 && (
             <p className="text-xs italic text-slate-400 p-2">Không có kỳ nào.</p>

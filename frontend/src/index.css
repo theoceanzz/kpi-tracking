@@ -3,79 +3,346 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* ═══════════════════════════════════════════════════════════════════════════
+   HỆ THỐNG THIẾT KẾ KEYGO — lớp token
+   Xem frontend/DESIGN_SYSTEM.md để biết lý do từng quyết định.
+
+   Ba tầng:
+   1. Token ngữ nghĩa (:root / .dark)  — màu, bo góc, bóng đổ. Code MỚI chỉ dùng tầng này.
+   2. Lớp cầu nối (@theme)             — ánh xạ các utility cũ (rounded-xl, shadow-2xl,
+      bg-indigo-600, font-black…) về đúng token, để hơn hai nghìn chỗ chưa kịp sửa
+      tay tự chạy theo hệ thống. Không viết code mới dựa vào lớp này.
+   3. Utility typography (@utility)     — thang chữ có phân cấp.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
 :root {
-  --color-primary: #6366f1;
+  /* ── Màu chủ đạo ─────────────────────────────────────────────────────────
+     Do người dùng chọn (themeStore.applyTheme). Ba giá trị bên dưới là mặc định
+     và bị JS ghi đè ngay khi app khởi động; tông đặt ở đây là indigo-600 chứ không
+     phải indigo-500 như trước — chữ trắng trên #6366f1 chỉ đạt 4.47:1, dưới AA. */
+  --color-primary: #4f46e5;
+  --color-primary-hover: #4338ca;
   --color-primary-foreground: #ffffff;
-  --color-background: #ffffff;
+  /* Nền nhạt cho mục đang chọn / hàng đang active. Suy từ primary bằng color-mix nên
+     đổi màu chủ đạo là tự đổi theo, không cần JS. */
+  --color-primary-soft: color-mix(in srgb, var(--color-primary) 9%, var(--color-card));
+  --color-primary-deep: color-mix(in srgb, var(--color-primary) 70%, #0f172a);
+
+  /* ── Trung tính (slate) ──────────────────────────────────────────────────── */
+  --color-background: #f8fafc;
   --color-foreground: #0f172a;
   --color-card: #ffffff;
   --color-card-foreground: #0f172a;
   --color-muted: #f1f5f9;
   --color-muted-foreground: #64748b;
+  --color-subtle-foreground: #94a3b8;
   --color-border: #e2e8f0;
+  --color-border-strong: #cbd5e1;
   --color-input: #e2e8f0;
-  --color-ring: #6366f1;
-  --color-destructive: #ef4444;
-  --color-destructive-foreground: #ffffff;
+  --color-ring: var(--color-primary);
   --color-accent: #f1f5f9;
   --color-accent-foreground: #0f172a;
   --color-popover: #ffffff;
   --color-popover-foreground: #0f172a;
   --color-secondary: #f1f5f9;
   --color-secondary-foreground: #0f172a;
-  --radius: 0.5rem;
+
+  /* ── Ngữ nghĩa: chữ đậm trên nền nhạt, đều đạt ≥ 4.5:1 ─────────────────
+     success  #047857 / #ecfdf5  → 5.2:1     warning  #b45309 / #fffbeb → 4.8:1
+     error    #b91c1c / #fef2f2  → 5.9:1     info     #1d4ed8 / #eff6ff → 6.3:1 */
+  --color-success: #047857;
+  --color-success-bg: #ecfdf5;
+  --color-success-border: #a7f3d0;
+  --color-warning: #b45309;
+  --color-warning-bg: #fffbeb;
+  --color-warning-border: #fde68a;
+  --color-error: #b91c1c;
+  --color-error-bg: #fef2f2;
+  --color-error-border: #fecaca;
+  --color-info: #1d4ed8;
+  --color-info-bg: #eff6ff;
+  --color-info-border: #bfdbfe;
+  /* Nền ĐẶC ngữ nghĩa (thanh tiến độ, huy hiệu đếm, nút xác nhận xanh): tông 700, chữ trắng
+     ≥ 5:1 và giữ nguyên ở bản tối — vì --color-success/… ở bản tối là tông sáng dành cho CHỮ. */
+  --color-success-solid: #047857;
+  --color-warning-solid: #b45309;
+  --color-error-solid: #b91c1c;
+  --color-info-solid: #1d4ed8;
+  /* Nút phá huỷ: red-600 (chữ trắng 4.8:1), trước là red-500 chỉ 3.8:1. */
+  --color-destructive: #dc2626;
+  --color-destructive-hover: #b91c1c;
+  --color-destructive-foreground: #ffffff;
+
+  /* ── Bo góc: ba mức theo loại thành phần. `--radius` là alias cho mức control
+     để chỗ đang dùng `rounded` trần không vỡ. ─────────────────────────────── */
+  --radius-control: 6px;
+  --radius-card: 8px;
+  --radius-widget: 12px;
+  --radius: var(--radius-control);
+
+  /* ── Bóng đổ: ba mức, đều rất nhẹ. Phân tầng chủ yếu bằng viền, không bằng bóng. */
+  --shadow-1: 0 1px 2px 0 rgb(15 23 42 / 0.05);
+  --shadow-2: 0 2px 6px -1px rgb(15 23 42 / 0.08), 0 1px 2px 0 rgb(15 23 42 / 0.04);
+  --shadow-3: 0 8px 24px -8px rgb(15 23 42 / 0.16), 0 2px 6px -2px rgb(15 23 42 / 0.06);
 
   /* ── Nhận diện riêng cho trợ lý AI ────────────────────────────────────────
-     Cả app dùng đúng một màu indigo cho mọi thứ, nên khu vực AI chìm nghỉm
-     giữa các module khác. Cặp tím→lam này CHỈ dùng ở điểm nhấn của AI (rãnh
-     dọc, icon, nhãn, viền) — không đổ nền lớn, để không chỏi phần còn lại.
-     --color-ai dùng cho CHỮ nên phải đạt tương phản >= 4.5:1 trên nền nội dung;
-     --color-ai-accent chỉ cho icon/viền (>= 3:1). */
+     Cả app dùng đúng một màu chủ đạo cho mọi thứ, nên khu vực AI cần một tông riêng
+     để không chìm. Cặp tím→lam này CHỈ dùng ở điểm nhấn của AI (rãnh dọc, icon, nhãn,
+     viền) — không đổ nền lớn. --color-ai dùng cho CHỮ nên ≥ 4.5:1; --color-ai-accent
+     chỉ cho icon/viền (≥ 3:1). Khi người dùng chọn màu chủ đạo tím, bộ này chuyển sang
+     cyan — xem khối [data-theme-color="violet"] bên dưới. */
   --color-ai: #7c3aed;          /* violet-600 trên nền trắng: 5.7:1 */
+  --color-ai-solid: #7c3aed;    /* nền ĐẶC cho nút gửi — giữ nguyên ở bản tối, chữ trắng 4.9:1 */
   --color-ai-accent: #0891b2;   /* cyan-600 */
-  --color-ai-soft: #f5f3ff;     /* violet-50 — nền rất nhạt cho rãnh/đầu bảng */
-  --color-ai-line: #a78bfa;     /* violet-400 — rãnh dọc; 2.7:1 trên nền trắng: thấy rõ
-                                   mà vẫn nhẹ. Rãnh là TRANG TRÍ, ý nghĩa do nhãn chữ
-                                   mang, nên không cần ngưỡng 3:1 của thành phần mang nghĩa. */
+  --color-ai-soft: #f5f3ff;     /* violet-50 */
+  --color-ai-line: #a78bfa;     /* violet-400 — rãnh trang trí, ý nghĩa do nhãn mang */
 }
 
 .dark {
   --color-primary: #818cf8;
-  --color-primary-foreground: #ffffff;
+  --color-primary-hover: #a5b4fc;
+  --color-primary-foreground: #0f172a;
+  --color-primary-soft: color-mix(in srgb, var(--color-primary) 16%, var(--color-card));
+  --color-primary-deep: color-mix(in srgb, var(--color-primary) 30%, var(--color-card));
+
   --color-background: #0f172a;
   --color-foreground: #f8fafc;
   --color-card: #1e293b;
   --color-card-foreground: #f8fafc;
   --color-muted: #1e293b;
   --color-muted-foreground: #94a3b8;
+  --color-subtle-foreground: #64748b;
   --color-border: #334155;
+  --color-border-strong: #475569;
   --color-input: #334155;
-  --color-ring: #818cf8;
-  --color-destructive: #ef4444;
-  --color-destructive-foreground: #ffffff;
-  --color-accent: #1e293b;
+  --color-accent: #273449;
   --color-accent-foreground: #f8fafc;
   --color-popover: #1e293b;
   --color-popover-foreground: #f8fafc;
   --color-secondary: #334155;
   --color-secondary-foreground: #f8fafc;
 
-  /* Bản tối KHÔNG đảo màu mà dùng biến thể nhạt hơn, đúng cách làm dark mode:
-     tím/lam đậm trên nền slate-900 sẽ tụt dưới ngưỡng đọc được. */
+  /* Bản tối: chữ tông 300 trên nền pha 14% màu với card. Đều ≥ 7:1. */
+  --color-success: #6ee7b7;
+  --color-success-bg: color-mix(in srgb, #10b981 14%, var(--color-card));
+  --color-success-border: color-mix(in srgb, #10b981 35%, var(--color-card));
+  --color-warning: #fcd34d;
+  --color-warning-bg: color-mix(in srgb, #f59e0b 14%, var(--color-card));
+  --color-warning-border: color-mix(in srgb, #f59e0b 35%, var(--color-card));
+  --color-error: #fca5a5;
+  --color-error-bg: color-mix(in srgb, #ef4444 14%, var(--color-card));
+  --color-error-border: color-mix(in srgb, #ef4444 35%, var(--color-card));
+  --color-info: #93c5fd;
+  --color-info-bg: color-mix(in srgb, #3b82f6 14%, var(--color-card));
+  --color-info-border: color-mix(in srgb, #3b82f6 35%, var(--color-card));
+  --color-destructive: #ef4444;
+  --color-destructive-hover: #dc2626;
+  --color-destructive-foreground: #ffffff;
+
+  --shadow-1: 0 1px 2px 0 rgb(0 0 0 / 0.3);
+  --shadow-2: 0 2px 6px -1px rgb(0 0 0 / 0.4), 0 1px 2px 0 rgb(0 0 0 / 0.3);
+  --shadow-3: 0 8px 24px -8px rgb(0 0 0 / 0.5), 0 2px 6px -2px rgb(0 0 0 / 0.4);
+
+  /* Bản tối KHÔNG đảo màu mà dùng biến thể nhạt hơn: tím/lam đậm trên slate-900 sẽ
+     tụt dưới ngưỡng đọc được. */
   --color-ai: #c4b5fd;          /* violet-300 trên #0f172a: 9.7:1 */
   --color-ai-accent: #67e8f9;   /* cyan-300 */
   --color-ai-soft: #2e1065;     /* violet-950 */
   --color-ai-line: #7c3aed;     /* violet-600 — 3.1:1 trên nền tối */
 }
 
+/* Người dùng chọn màu chủ đạo TÍM: nhận diện AI trùng tông với nút hành động chính.
+   Chuyển AI sang cyan (đã là màu phụ của nó) để hai thứ còn tách nhau bằng màu; ngoài
+   ra AI luôn có icon Bot + nhãn "K.AI" + rãnh dọc nên không bao giờ chỉ dựa vào màu.
+   themeStore gán data-theme-color khi màu chọn nằm trong dải tím (hue 250–290). */
+:root[data-theme-color="violet"] {
+  --color-ai: #0e7490;          /* cyan-700 trên trắng: 5.4:1 */
+  --color-ai-solid: #0e7490;
+  --color-ai-accent: #7c3aed;
+  --color-ai-soft: #ecfeff;     /* cyan-50 */
+  --color-ai-line: #22d3ee;     /* cyan-400 */
+}
+:root[data-theme-color="violet"].dark {
+  --color-ai: #67e8f9;
+  --color-ai-accent: #c4b5fd;
+  --color-ai-soft: #083344;     /* cyan-950 */
+  --color-ai-line: #0891b2;
+}
+
+/* ── Lớp cầu nối: utility cũ → token ─────────────────────────────────────────
+   Có 2.278 chỗ hard-code indigo-*, 1.700+ rounded-xl/2xl, 400+ shadow-lg/xl/2xl và
+   1.900 font-black. Sửa tay từng file là việc của các lượt sau; trong lúc đó lớp này
+   kéo tất cả về hệ thống. Tailwind v4 sinh utility từ chính các biến này nên
+   `bg-indigo-600` giờ = màu chủ đạo, `rounded-2xl` = 12px, `shadow-2xl` = mức 3. */
+@theme {
+  /* Bo góc: xs/sm giữ nhỏ; md/lg → control, xl/2xl → card, 3xl/4xl → widget. */
+  --radius-xs: 3px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 6px;
+  --radius-xl: 8px;
+  --radius-2xl: 8px;
+  --radius-3xl: 12px;
+  --radius-4xl: 12px;
+  /* Ba token chính — cũng sinh `rounded-control` / `rounded-card` / `rounded-widget`. */
+  --radius-control: 6px;
+  --radius-card: 8px;
+  --radius-widget: 12px;
+
+  /* Bóng đổ: 2xs/xs/sm → mức 1; md → mức 2; lg/xl/2xl → mức 3. */
+  --shadow-2xs: var(--shadow-1);
+  --shadow-xs: var(--shadow-1);
+  --shadow-sm: var(--shadow-1);
+  --shadow: var(--shadow-1);
+  --shadow-md: var(--shadow-2);
+  --shadow-lg: var(--shadow-3);
+  --shadow-xl: var(--shadow-3);
+  --shadow-2xl: var(--shadow-3);
+
+  /* Inter chỉ nạp tới 700; font-black/extrabold trước giờ vốn được trình duyệt
+     giả lập — chốt hẳn 700 để thang đậm chỉ còn 400/500/600/700. */
+  --font-weight-extrabold: 700;
+  --font-weight-black: 700;
+  /* Nhãn chữ hoa giãn 0.1em đọc rất "gào"; 0.06em đủ tách chữ mà vẫn êm. */
+  --tracking-widest: 0.06em;
+
+  /* indigo-* → màu chủ đạo. Bậc 50–100 là nền nhạt, 200–400 là các mức pha, 500–600
+     là chính màu, 700 là hover, 800+ là tông sâu. Bản tối ghi đè riêng bên dưới. */
+  --color-indigo-50: var(--color-primary-soft);
+  --color-indigo-100: var(--color-primary-soft);
+  --color-indigo-200: color-mix(in srgb, var(--color-primary) 28%, var(--color-card));
+  --color-indigo-300: color-mix(in srgb, var(--color-primary) 50%, var(--color-card));
+  --color-indigo-400: color-mix(in srgb, var(--color-primary) 80%, var(--color-card));
+  --color-indigo-500: var(--color-primary);
+  --color-indigo-600: var(--color-primary);
+  --color-indigo-700: var(--color-primary-hover);
+  --color-indigo-800: var(--color-primary-deep);
+  --color-indigo-900: var(--color-primary-deep);
+  --color-indigo-950: var(--color-primary-deep);
+
+  /* violet/purple/fuchsia: các module KPI, BSC, uỷ quyền đang dùng tím làm màu nhấn thứ hai
+     — trái quy tắc "tím chỉ dành cho K.AI". Kéo về màu chủ đạo; khu vực AI đã chuyển sang
+     token --color-ai riêng nên không bị ảnh hưởng. */
+  --color-violet-50: var(--color-primary-soft);
+  --color-violet-100: var(--color-primary-soft);
+  --color-violet-200: color-mix(in srgb, var(--color-primary) 28%, var(--color-card));
+  --color-violet-300: color-mix(in srgb, var(--color-primary) 50%, var(--color-card));
+  --color-violet-400: color-mix(in srgb, var(--color-primary) 80%, var(--color-card));
+  --color-violet-500: var(--color-primary);
+  --color-violet-600: var(--color-primary);
+  --color-violet-700: var(--color-primary-hover);
+  --color-violet-800: var(--color-primary-deep);
+  --color-violet-900: var(--color-primary-deep);
+  --color-violet-950: var(--color-primary-deep);
+  --color-purple-50: var(--color-primary-soft);
+  --color-purple-100: var(--color-primary-soft);
+  --color-purple-200: color-mix(in srgb, var(--color-primary) 28%, var(--color-card));
+  --color-purple-300: color-mix(in srgb, var(--color-primary) 50%, var(--color-card));
+  --color-purple-400: color-mix(in srgb, var(--color-primary) 80%, var(--color-card));
+  --color-purple-500: var(--color-primary);
+  --color-purple-600: var(--color-primary);
+  --color-purple-700: var(--color-primary-hover);
+  --color-purple-800: var(--color-primary-deep);
+  --color-purple-900: var(--color-primary-deep);
+  --color-purple-950: var(--color-primary-deep);
+  --color-fuchsia-500: var(--color-primary);
+  --color-fuchsia-600: var(--color-primary);
+}
+
+/* Bản tối: `dark:text-indigo-300/400` là chữ trên nền tối → phải là chính màu chủ đạo
+   (đã là tông sáng), pha loãng sẽ mất tương phản. `dark:bg-indigo-900/30` là nền nhạt. */
+.dark {
+  --color-indigo-200: color-mix(in srgb, var(--color-primary) 85%, var(--color-card));
+  --color-indigo-300: var(--color-primary);
+  --color-indigo-400: var(--color-primary);
+  --color-indigo-800: var(--color-primary-deep);
+  --color-indigo-900: var(--color-primary-deep);
+  --color-indigo-950: var(--color-primary-deep);
+  --color-violet-200: color-mix(in srgb, var(--color-primary) 85%, var(--color-card));
+  --color-violet-300: var(--color-primary);
+  --color-violet-400: var(--color-primary);
+  --color-violet-800: var(--color-primary-deep);
+  --color-violet-900: var(--color-primary-deep);
+  --color-violet-950: var(--color-primary-deep);
+  --color-purple-200: color-mix(in srgb, var(--color-primary) 85%, var(--color-card));
+  --color-purple-300: var(--color-primary);
+  --color-purple-400: var(--color-primary);
+  --color-purple-800: var(--color-primary-deep);
+  --color-purple-900: var(--color-primary-deep);
+  --color-purple-950: var(--color-primary-deep);
+}
+
+/* ── Thang chữ ───────────────────────────────────────────────────────────────
+   Inter giữ lại có chủ đích: đủ dấu tiếng Việt ở mọi độ đậm, có số tabular, và là font
+   đang chạy nên không có rủi ro vỡ layout. Phân cấp đến từ CỠ + ĐẬM + MÀU, không từ
+   việc đổi font. Dùng các utility này thay cho tổ hợp `text-[10px] font-black uppercase`. */
+/* Hai utility tiêu đề KHÔNG đặt màu: tiêu đề kế thừa màu chữ của khối chứa nó, nên vẫn
+   đúng khi nằm trên nền màu (panel đăng nhập, banner). Màu chữ chính đã là mặc định của body. */
+@utility text-page-title {
+  font-size: 22px;
+  line-height: 28px;
+  font-weight: 600;
+  letter-spacing: -0.01em;
+}
+@utility text-section-title {
+  font-size: 16px;
+  line-height: 24px;
+  font-weight: 600;
+}
+@utility text-label {
+  font-size: 13px;
+  line-height: 16px;
+  font-weight: 500;
+  color: var(--color-foreground);
+}
+@utility text-caption {
+  font-size: 12px;
+  line-height: 16px;
+  font-weight: 400;
+  color: var(--color-muted-foreground);
+}
+/* Nhãn nhỏ chữ hoa (đầu cột bảng, nhãn thẻ số liệu). 11px là sàn đọc được. */
+@utility text-eyebrow {
+  font-size: 11px;
+  line-height: 16px;
+  font-weight: 500;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--color-muted-foreground);
+}
+/* Số liệu lớn trên thẻ/KPI. Tabular để số không nhảy ngang khi dữ liệu đổi. */
+@utility text-stat {
+  font-size: 28px;
+  line-height: 32px;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-foreground);
+}
+
 body {
-  font-family: 'Be Vietnam Pro', 'Inter', system-ui, sans-serif;
+  font-family: 'Inter', ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  font-size: 14px;
+  line-height: 20px;
   background-color: var(--color-background);
   color: var(--color-foreground);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
 * {
   border-color: var(--color-border);
+}
+
+/* Bảng số liệu: mọi con số trong <table> và <dd> xếp thẳng cột. */
+table, dd {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Focus nhìn thấy được bằng bàn phím ở mọi thành phần tương tác, cùng một kiểu. */
+:where(button, a, input, select, textarea, [role="button"], [tabindex]):focus-visible {
+  outline: 2px solid var(--color-ring);
+  outline-offset: 2px;
 }
 
 .custom-scrollbar::-webkit-scrollbar {
@@ -162,7 +429,7 @@ input[type=number] {
 .react-grid-placeholder {
   background: var(--color-primary) !important;
   opacity: 0.1 !important;
-  border-radius: 12px !important;
+  border-radius: var(--radius-widget) !important;
   z-index: 2;
   transition-duration: 100ms;
   user-select: none;
@@ -268,10 +535,13 @@ input[type=number] {
   animation: float 3s ease-in-out infinite;
 }
 
-/* Dải tin điểm thưởng chạy ngang (RewardActivityTicker).
-   Chạy hết ĐÚNG một nửa quãng đường vì track chứa hai bản sao giống hệt nhau — lúc
-   bản sao thứ nhất trôi khỏi màn hình thì bản thứ hai đang nằm đúng vị trí xuất phát,
-   nên vòng lặp không có điểm giật. Đổi -50% là mối nối lộ ra ngay. */
+/* Dải tin điểm thưởng chạy ngang dưới thanh tiêu đề (RewardActivityTicker).
+   Chạy hết ĐÚNG một nửa quãng đường vì track chứa hai NỬA giống hệt nhau — lúc nửa
+   thứ nhất trôi khỏi màn hình thì nửa thứ hai đang nằm đúng vị trí xuất phát, nên vòng
+   lặp không có điểm giật. Đổi -50% là mối nối lộ ra ngay.
+   Mỗi nửa chứa danh sách tin lặp cho đủ một số thẻ tối thiểu (MIN_ITEMS_PER_HALF ở
+   component), để nửa track luôn rộng hơn khung. Không có bước đó thì công ty ít hoạt
+   động sẽ thấy một khoảng trống trôi qua ở mỗi vòng. */
 @keyframes reward-marquee {
   from { transform: translateX(0); }
   to { transform: translateX(-50%); }
@@ -288,13 +558,10 @@ input[type=number] {
   animation-play-state: paused;
 }
 
-/* Người tắt hiệu ứng chuyển động vẫn phải đọc được bảng tin: bỏ animation và trả về
-   một dải cuộn ngang bình thường. */
-@media (prefers-reduced-motion: reduce) {
-  .animate-reward-marquee {
-    animation: none;
-  }
-}
+/* KHÔNG có override cho prefers-reduced-motion ở đây — có chủ đích, xem javadoc của
+   RewardActivityTicker. Dải tin đứng yên thì mất luôn lý do tồn tại, mà phần lớn máy bật
+   thiết lập đó là vì hiệu năng chứ không phải vì nhạy cảm với chuyển động. Lối thoát là
+   dừng khi trỏ chuột vào (ở trên) và nút x tắt hẳn. */
 /* ── In chứng nhận khen thưởng ─────────────────────────────────────
    Khu vực chứng nhận luôn tồn tại trong DOM ở kích thước in thật nhưng nằm ngoài màn
    hình. In thẳng cây DOM này (thay vì in một ảnh PNG) để chữ giữ nguyên dạng vector:

@@ -67,6 +67,42 @@ public class UnitClassificationResponses {
         private Map<String, Double> percents;
     }
 
+    /**
+     * Một mức trên biểu đồ bell curve của kỳ: số THỰC TẾ của đơn vị đặt cạnh hạn mức đã cấu hình.
+     * Các trường {@code target*}/{@code min*}/{@code max*} là null khi đơn vị không áp khung nào.
+     */
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class CurveBucket {
+        private String level;
+        private String color;
+        private int count;
+        private double percent;      // % trên TỔNG nhân sự (cùng mẫu số với hạn mức)
+        private Double targetPercent;
+        private Double minPercent;
+        private Double maxPercent;
+        private Integer minCount;
+        private Integer maxCount;
+        private boolean over;        // vượt trần
+        private boolean under;       // dưới sàn
+    }
+
+    /**
+     * Phân bố mức của một đơn vị trong KỲ, đối chiếu khung bell curve đang áp — dữ liệu vẽ biểu
+     * đồ ngay trên màn đánh giá kỳ để người chấm thấy phòng mình đang lệch chỗ nào.
+     */
+    @Data @Builder @NoArgsConstructor @AllArgsConstructor
+    public static class CycleCurveResponse {
+        /** false = hồ sơ của đơn vị không bật khung; biểu đồ chỉ còn phân bố thực tế. */
+        private boolean configured;
+        private String profileName;
+        /** warn | block — chế độ khi chấm vượt trần ở đánh giá đợt. */
+        private String mode;
+        private double tolerance;
+        private int headcount;       // tổng nhân sự (mẫu số của hạn mức)
+        private int evaluated;       // số người đã có điểm kỳ
+        private List<CurveBucket> buckets;  // cao → thấp
+    }
+
     @Data @Builder @NoArgsConstructor @AllArgsConstructor
     public static class ChildClassification {
         private UUID orgUnitId;

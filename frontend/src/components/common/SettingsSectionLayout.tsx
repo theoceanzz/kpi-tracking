@@ -23,12 +23,12 @@ function Badge({ value, tone = 'solid' }: { value: number | boolean | null | und
   if (!value) return null
   if (typeof value === 'number' && tone === 'solid') {
     return (
-      <span className="px-2 py-0.5 rounded-full bg-red-500 text-[10px] text-white font-black shadow-lg shadow-red-500/20">
+      <span className="flex h-[18px] min-w-[18px] items-center justify-center rounded-full bg-[var(--color-destructive)] px-1 text-[10px] font-semibold tabular-nums leading-none text-white">
         {value}
       </span>
     )
   }
-  return <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]" />
+  return <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-[var(--color-destructive)]" />
 }
 
 /**
@@ -109,17 +109,17 @@ export default function SettingsSectionLayout({
     })
 
     return (
-      <div className="max-w-[1600px] mx-auto px-4 md:px-0 pb-20 space-y-8 animate-in fade-in duration-500">
+      <div className="mx-auto max-w-[1600px] space-y-8 pb-20">
         <div>
           {eyebrow}
-          <h1 className="text-2xl xl:text-3xl font-black tracking-tight text-slate-900 dark:text-white">{title}</h1>
-          {subtitle && <p className="text-slate-500 font-medium mt-1">{subtitle}</p>}
+          <h1 className="text-page-title">{title}</h1>
+          {subtitle && <p className="mt-1 text-sm text-[var(--color-muted-foreground)]">{subtitle}</p>}
         </div>
 
         {visible.length === 0 && (
-          <div className="rounded-2xl border border-dashed border-slate-200 dark:border-slate-800 p-10 text-center">
-            <p className="text-slate-500 font-medium">Không có mục nào khả dụng với tài khoản của bạn ở trang này.</p>
-            <p className="text-slate-400 text-sm mt-1">Vai trò hiện tại chưa được cấp quyền, hoặc các tính năng liên quan đang tắt.</p>
+          <div className="rounded-card border border-dashed border-[var(--color-border)] p-10 text-center">
+            <p className="text-sm font-medium text-[var(--color-foreground)]">Không có mục nào khả dụng với tài khoản của bạn ở trang này.</p>
+            <p className="mt-1 text-caption">Vai trò hiện tại chưa được cấp quyền, hoặc các tính năng liên quan đang tắt.</p>
           </div>
         )}
 
@@ -128,8 +128,8 @@ export default function SettingsSectionLayout({
             <div key={group.name} className="space-y-3">
               {group.name && (
                 <div className="flex items-center gap-3">
-                  <h2 className="text-[11px] font-black uppercase tracking-widest text-slate-400">{group.name}</h2>
-                  <div className="flex-1 h-px bg-slate-200 dark:bg-slate-800" />
+                  <h2 className="text-eyebrow">{group.name}</h2>
+                  <div className="h-px flex-1 bg-[var(--color-border)]" />
                 </div>
               )}
               {/* Số cột đếm theo bề ngang THẬT của vùng nội dung (`@container` ở trên), không
@@ -147,29 +147,23 @@ export default function SettingsSectionLayout({
                 {[...group.items]
                   .sort((a, b) => pendingWeight(b.id) - pendingWeight(a.id))
                   .map(def => (
-                  <button
-                    key={def.id}
-                    id={`tour-card-${def.id}`}
-                    onClick={() => setSection(def.id)}
-                    className="group text-left p-5 rounded-2xl bg-[var(--color-card)] border border-[var(--color-border)] shadow-sm hover:border-[var(--color-primary)]/50 hover:shadow-lg hover:shadow-[var(--color-primary)]/5 hover:-translate-y-0.5 transition-all"
-                  >
+                  <button type="button" className="group block w-full rounded-card border border-[var(--color-border)] bg-[var(--color-card)] p-4 text-left transition-colors hover:border-[var(--color-border-strong)] hover:bg-[var(--color-muted)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]" key={def.id} id={`tour-card-${def.id}`} onClick={() => setSection(def.id)}>
                     <div className="flex items-start justify-between gap-3">
-                      <div className="w-11 h-11 rounded-xl bg-[var(--color-primary)]/10 flex items-center justify-center text-[var(--color-primary)] shrink-0 group-hover:scale-105 transition-transform">
+                      <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-control bg-[var(--color-primary-soft)] text-[var(--color-primary)] [&_svg]:size-[18px]" aria-hidden="true">
                         {def.icon}
                       </div>
                       <div className="flex items-center gap-2 shrink-0 mt-1">
-                        <Badge value={sections.find(s => s.id === def.id)?.badge} />
-                        <ChevronRight
-                          size={16}
-                          className="text-slate-300 dark:text-slate-700 group-hover:text-[var(--color-primary)] group-hover:translate-x-0.5 transition-all"
+                        <Badge aria-hidden="true" value={sections.find(s => s.id === def.id)?.badge} />
+                        <ChevronRight aria-hidden="true"
+                          className="text-[var(--color-subtle-foreground)] transition-colors group-hover:text-[var(--color-foreground)]"
                         />
                       </div>
                     </div>
-                    <h3 className="mt-4 text-sm font-black text-slate-900 dark:text-white leading-snug">
+                    <h3 className="mt-3 text-sm font-medium leading-5 text-[var(--color-foreground)]">
                       {labelOf(def)}
                     </h3>
                     {def.description && (
-                      <p className="mt-1 text-[11px] font-medium text-slate-500 leading-relaxed">{def.description}</p>
+                      <p className="mt-1 text-caption leading-4">{def.description}</p>
                     )}
                   </button>
                 ))}
@@ -188,7 +182,7 @@ export default function SettingsSectionLayout({
   const siblings = visible.filter(def => def.group === active.group)
 
   return (
-    <div className="max-w-[1600px] mx-auto px-4 md:px-0 pb-20 space-y-5 animate-in fade-in duration-300">
+    <div className="mx-auto max-w-[1600px] space-y-5 pb-20">
       {/* KHÔNG lặp lại tên mục ở đây: đường dẫn phân cấp trên header đã ghi nó ở crumb
           cuối, và hàng tab ngay dưới cũng đang tô sáng đúng mục đó. Nút quay lại cũng
           nằm trên header — điều hướng thuộc về khung, và ở đó thì cuộn xuống vẫn thấy. */}
@@ -206,13 +200,13 @@ export default function SettingsSectionLayout({
                 aria-current={isActive ? 'page' : undefined}
                 className={cn(
                   // To hơn tab cấp 2 (13px) một bậc: hàng này là cấp trên, phải nặng hơn.
-                  'flex items-center gap-2 px-3.5 py-2.5 text-sm font-bold border-b-2 transition-all -mb-px whitespace-nowrap shrink-0 cursor-pointer',
+                  '-mb-px flex h-11 shrink-0 cursor-pointer items-center gap-2 whitespace-nowrap border-b-2 px-3.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-[var(--color-ring)]',
                   isActive
-                    ? 'border-[var(--color-primary)] text-[var(--color-primary)]'
-                    : 'border-transparent text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)]'
+                    ? 'border-[var(--color-primary)] text-[var(--color-foreground)]'
+                    : 'border-transparent text-[var(--color-muted-foreground)] hover:border-[var(--color-border-strong)] hover:text-[var(--color-foreground)]'
                 )}
               >
-                <span className={cn('shrink-0 transition-opacity', isActive ? 'opacity-100' : 'opacity-60')}>
+                <span className={cn('shrink-0 [&_svg]:size-4', isActive ? 'text-[var(--color-primary)]' : 'text-[var(--color-muted-foreground)]')} aria-hidden="true">
                   {def.icon}
                 </span>
                 {labelOf(def)}

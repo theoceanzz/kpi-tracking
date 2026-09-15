@@ -20,6 +20,12 @@ public interface KpiPeriodRepository extends JpaRepository<KpiPeriod, UUID>, Jpa
                                                 @org.springframework.data.repository.query.Param("from") Instant from,
                                                 @org.springframework.data.repository.query.Param("to") Instant to);
 
+    /** Mọi đợt của MỌI tổ chức kết thúc trong khoảng — cho lượt quét nhắc hạn đánh giá. */
+    @org.springframework.data.jpa.repository.Query("SELECT p FROM KpiPeriod p WHERE p.endDate IS NOT NULL "
+           + "AND p.endDate >= :from AND p.endDate <= :to ORDER BY p.endDate ASC")
+    java.util.List<KpiPeriod> findAllEndingBetween(@org.springframework.data.repository.query.Param("from") Instant from,
+                                                   @org.springframework.data.repository.query.Param("to") Instant to);
+
     java.util.Optional<KpiPeriod> findByName(String name);
     java.util.Optional<KpiPeriod> findByNameIgnoreCase(String name);
     

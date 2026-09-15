@@ -25,7 +25,7 @@ export const kpiCriteriaSteps: Step[] = [
     content: (
       <div className="space-y-2">
         <p>Đây là công cụ lọc mạnh mẽ giúp quản lý dễ dàng tìm kiếm và theo dõi KPI của bất kỳ nhân viên nào trong kỳ đánh giá.</p>
-        <p className="text-[11px] text-slate-500">Bạn có thể lọc theo phòng ban, trạng thái chỉ tiêu hoặc tìm đích danh một nhân viên cụ thể.</p>
+        <p className="text-caption">Bạn có thể lọc theo phòng ban, trạng thái chỉ tiêu hoặc tìm đích danh một nhân viên cụ thể.</p>
       </div>
     ),
     placement: 'bottom',
@@ -36,7 +36,7 @@ export const kpiCriteriaSteps: Step[] = [
     content: (
       <div className="space-y-3">
         <p>Bắt đầu giao KPI cho đội ngũ của bạn. Hãy ghi nhớ nguyên tắc <strong>SMART</strong> (Cụ thể, Đo lường được, Khả thi, Thực tế, Có thời hạn).</p>
-        <div className="p-2 bg-amber-50 dark:bg-amber-900/20 border-l-4 border-amber-500 rounded text-[11px] text-amber-700 font-medium">
+        <div className="p-2 bg-[var(--color-warning-bg)] border-l-4 border-[var(--color-warning-border)] rounded text-xs text-[var(--color-warning)] font-medium">
           ⚠️ QUAN TRỌNG: Hãy đảm bảo tổng trọng số (%) của các KPI cho một nhân viên phải đạt đúng 100% để hệ thống tính điểm chính xác.
         </div>
       </div>
@@ -49,7 +49,7 @@ export const kpiCriteriaSteps: Step[] = [
     content: (
       <div className="space-y-2">
         <p>Theo dõi sát sao trạng thái của từng KPI từ lúc khởi tạo cho đến khi hoàn thành.</p>
-        <p className="text-[11px] text-slate-500 italic">💡 Ghi nhớ: Chỉ những KPI ở trạng thái <strong>Đã duyệt (Approved)</strong> mới chính thức có hiệu lực và được tính vào kết quả đánh giá cuối kỳ.</p>
+        <p className="text-caption italic">💡 Ghi nhớ: Chỉ những KPI ở trạng thái <strong>Đã duyệt (Approved)</strong> mới chính thức có hiệu lực và được tính vào kết quả đánh giá cuối kỳ.</p>
       </div>
     ),
     placement: 'bottom',
@@ -66,10 +66,10 @@ export const kpiCriteriaSteps: Step[] = [
           Mỗi dòng có menu <strong>“…”</strong> ở cuối. Trong đó, <strong>Phân rã chỉ tiêu</strong> là
           phím tắt để <strong>ủy quyền/giao việc</strong> cho cấp dưới.
         </p>
-        <p className="text-[11px] bg-cyan-50 dark:bg-cyan-900/20 p-2 rounded-lg text-cyan-700 italic border-l-4 border-cyan-400">
+        <p className="text-xs bg-[var(--color-info-bg)] p-2 rounded-control text-[var(--color-info)] italic border-l-4 border-[var(--color-info-border)]">
           Mẹo: Hệ thống sẽ tự động tạo một chỉ tiêu con liên kết với chỉ tiêu này, giúp việc theo dõi dòng chảy chỉ tiêu trở nên minh bạch và tự động hoàn toàn.
         </p>
-        <p className="text-[11px] text-slate-500">
+        <p className="text-caption">
           Chỉ hiện khi tổ chức bật <strong>thác nước</strong> và chỉ tiêu đã ở trạng thái <strong>Đã duyệt</strong>.
         </p>
       </div>
@@ -86,7 +86,7 @@ export const myKpiSteps: Step[] = [
     content: (
       <div className="space-y-2">
         <p>Chào mừng bạn! Mọi nhiệm vụ và mục tiêu bạn cần thực hiện trong kỳ này đều được tập trung tại đây.</p>
-        <p className="text-[11px] text-indigo-600 font-bold italic">💡 Hãy kiểm tra kỹ các "Mục tiêu (Target)" mà quản lý đã giao để lập kế hoạch triển khai hiệu quả.</p>
+        <p className="text-xs text-[var(--color-primary)] font-medium italic">💡 Hãy kiểm tra kỹ các "Mục tiêu (Target)" mà quản lý đã giao để lập kế hoạch triển khai hiệu quả.</p>
       </div>
     ),
     placement: 'bottom',
@@ -97,12 +97,12 @@ export const myKpiSteps: Step[] = [
     content: (
       <div className="space-y-3">
         <p>Các thông số quan trọng bạn cần nắm vững để tối ưu điểm số:</p>
-        <ul className="text-[11px] space-y-2 list-disc pl-4 text-slate-500 font-medium">
-          <li><strong className="text-slate-900">Đơn vị:</strong> Cách thức đo lường kết quả (VNĐ, %, Giờ, Sản phẩm...).</li>
-          <li><strong className="text-slate-900">Trọng số:</strong> Mức độ ảnh hưởng của mục tiêu này đến tổng điểm cuối kỳ của bạn.</li>
-          <li><strong className="text-slate-900">Tiến độ:</strong> Nhấn nút <strong>"Nộp bài"</strong> ngay khi bạn hoàn thành một phần hoặc toàn bộ chỉ tiêu để cập nhật kết quả.</li>
+        <ul className="text-xs space-y-2 list-disc pl-4 text-[var(--color-muted-foreground)] font-medium">
+          <li><strong className="text-[var(--color-foreground)]">Đơn vị:</strong> Cách thức đo lường kết quả (VNĐ, %, Giờ, Sản phẩm...).</li>
+          <li><strong className="text-[var(--color-foreground)]">Trọng số:</strong> Mức độ ảnh hưởng của mục tiêu này đến tổng điểm cuối kỳ của bạn.</li>
+          <li><strong className="text-[var(--color-foreground)]">Tiến độ:</strong> Nhấn nút <strong>"Nộp bài"</strong> ngay khi bạn hoàn thành một phần hoặc toàn bộ chỉ tiêu để cập nhật kết quả.</li>
         </ul>
-        <p className="text-[11px] bg-amber-50 dark:bg-amber-900/20 p-2 rounded-lg text-amber-700 italic border-l-4 border-amber-400">
+        <p className="text-xs bg-[var(--color-warning-bg)] p-2 rounded-control text-[var(--color-warning)] italic border-l-4 border-[var(--color-warning-border)]">
           Mẹo: Nếu mục tiêu không còn phù hợp với thực tế, hãy sử dụng tính năng "Yêu cầu điều chỉnh" để gửi đề xuất lên cấp trên.
         </p>
       </div>
@@ -119,7 +119,7 @@ export const mySubmissionsSteps: Step[] = [
     content: (
       <div className="space-y-2">
         <p>Theo dõi sát sao tiến độ phê duyệt từ cấp trên đối với các báo cáo kết quả của bạn.</p>
-        <p className="text-[11px] text-slate-500">
+        <p className="text-caption">
           Nếu bài nộp bị <strong>Từ chối (Rejected)</strong>, hãy đọc kỹ phần phản hồi của quản lý để chỉnh sửa và gửi lại ngay lập tức.
         </p>
       </div>
@@ -132,7 +132,7 @@ export const mySubmissionsSteps: Step[] = [
     content: (
       <div className="space-y-2">
         <p>Đây là kho lưu trữ toàn bộ lịch sử báo cáo và minh chứng bạn đã gửi đi.</p>
-        <p className="text-[11px] bg-indigo-50 dark:bg-indigo-900/20 p-2 rounded-lg text-indigo-700 italic">
+        <p className="text-xs bg-[var(--color-primary-soft)] p-2 rounded-control text-[var(--color-primary)] italic">
           💡 Bạn có thể sử dụng dữ liệu này để đối chiếu điểm số hoặc làm bằng chứng bảo vệ kết quả công việc khi kết thúc kỳ đánh giá.
         </p>
       </div>
@@ -155,7 +155,7 @@ export const orgUnitSubmissionsSteps: Step[] = [
     content: (
       <div className="space-y-2">
         <p>Sử dụng bộ lọc để ưu tiên phê duyệt các báo cáo quan trọng hoặc các nhân sự có hạn chót gần nhất.</p>
-        <p className="text-[11px] text-slate-500 italic">💡 Bạn có thể lọc nhanh theo từng phòng ban con để quản lý tập trung hơn.</p>
+        <p className="text-caption italic">💡 Bạn có thể lọc nhanh theo từng phòng ban con để quản lý tập trung hơn.</p>
       </div>
     ),
     placement: 'bottom',
@@ -166,7 +166,7 @@ export const orgUnitSubmissionsSteps: Step[] = [
     content: (
       <div className="space-y-3">
         <p>Khi phê duyệt bài nộp, hãy nhấn vào từng dòng để xem chi tiết <strong>Tài liệu minh chứng</strong> mà nhân viên đã đính kèm.</p>
-        <div className="p-2 bg-blue-50 dark:bg-blue-900/20 border-l-4 border-blue-500 rounded text-[11px] text-blue-700 font-medium">
+        <div className="p-2 bg-[var(--color-info-bg)] border-l-4 border-[var(--color-info-border)] rounded text-xs text-[var(--color-info)] font-medium">
           💡 Mẹo: Hãy để lại những lời nhận xét (Feedback) chân thành. Phản hồi tích cực hoặc góp ý xây dựng sẽ giúp nhân viên cải thiện hiệu suất rõ rệt trong các đợt tiếp theo.
         </div>
       </div>
@@ -183,7 +183,7 @@ export const kpiPendingSteps: Step[] = [
     content: (
       <div className="space-y-2">
         <p>Đây là bước quan trọng nhất để đảm bảo nhân viên không đặt mục tiêu quá thấp hoặc quá xa rời thực tế.</p>
-        <p className="text-[11px] text-indigo-600 font-bold italic">💡 Hãy thống nhất và phê duyệt mục tiêu ngay từ đầu kỳ để nhân viên có lộ trình làm việc rõ ràng.</p>
+        <p className="text-xs text-[var(--color-primary)] font-medium italic">💡 Hãy thống nhất và phê duyệt mục tiêu ngay từ đầu kỳ để nhân viên có lộ trình làm việc rõ ràng.</p>
       </div>
     ),
     placement: 'bottom',
@@ -200,7 +200,7 @@ export const kpiPendingSteps: Step[] = [
     content: (
       <div className="space-y-2">
         <p>Bạn có thể <strong>Phê duyệt hàng loạt</strong> các KPI đã đạt chuẩn để đẩy nhanh tiến độ thiết lập mục tiêu cho cả bộ phận.</p>
-        <p className="text-[11px] text-slate-500 italic">Mẹo: Chỉ phê duyệt khi bạn đã chắc chắn các chỉ tiêu tuân thủ đúng định hướng của công ty.</p>
+        <p className="text-caption italic">Mẹo: Chỉ phê duyệt khi bạn đã chắc chắn các chỉ tiêu tuân thủ đúng định hướng của công ty.</p>
       </div>
     ),
     placement: 'bottom',
@@ -215,7 +215,7 @@ export const kpiAdjustmentsSteps: Step[] = [
     content: (
       <div className="space-y-2">
         <p>Trong quá trình làm việc, nếu có những biến động khách quan từ thị trường hoặc tổ chức, nhân viên có thể gửi yêu cầu <strong>điều chỉnh số liệu</strong>.</p>
-        <p className="text-[11px] text-indigo-600 font-bold">⚠️ Bạn là người quyết định cuối cùng có chấp thuận các thay đổi này hay không.</p>
+        <p className="text-xs text-[var(--color-primary)] font-medium">⚠️ Bạn là người quyết định cuối cùng có chấp thuận các thay đổi này hay không.</p>
       </div>
     ),
     placement: 'bottom',
@@ -232,7 +232,7 @@ export const kpiAdjustmentsSteps: Step[] = [
     content: (
       <div className="space-y-2">
         <p>Nhấn vào yêu cầu để xem <strong>Lý do chi tiết</strong> mà nhân viên đưa ra.</p>
-        <p className="text-[11px] bg-amber-50 dark:bg-amber-900/20 p-2 rounded-lg text-amber-700 italic border-l-4 border-amber-400">
+        <p className="text-xs bg-[var(--color-warning-bg)] p-2 rounded-control text-[var(--color-warning)] italic border-l-4 border-[var(--color-warning-border)]">
           💡 Chỉ chấp thuận khi lý do thực sự hợp lý, khách quan và có minh chứng đi kèm nếu cần thiết.
         </p>
       </div>
@@ -255,7 +255,7 @@ export const myAdjustmentsSteps: Step[] = [
     content: (
       <div className="space-y-3">
         <p>Lưu ý: Mỗi yêu cầu chỉ có thời hạn <strong>24 giờ</strong> để quản lý phê duyệt.</p>
-        <div className="p-2 bg-red-50 dark:bg-red-900/20 border-l-4 border-red-500 rounded text-[11px] text-red-700 italic">
+        <div className="p-2 bg-[var(--color-error-bg)] border-l-4 border-[var(--color-error-border)] rounded text-xs text-[var(--color-error)] italic">
           ⚠️ Nếu quá hạn, yêu cầu sẽ tự động bị đóng để đảm bảo tính kỷ luật của dữ liệu hệ thống. Nếu bị từ chối, hãy đọc kỹ nhận xét để bổ sung lý do thuyết phục hơn cho lần sau.
         </div>
       </div>
@@ -272,7 +272,7 @@ export const evaluationsSteps: Step[] = [
     content: (
       <div className="space-y-2">
         <p>Đây là "bảng điểm" cuối cùng phản ánh nỗ lực của bạn hoặc đội ngũ trong suốt kỳ đánh giá.</p>
-        <p className="text-[11px] text-indigo-600 font-bold italic">💡 Kết quả này là cơ sở quan trọng nhất cho các chính sách Khen thưởng, Thăng tiến và Đào tạo của công ty.</p>
+        <p className="text-xs text-[var(--color-primary)] font-medium italic">💡 Kết quả này là cơ sở quan trọng nhất cho các chính sách Khen thưởng, Thăng tiến và Đào tạo của công ty.</p>
       </div>
     ),
     placement: 'bottom',
@@ -289,7 +289,7 @@ export const evaluationsSteps: Step[] = [
     content: (
       <div className="space-y-2">
         <p>Nhấn vào từng dòng để xem <strong>Chi tiết Đánh giá</strong>.</p>
-        <p className="text-[11px] text-slate-500 italic">Tại đây bạn có thể đối chiếu sự chênh lệch giữa Điểm tự chấm của nhân viên và Điểm phê duyệt cuối cùng của quản lý.</p>
+        <p className="text-caption italic">Tại đây bạn có thể đối chiếu sự chênh lệch giữa Điểm tự chấm của nhân viên và Điểm phê duyệt cuối cùng của quản lý.</p>
       </div>
     ),
     placement: 'bottom',

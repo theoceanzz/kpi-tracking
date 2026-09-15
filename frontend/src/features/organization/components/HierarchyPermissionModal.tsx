@@ -1,15 +1,15 @@
 import { useState, useMemo } from 'react'
-import { 
-  X, 
-  ShieldCheck, 
-  Zap, 
-  Check, 
-  Layers,
-  Shield,
+import {
+  X,
+  Zap,
+  Check,
   Lock,
   Loader2
 } from 'lucide-react'
+import { Dialog, DialogFooter } from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/apiError'
 import { useAllPermissions, useUpdateRolePermissions } from '../hooks/useRolePermissions'
 import { useRoles } from '../hooks/useRoles'
 
@@ -240,214 +240,176 @@ export default function HierarchyPermissionModal({ isOpen, onClose, hierarchyLev
       }
       toast.success(`Đã cập nhật quyền hạn cho ${successCount} vai trò theo phân cấp thực tế của công ty.`)
       onClose()
-    } catch {
-      toast.error('Có lỗi xảy ra khi áp dụng quyền hạn.')
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, 'Áp dụng quyền hạn thất bại.'))
     } finally {
       setIsApplying(false)
     }
   }
 
-  if (!isOpen) return null
-
   return (
-    <div className="fixed inset-0 z-[110] flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-slate-900/60 backdrop-blur-md animate-in fade-in duration-500" onClick={onClose} />
-      
-      <div className="relative w-full max-w-6xl bg-white dark:bg-slate-900 rounded-[3rem] shadow-2xl flex flex-col max-h-[92vh] overflow-hidden animate-in zoom-in-95 slide-in-from-bottom-10 duration-700">
-        
-        {/* Header */}
-        <div className="p-5 md:p-10 border-b border-slate-100 dark:border-slate-800 bg-gradient-to-br from-slate-50 to-white dark:from-slate-900 dark:to-slate-800 shrink-0">
-          <div className="flex items-start justify-between gap-2">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 md:w-16 md:h-16 rounded-xl md:rounded-[2rem] bg-indigo-600 flex items-center justify-center text-white shadow-xl shadow-indigo-200 dark:shadow-none shrink-0">
-                <ShieldCheck size={18} className="md:hidden" />
-                <ShieldCheck size={32} className="hidden md:block" />
-              </div>
-              <div>
-                <h3 className="text-sm md:text-3xl font-black text-slate-900 dark:text-white tracking-tight">Thiết lập Quyền theo Phân cấp</h3>
-                <p className="text-slate-500 font-medium mt-0.5 flex items-center gap-1.5 text-xs md:text-sm">
-                  <Layers size={12} />
-                  Mô hình tổ chức: <span className="text-indigo-600 font-black uppercase">{hierarchyCount} cấp</span>
-                </p>
-              </div>
-            </div>
-            <button onClick={onClose} className="p-2 md:p-3 rounded-2xl hover:bg-slate-100 dark:hover:bg-slate-800 transition-all text-slate-400 shrink-0">
-              <X size={18} />
-            </button>
-          </div>
-        </div>
-
-        {/* Content Area */}
-        <div className="flex-1 overflow-y-auto p-6 md:p-10 space-y-10 custom-scrollbar bg-slate-50/30">
-          
-          {/* Permission Matrix Preview */}
-          <div className="space-y-6">
-            <div className="flex items-center justify-between px-2">
-               <h4 className="text-xs font-black text-slate-400 uppercase tracking-[0.2em] flex items-center gap-2">
-                 <Zap size={14} className="text-amber-500" /> Ma trận quyền hạn chi tiết
-               </h4>
-               <div className="hidden sm:flex items-center gap-6">
-                 <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-emerald-500" />
-                    <span className="text-[10px] font-bold text-slate-500">Đầy đủ</span>
-                 </div>
-                 <div className="flex items-center gap-2">
-                    <div className="w-3 h-3 rounded-full bg-amber-500" />
-                    <span className="text-[10px] font-bold text-slate-500">Một phần</span>
-                 </div>
-                 <div className="flex items-center gap-2">
-                    <X size={12} className="text-slate-300" />
-                    <span className="text-[10px] font-bold text-slate-500">Không có</span>
-                 </div>
+    <Dialog
+      open={isOpen}
+      onClose={onClose}
+      size="full"
+      dismissible={!isApplying}
+      title="Thiết lập Quyền theo Phân cấp"
+      description={<>Mô hình tổ chức: <span className="font-medium text-[var(--color-foreground)]">{hierarchyCount} cấp</span></>}
+      footer={
+        <DialogFooter
+          note="Thay thế toàn bộ thiết lập quyền hiện tại của các vai trò. Hãy kiểm tra kỹ trước khi áp dụng."
+          secondary={<Button variant="outline" onClick={onClose} disabled={isApplying}>Hủy bỏ</Button>}
+          primary={
+            <Button onClick={handleApply} disabled={isApplying}>
+              {isApplying ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Zap aria-hidden="true" />}
+              {isApplying ? 'Đang thiết lập...' : 'Xác nhận áp dụng cho toàn công ty'}
+            </Button>
+          }
+        />
+      }
+    >
+      <div className="space-y-8">
+        {/* Permission Matrix Preview */}
+        <div className="space-y-6">
+          <div className="flex items-center justify-between px-2">
+             <h4 className="text-eyebrow flex items-center gap-2">
+               <Zap size={14} className="text-[var(--color-warning)]" /> Ma trận quyền hạn chi tiết
+             </h4>
+             <div className="hidden sm:flex items-center gap-6">
+               <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-[var(--color-success-solid)]" />
+                  <span className="text-caption">Đầy đủ</span>
                </div>
-            </div>
+               <div className="flex items-center gap-2">
+                  <div className="w-3 h-3 rounded-full bg-[var(--color-warning-solid)]" />
+                  <span className="text-caption">Một phần</span>
+               </div>
+               <div className="flex items-center gap-2">
+                  <X size={12} className="text-[var(--color-subtle-foreground)]" />
+                  <span className="text-caption">Không có</span>
+               </div>
+             </div>
+          </div>
 
-            {/* Desktop matrix */}
-            <div className="hidden md:block overflow-x-auto pb-4 -mx-2 px-2 custom-scrollbar">
-              <div className="min-width-max space-y-3" style={{ minWidth: `${180 + 250 + (displayRoles.length * 75)}px` }}>
-                {Object.entries(groupedPermissions).map(([resource, codes]) => (
-                  <div key={resource} className="bg-white dark:bg-slate-800 rounded-[1.5rem] border border-slate-100 dark:border-slate-700 shadow-sm overflow-hidden">
-                    <div className="px-6 py-2.5 bg-slate-50/80 dark:bg-slate-800/80 border-b border-slate-100 dark:border-slate-700 flex items-center">
-                      <div className="w-[180px] shrink-0 flex items-center gap-2">
-                        <Lock size={12} className="text-indigo-500" />
-                        <span className="text-[10px] font-black text-slate-900 dark:text-white uppercase tracking-wider truncate">{resource}</span>
-                      </div>
-                      <div className="w-[250px] shrink-0 text-left text-[8px] font-black text-slate-400 uppercase tracking-tighter pl-4 border-l border-slate-200/50 dark:border-slate-700/50 ml-2">
-                        Mô tả chi tiết quyền hạn
-                      </div>
-                      <div className="flex items-center gap-2">
-                        {displayRoles.map(r => (
-                          <div key={r.key} className="w-[70px] text-center text-[8px] font-black text-slate-400 uppercase tracking-tighter whitespace-normal leading-tight">
-                            {r.label}
-                          </div>
-                        ))}
-                      </div>
+          {/* Desktop matrix */}
+          <div className="hidden md:block overflow-x-auto pb-4 -mx-2 px-2 custom-scrollbar">
+            <div className="min-width-max space-y-3" style={{ minWidth: `${180 + 250 + (displayRoles.length * 75)}px` }}>
+              {Object.entries(groupedPermissions).map(([resource, codes]) => (
+                <div key={resource} className="overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
+                  <div className="px-6 py-2.5 bg-[var(--color-muted)] border-b border-[var(--color-border)] flex items-center">
+                    <div className="w-[180px] shrink-0 flex items-center gap-2">
+                      <Lock size={12} className="text-[var(--color-primary)]" />
+                      <span className="text-eyebrow text-[var(--color-foreground)] truncate">{resource}</span>
                     </div>
-                    <div className="divide-y divide-slate-50 dark:divide-slate-700/50">
-                      {codes.map(code => (
-                        <div key={code} className="px-6 py-2 flex items-center hover:bg-slate-50/50 dark:hover:bg-slate-700/30 transition-colors">
-                          <div className="w-[180px] shrink-0 flex flex-col pr-4">
-                            <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300 truncate" title={code}>{code}</span>
-                            <span className="text-[8px] text-slate-400 font-medium uppercase tracking-tighter">{code.split(':')[1]} action</span>
-                          </div>
-                          <div className="w-[250px] shrink-0 text-left text-[9px] text-slate-500 font-medium leading-tight pr-6 border-l border-slate-100 dark:border-slate-700/50 pl-4 ml-2">
-                            {allPermissions.find(p => p.code === code)?.description || PERMISSION_DESCRIPTIONS[code] || 'Mô tả đang được cập nhật...'}
-                          </div>
-                          <div className="flex items-center gap-2">
-                            {displayRoles.map(r => {
-                              const activeRoleLevels = Array.from(new Set(hierarchyLevels.map(l => l.roleLevel))).sort((a, b) => a - b)
-                              const minRoleLevel = activeRoleLevels[0]
-                              const maxRoleLevel = activeRoleLevels[activeRoleLevels.length - 1]
-                              let targetCodes: string[] = []
-                              if (r.roleLevel === minRoleLevel && r.rank === 0) {
-                                targetCodes = roleTypeDefinitions.director
-                              } else if (r.roleLevel === maxRoleLevel && r.rank === 2) {
-                                targetCodes = roleTypeDefinitions.staff
-                              } else {
-                                targetCodes = r.rank === 0 ? roleTypeDefinitions.manager : roleTypeDefinitions.deputy
-                              }
-                              const has = targetCodes.includes(code)
-                              return (
-                                <div key={r.key} className="w-[70px] flex justify-center shrink-0">
-                                  {has ? (
-                                    <div className="w-5 h-5 rounded bg-emerald-50 dark:bg-emerald-500/10 flex items-center justify-center text-emerald-600 shadow-sm border border-emerald-100/50">
-                                      <Check size={12} strokeWidth={3} />
-                                    </div>
-                                  ) : (
-                                    <div className="w-5 h-5 flex items-center justify-center">
-                                      <X size={12} className="text-slate-200 dark:text-slate-700 opacity-50" />
-                                    </div>
-                                  )}
-                                </div>
-                              )
-                            })}
-                          </div>
+                    <div className="w-[250px] shrink-0 text-left text-eyebrow tracking-tighter pl-4 border-l border-[var(--color-border)] ml-2">
+                      Mô tả chi tiết quyền hạn
+                    </div>
+                    <div className="flex items-center gap-2">
+                      {displayRoles.map(r => (
+                        <div key={r.key} className="w-[70px] text-center text-eyebrow tracking-tighter whitespace-normal leading-tight">
+                          {r.label}
                         </div>
                       ))}
                     </div>
                   </div>
-                ))}
-              </div>
-            </div>
-
-            {/* Mobile matrix - card layout with role pills */}
-            <div className="md:hidden space-y-3">
-              {Object.entries(groupedPermissions).map(([resource, codes]) => (
-                <div key={resource} className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-100 dark:border-slate-700 shadow-sm overflow-hidden">
-                  <div className="px-4 py-2.5 bg-slate-50/80 dark:bg-slate-800/80 border-b border-slate-100 dark:border-slate-700 flex items-center gap-2">
-                    <Lock size={11} className="text-indigo-500" />
-                    <span className="text-[10px] font-black text-slate-900 dark:text-white uppercase tracking-wider">{resource}</span>
-                  </div>
-                  <div className="divide-y divide-slate-50 dark:divide-slate-700/50">
-                    {codes.map(code => {
-                      const activeRoleLevels = Array.from(new Set(hierarchyLevels.map(l => l.roleLevel))).sort((a, b) => a - b)
-                      const minRoleLevel = activeRoleLevels[0]
-                      const maxRoleLevel = activeRoleLevels[activeRoleLevels.length - 1]
-                      return (
-                        <div key={code} className="px-4 py-3 space-y-2">
-                          <div>
-                            <span className="text-[11px] font-bold text-slate-700 dark:text-slate-300">{code}</span>
-                            <span className="text-[8px] text-slate-400 font-medium uppercase tracking-tighter ml-2">{code.split(':')[1]} action</span>
-                          </div>
-                          <div className="flex flex-wrap gap-1.5">
-                            {displayRoles.map(r => {
-                              let targetCodes: string[] = []
-                              if (r.roleLevel === minRoleLevel && r.rank === 0) {
-                                targetCodes = roleTypeDefinitions.director
-                              } else if (r.roleLevel === maxRoleLevel && r.rank === 2) {
-                                targetCodes = roleTypeDefinitions.staff
-                              } else {
-                                targetCodes = r.rank === 0 ? roleTypeDefinitions.manager : roleTypeDefinitions.deputy
-                              }
-                              const has = targetCodes.includes(code)
-                              return (
-                                <span key={r.key} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[9px] font-bold border ${
-                                  has
-                                    ? 'bg-emerald-50 dark:bg-emerald-500/10 text-emerald-700 dark:text-emerald-400 border-emerald-100 dark:border-emerald-500/20'
-                                    : 'bg-slate-50 dark:bg-slate-700/30 text-slate-300 dark:text-slate-600 border-slate-100 dark:border-slate-700'
-                                }`}>
-                                  {has ? <Check size={8} strokeWidth={3} /> : <X size={8} />}
-                                  {r.label}
-                                </span>
-                              )
-                            })}
-                          </div>
+                  <div className="divide-y divide-[var(--color-border)]">
+                    {codes.map(code => (
+                      <div key={code} className="px-6 py-2 flex items-center hover:bg-[var(--color-muted)] transition-colors">
+                        <div className="w-[180px] shrink-0 flex flex-col pr-4">
+                          <span className="text-xs font-medium text-[var(--color-foreground)] truncate" title={code}>{code}</span>
+                          <span className="text-caption font-medium">{code.split(':')[1]} action</span>
                         </div>
-                      )
-                    })}
+                        <div className="w-[250px] shrink-0 text-left text-caption font-medium leading-tight pr-6 border-l border-[var(--color-border)] pl-4 ml-2">
+                          {allPermissions.find(p => p.code === code)?.description || PERMISSION_DESCRIPTIONS[code] || 'Mô tả đang được cập nhật...'}
+                        </div>
+                        <div className="flex items-center gap-2">
+                          {displayRoles.map(r => {
+                            const activeRoleLevels = Array.from(new Set(hierarchyLevels.map(l => l.roleLevel))).sort((a, b) => a - b)
+                            const minRoleLevel = activeRoleLevels[0]
+                            const maxRoleLevel = activeRoleLevels[activeRoleLevels.length - 1]
+                            let targetCodes: string[] = []
+                            if (r.roleLevel === minRoleLevel && r.rank === 0) {
+                              targetCodes = roleTypeDefinitions.director
+                            } else if (r.roleLevel === maxRoleLevel && r.rank === 2) {
+                              targetCodes = roleTypeDefinitions.staff
+                            } else {
+                              targetCodes = r.rank === 0 ? roleTypeDefinitions.manager : roleTypeDefinitions.deputy
+                            }
+                            const has = targetCodes.includes(code)
+                            return (
+                              <div key={r.key} className="w-[70px] flex justify-center shrink-0">
+                                {has ? (
+                                  <div className="w-5 h-5 rounded bg-[var(--color-success-bg)] flex items-center justify-center text-[var(--color-success)] shadow-sm border border-[var(--color-success-border)]">
+                                    <Check size={12} strokeWidth={3} />
+                                  </div>
+                                ) : (
+                                  <div className="w-5 h-5 flex items-center justify-center">
+                                    <X size={12} className="text-[var(--color-subtle-foreground)] opacity-50" />
+                                  </div>
+                                )}
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    ))}
                   </div>
                 </div>
               ))}
             </div>
           </div>
-        </div>
 
-        {/* Footer */}
-        <div className="p-5 md:p-10 border-t border-slate-100 dark:border-slate-800 bg-white dark:bg-slate-900 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
-          <div className="flex items-start gap-3 text-slate-400">
-             <Shield size={18} className="shrink-0 mt-0.5" />
-             <p className="text-xs font-bold">
-               Hành động này sẽ thay thế toàn bộ thiết lập quyền hạn hiện tại của các vai trò. Hãy chắc chắn bạn đã kiểm tra kỹ.
-             </p>
-          </div>
-          <div className="flex flex-col-reverse md:flex-row gap-3 md:gap-4">
-            <button
-              onClick={onClose}
-              className="w-full md:w-auto px-6 md:px-8 py-3 md:py-4 bg-slate-100 dark:bg-slate-800 text-slate-600 dark:text-slate-400 rounded-2xl hover:bg-slate-200 font-black transition-all text-sm whitespace-nowrap"
-            >
-              Hủy bỏ
-            </button>
-            <button
-              onClick={handleApply}
-              disabled={isApplying}
-              className="w-full md:w-auto px-6 md:px-10 py-3 md:py-4 bg-indigo-600 text-white rounded-2xl hover:bg-indigo-700 font-black transition-all shadow-xl shadow-indigo-200 disabled:opacity-50 flex items-center justify-center gap-2 text-sm whitespace-nowrap"
-            >
-              {isApplying ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap size={16} fill="currentColor" />}
-              {isApplying ? 'Đang thiết lập...' : 'Xác nhận áp dụng cho toàn công ty'}
-            </button>
+          {/* Mobile matrix - card layout with role pills */}
+          <div className="md:hidden space-y-3">
+            {Object.entries(groupedPermissions).map(([resource, codes]) => (
+              <div key={resource} className="overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
+                <div className="px-4 py-2.5 bg-[var(--color-muted)] border-b border-[var(--color-border)] flex items-center gap-2">
+                  <Lock size={11} className="text-[var(--color-primary)]" />
+                  <span className="text-eyebrow text-[var(--color-foreground)]">{resource}</span>
+                </div>
+                <div className="divide-y divide-[var(--color-border)]">
+                  {codes.map(code => {
+                    const activeRoleLevels = Array.from(new Set(hierarchyLevels.map(l => l.roleLevel))).sort((a, b) => a - b)
+                    const minRoleLevel = activeRoleLevels[0]
+                    const maxRoleLevel = activeRoleLevels[activeRoleLevels.length - 1]
+                    return (
+                      <div key={code} className="px-4 py-3 space-y-2">
+                        <div>
+                          <span className="text-xs font-medium text-[var(--color-foreground)]">{code}</span>
+                          <span className="text-caption font-medium ml-2">{code.split(':')[1]} action</span>
+                        </div>
+                        <div className="flex flex-wrap gap-1.5">
+                          {displayRoles.map(r => {
+                            let targetCodes: string[] = []
+                            if (r.roleLevel === minRoleLevel && r.rank === 0) {
+                              targetCodes = roleTypeDefinitions.director
+                            } else if (r.roleLevel === maxRoleLevel && r.rank === 2) {
+                              targetCodes = roleTypeDefinitions.staff
+                            } else {
+                              targetCodes = r.rank === 0 ? roleTypeDefinitions.manager : roleTypeDefinitions.deputy
+                            }
+                            const has = targetCodes.includes(code)
+                            return (
+                              <span key={r.key} className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold border ${
+                                has
+                                  ? 'bg-[var(--color-success-bg)] text-[var(--color-success)] border-[var(--color-success-border)]'
+                                  : 'bg-[var(--color-muted)] text-[var(--color-subtle-foreground)] border-[var(--color-border)]'
+                              }`}>
+                                {has ? <Check size={8} strokeWidth={3} /> : <X size={8} />}
+                                {r.label}
+                              </span>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </div>
-    </div>
+    </Dialog>
   )
 }

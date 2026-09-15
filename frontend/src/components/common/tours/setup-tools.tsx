@@ -20,13 +20,13 @@ import type { TourDef } from './registry'
  */
 
 const note = (text: string) => (
-  <p className="text-[11px] bg-indigo-50 dark:bg-indigo-900/20 p-2 rounded-lg text-indigo-700 dark:text-indigo-300 font-bold italic">
+  <p className="text-xs bg-[var(--color-primary-soft)] p-2 rounded-control text-[var(--color-primary)] font-medium italic">
     💡 {text}
   </p>
 )
 
 const warn = (text: string) => (
-  <p className="text-[11px] bg-amber-50 dark:bg-amber-900/20 p-2 rounded-lg text-amber-700 dark:text-amber-400 font-bold italic border-l-4 border-amber-400">
+  <p className="text-xs bg-[var(--color-warning-bg)] p-2 rounded-control text-[var(--color-warning)] font-medium italic border-l-4 border-[var(--color-warning-border)]">
     ⚠️ {text}
   </p>
 )
@@ -48,7 +48,7 @@ const setupToolsTours: Record<TourKey, TourDef> = {
               Cụm <strong>Công cụ</strong> là nơi <strong>vận hành hằng kỳ</strong>: mở kỳ đánh giá, dựng
               OKR/BSC, trao thưởng, quản ví, chia hạn mức AI.
             </p>
-            <p className="text-[11px] text-slate-500">
+            <p className="text-caption">
               Thẻ nào không thấy nghĩa là tổ chức đang tắt công cụ đó — bật lại ở mục "Module &amp; tính năng".
             </p>
           </div>
@@ -122,11 +122,11 @@ const setupToolsTours: Record<TourKey, TourDef> = {
         title: '🔗 Cái nào kéo theo cái nào',
         content: (
           <div className="space-y-2">
-            <ul className="text-[11px] space-y-1.5 list-disc pl-4 text-slate-500 font-medium">
-              <li><strong className="text-slate-900 dark:text-white">KPI hành vi:</strong> bật thì mới có thang điểm định tính và Ma trận đánh giá.</li>
-              <li><strong className="text-slate-900 dark:text-white">BSC:</strong> bật thì có mục dựng bộ tiêu chí và góc nhìn BSC bên Phân tích.</li>
-              <li><strong className="text-slate-900 dark:text-white">OKR:</strong> bật thì phần Phân tích đổi từ xem theo KPI sang xem theo mục tiêu.</li>
-              <li><strong className="text-slate-900 dark:text-white">Thưởng &amp; Ví:</strong> hai số dư khác nhau (điểm và tiền), bật độc lập được.</li>
+            <ul className="text-xs space-y-1.5 list-disc pl-4 text-[var(--color-muted-foreground)] font-medium">
+              <li><strong className="text-[var(--color-foreground)]">KPI hành vi:</strong> bật thì mới có thang điểm định tính và Ma trận đánh giá.</li>
+              <li><strong className="text-[var(--color-foreground)]">BSC:</strong> bật thì có mục dựng bộ tiêu chí và góc nhìn BSC bên Phân tích.</li>
+              <li><strong className="text-[var(--color-foreground)]">OKR:</strong> bật thì phần Phân tích đổi từ xem theo KPI sang xem theo mục tiêu.</li>
+              <li><strong className="text-[var(--color-foreground)]">Thưởng &amp; Ví:</strong> hai số dư khác nhau (điểm và tiền), bật độc lập được.</li>
             </ul>
           </div>
         ),
@@ -153,10 +153,10 @@ const setupToolsTours: Record<TourKey, TourDef> = {
         title: '📏 Ba thang điểm, ba loại câu hỏi',
         content: (
           <div className="space-y-2">
-            <ul className="text-[11px] space-y-1.5 list-disc pl-4 text-slate-500 font-medium">
-              <li><strong className="text-slate-900 dark:text-white">Định lượng:</strong> đo được bằng số — doanh thu, số hồ sơ, tỉ lệ lỗi.</li>
-              <li><strong className="text-slate-900 dark:text-white">Định tính:</strong> người chấm chọn một mức có sẵn — thái độ, kỷ luật.</li>
-              <li><strong className="text-slate-900 dark:text-white">Hạnh kiểm:</strong> bộ tiêu chí hành vi có trọng số, chấm riêng thành một phiếu.</li>
+            <ul className="text-xs space-y-1.5 list-disc pl-4 text-[var(--color-muted-foreground)] font-medium">
+              <li><strong className="text-[var(--color-foreground)]">Định lượng:</strong> đo được bằng số — doanh thu, số hồ sơ, tỉ lệ lỗi.</li>
+              <li><strong className="text-[var(--color-foreground)]">Định tính:</strong> người chấm chọn một mức có sẵn — thái độ, kỷ luật.</li>
+              <li><strong className="text-[var(--color-foreground)]">Hạnh kiểm:</strong> bộ tiêu chí hành vi có trọng số, chấm riêng thành một phiếu.</li>
             </ul>
             {note('Thiếu tab nào nghĩa là tổ chức đang tắt module tương ứng ở mục "Module & tính năng" — không phải bạn thiếu quyền.')}
           </div>
@@ -248,10 +248,10 @@ const setupToolsTours: Record<TourKey, TourDef> = {
         title: '📊 Vị trí · Giá trị · % BSC',
         content: (
           <div className="space-y-2">
-            <ul className="text-[11px] space-y-1.5 list-disc pl-4 text-slate-500 font-medium">
-              <li><strong className="text-slate-900 dark:text-white">Vị trí:</strong> thứ tự cột khi xuất bảng tính.</li>
-              <li><strong className="text-slate-900 dark:text-white">Giá trị:</strong> điểm quy đổi, dùng làm trục cho ma trận xếp loại.</li>
-              <li><strong className="text-slate-900 dark:text-white">% BSC:</strong> mức hoàn thành tương ứng khi tính điểm BSC — chỉ hiện khi tổ chức bật BSC.</li>
+            <ul className="text-xs space-y-1.5 list-disc pl-4 text-[var(--color-muted-foreground)] font-medium">
+              <li><strong className="text-[var(--color-foreground)]">Vị trí:</strong> thứ tự cột khi xuất bảng tính.</li>
+              <li><strong className="text-[var(--color-foreground)]">Giá trị:</strong> điểm quy đổi, dùng làm trục cho ma trận xếp loại.</li>
+              <li><strong className="text-[var(--color-foreground)]">% BSC:</strong> mức hoàn thành tương ứng khi tính điểm BSC — chỉ hiện khi tổ chức bật BSC.</li>
             </ul>
             {note('Giá trị và % BSC độc lập nhau: một mức có thể đáng 3.5 điểm trên thang 5 mà vẫn tính là 80% hoàn thành.')}
           </div>
@@ -438,7 +438,7 @@ const setupToolsTours: Record<TourKey, TourDef> = {
               Hai tầng thời gian, đừng nhầm: <strong>Đợt</strong> là một lần nộp và chấm (thường theo
               tháng). <strong>Kỳ</strong> gom nhiều đợt lại để ra một kết quả tổng hợp (quý, nửa năm, năm).
             </p>
-            <p className="text-[11px] text-slate-500">
+            <p className="text-caption">
               Nhân viên nộp báo cáo theo đợt; xếp loại và khen thưởng thì tính theo kỳ.
             </p>
           </div>
@@ -517,7 +517,7 @@ const setupToolsTours: Record<TourKey, TourDef> = {
         content: (
           <div className="space-y-2">
             <p>Một "Đợt KPI" là một chu kỳ làm việc và đánh giá chính thức của công ty.</p>
-            <p className="text-[11px] text-slate-500">
+            <p className="text-caption">
               Thiết lập theo <strong>Tháng, Quý, Năm</strong> hoặc theo chiến dịch ngắn hạn, tuỳ mô hình
               vận hành của doanh nghiệp.
             </p>
@@ -675,11 +675,11 @@ const setupToolsTours: Record<TourKey, TourDef> = {
         title: '🗂️ Bảy tab, bốn nhóm việc',
         content: (
           <div className="space-y-2">
-            <ul className="text-[11px] space-y-1.5 list-disc pl-4 text-slate-500 font-medium">
-              <li><strong className="text-slate-900 dark:text-white">Trao &amp; duyệt:</strong> Đề nghị thưởng, Hạn mức.</li>
-              <li><strong className="text-slate-900 dark:text-white">Tự động:</strong> Chương trình tự động, Điểm danh.</li>
-              <li><strong className="text-slate-900 dark:text-white">Ghi nhận:</strong> Mẫu chứng nhận.</li>
-              <li><strong className="text-slate-900 dark:text-white">Đổi quà:</strong> Quà tặng, Yêu cầu đổi quà.</li>
+            <ul className="text-xs space-y-1.5 list-disc pl-4 text-[var(--color-muted-foreground)] font-medium">
+              <li><strong className="text-[var(--color-foreground)]">Trao &amp; duyệt:</strong> Đề nghị thưởng, Hạn mức.</li>
+              <li><strong className="text-[var(--color-foreground)]">Tự động:</strong> Chương trình tự động, Điểm danh.</li>
+              <li><strong className="text-[var(--color-foreground)]">Ghi nhận:</strong> Mẫu chứng nhận.</li>
+              <li><strong className="text-[var(--color-foreground)]">Đổi quà:</strong> Quà tặng, Yêu cầu đổi quà.</li>
             </ul>
             {note('Số vàng trên tab là số việc đang chờ bạn xử lý — có số thì vào tab đó trước.')}
           </div>

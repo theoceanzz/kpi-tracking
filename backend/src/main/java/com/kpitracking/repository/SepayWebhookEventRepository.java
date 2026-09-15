@@ -20,11 +20,19 @@ import java.util.UUID;
  * của tổ chức này nhìn thấy — và xử lý được — giao dịch chuyển khoản của tổ chức
  * khác.
  *
- * <p>Điều kiện lọc luôn là {@code organization = :orgId OR organization IS NULL}:
- * sự kiện chưa xác định được tổ chức (tiền về tài khoản chưa ai khai) phải hiện
- * ra ở đâu đó, vì giấu nó đi là giấu một khoản tiền đã thật sự vào tài khoản.
- * Đường ghi có thẳng cho người dùng bị chặn với nhóm này, xem
- * {@code SepayReconcileService}.
+ * <p>Điều kiện lọc là {@code organization.id = :orgId} và KHÔNG kèm nhánh
+ * {@code OR organization IS NULL}. Sự kiện chưa quy được về tổ chức nào là tiền
+ * về một tài khoản chưa ai khai — mà "chưa ai khai" thường có nghĩa là tổ chức
+ * chủ tài khoản đã liên kết bên SePay nhưng chưa lưu số vào Cấu hình ví, chứ
+ * không phải tiền vô chủ. Cho nhánh NULL hiện ra ở mọi tổ chức tức là để tổ chức
+ * B đọc được nội dung, số tiền và tên người chuyển của tổ chức A chỉ vì A chưa
+ * kịp cấu hình. Rò dữ liệu giữa các tổ chức nặng hơn hẳn cái được của việc phơi
+ * sớm một sự kiện chưa phân loại.
+ *
+ * <p>Đổi lại, nhóm NULL không hiện ở đâu cho tới khi có tổ chức khai đúng số tài
+ * khoản; lúc lưu cấu hình, {@link #attachOrganizationByAccount} gán ngược chúng
+ * về tổ chức đó và chúng xuất hiện đầy đủ trong hàng đợi. Đó là đường ra DUY
+ * NHẤT, nên đừng nới điều kiện lọc ở đây khi thấy hàng đợi trống.
  */
 @Repository
 public interface SepayWebhookEventRepository extends JpaRepository<SepayWebhookEvent, UUID> {
@@ -48,7 +56,7 @@ public interface SepayWebhookEventRepository extends JpaRepository<SepayWebhookE
      */
     @Query("""
             SELECT e FROM SepayWebhookEvent e
-             WHERE (e.organization.id = :orgId OR e.organization IS NULL)
+             WHERE e.organization.id = :orgId
                AND e.resolvedAt IS NULL
                AND (e.status = com.kpitracking.enums.SepayEventStatus.UNMATCHED
                     OR e.amountMismatch = TRUE)
@@ -58,14 +66,14 @@ public interface SepayWebhookEventRepository extends JpaRepository<SepayWebhookE
 
     @Query("""
             SELECT e FROM SepayWebhookEvent e
-             WHERE e.organization.id = :orgId OR e.organization IS NULL
+             WHERE e.organization.id = :orgId
              ORDER BY e.receivedAt DESC
             """)
     Page<SepayWebhookEvent> findHistory(@Param("orgId") UUID orgId, Pageable pageable);
 
     @Query("""
             SELECT COUNT(e) FROM SepayWebhookEvent e
-             WHERE (e.organization.id = :orgId OR e.organization IS NULL)
+             WHERE e.organization.id = :orgId
                AND e.resolvedAt IS NULL
                AND e.status = com.kpitracking.enums.SepayEventStatus.UNMATCHED
             """)
@@ -73,7 +81,7 @@ public interface SepayWebhookEventRepository extends JpaRepository<SepayWebhookE
 
     @Query("""
             SELECT COUNT(e) FROM SepayWebhookEvent e
-             WHERE (e.organization.id = :orgId OR e.organization IS NULL)
+             WHERE e.organization.id = :orgId
                AND e.resolvedAt IS NULL AND e.amountMismatch = TRUE
             """)
     long countAmountMismatch(@Param("orgId") UUID orgId);

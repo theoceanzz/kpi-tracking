@@ -1,4 +1,5 @@
 import { useNavigate } from 'react-router-dom'
+import { Button } from '@/components/ui/button'
 
 function LarkIcon({ className }: { className?: string }) {
   return (
@@ -27,13 +28,9 @@ export default function LarkLoginButton() {
   const navigate = useNavigate()
 
   return (
-    <button
-      type="button"
-      onClick={() => navigate('/auth/lark/select-company')}
-      className="w-full py-3.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-background)] text-[var(--color-foreground)] font-bold hover:bg-[var(--color-muted)]/50 hover:border-[var(--color-primary)]/40 transition-all flex items-center justify-center gap-2.5 shadow-sm"
-    >
-      <LarkIcon className="h-5 w-5" />
+    <Button variant="outline" className="w-full" type="button" onClick={() => navigate('/auth/lark/select-company')}>
+      <LarkIcon aria-hidden="true" className="h-5 w-5" />
       Đăng nhập với Lark
-    </button>
+    </Button>
   )
 }

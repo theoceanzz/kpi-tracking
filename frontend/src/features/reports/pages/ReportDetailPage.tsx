@@ -2,6 +2,17 @@ import { useState, useMemo, useEffect, memo } from 'react'
 import { debounce } from 'lodash-es'
 import { useParams, useNavigate } from 'react-router-dom'
 import { ArrowLeft, Plus, Database, Trash2, BarChart3, LineChart as LineChartIcon, PieChart as PieChartIcon, AreaChart as AreaChartIcon, Hash, Table2, MoreVertical, Copy, Settings, ChevronDown, X } from 'lucide-react'
+import { Dialog, DialogFooter } from '@/components/ui/dialog'
+import { Button } from '@/components/ui/button'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import EmptyState from '@/components/common/EmptyState'
+import ConfirmDialog from '@/components/common/ConfirmDialog'
+import { Badge } from '@/components/ui/badge'
+
+/** Radix không nhận value rỗng nên "mặc định" dùng giá trị canh gác rồi đổi về '' khi lưu. */
+const NONE = '__none__'
+const MENU_ITEM = 'flex h-9 w-full items-center gap-2.5 rounded-control px-2.5 text-left text-sm text-[var(--color-foreground)] transition-colors hover:bg-[var(--color-muted)] [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-[var(--color-muted-foreground)]'
 import { BarChart, Bar, LineChart, Line, PieChart, Pie, Cell, AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, Legend, ResponsiveContainer } from 'recharts'
 import { Responsive, WidthProvider } from 'react-grid-layout/legacy'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
@@ -48,7 +59,7 @@ function processData(rawData: Record<string, unknown>[], config: ChartConfig, ty
   const xKey = config.x_axis?.label || Object.keys(firstRow)[0] || 'x'
   const yKey = config.y_axis?.label || Object.keys(firstRow)[1] || 'y'
   const aggType = config.agg_type || 'COUNT'
-  
+
   if (type === 'TABLE') return rawData
 
   const resolveVal = (val: any, col?: DsColumn) => {
@@ -83,7 +94,7 @@ function processData(rawData: Record<string, unknown>[], config: ChartConfig, ty
   const grouped: Record<string, number> = {}
   rawData.forEach(row => {
     const xRawVal = row[xKey]
-    
+
     let splitVals: any[] = []
     if (Array.isArray(xRawVal)) {
       splitVals = xRawVal
@@ -104,9 +115,9 @@ function processData(rawData: Record<string, unknown>[], config: ChartConfig, ty
 
     splitVals.forEach(v => {
       const xVal = resolveVal(v, xCol)
-      
+
       if (!grouped[xVal]) grouped[xVal] = 0
-      
+
       if (aggType === 'COUNT') {
         grouped[xVal] += 1
       } else {
@@ -123,7 +134,7 @@ function processData(rawData: Record<string, unknown>[], config: ChartConfig, ty
     result.sort((a, b) => {
       const valA = config.sort_by === 'X' ? a[xKey] : a[yKey]
       const valB = config.sort_by === 'X' ? b[xKey] : b[yKey]
-      
+
       const dir = config.sort_dir === 'DESC' ? -1 : 1
       if (typeof valA === 'number' && typeof valB === 'number') return (valA - valB) * dir
       return String(valA).localeCompare(String(valB)) * dir
@@ -184,12 +195,12 @@ const ChartRenderer = memo(({ widget, rawData, allColumns, users }: { widget: Re
       return (
         <ResponsiveContainer width="100%" height="100%">
           <PieChart>
-            <Pie 
-              data={data} 
-              dataKey={yKey} 
-              nameKey={xKey} 
-              cx="50%" 
-              cy="50%" 
+            <Pie
+              data={data}
+              dataKey={yKey}
+              nameKey={xKey}
+              cx="50%"
+              cy="50%"
               outerRadius={70}
               innerRadius={isDonut ? 45 : 0}
               isAnimationActive={false}
@@ -200,13 +211,13 @@ const ChartRenderer = memo(({ widget, rawData, allColumns, users }: { widget: Re
                  const x = (cx || 0) + radius * Math.cos(-(midAngle || 0) * RADIAN);
                  const y = (cy || 0) + radius * Math.sin(-(midAngle || 0) * RADIAN);
                  const percent = total > 0 ? ((value / total) * 100).toFixed(1) : 0;
-                 
+
                  return (
-                   <text 
-                     x={x} 
-                     y={y} 
-                     fill="var(--color-muted-foreground)" 
-                     textAnchor={x > (cx || 0) ? 'start' : 'end'} 
+                   <text
+                     x={x}
+                     y={y}
+                     fill="var(--color-muted-foreground)"
+                     textAnchor={x > (cx || 0) ? 'start' : 'end'}
                      dominantBaseline="central"
                      fontSize={10}
                      fontWeight={500}
@@ -219,14 +230,14 @@ const ChartRenderer = memo(({ widget, rawData, allColumns, users }: { widget: Re
             >
               {data.map((_, index) => <Cell key={index} fill={COLORS[index % COLORS.length]} />)}
             </Pie>
-            <Tooltip 
+            <Tooltip
               content={({ active, payload }) => {
                 if (active && payload && payload.length > 0 && payload[0]) {
                   const val = Number(payload[0].value)
                   const percent = total > 0 ? ((val / total) * 100).toFixed(1) : 0
                   return (
-                    <div className="bg-[var(--color-card)] border border-[var(--color-border)] rounded-lg p-3 shadow-xl text-xs">
-                      <p className="font-bold mb-1">{payload[0].name}</p>
+                    <div className="bg-[var(--color-card)] border border-[var(--color-border)] rounded-control p-3 text-xs">
+                      <p className="font-semibold mb-1">{payload[0].name}</p>
                       <p className="text-[var(--color-primary)] font-semibold">Giá trị: {val.toLocaleString('vi-VN')}</p>
                       <p className="text-[var(--color-muted-foreground)]">Tỷ lệ: {percent}%</p>
                     </div>
@@ -257,8 +268,8 @@ const ChartRenderer = memo(({ widget, rawData, allColumns, users }: { widget: Re
       const cardData = data[0] || { value: 0, key: '' }
       return (
         <div className="flex flex-col items-center justify-center h-full">
-          <span className="text-5xl font-black text-[var(--color-primary)]">{(Number(cardData.value) || 0).toLocaleString('vi-VN')}</span>
-          <span className="text-sm font-medium text-[var(--color-muted-foreground)] mt-2 uppercase tracking-wider">{String(cardData.key || '')} ({config.agg_type === 'SUM' ? 'Tổng' : 'Số lượng'})</span>
+          <span className="text-5xl font-semibold text-[var(--color-primary)]">{(Number(cardData.value) || 0).toLocaleString('vi-VN')}</span>
+          <span className="text-sm font-medium text-[var(--color-muted-foreground)] mt-2">{String(cardData.key || '')} ({config.agg_type === 'SUM' ? 'Tổng' : 'Số lượng'})</span>
         </div>
       )
     }
@@ -267,7 +278,7 @@ const ChartRenderer = memo(({ widget, rawData, allColumns, users }: { widget: Re
         <div className="overflow-auto h-full">
           <table className="w-full text-xs">
             <thead>
-              <tr>{keys.map(k => <th key={k} className="px-3 py-2 text-left font-semibold border-b border-[var(--color-border)] bg-[var(--color-accent)]/50">{k}</th>)}</tr>
+              <tr>{keys.map(k => <th key={k} className="px-3 py-2 text-left font-medium border-b border-[var(--color-border)] bg-[var(--color-accent)]/50">{k}</th>)}</tr>
             </thead>
             <tbody>
               {data.slice(0, 50).map((row, i) => (
@@ -283,8 +294,8 @@ const ChartRenderer = memo(({ widget, rawData, allColumns, users }: { widget: Re
       return <div className="flex items-center justify-center h-full text-sm text-[var(--color-muted-foreground)]">Widget type: {widget.widgetType}</div>
   }
 }, (prev, next) => {
-  return prev.widget.id === next.widget.id && 
-         prev.widget.chartConfig === next.widget.chartConfig && 
+  return prev.widget.id === next.widget.id &&
+         prev.widget.chartConfig === next.widget.chartConfig &&
          prev.widget.title === next.widget.title &&
          prev.widget.reportDatasourceId === next.widget.reportDatasourceId &&
          prev.rawData === next.rawData &&
@@ -313,11 +324,12 @@ export default function ReportDetailPage() {
 
   const [showAddDs, setShowAddDs] = useState(false)
   const [selectedDsId, setSelectedDsId] = useState('')
-  
+
   // Drawer state
   const [activeWidgetId, setActiveWidgetId] = useState<string | null>(null)
   const [dropdownOpen, setDropdownOpen] = useState(false)
-  const [menuOpenId, setMenuOpenId] = useState<string | null>(null)
+  const [deleteWidgetId, setDeleteWidgetId] = useState<string | null>(null)
+  const [removeDsId, setRemoveDsId] = useState<string | null>(null)
 
   // Drawer form state
   const [drawerConfig, setDrawerConfig] = useState<{
@@ -356,7 +368,7 @@ export default function ReportDetailPage() {
     const firstRd = report.datasources[0]
     if (!firstRd) return
     const config = JSON.stringify({ agg_type: 'COUNT', sort_by: 'NONE', sort_dir: 'DESC' })
-    
+
     // Auto calculate next position for 3 columns (w=4)
     const widgetCount = report.widgets?.length || 0
     const x = (widgetCount % 3) * 4
@@ -365,15 +377,15 @@ export default function ReportDetailPage() {
 
     addWidgetMut.mutate({
       reportId: id,
-      data: { 
-        reportDatasourceId: firstRd.id, 
-        widgetType: type, 
-        title: 'Biểu đồ', 
+      data: {
+        reportDatasourceId: firstRd.id,
+        widgetType: type,
+        title: 'Biểu đồ',
         chartConfig: config,
         position: pos
       }
     }, {
-      onSuccess: (newWidget) => { 
+      onSuccess: (newWidget) => {
         setDropdownOpen(false)
         if (newWidget) {
           openSettings(newWidget)
@@ -389,7 +401,7 @@ export default function ReportDetailPage() {
         if (widget) {
           let pos = { x: 0, y: 0, w: 4, h: 4 }
           try { pos = JSON.parse(widget.position) } catch { /* ignore */ }
-          
+
           if (pos.x !== item.x || pos.y !== item.y || pos.w !== item.w || pos.h !== item.h) {
             updateWidgetMut.mutate({
               widgetId: widget.id,
@@ -424,7 +436,6 @@ export default function ReportDetailPage() {
       reportId: id!,
       data: { reportDatasourceId: widget.reportDatasourceId, widgetType: widget.widgetType, title: `${widget.title} (Copy)`, chartConfig: widget.chartConfig }
     })
-    setMenuOpenId(null)
   }
 
   const openSettings = (widget: ReportWidgetType) => {
@@ -436,14 +447,13 @@ export default function ReportDetailPage() {
       chartConfig: cfg
     })
     setActiveWidgetId(widget.id)
-    setMenuOpenId(null)
   }
 
   const handleSaveSettings = () => {
     if (!activeWidgetId) return
     const widget = report?.widgets?.find(w => w.id === activeWidgetId)
     if (!widget) return
-    
+
     updateWidgetMut.mutate({
       widgetId: activeWidgetId,
       data: {
@@ -511,63 +521,69 @@ export default function ReportDetailPage() {
   if (isLoading) {
     return <div className="space-y-4">
       <div className="h-8 w-64 bg-[var(--color-accent)] rounded animate-pulse" />
-      <div className="h-96 bg-[var(--color-accent)] rounded-xl animate-pulse" />
+      <div className="h-96 bg-[var(--color-accent)] rounded-card animate-pulse" />
     </div>
   }
 
+  /** Menu "…" của một khối: Cài đặt · Nhân bản · Xoá (xoá qua hộp xác nhận). */
+  const WidgetMenu = ({ widget }: { widget: ReportWidgetType }) => (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button variant="ghost" size="icon-sm" aria-label="Thao tác" title="Thao tác"><MoreVertical aria-hidden="true" /></Button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-44 p-1">
+        <button type="button" onClick={() => openSettings(widget)} className={MENU_ITEM}><Settings aria-hidden="true" /> Cài đặt</button>
+        <button type="button" onClick={() => handleDuplicateWidget(widget)} className={MENU_ITEM}><Copy aria-hidden="true" /> Nhân bản</button>
+        <div className="my-1 h-px bg-[var(--color-border)]" role="separator" />
+        <button type="button" onClick={() => setDeleteWidgetId(widget.id)} className={`${MENU_ITEM} text-[var(--color-error)] hover:bg-[var(--color-error-bg)] [&_svg]:text-[var(--color-error)]`}><Trash2 aria-hidden="true" /> Xoá biểu đồ</button>
+      </PopoverContent>
+    </Popover>
+  )
+
   if (!report) {
-    return <div className="text-center py-16 text-[var(--color-muted-foreground)]">Không tìm thấy báo cáo</div>
+    return (
+      <div className="mx-auto max-w-[1600px] rounded-card border border-dashed border-[var(--color-border)] bg-[var(--color-card)]">
+        <EmptyState
+          icon={BarChart3}
+          title="Không tìm thấy báo cáo"
+          description="Báo cáo này có thể đã bị xoá hoặc bạn không có quyền xem."
+          action={<Button variant="outline" onClick={() => navigate('/reports')}><ArrowLeft aria-hidden="true" /> Về danh sách</Button>}
+        />
+      </div>
+    )
   }
 
 
   return (
     <div className="flex flex-col h-full overflow-hidden bg-[var(--color-background)]">
-      {/* Header & Lark Toolbar (Fixed at top) */}
-      <div className="px-6 py-4 border-b border-[var(--color-border)] bg-[var(--color-card)] z-10">
-        <div className="max-w-[1400px] mx-auto flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-          <div className="flex items-center gap-3 min-w-0">
-            <button onClick={() => navigate('/reports')} className="p-2 rounded-lg hover:bg-[var(--color-accent)] transition-colors shrink-0">
-              <ArrowLeft size={20} />
-            </button>
+      {/* Header: quay lại + tên + hai nút; thư viện khối là popover thay cho dropdown tự vẽ */}
+      <div className="z-10 border-b border-[var(--color-border)] bg-[var(--color-card)] px-6 py-3">
+        <div className="mx-auto flex max-w-[1400px] flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-center gap-3">
+            <Button variant="outline" size="icon" onClick={() => navigate('/reports')} aria-label="Quay lại" className="shrink-0"><ArrowLeft aria-hidden="true" /></Button>
             <div className="min-w-0">
-              <h1 className="text-xl font-bold truncate">{report.name}</h1>
-              {report.description && <p className="text-sm text-[var(--color-muted-foreground)] truncate">{report.description}</p>}
+              <h1 className="text-page-title truncate">{report.name}</h1>
+              <p className="truncate text-sm text-[var(--color-muted-foreground)]">
+                {report.description || 'Không có mô tả'} · <span className="tabular-nums">{report.widgets?.length ?? 0} biểu đồ</span>
+              </p>
             </div>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            <button onClick={() => setShowAddDs(true)} className="flex items-center gap-1.5 px-3 py-2 text-sm rounded-lg border border-[var(--color-border)] hover:bg-[var(--color-accent)] transition-colors font-medium whitespace-nowrap">
-              <Database size={16} /> Nguồn dữ liệu
-            </button>
-
-            <div className="relative">
-              <button
-                onClick={() => setDropdownOpen(!dropdownOpen)}
-                className="flex items-center gap-1.5 px-3 py-2 text-sm rounded-lg bg-[var(--color-primary)] text-white hover:opacity-90 transition-all font-medium"
-              >
-                <Plus size={16} /> Thêm biểu đồ <ChevronDown size={14} className="ml-1 opacity-70" />
-              </button>
-
-              {dropdownOpen && (
-                <>
-                  <div className="fixed inset-0 z-40" onClick={() => setDropdownOpen(false)}></div>
-                  <div className="absolute right-0 top-full mt-2 w-56 bg-[var(--color-card)] border border-[var(--color-border)] rounded-xl shadow-2xl py-2 z-50 animate-in fade-in slide-in-from-top-2">
-                    <div className="px-3 pb-2 text-xs font-bold uppercase tracking-wider text-[var(--color-muted-foreground)]">Thư viện khối (Blocks)</div>
-                    {WIDGET_TYPES.map(wt => (
-                      <button
-                        key={wt.value}
-                        onClick={() => handleAutoCreateWidget(wt.value)}
-                        className="w-full flex items-center gap-3 px-4 py-2 hover:bg-[var(--color-accent)] text-sm transition-colors text-left"
-                      >
-                        <div className="p-1.5 bg-[var(--color-primary)]/10 text-[var(--color-primary)] rounded-md">
-                          {wt.icon}
-                        </div>
-                        <span className="font-medium">{wt.label}</span>
-                      </button>
-                    ))}
-                  </div>
-                </>
-              )}
-            </div>
+          <div className="flex shrink-0 items-center gap-2">
+            <Button variant="outline" onClick={() => setShowAddDs(true)}><Database aria-hidden="true" /> Nguồn dữ liệu</Button>
+            <Popover open={dropdownOpen} onOpenChange={setDropdownOpen}>
+              <PopoverTrigger asChild>
+                <Button><Plus aria-hidden="true" /> Thêm biểu đồ <ChevronDown aria-hidden="true" className="opacity-70" /></Button>
+              </PopoverTrigger>
+              <PopoverContent align="end" className="w-56 p-1">
+                <p className="px-2.5 pb-1 pt-1.5 text-eyebrow">Thư viện khối</p>
+                {WIDGET_TYPES.map(wt => (
+                  <button key={wt.value} type="button" onClick={() => { handleAutoCreateWidget(wt.value); setDropdownOpen(false) }} className={MENU_ITEM}>
+                    {wt.icon}
+                    <span>{wt.label}</span>
+                  </button>
+                ))}
+              </PopoverContent>
+            </Popover>
           </div>
         </div>
       </div>
@@ -578,14 +594,16 @@ export default function ReportDetailPage() {
         <div className="flex-1 overflow-y-auto px-6 py-6 custom-scrollbar">
           <div className="max-w-[1400px] mx-auto space-y-6">
             {report.datasources && report.datasources.length > 0 && (
-              <div className="flex items-center gap-2 flex-wrap">
-                <span className="text-xs font-semibold text-[var(--color-muted-foreground)] mr-2">🔗 Đã liên kết:</span>
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="text-caption">Nguồn đã kết nối:</span>
                 {report.datasources.map(rd => (
-                  <span key={rd.id} className="flex items-center gap-1.5 px-3 py-1 bg-[var(--color-accent)] border border-[var(--color-border)] rounded-full text-xs font-medium">
-                    <Database size={12} className="text-[var(--color-primary)] opacity-70" />
+                  <Badge key={rd.id} variant="outline" className="gap-1.5 pr-1">
+                    <Database size={12} aria-hidden="true" />
                     {rd.alias || rd.datasourceName}
-                    <button onClick={() => removeDsMut.mutate(rd.id)} className="ml-1 opacity-50 hover:opacity-100 hover:text-red-500 transition-all">×</button>
-                  </span>
+                    <button type="button" onClick={() => setRemoveDsId(rd.id)} aria-label={`Gỡ ${rd.alias || rd.datasourceName}`} className="ml-0.5 flex h-4 w-4 items-center justify-center rounded-full text-[var(--color-muted-foreground)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]">
+                      <X size={11} aria-hidden="true" />
+                    </button>
+                  </Badge>
                 ))}
               </div>
             )}
@@ -609,36 +627,22 @@ export default function ReportDetailPage() {
                   margin={[16, 16]}
                 >
                   {report.widgets.map(widget => (
-                    <div key={widget.id} className={`group bg-[var(--color-card)] border rounded-xl overflow-visible hover:shadow-lg transition-shadow duration-200 relative ${activeWidgetId === widget.id ? 'ring-2 ring-[var(--color-primary)] border-transparent shadow-xl' : 'border-[var(--color-border)]'}`}>
-                      <div className="drag-handle flex items-center justify-between px-4 py-3 border-b border-[var(--color-border)] bg-[var(--color-background)]/50 rounded-t-xl cursor-move">
-                        <div className="flex items-center gap-2 min-w-0">
+                    <div key={widget.id} className={`group relative overflow-visible rounded-widget border bg-[var(--color-card)] transition-colors ${activeWidgetId === widget.id ? 'border-[var(--color-primary)] ring-2 ring-[var(--color-ring)]' : 'border-[var(--color-border)]'}`}>
+                      <div className="drag-handle flex cursor-move items-center justify-between border-b border-[var(--color-border)] px-4 py-2.5">
+                        <div className="flex min-w-0 items-center gap-2 text-[var(--color-muted-foreground)] [&_svg]:size-4">
                           {WIDGET_TYPES.find(w => w.value === widget.widgetType)?.icon}
-                          <h3 className="font-bold text-sm truncate">{widget.title}</h3>
+                          <h3 className="truncate text-section-title">{widget.title}</h3>
                         </div>
-
-                        <div className="relative">
-                          <button onClick={(e) => { e.stopPropagation(); setMenuOpenId(menuOpenId === widget.id ? null : widget.id) }} className="p-1.5 rounded-md hover:bg-[var(--color-accent)] opacity-0 group-hover:opacity-100 transition-opacity">
-                            <MoreVertical size={16} />
-                          </button>
-                          {menuOpenId === widget.id && (
-                            <>
-                              <div className="fixed inset-0 z-40" onClick={() => setMenuOpenId(null)}></div>
-                              <div className="absolute right-0 top-full mt-1 w-36 bg-[var(--color-card)] border border-[var(--color-border)] rounded-lg shadow-xl py-1 z-50 overflow-hidden">
-                                <button onClick={() => openSettings(widget)} className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-[var(--color-accent)] text-left"><Settings size={14} /> Cài đặt</button>
-                                <button onClick={() => handleDuplicateWidget(widget)} className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-[var(--color-accent)] text-left"><Copy size={14} /> Nhân bản</button>
-                                <hr className="my-1 border-[var(--color-border)]" />
-                                <button onClick={() => { deleteWidgetMut.mutate(widget.id); setMenuOpenId(null) }} className="w-full flex items-center gap-2 px-3 py-2 text-xs hover:bg-red-500/10 text-red-500 text-left"><Trash2 size={14} /> Xóa block</button>
-                              </div>
-                            </>
-                          )}
+                        <div onMouseDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()}>
+                          <WidgetMenu widget={widget} />
                         </div>
                       </div>
                       <div className="h-[calc(100%-80px)] p-4 overflow-hidden">
                         <ChartRenderer widget={widget} rawData={dataMap[widget.reportDatasourceId] || EMPTY_ARRAY} allColumns={columnMap[widget.reportDatasourceId] || EMPTY_ARRAY} users={allUsers} />
                       </div>
-                      <div className="px-4 py-2 border-t border-[var(--color-border)] text-[9px] uppercase font-bold text-[var(--color-muted-foreground)] tracking-wider flex items-center justify-between bg-[var(--color-background)]/30 rounded-b-xl h-10">
-                        <span className="truncate mr-2">Dữ liệu: {widget.datasourceName}</span>
-                        <span className="shrink-0">{widget.widgetType}</span>
+                      <div className="flex h-10 items-center justify-between border-t border-[var(--color-border)] px-4 text-caption">
+                        <span className="mr-2 truncate">Dữ liệu: {widget.datasourceName}</span>
+                        <span className="shrink-0">{WIDGET_TYPES.find(w => w.value === widget.widgetType)?.label ?? widget.widgetType}</span>
                       </div>
                     </div>
                   ))}
@@ -646,144 +650,157 @@ export default function ReportDetailPage() {
               ) : (
                 <div className="flex flex-col gap-4">
                   {stackedWidgets.map(widget => (
-                    <div key={widget.id} className="bg-[var(--color-card)] border border-[var(--color-border)] rounded-xl overflow-hidden">
-                      <div className="flex items-center gap-2 min-w-0 px-4 py-3 border-b border-[var(--color-border)] bg-[var(--color-background)]/50">
-                        {WIDGET_TYPES.find(w => w.value === widget.widgetType)?.icon}
-                        <h3 className="font-bold text-sm truncate">{widget.title}</h3>
+                    <div key={widget.id} className="overflow-hidden rounded-widget border border-[var(--color-border)] bg-[var(--color-card)]">
+                      <div className="flex items-center justify-between gap-2 border-b border-[var(--color-border)] px-4 py-2.5">
+                        <div className="flex min-w-0 items-center gap-2 text-[var(--color-muted-foreground)] [&_svg]:size-4">
+                          {WIDGET_TYPES.find(w => w.value === widget.widgetType)?.icon}
+                          <h3 className="truncate text-section-title">{widget.title}</h3>
+                        </div>
+                        <WidgetMenu widget={widget} />
                       </div>
                       <div className="h-[320px] p-4 overflow-hidden">
                         <ChartRenderer widget={widget} rawData={dataMap[widget.reportDatasourceId] || EMPTY_ARRAY} allColumns={columnMap[widget.reportDatasourceId] || EMPTY_ARRAY} users={allUsers} />
                       </div>
-                      <div className="px-4 py-2 border-t border-[var(--color-border)] text-[9px] uppercase font-bold text-[var(--color-muted-foreground)] tracking-wider flex items-center justify-between bg-[var(--color-background)]/30">
-                        <span className="truncate mr-2">Dữ liệu: {widget.datasourceName}</span>
-                        <span className="shrink-0">{widget.widgetType}</span>
+                      <div className="flex items-center justify-between border-t border-[var(--color-border)] px-4 py-2 text-caption">
+                        <span className="mr-2 truncate">Dữ liệu: {widget.datasourceName}</span>
+                        <span className="shrink-0">{WIDGET_TYPES.find(w => w.value === widget.widgetType)?.label ?? widget.widgetType}</span>
                       </div>
                     </div>
                   ))}
                 </div>
               )
             ) : (
-              <div className="text-center py-20 bg-transparent border-2 border-dashed border-[var(--color-border)] rounded-2xl">
-                <div className="w-16 h-16 bg-[var(--color-accent)] rounded-2xl flex items-center justify-center mx-auto mb-4 text-[var(--color-muted-foreground)]">
-                  <BarChart3 size={32} />
-                </div>
-                <p className="text-lg font-bold">Chưa có Block dữ liệu nào</p>
-                <p className="text-sm text-[var(--color-muted-foreground)] mt-2 mb-6 max-w-sm mx-auto">Sử dụng thanh công cụ bên trên để thêm biểu đồ hoặc bảng thông kê vào báo cáo của bạn ngay lập tức.</p>
-                <button onClick={() => setDropdownOpen(true)} className="inline-flex items-center gap-2 px-5 py-2.5 bg-[var(--color-primary)] text-white rounded-xl hover:opacity-90 font-medium shadow-sm">
-                  <Plus size={18} /> Thêm Block đầu tiên
-                </button>
+              <div className="rounded-card border border-dashed border-[var(--color-border)] bg-[var(--color-card)]">
+                <EmptyState
+                  icon={BarChart3}
+                  title="Chưa có biểu đồ nào"
+                  description={report.datasources?.length ? 'Bấm "Thêm biểu đồ" để chọn loại khối; mỗi khối lấy dữ liệu từ một nguồn đã kết nối.' : 'Kết nối một nguồn dữ liệu trước, rồi thêm biểu đồ từ nguồn đó.'}
+                  action={report.datasources?.length
+                    ? <Button onClick={() => setDropdownOpen(true)}><Plus aria-hidden="true" /> Thêm biểu đồ đầu tiên</Button>
+                    : <Button onClick={() => setShowAddDs(true)}><Database aria-hidden="true" /> Kết nối nguồn dữ liệu</Button>}
+                />
               </div>
             )}
           </div>
         </div>
 
         {/* Persistent Drawer (Push layout) */}
-        <div className={`shrink-0 overflow-hidden border-l border-[var(--color-border)] bg-[var(--color-card)] h-full ${activeWidgetId ? 'w-96 shadow-2xl' : 'hidden'}`}>
+        <div className={`shrink-0 overflow-hidden border-l border-[var(--color-border)] bg-[var(--color-card)] h-full ${activeWidgetId ? 'w-96' : 'hidden'}`}>
           <div className="w-96 flex flex-col h-full">
-            <div className="flex items-center justify-between p-4 border-b border-[var(--color-border)]">
-              <h2 className="font-bold text-base flex items-center gap-2"><Settings size={18} className="text-[var(--color-primary)]" /> Cài đặt Block</h2>
-              <button onClick={() => setActiveWidgetId(null)} className="p-1.5 rounded-lg hover:bg-[var(--color-accent)] transition-colors"><X size={18} /></button>
+            <div className="flex items-center justify-between border-b border-[var(--color-border)] px-5 py-4">
+              <div className="min-w-0">
+                <h2 className="text-section-title">Cài đặt biểu đồ</h2>
+                <p className="truncate text-caption">{activeWidgetObject?.title}</p>
+              </div>
+              <Button variant="ghost" size="icon-sm" onClick={() => setActiveWidgetId(null)} aria-label="Đóng"><X aria-hidden="true" /></Button>
             </div>
-            
+
             <div className="flex-1 overflow-y-auto p-5 space-y-6">
               {/* Basic config */}
               <div className="space-y-4">
-                <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-muted-foreground)] flex items-center gap-1.5"><MoreVertical size={14} className="-ml-1"/> Cơ bản</h3>
+                <h3 className="text-eyebrow">Cơ bản</h3>
                 <div>
-                  <label className="block text-sm font-semibold mb-1.5">Tiêu đề Block</label>
-                  <input value={drawerConfig.title} onChange={e => setDrawerConfig({...drawerConfig, title: e.target.value})} className="w-full px-3 py-2 rounded-lg border border-[var(--color-border)] text-sm bg-[var(--color-background)] focus:ring-2 focus:ring-[var(--color-primary)]/30 outline-none" placeholder="VD: Doanh thu theo tháng" />
+                  <label className="text-label block mb-1.5">Tiêu đề</label>
+                  <input value={drawerConfig.title} onChange={e => setDrawerConfig({...drawerConfig, title: e.target.value})} className="h-9 w-full rounded-control border border-[var(--color-border)] bg-[var(--color-card)] px-3 text-sm text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-subtle-foreground)] focus-visible:border-[var(--color-primary)] focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]" placeholder="VD: Doanh thu theo tháng" />
                 </div>
                 <div>
-                  <label className="block text-sm font-semibold mb-1.5">Nguồn dữ liệu tham chiếu</label>
-                  <select value={drawerConfig.reportDatasourceId} onChange={e => setDrawerConfig({...drawerConfig, reportDatasourceId: e.target.value})} className="w-full px-3 py-2 rounded-lg border border-[var(--color-border)] text-sm bg-[var(--color-background)] focus:ring-2 focus:ring-[var(--color-primary)]/30 outline-none">
-                    {report.datasources?.map(rd => <option key={rd.id} value={rd.id}>{rd.alias || rd.datasourceName}</option>)}
-                  </select>
+                  <label className="text-label block mb-1.5">Nguồn dữ liệu tham chiếu</label>
+                  <Select value={drawerConfig.reportDatasourceId} onValueChange={v => setDrawerConfig({...drawerConfig, reportDatasourceId: v})}>
+                    <SelectTrigger className="w-full" aria-label="Nguồn dữ liệu"><SelectValue placeholder="Chọn nguồn" /></SelectTrigger>
+                    <SelectContent>
+                      {report.datasources?.map(rd => <SelectItem key={rd.id} value={rd.id}>{rd.alias || rd.datasourceName}</SelectItem>)}
+                    </SelectContent>
+                  </Select>
                 </div>
               </div>
 
               {/* Data Config */}
               <div className="space-y-4 pt-4 border-t border-[var(--color-border)]">
-                 <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-muted-foreground)] flex items-center gap-1.5"><MoreVertical size={14} className="-ml-1"/> Tham số đồ thị</h3>
-                 
+                 <h3 className="text-eyebrow">Tham số biểu đồ</h3>
+
                  {drawerColumns.length > 0 && activeWidgetObject?.widgetType !== 'NUMBER_CARD' && activeWidgetObject?.widgetType !== 'TABLE' && (
                     <div className="space-y-4">
-                      <div className="p-3 bg-[var(--color-accent)]/30 rounded-xl border border-[var(--color-border)]">
-                        <label className="block text-xs font-bold mb-2">
+                      <div className="rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] p-3">
+                        <label className="text-label block mb-2">
                           {activeWidgetObject?.widgetType === 'PIE' || activeWidgetObject?.widgetType === 'DONUT' ? 'Mỗi phần là gì?' : 'Trục X (Danh mục gom nhóm)'}
                         </label>
-                        <select 
-                          value={drawerConfig.chartConfig.x_axis?.column_id || ''} 
-                          onChange={e => {
-                            const cId = e.target.value;
+                        <Select
+                          value={drawerConfig.chartConfig.x_axis?.column_id || NONE}
+                          onValueChange={v => {
+                            const cId = v === NONE ? '' : v;
                             const cName = drawerColumns.find(c => c.id === cId)?.name || '';
                             setDrawerConfig(prev => ({...prev, chartConfig: {...prev.chartConfig, x_axis: { column_id: cId, label: cName }}}))
-                          }} 
-                          className="w-full px-2 py-1.5 rounded-md border border-[var(--color-border)] text-sm bg-[var(--color-background)] outline-none"
+                          }}
                         >
-                          <option value="">-- Mặc định --</option>
-                          {drawerColumns.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                        </select>
+                          <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value={NONE}>Mặc định</SelectItem>
+                            {drawerColumns.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
                       </div>
 
-                      <div className="p-3 bg-[var(--color-accent)]/30 rounded-xl border border-[var(--color-border)]">
-                        <label className="block text-xs font-bold mb-2">
+                      <div className="rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] p-3">
+                        <label className="text-label block mb-2">
                           {activeWidgetObject?.widgetType === 'PIE' || activeWidgetObject?.widgetType === 'DONUT' ? 'Kích thước mỗi phần dựa trên gì?' : 'Trục Y (Đại lượng đo lường)'}
                         </label>
-                        <select 
-                          value={drawerConfig.chartConfig.y_axis?.column_id || ''} 
-                          onChange={e => {
-                            const cId = e.target.value;
+                        <Select
+                          value={drawerConfig.chartConfig.y_axis?.column_id || NONE}
+                          onValueChange={v => {
+                            const cId = v === NONE ? '' : v;
                             const cName = drawerColumns.find(c => c.id === cId)?.name || '';
                             setDrawerConfig(prev => ({...prev, chartConfig: {...prev.chartConfig, y_axis: { column_id: cId, label: cName }}}))
-                          }} 
-                          className="w-full px-2 py-1.5 mb-3 rounded-md border border-[var(--color-border)] text-sm bg-[var(--color-background)] outline-none"
+                          }}
                         >
-                          <option value="">-- Mặc định --</option>
-                          {drawerColumns.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                        </select>
+                          <SelectTrigger className="w-full mb-3"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value={NONE}>Mặc định</SelectItem>
+                            {drawerColumns.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
 
-                        <label className="block text-xs font-bold mb-2 text-[var(--color-muted-foreground)]">Phương pháp tính</label>
-                        <select 
-                          value={drawerConfig.chartConfig.agg_type || 'COUNT'} 
-                          onChange={e => setDrawerConfig(prev => ({...prev, chartConfig: {...prev.chartConfig, agg_type: e.target.value as 'SUM' | 'COUNT' }}))} 
-                          className="w-full px-2 py-1.5 rounded-md border border-[var(--color-border)] text-sm bg-[var(--color-background)] outline-none"
-                        >
-                          <option value="COUNT">Số lượng bản ghi (COUNT)</option>
-                          {drawerColumns.find(c => c.id === drawerConfig.chartConfig.y_axis?.column_id)?.dataType === 'NUMBER' && (
-                            <option value="SUM">Tổng giá trị (SUM)</option>
-                          )}
-                        </select>
+                        <label className="text-label block mb-2 text-[var(--color-muted-foreground)]">Phương pháp tính</label>
+                        <Select value={drawerConfig.chartConfig.agg_type || 'COUNT'} onValueChange={v => setDrawerConfig(prev => ({...prev, chartConfig: {...prev.chartConfig, agg_type: v as 'SUM' | 'COUNT' }}))}>
+                          <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="COUNT">Số lượng bản ghi</SelectItem>
+                            {drawerColumns.find(c => c.id === drawerConfig.chartConfig.y_axis?.column_id)?.dataType === 'NUMBER' && (
+                              <SelectItem value="SUM">Tổng giá trị</SelectItem>
+                            )}
+                          </SelectContent>
+                        </Select>
                       </div>
                     </div>
                  )}
 
                  {drawerColumns.length > 0 && activeWidgetObject?.widgetType === 'NUMBER_CARD' && (
-                    <div className="p-3 bg-[var(--color-accent)]/30 rounded-xl border border-[var(--color-border)] space-y-3">
+                    <div className="space-y-3 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] p-3">
                       <div>
-                        <label className="block text-xs font-bold mb-2">Trường chỉ số</label>
-                        <select 
-                          value={drawerConfig.chartConfig.y_axis?.column_id || ''} 
-                          onChange={e => {
-                            const cId = e.target.value;
+                        <label className="text-label block mb-2">Trường chỉ số</label>
+                        <Select
+                          value={drawerConfig.chartConfig.y_axis?.column_id || NONE}
+                          onValueChange={v => {
+                            const cId = v === NONE ? '' : v;
                             const cName = drawerColumns.find(c => c.id === cId)?.name || '';
                             setDrawerConfig(prev => ({...prev, chartConfig: {...prev.chartConfig, y_axis: { column_id: cId, label: cName }}}))
-                          }} 
-                          className="w-full px-2 py-1.5 rounded-md border border-[var(--color-border)] text-sm bg-[var(--color-background)] outline-none"
+                          }}
                         >
-                          <option value="">-- Mặc định --</option>
-                          {drawerColumns.map(c => <option key={c.id} value={c.id}>{c.name}</option>)}
-                        </select>
+                          <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value={NONE}>Mặc định</SelectItem>
+                            {drawerColumns.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
+                          </SelectContent>
+                        </Select>
                       </div>
                       <div>
-                        <label className="block text-xs font-bold mb-2 text-[var(--color-muted-foreground)]">Phương pháp</label>
-                        <select 
-                          value={drawerConfig.chartConfig.agg_type || 'COUNT'} 
-                          onChange={e => setDrawerConfig(prev => ({...prev, chartConfig: {...prev.chartConfig, agg_type: e.target.value as 'SUM' | 'COUNT' }}))} 
-                          className="w-full px-2 py-1.5 rounded-md border border-[var(--color-border)] text-sm bg-[var(--color-background)] outline-none"
-                        >
-                          <option value="COUNT">Đếm tổng số bản ghi</option>
-                          <option value="SUM">Tổng cộng trường chỉ số</option>
-                        </select>
+                        <label className="text-label block mb-2 text-[var(--color-muted-foreground)]">Phương pháp</label>
+                        <Select value={drawerConfig.chartConfig.agg_type || 'COUNT'} onValueChange={v => setDrawerConfig(prev => ({...prev, chartConfig: {...prev.chartConfig, agg_type: v as 'SUM' | 'COUNT' }}))}>
+                          <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="COUNT">Đếm tổng số bản ghi</SelectItem>
+                            <SelectItem value="SUM">Tổng cộng trường chỉ số</SelectItem>
+                          </SelectContent>
+                        </Select>
                       </div>
                     </div>
                  )}
@@ -792,77 +809,97 @@ export default function ReportDetailPage() {
               {/* Sorting */}
               {activeWidgetObject?.widgetType !== 'TABLE' && activeWidgetObject?.widgetType !== 'NUMBER_CARD' && (
                  <div className="space-y-4 pt-4 border-t border-[var(--color-border)]">
-                   <h3 className="text-xs font-bold uppercase tracking-wider text-[var(--color-muted-foreground)] flex items-center gap-1.5"><MoreVertical size={14} className="-ml-1"/> Sắp xếp (Sort)</h3>
+                   <h3 className="text-eyebrow">Sắp xếp</h3>
                    <div className="flex gap-2">
-                     <select 
-                        value={drawerConfig.chartConfig.sort_by || 'NONE'} 
-                        onChange={e => setDrawerConfig(prev => ({...prev, chartConfig: {...prev.chartConfig, sort_by: e.target.value as any }}))} 
-                        className="flex-1 px-2 py-1.5 rounded-md border border-[var(--color-border)] text-sm bg-[var(--color-background)] outline-none"
-                      >
-                        <option value="NONE">Mặc định</option>
-                        <option value="X">Sắp xếp theo Trục X</option>
-                        <option value="Y">Sắp xếp theo Trục Y</option>
-                      </select>
+                     <Select value={drawerConfig.chartConfig.sort_by || 'NONE'} onValueChange={v => setDrawerConfig(prev => ({...prev, chartConfig: {...prev.chartConfig, sort_by: v as any }}))}>
+                        <SelectTrigger className="flex-1" aria-label="Sắp xếp theo"><SelectValue /></SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="NONE">Mặc định</SelectItem>
+                          <SelectItem value="X">Theo trục X</SelectItem>
+                          <SelectItem value="Y">Theo trục Y</SelectItem>
+                        </SelectContent>
+                      </Select>
                       {drawerConfig.chartConfig.sort_by && drawerConfig.chartConfig.sort_by !== 'NONE' && (
-                        <select 
-                          value={drawerConfig.chartConfig.sort_dir || 'ASC'} 
-                          onChange={e => setDrawerConfig(prev => ({...prev, chartConfig: {...prev.chartConfig, sort_dir: e.target.value as any }}))} 
-                          className="w-24 px-2 py-1.5 rounded-md border border-[var(--color-border)] text-sm bg-[var(--color-background)] outline-none"
-                        >
-                          <option value="ASC">Tăng</option>
-                          <option value="DESC">Giảm</option>
-                        </select>
+                        <Select value={drawerConfig.chartConfig.sort_dir || 'ASC'} onValueChange={v => setDrawerConfig(prev => ({...prev, chartConfig: {...prev.chartConfig, sort_dir: v as any }}))}>
+                          <SelectTrigger className="w-28" aria-label="Chiều sắp xếp"><SelectValue /></SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="ASC">Tăng dần</SelectItem>
+                            <SelectItem value="DESC">Giảm dần</SelectItem>
+                          </SelectContent>
+                        </Select>
                       )}
                    </div>
                  </div>
               )}
             </div>
 
-            <div className="p-4 border-t border-[var(--color-border)] bg-[var(--color-accent)]/10 flex justify-end gap-3">
-               <button onClick={() => setActiveWidgetId(null)} className="px-4 py-2 text-sm font-medium rounded-lg hover:bg-[var(--color-accent)]">Hủy</button>
-               <button onClick={handleSaveSettings} disabled={updateWidgetMut.isPending} className="px-6 py-2 text-sm rounded-lg bg-[var(--color-primary)] text-white hover:opacity-90 disabled:opacity-50 font-semibold shadow-sm">
-                 {updateWidgetMut.isPending ? 'Đang lưu...' : 'Lưu lại'}
-               </button>
+            <div className="flex items-center justify-end gap-2 border-t border-[var(--color-border)] px-5 py-3">
+               <Button variant="outline" onClick={() => setActiveWidgetId(null)}>Hủy</Button>
+               <Button onClick={handleSaveSettings} disabled={updateWidgetMut.isPending}>{updateWidgetMut.isPending ? 'Đang lưu…' : 'Lưu lại'}</Button>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Add Datasource Modal */}
-      {showAddDs && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60 backdrop-blur-sm" onClick={() => setShowAddDs(false)}>
-          <div className="bg-[var(--color-card)] rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6 border border-[var(--color-border)]" onClick={e => e.stopPropagation()}>
-            <h2 className="text-lg font-bold mb-4">Kết nối Nguồn dữ liệu</h2>
-            {unlinkedDatasources.length === 0 ? (
-              <p className="text-sm text-[var(--color-muted-foreground)] py-4">Tất cả datasource đã được kết nối hoặc chưa có datasource nào.</p>
-            ) : (
-              <div className="space-y-2 max-h-60 overflow-y-auto pr-1">
-                {unlinkedDatasources.map(ds => (
-                  <button
-                    key={ds.id}
-                    onClick={() => setSelectedDsId(ds.id)}
-                    className={`w-full flex items-center gap-3 p-3 rounded-xl border text-left text-sm transition-all ${
-                      selectedDsId === ds.id
-                        ? 'border-[var(--color-primary)] bg-[var(--color-primary)]/10 ring-1 ring-[var(--color-primary)]'
-                        : 'border-[var(--color-border)] hover:border-[var(--color-primary)]/40 hover:bg-[var(--color-accent)]/50'
-                    }`}
-                  >
-                    <Database size={18} className="text-[var(--color-primary)] shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <div className="font-semibold truncate">{ds.name}</div>
-                      <div className="text-xs text-[var(--color-muted-foreground)] mt-0.5">{ds.columns?.length || 0} cột · {ds.rowCount} hàng dữ liệu</div>
-                    </div>
-                  </button>
-                ))}
-              </div>
-            )}
-            <div className="flex justify-end gap-3 mt-6">
-              <button onClick={() => setShowAddDs(false)} className="px-4 py-2 text-sm font-medium rounded-lg hover:bg-[var(--color-accent)]">Hủy</button>
-              <button onClick={handleAddDatasource} disabled={!selectedDsId || addDsMut.isPending} className="px-5 py-2 text-sm rounded-lg bg-[var(--color-primary)] text-white hover:opacity-90 disabled:opacity-50 font-semibold shadow-sm">Kết nối nguồn</button>
-            </div>
+      <ConfirmDialog
+        open={!!deleteWidgetId}
+        onClose={() => setDeleteWidgetId(null)}
+        onConfirm={() => { if (deleteWidgetId) deleteWidgetMut.mutate(deleteWidgetId, { onSettled: () => setDeleteWidgetId(null) }) }}
+        title="Xoá biểu đồ này?"
+        description="Khối sẽ bị gỡ khỏi báo cáo. Dữ liệu ở nguồn không bị ảnh hưởng."
+        confirmLabel="Xoá biểu đồ"
+        loading={deleteWidgetMut.isPending}
+      />
+      <ConfirmDialog
+        open={!!removeDsId}
+        onClose={() => setRemoveDsId(null)}
+        onConfirm={() => { if (removeDsId) removeDsMut.mutate(removeDsId, { onSettled: () => setRemoveDsId(null) }) }}
+        title="Gỡ nguồn dữ liệu khỏi báo cáo?"
+        description="Các biểu đồ đang dùng nguồn này sẽ không còn dữ liệu để vẽ."
+        confirmLabel="Gỡ nguồn"
+        loading={removeDsMut.isPending}
+      />
+
+      {/* Kết nối nguồn dữ liệu */}
+      <Dialog
+        open={showAddDs}
+        onClose={() => setShowAddDs(false)}
+        size="md"
+        dismissible={!addDsMut.isPending}
+        title="Kết nối Nguồn dữ liệu"
+        footer={
+          <DialogFooter
+            secondary={<Button variant="outline" onClick={() => setShowAddDs(false)} disabled={addDsMut.isPending}>Hủy</Button>}
+            primary={<Button onClick={handleAddDatasource} disabled={!selectedDsId || addDsMut.isPending}>Kết nối nguồn</Button>}
+          />
+        }
+      >
+        {unlinkedDatasources.length === 0 ? (
+          <p className="py-4 text-sm text-[var(--color-muted-foreground)]">Tất cả datasource đã được kết nối hoặc chưa có datasource nào.</p>
+        ) : (
+          <div className="max-h-60 space-y-2 overflow-y-auto pr-1">
+            {unlinkedDatasources.map(ds => (
+              <button
+                key={ds.id}
+                type="button"
+                onClick={() => setSelectedDsId(ds.id)}
+                aria-pressed={selectedDsId === ds.id}
+                className={`flex w-full items-center gap-3 rounded-card border p-3 text-left text-sm transition-colors ${
+                  selectedDsId === ds.id
+                    ? 'border-[var(--color-primary)] bg-[var(--color-primary-soft)]'
+                    : 'border-[var(--color-border)] hover:bg-[var(--color-muted)]'
+                }`}
+              >
+                <Database size={18} className="shrink-0 text-[var(--color-primary)]" aria-hidden="true" />
+                <div className="min-w-0 flex-1">
+                  <div className="truncate font-medium">{ds.name}</div>
+                  <div className="mt-0.5 text-caption tabular-nums">{ds.columns?.length || 0} cột · {ds.rowCount} hàng dữ liệu</div>
+                </div>
+              </button>
+            ))}
           </div>
-        </div>
-      )}
+        )}
+      </Dialog>
     </div>
   )
 }

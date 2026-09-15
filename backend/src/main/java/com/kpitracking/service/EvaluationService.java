@@ -16,6 +16,8 @@ import com.kpitracking.mapper.EvaluationMapper;
 import com.kpitracking.repository.*;
 import com.kpitracking.security.PermissionChecker;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.annotation.Lazy;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
@@ -49,6 +51,13 @@ public class EvaluationService {
     private final com.kpitracking.workflow.KpiWorkflowConfigService workflowConfigService;
     private final BscCascadeService bscCascadeService;
     private final ConductService conductService;
+    private final com.kpitracking.service.notification.NotificationDispatcher notificationDispatcher;
+
+    // Khung bell curve cần đọc lại phân bố xếp loại của cả đơn vị, mà UnitClassificationService
+    // lại dựa vào chính service này để lấy đánh giá đại diện — @Lazy cắt vòng phụ thuộc đó.
+    @Lazy
+    @Autowired
+    private UnitClassificationService unitClassificationService;
 
     /**
      * Pool điểm khi CHẤM: trọng số chính là điểm — KPI 25% đạt đủ ⇒ 25đ, đủ 100% ⇒ 100đ.
@@ -204,17 +213,35 @@ public class EvaluationService {
                         + String.join(", ", bscResult.getUnassignedKpiNames()) + ")");
             }
 
-            // CASCADE (docs/bsc-cascade-design.md — QĐ-4): quy kết quả BSC của phòng và của công ty
-            // thành hệ số rồi nhân vào điểm gốc. Áp ĐÚNG MỘT LẦN, ở đây, trên điểm gốc — không được
-            // nhúng vào computeForUser, nếu không phần KPI đã roll-up lên BSC phòng bị đếm hai lượt.
+            // Ràng buộc trọng số KPI liên kết BSC (QĐ-8). Chính sách để BLOCK thì chặn THẬT ở đây,
+            // không chỉ hiện cảnh báo ở màn diễn giải — trước đây cờ này được tính rồi bỏ không,
+            // nên chọn "Chặn không cho trình" hay "Chỉ cảnh báo" đều ra cùng một hành vi.
+            //
+            // Chỉ chặn khi kỳ đã chạy CHÍNH THỨC, cùng lý do với ràng buộc ngay trên: ở SHADOW,
+            // BSC mới là bản chạy song song để đối chiếu — chặn chốt đánh giá vì nó là làm kẹt cả
+            // tổ chức vì một con số chưa dùng để tính lương. Ở SHADOW cũng không tốn truy vấn.
+            if (isOfficial) {
+                var linkedWeight = bscCascadeService.checkLinkedWeight(
+                        evaluatedUser.getId(), kpiPeriod.getId(), org.getId());
+                if (linkedWeight.enforced() && !linkedWeight.satisfied()) {
+                    throw new BusinessException(String.format(
+                            "Không thể chốt đánh giá: chỉ %.0f%% trọng số KPI của %s bám vào chỉ tiêu BSC, "
+                            + "trong khi chính sách yêu cầu tối thiểu %.0f%%. Gán thêm KPI vào chỉ tiêu BSC, "
+                            + "hoặc đổi chính sách điểm BSC sang mức \"Chỉ cảnh báo\".",
+                            linkedWeight.linkedPercent(), evaluatedUser.getFullName(), linkedWeight.minRequired()));
+                }
+            }
+
+            // Điểm công nhận: chỉ chặn trần theo chính sách, KHÔNG nhân hệ số phòng/công ty —
+            // kết quả BSC của đơn vị và công ty được theo dõi riêng, không kéo điểm cá nhân.
             var cascade = bscResult == null ? null : bscCascadeService.applyForUser(
-                    bscResult.getScorecard(), org.getId(), kpiPeriod.getId(), bscResult.getBscScore());
+                    org.getId(), kpiPeriod.getId(), bscResult.getBscScore());
             // Hạng mục chặn (QĐ-7) chạy SAU khi có điểm công nhận và KHÔNG đụng vào điểm.
             var gate = bscCascadeService.evaluateGates(bscResult, BscCascadeService.DEFAULT_MAX_RATING);
 
             // CHÍNH THỨC ⇒ điểm bị KHÓA theo BSC: bỏ qua điểm người đánh giá gửi lên.
             // Ép ở server (không chỉ khóa UI) để gọi thẳng API cũng không sửa được điểm.
-            // Điểm khoá là điểm CÔNG NHẬN (sau hệ số), không phải điểm gốc.
+            // Điểm khoá là điểm CÔNG NHẬN (điểm gốc sau khi chặn trần).
             if (isOfficial && bscResult.getBscScore() != null) {
                 Double official = cascade != null && cascade.recognized() != null
                         ? cascade.recognized() : bscResult.getBscScore();
@@ -224,8 +251,6 @@ public class EvaluationService {
             evaluation.setBscScore(bscResult != null ? bscResult.getBscScore() : null);
             if (cascade != null) {
                 evaluation.setRawBscScore(cascade.rawScore());
-                evaluation.setUnitFactor(cascade.unitFactor());
-                evaluation.setCompanyFactor(cascade.companyFactor());
                 evaluation.setRecognizedScore(cascade.recognized());
                 evaluation.setCascadePolicy(cascade.policy());
             }
@@ -247,7 +272,39 @@ public class EvaluationService {
             evaluation = evaluationRepository.save(evaluation);
         }
 
-        return enrichResponse(evaluation);
+        // Bell curve (khống chế tỷ lệ) soi SAU khi đã chốt điểm & xếp loại: mức của người này chỉ
+        // biết chắc sau khi ma trận và BSC chạy xong. Chế độ "chặn" ném lỗi ⇒ giao dịch cuộn lại,
+        // bản ghi vừa lưu không còn — không cần xoá tay.
+        //
+        // TỰ ĐÁNH GIÁ thì bỏ qua: khung là hạn mức cho người CHẤM phân bổ, chặn nhân viên tự chấm
+        // vì phòng đã kín suất là bắt họ chịu hạn mức mà họ không có quyền phân bổ.
+        EvaluationResponse response = enrichResponse(evaluation);
+        if (!isSelfEval) {
+            UnitClassificationService.BellCurveCheck curve = unitClassificationService.checkBellCurve(
+                    targetOrgUnit,
+                    kpiPeriod.getKpiCycle() != null ? kpiPeriod.getKpiCycle().getId() : null,
+                    kpiPeriod.getId(), evaluatedUser.getId());
+            if (curve.blocked()) throw new BusinessException(curve.message());
+            response.setBellCurveWarning(curve.message());
+
+            // Người bị chấm phải được biết. Trước đây chốt xong là im lặng: nhân viên chỉ
+            // phát hiện khi tự mở màn "Đánh giá của tôi", nên phản hồi hay khiếu nại đều
+            // đến muộn hơn hẳn thời điểm còn sửa được.
+            //
+            // Đặt SAU bell curve vì chế độ "chặn" ném lỗi làm cuộn giao dịch — báo trước
+            // là báo một kết quả có thể chưa bao giờ tồn tại.
+            String label = evaluation.getScore() != null
+                    ? String.valueOf(Math.round(evaluation.getScore() * 100.0) / 100.0) : "—";
+            notificationDispatcher.dispatch(org.getId(), "evaluation_finalized",
+                    evaluatedUser, targetOrgUnit,
+                    "Kết quả đánh giá đợt " + kpiPeriod.getName(),
+                    String.format("%s đã chấm đánh giá đợt %s của bạn: %s điểm%s.",
+                            currentUser.getFullName(), kpiPeriod.getName(), label,
+                            evaluation.getMatrixRating() != null
+                                    ? " · xếp loại " + evaluation.getMatrixRating() + "/5" : ""),
+                    "EVALUATION_RESULT", evaluation.getId());
+        }
+        return response;
     }
 
     @Transactional(readOnly = true)

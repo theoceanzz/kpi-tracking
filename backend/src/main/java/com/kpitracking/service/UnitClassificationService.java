@@ -58,7 +58,35 @@ public class UnitClassificationService {
      * Đơn vị con kế thừa hồ sơ của cha; {@code kpiCycleIds} rỗng nghĩa là áp cho MỌI kỳ.
      */
     private record Profile(String name, boolean isDefault, List<UUID> orgUnitIds,
-                           List<UUID> kpiCycleIds, List<Rule> rules) {}
+                           List<UUID> kpiCycleIds, List<Rule> rules, BellCurve bellCurve) {}
+
+    /** Một mức trong khung bell curve: tỷ lệ % người MONG MUỐN ở mức đó. */
+    private record BellTarget(String level, double percent) {}
+
+    /**
+     * Khung bell curve (forced distribution) của một hồ sơ: hạn mức % mỗi mức mà đơn vị được
+     * phép chấm cho nhân sự. {@code tolerance} là dung sai ± quanh mốc, {@code minMembers} là
+     * quy mô tối thiểu để khung có hiệu lực, {@code mode} = {@code warn} (chỉ cảnh báo) hoặc
+     * {@code block} (chặn không cho chốt đánh giá làm vượt hạn mức).
+     */
+    private record BellCurve(boolean enabled, String mode, int minMembers, double tolerance,
+                             List<BellTarget> targets) {}
+
+    /** Hạn mức của một mức + tình trạng thực tế của đơn vị ở mức đó. */
+    public record QuotaSlot(String level, String color, double targetPercent,
+                            double minPercent, double maxPercent, int minCount, int maxCount,
+                            int currentCount, double currentPercent, boolean over, boolean under) {}
+
+    /**
+     * Kết quả soi phân bố thực tế của một đơn vị theo khung bell curve đang áp.
+     * {@code configured} = false khi hồ sơ không bật khung, hoặc đơn vị nhỏ hơn quy mô tối thiểu.
+     * {@code blocked} = true khi khung ở chế độ chặn VÀ mức vừa chấm đã vượt hạn mức.
+     */
+    public record BellCurveCheck(boolean configured, boolean blocked, String profileName,
+                                 int headcount, List<QuotaSlot> slots, String message) {}
+
+    private static final BellCurveCheck NO_CURVE =
+            new BellCurveCheck(false, false, null, 0, List.of(), null);
 
     /** Số chốt kỳ của một người: điểm chốt kỳ và xếp loại ma trận (một trong hai có thể null). */
     public record CycleMemberScore(Double finalScore, Double matrixRating) {}
@@ -257,6 +285,173 @@ public class UnitClassificationService {
         Classification c = classify(rulesOf(profile, ctx), counts, evaluated, levels);
         return new UnitClassResult(c != null ? c.getLevel() : null, c != null ? c.getColor() : null,
                 profile != null ? profile.name() : null, evaluated);
+    }
+
+    /**
+     * Phân bố mức của đơn vị TRONG KỲ đặt cạnh khung bell curve đang áp — dữ liệu vẽ biểu đồ ở
+     * màn đánh giá kỳ.
+     *
+     * <p>Nhận sẵn điểm kỳ của thành viên (giống {@link #classifyCycleUnit}) thay vì đọc lại DB:
+     * màn đánh giá kỳ vừa tính xong đúng bộ số đó, tính lại vừa tốn vừa có thể ra con số lệch
+     * với bảng người dùng đang nhìn.
+     *
+     * <p>Mẫu số là TỔNG nhân sự chứ không phải số người đã có điểm — cùng mẫu số với hạn mức lúc
+     * chặn ở đánh giá đợt, nếu không thì biểu đồ và lúc bị chặn nói hai chuyện khác nhau.
+     */
+    @Transactional(readOnly = true)
+    public CycleCurveResponse cycleCurve(UUID cycleId, OrgUnit unit, List<CycleMemberScore> members) {
+        if (unit == null || unit.getOrgHierarchyLevel() == null) return null;
+        Organization org = unit.getOrgHierarchyLevel().getOrganization();
+        boolean matrix = com.kpitracking.util.PerformanceMatrixResolver.usesMatrix(org);
+        List<LevelDef> levels = levelDefs(org, matrix);
+        if (levels.isEmpty()) return null;
+
+        Function<CycleMemberScore, String> classifier = cycleMemberClassifier(org, matrix);
+        Map<String, Integer> counts = new LinkedHashMap<>();
+        for (LevelDef ld : levels) counts.put(ld.name(), 0);
+        for (CycleMemberScore m : safeList(members)) {
+            String lvl = classifier.apply(m);
+            if (lvl != null && counts.containsKey(lvl)) counts.merge(lvl, 1, Integer::sum);
+        }
+        int headcount = safeList(members).size();
+        int evaluated = counts.values().stream().mapToInt(Integer::intValue).sum();
+
+        Profile profile = resolveProfile(unit, ruleContext(org, levels), cycleId);
+        BellCurve bc = profile == null ? null : profile.bellCurve();
+        Set<String> valid = levels.stream().map(LevelDef::name).collect(Collectors.toSet());
+        boolean configured = bc != null && bc.enabled() && !bc.targets().isEmpty()
+                && bc.targets().stream().anyMatch(t -> valid.contains(t.level()));
+
+        Map<String, Double> targetByLevel = new LinkedHashMap<>();
+        if (configured) for (BellTarget t : bc.targets()) targetByLevel.put(t.level(), t.percent());
+
+        List<CurveBucket> buckets = new ArrayList<>();
+        for (LevelDef ld : levels) {
+            int cur = counts.getOrDefault(ld.name(), 0);
+            CurveBucket.CurveBucketBuilder b = CurveBucket.builder()
+                    .level(ld.name()).color(ld.color()).count(cur)
+                    .percent(headcount > 0 ? round1(cur * 100.0 / headcount) : 0.0);
+            Double target = targetByLevel.get(ld.name());
+            if (target != null) {
+                double min = Math.max(0, target - bc.tolerance());
+                double max = Math.min(100, target + bc.tolerance());
+                b.targetPercent(target).minPercent(min).maxPercent(max)
+                        .minCount((int) Math.round(min * headcount / 100.0))
+                        .maxCount(maxQuota(max, headcount));
+                b.over(cur > maxQuota(max, headcount))
+                        .under(cur < (int) Math.round(min * headcount / 100.0));
+            }
+            buckets.add(b.build());
+        }
+
+        return CycleCurveResponse.builder()
+                .configured(configured)
+                .profileName(profile != null ? profile.name() : null)
+                .mode(configured ? bc.mode() : null)
+                .tolerance(configured ? bc.tolerance() : 0)
+                .headcount(headcount).evaluated(evaluated)
+                .buckets(buckets)
+                .build();
+    }
+
+    // ── Bell curve: khống chế tỷ lệ khi chấm nhân sự ────────────────────────
+
+    /**
+     * Soi phân bố THỰC TẾ của một đơn vị theo khung bell curve (forced distribution) mà hồ sơ
+     * xếp loại đang áp cho nó — gọi ngay sau khi một đánh giá được chốt.
+     *
+     * <p>Phạm vi đếm giống hệt phần xếp loại đơn vị (cả cây con của {@code unit}) để con số
+     * cảnh báo trùng với phân bố hiển thị trên tab Phân cấp; mẫu số là TỔNG nhân sự chứ không
+     * phải số người đã có đánh giá — lấy mẫu số "đã đánh giá" thì người đầu tiên được chấm luôn
+     * chiếm 100% và mọi mức đều lập tức vượt hạn mức.
+     *
+     * <p>Chỉ chặn khi CHÍNH mức vừa chấm đã vượt trần: đơn vị lỡ thừa người ở mức khác không
+     * phải lý do để chặn một đánh giá không liên quan. Hạn mức SÀN chỉ để cảnh báo — không thể
+     * ép ngay giữa chừng khi mọi người còn chưa được chấm.
+     *
+     * @param cycleId         kỳ của đợt đang chấm (null nếu đợt không thuộc kỳ nào)
+     * @param evaluatedUserId người vừa được chấm — mức của họ quyết định có chặn hay không
+     */
+    @Transactional(readOnly = true)
+    public BellCurveCheck checkBellCurve(OrgUnit unit, UUID cycleId, UUID periodId, UUID evaluatedUserId) {
+        if (unit == null || unit.getOrgHierarchyLevel() == null || periodId == null) return NO_CURVE;
+        Organization org = unit.getOrgHierarchyLevel().getOrganization();
+        boolean matrix = com.kpitracking.util.PerformanceMatrixResolver.usesMatrix(org);
+        List<LevelDef> levels = levelDefs(org, matrix);
+        if (levels.isEmpty()) return NO_CURVE;
+
+        Profile profile = resolveProfile(unit, ruleContext(org, levels), cycleId);
+        BellCurve bc = profile == null ? null : profile.bellCurve();
+        if (bc == null || !bc.enabled() || bc.targets().isEmpty()) return NO_CURVE;
+
+        // Khung khai theo thang CŨ (đổi ma trận / sửa thang điểm) thì bỏ qua thay vì chặn theo
+        // những cái tên mức không còn tồn tại.
+        Set<String> valid = levels.stream().map(LevelDef::name).collect(Collectors.toSet());
+        if (bc.targets().stream().noneMatch(t -> valid.contains(t.level()))) return NO_CURVE;
+
+        List<UUID> members = distinctMemberIds(subtreeIds(unit, org.getId()));
+        int headcount = members.size();
+        if (headcount < Math.max(1, bc.minMembers())) return NO_CURVE;
+
+        Map<String, Integer> counts = countByLevel(members, periodId, memberClassifier(org, matrix), levels);
+        Map<String, Double> targetByLevel = new LinkedHashMap<>();
+        for (BellTarget t : bc.targets()) targetByLevel.put(t.level(), t.percent());
+
+        List<QuotaSlot> slots = new ArrayList<>();
+        for (LevelDef ld : levels) {
+            Double target = targetByLevel.get(ld.name());
+            if (target == null) continue; // mức không khai trong khung → không khống chế
+            double min = Math.max(0, target - bc.tolerance());
+            double max = Math.min(100, target + bc.tolerance());
+            int minCount = (int) Math.round(min * headcount / 100.0);
+            int maxCount = maxQuota(max, headcount);
+            int cur = counts.getOrDefault(ld.name(), 0);
+            slots.add(new QuotaSlot(ld.name(), ld.color(), target, min, max, minCount, maxCount,
+                    cur, round1(cur * 100.0 / headcount), cur > maxCount, cur < minCount));
+        }
+
+        Evaluation eff = evaluationService.getEffectiveEvaluation(evaluatedUserId, periodId);
+        String memberLevel = eff == null ? null : memberClassifier(org, matrix).apply(eff);
+        QuotaSlot hit = slots.stream().filter(q -> q.level().equals(memberLevel)).findFirst().orElse(null);
+        boolean blocked = "block".equalsIgnoreCase(bc.mode()) && hit != null && hit.over();
+
+        int evaluated = counts.values().stream().mapToInt(Integer::intValue).sum();
+        return new BellCurveCheck(true, blocked, profile.name(), headcount, slots,
+                bellCurveMessage(unit, profile, headcount, evaluated, slots, hit, blocked));
+    }
+
+    /**
+     * % trần → SỐ người. Luôn chừa ít nhất một suất khi trần > 0: 10% của 7 người mà cắt xuống 0
+     * thì khung không còn là tỷ lệ nữa mà thành lệnh cấm tuyệt đối mức đó.
+     */
+    private int maxQuota(double percent, int headcount) {
+        if (percent <= 0) return 0;
+        return Math.max(1, (int) Math.round(percent * headcount / 100.0));
+    }
+
+    /** Câu cảnh báo/chặn; null khi phân bố nằm gọn trong khung (không có gì để nói). */
+    private String bellCurveMessage(OrgUnit unit, Profile profile, int headcount, int evaluated,
+                                    List<QuotaSlot> slots, QuotaSlot hit, boolean blocked) {
+        if (blocked) {
+            return String.format(
+                    "Vượt khung bell curve \"%s\": %s đã có %d/%d người ở mức %s (%.0f%% > trần %.0f%% trên %d nhân sự). "
+                    + "Hạ mức của người khác, hoặc nới khung ở Cấu hình → Xếp loại đơn vị.",
+                    profile.name(), unit.getName(), hit.currentCount(), hit.maxCount(), hit.level(),
+                    hit.currentPercent(), hit.maxPercent(), headcount);
+        }
+        // Thiếu người ở một mức chỉ là chuyện đáng nói khi đơn vị đã chấm xong: giữa chừng thì
+        // mức nào cũng đang dưới sàn, nhắc lúc đó là nhắc mọi lần chấm một câu vô nghĩa.
+        boolean complete = evaluated >= headcount;
+        List<String> issues = new ArrayList<>();
+        for (QuotaSlot q : slots) {
+            if (q.over()) issues.add(String.format("%s %d/%d người (trần %.0f%%)",
+                    q.level(), q.currentCount(), q.maxCount(), q.maxPercent()));
+            else if (complete && q.under()) issues.add(String.format("%s mới %d/%d người (sàn %.0f%%)",
+                    q.level(), q.currentCount(), q.minCount(), q.minPercent()));
+        }
+        if (issues.isEmpty()) return null;
+        return "Lệch khung bell curve \"" + profile.name() + "\" của " + unit.getName()
+                + ": " + String.join("; ", issues) + ".";
     }
 
     /**
@@ -541,10 +736,11 @@ public class UnitClassificationService {
                             p.path("isDefault").asBoolean(false),
                             parseIds(p.path("orgUnitIds")),
                             parseIds(p.path("kpiCycleIds")),
-                            parseRulesNode(p.path("rules"))));
+                            parseRulesNode(p.path("rules")),
+                            parseBellCurve(p.path("bellCurve"))));
                 }
             } else if (root.path("rules").isArray()) {
-                out.add(new Profile("Mặc định", true, List.of(), List.of(), parseRulesNode(root.path("rules"))));
+                out.add(new Profile("Mặc định", true, List.of(), List.of(), parseRulesNode(root.path("rules")), null));
             }
         } catch (Exception ignored) { /* JSON hỏng → rỗng → preset */ }
         return out;
@@ -561,6 +757,25 @@ public class UnitClassificationService {
     }
 
     /** Nạp path của mọi đơn vị được gán (id → path) — dùng để dò tổ tiên gần nhất. */
+    /** Khung bell curve của hồ sơ; null khi hồ sơ chưa khai (đa số tổ chức) → không khống chế gì. */
+    private BellCurve parseBellCurve(JsonNode node) {
+        if (node == null || node.isMissingNode() || node.isNull()) return null;
+        List<BellTarget> targets = new ArrayList<>();
+        JsonNode arr = node.path("targets");
+        if (arr.isArray()) {
+            for (JsonNode t : arr) {
+                String lv = t.path("level").asText(null);
+                if (lv != null && !lv.isBlank()) targets.add(new BellTarget(lv, t.path("percent").asDouble(0)));
+            }
+        }
+        return new BellCurve(
+                node.path("enabled").asBoolean(false),
+                node.path("mode").asText("warn"),
+                node.path("minMembers").asInt(5),
+                node.path("tolerance").asDouble(5),
+                targets);
+    }
+
     private Map<UUID, String> loadPaths(List<Profile> profiles) {
         Set<UUID> ids = profiles.stream().flatMap(p -> p.orgUnitIds().stream()).collect(Collectors.toSet());
         if (ids.isEmpty()) return Map.of();

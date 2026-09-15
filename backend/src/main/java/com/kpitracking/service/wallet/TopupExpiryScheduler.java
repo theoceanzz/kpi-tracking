@@ -1,13 +1,17 @@
 package com.kpitracking.service.wallet;
 
+import com.kpitracking.event.WalletEvents;
 import com.kpitracking.repository.TopupOrderRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
+import java.util.List;
+import java.util.UUID;
 
 /**
  * Đánh dấu hết hạn các đơn nạp quá thời gian hiệu lực.
@@ -27,13 +31,20 @@ import java.time.Instant;
 public class TopupExpiryScheduler {
 
     private final TopupOrderRepository orderRepository;
+    private final ApplicationEventPublisher eventPublisher;
 
     @Scheduled(fixedDelayString = "PT5M", initialDelayString = "PT1M")
     @Transactional
     public void expireOverdueOrders() {
-        int expired = orderRepository.expireOverdue(Instant.now());
-        if (expired > 0) {
-            log.info("Đã đánh dấu hết hạn {} đơn nạp tiền", expired);
+        List<UUID> expired = orderRepository.expireOverdue(Instant.now());
+        if (expired.isEmpty()) return;
+
+        log.info("Đã đánh dấu hết hạn {} đơn nạp tiền", expired.size());
+        // Phát bên trong transaction để listener AFTER_COMMIT nhận được. Một sự kiện cho MỘT
+        // đơn: mỗi đơn có một chủ khác nhau, và người nhận cần thấy đúng mã đơn của mình chứ
+        // không phải một con số tổng.
+        for (UUID orderId : expired) {
+            eventPublisher.publishEvent(new WalletEvents.TopupExpired(orderId));
         }
     }
 }

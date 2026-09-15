@@ -10,7 +10,7 @@ const fmt2 = (v?: number | null) => (v == null ? '-' : (Math.round(v * 100) / 10
 
 function Card({ children, className }: { children: React.ReactNode; className?: string }) {
   return (
-    <div className={cn('bg-white dark:bg-slate-900 rounded-2xl border border-slate-200 dark:border-slate-800 p-5 shadow-sm', className)}>
+    <div className={cn('bg-[var(--color-card)] rounded-2xl border border-[var(--color-border)] p-5 shadow-sm', className)}>
       {children}
     </div>
   )
@@ -28,7 +28,7 @@ function EmptyState({ children }: { children: React.ReactNode }) {
 export function MatrixMetricCards({ overview }: { overview?: MatrixOverview }) {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 flex items-center gap-4">
+      <div className="bg-[var(--color-card)] rounded-2xl p-5 border border-[var(--color-border)] flex items-center gap-4">
         <div className="w-12 h-12 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: `${ratingColor(overview?.averageRating)}22`, color: ratingColor(overview?.averageRating) }}><Star size={24} /></div>
         <div>
           <p className="text-xs font-medium text-slate-500">Xếp loại trung bình</p>
@@ -37,7 +37,7 @@ export function MatrixMetricCards({ overview }: { overview?: MatrixOverview }) {
         </div>
       </div>
       <div
-        className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 flex items-center gap-4"
+        className="bg-[var(--color-card)] rounded-2xl p-5 border border-[var(--color-border)] flex items-center gap-4"
         // title="% hoàn thành do người đánh giá ghi trên phiếu đánh giá (dùng để tra ô ma trận xếp loại). Khác với 'Tiến độ trung bình' vốn tính từ bài nộp và bị chặn ở 150%."
       >
         <div className="w-12 h-12 rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-[var(--color-primary)] dark:text-indigo-400 flex items-center justify-center shrink-0"><Target size={24} /></div>
@@ -47,14 +47,14 @@ export function MatrixMetricCards({ overview }: { overview?: MatrixOverview }) {
           <p className="text-xs font-medium text-slate-400">ghi trên đánh giá (để xếp loại)</p>
         </div>
       </div>
-      <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 flex items-center gap-4">
+      <div className="bg-[var(--color-card)] rounded-2xl p-5 border border-[var(--color-border)] flex items-center gap-4">
         <div className="w-12 h-12 rounded-full bg-teal-100 dark:bg-teal-900/40 text-teal-600 dark:text-teal-400 flex items-center justify-center shrink-0"><Activity size={24} /></div>
         <div>
           <p className="text-xs font-medium text-slate-500">Điểm hành vi TB</p>
           <p className="text-2xl font-semibold tabular-nums">{fmt2(overview?.averageBehavior)}<span className="text-sm text-slate-400">/5</span></p>
         </div>
       </div>
-      <div className="bg-white dark:bg-slate-900 rounded-2xl p-5 border border-slate-200 dark:border-slate-800 flex items-center gap-4">
+      <div className="bg-[var(--color-card)] rounded-2xl p-5 border border-[var(--color-border)] flex items-center gap-4">
         <div className="w-12 h-12 rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-[var(--color-primary)] dark:text-indigo-400 flex items-center justify-center shrink-0"><Users size={24} /></div>
         <div>
           <p className="text-xs font-medium text-slate-500">Nhân sự có xếp loại</p>
@@ -113,9 +113,9 @@ export function MatrixDistHeatmap({ overview, viewToggle, heatmapSlot }: {
       {totalDist > 0 && (
         <div className="grid grid-cols-5 gap-2 mb-4">
           {distData.map(d => (
-            <div key={d.rating} className="rounded-lg border border-slate-200 dark:border-slate-800 px-2 py-1.5 text-center">
+            <div key={d.rating} className="rounded-lg border border-[var(--color-border)] px-2 py-1.5 text-center">
               <div className="h-1 rounded-full" style={{ backgroundColor: ratingColor(d.rating) }} />
-              <p className="text-lg font-semibold tabular-nums text-slate-900 dark:text-white mt-1">{d.value}</p>
+              <p className="text-lg font-semibold tabular-nums text-[var(--color-foreground)] mt-1">{d.value}</p>
               <p className="text-xs text-slate-500">Loại {d.rating}</p>
             </div>
           ))}
@@ -128,14 +128,14 @@ export function MatrixDistHeatmap({ overview, viewToggle, heatmapSlot }: {
                 <tr>
                   <th className="text-xs font-medium text-slate-400 p-1 align-bottom">{heatmap.rowHeader} \ {heatmap.colHeader}</th>
                   {heatmap.cols.map((c, ci) => (
-                    <th key={ci} className="text-xs font-medium text-slate-500 dark:text-slate-400 p-1 min-w-[64px] whitespace-nowrap">{c}</th>
+                    <th key={ci} className="text-xs font-medium text-[var(--color-muted-foreground)] p-1 min-w-[64px] whitespace-nowrap">{c}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {heatmap.rows.map((rowLabel, ri) => (
                   <tr key={ri}>
-                    <td className="text-xs font-medium text-slate-500 dark:text-slate-400 p-1 pr-2 text-right whitespace-nowrap">{rowLabel}</td>
+                    <td className="text-xs font-medium text-[var(--color-muted-foreground)] p-1 pr-2 text-right whitespace-nowrap">{rowLabel}</td>
                     {heatmap.cols.map((_, ci) => {
                       const rating = heatmap.ratings?.[ri]?.[ci]
                       const count = heatmap.counts?.[ri]?.[ci] ?? 0
@@ -148,7 +148,7 @@ export function MatrixDistHeatmap({ overview, viewToggle, heatmapSlot }: {
                             style={{ backgroundColor: hexAlpha(color, alpha) }}
                             title={`Xếp loại ${rating ?? '-'} · ${count} nhân sự`}
                           >
-                            <span className={cn('text-base font-semibold tabular-nums', count > 0 ? 'text-slate-900 dark:text-white' : 'text-slate-300 dark:text-slate-600')}>{count}</span>
+                            <span className={cn('text-base font-semibold tabular-nums', count > 0 ? 'text-[var(--color-foreground)]' : 'text-slate-300 dark:text-slate-600')}>{count}</span>
                             <span className="text-xs font-semibold" style={{ color }}>loại {rating ?? '-'}</span>
                           </div>
                         </td>

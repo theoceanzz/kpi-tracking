@@ -21,10 +21,10 @@ export function KpiResponsibleCell({
         className={cn('inline-flex items-center gap-2 min-w-0', className)}
         title={`Người đảm nhiệm: ${assigneeName}`}
       >
-        <span className="flex items-center justify-center w-6 h-6 rounded-full bg-indigo-100 dark:bg-indigo-500/25 text-[var(--color-primary)] dark:text-indigo-300 text-xs font-semibold shrink-0">
+        <span className="flex items-center justify-center w-6 h-6 rounded-full bg-[var(--color-primary-soft)] text-[var(--color-primary)] text-xs font-semibold shrink-0">
           {getInitials(assigneeName)}
         </span>
-        <span className="text-sm font-semibold text-slate-700 dark:text-slate-200 truncate">{assigneeName}</span>
+        <span className="text-sm font-semibold text-[var(--color-foreground)] truncate">{assigneeName}</span>
       </div>
     )
   }
@@ -32,17 +32,17 @@ export function KpiResponsibleCell({
     return (
       <span
         className={cn(
-          'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-slate-100 dark:bg-slate-800 text-xs font-semibold text-slate-600 dark:text-slate-300',
+          'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-control bg-[var(--color-muted)] text-caption',
           className,
         )}
         title={`Đơn vị đảm nhiệm: ${orgUnitName}`}
       >
-        <Building2 size={12} className="shrink-0 text-slate-400" />
+        <Building2 size={12} className="shrink-0 text-[var(--color-subtle-foreground)]" />
         {orgUnitName}
       </span>
     )
   }
-  return <span className={cn('text-slate-300 dark:text-slate-600', className)}>-</span>
+  return <span className={cn('text-[var(--color-subtle-foreground)]', className)}>—</span>
 }
 
 export default KpiResponsibleCell

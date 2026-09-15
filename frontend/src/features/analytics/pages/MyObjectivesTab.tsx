@@ -154,7 +154,7 @@ export default function MyObjectivesTab() {
       <div className="flex-1 overflow-auto custom-scrollbar min-h-0 flex flex-col">
         <div className="hidden md:block overflow-x-auto custom-scrollbar">
           <table className="w-full text-left">
-            <thead className="bg-slate-50 dark:bg-slate-800/50">
+            <thead className="bg-[var(--color-muted)]">
               <tr className="text-xs font-medium text-slate-500">
                 <th className="px-6 py-4 w-10"></th>
                 <th className="px-6 py-4">Mục tiêu hướng tới</th>
@@ -168,7 +168,7 @@ export default function MyObjectivesTab() {
                 <th className="px-6 py-4">Phân loại</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-800">
+            <tbody className="divide-y divide-[var(--color-border)]">
               {isKpisLoading
                 ? <TableLoadingRows cols={6} count={2} />
                 : kpiPage?.content?.map(kpi => (
@@ -181,7 +181,7 @@ export default function MyObjectivesTab() {
           </table>
         </div>
 
-        <div className="md:hidden divide-y divide-slate-100 dark:divide-slate-800">
+        <div className="md:hidden divide-y divide-[var(--color-border)]">
           {isKpisLoading ? (
             <div className="p-6 text-sm text-slate-400">Đang tải...</div>
           ) : kpiPage?.content?.length ? (
@@ -296,7 +296,7 @@ export default function MyObjectivesTab() {
     <div className="space-y-6">
       {/* Tiêu đề + nút Tuỳ chỉnh */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <h2 className="text-xl font-semibold text-slate-900 dark:text-white">Mục tiêu của tôi</h2>
+        <h2 className="text-xl font-semibold text-[var(--color-foreground)]">Mục tiêu của tôi</h2>
         <div id="tour-analytics-customize" className="flex items-center gap-3 flex-wrap">
           <DashboardEditToolbar api={dash} />
         </div>
@@ -346,7 +346,7 @@ function MobileKpiCard({ kpi, onExpand }: { kpi: any; onExpand: () => void }) {
     <div className="p-4 space-y-3 active:bg-slate-50 dark:active:bg-slate-800/30" onClick={onExpand}>
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="font-semibold text-sm text-slate-900 dark:text-white truncate">{kpi.kpiName}</p>
+          <p className="font-semibold text-sm text-[var(--color-foreground)] truncate">{kpi.kpiName}</p>
           <p className="text-xs text-slate-500 mt-0.5">{kpi.objectiveName} ({kpi.objectiveCode})</p>
           <p className="text-xs text-slate-500">{kpi.keyResultName} • {kpi.keyResultCode}</p>
         </div>
@@ -363,13 +363,13 @@ function MobileKpiCard({ kpi, onExpand }: { kpi: any; onExpand: () => void }) {
 
       <p className="text-xs text-slate-400">{fmt(kpi.periodStart)} - {fmt(kpi.periodEnd)}</p>
 
-      <div className="flex items-center gap-4 pt-1 border-t border-slate-100 dark:border-slate-800">
+      <div className="flex items-center gap-4 pt-1 border-t border-[var(--color-border)]">
         <div className="flex-1">
           <div className="flex items-center justify-between mb-1">
             <span className="text-xs text-slate-500">Tiến độ</span>
             <span className="text-xs font-semibold">{pct}%</span>
           </div>
-          <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+          <div className="h-2 bg-[var(--color-muted)] rounded-full overflow-hidden">
             <div className={cn('h-full rounded-full', pct >= 100 ? 'bg-emerald-500' : 'bg-indigo-500')} style={{ width: `${Math.min(pct, 100)}%` }} />
           </div>
         </div>
@@ -433,7 +433,7 @@ function ExpandableKpiRow({ kpi, onExpand, onSelectKpi }: { kpi: any; onExpand: 
           ) : (
             <>
               <div className="flex items-center gap-3">
-                <div className="flex-1 h-2 bg-slate-100 dark:bg-slate-800 rounded-full overflow-hidden">
+                <div className="flex-1 h-2 bg-[var(--color-muted)] rounded-full overflow-hidden">
                   <div
                     className={cn('h-full rounded-full transition-all', pct >= 100 ? 'bg-emerald-500' : 'bg-indigo-500')}
                     style={{ width: `${Math.min(pct, 100)}%` }}
@@ -469,7 +469,7 @@ function ExpandableKpiRow({ kpi, onExpand, onSelectKpi }: { kpi: any; onExpand: 
       )}
       {expanded && (!hasChildren || (kpi.mySubmissions?.length ?? 0) > 0 || kpi.shared) && (
         <tr>
-          <td colSpan={6} className="p-0 border-b border-slate-100 dark:border-slate-800">
+          <td colSpan={6} className="p-0 border-b border-[var(--color-border)]">
             <div className="bg-slate-50/50 dark:bg-slate-900/50 p-6 flex flex-col gap-6 border-l-4 border-[var(--color-primary)]">
               <div className="w-full space-y-4">
                 <h4 className="text-xs font-medium text-slate-500">Lịch sử bài nộp của tôi</h4>

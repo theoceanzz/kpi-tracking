@@ -366,6 +366,17 @@ public class BscScoringService {
                 .orElse(matches.get(0));
     }
 
+    /**
+     * Bộ tiêu chí hiệu lực cho MỘT NHÂN VIÊN — cùng đường tra mà {@link #computeForUser} dùng.
+     *
+     * <p>Mở ra public để nơi khác (kiểm tra trọng số KPI liên kết BSC) hỏi được đúng bộ tiêu chí
+     * đang chấm cho người này, thay vì tự dựng lại luật đi ngược cây tổ chức rồi lệch nhau.
+     */
+    @Transactional(readOnly = true)
+    public BscScorecard resolveScorecardForUser(UUID userId, UUID organizationId, UUID kpiPeriodId) {
+        return resolveScorecard(userOrgUnit(userId), organizationId, kpiPeriodId);
+    }
+
     /** Phòng ban của một nhân viên (lấy role đầu tiên) — null nếu không xác định được. */
     private OrgUnit userOrgUnit(UUID userId) {
         if (userId == null) return null;

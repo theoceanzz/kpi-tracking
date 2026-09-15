@@ -1,10 +1,11 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/apiError'
 import { giftApi } from '../api/giftApi'
 import { RedemptionStatus } from '../types'
 import type { CreateRedemptionRequest, GiftItemRequest } from '../types'
 
-const errMsg = (error: any, fallback: string) => error?.response?.data?.message || fallback
+const errMsg = (error: any, fallback: string) => getApiErrorMessage(error, fallback)
 
 /**
  * Đổi quà đụng vào cả ví, sổ cái, tồn kho lẫn danh sách yêu cầu — làm mới hết một lượt

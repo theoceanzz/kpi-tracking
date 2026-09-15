@@ -9,17 +9,17 @@ const TYPE_META: Record<
   [CashTransactionType.TOPUP]: {
     label: 'Nạp tiền',
     icon: <ArrowDownToLine size={14} />,
-    cls: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
+    cls: 'bg-[var(--color-success-bg)] text-[var(--color-success)] dark:bg-[var(--color-success-bg)] dark:text-[var(--color-success)]',
   },
   [CashTransactionType.CONVERT]: {
     label: 'Đổi ra điểm',
     icon: <Coins size={14} />,
-    cls: 'bg-sky-50 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400',
+    cls: 'bg-[var(--color-info-bg)] text-[var(--color-info)] dark:bg-[var(--color-info-bg)] dark:text-[var(--color-info)]',
   },
   [CashTransactionType.ADJUST]: {
     label: 'Điều chỉnh',
     icon: <SlidersHorizontal size={14} />,
-    cls: 'bg-amber-50 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
+    cls: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)] dark:bg-[var(--color-warning-bg)] dark:text-[var(--color-warning)]',
   },
 }
 
@@ -31,10 +31,10 @@ export default function CashLedgerTable({ data }: CashLedgerTableProps) {
   return (
     // Bảng tiền có nhiều cột số dài; cho cuộn ngang TRONG khung thay vì để cả
     // trang trượt theo.
-    <div className="overflow-x-auto rounded-2xl border border-[var(--color-border)]">
+    <div className="overflow-x-auto rounded-card border border-[var(--color-border)]">
       <table className="w-full min-w-[720px] text-sm">
         <thead className="bg-[var(--color-muted)]/50 text-left">
-          <tr className="text-[11px] font-black uppercase tracking-wider text-[var(--color-muted-foreground)]">
+          <tr className="text-eyebrow">
             <th className="px-4 py-3">Thời gian</th>
             <th className="px-4 py-3">Loại</th>
             <th className="px-4 py-3 text-right">Số tiền</th>
@@ -60,8 +60,8 @@ export default function CashLedgerTable({ data }: CashLedgerTableProps) {
                   </span>
                 </td>
                 <td
-                  className={`whitespace-nowrap px-4 py-3 text-right font-bold tabular-nums ${
-                    positive ? 'text-emerald-600' : 'text-rose-600'
+                  className={`whitespace-nowrap px-4 py-3 text-right font-semibold tabular-nums ${
+                    positive ? 'text-[var(--color-success)]' : 'text-[var(--color-error)]'
                   }`}
                 >
                   {positive ? '+' : '−'}

@@ -107,11 +107,11 @@ function HistTooltip({ active, payload, total, unit }: {
   if (!active || !d) return null
   const pct = total > 0 ? Math.round(d.count * 1000 / total) / 10 : 0
   return (
-    <div className="bg-white dark:bg-slate-900 border border-slate-200 dark:border-slate-800 p-3.5 rounded-lg shadow-lg">
-      <p className="font-semibold text-slate-900 dark:text-white mb-1">
+    <div className="bg-[var(--color-card)] border border-[var(--color-border)] p-3.5 rounded-lg shadow-lg">
+      <p className="font-semibold text-[var(--color-foreground)] mb-1">
         {d.label}{unit ? ` ${unit}` : ''}
       </p>
-      <p className="font-semibold text-lg text-slate-900 dark:text-white tabular-nums">{d.count}</p>
+      <p className="font-semibold text-lg text-[var(--color-foreground)] tabular-nums">{d.count}</p>
       <p className="text-xs text-slate-400 font-medium">{pct}% tổng số</p>
     </div>
   )

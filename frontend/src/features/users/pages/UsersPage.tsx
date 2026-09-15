@@ -1,5 +1,6 @@
 import { useState, useRef, useMemo, useEffect } from 'react'
-import PageHeader from '@/components/common/PageHeader'
+import WorkspaceHeader from '@/components/common/WorkspaceHeader'
+import FilterBar from '@/components/common/FilterBar'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import UserTable from '../components/UserTable'
 import UserFormModal from '../components/UserFormModal'
@@ -12,15 +13,17 @@ import { useUsers } from '../hooks/useUsers'
 import { useOrgUnitTree, useOrgHierarchyLevels } from '@/features/organization/hooks/useOrganizationStructure'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { userApi } from '../api/userApi'
-import { Plus, Upload, Loader2, Filter, ArrowUpDown, Briefcase } from 'lucide-react'
+import { Plus, Upload, Loader2, Users } from 'lucide-react'
 import type { User } from '@/types/user'
 import type { OrgUnitTreeResponse } from '@/features/organization/types/org-unit'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/apiError'
 import { usePermission } from '@/hooks/usePermission'
 import { useAuthStore } from '@/store/authStore'
 import { usePageTitle } from '@/features/organization/hooks/usePageTitle'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useRoles } from '@/features/organization/hooks/useRoles'
+import { Button } from '@/components/ui/button'
 
 export default function UsersPage() {
   const [keyword, setKeyword] = useState('')
@@ -46,7 +49,7 @@ export default function UsersPage() {
 
   const { hasPermission } = usePermission()
   const isAdmin = useMemo(() => {
-    return hasPermission('ROLE:CREATE') || hasPermission('COMPANY:UPDATE') || 
+    return hasPermission('ROLE:CREATE') || hasPermission('COMPANY:UPDATE') ||
            user?.memberships?.some(m => m.roleName === 'ADMIN' || m.roleName === 'DIRECTOR_SYSTEM') || false
   }, [user, hasPermission])
 
@@ -73,14 +76,14 @@ export default function UsersPage() {
       }
 
       if (isAdmin) return true
-      
+
       // 1. Structural check: Must be in company hierarchy
       if (r.level === undefined || !activeRoleLevels.has(r.level)) return false
 
       // 2. Authority check: Cannot assign roles above or equal to own level/rank
       if (r.level !== undefined && r.level < currentUserLevel) return false
       if (r.level === currentUserLevel && r.rank !== undefined && r.rank <= currentUserRank) return false
-      
+
       return true
     })
   }, [allRoles, currentUserLevel, currentUserRank, isAdmin, user, hierarchyLevels])
@@ -89,8 +92,8 @@ export default function UsersPage() {
   const allUnits = useMemo(() => {
     const flatten = (items: OrgUnitTreeResponse[]): OrgUnitTreeResponse[] => {
       return items.reduce((acc, item) => [
-        ...acc, 
-        item, 
+        ...acc,
+        item,
         ...flatten(item.children || [])
       ], [] as OrgUnitTreeResponse[])
     }
@@ -134,14 +137,14 @@ export default function UsersPage() {
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => userApi.delete(id),
-    onSuccess: () => { 
-      qc.invalidateQueries({ queryKey: ['users'] }); 
-      qc.invalidateQueries({ queryKey: ['organization-users'] }); 
-      qc.invalidateQueries({ queryKey: ['stats'] }); 
-      toast.success('Đã xoá nhân sự'); 
-      setDeleteUser(null) 
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['users'] });
+      qc.invalidateQueries({ queryKey: ['organization-users'] });
+      qc.invalidateQueries({ queryKey: ['stats'] });
+      toast.success('Đã xoá nhân sự');
+      setDeleteUser(null)
     },
-    onError: () => toast.error('Xoá thất bại'),
+    onError: (error) => toast.error(getApiErrorMessage(error, 'Xoá người dùng thất bại')),
   })
 
   const importMutation = useMutation({
@@ -172,7 +175,7 @@ export default function UsersPage() {
       }
     },
     onError: (error: any) => {
-      const errorMessage = error?.response?.data?.message || error?.message || 'Import thất bại'
+      const errorMessage = getApiErrorMessage(error, 'Import thất bại')
       toast.error(errorMessage)
     },
   })
@@ -225,121 +228,71 @@ export default function UsersPage() {
   }
 
   return (
-    <div className="space-y-6">
-      <div id="tour-users-header">
-        <PageHeader
-          title={pageTitle}
-          description="Cơ sở dữ liệu toàn bộ cán bộ nhân viên"
-          action={
-            <div className="flex flex-wrap gap-3">
-              {canImport && (
-                <button
-                  id="tour-users-import"
-                  onClick={() => setShowImportGuide(true)}
-                  disabled={importMutation.isPending}
-                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl border border-[var(--color-border)] text-sm font-semibold hover:bg-[var(--color-accent)] transition-all shadow-sm bg-[var(--color-card)]"
-                >
-                  {importMutation.isPending ? <Loader2 size={16} className="animate-spin" /> : <Upload size={16} />}
-                  Import Hệ thống
-                </button>
-              )}
-              {canCreate && (
-                <button
-                  id="tour-users-add"
-                  onClick={() => { setEditUser(null); setShowForm(true) }}
-                  className="flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[var(--color-primary)] text-white text-sm font-semibold hover:opacity-90 transition-all shadow-md"
-                >
-                  <Plus size={16} /> Bổ sung Nhân sự
-                </button>
-              )}
-              <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleImport} />
-            </div>
-          }
-        />
-      </div>
+    <div className="mx-auto max-w-[1600px] space-y-4">
+      <WorkspaceHeader
+        id="tour-users-header"
+        title={pageTitle}
+        description="Toàn bộ nhân sự của tổ chức: đơn vị, chức danh và trạng thái tài khoản."
+        stats={[{ label: 'Nhân sự', value: data?.totalElements ?? 0, icon: Users }]}
+        actions={
+          <div className="flex flex-wrap gap-2">
+            {canImport && (
+              <Button variant="outline" id="tour-users-import" onClick={() => setShowImportGuide(true)} disabled={importMutation.isPending}>
+                {importMutation.isPending ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Upload aria-hidden="true" />}
+                Nhập Excel
+              </Button>
+            )}
+            {canCreate && (
+              <Button id="tour-users-add" onClick={() => { setEditUser(null); setShowForm(true) }}>
+                <Plus aria-hidden="true" /> Thêm nhân sự
+              </Button>
+            )}
+            <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleImport} />
+          </div>
+        }
+      />
 
-      <div id="tour-users-filters" className="bg-[var(--color-card)] border border-[var(--color-border)] rounded-2xl p-4 shadow-sm flex flex-col xl:flex-row flex-wrap gap-4 items-stretch xl:items-center justify-between">
-        <div className="flex-1 min-w-[280px]">
-          <input
-            type="text"
-            placeholder="Tìm kiếm theo Tên hoặc Email..."
-            value={keyword}
-            onChange={(e) => handleKeywordChange(e.target.value)}
-            className="w-full px-4 py-2.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-background)] font-medium text-sm focus:ring-2 focus:ring-[var(--color-primary)]/30 focus:border-[var(--color-primary)] outline-none transition-all shadow-sm"
-          />
-        </div>
+      <FilterBar id="tour-users-filters" search={{ value: keyword, onChange: handleKeywordChange, placeholder: 'Tìm theo tên hoặc email…' }}>
+        <Select value={roleFilter} onValueChange={handleRoleChange}>
+          <SelectTrigger className="w-full sm:w-44" aria-label="Chức danh"><SelectValue placeholder="Chức danh" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="ALL">Mọi chức danh</SelectItem>
+            {assignableRoles.map(role => <SelectItem key={role.id} value={role.name}>{role.name}</SelectItem>)}
+          </SelectContent>
+        </Select>
+        <Select value={orgUnitFilter} onValueChange={handleOrgUnitChange}>
+          <SelectTrigger className="w-full sm:w-56" aria-label="Đơn vị"><SelectValue placeholder="Đơn vị" /></SelectTrigger>
+          <SelectContent className="max-h-[300px]">
+            {allUnits.filter(u => !!u.id).map((unit: OrgUnitTreeResponse) => (
+              <SelectItem key={unit.id} value={unit.id}>{unit.name}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+        <Select value={sortOrder} onValueChange={(v) => handleSortChange(v as 'A-Z' | 'Z-A')}>
+          <SelectTrigger className="w-full sm:w-36" aria-label="Sắp xếp"><SelectValue placeholder="Sắp xếp" /></SelectTrigger>
+          <SelectContent>
+            <SelectItem value="A-Z">Tên A → Z</SelectItem>
+            <SelectItem value="Z-A">Tên Z → A</SelectItem>
+          </SelectContent>
+        </Select>
+      </FilterBar>
 
-        <div className="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-3">
-            <div className="relative sm:flex-none">
-                <Select value={roleFilter} onValueChange={handleRoleChange}>
-                    <SelectTrigger className="w-full sm:w-[180px] pl-9 py-2.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-background)] font-semibold text-sm shadow-sm h-11">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <Filter size={14} className="text-[var(--color-muted-foreground)]" />
-                        </div>
-                        <SelectValue placeholder="Chức danh" />
-                    </SelectTrigger>
-                    <SelectContent className="rounded-xl border-[var(--color-border)] shadow-lg">
-                        <SelectItem value="ALL" className="font-medium cursor-pointer rounded-lg">Chức danh</SelectItem>
-                        {assignableRoles.map(role => (
-                          <SelectItem key={role.id} value={role.name} className="font-medium cursor-pointer rounded-lg">
-                            {role.name}
-                          </SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-            </div>
-
-            <div className="relative sm:flex-none">
-                <Select value={orgUnitFilter} onValueChange={handleOrgUnitChange}>
-                    <SelectTrigger className="w-full sm:w-[220px] pl-9 py-2.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-background)] font-semibold text-sm shadow-sm h-11">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <Briefcase size={14} className="text-[var(--color-muted-foreground)]" />
-                        </div>
-                        <SelectValue placeholder="Đơn vị" />
-                    </SelectTrigger>
-                    <SelectContent className="rounded-xl border-[var(--color-border)] shadow-lg max-h-[300px]">
-                        {allUnits.filter(u => !!u.id).map((unit: OrgUnitTreeResponse) => (
-                            <SelectItem key={unit.id} value={unit.id} className="font-medium cursor-pointer rounded-lg">
-                                {unit.name}
-                            </SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
-            </div>
-
-            <div className="relative sm:flex-none">
-                <Select value={sortOrder} onValueChange={(v) => handleSortChange(v as 'A-Z' | 'Z-A')}>
-                    <SelectTrigger className="w-full sm:w-[150px] pl-9 py-2.5 rounded-xl border border-[var(--color-border)] bg-[var(--color-background)] font-semibold text-sm shadow-sm h-11">
-                        <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
-                            <ArrowUpDown size={14} className="text-[var(--color-muted-foreground)]" />
-                        </div>
-                        <SelectValue placeholder="Sắp xếp" />
-                    </SelectTrigger>
-                    <SelectContent className="rounded-xl border-[var(--color-border)] shadow-lg">
-                        <SelectItem value="A-Z" className="font-medium cursor-pointer rounded-lg">A → Z</SelectItem>
-                        <SelectItem value="Z-A" className="font-medium cursor-pointer rounded-lg">Z → A</SelectItem>
-                    </SelectContent>
-                </Select>
-            </div>
-        </div>
-      </div>
-
-      <div id="tour-users-table" className="bg-[var(--color-card)] border border-[var(--color-border)] rounded-2xl overflow-hidden shadow-sm">
+      <div id="tour-users-table" className="space-y-4">
         {isLoading ? (
-          <div className="p-6"><LoadingSkeleton type="table" rows={6} /></div>
+          <LoadingSkeleton type="table" rows={6} />
         ) : (
           <>
-            <UserTable 
-              users={data?.content || []} 
-              onRowClick={handleRowClick} 
+            <UserTable
+              users={data?.content || []}
+              onRowClick={handleRowClick}
               onDelete={(u) => setDeleteUser(u)}
               canUpdate={canUpdate}
               canDelete={canDelete}
               orgUnitMap={orgUnitCodeMap}
               rootUnitId={rootUnitId}
             />
-            {data && (
-               <Pagination 
+            {data && data.totalPages > 1 && (
+               <Pagination
                 currentPage={page}
                 totalPages={data.totalPages}
                 totalElements={data.totalElements}
@@ -353,21 +306,21 @@ export default function UsersPage() {
 
       <UserFormModal open={showForm} onClose={() => { setShowForm(false); setEditUser(null) }} editUser={editUser} />
       <ImportGuideModal open={showImportGuide} onClose={() => setShowImportGuide(false)} onSelectFile={() => fileRef.current?.click()} />
-      <ExcelPreviewModal 
-        open={!!selectedFile} 
-        file={selectedFile} 
-        onClose={() => setSelectedFile(null)} 
-        onImport={handleConfirmImport} 
-        isImporting={importMutation.isPending} 
+      <ExcelPreviewModal
+        open={!!selectedFile}
+        file={selectedFile}
+        onClose={() => setSelectedFile(null)}
+        onImport={handleConfirmImport}
+        isImporting={importMutation.isPending}
       />
 
       <ConfirmDialog
         open={!!deleteUser}
         onClose={() => setDeleteUser(null)}
         onConfirm={() => deleteUser && deleteMutation.mutate(deleteUser.id)}
-        title="Tiến hành Xoá Nhân sự"
-        description={`Bạn có chắc chắn muốn rời "${deleteUser?.fullName}" khỏi hệ thống? Hành động này không thể hoàn tác nhưng quy trình của họ vẫn sẽ được lưu trữ.`}
-        confirmLabel="Đồng ý Xoá"
+        title="Xoá nhân sự khỏi hệ thống?"
+        description={`"${deleteUser?.fullName}" sẽ không đăng nhập được nữa. Lịch sử KPI, bài nộp và đánh giá của người này vẫn được lưu.`}
+        confirmLabel="Xoá nhân sự"
         loading={deleteMutation.isPending}
       />
     </div>

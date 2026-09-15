@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { adjustmentApi } from '../api/adjustmentApi'
 import type { AdjustmentStatus } from '@/types/adjustment'
 import { toast } from 'sonner'
+import { getApiErrorMessage } from '@/lib/apiError'
 
 export function useKpiAdjustments(params: { 
   page?: number; 
@@ -27,8 +28,8 @@ export function useBulkReviewAdjustments() {
       queryClient.invalidateQueries({ queryKey: ['kpi-adjustments'] })
       toast.success('Đã xử lý hàng loạt thành công')
     },
-    onError: (error: any) => {
-      toast.error(error?.response?.data?.message || 'Có lỗi xảy ra khi xử lý hàng loạt')
+    onError: (error) => {
+      toast.error(getApiErrorMessage(error, 'Xử lý hàng loạt thất bại'))
     }
   })
 }

@@ -28,10 +28,10 @@ function Panel({ title, icon, hint, children, bare }: {
     )
   }
   return (
-    <section ref={ref} className="bg-white dark:bg-slate-900 p-6 rounded-2xl border border-slate-200 dark:border-slate-800 shadow-sm">
+    <section ref={ref} className="bg-[var(--color-card)] p-6 rounded-2xl border border-[var(--color-border)] shadow-sm">
       <div className="flex items-start justify-between gap-3 mb-4">
         <div className="min-w-0">
-          <h3 className="text-sm font-semibold flex items-center gap-2 text-slate-700 dark:text-slate-200">
+          <h3 className="text-sm font-semibold flex items-center gap-2 text-[var(--color-foreground)]">
             {icon} {title}
           </h3>
           {hint && <p className="text-xs text-slate-400 font-medium mt-1">{hint}</p>}
