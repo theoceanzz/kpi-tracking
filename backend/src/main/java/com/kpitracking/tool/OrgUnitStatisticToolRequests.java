@@ -202,18 +202,18 @@ public final class OrgUnitStatisticToolRequests {
     /**
      * Tham số của tool `get_bsc`.
      *
-     * <p>KHÔNG phơi ra groupBy: {@code BscAnalyticsService.getTrend} gắn mốc theo KỲ chứ không theo
-     * tham số đó. KHÔNG phơi sortBy/sortDir của bảng xếp hạng vì tập giá trị hợp lệ chưa được nêu ở
-     * đâu — phơi ra là mời model đoán bừa rồi ăn lỗi.
+     * <p>KHÔNG phơi sortBy/sortDir của bảng xếp hạng vì tập giá trị hợp lệ chưa được nêu ở đâu —
+     * phơi ra là mời model đoán bừa rồi ăn lỗi. `level` giữ lại chỉ để báo lỗi rõ ràng cho model
+     * còn nhớ view cũ.
      */
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record BscRequest(
-            String view,                                          // balance | trend | unit_comparison | vs_system | rankings
+            String view,                                          // overview | units | items | trend | cascade | rankings
             @JsonProperty(required = false) String unitName,      // đơn vị đích; mặc định = đơn vị hiện tại
             @JsonProperty(required = false) String unitId,
-            @JsonProperty(required = false) String periodName,    // một kỳ, hoặc kỳ ĐẦU của khoảng
-            @JsonProperty(required = false) String periodNameTo,  // kỳ CUỐI của khoảng
-            @JsonProperty(required = false) String level,         // CHỈ view=vs_system: UNIT | MEMBER
+            @JsonProperty(required = false) String periodName,    // một đợt, hoặc đợt ĐẦU của khoảng
+            @JsonProperty(required = false) String periodNameTo,  // đợt CUỐI của khoảng
+            @JsonProperty(required = false) String level,         // không còn dùng
             @JsonProperty(required = false) Integer limit         // CHỈ view=rankings
     ) {}
 

@@ -160,6 +160,9 @@ public class UnitClassificationService {
         Profile mainProfile = resolveProfile(unit, ctx, cycleId);
         Classification classification = (lastCounts != null && lastEvaluated > 0)
                 ? classify(rulesOf(mainProfile, ctx), lastCounts, lastEvaluated, levels) : null;
+        // Khung bell curve của đợt đang xét — mẫu số là tổng nhân sự, giống màn đánh giá kỳ.
+        CycleCurveResponse bellCurve = lastCounts != null
+                ? curveFromCounts(mainProfile, levels, lastCounts, memberIds.size(), lastEvaluated) : null;
 
         // Xếp loại nhanh các đơn vị con trực tiếp (đợt hiện tại).
         List<ChildClassification> children = new ArrayList<>();
@@ -181,6 +184,7 @@ public class UnitClassificationService {
                 .levels(levelInfos(levels))
                 .totalMembers(memberIds.size()).evaluatedMembers(lastEvaluated).currentPeriodName(lastPeriodName)
                 .distribution(distribution).classification(classification)
+                .bellCurve(bellCurve)
                 .appliedProfileName(mainProfile != null ? mainProfile.name() : null)
                 .trend(trend).children(children)
                 .build();
@@ -248,6 +252,7 @@ public class UnitClassificationService {
                 .cycleId(cycle.getId()).cycleName(cycle.getName())
                 .distribution(distribution(counts, evaluated, levels))
                 .classification(classification)
+                .bellCurve(curveFromCounts(mainProfile, levels, counts, memberIds.size(), evaluated))
                 .appliedProfileName(mainProfile != null ? mainProfile.name() : null)
                 .trend(trend).children(children)
                 .build();
@@ -317,6 +322,16 @@ public class UnitClassificationService {
         int evaluated = counts.values().stream().mapToInt(Integer::intValue).sum();
 
         Profile profile = resolveProfile(unit, ruleContext(org, levels), cycleId);
+        return curveFromCounts(profile, levels, counts, headcount, evaluated);
+    }
+
+    /**
+     * Dựng khung bell curve từ số người đã đếm theo mức. Dùng chung cho màn đánh giá kỳ
+     * ({@link #cycleCurve}) và khối "Xếp loại đơn vị" ở Thống kê (theo đợt lẫn theo kỳ), để hai
+     * nơi vẽ cùng một biểu đồ từ cùng một phép tính hạn mức.
+     */
+    private CycleCurveResponse curveFromCounts(Profile profile, List<LevelDef> levels,
+                                               Map<String, Integer> counts, int headcount, int evaluated) {
         BellCurve bc = profile == null ? null : profile.bellCurve();
         Set<String> valid = levels.stream().map(LevelDef::name).collect(Collectors.toSet());
         boolean configured = bc != null && bc.enabled() && !bc.targets().isEmpty()

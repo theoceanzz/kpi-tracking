@@ -94,7 +94,7 @@ export function flattenUnitTree(nodes: OrgUnitTreeResponse[] | undefined, depth 
  * trông và hành xử khác nhau. Backend lọc theo `orgUnitId` nên cây đầy đủ là đủ cho tất cả.
  */
 export function useUnitOptions(): { id: string; label: string }[] {
-  const { data } = useOrgUnitTree()
+  const { data } = useOrgUnitTree({ staleTime: 5 * 60 * 1000 })
   return useMemo(() => flattenUnitTree(data), [data])
 }
 
@@ -140,16 +140,22 @@ const MATRIX_VARIANTS: ChartVariantOption[] = [
   { key: 'scatter', label: 'Phân tán từng người', shape: 'scatter', hint: 'Mỗi người một chấm, thấy ai lệch khỏi đám đông.' },
 ]
 
-/** Xu hướng điểm hạng mục BSC: đường từng hạng mục, hay tỉ trọng đóng góp 100%. */
+/** Xu hướng %đạt BSC qua các đợt: chỉ đường tổng, hay tách theo 4 lĩnh vực. */
 const BSC_TREND_VARIANTS: ChartVariantOption[] = [
-  { key: 'line', label: 'Đường', shape: 'line', hint: 'Điểm từng hạng mục qua các kỳ.' },
-  { key: 'share', label: 'Cơ cấu %', shape: 'stacked100', hint: 'Tỉ trọng đóng góp trên điểm đã nhân trọng số.' },
+  { key: 'overall', label: 'Tổng', shape: 'line', hint: '%đạt của thẻ điểm qua từng đợt.' },
+  { key: 'perspectives', label: 'Theo lĩnh vực', shape: 'line', hint: 'Mỗi lĩnh vực một đường, tổng vẽ đứt.' },
 ]
 
-/** Đối chiếu BSC với điểm hệ thống: cột cạnh nhau, hay phân tán từng nhân sự. */
-const BSC_VS_SYSTEM_VARIANTS: ChartVariantOption[] = [
-  { key: 'bar', label: 'Cột', shape: 'groupedBar', hint: 'Hai cột cạnh nhau cho mỗi đơn vị / nhân sự.' },
-  { key: 'scatter', label: 'Phân tán', shape: 'scatter', hint: 'Mỗi nhân sự một chấm; xa đường chéo là lệch nhiều.' },
+/** Mức đạt đơn vị: xếp hạng lollipop, hay bảng đủ trạng thái thẻ và hạng mục chặn. */
+const BSC_UNIT_VARIANTS: ChartVariantOption[] = [
+  { key: 'lollipop', label: 'Xếp hạng', shape: 'lollipop', hint: 'Mỗi đơn vị một chấm %đạt, vạch 100% là mục tiêu.' },
+  { key: 'tree', label: 'Theo cây', shape: 'table', hint: 'Giữ thứ tự công ty → phòng → team, kèm trạng thái và hạng mục chặn.' },
+]
+
+/** Xếp loại đơn vị: bell curve của đợt/kỳ đang xét, hay tỉ trọng các mức qua các đợt. */
+const CLASSIFICATION_VARIANTS: ChartVariantOption[] = [
+  { key: 'bell', label: 'Bell curve', shape: 'bar', hint: 'Phân bố thực tế đặt cạnh khung hạn mức đã cấu hình.' },
+  { key: 'trend', label: 'Qua các đợt', shape: 'stackedArea', hint: 'Tỉ trọng từng mức dịch chuyển qua các đợt.' },
 ]
 
 /** Ô nào cho chọn cách biểu diễn. Ô không có mặt ở đây thì bảng cấu hình chỉ hiện phần lọc. */
@@ -159,8 +165,9 @@ export const WIDGET_VARIANTS: Record<string, ChartVariantOption[]> = {
   'mykpi-trend': TREND_VARIANTS,
   'myobj-trend': TREND_VARIANTS,
   'drill-matrix': MATRIX_VARIANTS,
+  'drill-classification': CLASSIFICATION_VARIANTS,
   'bsc-trend': BSC_TREND_VARIANTS,
-  'bsc-vs-system': BSC_VS_SYSTEM_VARIANTS,
+  'bsc-units': BSC_UNIT_VARIANTS,
 }
 
 /* ── Tuỳ chọn riêng của từng loại biểu đồ ─────────────────────────────────── */
@@ -202,10 +209,6 @@ const SHARED_FIELD: OptionField = {
   choices: [{ value: 'ALL', label: 'Tất cả' }, { value: 'SHARED', label: 'Chung' }, { value: 'PERSONAL', label: 'Riêng' }],
 }
 
-const BSC_LEVEL_FIELD: OptionField = {
-  key: 'level', label: 'Đối tượng', kind: 'pills', default: 'UNIT',
-  choices: [{ value: 'UNIT', label: 'Theo đơn vị' }, { value: 'MEMBER', label: 'Theo nhân sự' }],
-}
 const BSC_SORT_FIELD: OptionField = {
   key: 'sort', label: 'Xếp theo', kind: 'pills', default: 'bscScore',
   choices: [{ value: 'bscScore', label: 'Điểm BSC' }, { value: 'systemScore', label: 'Điểm hệ thống' }],
@@ -218,7 +221,6 @@ export const WIDGET_OPTIONS: Record<string, OptionField[]> = {
   'rank-table': [METRIC_FIELD, DIR_FIELD],
   'mykpi-detail': [SHARED_FIELD],
   'myobj-detail': [SHARED_FIELD],
-  'bsc-vs-system': [BSC_LEVEL_FIELD],
   'bsc-ranking': [BSC_SORT_FIELD],
 }
 
@@ -231,8 +233,7 @@ export const WIDGET_HAS_UNIT: ReadonlySet<string> = new Set([
   'sub-detail',
   // Tab Hạng mục BSC: cùng cách, mỗi ô tự thu phạm vi. (Tab So sánh các đơn vị KHÔNG có mặt ở
   // đây: đơn vị ở đó là cây điều hướng của trang.)
-  'bsc-metrics', 'bsc-perspectives', 'bsc-trend', 'bsc-unit-comparison', 'bsc-vs-system',
-  'bsc-coverage', 'bsc-ranking', 'bsc-weight-history',
+  'bsc-overview', 'bsc-units', 'bsc-items', 'bsc-trend', 'bsc-cascade', 'bsc-gates', 'bsc-ranking',
 ])
 
 /** Đơn vị của ô (phạm vi con) — `undefined` = toàn bộ phạm vi quyền của người dùng. */
@@ -256,7 +257,7 @@ export function optionOf(widget: DashboardWidget | undefined, key: string): stri
  */
 export const WIDGET_HAS_TABLE: ReadonlySet<string> = new Set([
   'mykpi-detail', 'mykpi-eval-history', 'myobj-detail', 'sub-detail', 'rank-table',
-  'drill-employees', 'bsc-ranking',
+  'drill-employees', 'bsc-ranking', 'bsc-cascade',
 ])
 
 /**

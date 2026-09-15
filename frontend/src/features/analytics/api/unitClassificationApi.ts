@@ -1,4 +1,5 @@
 import axiosClient from '@/lib/axios'
+import type { CycleCurve } from '@/types/kpi'
 
 // ── Types (khớp com.kpitracking.dto.response.stats.UnitClassificationResponses) ──
 
@@ -41,6 +42,11 @@ export interface UnitClassificationOverview {
   cycleName?: string | null
   distribution: UnitClassBucket[]
   classification: UnitClassification | null
+  /**
+   * Phân bố thực tế đặt cạnh khung bell curve của hồ sơ đang áp. `configured=false` khi hồ sơ chưa
+   * bật khung (vẫn có `buckets` để vẽ phân bố); null khi chưa có đợt nào để xét.
+   */
+  bellCurve?: CycleCurve | null
   appliedProfileName?: string | null
   trend: UnitClassTrendPoint[]
   children: UnitClassChild[]

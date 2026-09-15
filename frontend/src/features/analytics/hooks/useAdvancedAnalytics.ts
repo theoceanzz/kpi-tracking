@@ -24,14 +24,6 @@ export function useBehaviorCompletion(f: AdvancedFilter, enabled = true) {
   })
 }
 
-export function useBscVsSystemScatter(f: AdvancedFilter, enabled = true) {
-  return useQuery({
-    queryKey: key('bsc-vs-system', f),
-    queryFn: () => advancedAnalyticsApi.getBscVsSystem(f),
-    enabled,
-  })
-}
-
 export function useScoreHistogram(f: AdvancedFilter, enabled = true) {
   return useQuery({
     queryKey: key('score-histogram', f),
@@ -44,14 +36,6 @@ export function useUnitBoxplot(f: AdvancedFilter, enabled = true) {
   return useQuery({
     queryKey: key('unit-boxplot', f),
     queryFn: () => advancedAnalyticsApi.getUnitBoxplot(f),
-    enabled,
-  })
-}
-
-export function useWeightHistory(f: AdvancedFilter, enabled = true) {
-  return useQuery({
-    queryKey: key('weight-history', f),
-    queryFn: () => advancedAnalyticsApi.getWeightHistory(f),
     enabled,
   })
 }

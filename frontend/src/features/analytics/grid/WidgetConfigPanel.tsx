@@ -238,6 +238,7 @@ export default function WidgetConfigPanel({
           cycles={cycles}
           className="!flex-col !items-stretch gap-2"
           selectClassName="h-9"
+          fullWidth
         />
       </section>
     </div>

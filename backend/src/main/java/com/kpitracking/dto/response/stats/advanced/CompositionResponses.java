@@ -70,60 +70,8 @@ public class CompositionResponses {
     // P2 - Cấu thành điểm BSC (thác nước)
     // ============================================================
 
-    /**
-     * Từ 0 cộng dồn phần đóng góp có trọng số của từng hạng mục để ra điểm BSC cuối.
-     * Biểu đồ tròn chỉ nói được tỉ trọng, không nói được thứ tự cộng dồn và không xử lý phần âm.
-     */
-    @Data @Builder @NoArgsConstructor @AllArgsConstructor
-    public static class BscWaterfallResponse {
-        private List<WaterfallStep> steps;
-        private Double totalScore;
-        private String scoringMode;
-    }
-
-    @Data @Builder @NoArgsConstructor @AllArgsConstructor
-    public static class WaterfallStep {
-        private String name;
-        private String color;
-        /** Phần điểm hạng mục này góp vào tổng. */
-        private Double value;
-        private Double weightPercentage;
-        private Double rawScore;
-        private Integer kpiCount;
-        /** true = cột chốt (tổng), vẽ từ 0 thay vì nối tiếp bước trước. */
-        private Boolean isTotal;
-    }
-
     // ============================================================
     // T3 - Lịch sử thay đổi trọng số hạng mục (đường bậc thang)
     // ============================================================
 
-    /**
-     * Bảng {@code bsc_weight_history} là nơi duy nhất trong hệ thống lưu được giá trị CŨ của một
-     * cấu hình. Nhờ nó mới trả lời được "trọng số hạng mục này từng là bao nhiêu, ai đổi, vì sao".
-     */
-    @Data @Builder @NoArgsConstructor @AllArgsConstructor
-    public static class WeightHistoryResponse {
-        private List<PerspectiveMeta> perspectives;
-        private List<WeightPoint> points;
-        private Integer changeCount;
-    }
-
-    @Data @Builder @NoArgsConstructor @AllArgsConstructor
-    public static class PerspectiveMeta {
-        private UUID id;
-        private String name;
-        private String color;
-    }
-
-    @Data @Builder @NoArgsConstructor @AllArgsConstructor
-    public static class WeightPoint {
-        /** ISO-8601 thời điểm đổi. */
-        private String at;
-        private String label;
-        /** perspectiveId đến trọng số ĐANG hiệu lực sau lần đổi này. */
-        private Map<String, Double> values;
-        /** Mô tả lần đổi để hiện trong tooltip. */
-        private String changeNote;
-    }
 }

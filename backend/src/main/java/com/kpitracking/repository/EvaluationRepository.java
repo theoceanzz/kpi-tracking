@@ -208,32 +208,10 @@ public interface EvaluationRepository extends JpaRepository<Evaluation, UUID> {
     long countByUserId(@Param("userId") UUID userId);
 
     // ============================================================
-    // Thống kê BSC (tab "Lĩnh vực"): gộp điểm bsc_score / system_score ĐÃ LƯU.
+    // Xếp hạng BSC (tab "Hạng mục BSC"): gộp điểm bsc_score / system_score ĐÃ LƯU theo nhân sự.
     // Evaluation có @SQLRestriction(deleted_at IS NULL) nên tự loại bản xoá mềm.
     // AVG bỏ NULL; COUNT(e.bscScore) = số đánh giá đã có điểm BSC.
     // ============================================================
-
-    /** Tổng hợp toàn phạm vi → [avgBsc, avgSystem, evalCount, bscCount] (một dòng). */
-    @Query("SELECT AVG(e.bscScore), AVG(e.systemScore), COUNT(e.id), COUNT(e.bscScore) " +
-           "FROM Evaluation e WHERE e.orgUnit.id IN :unitIds AND e.kpiPeriod.id IN :periodIds")
-    java.util.List<Object[]> bscOverall(@Param("unitIds") java.util.Collection<UUID> unitIds,
-                                        @Param("periodIds") java.util.Collection<UUID> periodIds);
-
-    /** Điểm BSC trung bình theo KỲ → [periodId, periodName, periodStart, avgBsc, count]. */
-    @Query("SELECT kp.id, kp.name, kp.startDate, AVG(e.bscScore), COUNT(e.id) " +
-           "FROM Evaluation e JOIN e.kpiPeriod kp " +
-           "WHERE e.orgUnit.id IN :unitIds AND e.kpiPeriod.id IN :periodIds " +
-           "GROUP BY kp.id, kp.name, kp.startDate ORDER BY kp.startDate")
-    java.util.List<Object[]> bscOverallByPeriod(@Param("unitIds") java.util.Collection<UUID> unitIds,
-                                                @Param("periodIds") java.util.Collection<UUID> periodIds);
-
-    /** BSC vs hệ thống theo ĐƠN VỊ → [orgUnitId, orgUnitName, avgBsc, avgSystem, count]. */
-    @Query("SELECT ou.id, ou.name, AVG(e.bscScore), AVG(e.systemScore), COUNT(e.id) " +
-           "FROM Evaluation e JOIN e.orgUnit ou " +
-           "WHERE e.orgUnit.id IN :unitIds AND e.kpiPeriod.id IN :periodIds " +
-           "GROUP BY ou.id, ou.name ORDER BY AVG(e.bscScore) DESC")
-    java.util.List<Object[]> bscOverallByUnit(@Param("unitIds") java.util.Collection<UUID> unitIds,
-                                              @Param("periodIds") java.util.Collection<UUID> periodIds);
 
     /** BSC vs hệ thống theo NHÂN SỰ → [userId, fullName, email, avgBsc, avgSystem, count]. */
     @Query("SELECT u.id, u.fullName, u.email, AVG(e.bscScore), AVG(e.systemScore), COUNT(e.id) " +

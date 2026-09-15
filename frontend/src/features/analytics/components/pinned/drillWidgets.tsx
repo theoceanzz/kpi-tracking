@@ -21,7 +21,7 @@ import Lollipop from '@/components/charts/primitives/Lollipop'
 import OrgUnitTreeSidebar from '../OrgUnitTreeSidebar'
 import BehaviorCompletionScatter from '../BehaviorCompletionScatter'
 import { MatrixMetricCards, MatrixDistHeatmap } from '../MatrixOverviewPanel'
-import UnitClassificationSection from '../UnitClassificationSection'
+import UnitClassificationSection, { type UnitClassificationView } from '../UnitClassificationSection'
 import { KpiCascadeSection, UnitBoxplotSection } from '../advanced/DrillDownAdvanced'
 import type { EmployeeDrillSummary } from '@/types/stats'
 import type { OrgUnitTreeResponse } from '@/types/orgUnit'
@@ -363,9 +363,11 @@ const BY_PERIOD = '__by_period__'
  * Lưới Thống kê truyền nó từ tuỳ chọn của ô (`hideControls`), trang chủ để widget tự vẽ Select.
  * `part='children'` chỉ vẽ xếp loại đơn vị con, dùng cho ô "Đơn vị con".
  */
-export function DrillClassificationWidget({ filter, part, cycleId: cycleProp, hideControls, meta }: {
+export function DrillClassificationWidget({ filter, part, view, cycleId: cycleProp, hideControls, meta }: {
   filter?: PinnedFilter
   part?: 'unit' | 'children'
+  /** Nửa `unit` vẽ bell curve (mặc định) hay tỉ trọng qua các đợt. */
+  view?: UnitClassificationView
   cycleId?: string
   hideControls?: boolean
   meta?: React.ReactNode
@@ -414,7 +416,7 @@ export function DrillClassificationWidget({ filter, part, cycleId: cycleProp, hi
         </div>
       )}
       <div className="flex-1 min-h-0 overflow-auto custom-scrollbar">
-        <UnitClassificationSection overview={overview} part={part} />
+        <UnitClassificationSection overview={overview} part={part} view={view} />
       </div>
     </div>
   )

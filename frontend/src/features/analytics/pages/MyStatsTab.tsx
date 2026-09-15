@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { yAxisLabel } from '@/components/charts/axisLabel'
 import { SeriesTooltip } from '@/components/charts/ChartTooltip'
 import { personalKpiApi } from '@/features/dashboard/api/personalKpiApi'
@@ -133,7 +133,7 @@ export default function MyStatsTab() {
   // trang được nhớ KÈM khoá lọc lúc đặt — khoá khác là coi như trang 0, không cần effect.
   const [pageAt, setPageAt] = useState({ key: filterShared, page: 0 })
   const page = pageAt.key === filterShared ? pageAt.page : 0
-  const setPage = (p: number) => setPageAt({ key: filterShared, page: p })
+  const setPage = useCallback((p: number) => setPageAt({ key: filterShared, page: p }), [filterShared])
 
   // ── New KPI analytics (standalone KPIs without KeyResult) ────────────────
   const { data: chartData, isLoading: isChartLoading } = useQuery({
@@ -167,15 +167,29 @@ export default function MyStatsTab() {
   const { data: subData } = useMyAnalytics(subF.from, subF.to, subF.periodId, subF.periodIdTo)
   const { data: evalData } = useMyAnalytics(evalF.from, evalF.to, evalF.periodId, evalF.periodIdTo)
 
-  const toggleSort = (field: SortField) => {
+  const toggleSort = useCallback((field: SortField) => {
     if (sortField === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
     else { setSortField(field); setSortDir('desc') }
     setPage(0)
-  }
+  }, [sortField, setPage])
+
+  // ── Old chart data preparation ───────────────────────────────────────────
+  const submissionsPieData = useMemo(() => [
+    { name: 'Đã duyệt', value: subData?.approvedSubmissions ?? 0 },
+    { name: 'Chờ duyệt', value: subData?.pendingSubmissions ?? 0 },
+    { name: 'Từ chối',   value: subData?.rejectedSubmissions ?? 0 },
+  ].filter(v => v.value > 0), [subData])
+
+  // Xu hướng điểm số theo từng đợt (backend đã gom 1 dòng/đợt, sắp tăng dần theo đợt).
+  const evalTrendData = useMemo(() => (evalData?.evaluationHistory ?? [])
+    .map(e => ({
+      name: e.kpiName,
+      value: e.score ?? 0,
+    })), [evalData])
 
 
 
-  const renderDetailBody = () => (
+  const renderDetailBody = useCallback(() => (
     <div className="flex-1 flex flex-col min-h-0 -mx-6 -mb-6">
       <div className="flex-1 overflow-auto custom-scrollbar min-h-0 flex flex-col">
         <div className="hidden md:block overflow-x-auto custom-scrollbar">
@@ -229,12 +243,12 @@ export default function MyStatsTab() {
         <Pagination currentPage={page} totalPages={kpiPage?.totalPages ?? 1} onPageChange={setPage} totalElements={kpiPage?.totalElements ?? 0} size={PAGE_SIZE} itemLabel="KPI" />
       )}
     </div>
-  )
+  ), [isKpisLoading, kpiPage, page, sortDir, sortField, toggleSort, setPage])
 
   // Trục là % đạt so với mục tiêu chứ không phải giá trị thô: các KPI ở đây đo bằng những đơn vị
   // khác nhau (triệu đồng, số vụ, %), vẽ giá trị thô thì cái đo bằng triệu sẽ nuốt hết phần còn lại.
   // KPI định tính không có mục tiêu số nên tách riêng, không nhét vào thanh.
-  const renderBulletBody = () => {
+  const renderBulletBody = useCallback(() => {
     const rows = (kpiPage?.content ?? []).filter(k => k.kpiType !== 'QUALITATIVE' && k.targetValue > 0)
     const qualitativeCount = (kpiPage?.content ?? []).length - rows.length
     return (
@@ -269,15 +283,20 @@ export default function MyStatsTab() {
         )}
       </div>
     )
-  }
+  }, [isKpisLoading, kpiPage])
 
-  const renderWidget = (w: DashboardWidget, ctx: { openConfig: () => void }) => {
-    const histF = filterOf('mykpi-histogram')
+  /*
+    `useCallback` là bắt buộc chứ không phải tối ưu tuỳ hứng: lưới cache phần tử từng ô theo định
+    danh hàm này. Hàm mới mỗi render là mọi biểu đồ vẽ lại mỗi lần tab render — kể cả khi chỉ
+    dòng "Đang lưu…" đổi chữ.
+  */
+  const { updateWidgetSettings } = dash
+  const renderWidget = useCallback((w: DashboardWidget, ctx: { openConfig: () => void }) => {
     // Dòng tóm tắt "ô này đang theo cấu hình gì" — bấm vào là mở đúng bảng cấu hình của ô.
     const meta = (
       <WidgetConfigSummary widget={w} pageIntent={pageIntent} periods={periods} cycles={cycles} onOpen={ctx.openConfig} />
     )
-    const f = filterOf(w.i)
+    const f = widgetFilter(w, pageIntent, periods, cycles)
     switch (w.type) {
       case 'STATS': return (
         // Chromeless: mỗi thẻ đã là một card. Chip ở trên cho biết hàng số này đang theo khoảng nào.
@@ -294,7 +313,7 @@ export default function MyStatsTab() {
             itemName="KPI đảm nhiệm"
             fillHeight
             mode={widgetVariant(w) === 'area' ? 'share' : 'trend'}
-            onModeChange={m => dash.updateWidgetSettings(w.i, { v: m === 'share' ? 'area' : 'line' })}
+            onModeChange={m => updateWidgetSettings(w.i, { v: m === 'share' ? 'area' : 'line' })}
             hideModeToggle
             meta={meta}
           />
@@ -354,30 +373,16 @@ export default function MyStatsTab() {
       )
       case 'MY_SCORE_HISTOGRAM': return (
         <ScoreHistogramWidget
-          filter={{ periodId: histF.periodId, periodIdTo: histF.periodIdTo, from: histF.from, to: histF.to }}
+          filter={{ periodId: f.periodId, periodIdTo: f.periodIdTo, from: f.from, to: f.to }}
           meta={meta}
         />
       )
       default: return null
     }
-  }
+  }, [pageIntent, periods, cycles, onlyApproved, chartData, isChartLoading, updateWidgetSettings, kpiPage, detailView, renderBulletBody, renderDetailBody, submissionsPieData, evalView, evalData, evalTrendData])
 
   if (isChartLoading)
     return <AnalyticsTabSkeleton variant="default" className="p-6" />
-
-  // ── Old chart data preparation ───────────────────────────────────────────
-  const submissionsPieData = [
-    { name: 'Đã duyệt', value: subData?.approvedSubmissions ?? 0 },
-    { name: 'Chờ duyệt', value: subData?.pendingSubmissions ?? 0 },
-    { name: 'Từ chối',   value: subData?.rejectedSubmissions ?? 0 },
-  ].filter(v => v.value > 0)
-
-  // Xu hướng điểm số theo từng đợt (backend đã gom 1 dòng/đợt, sắp tăng dần theo đợt).
-  const evalTrendData = (evalData?.evaluationHistory ?? [])
-    .map(e => ({
-      name: e.kpiName,
-      value: e.score ?? 0,
-    }))
 
   return (
     <div className="space-y-6">

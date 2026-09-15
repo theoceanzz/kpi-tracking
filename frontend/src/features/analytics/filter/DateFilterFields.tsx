@@ -37,6 +37,7 @@ export default function DateFilterFields({
   cycles,
   className,
   selectClassName,
+  fullWidth = false,
 }: {
   value: DateFilterIntent
   onChange: (next: DateFilterIntent) => void
@@ -44,6 +45,8 @@ export default function DateFilterFields({
   cycles: KpiCycle[]
   className?: string
   selectClassName?: string
+  /** Ô chọn rộng bằng vật chứa (bảng cấu hình hẹp) thay vì bề rộng cố định theo nội dung. */
+  fullWidth?: boolean
 }) {
   const mode = value.mode ?? DEFAULT_DATE_INTENT.mode
   const legacyMode = value.legacyMode ?? DEFAULT_DATE_INTENT.legacyMode
@@ -102,9 +105,12 @@ export default function DateFilterFields({
   }, [periods, rangeFromPeriod])
 
   const baseTrigger = cn(
-    'bg-[var(--color-muted)] border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-300 outline-none focus:ring-2 focus:ring-[var(--color-primary)]/50 w-full sm:w-auto whitespace-nowrap [&>span]:truncate',
+    'bg-[var(--color-muted)] border border-slate-200 dark:border-slate-700 rounded-lg text-sm font-medium text-slate-700 dark:text-slate-300 outline-none focus:ring-2 focus:ring-[var(--color-primary)]/50 w-full whitespace-nowrap [&>span]:truncate',
+    !fullWidth && 'sm:w-auto',
     selectClassName ?? 'h-10'
   )
+  /** Bề rộng cố định của một ô chọn ở màn rộng; bỏ khi cần rộng bằng vật chứa. */
+  const fixed = (w: string) => (fullWidth ? 'max-w-full' : w)
 
   const modeBtn = (m: FilterMode, label: string) => (
     <button
@@ -136,7 +142,7 @@ export default function DateFilterFields({
             value={value.periodId ?? 'ALL'}
             onValueChange={v => handlePeriodChange(v === 'ALL' ? undefined : v)}
           >
-            <SelectTrigger className={cn(baseTrigger, 'md:w-[300px]')}>
+            <SelectTrigger className={cn(baseTrigger, fixed('md:w-[300px]'))}>
               <SelectValue placeholder="Tất cả các đợt" />
             </SelectTrigger>
             <SelectContent className="w-[var(--radix-select-trigger-width)]">
@@ -152,7 +158,7 @@ export default function DateFilterFields({
               value={periodMode}
               onValueChange={v => patch({ periodMode: v as PeriodMode, subIndex: 0 })}
             >
-              <SelectTrigger className={cn(baseTrigger, 'md:w-[220px]')}>
+              <SelectTrigger className={cn(baseTrigger, fixed('md:w-[220px]'))}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="w-[var(--radix-select-trigger-width)]">
@@ -163,7 +169,7 @@ export default function DateFilterFields({
             </Select>
           ) : (
             <Select value={legacyMode} onValueChange={v => patch({ legacyMode: v as LegacyMode })}>
-              <SelectTrigger className={cn(baseTrigger, 'md:w-[220px]')}>
+              <SelectTrigger className={cn(baseTrigger, fixed('md:w-[220px]'))}>
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="w-[var(--radix-select-trigger-width)]">
@@ -255,7 +261,7 @@ export default function DateFilterFields({
       ) : mode === 'RANGE' ? (
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
           <Select value={value.rangeFromId} onValueChange={handleRangeFrom}>
-            <SelectTrigger className={cn(baseTrigger, 'md:w-[240px]')}>
+            <SelectTrigger className={cn(baseTrigger, fixed('md:w-[240px]'))}>
               <SelectValue placeholder="Từ đợt..." />
             </SelectTrigger>
             <SelectContent className="w-[var(--radix-select-trigger-width)]">
@@ -264,7 +270,7 @@ export default function DateFilterFields({
           </Select>
           <span className="hidden sm:inline text-slate-400 self-center">→</span>
           <Select value={value.rangeToId} onValueChange={v => patch({ rangeToId: v })}>
-            <SelectTrigger className={cn(baseTrigger, 'md:w-[240px]')}>
+            <SelectTrigger className={cn(baseTrigger, fixed('md:w-[240px]'))}>
               <SelectValue placeholder="Đến đợt..." />
             </SelectTrigger>
             <SelectContent className="w-[var(--radix-select-trigger-width)]">
@@ -277,7 +283,7 @@ export default function DateFilterFields({
           cycles={cycles}
           selected={value.cycleIds ?? []}
           onChange={ids => patch({ cycleIds: ids })}
-          triggerClass={cn(baseTrigger, 'md:w-[300px]')}
+          triggerClass={cn(baseTrigger, fixed('md:w-[300px]'))}
         />
       )}
 
@@ -285,7 +291,7 @@ export default function DateFilterFields({
           Khi chọn đúng 1 đợt cụ thể thì "Theo đợt" = 1 cột (vô nghĩa) nên ẩn đi. */}
       {(mode === 'RANGE' || mode === 'CYCLE' || !selectedPeriod) && (
         <Select value={groupBy} onValueChange={v => patch({ groupBy: v as GroupBy })}>
-          <SelectTrigger className={cn(baseTrigger, 'md:w-[200px]')}>
+          <SelectTrigger className={cn(baseTrigger, fixed('md:w-[200px]'))}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent className="w-[var(--radix-select-trigger-width)]">

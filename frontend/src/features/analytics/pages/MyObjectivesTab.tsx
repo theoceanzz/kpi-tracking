@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { personalObjectiveApi } from '@/features/dashboard/api/personalObjectiveApi'
 import { useQuery } from '@tanstack/react-query'
 import DumbbellDotPlot from '@/components/charts/primitives/DumbbellDotPlot'
@@ -103,7 +103,7 @@ export default function MyObjectivesTab() {
   const filterKey = `${filterObjective}|${filterKr}|${filterShared}`
   const [pageAt, setPageAt] = useState({ key: filterKey, page: 0 })
   const page = pageAt.key === filterKey ? pageAt.page : 0
-  const setPage = (p: number) => setPageAt({ key: filterKey, page: p })
+  const setPage = useCallback((p: number) => setPageAt({ key: filterKey, page: p }), [filterKey])
 
   const { data: chartData, isLoading: isChartLoading } = useQuery({
     queryKey: ['personalObjective', 'chart', trendF.from, trendF.to, onlyApproved, trendF.periodId, trendF.periodIdTo, trendF.groupBy],
@@ -129,11 +129,11 @@ export default function MyObjectivesTab() {
     }),
   })
 
-  const toggleSort = (field: SortField) => {
+  const toggleSort = useCallback((field: SortField) => {
     if (sortField === field) setSortDir(d => d === 'asc' ? 'desc' : 'asc')
     else { setSortField(field); setSortDir('desc') }
     setPage(0)
-  }
+  }, [sortField, setPage])
 
   // Hai trường động cho bảng cấu hình của ô chi tiết. Đổi Objective thì KR đã chọn hết nghĩa → `clears`.
   // Backend trả TRỌN danh sách KR (không thu theo Objective) — giữ nguyên hành vi cũ.
@@ -149,7 +149,7 @@ export default function MyObjectivesTab() {
   ], [kpiPage?.availableObjectives, kpiPage?.availableKeyResults])
 
   // Nội dung bảng chi tiết (không bọc card/tiêu đề — ChartWrapper lo phần đó).
-  const renderDetailBody = () => (
+  const renderDetailBody = useCallback(() => (
     <div className="flex-1 flex flex-col min-h-0 -mx-6 -mb-6">
       <div className="flex-1 overflow-auto custom-scrollbar min-h-0 flex flex-col">
         <div className="hidden md:block overflow-x-auto custom-scrollbar">
@@ -204,11 +204,11 @@ export default function MyObjectivesTab() {
         <Pagination currentPage={page} totalPages={kpiPage?.totalPages ?? 1} onPageChange={setPage} totalElements={kpiPage?.totalElements ?? 0} size={PAGE_SIZE} itemLabel="KPI" />
       )}
     </div>
-  )
+  ), [isKpisLoading, kpiPage, page, setPage, sortDir, sortField, toggleSort])
 
   // Mỗi KPI một đoạn nối thực tế → mục tiêu: chiều dài đoạn CHÍNH LÀ phần còn phải làm.
   // Thanh tiến độ trong bảng nói cùng nội dung nhưng phải đọc từng dòng mới xếp hạng được mức độ gấp.
-  const renderGapBody = () => {
+  const renderGapBody = useCallback(() => {
     const rows = (kpiPage?.content ?? []).filter(k => k.kpiType !== 'QUALITATIVE' && k.targetValue > 0)
     const qualitativeCount = (kpiPage?.content ?? []).length - rows.length
     return (
@@ -244,9 +244,14 @@ export default function MyObjectivesTab() {
         )}
       </div>
     )
-  }
+  }, [isKpisLoading, kpiPage])
 
-  const renderWidget = (w: DashboardWidget, ctx: { openConfig: () => void }) => {
+  /*
+    `useCallback` là bắt buộc chứ không phải tối ưu tuỳ hứng: lưới cache phần tử từng ô theo định
+    danh hàm này. Hàm mới mỗi render là mọi biểu đồ vẽ lại mỗi lần tab render.
+  */
+  const { updateWidgetSettings } = dash
+  const renderWidget = useCallback((w: DashboardWidget, ctx: { openConfig: () => void }) => {
     // Dòng tóm tắt "ô này đang theo cấu hình gì" — bấm vào là mở đúng bảng cấu hình của ô.
     const meta = (
       <WidgetConfigSummary
@@ -255,7 +260,7 @@ export default function MyObjectivesTab() {
         onOpen={ctx.openConfig}
       />
     )
-    const f = filterOf(w.i)
+    const f = widgetFilter(w, pageIntent, periods, cycles)
     switch (w.type) {
       case 'STATS': return (
         // Chromeless: mỗi thẻ đã là một card. Chip ở trên cho biết hàng số này đang theo khoảng nào.
@@ -272,7 +277,7 @@ export default function MyObjectivesTab() {
             itemName="KPI đảm nhiệm"
             fillHeight
             mode={widgetVariant(w) === 'area' ? 'share' : 'trend'}
-            onModeChange={m => dash.updateWidgetSettings(w.i, { v: m === 'share' ? 'area' : 'line' })}
+            onModeChange={m => updateWidgetSettings(w.i, { v: m === 'share' ? 'area' : 'line' })}
             hideModeToggle
             meta={meta}
           />
@@ -287,7 +292,7 @@ export default function MyObjectivesTab() {
       )
       default: return null
     }
-  }
+  }, [pageIntent, periods, cycles, detailExtraFields, onlyApproved, chartData, isChartLoading, updateWidgetSettings, kpiPage, detailView, renderGapBody, renderDetailBody])
 
   if (isChartLoading)
     return <AnalyticsTabSkeleton variant="objectives" className="p-6" />

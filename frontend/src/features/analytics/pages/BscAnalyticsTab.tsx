@@ -1,7 +1,8 @@
-import { Gauge, Award, TrendingUp, Building2, Scale, ShieldCheck, Medal, History, Layers } from 'lucide-react'
+import { useCallback } from 'react'
+import { Gauge, Building2, Target, TrendingUp, GitBranch, ShieldAlert, Medal, Layers } from 'lucide-react'
 import {
-  BscBalanceMetrics, BscPerspectiveCards, BscTrendWidget, BscUnitComparisonWidget,
-  BscVsSystemWidget, BscCoverageWidget, BscRankingWidget, BscWeightHistoryWidget,
+  BscOverviewMetrics, BscUnitAttainmentWidget, BscItemAttainmentWidget, BscAttainmentTrendWidget,
+  BscCascadeCoverageWidget, BscGateWidget, BscRankingWidget,
 } from '../components/pinned/bscWidgets'
 import { ChartWrapper, type DashboardWidget } from '@/components/common/dashboard/ChartWrapper'
 import DashboardCustomizeChrome, { DashboardEditToolbar } from '@/components/common/dashboard/DashboardCustomizeChrome'
@@ -14,55 +15,51 @@ import WidgetConfigPanel from '../grid/WidgetConfigPanel'
 import WidgetConfigSummary from '../grid/WidgetConfigSummary'
 
 /**
- * Tab "Hạng mục BSC": số liệu gộp từ điểm đánh giá đã lưu theo hạng mục, nhất quán với chỉ số
- * "hiệu suất theo đánh giá".
+ * Tab "Hạng mục BSC": tổng quan cho người quản lý theo mô hình THẺ ĐIỂM — cây Công ty → Đơn vị,
+ * kết quả đợt, phân rã chỉ tiêu, hạng mục chặn.
  *
- * <p>Trước đây là một trang tĩnh với bộ lọc đợt + ô chọn đơn vị trên đầu lái toàn bộ khối. Nay là
- * lưới như các tab khác: mỗi ô tự mang đơn vị và khoảng thời gian trong bảng cấu hình; các nút
- * chuyển (đường/tỉ trọng, cột/phân tán, theo đơn vị/nhân sự, sắp theo điểm BSC/hệ thống) cũng nằm
- * ở đó. Các ô dùng chung component với thẻ ghim ở trang chủ nên số liệu hai nơi cùng một nguồn.
+ * <p>Mỗi ô tự mang đơn vị và khoảng thời gian trong bảng cấu hình như các tab khác; ô "một đợt"
+ * (số liệu, mức đạt, chỉ tiêu, phân rã, cửa chặn) lấy đợt MUỘN NHẤT có kết quả trong khoảng đã
+ * chọn, ô xu hướng vẽ cả khoảng. Bảng xếp hạng nhân sự là ô duy nhất còn đọc điểm đánh giá cá nhân,
+ * để ẩn mặc định.
  */
 const DEFAULT_WIDGETS: DashboardWidget[] = [
-  { i: 'bsc-metrics', type: 'STATS', title: 'Số liệu cân bằng BSC', x: 0, y: 0, w: 12, h: 5, visible: true },
-  { i: 'bsc-perspectives', type: 'BSC_PERSPECTIVES', title: 'Thẻ từng hạng mục', x: 0, y: 5, w: 12, h: 9, visible: true },
-  { i: 'bsc-trend', type: 'BSC_TREND', title: 'Xu hướng điểm hạng mục theo kỳ', x: 0, y: 14, w: 12, h: 12, visible: true },
-  { i: 'bsc-unit-comparison', type: 'BSC_UNIT_COMPARISON', title: 'So sánh hạng mục giữa các đơn vị', x: 0, y: 26, w: 12, h: 12, visible: true },
-  { i: 'bsc-vs-system', type: 'BSC_VS_SYSTEM', title: 'Đối chiếu điểm BSC và điểm hệ thống', x: 0, y: 38, w: 8, h: 12, visible: true },
-  { i: 'bsc-coverage', type: 'BSC_COVERAGE', title: 'KPI chưa gán hạng mục', x: 8, y: 38, w: 4, h: 12, visible: true },
-  { i: 'bsc-ranking', type: 'BSC_RANKING', title: 'Xếp hạng nhân sự theo điểm BSC', x: 0, y: 50, w: 12, h: 14, visible: true },
-  // Mặc định ẩn: chỉ có nghĩa với người quản trị bộ tiêu chí.
-  { i: 'bsc-weight-history', type: 'BSC_WEIGHT_HISTORY', title: 'Lịch sử thay đổi trọng số hạng mục', x: 0, y: 64, w: 12, h: 12, visible: false },
+  { i: 'bsc-overview', type: 'STATS', title: 'Sức khoẻ BSC của đợt', x: 0, y: 0, w: 12, h: 5, visible: true },
+  { i: 'bsc-units', type: 'BSC_UNITS', title: 'Mức đạt BSC của các đơn vị', x: 0, y: 5, w: 7, h: 11, visible: true },
+  { i: 'bsc-gates', type: 'BSC_GATES', title: 'Hạng mục chặn', x: 7, y: 5, w: 5, h: 11, visible: true },
+  { i: 'bsc-items', type: 'BSC_ITEMS', title: 'Mức đạt từng chỉ tiêu', x: 0, y: 16, w: 12, h: 10, visible: true },
+  { i: 'bsc-trend', type: 'BSC_TREND', title: 'Xu hướng mức đạt qua các đợt', x: 0, y: 26, w: 7, h: 12, visible: true },
+  { i: 'bsc-cascade', type: 'BSC_CASCADE', title: 'Độ phủ phân rã chỉ tiêu', x: 7, y: 26, w: 5, h: 12, visible: true },
+  // Ẩn mặc định: điểm đánh giá cá nhân, có ích khi cần xem ai kéo điểm BSC của đơn vị.
+  { i: 'bsc-ranking', type: 'BSC_RANKING', title: 'Xếp hạng nhân sự theo điểm BSC', x: 0, y: 38, w: 12, h: 14, visible: false },
 ]
 
 const GROUP_OF: Record<string, string> = {
-  'bsc-metrics': 'Số liệu',
-  'bsc-perspectives': 'Số liệu',
+  'bsc-overview': 'Số liệu',
+  'bsc-units': 'Biểu đồ xếp hạng',
+  'bsc-gates': 'Số liệu',
+  'bsc-items': 'Biểu đồ so sánh',
   'bsc-trend': 'Biểu đồ xu hướng',
-  'bsc-unit-comparison': 'Biểu đồ so sánh',
-  'bsc-vs-system': 'Biểu đồ so sánh',
-  'bsc-coverage': 'Số liệu',
+  'bsc-cascade': 'Biểu đồ so sánh',
   'bsc-ranking': 'Biểu đồ xếp hạng',
-  'bsc-weight-history': 'Biểu đồ xu hướng',
 }
-const PREVIEW_OF: Record<string, 'metricCard' | 'table' | 'line' | 'groupedBar' | 'lollipop' | 'stackedArea'> = {
-  'bsc-metrics': 'metricCard',
-  'bsc-perspectives': 'table',
+const PREVIEW_OF: Record<string, 'metricCard' | 'table' | 'line' | 'bullet' | 'lollipop' | 'bar'> = {
+  'bsc-overview': 'metricCard',
+  'bsc-units': 'lollipop',
+  'bsc-gates': 'table',
+  'bsc-items': 'bullet',
   'bsc-trend': 'line',
-  'bsc-unit-comparison': 'groupedBar',
-  'bsc-vs-system': 'groupedBar',
-  'bsc-coverage': 'metricCard',
+  'bsc-cascade': 'bar',
   'bsc-ranking': 'lollipop',
-  'bsc-weight-history': 'stackedArea',
 }
 const DESC_OF: Record<string, string> = {
-  'bsc-metrics': 'Điểm BSC trung bình, hạng mục mạnh nhất, yếu nhất và độ phủ.',
-  'bsc-perspectives': 'Mỗi hạng mục một thẻ: trọng số, điểm, số KPI và mức đóng góp.',
-  'bsc-trend': 'Điểm từng hạng mục qua các kỳ, hoặc tỉ trọng đóng góp vào điểm tổng.',
-  'bsc-unit-comparison': 'Điểm từng hạng mục của các đơn vị đặt cạnh nhau.',
-  'bsc-vs-system': 'Điểm BSC so với điểm hệ thống theo đơn vị hoặc từng nhân sự.',
-  'bsc-coverage': 'Tỉ lệ KPI đã gán hạng mục và danh sách KPI chưa gán.',
-  'bsc-ranking': 'Nhân sự xếp theo điểm BSC hoặc điểm hệ thống, kèm điểm từng hạng mục.',
-  'bsc-weight-history': 'Trọng số hạng mục thay đổi thế nào qua các lần cấu hình.',
+  'bsc-overview': 'Mức đạt BSC của đợt, số thẻ điểm đơn vị, đơn vị qua cửa chặn, độ phủ phân rã.',
+  'bsc-units': 'Mỗi đơn vị một chấm mức đạt so với mục tiêu 100%; đỏ là không qua cửa chặn.',
+  'bsc-gates': 'Đơn vị nào đang vướng chỉ tiêu chặn trong đợt, vướng ở chỉ tiêu nào.',
+  'bsc-items': 'Thực tế so với mục tiêu và sàn của từng chỉ tiêu trên thẻ điểm.',
+  'bsc-trend': 'Mức đạt BSC qua các đợt, tách được theo 4 lĩnh vực.',
+  'bsc-cascade': 'Từng chỉ tiêu đã phân rã xuống đơn vị đủ, thiếu hay vượt mục tiêu.',
+  'bsc-ranking': 'Nhân sự xếp theo điểm BSC hoặc điểm hệ thống, kèm điểm từng lĩnh vực.',
 }
 const CATALOG = DEFAULT_WIDGETS.map(t => ({
   template: t, icon: null, groupLabel: GROUP_OF[t.i], preview: PREVIEW_OF[t.i], description: DESC_OF[t.i],
@@ -75,10 +72,14 @@ export default function BscAnalyticsTab() {
   const pageIntent = PAGE_DEFAULT_INTENT
   const pin = usePinToHome()
   const dash = useAnalyticsGrid({ scope: 'ANALYTICS_BSC', defaultWidgets: DEFAULT_WIDGETS })
-  const filterOf = (i: string) => widgetFilter(dash.widgets.find(w => w.i === i), pageIntent, periods, cycles)
 
-  const renderWidget = (w: DashboardWidget, ctx: { openConfig: () => void }) => {
-    const f = filterOf(w.i)
+  /*
+    `useCallback` là bắt buộc chứ không phải tối ưu tuỳ hứng: lưới cache phần tử từng ô theo định
+    danh hàm này. Hàm mới mỗi render là mọi biểu đồ vẽ lại mỗi lần tab render.
+  */
+  const { updateWidgetSettings } = dash
+  const renderWidget = useCallback((w: DashboardWidget, ctx: { openConfig: () => void }) => {
+    const f = widgetFilter(w, pageIntent, periods, cycles)
     const pf = { from: f.from, to: f.to, periodId: f.periodId, periodIdTo: f.periodIdTo, groupBy: f.groupBy, orgUnitId: widgetUnit(w) }
     const meta = (
       <WidgetConfigSummary
@@ -86,50 +87,38 @@ export default function BscAnalyticsTab() {
         unitOptions={unitOptions} onOpen={ctx.openConfig}
       />
     )
-    const set = (patch: Parameters<typeof dash.updateWidgetSettings>[1]) => dash.updateWidgetSettings(w.i, patch)
     switch (w.type) {
       case 'STATS': return (
         <div id="tour-analytics-metrics" className="h-full flex flex-col gap-2 min-h-0">
           {meta}
-          <BscBalanceMetrics filter={pf} />
+          <BscOverviewMetrics filter={pf} />
         </div>
       )
-      case 'BSC_PERSPECTIVES': return (
+      case 'BSC_UNITS': return (
         <div id="tour-bsc-balance" className="h-full">
-          <ChartWrapper title="Thẻ từng hạng mục" icon={<Award size={20} className="text-slate-400" />} meta={meta}>
-            <BscPerspectiveCards filter={pf} />
+          <ChartWrapper title="Mức đạt BSC của các đơn vị" icon={<Building2 size={20} className="text-slate-400" />}>
+            <BscUnitAttainmentWidget filter={pf} variant={widgetVariant(w) === 'tree' ? 'tree' : 'lollipop'} meta={meta} />
           </ChartWrapper>
         </div>
       )
+      case 'BSC_GATES': return (
+        <ChartWrapper title="Hạng mục chặn" icon={<ShieldAlert size={20} className="text-slate-400" />}>
+          <BscGateWidget filter={pf} meta={meta} />
+        </ChartWrapper>
+      )
+      case 'BSC_ITEMS': return (
+        <ChartWrapper title="Mức đạt từng chỉ tiêu" icon={<Target size={20} className="text-slate-400" />}>
+          <BscItemAttainmentWidget filter={pf} meta={meta} />
+        </ChartWrapper>
+      )
       case 'BSC_TREND': return (
-        <ChartWrapper title="Xu hướng điểm hạng mục theo kỳ" icon={<TrendingUp size={20} className="text-slate-400" />}>
-          <BscTrendWidget
-            filter={pf}
-            mode={widgetVariant(w) === 'share' ? 'share' : 'trend'}
-            onModeChange={m => set({ v: m === 'share' ? 'share' : 'line' })}
-            hideModeToggle
-            meta={meta}
-          />
+        <ChartWrapper title="Xu hướng mức đạt qua các đợt" icon={<TrendingUp size={20} className="text-slate-400" />}>
+          <BscAttainmentTrendWidget filter={pf} variant={widgetVariant(w) === 'perspectives' ? 'perspectives' : 'overall'} meta={meta} />
         </ChartWrapper>
       )
-      case 'BSC_UNIT_COMPARISON': return (
-        <ChartWrapper title="So sánh hạng mục giữa các đơn vị" icon={<Building2 size={20} className="text-slate-400" />} meta={meta}>
-          <BscUnitComparisonWidget filter={pf} />
-        </ChartWrapper>
-      )
-      case 'BSC_VS_SYSTEM': return (
-        <ChartWrapper title="Đối chiếu điểm BSC và điểm hệ thống" icon={<Scale size={20} className="text-slate-400" />} meta={meta}>
-          <BscVsSystemWidget
-            filter={pf}
-            level={optionOf(w, 'level') as 'UNIT' | 'MEMBER'}
-            shape={widgetVariant(w) === 'scatter' ? 'scatter' : 'bar'}
-            hideControls
-          />
-        </ChartWrapper>
-      )
-      case 'BSC_COVERAGE': return (
-        <ChartWrapper title="KPI chưa gán hạng mục" icon={<ShieldCheck size={20} className="text-slate-400" />} meta={meta}>
-          <BscCoverageWidget filter={pf} />
+      case 'BSC_CASCADE': return (
+        <ChartWrapper title="Độ phủ phân rã chỉ tiêu" icon={<GitBranch size={20} className="text-slate-400" />}>
+          <BscCascadeCoverageWidget filter={pf} viewControl={tableViewControl(w, updateWidgetSettings)} hideControls meta={meta} />
         </ChartWrapper>
       )
       case 'BSC_RANKING': return (
@@ -137,19 +126,14 @@ export default function BscAnalyticsTab() {
           <BscRankingWidget
             filter={pf}
             sortBy={optionOf(w, 'sort') as 'bscScore' | 'systemScore'}
-            viewControl={tableViewControl(w, dash.updateWidgetSettings)}
+            viewControl={tableViewControl(w, updateWidgetSettings)}
             hideControls
           />
         </ChartWrapper>
       )
-      case 'BSC_WEIGHT_HISTORY': return (
-        <ChartWrapper title="Lịch sử thay đổi trọng số hạng mục" icon={<History size={20} className="text-slate-400" />} meta={meta}>
-          <BscWeightHistoryWidget filter={pf} />
-        </ChartWrapper>
-      )
       default: return null
     }
-  }
+  }, [pageIntent, periods, cycles, unitOptions, updateWidgetSettings])
 
   return (
     <div className="space-y-6 pb-12">
@@ -179,7 +163,7 @@ export default function BscAnalyticsTab() {
       </div>
 
       <p className="text-xs text-slate-500 flex items-center gap-1.5">
-        <Layers size={12} /> Số liệu gộp từ điểm đánh giá đã lưu theo hạng mục, nhất quán với chỉ số "hiệu suất theo đánh giá".
+        <Layers size={12} /> Số liệu đọc từ kết quả đợt đã tính của thẻ điểm (Quản lý BSC → Kết quả đợt); đợt chưa "Tính lại" thì ô báo chưa có kết quả.
       </p>
     </div>
   )

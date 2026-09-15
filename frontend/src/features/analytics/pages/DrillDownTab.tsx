@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useMemo, useState, useCallback } from 'react'
+import { useMediaQuery } from '@/hooks/useMediaQuery'
 import { createPortal } from 'react-dom'
 import { useSearchParams } from 'react-router-dom'
 import { X, Network, Award, Users, Grid3x3, Building2, BarChart3, BoxSelect } from 'lucide-react'
@@ -47,7 +48,7 @@ const BY_PERIOD = '__by_period__'
  */
 const DEFAULT_WIDGETS: DashboardWidget[] = [
   { i: 'drill-summary', type: 'DRILL_SUMMARY', title: 'Đơn vị đang xem', x: 0, y: 0, w: 12, h: 3, visible: true },
-  { i: 'drill-classification', type: 'DRILL_CLASSIFICATION', title: 'Xếp loại đơn vị', x: 0, y: 3, w: 12, h: 16, visible: true },
+  { i: 'drill-classification', type: 'DRILL_CLASSIFICATION', title: 'Xếp loại đơn vị', x: 0, y: 3, w: 12, h: 12, visible: true },
   { i: 'drill-cascade', type: 'DRILL_CASCADE', title: 'Luồng phân rã & uỷ quyền KPI', x: 0, y: 19, w: 12, h: 12, visible: true },
   { i: 'drill-employees', type: 'DRILL_EMPLOYEES', title: 'Thành viên trực thuộc', x: 0, y: 31, w: 12, h: 16, visible: true },
   { i: 'drill-matrix', type: 'DRILL_MATRIX', title: 'Ma trận xếp loại', x: 0, y: 47, w: 12, h: 18, visible: true },
@@ -68,7 +69,7 @@ const GROUP_OF: Record<string, string> = {
 }
 const PREVIEW_OF: Record<string, 'metricCard' | 'stackedBar' | 'sankey' | 'lollipop' | 'heatmap' | 'bar' | 'boxplot' | 'table'> = {
   'drill-summary': 'metricCard',
-  'drill-classification': 'stackedBar',
+  'drill-classification': 'bar',
   'drill-cascade': 'sankey',
   'drill-employees': 'lollipop',
   'drill-matrix': 'heatmap',
@@ -78,13 +79,19 @@ const PREVIEW_OF: Record<string, 'metricCard' | 'stackedBar' | 'sankey' | 'lolli
 }
 const DESC_OF: Record<string, string> = {
   'drill-summary': 'Cấp, tên đơn vị, số nhân sự và tổng KPI của đơn vị đang xem.',
-  'drill-classification': 'Xếp loại đơn vị theo phân bố người ở từng mức, và tỉ trọng qua các đợt.',
+  'drill-classification': 'Xếp loại đơn vị và bell curve: phân bố người theo mức đặt cạnh khung hạn mức; hoặc tỉ trọng qua các đợt.',
   'drill-cascade': 'Trọng số KPI chảy từ đơn vị này xuống đơn vị nào.',
   'drill-employees': 'Từng người trong đơn vị: hiệu suất, tiến độ, số KPI.',
   'drill-matrix': 'Số người rơi vào từng ô điểm hành vi × hoàn thành; xem được từng người.',
   'drill-children': 'Xếp loại của các đơn vị ngay bên dưới.',
   'drill-compare': 'Hiệu suất các đơn vị con đặt cạnh nhau.',
   'drill-boxplot': 'Điểm trong mỗi đơn vị con phân tán rộng hay hẹp.',
+}
+
+/** Kỳ chọn trong cài đặt ô; sentinel "theo đợt" → không có kỳ. */
+const cycleOf = (w: DashboardWidget) => {
+  const v = w.s?.o?.cycleId
+  return v && v !== BY_PERIOD ? v : undefined
 }
 
 export default function DrillDownTab() {
@@ -112,13 +119,10 @@ export default function DrillDownTab() {
 
   const pin = usePinToHome()
   const dash = useAnalyticsGrid({ scope: 'ANALYTICS_DRILLDOWN', defaultWidgets })
-  /** Khoảng của một ô cụ thể: riêng nếu đã đặt, không thì theo mặc định. */
-  const filterOf = (i: string) => widgetFilter(dash.widgets.find(w => w.i === i), pageIntent, periods, cycles)
-
   // Cây điều hướng + gốc drill (phạm vi quyền, do backend quyết định). Gốc lấy theo khoảng mặc định:
   // nó chỉ để biết cắt cây từ đâu, không mang số liệu.
   const def = widgetFilter(undefined, pageIntent, periods, cycles)
-  const { data: tree } = useOrgUnitTree()
+  const { data: tree } = useOrgUnitTree({ staleTime: 5 * 60 * 1000 })
   const { data: rootData, isLoading: rootLoading } = useDrillDown(undefined, def.from, def.to, def.periodId, def.periodIdTo)
   const rootUnitId = rootData?.orgUnitId || undefined
   const treeNodes = useMemo(() => subtreeOf(tree || [], rootUnitId), [tree, rootUnitId])
@@ -128,6 +132,8 @@ export default function DrillDownTab() {
     [treeNodes, treeSelectedId, rootData?.orgUnitName],
   )
   const [mobileTreeOpen, setMobileTreeOpen] = useState(false)
+  // Dưới `lg` cây đi vào drawer; báo cho lưới biết để nó không trừ bề rộng cột trái nữa.
+  const isWide = useMediaQuery('(min-width: 1024px)')
 
   /**
    * Đổi đơn vị đang chọn (đồng bộ URL để back/forward + chia sẻ link).
@@ -153,18 +159,18 @@ export default function DrillDownTab() {
       ...cycles.map(c => ({ value: c.id, label: `Kỳ: ${c.name}` })),
     ],
   }], [cycles])
-  const extraFieldsOf = (i: string) => (i === 'drill-classification' || i === 'drill-children' ? cycleFields : undefined)
-  const cycleOf = (w: DashboardWidget) => {
-    const v = w.s?.o?.cycleId
-    return v && v !== BY_PERIOD ? v : undefined
-  }
+  const extraFieldsOf = useCallback(
+    (i: string) => (i === 'drill-classification' || i === 'drill-children' ? cycleFields : undefined),
+    [cycleFields],
+  )
 
-  // Skeleton chỉ theo truy vấn gốc. Không gate theo đơn vị đang chọn: mỗi lần bấm cây mà remount cả
-  // trang thì lưới mất bảng cấu hình đang mở và đo lại bề rộng từ đầu.
-  if (rootLoading && !rootData) return <AnalyticsTabSkeleton variant="drilldown" className="p-6" />
-
-  const renderWidget = (w: DashboardWidget, ctx: { openConfig: () => void }) => {
-    const f = filterOf(w.i)
+  /*
+    `useCallback` là bắt buộc chứ không phải tối ưu tuỳ hứng: lưới cache phần tử từng ô theo định
+    danh hàm này. Hàm mới mỗi render là mọi biểu đồ vẽ lại mỗi lần tab render.
+  */
+  const { updateWidgetSettings } = dash
+  const renderWidget = useCallback((w: DashboardWidget, ctx: { openConfig: () => void }) => {
+    const f = widgetFilter(w, pageIntent, periods, cycles)
     const pf = { from: f.from, to: f.to, periodId: f.periodId, periodIdTo: f.periodIdTo, orgUnitId: selectedUnitId }
     // Chip tóm tắt: khoảng thời gian của ô + tên đơn vị đang xem (chỉ đọc, đổi ở cây bên trái).
     const meta = (
@@ -182,7 +188,10 @@ export default function DrillDownTab() {
       )
       case 'DRILL_CLASSIFICATION': return (
         <ChartWrapper title="Xếp loại đơn vị" icon={<Award size={20} className="text-slate-400" />} meta={meta}>
-          <DrillClassificationWidget filter={pf} part="unit" cycleId={cycleOf(w)} hideControls />
+          <DrillClassificationWidget
+            filter={pf} part="unit" cycleId={cycleOf(w)} hideControls
+            view={widgetVariant(w) === 'trend' ? 'trend' : 'bell'}
+          />
         </ChartWrapper>
       )
       case 'DRILL_CASCADE': return (
@@ -197,7 +206,7 @@ export default function DrillDownTab() {
             <DrillEmployeeTableWidget
               key={selectedUnitId ?? 'root'}
               filter={pf}
-              viewControl={tableViewControl(w, dash.updateWidgetSettings)}
+              viewControl={tableViewControl(w, updateWidgetSettings)}
               hideControls
             />
           </ChartWrapper>
@@ -225,7 +234,11 @@ export default function DrillDownTab() {
       )
       default: return null
     }
-  }
+  }, [pageIntent, periods, cycles, selectedUnitId, unitName, extraFieldsOf, updateWidgetSettings])
+
+  // Skeleton chỉ theo truy vấn gốc. Không gate theo đơn vị đang chọn: mỗi lần bấm cây mà remount cả
+  // trang thì lưới mất bảng cấu hình đang mở và đo lại bề rộng từ đầu.
+  if (rootLoading && !rootData) return <AnalyticsTabSkeleton variant="drilldown" className="p-6" />
 
   return (
     <div className="space-y-6 pb-12">
@@ -236,35 +249,36 @@ export default function DrillDownTab() {
         </div>
       </div>
 
-      {/* Master–detail: cây trái là điều hướng của trang, lưới phải là nội dung của đơn vị đang chọn */}
-      <div className="grid grid-cols-1 lg:grid-cols-[300px_minmax(0,1fr)] gap-6 items-start">
-        <aside id="tour-drilldown-tree" className="hidden lg:block lg:sticky lg:top-4 h-[calc(100vh-2rem)]">
-          <OrgUnitTreeSidebar nodes={treeNodes} selectedId={treeSelectedId} onSelect={select} />
-        </aside>
+      {/* Master–detail: cây trái là điều hướng của trang, lưới phải là nội dung của đơn vị đang chọn.
+          Cây đặt vào khe `sidebar` của lưới: mở bảng cấu hình thì cây tạm nhường chỗ cho bảng, lưới
+          giữ nguyên bề rộng — cùng một bảng đẩy như các tab khác, không phải lớp phủ. */}
+      <div className="space-y-4 min-w-0">
+        <button
+          onClick={() => setMobileTreeOpen(true)}
+          className="lg:hidden w-full flex items-center justify-center gap-2 py-2.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-card)] text-sm font-semibold text-[var(--color-primary)]"
+        >
+          <Network size={16} /> Chọn đơn vị: {unitName}
+        </button>
 
-        <div className="space-y-4 min-w-0">
-          <button
-            onClick={() => setMobileTreeOpen(true)}
-            className="lg:hidden w-full flex items-center justify-center gap-2 py-2.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-card)] text-sm font-semibold text-[var(--color-primary)]"
-          >
-            <Network size={16} /> Chọn đơn vị: {unitName}
-          </button>
-
-          <div id="tour-analytics-widgets">
-            <DashboardCustomizeChrome
-              api={dash}
-              renderWidget={renderWidget}
-              catalog={catalog}
-              onTogglePin={pin.enabled ? pin.toggle : undefined}
-              isPinned={pin.isPinned}
-              renderConfig={(w, update) => (
-                <WidgetConfigPanel
-                  widget={w} update={update} pageIntent={pageIntent} periods={periods} cycles={cycles}
-                  extraFields={extraFieldsOf(w.i)}
-                />
-              )}
-            />
-          </div>
+        <div id="tour-analytics-widgets">
+          <DashboardCustomizeChrome
+            api={dash}
+            renderWidget={renderWidget}
+            catalog={catalog}
+            onTogglePin={pin.enabled ? pin.toggle : undefined}
+            isPinned={pin.isPinned}
+            sidebar={isWide ? (
+              <div id="tour-drilldown-tree" className="h-[calc(100vh-2rem)]">
+                <OrgUnitTreeSidebar nodes={treeNodes} selectedId={treeSelectedId} onSelect={select} />
+              </div>
+            ) : undefined}
+            renderConfig={(w, update) => (
+              <WidgetConfigPanel
+                widget={w} update={update} pageIntent={pageIntent} periods={periods} cycles={cycles}
+                extraFields={extraFieldsOf(w.i)}
+              />
+            )}
+          />
         </div>
       </div>
 

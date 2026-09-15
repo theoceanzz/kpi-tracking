@@ -1,17 +1,11 @@
 package com.kpitracking.service.analytics;
 
-import com.kpitracking.dto.response.stats.advanced.CorrelationResponses.AgreementPoint;
 import com.kpitracking.dto.response.stats.advanced.CorrelationResponses.BehaviorCompletionResponse;
-import com.kpitracking.dto.response.stats.advanced.CorrelationResponses.BscVsSystemScatterResponse;
-import com.kpitracking.dto.response.stats.advanced.CorrelationResponses.PerspectiveBubble;
-import com.kpitracking.dto.response.stats.advanced.CorrelationResponses.PerspectiveBubbleResponse;
 import com.kpitracking.dto.response.stats.advanced.CorrelationResponses.ScatterPoint;
 import com.kpitracking.entity.Organization;
 import com.kpitracking.repository.EvaluationRepository;
-import com.kpitracking.repository.EvaluationPerspectiveScoreRepository;
 import com.kpitracking.repository.KpiCriteriaRepository;
 import com.kpitracking.repository.OrganizationRepository;
-import com.kpitracking.service.BscAnalyticsService;
 import com.kpitracking.util.PerformanceMatrixResolver;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -38,8 +32,6 @@ public class CorrelationAnalyticsService {
     private final EvaluationRepository evaluationRepository;
     private final KpiCriteriaRepository kpiCriteriaRepository;
     private final OrganizationRepository organizationRepository;
-    private final EvaluationPerspectiveScoreRepository perspectiveScoreRepository;
-    private final BscAnalyticsService bscAnalyticsService;
 
     /**
      * R1 — Phân tán điểm hành vi × % hoàn thành KPI, mỗi chấm là một người trong một đợt.
@@ -112,106 +104,6 @@ public class CorrelationAnalyticsService {
                 .points(points)
                 .totalCount(points.size())
                 .anonymized(anonymize)
-                .build();
-    }
-
-    // ============================================================
-    // R2 - Phân tán điểm BSC vs điểm hệ thống
-    // ============================================================
-
-    /**
-     * Mỗi chấm là một người; đường chéo y=x là nơi hai cách chấm đồng ý.
-     *
-     * <p>Biểu đồ cột đối chiếu hiện có xếp hai giá trị cạnh nhau nên chỉ đọc được từng người một.
-     * Ở đây khoảng cách tới đường chéo chính là mức bất đồng, nên nhóm lệch lộ ra ngay cả khi
-     * trung bình hai bên gần như bằng nhau.
-     */
-    @Transactional(readOnly = true)
-    public BscVsSystemScatterResponse getBscVsSystem(UUID orgUnitId, Collection<UUID> periodIds) {
-        StatsTierResolver.TierScope scope = tierResolver.resolve(orgUnitId, periodIds);
-        String mode = scope.orgId() == null ? null
-                : bscAnalyticsService.resolveScoringMode(scope.orgId(), scope.periodIds());
-
-        // Cấp SELF không được xem mức bất đồng của người khác: đây là dữ liệu đánh giá nội bộ.
-        if (scope.isEmpty() || scope.anonymize()) {
-            return BscVsSystemScatterResponse.builder()
-                    .points(List.of()).axisMax(100.0).scoringMode(mode)
-                    .totalCount(0).anonymized(scope.anonymize()).build();
-        }
-
-        List<AgreementPoint> points = new ArrayList<>();
-        double max = 0;
-        for (Object[] r : evaluationRepository.bscOverallByUser(scope.unitIds(), scope.periodIds())) {
-            Double bsc = dbl(r[3]);
-            Double sys = dbl(r[4]);
-            if (bsc == null || sys == null) continue;
-            UUID userId = (UUID) r[0];
-            points.add(AgreementPoint.builder()
-                    .userId(userId)
-                    .name((String) r[1])
-                    .systemScore(round1(sys))
-                    .bscScore(round1(bsc))
-                    .gap(round1(bsc - sys))
-                    .evaluationCount(r[5] == null ? 0 : ((Number) r[5]).intValue())
-                    .isSelf(userId != null && userId.equals(scope.userId()))
-                    .build());
-            max = Math.max(max, Math.max(bsc, sys));
-        }
-
-        return BscVsSystemScatterResponse.builder()
-                .points(points)
-                .axisMax(max <= 0 ? 100.0 : Math.ceil(max * 1.05))
-                .scoringMode(mode)
-                .totalCount(points.size())
-                .anonymized(false)
-                .build();
-    }
-
-    // ============================================================
-    // R3 - Bong bóng hạng mục BSC
-    // ============================================================
-
-    /**
-     * Trọng số (X) x điểm đạt (Y) x số KPI (kích thước).
-     *
-     * <p>Góc phải-dưới là thứ cần tìm: hạng mục được giao trọng số lớn nhưng điểm thấp. Radar cân
-     * bằng hiện có cho thấy điểm từng hạng mục nhưng bỏ mất trọng số, nên một hạng mục yếu mà chỉ
-     * chiếm 5% trọng số trông nghiêm trọng ngang một hạng mục yếu chiếm 40%.
-     */
-    @Transactional(readOnly = true)
-    public PerspectiveBubbleResponse getPerspectiveBubble(UUID orgUnitId, Collection<UUID> periodIds) {
-        StatsTierResolver.TierScope scope = tierResolver.resolve(orgUnitId, periodIds);
-
-        if (scope.isEmpty() || scope.anonymize()) {
-            return PerspectiveBubbleResponse.builder().bubbles(List.of()).build();
-        }
-
-        List<PerspectiveBubble> bubbles = new ArrayList<>();
-        double sumWeight = 0, sumScore = 0;
-        int n = 0;
-        for (Object[] r : perspectiveScoreRepository.aggregateByPerspective(scope.unitIds(), scope.periodIds())) {
-            Double avgRaw = dbl(r[5]);
-            Double avgWeight = dbl(r[8]);
-            if (avgRaw == null && avgWeight == null) continue;
-            double w = avgWeight == null ? 0 : avgWeight;
-            double sc = avgRaw == null ? 0 : avgRaw;
-            bubbles.add(PerspectiveBubble.builder()
-                    .perspectiveId((UUID) r[0])
-                    .name((String) r[2])
-                    .color((String) r[3])
-                    .weightPercentage(round1(w))
-                    .averageScore(round1(sc))
-                    .kpiCount(r[7] == null ? 0 : ((Number) r[7]).intValue())
-                    .build());
-            sumWeight += w;
-            sumScore += sc;
-            n++;
-        }
-
-        return PerspectiveBubbleResponse.builder()
-                .bubbles(bubbles)
-                .avgWeight(n == 0 ? null : round1(sumWeight / n))
-                .avgScore(n == 0 ? null : round1(sumScore / n))
                 .build();
     }
 

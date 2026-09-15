@@ -46,34 +46,42 @@ export function useSummaryRankings(orgUnitId?: string, rankingUnitId?: string, f
   })
 }
 
-export function useBscBalance(params: BscScopeParams) {
+export function useBscOverview(params: BscScopeParams) {
   return useQuery({
-    queryKey: ['analytics', 'bsc', 'balance', params],
-    queryFn: () => bscAnalyticsApi.getBalance(params),
+    queryKey: ['analytics', 'bsc', 'overview', params],
+    queryFn: () => bscAnalyticsApi.getOverview(params),
     placeholderData: (previousData) => previousData,
   })
 }
 
-export function useBscTrend(params: BscScopeParams & { groupBy?: string }) {
+export function useBscUnitAttainment(params: BscScopeParams) {
   return useQuery({
-    queryKey: ['analytics', 'bsc', 'trend', params],
-    queryFn: () => bscAnalyticsApi.getTrend(params),
+    queryKey: ['analytics', 'bsc', 'unit-attainment', params],
+    queryFn: () => bscAnalyticsApi.getUnitAttainment(params),
     placeholderData: (previousData) => previousData,
   })
 }
 
-export function useBscUnitComparison(params: BscScopeParams) {
+export function useBscItemAttainment(params: BscScopeParams) {
   return useQuery({
-    queryKey: ['analytics', 'bsc', 'unit-comparison', params],
-    queryFn: () => bscAnalyticsApi.getUnitComparison(params),
+    queryKey: ['analytics', 'bsc', 'item-attainment', params],
+    queryFn: () => bscAnalyticsApi.getItemAttainment(params),
     placeholderData: (previousData) => previousData,
   })
 }
 
-export function useBscVsSystem(params: BscScopeParams & { level?: string }) {
+export function useBscAttainmentTrend(params: BscScopeParams) {
   return useQuery({
-    queryKey: ['analytics', 'bsc', 'bsc-vs-system', params],
-    queryFn: () => bscAnalyticsApi.getBscVsSystem(params),
+    queryKey: ['analytics', 'bsc', 'attainment-trend', params],
+    queryFn: () => bscAnalyticsApi.getAttainmentTrend(params),
+    placeholderData: (previousData) => previousData,
+  })
+}
+
+export function useBscCascadeCoverage(params: BscScopeParams) {
+  return useQuery({
+    queryKey: ['analytics', 'bsc', 'cascade-coverage', params],
+    queryFn: () => bscAnalyticsApi.getCascadeCoverage(params),
     placeholderData: (previousData) => previousData,
   })
 }

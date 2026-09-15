@@ -373,26 +373,28 @@ const analyticsTours: Record<TourKey, TourDef> = {
     steps: [
       {
         target: '#tour-analytics-metrics',
-        title: '🧭 Bốn con số của bộ tiêu chí',
+        title: '🧭 Sức khoẻ BSC của đợt',
         content: (
           <div className="space-y-2">
             <p>
-              Điểm BSC trung bình, hạng mục <strong>mạnh nhất</strong>, hạng mục <strong>yếu nhất</strong>,
-              và <strong>độ phủ</strong> — tỉ lệ KPI đã được gán vào một hạng mục.
+              Bốn con số của thẻ điểm trong đợt: <strong>mức đạt BSC</strong> so với mục tiêu 100%, số{' '}
+              <strong>thẻ điểm đơn vị</strong> đang áp dụng, bao nhiêu đơn vị <strong>qua hạng mục chặn</strong>,
+              và <strong>độ phủ phân rã</strong> — chỉ tiêu đã giao xuống đơn vị đủ hay thiếu.
             </p>
-            {warn('Độ phủ chưa đạt 100% nghĩa là còn KPI nằm ngoài bộ tiêu chí. Ở chế độ chấm chính thức, phần chưa gán sẽ chặn việc chốt đánh giá.')}
+            {warn('Ô báo "chưa tính kết quả" nghĩa là đợt đó chưa bấm Tính lại ở tab Kết quả đợt của thẻ điểm. Số ở đây đọc kết quả đã tính, không tự bịa.')}
           </div>
         ),
         placement: 'bottom',
       },
       {
         target: '#tour-bsc-balance',
-        title: '🧩 Thẻ từng hạng mục',
+        title: '🏢 Mức đạt của từng đơn vị',
         content: (
           <div className="space-y-2">
             <p>
-              Mỗi hạng mục một thẻ: trọng số, điểm, số KPI và mức đóng góp vào điểm tổng. Điểm các thẻ
-              chênh nhau nhiều là bộ tiêu chí đang <strong>lệch</strong> về một lĩnh vực.
+              Mỗi đơn vị một chấm mức đạt, vạch đứng là mục tiêu 100%. Chấm <strong>đỏ</strong> là đơn vị không
+              qua cửa chặn dù tổng điểm có thể vẫn cao. Chuyển sang "Theo cây" trong bảng cấu hình để xem
+              đúng thứ tự công ty → phòng → team kèm trạng thái thẻ.
             </p>
           </div>
         ),
@@ -400,26 +402,26 @@ const analyticsTours: Record<TourKey, TourDef> = {
       },
       {
         target: '#tour-analytics-widgets',
-        title: '⚖️ Điểm BSC so với điểm hệ thống',
+        title: '🎯 Chỉ tiêu, xu hướng và phân rã',
         content: (
           <div className="space-y-2">
             <p>
-              Ô đối chiếu đặt cạnh nhau <strong>điểm hệ thống</strong> (kết quả KPI thông thường) và{' '}
-              <strong>điểm BSC</strong> (kết quả quy đổi qua bộ tiêu chí). Theo đơn vị hay từng nhân sự,
-              cột hay phân tán: chọn trong bảng cấu hình của ô.
+              Ô <strong>Mức đạt từng chỉ tiêu</strong> đặt thực tế cạnh mục tiêu và sàn của từng dòng trên thẻ điểm;{' '}
+              <strong>Xu hướng</strong> vẽ mức đạt qua các đợt, tách được theo 4 lĩnh vực;{' '}
+              <strong>Độ phủ phân rã</strong> cho biết chỉ tiêu nào đã giao xuống đơn vị đủ, thiếu hay vượt.
             </p>
-            {note('Hai bên lệch nhau nhiều nghĩa là trọng số trong bộ tiêu chí đang nhấn vào thứ khác với những gì KPI đang đo. Đó là tín hiệu để xem lại trọng số, không phải lỗi số liệu.')}
+            {note('Mỗi ô tự chọn đơn vị và đợt trong bảng cấu hình. Ô "một đợt" lấy đợt muộn nhất có kết quả trong khoảng bạn chọn.')}
           </div>
         ),
         placement: 'top',
       },
       {
         target: '#tour-analytics-metrics',
-        title: '🔧 Sửa bộ tiêu chí ở đâu',
+        title: '🔧 Sửa thẻ điểm ở đâu',
         content: (
           <p>
-            Ở đây chỉ xem kết quả. Muốn thêm bớt hạng mục, đổi trọng số hay chuyển chế độ chấm thì sang
-            "Thiết lập công cụ › Quản lý BSC".
+            Ở đây chỉ xem kết quả. Muốn thêm bớt chỉ tiêu, đổi trọng số, phân rã xuống đơn vị hay tính lại
+            kết quả đợt thì sang "Thiết lập công cụ › Quản lý BSC".
           </p>
         ),
         placement: 'bottom',

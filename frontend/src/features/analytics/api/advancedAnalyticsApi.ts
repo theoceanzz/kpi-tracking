@@ -31,24 +31,6 @@ export interface BehaviorCompletionResponse {
   anonymized: boolean
 }
 
-export interface AgreementPoint {
-  userId?: string | null
-  name?: string | null
-  systemScore: number
-  bscScore: number
-  gap: number
-  evaluationCount?: number
-  isSelf?: boolean
-}
-
-export interface BscVsSystemScatterResponse {
-  points: AgreementPoint[]
-  axisMax: number
-  scoringMode?: string | null
-  totalCount: number
-  anonymized: boolean
-}
-
 export interface HistogramBin {
   from: number
   to: number
@@ -86,12 +68,6 @@ export interface BoxplotBox {
 export interface UnitBoxplotResponse {
   boxes: BoxplotBox[]
   axisMax: number
-}
-
-export interface WeightHistoryResponse {
-  perspectives: { id: string; name: string; color?: string | null }[]
-  points: { at?: string | null; label: string; values: Record<string, number>; changeNote?: string }[]
-  changeCount: number
 }
 
 export interface SankeyResponse {
@@ -134,18 +110,12 @@ export const advancedAnalyticsApi = {
   // Tương quan
   getBehaviorCompletion: (p: AdvancedFilter) =>
     get<BehaviorCompletionResponse>('/correlation/behavior-completion', p),
-  getBscVsSystem: (p: AdvancedFilter) =>
-    get<BscVsSystemScatterResponse>('/correlation/bsc-vs-system', p),
 
   // Phân phối
   getScoreHistogram: (p: AdvancedFilter) =>
     get<ScoreHistogramResponse>('/distribution/score-histogram', p),
   getUnitBoxplot: (p: AdvancedFilter) =>
     get<UnitBoxplotResponse>('/distribution/unit-boxplot', p),
-
-  // Thành phần & thời gian
-  getWeightHistory: (p: AdvancedFilter) =>
-    get<WeightHistoryResponse>('/timeline/bsc-weight-history', p),
 
   // Luồng
   getKpiCascade: (p: AdvancedFilter) => get<SankeyResponse>('/flow/kpi-cascade', p),

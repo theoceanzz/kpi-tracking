@@ -247,46 +247,41 @@ const ANALYTICS_WIDGETS: AnalyticsWidgetDef[] = [
     icon: <BarChart3 size={20} />, w: 12, h: 12,
   },
 
-  // ── Hạng mục BSC (cùng component với tab) ──
+  // ── Hạng mục BSC (cùng component với tab; mô hình thẻ điểm) ──
   {
-    i: 'bsc-metrics', title: 'Số liệu cân bằng BSC', groupLabel: GROUP.bsc, bsc: true,
-    description: 'Điểm BSC trung bình, hạng mục mạnh nhất, yếu nhất và độ phủ.',
+    i: 'bsc-overview', title: 'Sức khoẻ BSC của đợt', groupLabel: GROUP.bsc, bsc: true,
+    description: 'Mức đạt BSC của đợt, số thẻ điểm đơn vị, đơn vị qua cửa chặn, độ phủ phân rã.',
     icon: <Gauge size={20} />, w: 12, h: 6,
   },
   {
-    i: 'bsc-perspectives', title: 'Thẻ từng hạng mục', groupLabel: GROUP.bsc, bsc: true,
-    description: 'Mỗi hạng mục một thẻ: trọng số, điểm, số KPI và mức đóng góp.',
-    icon: <LayoutGrid size={20} />, w: 12, h: 9,
+    i: 'bsc-units', title: 'Mức đạt BSC của các đơn vị', groupLabel: GROUP.bsc, bsc: true,
+    description: 'Mỗi đơn vị một chấm mức đạt so với mục tiêu 100%; đỏ là không qua cửa chặn.',
+    icon: <BarChart3 size={20} />, w: 7, h: 11,
   },
   {
-    i: 'bsc-trend', title: 'Xu hướng điểm hạng mục theo kỳ', groupLabel: GROUP.bsc, bsc: true,
-    description: 'Điểm từng hạng mục qua các kỳ, hoặc tỉ trọng đóng góp vào điểm tổng.',
-    icon: <TrendingUp size={20} />, w: 12, h: 12,
+    i: 'bsc-gates', title: 'Hạng mục chặn', groupLabel: GROUP.bsc, bsc: true,
+    description: 'Đơn vị nào đang vướng chỉ tiêu chặn trong đợt, vướng ở chỉ tiêu nào.',
+    icon: <ShieldCheck size={20} />, w: 5, h: 11,
   },
   {
-    i: 'bsc-unit-comparison', title: 'So sánh hạng mục giữa các đơn vị', groupLabel: GROUP.bsc, bsc: true,
-    description: 'Điểm từng hạng mục của các đơn vị đặt cạnh nhau.',
-    icon: <BarChart3 size={20} />, w: 12, h: 12,
+    i: 'bsc-items', title: 'Mức đạt từng chỉ tiêu', groupLabel: GROUP.bsc, bsc: true,
+    description: 'Thực tế so với mục tiêu và sàn của từng chỉ tiêu trên thẻ điểm.',
+    icon: <LayoutGrid size={20} />, w: 12, h: 10,
   },
   {
-    i: 'bsc-vs-system', title: 'Đối chiếu điểm BSC và điểm hệ thống', groupLabel: GROUP.bsc, bsc: true,
-    description: 'Điểm BSC so với điểm hệ thống theo đơn vị hoặc từng nhân sự.',
-    icon: <Scale size={20} />, w: 8, h: 12,
+    i: 'bsc-trend', title: 'Xu hướng mức đạt qua các đợt', groupLabel: GROUP.bsc, bsc: true,
+    description: 'Mức đạt BSC qua các đợt, tách được theo 4 lĩnh vực.',
+    icon: <TrendingUp size={20} />, w: 7, h: 12,
   },
   {
-    i: 'bsc-coverage', title: 'KPI chưa gán hạng mục', groupLabel: GROUP.bsc, bsc: true,
-    description: 'Tỉ lệ KPI đã gán hạng mục và danh sách KPI chưa gán.',
-    icon: <ShieldCheck size={20} />, w: 4, h: 12,
+    i: 'bsc-cascade', title: 'Độ phủ phân rã chỉ tiêu', groupLabel: GROUP.bsc, bsc: true,
+    description: 'Từng chỉ tiêu đã phân rã xuống đơn vị đủ, thiếu hay vượt mục tiêu.',
+    icon: <Scale size={20} />, w: 5, h: 12,
   },
   {
     i: 'bsc-ranking', title: 'Xếp hạng nhân sự theo điểm BSC', groupLabel: GROUP.bsc, bsc: true,
-    description: 'Nhân sự xếp theo điểm BSC hoặc điểm hệ thống, kèm điểm từng hạng mục.',
+    description: 'Nhân sự xếp theo điểm BSC hoặc điểm hệ thống, kèm điểm từng lĩnh vực.',
     icon: <Medal size={20} />, w: 12, h: 14,
-  },
-  {
-    i: 'bsc-weight-history', title: 'Lịch sử thay đổi trọng số hạng mục', groupLabel: GROUP.bsc, bsc: true,
-    description: 'Trọng số hạng mục thay đổi thế nào qua các lần cấu hình.',
-    icon: <TrendingUp size={20} />, w: 12, h: 12,
   },
 ]
 
@@ -450,7 +445,7 @@ export function getAnalyticsPresets(flags: OrgFlags, scope: ViewerScope): Layout
     {
       key: 'bsc', label: 'Hạng mục (BSC)',
       description: 'Đúng nội dung mục "Hạng mục (BSC)" bên Phân tích.',
-      ids: ['filter-unit', 'bsc-metrics', 'bsc-perspectives', 'bsc-trend', 'bsc-unit-comparison', 'bsc-vs-system', 'bsc-coverage', 'bsc-ranking'],
+      ids: ['filter-unit', 'bsc-overview', 'bsc-units', 'bsc-gates', 'bsc-items', 'bsc-trend', 'bsc-cascade'],
     },
     {
       key: 'risk', label: 'Rủi ro',

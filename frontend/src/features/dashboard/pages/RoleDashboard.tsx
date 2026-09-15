@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useCallback } from 'react'
 import { useAuthStore } from '@/store/authStore'
 import { useHasPermission } from '@/components/auth/PermissionGate'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
@@ -7,6 +7,7 @@ import { DashboardToolbarPortal } from '@/components/common/dashboard/DashboardT
 import { useDashboardLayout } from '@/components/common/dashboard/useDashboardLayout'
 import { useTourScope } from '@/hooks/useTourScope'
 import type { DashboardScope } from '../api/dashboardLayoutApi'
+import type { DashboardWidget } from '@/components/common/dashboard/ChartWrapper'
 import { DashboardFilterProvider } from '../context/DashboardFilterContext'
 import CompletedPeriodEvaluationPrompt from '../components/CompletedPeriodEvaluationPrompt'
 import {
@@ -86,6 +87,8 @@ function RoleDashboardGrid({ scope, organization }: {
   const presets = useMemo(() => getAnalyticsPresets(flags, viewer), [flags, viewer])
 
   const dash = useDashboardLayout({ scope, defaultWidgets, availableWidgets })
+  // Giữ định danh: lưới cache phần tử từng ô theo hàm này.
+  const renderWidget = useCallback((w: DashboardWidget) => renderAnalyticsWidget(w.i, flags, viewer), [flags, viewer])
 
   return (
     <div className="max-w-[1600px] mx-auto space-y-6">
@@ -101,7 +104,7 @@ function RoleDashboardGrid({ scope, organization }: {
           catalog={catalog}
           presets={presets}
           ready={!dash.isLoading}
-          renderWidget={w => renderAnalyticsWidget(w.i, flags, viewer)}
+          renderWidget={renderWidget}
         />
       </div>
 

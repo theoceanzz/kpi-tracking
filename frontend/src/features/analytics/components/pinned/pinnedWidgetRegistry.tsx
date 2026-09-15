@@ -19,8 +19,8 @@ import {
   DrillClassificationWidget, DrillChildrenClassificationWidget, DrillCascadeWidget, DrillBoxplotWidget, DrillMatrixWidget,
 } from './drillWidgets'
 import {
-  BscBalanceMetrics, BscPerspectiveCards, BscTrendWidget, BscUnitComparisonWidget,
-  BscVsSystemWidget, BscCoverageWidget, BscRankingWidget, BscWeightHistoryWidget,
+  BscOverviewMetrics, BscUnitAttainmentWidget, BscItemAttainmentWidget, BscAttainmentTrendWidget,
+  BscCascadeCoverageWidget, BscGateWidget, BscRankingWidget,
 } from './bscWidgets'
 
 /**
@@ -187,13 +187,12 @@ export const PINNED_REGISTRY: Record<string, ComponentType<{ filter?: PinnedFilt
   'drill-compare': wrap(DrillUnitCompareWidget),
   'drill-boxplot': wrap(DrillBoxplotWidget),
 
-  // Tab "Hạng mục BSC"
-  'bsc-metrics': wrap(BscBalanceMetrics),
-  'bsc-perspectives': wrap(BscPerspectiveCards),
-  'bsc-trend': wrap(BscTrendWidget),
-  'bsc-unit-comparison': wrap(BscUnitComparisonWidget),
-  'bsc-vs-system': wrap(BscVsSystemWidget),
-  'bsc-coverage': wrap(BscCoverageWidget),
+  // Tab "Hạng mục BSC" (mô hình thẻ điểm)
+  'bsc-overview': wrap(BscOverviewMetrics),
+  'bsc-units': wrap(BscUnitAttainmentWidget),
+  'bsc-gates': wrap(BscGateWidget),
+  'bsc-items': wrap(BscItemAttainmentWidget),
+  'bsc-trend': wrap(BscAttainmentTrendWidget),
+  'bsc-cascade': wrap(BscCascadeCoverageWidget),
   'bsc-ranking': wrap(BscRankingWidget),
-  'bsc-weight-history': wrap(BscWeightHistoryWidget),
 }

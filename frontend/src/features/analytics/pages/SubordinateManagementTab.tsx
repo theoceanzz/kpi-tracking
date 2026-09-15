@@ -1,3 +1,4 @@
+import { useCallback } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { statsApi } from '@/features/dashboard/api/statsApi'
 import AnalyticsComboChart from '../components/AnalyticsComboChart'
@@ -89,8 +90,13 @@ export default function SubordinateManagementTab() {
   // Cấu trúc nhân sự / vai trò (theo đơn vị của user + đơn vị con) — không phụ thuộc thời gian.
   const { data: summary } = useSummaryStats()
 
-  const renderWidget = (w: DashboardWidget, ctx: { openConfig: () => void }) => {
-    const f = filterOf(w.i)
+  /*
+    `useCallback` là bắt buộc chứ không phải tối ưu tuỳ hứng: lưới cache phần tử từng ô theo định
+    danh hàm này. Hàm mới mỗi render là mọi biểu đồ vẽ lại mỗi lần tab render.
+  */
+  const { updateWidgetSettings } = dash
+  const renderWidget = useCallback((w: DashboardWidget, ctx: { openConfig: () => void }) => {
+    const f = widgetFilter(w, pageIntent, periods, cycles)
     const meta = (
       <WidgetConfigSummary
         widget={w} pageIntent={pageIntent} periods={periods} cycles={cycles}
@@ -114,7 +120,7 @@ export default function SubordinateManagementTab() {
             itemName="Mục tiêu"
             fillHeight
             mode={widgetVariant(w) === 'area' ? 'share' : 'trend'}
-            onModeChange={m => dash.updateWidgetSettings(w.i, { v: m === 'share' ? 'area' : 'line' })}
+            onModeChange={m => updateWidgetSettings(w.i, { v: m === 'share' ? 'area' : 'line' })}
             hideModeToggle
             meta={meta}
           />
@@ -124,7 +130,7 @@ export default function SubordinateManagementTab() {
         <ChartWrapper chromeless title="Chi tiết mục tiêu" icon={<Target size={20} className="text-slate-400" />}>
           <ObjectiveDetailsWidget
             dateRange={{ from: f.from, to: f.to }} onlyApproved={onlyApproved} periodId={f.periodId} periodIdTo={f.periodIdTo}
-            viewControl={tableViewControl(w, dash.updateWidgetSettings)}
+            viewControl={tableViewControl(w, updateWidgetSettings)}
             orgUnitId={w.s?.orgUnitId ?? ''}
             hideControls
             meta={meta}
@@ -153,10 +159,10 @@ export default function SubordinateManagementTab() {
       )
       default: return null
     }
-  }
+  }, [pageIntent, periods, cycles, unitOptions, onlyApproved, chartQuery.data, chartQuery.isLoading, summary, updateWidgetSettings])
 
   return (
-    <div className="space-y-6 animate-in fade-in duration-500 pb-20">
+    <div className="space-y-6 pb-20">
       {/* Tiêu đề + khoảng mặc định + thêm biểu đồ */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <h2 className="text-xl font-semibold text-[var(--color-foreground)]">Mục tiêu đơn vị tôi phụ trách</h2>

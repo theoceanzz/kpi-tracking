@@ -42,7 +42,8 @@ export default function Lollipop({ data, unit = '', valueLabel, reference, heigh
 
   return (
     <ResponsiveContainer width="100%" height={chartHeight}>
-      <BarChart data={data} layout="vertical" margin={{ top: 8, right: 44, left: 8, bottom: 30 }}>
+      {/* top 18: chữ của vạch tham chiếu đứng trên vạch, thiếu lề là bị khung cắt nửa. */}
+      <BarChart data={data} layout="vertical" margin={{ top: reference ? 18 : 8, right: 44, left: 8, bottom: 30 }}>
         <CartesianGrid stroke="var(--color-border)" horizontal={false} />
         <XAxis
           type="number"
@@ -58,6 +59,8 @@ export default function Lollipop({ data, unit = '', valueLabel, reference, heigh
           width={140}
           axisLine={false}
           tickLine={false}
+          // Mỗi mục một nhãn: chiều cao đã tính theo số mục nên Recharts không được tự bỏ bớt.
+          interval={0}
           tick={{ fill: AXIS_COLORS.tick, fontSize: 11, fontWeight: 500 }}
         />
         <Tooltip cursor={{ fill: 'rgba(148,163,184,0.12)' }} content={<LollipopTooltip unit={unit} />} />

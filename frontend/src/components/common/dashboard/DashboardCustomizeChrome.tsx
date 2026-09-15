@@ -1,4 +1,4 @@
-import React, { useLayoutEffect, useMemo, useRef, useState } from 'react'
+import React, { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { Responsive } from 'react-grid-layout/legacy'
 import {
   RotateCcw, Plus, X, GripVertical, Trash2, ArrowUp, ArrowDown, MoveHorizontal,
@@ -15,9 +15,49 @@ import type { WidgetSettings } from './widgetSettings'
 import type { AutosaveStatus } from './useAutosave'
 import { CHART_CATEGORY_ORDER } from './chartCategories'
 
-/** Bề rộng bảng cấu hình và khe giữa nó với lưới. Cùng số với `w-[360px]` + `gap-4` ở JSX. */
-const PANEL_W = 360
+/** Bề rộng bảng cấu hình và khe giữa nó với lưới (`gap-4` ở JSX). */
+const PANEL_W = 320
 const PANEL_GAP = 16
+/** Cột trái của trang (cây đơn vị). Bảng cấu hình thế chỗ nó nên phải cùng bề rộng để lưới đứng yên. */
+const SIDEBAR_W = 300
+
+/*
+  Từ 700px trở lên lưới giữ đúng 12 cột người dùng đã xếp; dưới đó xếp chồng. Chỉ có bấy nhiêu
+  mốc: thêm mốc 996 (md/sm) như trước là mở bảng cấu hình ở màn 1366–1440 làm cả lưới sập về một
+  cột rồi bung lại lúc đóng. 700 chứ không phải 768 để màn 1366 (sidebar mở, có cây đơn vị) vẫn
+  còn lưới 12 cột. Object khai báo một lần ở module để react-grid-layout không thấy "props đổi"
+  mỗi render.
+*/
+const GRID_MIN_W = 700
+const GRID_BREAKPOINTS = { lg: GRID_MIN_W, xs: 480, xxs: 0 }
+const GRID_COLS = { lg: 12, xs: 6, xxs: 4 }
+const GRID_MARGIN: [number, number] = [16, 16]
+const RESIZE_HANDLES: ('n' | 's' | 'e' | 'w' | 'ne' | 'nw' | 'se' | 'sw')[] = ['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw']
+
+/**
+ * Chỉ dựng ruột ô khi ô đã tới gần khung nhìn. Một tab Thống kê có 6–8 ô mà màn 1000px chỉ thấy
+ * 3; dựng cả 8 (mỗi ô một cây Recharts) ngay lúc mở trang là phần lớn cái giật khi tải, và mỗi lần
+ * lưới đổi cỡ thì 8 biểu đồ cùng vẽ lại. Đã hiện một lần thì giữ nguyên, không gỡ khi cuộn qua.
+ */
+function LazyMount({ children }: { children: React.ReactNode }) {
+  const ref = useRef<HTMLDivElement>(null)
+  const [shown, setShown] = useState(() => typeof IntersectionObserver === 'undefined')
+  useEffect(() => {
+    if (shown) return
+    const el = ref.current
+    if (!el) return
+    const io = new IntersectionObserver(entries => {
+      if (entries.some(e => e.isIntersecting)) setShown(true)
+    }, { rootMargin: '600px 0px' })
+    io.observe(el)
+    return () => io.disconnect()
+  }, [shown])
+  return (
+    <div ref={ref} className="h-full w-full">
+      {shown ? children : <div className="h-full w-full rounded-widget border border-[var(--color-border)] bg-[var(--color-card)] animate-pulse" aria-hidden="true" />}
+    </div>
+  )
+}
 
 /** Hình học một ô trên lưới, đúng phần react-grid-layout trả về khi kéo-thả. */
 export interface GridLayoutItem { i: string; x: number; y: number; w: number; h: number }
@@ -133,6 +173,13 @@ interface Props {
   onTogglePin?: (w: DashboardWidget) => void
   /** Ô này đang được ghim chưa — quyết định nhãn của mục ghim trong menu. */
   isPinned?: (w: DashboardWidget) => boolean
+  /**
+   * Cột điều hướng của trang đặt cạnh trái lưới (vd cây đơn vị ở tab So sánh). Đặt TRONG lưới
+   * để khi mở bảng cấu hình, cột này tạm ẩn và bảng cấu hình chiếm đúng bề rộng đó: lưới không
+   * đổi cỡ, không biểu đồ nào vẽ lại — và tab có cột trái vẫn có bảng đẩy như mọi tab khác thay
+   * vì rơi xuống lớp phủ vì thiếu chỗ.
+   */
+  sidebar?: React.ReactNode
 }
 
 /**
@@ -140,7 +187,7 @@ interface Props {
  * cấu hình ĐẨY lưới sang trái thay vì phủ mờ lên trên.
  */
 export default function DashboardCustomizeChrome({
-  api, renderWidget, catalog, ready = true, presets, renderConfig, onTogglePin, isPinned,
+  api, renderWidget, catalog, ready = true, presets, renderConfig, onTogglePin, isPinned, sidebar,
 }: Props) {
   const {
     widgets, isAddModalOpen, setIsAddModalOpen,
@@ -184,15 +231,18 @@ export default function DashboardCustomizeChrome({
   }, [])
 
   /*
-    Chỉ ĐẨY khi lưới sau khi co vẫn còn trên ngưỡng `sm` (768). Đo bằng bề rộng LƯỚI chứ không
-    phải viewport: sidebar 256px + lề 48px + thanh cuộn khiến viewport 1440 chỉ còn ~1120 cho
-    lưới, đẩy thêm 376 là tụt qua ngưỡng → toàn bộ ô xếp chồng full-width, người dùng tưởng vừa
+    Chỉ ĐẨY khi lưới sau khi co vẫn còn 12 cột (trên `GRID_MIN_W`). Đo bằng bề rộng LƯỚI chứ không
+    phải viewport: sidebar 256px + lề 48px + thanh cuộn khiến viewport 1440 chỉ còn ~1136 cho
+    lưới, đẩy thêm 336 mà tụt qua ngưỡng là toàn bộ ô xếp chồng full-width, người dùng tưởng vừa
     làm hỏng bố cục. Không đủ chỗ thì phủ lên như drawer thường.
   */
+  // Có cột trái thì bảng cấu hình lấy đúng bề rộng cột đó và thế chỗ nó: lưới không đổi cỡ.
+  const panelW = sidebar ? SIDEBAR_W : PANEL_W
   const wantPush = !!(configWidget && renderConfig)
-  const canPush = outerWidth > 0 && outerWidth - (PANEL_W + PANEL_GAP) > 768
+  const canPush = outerWidth > 0 && outerWidth - (panelW + PANEL_GAP) > GRID_MIN_W
   const pushing = wantPush && canPush
-  const gridWidth = outerWidth > 0 ? outerWidth - (pushing ? PANEL_W + PANEL_GAP : 0) : 0
+  const sideTaken = pushing || sidebar ? panelW + PANEL_GAP : 0
+  const gridWidth = outerWidth > 0 ? outerWidth - sideTaken : 0
 
   /*
     Trong đúng nhịp lưới đổi cỡ vì drawer, TẮT transition của ô. CSS chỉ transition `transform`
@@ -211,6 +261,11 @@ export default function DashboardCustomizeChrome({
     return () => { cancelAnimationFrame(raf1); cancelAnimationFrame(raf2); el.classList.remove('rgl-settling') }
   }, [pushing])
   const visibleCount = widgets.filter(w => w.visible).length
+  const onLayoutChange = useCallback(
+    (current: readonly GridLayoutItem[], all: Partial<Record<string, readonly GridLayoutItem[]>>) =>
+      handleLayoutChange([...(all.lg ?? current)]),
+    [handleLayoutChange],
+  )
 
   /** Gom thư viện theo nhóm và lọc theo từ khoá; nhóm biểu đồ đi theo thứ tự đã định. */
   const groupedCatalog = useMemo(() => {
@@ -233,10 +288,75 @@ export default function DashboardCustomizeChrome({
     )
   }, [catalog, search])
 
-  const closeConfig = () => setConfigFor(null)
+  const closeConfig = useCallback(() => setConfigFor(null), [])
+
+  /*
+    Phần tử của mỗi ô được CACHE theo đúng những gì ô đó phụ thuộc. `GridItem` của react-grid-layout
+    bỏ qua render khi `children` giữ nguyên định danh, nên mở menu của ô này, mở bảng cấu hình,
+    đo lại bề rộng… không kéo 7 ô còn lại (mỗi ô một cây Recharts) vẽ lại theo. Trước đây mỗi cú
+    bấm bất kỳ trên lưới là toàn bộ biểu đồ render lại — đo được ~0.9s chặn luồng chính.
+
+    Mọi hàm hành động đi qua `latest` ref để phần tử cache không phải phụ thuộc định danh hàm.
+  */
+  const latest = useRef({ deleteWidget, moveWidget, cycleWidth, onTogglePin, copy, configFor })
+  useLayoutEffect(() => {
+    latest.current = { deleteWidget, moveWidget, cycleWidth, onTogglePin, copy, configFor }
+  })
+  const registerNode = useCallback((i: string, el: HTMLDivElement | null) => {
+    if (el) nodeRefs.current.set(i, el)
+    else nodeRefs.current.delete(i)
+  }, [])
+  const actions = useMemo<CellActions>(() => ({
+    openConfig: (i: string) => { setMenuFor(null); setConfigFor(i) },
+    menu: (i: string, open: boolean) => setMenuFor(open ? i : null),
+    copy: (i: string) => { setMenuFor(null); void latest.current.copy(nodeRefs.current.get(i) ?? null) },
+    pin: (w: DashboardWidget) => { setMenuFor(null); latest.current.onTogglePin?.(w) },
+    move: (i: string, d: 'up' | 'down') => latest.current.moveWidget?.(i, d),
+    cycle: (i: string) => latest.current.cycleWidth?.(i),
+    remove: (i: string) => {
+      setMenuFor(null)
+      if (latest.current.configFor === i) setConfigFor(null)
+      latest.current.deleteWidget(i)
+    },
+  }), [])
+  // Giữ trong state (không bao giờ set lại) thay vì ref: đọc ref lúc render là điều React cấm.
+  const [cellCache] = useState(() => new Map<string, { deps: unknown[]; el: React.ReactElement }>())
+  const visibleBlocks = widgets.filter(b => b.visible)
+  const cells = visibleBlocks.map(block => {
+    const pinned = isPinned ? isPinned(block) : !!block.isPinned
+    const deps = [
+      block, configFor === block.i, menuFor === block.i, renderWidget, pinned,
+      !!renderConfig, !!onTogglePin, !!moveWidget, !!cycleWidth,
+    ]
+    const hit = cellCache.get(block.i)
+    if (hit && hit.deps.length === deps.length && hit.deps.every((d, k) => d === deps[k])) return hit.el
+    const el = (
+      <GridCell
+        key={block.i}
+        block={block}
+        active={configFor === block.i}
+        menuOpen={menuFor === block.i}
+        pinned={pinned}
+        hasConfig={!!renderConfig}
+        hasPin={!!onTogglePin}
+        hasMove={!!moveWidget}
+        hasCycle={!!cycleWidth}
+        renderWidget={renderWidget}
+        actions={actions}
+        registerNode={registerNode}
+      />
+    )
+    cellCache.set(block.i, { deps, el })
+    return el
+  })
+  // Ô đã gỡ thì thả khỏi cache để không giữ cây phần tử vô chủ.
+  if (cellCache.size > visibleBlocks.length) {
+    const alive = new Set(visibleBlocks.map(b => b.i))
+    for (const k of [...cellCache.keys()]) if (!alive.has(k)) cellCache.delete(k)
+  }
 
   const configPanel = configWidget && renderConfig && (
-    <div className="w-[360px] rounded-2xl border border-[var(--color-border)] bg-[var(--color-card)] shadow-lg overflow-hidden flex flex-col max-h-[calc(100vh-8rem)]">
+    <div className="w-full rounded-2xl border border-[var(--color-border)] bg-[var(--color-card)] shadow-lg overflow-hidden flex flex-col max-h-[calc(100vh-8rem)]" style={{ width: pushing ? undefined : PANEL_W }}>
       <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-[var(--color-border)] shrink-0">
         <div className="min-w-0">
           <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Cấu hình biểu đồ</p>
@@ -257,6 +377,11 @@ export default function DashboardCustomizeChrome({
       {/* `items-start` là bắt buộc: mặc định `stretch` kéo bảng cao bằng lưới, lúc đó `sticky`
           không còn gì để bám trong khung nhìn. */}
       <div ref={outerRef} className="flex items-start gap-4">
+        {sidebar && !pushing && (
+          <aside className="shrink-0 self-start sticky top-4" style={{ width: SIDEBAR_W }}>
+            {sidebar}
+          </aside>
+        )}
         <div className="flex-1 min-w-0">
           {/* ── Lưới widget ───────────────────────────────────────────────── */}
           {ready && gridWidth > 0 && (
@@ -290,131 +415,23 @@ export default function DashboardCustomizeChrome({
                 className="layout"
                 width={gridWidth}
                 layouts={gridLayouts}
-                breakpoints={{ lg: 1200, md: 996, sm: 768, xs: 480, xxs: 0 }}
-                cols={{ lg: 12, md: 12, sm: 12, xs: 6, xxs: 4 }}
+                breakpoints={GRID_BREAKPOINTS}
+                cols={GRID_COLS}
                 rowHeight={32}
                 compactType="vertical"
                 draggableHandle=".drag-handle"
                 // Luôn bật: chỉ cụm chấm mới khởi động kéo, nên không giành thao tác của biểu đồ.
                 isDraggable
                 isResizable
-                resizeHandles={['n', 's', 'e', 'w', 'ne', 'nw', 'se', 'sw']}
-                onLayoutChange={(current, all) => handleLayoutChange((all.lg ?? current) as GridLayoutItem[])}
+                resizeHandles={RESIZE_HANDLES}
+                onLayoutChange={onLayoutChange}
                 // Chỉ ghi xuống server khi người dùng THẢ TAY. `onLayoutChange` còn bắn cả lúc
                 // mount và lúc đổi breakpoint — bám vào nó là mở trang thôi đã tốn một request.
-                onDragStop={() => commitLayout?.()}
-                onResizeStop={() => commitLayout?.()}
-                margin={[16, 16]}
+                onDragStop={commitLayout}
+                onResizeStop={commitLayout}
+                margin={GRID_MARGIN}
               >
-                {widgets.filter(b => b.visible).map((block) => (
-                  <div
-                    key={block.i}
-                    ref={el => {
-                      if (el) nodeRefs.current.set(block.i, el)
-                      else nodeRefs.current.delete(block.i)
-                    }}
-                    className={cn(
-                      // overflow-hidden là hàng rào bắt buộc: widget nào render cao hơn ô lưới
-                      // (vd danh sách cảnh báo tự giãn theo nội dung) sẽ tràn ra và ĐÈ lên hàng
-                      // dưới. Clip ở đây chặn được mọi trường hợp, không phụ thuộc widget tự lo.
-                      'relative group h-full overflow-hidden rounded-widget',
-                      configFor === block.i && 'ring-2 ring-[var(--color-primary)]'
-                    )}
-                  >
-                    {/*
-                      Cụm điều khiển nằm TRONG biên ô (overflow-hidden sẽ cắt nếu đặt ra ngoài) và
-                      mờ đi lúc nghỉ để không làm rối một trang đầy biểu đồ.
-                      `data-copy-exclude` để nó không lọt vào ảnh chụp.
-                    */}
-                    <div
-                      data-copy-exclude
-                      className="absolute top-3 right-3 z-[60] flex items-center gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity"
-                    >
-                      <span
-                        className="drag-handle hidden md:flex cursor-move items-center justify-center w-8 h-8 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm text-slate-400 hover:text-[var(--color-primary)]"
-                        title="Kéo để di chuyển"
-                        aria-hidden="true"
-                      >
-                        <GripVertical size={15} />
-                      </span>
-
-                      <Popover open={menuFor === block.i} onOpenChange={o => setMenuFor(o ? block.i : null)}>
-                        <PopoverTrigger asChild>
-                          <button
-                            aria-label={`Hành động cho "${block.title}"`}
-                            title="Hành động"
-                            className="w-8 h-8 flex items-center justify-center rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm text-slate-500 hover:text-[var(--color-primary)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] cursor-pointer"
-                          >
-                            <MoreVertical size={16} aria-hidden="true" />
-                          </button>
-                        </PopoverTrigger>
-                        {/* Popover của Radix render qua portal nên không bị `overflow-hidden` của ô cắt cụt. */}
-                        <PopoverContent align="end" className="w-56 p-1.5" role="menu">
-                          {renderConfig && (
-                            <MenuItem icon={<SlidersHorizontal size={15} />} onClick={() => { setMenuFor(null); setConfigFor(block.i) }}>
-                              Cấu hình
-                            </MenuItem>
-                          )}
-                          <MenuItem
-                            icon={<Copy size={15} />}
-                            onClick={() => { setMenuFor(null); void copy(nodeRefs.current.get(block.i) ?? null) }}
-                          >
-                            Sao chép ảnh
-                          </MenuItem>
-                          {onTogglePin && (() => {
-                            const pinned = isPinned ? isPinned(block) : !!block.isPinned
-                            return (
-                              <MenuItem
-                                icon={pinned ? <PinOff size={15} /> : <Pin size={15} />}
-                                onClick={() => { setMenuFor(null); onTogglePin(block) }}
-                              >
-                                {pinned ? 'Bỏ ghim tổng quan' : 'Ghim tổng quan'}
-                              </MenuItem>
-                            )
-                          })()}
-
-                          {/*
-                            Ba mục dưới đây KHÔNG phải tính năng thêm cho vui: WCAG 2.2 cấm kéo-thả
-                            là cách duy nhất để sắp xếp, và trên màn cảm ứng thì cụm chấm bị ẩn nên
-                            đây là đường đi duy nhất.
-                          */}
-                          {(moveWidget || cycleWidth) && <MenuSeparator />}
-                          {moveWidget && (
-                            <>
-                              <MenuItem icon={<ArrowUp size={15} />} onClick={() => moveWidget(block.i, 'up')}>Đưa lên trên</MenuItem>
-                              <MenuItem icon={<ArrowDown size={15} />} onClick={() => moveWidget(block.i, 'down')}>Đưa xuống dưới</MenuItem>
-                            </>
-                          )}
-                          {cycleWidth && (
-                            <MenuItem icon={<MoveHorizontal size={15} />} onClick={() => cycleWidth(block.i)}>Đổi bề rộng</MenuItem>
-                          )}
-
-                          <MenuSeparator />
-                          <MenuItem
-                            icon={<Trash2 size={15} />}
-                            danger
-                            onClick={() => {
-                              setMenuFor(null)
-                              if (configFor === block.i) closeConfig()
-                              deleteWidget(block.i)
-                            }}
-                          >
-                            Xoá khỏi trang
-                          </MenuItem>
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-
-                    {/*
-                      Lớp cuộn riêng: widget cao hơn ô thì cuộn TRONG ô thay vì bị cắt cụt.
-                      Không còn `pointer-events-none`: kéo đã bám cụm chấm nên biểu đồ giữ được
-                      hover/tooltip/bấm như thường.
-                    */}
-                    <div className="h-full w-full overflow-y-auto custom-scrollbar">
-                      {renderWidget(block, { openConfig: () => setConfigFor(block.i) })}
-                    </div>
-                  </div>
-                ))}
+                {cells}
               </Responsive>
             </div>
           )}
@@ -427,7 +444,7 @@ export default function DashboardCustomizeChrome({
           không làm đổi kích thước gì cả.
         */}
         {pushing && configPanel && (
-          <aside className="shrink-0 self-start sticky top-4" style={{ width: PANEL_W }}>
+          <aside className="shrink-0 self-start sticky top-4" style={{ width: panelW }}>
             {configPanel}
           </aside>
         )}
@@ -435,7 +452,7 @@ export default function DashboardCustomizeChrome({
 
       {/* Màn hẹp: không đẩy được nữa thì phủ lên, dùng đúng công thức trượt của các drawer khác. */}
       {wantPush && !canPush && configPanel && (
-        <div className="fixed inset-0 z-[100] flex justify-end bg-black/40 backdrop-blur-sm" onClick={closeConfig}>
+        <div className="fixed inset-0 z-[100] flex justify-end bg-black/40" onClick={closeConfig}>
           <div className="h-full p-3 flex items-stretch" onClick={e => e.stopPropagation()}>
             {configPanel}
           </div>
@@ -444,7 +461,7 @@ export default function DashboardCustomizeChrome({
 
       {/* ── Thư viện biểu đồ ──────────────────────────────────────────────── */}
       {isAddModalOpen && (
-        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/40 backdrop-blur-sm" onClick={() => setIsAddModalOpen(false)}>
+        <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/40" onClick={() => setIsAddModalOpen(false)}>
           <div role="dialog" aria-modal="true" aria-label="Thư viện biểu đồ" className="w-full max-w-4xl max-h-[90vh] flex flex-col bg-[var(--color-card)] rounded-2xl shadow-lg p-5 sm:p-7" onClick={e => e.stopPropagation()}>
             <div className="flex items-start justify-between gap-4 mb-5">
               <div className="min-w-0">
@@ -614,6 +631,148 @@ export default function DashboardCustomizeChrome({
 }
 
 const slug = (s: string) => s.toLowerCase().replace(/[^a-z0-9]+/g, '-')
+
+interface CellActions {
+  openConfig: (i: string) => void
+  menu: (i: string, open: boolean) => void
+  copy: (i: string) => void
+  pin: (w: DashboardWidget) => void
+  move: (i: string, d: 'up' | 'down') => void
+  cycle: (i: string) => void
+  remove: (i: string) => void
+}
+
+interface GridCellProps {
+  block: DashboardWidget
+  active: boolean
+  menuOpen: boolean
+  pinned: boolean
+  hasConfig: boolean
+  hasPin: boolean
+  hasMove: boolean
+  hasCycle: boolean
+  renderWidget: Props['renderWidget']
+  actions: CellActions
+  registerNode: (i: string, el: HTMLDivElement | null) => void
+  // Do react-grid-layout gắn vào khi clone phần tử con
+  style?: React.CSSProperties
+  className?: string
+  onMouseDown?: React.MouseEventHandler
+  onMouseUp?: React.MouseEventHandler
+  onTouchEnd?: React.TouchEventHandler
+  onTouchStart?: React.TouchEventHandler
+  children?: React.ReactNode
+}
+
+/**
+ * Một ô lưới: khung, cụm điều khiển (kéo + menu) và ruột widget. react-grid-layout clone phần tử
+ * con để gắn `style`/`className`/sự kiện chuột, nên component này phải chuyển hết các prop đó
+ * xuống `div` gốc và nhận `ref` — thiếu một thứ là ô không kéo được hoặc không có toạ độ.
+ */
+const GridCell = React.forwardRef<HTMLDivElement, GridCellProps>(function GridCell({
+  block, active, menuOpen, pinned, hasConfig, hasPin, hasMove, hasCycle, renderWidget, actions, registerNode,
+  style, className, onMouseDown, onMouseUp, onTouchEnd, onTouchStart, children,
+}, ref) {
+  const ctx = useMemo(() => ({ openConfig: () => actions.openConfig(block.i) }), [actions, block.i])
+  const setRefs = useCallback((el: HTMLDivElement | null) => {
+    registerNode(block.i, el)
+    if (typeof ref === 'function') ref(el)
+    else if (ref) ref.current = el
+  }, [ref, registerNode, block.i])
+  return (
+    <div
+      ref={setRefs}
+      style={style}
+      onMouseDown={onMouseDown}
+      onMouseUp={onMouseUp}
+      onTouchEnd={onTouchEnd}
+      onTouchStart={onTouchStart}
+      className={cn(
+        className,
+        // overflow-hidden là hàng rào bắt buộc: widget nào render cao hơn ô lưới (vd danh sách
+        // cảnh báo tự giãn theo nội dung) sẽ tràn ra và ĐÈ lên hàng dưới. Clip ở đây chặn được mọi
+        // trường hợp, không phụ thuộc widget tự lo.
+        'relative group h-full overflow-hidden rounded-widget',
+        active && 'ring-2 ring-[var(--color-primary)]',
+      )}
+    >
+      {/*
+        Cụm điều khiển nằm TRONG biên ô (overflow-hidden sẽ cắt nếu đặt ra ngoài) và mờ đi lúc
+        nghỉ để không làm rối một trang đầy biểu đồ. `data-copy-exclude` để nó không lọt vào ảnh chụp.
+      */}
+      <div
+        data-copy-exclude
+        className="absolute top-3 right-3 z-[60] flex items-center gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 transition-opacity"
+      >
+        <span
+          className="drag-handle hidden md:flex cursor-move items-center justify-center w-8 h-8 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm text-slate-400 hover:text-[var(--color-primary)]"
+          title="Kéo để di chuyển"
+          aria-hidden="true"
+        >
+          <GripVertical size={15} />
+        </span>
+
+        <Popover open={menuOpen} onOpenChange={o => actions.menu(block.i, o)}>
+          <PopoverTrigger asChild>
+            <button
+              aria-label={`Hành động cho "${block.title}"`}
+              title="Hành động"
+              className="w-8 h-8 flex items-center justify-center rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm text-slate-500 hover:text-[var(--color-primary)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] cursor-pointer"
+            >
+              <MoreVertical size={16} aria-hidden="true" />
+            </button>
+          </PopoverTrigger>
+          {/* Popover của Radix render qua portal nên không bị `overflow-hidden` của ô cắt cụt. */}
+          <PopoverContent align="end" className="w-56 p-1.5" role="menu">
+            {hasConfig && (
+              <MenuItem icon={<SlidersHorizontal size={15} />} onClick={() => actions.openConfig(block.i)}>
+                Cấu hình
+              </MenuItem>
+            )}
+            <MenuItem icon={<Copy size={15} />} onClick={() => actions.copy(block.i)}>
+              Sao chép ảnh
+            </MenuItem>
+            {hasPin && (
+              <MenuItem icon={pinned ? <PinOff size={15} /> : <Pin size={15} />} onClick={() => actions.pin(block)}>
+                {pinned ? 'Bỏ ghim tổng quan' : 'Ghim tổng quan'}
+              </MenuItem>
+            )}
+
+            {/*
+              Ba mục dưới đây KHÔNG phải tính năng thêm cho vui: WCAG 2.2 cấm kéo-thả là cách duy
+              nhất để sắp xếp, và trên màn cảm ứng thì cụm chấm bị ẩn nên đây là đường đi duy nhất.
+            */}
+            {(hasMove || hasCycle) && <MenuSeparator />}
+            {hasMove && (
+              <>
+                <MenuItem icon={<ArrowUp size={15} />} onClick={() => actions.move(block.i, 'up')}>Đưa lên trên</MenuItem>
+                <MenuItem icon={<ArrowDown size={15} />} onClick={() => actions.move(block.i, 'down')}>Đưa xuống dưới</MenuItem>
+              </>
+            )}
+            {hasCycle && (
+              <MenuItem icon={<MoveHorizontal size={15} />} onClick={() => actions.cycle(block.i)}>Đổi bề rộng</MenuItem>
+            )}
+
+            <MenuSeparator />
+            <MenuItem icon={<Trash2 size={15} />} danger onClick={() => actions.remove(block.i)}>
+              Xoá khỏi trang
+            </MenuItem>
+          </PopoverContent>
+        </Popover>
+      </div>
+
+      {/*
+        Lớp cuộn riêng: widget cao hơn ô thì cuộn TRONG ô thay vì bị cắt cụt. Không còn
+        `pointer-events-none`: kéo đã bám cụm chấm nên biểu đồ giữ được hover/tooltip/bấm như thường.
+      */}
+      <div className="h-full w-full overflow-y-auto custom-scrollbar">
+        <LazyMount>{renderWidget(block, ctx)}</LazyMount>
+      </div>
+      {/* Tay nắm dãn do react-grid-layout chèn qua `children` */}
+      {children}
+    </div>
+  )
+})
 
 function MenuSeparator() {
   return <div className="my-1 h-px bg-[var(--color-muted)]" role="separator" />

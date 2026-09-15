@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useCallback, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useSummaryStats, useSummaryRankings } from '../hooks/useAnalytics'
 import { cn } from '@/lib/utils'
@@ -216,7 +216,7 @@ export default function SummaryTab() {
    * đầu khung, KPI nằm bên trong — cùng một ngôn ngữ hình với cây phân cấp ở trên, thay vì một
    * mảng ô rời phải đọc tiêu đề bên ngoài mới biết thuộc về ai.
    */
-  const renderKpiByPeriodBody = () => {
+  const renderKpiByPeriodBody = useCallback(() => {
     const all = allocPage?.content ?? []
     const withWeight = all.filter(k => (k.weight ?? 0) > 0)
     const skipped = all.length - withWeight.length
@@ -316,11 +316,17 @@ export default function SummaryTab() {
         )}
       </div>
     )
-  }
+  }, [allocPage, expandedPeriods, weightBudget, isAllocLoading])
 
-  const renderWidgetContent = (widget: SummaryWidget, ctx: { openConfig: () => void }) => {
+  /*
+    `useCallback` là bắt buộc chứ không phải tối ưu tuỳ hứng: lưới cache phần tử từng ô theo
+    định danh hàm này. Hàm mới mỗi render là mọi biểu đồ vẽ lại mỗi lần tab render — kể cả khi
+    chỉ dòng "Đang lưu…" đổi chữ.
+  */
+  const { updateWidgetSettings } = dash
+  const renderWidgetContent = useCallback((widget: SummaryWidget, ctx: { openConfig: () => void }) => {
     // Mỗi ô tự mang khoảng thời gian của riêng nó (hoặc mặc định trang nếu chưa đặt).
-    const f = filterOf(widget.i)
+    const f = widgetFilter(widget, pageIntent, periods, cycles)
     const unit = widgetUnit(widget)
     const advancedFilter = { orgUnitId: unit, periodId: f.periodId, periodIdTo: f.periodIdTo, from: f.from, to: f.to }
     // Dòng tóm tắt "ô này đang theo cấu hình gì" — bấm vào là mở đúng bảng cấu hình của ô.
@@ -330,7 +336,7 @@ export default function SummaryTab() {
         unitOptions={unitOptions} onOpen={ctx.openConfig}
       />
     )
-    const set = (patch: Parameters<typeof dash.updateWidgetSettings>[1]) => dash.updateWidgetSettings(widget.i, patch)
+    const set = (patch: Parameters<typeof updateWidgetSettings>[1]) => updateWidgetSettings(widget.i, patch)
     switch (widget.type) {
       case 'STATS': return (
         // Chromeless: mỗi thẻ đã là một card, bọc thêm card nữa là card lồng card. Chip ở trên
@@ -388,7 +394,7 @@ export default function SummaryTab() {
         <EmployeeRankingTableSection
           orgUnitId={unit}
           from={f.from} to={f.to} onlyApproved={onlyApproved} periodId={f.periodId} periodIdTo={f.periodIdTo}
-          viewControl={tableViewControl(widget, dash.updateWidgetSettings)}
+          viewControl={tableViewControl(widget, updateWidgetSettings)}
           metric={optionOf(widget, 'metric') as 'performance' | 'avgProgress'}
           dir={optionOf(widget, 'dir') as 'ASC' | 'DESC'}
           onSortChange={(m, d) => set({ o: { ...widget.s?.o, metric: m, dir: d } })}
@@ -398,12 +404,12 @@ export default function SummaryTab() {
       )
       default: return null
     }
-  }
+  }, [pageIntent, periods, cycles, unitOptions, updateWidgetSettings, onlyApproved, chartData, isChartLoading, allocPage, mainData, renderKpiByPeriodBody])
 
   if (isMainLoading && !mainData) return <AnalyticsTabSkeleton variant="default" className="p-6" />
 
   return (
-    <div className="space-y-8 animate-in fade-in duration-500 pb-12">
+    <div className="space-y-8 pb-12">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <h2 className="text-xl font-semibold text-[var(--color-foreground)]">KPI đơn vị tôi phụ trách</h2>
         <div id="tour-analytics-customize" className="flex items-center gap-3 flex-wrap">
