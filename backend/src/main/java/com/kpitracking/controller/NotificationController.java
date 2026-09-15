@@ -3,7 +3,7 @@ package com.kpitracking.controller;
 import com.kpitracking.dto.request.notification.SaveNotificationConfigRequest;
 import com.kpitracking.dto.request.notification.SendKpiReminderRequest;
 import com.kpitracking.dto.response.ApiResponse;
-import com.kpitracking.dto.response.PageResponse;
+import com.kpitracking.dto.response.CursorPageResponse;
 import com.kpitracking.dto.response.notification.NotificationConfigResponse;
 import com.kpitracking.dto.response.notification.NotificationResponse;
 import com.kpitracking.service.NotificationService;
@@ -30,11 +30,12 @@ public class NotificationController {
     private final ReminderService reminderService;
 
     @GetMapping
-    @Operation(summary = "Get current user's notifications")
-    public ResponseEntity<ApiResponse<PageResponse<NotificationResponse>>> getMyNotifications(
-            @RequestParam(defaultValue = "0") int page,
-            @RequestParam(defaultValue = "20") int size) {
-        PageResponse<NotificationResponse> response = notificationService.getMyNotifications(page, size);
+    @Operation(summary = "Get current user's notifications (keyset pagination: gửi lại nextCursor để lấy trang kế)")
+    public ResponseEntity<ApiResponse<CursorPageResponse<NotificationResponse>>> getMyNotifications(
+            @RequestParam(defaultValue = "20") int size,
+            @RequestParam(required = false) String cursor) {
+        // Tham số `page` cũ (OFFSET) không còn dùng — client cũ gửi page=0 vẫn nhận trang đầu.
+        CursorPageResponse<NotificationResponse> response = notificationService.getMyNotifications(size, cursor);
         return ResponseEntity.ok(ApiResponse.success(response));
     }
 

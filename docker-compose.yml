@@ -42,6 +42,18 @@ services:
       - DB_URL=jdbc:postgresql://kpitracking-db:5432/kpitracking
       - DB_USERNAME=${DB_USERNAME:-postgres}
       - "DB_PASSWORD=${DB_PASSWORD:?thieu DB_PASSWORD trong Environment Variables cua Coolify}"
+      # Pool ket noi moi instance; max_connections cua Postgres phai >= so instance x pool + 10.
+      # Xem docs/DATABASE_SCALING.md H6.
+      - HIKARI_MAX_POOL=${HIKARI_MAX_POOL:-20}
+      - HIKARI_MIN_IDLE=${HIKARI_MIN_IDLE:-5}
+      # Job don du lieu ghi lien tuc (refresh_tokens / notifications / security_audit_logs).
+      # MAC DINH TAT — bat sau khi chay backend/db/ops/002 + 003 va xac nhan TTL (DATABASE_SCALING.md C3).
+      - APP_RETENTION_ENABLED=${APP_RETENTION_ENABLED:-false}
+      - APP_RETENTION_NOTIF_READ_DAYS=${APP_RETENTION_NOTIF_READ_DAYS:-90}
+      - APP_RETENTION_NOTIF_UNREAD_DAYS=${APP_RETENTION_NOTIF_UNREAD_DAYS:-180}
+      - APP_RETENTION_AUDIT_DAYS=${APP_RETENTION_AUDIT_DAYS:-180}
+      # Cache quyen theo user (giay); 0 = tat. DATABASE_SCALING.md C2.
+      - AUTHORITY_CACHE_TTL_SECONDS=${AUTHORITY_CACHE_TTL_SECONDS:-30}
 
       # JWT
       - "JWT_SECRET=${JWT_SECRET:?thieu JWT_SECRET trong Environment Variables cua Coolify - sinh bang: openssl rand -base64 64}"

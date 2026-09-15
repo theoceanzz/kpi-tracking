@@ -10,7 +10,10 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "messages",
-    uniqueConstraints = @UniqueConstraint(columnNames = {"conversation_id", "msg_index"}))
+    // Tên khớp V1__init_schema.sql; không đặt tên thì Hibernate ddl-auto sinh thêm một unique
+    // constraint tên hash (uk6rsee...) trùng nội dung — phát hiện ở docs/DATABASE_SCALING.md M2.
+    uniqueConstraints = @UniqueConstraint(name = "messages_conversation_id_msg_index_key",
+                                          columnNames = {"conversation_id", "msg_index"}))
 @EntityListeners(AuditingEntityListener.class)
 @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
 public class ConversationMessage {

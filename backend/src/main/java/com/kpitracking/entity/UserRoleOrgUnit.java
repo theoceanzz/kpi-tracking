@@ -9,6 +9,8 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "user_role_org_units")
+// Mọi thay đổi ở đây làm cache quyền của user hết hạn (docs/DATABASE_SCALING.md C2).
+@EntityListeners(com.kpitracking.security.AuthorityCacheInvalidator.class)
 @IdClass(UserRoleOrgUnit.UserRoleOrgUnitId.class)
 @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
 public class UserRoleOrgUnit {

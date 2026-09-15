@@ -35,8 +35,8 @@ export default function NotificationsPage() {
   // KHÔNG mở kết nối WebSocket ở đây: NotificationBell trong AppLayout đã mở sẵn một cái và
   // luôn có mặt trên mọi trang. Gọi thêm lần nữa sẽ có hai kết nối, và mỗi thông báo về được
   // thêm hai lần vào danh sách kèm huy hiệu chưa đọc cộng hai.
-  const [page] = useState(0)
-  const { data, isLoading } = useNotifications(page, 50)
+  // Trang đầu 50 thông báo mới nhất (keyset, không cursor). Trang kế = useNotifications(50, data.nextCursor).
+  const { data, isLoading } = useNotifications(50)
   const markAllRead = useMarkAllRead()
   const markRead = useMarkAsRead()
   

@@ -295,6 +295,9 @@ CREATE TABLE org_units (
   email       VARCHAR(255),
   phone       VARCHAR(20),
   address     TEXT,
+  -- province_id: entity OrgUnit có @ManyToOne Province; trước đây V1 thiếu nên Hibernate tự thêm
+  -- cột + FK tên hash (drift). Khai báo tường minh để dev/prod cùng schema.
+  province_id UUID            REFERENCES provinces(id),
   district_id UUID            REFERENCES districts(id),
   logo_url    TEXT,
   status      VARCHAR(20)     NOT NULL DEFAULT 'TRIAL',
@@ -341,7 +344,7 @@ CREATE TABLE users (
     lark_union_id_enc   TEXT
 );
 
-CREATE INDEX idx_users_email ON users(email);
+-- (không tạo idx_users_email: cột email đã UNIQUE -> users_email_key là index rồi)
 CREATE INDEX idx_users_deleted_at ON users(deleted_at);
 CREATE UNIQUE INDEX idx_users_employee_code ON users(employee_code);
 
@@ -778,7 +781,12 @@ CREATE INDEX idx_submissions_org_unit_id ON kpi_submissions(org_unit_id);
 CREATE INDEX idx_submissions_kpi_criteria_id ON kpi_submissions(kpi_criteria_id);
 CREATE INDEX idx_submissions_submitted_by ON kpi_submissions(submitted_by);
 CREATE INDEX idx_submissions_status ON kpi_submissions(status);
-CREATE INDEX idx_submissions_deleted_at ON kpi_submissions(deleted_at);
+-- Partial index thay cho index cả cột deleted_at (95 % NULL): phục vụ đúng các câu
+-- count/findByKpiCriteriaIdAndSubmittedById...AndDeletedAtIsNull gọi trong vòng lặp KPI.
+CREATE INDEX idx_submissions_alive ON kpi_submissions(kpi_criteria_id, submitted_by) WHERE deleted_at IS NULL;
+-- Lịch sử nộp của một người (findBySubmittedByIdOrderByCreatedAtDesc).
+CREATE INDEX idx_submissions_submitter_created ON kpi_submissions(submitted_by, created_at DESC);
+-- Prod: backend/db/ops/004_kpi_submissions_indexes.sql
 
 -- ====================================================
 -- Submission Attachments
@@ -866,7 +874,11 @@ CREATE TABLE notifications (
 );
 
 CREATE INDEX idx_notifications_org_unit_user ON notifications(org_unit_id, user_id);
-CREATE INDEX idx_notifications_is_read ON notifications(is_read);
+-- Danh sách thông báo theo user, mới nhất trước; id làm tie-breaker cho keyset pagination.
+CREATE INDEX idx_notifications_user_created ON notifications(user_id, created_at DESC, id DESC);
+-- Badge chưa đọc: chỉ index dòng is_read = false. (Không index is_read cả cột — selectivity thấp.)
+CREATE INDEX idx_notifications_user_unread ON notifications(user_id) WHERE is_read = false;
+-- Prod: backend/db/ops/002_notifications_indexes.sql
 
 -- ====================================================
 -- Notification config per organization
@@ -969,8 +981,11 @@ CREATE TABLE refresh_tokens (
     created_at  TIMESTAMPTZ     DEFAULT NOW()
 );
 
-CREATE INDEX idx_refresh_tokens_token ON refresh_tokens(token);
+-- (không tạo index riêng trên token: cột đã UNIQUE)
 CREATE INDEX idx_refresh_tokens_user_id ON refresh_tokens(user_id);
+-- Job dọn token hết hạn (DataRetentionScheduler / deleteExpiredTokens).
+CREATE INDEX idx_refresh_tokens_expires ON refresh_tokens(expires_at);
+-- Prod: backend/db/ops/003_refresh_tokens_indexes.sql
 
 -- ====================================================
 -- Security Audit Log
@@ -1169,10 +1184,12 @@ CREATE TABLE messages (
     content         TEXT NOT NULL,
     msg_index       INTEGER NOT NULL,
     created_at      TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    UNIQUE (conversation_id, msg_index)
+    -- Tên phải khớp @UniqueConstraint(name=...) trong entity ConversationMessage, nếu không
+    -- Hibernate ddl-auto sẽ sinh thêm một unique constraint tên hash trùng nội dung.
+    CONSTRAINT messages_conversation_id_msg_index_key UNIQUE (conversation_id, msg_index)
 );
 
-CREATE INDEX idx_messages_conversation_id ON messages(conversation_id);
+-- (không tạo idx_messages_conversation_id: UNIQUE (conversation_id, msg_index) đã bao phủ)
 
 -- ====================================================
 -- BSC — Thẻ điểm (Scorecard) & trọng số viễn cảnh theo kỳ
@@ -2774,19 +2791,33 @@ CREATE UNIQUE INDEX IF NOT EXISTS ux_kpi_workflow_configs_org
     ON kpi_workflow_configs (organization_id) WHERE deleted_at IS NULL;
 
 -- ====================================================
--- Memento cho yêu cầu điều chỉnh
+-- KPI Adjustment Requests (yêu cầu điều chỉnh chỉ tiêu / ngưng KPI)
 --
--- Trước đây từ chối một yêu cầu điều chỉnh luôn đặt KPI về APPROVED cứng, nên trạng thái trước
--- khi vào EDIT bị mất. Cột này giữ lại trạng thái đó để trả về đúng chỗ cũ.
---
--- Bọc trong khối điều kiện vì bảng kpi_adjustment_requests KHÔNG nằm trong V1 — nó do Hibernate
--- tạo từ entity nhờ ddl-auto=update. Flyway chạy TRƯỚC Hibernate, nên trên một database sạch bảng
--- này chưa tồn tại ở thời điểm migration chạy. Trường hợp đó thì bỏ qua ở đây và để Hibernate tự
--- thêm cột từ mapping của entity; trên database đã có sẵn bảng thì cột được thêm ngay tại đây.
+-- Trước đây bảng này KHÔNG nằm trong V1 mà do Hibernate ddl-auto=update tạo từ entity
+-- KpiAdjustmentRequest (cột VARCHAR không giới hạn, FK tên hash, không index). Khai báo
+-- tường minh để dev/prod cùng schema và có index cho các câu findByRequesterId /
+-- findAllWithFilters / findByStatusAndCreatedAtBefore. Trên prod bảng đã tồn tại: chỉ cần
+-- chạy backend/db/ops/005_drop_duplicate_indexes.sql để thêm index.
+-- previous_kpi_status: memento — trạng thái KPI ngay trước khi yêu cầu đẩy nó sang EDIT, để
+-- từ chối trả về đúng chỗ cũ (NULL với dữ liệu cũ -> APPROVED như trước).
 -- ====================================================
-DO $$
-BEGIN
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'kpi_adjustment_requests') THEN
-        ALTER TABLE kpi_adjustment_requests ADD COLUMN IF NOT EXISTS previous_kpi_status VARCHAR(32);
-    END IF;
-END $$;
+CREATE TABLE IF NOT EXISTS kpi_adjustment_requests (
+    id                      UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    kpi_criteria_id         UUID NOT NULL REFERENCES kpi_criteria(id),
+    requester_id            UUID NOT NULL REFERENCES users(id),
+    reviewer_id             UUID REFERENCES users(id),
+    requested_target_value  DOUBLE PRECISION,
+    requested_minimum_value DOUBLE PRECISION,
+    is_deactivation_request BOOLEAN NOT NULL DEFAULT FALSE,
+    reason                  TEXT,
+    status                  VARCHAR(32) NOT NULL DEFAULT 'PENDING',
+    previous_kpi_status     VARCHAR(32),
+    reviewer_note           TEXT,
+    created_at              TIMESTAMPTZ DEFAULT NOW(),
+    updated_at              TIMESTAMPTZ DEFAULT NOW()
+);
+
+CREATE INDEX IF NOT EXISTS idx_kpi_adj_requester      ON kpi_adjustment_requests (requester_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_kpi_adj_criteria       ON kpi_adjustment_requests (kpi_criteria_id);
+CREATE INDEX IF NOT EXISTS idx_kpi_adj_status_created ON kpi_adjustment_requests (status, created_at);
+
