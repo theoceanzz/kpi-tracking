@@ -4,8 +4,8 @@ import com.kpitracking.service.OrgUnitStatisticService;
 import com.kpitracking.tool.OrgUnitStatisticToolRequests.SubmissionsRequest;
 import com.kpitracking.tool.ToolSupport.UnitRef;
 import lombok.RequiredArgsConstructor;
-import org.springframework.ai.chat.model.ToolContext;
-import org.springframework.ai.tool.annotation.Tool;
+import dev.langchain4j.invocation.InvocationParameters;
+import dev.langchain4j.agent.tool.Tool;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -27,7 +27,7 @@ public class SubmissionTool {
     private final OrgUnitStatisticService orgUnitStatisticService;
     private final ToolSupport support;
 
-    @Tool(name = "get_submissions", description = "Bài nộp KPI. "
+    @Tool(name = "get_submissions", value = "Bài nộp KPI. "
             + "view=history: liệt kê từng bài nộp của một KPI theo dòng thời gian. NÊN truyền kpiName — "
             + "một KPI lặp lại (vd theo tuần) có NHIỀU bản trùng tên, truyền tên sẽ gộp bài nộp của TẤT CẢ "
             + "các bản và mỗi dòng có periodName; kpiId chỉ nhắm đúng một bản. Lọc thêm: userId, "
@@ -37,7 +37,7 @@ public class SubmissionTool {
             + "periodId cho đúng một kỳ, bỏ cả hai = mọi kỳ; mặc định là đơn vị hiện tại nên PHẢI truyền "
             + "unitName khi người dùng nêu tên đơn vị. Kết quả kèm appliedPeriods/appliedScope — hãy NÊU RÕ "
             + "khoảng thời gian đó trong câu trả lời để nếu suy sai ngày tương đối thì người dùng nhìn ra.")
-    public String getSubmissions(SubmissionsRequest request, ToolContext context) {
+    public String getSubmissions(SubmissionsRequest request, InvocationParameters context) {
         try {
             String view = normalizeView(request.view());
             if (view == null) {
@@ -59,7 +59,7 @@ public class SubmissionTool {
         };
     }
 
-    private String history(SubmissionsRequest request, ToolContext context) throws Exception {
+    private String history(SubmissionsRequest request, InvocationParameters context) throws Exception {
         if (ToolSupport.notBlank(request.unitName()) || ToolSupport.notBlank(request.unitId())
                 || ToolSupport.notBlank(request.periodId())) {
             throw new IllegalArgumentException("view=history không dùng unitName/unitId/periodId. "
@@ -101,7 +101,7 @@ public class SubmissionTool {
         return support.respond(context, "get_submissions", response);
     }
 
-    private String nonSubmitters(SubmissionsRequest request, ToolContext context) throws Exception {
+    private String nonSubmitters(SubmissionsRequest request, InvocationParameters context) throws Exception {
         if (ToolSupport.notBlank(request.kpiName()) || ToolSupport.notBlank(request.kpiId())
                 || ToolSupport.notBlank(request.status())) {
             throw new IllegalArgumentException("view=non_submitters không dùng kpiName/kpiId/status — "

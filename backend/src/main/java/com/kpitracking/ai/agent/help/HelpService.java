@@ -60,7 +60,7 @@ public class HelpService {
      * Gom nguồn theo MỤC, không theo đoạn: một mục dài cắt thành ba đoạn thì người dùng thấy một
      * dòng "Nguồn", không phải ba dòng giống hệt nhau.
      */
-    static List<Source> sourcesOf(List<Content> contents) {
+    public static List<Source> sourcesOf(List<Content> contents) {
         Map<String, Source> byTitle = new LinkedHashMap<>();
         for (Content c : contents) {
             var m = c.textSegment().metadata();

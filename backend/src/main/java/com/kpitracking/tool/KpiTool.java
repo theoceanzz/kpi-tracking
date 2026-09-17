@@ -4,8 +4,8 @@ import com.kpitracking.service.OrgUnitStatisticService;
 import com.kpitracking.tool.OrgUnitStatisticToolRequests.KpiRequest;
 import com.kpitracking.tool.ToolSupport.UnitRef;
 import lombok.RequiredArgsConstructor;
-import org.springframework.ai.chat.model.ToolContext;
-import org.springframework.ai.tool.annotation.Tool;
+import dev.langchain4j.invocation.InvocationParameters;
+import dev.langchain4j.agent.tool.Tool;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -29,7 +29,7 @@ public class KpiTool {
     private final OrgUnitStatisticService orgUnitStatisticService;
     private final ToolSupport support;
 
-    @Tool(name = "get_kpi", description = "KPI và kỳ đánh giá. "
+    @Tool(name = "get_kpi", value = "KPI và kỳ đánh giá. "
             + "view=list: danh sách KPI của một đơn vị, mỗi KPI có name, periodName, progress (% đạt mục tiêu); "
             + "KHÔNG trả ID — cần UUID thì dùng search (entityType=kpi). "
             // Trước đây chỉ ghi "số liệu tổng hợp", nghe y hệt get_analytics(view=dashboard) nên
@@ -54,7 +54,7 @@ public class KpiTool {
             + "KỲ NÀO có KPI chờ duyệt thì lấy danh sách đó rồi gom theo periodName — "
             + "view=periods KHÔNG lọc được theo trạng thái. "
             + "Các view theo đơn vị mặc định là đơn vị hiện tại, nên khi người dùng nêu tên đơn vị PHẢI truyền unitName.")
-    public String getKpi(KpiRequest request, ToolContext context) {
+    public String getKpi(KpiRequest request, InvocationParameters context) {
         try {
             String view = normalizeView(request.view());
             if (view == null) {
@@ -103,7 +103,7 @@ public class KpiTool {
     }
 
     /** Ba view nhắm vào MỘT KPI: bắt buộc kpiId, và không nhận tham số lọc theo đơn vị. */
-    private String perKpi(String view, KpiRequest request, ToolContext context) throws Exception {
+    private String perKpi(String view, KpiRequest request, InvocationParameters context) throws Exception {
         if (ToolSupport.notBlank(request.unitName()) || ToolSupport.notBlank(request.unitId())) {
             throw new IllegalArgumentException("view=" + view + " nhắm vào MỘT KPI nên không nhận "
                     + "unitName/unitId. Muốn xem KPI của một đơn vị thì dùng view=list hoặc view=summary.");
@@ -156,7 +156,7 @@ public class KpiTool {
      * Gộp người được giao của MỌI KPI trùng tên (một KPI lặp qua nhiều kỳ), khử trùng theo email
      * và ghi lại người đó được giao ở những kỳ nào.
      */
-    private Map<String, Object> assigneesByName(String kpiName, ToolContext context) {
+    private Map<String, Object> assigneesByName(String kpiName, InvocationParameters context) {
         List<Map<String, Object>> pool = support.kpiMatchPool(kpiName, support.getOrgId(context));
 
         // LinkedHashMap để giữ thứ tự xuất hiện — câu trả lời ổn định giữa các lần gọi.
@@ -218,7 +218,7 @@ public class KpiTool {
      * dặn thêm model.
      */
     private Map<String, Object> periodBreakdownByName(String kpiName, KpiRequest request,
-                                                      ToolContext context) {
+                                                      InvocationParameters context) {
         List<Map<String, Object>> pool = support.kpiMatchPool(kpiName, support.getOrgId(context));
 
         // LinkedHashMap/ArrayList để giữ thứ tự xuất hiện — câu trả lời ổn định giữa các lần gọi.
@@ -255,7 +255,7 @@ public class KpiTool {
     }
 
     /** Ba view nhắm vào một ĐƠN VỊ: kpiId không có nghĩa ở đây. */
-    private String byUnit(String view, KpiRequest request, ToolContext context) throws Exception {
+    private String byUnit(String view, KpiRequest request, InvocationParameters context) throws Exception {
         if (ToolSupport.notBlank(request.kpiId())) {
             throw new IllegalArgumentException("kpiId chỉ dùng với view=detail|assignees|period_breakdown, "
                     + "không dùng với view=" + view + ".");

@@ -22,7 +22,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.springframework.ai.chat.model.ToolContext;
+import dev.langchain4j.invocation.InvocationParameters;
 
 import java.util.List;
 import java.util.Map;
@@ -88,8 +88,8 @@ class BscOkrToolTest {
     }
 
     /** Ngữ cảnh của một trưởng đơn vị: có orgUnitPath nên phép kiểm phạm vi CÓ hiệu lực. */
-    private ToolContext ctx() {
-        return new ToolContext(Map.of(
+    private InvocationParameters ctx() {
+        return new InvocationParameters(Map.of(
                 "orgUnitId", myUnitId.toString(),
                 "organizationId", UUID.randomUUID().toString(),
                 "orgUnitPath", MY_PATH,

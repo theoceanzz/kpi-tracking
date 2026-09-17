@@ -4,8 +4,8 @@ import com.kpitracking.service.OrgUnitStatisticService;
 import com.kpitracking.tool.OrgUnitStatisticToolRequests.AnalyticsRequest;
 import com.kpitracking.tool.ToolSupport.UnitRef;
 import lombok.RequiredArgsConstructor;
-import org.springframework.ai.chat.model.ToolContext;
-import org.springframework.ai.tool.annotation.Tool;
+import dev.langchain4j.invocation.InvocationParameters;
+import dev.langchain4j.agent.tool.Tool;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -25,7 +25,7 @@ public class AnalyticsTool {
     private final OrgUnitStatisticService orgUnitStatisticService;
     private final ToolSupport support;
 
-    @Tool(name = "get_analytics", description = "Phân tích tổng hợp cho một đơn vị và các đơn vị con. "
+    @Tool(name = "get_analytics", value = "Phân tích tổng hợp cho một đơn vị và các đơn vị con. "
             // "các chỉ số tổng quan" không phân biệt được với get_kpi(view=summary); nêu đúng
             // phần RIÊNG của nó — bối cảnh tổ chức — và chỉ thẳng sang tool kia khi câu hỏi chỉ
             // xoay quanh chỉ tiêu.
@@ -38,7 +38,7 @@ public class AnalyticsTool {
             + "trả về series và anomalyPoints với type=SPIKE (>+20%) hoặc DROP (<-15%). "
             + "view=risk: các KPI đang có nguy cơ trễ, quá hạn hoặc giậm chân tại chỗ. "
             + "Mặc định là đơn vị hiện tại của bạn, nên khi người dùng nêu tên đơn vị PHẢI truyền unitName.")
-    public String getAnalytics(AnalyticsRequest request, ToolContext context) {
+    public String getAnalytics(AnalyticsRequest request, InvocationParameters context) {
         try {
             String view = normalizeView(request.view());
             if (view == null) {

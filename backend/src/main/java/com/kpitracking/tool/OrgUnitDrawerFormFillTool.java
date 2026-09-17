@@ -6,8 +6,8 @@ import com.kpitracking.service.ai.form.FormPatch;
 import com.kpitracking.service.ai.form.FormRegistry;
 import com.kpitracking.service.ai.form.FormSpec.Descriptor;
 import lombok.RequiredArgsConstructor;
-import org.springframework.ai.chat.model.ToolContext;
-import org.springframework.ai.tool.annotation.Tool;
+import dev.langchain4j.invocation.InvocationParameters;
+import dev.langchain4j.agent.tool.Tool;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -42,7 +42,7 @@ public class OrgUnitDrawerFormFillTool {
             // lời gọi HỢP LỆ, và model gọi rỗng để dò. Các tool đọc đều có một ô bắt buộc.
             String reason) {}
 
-    @Tool(name = "suggest_org_unit_drawer_form", description =
+    @Tool(name = "suggest_org_unit_drawer_form", value =
             "Đề xuất giá trị điền vào form SỬA ĐƠN VỊ (drawer ở màn Cơ cấu tổ chức) đang mở. "
             + "Chỉ điền ô người dùng thực sự nêu — ô không chắc thì BỎ QUA, đừng đoán. "
             + "Đây là ĐỀ XUẤT: người dùng xem lại rồi tự chọn ô nào muốn nhận. "
@@ -51,7 +51,7 @@ public class OrgUnitDrawerFormFillTool {
             + "(Hoạt động, Dùng thử, Tạm dừng, Đình chỉ). "
             + "Form này không nhận đơn vị cha, tỉnh/huyện hay vai trò. "
             + "reason: một câu ngắn nói vì sao đề xuất như vậy.")
-    public String suggestOrgUnitDrawerForm(OrgUnitDrawerFormFillRequest request, ToolContext context) {
+    public String suggestOrgUnitDrawerForm(OrgUnitDrawerFormFillRequest request, InvocationParameters context) {
         try {
             fill.requireArgs(request, "suggest_org_unit_drawer_form", OrgUnitDrawerFormFillRequest.class);
             fill.requireOpenForm(FormRegistry.ORG_UNIT_DRAWER_FORM, context);

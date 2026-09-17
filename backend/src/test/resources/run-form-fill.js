@@ -356,7 +356,7 @@ async function login() {
 
 const RATE_LIMITED = /quá nhanh|rate limit/i;
 /** Nhà cung cấp chặn 429 — khác bộ chặn 15 lượt/phút của backend; xem chú thích ở run-ai-questions.js. */
-const PROVIDER_THROTTLED = /đạt giới hạn sử dụng/i;
+const PROVIDER_THROTTLED = /đạt giới hạn sử dụng|hết hạn mức sử dụng/i;
 
 /**
  * Đọc một luồng SSE và trả về sự kiện `done` (hoặc `error`).

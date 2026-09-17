@@ -8,7 +8,6 @@ import com.kpitracking.repository.UserRepository;
 import com.kpitracking.repository.UserRoleOrgUnitRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.chat.metadata.Usage;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -58,20 +57,6 @@ public class AiTokenUsageRecorder {
         return CURRENT_FEATURE.get();
     }
 
-    /**
-     * Ghi ở giao dịch riêng: token đã tiêu thật rồi, không được cuốn theo khi giao dịch bên ngoài
-     * bị rollback vì lỗi xảy ra sau đó.
-     */
-    @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void record(Usage usage, String model) {
-        var auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || auth.getName() == null) {
-            log.warn("Bỏ qua ghi tiêu thụ token: không xác định được người dùng");
-            return;
-        }
-        record(auth.getName(), CURRENT_FEATURE.get(), model,
-                safe(usage.getPromptTokens()), safe(usage.getCompletionTokens()), safe(usage.getTotalTokens()));
-    }
 
     /**
      * Bản không phụ thuộc framework, nhận người dùng và tính năng TƯỜNG MINH.

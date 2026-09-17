@@ -1,7 +1,7 @@
 package com.kpitracking.service.ai;
 
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.chat.model.ToolContext;
+import dev.langchain4j.invocation.InvocationParameters;
 
 import java.util.Map;
 
@@ -82,7 +82,7 @@ public final class ToolProgress {
      * Phát nhãn của tool vừa chạy. Nuốt mọi lỗi — báo tiến độ là phần thêm, câu trả lời mới là thứ
      * người dùng cần.
      */
-    public static void announce(ToolContext context, String toolName) {
+    public static void announce(InvocationParameters context, String toolName) {
         try {
             listenerOf(context).stageStarted("tool:" + toolName, label(toolName));
         } catch (Exception e) {
@@ -90,9 +90,9 @@ public final class ToolProgress {
         }
     }
 
-    private static TurnListener listenerOf(ToolContext context) {
-        if (context == null || context.getContext() == null) return TurnListener.NOOP;
-        Object listener = context.getContext().get(CONTEXT_KEY);
+    private static TurnListener listenerOf(InvocationParameters context) {
+        if (context == null) return TurnListener.NOOP;
+        Object listener = context.get(CONTEXT_KEY);
         return listener instanceof TurnListener l ? l : TurnListener.NOOP;
     }
 }

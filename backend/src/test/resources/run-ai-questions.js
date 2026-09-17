@@ -118,7 +118,7 @@ const RATE_LIMITED = /quá nhanh|rate limit/i;
  * Từ khi có công đoạn lập kế hoạch + định tuyến + hỏi lại, MỖI câu hỏi gọi nhà cung cấp 3-4 lần,
  * nên nhịp giãn phải tính theo lời gọi nhà cung cấp chứ không phải theo số câu hỏi.
  */
-const PROVIDER_THROTTLED = /đạt giới hạn sử dụng/i;
+const PROVIDER_THROTTLED = /đạt giới hạn sử dụng|hết hạn mức sử dụng/i;
 
 /**
  * Đọc một luồng SSE và trả về sự kiện `done` (hoặc `error`).

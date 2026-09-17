@@ -8,16 +8,16 @@ import com.kpitracking.exception.ForbiddenException;
 import com.kpitracking.repository.OrganizationRepository;
 import com.kpitracking.service.ManagerContextResolver.ManagerContext;
 import com.kpitracking.service.ai.AiTurn;
+import com.kpitracking.ai.agent.KpiSuggestionAgent;
+import com.kpitracking.ai.workflow.KeyGoAssistant;
+import com.kpitracking.exception.AiRateLimitException;
+import com.kpitracking.exception.AiTokenQuotaExceededException;
 import com.kpitracking.service.ai.agent.AgentState;
-import com.kpitracking.service.ai.AiTurnPipeline;
+import dev.langchain4j.invocation.InvocationParameters;
+import org.springframework.security.core.context.SecurityContextHolder;
 import com.kpitracking.tool.ToolRegistry;
 import com.kpitracking.util.AiUtils;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.ParameterizedTypeReference;
-import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -36,29 +36,56 @@ import java.util.UUID;
 @Slf4j
 public class AiService {
 
-    private final AiTurnPipeline aiTurnPipeline;
+    private final KeyGoAssistant assistant;
+    private final KpiSuggestionAgent kpiSuggestionAgent;
     private final ManagerContextResolver managerContextResolver;
     private final OrganizationRepository organizationRepository;
     private final ToolRegistry toolRegistry;
-    private final ChatClient chatClient;
+    private final AiRateLimiter aiRateLimiter;
+    private final AiQuotaService aiQuotaService;
 
-    @Value("classpath:/promptTemplates/kpiSuggestionSystemPrompt.st")
-    private Resource kpiSuggestionSystemPrompt;
-
-    // Constructor viết tay chứ KHÔNG dùng @RequiredArgsConstructor: dự án không có lombok.config
-    // khai báo @Qualifier là annotation được sao chép, nên Lombok sẽ bỏ qua nó. Nay chỉ còn MỘT
-    // bean ChatClient nên bỏ qualifier vẫn chạy, nhưng giữ lại để chỗ tiêm nói rõ nó cần bean nào —
-    // thêm bean thứ hai sau này sẽ không âm thầm đổi thứ lớp này nhận được.
-    public AiService(AiTurnPipeline aiTurnPipeline,
+    public AiService(KeyGoAssistant assistant,
+                     KpiSuggestionAgent kpiSuggestionAgent,
                      ManagerContextResolver managerContextResolver,
                      OrganizationRepository organizationRepository,
                      ToolRegistry toolRegistry,
-                     @Qualifier("openAiChatClient") ChatClient chatClient) {
-        this.aiTurnPipeline = aiTurnPipeline;
+                     AiRateLimiter aiRateLimiter,
+                     AiQuotaService aiQuotaService) {
+        this.assistant = assistant;
+        this.kpiSuggestionAgent = kpiSuggestionAgent;
         this.managerContextResolver = managerContextResolver;
         this.organizationRepository = organizationRepository;
         this.toolRegistry = toolRegistry;
-        this.chatClient = chatClient;
+        this.aiRateLimiter = aiRateLimiter;
+        this.aiQuotaService = aiQuotaService;
+    }
+
+    private static String currentUserEmail() {
+        var auth = SecurityContextHolder.getContext().getAuthentication();
+        return auth != null ? auth.getName() : null;
+    }
+
+    /**
+     * Ba chốt chặn trước khi chạy workflow — {@code GuardStages} cũ. Là điều kiện tiên quyết của
+     * lượt, không phải bước của đồ thị agent, nên nằm ở đây.
+     *
+     * @return câu trả lời cắt ngắn khi người dùng không có quyền dùng trợ lý, hoặc {@code null} nếu
+     *         được đi tiếp
+     */
+    private String guard(AiTurn turn) {
+        aiRateLimiter.check(currentUserEmail());
+        aiQuotaService.checkAndThrow(currentUserEmail());
+        ManagerContext ctx = managerContextResolver.resolve();
+        if (ctx == null) {
+            return "Bạn không có quyền sử dụng tính năng AI phân tích. "
+                    + "Chỉ trưởng đơn vị hoặc phó đơn vị mới có thể truy cập tính năng này.";
+        }
+        Organization org = organizationRepository.findById(ctx.orgId()).orElse(null);
+        if (org == null || Boolean.FALSE.equals(org.getEnableAi())) {
+            throw new ForbiddenException("Tính năng AI đã bị tắt cho tổ chức của bạn.");
+        }
+        turn.setManager(ctx);
+        return null;
     }
 
     /**
@@ -75,7 +102,19 @@ public class AiService {
      * lý do object ngữ cảnh này ra đời.
      */
     public String processOrgUnitChat(AiTurn turn) {
-        return aiTurnPipeline.run(turn);
+        String refused = guard(turn);
+        if (refused != null) return refused;
+        try {
+            return assistant.answer(turn);
+        } catch (AiQuotaExceededException | AiTokenQuotaExceededException
+                 | AiRateLimitException | ForbiddenException e) {
+            throw e;
+        } catch (Exception e) {
+            if (AiUtils.isQuotaError(e)) throw new AiQuotaExceededException("quota exceeded", e);
+            log.error("Chat AI thất bại (question='{}'): {}", turn.getQuestion(), e.getMessage(), e);
+            return "Xin lỗi, mình gặp trục trặc khi xử lý yêu cầu này (có thể do câu hỏi khá phức tạp). "
+                    + "Bạn thử hỏi ngắn gọn/cụ thể hơn — ví dụ nêu rõ tên các phòng/đơn vị cần so sánh — giúp mình nhé.";
+        }
     }
 
     /**
@@ -123,21 +162,22 @@ public class AiService {
         String userPrompt = prompt.toString();
 
         try {
-            return chatClient.prompt()
-                    .system(kpiSuggestionSystemPrompt)
-                    .user(userPrompt)
-                    .tools(toolRegistry.toolsFor(toolRegistry.readGroups(), ctx.userId()).toArray())
-                    .toolContext(Map.of(
-                            "orgUnitId", orgUnitId,
-                            "orgUnitPath", ctx.orgUnitPath(),
-                            "organizationId", ctx.orgId(),
-                            // Đường này không có lượt chat nào nhưng vẫn mượn tool, mà tool ghi
-                            // trạng thái vào đây. Thiếu nó thì chốt chặn tên trùng im lặng ngừng
-                            // hoạt động ở riêng đường gợi ý KPI.
-                            AgentState.CONTEXT_KEY, AgentState.forToolsOnly()
-                    ))
-                    .call()
-                    .entity(new ParameterizedTypeReference<>() {});
+            // Dựng một lượt tối thiểu để dùng chung bộ lọc tool (KeyGoToolProvider đọc AgentState.turn).
+            // Đường này không có lượt chat nào nhưng vẫn mượn tool, mà tool ghi trạng thái vào
+            // AgentState. Thiếu nó thì chốt chặn tên trùng im lặng ngừng hoạt động ở riêng đường này.
+            AiTurn turn = new AiTurn(userPrompt, null, null);
+            turn.setManager(ctx);
+            turn.setEffectiveUnitId(orgUnitId);
+            turn.setToolGroups(toolRegistry.readGroups());
+            AgentState state = new AgentState(turn);
+            turn.setAgentState(state);
+            InvocationParameters params = InvocationParameters.from(Map.of(
+                    "orgUnitId", orgUnitId,
+                    "orgUnitPath", ctx.orgUnitPath(),
+                    "organizationId", ctx.orgId(),
+                    "userId", ctx.userId(),
+                    AgentState.CONTEXT_KEY, state));
+            return kpiSuggestionAgent.suggest(turn.getTurnId(), userPrompt, params);
         } catch (Exception e) {
             log.error("Error suggesting KPIs: {}", e.getMessage(), e);
             // Hết credit / vượt giới hạn nhà cung cấp: ném ra để người dùng biết đúng lý do.

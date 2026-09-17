@@ -11,8 +11,8 @@ import com.kpitracking.service.ai.action.PendingAction.Kind;
 import com.kpitracking.tool.OrgUnitStatisticToolRequests.ReviewKpiCriteriaRequest;
 import com.kpitracking.tool.ToolSupport.UnitRef;
 import lombok.RequiredArgsConstructor;
-import org.springframework.ai.chat.model.ToolContext;
-import org.springframework.ai.tool.annotation.Tool;
+import dev.langchain4j.invocation.InvocationParameters;
+import dev.langchain4j.agent.tool.Tool;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -40,13 +40,13 @@ public class KpiCriteriaReviewTool {
     private final ToolSupport support;
     private final ActionSupport actions;
 
-    @Tool(name = "review_kpi_criteria", description =
+    @Tool(name = "review_kpi_criteria", value =
             "Duyệt hoặc TỪ CHỐI các chỉ tiêu KPI đang chờ phê duyệt. Đây là thao tác GHI: tool chỉ "
             + "chuẩn bị danh sách và chờ người dùng bấm xác nhận, KHÔNG tự thực hiện. "
             + "decision=APPROVE hoặc REJECT (từ chối thì PHẢI có note nêu lý do). "
             + "Thu hẹp bằng unitName và periodName. Chỉ lấy chỉ tiêu đang CHỜ DUYỆT. "
             + "Đây là chỉ tiêu (KPI criteria), KHÁC bài nộp — duyệt bài nộp thì dùng review_submissions.")
-    public String reviewKpiCriteria(ReviewKpiCriteriaRequest request, ToolContext context) {
+    public String reviewKpiCriteria(ReviewKpiCriteriaRequest request, InvocationParameters context) {
         try {
             Decision decision = decisionOf(request.decision());
             requireNoteWhenRejecting(decision, request.note(), "chỉ tiêu");

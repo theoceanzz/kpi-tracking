@@ -6,8 +6,8 @@ import com.kpitracking.service.ai.form.FormPatch;
 import com.kpitracking.service.ai.form.FormRegistry;
 import com.kpitracking.service.ai.form.FormSpec.Descriptor;
 import lombok.RequiredArgsConstructor;
-import org.springframework.ai.chat.model.ToolContext;
-import org.springframework.ai.tool.annotation.Tool;
+import dev.langchain4j.invocation.InvocationParameters;
+import dev.langchain4j.agent.tool.Tool;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -42,14 +42,14 @@ public class OrgUnitFormFillTool {
             // lời gọi HỢP LỆ, và model gọi rỗng để dò. Các tool đọc đều có một ô bắt buộc.
             String reason) {}
 
-    @Tool(name = "suggest_org_unit_form", description =
+    @Tool(name = "suggest_org_unit_form", value =
             "Đề xuất giá trị điền vào form TẠO/SỬA ĐƠN VỊ đang mở trên màn hình người dùng. "
             + "Chỉ điền ô người dùng thực sự nêu — ô không chắc thì BỎ QUA, đừng đoán. "
             + "Đây là ĐỀ XUẤT: người dùng xem lại rồi tự chọn ô nào muốn nhận. "
             + "hierarchyLevelName (cấp bậc) và parentUnitName (đơn vị cha) truyền bằng TÊN, "
             + "KHÔNG truyền UUID. Form này không nhận tỉnh/huyện và vai trò. "
             + "reason: một câu ngắn nói vì sao đề xuất như vậy.")
-    public String suggestOrgUnitForm(OrgUnitFormFillRequest request, ToolContext context) {
+    public String suggestOrgUnitForm(OrgUnitFormFillRequest request, InvocationParameters context) {
         try {
             fill.requireArgs(request, "suggest_org_unit_form", OrgUnitFormFillRequest.class);
             fill.requireOpenForm(FormRegistry.ORG_UNIT_FORM, context);

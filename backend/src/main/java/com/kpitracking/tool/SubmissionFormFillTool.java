@@ -7,8 +7,8 @@ import com.kpitracking.service.ai.form.FormPatch;
 import com.kpitracking.service.ai.form.FormRegistry;
 import com.kpitracking.service.ai.form.FormSpec.Descriptor;
 import lombok.RequiredArgsConstructor;
-import org.springframework.ai.chat.model.ToolContext;
-import org.springframework.ai.tool.annotation.Tool;
+import dev.langchain4j.invocation.InvocationParameters;
+import dev.langchain4j.agent.tool.Tool;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -48,7 +48,7 @@ public class SubmissionFormFillTool {
             // lời gọi HỢP LỆ, và model gọi rỗng để dò. Các tool đọc đều có một ô bắt buộc.
             String reason) {}
 
-    @Tool(name = "suggest_submission_form", description =
+    @Tool(name = "suggest_submission_form", value =
             "Đề xuất giá trị điền vào form NỘP BÁO CÁO KPI đang mở trên màn hình người dùng. "
             + "Chỉ điền ô người dùng thực sự nêu — ô không chắc thì BỎ QUA, đừng đoán. "
             + "Đây là ĐỀ XUẤT: người dùng xem lại rồi tự chọn ô nào muốn nhận. "
@@ -67,7 +67,7 @@ public class SubmissionFormFillTool {
             + "Nếu người dùng NGOÀI việc điền ô còn xin chỗ gửi tài liệu minh chứng, hãy gọi thêm "
             + "`request_evidence_upload` trong CÙNG lượt — tool này không mở được vùng thả. "
             + "reason: một câu ngắn nói vì sao đề xuất như vậy.")
-    public String suggestSubmissionForm(SubmissionFormFillRequest request, ToolContext context) {
+    public String suggestSubmissionForm(SubmissionFormFillRequest request, InvocationParameters context) {
         try {
             fill.requireArgs(request, "suggest_submission_form", SubmissionFormFillRequest.class);
             fill.requireOpenForm(FormRegistry.SUBMISSION_FORM, context);

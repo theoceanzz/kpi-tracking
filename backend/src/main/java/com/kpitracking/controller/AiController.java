@@ -151,6 +151,7 @@ public class AiController {
         FollowupResponse followups;
         com.kpitracking.service.ai.action.PendingAction pendingAction;
         String consumedActionId;
+        java.util.List<com.kpitracking.ai.agent.help.HelpService.Source> sources;
         AiTokenUsageRecorder.setFeature(AiTokenUsage.AiFeature.CHAT);
         try {
             AiTurn turn = new AiTurn(request.getMessage(), request.getConversationId(), request.getFocusUnitId());
@@ -169,6 +170,7 @@ public class AiController {
             followups = turn.getFollowups();
             pendingAction = turn.getPendingAction();
             consumedActionId = turn.getConsumedActionId();
+            sources = turn.getSources();
         } finally {
             AiTokenUsageRecorder.clearFeature();
         }
@@ -192,6 +194,7 @@ public class AiController {
                 .followups(followups)
                 .pendingAction(com.kpitracking.dto.response.ai.PendingActionResponse.from(pendingAction))
                 .consumedActionId(consumedActionId)
+                .sources(sources == null || sources.isEmpty() ? null : sources)
                 .build();
     }
 

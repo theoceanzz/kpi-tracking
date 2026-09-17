@@ -3,8 +3,8 @@ package com.kpitracking.tool;
 import com.kpitracking.service.OrgUnitStatisticService;
 import com.kpitracking.tool.OrgUnitStatisticToolRequests.SearchRequest;
 import lombok.RequiredArgsConstructor;
-import org.springframework.ai.chat.model.ToolContext;
-import org.springframework.ai.tool.annotation.Tool;
+import dev.langchain4j.invocation.InvocationParameters;
+import dev.langchain4j.agent.tool.Tool;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -66,11 +66,11 @@ public class SearchTool {
             "period", new EntitySpec("periods", "kỳ KPI", null, null, new String[0], null)
     );
 
-    @Tool(name = "search", description = "Tìm theo tên và trả về ID. entityType: "
+    @Tool(name = "search", value = "Tìm theo tên và trả về ID. entityType: "
             + "user (nhân sự — tìm theo tên, email, số điện thoại, chức vụ, đơn vị) | "
             + "org_unit (đơn vị) | kpi | position (chức vụ) | period (kỳ KPI). "
             + "Chỉ dùng khi cần UUID cho tool khác; phần lớn tool đã tự nhận tên qua unitName/positionName.")
-    public String search(SearchRequest request, ToolContext context) {
+    public String search(SearchRequest request, InvocationParameters context) {
         try {
             String entityType = normalizeEntityType(request.entityType());
             EntitySpec spec = SPECS.get(entityType);

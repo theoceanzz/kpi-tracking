@@ -6,8 +6,8 @@ import com.kpitracking.service.analytics.AnalyticsPeriodHelper;
 import com.kpitracking.tool.OrgUnitStatisticToolRequests.BscRequest;
 import com.kpitracking.tool.ToolSupport.UnitRef;
 import lombok.RequiredArgsConstructor;
-import org.springframework.ai.chat.model.ToolContext;
-import org.springframework.ai.tool.annotation.Tool;
+import dev.langchain4j.invocation.InvocationParameters;
+import dev.langchain4j.agent.tool.Tool;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -35,7 +35,7 @@ public class BscTool {
     private final AnalyticsPeriodHelper periodHelper;
     private final ToolSupport support;
 
-    @Tool(name = "get_bsc", description = "Thống kê BSC (thẻ điểm cân bằng) của một đơn vị theo THẺ ĐIỂM. "
+    @Tool(name = "get_bsc", value = "Thống kê BSC (thẻ điểm cân bằng) của một đơn vị theo THẺ ĐIỂM. "
             + "view=overview: %đạt BSC của đợt, số thẻ điểm đơn vị theo trạng thái, đơn vị qua/không qua hạng mục chặn, độ phủ phân rã. "
             + "view=units: cây thẻ điểm trải phẳng — %đạt và kết quả hạng mục chặn của từng đơn vị. "
             + "view=items: mức đạt từng chỉ tiêu (thực tế / mục tiêu / sàn / trọng số / chặn) của thẻ điểm. "
@@ -46,7 +46,7 @@ public class BscTool {
             + "periodNameTo (đợt cuối). Bỏ trống: view một đợt lấy đợt muộn nhất có kết quả, view=trend lấy mọi đợt. "
             + "Mặc định là đơn vị hiện tại của bạn, nên khi người dùng nêu tên đơn vị PHẢI truyền unitName. "
             + "Đây là BSC — khác hẳn điểm KPI thường; câu hỏi về chỉ tiêu thì dùng get_kpi.")
-    public String getBsc(BscRequest request, ToolContext context) {
+    public String getBsc(BscRequest request, InvocationParameters context) {
         try {
             String view = normalizeView(request.view());
             if (view == null) {

@@ -14,7 +14,7 @@ import com.kpitracking.service.ai.ToolProgress;
 import com.kpitracking.tool.ToolSupport;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.chat.model.ToolContext;
+import dev.langchain4j.invocation.InvocationParameters;
 import org.springframework.stereotype.Component;
 
 import java.lang.reflect.RecordComponent;
@@ -61,8 +61,8 @@ public class FormFillSupport {
      * <p>Không thể xảy ra khi định tuyến đúng (tool chỉ được trao khi form mở), nhưng nếu xảy ra thì
      * bản đề xuất rơi vào hư không — báo rõ còn hơn im lặng tạo ra thứ không ai nhận.
      */
-    public void requireOpenForm(String formId, ToolContext context) {
-        if (!formId.equals(context.getContext().get("openFormId"))) {
+    public void requireOpenForm(String formId, InvocationParameters context) {
+        if (!formId.equals(context.get("openFormId"))) {
             throw new IllegalArgumentException(
                     "Người dùng không mở form này nên chưa đề xuất điền form được. "
                     + "Hãy trả lời bằng lời thay vì gọi tool này.");
@@ -112,8 +112,9 @@ public class FormFillSupport {
 
     /** Giá trị các ô đang có trên form; rỗng nếu client không gửi. */
     @SuppressWarnings("unchecked")
-    public Map<String, Object> currentValues(ToolContext context) {
-        return (Map<String, Object>) context.getContext().getOrDefault("openFormValues", Map.of());
+    public Map<String, Object> currentValues(InvocationParameters context) {
+        Map<String, Object> values = context == null ? null : context.get("openFormValues");
+        return values == null ? Map.of() : values;
     }
 
     /**
@@ -150,9 +151,9 @@ public class FormFillSupport {
      * mọi đề xuất trong lúc triển khai dở.
      */
     @SuppressWarnings("unchecked")
-    private List<FormPatch.Entry> keepFillable(ToolContext context, List<FormPatch.Entry> entries,
+    private List<FormPatch.Entry> keepFillable(InvocationParameters context, List<FormPatch.Entry> entries,
                                                List<String> hidden) {
-        Object raw = context.getContext().get("openFormFields");
+        Object raw = context.get("openFormFields");
         if (!(raw instanceof Collection<?> allowed)) return entries;
 
         List<FormPatch.Entry> kept = new ArrayList<>();
@@ -196,14 +197,14 @@ public class FormFillSupport {
      *
      * <p>Trả {@code null} khi không có ô nào đổi — chỗ gọi tự quyết định nói gì.
      */
-    public String finish(ToolContext context, String formId, String toolName,
+    public String finish(InvocationParameters context, String formId, String toolName,
                          List<FormPatch.Entry> entries, String suffix) {
         if (entries.isEmpty()) {
             return "Không có ô nào thay đổi so với form hiện tại. Hãy trả lời người dùng bằng lời.";
         }
 
         // Lọc ô KHÔNG có trên màn hình. Đặt ở đây vì mọi tool điền form đều đi qua finish() và nó
-        // đã sẵn ToolContext — chặn một chỗ là chặn cả sáu form, không phải sửa sáu chữ ký.
+        // đã sẵn InvocationParameters — chặn một chỗ là chặn cả sáu form, không phải sửa sáu chữ ký.
         int before = entries.size();
         List<String> hidden = new ArrayList<>();
         entries = keepFillable(context, entries, hidden);
@@ -218,7 +219,7 @@ public class FormFillSupport {
             log.info("Bỏ {} ô không hiện trên màn hình khi điền {}: {}", before - entries.size(), formId, hidden);
         }
         // Ghi thẳng vào trạng thái của lượt. Trước đây phải qua ThreadLocal vì Spring AI sở hữu
-        // vòng lặp và không trả kết quả tool cho ta; nay trạng thái đi cùng ToolContext nên đúng ở
+        // vòng lặp và không trả kết quả tool cho ta; nay trạng thái đi cùng InvocationParameters nên đúng ở
         // mọi luồng — và không còn gì phải dọn.
         AgentState state = AgentState.from(context);
         if (state != null) {
@@ -255,10 +256,10 @@ public class FormFillSupport {
      * <p>Đọc được câu hỏi gốc là nhờ {@code AgentState} mang theo {@code AiTurn}; trước bản refactor
      * đó tool không có đường nào chạm tới lời người dùng nên chốt chặn này không viết được.
      *
-     * <p><b>Không so được thì KHÔNG chặn</b> — vắng ngữ cảnh (test dựng {@code ToolContext} trần)
+     * <p><b>Không so được thì KHÔNG chặn</b> — vắng ngữ cảnh (test dựng {@code InvocationParameters} trần)
      * mà chặn thì biến một phép an toàn thành lỗi giả.
      */
-    public void guardGroundedText(String proposed, String fieldLabel, ToolContext context) {
+    public void guardGroundedText(String proposed, String fieldLabel, InvocationParameters context) {
         if (proposed == null || proposed.isBlank()) return;
 
         AgentState state = AgentState.from(context);
@@ -294,7 +295,7 @@ public class FormFillSupport {
     // ── tra tên → ID, kèm kiểm quyền ─────────────────────────────────────────
 
     /** Đơn vị theo tên. Trả về [ids, tên hiển thị]; nhập nhằng thì ném để model hỏi lại. */
-    public Resolved units(List<String> names, ToolContext context) {
+    public Resolved units(List<String> names, InvocationParameters context) {
         List<String> ids = new ArrayList<>();
         List<String> labels = new ArrayList<>();
         for (String n : names) {
@@ -311,7 +312,7 @@ public class FormFillSupport {
     }
 
     /** Nhân sự theo tên, đã kiểm quyền xem từng người. */
-    public Resolved users(List<String> names, ToolContext context) {
+    public Resolved users(List<String> names, InvocationParameters context) {
         List<String> ids = new ArrayList<>();
         List<String> labels = new ArrayList<>();
         for (String n : names) {
@@ -325,12 +326,12 @@ public class FormFillSupport {
     }
 
     /** Đúng MỘT nhân sự theo tên. */
-    public Resolved user(String name, ToolContext context) {
+    public Resolved user(String name, InvocationParameters context) {
         Resolved r = users(List.of(name), context);
         return new Resolved(r.ids(), r.display());
     }
 
-    public Resolved period(String keyword, ToolContext context) {
+    public Resolved period(String keyword, InvocationParameters context) {
         List<Map<String, Object>> found = orgUnitStatisticService.searchKpiPeriods(
                 support.getOrgId(context), keyword.trim(), MATCH_LIMIT);
         if (found.isEmpty()) {
@@ -353,7 +354,7 @@ public class FormFillSupport {
      * (gộp mọi bản trùng tên được), ở đây phải chọn đúng MỘT bản của đúng một kỳ — chọn nhầm là
      * người dùng nộp số vào sai kỳ. Vì vậy trùng tên thì BẮT hỏi lại, kèm tên kỳ để phân biệt.
      */
-    public Resolved kpi(String keyword, String periodName, ToolContext context) {
+    public Resolved kpi(String keyword, String periodName, InvocationParameters context) {
         List<Map<String, Object>> pool = support.kpiMatchPool(keyword.trim(), support.getOrgId(context));
         if (pool.isEmpty()) {
             throw new IllegalArgumentException("Không tìm thấy chỉ tiêu nào tên '" + keyword
@@ -389,7 +390,7 @@ public class FormFillSupport {
     }
 
     /** Mức định tính (vd "Tốt", "Xuất sắc") theo tên; mỗi tổ chức chỉ vài mức nên lọc trong bộ nhớ. */
-    public Resolved qualitativeLevel(String keyword, ToolContext context) {
+    public Resolved qualitativeLevel(String keyword, InvocationParameters context) {
         String want = FormSpec.Field.normalize(keyword);
         List<QualitativeLevel> all = qualitativeLevelRepository
                 .findByOrganizationIdOrderByPositionAsc(support.getOrgId(context));
@@ -408,7 +409,7 @@ public class FormFillSupport {
     }
 
     /** Cấp bậc đơn vị (vd "Phòng ban", "Nhóm") theo tên; mỗi tổ chức chỉ vài cấp nên lọc trong bộ nhớ. */
-    public Resolved hierarchyLevel(String keyword, ToolContext context) {
+    public Resolved hierarchyLevel(String keyword, InvocationParameters context) {
         String want = FormSpec.Field.normalize(keyword);
         List<OrgHierarchyLevel> all = orgHierarchyLevelRepository
                 .findByOrganizationIdOrderByLevelOrderAsc(support.getOrgId(context));
@@ -428,7 +429,7 @@ public class FormFillSupport {
         return new Resolved(List.of(hit.get(0).getId().toString()), hit.get(0).getUnitTypeName());
     }
 
-    private Map<String, Object> oneUser(String keyword, ToolContext context) {
+    private Map<String, Object> oneUser(String keyword, InvocationParameters context) {
         List<Map<String, Object>> found = orgUnitStatisticService.searchUsers(
                 support.getOrgId(context), keyword.trim(), null, null, MATCH_LIMIT);
         if (found.isEmpty()) {

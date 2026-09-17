@@ -14,7 +14,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.springframework.ai.chat.model.ToolContext;
+import dev.langchain4j.invocation.InvocationParameters;
 
 import java.util.List;
 import java.util.Map;
@@ -81,8 +81,8 @@ class ToolSupportTest {
     }
 
     /** Ngữ cảnh của một quản lý Phòng IT. */
-    private ToolContext contextOfItManager() {
-        return new ToolContext(Map.of(
+    private InvocationParameters contextOfItManager() {
+        return new InvocationParameters(Map.of(
                 "orgUnitId", UUID.randomUUID().toString(),
                 "organizationId", UUID.randomUUID().toString(),
                 "orgUnitPath", IT,
@@ -157,7 +157,7 @@ class ToolSupportTest {
         @DisplayName("không có orgUnitPath trong ngữ cảnh thì bỏ qua kiểm tra")
         void skipsWhenNoContextPath() {
             UUID unit = stubUnitAtPath(MARKETING);
-            assertThatCode(() -> support.validateSubtreeAccess(unit, new ToolContext(Map.of())))
+            assertThatCode(() -> support.validateSubtreeAccess(unit, new InvocationParameters(Map.of())))
                     .doesNotThrowAnyException();
         }
     }
@@ -316,7 +316,7 @@ class ToolSupportTest {
         @DisplayName("không truyền tên lẫn id -> mặc định là đơn vị hiện tại")
         void defaultsToCurrentUnit() {
             UUID current = UUID.randomUUID();
-            ToolContext ctx = new ToolContext(Map.of("orgUnitId", current.toString(), "orgUnitPath", IT));
+            InvocationParameters ctx = new InvocationParameters(Map.of("orgUnitId", current.toString(), "orgUnitPath", IT));
 
             ToolSupport.UnitRef ref = support.resolveUnit(null, null, ctx);
 
@@ -335,10 +335,10 @@ class ToolSupportTest {
         void refusesArmedId() {
             UUID id = UUID.randomUUID();
             // Dùng trạng thái THẬT chứ không mock: chốt chặn nay nằm trong AgentState đi cùng
-            // ToolContext, nên test đi đúng đường mà lúc chạy thật nó đi.
+            // InvocationParameters, nên test đi đúng đường mà lúc chạy thật nó đi.
             AgentState st = AgentState.forToolsOnly();
             st.arm("user", java.util.Set.of(id));
-            ToolContext ctx = new ToolContext(java.util.Map.of(AgentState.CONTEXT_KEY, st));
+            InvocationParameters ctx = new InvocationParameters(java.util.Map.of(AgentState.CONTEXT_KEY, st));
 
             assertThatThrownBy(() -> support.guardDisambiguation("user", id, "người dùng", ctx))
                     .isInstanceOf(IllegalStateException.class)

@@ -44,9 +44,7 @@
         <poi.version>5.2.5</poi.version>
         <commons-csv.version>1.10.0</commons-csv.version>
         <lombok.version>1.18.38</lombok.version>
-        <spring-ai.version>1.1.5</spring-ai.version>
         <langchain4j.version>1.20.0</langchain4j.version>
-<!--        <spring-ai.version>1.1.4</spring-ai.version>-->
     </properties>
     <dependencies>
         <!-- Spring Boot Starters -->
@@ -171,22 +169,7 @@
             <artifactId>spring-security-test</artifactId>
             <scope>test</scope>
         </dependency>
-        <!-- Source: https://mvnrepository.com/artifact/org.springframework.ai/spring-ai-starter-model-google-genai -->
-        <!-- AI -->
-        <dependency>
-            <groupId>org.springframework.ai</groupId>
-            <artifactId>spring-ai-starter-model-openai</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.ai</groupId>
-            <artifactId>spring-ai-starter-model-ollama</artifactId>
-        </dependency>
-        <dependency>
-            <groupId>org.springframework.ai</groupId>
-            <artifactId>spring-ai-rag</artifactId>
-        </dependency>
-
-        <!-- langchain4j: thay dần Spring AI. Phiên bản lấy từ langchain4j-bom (mô-đun beta có hậu tố riêng). -->
+        <!-- AI: langchain4j. Phiên bản lấy từ langchain4j-bom (mô-đun beta có hậu tố riêng). -->
         <dependency>
             <groupId>dev.langchain4j</groupId>
             <artifactId>langchain4j</artifactId>
@@ -212,13 +195,6 @@
 
     <dependencyManagement>
         <dependencies>
-            <dependency>
-                <groupId>org.springframework.ai</groupId>
-                <artifactId>spring-ai-bom</artifactId>
-                <version>${spring-ai.version}</version>
-                <type>pom</type>
-                <scope>import</scope>
-            </dependency>
             <dependency>
                 <groupId>dev.langchain4j</groupId>
                 <artifactId>langchain4j-bom</artifactId>

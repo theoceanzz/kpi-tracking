@@ -16,7 +16,7 @@ import com.kpitracking.service.OrgUnitStatisticService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import com.kpitracking.service.ai.ToolProgress;
-import org.springframework.ai.chat.model.ToolContext;
+import dev.langchain4j.invocation.InvocationParameters;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
@@ -109,33 +109,33 @@ public class ToolSupport {
 
     // ── ngữ cảnh ─────────────────────────────────────────────────────────────
 
-    public UUID getOrgUnitId(ToolContext context) {
-        if (context == null || context.getContext() == null) {
+    public UUID getOrgUnitId(InvocationParameters context) {
+        if (context == null) {
             UUID id = getCurrentUserOrgUnitId();
             if (id != null) return id;
-            throw new RuntimeException("ToolContext is null and could not resolve orgUnitId");
+            throw new RuntimeException("InvocationParameters is null and could not resolve orgUnitId");
         }
-        Object id = context.getContext().get("orgUnitId");
-        if (id == null) id = context.getContext().get("organizationUnitId");
+        Object id = context.get("orgUnitId");
+        if (id == null) id = context.get("organizationUnitId");
         if (id == null) {
             UUID uid = getCurrentUserOrgUnitId();
             if (uid != null) return uid;
-            throw new RuntimeException("orgUnitId not found in ToolContext");
+            throw new RuntimeException("orgUnitId not found in InvocationParameters");
         }
         return UUID.fromString(id.toString());
     }
 
-    public UUID getOrgId(ToolContext context) {
-        if (context == null || context.getContext() == null) {
+    public UUID getOrgId(InvocationParameters context) {
+        if (context == null) {
             UUID id = getCurrentUserOrgId();
             if (id != null) return id;
-            throw new RuntimeException("ToolContext is null and could not resolve organizationId");
+            throw new RuntimeException("InvocationParameters is null and could not resolve organizationId");
         }
-        Object orgId = context.getContext().get("organizationId");
+        Object orgId = context.get("organizationId");
         if (orgId == null) {
             UUID id = getCurrentUserOrgId();
             if (id != null) return id;
-            throw new RuntimeException("organizationId not found in ToolContext");
+            throw new RuntimeException("organizationId not found in InvocationParameters");
         }
         if (orgId instanceof UUID) return (UUID) orgId;
         return UUID.fromString(orgId.toString());
@@ -169,27 +169,27 @@ public class ToolSupport {
         }
     }
 
-    public String getContextPath(ToolContext context) {
-        if (context == null || context.getContext() == null) return null;
-        Object path = context.getContext().get("orgUnitPath");
+    public String getContextPath(InvocationParameters context) {
+        if (context == null) return null;
+        Object path = context.get("orgUnitPath");
         return path != null ? path.toString() : null;
     }
 
-    public String getUserEmail(ToolContext context) {
-        if (context == null || context.getContext() == null) return null;
-        Object email = context.getContext().get("userEmail");
+    public String getUserEmail(InvocationParameters context) {
+        if (context == null) return null;
+        Object email = context.get("userEmail");
         return email != null ? email.toString() : null;
     }
 
-    public String getConversationId(ToolContext context) {
-        if (context == null || context.getContext() == null) return null;
-        Object id = context.getContext().get("conversationId");
+    public String getConversationId(InvocationParameters context) {
+        if (context == null) return null;
+        Object id = context.get("conversationId");
         return id != null ? id.toString() : null;
     }
 
     // ── kiểm phạm vi truy cập ────────────────────────────────────────────────
 
-    public void validateSubtreeAccess(UUID targetUnitId, ToolContext context) {
+    public void validateSubtreeAccess(UUID targetUnitId, InvocationParameters context) {
         String contextPath = getContextPath(context);
         if (contextPath == null) return;
         OrgUnit target = orgUnitRepository.findById(targetUnitId)
@@ -199,7 +199,7 @@ public class ToolSupport {
         }
     }
 
-    public void validateUserAccess(UUID targetUserId, ToolContext context) {
+    public void validateUserAccess(UUID targetUserId, InvocationParameters context) {
         String contextPath = getContextPath(context);
         if (contextPath == null) return;
         List<UserRoleOrgUnit> assignments = userRoleOrgUnitRepository.findByUserId(targetUserId);
@@ -213,7 +213,7 @@ public class ToolSupport {
         }
     }
 
-    public void validateKpiAccess(UUID kpiId, ToolContext context) {
+    public void validateKpiAccess(UUID kpiId, InvocationParameters context) {
         String contextPath = getContextPath(context);
         if (contextPath == null) return;
         KpiCriteria kpi = kpiCriteriaRepository.findById(kpiId)
@@ -224,7 +224,7 @@ public class ToolSupport {
     }
 
     /** Bản boolean của validateKpiAccess — để LỌC (không ném lỗi) khi gom nhiều KPI cùng tên. */
-    public boolean hasKpiAccess(UUID kpiId, ToolContext context) {
+    public boolean hasKpiAccess(UUID kpiId, InvocationParameters context) {
         String contextPath = getContextPath(context);
         if (contextPath == null) return true;
         KpiCriteria kpi = kpiCriteriaRepository.findById(kpiId).orElse(null);
@@ -291,7 +291,7 @@ public class ToolSupport {
 
     /** Envelope hỏi làm rõ khi một tên người khớp nhiều/không thấy. */
     public Map<String, Object> userClarification(String query, List<Map<String, Object>> pool,
-                                                 ToolContext context) {
+                                                 InvocationParameters context) {
         String convId = getConversationId(context);
         if (convId != null) followupContextStore.markDisambiguating(convId, userOptions(pool));
         Map<String, Object> group = new LinkedHashMap<>();
@@ -314,7 +314,7 @@ public class ToolSupport {
      * {@code null} để nơi gọi hiểu là "mọi người", chứ không tự hiểu thành chính người đang hỏi —
      * "duyệt bài nộp" mà mặc định thành "bài nộp của tôi" là hiểu sai hoàn toàn ý người dùng.
      */
-    public UserRef resolveUser(String userId, String userName, ToolContext context) {
+    public UserRef resolveUser(String userId, String userName, InvocationParameters context) {
         if (notBlank(userId)) {
             UUID id = parseId(userId, "người dùng (userId)", "search");
             guardDisambiguation("user", id, "người", context);
@@ -367,7 +367,7 @@ public class ToolSupport {
     }
 
     /** Envelope yêu cầu làm rõ khi 1 tên đơn vị khớp nhiều/không thấy (cho các tool 1 đơn vị). */
-    public Map<String, Object> unitClarification(String query, List<Map<String, Object>> pool, ToolContext context) {
+    public Map<String, Object> unitClarification(String query, List<Map<String, Object>> pool, InvocationParameters context) {
         String convId = getConversationId(context);
         if (convId != null) followupContextStore.markDisambiguating(convId, unitOptions(pool));
         Map<String, Object> group = new LinkedHashMap<>();
@@ -386,7 +386,7 @@ public class ToolSupport {
      * Resolve đơn vị đích cho các tool 1 đơn vị: ưu tiên unitId (UUID), rồi unitName (tự resolve,
      * có thể cần hỏi làm rõ), cuối cùng mặc định là đơn vị hiện tại của người dùng.
      */
-    public UnitRef resolveUnit(String unitId, String unitName, ToolContext context) {
+    public UnitRef resolveUnit(String unitId, String unitName, InvocationParameters context) {
         if (unitId != null && !unitId.isBlank()) {
             UUID id = parseId(unitId, "đơn vị (unitId)", "search");
             guardDisambiguation("orgUnit", id, "đơn vị", context);
@@ -416,7 +416,7 @@ public class ToolSupport {
      * MỌI kỳ chính là kiểu hỏng âm thầm mà tệp khai báo tham số đã cảnh báo — model tưởng đã lọc
      * rồi kết luận trên dữ liệu chưa lọc.
      */
-    public UUID resolvePeriodId(String periodName, ToolContext context) {
+    public UUID resolvePeriodId(String periodName, InvocationParameters context) {
         if (!notBlank(periodName)) return null;
         List<Map<String, Object>> found =
                 orgUnitStatisticService.searchKpiPeriods(getOrgId(context), periodName.trim(), 5);
@@ -439,7 +439,7 @@ public class ToolSupport {
      * in the current turn, forcing the assistant to ask the user to choose first.
      */
     public void guardDisambiguation(String entityType, UUID id, String entityLabel,
-                                    ToolContext context) {
+                                    InvocationParameters context) {
         AgentState state = AgentState.from(context);
         if (state != null && state.isArmed(entityType, id)) {
             throw new IllegalStateException("Có nhiều " + entityLabel + " trùng tên vừa được tìm thấy. "
@@ -660,7 +660,7 @@ public class ToolSupport {
      */
     public String returnAmbiguous(String toolName, String entityLabel, String arrayKey,
                                   List<Map<String, Object>> results, String aggregateHint,
-                                  ToolContext context) throws Exception {
+                                  InvocationParameters context) throws Exception {
         // Đây là đường ra THỨ HAI của một tool chạy thành công — nó KHÔNG đi qua respond(), nên
         // phải tự ghi nhận. Bỏ sót chỗ này khiến ValidationStage tưởng lượt đó không lấy được dữ
         // liệu nào rồi chặn nhầm chính câu hỏi làm rõ hợp lệ (đã đo được: 4 câu bị chặn oan).
@@ -678,15 +678,15 @@ public class ToolSupport {
     /**
      * Ghi một tool đã chạy xong vào trạng thái của lượt.
      *
-     * <p>Chịu được việc vắng trạng thái: tool còn chạy ở test dựng {@code ToolContext} trần, và
+     * <p>Chịu được việc vắng trạng thái: tool còn chạy ở test dựng {@code InvocationParameters} trần, và
      * ném lỗi giữa một lượt đang chạy chỉ vì không ghi được sổ thì tệ hơn nhiều so với không ghi.
      */
-    private static void recordSuccess(ToolContext context, String toolName) {
+    private static void recordSuccess(InvocationParameters context, String toolName) {
         AgentState state = AgentState.from(context);
         if (state != null) state.recordSuccess(toolName);
     }
 
-    public void armDisambiguation(String entityType, Set<UUID> ids, ToolContext context) {
+    public void armDisambiguation(String entityType, Set<UUID> ids, InvocationParameters context) {
         AgentState state = AgentState.from(context);
         if (state != null) state.arm(entityType, ids);
     }
@@ -696,7 +696,7 @@ public class ToolSupport {
      * (keyed by conversationId, when present) so follow-up questions can be grounded in the
      * real tool data of this turn, and returns the JSON for the model.
      */
-    public String respond(ToolContext context, String toolName, Object payload) throws Exception {
+    public String respond(InvocationParameters context, String toolName, Object payload) throws Exception {
         // Mọi tool chạy THÀNH CÔNG đều đi qua đây. Trước đây chỉ tool lỗi mới ghi log, nên với câu
         // hỏi cần nhiều tool không có cách nào biết model gọi đủ hay chỉ gọi một rồi đoán phần còn
         // lại — mà đoán vẫn ra câu trả lời trôi chảy. Một dòng này cho phép dựng lại đúng chuỗi

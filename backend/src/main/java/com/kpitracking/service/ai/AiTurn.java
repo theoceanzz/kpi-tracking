@@ -55,8 +55,20 @@ public class AiTurn {
     private String currentDateTime;
     private boolean hasMemory;
 
-    /** Bộ tool thực sự trao cho model = nhóm ∩ quyền của người dùng. */
-    private List<Object> tools;
+    /** Khoá định danh lượt — là {@code @MemoryId} của agent chính và khoá của {@link #memory}. */
+    private final String turnId = java.util.UUID.randomUUID().toString();
+
+    /** Nhóm tool mà bước định tuyến chọn cho lượt này; {@code KeyGoToolProvider} đọc ở mỗi lời gọi. */
+    private Set<ToolRegistry.Group> toolGroups;
+
+    /** Tên các tool đã thật sự được trao cho model ở lời gọi gần nhất — để chẩn đoán và đo. */
+    private List<String> toolNames;
+
+    /**
+     * Bộ nhớ hội thoại của lượt: cửa sổ đã lưu + phần đệm lượt này sinh ra. DB chỉ nhận một cặp
+     * hỏi–đáp ở bước kết thúc — xem {@code TurnChatMemory}.
+     */
+    private com.kpitracking.ai.memory.TurnChatMemory memory;
     /**
      * Nhóm câu hỏi cần tới nhưng người dùng KHÔNG có quyền, do {@code RouteNode} ghi.
      *
@@ -90,6 +102,8 @@ public class AiTurn {
     private String focusUnitName;
     /** Các câu hỏi gợi ý tiếp theo do {@code FollowupStage} sinh; null ở lượt không có gợi ý. */
     private FollowupResponse followups;
+    /** Nguồn trích dẫn của nhánh hỏi đáp tài liệu (HELP); rỗng ở lượt khác. */
+    private List<com.kpitracking.ai.agent.help.HelpService.Source> sources;
     /**
      * Lượt này model có xin mở vùng thả minh chứng trong khung chat không.
      *
@@ -145,9 +159,6 @@ public class AiTurn {
      * @param stage công đoạn đang báo — truyền {@code this}; tên lớp của nó thành mã sự kiện, giống
      *              hệt nhánh pipeline tự phát, để client đối chiếu được bằng một cách duy nhất
      */
-    public void progress(AiStage stage, String label) {
-        progress(stage.getClass().getSimpleName(), label);
-    }
 
     /**
      * Cùng việc như trên, cho những thứ KHÔNG phải {@link AiStage} — các đỉnh của đồ thị agent.

@@ -7,8 +7,8 @@ import com.kpitracking.service.ai.action.PendingAction.Kind;
 import com.kpitracking.tool.OrgUnitStatisticToolRequests.SendRemindersRequest;
 import com.kpitracking.tool.ToolSupport.UnitRef;
 import lombok.RequiredArgsConstructor;
-import org.springframework.ai.chat.model.ToolContext;
-import org.springframework.ai.tool.annotation.Tool;
+import dev.langchain4j.invocation.InvocationParameters;
+import dev.langchain4j.agent.tool.Tool;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -36,12 +36,12 @@ public class ReminderTool {
     private final ToolSupport support;
     private final ActionSupport actions;
 
-    @Tool(name = "send_reminders", description =
+    @Tool(name = "send_reminders", value =
             "Gửi nhắc nhở cho những người ĐƯỢC GIAO chỉ tiêu mà CHƯA nộp báo cáo. Đây là thao tác "
             + "GHI (gửi thông báo thật): tool chỉ chuẩn bị danh sách và chờ người dùng bấm xác nhận, "
             + "KHÔNG tự gửi. Thu hẹp bằng unitName và periodName. "
             + "Mỗi dòng là một cặp (người, chỉ tiêu) — một người thiếu nhiều chỉ tiêu sẽ có nhiều dòng.")
-    public String sendReminders(SendRemindersRequest request, ToolContext context) {
+    public String sendReminders(SendRemindersRequest request, InvocationParameters context) {
         try {
             UnitRef unit = support.resolveUnit(request.unitId(), request.unitName(), context);
             if (unit.clarification() != null) {

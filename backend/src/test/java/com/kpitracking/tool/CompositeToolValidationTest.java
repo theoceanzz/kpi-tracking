@@ -17,7 +17,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
-import org.springframework.ai.chat.model.ToolContext;
+import dev.langchain4j.invocation.InvocationParameters;
 
 import java.util.List;
 import java.util.Map;
@@ -49,9 +49,9 @@ class CompositeToolValidationTest {
 
     private OrgUnitStatisticService service;
     private ToolSupport support;
-    private ToolContext context;
+    private InvocationParameters context;
 
-    /** Trạng thái của lượt, đi cùng ToolContext — thay cho ToolCallTracker trước đây. */
+    /** Trạng thái của lượt, đi cùng InvocationParameters — thay cho ToolCallTracker trước đây. */
     private AgentState st = AgentState.forToolsOnly();
 
     @BeforeEach
@@ -67,7 +67,7 @@ class CompositeToolValidationTest {
                 mock(FollowupContextStore.class),
                 new ObjectMapper());
         support.initToolMapper();
-        context = new ToolContext(Map.of(
+        context = new InvocationParameters(Map.of(
                 "orgUnitId", UUID.randomUUID().toString(),
                 "organizationId", UUID.randomUUID().toString(),
                 "orgUnitPath", "/cty/it/"));
@@ -77,8 +77,8 @@ class CompositeToolValidationTest {
      * Ngữ cảnh KHÔNG có orgUnitPath: {@code validateSubtreeAccess} bỏ qua phép kiểm phạm vi, để
      * test tập trung vào giá trị được truyền xuống service thay vì phải dựng cả cây đơn vị giả.
      */
-    private ToolContext noScopeContext() {
-        return new ToolContext(Map.of(
+    private InvocationParameters noScopeContext() {
+        return new InvocationParameters(Map.of(
                 "orgUnitId", UUID.randomUUID().toString(),
                 "organizationId", UUID.randomUUID().toString(),
                 AgentState.CONTEXT_KEY, st));

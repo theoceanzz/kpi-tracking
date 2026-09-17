@@ -4,8 +4,8 @@ import com.kpitracking.service.OrgUnitStatisticService;
 import com.kpitracking.tool.OrgUnitStatisticToolRequests.RankRequest;
 import com.kpitracking.tool.ToolSupport.UnitRef;
 import lombok.RequiredArgsConstructor;
-import org.springframework.ai.chat.model.ToolContext;
-import org.springframework.ai.tool.annotation.Tool;
+import dev.langchain4j.invocation.InvocationParameters;
+import dev.langchain4j.agent.tool.Tool;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -29,7 +29,7 @@ public class RankTool {
     private final FollowupContextStore followupContextStore;
     private final ToolSupport support;
 
-    @Tool(name = "rank", description = "Xếp hạng theo chỉ số. subject=members xếp hạng NGƯỜI "
+    @Tool(name = "rank", value = "Xếp hạng theo chỉ số. subject=members xếp hạng NGƯỜI "
             + "-> [rank, userId, fullName, email, orgUnitName, positionName, score]; subject=org_units "
             + "xếp hạng CÁC ĐƠN VỊ CON bên trong một đơn vị cha -> [rank, orgUnitName, score]. "
             + "Mặc định là đơn vị hiện tại của bạn, nên khi người dùng nêu tên đơn vị PHẢI truyền unitName. "
@@ -42,7 +42,7 @@ public class RankTool {
             + "thì phải nêu ĐỦ, không chỉ nêu một. Lọc: managersOnly=true lấy trưởng/phó đơn vị cấp dưới; "
             + "positionName lọc theo chức vụ; unitTypeName lọc theo loại cấp đơn vị (vd 'Phòng'); "
             + "kpiId xếp hạng trong phạm vi một KPI.")
-    public String rank(RankRequest request, ToolContext context) {
+    public String rank(RankRequest request, InvocationParameters context) {
         try {
             String subject = normalizeSubject(request.subject());
             if (subject == null) {
@@ -68,7 +68,7 @@ public class RankTool {
 
     // ── xếp hạng đơn vị ──────────────────────────────────────────────────────
 
-    private String rankOrgUnits(RankRequest request, ToolContext context) throws Exception {
+    private String rankOrgUnits(RankRequest request, InvocationParameters context) throws Exception {
         // Tham số chỉ có nghĩa với subject=members. Lờ đi thì model tưởng đã lọc rồi báo cáo
         // một bảng xếp hạng KHÔNG hề được lọc — sai mà không ai phát hiện.
         rejectUnsupported(request);
@@ -103,7 +103,7 @@ public class RankTool {
 
     // ── xếp hạng người ───────────────────────────────────────────────────────
 
-    private String rankMembers(RankRequest request, ToolContext context) throws Exception {
+    private String rankMembers(RankRequest request, InvocationParameters context) throws Exception {
         if ("kpi".equals(request.scope()) && ToolSupport.notBlank(request.kpiId())) {
             support.validateKpiAccess(
                     support.parseId(request.kpiId(), "KPI (kpiId)", "search (entityType=kpi)"), context);

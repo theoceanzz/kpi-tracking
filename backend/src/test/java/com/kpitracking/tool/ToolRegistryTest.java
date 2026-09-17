@@ -3,7 +3,7 @@ package com.kpitracking.tool;
 import com.kpitracking.tool.ToolRegistry.Group;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.ai.tool.annotation.Tool;
+import dev.langchain4j.agent.tool.Tool;
 
 import java.lang.reflect.Method;
 import java.util.LinkedHashSet;

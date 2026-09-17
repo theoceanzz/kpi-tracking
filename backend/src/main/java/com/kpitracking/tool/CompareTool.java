@@ -3,8 +3,8 @@ package com.kpitracking.tool;
 import com.kpitracking.service.OrgUnitStatisticService;
 import com.kpitracking.tool.OrgUnitStatisticToolRequests.CompareOrgUnitsRequest;
 import lombok.RequiredArgsConstructor;
-import org.springframework.ai.chat.model.ToolContext;
-import org.springframework.ai.tool.annotation.Tool;
+import dev.langchain4j.invocation.InvocationParameters;
+import dev.langchain4j.agent.tool.Tool;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -30,13 +30,13 @@ public class CompareTool {
     private final FollowupContextStore followupContextStore;
     private final ToolSupport support;
 
-    @Tool(name = "compare_org_units", description = "So sánh 2–5 đơn vị cạnh nhau trên các chỉ số KPI "
+    @Tool(name = "compare_org_units", value = "So sánh 2–5 đơn vị cạnh nhau trên các chỉ số KPI "
             + "(avgPerformance, avgProgress, memberCount, completionRate) — dùng cho câu hỏi kiểu "
             + "'so sánh đơn vị A với B'. NÊN truyền unitNames: tool tự tra tên trong MỘT lần gọi; unitIds "
             + "(UUID) cũng nhận. Nếu một tên khớp nhiều đơn vị, tool trả needsClarification liệt kê lựa chọn "
             + "cho TẤT CẢ các tên mơ hồ cùng lúc — hãy hỏi người dùng chọn hết trong MỘT câu hỏi rồi gọi lại. "
             + "Kết quả có đánh dấu đơn vị tốt nhất.")
-    public String compareOrgUnits(CompareOrgUnitsRequest request, ToolContext context) {
+    public String compareOrgUnits(CompareOrgUnitsRequest request, InvocationParameters context) {
         try {
             UUID orgId = support.getOrgId(context);
             List<UUID> unitIds = new ArrayList<>();

@@ -40,11 +40,22 @@ public class LangChain4jConfig {
     @Value("${app.ai.model.temperature:0}") private double temperature;
     @Value("${app.ai.model.max-tokens:8192}") private int maxTokens;
     @Value("${app.ai.model.timeout-seconds:90}") private long timeoutSeconds;
+    /**
+     * Mức suy luận của gpt-oss. Cấu hình cũ đo được: high suy luận quá nhiều → chậm và dễ chạm
+     * LENGTH trước khi kịp sinh chữ; low dễ chọn sai tool. medium là mức cân bằng cho tool-use.
+     * Quên đặt ở đây là model chạy mức mặc định của nhà cung cấp — hành vi lệch hẳn bản đã đo.
+     */
+    @Value("${app.ai.model.reasoning-effort:medium}") private String reasoningEffort;
+    /** Ghi nguyên request/response gửi nhà cung cấp — CHỈ để chẩn đoán, prompt có dữ liệu thật. */
+    @Value("${app.ai.model.log-requests:false}") private boolean logRequests;
 
     @Bean
     public ChatModel chatModel(TokenUsageListener tokenUsageListener) {
         return OpenAiChatModel.builder()
                 .baseUrl(baseUrl)
+                .reasoningEffort(reasoningEffort)
+                .logRequests(logRequests)
+                .logResponses(logRequests)
                 .apiKey(apiKey)
                 .modelName(modelName)
                 .temperature(temperature)
@@ -61,6 +72,9 @@ public class LangChain4jConfig {
     public StreamingChatModel streamingChatModel(TokenUsageListener tokenUsageListener) {
         return OpenAiStreamingChatModel.builder()
                 .baseUrl(baseUrl)
+                .reasoningEffort(reasoningEffort)
+                .logRequests(logRequests)
+                .logResponses(logRequests)
                 .apiKey(apiKey)
                 .modelName(modelName)
                 .temperature(temperature)

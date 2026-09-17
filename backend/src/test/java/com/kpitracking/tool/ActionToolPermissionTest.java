@@ -5,7 +5,7 @@ import com.kpitracking.tool.ToolRegistry.Group;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.ai.support.ToolCallbacks;
+import dev.langchain4j.agent.tool.ToolSpecifications;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Arrays;
@@ -29,7 +29,7 @@ import static org.mockito.Mockito.when;
  * chỉ tiêu sẽ nhận được tool DUYỆT bài nộp, còn người chỉ có quyền nhắc nhở thì không nhận được gì.
  *
  * <p>Hệ quả kéo theo: bốn tool phải nằm ở BỐN bean riêng, vì
- * {@code ToolCallbacks.from(bean)} lấy mọi {@code @Tool} của một bean cùng lúc. Lớp test này chốt
+ * {@code ToolSpecifications.toolSpecificationsFrom(bean)} lấy mọi {@code @Tool} của một bean cùng lúc. Lớp test này chốt
  * luôn điều đó — gộp chúng lại sẽ làm đỏ {@link #eachActionToolIsItsOwnBean}.
  */
 class ActionToolPermissionTest {
@@ -60,8 +60,9 @@ class ActionToolPermissionTest {
     /** Tên các @Tool thực sự được gửi cho model khi mở nhóm GHI. */
     private List<String> actionToolNames() {
         List<Object> tools = registry.toolsFor(Set.of(Group.ACTION), userId);
-        return Arrays.stream(ToolCallbacks.from(tools.toArray()))
-                .map(cb -> cb.getToolDefinition().name())
+        return tools.stream()
+                .flatMap(t -> ToolSpecifications.toolSpecificationsFrom(t).stream())
+                .map(spec -> spec.name())
                 .filter(n -> n.startsWith("review_") || n.startsWith("send_"))
                 .toList();
     }

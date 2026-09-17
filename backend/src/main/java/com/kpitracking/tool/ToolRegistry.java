@@ -273,6 +273,22 @@ public class ToolRegistry {
     }
 
     /** Mọi lớp tool, để thu thập tên tool cho bộ lọc câu trả lời. */
+    /**
+     * Tên mọi tool có {@code @Tool} trong module — cho bộ lọc câu trả lời (xoá tên tool lọt ra) và
+     * cho test chốt rằng tool nào cũng có nhãn tiến độ.
+     */
+    public static java.util.Set<String> allToolNames() {
+        java.util.Set<String> names = new java.util.LinkedHashSet<>();
+        for (Class<?> toolClass : toolClasses()) {
+            for (java.lang.reflect.Method mth : toolClass.getDeclaredMethods()) {
+                dev.langchain4j.agent.tool.Tool tool = mth.getAnnotation(dev.langchain4j.agent.tool.Tool.class);
+                if (tool == null) continue;
+                names.add(tool.name() != null && !tool.name().isBlank() ? tool.name() : mth.getName());
+            }
+        }
+        return names;
+    }
+
     public static Class<?>[] toolClasses() {
         return new Class<?>[]{
                 SearchTool.class, OrgUnitTool.class, PeopleTool.class, KpiTool.class,
