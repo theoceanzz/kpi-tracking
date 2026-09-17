@@ -115,6 +115,20 @@ export interface AiChatResponse {
    * thay vì bấm nút. Client dùng nó để tắt thẻ xác nhận cũ còn nằm trên màn hình.
    */
   consumedActionId?: string
+  /**
+   * Nguồn trích dẫn khi câu trả lời lấy từ kho tài liệu (nhánh HELP): mục nào, mở ở đâu. Vắng ở
+   * lượt trả lời bằng dữ liệu thật.
+   */
+  sources?: AnswerSource[]
+}
+
+/** Một mục tài liệu được dùng để trả lời. `route` là đường dẫn trong app để bấm mở đúng trang. */
+export interface AnswerSource {
+  title: string
+  parent?: string
+  route?: string
+  images: string[]
+  captions: string[]
 }
 
 export interface ConversationResponse {
@@ -184,6 +198,21 @@ export interface ChatStreamHandlers {
 function readCookie(name: string): string | null {
   const hit = document.cookie.split('; ').find(c => c.startsWith(name + '='))
   return hit ? decodeURIComponent(hit.slice(name.length + 1)) : null
+}
+
+/** Một tài liệu đã nạp vào kho tri thức của trợ lý. */
+export interface RagDocument {
+  id: string
+  /** null = bộ hướng dẫn KeyGo chung toàn hệ thống; có giá trị = quy chế của tổ chức đó. */
+  organizationId: string | null
+  source: 'GUIDE' | 'REGULATION'
+  title: string
+  fileName?: string
+  status: 'PENDING' | 'READY' | 'FAILED'
+  chunkCount: number
+  imageCount: number
+  errorMessage?: string | null
+  createdAt: string
 }
 
 export const aiApi = {
@@ -271,6 +300,32 @@ export const aiApi = {
     axiosInstance
       .post<ApiResponse<ConfirmActionResult>>(`/ai/actions/${actionId}/confirm`, { itemIds })
       .then(res => res.data.data),
+
+  /** Kho tri thức: tài liệu chung + của tổ chức mình. */
+  listRagDocuments: () =>
+    axiosInstance
+      .get<ApiResponse<RagDocument[]>>('/ai/rag/documents')
+      .then(res => res.data.data),
+
+  /**
+   * Nạp một tệp .docx. Chạy đồng bộ ở backend (đọc mục, cất ảnh, embedding tại chỗ) nên tệp lớn
+   * mất vài giây; timeout nới như lượt chat.
+   */
+  uploadRagDocument: (file: File, source: RagDocument['source'], title?: string) => {
+    const form = new FormData()
+    form.append('file', file)
+    form.append('source', source)
+    if (title) form.append('title', title)
+    return axiosInstance
+      .post<ApiResponse<RagDocument>>('/ai/rag/documents', form, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: AI_TIMEOUT,
+      })
+      .then(res => res.data.data)
+  },
+
+  deleteRagDocument: (id: string) =>
+    axiosInstance.delete<ApiResponse<void>>(`/ai/rag/documents/${id}`).then(res => res.data),
 
   chat: (request: AiChatRequest) =>
     axiosInstance

@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/authStore'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { useMyAiQuota } from '@/features/organization/hooks/useAiQuota'
-import { aiApi, type InsightCard, type FollowupPools, type ClarificationOption, type FormPatch, type PendingAction, type AiChatResponse } from '../api/aiApi'
+import { aiApi, type InsightCard, type FollowupPools, type ClarificationOption, type FormPatch, type PendingAction, type AnswerSource, type AiChatResponse } from '../api/aiApi'
 import { useFormAssistStore } from '@/store/formAssistStore'
 import EvidenceAttachBar, { AttachedChips, PinnedChips } from './EvidenceAttachBar'
 import { MicButton } from '@/components/common/MicButton'
@@ -12,6 +12,7 @@ import { usePinnedFilesStore, attachPinnedTo } from '@/store/pinnedFilesStore'
 import { useChatFileDrop } from '../hooks/useChatFileDrop'
 import EvidenceDropCard from './EvidenceDropCard'
 import FormPatchPreview from './FormPatchPreview'
+import AnswerSources from './AnswerSources'
 import PendingActionCard from './PendingActionCard'
 import ThinkingSummary from './ThinkingSummary'
 import AnswerMarkdown from './AnswerMarkdown'
@@ -47,6 +48,8 @@ interface Message {
    * gắn với form nào, nên đóng form không làm lời mời mất nghĩa.
    */
   pendingAction?: PendingAction
+  /** Nguồn tài liệu khi trợ lý trả lời từ kho hướng dẫn/quy chế. */
+  sources?: AnswerSource[]
 }
 
 const WELCOME_MSG: Message = {
@@ -260,6 +263,7 @@ export default function AiAssistantWidget() {
           followups: response.followups,
           evidenceRequest: response.evidenceRequest,
           pendingAction: response.pendingAction,
+          sources: response.sources,
 
         },
       ])
@@ -488,6 +492,10 @@ export default function AiAssistantWidget() {
                 )}
 
                 {/* Thao tác GHI chờ xác nhận — bấm là ghi thật, nên thẻ tự cảnh báo và tự khoá */}
+                {msg.role === 'assistant' && msg.sources && msg.sources.length > 0 && (
+                  <AnswerSources sources={msg.sources} />
+                )}
+
                 {msg.role === 'assistant' && msg.pendingAction && (
                   <PendingActionCard
                     action={msg.pendingAction}

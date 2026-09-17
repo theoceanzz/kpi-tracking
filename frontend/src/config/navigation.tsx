@@ -6,6 +6,7 @@ import {
   Users,
   Target,
   FileText,
+  BookOpen,
   Star,
   ClipboardCheck,
   ListChecks,
@@ -148,6 +149,7 @@ export const navItems: NavItem[] = [
           { id: 'notifications', label: 'Thiết lập thông báo', icon: <Bell size={18} />, permission: 'COMPANY:UPDATE', group: 'Hệ thống' , description: 'Sự kiện nào gửi thông báo, và gửi qua kênh nào' },
           { id: 'email', label: 'Thiết lập email', icon: <Mail size={18} />, permission: 'COMPANY:UPDATE', group: 'Hệ thống' , description: 'Nội dung mẫu của các email hệ thống gửi đi' },
           { id: 'api', label: 'Thiết lập API', icon: <Link2 size={18} />, permission: 'COMPANY:UPDATE', group: 'Hệ thống' , description: 'Kết nối Lark và các tích hợp bên ngoài' },
+          { id: 'ai-docs', label: 'Tài liệu trợ lý AI', icon: <BookOpen size={18} />, permission: 'COMPANY:UPDATE', group: 'Hệ thống' , description: 'Hướng dẫn và quy chế mà trợ lý AI dùng để trả lời câu hỏi cách dùng' },
         ],
       },
       // Cùng cách gom như "Thiết lập công ty": cả bảng cấu hình lẫn các công cụ quản lý

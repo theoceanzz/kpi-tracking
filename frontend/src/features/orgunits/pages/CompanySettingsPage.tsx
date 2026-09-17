@@ -8,6 +8,7 @@ import { SidebarSettingsTab, NotificationSettingsTab } from '@/features/organiza
 import DelegationSettingsTab from '@/features/organization/components/DelegationSettingsTab'
 import EmailTemplateSettingsTab from '@/features/organization/components/EmailTemplateSettingsTab'
 import LarkSettingsTab from '@/features/organization/components/LarkSettingsTab'
+import AiDocumentsSettingsTab from '@/features/organization/components/AiDocumentsSettingsTab'
 import { useSearchParams } from 'react-router-dom'
 
 /**
@@ -46,6 +47,7 @@ export default function CompanySettingsPage() {
             render: () => <EmailTemplateSettingsTab onOpenNotificationSettings={() => goToSection('notifications')} />,
           },
           { id: 'api', render: () => <LarkSettingsTab /> },
+          { id: 'ai-docs', render: () => <AiDocumentsSettingsTab /> },
         ]}
       />
     </>
