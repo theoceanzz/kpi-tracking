@@ -162,6 +162,40 @@ app:
       # ⚠️ Bật cờ này là tắt parallel_tool_calls (TurnPromptBuilder) — bắt buộc, vì bộ ghép
       #    stream của Spring AI không gộp nổi nhiều tool call song song.
       enabled: ${AI_STREAMING_ENABLED:true}
+
+    # ── langchain4j ──────────────────────────────────────────────────────────
+    # Model chat dùng chung cho mọi agent (cùng nhà cung cấp/model với spring.ai.openai ở trên
+    # trong lúc chuyển đổi; xong Pha 3 chỉ còn khối này).
+    model:
+      base-url: ${huggingface.api.url:https://router.huggingface.co}/v1
+      api-key: ${huggingface.api.key:your-hf-key}
+      name: ${huggingface.api.model:openai/gpt-oss-120b:cerebras}
+      temperature: 0
+      max-tokens: ${AI_MAX_TOKENS:8192}
+      timeout-seconds: ${AI_TIMEOUT_SECONDS:90}
+
+    rag:
+      # Kho vector trên pgvector. Prod dùng MỘT DB: image kpitracking-db là pgvector/pgvector:pg15
+      # (thay thế trực tiếp postgres:15) nên ba giá trị dưới trỏ về đúng DB ứng dụng.
+      vector-store:
+        host: ${RAG_PG_HOST:kpitracking-db}
+        port: ${RAG_PG_PORT:5432}
+        database: ${RAG_PG_DATABASE:kpitracking}
+        user: ${RAG_PG_USER:${DB_USERNAME:postgres}}
+        password: ${RAG_PG_PASSWORD:${DB_PASSWORD:123456}}
+      embedding:
+        # Chạy tại chỗ (ONNX). Dockerfile tải model vào /app/models lúc build.
+        model-path: ${RAG_EMBEDDING_MODEL:models/multilingual-e5-small/model.onnx}
+        tokenizer-path: ${RAG_EMBEDDING_TOKENIZER:models/multilingual-e5-small/tokenizer.json}
+        dimension: 384
+        table: kg_embeddings_e5s_384
+      retrieval:
+        max-results: 6
+        # Hybrid trả điểm RRF (≤ ~0,033), không phải cosine — ngưỡng phải là 0.
+        min-score: 0
+      # local: ảnh nằm trên volume rag_assets, phục vụ qua /ai/rag/assets (chạy được on-premise).
+      image-store: ${RAG_IMAGE_STORE:local}
+      assets-dir: ${RAG_ASSETS_DIR:/app/data/rag-assets}
   security:
     # Khoá mã hoá App Secret Lark và tenant_key trong database.
     # ⚠️ BẮT BUỘC ở production: thiếu hoặc ngắn dưới 32 ký tự thì ứng dụng KHÔNG khởi động

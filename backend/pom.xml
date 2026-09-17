@@ -45,6 +45,7 @@
         <commons-csv.version>1.10.0</commons-csv.version>
         <lombok.version>1.18.38</lombok.version>
         <spring-ai.version>1.1.5</spring-ai.version>
+        <langchain4j.version>1.20.0</langchain4j.version>
 <!--        <spring-ai.version>1.1.4</spring-ai.version>-->
     </properties>
     <dependencies>
@@ -184,6 +185,29 @@
             <groupId>org.springframework.ai</groupId>
             <artifactId>spring-ai-rag</artifactId>
         </dependency>
+
+        <!-- langchain4j: thay dần Spring AI. Phiên bản lấy từ langchain4j-bom (mô-đun beta có hậu tố riêng). -->
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j-open-ai</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j-agentic</artifactId>
+        </dependency>
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j-pgvector</artifactId>
+        </dependency>
+        <!-- Embedding chạy tại chỗ (ONNX Runtime + tokenizer HF), không gọi mạng. -->
+        <dependency>
+            <groupId>dev.langchain4j</groupId>
+            <artifactId>langchain4j-embeddings</artifactId>
+        </dependency>
     </dependencies>
 
     <dependencyManagement>
@@ -192,6 +216,13 @@
                 <groupId>org.springframework.ai</groupId>
                 <artifactId>spring-ai-bom</artifactId>
                 <version>${spring-ai.version}</version>
+                <type>pom</type>
+                <scope>import</scope>
+            </dependency>
+            <dependency>
+                <groupId>dev.langchain4j</groupId>
+                <artifactId>langchain4j-bom</artifactId>
+                <version>${langchain4j.version}</version>
                 <type>pom</type>
                 <scope>import</scope>
             </dependency>

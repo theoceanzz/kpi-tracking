@@ -39,3 +39,8 @@ build/
 
 ### VS Code ###
 .vscode/
+# Model embedding tải bằng backend/fetch-embedding-model.sh (135 MB nhị phân, không commit)
+models/
+
+# Ảnh bóc từ tài liệu RAG khi kho ảnh là cục bộ (sinh lại được bằng cách nạp lại tài liệu)
+data/

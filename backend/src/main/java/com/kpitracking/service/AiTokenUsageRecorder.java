@@ -69,26 +69,41 @@ public class AiTokenUsageRecorder {
             log.warn("Bỏ qua ghi tiêu thụ token: không xác định được người dùng");
             return;
         }
+        record(auth.getName(), CURRENT_FEATURE.get(), model,
+                safe(usage.getPromptTokens()), safe(usage.getCompletionTokens()), safe(usage.getTotalTokens()));
+    }
 
-        User user = userRepository.findByEmail(auth.getName()).orElse(null);
+    /**
+     * Bản không phụ thuộc framework, nhận người dùng và tính năng TƯỜNG MINH.
+     *
+     * <p>Cần vì callback của model streaming chạy trên luồng HTTP client, nơi không có
+     * {@code SecurityContextHolder} lẫn {@code CURRENT_FEATURE}. Người gọi bắt hai thứ đó ở luồng
+     * yêu cầu (lúc gửi request) rồi truyền vào đây — xem {@code TokenUsageListener}.
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void record(String userEmail, AiTokenUsage.AiFeature feature, String model,
+                       int promptTokens, int completionTokens, int totalTokens) {
+        if (userEmail == null || userEmail.isBlank()) {
+            log.warn("Bỏ qua ghi tiêu thụ token: không xác định được người dùng");
+            return;
+        }
+        User user = userRepository.findByEmail(userEmail).orElse(null);
         if (user == null) return;
 
         UUID organizationId = resolveOrganizationId(user.getId());
         if (organizationId == null) {
-            log.warn("Bỏ qua ghi tiêu thụ token: {} không thuộc tổ chức nào", auth.getName());
+            log.warn("Bỏ qua ghi tiêu thụ token: {} không thuộc tổ chức nào", userEmail);
             return;
         }
-
-        AiTokenUsage.AiFeature feature = CURRENT_FEATURE.get();
 
         usageRepository.save(AiTokenUsage.builder()
                 .userId(user.getId())
                 .organizationId(organizationId)
                 .feature(feature != null ? feature : AiTokenUsage.AiFeature.CHAT)
                 .model(model)
-                .promptTokens(safe(usage.getPromptTokens()))
-                .completionTokens(safe(usage.getCompletionTokens()))
-                .totalTokens(safe(usage.getTotalTokens()))
+                .promptTokens(promptTokens)
+                .completionTokens(completionTokens)
+                .totalTokens(totalTokens)
                 .periodMonth(AiTokenUsage.currentPeriod())
                 .build());
     }
