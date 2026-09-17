@@ -18,7 +18,7 @@ import com.kpitracking.service.ai.agent.AgentState;
  * Nó chỉ bật một cờ để client vẽ vùng thả; tệp thả vào đi theo đúng đường đã có (kẹp vào ô nhập →
  * gửi kèm tên ở lượt sau → sang biểu mẫu báo cáo).
  *
- * <p><b>Trạng thái đi qua {@code InvocationParameters}, không qua ThreadLocal.</b> Spring AI trao cùng một
+ * <p><b>Trạng thái đi qua {@code InvocationParameters}, không qua ThreadLocal.</b> langchain4j trao cùng một
  * map cho mọi lời gọi tool, nên cách này đúng ở bất kỳ luồng nào và không có gì phải dọn cuối lượt.
  * Bản trước để trong ThreadLocal kèm cả một tầng truyền tham chiếu sang luồng reactor — thứ đã hỏng
  * âm thầm đúng bốn lần. Xem {@code AgentState}.

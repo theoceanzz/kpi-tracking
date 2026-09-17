@@ -16,7 +16,7 @@ import java.util.Map;
  * Đẩy tiến độ của một lượt hỏi ra client qua SSE.
  *
  * <p>Đây là chỗ DUY NHẤT trong dự án biết cả hai thứ: chuỗi công đoạn và giao thức truyền. Stage và
- * {@code AiTurnPipeline} chỉ nói chuyện qua {@link TurnListener}, nên đổi sang WebSocket sau này chỉ
+ * {@code KeyGoAssistant} chỉ nói chuyện qua {@link TurnListener}, nên đổi sang WebSocket sau này chỉ
  * là viết một cài đặt khác của interface đó.
  *
  * <p>Bốn loại sự kiện:

@@ -28,8 +28,8 @@ import java.util.UUID;
 /**
  * Hai tính năng AI của hệ thống.
  *
- * <p>Luồng chat đã chuyển sang {@link AiTurnPipeline}: từng công đoạn là một
- * {@code AiStage} riêng, nên thêm công đoạn mới (bộ nhớ đệm, lập kế hoạch, kiểm duyệt câu trả lời)
+ * <p>Luồng chat đã chuyển sang {@code KeyGoAssistant}: từng công đoạn là một
+ * bước của đồ thị riêng, nên thêm công đoạn mới (bộ nhớ đệm, lập kế hoạch, kiểm duyệt câu trả lời)
  * chỉ là thêm một lớp — không phải sửa lớp này.
  */
 @Service
@@ -90,7 +90,7 @@ public class AiService {
 
     /**
      * Một lượt hỏi AI. Toàn bộ các bước — chặn tần suất, kiểm quyền, dựng ngữ cảnh, định tuyến,
-     * gọi model, phục hồi lỗi — nằm trong chuỗi {@link AiTurnPipeline}.
+     * gọi model, phục hồi lỗi — nằm trong chuỗi {@code KeyGoAssistant}.
      */
     public String processOrgUnitChat(String question, String conversationId, String focusUnitId) {
         return processOrgUnitChat(new AiTurn(question, conversationId, focusUnitId));

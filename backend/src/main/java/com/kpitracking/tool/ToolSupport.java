@@ -662,7 +662,7 @@ public class ToolSupport {
                                   List<Map<String, Object>> results, String aggregateHint,
                                   InvocationParameters context) throws Exception {
         // Đây là đường ra THỨ HAI của một tool chạy thành công — nó KHÔNG đi qua respond(), nên
-        // phải tự ghi nhận. Bỏ sót chỗ này khiến ValidationStage tưởng lượt đó không lấy được dữ
+        // phải tự ghi nhận. Bỏ sót chỗ này khiến AnswerValidator tưởng lượt đó không lấy được dữ
         // liệu nào rồi chặn nhầm chính câu hỏi làm rõ hợp lệ (đã đo được: 4 câu bị chặn oan).
         log.info("AI-TOOL-CALL {}", toolName);
         recordSuccess(context, toolName);
@@ -702,7 +702,7 @@ public class ToolSupport {
         // lại — mà đoán vẫn ra câu trả lời trôi chảy. Một dòng này cho phép dựng lại đúng chuỗi
         // tool của từng lượt khi chấm bộ câu hỏi kiểm thử.
         log.info("AI-TOOL-CALL {}", toolName);
-        // Ghi lại để ValidationStage biết lượt này có thật sự lấy được dữ liệu hay không.
+        // Ghi lại để AnswerValidator biết lượt này có thật sự lấy được dữ liệu hay không.
         recordSuccess(context, toolName);
         // ...và nói cho người dùng biết trợ lý vừa xem cái gì; vòng gọi tool là quãng chờ dài nhất
         // của một lượt nên im lặng ở đây nhìn không khác gì treo máy.

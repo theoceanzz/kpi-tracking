@@ -33,7 +33,7 @@ public class AiTokenUsageRecorder {
     private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
 
     /**
-     * Loại tính năng của lượt gọi hiện tại. Advisor nằm sâu trong Spring AI nên không tự biết
+     * Loại tính năng của lượt gọi hiện tại. Listener nằm sâu trong langchain4j nên không tự biết
      * mình đang phục vụ luồng nào — controller đặt giá trị này trước khi gọi và xoá sau khi xong.
      */
     private static final ThreadLocal<AiTokenUsage.AiFeature> CURRENT_FEATURE = new ThreadLocal<>();

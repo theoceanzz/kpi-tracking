@@ -27,7 +27,7 @@ import java.util.UUID;
  * là việc hiểu ngôn ngữ, không phải việc của biểu thức chính quy: bắt chữ "xác nhận" sẽ nổ nhầm ở
  * <i>"xác nhận duyệt giúp tôi các KPI kỳ test3"</i> — một yêu cầu MỚI chứ không phải lời đồng ý.
  *
- * <p><b>Chỉ được gửi cho model khi thật sự có lời mời đang treo</b> ({@code RouteNode} hỏi
+ * <p><b>Chỉ được gửi cho model khi thật sự có lời mời đang treo</b> ({@code TurnSteps.route} hỏi
  * {@link PendingActionStore#hasPending}) — cùng khuôn với tool điền form, vốn chỉ xuất hiện khi
  * người dùng đang mở đúng form đó. Model không nhìn thấy thì không gọi nhầm được.
  *

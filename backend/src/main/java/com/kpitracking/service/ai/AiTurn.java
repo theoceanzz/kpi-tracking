@@ -14,7 +14,7 @@ import java.util.Set;
 import java.util.UUID;
 
 /**
- * Toàn bộ trạng thái của MỘT lượt hỏi AI, đi xuyên suốt chuỗi {@link AiStage}.
+ * Toàn bộ trạng thái của MỘT lượt hỏi AI, đi xuyên suốt chuỗi {@code KeyGoAssistant}.
  *
  * <p>Trước đây trạng thái này nằm rải ở ba chỗ: tham số truyền tay (hàm gọi model nhận 6 tham số),
  * biến cục bộ trong {@code AiService.processOrgUnitChat}, và ba ThreadLocal riêng lẻ. Mỗi lần thêm
@@ -70,16 +70,16 @@ public class AiTurn {
      */
     private com.kpitracking.ai.memory.TurnChatMemory memory;
     /**
-     * Nhóm câu hỏi cần tới nhưng người dùng KHÔNG có quyền, do {@code RouteNode} ghi.
+     * Nhóm câu hỏi cần tới nhưng người dùng KHÔNG có quyền, do {@code TurnSteps.route} ghi.
      *
-     * <p>Rỗng ở gần như mọi lượt. Có giá trị thì {@code TurnPromptBuilder} nói thẳng cho model biết
+     * <p>Rỗng ở gần như mọi lượt. Có giá trị thì {@code SystemPromptRenderer} nói thẳng cho model biết
      * nó thiếu đúng khả năng nào — thiếu vế đó, model đi tìm dữ liệu gần giống để thế vào và gắn
      * nhãn của thứ nó không lấy được.
      */
     private Set<ToolRegistry.Group> deniedGroups;
 
     // ── chỗ dành sẵn cho các công đoạn sắp thêm ──────────────────────────────
-    /** Kế hoạch nhiều bước, do {@code PlanNode} lập. Rỗng/null = lượt này không dùng kế hoạch. */
+    /** Kế hoạch nhiều bước, do {@code TurnSteps.plan} lập. Rỗng/null = lượt này không dùng kế hoạch. */
     private List<PlanStep> plan;
     /**
      * Đề xuất điền form mà tool sinh ra trong lượt này.
@@ -96,7 +96,7 @@ public class AiTurn {
     /** Lời mời vừa được chạy trong lượt này — để client tắt thẻ xác nhận cũ. */
     private String consumedActionId;
     /**
-     * Tên đơn vị của thẻ Insight người dùng bấm, nếu có. {@code TurnSetupStage} gắn khi nó đã nạp
+     * Tên đơn vị của thẻ Insight người dùng bấm, nếu có. {@code TurnSteps.context} gắn khi nó đã nạp
      * đơn vị để kiểm {@code focusUnitId} — không tốn thêm truy vấn nào.
      */
     private String focusUnitName;
@@ -119,7 +119,7 @@ public class AiTurn {
      */
     private TurnListener listener = TurnListener.NOOP;
     /**
-     * Các tool đã lên kế hoạch nhưng lần hỏi đầu không gọi — do {@code ObserveNode} đặt trước khi
+     * Các tool đã lên kế hoạch nhưng lần hỏi đầu không gọi — do {@code TurnSteps.needsAnotherRound} đặt trước khi
      * cho quay lại đỉnh MODEL, để khối kế hoạch lần hai chỉ nêu đúng phần còn thiếu thay vì nhắc
      * lại cả kế hoạch.
      */
@@ -127,7 +127,7 @@ public class AiTurn {
 
     /**
      * Trạng thái của vòng lặp agent trong lượt này — lịch sử hội thoại, các tool đã gọi, bước
-     * thứ mấy. Do {@code TurnSetupStage} tạo, {@code AgentStage} chạy đồ thị trên đó.
+     * thứ mấy. Do {@code TurnSteps.context} tạo, {@code KeyGoAssistant} chạy đồ thị trên đó.
      *
      * <p>Các công đoạn bọc ngoài đọc trace ở đây thay vì móc từ ThreadLocal: trạng thái đã là giá
      * trị truyền tường minh nên không còn phụ thuộc vào việc tool chạy trên luồng nào.
@@ -150,7 +150,7 @@ public class AiTurn {
      * Báo cho người dùng biết công đoạn này đang làm gì, NGAY LÚC bắt đầu làm.
      *
      * <p>Dành cho công đoạn bọc ngoài — thứ làm việc SAU {@code next.proceed(...)}. Với chúng,
-     * {@code AiStage.label()} nói sai vì chúng vào chuỗi ngay đầu lượt nhưng chỉ làm việc sau khi
+     * nhãn công đoạn nói sai vì chúng vào chuỗi ngay đầu lượt nhưng chỉ làm việc sau khi
      * model đã trả lời xong.
      *
      * <p>Nuốt mọi lỗi: báo tiến độ là phần thêm, còn câu trả lời mới là thứ người dùng cần. Công
@@ -161,7 +161,7 @@ public class AiTurn {
      */
 
     /**
-     * Cùng việc như trên, cho những thứ KHÔNG phải {@link AiStage} — các đỉnh của đồ thị agent.
+     * Cùng việc như trên, cho những thứ KHÔNG phải {@code KeyGoAssistant} — các đỉnh của đồ thị agent.
      *
      * <p>Node không có tên lớp nào đáng đưa ra client (chúng là chi tiết bên trong một công đoạn
      * duy nhất), nên chúng tự khai mã. Client vốn chỉ đọc nhãn; mã dành cho việc đối chiếu nhật ký.

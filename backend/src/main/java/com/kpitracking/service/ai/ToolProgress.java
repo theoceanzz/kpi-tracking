@@ -13,8 +13,8 @@ import java.util.Map;
  * một việc CÓ NGHĨA với người dùng ("đang xem danh sách nhân sự"), nên nói ra thì quãng chờ dài nhất
  * cũng thấy có người đang làm việc cho mình.
  *
- * <p><b>Đường đi, và vì sao không cần ThreadLocal.</b> {@code TurnSetupStage} đặt người nghe vào
- * {@code toolCtx}, và Spring AI đưa CÙNG MỘT map đó cho mọi lời gọi tool. Nghĩa là cách này đúng ở
+ * <p><b>Đường đi, và vì sao không cần ThreadLocal.</b> {@code TurnSteps.context} đặt người nghe vào
+ * {@code toolCtx}, và langchain4j đưa CÙNG MỘT bộ InvocationParameters đó cho mọi lời gọi tool. Nghĩa là cách này đúng ở
  * bất kỳ luồng nào — miễn nhiễm với chuyện lượt streaming chạy tool trên luồng của reactor, thứ đã
  * làm hỏng bốn kho ThreadLocal khác — nay cả sáu kho đã chuyển sang {@code AgentState},
  * đi cùng ngữ cảnh tool đúng theo cách này.
@@ -22,7 +22,7 @@ import java.util.Map;
  * <p><b>Nhãn tới chậm một nhịp.</b> Ba chỗ gọi {@link #announce} đều là chỗ tool TRẢ VỀ, không phải
  * chỗ tool bắt đầu, nên nhãn hiện sau thực tế khoảng một lời gọi tool. Đổi lại, chúng trùng đúng ba
  * chỗ đang ghi {@code AI-TOOL-CALL} nên không đẻ thêm điểm móc nào. Muốn báo sớm hơn thì phải bọc
- * {@code ToolCallback} của Spring AI — không đáng cho phần hiển thị.
+ * {@code ToolExecutor} của langchain4j — không đáng cho phần hiển thị.
  */
 @Slf4j
 public final class ToolProgress {

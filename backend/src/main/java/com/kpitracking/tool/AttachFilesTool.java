@@ -18,7 +18,7 @@ import com.kpitracking.service.ai.agent.AgentState;
  * <p>Tool không đụng tới nội dung tệp: tệp không bao giờ rời trình duyệt. Nó chỉ bật một cờ để
  * client chuyển tệp từ chỗ ghim sang chỗ nhận của biểu mẫu.
  *
- * <p><b>Trạng thái đi qua {@code InvocationParameters}, không qua ThreadLocal.</b> Spring AI trao cùng một
+ * <p><b>Trạng thái đi qua {@code InvocationParameters}, không qua ThreadLocal.</b> langchain4j trao cùng một
  * map cho mọi lời gọi tool, nên cách này đúng ở bất kỳ luồng nào và không có gì phải dọn cuối lượt.
  * Bản trước để trong ThreadLocal kèm cả một tầng truyền tham chiếu sang luồng reactor — thứ đã hỏng
  * âm thầm đúng bốn lần. Xem {@code AgentState}.

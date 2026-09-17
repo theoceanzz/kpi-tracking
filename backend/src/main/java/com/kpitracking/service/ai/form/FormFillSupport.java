@@ -73,7 +73,7 @@ public class FormFillSupport {
      * Chặn lượt mà model gọi tool NHƯNG không truyền ô nào.
      *
      * <p>Đo được ở cả hai đường (gọi thường lẫn luồng): model gọi {@code suggest_kpi_form} với tham
-     * số rỗng, và vì tham số là một record nên Spring AI truyền thẳng {@code null} vào — tool ném
+     * số rỗng, và vì tham số là một record nên langchain4j truyền thẳng {@code null} vào — tool ném
      * {@code NullPointerException}. Model nhận về nguyên văn thông báo NPE của Java, thứ nó không
      * hiểu và không sửa được: đường gọi thường tình cờ gọi lại lần hai rồi mới trúng, còn đường
      * luồng thì bỏ cuộc và người dùng chẳng thấy đề xuất nào.
@@ -218,7 +218,7 @@ public class FormFillSupport {
         if (before != entries.size()) {
             log.info("Bỏ {} ô không hiện trên màn hình khi điền {}: {}", before - entries.size(), formId, hidden);
         }
-        // Ghi thẳng vào trạng thái của lượt. Trước đây phải qua ThreadLocal vì Spring AI sở hữu
+        // Ghi thẳng vào trạng thái của lượt. Trước đây phải qua ThreadLocal vì bộ khung cũ sở hữu
         // vòng lặp và không trả kết quả tool cho ta; nay trạng thái đi cùng InvocationParameters nên đúng ở
         // mọi luồng — và không còn gì phải dọn.
         AgentState state = AgentState.from(context);

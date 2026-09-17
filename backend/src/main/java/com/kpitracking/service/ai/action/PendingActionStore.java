@@ -68,7 +68,7 @@ public class PendingActionStore {
     /**
      * Có lời mời nào đang treo cho người này, trong chính cuộc trò chuyện này không.
      *
-     * <p>Dùng để {@code RouteNode} quyết định có gửi tool xác nhận cho model hay không — không có
+     * <p>Dùng để {@code TurnSteps.route} quyết định có gửi tool xác nhận cho model hay không — không có
      * lời mời thì model không nhìn thấy tool, nên không thể gọi nhầm và cũng không tốn token mô tả
      * nó ở mọi lượt chat khác. Cùng khuôn với tool điền form.
      */

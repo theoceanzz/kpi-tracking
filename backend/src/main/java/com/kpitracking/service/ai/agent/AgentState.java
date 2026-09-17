@@ -17,13 +17,13 @@ import java.util.concurrent.CopyOnWriteArrayList;
  * Trạng thái sống của một lần chạy agent (Blackboard).
  *
  * <p><b>Đây là thứ thay thế sáu kho ThreadLocal.</b> Trước đây tool muốn đưa dữ liệu ra ngoài vòng
- * lặp thì phải đi đường bên, vì Spring AI đưa chuỗi tool trả về cho MODEL đọc chứ không đưa cho ta.
+ * lặp thì phải đi đường bên, vì kết quả tool được đưa cho MODEL đọc chứ không đưa cho ta.
  * Cách đó hỏng ÂM THẦM khi vòng lặp chạy trên luồng của reactor: kho ghi ở luồng kia là một ô nhớ
  * khác, nên bản đề xuất điền form không bao giờ về tới người dùng, câu hỏi gợi ý biến mất, cửa
  * thoát hiểm ngừng kích hoạt, và chốt chặn tên trùng chết. Phải dựng cả một tầng
  * {@code TurnStatePropagation} chỉ để mang THAM CHIẾU của hộp chứa qua luồng.
  *
- * <p>Nay trạng thái đi theo {@link InvocationParameters} — cùng một map mà Spring AI trao cho MỌI lời gọi
+ * <p>Nay trạng thái đi theo {@link InvocationParameters} — cùng một bộ tham số mà langchain4j trao cho MỌI lời gọi
  * tool. Đây chính là cách {@code ToolProgress} vẫn làm và là lý do nó miễn nhiễm với cái bẫy đã
  * giết bốn kho kia. Không còn phụ thuộc vào việc ai đang chạy trên luồng nào, nên không còn gì để
  * truyền và cũng không còn gì để dọn.
@@ -77,7 +77,7 @@ public class AgentState {
      * không phải giao diện điền vào form — mấy việc này (duyệt bài nộp, duyệt chỉ tiêu, nhắc nhở)
      * không có form nào trên màn hình.
      *
-     * <p>Có giá trị ở đây nghĩa là vòng lặp phải DỪNG: xem {@code ObserveNode}.
+     * <p>Có giá trị ở đây nghĩa là vòng lặp phải DỪNG: xem {@code TurnSteps.needsAnotherRound}.
      */
     @Setter
     private com.kpitracking.service.ai.action.PendingAction pendingAction;
@@ -112,7 +112,7 @@ public class AgentState {
     // {@code if} chạy đúng một lần. Nay hai việc đó là CẠNH của graph, và cạnh thì phải nhớ được
     // mình đã đi qua chưa, nếu không đồ thị có chu trình sẽ quay vòng vô hạn.
 
-    /** Đã nới bộ công cụ một lần rồi. Model xin lần hai thì thôi — xem {@code ObserveNode}. */
+    /** Đã nới bộ công cụ một lần rồi. Model xin lần hai thì thôi — xem {@code TurnSteps.needsAnotherRound}. */
     @Setter
     private boolean escapeUsed;
 
@@ -120,7 +120,7 @@ public class AgentState {
     @Setter
     private boolean planNudgeUsed;
 
-    /** {@code RouteNode} phải lấy TOÀN BỘ nhóm đọc thay vì hỏi lại router. */
+    /** {@code TurnSteps.route} phải lấy TOÀN BỘ nhóm đọc thay vì hỏi lại router. */
     @Setter
     private boolean widenTools;
 
