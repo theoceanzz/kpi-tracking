@@ -68,6 +68,7 @@ export function buildRealWeightById(kpis: any[], scorecards: Scorecard[] | undef
 type WeighableKpi = {
   id: string
   weight: number | null
+  status?: string | null
   isBonusKpi?: boolean
   parentId?: string | null
   parentRelationType?: string | null
@@ -75,11 +76,19 @@ type WeighableKpi = {
 }
 
 /**
- * KPI có được tính vào tổng trọng số không. Backend bỏ qua hai loại:
- * KPI thưởng (không nằm trong 100%) và KPI cha có con phân rã — cha chỉ là nhãn gộp,
- * trọng số thật nằm ở các con.
+ * Trạng thái KHÔNG tính vào tổng — khớp `WEIGHT_COUNTED_STATUSES` ở backend. KPI đã bị thay thế
+ * vẫn nằm trong danh sách (để xem lịch sử) nhưng trọng số của nó đã chuyển sang bản thay thế;
+ * cộng cả hai là header báo 120% trong khi backend thấy đúng 100% và vẫn cho gửi duyệt.
+ */
+const NOT_COUNTED_STATUSES = new Set(['REPLACED', 'INACTIVE'])
+
+/**
+ * KPI có được tính vào tổng trọng số không. Backend bỏ qua ba loại:
+ * KPI đã thay thế / ngừng, KPI thưởng (không nằm trong 100%) và KPI cha có con phân rã —
+ * cha chỉ là nhãn gộp, trọng số thật nằm ở các con.
  */
 function countsTowardTotal(kpi: WeighableKpi, decompositionParentIds: Set<string>): boolean {
+  if (kpi.status && NOT_COUNTED_STATUSES.has(kpi.status)) return false
   if (kpi.isBonusKpi) return false
   if (decompositionParentIds.has(kpi.id)) return false
   return true

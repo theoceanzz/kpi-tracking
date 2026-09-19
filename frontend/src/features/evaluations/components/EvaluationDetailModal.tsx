@@ -545,7 +545,6 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
           periodId={evaluation.kpiPeriodId}
           periodName={evaluation.kpiPeriodName}
           readOnly={!!(layers.directorEval || myEvalAtLevel)}
-          evaluationComment={layers.directorEval?.comment || ''}
         />
       )}
 

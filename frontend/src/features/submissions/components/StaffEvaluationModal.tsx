@@ -20,7 +20,7 @@ import { evidenceKey } from '@/features/evidence/evidenceApi'
 import { Badge } from '@/components/ui/badge'
 
 import { useAuthStore } from '@/store/authStore'
-import { formatNumber, cn } from '@/lib/utils'
+import { formatNumber, formatDateTime, cn } from '@/lib/utils'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 
 import { getScoringFunctions, SCORING_POOL } from '@/lib/scoring'
@@ -37,7 +37,6 @@ interface StaffEvaluationModalProps {
   periodId: string
   periodName: string
   readOnly?: boolean
-  evaluationComment?: string
   periodEnded?: boolean
 }
 /**
@@ -73,7 +72,7 @@ function lookupMatrixRating(
 }
 
 export default function StaffEvaluationModal({
-  open, onClose, userId, userName, periodId, periodName, readOnly = false, evaluationComment, periodEnded = false
+  open, onClose, userId, userName, periodId, periodName, readOnly = false, periodEnded = false
 }: StaffEvaluationModalProps) {
   const { user } = useAuthStore()
   const orgId = user?.memberships?.[0]?.organizationId
@@ -99,7 +98,7 @@ export default function StaffEvaluationModal({
     resolver: zodResolver(schema),
     defaultValues: {
       individualScores: {}, individualLevels: {},
-      overallComment: evaluationComment || '', finalScore: 0,
+      overallComment: '', finalScore: 0,
     },
   })
 
@@ -133,12 +132,26 @@ export default function StaffEvaluationModal({
     enabled: open
   })
 
-  // Fetch existing evaluation if any
-  const { data: existingEval } = useQuery({
+  // Mỗi người chấm có MỘT bản riêng cho (người, đợt) — xem EvaluationService.createEvaluation.
+  // Lấy cả danh sách để tách bản CỦA MÌNH (đổ vào form) khỏi bản của cấp dưới đã chấm trước
+  // (chỉ hiển thị). Trước đây chỉ lấy 1 bản đầu nên cấp trên mở lên thấy nhận xét của
+  // trưởng phòng nằm trong ô của mình, chốt là chép nguyên sang bản của cấp trên.
+  const { data: existingEvals } = useQuery({
     queryKey: ['evaluations', 'staff-eval', userId, periodId],
-    queryFn: () => evaluationApi.getAll({ userId, kpiPeriodId: periodId, size: 1 }),
+    queryFn: () => evaluationApi.getAll({ userId, kpiPeriodId: periodId, size: 50 }),
     enabled: open
   })
+  const myEval = useMemo(
+    () => existingEvals?.content?.find(e => e.evaluatorId === user?.id) ?? null,
+    [existingEvals, user?.id],
+  )
+  // Nhận xét của các cấp quản lý khác đã chấm người này (bỏ tự đánh giá), cũ chấm trước lên trên.
+  const priorManagerEvals = useMemo(
+    () => (existingEvals?.content ?? [])
+      .filter(e => e.evaluatorId !== user?.id && e.evaluatorRole !== 'SELF')
+      .sort((a, b) => String(a.createdAt).localeCompare(String(b.createdAt))),
+    [existingEvals, user?.id],
+  )
 
   // Điểm BSC của kỳ: khi kỳ chấm CHÍNH THỨC, điểm cuối bị KHÓA theo bsc_score
   // (backend cũng ép — xem EvaluationService.createEvaluation — nên UI phải khớp, tránh
@@ -243,19 +256,16 @@ export default function StaffEvaluationModal({
     }
   }, [submissions])
 
-  // Initialize comment and final score from existing evaluation
+  // Nhận xét chỉ lấy từ bản CỦA MÌNH. Điểm cuối: bản của mình, không có thì lấy bản mới
+  // nhất của cấp dưới làm điểm xuất phát (giữ hành vi cũ), người chấm vẫn kéo lại được.
   useEffect(() => {
-    const evalData = existingEval?.content?.[0]
-    if (evalData?.comment) {
-      setValue('overallComment', evalData.comment)
-    } else if (evaluationComment) {
-      setValue('overallComment', evaluationComment)
-    }
-    if (evalData?.score != null) {
-      setFinalScore(evalData.score)
+    if (myEval?.comment) setValue('overallComment', myEval.comment)
+    const scoreSource = myEval ?? existingEvals?.content?.[0]
+    if (scoreSource?.score != null) {
+      setFinalScore(scoreSource.score)
       hasManuallyAdjustedFinal.current = true
     }
-  }, [existingEval, evaluationComment, setValue])
+  }, [myEval, existingEvals, setValue])
 
   // Calculation logic (quantitative only, normalized to fill the 0..100 pool)
   const totalAutoScore = useMemo(() =>
@@ -677,10 +687,31 @@ export default function StaffEvaluationModal({
                     </div>
                   )}
 
-                  {(isFullyApproved || !readOnly) && (
+                  {/* Nhận xét các cấp đã chấm trước (VD trưởng phòng) — chỉ đọc, đặt trên ô của
+                      người đang chấm để cấp trên đọc rồi viết nhận xét RIÊNG, không chép đè. */}
+                  {priorManagerEvals.map(e => (
+                    <div key={e.id} className="space-y-4">
+                      <label className="text-label flex items-center gap-2 tracking-widest">
+                        <MessageSquare size={14} /> Nhận xét của {e.evaluatorRoleName || 'Quản lý'}
+                      </label>
+                      <div className="px-6 py-5 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] text-sm font-medium space-y-2">
+                        <p className={cn("whitespace-pre-wrap", !e.comment && "italic text-[var(--color-subtle-foreground)]")}>
+                          {e.comment || 'Chưa có nhận xét'}
+                        </p>
+                        <p className="text-xs text-[var(--color-muted-foreground)]">
+                          {e.evaluatorName}{e.score != null && <> · {formatNumber(e.score)} điểm</>} · {formatDateTime(e.updatedAt)}
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+
+                  {(isFullyApproved || !readOnly) && (!readOnly || myEval) && (
                     <div className="space-y-4">
                       <label className="text-label flex items-center gap-2 tracking-widest">
-                        <MessageSquare size={14} /> Nhận xét chung của {userRoleName}
+                        <MessageSquare size={14} /> Nhận xét của {userRoleName}
+                        {!readOnly && priorManagerEvals.length > 0 && (
+                          <span className="font-normal normal-case tracking-normal text-[var(--color-muted-foreground)]">(nhận xét riêng của bạn)</span>
+                        )}
                       </label>
                       <textarea
                         {...register('overallComment')}

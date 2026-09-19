@@ -233,8 +233,11 @@ public class StatsService {
         List<UUID> unitIds = authorizedUnits.stream().map(OrgUnit::getId).toList();
         List<UserRoleOrgUnit> unitAssignments = userRoleOrgUnitRepository.findByOrgUnitIdIn(unitIds);
         
+        // Bỏ người đã xoá mềm hoặc đã tạm dừng — họ vẫn còn phân công trong đơn vị nhưng không còn
+        // là nhân sự để theo dõi.
         List<User> allUsers = unitAssignments.stream()
                 .map(UserRoleOrgUnit::getUser)
+                .filter(u -> u.getDeletedAt() == null && !u.isPausedAccount())
                 .distinct()
                 .toList();
 

@@ -93,4 +93,13 @@ public class User {
     @Column(name = "is_platform_admin", nullable = false)
     @Builder.Default
     private Boolean isPlatformAdmin = false;
+
+    /**
+     * Tài khoản đã bị tạm dừng (INACTIVE) hoặc tạm khóa (SUSPENDED) ở trang Quản lý tài khoản.
+     * Mọi danh sách nhân sự ngoài trang đó phải bỏ những người này — cùng một quy tắc với
+     * {@code deletedAt}: xoá mềm và tạm dừng đều là "không còn làm việc trong hệ thống".
+     */
+    public boolean isPausedAccount() {
+        return status == UserStatus.INACTIVE || status == UserStatus.SUSPENDED;
+    }
 }

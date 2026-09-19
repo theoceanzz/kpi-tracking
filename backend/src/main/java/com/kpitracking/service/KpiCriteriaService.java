@@ -85,6 +85,18 @@ public class KpiCriteriaService {
             KpiStatus.EDITED
     );
 
+    /**
+     * Trạng thái mà chỉ tiêu đã "vào luồng duyệt" — đã gửi đi hoặc đã được duyệt. Đây là phần
+     * bên ngoài lô gửi duyệt được phép tính vào 100%; phần còn lại (DRAFT, REJECTED) nếu không nằm
+     * trong lô thì chưa chắc bao giờ được gửi, nên không được mượn trọng số của chúng để qua chốt.
+     */
+    private static final java.util.Set<KpiStatus> IN_APPROVAL_PIPELINE_STATUSES = java.util.EnumSet.of(
+            KpiStatus.PENDING_APPROVAL,
+            KpiStatus.APPROVED,
+            KpiStatus.EDIT,
+            KpiStatus.EDITED
+    );
+
     private User getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         return userRepository.findByEmail(email)
@@ -714,30 +726,23 @@ public class KpiCriteriaService {
         // để vòng lặp bên dưới bỏ qua từng bản rồi trả về danh sách rỗng không rõ nguyên nhân.
         requireStageEnabled(firstKpi, com.kpitracking.workflow.WorkflowStage.CRITERIA_APPROVAL);
 
-        // Weight validation (same as single submit)
-        Double totalWeight = calculateTotalWeightByOrgUnit(firstKpi.getOrgUnit().getId(), firstKpi.getKpiPeriod().getId(), WEIGHT_COUNTED_STATUSES);
-
-        if (totalWeight == null || Math.abs(totalWeight - 100.0) > 0.001) {
-            throw new BusinessException("Tổng trọng số của đơn vị theo phân bổ nhân sự (cao nhất) phải bằng chính xác 100% trước khi gửi duyệt. Hiện tại: " + (totalWeight != null ? totalWeight : 0) + "%");
-        }
-
+        // Lọc lô trước khi kiểm trọng số: chỉ tiêu không phải của mình hoặc không ở trạng thái gửi
+        // được thì bỏ qua (đường hàng loạt, một bản hỏng không làm hỏng cả lô). Phải biết lô thật sự
+        // gồm những gì rồi mới kiểm được "gửi xong có đủ 100% không".
+        List<KpiCriteria> batch = new ArrayList<>();
         for (UUID kpiId : kpiIds) {
             KpiCriteria kpi = kpiCriteriaRepository.findById(kpiId).orElse(null);
             if (kpi == null) continue;
-
-            if (!kpi.getCreatedBy().getId().equals(currentUser.getId())) {
-                 // Skip or throw? Usually better to skip in bulk or throw if critical.
-                 // Here we skip to avoid breaking the whole batch if one is invalid.
-                 continue;
-            }
-
+            if (!kpi.getCreatedBy().getId().equals(currentUser.getId())) continue;
             // Trạng thái nào gửi duyệt được là do bảng chuyển quyết định, không còn là điều kiện
-            // viết cứng ở đây. Bỏ qua thay vì ném, vì đây là đường hàng loạt và một bản không hợp
-            // lệ không nên làm hỏng cả lô.
-            if (!canTransition(kpi, com.kpitracking.workflow.WorkflowAction.SUBMIT_CRITERIA)) {
-                continue;
-            }
+            // viết cứng ở đây.
+            if (!canTransition(kpi, com.kpitracking.workflow.WorkflowAction.SUBMIT_CRITERIA)) continue;
+            batch.add(kpi);
+        }
 
+        requireBatchCoversFullWeight(firstKpi.getOrgUnit().getId(), firstKpi.getKpiPeriod().getId(), batch);
+
+        for (KpiCriteria kpi : batch) {
             if (kpi.getParent() != null && kpi.getParentRelationType() == com.kpitracking.enums.KpiParentRelationType.DECOMPOSITION) {
                 KpiCriteria parent = kpi.getParent();
                 double siblingWeight = parent.getChildren() != null ? parent.getChildren().stream()
@@ -764,6 +769,50 @@ public class KpiCriteriaService {
         }
 
         return results;
+    }
+
+    /**
+     * Chốt 100% của bước gửi duyệt.
+     *
+     * <p>Trước đây chốt này cộng mọi chỉ tiêu của đơn vị, kể cả bản NHÁP không nằm trong lô. Hệ quả
+     * đo thật: đơn vị có 5 chỉ tiêu 80% đã duyệt + 1 bản nháp 20% (sinh ra khi thay thế một KPI đã
+     * duyệt) vẫn qua chốt vì "tổng khai" là 100%, rồi bản nháp không bao giờ được gửi tiếp và sang
+     * kỳ chấm người đó chỉ còn 80%. Nên chỉ được tính (a) chỉ tiêu đang gửi trong lô này và (b) chỉ
+     * tiêu đã vào luồng duyệt từ trước; nháp / bị từ chối bỏ ngoài lô thì kể tên ra để người gửi
+     * chọn nốt.
+     */
+    private void requireBatchCoversFullWeight(UUID orgUnitId, UUID kpiPeriodId, List<KpiCriteria> batch) {
+        java.util.Set<UUID> batchIds = batch.stream().map(KpiCriteria::getId).collect(java.util.stream.Collectors.toSet());
+        List<KpiCriteria> counted = kpiCriteriaRepository.findByOrgUnitIdAndKpiPeriodIdAndStatusIn(orgUnitId, kpiPeriodId, WEIGHT_COUNTED_STATUSES);
+
+        List<KpiCriteria> leftOut = new ArrayList<>();
+        List<KpiCriteria> covered = new ArrayList<>();
+        for (KpiCriteria kpi : counted) {
+            if (batchIds.contains(kpi.getId()) || IN_APPROVAL_PIPELINE_STATUSES.contains(kpi.getStatus())) {
+                covered.add(kpi);
+            } else {
+                leftOut.add(kpi);
+            }
+        }
+
+        double totalWeight = totalWeightOfUnit(covered);
+        if (Math.abs(totalWeight - 100.0) <= 0.001) return;
+
+        if (!leftOut.isEmpty()) {
+            double leftOutWeight = leftOut.stream()
+                    .filter(k -> !Boolean.TRUE.equals(k.getIsBonusKpi()) && !hasDecompositionChildren(k))
+                    .mapToDouble(this::effectiveWeight).sum();
+            String names = leftOut.stream().map(KpiCriteria::getName).limit(5).collect(java.util.stream.Collectors.joining(", "));
+            if (leftOut.size() > 5) names += ", …";
+            throw new BusinessException(String.format(java.util.Locale.ROOT,
+                    "Gửi duyệt xong đơn vị mới đạt %s%% trọng số, chưa đủ 100%%. Còn %d chỉ tiêu nháp / bị từ chối chưa được chọn (%s%%): %s. Hãy chọn gửi cùng hoặc xoá bớt.",
+                    formatWeight(totalWeight), leftOut.size(), formatWeight(leftOutWeight), names));
+        }
+        throw new BusinessException("Tổng trọng số của đơn vị theo phân bổ nhân sự (cao nhất) phải bằng chính xác 100% trước khi gửi duyệt. Hiện tại: " + formatWeight(totalWeight) + "%");
+    }
+
+    private static String formatWeight(double weight) {
+        return weight == Math.rint(weight) ? String.valueOf((long) weight) : String.valueOf(Math.round(weight * 100.0) / 100.0);
     }
 
     @Transactional
@@ -1022,8 +1071,11 @@ public class KpiCriteriaService {
     }
 
     public Double calculateTotalWeightByOrgUnit(UUID orgUnitId, UUID kpiPeriodId, List<KpiStatus> statuses) {
-        List<KpiCriteria> kpis = kpiCriteriaRepository.findByOrgUnitIdAndKpiPeriodIdAndStatusIn(orgUnitId, kpiPeriodId, statuses);
+        return totalWeightOfUnit(kpiCriteriaRepository.findByOrgUnitIdAndKpiPeriodIdAndStatusIn(orgUnitId, kpiPeriodId, statuses));
+    }
 
+    /** Công thức tổng trọng số đơn vị trên một danh sách đã lọc sẵn: KPI chưa giao + người CAO NHẤT. */
+    private double totalWeightOfUnit(List<KpiCriteria> kpis) {
         Double unassignedWeight = 0.0;
         Map<UUID, Double> userWeights = new HashMap<>();
 
@@ -1579,8 +1631,15 @@ public class KpiCriteriaService {
             newAssignees = new ArrayList<>(replacedKpi.getAssignees());
         }
 
-        KpiStatus initialStatus = permissionChecker.hasPermission(currentUser.getId(), "KPI:APPROVE_OWN")
-                ? KpiStatus.APPROVED : KpiStatus.DRAFT;
+        // Cùng luật với tạo mới (tắt bước duyệt ⇒ APPROVED, tự duyệt ⇒ APPROVED, còn lại DRAFT).
+        // Riêng khi KPI bị thay đã VÀO luồng duyệt (đã gửi / đã duyệt) mà người thay không tự duyệt
+        // được, bản thay thế phải đi thẳng vào CHỜ DUYỆT: đo thật cho thấy để nó nằm nháp thì
+        // không ai gửi tiếp, chốt 100% lúc gửi duyệt đã qua từ trước, và sang kỳ chấm người đó chỉ
+        // còn 80% trọng số đã duyệt.
+        KpiStatus initialStatus = initialCriteriaStatus(organizationIdOf(replacedKpi), currentUser);
+        if (initialStatus == KpiStatus.DRAFT && IN_APPROVAL_PIPELINE_STATUSES.contains(replacedKpi.getStatus())) {
+            initialStatus = KpiStatus.PENDING_APPROVAL;
+        }
 
         com.kpitracking.enums.KpiType newKpiType = request.getKpiType() != null
                 ? request.getKpiType() : com.kpitracking.enums.KpiType.QUANTITATIVE;
@@ -1626,6 +1685,8 @@ public class KpiCriteriaService {
         if (initialStatus == KpiStatus.APPROVED) {
             newKpi.setApprovedBy(currentUser);
             newKpi.setApprovedAt(Instant.now());
+        } else if (initialStatus == KpiStatus.PENDING_APPROVAL) {
+            newKpi.setSubmittedAt(Instant.now());
         }
 
         newKpi = kpiCriteriaRepository.save(newKpi);
@@ -1637,6 +1698,8 @@ public class KpiCriteriaService {
 
         if (initialStatus == KpiStatus.APPROVED) {
             eventPublisher.publishEvent(new KpiCriteriaApprovedEvent(this, newKpi));
+        } else if (initialStatus == KpiStatus.PENDING_APPROVAL) {
+            eventPublisher.publishEvent(new KpiCriteriaSubmittedForApprovalEvent(this, newKpi));
         }
 
         return kpiCriteriaMapper.toResponse(newKpi);
