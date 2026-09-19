@@ -31,6 +31,8 @@ public interface EvaluationRepository extends JpaRepository<Evaluation, UUID> {
     @Query("SELECT e FROM Evaluation e WHERE " +
            "(e.user.id = :currentUserId OR e.evaluator.id = :currentUserId OR EXISTS (SELECT 1 FROM UserRoleOrgUnit uro_sub WHERE uro_sub.user.id = e.user.id AND EXISTS (SELECT 1 FROM OrgUnit au_perm WHERE uro_sub.orgUnit.path LIKE CONCAT(au_perm.path, '%') AND au_perm.id IN :allowedOrgUnitIds)) OR EXISTS (SELECT 1 FROM OrgUnit au WHERE e.orgUnit.path LIKE CONCAT(au.path, '%') AND au.id IN :allowedOrgUnitIds)) AND " +
            "(:userId IS NULL OR e.user.id = :userId) AND " +
+           // Người bị tạm dừng / tạm khóa / xoá mềm không còn nằm trong bảng đánh giá đợt.
+           "e.user.deletedAt IS NULL AND e.user.status NOT IN (com.kpitracking.enums.UserStatus.INACTIVE, com.kpitracking.enums.UserStatus.SUSPENDED) AND " +
            "(:kpiPeriodId IS NULL OR e.kpiPeriod.id = :kpiPeriodId) AND " +
            "(:orgUnitPath IS NULL OR e.orgUnit.path LIKE :orgUnitPath) AND " +
            "(:evaluatorId IS NULL OR e.evaluator.id = :evaluatorId) AND " +

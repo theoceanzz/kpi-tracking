@@ -10,7 +10,7 @@ export const userApi = {
   * nhận `orgUnitId` số ít: Spring bỏ qua tham số lạ nên gửi nhầm sẽ trả về toàn bộ nhân sự của
   * tổ chức mà không báo lỗi, và lỗi đó đã lọt ra giao diện hai lần.
   */
- getAll: (params: PageParams & { keyword?: string; orgUnitIds?: string[]; organizationId?: string; role?: string; sortBy?: string; direction?: string }) =>
+ getAll: (params: PageParams & { keyword?: string; orgUnitIds?: string[]; organizationId?: string; role?: string; sortBy?: string; direction?: string; includeInactive?: boolean }) =>
     axiosInstance.get<ApiResponse<PageResponse<User>>>('/users', { 
       params,
       paramsSerializer: {

@@ -18,11 +18,15 @@ export function useRoles() {
   })
 }
 
-export function useOrganizationUsers(orgUnitId?: string) {
+/**
+ * @param includeInactive Chỉ Quản lý thành viên bật để còn thấy tài khoản đã tạm dừng mà bật lại;
+ * ô chọn người (uỷ quyền, thêm thành viên...) dùng mặc định — BE ẩn INACTIVE/SUSPENDED.
+ */
+export function useOrganizationUsers(orgUnitId?: string, includeInactive = false) {
   return useQuery({
-    queryKey: ['organization-users', orgUnitId],
+    queryKey: ['organization-users', orgUnitId, includeInactive],
     // BE nhận orgUnitIds (List) — xem chú thích ở userApi.getAll.
-    queryFn: () => userApi.getAll({ page: 0, size: 1000, orgUnitIds: orgUnitId ? [orgUnitId] : undefined })
+    queryFn: () => userApi.getAll({ page: 0, size: 1000, orgUnitIds: orgUnitId ? [orgUnitId] : undefined, includeInactive: includeInactive || undefined })
   })
 }
 

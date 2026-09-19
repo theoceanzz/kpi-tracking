@@ -43,6 +43,10 @@ public interface UserRepository extends JpaRepository<User, UUID> {
            "AND (:roleName IS NULL OR r.name = :roleName) " +
            "AND (:orgUnitIds IS NULL OR uro.orgUnit.id IN :orgUnitIds) " +
            "AND (u.deletedAt IS NULL) " +
+           // Tài khoản đã tạm dừng / tạm khóa mặc định không xuất hiện ở bất kỳ danh sách nhân sự
+           // nào (chọn người nhận KPI, đánh giá đợt, uỷ quyền...). Chỉ trang Quản lý tài khoản gửi
+           // includeInactive=true để còn thấy mà bật lại.
+           "AND (:includeInactive = true OR u.status NOT IN (com.kpitracking.enums.UserStatus.INACTIVE, com.kpitracking.enums.UserStatus.SUSPENDED)) " +
            "AND (:excludeSelf = false OR u.id != :currentUserId) " +
            "AND (:excludeAdmin = false OR u.id = :currentUserId OR NOT EXISTS (SELECT 1 FROM RolePermission rp3 JOIN UserRoleOrgUnit uro3 ON rp3.role.id = uro3.role.id WHERE uro3.user.id = u.id AND rp3.permission.code = 'SYSTEM:ADMIN')) " +
            "AND (:excludeManager = false OR u.id = :currentUserId OR NOT EXISTS (SELECT 1 FROM RolePermission rp4 JOIN UserRoleOrgUnit uro4 ON rp4.role.id = uro4.role.id WHERE uro4.user.id = u.id AND rp4.permission.code = 'KPI:APPROVE')) " +
@@ -60,12 +64,14 @@ public interface UserRepository extends JpaRepository<User, UUID> {
             @Param("excludeSelf") boolean excludeSelf,
             @Param("excludeAdmin") boolean excludeAdmin,
             @Param("excludeManager") boolean excludeManager,
+            @Param("includeInactive") boolean includeInactive,
             Pageable pageable
     );
 
     @Query("SELECT DISTINCT u FROM User u " +
            "LEFT JOIN UserRoleOrgUnit uro ON u.id = uro.user.id " +
            "WHERE u.deletedAt IS NULL " +
+           "AND u.status NOT IN (com.kpitracking.enums.UserStatus.INACTIVE, com.kpitracking.enums.UserStatus.SUSPENDED) " +
            "AND (:orgId IS NULL OR uro.orgUnit.orgHierarchyLevel.organization.id = :orgId) " +
            "AND (:orgUnitId IS NULL OR uro.orgUnit.id = :orgUnitId) " +
            "AND (:positionName IS NULL OR :positionName = '' OR LOWER(uro.role.name) LIKE LOWER(CONCAT('%', :positionName, '%'))) " +

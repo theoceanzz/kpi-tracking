@@ -41,6 +41,7 @@ public class SubordinateAnalyticsService {
         List<UUID> orgUnitIds = getSubordinateOrgUnitIds();
         if (orgUnitIds.isEmpty()) return java.util.Set.of();
         return userRoleOrgUnitRepository.findByOrgUnitIdIn(orgUnitIds).stream()
+                .filter(a -> a.getUser().getDeletedAt() == null && !a.getUser().isPausedAccount())
                 .map(a -> a.getUser().getId())
                 .collect(java.util.stream.Collectors.toCollection(java.util.LinkedHashSet::new));
     }
@@ -343,6 +344,7 @@ public class SubordinateAnalyticsService {
 
         List<UserRoleOrgUnit> assignments = userRoleOrgUnitRepository.findByOrgUnitIdIn(orgUnitIds);
         long count = assignments.stream()
+                .filter(a -> a.getUser().getDeletedAt() == null && !a.getUser().isPausedAccount())
                 .filter(a -> !permissionChecker.isGlobalAdmin(a.getUser().getId()))
                 .map(a -> a.getUser().getId())
                 .distinct()

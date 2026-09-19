@@ -79,7 +79,8 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
 
   const { data: members = [], isLoading: isMembersLoading } = useOrgUnitMembers(orgUnitId)
   const { data: roles = [] } = useRoles()
-  const { data: orgUsersData } = useOrganizationUsers(rootUnitId)
+  // Lấy cả tài khoản đã tạm dừng: bảng thành viên cần trạng thái để hiện công tắc bật/tắt.
+  const { data: orgUsersData } = useOrganizationUsers(rootUnitId, true)
   
   const orgUsers = orgUsersData?.content || []
 
@@ -160,7 +161,9 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
   // Filter users for selection (exclude existing members)
   const eligibleUsers = useMemo(() => {
     const memberUserIds = new Set(members.map(m => m.userId))
+    // Người đã tạm dừng / tạm khóa không được đưa vào đơn vị mới.
     return orgUsers.filter(u => 
+      u.status !== 'INACTIVE' && u.status !== 'SUSPENDED' &&
       !memberUserIds.has(u.id) && (
         u.fullName.toLowerCase().includes(searchQuery.toLowerCase()) || 
         u.email.toLowerCase().includes(searchQuery.toLowerCase())
