@@ -1,9 +1,6 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
-import {
-  Bot, Send, Loader2, SquarePen, Trash2,
-  MessageSquare, PanelLeftClose, PanelLeftOpen, Sparkles,
-  Clock, Database,
-} from 'lucide-react'
+import { Send, Loader2, MessageSquare, Sparkles, Database } from 'lucide-react'
+import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/authStore'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
@@ -23,19 +20,38 @@ import AnswerMarkdown from '../components/AnswerMarkdown'
 import { useStageProgress } from '../hooks/useStageProgress'
 import { useTypewriter } from '../hooks/useTypewriter'
 import { Button } from '@/components/ui/button'
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from '@/components/ui/tooltip'
+import { TooltipProvider } from '@/components/ui/tooltip'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Separator } from '@/components/ui/separator'
-import { Badge } from '@/components/ui/badge'
-import { formatDistanceToNow } from 'date-fns'
-import { vi } from 'date-fns/locale'
+import ConversationSidebar from '../components/ConversationSidebar'
 import { useTourScope } from '@/hooks/useTourScope'
 import { getApiErrorMessage } from '@/lib/apiError'
 
-function truncateWords(text: string, max = 15): string {
-  const words = text.trim().split(/\s+/)
-  return words.length <= max ? text : words.slice(0, max).join(' ') + '...'
+/** Tên gọi thân mật = từ cuối của họ tên ("Nguyễn Văn Minh" → "Minh"). */
+function givenName(fullName?: string | null): string {
+  const parts = (fullName || '').trim().split(/\s+/).filter(Boolean)
+  return parts[parts.length - 1] || 'bạn'
 }
+
+/**
+ * Toast tối có nút "Hoàn tác" cho các thao tác trên hội thoại. Không dùng toast xanh mặc định:
+ * đây không phải "thành công" cần chúc mừng mà là một thay đổi có thể lấy lại trong vài giây.
+ */
+function undoToast(message: string, onUndo: () => void) {
+  toast(message, {
+    duration: 6000,
+    action: { label: 'Hoàn tác', onClick: onUndo },
+    style: { background: 'var(--color-ai-toast, #151a2d)', color: '#fff', border: 0, fontWeight: 500 },
+    actionButtonStyle: { background: 'var(--color-ai-solid)', color: '#fff', fontWeight: 600, borderRadius: 8, padding: '0 12px', height: 32 },
+  })
+}
+
+/** Gợi ý mở đầu cho màn hình trống — câu ngắn, bấm là gửi luôn. */
+const STARTER_PROMPTS = [
+  'Xem tổng quan hiệu suất công ty',
+  'Ai đang có nguy cơ nghỉ việc?',
+  'Duyệt các chỉ tiêu đang chờ',
+  'Phòng ban nào cần can thiệp?',
+]
 
 interface Message {
   id: string
@@ -86,7 +102,6 @@ export default function AiAssistantPage() {
   const [loadingMessages, setLoadingMessages] = useState(false)
   const [collapsed, setCollapsed] = useState(false)
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(false)
-  const [deletingId, setDeletingId] = useState<string | null>(null)
 
   const [insights, setInsights] = useState<InsightCard[]>([])
   const [insightsLoading, setInsightsLoading] = useState(false)
@@ -201,17 +216,65 @@ export default function AiAssistantPage() {
     }
   }
 
-  const handleDelete = async (id: string, e: React.MouseEvent) => {
-    e.stopPropagation()
-    setDeletingId(id)
+  /**
+   * Xoá NGAY rồi cho hoàn tác trên toast, thay vì hỏi "bạn có chắc?": cuộc trò chuyện xoá nhầm
+   * lấy lại được (xoá mềm + endpoint restore), nên hộp xác nhận chỉ là một cú bấm thừa.
+   */
+  const handleDelete = async (conv: ConversationResponse) => {
+    const title = conv.title || 'Cuộc trò chuyện'
+    const wasActive = conversationId === conv.id
+    setConversations(prev => prev.filter(c => c.id !== conv.id))
+    if (wasActive) handleNewChat()
     try {
-      await aiApi.deleteConversation(id)
-      setConversations(prev => prev.filter(c => c.id !== id))
-      if (conversationId === id) handleNewChat()
-    } catch {
-      /* silent */
-    } finally {
-      setDeletingId(null)
+      await aiApi.deleteConversation(conv.id)
+    } catch (err) {
+      setConversations(prev => [conv, ...prev])
+      toast.error(getApiErrorMessage(err, 'Không xoá được cuộc trò chuyện'))
+      return
+    }
+    undoToast(`Đã xóa cuộc trò chuyện "${title}".`, async () => {
+      try {
+        const restored = await aiApi.restoreConversation(conv.id)
+        setConversations(prev => [restored, ...prev.filter(c => c.id !== restored.id)])
+        if (wasActive) handleSelectConversation(restored)
+      } catch (err) {
+        toast.error(getApiErrorMessage(err, 'Không khôi phục được cuộc trò chuyện'))
+      }
+    })
+  }
+
+  const handleRename = async (conv: ConversationResponse, title: string) => {
+    const previous = conv.title || ''
+    const apply = (next: ConversationResponse) =>
+      setConversations(prev => prev.map(c => (c.id === next.id ? next : c)))
+    apply({ ...conv, title })
+    try {
+      apply(await aiApi.updateConversation(conv.id, { title }))
+    } catch (err) {
+      apply(conv)
+      toast.error(getApiErrorMessage(err, 'Không đổi tên được'))
+      return
+    }
+    undoToast(`Đã đổi tên thành "${title}".`, async () => {
+      try { apply(await aiApi.updateConversation(conv.id, { title: previous || 'Cuộc trò chuyện' })) }
+      catch (err) { toast.error(getApiErrorMessage(err, 'Không hoàn tác được')) }
+    })
+  }
+
+  const handleTogglePin = async (conv: ConversationResponse) => {
+    const pinned = !conv.pinnedAt
+    try {
+      const next = await aiApi.updateConversation(conv.id, { pinned })
+      // Ghim lên đầu / bỏ ghim về đúng chỗ theo ngày — cùng thứ tự API trả, khỏi tải lại danh sách.
+      setConversations(prev => {
+        const rest = prev.filter(c => c.id !== next.id)
+        if (pinned) return [next, ...rest]
+        const idx = rest.findIndex(c => !c.pinnedAt && new Date(c.createdAt) < new Date(next.createdAt))
+        return idx === -1 ? [...rest, next] : [...rest.slice(0, idx), next, ...rest.slice(idx)]
+      })
+      toast.success(pinned ? 'Đã ghim cuộc trò chuyện.' : 'Đã bỏ ghim.')
+    } catch (err) {
+      toast.error(getApiErrorMessage(err, 'Không ghim được'))
     }
   }
 
@@ -363,6 +426,8 @@ export default function AiAssistantPage() {
   }
 
   const lastAssistantId = [...messages].reverse().find(m => m.role === 'assistant')?.id
+  // Màn hình trống = chưa có lượt hỏi nào; lời chào mặc định không tính.
+  const isFresh = !loadingMessages && !isLoading && messages.every(m => m.id === 'welcome')
 
   return (
     <TooltipProvider delayDuration={300}>
@@ -376,179 +441,20 @@ export default function AiAssistantPage() {
           />
         )}
 
-        {/* ═══ SIDEBAR ═══ */}
-        <aside className={cn(
-          'flex flex-col border-r border-[var(--color-border)] transition-all duration-300',
-'bg-[var(--color-muted)]',
-          'fixed inset-y-0 left-0 z-40 w-[272px] md:static md:z-auto md:shrink-0',
-          collapsed ? 'md:w-[60px]' : 'md:w-[272px]',
-          mobileSidebarOpen ? 'translate-x-0' : '-translate-x-full md:translate-x-0',
-        )}>
-          {/* Sidebar top bar */}
-          <div className={cn(
-            'flex items-center gap-2 p-3 shrink-0',
-            collapsed ? 'md:justify-center' : 'justify-between',
-          )}>
-            {!collapsed && (
-              <Button
-                onClick={handleNewChat}
-                size="sm"
-                className="flex-1 justify-start gap-2 text-xs h-9"
-              >
-                <SquarePen size={14} />
-                Cuộc trò chuyện mới
-              </Button>
-            )}
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="hidden md:flex h-9 w-9 shrink-0 text-[var(--color-muted-foreground)]"
-                  onClick={() => setCollapsed(v => !v)}
-                >
-                  {collapsed ? <PanelLeftOpen size={16} /> : <PanelLeftClose size={16} />}
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="right">{collapsed ? 'Mở rộng' : 'Thu gọn'}</TooltipContent>
-            </Tooltip>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="md:hidden h-9 w-9 shrink-0 text-[var(--color-muted-foreground)]"
-              onClick={() => setMobileSidebarOpen(false)}
-            >
-              <PanelLeftClose size={16} />
-            </Button>
-          </div>
-
-          {collapsed && (
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="mx-auto h-9 w-9 text-[var(--color-ai)]"
-                  onClick={handleNewChat}
-                >
-                  <SquarePen size={16} />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="right">Cuộc trò chuyện mới</TooltipContent>
-            </Tooltip>
-          )}
-
-          <Separator />
-
-          {/* Conversation list */}
-          {!collapsed && (
-            <ScrollArea className="flex-1">
-              <div className="p-2 space-y-0.5">
-                {loadingConversations ? (
-                  <div className="space-y-2 px-1 pt-1">
-                    {Array.from({ length: 6 }).map((_, i) => (
-                      <div key={i} className="animate-pulse h-14 rounded-card bg-[var(--color-muted)]" />
-                    ))}
-                  </div>
-                ) : conversations.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-12 text-center gap-3">
-                    <div className="flex h-12 w-12 items-center justify-center rounded-card border border-[var(--color-border)] bg-[var(--color-muted)]">
-                      <MessageSquare size={22} strokeWidth={1.75} className="text-[var(--color-muted-foreground)]" aria-hidden="true" />
-                    </div>
-                    <div>
-                      <p className="text-sm font-medium text-[var(--color-foreground)]">Chưa có cuộc trò chuyện</p>
-                      <p className="text-xs text-[var(--color-muted-foreground)] mt-1">Bắt đầu hỏi AI để tạo mới</p>
-                    </div>
-                  </div>
-                ) : (
-                  conversations.map(conv => {
-                    const isActive = conversationId === conv.id
-                    return (
-                      <button
-                        key={conv.id}
-                        onClick={() => handleSelectConversation(conv)}
-                        className={cn(
-                          'group relative w-full rounded-control px-2.5 py-2 text-left transition-colors',
-                          isActive
-                            ? 'bg-[var(--color-ai-soft)] text-[var(--color-foreground)]'
-                            : 'text-[var(--color-foreground)] hover:bg-[var(--color-muted)]',
-                        )}
-                      >
-                        <div className="flex items-start gap-2.5 pr-6">
-                          <div className={cn(
-                            'mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-control',
-                            isActive ? 'bg-[var(--color-card)] text-[var(--color-ai)]' : 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)]',
-                          )}>
-                            <MessageSquare size={13} />
-                          </div>
-                          <div className="min-w-0 flex-1">
-                            <p className={cn(
-                              'text-sm font-medium leading-tight text-[var(--color-foreground)]',
-                            )}>
-                              {truncateWords(conv.title || 'Cuộc trò chuyện', 6)}
-                            </p>
-                            <p className={cn(
-                              'mt-0.5 flex items-center gap-1 text-caption',
-                            )}>
-                              <Clock size={10} />
-                              {formatDistanceToNow(new Date(conv.createdAt), { addSuffix: true, locale: vi })}
-                            </p>
-                          </div>
-                        </div>
-
-                        <Tooltip>
-                          <TooltipTrigger asChild>
-                            <span
-                              role="button"
-                              onClick={e => handleDelete(conv.id, e)}
-                              className={cn(
-                                'absolute right-1.5 top-1/2 -translate-y-1/2 rounded-control p-1.5 text-[var(--color-muted-foreground)] opacity-0 transition-colors group-hover:opacity-100 focus-visible:opacity-100 hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]',
-                              )}
-                            >
-                              {deletingId === conv.id
-                                ? <Loader2 size={13} className="animate-spin" />
-                                : <Trash2 size={13} />
-                              }
-                            </span>
-                          </TooltipTrigger>
-                          <TooltipContent side="right">Xóa cuộc trò chuyện</TooltipContent>
-                        </Tooltip>
-                      </button>
-                    )
-                  })
-                )}
-              </div>
-            </ScrollArea>
-          )}
-
-          {/* Sidebar collapsed icons */}
-          {collapsed && (
-            <ScrollArea className="flex-1">
-              <div className="flex flex-col items-center gap-1 p-2">
-                {conversations.slice(0, 20).map(conv => (
-                  <Tooltip key={conv.id}>
-                    <TooltipTrigger asChild>
-                      <button
-                        onClick={() => handleSelectConversation(conv)}
-                        className={cn(
-                          'flex h-9 w-9 items-center justify-center rounded-control transition-colors',
-                          conversationId === conv.id
-                            ? 'bg-[var(--color-ai-soft)] text-[var(--color-ai)]'
-                            : 'text-[var(--color-muted-foreground)] hover:bg-[var(--color-muted)]',
-                        )}
-                      >
-                        <MessageSquare size={15} />
-                      </button>
-                    </TooltipTrigger>
-                    <TooltipContent side="right" className="max-w-[200px] truncate">
-                      {truncateWords(conv.title || 'Cuộc trò chuyện')}
-                    </TooltipContent>
-                  </Tooltip>
-                ))}
-              </div>
-            </ScrollArea>
-          )}
-        </aside>
+        <ConversationSidebar
+          conversations={conversations}
+          loading={loadingConversations}
+          activeId={conversationId}
+          collapsed={collapsed}
+          mobileOpen={mobileSidebarOpen}
+          onToggleCollapsed={() => setCollapsed(v => !v)}
+          onCloseMobile={() => setMobileSidebarOpen(false)}
+          onNew={handleNewChat}
+          onSelect={handleSelectConversation}
+          onRename={handleRename}
+          onTogglePin={handleTogglePin}
+          onDelete={handleDelete}
+        />
 
         {/* ═══ MAIN CHAT ═══ */}
         <div
@@ -566,41 +472,31 @@ export default function AiAssistantPage() {
           )}
 
           {/* Header */}
-          <header className="shrink-0 px-4 md:px-6 py-4 border-b border-[var(--color-border)] bg-[var(--color-background)]">
-            <div className="flex items-center justify-between max-w-3xl mx-auto">
-              <div className="flex items-center gap-3 min-w-0">
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="md:hidden h-9 w-9 shrink-0 text-[var(--color-muted-foreground)] -ml-1"
-                  onClick={() => setMobileSidebarOpen(true)}
-                >
-                  <MessageSquare size={18} />
-                </Button>
-                <div className="relative shrink-0">
-                  <div className="w-10 h-10 rounded-card bg-[var(--color-primary)] flex items-center justify-center">
-                    <Bot size={20} className="text-[var(--color-primary-foreground)]" />
-                  </div>
-                  <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-[var(--color-success-solid)] rounded-full border-2 border-white" />
+          <header className="shrink-0 border-b border-[var(--color-border)] bg-[var(--color-background)] px-4 py-3 md:px-6">
+            <div className="flex items-center gap-3">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="-ml-1 shrink-0 text-[var(--color-muted-foreground)] md:hidden"
+                onClick={() => setMobileSidebarOpen(true)}
+                aria-label="Mở danh sách hội thoại"
+              >
+                <MessageSquare aria-hidden="true" />
+              </Button>
+              <div className="relative shrink-0">
+                <div className="flex h-12 w-12 items-center justify-center rounded-card bg-[var(--color-ai-solid)] text-white">
+                  <Sparkles size={22} aria-hidden="true" />
                 </div>
-                <div>
-                  <h1 className="text-page-title leading-tight text-[var(--color-foreground)]">Trợ lý AI Analytics</h1>
-                  <p className="text-xs text-[var(--color-muted-foreground)]">Khai thác dữ liệu KPI bằng ngôn ngữ tự nhiên</p>
-                </div>
+                <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-[var(--color-background)] bg-[var(--color-success-solid)]" aria-hidden="true" />
               </div>
-              {conversationId && (
-                <Badge variant="secondary" className="hidden sm:flex gap-1.5 shrink-0">
-                  <div className="w-1.5 h-1.5 rounded-full bg-[var(--color-success-solid)]" />
-                  Đang trong cuộc trò chuyện
-                </Badge>
-              )}
+              <h1 className="text-page-title leading-tight text-[var(--color-foreground)]">Trợ lý K.AI</h1>
             </div>
           </header>
 
           {/* Messages */}
           <ScrollArea className="flex-1">
             <div className="px-4 md:px-6 py-6">
-              <div className="max-w-3xl mx-auto space-y-6">
+              <div className="mx-auto max-w-4xl space-y-6">
 
                 {loadingMessages ? (
                   <div className="space-y-5">
@@ -613,6 +509,28 @@ export default function AiAssistantPage() {
                         />
                       </div>
                     ))}
+                  </div>
+                ) : isFresh ? (
+                  <div className="flex min-h-[46vh] flex-col items-center justify-center px-2 text-center">
+                    <h2 className="text-balance text-[28px] font-semibold leading-tight text-[var(--color-ai)] sm:text-[34px]">
+                      Chào {givenName(user?.fullName)},<br />hôm nay bạn muốn làm gì?
+                    </h2>
+                    <p className="mt-4 max-w-md text-base text-[var(--color-muted-foreground)]">
+                      Hỏi Trợ lý K.AI bất cứ điều gì về hiệu suất, mục tiêu hay nhân sự của tổ chức — hoặc bắt đầu từ gợi ý bên dưới.
+                    </p>
+                    <div className="mt-6 flex flex-wrap justify-center gap-2.5">
+                      {STARTER_PROMPTS.map(q => (
+                        <button
+                          key={q}
+                          type="button"
+                          onClick={() => sendMessage(q)}
+                          disabled={isLoading || loadingMessages}
+                          className="rounded-full border border-[var(--color-border)] bg-[var(--color-card)] px-5 py-2.5 text-[15px] font-medium text-[var(--color-foreground)] shadow-sm transition-colors hover:border-[var(--color-ai-line)] hover:bg-[var(--color-ai-soft)] hover:text-[var(--color-ai)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ai-accent)] disabled:opacity-50"
+                        >
+                          {q}
+                        </button>
+                      ))}
+                    </div>
                   </div>
                 ) : (
                   messages.map(msg => (
@@ -691,7 +609,7 @@ export default function AiAssistantPage() {
 
                 {/* Proactive insight cards */}
                 {!loadingMessages && showInsights && (insightsLoading || insights.length > 0) && (
-                  <div className="max-w-[82%]">
+                  <div>
                     <InsightCards insights={insights} onSelectQuestion={handleSelectQuestion} selectedQuestion={selectedQuestion} loading={insightsLoading} />
                   </div>
                 )}
@@ -733,10 +651,22 @@ export default function AiAssistantPage() {
 
           {/* Input area */}
           <div className="shrink-0 px-4 md:px-6 py-3 border-t border-[var(--color-border)] bg-[var(--color-background)]">
-            <div className="max-w-3xl mx-auto">
+            <div className="mx-auto max-w-4xl">
               <PinnedChips sink={fileSink} />
               <AttachedChips sink={fileSink} />
-              <div className="flex items-center gap-2 rounded-card border border-[var(--color-border)] bg-[var(--color-card)] px-3 py-2 transition-colors focus-within:border-[var(--color-ai-accent)] focus-within:ring-2 focus-within:ring-[var(--color-ai-accent)]">
+              <div className="flex items-center gap-2 rounded-card border border-[var(--color-border)] bg-[var(--color-card)] py-2 pl-3 pr-2 shadow-sm transition-colors focus-within:border-[var(--color-ai-accent)] focus-within:ring-2 focus-within:ring-[var(--color-ai-accent)]">
+                <EvidenceAttachBar sink={fileSink} disabled={isLoading || loadingMessages} />
+                <textarea
+                  ref={textareaRef}
+                  value={input}
+                  onChange={handleInputChange}
+                  onKeyDown={handleKeyDown}
+                  placeholder={conversationId ? 'Tiếp tục cuộc trò chuyện…' : 'Hỏi về KPI, mục tiêu, hiệu suất phòng ban…'}
+                  disabled={loadingMessages}
+                  rows={1}
+                  className="no-edit-hint scrollbar-hide min-h-9 flex-1 resize-none bg-transparent py-1.5 text-base leading-6 placeholder:text-[var(--color-muted-foreground)] focus:outline-none disabled:opacity-50"
+                  style={{ maxHeight: '160px', overflowY: 'auto' }}
+                />
                 <MicButton
                   onText={text => {
                     setInput(text)
@@ -746,35 +676,20 @@ export default function AiAssistantPage() {
                   getBaseText={() => input}
                   disabled={isLoading || loadingMessages}
                 />
-                <EvidenceAttachBar sink={fileSink} disabled={isLoading || loadingMessages} />
-                <textarea
-                  ref={textareaRef}
-                  value={input}
-                  onChange={handleInputChange}
-                  onKeyDown={handleKeyDown}
-                  placeholder={conversationId ? 'Tiếp tục cuộc trò chuyện...' : 'Hỏi về KPI, hiệu suất, xu hướng...'}
-                  disabled={loadingMessages}
-                  rows={1}
-                  className="flex-1 bg-transparent text-sm leading-6 focus:outline-none resize-none placeholder:text-[var(--color-muted-foreground)] disabled:opacity-50 scrollbar-hide"
-                  style={{ maxHeight: '160px', overflowY: 'auto' }}
-                />
                 <Button
                   onClick={handleSend}
                   disabled={!input.trim() || isLoading || loadingMessages}
                   size="icon"
                   aria-label="Gửi"
-                  className="h-8 w-8 shrink-0 bg-[var(--color-ai-solid)] text-white hover:bg-[var(--color-ai)] hover:opacity-90"
+                  className="h-10 w-10 shrink-0 rounded-card bg-[var(--color-ai-solid)] text-white hover:bg-[var(--color-ai)] hover:opacity-90"
                 >
-                  {isLoading
-                    ? <Loader2 size={15} className="animate-spin" />
-                    : <Send size={15} />
-                  }
+                  {isLoading ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Send aria-hidden="true" />}
                 </Button>
               </div>
 
               <div className="flex items-center justify-between mt-1.5 px-1">
                 <div className="flex items-center gap-1.5 text-caption">
-                  <Database size={10} />
+                  <Database size={12} aria-hidden="true" />
                   Dữ liệu từ hệ thống KPI của tổ chức
                 </div>
                 <p className="text-caption">

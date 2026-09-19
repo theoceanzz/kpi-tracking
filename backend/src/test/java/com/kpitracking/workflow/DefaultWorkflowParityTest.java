@@ -85,16 +85,16 @@ class DefaultWorkflowParityTest {
     }
 
     @Test
-    @DisplayName("Bản nộp: duyệt lại bản ĐÃ DUYỆT vẫn được — đó là đường ghi đè có chủ ý, không phải sơ suất")
+    @DisplayName("Bản nộp: duyệt lại bản ĐÃ DUYỆT hoặc TỪ CHỐI vẫn được — đó là đường ghi đè có chủ ý, không phải sơ suất")
     void reviewSubmissionAllowsOverride() {
         Transition<SubmissionStatus> approve = def.submission().find(WorkflowAction.APPROVE_SUBMISSION).orElseThrow();
         assertThat(approve.from())
-                .containsExactlyInAnyOrder(SubmissionStatus.PENDING, SubmissionStatus.APPROVED);
+                .containsExactlyInAnyOrder(SubmissionStatus.PENDING, SubmissionStatus.APPROVED, SubmissionStatus.REJECTED);
         assertThat(approve.to()).isEqualTo(SubmissionStatus.APPROVED);
 
         Transition<SubmissionStatus> reject = def.submission().find(WorkflowAction.REJECT_SUBMISSION).orElseThrow();
         assertThat(reject.from())
-                .containsExactlyInAnyOrder(SubmissionStatus.PENDING, SubmissionStatus.APPROVED);
+                .containsExactlyInAnyOrder(SubmissionStatus.PENDING, SubmissionStatus.APPROVED, SubmissionStatus.REJECTED);
         assertThat(reject.to()).isEqualTo(SubmissionStatus.REJECTED);
     }
 

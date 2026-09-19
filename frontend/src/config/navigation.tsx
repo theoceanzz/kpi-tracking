@@ -215,6 +215,12 @@ export const navItems: NavItem[] = [
     matchPrefix: true,
     sections: [
       { id: 'my-kpi', label: 'KPI của tôi', icon: <ListChecks size={18} />, permission: 'KPI:VIEW_MY', legacyKeys: ['/my-kpi'], group: 'Công việc', description: 'Chỉ tiêu được giao và tiến độ hiện tại của bạn' },
+      // Hai mục "của tôi" cho OKR/BSC: cùng dữ liệu KPI của tôi nhưng xếp theo mục tiêu / hạng
+      // mục, để ai cũng thấy mình đang góp vào đâu và còn phải nộp gì. Ẩn khi tổ chức tắt module.
+      // Cùng quyền với KPI của tôi: trang dành cho người NHẬN KPI; giám đốc/ban lãnh đạo xem OKR/BSC
+      // toàn công ty ở Phân tích và Thiết lập công cụ, không cần mục này.
+      { id: 'my-okr', label: 'OKR của tôi', icon: <Target size={18} />, permission: 'KPI:VIEW_MY', okrOnly: true, group: 'Công việc', description: 'Mục tiêu, kết quả then chốt bạn đang góp vào và việc cần nộp' },
+      { id: 'my-bsc', label: 'BSC của tôi', icon: <LayoutGrid size={18} />, permission: 'KPI:VIEW_MY', bscOnly: true, group: 'Công việc', description: 'Bộ tiêu chí của đơn vị bạn theo đợt và KPI của bạn trong từng hạng mục' },
       { id: 'my-submissions', label: 'Báo cáo của tôi', icon: <FileText size={18} />, permission: 'SUBMISSION:VIEW_MY', legacyKeys: ['/submissions'], group: 'Công việc', description: 'Các bài nộp đã gửi và trạng thái duyệt' },
       { id: 'evaluations', label: 'Đánh giá của tôi', icon: <Star size={18} />, permission: 'EVALUATION:VIEW_MY', legacyKeys: ['/evaluations'], group: 'Công việc', description: 'Điểm và xếp loại bạn nhận được qua từng đợt' },
       { id: 'my-adjustments', label: 'Điều chỉnh của tôi', icon: <History size={18} />, permission: 'KPI:VIEW_MY', legacyKeys: ['/my-adjustments'], group: 'Công việc', description: 'Đề nghị sửa chỉ tiêu bạn đã gửi và kết quả xử lý' },

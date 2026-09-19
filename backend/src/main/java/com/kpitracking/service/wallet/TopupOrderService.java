@@ -47,6 +47,7 @@ public class TopupOrderService {
     private final OrganizationRepository organizationRepository;
     private final SepayQrBuilder qrBuilder;
     private final RewardContext context;
+    private final com.kpitracking.security.audit.SecurityAuditService securityAudit;
 
     @Transactional
     public TopupOrderResponse create(CreateTopupRequest request) {
@@ -95,6 +96,9 @@ public class TopupOrderService {
                 .build());
 
         log.info("Tạo đơn nạp {} cho user {} số tiền {}", code, me.getId(), amount);
+        securityAudit.record(com.kpitracking.security.audit.SecurityAuditEvent.WALLET_TRANSACTION,
+                com.kpitracking.security.audit.SecurityAuditService.OK,
+                "TOPUP_ORDER", order.getId().toString(), "Tạo đơn nạp " + code + ", amount=" + amount);
         return toResponse(order, org);
     }
 

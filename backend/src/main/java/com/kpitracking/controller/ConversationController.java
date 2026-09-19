@@ -1,6 +1,7 @@
 package com.kpitracking.controller;
 
 import com.kpitracking.dto.request.ai.CreateConversationRequest;
+import com.kpitracking.dto.request.ai.UpdateConversationRequest;
 import com.kpitracking.dto.response.ApiResponse;
 import com.kpitracking.dto.response.PageResponse;
 import com.kpitracking.dto.response.ai.ConversationResponse;
@@ -37,6 +38,20 @@ public class ConversationController {
             @RequestParam(defaultValue = "20") int size) {
         PageResponse<ConversationResponse> response = conversationService.getConversations(page, size);
         return ResponseEntity.ok(ApiResponse.success(response));
+    }
+
+    @PatchMapping("/{id}")
+    @Operation(summary = "Rename or pin/unpin a conversation")
+    public ResponseEntity<ApiResponse<ConversationResponse>> updateConversation(
+            @PathVariable UUID id,
+            @RequestBody UpdateConversationRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(conversationService.updateConversation(id, request)));
+    }
+
+    @PostMapping("/{id}/restore")
+    @Operation(summary = "Restore a soft-deleted conversation (undo)")
+    public ResponseEntity<ApiResponse<ConversationResponse>> restoreConversation(@PathVariable UUID id) {
+        return ResponseEntity.ok(ApiResponse.success(conversationService.restoreConversation(id)));
     }
 
     @DeleteMapping("/{id}")

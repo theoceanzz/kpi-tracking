@@ -7,6 +7,8 @@ import { useCreateEvaluation } from '../hooks/useCreateEvaluation'
 import { useKpiPeriods } from '@/features/kpi/hooks/useKpiPeriods'
 import { useMyKpi } from '@/features/kpi/hooks/useMyKpi'
 import { useAuthStore } from '@/store/authStore'
+import EvidenceAttachments from '@/features/evidence/EvidenceAttachments'
+import { evidenceKey } from '@/features/evidence/evidenceApi'
 import { useFormAssistStore } from '@/store/formAssistStore'
 import { MicButton } from '@/components/common/MicButton'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
@@ -136,6 +138,7 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
 
   // Kỳ đang chấm CHÍNH THỨC bằng BSC ⇒ điểm bị KHÓA theo bsc_score (backend cũng ép, không chỉ khóa UI).
   const isBscOfficial = bscMode === 'OFFICIAL' && bscScore != null
+  const selectedPeriodIdForEvidence = watch('kpiPeriodId')
   const scoreLocked = readOnly || isBscOfficial
 
   // Chép lại đúng điều kiện vẽ/khoá bên dưới: readOnly = modal đang dùng làm bản xem lại nên
@@ -269,6 +272,12 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
                  bscUnassigned={bscUnassigned}
                  readOnly={readOnly}
                />
+             )}
+
+             {/* Minh chứng tự đánh giá: cùng khoá (đợt, người) với lượt chấm của quản lý, nên quản lý mở
+                 bảng chấm đợt là thấy ngay tệp nhân viên gửi kèm. */}
+             {selectedPeriodIdForEvidence && user?.id && (
+               <EvidenceAttachments target={evidenceKey.period(selectedPeriodIdForEvidence, user.id)} readOnly={readOnly} title="Minh chứng của bạn" />
              )}
 
              {/* Visual Score Picker */}

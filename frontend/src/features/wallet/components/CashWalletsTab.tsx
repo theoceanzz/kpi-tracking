@@ -184,7 +184,7 @@ export default function CashWalletsTab() {
           }}
           disabled={onlyInconsistent}
         >
-          <SelectTrigger className="w-full rounded-card border border-[var(--color-border)] bg-[var(--color-background)] px-4 py-2.5 text-sm disabled:opacity-50 sm:w-56">
+          <SelectTrigger className="w-full rounded-card border border-[var(--color-border)] bg-[var(--color-background)] px-4 py-2.5 text-sm disabled:opacity-50 sm:w-auto sm:min-w-56">
             <SelectValue placeholder="Chọn đơn vị" />
           </SelectTrigger>
           <SelectContent>

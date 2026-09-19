@@ -3,7 +3,7 @@ import { Client } from '@stomp/stompjs'
 import { useQueryClient } from '@tanstack/react-query'
 import { useAuthStore } from '@/store/authStore'
 import type { Notification } from '@/types/notification'
-import type { PageResponse } from '@/types/api'
+import type { CursorPageResponse } from '@/types/api'
 
 /**
  * Dữ liệu cần tải lại khi một thông báo loại tương ứng về tới.
@@ -86,15 +86,11 @@ export function useWebSocketNotifications() {
           const notification: Notification = JSON.parse(frame.body)
 
           // Prepend to all paginated notification caches
-          qc.setQueriesData<PageResponse<Notification>>(
-            { queryKey: ['notifications'] },
+          qc.setQueriesData<CursorPageResponse<Notification>>(
+            { queryKey: ['notifications', 'list'] },
             (old) => {
               if (!old || typeof old !== 'object' || !('content' in old)) return old
-              return {
-                ...old,
-                content: [notification, ...old.content],
-                totalElements: old.totalElements + 1,
-              }
+              return { ...old, content: [notification, ...old.content] }
             }
           )
 

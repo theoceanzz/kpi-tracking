@@ -323,7 +323,7 @@ export default function RegisterPage() {
               {...register('password')} 
               // Thay đổi type linh hoạt
               type={showPassword ? 'text' : 'password'} 
-              className={inputCls + " pr-20"} // Tăng padding bên phải để chứa 2 nút
+              className={inputCls + " pr-20 no-edit-hint"} // Tăng padding bên phải để chứa 2 nút
               placeholder="Bảo mật tối thiểu 8 ký tự" 
              />
              

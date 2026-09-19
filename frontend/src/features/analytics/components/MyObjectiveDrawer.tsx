@@ -149,7 +149,7 @@ export default function MyObjectiveDrawer({ kpiId, onClose, globalFrom, globalTo
                 <SelectTrigger className="border-none shadow-none focus:ring-0 bg-transparent h-8 text-slate-700 dark:text-slate-300 font-medium px-2 w-auto">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="w-[var(--radix-select-trigger-width)] min-w-[220px]">
+                <SelectContent className="min-w-[220px]">
                   <SelectItem value="GLOBAL">Theo bộ lọc tổng quan mục tiêu</SelectItem>
                   <SelectItem value="THIS_WEEK">Tuần này</SelectItem>
                   <SelectItem value="THIS_MONTH">Tháng này</SelectItem>

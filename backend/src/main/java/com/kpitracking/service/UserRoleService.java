@@ -14,6 +14,9 @@ import com.kpitracking.repository.OrgUnitRepository;
 import com.kpitracking.repository.RoleRepository;
 import com.kpitracking.repository.UserRepository;
 import com.kpitracking.repository.UserRoleOrgUnitRepository;
+import com.kpitracking.security.PermissionChecker;
+import com.kpitracking.security.audit.SecurityAuditEvent;
+import com.kpitracking.security.audit.SecurityAuditService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -31,6 +34,25 @@ public class UserRoleService {
     private final RoleRepository roleRepository;
     private final OrgUnitRepository orgUnitRepository;
     private final UserRoleOrgUnitMapper mapper;
+    private final PermissionChecker permissionChecker;
+    private final SecurityAuditService securityAudit;
+
+    /**
+     * {@code @PreAuthorize("hasAuthority('ROLE:ASSIGN')")} ở controller chỉ nói "người này có quyền
+     * gán vai trò Ở ĐÂU ĐÓ". orgUnitId đến từ body/path nên phải kiểm lại: quyền đó phải có hiệu
+     * lực ở chính đơn vị đích (theo thừa kế cây hoặc uỷ quyền), nếu không trưởng phòng của công
+     * ty A gán được vai trò trong công ty B.
+     */
+    private User requireAssignScope(UUID orgUnitId) {
+        User me = getCurrentUser();
+        if (!permissionChecker.hasPermissionInOrgUnit(me.getId(), "ROLE:ASSIGN", orgUnitId)
+                && !permissionChecker.isGlobalAdminIn(me.getId(), orgUnitId)) {
+            securityAudit.record(SecurityAuditEvent.ACCESS_DENIED, SecurityAuditService.BLOCKED,
+                    "ORG_UNIT", String.valueOf(orgUnitId), "Gán/gỡ vai trò ngoài phạm vi quản lý");
+            throw new com.kpitracking.exception.ForbiddenException("Bạn không có quyền gán vai trò trong đơn vị này");
+        }
+        return me;
+    }
 
     private User getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -40,6 +62,7 @@ public class UserRoleService {
 
     @Transactional
     public UserRoleOrgUnitResponse assignRole(AssignRoleRequest request) {
+        requireAssignScope(request.getOrgUnitId());
         User user = userRepository.findById(request.getUserId())
                 .orElseThrow(() -> new ResourceNotFoundException("User", "id", request.getUserId()));
         Role role = roleRepository.findById(request.getRoleId())
@@ -71,11 +94,15 @@ public class UserRoleService {
                 .build();
 
     assignment = userRoleOrgUnitRepository.save(assignment);
+        securityAudit.record(SecurityAuditEvent.ROLE_ASSIGNED, SecurityAuditService.OK,
+                "USER", user.getId().toString(),
+                "Gán vai trò " + role.getName() + " tại đơn vị " + orgUnit.getName());
         return mapper.toResponse(assignment);
     }
 
     @Transactional
     public List<UserRoleOrgUnitResponse> bulkAssignRole(BulkAssignRoleRequest request) {
+        requireAssignScope(request.getOrgUnitId());
         Role role = roleRepository.findById(request.getRoleId())
                 .orElseThrow(() -> new ResourceNotFoundException("Role", "id", request.getRoleId()));
         OrgUnit orgUnit = orgUnitRepository.findById(request.getOrgUnitId())
@@ -119,20 +146,29 @@ public class UserRoleService {
 
     @Transactional
     public void revokeRole(UUID userId, UUID roleId, UUID orgUnitId) {
+        requireAssignScope(orgUnitId);
         if (!userRoleOrgUnitRepository.existsByUserIdAndRoleIdAndOrgUnitId(userId, roleId, orgUnitId)) {
             throw new ResourceNotFoundException("Không tìm thấy thông tin phân quyền của người dùng");
         }
         userRoleOrgUnitRepository.deleteByUserIdAndRoleIdAndOrgUnitId(userId, roleId, orgUnitId);
+        securityAudit.record(SecurityAuditEvent.ROLE_ASSIGNED, SecurityAuditService.OK,
+                "USER", userId.toString(), "Thu hồi vai trò " + roleId + " tại đơn vị " + orgUnitId);
     }
 
     @Transactional
     public void removeBulkUsersFromOrgUnit(List<UUID> userIds, UUID orgUnitId) {
+        requireAssignScope(orgUnitId);
         userRoleOrgUnitRepository.deleteByUserIdInAndOrgUnitId(userIds, orgUnitId);
+        securityAudit.record(SecurityAuditEvent.ROLE_ASSIGNED, SecurityAuditService.OK,
+                "ORG_UNIT", orgUnitId.toString(), "Gỡ " + userIds.size() + " người khỏi đơn vị");
     }
 
     @Transactional
     public void removeAllUsersFromOrgUnit(UUID orgUnitId) {
+        requireAssignScope(orgUnitId);
         userRoleOrgUnitRepository.deleteByOrgUnitId(orgUnitId);
+        securityAudit.record(SecurityAuditEvent.ROLE_ASSIGNED, SecurityAuditService.OK,
+                "ORG_UNIT", orgUnitId.toString(), "Gỡ toàn bộ người khỏi đơn vị");
     }
 
     @Transactional(readOnly = true)

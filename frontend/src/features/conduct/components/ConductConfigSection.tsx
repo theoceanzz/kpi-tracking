@@ -344,7 +344,7 @@ function SetCard({
     )}>
       {/* ── Dòng tiêu đề: đóng thì là bản tóm tắt, mở thì là thanh công cụ của bộ ── */}
       <div className="flex items-center gap-2 p-2.5 max-sm:flex-wrap">
-        <Button variant="secondary" className="shrink-0" type="button" onClick={onToggle} aria-expanded={isOpen} aria-label={isOpen ? `Thu gọn bộ ${d.name}` : `Mở bộ ${d.name}`}>
+        <Button variant="ghost" size="icon-sm" className="shrink-0" type="button" onClick={onToggle} aria-expanded={isOpen} aria-label={isOpen ? `Thu gọn bộ ${d.name}` : `Mở bộ ${d.name}`}>
           {isOpen ? <ChevronDown aria-hidden="true" /> : <ChevronRight aria-hidden="true" />}
         </Button>
 

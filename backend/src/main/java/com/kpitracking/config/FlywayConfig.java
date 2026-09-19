@@ -1,11 +1,19 @@
 package com.kpitracking.config;
 
-import org.flywaydb.core.api.exception.FlywayValidateException;
+import org.flywaydb.core.api.ErrorCode;
+import org.flywaydb.core.api.output.ValidateOutput;
+import org.flywaydb.core.api.output.ValidateResult;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.flyway.FlywayMigrationStrategy;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+
+import java.util.EnumSet;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Configuration
 public class FlywayConfig {
@@ -13,51 +21,58 @@ public class FlywayConfig {
     private static final Logger log = LoggerFactory.getLogger(FlywayConfig.class);
 
     /**
-     * Chạy migration; chỉ dọn sạch schema khi lịch sử migration thực sự hỏng.
-     *
-     * <p><b>Cái bẫy đã sập một lần.</b> Bản trước gọi {@code flyway.validate()} rồi bắt MỌI ngoại
-     * lệ để {@code clean()}. Nhưng {@code validate()} coi "có migration chưa chạy" là một lỗi xác
-     * thực — nghĩa là chỉ cần thêm một file {@code V…__*.sql} mới là lần khởi động kế tiếp XOÁ
-     * TRẮNG cơ sở dữ liệu rồi gieo lại từ đầu. Không phải giả thuyết: đúng chuyện đó đã xảy ra khi
-     * thêm {@code V3__dashboard_layout_scope.sql}.
-     *
-     * <p><b>Vì sao gọi thẳng {@code migrate()}.</b> {@code migrate()} bỏ qua migration đang chờ
-     * (đó là việc của nó) nhưng vẫn tự xác thực các migration ĐÃ ÁP, và ném
-     * {@link FlywayValidateException} nếu chúng lệch với mã nguồn (sai checksum, mất file). Nhờ vậy
-     * phân biệt được hai chuyện vốn bị gộp làm một:
-     *
+     * Xử lý khi Flyway validate lỗi (checksum của file đã chạy bị đổi, hoặc file bị xoá):
      * <ul>
-     *   <li>thêm migration mới → chạy tiếp, không đụng dữ liệu;
-     *   <li>lịch sử migration hỏng → mới dọn và dựng lại.
+     *   <li>{@code fail} — dừng app và báo rõ. Mặc định cho dev từ khi V1/V2 đóng băng (2026-09-15):
+     *       migration đã chạy thì không được sửa; muốn đổi schema thì thêm V{n} mới. Làm lại DB local
+     *       khi cố ý: {@code ./mvnw flyway:clean flyway:migrate}.</li>
+     *   <li>{@code repair} — sửa checksum trong {@code flyway_schema_history} rồi migrate tiếp. Prod dùng:
+     *       V1/V2 trên prod được ghi với checksum cũ (trước khi đóng băng), cần repair đúng một lần.</li>
+     *   <li>{@code clean} — xoá sạch DB rồi chạy lại từ V1. Hành vi dev cũ; chỉ bật tay khi cố ý và
+     *       không bao giờ ở prod ({@code spring.flyway.clean-disabled=true} chặn thêm một lớp).</li>
      * </ul>
-     *
-     * <p>Ngoại lệ do LỖI SQL trong chính migration thì cố ý để nó nổ ra và chặn ứng dụng khởi
-     * động: xoá sạch dữ liệu vì một câu SQL viết sai là cái giá không tương xứng, mà dọn xong chạy
-     * lại cũng vẫn hỏng ở đúng chỗ đó.
-     *
-     * <p>Việc tự {@code clean()} chỉ còn ở môi trường phát triển. Production đặt
-     * {@code spring.flyway.clean-disabled=true}: gặp lịch sử hỏng thì ứng dụng DỪNG khởi động và
-     * một người phải vào xem — xoá trắng dữ liệu khách hàng để "cho chạy được" không bao giờ là
-     * đáp án đúng. Hai nhánh dưới đây phải nói rõ mình đang ở nhánh nào, không thì log ở production
-     * hứa "dựng lại từ đầu" rồi lại ném ngoại lệ.
      */
+    @Value("${app.flyway.on-validation-error:fail}")
+    private String onValidationError;
+
+    /** Mã lỗi "có file mà DB chưa chạy" — không phải lỗi, migrate() sẽ áp ngay sau. */
+    private static final Set<ErrorCode> PENDING_CODES = EnumSet.of(
+            ErrorCode.RESOLVED_VERSIONED_MIGRATION_NOT_APPLIED,
+            ErrorCode.RESOLVED_REPEATABLE_MIGRATION_NOT_APPLIED);
+
     @Bean
     public FlywayMigrationStrategy flywayMigrationStrategy() {
         return flyway -> {
-            try {
-                flyway.migrate();
-            } catch (FlywayValidateException e) {
-                if (flyway.getConfiguration().isCleanDisabled()) {
-                    log.error("Lịch sử migration không khớp với mã nguồn ({}). Tự dọn schema đã bị TẮT ở môi trường này "
-                            + "— cần người xử lý tay (flyway repair, hoặc khôi phục từ bản sao lưu). Ứng dụng sẽ không khởi động.",
-                            e.getMessage());
-                    throw e;
+            // validate() coi migration MỚI CHƯA CHẠY (pending) cũng là lỗi — mà thêm V{n} mới chính
+            // là cách duy nhất để đổi schema, nên phải lọc riêng: pending là việc của migrate() ngay
+            // bên dưới; chỉ checksum lệch / file đã chạy bị xoá mới là lỗi thật.
+            ValidateResult result = flyway.validateWithResult();
+            List<ValidateOutput> real = result.invalidMigrations == null ? List.of()
+                    : result.invalidMigrations.stream()
+                        .filter(m -> m.errorDetails == null || !PENDING_CODES.contains(m.errorDetails.errorCode))
+                        .toList();
+            if (!real.isEmpty()) {
+                String detail = real.stream()
+                        .map(m -> m.version + " " + m.description + ": "
+                                + (m.errorDetails != null ? m.errorDetails.errorMessage : "?"))
+                        .collect(Collectors.joining("; "));
+                switch (onValidationError.toLowerCase()) {
+                    case "repair" -> {
+                        log.warn("Flyway validate lỗi: {} -> repair() rồi migrate, KHÔNG clean.", detail);
+                        flyway.repair();
+                    }
+                    case "clean" -> {
+                        log.warn("Flyway validate lỗi: {} -> CLEAN toàn bộ DB rồi chạy lại (app.flyway.on-validation-error=clean).",
+                                detail);
+                        flyway.clean();
+                    }
+                    default -> throw new IllegalStateException(
+                            "Flyway validate lỗi: " + detail
+                            + " — migration đã chạy không được sửa; thêm file V{n} mới. Làm lại DB local: "
+                            + "./mvnw flyway:clean flyway:migrate. (app.flyway.on-validation-error=fail)");
                 }
-                log.warn("Lịch sử migration không khớp với mã nguồn ({}). Dọn sạch schema và dựng lại từ đầu — TOÀN BỘ DỮ LIỆU SẼ MẤT.",
-                        e.getMessage());
-                flyway.clean();
-                flyway.migrate();
             }
+            flyway.migrate();
         };
     }
 }

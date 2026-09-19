@@ -4,6 +4,8 @@ import { useNotificationDots } from '@/hooks/useNotificationDots'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { useAuthStore } from '@/store/authStore'
 import MyKpiPage from '@/features/kpi/pages/MyKpiPage'
+import MyOkrPage from '@/features/okr/pages/MyOkrPage'
+import MyBscPage from '@/features/bsc/pages/MyBscPage'
 import MyAdjustmentsPage from '@/features/kpi/pages/MyAdjustmentsPage'
 import MySubmissionsPage from '@/features/submissions/pages/MySubmissionsPage'
 import EvaluationsPage from '@/features/evaluations/pages/EvaluationsPage'
@@ -39,6 +41,8 @@ export default function MySpacePage() {
             badge: counts.myPendingTasks || null,
             render: () => <MyKpiPage />,
           },
+          { id: 'my-okr', visible: org?.enableOkr ?? false, render: () => <MyOkrPage /> },
+          { id: 'my-bsc', visible: org?.enableBsc ?? false, render: () => <MyBscPage /> },
           {
             id: 'my-submissions',
             badge: counts.myRejectedSubmissions || null,

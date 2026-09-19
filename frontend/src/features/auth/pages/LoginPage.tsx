@@ -174,7 +174,7 @@ export default function LoginPage() {
               // 4. Thay đổi type dựa trên state
               type={showPassword ? 'text' : 'password'}
               placeholder="••••••••"
-              className={inputCls}
+              className={inputCls + ' no-edit-hint'}
             />
 
             {/* 5. Nút bấm ẩn/hiện */}

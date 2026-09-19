@@ -363,7 +363,7 @@ export default function NewSubmissionPage() {
                     inputMode="decimal"
                   onWheel={(e) => e.currentTarget.blur()}
                     aria-invalid={!!errors.actualValue}
-                    className={cn(inputCls, 'h-11 text-lg font-medium tabular-nums', selectedKpi?.unit && 'pr-16')}
+                    className={cn(inputCls, 'h-11 text-lg font-medium tabular-nums', selectedKpi?.unit && 'pr-16 no-edit-hint')}
                     placeholder="0"
                 />
                   {selectedKpi?.unit && <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-caption">{selectedKpi.unit}</span>}

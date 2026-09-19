@@ -685,7 +685,7 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
             ) : (
               <Popover>
                 <PopoverTrigger asChild>
-                  <Button variant="outline" className="w-full" type="button">
+                  <Button variant="outline" className="w-full justify-between font-normal" type="button">
                     <span className={cn('truncate text-left', periodIds.length === 0 && 'text-[var(--color-subtle-foreground)]')}>{periodTriggerLabel}</span>
                     <ChevronDown aria-hidden="true" className="opacity-50 shrink-0" />
                   </Button>
@@ -741,7 +741,7 @@ export default function ScorecardFormModal({ isOpen, onClose, organizationId, sc
             <label className="text-label">Phạm vi áp dụng (phòng ban)</label>
             <Popover>
               <PopoverTrigger asChild disabled={!!scorecard}>
-                <Button variant="outline" className="w-full" type="button" disabled={!!scorecard}>
+                <Button variant="outline" className="w-full justify-between font-normal" type="button" disabled={!!scorecard}>
                   <span className="truncate text-left">
                     {scopes.length === 0 ? 'Chưa chọn đơn vị'
                       : scopes.length === 1 ? scopeLabel(scopes[0]!)

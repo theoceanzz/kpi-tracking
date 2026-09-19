@@ -5,6 +5,15 @@ export interface ApiResponse<T> {
   data: T
 }
 
+// Matches BE: CursorPageResponse<T> — keyset pagination cho bảng ghi liên tục (thông báo...).
+// Không có totalElements/totalPages: gửi lại nextCursor để lấy trang kế, null = hết.
+export interface CursorPageResponse<T> {
+  content: T[]
+  size: number
+  nextCursor: string | null
+  hasMore: boolean
+}
+
 // Matches BE: PageResponse<T>
 export interface PageResponse<T> {
   content: T[]

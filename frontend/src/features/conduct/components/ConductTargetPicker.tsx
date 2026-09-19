@@ -72,7 +72,7 @@ export default function ConductTargetPicker({
 
       {value.scope === 'PERIOD' ? (
         <Select value={value.periodId ?? ''} onValueChange={v => onChange({ scope: 'PERIOD', periodId: v, cycleId: null })}>
-          <SelectTrigger className="w-[280px] h-10">
+          <SelectTrigger className="w-auto min-w-[280px] h-10">
             <SelectValue placeholder="Chọn đợt đánh giá" />
           </SelectTrigger>
           <SelectContent className="z-[1100]">
@@ -85,7 +85,7 @@ export default function ConductTargetPicker({
         </Select>
       ) : (
         <Select value={value.cycleId ?? ''} onValueChange={v => onChange({ scope: 'CYCLE', cycleId: v, periodId: null })}>
-          <SelectTrigger className="w-[280px] h-10">
+          <SelectTrigger className="w-auto min-w-[280px] h-10">
             <SelectValue placeholder="Chọn kỳ đánh giá" />
           </SelectTrigger>
           <SelectContent className="z-[1100]">

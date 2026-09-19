@@ -262,8 +262,9 @@ public class TopupReceiptService {
                 .orElseThrow(() -> new ResourceNotFoundException("Biên nhận thu tiền", "đơn nạp", orderId));
 
         User me = context.getCurrentUser();
+        UUID receiptOrgId = r.getOrganization() != null ? r.getOrganization().getId() : null;
         if (!r.getUser().getId().equals(me.getId())
-                && !permissionChecker.hasPermission(me.getId(), "WALLET:VIEW")) {
+                && !permissionChecker.hasPermissionInOrganization(me.getId(), "WALLET:VIEW", receiptOrgId)) {
             throw new ForbiddenException("Bạn không có quyền xem biên nhận của người khác.");
         }
         return toResponse(r);

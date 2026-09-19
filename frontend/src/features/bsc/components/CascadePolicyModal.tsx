@@ -275,7 +275,7 @@ export default function CascadePolicyModal({ open, onClose, organizationId }: Ca
                 hint="Tick nhiều đợt để dùng chung một chính sách. Cần áp dụng cho cả kỳ thì chuyển sang &quot;Kỳ&quot;.">
                 <Popover>
                   <PopoverTrigger asChild>
-                    <Button variant="outline" className="w-full" type="button">
+                    <Button variant="outline" className="w-full justify-between font-normal" type="button">
                       <span className={cn('truncate text-left', periodIds.length === 0 && 'text-[var(--color-subtle-foreground)]')}>
                         {periodTriggerLabel}
                       </span>
@@ -336,7 +336,7 @@ export default function CascadePolicyModal({ open, onClose, organizationId }: Ca
               hint="Chỉ cảnh báo = hiện cảnh báo ở màn diễn giải điểm. Chặn = KHÔNG chốt được đánh giá của người chưa đủ tỉ lệ này, và chỉ chặn khi bộ tiêu chí đã chuyển sang chấm chính thức. Bật Chặn ngay kỳ đầu sẽ làm kẹt hàng loạt nhân viên chưa kịp gắn KPI vào BSC.">
               <Select value={form.linkedWeightEnforce}
                 onValueChange={v => patch({ linkedWeightEnforce: v as BscLinkedWeightEnforce })}>
-                <SelectTrigger className="w-full sm:w-64"><SelectValue /></SelectTrigger>
+                <SelectTrigger className="w-full sm:w-auto sm:min-w-64"><SelectValue /></SelectTrigger>
                 <SelectContent className="z-[1100]">
                   <SelectItem value={BscLinkedWeightEnforce.WARN}>Chỉ cảnh báo</SelectItem>
                   <SelectItem value={BscLinkedWeightEnforce.BLOCK}>Chặn không cho chốt</SelectItem>

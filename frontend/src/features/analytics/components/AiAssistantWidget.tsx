@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect, useCallback } from 'react'
+import { createPortal } from 'react-dom'
 import { Bot, Send, X, Loader2, Minimize2, Maximize2, Expand, SquarePen } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/authStore'
@@ -340,8 +341,11 @@ export default function AiAssistantWidget() {
   // ném "Rendered fewer hooks than expected", làm sập cả cây component.
   if (!hasMembership || org?.enableAi === false) return null
 
+  // Portal ra body: AppLayout là khung `position: fixed` nên tự tạo stacking context, z-[1200] ở
+  // trong đó vẫn nằm DƯỚI Dialog/Drawer (portal ở body, z-[1000]) — mở modal là nút K.AI bị phủ,
+  // bấm không ăn. Ra body thì z-index so trực tiếp với modal và K.AI đứng trên.
   if (!isOpen) {
-    return (
+    return createPortal(
       <button
         onClick={() => setIsOpen(true)}
         aria-label="Mở K.AI"
@@ -351,11 +355,12 @@ export default function AiAssistantWidget() {
         <span className="pointer-events-none absolute right-full mr-3 whitespace-nowrap rounded-control bg-[var(--color-foreground)] px-2.5 py-1.5 text-xs font-medium text-[var(--color-background)] opacity-0 transition-opacity group-hover:opacity-100">
           K.AI
         </span>
-      </button>
+      </button>,
+      document.body,
     )
   }
 
-  return (
+  return createPortal(
     <div
       {...dropProps()}
       className={cn(
@@ -556,7 +561,7 @@ export default function AiAssistantWidget() {
                 onChange={e => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Nhập câu hỏi..."
-                className="scrollbar-hide w-full resize-none rounded-control border border-[var(--color-input)] bg-[var(--color-card)] px-3 py-2 pr-24 text-sm leading-6 text-[var(--color-foreground)] transition-colors placeholder:text-[var(--color-muted-foreground)] focus:border-[var(--color-ai-accent)] focus:outline-none focus:ring-2 focus:ring-[var(--color-ai-accent)]"
+                className="no-edit-hint scrollbar-hide w-full resize-none rounded-control border border-[var(--color-input)] bg-[var(--color-card)] px-3 py-2 pr-24 text-sm leading-6 text-[var(--color-foreground)] transition-colors placeholder:text-[var(--color-muted-foreground)] focus:border-[var(--color-ai-accent)] focus:outline-none focus:ring-2 focus:ring-[var(--color-ai-accent)]"
                 rows={1}
                 style={{ minHeight: '44px', maxHeight: '120px' }}
               />
@@ -580,6 +585,7 @@ export default function AiAssistantWidget() {
           </div>
         </>
       )}
-    </div>
+    </div>,
+    document.body,
   )
 }

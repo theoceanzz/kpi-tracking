@@ -623,7 +623,7 @@ export default function KpiApprovalPage() {
         ) : undefined}
       >
         <Select value={selectedPeriodId} onValueChange={(v) => { setSelectedPeriodId(v); setPage(0); resetGroups() }}>
-          <SelectTrigger className="w-full sm:w-52" aria-label="Đợt đánh giá"><SelectValue placeholder="Đợt đánh giá" /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-auto sm:min-w-52" aria-label="Đợt đánh giá"><SelectValue placeholder="Đợt đánh giá" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="ALL">Tất cả các đợt</SelectItem>
             {periodsData?.content.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
@@ -631,7 +631,7 @@ export default function KpiApprovalPage() {
         </Select>
 
         <Select value={`${sortBy}-${sortDir}`} onValueChange={(v) => { const [field, dir] = v.split('-'); if (field && dir) { setSortBy(field); setSortDir(dir as 'asc' | 'desc'); setPage(0) } }}>
-          <SelectTrigger className="w-full sm:w-44" aria-label="Sắp xếp"><SelectValue placeholder="Sắp xếp" /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-auto sm:min-w-44" aria-label="Sắp xếp"><SelectValue placeholder="Sắp xếp" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="updatedAt-desc">Mới cập nhật trước</SelectItem>
             <SelectItem value="updatedAt-asc">Cũ nhất trước</SelectItem>

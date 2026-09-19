@@ -15,6 +15,8 @@ import {
 } from 'lucide-react'
 import { Dialog, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
+import EvidenceAttachments from '@/features/evidence/EvidenceAttachments'
+import { evidenceKey } from '@/features/evidence/evidenceApi'
 import { Badge } from '@/components/ui/badge'
 
 import { useAuthStore } from '@/store/authStore'
@@ -24,6 +26,7 @@ import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { getScoringFunctions, SCORING_POOL } from '@/lib/scoring'
 import EvaluationFormModal from '@/features/evaluations/components/EvaluationFormModal'
 import RewardPrompt from '@/features/rewards/components/RewardPrompt'
+import { useCanPromptReward } from '@/features/rewards/hooks/useCanPromptReward'
 import ConductInlineSheet, { type ConductSheetHandle } from '@/features/conduct/components/ConductInlineSheet'
 
 interface StaffEvaluationModalProps {
@@ -76,6 +79,7 @@ export default function StaffEvaluationModal({
   const orgId = user?.memberships?.[0]?.organizationId
   const { data: org } = useOrganization(orgId)
   const { getScoreLabel, maxScore } = getScoringFunctions(org)
+  const canPromptReward = useCanPromptReward()
   const qualitativeLevels = [...(org?.qualitativeLevels ?? [])].sort((a, b) => a.position - b.position)
   const userRoleName = user?.memberships?.[0]?.roleName || 'Quản lý'
   const qc = useQueryClient()
@@ -323,10 +327,12 @@ export default function StaffEvaluationModal({
         setShowAllApproved(true)
       } else {
         // Chốt xong mới mời thưởng, ngay tại đây — đây là lúc người chấm còn nhớ rõ
-        // nhất vì sao nhân viên xứng đáng. RewardPrompt tự ẩn nếu tổ chức tắt tính năng
-        // hoặc người chấm không có quyền trao, nên không cản luồng của ai.
+        // nhất vì sao nhân viên xứng đáng. Tổ chức tắt thưởng hoặc người chấm không có
+        // quyền trao thì RewardPrompt ẩn và không bao giờ gọi onDone ⇒ phải tự đóng,
+        // không thì modal đứng im sau khi chốt.
         toast.success('Đã chốt đánh giá cho nhân viên')
-        setJustEvaluated(true)
+        if (canPromptReward) setJustEvaluated(true)
+        else onClose()
       }
     },
     onError: (error) => {
@@ -355,7 +361,21 @@ export default function StaffEvaluationModal({
       headerExtra={isFullyApproved
         ? <Badge variant="success">Đã phê duyệt</Badge>
         : <Badge variant="warning">Đang chờ chấm điểm</Badge>}
-      footer={!readOnly ? (
+      footer={readOnly ? undefined : justEvaluated && canPromptReward ? (
+        // Chốt đánh giá xong thì mời thưởng ngay tại chỗ, trước khi người dùng đóng modal
+        // và quên mất. Đặt ở footer (ngoài vùng cuộn) chứ không ở cuối thân modal: thân
+        // dài, lời mời nằm dưới đáy thì người chấm không cuộn xuống sẽ không thấy. Lúc này
+        // lời mời THAY hàng nút: "Bỏ qua" của nó đã đóng modal, để thêm "Đóng" bên cạnh
+        // thì hai nút cùng một việc, người dùng không biết bấm cái nào.
+        <div className="shrink-0 border-t border-[var(--color-border)] px-4 py-3 sm:px-5">
+          <RewardPrompt
+            userId={userId}
+            fullName={userName}
+            defaultReason={`Kết quả tốt trong đợt${periodName ? ` ${periodName}` : ''}`}
+            onDone={onClose}
+          />
+        </div>
+      ) : (
         <DialogFooter
           note="Phê duyệt đồng loạt các bài nộp và lưu kết quả đánh giá chính thức vào hồ sơ nhân sự."
           secondary={<Button variant="outline" onClick={onClose} disabled={submitMutation.isPending}>{justEvaluated ? 'Đóng' : 'Hủy bỏ'}</Button>}
@@ -369,7 +389,7 @@ export default function StaffEvaluationModal({
             </Button>
           )}
         />
-      ) : undefined}
+      )}
     >
       <div className="space-y-6 p-5">
 
@@ -463,7 +483,7 @@ export default function StaffEvaluationModal({
                               onChange={e => setIndividualLevels({ ...individualLevels, [s.id]: e.target.value })}
                               disabled={readOnly}
                               className={cn(
-                                "w-40 px-2 py-2 rounded-card text-xs font-medium outline-none transition-all",
+                                "w-36 px-2 py-2 rounded-card text-xs font-medium outline-none transition-all",
                                 readOnly
                                   ? "bg-[var(--color-muted)] border border-[var(--color-border)] text-[var(--color-muted-foreground)] cursor-not-allowed"
                                   : "bg-[var(--color-info-bg)] border border-[var(--color-info-border)] text-[var(--color-info)] focus:ring-2 focus:ring-[var(--color-info-solid)]"
@@ -676,6 +696,9 @@ export default function StaffEvaluationModal({
                       />
                     </div>
                   )}
+                  {/* Minh chứng của lượt chấm đợt: người chấm đính kèm, nhân viên xem lại được. Tệp gắn vào
+                      (đợt, người) nên đính kèm được cả trước khi bấm chốt. */}
+                  <EvidenceAttachments target={evidenceKey.period(periodId, userId)} readOnly={readOnly} title="Minh chứng chấm đợt" />
                 </div>
               )}
 
@@ -863,19 +886,6 @@ export default function StaffEvaluationModal({
         )}
 
       </div>
-
-      {/* Chốt đánh giá xong thì mời thưởng ngay tại chỗ, trước khi người dùng đóng
-          modal và quên mất. */}
-      {justEvaluated && (
-        <div className="border-t border-[var(--color-border)] px-5 py-4">
-          <RewardPrompt
-            userId={userId}
-            fullName={userName}
-            defaultReason={`Kết quả tốt trong đợt${periodName ? ` ${periodName}` : ''}`}
-            onDone={onClose}
-          />
-        </div>
-      )}
     </Dialog>
 
       {/* Đã duyệt hết KPI con → hỏi tự đánh giá */}

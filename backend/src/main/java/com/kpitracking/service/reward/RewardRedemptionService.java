@@ -195,6 +195,11 @@ public class RewardRedemptionService {
     private RewardRedemption loadPending(UUID id) {
         RewardRedemption r = redemptionRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Yêu cầu đổi quà", "id", id));
+        // id do client gửi: yêu cầu của tổ chức khác coi như không tồn tại.
+        UUID myOrgId = context.getCurrentOrgId();
+        if (r.getOrganization() == null || !r.getOrganization().getId().equals(myOrgId)) {
+            throw new ResourceNotFoundException("Yêu cầu đổi quà", "id", id);
+        }
         if (r.getStatus() != RedemptionStatus.PENDING) {
             throw new BusinessException("Yêu cầu này không còn ở trạng thái chờ xử lý.");
         }

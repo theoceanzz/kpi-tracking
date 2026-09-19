@@ -26,6 +26,9 @@ import UserAvatar from '@/components/common/UserAvatar'
 import { format, parseISO } from 'date-fns'
 import type { CycleEvaluationMode, CycleUserEvaluation, CyclePeriodBreakdown } from '@/types/kpi'
 import RewardPrompt from '@/features/rewards/components/RewardPrompt'
+import { useCanPromptReward } from '@/features/rewards/hooks/useCanPromptReward'
+import EvidenceAttachments from '@/features/evidence/EvidenceAttachments'
+import { evidenceKey } from '@/features/evidence/evidenceApi'
 import ConductInlineSheet, { type ConductSheetHandle } from '@/features/conduct/components/ConductInlineSheet'
 import { Dialog, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
@@ -270,7 +273,7 @@ export default function CycleEvaluationPage() {
           }
         >
           <Select value={orgUnitId} onValueChange={setOrgUnitId}>
-            <SelectTrigger className="w-full sm:w-60" aria-label="Đơn vị">
+            <SelectTrigger className="w-full sm:w-auto sm:min-w-60" aria-label="Đơn vị">
               <Building2 size={15} className="shrink-0 text-[var(--color-muted-foreground)]" aria-hidden="true" />
               <SelectValue placeholder="Chọn đơn vị" />
             </SelectTrigger>
@@ -281,7 +284,7 @@ export default function CycleEvaluationPage() {
             </SelectContent>
           </Select>
           <Select value={cycleId} onValueChange={setCycleId}>
-            <SelectTrigger className="w-full sm:w-60" aria-label="Kỳ đánh giá">
+            <SelectTrigger className="w-full sm:w-auto sm:min-w-60" aria-label="Kỳ đánh giá">
               <CalendarRange size={15} className="shrink-0 text-[var(--color-muted-foreground)]" aria-hidden="true" />
               <SelectValue placeholder="Chọn kỳ" />
             </SelectTrigger>
@@ -578,6 +581,7 @@ function UserScoreModal({
   const [qual, setQual] = useState<string>(member.qualScore != null ? String(member.qualScore) : '')
   const [comment, setComment] = useState(member.comment || '')
   const [saved, setSaved] = useState(false)
+  const canPromptReward = useCanPromptReward()
   // Phiếu hạnh kiểm không có nút lưu riêng — nút "Lưu điểm chốt kỳ" của modal lưu hộ.
   const conductRef = useRef<ConductSheetHandle>(null)
 
@@ -620,7 +624,8 @@ function UserScoreModal({
 
   // Lưu xong KHÔNG đóng ngay: hiện lời mời thưởng điểm ngay tại chỗ. Đây là lúc người
   // chấm còn nhớ rõ nhất vì sao nhân viên xứng đáng — bắt họ sang màn hình khác thưởng
-  // sau thì gần như chắc chắn sẽ quên.
+  // sau thì gần như chắc chắn sẽ quên. Nhưng tổ chức tắt thưởng (hoặc không có quyền
+  // trao) thì RewardPrompt ẩn và không gọi onDone ⇒ đóng luôn, không thì modal đứng im.
   const handleSave = async () => {
     if (invalid || qualInvalid) return
     // Hạnh kiểm lưu TRƯỚC: nó là trục hành vi của xếp loại ma trận, lưu sau thì bản ghi
@@ -631,7 +636,8 @@ function UserScoreModal({
       return // toast lỗi đã hiện trong hook của phiếu
     }
     await onSave(parsed, parsedQual, comment)
-    setSaved(true)
+    if (canPromptReward) setSaved(true)
+    else onClose()
   }
 
   return (
@@ -642,7 +648,19 @@ function UserScoreModal({
       dismissible={!isSaving}
       title={member.userName}
       description={`${member.orgUnitName || 'Nhân viên'} · Chế độ ${MODE_LABEL[member.mode]}`}
-      footer={
+      footer={saved && canPromptReward ? (
+        // Sau khi lưu điểm mới mời thưởng. Đặt ở footer (ngoài vùng cuộn) để người chấm
+        // thấy ngay, và THAY hàng nút: "Bỏ qua" của lời mời đã đóng modal, thêm "Đóng"
+        // bên cạnh thì hai nút cùng một việc, người dùng không biết bấm cái nào.
+        <div className="shrink-0 border-t border-[var(--color-border)] px-4 py-3 sm:px-5">
+          <RewardPrompt
+            userId={member.userId}
+            fullName={member.userName || ''}
+            defaultReason={`Thành tích nổi bật trong kỳ${cycleName ? ` ${cycleName}` : ''}`}
+            onDone={onClose}
+          />
+        </div>
+      ) : (
         <DialogFooter
           secondary={<Button variant="outline" onClick={onClose} disabled={isSaving}>Đóng</Button>}
           primary={canEdit && !saved && (
@@ -651,7 +669,7 @@ function UserScoreModal({
             </Button>
           )}
         />
-      }
+      )}
     >
       <div className="space-y-5">
         {/* Điểm tham chiếu */}
@@ -851,24 +869,15 @@ function UserScoreModal({
           />
         </div>
 
+        {/* Minh chứng chốt kỳ: gắn vào (kỳ, người) nên đính kèm được trước khi lưu điểm. */}
+        <EvidenceAttachments target={evidenceKey.cycle(cycleId, member.userId)} readOnly={!canEdit} title="Minh chứng chốt kỳ" />
+
         {member.evaluatedByName && (
           <p className="text-caption font-medium">
             Chấm bởi <span className="font-semibold text-[var(--color-muted-foreground)]">{member.evaluatedByName}</span>
             {member.evaluatedAt && ` · ${format(parseISO(member.evaluatedAt), 'HH:mm dd/MM/yyyy')}`}
           </p>
         )}
-
-        {/* Sau khi lưu điểm mới mời thưởng — tự ẩn nếu tổ chức tắt tính năng thưởng
-            hoặc người chấm không có quyền trao. */}
-        {saved && (
-          <RewardPrompt
-            userId={member.userId}
-            fullName={member.userName || ''}
-            defaultReason={`Thành tích nổi bật trong kỳ${cycleName ? ` ${cycleName}` : ''}`}
-            onDone={onClose}
-          />
-        )}
-
       </div>
     </Dialog>
   )

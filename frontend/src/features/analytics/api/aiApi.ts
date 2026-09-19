@@ -126,6 +126,8 @@ export interface ConversationResponse {
   title: string | null
   createdAt: string
   updatedAt: string
+  /** Thời điểm ghim; null = không ghim. */
+  pinnedAt?: string | null
 }
 
 export interface MessageResponse {
@@ -385,6 +387,18 @@ export const aiApi = {
     axiosInstance
       .delete<ApiResponse<void>>(`/ai/conversations/${id}`)
       .then(res => res.data),
+
+  /** Đổi tên và/hoặc ghim — trường bỏ trống giữ nguyên. */
+  updateConversation: (id: string, body: { title?: string; pinned?: boolean }) =>
+    axiosInstance
+      .patch<ApiResponse<ConversationResponse>>(`/ai/conversations/${id}`, body)
+      .then(res => res.data.data),
+
+  /** Hoàn tác xoá (dòng xoá mềm được mở lại). */
+  restoreConversation: (id: string) =>
+    axiosInstance
+      .post<ApiResponse<ConversationResponse>>(`/ai/conversations/${id}/restore`)
+      .then(res => res.data.data),
 
   getMessages: (conversationId: string, params?: PageParams) =>
     axiosInstance

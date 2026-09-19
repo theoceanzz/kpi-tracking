@@ -241,13 +241,13 @@ export default function ObjectiveFormModal({ isOpen, onClose, organizationId, ob
             <label className="text-label">Phòng ban</label>
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="outline" className="w-full" type="button">
+                <Button variant="outline" className="w-full justify-between font-normal" type="button">
                   <span className="truncate">
                     {selectedOrgUnitIds.length === 0 ? 'Chọn đơn vị' :
                      selectedOrgUnitIds.length === 1 ? allOrgUnits.find(u => u.id === selectedOrgUnitIds[0])?.name :
                      `Đã chọn ${selectedOrgUnitIds.length} đơn vị`}
                   </span>
-                  <ChevronDown aria-hidden="true" className="opacity-50" />
+                  <ChevronDown aria-hidden="true" className="shrink-0 opacity-50" />
                 </Button>
               </PopoverTrigger>
               <PopoverContent className="p-2 w-[var(--radix-popover-trigger-width)] max-h-[300px] overflow-y-auto custom-scrollbar" align="start">

@@ -38,4 +38,8 @@ public class Conversation {
 
     @Column(name = "deleted_at")
     private Instant deletedAt;
+
+    /** Thời điểm ghim; null = không ghim. Ghim gần nhất đứng đầu danh sách. */
+    @Column(name = "pinned_at")
+    private Instant pinnedAt;
 }

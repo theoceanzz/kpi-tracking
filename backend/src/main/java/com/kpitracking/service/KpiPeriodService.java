@@ -27,6 +27,7 @@ import java.util.UUID;
 public class KpiPeriodService {
 
     private final KpiPeriodRepository kpiPeriodRepository;
+    private final com.kpitracking.repository.KpiCriteriaRepository kpiCriteriaRepository;
     private final com.kpitracking.repository.KpiCycleRepository kpiCycleRepository;
     private final OrganizationRepository organizationRepository;
     private final UserRepository userRepository;
@@ -37,6 +38,14 @@ public class KpiPeriodService {
         String email = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getName();
         return userRepository.findByEmail(email)
                 .orElseThrow(() -> new ResourceNotFoundException("Người dùng", "email", email));
+    }
+
+    /** Chỉ cho sắp xếp theo cột đã biết; tên lạ (do client gửi) rơi về mặc định thay vì nổ 500. */
+    private static final java.util.Set<String> SORTABLE = java.util.Set.of(
+            "name", "startDate", "endDate", "createdAt", "updatedAt", "status");
+
+    private static String safeSort(String sortBy) {
+        return sortBy != null && SORTABLE.contains(sortBy) ? sortBy : "startDate";
     }
 
     private UUID getCurrentUserOrganizationId(com.kpitracking.entity.User user) {
@@ -54,7 +63,7 @@ public class KpiPeriodService {
         com.kpitracking.entity.User currentUser = getCurrentUser();
         UUID userOrgId = getCurrentUserOrganizationId(currentUser);
 
-        Sort sort = direction.equalsIgnoreCase("asc") ? Sort.by(sortBy).ascending() : Sort.by(sortBy).descending();
+        Sort sort = "asc".equalsIgnoreCase(direction) ? Sort.by(safeSort(sortBy)).ascending() : Sort.by(safeSort(sortBy)).descending();
         Pageable pageable = PageRequest.of(page, size, sort);
 
         Specification<KpiPeriod> spec = Specification.where(null);
@@ -73,7 +82,9 @@ public class KpiPeriodService {
         // tham số sẽ nhận về đợt của MỌI tổ chức — rò rỉ dữ liệu giữa các khách hàng.
         // Platform admin không gắn với đơn vị nào (userOrgId = null) nên vẫn xem được
         // xuyên tổ chức như cũ.
-        UUID effectiveOrgId = organizationId != null ? organizationId : userOrgId;
+        // organizationId do client gửi chỉ có nghĩa với platform admin (không thuộc tổ chức nào);
+        // người dùng thường luôn bị khoá vào tổ chức của chính mình.
+        UUID effectiveOrgId = userOrgId != null ? userOrgId : organizationId;
         if (effectiveOrgId != null) {
             final UUID orgFilter = effectiveOrgId;
             spec = spec.and((root, query, cb) -> cb.equal(root.get("organization").get("id"), orgFilter));
@@ -174,6 +185,13 @@ public class KpiPeriodService {
     public void deleteKpiPeriod(UUID id) {
         KpiPeriod period = kpiPeriodRepository.findById(id)
                 .orElseThrow(() -> new ResourceNotFoundException("Đợt KPI", "id", id));
+        // KPI vẫn trỏ tới đợt sau khi đợt bị xoá mềm -> mọi màn hình đọc KPI đó (dashboard, bài nộp,
+        // đánh giá) ném EntityNotFoundException. Bắt xoá/chuyển KPI trước (prod 2026-09-15: 7 KPI mồ côi).
+        long inUse = kpiCriteriaRepository.countByKpiPeriodId(id);
+        if (inUse > 0) {
+            throw new com.kpitracking.exception.BusinessException(
+                    "Đợt này còn " + inUse + " KPI đang dùng. Hãy xoá hoặc chuyển các KPI đó sang đợt khác trước khi xoá đợt.");
+        }
         period.setDeletedAt(java.time.Instant.now());
         kpiPeriodRepository.save(period);
     }

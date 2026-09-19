@@ -14,6 +14,7 @@ import type { DashboardWidget } from './ChartWrapper'
 import type { WidgetSettings } from './widgetSettings'
 import type { AutosaveStatus } from './useAutosave'
 import { CHART_CATEGORY_ORDER } from './chartCategories'
+import { WidgetErrorBoundary } from './StableGridLayout'
 
 /** Bề rộng bảng cấu hình và khe giữa nó với lưới (`gap-4` ở JSX). */
 const PANEL_W = 320
@@ -766,7 +767,11 @@ const GridCell = React.forwardRef<HTMLDivElement, GridCellProps>(function GridCe
         `pointer-events-none`: kéo đã bám cụm chấm nên biểu đồ giữ được hover/tooltip/bấm như thường.
       */}
       <div className="h-full w-full overflow-y-auto custom-scrollbar">
-        <LazyMount>{renderWidget(block, ctx)}</LazyMount>
+        {/* Hàng rào lỗi từng ô: một biểu đồ ném lỗi khi vẽ chỉ làm ô đó hiện "không vẽ được" — không
+            để React Router thay cả trang bằng màn lỗi (trắng trang chủ 15/09). */}
+        <WidgetErrorBoundary title={block.title}>
+          <LazyMount>{renderWidget(block, ctx)}</LazyMount>
+        </WidgetErrorBoundary>
       </div>
       {/* Tay nắm dãn do react-grid-layout chèn qua `children` */}
       {children}

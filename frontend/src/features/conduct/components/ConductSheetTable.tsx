@@ -3,6 +3,8 @@ import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import type { ConductScoreInput, ConductSheet } from '../api/conductApi'
 import { exportConductSheetToExcel } from '../utils/conductSheetExport'
+import EvidenceAttachments from '@/features/evidence/EvidenceAttachments'
+import { evidenceKey } from '@/features/evidence/evidenceApi'
 import { EMPTY_DRAFT, fmt, num, useConductDraft, weighted } from '../hooks/useConductDraft'
 import { Button } from '@/components/ui/button'
 
@@ -222,6 +224,16 @@ export default function ConductSheetTable({
             className="w-full min-h-[80px] px-4 py-3 rounded-card text-sm font-medium bg-[var(--color-card)] border border-[var(--color-border)] text-[var(--color-foreground)] outline-none focus:ring-2 focus:ring-[var(--color-ring)] resize-y"
           />
         </div>
+      )}
+
+      {/* Tệp bằng chứng cho cả phiếu (ngoài ô dẫn chứng bằng chữ ở từng tiêu chí). Khoá theo
+          (phạm vi, đợt/kỳ, người) nên nhân viên và quản lý cùng nhìn một danh sách. */}
+      {(sheet.kpiPeriodId || sheet.kpiCycleId) && (
+        <EvidenceAttachments
+          target={evidenceKey.conduct(sheet.scope, (sheet.scope === 'CYCLE' ? sheet.kpiCycleId : sheet.kpiPeriodId) as string, sheet.userId)}
+          readOnly={!!sheet.locked || (!sheet.canScoreSelf && !sheet.canScoreManager)}
+          title="Minh chứng hạnh kiểm"
+        />
       )}
 
       <div id="tour-conduct-sheet-actions" className="flex flex-wrap items-center justify-end gap-3">

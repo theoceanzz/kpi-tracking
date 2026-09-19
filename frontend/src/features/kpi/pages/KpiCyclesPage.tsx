@@ -174,7 +174,7 @@ export default function KpiCyclesPage() {
           }
         >
           <Select value={cycleType} onValueChange={val => { setCycleType(val); setPage(0) }}>
-            <SelectTrigger className="w-full sm:w-48" aria-label="Loại kỳ"><SelectValue placeholder="Tất cả loại kỳ" /></SelectTrigger>
+            <SelectTrigger className="w-full sm:w-auto sm:min-w-48" aria-label="Loại kỳ"><SelectValue placeholder="Tất cả loại kỳ" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="ALL">Tất cả loại kỳ</SelectItem>
               {CYCLE_TYPES.map(type => <SelectItem key={type} value={type}>{FREQUENCY_MAP[type]}</SelectItem>)}

@@ -38,6 +38,7 @@ public class EvaluationService {
 
     private final EvaluationRepository evaluationRepository;
     private final UserRepository userRepository;
+    private final com.kpitracking.mapper.SoftDeletedRefs softDeletedRefs;
     private final KpiPeriodRepository kpiPeriodRepository;
     private final OrgUnitRepository orgUnitRepository;
     private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
@@ -680,7 +681,8 @@ public class EvaluationService {
         Map<UUID, KpiPeriod> byId = new LinkedHashMap<>();
         for (KpiCriteria k : kpiCriteriaRepository.findByOrgUnitIdInAndStatus(subtreeIds, KpiStatus.APPROVED)) {
             KpiPeriod p = k.getKpiPeriod();
-            if (p != null) byId.putIfAbsent(p.getId(), p);
+            // Đợt đã xoá mềm bị bỏ qua: proxy của nó ném EntityNotFoundException khi sort theo startDate.
+            if (softDeletedRefs.periodAlive(p)) byId.putIfAbsent(p.getId(), p);
         }
         return byId.values().stream()
                 .sorted(Comparator.comparing(KpiPeriod::getStartDate,
@@ -761,7 +763,7 @@ public class EvaluationService {
         }
 
         // Director or Global Admin can see everything
-        boolean isGlobalAdmin = permissionChecker.isGlobalAdmin(currentUser.getId());
+        boolean isGlobalAdmin = permissionChecker.isGlobalAdminOverUser(currentUser.getId(), evaluation.getUser().getId());
         if (isGlobalAdmin) {
             return enrichResponse(evaluation);
         }

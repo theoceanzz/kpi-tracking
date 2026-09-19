@@ -248,7 +248,11 @@ public class RewardGrantService {
      * phân quyền của người trao đúng N lần.
      */
     private void assertWithinGrantScope(User grantor, Map<UUID, User> recipients) {
-        if (permissionChecker.isGlobalAdmin(grantor.getId())) return;
+        // Admin vẫn phải là admin của đúng tổ chức mà từng người nhận đang thuộc về.
+        if (recipients.keySet().stream()
+                .allMatch(id -> permissionChecker.isGlobalAdminOverUser(grantor.getId(), id))) {
+            return;
+        }
 
         List<UUID> baseUnitIds = permissionChecker.getOrgUnitsWithPermission(grantor.getId(), "REWARD:GRANT");
         if (baseUnitIds.isEmpty()) {
@@ -478,7 +482,7 @@ public class RewardGrantService {
         // khác, và không còn ai ở trên để duyệt hộ. Chặn họ nghĩa là đề nghị kẹt vĩnh viễn.
         if (grant.getGrantor().getId().equals(approver.getId())
                 && !permissionChecker.hasPermission(approver.getId(), "REWARD:APPROVE_OWN")
-                && !permissionChecker.isGlobalAdmin(approver.getId())) {
+                && !permissionChecker.isGlobalAdminIn(approver.getId(), grant.getOrgUnit().getId())) {
             throw new ForbiddenException("Bạn không thể tự duyệt đề nghị thưởng của chính mình.");
         }
     }

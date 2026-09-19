@@ -151,7 +151,7 @@ export default function KpiAdjustmentModal({ open, onClose, kpi }: KpiAdjustment
                   {...register('requestedTargetValue', { valueAsNumber: true })}
                   onWheel={(e) => (e.target as HTMLInputElement).blur()}
                   placeholder={kpi.targetValue?.toString()}
-                  className="w-full px-4 py-3 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] text-sm font-medium focus:ring-2 focus:ring-[var(--color-ring)] outline-none"
+                  className="no-edit-hint w-full px-4 py-3 pr-12 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] text-sm font-medium focus:ring-2 focus:ring-[var(--color-ring)] outline-none"
                 />
                 <div className="absolute right-4 top-1/2 -translate-y-1/2 text-caption">{kpi.unit}</div>
               </div>
@@ -168,7 +168,7 @@ export default function KpiAdjustmentModal({ open, onClose, kpi }: KpiAdjustment
                   {...register('requestedMinimumValue', { valueAsNumber: true })}
                   onWheel={(e) => (e.target as HTMLInputElement).blur()}
                   placeholder={kpi.minimumValue?.toString() || "0"}
-                  className="w-full px-4 py-3 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] text-sm font-medium focus:ring-2 focus:ring-[var(--color-ring)] outline-none"
+                  className="no-edit-hint w-full px-4 py-3 pr-12 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] text-sm font-medium focus:ring-2 focus:ring-[var(--color-ring)] outline-none"
                 />
                 <div className="absolute right-4 top-1/2 -translate-y-1/2 text-caption">{kpi.unit}</div>
               </div>

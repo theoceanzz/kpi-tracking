@@ -769,7 +769,7 @@ export function EmployeeRankingTableSection({
           value={rankingUnitId ?? ALL_UNITS}
           onValueChange={v => { setRankingUnitId(v === ALL_UNITS ? undefined : v); setRankPage(0) }}
         >
-          <SelectTrigger className="h-auto gap-2 py-2 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-lg text-xs font-semibold shadow-sm max-w-[200px]">
+          <SelectTrigger className="h-auto gap-2 py-2 bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700 rounded-lg text-xs font-semibold shadow-sm w-auto max-w-[20rem]">
             <Filter size={13} className="text-slate-400 shrink-0" />
             <SelectValue />
           </SelectTrigger>

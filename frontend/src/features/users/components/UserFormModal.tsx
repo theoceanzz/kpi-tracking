@@ -19,6 +19,7 @@ import { getApiErrorMessage } from '@/lib/apiError'
 import { Loader2, Eye, EyeOff, Wand2, Check, AlertCircle } from 'lucide-react'
 import { Dialog, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { usePermission } from '@/hooks/usePermission'
 import { useAuthStore } from '@/store/authStore'
 import { useOrgHierarchyLevels, useOrgUnitTree } from '@/features/organization/hooks/useOrganizationStructure'
@@ -255,7 +256,6 @@ function CreateUserForm({ onClose, onSubmit, isPending, canAssignRoles, dynamicR
     setShowPassword(true)
   }
 
-  const inputCls = "w-full px-3 py-2.5 rounded-control border border-[var(--color-border)] bg-[var(--color-background)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/50 transition-all shadow-sm"
 
   return (
     <Dialog
@@ -279,45 +279,46 @@ function CreateUserForm({ onClose, onSubmit, isPending, canAssignRoles, dynamicR
       <form id="create-user-form" onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div>
           <label className="text-label block font-medium mb-1.5">Họ và tên <span className="text-[var(--color-error)]">*</span></label>
-          <input {...register('fullName')} className={inputCls} placeholder="Nguyễn Văn A" />
+          <Input {...register('fullName')} invalid={!!errors.fullName} placeholder="Nguyễn Văn A" />
           {errors.fullName && <p className="text-[var(--color-error)] text-xs mt-1">{errors.fullName.message}</p>}
         </div>
         <div>
           <label className="text-label block font-medium mb-1.5">Mã nhân viên</label>
-          <input {...register('employeeCode')} className={inputCls} placeholder="VD: NV001" />
+          <Input {...register('employeeCode')} placeholder="VD: NV001" />
         </div>
         <div>
           <label className="text-label block font-medium mb-1.5">Email <span className="text-[var(--color-error)]">*</span></label>
-          <input {...register('email')} type="email" className={inputCls} placeholder="name@tochuc.com" />
+          <Input {...register('email')} type="email" invalid={!!errors.email} placeholder="name@tochuc.com" />
           {errors.email && <p className="text-[var(--color-error)] text-xs mt-1">{errors.email.message}</p>}
         </div>
         <div>
           <label className="text-label block font-medium mb-1.5">Mật khẩu <span className="text-[var(--color-error)]">*</span></label>
-          <div className="relative">
-            <input 
-              {...register('password')} 
-              type={showPassword ? 'text' : 'password'} 
-              className={inputCls + " pr-24"} 
-              placeholder="Tối thiểu 8 ký tự" 
-            />
-            
-            <button
-              type="button"
-              onClick={generatePassword}
-              className="absolute inset-y-0 right-10 pr-1 flex items-center text-[var(--color-primary)] hover:text-[var(--color-primary)]/80 transition-colors text-xs font-semibold"
-              title="Gợi ý Mật khẩu"
-            >
-              <Wand2 size={16} className="mr-0.5"/> Gợi ý
-            </button>
-
-            <button
-              type="button"
-              onClick={() => setShowPassword(!showPassword)}
-              className="absolute inset-y-0 right-0 pr-3 flex items-center text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)] transition-colors"
-            >
-              {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-            </button>
-          </div>
+          <Input
+            {...register('password')}
+            type={showPassword ? 'text' : 'password'}
+            invalid={!!errors.password}
+            placeholder="Tối thiểu 8 ký tự"
+            suffix={
+              <>
+                <button
+                  type="button"
+                  onClick={generatePassword}
+                  className="flex items-center gap-0.5 text-xs font-semibold text-[var(--color-primary)] hover:text-[var(--color-primary)]/80 transition-colors"
+                  title="Gợi ý Mật khẩu"
+                >
+                  <Wand2 /> Gợi ý
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                  className="ml-1 flex items-center text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)] transition-colors"
+                >
+                  {showPassword ? <EyeOff /> : <Eye />}
+                </button>
+              </>
+            }
+          />
 
           {pwd && (
             <div className="mt-2.5 p-3 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)] animate-in fade-in slide-in-from-top-1 duration-200">
@@ -356,7 +357,7 @@ function CreateUserForm({ onClose, onSubmit, isPending, canAssignRoles, dynamicR
         </div>
         <div>
           <label className="text-label block font-medium mb-1.5">Số điện thoại</label>
-          <input {...register('phone')} className={inputCls} placeholder="0912 345 678" />
+          <Input {...register('phone')} invalid={!!errors.phone} placeholder="0912 345 678" />
           {errors.phone && <p className="text-[var(--color-error)] text-xs mt-1">{errors.phone.message}</p>}
         </div>
         <div>
@@ -366,7 +367,7 @@ function CreateUserForm({ onClose, onSubmit, isPending, canAssignRoles, dynamicR
             control={control}
             render={({ field }) => (
               <Select onValueChange={field.onChange} value={field.value}>
-                <SelectTrigger className={inputCls}>
+                <SelectTrigger>
                   <SelectValue placeholder="Chọn vai trò" />
                 </SelectTrigger>
                 <SelectContent className="max-h-[300px] z-[300]">
@@ -391,7 +392,7 @@ function CreateUserForm({ onClose, onSubmit, isPending, canAssignRoles, dynamicR
             control={control}
             render={({ field }) => (
               <Select onValueChange={field.onChange} value={field.value} disabled={!canAssignRoles}>
-                <SelectTrigger className={inputCls}>
+                <SelectTrigger>
                   <SelectValue placeholder="Chọn vai trò" />
                 </SelectTrigger>
                 <SelectContent className="z-[1100]">
@@ -484,7 +485,6 @@ function EditUserForm({ editUser, onClose, onSubmit, isPending, canAssignRoles, 
     return roles
   }, [selectedOrgUnitId, orgTree, dynamicRoles, editUser, rolesData])
 
-  const inputCls = "w-full px-3 py-2.5 rounded-control border border-[var(--color-border)] bg-[var(--color-background)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/50"
 
   return (
     <Dialog
@@ -508,21 +508,21 @@ function EditUserForm({ editUser, onClose, onSubmit, isPending, canAssignRoles, 
       <form id="edit-user-form" onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div>
           <label className="text-label block font-medium mb-1.5">Họ và tên</label>
-          <input {...register('fullName')} className={inputCls} />
+          <Input {...register('fullName')} invalid={!!errors.fullName} />
           {errors.fullName && <p className="text-[var(--color-error)] text-xs mt-1">{errors.fullName.message}</p>}
         </div>
         <div>
           <label className="text-label block font-medium mb-1.5">Mã nhân viên</label>
-          <input {...register('employeeCode')} className={inputCls} />
+          <Input {...register('employeeCode')} />
         </div>
         <div>
           <label className="text-label block font-medium mb-1.5">Email</label>
-          <input {...register('email')} type="email" className={inputCls} />
+          <Input {...register('email')} type="email" invalid={!!errors.email} />
           {errors.email && <p className="text-[var(--color-error)] text-xs mt-1">{errors.email.message}</p>}
         </div>
         <div>
           <label className="text-label block font-medium mb-1.5">Số điện thoại</label>
-          <input {...register('phone')} className={inputCls} placeholder="0912 345 678" />
+          <Input {...register('phone')} invalid={!!errors.phone} placeholder="0912 345 678" />
           {errors.phone && <p className="text-[var(--color-error)] text-xs mt-1">{errors.phone.message}</p>}
         </div>
         <div>
@@ -532,7 +532,7 @@ function EditUserForm({ editUser, onClose, onSubmit, isPending, canAssignRoles, 
             control={control}
             render={({ field }) => (
               <Select onValueChange={field.onChange} value={field.value}>
-                <SelectTrigger className={inputCls}>
+                <SelectTrigger>
                   <SelectValue placeholder="Chọn đơn vị" />
                 </SelectTrigger>
                 <SelectContent className="max-h-[300px] z-[300]">
@@ -556,7 +556,7 @@ function EditUserForm({ editUser, onClose, onSubmit, isPending, canAssignRoles, 
             control={control}
             render={({ field }) => (
               <Select onValueChange={field.onChange} value={field.value} disabled={!canAssignRoles}>
-                <SelectTrigger className={inputCls}>
+                <SelectTrigger>
                   <SelectValue placeholder="Chọn vai trò" />
                 </SelectTrigger>
                 <SelectContent className="z-[1100]">
@@ -583,7 +583,7 @@ function EditUserForm({ editUser, onClose, onSubmit, isPending, canAssignRoles, 
             control={control}
             render={({ field }) => (
               <Select onValueChange={field.onChange} value={field.value}>
-                <SelectTrigger className={inputCls}>
+                <SelectTrigger>
                   <SelectValue placeholder="Trạng thái" />
                 </SelectTrigger>
                 <SelectContent className="z-[1100]">

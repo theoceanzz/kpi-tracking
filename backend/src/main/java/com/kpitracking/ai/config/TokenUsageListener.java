@@ -16,10 +16,12 @@ import org.springframework.stereotype.Component;
 /**
  * Ghi token đã tiêu của MỌI lời gọi model qua langchain4j.
  *
- * <p>Thay cho {@code TokenUsageAuditAdvisor} (chỉ bắt được đường {@code ChatClient}) và
- * {@code ModelGateway.recordUsage} (chỉ bắt đường vòng lặp agent) — hai chỗ ghi cho hai đường,
- * sửa một bên quên bên kia là lọt nửa số lượt. Ở đây gắn thẳng vào {@code ChatModel} nên mọi agent,
- * mọi đường, cùng đi qua một chỗ.
+ * <p>Thay cho hai chỗ ghi của bản Spring AI cũ (advisor cho đường {@code ChatClient}, gateway cho
+ * vòng lặp agent) — sửa một bên quên bên kia là lọt nửa số lượt. Ở đây gắn thẳng vào
+ * {@code ChatModel} nên mọi agent, mọi đường, cùng đi qua một chỗ.
+ *
+ * <p>Cũng là ranh giới ra nhà cung cấp AI cho app log: mỗi lời gọi ghi thời gian và, khi lỗi, LỚP
+ * ngoại lệ — không bao giờ log prompt hay câu trả lời (audit bảo mật 09/2026).
  *
  * <p><b>Bắt người dùng ở {@code onRequest}, ghi ở {@code onResponse}.</b> Với model streaming,
  * {@code onResponse} chạy trên luồng HTTP client — không có {@code SecurityContextHolder}, không có
@@ -33,6 +35,7 @@ public class TokenUsageListener implements ChatModelListener {
 
     private static final String ATTR_USER = "kg.user";
     private static final String ATTR_FEATURE = "kg.feature";
+    private static final String ATTR_START = "kg.startNanos";
 
     private final AiTokenUsageRecorder recorder;
 
@@ -42,16 +45,18 @@ public class TokenUsageListener implements ChatModelListener {
         if (auth != null && auth.getName() != null) ctx.attributes().put(ATTR_USER, auth.getName());
         AiTokenUsage.AiFeature feature = AiTokenUsageRecorder.currentFeature();
         if (feature != null) ctx.attributes().put(ATTR_FEATURE, feature);
+        ctx.attributes().put(ATTR_START, System.nanoTime());
     }
 
     @Override
     public void onResponse(ChatModelResponseContext ctx) {
         try {
+            String model = ctx.chatResponse().modelName();
+            log.info("Gọi model {} xong sau {} ms", model, elapsedMs(ctx.attributes().get(ATTR_START)));
             TokenUsage usage = ctx.chatResponse().tokenUsage();
             if (usage == null) return;
             log.info("Token usage details: {}", usage);
 
-            String model = ctx.chatResponse().modelName();
             Object user = ctx.attributes().get(ATTR_USER);
             Object feature = ctx.attributes().get(ATTR_FEATURE);
             recorder.record(user == null ? null : user.toString(),
@@ -66,7 +71,12 @@ public class TokenUsageListener implements ChatModelListener {
 
     @Override
     public void onError(ChatModelErrorContext ctx) {
-        log.warn("Lời gọi model lỗi: {}", ctx.error().getMessage());
+        log.warn("Lời gọi model lỗi sau {} ms: {} — {}", elapsedMs(ctx.attributes().get(ATTR_START)),
+                ctx.error().getClass().getSimpleName(), ctx.error().getMessage());
+    }
+
+    private static long elapsedMs(Object startNanos) {
+        return startNanos instanceof Long start ? (System.nanoTime() - start) / 1_000_000 : -1;
     }
 
     private static int safe(Integer v) {

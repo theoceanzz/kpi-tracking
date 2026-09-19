@@ -513,7 +513,7 @@ export default function KpiAdjustmentApprovalPage() {
         trailing={<>{groupToggle}{viewToggle}</>}
       >
         <Select value={selectedPeriodId} onValueChange={(v) => { setSelectedPeriodId(v); setPage(0); resetGroups() }}>
-          <SelectTrigger className="w-full sm:w-52" aria-label="Đợt đánh giá"><SelectValue placeholder="Đợt đánh giá" /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-auto sm:min-w-52" aria-label="Đợt đánh giá"><SelectValue placeholder="Đợt đánh giá" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="ALL">Tất cả các đợt</SelectItem>
             {periodsData?.content.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
@@ -522,14 +522,14 @@ export default function KpiAdjustmentApprovalPage() {
         {enableOkr && (
           <>
             <Select value={selectedObjectiveId} onValueChange={(v) => { setSelectedObjectiveId(v); setSelectedKeyResultId('ALL'); setPage(0) }}>
-              <SelectTrigger className="w-full sm:w-56" aria-label="Mục tiêu OKR"><SelectValue placeholder="Mục tiêu" /></SelectTrigger>
+              <SelectTrigger className="w-full sm:w-auto sm:min-w-56" aria-label="Mục tiêu OKR"><SelectValue placeholder="Mục tiêu" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="ALL">Tất cả mục tiêu</SelectItem>
                 {objectivesData?.map(obj => <SelectItem key={obj.id} value={obj.id}>{obj.code} · {obj.name}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={selectedKeyResultId} onValueChange={(v) => { setSelectedKeyResultId(v); setPage(0) }} disabled={selectedObjectiveId === 'ALL'}>
-              <SelectTrigger className="w-full sm:w-56" aria-label="Kết quả then chốt"><SelectValue placeholder="Kết quả then chốt" /></SelectTrigger>
+              <SelectTrigger className="w-full sm:w-auto sm:min-w-56" aria-label="Kết quả then chốt"><SelectValue placeholder="Kết quả then chốt" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="ALL">Tất cả kết quả</SelectItem>
                 {keyResults.map(kr => <SelectItem key={kr.id} value={kr.id}>{kr.code} · {kr.name}</SelectItem>)}

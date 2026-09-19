@@ -275,7 +275,7 @@ public class UserService {
         User targetUser = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Người dùng", "id", userId));
 
-        if (!currentUser.getId().equals(userId) && !permissionChecker.isGlobalAdmin(currentUser.getId())) {
+        if (!currentUser.getId().equals(userId) && !permissionChecker.isGlobalAdminOverUser(currentUser.getId(), userId)) {
             List<UserRoleOrgUnit> targetUserAssignments = userRoleOrgUnitRepository.findByUserId(userId);
             boolean hasAccess = targetUserAssignments.stream()
                     .anyMatch(a -> permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "USER:VIEW", a.getOrgUnit().getId()) ||
@@ -295,7 +295,7 @@ public class UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Người dùng", "id", userId));
 
-        if (!currentUser.getId().equals(userId) && !permissionChecker.isGlobalAdmin(currentUser.getId())) {
+        if (!currentUser.getId().equals(userId) && !permissionChecker.isGlobalAdminOverUser(currentUser.getId(), userId)) {
             List<UserRoleOrgUnit> targetUserAssignments = userRoleOrgUnitRepository.findByUserId(userId);
             boolean hasAccess = targetUserAssignments.stream()
                     .anyMatch(a -> permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "USER:UPDATE", a.getOrgUnit().getId()));
@@ -366,7 +366,7 @@ public class UserService {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new ResourceNotFoundException("Người dùng", "id", userId));
 
-        if (!permissionChecker.isGlobalAdmin(currentUser.getId())) {
+        if (!permissionChecker.isGlobalAdminOverUser(currentUser.getId(), userId)) {
             List<UserRoleOrgUnit> targetUserAssignments = userRoleOrgUnitRepository.findByUserId(userId);
             boolean hasAccess = targetUserAssignments.stream()
                     .anyMatch(a -> permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "USER:DELETE", a.getOrgUnit().getId()));

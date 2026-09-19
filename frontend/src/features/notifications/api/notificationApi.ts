@@ -1,5 +1,5 @@
 import axiosInstance from '@/lib/axios'
-import type { ApiResponse, PageResponse } from '@/types/api'
+import type { ApiResponse, CursorPageResponse } from '@/types/api'
 import type { Notification } from '@/types/notification'
 
 export interface NotificationConfigItem {
@@ -18,8 +18,11 @@ export const notificationApi = {
   sendKpiReminder: (data: SendKpiReminderRequest) =>
     axiosInstance.post<ApiResponse<void>>('/notifications/kpi-reminder', data).then((r) => r.data),
 
-  getAll: (page = 0, size = 20) =>
-    axiosInstance.get<ApiResponse<PageResponse<Notification>>>('/notifications', { params: { page, size } }).then((r) => r.data.data),
+  // Keyset pagination: trang đầu không có cursor; trang kế gửi lại nextCursor của trang trước.
+  getAll: (size = 20, cursor?: string | null) =>
+    axiosInstance
+      .get<ApiResponse<CursorPageResponse<Notification>>>('/notifications', { params: { size, cursor: cursor ?? undefined } })
+      .then((r) => r.data.data),
 
   markAsRead: (id: string) =>
     axiosInstance.patch<ApiResponse<Notification>>(`/notifications/${id}/read`).then((r) => r.data.data),

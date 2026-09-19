@@ -2,6 +2,11 @@ version: '3.8'
 
 services:
   frontend:
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "3"
     build:
       context: ./frontend
       dockerfile: Dockerfile
@@ -21,6 +26,12 @@ services:
       - "traefik.docker.network=coolify"
 
   backend:
+    # Giới hạn log Docker: mặc định json-file KHÔNG xoay vòng, vài tuần là đầy đĩa VPS.
+    logging:
+      driver: json-file
+      options:
+        max-size: "50m"
+        max-file: "5"
     build:
       context: ./backend
       dockerfile: Dockerfile
@@ -34,10 +45,25 @@ services:
       # Database
       - DB_URL=jdbc:postgresql://kpitracking-db:5432/kpitracking
       - DB_USERNAME=${DB_USERNAME:-postgres}
-      - DB_PASSWORD=${DB_PASSWORD:-123456}
+      - "DB_PASSWORD=${DB_PASSWORD:?thieu DB_PASSWORD trong Environment Variables cua Coolify}"
+      # Pool ket noi moi instance; max_connections cua Postgres phai >= so instance x pool + 10.
+      # Xem docs/DATABASE_SCALING.md H6.
+      - HIKARI_MAX_POOL=${HIKARI_MAX_POOL:-20}
+      # validate = Hibernate khong tu tao bang/cot; moi thay doi schema qua Flyway V{n}. Neu boot loi
+      # vi lech schema, dat tam =update de len roi viet migration sua. DATABASE_SCALING.md C1.
+      - JPA_DDL_AUTO=${JPA_DDL_AUTO:-validate}
+      - HIKARI_MIN_IDLE=${HIKARI_MIN_IDLE:-5}
+      # Job don du lieu ghi lien tuc (refresh_tokens / notifications / security_audit_logs).
+      # MAC DINH TAT — bat sau khi chay backend/db/ops/002 + 003 va xac nhan TTL (DATABASE_SCALING.md C3).
+      - APP_RETENTION_ENABLED=${APP_RETENTION_ENABLED:-false}
+      - APP_RETENTION_NOTIF_READ_DAYS=${APP_RETENTION_NOTIF_READ_DAYS:-90}
+      - APP_RETENTION_NOTIF_UNREAD_DAYS=${APP_RETENTION_NOTIF_UNREAD_DAYS:-180}
+      - APP_RETENTION_AUDIT_DAYS=${APP_RETENTION_AUDIT_DAYS:-180}
+      # Cache quyen theo user (giay); 0 = tat. DATABASE_SCALING.md C2.
+      - AUTHORITY_CACHE_TTL_SECONDS=${AUTHORITY_CACHE_TTL_SECONDS:-30}
 
       # JWT
-      - JWT_SECRET=${JWT_SECRET}
+      - "JWT_SECRET=${JWT_SECRET:?thieu JWT_SECRET trong Environment Variables cua Coolify - sinh bang: openssl rand -base64 64}"
       - JWT_ACCESS_EXPIRY=${JWT_ACCESS_EXPIRY:-9000000}
       - JWT_REFRESH_EXPIRY=${JWT_REFRESH_EXPIRY:-604800000}
 
@@ -53,6 +79,10 @@ services:
       # CsrfFilter chặn (trả về 401 vì filter CSRF chạy trước JwtAuthenticationFilter).
       - COOKIE_DOMAIN=${COOKIE_DOMAIN:-keygo.vn}
       - COOKIE_SAME_SITE=${COOKIE_SAME_SITE:-Lax}
+
+      # Rate limit: backend đứng sau nginx nên tin X-Forwarded-For (hop cuối) để lấy IP thật.
+      - RATE_LIMIT_TRUST_PROXY=${RATE_LIMIT_TRUST_PROXY:-true}
+      - SWAGGER_ENABLED=${SWAGGER_ENABLED:-false}
       - APP_FRONTEND_URL=${FRONTEND_URL:-https://keygo.vn}
 
       # Lark SSO. App ID/Secret của từng công ty lưu trong DB, không cấu hình ở đây.
@@ -63,7 +93,7 @@ services:
       # ĐỔI KHOÁ = MẤT LIÊN KẾT Lark của mọi công ty, không phục hồi được.
       # Sinh khoá bằng lệnh: openssl rand -base64 48
       # Lưu ý: phải bọc nháy kép, nếu không dấu ':' trong thông báo sẽ khiến YAML hiểu nhầm là map.
-      - "DATA_ENCRYPTION_KEY=${DATA_ENCRYPTION_KEY:?chua khai DATA_ENCRYPTION_KEY trong .env - xem huong dan phia tren}"
+      - "DATA_ENCRYPTION_KEY=${DATA_ENCRYPTION_KEY:?thieu DATA_ENCRYPTION_KEY trong Environment Variables cua Coolify - xem huong dan phia tren}"
 
       # Cloudinary
       - CLOUDINARY_CLOUD_NAME=${CLOUDINARY_CLOUD_NAME}
@@ -173,14 +203,21 @@ services:
     # pgvector/pgvector:pg15 = postgres:15 + extension vector, thay thế trực tiếp postgres:15-alpine
     # (cùng bản PG nên volume dữ liệu cũ dùng lại nguyên). Cần cho kho tri thức AI (RAG).
     image: pgvector/pgvector:pg15
+    logging:
+      driver: json-file
+      options:
+        max-size: "20m"
+        max-file: "3"
 
+    # Chỉ bind 127.0.0.1 của host: pgAdmin/psql từ máy ngoài đi qua SSH tunnel tới server rồi
+    # nối localhost:5432. Không bao giờ ghi "5432:5432" (= 0.0.0.0, mở DB ra internet).
     ports:
-      - "5432:5432"
+      - "127.0.0.1:5432:5432"
 
     environment:
       POSTGRES_DB: kpitracking
       POSTGRES_USER: ${DB_USERNAME:-postgres}
-      POSTGRES_PASSWORD: ${DB_PASSWORD:-123456}
+      POSTGRES_PASSWORD: "${DB_PASSWORD:?thieu DB_PASSWORD trong Environment Variables cua Coolify}"
 
     volumes:
       - postgres_data:/var/lib/postgresql/data

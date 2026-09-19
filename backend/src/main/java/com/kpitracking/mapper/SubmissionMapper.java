@@ -9,7 +9,9 @@ import org.mapstruct.Mapping;
 
 import java.util.List;
 
-@Mapper(componentModel = "spring")
+// uses = SoftDeletedRefs: tên người nộp/duyệt và đợt KPI đọc được cả khi bản ghi đã xoá mềm
+// (nếu không, proxy ném EntityNotFoundException và cả danh sách bài nộp đổ 500).
+@Mapper(componentModel = "spring", uses = SoftDeletedRefs.class)
 public interface SubmissionMapper {
 
     @Mapping(source = "kpiCriteria.id", target = "kpiCriteriaId")
@@ -20,13 +22,13 @@ public interface SubmissionMapper {
     @Mapping(source = "qualitativeLevel.name", target = "qualitativeLevelName")
     @Mapping(source = "qualitativeLevel.value", target = "qualitativeLevelValue")
     @Mapping(source = "submittedBy.id", target = "submittedById")
-    @Mapping(source = "submittedBy.fullName", target = "submittedByName")
+    @Mapping(source = "submittedBy", target = "submittedByName", qualifiedByName = "userName")
     @Mapping(source = "reviewedBy.id", target = "reviewedById")
-    @Mapping(source = "reviewedBy.fullName", target = "reviewedByName")
+    @Mapping(source = "reviewedBy", target = "reviewedByName", qualifiedByName = "userName")
     @Mapping(source = "kpiCriteria.unit", target = "unit")
     @Mapping(source = "kpiCriteria.weight", target = "weight")
     @Mapping(source = "kpiCriteria.kpiPeriod.id", target = "kpiPeriod.id")
-    @Mapping(source = "kpiCriteria.kpiPeriod.name", target = "kpiPeriod.name")
+    @Mapping(source = "kpiCriteria.kpiPeriod", target = "kpiPeriod.name", qualifiedByName = "periodName")
     @Mapping(source = "attachments", target = "attachments")
     @Mapping(target = "isSubmittedByManager", ignore = true)
     SubmissionResponse toResponse(KpiSubmission submission);

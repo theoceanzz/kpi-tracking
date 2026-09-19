@@ -12,7 +12,8 @@ import java.util.UUID;
 
 @Entity
 @Table(name = "roles")
-@EntityListeners(AuditingEntityListener.class)
+// AuthorityCacheInvalidator: đổi tên/cấp vai trò làm cache quyền hết hạn (DATABASE_SCALING.md C2).
+@EntityListeners({AuditingEntityListener.class, com.kpitracking.security.AuthorityCacheInvalidator.class})
 @SQLRestriction("deleted_at IS NULL")
 @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
 public class Role {

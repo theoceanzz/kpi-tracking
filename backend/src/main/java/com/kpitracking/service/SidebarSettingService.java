@@ -4,8 +4,12 @@ import com.kpitracking.entity.Organization;
 import com.kpitracking.entity.SidebarSetting;
 import com.kpitracking.repository.OrganizationRepository;
 import com.kpitracking.repository.SidebarSettingRepository;
+import com.kpitracking.exception.ForbiddenException;
 import com.kpitracking.exception.ResourceNotFoundException;
+import com.kpitracking.repository.UserRepository;
+import com.kpitracking.security.PermissionChecker;
 import lombok.RequiredArgsConstructor;
+import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,9 +24,34 @@ public class SidebarSettingService {
 
     private final SidebarSettingRepository sidebarSettingRepository;
     private final OrganizationRepository organizationRepository;
+    private final UserRepository userRepository;
+    private final PermissionChecker permissionChecker;
+
+    /**
+     * organizationId đến từ đường dẫn do client gửi, nên phải đối chiếu với tổ chức của người
+     * gọi: đọc thì cần là thành viên, ghi thì cần ORG:UPDATE (hoặc SYSTEM:ADMIN) ở đúng tổ chức đó.
+     */
+    private UUID requireMember(UUID organizationId) {
+        String email = SecurityContextHolder.getContext().getAuthentication().getName();
+        UUID userId = userRepository.findByEmail(email)
+                .orElseThrow(() -> new ResourceNotFoundException("User", "email", email))
+                .getId();
+        if (!permissionChecker.isMemberOfOrganization(userId, organizationId)) {
+            throw new ForbiddenException("Bạn không thuộc tổ chức này");
+        }
+        return userId;
+    }
+
+    private void requireCanEdit(UUID organizationId) {
+        UUID userId = requireMember(organizationId);
+        if (!permissionChecker.hasPermissionInOrganization(userId, "COMPANY:UPDATE", organizationId)) {
+            throw new ForbiddenException("Bạn không có quyền đổi tên mục điều hướng của tổ chức");
+        }
+    }
 
     @Transactional(readOnly = true)
     public Map<String, String> getCustomLabels(UUID organizationId) {
+        requireMember(organizationId);
         return sidebarSettingRepository.findByOrganizationId(organizationId)
                 .stream()
                 .collect(Collectors.toMap(SidebarSetting::getMenuKey, SidebarSetting::getCustomLabel));
@@ -35,6 +64,7 @@ public class SidebarSettingService {
      */
     @Transactional
     public void updateCustomLabel(UUID organizationId, String menuKey, String customLabel) {
+        requireCanEdit(organizationId);
         if (customLabel == null || customLabel.isBlank()) {
             sidebarSettingRepository.findByOrganizationIdAndMenuKey(organizationId, menuKey)
                     .ifPresent(sidebarSettingRepository::delete);

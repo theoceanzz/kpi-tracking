@@ -142,10 +142,10 @@ export default function DateFilterFields({
             value={value.periodId ?? 'ALL'}
             onValueChange={v => handlePeriodChange(v === 'ALL' ? undefined : v)}
           >
-            <SelectTrigger className={cn(baseTrigger, fixed('md:w-[300px]'))}>
+            <SelectTrigger className={cn(baseTrigger, fixed('md:min-w-[300px]'))}>
               <SelectValue placeholder="Tất cả các đợt" />
             </SelectTrigger>
-            <SelectContent className="w-[var(--radix-select-trigger-width)]">
+            <SelectContent>
               <SelectItem value="ALL">Tất cả các đợt</SelectItem>
               {periods.map(p => (
                 <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
@@ -158,10 +158,10 @@ export default function DateFilterFields({
               value={periodMode}
               onValueChange={v => patch({ periodMode: v as PeriodMode, subIndex: 0 })}
             >
-              <SelectTrigger className={cn(baseTrigger, fixed('md:w-[220px]'))}>
+              <SelectTrigger className={cn(baseTrigger, fixed('md:min-w-[220px]'))}>
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="w-[var(--radix-select-trigger-width)]">
+              <SelectContent>
                 {periodModeOptions(selectedPeriod).map(m => (
                   <SelectItem key={m} value={m}>{PERIOD_MODE_LABEL[m]}</SelectItem>
                 ))}
@@ -169,10 +169,10 @@ export default function DateFilterFields({
             </Select>
           ) : (
             <Select value={legacyMode} onValueChange={v => patch({ legacyMode: v as LegacyMode })}>
-              <SelectTrigger className={cn(baseTrigger, fixed('md:w-[220px]'))}>
+              <SelectTrigger className={cn(baseTrigger, fixed('md:min-w-[220px]'))}>
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="w-[var(--radix-select-trigger-width)]">
+              <SelectContent>
                 {LEGACY_OPTIONS.map(o => (
                   <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
                 ))}
@@ -196,7 +196,7 @@ export default function DateFilterFields({
               <SelectTrigger className={baseTrigger}>
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="w-[var(--radix-select-trigger-width)]">
+              <SelectContent>
                 {weeks.map((ws, i) => {
                   const f = clamp(startOfWeek(ws, { weekStartsOn: 1 }), periodStart, periodEnd)
                   const t = clamp(endOfWeek(ws, { weekStartsOn: 1 }), periodStart, periodEnd)
@@ -215,7 +215,7 @@ export default function DateFilterFields({
               <SelectTrigger className={baseTrigger}>
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="w-[var(--radix-select-trigger-width)]">
+              <SelectContent>
                 {months.map((ms, i) => (
                   <SelectItem key={i} value={i.toString()}>{`Tháng ${format(ms, 'MM/yyyy')}`}</SelectItem>
                 ))}
@@ -228,7 +228,7 @@ export default function DateFilterFields({
               <SelectTrigger className={baseTrigger}>
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="w-[var(--radix-select-trigger-width)]">
+              <SelectContent>
                 {quarters.map((qs, i) => (
                   <SelectItem key={i} value={i.toString()}>{`Quý ${getQuarter(qs)}/${format(qs, 'yyyy')}`}</SelectItem>
                 ))}
@@ -261,19 +261,19 @@ export default function DateFilterFields({
       ) : mode === 'RANGE' ? (
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
           <Select value={value.rangeFromId} onValueChange={handleRangeFrom}>
-            <SelectTrigger className={cn(baseTrigger, fixed('md:w-[240px]'))}>
+            <SelectTrigger className={cn(baseTrigger, fixed('md:min-w-[240px]'))}>
               <SelectValue placeholder="Từ đợt..." />
             </SelectTrigger>
-            <SelectContent className="w-[var(--radix-select-trigger-width)]">
+            <SelectContent>
               <ScopeSelectItems items={periods} selectedId={value.rangeFromId} />
             </SelectContent>
           </Select>
           <span className="hidden sm:inline text-slate-400 self-center">→</span>
           <Select value={value.rangeToId} onValueChange={v => patch({ rangeToId: v })}>
-            <SelectTrigger className={cn(baseTrigger, fixed('md:w-[240px]'))}>
+            <SelectTrigger className={cn(baseTrigger, fixed('md:min-w-[240px]'))}>
               <SelectValue placeholder="Đến đợt..." />
             </SelectTrigger>
-            <SelectContent className="w-[var(--radix-select-trigger-width)]">
+            <SelectContent>
               <ScopeSelectItems items={toOptions} selectedId={value.rangeToId} />
             </SelectContent>
           </Select>
@@ -283,7 +283,7 @@ export default function DateFilterFields({
           cycles={cycles}
           selected={value.cycleIds ?? []}
           onChange={ids => patch({ cycleIds: ids })}
-          triggerClass={cn(baseTrigger, fixed('md:w-[300px]'))}
+          triggerClass={cn(baseTrigger, fixed('md:min-w-[300px]'))}
         />
       )}
 
@@ -291,10 +291,10 @@ export default function DateFilterFields({
           Khi chọn đúng 1 đợt cụ thể thì "Theo đợt" = 1 cột (vô nghĩa) nên ẩn đi. */}
       {(mode === 'RANGE' || mode === 'CYCLE' || !selectedPeriod) && (
         <Select value={groupBy} onValueChange={v => patch({ groupBy: v as GroupBy })}>
-          <SelectTrigger className={cn(baseTrigger, fixed('md:w-[200px]'))}>
+          <SelectTrigger className={cn(baseTrigger, fixed('md:min-w-[200px]'))}>
             <SelectValue />
           </SelectTrigger>
-          <SelectContent className="w-[var(--radix-select-trigger-width)]">
+          <SelectContent>
             <SelectItem value="TIME">Trục: theo thời gian</SelectItem>
             <SelectItem value="PERIOD">Trục: theo đợt</SelectItem>
           </SelectContent>

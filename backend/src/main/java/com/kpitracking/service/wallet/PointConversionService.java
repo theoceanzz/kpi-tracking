@@ -52,6 +52,7 @@ public class PointConversionService {
     private final OrganizationRepository organizationRepository;
     private final ApplicationEventPublisher eventPublisher;
     private final RewardContext context;
+    private final com.kpitracking.security.audit.SecurityAuditService securityAudit;
 
     @Transactional(readOnly = true)
     public ConversionQuoteResponse quote(int points) {
@@ -142,6 +143,9 @@ public class PointConversionService {
 
         eventPublisher.publishEvent(new WalletEvents.CashConvertedEvent(this, me, cost, points, rate));
         log.info("User {} đổi {} đồng lấy {} điểm (tỉ giá {})", me.getId(), cost, points, rate);
+        securityAudit.record(com.kpitracking.security.audit.SecurityAuditEvent.WALLET_TRANSACTION,
+                com.kpitracking.security.audit.SecurityAuditService.OK,
+                "CASH_TX", cashTx.getId().toString(), "Quy đổi " + cost + " đồng -> " + points + " điểm");
 
         long balanceAfter = cashTx.getBalanceAfter();
         return ConversionQuoteResponse.builder()
