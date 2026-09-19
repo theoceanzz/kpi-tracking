@@ -1,11 +1,10 @@
 package com.kpitracking.ai.workflow;
 
-import com.kpitracking.ai.agent.AssistantAgent;
 import com.kpitracking.ai.agent.PlannerAgent;
 import com.kpitracking.ai.agent.RouterAgent;
 import com.kpitracking.ai.memory.ConversationMemoryStore;
 import com.kpitracking.ai.memory.TurnChatMemory;
-import com.kpitracking.ai.memory.TurnMemoryRegistry;
+import com.kpitracking.ai.memory.TurnRegistry;
 import com.kpitracking.repository.OrgUnitRepository;
 import com.kpitracking.service.FollowupService;
 import com.kpitracking.service.ManagerContextResolver.ManagerContext;
@@ -18,6 +17,7 @@ import com.kpitracking.tool.ToolRegistry;
 import com.kpitracking.tool.ToolRegistry.Group;
 import dev.langchain4j.agentic.scope.AgenticScope;
 import dev.langchain4j.data.message.UserMessage;
+import dev.langchain4j.invocation.InvocationParameters;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
@@ -35,6 +35,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
@@ -51,23 +53,28 @@ import static org.mockito.Mockito.when;
 class TurnStepsTest {
 
     private RouterAgent router;
+    private PlannerAgent planner;
     private ToolRegistry registry;
     private TurnSteps steps;
+    private TurnRegistry turns;
 
     private final Map<String, Object> scopeState = new HashMap<>();
+    private final Map<String, Object> executionContext = new HashMap<>();
     private AgenticScope scope;
     private AiTurn turn;
 
     @BeforeEach
     void setUp() {
         router = mock(RouterAgent.class);
+        planner = mock(PlannerAgent.class);
         registry = mock(ToolRegistry.class);
         when(registry.readGroups()).thenReturn(Set.of(Group.CORE, Group.LOOKUP, Group.KPI, Group.INSIGHT, Group.BSC, Group.OKR));
         when(registry.deniedGroups(any(), any())).thenReturn(Set.of());
 
+        turns = new TurnRegistry();
         steps = new TurnSteps(mock(OrgUnitRepository.class), mock(FollowupContextStore.class),
-                mock(ConversationMemoryStore.class), mock(TurnMemoryRegistry.class), registry,
-                router, mock(PlannerAgent.class), mock(AssistantAgent.class),
+                mock(ConversationMemoryStore.class), turns, registry,
+                router, planner,
                 mock(FollowupService.class), new AnswerValidator(true));
         steps.routingEnabled = true;
         steps.planEnforce = true;
@@ -82,6 +89,94 @@ class TurnStepsTest {
         when(scope.readState(anyString())).thenAnswer(inv -> scopeState.get(inv.<String>getArgument(0)));
         doAnswer(inv -> { scopeState.put(inv.getArgument(0), inv.getArgument(1)); return null; })
                 .when(scope).writeState(anyString(), any());
+        when(scope.memoryId()).thenReturn("scope-1");
+        doAnswer(inv -> { executionContext.put(inv.<Class<?>>getArgument(0).getName(), inv.getArgument(1)); return null; })
+                .when(scope).writeExecutionContext(any(Class.class), any());
+    }
+
+    @Nested
+    @DisplayName("lượt của nhân viên")
+    class Staff {
+
+        @Test
+        @DisplayName("nhân viên -> chỉ nhóm PERSONAL, router chỉ để nhận HELP, không ACTION dù router bảo gì")
+        void staffGetsPersonalGroupOnly() {
+            turn.setStaff(true);
+            when(router.route(any(), any())).thenReturn("ACTION,KPI,INSIGHT");
+
+            steps.route(scope, List.of(handler("HELP", "HELP - hỏi cách dùng")));
+
+            assertThat(turn.getToolGroups()).containsExactly(Group.PERSONAL);
+            assertThat(scopeState.get(TurnSteps.INTENT)).isNull();
+        }
+
+        @Test
+        @DisplayName("nhân viên hỏi cách dùng -> vẫn vào nhánh HELP")
+        void staffCanStillAskHelp() {
+            turn.setStaff(true);
+            when(router.route(any(), any())).thenReturn("HELP");
+
+            steps.route(scope, List.of(handler("HELP", "HELP - hỏi cách dùng")));
+
+            assertThat(scopeState.get(TurnSteps.INTENT)).isEqualTo("HELP");
+        }
+
+        @Test
+        @DisplayName("nhân viên -> KHÔNG lập kế hoạch (planner chỉ biết tool của quản lý, kế hoạch đó đẩy model lặp tool cá nhân)")
+        void staffTurnIsNeverPlanned() {
+            turn.setStaff(true);
+            steps.planningEnabled = true;
+            when(planner.plan(any())).thenReturn("1. get_people — danh sách; 2. rank — xếp hạng");
+
+            steps.plan(scope);
+
+            assertThat(turn.getPlan()).isNull();
+            verify(planner, never()).plan(any());
+        }
+
+        @Test
+        @DisplayName("model xin nới tool -> nhân viên KHÔNG được nới sang nhóm đọc của quản lý")
+        void staffIsNeverWidened() {
+            turn.setStaff(true);
+            turn.setToolGroups(Set.of(Group.PERSONAL));
+            turn.getAgentState().setWidenTools(true);
+
+            steps.prepareRound(scope);
+
+            assertThat(turn.getToolGroups()).containsExactly(Group.PERSONAL);
+        }
+    }
+
+    @Nested
+    @DisplayName("context")
+    class Context {
+
+        @Test
+        @DisplayName("nối với mô-đun agentic: turnId = memoryId của scope, câu hỏi vào state, ngữ cảnh tool làm execution context")
+        void wiresScopeForTheAgent() {
+            steps.context(scope);
+
+            assertThat(turn.getTurnId()).isEqualTo("scope-1");
+            assertThat(scopeState.get(TurnSteps.QUESTION)).isEqualTo("Phòng IT có bao nhiêu người?");
+            assertThat(turns.turn("scope-1")).isSameAs(turn);
+            assertThat(turns.get("scope-1")).isSameAs(turn.getMemory());
+
+            Object params = executionContext.get(InvocationParameters.class.getName());
+            assertThat(params).isInstanceOf(InvocationParameters.class);
+            InvocationParameters p = (InvocationParameters) params;
+            assertThat(p.<Object>get("orgUnitId")).isEqualTo(turn.getManager().orgUnitId());
+            assertThat(p.<Object>get(AgentState.CONTEXT_KEY)).isSameAs(turn.getAgentState());
+        }
+
+        @Test
+        @DisplayName("release gỡ lượt khỏi sổ — khoá cũ nhận bộ nhớ rỗng, không nhận nhầm")
+        void releaseUnregisters() {
+            steps.context(scope);
+            steps.release(turn);
+
+            assertThat(turns.get("scope-1")).isNotSameAs(turn.getMemory());
+            assertThat(turns.get("scope-1").messages()).isEmpty();
+        }
     }
 
     private static IntentHandler handler(String intent, String hint) {
@@ -182,12 +277,13 @@ class TurnStepsTest {
         void planGapTriggersOneNudge() {
             turn.setPlan(List.of(new PlanStep("get_people", "a"), new PlanStep("get_kpi", "b")));
             state().recordSuccess("get_people");
-            state().setAnswer("nháp");
+            scopeState.put(TurnSteps.ANSWER, "nháp");
             turn.getMemory().add(UserMessage.from("x"));
 
             assertThat(steps.needsAnotherRound(scope)).isTrue();
             assertThat(turn.getMissingPlannedTools()).containsExactly("get_kpi");
             assertThat(state().getAnswer()).isNull();
+            assertThat(scopeState.get(TurnSteps.ANSWER)).isNull();
             assertThat(turn.getMemory().messages()).isEmpty();
 
             // Lần hai vẫn thiếu -> KHÔNG hỏi lại nữa; hỏi mãi là vòng lặp vô tận trả tiền token.
@@ -229,7 +325,7 @@ class TurnStepsTest {
         @Test
         @DisplayName("không có gì để bổ sung -> dừng, và không xoá gì")
         void nothingMissingStops() {
-            state().setAnswer("xong");
+            scopeState.put(TurnSteps.ANSWER, "xong");
             turn.getMemory().add(UserMessage.from("x"));
 
             assertThat(steps.needsAnotherRound(scope)).isFalse();

@@ -1,17 +1,17 @@
 package com.kpitracking.ai.rag;
 
 import com.kpitracking.entity.RagAsset;
+import com.kpitracking.exception.BusinessException;
 import com.kpitracking.entity.RagDocument;
 import com.kpitracking.repository.RagAssetRepository;
 import com.kpitracking.repository.RagDocumentRepository;
 import dev.langchain4j.data.document.Document;
-import dev.langchain4j.data.document.DocumentSplitter;
 import dev.langchain4j.data.document.Metadata;
 import dev.langchain4j.data.document.splitter.DocumentSplitters;
-import dev.langchain4j.data.embedding.Embedding;
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.model.embedding.EmbeddingModel;
 import dev.langchain4j.store.embedding.EmbeddingStore;
+import dev.langchain4j.store.embedding.EmbeddingStoreIngestor;
 import dev.langchain4j.store.embedding.filter.MetadataFilterBuilder;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -26,6 +26,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.UUID;
+import java.util.concurrent.atomic.AtomicInteger;
 
 /**
  * Nạp một tài liệu vào kho tri thức: đọc mục → tải ảnh → cắt đoạn → embedding → pgvector.
@@ -50,6 +51,20 @@ public class RagIngestionService {
     public static final String GLOBAL_ORG = "GLOBAL";
     public static final String SEP = "|";
 
+    /** Tên tệp đã kiểm: hiện chỉ nhận .docx. Dùng chung cho hai cửa nạp (tổ chức và nền tảng). */
+    public static String docxFileName(String originalName) {
+        String name = originalName == null || originalName.isBlank() ? "tai-lieu.docx" : originalName;
+        if (!name.toLowerCase(java.util.Locale.ROOT).endsWith(".docx")) {
+            throw new BusinessException("Hiện chỉ nhận tệp .docx");
+        }
+        return name;
+    }
+
+    /** Tên hiển thị: người dùng đặt, không thì lấy tên tệp bỏ đuôi. */
+    public static String titleOf(String title, String fileName) {
+        return title != null && !title.isBlank() ? title.trim() : fileName.replaceAll("(?i)[.]docx$", "");
+    }
+
     /**
      * Cắt theo KÝ TỰ, không theo token: e5-small nhận tối đa 512 token và tiếng Việt qua tokenizer
      * XLM-R vào khoảng 3 ký tự/token, nên 1200 ký tự ≈ 400 token — còn chỗ cho tiêu đề chèn đầu
@@ -57,7 +72,6 @@ public class RagIngestionService {
      */
     static final int MAX_CHARS = 1200;
     static final int OVERLAP_CHARS = 150;
-    private static final int EMBED_BATCH = 16;
 
     private final RagDocumentRepository documents;
     private final RagAssetRepository assets;
@@ -116,30 +130,39 @@ public class RagIngestionService {
 
     // ── nội bộ ──────────────────────────────────────────────────────────────
 
-    /** @return số đoạn đã nạp */
+    /**
+     * Xoá vector cũ của tài liệu rồi nạp lại qua {@link EmbeddingStoreIngestor} chuẩn của langchain4j:
+     * tách đoạn → biến đổi đoạn → embed → cất. Phần "của KeyGo" chỉ còn một
+     * {@code TextSegmentTransformer}: {@link #withHeading}.
+     *
+     * @return số đoạn đã nạp
+     */
     private int replaceVectors(UUID docId, List<Document> docs) {
         embeddingStore.removeAll(MetadataFilterBuilder.metadataKey("docId").isEqualTo(docId.toString()));
 
-        DocumentSplitter splitter = DocumentSplitters.recursive(MAX_CHARS, OVERLAP_CHARS);
-        List<TextSegment> segments = new ArrayList<>();
-        for (Document d : docs) {
-            for (TextSegment seg : splitter.split(d)) {
-                // Tiêu đề chèn vào ĐẦU mỗi đoạn: đoạn thứ ba của "3.11. Quy trình" mà không có
-                // chữ "quy trình" nào thì vector của nó không biết mình thuộc mục nào.
-                String head = "[" + d.metadata().getString("parent") + " › "
-                        + d.metadata().getString("title") + "]\n";
-                segments.add(TextSegment.from(head + seg.text(), seg.metadata()));
-            }
-        }
+        AtomicInteger count = new AtomicInteger();
+        EmbeddingStoreIngestor.builder()
+                .documentSplitter(DocumentSplitters.recursive(MAX_CHARS, OVERLAP_CHARS))
+                .textSegmentTransformer(seg -> {
+                    count.incrementAndGet();
+                    return withHeading(seg);
+                })
+                .embeddingModel(embeddingModel)
+                .embeddingStore(embeddingStore)
+                .build()
+                .ingest(docs);
+        log.info("Đã nạp {} đoạn cho tài liệu {}", count.get(), docId);
+        return count.get();
+    }
 
-        // Embedding theo lô nhỏ: ONNX tại chỗ giữ toàn bộ lô trong RAM, 16 đoạn là đủ mượt.
-        for (int from = 0; from < segments.size(); from += EMBED_BATCH) {
-            List<TextSegment> batch = segments.subList(from, Math.min(from + EMBED_BATCH, segments.size()));
-            List<Embedding> embeddings = embeddingModel.embedAll(batch).content();
-            embeddingStore.addAll(embeddings, batch);
-        }
-        log.info("Đã nạp {} đoạn cho tài liệu {}", segments.size(), docId);
-        return segments.size();
+    /**
+     * Tiêu đề chèn vào ĐẦU mỗi đoạn: đoạn thứ ba của "3.11. Quy trình" mà không có chữ "quy trình"
+     * nào thì vector của nó không biết mình thuộc mục nào. Bộ tách đoạn đã chép metadata của mục
+     * sang từng đoạn nên đọc {@code parent}/{@code title} ngay trên đoạn.
+     */
+    static TextSegment withHeading(TextSegment seg) {
+        String head = "[" + seg.metadata().getString("parent") + " › " + seg.metadata().getString("title") + "]\n";
+        return TextSegment.from(head + seg.text(), seg.metadata());
     }
 
     private Metadata metadataOf(RagDocument doc, String orgKey, DocxSectionWalker.Section s, int order,

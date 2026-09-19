@@ -50,13 +50,24 @@ public class AiTurn {
 
     // ── dựng dần qua từng stage ──────────────────────────────────────────────
     private ManagerContext manager;
+    /**
+     * Người hỏi là NHÂN VIÊN (không phải trưởng/phó đơn vị nào). Lượt chỉ được nhóm tool CÁ NHÂN
+     * (dữ liệu của chính họ) và nhánh HELP; không router nhóm, không nới tool, không tool ghi.
+     */
+    private boolean staff;
+    /** Cờ tính năng của tổ chức — quyết định tool nào được trao (KPI hành vi, thưởng, thác nước...). */
+    private OrgFeatures features = OrgFeatures.NONE;
     private UUID effectiveUnitId;
     private Map<String, Object> toolCtx = new HashMap<>();
     private String currentDateTime;
     private boolean hasMemory;
 
-    /** Khoá định danh lượt — là {@code @MemoryId} của agent chính và khoá của {@link #memory}. */
-    private final String turnId = java.util.UUID.randomUUID().toString();
+    /**
+     * Khoá định danh lượt — là {@code @MemoryId} của agent chính và khoá của {@link #memory}. Bước
+     * {@code context} gán lại bằng {@code memoryId} của scope agentic (cũng ngẫu nhiên theo lượt) để
+     * mô-đun và {@code TurnRegistry} nói cùng một khoá.
+     */
+    private String turnId = java.util.UUID.randomUUID().toString();
 
     /** Nhóm tool mà bước định tuyến chọn cho lượt này; {@code KeyGoToolProvider} đọc ở mỗi lời gọi. */
     private Set<ToolRegistry.Group> toolGroups;
@@ -102,8 +113,6 @@ public class AiTurn {
     private String focusUnitName;
     /** Các câu hỏi gợi ý tiếp theo do {@code FollowupStage} sinh; null ở lượt không có gợi ý. */
     private FollowupResponse followups;
-    /** Nguồn trích dẫn của nhánh hỏi đáp tài liệu (HELP); rỗng ở lượt khác. */
-    private List<com.kpitracking.ai.agent.help.HelpService.Source> sources;
     /**
      * Lượt này model có xin mở vùng thả minh chứng trong khung chat không.
      *
@@ -142,6 +151,11 @@ public class AiTurn {
     }
 
     /** Id hội thoại chỉ khi lượt này thực sự có bộ nhớ; ngược lại null. */
+    /** Các cờ tính năng của tổ chức mà bộ tool cần biết. {@code NONE} = mọi thứ tắt (an toàn khi thiếu). */
+    public record OrgFeatures(boolean conduct, boolean reward, boolean waterfall, boolean bsc, boolean okr) {
+        public static final OrgFeatures NONE = new OrgFeatures(false, false, false, false, false);
+    }
+
     public String memoryConversationId() {
         return hasMemory ? conversationId : null;
     }

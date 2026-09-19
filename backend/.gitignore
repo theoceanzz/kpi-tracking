@@ -44,3 +44,7 @@ models/
 
 # Ảnh bóc từ tài liệu RAG khi kho ảnh là cục bộ (sinh lại được bằng cách nạp lại tài liệu)
 data/
+
+# Kết quả bộ đo AI (run-ai-questions.js / run-form-fill.js ghi ra cwd khi không truyền --out)
+ai-questions-result.json
+form-fill-result.json

@@ -37,6 +37,22 @@ public class RequestContextBinder {
         return SecurityContextHolder.getContext();
     }
 
+    /**
+     * Chỉ đặt lại người dùng đăng nhập, không mở Session — cho việc KHÔNG chạm DB, như một lời gọi
+     * model: {@code TokenUsageListener.onRequest} đọc người dùng từ {@code SecurityContextHolder}, mà
+     * lời gọi model sau một tool chạy trên ForkJoinPool (đo được: "Bỏ qua ghi tiêu thụ token: không
+     * xác định được người dùng" cho mọi lời gọi thứ hai trở đi).
+     */
+    public <T> T runWithSecurity(SecurityContext security, Supplier<T> body) {
+        SecurityContext previous = SecurityContextHolder.getContext();
+        SecurityContextHolder.setContext(security);
+        try {
+            return body.get();
+        } finally {
+            SecurityContextHolder.setContext(previous);
+        }
+    }
+
     public <T> T runWith(SecurityContext security, Supplier<T> body) {
         SecurityContext previous = SecurityContextHolder.getContext();
         SecurityContextHolder.setContext(security);

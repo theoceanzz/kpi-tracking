@@ -74,6 +74,12 @@ public class KeyGoToolProvider implements ToolProvider {
         java.util.UUID userId = turn.getManager() == null ? null : turn.getManager().userId();
 
         List<Object> beans = new ArrayList<>(registry.toolsFor(groups, userId));
+        // Nhân viên: bỏ search khỏi CORE (tra được KPI/người toàn tổ chức) và bỏ need_other_tools — lượt
+        // nhân viên không bao giờ nới tool, để nó lại thì model xin "bổ sung công cụ" thay vì nói thẳng
+        // giới hạn của mình (đo được ngay câu bẫy đầu tiên).
+        if (turn.isStaff()) beans.removeIf(b -> b instanceof com.kpitracking.tool.SearchTool
+                || b instanceof com.kpitracking.tool.EscapeHatchTool);
+        Set<String> hidden = hiddenByFeatures(turn.getFeatures());
 
         // Tool điền form chỉ có khi người dùng đang mở đúng form đó; tool xác nhận chỉ có khi có
         // lời mời đang treo trong chính hội thoại này. Cùng lý lẽ: không có việc thì không có tool.
@@ -88,6 +94,7 @@ public class KeyGoToolProvider implements ToolProvider {
         Map<String, Object> names = new LinkedHashMap<>();
         for (Object bean : beans) {
             for (Prepared p : prepare(bean)) {
+                if (hidden.contains(p.spec().name())) continue;
                 out.add(p.spec(), new ContextBound(p.executor(), security));
                 names.put(p.spec().name(), bean);
             }
@@ -95,6 +102,17 @@ public class KeyGoToolProvider implements ToolProvider {
         turn.setToolNames(List.copyOf(names.keySet()));
         log.debug("Trao {} tool cho lượt: {}", names.size(), names.keySet());
         return out.build();
+    }
+
+    /**
+     * Tool bị ẩn vì tổ chức TẮT tính năng tương ứng. Lọc theo TÊN tool (không theo bean) vì bean cá
+     * nhân gom cả năm tool; và lọc ở đây chứ không ở {@code ToolRegistry} vì chỉ lượt mới biết tổ chức.
+     */
+    public static Set<String> hiddenByFeatures(AiTurn.OrgFeatures f) {
+        Set<String> hidden = new java.util.HashSet<>();
+        if (f == null || !f.conduct()) { hidden.add("get_conduct"); hidden.add("get_my_conduct"); }
+        if (f == null || !f.reward()) { hidden.add("get_rewards"); hidden.add("review_reward_grants"); hidden.add("get_my_rewards"); }
+        return hidden;
     }
 
     private List<Prepared> prepare(Object bean) {

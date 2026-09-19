@@ -39,9 +39,13 @@ public class HelpAgentFactory {
     @Value("${app.ai.rag.retrieval.max-results:6}") private int maxResults;
     @Value("${app.ai.rag.retrieval.min-score:0}") private double minScore;
 
+    /**
+     * Bộ truy hồi — bean riêng để màn quản trị "thử tìm trong kho" dùng ĐÚNG nó: cùng chế độ hybrid,
+     * cùng số kết quả, cùng bộ lọc tổ chức. Cái người quản trị thấy là cái trợ lý nhận.
+     */
     @Bean
-    public RetrievalAugmentor helpRetrievalAugmentor(EmbeddingStore<TextSegment> store, EmbeddingModel embeddingModel) {
-        ContentRetriever retriever = EmbeddingStoreContentRetriever.builder()
+    public ContentRetriever helpContentRetriever(EmbeddingStore<TextSegment> store, EmbeddingModel embeddingModel) {
+        return EmbeddingStoreContentRetriever.builder()
                 .embeddingStore(store)
                 .embeddingModel(embeddingModel)
                 .embeddingInputType(EmbeddingInputType.QUERY)
@@ -59,9 +63,12 @@ public class HelpAgentFactory {
                                     .isIn(RagIngestionService.GLOBAL_ORG, org.toString());
                 })
                 .build();
+    }
 
+    @Bean
+    public RetrievalAugmentor helpRetrievalAugmentor(ContentRetriever helpContentRetriever) {
         return DefaultRetrievalAugmentor.builder()
-                .contentRetriever(retriever)
+                .contentRetriever(helpContentRetriever)
                 .contentInjector(DefaultContentInjector.builder()
                         // Model cần ba thứ ngoài chữ: mục nào (để nói đúng ngữ cảnh), mở ở đâu, ảnh nào.
                         .metadataKeysToInclude(List.of("parent", "title", "route", "roles", "images", "captions"))

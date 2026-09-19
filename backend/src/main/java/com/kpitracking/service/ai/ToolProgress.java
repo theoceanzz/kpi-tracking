@@ -44,6 +44,8 @@ public final class ToolProgress {
             Map.entry("get_org_unit", "Đang xem thông tin đơn vị"),
             Map.entry("get_people", "Đang xem danh sách nhân sự"),
             Map.entry("get_kpi", "Đang tra cứu chỉ tiêu KPI"),
+            Map.entry("get_cycle_evaluation", "Đang xem đợt đánh giá"),
+            Map.entry("get_my_tasks", "Đang gom việc đang chờ bạn"),
             Map.entry("get_submissions", "Đang xem các báo cáo đã nộp"),
             Map.entry("get_analytics", "Đang tổng hợp số liệu"),
             Map.entry("get_bsc", "Đang xem bộ tiêu chí BSC"),
@@ -66,6 +68,18 @@ public final class ToolProgress {
             Map.entry("review_kpi_criteria", "Đang chuẩn bị danh sách chỉ tiêu cần duyệt"),
             Map.entry("review_kpi_adjustments", "Đang chuẩn bị danh sách yêu cầu điều chỉnh"),
             Map.entry("send_reminders", "Đang chuẩn bị danh sách người cần nhắc"),
+            Map.entry("submit_kpis_for_approval", "Đang chuẩn bị danh sách chỉ tiêu gửi duyệt"),
+            Map.entry("review_reward_grants", "Đang chuẩn bị danh sách đề xuất thưởng"),
+            Map.entry("finalize_cycle_evaluation", "Đang chuẩn bị bảng điểm để chốt đợt"),
+            Map.entry("decompose_kpi", "Đang tính bảng phân rã chỉ tiêu"),
+            Map.entry("get_delegations", "Đang xem uỷ quyền đơn vị"),
+            Map.entry("get_conduct", "Đang xem KPI hành vi"),
+            Map.entry("get_rewards", "Đang xem thưởng điểm"),
+            Map.entry("get_my_kpis", "Đang xem KPI của bạn"),
+            Map.entry("get_my_submissions", "Đang xem bài nộp của bạn"),
+            Map.entry("get_my_score", "Đang tính điểm dự kiến của bạn"),
+            Map.entry("get_my_conduct", "Đang xem phiếu hạnh kiểm của bạn"),
+            Map.entry("get_my_rewards", "Đang xem thưởng điểm của bạn"),
             // Tool này CHẠY THẬT chứ không chuẩn bị, nên nhãn phải nói đúng như vậy.
             Map.entry("confirm_pending_action", "Đang thực hiện thao tác bạn vừa xác nhận"));
 

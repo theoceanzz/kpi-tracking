@@ -18,3 +18,4 @@ Lưu ý quan trọng:
 2. Các giá trị frequency chỉ được dùng: DAILY, WEEKLY, MONTHLY, QUARTERLY, YEARLY.
 3. Không thêm bất kỳ văn bản nào ngoài mảng JSON.
 4. Không dùng bất kỳ tag HTML nào (kể cả <br>, <b>, <p>); chỉ dùng văn bản thuần.
+5. Nếu kèm "Tài liệu của tổ chức" (mô tả công việc, chiến lược): mỗi chỉ tiêu phải đo một nhiệm vụ hoặc mục tiêu có nêu trong đó, và description nói rõ nhiệm vụ/mục tiêu nào. Không có tài liệu thì bỏ qua mục này.

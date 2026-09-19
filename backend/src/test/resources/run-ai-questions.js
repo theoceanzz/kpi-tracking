@@ -22,6 +22,8 @@ const argOf = (name, dflt) => {
   return i >= 0 && args[i + 1] ? args[i + 1] : dflt;
 };
 const onlyGroup = (argOf('--group', '') || '').toUpperCase();
+/** --only D16,E06: chỉ chạy các câu có id này (chạy lại ca hỏng mà không phải đo cả nhóm). */
+const onlyIds = new Set((argOf('--only', '') || '').split(',').map(x => x.trim().toUpperCase()).filter(Boolean));
 const LOG_PATH = argOf('--log', process.env.AI_TEST_LOG || '');
 /** Đo trên đường SSE thay vì đường JSON — xem askOverSse. */
 const USE_STREAM = args.includes('--stream');
@@ -259,6 +261,7 @@ const GROUPS = [
   ['B', 'Một câu cần nhiều tool', BANK.groupB],
   ['C', 'Một câu cần nhiều intent', BANK.groupC],
   ['D', 'Bẫy an toàn — phải đạt TUYỆT ĐỐI', BANK.groupD],
+  ['E', 'Nhân viên — chỉ dữ liệu của chính mình', BANK.groupE],
 ];
 
 (async () => {
@@ -272,6 +275,7 @@ const GROUPS = [
     console.log(`\n━━ NHÓM ${key} — ${title} ━━`);
 
     for (const item of items) {
+      if (onlyIds.size && !onlyIds.has(item.id.toUpperCase())) continue;
       const account = item.as || 'director';
       markLog();
       let answer;
@@ -300,7 +304,7 @@ const GROUPS = [
       // của gói đang dùng chỉ chạy được 3-4 câu/phút. Bắn nhanh hơn là hỏng hàng loạt trông y hệt
       // model chọn sai — đã đo nhầm một lần thành "tụt 37/40 -> 30/40".
       const pace = Number(argOf('--delay', '20000'));
-      const problems = grade(item, answer, trace, key === 'D');
+      const problems = grade(item, answer, trace, key === 'D' || key === 'E');
       const ok = problems.length === 0;
       ok ? pass++ : fail++;
 

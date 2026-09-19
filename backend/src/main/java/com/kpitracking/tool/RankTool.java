@@ -1,6 +1,7 @@
 package com.kpitracking.tool;
 
 import com.kpitracking.service.OrgUnitStatisticService;
+import com.kpitracking.service.analytics.RankingAnalyticsService;
 import com.kpitracking.tool.OrgUnitStatisticToolRequests.RankRequest;
 import com.kpitracking.tool.ToolSupport.UnitRef;
 import lombok.RequiredArgsConstructor;
@@ -26,10 +27,15 @@ import java.util.UUID;
 public class RankTool {
 
     private final OrgUnitStatisticService orgUnitStatisticService;
+    private final RankingAnalyticsService rankingAnalyticsService;
     private final FollowupContextStore followupContextStore;
     private final ToolSupport support;
 
-    @Tool(name = "rank", value = "Xếp hạng theo chỉ số. subject=members xếp hạng NGƯỜI "
+    @Tool(name = "rank", value = "Xếp hạng theo chỉ số. "
+            + "HỎI 'lên hạng / tụt hạng / biến động hạng so với đợt trước' -> subject=org_units, comparePrevious=true "
+            + "(một lời gọi, trả hạng đợt này + hạng đợt trước + mức đổi của từng đơn vị con, tính theo ĐỢT đánh giá; "
+            + "KHÔNG gọi rank hai lần với hai khoảng ngày rồi tự so). "
+            + "subject=members xếp hạng NGƯỜI "
             + "-> [rank, userId, fullName, email, orgUnitName, positionName, score]; subject=org_units "
             + "xếp hạng CÁC ĐƠN VỊ CON bên trong một đơn vị cha -> [rank, orgUnitName, score]. "
             + "Mặc định là đơn vị hiện tại của bạn, nên khi người dùng nêu tên đơn vị PHẢI truyền unitName. "
@@ -48,6 +54,13 @@ public class RankTool {
             if (subject == null) {
                 throw new IllegalArgumentException("Thiếu hoặc sai subject. Chỉ nhận: members, org_units.");
             }
+            if (Boolean.TRUE.equals(request.comparePrevious())) {
+                if (!"org_units".equals(subject)) {
+                    throw new IllegalArgumentException("comparePrevious chỉ dùng với subject=org_units "
+                            + "(biến động hạng giữa hai đợt tính theo đơn vị).");
+                }
+                return rankDelta(request, context);
+            }
             return "org_units".equals(subject)
                     ? rankOrgUnits(request, context)
                     : rankMembers(request, context);
@@ -64,6 +77,18 @@ public class RankTool {
             case "org_unit", "org_units", "orgunit", "orgunits", "unit", "units", "department", "departments" -> "org_units";
             default -> null;
         };
+    }
+
+    /**
+     * Biến động hạng giữa hai đợt đánh giá gần nhất — cùng phép tính với biểu đồ "Biến động thứ hạng"
+     * và với {@code get_analytics(view=rank_delta)}. Nằm ở đây vì model nghe "xếp hạng ... so với đợt
+     * trước" là gọi {@code rank} — đo được: mô tả chỉ sang tool khác không lái được nó; nó gọi rank hai
+     * lần rồi tự so, ra bảng theo KỲ KPI chứ không phải theo ĐỢT.
+     */
+    private String rankDelta(RankRequest request, InvocationParameters context) throws Exception {
+        UnitRef u = support.resolveUnit(request.unitId(), request.unitName(), context);
+        if (u.clarification() != null) return support.respond(context, "rank", u.clarification());
+        return support.respond(context, "rank", rankingAnalyticsService.getRankDelta(u.id(), List.of()));
     }
 
     // ── xếp hạng đơn vị ──────────────────────────────────────────────────────

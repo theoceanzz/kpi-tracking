@@ -19,16 +19,22 @@ public interface RouterAgent {
     @UserMessage("""
             Phân loại câu hỏi của người dùng vào một hoặc nhiều nhóm công cụ.
 
-            LOOKUP  - cơ cấu tổ chức, đơn vị, nhân sự, chức vụ, hồ sơ cá nhân
-            KPI     - chỉ tiêu KPI, kỳ đánh giá, bài nộp, ai chưa nộp, tổng quan KPI của đơn vị
+            LOOKUP  - cơ cấu tổ chức, đơn vị, nhân sự, chức vụ, hồ sơ cá nhân, uỷ quyền đơn vị
+            KPI     - chỉ tiêu KPI, kỳ đánh giá, bài nộp, ai chưa nộp, tổng quan KPI của đơn vị,
+                      việc đang chờ mình xử lý (hôm nay cần làm gì, còn gì chờ duyệt),
+                      phân rã/uỷ quyền chỉ tiêu, tổng trọng số, đợt đánh giá (điểm đợt, chốt đợt,
+                      chuỗi phê duyệt, ai chưa được đánh giá)
             INSIGHT - xếp hạng, so sánh đơn vị, xu hướng theo thời gian, cảnh báo rủi ro,
-                      bức tranh toàn đơn vị (quân số + số đơn vị con + số kỳ)
+                      bức tranh toàn đơn vị (quân số + số đơn vị con + số kỳ),
+                      lệch tự chấm – quản lý chấm, biến động thứ hạng giữa hai đợt
             BSC     - bộ tiêu chí (người dùng còn gọi là thẻ điểm cân bằng), hạng mục/lĩnh vực
                       (tài chính/khách hàng/quy trình/học hỏi),
                       cân bằng viễn cảnh, điểm BSC
             OKR     - mục tiêu (objective), kết quả then chốt (key result), tiến độ mục tiêu
             ACTION  - người dùng RA LỆNH thay đổi dữ liệu: duyệt / phê duyệt / từ chối bài nộp,
-                      duyệt chỉ tiêu, duyệt yêu cầu điều chỉnh, nhắc người chưa nộp.
+                      duyệt chỉ tiêu, duyệt yêu cầu điều chỉnh, nhắc người chưa nộp,
+                      gửi duyệt / trình duyệt chỉ tiêu nháp, chốt / mở lại / gửi kết quả đợt đánh giá,
+                      phân rã / uỷ quyền chỉ tiêu xuống đơn vị con, duyệt đề xuất thưởng.
                       CHỈ chọn khi họ bảo LÀM, không chọn khi họ chỉ HỎI về những thứ đó.
 
             {{hints}}

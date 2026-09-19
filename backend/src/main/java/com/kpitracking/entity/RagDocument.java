@@ -62,7 +62,25 @@ public class RagDocument {
     @Builder.Default
     private Instant updatedAt = Instant.now();
 
-    public enum Source { GUIDE, REGULATION }
+    /**
+     * Loại tài liệu. {@link #GUIDE} là của nền tảng (không tổ chức); ba loại còn lại luôn thuộc MỘT
+     * tổ chức. Nhánh HELP đọc tất cả loại của tổ chức; gợi ý KPI chỉ đọc {@link #JOB_DESCRIPTION}
+     * và {@link #STRATEGY} — quy chế nói về cách chấm, không nói về việc phải làm.
+     */
+    public enum Source {
+        /** Bộ hướng dẫn sử dụng KeyGo — chung toàn hệ thống. */
+        GUIDE,
+        /** Quy chế, quy định nội bộ của tổ chức. */
+        REGULATION,
+        /** Mô tả công việc, chức năng nhiệm vụ của đơn vị/chức vụ. */
+        JOB_DESCRIPTION,
+        /** Chiến lược, mục tiêu năm, bản đồ chiến lược (dạng văn bản). */
+        STRATEGY;
+
+        public boolean isOrganizationScoped() {
+            return this != GUIDE;
+        }
+    }
 
     public enum Status { PENDING, READY, FAILED }
 }

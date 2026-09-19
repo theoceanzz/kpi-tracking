@@ -1,6 +1,9 @@
 package com.kpitracking.ai.config;
 
 import com.kpitracking.ai.rag.E5EmbeddingModel;
+import com.kpitracking.ai.rag.RagVectorReader;
+import com.zaxxer.hikari.HikariConfig;
+import com.zaxxer.hikari.HikariDataSource;
 import dev.langchain4j.data.segment.TextSegment;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.chat.StreamingChatModel;
@@ -13,6 +16,7 @@ import dev.langchain4j.store.embedding.EmbeddingStore;
 import dev.langchain4j.store.embedding.pgvector.DefaultMetadataStorageConfig;
 import dev.langchain4j.store.embedding.pgvector.MetadataStorageMode;
 import dev.langchain4j.store.embedding.pgvector.PgVectorEmbeddingStore;
+import jakarta.annotation.PreDestroy;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -133,8 +137,8 @@ public class LangChain4jConfig {
      */
     @Bean
     public EmbeddingStore<TextSegment> embeddingStore() {
-        return PgVectorEmbeddingStore.builder()
-                .host(pgHost).port(pgPort).database(pgDatabase).user(pgUser).password(pgPassword)
+        return PgVectorEmbeddingStore.datasourceBuilder()
+                .datasource(vectorDataSource())
                 .table(embeddingTable)
                 .dimension(embeddingDimension)
                 .createTable(true)
@@ -147,5 +151,35 @@ public class LangChain4jConfig {
                         .indexType("GIN")
                         .build())
                 .build();
+    }
+
+    /** Đọc thẳng bảng vector cho màn quản trị (langchain4j không có API liệt kê đoạn theo tài liệu). */
+    @Bean
+    public RagVectorReader ragVectorReader() {
+        return new RagVectorReader(vectorDataSource(), embeddingTable);
+    }
+
+    private HikariDataSource vectorDataSource;
+
+    /**
+     * Một pool dùng chung cho kho vector và bộ đọc. Cố ý KHÔNG là bean {@code DataSource}: có thêm
+     * một bean kiểu đó là autoconfig của Spring Boot lùi bước và DB chính mất pool mặc định.
+     */
+    private synchronized HikariDataSource vectorDataSource() {
+        if (vectorDataSource == null) {
+            HikariConfig cfg = new HikariConfig();
+            cfg.setJdbcUrl("jdbc:postgresql://" + pgHost + ":" + pgPort + "/" + pgDatabase);
+            cfg.setUsername(pgUser);
+            cfg.setPassword(pgPassword);
+            cfg.setPoolName("kg-vectors");
+            cfg.setMaximumPoolSize(4);
+            vectorDataSource = new HikariDataSource(cfg);
+        }
+        return vectorDataSource;
+    }
+
+    @PreDestroy
+    void closeVectorPool() {
+        if (vectorDataSource != null) vectorDataSource.close();
     }
 }

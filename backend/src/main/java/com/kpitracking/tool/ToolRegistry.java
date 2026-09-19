@@ -54,7 +54,16 @@ public class ToolRegistry {
          */
         FORM,
         /** Tool GHI (tạo/sửa). Chưa có tool nào; để sẵn ranh giới đọc–ghi. */
-        ACTION
+        ACTION,
+        /** KPI hành vi (hạnh kiểm). Chỉ khi tổ chức bật {@code enableConduct}; đòi {@code EVALUATION:VIEW}. */
+        CONDUCT,
+        /** Thưởng điểm. Chỉ khi tổ chức bật {@code enableReward}; đòi một trong REWARD:VIEW/GRANT/APPROVE. */
+        REWARD,
+        /**
+         * Nhóm CÁ NHÂN cho NHÂN VIÊN: chỉ dữ liệu của chính người hỏi, không nhận tên đơn vị/người.
+         * Lượt của nhân viên chỉ có nhóm này (+ CORE rút gọn); lượt của quản lý không bao giờ có.
+         */
+        PERSONAL
     }
 
     private final SearchTool searchTool;
@@ -62,6 +71,8 @@ public class ToolRegistry {
     private final OrgUnitTool orgUnitTool;
     private final KpiTool kpiTool;
     private final SubmissionTool submissionTool;
+    private final CycleEvaluationTool cycleEvaluationTool;
+    private final MyTasksTool myTasksTool;
     private final AnalyticsTool analyticsTool;
     private final RankTool rankTool;
     private final CompareTool compareTool;
@@ -71,6 +82,14 @@ public class ToolRegistry {
     private final KpiCriteriaReviewTool kpiCriteriaReviewTool;
     private final KpiAdjustmentReviewTool kpiAdjustmentReviewTool;
     private final ReminderTool reminderTool;
+    private final KpiSubmitTool kpiSubmitTool;
+    private final RewardGrantReviewTool rewardGrantReviewTool;
+    private final CycleFinalizeTool cycleFinalizeTool;
+    private final KpiDecomposeTool kpiDecomposeTool;
+    private final DelegationTool delegationTool;
+    private final ConductTool conductTool;
+    private final RewardTool rewardTool;
+    private final PersonalTool personalTool;
     private final EscapeHatchTool escapeHatchTool;
     private final EvidenceRequestTool evidenceRequestTool;
     private final AttachFilesTool attachFilesTool;
@@ -87,7 +106,9 @@ public class ToolRegistry {
                     // Đúng bằng mức các endpoint REST tương ứng đòi. Lỏng hơn ở đây là mở một
                     // đường vòng: trợ lý trả về đúng thứ REST API vừa từ chối.
                     Group.BSC, "BSC:MANAGE",
-                    Group.OKR, "OKR:VIEW"
+                    Group.OKR, "OKR:VIEW",
+                    // Hạnh kiểm: đúng quyền của GET /conduct/summary. Thưởng: xem ở readToolPermissions (một trong ba).
+                    Group.CONDUCT, "EVALUATION:VIEW"
                     // ACTION KHÔNG có mặt ở đây: bốn tool ghi đòi bốn quyền khác nhau nên phải lọc
                     // theo TỪNG TOOL — xem actionTools(). Gán một quyền chung cho cả nhóm (bản
                     // trước để Group.ACTION -> "KPI:CREATE") là trao nhầm: người chỉ có quyền TẠO
@@ -101,11 +122,18 @@ public class ToolRegistry {
         // nào, kể cả khi chưa mở biểu mẫu báo cáo nào. Đặt ở nhóm khác là có lượt model không
         // được trao nó, và nó quay lại từ chối — đúng lỗi mà tool này sinh ra để chữa.
         m.put(Group.CORE, List.of(searchTool, escapeHatchTool, evidenceRequestTool, attachFilesTool));
-        m.put(Group.LOOKUP, List.of(orgUnitTool, peopleTool));
-        m.put(Group.KPI, List.of(kpiTool, submissionTool));
+        m.put(Group.LOOKUP, List.of(orgUnitTool, peopleTool, delegationTool));
+        // get_my_tasks ở KPI chứ không ở CORE: đặt ở CORE là mọi lượt (kể cả điền form) thấy thêm một
+        // tool — đo được form-fill tụt 21/21 -> 19/21 ngay lần đầu. Router đã được dặn 'việc đang chờ -> KPI'.
+        m.put(Group.KPI, List.of(kpiTool, submissionTool, cycleEvaluationTool, myTasksTool));
         m.put(Group.INSIGHT, List.of(rankTool, compareTool, analyticsTool));
         m.put(Group.BSC, List.of(bscTool));
         m.put(Group.OKR, List.of(okrTool));
+        // Hai nhóm theo cờ tổ chức: KeyGoToolProvider bỏ chúng khi tổ chức tắt tính năng.
+        m.put(Group.CONDUCT, List.of(conductTool));
+        m.put(Group.REWARD, List.of(rewardTool));
+        // PERSONAL chỉ được yêu cầu ở lượt của NHÂN VIÊN (TurnSteps.route); quản lý không bao giờ nhận.
+        m.put(Group.PERSONAL, List.of(personalTool));
         // FORM cố ý RỖNG: tool điền form chọn theo form đang mở chứ không theo nhóm — xem formTool().
         m.put(Group.FORM, List.of());
         // ACTION dựng từ actionTools(); lọc quyền theo từng tool nên không đi qua bảng nhóm.
@@ -126,6 +154,11 @@ public class ToolRegistry {
         m.put(kpiCriteriaReviewTool, "KPI:APPROVE_CRITERIA");
         m.put(kpiAdjustmentReviewTool, "KPI:APPROVE_ADJUSTMENT");
         m.put(reminderTool, "REMINDER:SEND");
+        m.put(kpiSubmitTool, "KPI:SUBMIT");
+        m.put(rewardGrantReviewTool, "REWARD:APPROVE");
+        // finalize/reopen đòi FINALIZE; action=send đòi thêm CYCLE_EVAL:SEND — tool tự kiểm bên trong.
+        m.put(cycleFinalizeTool, "CYCLE_EVAL:FINALIZE");
+        m.put(kpiDecomposeTool, "KPI:CREATE");
         return m;
     }
 
@@ -153,7 +186,7 @@ public class ToolRegistry {
 
     /** Mọi nhóm chỉ ĐỌC — dùng khi tắt router hoặc khi router lưỡng lự. */
     public Set<Group> readGroups() {
-        return Set.of(Group.CORE, Group.LOOKUP, Group.KPI, Group.INSIGHT, Group.BSC, Group.OKR);
+        return Set.of(Group.CORE, Group.LOOKUP, Group.KPI, Group.INSIGHT, Group.BSC, Group.OKR, Group.CONDUCT, Group.REWARD);
     }
 
     /**
@@ -166,6 +199,7 @@ public class ToolRegistry {
      */
     private static final Map<String, Group> GROUP_BY_TOOL_NAME = Map.ofEntries(
             Map.entry("search", Group.CORE),
+            Map.entry("get_my_tasks", Group.KPI),
             Map.entry("need_other_tools", Group.CORE),
             Map.entry("request_evidence_upload", Group.CORE),
             Map.entry("attach_pinned_files", Group.CORE),
@@ -173,6 +207,7 @@ public class ToolRegistry {
             Map.entry("get_people", Group.LOOKUP),
             Map.entry("get_kpi", Group.KPI),
             Map.entry("get_submissions", Group.KPI),
+            Map.entry("get_cycle_evaluation", Group.KPI),
             Map.entry("rank", Group.INSIGHT),
             Map.entry("compare_org_units", Group.INSIGHT),
             Map.entry("get_analytics", Group.INSIGHT),
@@ -182,6 +217,18 @@ public class ToolRegistry {
             Map.entry("review_kpi_criteria", Group.ACTION),
             Map.entry("review_kpi_adjustments", Group.ACTION),
             Map.entry("send_reminders", Group.ACTION),
+            Map.entry("submit_kpis_for_approval", Group.ACTION),
+            Map.entry("review_reward_grants", Group.ACTION),
+            Map.entry("finalize_cycle_evaluation", Group.ACTION),
+            Map.entry("decompose_kpi", Group.ACTION),
+            Map.entry("get_delegations", Group.LOOKUP),
+            Map.entry("get_conduct", Group.CONDUCT),
+            Map.entry("get_rewards", Group.REWARD),
+            Map.entry("get_my_kpis", Group.PERSONAL),
+            Map.entry("get_my_submissions", Group.PERSONAL),
+            Map.entry("get_my_score", Group.PERSONAL),
+            Map.entry("get_my_conduct", Group.PERSONAL),
+            Map.entry("get_my_rewards", Group.PERSONAL),
             Map.entry("confirm_pending_action", Group.ACTION),
             Map.entry("suggest_kpi_form", Group.FORM),
             Map.entry("suggest_submission_form", Group.FORM),
@@ -233,9 +280,25 @@ public class ToolRegistry {
             if (permission != null && (userId == null || !permissionChecker.hasPermission(userId, permission))) {
                 continue;
             }
-            tools.addAll(all.getOrDefault(g, List.of()));
+            for (Object tool : all.getOrDefault(g, List.of())) {
+                // Vài tool ĐỌC đòi quyền riêng dù nằm trong nhóm không đòi quyền — lọc từng tool như
+                // nhóm GHI, cùng lý do: quyền lấy đúng bằng mức endpoint REST tương ứng.
+                List<String> own = readToolPermissions().get(tool);
+                if (own != null && (userId == null || own.stream().noneMatch(p -> permissionChecker.hasPermission(userId, p)))) continue;
+                tools.add(tool);
+            }
         }
         return tools;
+    }
+
+    /**
+     * Tool ĐỌC có quyền riêng của nó (endpoint tương ứng đòi quyền ngoài quyền xem KPI thường).
+     * Giá trị là danh sách "một trong" — thưởng mở cho cả người cấp, người duyệt lẫn người chỉ xem.
+     */
+    private Map<Object, List<String>> readToolPermissions() {
+        return Map.of(
+                cycleEvaluationTool, List.of("CYCLE_EVAL:VIEW"),
+                rewardTool, List.of("REWARD:VIEW", "REWARD:GRANT", "REWARD:APPROVE"));
     }
 
     /**
@@ -294,7 +357,9 @@ public class ToolRegistry {
                 SearchTool.class, OrgUnitTool.class, PeopleTool.class, KpiTool.class,
                 SubmissionTool.class, AnalyticsTool.class, RankTool.class, CompareTool.class,
                 BscTool.class, OkrTool.class, SubmissionReviewTool.class, KpiCriteriaReviewTool.class, ConfirmActionTool.class,
-                KpiAdjustmentReviewTool.class, ReminderTool.class,
+                KpiAdjustmentReviewTool.class, ReminderTool.class, KpiSubmitTool.class,
+                CycleEvaluationTool.class, MyTasksTool.class, RewardGrantReviewTool.class, CycleFinalizeTool.class,
+                KpiDecomposeTool.class, DelegationTool.class, ConductTool.class, RewardTool.class, PersonalTool.class,
                 EscapeHatchTool.class, EvidenceRequestTool.class, AttachFilesTool.class,
                 KpiFormFillTool.class,
                 SubmissionFormFillTool.class, EvaluationFormFillTool.class,

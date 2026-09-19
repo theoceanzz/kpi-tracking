@@ -92,6 +92,15 @@ public class ToolSupport {
      * (one line, no stack trace) since they are returned to the model to self-correct;
      * genuine faults keep a full ERROR stack trace. Always returns properly-escaped JSON.
      */
+    /** JSON của một payload phụ (preview) để ghép vào chuỗi trả về của tool khác. */
+    public String toJson(Object payload) {
+        try {
+            return toolMapper.writeValueAsString(payload);
+        } catch (Exception e) {
+            return "null";
+        }
+    }
+
     public String toolError(String tool, Exception e) {
         if (e instanceof IllegalArgumentException || e instanceof SecurityException
                 || e instanceof IllegalStateException) {

@@ -489,6 +489,42 @@ public class KpiCriteriaService {
         return kpiCriteriaMapper.toResponse(kpi);
     }
 
+    /**
+     * Tạo MỘT chỉ tiêu con cho một đơn vị con từ chỉ tiêu cha — phần thực thi của lời mời phân rã
+     * của trợ lý. Mọi thuộc tính (loại, đơn vị tính, tần suất, kỳ, tối thiểu tỉ lệ) chép từ cha; chỉ
+     * mục tiêu và trọng số là phần chia. Đi qua đúng {@link #createKpiCriteria} nên luật quyền
+     * ({@code KPI:CREATE} trên đơn vị con) và luật trọng số của kỳ áp như tạo tay.
+     */
+    @Transactional
+    public KpiCriteriaResponse decomposeInto(UUID parentId, UUID childUnitId, Double targetValue, Double weight,
+                                             com.kpitracking.enums.KpiParentRelationType relation) {
+        KpiCriteria parent = kpiCriteriaRepository.findById(parentId)
+                .orElseThrow(() -> new ResourceNotFoundException("Chỉ tiêu cha", "id", parentId));
+        OrgUnit child = orgUnitRepository.findById(childUnitId)
+                .orElseThrow(() -> new ResourceNotFoundException("Đơn vị", "id", childUnitId));
+        CreateKpiCriteriaRequest req = new CreateKpiCriteriaRequest();
+        req.setName(parent.getName() + " — " + child.getName());
+        req.setKpiType(parent.getKpiType());
+        req.setDescription((relation == com.kpitracking.enums.KpiParentRelationType.DELEGATION ? "Uỷ quyền" : "Phân rã")
+                + " từ \"" + parent.getName() + "\" của " + (parent.getOrgUnit() != null ? parent.getOrgUnit().getName() : ""));
+        req.setWeight(weight);
+        req.setTargetValue(targetValue);
+        req.setUnit(parent.getUnit());
+        req.setFrequency(parent.getFrequency());
+        req.setOrgUnitId(childUnitId);
+        req.setKpiPeriodId(parent.getKpiPeriod() != null ? parent.getKpiPeriod().getId() : null);
+        if (parent.getMinimumValue() != null && parent.getTargetValue() != null && parent.getTargetValue() != 0 && targetValue != null) {
+            // Giữ đúng TỈ LỆ tối thiểu/mục tiêu của cha, không chép nguyên con số.
+            req.setMinimumValue(Math.round(targetValue * parent.getMinimumValue() / parent.getTargetValue() * 10.0) / 10.0);
+        }
+        req.setIsReverseKpi(parent.getIsReverseKpi());
+        req.setIsBonusKpi(parent.getIsBonusKpi());
+        req.setDeadline(parent.getDeadline());
+        req.setParentId(parentId);
+        req.setParentRelationType(relation);
+        return createKpiCriteria(req);
+    }
+
     @Transactional(readOnly = true)
     public List<KpiCriteriaResponse> getChildren(UUID kpiId) {
         User currentUser = getCurrentUser();

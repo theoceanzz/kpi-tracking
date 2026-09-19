@@ -7,6 +7,8 @@ import com.kpitracking.repository.OrgUnitRepository;
 import com.kpitracking.repository.UserRepository;
 import com.kpitracking.repository.UserRoleOrgUnitRepository;
 import com.kpitracking.service.OrgUnitStatisticService;
+import com.kpitracking.service.OrgUnitKpiAnalyticsService;
+import com.kpitracking.service.analytics.RankingAnalyticsService;
 import com.kpitracking.tool.OrgUnitStatisticToolRequests.AnalyticsRequest;
 import com.kpitracking.tool.OrgUnitStatisticToolRequests.KpiRequest;
 import com.kpitracking.tool.OrgUnitStatisticToolRequests.PeopleRequest;
@@ -97,10 +99,10 @@ class CompositeToolValidationTest {
     @Test
     @DisplayName("rank: lọc theo chức vụ không dùng được khi xếp hạng ĐƠN VỊ")
     void rankRejectsPositionFilterForOrgUnits() {
-        RankTool tool = new RankTool(service, mock(FollowupContextStore.class), support);
+        RankTool tool = new RankTool(service, mock(RankingAnalyticsService.class), mock(FollowupContextStore.class), support);
 
         String json = tool.rank(new RankRequest("org_units", "average_performance", null, null,
-                null, "Phòng IT", null, null, null, null, null, "trưởng phòng", null, null), context);
+                null, "Phòng IT", null, null, null, null, null, "trưởng phòng", null, null, null), context);
 
         assertRejected(json, "positionName", "subject=members");
         verifyNoInteractions(service);
@@ -109,10 +111,10 @@ class CompositeToolValidationTest {
     @Test
     @DisplayName("rank: subject sai thì báo rõ giá trị hợp lệ")
     void rankRejectsUnknownSubject() {
-        RankTool tool = new RankTool(service, mock(FollowupContextStore.class), support);
+        RankTool tool = new RankTool(service, mock(RankingAnalyticsService.class), mock(FollowupContextStore.class), support);
 
         String json = tool.rank(new RankRequest("phong_ban", null, null, null,
-                null, null, null, null, null, null, null, null, null, null), context);
+                null, null, null, null, null, null, null, null, null, null, null), context);
 
         assertRejected(json, "members", "org_units");
         verifyNoInteractions(service);
@@ -121,11 +123,11 @@ class CompositeToolValidationTest {
     @Test
     @DisplayName("rank: KHÔNG nêu đơn vị thì phải kẹp về đơn vị hiện tại, không xếp hạng cả công ty")
     void rankWithoutUnitStaysInCallerScope() {
-        RankTool tool = new RankTool(service, mock(FollowupContextStore.class), support);
+        RankTool tool = new RankTool(service, mock(RankingAnalyticsService.class), mock(FollowupContextStore.class), support);
 
         // Model hỏi "xếp hạng toàn bộ nhân viên công ty" -> scope=organization, không có unitName.
         tool.rank(new RankRequest("members", "average_progress", null, "organization",
-                null, null, null, null, null, null, null, null, null, null), context);
+                null, null, null, null, null, null, null, null, null, null, null), context);
 
         // Nhánh scope != unit/kpi trong service gọi findUsersByOrganizationId -> CẢ CÔNG TY.
         // Tool phải đổi scope thành "unit" để service chỉ lấy người trong subtree của người hỏi.
@@ -140,7 +142,7 @@ class CompositeToolValidationTest {
     @Test
     @DisplayName("get_analytics: time_series không nhận khoảng ngày, phải dùng lookback")
     void analyticsRejectsDateRangeForTimeSeries() {
-        AnalyticsTool tool = new AnalyticsTool(service, support);
+        AnalyticsTool tool = new AnalyticsTool(service, mock(RankingAnalyticsService.class), support);
 
         String json = tool.getAnalytics(new AnalyticsRequest("time_series", null, null,
                 "2026-01-01", "2026-06-30", "completion", "MONTH", 6), context);
@@ -152,7 +154,7 @@ class CompositeToolValidationTest {
     @Test
     @DisplayName("get_analytics: dashboard không nhận metric/granularity của time_series")
     void analyticsRejectsSeriesParamsForDashboard() {
-        AnalyticsTool tool = new AnalyticsTool(service, support);
+        AnalyticsTool tool = new AnalyticsTool(service, mock(RankingAnalyticsService.class), support);
 
         String json = tool.getAnalytics(new AnalyticsRequest("dashboard", null, null,
                 null, null, "completion", null, null), context);
@@ -164,10 +166,10 @@ class CompositeToolValidationTest {
     @Test
     @DisplayName("get_kpi: view theo MỘT KPI không nhận unitName")
     void kpiRejectsUnitForPerKpiView() {
-        KpiTool tool = new KpiTool(service, support);
+        KpiTool tool = new KpiTool(service, mock(OrgUnitKpiAnalyticsService.class), support);
 
         String json = tool.getKpi(new KpiRequest("detail", "Phòng IT", null, UUID.randomUUID().toString(),
-                null, null, null, null, null, null, null, null, null, null, null, null, null, null), context);
+                null, null, null, null, null, null, null, null, null, null, null, null, null, null, null), context);
 
         assertRejected(json, "unitName");
         verifyNoInteractions(service);
@@ -176,10 +178,10 @@ class CompositeToolValidationTest {
     @Test
     @DisplayName("get_kpi: view theo ĐƠN VỊ không nhận kpiId")
     void kpiRejectsKpiIdForUnitView() {
-        KpiTool tool = new KpiTool(service, support);
+        KpiTool tool = new KpiTool(service, mock(OrgUnitKpiAnalyticsService.class), support);
 
         String json = tool.getKpi(new KpiRequest("list", null, null, UUID.randomUUID().toString(),
-                null, null, null, null, null, null, null, null, null, null, null, null, null, null), context);
+                null, null, null, null, null, null, null, null, null, null, null, null, null, null, null), context);
 
         assertRejected(json, "kpiId");
         verifyNoInteractions(service);
@@ -201,8 +203,8 @@ class CompositeToolValidationTest {
         when(service.getKpiAssignees(UUID.fromString(id2)))
                 .thenReturn(Map.of("assignees", List.of(anh)));
 
-        String json = new KpiTool(service, support).getKpi(new KpiRequest("assignees", null, null, null,
-                kpi, null, null, null, null, null, null, null, null, null, null, null, null, null), noScopeContext());
+        String json = new KpiTool(service, mock(OrgUnitKpiAnalyticsService.class), support).getKpi(new KpiRequest("assignees", null, null, null,
+                kpi, null, null, null, null, null, null, null, null, null, null, null, null, null, null), noScopeContext());
 
         assertThat(json).doesNotContain("\"error\"");
         assertThat(json).contains("\"assigneesCount\":2");           // khử trùng theo email
@@ -213,8 +215,8 @@ class CompositeToolValidationTest {
     @Test
     @DisplayName("get_kpi: view=assignees thiếu cả kpiId lẫn kpiName thì báo rõ cả hai đường")
     void assigneesRequiresIdOrName() {
-        String json = new KpiTool(service, support).getKpi(new KpiRequest("assignees", null, null, null,
-                null, null, null, null, null, null, null, null, null, null, null, null, null, null), context);
+        String json = new KpiTool(service, mock(OrgUnitKpiAnalyticsService.class), support).getKpi(new KpiRequest("assignees", null, null, null,
+                null, null, null, null, null, null, null, null, null, null, null, null, null, null, null), context);
 
         assertRejected(json, "kpiId", "kpiName");
         verifyNoInteractions(service);
@@ -223,9 +225,9 @@ class CompositeToolValidationTest {
     @Test
     @DisplayName("get_kpi: view=detail thiếu kpiId thì chỉ rõ cách lấy ID")
     void kpiDetailRequiresKpiId() {
-        KpiTool tool = new KpiTool(service, support);
+        KpiTool tool = new KpiTool(service, mock(OrgUnitKpiAnalyticsService.class), support);
 
-        String json = tool.getKpi(new KpiRequest("detail", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null), context);
+        String json = tool.getKpi(new KpiRequest("detail", null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null, null), context);
 
         assertRejected(json, "kpiId", "search (entityType=kpi)");
         verifyNoInteractions(service);

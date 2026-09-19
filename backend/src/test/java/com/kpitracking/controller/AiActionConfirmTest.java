@@ -53,14 +53,19 @@ class AiActionConfirmTest {
     private final User me = new User();
     private final UUID itemA = UUID.randomUUID();
     private final UUID itemB = UUID.randomUUID();
+    private KpiCriteriaService kpiCriteriaService;
 
     @BeforeEach
     void setUp() {
         store = new PendingActionStore();
         submissionService = mock(KpiSubmissionService.class);
+        kpiCriteriaService = mock(KpiCriteriaService.class);
         PendingActionExecutor executor = new PendingActionExecutor(
-                submissionService, mock(KpiCriteriaService.class),
-                mock(KpiAdjustmentService.class), mock(ReminderService.class));
+                submissionService, kpiCriteriaService,
+                mock(KpiAdjustmentService.class), mock(ReminderService.class),
+                mock(com.kpitracking.service.reward.RewardGrantService.class),
+                mock(com.kpitracking.service.KpiCycleEvaluationService.class),
+                mock(com.kpitracking.service.CycleEvaluationMailer.class));
 
         UserRepository users = mock(UserRepository.class);
         me.setId(UUID.randomUUID());
@@ -192,6 +197,26 @@ class AiActionConfirmTest {
 
         assertThat(res.getText()).isEqualTo("Đã duyệt 1 bản nộp.");
         assertThat(res.getText()).doesNotContain("2");
+    }
+
+    @Test
+    @DisplayName("gửi duyệt KPI: từng bản một, bản dịch vụ lặng lẽ bỏ qua (không phải người tạo) thành mục hỏng có lý do")
+    void kpiSubmitRunsPerItemAndSurfacesSilentSkips() {
+        PendingAction a = store.put(new PendingAction(UUID.randomUUID().toString(), Kind.KPI_SUBMIT,
+                "Gửi duyệt 2 chỉ tiêu KPI", Decision.APPROVE, null,
+                List.of(new Item(itemA, null, "Uptime", "trọng số 50 %"),
+                        new Item(itemB, null, "Của người khác", "trọng số 50 %")),
+                Instant.now()), me.getId(), "conv-1");
+        when(kpiCriteriaService.bulkSubmitForApproval(List.of(itemA)))
+                .thenReturn(List.of(new com.kpitracking.dto.response.kpi.KpiCriteriaResponse()));
+        when(kpiCriteriaService.bulkSubmitForApproval(List.of(itemB))).thenReturn(List.of());
+
+        AiActionController.ConfirmResponse res = confirm(a.id(), null);
+
+        assertThat(res.getSucceeded()).isEqualTo(1);
+        assertThat(res.getFailed()).isEqualTo(1);
+        assertThat(res.getText()).startsWith("Đã gửi duyệt 1 chỉ tiêu KPI.");
+        assertThat(res.getFailures()).anyMatch(f -> f.contains("người tạo"));
     }
 
     @Test

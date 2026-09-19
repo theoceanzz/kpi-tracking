@@ -3,6 +3,8 @@ package com.kpitracking.tool;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
 
+import java.util.List;
+
 public final class OrgUnitStatisticToolRequests {
     private OrgUnitStatisticToolRequests() {}
 
@@ -52,7 +54,8 @@ public final class OrgUnitStatisticToolRequests {
             @JsonProperty(required = false) String positionFilter,
             @JsonProperty(required = false) String positionName,  // bí danh của positionFilter (khớp tên tham số của get_members)
             @JsonProperty(required = false) Boolean managersOnly,
-            @JsonProperty(required = false) String unitTypeName
+            @JsonProperty(required = false) String unitTypeName,
+            @JsonProperty(required = false) Boolean comparePrevious  // org_units: biến động hạng so với ĐỢT trước
     ) {}
 
     /**
@@ -112,6 +115,7 @@ public final class OrgUnitStatisticToolRequests {
             @JsonProperty(required = false) String assignedToId,
             @JsonProperty(required = false) String userId,    // với view=period_breakdown: lọc theo một người
             @JsonProperty(required = false) String periodId,
+            @JsonProperty(required = false) String periodName,  // với view=weights: tên kỳ, mặc định kỳ hiện tại
             @JsonProperty(required = false) String status,
             @JsonProperty(required = false) String granularity,  // MONTH | QUARTER | YEAR
             @JsonProperty(required = false) Integer page,
@@ -245,6 +249,111 @@ public final class OrgUnitStatisticToolRequests {
      */
     @JsonInclude(JsonInclude.Include.NON_NULL)
     public record ConfirmActionRequest() {}
+
+    /** Tham số của tool `get_delegations`. */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record DelegationRequest(
+            @JsonProperty(required = false) String unitName,
+            @JsonProperty(required = false) String unitId,
+            @JsonProperty(required = false) String userName,
+            @JsonProperty(required = false) String userId,
+            @JsonProperty(required = false) Boolean includeExpired
+    ) {}
+
+    /** Tham số của tool `get_conduct`. */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record ConductRequest(
+            @JsonProperty(required = false) String view,         // summary | sheet
+            @JsonProperty(required = false) String unitName,
+            @JsonProperty(required = false) String unitId,
+            @JsonProperty(required = false) String userName,     // với view=sheet
+            @JsonProperty(required = false) String userId,
+            @JsonProperty(required = false) String periodName,   // theo kỳ; bỏ trống = theo đợt
+            @JsonProperty(required = false) String cycleName
+    ) {}
+
+    /** Tham số của tool `get_rewards`. */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record RewardRequest(
+            @JsonProperty(required = false) String view,         // pending | granted | budget
+            @JsonProperty(required = false) String unitName,
+            @JsonProperty(required = false) String unitId
+    ) {}
+
+    /** Tham số của tool `review_reward_grants`. */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record ReviewRewardGrantsRequest(
+            String decision,                                      // APPROVE | REJECT
+            @JsonProperty(required = false) String note,
+            @JsonProperty(required = false) String unitName,
+            @JsonProperty(required = false) String unitId,
+            @JsonProperty(required = false) String grantorName
+    ) {}
+
+    /** Tham số của tool `finalize_cycle_evaluation`. */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record CycleFinalizeRequest(
+            @JsonProperty(required = false) String action,       // finalize | reopen | send
+            @JsonProperty(required = false) String unitName,
+            @JsonProperty(required = false) String unitId,
+            @JsonProperty(required = false) String cycleName,
+            @JsonProperty(required = false) String comment
+    ) {}
+
+    /** Một phần chia khi người dùng nêu con số cụ thể (tool `decompose_kpi`). */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record DecomposeShare(
+            String unitName,
+            @JsonProperty(required = false) Double targetValue,
+            @JsonProperty(required = false) Double weight
+    ) {}
+
+    /** Tham số của tool `decompose_kpi`. */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record DecomposeKpiRequest(
+            @JsonProperty(required = false) String kpiName,
+            @JsonProperty(required = false) String kpiId,
+            @JsonProperty(required = false) String periodName,
+            @JsonProperty(required = false) String mode,         // headcount | equal
+            @JsonProperty(required = false) String relation,     // DECOMPOSITION | DELEGATION
+            @JsonProperty(required = false) List<String> unitNames,
+            @JsonProperty(required = false) List<DecomposeShare> shares
+    ) {}
+
+    /** Tham số chung của các tool CÁ NHÂN (không có tên đơn vị/người — cố ý). */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record PersonalRequest(
+            @JsonProperty(required = false) String periodName,
+            @JsonProperty(required = false) String status        // get_my_submissions: PENDING | APPROVED | REJECTED
+    ) {}
+
+    /** Tham số của tool `get_my_tasks`. */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record MyTasksRequest(
+            @JsonProperty(required = false) String unitName,     // mặc định đơn vị hiện tại
+            @JsonProperty(required = false) String unitId,
+            @JsonProperty(required = false) String periodName    // mặc định mọi kỳ
+    ) {}
+
+    /** Tham số của tool `get_cycle_evaluation`. */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record CycleEvaluationRequest(
+            @JsonProperty(required = false) String view,         // unit | chain | units | users | user
+            @JsonProperty(required = false) String unitName,
+            @JsonProperty(required = false) String unitId,
+            @JsonProperty(required = false) String cycleName,    // tên đợt; bỏ trống = đợt đang diễn ra / gần nhất
+            @JsonProperty(required = false) String userName,     // với view=user
+            @JsonProperty(required = false) String userId
+    ) {}
+
+    /** Tham số của tool `submit_kpis_for_approval`. */
+    @JsonInclude(JsonInclude.Include.NON_NULL)
+    public record SubmitKpisRequest(
+            @JsonProperty(required = false) String unitName,
+            @JsonProperty(required = false) String unitId,
+            @JsonProperty(required = false) String periodName,   // mặc định kỳ hiện tại
+            @JsonProperty(required = false) String kpiName       // gửi MỘT chỉ tiêu theo tên
+    ) {}
 
     /** Tham số của tool `review_kpi_criteria`. */
     @JsonInclude(JsonInclude.Include.NON_NULL)

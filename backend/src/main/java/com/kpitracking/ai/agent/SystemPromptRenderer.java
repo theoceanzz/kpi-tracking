@@ -54,10 +54,23 @@ public class SystemPromptRenderer {
         }
         return template
                 .replace("{currentDateTime}", turn.getCurrentDateTime() == null ? "" : turn.getCurrentDateTime())
+                .replace("{audience}", audienceBlock(turn))
                 .replace("{plan}", planBlock(turn))
                 .replace("{form}", formBlock(turn))
                 .replace("{evidence}", evidenceBlock(turn))
                 .replace("{denied}", deniedBlock(turn));
+    }
+
+    /**
+     * Khối cho lượt của NHÂN VIÊN. Rỗng ở lượt của quản lý (prompt giữ nguyên như đã đo). Nói đúng
+     * hai điều: chỉ dữ liệu của chính họ, và câu hỏi về người/đơn vị khác thì từ chối — không nêu
+     * thêm luật nào, vì bộ tool của lượt này đã không có cách nào lấy dữ liệu của người khác.
+     */
+    String audienceBlock(AiTurn turn) {
+        if (!turn.isStaff()) return "";
+        return "\n## NGƯỜI HỎI LÀ NHÂN VIÊN\n"
+                + "- Người hỏi không quản lý đơn vị nào. Bạn chỉ có công cụ về dữ liệu CỦA CHÍNH HỌ (KPI, bài nộp, điểm, hạnh kiểm, thưởng).\n"
+                + "- Câu hỏi về người khác, đơn vị, xếp hạng, thống kê toàn phòng/công ty: nói rõ trợ lý chỉ xem được dữ liệu của họ và gợi ý hỏi quản lý trực tiếp. KHÔNG bịa số.\n";
     }
 
     /**

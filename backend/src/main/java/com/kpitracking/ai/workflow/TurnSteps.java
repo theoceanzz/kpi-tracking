@@ -1,12 +1,11 @@
 package com.kpitracking.ai.workflow;
 
-import com.kpitracking.ai.agent.AssistantAgent;
 import com.kpitracking.ai.agent.PlanParser;
 import com.kpitracking.ai.agent.PlannerAgent;
 import com.kpitracking.ai.agent.RouterAgent;
 import com.kpitracking.ai.memory.ConversationMemoryStore;
 import com.kpitracking.ai.memory.TurnChatMemory;
-import com.kpitracking.ai.memory.TurnMemoryRegistry;
+import com.kpitracking.ai.memory.TurnRegistry;
 import com.kpitracking.advisor.ResponseSanitizingAdvisor;
 import com.kpitracking.entity.AiTokenUsage;
 import com.kpitracking.entity.OrgUnit;
@@ -24,7 +23,6 @@ import com.kpitracking.tool.ToolRegistry;
 import com.kpitracking.tool.ToolRegistry.Group;
 import dev.langchain4j.agentic.scope.AgenticScope;
 import dev.langchain4j.invocation.InvocationParameters;
-import dev.langchain4j.service.Result;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -40,8 +38,6 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 
 /**
  * Các bước của workflow trợ lý — mỗi bước là một {@code agentAction} trong đồ thị agentic.
@@ -51,9 +47,11 @@ import java.util.concurrent.TimeUnit;
  * chuyển NGUYÊN từ các node/stage của đồ thị cũ, vì mỗi quy tắc là một lỗi đã đo được rồi mới vá:
  * xem ghi chú tại chỗ.
  *
- * <p>Trạng thái lượt đi trong {@link AgenticScope} dưới một khoá duy nhất {@value #TURN} — chính
- * đối tượng {@link AiTurn}. Không rải từng trường ra scope: các bước đọc/ghi qua getter/setter có
- * kiểu, và test dựng được {@code AiTurn} mà không cần dựng scope.
+ * <p>Trạng thái lượt đi trong {@link AgenticScope} dưới một khoá chính {@value #TURN} — chính đối
+ * tượng {@link AiTurn}. Không rải từng trường ra scope: các bước đọc/ghi qua getter/setter có kiểu,
+ * và test dựng được {@code AiTurn} mà không cần dựng scope. Chỉ ba thứ mô-đun agentic cần để điền
+ * tham số cho {@code AssistantAgent} là nằm ngoài: state {@value #QUESTION}, state {@value #ANSWER}
+ * (đầu ra của agent) và execution context {@code InvocationParameters}.
  */
 @Component
 @RequiredArgsConstructor
@@ -62,17 +60,20 @@ public class TurnSteps {
 
     /** Khoá của {@link AiTurn} trong scope. */
     public static final String TURN = "turn";
+    /** State mang câu hỏi — {@code @V} của {@code AssistantAgent}. */
+    public static final String QUESTION = "question";
+    /** State nhận câu trả lời của {@code AssistantAgent} ({@code outputKey}). */
+    public static final String ANSWER = "answer";
 
     private static final Set<String> TOOL_NAMES = ToolRegistry.allToolNames();
 
     private final OrgUnitRepository orgUnitRepository;
     private final FollowupContextStore followupContextStore;
     private final ConversationMemoryStore memoryStore;
-    private final TurnMemoryRegistry memoryRegistry;
+    private final TurnRegistry turns;
     private final ToolRegistry toolRegistry;
     private final RouterAgent routerAgent;
     private final PlannerAgent plannerAgent;
-    private final AssistantAgent assistantAgent;
     private final FollowupService followupService;
     private final AnswerValidator validator;
 
@@ -80,8 +81,6 @@ public class TurnSteps {
     @Value("${app.ai.planning.enabled:true}") boolean planningEnabled;
     @Value("${app.ai.planning.enforce:true}") boolean planEnforce;
     @Value("${app.ai.followups.enabled:true}") boolean followupsEnabled;
-    @Value("${app.ai.streaming.enabled:false}") boolean streamingEnabled;
-    @Value("${app.ai.model.timeout-seconds:90}") long modelTimeoutSeconds;
 
     public static AiTurn turnOf(AgenticScope scope) {
         Object t = scope.readState(TURN);
@@ -91,9 +90,18 @@ public class TurnSteps {
 
     // ── ① ngữ cảnh ──────────────────────────────────────────────────────────
 
-    /** {@code TurnSetupStage} cũ: đơn vị hiệu lực, ngữ cảnh tool, bộ nhớ, ngày giờ. */
+    /**
+     * {@code TurnSetupStage} cũ: đơn vị hiệu lực, ngữ cảnh tool, bộ nhớ, ngày giờ.
+     *
+     * <p>Thêm phần "nối" với mô-đun agentic: {@code turnId} lấy từ {@code scope.memoryId()} (mỗi lượt
+     * một scope, mỗi scope một id ngẫu nhiên) để {@code @MemoryId} của agent chính tra đúng lượt
+     * trong {@link TurnRegistry}; câu hỏi ghi vào state; ngữ cảnh tool ghi làm execution context để
+     * mô-đun điền vào tham số {@code InvocationParameters}.
+     */
     public void context(AgenticScope scope) {
         AiTurn turn = turnOf(scope);
+        turn.setTurnId(String.valueOf(scope.memoryId()));
+        scope.writeState(QUESTION, turn.getQuestion());
         ManagerContext ctx = turn.getManager();
         if (turn.isHasMemory()) followupContextStore.startTurn(turn.getConversationId());
         log.info("Xử lý lượt hỏi cho orgUnitId={}, conversationId={}",
@@ -121,12 +129,12 @@ public class TurnSteps {
         turn.setAgentState(state);
         toolCtx.put(AgentState.CONTEXT_KEY, state);
         turn.setToolCtx(toolCtx);
+        scope.writeExecutionContext(InvocationParameters.class, InvocationParameters.from(toolCtx));
 
         // Bộ nhớ của lượt: cửa sổ đã lưu + đệm. DB chỉ nhận một cặp hỏi–đáp ở bước finish.
-        TurnChatMemory memory = new TurnChatMemory(turn.getTurnId(),
-                turn.isHasMemory() ? memoryStore.window(turn.getConversationId()) : List.of());
-        turn.setMemory(memory);
-        memoryRegistry.register(turn.getTurnId(), memory);
+        turn.setMemory(new TurnChatMemory(turn.getTurnId(),
+                turn.isHasMemory() ? memoryStore.window(turn.getConversationId()) : List.of()));
+        turns.register(turn);
 
         ZonedDateTime now = ZonedDateTime.now(ZoneId.of("Asia/Ho_Chi_Minh"));
         turn.setCurrentDateTime(now.format(DateTimeFormatter
@@ -157,6 +165,9 @@ public class TurnSteps {
     public void plan(AgenticScope scope) {
         AiTurn turn = turnOf(scope);
         if (!planningEnabled) return;
+        // Planner chỉ biết bộ tool của QUẢN LÝ (get_people, rank...). Lượt nhân viên không có các tool
+        // đó, một kế hoạch nhắc tới chúng chỉ đẩy model gọi mãi tool cá nhân cho tới hết ngân sách.
+        if (turn.isStaff()) return;
         turn.progress("PLAN", "Đang lập kế hoạch trả lời");
         List<PlanStep> steps;
         try {
@@ -191,10 +202,15 @@ public class TurnSteps {
         scope.writeState(INTENT, null);
 
         Set<Group> groups = new LinkedHashSet<>();
+        if (turn.isStaff()) {
+            // Nhân viên: không định tuyến nhóm — chỉ nhóm CÁ NHÂN, và vẫn nhận ra nhánh HELP (cách dùng).
+            routeStaff(scope, turn, handlers);
+            return;
+        }
         if (!routingEnabled) {
             groups.addAll(toolRegistry.readGroups());
         } else {
-            String hints = handlers.stream()
+            String hints = featureGroupHints(turn) + handlers.stream()
                     .map(IntentHandler::routerHint)
                     .filter(h -> h != null && !h.isBlank())
                     .reduce((a, b) -> a + "\n" + b).orElse("");
@@ -213,9 +229,13 @@ public class TurnSteps {
                     return;
                 }
             }
-            for (Group g : new Group[]{Group.LOOKUP, Group.KPI, Group.INSIGHT, Group.BSC, Group.OKR, Group.ACTION}) {
+            for (Group g : new Group[]{Group.LOOKUP, Group.KPI, Group.INSIGHT, Group.BSC, Group.OKR, Group.ACTION,
+                    Group.CONDUCT, Group.REWARD}) {
                 if (upper.contains(g.name())) groups.add(g);
             }
+            // Nhóm theo cờ chỉ được chọn khi tổ chức bật tính năng — router có thể đoán bừa từ chữ "thưởng".
+            if (!turn.getFeatures().conduct()) groups.remove(Group.CONDUCT);
+            if (!turn.getFeatures().reward()) groups.remove(Group.REWARD);
             if (groups.isEmpty()) {
                 log.warn("Router không nhận ra nhóm nào từ '{}', lùi về toàn bộ nhóm đọc", upper.strip());
                 groups.addAll(READ_GROUPS);
@@ -224,6 +244,48 @@ public class TurnSteps {
             if (groups.addAll(fromPlan)) log.debug("Kế hoạch nới nhóm thêm {}", fromPlan);
         }
         applyGroups(turn, groups);
+    }
+
+    /**
+     * Dòng mô tả cho router của hai nhóm theo cờ tổ chức. Chỉ xuất hiện khi tổ chức bật — router không
+     * nhìn thấy nhóm thì không chọn được, nên tổ chức tắt thưởng không bao giờ có lượt "REWARD".
+     */
+    static String featureGroupHints(AiTurn turn) {
+        StringBuilder sb = new StringBuilder();
+        if (turn.getFeatures().conduct()) {
+            sb.append("CONDUCT - KPI hành vi / hạnh kiểm: bảng điểm hành vi của đơn vị, ai chưa tự chấm, phiếu hạnh kiểm của một người\n");
+        }
+        if (turn.getFeatures().reward()) {
+            sb.append("REWARD  - thưởng điểm: đề xuất thưởng chờ duyệt, ai được thưởng, ngân sách thưởng của tôi\n");
+        }
+        return sb.toString();
+    }
+
+    /**
+     * Lượt của NHÂN VIÊN: nhóm cố định {@code PERSONAL}; router chỉ dùng để nhận ra nhánh HELP (hỏi
+     * cách dùng). Không có nhóm ĐỌC nào khác, không ACTION, không nới tool — không phải "bị chặn" mà
+     * là không tồn tại trong lượt này.
+     */
+    private void routeStaff(AgenticScope scope, AiTurn turn, List<IntentHandler> handlers) {
+        if (routingEnabled) {
+            String hints = handlers.stream().map(IntentHandler::routerHint)
+                    .filter(h -> h != null && !h.isBlank()).reduce((a, b) -> a + "\n" + b).orElse("");
+            try {
+                String upper = routerAgent.route(hints, turn.getQuestion()).toUpperCase(Locale.ROOT);
+                for (IntentHandler h : handlers) {
+                    if (h.routerHint() != null && upper.contains(h.intent().toUpperCase(Locale.ROOT))) {
+                        scope.writeState(INTENT, h.intent());
+                        log.info("Router (nhân viên) chọn nhánh {} cho câu hỏi: {}", h.intent(), turn.getQuestion());
+                        return;
+                    }
+                }
+            } catch (Exception e) {
+                log.warn("Router (nhân viên) lỗi ({}), dùng nhóm cá nhân", e.getMessage());
+            }
+        }
+        turn.setToolGroups(Set.of(Group.PERSONAL));
+        turn.setDeniedGroups(Set.of());
+        log.info("Lượt nhân viên: nhóm PERSONAL cho câu hỏi: {}", turn.getQuestion());
     }
 
     private void applyGroups(AiTurn turn, Set<Group> groups) {
@@ -249,67 +311,17 @@ public class TurnSteps {
     // ── ④ agent chính ───────────────────────────────────────────────────────
 
     /**
-     * Một lời gọi agent chính: gom cả vòng gọi tool. {@code ModelNode/ActNode} cũ.
+     * Ngay trước mỗi lời gọi agent chính ({@code ModelNode/ActNode} cũ, phần code thuần). Lời gọi
+     * thật là {@code AssistantAgent} — sub-agent kế tiếp trong vòng lặp.
      *
      * <p>Vào lại lần hai (thiếu vế hoặc mở thêm công cụ) thì {@link #needsAnotherRound} đã xoá đệm
-     * bộ nhớ và, nếu cần, nới nhóm tool — ở đây chỉ việc gọi.
+     * bộ nhớ và cắm cờ nới nhóm tool — ở đây áp cờ đó rồi báo tiến độ.
      */
-    public void assistant(AgenticScope scope) {
+    public void prepareRound(AgenticScope scope) {
         AiTurn turn = turnOf(scope);
-        AgentState state = turn.getAgentState();
-        if (state.isWidenTools()) applyGroups(turn, new LinkedHashSet<>(toolRegistry.readGroups()));
+        // Nhân viên không bao giờ được nới sang nhóm đọc của quản lý — dù model có xin.
+        if (turn.getAgentState().isWidenTools() && !turn.isStaff()) applyGroups(turn, new LinkedHashSet<>(toolRegistry.readGroups()));
         turn.progress("MODEL", "Đang tra cứu dữ liệu");
-
-        InvocationParameters params = InvocationParameters.from(turn.getToolCtx());
-        try {
-            String answer = streamingEnabled && turn.getListener() != null
-                    ? streamed(turn, params)
-                    : direct(turn, params);
-            state.setAnswer(answer);
-        } catch (Exception e) {
-            if (isToolBudgetExceeded(e)) {
-                state.setBudgetExhausted(true);
-                log.warn("Hết ngân sách vòng gọi tool. question='{}', đã gọi: {}",
-                        turn.getQuestion(), state.getSucceeded());
-                state.setAnswer(null);
-                return;
-            }
-            throw e;
-        }
-    }
-
-    private String direct(AiTurn turn, InvocationParameters params) {
-        Result<String> result = assistantAgent.chat(turn.getTurnId(), turn.getQuestion(), params);
-        return result == null ? null : result.content();
-    }
-
-    /** Phát chữ dần cho người nghe; chữ đó là BẢN XEM TRƯỚC, câu trả lời chính thức là bản gom xong. */
-    private String streamed(AiTurn turn, InvocationParameters params) {
-        CompletableFuture<String> done = new CompletableFuture<>();
-        assistantAgent.chatStream(turn.getTurnId(), turn.getQuestion(), params)
-                .onPartialResponse(chunk -> {
-                    try { turn.getListener().token(chunk); } catch (Exception ignore) { }
-                })
-                .onCompleteResponse(r -> done.complete(r.aiMessage() == null ? null : r.aiMessage().text()))
-                .onError(done::completeExceptionally)
-                .start();
-        try {
-            return done.get(modelTimeoutSeconds * 3, TimeUnit.SECONDS);
-        } catch (java.util.concurrent.ExecutionException e) {
-            Throwable cause = e.getCause() == null ? e : e.getCause();
-            if (cause instanceof RuntimeException re) throw re;
-            throw new IllegalStateException(cause);
-        } catch (Exception e) {
-            throw new IllegalStateException("Streaming không hoàn tất: " + e.getMessage(), e);
-        }
-    }
-
-    private static boolean isToolBudgetExceeded(Throwable e) {
-        for (Throwable t = e; t != null; t = t.getCause()) {
-            String m = t.getMessage();
-            if (m != null && m.toLowerCase(Locale.ROOT).contains("sequential tool")) return true;
-        }
-        return false;
     }
 
     /**
@@ -322,6 +334,9 @@ public class TurnSteps {
     public boolean needsAnotherRound(AgenticScope scope) {
         AiTurn turn = turnOf(scope);
         AgentState state = turn.getAgentState();
+        // Đầu ra của @Agent; đọc là chặn chờ tới khi luồng streaming của nó xong.
+        Object answer = scope.readState(ANSWER);
+        state.setAnswer(answer == null ? null : answer.toString());
         turn.setMissingPlannedTools(null);
         if (state.isBudgetExhausted()) return false;
         if (state.getFormPatch() != null && !state.getFormPatch().isEmpty()) return false;
@@ -333,7 +348,7 @@ public class TurnSteps {
             log.info("Kế hoạch còn thiếu {} — hỏi lại một lần. question='{}'", missing, turn.getQuestion());
             turn.progress("OBSERVE", "Đang bổ sung phần còn thiếu");
             turn.setMissingPlannedTools(missing);
-            restart(turn, state);
+            restart(scope, turn, state);
             return true;
         }
         if (state.escapeRequested() && !state.isEscapeUsed()) {
@@ -342,16 +357,17 @@ public class TurnSteps {
             turn.progress("OBSERVE", "Đang mở thêm công cụ");
             state.setEscapeReason(null);
             state.setWidenTools(true);
-            restart(turn, state);
+            restart(scope, turn, state);
             return true;
         }
         return false;
     }
 
     /** Hỏi lại từ đầu: xoá phần đệm của lượt (cửa sổ đã lưu giữ nguyên) và câu trả lời nháp. */
-    private static void restart(AiTurn turn, AgentState state) {
+    private static void restart(AgenticScope scope, AiTurn turn, AgentState state) {
         if (turn.getMemory() != null) turn.getMemory().clear();
         state.setAnswer(null);
+        scope.writeState(ANSWER, null);
     }
 
     private static List<String> missingTools(AiTurn turn, AgentState state) {
@@ -387,7 +403,7 @@ public class TurnSteps {
         }
     }
 
-    private static String fallbackAnswer(AgentState state) {
+    static String fallbackAnswer(AgentState state) {
         if (state.isBudgetExhausted()) {
             log.warn("Vòng lặp hết ngân sách bước. question={}", state.questionOrNa());
             return "Xin lỗi, yêu cầu này cần quá nhiều bước tra cứu nên mình phải dừng giữa chừng. "
@@ -442,6 +458,6 @@ public class TurnSteps {
 
     /** Gỡ bộ nhớ lượt khỏi sổ đăng ký — gọi ở {@code finally} của lượt, dù thành công hay lỗi. */
     public void release(AiTurn turn) {
-        memoryRegistry.unregister(turn.getTurnId());
+        turns.unregister(turn.getTurnId());
     }
 }

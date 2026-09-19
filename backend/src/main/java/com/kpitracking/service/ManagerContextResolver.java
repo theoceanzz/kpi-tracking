@@ -34,6 +34,34 @@ public class ManagerContextResolver {
      * @return the manager context for the current user, or {@code null} if the user
      *         is not a leader/deputy (role rank ≤ 1) of any unit.
      */
+    /**
+     * Ngữ cảnh cho NGƯỜI BẤT KỲ có ít nhất một phân công (kể cả nhân viên thường): đơn vị chính là
+     * phân công có hạng cao nhất. Dùng cho lượt chat của nhân viên — cùng hình dạng với ngữ cảnh
+     * quản lý để tool đọc được {@code orgUnitPath}, nhưng lượt đó chỉ được nhóm tool CÁ NHÂN.
+     *
+     * @return {@code null} khi người dùng không thuộc đơn vị nào
+     */
+    public ManagerContext resolveMember() {
+        try {
+            String email = SecurityContextHolder.getContext().getAuthentication().getName();
+            User user = userRepository.findByEmail(email).orElse(null);
+            if (user == null) return null;
+            return userRoleOrgUnitRepository.findByUserId(user.getId()).stream()
+                    .filter(a -> a.getOrgUnit() != null && a.getRole() != null)
+                    .min(Comparator.comparingInt(a -> a.getRole().getRank() == null ? Integer.MAX_VALUE : a.getRole().getRank()))
+                    .map(a -> new ManagerContext(
+                            a.getOrgUnit().getId(),
+                            a.getOrgUnit().getPath(),
+                            a.getOrgUnit().getOrgHierarchyLevel().getOrganization().getId(),
+                            user.getEmail(),
+                            user.getId()))
+                    .orElse(null);
+        } catch (Exception e) {
+            log.error("Error getting member context", e);
+            return null;
+        }
+    }
+
     public ManagerContext resolve() {
         try {
             String email = SecurityContextHolder.getContext().getAuthentication().getName();

@@ -72,12 +72,6 @@ public class AiChatResponse {
      */
     private String consumedActionId;
 
-    /**
-     * Nguồn trích dẫn khi câu trả lời lấy từ kho tài liệu (nhánh HELP): mục nào, mở ở đâu, ảnh nào.
-     * {@code null} ở lượt trả lời bằng dữ liệu thật.
-     */
-    private java.util.List<com.kpitracking.ai.agent.help.HelpService.Source> sources;
-
     @Data
     @Builder
     @NoArgsConstructor

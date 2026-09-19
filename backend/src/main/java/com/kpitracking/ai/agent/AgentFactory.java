@@ -1,11 +1,14 @@
 package com.kpitracking.ai.agent;
 
-import com.kpitracking.ai.memory.TurnMemoryRegistry;
+import com.kpitracking.ai.memory.TurnRegistry;
+import com.kpitracking.ai.workflow.TurnSteps;
 import com.kpitracking.ai.tool.KeyGoToolProvider;
-import com.kpitracking.service.ai.agent.AgentState;
+import com.kpitracking.ai.tool.RequestContextBinder;
+import dev.langchain4j.agentic.AgenticServices;
 import dev.langchain4j.data.message.ToolExecutionResultMessage;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.chat.StreamingChatModel;
+import dev.langchain4j.rag.RetrievalAugmentor;
 import dev.langchain4j.service.AiServices;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -16,9 +19,13 @@ import org.springframework.context.annotation.Configuration;
  * Dựng các agent LLM từ interface của chúng.
  *
  * <p>Mỗi agent là một bean, dựng đúng một lần; mọi thứ thay đổi theo lượt (prompt hệ thống, bộ
- * tool, bộ nhớ) đi qua {@code InvocationParameters} và {@code @MemoryId} chứ không qua việc dựng
- * lại agent. Đó là lý do {@link AssistantAgent} dùng {@code systemMessageProviderWithContext} +
- * {@code toolProvider} + {@code chatMemoryProvider} thay vì giá trị cố định.
+ * tool, bộ nhớ, người nghe SSE) tra theo {@code @MemoryId} hoặc đi qua {@code InvocationParameters}
+ * chứ không qua việc dựng lại agent. Đó là lý do {@link AssistantAgent} dùng
+ * {@code systemMessageProvider} + {@code toolProvider} + {@code chatMemoryProvider} +
+ * {@code streamingChatModel(Function<AgenticScope, …>)} thay vì giá trị cố định.
+ *
+ * <p>{@link AssistantAgent} dựng bằng {@code AgenticServices.agentBuilder} (là {@code @Agent} đặt
+ * thẳng vào đồ thị); các agent còn lại là {@code AiServices} thường vì chúng được gọi từ code.
  */
 @Configuration
 @Slf4j
@@ -32,23 +39,22 @@ public class AgentFactory {
     @Value("${app.ai.agent.max-steps:10}")
     private int maxSteps;
 
+    @Value("${app.ai.streaming.enabled:false}")
+    private boolean streamingEnabled;
+
     @Bean
-    public AssistantAgent assistantAgent(ChatModel chatModel, StreamingChatModel streamingChatModel,
-                                         KeyGoToolProvider toolProvider, TurnMemoryRegistry memories,
-                                         SystemPromptRenderer prompts) {
-        return AiServices.builder(AssistantAgent.class)
-                .chatModel(chatModel)
-                .streamingChatModel(streamingChatModel)
-                .systemMessageProviderWithContext(ctx -> {
-                    AgentState state = ctx.invocationParameters() == null
-                            ? null : ctx.invocationParameters().get(AgentState.CONTEXT_KEY);
-                    if (state == null || state.getTurn() == null) {
-                        throw new IllegalStateException("Gọi agent chính mà không có ngữ cảnh lượt");
-                    }
-                    return prompts.render(state.getTurn());
-                })
+    public AssistantAgent assistantAgent(StreamingChatModel streamingChatModel,
+                                         KeyGoToolProvider toolProvider, TurnRegistry turns,
+                                         SystemPromptRenderer prompts, RequestContextBinder contextBinder) {
+        // AgentBuilder chỉ nhận MỘT model; agent trả TokenStream nên là model streaming — chọn THEO
+        // LƯỢT: bọc để mang người dùng của lượt vào từng lời gọi và phát chữ dần nếu có người nghe.
+        return AgenticServices.agentBuilder(AssistantAgent.class)
+                .streamingChatModel(scope -> TurnStreamingChatModel.forTurn(
+                        streamingChatModel, contextBinder, TurnSteps.turnOf(scope), streamingEnabled))
+                // Render lại ở MỖI lời gọi — vòng hai của vòng lặp mới có khối "còn thiếu vế".
+                .systemMessageProvider(memoryId -> prompts.render(turns.turn(memoryId)))
                 .toolProvider(toolProvider)
-                .chatMemoryProvider(memories)
+                .chatMemoryProvider(turns)
                 .maxSequentialToolsInvocations(maxSteps)
                 // Model bịa tên tool: trả lời như một tool lỗi để nó tự sửa trong lượt, thay vì ném
                 // ngoại lệ làm hỏng cả câu trả lời vì một lần gõ sai.
@@ -75,12 +81,14 @@ public class AgentFactory {
 
     @Bean
     public KpiSuggestionAgent kpiSuggestionAgent(ChatModel chatModel, KeyGoToolProvider toolProvider,
-                                                 TurnMemoryRegistry memories) {
+                                                 TurnRegistry memories, RetrievalAugmentor kpiSuggestionAugmentor) {
         return AiServices.builder(KpiSuggestionAgent.class)
                 .chatModel(chatModel)
                 .toolProvider(toolProvider)
                 .chatMemoryProvider(memories)
                 .maxSequentialToolsInvocations(maxSteps)
+                // Mô tả công việc + chiến lược của tổ chức (nếu có) — xem KpiSuggestionRag.
+                .retrievalAugmentor(kpiSuggestionAugmentor)
                 .build();
     }
 }

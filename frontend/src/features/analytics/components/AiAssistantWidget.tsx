@@ -4,7 +4,7 @@ import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/authStore'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { useMyAiQuota } from '@/features/organization/hooks/useAiQuota'
-import { aiApi, type InsightCard, type FollowupPools, type ClarificationOption, type FormPatch, type PendingAction, type AnswerSource, type AiChatResponse } from '../api/aiApi'
+import { aiApi, type InsightCard, type FollowupPools, type ClarificationOption, type FormPatch, type PendingAction, type AiChatResponse } from '../api/aiApi'
 import { useFormAssistStore } from '@/store/formAssistStore'
 import EvidenceAttachBar, { AttachedChips, PinnedChips } from './EvidenceAttachBar'
 import { MicButton } from '@/components/common/MicButton'
@@ -12,7 +12,6 @@ import { usePinnedFilesStore, attachPinnedTo } from '@/store/pinnedFilesStore'
 import { useChatFileDrop } from '../hooks/useChatFileDrop'
 import EvidenceDropCard from './EvidenceDropCard'
 import FormPatchPreview from './FormPatchPreview'
-import AnswerSources from './AnswerSources'
 import PendingActionCard from './PendingActionCard'
 import ThinkingSummary from './ThinkingSummary'
 import AnswerMarkdown from './AnswerMarkdown'
@@ -49,7 +48,6 @@ interface Message {
    */
   pendingAction?: PendingAction
   /** Nguồn tài liệu khi trợ lý trả lời từ kho hướng dẫn/quy chế. */
-  sources?: AnswerSource[]
 }
 
 const WELCOME_MSG: Message = {
@@ -100,13 +98,13 @@ export default function AiAssistantWidget() {
   const { getRootProps: dropProps, isDragActive } = useChatFileDrop(isMinimized)
 
 
-  // Backend chỉ cấp quyền dùng AI cho vai trò rank <= 1 (trưởng/phó đơn vị) — xem
-  // ManagerContextResolver.resolve(). Người khác gọi sẽ nhận chuỗi từ chối kèm HTTP 200,
-  // vừa khó chịu vừa tốn một lượt rate limit, nên ẩn hẳn nút.
-  const isManager = user?.memberships?.some(m => (m.roleRank ?? 99) <= 1) ?? false
+  // Từ 18/09/2026 backend nhận cả nhân viên (ManagerContextResolver.resolveMember): họ được nhóm
+  // tool cá nhân — KPI/bài nộp/điểm của chính mình. Chỉ người CHƯA thuộc đơn vị nào mới không có gì
+  // để hỏi, nên ẩn nút với họ để khỏi tốn một lượt rate limit cho câu từ chối.
+  const hasMembership = (user?.memberships?.length ?? 0) > 0
 
   // Hạn mức token còn lại — chỉ tải khi mở panel, để đóng thì không tốn request nào.
-  const { data: quota } = useMyAiQuota(isOpen && isManager)
+  const { data: quota } = useMyAiQuota(isOpen && hasMembership)
 
   // Ô nhập tự giãn theo nội dung, tối đa bằng maxHeight của nó.
   //
@@ -263,7 +261,6 @@ export default function AiAssistantWidget() {
           followups: response.followups,
           evidenceRequest: response.evidenceRequest,
           pendingAction: response.pendingAction,
-          sources: response.sources,
 
         },
       ])
@@ -341,7 +338,7 @@ export default function AiAssistantWidget() {
   // Điều kiện thoát phải nằm SAU toàn bộ hook: useOrganization là React Query nên org ban đầu
   // undefined rồi mới có dữ liệu — thoát sớm ở lượt render sau sẽ khiến số hook giảm và React
   // ném "Rendered fewer hooks than expected", làm sập cả cây component.
-  if (!isManager || org?.enableAi === false) return null
+  if (!hasMembership || org?.enableAi === false) return null
 
   if (!isOpen) {
     return (
@@ -492,9 +489,6 @@ export default function AiAssistantWidget() {
                 )}
 
                 {/* Thao tác GHI chờ xác nhận — bấm là ghi thật, nên thẻ tự cảnh báo và tự khoá */}
-                {msg.role === 'assistant' && msg.sources && msg.sources.length > 0 && (
-                  <AnswerSources sources={msg.sources} />
-                )}
 
                 {msg.role === 'assistant' && msg.pendingAction && (
                   <PendingActionCard
