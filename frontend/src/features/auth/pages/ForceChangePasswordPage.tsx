@@ -111,7 +111,7 @@ export default function ForceChangePasswordPage() {
                   <input
                     {...register('newPassword')}
                     type={showNew ? 'text' : 'password'}
-                    className="w-full pl-12 pr-28 py-4 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] text-sm font-medium focus:outline-none focus:ring-4 focus:ring-[var(--color-ring)] focus:border-[var(--color-primary)] transition-all"
+                    className="no-edit-hint w-full pl-12 pr-28 py-4 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] text-sm font-medium focus:outline-none focus:ring-4 focus:ring-[var(--color-ring)] focus:border-[var(--color-primary)] transition-all"
                     placeholder="Đặt mật khẩu bảo mật của bạn"
                   />
                   <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
@@ -163,7 +163,7 @@ export default function ForceChangePasswordPage() {
                   <input
                     {...register('confirmPassword')}
                     type={showConfirm ? 'text' : 'password'}
-                    className="w-full pl-12 pr-12 py-4 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] text-sm font-medium focus:outline-none focus:ring-4 focus:ring-[var(--color-ring)] focus:border-[var(--color-primary)] transition-all"
+                    className="no-edit-hint w-full pl-12 pr-12 py-4 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] text-sm font-medium focus:outline-none focus:ring-4 focus:ring-[var(--color-ring)] focus:border-[var(--color-primary)] transition-all"
                     placeholder="Nhập lại mật khẩu mới"
                   />
                   <button

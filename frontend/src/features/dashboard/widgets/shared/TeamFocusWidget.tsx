@@ -126,7 +126,7 @@ export function TeamFocusWidget() {
               value={unitId ?? ALL_UNITS}
               onValueChange={v => { setUnitId(v === ALL_UNITS ? undefined : v); setVisible(PAGE_SIZE) }}
             >
-              <SelectTrigger className="h-8 max-w-[150px] gap-1 bg-[var(--color-muted)] border-[var(--color-border)] rounded-control text-caption">
+              <SelectTrigger className="h-8 w-auto max-w-[16rem] gap-1 bg-[var(--color-muted)] border-[var(--color-border)] rounded-control text-caption">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

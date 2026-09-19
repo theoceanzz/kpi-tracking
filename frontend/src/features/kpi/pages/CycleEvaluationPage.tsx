@@ -27,6 +27,8 @@ import { format, parseISO } from 'date-fns'
 import type { CycleEvaluationMode, CycleUserEvaluation, CyclePeriodBreakdown } from '@/types/kpi'
 import RewardPrompt from '@/features/rewards/components/RewardPrompt'
 import { useCanPromptReward } from '@/features/rewards/hooks/useCanPromptReward'
+import EvidenceAttachments from '@/features/evidence/EvidenceAttachments'
+import { evidenceKey } from '@/features/evidence/evidenceApi'
 import ConductInlineSheet, { type ConductSheetHandle } from '@/features/conduct/components/ConductInlineSheet'
 import { Dialog, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
@@ -271,7 +273,7 @@ export default function CycleEvaluationPage() {
           }
         >
           <Select value={orgUnitId} onValueChange={setOrgUnitId}>
-            <SelectTrigger className="w-full sm:w-60" aria-label="Đơn vị">
+            <SelectTrigger className="w-full sm:w-auto sm:min-w-60" aria-label="Đơn vị">
               <Building2 size={15} className="shrink-0 text-[var(--color-muted-foreground)]" aria-hidden="true" />
               <SelectValue placeholder="Chọn đơn vị" />
             </SelectTrigger>
@@ -282,7 +284,7 @@ export default function CycleEvaluationPage() {
             </SelectContent>
           </Select>
           <Select value={cycleId} onValueChange={setCycleId}>
-            <SelectTrigger className="w-full sm:w-60" aria-label="Kỳ đánh giá">
+            <SelectTrigger className="w-full sm:w-auto sm:min-w-60" aria-label="Kỳ đánh giá">
               <CalendarRange size={15} className="shrink-0 text-[var(--color-muted-foreground)]" aria-hidden="true" />
               <SelectValue placeholder="Chọn kỳ" />
             </SelectTrigger>
@@ -866,6 +868,9 @@ function UserScoreModal({
             className="w-full px-4 py-3 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] text-sm font-medium outline-none focus:ring-4 focus:ring-[var(--color-success-solid)] resize-none disabled:opacity-70"
           />
         </div>
+
+        {/* Minh chứng chốt kỳ: gắn vào (kỳ, người) nên đính kèm được trước khi lưu điểm. */}
+        <EvidenceAttachments target={evidenceKey.cycle(cycleId, member.userId)} readOnly={!canEdit} title="Minh chứng chốt kỳ" />
 
         {member.evaluatedByName && (
           <p className="text-caption font-medium">

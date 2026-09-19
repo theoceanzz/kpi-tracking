@@ -88,7 +88,7 @@ export default function OrgUnitTreeSidebar({ nodes, selectedId, onSelect, onAfte
             isSel ? 'bg-[var(--color-primary-soft)]' : 'hover:bg-[var(--color-muted)]')}
           style={{ paddingLeft: depth * 14 }}
         >
-          <Button variant="ghost" className="shrink-0" onClick={() => { if (hasKids) toggle(n.id) }} aria-label={hasKids ? 'Mở/thu nhánh' : undefined}>
+          <Button variant="ghost" size="icon-sm" className="shrink-0" onClick={() => { if (hasKids) toggle(n.id) }} aria-label={hasKids ? 'Mở/thu nhánh' : undefined}>
             {hasKids ? (open ? <ChevronDown aria-hidden="true" /> : <ChevronRight aria-hidden="true" />) : <span className="inline-block w-[14px]" />}
           </Button>
           <button type="button" className="flex h-9 w-full items-center gap-2.5 rounded-control px-2.5 text-left text-sm text-[var(--color-foreground)] transition-colors hover:bg-[var(--color-muted)] [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-[var(--color-muted-foreground)] flex-1 min-w-0" onClick={() => pick(n.id)}>

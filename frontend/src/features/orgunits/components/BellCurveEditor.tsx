@@ -2,9 +2,9 @@ import { useMemo, useState } from 'react'
 import {
   ResponsiveContainer, ComposedChart, XAxis, YAxis, CartesianGrid, Tooltip, Area, Bar, Line, Cell,
 } from 'recharts'
-import { AlertTriangle, CheckCircle2, Scale, Users, Wand2 } from 'lucide-react'
+import { AlertTriangle, Users, Wand2 } from 'lucide-react'
+import { ChoiceChip } from '@/components/ui/choice-chip'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { cn } from '@/lib/utils'
 import type { BellCurveMode, UnitBellTarget, UnitClassBellCurve } from '../api/organizationApi'
 import {
   bellTargets, defaultBellCurve, maxQuota, minQuota, r1, roundTo100, sumTargets,
@@ -74,7 +74,6 @@ export default function BellCurveEditor({
   const [headcount, setHeadcount] = useState(20)
 
   const bc = value
-  const enabled = !!bc?.enabled
   const colorOf = (name: string) => levels.find(l => l.name === name)?.color ?? '#64748b'
 
   const targets = useMemo<UnitBellTarget[]>(() => {
@@ -83,14 +82,39 @@ export default function BellCurveEditor({
   }, [bc?.targets, levelNames])
 
   const total = sumTargets(targets)
+  const activePreset = PRESETS.find(p =>
+    bellTargets(levelNames, p.shift, p.spread).every(st => Math.abs((targets.find(t => t.level === st.level)?.percent ?? -1) - st.percent) < 0.01))
   const balanced = Math.abs(total - 100) < 0.5
   const tolerance = bc?.tolerance ?? 5
 
   const patch = (p: Partial<UnitClassBellCurve>) =>
     onChange({ ...(bc ?? defaultBellCurve(levelNames)), ...p })
 
-  const setPercent = (level: string, percent: number) =>
-    patch({ targets: targets.map(t => t.level === level ? { ...t, percent: Math.min(100, Math.max(0, percent)) } : t) })
+  /**
+   * Kéo một mức thì các mức còn lại tự co giãn theo tỷ lệ đang có để tổng luôn đúng 100%.
+   * Trước đây mỗi thanh độc lập, người dùng phải tự cộng nhẩm rồi bấm "Chuẩn hoá" — bước đó
+   * chính là chỗ khó dùng nhất của màn hình này.
+   */
+  const setPercent = (level: string, raw: number) => {
+    const percent = Math.min(100, Math.max(0, raw))
+    const others = targets.filter(t => t.level !== level)
+    const rest = 100 - percent
+    const sumOthers = others.reduce((a, t) => a + t.percent, 0)
+    const scaled = targets.map(t => {
+      if (t.level === level) return percent
+      if (sumOthers <= 0) return others.length ? rest / others.length : 0
+      return (t.percent * rest) / sumOthers
+    })
+    const rounded = roundTo100(levelNames, scaled)
+    // roundTo100 có thể dồn phần lẻ vào chính mức vừa kéo; ép lại đúng số người dùng chọn.
+    const fixed = rounded.map(t => t.level === level ? { ...t, percent } : t)
+    const drift = 100 - sumTargets(fixed)
+    if (Math.abs(drift) >= 0.5) {
+      const idx = fixed.findIndex(t => t.level !== level && t.percent + drift >= 0)
+      if (idx >= 0) fixed[idx] = { ...fixed[idx]!, percent: fixed[idx]!.percent + drift }
+    }
+    patch({ targets: fixed })
+  }
 
   /** Chuẩn hoá về đúng 100% theo tỷ lệ hiện có — giữ nguyên hình dạng người dùng đã kéo. */
   const normalize = () => {
@@ -114,41 +138,24 @@ export default function BellCurveEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [targets, tolerance, headcount, levels])
 
-  if (!enabled) {
-    return (
-      <div className="rounded-card border border-dashed border-[var(--color-border-strong)] p-4 space-y-2.5">
-        <div className="flex items-start gap-2.5">
-          <Scale size={16} className="mt-0.5 shrink-0 text-[var(--color-subtle-foreground)]" aria-hidden="true" />
-          <p className="text-xs leading-relaxed text-[var(--color-muted-foreground)]">
-            <b className="text-[var(--color-foreground)]">Bell curve</b> khống chế tỷ lệ khi chấm
-            nhân sự: mỗi mức có một hạn mức % số người của đơn vị. Chấm vượt trần thì hệ thống
-            cảnh báo — hoặc chặn không cho chốt đánh giá, tuỳ chế độ.
-            <br />Khác với <b>luật xếp loại</b> ở tab bên: luật quyết định ĐƠN VỊ được xếp mức nào,
-            còn khung này giới hạn ĐƠN VỊ được chấm bao nhiêu người ở mỗi mức.
-          </p>
-        </div>
-        <Button size="sm" className="w-full" type="button" onClick={() => onChange(bc ? { ...bc, enabled: true } : defaultBellCurve(levelNames))}>
-          <Scale aria-hidden="true" /> Bật khung bell curve
-        </Button>
-      </div>
-    )
-  }
-
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap items-center gap-2">
-        <span className="text-eyebrow">Khung bell curve</span>
-        <span className="text-caption truncate">hạn mức % mỗi mức khi chấm nhân sự</span>
-        <Button variant="secondary" size="sm" className="ml-auto text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]" type="button" onClick={() => patch({ enabled: false })}>
-          Tắt khung
-        </Button>
+      {/* Mẫu phân bố đặt TRƯỚC biểu đồ: đa số chỉ cần chọn một mẫu rồi chỉnh nhẹ. */}
+      <div className="flex flex-wrap items-center gap-1.5">
+        <span className="mr-1 inline-flex items-center gap-1 text-label"><Wand2 size={14} aria-hidden="true" /> Mẫu phân bố</span>
+        {PRESETS.map(p => (
+          <ChoiceChip key={p.label} selected={activePreset?.label === p.label} title={p.hint} onClick={() => patch({ targets: bellTargets(levelNames, p.shift, p.spread) })}>
+            {p.label}
+          </ChoiceChip>
+        ))}
+        <span className="text-caption">{activePreset?.hint ?? 'Tuỳ chỉnh — kéo từng mức bên dưới, các mức còn lại tự cân cho đủ 100%'}</span>
       </div>
 
       {/* ── Biểu đồ: vẽ lại ngay theo từng lần kéo thanh trượt ── */}
       <div className="rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] p-3">
         <div className="h-[220px] max-sm:h-[190px] w-full">
           <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={data} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
+            <ComposedChart data={data} margin={{ top: 8, right: 8, left: 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" className="stroke-slate-200 dark:stroke-slate-700" vertical={false} />
               <XAxis
                 dataKey="level" tickLine={false} axisLine={false}
@@ -191,18 +198,6 @@ export default function BellCurveEditor({
         </div>
       </div>
 
-      {/* ── Mẫu hình dạng ── */}
-      <div className="flex flex-wrap items-center gap-1.5">
-        <span className="text-eyebrow inline-flex items-center gap-1">
-          <Wand2 size={12} aria-hidden="true" /> Mẫu
-        </span>
-        {PRESETS.map(p => (
-          <Button variant="secondary" size="sm" key={p.label} type="button" title={p.hint} onClick={() => patch({ targets: bellTargets(levelNames, p.shift, p.spread) })}>
-            {p.label}
-          </Button>
-        ))}
-      </div>
-
       {/* ── Tỷ lệ từng mức: thanh trượt + ô số, cả hai cùng sửa một giá trị ── */}
       <div className="space-y-1.5">
         {targets.map(t => {
@@ -214,7 +209,7 @@ export default function BellCurveEditor({
               className="flex flex-wrap items-center gap-2 max-sm:gap-y-1.5 rounded-card border border-[var(--color-border)] px-2.5 py-2"
             >
               <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: colorOf(t.level) }} aria-hidden="true" />
-              <span className="min-w-[92px] max-sm:min-w-0 max-sm:flex-1 text-xs font-semibold text-[var(--color-foreground)] truncate">
+              <span className="min-w-[92px] max-sm:min-w-0 max-sm:flex-1 truncate text-sm font-medium text-[var(--color-foreground)]">
                 {t.level}
               </span>
               <input
@@ -228,12 +223,12 @@ export default function BellCurveEditor({
                   type="number" min={0} max={100} value={t.percent}
                   onChange={e => setPercent(t.level, Number(e.target.value))}
                   aria-label={`Tỷ lệ mục tiêu mức ${t.level} (%)`}
-                  className="w-14 h-8 px-2 rounded-control bg-[var(--color-muted)] text-xs font-medium border-none outline-none focus:ring-2 focus:ring-[var(--color-ring)]"
+                  className="h-8 w-14 rounded-control border-none bg-[var(--color-muted)] px-2 text-sm font-medium tabular-nums text-[var(--color-foreground)] outline-none focus:ring-2 focus:ring-[var(--color-ring)]"
                 />
                 <span className="text-caption">%</span>
               </div>
-              <span className="w-[132px] max-sm:w-auto text-right text-caption tabular-nums">
-                {minQuota(min, headcount)}–{maxQuota(max, headcount)} người ({r1(min)}–{r1(max)}%)
+              <span className="w-[150px] max-sm:w-auto text-right text-caption tabular-nums" title={`Cho phép ${r1(min)}–${r1(max)}% (≈ ${minQuota(min, headcount)}–${maxQuota(max, headcount)} người)`}>
+                tối đa <b className="text-[var(--color-foreground)]">{maxQuota(max, headcount)}</b> / {headcount} người
               </span>
             </div>
           )
@@ -241,26 +236,19 @@ export default function BellCurveEditor({
       </div>
 
       {/* ── Tổng: khung chỉ có nghĩa khi các mức phủ đúng 100% nhân sự ── */}
-      <div className={cn(
-        'flex flex-wrap items-center gap-2 rounded-card px-3 py-2 text-xs font-medium',
-        balanced
-          ? 'bg-[var(--color-success-bg)] text-[var(--color-success)]'
-          : 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]',
-      )}>
-        {balanced
-          ? <><CheckCircle2 size={13} aria-hidden="true" /> Tổng 100% — khung hợp lệ</>
-          : <><AlertTriangle size={13} aria-hidden="true" /> Tổng đang {total}% — phải bằng 100% mới lưu được</>}
-        {!balanced && (
-          <Button variant="secondary" size="sm" className="ml-auto" type="button" onClick={normalize}>
+      {!balanced && (
+        <div className="flex flex-wrap items-center gap-2 rounded-card border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-3 py-2 text-xs font-medium text-[var(--color-warning)]">
+          <AlertTriangle size={13} aria-hidden="true" /> Tổng đang {total}% — phải bằng 100% mới lưu được
+          <Button variant="outline" size="sm" className="ml-auto" type="button" onClick={normalize}>
             Chuẩn hoá về 100%
           </Button>
-        )}
-      </div>
+        </div>
+      )}
 
       {/* ── Tham số áp dụng ── */}
-      <div className="grid grid-cols-3 max-sm:grid-cols-1 gap-2">
+      <div className="grid gap-3 sm:grid-cols-3">
         <label className="flex flex-col gap-1">
-          <span className="text-eyebrow">Dung sai ±</span>
+          <span className="text-label">Dung sai ± (điểm %)</span>
           <div className="flex items-center gap-1">
             <input
               type="number" min={0} max={50} value={tolerance}
@@ -269,9 +257,10 @@ export default function BellCurveEditor({
             />
             <span className="text-caption">%</span>
           </div>
+          <span className="text-caption">Mỗi mức được chấm trong khoảng mốc ± dung sai.</span>
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-eyebrow">Bỏ qua đơn vị dưới</span>
+          <span className="text-label">Bỏ qua đơn vị dưới (người)</span>
           <div className="flex items-center gap-1">
             <input
               type="number" min={0} max={500} value={bc?.minMembers ?? 5}
@@ -280,9 +269,10 @@ export default function BellCurveEditor({
             />
             <span className="text-caption">người</span>
           </div>
+          <span className="text-caption">Nhóm quá nhỏ thì tỷ lệ không có ý nghĩa.</span>
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-eyebrow">Khi vượt trần</span>
+          <span className="text-label">Khi chấm vượt trần</span>
           <Select value={bc?.mode ?? 'warn'} onValueChange={v => patch({ mode: v as BellCurveMode })}>
             <SelectTrigger className="h-9 rounded-control bg-[var(--color-muted)] border-none text-sm font-medium">
               <SelectValue />

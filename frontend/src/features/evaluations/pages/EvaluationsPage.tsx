@@ -347,14 +347,14 @@ export default function EvaluationsPage() {
 
       <FilterBar id="tour-eval-filters">
         <Select value={selectedKpiPeriodId} onValueChange={val => { setSelectedKpiPeriodId(val); setPage(0); resetGroups() }}>
-          <SelectTrigger className="w-full sm:w-52" aria-label="Đợt đánh giá"><SelectValue placeholder="Đợt đánh giá" /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-auto sm:min-w-52" aria-label="Đợt đánh giá"><SelectValue placeholder="Đợt đánh giá" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="ALL">Tất cả các đợt</SelectItem>
             {periods.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
               </SelectContent>
             </Select>
         <Select value={`${sortBy}:${sortDir}`} onValueChange={v => { const [f, d] = v.split(':'); if (f && d) { setSortBy(f); setSortDir(d as 'asc' | 'desc'); setPage(0) } }}>
-          <SelectTrigger className="w-full sm:w-44" aria-label="Sắp xếp"><SelectValue placeholder="Sắp xếp" /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-auto sm:min-w-44" aria-label="Sắp xếp"><SelectValue placeholder="Sắp xếp" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="createdAt:desc">Mới nhất trước</SelectItem>
             <SelectItem value="createdAt:asc">Cũ nhất trước</SelectItem>

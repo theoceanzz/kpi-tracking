@@ -798,7 +798,7 @@ function UnitResultPanel({ scorecardId, kpiPeriodId, periodName, periods, onChan
         <span className="text-label">Kết quả đợt</span>
         {periods.length > 1 ? (
           <Select value={kpiPeriodId} onValueChange={onChangePeriod}>
-            <SelectTrigger className="h-8 w-48 text-sm"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="h-8 w-auto min-w-48 text-sm"><SelectValue /></SelectTrigger>
             <SelectContent className="z-[1100]">
               {periods.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
             </SelectContent>

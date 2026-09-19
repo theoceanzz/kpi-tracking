@@ -155,7 +155,7 @@ export default function MyObjectivesTab() {
           <SelectTrigger className="h-9 bg-[var(--color-muted)] border border-[var(--color-border)] text-xs font-semibold w-full sm:w-[300px]">
             <SelectValue placeholder="Tất cả mục tiêu" />
           </SelectTrigger>
-          <SelectContent className="w-[var(--radix-select-trigger-width)]">
+          <SelectContent>
             <SelectItem value="ALL">Tất cả mục tiêu</SelectItem>
             {kpiPage?.availableObjectives?.map(o => (
               <SelectItem key={o.code} value={o.code}>{o.name}</SelectItem>
@@ -167,7 +167,7 @@ export default function MyObjectivesTab() {
           <SelectTrigger className="h-9 bg-[var(--color-muted)] border border-[var(--color-border)] text-xs font-semibold w-full sm:w-[300px]">
             <SelectValue placeholder="Tất cả Key Result" />
           </SelectTrigger>
-          <SelectContent className="w-[var(--radix-select-trigger-width)]">
+          <SelectContent>
             <SelectItem value="ALL">Tất cả Key Result</SelectItem>
             {krOptions.map(o => (
               <SelectItem key={o.code} value={o.code}>{o.name}</SelectItem>
@@ -406,7 +406,7 @@ function ExpandableKpiRow({ kpi, onExpand, onSelectKpi }: { kpi: any; onExpand: 
     <>
       <tr className="hover:bg-[var(--color-muted)] transition-colors">
         <td className="px-6 py-4">
-          <Button variant="secondary" onClick={() => setExpanded(!expanded)}>
+          <Button variant="ghost" size="icon-sm" aria-expanded={expanded} aria-label={expanded ? 'Thu gọn' : 'Mở rộng'} onClick={() => setExpanded(!expanded)}>
             {expanded ? <ChevronDown aria-hidden="true" /> : <ChevronRight aria-hidden="true" />}
           </Button>
         </td>

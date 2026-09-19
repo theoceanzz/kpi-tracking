@@ -146,7 +146,7 @@ export default function ResetPasswordPage() {
              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <Lock size={18} className="text-[var(--color-muted-foreground)]" />
              </div>
-             <input {...register('newPassword')} type={showPassword ? 'text' : 'password'} className={inputCls + " pr-20"} placeholder="Nhập ít nhất 8 ký tự an toàn" />
+             <input {...register('newPassword')} type={showPassword ? 'text' : 'password'} className={inputCls + " pr-20 no-edit-hint"} placeholder="Nhập ít nhất 8 ký tự an toàn" />
              
              {/* Nút Gợi ý MK */}
              <button
@@ -212,7 +212,7 @@ export default function ResetPasswordPage() {
              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <ShieldCheck size={18} className="text-[var(--color-muted-foreground)]" />
              </div>
-             <input {...register('confirmPassword')} type={showConfirmPassword ? 'text' : 'password'} className={inputCls + " pr-10"} placeholder="Nhập lại mật khẩu khớp chính xác" />
+             <input {...register('confirmPassword')} type={showConfirmPassword ? 'text' : 'password'} className={inputCls + " pr-10 no-edit-hint"} placeholder="Nhập lại mật khẩu khớp chính xác" />
              
              {/* Nút bật tắt ẩn hiện */}
              <button

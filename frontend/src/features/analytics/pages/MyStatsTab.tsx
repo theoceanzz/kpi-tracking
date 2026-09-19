@@ -468,7 +468,7 @@ function ExpandableKpiRow({ kpi, onOpenDrawer, onSelectKpi }: { kpi: any; onOpen
     <>
       <tr className="hover:bg-[var(--color-muted)] transition-colors">
         <td className="px-6 py-4">
-          <Button variant="secondary" onClick={() => setExpanded(!expanded)}>
+          <Button variant="ghost" size="icon-sm" aria-expanded={expanded} aria-label={expanded ? 'Thu gọn' : 'Mở rộng'} onClick={() => setExpanded(!expanded)}>
             {expanded ? <ChevronDown aria-hidden="true" /> : <ChevronRight aria-hidden="true" />}
           </Button>
         </td>

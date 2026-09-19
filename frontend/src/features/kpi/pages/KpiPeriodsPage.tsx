@@ -136,7 +136,7 @@ export default function KpiPeriodsPage() {
           }
         >
           <Select value={periodType} onValueChange={val => { setPeriodType(val); setPage(0) }}>
-            <SelectTrigger className="w-full sm:w-48" aria-label="Loại đợt"><SelectValue placeholder="Tất cả loại đợt" /></SelectTrigger>
+            <SelectTrigger className="w-full sm:w-auto sm:min-w-48" aria-label="Loại đợt"><SelectValue placeholder="Tất cả loại đợt" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="ALL">Tất cả loại đợt</SelectItem>
               {(['DAILY', 'WEEKLY', 'MONTHLY', 'QUARTERLY', 'SEMI_ANNUALLY', 'YEARLY'] as KpiFrequency[]).map(type => <SelectItem key={type} value={type}>{FREQUENCY_MAP[type]}</SelectItem>)}

@@ -360,7 +360,7 @@ function SecurityTab() {
                 <input
                   {...register('currentPassword')}
                   type={showCurrent ? 'text' : 'password'}
-                  className={inputCls + " pr-12"}
+                  className={inputCls + " pr-12 no-edit-hint"}
                   placeholder="••••••••"
                 />
                 <button
@@ -383,7 +383,7 @@ function SecurityTab() {
                 <input
                   {...register('newPassword')}
                   type={showNew ? 'text' : 'password'}
-                  className={inputCls + " pr-24"}
+                  className={inputCls + " pr-24 no-edit-hint"}
                   placeholder="Nhập ít nhất 8 ký tự an toàn"
                 />
 
@@ -449,7 +449,7 @@ function SecurityTab() {
                 <input
                   {...register('confirmPassword')}
                   type={showConfirm ? 'text' : 'password'}
-                  className={inputCls + " pr-12"}
+                  className={inputCls + " pr-12 no-edit-hint"}
                   placeholder="Nhập lại mật khẩu khớp chính xác"
                 />
                 <button

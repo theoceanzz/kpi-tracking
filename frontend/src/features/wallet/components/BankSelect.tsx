@@ -132,7 +132,7 @@ export default function BankSelect({ value, onChange, className = '' }: Props) {
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             placeholder="Tìm theo tên hoặc mã BIN..."
-            className="w-full bg-transparent py-3 pl-10 pr-9 text-sm outline-none"
+            className="no-edit-hint w-full bg-transparent py-3 pl-10 pr-9 text-sm outline-none"
           />
           {query && (
             <button
