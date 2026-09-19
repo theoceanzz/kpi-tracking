@@ -688,6 +688,9 @@ const GridCell = React.forwardRef<HTMLDivElement, GridCellProps>(function GridCe
       onMouseUp={onMouseUp}
       onTouchEnd={onTouchEnd}
       onTouchStart={onTouchStart}
+      // Móc cho công cụ chụp ảnh tài liệu (scripts/capture_charts.py) tìm ô theo id thay vì theo
+      // tiêu đề hiển thị — tiêu đề đổi theo bộ lọc ("Xu hướng KPI đơn vị: …") nên bám vào nó dễ gãy.
+      data-widget-id={block.i}
       className={cn(
         className,
         // overflow-hidden là hàng rào bắt buộc: widget nào render cao hơn ô lưới (vd danh sách
