@@ -300,10 +300,10 @@ export function useAnalyticsDateFilter(opts: Options = {}): AnalyticsDateFilterV
       {mode === 'SINGLE' ? (
         <>
           <Select value={periodId ?? 'ALL'} onValueChange={v => handlePeriodChange(v === 'ALL' ? undefined : v)}>
-            <SelectTrigger className={cn(baseTrigger, "md:w-[300px]")}>
+            <SelectTrigger className={cn(baseTrigger, "md:min-w-[300px]")}>
               <SelectValue placeholder="Tất cả các đợt" />
             </SelectTrigger>
-            <SelectContent className="w-[var(--radix-select-trigger-width)]">
+            <SelectContent>
               <SelectItem value="ALL">Tất cả các đợt</SelectItem>
               {periods.map(p => (
                 <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
@@ -313,10 +313,10 @@ export function useAnalyticsDateFilter(opts: Options = {}): AnalyticsDateFilterV
 
           {selectedPeriod ? (
             <Select value={periodMode} onValueChange={v => { setPeriodMode(v as PeriodMode); setSubIndex(0) }}>
-              <SelectTrigger className={cn(baseTrigger, "md:w-[220px]")}>
+              <SelectTrigger className={cn(baseTrigger, "md:min-w-[220px]")}>
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="w-[var(--radix-select-trigger-width)]">
+              <SelectContent>
                 {periodModeOptions.map(m => (
                   <SelectItem key={m} value={m}>{PERIOD_MODE_LABEL[m]}</SelectItem>
                 ))}
@@ -324,10 +324,10 @@ export function useAnalyticsDateFilter(opts: Options = {}): AnalyticsDateFilterV
             </Select>
           ) : (
             <Select value={legacyMode} onValueChange={v => setLegacyMode(v as LegacyMode)}>
-              <SelectTrigger className={cn(baseTrigger, "md:w-[220px]")}>
+              <SelectTrigger className={cn(baseTrigger, "md:min-w-[220px]")}>
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="w-[var(--radix-select-trigger-width)]">
+              <SelectContent>
                 {LEGACY_OPTIONS.map(o => (
                   <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
                 ))}
@@ -351,7 +351,7 @@ export function useAnalyticsDateFilter(opts: Options = {}): AnalyticsDateFilterV
               <SelectTrigger className={baseTrigger}>
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="w-[var(--radix-select-trigger-width)]">
+              <SelectContent>
                 {weeks.map((ws, i) => {
                   const f = clamp(startOfWeek(ws, { weekStartsOn: 1 }), periodStart, periodEnd)
                   const t = clamp(endOfWeek(ws, { weekStartsOn: 1 }), periodStart, periodEnd)
@@ -366,7 +366,7 @@ export function useAnalyticsDateFilter(opts: Options = {}): AnalyticsDateFilterV
               <SelectTrigger className={baseTrigger}>
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="w-[var(--radix-select-trigger-width)]">
+              <SelectContent>
                 {months.map((ms, i) => (
                   <SelectItem key={i} value={i.toString()}>{`Tháng ${format(ms, 'MM/yyyy')}`}</SelectItem>
                 ))}
@@ -379,7 +379,7 @@ export function useAnalyticsDateFilter(opts: Options = {}): AnalyticsDateFilterV
               <SelectTrigger className={baseTrigger}>
                 <SelectValue />
               </SelectTrigger>
-              <SelectContent className="w-[var(--radix-select-trigger-width)]">
+              <SelectContent>
                 {quarters.map((qs, i) => (
                   <SelectItem key={i} value={i.toString()}>{`Quý ${getQuarter(qs)}/${format(qs, 'yyyy')}`}</SelectItem>
                 ))}
@@ -412,19 +412,19 @@ export function useAnalyticsDateFilter(opts: Options = {}): AnalyticsDateFilterV
       ) : mode === 'RANGE' ? (
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
           <Select value={rangeFromId} onValueChange={handleRangeFrom}>
-            <SelectTrigger className={cn(baseTrigger, "md:w-[240px]")}>
+            <SelectTrigger className={cn(baseTrigger, "md:min-w-[240px]")}>
               <SelectValue placeholder="Từ đợt..." />
             </SelectTrigger>
-            <SelectContent className="w-[var(--radix-select-trigger-width)]">
+            <SelectContent>
               <ScopeSelectItems items={periods} selectedId={rangeFromId} />
             </SelectContent>
           </Select>
           <span className="hidden sm:inline text-[var(--color-subtle-foreground)] self-center">→</span>
           <Select value={rangeToId} onValueChange={v => setRangeToId(v)}>
-            <SelectTrigger className={cn(baseTrigger, "md:w-[240px]")}>
+            <SelectTrigger className={cn(baseTrigger, "md:min-w-[240px]")}>
               <SelectValue placeholder="Đến đợt..." />
             </SelectTrigger>
-            <SelectContent className="w-[var(--radix-select-trigger-width)]">
+            <SelectContent>
               <ScopeSelectItems items={toOptions} selectedId={rangeToId} />
             </SelectContent>
           </Select>
@@ -442,10 +442,10 @@ export function useAnalyticsDateFilter(opts: Options = {}): AnalyticsDateFilterV
           Khi chọn đúng 1 đợt cụ thể thì "Theo đợt" = 1 cột (vô nghĩa) nên ẩn đi. */}
       {(mode === 'RANGE' || mode === 'CYCLE' || !selectedPeriod) && (
         <Select value={groupBy} onValueChange={v => setGroupBy(v as 'TIME' | 'PERIOD')}>
-          <SelectTrigger className={cn(baseTrigger, "md:w-[200px]")}>
+          <SelectTrigger className={cn(baseTrigger, "md:min-w-[200px]")}>
             <SelectValue />
           </SelectTrigger>
-          <SelectContent className="w-[var(--radix-select-trigger-width)]">
+          <SelectContent>
             <SelectItem value="TIME">Hiển thị: Theo thời gian</SelectItem>
             <SelectItem value="PERIOD">Hiển thị: Theo đợt</SelectItem>
           </SelectContent>

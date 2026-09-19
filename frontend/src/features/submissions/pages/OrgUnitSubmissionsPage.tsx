@@ -388,14 +388,14 @@ export default function OrgUnitSubmissionsPage() {
       >
               {canManageOrg && (
                   <Select value={selectedOrgUnitId} onValueChange={val => { setSelectedOrgUnitId(val); setPage(0) }}>
-            <SelectTrigger className="w-full sm:w-64" aria-label="Đơn vị"><SelectValue placeholder="Chọn đơn vị" /></SelectTrigger>
+            <SelectTrigger className="w-full sm:w-auto sm:min-w-64" aria-label="Đơn vị"><SelectValue placeholder="Chọn đơn vị" /></SelectTrigger>
             <SelectContent>
               {flatOrgUnits.map(unit => <SelectItem key={unit.id} value={unit.id}>{unit.levelLabel}</SelectItem>)}
                     </SelectContent>
                   </Select>
         )}
         <Select value={selectedPeriodId} onValueChange={val => { setSelectedPeriodId(val); setPage(0) }}>
-          <SelectTrigger className="w-full sm:w-64" aria-label="Đợt đánh giá"><SelectValue placeholder="Đợt đánh giá" /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-auto sm:min-w-64" aria-label="Đợt đánh giá"><SelectValue placeholder="Đợt đánh giá" /></SelectTrigger>
           <SelectContent>
             <ScopeSelectItems items={periodsData?.content} selectedId={selectedPeriodId} />
           </SelectContent>

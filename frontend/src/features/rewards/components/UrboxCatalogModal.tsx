@@ -147,7 +147,7 @@ export default function UrboxCatalogModal({ open, onClose }: UrboxCatalogModalPr
               setPage(0)
             }}
           >
-            <SelectTrigger className="w-[200px]" aria-label="Danh mục"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-auto min-w-[200px]" aria-label="Danh mục"><SelectValue /></SelectTrigger>
             <SelectContent className="z-[1100]">
               <SelectItem value={ALL_CATEGORIES}>Tất cả danh mục</SelectItem>
               {(categories ?? []).map((c) => (

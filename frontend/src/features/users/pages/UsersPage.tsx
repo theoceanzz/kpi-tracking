@@ -254,14 +254,14 @@ export default function UsersPage() {
 
       <FilterBar id="tour-users-filters" search={{ value: keyword, onChange: handleKeywordChange, placeholder: 'Tìm theo tên hoặc email…' }}>
         <Select value={roleFilter} onValueChange={handleRoleChange}>
-          <SelectTrigger className="w-full sm:w-44" aria-label="Chức danh"><SelectValue placeholder="Chức danh" /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-auto sm:min-w-44" aria-label="Chức danh"><SelectValue placeholder="Chức danh" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="ALL">Mọi chức danh</SelectItem>
             {assignableRoles.map(role => <SelectItem key={role.id} value={role.name}>{role.name}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={orgUnitFilter} onValueChange={handleOrgUnitChange}>
-          <SelectTrigger className="w-full sm:w-56" aria-label="Đơn vị"><SelectValue placeholder="Đơn vị" /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-auto sm:min-w-56" aria-label="Đơn vị"><SelectValue placeholder="Đơn vị" /></SelectTrigger>
           <SelectContent className="max-h-[300px]">
             {allUnits.filter(u => !!u.id).map((unit: OrgUnitTreeResponse) => (
               <SelectItem key={unit.id} value={unit.id}>{unit.name}</SelectItem>
@@ -269,7 +269,7 @@ export default function UsersPage() {
           </SelectContent>
         </Select>
         <Select value={sortOrder} onValueChange={(v) => handleSortChange(v as 'A-Z' | 'Z-A')}>
-          <SelectTrigger className="w-full sm:w-36" aria-label="Sắp xếp"><SelectValue placeholder="Sắp xếp" /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-auto sm:min-w-36" aria-label="Sắp xếp"><SelectValue placeholder="Sắp xếp" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="A-Z">Tên A → Z</SelectItem>
             <SelectItem value="Z-A">Tên Z → A</SelectItem>

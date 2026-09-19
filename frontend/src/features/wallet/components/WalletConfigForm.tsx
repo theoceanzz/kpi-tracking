@@ -142,7 +142,7 @@ function NumberField({
         value={value}
         onChange={onChange}
         maxDigits={maxDigits}
-        className={`${inputCls} pr-14 text-right font-semibold tabular-nums`}
+        className={`${inputCls} no-edit-hint pr-14 text-right font-semibold tabular-nums`}
       />
       <span className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm font-medium text-[var(--color-muted-foreground)]">
         {suffix}

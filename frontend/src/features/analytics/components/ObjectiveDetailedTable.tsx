@@ -209,7 +209,7 @@ const ObjectivePeriodCell = ({ periodCount, periodNames, start, end }: {
               >
                 <td className="px-6 py-4 align-top whitespace-normal">
                   <div className="flex items-start gap-3">
-                    <Button variant="outline" className="mt-0.5" onClick={(e) => toggleObj(obj.id, e)}>
+                    <Button variant="ghost" size="icon-sm" className="mt-0.5" aria-expanded={isObjExp} aria-label={isObjExp ? 'Thu gọn' : 'Mở rộng'} onClick={(e) => toggleObj(obj.id, e)}>
                       {isObjExp ? <ChevronDown aria-hidden="true" className="w-4 h-4" /> : <ChevronRight aria-hidden="true" className="w-4 h-4" />}
                     </Button>
                     <div>
@@ -246,7 +246,7 @@ const ObjectivePeriodCell = ({ periodCount, periodNames, start, end }: {
                   >
                     <td className="px-6 py-4 align-top whitespace-normal pl-12">
                       <div className="flex items-start gap-3">
-                        <Button variant="secondary" className="mt-0.5" onClick={(e) => toggleKr(kr.id, e)}>
+                        <Button variant="ghost" size="icon-sm" className="mt-0.5" aria-expanded={isKrExp} aria-label={isKrExp ? 'Thu gọn' : 'Mở rộng'} onClick={(e) => toggleKr(kr.id, e)}>
                           {isKrExp ? <ChevronDown aria-hidden="true" className="w-3.5 h-3.5" /> : <ChevronRight aria-hidden="true" className="w-3.5 h-3.5" />}
                         </Button>
                         <div>
@@ -305,7 +305,7 @@ const ObjectivePeriodCell = ({ periodCount, periodNames, start, end }: {
                           <td className="px-6 py-4 align-top whitespace-normal pl-20">
                             <div className="flex items-start gap-3">
                               {isExpandable ? (
-                                <Button variant="secondary" className="mt-0.5" onClick={(e) => {
+                                <Button variant="ghost" size="icon-sm" className="mt-0.5" aria-expanded={!!isKpiExp} aria-label={isKpiExp ? 'Thu gọn' : 'Mở rộng'} onClick={(e) => {
                                     e.stopPropagation()
                                     toggleKpi(kpi.id, e)
                                   }}>
@@ -393,7 +393,7 @@ const ObjectivePeriodCell = ({ periodCount, periodNames, start, end }: {
                                         >
                                           <div className="flex items-center gap-4 min-w-[280px]">
                                             {hasSubmissions ? (
-                                              <Button variant="secondary">
+                                              <Button variant="ghost" size="icon-sm" aria-expanded={isParticipantExp} aria-label={isParticipantExp ? 'Thu gọn' : 'Mở rộng'}>
                                                 {isParticipantExp ? <ChevronDown aria-hidden="true" className="w-4 h-4" /> : <ChevronRight aria-hidden="true" className="w-4 h-4" />}
                                               </Button>
                                             ) : (

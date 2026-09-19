@@ -276,7 +276,7 @@ export default function SummaryTab() {
         value={filterOrgUnitId ?? ALL_UNITS}
         onValueChange={v => setFilterOrgUnitId(v === ALL_UNITS ? undefined : v)}
       >
-        <SelectTrigger className="h-9 max-w-[220px] bg-[var(--color-muted)] border-[var(--color-border)] rounded-control text-xs font-semibold text-[var(--color-foreground)]">
+        <SelectTrigger className="h-9 w-auto max-w-[20rem] bg-[var(--color-muted)] border-[var(--color-border)] rounded-control text-xs font-semibold text-[var(--color-foreground)]">
           <SelectValue />
         </SelectTrigger>
         <SelectContent>
@@ -803,7 +803,7 @@ export function EmployeeRankingTableSection({ orgUnitId, from, to, onlyApproved,
           value={rankingUnitId ?? ALL_UNITS}
           onValueChange={v => { setRankingUnitId(v === ALL_UNITS ? undefined : v); setRankPage(0) }}
         >
-          <SelectTrigger className="h-auto gap-2 py-2 bg-[var(--color-card)] border-[var(--color-border)] rounded-card text-xs font-medium shadow-sm max-w-[200px]">
+          <SelectTrigger className="h-auto gap-2 py-2 bg-[var(--color-card)] border-[var(--color-border)] rounded-card text-xs font-medium shadow-sm w-auto max-w-[20rem]">
             <Filter size={13} className="text-[var(--color-subtle-foreground)] shrink-0" />
             <SelectValue />
           </SelectTrigger>

@@ -45,7 +45,7 @@ export default function CycleApprovalTimeline({
             {doneCount}/{steps.length} đã chốt
           </span>
         </div>
-        <Button variant="secondary" size="sm" className="shrink-0" onClick={() => setExpanded(v => !v)}>
+        <Button variant="ghost" size="sm" className="shrink-0" aria-expanded={expanded} onClick={() => setExpanded(v => !v)}>
           {expanded ? <ChevronUp aria-hidden="true" /> : <ChevronDown aria-hidden="true" />}
           {expanded ? 'Thu gọn' : 'Chi tiết'}
         </Button>

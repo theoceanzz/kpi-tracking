@@ -17,4 +17,5 @@ public class ConversationResponse {
     private String title;
     private Instant createdAt;
     private Instant updatedAt;
+    private Instant pinnedAt;
 }

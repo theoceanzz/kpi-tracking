@@ -16,12 +16,45 @@ import { cn } from "@/lib/utils"
  * `onValueChange('')`, xoá sạch giá trị form vừa đặt. `SelectItem` không được phép có value ''
  * nên '' không bao giờ là lựa chọn thật của người dùng; bỏ qua là an toàn.
  */
-const Select = ({ onValueChange, ...props }: React.ComponentProps<typeof SelectPrimitive.Root>) => (
-  <SelectPrimitive.Root
-    {...props}
-    onValueChange={onValueChange && ((value) => { if (value !== '') onValueChange(value) })}
-  />
-)
+/**
+ * Nhãn của mọi `SelectItem` bên trong, gom lúc render để ô chọn tự rộng bằng mục dài nhất
+ * (xem `SelectTrigger`). Không cần API mới: trang vẫn viết `Select > SelectTrigger + SelectContent`.
+ */
+const SelectLabelsContext = React.createContext<string[]>([])
+
+function textOf(node: React.ReactNode): string {
+  if (node == null || typeof node === 'boolean') return ''
+  if (typeof node === 'string' || typeof node === 'number') return String(node)
+  if (Array.isArray(node)) return node.map(textOf).join('')
+  if (React.isValidElement<{ children?: React.ReactNode }>(node)) return textOf(node.props.children)
+  return ''
+}
+
+function collectItemLabels(node: React.ReactNode, out: string[]) {
+  React.Children.forEach(node, child => {
+    if (!React.isValidElement<{ children?: React.ReactNode }>(child)) return
+    if (child.type === SelectItem) {
+      const t = textOf(child.props.children).trim()
+      if (t) out.push(t)
+      return
+    }
+    if (child.props.children) collectItemLabels(child.props.children, out)
+  })
+}
+
+const Select = ({ onValueChange, children, ...props }: React.ComponentProps<typeof SelectPrimitive.Root>) => {
+  const labels = React.useMemo(() => { const out: string[] = []; collectItemLabels(children, out); return out }, [children])
+  return (
+    <SelectLabelsContext.Provider value={labels}>
+      <SelectPrimitive.Root
+        {...props}
+        onValueChange={onValueChange && ((value) => { if (value !== '') onValueChange(value) })}
+      >
+        {children}
+      </SelectPrimitive.Root>
+    </SelectLabelsContext.Provider>
+  )
+}
 
 const SelectGroup = SelectPrimitive.Group
 
@@ -30,21 +63,39 @@ const SelectValue = SelectPrimitive.Value
 const SelectTrigger = React.forwardRef<
   React.ElementRef<typeof SelectPrimitive.Trigger>,
   React.ComponentPropsWithoutRef<typeof SelectPrimitive.Trigger>
->(({ className, children, ...props }, ref) => (
-  <SelectPrimitive.Trigger
-    ref={ref}
-    className={cn(
-      "flex h-9 w-full items-center justify-between gap-2 rounded-control border border-[var(--color-input)] bg-[var(--color-card)] px-3 text-sm text-[var(--color-foreground)] transition-colors hover:border-[var(--color-border-strong)] data-[placeholder]:text-[var(--color-muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--color-ring)] focus:ring-offset-0 focus:border-[var(--color-ring)] disabled:cursor-not-allowed disabled:opacity-50 [&>span]:truncate",
-      className
-    )}
-    {...props}
-  >
-    {children}
-    <SelectPrimitive.Icon asChild>
-      <ChevronDown className="h-4 w-4 shrink-0 text-[var(--color-muted-foreground)]" />
-    </SelectPrimitive.Icon>
-  </SelectPrimitive.Trigger>
-))
+>(({ className, children, ...props }, ref) => {
+  const labels = React.useContext(SelectLabelsContext)
+  return (
+    <SelectPrimitive.Trigger
+      ref={ref}
+      className={cn(
+        "flex h-9 w-full max-w-full items-center justify-between gap-2 rounded-control border border-[var(--color-input)] bg-[var(--color-card)] px-3 text-sm text-[var(--color-foreground)] transition-colors hover:border-[var(--color-border-strong)] data-[placeholder]:text-[var(--color-muted-foreground)] focus:outline-none focus:ring-2 focus:ring-[var(--color-ring)] focus:ring-offset-0 focus:border-[var(--color-ring)] disabled:cursor-not-allowed disabled:opacity-50",
+        className
+      )}
+      {...props}
+    >
+      {/*
+        Ô giá trị và một "bóng" vô hình chứa MỌI nhãn xếp chồng lên nhau trong cùng một ô lưới:
+        bề ngang của ô = nhãn dài nhất, nên ô chọn để `w-auto` sẽ rộng vừa mục dài nhất ngay từ
+        đầu, không nhảy bề ngang khi đổi lựa chọn. Ô chọn có bề ngang cố định (`w-full`, `w-44`)
+        thì cột lưới `minmax(0,1fr)` co lại và giá trị cắt "…" như trước.
+      */}
+      <span className="grid min-w-0 flex-1 grid-cols-[minmax(0,1fr)] overflow-hidden text-left [&>*]:[grid-area:1/1]">
+        {/* flex chứ không phải inline: preflight đặt svg display:block, icon đứng trước SelectValue
+            sẽ rớt xuống dòng riêng nếu bọc bằng span thường. */}
+        <span className="flex min-w-0 items-center gap-2 [&>span]:truncate">{children}</span>
+        {labels.length > 0 && (
+          <span aria-hidden="true" className="invisible h-0 max-w-[20rem] overflow-hidden">
+            {labels.map((l, i) => <span key={i} className="block whitespace-nowrap">{l}</span>)}
+          </span>
+        )}
+      </span>
+      <SelectPrimitive.Icon asChild>
+        <ChevronDown className="h-4 w-4 shrink-0 text-[var(--color-muted-foreground)]" />
+      </SelectPrimitive.Icon>
+    </SelectPrimitive.Trigger>
+  )
+})
 SelectTrigger.displayName = SelectPrimitive.Trigger.displayName
 
 const SelectScrollUpButton = React.forwardRef<
@@ -104,8 +155,10 @@ const SelectContent = React.forwardRef<
       <SelectPrimitive.Viewport
         className={cn(
           "p-1",
+          // Rộng ÍT NHẤT bằng ô chọn, nhưng được nở theo mục dài nhất (trần 28rem / mép màn hình):
+          // ép bằng đúng bề ngang ô chọn thì mục dài bị bẻ dòng, đọc thành hai lựa chọn.
           position === "popper" &&
-            "w-full min-w-[var(--radix-select-trigger-width)] max-w-[var(--radix-select-trigger-width)] overflow-x-hidden"
+            "w-full min-w-[var(--radix-select-trigger-width)] max-w-[min(28rem,calc(100vw-2rem))] overflow-x-hidden"
         )}
       >
         {children}
@@ -135,7 +188,7 @@ const SelectItem = React.forwardRef<
   <SelectPrimitive.Item
     ref={ref}
     className={cn(
-      "relative flex w-full cursor-default select-none items-center rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-[var(--color-muted)] data-[state=checked]:text-[var(--color-primary)] data-[state=checked]:font-medium data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
+      "relative flex w-full cursor-default select-none items-center whitespace-nowrap rounded-sm py-1.5 pl-8 pr-2 text-sm outline-none focus:bg-[var(--color-muted)] data-[state=checked]:text-[var(--color-primary)] data-[state=checked]:font-medium data-[disabled]:pointer-events-none data-[disabled]:opacity-50",
       className
     )}
     {...props}

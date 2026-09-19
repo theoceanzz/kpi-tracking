@@ -1086,7 +1086,7 @@ export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onI
                             value={row.Weight}
                             onChange={e => handleCellChange(row.id, 'Weight', e.target.value)}
                             className={cn(
-                                "w-full px-4 py-2 pr-8 rounded-card border text-sm font-semibold transition-all",
+                                "no-edit-hint w-full px-4 py-2 pr-8 rounded-card border text-sm font-semibold transition-all",
                                 row._errors?.Weight ? "border-[var(--color-error-border)] bg-[var(--color-error-bg)]" : "border-transparent hover:border-[var(--color-border)] focus:border-[var(--color-primary)]"
                             )}
                             />

@@ -680,12 +680,12 @@ export default function KpiCriteriaPage() {
         }
       >
         <Select value={selectedPeriodId} onValueChange={val => { setSelectedPeriodId(val); setPage(0); resetGroups() }}>
-          <SelectTrigger className="w-full sm:w-52" aria-label="Đợt đánh giá"><SelectValue placeholder="Đợt đánh giá" /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-auto sm:min-w-52" aria-label="Đợt đánh giá"><SelectValue placeholder="Đợt đánh giá" /></SelectTrigger>
           <SelectContent><ScopeSelectItems items={periodsData?.content} selectedId={selectedPeriodId} /></SelectContent>
         </Select>
 
         <Select value={kpiTypeFilter} onValueChange={val => { setKpiTypeFilter(val as KpiTypeFilterKey); setPage(0) }}>
-          <SelectTrigger className="w-full sm:w-48" aria-label="Loại chỉ tiêu"><SelectValue placeholder="Loại chỉ tiêu" /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-auto sm:min-w-48" aria-label="Loại chỉ tiêu"><SelectValue placeholder="Loại chỉ tiêu" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="ALL">Tất cả loại</SelectItem>
             <SelectGroup>
@@ -709,7 +709,7 @@ export default function KpiCriteriaPage() {
                   </Select>
 
         <Select value={`${sortBy}-${sortDir}`} onValueChange={(val) => { const [field, dir] = val.split('-'); if (field && dir) { setSortBy(field); setSortDir(dir as 'asc' | 'desc'); setPage(0) } }}>
-          <SelectTrigger className="w-full sm:w-44" aria-label="Sắp xếp"><SelectValue placeholder="Sắp xếp" /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-auto sm:min-w-44" aria-label="Sắp xếp"><SelectValue placeholder="Sắp xếp" /></SelectTrigger>
           <SelectContent>
             <SelectItem value="createdAt-desc">Mới nhất trước</SelectItem>
             <SelectItem value="createdAt-asc">Cũ nhất trước</SelectItem>

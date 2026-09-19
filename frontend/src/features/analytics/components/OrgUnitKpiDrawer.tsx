@@ -383,10 +383,10 @@ export default function OrgUnitKpiDrawer({
             </div>
             <div className="flex flex-col sm:flex-row sm:flex-wrap sm:justify-end items-stretch sm:items-center gap-2">
               <Select value={dateFilterType} onValueChange={(v) => setDateFilterType(v as DateFilterType)}>
-                <SelectTrigger className="h-8 w-full sm:w-[220px] bg-[var(--color-muted)] border border-[var(--color-border)] rounded-control text-sm font-semibold text-[var(--color-foreground)]">
+                <SelectTrigger className="h-8 w-full sm:w-auto sm:min-w-[220px] bg-[var(--color-muted)] border border-[var(--color-border)] rounded-control text-sm font-semibold text-[var(--color-foreground)]">
                   <SelectValue />
                 </SelectTrigger>
-                <SelectContent className="w-[var(--radix-select-trigger-width)]">
+                <SelectContent>
                   <SelectItem value="GLOBAL">Theo bộ lọc KPI đơn vị</SelectItem>
                   <SelectItem value="THIS_WEEK">Tuần này</SelectItem>
                   <SelectItem value="THIS_MONTH">Tháng này</SelectItem>

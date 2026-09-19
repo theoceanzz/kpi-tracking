@@ -15,6 +15,8 @@ import {
 } from 'lucide-react'
 import { Dialog, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
+import EvidenceAttachments from '@/features/evidence/EvidenceAttachments'
+import { evidenceKey } from '@/features/evidence/evidenceApi'
 import { Badge } from '@/components/ui/badge'
 
 import { useAuthStore } from '@/store/authStore'
@@ -694,6 +696,9 @@ export default function StaffEvaluationModal({
                       />
                     </div>
                   )}
+                  {/* Minh chứng của lượt chấm đợt: người chấm đính kèm, nhân viên xem lại được. Tệp gắn vào
+                      (đợt, người) nên đính kèm được cả trước khi bấm chốt. */}
+                  <EvidenceAttachments target={evidenceKey.period(periodId, userId)} readOnly={readOnly} title="Minh chứng chấm đợt" />
                 </div>
               )}
 
