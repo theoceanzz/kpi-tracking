@@ -30,6 +30,8 @@ interface Props {
   orgUnitId?: string
   /** Ẩn nút biểu đồ/bảng và ô chọn đơn vị tại chỗ khi việc chọn đã nằm trong bảng cấu hình. */
   hideControls?: boolean
+  /** Tiêu đề khối — ô trên lưới truyền `DEFAULT_WIDGETS.title` để một ô một tên. */
+  title?: string
   /** Dòng tóm tắt cấu hình do lưới cấp. */
   meta?: React.ReactNode
 }
@@ -53,7 +55,10 @@ function depthPrefix(depth: number): string {
   return '  '.repeat(depth) + '- '
 }
 
-export default function ObjectiveDetailsWidget({ dateRange, onlyApproved = false, periodId, periodIdTo, viewControl, orgUnitId: orgUnitProp, hideControls, meta }: Props) {
+export default function ObjectiveDetailsWidget({
+  dateRange, onlyApproved = false, periodId, periodIdTo, viewControl, orgUnitId: orgUnitProp, hideControls, meta,
+  title = 'Cây mục tiêu và KR của đơn vị',
+}: Props) {
   const [drawerState, setDrawerState] = useState<{
     isOpen: boolean;
     type: 'OBJECTIVE' | 'KR' | 'KPI';
@@ -177,7 +182,7 @@ export default function ObjectiveDetailsWidget({ dateRange, onlyApproved = false
           <div className="p-1.5 bg-indigo-100 dark:bg-indigo-500/20 rounded-lg">
             <LayoutList className="w-5 h-5 text-[var(--color-primary)] dark:text-indigo-400" />
           </div>
-          <h2 className="text-xl font-semibold text-[var(--color-foreground)]">Chi tiết Mục tiêu</h2>
+          <h2 className="text-xl font-semibold text-[var(--color-foreground)]">{title}</h2>
         </div>
         <p className="text-sm text-slate-500 ml-9">Theo dõi bảng dữ liệu phân cấp mục tiêu</p>
         {meta && <div className="ml-9 mt-2">{meta}</div>}

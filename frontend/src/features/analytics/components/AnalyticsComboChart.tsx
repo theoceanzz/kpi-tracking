@@ -42,7 +42,21 @@ interface AnalyticsComboChartProps {
   hideModeToggle?: boolean
   /** Dòng tóm tắt cấu hình do lưới cấp, đặt dưới phụ đề. */
   meta?: React.ReactNode
+  /**
+   * Tiêu đề chế độ đường / chế độ miền. Ô trên lưới truyền đúng `DEFAULT_WIDGETS.title` để tên
+   * trong thư viện, bảng cấu hình và trên ô là MỘT chuỗi; bỏ trống thì ghép từ `itemName` như cũ.
+   */
+  title?: string
+  shareTitle?: string
+  /** Thẻ ghim ở trang chủ đã có tiêu đề của `WidgetShell` — bỏ dòng tiêu đề trong thân để không hiện hai lần. */
+  hideTitle?: boolean
 }
+
+/**
+ * `itemName` viết giữa câu: hạ chữ đầu ("Mục tiêu" → "mục tiêu") nhưng giữ nguyên chữ viết tắt —
+ * "KPI đơn vị" mà thành "kpi đơn vị" thì trông như lỗi chính tả.
+ */
+const noun = (name: string) => name.replace(/^[^\s]+/, w => (w === w.toUpperCase() ? w : w.toLowerCase()))
 
 const CustomTooltip = ({ active, payload, label, perf, itemName }: any) => {
   if (!active || !payload?.length) return null
@@ -62,7 +76,7 @@ const CustomTooltip = ({ active, payload, label, perf, itemName }: any) => {
         <>
           Tính trên{' '}
           <span className="font-semibold text-[var(--color-muted-foreground)] tabular-nums">{totalItems(row)}</span>
-          {' '}{String(itemName ?? '').toLowerCase()}{' '}
+          {' '}{noun(String(itemName ?? ''))}{' '}
           <span className="tabular-nums">({row.oldItems ?? 0} cũ · {row.newItems ?? 0} mới)</span>
         </>
       )}
@@ -72,7 +86,7 @@ const CustomTooltip = ({ active, payload, label, perf, itemName }: any) => {
 
 export default function AnalyticsComboChart({
   data, isLoading, itemName = 'Mục tiêu', fillHeight = false,
-  mode: modeProp, onModeChange, hideModeToggle, meta,
+  mode: modeProp, onModeChange, hideModeToggle, meta, title, shareTitle, hideTitle,
 }: AnalyticsComboChartProps) {
   // Khoá theo `itemName` vì component không có prop định danh. Gom theo ý nghĩa biểu đồ là đúng ý:
   // "KPI đảm nhiệm" ở tab của tôi và tab mục tiêu của tôi vốn là cùng một biểu đồ.
@@ -125,13 +139,17 @@ export default function AnalyticsComboChart({
     <div className={`w-full ${fillHeight ? 'h-full' : 'min-h-[510px]'} bg-[var(--color-card)] rounded-widget border border-[var(--color-border)] p-6 shadow-sm relative flex flex-col`}>
       <div className="flex justify-between items-start gap-3 mb-4">
         <div className="min-w-0">
-          <h3 className="text-base font-semibold text-[var(--color-foreground)]">
-            {isShare ? `Cơ cấu ${itemName} theo thời gian` : `Xu hướng ${itemName}: tiến độ & hiệu suất`}
-          </h3>
-          <p className="text-sm text-slate-500 mt-1">
+          {!hideTitle && (
+            <h3 className="text-base font-semibold text-[var(--color-foreground)]">
+              {isShare
+                ? (shareTitle ?? `Cơ cấu ${itemName} mới và cũ qua các kỳ`)
+                : (title ?? `Diễn biến ${itemName} qua các kỳ`)}
+            </h3>
+          )}
+          <p className={`text-sm text-slate-500 ${hideTitle ? '' : 'mt-1'}`}>
             {isShare
-              ? `Mỗi mốc cao đúng 100%, cho thấy tỉ trọng ${itemName.toLowerCase()} mới so với cũ dịch chuyển ra sao qua thời gian`
-              : `Tiến độ và hiệu suất qua từng kỳ, cỡ chấm cho biết kỳ đó tính trên bao nhiêu ${itemName.toLowerCase()}`}
+              ? `Mỗi mốc cao đúng 100%, cho thấy tỉ trọng ${noun(itemName)} mới so với cũ dịch chuyển ra sao qua thời gian`
+              : `Tiến độ và hiệu suất qua từng kỳ, cỡ chấm cho biết kỳ đó tính trên bao nhiêu ${noun(itemName)}`}
           </p>
           {meta && <div className="mt-2">{meta}</div>}
         </div>
@@ -152,7 +170,7 @@ export default function AnalyticsComboChart({
             variant="area"
             normalize
             yLabel="Tỉ trọng (%)"
-            unit={itemName.toLowerCase()}
+            unit={noun(itemName)}
             height={fillHeight ? '100%' : 380}
           />
         </div>
@@ -229,7 +247,7 @@ export default function AnalyticsComboChart({
           {/* Không có dòng này thì cỡ chấm chỉ là nhiễu thị giác. */}
           {!uniformSize && (
             <span className="text-slate-400 dark:text-slate-500">
-              Cỡ chấm = số {itemName.toLowerCase()} của kỳ đó
+              Cỡ chấm = số {noun(itemName)} của kỳ đó
             </span>
           )}
         </div>

@@ -49,13 +49,16 @@ const BY_PERIOD = '__by_period__'
  */
 const DEFAULT_WIDGETS: DashboardWidget[] = [
   { i: 'drill-summary', type: 'DRILL_SUMMARY', title: 'Đơn vị đang xem', x: 0, y: 0, w: 12, h: 3, visible: true },
-  { i: 'drill-classification', type: 'DRILL_CLASSIFICATION', title: 'Xếp loại đơn vị', x: 0, y: 3, w: 12, h: 12, visible: true },
+  // Tên ô là nguồn duy nhất (renderWidget lấy `w.title`, trang chủ đặt đúng chuỗi này); chữ đầu
+  // mỗi ô khác nhau: Đơn vị đang xem / Phân bố / Luồng / Từng thành viên / Ma trận / Xếp loại /
+  // Hiệu suất / Độ phân tán — "Xếp loại đơn vị" cạnh "Xếp loại đơn vị con" từng không phân biệt được.
+  { i: 'drill-classification', type: 'DRILL_CLASSIFICATION', title: 'Phân bố xếp loại nhân sự', x: 0, y: 3, w: 12, h: 12, visible: true },
   { i: 'drill-cascade', type: 'DRILL_CASCADE', title: 'Luồng phân rã & uỷ quyền KPI', x: 0, y: 19, w: 12, h: 12, visible: true },
-  { i: 'drill-employees', type: 'DRILL_EMPLOYEES', title: 'Thành viên trực thuộc', x: 0, y: 31, w: 12, h: 16, visible: true },
-  { i: 'drill-matrix', type: 'DRILL_MATRIX', title: 'Ma trận xếp loại', x: 0, y: 47, w: 12, h: 18, visible: true },
-  { i: 'drill-children', type: 'DRILL_CHILDREN', title: 'Xếp loại đơn vị con', x: 0, y: 65, w: 6, h: 12, visible: true },
-  { i: 'drill-compare', type: 'DRILL_COMPARE', title: 'Hiệu suất đơn vị con', x: 6, y: 65, w: 6, h: 12, visible: true },
-  { i: 'drill-boxplot', type: 'DRILL_BOXPLOT', title: 'Phân tán điểm theo đơn vị con', x: 0, y: 77, w: 12, h: 12, visible: false },
+  { i: 'drill-employees', type: 'DRILL_EMPLOYEES', title: 'Từng thành viên: hiệu suất, tiến độ, số KPI', x: 0, y: 31, w: 12, h: 16, visible: true },
+  { i: 'drill-matrix', type: 'DRILL_MATRIX', title: 'Ma trận hành vi × hoàn thành', x: 0, y: 47, w: 12, h: 18, visible: true },
+  { i: 'drill-children', type: 'DRILL_CHILDREN', title: 'Xếp loại của từng đơn vị con', x: 0, y: 65, w: 6, h: 12, visible: true },
+  { i: 'drill-compare', type: 'DRILL_COMPARE', title: 'Hiệu suất từng đơn vị con', x: 6, y: 65, w: 6, h: 12, visible: true },
+  { i: 'drill-boxplot', type: 'DRILL_BOXPLOT', title: 'Độ phân tán điểm trong từng đơn vị con', x: 0, y: 77, w: 12, h: 12, visible: false },
 ]
 
 /**
@@ -92,13 +95,13 @@ const PREVIEW_OF: Record<string, 'metricCard' | 'stackedBar' | 'sankey' | 'lolli
 }
 const DESC_OF: Record<string, string> = {
   'drill-summary': 'Cấp, tên đơn vị, số nhân sự và tổng KPI của đơn vị đang xem.',
-  'drill-classification': 'Xếp loại đơn vị và bell curve: phân bố người theo mức đặt cạnh khung hạn mức; hoặc tỉ trọng qua các đợt.',
-  'drill-cascade': 'Trọng số KPI chảy từ đơn vị này xuống đơn vị nào.',
-  'drill-employees': 'Từng người trong đơn vị: hiệu suất, tiến độ, số KPI.',
-  'drill-matrix': 'Số người rơi vào từng ô điểm hành vi × hoàn thành; xem được từng người.',
-  'drill-children': 'Xếp loại của các đơn vị ngay bên dưới.',
-  'drill-compare': 'Hiệu suất các đơn vị con đặt cạnh nhau.',
-  'drill-boxplot': 'Điểm trong mỗi đơn vị con phân tán rộng hay hẹp.',
+  'drill-classification': 'Đơn vị này xếp loại gì, và người trong đó dồn về mức nào: bell curve đặt cạnh khung hạn mức, hoặc tỉ trọng các mức qua các đợt.',
+  'drill-cascade': 'Trọng số KPI chảy từ đơn vị này xuống đơn vị nào, bao nhiêu.',
+  'drill-employees': 'Từng người trong đơn vị xếp cạnh nhau; sắp được theo hiệu suất, tiến độ hay số KPI.',
+  'drill-matrix': 'Ai vừa làm tốt vừa cư xử tốt, ai lệch: số người trong từng ô điểm hành vi × mức hoàn thành.',
+  'drill-children': 'Mỗi đơn vị ngay bên dưới đang xếp loại gì.',
+  'drill-compare': 'Hiệu suất của các đơn vị ngay bên dưới đặt cạnh nhau.',
+  'drill-boxplot': 'Điểm trong mỗi đơn vị con dồn đều hay phân tán rộng — hộp càng dài càng chênh lệch.',
 }
 
 /** Kỳ chọn trong cài đặt ô; sentinel "theo đợt" → không có kỳ. */
@@ -201,7 +204,7 @@ export default function DrillDownTab() {
         </div>
       )
       case 'DRILL_CLASSIFICATION': return (
-        <ChartWrapper title="Xếp loại đơn vị" icon={<Award size={20} className="text-slate-400" />} meta={meta}>
+        <ChartWrapper title={w.title} icon={<Award size={20} className="text-slate-400" />} meta={meta}>
           <DrillClassificationWidget
             filter={pf} part="unit" cycleId={cycleOf(w)} hideControls
             view={widgetVariant(w) === 'trend' ? 'trend' : 'bell'}
@@ -209,13 +212,13 @@ export default function DrillDownTab() {
         </ChartWrapper>
       )
       case 'DRILL_CASCADE': return (
-        <ChartWrapper title="Luồng phân rã & uỷ quyền KPI" icon={<Network size={20} className="text-slate-400" />} meta={meta}>
+        <ChartWrapper title={w.title} icon={<Network size={20} className="text-slate-400" />} meta={meta}>
           <DrillCascadeWidget filter={pf} />
         </ChartWrapper>
       )
       case 'DRILL_EMPLOYEES': return (
         <div id="tour-drilldown-members" className="h-full">
-          <ChartWrapper title="Thành viên trực thuộc" icon={<Users size={20} className="text-slate-400" />} meta={meta}>
+          <ChartWrapper title={w.title} icon={<Users size={20} className="text-slate-400" />} meta={meta}>
             {/* `key` reset tìm kiếm + trang khi đổi đơn vị, đúng như tab cũ làm trong `select()`. */}
             <DrillEmployeeTableWidget
               key={selectedUnitId ?? 'root'}
@@ -227,22 +230,22 @@ export default function DrillDownTab() {
         </div>
       )
       case 'DRILL_MATRIX': return (
-        <ChartWrapper title="Ma trận xếp loại" icon={<Grid3x3 size={20} className="text-slate-400" />} meta={meta}>
+        <ChartWrapper title={w.title} icon={<Grid3x3 size={20} className="text-slate-400" />} meta={meta}>
           <DrillMatrixWidget filter={pf} variant={widgetVariant(w) as 'cells' | 'scatter'} hideControls />
         </ChartWrapper>
       )
       case 'DRILL_CHILDREN': return (
-        <ChartWrapper title="Xếp loại đơn vị con" icon={<Building2 size={20} className="text-slate-400" />} meta={meta}>
+        <ChartWrapper title={w.title} icon={<Building2 size={20} className="text-slate-400" />} meta={meta}>
           <DrillChildrenClassificationWidget filter={pf} hideControls />
         </ChartWrapper>
       )
       case 'DRILL_COMPARE': return (
-        <ChartWrapper title="Hiệu suất đơn vị con" icon={<BarChart3 size={20} className="text-slate-400" />} meta={meta}>
+        <ChartWrapper title={w.title} icon={<BarChart3 size={20} className="text-slate-400" />} meta={meta}>
           <DrillUnitCompareWidget filter={pf} />
         </ChartWrapper>
       )
       case 'DRILL_BOXPLOT': return (
-        <ChartWrapper title="Phân tán điểm theo đơn vị con" icon={<BoxSelect size={20} className="text-slate-400" />} meta={meta}>
+        <ChartWrapper title={w.title} icon={<BoxSelect size={20} className="text-slate-400" />} meta={meta}>
           <DrillBoxplotWidget filter={pf} />
         </ChartWrapper>
       )

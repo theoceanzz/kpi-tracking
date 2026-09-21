@@ -69,21 +69,25 @@ const DEFAULT_SUMMARY_WIDGETS: SummaryWidget[] = [
   // Hàng thẻ chỉ số từng nằm NGOÀI lưới, bám hai bộ chọn (đơn vị, khoảng thời gian) trên đầu trang.
   // Hai bộ chọn đó nay nằm trong bảng cấu hình của từng ô, nên hàng thẻ cũng phải là một ô — cùng id
   // với danh mục trang chủ để ghim được ngay.
-  { i: 'unit-kpi-metrics', type: 'STATS', title: 'Số liệu tổng hợp', x: 0, y: 0, w: 12, h: 4, visible: true },
+  { i: 'unit-kpi-metrics', type: 'STATS', title: 'Chỉ số KPI đơn vị', x: 0, y: 0, w: 12, h: 4, visible: true },
   // Thứ tự đọc: xu hướng chung → so sánh giữa các đơn vị → chi tiết từng KPI → nhân sự.
   // Chiều cao tính ra pixel là `48h − 16` (rowHeight 32 + margin 16), nên mỗi đơn vị `h` đắt 48px —
   // đây là chỗ dễ vô tình làm trang dài gấp đôi nhất.
-  { i: 'trend-chart', type: 'TREND_CHART', title: 'Xu hướng KPI theo thời gian', x: 0, y: 4, w: 12, h: 11, visible: true },
-  { i: 'unit-perf', type: 'UNIT_PERFORMANCE', title: 'Hiệu suất & tiến độ đơn vị', x: 0, y: 15, w: 12, h: 11, visible: true },
-  { i: 'kpi-detail', type: 'KPI_DETAIL', title: 'Phân bổ trọng số & tiến độ KPI', x: 0, y: 26, w: 12, h: 14, visible: true },
+  // Tên ô: chữ đầu nói CHIỀU so sánh (diễn biến qua kỳ / giữa đơn vị con / từng KPI / từng người),
+  // vì đó mới là thứ phân biệt các ô — "Xu hướng…: tiến độ & hiệu suất" đứng cạnh "Hiệu suất &
+  // tiến độ đơn vị" từng làm người dùng tưởng ô nào cũng phải xem. Chuỗi này là nguồn duy nhất:
+  // `renderWidget` lấy `w.title`, danh mục trang chủ đặt đúng bằng chuỗi này.
+  { i: 'trend-chart', type: 'TREND_CHART', title: 'Diễn biến KPI đơn vị qua các kỳ', x: 0, y: 4, w: 12, h: 11, visible: true },
+  { i: 'unit-perf', type: 'UNIT_PERFORMANCE', title: 'Đơn vị con: hiệu suất, tiến độ, nộp bài', x: 0, y: 15, w: 12, h: 11, visible: true },
+  { i: 'kpi-detail', type: 'KPI_DETAIL', title: 'Từng KPI: trọng số và tiến độ', x: 0, y: 26, w: 12, h: 14, visible: true },
   // Hai khối nhân sự xếp CẠNH nhau: cả hai đều là danh sách dọc nên chịu được nửa chiều ngang,
   // và đọc cùng nhau mới trả lời được "đơn vị nào đông người mà xếp hạng lại thấp".
-  { i: 'member-dist', type: 'MEMBER_DIST', title: 'Nhân sự & vai trò theo đơn vị', x: 0, y: 40, w: 6, h: 10, visible: true },
+  { i: 'member-dist', type: 'MEMBER_DIST', title: 'Cơ cấu nhân sự theo vai trò', x: 0, y: 40, w: 6, h: 10, visible: true },
   { i: 'rank-table', type: 'RANKING_TABLE', title: 'Xếp hạng nhân sự', x: 6, y: 40, w: 6, h: 10, visible: true },
   // Biểu đồ chuyên sâu — mặc định ẩn để lưới không phình ra với người chỉ cần vài chỉ số quen thuộc;
   // bật lại bất cứ lúc nào qua "Tuỳ chỉnh → Ẩn/Hiện".
-  { i: 'score-histogram', type: 'SCORE_HISTOGRAM', title: 'Phân phối điểm đánh giá', x: 0, y: 50, w: 6, h: 12, visible: false },
-  { i: 'self-vs-manager', type: 'SELF_VS_MANAGER', title: 'Tự đánh giá vs Quản lý đánh giá', x: 6, y: 50, w: 6, h: 12, visible: false },
+  { i: 'score-histogram', type: 'SCORE_HISTOGRAM', title: 'Phân phối điểm đánh giá của đơn vị', x: 0, y: 50, w: 6, h: 12, visible: false },
+  { i: 'self-vs-manager', type: 'SELF_VS_MANAGER', title: 'Tự chấm so với quản lý chấm', x: 6, y: 50, w: 6, h: 12, visible: false },
 ]
 
 /**
@@ -131,14 +135,14 @@ const PREVIEW_OF: Record<string, 'line' | 'groupedBar' | 'treemap' | 'stackedBar
   'rank-table': 'lollipop',
 }
 const DESC_OF: Record<string, string> = {
-  'unit-kpi-metrics': 'Tiến độ, hiệu suất, trạng thái KPI, số KPI rủi ro và tổng nhân sự.',
-  'trend-chart': 'Số KPI và hiệu suất đơn vị qua từng mốc thời gian.',
-  'unit-perf': 'So sánh hiệu suất, tiến độ và tình hình nộp giữa các đơn vị.',
-  'kpi-detail': 'Trọng số và tiến độ từng KPI, lồng theo quan hệ cha con.',
-  'member-dist': 'Cơ cấu nhân sự theo vai trò trong từng đơn vị.',
-  'rank-table': 'Xếp hạng nhân sự theo điểm hiệu suất.',
-  'score-histogram': 'Hình dạng phân phối điểm đánh giá.',
-  'self-vs-manager': 'Điểm tự đánh giá đặt cạnh điểm quản lý chấm.',
+  'unit-kpi-metrics': 'Một hàng số: tiến độ, hiệu suất, trạng thái KPI, số KPI rủi ro và tổng nhân sự.',
+  'trend-chart': 'Đơn vị đang lên hay xuống: tiến độ và hiệu suất qua từng kỳ, hoặc tỉ trọng KPI mới/cũ.',
+  'unit-perf': 'Đặt các đơn vị con cạnh nhau về hiệu suất, tiến độ và tỉ lệ nộp; chọn được top tốt nhất / trì trệ nhất.',
+  'kpi-detail': 'KPI nào nặng, KPI nào chậm: trọng số và tiến độ từng KPI, lồng theo quan hệ cha con.',
+  'member-dist': 'Mỗi đơn vị có bao nhiêu người ở vai trò nào.',
+  'rank-table': 'Ai đứng đầu, ai đứng cuối theo điểm hiệu suất hoặc tiến độ.',
+  'score-histogram': 'Điểm đánh giá trong đơn vị dồn về đâu — hình dạng phân phối và các ngưỡng xếp loại.',
+  'self-vs-manager': 'Chênh lệch giữa điểm nhân sự tự chấm và điểm quản lý chấm, theo từng kỳ.',
 }
 const SUMMARY_CATALOG = DEFAULT_SUMMARY_WIDGETS.map(t => ({
   template: t,
@@ -362,11 +366,13 @@ export default function SummaryTab() {
         </div>
       )
       case 'TREND_CHART': return (
-        <ChartWrapper chromeless title="Xu hướng KPI theo thời gian" icon={<TrendingUp size={20} className="text-slate-400" />}>
+        <ChartWrapper chromeless title={widget.title} icon={<TrendingUp size={20} className="text-slate-400" />}>
           <AnalyticsComboChart
             data={chartData?.points || []}
             isLoading={isChartLoading}
             itemName="KPI đơn vị"
+            title={widget.title}
+            shareTitle="Cơ cấu KPI đơn vị mới và cũ qua các kỳ"
             fillHeight
             mode={widgetVariant(widget) === 'area' ? 'share' : 'trend'}
             onModeChange={m => set({ v: m === 'share' ? 'area' : 'line' })}
@@ -377,7 +383,7 @@ export default function SummaryTab() {
       )
       case 'KPI_DETAIL': return (
         <ChartWrapper
-          title="Phân bổ trọng số & tiến độ KPI"
+          title={widget.title}
           icon={<Target size={20} className="text-slate-400" />}
           meta={meta}
           extraHeaderContent={
@@ -388,7 +394,7 @@ export default function SummaryTab() {
         </ChartWrapper>
       )
       case 'UNIT_PERFORMANCE': return (
-        <ChartWrapper title="Hiệu suất & tiến độ đơn vị" icon={<TrendingUp size={20} className="text-slate-400" />} meta={meta}>
+        <ChartWrapper title={widget.title} icon={<TrendingUp size={20} className="text-slate-400" />} meta={meta}>
           <UnitComparisonBarChart
             orgUnitId={unit}
             from={f.from} to={f.to} onlyApproved={onlyApproved} periodId={f.periodId} periodIdTo={f.periodIdTo}
@@ -399,14 +405,15 @@ export default function SummaryTab() {
         </ChartWrapper>
       )
       case 'MEMBER_DIST': return (
-        <ChartWrapper title="Nhân sự & vai trò theo đơn vị" icon={<Users size={20} className="text-slate-400" />} meta={meta}>
+        <ChartWrapper title={widget.title} icon={<Users size={20} className="text-slate-400" />} meta={meta}>
           <MemberRoleChart data={mainData?.roleDistribution} />
         </ChartWrapper>
       )
-      case 'SCORE_HISTOGRAM': return <ScoreHistogramWidget filter={advancedFilter} meta={meta} />
-      case 'SELF_VS_MANAGER': return <SelfVsManagerWidget filter={advancedFilter} meta={meta} />
+      case 'SCORE_HISTOGRAM': return <ScoreHistogramWidget filter={advancedFilter} meta={meta} title={widget.title} />
+      case 'SELF_VS_MANAGER': return <SelfVsManagerWidget filter={advancedFilter} meta={meta} title={widget.title} />
       case 'RANKING_TABLE': return (
         <EmployeeRankingTableSection
+          title={widget.title}
           orgUnitId={unit}
           from={f.from} to={f.to} onlyApproved={onlyApproved} periodId={f.periodId} periodIdTo={f.periodIdTo}
           viewControl={tableViewControl(widget, updateWidgetSettings)}
@@ -529,9 +536,11 @@ function UnitSelectItem({ o }: { o: { code: string; name: string; depth?: number
 }
 
 export function EmployeeRankingTableSection({
+  title = 'Xếp hạng nhân sự',
   orgUnitId, from, to, onlyApproved, periodId, periodIdTo, bare, viewControl,
   unitId, metric, dir, onSortChange, hideControls, meta,
 }: {
+  title?: string
   orgUnitId?: string; from?: string; to?: string; onlyApproved?: boolean; periodId?: string; periodIdTo?: string; bare?: boolean
   viewControl?: { value?: 'chart' | 'table'; onChange?: (v: 'chart' | 'table') => void }
   /** Ba lựa chọn do bảng cấu hình của ô điều khiển. Bỏ trống thì component tự giữ (thẻ trang chủ). */
@@ -777,7 +786,7 @@ export function EmployeeRankingTableSection({
   if (bare) return <div className="h-full flex flex-col overflow-auto custom-scrollbar">{body}</div>
   return (
     <ChartWrapper
-      title="Xếp hạng nhân sự"
+      title={title}
       icon={<Medal size={20} className="text-slate-400" />}
       meta={meta}
       extraHeaderContent={hideControls ? undefined : (

@@ -27,13 +27,15 @@ const DEFAULT_WIDGETS: DashboardWidget[] = [
   // Hàng thẻ chỉ số từng nằm NGOÀI lưới, bám nút khoảng thời gian trên đầu trang. Nút đó nay nằm
   // trong bảng cấu hình từng ô, nên hàng thẻ cũng là một ô — cùng id với danh mục trang chủ. Thẻ
   // kiểu ObjectiveMetricCard cao hơn thẻ icon-tròn nên ô này cần 5 hàng.
-  { i: 'sub-metrics', type: 'STATS', title: 'Số liệu tổng hợp', x: 0, y: 0, w: 12, h: 5, visible: true },
-  { i: 'sub-trend', type: 'SUB_TREND', title: 'Xu hướng mục tiêu theo thời gian', x: 0, y: 5, w: 12, h: 15, visible: true },
-  { i: 'sub-detail', type: 'SUB_DETAIL', title: 'Chi tiết mục tiêu', x: 0, y: 20, w: 12, h: 20, visible: true },
-  { i: 'sub-member', type: 'SUB_MEMBER', title: 'Nhân sự & vai trò theo đơn vị', x: 0, y: 40, w: 12, h: 11, visible: true },
-  { i: 'sub-unit-perf', type: 'SUB_UNIT_PERF', title: 'Hiệu suất & tiến độ đơn vị', x: 0, y: 51, w: 12, h: 13, visible: true },
+  // Tên ô là nguồn duy nhất (renderWidget lấy `w.title`, trang chủ đặt đúng chuỗi này); chữ đầu
+  // mỗi ô khác nhau: Chỉ số / Diễn biến / Cây / Cơ cấu / Đơn vị con / Luồng.
+  { i: 'sub-metrics', type: 'STATS', title: 'Chỉ số mục tiêu đơn vị', x: 0, y: 0, w: 12, h: 5, visible: true },
+  { i: 'sub-trend', type: 'SUB_TREND', title: 'Diễn biến mục tiêu đơn vị qua các kỳ', x: 0, y: 5, w: 12, h: 15, visible: true },
+  { i: 'sub-detail', type: 'SUB_DETAIL', title: 'Cây mục tiêu và KR của đơn vị', x: 0, y: 20, w: 12, h: 20, visible: true },
+  { i: 'sub-member', type: 'SUB_MEMBER', title: 'Cơ cấu nhân sự theo vai trò', x: 0, y: 40, w: 12, h: 11, visible: true },
+  { i: 'sub-unit-perf', type: 'SUB_UNIT_PERF', title: 'Đơn vị con: hiệu suất, tiến độ, nộp bài', x: 0, y: 51, w: 12, h: 13, visible: true },
   // Mặc định ẩn: luồng OKR chỉ có nghĩa khi Key Result đã được phân bổ trọng số xuống đơn vị.
-  { i: 'sub-okr-flow', type: 'SUB_OKR_FLOW', title: 'Luồng phân bổ OKR', x: 0, y: 64, w: 12, h: 13, visible: false },
+  { i: 'sub-okr-flow', type: 'SUB_OKR_FLOW', title: 'Luồng phân bổ trọng số KR', x: 0, y: 64, w: 12, h: 13, visible: false },
 ]
 
 /**
@@ -64,12 +66,12 @@ const PREVIEW_OF: Record<string, 'metricCard' | 'line' | 'treemap' | 'stackedBar
   'sub-okr-flow': 'sankey',
 }
 const DESC_OF: Record<string, string> = {
-  'sub-metrics': 'Tiến độ, hiệu suất, số mục tiêu hoàn thành, số rủi ro và tổng nhân sự.',
-  'sub-trend': 'Số mục tiêu và hiệu suất của cấp dưới qua từng mốc thời gian.',
-  'sub-detail': 'Tiến độ từng mục tiêu và kết quả then chốt của người thuộc quyền bạn.',
-  'sub-member': 'Cơ cấu nhân sự theo vai trò trong từng đơn vị.',
-  'sub-unit-perf': 'So sánh hiệu suất, tiến độ và tình hình nộp giữa các đơn vị.',
-  'sub-okr-flow': 'Trọng số Key Result chảy xuống từng đơn vị.',
+  'sub-metrics': 'Một hàng số: tiến độ, hiệu suất, số mục tiêu hoàn thành, số rủi ro và tổng nhân sự.',
+  'sub-trend': 'Đơn vị đang lên hay xuống: tiến độ và hiệu suất qua từng kỳ, hoặc tỉ trọng mục tiêu mới/cũ.',
+  'sub-detail': 'Mục tiêu → kết quả then chốt → KPI của người thuộc quyền bạn, kèm tiến độ từng cấp.',
+  'sub-member': 'Mỗi đơn vị có bao nhiêu người ở vai trò nào.',
+  'sub-unit-perf': 'Đặt các đơn vị con cạnh nhau về hiệu suất, tiến độ và tỉ lệ nộp; chọn được top tốt nhất / trì trệ nhất.',
+  'sub-okr-flow': 'Trọng số của từng Key Result chảy xuống đơn vị nào, bao nhiêu.',
 }
 const CATALOG = DEFAULT_WIDGETS.map(t => ({
   template: t, icon: null, groupLabel: GROUP_OF[t.i], preview: PREVIEW_OF[t.i], description: DESC_OF[t.i],
@@ -127,11 +129,13 @@ export default function SubordinateManagementTab() {
         </div>
       )
       case 'SUB_TREND': return (
-        <ChartWrapper chromeless title="Xu hướng mục tiêu theo thời gian" icon={<TrendingUp size={20} className="text-slate-400" />}>
+        <ChartWrapper chromeless title={w.title} icon={<TrendingUp size={20} className="text-slate-400" />}>
           <AnalyticsComboChart
             data={chartQuery.data?.points ?? []}
             isLoading={chartQuery.isLoading}
-            itemName="Mục tiêu"
+            itemName="mục tiêu đơn vị"
+            title={w.title}
+            shareTitle="Cơ cấu mục tiêu đơn vị mới và cũ qua các kỳ"
             fillHeight
             mode={widgetVariant(w) === 'area' ? 'share' : 'trend'}
             onModeChange={m => updateWidgetSettings(w.i, { v: m === 'share' ? 'area' : 'line' })}
@@ -141,8 +145,9 @@ export default function SubordinateManagementTab() {
         </ChartWrapper>
       )
       case 'SUB_DETAIL': return (
-        <ChartWrapper chromeless title="Chi tiết mục tiêu" icon={<Target size={20} className="text-slate-400" />}>
+        <ChartWrapper chromeless title={w.title} icon={<Target size={20} className="text-slate-400" />}>
           <ObjectiveDetailsWidget
+            title={w.title}
             dateRange={{ from: f.from, to: f.to }} onlyApproved={onlyApproved} periodId={f.periodId} periodIdTo={f.periodIdTo}
             viewControl={tableViewControl(w, updateWidgetSettings)}
             orgUnitId={w.s?.orgUnitId ?? ''}
@@ -152,12 +157,12 @@ export default function SubordinateManagementTab() {
         </ChartWrapper>
       )
       case 'SUB_MEMBER': return (
-        <ChartWrapper title="Nhân sự & vai trò theo đơn vị" icon={<Users size={20} className="text-slate-400" />} meta={meta}>
+        <ChartWrapper title={w.title} icon={<Users size={20} className="text-slate-400" />} meta={meta}>
           <MemberRoleChart data={summary?.roleDistribution} />
         </ChartWrapper>
       )
       case 'SUB_UNIT_PERF': return (
-        <ChartWrapper title="Hiệu suất & tiến độ đơn vị" icon={<TrendingUp size={20} className="text-slate-400" />} meta={meta}>
+        <ChartWrapper title={w.title} icon={<TrendingUp size={20} className="text-slate-400" />} meta={meta}>
           <UnitComparisonBarChart
             from={f.from} to={f.to} onlyApproved={onlyApproved} periodId={f.periodId} periodIdTo={f.periodIdTo}
             rank={optionOf(w, 'rank') as 'BEST' | 'WORST'}
@@ -167,7 +172,7 @@ export default function SubordinateManagementTab() {
         </ChartWrapper>
       )
       case 'SUB_OKR_FLOW': return (
-        <ChartWrapper title="Luồng phân bổ OKR" icon={<Network size={20} className="text-slate-400" />} meta={meta}>
+        <ChartWrapper title={w.title} icon={<Network size={20} className="text-slate-400" />} meta={meta}>
           <OkrFlowSection filter={{ periodId: f.periodId, periodIdTo: f.periodIdTo }} />
         </ChartWrapper>
       )

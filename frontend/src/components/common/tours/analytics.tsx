@@ -122,7 +122,7 @@ const analyticsTours: Record<TourKey, TourDef> = {
               Biểu đồ xu hướng cho biết bạn đang tăng tốc hay chững lại. Đạt 60% ở giữa kỳ mà đường đi
               ngang thì đáng lo hơn là 40% mà đang dốc lên.
             </p>
-            {note('Bảng "Chi tiết mục tiêu" bên dưới nối mục tiêu với các chỉ tiêu cụ thể đang đẩy nó đi.')}
+            {note('Bảng "Cây mục tiêu và KR của đơn vị" bên dưới nối mục tiêu với các chỉ tiêu cụ thể đang đẩy nó đi.')}
           </div>
         ),
         placement: 'top',
@@ -178,9 +178,9 @@ const analyticsTours: Record<TourKey, TourDef> = {
         title: '🧑‍🤝‍🧑 Xuống tới từng người',
         content: (
           <p>
-            Khối <strong>Nhân sự &amp; vai trò theo đơn vị</strong> cho biết ai đang gánh mục tiêu nào, để
+            Khối <strong>Cơ cấu nhân sự theo vai trò</strong> cho biết ai đang gánh mục tiêu nào, để
             nhận ra người quá tải và người chưa được giao gì. Khối{' '}
-            <strong>Hiệu suất &amp; Tiến độ đơn vị</strong> so các đơn vị con với nhau.
+            <strong>Đơn vị con: hiệu suất, tiến độ, nộp bài</strong> so các đơn vị con với nhau.
           </p>
         ),
         placement: 'top',
@@ -221,9 +221,9 @@ const analyticsTours: Record<TourKey, TourDef> = {
         content: (
           <div className="space-y-2">
             <ul className="text-xs space-y-1.5 list-disc pl-4 text-[var(--color-muted-foreground)] font-medium">
-              <li><strong className="text-[var(--color-foreground)]">Phân bổ trạng thái KPI:</strong> việc của tôi đang đọng ở khâu nào.</li>
-              <li><strong className="text-[var(--color-foreground)]">Trạng thái bài nộp:</strong> tôi có đang trễ bài nào không.</li>
-              <li><strong className="text-[var(--color-foreground)]">Xu hướng điểm số:</strong> tôi đang tiến bộ hay đi xuống qua các đợt.</li>
+              <li><strong className="text-[var(--color-foreground)]">Danh sách KPI tôi đảm nhiệm:</strong> việc của tôi đang đọng ở khâu nào.</li>
+              <li><strong className="text-[var(--color-foreground)]">Tình trạng duyệt bài nộp:</strong> tôi có đang trễ bài nào không.</li>
+              <li><strong className="text-[var(--color-foreground)]">Điểm đánh giá qua các đợt:</strong> tôi đang tiến bộ hay đi xuống.</li>
             </ul>
           </div>
         ),
@@ -235,7 +235,7 @@ const analyticsTours: Record<TourKey, TourDef> = {
         content: (
           <div className="space-y-2">
             <p>
-              Bảng <strong>Lịch sử đánh giá</strong> ghi lại điểm và nhận xét của từng đợt. Thấy điểm không
+              Ô <strong>Điểm đánh giá qua các đợt</strong> ghi lại điểm và nhận xét của từng đợt. Thấy điểm không
               như mong đợi thì xem ở đây trước khi hỏi quản lý — thường lý do đã nằm sẵn trong nhận xét.
             </p>
           </div>
@@ -273,12 +273,12 @@ const analyticsTours: Record<TourKey, TourDef> = {
       },
       {
         target: '#tour-analytics-widgets',
-        title: '⚠️ Hai loại rủi ro, đừng nhầm',
+        title: '⚠️ Hai loại chậm, đừng nhầm',
         content: (
           <div className="space-y-2">
             <p>
-              <strong>Rủi ro đơn vị</strong> là cả phòng ban đang chậm so với kế hoạch.{' '}
-              <strong>Rủi ro thành viên</strong> là một vài cá nhân kéo tụt phần còn lại.
+              Ô <strong>Đơn vị con: hiệu suất, tiến độ, nộp bài</strong> cho thấy cả một phòng ban đang chậm so với
+              kế hoạch.{' '}<strong>Xếp hạng nhân sự</strong> cho thấy một vài cá nhân kéo tụt phần còn lại.
             </p>
             {note('Cách xử lý khác hẳn nhau: cái đầu là vấn đề mục tiêu đặt quá cao hoặc thiếu nguồn lực, cái sau là chuyện của từng người.')}
           </div>
@@ -389,7 +389,7 @@ const analyticsTours: Record<TourKey, TourDef> = {
       },
       {
         target: '#tour-bsc-balance',
-        title: '🏢 Mức đạt của từng đơn vị',
+        title: '🏢 Mức đạt thẻ điểm của từng đơn vị',
         content: (
           <div className="space-y-2">
             <p>
@@ -407,8 +407,8 @@ const analyticsTours: Record<TourKey, TourDef> = {
         content: (
           <div className="space-y-2">
             <p>
-              Ô <strong>Mức đạt từng chỉ tiêu</strong> đặt thực tế cạnh mục tiêu và sàn của từng dòng trên thẻ điểm;{' '}
-              <strong>Xu hướng</strong> vẽ mức đạt qua các đợt, tách được theo 4 lĩnh vực;{' '}
+              Ô <strong>Từng chỉ tiêu so với mục tiêu và sàn</strong> đặt thực tế cạnh mục tiêu và sàn của từng dòng trên thẻ điểm;{' '}
+              <strong>Diễn biến mức đạt</strong> vẽ mức đạt qua các đợt, tách được theo 4 lĩnh vực;{' '}
               <strong>Độ phủ phân rã</strong> cho biết chỉ tiêu nào đã giao xuống đơn vị đủ, thiếu hay vượt.
             </p>
             {note('Mỗi ô tự chọn đơn vị và đợt trong bảng cấu hình. Ô "một đợt" lấy đợt muộn nhất có kết quả trong khoảng bạn chọn.')}

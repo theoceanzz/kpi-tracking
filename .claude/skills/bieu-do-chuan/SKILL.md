@@ -23,9 +23,30 @@ biểu đồ, nên sự thiếu nhất quán đó lộ ra ngay.
 
 Nói **cái gì được đo**, không nói tên loại biểu đồ.
 
-- ✅ `Phân bổ trọng số & tiến độ KPI`
+- ✅ `Từng KPI: trọng số và tiến độ`
 - ❌ `Biểu đồ cây` — người đọc cần biết nội dung, không cần biết kỹ thuật vẽ
 - ❌ `KPI đơn vị` — quá mơ hồ, không nói đang đo gì về KPI
+
+**Chữ đầu nói CHIỀU so sánh, chữ sau nói đo cái gì.** Nhiều ô cùng đo tiến độ và hiệu suất; thứ
+phân biệt chúng là chiều nhìn — qua các kỳ, giữa các đơn vị con, từng KPI, từng người. Đặt chiều
+đó lên đầu để người dùng đọc lướt vẫn biết ô nào trả lời câu hỏi nào:
+
+- ❌ `Xu hướng KPI đơn vị: tiến độ & hiệu suất` đứng cạnh `Hiệu suất & tiến độ đơn vị` — cùng chữ,
+  khác thứ tự, người dùng tưởng ô nào cũng phải mở (phản hồi 21/09/2026)
+- ✅ `Diễn biến KPI đơn vị qua các kỳ` · `Đơn vị con: hiệu suất, tiến độ, nộp bài` · `Từng KPI: trọng
+  số và tiến độ` · `Xếp hạng nhân sự` — bốn chiều, bốn chữ đầu khác nhau
+
+Quy tắc đi kèm:
+
+- Trong **cùng một tab**, không hai ô nào bắt đầu bằng cùng một từ.
+- Cùng một id widget thì **một chuỗi duy nhất**: `DEFAULT_WIDGETS.title` là nguồn, `renderWidget`
+  truyền `w.title` vào `ChartWrapper` (không viết literal thứ hai), danh mục trang chủ
+  (`analyticsCatalog.tsx`) đặt đúng bằng chuỗi đó — ghim lên trang chủ không được đổi tên.
+- Ô cá nhân mang "của tôi", ô đơn vị mang "đơn vị" — trên trang chủ chúng đứng cạnh nhau.
+- Không dùng "&" nối hai đại lượng làm tiêu đề khi có ô khác cũng đo hai đại lượng đó; phần đo
+  đưa vào mô tả (`DESC_OF`), và mô tả nói *câu hỏi ô trả lời*, không lặp lại tiêu đề.
+- Ô có nhiều cách biểu diễn (đường/miền, ô/phân tán…) mà đổi cách là đổi câu hỏi thì tiêu đề đổi
+  theo (`AnalyticsComboChart` nhận `title` + `shareTitle`); cách biểu diễn chỉ đổi hình thì giữ.
 
 Dùng prop `title` của `ChartWrapper`. Thẻ tự dựng thì `<h3 className="text-sm font-black">`.
 

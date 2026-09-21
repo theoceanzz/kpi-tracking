@@ -16,6 +16,8 @@ export interface AdvancedWidgetProps {
   bare?: boolean
   /** Dòng tóm tắt cấu hình đặt dưới tiêu đề (do lưới cấp). */
   meta?: React.ReactNode
+  /** Tiêu đề do ô trên lưới cấp (`DEFAULT_WIDGETS.title`) — cùng một widget dùng ở hai tab với hai tên. */
+  title?: string
 }
 
 function Shell({ title, icon, children, bare, extra, meta }: AdvancedWidgetProps & {
@@ -62,7 +64,7 @@ function Loading({ height = 220 }: { height?: number }) {
 export function ScoreHistogramWidget(p: AdvancedWidgetProps) {
   const { data, isLoading } = useScoreHistogram(p.filter)
   return (
-    <Shell {...p} title="Phân phối điểm đánh giá" icon={<BarChart3 size={20} className="text-slate-400" />}>
+    <Shell {...p} title={p.title ?? 'Phân phối điểm đánh giá'} icon={<BarChart3 size={20} className="text-slate-400" />}>
       {isLoading ? <Loading /> : !data || data.totalCount === 0 ? (
         <Empty>Chưa có đánh giá nào trong phạm vi này</Empty>
       ) : (
@@ -92,7 +94,7 @@ export function SelfVsManagerWidget(p: AdvancedWidgetProps) {
   const { data, isLoading } = useSelfVsManager(p.filter)
   const rows = data?.rows ?? []
   return (
-    <Shell {...p} title="Tự đánh giá vs Quản lý đánh giá" icon={<GitCompare size={20} className="text-slate-400" />}>
+    <Shell {...p} title={p.title ?? 'Tự chấm so với quản lý chấm'} icon={<GitCompare size={20} className="text-slate-400" />}>
       {isLoading ? <Loading /> : rows.length === 0 ? (
         <Empty>
           Chưa có kỳ nào mà cả đơn vị và quản lý đều đã chấm.<br />

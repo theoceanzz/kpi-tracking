@@ -26,10 +26,12 @@ import type { ViewerPosition } from '@/features/dashboard/hooks/useViewerPositio
  */
 const DEFAULT_WIDGETS: DashboardWidget[] = [
   { i: 'bsc-overview', type: 'STATS', title: 'Sức khoẻ BSC của đợt', x: 0, y: 0, w: 12, h: 5, visible: true },
-  { i: 'bsc-units', type: 'BSC_UNITS', title: 'Mức đạt BSC của các đơn vị', x: 0, y: 5, w: 7, h: 11, visible: true },
-  { i: 'bsc-gates', type: 'BSC_GATES', title: 'Hạng mục chặn', x: 7, y: 5, w: 5, h: 11, visible: true },
-  { i: 'bsc-items', type: 'BSC_ITEMS', title: 'Mức đạt từng chỉ tiêu', x: 0, y: 16, w: 12, h: 10, visible: true },
-  { i: 'bsc-trend', type: 'BSC_TREND', title: 'Xu hướng mức đạt qua các đợt', x: 0, y: 26, w: 7, h: 12, visible: true },
+  // Tên ô là nguồn duy nhất (renderWidget lấy `w.title`, trang chủ đặt đúng chuỗi này); chữ đầu
+  // mỗi ô khác nhau — "Mức đạt BSC của các đơn vị" cạnh "Mức đạt từng chỉ tiêu" từng lẫn nhau.
+  { i: 'bsc-units', type: 'BSC_UNITS', title: 'Mức đạt thẻ điểm của từng đơn vị', x: 0, y: 5, w: 7, h: 11, visible: true },
+  { i: 'bsc-gates', type: 'BSC_GATES', title: 'Đơn vị vướng hạng mục chặn', x: 7, y: 5, w: 5, h: 11, visible: true },
+  { i: 'bsc-items', type: 'BSC_ITEMS', title: 'Từng chỉ tiêu so với mục tiêu và sàn', x: 0, y: 16, w: 12, h: 10, visible: true },
+  { i: 'bsc-trend', type: 'BSC_TREND', title: 'Diễn biến mức đạt qua các đợt', x: 0, y: 26, w: 7, h: 12, visible: true },
   { i: 'bsc-cascade', type: 'BSC_CASCADE', title: 'Độ phủ phân rã chỉ tiêu', x: 7, y: 26, w: 5, h: 12, visible: true },
   // Ẩn mặc định: điểm đánh giá cá nhân, có ích khi cần xem ai kéo điểm BSC của đơn vị.
   { i: 'bsc-ranking', type: 'BSC_RANKING', title: 'Xếp hạng nhân sự theo điểm BSC', x: 0, y: 38, w: 12, h: 14, visible: false },
@@ -64,10 +66,10 @@ const PREVIEW_OF: Record<string, 'metricCard' | 'table' | 'line' | 'bullet' | 'l
 }
 const DESC_OF: Record<string, string> = {
   'bsc-overview': 'Mức đạt BSC của đợt, số thẻ điểm đơn vị, đơn vị qua cửa chặn, độ phủ phân rã.',
-  'bsc-units': 'Mỗi đơn vị một chấm mức đạt so với mục tiêu 100%; đỏ là không qua cửa chặn.',
+  'bsc-units': 'Đơn vị nào đạt, đơn vị nào hụt: mỗi đơn vị một chấm so với mục tiêu 100%, đỏ là không qua cửa chặn.',
   'bsc-gates': 'Đơn vị nào đang vướng chỉ tiêu chặn trong đợt, vướng ở chỉ tiêu nào.',
-  'bsc-items': 'Thực tế so với mục tiêu và sàn của từng chỉ tiêu trên thẻ điểm.',
-  'bsc-trend': 'Mức đạt BSC qua các đợt, tách được theo 4 lĩnh vực.',
+  'bsc-items': 'Chỉ tiêu nào đạt, chỉ tiêu nào hụt: thực tế đặt cạnh mục tiêu và sàn của từng dòng trên thẻ điểm.',
+  'bsc-trend': 'Mức đạt đang lên hay xuống qua các đợt, tách được theo 4 lĩnh vực.',
   'bsc-cascade': 'Từng chỉ tiêu đã phân rã xuống đơn vị đủ, thiếu hay vượt mục tiêu.',
   'bsc-ranking': 'Nhân sự xếp theo điểm BSC hoặc điểm hệ thống, kèm điểm từng lĩnh vực.',
 }
@@ -107,33 +109,33 @@ export default function BscAnalyticsTab() {
       )
       case 'BSC_UNITS': return (
         <div id="tour-bsc-balance" className="h-full">
-          <ChartWrapper title="Mức đạt BSC của các đơn vị" icon={<Building2 size={20} className="text-slate-400" />}>
+          <ChartWrapper title={w.title} icon={<Building2 size={20} className="text-slate-400" />}>
             <BscUnitAttainmentWidget filter={pf} variant={widgetVariant(w) === 'tree' ? 'tree' : 'lollipop'} meta={meta} />
           </ChartWrapper>
         </div>
       )
       case 'BSC_GATES': return (
-        <ChartWrapper title="Hạng mục chặn" icon={<ShieldAlert size={20} className="text-slate-400" />}>
+        <ChartWrapper title={w.title} icon={<ShieldAlert size={20} className="text-slate-400" />}>
           <BscGateWidget filter={pf} meta={meta} />
         </ChartWrapper>
       )
       case 'BSC_ITEMS': return (
-        <ChartWrapper title="Mức đạt từng chỉ tiêu" icon={<Target size={20} className="text-slate-400" />}>
+        <ChartWrapper title={w.title} icon={<Target size={20} className="text-slate-400" />}>
           <BscItemAttainmentWidget filter={pf} meta={meta} />
         </ChartWrapper>
       )
       case 'BSC_TREND': return (
-        <ChartWrapper title="Xu hướng mức đạt qua các đợt" icon={<TrendingUp size={20} className="text-slate-400" />}>
+        <ChartWrapper title={w.title} icon={<TrendingUp size={20} className="text-slate-400" />}>
           <BscAttainmentTrendWidget filter={pf} variant={widgetVariant(w) === 'perspectives' ? 'perspectives' : 'overall'} meta={meta} />
         </ChartWrapper>
       )
       case 'BSC_CASCADE': return (
-        <ChartWrapper title="Độ phủ phân rã chỉ tiêu" icon={<GitBranch size={20} className="text-slate-400" />}>
+        <ChartWrapper title={w.title} icon={<GitBranch size={20} className="text-slate-400" />}>
           <BscCascadeCoverageWidget filter={pf} viewControl={tableViewControl(w, updateWidgetSettings)} hideControls meta={meta} />
         </ChartWrapper>
       )
       case 'BSC_RANKING': return (
-        <ChartWrapper title="Xếp hạng nhân sự theo điểm BSC" icon={<Medal size={20} className="text-slate-400" />} meta={meta}>
+        <ChartWrapper title={w.title} icon={<Medal size={20} className="text-slate-400" />} meta={meta}>
           <BscRankingWidget
             filter={pf}
             sortBy={optionOf(w, 'sort') as 'bscScore' | 'systemScore'}

@@ -56,9 +56,10 @@ const LEGACY_REPORT_NAME = '__MY_OBJECTIVES_DASHBOARD_CONFIG__'
 const DEFAULT_WIDGETS: DashboardWidget[] = [
   // Hàng thẻ chỉ số từng nằm NGOÀI lưới, bám nút khoảng thời gian trên đầu trang. Nút đó nay nằm
   // trong bảng cấu hình từng ô, nên hàng thẻ cũng là một ô — cùng id với danh mục trang chủ.
-  { i: 'myobj-metrics', type: 'STATS', title: 'Số liệu tổng hợp', x: 0, y: 0, w: 12, h: 4, visible: true },
-  { i: 'myobj-trend', type: 'MYOBJ_TREND', title: 'Xu hướng KPI theo thời gian', x: 0, y: 4, w: 12, h: 15, visible: true },
-  { i: 'myobj-detail', type: 'MYOBJ_DETAIL', title: 'KPI đang đảm nhiệm', x: 0, y: 19, w: 12, h: 18, visible: true },
+  // Tên ô là nguồn duy nhất (renderWidget lấy `w.title`, trang chủ đặt đúng chuỗi này).
+  { i: 'myobj-metrics', type: 'STATS', title: 'Chỉ số mục tiêu của tôi', x: 0, y: 0, w: 12, h: 4, visible: true },
+  { i: 'myobj-trend', type: 'MYOBJ_TREND', title: 'Diễn biến mục tiêu của tôi qua các kỳ', x: 0, y: 4, w: 12, h: 15, visible: true },
+  { i: 'myobj-detail', type: 'MYOBJ_DETAIL', title: 'Mục tiêu và KR tôi đảm nhiệm', x: 0, y: 19, w: 12, h: 18, visible: true },
 ]
 
 /** Ô nào hiện mặc định cho ai: quản lý chỉ cần số liệu và danh sách, nhân viên có thêm xu hướng. */
@@ -74,10 +75,10 @@ const CATALOG = DEFAULT_WIDGETS.map(t => ({
   groupLabel: t.type === 'STATS' ? 'Số liệu' : t.type === 'MYOBJ_TREND' ? 'Biểu đồ xu hướng' : 'Biểu đồ so sánh',
   preview: t.type === 'STATS' ? ('metricCard' as const) : t.type === 'MYOBJ_TREND' ? ('line' as const) : ('dumbbell' as const),
   description: t.type === 'STATS'
-    ? 'Tiến độ, hiệu suất, trạng thái KPI và số KPI rủi ro của bạn.'
+    ? 'Một hàng số: tiến độ, hiệu suất, trạng thái KPI và số KPI rủi ro của bạn.'
     : t.type === 'MYOBJ_TREND'
-      ? 'Số mục tiêu bạn đảm nhiệm và hiệu suất của bạn qua từng mốc thời gian.'
-      : 'Mục tiêu và kết quả then chốt bạn đảm nhiệm, kèm tiến độ từng KPI.',
+      ? 'Bạn đang lên hay xuống: tiến độ và hiệu suất qua từng kỳ, hoặc tỉ trọng mục tiêu mới/cũ.'
+      : 'Từng mục tiêu và kết quả then chốt bạn đang nhận, kèm tiến độ từng KPI bên trong.',
 }))
 
 export default function MyObjectivesTab() {
@@ -281,11 +282,13 @@ export default function MyObjectivesTab() {
         </div>
       )
       case 'MYOBJ_TREND': return (
-        <ChartWrapper chromeless title="Xu hướng KPI theo thời gian" icon={<TrendingUp size={20} className="text-slate-400" />}>
+        <ChartWrapper chromeless title={w.title} icon={<TrendingUp size={20} className="text-slate-400" />}>
           <AnalyticsComboChart
             data={chartData?.points || []}
             isLoading={isChartLoading}
-            itemName="KPI đảm nhiệm"
+            itemName="mục tiêu của tôi"
+            title={w.title}
+            shareTitle="Cơ cấu mục tiêu của tôi mới và cũ qua các kỳ"
             fillHeight
             mode={widgetVariant(w) === 'area' ? 'share' : 'trend'}
             onModeChange={m => updateWidgetSettings(w.i, { v: m === 'share' ? 'area' : 'line' })}
@@ -295,7 +298,7 @@ export default function MyObjectivesTab() {
         </ChartWrapper>
       )
       case 'MYOBJ_DETAIL': return (
-        <ChartWrapper title="KPI đang đảm nhiệm" icon={<Target size={20} className="text-slate-400" />}
+        <ChartWrapper title={w.title} icon={<Target size={20} className="text-slate-400" />}
           meta={meta}
           extraHeaderContent={<span className="text-xs font-medium text-slate-400">{kpiPage?.totalElements ?? 0} KPI</span>}>
           {detailView === 'chart' ? renderGapBody() : renderDetailBody()}

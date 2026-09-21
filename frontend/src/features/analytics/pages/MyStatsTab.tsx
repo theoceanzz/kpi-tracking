@@ -63,14 +63,16 @@ const LEGACY_REPORT_NAME = '__MY_KPI_DASHBOARD_CONFIG__'
 const DEFAULT_WIDGETS: DashboardWidget[] = [
   // Hàng thẻ chỉ số từng nằm NGOÀI lưới, bám nút khoảng thời gian trên đầu trang. Nút đó nay nằm
   // trong bảng cấu hình từng ô, nên hàng thẻ cũng là một ô — cùng id với danh mục trang chủ.
-  { i: 'mykpi-metrics', type: 'STATS', title: 'Số liệu tổng hợp', x: 0, y: 0, w: 12, h: 4, visible: true },
-  { i: 'mykpi-trend', type: 'MYKPI_TREND', title: 'Xu hướng KPI theo thời gian', x: 0, y: 4, w: 12, h: 15, visible: true },
-  { i: 'mykpi-detail', type: 'MYKPI_DETAIL', title: 'KPI đang đảm nhiệm', x: 0, y: 19, w: 12, h: 18, visible: true },
+  // Tên ô là nguồn duy nhất (renderWidget lấy `w.title`, trang chủ đặt đúng chuỗi này); chữ đầu
+  // mỗi ô khác nhau và mang "của tôi" vì ghim lên trang chủ chúng đứng cạnh ô của đơn vị.
+  { i: 'mykpi-metrics', type: 'STATS', title: 'Chỉ số KPI của tôi', x: 0, y: 0, w: 12, h: 4, visible: true },
+  { i: 'mykpi-trend', type: 'MYKPI_TREND', title: 'Diễn biến KPI của tôi qua các kỳ', x: 0, y: 4, w: 12, h: 15, visible: true },
+  { i: 'mykpi-detail', type: 'MYKPI_DETAIL', title: 'Danh sách KPI tôi đảm nhiệm', x: 0, y: 19, w: 12, h: 18, visible: true },
   // Các khối dưới đây trước nằm NGOÀI lưới nên không ẩn/hiện/kéo-thả/ghim được, trong khi hai
   // widget trên thì được: cùng một trang mà hai cách hành xử. Nay đưa hết vào lưới.
-  { i: 'mykpi-submission-status', type: 'SUBMISSION_STATUS', title: 'Trạng thái bài nộp', x: 0, y: 37, w: 6, h: 10, visible: true },
-  { i: 'mykpi-eval-history', type: 'EVAL_HISTORY', title: 'Lịch sử & xu hướng điểm đánh giá', x: 6, y: 37, w: 6, h: 10, visible: true },
-  { i: 'mykpi-histogram', type: 'MY_SCORE_HISTOGRAM', title: 'Phân phối điểm đánh giá', x: 0, y: 47, w: 12, h: 12, visible: false },
+  { i: 'mykpi-submission-status', type: 'SUBMISSION_STATUS', title: 'Tình trạng duyệt bài nộp', x: 0, y: 37, w: 6, h: 10, visible: true },
+  { i: 'mykpi-eval-history', type: 'EVAL_HISTORY', title: 'Điểm đánh giá qua các đợt', x: 6, y: 37, w: 6, h: 10, visible: true },
+  { i: 'mykpi-histogram', type: 'MY_SCORE_HISTOGRAM', title: 'Vị trí điểm của tôi so với mọi người', x: 0, y: 47, w: 12, h: 12, visible: false },
 ]
 
 /**
@@ -100,12 +102,12 @@ const PREVIEW_OF: Record<string, 'line' | 'area' | 'bullet' | 'bar' | 'histogram
   'mykpi-submission-status': 'donut',
 }
 const DESC_OF: Record<string, string> = {
-  'mykpi-metrics': 'Tổng KPI, tiến độ, hiệu suất, số đang chạy/hoàn thành và số rủi ro.',
-  'mykpi-trend': 'Số KPI bạn đảm nhiệm và hiệu suất qua từng mốc thời gian.',
-  'mykpi-detail': 'Toàn bộ KPI bạn đang đảm nhiệm, tiến độ và phân loại từng chỉ tiêu.',
-  'mykpi-submission-status': 'Tỷ trọng bài nộp đã duyệt, chờ duyệt và bị từ chối.',
-  'mykpi-eval-history': 'Phiếu đánh giá bạn đã nhận và điểm qua từng đợt.',
-  'mykpi-histogram': 'Vị trí của bạn trong phân phối điểm toàn tổ chức.',
+  'mykpi-metrics': 'Một hàng số: tổng KPI, tiến độ, hiệu suất, số đang chạy/hoàn thành và số rủi ro.',
+  'mykpi-trend': 'Bạn đang lên hay xuống: tiến độ và hiệu suất qua từng kỳ, hoặc tỉ trọng KPI mới/cũ.',
+  'mykpi-detail': 'Từng KPI bạn đang nhận: tiến độ, phân loại, bấm vào xem chi tiết.',
+  'mykpi-submission-status': 'Bài nộp của bạn đã được duyệt bao nhiêu, còn chờ bao nhiêu, bị từ chối bao nhiêu.',
+  'mykpi-eval-history': 'Điểm bạn được chấm qua từng đợt, kèm phiếu đánh giá và nhận xét.',
+  'mykpi-histogram': 'Điểm của bạn nằm ở đâu trong phân phối điểm toàn tổ chức.',
 }
 const CATALOG = DEFAULT_WIDGETS.map(t => ({
   template: t,
@@ -320,11 +322,13 @@ export default function MyStatsTab() {
         </div>
       )
       case 'MYKPI_TREND': return (
-        <ChartWrapper chromeless title="Xu hướng KPI theo thời gian" icon={<TrendingUp size={20} className="text-slate-400" />}>
+        <ChartWrapper chromeless title={w.title} icon={<TrendingUp size={20} className="text-slate-400" />}>
           <AnalyticsComboChart
             data={chartData?.points || []}
             isLoading={isChartLoading}
-            itemName="KPI đảm nhiệm"
+            itemName="KPI của tôi"
+            title={w.title}
+            shareTitle="Cơ cấu KPI của tôi mới và cũ qua các kỳ"
             fillHeight
             mode={widgetVariant(w) === 'area' ? 'share' : 'trend'}
             onModeChange={m => updateWidgetSettings(w.i, { v: m === 'share' ? 'area' : 'line' })}
@@ -334,14 +338,14 @@ export default function MyStatsTab() {
         </ChartWrapper>
       )
       case 'MYKPI_DETAIL': return (
-        <ChartWrapper title="KPI đang đảm nhiệm" icon={<Target size={20} className="text-slate-400" />}
+        <ChartWrapper title={w.title} icon={<Target size={20} className="text-slate-400" />}
           meta={meta}
           extraHeaderContent={<span className="text-xs font-medium text-slate-400">{kpiPage?.totalElements ?? 0} KPI</span>}>
           {detailView === 'chart' ? renderBulletBody() : renderDetailBody()}
         </ChartWrapper>
       )
       case 'SUBMISSION_STATUS': return (
-        <ChartWrapper title="Trạng thái bài nộp" icon={<PieChartIcon size={20} className="text-slate-400" />} meta={meta}>
+        <ChartWrapper title={w.title} icon={<PieChartIcon size={20} className="text-slate-400" />} meta={meta}>
           {submissionsPieData.length === 0 ? <EmptyChart /> : (
             <ResponsiveContainer width="100%" height="100%" minHeight={200}>
               <PieChart>
@@ -358,7 +362,7 @@ export default function MyStatsTab() {
       )
       case 'EVAL_HISTORY': return (
         <ChartWrapper
-          title="Lịch sử & xu hướng điểm đánh giá"
+          title={w.title}
           icon={<Activity size={20} className="text-slate-400" />}
           meta={meta}
         >
@@ -389,6 +393,7 @@ export default function MyStatsTab() {
         <ScoreHistogramWidget
           filter={{ periodId: f.periodId, periodIdTo: f.periodIdTo, from: f.from, to: f.to }}
           meta={meta}
+          title={w.title}
         />
       )
       default: return null

@@ -78,7 +78,7 @@ function PinnedSummaryTrend({ filter }: { filter?: PinnedFilter }) {
     queryKey: ['pinned', 'summary-combo', from, to, onlyApproved, periodId, periodIdTo, groupBy],
     queryFn: () => orgUnitKpiApi.getComboChart({ from, to, onlyApproved, periodId, periodIdTo, groupBy }),
   })
-  return <Fill><AnalyticsComboChart data={data?.points ?? []} isLoading={isLoading} itemName="KPI đơn vị" fillHeight /></Fill>
+  return <Fill><AnalyticsComboChart data={data?.points ?? []} isLoading={isLoading} itemName="KPI đơn vị" fillHeight hideTitle /></Fill>
 }
 
 function PinnedSubTrend({ filter }: { filter?: PinnedFilter }) {
@@ -87,7 +87,7 @@ function PinnedSubTrend({ filter }: { filter?: PinnedFilter }) {
     queryKey: ['pinned', 'subordinate-combo', from, to, onlyApproved, periodId, periodIdTo, groupBy],
     queryFn: () => statsApi.getSubordinateComboChart(from, to, onlyApproved, periodId, periodIdTo, groupBy),
   })
-  return <Fill><AnalyticsComboChart data={data?.points ?? []} isLoading={isLoading} itemName="Mục tiêu" fillHeight /></Fill>
+  return <Fill><AnalyticsComboChart data={data?.points ?? []} isLoading={isLoading} itemName="mục tiêu đơn vị" fillHeight hideTitle /></Fill>
 }
 
 function PinnedMyKpiTrend({ filter }: { filter?: PinnedFilter }) {
@@ -96,7 +96,7 @@ function PinnedMyKpiTrend({ filter }: { filter?: PinnedFilter }) {
     queryKey: ['pinned', 'personalKpi-combo', from, to, onlyApproved, periodId, periodIdTo, groupBy],
     queryFn: () => personalKpiApi.getComboChart({ from, to, onlyApproved, periodId, periodIdTo, groupBy }),
   })
-  return <Fill><AnalyticsComboChart data={data?.points ?? []} isLoading={isLoading} itemName="KPI đảm nhiệm" fillHeight /></Fill>
+  return <Fill><AnalyticsComboChart data={data?.points ?? []} isLoading={isLoading} itemName="KPI của tôi" fillHeight hideTitle /></Fill>
 }
 
 function PinnedMyObjTrend({ filter }: { filter?: PinnedFilter }) {
@@ -105,7 +105,7 @@ function PinnedMyObjTrend({ filter }: { filter?: PinnedFilter }) {
     queryKey: ['pinned', 'personalObjective-combo', from, to, onlyApproved, periodId, periodIdTo, groupBy],
     queryFn: () => personalObjectiveApi.getComboChart({ from, to, onlyApproved, periodId, periodIdTo, groupBy }),
   })
-  return <Fill><AnalyticsComboChart data={data?.points ?? []} isLoading={isLoading} itemName="KPI đảm nhiệm" fillHeight /></Fill>
+  return <Fill><AnalyticsComboChart data={data?.points ?? []} isLoading={isLoading} itemName="mục tiêu của tôi" fillHeight hideTitle /></Fill>
 }
 
 function PinnedUnitPerf({ filter }: { filter?: PinnedFilter }) {
