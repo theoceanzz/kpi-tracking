@@ -106,7 +106,7 @@ export function UnitKpiMetrics({ filter, orgUnitId }: { filter?: PinnedFilter; o
   )
 }
 
-/** Chỉ số KPI của tôi — hàng thẻ đầu tab "KPI của tôi". */
+/** Chỉ số KPI của tôi — hàng thẻ đầu tab "Kết quả của tôi". */
 export function MyKpiMetrics({ filter }: { filter?: PinnedFilter }) {
   const perf = usePerformanceScale()
   const { from, to, periodId, periodIdTo } = filter ?? {}

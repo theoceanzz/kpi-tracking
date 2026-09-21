@@ -54,7 +54,7 @@ export default function AnalyticsPage() {
       <SettingsSectionLayout
         navId="analytics"
         title={pageTitle}
-        subtitle="Kết quả KPI, bài nộp và đánh giá của bạn, của đơn vị và của toàn tổ chức"
+        subtitle="Mỗi mục trả lời một câu hỏi khác nhau: bạn, đơn vị bạn, các đơn vị so với nhau, và chiến lược công ty"
         sections={[
           { id: 'my-objectives', visible: isOkr, render: () => <MyObjectivesTab /> },
           { id: 'my', visible: !isOkr, render: () => <MyStatsTab /> },

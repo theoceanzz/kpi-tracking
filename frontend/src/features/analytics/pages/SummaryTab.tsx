@@ -38,9 +38,10 @@ import { usePerformanceScale } from '../hooks/usePerformanceScale'
 import { ChartWrapper, type DashboardWidget } from '@/components/common/dashboard/ChartWrapper'
 import DashboardCustomizeChrome, { DashboardEditToolbar } from '@/components/common/dashboard/DashboardCustomizeChrome'
 import {
-  useAnalyticsGrid, useAnalyticsScopeData, useUnitOptions, widgetFilter, widgetUnit, widgetVariant, tableViewControl, optionOf,
-  PAGE_DEFAULT_INTENT,
+  useAnalyticsGrid, useAnalyticsScopeData, useUnitOptions, usePositionLayout, widgetFilter, widgetUnit, widgetVariant,
+  tableViewControl, optionOf, PAGE_DEFAULT_INTENT,
 } from '../grid/analyticsGrid'
+import type { ViewerPosition } from '@/features/dashboard/hooks/useViewerPosition'
 import { UnitKpiMetrics } from '../components/pinned/metricWidgets'
 import { usePinToHome } from '../grid/usePinToHome'
 import WidgetConfigPanel from '../grid/WidgetConfigPanel'
@@ -84,6 +85,19 @@ const DEFAULT_SUMMARY_WIDGETS: SummaryWidget[] = [
   { i: 'score-histogram', type: 'SCORE_HISTOGRAM', title: 'Phân phối điểm đánh giá', x: 0, y: 50, w: 6, h: 12, visible: false },
   { i: 'self-vs-manager', type: 'SELF_VS_MANAGER', title: 'Tự đánh giá vs Quản lý đánh giá', x: 6, y: 50, w: 6, h: 12, visible: false },
 ]
+
+/**
+ * Ô nào hiện mặc định cho ai (theo thứ tự trên lưới). Bật cả tám cho mọi người thì ai cũng thấy
+ * choáng: ban giám đốc cần so đơn vị và nhìn phân phối, trưởng đơn vị cần từng KPI và từng
+ * người, phó đơn vị chỉ phụ trách một mảng nên gọn nhất. Ô còn lại vẫn nằm trong thư viện.
+ */
+const POSITION_LAYOUT: Record<ViewerPosition, readonly string[]> = {
+  DIRECTOR: ['unit-kpi-metrics', 'trend-chart', 'unit-perf', 'rank-table', 'score-histogram'],
+  HEAD: ['unit-kpi-metrics', 'trend-chart', 'kpi-detail', 'rank-table', 'self-vs-manager'],
+  DEPUTY: ['unit-kpi-metrics', 'kpi-detail', 'rank-table'],
+  // Nhân viên thường không có tab này (cần quyền xem đơn vị); có thì xem như trưởng đơn vị.
+  STAFF: ['unit-kpi-metrics', 'trend-chart', 'kpi-detail', 'rank-table', 'self-vs-manager'],
+}
 
 // KPI_DETAIL là loại widget riêng của FE — DB check constraint chưa có giá trị này nên lưu xuống dưới
 // enum sẵn có 'TABLE'. Khi tải lên, loại thật được suy lại từ id widget (cfg.i) nên giá trị lưu không
@@ -141,9 +155,10 @@ export default function SummaryTab() {
   // chỉ còn là hằng số cho ô chưa đặt gì.
   const pageIntent = PAGE_DEFAULT_INTENT
   const pin = usePinToHome()
+  const grid = usePositionLayout(DEFAULT_SUMMARY_WIDGETS, POSITION_LAYOUT, 'HEAD')
   const dash = useAnalyticsGrid({
     scope: 'ANALYTICS_SUMMARY',
-    defaultWidgets: DEFAULT_SUMMARY_WIDGETS,
+    defaultWidgets: grid.defaultWidgets,
     legacyReportName: LEGACY_REPORT_NAME,
   })
   /** Khoảng của một ô cụ thể: riêng nếu đã đặt, không thì theo mặc định. */
@@ -411,7 +426,7 @@ export default function SummaryTab() {
   return (
     <div className="space-y-8 pb-12">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <h2 className="text-xl font-semibold text-[var(--color-foreground)]">KPI đơn vị tôi phụ trách</h2>
+        <h2 className="text-xl font-semibold text-[var(--color-foreground)]">Đơn vị tôi quản lý</h2>
         <div id="tour-analytics-customize" className="flex items-center gap-3 flex-wrap">
           <DashboardEditToolbar api={dash} />
         </div>
@@ -429,6 +444,9 @@ export default function SummaryTab() {
           renderWidget={renderWidgetContent}
           catalog={SUMMARY_CATALOG}
           ready={!!mainData}
+          presets={grid.presets}
+          recommendedIds={grid.recommendedIds}
+          recommendedLabel={grid.recommendedLabel}
           onTogglePin={pin.enabled ? pin.toggle : undefined}
           isPinned={pin.isPinned}
           renderConfig={(w, update) => (

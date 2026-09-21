@@ -11,12 +11,14 @@ import { Target, TrendingUp, Users, Network } from 'lucide-react'
 import { ChartWrapper, type DashboardWidget } from '@/components/common/dashboard/ChartWrapper'
 import DashboardCustomizeChrome, { DashboardEditToolbar } from '@/components/common/dashboard/DashboardCustomizeChrome'
 import {
-  useAnalyticsGrid, useAnalyticsScopeData, useUnitOptions, widgetFilter, widgetVariant, tableViewControl, optionOf, PAGE_DEFAULT_INTENT,
+  useAnalyticsGrid, useAnalyticsScopeData, useUnitOptions, usePositionLayout, widgetFilter, widgetVariant, tableViewControl,
+  optionOf, PAGE_DEFAULT_INTENT,
 } from '../grid/analyticsGrid'
 import { usePinToHome } from '../grid/usePinToHome'
 import WidgetConfigPanel from '../grid/WidgetConfigPanel'
 import WidgetConfigSummary from '../grid/WidgetConfigSummary'
 import { SubordinateMetrics } from '../components/pinned/metricWidgets'
+import type { ViewerPosition } from '@/features/dashboard/hooks/useViewerPosition'
 
 /** Tên "report ẩn" của kho cũ — chỉ còn dùng để vớt bố cục một lần. */
 const LEGACY_REPORT_NAME = '__SUBORDINATE_DASHBOARD_CONFIG__'
@@ -33,6 +35,17 @@ const DEFAULT_WIDGETS: DashboardWidget[] = [
   // Mặc định ẩn: luồng OKR chỉ có nghĩa khi Key Result đã được phân bổ trọng số xuống đơn vị.
   { i: 'sub-okr-flow', type: 'SUB_OKR_FLOW', title: 'Luồng phân bổ OKR', x: 0, y: 64, w: 12, h: 13, visible: false },
 ]
+
+/**
+ * Ô nào hiện mặc định cho ai. Ban giám đốc nhìn đơn vị so với nhau và luồng phân bổ; trưởng đơn
+ * vị cần chi tiết mục tiêu và người của mình; phó đơn vị gọn nhất.
+ */
+const POSITION_LAYOUT: Record<ViewerPosition, readonly string[]> = {
+  DIRECTOR: ['sub-metrics', 'sub-trend', 'sub-unit-perf', 'sub-okr-flow'],
+  HEAD: ['sub-metrics', 'sub-trend', 'sub-detail', 'sub-member'],
+  DEPUTY: ['sub-metrics', 'sub-detail'],
+  STAFF: ['sub-metrics', 'sub-trend', 'sub-detail', 'sub-member'],
+}
 
 const GROUP_OF: Record<string, string> = {
   'sub-metrics': 'Số liệu',
@@ -71,9 +84,10 @@ export default function SubordinateManagementTab() {
   const pageIntent = PAGE_DEFAULT_INTENT
 
   const pin = usePinToHome()
+  const grid = usePositionLayout(DEFAULT_WIDGETS, POSITION_LAYOUT, 'HEAD')
   const dash = useAnalyticsGrid({
     scope: 'ANALYTICS_SUBORDINATE',
-    defaultWidgets: DEFAULT_WIDGETS,
+    defaultWidgets: grid.defaultWidgets,
     legacyReportName: LEGACY_REPORT_NAME,
   })
 
@@ -165,7 +179,7 @@ export default function SubordinateManagementTab() {
     <div className="space-y-6 pb-20">
       {/* Tiêu đề + khoảng mặc định + thêm biểu đồ */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <h2 className="text-xl font-semibold text-[var(--color-foreground)]">Mục tiêu đơn vị tôi phụ trách</h2>
+        <h2 className="text-xl font-semibold text-[var(--color-foreground)]">Mục tiêu đơn vị tôi quản lý</h2>
         <div id="tour-analytics-customize" className="flex items-center gap-3 flex-wrap">
           <DashboardEditToolbar api={dash} />
         </div>
@@ -180,6 +194,9 @@ export default function SubordinateManagementTab() {
           api={dash}
           renderWidget={renderWidget}
           catalog={CATALOG}
+          presets={grid.presets}
+          recommendedIds={grid.recommendedIds}
+          recommendedLabel={grid.recommendedLabel}
           onTogglePin={pin.enabled ? pin.toggle : undefined}
           isPinned={pin.isPinned}
           renderConfig={(w, update) => (

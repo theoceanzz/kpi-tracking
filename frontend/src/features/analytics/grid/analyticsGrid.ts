@@ -1,6 +1,10 @@
 import { useCallback, useMemo } from 'react'
 import { useDashboardLayout } from '@/components/common/dashboard/useDashboardLayout'
 import type { DashboardWidget } from '@/components/common/dashboard/ChartWrapper'
+import type { LayoutPreset } from '@/components/common/dashboard/DashboardCustomizeChrome'
+import {
+  POSITION_LABEL, POSITION_ORDER, useViewerPosition, type ViewerPosition,
+} from '@/features/dashboard/hooks/useViewerPosition'
 import type { AnalyticsGridScope, DashboardLayoutItem } from '@/features/dashboard/api/dashboardLayoutApi'
 import { reportApi } from '@/features/reports/api/reportApi'
 import { useKpiPeriods } from '@/features/kpi/hooks/useKpiPeriods'
@@ -65,6 +69,106 @@ export function useAnalyticsGrid({ scope, defaultWidgets, legacyReportName }: {
     availableWidgets: defaultWidgets,
     legacyLoad,
   })
+}
+
+/* ── Bộ ô mặc định theo vị trí ────────────────────────────────────────────── */
+
+/** Số cột của lưới (`GRID_COLS.lg` bên DashboardCustomizeChrome). */
+const GRID_COLUMNS = 12
+
+/**
+ * Bộ ô cho MỘT vị trí: ô có trong `ids` hiện, xếp từ trên xuống theo đúng thứ tự của `ids`; ô
+ * còn lại ẩn và dồn xuống đáy — vẫn nằm trong danh sách để thư viện "Thêm biểu đồ" còn đủ và
+ * bật lại được bất cứ lúc nào.
+ *
+ * <p>Vị trí ngang KHÔNG lấy theo mẫu mà xếp chảy: ô hẹp (w < 12) đứng cạnh ô hẹp trước nó nếu
+ * còn vừa hàng, không thì xuống hàng mới. Lấy theo mẫu thì ô nửa phải (x = 6) mà ô nửa trái bị
+ * bộ này bỏ đi sẽ đứng lẻ loi bên phải một hàng trống. Ô hẹp mà đứng một mình cả hàng thì trải
+ * hết bề ngang.
+ */
+export function layoutForPosition(all: DashboardWidget[], ids: readonly string[]): DashboardWidget[] {
+  const byId = new Map(all.map(w => [w.i, w]))
+  const rows: DashboardWidget[][] = []
+  let cursorX = 0
+  ids.forEach(id => {
+    const def = byId.get(id)
+    if (!def) return
+    const row = rows[rows.length - 1]
+    if (!row || cursorX + def.w > GRID_COLUMNS) {
+      rows.push([{ ...def, x: 0, visible: true }])
+      cursorX = def.w
+    } else {
+      row.push({ ...def, x: cursorX, visible: true })
+      cursorX += def.w
+    }
+  })
+
+  const out: DashboardWidget[] = []
+  let y = 0
+  rows.forEach(row => {
+    row.forEach(w => out.push({ ...w, y, w: row.length === 1 ? GRID_COLUMNS : w.w }))
+    y += Math.max(...row.map(w => w.h))
+  })
+
+  const shown = new Set(ids)
+  all.filter(w => !shown.has(w.i)).forEach(def => {
+    out.push({ ...def, x: 0, y, visible: false })
+    y += def.h
+  })
+  return out
+}
+
+/**
+ * Mỗi vị trí một bố cục gợi ý để áp trong thư viện; bộ của vị trí người xem đứng đầu và được
+ * đánh dấu. Hai vị trí có bộ y hệt nhau (vd phó = trưởng đơn vị) gộp thành MỘT nút — hai nút
+ * khác tên mà bấm ra cùng một thứ chỉ làm người dùng nghi ngờ chúng khác nhau ở đâu.
+ */
+export function positionPresets(
+  all: DashboardWidget[],
+  byPosition: Record<ViewerPosition, readonly string[]>,
+  mine: ViewerPosition | null,
+): LayoutPreset[] {
+  const byId = new Map(all.map(w => [w.i, w]))
+  const order = mine ? [mine, ...POSITION_ORDER.filter(p => p !== mine)] : POSITION_ORDER
+  const groups = new Map<string, ViewerPosition[]>()
+  order.forEach(p => {
+    const key = byPosition[p].join('|')
+    if (!groups.has(key)) groups.set(key, [])
+    groups.get(key)!.push(p)
+  })
+  return [...groups.values()].map(positions => {
+    const ids = byPosition[positions[0]!]
+    const isMine = mine !== null && positions.includes(mine)
+    const names = ids.map(id => byId.get(id)?.title).filter(Boolean).join(' · ')
+    return {
+      key: `position-${positions.join('-')}`,
+      label: `Bộ cho ${positions.map(p => POSITION_LABEL[p]).join(', ')}${isMine ? ' · vị trí của bạn' : ''}`,
+      description: `${ids.length} ô: ${names}`,
+      widgets: layoutForPosition(all, ids),
+    }
+  })
+}
+
+/**
+ * Bộ ô mặc định, bố cục gợi ý và tập ô "gợi ý cho bạn" của một tab, suy từ vị trí người xem.
+ * `fallback` cho tài khoản không suy ra vị trí (thiếu mọi quyền xem) — tab vẫn phải có bộ nào đó.
+ *
+ * <p>`all` và `byPosition` phải là hằng số module (hoặc đã memo): lưới cache theo định danh của
+ * `defaultWidgets`, mảng mới mỗi render là hydrate lại mỗi render.
+ */
+export function usePositionLayout(
+  all: DashboardWidget[],
+  byPosition: Record<ViewerPosition, readonly string[]>,
+  fallback: ViewerPosition,
+) {
+  const position = useViewerPosition() ?? fallback
+  return useMemo(() => ({
+    position,
+    defaultWidgets: layoutForPosition(all, byPosition[position]),
+    presets: positionPresets(all, byPosition, position),
+    recommendedIds: new Set(byPosition[position]) as ReadonlySet<string>,
+    recommendedLabel: `Gợi ý cho ${POSITION_LABEL[position]}`,
+  }), [all, byPosition, position])
 }
 
 /** Đợt và kỳ của tổ chức — nguồn để đổi ý định lọc thành khoảng thời gian thật. */
@@ -231,8 +335,8 @@ export const WIDGET_HAS_UNIT: ReadonlySet<string> = new Set([
   'score-histogram', 'self-vs-manager',
   // Tab Mục tiêu đơn vị
   'sub-detail',
-  // Tab Hạng mục BSC: cùng cách, mỗi ô tự thu phạm vi. (Tab So sánh các đơn vị KHÔNG có mặt ở
-  // đây: đơn vị ở đó là cây điều hướng của trang.)
+  // Tab Thẻ điểm BSC: cùng cách, mỗi ô tự thu phạm vi. (Tab So sánh giữa các đơn vị KHÔNG có mặt
+  // ở đây: đơn vị ở đó là cây điều hướng của trang.)
   'bsc-overview', 'bsc-units', 'bsc-items', 'bsc-trend', 'bsc-cascade', 'bsc-gates', 'bsc-ranking',
 ])
 

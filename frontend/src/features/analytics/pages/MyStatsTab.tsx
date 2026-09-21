@@ -36,12 +36,14 @@ import { SortHeader } from '@/components/common/SortHeader'
 import { ChartWrapper, type DashboardWidget } from '@/components/common/dashboard/ChartWrapper'
 import DashboardCustomizeChrome, { DashboardEditToolbar } from '@/components/common/dashboard/DashboardCustomizeChrome'
 import {
-  useAnalyticsGrid, useAnalyticsScopeData, widgetFilter, widgetVariant, tableViewControl, optionOf, PAGE_DEFAULT_INTENT,
+  useAnalyticsGrid, useAnalyticsScopeData, usePositionLayout, widgetFilter, widgetVariant, tableViewControl, optionOf,
+  PAGE_DEFAULT_INTENT,
 } from '../grid/analyticsGrid'
 import { usePinToHome } from '../grid/usePinToHome'
 import WidgetConfigPanel from '../grid/WidgetConfigPanel'
 import WidgetConfigSummary from '../grid/WidgetConfigSummary'
 import { MyKpiMetrics } from '../components/pinned/metricWidgets'
+import type { ViewerPosition } from '@/features/dashboard/hooks/useViewerPosition'
 
 import { format } from 'date-fns'
 
@@ -70,6 +72,17 @@ const DEFAULT_WIDGETS: DashboardWidget[] = [
   { i: 'mykpi-eval-history', type: 'EVAL_HISTORY', title: 'Lịch sử & xu hướng điểm đánh giá', x: 6, y: 37, w: 6, h: 10, visible: true },
   { i: 'mykpi-histogram', type: 'MY_SCORE_HISTOGRAM', title: 'Phân phối điểm đánh giá', x: 0, y: 47, w: 12, h: 12, visible: false },
 ]
+
+/**
+ * Ô nào hiện mặc định cho ai. Nhân viên là người nộp báo cáo nên cần trạng thái bài nộp; quản lý
+ * mà cũng nhận KPI thì chỉ cần danh sách và điểm được chấm. Xu hướng và phân phối để trong thư viện.
+ */
+const POSITION_LAYOUT: Record<ViewerPosition, readonly string[]> = {
+  DIRECTOR: ['mykpi-metrics', 'mykpi-detail', 'mykpi-eval-history'],
+  HEAD: ['mykpi-metrics', 'mykpi-detail', 'mykpi-eval-history'],
+  DEPUTY: ['mykpi-metrics', 'mykpi-detail', 'mykpi-eval-history'],
+  STAFF: ['mykpi-metrics', 'mykpi-detail', 'mykpi-submission-status', 'mykpi-eval-history'],
+}
 const GROUP_OF: Record<string, string> = {
   'mykpi-metrics': 'Số liệu',
   'mykpi-trend': 'Biểu đồ xu hướng',
@@ -109,9 +122,10 @@ export default function MyStatsTab() {
   // hằng số cho ô chưa đặt gì.
   const pageIntent = PAGE_DEFAULT_INTENT
   const pin = usePinToHome()
+  const grid = usePositionLayout(DEFAULT_WIDGETS, POSITION_LAYOUT, 'STAFF')
   const dash = useAnalyticsGrid({
     scope: 'ANALYTICS_MY_KPI',
-    defaultWidgets: DEFAULT_WIDGETS,
+    defaultWidgets: grid.defaultWidgets,
     legacyReportName: LEGACY_REPORT_NAME,
   })
   /** Khoảng của một ô cụ thể: riêng nếu đã đặt, không thì theo mặc định. */
@@ -388,7 +402,7 @@ export default function MyStatsTab() {
     <div className="space-y-6">
       {/* Tiêu đề + nút Tuỳ chỉnh */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <h2 className="text-xl font-semibold text-[var(--color-foreground)]">KPI của tôi</h2>
+        <h2 className="text-xl font-semibold text-[var(--color-foreground)]">Kết quả của tôi</h2>
         <div id="tour-analytics-customize" className="flex items-center gap-3 flex-wrap">
           <DashboardEditToolbar api={dash} />
         </div>
@@ -403,6 +417,9 @@ export default function MyStatsTab() {
           api={dash}
           renderWidget={renderWidget}
           catalog={CATALOG}
+          presets={grid.presets}
+          recommendedIds={grid.recommendedIds}
+          recommendedLabel={grid.recommendedLabel}
           onTogglePin={pin.enabled ? pin.toggle : undefined}
           isPinned={pin.isPinned}
           renderConfig={(w, update) => (

@@ -6,6 +6,7 @@ import DashboardCustomizeChrome, { DashboardEditToolbar } from '@/components/com
 import { DashboardToolbarPortal } from '@/components/common/dashboard/DashboardToolbarSlot'
 import { useDashboardLayout } from '@/components/common/dashboard/useDashboardLayout'
 import { useTourScope } from '@/hooks/useTourScope'
+import { POSITION_LABEL } from '../hooks/useViewerPosition'
 import type { DashboardScope } from '../api/dashboardLayoutApi'
 import type { DashboardWidget } from '@/components/common/dashboard/ChartWrapper'
 import { DashboardFilterProvider } from '../context/DashboardFilterContext'
@@ -85,6 +86,8 @@ function RoleDashboardGrid({ scope, organization }: {
   const defaultWidgets = useMemo(() => getAnalyticsDefaultLayout(scope, flags, viewer), [scope, flags, viewer])
   const catalog = useMemo(() => getAnalyticsCatalog(flags, viewer), [flags, viewer])
   const presets = useMemo(() => getAnalyticsPresets(flags, viewer), [flags, viewer])
+  // Ô của bố cục mặc định theo vai = ô "gợi ý cho bạn" trong thư viện, cùng ngôn ngữ với tab Thống kê.
+  const recommendedIds = useMemo(() => new Set(defaultWidgets.map(w => w.i)) as ReadonlySet<string>, [defaultWidgets])
 
   const dash = useDashboardLayout({ scope, defaultWidgets, availableWidgets })
   // Giữ định danh: lưới cache phần tử từng ô theo hàm này.
@@ -103,6 +106,8 @@ function RoleDashboardGrid({ scope, organization }: {
           api={dash}
           catalog={catalog}
           presets={presets}
+          recommendedIds={recommendedIds}
+          recommendedLabel={`Gợi ý cho ${POSITION_LABEL[scope]}`}
           ready={!dash.isLoading}
           renderWidget={renderWidget}
         />

@@ -29,14 +29,14 @@ import type { PinnedFilter } from './pinnedWidgetRegistry'
 import { xAxisLabel } from '@/components/charts/axisLabel'
 
 /**
- * Widget của tab "So sánh các đơn vị", dùng ở cả tab lẫn trang chủ.
+ * Widget của tab "So sánh giữa các đơn vị", dùng ở cả tab lẫn trang chủ.
  *
  * <p>Tab đó là một màn master–detail: cây đơn vị bên trái, chi tiết bên phải. Trên trang chủ
  * vai trò "bên trái" thuộc về widget {@link DrillUnitTreeWidget}, còn mọi widget chi tiết đọc
  * đơn vị đang chọn từ context (`useOptionalDashboardUnit`). Nhờ vậy người dùng có thể bỏ cây khỏi
  * lưới mà các widget chi tiết vẫn chạy (rơi về gốc phạm vi quyền, đúng như lúc mới mở tab).
  *
- * <p>Từ khi tab "So sánh các đơn vị" cũng lên lưới, các widget này chạy ở cả hai nơi: trong tab,
+ * <p>Từ khi tab "So sánh giữa các đơn vị" cũng lên lưới, các widget này chạy ở cả hai nơi: trong tab,
  * đơn vị đến từ prop `filter.orgUnitId` (cây đơn vị của trang) và thắng context.
  */
 

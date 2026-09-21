@@ -13,7 +13,7 @@ import type { TourDef } from './registry'
  * `#tour-analytics-customize`, `#tour-analytics-widgets`. Không còn bộ lọc cấp trang: đơn vị và
  * khoảng thời gian nằm trong bảng cấu hình của từng ô.
  * Dùng chung được vì mỗi lúc chỉ có đúng một mục được vẽ ra, không bao giờ hai mục cùng
- * tồn tại để đụng id. Hai mục So sánh các đơn vị và Hạng mục BSC có thêm neo riêng.
+ * tồn tại để đụng id. Hai mục So sánh giữa các đơn vị và Thẻ điểm BSC có thêm neo riêng.
  */
 
 const note = (text: string) => (
@@ -38,11 +38,12 @@ const analyticsTours: Record<TourKey, TourDef> = {
         content: (
           <div className="space-y-2">
             <p>
-              <strong>Của tôi</strong> là kết quả của riêng bạn. <strong>Đơn vị</strong> là đơn vị bạn phụ
-              trách, và so sánh đơn vị đó với các đơn vị khác trong công ty.
+              <strong>Cá nhân</strong> là kết quả của riêng bạn — chỉ người nộp báo cáo mới có.{' '}
+              <strong>Đơn vị</strong> là đơn vị bạn quản lý, và so sánh đơn vị đó với các đơn vị khác.
             </p>
             <p>
-              <strong>Toàn tổ chức</strong> nhìn từ trên xuống theo từng hạng mục của bộ tiêu chí.
+              <strong>Toàn công ty</strong> là thẻ điểm BSC: công ty có đi đúng chiến lược không.
+              Dòng “Dành cho” trên mỗi thẻ nói mục đó có phải của bạn không.
             </p>
           </div>
         ),
@@ -312,7 +313,7 @@ const analyticsTours: Record<TourKey, TourDef> = {
     ],
   },
 
-  /* ══════════ Cụm Toàn tổ chức ══════════ */
+  /* ══════════ Cụm Toàn công ty ══════════ */
   'analytics/drilldown': {
     steps: [
       {

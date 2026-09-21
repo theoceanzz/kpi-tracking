@@ -16,13 +16,14 @@ import {
 import { ChartWrapper, type DashboardWidget } from '@/components/common/dashboard/ChartWrapper'
 import DashboardCustomizeChrome, { DashboardEditToolbar } from '@/components/common/dashboard/DashboardCustomizeChrome'
 import {
-  useAnalyticsGrid, useAnalyticsScopeData, widgetFilter, widgetVariant, tableViewControl, flattenUnitTree,
+  useAnalyticsGrid, useAnalyticsScopeData, usePositionLayout, widgetFilter, widgetVariant, tableViewControl, flattenUnitTree,
   PAGE_DEFAULT_INTENT, type OptionField,
 } from '../grid/analyticsGrid'
 import { usePinToHome } from '../grid/usePinToHome'
 import WidgetConfigPanel from '../grid/WidgetConfigPanel'
 import WidgetConfigSummary from '../grid/WidgetConfigSummary'
 import type { OrgUnitTreeResponse } from '@/types/orgUnit'
+import type { ViewerPosition } from '@/features/dashboard/hooks/useViewerPosition'
 
 /** Cắt cây tại đơn vị gốc (subtree) để không lộ đơn vị ngoài quyền drill của user. */
 function subtreeOf(nodes: OrgUnitTreeResponse[], rootId?: string): OrgUnitTreeResponse[] {
@@ -56,6 +57,18 @@ const DEFAULT_WIDGETS: DashboardWidget[] = [
   { i: 'drill-compare', type: 'DRILL_COMPARE', title: 'Hiệu suất đơn vị con', x: 6, y: 65, w: 6, h: 12, visible: true },
   { i: 'drill-boxplot', type: 'DRILL_BOXPLOT', title: 'Phân tán điểm theo đơn vị con', x: 0, y: 77, w: 12, h: 12, visible: false },
 ]
+
+/**
+ * Ô nào hiện mặc định cho ai. Ban giám đốc so các đơn vị con với nhau; trưởng/phó đơn vị nhìn
+ * người trong đơn vị mình; nhân viên chỉ cần biết đơn vị mình xếp loại ra sao. Ô nào cần quyền
+ * hoặc cờ tổ chức vẫn bị lọc ở component trước, nên id vắng mặt ở đây chỉ đơn giản là bỏ qua.
+ */
+const POSITION_LAYOUT: Record<ViewerPosition, readonly string[]> = {
+  DIRECTOR: ['drill-summary', 'drill-classification', 'drill-children', 'drill-compare', 'drill-matrix'],
+  HEAD: ['drill-summary', 'drill-classification', 'drill-employees', 'drill-matrix'],
+  DEPUTY: ['drill-summary', 'drill-employees', 'drill-matrix'],
+  STAFF: ['drill-summary', 'drill-classification'],
+}
 
 const GROUP_OF: Record<string, string> = {
   'drill-summary': 'Số liệu',
@@ -109,16 +122,17 @@ export default function DrillDownTab() {
     sách này phải đúng từ đầu. Cả hai điều kiện đều đồng bộ (auth store; cờ tổ chức đã được
     AnalyticsPage chờ xong trước khi vẽ tab).
   */
-  const defaultWidgets = useMemo(() => DEFAULT_WIDGETS.filter(w =>
+  const allowedWidgets = useMemo(() => DEFAULT_WIDGETS.filter(w =>
     (canViewStats || (w.i !== 'drill-cascade' && w.i !== 'drill-boxplot')) &&
     (perf.isMatrix || w.i !== 'drill-matrix')
   ), [canViewStats, perf.isMatrix])
-  const catalog = useMemo(() => defaultWidgets.map(t => ({
+  const catalog = useMemo(() => allowedWidgets.map(t => ({
     template: t, icon: null, groupLabel: GROUP_OF[t.i], preview: PREVIEW_OF[t.i], description: DESC_OF[t.i],
-  })), [defaultWidgets])
+  })), [allowedWidgets])
 
   const pin = usePinToHome()
-  const dash = useAnalyticsGrid({ scope: 'ANALYTICS_DRILLDOWN', defaultWidgets })
+  const grid = usePositionLayout(allowedWidgets, POSITION_LAYOUT, 'HEAD')
+  const dash = useAnalyticsGrid({ scope: 'ANALYTICS_DRILLDOWN', defaultWidgets: grid.defaultWidgets })
   // Cây điều hướng + gốc drill (phạm vi quyền, do backend quyết định). Gốc lấy theo khoảng mặc định:
   // nó chỉ để biết cắt cây từ đâu, không mang số liệu.
   const def = widgetFilter(undefined, pageIntent, periods, cycles)
@@ -243,7 +257,7 @@ export default function DrillDownTab() {
   return (
     <div className="space-y-6 pb-12">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <h2 className="text-xl font-semibold text-[var(--color-foreground)]">So sánh các đơn vị</h2>
+        <h2 className="text-xl font-semibold text-[var(--color-foreground)]">So sánh giữa các đơn vị</h2>
         <div id="tour-analytics-customize" className="flex items-center gap-3 flex-wrap">
           <DashboardEditToolbar api={dash} />
         </div>
@@ -265,6 +279,9 @@ export default function DrillDownTab() {
             api={dash}
             renderWidget={renderWidget}
             catalog={catalog}
+            presets={grid.presets}
+            recommendedIds={grid.recommendedIds}
+            recommendedLabel={grid.recommendedLabel}
             onTogglePin={pin.enabled ? pin.toggle : undefined}
             isPinned={pin.isPinned}
             sidebar={isWide ? (

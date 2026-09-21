@@ -7,6 +7,7 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
+import { ChoiceChip } from '@/components/ui/choice-chip'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { useCopyImage } from '@/components/common/CopyButton'
 import ChartTypePreview, { type ChartShape } from '@/components/charts/ChartTypePreview'
@@ -166,8 +167,19 @@ interface Props {
   catalog: WidgetCatalogEntry[]
   /** Gate hiển thị lưới (vd chờ dữ liệu chính). Mặc định true. */
   ready?: boolean
-  /** Bố cục gợi ý — chỉ trang chủ dùng. */
+  /**
+   * Bố cục gợi ý trong thư viện. Trang chủ đưa các bộ theo chủ đề, tab Thống kê đưa bộ theo vị
+   * trí (`positionPresets`). Phần tử đầu là bộ hợp người xem nhất — lưới trống mời áp đúng bộ đó.
+   */
   presets?: LayoutPreset[]
+  /**
+   * Ô hợp với vị trí của người xem. Có thì thư viện thêm chip lọc "Tất cả | <recommendedLabel>"
+   * và gắn huy hiệu "Gợi ý cho bạn" lên thẻ — người mới không phải đọc hết 8 ô để đoán ô nào
+   * dành cho mình.
+   */
+  recommendedIds?: ReadonlySet<string>
+  /** Nhãn chip lọc, vd "Gợi ý cho Trưởng đơn vị". Bắt buộc khi có `recommendedIds`. */
+  recommendedLabel?: string
   /** Nội dung bảng cấu hình của một ô. Không truyền thì menu không có mục "Cấu hình". */
   renderConfig?: (w: DashboardWidget, update: (patch: Partial<WidgetSettings>) => void) => React.ReactNode
   /** Ghim ô vào trang tổng quan. Không truyền thì menu không có mục "Ghim". */
@@ -189,6 +201,7 @@ interface Props {
  */
 export default function DashboardCustomizeChrome({
   api, renderWidget, catalog, ready = true, presets, renderConfig, onTogglePin, isPinned, sidebar,
+  recommendedIds, recommendedLabel,
 }: Props) {
   const {
     widgets, isAddModalOpen, setIsAddModalOpen,
@@ -197,6 +210,7 @@ export default function DashboardCustomizeChrome({
   } = api
 
   const [search, setSearch] = useState('')
+  const [onlyRecommended, setOnlyRecommended] = useState(false)
   const [pendingPreset, setPendingPreset] = useState<LayoutPreset | null>(null)
   const [confirmReset, setConfirmReset] = useState(false)
   const [configFor, setConfigFor] = useState<string | null>(null)
@@ -268,13 +282,12 @@ export default function DashboardCustomizeChrome({
     [handleLayoutChange],
   )
 
-  /** Gom thư viện theo nhóm và lọc theo từ khoá; nhóm biểu đồ đi theo thứ tự đã định. */
+  /** Gom thư viện theo nhóm và lọc theo từ khoá / gợi ý; nhóm biểu đồ đi theo thứ tự đã định. */
   const groupedCatalog = useMemo(() => {
     const q = search.trim().toLowerCase()
-    const matched = q
-      ? catalog.filter(c =>
-          c.template.title.toLowerCase().includes(q) || (c.description ?? '').toLowerCase().includes(q))
-      : catalog
+    const matched = catalog.filter(c =>
+      (!onlyRecommended || !recommendedIds || recommendedIds.has(c.template.i)) &&
+      (!q || c.template.title.toLowerCase().includes(q) || (c.description ?? '').toLowerCase().includes(q)))
 
     const groups = new Map<string, WidgetCatalogEntry[]>()
     matched.forEach(entry => {
@@ -287,7 +300,7 @@ export default function DashboardCustomizeChrome({
     return [...groups.entries()].sort(
       (a, b) => (order.get(a[0]) ?? 900) - (order.get(b[0]) ?? 900) || a[0].localeCompare(b[0])
     )
-  }, [catalog, search])
+  }, [catalog, search, onlyRecommended, recommendedIds])
 
   const closeConfig = useCallback(() => setConfigFor(null), [])
 
@@ -472,7 +485,7 @@ export default function DashboardCustomizeChrome({
               <button onClick={() => setIsAddModalOpen(false)} aria-label="Đóng" className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg cursor-pointer shrink-0"><X size={24} aria-hidden="true" /></button>
             </div>
 
-            <div className="relative mb-5">
+            <div className={cn('relative', recommendedIds && recommendedLabel ? 'mb-3' : 'mb-5')}>
               <Search size={16} aria-hidden="true" className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
               <input
                 type="search"
@@ -483,6 +496,17 @@ export default function DashboardCustomizeChrome({
                 className="w-full min-h-[44px] pl-11 pr-4 rounded-lg bg-[var(--color-muted)] border border-slate-200 dark:border-slate-700 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
               />
             </div>
+
+            {/* Lọc theo vị trí: mặc định vẫn là "Tất cả" để không giấu ô nào, chỉ là có lối tắt. */}
+            {recommendedIds && recommendedLabel && (
+              <div className="flex flex-wrap items-center gap-2 mb-5" role="group" aria-label="Lọc theo vị trí">
+                <ChoiceChip selected={!onlyRecommended} onClick={() => setOnlyRecommended(false)}>Tất cả</ChoiceChip>
+                <ChoiceChip selected={onlyRecommended} onClick={() => setOnlyRecommended(true)}>
+                  <Sparkles aria-hidden="true" /> {recommendedLabel}
+                  <span className="tabular-nums opacity-70">{catalog.filter(c => recommendedIds.has(c.template.i)).length}</span>
+                </ChoiceChip>
+              </div>
+            )}
 
             {/* Bố cục gợi ý — lối tắt cho người không muốn tự dựng từng ô */}
             {presets?.length ? (
@@ -529,7 +553,11 @@ export default function DashboardCustomizeChrome({
 
               <div className="flex-1 min-w-0 overflow-auto pr-1 custom-scrollbar space-y-7">
                 {groupedCatalog.length === 0 && (
-                  <p className="text-center text-sm text-slate-400 py-12">Không tìm thấy biểu đồ nào khớp “{search}”.</p>
+                  <p className="text-center text-sm text-slate-400 py-12">
+                    {search.trim()
+                      ? <>Không tìm thấy biểu đồ nào khớp “{search}”.</>
+                      : 'Không có ô nào trong bộ gợi ý này.'}
+                  </p>
                 )}
                 {groupedCatalog.map(([groupLabel, entries]) => (
                   <section key={groupLabel} id={`chart-group-${slug(groupLabel)}`} className="scroll-mt-2">
@@ -539,6 +567,7 @@ export default function DashboardCustomizeChrome({
                         // "Đã thêm" phải tính cả trạng thái hiện/ẩn: widget mặc định ẩn vẫn nằm
                         // trong danh sách, coi nó là đã thêm thì bấm vào không có gì xảy ra.
                         const isAdded = widgets.some(w => w.i === template.i && w.visible)
+                        const isRecommended = recommendedIds?.has(template.i) ?? false
                         return (
                           <button
                             key={template.i}
@@ -564,7 +593,14 @@ export default function DashboardCustomizeChrome({
                                 : preview ? <ChartTypePreview shape={preview} /> : icon}
                             </div>
                             <div className="flex-1 min-w-0">
-                              <p className="font-semibold text-sm text-[var(--color-foreground)]">{template.title}</p>
+                              <p className="font-semibold text-sm text-[var(--color-foreground)] flex flex-wrap items-center gap-x-2 gap-y-1">
+                                <span>{template.title}</span>
+                                {isRecommended && (
+                                  <span className="inline-flex items-center gap-1 rounded-full bg-[var(--color-primary-soft)] px-2 py-0.5 text-[11px] font-medium text-[var(--color-primary)]">
+                                    <Sparkles size={11} aria-hidden="true" /> Gợi ý cho bạn
+                                  </span>
+                                )}
+                              </p>
                               {description && <p className="text-xs text-[var(--color-muted-foreground)] mt-0.5 leading-relaxed">{description}</p>}
                               {/* Nói rõ bấm lần nữa sẽ gỡ, để trạng thái "đã chọn" không thành ngõ cụt */}
                               <p className={cn(

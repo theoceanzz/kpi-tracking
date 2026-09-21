@@ -25,13 +25,15 @@ import { SortHeader } from '@/components/common/SortHeader'
 import { ChartWrapper, type DashboardWidget } from '@/components/common/dashboard/ChartWrapper'
 import DashboardCustomizeChrome, { DashboardEditToolbar } from '@/components/common/dashboard/DashboardCustomizeChrome'
 import {
-  useAnalyticsGrid, useAnalyticsScopeData, widgetFilter, widgetVariant, tableViewControl, optionOf, PAGE_DEFAULT_INTENT,
+  useAnalyticsGrid, useAnalyticsScopeData, usePositionLayout, widgetFilter, widgetVariant, tableViewControl, optionOf,
+  PAGE_DEFAULT_INTENT,
   type OptionField,
 } from '../grid/analyticsGrid'
 import { usePinToHome } from '../grid/usePinToHome'
 import WidgetConfigPanel from '../grid/WidgetConfigPanel'
 import WidgetConfigSummary from '../grid/WidgetConfigSummary'
 import { MyObjectiveMetrics } from '../components/pinned/metricWidgets'
+import type { ViewerPosition } from '@/features/dashboard/hooks/useViewerPosition'
 
 import { format } from 'date-fns'
 
@@ -58,6 +60,14 @@ const DEFAULT_WIDGETS: DashboardWidget[] = [
   { i: 'myobj-trend', type: 'MYOBJ_TREND', title: 'Xu hướng KPI theo thời gian', x: 0, y: 4, w: 12, h: 15, visible: true },
   { i: 'myobj-detail', type: 'MYOBJ_DETAIL', title: 'KPI đang đảm nhiệm', x: 0, y: 19, w: 12, h: 18, visible: true },
 ]
+
+/** Ô nào hiện mặc định cho ai: quản lý chỉ cần số liệu và danh sách, nhân viên có thêm xu hướng. */
+const POSITION_LAYOUT: Record<ViewerPosition, readonly string[]> = {
+  DIRECTOR: ['myobj-metrics', 'myobj-detail'],
+  HEAD: ['myobj-metrics', 'myobj-detail'],
+  DEPUTY: ['myobj-metrics', 'myobj-detail'],
+  STAFF: ['myobj-metrics', 'myobj-detail', 'myobj-trend'],
+}
 const CATALOG = DEFAULT_WIDGETS.map(t => ({
   template: t,
   icon: null,
@@ -77,9 +87,10 @@ export default function MyObjectivesTab() {
   // hằng số cho ô chưa đặt gì.
   const pageIntent = PAGE_DEFAULT_INTENT
   const pin = usePinToHome()
+  const grid = usePositionLayout(DEFAULT_WIDGETS, POSITION_LAYOUT, 'STAFF')
   const dash = useAnalyticsGrid({
     scope: 'ANALYTICS_MY_OBJECTIVES',
-    defaultWidgets: DEFAULT_WIDGETS,
+    defaultWidgets: grid.defaultWidgets,
     legacyReportName: LEGACY_REPORT_NAME,
   })
   /** Khoảng của một ô cụ thể: riêng nếu đã đặt, không thì theo mặc định. */
@@ -316,6 +327,9 @@ export default function MyObjectivesTab() {
           api={dash}
           renderWidget={renderWidget}
           catalog={CATALOG}
+          presets={grid.presets}
+          recommendedIds={grid.recommendedIds}
+          recommendedLabel={grid.recommendedLabel}
           onTogglePin={pin.enabled ? pin.toggle : undefined}
           isPinned={pin.isPinned}
           renderConfig={(w, update) => (

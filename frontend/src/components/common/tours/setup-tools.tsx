@@ -646,7 +646,7 @@ const setupToolsTours: Record<TourKey, TourDef> = {
         content: (
           <p>
             Điểm theo từng hạng mục, radar cân bằng và phần đối chiếu BSC với điểm hệ thống nằm ở
-            <strong> Phân tích › Hạng mục (BSC)</strong>.
+            <strong> Thống kê › Thẻ điểm BSC</strong>.
           </p>
         ),
         placement: 'top',

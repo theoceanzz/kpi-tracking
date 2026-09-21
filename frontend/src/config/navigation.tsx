@@ -87,6 +87,11 @@ export interface NavItem {
   group?: string
   /** Mô tả ngắn hiện trên thẻ ở màn hình chọn mục. */
   description?: string
+  /**
+   * Mục này dành cho ai — hiện thành dòng "Dành cho: …" trên thẻ. Dùng khi một trang có nhiều
+   * mục nghe na ná nhau (Thống kê): người dùng cần biết mục nào là của mình trước khi bấm vào.
+   */
+  audience?: string
   /** Sáng cả khi đang ở route con (ví dụ /bsc sáng khi đứng ở /bsc/dashboard). */
   matchPrefix?: boolean
   okrOnly?: boolean
@@ -244,18 +249,24 @@ export const navItems: NavItem[] = [
       // Cặp OKR và cặp KPI loại trừ nhau theo cờ `enableOkr` của tổ chức, nên cụm này
       // thực tế chỉ hiện tối đa hai mục. Việc chọn cặp nào do trang quyết định qua
       // `visible` — cây nav không có cờ "chỉ khi TẮT OKR" để diễn đạt vế còn lại.
-      // Nhóm theo CÂU HỎI người dùng mang tới: của tôi → đơn vị tôi phụ trách / so với các đơn vị
-      // khác → toàn tổ chức. Thanh tab con chỉ hiện các mục cùng nhóm, nên "So sánh các đơn vị"
-      // đứng cạnh "KPI đơn vị tôi phụ trách": đơn vị mình thế nào, rồi so với đơn vị khác.
-      { id: 'my-objectives', label: 'Mục tiêu của tôi', icon: <Target size={18} />, okrOnly: true, group: 'Của tôi', description: 'Mục tiêu và kết quả then chốt của bạn' },
-      { id: 'my', label: 'KPI của tôi', icon: <TrendingUp size={18} />, group: 'Của tôi', description: 'Tiến độ và điểm KPI của riêng bạn' },
-      { id: 'subordinate', label: 'Mục tiêu đơn vị tôi phụ trách', icon: <Users size={18} />, okrOnly: true, permission: ['KPI:VIEW', 'SUBMISSION:REVIEW'], group: 'Đơn vị', description: 'Mục tiêu của đơn vị và từng nhân sự bạn quản lý' },
-      { id: 'summary', label: 'KPI đơn vị tôi phụ trách', icon: <LayoutDashboard size={18} />, permission: ['KPI:VIEW', 'SUBMISSION:REVIEW'], group: 'Đơn vị', description: 'Tổng hợp KPI của đơn vị bạn quản lý' },
-      { id: 'drilldown', label: 'So sánh các đơn vị', icon: <Building2 size={18} />, group: 'Đơn vị', description: 'Đi từ toàn công ty xuống từng phòng, từng người' },
+      //
+      // Mỗi mục trả lời MỘT câu hỏi khác nhau và chữ đầu của nhãn khác nhau (Kết quả / Đơn vị /
+      // So sánh / Thẻ điểm): tên na ná nhau ("KPI của tôi" cạnh "KPI đơn vị…") từng làm người
+      // dùng tưởng mục nào cũng phải xem. `audience` nói thẳng mục đó dành cho ai. Thanh tab con
+      // chỉ hiện các mục cùng nhóm, nên "So sánh giữa các đơn vị" đứng cạnh "Đơn vị tôi quản lý":
+      // đơn vị mình thế nào, rồi so với đơn vị khác.
+      //
+      // Hai mục cá nhân gác bằng SUBMISSION:CREATE: chỉ người NỘP báo cáo mới có kết quả riêng để
+      // xem; sếp giao chỉ tiêu mà không nộp thì không có gì ở đây ngoài một trang trống.
+      { id: 'my-objectives', label: 'Mục tiêu của tôi', icon: <Target size={18} />, okrOnly: true, permission: 'SUBMISSION:CREATE', group: 'Cá nhân', description: 'Mục tiêu và kết quả then chốt bạn đang nhận, tiến độ từng cái', audience: 'Người nộp báo cáo' },
+      { id: 'my', label: 'Kết quả của tôi', icon: <TrendingUp size={18} />, permission: 'SUBMISSION:CREATE', group: 'Cá nhân', description: 'KPI bạn được giao, bài đã nộp và điểm được chấm, chỉ dữ liệu của riêng bạn', audience: 'Người nộp báo cáo' },
+      { id: 'subordinate', label: 'Mục tiêu đơn vị tôi quản lý', icon: <Users size={18} />, okrOnly: true, permission: ['KPI:VIEW', 'SUBMISSION:REVIEW'], group: 'Đơn vị', description: 'Mục tiêu (OKR) của đơn vị và từng nhân sự bạn quản lý', audience: 'Trưởng/phó đơn vị, ban giám đốc' },
+      { id: 'summary', label: 'Đơn vị tôi quản lý', icon: <LayoutDashboard size={18} />, permission: ['KPI:VIEW', 'SUBMISSION:REVIEW'], group: 'Đơn vị', description: 'Cả đơn vị bạn phụ trách đang ở đâu: chỉ số chung, xu hướng, xếp hạng nhân sự', audience: 'Trưởng/phó đơn vị, ban giám đốc' },
+      { id: 'drilldown', label: 'So sánh giữa các đơn vị', icon: <Building2 size={18} />, group: 'Đơn vị', description: 'Đặt các đơn vị cạnh nhau: xếp loại, ma trận, phân rã KPI, đi từ công ty xuống từng phòng', audience: 'Ban giám đốc, trưởng đơn vị có đơn vị con' },
       // `labelKey` riêng vì `id: 'bsc'` trùng với mục "Quản lý BSC" bên Thiết lập công cụ.
       // Khoá lưu nhãn mặc định lấy theo id ⇒ hai mục dùng CHUNG một nhãn tuỳ chỉnh, đổi
       // tên mục này là đổi luôn mục kia. Giữ nguyên id để `?section=bsc` không đổi.
-      { id: 'bsc', labelKey: 'analytics-bsc', label: 'Hạng mục BSC', icon: <Gauge size={18} />, permission: 'BSC:MANAGE', bscOnly: true, group: 'Toàn tổ chức', description: 'Kết quả theo từng hạng mục của bộ tiêu chí' },
+      { id: 'bsc', labelKey: 'analytics-bsc', label: 'Thẻ điểm BSC', icon: <Gauge size={18} />, permission: 'BSC:MANAGE', bscOnly: true, group: 'Toàn công ty', description: 'Công ty có đi đúng chiến lược không: mức đạt thẻ điểm, hạng mục chặn, độ phủ phân rã', audience: 'Ban giám đốc' },
     ],
   },
   // Không gác quyền: phần "Hiển thị của tôi" trong trang này dành cho mọi người, còn phần

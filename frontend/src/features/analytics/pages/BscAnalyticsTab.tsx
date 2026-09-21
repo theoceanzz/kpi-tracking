@@ -7,15 +7,16 @@ import {
 import { ChartWrapper, type DashboardWidget } from '@/components/common/dashboard/ChartWrapper'
 import DashboardCustomizeChrome, { DashboardEditToolbar } from '@/components/common/dashboard/DashboardCustomizeChrome'
 import {
-  useAnalyticsGrid, useAnalyticsScopeData, useUnitOptions, widgetFilter, widgetUnit, widgetVariant,
+  useAnalyticsGrid, useAnalyticsScopeData, useUnitOptions, usePositionLayout, widgetFilter, widgetUnit, widgetVariant,
   tableViewControl, optionOf, PAGE_DEFAULT_INTENT,
 } from '../grid/analyticsGrid'
 import { usePinToHome } from '../grid/usePinToHome'
 import WidgetConfigPanel from '../grid/WidgetConfigPanel'
 import WidgetConfigSummary from '../grid/WidgetConfigSummary'
+import type { ViewerPosition } from '@/features/dashboard/hooks/useViewerPosition'
 
 /**
- * Tab "Hạng mục BSC": tổng quan cho người quản lý theo mô hình THẺ ĐIỂM — cây Công ty → Đơn vị,
+ * Tab "Thẻ điểm BSC": tổng quan cho người quản lý theo mô hình THẺ ĐIỂM — cây Công ty → Đơn vị,
  * kết quả đợt, phân rã chỉ tiêu, hạng mục chặn.
  *
  * <p>Mỗi ô tự mang đơn vị và khoảng thời gian trong bảng cấu hình như các tab khác; ô "một đợt"
@@ -33,6 +34,15 @@ const DEFAULT_WIDGETS: DashboardWidget[] = [
   // Ẩn mặc định: điểm đánh giá cá nhân, có ích khi cần xem ai kéo điểm BSC của đơn vị.
   { i: 'bsc-ranking', type: 'BSC_RANKING', title: 'Xếp hạng nhân sự theo điểm BSC', x: 0, y: 38, w: 12, h: 14, visible: false },
 ]
+
+/**
+ * Tab này gác bằng BSC:MANAGE nên gần như chỉ ban giám đốc mở; ai mở cũng cần trọn thẻ điểm.
+ * Khai đủ bốn vị trí để cùng khuôn với các tab khác — bộ y hệt nhau thì thư viện gộp thành một nút.
+ */
+const BSC_SET = ['bsc-overview', 'bsc-units', 'bsc-gates', 'bsc-items', 'bsc-trend', 'bsc-cascade'] as const
+const POSITION_LAYOUT: Record<ViewerPosition, readonly string[]> = {
+  DIRECTOR: BSC_SET, HEAD: BSC_SET, DEPUTY: BSC_SET, STAFF: BSC_SET,
+}
 
 const GROUP_OF: Record<string, string> = {
   'bsc-overview': 'Số liệu',
@@ -71,7 +81,8 @@ export default function BscAnalyticsTab() {
   // Không còn bộ lọc cấp trang: đơn vị lẫn khoảng thời gian đều nằm trong cài đặt từng ô.
   const pageIntent = PAGE_DEFAULT_INTENT
   const pin = usePinToHome()
-  const dash = useAnalyticsGrid({ scope: 'ANALYTICS_BSC', defaultWidgets: DEFAULT_WIDGETS })
+  const grid = usePositionLayout(DEFAULT_WIDGETS, POSITION_LAYOUT, 'DIRECTOR')
+  const dash = useAnalyticsGrid({ scope: 'ANALYTICS_BSC', defaultWidgets: grid.defaultWidgets })
 
   /*
     `useCallback` là bắt buộc chứ không phải tối ưu tuỳ hứng: lưới cache phần tử từng ô theo định
@@ -139,7 +150,7 @@ export default function BscAnalyticsTab() {
     <div className="space-y-6 pb-12">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <h2 className="text-xl font-semibold text-[var(--color-foreground)] flex items-center gap-2">
-          <Gauge size={20} className="text-slate-400" /> Hạng mục BSC
+          <Gauge size={20} className="text-slate-400" /> Thẻ điểm BSC
         </h2>
         <div id="tour-analytics-customize" className="flex items-center gap-3 flex-wrap">
           <DashboardEditToolbar api={dash} />
@@ -151,6 +162,9 @@ export default function BscAnalyticsTab() {
           api={dash}
           renderWidget={renderWidget}
           catalog={CATALOG}
+          presets={grid.presets}
+          recommendedIds={grid.recommendedIds}
+          recommendedLabel={grid.recommendedLabel}
           onTogglePin={pin.enabled ? pin.toggle : undefined}
           isPinned={pin.isPinned}
           renderConfig={(w, update) => (

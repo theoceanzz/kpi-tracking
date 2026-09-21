@@ -22,7 +22,7 @@ interface FilterEntry extends AnalyticsDateFilterValue {
 
 interface DashboardFilterValue extends Record<FilterScope, FilterEntry> {
   /**
-   * Đơn vị đang xem, dùng chung cho các widget của tab "Phân cấp" và tab "Hạng mục (BSC)".
+   * Đơn vị đang xem, dùng chung cho các widget của tab "So sánh giữa các đơn vị" và tab "Thẻ điểm BSC".
    *
    * <p>Bên Phân cấp việc chọn đơn vị do cây bên trái đảm nhiệm; trên trang chủ vai trò đó
    * thuộc về widget "Cây đơn vị". `undefined` = gốc phạm vi quyền của người dùng, đúng như

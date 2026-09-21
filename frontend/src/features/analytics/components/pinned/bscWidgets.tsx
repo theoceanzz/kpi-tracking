@@ -25,7 +25,7 @@ import type { BscScorecardStatus } from '@/features/bsc/types'
 import type { CoverageItemResponse } from '@/features/bsc/types'
 
 /**
- * Widget của tab "Hạng mục BSC", dùng ở cả tab lẫn trang chủ.
+ * Widget của tab "Thẻ điểm BSC", dùng ở cả tab lẫn trang chủ.
  *
  * <p>Tất cả dựng trên mô hình THẺ ĐIỂM (cây công ty → đơn vị, kết quả đợt, phân rã, hạng mục
  * chặn) — không phải trên điểm đánh giá cá nhân. Mỗi widget chỉ nhận `filter` rồi tự gọi đúng

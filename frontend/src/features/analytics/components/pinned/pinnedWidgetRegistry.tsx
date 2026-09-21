@@ -140,7 +140,7 @@ function PinnedRankTable({ filter }: { filter?: PinnedFilter }) {
 
 
 
-/* ── Bốn khối còn lại của tab "KPI của tôi" ─────────────────────────────── */
+/* ── Bốn khối còn lại của tab "Kết quả của tôi" ─────────────────────────── */
 
 /* ── Hàng thẻ chỉ số của bốn tab ────────────────────────────────────────── */
 const wrap = (C: ComponentType<{ filter?: PinnedFilter }>) =>
@@ -157,7 +157,7 @@ export const PINNED_REGISTRY: Record<string, ComponentType<{ filter?: PinnedFilt
   // Xu hướng (combo bar+line) — 4 tab
   'trend-chart': PinnedSummaryTrend,   // Tổng quan đơn vị
   'sub-trend': PinnedSubTrend,         // Mục tiêu cấp dưới
-  'mykpi-trend': PinnedMyKpiTrend,     // KPI của tôi
+  'mykpi-trend': PinnedMyKpiTrend,     // Kết quả của tôi
   'myobj-trend': PinnedMyObjTrend,     // Mục tiêu của tôi
   // Hiệu suất & tiến độ đơn vị
   'unit-perf': PinnedUnitPerf,
@@ -176,7 +176,7 @@ export const PINNED_REGISTRY: Record<string, ComponentType<{ filter?: PinnedFilt
   'mykpi-metrics': wrap(MyKpiMetrics),
   'myobj-metrics': wrap(MyObjectiveMetrics),
 
-  // Tab "So sánh các đơn vị"
+  // Tab "So sánh giữa các đơn vị"
   'drill-tree': wrap(DrillUnitTreeWidget),
   'drill-summary': wrap(DrillUnitSummaryWidget),
   'drill-classification': wrap(DrillClassificationWidget),
@@ -187,7 +187,7 @@ export const PINNED_REGISTRY: Record<string, ComponentType<{ filter?: PinnedFilt
   'drill-compare': wrap(DrillUnitCompareWidget),
   'drill-boxplot': wrap(DrillBoxplotWidget),
 
-  // Tab "Hạng mục BSC" (mô hình thẻ điểm)
+  // Tab "Thẻ điểm BSC" (mô hình thẻ điểm)
   'bsc-overview': wrap(BscOverviewMetrics),
   'bsc-units': wrap(BscUnitAttainmentWidget),
   'bsc-gates': wrap(BscGateWidget),

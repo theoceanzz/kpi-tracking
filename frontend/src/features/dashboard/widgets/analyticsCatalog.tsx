@@ -45,7 +45,7 @@ export interface OrgFlags {
 export interface ViewerScope {
   /** Có quyền xem số liệu cấp đơn vị không (`KPI:VIEW` hoặc `SUBMISSION:REVIEW`). */
   canViewUnit: boolean
-  /** Có quyền `BSC:MANAGE` không — cùng quyền mà cây nav đặt cho mục "Hạng mục (BSC)". */
+  /** Có quyền `BSC:MANAGE` không — cùng quyền mà cây nav đặt cho mục "Thẻ điểm BSC". */
   canManageBsc: boolean
 }
 
@@ -54,8 +54,8 @@ const GROUP = {
   unit: 'Đơn vị',
   personal: 'Cá nhân',
   risk: 'Rủi ro & xếp hạng',
-  drill: 'So sánh các đơn vị',
-  bsc: 'Hạng mục BSC',
+  drill: 'So sánh giữa các đơn vị',
+  bsc: 'Thẻ điểm BSC',
 } as const
 
 interface AnalyticsWidgetDef {
@@ -164,7 +164,7 @@ const ANALYTICS_WIDGETS: AnalyticsWidgetDef[] = [
     render: () => <TeamFocusWidget />,
   },
 
-  // ── Cá nhân · bản KPI (tổ chức TẮT OKR) — tab "KPI của tôi" ──
+  // ── Cá nhân · bản KPI (tổ chức TẮT OKR) — tab "Kết quả của tôi" ──
   {
     i: 'mykpi-todo', title: 'Công việc cần làm', groupLabel: GROUP.personal, okr: false, filterScope: 'personal',
     description: 'Chỉ tiêu đang chờ bạn trong đợt/kỳ đang chọn: bị từ chối, quá hạn, sắp đến hạn, chậm tiến độ — kèm nút xử lý.',
@@ -200,10 +200,10 @@ const ANALYTICS_WIDGETS: AnalyticsWidgetDef[] = [
     icon: <TrendingUp size={20} />, w: 12, h: 15,
   },
 
-  // ── So sánh các đơn vị — cây đơn vị + chi tiết đơn vị đang chọn (cùng component với tab) ──
+  // ── So sánh giữa các đơn vị — cây đơn vị + chi tiết đơn vị đang chọn (cùng component với tab) ──
   {
     i: 'drill-tree', title: 'Cây đơn vị', groupLabel: GROUP.drill,
-    description: 'Chọn đơn vị để mọi ô So sánh các đơn vị và Hạng mục BSC bám theo.',
+    description: 'Chọn đơn vị để mọi ô So sánh giữa các đơn vị và Thẻ điểm BSC bám theo.',
     icon: <Network size={20} />, w: 4, h: 20,
   },
   {
@@ -247,7 +247,7 @@ const ANALYTICS_WIDGETS: AnalyticsWidgetDef[] = [
     icon: <BarChart3 size={20} />, w: 12, h: 12,
   },
 
-  // ── Hạng mục BSC (cùng component với tab; mô hình thẻ điểm) ──
+  // ── Thẻ điểm BSC (cùng component với tab; mô hình thẻ điểm) ──
   {
     i: 'bsc-overview', title: 'Sức khoẻ BSC của đợt', groupLabel: GROUP.bsc, bsc: true,
     description: 'Mức đạt BSC của đợt, số thẻ điểm đơn vị, đơn vị qua cửa chặn, độ phủ phân rã.',
@@ -417,34 +417,34 @@ export function getAnalyticsPresets(flags: OrgFlags, scope: ViewerScope): Layout
   const raw: { key: string; label: string; description: string; ids: string[] }[] = [
     flags.enableOkr
       ? {
-          key: 'unit', label: 'Mục tiêu đơn vị',
-          description: 'Đúng nội dung mục "Mục tiêu đơn vị" bên Phân tích.',
+          key: 'unit', label: 'Mục tiêu đơn vị tôi quản lý',
+          description: 'Đúng nội dung mục "Mục tiêu đơn vị tôi quản lý" bên Thống kê.',
           ids: ['filter-unit', 'sub-metrics', 'sub-trend', 'sub-detail', 'sub-member', 'sub-unit-perf'],
         }
       : {
-          key: 'unit', label: 'KPI đơn vị',
-          description: 'Đúng nội dung mục "KPI đơn vị" bên Phân tích.',
+          key: 'unit', label: 'Đơn vị tôi quản lý',
+          description: 'Đúng nội dung mục "Đơn vị tôi quản lý" bên Thống kê.',
           ids: ['filter-unit', 'unit-kpi-metrics', 'trend-chart', 'unit-perf', 'member-dist', 'rank-table'],
         },
     flags.enableOkr
       ? {
           key: 'personal', label: 'Mục tiêu của tôi',
-          description: 'Mục "Mục tiêu của tôi" bên Phân tích, kèm ô việc cần làm.',
+          description: 'Mục "Mục tiêu của tôi" bên Thống kê, kèm ô việc cần làm.',
           ids: ['filter-personal', 'myobj-todo', 'myobj-metrics', 'myobj-trend'],
         }
       : {
-          key: 'personal', label: 'KPI của tôi',
-          description: 'Mục "KPI của tôi" bên Phân tích, kèm ô việc cần làm.',
+          key: 'personal', label: 'Kết quả của tôi',
+          description: 'Mục "Kết quả của tôi" bên Thống kê, kèm ô việc cần làm.',
           ids: ['filter-personal', 'mykpi-todo', 'mykpi-metrics', 'mykpi-trend'],
         },
     {
-      key: 'drill', label: 'Phân cấp',
-      description: 'Đúng nội dung mục "Phân cấp" bên Phân tích: cây đơn vị và chi tiết đơn vị.',
+      key: 'drill', label: 'So sánh giữa các đơn vị',
+      description: 'Đúng nội dung mục "So sánh giữa các đơn vị" bên Thống kê: cây đơn vị và chi tiết đơn vị.',
       ids: ['filter-unit', 'drill-tree', 'drill-summary', 'drill-classification', 'drill-employees', 'drill-matrix', 'drill-children', 'drill-compare'],
     },
     {
-      key: 'bsc', label: 'Hạng mục (BSC)',
-      description: 'Đúng nội dung mục "Hạng mục (BSC)" bên Phân tích.',
+      key: 'bsc', label: 'Thẻ điểm BSC',
+      description: 'Đúng nội dung mục "Thẻ điểm BSC" bên Thống kê.',
       ids: ['filter-unit', 'bsc-overview', 'bsc-units', 'bsc-gates', 'bsc-items', 'bsc-trend', 'bsc-cascade'],
     },
     {
