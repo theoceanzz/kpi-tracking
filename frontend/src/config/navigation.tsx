@@ -155,6 +155,11 @@ export const navItems: NavItem[] = [
           { id: 'email', label: 'Thiết lập email', icon: <Mail size={18} />, permission: 'COMPANY:UPDATE', group: 'Hệ thống' , description: 'Nội dung mẫu của các email hệ thống gửi đi' },
           { id: 'api', label: 'Thiết lập API', icon: <Link2 size={18} />, permission: 'COMPANY:UPDATE', group: 'Hệ thống' , description: 'Kết nối Lark và các tích hợp bên ngoài' },
           { id: 'ai-docs', label: 'Tài liệu trợ lý AI', icon: <BookOpen size={18} />, permission: 'COMPANY:UPDATE', group: 'Hệ thống' , description: 'Quy chế, mô tả công việc và chiến lược của công ty mà trợ lý AI dùng để trả lời và gợi ý KPI' },
+          // Từng là dòng sidebar riêng `/kpi-workflow` (nhãn "Luồng KPI") — `legacyKeys` giữ lại
+          // nhãn tổ chức đã đặt. Quyền là phép HOẶC: người cấu hình luồng (WORKFLOW:MANAGE) và
+          // quản trị công ty (COMPANY:UPDATE) đều thấy; thiếu WORKFLOW:MANAGE thì mục tự chuyển
+          // sang chỉ-xem.
+          { id: 'kpi-workflow', label: 'Thiết lập luồng xử lí', icon: <Workflow size={18} />, permission: ['WORKFLOW:MANAGE', 'COMPANY:UPDATE'], legacyKeys: ['/kpi-workflow'], group: 'Hệ thống' , description: 'Bật/tắt và sắp xếp các bước của luồng KPI mà tổ chức áp dụng' },
         ],
       },
       // Cùng cách gom như "Thiết lập công ty": cả bảng cấu hình lẫn các công cụ quản lý
@@ -269,10 +274,6 @@ export const navItems: NavItem[] = [
       { id: 'bsc', labelKey: 'analytics-bsc', label: 'Thẻ điểm BSC', icon: <Gauge size={18} />, permission: 'BSC:MANAGE', bscOnly: true, group: 'Toàn công ty', description: 'Công ty có đi đúng chiến lược không: mức đạt thẻ điểm, hạng mục chặn, độ phủ phân rã', audience: 'Ban giám đốc' },
     ],
   },
-  // Không gác quyền: phần "Hiển thị của tôi" trong trang này dành cho mọi người, còn phần
-  // cấu hình của tổ chức thì chính trang tự chuyển sang chế độ chỉ-xem khi thiếu
-  // WORKFLOW:MANAGE.
-  { id: 'kpi-workflow', label: 'Luồng KPI', path: '/kpi-workflow', icon: <Workflow size={20} />, end: true },
   { id: 'ai-assistant', label: 'K.AI', path: '/ai-assistant', icon: <Bot size={20} />, permission: 'DASHBOARD:VIEW', end: true, aiOnly: true },
 ]
 

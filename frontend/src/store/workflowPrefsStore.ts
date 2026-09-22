@@ -3,10 +3,8 @@ import { persist } from 'zustand/middleware'
 import type { WorkflowStageCode } from '@/features/kpi/workflow/types'
 
 interface UserWorkflowPrefs {
-  /** Các bước người này tự ẩn khỏi sidebar và thanh tiến trình CỦA HỌ. */
+  /** Các bước người này tự ẩn khỏi sidebar CỦA HỌ. */
   hiddenStages: WorkflowStageCode[]
-  /** Tắt hẳn thanh tiến trình cho gọn màn hình. */
-  hideRail: boolean
 }
 
 interface WorkflowPrefsState {
@@ -14,12 +12,10 @@ interface WorkflowPrefsState {
   byUser: Record<string, UserWorkflowPrefs>
   isHidden: (userId: string | undefined, stage: WorkflowStageCode) => boolean
   toggleStage: (userId: string, stage: WorkflowStageCode) => void
-  isRailHidden: (userId: string | undefined) => boolean
-  setRailHidden: (userId: string, hidden: boolean) => void
   reset: (userId: string) => void
 }
 
-const EMPTY: UserWorkflowPrefs = { hiddenStages: [], hideRail: false }
+const EMPTY: UserWorkflowPrefs = { hiddenStages: [] }
 
 /**
  * Thiết lập HIỂN THỊ luồng KPI của từng người — tầng cá nhân, tách hẳn khỏi cấu hình tổ chức.
@@ -49,17 +45,6 @@ export const useWorkflowPrefsStore = create<WorkflowPrefsState>()(
             ? current.hiddenStages.filter(s => s !== stage)
             : [...current.hiddenStages, stage]
           return { byUser: { ...state.byUser, [userId]: { ...current, hiddenStages } } }
-        }),
-
-      isRailHidden: userId => {
-        if (!userId) return false
-        return (get().byUser[userId] ?? EMPTY).hideRail
-      },
-
-      setRailHidden: (userId, hidden) =>
-        set(state => {
-          const current = state.byUser[userId] ?? EMPTY
-          return { byUser: { ...state.byUser, [userId]: { ...current, hideRail: hidden } } }
         }),
 
       reset: userId =>
