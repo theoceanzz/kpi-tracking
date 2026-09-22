@@ -315,6 +315,22 @@ class CompositeToolValidationTest {
     }
 
     @Test
+    @DisplayName("search(org_unit, 'công ty'): không có đơn vị tên vậy -> trả ĐƠN VỊ CỦA NGƯỜI HỎI kèm note, không phải 0 kết quả")
+    void wholeScopeAliasReturnsOwnUnit() {
+        SearchTool tool = new SearchTool(service, support);
+        UUID mine = UUID.fromString(String.valueOf(context.<Object>get("orgUnitId")));
+        Map<String, Object> me = new java.util.LinkedHashMap<>(Map.of("id", mine, "name", "Chi nhánh Hà Nội"));
+        Map<String, Object> other = new java.util.LinkedHashMap<>(Map.of("id", UUID.randomUUID(), "name", "Phòng IT"));
+        when(service.searchOrgUnits(any(), anyString(), anyInt())).thenReturn(List.of());
+        when(service.searchOrgUnits(any(), org.mockito.ArgumentMatchers.isNull(), anyInt())).thenReturn(List.of(other, me));
+
+        String json = tool.search(new SearchRequest("org_unit", "toàn công ty", null, null, null), context);
+
+        assertThat(json).contains("\"note\"").contains("KHÔNG hỏi lại").contains("Chi nhánh Hà Nội")
+                .contains("\"count\":1").doesNotContain("Phòng IT");
+    }
+
+    @Test
     @DisplayName("search: đường HỎI LÀM RÕ cũng phải ghi nhận là tool đã chạy")
     void ambiguousPathStillCountsAsToolCall() {
         // Trùng tên -> tool trả về danh sách để người dùng chọn. Đây là đường ra THỨ HAI, không đi

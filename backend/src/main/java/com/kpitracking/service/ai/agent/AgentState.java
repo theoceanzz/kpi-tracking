@@ -71,6 +71,14 @@ public class AgentState {
     private FormPatch formPatch;
 
     /**
+     * Ghi chú phạm vi cho lời gọi tool ĐANG chạy: người dùng nói "công ty / toàn tổ chức / đơn vị tôi"
+     * và {@code ToolSupport.resolveUnit} đã quy về đơn vị hiệu lực. {@code respond} nhặt và xoá — nhờ
+     * vậy model biết số liệu là của đơn vị nào thay vì gọi bừa là "công ty".
+     */
+    @Setter
+    private String scopeNote;
+
+    /**
      * Hành động GHI đang chờ người dùng xác nhận.
      *
      * <p>Cùng vai trò với {@link #formPatch}, khác ở chỗ sau khi xác nhận thì BACKEND thực thi chứ

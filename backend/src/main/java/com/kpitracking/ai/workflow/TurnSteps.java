@@ -320,7 +320,15 @@ public class TurnSteps {
     public void prepareRound(AgenticScope scope) {
         AiTurn turn = turnOf(scope);
         // Nhân viên không bao giờ được nới sang nhóm đọc của quản lý — dù model có xin.
-        if (turn.getAgentState().isWidenTools() && !turn.isStaff()) applyGroups(turn, new LinkedHashSet<>(toolRegistry.readGroups()));
+        if (turn.getAgentState().isWidenTools() && !turn.isStaff()) {
+            // NỚI là THÊM nhóm đọc vào nhóm đang có, không thay thế: lượt ACTION mà model xin "cần số
+            // liệu KPI để chốt đợt" rồi mất luôn tool chốt ở vòng sau -> "tôi không thể chốt" (đo được
+            // ở D14, 1/3 lần).
+            Set<Group> widened = new LinkedHashSet<>();
+            if (turn.getToolGroups() != null) widened.addAll(turn.getToolGroups());
+            widened.addAll(toolRegistry.readGroups());
+            applyGroups(turn, widened);
+        }
         turn.progress("MODEL", "Đang tra cứu dữ liệu");
     }
 

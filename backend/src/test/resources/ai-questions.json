@@ -38,7 +38,8 @@
     { "id": "A29", "q": "Chỉ tiêu \"Nâng mức hài lòng khách hàng toàn chi nhánh\" phân rã xuống những đơn vị nào?", "_note": "Seed: phân rã xuống Phòng IT và Phòng Truyền Thông (DECOMPOSITION), mỗi phòng uỷ quyền tiếp cho 2 team.", "tools": ["get_kpi"], "groups": ["KPI"], "expect": ["Phòng IT", "Truyền Thông"] },
     { "id": "A30", "q": "Ai đang được uỷ quyền quản lý thêm đơn vị nào trong chi nhánh?", "tools": ["get_delegations"], "groups": ["LOOKUP"], "expect": [] },
     { "id": "A31", "q": "Hạnh kiểm Phòng IT đợt vừa rồi thế nào, ai chưa tự chấm?", "_note": "Cần enable_conduct=true ở Demo Company (đo 18/09 sau khi bật tạm trong DB dev). Tổ chức tắt thì tool không được trao và câu này không đo được.", "tools": ["get_conduct"], "groups": ["CONDUCT"], "expect": [] },
-    { "id": "A32", "q": "Có đề xuất thưởng điểm nào đang chờ tôi duyệt không?", "_note": "Cần enable_reward=true (bật tạm khi đo). Seed không có đề xuất -> tool trả rỗng, câu trả lời phải nói không có, không bịa.", "tools": ["get_rewards"], "groups": ["REWARD"], "expect": ["không|Không|chưa"] }
+    { "id": "A32", "q": "Có đề xuất thưởng điểm nào đang chờ tôi duyệt không?", "_note": "Cần enable_reward=true (bật tạm khi đo). Seed không có đề xuất -> tool trả rỗng, câu trả lời phải nói không có, không bịa.", "tools": ["get_rewards"], "groups": ["REWARD"], "expect": ["không|Không|chưa"] },
+    { "id": "A33", "q": "Xem tổng quan hiệu suất công ty", "_note": "Đo được 22/09: model chuyển nguyên chữ 'Công ty' vào unitName rồi hỏi lại 'không tìm thấy đơn vị Công ty' — lạc ngữ cảnh. resolveUnit nay coi 'công ty / toàn tổ chức / đơn vị tôi' là phạm vi của người hỏi (đơn vị hiệu lực) khi không có đơn vị nào mang tên đó.", "tools": [], "toolsAny": [["get_analytics", "get_kpi", "get_people"]], "groups": [], "reject": ["không tìm thấy đơn vị", "trùng tên", "cho biết tên đầy đủ"], "expect": ["Hà Nội|Chi nhánh|hiệu suất|tiến độ"] }
   ],
 
   "groupB": [

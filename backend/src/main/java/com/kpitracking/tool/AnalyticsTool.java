@@ -57,8 +57,8 @@ public class AnalyticsTool {
             if (u.clarification() != null) return support.respond(context, "get_analytics", u.clarification());
 
             Object response = switch (view) {
-                case "dashboard" -> orgUnitStatisticService.getDashboardSummary(
-                        u.id(), support.getOrgId(context), request.startDate(), request.endDate());
+                case "dashboard" -> support.scoped(orgUnitStatisticService.getDashboardSummary(
+                        u.id(), support.getOrgId(context), request.startDate(), request.endDate()), u.id());
                 case "time_series" -> orgUnitStatisticService.getTimeSeries(
                         u.id(), request.metric(), request.granularity(), request.lookback());
                 case "risk" -> (List<Map<String, Object>>) orgUnitStatisticService.getKpiRiskAnalysis(

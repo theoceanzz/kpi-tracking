@@ -364,9 +364,9 @@ public class KpiTool {
                         u.id(), request.ownerId(), request.assignedById(), request.assignedToId(),
                         request.periodId(), request.status(), request.page(), request.size(),
                         request.sortBy(), request.sortDirection(), request.startDate(), request.endDate())
-                : orgUnitStatisticService.getKpiSummary(
+                : support.scoped(orgUnitStatisticService.getKpiSummary(
                         u.id(), request.ownerId(), request.assignedById(), request.assignedToId(),
-                        request.periodId(), request.status(), request.startDate(), request.endDate());
+                        request.periodId(), request.status(), request.startDate(), request.endDate()), u.id());
         return support.respond(context, "get_kpi", response);
     }
 }

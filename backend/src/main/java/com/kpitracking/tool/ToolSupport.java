@@ -409,9 +409,48 @@ public class ToolSupport {
                 validateSubtreeAccess(id, context);
                 return new UnitRef(id, null);
             }
+            // "công ty", "toàn tổ chức", "đơn vị tôi"… là cách người dùng gọi PHẠM VI CỦA MÌNH, không
+            // phải tên một đơn vị. Model hay chuyển nguyên chữ đó vào unitName; không có đơn vị nào
+            // mang tên ấy thì hỏi lại "không tìm thấy đơn vị 'Công ty'" là lạc ngữ cảnh (đo được ở câu
+            // "Xem tổng quan hiệu suất công ty"). Đơn vị thật trùng tên vẫn thắng — chỉ lùi khi rỗng.
+            if (pool.isEmpty() && isWholeScopeAlias(unitName)) {
+                UUID current = getOrgUnitId(context);
+                AgentState state = AgentState.from(context);
+                if (state != null) {
+                    String currentName = orgUnitRepository.findById(current).map(OrgUnit::getName).orElse(null);
+                    state.setScopeNote("'" + unitName.trim() + "' là cách gọi phạm vi của người dùng, không phải tên "
+                            + "đơn vị. Phạm vi cao nhất họ được xem là "
+                            + (currentName != null ? "đơn vị " + currentName : "đơn vị hiện tại")
+                            + " — số liệu dưới đây là của đơn vị đó. Trả lời luôn bằng số liệu này, nêu rõ tên đơn vị; "
+                            + "KHÔNG hỏi lại tên đơn vị.");
+                }
+                return new UnitRef(current, null);
+            }
             return new UnitRef(null, unitClarification(unitName.trim(), pool, context));
         }
         return new UnitRef(getOrgUnitId(context), null);
+    }
+
+    private static final java.util.Set<String> WHOLE_SCOPE_ALIASES = java.util.Set.of(
+            "công ty", "tổ chức", "doanh nghiệp", "đơn vị", "phòng ban", "tôi", "chúng tôi", "mình",
+            "toàn bộ", "tất cả", "hệ thống", "tổng công ty", "cty");
+
+    /**
+     * Tên có phải cách gọi "toàn phạm vi của tôi" không: bỏ các từ đệm (toàn / cả / của / này / hiện
+     * tại / tôi / chúng tôi / mình) rồi so với bảng trên. "Toàn công ty", "công ty của tôi", "đơn vị
+     * hiện tại", "tổ chức này" đều về cùng một chỗ: đơn vị hiệu lực của lượt.
+     */
+    static boolean isWholeScopeAlias(String name) {
+        String n = name.trim().toLowerCase(java.util.Locale.ROOT).replaceAll("\s+", " ");
+        String[] leading = {"toàn bộ ", "toàn ", "cả ", "của ", "trong "};
+        String[] trailing = {" của tôi", " của chúng tôi", " của mình", " hiện tại", " này", " tôi", " chúng tôi", " mình", " chúng ta"};
+        boolean changed = true;
+        while (changed) {
+            changed = false;
+            for (String l : leading) if (n.startsWith(l)) { n = n.substring(l.length()).trim(); changed = true; }
+            for (String t : trailing) if (n.endsWith(t)) { n = n.substring(0, n.length() - t.length()).trim(); changed = true; }
+        }
+        return WHOLE_SCOPE_ALIASES.contains(n);
     }
 
 
@@ -695,6 +734,42 @@ public class ToolSupport {
         if (state != null) state.recordSuccess(toolName);
     }
 
+    /**
+     * Đặt tên đơn vị lên ĐẦU một payload tổng hợp. Số liệu tổng hợp (summary, dashboard) vốn không
+     * mang tên đơn vị, nên model gọi bừa là "công ty" dù đang xem Phòng IT (đo được ở trưởng phòng hỏi
+     * "tổng quan hiệu suất công ty"). Payload không phải Map thì trả nguyên.
+     */
+    @SuppressWarnings("unchecked")
+    public Object scoped(Object payload, UUID unitId) {
+        if (!(payload instanceof Map<?, ?> map) || unitId == null) return payload;
+        String name = orgUnitRepository.findById(unitId).map(OrgUnit::getName).orElse(null);
+        if (name == null) return payload;
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("orgUnitName", name);
+        out.put("scope", "Số liệu của đơn vị " + name + " (gồm các đơn vị con) — phạm vi người dùng được xem. "
+                + "Nêu tên đơn vị này trong câu trả lời; không hỏi lại.");
+        out.putAll((Map<String, Object>) map);
+        return out;
+    }
+
+    /**
+     * Gắn ghi chú phạm vi (đặt bởi {@link #resolveUnit} khi người dùng nói "công ty"/"đơn vị tôi") vào
+     * đầu payload dạng Map, rồi xoá để không dính sang lời gọi sau. Payload không phải Map thì bỏ qua —
+     * đổi hình dạng JSON của tool chỉ vì một ghi chú là không đáng.
+     */
+    @SuppressWarnings("unchecked")
+    private static Object withScopeNote(InvocationParameters context, Object payload) {
+        AgentState state = AgentState.from(context);
+        if (state == null || state.getScopeNote() == null) return payload;
+        String note = state.getScopeNote();
+        state.setScopeNote(null);
+        if (!(payload instanceof Map<?, ?> map)) return payload;
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("scopeNote", note);
+        out.putAll((Map<String, Object>) map);
+        return out;
+    }
+
     public void armDisambiguation(String entityType, Set<UUID> ids, InvocationParameters context) {
         AgentState state = AgentState.from(context);
         if (state != null) state.arm(entityType, ids);
@@ -716,7 +791,7 @@ public class ToolSupport {
         // ...và nói cho người dùng biết trợ lý vừa xem cái gì; vòng gọi tool là quãng chờ dài nhất
         // của một lượt nên im lặng ở đây nhìn không khác gì treo máy.
         ToolProgress.announce(context, toolName);
-        String json = toolMapper.writeValueAsString(payload);
+        String json = toolMapper.writeValueAsString(withScopeNote(context, payload));
         String conversationId = getConversationId(context);
         if (conversationId != null) {
             followupContextStore.append(conversationId, toolName, json);

@@ -135,6 +135,17 @@ class TurnStepsTest {
         }
 
         @Test
+        @DisplayName("quản lý xin nới tool ở lượt ACTION -> THÊM nhóm đọc, vẫn giữ ACTION (mất tool ghi là mất luôn việc chốt)")
+        void wideningKeepsActionGroup() {
+            turn.setToolGroups(Set.of(Group.ACTION, Group.CORE));
+            turn.getAgentState().setWidenTools(true);
+
+            steps.prepareRound(scope);
+
+            assertThat(turn.getToolGroups()).contains(Group.ACTION, Group.KPI, Group.LOOKUP, Group.INSIGHT);
+        }
+
+        @Test
         @DisplayName("model xin nới tool -> nhân viên KHÔNG được nới sang nhóm đọc của quản lý")
         void staffIsNeverWidened() {
             turn.setStaff(true);
