@@ -98,6 +98,14 @@ public class CycleUnitEvaluation {
     @Builder.Default
     private CycleUnitEvalStatus status = CycleUnitEvalStatus.DRAFT;
 
+    /** Người bấm "chốt dữ liệu kỳ" (DRAFT → CALIBRATING) và thời điểm. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "calibrated_by")
+    private User calibratedBy;
+
+    @Column(name = "calibrated_at")
+    private Instant calibratedAt;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "finalized_by")
     private User finalizedBy;

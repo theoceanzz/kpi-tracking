@@ -1,6 +1,10 @@
-import { useMemo, useEffect, useRef } from 'react'
+import { useMemo, useEffect, useRef, useState } from 'react'
 import { Dialog, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { Switch } from '@/components/ui/switch'
+import { Checkbox } from '@/components/ui/checkbox'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { kpiSchema, type KpiFormData } from '../schemas/kpiSchema'
@@ -13,21 +17,26 @@ import { useFormAssistStore } from '@/store/formAssistStore'
 import { usePermission } from '@/hooks/usePermission'
 import { toast } from 'sonner'
 import { getApiErrorMessage } from '@/lib/apiError'
-import { FREQUENCY_MAP, cn, formatDateTime } from '@/lib/utils'
+import { FREQUENCY_MAP, cn, formatDateTime, formatNumber } from '@/lib/utils'
 import UserAvatar from '@/components/common/UserAvatar'
-import { Loader2, Check, Sparkles, Target, Users, LayoutGrid, SlidersHorizontal, BarChart3, RotateCcw, RefreshCw, SplitSquareHorizontal } from 'lucide-react'
+import {
+  Loader2, Check, Sparkles, Target, Users, LayoutGrid, SlidersHorizontal, BarChart3, RotateCcw, RefreshCw,
+  CalendarRange, AlertTriangle, Link2, Unlink, SplitSquareHorizontal,
+} from 'lucide-react'
 import type { KpiCriteria } from '@/types/kpi'
-import { useState } from 'react'
 import { useKpiPeriods } from '../hooks/useKpiPeriods'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { useObjectives } from '@/features/okr/hooks/useOkr'
-import { useBscPerspectives, useScorecards, useFixedPerspectives } from '@/features/bsc/hooks/useBsc'
+import { useBscPerspectives, useScorecards, useFixedPerspectives, useBscKpiPlan } from '@/features/bsc/hooks/useBsc'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Badge } from '@/components/ui/badge'
 import { DateTimePicker } from '@/components/common/DateTimePicker'
 import { scorecardsForPeriod } from '@/features/bsc/utils/scorecardScope'
 import { perspectiveHint } from '@/features/bsc/utils/perspectiveHint'
 import { ChoiceChip } from '@/components/ui/choice-chip'
+import { Section } from '@/components/common/ScoreForm'
+import { Field, Hint, SourceCard, Stat, ToggleCard } from './KpiFormParts'
+import type { BscKpiPlanResponse } from '@/features/bsc/types'
 
 interface KpiFormModalProps {
   open: boolean
@@ -36,40 +45,20 @@ interface KpiFormModalProps {
   parentKpi?: KpiCriteria | null
   parentRelationType?: 'DELEGATION' | 'DECOMPOSITION'
   /**
-   * Chuyển sang màn chia hạng mục BSC thành KPI theo đợt. Bỏ trống (hoặc org chưa bật BSC) thì
-   * nút không hiện — form này vẫn tạo được KPI thường như cũ.
-   */
-  onSplitFromBsc?: () => void
-  /**
    * `modal` (mặc định) giữ nguyên lớp phủ + tiêu đề + nút Hủy như hai trang đang dùng.
    * `inline` bỏ khung đó để nhúng thẳng vào một bước của trình thiết lập, nơi khung wizard đã lo
    * phần tiêu đề và điều hướng.
-   *
-   * Cố ý chỉ gỡ KHUNG chứ không tách file: 624 dòng trường nhập và 535 dòng logic chuẩn hoá
-   * payload, cảnh báo BSC/OKR, gợi ý AI đều dùng chung cho cả hai biến thể — chép ra bản thứ hai
-   * là chấp nhận chúng sẽ lệch nhau.
    */
   variant?: 'modal' | 'inline'
-  /** Gọi kèm chỉ tiêu vừa tạo. Trước đây thực thể này bị `onSuccess: ()` vứt đi. */
+  /** Gọi kèm chỉ tiêu vừa tạo. */
   onCreated?: (kpi: KpiCriteria) => void
   /** Tạo xong thì dọn form và Ở LẠI để thêm cái tiếp theo, thay vì đóng. */
   keepOpenAfterCreate?: boolean
   /** Nhãn nút xác nhận. Trong wizard là "Thêm chỉ tiêu". */
   submitLabel?: string
-  /**
-   * Báo ra ngoài đợt và đơn vị đang chọn, ngay khi người dùng vừa chọn.
-   *
-   * Trình thiết lập cần biết điều này TRƯỚC khi lưu chỉ tiêu đầu tiên: thẻ tổng trọng số bên phải
-   * phải nói được "đơn vị này, đợt này còn thiếu bao nhiêu %". Trước khi có nó, thẻ chỉ hiện 0%
-   * kèm "còn thiếu 100%" mà không nói của ai — đọc lên không hiểu đang nói về cái gì.
-   */
+  /** Báo ra ngoài đợt và đơn vị đang chọn, ngay khi người dùng vừa chọn. */
   onContextChange?: (ctx: { kpiPeriodId?: string; orgUnitIds: string[] }) => void
-  /**
-   * Khoá đợt: form dùng luôn giá trị này và hiện một thẻ chỉ-đọc thay cho ô chọn.
-   *
-   * Trong trình thiết lập, đợt đã được chọn ở bước ngay trước. Bày thêm một ô chọn nữa vừa thừa
-   * vừa mời gọi mâu thuẫn với thẻ "Đang lập cho" bên phải.
-   */
+  /** Khoá đợt: form dùng luôn giá trị này và hiện một thẻ chỉ-đọc thay cho ô chọn. */
   lockedPeriodId?: string
   /** Đơn vị tích sẵn khi mở form — thường là đơn vị người dùng đang trực thuộc. */
   defaultOrgUnitIds?: string[]
@@ -84,10 +73,18 @@ const frequencyOptions = (['DAILY', 'WEEKLY', 'MONTHLY', 'QUARTERLY', 'SEMI_ANNU
   label: FREQUENCY_MAP[value]
 }))
 
+const TYPE_LEVEL: Record<string, number> = {
+  UNLIMITED: 0, DAILY: 1, WEEKLY: 2, MONTHLY: 3, QUARTERLY: 4, SEMI_ANNUALLY: 5, YEARLY: 6,
+}
+
+const NONE = '00000000-0000-0000-0000-000000000000'
+
 // Empty numeric inputs must become `undefined`, not NaN — otherwise hidden fields
 // (e.g. target/minimum on the qualitative tab) keep a NaN value and fail zod validation.
 const numOrUndef = (v: unknown) =>
   v === '' || v === null || v === undefined ? undefined : Number(v)
+
+const round2 = (v: number) => Math.round(v * 100) / 100
 
 function toDatetimeLocal(value?: string | null): string | undefined {
   if (!value) return undefined
@@ -97,9 +94,37 @@ function toDatetimeLocal(value?: string | null): string | undefined {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`
 }
 
+/** Nguồn của chỉ tiêu: tự do, một hạng mục BSC, hay một kết quả then chốt của OKR. */
+type Source = 'FREE' | 'BSC' | 'OKR'
 
+/** Một dòng khi chia hạng mục BSC ra từng đợt của kỳ. */
+interface SplitRow {
+  kpiPeriodId: string
+  periodName: string
+  selected: boolean
+  name: string
+  targetValue?: number
+  minimumValue?: number
+  weight?: number
+  /** Trọng số hạng mục đã có KPI khác chiếm trong đợt này. */
+  allocatedWeight: number
+  kpiCount: number
+}
+
+/**
+ * Form tạo / sửa chỉ tiêu, xếp theo CHIỀU PHỤ THUỘC của dữ liệu:
+ *
+ *   ① Bối cảnh  — đợt, đơn vị, người nhận: quyết định bộ tiêu chí BSC / OKR nào áp dụng.
+ *   ② Nguồn     — tự do / hạng mục BSC / KR: chọn xong thì ĐIỀN SẴN mục tiêu, đơn vị tính,
+ *                 trọng số còn trống của hạng mục, tên gợi ý. Hạng mục trải nhiều đợt thì chia
+ *                 luôn tại đây (gộp từ BscKpiSplitModal cũ).
+ *   ③ Nội dung  — tên, mô tả, con số: sửa vượt số nguồn thì CẢNH BÁO, không chặn.
+ *
+ * Bản cũ để tên và con số ở trên cùng, hạng mục BSC / KR ở dưới cùng: gõ 100 triệu xong mới
+ * thấy hạng mục chỉ có 80, lại kéo lên sửa.
+ */
 export default function KpiFormModal({
-  open, onClose, editKpi, parentKpi, parentRelationType, onSplitFromBsc,
+  open, onClose, editKpi, parentKpi, parentRelationType,
   variant = 'modal', onCreated, keepOpenAfterCreate = false, submitLabel, onContextChange,
   lockedPeriodId, defaultOrgUnitIds, compactOrgUnits = false, singleOrgUnit = false,
 }: KpiFormModalProps) {
@@ -117,7 +142,6 @@ export default function KpiFormModal({
   const organizationId = user?.memberships?.[0]?.organizationId
   const { data: org } = useOrganization(organizationId)
   const { data: periodsData } = useKpiPeriods({ organizationId })
-  
   const enableOkr = org?.enableOkr
   const { data: objectives } = useObjectives(enableOkr ? organizationId : undefined)
 
@@ -139,31 +163,20 @@ export default function KpiFormModal({
     return keys.map(k => ({ code: k, name: nameByCode.get(k as any) || k, items: groups[k]! }))
   }, [perspectives, fixedPerspectives])
 
-  // Flatten tree for dropdown
   const flattenTree = (nodes: any[], level = 0): any[] => {
     let result: any[] = []
     nodes.forEach(node => {
       result.push({ ...node, levelLabel: '—'.repeat(level) + (level > 0 ? ' ' : '') + node.name })
-      if (node.children?.length) {
-        result = result.concat(flattenTree(node.children, level + 1))
-      }
+      if (node.children?.length) result = result.concat(flattenTree(node.children, level + 1))
     })
     return result
   }
 
-  const flatOrgUnits = useMemo(() => {
-    if (!orgUnitTreeData) return []
-    // Giữ CẢ nút gốc. Trước đây lọc `parentId !== null` với lý do "gốc thường là tổ chức", nhưng
-    // backend không luôn trả cây toàn tổ chức: `OrgUnitService.getOrgUnitTree` cắt theo quyền —
-    // ai chỉ có ORG:VIEW_TREE thì nhận về đơn vị CỦA CHÍNH HỌ làm gốc kèm cấp dưới. Lọc gốc đi
-    // nghĩa là trưởng đơn vị không bao giờ giao được KPI cho đơn vị mình, và nếu đơn vị đó lỡ
-    // được chọn sẵn thì nó thành một lựa chọn vô hình không gỡ ra được.
-    //
-    // `flattenTree` đánh cấp bằng số gạch đầu dòng nên gốc tự phân biệt: nó không có gạch nào.
-    return flattenTree(orgUnitTreeData)
-  }, [orgUnitTreeData])
+  // Giữ CẢ nút gốc: backend cắt cây theo quyền, ai chỉ có ORG:VIEW_TREE thì nhận đơn vị của
+  // chính họ làm gốc — lọc gốc đi là trưởng đơn vị không giao được KPI cho đơn vị mình.
+  const flatOrgUnits = useMemo(() => (orgUnitTreeData ? flattenTree(orgUnitTreeData) : []), [orgUnitTreeData])
 
-  /** Phần `defaultOrgUnitIds` thật sự chọn được — xem ghi chú ở chỗ dùng trong effect khởi tạo. */
+  /** Phần `defaultOrgUnitIds` thật sự chọn được. */
   const selectableDefaultUnitIds = useMemo(
     () => (defaultOrgUnitIds ?? []).filter(id => flatOrgUnits.some(u => u.id === id)),
     [defaultOrgUnitIds, flatOrgUnits],
@@ -172,25 +185,12 @@ export default function KpiFormModal({
   const { register, handleSubmit, formState: { errors }, reset, watch, setValue, control, getValues } = useForm<KpiFormData>({
     resolver: zodResolver(kpiSchema),
     defaultValues: {
-      kpiType: 'QUANTITATIVE',
-      name: '',
-      description: '',
-      weight: undefined,
-      targetValue: undefined,
-      minimumValue: undefined,
-      isReverseKpi: false,
-      isBonusKpi: false,
-      deadline: undefined,
-      unit: '',
-      frequency: 'MONTHLY',
-      assignedToIds: [],
-      kpiPeriodId: lockedPeriodId ?? '',
-      keyResultId: null,
-      parentId: null,
-      parentRelationType: null,
-      perspectiveId: null,
-      orgUnitIds: selectableDefaultUnitIds,
-      orgUnitId: '',
+      kpiType: 'QUANTITATIVE', name: '', description: '',
+      weight: undefined, targetValue: undefined, minimumValue: undefined,
+      isReverseKpi: false, isBonusKpi: false, deadline: undefined, unit: '',
+      frequency: 'MONTHLY', assignedToIds: [], kpiPeriodId: lockedPeriodId ?? '',
+      keyResultId: null, parentId: null, parentRelationType: null, perspectiveId: null,
+      orgUnitIds: selectableDefaultUnitIds, orgUnitId: '',
     },
   })
 
@@ -198,27 +198,24 @@ export default function KpiFormModal({
   const periodHasScorecard = scorecardsForPeriod(bscScorecards, formKpiPeriodId).length > 0
   const formOrgUnitIds = watch('orgUnitIds') || []
   const [selectedRole, setSelectedRole] = useState<string>('ALL')
-  /** Chỉ dùng ở chế độ thu gọn: danh sách đơn vị đang bung ra hay không. */
   const [orgUnitsExpanded, setOrgUnitsExpanded] = useState(false)
 
-  // Đẩy bối cảnh đang chọn ra ngoài. Nối chuỗi id để so sánh: `watch('orgUnitIds')` trả về mảng
-  // MỚI mỗi lần render, đưa thẳng vào deps thì effect chạy vô hạn.
+  // Nguồn chỉ tiêu và chế độ chia theo đợt — trạng thái giao diện, không nằm trong payload.
+  const [source, setSource] = useState<Source>('FREE')
+  const [splitMode, setSplitMode] = useState(false)
+  const [splitRows, setSplitRows] = useState<SplitRow[]>([])
+  /** Giá trị các ô đã ĐIỀN SẴN từ nguồn — chỉ ghi đè lại những ô người dùng chưa sửa tay. */
+  const prefilledRef = useRef<Partial<Record<'name' | 'unit' | 'targetValue' | 'minimumValue' | 'weight', unknown>>>({})
+
+  // Đẩy bối cảnh ra ngoài. Nối chuỗi id để so sánh: `watch('orgUnitIds')` trả về mảng mới mỗi render.
   const contextKey = `${formKpiPeriodId ?? ''}|${formOrgUnitIds.join(',')}`
   useEffect(() => {
     const [periodPart, unitsPart] = contextKey.split('|')
-    onContextChange?.({
-      kpiPeriodId: periodPart || undefined,
-      orgUnitIds: unitsPart ? unitsPart.split(',') : [],
-    })
+    onContextChange?.({ kpiPeriodId: periodPart || undefined, orgUnitIds: unitsPart ? unitsPart.split(',') : [] })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [contextKey])
-  /** Ô đang thật sự sửa được, cho trợ lý AI. Cập nhật bằng effect riêng — các điều kiện dưới
-   *  đây khai báo SAU chỗ đăng ký nên không đưa thẳng vào deps được (lỗi vùng chết). */
-  const fillableRef = useRef<string[]>([])
 
-  // Giới thiệu form này với trợ lý AI trong lúc nó đang mở, để người dùng nhờ điền hộ được.
-  // Truyền HÀM đọc/ghi chứ không truyền dữ liệu: giá trị chỉ cần đúng tại thời điểm gửi câu hỏi,
-  // đẩy vào store theo từng ký tự sẽ làm mọi thành phần nghe store vẽ lại liên tục.
+  const fillableRef = useRef<string[]>([])
   useEffect(() => {
     if (!open) return
     const { register: registerForm, unregister } = useFormAssistStore.getState()
@@ -235,18 +232,13 @@ export default function KpiFormModal({
   const kpiType = watch('kpiType')
   const isQualitative = kpiType === 'QUALITATIVE'
   const enableQualitative = org?.enableQualitative
-  // Show the type switcher only for standalone new KPIs when the org enabled qualitative.
-  // Child KPIs (parentKpi) and edits keep their fixed type.
   const showTypeTabs = enableQualitative && !parentKpi && !isEdit
 
-  // Synchronize form values only when modal opens
+  // Khởi tạo form mỗi lần mở.
   useEffect(() => {
     if (!open) {
-      setUserSearch('')
-      setSelectedRole('ALL')
-      setAiSuggestions([])
-      setAppliedIdx(null)
-      setBeforeApply(null)
+      setUserSearch(''); setSelectedRole('ALL'); setAiSuggestions([]); setAppliedIdx(null); setBeforeApply(null)
+      setSplitMode(false); setSplitRows([]); prefilledRef.current = {}
       return
     }
 
@@ -271,210 +263,151 @@ export default function KpiFormModal({
         parentId: editKpi.parentId ?? null,
         perspectiveId: editKpi.perspectiveId ?? null,
       })
+      setSource(editKpi.keyResultId ? 'OKR' : editKpi.perspectiveId ? 'BSC' : 'FREE')
     } else {
       const defaultOrgUnitId = user?.memberships?.[0]?.orgUnitId || ''
       const effectiveRelationType = parentKpi ? (parentRelationType ?? 'DECOMPOSITION') : null
       const isDecomposition = effectiveRelationType === 'DECOMPOSITION'
       const remainingWeight = parentKpi ? Math.max(0, (parentKpi.weight ?? 0) - (parentKpi.childrenWeightTotal ?? 0)) : undefined
       reset({
-        // Child KPIs inherit the parent's type; standalone new KPIs default to quantitative.
         kpiType: parentKpi?.kpiType ?? 'QUANTITATIVE',
         name: parentKpi ? `[${parentKpi.name}] ` : '',
         description: '',
         weight: isDecomposition ? remainingWeight : undefined,
-        targetValue: undefined,
-        minimumValue: undefined,
-        isReverseKpi: false,
-        isBonusKpi: false,
-        deadline: undefined,
+        targetValue: undefined, minimumValue: undefined,
+        isReverseKpi: false, isBonusKpi: false, deadline: undefined,
         unit: parentKpi?.unit ?? '',
         frequency: 'MONTHLY',
-        // Prop đứng TRƯỚC mọi mặc định khác: effect này chạy ngay khi form mở và ghi đè lên
-        // `defaultValues`, nên nếu không ưu tiên ở đây thì đợt/đơn vị mà trình thiết lập truyền
-        // vào sẽ bị xoá — form hiện đúng tên đợt (đọc từ prop) nhưng zod vẫn báo thiếu vì
-        // form state rỗng.
         kpiPeriodId: lockedPeriodId ?? parentKpi?.kpiPeriodId ?? '',
         keyResultId: null,
         parentId: parentKpi?.id ?? null,
         parentRelationType: effectiveRelationType,
         perspectiveId: parentKpi?.perspectiveId ?? null,
-        // Chỉ nhận đơn vị THẬT SỰ có trong danh sách. Chọn sẵn một đơn vị không hiện ra được sẽ
-        // tạo lựa chọn vô hình mà người dùng không gỡ nổi — đúng lớp lỗi vừa gặp khi nút gốc còn
-        // bị lọc đi. Lọc rỗng thì lui về mặc định cũ.
         orgUnitIds: selectableDefaultUnitIds.length > 0
           ? selectableDefaultUnitIds
           : (canAssignRoles ? [] : (defaultOrgUnitId ? [defaultOrgUnitId] : [])),
         orgUnitId: parentKpi?.orgUnitId ?? defaultOrgUnitId,
         assignedToIds: isDecomposition ? (parentKpi?.assigneeIds ?? []) : (isStaff ? ([user?.id].filter(Boolean) as string[]) : [])
       })
+      setSource(parentKpi?.perspectiveId ? 'BSC' : 'FREE')
     }
   }, [open, reset, editKpi, flatOrgUnits, canManageOrg, parentKpi, parentRelationType, isStaff, user, lockedPeriodId, selectableDefaultUnitIds, canAssignRoles])
 
   const selectedAssignees = watch('assignedToIds') || []
 
-  // Combine roles from selected org units
   const availableRolesForFilter = useMemo(() => {
     const rolesMap = new Map<string, { id: string; name: string }>()
     formOrgUnitIds.forEach(id => {
       const unit = flatOrgUnits.find(u => u.id === id)
-      unit?.assignedRoles?.forEach((role: any) => {
-        rolesMap.set(role.name, role) // Use name as key to deduplicate standard roles like "Nhân viên"
-      })
+      unit?.assignedRoles?.forEach((role: any) => { rolesMap.set(role.name, role) })
     })
     return Array.from(rolesMap.values())
   }, [formOrgUnitIds, flatOrgUnits])
 
-  // Member count sum
-  const totalMemberCount = useMemo(() => {
-    return formOrgUnitIds.reduce((sum, id) => {
-      const unit = flatOrgUnits.find(u => u.id === id)
-      return sum + (unit?.memberCount || 0)
-    }, 0)
-  }, [formOrgUnitIds, flatOrgUnits])
+  const totalMemberCount = useMemo(() => formOrgUnitIds.reduce((sum, id) => {
+    const unit = flatOrgUnits.find(u => u.id === id)
+    return sum + (unit?.memberCount || 0)
+  }, 0), [formOrgUnitIds, flatOrgUnits])
 
-  const { data: usersData, isLoading: isLoadingUsers } = useUsers({ 
-    page: 0, 
-    size: 500, 
-    orgUnitIds: formOrgUnitIds.length > 0 ? formOrgUnitIds : (isEdit ? [] : ['00000000-0000-0000-0000-000000000000']), 
+  const { data: usersData, isLoading: isLoadingUsers } = useUsers({
+    page: 0, size: 500,
+    orgUnitIds: formOrgUnitIds.length > 0 ? formOrgUnitIds : (isEdit ? [] : [NONE]),
     role: selectedRole === 'ALL' ? undefined : selectedRole
   })
+  const availableUsers = useMemo(() => usersData?.content || [], [usersData])
 
-  const availableUsers = useMemo(() => {
-    return usersData?.content || []
-  }, [usersData])
-
+  const afterCreate = (created: KpiCriteria | KpiCriteria[]) => {
+    qc.invalidateQueries({ queryKey: ['kpi-criteria'] })
+    qc.invalidateQueries({ queryKey: ['bsc-kpi-plan'] })
+    qc.invalidateQueries({ queryKey: ['bsc-unit-result'] })
+    // Giữ lại BỐI CẢNH (đợt, đơn vị, tần suất), dọn nội dung — chế độ thêm liên tục không bắt
+    // chọn lại đợt/đơn vị cho từng chỉ tiêu. Không giữ người thực hiện: trường đổi nhiều nhất.
+    reset({
+      ...getValues(),
+      name: '', description: '', weight: undefined, targetValue: undefined, minimumValue: undefined,
+      unit: '', deadline: undefined, isReverseKpi: false, isBonusKpi: false, assignedToIds: [],
+      keyResultId: null, perspectiveId: null,
+    })
+    setSource('FREE'); setSplitMode(false); setSplitRows([]); prefilledRef.current = {}
+    setAiSuggestions([]); setAppliedIdx(null); setBeforeApply(null)
+    const first = Array.isArray(created) ? created[0] : created
+    if (first) onCreated?.(first)
+    if (!keepOpenAfterCreate) onClose()
+  }
 
   const createMutation = useMutation({
     mutationFn: (data: KpiFormData) => kpiApi.create(data),
-    // Nhận `created`: mutation vốn vẫn trả về chỉ tiêu vừa tạo, chỉ là chữ ký cũ khai `()` nên
-    // vứt đi. Trình thiết lập cần nó để dựng danh sách "giỏ hàng" bên phải.
+    onSuccess: (created) => { toast.success('Tạo chỉ tiêu thành công'); afterCreate(created) },
+    onError: (err) => toast.error(getApiErrorMessage(err, 'Tạo chỉ tiêu thất bại')),
+  })
+
+  const splitMutation = useMutation({
+    mutationFn: (data: Parameters<typeof kpiApi.createFromBsc>[0]) => kpiApi.createFromBsc(data),
     onSuccess: (created) => {
-      qc.invalidateQueries({ queryKey: ['kpi-criteria'] })
-      toast.success('Tạo chỉ tiêu thành công')
-      // Giữ lại BỐI CẢNH, dọn phần còn lại. `reset()` trần đưa form về defaultValues rỗng, nên ở
-      // chế độ thêm liên tục người dùng phải chọn lại đợt, đơn vị và tần suất cho TỪNG chỉ tiêu —
-      // đúng thao tác mà trình thiết lập sinh ra để xoá bỏ.
-      //
-      // Không giữ người thực hiện: đó là trường thay đổi nhiều nhất giữa các chỉ tiêu, giữ lại sẽ
-      // âm thầm giao nhầm người.
-      reset({
-        ...getValues(),
-        name: '',
-        description: '',
-        weight: undefined,
-        targetValue: undefined,
-        minimumValue: undefined,
-        unit: '',
-        deadline: undefined,
-        isReverseKpi: false,
-        isBonusKpi: false,
-        assignedToIds: [],
-        keyResultId: null,
-        perspectiveId: null,
-      })
-      setAiSuggestions([])
-      onCreated?.(created)
-      // Ở chế độ thêm liên tục thì giữ form mở để nhập tiếp cái sau — đóng lại rồi bắt mở lại
-      // cho mỗi chỉ tiêu chính là thao tác mà trình thiết lập sinh ra để xoá bỏ.
-      if (!keepOpenAfterCreate) onClose()
-      setAppliedIdx(null)
-      setBeforeApply(null)
+      toast.success(`Đã tạo ${created?.length ?? 0} chỉ tiêu theo đợt từ hạng mục BSC`)
+      afterCreate(created)
     },
-    onError: (err) => {
-      toast.error(getApiErrorMessage(err, 'Tạo chỉ tiêu thất bại'))
-    },
+    onError: (err) => toast.error(getApiErrorMessage(err, 'Tạo chỉ tiêu từ hạng mục BSC thất bại')),
   })
 
   const updateMutation = useMutation({
     mutationFn: (data: KpiFormData) => kpiApi.update(editKpi!.id, data),
-    onSuccess: () => { 
-      qc.invalidateQueries({ queryKey: ['kpi-criteria'] })
-      toast.success('Cập nhật thành công')
-      onClose() 
-    },
-    onError: (err) => {
-      toast.error(getApiErrorMessage(err, 'Cập nhật chỉ tiêu thất bại'))
-    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['kpi-criteria'] }); toast.success('Cập nhật thành công'); onClose() },
+    onError: (err) => toast.error(getApiErrorMessage(err, 'Cập nhật chỉ tiêu thất bại')),
   })
 
   const formFrequency = watch('frequency')
   const formDeadline = watch('deadline')
-
-  const selectedPeriod = useMemo(() => {
-    return periodsData?.content?.find((p: any) => p.id === formKpiPeriodId)
-  }, [periodsData, formKpiPeriodId])
+  const selectedPeriod = useMemo(
+    () => periodsData?.content?.find((p: any) => p.id === formKpiPeriodId),
+    [periodsData, formKpiPeriodId],
+  )
 
   const filteredFrequencyOptions = useMemo(() => {
     if (!selectedPeriod) return frequencyOptions
-    
-    const TYPE_LEVEL: Record<string, number> = {
-      'UNLIMITED': 0, // không giới hạn = nhỏ nhất, luôn hợp lệ với mọi loại đợt
-      'DAILY': 1,
-      'WEEKLY': 2,
-      'MONTHLY': 3,
-      'QUARTERLY': 4,
-      'SEMI_ANNUALLY': 5,
-      'YEARLY': 6
-    }
     const periodLevel = TYPE_LEVEL[selectedPeriod.periodType] || 0
     return frequencyOptions.filter(opt => (TYPE_LEVEL[opt.value as any] || 0) <= periodLevel)
   }, [selectedPeriod])
 
   useEffect(() => {
-    if (selectedPeriod) {
-      const TYPE_LEVEL: Record<string, number> = {
-        'UNLIMITED': 0, // không giới hạn = nhỏ nhất, luôn hợp lệ với mọi loại đợt
-        'DAILY': 1,
-        'WEEKLY': 2,
-        'MONTHLY': 3,
-        'QUARTERLY': 4,
-        'SEMI_ANNUALLY': 5,
-        'YEARLY': 6
-      }
-      const periodLevel = TYPE_LEVEL[selectedPeriod.periodType] || 0
-      if ((TYPE_LEVEL[formFrequency] || 0) > periodLevel) {
-        setValue('frequency', selectedPeriod.periodType as any)
-      }
-    }
+    if (!selectedPeriod) return
+    const periodLevel = TYPE_LEVEL[selectedPeriod.periodType] || 0
+    if ((TYPE_LEVEL[formFrequency] || 0) > periodLevel) setValue('frequency', selectedPeriod.periodType as any)
   }, [selectedPeriod, formFrequency, setValue])
 
-  // Clear the custom deadline if the period is unselected, or if it falls outside the newly selected period's range
+  // Hạn chót riêng phải nằm trong đợt; đổi đợt mà lệch ra ngoài thì xoá và báo.
   useEffect(() => {
     if (!formDeadline) return
-
-    if (!formKpiPeriodId) {
-      setValue('deadline', undefined)
-      toast.error('Đã xoá hạn chót riêng vì chưa chọn đợt KPI')
-      return
-    }
-
+    if (!formKpiPeriodId) { setValue('deadline', undefined); toast.error('Đã xoá hạn chót riêng vì chưa chọn đợt KPI'); return }
     if (selectedPeriod) {
       const t = new Date(formDeadline).getTime()
       const s = selectedPeriod.startDate ? new Date(selectedPeriod.startDate).getTime() : null
       const e = selectedPeriod.endDate ? new Date(selectedPeriod.endDate).getTime() : null
-      if ((s && t < s) || (e && t > e)) {
-        setValue('deadline', undefined)
-        toast.error('Đã xoá hạn chót riêng vì không còn nằm trong đợt KPI mới chọn')
-      }
+      if ((s && t < s) || (e && t > e)) { setValue('deadline', undefined); toast.error('Đã xoá hạn chót riêng vì không còn nằm trong đợt KPI mới chọn') }
     }
   }, [formKpiPeriodId, selectedPeriod, formDeadline, setValue])
-  
+
   const filteredObjectives = useMemo(() => {
-    if (!objectives) return []
-    if (formOrgUnitIds.length === 0) return []
+    if (!objectives || formOrgUnitIds.length === 0) return []
     return objectives.filter((obj: any) => obj.orgUnitIds?.some((id: string) => formOrgUnitIds.includes(id)))
   }, [objectives, formOrgUnitIds])
 
   const watchedKeyResultId = watch('keyResultId')
   const watchedPerspectiveId = watch('perspectiveId')
-  const inheritedPerspective = useMemo(() => {
+  const selectedKr = useMemo(() => {
     if (!watchedKeyResultId || watchedKeyResultId === 'NONE') return null
-    const obj = (objectives || []).find((o: any) => o.keyResults?.some((kr: any) => kr.id === watchedKeyResultId))
-    if (obj?.perspectiveId) return { name: obj.perspectiveName as string, color: (obj.perspectiveColor as string) || '#8b5cf6' }
+    for (const obj of (objectives || []) as any[]) {
+      const kr = obj.keyResults?.find((k: any) => k.id === watchedKeyResultId)
+      if (kr) return { kr, obj }
+    }
     return null
   }, [watchedKeyResultId, objectives])
+  const inheritedPerspective = useMemo(() => {
+    const obj = selectedKr?.obj
+    if (obj?.perspectiveId) return { name: obj.perspectiveName as string, color: (obj.perspectiveColor as string) || '#8b5cf6' }
+    return null
+  }, [selectedKr])
 
-  // Bản đồ đơn vị → cha (để resolve bộ tiêu chí áp dụng: đơn vị → cha → mặc định).
   const unitParent = useMemo(() => {
     const map = new Map<string, string | null>()
     const walk = (nodes: any[]) => (nodes || []).forEach((n: any) => { map.set(n.id, n.parentId ?? null); if (n.children) walk(n.children) })
@@ -482,13 +415,13 @@ export default function KpiFormModal({
     return map
   }, [orgUnitTreeData])
 
-  // Bộ tiêu chí HIỆU LỰC cho KPI theo đơn vị đầu tiên được gán (đơn vị → cha → mặc định).
+  // Bộ tiêu chí HIỆU LỰC theo đơn vị đầu tiên được gán (đơn vị → cha → mặc định).
   const effectiveScorecard = useMemo(() => {
     if (!formKpiPeriodId) return null
     const periodScs = scorecardsForPeriod(bscScorecards, formKpiPeriodId)
     if (periodScs.length === 0) return null
-    const realUnits = formOrgUnitIds.filter(id => id && id !== '00000000-0000-0000-0000-000000000000')
-    if (realUnits.length === 0) return null // chưa chọn đơn vị ⇒ chưa biết bộ tiêu chí nào
+    const realUnits = formOrgUnitIds.filter(id => id && id !== NONE)
+    if (realUnits.length === 0) return null
     let cur: string | null = realUnits[0]!, guard = 0
     while (cur && guard++ < 100) {
       const found = periodScs.find(s => (s.orgUnits || []).some(u => u.id === cur))
@@ -498,13 +431,18 @@ export default function KpiFormModal({
     return periodScs.find(s => !s.orgUnits || s.orgUnits.length === 0) || null
   }, [bscScorecards, formKpiPeriodId, formOrgUnitIds, unitParent])
 
-  /**
-   * Con số của từng hạng mục để hiện ngay trong dropdown.
-   *
-   * Lấy từ DÒNG của bộ tiêu chí hiệu lực chứ không từ danh mục hạng mục: cùng một hạng mục
-   * "Doanh thu" nhưng mỗi đơn vị đặt một mục tiêu khác nhau, hiện số của danh mục là hiện nhầm
-   * con số của đơn vị khác. Chưa chọn đủ kỳ/đơn vị để biết bộ tiêu chí nào thì rơi về danh mục.
-   */
+  /** Dòng hạng mục đang chọn trong bộ tiêu chí hiệu lực — nguồn số để điền sẵn. */
+  const selectedPerspRow = useMemo(() => {
+    if (!watchedPerspectiveId || watchedPerspectiveId === 'NONE') return null
+    return effectiveScorecard?.perspectives.find(sp => sp.perspectiveId === watchedPerspectiveId) ?? null
+  }, [effectiveScorecard, watchedPerspectiveId])
+  const selectedPerspective = useMemo(
+    () => (perspectives || []).find(p => p.id === watchedPerspectiveId) ?? null,
+    [perspectives, watchedPerspectiveId],
+  )
+  // Kế hoạch chia của hạng mục (đã có KPI nào chiếm bao nhiêu ở từng đợt).
+  const { data: plan } = useBscKpiPlan(source === 'BSC' && selectedPerspRow?.id ? selectedPerspRow.id : undefined)
+
   const perspectiveNumbers = useMemo(() => {
     const map = new Map<string, string | null>()
     for (const p of perspectives || []) {
@@ -519,17 +457,11 @@ export default function KpiFormModal({
     return map
   }, [perspectives, effectiveScorecard])
 
-  // Trọng số THẬT (chỉ hiển thị) = trọng số form × %hạng_mục (lấy từ bộ tiêu chí hiệu lực của đơn vị KPI).
-  // Form% chỉ để đủ 100%/hạng mục; trọng số thật mới là phần đóng góp vào 100% của đơn vị.
   const watchedWeight = watch('weight')
   const effectivePerspId = useMemo(() => {
     if (watchedPerspectiveId && watchedPerspectiveId !== 'NONE') return watchedPerspectiveId
-    if (watchedKeyResultId && watchedKeyResultId !== 'NONE') {
-      const obj = (objectives || []).find((o: any) => o.keyResults?.some((kr: any) => kr.id === watchedKeyResultId))
-      return obj?.perspectiveId || null
-    }
-    return null
-  }, [watchedPerspectiveId, watchedKeyResultId, objectives])
+    return selectedKr?.obj?.perspectiveId || null
+  }, [watchedPerspectiveId, selectedKr])
   const categoryWeightPct = useMemo(() => {
     if (!effectiveScorecard || !effectivePerspId) return null
     const sp = effectiveScorecard.perspectives.find(p => p.perspectiveId === effectivePerspId)
@@ -538,16 +470,14 @@ export default function KpiFormModal({
   const realWeight = (watchedWeight != null && !Number.isNaN(Number(watchedWeight)) && categoryWeightPct != null)
     ? (Number(watchedWeight) * categoryWeightPct / 100) : null
 
-  // Lọc hạng mục theo BỘ TIÊU CHÍ của đơn vị KPI được gán: chỉ hiện hạng mục CÓ trong bộ tiêu chí
-  // áp dụng cho đơn vị đó (union nếu gán nhiều đơn vị). Thiếu ⇒ nhắc thêm vào bộ tiêu chí.
   const availablePerspectiveIds = useMemo<Set<string> | null>(() => {
-    if (!enableBsc) return null // không bật BSC ⇒ không liên quan (mục hạng mục cũng ẩn)
+    if (!enableBsc) return null
     const ids = new Set<string>()
-    if (!formKpiPeriodId) return ids // chưa chọn kỳ ⇒ rỗng
+    if (!formKpiPeriodId) return ids
     const periodScs = scorecardsForPeriod(bscScorecards, formKpiPeriodId)
-    if (periodScs.length === 0) return ids // kỳ chưa có bộ tiêu chí ⇒ rỗng
-    const realUnits = formOrgUnitIds.filter(id => id && id !== '00000000-0000-0000-0000-000000000000')
-    if (realUnits.length === 0) return ids // chưa chọn đơn vị ⇒ rỗng
+    if (periodScs.length === 0) return ids
+    const realUnits = formOrgUnitIds.filter(id => id && id !== NONE)
+    if (realUnits.length === 0) return ids
     const resolveForUnit = (unitId: string) => {
       let cur: string | null = unitId, guard = 0
       while (cur && guard++ < 100) {
@@ -561,224 +491,269 @@ export default function KpiFormModal({
     return ids
   }, [enableBsc, bscScorecards, formKpiPeriodId, formOrgUnitIds, unitParent])
 
-  const hasRealUnit = formOrgUnitIds.some(id => id && id !== '00000000-0000-0000-0000-000000000000')
-
+  const hasRealUnit = formOrgUnitIds.some(id => id && id !== NONE)
   const filteredGroupedPerspectives = useMemo(() => {
     if (!availablePerspectiveIds) return groupedPerspectives
     return groupedPerspectives
       .map(g => ({ ...g, items: g.items.filter(p => availablePerspectiveIds.has(p.id)) }))
       .filter(g => g.items.length > 0)
   }, [groupedPerspectives, availablePerspectiveIds])
-
-  // Hạng mục đang gán nhưng KHÔNG có trong bộ tiêu chí của đơn vị ⇒ cảnh báo (sẽ không tính điểm BSC).
-  // Chỉ cảnh báo khi ĐÃ chọn đơn vị (chưa chọn thì đã có nhắc "chọn đơn vị trước").
   const selectedPerspMissing = !!availablePerspectiveIds && hasRealUnit && !!effectivePerspId && !availablePerspectiveIds.has(effectivePerspId)
 
-  // Clear Key Result if OrgUnit changes to a different one
+  // Đổi đơn vị ⇒ KR không còn thuộc đơn vị thì bỏ.
   useEffect(() => {
     if (formOrgUnitIds.length > 0 && watch('keyResultId')) {
       const currentKrId = watch('keyResultId')
-      const isStillValid = filteredObjectives.some(obj => 
-        obj.keyResults.some((kr: any) => kr.id === currentKrId)
-      )
-      if (!isStillValid) {
-        setValue('keyResultId', null)
-      }
+      const stillValid = filteredObjectives.some(obj => obj.keyResults.some((kr: any) => kr.id === currentKrId))
+      if (!stillValid) setValue('keyResultId', null)
     }
   }, [formOrgUnitIds, filteredObjectives, setValue, watch])
 
-  // AI Suggestion Logic
+  // ── Điền sẵn từ nguồn ─────────────────────────────────────────────────────
+  // Chỉ ghi đè ô còn trống hoặc ô vẫn đang giữ đúng giá trị lần điền sẵn trước — người dùng đã
+  // sửa tay thì không đụng vào (họ đã đọc số nguồn và quyết định khác).
+  const prefill = (field: keyof typeof prefilledRef.current, value: unknown) => {
+    const current = getValues(field as keyof KpiFormData)
+    const untouched = current === undefined || current === '' || current === null || current === prefilledRef.current[field]
+    if (!untouched) return
+    setValue(field as keyof KpiFormData, value as never, { shouldValidate: true, shouldDirty: true })
+    prefilledRef.current[field] = value
+  }
+
+  const periodRowOfPlan = useMemo(
+    () => plan?.periods.find(p => p.kpiPeriodId === formKpiPeriodId) ?? null,
+    [plan, formKpiPeriodId],
+  )
+
+  useEffect(() => {
+    if (isEdit || source !== 'BSC' || !selectedPerspRow || isQualitative) return
+    const row = selectedPerspRow
+    if (row.unit) prefill('unit', row.unit)
+    // Mục tiêu: phần CÒN LẠI của hạng mục, chia cho số đợt còn trống nếu kỳ có nhiều đợt.
+    const remaining = plan?.remainingValue ?? row.targetValue ?? null
+    const openPeriods = plan ? plan.periods.filter(p => (p.allocatedWeight || 0) < 99.99).length : 1
+    if (remaining != null && remaining > 0) {
+      const target = round2(remaining / Math.max(openPeriods, 1))
+      prefill('targetValue', target)
+      if (row.minimumValue != null && row.targetValue) prefill('minimumValue', round2(target * (row.minimumValue / row.targetValue)))
+    } else if (row.targetValue != null) {
+      prefill('targetValue', row.targetValue)
+      if (row.minimumValue != null) prefill('minimumValue', row.minimumValue)
+    }
+    // Trọng số = phần còn trống của hạng mục trong đợt này (100% của hạng mục = đủ).
+    const usedWeight = periodRowOfPlan?.allocatedWeight ?? 0
+    prefill('weight', Math.max(0, round2(100 - usedWeight)) || 100)
+    if (selectedPerspective?.name) prefill('name', selectedPeriod ? `${selectedPerspective.name} — ${selectedPeriod.name}` : selectedPerspective.name)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEdit, source, selectedPerspRow?.id, plan?.scorecardPerspectiveId, periodRowOfPlan?.kpiPeriodId, isQualitative])
+
+  useEffect(() => {
+    if (isEdit || source !== 'OKR' || !selectedKr || isQualitative) return
+    const { kr } = selectedKr
+    if (kr.unit) prefill('unit', kr.unit)
+    if (kr.targetValue != null) {
+      const remaining = kr.targetValue - (kr.currentValue ?? 0)
+      prefill('targetValue', remaining > 0 ? round2(remaining) : kr.targetValue)
+    }
+    if (kr.name) prefill('name', kr.name)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isEdit, source, selectedKr?.kr?.id, isQualitative])
+
+  // Dựng bảng chia theo đợt khi bật chế độ chia (phần còn lại chia đều cho các đợt còn trống).
+  useEffect(() => {
+    if (!splitMode || !plan) return
+    const openPeriods = plan.periods.filter(p => (p.allocatedWeight || 0) < 99.99)
+    const remaining = plan.remainingValue
+    const each = remaining != null && openPeriods.length > 0 ? round2(remaining / openPeriods.length) : undefined
+    const ratio = plan.minimumValue != null && plan.targetValue ? plan.minimumValue / plan.targetValue : null
+    setSplitRows(plan.periods.map(p => {
+      const open = (p.allocatedWeight || 0) < 99.99
+      return {
+        kpiPeriodId: p.kpiPeriodId, periodName: p.name, selected: open,
+        name: `${plan.name} — ${p.name}`,
+        targetValue: open ? each : undefined,
+        minimumValue: open && each != null && ratio != null ? round2(each * ratio) : undefined,
+        weight: open ? round2(100 - (p.allocatedWeight || 0)) : undefined,
+        allocatedWeight: p.allocatedWeight || 0, kpiCount: p.kpiCount,
+      }
+    }))
+  }, [splitMode, plan])
+
+  const changeSource = (next: Source) => {
+    setSource(next)
+    setSplitMode(false)
+    if (next !== 'BSC') setValue('perspectiveId', null)
+    if (next !== 'OKR') setValue('keyResultId', null)
+    if (next === 'FREE') prefilledRef.current = {}
+  }
+
+  // ── Cảnh báo lệch số nguồn (không chặn) ──────────────────────────────────
+  const watchedTarget = watch('targetValue')
+  const watchedUnit = watch('unit')
+  const sourceWarnings = useMemo(() => {
+    const out: string[] = []
+    if (isQualitative) return out
+    const t = watchedTarget != null && !Number.isNaN(Number(watchedTarget)) ? Number(watchedTarget) : null
+    if (source === 'BSC' && selectedPerspRow) {
+      const cap = plan?.remainingValue ?? selectedPerspRow.targetValue ?? null
+      if (t != null && cap != null && t > cap + 0.001) {
+        out.push(`Mục tiêu ${formatNumber(t)} vượt phần còn lại của hạng mục "${selectedPerspective?.name}" (${formatNumber(cap)}${selectedPerspRow.unit ? ` ${selectedPerspRow.unit}` : ''}). Điểm BSC chỉ tính tới mức của hạng mục.`)
+      }
+      if (selectedPerspRow.unit && watchedUnit && watchedUnit.trim().toLowerCase() !== selectedPerspRow.unit.trim().toLowerCase()) {
+        out.push(`Đơn vị tính "${watchedUnit}" khác hạng mục ("${selectedPerspRow.unit}") — số sẽ không cộng dồn được vào hạng mục.`)
+      }
+    }
+    if (source === 'OKR' && selectedKr) {
+      const { kr } = selectedKr
+      if (t != null && kr.targetValue != null && t > kr.targetValue + 0.001) {
+        out.push(`Mục tiêu ${formatNumber(t)} vượt mục tiêu của KR "${kr.name}" (${formatNumber(kr.targetValue)}${kr.unit ? ` ${kr.unit}` : ''}).`)
+      }
+      if (kr.unit && watchedUnit && watchedUnit.trim().toLowerCase() !== kr.unit.trim().toLowerCase()) {
+        out.push(`Đơn vị tính "${watchedUnit}" khác KR ("${kr.unit}") — tiến độ KR sẽ không cộng đúng.`)
+      }
+    }
+    return out
+  }, [isQualitative, watchedTarget, watchedUnit, source, selectedPerspRow, selectedPerspective, plan, selectedKr])
+
+  // ── Gợi ý AI ──────────────────────────────────────────────────────────────
   const [aiSuggestions, setAiSuggestions] = useState<AiKpiSuggestion[]>([])
   const [isSuggesting, setIsSuggesting] = useState(false)
-  /** Chỉ số gợi ý vừa áp dụng, để đánh dấu và cho phép hoàn tác. */
   const [appliedIdx, setAppliedIdx] = useState<number | null>(null)
-  /** Giá trị các trường trước khi áp dụng, dùng cho nút Hoàn tác. */
   const [beforeApply, setBeforeApply] = useState<Partial<KpiFormData> | null>(null)
   const [userSearch, setUserSearch] = useState('')
 
   const displayUsers = useMemo(() => {
-    const filtered = availableUsers
-
-    if (!userSearch.trim()) return filtered
-    const search = userSearch.toLowerCase()
-    return filtered.filter(u => 
-      u.fullName.toLowerCase().includes(search) || 
-      u.email.toLowerCase().includes(search)
-    )
+    if (!userSearch.trim()) return availableUsers
+    const q = userSearch.toLowerCase()
+    return availableUsers.filter(u => u.fullName.toLowerCase().includes(q) || u.email.toLowerCase().includes(q))
   }, [availableUsers, userSearch])
 
-  /**
-   * Gom bối cảnh người dùng đang soạn để AI gợi ý bám sát, thay vì trả về cùng một bộ
-   * chung chung mỗi lần bấm. Rỗng thì backend dùng prompt mặc định.
-   */
   const buildAiContext = () => {
     const parts: string[] = []
     const typedName = (watch('name') || '').trim()
     if (typedName) parts.push(`Tên chỉ tiêu đang gõ: "${typedName}"`)
     parts.push(isQualitative ? 'Loại KPI: định tính' : 'Loại KPI: định lượng')
-
     if (selectedPeriod?.name) parts.push(`Đợt: ${selectedPeriod.name}`)
-
-    // Mục tiêu suy ra từ kết quả then chốt đang chọn — form không có trường objectiveId riêng.
-    if (watchedKeyResultId && watchedKeyResultId !== 'NONE') {
-      const obj = (objectives || []).find((o: any) =>
-        o.keyResults?.some((kr: any) => kr.id === watchedKeyResultId))
-      if (obj?.name) parts.push(`Mục tiêu liên quan: ${obj.name}`)
-    }
-
+    if (selectedKr?.obj?.name) parts.push(`Mục tiêu liên quan: ${selectedKr.obj.name}`)
+    if (source === 'BSC' && selectedPerspective?.name) parts.push(`Hạng mục BSC: ${selectedPerspective.name}`)
     return parts.join('. ')
   }
 
   const handleAiSuggest = async () => {
     const orgUnitId = formOrgUnitIds[0] || user?.memberships?.[0]?.orgUnitId
-    if (!orgUnitId) {
-      toast.error('Vui lòng chọn hoặc đảm bảo bạn thuộc một phòng ban để nhận gợi ý chính xác')
-      return
-    }
-
-    setIsSuggesting(true)
-    // Chỉ số cũ không còn ứng với danh sách mới. Nhưng GIỮ beforeApply để sau khi
-    // xin gợi ý khác, người dùng vẫn hoàn tác được về nội dung tự nhập ban đầu.
-    setAppliedIdx(null)
+    if (!orgUnitId) { toast.error('Vui lòng chọn hoặc đảm bảo bạn thuộc một phòng ban để nhận gợi ý chính xác'); return }
+    setIsSuggesting(true); setAppliedIdx(null)
     try {
       const suggestions = await kpiApi.getAiSuggestions(orgUnitId, buildAiContext())
       setAiSuggestions(suggestions)
-      if (suggestions.length === 0) {
-        toast.info('AI không tìm thấy gợi ý phù hợp lúc này')
-      }
+      if (suggestions.length === 0) toast.info('AI không tìm thấy gợi ý phù hợp lúc này')
     } catch (err: any) {
       toast.error(getApiErrorMessage(err, 'Lỗi khi lấy gợi ý từ AI'))
-    } finally {
-      setIsSuggesting(false)
-    }
+    } finally { setIsSuggesting(false) }
   }
 
-  /**
-   * Điền gợi ý vào form. Dùng setValue từng trường thay vì reset() cả form:
-   * reset() ghi đè mọi trường khác (người nhận, đơn vị, đợt...) mà người dùng đã chọn.
-   * Danh sách gợi ý vẫn mở để còn đổi sang phương án khác.
-   */
   const applySuggestion = (sug: AiKpiSuggestion, idx: number) => {
     if (!beforeApply) {
-      setBeforeApply({
-        name: watch('name'),
-        description: watch('description'),
-        unit: watch('unit'),
-        targetValue: watch('targetValue'),
-        weight: watch('weight'),
-        frequency: watch('frequency'),
-      })
+      setBeforeApply({ name: watch('name'), description: watch('description'), unit: watch('unit'), targetValue: watch('targetValue'), weight: watch('weight'), frequency: watch('frequency') })
     }
-
     const opts = { shouldDirty: true, shouldValidate: true } as const
     setValue('name', sug.name ?? '', opts)
     if (sug.description != null) setValue('description', sug.description, opts)
-    // Chỉ tiêu định tính không chấm theo con số nên bỏ qua đơn vị / giá trị mục tiêu.
     if (!isQualitative) {
       if (sug.unit != null) setValue('unit', sug.unit, opts)
       if (sug.targetValue != null) setValue('targetValue', sug.targetValue, opts)
     }
     if (sug.weight != null) setValue('weight', sug.weight, opts)
     if (sug.frequency != null) setValue('frequency', sug.frequency, opts)
-
     setAppliedIdx(idx)
   }
-
   const undoSuggestion = () => {
     if (!beforeApply) return
     const opts = { shouldDirty: true, shouldValidate: true } as const
-    Object.entries(beforeApply).forEach(([field, value]) => {
-      setValue(field as keyof KpiFormData, value as never, opts)
-    })
-    setBeforeApply(null)
-    setAppliedIdx(null)
+    Object.entries(beforeApply).forEach(([field, value]) => setValue(field as keyof KpiFormData, value as never, opts))
+    setBeforeApply(null); setAppliedIdx(null)
   }
+  const closeSuggestions = () => { setAiSuggestions([]); setAppliedIdx(null); setBeforeApply(null) }
 
-  const closeSuggestions = () => {
-    setAiSuggestions([])
-    setAppliedIdx(null)
-    setBeforeApply(null)
-  }
-
-  const isPending = createMutation.isPending || updateMutation.isPending
+  const isPending = createMutation.isPending || updateMutation.isPending || splitMutation.isPending
   const isPendingApproval = isEdit && editKpi?.status === 'PENDING_APPROVAL'
 
-  // Chép lại ĐÚNG các điều kiện đang dùng để vẽ từng ô bên dưới.
   useEffect(() => {
     fillableRef.current = [
       'name', 'description', 'weight',
       ...(showTypeTabs ? ['kpiType'] : []),
       ...(isQualitative ? [] : ['targetValue', 'minimumValue', 'unit', 'isReverseKpi']),
       ...(parentKpi ? [] : ['isBonusKpi']),
-      // Đợt bị khoá thì ô đó không còn được vẽ nữa — để lại trong danh sách này là mời trợ lý
-      // điền vào một ô không tồn tại.
       ...(isPendingApproval ? [] : [...(lockedPeriodId ? [] : ['kpiPeriodId']), 'frequency', 'deadline', 'assignedToIds']),
       ...(!isPendingApproval && flatOrgUnits.length > 0 ? ['orgUnitIds'] : []),
     ]
   }, [showTypeTabs, isQualitative, parentKpi, isPendingApproval, flatOrgUnits.length, lockedPeriodId])
 
+  // ── Gửi ───────────────────────────────────────────────────────────────────
+  const isReverse = !!watch('isReverseKpi')
+  const isBonus = !!watch('isBonusKpi')
+
+  const submitSplit = () => {
+    if (!selectedPerspRow) return
+    const chosen = splitRows.filter(r => r.selected)
+    if (chosen.length === 0) { toast.error('Chọn ít nhất một đợt để chia'); return }
+    for (const r of chosen) {
+      if (r.targetValue == null || Number.isNaN(r.targetValue) || r.targetValue < 0) { toast.error(`Đợt "${r.periodName}": nhập mục tiêu`); return }
+      if (r.weight == null || Number.isNaN(r.weight) || r.weight <= 0 || r.weight > 100) { toast.error(`Đợt "${r.periodName}": trọng số phải trong 1–100`); return }
+      if (r.minimumValue != null && !Number.isNaN(r.minimumValue)) {
+        if (isReverse && r.minimumValue <= r.targetValue) { toast.error(`Đợt "${r.periodName}": KPI ngược thì ngưỡng tối đa phải lớn hơn mục tiêu`); return }
+        if (!isReverse && r.minimumValue > r.targetValue) { toast.error(`Đợt "${r.periodName}": tối thiểu không được lớn hơn mục tiêu`); return }
+      }
+    }
+    if (formOrgUnitIds.length === 0) { toast.error('Chọn đơn vị thực hiện'); return }
+    if (selectedAssignees.length > 0 && formOrgUnitIds.length > 1) { toast.error('Giao đích danh thì mỗi lần chỉ chia cho một đơn vị'); return }
+    splitMutation.mutate({
+      scorecardPerspectiveId: selectedPerspRow.id,
+      orgUnitIds: formOrgUnitIds,
+      assignedToIds: selectedAssignees.length ? selectedAssignees : undefined,
+      assignToAllUnitMembers: false,
+      description: getValues('description') || undefined,
+      unit: getValues('unit') || undefined,
+      isReverseKpi: isReverse,
+      allocations: chosen.map(r => ({
+        kpiPeriodId: r.kpiPeriodId, name: r.name.trim() || undefined,
+        targetValue: r.targetValue as number, minimumValue: r.minimumValue ?? null, weight: r.weight as number,
+      })),
+    })
+  }
+
   const onSubmit = (data: KpiFormData) => {
     const payload = { ...data }
-
-    // Qualitative KPIs have no numeric measurement fields.
     if (payload.kpiType === 'QUALITATIVE') {
-      delete payload.targetValue
-      delete payload.minimumValue
-      delete payload.unit
+      delete payload.targetValue; delete payload.minimumValue; delete payload.unit
       payload.isReverseKpi = false
     }
-
-    if (!payload.orgUnitIds || payload.orgUnitIds.length === 0) {
-        delete payload.orgUnitIds
-    }
-
+    if (!payload.orgUnitIds || payload.orgUnitIds.length === 0) delete payload.orgUnitIds
     if (payload.keyResultId === '' || payload.keyResultId === 'NONE') payload.keyResultId = null
     if (payload.parentId === '') payload.parentId = null
     if (payload.perspectiveId === '' || payload.perspectiveId === 'NONE') payload.perspectiveId = null
-
     if (payload.deadline && selectedPeriod) {
       const t = new Date(payload.deadline).getTime()
       const s = selectedPeriod.startDate ? new Date(selectedPeriod.startDate).getTime() : null
       const e = selectedPeriod.endDate ? new Date(selectedPeriod.endDate).getTime() : null
-      if ((s && t < s) || (e && t > e)) {
-        toast.error('Hạn chót phải nằm trong khoảng thời gian của đợt KPI')
-        return
-      }
+      if ((s && t < s) || (e && t > e)) { toast.error('Hạn chót phải nằm trong khoảng thời gian của đợt KPI'); return }
       payload.deadline = new Date(payload.deadline).toISOString()
     } else {
       delete payload.deadline
     }
-
-    if (isEdit) {
-      updateMutation.mutate(payload as any)
-    } else {
-      createMutation.mutate(payload as any)
-    }
+    if (isEdit) updateMutation.mutate(payload as any)
+    else createMutation.mutate(payload as any)
   }
 
   const toggleAssignee = (userId: string) => {
     const current = [...selectedAssignees]
     const index = current.indexOf(userId)
-    if (index > -1) {
-      current.splice(index, 1)
-    } else {
-      current.push(userId)
-    }
+    if (index > -1) current.splice(index, 1); else current.push(userId)
     setValue('assignedToIds', current)
   }
 
   const toggleOrgUnit = (orgId: string) => {
-    // Chế độ một đơn vị: luôn THAY, kể cả khi bấm vào đơn vị đang chọn. Cho bỏ chọn về rỗng sẽ
-    // đẩy người dùng vào trạng thái không đơn vị nào — thẻ trọng số bên phải mất chỗ bám và nút
-    // Tiếp tục tắt mà không rõ vì sao.
-    //
-    // Cố ý KHÔNG gộp với `enableOkr` bên dưới: chế độ OKR cũng chỉ giữ một đơn vị nhưng vẫn cho
-    // bỏ chọn về rỗng, và đó là hành vi có sẵn của nó.
-    if (singleOrgUnit) {
-      setValue('orgUnitIds', [orgId])
-      return
-    }
-
+    if (singleOrgUnit) { setValue('orgUnitIds', [orgId]); return }
     let current = [...formOrgUnitIds]
     const index = current.indexOf(orgId)
     if (index > -1) current.splice(index, 1)
@@ -789,752 +764,440 @@ export default function KpiFormModal({
 
   if (!open) return null
 
-  const inputCls = "w-full px-3 py-2.5 rounded-control border border-[var(--color-border)] bg-[var(--color-background)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/50 transition-all shadow-sm"
+  const canPickSource = !isPendingApproval && (enableBsc || enableOkr)
+  const krLocked = isEdit && !!editKpi?.keyResultId
+  const showSplit = source === 'BSC' && !isEdit && !parentKpi && !!plan && plan.periods.length > 1 && !isQualitative
+  const targetLabel = isReverse ? 'Ngưỡng mục tiêu (càng thấp càng tốt)' : 'Mục tiêu mong muốn'
+  const minLabel = isReverse ? 'Ngưỡng tối đa chấp nhận' : 'Mục tiêu tối thiểu'
+  const submitting = isPending
+  const sourceUnitLabel = source === 'BSC' ? selectedPerspRow?.unit : source === 'OKR' ? selectedKr?.kr?.unit : null
 
   const formBody = (
-    <>
-        <form
-          id="kpi-form"
-          noValidate
-          onSubmit={handleSubmit(onSubmit, (err) => console.error('KPI Form Errors:', err))}
-          // Trong modal thì xếp dọc như cũ (bề ngang chỉ 512px). Nhúng vào trình thiết lập thì có
-          // cả trang để dùng, nên dàn hai cột: form này có mười khối, xếp dọc hết thì người dùng
-          // phải cuộn qua ba màn hình mới tới được nút thêm.
-          // Luôn là flex dọc; phần chia hai cột nằm bên trong. Dùng grid hai cột ở cấp form thì
-          // mỗi hàng bị ép cùng chiều cao — bung danh sách đơn vị bên phải là đẩy luôn nội dung
-          // cột trái xuống, để lại một khoảng trống lớn.
-          className="flex flex-col gap-5"
-        >
-          {showTypeTabs && (
-            <div className="grid grid-cols-2 gap-2 p-1 rounded-card bg-[var(--color-accent)]/30 border border-[var(--color-border)]/40">
-              <ChoiceChip selected={!isQualitative} variant="solid" className="py-2.5" onClick={() => setValue('kpiType', 'QUANTITATIVE')}>
-                <BarChart3 /> Định lượng
-              </ChoiceChip>
-              <button
-                type="button"
-                onClick={() => setValue('kpiType', 'QUALITATIVE')}
-                className={cn(
-                  "flex items-center justify-center gap-2 py-2.5 rounded-card text-sm font-medium transition-all",
-                  isQualitative ? "bg-[var(--color-success-solid)] text-white" : "text-[var(--color-muted-foreground)] hover:bg-[var(--color-accent)]"
-                )}
-              >
-                <SlidersHorizontal size={14} /> Định tính
-              </button>
-            </div>
+    <form
+      id="kpi-form"
+      noValidate
+      onSubmit={splitMode ? (e => { e.preventDefault(); submitSplit() }) : handleSubmit(onSubmit, (err) => console.error('KPI Form Errors:', err))}
+      className="flex flex-col gap-6"
+    >
+      {showTypeTabs && (
+        <div className="grid grid-cols-2 gap-1 rounded-control bg-[var(--color-muted)] p-1">
+          <ChoiceChip selected={!isQualitative} variant="segment" className="h-9" onClick={() => setValue('kpiType', 'QUANTITATIVE')}>
+            <BarChart3 /> Định lượng
+          </ChoiceChip>
+          <ChoiceChip selected={isQualitative} variant="segment" className="h-9" onClick={() => setValue('kpiType', 'QUALITATIVE')}>
+            <SlidersHorizontal /> Định tính
+          </ChoiceChip>
+        </div>
+      )}
+      {isEdit && isQualitative && (
+        <div className="flex items-center gap-2 rounded-card border border-[var(--color-success-border)] bg-[var(--color-success-bg)] px-3 py-2 text-xs font-medium text-[var(--color-success)]">
+          <SlidersHorizontal size={14} /> KPI Định tính — chấm điểm theo thang định tính khi duyệt
+        </div>
+      )}
+
+      {/* ══ ① Bối cảnh ══════════════════════════════════════════════════════ */}
+      {!isPendingApproval && (
+        <Section title="① Bối cảnh" hint={parentKpi ? 'KPI con nằm trong đợt và đơn vị của KPI cha' : 'Đợt và đơn vị quyết định bộ tiêu chí BSC / OKR áp dụng'}>
+          {/* Tách từ KPI cha: con số của cha là "nguồn" của KPI con — hiện ngay đầu để chia cho đúng. */}
+          {parentKpi && (
+            <SourceCard color="#6366f1" title={`${parentRelationType === 'DELEGATION' ? 'Phân rã từ' : 'KPI con của'} "${parentKpi.name}"`} subtitle={parentKpi.assigneeNames?.length ? `Giao cho ${parentKpi.assigneeNames.join(', ')}` : null}>
+              <Stat label="Mục tiêu KPI cha" value={parentKpi.targetValue != null ? `${formatNumber(parentKpi.targetValue)}${parentKpi.unit ? ` ${parentKpi.unit}` : ''}` : '—'} />
+              <Stat label="Trọng số cha" value={`${parentKpi.weight ?? 0}%`} />
+              <Stat label="Đã chia cho KPI con" value={`${parentKpi.childrenWeightTotal ?? 0}%`} />
+              <Stat label="Còn lại" value={`${Math.max(0, (parentKpi.weight ?? 0) - (parentKpi.childrenWeightTotal ?? 0))}%`} hint={parentRelationType === 'DECOMPOSITION' ? 'Điền sẵn vào trọng số' : undefined} />
+            </SourceCard>
           )}
-
-          {isEdit && isQualitative && (
-            <div className="flex items-center gap-2 px-3 py-2 rounded-card bg-[var(--color-success-bg)] border border-[var(--color-success-border)] text-[var(--color-success)] text-xs font-medium">
-              <SlidersHorizontal size={14} /> KPI Định tính — chấm điểm theo thang định tính khi duyệt
-            </div>
-          )}
-
-          {/* Tên + mô tả trải hết bề ngang: đây là ô người dùng gõ nhiều nhất, bó hẹp một nửa
-              khiến tên chỉ tiêu dài bị cắt ngay lúc nhập. */}
-          <div className="space-y-4">
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="text-label block text-[var(--color-foreground)]">Tên chỉ tiêu <span className="text-[var(--color-error)]">*</span></label>
-                {(canManageOrg || canReview) && !isEdit && (
-                  <Button size="sm" type="button" onClick={handleAiSuggest} disabled={isSuggesting} title="AI đọc số liệu của đơn vị và bối cảnh bạn đang nhập để đề xuất chỉ tiêu">
-                    {isSuggesting ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Sparkles aria-hidden="true" />}
-                    {isSuggesting ? 'ĐANG PHÂN TÍCH...' : 'GỢI Ý AI'}
-                  </Button>
-                )}
-              </div>
-              <input 
-                {...register('name')} 
-                className={inputCls} 
-                placeholder="VD: Doanh thu tháng 10" 
-              />
-              {errors.name && <p className="text-[var(--color-error)] text-xs mt-1 font-medium">{errors.name.message}</p>}
-            </div>
-
-            {/* Đang chờ AI: hiện khung chờ ngay tại chỗ kết quả sẽ xuất hiện.
-                Lời gọi có thể mất hàng chục giây nên chỉ quay vòng trên nút là chưa đủ rõ. */}
-            {isSuggesting && aiSuggestions.length === 0 && (
-              <div className="bg-[var(--color-info-bg)] border border-[var(--color-info-border)] rounded-card p-3 space-y-2 animate-in fade-in">
-                <span className="text-eyebrow text-[var(--color-info)] flex items-center gap-1.5">
-                  <Loader2 size={12} className="animate-spin" /> AI đang đọc số liệu đơn vị...
-                </span>
-                {[0, 1, 2].map(i => (
-                  <div key={i} className="h-14 rounded-card bg-[var(--color-card)] animate-pulse"/>
-                ))}
-              </div>
-            )}
-
-            {aiSuggestions.length > 0 && (
-              <div className="bg-[var(--color-info-bg)] border border-[var(--color-info-border)] rounded-card p-3 space-y-2 animate-in fade-in slide-in-from-top-1">
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="text-eyebrow text-[var(--color-info)] flex items-center gap-1">
-                    <Sparkles size={12} /> AI đề xuất {aiSuggestions.length} chỉ tiêu
-                  </span>
-                  <span className="ml-auto flex items-center gap-2">
-                    {beforeApply && (
-                      <Button variant="ghost" type="button" onClick={undoSuggestion}>
-                        <RotateCcw aria-hidden="true" /> Hoàn tác
-                      </Button>
-                    )}
-                    <Button variant="ghost" size="sm" type="button" onClick={handleAiSuggest} disabled={isSuggesting}>
-                      {isSuggesting
-                        ? <Loader2 aria-hidden="true" className="animate-spin" />
-                        : <RefreshCw aria-hidden="true" />} Gợi ý khác
-                    </Button>
-                    <Button variant="ghost" type="button" onClick={closeSuggestions}>
-                      Đóng
-                    </Button>
-                  </span>
+          <div className="grid gap-4 sm:grid-cols-3">
+            {lockedPeriodId ? (
+              <Field label="Đợt đánh giá">
+                <div className="flex h-9 items-center gap-2 rounded-control border border-[var(--color-border)] bg-[var(--color-muted)] px-3 text-sm">
+                  <CalendarRange size={14} className="text-[var(--color-muted-foreground)]" aria-hidden="true" />
+                  <span className="truncate">{selectedPeriod?.name ?? 'Đợt đã chọn'}</span>
                 </div>
-
-                <p className="text-caption font-medium">
-                  Bấm để điền vào biểu mẫu. Các trường khác bạn đã chọn (đơn vị, đợt, người nhận) được giữ nguyên.
-                </p>
-
-                <div className="space-y-1.5">
-                  {aiSuggestions.map((s, idx) => {
-                    const applied = appliedIdx === idx
-                    return (
-                      <button
-                        key={idx}
-                        type="button"
-                        onClick={() => applySuggestion(s, idx)}
-                        className={cn(
-                          'w-full text-left p-3 rounded-card border shadow-sm transition-all group',
-                          applied
-                            ? 'bg-[var(--color-info-bg)] border-[var(--color-info-border)] ring-2 ring-[var(--color-info-solid)]'
-                            : 'bg-[var(--color-background)] border-[var(--color-info-border)] hover:border-[var(--color-info-border)]',
-                        )}
-                      >
-                        <div className="flex items-start gap-2">
-                          <span className={cn(
-                            'text-sm flex-1 min-w-0 transition-colors',
-                            applied ? 'text-[var(--color-info)]' : 'group-hover:text-[var(--color-info)]',
-                          )}>
-                            {s.name}
-                          </span>
-                          {applied && (
-                            <span className="text-eyebrow flex items-center gap-1 text-[var(--color-info)] shrink-0">
-                              <Check size={11} /> Đã điền
-                            </span>
-                          )}
-                        </div>
-
-                        {s.description && (
-                          <p className="text-caption line-clamp-2 mt-1">
-                            {s.description}
-                          </p>
-                        )}
-
-                        {/* Hiện đủ các con số để cân nhắc trước khi điền, thay vì
-                            phải áp dụng rồi mới biết AI đề xuất mục tiêu bao nhiêu. */}
-                        <div className="flex flex-wrap items-center gap-1.5 mt-2">
-                          {!isQualitative && s.targetValue != null && (
-                            <SuggestionChip label="Mục tiêu" value={`${s.targetValue}${s.unit ? ` ${s.unit}` : ''}`} />
-                          )}
-                          {s.weight != null && <SuggestionChip label="Trọng số" value={`${s.weight}%`} />}
-                          {s.frequency && <SuggestionChip label="Tần suất" value={FREQUENCY_MAP[s.frequency] ?? s.frequency} />}
-                        </div>
-                      </button>
-                    )
-                  })}
-                </div>
-              </div>
-            )}
-
-            <div>
-              <label className="text-label block mb-1.5">Mô tả chi tiết</label>
-              <textarea 
-                {...register('description')} 
-                rows={2} 
-                className={inputCls + ' resize-none'} 
-                placeholder="Cung cấp ngữ cảnh và cách tính toán..." 
-              />
-            </div>
-          </div>
-          <div className={isInline ? "flex flex-col gap-5 xl:flex-row xl:items-start" : "contents"}>
-          <div className={isInline ? "flex-1 min-w-0 flex flex-col gap-5" : "contents"}>
-
-          <div className="bg-[var(--color-accent)]/10 rounded-card p-4 border border-[var(--color-border)]/30 space-y-4">
-              {!isQualitative && (
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-label block mb-1.5">Mục tiêu mong muốn <span className="text-[var(--color-error)]">*</span></label>
-                  <input
-                    {...register('targetValue', { setValueAs: numOrUndef })}
-                    type="number"
-                    step="any"
-                    onWheel={(e) => (e.target as HTMLInputElement).blur()}
-                    className={inputCls}
-                    placeholder="1000"
-                  />
-                  {errors.targetValue && <p className="text-[var(--color-error)] text-xs mt-1 font-medium">{errors.targetValue.message}</p>}
-                </div>
-                <div>
-                  <label className="text-label block mb-1.5">Mục tiêu tối thiểu <span className="text-[var(--color-error)]">*</span></label>
-                  <input
-                    {...register('minimumValue', { setValueAs: numOrUndef })}
-                    type="number"
-                    step="any"
-                    onWheel={(e) => (e.target as HTMLInputElement).blur()}
-                    className={inputCls}
-                    placeholder="800"
-                  />
-                  {errors.minimumValue && <p className="text-[var(--color-error)] text-xs mt-1 font-medium">{errors.minimumValue.message}</p>}
-                </div>
-              </div>
-              )}
-
-              {isQualitative && (
-                <div className="p-3 rounded-card bg-[var(--color-success-bg)] border border-[var(--color-success-border)] text-xs font-medium text-[var(--color-success)] leading-relaxed">
-                  KPI định tính không có mục tiêu số. Khi duyệt bài nộp, quản lý chọn một mức trong thang điểm định tính (KÉM/YẾU/…/TỐT) để chấm điểm.
-                </div>
-              )}
-
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="text-label block mb-1.5">Trọng số (%) <span className="text-[var(--color-error)]">*</span></label>
-                  <input
-                    {...register('weight', { setValueAs: numOrUndef })}
-                    type="number"
-                    step="any"
-                    min={0}
-                    max={100}
-                    onWheel={(e) => (e.target as HTMLInputElement).blur()}
-                    className={inputCls}
-                    placeholder="25"
-                  />
-                  {errors.weight && <p className="text-[var(--color-error)] text-xs mt-1 font-medium">{errors.weight.message}</p>}
-                  {parentKpi && watch('parentRelationType') === 'DECOMPOSITION' && (
-                    <p className="text-xs mt-1 font-medium text-[var(--color-info)]">
-                      Trọng số còn lại của KPI cha "{parentKpi.name}": {Math.max(0, (parentKpi.weight ?? 0) - (parentKpi.childrenWeightTotal ?? 0))}%
-                    </p>
-                  )}
-                  {realWeight != null && (
-                    <p className="text-xs mt-1 font-medium text-[var(--color-primary)]">
-                      Trọng số thật ≈ {realWeight.toFixed(1)}%
-                      <span className="font-medium text-[var(--color-subtle-foreground)]"> (= {Number(watchedWeight)}% × {categoryWeightPct}% hạng mục — phần đóng góp vào 100% của đơn vị)</span>
-                    </p>
-                  )}
-                </div>
-                {!isQualitative && (
-                <div>
-                  <label className="text-label block mb-1.5">Đơn vị tính <span className="text-[var(--color-error)]">*</span></label>
-                  <input
-                    {...register('unit')}
-                    className={inputCls}
-                    placeholder="VNĐ, %, KPI..."
-                  />
-                  {errors.unit && <p className="text-[var(--color-error)] text-xs mt-1 font-medium">{errors.unit.message}</p>}
-                </div>
-                )}
-              </div>
-
-              {!isQualitative && (
-              <Controller
-                name="isReverseKpi"
-                control={control}
-                render={({ field }) => (
-                  <button
-                    type="button"
-                    onClick={() => field.onChange(!field.value)}
-                    className={cn(
-                      "w-full flex items-center justify-between px-4 py-3 rounded-card border-2 transition-all text-left",
-                      field.value
-                        ? "border-[var(--color-warning-border)] bg-[var(--color-warning-bg)]"
-                        : "border-[var(--color-border)] bg-[var(--color-background)] hover:border-[var(--color-primary)]/50"
-                    )}
-                  >
-                    <div>
-                      <div className="flex items-center gap-1.5">
-                        <span className={cn("text-sm font-medium", field.value ? "text-[var(--color-warning)]" : "text-[var(--color-foreground)]")}>
-                          KPI Ngược
-                        </span>
-                        <div className="relative group/tooltip">
-                          <div className="w-4 h-4 rounded-full bg-[var(--color-muted-foreground)]/20 hover:bg-[var(--color-warning-bg)] dark:hover:bg-[var(--color-warning-bg)] flex items-center justify-center cursor-help transition-colors">
-                            <span className="text-caption group-hover/tooltip:text-[var(--color-warning)] leading-none transition-colors">?</span>
-                          </div>
-                          <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-64 p-3 rounded-card bg-[var(--color-foreground)] text-[var(--color-background)] text-xs leading-relaxed shadow-2xl opacity-0 group-hover/tooltip:opacity-100 pointer-events-none transition-all duration-200 z-50 scale-95 group-hover/tooltip:scale-100">
-                            <p className="font-semibold text-amber-300 dark:text-amber-700 mb-1.5">KPI Ngược là gì?</p>
-                            <p className="font-medium opacity-90">Loại KPI mà giá trị thực tế <span className="text-amber-300 dark:text-amber-700 font-semibold">càng thấp càng tốt</span>.</p>
-                            <p className="font-medium opacity-80 mt-1.5">Ví dụ: tỉ lệ lỗi, chi phí vận hành, thời gian xử lý, tỉ lệ nghỉ việc...</p>
-                            <p className="font-medium opacity-80 mt-1.5">Công thức điểm: <span className="text-emerald-300 dark:text-emerald-700 font-semibold">2 − (thực tế ÷ mục tiêu)</span>, thay vì chia thẳng như KPI thường.</p>
-                            <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-[var(--color-foreground)]" />
-                          </div>
-                        </div>
-                      </div>
-                      <div className="text-caption mt-0.5">
-                        Giá trị mục tiêu càng thấp càng tốt (VD: tỉ lệ lỗi, chi phí)
-                      </div>
-                    </div>
-                    <div className={cn(
-                      "w-10 h-6 rounded-full transition-all relative flex-shrink-0",
-                      field.value ? "bg-[var(--color-warning-solid)]" : "bg-[var(--color-muted-foreground)]/30"
-                    )}>
-                      <div className={cn(
-                        "absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-all",
-                        field.value ? "left-5" : "left-1"
-                      )} />
-                    </div>
-                  </button>
-                )}
-              />
-              )}
-
-              {!parentKpi && (
-                <Controller
-                  name="isBonusKpi"
-                  control={control}
-                  render={({ field }) => (
-                    <button
-                      type="button"
-                      onClick={() => field.onChange(!field.value)}
-                      className={cn(
-                        "w-full flex items-center justify-between px-4 py-3 rounded-card border-2 transition-all text-left",
-                        field.value
-                          ? "border-[var(--color-success-border)] bg-[var(--color-success-bg)]"
-                          : "border-[var(--color-border)] bg-[var(--color-background)] hover:border-[var(--color-primary)]/50"
-                      )}
-                    >
-                      <div>
-                        <div className="flex items-center gap-1.5">
-                          <span className={cn("text-sm font-medium", field.value ? "text-[var(--color-success)]" : "text-[var(--color-foreground)]")}>
-                            KPI Thưởng
-                          </span>
-                          <div className="relative group/tooltip">
-                            <div className="w-4 h-4 rounded-full bg-[var(--color-muted-foreground)]/20 hover:bg-[var(--color-success-bg)] dark:hover:bg-[var(--color-success-bg)] flex items-center justify-center cursor-help transition-colors">
-                              <span className="text-caption group-hover/tooltip:text-[var(--color-success)] leading-none transition-colors">?</span>
-                            </div>
-                            <div className="absolute left-1/2 -translate-x-1/2 bottom-full mb-2 w-64 p-3 rounded-card bg-[var(--color-foreground)] text-[var(--color-background)] text-xs leading-relaxed shadow-2xl opacity-0 group-hover/tooltip:opacity-100 pointer-events-none transition-all duration-200 z-50 scale-95 group-hover/tooltip:scale-100">
-                              <p className="font-semibold text-emerald-300 dark:text-emerald-700 mb-1.5">KPI Thưởng là gì?</p>
-                              <p className="font-medium opacity-90">KPI <span className="text-emerald-300 dark:text-emerald-700 font-semibold">tùy chọn</span>, không tính vào tổng 100% trọng số của đơn vị.</p>
-                              <p className="font-medium opacity-80 mt-1.5">Không làm cũng không sao. Nếu hoàn thành, điểm sẽ được <span className="text-emerald-300 dark:text-emerald-700 font-semibold">cộng thêm</span> vào tổng điểm đánh giá.</p>
-                              <div className="absolute left-1/2 -translate-x-1/2 top-full w-0 h-0 border-l-4 border-r-4 border-t-4 border-l-transparent border-r-transparent border-t-[var(--color-foreground)]" />
-                            </div>
-                          </div>
-                        </div>
-                        <div className="text-caption mt-0.5">
-                          Không bắt buộc, không tính vào 100% trọng số, hoàn thành thì được cộng điểm thêm
-                        </div>
-                      </div>
-                      <div className={cn(
-                        "w-10 h-6 rounded-full transition-all relative flex-shrink-0",
-                        field.value ? "bg-[var(--color-success-solid)]" : "bg-[var(--color-muted-foreground)]/30"
-                      )}>
-                        <div className={cn(
-                          "absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-all",
-                          field.value ? "left-5" : "left-1"
-                        )} />
-                      </div>
-                    </button>
-                  )}
-                />
-              )}
-          </div>
-          {!isPendingApproval && (
-          <div className="grid grid-cols-2 gap-4">
-            {/* Đợt bị khoá thì bỏ hẳn ô này: bước trước của trình thiết lập đã chọn, và thẻ
-                "Đang lập cho" bên phải đã hiện tên đợt. Bày thêm một ô nữa chỉ làm rối. */}
-            {!lockedPeriodId && (
-              <div>
-                <label className="text-label block mb-1.5">Đợt đánh giá <span className="text-[var(--color-error)]">*</span></label>
+              </Field>
+            ) : (
+              <Field label="Đợt đánh giá" required error={errors.kpiPeriodId?.message}>
                 <Controller name="kpiPeriodId" control={control}
                   render={({ field }) => (
                     <Select value={field.value || ''} onValueChange={field.onChange}>
-                      <SelectTrigger className={cn(inputCls, 'h-auto', errors.kpiPeriodId && 'ring-2 ring-[var(--color-error-solid)]')}>
-                        <SelectValue placeholder="Chọn đợt..." />
-                      </SelectTrigger>
-                      <SelectContent className="z-[1100]">
+                      <SelectTrigger aria-invalid={!!errors.kpiPeriodId}><SelectValue placeholder="Chọn đợt..." /></SelectTrigger>
+                      <SelectContent>
                         {periodsData?.content.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                       </SelectContent>
                     </Select>
                   )}
                 />
-                {errors.kpiPeriodId && <p className="text-[var(--color-error)] text-xs mt-1 font-medium">{errors.kpiPeriodId.message}</p>}
-              </div>
+              </Field>
             )}
-            <div>
-              <label className="text-label block mb-1.5">Tần suất chốt <span className="text-[var(--color-error)]">*</span></label>
+            <Field label="Tần suất chốt" required>
               <Controller name="frequency" control={control}
                 render={({ field }) => (
                   <Select value={field.value || ''} onValueChange={field.onChange}>
-                    <SelectTrigger className={cn(inputCls, 'h-auto')}>
-                      <SelectValue placeholder="Chọn tần suất..." />
-                    </SelectTrigger>
-                    <SelectContent className="z-[1100]">
+                    <SelectTrigger><SelectValue placeholder="Chọn tần suất..." /></SelectTrigger>
+                    <SelectContent>
                       {filteredFrequencyOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 )}
               />
-            </div>
-            <div className="col-span-2">
-              <label className="text-label block mb-1.5">Hạn chót</label>
+            </Field>
+            <Field label="Hạn chót" hint={selectedPeriod ? `Trống = cuối đợt (${formatDateTime(selectedPeriod.endDate)})` : 'Chọn đợt trước'}>
               <Controller name="deadline" control={control}
                 render={({ field }) => (
-                  <DateTimePicker
-                    value={field.value || ''}
-                    onChange={field.onChange}
-                    placeholder="Chưa chọn (mặc định theo đợt)"
-                    className={cn(!selectedPeriod && 'opacity-50 pointer-events-none')}
-                  />
+                  <DateTimePicker value={field.value || ''} onChange={field.onChange} placeholder="Mặc định theo đợt"
+                    className={cn(!selectedPeriod && 'pointer-events-none opacity-50')} />
                 )}
               />
-              {selectedPeriod && (
-                <p className="text-caption mt-1">
-                  Để trống = mặc định theo ngày kết thúc đợt ({formatDateTime(selectedPeriod.endDate)})
-                </p>
+            </Field>
+          </div>
+
+          {/* Đơn vị thực hiện */}
+          {flatOrgUnits.length > 0 && (
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <label className="text-label flex items-center gap-2">
+                  <LayoutGrid size={15} className="text-[var(--color-primary)]" aria-hidden="true" /> Đơn vị thực hiện
+                  {enableOkr && <span className="text-caption">· chế độ OKR: một đơn vị</span>}
+                </label>
+                {compactOrgUnits ? (
+                  <Button variant="ghost" size="sm" type="button" onClick={() => setOrgUnitsExpanded(v => !v)}>
+                    {orgUnitsExpanded ? 'Xong' : 'Đổi'}
+                  </Button>
+                ) : (
+                  <span className="text-caption">{formOrgUnitIds.length} đã chọn</span>
+                )}
+              </div>
+              {compactOrgUnits && !orgUnitsExpanded && (
+                <div className="flex h-9 items-center gap-2 rounded-control border border-[var(--color-border)] bg-[var(--color-muted)] px-3 text-sm">
+                  <LayoutGrid size={13} className="shrink-0 text-[var(--color-muted-foreground)]" />
+                  <span className="truncate">
+                    {formOrgUnitIds.length === 0 ? 'Chưa chọn đơn vị'
+                      : formOrgUnitIds.length === 1 ? (flatOrgUnits.find(u => u.id === formOrgUnitIds[0])?.name ?? '1 đơn vị')
+                      : `${formOrgUnitIds.length} đơn vị`}
+                  </span>
+                </div>
+              )}
+              <div className={cn('rounded-card border border-[var(--color-border)] bg-[var(--color-card)]', compactOrgUnits && !orgUnitsExpanded && 'hidden')}>
+                <div className="custom-scrollbar max-h-36 space-y-0.5 overflow-y-auto p-1.5">
+                  {flatOrgUnits.map(unit => {
+                    const on = formOrgUnitIds.includes(unit.id)
+                    return (
+                      <button key={unit.id} type="button" onClick={() => toggleOrgUnit(unit.id)}
+                        className={cn('flex w-full items-center justify-between rounded-control px-3 py-1.5 text-left text-xs transition-colors',
+                          on ? 'bg-[var(--color-primary)] font-semibold text-[var(--color-primary-foreground)]' : 'hover:bg-[var(--color-muted)]')}>
+                        <span className="truncate">{unit.levelLabel}</span>
+                        {on && <Check size={14} aria-hidden="true" />}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Giao thực hiện */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <label className="text-label flex items-center gap-2">
+                <Users size={15} className="text-[var(--color-primary)]" aria-hidden="true" /> Giao thực hiện
+              </label>
+              {!isStaff && <span className="text-caption">{selectedAssignees.length} người · {totalMemberCount} khả dụng</span>}
+            </div>
+            {isStaff ? (
+              <div className="flex items-center gap-3 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] px-3 py-2.5">
+                <UserAvatar fullName={user?.fullName} avatarUrl={user?.avatarUrl} className="h-8 w-8 rounded-full" fallbackClassName="bg-[var(--color-primary-soft)] text-[var(--color-primary)] text-sm font-semibold" />
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium">{user?.fullName} <span className="text-[var(--color-primary)]">(bản thân)</span></p>
+                  <p className="truncate text-caption">{user?.email}</p>
+                </div>
+                <Check size={16} className="text-[var(--color-primary)]" aria-hidden="true" />
+              </div>
+            ) : formOrgUnitIds.length > 0 ? (
+              <div className="overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
+                <div className="flex flex-wrap items-center gap-2 border-b border-[var(--color-border)] p-2">
+                  <Input size="sm" placeholder="Tìm theo tên hoặc email…" value={userSearch} onChange={e => setUserSearch(e.target.value)} className="w-56" />
+                  <ChoiceChip selected={selectedRole === 'ALL'} size="sm" onClick={() => setSelectedRole('ALL')}>Tất cả</ChoiceChip>
+                  {availableRolesForFilter.map(role => (
+                    <ChoiceChip key={role.id} selected={selectedRole === role.name} size="sm" onClick={() => setSelectedRole(role.name)}>{role.name}</ChoiceChip>
+                  ))}
+                </div>
+                <div className="custom-scrollbar max-h-44 space-y-0.5 overflow-y-auto p-1.5">
+                  {isLoadingUsers ? (
+                    <p className="flex items-center justify-center gap-2 py-8 text-caption"><Loader2 size={16} className="animate-spin" /> Đang tải nhân sự…</p>
+                  ) : displayUsers.length === 0 ? (
+                    <p className="py-8 text-center text-caption">Không có nhân sự phù hợp</p>
+                  ) : displayUsers.map(u => {
+                    const on = selectedAssignees.includes(u.id)
+                    return (
+                      <button key={u.id} type="button" onClick={() => toggleAssignee(u.id)}
+                        className={cn('flex w-full items-center justify-between rounded-control px-3 py-2 text-left transition-colors',
+                          on ? 'bg-[var(--color-primary)] text-[var(--color-primary-foreground)]' : 'hover:bg-[var(--color-muted)]')}>
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm font-medium">{u.fullName}</span>
+                          <span className={cn('block truncate text-xs', on ? 'text-white/80' : 'text-[var(--color-muted-foreground)]')}>
+                            {u.email}{u.memberships?.[0] && ` · ${u.memberships[0].roleDisplayName}`}
+                          </span>
+                        </span>
+                        {on && <Check size={14} aria-hidden="true" />}
+                      </button>
+                    )
+                  })}
+                </div>
+              </div>
+            ) : (
+              <p className="rounded-card border border-dashed border-[var(--color-border)] px-3 py-4 text-center text-caption">
+                Chọn đơn vị thực hiện để hiện danh sách nhân sự
+              </p>
+            )}
+          </div>
+        </Section>
+      )}
+
+      {/* ══ ② Nguồn chỉ tiêu ═══════════════════════════════════════════════ */}
+      {canPickSource && (
+        <Section title="② Nguồn chỉ tiêu" hint="Chọn nguồn trước — mục tiêu, đơn vị tính, trọng số sẽ điền sẵn ở bước ③">
+          {/* KR đã gắn thì không gỡ được khi sửa (luật cũ của ô KR) — khoá luôn việc đổi nguồn. */}
+          <div className="flex flex-wrap gap-2" title={krLocked ? 'Chỉ tiêu đã gắn KR — không đổi nguồn khi sửa' : undefined}>
+            <ChoiceChip selected={source === 'FREE'} onClick={() => changeSource('FREE')} disabled={krLocked}><Unlink /> Tự do</ChoiceChip>
+            {enableBsc && <ChoiceChip selected={source === 'BSC'} onClick={() => changeSource('BSC')} disabled={krLocked}><LayoutGrid /> Hạng mục BSC</ChoiceChip>}
+            {enableOkr && (
+              <ChoiceChip selected={source === 'OKR'} onClick={() => changeSource('OKR')}>
+                <Target /> Kết quả then chốt (OKR)
+              </ChoiceChip>
+            )}
+          </div>
+
+          {source === 'BSC' && (
+            <div className="space-y-3">
+              <Controller name="perspectiveId" control={control}
+                render={({ field }) => (
+                  <Select key={`${field.value ?? 'NONE'}-${(perspectives || []).length}`} onValueChange={field.onChange} value={field.value || 'NONE'}>
+                    <SelectTrigger><SelectValue placeholder="Chọn hạng mục…" /></SelectTrigger>
+                    <SelectContent className="max-h-[350px]">
+                      <SelectItem value="NONE">— Chưa chọn hạng mục —</SelectItem>
+                      {filteredGroupedPerspectives.map(group => (
+                        <SelectGroup key={group.code}>
+                          <SelectLabel>{group.name}</SelectLabel>
+                          {group.items.map(p => (
+                            <SelectItem key={p.id} value={p.id}
+                              extra={perspectiveNumbers.get(p.id) && <span className="ml-auto pl-3 text-caption whitespace-nowrap">{perspectiveNumbers.get(p.id)}</span>}>
+                              <span className="flex items-center gap-2">
+                                <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: p.color || '#94a3b8' }} />
+                                <span className="truncate">{p.name}</span>
+                              </span>
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                )}
+              />
+              {/* Vì sao danh sách trống — nói thẳng thiếu gì. */}
+              {availablePerspectiveIds && !formKpiPeriodId && <Hint tone="warning">Chọn <b>Đợt đánh giá</b> ở bước ① — hạng mục hiện theo bộ tiêu chí của đợt.</Hint>}
+              {availablePerspectiveIds && formKpiPeriodId && !periodHasScorecard && <Hint tone="warning">Đợt này <b>chưa có bộ tiêu chí BSC</b> — lập bộ tiêu chí cho đợt rồi mới chọn được hạng mục.</Hint>}
+              {availablePerspectiveIds && formKpiPeriodId && periodHasScorecard && !hasRealUnit && <Hint tone="warning">Chọn <b>Đơn vị thực hiện</b> ở bước ① — hạng mục hiện theo bộ tiêu chí của đơn vị.</Hint>}
+              {availablePerspectiveIds && periodHasScorecard && hasRealUnit && filteredGroupedPerspectives.length === 0 && <Hint tone="warning">Bộ tiêu chí của đơn vị này <b>chưa có hạng mục nào</b>.</Hint>}
+              {selectedPerspMissing && <Hint tone="warning">Hạng mục này <b>không có trong bộ tiêu chí</b> của đơn vị đã chọn ⇒ KPI sẽ không tính vào điểm BSC.</Hint>}
+
+              {selectedPerspRow && selectedPerspective && (
+                <SourceCard color={selectedPerspective.color || '#94a3b8'} title={selectedPerspective.name} subtitle={effectiveScorecard?.name}>
+                  <Stat label="Mục tiêu hạng mục" value={selectedPerspRow.targetValue != null ? `${formatNumber(selectedPerspRow.targetValue)}${selectedPerspRow.unit ? ` ${selectedPerspRow.unit}` : ''}` : '—'} />
+                  <Stat label="Tối thiểu" value={selectedPerspRow.minimumValue != null ? formatNumber(selectedPerspRow.minimumValue) : '—'} />
+                  <Stat label="Trọng số hạng mục" value={`${selectedPerspRow.weightPercentage}%`} hint="100% chỉ tiêu = đủ hạng mục" />
+                  {plan && (
+                    <Stat label="Còn chưa chia" value={plan.remainingValue != null ? formatNumber(plan.remainingValue) : '—'}
+                      hint={`${plan.periods.length} đợt · ${plan.periods.reduce((s, p) => s + p.kpiCount, 0)} KPI đã gắn`} />
+                  )}
+                  {periodRowOfPlan && (
+                    <Stat label={`Trọng số còn trống · ${periodRowOfPlan.name}`} value={`${round2(100 - periodRowOfPlan.allocatedWeight)}%`} hint={`${periodRowOfPlan.kpiCount} KPI đã chiếm ${periodRowOfPlan.allocatedWeight}%`} />
+                  )}
+                </SourceCard>
+              )}
+
+              {showSplit && (
+                <div className="rounded-card border border-[var(--color-border)] bg-[var(--color-muted)]">
+                  <label className="flex cursor-pointer items-center justify-between gap-3 px-4 py-3">
+                    <span className="min-w-0">
+                      <span className="flex items-center gap-2 text-sm font-medium"><SplitSquareHorizontal size={15} aria-hidden="true" /> Chia theo từng đợt trong kỳ</span>
+                      <span className="text-caption block">Hạng mục trải {plan!.periods.length} đợt — tạo một KPI cho mỗi đợt, phần còn lại chia đều. Tắt = chỉ tạo KPI cho đợt đã chọn ở bước ①.</span>
+                    </span>
+                    <Switch checked={splitMode} onCheckedChange={setSplitMode} />
+                  </label>
+                  {splitMode && (
+                    <div className="border-t border-[var(--color-border)] p-3">
+                      <SplitTable rows={splitRows} onChange={setSplitRows} unit={watchedUnit || selectedPerspRow?.unit || ''} isReverse={isReverse} plan={plan!} unitCount={Math.max(formOrgUnitIds.length, 1)} />
+                    </div>
+                  )}
+                </div>
               )}
             </div>
-          </div>
-          )}
-          </div>
-
-          <div className={isInline ? "flex-1 min-w-0 flex flex-col gap-5" : "contents"}>
-
-          {/* Đơn vị và Thành viên gộp thành MỘT ô lưới: chọn đơn vị xong là danh sách nhân sự
-              nằm ngay dưới. Để rời ra, lưới hai cột đẩy chúng nằm chéo nhau trên màn hình dù
-              về nghiệp vụ cái sau phụ thuộc hoàn toàn vào cái trước. */}
-          <div className="space-y-4">
-          {!isPendingApproval && flatOrgUnits.length > 0  && (
-            <div className="space-y-2">
-                <div className="flex items-center justify-between">
-                    <div className="space-y-0.5">
-                      <label className="text-label block flex items-center gap-2">
-                          <LayoutGrid size={16} className="text-[var(--color-primary)]" />
-                          Đơn vị thực hiện
-                      </label>
-                      {enableOkr && (
-                        <p className="text-xs text-[var(--color-primary)] font-medium animate-pulse italic">
-                          * Chế độ OKR đang bật: Chỉ chọn được 1 đơn vị
-                        </p>
-                      )}
-                    </div>
-                    {/* Ở chế độ thu gọn, nút này vừa là nhãn tóm tắt vừa là lối bung danh sách ra. */}
-                    {compactOrgUnits ? (
-                      <Button variant="ghost" type="button" onClick={() => setOrgUnitsExpanded(v => !v)}>
-                        {orgUnitsExpanded ? 'Xong' : 'Đổi'}
-                      </Button>
-                    ) : (
-                      <span className="rounded-full bg-[var(--color-primary-soft)] px-2 py-0.5 text-xs font-medium text-[var(--color-primary)]">
-                          {formOrgUnitIds.length} đã chọn
-                      </span>
-                    )}
-                </div>
-
-                {/* Thu gọn: một dòng nói rõ đang giao cho đâu, thay cho danh sách cuộn cao 144px
-                    mà lần nào cũng phải tự đi tích dù gần như luôn là đơn vị của chính mình. */}
-                {compactOrgUnits && !orgUnitsExpanded && (
-                  <div className="flex items-center gap-2 px-3 py-2.5 rounded-control border border-[var(--color-border)] bg-[var(--color-accent)]/20 text-sm font-medium">
-                    <LayoutGrid size={13} className="shrink-0 text-[var(--color-muted-foreground)]" />
-                    <span className="truncate">
-                      {formOrgUnitIds.length === 0
-                        ? 'Chưa chọn đơn vị'
-                        : formOrgUnitIds.length === 1
-                          ? (flatOrgUnits.find(u => u.id === formOrgUnitIds[0])?.name ?? '1 đơn vị')
-                          : `${formOrgUnitIds.length} đơn vị`}
-                    </span>
-                  </div>
-                )}
-
-                <div className={cn(
-                  'border border-[var(--color-border)] rounded-card bg-[var(--color-background)]',
-                  compactOrgUnits && !orgUnitsExpanded && 'hidden',
-                )}>
-                    <div className="max-h-36 overflow-y-auto p-2 space-y-1 custom-scrollbar">
-                        {flatOrgUnits.map(unit => (
-                            <div 
-                                key={unit.id} 
-                                onClick={() => toggleOrgUnit(unit.id)}
-                                className={cn(
-                                    "flex items-center justify-between px-3 py-1.5 text-xs rounded-control cursor-pointer transition-all",
-                                    formOrgUnitIds.includes(unit.id) 
-                                        ? "bg-[var(--color-primary)] text-[var(--color-primary-foreground)] font-semibold"
-                                        : "hover:bg-[var(--color-accent)]"
-                                )}
-                            >
-                                <span className="truncate">{unit.levelLabel}</span>
-                                {formOrgUnitIds.includes(unit.id) && <Check size={14} />}
-                            </div>
-                        ))}
-                    </div>
-                </div>
-            </div>
           )}
 
-          {!isPendingApproval && (<div className="bg-[var(--color-primary)]/5 rounded-card p-4 space-y-4 border border-[var(--color-primary)]/10 shadow-sm transition-all overflow-hidden">
-            <div className="flex items-center justify-between">
-                <label className="text-label block flex items-center gap-2">
-                    <Users size={16} className="text-[var(--color-primary)]" />
-                    Giao thực hiện
-                </label>
-                {!isStaff && (
-                    <div className="text-eyebrow px-2.5 py-1 rounded-full bg-[var(--color-primary)]/10 text-[var(--color-primary)]">
-                        {totalMemberCount} nhân sự khả dụng
-                    </div>
+          {source === 'OKR' && (
+            <div className="space-y-3">
+              <Controller name="keyResultId" control={control}
+                render={({ field }) => (
+                  <Select onValueChange={field.onChange} value={field.value || 'NONE'} disabled={isEdit && !!editKpi?.keyResultId}>
+                    <SelectTrigger><SelectValue placeholder="Chọn kết quả then chốt…" /></SelectTrigger>
+                    <SelectContent className="max-h-[350px]">
+                      <SelectItem value="NONE">— Chưa chọn KR —</SelectItem>
+                      {filteredObjectives.map(obj => (
+                        <SelectGroup key={obj.id}>
+                          <SelectLabel className="flex items-center justify-between gap-2"><span>OBJ: {obj.name}</span><Badge variant="outline">OKR</Badge></SelectLabel>
+                          {obj.keyResults.map((kr: any) => (
+                            <SelectItem key={kr.id} value={kr.id}
+                              extra={kr.targetValue != null && <span className="ml-auto pl-3 text-caption whitespace-nowrap">{formatNumber(kr.targetValue)}{kr.unit ? ` ${kr.unit}` : ''}</span>}>
+                              <span className="truncate" title={kr.name}>{kr.name}</span>
+                            </SelectItem>
+                          ))}
+                        </SelectGroup>
+                      ))}
+                    </SelectContent>
+                  </Select>
                 )}
+              />
+              {formOrgUnitIds.length === 0 && <Hint tone="warning">Chọn <b>Đơn vị thực hiện</b> ở bước ① — KR hiện theo mục tiêu của đơn vị.</Hint>}
+              {formOrgUnitIds.length > 0 && filteredObjectives.length === 0 && <Hint tone="warning">Đơn vị này chưa có mục tiêu OKR nào.</Hint>}
+              {selectedKr && (
+                <SourceCard color={inheritedPerspective?.color || '#8b5cf6'} title={selectedKr.kr.name} subtitle={`OBJ: ${selectedKr.obj.name}`}>
+                  <Stat label="Mục tiêu KR" value={selectedKr.kr.targetValue != null ? `${formatNumber(selectedKr.kr.targetValue)}${selectedKr.kr.unit ? ` ${selectedKr.kr.unit}` : ''}` : '—'} />
+                  <Stat label="Đã đạt" value={selectedKr.kr.currentValue != null ? `${formatNumber(selectedKr.kr.currentValue)} (${Math.round(selectedKr.kr.progress ?? 0)}%)` : '—'} />
+                  {inheritedPerspective && <Stat label="Hạng mục BSC kế thừa" value={inheritedPerspective.name} />}
+                </SourceCard>
+              )}
             </div>
+          )}
+        </Section>
+      )}
 
-            {isStaff ? (
-                <div className="bg-[var(--color-card)] border border-[var(--color-primary)]/20 rounded-card p-4 animate-in fade-in slide-in-from-top-1">
-                    <div className="flex items-center gap-3">
-                        <UserAvatar
-                            fullName={user?.fullName}
-                            avatarUrl={user?.avatarUrl}
-                            className="w-10 h-10 rounded-full"
-                            fallbackClassName="bg-[var(--color-primary)]/10 text-[var(--color-primary)] font-semibold text-lg"
-                        />
-                        <div className="flex-1">
-                            <div className="text-sm font-medium">{user?.fullName} <span className="text-[var(--color-primary)]">(Bản thân)</span></div>
-                            <div className="text-caption font-medium">{user?.email}</div>
-                        </div>
-                        <div className="flex items-center gap-2">
-                            <Badge variant="outline" className="bg-[var(--color-primary)]/10 text-[var(--color-primary)] border-none font-semibold text-xs">
-                                Đang chọn
-                            </Badge>
-                            <div className="bg-[var(--color-primary)] text-[var(--color-primary-foreground)] rounded-full p-1">
-                                <Check size={12} strokeWidth={3} />
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            ) : formOrgUnitIds.length > 0 ? (
-                <>
-                <div className="flex flex-wrap gap-2 items-center animate-in fade-in slide-in-from-top-1">
-                    <span className="text-eyebrow shrink-0">Role:</span>
-                    <ChoiceChip selected={selectedRole === 'ALL'} variant="solid" size="sm" className="py-1 shrink-0" onClick={() => setSelectedRole('ALL')}>
-                        Tất cả
-                    </ChoiceChip>
-                    {availableRolesForFilter.map(role => (
-                        <ChoiceChip selected={selectedRole === role.name} variant="solid" size="sm" className="py-1 shrink-0" key={role.id} onClick={() => setSelectedRole(role.name)}>
-                            {role.name}
-                        </ChoiceChip>
-                    ))}
-                </div>
-                
-                <div className="border border-[var(--color-border)] rounded-card overflow-hidden bg-[var(--color-background)] animate-in fade-in slide-in-from-top-2">
-                <div className="p-2 border-b border-[var(--color-border)] bg-[var(--color-accent)]/5">
-                    <input 
-                    type="text"
-                    placeholder="Họ tên hoặc Email..."
-                    value={userSearch}
-                    onChange={(e) => setUserSearch(e.target.value)}
-                    className="w-full px-3 py-2 text-xs rounded-control border border-[var(--color-border)] bg-[var(--color-background)] outline-none focus:ring-2 focus:ring-[var(--color-primary)]/50 transition-all shadow-sm"
-                    />
-                </div>
-                <div className="max-h-48 overflow-y-auto p-1.5 space-y-1 custom-scrollbar">
-                    {isLoadingUsers ? (
-                    <div className="p-12 flex flex-col items-center justify-center gap-3 text-xs text-[var(--color-muted-foreground)] font-medium">
-                        <Loader2 size={24} className="animate-spin text-[var(--color-primary)]" />
-                        <span className="opacity-60">Đang đồng bộ...</span>
-                    </div>
-                    ) : displayUsers.length === 0 ? (
-                        <div className="p-12 text-center text-xs text-[var(--color-muted-foreground)] font-medium italic">
-                            Không tìm thấy nhân sự phù hợp theo tiêu chí lọc
-                        </div>
-                    ) : (
-                    displayUsers.map((u) => (
-                        <div 
-                        key={u.id}
-                        onClick={() => toggleAssignee(u.id)}
-                        className={cn(
-                            "flex items-center justify-between px-3 py-2.5 rounded-card cursor-pointer transition-all",
-                            selectedAssignees.includes(u.id) 
-                                ? "bg-[var(--color-primary)] text-[var(--color-primary-foreground)] scale-[1.01] font-semibold"
-                                : "hover:bg-[var(--color-accent)] group"
-                        )}
-                        >
-                        <div className="flex flex-col">
-                            <span className="text-sm">{u.fullName}</span>
-                            <div className="flex items-center gap-2 mt-0.5">
-                                <span className={cn("text-xs font-medium opacity-70", selectedAssignees.includes(u.id) ? "text-white" : "text-[var(--color-muted-foreground)]")}>{u.email}</span>
-                                {u.memberships?.[0] && (
-                                    <span className={cn(
-                                        "px-1.5 py-0.5 rounded text-xs font-medium",
-                                        selectedAssignees.includes(u.id) ? "bg-white/20 text-white" : "bg-[var(--color-primary)]/10 text-[var(--color-primary)]"
-                                    )}>
-                                        {u.memberships[0].roleDisplayName}
-                                    </span>
-                                )}
-                            </div>
-                        </div>
-                        {selectedAssignees.includes(u.id) && (
-                            <div className="bg-white rounded-full p-0.5 animate-in zoom-in">
-                                <Check size={12} className="text-[var(--color-primary)]" />
-                            </div>
-                        )}
-                        </div>
-                    ))
-                    )}
-                </div>
-                </div>
-                </>
-            ) : (
-                <div className="text-eyebrow p-10 text-center italic bg-[var(--color-background)]/50 rounded-card border border-dashed border-[var(--color-border)] animate-pulse">
-                     Vui lòng chọn đơn vị thực hiện để hiển thị danh sách nhân sự
-                </div>
+      {/* ══ ③ Nội dung chỉ tiêu ═════════════════════════════════════════════ */}
+      <Section title={canPickSource || !isPendingApproval ? '③ Nội dung chỉ tiêu' : 'Nội dung chỉ tiêu'}
+        hint={source !== 'FREE' && !isEdit ? 'Đã điền sẵn từ nguồn — sửa chỗ nào thấy khác' : undefined}>
+
+        {/* Hai công tắc đứng TRƯỚC các ô số: chúng đổi nhãn và ý nghĩa của những ô đó. */}
+        {(!isQualitative || !parentKpi) && (
+          <div className="flex flex-wrap gap-2">
+            {!isQualitative && (
+              <Controller name="isReverseKpi" control={control} render={({ field }) => (
+                <ToggleCard on={!!field.value} onToggle={() => field.onChange(!field.value)} tone="warning"
+                  title="KPI ngược" desc="Giá trị càng thấp càng tốt — tỉ lệ lỗi, chi phí, thời gian xử lý" />
+              )} />
             )}
-          </div>)}
-          </div>
-
-
-          {!isPendingApproval && enableOkr && (
-            <div className="bg-[var(--color-primary-soft)] p-4 rounded-card border border-[var(--color-border)] space-y-3">
-              <div className="flex items-center gap-2 text-[var(--color-primary)]">
-                <Target size={16} />
-                <span className="text-eyebrow">Đẩy tiến độ OKR Chiến lược</span>
-              </div>
-              <div className="space-y-1">
-                <label className="text-label block text-[var(--color-muted-foreground)] tracking-tight">Gắn kết Kết quả then chốt (KR)</label>
-                <Controller
-                  name="keyResultId"
-                  control={control}
-                  render={({ field }) => (
-                    <Select 
-                      onValueChange={field.onChange} 
-                      value={field.value || "NONE"}
-                      disabled={isEdit && !!editKpi?.keyResultId}
-                    >
-                      <SelectTrigger className={cn(
-                        "w-full rounded-card border-[var(--color-border)] bg-[var(--color-card)] focus:ring-[var(--color-ring)] transition-all h-11 shadow-sm overflow-hidden",
-                        isEdit && !!editKpi?.keyResultId && "bg-[var(--color-muted)] cursor-not-allowed opacity-70"
-                      )}>
-                        <SelectValue placeholder="-- Không liên kết --" className="truncate flex-1 min-w-0 text-left" />
-                      </SelectTrigger>
-                      <SelectContent className="z-[1100] rounded-card border-[var(--color-border)] shadow-2xl max-h-[350px] overflow-auto">
-                        <SelectItem value="NONE" className="font-semibold py-3">-- Không liên kết mục tiêu --</SelectItem>
-                        {filteredObjectives.map(obj => (
-                          <SelectGroup key={obj.id} className="p-1">
-                            <SelectLabel className="text-eyebrow px-3 py-2 text-[var(--color-primary)] bg-[var(--color-primary-soft)] rounded-card my-1.5 flex items-start justify-between gap-2">
-                              <span>OBJ: {obj.name}</span>
-                              <Badge variant="outline" className="text-xs border-[var(--color-border)] shrink-0">OKR</Badge>
-                            </SelectLabel>
-                            {obj.keyResults.map((kr: any) => (
-                              <SelectItem
-                                key={kr.id}
-                                value={kr.id}
-                                className="rounded-card py-2.5 pl-8 pr-3 focus:bg-[var(--color-primary-soft)] focus:text-[var(--color-primary)] transition-colors"
-                                              >
-                                <span className="font-semibold text-xs truncate block" title={kr.name}>{kr.name}</span>
-                              </SelectItem>
-                            ))}
-                          </SelectGroup>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-              </div>
-            </div>
-          )}
-
-          {!isPendingApproval && enableBsc && (
-            <div className="bg-[var(--color-primary-soft)] p-4 rounded-card border border-[var(--color-border)] space-y-3">
-              <div className="flex items-center justify-between gap-2 text-[var(--color-primary)]">
-                <div className="flex items-center gap-2">
-                  <LayoutGrid size={16} />
-                  <span className="text-eyebrow">Hạng mục BSC</span>
-                </div>
-                {/* Đường đi ngược: bắt đầu TỪ con số của hạng mục (VD doanh thu 100 triệu cho kỳ
-                    2 đợt) rồi chia ra KPI từng đợt, thay vì gõ tay rồi mới nhớ gán hạng mục. */}
-                {onSplitFromBsc && !isEdit && !parentKpi && (
-                  <Button size="sm" type="button" onClick={onSplitFromBsc} title="Lấy mục tiêu của hạng mục BSC và chia ra KPI theo từng đợt">
-                    <SplitSquareHorizontal aria-hidden="true" /> Dùng hạng mục BSC
-                  </Button>
-                )}
-              </div>
-              <div className="space-y-1">
-                <label className="text-label block text-[var(--color-muted-foreground)] tracking-tight">Gắn chỉ tiêu vào hạng mục (theo lĩnh vực)</label>
-                <Controller
-                  name="perspectiveId"
-                  control={control}
-                  render={({ field }) => (
-                    // key ép remount khi value được nạp (reset async) hoặc danh sách hạng mục
-                    // load xong → hiện đúng ngay lần mở đầu, không phải mở lần 2.
-                    <Select key={`${field.value ?? 'NONE'}-${(perspectives || []).length}`} onValueChange={field.onChange} value={field.value || 'NONE'}>
-                      <SelectTrigger className="w-full rounded-card border-[var(--color-border)] bg-[var(--color-card)] focus:ring-[var(--color-ring)] transition-all h-11 shadow-sm overflow-hidden">
-                        <SelectValue placeholder="-- Chưa gán hạng mục --" className="truncate flex-1 min-w-0 text-left" />
-                      </SelectTrigger>
-                      <SelectContent className="z-[1100] rounded-card border-[var(--color-border)] shadow-2xl max-h-[350px] overflow-auto">
-                        <SelectItem value="NONE" className="font-semibold py-3">-- Chưa gán hạng mục --</SelectItem>
-                        {filteredGroupedPerspectives.map(group => (
-                          <div key={group.code}>
-                            <div className="text-eyebrow px-3 pt-2 pb-1">{group.name}</div>
-                            {group.items.map(p => (
-                              <SelectItem key={p.id} value={p.id} className="rounded-card py-2.5 pl-3 pr-3 focus:bg-[var(--color-primary-soft)] focus:text-[var(--color-primary)] transition-colors"
-                                extra={perspectiveNumbers.get(p.id) && (
-                                  <span className="ml-auto pl-3 text-caption whitespace-nowrap">
-                                    {perspectiveNumbers.get(p.id)}
-                                  </span>
-                                )}>
-                                <span className="flex items-center gap-2">
-                                  <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: p.color || '#94a3b8' }} />
-                                  <span className="font-semibold text-xs truncate">{p.name}</span>
-                                </span>
-                              </SelectItem>
-                            ))}
-                          </div>
-                        ))}
-                      </SelectContent>
-                    </Select>
-                  )}
-                />
-                {(!watchedPerspectiveId || watchedPerspectiveId === 'NONE') && inheritedPerspective && (
-                  <p className="text-caption flex items-start gap-1.5 mt-1.5">
-                    <span className="w-2.5 h-2.5 rounded-full shrink-0 mt-0.5" style={{ backgroundColor: inheritedPerspective.color }} />
-                    <span>
-                      Đang kế thừa hạng mục <b className="text-[var(--color-foreground)]">"{inheritedPerspective.name}"</b> từ mục tiêu cha. Chọn ở đây để gán đè trực tiếp.
-                    </span>
-                  </p>
-                )}
-                <p className="text-caption mt-1.5">
-                  Lưu ý: tổng trọng số các chỉ tiêu trong cùng 1 hạng mục phải bằng <b>100%</b>. Hệ thống sẽ <b>chặn phê duyệt</b> nếu chưa đủ 100%.
-                </p>
-                {selectedPerspMissing && (
-                  <p className="text-xs font-medium text-[var(--color-warning)] flex items-start gap-1.5 mt-1.5">
-                    <span className="shrink-0">⚠</span>
-                    Hạng mục đang gán <b>chưa có trong bộ tiêu chí</b> của đơn vị bạn chọn ⇒ KPI sẽ <b>không tính vào điểm BSC</b>. Hãy thêm hạng mục này vào bộ tiêu chí cho phòng ban đó.
-                  </p>
-                )}
-                {availablePerspectiveIds && !formKpiPeriodId && (
-                  <p className="text-xs font-medium text-[var(--color-warning)] flex items-start gap-1.5 mt-1.5">
-                    <span className="shrink-0">⚠</span>
-                    Hãy <b>chọn Đợt đánh giá trước</b> — hạng mục hiện theo bộ tiêu chí của đợt + đơn vị.
-                  </p>
-                )}
-                {availablePerspectiveIds && formKpiPeriodId && !periodHasScorecard && (
-                  <p className="text-xs font-medium text-[var(--color-warning)] flex items-start gap-1.5 mt-1.5">
-                    <span className="shrink-0">⚠</span>
-                    Đợt này <b>chưa có bộ tiêu chí BSC</b> — hãy tạo bộ tiêu chí cho đợt (gồm các hạng mục) thì mới chọn được hạng mục.
-                  </p>
-                )}
-                {availablePerspectiveIds && formKpiPeriodId && periodHasScorecard && !hasRealUnit && (
-                  <p className="text-xs font-medium text-[var(--color-warning)] flex items-start gap-1.5 mt-1.5">
-                    <span className="shrink-0">⚠</span>
-                    Hãy <b>chọn Đơn vị thực hiện trước</b> — hạng mục hiện theo bộ tiêu chí của đơn vị đó.
-                  </p>
-                )}
-                {availablePerspectiveIds && periodHasScorecard && hasRealUnit && filteredGroupedPerspectives.length === 0 && (
-                  <p className="text-xs font-medium text-[var(--color-warning)] flex items-start gap-1.5 mt-1.5">
-                    <span className="shrink-0">⚠</span>
-                    Bộ tiêu chí của phòng ban bạn chọn <b>chưa có hạng mục nào</b> — hãy thêm hạng mục vào bộ tiêu chí cho phòng ban đó trước.
-                  </p>
-                )}
-              </div>
-            </div>
-          )}
-          </div>
-          </div>
-
-          {isInline && (
-            <div className="flex justify-end gap-2 border-t border-[var(--color-border)] pt-4">
-              <Button type="submit" disabled={isPending}>
-                {isPending && <Loader2 className="animate-spin" aria-hidden="true" />}
-                {submitLabel ?? (isEdit ? 'Lưu thay đổi' : 'Tạo chỉ tiêu')}
-              </Button>
-            </div>
+            {!parentKpi && (
+              <Controller name="isBonusKpi" control={control} render={({ field }) => (
+                <ToggleCard on={!!field.value} onToggle={() => field.onChange(!field.value)} tone="success"
+                  title="KPI thưởng" desc="Không bắt buộc, không nằm trong 100% trọng số; làm được thì cộng thêm điểm" />
+              )} />
             )}
-        </form>
-    </>
+          </div>
+        )}
+
+        <Field label="Tên chỉ tiêu" required error={errors.name?.message}
+          trailing={(canManageOrg || canReview) && !isEdit && (
+            <Button size="sm" variant="outline" type="button" onClick={handleAiSuggest} disabled={isSuggesting} title="AI đọc số liệu của đơn vị và bối cảnh bạn đang nhập để đề xuất chỉ tiêu">
+              {isSuggesting ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Sparkles aria-hidden="true" />} Gợi ý AI
+            </Button>
+          )}>
+          <Input {...register('name')} invalid={!!errors.name} placeholder="VD: Doanh thu tháng 10" />
+        </Field>
+
+        {isSuggesting && aiSuggestions.length === 0 && (
+          <div className="space-y-2 rounded-card border border-[var(--color-info-border)] bg-[var(--color-info-bg)] p-3">
+            <span className="text-eyebrow flex items-center gap-1.5 text-[var(--color-info)]"><Loader2 size={12} className="animate-spin" /> AI đang đọc số liệu đơn vị…</span>
+            {[0, 1, 2].map(i => <div key={i} className="h-12 animate-pulse rounded-card bg-[var(--color-card)]" />)}
+          </div>
+        )}
+        {aiSuggestions.length > 0 && (
+          <div className="space-y-2 rounded-card border border-[var(--color-info-border)] bg-[var(--color-info-bg)] p-3">
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="text-eyebrow flex items-center gap-1 text-[var(--color-info)]"><Sparkles size={12} /> AI đề xuất {aiSuggestions.length} chỉ tiêu</span>
+              <span className="ml-auto flex items-center gap-1">
+                {beforeApply && <Button variant="ghost" size="sm" type="button" onClick={undoSuggestion}><RotateCcw aria-hidden="true" /> Hoàn tác</Button>}
+                <Button variant="ghost" size="sm" type="button" onClick={handleAiSuggest} disabled={isSuggesting}>
+                  {isSuggesting ? <Loader2 aria-hidden="true" className="animate-spin" /> : <RefreshCw aria-hidden="true" />} Gợi ý khác
+                </Button>
+                <Button variant="ghost" size="sm" type="button" onClick={closeSuggestions}>Đóng</Button>
+              </span>
+            </div>
+            <div className="space-y-1.5">
+              {aiSuggestions.map((s, idx) => {
+                const applied = appliedIdx === idx
+                return (
+                  <button key={idx} type="button" onClick={() => applySuggestion(s, idx)}
+                    className={cn('w-full rounded-card border p-3 text-left transition-colors',
+                      applied ? 'border-[var(--color-info-border)] bg-[var(--color-info-bg)] ring-2 ring-[var(--color-info-solid)]' : 'border-[var(--color-info-border)] bg-[var(--color-card)] hover:bg-[var(--color-muted)]')}>
+                    <div className="flex items-start gap-2">
+                      <span className="min-w-0 flex-1 text-sm">{s.name}</span>
+                      {applied && <span className="text-eyebrow flex shrink-0 items-center gap-1 text-[var(--color-info)]"><Check size={11} /> Đã điền</span>}
+                    </div>
+                    {s.description && <p className="text-caption mt-1 line-clamp-2">{s.description}</p>}
+                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
+                      {!isQualitative && s.targetValue != null && <SuggestionChip label="Mục tiêu" value={`${s.targetValue}${s.unit ? ` ${s.unit}` : ''}`} />}
+                      {s.weight != null && <SuggestionChip label="Trọng số" value={`${s.weight}%`} />}
+                      {s.frequency && <SuggestionChip label="Tần suất" value={FREQUENCY_MAP[s.frequency] ?? s.frequency} />}
+                    </div>
+                  </button>
+                )
+              })}
+            </div>
+          </div>
+        )}
+
+        <Field label="Mô tả chi tiết">
+          <Textarea {...register('description')} rows={2} placeholder="Cung cấp ngữ cảnh và cách tính toán…" />
+        </Field>
+
+        {isQualitative ? (
+          <Hint tone="success">KPI định tính không có mục tiêu số. Khi duyệt bài nộp, quản lý chọn một mức trong thang định tính (Kém … Tốt) để chấm.</Hint>
+        ) : !splitMode && (
+          <div className="grid gap-4 sm:grid-cols-3">
+            <Field label={targetLabel} required error={errors.targetValue?.message} prefilled={prefilledRef.current.targetValue !== undefined && watchedTarget === prefilledRef.current.targetValue}>
+              <Input {...register('targetValue', { setValueAs: numOrUndef })} type="number" step="any" onWheel={e => (e.target as HTMLInputElement).blur()} invalid={!!errors.targetValue} placeholder="1000"
+                suffix={watchedUnit ? <span className="text-xs">{watchedUnit}</span> : undefined} />
+            </Field>
+            <Field label={minLabel} required error={errors.minimumValue?.message}>
+              <Input {...register('minimumValue', { setValueAs: numOrUndef })} type="number" step="any" onWheel={e => (e.target as HTMLInputElement).blur()} invalid={!!errors.minimumValue} placeholder="800"
+                suffix={watchedUnit ? <span className="text-xs">{watchedUnit}</span> : undefined} />
+            </Field>
+            <Field label="Đơn vị tính" required error={errors.unit?.message} prefilled={!!sourceUnitLabel && watchedUnit === sourceUnitLabel}>
+              <Input {...register('unit')} invalid={!!errors.unit} placeholder="VNĐ, %, KPI…" />
+            </Field>
+          </div>
+        )}
+
+        {!splitMode && (
+          <Field
+            label={isBonus ? 'Điểm cộng thêm (%)' : 'Trọng số (%)'} required error={errors.weight?.message}
+            hint={isBonus ? 'KPI thưởng: con số này là phần cộng thêm, không nằm trong 100% của đơn vị'
+              : source === 'BSC' && selectedPerspRow ? `Trọng số trong hạng mục "${selectedPerspective?.name}" — tổng các KPI của hạng mục phải đủ 100%`
+              : parentKpi && watch('parentRelationType') === 'DECOMPOSITION' ? `Còn lại của KPI cha "${parentKpi.name}": ${Math.max(0, (parentKpi.weight ?? 0) - (parentKpi.childrenWeightTotal ?? 0))}%`
+              : undefined}
+            prefilled={prefilledRef.current.weight !== undefined && watchedWeight === prefilledRef.current.weight}
+          >
+            <div className="flex flex-wrap items-center gap-3">
+              <Input {...register('weight', { setValueAs: numOrUndef })} type="number" step="any" min={0} max={100} onWheel={e => (e.target as HTMLInputElement).blur()} invalid={!!errors.weight} placeholder="25" suffix={<span className="text-xs">%</span>} className="w-36" />
+              {realWeight != null && (
+                <span className="text-caption">≈ <b className="text-[var(--color-primary)]">{realWeight.toFixed(1)}%</b> của đơn vị ({Number(watchedWeight)}% × {categoryWeightPct}% hạng mục)</span>
+              )}
+            </div>
+          </Field>
+        )}
+
+        {sourceWarnings.map((w, i) => (
+          <Hint key={i} tone="warning" icon={<AlertTriangle size={14} aria-hidden="true" />}>{w}</Hint>
+        ))}
+      </Section>
+
+      {isInline && (
+        <div className="flex justify-end gap-2 border-t border-[var(--color-border)] pt-4">
+          <Button type="submit" disabled={submitting}>
+            {submitting && <Loader2 className="animate-spin" aria-hidden="true" />}
+            {submitLabel ?? (isEdit ? 'Lưu thay đổi' : splitMode ? `Tạo ${splitRows.filter(r => r.selected).length} chỉ tiêu theo đợt` : 'Tạo chỉ tiêu')}
+          </Button>
+        </div>
+      )}
+    </form>
   )
 
   if (isInline) return formBody
@@ -1543,24 +1206,95 @@ export default function KpiFormModal({
     <Dialog
       open={open}
       onClose={onClose}
-      size="lg"
+      size="xl"
       dismissible={!isPending}
       title={isEdit ? 'Sửa chỉ tiêu' : parentKpi ? (parentRelationType === 'DECOMPOSITION' ? 'Thêm KPI con' : 'Phân rã chỉ tiêu') : 'Tạo chỉ tiêu'}
-      description={isEdit ? 'Thay đổi có hiệu lực sau khi lưu; chỉ tiêu đã duyệt cần gửi duyệt lại.' : 'Điền thông tin chỉ tiêu, giao cho nhân sự hoặc đơn vị, rồi gửi duyệt sau.'}
+      description={isEdit ? 'Thay đổi có hiệu lực sau khi lưu; chỉ tiêu đã duyệt cần gửi duyệt lại.' : 'Chọn bối cảnh và nguồn trước, con số sẽ điền sẵn; sửa rồi gửi duyệt sau.'}
+      headerExtra={source !== 'FREE' && (
+        <Badge variant="info"><Link2 size={11} aria-hidden="true" /> {source === 'BSC' ? 'Theo hạng mục BSC' : 'Theo KR'}</Badge>
+      )}
       footer={
         <DialogFooter
           secondary={<Button variant="outline" onClick={onClose} disabled={isPending}>Hủy</Button>}
           primary={
             <Button type="submit" form="kpi-form" disabled={isPending}>
               {isPending && <Loader2 className="animate-spin" aria-hidden="true" />}
-              {submitLabel ?? (isEdit ? 'Lưu thay đổi' : 'Tạo chỉ tiêu')}
+              {submitLabel ?? (isEdit ? 'Lưu thay đổi' : splitMode ? `Tạo ${splitRows.filter(r => r.selected).length} chỉ tiêu theo đợt` : 'Tạo chỉ tiêu')}
             </Button>
           }
         />
       }
     >
-        {formBody}
+      {formBody}
     </Dialog>
+  )
+}
+
+/** Bảng chia hạng mục BSC ra từng đợt — gộp từ BscKpiSplitModal. */
+function SplitTable({ rows, onChange, unit, isReverse, plan, unitCount }: {
+  rows: SplitRow[]; onChange: (rows: SplitRow[]) => void; unit: string; isReverse: boolean; plan: BscKpiPlanResponse; unitCount: number
+}) {
+  const patch = (i: number, p: Partial<SplitRow>) => onChange(rows.map((r, idx) => (idx === i ? { ...r, ...p } : r)))
+  const chosen = rows.filter(r => r.selected)
+  const planned = chosen.reduce((s, r) => s + (Number(r.targetValue) || 0), 0)
+  const remaining = plan.remainingValue ?? null
+  const over = remaining != null && !isReverse && planned * unitCount > remaining + 0.001
+
+  const splitEvenly = () => {
+    if (remaining == null) { toast.info('Hạng mục chưa đặt mục tiêu nên không chia tự động được'); return }
+    const idxs = rows.map((r, i) => (r.selected ? i : -1)).filter(i => i >= 0)
+    if (!idxs.length) return
+    const each = round2(remaining / unitCount / idxs.length)
+    const ratio = plan.minimumValue != null && plan.targetValue ? plan.minimumValue / plan.targetValue : null
+    onChange(rows.map((r, i) => {
+      const k = idxs.indexOf(i)
+      if (k < 0) return r
+      const value = k === idxs.length - 1 ? round2(remaining / unitCount - each * (idxs.length - 1)) : each
+      return { ...r, targetValue: value, minimumValue: ratio != null ? round2(value * ratio) : r.minimumValue }
+    }))
+  }
+
+  return (
+    <div className="space-y-2">
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="text-caption">
+          Tổng đã chia <b className={cn('tabular-nums', over ? 'text-[var(--color-error)]' : 'text-[var(--color-foreground)]')}>{formatNumber(planned)}</b>
+          {remaining != null && <> / còn {formatNumber(remaining)}{unit ? ` ${unit}` : ''}</>}
+          {unitCount > 1 && ` · × ${unitCount} đơn vị`}
+        </span>
+        <Button variant="outline" size="sm" type="button" onClick={splitEvenly}>Chia đều</Button>
+      </div>
+      <div className="overflow-x-auto rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="border-b border-[var(--color-border)] bg-[var(--color-muted)] text-eyebrow">
+              <th className="w-8 px-2 py-2" />
+              <th className="px-2 py-2 text-left">Đợt</th>
+              <th className="px-2 py-2 text-left">Tên KPI</th>
+              <th className="px-2 py-2 text-right">{isReverse ? 'Ngưỡng' : 'Mục tiêu'}</th>
+              <th className="px-2 py-2 text-right">{isReverse ? 'Tối đa' : 'Tối thiểu'}</th>
+              <th className="px-2 py-2 text-right">Trọng số</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-[var(--color-border)]">
+            {rows.map((r, i) => (
+              <tr key={r.kpiPeriodId} className={cn(!r.selected && 'opacity-50')}>
+                <td className="px-2 py-1.5"><Checkbox checked={r.selected} onCheckedChange={v => patch(i, { selected: !!v })} aria-label={`Chia cho ${r.periodName}`} /></td>
+                <td className="px-2 py-1.5">
+                  <span className="block font-medium">{r.periodName}</span>
+                  {r.kpiCount > 0 && <span className="text-caption block">{r.kpiCount} KPI · đã chiếm {r.allocatedWeight}%</span>}
+                </td>
+                <td className="px-2 py-1.5"><Input size="sm" value={r.name} onChange={e => patch(i, { name: e.target.value })} disabled={!r.selected} className="min-w-[180px]" /></td>
+                <td className="px-2 py-1.5"><Input size="sm" type="number" step="any" value={r.targetValue ?? ''} onChange={e => patch(i, { targetValue: numOrUndef(e.target.value) })} disabled={!r.selected} className="w-28" inputClassName="text-right tabular-nums" /></td>
+                <td className="px-2 py-1.5"><Input size="sm" type="number" step="any" value={r.minimumValue ?? ''} onChange={e => patch(i, { minimumValue: numOrUndef(e.target.value) })} disabled={!r.selected} className="w-28" inputClassName="text-right tabular-nums" /></td>
+                <td className="px-2 py-1.5"><Input size="sm" type="number" step="any" min={0} max={100} value={r.weight ?? ''} onChange={e => patch(i, { weight: numOrUndef(e.target.value) })} disabled={!r.selected} suffix={<span className="text-xs">%</span>} className="w-24" inputClassName="text-right tabular-nums" /></td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      {over && <Hint tone="warning" icon={<AlertTriangle size={14} aria-hidden="true" />}>Tổng đã chia vượt phần còn lại của hạng mục — server sẽ từ chối khi tạo.</Hint>}
+    </div>
   )
 }
 

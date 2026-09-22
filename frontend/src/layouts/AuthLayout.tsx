@@ -1,6 +1,7 @@
 import { Outlet, Navigate, Link } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
-import { Target, CheckCircle2 } from 'lucide-react'
+import { CheckCircle2 } from 'lucide-react'
+import { BrandLogo } from '@/components/common/BrandLogo'
 
 export default function AuthLayout() {
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
@@ -15,11 +16,8 @@ export default function AuthLayout() {
       <div className="hidden lg:flex lg:w-1/2 h-full relative bg-[var(--color-primary-deep)] text-white overflow-hidden items-center justify-center flex-col p-12">
 
         <div className="relative z-10 max-w-xl w-full">
-          <Link to="/" className="flex items-center gap-3 mb-10 hover:opacity-80 transition-opacity">
-            <div className="w-10 h-10 rounded-card bg-white/10 flex items-center justify-center border border-white/20">
-              <Target className="text-white" size={24} />
-            </div>
-            <span className="font-semibold text-2xl tracking-tight text-white">KeyGo</span>
+          <Link to="/" className="mb-10 inline-flex items-center transition-opacity hover:opacity-80" aria-label="KeyGo">
+            <BrandLogo variant="white" className="h-12" />
           </Link>
 
           <h1 className="text-4xl md:text-5xl font-semibold tracking-tight leading-[1.1] mb-6">
@@ -52,10 +50,9 @@ export default function AuthLayout() {
         <div className="absolute inset-0 bg-[var(--color-muted)] -z-10"></div>
         <div className="w-full max-w-md my-auto">
           {/* Logo for mobile only */}
-          <Link to="/" className="lg:hidden flex justify-center mb-8 transition-transform">
-            <div className="w-12 h-12 rounded-card bg-[var(--color-primary)] flex items-center justify-center shadow-lg">
-              <Target className="text-[var(--color-primary-foreground)]" size={26} />
-            </div>
+          <Link to="/" className="lg:hidden flex justify-center mb-8 transition-transform" aria-label="KeyGo">
+            <BrandLogo className="h-12 dark:hidden" />
+            <BrandLogo variant="white" className="hidden h-12 dark:block" />
           </Link>
           <Outlet />
         </div>

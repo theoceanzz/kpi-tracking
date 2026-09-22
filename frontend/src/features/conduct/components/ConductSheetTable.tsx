@@ -1,11 +1,11 @@
 import { Save, Loader2, Info, Lock, FileSpreadsheet } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
-import type { ConductScoreInput, ConductSheet } from '../api/conductApi'
+import { conductLockMessage, type ConductScoreInput, type ConductSheet } from '../api/conductApi'
 import { exportConductSheetToExcel } from '../utils/conductSheetExport'
 import EvidenceAttachments from '@/features/evidence/EvidenceAttachments'
 import { evidenceKey } from '@/features/evidence/evidenceApi'
-import { EMPTY_DRAFT, fmt, num, useConductDraft, weighted } from '../hooks/useConductDraft'
+import { CONDUCT_MIN_SCORE, EMPTY_DRAFT, fmt, num, useConductDraft, weighted } from '../hooks/useConductDraft'
 import { Button } from '@/components/ui/button'
 
 /**
@@ -34,6 +34,8 @@ export default function ConductSheetTable({
     useConductDraft(sheet)
 
   const max = sheet.maxScore
+  // Thang chạy min..max (1–5 mặc định) cho khớp ma trận xếp loại; bản server cũ chưa trả thì rơi về 1.
+  const min = sheet.minScore ?? CONDUCT_MIN_SCORE
 
   const handleExport = async () => {
     try {
@@ -68,11 +70,7 @@ export default function ConductSheetTable({
       {sheet.locked && (
         <div className="flex items-start gap-3 p-4 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)]">
           <Lock size={16} className="text-[var(--color-muted-foreground)] shrink-0 mt-0.5" />
-          <p className="text-caption">
-            Đánh giá kỳ của đơn vị{sheet.lockedByUnitName ? ` "${sheet.lockedByUnitName}"` : ''} đã được chốt —
-            phiếu này chỉ còn để xem. Điểm hạnh kiểm là đầu vào của xếp loại kỳ nên phải mở khoá ở đơn vị đó
-            trước khi sửa.
-          </p>
+          <p className="text-caption">{conductLockMessage(sheet)}</p>
         </div>
       )}
 
@@ -99,8 +97,8 @@ export default function ConductSheetTable({
                   </span>
                 </th>
                 <th className={cn(th, 'w-20')} rowSpan={2}>Trọng số</th>
-                <th className={th} colSpan={2}>Điểm xếp loại hành vi</th>
-                <th className={th} colSpan={2}>Điểm xếp loại hành vi</th>
+                <th className={th} colSpan={2}>Điểm xếp loại hành vi ({fmt(min)}–{fmt(max)})</th>
+                <th className={th} colSpan={2}>Điểm xếp loại hành vi ({fmt(min)}–{fmt(max)})</th>
                 <th className={th} colSpan={2}>
                   Điểm xếp loại đã tính đến trọng số
                 </th>
@@ -145,7 +143,7 @@ export default function ConductSheetTable({
                     <td className="px-3 py-4 text-center">
                       <input
                         type="number"
-                        min={0}
+                        min={min}
                         max={max}
                         step={0.5}
                         value={d.selfScore}
@@ -169,7 +167,7 @@ export default function ConductSheetTable({
                     <td className="px-3 py-4 text-center">
                       <input
                         type="number"
-                        min={0}
+                        min={min}
                         max={max}
                         step={0.5}
                         value={d.managerScore}

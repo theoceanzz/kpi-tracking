@@ -126,10 +126,10 @@ public class Organization {
     @Builder.Default
     private Boolean enableConduct = false;
 
-    /** Thang điểm mỗi tiêu chí hạnh kiểm (mặc định 4 như phiếu xếp loại hành vi). */
+    /** Thang điểm mỗi tiêu chí hạnh kiểm — mặc định 5, trùng trần trục hành vi của ma trận xếp loại. */
     @Column(name = "conduct_max_score")
     @Builder.Default
-    private Double conductMaxScore = 4.0;
+    private Double conductMaxScore = com.kpitracking.constant.ConductConstants.DEFAULT_MAX_SCORE;
 
     // Bộ tiêu chí hạnh kiểm KHÔNG map thành collection ở đây: nó được đọc/ghi qua
     // ConductCriteriaRepository, và một collection cascade+orphanRemoval nạp lười ở đây

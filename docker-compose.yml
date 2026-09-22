@@ -102,6 +102,7 @@ services:
       - MAIL_USERNAME=${MAIL_USERNAME}
       - MAIL_PASSWORD=${MAIL_PASSWORD}
       - MAIL_FROM=${MAIL_FROM}
+      - LANDING_NOTIFY_EMAIL=${LANDING_NOTIFY_EMAIL:-}
 
       # Gom email thông báo theo người nhận: chờ luồng sự kiện của một người lắng xuống
       # (QUIET_PERIOD) rồi gộp tất cả thành MỘT thư, nhưng không bao giờ chờ quá MAX_DELAY.

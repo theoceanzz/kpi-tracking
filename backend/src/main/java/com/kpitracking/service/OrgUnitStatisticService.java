@@ -205,7 +205,8 @@ public class OrgUnitStatisticService {
             sumWeight += weight;
 
             if (kpi.getAssignees() != null) kpi.getAssignees().forEach(u -> users.add(u.getId()));
-            if (kpi.getKpiPeriod() != null) periods.add(kpi.getKpiPeriod().getId());
+            KpiPeriod livePeriod = resolveKpiPeriod(kpi);
+            if (livePeriod != null) periods.add(livePeriod.getId());
         }
 
         double avgProgress = sumWeight > 0 ? (sumWeightedCompletion / sumWeight) : 0.0;

@@ -130,7 +130,7 @@ public class SubmissionAttachmentService {
         }
 
         if (attachment.getStorageKey() != null) {
-            cloudinaryStorageService.deleteFile(attachment.getStorageKey());
+            cloudinaryStorageService.deleteFile(attachment.getStorageKey(), attachment.getContentType());
         }
 
         attachmentRepository.delete(attachment);

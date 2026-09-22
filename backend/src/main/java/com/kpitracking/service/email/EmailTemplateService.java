@@ -156,7 +156,7 @@ public class EmailTemplateService {
         boolean fullHtml = custom != null && Boolean.TRUE.equals(custom.getFullHtml());
 
         Map<String, String> vars = withDefaults(variables);
-        String renderedSubject = substitute(subject, vars);
+        String renderedSubject = substituteSubject(subject, vars);
         String renderedBody = substitute(body, vars);
 
         String html = fullHtml
@@ -177,7 +177,7 @@ public class EmailTemplateService {
                 ? renderedBody
                 : EmailLayout.wrap(substitute(def.getHeaderTitle(), sample), renderedBody);
 
-        String renderedSubject = substitute(
+        String renderedSubject = substituteSubject(
                 subject != null && !subject.isBlank() ? subject : def.getDefaultSubject(), sample);
         return new RenderedEmail(renderedSubject, html, sanitize(body), true);
     }
@@ -197,19 +197,42 @@ public class EmailTemplateService {
      * không cả lá thư gộp hiện ra toàn thẻ {@code <p style=...>}.
      */
     private String substitute(String text, Map<String, String> vars) {
+        return substitute(text, vars, true);
+    }
+
+    /**
+     * Tiêu đề thư là header text thuần, KHÔNG phải HTML: escape ở đây thì "Khách hàng" tới
+     * hộp thư thành "Kh&amp;aacute;ch h&amp;agrave;ng". Biến khối HTML lỡ đặt vào tiêu đề thì
+     * bỏ thẻ; xuống dòng ép thành khoảng trắng để giá trị biến không chèn thêm header mới.
+     */
+    private String substituteSubject(String text, Map<String, String> vars) {
+        return substitute(text, vars, false).replaceAll("\\s*\\R\\s*", " ").trim();
+    }
+
+    private String substitute(String text, Map<String, String> vars, boolean html) {
         if (text == null) return "";
         Matcher m = PLACEHOLDER.matcher(text);
         StringBuilder sb = new StringBuilder();
         while (m.find()) {
             String name = m.group(1);
             String raw = vars.getOrDefault(name, "");
-            String value = EmailTemplateCatalog.HTML_BLOCK_VARIABLES.contains(name)
-                    ? raw
-                    : org.springframework.web.util.HtmlUtils.htmlEscape(raw);
+            String value;
+            if (EmailTemplateCatalog.HTML_BLOCK_VARIABLES.contains(name)) {
+                value = html ? raw : stripTags(raw);
+            } else {
+                // Truyền "UTF-8" để chỉ escape < > & " ' — mặc định (ISO-8859-1) còn đổi cả
+                // chữ có dấu thành &aacute; làm HTML phình to và khó đọc khi debug.
+                value = html ? org.springframework.web.util.HtmlUtils.htmlEscape(raw, "UTF-8") : raw;
+            }
             m.appendReplacement(sb, Matcher.quoteReplacement(value));
         }
         m.appendTail(sb);
         return sb.toString();
+    }
+
+    private static String stripTags(String htmlFragment) {
+        return org.springframework.web.util.HtmlUtils.htmlUnescape(
+                htmlFragment.replaceAll("(?s)<[^>]*>", " ").replaceAll("\\s+", " ").trim());
     }
 
     /** Bổ sung các biến có ở mọi template mà nơi gọi không cần truyền. */

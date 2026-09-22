@@ -33,7 +33,11 @@ export async function exportCycleEvaluationToExcel(
 ) {
   const { getScoreLabel } = opts
   const isQual = summary.mode === 'QUALITATIVE'
-  const showDim = summary.mode !== 'QUANTITATIVE' // có cột định tính + xếp loại
+  // Hai cột trục ma trận. Kỳ chạy Định lượng vẫn có trục hành vi khi tổ chức chấm hạnh
+  // kiểm, nên điều kiện bám theo CÓ SỐ HAY KHÔNG — y như bảng trên màn hình, không thì
+  // file xuất ra thiếu đúng hai cột mà người ta mở file để xem.
+  const showDim = summary.mode !== 'QUANTITATIVE'
+    || summary.members.some(m => m.behaviorScore != null || m.matrixRating != null)
 
   // Ở chế độ Định tính, số lưu trên pool chấm → hiện lại mức gốc 0-5.
   const side = (v: number | null): string => {
@@ -45,7 +49,7 @@ export async function exportCycleEvaluationToExcel(
   const wb = new ExcelJS.Workbook()
   const ws = wb.addWorksheet('Đánh giá kỳ')
 
-  const lastCol = showDim ? 6 : 4 // STT + Nhân viên + Đơn vị + 3 điểm (+ 2 cột định tính)
+  const lastCol = showDim ? 8 : 6 // STT + Nhân viên + Đơn vị + 3 điểm (+ 2 cột trục ma trận)
   const colLetter = String.fromCharCode(64 + lastCol) // A=65
 
   // 1. Tiêu đề
@@ -66,7 +70,7 @@ export async function exportCycleEvaluationToExcel(
     [isQual ? 'Mức tự đánh giá (TB)' : 'Điểm tự đánh giá (TB)', side(summary.selfScore)],
   ]
   if (showDim) {
-    info.push(['TB định tính', summary.qualScore != null ? `${summary.qualScore}/5` : '—'])
+    info.push(['TB điểm hành vi', summary.behaviorScore != null ? `${summary.behaviorScore}/5` : '—'])
     info.push(['TB xếp loại ma trận', summary.matrixRating != null ? `${summary.matrixRating}/5` : '—'])
   }
   info.push(['Trạng thái', summary.status === 'FINALIZED' ? 'Đã chốt' : 'Bản nháp'])
@@ -97,7 +101,7 @@ export async function exportCycleEvaluationToExcel(
     isQual ? 'Mức tự đánh giá' : 'Nhân viên tự đánh giá',
     isQual ? 'Mức QLTT' : 'Cán bộ QLTT đánh giá',
     isQual ? 'Mức chốt kỳ' : 'Điểm chốt kỳ']
-  if (showDim) headers.push('Định tính', 'Xếp loại')
+  if (showDim) headers.push('Điểm hành vi', 'Xếp loại')
 
   const headerRow = ws.addRow(headers)
   headerRow.eachCell((cell) => {
@@ -117,7 +121,11 @@ export async function exportCycleEvaluationToExcel(
       side(m.finalScore),
     ]
     if (showDim) {
-      cells.push(m.qualScore != null ? `${m.qualScore}/5` : '—')
+      // Nguồn của điểm hành vi đi kèm: đọc file mà không biết số ra từ KPI định tính hay
+      // từ hạnh kiểm thì không giải thích được xếp loại cho ai.
+      cells.push(m.behaviorScore != null
+        ? `${m.behaviorScore}/5${m.behaviorFromConduct ? ' (hạnh kiểm)' : ''}`
+        : '—')
       cells.push(m.matrixRating != null ? `${m.matrixRating}/5` : '—')
     }
     const row = ws.addRow(cells)
@@ -136,7 +144,7 @@ export async function exportCycleEvaluationToExcel(
 
   // 4. Độ rộng cột
   const widths = [6, 26, 20, 20, 20, 22]
-  if (showDim) widths.push(12, 12)
+  if (showDim) widths.push(18, 12)
   ws.columns = widths.map((w) => ({ width: w }))
 
   // 5. Tải file
@@ -194,8 +202,13 @@ export async function exportCycleMemberDetailToExcel(
         : `${side(member.finalScore)}${member.finalScoreOverridden ? ' — đã chỉnh tay' : ''}`,
     ],
   ]
-  if (member.mode !== 'QUANTITATIVE') {
-    info.push(['Mức định tính', member.qualScore != null ? `${member.qualScore}/5` : '—'])
+  if (member.mode !== 'QUANTITATIVE' || member.behaviorScore != null || member.matrixRating != null) {
+    if (member.mode !== 'QUANTITATIVE') {
+      info.push(['Mức định tính', member.qualScore != null ? `${member.qualScore}/5` : '—'])
+    }
+    info.push(['Điểm hành vi (trục ma trận)', member.behaviorScore != null
+      ? `${member.behaviorScore}/5${member.behaviorFromConduct ? ' — quy từ hạnh kiểm' : ''}`
+      : '—'])
     info.push(['Xếp loại ma trận', member.matrixRating != null ? `${member.matrixRating}/5` : '—'])
   }
   if (member.avgCompletionPercent != null) {

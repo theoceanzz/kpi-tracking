@@ -44,8 +44,14 @@ public class KpiCycleEvaluationController {
         Double qualScore = rawQual instanceof Number ? ((Number) rawQual).doubleValue() : null;
         Object rawComment = body != null ? body.get("comment") : null;
         String comment = rawComment != null ? rawComment.toString() : null;
+        // Có KEY "matrixRating" mới là muốn đụng tới hạng đặt tay (null = bỏ ghi đè); thiếu key
+        // thì giữ nguyên — modal chấm bình thường không được vô tình xoá kết quả hiệu chỉnh.
+        boolean touchRating = body != null && body.containsKey("matrixRating");
+        Object rawRating = touchRating ? body.get("matrixRating") : null;
+        Integer matrixRating = rawRating instanceof Number ? ((Number) rawRating).intValue() : null;
         return ResponseEntity.ok(ApiResponse.success(
-                kpiCycleEvaluationService.saveUserCycleScore(cycleId, userId, finalScore, qualScore, comment)));
+                kpiCycleEvaluationService.saveUserCycleScore(cycleId, userId, finalScore, qualScore, comment,
+                        touchRating, matrixRating)));
     }
 
     /**
@@ -127,12 +133,34 @@ public class KpiCycleEvaluationController {
                 cycleEvaluationMailer.send(cycleId, orgUnitId, userIds)));
     }
 
-    /** Mở khoá đánh giá kỳ của phòng ban để chỉnh lại điểm. */
+    /**
+     * Mở khoá lùi một bước (FINALIZED → CALIBRATING → DRAFT). {@code cascade=true} mở luôn các
+     * đơn vị con đang khoá kết quả.
+     */
     @PostMapping("/units/{orgUnitId}/reopen")
     @PreAuthorize("hasAuthority('CYCLE_EVAL:FINALIZE')")
     public ResponseEntity<ApiResponse<CycleUnitEvaluationResponse>> reopenUnit(
+            @PathVariable UUID cycleId, @PathVariable UUID orgUnitId,
+            @RequestParam(defaultValue = "false") boolean cascade) {
+        return ResponseEntity.ok(ApiResponse.success(
+                kpiCycleEvaluationService.reopenUnitCycle(cycleId, orgUnitId, cascade)));
+    }
+
+    /** Bước 1: chốt dữ liệu kỳ — đóng đầu vào, chụp điểm nền, chuyển sang hiệu chỉnh. */
+    @PostMapping("/units/{orgUnitId}/calibrate")
+    @PreAuthorize("hasAuthority('CYCLE_EVAL:FINALIZE')")
+    public ResponseEntity<ApiResponse<CycleUnitEvaluationResponse>> startCalibration(
             @PathVariable UUID cycleId, @PathVariable UUID orgUnitId) {
         return ResponseEntity.ok(ApiResponse.success(
-                kpiCycleEvaluationService.reopenUnitCycle(cycleId, orgUnitId)));
+                kpiCycleEvaluationService.startCalibration(cycleId, orgUnitId)));
+    }
+
+    /** Bước 3: phân bố vs khung bell curve + đề xuất nắn điểm cá nhân. */
+    @GetMapping("/units/{orgUnitId}/calibration")
+    @PreAuthorize("hasAuthority('CYCLE_EVAL:VIEW')")
+    public ResponseEntity<ApiResponse<com.kpitracking.service.UnitClassificationService.CalibrationPlan>> getCalibration(
+            @PathVariable UUID cycleId, @PathVariable UUID orgUnitId) {
+        return ResponseEntity.ok(ApiResponse.success(
+                kpiCycleEvaluationService.getCalibrationPlan(cycleId, orgUnitId)));
     }
 }

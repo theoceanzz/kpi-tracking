@@ -345,6 +345,14 @@ table, dd {
   outline-offset: 2px;
 }
 
+/* Ô nhập có prefix/suffix (`Input` bọc trong .input-shell): khung bọc đã vẽ ring bằng
+   focus-within, ô bên trong mà ăn thêm rule trên thì thành hai viền lồng nhau. Rule này
+   nằm ngoài @layer nên `outline-none` của Tailwind (trong @layer utilities) không đè được —
+   phải tắt ở đúng đây. */
+.input-shell > :where(input, textarea):focus-visible {
+  outline: none;
+}
+
 .custom-scrollbar::-webkit-scrollbar {
   width: 6px;
   height: 6px;

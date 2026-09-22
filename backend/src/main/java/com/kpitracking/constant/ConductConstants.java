@@ -13,8 +13,23 @@ public final class ConductConstants {
 
     private ConductConstants() {}
 
-    /** Thang điểm mỗi tiêu chí khi tổ chức chưa cấu hình. */
-    public static final double DEFAULT_MAX_SCORE = 4.0;
+    /**
+     * Thang điểm mỗi tiêu chí khi tổ chức chưa cấu hình.
+     *
+     * Bằng ĐÚNG trần trục hành vi của ma trận xếp loại (xem
+     * {@link com.kpitracking.constant.PerformanceMatrixConstants#DEFAULT_MATRIX_JSON}: các dải
+     * hàng chạy tới "≥4.5 và ≤5"). Điểm hạnh kiểm là thứ lấp trục hành vi khi tổ chức không
+     * chấm KPI định tính, nên hai thang phải trùng nhau — để thang 0–4 thì chấm kịch khung
+     * vẫn chỉ rơi vào dải áp chót, không bao giờ chạm được mức 5.
+     */
+    public static final double DEFAULT_MAX_SCORE = 5.0;
+
+    /**
+     * Mức thấp nhất chấm được cho một tiêu chí. Ma trận xếp loại đánh số 1..5 nên phiếu hạnh
+     * kiểm cũng bắt đầu từ 1: "chưa chấm" đã có cách biểu đạt riêng (để trống), không cần
+     * mức 0 làm nghĩa thứ hai cho cùng một ô.
+     */
+    public static final double MIN_SCORE = 1.0;
 
     @Getter
     @AllArgsConstructor

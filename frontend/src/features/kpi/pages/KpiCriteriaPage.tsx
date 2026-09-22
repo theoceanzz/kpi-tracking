@@ -4,7 +4,6 @@ import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import { DatePicker } from '@/components/common/DateTimePicker'
 import EmptyState from '@/components/common/EmptyState'
 import KpiFormModal from '../components/KpiFormModal'
-import BscKpiSplitModal from '../components/BscKpiSplitModal'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
 import { useKpiCriteria } from '../hooks/useKpiCriteria'
 import { useAuthStore } from '@/store/authStore'
@@ -49,7 +48,7 @@ import { ObjectiveResponse } from '@/features/okr/types'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { useBulkSubmitKpi } from '../hooks/useBulkSubmitKpi'
 import { useBulkDeleteKpi } from '../hooks/useBulkDeleteKpi'
-import { Zap, Layers } from 'lucide-react'
+import { Zap } from 'lucide-react'
 import type { KpiType } from '@/types/kpi'
 import Pagination from '@/components/common/Pagination'
 import {
@@ -114,7 +113,6 @@ export default function KpiCriteriaPage() {
   const [showBulkConfirm, setShowBulkConfirm] = useState(false)
   const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false)
   const [showUrgentModal, setShowUrgentModal] = useState(false)
-  const [showBscSplit, setShowBscSplit] = useState(false)
   const [collapsedParents, setCollapsedParents] = useState<Set<string>>(new Set())
   
   const [activeTab, setActiveTab] = useState<'ALL' | 'DRAFT' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED'>('ALL')
@@ -143,9 +141,6 @@ export default function KpiCriteriaPage() {
   const qc = useQueryClient()
 
   const user = useAuthStore(s => s.user)
-  const { hasPermission } = usePermission()
-  /** Người lập bộ tiêu chí của đơn vị (hoặc quản trị BSC) — chỉ họ mới chia hạng mục thành KPI. */
-  const canSplitBsc = hasPermission('BSC:MANAGE_UNIT') || hasPermission('BSC:MANAGE')
 
   const organizationId = user?.memberships?.[0]?.organizationId
   const { data: org } = useOrganization(organizationId)
@@ -605,9 +600,6 @@ export default function KpiCriteriaPage() {
           {selectedPeriodId && selectedOrgUnitId && (
             <Button variant="outline" onClick={() => setShowUrgentModal(true)}><Zap aria-hidden="true" /> Việc khẩn</Button>
           )}
-          {enableBsc && canSplitBsc && (
-            <Button variant="outline" onClick={() => setShowBscSplit(true)} title="Lấy mục tiêu của một hạng mục BSC và chia ra KPI theo từng đợt"><Layers aria-hidden="true" /> Từ hạng mục BSC</Button>
-          )}
         </div>
       </WorkspaceHeader>
 
@@ -855,9 +847,7 @@ export default function KpiCriteriaPage() {
           editKpi={editKpi}
           parentKpi={delegateKpi || decomposeKpi}
           parentRelationType={delegateKpi ? 'DELEGATION' : decomposeKpi ? 'DECOMPOSITION' : undefined}
-          onSplitFromBsc={enableBsc && canSplitBsc ? () => { setShowForm(false); setEditKpi(null); setShowBscSplit(true) } : undefined}
         />
-        <BscKpiSplitModal open={showBscSplit} onClose={() => setShowBscSplit(false)} />
       <KpiImportGuideModal open={showImportGuide} onClose={() => setShowImportGuide(false)} onSelectFile={(kpiType) => { setImportType(kpiType); fileRef.current?.click() }} />
         <ConfirmDialog 
           open={!!submitKpiId} 

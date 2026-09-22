@@ -13,13 +13,15 @@ import { Button } from '@/components/ui/button'
  * đúng thứ tự duyệt thực tế nên render y nguyên từ trái sang phải.
  */
 export default function CycleApprovalTimeline({
-  steps, isLoading, getScoreColor, getScoreLabel, onSelectUnit,
+  steps, isLoading, getScoreColor, getScoreLabel, onSelectUnit, bare = false,
 }: {
   steps: CycleApprovalStep[]
   isLoading?: boolean
   getScoreColor: (s: number | null) => string
   getScoreLabel: (s: number | null) => string
   onSelectUnit?: (orgUnitId: string) => void
+  /** Không khung, không tiêu đề — thẻ bọc ngoài đã có. */
+  bare?: boolean
 }) {
   const [expanded, setExpanded] = useState(false)
 
@@ -35,14 +37,16 @@ export default function CycleApprovalTimeline({
   const doneCount = steps.filter(s => s.status === 'FINALIZED').length
 
   return (
-    <div className="overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
-      <div className="flex items-center justify-between gap-4 px-5 pt-5 pb-3">
+    <div className={cn(!bare && 'overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-card)]')}>
+      <div className={cn('flex items-center justify-between gap-4', bare ? 'pb-2' : 'px-5 pt-5 pb-3')}>
         <div className="flex items-center gap-2.5 min-w-0">
-          <span className="text-eyebrow">
-            Luồng duyệt theo cấp
-          </span>
+          {!bare && (
+            <span className="text-eyebrow">
+              Luồng duyệt theo cấp
+            </span>
+          )}
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-control bg-[var(--color-muted)] text-caption border border-[var(--color-border)] whitespace-nowrap">
-            {doneCount}/{steps.length} đã chốt
+            {doneCount}/{steps.length} đã khoá
           </span>
         </div>
         <Button variant="ghost" size="sm" className="shrink-0" aria-expanded={expanded} onClick={() => setExpanded(v => !v)}>
@@ -52,7 +56,7 @@ export default function CycleApprovalTimeline({
       </div>
 
       {/* Stepper ngang — luôn hiện. Cuộn trong khung riêng để trang không cuộn ngang. */}
-      <div className="overflow-x-auto px-5 pb-5">
+      <div className={cn('overflow-x-auto', bare ? 'pb-1' : 'px-5 pb-5')}>
         <div className="flex items-start min-w-max">
           {steps.map((step, idx) => {
             const done = step.status === 'FINALIZED'
@@ -102,11 +106,11 @@ export default function CycleApprovalTimeline({
                     ) : (
                       <>
                         <span className={cn('text-eyebrow block mt-1', text)}>
-                          Chờ chốt
+                          {step.status === 'CALIBRATING' ? 'Đang hiệu chỉnh' : 'Chờ khoá'}
                         </span>
                         {step.childTotal > 0 && (
                           <span className="block text-caption">
-                            {step.childFinalized}/{step.childTotal} đơn vị con
+                            {step.childFinalized}/{step.childTotal} phòng con đã khoá
                           </span>
                         )}
                       </>
@@ -128,7 +132,7 @@ export default function CycleApprovalTimeline({
 
       {/* Panel dọc chi tiết */}
       {expanded && (
-        <div className="px-5 pb-2 pt-5 border-t border-[var(--color-border)]">
+        <div className={cn('pb-2 pt-5 border-t border-[var(--color-border)]', !bare && 'px-5')}>
           <h4 className="text-eyebrow mb-5">
             Dòng thời gian chốt kỳ
           </h4>
@@ -145,7 +149,7 @@ export default function CycleApprovalTimeline({
                 timeLabel={step.finalizedAt ? formatDateTime(step.finalizedAt) : null}
                 lineActive={done}
                 isLast={idx === steps.length - 1}
-                emptyLabel={step.blockedReason ? 'Chưa chốt' : 'Chờ chốt'}
+                emptyLabel={step.status === 'CALIBRATING' ? 'Đang hiệu chỉnh' : step.blockedReason ? 'Chưa khoá' : 'Chờ khoá kết quả'}
               >
                 {done ? (
                   <>
@@ -214,12 +218,12 @@ function EventLog({ events }: { events: CycleApprovalStep['events'] }) {
       <p className="text-eyebrow">Lịch sử</p>
       {events.map((ev, i) => (
         <div key={i} className="flex items-start gap-2 text-caption">
-          {ev.action === 'FINALIZE'
+          {ev.action !== 'REOPEN'
             ? <Lock size={11} className="mt-0.5 shrink-0 text-[var(--color-success)]" />
             : <LockOpen size={11} className="mt-0.5 shrink-0 text-[var(--color-warning)]" />}
           <span className="min-w-0">
             <b className="font-semibold text-[var(--color-muted-foreground)]">
-              {ev.action === 'FINALIZE' ? 'Chốt' : 'Mở khoá'}
+              {ev.action === 'FINALIZE' ? 'Khoá kết quả' : ev.action === 'CALIBRATE' ? 'Chốt dữ liệu' : 'Mở khoá'}
             </b>
             {ev.actorName && <> bởi {ev.actorName}</>}
             {ev.actorRoleName && <span className="opacity-60"> ({ev.actorRoleName})</span>}

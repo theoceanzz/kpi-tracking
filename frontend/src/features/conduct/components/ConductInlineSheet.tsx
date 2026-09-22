@@ -7,10 +7,10 @@ import {
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
-import type { ConductScoreInput, ConductSheet, ConductTarget } from '../api/conductApi'
+import { conductLockMessage, type ConductScoreInput, type ConductSheet, type ConductTarget } from '../api/conductApi'
 import { exportConductSheetToExcel } from '../utils/conductSheetExport'
 import { useConductSheet } from '../hooks/useConduct'
-import { fmt, num, useConductDraft, weighted } from '../hooks/useConductDraft'
+import { CONDUCT_MIN_SCORE, fmt, num, useConductDraft, weighted } from '../hooks/useConductDraft'
 import { Button } from '@/components/ui/button'
 
 /**
@@ -133,6 +133,8 @@ function InlineSheet({
   const open = manualOpen ?? sheet.status !== 'REVIEWED'
 
   const max = sheet.maxScore
+  // Server nói thang bắt đầu từ đâu; bản cũ chưa trả thì rơi về 1 (thang 1–5 của ma trận).
+  const min = sheet.minScore ?? CONDUCT_MIN_SCORE
   const dual = sheet.canScoreSelf && sheet.canScoreManager
   /** Phía người đang mở phiếu chấm — quyết định khối nào có ô nhập, khối nào chỉ để xem. */
   const side: Side = sheet.canScoreManager ? 'manager' : 'self'
@@ -173,13 +175,13 @@ function InlineSheet({
           <p className="text-sm font-semibold text-[var(--color-foreground)] flex items-center gap-2">
             Chấm hạnh kiểm
             {sheet.locked && (
-              <span className="text-eyebrow inline-flex items-center gap-1 px-1.5 py-0.5 rounded-control bg-[var(--color-border)]">
-                <Lock aria-hidden="true" /> Đã khoá
+              <span className="text-eyebrow inline-flex items-center gap-1 px-1.5 py-0.5 rounded-control bg-[var(--color-border)]" title={conductLockMessage(sheet)}>
+                <Lock aria-hidden="true" /> {sheet.lockStage === 'FINALIZED' ? 'Đã khoá kết quả' : 'Đã chốt dữ liệu'}
               </span>
             )}
           </p>
           <p className="text-eyebrow truncate">
-            {[sheet.criteriaSetName, `thang ${fmt(max)}`].filter(Boolean).join(' · ')}
+            {[sheet.criteriaSetName, `thang ${fmt(min)}–${fmt(max)}`].filter(Boolean).join(' · ')}
           </p>
         </div>
 
@@ -209,9 +211,13 @@ function InlineSheet({
       {open && (
         <div className="px-5 pb-5 space-y-2.5 border-t border-[var(--color-border)] pt-4">
           {sheet.locked && (
-            <Banner tone="slate" icon={Lock}>
-              Đánh giá kỳ của đơn vị{sheet.lockedByUnitName ? ` "${sheet.lockedByUnitName}"` : ''} đã chốt —
-              phiếu chỉ còn để xem. Điểm hạnh kiểm là đầu vào của xếp loại kỳ nên phải mở khoá ở đơn vị đó trước.
+            <Banner tone="slate" icon={Lock}>{conductLockMessage(sheet)}</Banner>
+          )}
+
+          {!!sheet.prefilledFromPeriods && editable && (
+            <Banner tone="slate" icon={Info}>
+              Điền sẵn bằng trung bình {sheet.prefilledFromPeriods} phiếu hạnh kiểm theo đợt trong kỳ — như điểm chốt kỳ
+              lấy TB các đợt. Sửa chỗ nào thấy khác rồi lưu; chưa lưu thì xếp loại vẫn dùng đúng số này.
             </Banner>
           )}
 
@@ -250,6 +256,7 @@ function InlineSheet({
                     <ScoreBlock
                       tone="self"
                       label={dual ? 'Bạn tự đánh giá' : sheet.canScoreSelf ? 'Điểm bạn tự chấm' : 'Nhân viên tự đánh giá'}
+                      min={min}
                       max={max}
                       weight={item.weight}
                       score={d.selfScore}
@@ -265,6 +272,7 @@ function InlineSheet({
                     <ScoreBlock
                       tone="manager"
                       label={dual ? 'Cán bộ quản lý chấm' : 'Điểm bạn chấm'}
+                      min={min}
                       max={max}
                       weight={item.weight}
                       score={d.managerScore}
@@ -386,10 +394,11 @@ function Expectations({ text }: { text?: string | null }) {
 }
 
 function ScoreBlock({
-  tone, label, max, weight, score, note, notePlaceholder, editable, onScore, onNote,
+  tone, label, min, max, weight, score, note, notePlaceholder, editable, onScore, onNote,
 }: {
   tone: Side
   label: string
+  min: number
   max: number
   weight: number
   score: string
@@ -412,7 +421,7 @@ function ScoreBlock({
           ×TS {fmt(w)}
         </span>
       </div>
-      <ScoreScale tone={tone} max={max} value={score} editable={editable} onChange={onScore} />
+      <ScoreScale tone={tone} min={min} max={max} value={score} editable={editable} onChange={onScore} />
       <AutoTextarea
         value={note}
         onChange={onNote}
@@ -431,32 +440,38 @@ function ScoreBlock({
 
 /**
  * Thang điểm bấm một phát là xong, thay vì gõ số rồi tự nhớ đang thang mấy. Bấm lại đúng
- * mức đang chọn = bỏ chấm. Thang lớn (trên 6) thì số nút quá nhiều nên vẫn dùng ô nhập.
+ * mức đang chọn = bỏ chấm. Thang lớn (trên 6 mức) thì số nút quá nhiều nên vẫn dùng ô nhập.
+ *
+ * Thang chạy `min..max` — mặc định 1–5, ĐÚNG bằng thang xếp loại của ma trận hiệu quả, vì
+ * điểm hạnh kiểm chính là thứ lấp trục hành vi của ma trận. Không có mức 0: "chưa chấm" đã
+ * là ô trống rồi, thêm 0 chỉ tạo nghĩa thứ hai cho cùng một ô.
  */
 function ScoreScale({
-  tone, max, value, editable, onChange,
+  tone, min, max, value, editable, onChange,
 }: {
   tone: Side
+  min: number
   max: number
   value: string
   editable: boolean
   onChange: (v: string) => void
 }) {
   const current = num(value)
-  const useChips = Number.isInteger(max) && max > 0 && max <= 6
+  const useChips = Number.isInteger(min) && Number.isInteger(max) && max > min && max - min <= 6
 
   const options = useMemo(() => {
     if (!useChips) return []
-    const list = Array.from({ length: max + 1 }, (_, i) => i)
-    // Điểm lẻ (0.5) lưu từ trước vẫn phải hiện đúng, nên chèn thêm mức đó vào thang.
+    const list = Array.from({ length: max - min + 1 }, (_, i) => min + i)
+    // Điểm ngoài thang lưu từ trước (0.5, hoặc 0 của thang 0–4 cũ) vẫn phải hiện đúng —
+    // không thì mở phiếu cũ ra sẽ thấy trống trơn như chưa ai chấm.
     if (current != null && !list.includes(current)) list.push(current)
     return list.sort((a, b) => a - b)
-  }, [useChips, max, current])
+  }, [useChips, min, max, current])
 
   if (!useChips) {
     return (
       <input
-        type="number" min={0} max={max} step={0.5}
+        type="number" min={min} max={max} step={0.5}
         value={value}
         onChange={e => onChange(e.target.value)}
         onWheel={e => e.currentTarget.blur()}
@@ -506,7 +521,7 @@ function ScoreScale({
         )
       })}
       {editable && current == null && (
-        <span className="ml-1 text-caption">Chọn mức 0–{max}</span>
+        <span className="ml-1 text-caption">Chọn mức {min}–{max}</span>
       )}
     </div>
   )

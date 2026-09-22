@@ -1,0 +1,319 @@
+/* ═══════════════════════════════════════════════════════════════════════════
+   LANDING PAGE — hiệu ứng "cuốn phim"
+   Chỉ dùng cho /. Trang landing cố định tông SÁNG, xanh dương chủ đạo (tham khảo
+   1office.vn), KHÔNG theo theme sáng/tối của app, nên toàn bộ màu ở đây là mã cứng
+   chứ không dùng token --color-*.
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.lp {
+  --lp-bg: #ffffff;
+  --lp-bg-2: #f4f7ff;
+  --lp-line: #e2e8f0;
+  --lp-text: #0f172a;
+  --lp-muted: #64748b;
+  --lp-a: #2563eb;   /* blue-600  */
+  --lp-b: #7c3aed;   /* violet-600 */
+  --lp-c: #0ea5e9;   /* sky-500   */
+  --lp-d: #059669;   /* emerald-600 */
+  background: var(--lp-bg);
+  color: var(--lp-text);
+  color-scheme: light;
+}
+
+/* Hạt phim (grain) phủ mờ toàn trang — cho cảm giác "màn ảnh" thay vì nền phẳng. */
+.lp-grain::before {
+  content: "";
+  position: fixed;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  opacity: 0.035;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='2' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  mix-blend-mode: multiply;
+}
+
+/* ── Cực quang nền hero ─────────────────────────────────────────────────── */
+@keyframes lp-aurora {
+  0%   { transform: translate3d(-10%, -5%, 0) rotate(0deg) scale(1); }
+  33%  { transform: translate3d(8%, 6%, 0) rotate(20deg) scale(1.15); }
+  66%  { transform: translate3d(-4%, 10%, 0) rotate(-12deg) scale(0.95); }
+  100% { transform: translate3d(-10%, -5%, 0) rotate(0deg) scale(1); }
+}
+.lp-aurora {
+  position: absolute;
+  border-radius: 9999px;
+  filter: blur(90px);
+  opacity: 0.6;
+  animation: lp-aurora 22s ease-in-out infinite;
+  will-change: transform;
+}
+
+/* Lưới phối cảnh chạy về phía chân trời. */
+@keyframes lp-grid-move {
+  from { background-position: 0 0; }
+  to   { background-position: 0 48px; }
+}
+.lp-grid {
+  background-image:
+    linear-gradient(to right, rgba(37, 99, 235, 0.10) 1px, transparent 1px),
+    linear-gradient(to bottom, rgba(37, 99, 235, 0.10) 1px, transparent 1px);
+  background-size: 48px 48px;
+  transform: perspective(600px) rotateX(60deg) translateY(-20%);
+  transform-origin: top center;
+  mask-image: linear-gradient(to bottom, transparent, #000 30%, transparent 95%);
+  animation: lp-grid-move 3s linear infinite;
+}
+
+/* ── Xuất hiện khi cuộn tới (Reveal) ────────────────────────────────────── */
+/* Chỉ opacity + transform, KHÔNG filter: blur trên chữ làm Chrome raster chữ mờ
+   suốt thời gian chuyển động và đôi khi để lại nét mềm sau khi kết thúc. */
+.lp-reveal {
+  opacity: 0;
+  transform: translate3d(0, 28px, 0);
+  transition:
+    opacity 0.9s cubic-bezier(0.2, 0.7, 0.2, 1),
+    transform 0.9s cubic-bezier(0.2, 0.7, 0.2, 1);
+  transition-delay: var(--lp-delay, 0ms);
+}
+.lp-reveal[data-inview="true"] {
+  opacity: 1;
+  transform: none;
+}
+.lp-reveal--left  { transform: translate3d(-40px, 0, 0); }
+.lp-reveal--right { transform: translate3d(40px, 0, 0); }
+.lp-reveal--zoom  { transform: scale(0.92); }
+
+/* Từng chữ trong tiêu đề hero trồi lên như phụ đề phim.
+   Không đặt display ở đây (phần tử tự chọn inline-block / inline-flex / flex),
+   và không cắt overflow — dấu tiếng Việt và đuôi chữ (ụ, g, ệ) sẽ bị xén. */
+@keyframes lp-word-in {
+  from { opacity: 0; transform: translateY(0.6em); }
+  to   { opacity: 1; transform: none; }
+}
+.lp-word {
+  animation: lp-word-in 0.9s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation-delay: var(--lp-delay, 0ms);
+}
+
+/* Chữ gradient chảy liên tục. */
+@keyframes lp-shimmer {
+  to { background-position: 200% center; }
+}
+.lp-gradient-text {
+  background: linear-gradient(90deg, var(--lp-a), var(--lp-c), var(--lp-b), var(--lp-a));
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: lp-shimmer 6s linear infinite;
+}
+
+/* <em> trong tiêu đề = cụm chữ được tô gradient, không nghiêng */
+.lp-headline em {
+  font-style: normal;
+  background: linear-gradient(90deg, var(--lp-a), var(--lp-c), var(--lp-b), var(--lp-a));
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: lp-shimmer 6s linear infinite;
+}
+
+@keyframes lp-frame-in {
+  from { opacity: 0; transform: translateY(80px) scale(0.94); }
+  to   { opacity: 1; transform: translateY(0) scale(1); }
+}
+.lp-frame-in { animation: lp-frame-in 1.4s cubic-bezier(0.2, 0.7, 0.2, 1) 0.5s both; }
+
+/* Viền sáng chạy vòng quanh khung (conic gradient xoay). */
+@property --angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+@keyframes lp-angle { to { --angle: 360deg; } }
+.lp-border-glow {
+  position: absolute;
+  inset: -1px;
+  border-radius: inherit;
+  padding: 1px;
+  background: conic-gradient(from var(--angle, 0deg), transparent 0 60%, var(--lp-a) 75%, var(--lp-c) 85%, transparent 100%);
+  opacity: 0.8;
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask-composite: exclude;
+  pointer-events: none;
+  animation: lp-angle 6s linear infinite;
+}
+
+/* ── Thanh tiến độ KPI tự đầy ───────────────────────────────────────────── */
+@keyframes lp-fill { from { width: 0; } }
+.lp-fill {
+  animation: lp-fill 1.6s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation-delay: var(--lp-delay, 0ms);
+}
+
+/* Vòng tròn tiến độ (SVG stroke) */
+@keyframes lp-ring { from { stroke-dashoffset: var(--lp-circ); } }
+.lp-ring { animation: lp-ring 1.8s cubic-bezier(0.2, 0.7, 0.2, 1) both; }
+
+/* Đường nối cây OKR tự vẽ */
+@keyframes lp-draw { to { stroke-dashoffset: 0; } }
+.lp-draw {
+  stroke-dasharray: 400;
+  stroke-dashoffset: 400;
+  animation: lp-draw 1.4s ease-out both;
+  animation-delay: var(--lp-delay, 0ms);
+}
+@keyframes lp-pop {
+  from { opacity: 0; transform: scale(0.6); }
+  60%  { transform: scale(1.08); }
+  to   { opacity: 1; transform: scale(1); }
+}
+.lp-pop {
+  transform-box: fill-box;
+  transform-origin: center;
+  animation: lp-pop 0.6s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation-delay: var(--lp-delay, 0ms);
+}
+
+/* Thông báo trượt vào rồi biến mất, lặp vô hạn (trong hero) */
+@keyframes lp-toast {
+  0%   { opacity: 0; transform: translateX(40px) scale(0.95); }
+  8%   { opacity: 1; transform: none; }
+  30%  { opacity: 1; transform: none; }
+  38%  { opacity: 0; transform: translateY(-12px) scale(0.95); }
+  100% { opacity: 0; }
+}
+.lp-toast {
+  animation: lp-toast 9s ease-in-out infinite;
+  animation-delay: var(--lp-delay, 0ms);
+}
+
+/* Con trỏ giả di chuyển & click trong khung demo */
+@keyframes lp-cursor {
+  0%   { transform: translate(60%, 70%); }
+  25%  { transform: translate(28%, 32%); }
+  32%  { transform: translate(28%, 32%) scale(0.85); }
+  36%  { transform: translate(28%, 32%) scale(1); }
+  60%  { transform: translate(72%, 48%); }
+  67%  { transform: translate(72%, 48%) scale(0.85); }
+  71%  { transform: translate(72%, 48%) scale(1); }
+  100% { transform: translate(60%, 70%); }
+}
+.lp-cursor { animation: lp-cursor 9s ease-in-out infinite; }
+
+/* Dải chữ chạy ngang (marquee) — hai nửa giống nhau nên -50% là khớp vòng lặp */
+@keyframes lp-marquee { to { transform: translateX(-50%); } }
+.lp-marquee { animation: lp-marquee 32s linear infinite; }
+.lp-marquee:hover { animation-play-state: paused; }
+
+/* Chat K.AI: con trỏ nhấp nháy */
+@keyframes lp-blink { 50% { opacity: 0; } }
+.lp-caret { animation: lp-blink 1s steps(1) infinite; }
+
+/* Lơ lửng nhẹ */
+@keyframes lp-float {
+  0%, 100% { transform: translateY(0); }
+  50%      { transform: translateY(-12px); }
+}
+.lp-float { animation: lp-float 6s ease-in-out infinite; animation-delay: var(--lp-delay, 0ms); }
+
+/* Con trỏ cuộn xuống ở hero */
+@keyframes lp-scroll-hint {
+  0%   { transform: translateY(0); opacity: 0; }
+  30%  { opacity: 1; }
+  100% { transform: translateY(14px); opacity: 0; }
+}
+.lp-scroll-hint { animation: lp-scroll-hint 1.8s ease-in-out infinite; }
+
+/* Quét sáng ngang qua nút CTA */
+@keyframes lp-sheen { to { transform: translateX(250%) skewX(-20deg); } }
+.lp-sheen::after {
+  content: "";
+  position: absolute;
+  top: 0; bottom: 0; left: 0;
+  width: 40%;
+  background: linear-gradient(90deg, transparent, rgba(255,255,255,0.45), transparent);
+  transform: translateX(-150%) skewX(-20deg);
+  animation: lp-sheen 3.2s ease-in-out infinite;
+}
+
+/* Thanh tiến độ cuộn ở mép trên */
+.lp-progress {
+  transform-origin: left;
+  transform: scaleX(var(--lp-progress, 0));
+}
+
+/* Nền chấm nhỏ cho các "chương" */
+.lp-dots {
+  background-image: radial-gradient(rgba(15, 23, 42, 0.10) 1px, transparent 1px);
+  background-size: 22px 22px;
+}
+
+/* Vệt sáng quét ngang mock video (giả lập cảnh quay) */
+@keyframes lp-scan { to { transform: translateX(300%); } }
+.lp-scan {
+  background: linear-gradient(90deg, transparent, rgba(14, 165, 233, 0.12), transparent);
+  animation: lp-scan 4s linear infinite;
+}
+
+/* Thanh cột biểu đồ mock lớn dần */
+@keyframes lp-bar { from { transform: scaleY(0); } }
+.lp-bar {
+  transform-origin: bottom;
+  animation: lp-bar 1.2s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  animation-delay: var(--lp-delay, 0ms);
+}
+
+/* Ảnh chụp thật trong khung: hiệu ứng Ken Burns (zoom + trôi chậm) cho "cuộn cảnh" video */
+@keyframes lp-kenburns {
+  from { transform: scale(1) translate(0, 0); }
+  to   { transform: scale(1.12) translate(-2%, -4%); }
+}
+.lp-kenburns {
+  transform-origin: center;
+  animation: lp-kenburns var(--lp-kb, 6s) linear both;
+}
+
+/* Cảnh mới mờ dần vào */
+@keyframes lp-fade-in { from { opacity: 0; } to { opacity: 1; } }
+.lp-fade-in { animation: lp-fade-in 0.8s ease-out both; }
+
+/* Khối "Xem chi tiết" mở/đóng: animate được chiều cao auto nhờ grid-template-rows 0fr → 1fr.
+   Phần tử con PHẢI overflow:hidden để min-height:auto của grid item co về 0. */
+.lp-expand {
+  display: grid;
+  grid-template-rows: 0fr;
+  transition: grid-template-rows 0.5s cubic-bezier(0.2, 0.7, 0.2, 1);
+}
+.lp-expand[data-open="true"] { grid-template-rows: 1fr; }
+.lp-expand > * { overflow: hidden; }
+
+/* Ảnh trong khung hơi phóng khi trỏ vào */
+.lp-shot img { transition: transform 0.8s cubic-bezier(0.2, 0.7, 0.2, 1); }
+.lp-shot:hover img { transform: scale(1.025); }
+
+/* Người dùng bật "Giảm chuyển động": hiện thẳng các hiệu ứng trang trí (bay vào, cực
+   quang, lấp lánh…). CỐ Ý KHÔNG tắt .lp-marquee và cuộn cảnh demo (.lp-kenburns,
+   .lp-fade-in, .lp-fill) — cùng lý do với bảng tin thưởng (xem index.css,
+   RewardActivityTicker): dải chữ đứng yên thì mất lý do tồn tại, và trên Windows phần
+   lớn máy bật thiết lập này vì hiệu năng chứ không vì nhạy cảm với chuyển động. Lối
+   thoát vẫn còn: rê chuột vào là marquee dừng, bấm thanh tiến độ là đổi cảnh. */
+@media (prefers-reduced-motion: reduce) {
+  .lp-reveal { opacity: 1; transform: none; transition: none; }
+  .lp-expand { transition: none; }
+  .lp-word, .lp-frame-in, .lp-ring, .lp-draw, .lp-pop, .lp-toast,
+  .lp-cursor, .lp-float, .lp-scroll-hint, .lp-aurora, .lp-grid,
+  .lp-gradient-text, .lp-border-glow, .lp-sheen::after, .lp-scan, .lp-bar {
+    animation: none !important;
+  }
+  .lp-draw { stroke-dashoffset: 0; }
+  .lp-toast { opacity: 1; }
+}
+
+/* Khối nền xanh nhạt xen kẽ (như các dải section của 1office) */
+.lp-section-alt {
+  background: linear-gradient(180deg, var(--lp-bg-2) 0%, #ffffff 100%);
+}

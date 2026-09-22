@@ -260,6 +260,10 @@ app:
     ai-per-day: ${RATE_LIMIT_AI_DAY:200}
   mail:
     from: ${MAIL_FROM:noreply@keygo.com}
+  landing:
+    # Email nhận thông báo khi có người điền form "Đăng ký tư vấn" ở trang giới thiệu.
+    # Để trống thì chỉ lưu vào bảng landing_leads, không gửi mail.
+    notify-email: ${LANDING_NOTIFY_EMAIL:}
   notification:
     # Gom email thông báo theo người nhận. Cùng ý nghĩa với khối trong application.yaml,
     # nhắc lại ở đây để người vận hành thấy được các núm điều chỉnh của production.

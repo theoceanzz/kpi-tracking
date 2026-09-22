@@ -49,11 +49,15 @@ public class CloudinaryStorageService {
             String secureUrl = (String) uploadResult.get("secure_url");
             // The stored public_id includes the folder
             String fullPublicId = (String) uploadResult.get("public_id");
+            // Cloudinary tự chọn image/video/raw khi upload "auto", nhưng destroy KHÔNG nhận "auto":
+            // trả về loại thật để lúc xoá gọi đúng.
+            String resourceType = String.valueOf(uploadResult.getOrDefault("resource_type", "raw"));
 
-            log.info("Cloudinary upload xong: folder={} size={}B", folder, file.getSize());
+            log.info("Cloudinary upload xong: folder={} size={}B type={}", folder, file.getSize(), resourceType);
             return Map.of(
                     "url", secureUrl,
-                    "public_id", fullPublicId
+                    "public_id", fullPublicId,
+                    "resource_type", resourceType
             );
         } catch (Exception e) {
             log.error("Cloudinary upload failed for file {}: {}", file.getOriginalFilename(), e.getMessage());
@@ -62,16 +66,40 @@ public class CloudinaryStorageService {
     }
 
     /**
-     * Delete a file from Cloudinary by its public_id.
+     * Xoá tệp trên Cloudinary. {@code destroy} không nhận {@code resource_type=auto} (chỉ nhận
+     * image / video / raw) — bản cũ gửi "auto" nên MỌI lượt xoá đều hỏng, tệp nằm lại Cloudinary
+     * mãi dù DB đã xoá. Loại tệp suy từ content-type; không rõ thì thử lần lượt cả ba loại.
      */
-    public void deleteFile(String publicId) {
-        try {
-            // Need to specify resource_type: auto or raw for non-images
-            cloudinary.uploader().destroy(publicId, ObjectUtils.asMap("resource_type", "auto"));
-            log.info("File deleted from Cloudinary: {}", publicId);
-        } catch (Exception e) {
-            log.error("Xóa tập tin khỏi Cloudinary thất bại: {}", publicId, e);
+    public void deleteFile(String publicId, String contentType) {
+        String guess = resourceTypeFor(contentType);
+        java.util.List<String> order = new java.util.ArrayList<>(java.util.List.of(guess));
+        for (String t : java.util.List.of("image", "raw", "video")) if (!order.contains(t)) order.add(t);
+        for (String type : order) {
+            try {
+                @SuppressWarnings("unchecked")
+                Map<String, Object> res = cloudinary.uploader().destroy(publicId, ObjectUtils.asMap("resource_type", type));
+                if ("ok".equals(res.get("result"))) {
+                    log.info("Đã xoá tệp Cloudinary: {} ({})", publicId, type);
+                    return;
+                }
+            } catch (Exception e) {
+                log.warn("Xoá tệp Cloudinary {} với resource_type={} lỗi: {}", publicId, type, e.getMessage());
+            }
         }
+        log.error("Không xoá được tệp khỏi Cloudinary: {}", publicId);
+    }
+
+    /** Giữ chữ ký cũ cho các chỗ gọi chưa có content-type. */
+    public void deleteFile(String publicId) {
+        deleteFile(publicId, null);
+    }
+
+    private static String resourceTypeFor(String contentType) {
+        if (contentType == null) return "raw";
+        String t = contentType.toLowerCase();
+        if (t.startsWith("image/")) return "image";
+        if (t.startsWith("video/") || t.startsWith("audio/")) return "video";
+        return "raw";
     }
 
     /**

@@ -3,6 +3,7 @@ import {
   ResponsiveContainer, ComposedChart, XAxis, YAxis, CartesianGrid, Tooltip, Area, Bar, Line, Cell,
 } from 'recharts'
 import { Scale, AlertTriangle, CheckCircle2, Info } from 'lucide-react'
+import CollapsibleCard from '@/components/common/CollapsibleCard'
 import { cn } from '@/lib/utils'
 import type { CycleCurve, CycleCurveBucket } from '@/types/kpi'
 
@@ -38,10 +39,12 @@ function toRow(b: CycleCurveBucket): Row {
   }
 }
 
-function CurveTooltip({ active, payload, headcount }: {
+function CurveTooltip({ active, payload, headcount, complete }: {
   active?: boolean
   payload?: { payload: Row }[]
   headcount: number
+  /** Đã chấm đủ người chưa — chưa đủ thì "dưới sàn" là chuyện đương nhiên, không nói. */
+  complete: boolean
 }) {
   if (!active || !payload?.length) return null
   const d = payload[0]!.payload
@@ -58,7 +61,7 @@ function CurveTooltip({ active, payload, headcount }: {
           <p className="text-[var(--color-muted-foreground)]">Khung: {d.target}% (cho phép {d.min}%–{d.max}%)</p>
           <p className="text-[var(--color-muted-foreground)]">≈ {d.minCount}–{d.maxCount} người</p>
           {d.over && <p className="font-semibold text-[var(--color-error)] mt-1">Vượt trần {d.count - (d.maxCount ?? 0)} người</p>}
-          {d.under && <p className="font-semibold text-[var(--color-warning)] mt-1">Dưới sàn {(d.minCount ?? 0) - d.count} người</p>}
+          {complete && d.under && <p className="font-semibold text-[var(--color-warning)] mt-1">Dưới sàn {(d.minCount ?? 0) - d.count} người</p>}
         </>
       ) : (
         <p className="text-[var(--color-subtle-foreground)] italic">Mức này không nằm trong khung</p>
@@ -75,45 +78,101 @@ function CurveTooltip({ active, payload, headcount }: {
  * của mọi con số % là TỔNG nhân sự — cùng mẫu số mà hệ thống dùng lúc chặn ở đánh giá đợt, nếu
  * lấy "số người đã chấm" thì biểu đồ và lúc bị chặn sẽ nói hai chuyện khác nhau.
  */
-export default function CycleBellCurveCard({ curve, orgUnitName }: {
+export default function CycleBellCurveCard({ curve, orgUnitName, defaultOpen = false, id, bare = false, compact = false }: {
   curve: CycleCurve
   orgUnitName?: string
+  defaultOpen?: boolean
+  id?: string
+  /** Chỉ vẽ ruột (kết luận + biểu đồ), không khung — dùng khi thẻ bọc ngoài đã có header riêng. */
+  bare?: boolean
+  /** Biểu đồ thấp hơn, chú giải gọn — cho ô nửa hàng cạnh luồng duyệt. */
+  compact?: boolean
 }) {
   const rows = useMemo(() => [...(curve.buckets ?? [])].reverse().map(toRow), [curve.buckets])
-  const issues = useMemo(() => rows.filter(r => r.over || r.under), [rows])
+  // Chưa chấm đủ người thì mức nào cũng "thiếu" — kêu lúc đó là kêu một câu vô nghĩa; chỉ
+  // vượt trần mới đáng nói giữa chừng. Cùng luật với backend (bellCurveMessage).
+  const complete = curve.evaluated >= curve.headcount
+  const issues = useMemo(
+    () => rows.filter(r => r.over || (complete && r.under)),
+    [rows, complete],
+  )
   const hasBand = rows.some(r => r.band)
 
   if (!rows.length) return null
 
-  return (
-    <div className="overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
-      <div className="px-6 py-4 border-b border-[var(--color-border)] flex flex-wrap items-center gap-3">
-        <div className="w-10 h-10 shrink-0 rounded-card bg-[var(--color-primary-soft)] text-[var(--color-primary)] flex items-center justify-center">
-          <Scale size={18} aria-hidden="true" />
-        </div>
-        <div className="min-w-0 flex-1">
-          <h3 className="text-section-title text-[var(--color-foreground)] leading-tight">
-            Bell curve của kỳ{orgUnitName ? ` · ${orgUnitName}` : ''}
-          </h3>
-          <p className="text-caption font-medium">
-            {curve.evaluated}/{curve.headcount} người đã có điểm kỳ
-            {curve.configured && curve.profileName ? ` · hồ sơ "${curve.profileName}"` : ''}
-            {curve.configured ? ` · dung sai ±${curve.tolerance}%` : ''}
-          </p>
-        </div>
-        {curve.configured && (
-          <span className={cn(
-            'text-eyebrow inline-flex items-center gap-1.5 px-3 py-1.5 rounded-card border whitespace-nowrap',
-            curve.mode === 'block'
-              ? 'bg-[var(--color-error-bg)] text-[var(--color-error)] border-[var(--color-error-border)]'
-              : 'bg-[var(--color-warning-bg)] text-[var(--color-warning)] border-[var(--color-warning-border)]',
-          )}>
-            {curve.mode === 'block' ? 'Chặn khi vượt trần' : 'Chỉ cảnh báo'}
-          </span>
-        )}
-      </div>
+  const overs = issues.filter(r => r.over)
+  const unders = issues.filter(r => r.under)
+  const headline = !curve.configured
+    ? 'Chưa áp khung — chỉ hiện phân bố thực tế'
+    : curve.evaluated === 0
+      ? 'Chưa ai có điểm kỳ'
+      : overs.length
+        ? `Vượt trần: ${overs.map(r => `${r.level} ${r.count}/${r.maxCount}`).join(' · ')}`
+        : unders.length
+          ? `Dưới sàn: ${unders.map(r => `${r.level} ${r.count}/${r.minCount}`).join(' · ')}`
+          : complete ? 'Phân bố nằm trong khung' : `Chưa vượt trần · ${curve.evaluated}/${curve.headcount} người có điểm`
 
-      <div className="p-5 space-y-4">
+  const modeBadge = curve.configured && (
+    <span className={cn(
+      'text-eyebrow inline-flex items-center gap-1.5 px-2.5 py-1 rounded-card border whitespace-nowrap',
+      curve.mode === 'block'
+        ? 'bg-[var(--color-error-bg)] text-[var(--color-error)] border-[var(--color-error-border)]'
+        : 'bg-[var(--color-warning-bg)] text-[var(--color-warning)] border-[var(--color-warning-border)]',
+    )}>
+      {curve.mode === 'block' ? 'Chặn khi vượt trần' : 'Chỉ cảnh báo'}
+    </span>
+  )
+  const headlineCls = cn(
+    'text-sm',
+    overs.length ? 'font-semibold text-[var(--color-error)]'
+      : unders.length ? 'font-semibold text-[var(--color-warning)]'
+      : curve.configured && complete && curve.evaluated > 0 ? 'font-semibold text-[var(--color-success)]' : 'text-[var(--color-muted-foreground)]',
+  )
+
+  if (bare) {
+    return (
+      <div className={compact ? 'space-y-2' : 'space-y-4'}>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <p className={cn(headlineCls, compact && 'text-xs')}>
+            {headline}
+            <span className="text-caption font-medium">
+              {curve.configured && curve.profileName ? ` · khung "${curve.profileName}" ±${curve.tolerance}%` : ''}
+              {` · ${curve.evaluated}/${curve.headcount} người có điểm`}
+            </span>
+          </p>
+          {!compact && modeBadge}
+        </div>
+        <Chart />
+      </div>
+    )
+  }
+
+  return (
+    <CollapsibleCard
+      id={id}
+      defaultOpen={defaultOpen}
+      icon={<Scale size={18} aria-hidden="true" />}
+      title={`Bell curve của kỳ${orgUnitName ? ` · ${orgUnitName}` : ''}`}
+      summary={
+        <span className={cn(
+          overs.length ? 'font-semibold text-[var(--color-error)]'
+            : unders.length ? 'font-semibold text-[var(--color-warning)]'
+            : curve.configured && complete && curve.evaluated > 0 ? 'font-semibold text-[var(--color-success)]' : undefined,
+        )}>
+          {headline}
+          {curve.configured && curve.profileName ? ` · khung "${curve.profileName}" ±${curve.tolerance}%` : ''}
+        </span>
+      }
+      badge={modeBadge}
+    >
+      <Chart />
+    </CollapsibleCard>
+  )
+
+  // Biểu đồ + chú giải + lệch khung — dùng chung cho cả hai kiểu bọc.
+  function Chart() {
+    return (
+      <div className={compact ? 'space-y-2' : 'space-y-4'}>
         {!curve.configured && (
           <div className="flex items-start gap-2 rounded-card bg-[var(--color-muted)] px-4 py-3 text-caption">
             <Info size={14} className="mt-0.5 shrink-0" aria-hidden="true" />
@@ -124,9 +183,9 @@ export default function CycleBellCurveCard({ curve, orgUnitName }: {
           </div>
         )}
 
-        <div className="h-[260px] max-sm:h-[210px] w-full">
+        <div className={cn('w-full', compact ? 'h-[170px]' : 'h-[260px] max-sm:h-[210px]')}>
           <ResponsiveContainer width="100%" height="100%">
-            <ComposedChart data={rows} margin={{ top: 8, right: 8, left: -18, bottom: 0 }}>
+            <ComposedChart data={rows} margin={{ top: 6, right: 6, left: compact ? -6 : 0, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" className="stroke-slate-200 dark:stroke-slate-700" vertical={false} />
               <XAxis
                 dataKey="level" tickLine={false} axisLine={false} interval={0}
@@ -134,15 +193,15 @@ export default function CycleBellCurveCard({ curve, orgUnitName }: {
                 tickFormatter={(v: string) => (v.length > 9 ? `${v.slice(0, 8)}…` : v)}
               />
               <YAxis
-                tickLine={false} axisLine={false} width={44} unit="%"
+                tickLine={false} axisLine={false} width={36} unit="%"
                 tick={{ fontSize: 10, fontWeight: 700, fill: '#94a3b8' }}
               />
-              <Tooltip content={<CurveTooltip headcount={curve.headcount} />} cursor={{ fill: 'rgba(99,102,241,0.06)' }} />
+              <Tooltip content={<CurveTooltip headcount={curve.headcount} complete={complete} />} cursor={{ fill: 'rgba(99,102,241,0.06)' }} />
               {/* Dải cho phép vẽ trước để nằm dưới cột thực tế. */}
               {hasBand && (
                 <Area dataKey="band" stroke="none" fill="#6366f1" fillOpacity={0.12} isAnimationActive={false} />
               )}
-              <Bar dataKey="percent" barSize={26} radius={[6, 6, 0, 0]} isAnimationActive={false}>
+              <Bar dataKey="percent" barSize={compact ? 18 : 26} radius={[5, 5, 0, 0]} isAnimationActive={false}>
                 {/* Mức vượt trần tô đỏ ngay trên cột — không bắt người chấm dò tooltip từng cột. */}
                 {rows.map(r => (
                   <Cell key={r.level} fill={r.over ? '#ef4444' : r.color} fillOpacity={r.over ? 0.95 : 0.85} />
@@ -161,6 +220,7 @@ export default function CycleBellCurveCard({ curve, orgUnitName }: {
 
         {/* Chú giải: cột = thực tế, đường đứt = khung. */}
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-caption">
+          {compact && modeBadge}
           <span className="inline-flex items-center gap-1.5">
             <span className="w-3 h-2.5 rounded-sm bg-[var(--color-border)]" aria-hidden="true" /> Thực tế
           </span>
@@ -174,35 +234,50 @@ export default function CycleBellCurveCard({ curve, orgUnitName }: {
               </span>
             </>
           )}
-          <span className="ml-auto">% tính trên tổng {curve.headcount} nhân sự</span>
+          {!compact && <span className="ml-auto">% tính trên tổng {curve.headcount} nhân sự</span>}
         </div>
 
+        {/* Lệch khung gom thành tối đa hai dòng "thực tế/hạn mức" — năm cái chip cho năm mức
+            đọc như năm cái lỗi, trong khi thứ cần biết chỉ là mức nào thừa, mức nào thiếu. */}
         {curve.configured && (
           issues.length ? (
-            <div className="flex flex-wrap gap-2">
-              {issues.map(r => (
-                <span
-                  key={r.level}
-                  className={cn(
-                    'inline-flex items-center gap-1.5 px-3 py-1.5 rounded-card text-xs font-medium border',
-                    r.over
-                      ? 'bg-[var(--color-error-bg)] text-[var(--color-error)] border-[var(--color-error-border)]'
-                      : 'bg-[var(--color-warning-bg)] text-[var(--color-warning)] border-[var(--color-warning-border)]',
-                  )}
-                >
-                  <AlertTriangle size={12} aria-hidden="true" />
-                  {r.level}: {r.count} người
-                  {r.over ? ` · vượt trần ${r.maxCount}` : ` · dưới sàn ${r.minCount}`}
-                </span>
-              ))}
-            </div>
-          ) : (
-            <div className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-card text-xs font-medium bg-[var(--color-success-bg)] text-[var(--color-success)] border border-[var(--color-success-border)]">
+            <dl className="space-y-1 text-xs">
+              {issues.some(r => r.over) && (
+                <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                  <dt className="inline-flex items-center gap-1 font-semibold text-[var(--color-error)]">
+                    <AlertTriangle size={12} aria-hidden="true" /> Vượt trần
+                  </dt>
+                  {issues.filter(r => r.over).map(r => (
+                    <dd key={r.level} className="tabular-nums text-[var(--color-foreground)]">
+                      {r.level} <b>{r.count}</b><span className="text-[var(--color-muted-foreground)]">/{r.maxCount}</span>
+                    </dd>
+                  ))}
+                </div>
+              )}
+              {issues.some(r => r.under) && (
+                <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
+                  <dt className="inline-flex items-center gap-1 font-semibold text-[var(--color-warning)]">
+                    <AlertTriangle size={12} aria-hidden="true" /> Dưới sàn
+                  </dt>
+                  {issues.filter(r => r.under).map(r => (
+                    <dd key={r.level} className="tabular-nums text-[var(--color-foreground)]">
+                      {r.level} <b>{r.count}</b><span className="text-[var(--color-muted-foreground)]">/{r.minCount}</span>
+                    </dd>
+                  ))}
+                </div>
+              )}
+            </dl>
+          ) : curve.evaluated > 0 && complete ? (
+            <p className="inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--color-success)]">
               <CheckCircle2 size={12} aria-hidden="true" /> Phân bố nằm trong khung
-            </div>
+            </p>
+          ) : (
+            <p className="text-caption">
+              {curve.evaluated === 0 ? 'Chưa ai có điểm kỳ nên chưa đối chiếu được.' : `Còn ${curve.headcount - curve.evaluated} người chưa có điểm — sàn chỉ xét khi đã chấm đủ.`}
+            </p>
           )
         )}
       </div>
-    </div>
-  )
+    )
+  }
 }

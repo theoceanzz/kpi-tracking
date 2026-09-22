@@ -70,7 +70,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
         aria-invalid={ariaInvalid}
         className={cn(
           inputVariants({ size }),
-          'flex items-center gap-2 py-0',
+          'input-shell flex items-center gap-2 py-0',
           'focus-within:border-[var(--color-ring)] focus-within:ring-2 focus-within:ring-[var(--color-ring)]',
           'aria-[invalid=true]:focus-within:ring-[var(--color-error-solid)]',
           'data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50',

@@ -28,6 +28,7 @@ public class PersonalKpiAnalyticsService {
     private final UserRepository userRepository;
     private final KpiCriteriaRepository kpiCriteriaRepository;
     private final EvaluationService evaluationService;
+    private final com.kpitracking.mapper.SoftDeletedRefs softDeletedRefs;
 
     private User getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -46,6 +47,9 @@ public class PersonalKpiAnalyticsService {
         User user = getCurrentUser();
         return kpiCriteriaRepository.findApprovedByAssigneeIdWithoutKeyResult(user.getId())
                 .stream()
+                // Đợt đã xoá mềm: proxy KpiPeriod ném EntityNotFoundException khi chạm getStartDate()
+                // ⇒ bỏ KPI đó khỏi thống kê thay vì đổ 500 cả trang (cùng lý do với thống kê đơn vị).
+                .filter(kpi -> kpi.getKpiPeriod() == null || softDeletedRefs.periodAlive(kpi.getKpiPeriod()))
                 // KPI thác nước (có parent) không tính tiến độ/hiệu suất cho người được giao.
                 // Kết quả của KPI con đã được tự động tổng hợp lên KPI cha
                 // (xem aggregateToParentKpi trong KpiSubmissionService) nên KPI cha sẽ phản ánh phần này.
