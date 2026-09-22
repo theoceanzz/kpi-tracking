@@ -235,6 +235,39 @@ class TurnStepsTest {
         }
 
         @Test
+        @DisplayName("nhãn nhánh chứa tên nhóm (vd EXPORT_KPI) -> vẫn là nhánh, KHÔNG rơi vào nhóm KPI")
+        void intentLabelContainingGroupNameDoesNotLeakIntoGroup() {
+            when(router.route(any(), any())).thenReturn("EXPORT_KPI");
+
+            steps.route(scope, List.of(handler("EXPORT_KPI", "EXPORT_KPI - xuất báo cáo")));
+
+            assertThat(scopeState.get(TurnSteps.INTENT)).isEqualTo("EXPORT_KPI");
+            assertThat(turn.getToolGroups()).isNull();
+        }
+
+        @Test
+        @DisplayName("router trả KPI thường -> không nhầm sang nhánh có nhãn chứa KPI")
+        void plainKpiGroupIsNotAnIntent() {
+            when(router.route(any(), any())).thenReturn("KPI");
+
+            steps.route(scope, List.of(handler("EXPORT_KPI", "EXPORT_KPI - xuất báo cáo")));
+
+            assertThat(scopeState.get(TurnSteps.INTENT)).isNull();
+            assertThat(turn.getToolGroups()).contains(Group.KPI);
+        }
+
+        @Test
+        @DisplayName("có ý định của handler -> validate bỏ qua (câu trả lời có số của nhánh không bị chặn)")
+        void validateSkipsIntentBranches() {
+            scopeState.put(TurnSteps.INTENT, "HELP");
+            turn.getAgentState().setAnswer("Xem Hình 23, bước 3 trong hướng dẫn");
+
+            steps.validate(scope);
+
+            assertThat(turn.getAgentState().getAnswer()).isEqualTo("Xem Hình 23, bước 3 trong hướng dẫn");
+        }
+
+        @Test
         @DisplayName("handler không có gợi ý (tắt ở lượt này) thì router không chọn được nó")
         void disabledHandlerIsIgnored() {
             when(router.route(any(), any())).thenReturn("HELP");

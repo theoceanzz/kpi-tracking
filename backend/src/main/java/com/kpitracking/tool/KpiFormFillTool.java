@@ -63,7 +63,10 @@ public class KpiFormFillTool {
             + "KHÔNG truyền UUID. "
             + "kpiType=QUANTITATIVE cần thêm unit, targetValue, minimumValue, weight; "
             + "kpiType=QUALITATIVE chỉ cần weight. "
-            + "reason: một câu ngắn nói vì sao đề xuất như vậy, hiện cho người dùng đọc.")
+            + "reason: một câu ngắn nói vì sao đề xuất như vậy, hiện cho người dùng đọc. "
+            + "NGOẠI LỆ khi người dùng nhờ GỢI Ý / ĐỀ XUẤT chỉ tiêu (chưa biết đặt gì): hãy tra số liệu của đơn vị "
+            + "(get_kpi, get_analytics) và tài liệu của tổ chức (get_org_documents) rồi tự đề xuất ĐỦ name, "
+            + "description, unit, targetValue, weight, frequency cho MỘT chỉ tiêu phù hợp nhất — nêu trong reason vì sao chọn nó.")
     public String suggestKpiForm(KpiFormFillRequest request, InvocationParameters context) {
         try {
             fill.requireArgs(request, "suggest_kpi_form", KpiFormFillRequest.class);

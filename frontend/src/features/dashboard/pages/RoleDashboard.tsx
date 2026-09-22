@@ -11,6 +11,8 @@ import type { DashboardScope } from '../api/dashboardLayoutApi'
 import type { DashboardWidget } from '@/components/common/dashboard/ChartWrapper'
 import { DashboardFilterProvider } from '../context/DashboardFilterContext'
 import CompletedPeriodEvaluationPrompt from '../components/CompletedPeriodEvaluationPrompt'
+import AiShortcutButton from '@/features/analytics/components/AiShortcutButton'
+import { aiShortcuts } from '@/features/analytics/aiShortcuts'
 import {
   getAnalyticsCatalog, getAnalyticsDefaultLayout, getAnalyticsPresets, getAnalyticsWidgets,
   renderAnalyticsWidget, type OrgFlags, type ViewerScope,
@@ -96,7 +98,8 @@ function RoleDashboardGrid({ scope, organization }: {
   return (
     <div className="max-w-[1600px] mx-auto space-y-6">
       <DashboardToolbarPortal>
-        <div id="tour-dashboard-customize" className="flex items-center">
+        <div id="tour-dashboard-customize" className="flex items-center gap-2">
+          <AiShortcutButton size="sm" label="Việc cần làm" prompt={aiShortcuts.myTasks()} title="K.AI gom việc đang chờ bạn: bài nộp, chỉ tiêu, điều chỉnh, người chưa nộp, đợt chưa chốt" />
           <DashboardEditToolbar api={dash} />
         </div>
       </DashboardToolbarPortal>

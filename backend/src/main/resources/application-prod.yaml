@@ -194,9 +194,9 @@ app:
         max-results: 6
         # Hybrid trả điểm RRF (≤ ~0,033), không phải cosine — ngưỡng phải là 0.
         min-score: 0
-      # Gợi ý KPI đọc mô tả công việc/chiến lược của tổ chức (KpiSuggestionRag): ít đoạn hơn HELP
-      # vì prompt gợi ý đã dài và chỉ cần nhiệm vụ của ĐÚNG đơn vị.
-      kpi-suggestion:
+      # get_org_documents: số đoạn mô tả công việc / chiến lược agent chính đọc trước khi gợi ý
+      # chỉ tiêu (ít hơn HELP vì chỉ cần nhiệm vụ của ĐÚNG đơn vị).
+      org-documents:
         max-results: 4
       # local: ảnh nằm trên volume rag_assets, phục vụ qua /ai/rag/assets (chạy được on-premise).
       image-store: ${RAG_IMAGE_STORE:local}

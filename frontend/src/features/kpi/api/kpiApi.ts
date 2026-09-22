@@ -1,18 +1,8 @@
 import axiosInstance from '@/lib/axios'
 import type { ApiResponse, PageResponse } from '@/types/api'
 import type { KpiCriteria, CreateKpiRequest, UpdateKpiRequest, RejectKpiRequest, ImportKpiResult, ReplaceKpiRequest, BatchUpdateWeightRequest, KpiType } from '@/types/kpi'
-import type { KpiStatus, KpiFrequency } from '@/types/kpi'
+import type { KpiStatus } from '@/types/kpi'
 import type { CreateKpiFromBscRequest } from '@/features/bsc/types'
-
-/** Một chỉ tiêu AI gợi ý. Matches BE: AiKpiSuggestionResponse */
-export interface AiKpiSuggestion {
-  name: string
-  description: string | null
-  unit: string | null
-  targetValue: number | null
-  weight: number | null
-  frequency: KpiFrequency | null
-}
 
 export const kpiApi = {
   getAll: (params: { page?: number; size?: number; status?: KpiStatus; orgUnitId?: string; organizationId?: string; createdById?: string; assigneeId?: string; kpiPeriodId?: string; keyword?: string; startDate?: string; endDate?: string; sortBy?: string; sortDir?: string; objectiveId?: string; keyResultId?: string; perspectiveId?: string; approvalMode?: boolean; kpiNature?: 'PARENT_CHILD' | 'STANDALONE'; isBonusKpi?: boolean; isReverseKpi?: boolean; kpiType?: KpiType }) =>
@@ -71,11 +61,6 @@ export const kpiApi = {
     }).then((r) => r.data.data)
   },
 
-  /** `context` mô tả việc người dùng đang soạn, giúp AI gợi ý bám sát thay vì chung chung. */
-  getAiSuggestions: (orgUnitId?: string, context?: string) =>
-    axiosInstance
-      .post<ApiResponse<AiKpiSuggestion[]>>('/ai/suggest-kpi', { orgUnitId, context }, { timeout: 300000 })
-      .then((r) => r.data.data),
 
   getTotalWeight: (orgUnitId?: string, kpiPeriodId?: string, userId?: string) =>
     axiosInstance.get<ApiResponse<number>>('/kpi-criteria/total-weight', { params: { orgUnitId, kpiPeriodId, userId } }).then(r => r.data.data),

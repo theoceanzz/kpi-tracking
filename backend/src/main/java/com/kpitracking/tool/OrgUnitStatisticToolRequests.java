@@ -252,6 +252,9 @@ public final class OrgUnitStatisticToolRequests {
 
     /** Tham số của tool `get_delegations`. */
     @JsonInclude(JsonInclude.Include.NON_NULL)
+    /** get_org_documents: một câu tìm, vd "nhiệm vụ và mục tiêu của Phòng IT". */
+    public record OrgDocumentSearchRequest(String query) {}
+
     public record DelegationRequest(
             @JsonProperty(required = false) String unitName,
             @JsonProperty(required = false) String unitId,

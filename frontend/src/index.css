@@ -345,6 +345,18 @@ table, dd {
   outline-offset: 2px;
 }
 
+/* Ô soạn K.AI: MỘT lớp focus (viền đổi màu + quầng mờ) và không nhận outline chung ở trên.
+   Đặt ngoài @layer như luật kia vì `focus:outline-none` của Tailwind nằm trong @layer utilities
+   nên không bao giờ thắng được nó — đo được: ô chat từng hiện cả ring teal lẫn outline tím. */
+.ai-composer:focus-within {
+  border-color: var(--color-ai-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-ai-accent) 22%, transparent);
+}
+.ai-composer:focus-visible,
+.ai-composer textarea:focus-visible {
+  outline: none;
+}
+
 .custom-scrollbar::-webkit-scrollbar {
   width: 6px;
   height: 6px;

@@ -22,6 +22,8 @@ import {
 import { usePinToHome } from '../grid/usePinToHome'
 import WidgetConfigPanel from '../grid/WidgetConfigPanel'
 import WidgetConfigSummary from '../grid/WidgetConfigSummary'
+import AiShortcutButton from '../components/AiShortcutButton'
+import { aiShortcuts } from '../aiShortcuts'
 import type { OrgUnitTreeResponse } from '@/types/orgUnit'
 import type { ViewerPosition } from '@/features/dashboard/hooks/useViewerPosition'
 
@@ -262,6 +264,7 @@ export default function DrillDownTab() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <h2 className="text-xl font-semibold text-[var(--color-foreground)]">So sánh giữa các đơn vị</h2>
         <div id="tour-analytics-customize" className="flex items-center gap-3 flex-wrap">
+          <AiShortcutButton size="sm" label="Lệch tự chấm" prompt={aiShortcuts.deviation()} title="K.AI chỉ ra đơn vị con tự chấm lệch với điểm quản lý chấm nhiều nhất" />
           <DashboardEditToolbar api={dash} />
         </div>
       </div>

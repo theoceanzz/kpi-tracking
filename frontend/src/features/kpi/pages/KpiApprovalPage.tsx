@@ -25,6 +25,8 @@ import {
 import { buildKpiRows } from '../utils/kpiTree'
 import { useAuthStore } from '@/store/authStore'
 import { usePermission } from '@/hooks/usePermission'
+import AiShortcutButton from '@/features/analytics/components/AiShortcutButton'
+import { aiShortcuts } from '@/features/analytics/aiShortcuts'
 import { useKpiPeriods } from '../hooks/useKpiPeriods'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
@@ -126,7 +128,7 @@ export default function KpiApprovalPage() {
   )
   
   const user = useAuthStore(s => s.user)
-  const { canRevertApproval } = usePermission()
+  const { canRevertApproval, hasPermission } = usePermission()
   const organizationId = user?.memberships?.[0]?.organizationId
   const { data: org } = useOrganization(organizationId)
   const enableOkr = org?.enableOkr
@@ -588,6 +590,13 @@ export default function KpiApprovalPage() {
           { label: 'Đã duyệt', value: stats.approved, icon: CheckCircle },
           { label: 'Đã trả lại', value: stats.rejected, icon: Undo2 },
         ]}
+        actions={hasPermission('KPI:APPROVE_CRITERIA') && (
+          <AiShortcutButton
+            label="Duyệt bằng K.AI"
+            prompt={aiShortcuts.reviewKpiCriteria(null, selectedPeriodId === 'ALL' ? null : periodsData?.content.find(p => p.id === selectedPeriodId)?.name)}
+            title="K.AI liệt kê các chỉ tiêu đang chờ phê duyệt và chờ bạn xác nhận"
+          />
+        )}
       />
 
       {/* Hàng bộ lọc — thứ tự cố định của nhóm P1: đợt → sắp xếp → [Bộ lọc phụ: OKR] … tìm kiếm → cách hiển thị.

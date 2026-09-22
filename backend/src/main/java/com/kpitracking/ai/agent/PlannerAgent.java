@@ -20,7 +20,9 @@ public interface PlannerAgent {
             Mỗi dòng viết đúng dạng:  TÊN_TOOL | việc cần lấy
 
             Chỉ được dùng các TÊN_TOOL sau:
-            search           - tìm đơn vị/người/KPI theo tên khi chưa biết chính xác
+            search           - tìm đơn vị/người/KPI theo TÊN khi chưa biết chính xác (KHÔNG phải tìm tài liệu)
+            get_org_documents - mô tả công việc, chiến lược, nhiệm vụ/mục tiêu của đơn vị mà tổ chức đã tải lên
+                               (dùng khi cần gợi ý / đề xuất chỉ tiêu mới)
             get_org_unit     - thông tin đơn vị, cây đơn vị, đơn vị con
             get_people       - danh sách người, chức vụ, hồ sơ cá nhân
             get_kpi          - chỉ tiêu KPI, kỳ đánh giá, ai được giao, tổng quan KPI của đơn vị
@@ -35,6 +37,9 @@ public interface PlannerAgent {
             - Mỗi VẾ của câu hỏi là MỘT bước. Câu hỏi có 3 vế thì phải có 3 bước.
             - Chỉ tách bước khi câu hỏi thật sự cần nhiều loại dữ liệu khác nhau.
             - Câu hỏi đơn giản chỉ cần MỘT bước.
+            - Câu YÊU CẦU THAO TÁC (duyệt, gửi duyệt, chốt, mở lại, nhắc nộp, phân rã, thưởng, điền
+              biểu mẫu): chỉ MỘT bước lấy dữ liệu cần nhất, hoặc không bước nào — việc ghi/điền không
+              phải bước lấy dữ liệu, agent có tool riêng cho nó.
             - Không giải thích, không đánh số, không thêm chữ nào khác.
 
             Câu hỏi: {{question}}

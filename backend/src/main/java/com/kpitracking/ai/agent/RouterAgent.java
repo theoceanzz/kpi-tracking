@@ -23,7 +23,7 @@ public interface RouterAgent {
             KPI     - chỉ tiêu KPI, kỳ đánh giá, bài nộp, ai chưa nộp, tổng quan KPI của đơn vị,
                       việc đang chờ mình xử lý (hôm nay cần làm gì, còn gì chờ duyệt),
                       phân rã/uỷ quyền chỉ tiêu, tổng trọng số, đợt đánh giá (điểm đợt, chốt đợt,
-                      chuỗi phê duyệt, ai chưa được đánh giá)
+                      chuỗi phê duyệt, ai chưa được đánh giá), gợi ý / đề xuất chỉ tiêu mới cho đơn vị
             INSIGHT - xếp hạng, so sánh đơn vị, xu hướng theo thời gian, cảnh báo rủi ro,
                       bức tranh toàn đơn vị (quân số + số đơn vị con + số kỳ),
                       lệch tự chấm – quản lý chấm, biến động thứ hạng giữa hai đợt

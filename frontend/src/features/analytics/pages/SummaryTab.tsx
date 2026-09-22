@@ -46,6 +46,8 @@ import { UnitKpiMetrics } from '../components/pinned/metricWidgets'
 import { usePinToHome } from '../grid/usePinToHome'
 import WidgetConfigPanel from '../grid/WidgetConfigPanel'
 import WidgetConfigSummary from '../grid/WidgetConfigSummary'
+import AiShortcutButton from '../components/AiShortcutButton'
+import { aiShortcuts } from '../aiShortcuts'
 
 /** Tên "report ẩn" của kho cũ — chỉ còn dùng để vớt bố cục một lần. */
 const LEGACY_REPORT_NAME = '__SUMMARY_DASHBOARD_CONFIG__'
@@ -435,6 +437,7 @@ export default function SummaryTab() {
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <h2 className="text-xl font-semibold text-[var(--color-foreground)]">Đơn vị tôi quản lý</h2>
         <div id="tour-analytics-customize" className="flex items-center gap-3 flex-wrap">
+          <AiShortcutButton size="sm" label="Biến động hạng" prompt={aiShortcuts.rankDelta()} title="K.AI so hạng các đơn vị con giữa hai đợt đánh giá gần nhất" />
           <DashboardEditToolbar api={dash} />
         </div>
       </div>

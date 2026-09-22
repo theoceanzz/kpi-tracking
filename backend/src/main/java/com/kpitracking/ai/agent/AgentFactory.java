@@ -8,7 +8,6 @@ import dev.langchain4j.agentic.AgenticServices;
 import dev.langchain4j.data.message.ToolExecutionResultMessage;
 import dev.langchain4j.model.chat.ChatModel;
 import dev.langchain4j.model.chat.StreamingChatModel;
-import dev.langchain4j.rag.RetrievalAugmentor;
 import dev.langchain4j.service.AiServices;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
@@ -77,18 +76,5 @@ public class AgentFactory {
     @Bean
     public FollowupAgent followupAgent(ChatModel chatModel) {
         return AiServices.builder(FollowupAgent.class).chatModel(chatModel).build();
-    }
-
-    @Bean
-    public KpiSuggestionAgent kpiSuggestionAgent(ChatModel chatModel, KeyGoToolProvider toolProvider,
-                                                 TurnRegistry memories, RetrievalAugmentor kpiSuggestionAugmentor) {
-        return AiServices.builder(KpiSuggestionAgent.class)
-                .chatModel(chatModel)
-                .toolProvider(toolProvider)
-                .chatMemoryProvider(memories)
-                .maxSequentialToolsInvocations(maxSteps)
-                // Mô tả công việc + chiến lược của tổ chức (nếu có) — xem KpiSuggestionRag.
-                .retrievalAugmentor(kpiSuggestionAugmentor)
-                .build();
     }
 }

@@ -2,11 +2,11 @@ import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { Bot, Send, X, Loader2, Minimize2, Maximize2, Expand, SquarePen } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useAuthStore } from '@/store/authStore'
-import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { useMyAiQuota } from '@/features/organization/hooks/useAiQuota'
 import { aiApi, type InsightCard, type FollowupPools, type ClarificationOption, type FormPatch, type PendingAction, type AiChatResponse } from '../api/aiApi'
 import { useFormAssistStore } from '@/store/formAssistStore'
+import { useAiAssistantStore } from '@/store/aiAssistantStore'
+import { useAiAvailable } from '../hooks/useAiAvailable'
 import EvidenceAttachBar, { AttachedChips, PinnedChips } from './EvidenceAttachBar'
 import { MicButton } from '@/components/common/MicButton'
 import { usePinnedFilesStore, attachPinnedTo } from '@/store/pinnedFilesStore'
@@ -48,7 +48,6 @@ interface Message {
    * gắn với form nào, nên đóng form không làm lời mời mất nghĩa.
    */
   pendingAction?: PendingAction
-  /** Nguồn tài liệu khi trợ lý trả lời từ kho hướng dẫn/quy chế. */
 }
 
 const WELCOME_MSG: Message = {
@@ -58,9 +57,10 @@ const WELCOME_MSG: Message = {
 }
 
 export default function AiAssistantWidget() {
-  const { user } = useAuthStore()
-  const orgId = user?.memberships?.[0]?.organizationId
-  const { data: org } = useOrganization(orgId)
+  // Cùng phép tính với các nút "K.AI" trên trang (useAiAvailable): thuộc một đơn vị và tổ chức
+  // chưa tắt AI. Từ 18/09/2026 backend nhận cả nhân viên (nhóm tool cá nhân) — chỉ người CHƯA thuộc
+  // đơn vị nào mới không có gì để hỏi, ẩn nút với họ để khỏi tốn một lượt rate limit cho câu từ chối.
+  const aiAvailable = useAiAvailable()
 
   const [isOpen, setIsOpen] = useState(false)
   const [isMinimized, setIsMinimized] = useState(false)
@@ -98,14 +98,8 @@ export default function AiAssistantWidget() {
   // gọi tool mở vùng thả. Xem useChatFileDrop.
   const { getRootProps: dropProps, isDragActive } = useChatFileDrop(isMinimized)
 
-
-  // Từ 18/09/2026 backend nhận cả nhân viên (ManagerContextResolver.resolveMember): họ được nhóm
-  // tool cá nhân — KPI/bài nộp/điểm của chính mình. Chỉ người CHƯA thuộc đơn vị nào mới không có gì
-  // để hỏi, nên ẩn nút với họ để khỏi tốn một lượt rate limit cho câu từ chối.
-  const hasMembership = (user?.memberships?.length ?? 0) > 0
-
   // Hạn mức token còn lại — chỉ tải khi mở panel, để đóng thì không tốn request nào.
-  const { data: quota } = useMyAiQuota(isOpen && hasMembership)
+  const { data: quota } = useMyAiQuota(isOpen && aiAvailable)
 
   // Ô nhập tự giãn theo nội dung, tối đa bằng maxHeight của nó.
   //
@@ -169,7 +163,7 @@ export default function AiAssistantWidget() {
     loadInsights()
   }
 
-  const sendMessage = async (text: string, insight?: InsightCard | null) => {
+  const sendMessage = async (text: string, insight?: InsightCard | null, opts?: { focusUnitId?: string }) => {
     const userText = text.trim()
     if (!userText || isLoading) return
 
@@ -192,8 +186,9 @@ export default function AiAssistantWidget() {
         conversationIdRef.current = conv.id
       }
 
-      const focusUnitId =
-        insight?.context?.entityType === 'ORG_UNIT' ? insight.context.entityId : undefined
+      // Nút "K.AI" trên trang truyền thẳng đơn vị đang xem; thẻ Insight thì suy từ ngữ cảnh thẻ.
+      const focusUnitId = opts?.focusUnitId
+        ?? (insight?.context?.entityType === 'ORG_UNIT' ? insight.context.entityId : undefined)
       // Form đang mở (nếu có) đọc NGAY LÚC GỬI — người dùng có thể đã gõ thêm từ lúc mở panel.
       const activeForm = useFormAssistStore.getState().active
 
@@ -327,6 +322,26 @@ export default function AiAssistantWidget() {
     loadInsights()
   }
 
+  // Câu hỏi soạn sẵn từ nút "K.AI" trên trang: mở khung, bung panel và gửi luôn. Chờ lượt đang
+  // chạy (nếu có) xong rồi mới gửi — sendMessage bỏ qua im lặng khi isLoading. Ghi nhớ id đã xử lý
+  // vì effect có thể chạy lại (StrictMode) trước khi store kịp xoá.
+  const pendingAsk = useAiAssistantStore(s => s.pending)
+  const takeAsk = useAiAssistantStore(s => s.take)
+  const lastAskIdRef = useRef<number | null>(null)
+  const sendRef = useRef(sendMessage)
+  sendRef.current = sendMessage
+  useEffect(() => {
+    if (!pendingAsk || isLoading || lastAskIdRef.current === pendingAsk.id) return
+    lastAskIdRef.current = pendingAsk.id
+    takeAsk(pendingAsk.id)
+    setIsOpen(true)
+    setIsMinimized(false)
+    setInput('')
+    setSelectedQuestion('')
+    activeInsightRef.current = null
+    void sendRef.current(pendingAsk.prompt, null, { focusUnitId: pendingAsk.focusUnitId })
+  }, [pendingAsk, isLoading, takeAsk])
+
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault()
@@ -339,17 +354,21 @@ export default function AiAssistantWidget() {
   // Điều kiện thoát phải nằm SAU toàn bộ hook: useOrganization là React Query nên org ban đầu
   // undefined rồi mới có dữ liệu — thoát sớm ở lượt render sau sẽ khiến số hook giảm và React
   // ném "Rendered fewer hooks than expected", làm sập cả cây component.
-  if (!hasMembership || org?.enableAi === false) return null
+  if (!aiAvailable) return null
 
-  // Portal ra body: AppLayout là khung `position: fixed` nên tự tạo stacking context, z-[1200] ở
+  // Portal ra body: AppLayout là khung `position: fixed` nên tự tạo stacking context, z-index ở
   // trong đó vẫn nằm DƯỚI Dialog/Drawer (portal ở body, z-[1000]) — mở modal là nút K.AI bị phủ,
   // bấm không ăn. Ra body thì z-index so trực tiếp với modal và K.AI đứng trên.
+  // Thang z của app: 1000 Dialog/Drawer · 1100 Popover/Select/Tooltip · 1300 K.AI — K.AI phải
+  // đứng trên MỌI lớp vì nó được gọi từ trong modal (nút "Gợi ý AI" của biểu mẫu tạo chỉ tiêu).
+  // `data-ai-widget`: Dialog nhìn vào đó để bỏ qua phím Esc/Tab gõ trong K.AI (xem useDialogBehaviour).
   if (!isOpen) {
     return createPortal(
       <button
         onClick={() => setIsOpen(true)}
         aria-label="Mở K.AI"
-        className="group fixed bottom-6 right-6 z-[1200] flex h-12 w-12 items-center justify-center rounded-full border border-[var(--color-ai-line)] bg-[var(--color-card)] text-[var(--color-ai)] shadow-lg transition-colors hover:bg-[var(--color-ai-soft)]"
+        data-ai-widget
+        className="group fixed bottom-6 right-6 z-[1300] flex h-12 w-12 items-center justify-center rounded-full border border-[var(--color-ai-line)] bg-[var(--color-card)] text-[var(--color-ai)] shadow-lg transition-colors hover:bg-[var(--color-ai-soft)]"
       >
         <Bot size={22} />
         <span className="pointer-events-none absolute right-full mr-3 whitespace-nowrap rounded-control bg-[var(--color-foreground)] px-2.5 py-1.5 text-xs font-medium text-[var(--color-background)] opacity-0 transition-opacity group-hover:opacity-100">
@@ -363,11 +382,12 @@ export default function AiAssistantWidget() {
   return createPortal(
     <div
       {...dropProps()}
+      data-ai-widget
       className={cn(
         // Bề ngang tăng theo cỡ màn: 450px trên laptop 13-14" là vừa, nhưng trên màn 27"
         // thì đúng khối đó đọc thành một cái tem dán góc, trong khi bảng số liệu AI trả về
         // lại là thứ cần bề ngang nhất.
-        'fixed right-3 bottom-3 sm:right-6 sm:bottom-6 w-[calc(100vw-1.5rem)] sm:w-[420px] xl:w-[460px] 2xl:w-[520px] bg-[var(--color-card)] rounded-card shadow-lg border border-[var(--color-border)] flex flex-col overflow-hidden transition-[height,width] duration-200 motion-reduce:transition-none z-[1200]',
+        'fixed right-3 bottom-3 sm:right-6 sm:bottom-6 w-[calc(100vw-1.5rem)] sm:w-[420px] xl:w-[460px] 2xl:w-[520px] bg-[var(--color-card)] rounded-card shadow-lg border border-[var(--color-border)] flex flex-col overflow-hidden transition-[height,width] duration-200 motion-reduce:transition-none z-[1300]',
         // Chiều cao lấy theo chỗ CÒN LẠI trước, rồi mới chặn trần theo cỡ màn. Cách cũ
         // (`h-[700px] max-h-[85vh]`) tính 85% của cả khung nhìn nên trên màn 768px cao,
         // panel trùm lên tận header: 85vh = 653px + 24px lề dưới, chỉ chừa 91px.
@@ -561,7 +581,7 @@ export default function AiAssistantWidget() {
                 onChange={e => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
                 placeholder="Nhập câu hỏi..."
-                className="no-edit-hint scrollbar-hide w-full resize-none rounded-control border border-[var(--color-input)] bg-[var(--color-card)] px-3 py-2 pr-24 text-sm leading-6 text-[var(--color-foreground)] transition-colors placeholder:text-[var(--color-muted-foreground)] focus:border-[var(--color-ai-accent)] focus:outline-none focus:ring-2 focus:ring-[var(--color-ai-accent)]"
+                className="ai-composer no-edit-hint scrollbar-hide w-full resize-none rounded-control border border-[var(--color-input)] bg-[var(--color-card)] px-3 py-2 pr-24 text-sm leading-6 text-[var(--color-foreground)] transition-[border-color,box-shadow] placeholder:text-[var(--color-muted-foreground)]"
                 rows={1}
                 style={{ minHeight: '44px', maxHeight: '120px' }}
               />

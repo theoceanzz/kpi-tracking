@@ -90,6 +90,7 @@ public class ToolRegistry {
     private final ConductTool conductTool;
     private final RewardTool rewardTool;
     private final PersonalTool personalTool;
+    private final OrgDocumentSearchTool orgDocumentSearchTool;
     private final EscapeHatchTool escapeHatchTool;
     private final EvidenceRequestTool evidenceRequestTool;
     private final AttachFilesTool attachFilesTool;
@@ -125,7 +126,8 @@ public class ToolRegistry {
         m.put(Group.LOOKUP, List.of(orgUnitTool, peopleTool, delegationTool));
         // get_my_tasks ở KPI chứ không ở CORE: đặt ở CORE là mọi lượt (kể cả điền form) thấy thêm một
         // tool — đo được form-fill tụt 21/21 -> 19/21 ngay lần đầu. Router đã được dặn 'việc đang chờ -> KPI'.
-        m.put(Group.KPI, List.of(kpiTool, submissionTool, cycleEvaluationTool, myTasksTool));
+        // get_org_documents ở KPI: agent chính tra mô tả công việc/chiến lược trước khi gợi ý chỉ tiêu.
+        m.put(Group.KPI, List.of(kpiTool, submissionTool, cycleEvaluationTool, myTasksTool, orgDocumentSearchTool));
         m.put(Group.INSIGHT, List.of(rankTool, compareTool, analyticsTool));
         m.put(Group.BSC, List.of(bscTool));
         m.put(Group.OKR, List.of(okrTool));
@@ -208,6 +210,7 @@ public class ToolRegistry {
             Map.entry("get_kpi", Group.KPI),
             Map.entry("get_submissions", Group.KPI),
             Map.entry("get_cycle_evaluation", Group.KPI),
+            Map.entry("get_org_documents", Group.KPI),
             Map.entry("rank", Group.INSIGHT),
             Map.entry("compare_org_units", Group.INSIGHT),
             Map.entry("get_analytics", Group.INSIGHT),
@@ -360,6 +363,7 @@ public class ToolRegistry {
                 KpiAdjustmentReviewTool.class, ReminderTool.class, KpiSubmitTool.class,
                 CycleEvaluationTool.class, MyTasksTool.class, RewardGrantReviewTool.class, CycleFinalizeTool.class,
                 KpiDecomposeTool.class, DelegationTool.class, ConductTool.class, RewardTool.class, PersonalTool.class,
+                OrgDocumentSearchTool.class,
                 EscapeHatchTool.class, EvidenceRequestTool.class, AttachFilesTool.class,
                 KpiFormFillTool.class,
                 SubmissionFormFillTool.class, EvaluationFormFillTool.class,

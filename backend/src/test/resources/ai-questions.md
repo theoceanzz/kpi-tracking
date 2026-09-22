@@ -73,6 +73,8 @@ Mỗi câu chỉ cần một tool. Dùng để khoanh vùng khi có hồi quy.
 | A20 | KPI "Code review" có những ai được giao? | `get_kpi` assignees | — |
 | A21 | Đơn vị tôi cân bằng viễn cảnh thế nào? | `get_bsc` balance | — (cần `BSC:MANAGE`) |
 | A22 | Đơn vị tôi có những mục tiêu nào đang chạy? | `get_okr` progress | — |
+| A23–A32 | (17–18/09) đợt đánh giá, việc cần làm, phân rã, trọng số, lệch tự chấm, biến động hạng, uỷ quyền, hạnh kiểm, thưởng | xem `ai-questions.json` | — |
+| (gợi ý KPI) | Gợi ý một chỉ tiêu KPI phù hợp cho Phòng IT rồi điền vào biểu mẫu này… | `get_org_documents` + `suggest_kpi_form` — đo ở `run-form-fill.js` ca **F10**, không đo ở đây (cần form mở) | — |
 
 ---
 

@@ -6,6 +6,8 @@ import EmptyState from '@/components/common/EmptyState'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import { WorkspaceHeaderActions } from '@/components/common/WorkspaceTabs'
 import { useHasPermission } from '@/components/auth/PermissionGate'
+import AiShortcutButton from '@/features/analytics/components/AiShortcutButton'
+import { aiShortcuts } from '@/features/analytics/aiShortcuts'
 import { useAuthStore } from '@/store/authStore'
 import AwardPointsModal from './AwardPointsModal'
 import RevokeGrantModal from './RevokeGrantModal'
@@ -79,12 +81,21 @@ export default function GrantsTab() {
           ))}
         </div>
 
-        {canGrant && (
+        {(canGrant || canApprove) && (
           <WorkspaceHeaderActions>
-            <Button onClick={() => setAwardOpen(true)}>
-              <Gift aria-hidden="true" />
-              Thưởng điểm
-            </Button>
+            {canApprove && (
+              <AiShortcutButton
+                label="Duyệt bằng K.AI"
+                prompt={aiShortcuts.reviewRewardGrants()}
+                title="K.AI liệt kê các đề xuất thưởng đang chờ và chờ bạn xác nhận"
+              />
+            )}
+            {canGrant && (
+              <Button onClick={() => setAwardOpen(true)}>
+                <Gift aria-hidden="true" />
+                Thưởng điểm
+              </Button>
+            )}
           </WorkspaceHeaderActions>
         )}
       </div>

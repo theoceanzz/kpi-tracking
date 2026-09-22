@@ -5,13 +5,16 @@ import ConfirmDialog from '@/components/common/ConfirmDialog'
 import WizardStepper from './WizardStepper'
 import { useKpiSetupFlow } from './useKpiSetupFlow'
 import { Button } from '@/components/ui/button'
+import AiAssistantWidget from '@/features/analytics/components/AiAssistantWidget'
 
 /**
  * Khung của trình thiết lập KPI — một trang toàn màn hình, không sidebar, không header ứng dụng.
  *
- * Đứng NGOÀI `AppLayout` là có chủ đích: nhờ vậy dải bàn giao và bong bóng chat AI tự động không
- * render, không phải thêm một phép loại trừ theo đường dẫn nào trong layout chính.
- * `/force-password-change` là tiền lệ sẵn có của kiểu trang này.
+ * Đứng NGOÀI `AppLayout` là có chủ đích: nhờ vậy dải bàn giao tự động không render, không phải
+ * thêm một phép loại trừ theo đường dẫn nào trong layout chính. `/force-password-change` là tiền
+ * lệ sẵn có của kiểu trang này. Bong bóng K.AI thì gắn riêng ở đây (từ 21/09/2026): nút "Gợi ý AI"
+ * của biểu mẫu tạo chỉ tiêu mở khung chat và tự gửi câu hỏi, nên trang này phải có K.AI như mọi
+ * trang khác.
  */
 export default function KpiSetupLayout() {
   const navigate = useNavigate()
@@ -91,6 +94,8 @@ export default function KpiSetupLayout() {
         onConfirm={() => navigate('/dashboard')}
         onClose={() => setShowExitConfirm(false)}
       />
+      {/* Widget tự portal ra body và tự ẩn khi tổ chức tắt AI. */}
+      <AiAssistantWidget />
     </div>
   )
 }

@@ -115,10 +115,6 @@ export interface AiChatResponse {
    * thay vì bấm nút. Client dùng nó để tắt thẻ xác nhận cũ còn nằm trên màn hình.
    */
   consumedActionId?: string
-  /**
-   * Nguồn trích dẫn khi câu trả lời lấy từ kho tài liệu (nhánh HELP): mục nào, mở ở đâu. Vắng ở
-   * lượt trả lời bằng dữ liệu thật.
-   */
 }
 
 export interface ConversationResponse {
