@@ -976,6 +976,7 @@ public class KpiCycleEvaluationService {
         List<CycleUserRankResponse> rows = cycleUserEvaluationRepository.findAllForCycle(cycleId).stream()
                 .map(e -> {
                     User u = e.getUser();
+                    if (u == null || u.getDeletedAt() != null || u.isPausedAccount()) return null;
                     OrgUnit unit = primaryUnitOf(u.getId());
                     if (unit == null || !scopeUnitIds.contains(unit.getId())) return null;
                     return CycleUserRankResponse.builder()

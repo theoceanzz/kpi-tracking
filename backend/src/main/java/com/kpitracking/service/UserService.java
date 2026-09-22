@@ -194,7 +194,7 @@ public class UserService {
     }
 
     @Transactional(readOnly = true)
-    public PageResponse<UserResponse> getUsers(int page, int size, String keyword, List<UUID> orgUnitIds, String role, String sortBy, String direction) {
+    public PageResponse<UserResponse> getUsers(int page, int size, String keyword, List<UUID> orgUnitIds, String role, String sortBy, String direction, boolean includeInactive) {
         User currentUser = getCurrentUser();
         boolean isGlobalAdmin = permissionChecker.isGlobalAdmin(currentUser.getId());
         List<UUID> allowedOrgUnitIds = permissionChecker.getOrgUnitsWithPermission(currentUser.getId(), "USER:VIEW");
@@ -256,6 +256,7 @@ public class UserService {
             excludeSelf,
             excludeAdmin,
             excludeManager,
+            includeInactive,
             pageable
         );
 

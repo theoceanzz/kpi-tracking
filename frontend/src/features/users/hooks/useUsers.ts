@@ -10,7 +10,7 @@ import { getApiErrorMessage } from '@/lib/apiError'
  * (chỉ ẩn bằng `open`) nên không có nó thì mỗi lần vào trang là một lượt tải danh sách nhân sự.
  */
 export function useUsers(
-  params: PageParams & { keyword?: string; orgUnitIds?: string[]; organizationId?: string; role?: string; sortBy?: string; direction?: string } = {},
+  params: PageParams & { keyword?: string; orgUnitIds?: string[]; organizationId?: string; role?: string; sortBy?: string; direction?: string; includeInactive?: boolean } = {},
   options: { enabled?: boolean } = {},
 ) {
   return useQuery({

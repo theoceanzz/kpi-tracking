@@ -132,7 +132,9 @@ export default function UsersPage() {
     orgUnitIds: orgUnitFilter === 'ALL' ? undefined : [orgUnitFilter],
     organizationId,
     sortBy,
-    direction
+    direction,
+    // Trang duy nhất còn thấy tài khoản đã tạm dừng / tạm khóa — để bật lại được.
+    includeInactive: true
   })
 
   const deleteMutation = useMutation({

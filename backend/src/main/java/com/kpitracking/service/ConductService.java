@@ -702,7 +702,7 @@ public class ConductService {
         List<UUID> unitIds = subtree.isEmpty() ? List.of(unit.getId())
                 : subtree.stream().map(OrgUnit::getId).toList();
         return userRoleOrgUnitRepository.findByOrgUnitIdIn(unitIds).stream()
-                .filter(a -> a.getUser() != null)
+                .filter(a -> a.getUser() != null && a.getUser().getDeletedAt() == null && !a.getUser().isPausedAccount())
                 .toList();
     }
 
