@@ -25,6 +25,11 @@ interface Props {
   reference?: { value: number; label: string }
   height?: number
   domainMax?: number
+  /**
+   * Bề ngang dành cho cột tên (mặc định 140px). Thu lại khi biểu đồ nằm trong khung hẹp như bong
+   * bóng chat ~390px — giữ 140 ở đó là tên chiếm hơn một phần ba chỗ vẽ.
+   */
+  yAxisWidth?: number
   onSelect?: (d: LollipopDatum) => void
 }
 
@@ -35,7 +40,7 @@ interface Props {
  * mắt phải dò từng cái, trong khi 25 chấm thì vị trí chấm là thứ duy nhất đập vào mắt. Dùng khi
  * xếp hạng đơn vị hoặc nhân sự — nơi số mục thường vượt xa số cột mà biểu đồ cột chịu được.
  */
-export default function Lollipop({ data, unit = '', valueLabel, reference, height, domainMax, onSelect }: Props) {
+export default function Lollipop({ data, unit = '', valueLabel, reference, height, domainMax, yAxisWidth, onSelect }: Props) {
   // Cao theo số mục để nhãn không chồng nhau; sàn 180px cho danh sách rất ngắn.
   const chartHeight = height ?? Math.max(180, data.length * 28 + 40)
   const max = domainMax ?? Math.max(...data.map(d => d.value), reference?.value ?? 0, 1)
@@ -56,7 +61,7 @@ export default function Lollipop({ data, unit = '', valueLabel, reference, heigh
         <YAxis
           type="category"
           dataKey="name"
-          width={140}
+          width={yAxisWidth ?? 140}
           axisLine={false}
           tickLine={false}
           // Mỗi mục một nhãn: chiều cao đã tính theo số mục nên Recharts không được tự bỏ bớt.

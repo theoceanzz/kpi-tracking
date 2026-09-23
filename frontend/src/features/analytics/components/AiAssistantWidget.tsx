@@ -3,7 +3,7 @@ import { createPortal } from 'react-dom'
 import { Bot, Send, X, Loader2, Minimize2, Maximize2, Expand, SquarePen } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useMyAiQuota } from '@/features/organization/hooks/useAiQuota'
-import { aiApi, type InsightCard, type FollowupPools, type ClarificationOption, type FormPatch, type PendingAction, type AiChatResponse } from '../api/aiApi'
+import { aiApi, type InsightCard, type FollowupPools, type ClarificationOption, type FormPatch, type PendingAction, type AiChatResponse, type ChatChart, type AskUserEvent } from '../api/aiApi'
 import { useFormAssistStore } from '@/store/formAssistStore'
 import { useAiAssistantStore } from '@/store/aiAssistantStore'
 import { useAiAvailable } from '../hooks/useAiAvailable'
@@ -13,6 +13,8 @@ import { usePinnedFilesStore, attachPinnedTo } from '@/store/pinnedFilesStore'
 import { useChatFileDrop } from '../hooks/useChatFileDrop'
 import EvidenceDropCard from './EvidenceDropCard'
 import FormPatchPreview from './FormPatchPreview'
+import ChatChartCard from './chart/ChatChartCard'
+import AskUserCard from './AskUserCard'
 import PendingActionCard from './PendingActionCard'
 import ThinkingSummary from './ThinkingSummary'
 import AnswerMarkdown from './AnswerMarkdown'
@@ -48,6 +50,12 @@ interface Message {
    * gắn với form nào, nên đóng form không làm lời mời mất nghĩa.
    */
   pendingAction?: PendingAction
+  /** Biểu đồ minh hoạ cho câu trả lời này (trợ lý chọn loại, client dựng). */
+  charts?: ChatChart[]
+  /** Trợ lý hỏi lại giữa lượt và đang chờ: thẻ chọn, trả lời xong lượt chạy tiếp. */
+  ask?: AskUserEvent
+  /** Lựa chọn đã gửi cho `ask` ({@code null} = bỏ qua); có giá trị thì thẻ khoá lại. */
+  askAnswer?: string | null
 }
 
 const WELCOME_MSG: Message = {
@@ -163,6 +171,34 @@ export default function AiAssistantWidget() {
     loadInsights()
   }
 
+
+  /**
+   * Trợ lý hỏi lại giữa lượt: thêm một thẻ chọn vào khung chat. Lượt VẪN đang chạy trên kết nối
+   * SSE — trả lời xong nó làm tiếp và câu trả lời cuối về như thường.
+   */
+  const pendingAskRef = useRef<AskUserEvent | null>(null)
+  const showAsk = useCallback((ask: AskUserEvent) => {
+    pendingAskRef.current = ask
+    setMessages(prev => [...prev, { id: `ask-${ask.questionId}`, role: 'assistant', content: '', ask }])
+  }, [])
+
+  const recordAskAnswer = useCallback((questionId: string, value: string | null) => {
+    pendingAskRef.current = null
+    setMessages(prev => prev.map(m => (m.ask?.questionId === questionId ? { ...m, askAnswer: value } : m)))
+  }, [])
+
+  /**
+   * Rời khung chat trong lúc trợ lý đang chờ: báo huỷ để máy chủ thả luồng ra ngay thay vì giữ
+   * đủ ba phút cho một câu hỏi không còn ai nhìn.
+   */
+  const cancelPendingAsk = useCallback(() => {
+    const ask = pendingAskRef.current
+    if (!ask) return
+    pendingAskRef.current = null
+    void aiApi.answerTurn(ask.turnId, ask.questionId).catch(() => {})
+  }, [])
+  useEffect(() => cancelPendingAsk, [cancelPendingAsk])
+
   const sendMessage = async (text: string, insight?: InsightCard | null, opts?: { focusUnitId?: string }) => {
     const userText = text.trim()
     if (!userText || isLoading) return
@@ -212,10 +248,12 @@ export default function AiAssistantWidget() {
         },
         {
           onStage: pushStage,
+          onAsk: showAsk,
           onDone: r => { box.value = r },
           onError: message => { throw new Error(message) },
         },
       )
+      pendingAskRef.current = null
       const { seconds, steps } = endTurn()
       const response = box.value
       if (!response) throw new Error('Luồng kết thúc mà không có câu trả lời')
@@ -257,6 +295,7 @@ export default function AiAssistantWidget() {
           followups: response.followups,
           evidenceRequest: response.evidenceRequest,
           pendingAction: response.pendingAction,
+          charts: response.charts?.length ? response.charts : undefined,
 
         },
       ])
@@ -507,6 +546,20 @@ export default function AiAssistantWidget() {
                     ))}
                   </div>
                 )}
+
+                {/* Trợ lý hỏi lại GIỮA lượt: bấm chọn rồi lượt chạy tiếp trên cùng kết nối */}
+                {msg.role === 'assistant' && msg.ask && (
+                  <AskUserCard
+                    ask={msg.ask}
+                    answered={msg.askAnswer}
+                    onAnswered={value => recordAskAnswer(msg.ask!.questionId, value)}
+                  />
+                )}
+
+                {/* Biểu đồ minh hoạ — dựng bằng đúng bộ biểu đồ của ứng dụng */}
+                {msg.role === 'assistant' && msg.charts?.map(c => (
+                  <ChatChartCard key={c.id} chart={c} compact />
+                ))}
 
                 {/* Đề xuất điền form đang mở — người dùng xem trước rồi mới chấp nhận */}
                 {msg.role === 'assistant' && msg.formPatch && (

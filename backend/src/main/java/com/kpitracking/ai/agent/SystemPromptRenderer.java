@@ -55,10 +55,49 @@ public class SystemPromptRenderer {
         return template
                 .replace("{currentDateTime}", turn.getCurrentDateTime() == null ? "" : turn.getCurrentDateTime())
                 .replace("{audience}", audienceBlock(turn))
+                .replace("{units}", unitsBlock(turn) + chartRequestBlock(turn))
+                .replace("{answered}", answeredBlock(turn))
                 .replace("{plan}", planBlock(turn))
                 .replace("{form}", formBlock(turn))
                 .replace("{evidence}", evidenceBlock(turn))
                 .replace("{denied}", deniedBlock(turn));
+    }
+
+    /**
+     * Các đơn vị CÓ THẬT trong phạm vi người hỏi. Là dữ liệu, không phải luật: nhờ nó model biết
+     * "phòng vận hành" không có trong danh sách và nói thẳng, thay vì đi hỏi "tên đầy đủ".
+     */
+    String unitsBlock(AiTurn turn) {
+        if (turn.getScopeUnits() == null || turn.getScopeUnits().isEmpty()) return "";
+        return "\n## ĐƠN VỊ TRONG PHẠM VI CỦA NGƯỜI HỎI\n- "
+                + String.join("\n- ", turn.getScopeUnits()) + "\n";
+    }
+
+    /**
+     * Chỉ ở lượt người dùng XIN biểu đồ. Agent chính không vẽ gì — ChartAgent dựng biểu đồ từ số liệu
+     * tool và client hiện nó ngay dưới câu trả lời. Không có khối này thì model hoặc tự viết mermaid
+     * (client không vẽ được), hoặc xin lỗi "hệ thống không hỗ trợ biểu đồ" ngay trên cái biểu đồ
+     * đang hiện (đo được 23/09 với "cho tôi biểu đồ tròn đi"). Lượt thường không thêm ký tự nào.
+     */
+    String chartRequestBlock(AiTurn turn) {
+        if (!com.kpitracking.service.ai.chart.ChartCandidateDetector.isChartRequest(turn.getQuestion())) return "";
+        return "\n## NGƯỜI DÙNG XIN BIỂU ĐỒ\n"
+                + "- Hệ thống TỰ dựng biểu đồ từ số liệu công cụ và hiện ngay dưới câu trả lời của bạn.\n"
+                + "- Bạn KHÔNG vẽ (không mermaid, không ASCII) và KHÔNG nói là không vẽ được. Chỉ cần nêu ngắn các con số chính.\n";
+    }
+
+    /**
+     * Khối cho vòng NGAY SAU khi người dùng trả lời câu hỏi giữa lượt.
+     *
+     * <p>Không có khối này thì model quay lại đúng chỗ bế tắc cũ và hỏi lần hai — đúng thứ mà
+     * human-in-the-loop sinh ra để tránh.
+     */
+    String answeredBlock(AiTurn turn) {
+        if (turn.getAnsweredQuestion() == null) return "";
+        return "\n## NGƯỜI DÙNG VỪA TRẢ LỜI CÂU HỎI CỦA BẠN\n"
+                + "- Bạn hỏi: " + turn.getAnsweredQuestion() + "\n"
+                + "- Họ trả lời: " + turn.getAnsweredValue() + "\n"
+                + "- Dùng ngay lựa chọn này để làm tiếp việc đang dở. KHÔNG hỏi lại câu đó.\n";
     }
 
     /**

@@ -11,6 +11,7 @@ import com.kpitracking.service.ManagerContextResolver.ManagerContext;
 import com.kpitracking.service.ai.AiTurn;
 import com.kpitracking.service.ai.PlanStep;
 import com.kpitracking.service.ai.agent.AgentState;
+import com.kpitracking.service.ai.hitl.PendingQuestion;
 import com.kpitracking.service.ai.form.FormPatch;
 import com.kpitracking.tool.FollowupContextStore;
 import com.kpitracking.tool.ToolRegistry;
@@ -57,6 +58,8 @@ class TurnStepsTest {
     private ToolRegistry registry;
     private TurnSteps steps;
     private TurnRegistry turns;
+    private com.kpitracking.service.ai.hitl.PendingQuestionStore questions;
+    private FollowupContextStore followupStore;
 
     private final Map<String, Object> scopeState = new HashMap<>();
     private final Map<String, Object> executionContext = new HashMap<>();
@@ -72,10 +75,16 @@ class TurnStepsTest {
         when(registry.deniedGroups(any(), any())).thenReturn(Set.of());
 
         turns = new TurnRegistry();
-        steps = new TurnSteps(mock(OrgUnitRepository.class), mock(FollowupContextStore.class),
+        questions = new com.kpitracking.service.ai.hitl.PendingQuestionStore();
+        followupStore = mock(FollowupContextStore.class);
+        steps = new TurnSteps(mock(OrgUnitRepository.class), followupStore,
                 mock(ConversationMemoryStore.class), turns, registry,
                 router, planner,
-                mock(FollowupService.class), new AnswerValidator(true));
+                mock(FollowupService.class), new AnswerValidator(true),
+                mock(com.kpitracking.ai.agent.ChartAgent.class),
+                new com.kpitracking.service.ai.chart.ChartCandidateDetector(new com.fasterxml.jackson.databind.ObjectMapper()),
+                new com.kpitracking.service.ai.chart.ChartSpecValidator(new com.fasterxml.jackson.databind.ObjectMapper()),
+                questions);
         steps.routingEnabled = true;
         steps.planEnforce = true;
 
@@ -375,6 +384,167 @@ class TurnStepsTest {
             assertThat(steps.needsAnotherRound(scope)).isFalse();
             assertThat(state().getAnswer()).isEqualTo("xong");
             assertThat(turn.getMemory().messages()).hasSize(1);
+        }
+    }
+
+    @Nested
+    @DisplayName("hỏi người dùng giữa lượt (human-in-the-loop)")
+    class HumanInTheLoop {
+
+        private PendingQuestion ask(String... options) {
+            List<PendingQuestion.Option> choices = java.util.Arrays.stream(options)
+                    .map(o -> PendingQuestion.Option.of(o, o)).toList();
+            PendingQuestion q = PendingQuestion.single("q-1", turn.getTurnId(), UUID.randomUUID(),
+                    "Bạn muốn xem đơn vị nào?", choices, false);
+            turn.getAgentState().setPendingQuestion(q);
+            return q;
+        }
+
+        @Test
+        @DisplayName("tool vừa hỏi -> vào nhánh chờ; đã có câu trả lời -> không chờ lần nữa")
+        void pendingQuestionGatesTheWaitStep() {
+            assertThat(steps.hasPendingQuestion(scope)).isFalse();
+            ask("Phòng IT", "Tổ IT");
+            assertThat(steps.hasPendingQuestion(scope)).isTrue();
+
+            turn.getAgentState().setUserAnswer("Phòng IT");
+            assertThat(steps.hasPendingQuestion(scope)).isFalse();
+        }
+
+        @Test
+        @DisplayName("lượt JSON (không có kênh hỏi lại) -> trả về ngay, KHÔNG chặn luồng 3 phút")
+        void jsonTurnNeverWaits() {
+            ask("Phòng IT", "Tổ IT");
+            steps.hitlWaitSeconds = 120;
+
+            assertThat(steps.awaitUserAnswer(scope)).isNull();
+            assertThat(questions.size()).isZero();
+        }
+
+        @Test
+        @DisplayName("lượt streaming -> phát câu hỏi ra kênh rồi chờ; người dùng chọn -> nhận đúng giá trị")
+        void streamingTurnAsksAndWaits() throws Exception {
+            List<PendingQuestion> asked = new java.util.ArrayList<>();
+            turn.setListener(new com.kpitracking.service.ai.TurnListener() {
+                @Override public void ask(PendingQuestion q) { asked.add(q); }
+            });
+            PendingQuestion q = ask("Phòng IT", "Tổ IT");
+            steps.hitlWaitSeconds = 5;
+
+            var clock = java.util.concurrent.Executors.newSingleThreadScheduledExecutor();
+            clock.schedule(() -> questions.answer(turn.getTurnId(), q.questionId(), q.userId(), "Tổ IT"),
+                    50, java.util.concurrent.TimeUnit.MILLISECONDS);
+
+            assertThat(steps.awaitUserAnswer(scope)).isEqualTo("Tổ IT");
+            assertThat(asked).containsExactly(q);
+            assertThat(turn.getAgentState().getUserAnswer()).isEqualTo("Tổ IT");
+            clock.shutdownNow();
+        }
+
+        @Test
+        @DisplayName("có câu trả lời -> chạy THÊM một vòng, xoá chốt chặn tên trùng, và đưa lựa chọn vào prompt")
+        void answerTriggersAnotherRound() {
+            ask("Phòng IT", "Tổ IT");
+            turn.getAgentState().setUserAnswer("Tổ IT");
+            UUID blocked = UUID.randomUUID();
+            turn.getAgentState().arm("orgUnit", Set.of(blocked));
+
+            assertThat(steps.needsAnotherRound(scope)).isTrue();
+            assertThat(turn.getAnsweredQuestion()).isEqualTo("Bạn muốn xem đơn vị nào?");
+            assertThat(turn.getAnsweredValue()).isEqualTo("Tổ IT");
+            assertThat(turn.getAgentState().getPendingQuestion()).isNull();
+            assertThat(turn.getAgentState().isArmed("orgUnit", blocked)).isFalse();
+            // Không còn chờ chọn nữa: bỏ cờ hỏi-làm-rõ, kẻo câu trả lời cuối vẫn kèm hàng nút cũ.
+            verify(followupStore).clearDisambiguating(any());
+        }
+
+        @Test
+        @DisplayName("hỏi mà không ai trả lời -> dừng lượt, câu trả lời CHÍNH LÀ câu hỏi kèm lựa chọn bấm được")
+        void unansweredQuestionBecomesTheAnswer() {
+            ask("Phòng IT", "Tổ IT");
+
+            assertThat(steps.needsAnotherRound(scope)).isFalse();
+
+            steps.finish(scope);
+            assertThat(turn.getAgentState().getAnswer()).contains("Bạn muốn xem đơn vị nào?", "Phòng IT", "Tổ IT");
+            assertThat(turn.getClarificationOptions())
+                    .extracting(AiTurn.Choice::value).containsExactly("Phòng IT", "Tổ IT");
+        }
+
+        @Test
+        @DisplayName("model hỏi BẰNG CHỮ ở lượt SSE -> thành thẻ hỏi (kèm lựa chọn từ gạch đầu dòng)")
+        void textQuestionBecomesACard() {
+            turn.setListener(new com.kpitracking.service.ai.TurnListener() {});
+            scopeState.put(TurnSteps.ANSWER, "Bạn muốn đặt mục tiêu tối thiểu là bao nhiêu?\n- 99.0%\n- 99.5%\n- 98.0%");
+
+            assertThat(steps.hasPendingQuestion(scope)).isTrue();
+            PendingQuestion q = turn.getAgentState().getPendingQuestion();
+            assertThat(q.question()).isEqualTo("Bạn muốn đặt mục tiêu tối thiểu là bao nhiêu?");
+            assertThat(q.options()).extracting(PendingQuestion.Option::label).containsExactly("99.0%", "99.5%", "98.0%");
+        }
+
+        @Test
+        @DisplayName("câu hỏi bằng chữ ở đường JSON, hoặc sau lời từ chối phạm vi -> KHÔNG thành thẻ")
+        void textQuestionStaysTextWhenItShould() {
+            scopeState.put(TurnSteps.ANSWER, "Bạn muốn xem kỳ nào?");
+            assertThat(steps.hasPendingQuestion(scope)).isFalse();          // JSON: listener NOOP
+
+            turn.setListener(new com.kpitracking.service.ai.TurnListener() {});
+            turn.getAgentState().setScopeDenied(true);
+            assertThat(steps.hasPendingQuestion(scope)).isFalse();
+        }
+
+        @Test
+        @DisplayName("lượt SSE bỏ qua / hết giờ -> một dòng ngắn, KHÔNG lặp câu hỏi đã nằm trên thẻ, không hàng nút")
+        void skippedOnStreamingDoesNotRepeatTheQuestion() {
+            turn.setListener(new com.kpitracking.service.ai.TurnListener() {});
+            ask("Phòng IT", "Tổ IT");
+
+            steps.finish(scope);
+
+            assertThat(turn.getAgentState().getAnswer()).isEqualTo(TurnSteps.SKIPPED_ANSWER)
+                    .doesNotContain("Bạn muốn xem đơn vị nào?");
+            assertThat(turn.getClarificationOptions()).isNullOrEmpty();
+        }
+    }
+
+    @Nested
+    @DisplayName("biểu đồ ở câu nối tiếp")
+    class ChartFollowUp {
+
+        private final AgentState.ToolPayload prior = new AgentState.ToolPayload("compare_org_units",
+                "{\"units\":[{\"name\":\"Phòng IT\",\"totalKpis\":25},{\"name\":\"Phòng Truyền Thông\",\"totalKpis\":24}]}");
+
+        @Test
+        @DisplayName("'cho tôi biểu đồ tròn đi' không gọi tool -> vẽ bằng số liệu của lượt trước")
+        void explicitChartRequestUsesPriorPayloads() {
+            turn = new AiTurn("Cho tôi biểu đồ tròn đi", "conv-1", null);
+            turn.setAgentState(new AgentState(turn));
+            turn.getAgentState().setPriorPayloads(List.of(prior));
+
+            assertThat(steps.chartSource(turn, turn.getAgentState())).containsExactly(prior);
+        }
+
+        @Test
+        @DisplayName("xin biểu đồ khi số liệu lượt trước nằm rải ở nhiều lời gọi (không có mảng) -> vẫn đưa cho ChartAgent")
+        void explicitChartRequestAcceptsScatteredPayloads() {
+            AgentState.ToolPayload it = new AgentState.ToolPayload("get_kpi", "{\"orgUnitName\":\"Phòng IT\",\"totalKpis\":25}");
+            AgentState.ToolPayload tt = new AgentState.ToolPayload("get_kpi", "{\"orgUnitName\":\"Phòng Truyền Thông\",\"totalKpis\":24}");
+            turn = new AiTurn("Cho tôi biểu đồ tròn đi", "conv-1", null);
+            turn.setAgentState(new AgentState(turn));
+            turn.getAgentState().setPriorPayloads(List.of(it, tt));
+
+            assertThat(steps.chartSource(turn, turn.getAgentState())).containsExactly(it, tt);
+        }
+
+        @Test
+        @DisplayName("câu hỏi thường không xin biểu đồ -> KHÔNG lôi số của lượt trước ra vẽ")
+        void ordinaryQuestionNeverDrawsPriorData() {
+            turn = new AiTurn("Cảm ơn nhé", "conv-1", null);
+            turn.setAgentState(new AgentState(turn));
+            turn.getAgentState().setPriorPayloads(List.of(prior));
+
+            assertThat(steps.chartSource(turn, turn.getAgentState())).isEmpty();
         }
     }
 }

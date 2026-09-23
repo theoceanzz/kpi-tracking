@@ -59,6 +59,8 @@ public class AiTokenUsage {
         CHAT,
         KPI_SUGGESTION,
         FOLLOWUP,
+        /** Chọn biểu đồ minh hoạ cho câu trả lời (ChartAgent). */
+        CHART,
         /** Hỏi đáp về KeyGo/quy chế qua RAG. Tách khỏi CHAT để nhìn được tỉ lệ dùng của từng đường. */
         HELP
     }

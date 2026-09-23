@@ -147,6 +147,15 @@ app:
       # Đối chiếu tool đã lên kế hoạch với tool thực sự chạy, thiếu thì hỏi lại ĐÚNG một lần.
       # Chỉ có tác dụng khi planning.enabled=true.
       enforce: ${AI_PLANNING_ENFORCE:true}
+    charts:
+      # Chọn biểu đồ minh hoạ cho câu trả lời có số liệu (ChartAgent, chạy song song với kiểm duyệt).
+      # Tắt đi là câu trả lời chỉ còn bảng Markdown như trước.
+      enabled: ${AI_CHARTS_ENABLED:true}
+    hitl:
+      # Trợ lý hỏi lại giữa lượt (tool ask_user / trùng tên đơn vị) rồi CHỜ người dùng bấm chọn.
+      # Lượt giữ nguyên ngữ cảnh đã tra được trong lúc chờ, nên mỗi câu hỏi giữ một luồng streaming
+      # tới khi hết số giây này. Để dưới 300s: client bỏ cuộc ở đó, SSE đóng ở 330s.
+      wait-seconds: ${AI_HITL_WAIT_SECONDS:180}
     followups:
       # Câu hỏi gợi ý sau mỗi câu trả lời. Tắt đi là MẤT tính năng, không phải "về trạng thái cũ".
       enabled: ${AI_FOLLOWUPS_ENABLED:true}

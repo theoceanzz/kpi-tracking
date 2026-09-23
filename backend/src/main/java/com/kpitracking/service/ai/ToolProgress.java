@@ -74,6 +74,7 @@ public final class ToolProgress {
             Map.entry("decompose_kpi", "Đang tính bảng phân rã chỉ tiêu"),
             Map.entry("get_delegations", "Đang xem uỷ quyền đơn vị"),
             Map.entry("get_org_documents", "Đang đọc mô tả công việc và chiến lược của tổ chức"),
+            Map.entry("ask_user", "Đang hỏi lại bạn một câu"),
             Map.entry("get_conduct", "Đang xem KPI hành vi"),
             Map.entry("get_rewards", "Đang xem thưởng điểm"),
             Map.entry("get_my_kpis", "Đang xem KPI của bạn"),

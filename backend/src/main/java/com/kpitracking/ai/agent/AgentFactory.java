@@ -77,4 +77,9 @@ public class AgentFactory {
     public FollowupAgent followupAgent(ChatModel chatModel) {
         return AiServices.builder(FollowupAgent.class).chatModel(chatModel).build();
     }
+
+    @Bean
+    public ChartAgent chartAgent(ChatModel chatModel) {
+        return AiServices.builder(ChartAgent.class).chatModel(chatModel).build();
+    }
 }

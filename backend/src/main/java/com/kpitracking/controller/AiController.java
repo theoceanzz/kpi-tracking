@@ -29,10 +29,14 @@ import org.springframework.security.access.prepost.PreAuthorize;
 import com.kpitracking.dto.request.ai.AiChatRequest;
 import com.kpitracking.dto.response.ai.AiChatResponse;
 import com.kpitracking.service.AiService;
+import com.kpitracking.service.ManagerContextResolver;
+import com.kpitracking.service.ai.hitl.PendingQuestionStore;
+import com.kpitracking.dto.request.ai.AiAnswerRequest;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.servlet.mvc.method.annotation.SseEmitter;
 
 import java.util.List;
+import java.util.UUID;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
@@ -47,6 +51,8 @@ public class AiController {
     private final AiRateLimiter aiRateLimiter;
     private final AiQuotaService aiQuotaService;
     private final FollowupContextStore followupContextStore;
+    private final PendingQuestionStore pendingQuestions;
+    private final ManagerContextResolver managerContextResolver;
     /** Để mở phạm vi Session trên luồng chạy nền — xem {@link #withEntityManager}. */
     private final EntityManagerFactory entityManagerFactory;
 
@@ -63,6 +69,11 @@ public class AiController {
      * <p>(Luồng ảo hợp hơn cho tác vụ chờ I/O như thế này, nhưng dự án biên dịch cho Java 17.)
      */
     private final ExecutorService streamExecutor = Executors.newFixedThreadPool(32);
+
+    /** Id người dùng đang đăng nhập — chỉ người được hỏi mới trả lời được câu hỏi giữa lượt. */
+    private UUID currentUserId() {
+        return managerContextResolver.currentUserId();
+    }
 
     /** Email người dùng đang đăng nhập (JWT subject) — khóa rate-limit theo user. */
     private String currentUserEmail() {
@@ -153,6 +164,8 @@ public class AiController {
         FollowupResponse followups;
         com.kpitracking.service.ai.action.PendingAction pendingAction;
         String consumedActionId;
+        List<com.kpitracking.dto.response.ai.ChartSpec> charts;
+        List<AiTurn.Choice> askOptions;
         AiTokenUsageRecorder.setFeature(AiTokenUsage.AiFeature.CHAT);
         try {
             AiTurn turn = new AiTurn(request.getMessage(), request.getConversationId(), request.getFocusUnitId());
@@ -171,14 +184,21 @@ public class AiController {
             followups = turn.getFollowups();
             pendingAction = turn.getPendingAction();
             consumedActionId = turn.getConsumedActionId();
+            charts = turn.getCharts();
+            askOptions = turn.getClarificationOptions();
         } finally {
             AiTokenUsageRecorder.clearFeature();
         }
 
         // Lượt mà trợ lý phải hỏi lại: kèm các lựa chọn CÓ THẬT do tool trả về để client hiện
         // thành nút bấm (người dùng chọn thay vì gõ lại tên). Lượt bình thường -> danh sách rỗng.
-        List<AiChatResponse.ClarificationOption> options =
-                followupContextStore.getClarificationOptions(request.getConversationId()).stream()
+        // Lượt kết thúc bằng một câu hỏi giữa lượt (hết giờ / bỏ qua / đường JSON) mang sẵn lựa chọn
+        // của chính câu hỏi đó; còn lại lấy từ kho hỏi-làm-rõ như trước.
+        List<AiChatResponse.ClarificationOption> options = askOptions != null && !askOptions.isEmpty()
+                ? askOptions.stream()
+                        .map(o -> AiChatResponse.ClarificationOption.builder().label(o.label()).value(o.value()).build())
+                        .toList()
+                : followupContextStore.getClarificationOptions(request.getConversationId()).stream()
                         .map(o -> AiChatResponse.ClarificationOption.builder()
                                 .label(o.getLabel())
                                 .value(o.getValue())
@@ -194,7 +214,40 @@ public class AiController {
                 .followups(followups)
                 .pendingAction(com.kpitracking.dto.response.ai.PendingActionResponse.from(pendingAction))
                 .consumedActionId(consumedActionId)
+                .charts(charts)
                 .build();
+    }
+
+    /**
+     * Người dùng trả lời câu hỏi mà trợ lý đặt GIỮA LƯỢT. Lượt đang chờ trên luồng nền của đường
+     * streaming; trả lời xong nó chạy tiếp và đẩy câu trả lời cuối qua chính kết nối SSE đó.
+     *
+     * <p>{@code answer} rỗng (hoặc {@code cancelled}) = bỏ qua: lượt kết thúc lịch sự bằng câu hỏi.
+     */
+    @PostMapping("/turns/{turnId}/answer")
+    @Operation(summary = "Trả lời câu hỏi trợ lý đặt giữa lượt (human-in-the-loop)")
+    public ApiResponse<Boolean> answerTurnQuestion(@PathVariable String turnId,
+                                                   @RequestBody AiAnswerRequest request) {
+        UUID userId = currentUserId();
+        String text = null;
+        if (!Boolean.TRUE.equals(request.getCancelled())) {
+            text = request.getAnswers() != null && !request.getAnswers().isEmpty()
+                    // Có cấu trúc (chọn một / chọn nhiều / tự nhập theo từng câu): máy chủ ghép, vì chỉ ở
+                    // đây mới biết lựa chọn nào có thật trong thẻ.
+                    ? pendingQuestions.peek(turnId)
+                            .map(q -> com.kpitracking.service.ai.hitl.HitlAnswerFormatter.format(q,
+                                    request.getAnswers().stream()
+                                            .map(a -> a == null ? null : new com.kpitracking.service.ai.hitl.HitlAnswerFormatter.ItemAnswer(a.getValues(), a.getText()))
+                                            .toList()))
+                            .orElse(null)
+                    : request.getAnswer();
+        }
+        boolean accepted = pendingQuestions.answer(turnId, request.getQuestionId(), userId, text);
+        // Không còn chờ nữa (hết giờ, đã trả lời, hoặc không phải người được hỏi) thì nói thật —
+        // client tắt thẻ hỏi thay vì quay mãi.
+        return accepted ? ApiResponse.success(true)
+                : ApiResponse.<Boolean>builder().success(false).data(false)
+                        .message("Câu hỏi này không còn chờ trả lời.").build();
     }
 
     @GetMapping("/insights")
