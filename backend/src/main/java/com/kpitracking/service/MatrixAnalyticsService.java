@@ -5,11 +5,13 @@ import com.kpitracking.entity.Organization;
 import com.kpitracking.repository.EvaluationRepository;
 import com.kpitracking.repository.OrganizationRepository;
 import com.kpitracking.service.analytics.AnalyticsScopeResolver;
+import com.kpitracking.service.analytics.LatestEvaluationPicker;
 import com.kpitracking.util.PerformanceMatrixResolver;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -40,32 +42,47 @@ public class MatrixAnalyticsService {
     @Transactional(readOnly = true)
     public OverviewResponse getOverview(UUID orgUnitId, Collection<UUID> periodIds) {
         var s = scopeResolver.resolve(orgUnitId, periodIds);
-        Heatmap heatmap = buildHeatmap(s);
-        if (s.isEmpty()) {
+
+        // MỘT truy vấn, rút gọn còn mỗi người một dòng, rồi cả ba con số của khối (thẻ chỉ số,
+        // donut, heatmap) đều tính từ CÙNG danh sách đó. Ba truy vấn gộp riêng như trước không
+        // lọc trùng người được, nên một người có bao nhiêu đợt thì được đếm bấy nhiêu lần.
+        List<Object[]> rows = s.isEmpty()
+                ? List.of()
+                : LatestEvaluationPicker.keepLatestPerUser(
+                        evaluationRepository.matrixRows(s.unitIds(), s.periodIds()),
+                        r -> (UUID) r[0],
+                        r -> (Instant) r[4]);
+
+        Heatmap heatmap = buildHeatmap(s, rows);
+        if (rows.isEmpty()) {
             return OverviewResponse.builder()
-                    .evaluationCount(0)
+                    .personCount(0)
                     .distribution(emptyDistribution())
                     .heatmap(heatmap)
                     .build();
         }
 
-        Object[] overall = firstRow(evaluationRepository.matrixOverall(s.unitIds(), s.periodIds()));
-        Double avgRating = overall != null ? dbl(overall[0]) : null;
-        Double avgBehavior = overall != null ? dbl(overall[1]) : null;
-        Double avgCompletion = overall != null ? dbl(overall[2]) : null;
-        int count = overall != null && overall[3] != null ? ((Number) overall[3]).intValue() : 0;
-
+        double sumRating = 0, sumBehavior = 0, sumCompletion = 0;
+        int nRating = 0, nBehavior = 0, nCompletion = 0;
         Map<Integer, Integer> distMap = new LinkedHashMap<>();
-        for (Object[] r : evaluationRepository.matrixDistribution(s.unitIds(), s.periodIds())) {
-            if (r[0] == null) continue;
-            distMap.put(((Number) r[0]).intValue(), r[1] == null ? 0 : ((Number) r[1]).intValue());
+        for (Object[] r : rows) {
+            Double rating = dbl(r[1]);
+            if (rating != null) {
+                sumRating += rating;
+                nRating++;
+                distMap.merge((int) Math.round(rating), 1, Integer::sum);
+            }
+            Double behavior = dbl(r[2]);
+            if (behavior != null) { sumBehavior += behavior; nBehavior++; }
+            Double completion = dbl(r[3]);
+            if (completion != null) { sumCompletion += completion; nCompletion++; }
         }
 
         return OverviewResponse.builder()
-                .averageRating(round2(avgRating))
-                .averageBehavior(round2(avgBehavior))
-                .averageCompletion(round1(avgCompletion))
-                .evaluationCount(count)
+                .averageRating(nRating > 0 ? round2(sumRating / nRating) : null)
+                .averageBehavior(nBehavior > 0 ? round2(sumBehavior / nBehavior) : null)
+                .averageCompletion(nCompletion > 0 ? round1(sumCompletion / nCompletion) : null)
+                .personCount(rows.size())
                 .distribution(buildDistribution(distMap))
                 .heatmap(heatmap)
                 .build();
@@ -88,8 +105,13 @@ public class MatrixAnalyticsService {
         return out;
     }
 
-    /** Dựng heatmap: trục từ cấu hình ma trận của org, đếm số nhân sự mỗi ô. Null nếu org chưa cấu hình. */
-    private Heatmap buildHeatmap(AnalyticsScopeResolver.Scope s) {
+    /**
+     * Dựng heatmap: trục từ cấu hình ma trận của org, đếm số NHÂN SỰ mỗi ô. Null nếu org chưa cấu hình.
+     *
+     * <p>Nhận sẵn danh sách đã rút gọn thay vì tự truy vấn: nếu tự lấy, heatmap sẽ đếm theo lượt
+     * đánh giá trong khi donut ngay bên cạnh đếm theo người, và hai tổng trên một khối không khớp.
+     */
+    private Heatmap buildHeatmap(AnalyticsScopeResolver.Scope s, List<Object[]> rows) {
         if (s.orgId() == null) return null;
         Organization org = organizationRepository.findById(s.orgId()).orElse(null);
         if (org == null) return null;
@@ -108,11 +130,14 @@ public class MatrixAnalyticsService {
             ratings.add(row);
         }
 
-        if (!s.isEmpty()) {
-            for (Object[] pair : evaluationRepository.matrixPairs(s.unitIds(), s.periodIds())) {
-                int[] idx = PerformanceMatrixResolver.cellIndex(m, dbl(pair[0]), dbl(pair[1]));
-                if (idx != null && idx[0] < nRows && idx[1] < nCols) counts[idx[0]][idx[1]]++;
-            }
+        for (Object[] r : rows) {
+            Double behavior = dbl(r[2]);
+            Double completion = dbl(r[3]);
+            // Truy vấn cũ lọc sẵn hai cột này khác null; giờ lấy chung một danh sách nên phải tự
+            // bỏ qua, không thì `cellIndex` nhận null.
+            if (behavior == null || completion == null) continue;
+            int[] idx = PerformanceMatrixResolver.cellIndex(m, behavior, completion);
+            if (idx != null && idx[0] < nRows && idx[1] < nCols) counts[idx[0]][idx[1]]++;
         }
 
         List<List<Integer>> countList = new ArrayList<>();
@@ -131,10 +156,6 @@ public class MatrixAnalyticsService {
     // ============================================================
     // Helpers
     // ============================================================
-
-    private static Object[] firstRow(List<Object[]> rows) {
-        return rows == null || rows.isEmpty() ? null : rows.get(0);
-    }
 
     private static Double dbl(Object o) {
         return o == null ? null : ((Number) o).doubleValue();

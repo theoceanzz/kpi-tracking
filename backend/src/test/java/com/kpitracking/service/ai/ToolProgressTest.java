@@ -3,7 +3,7 @@ package com.kpitracking.service.ai;
 import com.kpitracking.tool.ToolRegistry;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.ai.chat.model.ToolContext;
+import dev.langchain4j.invocation.InvocationParameters;
 
 import java.lang.reflect.Method;
 import java.util.ArrayList;
@@ -29,8 +29,8 @@ class ToolProgressTest {
         Set<String> names = new LinkedHashSet<>();
         for (Class<?> toolClass : ToolRegistry.toolClasses()) {
             for (Method m : toolClass.getDeclaredMethods()) {
-                org.springframework.ai.tool.annotation.Tool tool =
-                        m.getAnnotation(org.springframework.ai.tool.annotation.Tool.class);
+                dev.langchain4j.agent.tool.Tool tool =
+                        m.getAnnotation(dev.langchain4j.agent.tool.Tool.class);
                 if (tool == null) continue;
                 names.add(tool.name() != null && !tool.name().isBlank() ? tool.name() : m.getName());
             }
@@ -71,7 +71,7 @@ class ToolProgressTest {
     }
 
     @Test
-    @DisplayName("phát được nhãn qua ToolContext — đường đi không phụ thuộc luồng nào đang chạy")
+    @DisplayName("phát được nhãn qua InvocationParameters — đường đi không phụ thuộc luồng nào đang chạy")
     void announcesThroughToolContext() {
         List<String> seen = new ArrayList<>();
         TurnListener listener = new TurnListener() {
@@ -80,7 +80,7 @@ class ToolProgressTest {
         Map<String, Object> ctx = new HashMap<>();
         ctx.put(ToolProgress.CONTEXT_KEY, listener);
 
-        ToolProgress.announce(new ToolContext(ctx), "get_people");
+        ToolProgress.announce(new InvocationParameters(ctx), "get_people");
 
         assertThat(seen).containsExactly("tool:get_people|Đang xem danh sách nhân sự");
     }
@@ -88,7 +88,7 @@ class ToolProgressTest {
     @Test
     @DisplayName("lượt không có người nghe (đường JSON) thì không nổ")
     void silentWhenNoListener() {
-        ToolProgress.announce(new ToolContext(Map.of("orgUnitId", "x")), "get_people");
+        ToolProgress.announce(new InvocationParameters(Map.of("orgUnitId", "x")), "get_people");
         ToolProgress.announce(null, "get_people");
     }
 
@@ -102,6 +102,6 @@ class ToolProgressTest {
                 throw new IllegalStateException("client đã ngắt");
             }
         };
-        ToolProgress.announce(new ToolContext(Map.of(ToolProgress.CONTEXT_KEY, broken)), "get_kpi");
+        ToolProgress.announce(new InvocationParameters(Map.of(ToolProgress.CONTEXT_KEY, broken)), "get_kpi");
     }
 }

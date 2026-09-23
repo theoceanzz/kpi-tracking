@@ -69,7 +69,7 @@ export interface PendingActionItem {
  */
 export interface PendingAction {
   id: string
-  kind: 'SUBMISSION_REVIEW' | 'KPI_CRITERIA_REVIEW' | 'KPI_ADJUSTMENT_REVIEW' | 'SEND_REMINDER'
+  kind: 'SUBMISSION_REVIEW' | 'KPI_CRITERIA_REVIEW' | 'KPI_ADJUSTMENT_REVIEW' | 'SEND_REMINDER' | 'KPI_SUBMIT' | 'REWARD_GRANT_REVIEW' | 'CYCLE_FINALIZE' | 'CYCLE_REOPEN' | 'CYCLE_SEND' | 'KPI_DECOMPOSE'
   decision?: 'APPROVE' | 'REJECT'
   title: string
   note?: string
@@ -164,7 +164,7 @@ export interface FollowupPools {
 
 // Các endpoint gọi LLM có thể chạy lâu hơn nhiều so với request thường,
 // nên dùng timeout riêng 300s thay vì timeout global (100s).
-const AI_TIMEOUT = 300000
+export const AI_TIMEOUT = 300000
 
 /** Việc trợ lý đang làm: một công đoạn của chuỗi xử lý, hoặc một lần tra cứu dữ liệu. */
 export interface StageEvent {
@@ -186,6 +186,58 @@ export interface ChatStreamHandlers {
 function readCookie(name: string): string | null {
   const hit = document.cookie.split('; ').find(c => c.startsWith(name + '='))
   return hit ? decodeURIComponent(hit.slice(name.length + 1)) : null
+}
+
+/** Một tài liệu đã nạp vào kho tri thức của trợ lý. */
+export interface RagDocument {
+  id: string
+  /** null = bộ hướng dẫn KeyGo chung toàn hệ thống; có giá trị = tài liệu của tổ chức đó. */
+  organizationId: string | null
+  /** GUIDE do quản trị nền tảng nạp; ba loại còn lại là của tổ chức. */
+  source: 'GUIDE' | 'REGULATION' | 'JOB_DESCRIPTION' | 'STRATEGY'
+  title: string
+  fileName?: string
+  status: 'PENDING' | 'READY' | 'FAILED'
+  chunkCount: number
+  imageCount: number
+  errorMessage?: string | null
+  createdAt: string
+}
+
+export const RAG_SOURCE_LABELS: Record<RagDocument['source'], string> = {
+  GUIDE: 'Hướng dẫn KeyGo · toàn hệ thống',
+  REGULATION: 'Quy chế của tổ chức',
+  JOB_DESCRIPTION: 'Mô tả công việc / chức năng nhiệm vụ',
+  STRATEGY: 'Chiến lược, mục tiêu năm',
+}
+
+/** Một đoạn đang nằm trong kho vector — đúng như trợ lý sẽ nhận (đã có [mục] chèn đầu). */
+export interface RagChunk {
+  id: string
+  order: number | null
+  index: number | null
+  title: string | null
+  parent: string | null
+  route: string | null
+  roles: string | null
+  text: string
+  images: string[]
+  captions: string[]
+}
+
+/**
+ * Một kết quả "thử tìm". `score` là điểm gộp RRF của chế độ hybrid (thường ≤ 0,033): chỉ để xếp
+ * hạng trong cùng một lần tìm, không phải độ giống cosine.
+ */
+export interface RagSearchHit {
+  score: number | null
+  docId: string | null
+  docTitle: string | null
+  title: string | null
+  parent: string | null
+  route: string | null
+  text: string
+  images: string[]
 }
 
 export const aiApi = {
@@ -272,6 +324,44 @@ export const aiApi = {
   confirmAction: (actionId: string, itemIds?: string[]) =>
     axiosInstance
       .post<ApiResponse<ConfirmActionResult>>(`/ai/actions/${actionId}/confirm`, { itemIds })
+      .then(res => res.data.data),
+
+  /** Kho tri thức: tài liệu của tổ chức mình (bộ hướng dẫn chung quản lý ở platformAdminApi). */
+  listRagDocuments: () =>
+    axiosInstance
+      .get<ApiResponse<RagDocument[]>>('/ai/rag/documents')
+      .then(res => res.data.data),
+
+  /**
+   * Nạp một tệp .docx. Chạy đồng bộ ở backend (đọc mục, cất ảnh, embedding tại chỗ) nên tệp lớn
+   * mất vài giây; timeout nới như lượt chat.
+   */
+  uploadRagDocument: (file: File, source: RagDocument['source'], title?: string) => {
+    const form = new FormData()
+    form.append('file', file)
+    form.append('source', source)
+    if (title) form.append('title', title)
+    return axiosInstance
+      .post<ApiResponse<RagDocument>>('/ai/rag/documents', form, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: AI_TIMEOUT,
+      })
+      .then(res => res.data.data)
+  },
+
+  deleteRagDocument: (id: string) =>
+    axiosInstance.delete<ApiResponse<void>>(`/ai/rag/documents/${id}`).then(res => res.data),
+
+  /** Các đoạn của một tài liệu, theo thứ tự mục. */
+  listRagChunks: (id: string) =>
+    axiosInstance
+      .get<ApiResponse<RagChunk[]>>(`/ai/rag/documents/${id}/chunks`)
+      .then(res => res.data.data),
+
+  /** Chạy đúng bộ truy hồi của trợ lý với một câu hỏi — xem nó "thấy gì". */
+  searchRag: (q: string) =>
+    axiosInstance
+      .get<ApiResponse<RagSearchHit[]>>('/ai/rag/search', { params: { q } })
       .then(res => res.data.data),
 
   chat: (request: AiChatRequest) =>

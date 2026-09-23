@@ -4,8 +4,8 @@ import com.kpitracking.service.OrgUnitStatisticService;
 import com.kpitracking.tool.OrgUnitStatisticToolRequests.PeopleRequest;
 import com.kpitracking.tool.ToolSupport.UnitRef;
 import lombok.RequiredArgsConstructor;
-import org.springframework.ai.chat.model.ToolContext;
-import org.springframework.ai.tool.annotation.Tool;
+import dev.langchain4j.invocation.InvocationParameters;
+import dev.langchain4j.agent.tool.Tool;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
@@ -25,7 +25,7 @@ public class PeopleTool {
     private final OrgUnitStatisticService orgUnitStatisticService;
     private final ToolSupport support;
 
-    @Tool(name = "get_people", description = "Nhân sự và số liệu về nhân sự. "
+    @Tool(name = "get_people", value = "Nhân sự và số liệu về nhân sự. "
             + "view=list: danh sách và số lượng người trong đơn vị, MẶC ĐỊNH tính cả các đơn vị con "
             + "(truyền includeChildUnits=false nếu chỉ muốn người gắn trực tiếp vào đơn vị đó); "
             + "lọc chức vụ bằng positionName (vd 'trưởng phòng'). "
@@ -37,7 +37,7 @@ public class PeopleTool {
             + "view=me: hồ sơ của chính người đang đăng nhập — dùng cho câu hỏi tự quy chiếu "
             + "('tôi là ai', 'đơn vị của tôi', 'chức vụ của tôi'). "
             + "Các view theo đơn vị mặc định là đơn vị hiện tại, nên khi người dùng nêu tên đơn vị PHẢI truyền unitName.")
-    public String getPeople(PeopleRequest request, ToolContext context) {
+    public String getPeople(PeopleRequest request, InvocationParameters context) {
         try {
             String view = normalizeView(request.view());
             if (view == null) {
@@ -67,7 +67,7 @@ public class PeopleTool {
         };
     }
 
-    private String me(PeopleRequest request, ToolContext context) throws Exception {
+    private String me(PeopleRequest request, InvocationParameters context) throws Exception {
         if (ToolSupport.notBlank(request.userId()) || ToolSupport.notBlank(request.unitName())
                 || ToolSupport.notBlank(request.unitId())) {
             throw new IllegalArgumentException("view=me không nhận userId/unitName/unitId — nó luôn trả hồ sơ "
@@ -80,7 +80,7 @@ public class PeopleTool {
         return support.respond(context, "get_people", orgUnitStatisticService.getCurrentUserProfile(email));
     }
 
-    private String userSummary(PeopleRequest request, ToolContext context) throws Exception {
+    private String userSummary(PeopleRequest request, InvocationParameters context) throws Exception {
         if (!ToolSupport.notBlank(request.userId())) {
             throw new IllegalArgumentException("view=user_summary cần userId. Dùng search (entityType=user) "
                     + "để lấy UUID trước.");
@@ -93,7 +93,7 @@ public class PeopleTool {
         return support.respond(context, "get_people", response);
     }
 
-    private String byUnit(String view, PeopleRequest request, ToolContext context) throws Exception {
+    private String byUnit(String view, PeopleRequest request, InvocationParameters context) throws Exception {
         // userId chỉ có nghĩa với view=user_summary. Lờ đi thì model tưởng đã lọc theo người.
         if (ToolSupport.notBlank(request.userId())) {
             throw new IllegalArgumentException("userId chỉ dùng với view=user_summary, không dùng với view="

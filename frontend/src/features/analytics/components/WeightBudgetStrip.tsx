@@ -44,7 +44,7 @@ export function WeightBudgetStrip({ rows }: { rows: UnitWeightBudget[] }) {
         <AlertTriangle size={13} className="shrink-0" />
         {off.length}/{rows.length} đơn vị lệch trọng số
         <span className="font-semibold text-[var(--color-muted-foreground)] normal-case">
-          — tính theo phân bổ nhân sự cao nhất, đúng con số chặn lúc gửi duyệt
+          tính theo phân bổ nhân sự cao nhất, đúng con số chặn lúc gửi duyệt
         </span>
       </div>
 

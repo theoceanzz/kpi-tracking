@@ -27,11 +27,11 @@ function PointTooltip({ active, payload, xLabel, yLabel }: PointTooltipProps) {
   if (!active || !p) return null
   const anonymous = !p.name
   return (
-    <div className="bg-[var(--color-card)] border border-[var(--color-border)] p-4 rounded-card">
+    <div className="bg-[var(--color-card)] border border-[var(--color-border)] p-4 rounded-lg shadow-md">
       <p className="font-semibold text-[var(--color-foreground)] mb-1">
         {p.isSelf ? 'Bạn' : anonymous ? 'Một thành viên khác' : p.name}
       </p>
-      {p.orgUnitName && <p className="text-xs text-[var(--color-muted-foreground)] mb-3">{p.orgUnitName}</p>}
+      {p.orgUnitName && <p className="text-xs text-slate-500 mb-3">{p.orgUnitName}</p>}
       <div className="space-y-1.5 text-sm">
         <Row label={xLabel} value={`${p.completion}%`} />
         <Row label={yLabel} value={String(p.behavior)} />
@@ -48,7 +48,7 @@ function Row({ label, value, color }: { label: string; value: string; color?: st
   return (
     <div className="flex items-center gap-3">
       {color && <span className="w-2.5 h-2.5 rounded-sm shrink-0" style={{ backgroundColor: color }} />}
-      <span className="text-[var(--color-muted-foreground)] font-medium min-w-[120px]">{label}:</span>
+      <span className="text-slate-500 font-medium min-w-[120px]">{label}:</span>
       <span className="font-semibold text-[var(--color-foreground)]">{value}</span>
     </div>
   )
@@ -56,7 +56,7 @@ function Row({ label, value, color }: { label: string; value: string; color?: st
 
 function Shell({ children, fillHeight }: { children: React.ReactNode; fillHeight?: boolean }) {
   return (
-    <div className={`w-full ${fillHeight ? 'h-full' : 'h-[420px]'} flex flex-col items-center justify-center bg-[var(--color-muted)] rounded-card border border-[var(--color-border)]`}>
+    <div className={`w-full ${fillHeight ? 'h-full' : 'h-[420px]'} flex flex-col items-center justify-center bg-[var(--color-muted)] rounded-2xl border border-[var(--color-border)]`}>
       {children}
     </div>
   )
@@ -83,7 +83,7 @@ export default function BehaviorCompletionScatter({ data, isLoading, fillHeight 
     return (
       <Shell fillHeight={fillHeight}>
         <Loader2 className="w-8 h-8 animate-spin text-[var(--color-primary)] mb-4" />
-        <p className="text-[var(--color-muted-foreground)] font-medium">Đang tải dữ liệu biểu đồ...</p>
+        <p className="text-slate-500 font-medium">Đang tải dữ liệu biểu đồ...</p>
       </Shell>
     )
   }
@@ -91,7 +91,7 @@ export default function BehaviorCompletionScatter({ data, isLoading, fillHeight 
   if (!ordered.length) {
     return (
       <Shell fillHeight={fillHeight}>
-        <p className="text-[var(--color-muted-foreground)] font-medium">Chưa có đánh giá nào trong phạm vi này</p>
+        <p className="text-slate-500 font-medium">Chưa có đánh giá nào trong phạm vi này</p>
       </Shell>
     )
   }
@@ -104,11 +104,11 @@ export default function BehaviorCompletionScatter({ data, isLoading, fillHeight 
       <div className="flex items-center justify-end gap-3 mb-2">
         <div className="flex items-center gap-3">
           {data?.anonymized && (
-            <span className="text-eyebrow inline-flex items-center gap-1 px-2.5 py-1 rounded-full bg-[var(--color-muted)]">
+            <span className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400">
               <EyeOff size={11} /> Người khác đã ẩn danh
             </span>
           )}
-          <p className="text-caption">{data?.totalCount ?? 0} đánh giá</p>
+          <p className="text-xs font-medium text-slate-400 dark:text-slate-500">{data?.totalCount ?? 0} đánh giá</p>
         </div>
       </div>
 
@@ -119,7 +119,7 @@ export default function BehaviorCompletionScatter({ data, isLoading, fillHeight 
       <div className="flex-1 min-h-0">
         <ResponsiveContainer width="100%" height={fillHeight ? '100%' : 380} minHeight={0}>
           <ScatterChart margin={{ top: 10, right: 20, left: 8, bottom: 28 }}>
-            <CartesianGrid strokeDasharray="3 3" stroke={AXIS_COLORS.grid} />
+            <CartesianGrid stroke="var(--color-border)" />
             <XAxis
               type="number"
               dataKey="completion"
@@ -157,7 +157,7 @@ export default function BehaviorCompletionScatter({ data, isLoading, fillHeight 
               content={<PointTooltip xLabel={xLabel} yLabel={yLabel} />}
             />
 
-            <Scatter data={ordered.map(p => ({ ...p, z: p.isSelf ? 3 : 1 }))}>
+            <Scatter isAnimationActive={false} data={ordered.map(p => ({ ...p, z: p.isSelf ? 3 : 1 }))}>
               {ordered.map((p, i) => (
                 <Cell
                   key={i}

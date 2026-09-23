@@ -22,7 +22,7 @@ interface FilterEntry extends AnalyticsDateFilterValue {
 
 interface DashboardFilterValue extends Record<FilterScope, FilterEntry> {
   /**
-   * Đơn vị đang xem, dùng chung cho các widget của tab "Phân cấp" và tab "Hạng mục (BSC)".
+   * Đơn vị đang xem, dùng chung cho các widget của tab "So sánh giữa các đơn vị" và tab "Thẻ điểm BSC".
    *
    * <p>Bên Phân cấp việc chọn đơn vị do cây bên trái đảm nhiệm; trên trang chủ vai trò đó
    * thuộc về widget "Cây đơn vị". `undefined` = gốc phạm vi quyền của người dùng, đúng như
@@ -57,6 +57,15 @@ export function useDashboardFilter(scope: FilterScope): FilterEntry {
 export function useDashboardUnit() {
   const ctx = useCtx()
   return { unitId: ctx.unitId, setUnitId: ctx.setUnitId }
+}
+
+/**
+ * Bản không ném lỗi của {@link useDashboardUnit}: các widget ghim (`drillWidgets`, `bscWidgets`)
+ * nay được dùng cả trong tab Thống kê, nơi không có provider và đơn vị đến từ prop `filter.orgUnitId`.
+ */
+export function useOptionalDashboardUnit(): { unitId?: string; setUnitId?: (id?: string) => void } {
+  const ctx = useContext(DashboardFilterContext)
+  return { unitId: ctx?.unitId, setUnitId: ctx?.setUnitId }
 }
 
 /** Đổi sang dạng `PinnedFilter` mà các widget trong PINNED_REGISTRY nhận. */

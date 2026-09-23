@@ -15,7 +15,7 @@ import com.kpitracking.tool.ToolSupport.UserRef;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.ai.chat.model.ToolContext;
+import dev.langchain4j.invocation.InvocationParameters;
 
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -63,8 +63,8 @@ class ResolveUserTest {
         support.initToolMapper();
     }
 
-    private ToolContext ctx() {
-        return new ToolContext(Map.of(
+    private InvocationParameters ctx() {
+        return new InvocationParameters(Map.of(
                 "orgUnitId", UUID.randomUUID().toString(),
                 "organizationId", orgId.toString(),
                 "orgUnitPath", MY_PATH,

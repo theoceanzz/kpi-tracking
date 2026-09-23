@@ -1,6 +1,9 @@
 import axiosClient from '@/lib/axios'
+import type {
+  BscScorecardLevel, BscScorecardStatus, BscScoringMode, BscUnitResultStatus, ScorecardCoverageResponse,
+} from '@/features/bsc/types'
 
-// ── Types (khớp com.kpitracking.dto.response.stats.BscAnalyticsResponses) ──
+// ── Types (khớp com.kpitracking.dto.response.stats.BscOverviewResponses / BscAnalyticsResponses) ──
 
 export interface BscPerspectiveMeta {
   id: string
@@ -10,75 +13,113 @@ export interface BscPerspectiveMeta {
   displayOrder?: number
 }
 
-export interface BscPerspectivePoint {
-  perspectiveId: string
-  code?: string
+/** Một lĩnh vực cố định (4 trục BSC), tên/màu theo bản của tổ chức. */
+export interface BscPerspectiveRef {
+  code: string
   name: string
-  color?: string
-  displayOrder?: number
-  weightPercentage?: number | null
-  averageScore?: number | null
-  weightedScore?: number | null
-  kpiCount?: number
+  color: string
 }
 
-export interface BscBalance {
-  averageBscScore?: number | null
-  averageSystemScore?: number | null
-  evaluationCount: number
-  /** SHADOW | OFFICIAL | null. */
-  scoringMode?: string | null
-  strongestPerspective?: string | null
-  strongestScore?: number | null
-  weakestPerspective?: string | null
-  weakestScore?: number | null
-  coveragePercent?: number | null
-  mappedKpiCount?: number
-  unmappedKpiCount?: number
-  unmappedKpiNames?: string[]
-  perspectives: BscPerspectivePoint[]
+export interface BscCoverageCounts {
+  total: number
+  notCascaded: number
+  under: number
+  ok: number
+  over: number
+}
+
+/** Thẻ số liệu đầu tab: sức khoẻ BSC của một đợt. */
+export interface BscOverview {
+  periodId?: string | null
+  periodName?: string | null
+  scorecardId?: string | null
+  scorecardName?: string | null
+  orgUnitName?: string | null
+  level?: BscScorecardLevel | null
+  status?: BscScorecardStatus | null
+  scoringMode?: BscScoringMode | null
+  achievementPercent?: number | null
+  resultStatus?: BscUnitResultStatus | null
+  gatePassed?: boolean | null
+  gateFailedItems?: string | null
+  itemCount: number
+  unitScorecardCount: number
+  unitStatusCounts: Record<string, number>
+  unitsWithResult: number
+  unitsGatePassed: number
+  unitsGateFailed: number
+  coverage: BscCoverageCounts
+}
+
+/** Một thẻ điểm trong cây (đã trải phẳng) kèm kết quả đợt. */
+export interface BscUnitAttainmentRow {
+  scorecardId: string
+  name: string
+  orgUnitName?: string | null
+  level: BscScorecardLevel
+  status: BscScorecardStatus
+  depth: number
+  parentScorecardName?: string | null
+  achievementPercent?: number | null
+  resultStatus?: BscUnitResultStatus | null
+  gatePassed?: boolean | null
+  gateFailedItems?: string | null
+  itemCount: number
+  assignedCount: number
+  gateCount: number
+  totalWeight?: number | null
+}
+
+export interface BscItemRow {
+  scorecardPerspectiveId: string
+  name: string
+  color?: string | null
+  fixedPerspective?: string | null
+  fixedPerspectiveName?: string | null
+  fixedPerspectiveColor?: string | null
+  actualValue?: number | null
+  targetValue?: number | null
+  minimumValue?: number | null
+  unit?: string | null
+  achievementPercent?: number | null
+  weightPercentage?: number | null
+  weightedScore?: number | null
+  kpiCount?: number | null
+  isGate: boolean
+  gateMinPercent?: number | null
+  gatePassed?: boolean | null
+  measurementSource?: string | null
+  origin?: string | null
+  parentScorecardName?: string | null
+  hasResult: boolean
+}
+
+export interface BscItemAttainment {
+  scorecardId?: string | null
+  scorecardName?: string | null
+  orgUnitName?: string | null
+  periodId?: string | null
+  periodName?: string | null
+  achievementPercent?: number | null
+  gatePassed?: boolean | null
+  resultStatus?: BscUnitResultStatus | null
+  items: BscItemRow[]
 }
 
 export interface BscTrendPoint {
+  periodId: string
   label: string
-  overall?: number | null
-  /** perspectiveId → điểm đạt tại mốc này. */
-  values: Record<string, number>
-  /**
-   * perspectiveId → điểm ĐÃ NHÂN TRỌNG SỐ tại mốc này. Tổng các giá trị bằng đúng `overall`, nên
-   * chỉ trường này mới vẽ được cơ cấu 100% — `values` là bốn thang điểm độc lập, cộng lại vô nghĩa.
-   */
-  weighted?: Record<string, number>
+  scorecardId?: string | null
+  hasResult: boolean
+  achievementPercent?: number | null
+  gatePassed?: boolean | null
+  /** Mã lĩnh vực cố định → %đạt bình quân theo trọng số. */
+  byPerspective: Record<string, number>
 }
-export interface BscTrend {
-  perspectives: BscPerspectiveMeta[]
+
+export interface BscAttainmentTrend {
+  perspectives: BscPerspectiveRef[]
   points: BscTrendPoint[]
-}
-
-export interface BscUnitRow {
-  orgUnitId: string
-  orgUnitName: string
-  overallBsc?: number | null
-  overallSystem?: number | null
-  evaluationCount: number
-  values: Record<string, number>
-}
-export interface BscUnitComparison {
-  perspectives: BscPerspectiveMeta[]
-  units: BscUnitRow[]
-}
-
-export interface BscVsSystemRow {
-  id: string
-  name: string
-  bscScore?: number | null
-  systemScore?: number | null
-  evaluationCount: number
-}
-export interface BscVsSystem {
-  level: string
-  scoringMode?: string | null
-  rows: BscVsSystemRow[]
 }
 
 export interface BscRankingRow {
@@ -110,23 +151,28 @@ export interface BscScopeParams {
 // ── Client ──────────────────────────────────────────────────────────────
 
 export const bscAnalyticsApi = {
-  getBalance: async (params?: BscScopeParams) => {
-    const res = await axiosClient.get<{ data: BscBalance }>('/stats/bsc/balance', { params })
+  getOverview: async (params?: BscScopeParams) => {
+    const res = await axiosClient.get<{ data: BscOverview }>('/stats/bsc/overview', { params })
     return res.data.data
   },
 
-  getTrend: async (params?: BscScopeParams & { groupBy?: string }) => {
-    const res = await axiosClient.get<{ data: BscTrend }>('/stats/bsc/trend', { params })
+  getUnitAttainment: async (params?: BscScopeParams) => {
+    const res = await axiosClient.get<{ data: BscUnitAttainmentRow[] }>('/stats/bsc/unit-attainment', { params })
     return res.data.data
   },
 
-  getUnitComparison: async (params?: BscScopeParams) => {
-    const res = await axiosClient.get<{ data: BscUnitComparison }>('/stats/bsc/unit-comparison', { params })
+  getItemAttainment: async (params?: BscScopeParams) => {
+    const res = await axiosClient.get<{ data: BscItemAttainment }>('/stats/bsc/item-attainment', { params })
     return res.data.data
   },
 
-  getBscVsSystem: async (params?: BscScopeParams & { level?: string }) => {
-    const res = await axiosClient.get<{ data: BscVsSystem }>('/stats/bsc/bsc-vs-system', { params })
+  getAttainmentTrend: async (params?: BscScopeParams) => {
+    const res = await axiosClient.get<{ data: BscAttainmentTrend }>('/stats/bsc/attainment-trend', { params })
+    return res.data.data
+  },
+
+  getCascadeCoverage: async (params?: BscScopeParams) => {
+    const res = await axiosClient.get<{ data: ScorecardCoverageResponse }>('/stats/bsc/cascade-coverage', { params })
     return res.data.data
   },
 

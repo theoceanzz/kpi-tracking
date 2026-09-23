@@ -70,6 +70,9 @@ function useDialogBehaviour(open: boolean, onClose: () => void, dismissible: boo
     }, 0)
 
     const onKey = (e: KeyboardEvent) => {
+      // Phím gõ trong bong bóng K.AI (portal riêng, nằm trên hộp thoại) là của K.AI: Esc không
+      // đóng hộp thoại, Tab không bị kéo về panel.
+      if ((e.target as HTMLElement | null)?.closest?.('[data-ai-widget]')) return
       if (e.key === 'Escape' && dismissible) { e.stopPropagation(); onClose() }
       // Giữ focus trong hộp thoại khi Tab qua đầu/cuối.
       if (e.key === 'Tab' && panelRef.current) {

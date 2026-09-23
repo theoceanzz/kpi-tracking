@@ -5,7 +5,7 @@ package com.kpitracking.service.ai;
 
  *
  * <p><b>Vì sao là interface chứ không phải để stage tự gọi HTTP.</b> Stage không được biết gì về
- * HTTP, SSE hay client — giữ đúng ranh giới hiện tại. {@link AiTurnPipeline} là chỗ DUY NHẤT gọi
+ * HTTP, SSE hay client — giữ đúng ranh giới hiện tại. {@code KeyGoAssistant} là chỗ DUY NHẤT gọi
  * các hàm ở đây, vì nó vốn đã bọc mọi stage; nhờ vậy thêm công đoạn mới được báo tiến độ miễn phí,
  * không phải nhớ gọi gì và cũng không thể quên.
  *

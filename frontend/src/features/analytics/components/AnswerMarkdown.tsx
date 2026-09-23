@@ -57,6 +57,19 @@ export default function AnswerMarkdown({ children }: { children: string }) {
       <ReactMarkdown
         remarkPlugins={[remarkGfm]}
         components={{
+          // Ảnh chụp màn hình từ kho tài liệu hướng dẫn (nhánh HELP). Bấm mở bản đầy đủ ở tab
+          // mới; alt là chú thích "Hình N. ..." nên hiện luôn bên dưới làm caption.
+          img: ({ src, alt }) => (
+            <a href={src} target="_blank" rel="noreferrer" className="not-prose my-2 block">
+              <img
+                src={src}
+                alt={alt ?? ''}
+                loading="lazy"
+                className="max-h-72 w-auto max-w-full rounded-control border border-[var(--color-border)] bg-white object-contain"
+              />
+              {alt && <span className="mt-1 block text-xs text-[var(--color-muted-foreground)]">{alt}</span>}
+            </a>
+          ),
           table: ({ children: tableChildren }) => (
             <div className="not-prose my-2 overflow-x-auto rounded-control border border-[var(--color-border)]">
               <table className="w-full min-w-max border-collapse text-sm">{tableChildren}</table>

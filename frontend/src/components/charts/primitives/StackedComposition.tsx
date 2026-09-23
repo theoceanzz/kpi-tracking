@@ -127,7 +127,7 @@ export default function StackedComposition({
         <ResponsiveContainer width="100%" height={height}>
           {variant === 'area' ? (
             <AreaChart data={rows} margin={{ top: 10, right: 16, left: 0, bottom: 8 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={AXIS_COLORS.grid} />
+              <CartesianGrid stroke="var(--color-border)" vertical={false} />
               {xAxis}
               {yAxis}
               {tooltip}
@@ -146,7 +146,7 @@ export default function StackedComposition({
             </AreaChart>
           ) : (
             <BarChart data={rows} margin={{ top: 10, right: 16, left: 0, bottom: 8 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={AXIS_COLORS.grid} />
+              <CartesianGrid stroke="var(--color-border)" vertical={false} />
               {xAxis}
               {yAxis}
               {tooltip}

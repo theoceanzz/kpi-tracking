@@ -1,11 +1,12 @@
 package com.kpitracking.tool;
 
 import com.kpitracking.service.OrgUnitStatisticService;
+import com.kpitracking.service.analytics.RankingAnalyticsService;
 import com.kpitracking.tool.OrgUnitStatisticToolRequests.AnalyticsRequest;
 import com.kpitracking.tool.ToolSupport.UnitRef;
 import lombok.RequiredArgsConstructor;
-import org.springframework.ai.chat.model.ToolContext;
-import org.springframework.ai.tool.annotation.Tool;
+import dev.langchain4j.invocation.InvocationParameters;
+import dev.langchain4j.agent.tool.Tool;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -23,9 +24,10 @@ import java.util.Map;
 public class AnalyticsTool {
 
     private final OrgUnitStatisticService orgUnitStatisticService;
+    private final RankingAnalyticsService rankingAnalyticsService;
     private final ToolSupport support;
 
-    @Tool(name = "get_analytics", description = "Phân tích tổng hợp cho một đơn vị và các đơn vị con. "
+    @Tool(name = "get_analytics", value = "Phân tích tổng hợp cho một đơn vị và các đơn vị con. "
             // "các chỉ số tổng quan" không phân biệt được với get_kpi(view=summary); nêu đúng
             // phần RIÊNG của nó — bối cảnh tổ chức — và chỉ thẳng sang tool kia khi câu hỏi chỉ
             // xoay quanh chỉ tiêu.
@@ -37,12 +39,17 @@ public class AnalyticsTool {
             + "avg_performance; granularity=MONTH (mặc định)|QUARTER|YEAR; lookback=số kỳ gần nhất (mặc định 6); "
             + "trả về series và anomalyPoints với type=SPIKE (>+20%) hoặc DROP (<-15%). "
             + "view=risk: các KPI đang có nguy cơ trễ, quá hạn hoặc giậm chân tại chỗ. "
+            + "view=deviation: ĐƠN VỊ CON nào tự chấm lệch với điểm quản lý chấm nhiều nhất trong đợt đánh giá "
+            + "gần nhất (selfScore, managerScore, gap = tự chấm − quản lý; gap dương = tự chấm cao hơn). "
+            + "view=rank_delta: BIẾN ĐỘNG thứ hạng các ĐƠN VỊ CON giữa hai ĐỢT đánh giá gần nhất — đơn vị nào lên hạng, "
+            + "tụt hạng, điểm đổi bao nhiêu (câu 'so với đợt trước' đi vào đây, không phải rank). "
+            + "Hai view này tính theo ĐƠN VỊ và ĐỢT đánh giá; muốn theo từng NGƯỜI thì dùng get_cycle_evaluation(view=users). "
             + "Mặc định là đơn vị hiện tại của bạn, nên khi người dùng nêu tên đơn vị PHẢI truyền unitName.")
-    public String getAnalytics(AnalyticsRequest request, ToolContext context) {
+    public String getAnalytics(AnalyticsRequest request, InvocationParameters context) {
         try {
             String view = normalizeView(request.view());
             if (view == null) {
-                throw new IllegalArgumentException("Thiếu hoặc sai view. Chỉ nhận: dashboard, time_series, risk.");
+                throw new IllegalArgumentException("Thiếu hoặc sai view. Chỉ nhận: dashboard, time_series, risk, deviation, rank_delta.");
             }
             rejectWrongParams(view, request);
 
@@ -50,12 +57,16 @@ public class AnalyticsTool {
             if (u.clarification() != null) return support.respond(context, "get_analytics", u.clarification());
 
             Object response = switch (view) {
-                case "dashboard" -> orgUnitStatisticService.getDashboardSummary(
-                        u.id(), support.getOrgId(context), request.startDate(), request.endDate());
+                case "dashboard" -> support.scoped(orgUnitStatisticService.getDashboardSummary(
+                        u.id(), support.getOrgId(context), request.startDate(), request.endDate()), u.id());
                 case "time_series" -> orgUnitStatisticService.getTimeSeries(
                         u.id(), request.metric(), request.granularity(), request.lookback());
                 case "risk" -> (List<Map<String, Object>>) orgUnitStatisticService.getKpiRiskAnalysis(
                         u.id(), request.startDate(), request.endDate());
+                // Hai view dưới lấy từ cùng phép tính với biểu đồ "Tự chấm vs quản lý" và "Biến động thứ
+                // hạng" của tab phân tích nâng cao — trợ lý và màn hình nói cùng một số.
+                case "deviation" -> rankingAnalyticsService.getSelfVsManager(u.id(), List.of(), null);
+                case "rank_delta" -> rankingAnalyticsService.getRankDelta(u.id(), List.of());
                 default -> throw new IllegalStateException("view chưa xử lý: " + view);
             };
             return support.respond(context, "get_analytics", response);
@@ -71,6 +82,8 @@ public class AnalyticsTool {
             case "dashboard", "summary", "overview" -> "dashboard";
             case "time_series", "timeseries", "trend", "trends" -> "time_series";
             case "risk", "risks", "risk_analysis" -> "risk";
+            case "deviation", "self_vs_manager", "gap", "self_manager_gap" -> "deviation";
+            case "rank_delta", "rank_change", "ranking_delta", "rank_movement" -> "rank_delta";
             default -> null;
         };
     }
@@ -91,6 +104,10 @@ public class AnalyticsTool {
         if (!"time_series".equals(view) && hasSeriesParams) {
             throw new IllegalArgumentException("metric/granularity/lookback chỉ dùng với view=time_series, "
                     + "không dùng với view=" + view + ".");
+        }
+        if (("deviation".equals(view) || "rank_delta".equals(view)) && hasRange) {
+            throw new IllegalArgumentException("view=" + view + " tính theo ĐỢT đánh giá gần nhất, "
+                    + "không nhận startDate/endDate.");
         }
     }
 }

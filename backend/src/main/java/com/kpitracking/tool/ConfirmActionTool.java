@@ -7,8 +7,8 @@ import com.kpitracking.service.ai.agent.AgentState;
 import com.kpitracking.tool.OrgUnitStatisticToolRequests.ConfirmActionRequest;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.chat.model.ToolContext;
-import org.springframework.ai.tool.annotation.Tool;
+import dev.langchain4j.invocation.InvocationParameters;
+import dev.langchain4j.agent.tool.Tool;
 import org.springframework.stereotype.Component;
 
 import java.util.LinkedHashMap;
@@ -27,7 +27,7 @@ import java.util.UUID;
  * là việc hiểu ngôn ngữ, không phải việc của biểu thức chính quy: bắt chữ "xác nhận" sẽ nổ nhầm ở
  * <i>"xác nhận duyệt giúp tôi các KPI kỳ test3"</i> — một yêu cầu MỚI chứ không phải lời đồng ý.
  *
- * <p><b>Chỉ được gửi cho model khi thật sự có lời mời đang treo</b> ({@code RouteNode} hỏi
+ * <p><b>Chỉ được gửi cho model khi thật sự có lời mời đang treo</b> ({@code TurnSteps.route} hỏi
  * {@link PendingActionStore#hasPending}) — cùng khuôn với tool điền form, vốn chỉ xuất hiện khi
  * người dùng đang mở đúng form đó. Model không nhìn thấy thì không gọi nhầm được.
  *
@@ -43,7 +43,7 @@ public class ConfirmActionTool {
     private final PendingActionExecutor executor;
     private final ToolSupport support;
 
-    @Tool(name = "confirm_pending_action", description =
+    @Tool(name = "confirm_pending_action", value =
             "Chạy thao tác GHI mà bạn vừa chuẩn bị và đang chờ người dùng xác nhận. "
             + "CHỈ gọi khi người dùng ĐỒNG Ý với việc vừa được chuẩn bị — ví dụ họ nói "
             + "'xác nhận', 'đồng ý', 'ok duyệt đi', 'làm đi'. "
@@ -51,7 +51,7 @@ public class ConfirmActionTool {
             + "tool của việc đó để chuẩn bị một lời mời mới. "
             + "Sau khi tool này chạy, dữ liệu ĐÃ thay đổi thật — hãy báo lại đúng số mục đã làm "
             + "được và nêu rõ những mục không làm được kèm lý do.")
-    public String confirmPendingAction(ConfirmActionRequest request, ToolContext context) {
+    public String confirmPendingAction(ConfirmActionRequest request, InvocationParameters context) {
         try {
             UUID userId = userIdOf(context);
             String conversationId = support.getConversationId(context);
@@ -95,9 +95,9 @@ public class ConfirmActionTool {
     }
 
     /** Thiếu userId thì kho từ chối mọi lần lấy — an toàn hơn đoán. */
-    private static UUID userIdOf(ToolContext context) {
-        Object v = context == null || context.getContext() == null
-                ? null : context.getContext().get("userId");
+    private static UUID userIdOf(InvocationParameters context) {
+        Object v = context == null
+                ? null : context.get("userId");
         return v instanceof UUID id ? id : null;
     }
 }

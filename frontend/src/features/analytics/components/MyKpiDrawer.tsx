@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react'
-import { yAxisLabel } from '@/components/charts/axisLabel'
+import { yAxisLabel, yAxisLabelRight } from '@/components/charts/axisLabel'
 
 import { personalObjectiveApi } from '@/features/dashboard/api/personalObjectiveApi'
 import { useQuery } from '@tanstack/react-query'
@@ -24,7 +24,7 @@ type DateFilterType = 'GLOBAL' | 'THIS_WEEK' | 'THIS_MONTH' | 'THIS_QUARTER' | '
 function DrawerChartTooltip({ active, payload, label }: any) {
   if (active && payload && payload.length) {
     return (
-      <div className="bg-[var(--color-card)] border border-[var(--color-border)] p-4 rounded-card">
+      <div className="bg-[var(--color-card)] border border-[var(--color-border)] p-4 rounded-lg shadow-md">
         <p className="font-semibold text-[var(--color-foreground)] mb-3">{label}</p>
         <div className="space-y-2">
           {payload.map((p: any, i: number) => {
@@ -32,7 +32,7 @@ function DrawerChartTooltip({ active, payload, label }: any) {
             return (
               <div key={i} className="flex items-center gap-3 text-sm">
                 <div className="w-3 h-3 rounded-sm flex-shrink-0" style={{ backgroundColor: p.color }} />
-                <span className="text-[var(--color-muted-foreground)] font-medium min-w-[120px]">{p.name}:</span>
+                <span className="text-slate-500 font-medium min-w-[120px]">{p.name}:</span>
                 <span className="font-semibold text-[var(--color-foreground)]">{valStr}</span>
               </div>
             )
@@ -129,7 +129,7 @@ export default function MyKpiDrawer({
           {data?.kpiName || 'Chi tiết KPI'}
         </span>
         {data?.shared && (
-          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[var(--color-primary-soft)] text-[var(--color-primary)] text-xs font-medium border border-[var(--color-border)] flex-shrink-0">
+          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-[var(--color-primary)] dark:text-indigo-400 text-xs font-semibold border border-indigo-200 dark:border-[var(--color-primary)]/30 flex-shrink-0">
             <Users size={10} /> KPI chung
           </span>
         )}
@@ -147,12 +147,12 @@ export default function MyKpiDrawer({
         <div className="space-y-6 pb-10">
           {/* Local Date Filter */}
           <div className="flex justify-end">
-            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 bg-[var(--color-card)] p-1 rounded-control border border-[var(--color-border)] /10 shadow-sm text-sm w-full sm:w-auto">
+            <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 bg-[var(--color-card)] p-1 rounded-lg border border-slate-200 dark:border-white/10 shadow-sm text-sm w-full sm:w-auto">
               <Select 
                 value={dateFilterType} 
                 onValueChange={(v) => setDateFilterType(v as DateFilterType)}
               >
-                <SelectTrigger className="border-none shadow-none focus:ring-0 bg-transparent h-8 text-[var(--color-foreground)] font-medium px-2 w-auto">
+                <SelectTrigger className="border-none shadow-none focus:ring-0 bg-transparent h-8 text-slate-700 dark:text-slate-300 font-medium px-2 w-auto">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -166,17 +166,17 @@ export default function MyKpiDrawer({
                 </SelectContent>
               </Select>
               {dateFilterType === 'CUSTOM' && (
-                <div className="flex items-center gap-2 px-2 border-l border-[var(--color-border)] /10">
+                <div className="flex items-center gap-2 px-2 border-l border-slate-200 dark:border-white/10">
                   <input
                     type="date"
-                    className="bg-transparent border-none outline-none text-[var(--color-foreground)] text-xs"
+                    className="bg-transparent border-none outline-none text-slate-700 dark:text-slate-300 text-xs"
                     value={customRange.from}
                     onChange={e => setCustomRange(prev => ({ ...prev, from: e.target.value }))}
                   />
-                  <span className="text-[var(--color-subtle-foreground)]">-</span>
+                  <span className="text-slate-400">-</span>
                   <input
                     type="date"
-                    className="bg-transparent border-none outline-none text-[var(--color-foreground)] text-xs"
+                    className="bg-transparent border-none outline-none text-slate-700 dark:text-slate-300 text-xs"
                     value={customRange.to}
                     onChange={e => setCustomRange(prev => ({ ...prev, to: e.target.value }))}
                   />
@@ -188,13 +188,13 @@ export default function MyKpiDrawer({
           {isQual ? (
             <>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="bg-[var(--color-primary-soft)] p-4 rounded-card border border-[var(--color-border)]">
-                  <p className="text-xs font-medium text-[var(--color-primary)] mb-1.5">Mức kết quả</p>
+                <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-2xl border border-indigo-100 dark:border-indigo-900/30">
+                  <p className="text-xs font-semibold text-[var(--color-primary)] mb-1.5">Mức kết quả</p>
                   <QualitativeResultChip level={data?.qualitativeLevelName} />
                 </div>
               </div>
-              <div className="bg-[var(--color-card)] rounded-widget p-6 border border-[var(--color-border)]">
-                <h3 className="text-section-title flex items-center gap-2 mb-3">
+              <div className="bg-[var(--color-card)] rounded-2xl p-6 border border-[var(--color-border)]">
+                <h3 className="text-sm font-semibold flex items-center gap-2 mb-3">
                   <Activity size={18} className="text-[var(--color-primary)]" /> Phân bố mức đánh giá
                 </h3>
                 <QualitativeDistributionChart distribution={data?.qualitativeDistribution} />
@@ -204,35 +204,35 @@ export default function MyKpiDrawer({
           <>
           {/* Metrics Grid */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-            <div className="bg-[var(--color-muted)] p-4 rounded-card border border-[var(--color-border)]">
-              <p className="text-caption mb-1">Mục tiêu yêu cầu</p>
+            <div className="bg-slate-50 dark:bg-slate-900/60 p-4 rounded-2xl border border-[var(--color-border)]">
+              <p className="text-xs font-medium text-slate-500 mb-1">Mục tiêu yêu cầu</p>
               <p className="text-xl font-semibold text-[var(--color-foreground)]">{data?.targetValue?.toLocaleString('vi-VN')}</p>
             </div>
-            <div className="bg-[var(--color-primary-soft)] p-4 rounded-card border border-[var(--color-border)]">
-              <p className="text-xs font-medium text-[var(--color-primary)] mb-1">Cá nhân: Lũy kế</p>
-              <p className="text-xl font-semibold text-[var(--color-primary)]">{data?.myActualValue?.toLocaleString('vi-VN')}</p>
-              <p className="text-xs font-medium text-[var(--color-primary)] mt-1">Đạt {data?.myProgress?.toFixed(1)}%</p>
+            <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-2xl border border-indigo-100 dark:border-indigo-900/30">
+              <p className="text-xs font-semibold text-[var(--color-primary)] mb-1">Cá nhân: Lũy kế</p>
+              <p className="text-xl font-semibold text-indigo-700 dark:text-indigo-400">{data?.myActualValue?.toLocaleString('vi-VN')}</p>
+              <p className="text-xs font-semibold text-[var(--color-primary)] mt-1">Đạt {data?.myProgress?.toFixed(1)}%</p>
             </div>
             {data?.shared && (
-              <div className="bg-[var(--color-primary-soft)] p-4 rounded-card border border-[var(--color-border)]">
-                <p className="text-xs font-medium text-[var(--color-primary)] mb-1">Nhóm: Lũy kế tổng</p>
-                <p className="text-xl font-semibold text-[var(--color-primary)]">{data?.totalActualValue?.toLocaleString('vi-VN')}</p>
-                <p className="text-xs font-medium text-[var(--color-primary)] mt-1">Đạt {data?.totalProgress?.toFixed(1)}%</p>
+              <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-2xl border border-indigo-100 dark:border-indigo-900/30">
+                <p className="text-xs font-semibold text-[var(--color-primary)] mb-1">Nhóm: Lũy kế tổng</p>
+                <p className="text-xl font-semibold text-indigo-700 dark:text-indigo-400">{data?.totalActualValue?.toLocaleString('vi-VN')}</p>
+                <p className="text-xs font-semibold text-[var(--color-primary)] mt-1">Đạt {data?.totalProgress?.toFixed(1)}%</p>
               </div>
             )}
-            <div className="bg-[var(--color-success-bg)] p-4 rounded-card border border-[var(--color-success-border)]">
-              <p className="text-xs font-medium text-[var(--color-success)] mb-1">Hiệu suất cá nhân</p>
-              <p className="text-xl font-semibold text-[var(--color-success)]">{data?.myPerformance?.toFixed(1)}%</p>
+            <div className="bg-emerald-50 dark:bg-emerald-900/20 p-4 rounded-2xl border border-emerald-100 dark:border-emerald-900/30">
+              <p className="text-xs font-semibold text-emerald-500 mb-1">Hiệu suất cá nhân</p>
+              <p className="text-xl font-semibold text-emerald-700 dark:text-emerald-400">{data?.myPerformance?.toFixed(1)}%</p>
               {data?.shared && (
-                <p className="text-xs font-medium text-[var(--color-success)] mt-1">Nhóm: {data?.teamPerformance?.toFixed(1)}%</p>
+                <p className="text-xs font-semibold text-emerald-500 mt-1">Nhóm: {data?.teamPerformance?.toFixed(1)}%</p>
               )}
             </div>
           </div>
 
           {/* Multi-axis Chart */}
-          <div className="bg-[var(--color-card)] rounded-widget p-6 border border-[var(--color-border)]">
+          <div className="bg-[var(--color-card)] rounded-2xl p-6 border border-[var(--color-border)]">
             <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
-              <h3 className="text-section-title flex items-center gap-2">
+              <h3 className="text-sm font-semibold flex items-center gap-2">
                 <Activity size={18} className="text-[var(--color-primary)]" />
                 Biểu đồ phân tích chuyên sâu
               </h3>
@@ -245,8 +245,8 @@ export default function MyKpiDrawer({
                       className={cn(
                         'px-2.5 py-1 rounded-full text-xs font-medium transition-all border',
                         activeTeammates.includes(tm.userId)
-                          ? 'bg-[var(--color-foreground)] text-[var(--color-background)]'
-                          : 'bg-white text-[var(--color-muted-foreground)] border-[var(--color-border)] hover:border-[var(--color-border-strong)]'
+                          ? 'bg-slate-800 text-white border-slate-800 dark:bg-white dark:text-slate-900 dark:border-white'
+                          : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300 dark:bg-slate-900 dark:border-slate-700'
                       )}
                     >
                       {activeTeammates.includes(tm.userId) && '✓'} {tm.fullName}
@@ -256,7 +256,7 @@ export default function MyKpiDrawer({
               )}
             </div>
 
-            <div className="flex justify-between text-caption mb-2 px-1">
+            <div className="flex justify-between text-xs font-medium text-slate-400 dark:text-slate-500 mb-2 px-1">
               <span>Đơn vị ({data?.unit || ''})</span>
               <span>Hiệu suất (%)</span>
             </div>
@@ -264,10 +264,10 @@ export default function MyKpiDrawer({
             <div className="h-[350px]">
               <ResponsiveContainer width="100%" height="100%">
                 <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 5 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                  <CartesianGrid stroke="var(--color-border)" vertical={false} />
                   <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} />
                   <YAxis yAxisId="left" orientation="left" label={yAxisLabel('Gi\u00e1 tr\u1ecb \u0111\u1ea1t')} axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} />
-                  <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} tickFormatter={val => `${Math.round(val)}%`} />
+                  <YAxis yAxisId="right" orientation="right" label={yAxisLabelRight('Tiến độ (%)')} axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} tickFormatter={val => `${Math.round(val)}%`} />
                   <Tooltip content={<DrawerChartTooltip />} cursor={{ fill: '#94a3b8', opacity: 0.06 }} />
                   <Legend wrapperStyle={{ fontSize: '11px', fontWeight: 'bold' }} />
 
@@ -298,8 +298,8 @@ export default function MyKpiDrawer({
 
           {/* Contribution Bar Chart */}
           {!isQual && data?.shared && contributions.length > 0 && (
-            <div className="bg-[var(--color-card)] rounded-widget p-6 border border-[var(--color-border)]">
-              <h3 className="text-section-title mb-6 flex items-center gap-2">
+            <div className="bg-[var(--color-card)] rounded-2xl p-6 border border-[var(--color-border)]">
+              <h3 className="text-sm font-semibold mb-6 flex items-center gap-2">
                 <Target size={18} className="text-[var(--color-primary)]" />
                 Mức độ đóng góp của từng thành viên
               </h3>
@@ -307,18 +307,18 @@ export default function MyKpiDrawer({
                 {contributions.map((c, i) => (
                   <div key={c.userId}>
                     <div className="flex items-center justify-between mb-1.5">
-                      <span className="text-xs font-medium text-[var(--color-foreground)] flex items-center gap-2">
-                        <span className="w-5 h-5 rounded-full bg-[var(--color-muted)] flex items-center justify-center text-caption">{i + 1}</span>
+                      <span className="text-xs font-semibold text-[var(--color-foreground)] flex items-center gap-2">
+                        <span className="w-5 h-5 rounded-full bg-[var(--color-muted)] flex items-center justify-center text-xs text-slate-500">{i + 1}</span>
                         {c.fullName}
                       </span>
                       <div className="text-right">
-                        <span className="text-caption mr-2">{c.actualValue?.toLocaleString('vi-VN')}</span>
-                        <span className="text-xs font-semibold text-[var(--color-primary)]">{c.contributionPercentage?.toFixed(1)}%</span>
+                        <span className="text-xs text-slate-500 mr-2">{c.actualValue?.toLocaleString('vi-VN')}</span>
+                        <span className="text-xs font-semibold text-[var(--color-primary)] dark:text-indigo-400">{c.contributionPercentage?.toFixed(1)}%</span>
                       </div>
                     </div>
                     <div className="h-2 bg-[var(--color-muted)] rounded-full overflow-hidden">
                       <div
-                        className="h-full rounded-full bg-[var(--color-primary)]"
+                        className="h-full rounded-full bg-gradient-to-r from-indigo-400 to-indigo-600"
                         style={{ width: `${Math.min(c.contributionPercentage, 100)}%` }}
                       />
                     </div>

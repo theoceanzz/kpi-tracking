@@ -62,6 +62,35 @@ public class CloudinaryStorageService {
     }
 
     /**
+     * Tải một mảng byte lên (ảnh bóc từ tài liệu RAG). Cùng luật đặt public_id với
+     * {@link #uploadFile}: giữ phần mở rộng để URL sinh ra kết thúc đúng đuôi tệp.
+     */
+    public Map<String, String> uploadBytes(byte[] bytes, String fileName, String folder) throws IOException {
+        try {
+            String extension = "";
+            if (fileName != null && fileName.lastIndexOf('.') != -1) {
+                extension = fileName.substring(fileName.lastIndexOf('.'));
+            }
+            String publicId = UUID.randomUUID() + extension;
+
+            @SuppressWarnings("unchecked")
+            Map<String, Object> uploadResult = cloudinary.uploader().upload(bytes,
+                    ObjectUtils.asMap(
+                            "public_id", publicId,
+                            "folder", folder,
+                            "resource_type", "image"
+                    ));
+            return Map.of(
+                    "url", (String) uploadResult.get("secure_url"),
+                    "public_id", (String) uploadResult.get("public_id")
+            );
+        } catch (Exception e) {
+            log.error("Cloudinary upload failed for {}: {}", fileName, e.getMessage());
+            throw new IOException("Tải ảnh lên Cloudinary thất bại: " + e.getMessage(), e);
+        }
+    }
+
+    /**
      * Delete a file from Cloudinary by its public_id.
      */
     public void deleteFile(String publicId) {

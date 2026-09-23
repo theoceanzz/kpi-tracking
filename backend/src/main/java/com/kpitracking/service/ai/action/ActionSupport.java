@@ -7,7 +7,7 @@ import com.kpitracking.service.ai.action.PendingAction.Kind;
 import com.kpitracking.tool.ToolSupport;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.chat.model.ToolContext;
+import dev.langchain4j.invocation.InvocationParameters;
 import org.springframework.stereotype.Component;
 
 import java.time.Instant;
@@ -45,7 +45,7 @@ public class ActionSupport {
      * @param items danh sách đã giải nghĩa xong; rỗng nghĩa là không có gì để làm và ta nói thẳng
      *              điều đó thay vì mời xác nhận một việc trống
      */
-    public String propose(ToolContext context, String toolName, Kind kind, String title,
+    public String propose(InvocationParameters context, String toolName, Kind kind, String title,
                           Decision decision, String note, List<Item> items) throws Exception {
         if (items == null || items.isEmpty()) {
             return support.respond(context, toolName, Map.of(
@@ -112,9 +112,9 @@ public class ActionSupport {
     }
 
     /** Chủ của lời mời. Thiếu thì trả null và kho sẽ từ chối mọi lần xác nhận — an toàn hơn đoán. */
-    private static UUID userIdOf(ToolContext context) {
-        Object v = context == null || context.getContext() == null
-                ? null : context.getContext().get("userId");
+    private static UUID userIdOf(InvocationParameters context) {
+        Object v = context == null
+                ? null : context.get("userId");
         return v instanceof UUID id ? id : null;
     }
 }

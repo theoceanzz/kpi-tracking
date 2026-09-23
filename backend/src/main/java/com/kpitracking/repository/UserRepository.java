@@ -68,13 +68,19 @@ public interface UserRepository extends JpaRepository<User, UUID> {
             Pageable pageable
     );
 
-    @Query("SELECT DISTINCT u FROM User u " +
-           "LEFT JOIN UserRoleOrgUnit uro ON u.id = uro.user.id " +
+    // Lọc theo phân công bằng EXISTS chứ không phải DISTINCT + JOIN: PostgreSQL từ chối
+    // "SELECT DISTINCT … ORDER BY <biểu thức không có trong select>" (SQLState 42P10), nên bản
+    // DISTINCT hỏng ở MỌI lời gọi có từ khoá — tool search(user) và resolveUser đều ăn lỗi này
+    // (đo được: "Tìm nhân viên tên Staff" trả "hệ thống gặp lỗi khi tìm kiếm"). Người gọi luôn đưa
+    // orgId nên người không có phân công nào trong tổ chức vốn đã không lọt vào; ngữ nghĩa giữ nguyên.
+    @Query("SELECT u FROM User u " +
            "WHERE u.deletedAt IS NULL " +
+           // Tài khoản tạm dừng / ngừng hoạt động không hiện với trợ lý — cùng luật với danh sách nhân sự.
            "AND u.status NOT IN (com.kpitracking.enums.UserStatus.INACTIVE, com.kpitracking.enums.UserStatus.SUSPENDED) " +
-           "AND (:orgId IS NULL OR uro.orgUnit.orgHierarchyLevel.organization.id = :orgId) " +
-           "AND (:orgUnitId IS NULL OR uro.orgUnit.id = :orgUnitId) " +
-           "AND (:positionName IS NULL OR :positionName = '' OR LOWER(uro.role.name) LIKE LOWER(CONCAT('%', :positionName, '%'))) " +
+           "AND EXISTS (SELECT 1 FROM UserRoleOrgUnit uro WHERE uro.user.id = u.id " +
+           "     AND (:orgId IS NULL OR uro.orgUnit.orgHierarchyLevel.organization.id = :orgId) " +
+           "     AND (:orgUnitId IS NULL OR uro.orgUnit.id = :orgUnitId) " +
+           "     AND (:positionName IS NULL OR :positionName = '' OR LOWER(uro.role.name) LIKE LOWER(CONCAT('%', :positionName, '%')))) " +
            "AND (:keyword IS NULL OR :keyword = '' " +
            "     OR LOWER(CAST(u.fullName AS string)) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) " +
            "     OR LOWER(CAST(u.email AS string)) LIKE LOWER(CONCAT('%', CAST(:keyword AS string), '%')) " +

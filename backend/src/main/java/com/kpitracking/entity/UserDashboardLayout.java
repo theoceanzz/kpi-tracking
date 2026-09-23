@@ -27,7 +27,7 @@ public class UserDashboardLayout {
     private User user;
 
     @Enumerated(EnumType.STRING)
-    @Column(name = "scope", nullable = false, length = 20)
+    @Column(name = "scope", nullable = false, length = 40)
     private DashboardScope scope;
 
     /**

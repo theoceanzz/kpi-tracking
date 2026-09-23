@@ -1,4 +1,3 @@
-import { ListChecks } from 'lucide-react'
 import { useMemo, type ComponentType } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { startOfYear, endOfDay } from 'date-fns'
@@ -16,12 +15,12 @@ import {
   UnitKpiMetrics, MyKpiMetrics, MyObjectiveMetrics, SubordinateMetrics,
 } from './metricWidgets'
 import {
-  DrillUnitTreeWidget, DrillUnitSummaryWidget, DrillEmployeeTableWidget,
-  DrillUnitCompareWidget, DrillHeatmapWidget, DrillClassificationWidget, DrillMatrixWidget,
+  DrillUnitTreeWidget, DrillUnitSummaryWidget, DrillEmployeeTableWidget, DrillUnitCompareWidget,
+  DrillClassificationWidget, DrillChildrenClassificationWidget, DrillCascadeWidget, DrillBoxplotWidget, DrillMatrixWidget,
 } from './drillWidgets'
 import {
-  BscBalanceMetrics, BscRadarWidget, BscPerspectiveCards, BscTrendWidget,
-  BscUnitComparisonWidget, BscVsSystemWidget, BscCoverageWidget, BscRankingWidget,
+  BscOverviewMetrics, BscUnitAttainmentWidget, BscItemAttainmentWidget, BscAttainmentTrendWidget,
+  BscCascadeCoverageWidget, BscGateWidget, BscRankingWidget,
 } from './bscWidgets'
 
 /**
@@ -39,6 +38,11 @@ export interface PinnedFilter {
   periodId?: string
   periodIdTo?: string
   groupBy?: 'TIME' | 'PERIOD'
+  /**
+   * Phạm vi đơn vị (đơn vị + cây con). Tab Thống kê truyền từ cài đặt ô hoặc từ cây đơn vị; ở
+   * trang chủ để trống và widget tự đọc `useOptionalDashboardUnit()`.
+   */
+  orgUnitId?: string
 }
 
 /** Bộ lọc mặc định của tab thống kê (useAnalyticsDateFilter: SINGLE + legacyMode THIS_YEAR). */
@@ -59,6 +63,7 @@ function useResolved(filter?: PinnedFilter) {
     periodId: filter?.periodId,
     periodIdTo: filter?.periodIdTo,
     groupBy: filter?.groupBy ?? 'TIME',
+    orgUnitId: filter?.orgUnitId,
   }
 }
 
@@ -73,7 +78,7 @@ function PinnedSummaryTrend({ filter }: { filter?: PinnedFilter }) {
     queryKey: ['pinned', 'summary-combo', from, to, onlyApproved, periodId, periodIdTo, groupBy],
     queryFn: () => orgUnitKpiApi.getComboChart({ from, to, onlyApproved, periodId, periodIdTo, groupBy }),
   })
-  return <Fill><AnalyticsComboChart data={data?.points ?? []} isLoading={isLoading} itemName="KPI đơn vị" fillHeight /></Fill>
+  return <Fill><AnalyticsComboChart data={data?.points ?? []} isLoading={isLoading} itemName="KPI đơn vị" fillHeight hideTitle /></Fill>
 }
 
 function PinnedSubTrend({ filter }: { filter?: PinnedFilter }) {
@@ -82,7 +87,7 @@ function PinnedSubTrend({ filter }: { filter?: PinnedFilter }) {
     queryKey: ['pinned', 'subordinate-combo', from, to, onlyApproved, periodId, periodIdTo, groupBy],
     queryFn: () => statsApi.getSubordinateComboChart(from, to, onlyApproved, periodId, periodIdTo, groupBy),
   })
-  return <Fill><AnalyticsComboChart data={data?.points ?? []} isLoading={isLoading} itemName="Mục tiêu" fillHeight /></Fill>
+  return <Fill><AnalyticsComboChart data={data?.points ?? []} isLoading={isLoading} itemName="mục tiêu đơn vị" fillHeight hideTitle /></Fill>
 }
 
 function PinnedMyKpiTrend({ filter }: { filter?: PinnedFilter }) {
@@ -91,7 +96,7 @@ function PinnedMyKpiTrend({ filter }: { filter?: PinnedFilter }) {
     queryKey: ['pinned', 'personalKpi-combo', from, to, onlyApproved, periodId, periodIdTo, groupBy],
     queryFn: () => personalKpiApi.getComboChart({ from, to, onlyApproved, periodId, periodIdTo, groupBy }),
   })
-  return <Fill><AnalyticsComboChart data={data?.points ?? []} isLoading={isLoading} itemName="KPI đảm nhiệm" fillHeight /></Fill>
+  return <Fill><AnalyticsComboChart data={data?.points ?? []} isLoading={isLoading} itemName="KPI của tôi" fillHeight hideTitle /></Fill>
 }
 
 function PinnedMyObjTrend({ filter }: { filter?: PinnedFilter }) {
@@ -100,7 +105,7 @@ function PinnedMyObjTrend({ filter }: { filter?: PinnedFilter }) {
     queryKey: ['pinned', 'personalObjective-combo', from, to, onlyApproved, periodId, periodIdTo, groupBy],
     queryFn: () => personalObjectiveApi.getComboChart({ from, to, onlyApproved, periodId, periodIdTo, groupBy }),
   })
-  return <Fill><AnalyticsComboChart data={data?.points ?? []} isLoading={isLoading} itemName="KPI đảm nhiệm" fillHeight /></Fill>
+  return <Fill><AnalyticsComboChart data={data?.points ?? []} isLoading={isLoading} itemName="mục tiêu của tôi" fillHeight hideTitle /></Fill>
 }
 
 function PinnedUnitPerf({ filter }: { filter?: PinnedFilter }) {
@@ -135,7 +140,7 @@ function PinnedRankTable({ filter }: { filter?: PinnedFilter }) {
 
 
 
-/* ── Bốn khối còn lại của tab "KPI của tôi" ─────────────────────────────── */
+/* ── Bốn khối còn lại của tab "Kết quả của tôi" ─────────────────────────── */
 
 /* ── Hàng thẻ chỉ số của bốn tab ────────────────────────────────────────── */
 const wrap = (C: ComponentType<{ filter?: PinnedFilter }>) =>
@@ -145,19 +150,6 @@ const wrap = (C: ComponentType<{ filter?: PinnedFilter }>) =>
   }
 
 /**
- * Widget đã gỡ khỏi tab thống kê. Vẫn giữ một ô ghim để bố cục người dùng đã lưu không vỡ,
- * nhưng không còn gì để vẽ.
- */
-function PinnedDetailPlaceholder() {
-  return (
-    <div className="h-full w-full flex flex-col items-center justify-center gap-2 text-center px-4 text-[var(--color-subtle-foreground)] select-none">
-      <ListChecks className="w-9 h-9 opacity-40" strokeWidth={1.5} />
-      <p className="text-xs font-semibold">Widget này đã được gỡ khỏi trang Thống kê</p>
-    </div>
-  )
-}
-
-/**
  * `chartConfig.i` → component ghim (tự fetch). Chỉ chứa các widget của tab analytics; widget của
  * Report-builder (không có `i` khớp) sẽ rơi về nhánh legacy trong PinnedWidgetContent.
  */
@@ -165,7 +157,7 @@ export const PINNED_REGISTRY: Record<string, ComponentType<{ filter?: PinnedFilt
   // Xu hướng (combo bar+line) — 4 tab
   'trend-chart': PinnedSummaryTrend,   // Tổng quan đơn vị
   'sub-trend': PinnedSubTrend,         // Mục tiêu cấp dưới
-  'mykpi-trend': PinnedMyKpiTrend,     // KPI của tôi
+  'mykpi-trend': PinnedMyKpiTrend,     // Kết quả của tôi
   'myobj-trend': PinnedMyObjTrend,     // Mục tiêu của tôi
   // Hiệu suất & tiến độ đơn vị
   'unit-perf': PinnedUnitPerf,
@@ -175,14 +167,8 @@ export const PINNED_REGISTRY: Record<string, ComponentType<{ filter?: PinnedFilt
   'sub-member': PinnedMemberDist,
   // Chi tiết mục tiêu cấp dưới (đã self-contained)
   'sub-detail': PinnedSubDetail,
-  // Rủi ro / xếp hạng (Tổng quan đơn vị) — render bản `bare` của section trong tab
-  'unit-risk': PinnedDetailPlaceholder,
-  'warning-list': PinnedDetailPlaceholder,
+  // Xếp hạng nhân sự (bản `bare` của section trong tab)
   'rank-table': PinnedRankTable,
-  // Bảng chi tiết KPI (Tổng quan / KPI của tôi / Mục tiêu của tôi)
-  'kpi-detail': PinnedDetailPlaceholder,
-  'mykpi-detail': PinnedDetailPlaceholder,
-  'myobj-detail': PinnedDetailPlaceholder,
 
   // Hàng thẻ chỉ số đứng đầu mỗi tab
   'unit-kpi-metrics': wrap(UnitKpiMetrics),
@@ -190,28 +176,23 @@ export const PINNED_REGISTRY: Record<string, ComponentType<{ filter?: PinnedFilt
   'mykpi-metrics': wrap(MyKpiMetrics),
   'myobj-metrics': wrap(MyObjectiveMetrics),
 
-  // Phần còn lại của tab "KPI của tôi"
-  'mykpi-submissions': PinnedDetailPlaceholder,
-  'mykpi-status-dist': PinnedDetailPlaceholder,
-  'mykpi-eval-history': PinnedDetailPlaceholder,
-  'mykpi-eval-trend': PinnedDetailPlaceholder,
-
-  // Tab "Phân cấp"
+  // Tab "So sánh giữa các đơn vị"
   'drill-tree': wrap(DrillUnitTreeWidget),
   'drill-summary': wrap(DrillUnitSummaryWidget),
-  'drill-employees': wrap(DrillEmployeeTableWidget),
-  'drill-compare': wrap(DrillUnitCompareWidget),
-  'drill-heatmap': wrap(DrillHeatmapWidget),
   'drill-classification': wrap(DrillClassificationWidget),
+  'drill-cascade': wrap(DrillCascadeWidget),
+  'drill-employees': wrap(DrillEmployeeTableWidget),
   'drill-matrix': wrap(DrillMatrixWidget),
+  'drill-children': wrap(DrillChildrenClassificationWidget),
+  'drill-compare': wrap(DrillUnitCompareWidget),
+  'drill-boxplot': wrap(DrillBoxplotWidget),
 
-  // Tab "Hạng mục (BSC)"
-  'bsc-metrics': wrap(BscBalanceMetrics),
-  'bsc-radar': wrap(BscRadarWidget),
-  'bsc-perspectives': wrap(BscPerspectiveCards),
-  'bsc-trend': wrap(BscTrendWidget),
-  'bsc-unit-comparison': wrap(BscUnitComparisonWidget),
-  'bsc-vs-system': wrap(BscVsSystemWidget),
-  'bsc-coverage': wrap(BscCoverageWidget),
+  // Tab "Thẻ điểm BSC" (mô hình thẻ điểm)
+  'bsc-overview': wrap(BscOverviewMetrics),
+  'bsc-units': wrap(BscUnitAttainmentWidget),
+  'bsc-gates': wrap(BscGateWidget),
+  'bsc-items': wrap(BscItemAttainmentWidget),
+  'bsc-trend': wrap(BscAttainmentTrendWidget),
+  'bsc-cascade': wrap(BscCascadeCoverageWidget),
   'bsc-ranking': wrap(BscRankingWidget),
 }

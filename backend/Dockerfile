@@ -26,6 +26,11 @@ EXPOSE 8081
 # Copy the generated JAR file from the build stage
 COPY --from=build /app/target/*.jar app.jar
 
+# Model embedding chạy tại chỗ cho kho tri thức AI (RAG): multilingual-e5-small bản ONNX lượng tử,
+# 118 MB + tokenizer 17 MB. Tải lúc BUILD image (cùng lúc với Maven tải phụ thuộc) để lúc chạy
+# không cần mạng — đúng yêu cầu on-premise. Cùng nguồn với backend/fetch-embedding-model.sh.
+RUN mkdir -p /app/models/multilingual-e5-small /app/data/rag-assets     && curl -fsSL -o /app/models/multilingual-e5-small/model.onnx          https://huggingface.co/Xenova/multilingual-e5-small/resolve/main/onnx/model_quantized.onnx     && curl -fsSL -o /app/models/multilingual-e5-small/tokenizer.json          https://huggingface.co/Xenova/multilingual-e5-small/resolve/main/tokenizer.json
+
 # Set default Spring profile to prod
 ENV SPRING_PROFILES_ACTIVE=prod
 

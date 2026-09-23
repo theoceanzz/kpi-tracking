@@ -11,7 +11,7 @@ import java.util.regex.Pattern;
  *
  * <p><b>KHÔNG còn là advisor của Spring AI</b>, dù tên lớp vẫn giữ. Từ khi ứng dụng tự sở hữu vòng
  * lặp agent, đường trả lời không đi qua {@code ChatClient} nên không advisor nào chạy được; phần
- * {@code adviseCall}/{@code adviseStream} vì thế đã bỏ. Nay {@code FinishNode} gọi thẳng
+ * {@code adviseCall}/{@code adviseStream} vì thế đã bỏ. Nay {@code TurnSteps.finish} gọi thẳng
  * {@link #sanitizeText} một lần trên TOÀN VĂN.
  *
  * <p>Lọc trên toàn văn chứ không theo từng mẩu là bắt buộc: một tên tool bị cắt đôi qua hai mẩu
@@ -58,7 +58,7 @@ public class ResponseSanitizingAdvisor {
 
     /**
      * Lọc toàn văn — dùng cho đường LUỒNG, nơi advisor không lọc được vì chữ về theo từng mẩu.
-     * {@code FinishNode} gọi một lần sau khi đã gom đủ văn bản.
+     * {@code TurnSteps.finish} gọi một lần sau khi đã gom đủ văn bản.
      */
     public String sanitizeText(String result) {
         return sanitize(result);

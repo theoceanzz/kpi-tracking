@@ -18,7 +18,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.ai.chat.model.ToolContext;
+import dev.langchain4j.invocation.InvocationParameters;
 
 import java.util.List;
 import java.util.Map;
@@ -42,16 +42,16 @@ import java.util.HashMap;
 class SubmissionFormFillToolTest {
 
     /**
-     * Trạng thái của lượt, đi cùng {@code ToolContext}. Mỗi test một thực thể mới nên không
+     * Trạng thái của lượt, đi cùng {@code InvocationParameters}. Mỗi test một thực thể mới nên không
      * phải dọn gì — đó chính là điều đáng giá so với bản ThreadLocal cũ.
      */
     private AgentState st = AgentState.forToolsOnly();
 
     /** Ngữ cảnh tool luôn mang theo trạng thái của lượt, giống hệt lúc chạy thật. */
-    private ToolContext ctxWith(java.util.Map<String, Object> base) {
+    private InvocationParameters ctxWith(java.util.Map<String, Object> base) {
         java.util.Map<String, Object> m = new HashMap<>(base);
         m.put(AgentState.CONTEXT_KEY, st);
-        return new ToolContext(m);
+        return new InvocationParameters(m);
     }
 
     private OrgUnitStatisticService service;
@@ -73,7 +73,7 @@ class SubmissionFormFillToolTest {
     }
 
     /** Không có orgUnitPath -> validateKpiAccess bỏ qua phép kiểm phạm vi, test tập trung vào logic tool. */
-    private ToolContext withForm(Map<String, Object> current) {
+    private InvocationParameters withForm(Map<String, Object> current) {
         return ctxWith(Map.of(
                 "orgUnitId", UUID.randomUUID().toString(),
                 "organizationId", UUID.randomUUID().toString(),
@@ -82,7 +82,7 @@ class SubmissionFormFillToolTest {
     }
 
     /** Như withForm nhưng client CÓ khai các ô đang hiện trên màn hình. */
-    private ToolContext withFields(Map<String, Object> current, List<String> fields) {
+    private InvocationParameters withFields(Map<String, Object> current, List<String> fields) {
         return ctxWith(Map.of(
                 "orgUnitId", UUID.randomUUID().toString(),
                 "organizationId", UUID.randomUUID().toString(),
@@ -108,7 +108,7 @@ class SubmissionFormFillToolTest {
     @Test
     @DisplayName("KHÔNG mở form thì từ chối")
     void refusesWhenNoFormOpen() {
-        ToolContext noForm = ctxWith(Map.of(
+        InvocationParameters noForm = ctxWith(Map.of(
                 "orgUnitId", UUID.randomUUID().toString(),
                 "organizationId", UUID.randomUUID().toString()));
 
@@ -119,7 +119,7 @@ class SubmissionFormFillToolTest {
     @Test
     @DisplayName("mở NHẦM form khác cũng từ chối — đề xuất sẽ rơi vào hư không")
     void refusesWhenAnotherFormIsOpen() {
-        ToolContext kpiForm = ctxWith(Map.of(
+        InvocationParameters kpiForm = ctxWith(Map.of(
                 "orgUnitId", UUID.randomUUID().toString(),
                 "organizationId", UUID.randomUUID().toString(),
                 "openFormId", FormRegistry.KPI_FORM));

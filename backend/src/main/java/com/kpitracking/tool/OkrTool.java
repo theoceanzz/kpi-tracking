@@ -5,8 +5,8 @@ import com.kpitracking.service.OkrService;
 import com.kpitracking.tool.OrgUnitStatisticToolRequests.OkrRequest;
 import com.kpitracking.tool.ToolSupport.UnitRef;
 import lombok.RequiredArgsConstructor;
-import org.springframework.ai.chat.model.ToolContext;
-import org.springframework.ai.tool.annotation.Tool;
+import dev.langchain4j.invocation.InvocationParameters;
+import dev.langchain4j.agent.tool.Tool;
 import org.springframework.stereotype.Component;
 
 import java.util.LinkedHashMap;
@@ -37,14 +37,14 @@ public class OkrTool {
     private final OkrService okrService;
     private final ToolSupport support;
 
-    @Tool(name = "get_okr", description = "Mục tiêu (Objective) và kết quả then chốt (Key Result) của một đơn vị. "
+    @Tool(name = "get_okr", value = "Mục tiêu (Objective) và kết quả then chốt (Key Result) của một đơn vị. "
             + "view=objectives: danh sách mục tiêu kèm các kết quả then chốt và tiến độ từng cái. "
             + "view=progress: tổng hợp — đếm mục tiêu theo trạng thái và tiến độ trung bình "
             + "(dùng cho 'bao nhiêu mục tiêu đang chạy', 'OKR đơn vị tôi tới đâu rồi'). "
             + "Lọc thêm: perspectiveName = tên viễn cảnh BSC, status = ACTIVE | COMPLETED | CANCELLED. "
             + "Mặc định là đơn vị hiện tại của bạn, nên khi người dùng nêu tên đơn vị PHẢI truyền unitName. "
             + "Đây là OKR (mục tiêu), KHÁC chỉ tiêu KPI — hỏi về chỉ tiêu thì dùng get_kpi.")
-    public String getOkr(OkrRequest request, ToolContext context) {
+    public String getOkr(OkrRequest request, InvocationParameters context) {
         try {
             String view = normalizeView(request.view());
             if (view == null) {

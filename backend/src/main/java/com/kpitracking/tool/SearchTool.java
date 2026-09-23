@@ -3,8 +3,8 @@ package com.kpitracking.tool;
 import com.kpitracking.service.OrgUnitStatisticService;
 import com.kpitracking.tool.OrgUnitStatisticToolRequests.SearchRequest;
 import lombok.RequiredArgsConstructor;
-import org.springframework.ai.chat.model.ToolContext;
-import org.springframework.ai.tool.annotation.Tool;
+import dev.langchain4j.invocation.InvocationParameters;
+import dev.langchain4j.agent.tool.Tool;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -66,11 +66,11 @@ public class SearchTool {
             "period", new EntitySpec("periods", "kỳ KPI", null, null, new String[0], null)
     );
 
-    @Tool(name = "search", description = "Tìm theo tên và trả về ID. entityType: "
+    @Tool(name = "search", value = "Tìm theo tên và trả về ID. entityType: "
             + "user (nhân sự — tìm theo tên, email, số điện thoại, chức vụ, đơn vị) | "
             + "org_unit (đơn vị) | kpi | position (chức vụ) | period (kỳ KPI). "
             + "Chỉ dùng khi cần UUID cho tool khác; phần lớn tool đã tự nhận tên qua unitName/positionName.")
-    public String search(SearchRequest request, ToolContext context) {
+    public String search(SearchRequest request, InvocationParameters context) {
         try {
             String entityType = normalizeEntityType(request.entityType());
             EntitySpec spec = SPECS.get(entityType);
@@ -105,6 +105,23 @@ public class SearchTool {
             List<Map<String, Object>> results = fetch(entityType, orgId, request, maxResults);
 
             Map<String, Object> result = new LinkedHashMap<>();
+
+            // "công ty" / "toàn tổ chức" / "đơn vị tôi" không phải tên đơn vị: không thấy gì thì trả
+            // đúng đơn vị của người hỏi kèm lời giải thích, thay vì "0 kết quả" khiến model hỏi lại tên
+            // (đo được ở "Xem tổng quan hiệu suất công ty"). Cùng luật với ToolSupport.resolveUnit.
+            if ("org_unit".equals(entityType) && results.isEmpty()
+                    && ToolSupport.notBlank(request.keyword()) && ToolSupport.isWholeScopeAlias(request.keyword())) {
+                UUID current = support.getOrgUnitId(context);
+                List<Map<String, Object>> own = orgUnitStatisticService.searchOrgUnits(orgId, null, 200).stream()
+                        .filter(m -> current.equals(m.get("id"))).toList();
+                if (!own.isEmpty()) {
+                    result.put("note", "'" + request.keyword().trim() + "' là cách gọi phạm vi của người dùng, không phải tên "
+                            + "đơn vị. Phạm vi cao nhất họ được xem là đơn vị dưới đây — dùng nó luôn, KHÔNG hỏi lại tên.");
+                    result.put("count", own.size());
+                    result.put(spec.arrayKey(), own);
+                    return support.respond(context, "search", result);
+                }
+            }
 
             if (spec.guardType() != null) {
                 // Xét TỪNG nhóm trùng tên riêng. Gộp mọi nhóm thành một khối phẳng là cách bản

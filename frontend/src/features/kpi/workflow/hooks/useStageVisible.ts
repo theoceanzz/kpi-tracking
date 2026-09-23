@@ -29,7 +29,7 @@ export function useStageVisible() {
         const stage = stageForPath(p)
         if (!stage) return true
         // Hai tầng lọc khác hẳn nhau: tổ chức TẮT bước (luật nghiệp vụ, backend cưỡng chế) hoặc
-        // chính người dùng ẨN bước khỏi màn hình của họ (thuần hiển thị, sửa ở trang Luồng KPI).
+        // chính người dùng ẨN bước khỏi màn hình của họ (thuần hiển thị, sửa ở mục Thiết lập luồng xử lí).
         return isEnabled(stage.code) && !isHiddenByMe(user?.id, stage.code)
       })
     },

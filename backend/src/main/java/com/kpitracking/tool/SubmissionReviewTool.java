@@ -12,8 +12,8 @@ import com.kpitracking.tool.OrgUnitStatisticToolRequests.ReviewSubmissionsReques
 import com.kpitracking.tool.ToolSupport.UnitRef;
 import com.kpitracking.tool.ToolSupport.UserRef;
 import lombok.RequiredArgsConstructor;
-import org.springframework.ai.chat.model.ToolContext;
-import org.springframework.ai.tool.annotation.Tool;
+import dev.langchain4j.invocation.InvocationParameters;
+import dev.langchain4j.agent.tool.Tool;
 import org.springframework.stereotype.Component;
 
 import java.time.ZoneId;
@@ -54,7 +54,7 @@ public class SubmissionReviewTool {
     private final ToolSupport support;
     private final ActionSupport actions;
 
-    @Tool(name = "review_submissions", description =
+    @Tool(name = "review_submissions", value =
             "Duyệt hoặc TỪ CHỐI bản nộp KPI của nhân viên. Đây là thao tác GHI: tool chỉ chuẩn bị "
             + "danh sách và chờ người dùng bấm xác nhận, KHÔNG tự thực hiện. "
             + "decision=APPROVE để duyệt, REJECT để từ chối (từ chối thì PHẢI có note nêu lý do). "
@@ -62,7 +62,7 @@ public class SubmissionReviewTool {
             + "personName (tên người NỘP). "
             + "Không nêu gì thì lấy các bản CHỜ DUYỆT của đơn vị bạn. "
             + "Dùng khi người dùng bảo duyệt/phê duyệt/từ chối bài nộp hoặc báo cáo KPI.")
-    public String reviewSubmissions(ReviewSubmissionsRequest request, ToolContext context) {
+    public String reviewSubmissions(ReviewSubmissionsRequest request, InvocationParameters context) {
         try {
             Decision decision = decisionOf(request.decision());
             String note = request.note();

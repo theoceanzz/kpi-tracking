@@ -1,5 +1,6 @@
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer } from 'recharts'
 import { AXIS_COLORS, METRIC_COLORS, NEUTRAL_COLOR } from '../chartPalette'
+import { yAxisLabel } from '../axisLabel'
 
 export interface HistogramBinDatum {
   label: string
@@ -21,6 +22,8 @@ interface Props {
   /** Vạch riêng cho giá trị của người đang xem — cấp nhân viên dùng để định vị mình. */
   marker?: { value: number; label: string } | null
   unit?: string
+  /** Nhãn trục dọc — trục này đếm số mục rơi vào mỗi khoảng. */
+  countLabel?: string
   height?: number
 }
 
@@ -32,12 +35,12 @@ interface Props {
  * hẳn nhau, và chỉ histogram phân biệt được. Nó cũng là cách nhanh nhất thấy hiện tượng dồn điểm
  * ngay sát ngưỡng xếp loại.
  */
-export default function Histogram({ bins, thresholds = [], marker, unit = '', height = 300 }: Props) {
+export default function Histogram({ bins, thresholds = [], marker, unit = '', countLabel, height = 300 }: Props) {
   const total = bins.reduce((s, b) => s + b.count, 0)
 
   if (total === 0) {
     return (
-      <div className="w-full flex items-center justify-center text-sm text-[var(--color-subtle-foreground)] font-medium" style={{ height }}>
+      <div className="w-full flex items-center justify-center text-sm text-slate-400 font-medium" style={{ height }}>
         Chưa có dữ liệu để dựng phân phối
       </div>
     )
@@ -49,13 +52,13 @@ export default function Histogram({ bins, thresholds = [], marker, unit = '', he
 
   return (
     <ResponsiveContainer width="100%" height={height}>
-      <BarChart data={bins} margin={{ top: 20, right: 16, left: 0, bottom: 8 }}>
-        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={AXIS_COLORS.grid} />
+      <BarChart data={bins} margin={{ top: 20, right: 16, left: 12, bottom: 8 }}>
+        <CartesianGrid stroke="var(--color-border)" vertical={false} />
         <XAxis
           dataKey="label"
           axisLine={false}
           tickLine={false}
-          tick={{ fill: AXIS_COLORS.tick, fontSize: 10, fontWeight: 500 }}
+          tick={{ fill: AXIS_COLORS.tick, fontSize: 11, fontWeight: 500 }}
           interval={0}
           angle={bins.length > 8 ? -30 : 0}
           textAnchor={bins.length > 8 ? 'end' : 'middle'}
@@ -66,6 +69,7 @@ export default function Histogram({ bins, thresholds = [], marker, unit = '', he
           axisLine={false}
           tickLine={false}
           tick={{ fill: AXIS_COLORS.tick, fontSize: 11, fontWeight: 500 }}
+          label={yAxisLabel(countLabel ?? 'Số lượng')}
         />
         <Tooltip cursor={{ fill: 'rgba(148,163,184,0.12)' }} content={<HistTooltip total={total} unit={unit} />} />
 
@@ -75,7 +79,7 @@ export default function Histogram({ bins, thresholds = [], marker, unit = '', he
             x={binLabelFor(t.threshold)}
             stroke={t.color ?? NEUTRAL_COLOR}
             strokeDasharray="4 4"
-            label={{ value: t.name, position: 'top', fill: t.color ?? NEUTRAL_COLOR, fontSize: 9, fontWeight: 800 }}
+            label={{ value: t.name, position: 'top', fill: t.color ?? NEUTRAL_COLOR, fontSize: 11, fontWeight: 800 }}
           />
         ))}
         {marker && (
@@ -83,7 +87,7 @@ export default function Histogram({ bins, thresholds = [], marker, unit = '', he
             x={binLabelFor(marker.value)}
             stroke="#0f172a"
             strokeWidth={2}
-            label={{ value: marker.label, position: 'top', fill: '#0f172a', fontSize: 10, fontWeight: 900 }}
+            label={{ value: marker.label, position: 'top', fill: '#0f172a', fontSize: 11, fontWeight: 900 }}
           />
         )}
 
@@ -103,12 +107,12 @@ function HistTooltip({ active, payload, total, unit }: {
   if (!active || !d) return null
   const pct = total > 0 ? Math.round(d.count * 1000 / total) / 10 : 0
   return (
-    <div className="bg-[var(--color-card)] border border-[var(--color-border)] p-3.5 rounded-card shadow-lg">
-      <p className="font-bold text-[var(--color-foreground)] mb-1">
+    <div className="bg-[var(--color-card)] border border-[var(--color-border)] p-3.5 rounded-lg shadow-lg">
+      <p className="font-semibold text-[var(--color-foreground)] mb-1">
         {d.label}{unit ? ` ${unit}` : ''}
       </p>
       <p className="font-semibold text-lg text-[var(--color-foreground)] tabular-nums">{d.count}</p>
-      <p className="text-[11px] text-[var(--color-subtle-foreground)] font-medium">{pct}% tổng số</p>
+      <p className="text-xs text-slate-400 font-medium">{pct}% tổng số</p>
     </div>
   )
 }

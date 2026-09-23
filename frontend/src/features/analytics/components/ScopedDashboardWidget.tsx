@@ -3,6 +3,7 @@ import { useQuery } from '@tanstack/react-query'
 import { statsApi } from '@/features/dashboard/api/statsApi'
 import { personalObjectiveApi } from '@/features/dashboard/api/personalObjectiveApi'
 import { cn } from '@/lib/utils'
+import { ChoiceChip } from '@/components/ui/choice-chip'
 import { useAuthStore } from '@/store/authStore'
 import {
   Loader2,
@@ -43,7 +44,7 @@ import {
 } from 'recharts'
 import { METRIC_COLORS } from '@/components/charts/chartPalette'
 import type { ScopedDashboardResponse } from '@/types/stats'
-import { ChoiceChip } from '@/components/ui/choice-chip'
+import { yAxisLabel, yAxisLabelRight } from '@/components/charts/axisLabel'
 
 // Re-use the TopUnit shape from ScopedDashboardResponse directly
 type ScopedTopUnit = ScopedDashboardResponse['topUnits'][number]
@@ -129,7 +130,7 @@ function TopItemsDualChart({
 
   if (sorted.length === 0) {
     return (
-      <div className="bg-[var(--color-card)] border border-[var(--color-border)] /10 rounded-card p-5 shadow-sm min-h-[320px] flex flex-col">
+      <div className="bg-[var(--color-card)] border border-slate-200 dark:border-white/10 rounded-lg p-5 shadow-sm min-h-[320px] flex flex-col">
         <SectionHeader title={title} icon={<Trophy size={18} />}>
           <FilterToggle value={filterType} onChange={onFilterChange} />
         </SectionHeader>
@@ -146,7 +147,7 @@ function TopItemsDualChart({
   const compDomain = Math.ceil(maxComp / 50) * 50
 
   return (
-    <div className="bg-[var(--color-card)] border border-[var(--color-border)] /10 rounded-card p-5 shadow-sm">
+    <div className="bg-[var(--color-card)] border border-slate-200 dark:border-white/10 rounded-lg p-5 shadow-sm">
       <SectionHeader title={title} icon={<Trophy size={18} />}>
         <FilterToggle value={filterType} onChange={onFilterChange} />
       </SectionHeader>
@@ -155,7 +156,7 @@ function TopItemsDualChart({
         {/* LEFT – Completion Rate */}
         <div className="flex flex-col">
           <div className="flex items-center justify-between mb-1">
-            <h4 className="text-xs font-medium text-[var(--color-foreground)]">Tiến độ</h4>
+            <h4 className="text-xs font-semibold text-[var(--color-foreground)]">Tiến độ</h4>
           </div>
           <div className="w-full h-[250px]">
             <ResponsiveContainer width="100%" height="100%">
@@ -165,32 +166,29 @@ function TopItemsDualChart({
                 margin={{ top: 10, right: 40, left: 25, bottom: 25 }}
                 onMouseLeave={onChartLeave}
               >
-                <CartesianGrid
-                  strokeDasharray="3 3"
+                <CartesianGrid stroke="var(--color-border)"
                   horizontal={false}
                   vertical
-                  stroke="#94a3b8"
-                  strokeOpacity={0.1}
                 />
                 <XAxis
                   type="number"
                   domain={[0, compDomain]}
                   tickFormatter={(v) => `${Math.round(v)}%`}
-                  tick={{ fill: '#64748b', fontSize: 10 }}
+                  tick={{ fill: '#64748b', fontSize: 11 }}
                   axisLine={false}
                   tickLine={false}
                 >
-                  <Label value="(%) Tỷ lệ" offset={-5} position="insideBottom" style={{ fill: '#64748b', fontSize: 10, fontWeight: 700 }} />
+                  <Label value="(%) Tỷ lệ" offset={-5} position="insideBottom" style={{ fill: '#64748b', fontSize: 11, fontWeight: 700 }} />
                 </XAxis>
                 <YAxis
                   dataKey="displayName"
                   type="category"
                   width={130}
-                  tick={{ fill: '#64748b', fontSize: 10, fontWeight: 500 }}
+                  tick={{ fill: '#64748b', fontSize: 11, fontWeight: 500 }}
                   axisLine={false}
                   tickLine={false}
                 >
-                  <Label value={title.includes('Key Result') ? 'Key Result' : title.includes('KPI') ? 'KPI' : 'Bài nộp'} angle={-90} position="insideLeft" style={{ textAnchor: 'middle', fill: '#64748b', fontSize: 10, fontWeight: 700 }} dx={-15} />
+                  <Label value={title.includes('Key Result') ? 'Key Result' : title.includes('KPI') ? 'KPI' : 'Bài nộp'} angle={-90} position="insideLeft" style={{ textAnchor: 'middle', fill: '#64748b', fontSize: 11, fontWeight: 700 }} dx={-15} />
                 </YAxis>
                 <Tooltip content={<DualTooltip />} cursor={{ fill: '#94a3b8', opacity: 0.06 }} />
                 <Legend
@@ -211,7 +209,7 @@ function TopItemsDualChart({
                   label={{
                     position: 'right',
                     fill: '#64748b',
-                    fontSize: 10,
+                    fontSize: 11,
                     fontWeight: 600,
                     formatter: (v: any) => `${Math.round(v)}%`,
                   }}
@@ -236,7 +234,7 @@ function TopItemsDualChart({
         {/* RIGHT – Performance Rate */}
         <div className="flex flex-col">
           <div className="flex items-center justify-between mb-1">
-            <h4 className="text-xs font-medium text-[var(--color-foreground)]">Hiệu suất</h4>
+            <h4 className="text-xs font-semibold text-[var(--color-foreground)]">Hiệu suất</h4>
           </div>
           <div className="w-full h-[250px]">
             <ResponsiveContainer width="100%" height="100%">
@@ -246,32 +244,29 @@ function TopItemsDualChart({
                 margin={{ top: 10, right: 40, left: 25, bottom: 25 }}
                 onMouseLeave={onChartLeave}
               >
-                <CartesianGrid
-                  strokeDasharray="3 3"
+                <CartesianGrid stroke="var(--color-border)"
                   horizontal={false}
                   vertical
-                  stroke="#94a3b8"
-                  strokeOpacity={0.1}
                 />
                 <XAxis
                   type="number"
                   domain={[0, perfDomain]}
                   tickFormatter={(v) => `${Math.round(v)}%`}
-                  tick={{ fill: '#64748b', fontSize: 10 }}
+                  tick={{ fill: '#64748b', fontSize: 11 }}
                   axisLine={false}
                   tickLine={false}
                 >
-                  <Label value="(%) Tỷ lệ" offset={-5} position="insideBottom" style={{ fill: '#64748b', fontSize: 10, fontWeight: 700 }} />
+                  <Label value="(%) Tỷ lệ" offset={-5} position="insideBottom" style={{ fill: '#64748b', fontSize: 11, fontWeight: 700 }} />
                 </XAxis>
                 <YAxis
                   dataKey="displayName"
                   type="category"
                   width={130}
-                  tick={{ fill: '#64748b', fontSize: 10, fontWeight: 500 }}
+                  tick={{ fill: '#64748b', fontSize: 11, fontWeight: 500 }}
                   axisLine={false}
                   tickLine={false}
                 >
-                  <Label value={title.includes('Key Result') ? 'Key Result' : title.includes('KPI') ? 'KPI' : 'Bài nộp'} angle={-90} position="insideLeft" style={{ textAnchor: 'middle', fill: '#64748b', fontSize: 10, fontWeight: 700 }} dx={-15} />
+                  <Label value={title.includes('Key Result') ? 'Key Result' : title.includes('KPI') ? 'KPI' : 'Bài nộp'} angle={-90} position="insideLeft" style={{ textAnchor: 'middle', fill: '#64748b', fontSize: 11, fontWeight: 700 }} dx={-15} />
                 </YAxis>
                 <Tooltip content={<DualTooltip />} cursor={{ fill: '#94a3b8', opacity: 0.06 }} />
                 <Legend
@@ -292,7 +287,7 @@ function TopItemsDualChart({
                   label={{
                     position: 'right',
                     fill: '#64748b',
-                    fontSize: 10,
+                    fontSize: 11,
                     fontWeight: 600,
                     formatter: (v: any) => `${Math.round(v)}%`,
                   }}
@@ -357,7 +352,7 @@ function TopUnitsDualChartScoped({
 
   if (sorted.length === 0) {
     return (
-      <div className="bg-[var(--color-card)] border border-[var(--color-border)] /10 rounded-card p-5 shadow-sm min-h-[320px] flex flex-col">
+      <div className="bg-[var(--color-card)] border border-slate-200 dark:border-white/10 rounded-lg p-5 shadow-sm min-h-[320px] flex flex-col">
         <SectionHeader title="Top Đơn vị phụ trách" icon={<Building2 size={18} />}>
           <FilterToggle value={filterType} onChange={onFilterChange} />
         </SectionHeader>
@@ -374,7 +369,7 @@ function TopUnitsDualChartScoped({
   const compDomain = Math.ceil(maxComp / 50) * 50
 
   return (
-    <div className="bg-[var(--color-card)] border border-[var(--color-border)] /10 rounded-card p-5 shadow-sm">
+    <div className="bg-[var(--color-card)] border border-slate-200 dark:border-white/10 rounded-lg p-5 shadow-sm">
       <SectionHeader title="Top Đơn vị phụ trách" icon={<Building2 size={18} />}>
         <FilterToggle value={filterType} onChange={onFilterChange} />
       </SectionHeader>
@@ -383,7 +378,7 @@ function TopUnitsDualChartScoped({
         {/* LEFT – Completion Rate */}
         <div className="flex flex-col">
           <div className="flex items-center justify-between mb-1">
-            <h4 className="text-xs font-medium text-[var(--color-foreground)]">Tiến độ đơn vị</h4>
+            <h4 className="text-xs font-semibold text-[var(--color-foreground)]">Tiến độ đơn vị</h4>
           </div>
           <div className="w-full h-[250px]">
             <ResponsiveContainer width="100%" height="100%">
@@ -393,32 +388,29 @@ function TopUnitsDualChartScoped({
                 margin={{ top: 10, right: 40, left: 25, bottom: 25 }}
                 onMouseLeave={onChartLeave}
               >
-                <CartesianGrid
-                  strokeDasharray="3 3"
+                <CartesianGrid stroke="var(--color-border)"
                   horizontal={false}
                   vertical
-                  stroke="#94a3b8"
-                  strokeOpacity={0.1}
                 />
                 <XAxis
                   type="number"
                   domain={[0, compDomain]}
                   tickFormatter={(v) => `${Math.round(v)}%`}
-                  tick={{ fill: '#64748b', fontSize: 10 }}
+                  tick={{ fill: '#64748b', fontSize: 11 }}
                   axisLine={false}
                   tickLine={false}
                 >
-                  <Label value="(%) Tỷ lệ" offset={-5} position="insideBottom" style={{ fill: '#64748b', fontSize: 10, fontWeight: 700 }} />
+                  <Label value="(%) Tỷ lệ" offset={-5} position="insideBottom" style={{ fill: '#64748b', fontSize: 11, fontWeight: 700 }} />
                 </XAxis>
                 <YAxis
                   dataKey="unitName"
                   type="category"
                   width={130}
-                  tick={{ fill: '#64748b', fontSize: 10, fontWeight: 500 }}
+                  tick={{ fill: '#64748b', fontSize: 11, fontWeight: 500 }}
                   axisLine={false}
                   tickLine={false}
                 >
-                  <Label value="Đơn vị" angle={-90} position="insideLeft" style={{ textAnchor: 'middle', fill: '#64748b', fontSize: 10, fontWeight: 700 }} dx={-15} />
+                  <Label value="Đơn vị" angle={-90} position="insideLeft" style={{ textAnchor: 'middle', fill: '#64748b', fontSize: 11, fontWeight: 700 }} dx={-15} />
                 </YAxis>
                 <Tooltip content={<DualTooltip />} cursor={{ fill: '#94a3b8', opacity: 0.06 }} />
                 <Legend
@@ -439,7 +431,7 @@ function TopUnitsDualChartScoped({
                   label={{
                     position: 'right',
                     fill: '#64748b',
-                    fontSize: 10,
+                    fontSize: 11,
                     fontWeight: 600,
                     formatter: (v: any) => `${Math.round(v)}%`,
                   }}
@@ -464,7 +456,7 @@ function TopUnitsDualChartScoped({
         {/* RIGHT — Performance Rate */}
         <div className="flex flex-col">
           <div className="flex items-center justify-between mb-1">
-            <h4 className="text-xs font-medium text-[var(--color-foreground)]">Hiệu suất đơn vị</h4>
+            <h4 className="text-xs font-semibold text-[var(--color-foreground)]">Hiệu suất đơn vị</h4>
           </div>
           <div className="w-full h-[250px]">
             <ResponsiveContainer width="100%" height="100%">
@@ -474,32 +466,29 @@ function TopUnitsDualChartScoped({
                 margin={{ top: 10, right: 40, left: 25, bottom: 25 }}
                 onMouseLeave={onChartLeave}
               >
-                <CartesianGrid
-                  strokeDasharray="3 3"
+                <CartesianGrid stroke="var(--color-border)"
                   horizontal={false}
                   vertical
-                  stroke="#94a3b8"
-                  strokeOpacity={0.1}
                 />
                 <XAxis
                   type="number"
                   domain={[0, perfDomain]}
                   tickFormatter={(v) => `${Math.round(v)}%`}
-                  tick={{ fill: '#64748b', fontSize: 10 }}
+                  tick={{ fill: '#64748b', fontSize: 11 }}
                   axisLine={false}
                   tickLine={false}
                 >
-                  <Label value="(%) Tỷ lệ" offset={-5} position="insideBottom" style={{ fill: '#64748b', fontSize: 10, fontWeight: 700 }} />
+                  <Label value="(%) Tỷ lệ" offset={-5} position="insideBottom" style={{ fill: '#64748b', fontSize: 11, fontWeight: 700 }} />
                 </XAxis>
                 <YAxis
                   dataKey="unitName"
                   type="category"
                   width={130}
-                  tick={{ fill: '#64748b', fontSize: 10, fontWeight: 500 }}
+                  tick={{ fill: '#64748b', fontSize: 11, fontWeight: 500 }}
                   axisLine={false}
                   tickLine={false}
                 >
-                  <Label value="Đơn vị" angle={-90} position="insideLeft" style={{ textAnchor: 'middle', fill: '#64748b', fontSize: 10, fontWeight: 700 }} dx={-15} />
+                  <Label value="Đơn vị" angle={-90} position="insideLeft" style={{ textAnchor: 'middle', fill: '#64748b', fontSize: 11, fontWeight: 700 }} dx={-15} />
                 </YAxis>
                 <Tooltip content={<DualTooltip />} cursor={{ fill: '#94a3b8', opacity: 0.06 }} />
                 <Legend
@@ -520,7 +509,7 @@ function TopUnitsDualChartScoped({
                   label={{
                     position: 'right',
                     fill: '#64748b',
-                    fontSize: 10,
+                    fontSize: 11,
                     fontWeight: 600,
                     formatter: (v: any) => `${Math.round(v)}%`,
                   }}
@@ -559,10 +548,10 @@ function SectionHeader({
   return (
     <div className="flex items-center justify-between">
       <div className="flex items-center gap-2">
-        <div className="p-1.5 bg-[var(--color-primary-soft)] rounded-control text-[var(--color-primary)]">
+        <div className="p-1.5 bg-indigo-50 dark:bg-indigo-500/20 rounded-lg text-[var(--color-primary)] dark:text-indigo-400">
           {icon}
         </div>
-        <h3 className="text-section-title text-[var(--color-foreground)] tracking-tight">{title}</h3>
+        <h3 className="font-semibold text-[var(--color-foreground)] text-sm">{title}</h3>
       </div>
       {children}
     </div>
@@ -579,13 +568,11 @@ function FilterToggle({
 }) {
   return (
     <div className="flex bg-[var(--color-muted)] rounded-control p-0.5 gap-0.5">
-      <ChoiceChip selected={value === 'BEST'} variant="segment" className="py-1.5" onClick={() => onChange('BEST')}>
-        <Trophy />
-        Tốt nhất
+      <ChoiceChip selected={value === 'BEST'} variant="segment" size="sm" className="py-1" onClick={() => onChange('BEST')}>
+        <Trophy /> Tốt nhất
       </ChoiceChip>
-      <ChoiceChip selected={value === 'WORST'} variant="segment" className="py-1.5" onClick={() => onChange('WORST')}>
-        <TrendingDown />
-        Trì trệ
+      <ChoiceChip selected={value === 'WORST'} variant="segment" size="sm" className="py-1" onClick={() => onChange('WORST')}>
+        <TrendingDown /> Trì trệ
       </ChoiceChip>
     </div>
   )
@@ -596,7 +583,7 @@ function FilterToggle({
 function MetricsBadge({ type }: { type: 'OBJECTIVE' | 'KR' | 'KPI' }) {
   if (type === 'OBJECTIVE') {
     return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-[var(--color-primary-soft)] text-[var(--color-primary)] border border-[var(--color-border)]">
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-100 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-[var(--color-primary)]/30">
         <Target size={10} />
         Mục tiêu
       </span>
@@ -604,14 +591,14 @@ function MetricsBadge({ type }: { type: 'OBJECTIVE' | 'KR' | 'KPI' }) {
   }
   if (type === 'KR') {
     return (
-      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-[var(--color-primary-soft)] text-[var(--color-primary)] border border-[var(--color-border)]">
+      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-100 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-[var(--color-primary)]/30">
         <TrendingUp size={10} />
         Key Result
       </span>
     )
   }
   return (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium bg-[var(--color-info-bg)] text-[var(--color-info)] border border-[var(--color-info-border)]">
+    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-pink-100 dark:bg-pink-500/20 text-pink-700 dark:text-pink-300 border border-pink-200 dark:border-pink-500/30">
       <TrendingUp size={10} />
       KPI
     </span>
@@ -764,12 +751,12 @@ export default function ScopedDashboardWidget({ type, id, dateRange: globalDateR
           </span>
         </div>
         
-        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 bg-[var(--color-card)] p-1 rounded-control border border-[var(--color-border)] /10 shadow-sm text-sm w-full sm:w-auto">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 bg-[var(--color-card)] p-1 rounded-lg border border-slate-200 dark:border-white/10 shadow-sm text-sm w-full sm:w-auto">
           <Select 
             value={dateFilterType} 
             onValueChange={(v) => setDateFilterType(v as DateFilterType)}
           >
-            <SelectTrigger className="border-none shadow-none focus:ring-0 bg-transparent h-8 text-[var(--color-foreground)] font-medium px-2 w-auto">
+            <SelectTrigger className="border-none shadow-none focus:ring-0 bg-transparent h-8 text-slate-700 dark:text-slate-300 font-medium px-2 w-auto">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
@@ -783,17 +770,17 @@ export default function ScopedDashboardWidget({ type, id, dateRange: globalDateR
             </SelectContent>
           </Select>
           {dateFilterType === 'CUSTOM' && (
-            <div className="flex items-center gap-2 px-2 border-l border-[var(--color-border)] /10">
+            <div className="flex items-center gap-2 px-2 border-l border-slate-200 dark:border-white/10">
               <input 
                 type="date" 
-                className="bg-transparent border-none outline-none text-[var(--color-foreground)] text-xs"
+                className="bg-transparent border-none outline-none text-slate-700 dark:text-slate-300 text-xs"
                 value={customRange.from}
                 onChange={(e) => setCustomRange(prev => ({ ...prev, from: e.target.value }))}
               />
-              <span className="text-[var(--color-subtle-foreground)]">-</span>
+              <span className="text-slate-400">-</span>
               <input 
                 type="date" 
-                className="bg-transparent border-none outline-none text-[var(--color-foreground)] text-xs"
+                className="bg-transparent border-none outline-none text-slate-700 dark:text-slate-300 text-xs"
                 value={customRange.to}
                 onChange={(e) => setCustomRange(prev => ({ ...prev, to: e.target.value }))}
               />
@@ -805,19 +792,19 @@ export default function ScopedDashboardWidget({ type, id, dateRange: globalDateR
       {isQual ? (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="bg-[var(--color-primary-soft)] p-4 rounded-card border border-[var(--color-border)]">
-              <p className="text-xs font-medium text-[var(--color-primary)] mb-1.5">Mức kết quả</p>
+            <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-2xl border border-indigo-100 dark:border-indigo-900/30">
+              <p className="text-xs font-semibold text-[var(--color-primary)] mb-1.5">Mức kết quả</p>
               <QualitativeResultChip level={metrics.qualitativeLevelName} />
             </div>
-            <div className="bg-[var(--color-info-bg)] p-4 rounded-card border border-[var(--color-info-border)]">
-              <p className="text-xs font-medium text-[var(--color-info)] mb-1">Số bài nộp đã chấm</p>
-              <p className="text-xl font-semibold text-[var(--color-info)]">
+            <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-2xl border border-blue-100 dark:border-blue-900/30">
+              <p className="text-xs font-semibold text-blue-500 mb-1">Số bài nộp đã chấm</p>
+              <p className="text-xl font-semibold text-blue-700 dark:text-blue-400">
                 {(metrics.qualitativeDistribution ?? []).reduce((s, d) => s + d.count, 0)}
               </p>
             </div>
           </div>
-          <div className="bg-[var(--color-card)] rounded-widget p-6 border border-[var(--color-border)]">
-            <h3 className="text-section-title text-[var(--color-foreground)] mb-3">Phân bố mức đánh giá</h3>
+          <div className="bg-[var(--color-card)] rounded-2xl p-6 border border-[var(--color-border)]">
+            <h3 className="text-sm font-semibold text-[var(--color-foreground)] mb-3">Phân bố mức đánh giá</h3>
             <QualitativeDistributionChart distribution={metrics.qualitativeDistribution} />
           </div>
         </>
@@ -843,37 +830,37 @@ export default function ScopedDashboardWidget({ type, id, dateRange: globalDateR
             ? `${kpiDrawerData.targetValue.toLocaleString('vi-VN')} ${kpiDrawerData.unit}`
             : `${metrics.completedCount}/${metrics.totalCount}`}
           subtitle={type === 'KPI' ? '' : `Đạt 100% tiến độ`}
-          icon={<CheckCircle2 size={18} className="text-[var(--color-success)]" />}
+          icon={<CheckCircle2 size={18} className="text-emerald-500" />}
         />
         <ObjectiveMetricCard
           title="Rủi ro"
           value={metrics.atRiskCount}
           subtitle="Tiến độ thấp & sắp hết hạn"
-          icon={<AlertTriangle size={18} className="text-[var(--color-error)]" />}
+          icon={<AlertTriangle size={18} className="text-rose-500" />}
         />
       </div>
 
       {/* ── Section 2: Chart ── */}
       <div>
         <div className="flex items-center gap-2 mb-3">
-          <div className="p-1.5 bg-[var(--color-primary-soft)] rounded-control text-[var(--color-primary)]">
+          <div className="p-1.5 bg-indigo-50 dark:bg-indigo-500/20 rounded-lg text-[var(--color-primary)] dark:text-indigo-400">
             <TrendingUp size={16} />
           </div>
-          <h3 className="text-section-title text-[var(--color-foreground)] tracking-tight">
+          <h3 className="font-semibold text-[var(--color-foreground)] text-sm">
             Xu hướng theo thời gian
           </h3>
         </div>
         <div className="w-full">
           {type === 'KPI' ? (
             /* ── KPI: Member-Picker + Multi-Line Chart ── */
-            <div className="bg-[var(--color-card)] rounded-card border border-[var(--color-border)] p-6 shadow-sm">
+            <div className="bg-[var(--color-card)] rounded-2xl border border-[var(--color-border)] p-6 shadow-sm">
               <div className="flex flex-col md:flex-row md:items-center justify-between mb-4 gap-4">
                 <div>
                   <p className="text-lg font-semibold text-[var(--color-foreground)] flex items-center gap-2">
                     Xu hướng Bài nộp: Tiến độ & Hiệu suất
-                    <span className="text-xs text-[var(--color-primary)] font-medium" title="Theo thành viên">*</span>
+
                   </p>
-                  <p className="text-xs text-[var(--color-muted-foreground)] mt-0.5">So sánh số lượng bài nộp đang chạy với tiến độ và hiệu suất đạt được</p>
+                  <p className="text-xs text-slate-500 mt-0.5">So sánh số lượng bài nộp đang chạy với tiến độ và hiệu suất đạt được</p>
                 </div>
                 {/* Member Toggle Buttons */}
                 {kpiDrawerData?.chartData?.availableTeammates && kpiDrawerData.chartData.availableTeammates.length > 0 && (
@@ -885,8 +872,8 @@ export default function ScopedDashboardWidget({ type, id, dateRange: globalDateR
                         className={cn(
                           'px-2.5 py-1 rounded-full text-xs font-medium transition-all border',
                           activeMembers.includes(tm.userId)
-                            ? 'bg-[var(--color-foreground)] text-[var(--color-background)]'
-                            : 'bg-white text-[var(--color-muted-foreground)] border-[var(--color-border)] hover:border-[var(--color-border-strong)]'
+                            ? 'bg-slate-800 text-white border-slate-800 dark:bg-white dark:text-slate-900 dark:border-white'
+                            : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300 dark:bg-slate-900 dark:border-slate-700'
                         )}
                       >
                         {activeMembers.includes(tm.userId) && '✓ '}{tm.fullName}
@@ -896,7 +883,7 @@ export default function ScopedDashboardWidget({ type, id, dateRange: globalDateR
                 )}
               </div>
 
-              <div className="flex justify-between text-caption mb-2 px-1">
+              <div className="flex justify-between text-xs font-medium text-slate-400 dark:text-slate-500 mb-2 px-1">
                 <span>Đơn vị ({kpiDrawerData?.unit || ''})</span>
                 <span>Hiệu suất (%)</span>
               </div>
@@ -904,15 +891,15 @@ export default function ScopedDashboardWidget({ type, id, dateRange: globalDateR
               <div className="h-[350px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <ComposedChart data={kpiMemberChartData} margin={{ top: 10, right: 10, left: 0, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                    <CartesianGrid stroke="var(--color-border)" vertical={false} />
                     <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} />
-                    <YAxis yAxisId="left" orientation="left" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} />
-                    <YAxis yAxisId="right" orientation="right" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} tickFormatter={(v) => `${Math.round(v)}%`} />
+                    <YAxis yAxisId="left" orientation="left" label={yAxisLabel('Giá trị đạt')} axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} />
+                    <YAxis yAxisId="right" orientation="right" label={yAxisLabelRight('Tiến độ (%)')} axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} tickFormatter={(v) => `${Math.round(v)}%`} />
                     <Tooltip
                       content={({ active, payload, label }: any) => {
                         if (active && payload && payload.length) {
                           return (
-                            <div className="bg-[var(--color-card)] border border-[var(--color-border)] p-4 rounded-card">
+                            <div className="bg-[var(--color-card)] border border-[var(--color-border)] p-4 rounded-lg shadow-md">
                               <p className="font-semibold text-[var(--color-foreground)] mb-3">{label}</p>
                               <div className="space-y-2">
                                 {payload.map((p: any, i: number) => {
@@ -923,7 +910,7 @@ export default function ScopedDashboardWidget({ type, id, dateRange: globalDateR
                                   return (
                                     <div key={i} className="flex items-center gap-3 text-sm">
                                       <div className="w-3 h-3 rounded-sm flex-shrink-0" style={{ backgroundColor: p.color }} />
-                                      <span className="text-[var(--color-muted-foreground)] font-medium min-w-[120px]">{p.name}:</span>
+                                      <span className="text-slate-500 font-medium min-w-[120px]">{p.name}:</span>
                                       <span className="font-semibold text-[var(--color-foreground)]">{valStr}</span>
                                     </div>
                                   )
@@ -968,7 +955,7 @@ export default function ScopedDashboardWidget({ type, id, dateRange: globalDateR
               </div>
 
               {activeMembers.length === 0 && (
-                <div className="text-center text-xs text-[var(--color-subtle-foreground)] mt-3">
+                <div className="text-center text-xs text-slate-400 dark:text-slate-500 mt-3">
                   ← Chọn thành viên ở trên để so sánh thêm đường xu hướng của họ
                 </div>
               )}

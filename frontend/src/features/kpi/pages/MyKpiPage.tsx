@@ -2,6 +2,8 @@ import { useState, useMemo } from 'react'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import EmptyState from '@/components/common/EmptyState'
 import WorkspaceHeader from '@/components/common/WorkspaceHeader'
+import AiShortcutButton from '@/features/analytics/components/AiShortcutButton'
+import { aiShortcuts } from '@/features/analytics/aiShortcuts'
 import FilterBar, { SegmentedControl } from '@/components/common/FilterBar'
 import Pagination from '@/components/common/Pagination'
 import StatusBadge from '@/components/common/StatusBadge'
@@ -287,6 +289,7 @@ export default function MyKpiPage() {
           { label: 'Cần nộp', value: headerStats.toSubmit, icon: Clock },
           { label: 'Quá hạn', value: headerStats.overdue, icon: AlertCircle },
         ]}
+        actions={<AiShortcutButton prompt={aiShortcuts.myKpisAndScore()} title="K.AI tóm tắt chỉ tiêu kỳ này và điểm dự kiến của bạn" />}
       />
 
       <FilterBar

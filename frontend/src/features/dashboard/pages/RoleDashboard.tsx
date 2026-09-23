@@ -1,18 +1,18 @@
-import { useEffect, useMemo } from 'react'
-import { useSearchParams } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useMemo, useCallback } from 'react'
 import { useAuthStore } from '@/store/authStore'
 import { useHasPermission } from '@/components/auth/PermissionGate'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
-import { reportApi } from '@/features/reports/api/reportApi'
 import DashboardCustomizeChrome, { DashboardEditToolbar } from '@/components/common/dashboard/DashboardCustomizeChrome'
 import { DashboardToolbarPortal } from '@/components/common/dashboard/DashboardToolbarSlot'
 import { useDashboardLayout } from '@/components/common/dashboard/useDashboardLayout'
 import { useTourScope } from '@/hooks/useTourScope'
+import { POSITION_LABEL } from '../hooks/useViewerPosition'
 import type { DashboardScope } from '../api/dashboardLayoutApi'
+import type { DashboardWidget } from '@/components/common/dashboard/ChartWrapper'
 import { DashboardFilterProvider } from '../context/DashboardFilterContext'
-import { PinnedWidgetsSection } from '../components/PinnedWidgetsSection'
 import CompletedPeriodEvaluationPrompt from '../components/CompletedPeriodEvaluationPrompt'
+import AiShortcutButton from '@/features/analytics/components/AiShortcutButton'
+import { aiShortcuts } from '@/features/analytics/aiShortcuts'
 import {
   getAnalyticsCatalog, getAnalyticsDefaultLayout, getAnalyticsPresets, getAnalyticsWidgets,
   renderAnalyticsWidget, type OrgFlags, type ViewerScope,
@@ -67,7 +67,6 @@ function RoleDashboardGrid({ scope, organization }: {
   organization: ReturnType<typeof useOrganization>['data']
 }) {
   const { hasPermission } = useHasPermission()
-  const [searchParams, setSearchParams] = useSearchParams()
 
   const flags = useMemo<OrgFlags>(() => ({
     enableOkr: organization?.enableOkr ?? false,
@@ -89,31 +88,18 @@ function RoleDashboardGrid({ scope, organization }: {
   const defaultWidgets = useMemo(() => getAnalyticsDefaultLayout(scope, flags, viewer), [scope, flags, viewer])
   const catalog = useMemo(() => getAnalyticsCatalog(flags, viewer), [flags, viewer])
   const presets = useMemo(() => getAnalyticsPresets(flags, viewer), [flags, viewer])
+  // Ô của bố cục mặc định theo vai = ô "gợi ý cho bạn" trong thư viện, cùng ngôn ngữ với tab Thống kê.
+  const recommendedIds = useMemo(() => new Set(defaultWidgets.map(w => w.i)) as ReadonlySet<string>, [defaultWidgets])
 
   const dash = useDashboardLayout({ scope, defaultWidgets, availableWidgets })
-
-  // Cho phép mở thẳng chế độ tuỳ chỉnh bằng URL (?edit=1)
-  useEffect(() => {
-    if (searchParams.get('edit') === '1' && !dash.isEditMode) {
-      dash.setIsEditMode(true)
-      setSearchParams(prev => {
-        const p = new URLSearchParams(prev)
-        p.delete('edit')
-        return p
-      }, { replace: true })
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchParams])
-
-  const { data: pinnedWidgets, refetch: refetchPinned } = useQuery({
-    queryKey: ['reports', 'widgets', 'pinned'],
-    queryFn: () => reportApi.getPinnedWidgets(),
-  })
+  // Giữ định danh: lưới cache phần tử từng ô theo hàm này.
+  const renderWidget = useCallback((w: DashboardWidget) => renderAnalyticsWidget(w.i, flags, viewer), [flags, viewer])
 
   return (
     <div className="max-w-[1600px] mx-auto space-y-6">
       <DashboardToolbarPortal>
-        <div id="tour-dashboard-customize" className="flex items-center">
+        <div id="tour-dashboard-customize" className="flex items-center gap-2">
+          <AiShortcutButton size="sm" label="Việc cần làm" prompt={aiShortcuts.myTasks()} title="K.AI gom việc đang chờ bạn: bài nộp, chỉ tiêu, điều chỉnh, người chưa nộp, đợt chưa chốt" />
           <DashboardEditToolbar api={dash} />
         </div>
       </DashboardToolbarPortal>
@@ -123,13 +109,12 @@ function RoleDashboardGrid({ scope, organization }: {
           api={dash}
           catalog={catalog}
           presets={presets}
+          recommendedIds={recommendedIds}
+          recommendedLabel={`Gợi ý cho ${POSITION_LABEL[scope]}`}
           ready={!dash.isLoading}
-          renderWidget={w => renderAnalyticsWidget(w.i, flags, viewer)}
+          renderWidget={renderWidget}
         />
       </div>
-
-      {/* Biểu đồ ghim từ trang Thống kê — giữ nguyên để người đang ghim không mất gì */}
-      <PinnedWidgetsSection widgets={pinnedWidgets} onUnpin={refetchPinned} />
 
       {/* Luồng bắt buộc, không phải widget: nhắc tự đánh giá khi một kỳ vừa hoàn tất */}
       {scope === 'STAFF' && <CompletedPeriodEvaluationPrompt />}

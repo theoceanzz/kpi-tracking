@@ -1,11 +1,12 @@
 package com.kpitracking.tool;
 
 import com.kpitracking.service.OrgUnitStatisticService;
+import com.kpitracking.service.analytics.RankingAnalyticsService;
 import com.kpitracking.tool.OrgUnitStatisticToolRequests.RankRequest;
 import com.kpitracking.tool.ToolSupport.UnitRef;
 import lombok.RequiredArgsConstructor;
-import org.springframework.ai.chat.model.ToolContext;
-import org.springframework.ai.tool.annotation.Tool;
+import dev.langchain4j.invocation.InvocationParameters;
+import dev.langchain4j.agent.tool.Tool;
 import org.springframework.stereotype.Component;
 
 import java.util.List;
@@ -26,10 +27,15 @@ import java.util.UUID;
 public class RankTool {
 
     private final OrgUnitStatisticService orgUnitStatisticService;
+    private final RankingAnalyticsService rankingAnalyticsService;
     private final FollowupContextStore followupContextStore;
     private final ToolSupport support;
 
-    @Tool(name = "rank", description = "Xếp hạng theo chỉ số. subject=members xếp hạng NGƯỜI "
+    @Tool(name = "rank", value = "Xếp hạng theo chỉ số. "
+            + "HỎI 'lên hạng / tụt hạng / biến động hạng so với đợt trước' -> subject=org_units, comparePrevious=true "
+            + "(một lời gọi, trả hạng đợt này + hạng đợt trước + mức đổi của từng đơn vị con, tính theo ĐỢT đánh giá; "
+            + "KHÔNG gọi rank hai lần với hai khoảng ngày rồi tự so). "
+            + "subject=members xếp hạng NGƯỜI "
             + "-> [rank, userId, fullName, email, orgUnitName, positionName, score]; subject=org_units "
             + "xếp hạng CÁC ĐƠN VỊ CON bên trong một đơn vị cha -> [rank, orgUnitName, score]. "
             + "Mặc định là đơn vị hiện tại của bạn, nên khi người dùng nêu tên đơn vị PHẢI truyền unitName. "
@@ -42,11 +48,18 @@ public class RankTool {
             + "thì phải nêu ĐỦ, không chỉ nêu một. Lọc: managersOnly=true lấy trưởng/phó đơn vị cấp dưới; "
             + "positionName lọc theo chức vụ; unitTypeName lọc theo loại cấp đơn vị (vd 'Phòng'); "
             + "kpiId xếp hạng trong phạm vi một KPI.")
-    public String rank(RankRequest request, ToolContext context) {
+    public String rank(RankRequest request, InvocationParameters context) {
         try {
             String subject = normalizeSubject(request.subject());
             if (subject == null) {
                 throw new IllegalArgumentException("Thiếu hoặc sai subject. Chỉ nhận: members, org_units.");
+            }
+            if (Boolean.TRUE.equals(request.comparePrevious())) {
+                if (!"org_units".equals(subject)) {
+                    throw new IllegalArgumentException("comparePrevious chỉ dùng với subject=org_units "
+                            + "(biến động hạng giữa hai đợt tính theo đơn vị).");
+                }
+                return rankDelta(request, context);
             }
             return "org_units".equals(subject)
                     ? rankOrgUnits(request, context)
@@ -66,9 +79,21 @@ public class RankTool {
         };
     }
 
+    /**
+     * Biến động hạng giữa hai đợt đánh giá gần nhất — cùng phép tính với biểu đồ "Biến động thứ hạng"
+     * và với {@code get_analytics(view=rank_delta)}. Nằm ở đây vì model nghe "xếp hạng ... so với đợt
+     * trước" là gọi {@code rank} — đo được: mô tả chỉ sang tool khác không lái được nó; nó gọi rank hai
+     * lần rồi tự so, ra bảng theo KỲ KPI chứ không phải theo ĐỢT.
+     */
+    private String rankDelta(RankRequest request, InvocationParameters context) throws Exception {
+        UnitRef u = support.resolveUnit(request.unitId(), request.unitName(), context);
+        if (u.clarification() != null) return support.respond(context, "rank", u.clarification());
+        return support.respond(context, "rank", rankingAnalyticsService.getRankDelta(u.id(), List.of()));
+    }
+
     // ── xếp hạng đơn vị ──────────────────────────────────────────────────────
 
-    private String rankOrgUnits(RankRequest request, ToolContext context) throws Exception {
+    private String rankOrgUnits(RankRequest request, InvocationParameters context) throws Exception {
         // Tham số chỉ có nghĩa với subject=members. Lờ đi thì model tưởng đã lọc rồi báo cáo
         // một bảng xếp hạng KHÔNG hề được lọc — sai mà không ai phát hiện.
         rejectUnsupported(request);
@@ -103,7 +128,7 @@ public class RankTool {
 
     // ── xếp hạng người ───────────────────────────────────────────────────────
 
-    private String rankMembers(RankRequest request, ToolContext context) throws Exception {
+    private String rankMembers(RankRequest request, InvocationParameters context) throws Exception {
         if ("kpi".equals(request.scope()) && ToolSupport.notBlank(request.kpiId())) {
             support.validateKpiAccess(
                     support.parseId(request.kpiId(), "KPI (kpiId)", "search (entityType=kpi)"), context);

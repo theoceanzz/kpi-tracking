@@ -29,9 +29,18 @@ interface EvaluationFormModalProps {
   onClose: () => void
   readOnly?: boolean
   initialPeriodId?: string
+  /** `inline` bỏ lớp phủ và nút đóng để nhúng thẳng vào một trang (trình thiết lập KPI). */
+  variant?: 'modal' | 'inline'
+  /**
+   * Có thì thay hẳn phần tự điều hướng sau khi lưu — chủ trang quyết định đi đâu.
+   *
+   * Cần thiết khi nhúng: mặc định form gọi `goToNext` rồi `navigate('/evaluations')`, tức là lưu
+   * xong lại đá người dùng ra khỏi trang đang đứng.
+   */
+  onSaved?: () => void
 }
 
-export default function EvaluationFormModal({ open, onClose, readOnly = false, initialPeriodId }: EvaluationFormModalProps) {
+export default function EvaluationFormModal({ open, onClose, readOnly = false, initialPeriodId, variant = 'modal', onSaved }: EvaluationFormModalProps) {
   const { user } = useAuthStore()
   /** Ô đang thật sự sửa được, cho trợ lý AI. Cập nhật bằng effect riêng bên dưới — điều kiện
    *  khoá điểm khai báo SAU chỗ đăng ký nên không đưa thẳng vào deps được. */
@@ -188,6 +197,14 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
     createMutation.mutate(data, {
       onSuccess: () => {
         reset()
+
+        // Chủ trang đã nhận việc điều hướng thì dừng ở đây — nhúng trong một luồng khác mà vẫn tự
+        // nhảy đi là kéo người dùng ra khỏi trang họ đang đứng.
+        if (onSaved) {
+          onSaved()
+          return
+        }
+
         onClose()
 
         // Đích lấy từ cấu hình luồng thay vì đoán qua roleRank rồi điều hướng cứng. Hai cái lợi:
@@ -200,31 +217,19 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
     })
   }
 
-  return (
-    <Dialog
-      open={open}
-      onClose={onClose}
-      size="xl"
-      flush
-      dismissible={!(createMutation.isPending || formState.isSubmitting)}
-      title={readOnly ? 'Tổng kết Hiệu suất' : 'Tự đánh giá của bạn'}
-      description={readOnly ? 'Xem lại kết quả nỗ lực của bạn trong đợt này.' : 'Hãy dành chút thời gian để phản ánh lại kết quả làm việc.'}
-      footer={readOnly ? (
-        <DialogFooter primary={<Button onClick={onClose}>Đã hiểu & đóng</Button>} />
-      ) : (
-        <DialogFooter
-          secondary={<Button variant="outline" onClick={onClose} disabled={createMutation.isPending || formState.isSubmitting}>Hủy bỏ</Button>}
-          primary={
-            /* isSubmitting phủ cả nhịp lưu phiếu hạnh kiểm chạy trước khi gọi
-               createMutation — không có nó, bấm hai lần là lưu phiếu hai lần. */
-            <Button type="submit" form="evaluation-form" disabled={createMutation.isPending || formState.isSubmitting || !selectedPeriodId}>
-              {(createMutation.isPending || formState.isSubmitting) && <Loader2 className="animate-spin" aria-hidden="true" />}
-              Gửi đánh giá
-            </Button>
-          }
-        />
-      )}
-    >
+  const isInline = variant === 'inline'
+  // isSubmitting phủ cả nhịp lưu phiếu hạnh kiểm chạy trước khi gọi createMutation — không có nó,
+  // bấm hai lần là lưu phiếu hai lần.
+  const busy = createMutation.isPending || formState.isSubmitting
+
+  const submitButton = (
+    <Button type="submit" form="evaluation-form" disabled={busy || !selectedPeriodId}>
+      {busy && <Loader2 className="animate-spin" aria-hidden="true" />}
+      Gửi đánh giá
+    </Button>
+  )
+
+  const body = (
       <div className="flex flex-col lg:flex-row">
         <div className="min-w-0 flex-1 p-5 md:p-6">
           <form id="evaluation-form" onSubmit={handleSubmit(onSubmit)} className="space-y-8">
@@ -383,6 +388,13 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
                  placeholder="Bạn cảm thấy thế nào về kết quả đợt này? Có khó khăn hay đề xuất gì không?"
                 />
              </div>
+             {/* Nhúng trong trang thì không có chân hộp thoại: nút gửi nằm ngay cuối form. Nút
+                 quay lại đã có ở vỏ bước của wizard nên không lặp thêm "Hủy bỏ". */}
+             {isInline && !readOnly && (
+               <div className="flex justify-end border-t border-[var(--color-border)] pt-4">
+                 {submitButton}
+               </div>
+             )}
           </form>
         </div>
 
@@ -405,6 +417,38 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
            </div>
         </div>
       </div>
+  )
+
+  // Nhúng trong trang (trình thiết lập KPI): không lớp phủ, không nút đóng — thanh bước của wizard
+  // là lối ra. Vỏ thẻ tự dựng vì StepShell ở đó chạy chế độ `bare`.
+  if (isInline) {
+    if (!open) return null
+    return (
+      <div className="overflow-hidden rounded-widget border border-[var(--color-border)] bg-[var(--color-card)] shadow-sm">
+        {body}
+      </div>
+    )
+  }
+
+  return (
+    <Dialog
+      open={open}
+      onClose={onClose}
+      size="xl"
+      flush
+      dismissible={!busy}
+      title={readOnly ? 'Tổng kết Hiệu suất' : 'Tự đánh giá của bạn'}
+      description={readOnly ? 'Xem lại kết quả nỗ lực của bạn trong đợt này.' : 'Hãy dành chút thời gian để phản ánh lại kết quả làm việc.'}
+      footer={readOnly ? (
+        <DialogFooter primary={<Button onClick={onClose}>Đã hiểu & đóng</Button>} />
+      ) : (
+        <DialogFooter
+          secondary={<Button variant="outline" onClick={onClose} disabled={busy}>Hủy bỏ</Button>}
+          primary={submitButton}
+        />
+      )}
+    >
+      {body}
     </Dialog>
   )
 }

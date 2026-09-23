@@ -6,6 +6,7 @@ import { Dialog, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { format, parseISO, addMonths, addYears, subDays, differenceInCalendarDays } from 'date-fns'
 import { useKpiCycles } from '../hooks/useKpiCycles'
+import { useNextStepHint } from '../workflow/nextStep/useNextStepHint'
 import { useKpiPeriods } from '../hooks/useKpiPeriods'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { useAuthStore } from '@/store/authStore'
@@ -90,6 +91,7 @@ function suggestCycleName(currentName: string, start: Date, type: KpiFrequency):
 }
 
 export default function KpiCyclesPage() {
+  const suggestNextStep = useNextStepHint()
   const [showForm, setShowForm] = useState(false)
   const [editCycle, setEditCycle] = useState<KpiCycle | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
@@ -260,8 +262,12 @@ export default function KpiCyclesPage() {
             editCycle={editCycle}
             organizationId={organizationId!}
             onSubmit={async (payload) => {
-              if (editCycle) await updateCycle({ id: editCycle.id, data: payload })
-              else await createCycle(payload)
+              if (editCycle) {
+                await updateCycle({ id: editCycle.id, data: payload })
+              } else {
+                const created = await createCycle(payload)
+                suggestNextStep({ type: 'CYCLE_CREATED', cycle: created })
+              }
             }}
             isSubmitting={isCreating || isUpdating}
           />
