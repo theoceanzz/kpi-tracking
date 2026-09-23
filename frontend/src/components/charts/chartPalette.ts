@@ -179,8 +179,8 @@ export const KPI_KIND_LABELS: Record<KpiKind, string> = {
 /** Các bậc của thang tiến độ, để chú giải và `achievementSurface` không lệch nhau. */
 export const ACHIEVEMENT_BANDS: { label: string; from: number }[] = [
   { label: '< 40%', from: 0 },
-  { label: '40–59%', from: 40 },
-  { label: '60–79%', from: 60 },
-  { label: '80–99%', from: 80 },
+  { label: '40-59%', from: 40 },
+  { label: '60-79%', from: 60 },
+  { label: '80-99%', from: 80 },
   { label: '≥ 100%', from: 100 },
 ]

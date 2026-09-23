@@ -41,7 +41,6 @@ import ErrorPage from '@/features/errors/pages/ErrorPage'
 import KpiSetupLayout from '@/features/kpi/setup/KpiSetupLayout'
 import FlowPicker from '@/features/kpi/setup/FlowPicker'
 import StepRouter from '@/features/kpi/setup/StepRouter'
-import KpiWorkflowPage from '@/features/kpi/workflow/pages/KpiWorkflowPage'
 import PlatformAdminPage from '@/features/platformAdmin/pages/PlatformAdminPage'
 
 export const router = createBrowserRouter([
@@ -116,12 +115,9 @@ export const router = createBrowserRouter([
           { path: '/dashboard', element: <DashboardPage /> },
           { path: '/profile', element: <ProfilePage /> },
 
-          // Không gác quyền: phần "Hiển thị của tôi" dành cho mọi người, còn phần cấu hình của tổ
-          // chức thì chính trang tự chuyển sang chế độ chỉ-xem khi thiếu WORKFLOW:MANAGE.
-          // Cố ý KHÔNG đặt trong /settings — khối đó đòi đủ ORG:VIEW + USER:VIEW + ROLE:VIEW nên
-          // trưởng đơn vị có quyền cấu hình luồng vẫn không vào được, đúng lý do trang Hạn mức AI
-          // đã phải tách ra.
-          { path: '/kpi-workflow', element: <KpiWorkflowPage /> },
+          // Trang cũ giờ là một mục trong Thiết lập công ty; giữ đường dẫn để liên kết và
+          // dấu trang cũ không chết.
+          { path: '/kpi-workflow', element: <RedirectToSection to="/company" params={{ section: 'kpi-workflow' }} /> },
 
           // Vận hành KPI gom về một trang; cổng route là phép HOẶC của năm quyền, còn
           // từng mục bên trong tự lọc lại theo đúng quyền cũ của nó.

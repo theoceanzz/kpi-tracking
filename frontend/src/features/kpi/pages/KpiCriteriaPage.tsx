@@ -4,7 +4,6 @@ import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import { DatePicker } from '@/components/common/DateTimePicker'
 import EmptyState from '@/components/common/EmptyState'
 import KpiFormModal from '../components/KpiFormModal'
-import BscKpiSplitModal from '../components/BscKpiSplitModal'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
 import { useKpiCriteria } from '../hooks/useKpiCriteria'
 import { useAuthStore } from '@/store/authStore'
@@ -16,8 +15,12 @@ import type { KpiCriteria } from '@/types/kpi'
 import {
   Target, Plus, Send, Pencil, Trash2, MoreVertical, AlertCircle, Upload, Eye,
   LayoutGrid, List, ChevronDown, GitBranch, ListPlus, CornerDownRight,
-  ChevronsDownUp, ChevronsUpDown, Inbox, FileText, Clock, Loader2,
+  ChevronsDownUp, ChevronsUpDown, Inbox, FileText, Clock, Loader2, Bot,
 } from 'lucide-react'
+import AiShortcutButton from '@/features/analytics/components/AiShortcutButton'
+import { aiShortcuts } from '@/features/analytics/aiShortcuts'
+import { useAiAssistantStore } from '@/store/aiAssistantStore'
+import { useAiAvailable } from '@/features/analytics/hooks/useAiAvailable'
 import WorkspaceHeader from '@/components/common/WorkspaceHeader'
 import FilterBar, { SegmentedControl } from '@/components/common/FilterBar'
 import BulkActionBar from '@/components/common/BulkActionBar'
@@ -31,6 +34,7 @@ import { toast } from 'sonner'
 import { getApiErrorMessage } from '@/lib/apiError'
 import { useSearchParams } from 'react-router-dom'
 import { useWorkflowNavigator, WORKFLOW_PARAMS } from '../workflow/hooks/useWorkflowNavigator'
+import { useNextStepHint } from '../workflow/nextStep/useNextStepHint'
 import KpiImportGuideModal from '../components/KpiImportGuideModal'
 import UrgentTaskModal from '../components/UrgentTaskModal'
 import { useKpiPeriods } from '../hooks/useKpiPeriods'
@@ -49,7 +53,7 @@ import { ObjectiveResponse } from '@/features/okr/types'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { useBulkSubmitKpi } from '../hooks/useBulkSubmitKpi'
 import { useBulkDeleteKpi } from '../hooks/useBulkDeleteKpi'
-import { Zap, Layers } from 'lucide-react'
+import { Zap } from 'lucide-react'
 import type { KpiType } from '@/types/kpi'
 import Pagination from '@/components/common/Pagination'
 import {
@@ -97,6 +101,7 @@ const KPI_TYPE_FILTERS: Record<KpiTypeFilterKey, KpiTypeFilterParams> = {
 export default function KpiCriteriaPage() {
   const [searchParams] = useSearchParams()
   const { goToNext, nextReachableStage } = useWorkflowNavigator()
+  const suggestNextStep = useNextStepHint()
 
   // Bối cảnh do bước tạo đợt bàn giao. Trước đây trang này không đọc URL một chút nào, nên
   // ?periodId= mà thanh tiến trình mang tới bị bỏ qua hoàn toàn.
@@ -114,7 +119,6 @@ export default function KpiCriteriaPage() {
   const [showBulkConfirm, setShowBulkConfirm] = useState(false)
   const [showBulkDeleteConfirm, setShowBulkDeleteConfirm] = useState(false)
   const [showUrgentModal, setShowUrgentModal] = useState(false)
-  const [showBscSplit, setShowBscSplit] = useState(false)
   const [collapsedParents, setCollapsedParents] = useState<Set<string>>(new Set())
   
   const [activeTab, setActiveTab] = useState<'ALL' | 'DRAFT' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED'>('ALL')
@@ -144,8 +148,6 @@ export default function KpiCriteriaPage() {
 
   const user = useAuthStore(s => s.user)
   const { hasPermission } = usePermission()
-  /** Người lập bộ tiêu chí của đơn vị (hoặc quản trị BSC) — chỉ họ mới chia hạng mục thành KPI. */
-  const canSplitBsc = hasPermission('BSC:MANAGE_UNIT') || hasPermission('BSC:MANAGE')
 
   const organizationId = user?.memberships?.[0]?.organizationId
   const { data: org } = useOrganization(organizationId)
@@ -605,8 +607,16 @@ export default function KpiCriteriaPage() {
           {selectedPeriodId && selectedOrgUnitId && (
             <Button variant="outline" onClick={() => setShowUrgentModal(true)}><Zap aria-hidden="true" /> Việc khẩn</Button>
           )}
-          {enableBsc && canSplitBsc && (
-            <Button variant="outline" onClick={() => setShowBscSplit(true)} title="Lấy mục tiêu của một hạng mục BSC và chia ra KPI theo từng đợt"><Layers aria-hidden="true" /> Từ hạng mục BSC</Button>
+          {hasPermission('KPI:SUBMIT') && selectedOrgUnitId && (
+            <AiShortcutButton
+              label="Gửi duyệt bằng K.AI"
+              prompt={aiShortcuts.submitDraftKpis(
+                flatOrgUnits.find(u => u.id === selectedOrgUnitId)?.name ?? null,
+                periodsData?.content?.find(p => p.id === selectedPeriodId)?.name ?? null,
+              )}
+              focusUnitId={selectedOrgUnitId}
+              title="K.AI kiểm tra trọng số rồi liệt kê các KPI nháp của bạn để gửi duyệt — bạn xác nhận sau"
+            />
           )}
         </div>
       </WorkspaceHeader>
@@ -855,9 +865,10 @@ export default function KpiCriteriaPage() {
           editKpi={editKpi}
           parentKpi={delegateKpi || decomposeKpi}
           parentRelationType={delegateKpi ? 'DELEGATION' : decomposeKpi ? 'DECOMPOSITION' : undefined}
-          onSplitFromBsc={enableBsc && canSplitBsc ? () => { setShowForm(false); setEditKpi(null); setShowBscSplit(true) } : undefined}
+          // Gợi ý bước kế tiếp theo KẾT QUẢ vừa tạo: chỉ tiêu đã duyệt và giao cho chính mình thì
+          // mời nộp báo cáo; bản nháp hay giao cho người khác thì im lặng.
+          onCreated={kpi => suggestNextStep({ type: 'KPI_CREATED', kpi })}
         />
-        <BscKpiSplitModal open={showBscSplit} onClose={() => setShowBscSplit(false)} />
       <KpiImportGuideModal open={showImportGuide} onClose={() => setShowImportGuide(false)} onSelectFile={(kpiType) => { setImportType(kpiType); fileRef.current?.click() }} />
         <ConfirmDialog 
           open={!!submitKpiId} 
@@ -929,6 +940,10 @@ interface RowProps {
 function KpiRowMenu({ kpi, onView, onEdit, onDelete, onSubmit, onDelegate, onDecompose, enableWaterfall }: RowProps) {
   const user = useAuthStore(s => s.user)
   const { hasPermission } = usePermission()
+  // "Phân rã bằng K.AI": trợ lý tính bảng chia theo nhân sự và chờ xác nhận — cùng điều kiện với
+  // mục "Phân rã chỉ tiêu" thủ công, cộng quyền tạo chỉ tiêu (tool decompose_kpi đòi KPI:CREATE).
+  const aiAvailable = useAiAvailable()
+  const askAi = useAiAssistantStore(s => s.ask)
   const primaryAssigneeId = kpi.assigneeIds?.[0]
   const { data: assigneeWeight } = useKpiTotalWeight(undefined, kpi.kpiPeriodId, primaryAssigneeId)
   const canSubmit = Math.round(assigneeWeight ?? 0) === 100
@@ -947,6 +962,16 @@ function KpiRowMenu({ kpi, onView, onEdit, onDelete, onSubmit, onDelegate, onDec
           <button type="button" onClick={onView} className={item}><Eye aria-hidden="true" /> Xem chi tiết</button>
           {enableWaterfall && kpi.status === 'APPROVED' && (
             <button type="button" onClick={onDelegate} className={item}><GitBranch aria-hidden="true" /> Phân rã chỉ tiêu</button>
+          )}
+          {enableWaterfall && kpi.status === 'APPROVED' && aiAvailable && hasPermission('KPI:CREATE') && (
+            <button
+              type="button"
+              onClick={() => askAi(aiShortcuts.decomposeKpi(kpi.name), { focusUnitId: kpi.orgUnitId ?? undefined })}
+              className={item}
+              title="K.AI chia mục tiêu và trọng số xuống các đơn vị con theo tỉ lệ nhân sự, bạn xác nhận sau"
+            >
+              <Bot aria-hidden="true" className="!text-[var(--color-ai)]" /> Phân rã bằng K.AI
+            </button>
           )}
           {canDecompose && (
             <button type="button" onClick={onDecompose} className={item}><ListPlus aria-hidden="true" /> Thêm KPI con</button>

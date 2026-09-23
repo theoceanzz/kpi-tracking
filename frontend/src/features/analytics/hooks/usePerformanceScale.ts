@@ -20,7 +20,7 @@ export interface PerformanceScale {
   unit: string
   /** Domain tối đa cho trục biểu đồ hiệu suất. */
   axisMax: number
-  /** "3.5/5 điểm" (matrix) | "85%" (thường); "—" nếu null. */
+  /** "3.5/5 điểm" (matrix) | "85%" (thường); "-" nếu null. */
   format: (v?: number | null) => string
   /** "3.5 điểm" | "85%" — không kèm mẫu số (dùng khi chật chỗ). */
   formatShort: (v?: number | null) => string
@@ -48,11 +48,11 @@ export function usePerformanceScale(): PerformanceScale {
       } catch { /* giữ mặc định 5 */ }
     }
     const format = (v?: number | null) => {
-      if (v == null) return '—'
+      if (v == null) return '-'
       return isMatrix ? `${round1(v)}/${maxScore} điểm` : `${round1(v)}%`
     }
     const formatShort = (v?: number | null) => {
-      if (v == null) return '—'
+      if (v == null) return '-'
       return isMatrix ? `${round1(v)} điểm` : `${round1(v)}%`
     }
     const axisMax = isMatrix ? maxScore : 100

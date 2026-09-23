@@ -11,7 +11,7 @@ import { Button } from '@/components/ui/button'
  * Thiết lập hiển thị của RIÊNG người đang đăng nhập.
  *
  * Ranh giới với phần tổ chức: ở đây không có gì đổi được luật nghiệp vụ. Ẩn một bước chỉ là gỡ nó
- * khỏi sidebar và thanh tiến trình của chính mình — bước đó vẫn chạy, người khác vẫn thấy, và
+ * khỏi sidebar của chính mình — bước đó vẫn chạy, người khác vẫn thấy, và
  * backend vẫn cưỡng chế y nguyên. Nhờ ranh giới đó, phần này mở cho tất cả mọi người mà không
  * tạo ra rủi ro nào.
  *
@@ -22,7 +22,7 @@ export default function MyWorkflowPanel() {
   const user = useAuthStore(s => s.user)
   const { hasPermission } = useHasPermission()
   const { enabledStages } = useKpiWorkflow()
-  const { isHidden, toggleStage, isRailHidden, setRailHidden, reset } = useWorkflowPrefsStore()
+  const { isHidden, toggleStage, reset } = useWorkflowPrefsStore()
 
   const userId = user?.id
   const visibleToMe = enabledStages.filter(s => hasPermission(s.navPermission))
@@ -52,23 +52,6 @@ export default function MyWorkflowPanel() {
           </Button>
         )}
       </div>
-
-      <label className="flex cursor-pointer items-center gap-3 border-b border-[var(--color-border)] p-5">
-        <input
-          type="checkbox"
-          checked={!isRailHidden(userId)}
-          onChange={e => setRailHidden(userId, !e.target.checked)}
-          className="h-4 w-4 rounded border-[var(--color-border-strong)] text-[var(--color-primary)] focus:ring-[var(--color-ring)]"
-        />
-        <span className="min-w-0 flex-1">
-          <span className="block text-sm font-medium text-[var(--color-foreground)]">
-            Hiện thanh tiến trình trên các trang KPI
-          </span>
-          <span className="mt-0.5 block text-xs font-medium text-[var(--color-muted-foreground)]">
-            Dải các bước nằm ngay dưới thanh tiêu đề, giúp biết mình đang ở đâu trong luồng
-          </span>
-        </span>
-      </label>
 
       <div className="divide-y divide-[var(--color-border)]">
         {visibleToMe.map(stage => {

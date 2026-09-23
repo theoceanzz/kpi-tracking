@@ -14,7 +14,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.springframework.ai.chat.model.ToolContext;
+import dev.langchain4j.invocation.InvocationParameters;
 
 import java.util.List;
 import java.util.Map;
@@ -38,16 +38,16 @@ import com.kpitracking.service.ai.AiTurn;
 class OrgUnitFormFillToolsTest {
 
     /**
-     * Trạng thái của lượt, đi cùng {@code ToolContext}. Mỗi test một thực thể mới nên không
+     * Trạng thái của lượt, đi cùng {@code InvocationParameters}. Mỗi test một thực thể mới nên không
      * phải dọn gì — đó chính là điều đáng giá so với bản ThreadLocal cũ.
      */
     private AgentState st = AgentState.forToolsOnly();
 
     /** Ngữ cảnh tool luôn mang theo trạng thái của lượt, giống hệt lúc chạy thật. */
-    private ToolContext ctxWith(java.util.Map<String, Object> base) {
+    private InvocationParameters ctxWith(java.util.Map<String, Object> base) {
         java.util.Map<String, Object> m = new HashMap<>(base);
         m.put(AgentState.CONTEXT_KEY, st);
-        return new ToolContext(m);
+        return new InvocationParameters(m);
     }
 
     private OrgUnitStatisticService service;
@@ -70,7 +70,7 @@ class OrgUnitFormFillToolsTest {
     void tearDown() {
     }
 
-    private ToolContext form(String formId, Map<String, Object> current) {
+    private InvocationParameters form(String formId, Map<String, Object> current) {
         return ctxWith(Map.of(
                 "orgUnitId", UUID.randomUUID().toString(),
                 "organizationId", UUID.randomUUID().toString(),
@@ -78,7 +78,7 @@ class OrgUnitFormFillToolsTest {
                 "openFormValues", current));
     }
 
-    private ToolContext noForm() {
+    private InvocationParameters noForm() {
         return ctxWith(Map.of(
                 "orgUnitId", UUID.randomUUID().toString(),
                 "organizationId", UUID.randomUUID().toString()));
@@ -140,9 +140,9 @@ class OrgUnitFormFillToolsTest {
         }
 
         /** Ngữ cảnh có LỜI người dùng thật — chốt chặn viết-hộ chỉ so được khi có câu hỏi gốc. */
-        private ToolContext asked(String question) {
+        private InvocationParameters asked(String question) {
             AgentState withTurn = new AgentState(new AiTurn(question, null, null));
-            return new ToolContext(Map.of(
+            return new InvocationParameters(Map.of(
                     "orgUnitId", UUID.randomUUID().toString(),
                     "organizationId", UUID.randomUUID().toString(),
                     "openFormId", FormRegistry.KPI_ADJUSTMENT_FORM,

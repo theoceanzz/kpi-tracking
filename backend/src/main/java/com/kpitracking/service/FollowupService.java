@@ -6,10 +6,8 @@ import com.kpitracking.dto.response.ai.FollowupResponse;
 import com.kpitracking.tool.FollowupContextStore;
 import com.kpitracking.tool.FollowupContextStore.ToolResult;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.chat.client.ChatClient;
-import org.springframework.beans.factory.annotation.Qualifier;
+import com.kpitracking.ai.agent.FollowupAgent;
 import org.springframework.beans.factory.annotation.Value;
-import org.springframework.core.io.Resource;
 import org.springframework.stereotype.Service;
 
 import java.util.ArrayList;
@@ -31,17 +29,15 @@ public class FollowupService {
     private static final int MAX_CHARS_PER_TOOL = 1200;
     private static final int MAX_TOTAL_CHARS = 4000;
 
-    private final ChatClient chatClient;
+    private final FollowupAgent followupAgent;
     private final ObjectMapper objectMapper;
     private final FollowupContextStore followupContextStore;
 
-    @Value("classpath:/promptTemplates/followupSuggestionsPrompt.st")
-    private Resource followupPrompt;
 
-    public FollowupService(@Qualifier("openAiChatClient") ChatClient chatClient,
+    public FollowupService(FollowupAgent followupAgent,
                            ObjectMapper objectMapper,
                            FollowupContextStore followupContextStore) {
-        this.chatClient = chatClient;
+        this.followupAgent = followupAgent;
         this.objectMapper = objectMapper;
         this.followupContextStore = followupContextStore;
     }
@@ -74,11 +70,7 @@ public class FollowupService {
 
         String dataContext = buildDataContext(toolData, question);
         try {
-            String raw = chatClient.prompt()
-                    .system(followupPrompt)
-                    .user(dataContext)
-                    .call()
-                    .content();
+            String raw = followupAgent.suggest(dataContext);
             FollowupResponse parsed = parse(raw);
             if (parsed != null
                     && parsed.getTechnical() != null && !parsed.getTechnical().isEmpty()
@@ -165,5 +157,11 @@ public class FollowupService {
                         "Hành động ưu tiên trong tuần tới là gì?"
                 ))
                 .build();
+    }
+
+    /** Có ít nhất một câu gợi ý ở một trong hai nhóm không. */
+    public static boolean hasAny(FollowupResponse pools) {
+        return (pools.getTechnical() != null && !pools.getTechnical().isEmpty())
+                || (pools.getManagement() != null && !pools.getManagement().isEmpty());
     }
 }

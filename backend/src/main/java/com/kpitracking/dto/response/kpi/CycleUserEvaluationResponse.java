@@ -32,6 +32,27 @@ public class CycleUserEvaluationResponse {
     /** TB % hoàn thành định lượng các đợt — trục cột ma trận. */
     private Double avgCompletionPercent;
 
+    /**
+     * Trục HÀNH VI thật sự đưa vào ma trận (thang 0..5): mức định tính nếu có, còn không thì
+     * điểm hạnh kiểm đã quy đổi. Tách khỏi {@link #qualScore} vì kỳ chạy chế độ Định lượng
+     * không có mức định tính nào — nhưng vẫn có điểm hành vi khi tổ chức chấm hạnh kiểm, và
+     * bảng phải hiện được con số đó thay vì một dấu gạch.
+     */
+    private Double behaviorScore;
+    /** true khi {@link #behaviorScore} đến từ phiếu hạnh kiểm chứ không phải KPI định tính. */
+    private boolean behaviorFromConduct;
+    /** Điểm hạnh kiểm đã tính trọng số (thang gốc của phiếu), null nếu chưa chấm. */
+    private Double conductScore;
+    /** Thang điểm của phiếu hạnh kiểm — để giao diện hiện "4/5" chứ không chỉ "4". */
+    private Double conductMaxScore;
+
+    /** true khi {@link #matrixRating} được ĐẶT TAY lúc hiệu chỉnh theo khung, không suy từ hai trục. */
+    private boolean ratingOverridden;
+    /** Điểm chốt kỳ tự tính chụp lúc "chốt dữ liệu kỳ" — null khi đơn vị chưa qua bước đó. */
+    private Double baselineScore;
+    /** Xếp loại ma trận tạm tính chụp lúc "chốt dữ liệu kỳ". */
+    private Integer baselineRating;
+
     private String comment;
     private String evaluatedByName;
     private java.time.Instant evaluatedAt;

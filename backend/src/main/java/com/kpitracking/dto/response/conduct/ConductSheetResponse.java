@@ -31,7 +31,15 @@ public class ConductSheetResponse {
     private String criteriaSetName;
 
     private ConductStatus status;
+    /**
+     * Phiếu KỲ chưa chấm được điền sẵn bằng TRUNG BÌNH các phiếu đợt trong kỳ ({@code prefilledFromPeriods}
+     * = số đợt đã gộp). Cùng cách điểm chốt kỳ lấy TB QLTT các đợt làm gợi ý: mở phiếu là có số,
+     * quản lý chỉ sửa chỗ nào thấy khác. Chưa lưu thì ma trận vẫn dùng đúng TB này.
+     */
+    private Integer prefilledFromPeriods;
     private Double maxScore;
+    /** Mức thấp nhất chấm được — thang chạy {@code minScore..maxScore}, mặc định 1..5 như ma trận. */
+    private Double minScore;
 
     /** Σ(điểm tự chấm × trọng số) — "Điểm hành vi đã tính đến trọng số" phía CBNV. */
     private Double selfScore;
@@ -62,4 +70,9 @@ public class ConductSheetResponse {
     /** Kỳ chứa đợt/kỳ này đã chốt ở một đơn vị cấp trên hoặc chính đơn vị của nhân sự. */
     private boolean locked;
     private String lockedByUnitName;
+    /**
+     * Đơn vị khoá đang ở bước nào: CALIBRATING (đã chốt dữ liệu, mở lại về nháp là sửa được)
+     * hay FINALIZED (đã khoá kết quả, phải mở khoá rồi mới mở lại về nháp).
+     */
+    private com.kpitracking.enums.CycleUnitEvalStatus lockStage;
 }

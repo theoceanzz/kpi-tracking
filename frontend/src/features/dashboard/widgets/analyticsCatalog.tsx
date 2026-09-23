@@ -1,7 +1,7 @@
 import {
-  TrendingUp, Target, Users, AlertTriangle, AlertCircle, Star, ListChecks, BarChart3,
+  TrendingUp, Users, Star, ListChecks, BarChart3,
   SlidersHorizontal, Gauge, Grid3x3, Award, Building2, Network, ShieldCheck, Scale,
-  PieChart as PieChartIcon, Activity, LayoutGrid, Medal, ClipboardList, UserRoundSearch,
+  LayoutGrid, Medal, ClipboardList, UserRoundSearch,
 } from 'lucide-react'
 import type { DashboardWidget } from '@/components/common/dashboard/ChartWrapper'
 import type { WidgetCatalogEntry, LayoutPreset } from '@/components/common/dashboard/DashboardCustomizeChrome'
@@ -45,7 +45,7 @@ export interface OrgFlags {
 export interface ViewerScope {
   /** Có quyền xem số liệu cấp đơn vị không (`KPI:VIEW` hoặc `SUBMISSION:REVIEW`). */
   canViewUnit: boolean
-  /** Có quyền `BSC:MANAGE` không — cùng quyền mà cây nav đặt cho mục "Hạng mục (BSC)". */
+  /** Có quyền `BSC:MANAGE` không — cùng quyền mà cây nav đặt cho mục "Thẻ điểm BSC". */
   canManageBsc: boolean
 }
 
@@ -54,8 +54,8 @@ const GROUP = {
   unit: 'Đơn vị',
   personal: 'Cá nhân',
   risk: 'Rủi ro & xếp hạng',
-  drill: 'Phân cấp',
-  bsc: 'Hạng mục (BSC)',
+  drill: 'So sánh giữa các đơn vị',
+  bsc: 'Thẻ điểm BSC',
 } as const
 
 interface AnalyticsWidgetDef {
@@ -107,23 +107,18 @@ const ANALYTICS_WIDGETS: AnalyticsWidgetDef[] = [
     icon: <Gauge size={20} />, w: 12, h: 5,
   },
   {
-    i: 'trend-chart', title: 'Xu hướng KPI đơn vị', groupLabel: GROUP.unit, okr: false, unitScope: true,
-    description: 'Số KPI và hiệu suất đơn vị qua từng mốc thời gian hoặc từng đợt.',
+    i: 'trend-chart', title: 'Diễn biến KPI đơn vị qua các kỳ', groupLabel: GROUP.unit, okr: false, unitScope: true,
+    description: 'Đơn vị đang lên hay xuống: tiến độ và hiệu suất qua từng kỳ, hoặc tỉ trọng KPI mới/cũ.',
     icon: <TrendingUp size={20} />, w: 12, h: 15,
   },
   {
-    i: 'kpi-detail', title: 'Bảng chi tiết KPI đơn vị', groupLabel: GROUP.unit, okr: false, unitScope: true,
-    description: 'Toàn bộ KPI của đơn vị, lọc theo đơn vị con và mở xem chi tiết từng chỉ tiêu.',
-    icon: <ListChecks size={20} />, w: 12, h: 18,
-  },
-  {
-    i: 'unit-perf', title: 'Hiệu suất & tiến độ đơn vị', groupLabel: GROUP.unit, okr: false, unitScope: true,
-    description: 'So sánh hiệu suất, tiến độ và tình hình nộp giữa các đơn vị.',
+    i: 'unit-perf', title: 'Đơn vị con: hiệu suất, tiến độ, nộp bài', groupLabel: GROUP.unit, okr: false, unitScope: true,
+    description: 'Đặt các đơn vị con cạnh nhau về hiệu suất, tiến độ và tỉ lệ nộp; chọn được top tốt nhất / trì trệ nhất.',
     icon: <BarChart3 size={20} />, w: 12, h: 13,
   },
   {
-    i: 'member-dist', title: 'Nhân sự & vai trò', groupLabel: GROUP.unit, okr: false, unitScope: true,
-    description: 'Cơ cấu nhân sự theo vai trò trong từng đơn vị.',
+    i: 'member-dist', title: 'Cơ cấu nhân sự theo vai trò', groupLabel: GROUP.unit, okr: false, unitScope: true,
+    description: 'Mỗi đơn vị có bao nhiêu người ở vai trò nào.',
     icon: <Users size={20} />, w: 6, h: 11,
   },
 
@@ -134,40 +129,30 @@ const ANALYTICS_WIDGETS: AnalyticsWidgetDef[] = [
     icon: <Gauge size={20} />, w: 12, h: 5,
   },
   {
-    i: 'sub-trend', title: 'Xu hướng mục tiêu đơn vị', groupLabel: GROUP.unit, okr: true, unitScope: true,
-    description: 'Số mục tiêu và hiệu suất của cấp dưới qua từng mốc thời gian hoặc từng đợt.',
+    i: 'sub-trend', title: 'Diễn biến mục tiêu đơn vị qua các kỳ', groupLabel: GROUP.unit, okr: true, unitScope: true,
+    description: 'Đơn vị đang lên hay xuống: tiến độ và hiệu suất qua từng kỳ, hoặc tỉ trọng mục tiêu mới/cũ.',
     icon: <TrendingUp size={20} />, w: 12, h: 15,
   },
   {
-    i: 'sub-detail', title: 'Chi tiết mục tiêu đơn vị', groupLabel: GROUP.unit, okr: true, unitScope: true,
-    description: 'Tiến độ từng mục tiêu và kết quả then chốt của người thuộc quyền bạn.',
+    i: 'sub-detail', title: 'Cây mục tiêu và KR của đơn vị', groupLabel: GROUP.unit, okr: true, unitScope: true,
+    description: 'Mục tiêu → kết quả then chốt → KPI của người thuộc quyền bạn, kèm tiến độ từng cấp.',
     icon: <ListChecks size={20} />, w: 12, h: 20,
   },
   {
-    i: 'sub-unit-perf', title: 'Hiệu suất & tiến độ đơn vị', groupLabel: GROUP.unit, okr: true, unitScope: true,
-    description: 'So sánh hiệu suất, tiến độ và tình hình nộp giữa các đơn vị.',
+    i: 'sub-unit-perf', title: 'Đơn vị con: hiệu suất, tiến độ, nộp bài', groupLabel: GROUP.unit, okr: true, unitScope: true,
+    description: 'Đặt các đơn vị con cạnh nhau về hiệu suất, tiến độ và tỉ lệ nộp; chọn được top tốt nhất / trì trệ nhất.',
     icon: <BarChart3 size={20} />, w: 12, h: 13,
   },
   {
-    i: 'sub-member', title: 'Nhân sự & vai trò', groupLabel: GROUP.unit, okr: true, unitScope: true,
-    description: 'Cơ cấu nhân sự theo vai trò trong từng đơn vị.',
+    i: 'sub-member', title: 'Cơ cấu nhân sự theo vai trò', groupLabel: GROUP.unit, okr: true, unitScope: true,
+    description: 'Mỗi đơn vị có bao nhiêu người ở vai trò nào.',
     icon: <Users size={20} />, w: 6, h: 11,
   },
 
   // ── Rủi ro & xếp hạng (chỉ có ở tab "KPI đơn vị") ──
   {
-    i: 'unit-risk', title: 'Rủi ro đơn vị', groupLabel: GROUP.risk, okr: false, unitScope: true,
-    description: 'Đơn vị nào đang trễ hạn nhiều nhất, mở ra xem đúng KPI nào trễ.',
-    icon: <AlertTriangle size={20} />, w: 6, h: 12,
-  },
-  {
-    i: 'warning-list', title: 'Rủi ro thành viên', groupLabel: GROUP.risk, okr: false, unitScope: true,
-    description: 'Nhân sự đang có KPI quá hạn, kèm chi tiết từng chỉ tiêu.',
-    icon: <AlertCircle size={20} />, w: 6, h: 12,
-  },
-  {
-    i: 'rank-table', title: 'Bảng xếp hạng nhân sự', groupLabel: GROUP.risk, okr: false, unitScope: true,
-    description: 'Xếp hạng nhân sự theo điểm hiệu suất, lọc được theo đơn vị.',
+    i: 'rank-table', title: 'Xếp hạng nhân sự', groupLabel: GROUP.risk, okr: false, unitScope: true,
+    description: 'Ai đứng đầu, ai đứng cuối theo điểm hiệu suất hoặc tiến độ, lọc được theo đơn vị.',
     icon: <Star size={20} />, w: 12, h: 13,
   },
   {
@@ -179,7 +164,7 @@ const ANALYTICS_WIDGETS: AnalyticsWidgetDef[] = [
     render: () => <TeamFocusWidget />,
   },
 
-  // ── Cá nhân · bản KPI (tổ chức TẮT OKR) — tab "KPI của tôi" ──
+  // ── Cá nhân · bản KPI (tổ chức TẮT OKR) — tab "Kết quả của tôi" ──
   {
     i: 'mykpi-todo', title: 'Công việc cần làm', groupLabel: GROUP.personal, okr: false, filterScope: 'personal',
     description: 'Chỉ tiêu đang chờ bạn trong đợt/kỳ đang chọn: bị từ chối, quá hạn, sắp đến hạn, chậm tiến độ — kèm nút xử lý.',
@@ -192,34 +177,9 @@ const ANALYTICS_WIDGETS: AnalyticsWidgetDef[] = [
     icon: <Gauge size={20} />, w: 12, h: 5,
   },
   {
-    i: 'mykpi-trend', title: 'Xu hướng KPI của tôi', groupLabel: GROUP.personal, okr: false, filterScope: 'personal',
-    description: 'Số KPI bạn đảm nhiệm và hiệu suất của bạn qua từng mốc thời gian.',
+    i: 'mykpi-trend', title: 'Diễn biến KPI của tôi qua các kỳ', groupLabel: GROUP.personal, okr: false, filterScope: 'personal',
+    description: 'Bạn đang lên hay xuống: tiến độ và hiệu suất qua từng kỳ, hoặc tỉ trọng KPI mới/cũ.',
     icon: <TrendingUp size={20} />, w: 12, h: 15,
-  },
-  {
-    i: 'mykpi-detail', title: 'Bảng chi tiết KPI của tôi', groupLabel: GROUP.personal, okr: false, filterScope: 'personal',
-    description: 'Toàn bộ KPI bạn đang đảm nhiệm, tiến độ và phân loại từng chỉ tiêu.',
-    icon: <Target size={20} />, w: 12, h: 18,
-  },
-  {
-    i: 'mykpi-submissions', title: 'Trạng thái bài nộp', groupLabel: GROUP.personal, okr: false, filterScope: 'personal',
-    description: 'Tỷ trọng bài nộp đã duyệt, chờ duyệt và bị từ chối của bạn.',
-    icon: <PieChartIcon size={20} />, w: 6, h: 11,
-  },
-  {
-    i: 'mykpi-status-dist', title: 'Phân bổ trạng thái KPI', groupLabel: GROUP.personal, okr: false, filterScope: 'personal',
-    description: 'Số KPI của bạn theo từng trạng thái.',
-    icon: <BarChart3 size={20} />, w: 6, h: 11,
-  },
-  {
-    i: 'mykpi-eval-history', title: 'Lịch sử đánh giá', groupLabel: GROUP.personal, okr: false, filterScope: 'personal',
-    description: 'Các phiếu đánh giá bạn đã nhận, tìm kiếm và sắp xếp được.',
-    icon: <ListChecks size={20} />, w: 6, h: 14,
-  },
-  {
-    i: 'mykpi-eval-trend', title: 'Xu hướng điểm số', groupLabel: GROUP.personal, okr: false, filterScope: 'personal',
-    description: 'Điểm đánh giá của bạn qua từng đợt.',
-    icon: <Activity size={20} />, w: 6, h: 11,
   },
 
   // ── Cá nhân · bản OKR (tổ chức BẬT OKR) — tab "Mục tiêu của tôi" ──
@@ -235,95 +195,98 @@ const ANALYTICS_WIDGETS: AnalyticsWidgetDef[] = [
     icon: <Gauge size={20} />, w: 12, h: 5,
   },
   {
-    i: 'myobj-trend', title: 'Xu hướng mục tiêu của tôi', groupLabel: GROUP.personal, okr: true, filterScope: 'personal',
-    description: 'Số mục tiêu bạn đảm nhiệm và hiệu suất của bạn qua từng mốc thời gian.',
+    i: 'myobj-trend', title: 'Diễn biến mục tiêu của tôi qua các kỳ', groupLabel: GROUP.personal, okr: true, filterScope: 'personal',
+    description: 'Bạn đang lên hay xuống: tiến độ và hiệu suất qua từng kỳ, hoặc tỉ trọng mục tiêu mới/cũ.',
     icon: <TrendingUp size={20} />, w: 12, h: 15,
   },
-  {
-    i: 'myobj-detail', title: 'Bảng chi tiết mục tiêu của tôi', groupLabel: GROUP.personal, okr: true, filterScope: 'personal',
-    description: 'Mục tiêu và kết quả then chốt bạn đảm nhiệm, kèm tiến độ từng KPI.',
-    icon: <Target size={20} />, w: 12, h: 18,
-  },
 
-  // ── Phân cấp — tab "Phân cấp" (cây đơn vị + chi tiết đơn vị đang chọn) ──
+  // ── So sánh giữa các đơn vị — cây đơn vị + chi tiết đơn vị đang chọn (cùng component với tab) ──
   {
     i: 'drill-tree', title: 'Cây đơn vị', groupLabel: GROUP.drill,
-    description: 'Chọn đơn vị để mọi widget Phân cấp và Hạng mục bám theo.',
+    description: 'Chọn đơn vị để mọi ô So sánh giữa các đơn vị và Thẻ điểm BSC bám theo.',
     icon: <Network size={20} />, w: 4, h: 20,
   },
   {
-    i: 'drill-summary', title: 'Tóm tắt đơn vị đang xem', groupLabel: GROUP.drill,
+    i: 'drill-summary', title: 'Đơn vị đang xem', groupLabel: GROUP.drill,
     description: 'Cấp, tên đơn vị, số nhân sự và tổng KPI của đơn vị đang chọn.',
-    icon: <Building2 size={20} />, w: 8, h: 5,
+    icon: <Building2 size={20} />, w: 8, h: 4,
   },
   {
-    i: 'drill-employees', title: 'Thành viên trực thuộc', groupLabel: GROUP.drill,
-    description: 'Bảng nhân sự của đơn vị đang chọn, có tìm kiếm và phân trang.',
-    icon: <Users size={20} />, w: 8, h: 18,
-  },
-  {
-    i: 'drill-compare', title: 'Hiệu suất đơn vị con', groupLabel: GROUP.drill,
-    description: 'So sánh hiệu suất giữa các đơn vị con của đơn vị đang chọn.',
-    icon: <BarChart3 size={20} />, w: 6, h: 13,
-  },
-  {
-    i: 'drill-heatmap', title: 'Heatmap tiến độ đơn vị con', groupLabel: GROUP.drill,
-    description: 'Bản đồ nhiệt tiến độ theo đơn vị con và từng đợt.',
-    icon: <LayoutGrid size={20} />, w: 6, h: 13,
-  },
-  {
-    i: 'drill-classification', title: 'Xếp loại đơn vị', groupLabel: GROUP.drill,
-    description: 'Xếp loại theo phân bố xếp loại thành viên — theo đợt hoặc theo kỳ.',
+    i: 'drill-classification', title: 'Phân bố xếp loại nhân sự', groupLabel: GROUP.drill,
+    description: 'Xếp loại theo phân bố người ở từng mức, và tỉ trọng qua các đợt.',
     icon: <Award size={20} />, w: 12, h: 16,
   },
   {
-    i: 'drill-matrix', title: 'Ma trận xếp loại', groupLabel: GROUP.drill, qualitative: true,
-    description: 'Phân bố 9-box/25-box của đơn vị đang chọn, kèm heatmap ma trận.',
+    i: 'drill-cascade', title: 'Luồng phân rã & uỷ quyền KPI', groupLabel: GROUP.drill,
+    description: 'Trọng số KPI chảy từ đơn vị này xuống đơn vị nào.',
+    icon: <Network size={20} />, w: 12, h: 12,
+  },
+  {
+    i: 'drill-employees', title: 'Từng thành viên: hiệu suất, tiến độ, số KPI', groupLabel: GROUP.drill,
+    description: 'Từng người trong đơn vị: hiệu suất, tiến độ, số KPI; biểu đồ hoặc bảng.',
+    icon: <Users size={20} />, w: 8, h: 16,
+  },
+  {
+    i: 'drill-matrix', title: 'Ma trận hành vi × hoàn thành', groupLabel: GROUP.drill, qualitative: true,
+    description: 'Số người rơi vào từng ô điểm hành vi × hoàn thành, hoặc phân tán từng người.',
     icon: <Grid3x3 size={20} />, w: 12, h: 18,
   },
-
-  // ── Hạng mục (BSC) — tab "Hạng mục (BSC)" ──
   {
-    i: 'bsc-metrics', title: 'Chỉ số cân bằng BSC', groupLabel: GROUP.bsc, bsc: true,
-    description: 'Điểm BSC trung bình, hạng mục mạnh/yếu nhất và độ phủ hạng mục.',
+    i: 'drill-children', title: 'Xếp loại của từng đơn vị con', groupLabel: GROUP.drill,
+    description: 'Xếp loại của các đơn vị ngay bên dưới đơn vị đang chọn.',
+    icon: <Building2 size={20} />, w: 6, h: 12,
+  },
+  {
+    i: 'drill-compare', title: 'Hiệu suất từng đơn vị con', groupLabel: GROUP.drill,
+    description: 'Hiệu suất các đơn vị con đặt cạnh nhau.',
+    icon: <BarChart3 size={20} />, w: 6, h: 12,
+  },
+  {
+    i: 'drill-boxplot', title: 'Độ phân tán điểm trong từng đơn vị con', groupLabel: GROUP.drill,
+    description: 'Điểm trong mỗi đơn vị con phân tán rộng hay hẹp.',
+    icon: <BarChart3 size={20} />, w: 12, h: 12,
+  },
+
+  // ── Thẻ điểm BSC (cùng component với tab; mô hình thẻ điểm) ──
+  {
+    i: 'bsc-overview', title: 'Sức khoẻ BSC của đợt', groupLabel: GROUP.bsc, bsc: true,
+    description: 'Mức đạt BSC của đợt, số thẻ điểm đơn vị, đơn vị qua cửa chặn, độ phủ phân rã.',
     icon: <Gauge size={20} />, w: 12, h: 6,
   },
   {
-    i: 'bsc-radar', title: 'Radar cân bằng', groupLabel: GROUP.bsc, bsc: true,
-    description: 'Điểm từng hạng mục trên một vòng radar — thấy ngay chỗ lệch.',
-    icon: <Target size={20} />, w: 4, h: 13,
+    i: 'bsc-units', title: 'Mức đạt thẻ điểm của từng đơn vị', groupLabel: GROUP.bsc, bsc: true,
+    description: 'Đơn vị nào đạt, đơn vị nào hụt: mỗi đơn vị một chấm so với mục tiêu 100%, đỏ là không qua cửa chặn.',
+    icon: <BarChart3 size={20} />, w: 7, h: 11,
   },
   {
-    i: 'bsc-perspectives', title: 'Thẻ từng hạng mục', groupLabel: GROUP.bsc, bsc: true,
-    description: 'Điểm, trọng số, số KPI và mức đóng góp của từng hạng mục.',
-    icon: <LayoutGrid size={20} />, w: 8, h: 13,
+    i: 'bsc-gates', title: 'Đơn vị vướng hạng mục chặn', groupLabel: GROUP.bsc, bsc: true,
+    description: 'Đơn vị nào đang vướng chỉ tiêu chặn trong đợt, vướng ở chỉ tiêu nào.',
+    icon: <ShieldCheck size={20} />, w: 5, h: 11,
   },
   {
-    i: 'bsc-trend', title: 'Xu hướng điểm hạng mục', groupLabel: GROUP.bsc, bsc: true,
-    description: 'Điểm từng hạng mục và điểm BSC tổng qua các kỳ.',
-    icon: <TrendingUp size={20} />, w: 12, h: 14,
+    i: 'bsc-items', title: 'Từng chỉ tiêu so với mục tiêu và sàn', groupLabel: GROUP.bsc, bsc: true,
+    description: 'Chỉ tiêu nào đạt, chỉ tiêu nào hụt: thực tế đặt cạnh mục tiêu và sàn của từng dòng trên thẻ điểm.',
+    icon: <LayoutGrid size={20} />, w: 12, h: 10,
   },
   {
-    i: 'bsc-unit-comparison', title: 'So sánh hạng mục giữa đơn vị', groupLabel: GROUP.bsc, bsc: true,
-    description: 'Điểm từng hạng mục của mỗi đơn vị, xếp cạnh nhau.',
-    icon: <BarChart3 size={20} />, w: 12, h: 15,
+    i: 'bsc-trend', title: 'Diễn biến mức đạt qua các đợt', groupLabel: GROUP.bsc, bsc: true,
+    description: 'Mức đạt đang lên hay xuống qua các đợt, tách được theo 4 lĩnh vực.',
+    icon: <TrendingUp size={20} />, w: 7, h: 12,
   },
   {
-    i: 'bsc-vs-system', title: 'Đối chiếu BSC vs hệ thống', groupLabel: GROUP.bsc, bsc: true,
-    description: 'So điểm BSC với điểm hệ thống theo đơn vị hoặc theo nhân sự.',
-    icon: <Scale size={20} />, w: 8, h: 14,
+    i: 'bsc-cascade', title: 'Độ phủ phân rã chỉ tiêu', groupLabel: GROUP.bsc, bsc: true,
+    description: 'Từng chỉ tiêu đã phân rã xuống đơn vị đủ, thiếu hay vượt mục tiêu.',
+    icon: <Scale size={20} />, w: 5, h: 12,
   },
   {
-    i: 'bsc-coverage', title: 'KPI chưa gán hạng mục', groupLabel: GROUP.bsc, bsc: true,
-    description: 'Độ phủ hạng mục và danh sách KPI còn thiếu hạng mục.',
-    icon: <ShieldCheck size={20} />, w: 4, h: 14,
-  },
-  {
-    i: 'bsc-ranking', title: 'Xếp hạng theo điểm BSC', groupLabel: GROUP.bsc, bsc: true,
-    description: 'Xếp hạng nhân sự theo điểm BSC, kèm breakdown từng hạng mục.',
-    icon: <Medal size={20} />, w: 12, h: 16,
+    i: 'bsc-ranking', title: 'Xếp hạng nhân sự theo điểm BSC', groupLabel: GROUP.bsc, bsc: true,
+    description: 'Nhân sự xếp theo điểm BSC hoặc điểm hệ thống, kèm điểm từng lĩnh vực.',
+    icon: <Medal size={20} />, w: 12, h: 14,
   },
 ]
+
+/** Mọi id trang chủ biết vẽ — nơi khác dùng để kiểm trước khi ghim một widget vào đây. */
+export const ANALYTICS_WIDGET_IDS: ReadonlySet<string> = new Set(ANALYTICS_WIDGETS.map(d => d.i))
 
 const isAvailable = (d: AnalyticsWidgetDef, flags: OrgFlags, scope: ViewerScope): boolean => {
   if (d.okr !== undefined && d.okr !== flags.enableOkr) return false
@@ -401,11 +364,11 @@ export function getAnalyticsDefaultLayout(
 ): DashboardWidget[] {
   // Cặp KPI hay cặp Mục tiêu — chọn theo cờ tổ chức, giống hệt trang Phân tích.
   const unit = flags.enableOkr
-    ? { metrics: 'sub-metrics', trend: 'sub-trend', perf: 'sub-unit-perf', detail: 'sub-detail' }
-    : { metrics: 'unit-kpi-metrics', trend: 'trend-chart', perf: 'unit-perf', detail: 'kpi-detail' }
+    ? { metrics: 'sub-metrics', trend: 'sub-trend', perf: 'sub-unit-perf' }
+    : { metrics: 'unit-kpi-metrics', trend: 'trend-chart', perf: 'unit-perf' }
   const personal = flags.enableOkr
-    ? { metrics: 'myobj-metrics', trend: 'myobj-trend', detail: 'myobj-detail', todo: 'myobj-todo' }
-    : { metrics: 'mykpi-metrics', trend: 'mykpi-trend', detail: 'mykpi-detail', todo: 'mykpi-todo' }
+    ? { metrics: 'myobj-metrics', trend: 'myobj-trend', todo: 'myobj-todo' }
+    : { metrics: 'mykpi-metrics', trend: 'mykpi-trend', todo: 'mykpi-todo' }
 
   /*
     Ô ĐẦU TIÊN luôn là hàng thẻ chỉ số của vai trò đó: mở trang chủ là thấy ngay mấy con số
@@ -435,7 +398,7 @@ export function getAnalyticsDefaultLayout(
 
       // Nhân viên chỉ có phạm vi của mình: việc phải làm đứng trước mọi biểu đồ
       default:
-        return [personal.metrics, 'filter-personal', personal.todo, personal.trend, personal.detail]
+        return [personal.metrics, 'filter-personal', personal.todo, personal.trend]
     }
   })()
 
@@ -446,7 +409,7 @@ export function getAnalyticsDefaultLayout(
     mỗi cái biểu đồ mà mất hàng chỉ số thì bố cục đã sai ý định, phải rơi hẳn về bản cá nhân.
   */
   if (base[0]?.i === ids[0]) return base
-  return layoutOf([personal.metrics, 'filter-personal', personal.todo, personal.trend, personal.detail], flags, scope)
+  return layoutOf([personal.metrics, 'filter-personal', personal.todo, personal.trend], flags, scope)
 }
 
 /** Bố cục gợi ý trong thư viện widget. Bỏ hẳn preset nào không còn ô nào dùng được. */
@@ -454,40 +417,40 @@ export function getAnalyticsPresets(flags: OrgFlags, scope: ViewerScope): Layout
   const raw: { key: string; label: string; description: string; ids: string[] }[] = [
     flags.enableOkr
       ? {
-          key: 'unit', label: 'Mục tiêu đơn vị',
-          description: 'Đúng nội dung mục "Mục tiêu đơn vị" bên Phân tích.',
+          key: 'unit', label: 'Mục tiêu đơn vị tôi quản lý',
+          description: 'Đúng nội dung mục "Mục tiêu đơn vị tôi quản lý" bên Thống kê.',
           ids: ['filter-unit', 'sub-metrics', 'sub-trend', 'sub-detail', 'sub-member', 'sub-unit-perf'],
         }
       : {
-          key: 'unit', label: 'KPI đơn vị',
-          description: 'Đúng nội dung mục "KPI đơn vị" bên Phân tích.',
-          ids: ['filter-unit', 'unit-kpi-metrics', 'trend-chart', 'kpi-detail', 'unit-perf', 'member-dist', 'unit-risk', 'warning-list', 'rank-table'],
+          key: 'unit', label: 'Đơn vị tôi quản lý',
+          description: 'Đúng nội dung mục "Đơn vị tôi quản lý" bên Thống kê.',
+          ids: ['filter-unit', 'unit-kpi-metrics', 'trend-chart', 'unit-perf', 'member-dist', 'rank-table'],
         },
     flags.enableOkr
       ? {
           key: 'personal', label: 'Mục tiêu của tôi',
-          description: 'Mục "Mục tiêu của tôi" bên Phân tích, kèm ô việc cần làm.',
-          ids: ['filter-personal', 'myobj-todo', 'myobj-metrics', 'myobj-trend', 'myobj-detail'],
+          description: 'Mục "Mục tiêu của tôi" bên Thống kê, kèm ô việc cần làm.',
+          ids: ['filter-personal', 'myobj-todo', 'myobj-metrics', 'myobj-trend'],
         }
       : {
-          key: 'personal', label: 'KPI của tôi',
-          description: 'Mục "KPI của tôi" bên Phân tích, kèm ô việc cần làm.',
-          ids: ['filter-personal', 'mykpi-todo', 'mykpi-metrics', 'mykpi-trend', 'mykpi-detail', 'mykpi-submissions', 'mykpi-status-dist', 'mykpi-eval-history', 'mykpi-eval-trend'],
+          key: 'personal', label: 'Kết quả của tôi',
+          description: 'Mục "Kết quả của tôi" bên Thống kê, kèm ô việc cần làm.',
+          ids: ['filter-personal', 'mykpi-todo', 'mykpi-metrics', 'mykpi-trend'],
         },
     {
-      key: 'drill', label: 'Phân cấp',
-      description: 'Đúng nội dung mục "Phân cấp" bên Phân tích: cây đơn vị và chi tiết đơn vị.',
-      ids: ['filter-unit', 'drill-tree', 'drill-summary', 'drill-employees', 'drill-compare', 'drill-heatmap', 'drill-classification', 'drill-matrix'],
+      key: 'drill', label: 'So sánh giữa các đơn vị',
+      description: 'Đúng nội dung mục "So sánh giữa các đơn vị" bên Thống kê: cây đơn vị và chi tiết đơn vị.',
+      ids: ['filter-unit', 'drill-tree', 'drill-summary', 'drill-classification', 'drill-employees', 'drill-matrix', 'drill-children', 'drill-compare'],
     },
     {
-      key: 'bsc', label: 'Hạng mục (BSC)',
-      description: 'Đúng nội dung mục "Hạng mục (BSC)" bên Phân tích.',
-      ids: ['filter-unit', 'bsc-metrics', 'bsc-radar', 'bsc-perspectives', 'bsc-trend', 'bsc-unit-comparison', 'bsc-vs-system', 'bsc-coverage', 'bsc-ranking'],
+      key: 'bsc', label: 'Thẻ điểm BSC',
+      description: 'Đúng nội dung mục "Thẻ điểm BSC" bên Thống kê.',
+      ids: ['filter-unit', 'bsc-overview', 'bsc-units', 'bsc-gates', 'bsc-items', 'bsc-trend', 'bsc-cascade'],
     },
     {
       key: 'risk', label: 'Rủi ro',
       description: 'Ai cần can thiệp trước, đơn vị và nhân sự đang trễ hạn, kèm bảng xếp hạng.',
-      ids: ['filter-unit', 'team-focus', 'unit-risk', 'warning-list', 'rank-table'],
+      ids: ['filter-unit', 'team-focus', 'rank-table'],
     },
   ]
 

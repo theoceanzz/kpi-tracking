@@ -32,6 +32,12 @@ public class UnitClassificationResponses {
         private List<Bucket> distribution;
         /** Xếp loại của đơn vị (áp luật lên phân bố hiện tại); null nếu chưa có dữ liệu. */
         private Classification classification;
+        /**
+         * Phân bố thực tế đặt cạnh khung bell curve của hồ sơ đang áp (đợt gần nhất có đánh giá, hoặc
+         * cả kỳ). {@code configured=false} khi hồ sơ chưa bật khung — vẫn có {@code buckets} để vẽ
+         * phân bố. Null khi chưa có đợt nào để xét.
+         */
+        private CycleCurveResponse bellCurve;
         /** Tên hồ sơ luật đang áp cho đơn vị này (kế thừa từ cha nếu có); null nếu dùng preset. */
         private String appliedProfileName;
         /** Xu hướng: mỗi kỳ 1 điểm, percents[levelName] = % người ở mức đó. */

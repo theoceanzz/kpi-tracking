@@ -128,12 +128,27 @@ public class UnitClassificationService {
         String lastPeriodName = null;
         UUID lastPeriodId = null;
         KpiPeriod lastPeriod = null;
+        // Ảnh chụp "đợt hiện tại" phải lấy đợt gần nhất CÓ đánh giá, không phải đợt cuối cùng
+        // theo thời gian. Chỉ cần ai đó tạo một đợt mới (chưa ai chấm) là toàn bộ khối xếp loại
+        // trắng xoá, dù các đợt trước vẫn đầy dữ liệu — người dùng thấy như biểu đồ bị mất.
+        // Đường xu hướng thì vẫn giữ MỌI đợt, kể cả đợt rỗng: đó là chuỗi thời gian, khuyết một
+        // mốc mới là sai.
+        KpiPeriod fallback = null;
         for (KpiPeriod p : periods) {
             Map<String, Integer> counts = countByLevel(memberIds, p.getId(), classifier, levels);
             int evaluated = counts.values().stream().mapToInt(Integer::intValue).sum();
             trend.add(TrendPoint.builder().periodName(p.getName()).percents(percents(counts, evaluated, levels)).build());
-            lastCounts = counts; lastEvaluated = evaluated; lastPeriodName = p.getName(); lastPeriodId = p.getId();
-            lastPeriod = p;
+            fallback = p;
+            if (evaluated > 0) {
+                lastCounts = counts; lastEvaluated = evaluated; lastPeriodName = p.getName(); lastPeriodId = p.getId();
+                lastPeriod = p;
+            }
+        }
+        // Không đợt nào có đánh giá: giữ tên đợt cuối để giao diện còn nói được đang xét đợt nào.
+        if (lastPeriod == null && fallback != null) {
+            lastPeriodName = fallback.getName();
+            lastPeriodId = fallback.getId();
+            lastPeriod = fallback;
         }
 
         // Đợt thuộc kỳ nào thì luật riêng của kỳ đó cũng có hiệu lực ở đây — nếu không,
@@ -145,6 +160,9 @@ public class UnitClassificationService {
         Profile mainProfile = resolveProfile(unit, ctx, cycleId);
         Classification classification = (lastCounts != null && lastEvaluated > 0)
                 ? classify(rulesOf(mainProfile, ctx), lastCounts, lastEvaluated, levels) : null;
+        // Khung bell curve của đợt đang xét — mẫu số là tổng nhân sự, giống màn đánh giá kỳ.
+        CycleCurveResponse bellCurve = lastCounts != null
+                ? curveFromCounts(mainProfile, levels, lastCounts, memberIds.size(), lastEvaluated) : null;
 
         // Xếp loại nhanh các đơn vị con trực tiếp (đợt hiện tại).
         List<ChildClassification> children = new ArrayList<>();
@@ -166,6 +184,7 @@ public class UnitClassificationService {
                 .levels(levelInfos(levels))
                 .totalMembers(memberIds.size()).evaluatedMembers(lastEvaluated).currentPeriodName(lastPeriodName)
                 .distribution(distribution).classification(classification)
+                .bellCurve(bellCurve)
                 .appliedProfileName(mainProfile != null ? mainProfile.name() : null)
                 .trend(trend).children(children)
                 .build();
@@ -233,6 +252,7 @@ public class UnitClassificationService {
                 .cycleId(cycle.getId()).cycleName(cycle.getName())
                 .distribution(distribution(counts, evaluated, levels))
                 .classification(classification)
+                .bellCurve(curveFromCounts(mainProfile, levels, counts, memberIds.size(), evaluated))
                 .appliedProfileName(mainProfile != null ? mainProfile.name() : null)
                 .trend(trend).children(children)
                 .build();
@@ -302,6 +322,16 @@ public class UnitClassificationService {
         int evaluated = counts.values().stream().mapToInt(Integer::intValue).sum();
 
         Profile profile = resolveProfile(unit, ruleContext(org, levels), cycleId);
+        return curveFromCounts(profile, levels, counts, headcount, evaluated);
+    }
+
+    /**
+     * Dựng khung bell curve từ số người đã đếm theo mức. Dùng chung cho màn đánh giá kỳ
+     * ({@link #cycleCurve}) và khối "Xếp loại đơn vị" ở Thống kê (theo đợt lẫn theo kỳ), để hai
+     * nơi vẽ cùng một biểu đồ từ cùng một phép tính hạn mức.
+     */
+    private CycleCurveResponse curveFromCounts(Profile profile, List<LevelDef> levels,
+                                               Map<String, Integer> counts, int headcount, int evaluated) {
         BellCurve bc = profile == null ? null : profile.bellCurve();
         Set<String> valid = levels.stream().map(LevelDef::name).collect(Collectors.toSet());
         boolean configured = bc != null && bc.enabled() && !bc.targets().isEmpty()
@@ -340,6 +370,204 @@ public class UnitClassificationService {
     }
 
     // ── Bell curve: khống chế tỷ lệ khi chấm nhân sự ────────────────────────
+
+    // ── Hiệu chỉnh theo khung (calibration) ─────────────────────────────────
+
+    /** Một thành viên đưa vào tính đề xuất hiệu chỉnh — số kỳ đã tính sẵn ở màn đánh giá kỳ. */
+    public record CalibrationMember(UUID userId, String userName, String orgUnitName,
+                                    Double finalScore, Integer matrixRating,
+                                    boolean locked, boolean adjusted) {}
+
+    /**
+     * Một đề xuất: chuyển một người từ mức này sang mức kề.
+     * Chế độ ma trận đặt thẳng {@code suggestedRating}; chế độ thang điểm kéo
+     * {@code suggestedScore} qua ngưỡng. {@code required} = true khi đề xuất nhằm gỡ một mức
+     * đang VƯỢT TRẦN (khung chặn sẽ không cho khoá nếu không làm); false khi chỉ để lấp sàn.
+     */
+    public record CalibrationSuggestion(UUID userId, String userName, String orgUnitName,
+                                        String fromLevel, String fromColor,
+                                        String toLevel, String toColor,
+                                        Double currentScore, Double suggestedScore,
+                                        Integer currentRating, Integer suggestedRating,
+                                        String direction, boolean required, String reason) {}
+
+    /**
+     * Kết quả soi khung + danh sách đề xuất. {@code configured} = false khi đơn vị không áp
+     * khung nào (hoặc nhỏ hơn quy mô tối thiểu) — khi đó không có gì để hiệu chỉnh.
+     */
+    public record CalibrationPlan(boolean configured, String mode, String profileName,
+                                  int headcount, int evaluated, List<QuotaSlot> slots,
+                                  boolean withinFrame, boolean blocked,
+                                  List<CalibrationSuggestion> suggestions) {}
+
+    private static final CalibrationPlan NO_PLAN =
+            new CalibrationPlan(false, null, null, 0, 0, List.of(), true, false, List.of());
+
+    /**
+     * Đề xuất nắn điểm kỳ cá nhân cho vừa khung bell curve của đơn vị.
+     *
+     * <p>Thuật toán đi hai lượt trên bộ mức xếp cao → thấp, mô phỏng đếm lại sau mỗi lần dời:
+     * <ol>
+     *   <li><b>Vượt trần</b> (bắt buộc): mức nào đang thừa N người thì lấy N người YẾU NHẤT
+     *       của mức đó (chưa khoá, chưa bị đề xuất) hạ xuống mức kề dưới. Đi từ trên xuống nên
+     *       người bị hạ làm mức dưới thừa sẽ được xử lý ngay ở vòng kế — dây chuyền tự chảy.</li>
+     *   <li><b>Dưới sàn</b> (tuỳ chọn, chỉ khi đơn vị đã chấm đủ người): mức nào thiếu thì lấy
+     *       người MẠNH NHẤT ở mức kề dưới nâng lên — nhưng không rút của một mức đang sát sàn.</li>
+     * </ol>
+     * Không bao giờ đề xuất người đã bị khoá bởi đơn vị con đã chốt, và không đề xuất chồng hai
+     * lần cho cùng một người trong một lần tính.
+     */
+    @Transactional(readOnly = true)
+    public CalibrationPlan calibrationPlan(UUID cycleId, OrgUnit unit, List<CalibrationMember> members) {
+        if (unit == null || unit.getOrgHierarchyLevel() == null) return NO_PLAN;
+        Organization org = unit.getOrgHierarchyLevel().getOrganization();
+        boolean matrix = PerformanceMatrixResolver.usesMatrix(org);
+        List<LevelDef> levels = levelDefs(org, matrix);
+        if (levels.isEmpty()) return NO_PLAN;
+
+        Profile profile = resolveProfile(unit, ruleContext(org, levels), cycleId);
+        BellCurve bc = profile == null ? null : profile.bellCurve();
+        Set<String> valid = levels.stream().map(LevelDef::name).collect(Collectors.toSet());
+        boolean configured = bc != null && bc.enabled() && !bc.targets().isEmpty()
+                && bc.targets().stream().anyMatch(t -> valid.contains(t.level()));
+        if (!configured) return NO_PLAN;
+
+        List<CalibrationMember> all = safeList(members);
+        int headcount = all.size();
+        if (headcount < Math.max(1, bc.minMembers())) {
+            return new CalibrationPlan(false, bc.mode(), profile.name(), headcount, 0,
+                    List.of(), true, false, List.of());
+        }
+
+        // Mức hiện tại của từng người (chỉ số trong `levels`, -1 = chưa có số).
+        Function<CycleMemberScore, String> classifier = cycleMemberClassifier(org, matrix);
+        Map<String, Integer> indexOf = new HashMap<>();
+        for (int i = 0; i < levels.size(); i++) indexOf.put(levels.get(i).name(), i);
+        Map<UUID, Integer> levelIdx = new HashMap<>();
+        int[] counts = new int[levels.size()];
+        for (CalibrationMember m : all) {
+            String lvl = classifier.apply(new CycleMemberScore(m.finalScore(),
+                    m.matrixRating() != null ? m.matrixRating().doubleValue() : null));
+            Integer idx = lvl != null ? indexOf.get(lvl) : null;
+            levelIdx.put(m.userId(), idx != null ? idx : -1);
+            if (idx != null) counts[idx]++;
+        }
+        int evaluated = Arrays.stream(counts).sum();
+
+        // Hạn mức từng mức — cùng cách tính với cycleCurve để biểu đồ và đề xuất nói một chuyện.
+        Map<String, Double> targetByLevel = new LinkedHashMap<>();
+        for (BellTarget t : bc.targets()) targetByLevel.put(t.level(), t.percent());
+        Integer[] minCount = new Integer[levels.size()];
+        Integer[] maxCount = new Integer[levels.size()];
+        List<QuotaSlot> slots = new ArrayList<>();
+        for (int i = 0; i < levels.size(); i++) {
+            LevelDef ld = levels.get(i);
+            Double target = targetByLevel.get(ld.name());
+            if (target == null) continue;
+            double min = Math.max(0, target - bc.tolerance());
+            double max = Math.min(100, target + bc.tolerance());
+            minCount[i] = (int) Math.round(min * headcount / 100.0);
+            maxCount[i] = maxQuota(max, headcount);
+            slots.add(new QuotaSlot(ld.name(), ld.color(), target, min, max, minCount[i], maxCount[i],
+                    counts[i], round1(counts[i] * 100.0 / headcount),
+                    counts[i] > maxCount[i], counts[i] < minCount[i]));
+        }
+        boolean anyOver = slots.stream().anyMatch(QuotaSlot::over);
+        boolean complete = evaluated >= headcount;
+        // Chưa ai có điểm thì không có gì để "nằm trong khung" — báo trong khung lúc đó là nói dối.
+        boolean withinFrame = evaluated > 0 && !anyOver && (!complete || slots.stream().noneMatch(QuotaSlot::under));
+        boolean blocked = "block".equalsIgnoreCase(bc.mode()) && anyOver;
+
+        // Giá trị đích khi dời mức: ma trận → hạng của mức; thang điểm → ngưỡng của mức.
+        List<Integer> grades = matrix ? matrixGrades(org) : List.of();
+        List<EvaluationLevel> thresholds = matrix ? List.of() : sortedLevels(org);
+
+        Set<UUID> touched = new HashSet<>();
+        List<CalibrationSuggestion> out = new ArrayList<>();
+
+        // Lượt 1: vượt trần → hạ người yếu nhất xuống mức kề dưới.
+        for (int i = 0; i < levels.size() - 1; i++) {
+            if (maxCount[i] == null) continue;
+            int over = counts[i] - maxCount[i];
+            if (over <= 0) continue;
+            List<CalibrationMember> pool = candidates(all, levelIdx, i, touched, true);
+            String why = String.format("%s đang %d/%d suất (trần %.0f%% của %d người)",
+                    levels.get(i).name(), counts[i], maxCount[i],
+                    Math.min(100, targetByLevel.get(levels.get(i).name()) + bc.tolerance()), headcount);
+            for (CalibrationMember m : pool) {
+                if (over <= 0) break;
+                out.add(suggest(m, levels, i, i + 1, matrix, grades, thresholds, true, why));
+                touched.add(m.userId());
+                counts[i]--; counts[i + 1]++;
+                over--;
+            }
+        }
+
+        // Lượt 2: dưới sàn → nâng người mạnh nhất của mức kề dưới lên. Chỉ khi đã chấm đủ,
+        // giữa chừng mức nào cũng đang thiếu, nhắc lúc đó là nhắc một câu vô nghĩa.
+        if (complete) {
+            for (int i = 0; i < levels.size() - 1; i++) {
+                if (minCount[i] == null) continue;
+                int under = minCount[i] - counts[i];
+                if (under <= 0) continue;
+                List<CalibrationMember> pool = candidates(all, levelIdx, i + 1, touched, false);
+                String why = String.format("%s mới %d/%d suất (sàn %.0f%% của %d người)",
+                        levels.get(i).name(), counts[i], minCount[i],
+                        Math.max(0, targetByLevel.get(levels.get(i).name()) - bc.tolerance()), headcount);
+                for (CalibrationMember m : pool) {
+                    if (under <= 0) break;
+                    // Không rút người của một mức đang sát sàn để lấp mức khác.
+                    if (minCount[i + 1] != null && counts[i + 1] - 1 < minCount[i + 1]) break;
+                    if (maxCount[i] != null && counts[i] + 1 > maxCount[i]) break;
+                    out.add(suggest(m, levels, i + 1, i, matrix, grades, thresholds, false, why));
+                    touched.add(m.userId());
+                    counts[i + 1]--; counts[i]++;
+                    under--;
+                }
+            }
+        }
+
+        return new CalibrationPlan(true, bc.mode(), profile.name(), headcount, evaluated,
+                slots, withinFrame, blocked, out);
+    }
+
+    /** Người ở mức {@code idx} còn dời được, sắp yếu nhất trước (hạ) hoặc mạnh nhất trước (nâng). */
+    private List<CalibrationMember> candidates(List<CalibrationMember> all, Map<UUID, Integer> levelIdx,
+                                               int idx, Set<UUID> touched, boolean weakestFirst) {
+        Comparator<CalibrationMember> byStrength = Comparator
+                .comparing((CalibrationMember m) -> m.matrixRating() != null ? m.matrixRating() : Integer.MIN_VALUE)
+                .thenComparing(m -> m.finalScore() != null ? m.finalScore() : Double.NEGATIVE_INFINITY);
+        return all.stream()
+                .filter(m -> levelIdx.getOrDefault(m.userId(), -1) == idx)
+                .filter(m -> !m.locked() && !touched.contains(m.userId()))
+                .sorted(weakestFirst ? byStrength : byStrength.reversed())
+                .toList();
+    }
+
+    private CalibrationSuggestion suggest(CalibrationMember m, List<LevelDef> levels, int from, int to,
+                                          boolean matrix, List<Integer> grades,
+                                          List<EvaluationLevel> thresholds, boolean required, String why) {
+        Integer suggestedRating = null;
+        Double suggestedScore = null;
+        if (matrix) {
+            suggestedRating = to < grades.size() ? grades.get(to) : null;
+        } else if (to < thresholds.size()) {
+            double toThreshold = thresholds.get(to).getThreshold();
+            if (to > from) {
+                // Hạ: rơi xuống ngay dưới ngưỡng của mức đang đứng, nhưng không thấp hơn sàn mức đích.
+                double fromThreshold = thresholds.get(from).getThreshold();
+                suggestedScore = Math.max(toThreshold, fromThreshold - 0.5);
+            } else {
+                suggestedScore = toThreshold; // Nâng: vừa chạm ngưỡng mức trên.
+            }
+            suggestedScore = Math.round(suggestedScore * 10.0) / 10.0;
+        }
+        return new CalibrationSuggestion(m.userId(), m.userName(), m.orgUnitName(),
+                levels.get(from).name(), levels.get(from).color(),
+                levels.get(to).name(), levels.get(to).color(),
+                m.finalScore(), suggestedScore, m.matrixRating(), suggestedRating,
+                to > from ? "DOWN" : "UP", required, why);
+    }
 
     /**
      * Soi phân bố THỰC TẾ của một đơn vị theo khung bell curve (forced distribution) mà hồ sơ

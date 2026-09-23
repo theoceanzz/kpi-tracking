@@ -52,6 +52,7 @@ public class EvaluationService {
     private final com.kpitracking.workflow.KpiWorkflowConfigService workflowConfigService;
     private final BscCascadeService bscCascadeService;
     private final ConductService conductService;
+    private final com.kpitracking.service.kpi.CycleLockChecker cycleLockChecker;
     private final com.kpitracking.service.notification.NotificationDispatcher notificationDispatcher;
 
     // Khung bell curve cần đọc lại phân bố xếp loại của cả đơn vị, mà UnitClassificationService
@@ -115,6 +116,19 @@ public class EvaluationService {
                 .findFirst()
                 .orElse(evaluatedUserAssignments.get(0).getOrgUnit());
         com.kpitracking.entity.Organization org = targetOrgUnit.getOrgHierarchyLevel().getOrganization();
+
+        // Kỳ chứa đợt này đã "chốt dữ liệu" ở đơn vị của người được chấm ⇒ đánh giá đợt là ĐẦU
+        // VÀO của điểm kỳ, đóng lại rồi. Đang hiệu chỉnh điểm kỳ mà bên dưới còn sửa được đợt thì
+        // điểm nền vừa chụp trôi mất, đề xuất theo khung thành nói dối.
+        if (kpiPeriod.getKpiCycle() != null) {
+            OrgUnit inputLock = cycleLockChecker.inputLockingUnitForUser(
+                    kpiPeriod.getKpiCycle().getId(), targetOrgUnit);
+            if (inputLock != null) {
+                throw new BusinessException("Kỳ " + kpiPeriod.getKpiCycle().getName()
+                        + " đã chốt dữ liệu ở đơn vị \"" + inputLock.getName()
+                        + "\" — không sửa được đánh giá đợt nữa. Hãy mở lại kỳ ở đơn vị đó nếu cần.");
+            }
+        }
 
         double maxScore = org.getEvaluationMaxScore();
         double ceiling = scoreCeiling(evaluatedUser.getId(), kpiPeriod.getId(), maxScore);
@@ -649,8 +663,10 @@ public class EvaluationService {
         if (selectedPeriodIds != null && !selectedPeriodIds.isEmpty()) {
             periodIds = new LinkedHashSet<>(selectedPeriodIds);
         } else {
+            // Đợt đã xoá mềm bị bỏ qua: ngay cả getId() trên proxy của nó cũng ném
+            // EntityNotFoundException (cùng luật với subtreePeriodsOrdered bên dưới).
             periodIds = kpiCriteriaRepository.findByOrgUnitIdInAndStatus(subtreeIds, KpiStatus.APPROVED).stream()
-                    .map(KpiCriteria::getKpiPeriod).filter(Objects::nonNull)
+                    .map(KpiCriteria::getKpiPeriod).filter(softDeletedRefs::periodAlive)
                     .map(KpiPeriod::getId).collect(Collectors.toCollection(LinkedHashSet::new));
         }
         if (periodIds.isEmpty()) return 0;

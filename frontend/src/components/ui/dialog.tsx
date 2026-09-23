@@ -14,13 +14,14 @@ import { cn } from '@/lib/utils'
  * đang tự dựng bằng `fixed inset-0` — khung này thay thế chúng dần mà không đổi cách gọi.
  */
 
-type Size = 'sm' | 'md' | 'lg' | 'xl' | 'full'
+type Size = 'sm' | 'md' | 'lg' | 'xl' | '2xl' | 'full'
 
 const DIALOG_WIDTH: Record<Size, string> = {
   sm: 'max-w-sm',    // xác nhận, nhập một trường
   md: 'max-w-lg',    // form 3–6 trường
   lg: 'max-w-2xl',   // form nhiều cột / bảng nhỏ
   xl: 'max-w-4xl',   // xem trước import, ma trận
+  '2xl': 'max-w-6xl', // phiếu chấm có dãy 6 thẻ số + bảng
   full: 'max-w-[min(96vw,1400px)]',
 }
 
@@ -29,6 +30,7 @@ const DRAWER_WIDTH: Record<Size, string> = {
   md: 'w-full sm:w-[480px]',
   lg: 'w-full sm:w-[640px]',
   xl: 'w-full sm:w-[800px]',
+  '2xl': 'w-full sm:w-[960px]',
   full: 'w-full sm:w-[min(96vw,1100px)]',
 }
 
@@ -70,6 +72,9 @@ function useDialogBehaviour(open: boolean, onClose: () => void, dismissible: boo
     }, 0)
 
     const onKey = (e: KeyboardEvent) => {
+      // Phím gõ trong bong bóng K.AI (portal riêng, nằm trên hộp thoại) là của K.AI: Esc không
+      // đóng hộp thoại, Tab không bị kéo về panel.
+      if ((e.target as HTMLElement | null)?.closest?.('[data-ai-widget]')) return
       if (e.key === 'Escape' && dismissible) { e.stopPropagation(); onClose() }
       // Giữ focus trong hộp thoại khi Tab qua đầu/cuối.
       if (e.key === 'Tab' && panelRef.current) {

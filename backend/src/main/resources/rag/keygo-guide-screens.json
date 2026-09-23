@@ -1,0 +1,268 @@
+[
+ {
+  "id": "dang-nhap",
+  "title": "Màn hình đăng nhập",
+  "route": "/login",
+  "role": null,
+  "description": "Cửa vào hệ thống. Ai cũng dùng chung một màn hình này, quyền hạn khác nhau chỉ hiện ra sau khi đã vào."
+ },
+ {
+  "id": "dang-ky",
+  "title": "Đăng ký tổ chức mới",
+  "route": "/register",
+  "role": null,
+  "description": "Dành cho tổ chức lần đầu dùng KeyGo. Khai tên tổ chức, người đại diện và các tầng trong sơ đồ tổ chức."
+ },
+ {
+  "id": "tong-quan-giam-doc",
+  "title": "Trang Tổng quan của Giám đốc",
+  "route": "/dashboard",
+  "role": "director",
+  "description": "Trang đầu tiên sau khi đăng nhập. Bố cục thay đổi theo vai trò; Giám đốc thấy số liệu của cả tổ chức."
+ },
+ {
+  "id": "cong-ty-thong-tin",
+  "title": "Thông tin công ty",
+  "route": "/company?section=info",
+  "role": "director",
+  "description": "Tên, mã tổ chức và danh sách tính năng đang bật."
+ },
+ {
+  "id": "co-cau-to-chuc",
+  "title": "Cơ cấu tổ chức",
+  "route": "/company?section=org-structure",
+  "role": "director",
+  "description": "Cây đơn vị từ cấp cao nhất xuống từng tổ nhóm, kèm người phụ trách mỗi đơn vị."
+ },
+ {
+  "id": "quan-ly-nhan-vien",
+  "title": "Quản lý nhân viên",
+  "route": "/company?section=users",
+  "role": "director",
+  "description": "Danh sách toàn bộ nhân sự. Thêm từng người hoặc nhập hàng loạt từ tệp Excel."
+ },
+ {
+  "id": "phan-quyen-vai-tro",
+  "title": "Phân quyền vai trò",
+  "route": "/company?section=roles",
+  "role": "director",
+  "description": "Mỗi vai trò được làm những gì. Đây là nơi quyết định ai thấy mục nào trên thanh bên."
+ },
+ {
+  "id": "cap-bac-cong-ty",
+  "title": "Cấp bậc công ty",
+  "route": "/company?section=ranks",
+  "role": "director",
+  "description": "Các tầng trong sơ đồ tổ chức và tên chức danh quản lý tương ứng của từng tầng."
+ },
+ {
+  "id": "thiet-lap-thong-bao",
+  "title": "Thiết lập thông báo",
+  "route": "/company?section=notifications",
+  "role": "director",
+  "description": "Chọn sự kiện nào gửi thông báo và gửi qua kênh nào: email, chuông trong hệ thống, hoặc cả hai."
+ },
+ {
+  "id": "module-tinh-nang",
+  "title": "Bật và tắt module",
+  "route": "/settings/tools?section=modules",
+  "role": "director",
+  "description": "Bảy nhóm tính năng có thể bật hoặc tắt tuỳ nhu cầu của tổ chức."
+ },
+ {
+  "id": "thang-diem",
+  "title": "Thang điểm và mức xếp loại",
+  "route": "/settings/tools?section=scoring",
+  "role": "director",
+  "description": "Ngưỡng điểm của từng mức xếp loại, và thang mức dùng cho chỉ tiêu chấm bằng nhận xét."
+ },
+ {
+  "id": "ma-tran-danh-gia",
+  "title": "Ma trận xếp loại",
+  "route": "/settings/tools?section=matrix",
+  "role": "director",
+  "description": "Bảng hai chiều quy đổi điểm hành vi và mức hoàn thành chỉ tiêu thành xếp loại cuối cùng."
+ },
+ {
+  "id": "xep-loai-don-vi",
+  "title": "Quy tắc xếp loại đơn vị",
+  "route": "/settings/tools?section=unit-class",
+  "role": "director",
+  "description": "Đơn vị được xếp loại theo tỉ lệ nhân sự đạt từng mức, không lấy điểm trung bình."
+ },
+ {
+  "id": "ky-dot-danh-gia",
+  "title": "Quản lý kỳ và đợt đánh giá",
+  "route": "/settings/tools?section=kpi-cycles",
+  "role": "director",
+  "description": "Kỳ là khoảng thời gian tổng hợp, đợt là các mốc nhỏ bên trong kỳ. Mọi chỉ tiêu đều phải thuộc về một đợt."
+ },
+ {
+  "id": "luong-kpi",
+  "title": "Tuỳ biến luồng KPI",
+  "route": "/kpi-workflow",
+  "role": "director",
+  "description": "Bật, tắt và sắp xếp các bước trong quy trình. Tắt một bước là bỏ thật, không phải chỉ ẩn đi."
+ },
+ {
+  "id": "danh-gia-ky",
+  "title": "Đánh giá kỳ",
+  "route": "/performance?section=cycle-evaluation",
+  "role": "director",
+  "description": "Gom kết quả nhiều đợt thành kết quả của cả kỳ, rồi chốt để công bố."
+ },
+ {
+  "id": "phan-tich-phan-cap",
+  "title": "Phân tích theo phân cấp",
+  "route": "/analytics?section=drilldown",
+  "role": "director",
+  "description": "So sánh hiệu suất giữa các đơn vị, đi từ cấp cao xuống từng nhân sự."
+ },
+ {
+  "id": "quan-ly-bsc",
+  "title": "Quản lý thẻ điểm cân bằng",
+  "route": "/settings/tools?section=bsc",
+  "role": "director",
+  "description": "Dựng bộ tiêu chí từng kỳ theo bốn lĩnh vực chiến lược và trọng số của mỗi hạng mục."
+ },
+ {
+  "id": "phan-tich-bsc",
+  "title": "Phân tích theo hạng mục chiến lược",
+  "route": "/analytics?section=bsc",
+  "role": "director",
+  "description": "Kết quả từng lĩnh vực chiến lược, cho thấy tổ chức đang mạnh và yếu ở đâu."
+ },
+ {
+  "id": "tro-ly-kai",
+  "title": "Trợ lý K.AI",
+  "route": "/ai-assistant",
+  "role": "director",
+  "description": "Hỏi bằng câu tiếng Việt thông thường để tra số liệu, hoặc nhờ gợi ý nội dung khi đang điền biểu mẫu."
+ },
+ {
+  "id": "trinh-thiet-lap-chon-luong",
+  "title": "Trình thiết lập nhanh — chọn việc cần làm",
+  "route": "/kpi-setup",
+  "role": "director",
+  "description": "Thay vì tự tìm từng màn hình, người dùng chọn một việc rồi được dẫn đi trọn mạch."
+ },
+ {
+  "id": "trinh-thiet-lap-buoc",
+  "title": "Trình thiết lập nhanh — một bước bên trong",
+  "route": "/kpi-setup/ASSIGN/criteria",
+  "role": "director",
+  "description": "Mỗi bước chỉ hỏi đúng một việc, có thanh tiến trình cho biết đang ở đâu và còn mấy bước nữa."
+ },
+ {
+  "id": "tong-quan-truong-don-vi",
+  "title": "Trang Tổng quan của Trưởng đơn vị",
+  "route": "/dashboard",
+  "role": "head",
+  "description": "Cùng một trang chủ nhưng thu hẹp phạm vi về đơn vị mà người này phụ trách."
+ },
+ {
+  "id": "thiet-lap-chi-tieu",
+  "title": "Thiết lập chỉ tiêu",
+  "route": "/performance?section=kpi-criteria",
+  "role": "head",
+  "description": "Tạo chỉ tiêu, đặt trọng số và giao cho từng người hoặc cả đơn vị."
+ },
+ {
+  "id": "phe-duyet-chi-tieu",
+  "title": "Phê duyệt chỉ tiêu",
+  "route": "/performance?section=kpi-criteria-pending",
+  "role": "head",
+  "description": "Hàng chờ những chỉ tiêu cấp dưới gửi lên. Duyệt hoặc từ chối kèm lý do."
+ },
+ {
+  "id": "dieu-chinh-chi-tieu",
+  "title": "Duyệt yêu cầu điều chỉnh",
+  "route": "/performance?section=kpi-adjustments-pending",
+  "role": "head",
+  "description": "Yêu cầu sửa chỉ tiêu đã duyệt. Để quá hạn xử lý thì hệ thống tự từ chối."
+ },
+ {
+  "id": "danh-gia-dot",
+  "title": "Duyệt báo cáo và đánh giá đợt",
+  "route": "/performance?section=submissions-org-unit",
+  "role": "head",
+  "description": "Xem bài nộp của nhân viên, duyệt hoặc trả lại, rồi chấm điểm cuối đợt."
+ },
+ {
+  "id": "phan-tich-don-vi",
+  "title": "Phân tích cấp đơn vị",
+  "route": "/analytics?section=summary",
+  "role": "head",
+  "description": "Bức tranh chung của đơn vị: tiến độ, tình hình nộp báo cáo và xếp hạng nhân sự."
+ },
+ {
+  "id": "tong-quan-nhan-vien",
+  "title": "Trang Tổng quan của nhân viên",
+  "route": "/dashboard",
+  "role": "staff",
+  "description": "Nhân viên thấy việc của riêng mình: chỉ tiêu đang đảm nhiệm và những gì còn phải nộp."
+ },
+ {
+  "id": "kpi-cua-toi",
+  "title": "KPI của tôi",
+  "route": "/me?section=my-kpi",
+  "role": "staff",
+  "description": "Danh sách chỉ tiêu được giao, trọng số, tiến độ và hạn nộp của từng chỉ tiêu."
+ },
+ {
+  "id": "nop-bao-cao",
+  "title": "Nộp báo cáo kết quả",
+  "route": "/submissions/new",
+  "role": "deputy",
+  "description": "Khai số liệu thực tế của một chỉ tiêu và đính kèm minh chứng."
+ },
+ {
+  "id": "bao-cao-cua-toi",
+  "title": "Báo cáo của tôi",
+  "route": "/me?section=my-submissions",
+  "role": "staff",
+  "description": "Toàn bộ bài đã nộp, chia theo trạng thái chờ duyệt, đã duyệt hoặc bị trả lại."
+ },
+ {
+  "id": "danh-gia-cua-toi",
+  "title": "Đánh giá của tôi",
+  "route": "/me?section=evaluations",
+  "role": "staff",
+  "description": "Điểm và xếp loại nhận được qua từng đợt, kèm nhận xét của quản lý."
+ },
+ {
+  "id": "phan-tich-ca-nhan",
+  "title": "Phân tích cá nhân",
+  "route": "/analytics?section=my",
+  "role": "staff",
+  "description": "Xu hướng điểm của riêng mình qua nhiều đợt, và vị trí so với mặt bằng chung."
+ },
+ {
+  "id": "thong-bao",
+  "title": "Thông báo",
+  "route": "/notifications",
+  "role": "director",
+  "description": "Hộp thư trong hệ thống. Bấm vào một thông báo là đi thẳng tới việc cần xử lý."
+ },
+ {
+  "id": "quan-ly-okr",
+  "title": "Quản lý OKR",
+  "route": "/settings/tools?section=okr",
+  "role": "director",
+  "description": "Mục tiêu chiến lược và các kết quả then chốt đo lường mục tiêu đó."
+ },
+ {
+  "id": "hanh-kiem-cua-toi",
+  "title": "Hạnh kiểm của tôi",
+  "route": "/me?section=my-conduct",
+  "role": "staff",
+  "description": "Tự chấm điểm hành vi theo bộ tiêu chí của tổ chức và nêu dẫn chứng cho từng mức."
+ },
+ {
+  "id": "diem-cua-toi",
+  "title": "Điểm thưởng của tôi",
+  "route": "/me?section=my-rewards",
+  "role": "staff",
+  "description": "Số dư điểm ghi nhận, cửa hàng quà và lịch sử đổi quà."
+ }
+]

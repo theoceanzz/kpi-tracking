@@ -9,6 +9,12 @@ import com.kpitracking.service.KpiAdjustmentService;
 import com.kpitracking.service.KpiCriteriaService;
 import com.kpitracking.service.KpiSubmissionService;
 import com.kpitracking.service.ReminderService;
+import java.util.Map;
+import com.kpitracking.service.reward.RewardGrantService;
+import com.kpitracking.service.KpiCycleEvaluationService;
+import com.kpitracking.service.CycleEvaluationMailer;
+import com.kpitracking.enums.KpiParentRelationType;
+import com.kpitracking.dto.request.reward.GrantDecisionRequest;
 import com.kpitracking.service.ai.action.PendingAction.Decision;
 import com.kpitracking.service.ai.action.PendingAction.Item;
 import lombok.RequiredArgsConstructor;
@@ -41,6 +47,9 @@ public class PendingActionExecutor {
     private final KpiCriteriaService kpiCriteriaService;
     private final KpiAdjustmentService adjustmentService;
     private final ReminderService reminderService;
+    private final RewardGrantService rewardGrantService;
+    private final KpiCycleEvaluationService cycleEvaluationService;
+    private final CycleEvaluationMailer cycleEvaluationMailer;
 
     /**
      * Kết quả chạy, để tầng trên báo lại đúng sự thật.
@@ -96,6 +105,40 @@ public class PendingActionExecutor {
 
             // Nhắc nhở dùng cả hai khoá: chỉ tiêu và người nhận.
             case SEND_REMINDER -> reminderService.sendReminder(item.id(), item.relatedId());
+
+            // Gửi từng bản một để giữ luật "một mục hỏng không chặn mục khác". Dịch vụ LẶNG LẼ bỏ qua
+            // bản không do người gọi tạo (trả danh sách rỗng) — biến im lặng đó thành mục hỏng có lý do.
+            case KPI_SUBMIT -> {
+                if (kpiCriteriaService.bulkSubmitForApproval(List.of(item.id())).isEmpty()) {
+                    throw new IllegalStateException("không gửi được — chỉ người tạo chỉ tiêu mới gửi duyệt được");
+                }
+            }
+
+            case REWARD_GRANT_REVIEW -> {
+                GrantDecisionRequest decision = new GrantDecisionRequest();
+                decision.setNote(action.note());
+                if (approve) rewardGrantService.approve(item.id(), decision);
+                else rewardGrantService.reject(item.id(), decision);
+            }
+
+            // Đợt đánh giá: id = đơn vị, relatedId = đợt.
+            case CYCLE_FINALIZE -> cycleEvaluationService.finalizeUnitCycle(item.relatedId(), item.id(), action.note());
+            case CYCLE_REOPEN -> cycleEvaluationService.reopenUnitCycle(item.relatedId(), item.id());
+            case CYCLE_SEND -> {
+                var result = cycleEvaluationMailer.send(item.relatedId(), item.id(), List.of());
+                if (result != null && result.failed() != null && !result.failed().isEmpty()) {
+                    throw new IllegalStateException("gửi hỏng cho " + result.failed().size() + " người: " + result.failed());
+                }
+            }
+
+            // Phân rã: id = đơn vị con, relatedId = chỉ tiêu cha; số liệu nằm trong params.
+            case KPI_DECOMPOSE -> {
+                Map<String, Object> p = item.params() == null ? Map.of() : item.params();
+                kpiCriteriaService.decomposeInto(item.relatedId(), item.id(),
+                        asDouble(p.get("targetValue")), asDouble(p.get("weight")),
+                        p.get("relation") == null ? KpiParentRelationType.DECOMPOSITION
+                                : KpiParentRelationType.valueOf(String.valueOf(p.get("relation"))));
+            }
         }
     }
 
@@ -131,6 +174,11 @@ public class PendingActionExecutor {
      */
     private static String verbOf(PendingAction action) {
         if (action.kind() == PendingAction.Kind.SEND_REMINDER) return "gửi nhắc nhở cho";
+        if (action.kind() == PendingAction.Kind.KPI_SUBMIT) return "gửi duyệt";
+        if (action.kind() == PendingAction.Kind.CYCLE_FINALIZE) return "chốt";
+        if (action.kind() == PendingAction.Kind.CYCLE_REOPEN) return "mở lại";
+        if (action.kind() == PendingAction.Kind.CYCLE_SEND) return "gửi kết quả";
+        if (action.kind() == PendingAction.Kind.KPI_DECOMPOSE) return "phân rã xuống";
         return action.decision() == Decision.REJECT ? "từ chối" : "duyệt";
     }
 
@@ -140,7 +188,16 @@ public class PendingActionExecutor {
             case KPI_CRITERIA_REVIEW -> "chỉ tiêu KPI";
             case KPI_ADJUSTMENT_REVIEW -> "yêu cầu điều chỉnh";
             case SEND_REMINDER -> "lượt chưa nộp";
+            case KPI_SUBMIT -> "chỉ tiêu KPI";
+            case REWARD_GRANT_REVIEW -> "đề xuất thưởng";
+            case CYCLE_FINALIZE, CYCLE_REOPEN, CYCLE_SEND -> "đợt đánh giá đơn vị";
+            case KPI_DECOMPOSE -> "đơn vị con";
         };
+    }
+
+    private static Double asDouble(Object v) {
+        if (v instanceof Number n) return n.doubleValue();
+        try { return v == null ? null : Double.valueOf(v.toString()); } catch (NumberFormatException e) { return null; }
     }
 
     /** Lý do ngắn, đủ để người dùng hiểu vì sao một mục không chạy được. */

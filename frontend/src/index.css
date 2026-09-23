@@ -339,10 +339,57 @@ table, dd {
   font-variant-numeric: tabular-nums;
 }
 
+/* ── Con trỏ bàn tay ở MỌI thứ bấm được ──────────────────────────────────────
+   Tailwind v4 bỏ luật `cursor: pointer` cho <button> mà v3 vẫn thêm, nên nút của cả ứng dụng
+   quay về con trỏ mũi tên của trình duyệt — nhìn không khác gì chữ thường, người dùng không
+   biết chỗ nào bấm được. Đặt lại một chỗ thay vì rắc `cursor-pointer` vào từng component.
+
+   Dùng `:where()` nên độ ưu tiên bằng 0: chỗ nào cần khác (kéo thả, resize, ô chỉ đọc) chỉ
+   cần một class Tailwind là đè được. Phần tử đang khoá thì trả về mũi tên, để "bấm không ăn"
+   nhìn ra ngay từ con trỏ. */
+@layer base {
+  :where(button, [role="button"], [role="tab"], [role="option"], [role="menuitem"], [role="switch"],
+         summary, label[for], select, a[href]):not(:disabled):not([aria-disabled="true"]):not([data-disabled]) {
+    cursor: pointer;
+  }
+
+  :where(button, [role="button"], [role="tab"], [role="option"], [role="menuitem"], [role="switch"],
+         select, input):disabled,
+  :where([role="button"], [role="tab"], [role="option"], [role="menuitem"], [role="switch"])[aria-disabled="true"],
+  :where(button, [role="button"], [role="tab"], [role="option"], [role="menuitem"])[data-disabled] {
+    cursor: not-allowed;
+  }
+
+  /* Ô chọn / ô đánh dấu: chuột phải thành bàn tay kể cả khi bấm vào nhãn đi kèm. */
+  :where(input[type="checkbox"], input[type="radio"], input[type="range"], input[type="file"], input[type="color"]):not(:disabled) {
+    cursor: pointer;
+  }
+}
+
 /* Focus nhìn thấy được bằng bàn phím ở mọi thành phần tương tác, cùng một kiểu. */
 :where(button, a, input, select, textarea, [role="button"], [tabindex]):focus-visible {
   outline: 2px solid var(--color-ring);
   outline-offset: 2px;
+}
+
+/* Ô nhập có prefix/suffix (`Input` bọc trong .input-shell): khung bọc đã vẽ ring bằng
+   focus-within, ô bên trong mà ăn thêm rule trên thì thành hai viền lồng nhau. Rule này
+   nằm ngoài @layer nên `outline-none` của Tailwind (trong @layer utilities) không đè được —
+   phải tắt ở đúng đây. */
+.input-shell > :where(input, textarea):focus-visible {
+  outline: none;
+}
+
+/* Ô soạn K.AI: MỘT lớp focus (viền đổi màu + quầng mờ) và không nhận outline chung ở trên.
+   Đặt ngoài @layer như luật kia vì `focus:outline-none` của Tailwind nằm trong @layer utilities
+   nên không bao giờ thắng được nó — đo được: ô chat từng hiện cả ring teal lẫn outline tím. */
+.ai-composer:focus-within {
+  border-color: var(--color-ai-accent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--color-ai-accent) 22%, transparent);
+}
+.ai-composer:focus-visible,
+.ai-composer textarea:focus-visible {
+  outline: none;
 }
 
 .custom-scrollbar::-webkit-scrollbar {
@@ -427,11 +474,15 @@ textarea:not(:disabled, [readonly], :focus, .no-edit-hint) {
 }
 .react-grid-item {
   transition: all 200ms ease;
-  transition-property: left, top;
+  /* Lưới định vị ô bằng `transform` (useCSSTransforms mặc định bật), nên chỉ liệt kê left/top là
+     transition không bao giờ chạy — ô nhảy cóc sang vị trí mới. */
+  transition-property: left, top, transform;
 }
 .react-grid-item.resizing {
   z-index: 1;
   will-change: width, height;
+  /* Không tắt thì mỗi khung hình kéo-dãn đều bị trễ 200ms, cảm giác như tay bị dính. */
+  transition: none !important;
 }
 .react-grid-item.react-draggable-dragging {
   transition: none !important;
@@ -458,47 +509,85 @@ textarea:not(:disabled, [readonly], :focus, .no-edit-hint) {
   transition-duration: 100ms;
   user-select: none;
 }
+/* ── Tay nắm dãn ở CẢ BỐN GÓC ───────────────────────────────────────────────
+   react-resizable gắn thêm lớp theo trục: .react-resizable-handle-se|-sw|-ne|-nw.
+   Trước đây mọi handle đều bị ghim cứng ở `bottom:0; right:0`, nên bật bốn góc mà không sửa chỗ
+   này sẽ cho bốn hộp vô hình chồng khít lên nhau ở góc dưới phải — ba cái vô dụng, một cái đổi
+   kích thước sai chiều.
+
+   Lưới nay LUÔN dãn được (không còn chế độ chỉnh sửa) nên handle là thường trực; vì vậy để trong
+   suốt lúc nghỉ, chỉ hiện khi trỏ vào ô — không thì bốn góc mỗi widget lúc nào cũng có vệt màu. */
 .react-grid-item > .react-resizable-handle {
   position: absolute;
-  width: 30px;
-  height: 30px;
-  bottom: 0;
-  right: 0;
-  cursor: se-resize;
+  width: 20px;
+  height: 20px;
   z-index: 25; /* luôn nằm trên nội dung widget (kể cả biểu đồ Recharts lấp đầy card) */
+  opacity: 0;
+  transition: opacity 150ms ease;
 }
-/* Nền bo góc mờ để handle luôn thấy được kể cả khi nằm trên biểu đồ dày đặc. */
-.react-grid-item > .react-resizable-handle::before {
-  content: "";
-  position: absolute;
-  right: 3px;
-  bottom: 3px;
-  width: 22px;
-  height: 22px;
-  border-bottom-right-radius: var(--radius-widget);
-  background: color-mix(in srgb, var(--color-primary) 18%, transparent);
-  opacity: 0.6;
-  transition: opacity 150ms ease, background 150ms ease;
+.react-grid-item:hover > .react-resizable-handle,
+.react-grid-item:focus-within > .react-resizable-handle,
+.react-grid-item > .react-resizable-handle:focus-visible {
+  opacity: 1;
 }
+
+.react-grid-item > .react-resizable-handle-se { bottom: 0; right: 0; cursor: se-resize; }
+.react-grid-item > .react-resizable-handle-sw { bottom: 0; left: 0;  cursor: sw-resize; }
+.react-grid-item > .react-resizable-handle-ne { top: 0;    right: 0; cursor: ne-resize; }
+.react-grid-item > .react-resizable-handle-nw { top: 0;    left: 0;  cursor: nw-resize; }
+
+/* Dấu ke góc, xoay theo từng góc để luôn "mở" ra phía ngoài ô. */
 .react-grid-item > .react-resizable-handle::after {
   content: "";
   position: absolute;
-  right: 7px;
-  bottom: 7px;
-  width: 7px;
-  height: 7px;
+  width: 8px;
+  height: 8px;
   border-right: 2.5px solid var(--color-primary);
   border-bottom: 2.5px solid var(--color-primary);
-  opacity: 0.85;
-  transition: opacity 150ms ease;
+  opacity: 0.9;
 }
-/* Đậm lên khi trỏ vào widget → dễ tìm & nắm để kéo-dãn. */
-.react-grid-item:hover > .react-resizable-handle::before {
-  opacity: 1;
-  background: color-mix(in srgb, var(--color-primary) 30%, transparent);
+.react-grid-item > .react-resizable-handle-se::after { right: 5px; bottom: 5px; }
+.react-grid-item > .react-resizable-handle-sw::after { left: 5px;  bottom: 5px; transform: rotate(90deg); }
+.react-grid-item > .react-resizable-handle-ne::after { right: 5px; top: 5px;    transform: rotate(-90deg); }
+.react-grid-item > .react-resizable-handle-nw::after { left: 5px;  top: 5px;    transform: rotate(180deg); }
+
+/* ── Tay nắm CẠNH: dải mỏng chạy dọc cạnh, chừa 20px hai đầu cho tay nắm góc ──────────────
+   Đè lại kích thước 20×20 của luật chung: cạnh ngang dài theo bề rộng ô, cạnh dọc dài theo
+   chiều cao. Vạch nhỏ ở giữa dải để mắt biết chỗ nắm — không có nó thì dải trong suốt 8px là
+   một vùng vô hình, người dùng chỉ phát hiện ra khi con trỏ tình cờ đổi hình. */
+.react-grid-item > .react-resizable-handle-n,
+.react-grid-item > .react-resizable-handle-s { left: 20px; right: 20px; width: auto; height: 8px; }
+.react-grid-item > .react-resizable-handle-n { top: 0;    cursor: ns-resize; }
+.react-grid-item > .react-resizable-handle-s { bottom: 0; cursor: ns-resize; }
+.react-grid-item > .react-resizable-handle-e,
+.react-grid-item > .react-resizable-handle-w { top: 20px; bottom: 20px; height: auto; width: 8px; }
+.react-grid-item > .react-resizable-handle-e { right: 0; cursor: ew-resize; }
+.react-grid-item > .react-resizable-handle-w { left: 0;  cursor: ew-resize; }
+
+.react-grid-item > .react-resizable-handle-n::after,
+.react-grid-item > .react-resizable-handle-s::after {
+  left: 50%; width: 24px; height: 3px; margin-left: -12px;
+  border: 0; border-radius: 2px; background: var(--color-primary);
 }
-.react-grid-item:hover > .react-resizable-handle::after {
-  opacity: 1;
+.react-grid-item > .react-resizable-handle-n::after { top: 2px; }
+.react-grid-item > .react-resizable-handle-s::after { bottom: 2px; }
+.react-grid-item > .react-resizable-handle-e::after,
+.react-grid-item > .react-resizable-handle-w::after {
+  top: 50%; width: 3px; height: 24px; margin-top: -12px;
+  border: 0; border-radius: 2px; background: var(--color-primary);
+}
+.react-grid-item > .react-resizable-handle-e::after { right: 2px; }
+.react-grid-item > .react-resizable-handle-w::after { left: 2px; }
+
+/* ── Đang đổi cỡ lưới vì bảng cấu hình mở/đóng: KHÔNG transition gì cả ─────────────────────
+   Bình thường ô chỉ transition `transform` (cố ý không transition `width`, xem ghi chú phía
+   trên). Khi cả lưới hẹp lại một lần, ô đổi rộng tức thì rồi trượt ngang 200ms → khe giữa hai
+   ô cạnh nhau mở ra rồi khép lại — đó là cái giật. Chrome gắn lớp này đúng một nhịp. */
+.rgl-settling .react-grid-item,
+.rgl-settling .react-grid-layout { transition: none !important; }
+
+@media (prefers-reduced-motion: reduce) {
+  .react-grid-item > .react-resizable-handle { transition: none; }
 }
 
 @keyframes pulse-ring {

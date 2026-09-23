@@ -6,8 +6,8 @@ import {
   Loader2, Target,
   Award, AlertCircle, Calendar,
   CheckCircle2, Clock, MessageSquare,
-  Paperclip, ExternalLink
 } from 'lucide-react'
+import AttachmentChips from '@/features/evidence/AttachmentChips'
 
 import { formatNumber, cn } from '@/lib/utils'
 import { Dialog, DialogFooter } from '@/components/ui/dialog'
@@ -193,20 +193,7 @@ export default function StaffPerformanceDetailModal({
                           )}
                           {s.attachments && s.attachments.length > 0 && (
                             <div className="flex flex-wrap gap-1.5 mt-1.5">
-                              {s.attachments.map(att => (
-                                <a
-                                  key={att.id}
-                                  href={att.fileUrl}
-                                  target="_blank"
-                                  rel="noopener noreferrer"
-                                  title={att.fileName}
-                                  className="text-eyebrow inline-flex items-center gap-1 px-2 py-0.5 rounded-control bg-[var(--color-muted)] hover:bg-[var(--color-primary)] hover:text-[var(--color-primary-foreground)] transition-all"
-                                >
-                                  <Paperclip size={10} />
-                                  <span className="truncate max-w-[80px]">{att.fileName}</span>
-                                  <ExternalLink size={10} />
-                                </a>
-                              ))}
+                              <AttachmentChips files={s.attachments} />
                             </div>
                           )}
                         </div>
@@ -257,20 +244,7 @@ export default function StaffPerformanceDetailModal({
                                     <div className="flex items-center gap-2">
                                       <span className="text-caption">•</span>
                                       <div className="flex flex-wrap gap-1.5">
-                                        {s.attachments.map(att => (
-                                          <a
-                                            key={att.id}
-                                            href={att.fileUrl}
-                                            target="_blank"
-                                            rel="noopener noreferrer"
-                                            title={att.fileName}
-                                            className="text-eyebrow inline-flex items-center gap-1 px-2 py-0.5 rounded-control bg-[var(--color-muted)] hover:bg-[var(--color-primary)] hover:text-[var(--color-primary-foreground)] transition-all"
-                                          >
-                                            <Paperclip size={10} />
-                                            <span className="truncate max-w-[80px]">{att.fileName}</span>
-                                            <ExternalLink size={10} />
-                                          </a>
-                                        ))}
+                                        <AttachmentChips files={s.attachments} />
                                       </div>
                                     </div>
                                   )}

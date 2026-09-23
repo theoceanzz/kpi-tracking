@@ -16,7 +16,11 @@ export interface KpiPeriod {
 }
 
 export type CycleEvaluationMode = 'QUANTITATIVE' | 'QUALITATIVE' | 'BOTH'
-export type CycleUnitEvalStatus = 'DRAFT' | 'FINALIZED'
+/**
+ * DRAFT → CALIBRATING (đã chốt dữ liệu kỳ: đầu vào đóng, đang chấm phòng / soi khung / hiệu chỉnh
+ * điểm cá nhân) → FINALIZED (đã khoá kết quả).
+ */
+export type CycleUnitEvalStatus = 'DRAFT' | 'CALIBRATING' | 'FINALIZED'
 
 // Kỳ đánh giá tổng hợp — gom nhiều đợt (KpiPeriod). Matches BE: KpiCycleResponse
 export interface KpiCycle {
@@ -66,6 +70,22 @@ export interface CycleUserEvaluation {
   matrixRating: number | null
   /** TB % hoàn thành định lượng các đợt — trục cột ma trận. */
   avgCompletionPercent: number | null
+  /**
+   * Trục HÀNH VI thật sự đưa vào ma trận (thang 0–5): mức định tính nếu có, còn không thì
+   * điểm hạnh kiểm đã quy đổi. Kỳ chạy chế độ Định lượng không có `qualScore` nhưng vẫn có
+   * điểm hành vi khi tổ chức chấm hạnh kiểm — cột trong bảng đọc trường này.
+   */
+  behaviorScore: number | null
+  /** true khi `behaviorScore` đến từ phiếu hạnh kiểm chứ không phải KPI định tính. */
+  behaviorFromConduct: boolean
+  /** Điểm hạnh kiểm đã tính trọng số, trên thang gốc của phiếu. */
+  conductScore: number | null
+  conductMaxScore: number | null
+  /** `matrixRating` được đặt tay lúc hiệu chỉnh theo khung (không suy từ hai trục). */
+  ratingOverridden: boolean
+  /** Điểm chốt kỳ tự tính chụp lúc "chốt dữ liệu kỳ" — null khi đơn vị chưa qua bước đó. */
+  baselineScore: number | null
+  baselineRating: number | null
   comment: string | null
   evaluatedByName: string | null
   evaluatedAt: string | null
@@ -126,6 +146,8 @@ export interface CycleUnitEvaluation {
   /** TB mức định tính (0-5) và TB xếp loại ma trận (1-5) của thành viên. */
   qualScore: number | null
   matrixRating: number | null
+  /** TB trục hành vi (0-5): mức định tính nếu có, còn không thì điểm hạnh kiểm đã quy đổi. */
+  behaviorScore: number | null
   memberCount: number
   /** true khi các con số là snapshot lúc chốt, không phải tính lại. */
   fromSnapshot: boolean
@@ -139,12 +161,15 @@ export interface CycleUnitEvaluation {
   classificationProfileName: string | null
   status: CycleUnitEvalStatus
   comment: string | null
+  /** Người bấm "chốt dữ liệu kỳ" và thời điểm — null khi còn nháp. */
+  calibratedByName?: string | null
+  calibratedAt?: string | null
   finalizedByName: string | null
   finalizedAt: string | null
   members: CycleUserEvaluation[]
 }
 
-export type CycleUnitEvalAction = 'FINALIZE' | 'REOPEN'
+export type CycleUnitEvalAction = 'CALIBRATE' | 'FINALIZE' | 'REOPEN'
 
 /** Một mốc lịch sử chốt/mở khoá. Matches BE: CycleUnitEvalEventResponse */
 export interface CycleUnitEvalEvent {

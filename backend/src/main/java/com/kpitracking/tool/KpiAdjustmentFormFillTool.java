@@ -6,8 +6,8 @@ import com.kpitracking.service.ai.form.FormPatch;
 import com.kpitracking.service.ai.form.FormRegistry;
 import com.kpitracking.service.ai.form.FormSpec.Descriptor;
 import lombok.RequiredArgsConstructor;
-import org.springframework.ai.chat.model.ToolContext;
-import org.springframework.ai.tool.annotation.Tool;
+import dev.langchain4j.invocation.InvocationParameters;
+import dev.langchain4j.agent.tool.Tool;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -38,7 +38,7 @@ public class KpiAdjustmentFormFillTool {
             // lời gọi HỢP LỆ, và model gọi rỗng để dò. Các tool đọc đều có một ô bắt buộc.
             String suggestionReason) {}
 
-    @Tool(name = "suggest_kpi_adjustment_form", description =
+    @Tool(name = "suggest_kpi_adjustment_form", value =
             "Đề xuất giá trị điền vào form XIN ĐIỀU CHỈNH CHỈ TIÊU đang mở trên màn hình người dùng. "
             + "Chỉ điền ô người dùng thực sự nêu — ô không chắc thì BỎ QUA, đừng đoán. "
             + "Đây là ĐỀ XUẤT: người dùng xem lại rồi tự chọn ô nào muốn nhận. "
@@ -46,7 +46,7 @@ public class KpiAdjustmentFormFillTool {
             + "dùng nêu — đừng tự bịa lý do. "
             + "deactivationRequest=true nghĩa là xin NGỪNG theo dõi chỉ tiêu này. "
             + "suggestionReason: một câu ngắn nói vì sao bạn đề xuất như vậy.")
-    public String suggestKpiAdjustmentForm(KpiAdjustmentFormFillRequest request, ToolContext context) {
+    public String suggestKpiAdjustmentForm(KpiAdjustmentFormFillRequest request, InvocationParameters context) {
         try {
             fill.requireArgs(request, "suggest_kpi_adjustment_form", KpiAdjustmentFormFillRequest.class);
             fill.requireOpenForm(FormRegistry.KPI_ADJUSTMENT_FORM, context);

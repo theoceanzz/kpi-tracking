@@ -21,6 +21,12 @@ const KIND_LABEL: Record<PendingAction['kind'], string> = {
   KPI_CRITERIA_REVIEW: 'chỉ tiêu KPI',
   KPI_ADJUSTMENT_REVIEW: 'yêu cầu điều chỉnh',
   SEND_REMINDER: 'lượt nhắc nhở',
+  KPI_SUBMIT: 'chỉ tiêu KPI gửi duyệt',
+  REWARD_GRANT_REVIEW: 'đề xuất thưởng',
+  CYCLE_FINALIZE: 'đợt đánh giá (chốt)',
+  CYCLE_REOPEN: 'đợt đánh giá (mở lại)',
+  CYCLE_SEND: 'đợt đánh giá (gửi kết quả)',
+  KPI_DECOMPOSE: 'đơn vị con nhận chỉ tiêu',
 }
 
 /**

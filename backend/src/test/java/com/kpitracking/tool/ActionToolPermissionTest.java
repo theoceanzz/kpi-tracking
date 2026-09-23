@@ -5,7 +5,7 @@ import com.kpitracking.tool.ToolRegistry.Group;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.ai.support.ToolCallbacks;
+import dev.langchain4j.agent.tool.ToolSpecifications;
 import org.springframework.test.util.ReflectionTestUtils;
 
 import java.util.Arrays;
@@ -29,7 +29,7 @@ import static org.mockito.Mockito.when;
  * chỉ tiêu sẽ nhận được tool DUYỆT bài nộp, còn người chỉ có quyền nhắc nhở thì không nhận được gì.
  *
  * <p>Hệ quả kéo theo: bốn tool phải nằm ở BỐN bean riêng, vì
- * {@code ToolCallbacks.from(bean)} lấy mọi {@code @Tool} của một bean cùng lúc. Lớp test này chốt
+ * {@code ToolSpecifications.toolSpecificationsFrom(bean)} lấy mọi {@code @Tool} của một bean cùng lúc. Lớp test này chốt
  * luôn điều đó — gộp chúng lại sẽ làm đỏ {@link #eachActionToolIsItsOwnBean}.
  */
 class ActionToolPermissionTest {
@@ -43,13 +43,19 @@ class ActionToolPermissionTest {
         permissionChecker = mock(PermissionChecker.class);
         registry = new ToolRegistry(
                 mock(SearchTool.class), mock(PeopleTool.class), mock(OrgUnitTool.class),
-                mock(KpiTool.class), mock(SubmissionTool.class), mock(AnalyticsTool.class),
+                mock(KpiTool.class), mock(SubmissionTool.class), mock(CycleEvaluationTool.class), mock(MyTasksTool.class), mock(AnalyticsTool.class),
                 mock(RankTool.class), mock(CompareTool.class), mock(BscTool.class),
                 mock(OkrTool.class),
                 new SubmissionReviewTool(null, null, null),
                 new KpiCriteriaReviewTool(null, null, null),
                 new KpiAdjustmentReviewTool(null, null, null),
                 new ReminderTool(null, null, null),
+                new KpiSubmitTool(null, null, null),
+                new RewardGrantReviewTool(null, null, null),
+                new CycleFinalizeTool(null, null, null, null, null, null),
+                new KpiDecomposeTool(null, null, null, null, null),
+                mock(DelegationTool.class), mock(ConductTool.class), mock(RewardTool.class), mock(PersonalTool.class),
+                mock(OrgDocumentSearchTool.class),
                 mock(EscapeHatchTool.class), mock(EvidenceRequestTool.class),
                 mock(AttachFilesTool.class), mock(KpiFormFillTool.class),
                 mock(SubmissionFormFillTool.class), mock(EvaluationFormFillTool.class),
@@ -60,9 +66,11 @@ class ActionToolPermissionTest {
     /** Tên các @Tool thực sự được gửi cho model khi mở nhóm GHI. */
     private List<String> actionToolNames() {
         List<Object> tools = registry.toolsFor(Set.of(Group.ACTION), userId);
-        return Arrays.stream(ToolCallbacks.from(tools.toArray()))
-                .map(cb -> cb.getToolDefinition().name())
-                .filter(n -> n.startsWith("review_") || n.startsWith("send_"))
+        return tools.stream()
+                .flatMap(t -> ToolSpecifications.toolSpecificationsFrom(t).stream())
+                .map(spec -> spec.name())
+                .filter(n -> n.startsWith("review_") || n.startsWith("send_") || n.startsWith("submit_")
+                        || n.startsWith("finalize_") || n.startsWith("decompose_"))
                 .toList();
     }
 
@@ -70,7 +78,10 @@ class ActionToolPermissionTest {
     private static List<Object> writeTools(List<Object> tools) {
         return tools.stream()
                 .filter(t -> t.getClass().getSimpleName().endsWith("ReviewTool")
-                        || t.getClass().getSimpleName().equals("ReminderTool"))
+                        || t.getClass().getSimpleName().equals("ReminderTool")
+                        || t.getClass().getSimpleName().equals("KpiSubmitTool")
+                        || t.getClass().getSimpleName().equals("CycleFinalizeTool")
+                        || t.getClass().getSimpleName().equals("KpiDecomposeTool"))
                 .toList();
     }
 
@@ -120,13 +131,23 @@ class ActionToolPermissionTest {
     }
 
     @Test
-    @DisplayName("có đủ bốn quyền -> thấy đủ bốn tool")
+    @DisplayName("có đủ năm quyền -> thấy đủ năm tool")
     void allPermissionsGiveAllTools() {
-        grant("SUBMISSION:REVIEW", "KPI:APPROVE_CRITERIA", "KPI:APPROVE_ADJUSTMENT", "REMINDER:SEND");
+        grant("SUBMISSION:REVIEW", "KPI:APPROVE_CRITERIA", "KPI:APPROVE_ADJUSTMENT", "REMINDER:SEND", "KPI:SUBMIT",
+                "REWARD:APPROVE", "CYCLE_EVAL:FINALIZE", "KPI:CREATE");
 
         assertThat(actionToolNames()).containsExactlyInAnyOrder(
                 "review_submissions", "review_kpi_criteria",
-                "review_kpi_adjustments", "send_reminders");
+                "review_kpi_adjustments", "send_reminders", "submit_kpis_for_approval",
+                "review_reward_grants", "finalize_cycle_evaluation", "decompose_kpi");
+    }
+
+    @Test
+    @DisplayName("KPI:SUBMIT chỉ mở tool gửi duyệt, không mở tool duyệt")
+    void submitPermissionGivesOnlySubmitTool() {
+        grant("KPI:SUBMIT");
+
+        assertThat(actionToolNames()).containsExactly("submit_kpis_for_approval");
     }
 
     @Test
@@ -141,14 +162,16 @@ class ActionToolPermissionTest {
     @Test
     @DisplayName("mỗi tool GHI là một bean RIÊNG — gộp lại là gộp luôn cả quyền")
     void eachActionToolIsItsOwnBean() {
-        grant("SUBMISSION:REVIEW", "KPI:APPROVE_CRITERIA", "KPI:APPROVE_ADJUSTMENT", "REMINDER:SEND");
+        grant("SUBMISSION:REVIEW", "KPI:APPROVE_CRITERIA", "KPI:APPROVE_ADJUSTMENT", "REMINDER:SEND", "KPI:SUBMIT",
+                "REWARD:APPROVE", "CYCLE_EVAL:FINALIZE", "KPI:CREATE");
         List<Object> tools = registry.toolsFor(Set.of(Group.ACTION), userId);
 
-        // Bốn quyền -> bốn bean. Nếu ai đó gộp hai tool vào chung một lớp thì số bean tụt xuống,
+        // Tám quyền -> tám bean. Nếu ai đó gộp hai tool vào chung một lớp thì số bean tụt xuống,
         // và lúc đó một quyền sẽ mở nhiều hơn một việc.
-        assertThat(writeTools(tools)).hasSize(4);
+        assertThat(writeTools(tools)).hasSize(8);
         assertThat(writeTools(tools).stream().map(t -> t.getClass().getSimpleName()).toList())
                 .containsExactlyInAnyOrder("SubmissionReviewTool", "KpiCriteriaReviewTool",
-                        "KpiAdjustmentReviewTool", "ReminderTool");
+                        "KpiAdjustmentReviewTool", "ReminderTool", "KpiSubmitTool",
+                        "RewardGrantReviewTool", "CycleFinalizeTool", "KpiDecomposeTool");
     }
 }

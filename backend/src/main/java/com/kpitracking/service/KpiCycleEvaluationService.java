@@ -14,6 +14,7 @@ import com.kpitracking.enums.ConductScope;
 import com.kpitracking.exception.ResourceNotFoundException;
 import com.kpitracking.repository.*;
 import com.kpitracking.service.kpi.CycleEvaluationExcelWriter;
+import com.kpitracking.util.ConductAxisResolver;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
@@ -62,6 +63,19 @@ public class KpiCycleEvaluationService {
 
     private CycleUserEvaluationResponse computeUser(KpiCycle cycle, User user,
                                                     List<CycleUnitEvaluation> finalizedUnits) {
+        return computeUser(cycle, user, finalizedUnits,
+                conductService.effectiveAxes(List.of(user.getId()), ConductScope.CYCLE,
+                        cycle.getId(), cycle.getOrganization()));
+    }
+
+    /**
+     * @param conductAxes điểm hạnh kiểm đã nạp sẵn cho cả danh sách (xem
+     *                    {@link ConductService#effectiveAxes}) — tổng hợp phòng ban gọi hàm này
+     *                    cho từng thành viên, nạp lẻ thì mỗi người thêm một truy vấn.
+     */
+    private CycleUserEvaluationResponse computeUser(KpiCycle cycle, User user,
+                                                    List<CycleUnitEvaluation> finalizedUnits,
+                                                    Map<UUID, ConductService.ConductAxis> conductAxes) {
         CycleEvaluationMode mode = cycle.getEvaluationMode() != null ? cycle.getEvaluationMode() : CycleEvaluationMode.BOTH;
         List<KpiPeriod> periods = kpiPeriodRepository.findByKpiCycleIdOrderByStartDateAsc(cycle.getId());
 
@@ -113,6 +127,24 @@ public class KpiCycleEvaluationService {
         // Khoá được kế thừa xuống dưới: đơn vị của nhân viên hoặc bất kỳ đơn vị cha nào đã chốt.
         OrgUnit lockingUnit = lockingUnit(unit, finalizedUnits);
 
+        // Hai trục của ma trận, sau khi hạnh kiểm lấp trục còn trống (cùng luật với lúc lưu điểm
+        // chốt kỳ). Tính ở ĐÂY chứ không chỉ trong saveUserCycleScore để chấm xong hạnh kiểm là
+        // bảng hiện ngay điểm hành vi và xếp loại tạm tính — trước đây hai cột đó đứng trống cho
+        // tới khi có người bấm "Lưu điểm chốt", nên chấm hạnh kiểm trông như không có tác dụng gì.
+        Double savedQual = saved != null ? saved.getQualScore() : null;
+        ConductService.ConductAxis conduct = conductAxes.getOrDefault(
+                user.getId(), ConductService.ConductAxis.EMPTY);
+        var axes = ConductAxisResolver.resolve(savedQual, avgCompletionPercent,
+                conduct.score(), conduct.maxScore());
+        Double behaviorScore = round(axes.behaviorScore());
+        boolean behaviorFromConduct = savedQual == null && behaviorScore != null;
+
+        Organization org = cycle.getOrganization();
+        Integer matrixRating = saved != null && saved.getMatrixRating() != null
+                ? saved.getMatrixRating()
+                : evaluationService.lookupMatrixRating(axes.behaviorScore(), axes.completionPercent(),
+                        org != null ? org.getPerformanceMatrix() : null);
+
         return CycleUserEvaluationResponse.builder()
                 .userId(user.getId())
                 .userName(user.getFullName())
@@ -124,9 +156,16 @@ public class KpiCycleEvaluationService {
                 .managerScore(managerScore)
                 .finalScore(overridden ? round(saved.getFinalScore()) : managerScore)
                 .finalScoreOverridden(overridden)
-                .qualScore(saved != null ? saved.getQualScore() : null)
-                .matrixRating(saved != null ? saved.getMatrixRating() : null)
+                .qualScore(savedQual)
+                .matrixRating(matrixRating)
                 .avgCompletionPercent(avgCompletionPercent)
+                .behaviorScore(behaviorScore)
+                .behaviorFromConduct(behaviorFromConduct)
+                .conductScore(round(conduct.score()))
+                .conductMaxScore(conduct.maxScore())
+                .ratingOverridden(saved != null && Boolean.TRUE.equals(saved.getRatingOverridden()))
+                .baselineScore(saved != null ? round(saved.getBaselineScore()) : null)
+                .baselineRating(saved != null ? saved.getBaselineRating() : null)
                 .comment(saved != null ? saved.getComment() : null)
                 .evaluatedByName(saved != null && saved.getEvaluatedBy() != null ? saved.getEvaluatedBy().getFullName() : null)
                 .evaluatedAt(saved != null ? saved.getEvaluatedAt() : null)
@@ -140,6 +179,19 @@ public class KpiCycleEvaluationService {
     @Transactional
     public CycleUserEvaluationResponse saveUserCycleScore(UUID cycleId, UUID userId, Double finalScore,
                                                           Double qualScore, String comment) {
+        return saveUserCycleScore(cycleId, userId, finalScore, qualScore, comment, false, null);
+    }
+
+    /**
+     * @param touchRating    client có gửi trường xếp loại không. Không gửi ⇒ giữ nguyên hạng đã
+     *                       hiệu chỉnh (nếu có) — mở modal chỉ để sửa nhận xét không được làm mất
+     *                       kết quả hiệu chỉnh theo khung.
+     * @param ratingOverride hạng đặt tay (1..5); null khi gửi ⇒ bỏ ghi đè, quay về suy từ hai trục.
+     */
+    @Transactional
+    public CycleUserEvaluationResponse saveUserCycleScore(UUID cycleId, UUID userId, Double finalScore,
+                                                          Double qualScore, String comment,
+                                                          boolean touchRating, Integer ratingOverride) {
         KpiCycle cycle = kpiCycleRepository.findById(cycleId)
                 .orElseThrow(() -> new ResourceNotFoundException("Kỳ đánh giá", "id", cycleId));
         User user = userRepository.findById(userId)
@@ -196,7 +248,7 @@ public class KpiCycleEvaluationService {
         if (org != null && Boolean.TRUE.equals(org.getEnableConduct())) {
             Double conduct = conductService.effectiveScore(userId, ConductScope.CYCLE, cycleId, org);
             Double conductMax = conductService.effectiveMaxScore(userId, ConductScope.CYCLE, cycleId, org);
-            var axes = com.kpitracking.util.ConductAxisResolver.resolve(rowScore, colPercent, conduct, conductMax);
+            var axes = ConductAxisResolver.resolve(rowScore, colPercent, conduct, conductMax);
             rowScore = axes.behaviorScore();
             colPercent = axes.completionPercent();
         }
@@ -205,9 +257,23 @@ public class KpiCycleEvaluationService {
         String matrixJson = org != null ? org.getPerformanceMatrix() : null;
         Integer matrixRating = evaluationService.lookupMatrixRating(rowScore, colPercent, matrixJson);
 
+        // Hạng đặt tay (hiệu chỉnh theo khung) thắng hạng suy từ hai trục. Client không đụng tới
+        // trường này thì giữ nguyên ghi đè cũ.
+        boolean overridden = touchRating
+                ? ratingOverride != null
+                : Boolean.TRUE.equals(entity.getRatingOverridden());
+        if (overridden) {
+            Integer keep = touchRating ? ratingOverride : entity.getMatrixRating();
+            if (keep == null || keep < 1 || keep > 5) {
+                throw new IllegalArgumentException("Xếp loại hiệu chỉnh phải nằm trong khoảng 1 đến 5");
+            }
+            matrixRating = keep;
+        }
+
         entity.setFinalScore(finalScore);
         entity.setQualScore(qualScore);
         entity.setMatrixRating(matrixRating);
+        entity.setRatingOverridden(overridden);
         entity.setComment(comment);
         entity.setEvaluatedBy(getCurrentUser());
         entity.setEvaluatedAt(Instant.now());
@@ -234,6 +300,8 @@ public class KpiCycleEvaluationService {
         live.setComment(saved.getComment());
         live.setFinalizedByName(saved.getFinalizedBy() != null ? saved.getFinalizedBy().getFullName() : null);
         live.setFinalizedAt(saved.getFinalizedAt());
+        live.setCalibratedByName(saved.getCalibratedBy() != null ? saved.getCalibratedBy().getFullName() : null);
+        live.setCalibratedAt(saved.getCalibratedAt());
 
         if (saved.getStatus() == CycleUnitEvalStatus.FINALIZED) {
             live.setSelfScore(saved.getSelfScore());
@@ -266,15 +334,22 @@ public class KpiCycleEvaluationService {
         double mgrSum = 0; int mgrN = 0;
         double qualSum = 0; int qualN = 0;
         double matrixSum = 0; int matrixN = 0;
+        double behaviorSum = 0; int behaviorN = 0;
         List<CycleUnitEvaluation> finalizedUnits = finalizedUnits(cycle.getId());
+        List<User> unitMembers = subtreeMembers(unit);
+        // Nạp hạnh kiểm của cả phòng bằng MỘT truy vấn trước vòng lặp.
+        Map<UUID, ConductService.ConductAxis> conductAxes = conductService.effectiveAxes(
+                unitMembers.stream().map(User::getId).toList(),
+                ConductScope.CYCLE, cycle.getId(), cycle.getOrganization());
         // Điểm phòng ban gộp từ ĐIỂM CHỐT của từng nhân viên (đã tính cả phần chỉnh tay).
-        for (User u : subtreeMembers(unit)) {
-            CycleUserEvaluationResponse m = computeUser(cycle, u, finalizedUnits);
+        for (User u : unitMembers) {
+            CycleUserEvaluationResponse m = computeUser(cycle, u, finalizedUnits, conductAxes);
             members.add(m);
             if (m.getSelfScore() != null) { selfSum += m.getSelfScore(); selfN++; }
             if (m.getFinalScore() != null) { mgrSum += m.getFinalScore(); mgrN++; }
             if (m.getQualScore() != null) { qualSum += m.getQualScore(); qualN++; }
             if (m.getMatrixRating() != null) { matrixSum += m.getMatrixRating(); matrixN++; }
+            if (m.getBehaviorScore() != null) { behaviorSum += m.getBehaviorScore(); behaviorN++; }
         }
 
         // Xếp loại đơn vị theo phân bố mức của thành viên TRONG KỲ. Truyền thẳng điểm kỳ vừa tính
@@ -309,6 +384,7 @@ public class KpiCycleEvaluationService {
                 .bellCurve(curve)
                 .qualScore(qualN > 0 ? round(qualSum / qualN) : null)
                 .matrixRating(matrixN > 0 ? round(matrixSum / matrixN) : null)
+                .behaviorScore(behaviorN > 0 ? round(behaviorSum / behaviorN) : null)
                 .memberCount(members.size())
                 .classification(cls != null ? cls.level() : null)
                 .classificationColor(cls != null ? cls.color() : null)
@@ -375,6 +451,15 @@ public class KpiCycleEvaluationService {
         if (score != null && (score < 0 || score > maxScore)) {
             throw new IllegalArgumentException("Điểm đơn vị phải nằm trong khoảng 0 đến " + maxScore);
         }
+        // Chấm ĐÚNG BẰNG trung bình thành viên thì không phải chấm tay — lưu như chốt bằng TB,
+        // không đòi lý do và không gắn tên người "chấm tay" vào một con số không đổi.
+        if (score != null) {
+            Double auto = computeUnitSummary(cycleId, orgUnitId).getAutoScore();
+            if (auto != null && Math.abs(auto - score) < 0.005) {
+                score = null;
+                reason = null;
+            }
+        }
         // Chấm khác TB mà không nêu lý do thì con số công bố không còn giải thích được cho ai.
         if (score != null && (reason == null || reason.isBlank())) {
             throw new IllegalArgumentException("Nhập lý do chấm điểm đơn vị khác trung bình thành viên");
@@ -415,6 +500,26 @@ public class KpiCycleEvaluationService {
                 .orElseGet(() -> CycleUnitEvaluation.builder().kpiCycle(cycle).orgUnit(unit).build());
 
         User current = getCurrentUser();
+
+        // Khoá kết quả là bước CUỐI của luồng: phải chốt dữ liệu (đóng đầu vào, chụp điểm nền)
+        // và đi qua bước hiệu chỉnh trước. Khoá thẳng từ nháp là quay lại kiểu cũ — thấy khung
+        // lệch thì đã không sửa được ai.
+        if (entity.getStatus() == null || entity.getStatus() == CycleUnitEvalStatus.DRAFT) {
+            throw new IllegalArgumentException("Hãy \"Chốt dữ liệu kỳ\" và soi khung bell curve trước khi khoá kết quả.");
+        }
+
+        // Khung ở chế độ CHẶN mà còn mức vượt trần thì không khoá được — đây chính là lúc luật
+        // phải có răng, đánh giá đợt đã chặn từng lượt chấm thì kết quả kỳ không thể lỏng hơn.
+        UnitClassificationService.CalibrationPlan plan = unitClassificationService.calibrationPlan(
+                cycleId, unit, calibrationMembers(summary));
+        if (plan.blocked()) {
+            String over = plan.slots().stream()
+                    .filter(UnitClassificationService.QuotaSlot::over)
+                    .map(q -> String.format("%s %d/%d người", q.level(), q.currentCount(), q.maxCount()))
+                    .collect(java.util.stream.Collectors.joining("; "));
+            throw new IllegalArgumentException("Vượt khung bell curve \"" + plan.profileName() + "\": " + over
+                    + ". Hiệu chỉnh theo đề xuất hoặc nới khung ở Cấu hình → Xếp loại đơn vị rồi khoá lại.");
+        }
 
         // Chốt ĐÈ lên bản đã chốt cũng là một cách gỡ khoá của người khác
         // (finalizedBy bị ghi lại thành mình), nên phải qua đúng luật mở khoá.
@@ -490,7 +595,41 @@ public class KpiCycleEvaluationService {
         }
     }
 
-    /** Mở khoá (đưa về DRAFT) để chỉnh lại điểm sau khi đã chốt. */
+    /**
+     * Mở khoá lùi MỘT bước: FINALIZED → CALIBRATING (sửa lại điểm kỳ cá nhân / điểm phòng),
+     * CALIBRATING → DRAFT (mở lại cả đầu vào: đánh giá đợt, hạnh kiểm).
+     *
+     * @param cascade mở luôn mọi đơn vị con đang khoá kết quả — cấp trên mở cả cây một lần thay
+     *                vì đi từng team. Đơn vị con nào người này không đủ cấp mở thì bỏ qua.
+     */
+    @Transactional
+    public CycleUnitEvaluationResponse reopenUnitCycle(UUID cycleId, UUID orgUnitId, boolean cascade) {
+        if (!cascade) return reopenUnitCycle(cycleId, orgUnitId);
+
+        // Mở cả cây: chính đơn vị này chỉ lùi bước khi nó ĐANG khoá kết quả. Cha còn nháp mà
+        // các phòng con đã khoá (kiểu dữ liệu đổ sẵn) thì vẫn phải mở được con từ cha.
+        assertCanManageUnit(orgUnitId);
+        boolean selfFinalized = cycleUnitEvaluationRepository.findByKpiCycleIdAndOrgUnitId(cycleId, orgUnitId)
+                .map(e -> e.getStatus() == CycleUnitEvalStatus.FINALIZED).orElse(false);
+        if (selfFinalized) reopenUnitCycle(cycleId, orgUnitId);
+
+        OrgUnit unit = orgUnitRepository.findById(orgUnitId)
+                .orElseThrow(() -> new ResourceNotFoundException("Đơn vị", "id", orgUnitId));
+        User current = getCurrentUser();
+        for (CycleUnitEvaluation child : cycleUnitEvaluationRepository.findByKpiCycleId(cycleId)) {
+            OrgUnit cu = child.getOrgUnit();
+            if (cu == null || cu.getId().equals(orgUnitId) || cu.getPath() == null
+                    || unit.getPath() == null || !cu.getPath().startsWith(unit.getPath())) continue;
+            if (child.getStatus() != CycleUnitEvalStatus.FINALIZED) continue;
+            if (reopenDenialReason(child, current.getId(), cu.getId()) != null) {
+                log.info("Bỏ qua mở khoá cascade cho đơn vị {}: không đủ cấp", cu.getId());
+                continue;
+            }
+            stepBack(child, current);
+        }
+        return getUnitCycleSummary(cycleId, orgUnitId);
+    }
+
     @Transactional
     public CycleUnitEvaluationResponse reopenUnitCycle(UUID cycleId, UUID orgUnitId) {
         assertCanManageUnit(orgUnitId);
@@ -506,21 +645,110 @@ public class KpiCycleEvaluationService {
         }
 
         User current = getCurrentUser();
-        String denial = reopenDenialReason(entity, current.getId(), orgUnitId);
-        if (denial != null) throw new com.kpitracking.exception.ForbiddenException(denial);
+        if (entity.getStatus() == CycleUnitEvalStatus.FINALIZED) {
+            String denial = reopenDenialReason(entity, current.getId(), orgUnitId);
+            if (denial != null) throw new com.kpitracking.exception.ForbiddenException(denial);
+        }
+        // Cấp trên đã đóng đầu vào thì đơn vị con không tự mở lại được về nháp.
+        if (entity.getStatus() == CycleUnitEvalStatus.CALIBRATING) {
+            OrgUnit inputAncestor = lockingAncestor(entity.getOrgUnit(), cycleLockChecker.inputLockedUnits(cycleId));
+            if (inputAncestor != null) {
+                throw new IllegalArgumentException("Đơn vị cấp trên \"" + inputAncestor.getName()
+                        + "\" đã chốt dữ liệu kỳ. Hãy mở lại ở đơn vị đó trước.");
+            }
+        }
+        stepBack(entity, current);
+        log.info("Mở khoá kỳ đánh giá cycleId={} orgUnitId={} → {}", cycleId, orgUnitId, entity.getStatus());
+        return getUnitCycleSummary(cycleId, orgUnitId);
+    }
 
-        entity.setStatus(CycleUnitEvalStatus.DRAFT);
-        entity.setFinalizedBy(null);
-        entity.setFinalizedAt(null);
-        entity.setFinalizedRoleLevel(null);
-        entity.setFinalizedRoleRank(null);
+    /** Lùi một bước trạng thái và ghi lịch sử. FINALIZED → CALIBRATING, CALIBRATING → DRAFT. */
+    private void stepBack(CycleUnitEvaluation entity, User actor) {
+        if (entity.getStatus() == CycleUnitEvalStatus.FINALIZED) {
+            entity.setStatus(CycleUnitEvalStatus.CALIBRATING);
+            entity.setFinalizedBy(null);
+            entity.setFinalizedAt(null);
+            entity.setFinalizedRoleLevel(null);
+            entity.setFinalizedRoleRank(null);
+        } else if (entity.getStatus() == CycleUnitEvalStatus.CALIBRATING) {
+            entity.setStatus(CycleUnitEvalStatus.DRAFT);
+            entity.setCalibratedBy(null);
+            entity.setCalibratedAt(null);
+        } else {
+            return;
+        }
         cycleUnitEvaluationRepository.save(entity);
-        log.info("Mở khoá kỳ đánh giá cycleId={} orgUnitId={}", cycleId, orgUnitId);
+        recordEvent(entity.getKpiCycle(), entity.getOrgUnit(), CycleUnitEvalAction.REOPEN, actor, null, null);
+    }
 
-        recordEvent(entity.getKpiCycle(), entity.getOrgUnit(), CycleUnitEvalAction.REOPEN,
-                current, null, null);
+    // ─────────────────────────── Chốt dữ liệu & hiệu chỉnh ───────────────────────────
+
+    /**
+     * Bước 1 của luồng: đóng đầu vào (đánh giá đợt, hạnh kiểm) và chụp ĐIỂM NỀN của từng thành
+     * viên. Từ đây quản lý chấm điểm phòng, soi khung và nắn điểm kỳ cá nhân; mọi lần nắn đều
+     * so được với điểm nền ("92.5 → 89.5").
+     */
+    @Transactional
+    public CycleUnitEvaluationResponse startCalibration(UUID cycleId, UUID orgUnitId) {
+        KpiCycle cycle = kpiCycleRepository.findById(cycleId)
+                .orElseThrow(() -> new ResourceNotFoundException("Kỳ đánh giá", "id", cycleId));
+        OrgUnit unit = orgUnitRepository.findById(orgUnitId)
+                .orElseThrow(() -> new ResourceNotFoundException("Đơn vị", "id", orgUnitId));
+        assertCanManageUnit(orgUnitId);
+
+        CycleUnitEvaluation entity = cycleUnitEvaluationRepository
+                .findByKpiCycleIdAndOrgUnitId(cycleId, orgUnitId)
+                .orElseGet(() -> CycleUnitEvaluation.builder().kpiCycle(cycle).orgUnit(unit).build());
+        if (entity.getStatus() == CycleUnitEvalStatus.FINALIZED) {
+            throw new IllegalArgumentException("Đơn vị đã khoá kết quả kỳ. Mở khoá trước nếu cần hiệu chỉnh lại.");
+        }
+        if (entity.getStatus() == CycleUnitEvalStatus.CALIBRATING) {
+            return getUnitCycleSummary(cycleId, orgUnitId); // đã ở bước này rồi, bấm lại vô hại
+        }
+
+        CycleUnitEvaluationResponse summary = computeUnitSummary(cycleId, orgUnitId);
+        User current = getCurrentUser();
+
+        // Chụp điểm nền: số TỰ TÍNH (TB QLTT các đợt + xếp loại tạm tính), không phải số đã chỉnh
+        // tay — nền là để so xem người ta đã nắn bao nhiêu.
+        for (CycleUserEvaluationResponse m : summary.getMembers()) {
+            User u = userRepository.findById(m.getUserId()).orElse(null);
+            if (u == null) continue;
+            CycleUserEvaluation cue = cycleUserEvaluationRepository
+                    .findByKpiCycleIdAndUserId(cycleId, m.getUserId())
+                    .orElseGet(() -> CycleUserEvaluation.builder().kpiCycle(cycle).user(u).build());
+            cue.setBaselineScore(m.getManagerScore());
+            cue.setBaselineRating(m.getMatrixRating());
+            cycleUserEvaluationRepository.save(cue);
+        }
+
+        entity.setEvaluationMode(summary.getMode());
+        entity.setStatus(CycleUnitEvalStatus.CALIBRATING);
+        entity.setCalibratedBy(current);
+        entity.setCalibratedAt(Instant.now());
+        cycleUnitEvaluationRepository.save(entity);
+        log.info("Chốt dữ liệu kỳ cycleId={} orgUnitId={} by userId={}", cycleId, orgUnitId, current.getId());
+        recordEvent(cycle, unit, CycleUnitEvalAction.CALIBRATE, current, summary, null);
 
         return getUnitCycleSummary(cycleId, orgUnitId);
+    }
+
+    /** Bước 3: phân bố hiện tại vs khung + danh sách đề xuất nắn điểm. */
+    @Transactional(readOnly = true)
+    public UnitClassificationService.CalibrationPlan getCalibrationPlan(UUID cycleId, UUID orgUnitId) {
+        OrgUnit unit = orgUnitRepository.findById(orgUnitId)
+                .orElseThrow(() -> new ResourceNotFoundException("Đơn vị", "id", orgUnitId));
+        CycleUnitEvaluationResponse summary = computeUnitSummary(cycleId, orgUnitId);
+        return unitClassificationService.calibrationPlan(cycleId, unit, calibrationMembers(summary));
+    }
+
+    private List<UnitClassificationService.CalibrationMember> calibrationMembers(CycleUnitEvaluationResponse summary) {
+        return summary.getMembers().stream()
+                .map(m -> new UnitClassificationService.CalibrationMember(
+                        m.getUserId(), m.getUserName(), m.getOrgUnitName(),
+                        m.getFinalScore(), m.getMatrixRating(),
+                        m.isLocked(), m.isFinalScoreOverridden() || m.isRatingOverridden()))
+                .toList();
     }
 
     /**

@@ -3,7 +3,7 @@ package com.kpitracking.tool;
 import com.kpitracking.tool.ToolRegistry.Group;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.ai.tool.annotation.Tool;
+import dev.langchain4j.agent.tool.Tool;
 
 import java.lang.reflect.Method;
 import java.util.LinkedHashSet;
@@ -79,8 +79,11 @@ class ToolRegistryTest {
         // readGroups() không đụng vào field nào, nên dựng bằng CALLS_REAL_METHODS thay vì liệt kê
         // một dãy null — dãy đó gãy mỗi lần thêm một tool vào registry, và đã gãy hai lần.
         assertThat(mock(ToolRegistry.class, CALLS_REAL_METHODS).readGroups())
+                // CONDUCT/REWARD là nhóm ĐỌC theo cờ tổ chức: nằm đây để "nới tool"/"không chắc" cũng
+                // với tới; KeyGoToolProvider bỏ chúng khi tổ chức tắt. PERSONAL không nằm đây: chỉ lượt
+                // của nhân viên mới yêu cầu, quản lý không bao giờ nhận.
                 .containsExactlyInAnyOrder(Group.CORE, Group.LOOKUP, Group.KPI, Group.INSIGHT,
-                        Group.BSC, Group.OKR)
+                        Group.BSC, Group.OKR, Group.CONDUCT, Group.REWARD)
                 // FORM không nằm đây vì tool điền form chọn theo form đang mở, không theo nhóm.
                 .doesNotContain(Group.ACTION, Group.FORM);
     }

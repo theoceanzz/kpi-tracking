@@ -105,7 +105,7 @@ public class EvidenceAttachmentService {
         if (!owner && !permissionChecker.isGlobalAdminIn(me.getId(), t.unit().getId())) {
             throw new ForbiddenException("Chỉ người tải lên mới xoá được tệp minh chứng này");
         }
-        if (a.getStorageKey() != null) cloudinaryStorageService.deleteFile(a.getStorageKey());
+        if (a.getStorageKey() != null) cloudinaryStorageService.deleteFile(a.getStorageKey(), a.getContentType());
         repository.delete(a);
     }
 

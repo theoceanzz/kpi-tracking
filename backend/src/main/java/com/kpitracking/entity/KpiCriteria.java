@@ -90,8 +90,17 @@ public class KpiCriteria {
     @Column(name = "approved_at")
     private Instant approvedAt;
 
+    /**
+     * Đợt đã XOÁ MỀM ⇒ trả {@code null} thay vì một proxy nổ {@code EntityNotFoundException} khi
+     * chạm vào (kể cả {@code getId()}). {@code KpiPeriod} có {@code @SQLRestriction("deleted_at IS
+     * NULL")}, KPI của đợt cũ vẫn giữ FK; trước đây mỗi màn thống kê đọc tới đợt đó là đổ 500
+     * (prod 2026-09-15 và 2026-09-22, ba lượt vá lẻ ở từng service vẫn sót). Hơn 40 chỗ đọc
+     * {@code getKpiPeriod()} đều đã có {@code != null} — cho Hibernate trả null là mọi chỗ đúng
+     * cùng lúc. Đổi lại quan hệ này tải NGAY (không lazy); số đợt ít nên chi phí không đáng kể.
+     */
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "kpi_period_id")
+    @org.hibernate.annotations.NotFound(action = org.hibernate.annotations.NotFoundAction.IGNORE)
     private KpiPeriod kpiPeriod;
 
     @ManyToOne(fetch = FetchType.LAZY)

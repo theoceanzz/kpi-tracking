@@ -60,7 +60,7 @@ export default function DumbbellDotPlot({
       </div>
       <ResponsiveContainer width="100%" height={chartHeight}>
         <BarChart data={rows} layout="vertical" margin={{ top: 8, right: 24, left: 8, bottom: 8 }}>
-          <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke={AXIS_COLORS.grid} />
+          <CartesianGrid stroke="var(--color-border)" horizontal={false} />
           <XAxis
             label={xLabel ? xAxisLabel(xLabel) : undefined}
             type="number"

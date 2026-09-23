@@ -1,43 +1,38 @@
 import { useState, useEffect, useMemo } from 'react'
 import { useForm, Controller, useFieldArray } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
-import {
-  adjustKpiSchema,
-  replaceKpiSchema,
-  type AdjustFormData,
-  type ReplaceFormData,
-} from '../schemas/urgentTaskSchema'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import { kpiApi } from '../api/kpiApi'
 import { toast } from 'sonner'
+import {
+  Loader2, AlertTriangle, ArrowLeftRight, SlidersHorizontal, Check, ShieldAlert, Users, Building2, CalendarRange,
+} from 'lucide-react'
+import { adjustKpiSchema, replaceKpiSchema, NEW_KPI_DEFAULTS, type AdjustFormData, type ReplaceFormData } from '../schemas/urgentTaskSchema'
+import { kpiApi } from '../api/kpiApi'
 import { getApiErrorMessage } from '@/lib/apiError'
-import { Loader2, X, AlertTriangle, ArrowLeftRight, SlidersHorizontal, Check, ShieldAlert, Target, Users, BarChart3 } from 'lucide-react'
-import { FREQUENCY_MAP, cn, formatNumber, formatDateTime } from '@/lib/utils'
+import { FREQUENCY_MAP, cn, formatNumber } from '@/lib/utils'
 import UserAvatar from '@/components/common/UserAvatar'
-import type { KpiCriteria, KpiType } from '@/types/kpi'
+import type { KpiCriteria } from '@/types/kpi'
 import { useUsers } from '@/features/users/hooks/useUsers'
 import { useAuthStore } from '@/store/authStore'
 import { useKpiPeriods } from '../hooks/useKpiPeriods'
 import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { useObjectives } from '@/features/okr/hooks/useOkr'
-import { useBscPerspectives, useFixedPerspectives, useScorecards } from '@/features/bsc/hooks/useBsc'
+import { useBscPerspectives, useScorecards } from '@/features/bsc/hooks/useBsc'
 import { useKpiTotalWeight } from '../hooks/useKpiTotalWeight'
-import { Select, SelectContent, SelectItem, SelectGroup, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { LayoutGrid } from 'lucide-react'
-import { DateTimePicker } from '@/components/common/DateTimePicker'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { scorecardsForPeriod } from '@/features/bsc/utils/scorecardScope'
 import { perspectiveHint } from '@/features/bsc/utils/perspectiveHint'
 import type { ScorecardPerspectiveResponse } from '@/features/bsc/types'
 import { toastFirstError } from '@/lib/formErrors'
+import { Dialog } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { ChoiceChip } from '@/components/ui/choice-chip'
-
-
-const inputCls = "w-full px-3 py-2.5 rounded-control border border-[var(--color-border)] bg-[var(--color-background)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/50 transition-all shadow-sm"
-const labelCls = "text-eyebrow block mb-1.5"
-
-const frequencyOptions = (['DAILY', 'WEEKLY', 'MONTHLY', 'QUARTERLY', 'SEMI_ANNUALLY', 'YEARLY', 'UNLIMITED'] as const)
+import { SegmentedControl } from '@/components/common/FilterBar'
+import { Field, Hint } from './KpiFormParts'
+import { UrgentKpiFields, type UrgentKpiContext } from './UrgentKpiFields'
 
 interface UrgentTaskModalProps {
   open: boolean
@@ -46,18 +41,18 @@ interface UrgentTaskModalProps {
   orgUnitId: string
 }
 
-// ─── Shared Assignee Selector ────────────────────────────────────────────────
+type Tab = 'replace' | 'adjust'
 
-interface AssigneeSelectorProps {
+// ─── Giao thực hiện ──────────────────────────────────────────────────────────
+
+function AssigneeSelector({ orgUnitId, selectedIds, onChange, hint, isStaff, currentUser }: {
   orgUnitId: string
   selectedIds: string[]
   onChange: (ids: string[]) => void
   hint?: string
   isStaff?: boolean
   currentUser?: { id: string; fullName: string; email?: string | null; avatarUrl?: string | null }
-}
-
-function AssigneeSelector({ orgUnitId, selectedIds, onChange, hint, isStaff, currentUser }: AssigneeSelectorProps) {
+}) {
   const [selectedRole, setSelectedRole] = useState('ALL')
   const [userSearch, setUserSearch] = useState('')
 
@@ -65,6 +60,7 @@ function AssigneeSelector({ orgUnitId, selectedIds, onChange, hint, isStaff, cur
     if (isStaff && currentUser && (selectedIds.length === 0 || !selectedIds.includes(currentUser.id))) {
       onChange([currentUser.id])
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isStaff, currentUser?.id])
 
   const { data: usersData, isLoading } = useUsers(isStaff ? {} : {
@@ -72,7 +68,6 @@ function AssigneeSelector({ orgUnitId, selectedIds, onChange, hint, isStaff, cur
     role: selectedRole === 'ALL' ? undefined : selectedRole,
     size: 500,
   })
-
   const allUsers = usersData?.content ?? []
 
   const availableRoles = useMemo(() => {
@@ -87,253 +82,90 @@ function AssigneeSelector({ orgUnitId, selectedIds, onChange, hint, isStaff, cur
   const displayUsers = useMemo(() => {
     if (!userSearch.trim()) return allUsers
     const s = userSearch.toLowerCase()
-    return allUsers.filter(u =>
-      u.fullName.toLowerCase().includes(s) || u.email?.toLowerCase().includes(s)
-    )
+    return allUsers.filter(u => u.fullName.toLowerCase().includes(s) || u.email?.toLowerCase().includes(s))
   }, [allUsers, userSearch])
 
-  const toggle = (id: string) => {
-    const next = selectedIds.includes(id)
-      ? selectedIds.filter(x => x !== id)
-      : [...selectedIds, id]
-    onChange(next)
-  }
+  const toggle = (id: string) => onChange(selectedIds.includes(id) ? selectedIds.filter(x => x !== id) : [...selectedIds, id])
 
-  if (isStaff && currentUser) {
-    return (
-      <div className="bg-[var(--color-primary)]/5 rounded-card p-4 border border-[var(--color-primary)]/10">
-        <label className="text-label flex items-center gap-2 mb-3">
-          <Users size={15} className="text-[var(--color-primary)]" />
-          Giao thực hiện
-        </label>
-        <div className="bg-[var(--color-background)] border border-[var(--color-primary)]/20 rounded-card p-4">
-          <div className="flex items-center gap-3">
-            <UserAvatar
-              fullName={currentUser.fullName}
-              avatarUrl={currentUser.avatarUrl}
-              className="w-10 h-10 rounded-full"
-              fallbackClassName="bg-[var(--color-primary)]/10 text-[var(--color-primary)] font-semibold text-lg"
-            />
-            <div className="flex-1 min-w-0">
-              <div className="text-sm font-medium">{currentUser.fullName} <span className="text-[var(--color-primary)]">(Bản thân)</span></div>
-              <div className="text-caption font-medium truncate">{currentUser.email}</div>
-            </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <span className="px-2 py-0.5 rounded-full bg-[var(--color-primary)]/10 text-[var(--color-primary)] text-xs font-medium">Đang chọn</span>
-              <div className="bg-[var(--color-primary)] text-[var(--color-primary-foreground)] rounded-full p-1">
-                <Check size={12} strokeWidth={3} />
-              </div>
-            </div>
+  return (
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <label className="text-label flex items-center gap-2"><Users size={15} className="text-[var(--color-primary)]" aria-hidden="true" /> Giao thực hiện</label>
+        {!isStaff && <span className="text-caption">{selectedIds.length} người</span>}
+      </div>
+      {hint && <p className="text-caption">{hint}</p>}
+      {isStaff && currentUser ? (
+        <div className="flex items-center gap-3 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] px-3 py-2.5">
+          <UserAvatar fullName={currentUser.fullName} avatarUrl={currentUser.avatarUrl} className="h-8 w-8 rounded-full" fallbackClassName="bg-[var(--color-primary-soft)] text-[var(--color-primary)] text-sm font-semibold" />
+          <div className="min-w-0 flex-1">
+            <p className="truncate text-sm font-medium">{currentUser.fullName} <span className="text-[var(--color-primary)]">(bản thân)</span></p>
+            <p className="truncate text-caption">{currentUser.email}</p>
+          </div>
+          <Check size={16} className="text-[var(--color-primary)]" aria-hidden="true" />
+        </div>
+      ) : (
+        <div className="overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
+          <div className="flex flex-wrap items-center gap-2 border-b border-[var(--color-border)] p-2">
+            <Input size="sm" placeholder="Tìm theo tên hoặc email…" value={userSearch} onChange={e => setUserSearch(e.target.value)} className="w-56" />
+            <ChoiceChip selected={selectedRole === 'ALL'} size="sm" onClick={() => setSelectedRole('ALL')}>Tất cả</ChoiceChip>
+            {availableRoles.map(r => (
+              <ChoiceChip key={r.name} selected={selectedRole === r.name} size="sm" onClick={() => setSelectedRole(r.name)}>{r.label}</ChoiceChip>
+            ))}
+          </div>
+          <div className="custom-scrollbar max-h-44 space-y-0.5 overflow-y-auto p-1.5">
+            {isLoading ? (
+              <p className="flex items-center justify-center gap-2 py-8 text-caption"><Loader2 size={16} className="animate-spin" /> Đang tải nhân sự…</p>
+            ) : displayUsers.length === 0 ? (
+              <p className="py-8 text-center text-caption">Không có nhân sự phù hợp</p>
+            ) : displayUsers.map(u => {
+              const on = selectedIds.includes(u.id)
+              return (
+                <button key={u.id} type="button" onClick={() => toggle(u.id)}
+                  className={cn('flex w-full items-center justify-between rounded-control px-3 py-2 text-left transition-colors',
+                    on ? 'bg-[var(--color-primary)] text-[var(--color-primary-foreground)]' : 'hover:bg-[var(--color-muted)]')}>
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-medium">{u.fullName}</span>
+                    <span className={cn('block truncate text-xs', on ? 'text-white/80' : 'text-[var(--color-muted-foreground)]')}>
+                      {u.email}{u.memberships?.[0]?.roleDisplayName && ` · ${u.memberships[0].roleDisplayName}`}
+                    </span>
+                  </span>
+                  {on && <Check size={14} aria-hidden="true" />}
+                </button>
+              )
+            })}
           </div>
         </div>
-      </div>
-    )
-  }
-
-  return (
-    <div className="bg-[var(--color-primary)]/5 rounded-card p-4 space-y-3 border border-[var(--color-primary)]/10">
-      <div className="flex items-center justify-between">
-        <label className="text-label flex items-center gap-2">
-          <Users size={15} className="text-[var(--color-primary)]" />
-          Giao thực hiện
-          {hint && <span className="text-caption">({hint})</span>}
-        </label>
-        <div className="text-eyebrow px-2.5 py-1 rounded-full bg-[var(--color-primary)]/10 text-[var(--color-primary)]">
-          {usersData?.totalElements ?? 0} nhân sự khả dụng
-        </div>
-      </div>
-
-      {/* Role filter chips */}
-      <div className="flex flex-wrap gap-2 items-center">
-        <span className="text-eyebrow shrink-0">Role:</span>
-        {[{ name: 'ALL', label: 'Tất cả' }, ...availableRoles].map(r => (
-          <ChoiceChip selected={selectedRole === r.name} variant="solid" size="sm" className="py-1 shrink-0" key={r.name} onClick={() => setSelectedRole(r.name)}>
-            {r.label}
-          </ChoiceChip>
-        ))}
-      </div>
-
-      {/* Search + list */}
-      <div className="border border-[var(--color-border)] rounded-card overflow-hidden bg-[var(--color-background)]">
-        <div className="p-2 border-b border-[var(--color-border)] bg-[var(--color-accent)]/5">
-          <input type="text" placeholder="Họ tên hoặc Email..."
-            value={userSearch} onChange={e => setUserSearch(e.target.value)}
-            className="w-full px-3 py-2 text-xs rounded-control border border-[var(--color-border)] bg-[var(--color-background)] outline-none focus:ring-2 focus:ring-[var(--color-primary)]/50 transition-all shadow-sm" />
-        </div>
-        <div className="max-h-48 overflow-y-auto p-1.5 space-y-1 custom-scrollbar">
-          {isLoading ? (
-            <div className="p-12 flex flex-col items-center justify-center gap-3 text-xs text-[var(--color-muted-foreground)] font-medium">
-              <Loader2 size={24} className="animate-spin text-[var(--color-primary)]" />
-              <span className="opacity-60">Đang đồng bộ...</span>
-            </div>
-          ) : displayUsers.length === 0 ? (
-            <div className="p-8 text-center text-xs text-[var(--color-muted-foreground)] font-medium italic">
-              Không tìm thấy nhân sự phù hợp
-            </div>
-          ) : displayUsers.map(u => (
-            <div key={u.id} onClick={() => toggle(u.id)}
-              className={cn('flex items-center justify-between px-3 py-2.5 rounded-card cursor-pointer transition-all',
-                selectedIds.includes(u.id)
-                  ? 'bg-[var(--color-primary)] text-[var(--color-primary-foreground)] scale-[1.01] font-semibold'
-                  : 'hover:bg-[var(--color-accent)]'
-              )}>
-              <div className="flex flex-col">
-                <span className="text-sm">{u.fullName}</span>
-                <div className="flex items-center gap-2 mt-0.5">
-                  <span className={cn('text-xs font-medium opacity-70',
-                    selectedIds.includes(u.id) ? 'text-white' : 'text-[var(--color-muted-foreground)]'
-                  )}>{u.email}</span>
-                  {u.memberships?.[0]?.roleDisplayName && (
-                    <span className={cn('px-1.5 py-0.5 rounded text-xs font-medium',
-                      selectedIds.includes(u.id)
-                        ? 'bg-white/20 text-white'
-                        : 'bg-[var(--color-primary)]/10 text-[var(--color-primary)]'
-                    )}>
-                      {u.memberships[0].roleDisplayName}
-                    </span>
-                  )}
-                </div>
-              </div>
-              {selectedIds.includes(u.id) && (
-                <div className="bg-white rounded-full p-0.5 animate-in zoom-in">
-                  <Check size={12} className="text-[var(--color-primary)]" />
-                </div>
-              )}
-            </div>
-          ))}
-        </div>
-      </div>
-    </div>
-  )
-}
-
-// ─── Shared quantitative/qualitative switcher ────────────────────────────────
-
-function KpiTypeTabs({ value, onChange }: { value: KpiType; onChange: (t: KpiType) => void }) {
-  return (
-    <div className="grid grid-cols-2 gap-2 p-1 rounded-card bg-[var(--color-accent)]/30 border border-[var(--color-border)]/40">
-      <ChoiceChip selected={value !== 'QUALITATIVE'} variant="solid" className="py-2" onClick={() => onChange('QUANTITATIVE')}>
-        <BarChart3 /> Định lượng
-      </ChoiceChip>
-      <button type="button" onClick={() => onChange('QUALITATIVE')}
-        className={cn('text-eyebrow flex items-center justify-center gap-2 py-2 rounded-card transition-all',
-          value === 'QUALITATIVE' ? 'bg-[var(--color-success-solid)] text-white' : 'text-[var(--color-muted-foreground)] hover:bg-[var(--color-accent)]')}>
-        <SlidersHorizontal size={13} /> Định tính
-      </button>
-    </div>
-  )
-}
-
-// ─── Tab 1: Replace KPI ──────────────────────────────────────────────────────
-
-interface TabSharedProps {
-  period?: { id: string; name: string; startDate: string | null; endDate: string | null }
-  enableOkr: boolean
-  enableQualitative: boolean
-  enableBsc: boolean
-  objectives: any[]
-  perspectives: any[]
-  /** Hạng mục CÓ trong bộ tiêu chí của đơn vị (null = không lọc). Lọc dropdown giống form tạo KPI. */
-  availablePerspectiveIds?: Set<string> | null
-  /**
-   * Dòng phụ "MT … · sàn … · …%" của từng hạng mục, dựng sẵn ở component cha từ BỘ TIÊU CHÍ
-   * HIỆU LỰC. Không lấy từ danh mục hạng mục: cùng một hạng mục nhưng mỗi đơn vị đặt mục tiêu
-   * khác nhau, hiện số danh mục là hiện nhầm con số của đơn vị khác.
-   */
-  perspectiveHints?: Map<string, string | null>
-}
-
-// ─── Shared BSC perspective selector ─────────────────────────────────────────
-
-function PerspectiveSelect({ control, name, perspectives, availablePerspectiveIds, perspectiveHints }: { control: any; name: string; perspectives: any[]; availablePerspectiveIds?: Set<string> | null; perspectiveHints?: Map<string, string | null> }) {
-  const { data: fixedPerspectives } = useFixedPerspectives()
-  const grouped = useMemo(() => {
-    const order = (fixedPerspectives || []).map((fp: any) => fp.code)
-    const nameByCode = new Map((fixedPerspectives || []).map((fp: any) => [fp.code, fp.name]))
-    const list = availablePerspectiveIds
-      ? (perspectives || []).filter((p: any) => availablePerspectiveIds.has(p.id))
-      : (perspectives || [])
-    const groups = list.reduce((acc: any, p: any) => {
-      const key = p.fixedPerspective || 'INTERNAL_PROCESS'
-      ;(acc[key] = acc[key] || []).push(p)
-      return acc
-    }, {} as Record<string, any[]>)
-    const keys = order.length ? order.filter((k: string) => groups[k]) : Object.keys(groups)
-    return keys.map((k: string) => ({ code: k, name: nameByCode.get(k) || k, items: groups[k] as any[] }))
-  }, [perspectives, fixedPerspectives, availablePerspectiveIds])
-  const noCategory = !!availablePerspectiveIds && grouped.length === 0
-
-  return (
-    <div className="bg-[var(--color-primary-soft)] p-4 rounded-card border border-[var(--color-border)] space-y-3">
-      <div className="flex items-center gap-2 text-[var(--color-primary)]">
-        <LayoutGrid size={16} />
-        <span className="text-eyebrow">Hạng mục BSC</span>
-      </div>
-      <Controller name={name} control={control}
-        render={({ field }: any) => (
-          <Select onValueChange={field.onChange} value={field.value || 'NONE'}>
-            <SelectTrigger className="w-full rounded-card border-[var(--color-border)] bg-[var(--color-card)] h-11 shadow-sm overflow-hidden">
-              <SelectValue placeholder="-- Chưa gán hạng mục --" />
-            </SelectTrigger>
-            <SelectContent className="z-[300] rounded-card max-h-[300px]">
-              <SelectItem value="NONE" className="font-semibold py-3">-- Chưa gán hạng mục --</SelectItem>
-              {grouped.map(group => (
-                <div key={group.code}>
-                  <div className="text-eyebrow px-3 pt-2 pb-1">{group.name}</div>
-                  {group.items.map((p: any) => (
-                    <SelectItem key={p.id} value={p.id} className="rounded-card py-2.5"
-                      extra={perspectiveHints?.get(p.id) && (
-                        <span className="ml-auto pl-3 text-caption whitespace-nowrap">
-                          {perspectiveHints.get(p.id)}
-                        </span>
-                      )}>
-                      <span className="flex items-center gap-2">
-                        <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: p.color || '#94a3b8' }} />
-                        <span className="font-semibold text-xs">{p.name}</span>
-                      </span>
-                    </SelectItem>
-                  ))}
-                </div>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
-      />
-      <p className="text-caption">Tổng trọng số các chỉ tiêu trong 1 hạng mục phải bằng 100% (chặn khi duyệt).</p>
-      {noCategory && (
-        <p className="text-xs font-medium text-[var(--color-warning)] flex items-start gap-1.5">
-          <span className="shrink-0">⚠</span>
-          Bộ tiêu chí của đơn vị này <b>chưa có hạng mục nào</b> — hãy thêm hạng mục vào bộ tiêu chí cho đơn vị đó trước.
-        </p>
       )}
     </div>
   )
 }
 
-function ReplaceTab({ kpiList, orgUnitId, period, enableOkr, enableQualitative, enableBsc, objectives, perspectives, availablePerspectiveIds, perspectiveHints, onSuccess }: { kpiList: KpiCriteria[]; orgUnitId: string; onSuccess: () => void } & TabSharedProps) {
+// ─── Tab Thay thế ────────────────────────────────────────────────────────────
+
+function ReplaceTab({ kpiList, orgUnitId, ctx, onSuccess }: { kpiList: KpiCriteria[]; orgUnitId: string; ctx: UrgentKpiContext; onSuccess: () => void }) {
   const qc = useQueryClient()
   const { user: currentUser } = useAuthStore()
   const isStaff = currentUser?.memberships?.[0]?.roleRank === 2
 
-  const { register, handleSubmit, watch, setValue, control, reset, formState: { errors } } = useForm<ReplaceFormData>({
+  const form = useForm<ReplaceFormData>({
     resolver: zodResolver(replaceKpiSchema),
-    defaultValues: { replacedKpiId: '', replacementReason: '', kpiType: 'QUANTITATIVE', name: '', description: '', frequency: 'MONTHLY', targetValue: '', minimumValue: '', unit: '', isReverseKpi: false, isBonusKpi: false, deadline: '', keyResultId: 'NONE', perspectiveId: 'NONE', assignedToIds: [] }
+    defaultValues: { replacedKpiId: '', replacementReason: '', ...NEW_KPI_DEFAULTS },
   })
+  const { register, handleSubmit, watch, setValue, control, reset, formState: { errors } } = form
 
   const replacedKpiId = watch('replacedKpiId')
   const selectedKpi = kpiList.find(k => k.id === replacedKpiId)
   const selectedAssignees = watch('assignedToIds')
-  const kpiType = watch('kpiType')
-  const isQual = kpiType === 'QUALITATIVE'
 
+  // KPI bị thay thế cho sẵn tần suất, đơn vị tính, mục tiêu, người nhận — KPI mới thường là
+  // "cùng việc đó nhưng con số khác", điền lại từ đầu là bắt gõ lại thứ đã có.
   useEffect(() => {
-    if (selectedKpi) {
-      setValue('frequency', selectedKpi.frequency)
-      setValue('unit', selectedKpi.unit ?? '')
-      setValue('targetValue', selectedKpi.targetValue?.toString() ?? '')
-      setValue('minimumValue', selectedKpi.minimumValue?.toString() ?? '')
-      setValue('assignedToIds', selectedKpi.assigneeIds ?? [])
-    }
+    if (!selectedKpi) return
+    setValue('frequency', selectedKpi.frequency)
+    setValue('unit', selectedKpi.unit ?? '')
+    setValue('targetValue', selectedKpi.targetValue?.toString() ?? '')
+    setValue('minimumValue', selectedKpi.minimumValue?.toString() ?? '')
+    setValue('assignedToIds', selectedKpi.assigneeIds ?? [])
   }, [replacedKpiId, selectedKpi, setValue])
 
   const { mutate, isPending } = useMutation({
@@ -360,304 +192,107 @@ function ReplaceTab({ kpiList, orgUnitId, period, enableOkr, enableQualitative, 
       reset()
       onSuccess()
     },
-    onError: (err) => toast.error(getApiErrorMessage(err, 'Thay thế KPI thất bại'))
+    onError: (err) => toast.error(getApiErrorMessage(err, 'Thay thế KPI thất bại')),
   })
 
   const activeKpis = kpiList.filter(k => k.status !== 'REPLACED' && k.status !== 'INACTIVE')
 
   return (
-    <form onSubmit={handleSubmit(d => mutate(d), toastFirstError)} className="space-y-5">
-      <div className="rounded-card border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] dark:border-[var(--color-warning-border)] p-3 flex gap-2.5">
-        <AlertTriangle className="h-4 w-4 mt-0.5 shrink-0 text-[var(--color-warning)]" />
-        <p className="text-xs font-medium text-[var(--color-warning)]">
-          KPI được chọn sẽ bị đánh dấu <strong>Đã thay thế</strong> và không tính vào điểm. KPI mới sẽ kế thừa trọng số.
-        </p>
-      </div>
-
-      <div>
-        <label className={labelCls}>KPI cần thay thế <span className="text-[var(--color-error)]">*</span></label>
-        <Controller name="replacedKpiId" control={control}
-          render={({ field }) => (
-            <Select value={field.value} onValueChange={field.onChange}>
-              <SelectTrigger className={cn(inputCls, 'h-auto truncate', errors.replacedKpiId && 'ring-2 ring-[var(--color-error-solid)]')}>
-                <SelectValue placeholder="— Chọn KPI cần thay thế —" />
-              </SelectTrigger>
-              <SelectContent className="z-[300]">
-                {activeKpis.map(k => (
-                  <SelectItem key={k.id} value={k.id}>
-                    <span className="font-semibold">{k.name}</span>
-                    <span className="ml-2 text-xs text-[var(--color-muted-foreground)]">({k.weight ?? 0}%)</span>
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          )}
-        />
-        {selectedKpi && (
-          <p className="mt-1.5 text-caption">
-            Trọng số kế thừa: <span className="text-[var(--color-primary)]">{selectedKpi.weight ?? 0}%</span>
-            {' · '}Tần suất: {FREQUENCY_MAP[selectedKpi.frequency]}
-            {selectedKpi.assigneeNames?.length > 0 && <> · Giao cho: {selectedKpi.assigneeNames.join(', ')}</>}
-          </p>
-        )}
-      </div>
-
-      <div>
-        <label className={labelCls}>Lý do thay thế</label>
-        <textarea {...register('replacementReason')} rows={2}
-          placeholder="VD: Phát sinh công việc khẩn cấp từ khách hàng..."
-          className={inputCls + ' resize-none'} />
-      </div>
-
-      <div className="space-y-4">
-        <p className="text-eyebrow">Thông tin KPI thay thế</p>
-
-        {enableQualitative && (
-          <Controller name="kpiType" control={control}
-            render={({ field }) => <KpiTypeTabs value={field.value} onChange={field.onChange} />} />
-        )}
-
-        <div>
-          <label className={labelCls}>Tên KPI mới <span className="text-[var(--color-error)]">*</span></label>
-          <input {...register('name')} placeholder="VD: Xử lý yêu cầu khẩn khách hàng Q3"
-            className={cn(inputCls, errors.name && 'ring-2 ring-[var(--color-error-solid)]')} />
-        </div>
-
-        <div>
-          <label className={labelCls}>Mô tả chi tiết</label>
-          <textarea {...register('description')} rows={2}
-            placeholder="Cung cấp ngữ cảnh và cách tính toán..."
-            className={inputCls + ' resize-none'} />
-        </div>
-
-        <div className="bg-[var(--color-accent)]/10 rounded-card p-4 border border-[var(--color-border)]/30 space-y-3">
-          {!isQual && (
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={labelCls}>Mục tiêu mong muốn <span className="text-[var(--color-error)]">*</span></label>
-              <input type="number" step="any" onWheel={e => (e.target as HTMLInputElement).blur()}
-                {...register('targetValue')}
-                placeholder="1000" className={cn(inputCls, errors.targetValue && 'ring-2 ring-[var(--color-error-solid)]')} />
-            </div>
-            <div>
-              <label className={labelCls}>Mục tiêu tối thiểu <span className="text-[var(--color-error)]">*</span></label>
-              <input type="number" step="any" onWheel={e => (e.target as HTMLInputElement).blur()}
-                {...register('minimumValue')}
-                placeholder="800" className={cn(inputCls, errors.minimumValue && 'ring-2 ring-[var(--color-error-solid)]')} />
-            </div>
-          </div>
-          )}
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={labelCls}>Tần suất <span className="text-[var(--color-error)]">*</span></label>
-              <Controller name="frequency" control={control}
-                render={({ field }) => (
-                  <Select value={field.value} onValueChange={field.onChange}>
-                    <SelectTrigger className={cn(inputCls, 'h-auto')}><SelectValue /></SelectTrigger>
-                    <SelectContent className="z-[300]">
-                      {frequencyOptions.map(f => <SelectItem key={f} value={f}>{FREQUENCY_MAP[f]}</SelectItem>)}
-                    </SelectContent>
-                  </Select>
-                )}
-              />
-            </div>
-            {!isQual && (
-            <div>
-              <label className={labelCls}>Đơn vị tính <span className="text-[var(--color-error)]">*</span></label>
-              <input {...register('unit')}
-                placeholder="VNĐ, %, KPI..." className={cn(inputCls, errors.unit && 'ring-2 ring-[var(--color-error-solid)]')} />
-            </div>
-            )}
-          </div>
-
-          {!isQual && (
-          <Controller name="isReverseKpi" control={control}
-            render={({ field }) => (
-              <button type="button" onClick={() => field.onChange(!field.value)}
-                className={cn('w-full flex items-center justify-between px-4 py-3 rounded-card border-2 transition-all text-left',
-                  field.value ? 'border-[var(--color-warning-border)] bg-[var(--color-warning-bg)]' : 'border-[var(--color-border)] bg-[var(--color-background)] hover:border-[var(--color-primary)]/50'
-                )}>
-                <div>
-                  <span className={cn('text-sm font-medium', field.value ? 'text-[var(--color-warning)]' : 'text-[var(--color-foreground)]')}>KPI Ngược</span>
-                  <p className="text-caption mt-0.5">Giá trị mục tiêu càng thấp càng tốt (VD: tỉ lệ lỗi, chi phí)</p>
-                </div>
-                <div className={cn('w-10 h-6 rounded-full transition-all relative flex-shrink-0', field.value ? 'bg-[var(--color-warning-solid)]' : 'bg-[var(--color-muted-foreground)]/30')}>
-                  <div className={cn('absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-all', field.value ? 'left-5' : 'left-1')} />
-                </div>
-              </button>
-            )}
-          />
-          )}
-
-          <Controller name="isBonusKpi" control={control}
-            render={({ field }) => (
-              <button type="button" onClick={() => field.onChange(!field.value)}
-                className={cn('w-full flex items-center justify-between px-4 py-3 rounded-card border-2 transition-all text-left',
-                  field.value ? 'border-[var(--color-success-border)] bg-[var(--color-success-bg)]' : 'border-[var(--color-border)] bg-[var(--color-background)] hover:border-[var(--color-primary)]/50'
-                )}>
-                <div>
-                  <span className={cn('text-sm font-medium', field.value ? 'text-[var(--color-success)]' : 'text-[var(--color-foreground)]')}>KPI Thưởng</span>
-                  <p className="text-caption mt-0.5">Không bắt buộc, không tính vào 100% trọng số, hoàn thành thì được cộng điểm thêm</p>
-                </div>
-                <div className={cn('w-10 h-6 rounded-full transition-all relative flex-shrink-0', field.value ? 'bg-[var(--color-success-solid)]' : 'bg-[var(--color-muted-foreground)]/30')}>
-                  <div className={cn('absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-all', field.value ? 'left-5' : 'left-1')} />
-                </div>
-              </button>
-            )}
-          />
-        </div>
-      </div>
-
-      <AssigneeSelector orgUnitId={orgUnitId} selectedIds={selectedAssignees}
-        onChange={ids => setValue('assignedToIds', ids)}
-        isStaff={isStaff} currentUser={currentUser ?? undefined} />
-
-      {/* Deadline */}
-      <div>
-        <label className="text-label block mb-1.5">Hạn chốt</label>
-        <Controller name="deadline" control={control}
-          render={({ field }) => (
-            <DateTimePicker
-              value={field.value || ''}
-              onChange={field.onChange}
-              placeholder="Chưa chọn (mặc định theo đợt)"
-              className={cn(!period && 'opacity-50 pointer-events-none')}
-            />
-          )}
-        />
-        {period && (
-          <p className="text-caption mt-1">
-            Để trống = mặc định theo ngày kết thúc đợt ({formatDateTime(period.endDate)})
-          </p>
-        )}
-      </div>
-
-      {/* OKR Key Result */}
-      {enableOkr && (
-        <div className="bg-[var(--color-primary-soft)] p-4 rounded-card border border-[var(--color-border)] space-y-3">
-          <div className="flex items-center gap-2 text-[var(--color-primary)]">
-            <Target size={16} />
-            <span className="text-eyebrow">Đẩy tiến độ OKR Chiến lược</span>
-          </div>
-          <div className="space-y-1">
-            <label className="text-label block text-[var(--color-muted-foreground)] tracking-tight">Gắn kết Kết quả then chốt (KR)</label>
-            <Controller name="keyResultId" control={control}
-              render={({ field }) => (
-                <Select onValueChange={field.onChange} value={field.value || 'NONE'}>
-                  <SelectTrigger className="w-full rounded-card border-[var(--color-border)] bg-[var(--color-card)] h-11 shadow-sm overflow-hidden">
-                    <SelectValue placeholder="-- Không liên kết --" />
-                  </SelectTrigger>
-                  <SelectContent className="z-[300] rounded-card max-h-[300px]">
-                    <SelectItem value="NONE" className="font-semibold py-3">-- Không liên kết mục tiêu --</SelectItem>
-                    {objectives.map((obj: any) => (
-                      <SelectGroup key={obj.id} className="p-1">
-                        <SelectLabel className="text-eyebrow px-3 py-2 text-[var(--color-primary)] bg-[var(--color-primary-soft)] rounded-card my-1.5 flex items-start justify-between gap-2">
-                          <span>OBJ: {obj.name}</span>
-                          <span className="text-xs border border-[var(--color-border)] rounded px-1 py-0.5 shrink-0 font-semibold">OKR</span>
-                        </SelectLabel>
-                        {obj.keyResults?.map((kr: any) => (
-                          <SelectItem key={kr.id} value={kr.id} className="rounded-card py-2.5 pl-8">
-                            <span className="font-semibold text-xs">{kr.name}</span>
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
+    <form id="urgent-form" onSubmit={handleSubmit(d => mutate(d), toastFirstError)} className="flex flex-col gap-6">
+      <UrgentKpiFields
+        form={form}
+        ctx={ctx}
+        contextSlot={
+          <>
+            <Field label="KPI cần thay thế" required error={errors.replacedKpiId?.message}
+              hint={selectedKpi ? `Kế thừa trọng số ${selectedKpi.weight ?? 0}% · ${FREQUENCY_MAP[selectedKpi.frequency]}${selectedKpi.assigneeNames?.length ? ` · ${selectedKpi.assigneeNames.join(', ')}` : ''}` : 'KPI được chọn sẽ đánh dấu "Đã thay thế", không tính điểm; KPI mới kế thừa trọng số.'}>
+              <Controller name="replacedKpiId" control={control} render={({ field }) => (
+                <Select value={field.value} onValueChange={field.onChange}>
+                  <SelectTrigger aria-invalid={!!errors.replacedKpiId}><SelectValue placeholder="— Chọn KPI cần thay thế —" /></SelectTrigger>
+                  <SelectContent>
+                    {activeKpis.map(k => (
+                      <SelectItem key={k.id} value={k.id} extra={<span className="ml-auto pl-3 text-caption">{k.weight ?? 0}%</span>}>
+                        <span className="truncate">{k.name}</span>
+                      </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-              )}
-            />
-          </div>
-        </div>
-      )}
-
-      {/* BSC perspective */}
-      {enableBsc && <PerspectiveSelect control={control} name="perspectiveId" perspectives={perspectives} availablePerspectiveIds={availablePerspectiveIds} perspectiveHints={perspectiveHints} />}
-
-      <div className="flex gap-4 pt-2 border-t border-[var(--color-border)]/50">
-        <Button variant="ghost" className="flex-1" type="button" onClick={onSuccess}>
-          Hủy
-        </Button>
-        <Button className="flex-1" type="submit" disabled={isPending || !replacedKpiId}>
-          {isPending && <Loader2 aria-hidden="true" className="animate-spin" />}
-          Thay thế KPI
-        </Button>
-      </div>
+              )} />
+            </Field>
+            <Field label="Lý do thay thế">
+              <Textarea {...register('replacementReason')} rows={2} placeholder="VD: Phát sinh công việc khẩn cấp từ khách hàng…" />
+            </Field>
+            <AssigneeSelector orgUnitId={orgUnitId} selectedIds={selectedAssignees} onChange={ids => setValue('assignedToIds', ids)}
+              isStaff={isStaff} currentUser={currentUser ?? undefined}
+              hint={selectedKpi ? 'Đã chép người nhận từ KPI bị thay thế — sửa nếu cần.' : undefined} />
+          </>
+        }
+      />
+      <UrgentFooter isPending={isPending} label="Thay thế KPI" onCancel={onSuccess} />
     </form>
   )
 }
 
-// ─── Tab 2: Reduce weights + Add new KPI ────────────────────────────────────
+// ─── Tab Điều chỉnh ──────────────────────────────────────────────────────────
 
-function AdjustTab({ kpiList, kpiPeriodId, orgUnitId, period, enableOkr, enableQualitative, enableBsc, objectives, perspectives, availablePerspectiveIds, perspectiveHints, perspectiveWeightPct, onSuccess }: { kpiList: KpiCriteria[]; kpiPeriodId: string; orgUnitId: string; onSuccess: () => void; perspectiveWeightPct?: Map<string, number> } & TabSharedProps) {
+function AdjustTab({ kpiList, kpiPeriodId, orgUnitId, ctx, perspectiveWeightPct, onSuccess }: {
+  kpiList: KpiCriteria[]; kpiPeriodId: string; orgUnitId: string; ctx: UrgentKpiContext
+  perspectiveWeightPct?: Map<string, number>; onSuccess: () => void
+}) {
   const qc = useQueryClient()
   const { user: currentUser } = useAuthStore()
   const isStaff = currentUser?.memberships?.[0]?.roleRank === 2
-
   const adjustableKpis = kpiList.filter(k => k.status !== 'REPLACED' && k.status !== 'INACTIVE')
 
-  const { register, handleSubmit, watch, control, formState: { errors } } = useForm<AdjustFormData>({
+  const form = useForm<AdjustFormData>({
     resolver: zodResolver(adjustKpiSchema),
     defaultValues: {
       weights: adjustableKpis.map(k => ({ kpiId: k.id, name: k.name, currentWeight: k.weight ?? 0, newWeight: k.weight ?? 0 })),
-      newKpiType: 'QUANTITATIVE', newName: '', newWeight: '', newFrequency: 'MONTHLY', newTargetValue: '', newMinimumValue: '', newUnit: '', newIsReverseKpi: false, newIsBonusKpi: false, newDeadline: '', newKeyResultId: 'NONE', newPerspectiveId: 'NONE', newAssignedToIds: [], newDescription: ''
-    }
+      weight: '', ...NEW_KPI_DEFAULTS,
+    },
   })
-
-  const newKpiType = watch('newKpiType')
-  const isQual = newKpiType === 'QUALITATIVE'
-
+  const { register, handleSubmit, watch, setValue, control, formState: { errors } } = form
   const { fields } = useFieldArray({ control, name: 'weights' })
   const watchedWeights = watch('weights')
-  const watchedNewWeight = watch('newWeight')
-  const watchedNewPerspId = watch('newPerspectiveId')
+  const watchedNewWeight = watch('weight')
+  const watchedNewPerspId = watch('perspectiveId')
+  const selectedAssignees = watch('assignedToIds')
 
-  // Trọng số THẬT = form × %hạng_mục. Không BSC/chưa có bộ tiêu chí ⇒ giữ form; chưa gán hạng mục ⇒ giữ form;
-  // hạng mục không có trong bộ tiêu chí đơn vị ⇒ 0 (không tính). Nhờ vậy tổng ≈ 100% thay vì cộng dồn form.
-  const usePct = enableBsc && !!perspectiveWeightPct && perspectiveWeightPct.size > 0
+  // Trọng số THẬT = form × %hạng_mục (bộ tiêu chí của đơn vị). Không BSC ⇒ giữ form; hạng mục
+  // không có trong bộ tiêu chí ⇒ 0 (không tính). Nhờ vậy tổng ≈ 100% thay vì cộng dồn form.
+  const usePct = ctx.enableBsc && !!perspectiveWeightPct && perspectiveWeightPct.size > 0
   const realOf = (effPerspId: string | null | undefined, formWeight: number) => {
-    if (!usePct) return formWeight
-    if (!effPerspId) return formWeight
+    if (!usePct || !effPerspId) return formWeight
     const pct = perspectiveWeightPct!.get(effPerspId)
     return pct == null ? 0 : formWeight * pct / 100
   }
-
-  const totalExisting = watchedWeights.reduce((sum, w, i) =>
-    sum + realOf(adjustableKpis[i]?.effectivePerspectiveId, parseFloat(String(w.newWeight)) || 0), 0)
+  const totalExisting = watchedWeights.reduce((sum, w, i) => sum + realOf(adjustableKpis[i]?.effectivePerspectiveId, parseFloat(String(w.newWeight)) || 0), 0)
   const newPerspId = watchedNewPerspId && watchedNewPerspId !== 'NONE' ? watchedNewPerspId : null
-  const totalAll = totalExisting + realOf(newPerspId, parseFloat(String(watchedNewWeight)) || 0)
-  const remaining = 100 - totalAll
+  const newReal = realOf(newPerspId, parseFloat(String(watchedNewWeight)) || 0)
+  const totalAll = totalExisting + newReal
   const isValid = Math.abs(totalAll - 100) <= 0.01
 
   const batchMutation = useMutation({
     mutationFn: (data: AdjustFormData) => kpiApi.batchUpdateWeights({
-      updates: data.weights.map(w => ({ kpiId: w.kpiId, weight: parseFloat(String(w.newWeight)) || 0 }))
+      updates: data.weights.map(w => ({ kpiId: w.kpiId, weight: parseFloat(String(w.newWeight)) || 0 })),
     }),
-    onError: (err: any) => { throw err }
   })
-
   const createMutation = useMutation({
     mutationFn: (data: AdjustFormData) => kpiApi.create({
-      kpiType: data.newKpiType,
-      name: data.newName,
-      description: data.newDescription || undefined,
-      weight: parseFloat(String(data.newWeight)) || 0,
-      frequency: data.newFrequency,
-      targetValue: data.newKpiType === 'QUALITATIVE' ? undefined : (data.newTargetValue ? parseFloat(data.newTargetValue) : undefined),
-      minimumValue: data.newKpiType === 'QUALITATIVE' ? undefined : (data.newMinimumValue ? parseFloat(data.newMinimumValue) : undefined),
-      unit: data.newKpiType === 'QUALITATIVE' ? undefined : (data.newUnit || undefined),
-      isReverseKpi: data.newKpiType === 'QUALITATIVE' ? false : data.newIsReverseKpi,
-      isBonusKpi: data.newIsBonusKpi,
-      deadline: data.newDeadline ? new Date(data.newDeadline).toISOString() : null,
-      keyResultId: (data.newKeyResultId && data.newKeyResultId !== 'NONE') ? data.newKeyResultId : null,
-      perspectiveId: (data.newPerspectiveId && data.newPerspectiveId !== 'NONE') ? data.newPerspectiveId : null,
-      assignedToIds: data.newAssignedToIds.length > 0 ? data.newAssignedToIds : undefined,
-      kpiPeriodId,
-      orgUnitId,
+      kpiType: data.kpiType, name: data.name, description: data.description || undefined,
+      weight: parseFloat(String(data.weight)) || 0, frequency: data.frequency,
+      targetValue: data.kpiType === 'QUALITATIVE' ? undefined : (data.targetValue ? parseFloat(data.targetValue) : undefined),
+      minimumValue: data.kpiType === 'QUALITATIVE' ? undefined : (data.minimumValue ? parseFloat(data.minimumValue) : undefined),
+      unit: data.kpiType === 'QUALITATIVE' ? undefined : (data.unit || undefined),
+      isReverseKpi: data.kpiType === 'QUALITATIVE' ? false : data.isReverseKpi,
+      isBonusKpi: data.isBonusKpi,
+      deadline: data.deadline ? new Date(data.deadline).toISOString() : null,
+      keyResultId: (data.keyResultId && data.keyResultId !== 'NONE') ? data.keyResultId : null,
+      perspectiveId: (data.perspectiveId && data.perspectiveId !== 'NONE') ? data.perspectiveId : null,
+      assignedToIds: data.assignedToIds.length > 0 ? data.assignedToIds : undefined,
+      kpiPeriodId, orgUnitId,
     }),
-    onError: (err: any) => { throw err }
   })
-
   const isPending = batchMutation.isPending || createMutation.isPending
 
   const onSubmit = async (data: AdjustFormData) => {
@@ -674,255 +309,108 @@ function AdjustTab({ kpiList, kpiPeriodId, orgUnitId, period, enableOkr, enableQ
     }
   }
 
+  const remaining = Math.round((100 - totalExisting) * 100) / 100
+
   return (
-    <form onSubmit={handleSubmit(onSubmit, toastFirstError)} className="space-y-5">
-      {adjustableKpis.length > 0 && (
-        <div className="space-y-2">
-          <p className="text-eyebrow">Điều chỉnh trọng số KPI hiện có</p>
-          <div className="rounded-card border border-[var(--color-border)] overflow-hidden bg-[var(--color-background)] shadow-sm">
-            <div className="text-eyebrow grid grid-cols-[1fr_88px_52px_76px] bg-[var(--color-accent)]/30 px-3 py-2 border-b border-[var(--color-border)]">
-              <span>Tên KPI</span>
-              <span className="text-center whitespace-nowrap">Trạng thái</span>
-              <span className="text-center whitespace-nowrap">Cũ (%)</span>
-              <span className="text-center whitespace-nowrap">Mới (%)</span>
-            </div>
-            <div className="divide-y divide-[var(--color-border)]">
-              {fields.map((field, idx) => {
-                const kpi = adjustableKpis[idx]
-                const realOld = kpi?.weight != null ? realOf(kpi.effectivePerspectiveId, kpi.weight) : null
-                const newW = parseFloat(String(watchedWeights[idx]?.newWeight)) || 0
-                const realNew = usePct ? realOf(kpi?.effectivePerspectiveId, newW) : null
-                return (
-                  <div key={field.id} className="grid grid-cols-[1fr_88px_52px_76px] items-center px-3 py-2.5 gap-2">
-                    <span className="text-sm font-medium text-[var(--color-foreground)] truncate">{kpi?.name}</span>
-                    <span className={`text-center text-xs font-semibold uppercase whitespace-nowrap ${kpi?.status === 'APPROVED' ? 'text-[var(--color-success)]' : 'text-[var(--color-warning)]'}`}>
-                      {kpi?.status === 'APPROVED' ? 'Đã duyệt' : kpi?.status === 'PENDING_APPROVAL' ? 'Chờ duyệt' : 'Nháp'}
-                    </span>
-                    <span className="text-center text-sm text-[var(--color-muted-foreground)]"
-                      title={usePct && realOld != null ? `Trọng số thật ${realOld.toFixed(1)}% (form ${formatNumber(kpi?.weight ?? 0)}% × %hạng mục)` : undefined}>
-                      {usePct && realOld != null ? realOld.toFixed(1) : formatNumber(kpi?.weight ?? 0)}
-                    </span>
-                    <div>
-                      <input type="number" step="0.1" min="0" max="100"
-                        {...register(`weights.${idx}.newWeight`, { valueAsNumber: true })}
-                        className="w-full px-2 py-1.5 rounded-control border border-[var(--color-border)] bg-[var(--color-background)] text-sm text-center focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/50 shadow-sm" />
-                      {realNew != null && <p className="text-xs font-medium text-[var(--color-primary)] text-center mt-0.5">thật {realNew.toFixed(1)}%</p>}
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className="space-y-4">
-        <p className="text-eyebrow">KPI khẩn cấp mới</p>
-
-        {enableQualitative && (
-          <Controller name="newKpiType" control={control}
-            render={({ field }) => <KpiTypeTabs value={field.value} onChange={field.onChange} />} />
-        )}
-
-        <div>
-          <label className={labelCls}>Tên KPI mới <span className="text-[var(--color-error)]">*</span></label>
-          <input {...register('newName')} placeholder="VD: Xử lý yêu cầu khẩn cấp tháng 7"
-            className={cn(inputCls, errors.newName && 'ring-2 ring-[var(--color-error-solid)]')} />
-        </div>
-
-        <div>
-          <label className={labelCls}>Mô tả chi tiết</label>
-          <textarea {...register('newDescription')} rows={2}
-            placeholder="Cung cấp ngữ cảnh và cách tính toán..."
-            className={inputCls + ' resize-none'} />
-        </div>
-
-        <div className="bg-[var(--color-accent)]/10 rounded-card p-4 border border-[var(--color-border)]/30 space-y-3">
-          {!isQual && (
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={labelCls}>Mục tiêu mong muốn <span className="text-[var(--color-error)]">*</span></label>
-              <input type="number" step="any" onWheel={e => (e.target as HTMLInputElement).blur()}
-                {...register('newTargetValue')}
-                placeholder="1000" className={cn(inputCls, errors.newTargetValue && 'ring-2 ring-[var(--color-error-solid)]')} />
-            </div>
-            <div>
-              <label className={labelCls}>Mục tiêu tối thiểu <span className="text-[var(--color-error)]">*</span></label>
-              <input type="number" step="any" onWheel={e => (e.target as HTMLInputElement).blur()}
-                {...register('newMinimumValue')}
-                placeholder="800" className={cn(inputCls, errors.newMinimumValue && 'ring-2 ring-[var(--color-error-solid)]')} />
-            </div>
-          </div>
-          )}
-
-          <div className="grid grid-cols-2 gap-3">
-            <div>
-              <label className={labelCls}>Trọng số (%) <span className="text-[var(--color-error)]">*</span></label>
-              <input type="number" step="0.1" min="0" max="100"
-                onWheel={e => (e.target as HTMLInputElement).blur()}
-                {...register('newWeight')}
-                placeholder="20" className={cn(inputCls, errors.newWeight && 'ring-2 ring-[var(--color-error-solid)]')} />
-            </div>
-            {!isQual && (
-            <div>
-              <label className={labelCls}>Đơn vị tính <span className="text-[var(--color-error)]">*</span></label>
-              <input {...register('newUnit')}
-                placeholder="VNĐ, %, KPI..." className={cn(inputCls, errors.newUnit && 'ring-2 ring-[var(--color-error-solid)]')} />
-            </div>
+    <form id="urgent-form" onSubmit={handleSubmit(onSubmit, toastFirstError)} className="flex flex-col gap-6">
+      <UrgentKpiFields
+        form={form}
+        ctx={ctx}
+        contextSlot={
+          <>
+            {adjustableKpis.length > 0 && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between">
+                  <label className="text-label">Bớt trọng số KPI hiện có để chừa chỗ</label>
+                  <span className={cn('text-xs font-semibold tabular-nums', isValid ? 'text-[var(--color-success)]' : 'text-[var(--color-warning)]')}>
+                    Tổng {formatNumber(totalAll)}% / 100%
+                  </span>
+                </div>
+                <div className="overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
+                  <table className="w-full text-sm">
+                    <thead>
+                      <tr className="border-b border-[var(--color-border)] bg-[var(--color-muted)] text-eyebrow">
+                        <th className="px-3 py-2 text-left">KPI</th>
+                        <th className="px-2 py-2 text-center">Trạng thái</th>
+                        <th className="px-2 py-2 text-right">Cũ</th>
+                        <th className="px-2 py-2 text-right">Mới</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[var(--color-border)]">
+                      {fields.map((field, idx) => {
+                        const kpi = adjustableKpis[idx]
+                        const realOld = kpi?.weight != null ? realOf(kpi.effectivePerspectiveId, kpi.weight) : null
+                        const newW = parseFloat(String(watchedWeights[idx]?.newWeight)) || 0
+                        const realNew = usePct ? realOf(kpi?.effectivePerspectiveId, newW) : null
+                        return (
+                          <tr key={field.id}>
+                            <td className="max-w-[220px] truncate px-3 py-1.5 font-medium" title={kpi?.name}>{kpi?.name}</td>
+                            <td className={cn('px-2 py-1.5 text-center text-xs font-semibold', kpi?.status === 'APPROVED' ? 'text-[var(--color-success)]' : 'text-[var(--color-warning)]')}>
+                              {kpi?.status === 'APPROVED' ? 'Đã duyệt' : kpi?.status === 'PENDING_APPROVAL' ? 'Chờ duyệt' : 'Nháp'}
+                            </td>
+                            <td className="px-2 py-1.5 text-right tabular-nums text-[var(--color-muted-foreground)]" title={usePct && realOld != null ? `Thật ${realOld.toFixed(1)}% (form ${formatNumber(kpi?.weight ?? 0)}% × %hạng mục)` : undefined}>
+                              {usePct && realOld != null ? realOld.toFixed(1) : formatNumber(kpi?.weight ?? 0)}%
+                            </td>
+                            <td className="px-2 py-1.5">
+                              <div className="flex flex-col items-end">
+                                <Input size="sm" type="number" step="0.1" min={0} max={100} {...register(`weights.${idx}.newWeight`, { valueAsNumber: true })} suffix={<span className="text-xs">%</span>} className="w-24" inputClassName="text-right tabular-nums" />
+                                {realNew != null && <span className="text-caption tabular-nums">thật {realNew.toFixed(1)}%</span>}
+                              </div>
+                            </td>
+                          </tr>
+                        )
+                      })}
+                    </tbody>
+                  </table>
+                </div>
+                <p className="text-caption">Còn trống cho KPI mới: <b className="tabular-nums text-[var(--color-foreground)]">{formatNumber(remaining)}%</b>{usePct ? ' (trọng số thật)' : ''}</p>
+              </div>
             )}
-          </div>
-
-          <div>
-            <label className={labelCls}>Tần suất <span className="text-[var(--color-error)]">*</span></label>
-            <Controller name="newFrequency" control={control}
-              render={({ field }) => (
-                <Select value={field.value} onValueChange={field.onChange}>
-                  <SelectTrigger className={cn(inputCls, 'h-auto')}><SelectValue /></SelectTrigger>
-                  <SelectContent className="z-[300]">
-                    {frequencyOptions.map(f => <SelectItem key={f} value={f}>{FREQUENCY_MAP[f]}</SelectItem>)}
-                  </SelectContent>
-                </Select>
+            <AssigneeSelector orgUnitId={orgUnitId} selectedIds={selectedAssignees} onChange={ids => setValue('assignedToIds', ids)} isStaff={isStaff} currentUser={currentUser ?? undefined} />
+          </>
+        }
+        weightSlot={
+          <Field label="Trọng số KPI mới (%)" required error={errors.weight?.message}
+            hint={usePct && newPerspId ? `Thật ≈ ${newReal.toFixed(1)}% của đơn vị (× %hạng mục)` : `Cần đúng bằng phần còn trống: ${formatNumber(remaining)}%`}>
+            <div className="flex flex-wrap items-center gap-2">
+              <Input type="number" step="any" min={0} max={100} {...register('weight')} invalid={!!errors.weight} suffix={<span className="text-xs">%</span>} className="w-36" placeholder={String(remaining)} />
+              {remaining > 0 && String(watchedNewWeight) !== String(remaining) && (
+                <Button variant="ghost" size="sm" type="button" onClick={() => setValue('weight', remaining, { shouldValidate: true })}>Dùng {formatNumber(remaining)}%</Button>
               )}
-            />
-          </div>
-
-          {!isQual && (
-          <Controller name="newIsReverseKpi" control={control}
-            render={({ field }) => (
-              <button type="button" onClick={() => field.onChange(!field.value)}
-                className={cn('w-full flex items-center justify-between px-4 py-3 rounded-card border-2 transition-all text-left',
-                  field.value ? 'border-[var(--color-warning-border)] bg-[var(--color-warning-bg)]' : 'border-[var(--color-border)] bg-[var(--color-background)] hover:border-[var(--color-primary)]/50'
-                )}>
-                <div>
-                  <span className={cn('text-sm font-medium', field.value ? 'text-[var(--color-warning)]' : 'text-[var(--color-foreground)]')}>KPI Ngược</span>
-                  <p className="text-caption mt-0.5">Giá trị mục tiêu càng thấp càng tốt (VD: tỉ lệ lỗi, chi phí)</p>
-                </div>
-                <div className={cn('w-10 h-6 rounded-full transition-all relative flex-shrink-0', field.value ? 'bg-[var(--color-warning-solid)]' : 'bg-[var(--color-muted-foreground)]/30')}>
-                  <div className={cn('absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-all', field.value ? 'left-5' : 'left-1')} />
-                </div>
-              </button>
-            )}
-          />
-          )}
-
-          <Controller name="newIsBonusKpi" control={control}
-            render={({ field }) => (
-              <button type="button" onClick={() => field.onChange(!field.value)}
-                className={cn('w-full flex items-center justify-between px-4 py-3 rounded-card border-2 transition-all text-left',
-                  field.value ? 'border-[var(--color-success-border)] bg-[var(--color-success-bg)]' : 'border-[var(--color-border)] bg-[var(--color-background)] hover:border-[var(--color-primary)]/50'
-                )}>
-                <div>
-                  <span className={cn('text-sm font-medium', field.value ? 'text-[var(--color-success)]' : 'text-[var(--color-foreground)]')}>KPI Thưởng</span>
-                  <p className="text-caption mt-0.5">Không bắt buộc, không tính vào 100% trọng số, hoàn thành thì được cộng điểm thêm</p>
-                </div>
-                <div className={cn('w-10 h-6 rounded-full transition-all relative flex-shrink-0', field.value ? 'bg-[var(--color-success-solid)]' : 'bg-[var(--color-muted-foreground)]/30')}>
-                  <div className={cn('absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-all', field.value ? 'left-5' : 'left-1')} />
-                </div>
-              </button>
-            )}
-          />
-        </div>
-      </div>
-
-      <Controller name="newAssignedToIds" control={control}
-        render={({ field }) => (
-          <AssigneeSelector orgUnitId={orgUnitId} selectedIds={field.value} onChange={field.onChange}
-            isStaff={isStaff} currentUser={currentUser ?? undefined} />
-        )}
+            </div>
+          </Field>
+        }
       />
-
-      {/* Deadline */}
-      <div>
-        <label className="text-label block mb-1.5">Hạn chốt</label>
-        <Controller name="newDeadline" control={control}
-          render={({ field }) => (
-            <DateTimePicker
-              value={field.value || ''}
-              onChange={field.onChange}
-              placeholder="Chưa chọn (mặc định theo đợt)"
-              className={cn(!period && 'opacity-50 pointer-events-none')}
-            />
-          )}
-        />
-        {period && (
-          <p className="text-caption mt-1">
-            Để trống = mặc định theo ngày kết thúc đợt ({formatDateTime(period.endDate)})
-          </p>
-        )}
-      </div>
-
-      {/* OKR Key Result */}
-      {enableOkr && (
-        <div className="bg-[var(--color-primary-soft)] p-4 rounded-card border border-[var(--color-border)] space-y-3">
-          <div className="flex items-center gap-2 text-[var(--color-primary)]">
-            <Target size={16} />
-            <span className="text-eyebrow">Đẩy tiến độ OKR Chiến lược</span>
-          </div>
-          <div className="space-y-1">
-            <label className="text-label block text-[var(--color-muted-foreground)] tracking-tight">Gắn kết Kết quả then chốt (KR)</label>
-            <Controller name="newKeyResultId" control={control}
-              render={({ field }) => (
-                <Select onValueChange={field.onChange} value={field.value || 'NONE'}>
-                  <SelectTrigger className="w-full rounded-card border-[var(--color-border)] bg-[var(--color-card)] h-11 shadow-sm overflow-hidden">
-                    <SelectValue placeholder="-- Không liên kết --" />
-                  </SelectTrigger>
-                  <SelectContent className="z-[300] rounded-card max-h-[300px]">
-                    <SelectItem value="NONE" className="font-semibold py-3">-- Không liên kết mục tiêu --</SelectItem>
-                    {objectives.map((obj: any) => (
-                      <SelectGroup key={obj.id} className="p-1">
-                        <SelectLabel className="text-eyebrow px-3 py-2 text-[var(--color-primary)] bg-[var(--color-primary-soft)] rounded-card my-1.5 flex items-start justify-between gap-2">
-                          <span>OBJ: {obj.name}</span>
-                          <span className="text-xs border border-[var(--color-border)] rounded px-1 py-0.5 shrink-0 font-semibold">OKR</span>
-                        </SelectLabel>
-                        {obj.keyResults?.map((kr: any) => (
-                          <SelectItem key={kr.id} value={kr.id} className="rounded-card py-2.5 pl-8">
-                            <span className="font-semibold text-xs">{kr.name}</span>
-                          </SelectItem>
-                        ))}
-                      </SelectGroup>
-                    ))}
-                  </SelectContent>
-                </Select>
-              )}
-            />
-          </div>
-        </div>
+      {!isValid && (
+        <Hint tone="warning" icon={<AlertTriangle size={14} aria-hidden="true" />}>
+          Tổng trọng số sau điều chỉnh là {formatNumber(totalAll)}% — phải đúng 100% mới lưu được.
+        </Hint>
       )}
-
-      {/* BSC perspective */}
-      {enableBsc && <PerspectiveSelect control={control} name="newPerspectiveId" perspectives={perspectives} availablePerspectiveIds={availablePerspectiveIds} perspectiveHints={perspectiveHints} />}
-
-      <div className={cn('rounded-card px-4 py-3 flex items-center justify-between border',
-        isValid
-          ? 'bg-[var(--color-success-bg)] border-[var(--color-success-border)] text-[var(--color-success)]'
-          : 'bg-[var(--color-error-bg)] border-[var(--color-error-border)] text-[var(--color-error)]'
-      )}>
-        <span className="text-sm font-medium">Tổng trọng số sau khi lưu</span>
-        <div className="text-right">
-          <span className="text-lg font-semibold">{formatNumber(totalAll)}%</span>
-          {!isValid && <p className="text-xs font-medium mt-0.5">
-            {remaining > 0 ? `Còn thiếu ${formatNumber(remaining)}%` : `Đang thừa ${formatNumber(Math.abs(remaining))}%`}
-          </p>}
-        </div>
-      </div>
-
-      <div className="flex gap-4 pt-2 border-t border-[var(--color-border)]/50">
-        <Button variant="ghost" className="flex-1" type="button" onClick={onSuccess}>
-          Hủy
-        </Button>
-        <Button className="flex-1" type="submit" disabled={isPending}>
-          {isPending && <Loader2 aria-hidden="true" className="animate-spin" />}
-          Lưu & Thêm KPI
-        </Button>
-      </div>
+      <UrgentFooter isPending={isPending} label="Lưu & thêm KPI" onCancel={onSuccess} />
     </form>
   )
 }
 
-// ─── Main Modal ──────────────────────────────────────────────────────────────
+function UrgentFooter({ isPending, label, onCancel }: { isPending: boolean; label: string; onCancel: () => void }) {
+  return (
+    <div className="flex justify-end gap-2 border-t border-[var(--color-border)] pt-4">
+      <Button variant="outline" type="button" onClick={onCancel} disabled={isPending}>Hủy</Button>
+      <Button type="submit" disabled={isPending}>
+        {isPending && <Loader2 aria-hidden="true" className="animate-spin" />} {label}
+      </Button>
+    </div>
+  )
+}
 
+// ─── Modal ───────────────────────────────────────────────────────────────────
+
+/**
+ * Việc khẩn: chèn một KPI mới vào đơn vị đã đủ 100% trọng số — bằng cách THAY một KPI (kế thừa
+ * trọng số) hoặc BỚT trọng số các KPI hiện có. Phần "KPI mới" của cả hai tab dùng chung
+ * `UrgentKpiFields`, cùng thứ tự bối cảnh → nguồn → nội dung với form tạo chỉ tiêu.
+ */
 export default function UrgentTaskModal({ open, onClose, kpiPeriodId: initPeriodId, orgUnitId: initOrgUnitId }: UrgentTaskModalProps) {
-  const [tab, setTab] = useState<'replace' | 'adjust'>('replace')
+  const [tab, setTab] = useState<Tab>('replace')
   const [selectedPeriodId, setSelectedPeriodId] = useState(initPeriodId)
   const [selectedOrgUnitId, setSelectedOrgUnitId] = useState(initOrgUnitId)
 
@@ -931,12 +419,12 @@ export default function UrgentTaskModal({ open, onClose, kpiPeriodId: initPeriod
   const isStaff = user?.memberships?.[0]?.roleRank === 2
   const staffOrgUnitId = user?.memberships?.[0]?.orgUnitId
 
-  // Sync with props when modal opens
   useEffect(() => {
     if (open) {
       setSelectedPeriodId(initPeriodId)
       setSelectedOrgUnitId(isStaff && staffOrgUnitId ? staffOrgUnitId : initOrgUnitId)
     }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, initPeriodId, initOrgUnitId])
 
   const { data: periodsData } = useKpiPeriods({ organizationId })
@@ -961,21 +449,15 @@ export default function UrgentTaskModal({ open, onClose, kpiPeriodId: initPeriod
     return flatten(orgUnitTreeData)
   }, [orgUnitTreeData])
 
-  // Fetch KPIs for selected period + org unit
   const ready = !!selectedPeriodId && !!selectedOrgUnitId
-
   const { data: kpiData, isLoading: isLoadingKpis } = useQuery({
     queryKey: ['kpi-criteria', 'urgent-list', selectedPeriodId, selectedOrgUnitId],
     queryFn: () => kpiApi.getAll({ kpiPeriodId: selectedPeriodId, orgUnitId: selectedOrgUnitId, size: 200 }),
     enabled: open && ready,
   })
-
-  // Fetch total weight to validate 100%
   const { data: totalWeight, isLoading: isLoadingWeight } = useKpiTotalWeight(
-    ready ? selectedOrgUnitId : undefined,
-    ready ? selectedPeriodId : undefined
+    ready ? selectedOrgUnitId : undefined, ready ? selectedPeriodId : undefined,
   )
-
   const weightIs100 = totalWeight != null && Math.abs(totalWeight - 100) <= 0.001
   const kpiList = (kpiData?.content ?? []).filter(k => k.orgUnitId === selectedOrgUnitId)
   const selectedPeriod = periodsData?.content.find(p => p.id === selectedPeriodId)
@@ -984,7 +466,6 @@ export default function UrgentTaskModal({ open, onClose, kpiPeriodId: initPeriod
     return objectives.filter((obj: any) => obj.orgUnitIds?.includes(selectedOrgUnitId))
   }, [objectives, selectedOrgUnitId])
 
-  // Lọc hạng mục theo BỘ TIÊU CHÍ của đơn vị đã chọn (giống form tạo KPI). null = không lọc.
   const { data: bscScorecards } = useScorecards(enableBsc ? organizationId : undefined)
   const unitParentMap = useMemo(() => {
     const map = new Map<string, string | null>()
@@ -992,7 +473,6 @@ export default function UrgentTaskModal({ open, onClose, kpiPeriodId: initPeriod
     walk(orgUnitTreeData || [])
     return map
   }, [orgUnitTreeData])
-  // Bộ tiêu chí HIỆU LỰC cho đơn vị đã chọn (đơn vị → cha → mặc định).
   const effectiveScorecard = useMemo<any>(() => {
     if (!enableBsc || !selectedPeriodId || !selectedOrgUnitId) return null
     const periodScs = scorecardsForPeriod(bscScorecards, selectedPeriodId)
@@ -1009,183 +489,112 @@ export default function UrgentTaskModal({ open, onClose, kpiPeriodId: initPeriod
 
   const availablePerspectiveIds = useMemo<Set<string> | null>(() => {
     if (!enableBsc || !selectedPeriodId || !selectedOrgUnitId) return null
-    const periodScs = scorecardsForPeriod(bscScorecards, selectedPeriodId)
-    if (periodScs.length === 0) return new Set<string>()
     const ids = new Set<string>()
     ;(effectiveScorecard?.perspectives || []).forEach((p: any) => ids.add(p.perspectiveId))
     return ids
-  }, [enableBsc, bscScorecards, selectedPeriodId, selectedOrgUnitId, effectiveScorecard])
+  }, [enableBsc, selectedPeriodId, selectedOrgUnitId, effectiveScorecard])
 
-  // Con số của từng hạng mục để hiện ngay trong dropdown — lấy từ dòng của bộ tiêu chí hiệu lực,
-  // rơi về danh mục khi bộ tiêu chí chưa đặt riêng (đúng thứ tự backend đang dùng để chấm điểm).
   const perspectiveHints = useMemo(() => {
     const map = new Map<string, string | null>()
     const rows = new Map<string, ScorecardPerspectiveResponse>()
-    for (const row of (effectiveScorecard?.perspectives || []) as ScorecardPerspectiveResponse[]) {
-      rows.set(row.perspectiveId, row)
-    }
+    for (const row of (effectiveScorecard?.perspectives || []) as ScorecardPerspectiveResponse[]) rows.set(row.perspectiveId, row)
     for (const p of perspectives || []) {
       const row = rows.get(p.id)
       map.set(p.id, perspectiveHint({
-        targetValue: row?.targetValue ?? p.targetValue,
-        minimumValue: row?.minimumValue ?? p.minimumValue,
-        unit: row?.unit ?? p.unit,
-        weightPercentage: row?.weightPercentage ?? null,
+        targetValue: row?.targetValue ?? p.targetValue, minimumValue: row?.minimumValue ?? p.minimumValue,
+        unit: row?.unit ?? p.unit, weightPercentage: row?.weightPercentage ?? null,
       }))
     }
     return map
   }, [perspectives, effectiveScorecard])
 
-  // %hạng_mục theo perspectiveId (từ bộ tiêu chí đơn vị) → để tính trọng số THẬT = form × %hạng_mục.
   const perspectiveWeightPct = useMemo(() => {
     const map = new Map<string, number>()
     ;(effectiveScorecard?.perspectives || []).forEach((p: any) => { if (p.weightPercentage != null) map.set(p.perspectiveId, p.weightPercentage) })
     return map
   }, [effectiveScorecard])
 
-  if (!open) return null
+  const ctx: UrgentKpiContext = {
+    period: selectedPeriod as UrgentKpiContext['period'],
+    enableOkr, enableQualitative, enableBsc,
+    objectives: filteredObjectives, perspectives: perspectives ?? [],
+    availablePerspectiveIds, perspectiveHints,
+    scorecardRows: effectiveScorecard?.perspectives ?? [], scorecardName: effectiveScorecard?.name ?? null,
+  }
+
+  const canWork = ready && !isLoadingWeight && !isLoadingKpis && weightIs100 && kpiList.length > 0
 
   return (
-    <div className="fixed inset-x-0 top-0 h-screen z-[200] flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/40 transition-opacity" onClick={onClose} />
-      <div className="relative bg-[var(--color-card)] rounded-card w-full max-w-lg mx-4 max-h-[92vh] flex flex-col border border-[var(--color-border)]/50 animate-in zoom-in-95">
-
-        {/* Header */}
-        <div className="flex items-center justify-between px-6 py-5 border-b border-[var(--color-border)]/50">
-          <div className="space-y-0.5">
-            <h3 className="text-section-title tracking-tight text-[var(--color-foreground)]">Thêm task khẩn cấp</h3>
-            <p className="text-xs text-[var(--color-muted-foreground)] font-medium">Thay thế KPI hoặc điều chỉnh trọng số để bổ sung công việc mới</p>
-          </div>
-          <button onClick={onClose}
-            className="text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)] transition-all p-1.5 hover:bg-[var(--color-accent)] rounded-full">
-            <X size={20} />
-          </button>
-        </div>
-
-        {/* Period + Org Unit filter */}
-        <div className="px-6 py-4 border-b border-[var(--color-border)]/50 space-y-3 bg-[var(--color-accent)]/5">
-          <p className="text-eyebrow">Chọn phạm vi áp dụng</p>
-          <div className="flex gap-3">
-            <div className="flex-1 min-w-0">
-              <label className="text-label block text-[var(--color-muted-foreground)] mb-1.5 truncate">Kỳ đánh giá <span className="text-[var(--color-error)]">*</span></label>
-              <Select value={selectedPeriodId} onValueChange={setSelectedPeriodId}>
-                <SelectTrigger className={cn(inputCls, 'h-auto truncate')}>
-                  <SelectValue placeholder="— Chọn đợt —" />
-                </SelectTrigger>
-                <SelectContent className="z-[300]">
-                  {periodsData?.content.map(p => (
-                    <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            {!isStaff && (
-              <div className="flex-1 min-w-0">
-                <label className="text-label block text-[var(--color-muted-foreground)] mb-1.5 truncate">Đơn vị <span className="text-[var(--color-error)]">*</span></label>
-                <Select value={selectedOrgUnitId} onValueChange={setSelectedOrgUnitId}>
-                  <SelectTrigger className={cn(inputCls, 'h-auto truncate')}>
-                    <SelectValue placeholder="— Chọn đơn vị —" />
-                  </SelectTrigger>
-                  <SelectContent className="z-[300]">
-                    {flatOrgUnits.map(u => (
-                      <SelectItem key={u.id} value={u.id}>{u.levelLabel}</SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
+    <Dialog
+      open={open}
+      onClose={onClose}
+      size="xl"
+      title="Việc khẩn"
+      description="Chèn một KPI mới vào đơn vị đã đủ 100% trọng số: thay một KPI, hoặc bớt trọng số các KPI hiện có."
+    >
+      <div className="flex flex-col gap-5">
+        {/* Kỳ + đơn vị: bối cảnh chung cho cả hai tab, và điều kiện 100% phải kiểm ở đây. */}
+        <div className="grid gap-4 sm:grid-cols-2">
+          <Field label="Kỳ đánh giá" required>
+            <Select value={selectedPeriodId} onValueChange={setSelectedPeriodId}>
+              <SelectTrigger><CalendarRange size={14} className="shrink-0 text-[var(--color-muted-foreground)]" aria-hidden="true" /><SelectValue placeholder="Chọn kỳ…" /></SelectTrigger>
+              <SelectContent>{periodsData?.content.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
+            </Select>
+          </Field>
+          <Field label="Đơn vị" required>
+            {isStaff ? (
+              <div className="flex h-9 items-center gap-2 rounded-control border border-[var(--color-border)] bg-[var(--color-muted)] px-3 text-sm">
+                <Building2 size={14} className="text-[var(--color-muted-foreground)]" aria-hidden="true" />
+                <span className="truncate">{flatOrgUnits.find(u => u.id === selectedOrgUnitId)?.name ?? 'Đơn vị của bạn'}</span>
               </div>
+            ) : (
+              <Select value={selectedOrgUnitId} onValueChange={setSelectedOrgUnitId}>
+                <SelectTrigger><Building2 size={14} className="shrink-0 text-[var(--color-muted-foreground)]" aria-hidden="true" /><SelectValue placeholder="Chọn đơn vị…" /></SelectTrigger>
+                <SelectContent className="max-h-72">{flatOrgUnits.map(u => <SelectItem key={u.id} value={u.id}>{u.levelLabel}</SelectItem>)}</SelectContent>
+              </Select>
             )}
-          </div>
-
-          {/* Weight status */}
-          {ready && (
-            <div className={cn('rounded-card px-3 py-2 flex items-center justify-between text-xs font-medium border',
-              isLoadingWeight
-                ? 'bg-[var(--color-accent)] border-[var(--color-border)] text-[var(--color-muted-foreground)]'
-                : weightIs100
-                  ? 'bg-[var(--color-success-bg)] border-[var(--color-success-border)] text-[var(--color-success)]'
-                  : 'bg-[var(--color-error-bg)] border-[var(--color-error-border)] text-[var(--color-error)]'
-            )}>
-              <span className="flex items-center gap-1.5">
-                {isLoadingWeight
-                  ? <Loader2 size={12} className="animate-spin" />
-                  : weightIs100
-                    ? <Check size={12} />
-                    : <ShieldAlert size={12} />
-                }
-                {isLoadingWeight
-                  ? 'Đang kiểm tra trọng số...'
-                  : weightIs100
-                    ? 'Tổng trọng số đạt 100% — sẵn sàng thao tác'
-                    : (
-                      <span>
-                        Chức năng này chỉ dùng được khi tổng trọng số đã đạt <strong>100%</strong>.{' '}
-                        Vui lòng vào <strong>Tạo mới KPI/ Import KPI</strong> để bổ sung cho đủ trọng số trước.
-                      </span>
-                    )
-                }
-              </span>
-              {!isLoadingWeight && (
-                <span className="text-sm font-semibold ml-2 shrink-0">{formatNumber(totalWeight ?? 0)}%</span>
-              )}
-            </div>
-          )}
+          </Field>
         </div>
 
-        {/* Tabs — chỉ hiển thị khi đủ điều kiện */}
-        {ready && !isLoadingWeight && weightIs100 && (
-          <div className="flex border-b border-[var(--color-border)]/50 px-6">
-            <button onClick={() => setTab('replace')}
-              className={cn('flex items-center gap-2 py-3 pr-6 text-sm font-medium border-b-2 -mb-px transition-colors',
-                tab === 'replace' ? 'border-[var(--color-primary)] text-[var(--color-primary)]' : 'border-transparent text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)]'
-              )}>
-              <ArrowLeftRight size={14} /> Thay thế KPI
-            </button>
-            <button onClick={() => setTab('adjust')}
-              className={cn('flex items-center gap-2 py-3 pr-6 text-sm font-medium border-b-2 -mb-px transition-colors',
-                tab === 'adjust' ? 'border-[var(--color-primary)] text-[var(--color-primary)]' : 'border-transparent text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)]'
-              )}>
-              <SlidersHorizontal size={14} /> Điều chỉnh trọng số
-            </button>
+        {ready && (
+          <div className={cn('flex items-center justify-between gap-3 rounded-card border px-3 py-2 text-xs font-medium',
+            isLoadingWeight ? 'border-[var(--color-border)] bg-[var(--color-muted)] text-[var(--color-muted-foreground)]'
+              : weightIs100 ? 'border-[var(--color-success-border)] bg-[var(--color-success-bg)] text-[var(--color-success)]'
+              : 'border-[var(--color-error-border)] bg-[var(--color-error-bg)] text-[var(--color-error)]')}>
+            <span className="flex items-center gap-1.5">
+              {isLoadingWeight ? <Loader2 size={12} className="animate-spin" /> : weightIs100 ? <Check size={12} /> : <ShieldAlert size={12} />}
+              {isLoadingWeight ? 'Đang kiểm tra trọng số…'
+                : weightIs100 ? 'Tổng trọng số đã đủ 100% — chèn KPI mới bằng một trong hai cách dưới'
+                : <>Đơn vị chưa đủ <b>100%</b> trọng số — vào <b>Tạo chỉ tiêu</b> bổ sung cho đủ trước, việc khẩn chỉ dùng khi đã kín chỗ.</>}
+            </span>
+            {!isLoadingWeight && <span className="shrink-0 text-sm font-semibold tabular-nums">{formatNumber(totalWeight ?? 0)}%</span>}
           </div>
         )}
 
-        {/* Body */}
-        <div className="overflow-y-auto flex-1 px-6 py-5 custom-scrollbar">
-          {!ready ? (
-            <div className="flex flex-col items-center justify-center gap-3 py-16 text-center">
-              <ShieldAlert size={36} className="text-[var(--color-muted-foreground)] opacity-30" />
-              <p className="text-sm font-medium text-[var(--color-muted-foreground)]">Chọn kỳ đánh giá và đơn vị để tiếp tục</p>
-            </div>
-          ) : isLoadingWeight || isLoadingKpis ? (
-            <div className="flex flex-col items-center justify-center gap-3 py-16">
-              <Loader2 className="h-8 w-8 animate-spin text-[var(--color-primary)]" />
-              <span className="text-eyebrow opacity-50">Đang tải...</span>
-            </div>
-          ) : !weightIs100 ? (
-            <div className="flex flex-col items-center justify-center gap-4 py-16 text-center">
-              <div className="rounded-full bg-[var(--color-error-bg)] p-4">
-                <ShieldAlert size={32} className="text-[var(--color-error)]" />
-              </div>
-              <div className="space-y-1">
-                <p className="text-sm font-semibold text-[var(--color-foreground)]">Chưa thể thực hiện thao tác này</p>
-                <p className="text-xs text-[var(--color-muted-foreground)] max-w-xs leading-relaxed">
-                  Tổng trọng số KPI của đơn vị đang là <strong className="text-[var(--color-error)]">{formatNumber(totalWeight ?? 0)}%</strong>, chưa đạt mức 100% bắt buộc.
-                  Hãy vào <strong>Tạo mới KPI</strong> để bổ sung KPI cho đủ 100% trọng số trước khi thêm task khẩn cấp.
-                </p>
-              </div>
-              <Button className="mt-2" onClick={onClose}>
-                Đóng & Tạo mới KPI
-              </Button>
-            </div>
-          ) : kpiList.length === 0 ? (
-            <p className="text-center text-sm font-medium text-[var(--color-muted-foreground)] py-16 italic">Chưa có KPI nào trong kỳ này</p>
-          ) : tab === 'replace' ? (
-            <ReplaceTab kpiList={kpiList} orgUnitId={selectedOrgUnitId} period={selectedPeriod} enableOkr={enableOkr} enableQualitative={enableQualitative} enableBsc={enableBsc} objectives={filteredObjectives} perspectives={perspectives ?? []} availablePerspectiveIds={availablePerspectiveIds} perspectiveHints={perspectiveHints} onSuccess={onClose} />
-          ) : (
-            <AdjustTab kpiList={kpiList} kpiPeriodId={selectedPeriodId} orgUnitId={selectedOrgUnitId} period={selectedPeriod} enableOkr={enableOkr} enableQualitative={enableQualitative} enableBsc={enableBsc} objectives={filteredObjectives} perspectives={perspectives ?? []} availablePerspectiveIds={availablePerspectiveIds} perspectiveHints={perspectiveHints} perspectiveWeightPct={perspectiveWeightPct} onSuccess={onClose} />
-          )}
-        </div>
+        {canWork && (
+          <SegmentedControl<Tab>
+            ariaLabel="Cách chèn KPI"
+            value={tab}
+            onChange={setTab}
+            options={[
+              { value: 'replace', label: <span className="inline-flex items-center gap-1.5"><ArrowLeftRight size={14} /> Thay một KPI</span>, title: 'KPI cũ đánh dấu Đã thay thế, KPI mới kế thừa trọng số' },
+              { value: 'adjust', label: <span className="inline-flex items-center gap-1.5"><SlidersHorizontal size={14} /> Bớt trọng số KPI hiện có</span>, title: 'Giảm trọng số vài KPI để chừa chỗ cho KPI mới' },
+            ]}
+          />
+        )}
+
+        {!ready ? (
+          <p className="py-10 text-center text-sm text-[var(--color-muted-foreground)]">Chọn kỳ đánh giá và đơn vị để tiếp tục.</p>
+        ) : isLoadingWeight || isLoadingKpis ? (
+          <p className="flex items-center justify-center gap-2 py-10 text-caption"><Loader2 size={18} className="animate-spin text-[var(--color-primary)]" /> Đang tải…</p>
+        ) : !weightIs100 ? null : kpiList.length === 0 ? (
+          <p className="py-10 text-center text-sm text-[var(--color-muted-foreground)]">Chưa có KPI nào trong kỳ này.</p>
+        ) : tab === 'replace' ? (
+          <ReplaceTab key={`r-${selectedPeriodId}-${selectedOrgUnitId}`} kpiList={kpiList} orgUnitId={selectedOrgUnitId} ctx={ctx} onSuccess={onClose} />
+        ) : (
+          <AdjustTab key={`a-${selectedPeriodId}-${selectedOrgUnitId}`} kpiList={kpiList} kpiPeriodId={selectedPeriodId} orgUnitId={selectedOrgUnitId} ctx={ctx} perspectiveWeightPct={perspectiveWeightPct} onSuccess={onClose} />
+        )}
       </div>
-    </div>
+    </Dialog>
   )
 }

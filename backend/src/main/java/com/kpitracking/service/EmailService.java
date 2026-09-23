@@ -184,7 +184,9 @@ public class EmailService {
     @Async
     public void sendNotificationEmail(String to, String title, String message) {
         sendEmail(to, title, com.kpitracking.service.email.EmailLayout.wrap(
-                "Thông báo Hệ thống", "<p>Xin chào,</p><p>" + message + "</p>"));
+                "Thông báo Hệ thống", "<p>Xin chào,</p><p>"
+                        + org.springframework.web.util.HtmlUtils.htmlEscape(message == null ? "" : message, "UTF-8")
+                        + "</p>"));
     }
 
     /** Mail thông báo theo đúng mã sự kiện ⇒ dùng template mà tổ chức đã cấu hình. */

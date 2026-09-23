@@ -103,8 +103,8 @@ export default function MemberRoleChart({ data }: { data?: RoleDist[] }) {
       <div className="flex-1 min-h-0">
         <ResponsiveContainer width="100%" height="100%" minHeight={0}>
           <BarChart data={chartData} layout="vertical" margin={{ top: 4, right: 48, left: 8, bottom: 24 }}>
-            <CartesianGrid strokeDasharray="3 3" horizontal={false} stroke="#f1f5f9" />
-            <XAxis type="number" label={xAxisLabel('S\u1ed1 ng\u01b0\u1eddi')} allowDecimals={false} axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: '#64748b' }} />
+            <CartesianGrid stroke="var(--color-border)" horizontal={false} />
+            <XAxis type="number" label={xAxisLabel('S\u1ed1 ng\u01b0\u1eddi')} allowDecimals={false} axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} />
             <YAxis dataKey="unitName" type="category" axisLine={false} tickLine={false} width={130}
               tick={{ fontSize: 11, fontWeight: 700, fill: '#64748b' }} />
             <Tooltip content={<RoleTooltip />} cursor={{ fill: '#94a3b8', opacity: 0.06 }} />

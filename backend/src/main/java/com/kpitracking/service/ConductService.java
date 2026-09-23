@@ -488,7 +488,90 @@ public class ConductService {
         ConductEvaluation sheet = scope == ConductScope.PERIOD
                 ? conductEvaluationRepository.findByUserIdAndKpiPeriodId(userId, targetId).orElse(null)
                 : conductEvaluationRepository.findByUserIdAndKpiCycleId(userId, targetId).orElse(null);
+        if (sheet == null && scope == ConductScope.CYCLE) {
+            KpiCycle cycle = kpiCycleRepository.findById(targetId).orElse(null);
+            return periodAverageTotals(List.of(userId), cycle).get(userId);
+        }
         return effectiveScore(sheet);
+    }
+
+    // ── Trung bình các phiếu ĐỢT trong kỳ ──────────────────────────────────
+
+    /** TB từng tiêu chí (khớp theo criteriaId, dự phòng theo vị trí) của các phiếu đợt trong kỳ. */
+    private record PeriodAverages(int periods, Map<Object, Double> self, Map<Object, Double> manager) {
+        static final PeriodAverages NONE = new PeriodAverages(0, Map.of(), Map.of());
+        Double self(UUID criteriaId, Integer position) { return pick(self, criteriaId, position); }
+        Double manager(UUID criteriaId, Integer position) { return pick(manager, criteriaId, position); }
+        private static Double pick(Map<Object, Double> m, UUID criteriaId, Integer position) {
+            Double v = criteriaId != null ? m.get(criteriaId) : null;
+            return v != null ? v : (position != null ? m.get(position) : null);
+        }
+    }
+
+    private PeriodAverages periodAverages(UUID userId, KpiCycle cycle) {
+        if (cycle == null) return PeriodAverages.NONE;
+        List<UUID> periodIds = kpiPeriodRepository.findByKpiCycleIdOrderByStartDateAsc(cycle.getId())
+                .stream().map(KpiPeriod::getId).toList();
+        if (periodIds.isEmpty()) return PeriodAverages.NONE;
+        List<ConductEvaluation> sheets = conductEvaluationRepository.findByUserIdAndKpiPeriodIdIn(userId, periodIds);
+        if (sheets.isEmpty()) return PeriodAverages.NONE;
+
+        Map<Object, double[]> selfAcc = new HashMap<>();   // key → [sum, n]
+        Map<Object, double[]> mgrAcc = new HashMap<>();
+        for (ConductEvaluation s : sheets) {
+            for (ConductEvaluationItem it : s.getItems()) {
+                Object key = it.getCriteria() != null ? it.getCriteria().getId() : it.getPosition();
+                if (key == null) continue;
+                if (it.getSelfScore() != null) accumulate(selfAcc, key, it.getSelfScore());
+                if (it.getManagerScore() != null) accumulate(mgrAcc, key, it.getManagerScore());
+                // Khớp thêm theo vị trí để tiêu chí bị xoá/thay vẫn rơi đúng dòng.
+                if (it.getCriteria() != null && it.getPosition() != null) {
+                    if (it.getSelfScore() != null) accumulate(selfAcc, it.getPosition(), it.getSelfScore());
+                    if (it.getManagerScore() != null) accumulate(mgrAcc, it.getPosition(), it.getManagerScore());
+                }
+            }
+        }
+        return new PeriodAverages(sheets.size(), averages(selfAcc), averages(mgrAcc));
+    }
+
+    private static void accumulate(Map<Object, double[]> acc, Object key, double v) {
+        double[] a = acc.computeIfAbsent(key, k -> new double[2]);
+        a[0] += v; a[1] += 1;
+    }
+
+    /** Làm tròn về 0.5 — thang chấm là các mốc nguyên, TB 2.67 hiện thành 2.5 đọc tự nhiên hơn. */
+    private static Map<Object, Double> averages(Map<Object, double[]> acc) {
+        Map<Object, Double> out = new HashMap<>();
+        acc.forEach((k, a) -> out.put(k, Math.round(a[0] / a[1] * 2.0) / 2.0));
+        return out;
+    }
+
+    /** TB tổng điểm hiệu lực (QLTT, không có thì tự chấm) của các phiếu đợt, cho nhiều người một lượt. */
+    private Map<UUID, Double> periodAverageTotals(List<UUID> userIds, KpiCycle cycle) {
+        if (cycle == null || userIds.isEmpty()) return Map.of();
+        List<UUID> periodIds = kpiPeriodRepository.findByKpiCycleIdOrderByStartDateAsc(cycle.getId())
+                .stream().map(KpiPeriod::getId).toList();
+        if (periodIds.isEmpty()) return Map.of();
+        Map<UUID, double[]> acc = new HashMap<>();
+        for (ConductEvaluation s : conductEvaluationRepository.findByUserIdInAndKpiPeriodIdIn(userIds, periodIds)) {
+            Double v = effectiveScore(s);
+            if (v == null || s.getUser() == null) continue;
+            double[] a = acc.computeIfAbsent(s.getUser().getId(), k -> new double[2]);
+            a[0] += v; a[1] += 1;
+        }
+        Map<UUID, Double> out = new HashMap<>();
+        acc.forEach((k, a) -> out.put(k, Math.round(a[0] / a[1] * 100.0) / 100.0));
+        return out;
+    }
+
+    private Double weightedTotalOf(List<ConductItemResponse> items, boolean selfSide) {
+        double sum = 0; boolean any = false;
+        for (ConductItemResponse i : items) {
+            Double w = selfSide ? i.getSelfWeighted() : i.getManagerWeighted();
+            if (w == null) continue;
+            any = true; sum += w;
+        }
+        return any ? Math.round(sum * 100.0) / 100.0 : null;
     }
 
     /**
@@ -513,6 +596,65 @@ public class ConductService {
             // nó làm hỏng cả bảng đánh giá đang gọi tới.
             return conductMaxScore(org);
         }
+    }
+
+    /** Điểm hạnh kiểm của một người kèm thang của chính phiếu đó. */
+    public record ConductAxis(Double score, Double maxScore) {
+        public static final ConductAxis EMPTY = new ConductAxis(null, null);
+    }
+
+    /**
+     * Điểm hạnh kiểm của NHIỀU người trong cùng một đợt/kỳ — một truy vấn cho cả danh sách.
+     *
+     * Bảng đánh giá kỳ gọi cho từng thành viên của phòng, gọi lẻ thì mỗi người một truy vấn.
+     * Người chưa có phiếu vẫn có mặt trong map (điểm null, thang của bộ mà kỳ này dùng) để
+     * chỗ gọi không phải phân biệt "chưa chấm" với "không có trong map".
+     */
+    @Transactional(readOnly = true)
+    public Map<UUID, ConductAxis> effectiveAxes(List<UUID> userIds, ConductScope scope,
+                                                UUID targetId, Organization org) {
+        if (org == null || !Boolean.TRUE.equals(org.getEnableConduct())
+                || targetId == null || userIds == null || userIds.isEmpty()) {
+            return Map.of();
+        }
+        List<UUID> ids = userIds.stream().filter(Objects::nonNull).distinct().toList();
+        if (ids.isEmpty()) return Map.of();
+
+        List<ConductEvaluation> found = scope == ConductScope.PERIOD
+                ? conductEvaluationRepository.findByKpiPeriodIdAndUserIdIn(targetId, ids)
+                : conductEvaluationRepository.findByKpiCycleIdAndUserIdIn(targetId, ids);
+
+        // Thang nền cho người chưa có phiếu: lấy bộ mà đợt/kỳ này dùng, KHÔNG phải bộ mặc định.
+        // Đợt/kỳ đã bị xoá thì rơi về thang của tổ chức thay vì làm hỏng cả bảng đang gọi tới.
+        double fallbackMax;
+        try {
+            fallbackMax = setMaxScore(resolveSet(resolveTarget(scope,
+                    scope == ConductScope.PERIOD ? targetId : null,
+                    scope == ConductScope.PERIOD ? null : targetId)), org);
+        } catch (RuntimeException e) {
+            fallbackMax = conductMaxScore(org);
+        }
+
+        Map<UUID, ConductAxis> byUser = new HashMap<>();
+        for (ConductEvaluation e : found) {
+            if (e.getUser() == null) continue;
+            byUser.put(e.getUser().getId(), new ConductAxis(
+                    effectiveScore(e),
+                    e.getMaxScore() != null ? e.getMaxScore() : fallbackMax));
+        }
+        // Phiếu KỲ chưa lưu ⇒ điểm hiệu lực = TB các phiếu đợt (đúng con số đang điền sẵn trên
+        // phiếu), để ma trận không trống chỉ vì quản lý chưa bấm lưu.
+        if (scope == ConductScope.CYCLE) {
+            List<UUID> missing = ids.stream().filter(id -> !byUser.containsKey(id)).toList();
+            if (!missing.isEmpty()) {
+                KpiCycle cycle = kpiCycleRepository.findById(targetId).orElse(null);
+                for (Map.Entry<UUID, Double> en : periodAverageTotals(missing, cycle).entrySet()) {
+                    byUser.put(en.getKey(), new ConductAxis(en.getValue(), fallbackMax));
+                }
+            }
+        }
+        for (UUID id : ids) byUser.putIfAbsent(id, new ConductAxis(null, fallbackMax));
+        return byUser;
     }
 
     private Double effectiveScore(ConductEvaluation sheet) {
@@ -596,9 +738,16 @@ public class ConductService {
                 ConductEvaluationItem item = matchItem(sheet, input.getCriteriaId(), input.getPosition());
                 if (item == null) continue;
                 Double score = input.getScore();
-                if (score != null && (score < 0 || score > max)) {
+                // Thang chấm là MIN_SCORE..max (1..5 mặc định) cho khớp ma trận xếp loại. Điểm CŨ
+                // nằm ngoài thang — phiếu chấm từ thời thang 0..4 — vẫn ghi lại được khi nó không
+                // đổi, nếu không thì sửa một dòng khác trong phiếu đó sẽ kéo cả phiếu thành không lưu nổi.
+                Double previous = selfSide ? item.getSelfScore() : item.getManagerScore();
+                boolean unchanged = score != null && score.equals(previous);
+                if (score != null && !unchanged
+                        && (score < ConductConstants.MIN_SCORE || score > max)) {
                     throw new BusinessException("Điểm tiêu chí \"" + item.getCriteriaName()
-                            + "\" phải nằm trong khoảng 0 đến " + max);
+                            + "\" phải nằm trong khoảng " + fmtScale(ConductConstants.MIN_SCORE)
+                            + " đến " + fmtScale(max));
                 }
                 if (selfSide) {
                     item.setSelfScore(score);
@@ -611,6 +760,11 @@ public class ConductService {
         }
         if (selfSide) sheet.setSelfScore(weightedTotal(sheet, true));
         else sheet.setManagerScore(weightedTotal(sheet, false));
+    }
+
+    /** "5" thay vì "5.0" trong thông báo lỗi — thang điểm vốn là số nguyên. */
+    private static String fmtScale(double v) {
+        return v == Math.rint(v) ? String.valueOf((long) v) : String.valueOf(v);
     }
 
     private ConductEvaluationItem matchItem(ConductEvaluation sheet, UUID criteriaId, Integer position) {
@@ -649,10 +803,29 @@ public class ConductService {
      * Phiếu theo ĐỢT cũng khoá theo kỳ chứa đợt đó, vì đợt là một phần của kỳ.
      */
     private OrgUnit lockingUnitFor(User user, Target t) {
+        CycleUnitEvaluation e = lockFor(user, t);
+        return e != null ? e.getOrgUnit() : null;
+    }
+
+    /**
+     * Bản ghi kỳ đang khoá phiếu (kèm trạng thái), null nếu chưa bị khoá.
+     *
+     * Hai phạm vi khoá theo hai nhịp khác nhau:
+     * <ul>
+     *   <li>Phiếu theo ĐỢT là đầu vào của điểm kỳ (cùng hạng với đánh giá đợt) ⇒ đóng từ lúc
+     *       "chốt dữ liệu kỳ" (CALIBRATING).</li>
+     *   <li>Phiếu theo KỲ là một ô CHẤM trong phiếu chốt kỳ — đứng cạnh điểm chốt và mức định
+     *       tính, quản lý chấm nó ngay trong bước hiệu chỉnh ⇒ chỉ khoá khi KHOÁ KẾT QUẢ.</li>
+     * </ul>
+     */
+    private CycleUnitEvaluation lockFor(User user, Target t) {
         KpiCycle cycle = t.cycle() != null ? t.cycle()
                 : (t.period() != null ? t.period().getKpiCycle() : null);
         if (cycle == null) return null;
-        return cycleLockChecker.lockingUnitForUser(cycle.getId(), primaryUnit(user.getId()));
+        OrgUnit unit = primaryUnit(user.getId());
+        return t.scope() == ConductScope.CYCLE
+                ? cycleLockChecker.resultLockFor(cycle.getId(), unit)
+                : cycleLockChecker.inputLockFor(cycle.getId(), unit);
     }
 
     private void assertNotLocked(User user, Target t) {
@@ -710,19 +883,40 @@ public class ConductService {
         Organization org = t.organization();
         ConductCriteriaSet set = resolveSet(t);
         double max = setMaxScore(set, org);
-        OrgUnit locking = lockingUnitFor(target, t);
+        CycleUnitEvaluation lock = lockFor(target, t);
+        OrgUnit locking = lock != null ? lock.getOrgUnit() : null;
+        // Phiếu KỲ: điền sẵn từng tiêu chí bằng TB các phiếu đợt — như điểm chốt kỳ lấy TB đợt.
+        PeriodAverages avg = t.scope() == ConductScope.CYCLE ? periodAverages(target.getId(), t.cycle()) : PeriodAverages.NONE;
         List<ConductItemResponse> items = (set == null ? List.<ConductCriteria>of()
                 : conductCriteriaRepository.findByCriteriaSetIdOrderByPositionAsc(set.getId())).stream()
-                .map(c -> ConductItemResponse.builder()
-                        .criteriaId(c.getId())
-                        .name(c.getName())
-                        .description(c.getDescription())
-                        .weight(c.getWeight())
-                        .position(c.getPosition())
-                        .build())
+                .map(c -> {
+                    Double self = avg.self(c.getId(), c.getPosition());
+                    Double mgr = avg.manager(c.getId(), c.getPosition());
+                    return ConductItemResponse.builder()
+                            .criteriaId(c.getId())
+                            .name(c.getName())
+                            .description(c.getDescription())
+                            .weight(c.getWeight())
+                            .position(c.getPosition())
+                            .selfScore(self)
+                            .managerScore(mgr)
+                            .selfWeighted(weighted(self, c.getWeight()))
+                            .managerWeighted(weighted(mgr, c.getWeight()))
+                            .build();
+                })
                 .toList();
+        Double selfTotal = weightedTotalOf(items, true);
+        Double managerTotal = weightedTotalOf(items, false);
+        var axes = ConductAxisResolver.resolve(null, null,
+                managerTotal != null ? managerTotal : selfTotal, max);
 
         return ConductSheetResponse.builder()
+                .prefilledFromPeriods(avg.periods() > 0 ? avg.periods() : null)
+                .selfScore(selfTotal)
+                .managerScore(managerTotal)
+                .effectiveScore(managerTotal != null ? managerTotal : selfTotal)
+                .behaviorEquivalent(axes.behaviorScore())
+                .percentEquivalent(axes.completionPercent())
                 .userId(target.getId())
                 .userName(target.getFullName())
                 .userAvatarUrl(target.getAvatarUrl())
@@ -734,12 +928,14 @@ public class ConductService {
                 .criteriaSetName(set != null ? set.getName() : null)
                 .status(ConductStatus.DRAFT)
                 .maxScore(max)
+                .minScore(ConductConstants.MIN_SCORE)
                 .items(items)
                 .canScoreSelf(locking == null && target.getId().equals(viewer.getId()))
                 .canScoreManager(locking == null && !target.getId().equals(viewer.getId())
                         && canScoreConduct(viewer, target))
                 .locked(locking != null)
                 .lockedByUnitName(locking != null ? locking.getName() : null)
+                .lockStage(lock != null ? lock.getStatus() : null)
                 .build();
     }
 
@@ -765,7 +961,8 @@ public class ConductService {
 
         Double effective = effectiveScore(e);
         var axes = ConductAxisResolver.resolve(null, null, effective, max);
-        OrgUnit locking = lockingUnitFor(target, t);
+        CycleUnitEvaluation lock = lockFor(target, t);
+        OrgUnit locking = lock != null ? lock.getOrgUnit() : null;
         // Phiếu chấm trước khi có bộ theo kỳ chưa ghi bộ nào — suy lại từ đợt/kỳ để nhãn
         // không bỏ trống, chứ không đổi điểm (điểm vẫn từ bản chụp trong phiếu).
         ConductCriteriaSet set = e.getCriteriaSet() != null ? e.getCriteriaSet() : resolveSet(t);
@@ -783,6 +980,7 @@ public class ConductService {
                 .criteriaSetName(set != null ? set.getName() : null)
                 .status(e.getStatus())
                 .maxScore(max)
+                .minScore(ConductConstants.MIN_SCORE)
                 .selfScore(round(e.getSelfScore()))
                 .managerScore(round(e.getManagerScore()))
                 .comment(e.getComment())
@@ -798,6 +996,7 @@ public class ConductService {
                         && canScoreConduct(viewer, target))
                 .locked(locking != null)
                 .lockedByUnitName(locking != null ? locking.getName() : null)
+                .lockStage(lock != null ? lock.getStatus() : null)
                 .build();
     }
 

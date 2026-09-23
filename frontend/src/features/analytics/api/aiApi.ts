@@ -69,7 +69,7 @@ export interface PendingActionItem {
  */
 export interface PendingAction {
   id: string
-  kind: 'SUBMISSION_REVIEW' | 'KPI_CRITERIA_REVIEW' | 'KPI_ADJUSTMENT_REVIEW' | 'SEND_REMINDER'
+  kind: 'SUBMISSION_REVIEW' | 'KPI_CRITERIA_REVIEW' | 'KPI_ADJUSTMENT_REVIEW' | 'SEND_REMINDER' | 'KPI_SUBMIT' | 'REWARD_GRANT_REVIEW' | 'CYCLE_FINALIZE' | 'CYCLE_REOPEN' | 'CYCLE_SEND' | 'KPI_DECOMPOSE'
   decision?: 'APPROVE' | 'REJECT'
   title: string
   note?: string
@@ -164,7 +164,7 @@ export interface FollowupPools {
 
 // Các endpoint gọi LLM có thể chạy lâu hơn nhiều so với request thường,
 // nên dùng timeout riêng 300s thay vì timeout global (100s).
-const AI_TIMEOUT = 300000
+export const AI_TIMEOUT = 300000
 
 /** Việc trợ lý đang làm: một công đoạn của chuỗi xử lý, hoặc một lần tra cứu dữ liệu. */
 export interface StageEvent {
@@ -179,13 +179,85 @@ export interface ChatStreamHandlers {
   /** Một mẩu chữ. Là BẢN XEM TRƯỚC chưa qua lọc — phải thay bằng nội dung của onDone. */
   onToken?: (text: string) => void
   onDone?: (response: AiChatResponse) => void
-  onError?: (message: string) => void
+  /**
+   * Lượt hỏng. Nhận NGUYÊN đối tượng lỗi chứ không phải chuỗi: nó mang cả mã HTTP mà đường JSON
+   * sẽ trả, nên màn chat phân nhánh 402/429 và `getApiErrorMessage` đọc được câu của backend.
+   * Trước đây chỉ truyền chuỗi rồi chỗ gọi bọc lại thành `new Error(message)` — một lỗi không
+   * phải của axios, và `getApiErrorMessage` bỏ qua nên người hết hạn mức token chỉ thấy
+   * "Lỗi không xác định" thay vì lý do thật.
+   */
+  onError?: (error: StreamError) => void
+}
+
+/**
+ * Lỗi của luồng SSE, đội đúng hình dạng lỗi axios (`isAxiosError` + `response.status/data`) để
+ * mọi chỗ bắt lỗi dùng chung một nhánh cho cả đường JSON lẫn đường streaming.
+ */
+export type StreamError = Error & { isAxiosError: true; response: { status: number; data?: unknown } }
+
+function streamError(message: string, status: number, data?: unknown): StreamError {
+  return Object.assign(new Error(message), {
+    isAxiosError: true as const,
+    response: { status, data: data ?? { message } },
+  })
 }
 
 /** Đọc cookie theo tên. Chỉ dùng cho cookie CSRF, vốn cố ý KHÔNG phải HttpOnly. */
 function readCookie(name: string): string | null {
   const hit = document.cookie.split('; ').find(c => c.startsWith(name + '='))
   return hit ? decodeURIComponent(hit.slice(name.length + 1)) : null
+}
+
+/** Một tài liệu đã nạp vào kho tri thức của trợ lý. */
+export interface RagDocument {
+  id: string
+  /** null = bộ hướng dẫn KeyGo chung toàn hệ thống; có giá trị = tài liệu của tổ chức đó. */
+  organizationId: string | null
+  /** GUIDE do quản trị nền tảng nạp; ba loại còn lại là của tổ chức. */
+  source: 'GUIDE' | 'REGULATION' | 'JOB_DESCRIPTION' | 'STRATEGY'
+  title: string
+  fileName?: string
+  status: 'PENDING' | 'READY' | 'FAILED'
+  chunkCount: number
+  imageCount: number
+  errorMessage?: string | null
+  createdAt: string
+}
+
+export const RAG_SOURCE_LABELS: Record<RagDocument['source'], string> = {
+  GUIDE: 'Hướng dẫn KeyGo · toàn hệ thống',
+  REGULATION: 'Quy chế của tổ chức',
+  JOB_DESCRIPTION: 'Mô tả công việc / chức năng nhiệm vụ',
+  STRATEGY: 'Chiến lược, mục tiêu năm',
+}
+
+/** Một đoạn đang nằm trong kho vector — đúng như trợ lý sẽ nhận (đã có [mục] chèn đầu). */
+export interface RagChunk {
+  id: string
+  order: number | null
+  index: number | null
+  title: string | null
+  parent: string | null
+  route: string | null
+  roles: string | null
+  text: string
+  images: string[]
+  captions: string[]
+}
+
+/**
+ * Một kết quả "thử tìm". `score` là điểm gộp RRF của chế độ hybrid (thường ≤ 0,033): chỉ để xếp
+ * hạng trong cùng một lần tìm, không phải độ giống cosine.
+ */
+export interface RagSearchHit {
+  score: number | null
+  docId: string | null
+  docTitle: string | null
+  title: string | null
+  parent: string | null
+  route: string | null
+  text: string
+  images: string[]
 }
 
 export const aiApi = {
@@ -213,9 +285,7 @@ export const aiApi = {
       // Dựng lỗi theo ĐÚNG hình dạng lỗi của axios ({ response: { status, data } }) để chỗ bắt lỗi
       // ở màn hình dùng chung được một nhánh cho cả hai đường — nhánh 429 đọc data.message.
       const data = await res.json().catch(() => undefined)
-      throw Object.assign(new Error(data?.message ?? 'Chat stream failed'), {
-        response: { status: res.status, data },
-      })
+      throw streamError(data?.message ?? 'Chat stream failed', res.status, data)
     }
 
     const reader = res.body.getReader()
@@ -253,7 +323,9 @@ export const aiApi = {
           if (event === 'stage') handlers.onStage?.(payload as StageEvent)
           else if (event === 'token') handlers.onToken?.(payload.text ?? '')
           else if (event === 'done') handlers.onDone?.(payload as AiChatResponse)
-          else if (event === 'error') handlers.onError?.(payload.message ?? 'Lỗi không xác định')
+          else if (event === 'error') {
+            handlers.onError?.(streamError(payload.message ?? 'Lỗi không xác định', payload.status ?? 500))
+          }
         }
       }
     } finally {
@@ -272,6 +344,44 @@ export const aiApi = {
   confirmAction: (actionId: string, itemIds?: string[]) =>
     axiosInstance
       .post<ApiResponse<ConfirmActionResult>>(`/ai/actions/${actionId}/confirm`, { itemIds })
+      .then(res => res.data.data),
+
+  /** Kho tri thức: tài liệu của tổ chức mình (bộ hướng dẫn chung quản lý ở platformAdminApi). */
+  listRagDocuments: () =>
+    axiosInstance
+      .get<ApiResponse<RagDocument[]>>('/ai/rag/documents')
+      .then(res => res.data.data),
+
+  /**
+   * Nạp một tệp .docx. Chạy đồng bộ ở backend (đọc mục, cất ảnh, embedding tại chỗ) nên tệp lớn
+   * mất vài giây; timeout nới như lượt chat.
+   */
+  uploadRagDocument: (file: File, source: RagDocument['source'], title?: string) => {
+    const form = new FormData()
+    form.append('file', file)
+    form.append('source', source)
+    if (title) form.append('title', title)
+    return axiosInstance
+      .post<ApiResponse<RagDocument>>('/ai/rag/documents', form, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: AI_TIMEOUT,
+      })
+      .then(res => res.data.data)
+  },
+
+  deleteRagDocument: (id: string) =>
+    axiosInstance.delete<ApiResponse<void>>(`/ai/rag/documents/${id}`).then(res => res.data),
+
+  /** Các đoạn của một tài liệu, theo thứ tự mục. */
+  listRagChunks: (id: string) =>
+    axiosInstance
+      .get<ApiResponse<RagChunk[]>>(`/ai/rag/documents/${id}/chunks`)
+      .then(res => res.data.data),
+
+  /** Chạy đúng bộ truy hồi của trợ lý với một câu hỏi — xem nó "thấy gì". */
+  searchRag: (q: string) =>
+    axiosInstance
+      .get<ApiResponse<RagSearchHit[]>>('/ai/rag/search', { params: { q } })
       .then(res => res.data.data),
 
   chat: (request: AiChatRequest) =>

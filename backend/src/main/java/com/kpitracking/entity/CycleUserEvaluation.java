@@ -44,6 +44,22 @@ public class CycleUserEvaluation {
     @Column(name = "matrix_rating")
     private Integer matrixRating;
 
+    /**
+     * Xếp loại được ĐẶT TAY lúc hiệu chỉnh theo khung bell curve (không suy từ hai trục).
+     * Chế độ ma trận không có "điểm" nào để kéo, muốn hạ Loại 4 → 3 thì phải đặt thẳng hạng.
+     */
+    @Column(name = "rating_overridden", nullable = false)
+    @Builder.Default
+    private Boolean ratingOverridden = false;
+
+    /** Điểm chốt kỳ tự tính chụp lúc chốt dữ liệu kỳ — mốc so sánh cho hiệu chỉnh. */
+    @Column(name = "baseline_score")
+    private Double baselineScore;
+
+    /** Xếp loại ma trận tạm tính chụp lúc chốt dữ liệu kỳ. */
+    @Column(name = "baseline_rating")
+    private Integer baselineRating;
+
     @Column(name = "comment")
     private String comment;
 

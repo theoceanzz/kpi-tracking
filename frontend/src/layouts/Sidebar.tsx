@@ -5,7 +5,6 @@ import { useSidebarStore } from '@/store/sidebarStore'
 import { useState, useRef, useEffect } from 'react'
 import { useHasPermission } from '../components/auth/PermissionGate'
 import {
-  Target,
   X,
   MoreVertical,
   UserCircle,
@@ -31,6 +30,7 @@ import {
   type NavFeatureFlags,
 } from '@/config/navigation'
 import { Button } from '@/components/ui/button'
+import { BrandLogo } from '@/components/common/BrandLogo'
 
 // Mọi path trong cây, phẳng — dùng để biết khi nào một path chỉ đang là TIỀN TỐ của
 // route hiện tại (ví dụ /submissions với /submissions/org-unit) thì không được sáng,
@@ -245,8 +245,8 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
             <div className="relative group/toggle">
               <Button variant="ghost" size="icon" onClick={toggleSidebar} aria-label="Mở thanh bên">
                 <span className="relative flex h-8 w-8 items-center justify-center">
-                  <span className="absolute inset-0 flex items-center justify-center rounded-control bg-[var(--color-primary)] transition-opacity duration-150 group-hover/toggle:opacity-0">
-                    <Target aria-hidden="true" className="text-[var(--color-primary-foreground)]" size={18} />
+                  <span className="absolute inset-0 flex items-center justify-center transition-opacity duration-150 group-hover/toggle:opacity-0">
+                    <BrandLogo variant="icon" className="h-8 rounded-control" />
                   </span>
                   <PanelLeft aria-hidden="true"
                     className="relative opacity-0 group-hover/toggle:opacity-100 transition-opacity duration-150 text-[var(--color-foreground)]"
@@ -260,13 +260,9 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
             </div>
           ) : (
             <>
-              <Link to="/" className="flex min-w-0 items-center gap-2.5">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-control bg-[var(--color-primary)]">
-                  <Target className="text-[var(--color-primary-foreground)]" size={18} />
-                </div>
-                <span className="text-[15px] font-semibold tracking-tight text-[var(--color-foreground)]">
-                  KeyGo
-                </span>
+              <Link to="/" className="flex min-w-0 items-center" aria-label="KeyGo">
+                <BrandLogo className="h-8 dark:hidden" />
+                <BrandLogo variant="white" className="hidden h-8 dark:block" />
               </Link>
 
               <Button variant="ghost" size="icon" className="hidden shrink-0 lg:flex" onClick={toggleSidebar} aria-label="Thu gọn thanh bên" title="Thu gọn thanh bên">

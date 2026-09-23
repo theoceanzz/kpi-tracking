@@ -22,6 +22,13 @@ export const EMPTY_DRAFT: ConductDraftRow = {
   selfScore: '', selfEvidence: '', managerScore: '', managerComment: '',
 }
 
+/**
+ * Mức thấp nhất chấm được cho một tiêu chí — khớp `ConductConstants.MIN_SCORE` phía backend.
+ * Thang hạnh kiểm chạy {@link CONDUCT_MIN_SCORE}..maxScore (mặc định 1–5) để trùng thang xếp
+ * loại của ma trận hiệu quả, vì điểm hạnh kiểm chính là thứ lấp trục hành vi của ma trận đó.
+ */
+export const CONDUCT_MIN_SCORE = 1
+
 export const num = (v: string): number | null => {
   if (v.trim() === '') return null
   const n = Number(v)
@@ -90,8 +97,11 @@ export function useConductDraft(sheet: ConductSheet) {
 
   // Có gì khác bản trên server không. Dùng để form chủ bỏ qua lời gọi lưu khi người dùng
   // không đụng tới phiếu — không thì mỗi lần gửi đánh giá lại ghi đè một phiếu y hệt.
+  // Phiếu điền sẵn từ TB đợt chưa nằm trong DB — coi là "có thay đổi" để form chủ lưu nó khi
+  // chốt, không thì con số đang nhìn thấy không bao giờ được ghi lại.
   const dirty = useMemo(
-    () => JSON.stringify(draft) !== JSON.stringify(toDraft(sheet)) || comment !== (sheet.comment ?? ''),
+    () => !!sheet.prefilledFromPeriods
+      || JSON.stringify(draft) !== JSON.stringify(toDraft(sheet)) || comment !== (sheet.comment ?? ''),
     [draft, comment, sheet]
   )
 

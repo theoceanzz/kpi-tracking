@@ -34,6 +34,7 @@ public class OrgUnitKpiAnalyticsService {
     private final PermissionChecker permissionChecker;
     private final EvaluationService evaluationService;
     private final KpiCriteriaService kpiCriteriaService;
+    private final com.kpitracking.mapper.SoftDeletedRefs softDeletedRefs;
 
     /** ID MỌI nhân sự trong phạm vi (subtree) — để tính hiệu suất đánh giá cấp đơn vị (khớp thẻ Ma trận). */
     private java.util.Set<UUID> memberIdsInScope(UUID orgUnitId) {
@@ -122,9 +123,21 @@ public class OrgUnitKpiAnalyticsService {
     private List<KpiCriteria> approvedKpisForScope(List<OrgUnit> units, List<UUID> unitIds) {
         Organization org = units.isEmpty() ? null : units.get(0).getOrgHierarchyLevel().getOrganization();
         boolean okrOn = org != null && Boolean.TRUE.equals(org.getEnableOkr());
-        return okrOn
+        return withLivePeriod(okrOn
                 ? kpiCriteriaRepository.findApprovedWithoutKeyResultByOrgUnitIds(unitIds)
-                : kpiCriteriaRepository.findApprovedByOrgUnitIds(unitIds);
+                : kpiCriteriaRepository.findApprovedByOrgUnitIds(unitIds));
+    }
+
+    /**
+     * Bỏ KPI trỏ tới đợt đã XOÁ MỀM. {@code KpiPeriod} có {@code @SQLRestriction("deleted_at IS NULL")}
+     * nên proxy của đợt đã xoá khác null nhưng chạm {@code getStartDate()} là ném
+     * {@code EntityNotFoundException} — cả thẻ số liệu và biểu đồ của đơn vị đổ 500 vì một đợt cũ
+     * đã bị xoá (prod 2026-09-22). Đợt đã xoá thì KPI của nó cũng không còn gì để thống kê.
+     */
+    private List<KpiCriteria> withLivePeriod(List<KpiCriteria> kpis) {
+        return kpis.stream()
+                .filter(k -> k.getKpiPeriod() == null || softDeletedRefs.periodAlive(k.getKpiPeriod()))
+                .collect(Collectors.toList());
     }
 
     private List<KpiCriteria> getStandaloneKpis(UUID orgUnitId) {
@@ -149,9 +162,9 @@ public class OrgUnitKpiAnalyticsService {
      * OKR gần như toàn bộ KPI đều nằm dưới KeyResult, lọc theo bản đơn lẻ sẽ ra bảng rỗng.
      */
     private List<KpiCriteria> memberRiskSource(List<UUID> unitIds, boolean everyKpi) {
-        return everyKpi
+        return withLivePeriod(everyKpi
                 ? kpiCriteriaRepository.findApprovedByOrgUnitIds(unitIds)
-                : kpiCriteriaRepository.findApprovedWithoutKeyResultByOrgUnitIds(unitIds);
+                : kpiCriteriaRepository.findApprovedWithoutKeyResultByOrgUnitIds(unitIds));
     }
 
     /** Khi người dùng chọn (các) đợt cụ thể, chỉ giữ các KPI thuộc những đợt đó. */

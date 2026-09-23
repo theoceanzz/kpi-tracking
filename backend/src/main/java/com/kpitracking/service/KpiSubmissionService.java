@@ -343,7 +343,10 @@ public class KpiSubmissionService {
     private SubmissionResponse mapToResponse(KpiSubmission submission, java.util.Map<UUID, Boolean> managerMemo) {
         SubmissionResponse res = submissionMapper.toResponse(submission);
         // PBAC: Check if submitter has review permission to label them as a manager in UI
-        boolean isManager = managerMemo.computeIfAbsent(submission.getSubmittedBy().getId(),
+        // Lấy id từ response (mapper đọc qua SoftDeletedRefs) thay vì proxy: người nộp đã xoá mềm
+        // thì proxy vừa nạp hỏng ở bước map tên, chạm getId() nữa là ném EntityNotFoundException.
+        UUID submitterId = res.getSubmittedById();
+        boolean isManager = submitterId != null && managerMemo.computeIfAbsent(submitterId,
                 id -> permissionChecker.hasAnyPermission(id, "SUBMISSION:REVIEW"));
         res.setSubmittedByManager(isManager);
         return res;

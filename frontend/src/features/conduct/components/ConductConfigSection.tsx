@@ -12,6 +12,7 @@ import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { useKpiCycles } from '@/features/kpi/hooks/useKpiCycles'
 import { useConductConfig, useConductSets } from '../hooks/useConduct'
+import { CONDUCT_MIN_SCORE } from '../hooks/useConductDraft'
 import type { ConductSet } from '../api/conductApi'
 import type { OrganizationResponse } from '@/features/orgunits/api/organizationApi'
 import { Button } from '@/components/ui/button'
@@ -53,7 +54,7 @@ const toDraft = (s: ConductSet): DraftSet => ({
   id: s.id,
   name: s.name,
   isDefault: s.isDefault,
-  maxScore: String(s.maxScore ?? 4),
+  maxScore: String(s.maxScore ?? 5),
   kpiCycleIds: [...(s.kpiCycleIds ?? [])],
   criteria: (s.criteria ?? []).map(c => ({
     name: c.name,
@@ -186,7 +187,7 @@ export default function ConductConfigSection({ org }: { org: OrganizationRespons
       toast.error(`Tổng trọng số phải bằng 100% (hiện tại ${total}%)`); return
     }
     const max = Number(draft.maxScore)
-    if (!(max > 0)) { toast.error('Thang điểm phải lớn hơn 0'); return }
+    if (!(max > CONDUCT_MIN_SCORE)) { toast.error(`Thang điểm phải lớn hơn ${CONDUCT_MIN_SCORE}`); return }
 
     setSavingId(draft.id)
     updateSet({
@@ -368,7 +369,7 @@ function SetCard({
             <span className="ml-auto flex items-center gap-2 shrink-0 text-caption max-sm:hidden">
               <span>{d.criteria.length} tiêu chí</span>
               <span className="text-[var(--color-subtle-foreground)]">·</span>
-              <span>thang {d.maxScore}</span>
+              <span>thang {CONDUCT_MIN_SCORE}–{d.maxScore}</span>
               <span className="text-[var(--color-subtle-foreground)]">·</span>
               <span className={totalOff ? 'text-[var(--color-error)]' : 'text-[var(--color-success)]'}>{total}%</span>
               <span className="text-[var(--color-subtle-foreground)]">·</span>
@@ -437,19 +438,28 @@ function SetCard({
               )}
             </div>
 
-            <label className="flex items-center gap-2 shrink-0">
+            {/* Thang điểm phải trùng trần trục hành vi của ma trận xếp loại (mặc định 5): điểm
+                hạnh kiểm chính là thứ lấp trục đó khi tổ chức không chấm KPI định tính. Để thang
+                thấp hơn thì chấm kịch khung vẫn không bao giờ chạm được mức cao nhất của ma trận. */}
+            <label className="flex items-center gap-2 shrink-0" title="Thang chấm mỗi tiêu chí. Nên để 5 cho trùng thang xếp loại 1–5 của ma trận hiệu quả — điểm hạnh kiểm là trục hành vi của ma trận đó.">
               <span className="text-eyebrow inline-flex items-center gap-1">
                 <Scale size={12} aria-hidden="true" /> Thang điểm
               </span>
+              <span className="text-caption tabular-nums">{CONDUCT_MIN_SCORE} –</span>
               <input
                 type="number"
-                min={1}
+                min={CONDUCT_MIN_SCORE + 1}
                 step={1}
                 value={d.maxScore}
                 onChange={e => onPatch({ maxScore: e.target.value })}
                 onWheel={e => e.currentTarget.blur()}
                 className={cn(fieldCls, 'w-16 text-center')}
               />
+              {Number(d.maxScore) !== 5 && (
+                <span className="text-xs font-medium text-[var(--color-warning)]" title="Ma trận xếp loại chạy 1–5">
+                  ≠ ma trận 1–5
+                </span>
+              )}
             </label>
 
             <div className="flex items-center gap-2 shrink-0 sm:ml-auto">

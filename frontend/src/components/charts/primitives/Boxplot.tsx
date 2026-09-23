@@ -41,7 +41,7 @@ export default function Boxplot({ data, unit = '', height = 320, yLabel, onSelec
   return (
     <ResponsiveContainer width="100%" height={height}>
       <BarChart data={rows} margin={{ top: 10, right: 16, left: 0, bottom: 8 }}>
-        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke={AXIS_COLORS.grid} />
+        <CartesianGrid stroke="var(--color-border)" vertical={false} />
         <XAxis
           dataKey="name"
           axisLine={false}

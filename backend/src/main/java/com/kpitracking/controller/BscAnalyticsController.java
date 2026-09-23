@@ -1,76 +1,99 @@
 package com.kpitracking.controller;
 
 import com.kpitracking.dto.response.ApiResponse;
-import com.kpitracking.dto.response.stats.BscAnalyticsResponses.*;
+import com.kpitracking.dto.response.bsc.ScorecardCoverageResponse;
+import com.kpitracking.dto.response.stats.BscAnalyticsResponses.RankingResponse;
+import com.kpitracking.dto.response.stats.BscOverviewResponses.AttainmentTrendResponse;
+import com.kpitracking.dto.response.stats.BscOverviewResponses.ItemAttainmentResponse;
+import com.kpitracking.dto.response.stats.BscOverviewResponses.OverviewResponse;
+import com.kpitracking.dto.response.stats.BscOverviewResponses.UnitAttainmentRow;
 import com.kpitracking.service.BscAnalyticsService;
+import com.kpitracking.service.BscOverviewService;
 import com.kpitracking.service.analytics.AnalyticsPeriodHelper;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.web.bind.annotation.*;
+import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
+import org.springframework.web.bind.annotation.RestController;
 
+import java.util.List;
 import java.util.UUID;
 
 /**
- * Thống kê BSC scope theo cây đơn vị + kỳ — phục vụ tab "Lĩnh vực (BSC)" ở trang Thống kê.
- * Chữ ký tham số theo cùng mẫu {@code OrgUnitKpiAnalyticsController}: dùng {@code AnalyticsPeriodHelper}
- * để giải nghĩa lựa chọn kỳ (một đợt / khoảng đợt) và xác thực đợt thuộc tổ chức của người dùng.
+ * Thống kê BSC cho tab "Hạng mục BSC" ở trang Thống kê.
+ *
+ * <p>Các ô tổng quan đọc mô hình THẺ ĐIỂM (cây công ty → đơn vị, kết quả đợt, phân rã, hạng mục
+ * chặn). Tham số cùng mẫu với {@code OrgUnitKpiAnalyticsController}: {@code orgUnitId} thu phạm vi
+ * về một đơn vị, {@code periodId}/{@code periodIdTo} chọn một đợt hay khoảng đợt (ô "một đợt" lấy
+ * đợt muộn nhất có kết quả trong khoảng đó).
  */
 @RestController
 @RequestMapping("/api/v1/stats/bsc")
 @RequiredArgsConstructor
-@Tag(name = "BSC Analytics", description = "Thống kê BSC theo lĩnh vực (tab Lĩnh vực)")
+@Tag(name = "BSC Analytics", description = "Thống kê BSC theo thẻ điểm (tab Hạng mục BSC)")
 public class BscAnalyticsController {
 
     private final BscAnalyticsService service;
+    private final BscOverviewService overviewService;
     private final AnalyticsPeriodHelper periodHelper;
 
-    @GetMapping("/balance")
+    @GetMapping("/overview")
     @PreAuthorize("hasAuthority('BSC:MANAGE')")
-    @Operation(summary = "Cân bằng lĩnh vực: thẻ chỉ số + radar theo phạm vi/kỳ")
-    public ResponseEntity<ApiResponse<BalanceResponse>> getBalance(
+    @Operation(summary = "Sức khoẻ BSC của đợt: %đạt thẻ gốc, thẻ đơn vị theo trạng thái, hạng mục chặn, độ phủ phân rã")
+    public ResponseEntity<ApiResponse<OverviewResponse>> getOverview(
             @RequestParam(required = false) UUID orgUnitId,
             @RequestParam(required = false) UUID periodId,
             @RequestParam(required = false) UUID periodIdTo) {
         return ResponseEntity.ok(ApiResponse.success(
-                service.getBalance(orgUnitId, periodHelper.resolvePeriodIds(periodId, periodIdTo))));
+                overviewService.overview(orgUnitId, periodHelper.resolvePeriodIds(periodId, periodIdTo))));
     }
 
-    @GetMapping("/trend")
+    @GetMapping("/unit-attainment")
     @PreAuthorize("hasAuthority('BSC:MANAGE')")
-    @Operation(summary = "Xu hướng điểm lĩnh vực theo kỳ (mỗi lĩnh vực một series)")
-    public ResponseEntity<ApiResponse<TrendResponse>> getTrend(
-            @RequestParam(required = false) UUID orgUnitId,
-            @RequestParam(required = false) UUID periodId,
-            @RequestParam(required = false) UUID periodIdTo,
-            @RequestParam(required = false, defaultValue = "PERIOD") String groupBy) {
-        return ResponseEntity.ok(ApiResponse.success(
-                service.getTrend(orgUnitId, periodHelper.resolvePeriodIds(periodId, periodIdTo), groupBy)));
-    }
-
-    @GetMapping("/unit-comparison")
-    @PreAuthorize("hasAuthority('BSC:MANAGE')")
-    @Operation(summary = "So sánh lĩnh vực giữa các đơn vị")
-    public ResponseEntity<ApiResponse<UnitComparisonResponse>> getUnitComparison(
+    @Operation(summary = "Cây thẻ điểm trải phẳng kèm %đạt và kết quả hạng mục chặn của đợt")
+    public ResponseEntity<ApiResponse<List<UnitAttainmentRow>>> getUnitAttainment(
             @RequestParam(required = false) UUID orgUnitId,
             @RequestParam(required = false) UUID periodId,
             @RequestParam(required = false) UUID periodIdTo) {
         return ResponseEntity.ok(ApiResponse.success(
-                service.getUnitComparison(orgUnitId, periodHelper.resolvePeriodIds(periodId, periodIdTo))));
+                overviewService.unitAttainment(orgUnitId, periodHelper.resolvePeriodIds(periodId, periodIdTo))));
     }
 
-    @GetMapping("/bsc-vs-system")
+    @GetMapping("/item-attainment")
     @PreAuthorize("hasAuthority('BSC:MANAGE')")
-    @Operation(summary = "Đối chiếu điểm BSC vs điểm hệ thống (kiểm chứng SHADOW)")
-    public ResponseEntity<ApiResponse<BscVsSystemResponse>> getBscVsSystem(
+    @Operation(summary = "Mức đạt từng chỉ tiêu của thẻ gốc trong đợt: thực tế / mục tiêu / sàn / trọng số / chặn")
+    public ResponseEntity<ApiResponse<ItemAttainmentResponse>> getItemAttainment(
             @RequestParam(required = false) UUID orgUnitId,
             @RequestParam(required = false) UUID periodId,
-            @RequestParam(required = false) UUID periodIdTo,
-            @RequestParam(required = false, defaultValue = "UNIT") String level) {
+            @RequestParam(required = false) UUID periodIdTo) {
         return ResponseEntity.ok(ApiResponse.success(
-                service.getBscVsSystem(orgUnitId, periodHelper.resolvePeriodIds(periodId, periodIdTo), level)));
+                overviewService.itemAttainment(orgUnitId, periodHelper.resolvePeriodIds(periodId, periodIdTo))));
+    }
+
+    @GetMapping("/attainment-trend")
+    @PreAuthorize("hasAuthority('BSC:MANAGE')")
+    @Operation(summary = "%đạt BSC của thẻ gốc qua các đợt, kèm %đạt theo 4 lĩnh vực")
+    public ResponseEntity<ApiResponse<AttainmentTrendResponse>> getAttainmentTrend(
+            @RequestParam(required = false) UUID orgUnitId,
+            @RequestParam(required = false) UUID periodId,
+            @RequestParam(required = false) UUID periodIdTo) {
+        return ResponseEntity.ok(ApiResponse.success(
+                overviewService.attainmentTrend(orgUnitId, periodHelper.resolvePeriodIds(periodId, periodIdTo))));
+    }
+
+    @GetMapping("/cascade-coverage")
+    @PreAuthorize("hasAuthority('BSC:MANAGE')")
+    @Operation(summary = "Độ phủ phân rã các chỉ tiêu của thẻ gốc xuống đơn vị")
+    public ResponseEntity<ApiResponse<ScorecardCoverageResponse>> getCascadeCoverage(
+            @RequestParam(required = false) UUID orgUnitId,
+            @RequestParam(required = false) UUID periodId,
+            @RequestParam(required = false) UUID periodIdTo) {
+        return ResponseEntity.ok(ApiResponse.success(
+                overviewService.cascadeCoverage(orgUnitId, periodHelper.resolvePeriodIds(periodId, periodIdTo))));
     }
 
     @GetMapping("/rankings")

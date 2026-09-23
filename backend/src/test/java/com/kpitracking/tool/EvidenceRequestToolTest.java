@@ -5,7 +5,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.ai.chat.model.ToolContext;
+import dev.langchain4j.invocation.InvocationParameters;
 
 import java.util.Map;
 
@@ -23,29 +23,29 @@ import java.util.HashMap;
 class EvidenceRequestToolTest {
 
     /**
-     * Trạng thái của lượt, đi cùng {@code ToolContext}. Mỗi test một thực thể mới nên không
+     * Trạng thái của lượt, đi cùng {@code InvocationParameters}. Mỗi test một thực thể mới nên không
      * phải dọn gì — đó chính là điều đáng giá so với bản ThreadLocal cũ.
      */
     private AgentState st = AgentState.forToolsOnly();
 
     /** Ngữ cảnh tool luôn mang theo trạng thái của lượt, giống hệt lúc chạy thật. */
-    private ToolContext ctxWith(java.util.Map<String, Object> base) {
+    private InvocationParameters ctxWith(java.util.Map<String, Object> base) {
         java.util.Map<String, Object> m = new HashMap<>(base);
         m.put(AgentState.CONTEXT_KEY, st);
-        return new ToolContext(m);
+        return new InvocationParameters(m);
     }
 
     private final EvidenceRequestTool tool = new EvidenceRequestTool();
 
     /** Form đang mở CÓ mục đính kèm. */
-    private ToolContext ctx() {
+    private InvocationParameters ctx() {
         return ctxWith(Map.of(
                 "openFormId", "submission_form",
                 "openFormAcceptsFiles", Boolean.TRUE));
     }
 
     /** Không form nào nhận tệp — ví dụ đang ở trang trợ lý toàn màn hình. */
-    private ToolContext ctxNoSink() {
+    private InvocationParameters ctxNoSink() {
         return ctxWith(Map.of("openFormId", "submission_form"));
     }
 

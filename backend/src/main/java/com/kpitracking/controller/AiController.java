@@ -1,9 +1,7 @@
 
 package com.kpitracking.controller;
 
-import com.kpitracking.dto.request.ai.AiKpiSuggestionRequest;
 import com.kpitracking.dto.response.ApiResponse;
-import com.kpitracking.dto.response.ai.AiKpiSuggestionResponse;
 import com.kpitracking.dto.response.ai.FollowupResponse;
 import com.kpitracking.dto.response.ai.InsightCardResponse;
 import com.kpitracking.entity.AiTokenUsage;
@@ -197,24 +195,6 @@ public class AiController {
                 .pendingAction(com.kpitracking.dto.response.ai.PendingActionResponse.from(pendingAction))
                 .consumedActionId(consumedActionId)
                 .build();
-    }
-
-    @PostMapping("/suggest-kpi")
-    @PreAuthorize("hasAuthority('AI:SUGGEST_KPI')")
-    @Operation(summary = "Get KPI suggestions from AI (Synchronized with Analytics AI)")
-    public ResponseEntity<ApiResponse<List<AiKpiSuggestionResponse>>> suggestKpi(
-            @RequestBody AiKpiSuggestionRequest request) {
-        aiRateLimiter.check(currentUserEmail());
-        aiQuotaService.checkAndThrow(currentUserEmail());
-
-        AiTokenUsageRecorder.setFeature(AiTokenUsage.AiFeature.KPI_SUGGESTION);
-        try {
-            List<AiKpiSuggestionResponse> suggestions =
-                    aiService.suggestKpis(request.getOrgUnitId(), request.getContext());
-            return ResponseEntity.ok(ApiResponse.success(suggestions));
-        } finally {
-            AiTokenUsageRecorder.clearFeature();
-        }
     }
 
     @GetMapping("/insights")

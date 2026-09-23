@@ -1,5 +1,6 @@
 import axiosInstance from '@/lib/axios'
 import type { ApiResponse } from '@/types/api'
+import type { WidgetSettings } from '@/components/common/dashboard/widgetSettings'
 
 /**
  * Vai trò quyết định danh mục widget của trang chủ; mỗi vai trò lưu một bố cục riêng.
@@ -7,7 +8,25 @@ import type { ApiResponse } from '@/types/api'
  */
 export type DashboardScope = 'DIRECTOR' | 'HEAD' | 'DEPUTY' | 'STAFF'
 
-/** Một ô trên lưới trang chủ. Khớp với `DashboardWidget` của ChartWrapper, bỏ phần chỉ dùng lúc chạy. */
+/**
+ * Các tab Thống kê cũng dùng đúng lưới đó, mỗi tab một bố cục riêng.
+ *
+ * <p>Cố ý tách khỏi {@link DashboardScope} chứ không gộp làm một union: nhiều chỗ ở trang chủ
+ * khai báo `Record<DashboardScope, …>` đủ mọi nhánh, gộp vào là bắt chúng khai thêm bốn nhánh
+ * vô nghĩa.
+ */
+export type AnalyticsGridScope =
+  | 'ANALYTICS_SUMMARY'
+  | 'ANALYTICS_MY_KPI'
+  | 'ANALYTICS_MY_OBJECTIVES'
+  | 'ANALYTICS_SUBORDINATE'
+  | 'ANALYTICS_DRILLDOWN'
+  | 'ANALYTICS_BSC'
+
+/** Mọi khu vực lưới có bố cục lưu được. Khớp enum `DashboardScope` phía backend. */
+export type LayoutScope = DashboardScope | AnalyticsGridScope
+
+/** Một ô trên lưới. Khớp với `DashboardWidget` của ChartWrapper, bỏ phần chỉ dùng lúc chạy. */
 export interface DashboardLayoutItem {
   i: string
   x: number
@@ -23,22 +42,27 @@ export interface DashboardLayoutItem {
    * sẽ bị chèn lại. Bản ghi này không chiếm chỗ trên lưới, chỉ là dấu vết.
    */
   removed?: boolean
+  /**
+   * Cấu hình riêng của ô: cách biểu diễn và bộ lọc ghi đè. Tên khoá ngắn vì cả mảng nằm gọn
+   * trong một cột; vắng mặt = dùng toàn bộ mặc định.
+   */
+  s?: WidgetSettings
 }
 
 export interface DashboardLayoutResponse {
-  scope: DashboardScope
+  scope: LayoutScope
   /** null khi người dùng chưa từng tuỳ chỉnh → dùng preset mặc định. */
   layout: string | null
   updatedAt?: string
 }
 
 export const dashboardLayoutApi = {
-  get: (scope: DashboardScope) =>
+  get: (scope: LayoutScope) =>
     axiosInstance
       .get<ApiResponse<DashboardLayoutResponse>>('/dashboard/layout', { params: { scope } })
       .then(r => r.data.data),
 
-  save: (scope: DashboardScope, layout: DashboardLayoutItem[]) =>
+  save: (scope: LayoutScope, layout: DashboardLayoutItem[]) =>
     axiosInstance
       .put<ApiResponse<DashboardLayoutResponse>>('/dashboard/layout', {
         scope,
@@ -46,6 +70,6 @@ export const dashboardLayoutApi = {
       })
       .then(r => r.data.data),
 
-  reset: (scope: DashboardScope) =>
+  reset: (scope: LayoutScope) =>
     axiosInstance.delete<void>('/dashboard/layout', { params: { scope } }).then(() => undefined),
 }

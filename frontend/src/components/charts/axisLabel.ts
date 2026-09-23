@@ -30,6 +30,23 @@ export const yAxisLabel = (value: string) => ({
 })
 
 /**
+ * Nhãn cho trục dọc BÊN PHẢI của biểu đồ hai thang đo.
+ *
+ * <p>Không dùng chung với {@link yAxisLabel} được: `insideLeft` trên một trục nằm bên phải sẽ đặt
+ * chữ ĐÈ vào giữa vùng vẽ. Xoay +90° để chữ vẫn đọc xuôi khi nghiêng đầu từ phía ngoài vào, đúng
+ * quy ước của trục phụ.
+ */
+export const yAxisLabelRight = (value: string) => ({
+  value,
+  angle: 90,
+  position: 'insideRight' as const,
+  style: { textAnchor: 'middle' as const },
+  fill: AXIS_COLORS.tick,
+  fontSize: 11,
+  fontWeight: 700,
+})
+
+/**
  * Thuộc tính cho chữ nằm TRỰC TIẾP trên mảng màu (ô treemap, ô heatmap).
  *
  * <p>Chọn màu chữ theo nền là chưa đủ: mảng màu bão hoà nào cũng làm chữ bị "rung" ở mép, và chỉ

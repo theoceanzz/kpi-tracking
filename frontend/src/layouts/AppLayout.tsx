@@ -15,6 +15,7 @@ import { DashboardToolbarSlot } from '@/components/common/dashboard/DashboardToo
 import { useState, useEffect } from 'react'
 import WorkflowHandoffBar from '@/features/kpi/workflow/components/WorkflowHandoffBar'
 import { Button } from '@/components/ui/button'
+import { BrandLogo } from '@/components/common/BrandLogo'
 
 export default function AppLayout() {
   const { user, logout, refreshUser } = useAuth()
@@ -60,11 +61,10 @@ export default function AppLayout() {
             <Button variant="secondary" size="icon" onClick={() => setIsMobileMenuOpen(true)} aria-label="Mở menu">
               <Menu aria-hidden="true" />
             </Button>
-            <Link to="/" className="flex items-center gap-2">
-              <div className="flex h-7 w-7 items-center justify-center rounded-control bg-[var(--color-primary)]">
-                <span className="text-sm font-semibold text-[var(--color-primary-foreground)]">K</span>
-              </div>
-              <span className="hidden text-sm font-semibold tracking-tight sm:inline-block">KeyGo</span>
+            <Link to="/" className="flex items-center" aria-label="KeyGo">
+              <BrandLogo variant="icon" className="h-7 rounded-control sm:hidden" />
+              <BrandLogo className="hidden h-7 sm:block dark:sm:hidden" />
+              <BrandLogo variant="white" className="hidden h-7 dark:sm:block" />
             </Link>
           </div>
 

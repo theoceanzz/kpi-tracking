@@ -4,6 +4,7 @@ import com.kpitracking.entity.KpiPeriod;
 import com.kpitracking.entity.User;
 import jakarta.persistence.EntityNotFoundException;
 import lombok.RequiredArgsConstructor;
+import org.hibernate.proxy.HibernateProxy;
 import org.mapstruct.Named;
 import org.springframework.dao.EmptyResultDataAccessException;
 import org.springframework.jdbc.core.JdbcTemplate;
@@ -43,9 +44,26 @@ public class SoftDeletedRefs {
         try {
             return user.getFullName();
         } catch (EntityNotFoundException e) {
-            String name = scalar("SELECT full_name FROM users WHERE id = ?", user.getId());
+            String name = scalar("SELECT full_name FROM users WHERE id = ?", idOf(user, user::getId));
             return name == null ? DELETED_SUFFIX.trim() : name + DELETED_SUFFIX;
         }
+    }
+
+    /**
+     * Id người dùng, an toàn với proxy của bản ghi đã xoá mềm. Cần vì sau một lần nạp thất bại
+     * (vd. {@link #userName} đã bắt {@link EntityNotFoundException}) proxy bị đánh dấu "đã nạp"
+     * và cả {@code getId()} thông thường cũng ném — cùng một người xoá mềm xuất hiện ở hai bài
+     * nộp trong một phiên là dùng chung một proxy, bài thứ hai sẽ vỡ ở dòng map id.
+     */
+    @Named("userId")
+    public UUID userId(User user) {
+        return user == null ? null : idOf(user, user::getId);
+    }
+
+    /** Id đợt KPI, an toàn với proxy của đợt đã xoá mềm (xem {@link #userId}). */
+    @Named("periodId")
+    public UUID periodId(KpiPeriod period) {
+        return period == null ? null : idOf(period, period::getId);
     }
 
     /** Tên đợt KPI; đợt đã xoá mềm vẫn trả tên kèm nhãn. */
@@ -55,7 +73,7 @@ public class SoftDeletedRefs {
         try {
             return period.getName();
         } catch (EntityNotFoundException e) {
-            String name = scalar("SELECT name FROM kpi_periods WHERE id = ?", period.getId());
+            String name = scalar("SELECT name FROM kpi_periods WHERE id = ?", idOf(period, period::getId));
             return name == null ? DELETED_SUFFIX.trim() : name + DELETED_SUFFIX;
         }
     }
@@ -82,6 +100,20 @@ public class SoftDeletedRefs {
         } catch (EntityNotFoundException e) {
             return null;
         }
+    }
+
+    /**
+     * Khoá chính của một quan hệ mà KHÔNG nạp proxy. Với cấu hình JPA hiện tại, ngay cả
+     * {@code getId()} trên proxy của bản ghi đã xoá mềm cũng kích hoạt nạp và ném
+     * {@link EntityNotFoundException} (gặp trên danh sách bài nộp 2026-09-22), nên đọc id
+     * từ lazy initializer — id luôn có sẵn trong proxy vì đó là FK đã đọc từ bảng cha.
+     */
+    public static UUID idOf(Object entity, Supplier<UUID> getter) {
+        if (entity instanceof HibernateProxy proxy) {
+            Object id = proxy.getHibernateLazyInitializer().getIdentifier();
+            if (id instanceof UUID uuid) return uuid;
+        }
+        return getter.get();
     }
 
     private String scalar(String sql, UUID id) {

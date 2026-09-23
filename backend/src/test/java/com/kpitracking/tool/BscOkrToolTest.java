@@ -2,8 +2,6 @@ package com.kpitracking.tool;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kpitracking.dto.response.okr.KeyResultResponse;
-import com.kpitracking.dto.response.stats.BscAnalyticsResponses.BalanceResponse;
-import com.kpitracking.dto.response.stats.BscAnalyticsResponses.PerspectivePoint;
 import com.kpitracking.dto.response.okr.ObjectiveResponse;
 import com.kpitracking.entity.OrgUnit;
 import com.kpitracking.enums.OkrStatus;
@@ -13,6 +11,7 @@ import com.kpitracking.repository.OrgUnitRepository;
 import com.kpitracking.repository.UserRepository;
 import com.kpitracking.repository.UserRoleOrgUnitRepository;
 import com.kpitracking.service.BscAnalyticsService;
+import com.kpitracking.service.BscOverviewService;
 import com.kpitracking.service.OkrService;
 import com.kpitracking.service.OrgUnitStatisticService;
 import com.kpitracking.service.ai.agent.AgentState;
@@ -23,7 +22,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.springframework.ai.chat.model.ToolContext;
+import dev.langchain4j.invocation.InvocationParameters;
 
 import java.util.List;
 import java.util.Map;
@@ -56,6 +55,7 @@ class BscOkrToolTest {
     private static final String MY_PATH = "/cty/it/";
 
     private BscAnalyticsService bscService;
+    private BscOverviewService overviewService;
     private OkrService okrService;
     private OrgUnitRepository orgUnitRepository;
     private ToolSupport support;
@@ -68,6 +68,7 @@ class BscOkrToolTest {
     @BeforeEach
     void setUp() {
         bscService = mock(BscAnalyticsService.class);
+        overviewService = mock(BscOverviewService.class);
         okrService = mock(OkrService.class);
         orgUnitRepository = mock(OrgUnitRepository.class);
 
@@ -82,13 +83,13 @@ class BscOkrToolTest {
                 new ObjectMapper());
         support.initToolMapper();
 
-        bscTool = new BscTool(bscService, mock(AnalyticsPeriodHelper.class), support);
+        bscTool = new BscTool(bscService, overviewService, mock(AnalyticsPeriodHelper.class), support);
         okrTool = new OkrTool(okrService, support);
     }
 
     /** Ngữ cảnh của một trưởng đơn vị: có orgUnitPath nên phép kiểm phạm vi CÓ hiệu lực. */
-    private ToolContext ctx() {
-        return new ToolContext(Map.of(
+    private InvocationParameters ctx() {
+        return new InvocationParameters(Map.of(
                 "orgUnitId", myUnitId.toString(),
                 "organizationId", UUID.randomUUID().toString(),
                 "orgUnitPath", MY_PATH,
@@ -124,19 +125,19 @@ class BscOkrToolTest {
             String out = bscTool.getBsc(
                     new BscRequest(null, null, null, null, null, null, null), ctx());
 
-            assertRejected(out, "balance", "trend", "unit_comparison", "vs_system", "rankings");
-            verify(bscService, never()).getBalance(any(), anyCollection());
+            assertRejected(out, "overview", "units", "items", "trend", "cascade", "rankings");
+            verify(overviewService, never()).overview(any(), any());
         }
 
         @Test
-        @DisplayName("level truyền vào view khác vs_system -> lỗi CỨNG, không lờ đi")
-        void levelOnlyForVsSystem() {
+        @DisplayName("level (tham số cũ) -> lỗi CỨNG chỉ về view=units, không lờ đi")
+        void levelIsRejected() {
             String out = bscTool.getBsc(
-                    new BscRequest("balance", null, null, null, null, "MEMBER", null), ctx());
+                    new BscRequest("overview", null, null, null, null, "MEMBER", null), ctx());
 
             // Lờ tham số đi thì model tưởng đã xem theo cấp nhân sự rồi kết luận trên số liệu cấp đơn vị.
-            assertRejected(out, "level", "vs_system");
-            verify(bscService, never()).getBalance(any(), anyCollection());
+            assertRejected(out, "level", "units");
+            verify(overviewService, never()).overview(any(), any());
         }
 
         @Test
@@ -163,47 +164,20 @@ class BscOkrToolTest {
             UUID other = unitAt("/cty/truyenthong/");
 
             String out = bscTool.getBsc(
-                    new BscRequest("balance", null, other.toString(), null, null, null, null), ctx());
+                    new BscRequest("overview", null, other.toString(), null, null, null, null), ctx());
 
             assertRejected(out, "quyền");
-            verify(bscService, never()).getBalance(any(), anyCollection());
-        }
-
-        @Test
-        @DisplayName("điểm có trọng số phải là đóng góp trên MỘT đánh giá, không phải tổng cộng dồn")
-        void weightedScoreIsPerEvaluationNotASum() {
-            // Truy vấn phía dưới trả SUM(weightedScore) qua mọi đánh giá, nên viễn cảnh nào nhiều
-            // lượt sẽ luôn "cao nhất". Đo được trên dữ liệu thật: model đọc 976,5 của Quy trình nội
-            // bộ (42 lượt) rồi kết luận nó đóng góp lớn nhất, trong khi Khách hàng chỉ có 24 lượt.
-            when(bscService.getBalance(any(), any())).thenReturn(BalanceResponse.builder()
-                    .perspectives(List.of(
-                            // 30% × 77,5 = 23,25 -> 23,3 ; tổng cộng dồn cũ là 976,5
-                            PerspectivePoint.builder().code("INTERNAL_PROCESS")
-                                    .weightPercentage(30.0).averageScore(77.5).weightedScore(976.5).build(),
-                            // 25% × 67,0 = 16,75 -> 16,8 ; tổng cộng dồn cũ là 402,0
-                            PerspectivePoint.builder().code("CUSTOMER")
-                                    .weightPercentage(25.0).averageScore(67.0).weightedScore(402.0).build(),
-                            // Viễn cảnh RỖNG: không có điểm thì không có đóng góp nào để nói.
-                            PerspectivePoint.builder().code("FINANCIAL")
-                                    .weightPercentage(30.0).averageScore(null).weightedScore(0.0).build()))
-                    .build());
-
-            String out = bscTool.getBsc(
-                    new BscRequest("balance", null, null, null, null, null, null), ctx());
-
-            assertThat(out).contains("23.3").contains("16.8");
-            assertThat(out).as("con số cộng dồn không được lọt ra cho model")
-                    .doesNotContain("976.5").doesNotContain("402.0");
+            verify(overviewService, never()).overview(any(), any());
         }
 
         @Test
         @DisplayName("không nêu đơn vị -> dùng đơn vị của CHÍNH người hỏi")
         void defaultsToCallerUnit() {
-            when(bscService.getBalance(any(), any())).thenReturn(null);
+            when(overviewService.overview(any(), any())).thenReturn(null);
 
-            bscTool.getBsc(new BscRequest("balance", null, null, null, null, null, null), ctx());
+            bscTool.getBsc(new BscRequest("overview", null, null, null, null, null, null), ctx());
 
-            verify(bscService).getBalance(eq(myUnitId), any());
+            verify(overviewService).overview(eq(myUnitId), any());
         }
     }
 

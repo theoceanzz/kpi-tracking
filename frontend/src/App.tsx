@@ -28,7 +28,8 @@ export default function App() {
         closeButton
         duration={4000}
         toastOptions={{
-          style: { fontFamily: 'Inter, sans-serif' },
+          // Theo phông của body thay vì ghim cứng một tên phông.
+          style: { fontFamily: 'inherit' },
         }}
       />
     </QueryClientProvider>

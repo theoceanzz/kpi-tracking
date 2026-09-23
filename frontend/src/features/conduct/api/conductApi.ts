@@ -23,7 +23,7 @@ export interface ConductSet {
   id: string
   name: string
   isDefault: boolean
-  /** Thang điểm mỗi tiêu chí của riêng bộ này (mặc định 4). */
+  /** Thang điểm mỗi tiêu chí của riêng bộ này (mặc định 5, trùng ma trận xếp loại). */
   maxScore: number
   /** Kỳ áp dụng — luôn rỗng ở bộ mặc định, nghĩa là "mọi kỳ còn lại". */
   kpiCycleIds: string[]
@@ -76,7 +76,14 @@ export interface ConductSheet {
   criteriaSetId?: string | null
   criteriaSetName?: string | null
   status: ConductStatus
+  /** Phiếu kỳ chưa lưu, điền sẵn từ TB N phiếu đợt — lưu là chốt các số này. */
+  prefilledFromPeriods?: number | null
   maxScore: number
+  /**
+   * Mức thấp nhất chấm được. Thang chạy `minScore..maxScore` (mặc định 1..5) để trùng với
+   * ma trận xếp loại — "chưa chấm" là ô trống, không phải điểm 0.
+   */
+  minScore?: number | null
   selfScore?: number | null
   managerScore?: number | null
   comment?: string | null
@@ -96,6 +103,19 @@ export interface ConductSheet {
   /** Kỳ chứa đợt/kỳ này đã chốt ⇒ phiếu chỉ còn để xem. */
   locked?: boolean
   lockedByUnitName?: string | null
+  /** Đơn vị khoá đang ở bước nào — quyết định câu hướng dẫn "mở ở đâu". */
+  lockStage?: 'DRAFT' | 'CALIBRATING' | 'FINALIZED' | null
+}
+
+/** Câu giải thích vì sao phiếu khoá và mở ở đâu — dùng chung cho mọi chỗ vẽ phiếu. */
+export function conductLockMessage(sheet: Pick<ConductSheet, 'lockedByUnitName' | 'lockStage' | 'scope'>): string {
+  const unit = sheet.lockedByUnitName ? ` "${sheet.lockedByUnitName}"` : ''
+  if (sheet.lockStage === 'FINALIZED') {
+    return sheet.scope === 'CYCLE'
+      ? `Đơn vị${unit} đã khoá kết quả kỳ — bấm "Mở khoá" ở đơn vị đó để chấm lại.`
+      : `Đơn vị${unit} đã khoá kết quả kỳ. Phiếu theo đợt là đầu vào của điểm kỳ nên phải "Mở khoá" rồi "Mở lại" về nháp ở đơn vị đó.`
+  }
+  return `Đơn vị${unit} đã chốt dữ liệu kỳ — phiếu theo đợt là đầu vào của điểm kỳ, điểm nền đã chụp từ nó. Muốn sửa, bấm "Mở lại" ở bước ① để về nháp.`
 }
 
 export interface ConductSummaryRow {
