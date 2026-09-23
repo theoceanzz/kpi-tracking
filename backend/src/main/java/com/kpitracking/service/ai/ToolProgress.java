@@ -1,7 +1,7 @@
 package com.kpitracking.service.ai;
 
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.chat.model.ToolContext;
+import dev.langchain4j.invocation.InvocationParameters;
 
 import java.util.Map;
 
@@ -13,8 +13,8 @@ import java.util.Map;
  * một việc CÓ NGHĨA với người dùng ("đang xem danh sách nhân sự"), nên nói ra thì quãng chờ dài nhất
  * cũng thấy có người đang làm việc cho mình.
  *
- * <p><b>Đường đi, và vì sao không cần ThreadLocal.</b> {@code TurnSetupStage} đặt người nghe vào
- * {@code toolCtx}, và Spring AI đưa CÙNG MỘT map đó cho mọi lời gọi tool. Nghĩa là cách này đúng ở
+ * <p><b>Đường đi, và vì sao không cần ThreadLocal.</b> {@code TurnSteps.context} đặt người nghe vào
+ * {@code toolCtx}, và langchain4j đưa CÙNG MỘT bộ InvocationParameters đó cho mọi lời gọi tool. Nghĩa là cách này đúng ở
  * bất kỳ luồng nào — miễn nhiễm với chuyện lượt streaming chạy tool trên luồng của reactor, thứ đã
  * làm hỏng bốn kho ThreadLocal khác — nay cả sáu kho đã chuyển sang {@code AgentState},
  * đi cùng ngữ cảnh tool đúng theo cách này.
@@ -22,7 +22,7 @@ import java.util.Map;
  * <p><b>Nhãn tới chậm một nhịp.</b> Ba chỗ gọi {@link #announce} đều là chỗ tool TRẢ VỀ, không phải
  * chỗ tool bắt đầu, nên nhãn hiện sau thực tế khoảng một lời gọi tool. Đổi lại, chúng trùng đúng ba
  * chỗ đang ghi {@code AI-TOOL-CALL} nên không đẻ thêm điểm móc nào. Muốn báo sớm hơn thì phải bọc
- * {@code ToolCallback} của Spring AI — không đáng cho phần hiển thị.
+ * {@code ToolExecutor} của langchain4j — không đáng cho phần hiển thị.
  */
 @Slf4j
 public final class ToolProgress {
@@ -44,6 +44,8 @@ public final class ToolProgress {
             Map.entry("get_org_unit", "Đang xem thông tin đơn vị"),
             Map.entry("get_people", "Đang xem danh sách nhân sự"),
             Map.entry("get_kpi", "Đang tra cứu chỉ tiêu KPI"),
+            Map.entry("get_cycle_evaluation", "Đang xem đợt đánh giá"),
+            Map.entry("get_my_tasks", "Đang gom việc đang chờ bạn"),
             Map.entry("get_submissions", "Đang xem các báo cáo đã nộp"),
             Map.entry("get_analytics", "Đang tổng hợp số liệu"),
             Map.entry("get_bsc", "Đang xem bộ tiêu chí BSC"),
@@ -66,6 +68,19 @@ public final class ToolProgress {
             Map.entry("review_kpi_criteria", "Đang chuẩn bị danh sách chỉ tiêu cần duyệt"),
             Map.entry("review_kpi_adjustments", "Đang chuẩn bị danh sách yêu cầu điều chỉnh"),
             Map.entry("send_reminders", "Đang chuẩn bị danh sách người cần nhắc"),
+            Map.entry("submit_kpis_for_approval", "Đang chuẩn bị danh sách chỉ tiêu gửi duyệt"),
+            Map.entry("review_reward_grants", "Đang chuẩn bị danh sách đề xuất thưởng"),
+            Map.entry("finalize_cycle_evaluation", "Đang chuẩn bị bảng điểm để chốt đợt"),
+            Map.entry("decompose_kpi", "Đang tính bảng phân rã chỉ tiêu"),
+            Map.entry("get_delegations", "Đang xem uỷ quyền đơn vị"),
+            Map.entry("get_org_documents", "Đang đọc mô tả công việc và chiến lược của tổ chức"),
+            Map.entry("get_conduct", "Đang xem KPI hành vi"),
+            Map.entry("get_rewards", "Đang xem thưởng điểm"),
+            Map.entry("get_my_kpis", "Đang xem KPI của bạn"),
+            Map.entry("get_my_submissions", "Đang xem bài nộp của bạn"),
+            Map.entry("get_my_score", "Đang tính điểm dự kiến của bạn"),
+            Map.entry("get_my_conduct", "Đang xem phiếu hạnh kiểm của bạn"),
+            Map.entry("get_my_rewards", "Đang xem thưởng điểm của bạn"),
             // Tool này CHẠY THẬT chứ không chuẩn bị, nên nhãn phải nói đúng như vậy.
             Map.entry("confirm_pending_action", "Đang thực hiện thao tác bạn vừa xác nhận"));
 
@@ -82,7 +97,7 @@ public final class ToolProgress {
      * Phát nhãn của tool vừa chạy. Nuốt mọi lỗi — báo tiến độ là phần thêm, câu trả lời mới là thứ
      * người dùng cần.
      */
-    public static void announce(ToolContext context, String toolName) {
+    public static void announce(InvocationParameters context, String toolName) {
         try {
             listenerOf(context).stageStarted("tool:" + toolName, label(toolName));
         } catch (Exception e) {
@@ -90,9 +105,9 @@ public final class ToolProgress {
         }
     }
 
-    private static TurnListener listenerOf(ToolContext context) {
-        if (context == null || context.getContext() == null) return TurnListener.NOOP;
-        Object listener = context.getContext().get(CONTEXT_KEY);
+    private static TurnListener listenerOf(InvocationParameters context) {
+        if (context == null) return TurnListener.NOOP;
+        Object listener = context.get(CONTEXT_KEY);
         return listener instanceof TurnListener l ? l : TurnListener.NOOP;
     }
 }

@@ -11,6 +11,13 @@ import { WORKFLOW_PARAMS } from '../../workflow/hooks/useWorkflowNavigator'
 import { Button } from '@/components/ui/button'
 import { ChoiceChip } from '@/components/ui/choice-chip'
 
+/** Hàng chọn đợt/kỳ: khối bo góc, chọn thì viền + nền xanh, rê chuột thì ngả sang primary. */
+const ROW_CLS =
+  'flex w-full items-center gap-4 rounded-card border p-4 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)] focus-visible:ring-offset-2'
+const ROW_SELECTED_CLS = 'border-[var(--color-success-border)] bg-[var(--color-success-bg)]'
+const ROW_IDLE_CLS =
+  'border-[var(--color-border)] bg-[var(--color-card)] hover:border-[var(--color-primary)] hover:bg-[var(--color-primary-soft)]'
+
 type Mode = 'pick' | 'create'
 
 /**
@@ -85,14 +92,21 @@ export default function CycleStep() {
             const selected = cycle.id === cycleId
             return (
               <li key={cycle.id}>
-                <ChoiceChip selected={!(selected)} className="w-full text-left" onClick={() => pick(cycle.id)}>
+                {/* Hàng chọn hai dòng, KHÔNG phải ChoiceChip: chip cao 32px và cấm xuống dòng, nhét
+                    ô icon 40px + hai dòng chữ vào là tràn. Kiểu hàng viết tại chỗ, dùng token chung. */}
+                <button
+                  type="button"
+                  aria-pressed={selected}
+                  onClick={() => pick(cycle.id)}
+                  className={cn(ROW_CLS, selected ? ROW_SELECTED_CLS : ROW_IDLE_CLS)}
+                >
                   <span
                     className={cn(
                       'flex h-10 w-10 shrink-0 items-center justify-center rounded-card',
                       selected ? 'bg-[var(--color-success-solid)] text-white' : 'bg-[var(--color-muted)] text-[var(--color-subtle-foreground)]',
                     )}
                   >
-                    {selected ? <Check strokeWidth={3} /> : <CalendarRange />}
+                    {selected ? <Check size={18} strokeWidth={3} /> : <CalendarRange size={18} />}
                   </span>
 
                   <span className="min-w-0 flex-1">
@@ -106,8 +120,8 @@ export default function CycleStep() {
                     </span>
                   </span>
 
-                  <ArrowRight className="shrink-0 text-[var(--color-subtle-foreground)]" />
-                </ChoiceChip>
+                  <ArrowRight size={16} className="shrink-0 text-[var(--color-subtle-foreground)]" />
+                </button>
               </li>
             )
           })}

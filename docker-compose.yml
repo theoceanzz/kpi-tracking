@@ -35,6 +35,10 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
+    volumes:
+      # Ảnh bóc từ tài liệu nạp vào kho tri thức AI. Mất volume = ảnh trong câu trả lời thành 404
+      # cho tới khi nạp lại tài liệu.
+      - rag_assets:/app/data/rag-assets
     environment:
       - SPRING_PROFILES_ACTIVE=prod
 
@@ -140,6 +144,16 @@ services:
       - AI_VALIDATION_ENABLED=${AI_VALIDATION_ENABLED:-true}
       - AI_STREAMING_ENABLED=${AI_STREAMING_ENABLED:-true}
 
+      # Kho tri thức AI (RAG). Vector nằm ngay trong DB ứng dụng — image kpitracking-db là
+      # pgvector/pgvector:pg15. Ảnh bóc từ tài liệu cất trên volume rag_assets.
+      - RAG_PG_HOST=kpitracking-db
+      - RAG_PG_PORT=5432
+      - RAG_PG_DATABASE=kpitracking
+      - RAG_PG_USER=${DB_USERNAME:-postgres}
+      - RAG_PG_PASSWORD=${DB_PASSWORD:-123456}
+      - RAG_IMAGE_STORE=${RAG_IMAGE_STORE:-local}
+      - RAG_ASSETS_DIR=/app/data/rag-assets
+
       # Kho quà eVoucher UrBox. Credential dùng chung cho cả nền tảng (KeyGo là đối tác
       # ký hợp đồng), phân biệt tổ chức nào đổi quà bằng site_user_id gửi kèm mỗi đơn.
       # Bật enabled mà để nguyên base-url sandbox = nhân viên nhận mã không dùng được.
@@ -187,7 +201,9 @@ services:
       - "traefik.docker.network=coolify"
 
   kpitracking-db:
-    image: postgres:15-alpine
+    # pgvector/pgvector:pg15 = postgres:15 + extension vector, thay thế trực tiếp postgres:15-alpine
+    # (cùng bản PG nên volume dữ liệu cũ dùng lại nguyên). Cần cho kho tri thức AI (RAG).
+    image: pgvector/pgvector:pg15
     logging:
       driver: json-file
       options:
@@ -227,3 +243,4 @@ networks:
 
 volumes:
   postgres_data:
+  rag_assets:

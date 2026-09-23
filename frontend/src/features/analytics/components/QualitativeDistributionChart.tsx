@@ -1,6 +1,7 @@
 import { BarChart, Bar, Cell, LabelList, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { yAxisLabel } from '@/components/charts/axisLabel'
 import { BarChart3 } from 'lucide-react'
+import { SeriesTooltip } from '@/components/charts/ChartTooltip'
 
 export interface QualLevelBucket {
   levelName: string
@@ -27,12 +28,11 @@ export function QualitativeDistributionChart({ distribution }: { distribution?: 
     <div className="h-[280px] w-full">
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={data} margin={{ top: 16, right: 12, left: 0, bottom: 8 }}>
-          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#f1f5f9" strokeOpacity={0.8} />
+          <CartesianGrid stroke="var(--color-border)" vertical={false} />
           <XAxis dataKey="levelName" interval={0} tick={{ fontSize: 11, fontWeight: 600, fill: '#64748b' }} axisLine={false} tickLine={false} />
-          <YAxis label={yAxisLabel('S\u1ed1 ng\u01b0\u1eddi')} allowDecimals={false} width={48} tick={{ fontSize: 10, fill: '#64748b' }} axisLine={false} tickLine={false} />
+          <YAxis label={yAxisLabel('S\u1ed1 ng\u01b0\u1eddi')} allowDecimals={false} width={48} tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
           <Tooltip
-            formatter={(v: any) => [`${v} bài nộp`, 'Số bài nộp']}
-            labelFormatter={(l: any) => `Mức: ${l}`}
+            content={<SeriesTooltip unit=" bài nộp" labelPrefix="Mức: " />}
             cursor={{ fill: '#94a3b8', opacity: 0.06 }}
           />
           <Bar dataKey="count" radius={[6, 6, 0, 0]} barSize={48} isAnimationActive={false}>

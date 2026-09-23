@@ -1,6 +1,6 @@
 import type { ReactNode } from 'react'
 import { useSearchParams } from 'react-router-dom'
-import { ChevronRight } from 'lucide-react'
+import { ChevronRight, Users } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useHasPermission } from '@/components/auth/PermissionGate'
 import { useStageVisible } from '@/features/kpi/workflow/hooks/useStageVisible'
@@ -164,6 +164,12 @@ export default function SettingsSectionLayout({
                     </h3>
                     {def.description && (
                       <p className="mt-1 text-caption leading-4">{def.description}</p>
+                    )}
+                    {def.audience && (
+                      <p className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-[var(--color-muted-foreground)]">
+                        <Users size={12} aria-hidden="true" className="shrink-0" />
+                        <span><span className="text-[var(--color-subtle-foreground)]">Dành cho:</span> {def.audience}</span>
+                      </p>
                     )}
                   </button>
                 ))}

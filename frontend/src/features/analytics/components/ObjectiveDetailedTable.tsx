@@ -58,7 +58,7 @@ function MobileObjectiveCard({ obj, onRowClick }: { obj: ObjectiveDetailedDto; o
   const formatDate = (d: string | null) => d ? format(new Date(d), 'dd/MM/yyyy') : '---'
 
   return (
-    <div className="p-4 border-b border-[var(--color-border)] space-y-3 active:bg-[var(--color-muted)] dark:active:bg-white/5 transition-colors" onClick={() => onRowClick('OBJECTIVE', obj)}>
+    <div className="cursor-pointer p-4 border-b border-[var(--color-border)] space-y-3 active:bg-[var(--color-muted)] dark:active:bg-white/5 transition-colors" onClick={() => onRowClick('OBJECTIVE', obj)}>
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
           <p className="font-medium text-sm text-[var(--color-foreground)] leading-tight">{obj.name}</p>

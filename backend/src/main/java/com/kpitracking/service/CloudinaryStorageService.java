@@ -66,6 +66,35 @@ public class CloudinaryStorageService {
     }
 
     /**
+     * Tải một mảng byte lên (ảnh bóc từ tài liệu RAG). Cùng luật đặt public_id với
+     * {@link #uploadFile}: giữ phần mở rộng để URL sinh ra kết thúc đúng đuôi tệp.
+     */
+    public Map<String, String> uploadBytes(byte[] bytes, String fileName, String folder) throws IOException {
+        try {
+            String extension = "";
+            if (fileName != null && fileName.lastIndexOf('.') != -1) {
+                extension = fileName.substring(fileName.lastIndexOf('.'));
+            }
+            String publicId = UUID.randomUUID() + extension;
+
+            @SuppressWarnings("unchecked")
+            Map<String, Object> uploadResult = cloudinary.uploader().upload(bytes,
+                    ObjectUtils.asMap(
+                            "public_id", publicId,
+                            "folder", folder,
+                            "resource_type", "image"
+                    ));
+            return Map.of(
+                    "url", (String) uploadResult.get("secure_url"),
+                    "public_id", (String) uploadResult.get("public_id")
+            );
+        } catch (Exception e) {
+            log.error("Cloudinary upload failed for {}: {}", fileName, e.getMessage());
+            throw new IOException("Tải ảnh lên Cloudinary thất bại: " + e.getMessage(), e);
+        }
+    }
+
+    /**
      * Xoá tệp trên Cloudinary. {@code destroy} không nhận {@code resource_type=auto} (chỉ nhận
      * image / video / raw) — bản cũ gửi "auto" nên MỌI lượt xoá đều hỏng, tệp nằm lại Cloudinary
      * mãi dù DB đã xoá. Loại tệp suy từ content-type; không rõ thì thử lần lượt cả ba loại.

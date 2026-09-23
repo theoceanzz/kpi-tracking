@@ -23,6 +23,8 @@ import { pickCurrentOrNearest } from '@/components/common/dateScope'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { useSidebarSettings } from '@/features/organization/hooks/useSidebarSettings'
 import { usePermission } from '@/hooks/usePermission'
+import AiShortcutButton from '@/features/analytics/components/AiShortcutButton'
+import { aiShortcuts } from '@/features/analytics/aiShortcuts'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Users, Clock, ClipboardCheck, ArrowRight, Eye, PenLine, Inbox } from 'lucide-react'
 import { useWorkflowNavigator } from '@/features/kpi/workflow/hooks/useWorkflowNavigator'
@@ -137,6 +139,12 @@ export default function OrgUnitSubmissionsPage() {
     if (!selectedPeriod?.endDate) return false
     return new Date() > new Date(selectedPeriod.endDate)
   }, [selectedPeriod])
+
+  // Nút K.AI: hỏi đúng đơn vị + kỳ đang chọn trên màn hình (tên để trợ lý đọc, id để backend đặt
+  // đơn vị hiện tại). Chọn "Tất cả" thì để trợ lý hiểu là đơn vị của mình.
+  const aiUnitId = selectedOrgUnitId !== 'ALL' ? selectedOrgUnitId : undefined
+  const aiUnitName = aiUnitId ? flatOrgUnits.find((u: any) => u.id === aiUnitId)?.name ?? null : null
+  const aiPeriodName = selectedPeriod?.name ?? null
 
   // Tải trọn danh sách nhân sự của đơn vị rồi mới cắt trang ở client. Xếp "chờ duyệt lên
   // đầu" trên từng trang 10 người do server cắt sẵn chỉ sắp lại đúng trang đang xem —
@@ -380,7 +388,27 @@ export default function OrgUnitSubmissionsPage() {
           { label: 'Bài chờ duyệt', value: stats.totalPending, icon: Clock },
           { label: 'Đã đánh giá', value: stats.totalEvaluated, icon: ClipboardCheck },
         ]}
+        actions={
+          <>
+            {hasPermission('SUBMISSION:REVIEW') && (
+              <AiShortcutButton
+                label="Duyệt bằng K.AI"
+                prompt={aiShortcuts.reviewSubmissions(aiUnitName, aiPeriodName)}
+                focusUnitId={aiUnitId}
+                title="K.AI liệt kê các bài chờ duyệt của đơn vị/kỳ đang chọn và chờ bạn xác nhận"
               />
+            )}
+            {hasPermission('REMINDER:SEND') && (
+              <AiShortcutButton
+                label="Nhắc nộp bằng K.AI"
+                prompt={aiShortcuts.remindNonSubmitters(aiUnitName, aiPeriodName)}
+                focusUnitId={aiUnitId}
+                title="K.AI lập danh sách người chưa nộp và chờ bạn xác nhận trước khi gửi nhắc"
+              />
+            )}
+          </>
+        }
+      />
 
       <FilterBar
         id="tour-approve-toolbar"
@@ -471,7 +499,7 @@ export default function OrgUnitSubmissionsPage() {
                 const pendingCount = pendingByUserId[emp.id] || 0
                 const evaluation = evaluationsByUserId[emp.id]
                 return (
-                <div key={emp.id} onClick={() => handleRowClick(emp)} className="rounded-card border border-[var(--color-border)] bg-[var(--color-card)] p-4">
+                <div key={emp.id} onClick={() => handleRowClick(emp)} className="cursor-pointer rounded-card border border-[var(--color-border)] bg-[var(--color-card)] p-4">
                   <div className="flex items-center gap-3">
                     <UserAvatar fullName={emp.fullName} avatarUrl={emp.avatarUrl} className="h-9 w-9 rounded-control" fallbackClassName="bg-[var(--color-primary-soft)] text-xs font-semibold text-[var(--color-primary)]" />
                     <div className="min-w-0 flex-1">

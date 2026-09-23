@@ -16,7 +16,7 @@ import java.util.Map;
  * Đẩy tiến độ của một lượt hỏi ra client qua SSE.
  *
  * <p>Đây là chỗ DUY NHẤT trong dự án biết cả hai thứ: chuỗi công đoạn và giao thức truyền. Stage và
- * {@code AiTurnPipeline} chỉ nói chuyện qua {@link TurnListener}, nên đổi sang WebSocket sau này chỉ
+ * {@code KeyGoAssistant} chỉ nói chuyện qua {@link TurnListener}, nên đổi sang WebSocket sau này chỉ
  * là viết một cài đặt khác của interface đó.
  *
  * <p>Bốn loại sự kiện:
@@ -57,7 +57,21 @@ class SseTurnListener implements TurnListener {
 
     void failed(Exception e) {
         log.error("Lượt hỏi streaming thất bại: {}", e.getMessage(), e);
-        send("error", Map.of("message", userMessageFor(e)));
+        send("error", Map.of("message", userMessageFor(e), "status", statusFor(e)));
+    }
+
+    /**
+     * Mã HTTP mà ĐƯỜNG JSON sẽ trả cho đúng ngoại lệ này (xem {@code GlobalExceptionHandler}).
+     *
+     * <p>Kèm theo để client phân nhánh giống hệt hai đường: màn chat hiện câu riêng cho hết hạn mức
+     * (402) và gửi quá nhanh (429). Không có mã thì mọi lỗi rơi vào nhánh chung và người dùng chỉ
+     * thấy "đã có lỗi xảy ra" — đúng thứ đã xảy ra với người hết hạn mức token.
+     */
+    private static int statusFor(Exception e) {
+        if (e instanceof AiQuotaExceededException) return 402;
+        if (e instanceof AiTokenQuotaExceededException || e instanceof AiRateLimitException) return 429;
+        if (e instanceof ForbiddenException) return 403;
+        return 500;
     }
 
     /**

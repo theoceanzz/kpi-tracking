@@ -31,39 +31,6 @@ export interface BehaviorCompletionResponse {
   anonymized: boolean
 }
 
-export interface AgreementPoint {
-  userId?: string | null
-  name?: string | null
-  systemScore: number
-  bscScore: number
-  gap: number
-  evaluationCount?: number
-  isSelf?: boolean
-}
-
-export interface BscVsSystemScatterResponse {
-  points: AgreementPoint[]
-  axisMax: number
-  scoringMode?: string | null
-  totalCount: number
-  anonymized: boolean
-}
-
-export interface PerspectiveBubble {
-  perspectiveId: string
-  name: string
-  color?: string | null
-  weightPercentage: number
-  averageScore: number
-  kpiCount: number
-}
-
-export interface PerspectiveBubbleResponse {
-  bubbles: PerspectiveBubble[]
-  avgWeight?: number | null
-  avgScore?: number | null
-}
-
 export interface HistogramBin {
   from: number
   to: number
@@ -103,72 +70,11 @@ export interface UnitBoxplotResponse {
   axisMax: number
 }
 
-export interface PyramidRow {
-  levelOrder: number
-  name: string
-  left: number
-  right: number
-}
-
-export interface StatusMeta {
-  code: string
-  label: string
-  color: string
-}
-
-export interface SubmissionCompositionResponse {
-  statuses: StatusMeta[]
-  points: { label: string; values: Record<string, number> }[]
-  totalCount: number
-}
-
-export interface SubmissionShareResponse {
-  statuses: StatusMeta[]
-  units: { orgUnitId: string; name: string; percents: Record<string, number>; total: number }[]
-}
-
-export interface WaterfallStep {
-  name: string
-  color?: string | null
-  value: number
-  weightPercentage?: number | null
-  rawScore?: number | null
-  kpiCount?: number
-  isTotal?: boolean
-}
-
-export interface BscWaterfallResponse {
-  steps: WaterfallStep[]
-  totalScore: number
-  scoringMode?: string | null
-}
-
-export interface WeightHistoryResponse {
-  perspectives: { id: string; name: string; color?: string | null }[]
-  points: { at?: string | null; label: string; values: Record<string, number>; changeNote?: string }[]
-  changeCount: number
-}
-
 export interface SankeyResponse {
   nodes: { name: string; depth: number; color?: string | null }[]
   links: { source: number; target: number; value: number; note?: string | null }[]
   valueLabel: string
   empty: boolean
-}
-
-export interface DeviationResponse {
-  rows: {
-    id?: string | null
-    name: string
-    subText?: string | null
-    deviation: number
-    score?: number | null
-    isSelf?: boolean
-  }[]
-  baseline: number
-  baselineLabel: string
-  unit: string
-  anonymized: boolean
 }
 
 export interface SelfVsManagerResponse {
@@ -182,22 +88,6 @@ export interface SelfVsManagerResponse {
   }[]
   axisMax: number
   averageGap?: number | null
-}
-
-export interface RankDeltaResponse {
-  rows: {
-    orgUnitId: string
-    name: string
-    score: number
-    currentRank: number
-    previousRank?: number | null
-    rankDelta?: number | null
-    scoreDelta?: number | null
-  }[]
-  currentCycleName?: string | null
-  previousCycleName?: string | null
-  axisMax: number
-  comparable: boolean
 }
 
 /** Bộ lọc chung — cùng chữ ký với các API thống kê khác. */
@@ -220,10 +110,6 @@ export const advancedAnalyticsApi = {
   // Tương quan
   getBehaviorCompletion: (p: AdvancedFilter) =>
     get<BehaviorCompletionResponse>('/correlation/behavior-completion', p),
-  getBscVsSystem: (p: AdvancedFilter) =>
-    get<BscVsSystemScatterResponse>('/correlation/bsc-vs-system', p),
-  getPerspectiveBubble: (p: AdvancedFilter) =>
-    get<PerspectiveBubbleResponse>('/correlation/perspective-bubble', p),
 
   // Phân phối
   getScoreHistogram: (p: AdvancedFilter) =>
@@ -231,24 +117,11 @@ export const advancedAnalyticsApi = {
   getUnitBoxplot: (p: AdvancedFilter) =>
     get<UnitBoxplotResponse>('/distribution/unit-boxplot', p),
 
-  // Thành phần & thời gian
-  getSubmissionComposition: (p: AdvancedFilter) =>
-    get<SubmissionCompositionResponse>('/timeline/submission-composition', p),
-  getSubmissionShare: (p: AdvancedFilter) =>
-    get<SubmissionShareResponse>('/part/submission-share', p),
-  getBscWaterfall: (p: AdvancedFilter) =>
-    get<BscWaterfallResponse>('/part/bsc-waterfall', p),
-  getWeightHistory: (p: AdvancedFilter) =>
-    get<WeightHistoryResponse>('/timeline/bsc-weight-history', p),
-
   // Luồng
   getKpiCascade: (p: AdvancedFilter) => get<SankeyResponse>('/flow/kpi-cascade', p),
-  getKpiLifecycle: (p: AdvancedFilter) => get<SankeyResponse>('/flow/kpi-lifecycle', p),
   getOkrFlow: (p: AdvancedFilter) => get<SankeyResponse>('/flow/okr', p),
 
   // Xếp hạng & so sánh
-  getDeviation: (p: AdvancedFilter) => get<DeviationResponse>('/comparison/deviation', p),
   getSelfVsManager: (p: AdvancedFilter) =>
     get<SelfVsManagerResponse>('/comparison/self-vs-manager', p),
-  getRankDelta: (p: AdvancedFilter) => get<RankDeltaResponse>('/ranking/rank-delta', p),
 }

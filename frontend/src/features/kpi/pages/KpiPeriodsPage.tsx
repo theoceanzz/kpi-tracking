@@ -6,6 +6,7 @@ import { Dialog, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { format, addDays, parseISO, addMonths, addYears, subDays, differenceInCalendarDays } from 'date-fns'
 import { useKpiPeriods } from '../hooks/useKpiPeriods'
+import { useNextStepHint } from '../workflow/nextStep/useNextStepHint'
 import { useKpiCycles } from '../hooks/useKpiCycles'
 import { useAuthStore } from '@/store/authStore'
 import { formatDateTime, FREQUENCY_MAP } from '@/lib/utils'
@@ -26,6 +27,7 @@ import { Badge } from '@/components/ui/badge'
 import EntityCard from '@/components/common/EntityCard'
 
 export default function KpiPeriodsPage() {
+  const suggestNextStep = useNextStepHint()
   const [showForm, setShowForm] = useState(false)
   const [editPeriod, setEditPeriod] = useState<KpiPeriod | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
@@ -225,7 +227,8 @@ export default function KpiPeriodsPage() {
               if (editPeriod) {
                 await updatePeriod({ id: editPeriod.id, data: payload })
               } else {
-                await createPeriod(payload)
+                const created = await createPeriod(payload)
+                suggestNextStep({ type: 'PERIOD_CREATED', period: created })
               }
             }}
             isSubmitting={isCreating || isUpdating}

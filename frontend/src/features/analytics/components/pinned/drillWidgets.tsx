@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
-import { Users, Search, Building2, Grid3x3, CalendarRange } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { Users, Search, Building2, CalendarRange } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts'
 import { cn } from '@/lib/utils'
 import UserAvatar from '@/components/common/UserAvatar'
@@ -9,23 +10,34 @@ import { useKpiCycles } from '@/features/kpi/hooks/useKpiCycles'
 import ScopeSelectItems from '@/components/common/ScopeSelectItems'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
-import { useDashboardUnit } from '@/features/dashboard/context/DashboardFilterContext'
+import { useOptionalDashboardUnit } from '@/features/dashboard/context/DashboardFilterContext'
 import { useDrillDown, useMatrixOverview, useUnitClassification } from '../../hooks/useAnalytics'
+import { useBehaviorCompletion } from '../../hooks/useAdvancedAnalytics'
 import { usePerformanceScale } from '../../hooks/usePerformanceScale'
+import { useStatsTier } from '../../hooks/useStatsTier'
+import { useChartTableView, type ChartTableView } from '@/components/common/dashboard/useChartTableView'
+import { ViewToggleButtons } from '@/components/common/dashboard/ViewToggleButtons'
+import Lollipop from '@/components/charts/primitives/Lollipop'
 import OrgUnitTreeSidebar from '../OrgUnitTreeSidebar'
+import BehaviorCompletionScatter from '../BehaviorCompletionScatter'
 import { MatrixMetricCards, MatrixDistHeatmap } from '../MatrixOverviewPanel'
-import UnitClassificationSection from '../UnitClassificationSection'
+import UnitClassificationSection, { type UnitClassificationView } from '../UnitClassificationSection'
+import { KpiCascadeSection, UnitBoxplotSection } from '../advanced/DrillDownAdvanced'
 import type { EmployeeDrillSummary } from '@/types/stats'
 import type { OrgUnitTreeResponse } from '@/types/orgUnit'
 import type { PinnedFilter } from './pinnedWidgetRegistry'
+import { xAxisLabel } from '@/components/charts/axisLabel'
 
 /**
- * Widget của tab "Phân cấp".
+ * Widget của tab "So sánh giữa các đơn vị", dùng ở cả tab lẫn trang chủ.
  *
  * <p>Tab đó là một màn master–detail: cây đơn vị bên trái, chi tiết bên phải. Trên trang chủ
  * vai trò "bên trái" thuộc về widget {@link DrillUnitTreeWidget}, còn mọi widget chi tiết đọc
- * đơn vị đang chọn từ `useDashboardUnit()`. Nhờ vậy người dùng có thể bỏ cây khỏi lưới mà các
- * widget chi tiết vẫn chạy (rơi về gốc phạm vi quyền, đúng như lúc mới mở tab).
+ * đơn vị đang chọn từ context (`useOptionalDashboardUnit`). Nhờ vậy người dùng có thể bỏ cây khỏi
+ * lưới mà các widget chi tiết vẫn chạy (rơi về gốc phạm vi quyền, đúng như lúc mới mở tab).
+ *
+ * <p>Từ khi tab "So sánh giữa các đơn vị" cũng lên lưới, các widget này chạy ở cả hai nơi: trong tab,
+ * đơn vị đến từ prop `filter.orgUnitId` (cây đơn vị của trang) và thắng context.
  */
 
 const EMP_PAGE_SIZE = 5
@@ -57,7 +69,7 @@ function DrillBarTooltip({ active, payload, perf }: DrillTooltipProps) {
   const val = payload[0]?.value ?? 0
   const pct = perf.toPct(val)
   return (
-    <div className="bg-[var(--color-primary)] text-[var(--color-primary-foreground)] px-3 py-2 rounded-card text-xs border border-white/10 max-w-[220px]">
+    <div className="bg-slate-900 text-white px-3 py-2 rounded-lg text-xs shadow-md border border-white/10 max-w-[220px]">
       <p className="font-semibold mb-1.5 break-words leading-tight">{name}</p>
       <p className="flex items-center gap-1.5">
         <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: pct >= 80 ? '#10b981' : pct >= 50 ? '#f59e0b' : '#ef4444' }} />
@@ -67,24 +79,33 @@ function DrillBarTooltip({ active, payload, perf }: DrillTooltipProps) {
   )
 }
 
-/** Dữ liệu drill của đơn vị đang chọn, theo bộ lọc thời gian của trang chủ. */
+/**
+ * Đơn vị đang xem: tab Thống kê truyền qua `filter.orgUnitId` (cây đơn vị của trang); trang chủ
+ * để trống và lấy từ context bộ lọc. Cùng một component chạy được ở cả hai nơi.
+ */
+function useDrillUnit(filter?: PinnedFilter) {
+  const ctx = useOptionalDashboardUnit()
+  return filter?.orgUnitId ?? ctx.unitId
+}
+
+/** Dữ liệu drill của đơn vị đang chọn, theo bộ lọc thời gian đi kèm. */
 function useDrillData(filter?: PinnedFilter) {
-  const { unitId } = useDashboardUnit()
+  const unitId = useDrillUnit(filter)
   const { from, to, periodId, periodIdTo } = filter ?? {}
   const query = useDrillDown(unitId, from, to, periodId, periodIdTo)
   return { ...query, unitId, from, to, periodId, periodIdTo }
 }
 
 const NoChildren = () => (
-  <div className="flex-1 min-h-[200px] flex flex-col items-center justify-center gap-3 text-[var(--color-subtle-foreground)]">
-    <Building2 size={32} className="text-[var(--color-subtle-foreground)]" />
-    <p className="text-xs font-medium">Không có đơn vị con trực thuộc</p>
+  <div className="flex-1 min-h-[200px] flex flex-col items-center justify-center gap-3 text-slate-400">
+    <Building2 size={32} className="text-slate-300" />
+    <p className="text-xs font-semibold">Không có đơn vị con trực thuộc</p>
   </div>
 )
 
 /** Cây đơn vị — thay cho thanh bên trái của tab Phân cấp. */
 export function DrillUnitTreeWidget({ filter }: { filter?: PinnedFilter }) {
-  const { unitId, setUnitId } = useDashboardUnit()
+  const { unitId, setUnitId } = useOptionalDashboardUnit()
   const { from, to, periodId, periodIdTo } = filter ?? {}
   const { data: tree } = useOrgUnitTree()
   // Gốc drill = phạm vi quyền của user, do backend quyết định (giống tab Phân cấp).
@@ -95,7 +116,7 @@ export function DrillUnitTreeWidget({ filter }: { filter?: PinnedFilter }) {
 
   return (
     <div className="flex-1 min-h-0">
-      <OrgUnitTreeSidebar nodes={nodes} selectedId={unitId ?? rootUnitId} onSelect={setUnitId} />
+      <OrgUnitTreeSidebar nodes={nodes} selectedId={unitId ?? rootUnitId} onSelect={id => setUnitId?.(id)} />
     </div>
   )
 }
@@ -103,33 +124,45 @@ export function DrillUnitTreeWidget({ filter }: { filter?: PinnedFilter }) {
 /** Thẻ tóm tắt đơn vị đang chọn: cấp, tên, số nhân sự, tổng KPI. */
 export function DrillUnitSummaryWidget({ filter }: { filter?: PinnedFilter }) {
   const { data } = useDrillData(filter)
-  if (!data) return <div className="flex-1 flex items-center justify-center text-sm text-[var(--color-subtle-foreground)]">Chưa có dữ liệu đơn vị</div>
+  if (!data) return <div className="flex-1 flex items-center justify-center text-sm text-slate-400">Chưa có dữ liệu đơn vị</div>
+  // Thẻ trung tính thay cho banner gradient: cùng vỏ với thẻ số liệu ở các tab khác.
   return (
-    <div className="bg-[var(--color-primary)] rounded-card p-5 text-[var(--color-primary-foreground)]">
-      <div className="flex flex-wrap items-center justify-between gap-4">
-        <div className="min-w-0">
-          <p className="text-eyebrow text-white/70">{data.levelName || 'Cấp đơn vị'}</p>
-          <h3 className="text-section-title md:text-2xl mt-0.5 truncate">{data.orgUnitName || 'Tất cả'}</h3>
+    <div className="bg-[var(--color-card)] rounded-widget border border-[var(--color-border)] p-5 flex flex-wrap items-center justify-between gap-4">
+      <div className="min-w-0">
+        <p className="text-xs font-medium text-slate-500">{data.levelName || 'Cấp đơn vị'}</p>
+        <h3 className="text-xl font-semibold text-[var(--color-foreground)] mt-0.5 truncate">{data.orgUnitName || 'Tất cả'}</h3>
+      </div>
+      <div className="flex items-center gap-8 shrink-0">
+        <div>
+          <p className="text-2xl font-semibold text-[var(--color-foreground)] leading-none">{data.memberCount}</p>
+          <p className="text-xs font-medium text-slate-500 mt-1">Nhân sự</p>
         </div>
-        <div className="flex items-center gap-4 md:gap-8 shrink-0">
-          <div className="flex items-baseline gap-1.5">
-            <p className="text-xl md:text-2xl font-semibold tabular-nums">{data.memberCount}</p>
-            <p className="text-xs text-white/70 whitespace-nowrap">Nhân sự</p>
-          </div>
-          <div className="flex items-baseline gap-1.5">
-            <p className="text-xl md:text-2xl font-semibold tabular-nums">{data.totalKpi}</p>
-            <p className="text-xs text-white/70 whitespace-nowrap">KPI Tổng</p>
-          </div>
+        <div>
+          <p className="text-2xl font-semibold text-[var(--color-foreground)] leading-none">{data.totalKpi}</p>
+          <p className="text-xs font-medium text-slate-500 mt-1">KPI tổng</p>
         </div>
       </div>
     </div>
   )
 }
 
-/** Bảng thành viên trực thuộc — tìm kiếm + phân trang như trong tab. */
-export function DrillEmployeeTableWidget({ filter }: { filter?: PinnedFilter }) {
+/**
+ * Thành viên trực thuộc: lollipop hiệu suất (bấm một người là mở trang hiệu suất của họ) hoặc bảng
+ * phân trang. Tìm kiếm và trang là state cục bộ của ô; tab reset chúng khi đổi đơn vị bằng `key`.
+ *
+ * <p>`viewControl`/`hideControls`/`meta` theo đúng khuôn `EmployeeRankingTableSection`: lưới Thống kê
+ * điều khiển kiểu xem qua bảng cấu hình, trang chủ để tự vẽ nút.
+ */
+export function DrillEmployeeTableWidget({ filter, viewControl, hideControls, meta }: {
+  filter?: PinnedFilter
+  viewControl?: { value?: ChartTableView; onChange?: (v: ChartTableView) => void }
+  hideControls?: boolean
+  meta?: React.ReactNode
+}) {
   const { data } = useDrillData(filter)
   const perf = usePerformanceScale()
+  const navigate = useNavigate()
+  const { view, setView } = useChartTableView('drill-employees', 'chart', viewControl)
   const [searchInput, setSearchInput] = useState('')
   const [searchTerm, setSearchTerm] = useState('')
   const [page, setPage] = useState(0)
@@ -155,14 +188,16 @@ export function DrillEmployeeTableWidget({ filter }: { filter?: PinnedFilter }) 
   const paginated = filtered.slice(page * EMP_PAGE_SIZE, page * EMP_PAGE_SIZE + EMP_PAGE_SIZE)
 
   if (!employees?.length) {
-    return <div className="flex-1 flex items-center justify-center text-sm text-[var(--color-subtle-foreground)]">Đơn vị này chưa có nhân sự trực thuộc</div>
+    return <div className="flex-1 flex items-center justify-center text-sm text-slate-400">Đơn vị này chưa có nhân sự trực thuộc</div>
   }
 
   return (
     <div className="flex-1 flex flex-col min-h-0">
+      {meta && <div className="pb-3">{meta}</div>}
       <div className="flex flex-wrap items-center justify-between gap-3 pb-3">
-        <p className="text-xs font-semibold text-[var(--color-muted-foreground)] flex items-center gap-1.5">
-          <Users size={14} className="text-[var(--color-primary)]" /> {filtered.length} thành viên
+        <p className="text-xs font-medium text-slate-500 flex items-center gap-1.5">
+          <Users size={14} className="text-slate-400" /> {filtered.length} thành viên
+          {!hideControls && <ViewToggleButtons view={view} onChange={setView} className="ml-2" />}
         </p>
         <div className="relative w-full sm:w-56">
           <input
@@ -171,16 +206,36 @@ export function DrillEmployeeTableWidget({ filter }: { filter?: PinnedFilter }) 
             value={searchInput}
             onChange={e => setSearchInput(e.target.value)}
             aria-label="Tìm thành viên"
-            className="w-full pl-9 pr-3 py-2 bg-[var(--color-muted)] border-none rounded-card text-xs font-medium focus:ring-2 focus:ring-[var(--color-ring)] transition-all"
+            className="w-full pl-9 pr-3 py-2 bg-[var(--color-muted)] border-none rounded-lg text-xs font-semibold focus:ring-2 focus:ring-[var(--color-primary)] transition-all"
           />
-          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-subtle-foreground)] pointer-events-none" />
+          <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
         </div>
       </div>
 
+      {view === 'chart' ? (
+        <div className="flex-1 min-h-0 overflow-auto custom-scrollbar">
+          {filtered.length === 0 ? (
+            <div className="py-12 text-center text-slate-400 text-xs">Không tìm thấy thành viên nào</div>
+          ) : (
+            <Lollipop
+              data={filtered.map(emp => ({
+                id: emp.userId,
+                name: emp.fullName,
+                subText: [emp.roleName, emp.orgUnitName].filter(Boolean).join(' · '),
+                value: emp.performanceRate ?? 0,
+              }))}
+              unit={` ${perf.unit}`}
+              valueLabel={`Hiệu suất (${perf.unit})`}
+              domainMax={perf.axisMax}
+              onSelect={d => { if (d.id) navigate(`/employees/${d.id}/performance`) }}
+            />
+          )}
+        </div>
+      ) : (
       <div className="flex-1 min-h-0 overflow-auto custom-scrollbar">
         <table className="w-full text-sm">
           <thead className="sticky top-0 bg-[var(--color-card)] z-10">
-            <tr className="text-eyebrow border-b border-[var(--color-border)]">
+            <tr className="text-xs font-medium text-slate-400 border-b border-[var(--color-border)]">
               <th className="px-3 py-3 text-left">Họ tên &amp; Vai trò</th>
               <th className="px-3 py-3 text-left hidden lg:table-cell">Đơn vị</th>
               <th className="px-3 py-3 text-center">KPI</th>
@@ -188,41 +243,41 @@ export function DrillEmployeeTableWidget({ filter }: { filter?: PinnedFilter }) 
               <th className="px-3 py-3 text-center">Hiệu suất</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-[var(--color-border)]">
+          <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
             {paginated.map(emp => {
               const progressPct = emp.assignedKpi > 0 ? Math.round(emp.approvedSubmissions / emp.assignedKpi * 100) : 0
               const perfPct = emp.performanceRate != null ? perf.toPct(emp.performanceRate) : null
               return (
-                <tr key={emp.userId} className="hover:bg-[var(--color-muted)] transition-colors">
+                <tr key={emp.userId} className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors">
                   <td className="px-3 py-3">
                     <div className="flex items-center gap-2.5 min-w-0">
                       <UserAvatar
                         fullName={emp.fullName}
                         avatarUrl={emp.avatarUrl}
-                        className="w-8 h-8 rounded-card shrink-0"
-                        fallbackClassName="bg-[var(--color-muted)] text-caption"
+                        className="w-8 h-8 rounded-lg shrink-0"
+                        fallbackClassName="bg-[var(--color-muted)] text-xs font-semibold text-slate-600"
                       />
                       <div className="min-w-0">
                         <p className="font-semibold text-[var(--color-foreground)] leading-none truncate">{emp.fullName}</p>
-                        <p className="text-caption mt-1 truncate">{emp.roleName}</p>
+                        <p className="text-xs font-medium text-slate-400 mt-1 truncate">{emp.roleName}</p>
                       </div>
                     </div>
                   </td>
                   <td className="px-3 py-3 hidden lg:table-cell">
                     {emp.orgUnitId && emp.orgUnitId === data?.orgUnitId ? (
-                      <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-control bg-[var(--color-primary-soft)] text-[var(--color-primary)]">
+                      <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-lg bg-indigo-50 text-[var(--color-primary)] dark:bg-indigo-900/30 dark:text-indigo-300">
                         <Building2 size={11} /> Đơn vị hiện tại
                       </span>
                     ) : (
-                      <span className="text-[12px] font-medium text-[var(--color-muted-foreground)]">{emp.orgUnitName || '—'}</span>
+                      <span className="text-xs font-semibold text-[var(--color-muted-foreground)]">{emp.orgUnitName || '-'}</span>
                     )}
                   </td>
-                  <td className="px-3 py-3 text-center font-semibold text-[var(--color-foreground)] tabular-nums">{emp.assignedKpi}</td>
+                  <td className="px-3 py-3 text-center font-semibold text-slate-800 dark:text-slate-200 tabular-nums">{emp.assignedKpi}</td>
                   <td className="px-3 py-3">
                     <div className="flex items-center gap-2 min-w-[80px]">
                       <div className="flex-1 h-1.5 bg-[var(--color-muted)] rounded-full overflow-hidden">
                         <div
-                          className={cn('h-full rounded-full transition-all', progressPct >= 80 ? 'bg-[var(--color-success-solid)]' : progressPct >= 50 ? 'bg-[var(--color-warning-solid)]' : 'bg-[var(--color-error-solid)]')}
+                          className={cn('h-full rounded-full transition-all', progressPct >= 80 ? 'bg-emerald-500' : progressPct >= 50 ? 'bg-amber-500' : 'bg-red-400')}
                           style={{ width: `${progressPct}%` }}
                         />
                       </div>
@@ -230,11 +285,11 @@ export function DrillEmployeeTableWidget({ filter }: { filter?: PinnedFilter }) 
                     </div>
                   </td>
                   <td className="px-3 py-3 text-center">
-                    {perfPct === null ? <span className="text-[var(--color-subtle-foreground)] text-xs">—</span> : (
-                      <span className={cn('text-xs font-semibold px-2 py-1 rounded-control whitespace-nowrap',
-                        perfPct >= 80 ? 'bg-[var(--color-success-bg)] text-[var(--color-success)] dark:bg-[var(--color-success-bg)]' :
-                        perfPct >= 50 ? 'bg-[var(--color-warning-bg)] text-[var(--color-warning)] dark:bg-[var(--color-warning-bg)]' :
-                        'bg-[var(--color-error-bg)] text-[var(--color-error)] dark:bg-[var(--color-error-bg)]'
+                    {perfPct === null ? <span className="text-slate-300 text-xs">-</span> : (
+                      <span className={cn('text-xs font-semibold px-2 py-1 rounded-lg whitespace-nowrap',
+                        perfPct >= 80 ? 'bg-emerald-50 text-emerald-600 dark:bg-emerald-900/20' :
+                        perfPct >= 50 ? 'bg-amber-50 text-amber-600 dark:bg-amber-900/20' :
+                        'bg-red-50 text-red-600 dark:bg-red-900/20'
                       )}>
                         {perf.formatShort(emp.performanceRate)}
                       </span>
@@ -246,11 +301,12 @@ export function DrillEmployeeTableWidget({ filter }: { filter?: PinnedFilter }) 
           </tbody>
         </table>
         {filtered.length === 0 && (
-          <div className="py-12 text-center text-[var(--color-subtle-foreground)] text-xs italic">Không tìm thấy kết quả phù hợp</div>
+          <div className="py-12 text-center text-slate-400 text-xs">Không tìm thấy kết quả phù hợp</div>
         )}
       </div>
+      )}
 
-      {filtered.length > EMP_PAGE_SIZE && (
+      {view === 'table' && filtered.length > EMP_PAGE_SIZE && (
         <Pagination
           currentPage={page}
           totalPages={Math.ceil(filtered.length / EMP_PAGE_SIZE)}
@@ -279,14 +335,14 @@ export function DrillUnitCompareWidget({ filter }: { filter?: PinnedFilter }) {
   return (
     <div className="flex-1 min-h-[220px]">
       <ResponsiveContainer width="100%" height="100%">
-        <BarChart data={rows} layout="vertical" margin={{ top: 5, right: 55, left: 10, bottom: 5 }}>
-          <CartesianGrid strokeDasharray="3 3" horizontal={false} vertical stroke="#f1f5f9" strokeOpacity={0.8} />
-          <XAxis type="number" domain={[0, perf.axisMax]} tickFormatter={v => perf.formatShort(v)} tick={{ fontSize: 10, fill: '#64748b' }} axisLine={false} tickLine={false} />
+        <BarChart data={rows} layout="vertical" margin={{ top: 5, right: 55, left: 10, bottom: 30 }}>
+          <CartesianGrid stroke="var(--color-border)" horizontal={false} vertical />
+          <XAxis type="number" domain={[0, perf.axisMax]} label={xAxisLabel(`Hiệu suất (${perf.unit})`)} tickFormatter={v => perf.formatShort(v)} tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
           <YAxis dataKey="name" type="category" width={100} tick={{ fontSize: 11, fontWeight: 600, fill: '#64748b' }} axisLine={false} tickLine={false} />
           <Tooltip content={<DrillBarTooltip perf={perf} />} cursor={{ fill: '#94a3b8', opacity: 0.06 }} />
           <Bar
             name="Hiệu suất" dataKey="completion" radius={[0, 6, 6, 0]} barSize={18} isAnimationActive={false}
-            label={{ position: 'right', fill: '#64748b', fontSize: 10, fontWeight: 700, formatter: (v: unknown) => perf.formatShort(Number(v) || 0) }}
+            label={{ position: 'right', fill: '#64748b', fontSize: 11, fontWeight: 700, formatter: (v: unknown) => perf.formatShort(Number(v) || 0) }}
           >
             {rows.map((entry, index) => (
               <Cell key={index} fill={perf.toPct(entry.completion) >= 80 ? '#10b981' : perf.toPct(entry.completion) >= 50 ? '#f59e0b' : '#ef4444'} />
@@ -298,67 +354,29 @@ export function DrillUnitCompareWidget({ filter }: { filter?: PinnedFilter }) {
   )
 }
 
-/** Heatmap tiến độ của các đơn vị con. */
-export function DrillHeatmapWidget({ filter }: { filter?: PinnedFilter }) {
-  const { data } = useDrillData(filter)
-  const xs = Array.from(new Set(data?.heatmapData?.map(p => p.x) || []))
-  const ys = Array.from(new Set(data?.heatmapData?.map(p => p.y) || []))
-
-  if ((data?.childUnits?.length ?? 0) === 0) return <NoChildren />
-  if (ys.length === 0) {
-    return <div className="flex-1 flex items-center justify-center text-[var(--color-subtle-foreground)] text-xs italic">Chưa có dữ liệu heatmap</div>
-  }
-
-  return (
-    <div className="flex-1 min-h-0 overflow-auto custom-scrollbar">
-      <table className="w-full border-separate border-spacing-1">
-        <thead>
-          <tr>
-            <th className="sticky top-0 left-0 bg-[var(--color-card)] z-20" />
-            {xs.map(x => (
-              <th key={x} className="sticky top-0 bg-[var(--color-card)] z-10 text-xs font-medium text-[var(--color-subtle-foreground)] p-1 min-w-[80px] text-center">{x}</th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {ys.map(y => (
-            <tr key={y}>
-              <td className="sticky left-0 bg-[var(--color-card)] z-10 text-caption pr-2 max-w-[100px] truncate">{y}</td>
-              {xs.map(x => {
-                const val = data!.heatmapData.find(p => p.x === x && p.y === y)?.value || 0
-                return (
-                  <td key={`${x}-${y}`} className="p-0">
-                    <div
-                      className="h-8 rounded-sm flex items-center justify-center text-xs font-medium text-white"
-                      title={`${y} · ${x}: ${Math.round(val)}%`}
-                      style={{
-                        backgroundColor: val >= 80 ? '#10b981' : val >= 50 ? '#f59e0b' : val > 0 ? '#ef4444' : '#f1f5f9',
-                        opacity: val > 0 ? 0.3 + (val / 100) * 0.7 : 1,
-                      }}
-                    >
-                      {val > 0 && `${Math.round(val)}%`}
-                    </div>
-                  </td>
-                )
-              })}
-            </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
-  )
-}
-
-// Radix cấm SelectItem mang value rỗng, nên lựa chọn "theo đợt" (= không lọc theo kỳ)
-// đi qua một giá trị canh riêng rồi quy về '' khi lưu vào state.
 const BY_PERIOD = '__by_period__'
 
-/** Xếp loại đơn vị theo phân bố xếp loại thành viên — theo đợt hoặc theo kỳ. */
-export function DrillClassificationWidget({ filter }: { filter?: PinnedFilter }) {
-  const { unitId } = useDashboardUnit()
+/**
+ * Xếp loại đơn vị theo phân bố xếp loại thành viên, theo đợt hoặc theo kỳ.
+ *
+ * <p>`cycleId` là phạm vi xếp loại (điểm chốt kỳ, bỏ qua bộ lọc đợt), KHÔNG phải khoảng thời gian.
+ * Lưới Thống kê truyền nó từ tuỳ chọn của ô (`hideControls`), trang chủ để widget tự vẽ Select.
+ * `part='children'` chỉ vẽ xếp loại đơn vị con, dùng cho ô "Đơn vị con".
+ */
+export function DrillClassificationWidget({ filter, part, view, cycleId: cycleProp, hideControls, meta }: {
+  filter?: PinnedFilter
+  part?: 'unit' | 'children'
+  /** Nửa `unit` vẽ bell curve (mặc định) hay tỉ trọng qua các đợt. */
+  view?: UnitClassificationView
+  cycleId?: string
+  hideControls?: boolean
+  meta?: React.ReactNode
+}) {
+  const unitId = useDrillUnit(filter)
   const { periodId, periodIdTo } = filter ?? {}
   const orgId = useAuthStore(s => s.user)?.memberships?.[0]?.organizationId
-  const [cycleId, setCycleId] = useState('')
+  const [localCycle, setLocalCycle] = useState('')
+  const cycleId = cycleProp ?? localCycle
   const { data: cyclesData } = useKpiCycles({ organizationId: orgId, size: 100, sortBy: 'startDate', direction: 'desc' })
   const cycles = cyclesData?.content ?? []
 
@@ -366,26 +384,31 @@ export function DrillClassificationWidget({ filter }: { filter?: PinnedFilter })
     cycleId ? { orgUnitId: unitId, cycleId } : { orgUnitId: unitId, periodId, periodIdTo }
   )
 
+  if (part === 'children' && overview && !(overview.children?.length)) {
+    return <div className="flex-1 min-h-0 flex flex-col">{meta}<NoChildren /></div>
+  }
+
   return (
     <div className="flex-1 min-h-0 flex flex-col gap-3">
-      {cycles.length > 0 && (
+      {meta}
+      {!hideControls && cycles.length > 0 && (
         <div className="flex items-center gap-1.5 shrink-0">
-          <CalendarRange size={13} className="text-[var(--color-subtle-foreground)]" />
-          <Select value={cycleId || BY_PERIOD} onValueChange={v => setCycleId(v === BY_PERIOD ? '' : v)}>
+          <CalendarRange size={13} className="text-slate-400" />
+          <Select value={cycleId || BY_PERIOD} onValueChange={v => setLocalCycle(v === BY_PERIOD ? '' : v)}>
             <SelectTrigger
               aria-label="Phạm vi xếp loại"
-              className="h-8 w-auto gap-1.5 px-2 rounded-control bg-[var(--color-card)] border-[var(--color-border)] text-caption focus:ring-2 focus:ring-[var(--color-success-solid)] focus:ring-offset-0"
+              className="h-8 w-auto gap-1.5 px-2 rounded-lg bg-[var(--color-card)] border-[var(--color-border)] text-xs font-semibold text-[var(--color-muted-foreground)] focus:ring-2 focus:ring-emerald-500/30 focus:ring-offset-0"
               title="Xếp loại theo kỳ dùng điểm chốt kỳ, bỏ qua bộ lọc đợt"
             >
               <SelectValue />
             </SelectTrigger>
             <SelectContent className="text-xs">
-              <SelectItem value={BY_PERIOD} className="text-xs font-medium">Theo đợt (bộ lọc đơn vị)</SelectItem>
+              <SelectItem value={BY_PERIOD} className="text-xs font-semibold">Theo đợt (bộ lọc đơn vị)</SelectItem>
               <ScopeSelectItems
                 items={cycles}
                 selectedId={cycleId}
                 noun="kỳ"
-                itemClassName="text-xs font-medium"
+                itemClassName="text-xs font-bold"
                 renderLabel={c => `Kỳ: ${c.name}`}
               />
             </SelectContent>
@@ -393,27 +416,93 @@ export function DrillClassificationWidget({ filter }: { filter?: PinnedFilter })
         </div>
       )}
       <div className="flex-1 min-h-0 overflow-auto custom-scrollbar">
-        <UnitClassificationSection overview={overview} />
+        <UnitClassificationSection overview={overview} part={part} view={view} />
       </div>
     </div>
   )
 }
 
-/** Ma trận xếp loại của đơn vị đang chọn — thẻ chỉ số + phân bố/heatmap. */
-export function DrillMatrixWidget({ filter }: { filter?: PinnedFilter }) {
-  const { unitId } = useDashboardUnit()
+/** Ô "Đơn vị con": nửa `children` của xếp loại, để thư viện/registry có id riêng. */
+export function DrillChildrenClassificationWidget(p: { filter?: PinnedFilter; hideControls?: boolean; meta?: React.ReactNode }) {
+  return <DrillClassificationWidget {...p} part="children" />
+}
+
+/** Luồng phân rã & uỷ quyền KPI (Sankey) của đơn vị đang chọn. */
+export function DrillCascadeWidget({ filter, meta }: { filter?: PinnedFilter; meta?: React.ReactNode }) {
+  const unitId = useDrillUnit(filter)
   const { periodId, periodIdTo } = filter ?? {}
+  return (
+    <div className="flex-1 min-h-0 flex flex-col">
+      {meta && <div className="mb-3">{meta}</div>}
+      <KpiCascadeSection bare filter={{ orgUnitId: unitId, periodId, periodIdTo }} />
+    </div>
+  )
+}
+
+/** Phân tán điểm giữa các đơn vị con (boxplot). */
+export function DrillBoxplotWidget({ filter, meta }: { filter?: PinnedFilter; meta?: React.ReactNode }) {
+  const unitId = useDrillUnit(filter)
+  const { periodId, periodIdTo } = filter ?? {}
+  return (
+    <div className="flex-1 min-h-0 flex flex-col">
+      {meta && <div className="mb-3">{meta}</div>}
+      <UnitBoxplotSection bare filter={{ orgUnitId: unitId, periodId, periodIdTo }} />
+    </div>
+  )
+}
+
+/**
+ * Bộ chọn cách xem dữ liệu ma trận: ô đếm hay phân tán từng người. Trên lưới Thống kê lựa chọn này
+ * nằm trong bảng cấu hình (`variant`); trang chủ để widget tự vẽ.
+ */
+type MatrixView = 'cells' | 'scatter'
+function MatrixViewSelect({ view, onChange }: { view: MatrixView; onChange: (v: MatrixView) => void }) {
+  return (
+    <Select value={view} onValueChange={v => onChange(v as MatrixView)}>
+      <SelectTrigger
+        className="h-8 w-auto gap-1.5 px-2.5 bg-[var(--color-muted)] border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium text-[var(--color-muted-foreground)] shrink-0"
+        title="Cách xem dữ liệu ma trận"
+      >
+        <span className="text-slate-400 dark:text-slate-500">Xem:</span>
+        <SelectValue />
+      </SelectTrigger>
+      <SelectContent>
+        <SelectItem value="cells">Ô ma trận</SelectItem>
+        <SelectItem value="scatter">Phân tán từng người</SelectItem>
+      </SelectContent>
+    </Select>
+  )
+}
+
+/**
+ * Ma trận xếp loại của đơn vị đang chọn: thẻ chỉ số + heatmap, hoặc phân tán từng người.
+ *
+ * <p>Vai không có quyền thống kê bị backend trả 403 ở dữ liệu phân tán, nên chỉ tải và chỉ cho chọn
+ * khi `canView`; `variant='scatter'` mà không có quyền thì rơi về ô đếm.
+ */
+export function DrillMatrixWidget({ filter, variant, hideControls, meta }: {
+  filter?: PinnedFilter
+  variant?: MatrixView
+  hideControls?: boolean
+  meta?: React.ReactNode
+}) {
+  const unitId = useDrillUnit(filter)
+  const { periodId, periodIdTo } = filter ?? {}
+  const { canView } = useStatsTier()
+  const [localView, setLocalView] = useState<MatrixView>('cells')
+  const view: MatrixView = canView ? (variant ?? localView) : 'cells'
   const { data: overview } = useMatrixOverview({ orgUnitId: unitId, periodId, periodIdTo })
+  const scatter = useBehaviorCompletion({ orgUnitId: unitId, periodId, periodIdTo }, canView && view === 'scatter')
 
   return (
     <div className="flex-1 min-h-0 overflow-auto custom-scrollbar space-y-4">
+      {meta}
       <MatrixMetricCards overview={overview} />
-      <div>
-        <h4 className="text-eyebrow flex items-center gap-1.5 mb-2">
-          <Grid3x3 size={12} className="text-[var(--color-primary)]" /> Phân bố xếp loại &amp; Heatmap
-        </h4>
-        <MatrixDistHeatmap overview={overview} />
-      </div>
+      <MatrixDistHeatmap
+        overview={overview}
+        viewToggle={!hideControls && canView ? <MatrixViewSelect view={view} onChange={setLocalView} /> : undefined}
+        heatmapSlot={view === 'scatter' ? <BehaviorCompletionScatter data={scatter.data} isLoading={scatter.isLoading} /> : undefined}
+      />
     </div>
   )
 }

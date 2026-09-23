@@ -6,8 +6,8 @@ import com.kpitracking.service.ai.form.FormPatch;
 import com.kpitracking.service.ai.form.FormRegistry;
 import com.kpitracking.service.ai.form.FormSpec.Descriptor;
 import lombok.RequiredArgsConstructor;
-import org.springframework.ai.chat.model.ToolContext;
-import org.springframework.ai.tool.annotation.Tool;
+import dev.langchain4j.invocation.InvocationParameters;
+import dev.langchain4j.agent.tool.Tool;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -42,7 +42,7 @@ public class EvaluationFormFillTool {
             // lời gọi HỢP LỆ, và model gọi rỗng để dò. Các tool đọc đều có một ô bắt buộc.
             String reason) {}
 
-    @Tool(name = "suggest_evaluation_form", description =
+    @Tool(name = "suggest_evaluation_form", value =
             "Đề xuất giá trị điền vào form ĐÁNH GIÁ NHÂN VIÊN đang mở trên màn hình người dùng. "
             + "Chỉ điền ô người dùng thực sự nêu — ô không chắc thì BỎ QUA, đừng đoán. "
             + "TUYỆT ĐỐI không tự nghĩ ra điểm: chỉ điền score khi người dùng nói rõ con số. "
@@ -51,7 +51,7 @@ public class EvaluationFormFillTool {
             + "Người bị đánh giá LUÔN là người đang đăng nhập, form tự đặt — bạn không đổi được "
             + "và cũng đừng hứa đổi. "
             + "reason: một câu ngắn nói vì sao đề xuất như vậy.")
-    public String suggestEvaluationForm(EvaluationFormFillRequest request, ToolContext context) {
+    public String suggestEvaluationForm(EvaluationFormFillRequest request, InvocationParameters context) {
         try {
             fill.requireArgs(request, "suggest_evaluation_form", EvaluationFormFillRequest.class);
             fill.requireOpenForm(FormRegistry.EVALUATION_FORM, context);

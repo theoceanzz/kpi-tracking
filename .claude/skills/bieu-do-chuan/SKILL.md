@@ -23,9 +23,30 @@ biểu đồ, nên sự thiếu nhất quán đó lộ ra ngay.
 
 Nói **cái gì được đo**, không nói tên loại biểu đồ.
 
-- ✅ `Phân bổ trọng số & tiến độ KPI`
+- ✅ `Từng KPI: trọng số và tiến độ`
 - ❌ `Biểu đồ cây` — người đọc cần biết nội dung, không cần biết kỹ thuật vẽ
 - ❌ `KPI đơn vị` — quá mơ hồ, không nói đang đo gì về KPI
+
+**Chữ đầu nói CHIỀU so sánh, chữ sau nói đo cái gì.** Nhiều ô cùng đo tiến độ và hiệu suất; thứ
+phân biệt chúng là chiều nhìn — qua các kỳ, giữa các đơn vị con, từng KPI, từng người. Đặt chiều
+đó lên đầu để người dùng đọc lướt vẫn biết ô nào trả lời câu hỏi nào:
+
+- ❌ `Xu hướng KPI đơn vị: tiến độ & hiệu suất` đứng cạnh `Hiệu suất & tiến độ đơn vị` — cùng chữ,
+  khác thứ tự, người dùng tưởng ô nào cũng phải mở (phản hồi 21/09/2026)
+- ✅ `Diễn biến KPI đơn vị qua các kỳ` · `Đơn vị con: hiệu suất, tiến độ, nộp bài` · `Từng KPI: trọng
+  số và tiến độ` · `Xếp hạng nhân sự` — bốn chiều, bốn chữ đầu khác nhau
+
+Quy tắc đi kèm:
+
+- Trong **cùng một tab**, không hai ô nào bắt đầu bằng cùng một từ.
+- Cùng một id widget thì **một chuỗi duy nhất**: `DEFAULT_WIDGETS.title` là nguồn, `renderWidget`
+  truyền `w.title` vào `ChartWrapper` (không viết literal thứ hai), danh mục trang chủ
+  (`analyticsCatalog.tsx`) đặt đúng bằng chuỗi đó — ghim lên trang chủ không được đổi tên.
+- Ô cá nhân mang "của tôi", ô đơn vị mang "đơn vị" — trên trang chủ chúng đứng cạnh nhau.
+- Không dùng "&" nối hai đại lượng làm tiêu đề khi có ô khác cũng đo hai đại lượng đó; phần đo
+  đưa vào mô tả (`DESC_OF`), và mô tả nói *câu hỏi ô trả lời*, không lặp lại tiêu đề.
+- Ô có nhiều cách biểu diễn (đường/miền, ô/phân tán…) mà đổi cách là đổi câu hỏi thì tiêu đề đổi
+  theo (`AnalyticsComboChart` nhận `title` + `shareTitle`); cách biểu diễn chỉ đổi hình thì giữ.
 
 Dùng prop `title` của `ChartWrapper`. Thẻ tự dựng thì `<h3 className="text-sm font-black">`.
 
@@ -104,7 +125,15 @@ Trước khi lo trang trí, kiểm tra biểu đồ có **nói đúng** không.
 
 **KHÔNG dùng tooltip mặc định của Recharts** (`<Tooltip />` trần hoặc chỉ có `formatter`). Nó có dáng khác hẳn phần còn lại của hệ thống.
 
-Primitive dựng sẵn ở `components/charts/primitives/`: `Boxplot`, `BubbleChart`, `BulletChart`, `DensityCurve`, `DivergingBar`, `DumbbellDotPlot`, `FlowSankey`, `Histogram`, `Lollipop`, `StackedComposition`, `Waterfall`, `WeightTreemap`. Xem qua trước khi viết biểu đồ mới.
+Primitive dựng sẵn ở `components/charts/primitives/`: `Boxplot`, `BulletChart`, `DumbbellDotPlot`, `FlowSankey`, `HierarchicalTreemap`, `Histogram`, `Lollipop`, `StackedComposition`, `WeightTreemap`. Xem qua trước khi viết biểu đồ mới. (`BubbleChart`, `DensityCurve`, `DivergingBar`, `Waterfall`, `PerspectiveRadar` đã xoá đợt 09/2026 vì trùng câu hỏi với hình khác; đừng dựng lại mà không có lý do mới.)
+
+## Vỏ ngoài biểu đồ (từ 09/2026)
+
+- Lưới `CartesianGrid`: nét **liền**, `stroke="var(--color-border)"`, thường chỉ đường ngang. Nét đứt chỉ dành cho ngưỡng/tham chiếu (`ReferenceLine`, đường "tổng nhóm").
+- Chữ: không `font-black` (Inter/Be Vietnam Pro không nạp 900), không cỡ dưới 12px (`text-xs` là sàn), không nhãn `uppercase tracking-*` ngoài tiêu đề mục trong bảng cấu hình và tiêu đề nhóm trong thư viện.
+- Bo góc: thẻ/ô lưới/drawer `rounded-2xl`; nút/input/select/tooltip `rounded-lg`; chip/badge `rounded-full`. Không dùng `rounded-[Npx]`.
+- Icon cạnh tiêu đề ô: `text-slate-400`. Màu chỉ dành cho dữ liệu; chrome dùng `var(--color-primary)`, không hard-code `indigo-600`/`violet-*`.
+- Không gạch ngang dài "—"/"–" trong chuỗi hiển thị (ô trống dùng "-", câu thì viết lại bằng dấu phẩy/chấm).
 
 ---
 
@@ -117,7 +146,22 @@ Primitive dựng sẵn ở `components/charts/primitives/`: `Boxplot`, `BubbleCh
 
 **`npm run build` đang hỏng vì việc khác** (`SystemSettingsPage` → `WorkflowSettingsTab`). Dùng `npx tsc --noEmit && npx vite build`.
 
+**Lề trái ÂM cắt cụt nhãn trục dọc.** `margin={{ left: -8 }}` là mẹo quen để kéo biểu đồ sát mép,
+nhưng nhãn `insideLeft` bị đẩy ra ngoài vùng vẽ và biến mất. Triệu chứng đặc trưng: **một vệt mờ
+dựng đứng sát mép trái** thay vì chữ. `left: 0` thì vẫn ổn — trục dọc có `width` riêng để chứa nhãn.
+
+**Nhãn trục ngang đè lên chú giải nằm dưới.** `xAxisLabel` đặt chữ ở `insideBottom`, đúng chỗ
+`<Legend>` mặc định chiếm. Hai dòng chữ chồng lên nhau thành một đám không đọc được. Cách xử lý
+trong dự án này: đưa chú giải lên trên — `<Legend verticalAlign="top" align="right" />`. Nhớ kèm
+`margin.bottom` ≥ 30 cho biểu đồ có nhãn trục ngang, không thì nhãn bị khung cắt.
+
 **Ô treemap được vẽ cha trước con sau**, nên nhãn nhóm luôn bị ô con đè. Muốn nhãn nhóm thì tách mỗi nhóm một treemap với tiêu đề HTML riêng.
+
+**Trục danh mục thì ĐỪNG gắn nhãn — kể cả khi bộ dò báo thiếu.** Biểu đồ nằm ngang có
+`<YAxis type="category" dataKey="name">` liệt kê tên người/đơn vị: dán chữ "Nhân sự" cạnh đó là
+chú thích thừa. Quét bằng regex sẽ báo "thiếu nhãn" hàng loạt ở đây — phải xem `type=` rồi mới kết
+luận. Cũng nhớ Recharts cho gắn nhãn bằng **cả hai** cách: prop `label=` và `<Label>` lồng bên
+trong; bộ dò chỉ tìm `label=` sẽ báo nhầm những chỗ đã có nhãn.
 
 **Biểu đồ bấm được phải nói ra là bấm được.** Con trỏ đổi hình là chưa đủ — cần cả hiệu ứng khi rê chuột, dấu hiệu trên hình, và một dòng chỉ dẫn.
 

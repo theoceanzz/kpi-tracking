@@ -6,6 +6,7 @@ import {
   Users,
   Target,
   FileText,
+  BookOpen,
   Star,
   ClipboardCheck,
   ListChecks,
@@ -86,6 +87,11 @@ export interface NavItem {
   group?: string
   /** Mô tả ngắn hiện trên thẻ ở màn hình chọn mục. */
   description?: string
+  /**
+   * Mục này dành cho ai — hiện thành dòng "Dành cho: …" trên thẻ. Dùng khi một trang có nhiều
+   * mục nghe na ná nhau (Thống kê): người dùng cần biết mục nào là của mình trước khi bấm vào.
+   */
+  audience?: string
   /** Sáng cả khi đang ở route con (ví dụ /bsc sáng khi đứng ở /bsc/dashboard). */
   matchPrefix?: boolean
   okrOnly?: boolean
@@ -148,6 +154,12 @@ export const navItems: NavItem[] = [
           { id: 'notifications', label: 'Thiết lập thông báo', icon: <Bell size={18} />, permission: 'COMPANY:UPDATE', group: 'Hệ thống' , description: 'Sự kiện nào gửi thông báo, và gửi qua kênh nào' },
           { id: 'email', label: 'Thiết lập email', icon: <Mail size={18} />, permission: 'COMPANY:UPDATE', group: 'Hệ thống' , description: 'Nội dung mẫu của các email hệ thống gửi đi' },
           { id: 'api', label: 'Thiết lập API', icon: <Link2 size={18} />, permission: 'COMPANY:UPDATE', group: 'Hệ thống' , description: 'Kết nối Lark và các tích hợp bên ngoài' },
+          { id: 'ai-docs', label: 'Tài liệu trợ lý AI', icon: <BookOpen size={18} />, permission: 'COMPANY:UPDATE', group: 'Hệ thống' , description: 'Quy chế, mô tả công việc và chiến lược của công ty mà trợ lý AI dùng để trả lời và gợi ý KPI' },
+          // Từng là dòng sidebar riêng `/kpi-workflow` (nhãn "Luồng KPI") — `legacyKeys` giữ lại
+          // nhãn tổ chức đã đặt. Quyền là phép HOẶC: người cấu hình luồng (WORKFLOW:MANAGE) và
+          // quản trị công ty (COMPANY:UPDATE) đều thấy; thiếu WORKFLOW:MANAGE thì mục tự chuyển
+          // sang chỉ-xem.
+          { id: 'kpi-workflow', label: 'Thiết lập luồng xử lí', icon: <Workflow size={18} />, permission: ['WORKFLOW:MANAGE', 'COMPANY:UPDATE'], legacyKeys: ['/kpi-workflow'], group: 'Hệ thống' , description: 'Bật/tắt và sắp xếp các bước của luồng KPI mà tổ chức áp dụng' },
         ],
       },
       // Cùng cách gom như "Thiết lập công ty": cả bảng cấu hình lẫn các công cụ quản lý
@@ -233,7 +245,7 @@ export const navItems: NavItem[] = [
   // trước đây là một hàng tab riêng, lệch hẳn với phần còn lại của app.
   {
     id: 'analytics',
-    label: 'Phân tích',
+    label: 'Thống kê',
     path: '/analytics',
     icon: <TrendingUp size={20} />,
     permission: 'DASHBOARD:VIEW',
@@ -242,21 +254,26 @@ export const navItems: NavItem[] = [
       // Cặp OKR và cặp KPI loại trừ nhau theo cờ `enableOkr` của tổ chức, nên cụm này
       // thực tế chỉ hiện tối đa hai mục. Việc chọn cặp nào do trang quyết định qua
       // `visible` — cây nav không có cờ "chỉ khi TẮT OKR" để diễn đạt vế còn lại.
-      { id: 'my-objectives', label: 'Mục tiêu của tôi', icon: <Target size={18} />, okrOnly: true, group: 'Kết quả', description: 'Tiến độ mục tiêu và kết quả then chốt của bạn' },
-      { id: 'subordinate', label: 'Mục tiêu đơn vị', icon: <Users size={18} />, okrOnly: true, permission: ['KPI:VIEW', 'SUBMISSION:REVIEW'], group: 'Kết quả', description: 'Tiến độ mục tiêu của đơn vị và từng nhân sự' },
-      { id: 'my', label: 'KPI của tôi', icon: <TrendingUp size={18} />, group: 'Kết quả', description: 'Tiến độ và điểm KPI của riêng bạn' },
-      { id: 'summary', label: 'KPI đơn vị', icon: <LayoutDashboard size={18} />, permission: ['KPI:VIEW', 'SUBMISSION:REVIEW'], group: 'Kết quả', description: 'Tổng hợp KPI của đơn vị bạn phụ trách' },
-      { id: 'drilldown', label: 'Phân cấp', icon: <Building2 size={18} />, group: 'Toàn tổ chức', description: 'So sánh hiệu suất giữa các đơn vị theo từng cấp' },
+      //
+      // Mỗi mục trả lời MỘT câu hỏi khác nhau và chữ đầu của nhãn khác nhau (Kết quả / Đơn vị /
+      // So sánh / Thẻ điểm): tên na ná nhau ("KPI của tôi" cạnh "KPI đơn vị…") từng làm người
+      // dùng tưởng mục nào cũng phải xem. `audience` nói thẳng mục đó dành cho ai. Thanh tab con
+      // chỉ hiện các mục cùng nhóm, nên "So sánh giữa các đơn vị" đứng cạnh "Đơn vị tôi quản lý":
+      // đơn vị mình thế nào, rồi so với đơn vị khác.
+      //
+      // Hai mục cá nhân gác bằng SUBMISSION:CREATE: chỉ người NỘP báo cáo mới có kết quả riêng để
+      // xem; sếp giao chỉ tiêu mà không nộp thì không có gì ở đây ngoài một trang trống.
+      { id: 'my-objectives', label: 'Mục tiêu của tôi', icon: <Target size={18} />, okrOnly: true, permission: 'SUBMISSION:CREATE', group: 'Cá nhân', description: 'Mục tiêu và kết quả then chốt bạn đang nhận, tiến độ từng cái', audience: 'Người nộp báo cáo' },
+      { id: 'my', label: 'Kết quả của tôi', icon: <TrendingUp size={18} />, permission: 'SUBMISSION:CREATE', group: 'Cá nhân', description: 'KPI bạn được giao, bài đã nộp và điểm được chấm, chỉ dữ liệu của riêng bạn', audience: 'Người nộp báo cáo' },
+      { id: 'subordinate', label: 'Mục tiêu đơn vị tôi quản lý', icon: <Users size={18} />, okrOnly: true, permission: ['KPI:VIEW', 'SUBMISSION:REVIEW'], group: 'Đơn vị', description: 'Mục tiêu (OKR) của đơn vị và từng nhân sự bạn quản lý', audience: 'Trưởng/phó đơn vị, ban giám đốc' },
+      { id: 'summary', label: 'Đơn vị tôi quản lý', icon: <LayoutDashboard size={18} />, permission: ['KPI:VIEW', 'SUBMISSION:REVIEW'], group: 'Đơn vị', description: 'Cả đơn vị bạn phụ trách đang ở đâu: chỉ số chung, xu hướng, xếp hạng nhân sự', audience: 'Trưởng/phó đơn vị, ban giám đốc' },
+      { id: 'drilldown', label: 'So sánh giữa các đơn vị', icon: <Building2 size={18} />, group: 'Đơn vị', description: 'Đặt các đơn vị cạnh nhau: xếp loại, ma trận, phân rã KPI, đi từ công ty xuống từng phòng', audience: 'Ban giám đốc, trưởng đơn vị có đơn vị con' },
       // `labelKey` riêng vì `id: 'bsc'` trùng với mục "Quản lý BSC" bên Thiết lập công cụ.
       // Khoá lưu nhãn mặc định lấy theo id ⇒ hai mục dùng CHUNG một nhãn tuỳ chỉnh, đổi
       // tên mục này là đổi luôn mục kia. Giữ nguyên id để `?section=bsc` không đổi.
-      { id: 'bsc', labelKey: 'analytics-bsc', label: 'Hạng mục (BSC)', icon: <Gauge size={18} />, permission: 'BSC:MANAGE', bscOnly: true, group: 'Toàn tổ chức', description: 'Kết quả theo từng hạng mục trong bộ tiêu chí (BSC)' },
+      { id: 'bsc', labelKey: 'analytics-bsc', label: 'Thẻ điểm BSC', icon: <Gauge size={18} />, permission: 'BSC:MANAGE', bscOnly: true, group: 'Toàn công ty', description: 'Công ty có đi đúng chiến lược không: mức đạt thẻ điểm, hạng mục chặn, độ phủ phân rã', audience: 'Ban giám đốc' },
     ],
   },
-  // Không gác quyền: phần "Hiển thị của tôi" trong trang này dành cho mọi người, còn phần
-  // cấu hình của tổ chức thì chính trang tự chuyển sang chế độ chỉ-xem khi thiếu
-  // WORKFLOW:MANAGE.
-  { id: 'kpi-workflow', label: 'Luồng KPI', path: '/kpi-workflow', icon: <Workflow size={20} />, end: true },
   { id: 'ai-assistant', label: 'K.AI', path: '/ai-assistant', icon: <Bot size={20} />, permission: 'DASHBOARD:VIEW', end: true, aiOnly: true },
 ]
 

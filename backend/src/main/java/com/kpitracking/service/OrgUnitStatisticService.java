@@ -821,6 +821,61 @@ public class OrgUnitStatisticService {
         return detail;
     }
 
+    // 9b. get_kpi view=cascade
+    /**
+     * Chỉ tiêu này phân rã / uỷ quyền xuống đâu, và đơn vị con nào CHƯA nhận phần nào.
+     *
+     * <p>Không dùng {@code KpiCriteriaService.getChildren}: luật xem ở đó là "người tạo / người được
+     * giao / cùng đơn vị" — trưởng đơn vị cấp trên hỏi về chỉ tiêu của phòng con sẽ bị chặn, dù tool
+     * đã kiểm phạm vi cây đơn vị ({@code validateKpiAccess}) trước khi gọi vào đây.
+     */
+    @Transactional(readOnly = true)
+    public Map<String, Object> getKpiCascade(UUID id) {
+        KpiCriteria k = kpiCriteriaRepository.findById(id).orElseThrow(() -> new RuntimeException("KPI not found: " + id));
+        List<KpiCriteria> children = kpiCriteriaRepository.findByParentId(id);
+
+        List<Map<String, Object>> rows = new ArrayList<>();
+        java.util.Set<UUID> receivingUnits = new java.util.HashSet<>();
+        double childrenTarget = 0;
+        for (KpiCriteria c : children) {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("name", c.getName());
+            row.put("orgUnitName", c.getOrgUnit() != null ? c.getOrgUnit().getName() : null);
+            row.put("relation", c.getParentRelationType() != null ? c.getParentRelationType().name() : null);
+            row.put("targetValue", c.getTargetValue());
+            row.put("weight", c.getWeight());
+            row.put("status", c.getStatus() != null ? c.getStatus().name() : null);
+            row.put("assignees", c.getAssignees().stream().map(User::getFullName).toList());
+            rows.add(row);
+            if (c.getOrgUnit() != null) receivingUnits.add(c.getOrgUnit().getId());
+            if (c.getTargetValue() != null) childrenTarget += c.getTargetValue();
+        }
+
+        // Đơn vị con trực tiếp của đơn vị sở hữu mà chưa có chỉ tiêu con nào — câu "team nào chưa nhận".
+        List<String> unitsWithoutShare = k.getOrgUnit() == null ? List.of()
+                : orgUnitRepository.findByParentId(k.getOrgUnit().getId()).stream()
+                        .filter(u -> u.getDeletedAt() == null && !receivingUnits.contains(u.getId()))
+                        .map(OrgUnit::getName).toList();
+
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("name", k.getName());
+        out.put("orgUnitName", k.getOrgUnit() != null ? k.getOrgUnit().getName() : null);
+        KpiPeriod period = resolveKpiPeriod(k);
+        out.put("periodName", period != null ? period.getName() : null);
+        out.put("targetValue", k.getTargetValue());
+        out.put("unit", k.getUnit());
+        out.put("parentName", k.getParent() != null ? k.getParent().getName() : null);
+        out.put("parentRelation", k.getParentRelationType() != null ? k.getParentRelationType().name() : null);
+        out.put("childrenCount", rows.size());
+        out.put("childrenTargetTotal", childrenTarget);
+        out.put("children", rows);
+        out.put("unitsWithoutShare", unitsWithoutShare);
+        if (rows.isEmpty()) {
+            out.put("message", "Chỉ tiêu này chưa phân rã hay uỷ quyền xuống đơn vị nào.");
+        }
+        return out;
+    }
+
     // 10. get_kpi_assignees
     @Transactional(readOnly = true)
     public Map<String, Object> getKpiAssignees(UUID id) {

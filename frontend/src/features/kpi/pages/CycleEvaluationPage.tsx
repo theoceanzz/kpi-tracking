@@ -15,6 +15,8 @@ import SendEvaluationModal from '../components/SendEvaluationModal'
 import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { useHasPermission } from '@/components/auth/PermissionGate'
+import AiShortcutButton from '@/features/analytics/components/AiShortcutButton'
+import { aiShortcuts } from '@/features/analytics/aiShortcuts'
 import { getScoringFunctions, SCORING_POOL } from '@/lib/scoring'
 import { exportCycleEvaluationToExcel, exportCycleMemberDetailToExcel } from '../utils/cycleEvaluationExport'
 import { toast } from 'sonner'
@@ -151,6 +153,15 @@ export default function CycleEvaluationPage() {
   }
   const applySuggestions = (list: CalibrationSuggestion[]) =>
     applyMany(list.map(suggestionPayload).filter((p): p is NonNullable<typeof p> => p != null))
+
+  // Nút K.AI theo trạng thái đợt: chưa chốt -> mời chốt; đã chốt -> mời mở lại; chỉ có quyền gửi -> mời gửi.
+  // Trợ lý dựng lời mời xác nhận kèm bảng điểm, chưa ghi gì cho tới khi bấm xác nhận.
+  const aiCyclePrompt = canFinalize
+    ? (isFinalized
+        ? aiShortcuts.reopenCycle(summary?.cycleName, summary?.orgUnitName)
+        : aiShortcuts.finalizeCycle(summary?.cycleName, summary?.orgUnitName))
+    : (canSend ? aiShortcuts.sendCycleResults(summary?.cycleName, summary?.orgUnitName) : null)
+  const aiCycleLabel = canFinalize ? (isFinalized ? 'Mở lại bằng K.AI' : 'Chốt bằng K.AI') : 'Gửi bằng K.AI'
 
   // Chuỗi duyệt: đơn vị đang xem → các đơn vị cha lên tới gốc.
   // Server tính sẵn quyền chốt/mở khoá nên nút chỉ việc bám theo, thay vì
@@ -309,6 +320,15 @@ export default function CycleEvaluationPage() {
                 <Button variant="outline" size="sm" onClick={() => setShowSend(true)} disabled={!summary?.members?.length} title="Gửi kết quả đánh giá kỳ qua email cho nhân viên">
                   <Mail aria-hidden="true" /> Gửi đánh giá
                 </Button>
+              )}
+              {aiCyclePrompt && cycleId && orgUnitId && (
+                <AiShortcutButton
+                  size="sm"
+                  label={aiCycleLabel}
+                  prompt={aiCyclePrompt}
+                  focusUnitId={orgUnitId}
+                  title="K.AI kiểm tra trạng thái đợt, dựng bảng điểm và chờ bạn xác nhận"
+                />
               )}
             </div>
           }

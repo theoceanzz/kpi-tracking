@@ -8,7 +8,6 @@ import com.kpitracking.repository.UserRepository;
 import com.kpitracking.repository.UserRoleOrgUnitRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.chat.metadata.Usage;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Propagation;
@@ -34,7 +33,7 @@ public class AiTokenUsageRecorder {
     private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
 
     /**
-     * Loại tính năng của lượt gọi hiện tại. Advisor nằm sâu trong Spring AI nên không tự biết
+     * Loại tính năng của lượt gọi hiện tại. Listener nằm sâu trong langchain4j nên không tự biết
      * mình đang phục vụ luồng nào — controller đặt giá trị này trước khi gọi và xoá sau khi xong.
      */
     private static final ThreadLocal<AiTokenUsage.AiFeature> CURRENT_FEATURE = new ThreadLocal<>();
@@ -58,37 +57,38 @@ public class AiTokenUsageRecorder {
         return CURRENT_FEATURE.get();
     }
 
+
     /**
-     * Ghi ở giao dịch riêng: token đã tiêu thật rồi, không được cuốn theo khi giao dịch bên ngoài
-     * bị rollback vì lỗi xảy ra sau đó.
+     * Bản không phụ thuộc framework, nhận người dùng và tính năng TƯỜNG MINH.
+     *
+     * <p>Cần vì callback của model streaming chạy trên luồng HTTP client, nơi không có
+     * {@code SecurityContextHolder} lẫn {@code CURRENT_FEATURE}. Người gọi bắt hai thứ đó ở luồng
+     * yêu cầu (lúc gửi request) rồi truyền vào đây — xem {@code TokenUsageListener}.
      */
     @Transactional(propagation = Propagation.REQUIRES_NEW)
-    public void record(Usage usage, String model) {
-        var auth = SecurityContextHolder.getContext().getAuthentication();
-        if (auth == null || auth.getName() == null) {
+    public void record(String userEmail, AiTokenUsage.AiFeature feature, String model,
+                       int promptTokens, int completionTokens, int totalTokens) {
+        if (userEmail == null || userEmail.isBlank()) {
             log.warn("Bỏ qua ghi tiêu thụ token: không xác định được người dùng");
             return;
         }
-
-        User user = userRepository.findByEmail(auth.getName()).orElse(null);
+        User user = userRepository.findByEmail(userEmail).orElse(null);
         if (user == null) return;
 
         UUID organizationId = resolveOrganizationId(user.getId());
         if (organizationId == null) {
-            log.warn("Bỏ qua ghi tiêu thụ token: {} không thuộc tổ chức nào", auth.getName());
+            log.warn("Bỏ qua ghi tiêu thụ token: {} không thuộc tổ chức nào", userEmail);
             return;
         }
-
-        AiTokenUsage.AiFeature feature = CURRENT_FEATURE.get();
 
         usageRepository.save(AiTokenUsage.builder()
                 .userId(user.getId())
                 .organizationId(organizationId)
                 .feature(feature != null ? feature : AiTokenUsage.AiFeature.CHAT)
                 .model(model)
-                .promptTokens(safe(usage.getPromptTokens()))
-                .completionTokens(safe(usage.getCompletionTokens()))
-                .totalTokens(safe(usage.getTotalTokens()))
+                .promptTokens(promptTokens)
+                .completionTokens(completionTokens)
+                .totalTokens(totalTokens)
                 .periodMonth(AiTokenUsage.currentPeriod())
                 .build());
     }

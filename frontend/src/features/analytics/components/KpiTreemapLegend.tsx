@@ -29,7 +29,7 @@ export function KpiTreemapLegend() {
             className="w-4 h-3.5 rounded-control border-2"
             style={{ borderColor: RELATION_STROKE.DECOMPOSITION }}
           />
-          Phân rã (cha–con)
+          Phân rã (cha, con)
         </span>
         <span className="flex items-center gap-1.5">
           <span

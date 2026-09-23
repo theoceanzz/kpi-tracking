@@ -1,11 +1,12 @@
 package com.kpitracking.tool;
 
+import com.kpitracking.service.OrgUnitKpiAnalyticsService;
 import com.kpitracking.service.OrgUnitStatisticService;
 import com.kpitracking.tool.OrgUnitStatisticToolRequests.KpiRequest;
 import com.kpitracking.tool.ToolSupport.UnitRef;
 import lombok.RequiredArgsConstructor;
-import org.springframework.ai.chat.model.ToolContext;
-import org.springframework.ai.tool.annotation.Tool;
+import dev.langchain4j.invocation.InvocationParameters;
+import dev.langchain4j.agent.tool.Tool;
 import org.springframework.stereotype.Component;
 
 import java.util.ArrayList;
@@ -27,9 +28,10 @@ import java.util.UUID;
 public class KpiTool {
 
     private final OrgUnitStatisticService orgUnitStatisticService;
+    private final OrgUnitKpiAnalyticsService kpiAnalyticsService;
     private final ToolSupport support;
 
-    @Tool(name = "get_kpi", description = "KPI và kỳ đánh giá. "
+    @Tool(name = "get_kpi", value = "KPI và kỳ đánh giá. "
             + "view=list: danh sách KPI của một đơn vị, mỗi KPI có name, periodName, progress (% đạt mục tiêu); "
             + "KHÔNG trả ID — cần UUID thì dùng search (entityType=kpi). "
             // Trước đây chỉ ghi "số liệu tổng hợp", nghe y hệt get_analytics(view=dashboard) nên
@@ -47,6 +49,10 @@ public class KpiTool {
             + "view=period_breakdown: diễn biến của MỘT KPI theo từng kỳ (dùng cho 'KPI X tiến triển thế nào'); "
             + "nhận kpiId HOẶC kpiName, và với kpiName thì tự gộp mọi kỳ trùng tên nên đừng hỏi lại người dùng chọn kỳ, "
             + "cần kpiId; granularity=MONTH|QUARTER|YEAR. "
+            + "view=cascade: MỘT KPI phân rã / uỷ quyền xuống đơn vị nào (chỉ tiêu con, đơn vị nhận, mục tiêu, "
+            + "trạng thái) và đơn vị con nào CHƯA nhận; cần kpiId hoặc kpiName. "
+            + "view=weights: NGÂN SÁCH TRỌNG SỐ của một đơn vị theo kỳ — tổng trọng số KPI đã duyệt so với 100 %, "
+            + "thiếu/thừa bao nhiêu; dùng cho 'trọng số đủ chưa', 'duyệt được chưa'. "
             + "Lọc theo TRẠNG THÁI DUYỆT bằng status (dùng với view=list và view=summary): "
             + "DRAFT | PENDING_APPROVAL | APPROVED | REJECTED | INACTIVE | EDIT | EDITED | REPLACED. "
             + "Người dùng hỏi KPI 'cần phê duyệt' / 'chờ duyệt' / 'chờ phê duyệt' -> "
@@ -54,15 +60,16 @@ public class KpiTool {
             + "KỲ NÀO có KPI chờ duyệt thì lấy danh sách đó rồi gom theo periodName — "
             + "view=periods KHÔNG lọc được theo trạng thái. "
             + "Các view theo đơn vị mặc định là đơn vị hiện tại, nên khi người dùng nêu tên đơn vị PHẢI truyền unitName.")
-    public String getKpi(KpiRequest request, ToolContext context) {
+    public String getKpi(KpiRequest request, InvocationParameters context) {
         try {
             String view = normalizeView(request.view());
             if (view == null) {
                 throw new IllegalArgumentException("Thiếu hoặc sai view. Chỉ nhận: "
-                        + "list, summary, periods, detail, assignees, period_breakdown.");
+                        + "list, summary, periods, detail, assignees, period_breakdown, cascade, weights.");
             }
             requireKnownStatus(request.status());
-            boolean perKpi = "detail".equals(view) || "assignees".equals(view) || "period_breakdown".equals(view);
+            boolean perKpi = "detail".equals(view) || "assignees".equals(view)
+                    || "period_breakdown".equals(view) || "cascade".equals(view);
             return perKpi ? perKpi(view, request, context) : byUnit(view, request, context);
         } catch (Exception e) {
             return support.toolError("get_kpi", e);
@@ -98,12 +105,14 @@ public class KpiTool {
             case "detail", "details", "info" -> "detail";
             case "assignees", "assignee", "members" -> "assignees";
             case "period_breakdown", "breakdown", "by_period", "trend" -> "period_breakdown";
+            case "cascade", "children", "decomposition", "delegation", "waterfall" -> "cascade";
+            case "weights", "weight", "weight_budget", "total_weight" -> "weights";
             default -> null;
         };
     }
 
     /** Ba view nhắm vào MỘT KPI: bắt buộc kpiId, và không nhận tham số lọc theo đơn vị. */
-    private String perKpi(String view, KpiRequest request, ToolContext context) throws Exception {
+    private String perKpi(String view, KpiRequest request, InvocationParameters context) throws Exception {
         if (ToolSupport.notBlank(request.unitName()) || ToolSupport.notBlank(request.unitId())) {
             throw new IllegalArgumentException("view=" + view + " nhắm vào MỘT KPI nên không nhận "
                     + "unitName/unitId. Muốn xem KPI của một đơn vị thì dùng view=list hoặc view=summary.");
@@ -112,12 +121,14 @@ public class KpiTool {
         // cách get_submissions(kpiName) đã làm. Không có đường này thì câu "KPI X có những ai
         // được giao?" không trả lời được, vì một KPI lặp qua nhiều kỳ và assignees đòi đúng MỘT
         // kpiId; model chỉ còn cách hỏi lại người dùng chọn kỳ, dù họ hỏi về cả KPI.
-        if (("assignees".equals(view) || "period_breakdown".equals(view))
+        if (("assignees".equals(view) || "period_breakdown".equals(view) || "cascade".equals(view))
                 && !ToolSupport.notBlank(request.kpiId())
                 && ToolSupport.notBlank(request.kpiName())) {
-            Object byName = "assignees".equals(view)
-                    ? assigneesByName(request.kpiName(), context)
-                    : periodBreakdownByName(request.kpiName(), request, context);
+            Object byName = switch (view) {
+                case "assignees" -> assigneesByName(request.kpiName(), context);
+                case "cascade" -> cascadeByName(request.kpiName(), context);
+                default -> periodBreakdownByName(request.kpiName(), request, context);
+            };
             return support.respond(context, "get_kpi", byName);
         }
 
@@ -125,7 +136,7 @@ public class KpiTool {
             // Câu này phải nói TIẾP phải làm gì, không được là ngõ cụt. Đo được: model search ra ba
             // KPI trùng tên, không chọn được bản nào, gọi get_kpi không kèm kpiId, bị từ chối ba lần
             // rồi bỏ cuộc và quay ra hỏi người dùng chọn kỳ — dù câu hỏi là "qua CÁC kỳ".
-            boolean acceptsName = "assignees".equals(view) || "period_breakdown".equals(view);
+            boolean acceptsName = "assignees".equals(view) || "period_breakdown".equals(view) || "cascade".equals(view);
             throw new IllegalArgumentException("view=" + view + " cần kpiId"
                     + (acceptsName
                         ? " hoặc kpiName. Tên khớp nhiều kỳ thì cứ truyền kpiName — tool tự gộp cả "
@@ -139,6 +150,7 @@ public class KpiTool {
         Object response = switch (view) {
             case "detail" -> orgUnitStatisticService.getKpiDetail(kpiId, request.startDate(), request.endDate());
             case "assignees" -> orgUnitStatisticService.getKpiAssignees(kpiId);
+            case "cascade" -> orgUnitStatisticService.getKpiCascade(kpiId);
             case "period_breakdown" -> {
                 if (ToolSupport.notBlank(request.userId())) {
                     support.parseId(request.userId(), "người dùng (userId)", "search (entityType=user)");
@@ -156,7 +168,7 @@ public class KpiTool {
      * Gộp người được giao của MỌI KPI trùng tên (một KPI lặp qua nhiều kỳ), khử trùng theo email
      * và ghi lại người đó được giao ở những kỳ nào.
      */
-    private Map<String, Object> assigneesByName(String kpiName, ToolContext context) {
+    private Map<String, Object> assigneesByName(String kpiName, InvocationParameters context) {
         List<Map<String, Object>> pool = support.kpiMatchPool(kpiName, support.getOrgId(context));
 
         // LinkedHashMap để giữ thứ tự xuất hiện — câu trả lời ổn định giữa các lần gọi.
@@ -218,7 +230,7 @@ public class KpiTool {
      * dặn thêm model.
      */
     private Map<String, Object> periodBreakdownByName(String kpiName, KpiRequest request,
-                                                      ToolContext context) {
+                                                      InvocationParameters context) {
         List<Map<String, Object>> pool = support.kpiMatchPool(kpiName, support.getOrgId(context));
 
         // LinkedHashMap/ArrayList để giữ thứ tự xuất hiện — câu trả lời ổn định giữa các lần gọi.
@@ -254,12 +266,70 @@ public class KpiTool {
         return response;
     }
 
+    /**
+     * Phân rã của MỌI KPI trùng tên trong phạm vi — một KPI lặp qua nhiều kỳ, mỗi kỳ phân rã riêng.
+     * Cùng lý do với {@link #assigneesByName}: đòi kpiId là đẩy model vào ngõ cụt hỏi lại chọn kỳ.
+     */
+    private Map<String, Object> cascadeByName(String kpiName, InvocationParameters context) {
+        List<Map<String, Object>> pool = support.kpiMatchPool(kpiName, support.getOrgId(context));
+        List<Map<String, Object>> perKpi = new ArrayList<>();
+        for (Map<String, Object> match : pool) {
+            UUID kpiId = UUID.fromString(String.valueOf(match.get("id")));
+            if (!support.hasKpiAccess(kpiId, context)) continue;
+            perKpi.add(orgUnitStatisticService.getKpiCascade(kpiId));
+        }
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("kpiName", kpiName.trim());
+        response.put("matchedKpiCount", perKpi.size());
+        response.put("cascades", perKpi);
+        if (perKpi.isEmpty()) {
+            response.put("message", "Không tìm thấy KPI tên '" + kpiName.trim() + "' trong phạm vi của bạn.");
+        }
+        return response;
+    }
+
+    /**
+     * Ngân sách trọng số của đơn vị (và các đơn vị con) theo kỳ: tổng trọng số KPI đã duyệt so với
+     * 100 %. Con số lấy từ cùng phép tính với widget "Ngân sách trọng số" ({@code getWeightBudget}),
+     * nên trợ lý và màn hình nói cùng một số.
+     */
+    private Object weights(KpiRequest request, InvocationParameters context) {
+        UnitRef u = support.resolveUnit(request.unitId(), request.unitName(), context);
+        if (u.clarification() != null) return u.clarification();
+        UUID periodId = ToolSupport.notBlank(request.periodId())
+                ? support.parseId(request.periodId(), "kỳ KPI (periodId)", "search (entityType=period)")
+                : support.resolvePeriodId(request.periodName(), context);
+        List<OrgUnitKpiAnalyticsService.UnitWeightBudget> budgets = kpiAnalyticsService.getWeightBudget(
+                u.id(), periodId == null ? List.of() : List.of(periodId));
+
+        List<Map<String, Object>> rows = new ArrayList<>();
+        for (OrgUnitKpiAnalyticsService.UnitWeightBudget b : budgets) {
+            Map<String, Object> row = new LinkedHashMap<>();
+            row.put("orgUnitName", b.getOrgUnitName());
+            row.put("periodName", b.getPeriodName());
+            row.put("totalWeight", Math.round(b.getTotalWeight() * 100.0) / 100.0);
+            row.put("kpiCount", b.getKpiCount());
+            double gap = Math.round((100 - b.getTotalWeight()) * 100.0) / 100.0;
+            row.put("gapTo100", gap);
+            row.put("verdict", gap == 0 ? "ĐỦ 100 %" : gap > 0 ? "THIẾU " + gap + " %" : "THỪA " + (-gap) + " %");
+            rows.add(row);
+        }
+        Map<String, Object> response = new LinkedHashMap<>();
+        response.put("unitName", ToolSupport.notBlank(request.unitName()) ? request.unitName().trim() : null);
+        response.put("rows", rows);
+        if (rows.isEmpty()) {
+            response.put("message", "Chưa có KPI đã duyệt nào trong phạm vi/kỳ này để tính trọng số.");
+        }
+        return response;
+    }
+
     /** Ba view nhắm vào một ĐƠN VỊ: kpiId không có nghĩa ở đây. */
-    private String byUnit(String view, KpiRequest request, ToolContext context) throws Exception {
+    private String byUnit(String view, KpiRequest request, InvocationParameters context) throws Exception {
         if (ToolSupport.notBlank(request.kpiId())) {
-            throw new IllegalArgumentException("kpiId chỉ dùng với view=detail|assignees|period_breakdown, "
+            throw new IllegalArgumentException("kpiId chỉ dùng với view=detail|assignees|period_breakdown|cascade, "
                     + "không dùng với view=" + view + ".");
         }
+        if ("weights".equals(view)) return support.respond(context, "get_kpi", weights(request, context));
         for (String[] pair : new String[][]{
                 {request.ownerId(), "ownerId"}, {request.assignedById(), "assignedById"},
                 {request.assignedToId(), "assignedToId"}}) {
@@ -294,9 +364,9 @@ public class KpiTool {
                         u.id(), request.ownerId(), request.assignedById(), request.assignedToId(),
                         request.periodId(), request.status(), request.page(), request.size(),
                         request.sortBy(), request.sortDirection(), request.startDate(), request.endDate())
-                : orgUnitStatisticService.getKpiSummary(
+                : support.scoped(orgUnitStatisticService.getKpiSummary(
                         u.id(), request.ownerId(), request.assignedById(), request.assignedToId(),
-                        request.periodId(), request.status(), request.startDate(), request.endDate());
+                        request.periodId(), request.status(), request.startDate(), request.endDate()), u.id());
         return support.respond(context, "get_kpi", response);
     }
 }

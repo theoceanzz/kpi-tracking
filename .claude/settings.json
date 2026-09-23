@@ -1,0 +1,36 @@
+{
+  "permissions": {
+    "allow": [
+      "mcp__codegraph__*"
+    ]
+  },
+  "hooks": {
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "codegraph.cmd prompt-hook"
+          }
+        ]
+      }
+    ]
+  },
+  "enabledPlugins": {
+    "claude-api@anthropic-agent-skills": true,
+    "discernment-nudge@anthropic-agent-skills": true,
+    "document-skills@anthropic-agent-skills": true,
+    "frontend-design@claude-plugins-official": true,
+    "mcp-server-dev@claude-plugins-official": true,
+    "skill-creator@claude-plugins-official": true,
+    "ui-theme-designer@claude-plugins-official": true,
+    "modern-web-guidance@claude-plugins-official": true,
+    "andrej-karpathy-skills@karpathy-skills": true,
+    "ponytail@ponytail": true,
+    "superpowers@claude-plugins-official": true,
+    "example-skills@anthropic-agent-skills": true,
+    "claude-mem@thedotmack": true,
+    "caveman@caveman": true,
+    "claude-hud@claude-hud": true
+  }
+}

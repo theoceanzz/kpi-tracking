@@ -37,6 +37,8 @@ const OUT_PATH = argOf('--out', 'form-fill-result.json');
 const USE_STREAM = args.includes('--stream');
 /** Xem chú thích ở vòng chạy: giới hạn của nhà cung cấp tính theo TOKEN/phút. */
 const PACE = Number(argOf('--delay', '20000'));
+/** --only F10,S01: chỉ chạy các ca có id này (chạy lại ca hỏng mà không phải đo cả bộ). */
+const onlyIds = new Set((argOf('--only', '') || '').split(',').map(x => x.trim().toUpperCase()).filter(Boolean));
 
 // UUID thật trong dữ liệu mẫu (V2__seed_data.sql) — dùng để chắc chắn model không bịa id.
 const TEAM_BACKEND = 'dddddddd-dddd-dddd-dddd-dddddddddddd';
@@ -294,6 +296,18 @@ const CASES = [
       targetValue: 50,
     },
   },
+  {
+    id: 'F10',
+    why: 'NÚT "GỢI Ý AI" (22/09): người dùng KHÔNG nêu giá trị nào — agent phải tự tra số liệu/tài liệu rồi đề xuất ĐỦ tên, mục tiêu, trọng số, tần suất qua suggest_kpi_form (ngoại lệ của luật "không đoán")',
+    message:
+      'Đọc mô tả công việc, chiến lược của tổ chức và số liệu KPI hiện có của Phòng IT, rồi gợi ý một chỉ tiêu KPI phù hợp và điền vào biểu mẫu này: tên, mô tả, mục tiêu, đơn vị tính, trọng số, tần suất',
+    formId: KPI_FORM,
+    values: { kpiType: 'QUANTITATIVE' },
+    mustHavePatch: true,
+    // Phải TRA trước khi đề xuất — không thì "gợi ý" là kiến thức chung của model, không phải của tổ chức.
+    expectTools: ['get_org_documents'],
+    expectFields: { name: /\S{3,}/, weight: /^\d+(\.\d+)?$/, targetValue: /^\d+(\.\d+)?$/, frequency: /^[A-Z_]+$/ },
+  },
 ];
 
 // ── đọc log backend để biết tool nào thực sự chạy ────────────────────────────
@@ -356,7 +370,7 @@ async function login() {
 
 const RATE_LIMITED = /quá nhanh|rate limit/i;
 /** Nhà cung cấp chặn 429 — khác bộ chặn 15 lượt/phút của backend; xem chú thích ở run-ai-questions.js. */
-const PROVIDER_THROTTLED = /đạt giới hạn sử dụng/i;
+const PROVIDER_THROTTLED = /đạt giới hạn sử dụng|hết hạn mức sử dụng/i;
 
 /**
  * Đọc một luồng SSE và trả về sự kiện `done` (hoặc `error`).
@@ -474,6 +488,10 @@ function grade(c, res, trace) {
   const byField = Object.fromEntries(entries.map(e => [e.field, e]));
 
   if (c.mustHavePatch && !patch) problems.push('KHÔNG có đề xuất nào');
+  // Ca "gợi ý": tool tra cứu phải THỰC SỰ chạy (đọc từ log backend), không thì đề xuất là kiến thức chung.
+  for (const t of c.expectTools || []) {
+    if (!trace.tools.includes(t)) problems.push(`không gọi ${t}`);
+  }
   if (c.mustHavePatch === false && patch) {
     problems.push('CÓ đề xuất trong khi PHẢI KHÔNG có: ' + entries.map(e => e.field).join('+'));
   }
@@ -542,6 +560,7 @@ function grade(c, res, trace) {
   let pass = 0;
 
   for (const c of CASES) {
+    if (onlyIds.size && !onlyIds.has(c.id.toUpperCase())) continue;
     markLog();
     const res = await ask(c);
     const trace = readLogSince();

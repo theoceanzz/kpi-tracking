@@ -20,7 +20,7 @@ export interface MatrixOverview {
   averageRating?: number | null
   averageBehavior?: number | null
   averageCompletion?: number | null
-  evaluationCount: number
+  personCount: number
   distribution: MatrixRatingBucket[]
   heatmap?: MatrixHeatmap | null
 }

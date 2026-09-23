@@ -9,12 +9,11 @@ import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import java.time.Duration;
 
 /**
- * Timeout mặc định cho mọi {@code RestClient} dựng từ {@code RestClient.Builder} của Spring Boot —
- * trong đó có client gọi OpenAI/Gemini/HuggingFace của Spring AI.
+ * Timeout mặc định cho mọi {@code RestClient} dựng từ {@code RestClient.Builder} của Spring Boot.
  *
- * <p>Không có timeout thì một nhà cung cấp AI treo sẽ giữ thread Tomcat vô hạn; đủ vài request là
- * hết pool. Read timeout để cao vì một lượt suy luận có thể kéo dài; đường streaming đi qua
- * {@code WebClient} (reactor-netty) và không chịu cấu hình này.
+ * <p>Không có timeout thì một dịch vụ ngoài treo sẽ giữ thread Tomcat vô hạn; đủ vài request là
+ * hết pool. Client gọi model AI của langchain4j KHÔNG đi qua đây — nó có timeout riêng ở
+ * {@code app.ai.model.timeout-seconds} (LangChain4jConfig).
  */
 @Configuration
 public class HttpClientTimeoutConfig {

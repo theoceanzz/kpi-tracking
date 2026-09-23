@@ -8,6 +8,10 @@ type ResponsiveProps = ComponentProps<typeof Responsive>
 /**
  * Thay cho `WidthProvider(Responsive)` của react-grid-layout.
  *
+ * <p>Từ 19/09 `DashboardCustomizeChrome` tự đo vật chứa ngoài (cùng phép bảo vệ: bỏ số đo ≤ 0, làm
+ * tròn, chỉ set khi đổi) nên không còn dùng component này; giữ lại vì `WidgetErrorBoundary` bên dưới
+ * vẫn là hàng rào lỗi của từng ô.
+ *
  * <p>WidthProvider gốc đẩy MỌI số đo của ResizeObserver vào lưới, kể cả 0 — thứ xảy ra khi
  * vùng chứa tạm thời không có bề ngang (đổi kích thước cửa sổ nhanh, chụp màn hình, in, thẻ
  * trình duyệt bị thu). Bề ngang 0 làm lưới nhảy sang breakpoint `xxs`, rồi lập tức nhảy về:

@@ -4,7 +4,7 @@ import type { ComboChartPoint } from '@/types/stats'
 import { usePerformanceScale } from '../hooks/usePerformanceScale'
 import StackedComposition from '@/components/charts/primitives/StackedComposition'
 import { TrendModeToggle } from '@/components/common/dashboard/TrendModeToggle'
-import { useTrendMode } from '@/components/common/dashboard/useTrendMode'
+import { useTrendMode, type TrendMode } from '@/components/common/dashboard/useTrendMode'
 import ChartTooltip from '@/components/charts/ChartTooltip'
 import { yAxisLabel } from '@/components/charts/axisLabel'
 
@@ -30,7 +30,33 @@ interface AnalyticsComboChartProps {
   itemName?: string
   /** Lấp đầy chiều cao vật chứa (h-full) thay vì min-height cố định — dùng khi nhúng vào widget lưới. */
   fillHeight?: boolean
+  /**
+   * Cách biểu diễn do BÊN NGOÀI quyết định (bảng cấu hình của ô trên lưới).
+   *
+   * <p>Bỏ trống thì component tự nhớ lựa chọn trong localStorage như cũ — thẻ đã ghim ở trang chủ
+   * không có bố cục để lưu cấu hình nên vẫn cần đường đi đó.
+   */
+  mode?: TrendMode
+  onModeChange?: (m: TrendMode) => void
+  /** Ẩn nút chuyển tại chỗ khi việc chọn đã nằm ở bảng cấu hình. */
+  hideModeToggle?: boolean
+  /** Dòng tóm tắt cấu hình do lưới cấp, đặt dưới phụ đề. */
+  meta?: React.ReactNode
+  /**
+   * Tiêu đề chế độ đường / chế độ miền. Ô trên lưới truyền đúng `DEFAULT_WIDGETS.title` để tên
+   * trong thư viện, bảng cấu hình và trên ô là MỘT chuỗi; bỏ trống thì ghép từ `itemName` như cũ.
+   */
+  title?: string
+  shareTitle?: string
+  /** Thẻ ghim ở trang chủ đã có tiêu đề của `WidgetShell` — bỏ dòng tiêu đề trong thân để không hiện hai lần. */
+  hideTitle?: boolean
 }
+
+/**
+ * `itemName` viết giữa câu: hạ chữ đầu ("Mục tiêu" → "mục tiêu") nhưng giữ nguyên chữ viết tắt —
+ * "KPI đơn vị" mà thành "kpi đơn vị" thì trông như lỗi chính tả.
+ */
+const noun = (name: string) => name.replace(/^[^\s]+/, w => (w === w.toUpperCase() ? w : w.toLowerCase()))
 
 const CustomTooltip = ({ active, payload, label, perf, itemName }: any) => {
   if (!active || !payload?.length) return null
@@ -50,7 +76,7 @@ const CustomTooltip = ({ active, payload, label, perf, itemName }: any) => {
         <>
           Tính trên{' '}
           <span className="font-semibold text-[var(--color-muted-foreground)] tabular-nums">{totalItems(row)}</span>
-          {' '}{String(itemName ?? '').toLowerCase()}{' '}
+          {' '}{noun(String(itemName ?? ''))}{' '}
           <span className="tabular-nums">({row.oldItems ?? 0} cũ · {row.newItems ?? 0} mới)</span>
         </>
       )}
@@ -58,25 +84,31 @@ const CustomTooltip = ({ active, payload, label, perf, itemName }: any) => {
   )
 }
 
-export default function AnalyticsComboChart({ data, isLoading, itemName = 'Mục tiêu', fillHeight = false }: AnalyticsComboChartProps) {
+export default function AnalyticsComboChart({
+  data, isLoading, itemName = 'Mục tiêu', fillHeight = false,
+  mode: modeProp, onModeChange, hideModeToggle, meta, title, shareTitle, hideTitle,
+}: AnalyticsComboChartProps) {
   // Khoá theo `itemName` vì component không có prop định danh. Gom theo ý nghĩa biểu đồ là đúng ý:
   // "KPI đảm nhiệm" ở tab của tôi và tab mục tiêu của tôi vốn là cùng một biểu đồ.
-  const { mode, setMode, isShare } = useTrendMode(`combo:${itemName}`)
+  const local = useTrendMode(`combo:${itemName}`)
+  const mode = modeProp ?? local.mode
+  const setMode = onModeChange ?? local.setMode
+  const isShare = mode === 'share'
   const perf = usePerformanceScale()
 
   if (isLoading) {
     return (
-      <div className={`w-full ${fillHeight ? 'h-full' : 'h-[400px]'} flex flex-col items-center justify-center bg-[var(--color-muted)] rounded-card border border-[var(--color-border)]`}>
+      <div className={`w-full ${fillHeight ? 'h-full' : 'h-[400px]'} flex flex-col items-center justify-center bg-[var(--color-muted)] rounded-2xl border border-[var(--color-border)]`}>
         <Loader2 className="w-8 h-8 animate-spin text-[var(--color-primary)] mb-4" />
-        <p className="text-[var(--color-muted-foreground)] font-medium">Đang tải dữ liệu biểu đồ...</p>
+        <p className="text-slate-500 font-medium">Đang tải dữ liệu biểu đồ...</p>
       </div>
     )
   }
 
   if (!data || data.length === 0) {
     return (
-      <div className={`w-full ${fillHeight ? 'h-full' : 'h-[400px]'} flex items-center justify-center bg-[var(--color-muted)] rounded-card border border-[var(--color-border)]`}>
-        <p className="text-[var(--color-muted-foreground)] font-medium">Không có dữ liệu trong thời gian này</p>
+      <div className={`w-full ${fillHeight ? 'h-full' : 'h-[400px]'} flex items-center justify-center bg-[var(--color-muted)] rounded-2xl border border-[var(--color-border)]`}>
+        <p className="text-slate-500 font-medium">Không có dữ liệu trong thời gian này</p>
       </div>
     )
   }
@@ -104,20 +136,24 @@ export default function AnalyticsComboChart({ data, isLoading, itemName = 'Mục
   }
 
   return (
-    <div className={`w-full ${fillHeight ? 'h-full' : 'min-h-[510px]'} bg-[var(--color-card)] rounded-card border border-[var(--color-border)] p-6 shadow-sm relative flex flex-col`}>
+    <div className={`w-full ${fillHeight ? 'h-full' : 'min-h-[510px]'} bg-[var(--color-card)] rounded-widget border border-[var(--color-border)] p-6 shadow-sm relative flex flex-col`}>
       <div className="flex justify-between items-start gap-3 mb-4">
         <div className="min-w-0">
-          <h3 className="text-section-title text-[var(--color-foreground)] flex items-center gap-2">
-            {isShare ? `Cơ cấu ${itemName} theo thời gian` : `Xu hướng ${itemName}: Tiến độ & Hiệu suất`}
-            <span className="text-xs text-[var(--color-primary)] font-medium" title="API độc lập">*</span>
-          </h3>
-          <p className="text-sm text-[var(--color-muted-foreground)] mt-1">
+          {!hideTitle && (
+            <h3 className="text-base font-semibold text-[var(--color-foreground)]">
+              {isShare
+                ? (shareTitle ?? `Cơ cấu ${itemName} mới và cũ qua các kỳ`)
+                : (title ?? `Diễn biến ${itemName} qua các kỳ`)}
+            </h3>
+          )}
+          <p className={`text-sm text-slate-500 ${hideTitle ? '' : 'mt-1'}`}>
             {isShare
-              ? `Mỗi mốc cao đúng 100% — cho thấy tỉ trọng ${itemName.toLowerCase()} mới so với cũ dịch chuyển ra sao qua thời gian`
-              : `Tiến độ và hiệu suất qua từng kỳ — cỡ chấm cho biết kỳ đó tính trên bao nhiêu ${itemName.toLowerCase()}`}
+              ? `Mỗi mốc cao đúng 100%, cho thấy tỉ trọng ${noun(itemName)} mới so với cũ dịch chuyển ra sao qua thời gian`
+              : `Tiến độ và hiệu suất qua từng kỳ, cỡ chấm cho biết kỳ đó tính trên bao nhiêu ${noun(itemName)}`}
           </p>
+          {meta && <div className="mt-2">{meta}</div>}
         </div>
-        <TrendModeToggle mode={mode} onChange={setMode} />
+        {!hideModeToggle && <TrendModeToggle mode={mode} onChange={setMode} />}
       </div>
 
       {isShare ? (
@@ -134,7 +170,7 @@ export default function AnalyticsComboChart({ data, isLoading, itemName = 'Mục
             variant="area"
             normalize
             yLabel="Tỉ trọng (%)"
-            unit={itemName.toLowerCase()}
+            unit={noun(itemName)}
             height={fillHeight ? '100%' : 380}
           />
         </div>
@@ -144,7 +180,7 @@ export default function AnalyticsComboChart({ data, isLoading, itemName = 'Mục
             Riêng org dùng ma trận vẫn cần ghú riêng: đường hiệu suất đọc theo thang điểm ẨN,
             không cùng thang với tiến độ, mà trục ẩn thì không gắn nhãn vào đâu được. */}
         {perf.isMatrix && (
-          <div className="flex justify-end text-caption mb-2 px-1">
+          <div className="flex justify-end text-xs font-medium text-slate-400 dark:text-slate-500 mb-2 px-1">
             <span>Hiệu suất: điểm/{perf.maxScore}</span>
           </div>
         )}
@@ -155,7 +191,7 @@ export default function AnalyticsComboChart({ data, isLoading, itemName = 'Mục
         <div className="flex-1 min-h-0">
           <ResponsiveContainer width="100%" height={fillHeight ? '100%' : 380} minHeight={0}>
             <LineChart data={data} margin={{ top: 10, right: 10, left: 0, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#E2E8F0" />
+              <CartesianGrid stroke="var(--color-border)" vertical={false} />
               <XAxis
                 dataKey="label"
                 axisLine={false}
@@ -180,7 +216,7 @@ export default function AnalyticsComboChart({ data, isLoading, itemName = 'Mục
 
               <Tooltip content={<CustomTooltip perf={perf} itemName={itemName} />} />
 
-              <Line
+              <Line isAnimationActive={false}
                 yAxisId="left"
                 type="monotone"
                 dataKey="completionTrend"
@@ -190,7 +226,7 @@ export default function AnalyticsComboChart({ data, isLoading, itemName = 'Mục
                 dot={renderDot('#10b981')}
                 activeDot={{ r: 7, strokeWidth: 0 }}
               />
-              <Line
+              <Line isAnimationActive={false}
                 yAxisId={perf.isMatrix ? 'perf' : 'left'}
                 type="monotone"
                 dataKey="performanceTrend"
@@ -210,8 +246,8 @@ export default function AnalyticsComboChart({ data, isLoading, itemName = 'Mục
           <LegendItem color="#f59e0b" label="Xu hướng Hiệu suất" />
           {/* Không có dòng này thì cỡ chấm chỉ là nhiễu thị giác. */}
           {!uniformSize && (
-            <span className="text-[var(--color-subtle-foreground)]">
-              Cỡ chấm = số {itemName.toLowerCase()} của kỳ đó
+            <span className="text-slate-400 dark:text-slate-500">
+              Cỡ chấm = số {noun(itemName)} của kỳ đó
             </span>
           )}
         </div>

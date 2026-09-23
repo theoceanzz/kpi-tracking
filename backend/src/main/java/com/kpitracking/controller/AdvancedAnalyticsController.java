@@ -3,8 +3,6 @@ package com.kpitracking.controller;
 import com.kpitracking.dto.response.ApiResponse;
 import com.kpitracking.dto.response.stats.advanced.CompositionResponses.*;
 import com.kpitracking.dto.response.stats.advanced.CorrelationResponses.BehaviorCompletionResponse;
-import com.kpitracking.dto.response.stats.advanced.CorrelationResponses.BscVsSystemScatterResponse;
-import com.kpitracking.dto.response.stats.advanced.CorrelationResponses.PerspectiveBubbleResponse;
 import com.kpitracking.dto.response.stats.advanced.DistributionResponses.*;
 import com.kpitracking.dto.response.stats.advanced.FlowResponses.SankeyResponse;
 import com.kpitracking.dto.response.stats.advanced.RankingResponses.*;
@@ -69,28 +67,6 @@ public class AdvancedAnalyticsController {
             @RequestParam(required = false) UUID periodIdTo) {
         return ResponseEntity.ok(ApiResponse.success(
                 correlationService.getBehaviorCompletion(orgUnitId, periods(periodId, periodIdTo))));
-    }
-
-    @GetMapping("/correlation/bsc-vs-system")
-    @PreAuthorize(ANY_STATS_PERMISSION)
-    @Operation(summary = "Phân tán điểm BSC vs điểm hệ thống, kèm đường chuẩn y=x")
-    public ResponseEntity<ApiResponse<BscVsSystemScatterResponse>> bscVsSystem(
-            @RequestParam(required = false) UUID orgUnitId,
-            @RequestParam(required = false) UUID periodId,
-            @RequestParam(required = false) UUID periodIdTo) {
-        return ResponseEntity.ok(ApiResponse.success(
-                correlationService.getBscVsSystem(orgUnitId, periods(periodId, periodIdTo))));
-    }
-
-    @GetMapping("/correlation/perspective-bubble")
-    @PreAuthorize(ANY_STATS_PERMISSION)
-    @Operation(summary = "Bong bóng hạng mục BSC: trọng số × điểm đạt × số KPI")
-    public ResponseEntity<ApiResponse<PerspectiveBubbleResponse>> perspectiveBubble(
-            @RequestParam(required = false) UUID orgUnitId,
-            @RequestParam(required = false) UUID periodId,
-            @RequestParam(required = false) UUID periodIdTo) {
-        return ResponseEntity.ok(ApiResponse.success(
-                correlationService.getPerspectiveBubble(orgUnitId, periods(periodId, periodIdTo))));
     }
 
     // ============================================================
@@ -158,29 +134,6 @@ public class AdvancedAnalyticsController {
             @RequestParam(required = false) UUID periodIdTo) {
         return ResponseEntity.ok(ApiResponse.success(
                 compositionService.getSubmissionShare(orgUnitId, periods(periodId, periodIdTo))));
-    }
-
-    @GetMapping("/part/bsc-waterfall")
-    @PreAuthorize(ANY_STATS_PERMISSION)
-    @Operation(summary = "Thác nước cấu thành điểm BSC theo từng hạng mục")
-    public ResponseEntity<ApiResponse<BscWaterfallResponse>> bscWaterfall(
-            @RequestParam(required = false) UUID orgUnitId,
-            @RequestParam(required = false) UUID periodId,
-            @RequestParam(required = false) UUID periodIdTo) {
-        return ResponseEntity.ok(ApiResponse.success(
-                compositionService.getBscWaterfall(orgUnitId, periods(periodId, periodIdTo))));
-    }
-
-    /** Lịch sử trọng số là cấu hình cấp tổ chức nên gác thêm quyền quản trị BSC. */
-    @GetMapping("/timeline/bsc-weight-history")
-    @PreAuthorize(ANY_STATS_PERMISSION + " and hasAuthority('BSC:MANAGE')")
-    @Operation(summary = "Đường bậc thang lịch sử thay đổi trọng số hạng mục BSC")
-    public ResponseEntity<ApiResponse<WeightHistoryResponse>> weightHistory(
-            @RequestParam(required = false) UUID orgUnitId,
-            @RequestParam(required = false) UUID periodId,
-            @RequestParam(required = false) UUID periodIdTo) {
-        return ResponseEntity.ok(ApiResponse.success(
-                compositionService.getWeightHistory(orgUnitId, periods(periodId, periodIdTo))));
     }
 
     // ============================================================

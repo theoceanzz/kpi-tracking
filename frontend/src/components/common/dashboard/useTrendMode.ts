@@ -15,8 +15,14 @@ const STORAGE_PREFIX = 'analytics-trend-mode:'
  * <p>Lựa chọn lưu theo từng biểu đồ trong localStorage, cùng quy ước với {@link useChartTableView}.
  * Bọc try/catch vì trình duyệt chặn site data sẽ ném ngay ở bước đọc.
  */
-export function useTrendMode(chartId: string, initial: TrendMode = 'trend') {
+export function useTrendMode(
+  chartId: string,
+  initial: TrendMode = 'trend',
+  /** Do bố cục lưới điều khiển (cài đặt của ô THẮNG); bỏ trống thì tự nhớ bằng localStorage. */
+  controlled?: { value?: TrendMode; onChange?: (m: TrendMode) => void },
+) {
   const key = STORAGE_PREFIX + chartId
+  const onChange = controlled?.onChange
 
   const [mode, setModeState] = useState<TrendMode>(() => {
     try {
@@ -29,12 +35,16 @@ export function useTrendMode(chartId: string, initial: TrendMode = 'trend') {
 
   const setMode = useCallback((next: TrendMode) => {
     setModeState(next)
+    // Vẫn ghi localStorage kể cả khi đang bị điều khiển: cùng biểu đồ ở trang chủ không có bố cục
+    // riêng, nó chỉ có mỗi đường này để nhớ.
     try {
       localStorage.setItem(key, next)
     } catch {
       /* không lưu được thì thôi — chỉ mất tiện lợi, không ảnh hưởng hiển thị */
     }
-  }, [key])
+    onChange?.(next)
+  }, [key, onChange])
 
-  return { mode, setMode, isShare: mode === 'share' }
+  const effective = controlled?.value ?? mode
+  return { mode: effective, setMode, isShare: effective === 'share' }
 }

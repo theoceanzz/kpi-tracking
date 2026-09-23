@@ -5,7 +5,7 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.ai.chat.model.ToolContext;
+import dev.langchain4j.invocation.InvocationParameters;
 
 import java.util.List;
 import java.util.Map;
@@ -24,22 +24,22 @@ import java.util.HashMap;
 class AttachFilesToolTest {
 
     /**
-     * Trạng thái của lượt, đi cùng {@code ToolContext}. Mỗi test một thực thể mới nên không
+     * Trạng thái của lượt, đi cùng {@code InvocationParameters}. Mỗi test một thực thể mới nên không
      * phải dọn gì — đó chính là điều đáng giá so với bản ThreadLocal cũ.
      */
     private AgentState st = AgentState.forToolsOnly();
 
     /** Ngữ cảnh tool luôn mang theo trạng thái của lượt, giống hệt lúc chạy thật. */
-    private ToolContext ctxWith(java.util.Map<String, Object> base) {
+    private InvocationParameters ctxWith(java.util.Map<String, Object> base) {
         java.util.Map<String, Object> m = new HashMap<>(base);
         m.put(AgentState.CONTEXT_KEY, st);
-        return new ToolContext(m);
+        return new InvocationParameters(m);
     }
 
     private final AttachFilesTool tool = new AttachFilesTool();
 
     /** Có chỗ nhận tệp VÀ có tệp đang ghim. */
-    private ToolContext ready() {
+    private InvocationParameters ready() {
         return ctxWith(Map.of(
                 "openFormAcceptsFiles", Boolean.TRUE,
                 "pinnedFileNames", List.of("bang-chung.pdf")));
@@ -70,7 +70,7 @@ class AttachFilesToolTest {
     @Test
     @DisplayName("KHÔNG có biểu mẫu nhận tệp -> từ chối, không bật cờ")
     void refusesWhenNoSink() {
-        ToolContext noSink = ctxWith(Map.of("pinnedFileNames", List.of("bang-chung.pdf")));
+        InvocationParameters noSink = ctxWith(Map.of("pinnedFileNames", List.of("bang-chung.pdf")));
 
         assertThat(tool.attachPinnedFiles(new AttachFilesTool.AttachFilesRequest("x"), noSink))
                 .contains("\"error\"").contains("Gửi báo cáo KPI");
@@ -80,7 +80,7 @@ class AttachFilesToolTest {
     @Test
     @DisplayName("CHƯA ghim tệp nào -> từ chối bằng câu KHÁC, và bảo bấm nút kẹp giấy")
     void refusesWhenNothingPinned() {
-        ToolContext nothingPinned = ctxWith(Map.of("openFormAcceptsFiles", Boolean.TRUE));
+        InvocationParameters nothingPinned = ctxWith(Map.of("openFormAcceptsFiles", Boolean.TRUE));
 
         // Phải khác câu "chưa mở biểu mẫu": hai nguyên nhân khác nhau mà cùng một câu thì model
         // hướng dẫn sai, và người dùng đi mở biểu mẫu trong khi việc cần làm là ghim tệp.
@@ -92,7 +92,7 @@ class AttachFilesToolTest {
     @Test
     @DisplayName("danh sách ghim RỖNG cũng là chưa ghim gì")
     void emptyPinnedListIsNothingPinned() {
-        ToolContext emptyPinned = ctxWith(Map.of(
+        InvocationParameters emptyPinned = ctxWith(Map.of(
                 "openFormAcceptsFiles", Boolean.TRUE,
                 "pinnedFileNames", List.of()));
 

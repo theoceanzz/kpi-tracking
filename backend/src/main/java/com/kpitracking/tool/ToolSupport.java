@@ -16,7 +16,7 @@ import com.kpitracking.service.OrgUnitStatisticService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import com.kpitracking.service.ai.ToolProgress;
-import org.springframework.ai.chat.model.ToolContext;
+import dev.langchain4j.invocation.InvocationParameters;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.stereotype.Component;
 
@@ -92,6 +92,15 @@ public class ToolSupport {
      * (one line, no stack trace) since they are returned to the model to self-correct;
      * genuine faults keep a full ERROR stack trace. Always returns properly-escaped JSON.
      */
+    /** JSON của một payload phụ (preview) để ghép vào chuỗi trả về của tool khác. */
+    public String toJson(Object payload) {
+        try {
+            return toolMapper.writeValueAsString(payload);
+        } catch (Exception e) {
+            return "null";
+        }
+    }
+
     public String toolError(String tool, Exception e) {
         if (e instanceof IllegalArgumentException || e instanceof SecurityException
                 || e instanceof IllegalStateException) {
@@ -109,33 +118,33 @@ public class ToolSupport {
 
     // ── ngữ cảnh ─────────────────────────────────────────────────────────────
 
-    public UUID getOrgUnitId(ToolContext context) {
-        if (context == null || context.getContext() == null) {
+    public UUID getOrgUnitId(InvocationParameters context) {
+        if (context == null) {
             UUID id = getCurrentUserOrgUnitId();
             if (id != null) return id;
-            throw new RuntimeException("ToolContext is null and could not resolve orgUnitId");
+            throw new RuntimeException("InvocationParameters is null and could not resolve orgUnitId");
         }
-        Object id = context.getContext().get("orgUnitId");
-        if (id == null) id = context.getContext().get("organizationUnitId");
+        Object id = context.get("orgUnitId");
+        if (id == null) id = context.get("organizationUnitId");
         if (id == null) {
             UUID uid = getCurrentUserOrgUnitId();
             if (uid != null) return uid;
-            throw new RuntimeException("orgUnitId not found in ToolContext");
+            throw new RuntimeException("orgUnitId not found in InvocationParameters");
         }
         return UUID.fromString(id.toString());
     }
 
-    public UUID getOrgId(ToolContext context) {
-        if (context == null || context.getContext() == null) {
+    public UUID getOrgId(InvocationParameters context) {
+        if (context == null) {
             UUID id = getCurrentUserOrgId();
             if (id != null) return id;
-            throw new RuntimeException("ToolContext is null and could not resolve organizationId");
+            throw new RuntimeException("InvocationParameters is null and could not resolve organizationId");
         }
-        Object orgId = context.getContext().get("organizationId");
+        Object orgId = context.get("organizationId");
         if (orgId == null) {
             UUID id = getCurrentUserOrgId();
             if (id != null) return id;
-            throw new RuntimeException("organizationId not found in ToolContext");
+            throw new RuntimeException("organizationId not found in InvocationParameters");
         }
         if (orgId instanceof UUID) return (UUID) orgId;
         return UUID.fromString(orgId.toString());
@@ -169,27 +178,27 @@ public class ToolSupport {
         }
     }
 
-    public String getContextPath(ToolContext context) {
-        if (context == null || context.getContext() == null) return null;
-        Object path = context.getContext().get("orgUnitPath");
+    public String getContextPath(InvocationParameters context) {
+        if (context == null) return null;
+        Object path = context.get("orgUnitPath");
         return path != null ? path.toString() : null;
     }
 
-    public String getUserEmail(ToolContext context) {
-        if (context == null || context.getContext() == null) return null;
-        Object email = context.getContext().get("userEmail");
+    public String getUserEmail(InvocationParameters context) {
+        if (context == null) return null;
+        Object email = context.get("userEmail");
         return email != null ? email.toString() : null;
     }
 
-    public String getConversationId(ToolContext context) {
-        if (context == null || context.getContext() == null) return null;
-        Object id = context.getContext().get("conversationId");
+    public String getConversationId(InvocationParameters context) {
+        if (context == null) return null;
+        Object id = context.get("conversationId");
         return id != null ? id.toString() : null;
     }
 
     // ── kiểm phạm vi truy cập ────────────────────────────────────────────────
 
-    public void validateSubtreeAccess(UUID targetUnitId, ToolContext context) {
+    public void validateSubtreeAccess(UUID targetUnitId, InvocationParameters context) {
         String contextPath = getContextPath(context);
         if (contextPath == null) return;
         OrgUnit target = orgUnitRepository.findById(targetUnitId)
@@ -199,7 +208,7 @@ public class ToolSupport {
         }
     }
 
-    public void validateUserAccess(UUID targetUserId, ToolContext context) {
+    public void validateUserAccess(UUID targetUserId, InvocationParameters context) {
         String contextPath = getContextPath(context);
         if (contextPath == null) return;
         List<UserRoleOrgUnit> assignments = userRoleOrgUnitRepository.findByUserId(targetUserId);
@@ -213,7 +222,7 @@ public class ToolSupport {
         }
     }
 
-    public void validateKpiAccess(UUID kpiId, ToolContext context) {
+    public void validateKpiAccess(UUID kpiId, InvocationParameters context) {
         String contextPath = getContextPath(context);
         if (contextPath == null) return;
         KpiCriteria kpi = kpiCriteriaRepository.findById(kpiId)
@@ -224,7 +233,7 @@ public class ToolSupport {
     }
 
     /** Bản boolean của validateKpiAccess — để LỌC (không ném lỗi) khi gom nhiều KPI cùng tên. */
-    public boolean hasKpiAccess(UUID kpiId, ToolContext context) {
+    public boolean hasKpiAccess(UUID kpiId, InvocationParameters context) {
         String contextPath = getContextPath(context);
         if (contextPath == null) return true;
         KpiCriteria kpi = kpiCriteriaRepository.findById(kpiId).orElse(null);
@@ -291,7 +300,7 @@ public class ToolSupport {
 
     /** Envelope hỏi làm rõ khi một tên người khớp nhiều/không thấy. */
     public Map<String, Object> userClarification(String query, List<Map<String, Object>> pool,
-                                                 ToolContext context) {
+                                                 InvocationParameters context) {
         String convId = getConversationId(context);
         if (convId != null) followupContextStore.markDisambiguating(convId, userOptions(pool));
         Map<String, Object> group = new LinkedHashMap<>();
@@ -314,7 +323,7 @@ public class ToolSupport {
      * {@code null} để nơi gọi hiểu là "mọi người", chứ không tự hiểu thành chính người đang hỏi —
      * "duyệt bài nộp" mà mặc định thành "bài nộp của tôi" là hiểu sai hoàn toàn ý người dùng.
      */
-    public UserRef resolveUser(String userId, String userName, ToolContext context) {
+    public UserRef resolveUser(String userId, String userName, InvocationParameters context) {
         if (notBlank(userId)) {
             UUID id = parseId(userId, "người dùng (userId)", "search");
             guardDisambiguation("user", id, "người", context);
@@ -367,7 +376,7 @@ public class ToolSupport {
     }
 
     /** Envelope yêu cầu làm rõ khi 1 tên đơn vị khớp nhiều/không thấy (cho các tool 1 đơn vị). */
-    public Map<String, Object> unitClarification(String query, List<Map<String, Object>> pool, ToolContext context) {
+    public Map<String, Object> unitClarification(String query, List<Map<String, Object>> pool, InvocationParameters context) {
         String convId = getConversationId(context);
         if (convId != null) followupContextStore.markDisambiguating(convId, unitOptions(pool));
         Map<String, Object> group = new LinkedHashMap<>();
@@ -386,7 +395,7 @@ public class ToolSupport {
      * Resolve đơn vị đích cho các tool 1 đơn vị: ưu tiên unitId (UUID), rồi unitName (tự resolve,
      * có thể cần hỏi làm rõ), cuối cùng mặc định là đơn vị hiện tại của người dùng.
      */
-    public UnitRef resolveUnit(String unitId, String unitName, ToolContext context) {
+    public UnitRef resolveUnit(String unitId, String unitName, InvocationParameters context) {
         if (unitId != null && !unitId.isBlank()) {
             UUID id = parseId(unitId, "đơn vị (unitId)", "search");
             guardDisambiguation("orgUnit", id, "đơn vị", context);
@@ -400,9 +409,48 @@ public class ToolSupport {
                 validateSubtreeAccess(id, context);
                 return new UnitRef(id, null);
             }
+            // "công ty", "toàn tổ chức", "đơn vị tôi"… là cách người dùng gọi PHẠM VI CỦA MÌNH, không
+            // phải tên một đơn vị. Model hay chuyển nguyên chữ đó vào unitName; không có đơn vị nào
+            // mang tên ấy thì hỏi lại "không tìm thấy đơn vị 'Công ty'" là lạc ngữ cảnh (đo được ở câu
+            // "Xem tổng quan hiệu suất công ty"). Đơn vị thật trùng tên vẫn thắng — chỉ lùi khi rỗng.
+            if (pool.isEmpty() && isWholeScopeAlias(unitName)) {
+                UUID current = getOrgUnitId(context);
+                AgentState state = AgentState.from(context);
+                if (state != null) {
+                    String currentName = orgUnitRepository.findById(current).map(OrgUnit::getName).orElse(null);
+                    state.setScopeNote("'" + unitName.trim() + "' là cách gọi phạm vi của người dùng, không phải tên "
+                            + "đơn vị. Phạm vi cao nhất họ được xem là "
+                            + (currentName != null ? "đơn vị " + currentName : "đơn vị hiện tại")
+                            + " — số liệu dưới đây là của đơn vị đó. Trả lời luôn bằng số liệu này, nêu rõ tên đơn vị; "
+                            + "KHÔNG hỏi lại tên đơn vị.");
+                }
+                return new UnitRef(current, null);
+            }
             return new UnitRef(null, unitClarification(unitName.trim(), pool, context));
         }
         return new UnitRef(getOrgUnitId(context), null);
+    }
+
+    private static final java.util.Set<String> WHOLE_SCOPE_ALIASES = java.util.Set.of(
+            "công ty", "tổ chức", "doanh nghiệp", "đơn vị", "phòng ban", "tôi", "chúng tôi", "mình",
+            "toàn bộ", "tất cả", "hệ thống", "tổng công ty", "cty");
+
+    /**
+     * Tên có phải cách gọi "toàn phạm vi của tôi" không: bỏ các từ đệm (toàn / cả / của / này / hiện
+     * tại / tôi / chúng tôi / mình) rồi so với bảng trên. "Toàn công ty", "công ty của tôi", "đơn vị
+     * hiện tại", "tổ chức này" đều về cùng một chỗ: đơn vị hiệu lực của lượt.
+     */
+    static boolean isWholeScopeAlias(String name) {
+        String n = name.trim().toLowerCase(java.util.Locale.ROOT).replaceAll("\s+", " ");
+        String[] leading = {"toàn bộ ", "toàn ", "cả ", "của ", "trong "};
+        String[] trailing = {" của tôi", " của chúng tôi", " của mình", " hiện tại", " này", " tôi", " chúng tôi", " mình", " chúng ta"};
+        boolean changed = true;
+        while (changed) {
+            changed = false;
+            for (String l : leading) if (n.startsWith(l)) { n = n.substring(l.length()).trim(); changed = true; }
+            for (String t : trailing) if (n.endsWith(t)) { n = n.substring(0, n.length() - t.length()).trim(); changed = true; }
+        }
+        return WHOLE_SCOPE_ALIASES.contains(n);
     }
 
 
@@ -416,7 +464,7 @@ public class ToolSupport {
      * MỌI kỳ chính là kiểu hỏng âm thầm mà tệp khai báo tham số đã cảnh báo — model tưởng đã lọc
      * rồi kết luận trên dữ liệu chưa lọc.
      */
-    public UUID resolvePeriodId(String periodName, ToolContext context) {
+    public UUID resolvePeriodId(String periodName, InvocationParameters context) {
         if (!notBlank(periodName)) return null;
         List<Map<String, Object>> found =
                 orgUnitStatisticService.searchKpiPeriods(getOrgId(context), periodName.trim(), 5);
@@ -439,7 +487,7 @@ public class ToolSupport {
      * in the current turn, forcing the assistant to ask the user to choose first.
      */
     public void guardDisambiguation(String entityType, UUID id, String entityLabel,
-                                    ToolContext context) {
+                                    InvocationParameters context) {
         AgentState state = AgentState.from(context);
         if (state != null && state.isArmed(entityType, id)) {
             throw new IllegalStateException("Có nhiều " + entityLabel + " trùng tên vừa được tìm thấy. "
@@ -660,9 +708,9 @@ public class ToolSupport {
      */
     public String returnAmbiguous(String toolName, String entityLabel, String arrayKey,
                                   List<Map<String, Object>> results, String aggregateHint,
-                                  ToolContext context) throws Exception {
+                                  InvocationParameters context) throws Exception {
         // Đây là đường ra THỨ HAI của một tool chạy thành công — nó KHÔNG đi qua respond(), nên
-        // phải tự ghi nhận. Bỏ sót chỗ này khiến ValidationStage tưởng lượt đó không lấy được dữ
+        // phải tự ghi nhận. Bỏ sót chỗ này khiến AnswerValidator tưởng lượt đó không lấy được dữ
         // liệu nào rồi chặn nhầm chính câu hỏi làm rõ hợp lệ (đã đo được: 4 câu bị chặn oan).
         log.info("AI-TOOL-CALL {}", toolName);
         recordSuccess(context, toolName);
@@ -678,15 +726,51 @@ public class ToolSupport {
     /**
      * Ghi một tool đã chạy xong vào trạng thái của lượt.
      *
-     * <p>Chịu được việc vắng trạng thái: tool còn chạy ở test dựng {@code ToolContext} trần, và
+     * <p>Chịu được việc vắng trạng thái: tool còn chạy ở test dựng {@code InvocationParameters} trần, và
      * ném lỗi giữa một lượt đang chạy chỉ vì không ghi được sổ thì tệ hơn nhiều so với không ghi.
      */
-    private static void recordSuccess(ToolContext context, String toolName) {
+    private static void recordSuccess(InvocationParameters context, String toolName) {
         AgentState state = AgentState.from(context);
         if (state != null) state.recordSuccess(toolName);
     }
 
-    public void armDisambiguation(String entityType, Set<UUID> ids, ToolContext context) {
+    /**
+     * Đặt tên đơn vị lên ĐẦU một payload tổng hợp. Số liệu tổng hợp (summary, dashboard) vốn không
+     * mang tên đơn vị, nên model gọi bừa là "công ty" dù đang xem Phòng IT (đo được ở trưởng phòng hỏi
+     * "tổng quan hiệu suất công ty"). Payload không phải Map thì trả nguyên.
+     */
+    @SuppressWarnings("unchecked")
+    public Object scoped(Object payload, UUID unitId) {
+        if (!(payload instanceof Map<?, ?> map) || unitId == null) return payload;
+        String name = orgUnitRepository.findById(unitId).map(OrgUnit::getName).orElse(null);
+        if (name == null) return payload;
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("orgUnitName", name);
+        out.put("scope", "Số liệu của đơn vị " + name + " (gồm các đơn vị con) — phạm vi người dùng được xem. "
+                + "Nêu tên đơn vị này trong câu trả lời; không hỏi lại.");
+        out.putAll((Map<String, Object>) map);
+        return out;
+    }
+
+    /**
+     * Gắn ghi chú phạm vi (đặt bởi {@link #resolveUnit} khi người dùng nói "công ty"/"đơn vị tôi") vào
+     * đầu payload dạng Map, rồi xoá để không dính sang lời gọi sau. Payload không phải Map thì bỏ qua —
+     * đổi hình dạng JSON của tool chỉ vì một ghi chú là không đáng.
+     */
+    @SuppressWarnings("unchecked")
+    private static Object withScopeNote(InvocationParameters context, Object payload) {
+        AgentState state = AgentState.from(context);
+        if (state == null || state.getScopeNote() == null) return payload;
+        String note = state.getScopeNote();
+        state.setScopeNote(null);
+        if (!(payload instanceof Map<?, ?> map)) return payload;
+        Map<String, Object> out = new LinkedHashMap<>();
+        out.put("scopeNote", note);
+        out.putAll((Map<String, Object>) map);
+        return out;
+    }
+
+    public void armDisambiguation(String entityType, Set<UUID> ids, InvocationParameters context) {
         AgentState state = AgentState.from(context);
         if (state != null) state.arm(entityType, ids);
     }
@@ -696,18 +780,18 @@ public class ToolSupport {
      * (keyed by conversationId, when present) so follow-up questions can be grounded in the
      * real tool data of this turn, and returns the JSON for the model.
      */
-    public String respond(ToolContext context, String toolName, Object payload) throws Exception {
+    public String respond(InvocationParameters context, String toolName, Object payload) throws Exception {
         // Mọi tool chạy THÀNH CÔNG đều đi qua đây. Trước đây chỉ tool lỗi mới ghi log, nên với câu
         // hỏi cần nhiều tool không có cách nào biết model gọi đủ hay chỉ gọi một rồi đoán phần còn
         // lại — mà đoán vẫn ra câu trả lời trôi chảy. Một dòng này cho phép dựng lại đúng chuỗi
         // tool của từng lượt khi chấm bộ câu hỏi kiểm thử.
         log.info("AI-TOOL-CALL {}", toolName);
-        // Ghi lại để ValidationStage biết lượt này có thật sự lấy được dữ liệu hay không.
+        // Ghi lại để AnswerValidator biết lượt này có thật sự lấy được dữ liệu hay không.
         recordSuccess(context, toolName);
         // ...và nói cho người dùng biết trợ lý vừa xem cái gì; vòng gọi tool là quãng chờ dài nhất
         // của một lượt nên im lặng ở đây nhìn không khác gì treo máy.
         ToolProgress.announce(context, toolName);
-        String json = toolMapper.writeValueAsString(payload);
+        String json = toolMapper.writeValueAsString(withScopeNote(context, payload));
         String conversationId = getConversationId(context);
         if (conversationId != null) {
             followupContextStore.append(conversationId, toolName, json);

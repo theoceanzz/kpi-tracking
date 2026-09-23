@@ -4,8 +4,8 @@ import com.kpitracking.service.OrgUnitStatisticService;
 import com.kpitracking.tool.OrgUnitStatisticToolRequests.OrgUnitRequest;
 import com.kpitracking.tool.ToolSupport.UnitRef;
 import lombok.RequiredArgsConstructor;
-import org.springframework.ai.chat.model.ToolContext;
-import org.springframework.ai.tool.annotation.Tool;
+import dev.langchain4j.invocation.InvocationParameters;
+import dev.langchain4j.agent.tool.Tool;
 import org.springframework.stereotype.Component;
 
 import java.util.Map;
@@ -24,7 +24,7 @@ public class OrgUnitTool {
     private final OrgUnitStatisticService orgUnitStatisticService;
     private final ToolSupport support;
 
-    @Tool(name = "get_org_unit", description = "Thông tin một đơn vị. "
+    @Tool(name = "get_org_unit", value = "Thông tin một đơn vị. "
             + "view=detail: chi tiết đơn vị kèm người phụ trách (dùng để trả lời 'ai chịu trách nhiệm đơn vị X'). "
             + "view=hierarchy: cây cơ cấu đầy đủ kèm số đơn vị con và số nhân sự. "
             + "view=children: danh sách và số lượng đơn vị con, recursive=true để lấy cả cây con. "
@@ -37,7 +37,7 @@ public class OrgUnitTool {
             + "Câu hỏi 'đơn vị X có bao nhiêu người' PHẢI dùng totalMemberCount hoặc "
             + "get_people(view=list) — dùng memberCount là trả thiếu. "
             + "Mặc định là đơn vị hiện tại của bạn, nên khi người dùng nêu tên đơn vị PHẢI truyền unitName.")
-    public String getOrgUnit(OrgUnitRequest request, ToolContext context) {
+    public String getOrgUnit(OrgUnitRequest request, InvocationParameters context) {
         try {
             String view = normalizeView(request.view());
             if (view == null) {

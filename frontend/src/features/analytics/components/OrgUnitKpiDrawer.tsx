@@ -25,6 +25,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
+import { ChoiceChip } from '@/components/ui/choice-chip'
 import { orgUnitKpiApi } from '@/features/dashboard/api/orgUnitKpiApi'
 import type { OrgUnitAssigneeStat, OrgUnitSubmissionStat } from '@/features/dashboard/api/orgUnitKpiApi'
 import { subDays, subMonths, startOfYear } from 'date-fns'
@@ -32,7 +33,7 @@ import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import ObjectiveDrawer from './ObjectiveDrawer'
 import { QualitativeDistributionChart } from './QualitativeDistributionChart'
 import { QualitativeResultChip } from './QualitativeResultChip'
-import { ChoiceChip } from '@/components/ui/choice-chip'
+import { yAxisLabel } from '@/components/charts/axisLabel'
 
 // Bộ lọc thời gian trong drawer — đơn giản (đồng bộ với các drawer khác), không dùng chọn đợt/khoảng đợt.
 type DateFilterType = 'GLOBAL' | 'THIS_WEEK' | 'THIS_MONTH' | 'THIS_QUARTER' | '6_MONTHS' | 'THIS_YEAR' | 'CUSTOM'
@@ -44,13 +45,13 @@ const ASSIGNEE_COLORS = ['#f59e0b', '#8b5cf6', '#ec4899', '#0ea5e9', '#14b8a6', 
 function TrendTooltip({ active, payload, label }: any) {
   if (!active || !payload?.length) return null
   return (
-    <div className="bg-[var(--color-card)] border border-[var(--color-border)] p-4 rounded-card">
+    <div className="bg-[var(--color-card)] border border-[var(--color-border)] p-4 rounded-lg shadow-md">
       <p className="font-semibold text-[var(--color-foreground)] mb-3">{label}</p>
       <div className="space-y-2">
         {payload.map((p: any, i: number) => (
           <div key={i} className="flex items-center gap-3 text-sm">
             <div className="w-3 h-3 rounded-sm flex-shrink-0" style={{ backgroundColor: p.color }} />
-            <span className="text-[var(--color-muted-foreground)] font-medium min-w-[120px]">{p.name}:</span>
+            <span className="text-slate-500 font-medium min-w-[120px]">{p.name}:</span>
             <span className="font-semibold text-[var(--color-foreground)]">
               {p.name.includes('%') ? `${Math.round(p.value)}%` : p.value?.toLocaleString('vi-VN')}
             </span>
@@ -134,23 +135,23 @@ function AssigneeBarPanel({
   const domain = Math.ceil(maxVal / 50) * 50
   const barSize = Math.max(20, Math.min(44, Math.floor(180 / Math.max(chartData.length, 1))))
 
-  if (!data.length) return <div className="h-[280px] flex items-center justify-center text-[var(--color-subtle-foreground)] text-sm">Không có dữ liệu</div>
+  if (!data.length) return <div className="h-[280px] flex items-center justify-center text-slate-400 text-sm">Không có dữ liệu</div>
 
   return (
-    <div className="bg-[var(--color-card)] rounded-card border border-[var(--color-border)] /10 p-5 shadow-sm">
+    <div className="bg-[var(--color-card)]/60 rounded-lg border border-slate-200 dark:border-white/10 p-5 shadow-sm">
       <div className="flex items-center justify-between mb-4">
-        <h4 className="text-sm font-medium text-[var(--color-foreground)]">{title}</h4>
+        <h4 className="text-sm font-semibold text-[var(--color-foreground)]">{title}</h4>
         <RankToggle filter={filter} onChange={onFilterChange} />
       </div>
       <div className="h-[260px]">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={chartData} margin={{ top: 25, right: 10, left: 15, bottom: 20 }} onMouseLeave={() => onHoverChange(null)}>
-            <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#94a3b8" strokeOpacity={0.15} />
+            <CartesianGrid stroke="var(--color-border)" vertical={false} />
             <XAxis dataKey="displayName" tick={{ fill: '#64748b', fontSize: 11, fontWeight: 500 }} axisLine={false} tickLine={false} dy={5}>
-              <Label value="Người thực hiện" offset={-5} position="insideBottom" style={{ fill: '#64748b', fontSize: 10, fontWeight: 700 }} />
+              <Label value="Người thực hiện" offset={-5} position="insideBottom" style={{ fill: '#64748b', fontSize: 11, fontWeight: 700 }} />
             </XAxis>
             <YAxis tickFormatter={v => `${Math.round(v)}%`} domain={[0, domain]} tick={{ fill: '#64748b', fontSize: 11 }} axisLine={false} tickLine={false}>
-              <Label value="(%) Tỷ lệ" angle={-90} position="insideLeft" style={{ textAnchor: 'middle', fill: '#64748b', fontSize: 10, fontWeight: 700 }} />
+              <Label value="(%) Tỷ lệ" angle={-90} position="insideLeft" style={{ textAnchor: 'middle', fill: '#64748b', fontSize: 11, fontWeight: 700 }} />
             </YAxis>
             <Tooltip content={<BarTooltip />} cursor={{ fill: '#94a3b8', opacity: 0.08 }} />
             <Legend verticalAlign="top" align="right" iconType="circle" iconSize={8} wrapperStyle={{ paddingBottom: '12px', fontSize: 11, fontWeight: 500 }} />
@@ -207,20 +208,20 @@ function SubmissionBarPanel({
   const maxVal = Math.max(...chartData.map(d => d[dataKey] as number), 100)
   const domain = Math.ceil(maxVal / 50) * 50
 
-  if (!data.length) return <div className="h-[280px] flex items-center justify-center text-[var(--color-subtle-foreground)] text-sm">Không có dữ liệu</div>
+  if (!data.length) return <div className="h-[280px] flex items-center justify-center text-slate-400 text-sm">Không có dữ liệu</div>
 
   return (
-    <div className="bg-[var(--color-card)] rounded-card border border-[var(--color-border)] /10 p-5 shadow-sm">
+    <div className="bg-[var(--color-card)]/60 rounded-lg border border-slate-200 dark:border-white/10 p-5 shadow-sm">
       <div className="flex items-center justify-between mb-4">
-        <h4 className="text-sm font-medium text-[var(--color-foreground)]">{title}</h4>
+        <h4 className="text-sm font-semibold text-[var(--color-foreground)]">{title}</h4>
         <RankToggle filter={filter} onChange={onFilterChange} />
       </div>
       <div className="h-[260px]">
         <ResponsiveContainer width="100%" height="100%">
           <BarChart data={chartData} layout="vertical" margin={{ top: 10, right: 50, left: 15, bottom: 25 }} onMouseLeave={() => onHoverChange(null)}>
-            <CartesianGrid strokeDasharray="3 3" horizontal={false} vertical={true} stroke="#94a3b8" strokeOpacity={0.1} />
-            <XAxis type="number" domain={[0, domain]} tickFormatter={v => `${Math.round(v)}%`} tick={{ fill: '#64748b', fontSize: 10 }} axisLine={false} tickLine={false}>
-              <Label value="(%) Tỷ lệ" offset={-5} position="insideBottom" style={{ fill: '#64748b', fontSize: 10, fontWeight: 700 }} />
+            <CartesianGrid stroke="var(--color-border)" horizontal={false} vertical={true} />
+            <XAxis type="number" domain={[0, domain]} tickFormatter={v => `${Math.round(v)}%`} tick={{ fill: '#64748b', fontSize: 11 }} axisLine={false} tickLine={false}>
+              <Label value="(%) Tỷ lệ" offset={-5} position="insideBottom" style={{ fill: '#64748b', fontSize: 11, fontWeight: 700 }} />
             </XAxis>
             <YAxis dataKey="displayLabel" type="category" width={130} tick={{ fill: '#64748b', fontSize: 11, fontWeight: 500 }} axisLine={false} tickLine={false} />
             <Tooltip content={<BarTooltip />} cursor={{ fill: '#94a3b8', opacity: 0.06 }} />
@@ -232,7 +233,7 @@ function SubmissionBarPanel({
               radius={[0, 6, 6, 0]}
               barSize={16}
               isAnimationActive={false}
-              label={{ position: 'right', fill: '#64748b', fontSize: 10, fontWeight: 600, formatter: (v: any) => `${Math.round(v)}%` }}
+              label={{ position: 'right', fill: '#64748b', fontSize: 11, fontWeight: 600, formatter: (v: any) => `${Math.round(v)}%` }}
             >
               {chartData.map((item, idx) => (
                 <Cell
@@ -251,13 +252,13 @@ function SubmissionBarPanel({
 
 // ── Context badge (thông tin ngữ cảnh cạnh tiêu đề) ──────────────────────────
 const BADGE_STYLES: Record<string, string> = {
-  violet: 'bg-[var(--color-primary-soft)] text-[var(--color-primary)] border-[var(--color-border)]',
-  slate: 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)] border-[var(--color-border)]',
-  blue: 'bg-[var(--color-info-bg)] text-[var(--color-info)] border-[var(--color-info-border)] dark:bg-[var(--color-info-bg)] dark:text-[var(--color-info)] dark:border-[var(--color-info-border)]',
+  violet: 'bg-indigo-50 text-[var(--color-primary)] border-indigo-200 dark:bg-indigo-900/20 dark:text-indigo-400 dark:border-indigo-900/40',
+  slate: 'bg-slate-100 text-slate-600 border-slate-200 dark:bg-slate-800 dark:text-slate-300 dark:border-slate-700',
+  blue: 'bg-blue-50 text-blue-600 border-blue-200 dark:bg-blue-900/20 dark:text-blue-400 dark:border-blue-900/40',
 }
 function ContextBadge({ color, label }: { color: keyof typeof BADGE_STYLES; label: string }) {
   return (
-    <span className={cn('inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium border', BADGE_STYLES[color])}>
+    <span className={cn('inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold border', BADGE_STYLES[color])}>
       {label}
     </span>
   )
@@ -342,10 +343,10 @@ export default function OrgUnitKpiDrawer({
     setActiveAssignees(prev => prev.includes(uid) ? prev.filter(x => x !== uid) : [...prev, uid])
 
   const kpiTypeBadge = data?.isBonusKpi
-    ? { label: 'KPI thưởng', cls: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)] border-[var(--color-warning-border)]' }
+    ? { label: 'KPI thưởng', cls: 'bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-500/30' }
     : data?.isReverseKpi
-    ? { label: 'KPI ngược', cls: 'bg-[var(--color-primary-soft)] text-[var(--color-primary)] border-[var(--color-border)]' }
-    : { label: 'KPI thường', cls: 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)] border-[var(--color-border)]' }
+    ? { label: 'KPI ngược', cls: 'bg-indigo-100 dark:bg-indigo-900/40 text-[var(--color-primary)] dark:text-indigo-400 border-indigo-200 dark:border-[var(--color-primary)]/30' }
+    : { label: 'KPI thường', cls: 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)] border-slate-200 dark:border-slate-700' }
 
   const customTitle = (
     <div className="flex items-center flex-wrap gap-2">
@@ -353,12 +354,12 @@ export default function OrgUnitKpiDrawer({
         {data?.kpiName || 'Chi tiết KPI'}
       </span>
       {data && (
-        <span className={cn('inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium border flex-shrink-0', kpiTypeBadge.cls)}>
+        <span className={cn('inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold border flex-shrink-0', kpiTypeBadge.cls)}>
           {kpiTypeBadge.label}
         </span>
       )}
       {data?.isShared && (
-        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[var(--color-primary-soft)] text-[var(--color-primary)] text-xs font-medium border border-[var(--color-border)] flex-shrink-0">
+        <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-[var(--color-primary)] dark:text-indigo-400 text-xs font-semibold border border-indigo-200 dark:border-[var(--color-primary)]/30 flex-shrink-0">
           <Users size={10} /> KPI chung
         </span>
       )}
@@ -398,10 +399,10 @@ export default function OrgUnitKpiDrawer({
               </Select>
               {dateFilterType === 'CUSTOM' && (
                 <div className="flex items-center gap-2">
-                  <input type="date" className="h-8 bg-[var(--color-muted)] border border-[var(--color-border)] rounded-control px-2 text-xs text-[var(--color-foreground)]"
+                  <input type="date" className="h-8 bg-[var(--color-muted)] border border-slate-200 dark:border-slate-700 rounded-lg px-2 text-xs text-slate-700 dark:text-slate-300"
                     value={customRange.from} onChange={(e) => setCustomRange(prev => ({ ...prev, from: e.target.value }))} />
-                  <span className="text-[var(--color-subtle-foreground)]">-</span>
-                  <input type="date" className="h-8 bg-[var(--color-muted)] border border-[var(--color-border)] rounded-control px-2 text-xs text-[var(--color-foreground)]"
+                  <span className="text-slate-400">-</span>
+                  <input type="date" className="h-8 bg-[var(--color-muted)] border border-slate-200 dark:border-slate-700 rounded-lg px-2 text-xs text-slate-700 dark:text-slate-300"
                     value={customRange.to} onChange={(e) => setCustomRange(prev => ({ ...prev, to: e.target.value }))} />
                 </div>
               )}
@@ -412,26 +413,26 @@ export default function OrgUnitKpiDrawer({
           {isQual && (
             <>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="bg-[var(--color-primary-soft)] p-4 rounded-card border border-[var(--color-border)]">
-                  <p className="text-xs font-medium text-[var(--color-primary)] mb-1.5">Mức kết quả</p>
+                <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-2xl border border-indigo-100 dark:border-indigo-900/30">
+                  <p className="text-xs font-semibold text-[var(--color-primary)] mb-1.5">Mức kết quả</p>
                   <QualitativeResultChip level={data?.qualitativeLevelName} />
                 </div>
-                <div className="bg-[var(--color-info-bg)] p-4 rounded-card border border-[var(--color-info-border)]">
-                  <p className="text-xs font-medium text-[var(--color-info)] mb-1">Tổng bài nộp</p>
-                  <p className="text-xl font-semibold text-[var(--color-info)]">{data?.topSubmissions?.length ?? 0}</p>
+                <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-2xl border border-blue-100 dark:border-blue-900/30">
+                  <p className="text-xs font-semibold text-blue-500 mb-1">Tổng bài nộp</p>
+                  <p className="text-xl font-semibold text-blue-700 dark:text-blue-400">{data?.topSubmissions?.length ?? 0}</p>
                 </div>
               </div>
-              <div className="bg-[var(--color-card)] p-5 rounded-card border border-[var(--color-border)] shadow-sm">
-                <h3 className="text-section-title text-[var(--color-foreground)] mb-3">Phân bố mức đánh giá</h3>
+              <div className="bg-[var(--color-card)] p-5 rounded-2xl border border-[var(--color-border)] shadow-sm">
+                <h3 className="text-sm font-semibold text-[var(--color-foreground)] mb-3">Phân bố mức đánh giá</h3>
                 <QualitativeDistributionChart distribution={data?.qualitativeDistribution} />
               </div>
               {(data?.topSubmissions?.length ?? 0) > 0 && (
-                <div className="bg-[var(--color-card)] p-5 rounded-card border border-[var(--color-border)] shadow-sm">
-                  <h3 className="text-section-title text-[var(--color-foreground)] mb-3">Bài nộp gần đây</h3>
+                <div className="bg-[var(--color-card)] p-5 rounded-2xl border border-[var(--color-border)] shadow-sm">
+                  <h3 className="text-sm font-semibold text-[var(--color-foreground)] mb-3">Bài nộp gần đây</h3>
                   <div className="space-y-2">
                     {data!.topSubmissions.map((s, i) => (
-                      <div key={i} className="flex items-center justify-between gap-3 rounded-card border border-[var(--color-border)] px-3 py-2">
-                        <span className="text-sm font-medium text-[var(--color-foreground)] truncate">{s.submitterName}</span>
+                      <div key={i} className="flex items-center justify-between gap-3 rounded-lg border border-[var(--color-border)] px-3 py-2">
+                        <span className="text-sm font-semibold text-[var(--color-foreground)] truncate">{s.submitterName}</span>
                         <QualitativeResultChip level={s.qualitativeLevelName} />
                       </div>
                     ))}
@@ -444,36 +445,36 @@ export default function OrgUnitKpiDrawer({
           {/* Metrics số — chỉ tiến độ (KPI định lượng) */}
           {!isQual && (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div className="bg-[var(--color-muted)] p-4 rounded-card border border-[var(--color-border)]">
-              <p className="text-caption mb-1">Mục tiêu yêu cầu</p>
+            <div className="bg-slate-50 dark:bg-slate-900/60 p-4 rounded-2xl border border-[var(--color-border)]">
+              <p className="text-xs font-medium text-slate-500 mb-1">Mục tiêu yêu cầu</p>
               <p className="text-xl font-semibold text-[var(--color-foreground)]">
-                {data?.targetValue?.toLocaleString('vi-VN')} <span className="text-xs font-medium text-[var(--color-muted-foreground)]">{data?.unit}</span>
+                {data?.targetValue?.toLocaleString('vi-VN')} <span className="text-xs font-medium text-slate-500">{data?.unit}</span>
               </p>
             </div>
-            <div className="bg-[var(--color-primary-soft)] p-4 rounded-card border border-[var(--color-border)]">
-              <p className="text-xs font-medium text-[var(--color-primary)] mb-1">Lũy kế tổng</p>
-              <p className="text-xl font-semibold text-[var(--color-primary)]">
-                {data?.totalActualValue?.toLocaleString('vi-VN')} <span className="text-xs font-medium text-[var(--color-primary)]">{data?.unit}</span>
+            <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-2xl border border-indigo-100 dark:border-indigo-900/30">
+              <p className="text-xs font-semibold text-[var(--color-primary)] mb-1">Lũy kế tổng</p>
+              <p className="text-xl font-semibold text-indigo-700 dark:text-indigo-400">
+                {data?.totalActualValue?.toLocaleString('vi-VN')} <span className="text-xs font-medium text-indigo-400">{data?.unit}</span>
               </p>
-              <p className="text-xs font-medium text-[var(--color-primary)] mt-1">Đạt {data?.totalProgress?.toFixed(1)}%</p>
+              <p className="text-xs font-semibold text-[var(--color-primary)] mt-1">Đạt {data?.totalProgress?.toFixed(1)}%</p>
             </div>
-            <div className="bg-[var(--color-info-bg)] p-4 rounded-card border border-[var(--color-info-border)]">
-              <p className="text-xs font-medium text-[var(--color-info)] mb-1">Tổng bài nộp</p>
-              <p className="text-xl font-semibold text-[var(--color-info)]">{data?.topSubmissions?.length ?? 0}</p>
+            <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-2xl border border-blue-100 dark:border-blue-900/30">
+              <p className="text-xs font-semibold text-blue-500 mb-1">Tổng bài nộp</p>
+              <p className="text-xl font-semibold text-blue-700 dark:text-blue-400">{data?.topSubmissions?.length ?? 0}</p>
             </div>
           </div>
           )}
 
           {/* Trend chart */}
           {!isQual && data?.chartPoints && data.chartPoints.length > 0 && (
-            <div className="bg-[var(--color-card)] rounded-widget p-6 border border-[var(--color-border)]">
+            <div className="bg-[var(--color-card)] rounded-2xl p-6 border border-[var(--color-border)]">
               {/* Header */}
               <div className="mb-4">
-                <h3 className="text-section-title text-[var(--color-foreground)] flex items-center gap-2">
+                <h3 className="text-lg font-semibold text-[var(--color-foreground)] flex items-center gap-2">
                   <Activity size={18} className="text-[var(--color-primary)]" />
                   Xu hướng tiến độ theo thời gian
                 </h3>
-                <p className="text-sm text-[var(--color-muted-foreground)] mt-1">
+                <p className="text-sm text-slate-500 mt-1">
                   So sánh lũy kế thực tế với mục tiêu theo từng mốc thời gian
                 </p>
               </div>
@@ -489,7 +490,7 @@ export default function OrgUnitKpiDrawer({
                         'px-2.5 py-1 rounded-full text-xs font-medium transition-all border',
                         activeAssignees.includes(a.userId)
                           ? 'text-white border-transparent'
-                          : 'bg-white text-[var(--color-muted-foreground)] border-[var(--color-border)] hover:border-[var(--color-border-strong)]'
+                          : 'bg-white text-slate-500 border-slate-200 hover:border-slate-300 dark:bg-slate-900 dark:border-slate-700'
                       )}
                       style={activeAssignees.includes(a.userId)
                         ? { backgroundColor: ASSIGNEE_COLORS[idx % ASSIGNEE_COLORS.length], borderColor: ASSIGNEE_COLORS[idx % ASSIGNEE_COLORS.length] }
@@ -502,15 +503,15 @@ export default function OrgUnitKpiDrawer({
                 </div>
               )}
 
-              <div className="text-caption mb-2 px-1">
+              <div className="text-xs font-medium text-slate-400 dark:text-slate-500 mb-2 px-1">
                 <span>Đơn vị ({data.unit || ''})</span>
               </div>
               <div className="h-[320px]">
                 <ResponsiveContainer width="100%" height="100%">
-                  <ComposedChart data={trendChartData} margin={{ top: 10, right: 10, left: 0, bottom: 5 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="#e2e8f0" />
+                  <ComposedChart data={trendChartData} margin={{ top: 10, right: 10, left: 14, bottom: 5 }}>
+                    <CartesianGrid stroke="var(--color-border)" vertical={false} />
                     <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} />
-                    <YAxis yAxisId="left" orientation="left" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} />
+                    <YAxis yAxisId="left" orientation="left" label={yAxisLabel('Giá trị đạt')} axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} />
                     <Tooltip content={<TrendTooltip />} cursor={{ fill: '#94a3b8', opacity: 0.06 }} />
                     <Legend wrapperStyle={{ fontSize: '11px', fontWeight: 'bold' }} />
                     <Line yAxisId="left" type="step" dataKey="targetValue" name="Mục tiêu" stroke="#ef4444" strokeWidth={2} dot={false} strokeDasharray="5 5" />
@@ -531,13 +532,13 @@ export default function OrgUnitKpiDrawer({
 
           {/* ── Top người đảm nhiệm ──────────────────────────────────────────── */}
           {!isQual && data?.assigneeStats && data.assigneeStats.length > 0 && (
-            <div className="bg-[var(--color-card)] rounded-widget p-6 border border-[var(--color-border)]">
+            <div className="bg-[var(--color-card)] rounded-2xl p-6 border border-[var(--color-border)]">
               <div className="flex items-center gap-2.5 mb-6">
-                <div className="p-2 bg-[var(--color-warning-solid)] rounded-card">
-                  <Users size={16} className="text-white" />
+                <div className="p-2 bg-[var(--color-muted)] text-slate-500 rounded-lg">
+                  <Users size={16} />
                 </div>
                 <div>
-                  <h3 className="text-section-title">Top người đảm nhiệm</h3>
+                  <h3 className="text-sm font-semibold text-[var(--color-foreground)]">Top người đảm nhiệm</h3>
                   <p className="text-xs text-[var(--color-muted-foreground)]">Tiến độ hoàn thành theo từng người thực hiện</p>
                 </div>
               </div>
@@ -558,13 +559,13 @@ export default function OrgUnitKpiDrawer({
 
           {/* ── Top bài nộp ──────────────────────────────────────────────────── */}
           {!isQual && data?.topSubmissions && data.topSubmissions.length > 0 && (
-            <div className="bg-[var(--color-card)] rounded-widget p-6 border border-[var(--color-border)]">
+            <div className="bg-[var(--color-card)] rounded-2xl p-6 border border-[var(--color-border)]">
               <div className="flex items-center gap-2.5 mb-6">
-                <div className="p-2 bg-[var(--color-primary)] rounded-card">
-                  <ClipboardList size={16} className="text-white" />
+                <div className="p-2 bg-[var(--color-muted)] text-slate-500 rounded-lg">
+                  <ClipboardList size={16} />
                 </div>
                 <div>
-                  <h3 className="text-section-title">Top bài nộp</h3>
+                  <h3 className="text-sm font-semibold text-[var(--color-foreground)]">Top bài nộp</h3>
                   <p className="text-xs text-[var(--color-muted-foreground)]">Tiến độ đóng góp theo từng bài nộp</p>
                 </div>
               </div>

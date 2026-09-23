@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { HeartHandshake } from 'lucide-react'
 import WorkspaceHeader from '@/components/common/WorkspaceHeader'
+import AiShortcutButton from '@/features/analytics/components/AiShortcutButton'
+import { aiShortcuts } from '@/features/analytics/aiShortcuts'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import EmptyState from '@/components/common/EmptyState'
 import { useAuthStore } from '@/store/authStore'
@@ -51,6 +53,7 @@ export default function MyConductPage() {
               ]
             : undefined
         }
+        actions={<AiShortcutButton prompt={aiShortcuts.myConduct()} title="K.AI đọc phiếu hạnh kiểm của bạn: tự chấm, quản lý chấm, tiêu chí còn thiếu dẫn chứng" />}
       >
         <div id="tour-my-conduct-target" className="flex flex-wrap items-center gap-3">
           <ConductTargetPicker organizationId={orgId} value={target} onChange={setTarget} />

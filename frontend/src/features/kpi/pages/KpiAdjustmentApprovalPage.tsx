@@ -20,6 +20,9 @@ import {
   ChevronsDownUp, ChevronsUpDown, Inbox, ArrowRight,
 } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
+import { usePermission } from '@/hooks/usePermission'
+import AiShortcutButton from '@/features/analytics/components/AiShortcutButton'
+import { aiShortcuts } from '@/features/analytics/aiShortcuts'
 import { useKpiPeriods } from '../hooks/useKpiPeriods'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
@@ -142,6 +145,7 @@ export default function KpiAdjustmentApprovalPage() {
   const [activeTab, setActiveTab] = useState<AdjustmentTab>(() => readTab(searchParams.get('tab')))
   
   const [selectedPeriodId, setSelectedPeriodId] = useState('ALL')
+  const { hasPermission } = usePermission()
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(0)
   const [selectedObjectiveId, setSelectedObjectiveId] = useState<string>('ALL')
@@ -505,6 +509,13 @@ export default function KpiAdjustmentApprovalPage() {
           { label: 'Đã duyệt', value: stats.approved, icon: CheckCircle },
           { label: 'Đã từ chối', value: stats.rejected, icon: Undo2 },
         ]}
+        actions={hasPermission('KPI:APPROVE_ADJUSTMENT') && (
+          <AiShortcutButton
+            label="Duyệt bằng K.AI"
+            prompt={aiShortcuts.reviewAdjustments()}
+            title="K.AI liệt kê các yêu cầu điều chỉnh đang chờ và chờ bạn xác nhận"
+          />
+        )}
       />
 
       <FilterBar

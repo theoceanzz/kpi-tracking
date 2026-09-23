@@ -15,6 +15,7 @@ import { useChatFileDrop } from '../hooks/useChatFileDrop'
 import EvidenceDropCard from '../components/EvidenceDropCard'
 import PendingActionCard from '../components/PendingActionCard'
 import { useFormAssistStore } from '@/store/formAssistStore'
+import { useAiAssistantStore } from '@/store/aiAssistantStore'
 import ThinkingSummary from '../components/ThinkingSummary'
 import AnswerMarkdown from '../components/AnswerMarkdown'
 import { useStageProgress } from '../hooks/useStageProgress'
@@ -178,6 +179,22 @@ export default function AiAssistantPage() {
 
   useEffect(() => { loadInsights() }, [loadInsights])
 
+  // Câu hỏi soạn sẵn từ nút "K.AI" trên trang (bong bóng không mount ở trang này nên trang tự
+  // tiêu thụ). Hook phải đứng TRÊN lối thoát sớm bên dưới; sendMessage khai báo sau nên đi qua ref.
+  const pendingAsk = useAiAssistantStore(s => s.pending)
+  const takeAsk = useAiAssistantStore(s => s.take)
+  const lastAskIdRef = useRef<number | null>(null)
+  const sendRef = useRef<((text: string, insight?: InsightCard | null, opts?: { focusUnitId?: string }) => Promise<void>) | null>(null)
+  useEffect(() => {
+    if (!pendingAsk || isLoading || lastAskIdRef.current === pendingAsk.id) return
+    lastAskIdRef.current = pendingAsk.id
+    takeAsk(pendingAsk.id)
+    setInput('')
+    setSelectedQuestion('')
+    activeInsightRef.current = null
+    void sendRef.current?.(pendingAsk.prompt, null, { focusUnitId: pendingAsk.focusUnitId })
+  }, [pendingAsk, isLoading, takeAsk])
+
   if (org && org.enableAi === false) return <AiDisabledPage />
 
   const handleNewChat = () => {
@@ -277,7 +294,7 @@ export default function AiAssistantPage() {
     }
   }
 
-  const sendMessage = async (text: string, insight?: InsightCard | null) => {
+  const sendMessage = async (text: string, insight?: InsightCard | null, opts?: { focusUnitId?: string }) => {
     const userMsg = text.trim()
     if (!userMsg || isLoading) return
 
@@ -302,8 +319,8 @@ export default function AiAssistantPage() {
         setConversations(prev => [conv, ...prev])
       }
 
-      const focusUnitId =
-        insight?.context?.entityType === 'ORG_UNIT' ? insight.context.entityId : undefined
+      const focusUnitId = opts?.focusUnitId
+        ?? (insight?.context?.entityType === 'ORG_UNIT' ? insight.context.entityId : undefined)
       // Hộp chứa thay vì biến let: TypeScript không theo dõi được phép gán bên trong callback,
       // nên với `let` nó thu hẹp kiểu thành never sau phép kiểm null.
       const box: { value: AiChatResponse | null } = { value: null }
@@ -320,7 +337,8 @@ export default function AiAssistantPage() {
         {
           onStage: pushStage,
           onDone: r => { box.value = r },
-          onError: message => { throw new Error(message) },
+          // Ném NGUYÊN lỗi: nó đã mang mã HTTP và câu của backend (xem aiApi.streamError).
+          onError: err => { throw err },
         },
       )
       const { seconds, steps } = endTurn()
@@ -388,6 +406,8 @@ export default function AiAssistantPage() {
       endTurn()
     }
   }
+
+  sendRef.current = sendMessage
 
   const handleSend = () => {
     if (!input.trim() || isLoading) return
@@ -575,6 +595,7 @@ export default function AiAssistantPage() {
                         )}
 
                         {/* Vùng thả minh chứng, khi trợ lý vừa mời người dùng gửi tài liệu */}
+
                         {msg.role === 'assistant' && msg.pendingAction && (
                           <PendingActionCard
                             action={msg.pendingAction}
@@ -652,7 +673,7 @@ export default function AiAssistantPage() {
             <div className="mx-auto max-w-4xl">
               <PinnedChips sink={fileSink} />
               <AttachedChips sink={fileSink} />
-              <div className="flex items-center gap-2 rounded-card border border-[var(--color-border)] bg-[var(--color-card)] py-2 pl-3 pr-2 shadow-sm transition-colors focus-within:border-[var(--color-ai-accent)] focus-within:ring-2 focus-within:ring-[var(--color-ai-accent)]">
+              <div className="ai-composer flex items-center gap-2 rounded-card border border-[var(--color-border)] bg-[var(--color-card)] py-2 pl-3 pr-2 shadow-sm transition-[border-color,box-shadow]">
                 <EvidenceAttachBar sink={fileSink} disabled={isLoading || loadingMessages} />
                 <textarea
                   ref={textareaRef}

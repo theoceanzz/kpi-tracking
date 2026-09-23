@@ -13,11 +13,14 @@ import { useFormAssistStore } from '@/store/formAssistStore'
 import { MicButton } from '@/components/common/MicButton'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { getScoringFunctions, SCORING_POOL, describePerspectiveScore } from '@/lib/scoring'
-import { Loader2, Star, Target, Zap, CheckCircle2, MessageSquare, Sparkles, Lock, Layers, AlertTriangle } from 'lucide-react'
+import { Loader2, Zap, CheckCircle2, MessageSquare, Lock, Layers, AlertTriangle } from 'lucide-react'
 import { Dialog, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { useMemo, useEffect, useRef, type ReactNode } from 'react'
+import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
+import { Section, ScoreRow, RefStat, Collapsible } from '@/components/common/ScoreForm'
+import { useMemo, useEffect, useRef } from 'react'
 import { BscScoringMode, type PerspectiveScoreResponse } from '@/features/bsc/types'
 import { useQuery } from '@tanstack/react-query'
 import { evaluationApi } from '../api/evaluationApi'
@@ -29,9 +32,18 @@ interface EvaluationFormModalProps {
   onClose: () => void
   readOnly?: boolean
   initialPeriodId?: string
+  /** `inline` bỏ lớp phủ và nút đóng để nhúng thẳng vào một trang (trình thiết lập KPI). */
+  variant?: 'modal' | 'inline'
+  /**
+   * Có thì thay hẳn phần tự điều hướng sau khi lưu — chủ trang quyết định đi đâu.
+   *
+   * Cần thiết khi nhúng: mặc định form gọi `goToNext` rồi `navigate('/evaluations')`, tức là lưu
+   * xong lại đá người dùng ra khỏi trang đang đứng.
+   */
+  onSaved?: () => void
 }
 
-export default function EvaluationFormModal({ open, onClose, readOnly = false, initialPeriodId }: EvaluationFormModalProps) {
+export default function EvaluationFormModal({ open, onClose, readOnly = false, initialPeriodId, variant = 'modal', onSaved }: EvaluationFormModalProps) {
   const { user } = useAuthStore()
   /** Ô đang thật sự sửa được, cho trợ lý AI. Cập nhật bằng effect riêng bên dưới — điều kiện
    *  khoá điểm khai báo SAU chỗ đăng ký nên không đưa thẳng vào deps được. */
@@ -188,6 +200,14 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
     createMutation.mutate(data, {
       onSuccess: () => {
         reset()
+
+        // Chủ trang đã nhận việc điều hướng thì dừng ở đây — nhúng trong một luồng khác mà vẫn tự
+        // nhảy đi là kéo người dùng ra khỏi trang họ đang đứng.
+        if (onSaved) {
+          onSaved()
+          return
+        }
+
         onClose()
 
         // Đích lấy từ cấu hình luồng thay vì đoán qua roleRank rồi điều hướng cứng. Hai cái lợi:
@@ -200,211 +220,232 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
     })
   }
 
+  const isInline = variant === 'inline'
+  // isSubmitting phủ cả nhịp lưu phiếu hạnh kiểm chạy trước khi gọi createMutation — không có nó,
+  // bấm hai lần là lưu phiếu hai lần.
+  const busy = createMutation.isPending || formState.isSubmitting
+
+  const submitButton = (
+    <Button type="submit" form="evaluation-form" disabled={busy || !selectedPeriodId}>
+      {busy && <Loader2 className="animate-spin" aria-hidden="true" />}
+      Gửi đánh giá
+    </Button>
+  )
+
+  const body = (
+    <div className="p-5 md:p-6">
+      <form id="evaluation-form" onSubmit={handleSubmit(onSubmit)} className="space-y-6">
+        <input type="hidden" {...register('userId')} />
+        <input type="hidden" {...register('kpiPeriodId')} />
+
+        {/* ── 1. Bối cảnh: chấm cho đợt nào, dựa trên những con số nào ───────────────
+            Trước đây đợt và "kết quả đo lường" là hai khối rời nhau, còn điểm hệ thống hiện
+            to gần bằng ô điểm bên dưới nên màn hình có HAI con số 68 cỡ lớn — người dùng
+            không biết cái nào là điểm mình đang chấm. */}
+        <Section title="Bối cảnh" hint={filteredPeriods.length ? `${filteredPeriods.length} đợt bạn có KPI` : undefined}>
+          <div className="rounded-card border border-[var(--color-border)]">
+            <ScoreRow
+              label={<>Đợt đánh giá {!readOnly && <span className="text-[var(--color-error)]">*</span>}</>}
+              hint="Đợt bạn có KPI"
+            >
+              <Select
+                value={selectedPeriodId || undefined}
+                onValueChange={(v) => setValue('kpiPeriodId', v, { shouldValidate: true, shouldDirty: true })}
+                disabled={readOnly}
+              >
+                <SelectTrigger className="w-full sm:max-w-xs" aria-label="Đợt đánh giá">
+                  <SelectValue placeholder="Lựa chọn kỳ đánh giá" />
+                </SelectTrigger>
+                <SelectContent>
+                  {filteredPeriods.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                </SelectContent>
+              </Select>
+            </ScoreRow>
+          </div>
+
+          {selectedPeriodId && (
+            <MeasurementPanel
+              maxScore={maxScore}
+              calculatedScore={calculatedScore}
+              noQuantScore={noQuantScore}
+              isBscOfficial={isBscOfficial}
+              completionPct={completionPct}
+              matrixRating={matrixRating}
+              behaviorScore={behaviorScore}
+              systemScore={rawSystemScore}
+              bscScore={bscScore}
+              bscMode={bscMode}
+              bscPerspectives={bscPerspectives}
+              bscUnassigned={bscUnassigned}
+              readOnly={readOnly}
+            />
+          )}
+        </Section>
+
+        {/* ── 2. Bạn tự chấm: cùng khuôn "nhãn | ô nhập" với phiếu chấm của quản lý ── */}
+        {selectedPeriodId && (
+          <Section title="Bạn tự chấm" hint={readOnly ? 'Chế độ chỉ xem' : undefined}>
+            <div className="divide-y divide-[var(--color-border)] rounded-card border border-[var(--color-border)]">
+              <ScoreRow
+                label={<>Điểm tự đánh giá {!readOnly && <span className="text-[var(--color-error)]">*</span>}</>}
+                hint={isBscOfficial ? 'Khoá theo điểm BSC chính thức'
+                  : noQuantScore ? `KPI toàn định tính · cố định ${SCORING_POOL}`
+                  : `Hệ thống tính ${trim(calculatedScore)}`}
+                trailing={!readOnly && !scoreLocked && !noQuantScore && calculatedScore > 0 && displayScore !== calculatedScore && (
+                  <Button variant="ghost" size="sm" type="button" onClick={handleApplyCalculatedScore}
+                          title="Lấy lại đúng điểm hệ thống tự tính">
+                    <Zap aria-hidden="true" /> Dùng {trim(calculatedScore)}
+                  </Button>
+                )}
+              >
+                <div className="flex flex-wrap items-center gap-3">
+                  <Input
+                    type="number" min={0} max={scoreCeiling} step={1}
+                    value={String(currentScore ?? 0)}
+                    readOnly={readOnly || scoreLocked || noQuantScore}
+                    onChange={e => {
+                      hasManuallyEditedScore.current = true
+                      setValue('score', Number(e.target.value), { shouldValidate: true, shouldDirty: true })
+                    }}
+                    onWheel={e => e.currentTarget.blur()}
+                    suffix={<span className="text-xs">/ {scoreCeiling}</span>}
+                    className="w-32"
+                    inputClassName="text-base font-semibold tabular-nums"
+                  />
+                  <span className={cn('text-eyebrow', getScoreColor(displayScore))}>{getScoreLabel(displayScore)}</span>
+
+                  {!isBscOfficial && !noQuantScore && calculatedScore > 0 && displayScore !== calculatedScore && (
+                    <span className={cn(
+                      'text-eyebrow inline-flex items-center rounded-full px-2 py-0.5',
+                      displayScore > calculatedScore
+                        ? 'bg-[var(--color-success-bg)] text-[var(--color-success)]'
+                        : 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]',
+                    )}>
+                      {displayScore > calculatedScore ? '+' : ''}{trim(displayScore - calculatedScore)} so với hệ thống
+                    </span>
+                  )}
+                  {!readOnly && (scoreLocked || noQuantScore) && (
+                    <span className="text-caption inline-flex items-center gap-1">
+                      <Lock size={11} aria-hidden="true" /> không sửa tay
+                    </span>
+                  )}
+                </div>
+
+                {/* Thanh kéo chỉ để chấm nhanh; con số đọc ở ô trên, nên bỏ hẳn khối số 7xl
+                    và hai đầu mốc 0 / 50 / 100 vốn chiếm nguyên một màn. */}
+                {!readOnly && !scoreLocked && !noQuantScore && (
+                  <>
+                    <input
+                      type="range" min={0} max={scoreCeiling} step={1}
+                      value={currentScore}
+                      onChange={e => {
+                        hasManuallyEditedScore.current = true
+                        setValue('score', Number(e.target.value), { shouldValidate: true, shouldDirty: true })
+                      }}
+                      aria-label="Kéo để chọn điểm tự đánh giá"
+                      className="mt-3 h-1.5 w-full max-w-md cursor-pointer appearance-none rounded-full bg-[var(--color-border)]"
+                    />
+                    {bonusScore > 0 && (
+                      <p className="text-caption mt-1.5">
+                        Đạt đủ KPI = {SCORING_POOL} điểm · KPI thưởng cộng thêm tối đa {trim(bonusScore)}
+                      </p>
+                    )}
+                  </>
+                )}
+              </ScoreRow>
+
+              {/* Hạnh kiểm nằm CÙNG khối chấm: nó cũng là điểm người dùng tự cho, và là trục
+                  hành vi của ma trận xếp loại — tách thành khối riêng thì hay bị bỏ quên. */}
+              {org?.enableConduct && (
+                <ScoreRow label="Hạnh kiểm" hint="Trục hành vi · lưu khi gửi">
+                  <ConductInlineSheet
+                    ref={conductRef}
+                    hideActions
+                    target={{ scope: 'PERIOD', periodId: selectedPeriodId, cycleId: null }}
+                  />
+                </ScoreRow>
+              )}
+            </div>
+          </Section>
+        )}
+
+        {/* ── 3. Minh chứng & ý kiến ──────────────────────────────────────────────── */}
+        <Section title="Minh chứng & ý kiến">
+          {selectedPeriodIdForEvidence && user?.id && (
+            <EvidenceAttachments
+              target={evidenceKey.period(selectedPeriodIdForEvidence, user.id)}
+              readOnly={readOnly}
+              title="Minh chứng của bạn"
+            />
+          )}
+
+          <div className="space-y-2">
+            <div className="flex items-center justify-between gap-2">
+              <label className="text-label flex items-center gap-2" htmlFor="self-eval-comment">
+                <MessageSquare size={14} aria-hidden="true" /> Ý kiến cá nhân
+              </label>
+              <MicButton
+                disabled={readOnly}
+                getBaseText={() => getValues('comment') ?? ''}
+                onText={text => setValue('comment', text, { shouldValidate: true, shouldDirty: true })}
+              />
+            </div>
+            <Textarea
+              id="self-eval-comment"
+              {...register('comment')}
+              rows={3}
+              disabled={readOnly}
+              placeholder="Bạn thấy đợt này thế nào? Có khó khăn hay đề xuất gì không?"
+            />
+            {/* Thay cột mẹo bên phải: ba gạch đầu dòng chung chung + tấm thẻ tím "hãy trung
+                thực" chiếm 288px mà không nói được điều gì người dùng cần lúc đang chấm. */}
+            <p className="text-caption">
+              Điểm này là cơ sở xếp loại khen thưởng của đợt; bản đã gửi xem lại được ở mục Lịch sử.
+            </p>
+          </div>
+        </Section>
+
+        {/* Nhúng trong trang thì không có chân hộp thoại: nút gửi nằm ngay cuối form. Nút
+            quay lại đã có ở vỏ bước của wizard nên không lặp thêm "Hủy bỏ". */}
+        {isInline && !readOnly && (
+          <div className="flex justify-end border-t border-[var(--color-border)] pt-4">
+            {submitButton}
+          </div>
+        )}
+      </form>
+    </div>
+  )
+
+  // Nhúng trong trang (trình thiết lập KPI): không lớp phủ, không nút đóng — thanh bước của wizard
+  // là lối ra. Vỏ thẻ tự dựng vì StepShell ở đó chạy chế độ `bare`.
+  if (isInline) {
+    if (!open) return null
+    return (
+      <div className="overflow-hidden rounded-widget border border-[var(--color-border)] bg-[var(--color-card)] shadow-sm">
+        {body}
+      </div>
+    )
+  }
+
   return (
     <Dialog
       open={open}
       onClose={onClose}
-      size="xl"
+      size="2xl"
       flush
-      dismissible={!(createMutation.isPending || formState.isSubmitting)}
+      dismissible={!busy}
       title={readOnly ? 'Tổng kết Hiệu suất' : 'Tự đánh giá của bạn'}
       description={readOnly ? 'Xem lại kết quả nỗ lực của bạn trong đợt này.' : 'Hãy dành chút thời gian để phản ánh lại kết quả làm việc.'}
       footer={readOnly ? (
         <DialogFooter primary={<Button onClick={onClose}>Đã hiểu & đóng</Button>} />
       ) : (
         <DialogFooter
-          secondary={<Button variant="outline" onClick={onClose} disabled={createMutation.isPending || formState.isSubmitting}>Hủy bỏ</Button>}
-          primary={
-            /* isSubmitting phủ cả nhịp lưu phiếu hạnh kiểm chạy trước khi gọi
-               createMutation — không có nó, bấm hai lần là lưu phiếu hai lần. */
-            <Button type="submit" form="evaluation-form" disabled={createMutation.isPending || formState.isSubmitting || !selectedPeriodId}>
-              {(createMutation.isPending || formState.isSubmitting) && <Loader2 className="animate-spin" aria-hidden="true" />}
-              Gửi đánh giá
-            </Button>
-          }
+          secondary={<Button variant="outline" onClick={onClose} disabled={busy}>Hủy bỏ</Button>}
+          primary={submitButton}
         />
       )}
     >
-      <div className="flex flex-col lg:flex-row">
-        <div className="min-w-0 flex-1 p-5 md:p-6">
-          <form id="evaluation-form" onSubmit={handleSubmit(onSubmit)} className="space-y-8">
-             <input type="hidden" {...register('userId')} />
-
-             {/* Period Selection */}
-             <div className="space-y-4">
-                <label className="text-label flex items-center gap-2">
-                   <Target size={14} aria-hidden="true" /> Chọn đợt đánh giá <span className="text-[var(--color-error)]">*</span>
-                </label>
-                <input type="hidden" {...register('kpiPeriodId')} />
-                <Select
-                  value={selectedPeriodId || undefined}
-                  onValueChange={(v) => setValue('kpiPeriodId', v, { shouldValidate: true, shouldDirty: true })}
-                  disabled={readOnly}
-                >
-                  <SelectTrigger className="w-full" aria-label="Đợt đánh giá">
-                    <SelectValue placeholder="Lựa chọn kỳ đánh giá" />
-                  </SelectTrigger>
-                  <SelectContent className="z-[1100]">
-                    {filteredPeriods.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
-                  </SelectContent>
-                </Select>
-             </div>
-
-             {/* Results Summary if period selected */}
-             {selectedPeriodId && (
-               <MeasurementPanel
-                 maxScore={maxScore}
-                 calculatedScore={calculatedScore}
-                 noQuantScore={noQuantScore}
-                 isBscOfficial={isBscOfficial}
-                 completionPct={completionPct}
-                 matrixRating={matrixRating}
-                 behaviorScore={behaviorScore}
-                 systemScore={rawSystemScore}
-                 bscScore={bscScore}
-                 bscMode={bscMode}
-                 bscPerspectives={bscPerspectives}
-                 bscUnassigned={bscUnassigned}
-                 readOnly={readOnly}
-               />
-             )}
-
-             {/* Minh chứng tự đánh giá: cùng khoá (đợt, người) với lượt chấm của quản lý, nên quản lý mở
-                 bảng chấm đợt là thấy ngay tệp nhân viên gửi kèm. */}
-             {selectedPeriodIdForEvidence && user?.id && (
-               <EvidenceAttachments target={evidenceKey.period(selectedPeriodIdForEvidence, user.id)} readOnly={readOnly} title="Minh chứng của bạn" />
-             )}
-
-             {/* Visual Score Picker */}
-             <div className="space-y-6">
-                <div className="flex items-center justify-between">
-                   <label className="text-label flex items-center gap-2 tracking-widest">
-                     <Star size={14} /> Điểm tự đánh giá
-                   </label>
-                   {isBscOfficial ? (
-                     <span className="text-xs font-semibold text-[var(--color-primary)] flex items-center gap-1" title="Kỳ này đang chấm điểm chính thức bằng BSC nên điểm được khóa theo điểm BSC">
-                       <Lock size={10} /> Khóa theo điểm BSC
-                     </span>
-                   ) : (!readOnly && !noQuantScore && calculatedScore > 0 && (
-                     <Button variant="ghost" size="sm" type="button" onClick={handleApplyCalculatedScore}>
-                       <Zap aria-hidden="true" fill="currentColor" /> Dùng điểm hệ thống
-                     </Button>
-                   ))}
-                </div>
-
-                <div className="text-center space-y-6 py-6 bg-[var(--color-primary-soft)] rounded-card border border-[var(--color-border)]">
-                   <div className={cn("text-7xl font-semibold tracking-tighter transition-all duration-500", getScoreColor(displayScore))}>
-                      {displayScore}
-                   </div>
-                   <div className="space-y-1 relative">
-                      <p className={cn("text-sm font-semibold", getScoreColor(displayScore))}>
-                         {getScoreLabel(displayScore)}
-                      </p>
-                      
-                      {isBscOfficial && (
-                        <div className="text-eyebrow inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-[var(--color-primary-soft)] text-[var(--color-primary)]">
-                          <Lock size={9} /> Điểm chính thức theo BSC — không sửa tay
-                        </div>
-                      )}
-
-                      {!isBscOfficial && selectedPeriodId && calculatedScore > 0 && displayScore !== calculatedScore && (
-                        <div className={cn(
-"text-eyebrow inline-flex items-center gap-1.5 px-3 py-1 rounded-full",
-                          displayScore > calculatedScore 
-                           ? "bg-[var(--color-success-bg)] text-[var(--color-success)] dark:bg-[var(--color-success-bg)]" 
-                           : "bg-[var(--color-warning-bg)] text-[var(--color-warning)] dark:bg-[var(--color-warning-bg)]"
-                        )}>
-                          {displayScore > calculatedScore ? '+' : ''}{displayScore - calculatedScore} điểm so với {noQuantScore ? 'gợi ý' : 'hệ thống'}
-                        </div>
-                      )}
-                   </div>
-
-                   {!scoreLocked && !noQuantScore && (
-                      <div className="px-10">
-                        <input
-                          type="range" min={0} max={scoreCeiling} step={1}
-                          value={currentScore}
-                         onChange={(e) => {
-                           hasManuallyEditedScore.current = true
-                           setValue('score', Number(e.target.value))
-                         }}
-                         className="w-full h-2 bg-[var(--color-border)] rounded-full appearance-none cursor-pointer"
-                       />
-                        <div className="text-eyebrow flex justify-between mt-3">
-                           <span>0</span>
-                           <span>{Math.round(scoreCeiling / 2)}</span>
-                           <span>{scoreCeiling}</span>
-                        </div>
-                        {bonusScore > 0 && (
-                          <p className="text-eyebrow mt-2 text-center text-[var(--color-success)]">
-                            Đạt đủ KPI = {SCORING_POOL} điểm · thưởng thêm {bonusScore}
-                          </p>
-                        )}
-                     </div>
-                   )}
-
-                   {!readOnly && !isBscOfficial && noQuantScore && (
-                      <div className="px-10 flex justify-center">
-                         <div className="text-eyebrow inline-flex items-center gap-2 px-4 py-2 rounded-full bg-[var(--color-primary-soft)] text-[var(--color-primary)] whitespace-nowrap">
-                            <Lock size={12} className="shrink-0" /> Full định tính · Cố định điểm {SCORING_POOL}
-                         </div>
-                      </div>
-                   )}
-                </div>
-             </div>
-
-             {/* Tự chấm hạnh kiểm của chính đợt này, ngay trong luồng tự đánh giá —
-                 không phải sang "Hạnh kiểm của tôi" làm một lượt nữa. */}
-             {org?.enableConduct && selectedPeriodId && (
-               <ConductInlineSheet
-                 ref={conductRef}
-                 hideActions
-                 target={{ scope: 'PERIOD', periodId: selectedPeriodId, cycleId: null }}
-               />
-             )}
-
-             {/* Comment area */}
-             <div className="space-y-4">
-                <div className="flex items-center justify-between gap-2">
-                   <label className="text-label flex items-center gap-2 tracking-widest">
-                      <MessageSquare size={14} /> Ý kiến cá nhân
-                   </label>
-                   <MicButton
-                      disabled={readOnly}
-                      getBaseText={() => getValues("comment") ?? ""}
-                      onText={text => setValue("comment", text, { shouldValidate: true, shouldDirty: true })}
-                   />
-                </div>
-                <textarea 
-                 {...register('comment')} 
-                 rows={4}
-                 disabled={readOnly}
-                 className="w-full px-6 py-5 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] text-sm font-medium focus:ring-4 focus:ring-[var(--color-ring)] outline-none resize-none transition-all disabled:opacity-70"
-                 placeholder="Bạn cảm thấy thế nào về kết quả đợt này? Có khó khăn hay đề xuất gì không?"
-                />
-             </div>
-          </form>
-        </div>
-
-        {/* Side Context Area (Optional) */}
-        <div className="hidden w-72 shrink-0 border-l border-[var(--color-border)] bg-[var(--color-muted)] p-5 lg:block">
-           <div className="space-y-8">
-              <div>
-                 <h5 className="text-eyebrow mb-4">Ghi chú quan trọng</h5>
-                 <ul className="space-y-4">
-                    <SideTip text="Kết quả đánh giá sẽ là cơ sở cho việc xếp loại khen thưởng định kỳ." />
-                    <SideTip text="Hệ thống tự động đề xuất điểm dựa trên kết quả nộp bài của bạn." />
-                    <SideTip text="Bạn có thể xem lại bản đánh giá này trong mục Lịch sử." />
-                 </ul>
-              </div>
-              
-              <div className="p-5 rounded-card bg-[var(--color-primary)] text-[var(--color-primary-foreground)]">
-                 <Sparkles size={20} className="mb-3" />
-                 <p className="text-xs font-medium leading-relaxed">Sự trung thực trong tự đánh giá giúp chúng ta cải thiện hiệu suất tốt hơn!</p>
-              </div>
-           </div>
-        </div>
-      </div>
+      {body}
     </Dialog>
   )
 }
@@ -413,13 +454,13 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
 const trim = (v: number) => Number(v.toFixed(1)).toString()
 
 /**
- * Khối "Kết quả đo lường" — ba con số của một đợt: điểm hệ thống, xếp loại ma trận và
- * điểm BSC.
+ * Khối "Cơ sở đo lường" — những con số CÓ SẴN của đợt, đặt cạnh nhau để người dùng biết
+ * mình đang chấm dựa trên cái gì: điểm hệ thống, mức hoàn thành, xếp loại ma trận, điểm BSC.
  *
- * Trước đây cả ba đứng ngang hàng, cùng cỡ chữ, nên không ai biết con số nào thật sự
- * thành điểm đánh giá của mình. Ở đây CHỈ con số sẽ được dùng làm điểm đứng ở khối lớn
- * trên cùng (BSC khi kỳ chấm chính thức bằng BSC, còn lại là điểm hệ thống), hai số kia
- * lùi xuống thành dòng tham chiếu.
+ * Trước đây mỗi con số là một tấm thẻ cao 72px xếp dọc, con số đầu để cỡ 4xl — to ngang ô
+ * điểm tự chấm bên dưới, nên màn hình có hai số lớn và không ai biết số nào là điểm của mình.
+ * Ở đây tất cả là thẻ số nhỏ dùng chung `RefStat` với phiếu chấm đợt / chốt kỳ; con số SẼ
+ * thành điểm được tô màu chính và ghi rõ "hệ thống đề xuất", còn chi tiết BSC gập lại.
  */
 function MeasurementPanel({
   maxScore, calculatedScore, noQuantScore, isBscOfficial, completionPct,
@@ -440,186 +481,115 @@ function MeasurementPanel({
   bscUnassigned: string[]
   readOnly: boolean
 }) {
-  const heroCaption = isBscOfficial
-    ? 'Kỳ này chấm chính thức bằng BSC — ô điểm bên dưới khoá theo con số này'
+  const basis = isBscOfficial
+    ? 'Kỳ này chấm chính thức bằng BSC — ô điểm bên dưới khoá theo con số này.'
     : noQuantScore
-      ? 'KPI toàn định tính — không có phần định lượng để tính, hệ thống đề xuất trọn thang điểm'
+      ? 'KPI toàn định tính, không có phần định lượng để tính — hệ thống đề xuất trọn thang điểm.'
       : completionPct != null
-        ? `Hoàn thành ${Math.round(completionPct)}% chỉ tiêu định lượng đã duyệt`
-        : 'Tính từ kết quả các chỉ tiêu đã được duyệt'
+        ? `Tính từ ${Math.round(completionPct)}% chỉ tiêu định lượng đã duyệt.`
+        : 'Tính từ kết quả các chỉ tiêu đã được duyệt.'
 
   return (
-    <div className="p-5 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)] space-y-3">
-      <h4 className="text-eyebrow px-1">Kết quả đo lường</h4>
-
-      {/* Con số sẽ thành điểm — to nhất, nền trắng, tách hẳn khỏi hai dòng tham chiếu. */}
-      <div className="flex items-center justify-between gap-4 p-4 rounded-widget bg-[var(--color-card)] border border-[var(--color-border)]">
-        <div className="min-w-0">
-          <p className="text-eyebrow flex items-center gap-1.5">
-            {isBscOfficial
-              ? <Layers size={13} className="text-[var(--color-primary)] shrink-0" />
-              : <CheckCircle2 size={13} className="text-[var(--color-success)] shrink-0" />}
-            {isBscOfficial ? 'Điểm chính thức (BSC)' : 'Điểm hệ thống tự tính'}
-          </p>
-          <p className="mt-1 text-caption leading-relaxed">{heroCaption}</p>
-        </div>
-        <p className={cn(
-          'shrink-0 text-4xl font-semibold tracking-tighter leading-none tabular-nums',
-          isBscOfficial ? 'text-[var(--color-primary)]' : 'text-[var(--color-foreground)]'
-        )}>
-          {noQuantScore && !isBscOfficial ? '—' : trim(calculatedScore)}
-          <span className="text-base text-[var(--color-subtle-foreground)]">/{maxScore}</span>
-        </p>
-      </div>
-
-      {/* Điểm hệ thống vẫn hiện khi BSC đã thay nó — người dùng cần biết phần định lượng
-          của mình ra bao nhiêu, dù nó không còn là điểm chính thức. */}
-      {isBscOfficial && !noQuantScore && (
-        <MeasureRow
-          icon={<CheckCircle2 size={14} className="text-[var(--color-success)]" />}
-          title="Điểm hệ thống tự tính"
-          caption="Không dùng cho kỳ này vì BSC đang là điểm chính thức"
-          value={<span className="text-[var(--color-subtle-foreground)]">{trim(systemScore)}</span>}
+    <div className="space-y-2.5">
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+        <RefStat
+          tone="primary"
+          label={isBscOfficial ? 'BSC chính thức' : 'Hệ thống đề xuất'}
+          value={<>{noQuantScore && !isBscOfficial ? '—' : trim(calculatedScore)}<span className="text-sm text-[var(--color-subtle-foreground)]">/{maxScore}</span></>}
         />
-      )}
-
-      {matrixRating != null && (
-        <MeasureRow
-          icon={<Star size={14} className="text-[var(--color-info)] fill-current" />}
-          title="Xếp loại theo ma trận"
-          caption={`Tra từ hành vi ${behaviorScore != null ? behaviorScore.toFixed(1) : '—'}/5 và mức hoàn thành ${completionPct != null ? Math.round(completionPct) : 100}%`}
-          value={<span className="text-[var(--color-info)]">{matrixRating}<span className="text-sm text-[var(--color-subtle-foreground)]">/5</span></span>}
+        <RefStat
+          label="Hoàn thành"
+          value={completionPct != null ? `${Math.round(completionPct)}%` : '—'}
         />
-      )}
-
-      {bscScore != null && (
-        <MeasureRow
-          icon={<Layers size={14} className="text-[var(--color-primary)]" />}
-          title="Điểm BSC"
-          badge={isBscOfficial ? undefined : 'Song song'}
-          caption={isBscOfficial
-            ? 'Chi tiết từng hạng mục của điểm chính thức phía trên'
-            : 'Chạy song song để đối chiếu — chưa thay điểm hệ thống'}
-          value={isBscOfficial
-            ? undefined
-            : <span className="text-[var(--color-primary)]">{trim(bscScore)}</span>}
-        >
-          {bscPerspectives.length > 0 && (
-            // Bảng ba cột thay cho dãy chip: chip cũ dán "80% ×16.7%" cạnh nhau, không ai
-            // đoán được số nào là mức đạt, số nào là trọng số.
-            <div className="mt-2.5 space-y-1">
-              <div className="text-eyebrow flex items-center gap-2">
-                <span className="flex-1">Hạng mục</span>
-                <span className="w-12 text-right">Đạt</span>
-                <span className="w-14 text-right">Trọng số</span>
-              </div>
-              {bscPerspectives.map(p => {
-                const color = p.color || '#8b5cf6'
-                const pct = p.achievementPercent
-                const failedGate = p.isGate && p.gatePassed === false
-                return (
-                  <div key={p.perspectiveId} className="flex items-center gap-2" title={describePerspectiveScore(p)}>
-                    <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
-                    <span className="flex-1 min-w-0 truncate text-caption">
-                      {p.name}
-                      {p.isGate && (
-                        <span className={cn(
-'text-eyebrow ml-1.5 px-1 py-px rounded align-middle',
-                          failedGate
-                            ? 'bg-[var(--color-error-bg)] text-[var(--color-error)] dark:bg-[var(--color-error-bg)] dark:text-[var(--color-error)]'
-                            : 'bg-[var(--color-muted)] text-[var(--color-subtle-foreground)]'
-                        )}>
-                          Chặn
-                        </span>
-                      )}
-                    </span>
-                    {/* Thanh mức đạt cắt ở 100% để hạng mục vượt chỉ tiêu không đẩy tràn cột. */}
-                    <span className="hidden sm:block w-14 h-1.5 rounded-full bg-[var(--color-border)] overflow-hidden shrink-0">
-                      <span
-                        className="block h-full rounded-full"
-                        style={{ width: `${Math.min(100, Math.max(0, pct ?? 0))}%`, backgroundColor: color }}
-                      />
-                    </span>
-                    <span className={cn(
-                      'w-12 text-right text-xs font-semibold tabular-nums',
-                      failedGate ? 'text-[var(--color-error)]' : 'text-[var(--color-foreground)]'
-                    )}>
-                      {pct != null ? `${pct.toFixed(0)}%` : '—'}
-                    </span>
-                    <span className="w-14 text-right text-xs font-medium tabular-nums text-[var(--color-subtle-foreground)]">
-                      ×{p.weightPercentage}%
-                    </span>
-                  </div>
-                )
-              })}
-            </div>
-          )}
-
-          {bscUnassigned.length > 0 && (
-            <div className="mt-2.5 flex items-start gap-2 p-2.5 rounded-card bg-[var(--color-warning-bg)] border border-[var(--color-warning-border)]">
-              <AlertTriangle size={14} className="text-[var(--color-warning)] shrink-0 mt-0.5" />
-              <p className="text-xs text-[var(--color-warning)] font-medium leading-relaxed">
-                <b>{bscUnassigned.length} chỉ tiêu chưa gán hạng mục</b> nên không được tính vào điểm BSC: {bscUnassigned.join(', ')}.
-                {bscMode === BscScoringMode.OFFICIAL && ' Kỳ đang chấm chính thức — phải gán đủ mới chốt được đánh giá.'}
-              </p>
-            </div>
-          )}
-        </MeasureRow>
-      )}
-
-      {readOnly && (
-        <p className="px-1 text-caption italic">
-          Đây là bản tổng kết tự động sau khi tất cả chỉ tiêu đã được duyệt.
-        </p>
-      )}
-    </div>
-  )
-}
-
-/** Một dòng tham chiếu trong khối kết quả: nhãn + diễn giải bên trái, con số bên phải. */
-function MeasureRow({
-  icon, title, badge, caption, value, children,
-}: {
-  icon: ReactNode
-  title: string
-  badge?: string
-  caption: string
-  value?: ReactNode
-  children?: ReactNode
-}) {
-  return (
-    <div className="p-3.5 rounded-card bg-[var(--color-card)] border border-[var(--color-border)]">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0 flex items-start gap-2">
-          <span className="shrink-0 mt-0.5">{icon}</span>
-          <div className="min-w-0">
-            <p className="text-xs font-semibold text-[var(--color-foreground)] flex items-center gap-1.5 flex-wrap">
-              {title}
-              {badge && (
-                <span className="text-eyebrow px-1.5 py-px rounded-full bg-[var(--color-muted)]">
-                  {badge}
-                </span>
-              )}
-            </p>
-            <p className="mt-0.5 text-caption leading-relaxed">{caption}</p>
-          </div>
-        </div>
-        {value && (
-          <p className="shrink-0 text-xl font-semibold leading-none tabular-nums">{value}</p>
+        <RefStat
+          label="Xếp loại"
+          value={matrixRating != null ? <>{matrixRating}<span className="text-sm text-[var(--color-subtle-foreground)]">/5</span></> : '—'}
+        />
+        {/* Điểm hệ thống vẫn hiện khi BSC đã thay nó: người dùng cần biết phần định lượng của
+            mình ra bao nhiêu, dù nó không còn là điểm chính thức. */}
+        {isBscOfficial ? (
+          <RefStat label="Hệ thống (không dùng)" value={trim(systemScore)} />
+        ) : bscScore != null ? (
+          <RefStat label="BSC (song song)" value={trim(bscScore)} />
+        ) : (
+          <RefStat label="Hành vi" value={behaviorScore != null ? <>{behaviorScore.toFixed(1)}<span className="text-sm text-[var(--color-subtle-foreground)]">/5</span></> : '—'} />
         )}
       </div>
-      {children}
+
+      <p className="text-caption flex items-start gap-1.5">
+        {isBscOfficial
+          ? <Layers size={13} className="mt-0.5 shrink-0 text-[var(--color-primary)]" aria-hidden="true" />
+          : <CheckCircle2 size={13} className="mt-0.5 shrink-0 text-[var(--color-success)]" aria-hidden="true" />}
+        <span>
+          {basis}
+          {matrixRating != null && (
+            <> Xếp loại tra từ hành vi {behaviorScore != null ? behaviorScore.toFixed(1) : '—'}/5 và mức hoàn thành {completionPct != null ? Math.round(completionPct) : 100}%.</>
+          )}
+          {readOnly && ' Đây là bản tổng kết tự động sau khi tất cả chỉ tiêu đã được duyệt.'}
+        </span>
+      </p>
+
+      {bscUnassigned.length > 0 && (
+        <div className="flex items-start gap-2 rounded-card border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] p-2.5">
+          <AlertTriangle size={14} className="mt-0.5 shrink-0 text-[var(--color-warning)]" aria-hidden="true" />
+          <p className="text-xs font-medium leading-relaxed text-[var(--color-warning)]">
+            <b>{bscUnassigned.length} chỉ tiêu chưa gán hạng mục</b> nên không được tính vào điểm BSC: {bscUnassigned.join(', ')}.
+            {bscMode === BscScoringMode.OFFICIAL && ' Kỳ đang chấm chính thức — phải gán đủ mới chốt được đánh giá.'}
+          </p>
+        </div>
+      )}
+
+      {/* Chi tiết BSC là thứ để TRA khi thắc mắc, không phải thứ đọc mỗi lần chấm → gập lại. */}
+      {bscPerspectives.length > 0 && (
+        <Collapsible label="Chi tiết điểm BSC theo hạng mục" count={bscPerspectives.length} countLabel="hạng mục">
+          <div className="space-y-1">
+            <div className="text-eyebrow flex items-center gap-2">
+              <span className="flex-1">Hạng mục</span>
+              <span className="w-12 text-right">Đạt</span>
+              <span className="w-14 text-right">Trọng số</span>
+            </div>
+            {bscPerspectives.map(p => {
+              const color = p.color || '#8b5cf6'
+              const pct = p.achievementPercent
+              const failedGate = p.isGate && p.gatePassed === false
+              return (
+                <div key={p.perspectiveId} className="flex items-center gap-2" title={describePerspectiveScore(p)}>
+                  <span className="h-1.5 w-1.5 shrink-0 rounded-full" style={{ backgroundColor: color }} />
+                  <span className="text-caption min-w-0 flex-1 truncate">
+                    {p.name}
+                    {p.isGate && (
+                      <span className={cn(
+                        'text-eyebrow ml-1.5 rounded px-1 py-px align-middle',
+                        failedGate
+                          ? 'bg-[var(--color-error-bg)] text-[var(--color-error)]'
+                          : 'bg-[var(--color-muted)] text-[var(--color-subtle-foreground)]',
+                      )}>
+                        Chặn
+                      </span>
+                    )}
+                  </span>
+                  {/* Thanh mức đạt cắt ở 100% để hạng mục vượt chỉ tiêu không đẩy tràn cột. */}
+                  <span className="hidden h-1.5 w-14 shrink-0 overflow-hidden rounded-full bg-[var(--color-border)] sm:block">
+                    <span
+                      className="block h-full rounded-full"
+                      style={{ width: `${Math.min(100, Math.max(0, pct ?? 0))}%`, backgroundColor: color }}
+                    />
+                  </span>
+                  <span className={cn(
+                    'w-12 text-right text-xs font-semibold tabular-nums',
+                    failedGate ? 'text-[var(--color-error)]' : 'text-[var(--color-foreground)]',
+                  )}>
+                    {pct != null ? `${pct.toFixed(0)}%` : '—'}
+                  </span>
+                  <span className="w-14 text-right text-xs font-medium tabular-nums text-[var(--color-subtle-foreground)]">
+                    ×{p.weightPercentage}%
+                  </span>
+                </div>
+              )
+            })}
+          </div>
+        </Collapsible>
+      )}
     </div>
   )
 }
-
-function SideTip({ text }: { text: string }) {
-  return (
-    <li className="flex gap-3">
-       <div className="w-1.5 h-1.5 rounded-full bg-[var(--color-primary)] mt-1.5 shrink-0" />
-       <p className="text-caption leading-relaxed">{text}</p>
-    </li>
-  )
-}
-
-

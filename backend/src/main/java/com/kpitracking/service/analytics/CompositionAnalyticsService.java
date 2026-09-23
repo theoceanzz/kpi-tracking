@@ -1,10 +1,7 @@
 package com.kpitracking.service.analytics;
 
 import com.kpitracking.dto.response.stats.advanced.CompositionResponses.*;
-import com.kpitracking.repository.BscWeightHistoryRepository;
-import com.kpitracking.repository.EvaluationPerspectiveScoreRepository;
 import com.kpitracking.repository.KpiSubmissionRepository;
-import com.kpitracking.service.BscAnalyticsService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -45,9 +42,6 @@ public class CompositionAnalyticsService {
 
     private final StatsTierResolver tierResolver;
     private final KpiSubmissionRepository submissionRepository;
-    private final EvaluationPerspectiveScoreRepository perspectiveScoreRepository;
-    private final BscWeightHistoryRepository weightHistoryRepository;
-    private final BscAnalyticsService bscAnalyticsService;
 
     // ============================================================
     // T1 - Cơ cấu bài nộp theo thời gian
@@ -122,100 +116,6 @@ public class CompositionAnalyticsService {
         }
 
         return SubmissionShareResponse.builder().statuses(statusMetas()).units(units).build();
-    }
-
-    // ============================================================
-    // P2 - Cấu thành điểm BSC (thác nước)
-    // ============================================================
-
-    @Transactional(readOnly = true)
-    public BscWaterfallResponse getBscWaterfall(UUID orgUnitId, Collection<UUID> periodIds) {
-        StatsTierResolver.TierScope scope = tierResolver.resolve(orgUnitId, periodIds);
-        String mode = scope.orgId() == null ? null
-                : bscAnalyticsService.resolveScoringMode(scope.orgId(), scope.periodIds());
-
-        if (scope.isEmpty()) {
-            return BscWaterfallResponse.builder().steps(List.of()).totalScore(0.0).scoringMode(mode).build();
-        }
-
-        List<WaterfallStep> steps = new ArrayList<>();
-        double total = 0;
-        for (Object[] r : perspectiveScoreRepository.aggregateByPerspective(scope.unitIds(), scope.periodIds())) {
-            Double sumWeighted = dbl(r[6]);
-            int scored = r[9] == null ? 0 : ((Number) r[9]).intValue();
-            if (sumWeighted == null || scored == 0) continue;
-            // Chia cho số lần chấm để ra phần đóng góp TRUNG BÌNH mỗi đánh giá — cộng thẳng tổng
-            // sẽ ra một con số phụ thuộc số nhân sự, không so được giữa các kỳ.
-            double contribution = sumWeighted / scored;
-            steps.add(WaterfallStep.builder()
-                    .name((String) r[2])
-                    .color((String) r[3])
-                    .value(round1(contribution))
-                    .weightPercentage(round1(dbl(r[8])))
-                    .rawScore(round1(dbl(r[5])))
-                    .kpiCount(r[7] == null ? 0 : ((Number) r[7]).intValue())
-                    .isTotal(false)
-                    .build());
-            total += contribution;
-        }
-
-        if (!steps.isEmpty()) {
-            steps.add(WaterfallStep.builder()
-                    .name("Điểm BSC").value(round1(total)).isTotal(true).build());
-        }
-
-        return BscWaterfallResponse.builder()
-                .steps(steps).totalScore(round1(total)).scoringMode(mode).build();
-    }
-
-    // ============================================================
-    // T3 - Lịch sử thay đổi trọng số hạng mục
-    // ============================================================
-
-    @Transactional(readOnly = true)
-    public WeightHistoryResponse getWeightHistory(UUID orgUnitId, Collection<UUID> periodIds) {
-        StatsTierResolver.TierScope scope = tierResolver.resolve(orgUnitId, periodIds);
-        if (scope.orgId() == null || scope.tier() != StatsTierResolver.Tier.ORG) {
-            // Trọng số là quyết định cấp tổ chức; lịch sử đổi nó chỉ có nghĩa với người đặt ra nó.
-            return WeightHistoryResponse.builder()
-                    .perspectives(List.of()).points(List.of()).changeCount(0).build();
-        }
-
-        Map<UUID, PerspectiveMeta> metas = new LinkedHashMap<>();
-        Map<String, Double> running = new LinkedHashMap<>();
-        List<WeightPoint> points = new ArrayList<>();
-        int changes = 0;
-
-        for (Object[] r : weightHistoryRepository.weightTimelineByOrg(scope.orgId())) {
-            Instant at = (Instant) r[0];
-            UUID pid = (UUID) r[1];
-            String pname = (String) r[2];
-            metas.putIfAbsent(pid, PerspectiveMeta.builder().id(pid).name(pname).color((String) r[3]).build());
-
-            Double oldW = dbl(r[4]);
-            Double newW = dbl(r[5]);
-            // Đường bậc thang cần trạng thái ĐẦY ĐỦ tại mỗi mốc, không chỉ hạng mục vừa đổi —
-            // nên giữ một bản đồ luỹ kế và chụp lại nguyên trạng sau mỗi lần đổi.
-            running.putIfAbsent(pid.toString(), oldW);
-            running.put(pid.toString(), newW);
-
-            String who = r[7] != null ? (String) r[7] : "Không rõ";
-            String reason = r[6] != null && !((String) r[6]).isBlank() ? (String) r[6] : "Không ghi lý do";
-            points.add(WeightPoint.builder()
-                    .at(at == null ? null : at.toString())
-                    .label(at == null ? "" : DateTimeFormatter.ofPattern("dd/MM/yy").withZone(ZoneOffset.UTC).format(at))
-                    .values(new LinkedHashMap<>(running))
-                    .changeNote(String.format("%s: %s → %s (%s — %s)",
-                            pname, fmt(oldW), fmt(newW), who, reason))
-                    .build());
-            changes++;
-        }
-
-        return WeightHistoryResponse.builder()
-                .perspectives(new ArrayList<>(metas.values()))
-                .points(points)
-                .changeCount(changes)
-                .build();
     }
 
     // ============================================================

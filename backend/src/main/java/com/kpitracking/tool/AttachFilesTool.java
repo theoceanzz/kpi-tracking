@@ -1,8 +1,8 @@
 package com.kpitracking.tool;
 
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.ai.chat.model.ToolContext;
-import org.springframework.ai.tool.annotation.Tool;
+import dev.langchain4j.invocation.InvocationParameters;
+import dev.langchain4j.agent.tool.Tool;
 import org.springframework.stereotype.Component;
 
 import java.util.Collection;
@@ -18,7 +18,7 @@ import com.kpitracking.service.ai.agent.AgentState;
  * <p>Tool không đụng tới nội dung tệp: tệp không bao giờ rời trình duyệt. Nó chỉ bật một cờ để
  * client chuyển tệp từ chỗ ghim sang chỗ nhận của biểu mẫu.
  *
- * <p><b>Trạng thái đi qua {@code ToolContext}, không qua ThreadLocal.</b> Spring AI trao cùng một
+ * <p><b>Trạng thái đi qua {@code InvocationParameters}, không qua ThreadLocal.</b> langchain4j trao cùng một
  * map cho mọi lời gọi tool, nên cách này đúng ở bất kỳ luồng nào và không có gì phải dọn cuối lượt.
  * Bản trước để trong ThreadLocal kèm cả một tầng truyền tham chiếu sang luồng reactor — thứ đã hỏng
  * âm thầm đúng bốn lần. Xem {@code AgentState}.
@@ -35,7 +35,7 @@ public class AttachFilesTool {
     private static final String NO_PINNED = "{\"error\":\"Người dùng chưa ghim tệp nào nên không có gì "
             + "để đính. Hãy bảo họ bấm nút kẹp giấy cạnh ô nhập để chọn tệp trước.\"}";
 
-    @Tool(name = "attach_pinned_files", description =
+    @Tool(name = "attach_pinned_files", value =
             "Đính các tệp người dùng ĐANG GHIM ở ô chat vào biểu mẫu đang mở. "
             + "Gọi khi họ bảo đính/gắn/thêm tệp (hoặc tệp đang ghim, tài liệu vừa kẹp) vào biểu mẫu, "
             + "vào mục tài liệu chứng minh, hoặc nói đại ý \"dùng tệp này đi\". "
@@ -44,13 +44,13 @@ public class AttachFilesTool {
             + "ĐỪNG tự gọi khi họ chỉ ghim tệp rồi hỏi chuyện khác — chờ họ bảo. "
             + "Bạn KHÔNG đọc được nội dung tệp, chỉ biết tên. "
             + "reason: một câu ngắn nói vì sao đính.")
-    public String attachPinnedFiles(AttachFilesRequest request, ToolContext context) {
+    public String attachPinnedFiles(AttachFilesRequest request, InvocationParameters context) {
         // Hai chốt chặn TẤT ĐỊNH. Dặn model thì đo được là không đáng tin bằng chặn, và bịa ra một
         // việc "đã đính" trong khi chẳng có gì đính được là đúng loại hứa suông đã phải đi sửa.
-        if (!Boolean.TRUE.equals(context.getContext().get("openFormAcceptsFiles"))) {
+        if (!Boolean.TRUE.equals(context.get("openFormAcceptsFiles"))) {
             return NO_SINK;
         }
-        Object pinned = context.getContext().get("pinnedFileNames");
+        Object pinned = context.get("pinnedFileNames");
         if (!(pinned instanceof Collection<?> names) || names.isEmpty()) {
             return NO_PINNED;
         }

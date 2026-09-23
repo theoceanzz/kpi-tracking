@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { platformAdminApi } from '../api/platformAdminApi'
 import type { OrganizationAdminItem } from '../api/platformAdminApi'
 import AiUsageSection from '../components/AiUsageSection'
+import GuideDocumentsSection from '../components/GuideDocumentsSection'
 import { Building2, Users, Target, FileText, Bot, TrendingUp } from 'lucide-react'
 import { toast } from 'sonner'
 import { getApiErrorMessage } from '@/lib/apiError'
@@ -233,6 +234,8 @@ export default function PlatformAdminPage() {
 
       {/* Ngân sách và tiêu thụ token AI theo từng công ty */}
       <AiUsageSection />
+
+      <GuideDocumentsSection />
     </div>
   )
 }

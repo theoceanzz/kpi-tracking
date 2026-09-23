@@ -16,7 +16,7 @@ export function KpiPeriodCell({
   end: string | null
   className?: string
 }) {
-  const fmt = (d: string | null) => (d ? format(new Date(d), 'dd/MM/yyyy') : '—')
+  const fmt = (d: string | null) => (d ? format(new Date(d), 'dd/MM/yyyy') : '-')
   return (
     <div className={cn('inline-flex flex-col gap-1 text-xs', className)}>
       {periodName && (

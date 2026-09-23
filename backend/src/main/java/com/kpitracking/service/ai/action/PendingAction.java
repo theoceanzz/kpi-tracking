@@ -2,6 +2,7 @@ package com.kpitracking.service.ai.action;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 /**
@@ -48,7 +49,12 @@ public record PendingAction(
      * @param label     tên người dùng đọc được, vd "Nguyễn Văn Staff — Số task hoàn thành"
      * @param detail    thông tin phụ giúp thẩm định, vd "kỳ Tháng 6/2026, đạt 12/10"
      */
-    public record Item(UUID id, UUID relatedId, String label, String detail) {}
+    public record Item(UUID id, UUID relatedId, String label, String detail, Map<String, Object> params) {
+        /** Bốn loại việc đầu tiên không cần tham số số học. */
+        public Item(UUID id, UUID relatedId, String label, String detail) {
+            this(id, relatedId, label, detail, null);
+        }
+    }
 
     public enum Kind {
         /** Duyệt / từ chối bản nộp KPI. */
@@ -58,7 +64,19 @@ public record PendingAction(
         /** Duyệt / từ chối yêu cầu điều chỉnh KPI. */
         KPI_ADJUSTMENT_REVIEW,
         /** Nhắc người chưa nộp. Không có chiều từ chối. */
-        SEND_REMINDER
+        SEND_REMINDER,
+        /** Gửi duyệt chỉ tiêu KPI nháp. Không có chiều từ chối. */
+        KPI_SUBMIT,
+        /** Duyệt / từ chối đề xuất thưởng điểm. */
+        REWARD_GRANT_REVIEW,
+        /** Chốt đợt đánh giá của một đơn vị. {@code id} = đơn vị, {@code relatedId} = đợt, {@code note} = nhận xét. */
+        CYCLE_FINALIZE,
+        /** Mở lại đợt đánh giá của một đơn vị. */
+        CYCLE_REOPEN,
+        /** Gửi email kết quả đợt cho thành viên của một đơn vị. */
+        CYCLE_SEND,
+        /** Tạo chỉ tiêu con cho một đơn vị con. {@code id} = đơn vị con, {@code relatedId} = chỉ tiêu cha, {@code params} = mục tiêu/trọng số/loại quan hệ. */
+        KPI_DECOMPOSE
     }
 
     public enum Decision { APPROVE, REJECT }

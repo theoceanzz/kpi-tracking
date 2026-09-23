@@ -14,7 +14,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
-import org.springframework.ai.chat.model.ToolContext;
+import dev.langchain4j.invocation.InvocationParameters;
 
 import java.util.List;
 import java.util.Map;
@@ -81,8 +81,8 @@ class ToolSupportTest {
     }
 
     /** Ngữ cảnh của một quản lý Phòng IT. */
-    private ToolContext contextOfItManager() {
-        return new ToolContext(Map.of(
+    private InvocationParameters contextOfItManager() {
+        return new InvocationParameters(Map.of(
                 "orgUnitId", UUID.randomUUID().toString(),
                 "organizationId", UUID.randomUUID().toString(),
                 "orgUnitPath", IT,
@@ -157,7 +157,7 @@ class ToolSupportTest {
         @DisplayName("không có orgUnitPath trong ngữ cảnh thì bỏ qua kiểm tra")
         void skipsWhenNoContextPath() {
             UUID unit = stubUnitAtPath(MARKETING);
-            assertThatCode(() -> support.validateSubtreeAccess(unit, new ToolContext(Map.of())))
+            assertThatCode(() -> support.validateSubtreeAccess(unit, new InvocationParameters(Map.of())))
                     .doesNotThrowAnyException();
         }
     }
@@ -288,6 +288,70 @@ class ToolSupportTest {
         }
 
         @Test
+        @DisplayName("\"công ty\" / \"toàn tổ chức\" / \"đơn vị của tôi\" không phải tên đơn vị -> lùi về đơn vị hiện tại, không hỏi lại")
+        void wholeScopeAliasFallsBackToCurrentUnit() {
+            when(orgUnitStatisticService.searchOrgUnits(any(), anyString(), anyInt())).thenReturn(List.of());
+            InvocationParameters ctx = contextOfItManager();
+            UUID current = UUID.fromString(String.valueOf(ctx.<Object>get("orgUnitId")));
+
+            for (String alias : List.of("Công ty", "toàn công ty", "Toàn bộ tổ chức", "đơn vị của tôi",
+                    "cả công ty này", "tổ chức hiện tại", "Doanh nghiệp")) {
+                ToolSupport.UnitRef ref = support.resolveUnit(null, alias, ctx);
+                assertThat(ref.clarification()).as(alias).isNull();
+                assertThat(ref.id()).as(alias).isEqualTo(current);
+            }
+        }
+
+        @Test
+        @DisplayName("lùi về đơn vị hiện tại thì lời gọi tool kế tiếp mang scopeNote nêu tên đơn vị, và chỉ một lần")
+        void fallbackAnnotatesNextToolPayload() throws Exception {
+            when(orgUnitStatisticService.searchOrgUnits(any(), anyString(), anyInt())).thenReturn(List.of());
+            UUID current = stubUnitAtPath(IT);
+            com.kpitracking.service.ai.AiTurn turn = new com.kpitracking.service.ai.AiTurn("q", null, null);
+            com.kpitracking.service.ai.agent.AgentState state = new com.kpitracking.service.ai.agent.AgentState(turn);
+            InvocationParameters ctx = new InvocationParameters(Map.of(
+                    "orgUnitId", current.toString(), "organizationId", UUID.randomUUID().toString(),
+                    "orgUnitPath", IT, com.kpitracking.service.ai.agent.AgentState.CONTEXT_KEY, state));
+
+            ToolSupport.UnitRef ref = support.resolveUnit(null, "toàn công ty", ctx);
+            String first = support.respond(ctx, "get_kpi", Map.of("total", 3));
+            String second = support.respond(ctx, "get_kpi", Map.of("total", 3));
+
+            assertThat(ref.id()).isEqualTo(current);
+            assertThat(first).contains("scopeNote").contains("toàn công ty").contains("\"total\":3");
+            assertThat(second).doesNotContain("scopeNote");
+        }
+
+        @Test
+        @DisplayName("scoped(): payload tổng hợp mang tên đơn vị lên đầu; không phải Map thì trả nguyên")
+        void scopedPrependsUnitName() {
+            UUID unitId = UUID.randomUUID();
+            when(orgUnitRepository.findById(unitId))
+                    .thenReturn(Optional.of(OrgUnit.builder().id(unitId).path(IT).name("Phòng IT").build()));
+
+            Object out = support.scoped(new java.util.LinkedHashMap<>(Map.of("totalKpis", 80)), unitId);
+
+            assertThat(out).isInstanceOf(Map.class);
+            @SuppressWarnings("unchecked") Map<String, Object> m = (Map<String, Object>) out;
+            assertThat(m.keySet().iterator().next()).isEqualTo("orgUnitName");
+            assertThat(m).containsEntry("orgUnitName", "Phòng IT").containsEntry("totalKpis", 80);
+            assertThat(support.scoped(List.of(1, 2), unitId)).isEqualTo(List.of(1, 2));
+        }
+
+        @Test
+        @DisplayName("đơn vị THẬT tên \"Công ty ABC\" vẫn thắng cách gọi chung — chỉ lùi khi không tìm thấy gì")
+        void realUnitNamedLikeAliasStillWins() {
+            UUID unitId = stubUnitAtPath(IT_BACKEND);
+            when(orgUnitStatisticService.searchOrgUnits(any(), anyString(), anyInt()))
+                    .thenReturn(List.of(Map.of("id", unitId.toString(), "name", "Công ty")));
+
+            ToolSupport.UnitRef ref = support.resolveUnit(null, "Công ty", contextOfItManager());
+
+            assertThat(ref.id()).isEqualTo(unitId);
+            assertThat(ToolSupport.isWholeScopeAlias("Phòng Marketing")).isFalse();
+        }
+
+        @Test
         @DisplayName("ưu tiên khớp CHÍNH XÁC tên để tránh mơ hồ giả")
         void prefersExactNameMatch() {
             UUID exactId = stubUnitAtPath(IT_BACKEND);
@@ -316,7 +380,7 @@ class ToolSupportTest {
         @DisplayName("không truyền tên lẫn id -> mặc định là đơn vị hiện tại")
         void defaultsToCurrentUnit() {
             UUID current = UUID.randomUUID();
-            ToolContext ctx = new ToolContext(Map.of("orgUnitId", current.toString(), "orgUnitPath", IT));
+            InvocationParameters ctx = new InvocationParameters(Map.of("orgUnitId", current.toString(), "orgUnitPath", IT));
 
             ToolSupport.UnitRef ref = support.resolveUnit(null, null, ctx);
 
@@ -335,10 +399,10 @@ class ToolSupportTest {
         void refusesArmedId() {
             UUID id = UUID.randomUUID();
             // Dùng trạng thái THẬT chứ không mock: chốt chặn nay nằm trong AgentState đi cùng
-            // ToolContext, nên test đi đúng đường mà lúc chạy thật nó đi.
+            // InvocationParameters, nên test đi đúng đường mà lúc chạy thật nó đi.
             AgentState st = AgentState.forToolsOnly();
             st.arm("user", java.util.Set.of(id));
-            ToolContext ctx = new ToolContext(java.util.Map.of(AgentState.CONTEXT_KEY, st));
+            InvocationParameters ctx = new InvocationParameters(java.util.Map.of(AgentState.CONTEXT_KEY, st));
 
             assertThatThrownBy(() -> support.guardDisambiguation("user", id, "người dùng", ctx))
                     .isInstanceOf(IllegalStateException.class)

@@ -1,5 +1,6 @@
 import axiosInstance from '@/lib/axios'
 import type { ApiResponse, PageResponse } from '@/types/api'
+import { AI_TIMEOUT, type RagChunk, type RagDocument, type RagSearchHit } from '@/features/analytics/api/aiApi'
 
 export interface PlatformAdminStats {
   totalOrgs: number
@@ -71,4 +72,30 @@ export const platformAdminApi = {
   getAiUsage: (month?: string) =>
     axiosInstance.get<ApiResponse<OrgAiUsage[]>>('/admin/ai-usage', { params: { month } })
       .then((r) => r.data.data),
+
+  // ── Bộ hướng dẫn KeyGo trong kho tri thức của trợ lý (tài liệu chung, mọi công ty dùng) ──
+  listGuideDocuments: () =>
+    axiosInstance.get<ApiResponse<RagDocument[]>>('/admin/rag/documents').then((r) => r.data.data),
+
+  /** Nạp đồng bộ (đọc mục, cất ảnh, embedding tại chỗ) — bộ hướng dẫn 16 MB mất vài giây. */
+  uploadGuideDocument: (file: File, title?: string) => {
+    const form = new FormData()
+    form.append('file', file)
+    if (title) form.append('title', title)
+    return axiosInstance
+      .post<ApiResponse<RagDocument>>('/admin/rag/documents', form, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+        timeout: AI_TIMEOUT,
+      })
+      .then((r) => r.data.data)
+  },
+
+  deleteGuideDocument: (id: string) =>
+    axiosInstance.delete<ApiResponse<void>>(`/admin/rag/documents/${id}`).then((r) => r.data),
+
+  listGuideChunks: (id: string) =>
+    axiosInstance.get<ApiResponse<RagChunk[]>>(`/admin/rag/documents/${id}/chunks`).then((r) => r.data.data),
+
+  searchGuide: (q: string) =>
+    axiosInstance.get<ApiResponse<RagSearchHit[]>>('/admin/rag/search', { params: { q } }).then((r) => r.data.data),
 }

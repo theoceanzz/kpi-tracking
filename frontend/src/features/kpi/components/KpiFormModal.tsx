@@ -9,7 +9,7 @@ import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { kpiSchema, type KpiFormData } from '../schemas/kpiSchema'
 import { useMutation, useQueryClient } from '@tanstack/react-query'
-import { kpiApi, type AiKpiSuggestion } from '../api/kpiApi'
+import { kpiApi } from '../api/kpiApi'
 import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
 import { useUsers } from '@/features/users/hooks/useUsers'
 import { useAuthStore } from '@/store/authStore'
@@ -20,9 +20,11 @@ import { getApiErrorMessage } from '@/lib/apiError'
 import { FREQUENCY_MAP, cn, formatDateTime, formatNumber } from '@/lib/utils'
 import UserAvatar from '@/components/common/UserAvatar'
 import {
-  Loader2, Check, Sparkles, Target, Users, LayoutGrid, SlidersHorizontal, BarChart3, RotateCcw, RefreshCw,
+  Loader2, Check, Target, Users, LayoutGrid, SlidersHorizontal, BarChart3,
   CalendarRange, AlertTriangle, Link2, Unlink, SplitSquareHorizontal,
 } from 'lucide-react'
+import AiShortcutButton from '@/features/analytics/components/AiShortcutButton'
+import { aiShortcuts } from '@/features/analytics/aiShortcuts'
 import type { KpiCriteria } from '@/types/kpi'
 import { useKpiPeriods } from '../hooks/useKpiPeriods'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
@@ -56,8 +58,8 @@ interface KpiFormModalProps {
   keepOpenAfterCreate?: boolean
   /** Nhãn nút xác nhận. Trong wizard là "Thêm chỉ tiêu". */
   submitLabel?: string
-  /** Báo ra ngoài đợt và đơn vị đang chọn, ngay khi người dùng vừa chọn. */
-  onContextChange?: (ctx: { kpiPeriodId?: string; orgUnitIds: string[] }) => void
+  /** Báo ra ngoài đợt, đơn vị và người thực hiện đang chọn, ngay khi người dùng vừa chọn. */
+  onContextChange?: (ctx: { kpiPeriodId?: string; orgUnitIds: string[]; assigneeNames: string[] }) => void
   /** Khoá đợt: form dùng luôn giá trị này và hiện một thẻ chỉ-đọc thay cho ô chọn. */
   lockedPeriodId?: string
   /** Đơn vị tích sẵn khi mở form — thường là đơn vị người dùng đang trực thuộc. */
@@ -66,6 +68,28 @@ interface KpiFormModalProps {
   compactOrgUnits?: boolean
   /** Bấm một đơn vị là THAY lựa chọn cũ, không cộng dồn — hành vi nút radio. */
   singleOrgUnit?: boolean
+  /**
+   * Chỉ liệt kê những đơn vị người dùng đang trực thuộc, thay vì cả cây họ được phép xem.
+   *
+   * Dùng cùng `lockAssignees` ở luồng tự giao: chỉ tiêu ghi tên chính họ nên đơn vị thực hiện chỉ
+   * có thể là đơn vị họ thuộc về. Một người có thể ở nhiều đơn vị nên vẫn phải cho chọn.
+   */
+  onlyMyOrgUnits?: boolean
+  /**
+   * Khoá người thực hiện: bỏ hẳn ô chọn, chỉ hiện một thẻ gọn xác nhận người nhận.
+   *
+   * Dùng ở luồng "giao chỉ tiêu cho bản thân" — bày ra danh sách nhân sự để chọn trong khi câu trả
+   * lời luôn là chính họ vừa tốn chỗ vừa mời gọi chọn nhầm. Đi kèm `defaultAssigneeIds`.
+   */
+  lockAssignees?: boolean
+  /**
+   * Người thực hiện tích sẵn, và GIỮ LẠI sau mỗi lần tạo ở chế độ thêm liên tục.
+   *
+   * Mặc định form cố ý xoá người thực hiện sau mỗi lần lưu, vì đó là trường thay đổi nhiều nhất
+   * giữa các chỉ tiêu. Nhưng ở luồng "giao cho bản thân" thì ngược hẳn: người nhận luôn là chính
+   * họ, bắt tích lại cho từng chỉ tiêu mới là sai.
+   */
+  defaultAssigneeIds?: string[]
 }
 
 const frequencyOptions = (['DAILY', 'WEEKLY', 'MONTHLY', 'QUARTERLY', 'SEMI_ANNUALLY', 'YEARLY', 'UNLIMITED'] as const).map(value => ({
@@ -127,6 +151,7 @@ export default function KpiFormModal({
   open, onClose, editKpi, parentKpi, parentRelationType,
   variant = 'modal', onCreated, keepOpenAfterCreate = false, submitLabel, onContextChange,
   lockedPeriodId, defaultOrgUnitIds, compactOrgUnits = false, singleOrgUnit = false,
+  defaultAssigneeIds, lockAssignees = false, onlyMyOrgUnits = false,
 }: KpiFormModalProps) {
   const isInline = variant === 'inline'
   const isEdit = !!editKpi
@@ -174,7 +199,25 @@ export default function KpiFormModal({
 
   // Giữ CẢ nút gốc: backend cắt cây theo quyền, ai chỉ có ORG:VIEW_TREE thì nhận đơn vị của
   // chính họ làm gốc — lọc gốc đi là trưởng đơn vị không giao được KPI cho đơn vị mình.
-  const flatOrgUnits = useMemo(() => (orgUnitTreeData ? flattenTree(orgUnitTreeData) : []), [orgUnitTreeData])
+  /** Đơn vị người dùng TRỰC THUỘC — lấy từ phiên đăng nhập, không phụ thuộc cây tổ chức. */
+  const myOrgUnitIds = useMemo(
+    () => new Set((user?.memberships ?? []).map(m => m.orgUnitId).filter(Boolean)),
+    [user?.memberships],
+  )
+
+  const flatOrgUnits = useMemo(() => {
+    const all = orgUnitTreeData ? flattenTree(orgUnitTreeData) : []
+    if (!onlyMyOrgUnits) return all
+
+    // Luồng tự giao: chỉ tiêu là của CHÍNH người dùng, nên đơn vị thực hiện phải là đơn vị họ đang
+    // trực thuộc. Cả cây (gồm cấp dưới họ quản lý) là danh sách của việc giao cho người khác.
+    // Bỏ gạch đầu dòng đánh cấp: danh sách này phẳng và ngắn, dấu gạch chỉ còn là nhiễu.
+    const mine = all.filter(u => myOrgUnitIds.has(u.id)).map(u => ({ ...u, levelLabel: u.name }))
+
+    // Không khớp được cái nào thì trả cả cây, đừng đưa ra danh sách rỗng: đơn vị rỗng là không tạo
+    // được chỉ tiêu nào, tệ hơn hẳn một danh sách rộng hơn cần thiết.
+    return mine.length > 0 ? mine : all
+  }, [orgUnitTreeData, onlyMyOrgUnits, myOrgUnitIds])
 
   /** Phần `defaultOrgUnitIds` thật sự chọn được. */
   const selectableDefaultUnitIds = useMemo(
@@ -207,13 +250,9 @@ export default function KpiFormModal({
   /** Giá trị các ô đã ĐIỀN SẴN từ nguồn — chỉ ghi đè lại những ô người dùng chưa sửa tay. */
   const prefilledRef = useRef<Partial<Record<'name' | 'unit' | 'targetValue' | 'minimumValue' | 'weight', unknown>>>({})
 
-  // Đẩy bối cảnh ra ngoài. Nối chuỗi id để so sánh: `watch('orgUnitIds')` trả về mảng mới mỗi render.
-  const contextKey = `${formKpiPeriodId ?? ''}|${formOrgUnitIds.join(',')}`
-  useEffect(() => {
-    const [periodPart, unitsPart] = contextKey.split('|')
-    onContextChange?.({ kpiPeriodId: periodPart || undefined, orgUnitIds: unitsPart ? unitsPart.split(',') : [] })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [contextKey])
+  // Đơn vị mà nút "Gợi ý AI" hỏi cho: đơn vị đầu đang chọn trên form, không có thì đơn vị của mình.
+  const aiUnitId: string | undefined = formOrgUnitIds[0] || user?.memberships?.[0]?.orgUnitId
+  const aiUnitName = flatOrgUnits.find(u => u.id === aiUnitId)?.name ?? null
 
   const fillableRef = useRef<string[]>([])
   useEffect(() => {
@@ -237,7 +276,7 @@ export default function KpiFormModal({
   // Khởi tạo form mỗi lần mở.
   useEffect(() => {
     if (!open) {
-      setUserSearch(''); setSelectedRole('ALL'); setAiSuggestions([]); setAppliedIdx(null); setBeforeApply(null)
+      setUserSearch(''); setSelectedRole('ALL')
       setSplitMode(false); setSplitRows([]); prefilledRef.current = {}
       return
     }
@@ -287,11 +326,13 @@ export default function KpiFormModal({
           ? selectableDefaultUnitIds
           : (canAssignRoles ? [] : (defaultOrgUnitId ? [defaultOrgUnitId] : [])),
         orgUnitId: parentKpi?.orgUnitId ?? defaultOrgUnitId,
-        assignedToIds: isDecomposition ? (parentKpi?.assigneeIds ?? []) : (isStaff ? ([user?.id].filter(Boolean) as string[]) : [])
+        assignedToIds: isDecomposition
+          ? (parentKpi?.assigneeIds ?? [])
+          : (defaultAssigneeIds ?? (isStaff ? ([user?.id].filter(Boolean) as string[]) : []))
       })
       setSource(parentKpi?.perspectiveId ? 'BSC' : 'FREE')
     }
-  }, [open, reset, editKpi, flatOrgUnits, canManageOrg, parentKpi, parentRelationType, isStaff, user, lockedPeriodId, selectableDefaultUnitIds, canAssignRoles])
+  }, [open, reset, editKpi, flatOrgUnits, canManageOrg, parentKpi, parentRelationType, isStaff, user, lockedPeriodId, selectableDefaultUnitIds, canAssignRoles, defaultAssigneeIds])
 
   const selectedAssignees = watch('assignedToIds') || []
 
@@ -316,6 +357,26 @@ export default function KpiFormModal({
   })
   const availableUsers = useMemo(() => usersData?.content || [], [usersData])
 
+  /**
+   * Tên người thực hiện đang chọn.
+   *
+   * Người dùng hiện tại tra thẳng từ phiên đăng nhập, không qua `availableUsers`: danh sách đó lọc
+   * theo đơn vị đang chọn, mà người tự giao chỉ tiêu cho mình có thể đang lập cho một đơn vị họ
+   * không nằm trong đó — khi ấy tên chính họ sẽ không tra ra.
+   */
+  const assigneeNames = selectedAssignees
+    .map(id => (id === user?.id ? (user?.fullName ?? 'Bạn') : (availableUsers.find(u => u.id === id)?.fullName ?? '')))
+    .filter(Boolean)
+
+  // Đẩy bối cảnh ra ngoài. So sánh bằng chuỗi JSON: `watch()` trả về mảng MỚI mỗi lần render, đưa
+  // thẳng vào deps thì effect chạy vô hạn.
+  const contextKey = JSON.stringify({ kpiPeriodId: formKpiPeriodId ?? '', orgUnitIds: formOrgUnitIds, assigneeNames })
+  useEffect(() => {
+    const ctx = JSON.parse(contextKey) as { kpiPeriodId: string; orgUnitIds: string[]; assigneeNames: string[] }
+    onContextChange?.({ kpiPeriodId: ctx.kpiPeriodId || undefined, orgUnitIds: ctx.orgUnitIds, assigneeNames: ctx.assigneeNames })
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [contextKey])
+
   const afterCreate = (created: KpiCriteria | KpiCriteria[]) => {
     qc.invalidateQueries({ queryKey: ['kpi-criteria'] })
     qc.invalidateQueries({ queryKey: ['bsc-kpi-plan'] })
@@ -325,11 +386,12 @@ export default function KpiFormModal({
     reset({
       ...getValues(),
       name: '', description: '', weight: undefined, targetValue: undefined, minimumValue: undefined,
-      unit: '', deadline: undefined, isReverseKpi: false, isBonusKpi: false, assignedToIds: [],
+      unit: '', deadline: undefined, isReverseKpi: false, isBonusKpi: false,
+      // Trừ khi chủ trang chỉ định sẵn — luồng "cho bản thân" thì người nhận luôn là chính họ.
+      assignedToIds: defaultAssigneeIds ?? [],
       keyResultId: null, perspectiveId: null,
     })
     setSource('FREE'); setSplitMode(false); setSplitRows([]); prefilledRef.current = {}
-    setAiSuggestions([]); setAppliedIdx(null); setBeforeApply(null)
     const first = Array.isArray(created) ? created[0] : created
     if (first) onCreated?.(first)
     if (!keepOpenAfterCreate) onClose()
@@ -615,11 +677,6 @@ export default function KpiFormModal({
     return out
   }, [isQualitative, watchedTarget, watchedUnit, source, selectedPerspRow, selectedPerspective, plan, selectedKr])
 
-  // ── Gợi ý AI ──────────────────────────────────────────────────────────────
-  const [aiSuggestions, setAiSuggestions] = useState<AiKpiSuggestion[]>([])
-  const [isSuggesting, setIsSuggesting] = useState(false)
-  const [appliedIdx, setAppliedIdx] = useState<number | null>(null)
-  const [beforeApply, setBeforeApply] = useState<Partial<KpiFormData> | null>(null)
   const [userSearch, setUserSearch] = useState('')
 
   const displayUsers = useMemo(() => {
@@ -627,53 +684,6 @@ export default function KpiFormModal({
     const q = userSearch.toLowerCase()
     return availableUsers.filter(u => u.fullName.toLowerCase().includes(q) || u.email.toLowerCase().includes(q))
   }, [availableUsers, userSearch])
-
-  const buildAiContext = () => {
-    const parts: string[] = []
-    const typedName = (watch('name') || '').trim()
-    if (typedName) parts.push(`Tên chỉ tiêu đang gõ: "${typedName}"`)
-    parts.push(isQualitative ? 'Loại KPI: định tính' : 'Loại KPI: định lượng')
-    if (selectedPeriod?.name) parts.push(`Đợt: ${selectedPeriod.name}`)
-    if (selectedKr?.obj?.name) parts.push(`Mục tiêu liên quan: ${selectedKr.obj.name}`)
-    if (source === 'BSC' && selectedPerspective?.name) parts.push(`Hạng mục BSC: ${selectedPerspective.name}`)
-    return parts.join('. ')
-  }
-
-  const handleAiSuggest = async () => {
-    const orgUnitId = formOrgUnitIds[0] || user?.memberships?.[0]?.orgUnitId
-    if (!orgUnitId) { toast.error('Vui lòng chọn hoặc đảm bảo bạn thuộc một phòng ban để nhận gợi ý chính xác'); return }
-    setIsSuggesting(true); setAppliedIdx(null)
-    try {
-      const suggestions = await kpiApi.getAiSuggestions(orgUnitId, buildAiContext())
-      setAiSuggestions(suggestions)
-      if (suggestions.length === 0) toast.info('AI không tìm thấy gợi ý phù hợp lúc này')
-    } catch (err: any) {
-      toast.error(getApiErrorMessage(err, 'Lỗi khi lấy gợi ý từ AI'))
-    } finally { setIsSuggesting(false) }
-  }
-
-  const applySuggestion = (sug: AiKpiSuggestion, idx: number) => {
-    if (!beforeApply) {
-      setBeforeApply({ name: watch('name'), description: watch('description'), unit: watch('unit'), targetValue: watch('targetValue'), weight: watch('weight'), frequency: watch('frequency') })
-    }
-    const opts = { shouldDirty: true, shouldValidate: true } as const
-    setValue('name', sug.name ?? '', opts)
-    if (sug.description != null) setValue('description', sug.description, opts)
-    if (!isQualitative) {
-      if (sug.unit != null) setValue('unit', sug.unit, opts)
-      if (sug.targetValue != null) setValue('targetValue', sug.targetValue, opts)
-    }
-    if (sug.weight != null) setValue('weight', sug.weight, opts)
-    if (sug.frequency != null) setValue('frequency', sug.frequency, opts)
-    setAppliedIdx(idx)
-  }
-  const undoSuggestion = () => {
-    if (!beforeApply) return
-    const opts = { shouldDirty: true, shouldValidate: true } as const
-    Object.entries(beforeApply).forEach(([field, value]) => setValue(field as keyof KpiFormData, value as never, opts))
-    setBeforeApply(null); setAppliedIdx(null)
-  }
-  const closeSuggestions = () => { setAiSuggestions([]); setAppliedIdx(null); setBeforeApply(null) }
 
   const isPending = createMutation.isPending || updateMutation.isPending || splitMutation.isPending
   const isPendingApproval = isEdit && editKpi?.status === 'PENDING_APPROVAL'
@@ -901,9 +911,11 @@ export default function KpiFormModal({
               <label className="text-label flex items-center gap-2">
                 <Users size={15} className="text-[var(--color-primary)]" aria-hidden="true" /> Giao thực hiện
               </label>
-              {!isStaff && <span className="text-caption">{selectedAssignees.length} người · {totalMemberCount} khả dụng</span>}
+              {!isStaff && !lockAssignees && <span className="text-caption">{selectedAssignees.length} người · {totalMemberCount} khả dụng</span>}
             </div>
-            {isStaff ? (
+            {/* `lockAssignees` dùng chung đúng thẻ gọn này với nhân viên: cả hai đều là "người nhận
+                chỉ là chính bạn", chỉ khác lý do — một bên do quyền, một bên do luồng. */}
+            {isStaff || lockAssignees ? (
               <div className="flex items-center gap-3 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] px-3 py-2.5">
                 <UserAvatar fullName={user?.fullName} avatarUrl={user?.avatarUrl} className="h-8 w-8 rounded-full" fallbackClassName="bg-[var(--color-primary-soft)] text-[var(--color-primary)] text-sm font-semibold" />
                 <div className="min-w-0 flex-1">
@@ -1095,54 +1107,20 @@ export default function KpiFormModal({
 
         <Field label="Tên chỉ tiêu" required error={errors.name?.message}
           trailing={(canManageOrg || canReview) && !isEdit && (
-            <Button size="sm" variant="outline" type="button" onClick={handleAiSuggest} disabled={isSuggesting} title="AI đọc số liệu của đơn vị và bối cảnh bạn đang nhập để đề xuất chỉ tiêu">
-              {isSuggesting ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Sparkles aria-hidden="true" />} Gợi ý AI
-            </Button>
+            /* Gợi ý đi qua K.AI (22/09/2026): bấm là khung chat mở và tự hỏi; agent tra số liệu +
+               tài liệu tổ chức rồi gọi tool điền form -> thẻ "Đề xuất điền form", bấm Điền là vào
+               biểu mẫu này (form đã đăng ký ở formAssistStore). Khung "GỢI Ý AI" tự dựng trong form
+               đã bỏ — một đường, một cách nhận. */
+            <AiShortcutButton
+              size="sm"
+              label="Gợi ý AI"
+              prompt={aiShortcuts.suggestKpis(aiUnitName)}
+              focusUnitId={aiUnitId}
+              title="K.AI đọc số liệu đơn vị và tài liệu của công ty rồi đề xuất điền chỉ tiêu; bạn xem lại và bấm Điền trong khung chat"
+            />
           )}>
           <Input {...register('name')} invalid={!!errors.name} placeholder="VD: Doanh thu tháng 10" />
         </Field>
-
-        {isSuggesting && aiSuggestions.length === 0 && (
-          <div className="space-y-2 rounded-card border border-[var(--color-info-border)] bg-[var(--color-info-bg)] p-3">
-            <span className="text-eyebrow flex items-center gap-1.5 text-[var(--color-info)]"><Loader2 size={12} className="animate-spin" /> AI đang đọc số liệu đơn vị…</span>
-            {[0, 1, 2].map(i => <div key={i} className="h-12 animate-pulse rounded-card bg-[var(--color-card)]" />)}
-          </div>
-        )}
-        {aiSuggestions.length > 0 && (
-          <div className="space-y-2 rounded-card border border-[var(--color-info-border)] bg-[var(--color-info-bg)] p-3">
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-eyebrow flex items-center gap-1 text-[var(--color-info)]"><Sparkles size={12} /> AI đề xuất {aiSuggestions.length} chỉ tiêu</span>
-              <span className="ml-auto flex items-center gap-1">
-                {beforeApply && <Button variant="ghost" size="sm" type="button" onClick={undoSuggestion}><RotateCcw aria-hidden="true" /> Hoàn tác</Button>}
-                <Button variant="ghost" size="sm" type="button" onClick={handleAiSuggest} disabled={isSuggesting}>
-                  {isSuggesting ? <Loader2 aria-hidden="true" className="animate-spin" /> : <RefreshCw aria-hidden="true" />} Gợi ý khác
-                </Button>
-                <Button variant="ghost" size="sm" type="button" onClick={closeSuggestions}>Đóng</Button>
-              </span>
-            </div>
-            <div className="space-y-1.5">
-              {aiSuggestions.map((s, idx) => {
-                const applied = appliedIdx === idx
-                return (
-                  <button key={idx} type="button" onClick={() => applySuggestion(s, idx)}
-                    className={cn('w-full rounded-card border p-3 text-left transition-colors',
-                      applied ? 'border-[var(--color-info-border)] bg-[var(--color-info-bg)] ring-2 ring-[var(--color-info-solid)]' : 'border-[var(--color-info-border)] bg-[var(--color-card)] hover:bg-[var(--color-muted)]')}>
-                    <div className="flex items-start gap-2">
-                      <span className="min-w-0 flex-1 text-sm">{s.name}</span>
-                      {applied && <span className="text-eyebrow flex shrink-0 items-center gap-1 text-[var(--color-info)]"><Check size={11} /> Đã điền</span>}
-                    </div>
-                    {s.description && <p className="text-caption mt-1 line-clamp-2">{s.description}</p>}
-                    <div className="mt-2 flex flex-wrap items-center gap-1.5">
-                      {!isQualitative && s.targetValue != null && <SuggestionChip label="Mục tiêu" value={`${s.targetValue}${s.unit ? ` ${s.unit}` : ''}`} />}
-                      {s.weight != null && <SuggestionChip label="Trọng số" value={`${s.weight}%`} />}
-                      {s.frequency && <SuggestionChip label="Tần suất" value={FREQUENCY_MAP[s.frequency] ?? s.frequency} />}
-                    </div>
-                  </button>
-                )
-              })}
-            </div>
-          </div>
-        )}
 
         <Field label="Mô tả chi tiết">
           <Textarea {...register('description')} rows={2} placeholder="Cung cấp ngữ cảnh và cách tính toán…" />
@@ -1295,15 +1273,5 @@ function SplitTable({ rows, onChange, unit, isReverse, plan, unitCount }: {
       </div>
       {over && <Hint tone="warning" icon={<AlertTriangle size={14} aria-hidden="true" />}>Tổng đã chia vượt phần còn lại của hạng mục — server sẽ từ chối khi tạo.</Hint>}
     </div>
-  )
-}
-
-/** Thẻ nhỏ hiện một thông số của gợi ý AI (mục tiêu, trọng số, tần suất). */
-function SuggestionChip({ label, value }: { label: string; value: string }) {
-  return (
-    <span className="inline-flex items-center gap-1 rounded-control border border-[var(--color-info-border)] bg-[var(--color-info-bg)] px-2 py-0.5 text-xs font-medium text-[var(--color-info)]">
-      <span className="text-[var(--color-muted-foreground)]">{label}</span>
-      {value}
-    </span>
   )
 }

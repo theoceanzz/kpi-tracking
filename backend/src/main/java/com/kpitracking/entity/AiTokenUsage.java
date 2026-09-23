@@ -58,7 +58,9 @@ public class AiTokenUsage {
     public enum AiFeature {
         CHAT,
         KPI_SUGGESTION,
-        FOLLOWUP
+        FOLLOWUP,
+        /** Hỏi đáp về KeyGo/quy chế qua RAG. Tách khỏi CHAT để nhìn được tỉ lệ dùng của từng đường. */
+        HELP
     }
 
     /** Ngày 1 của tháng hiện tại — khoá gộp dùng chung cho cả ghi lẫn đọc. */
