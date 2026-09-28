@@ -5,8 +5,10 @@ import { CheckCircle, XCircle, Loader2 } from 'lucide-react'
 import { useState } from 'react'
 import { getApiErrorMessage } from '@/lib/apiError'
 import { Button } from '@/components/ui/button'
+import { useTranslation } from 'react-i18next'
 
 export default function VerifyEmailPage() {
+  const { t } = useTranslation('auth')
   const [params] = useSearchParams()
   const tokenFromUrl = params.get('token')
   const [otpValues, setOtpValues] = useState(['', '', '', '', '', ''])
@@ -38,7 +40,7 @@ export default function VerifyEmailPage() {
       setTimeout(() => navigate('/login', { state: contextData }), 2000)
     },
     onError: (error) => {
-      setErrorMsg(getApiErrorMessage(error, 'Xác thực thất bại. Mã OTP không hợp lệ hoặc đã hết hạn.'))
+      setErrorMsg(getApiErrorMessage(error, t('VerifyEmailPage.verificationFailedTheOtpIsInvalid')))
       setOtpValues(['', '', '', '', '', ''])
       document.getElementById('otp-0')?.focus()
     }
@@ -51,7 +53,7 @@ export default function VerifyEmailPage() {
       setErrorMsg('')
     },
     onError: (err: any) => {
-      const msg = getApiErrorMessage(err, 'Không thể gửi lại mã xác thực.')
+      const msg = getApiErrorMessage(err, t('VerifyEmailPage.couldNotResendTheVerificationCode'))
       setErrorMsg(msg)
     }
   })
@@ -119,10 +121,10 @@ export default function VerifyEmailPage() {
           </div>
         </div>
         <div className="space-y-3">
-          <h2 className="text-page-title">Xác thực thành công</h2>
+          <h2 className="text-page-title">{t('VerifyEmailPage.verifiedSuccessfully')}</h2>
           <p className="text-[var(--color-muted-foreground)] text-sm">
-            Tài khoản của bạn đã được kích hoạt. <br/>
-            Đang chuyển hướng bạn đến trang đăng nhập...
+            {t('VerifyEmailPage.yourAccountHasBeenActivated')} <br/>
+            {t('VerifyEmailPage.redirectingYouToTheSignIn')}
           </p>
         </div>
         <div className="flex justify-center gap-1.5">
@@ -137,21 +139,21 @@ export default function VerifyEmailPage() {
   if (tokenFromUrl && (isAutoLoading || isAutoError)) {
     return (
       <div className="text-center w-full max-w-sm mx-auto">
-        <h2 className="text-page-title mb-4">Xác thực email</h2>
+        <h2 className="text-page-title mb-4">{t('VerifyEmailPage.emailVerification')}</h2>
         {isAutoLoading ? (
           <div className="flex flex-col items-center gap-3 text-[var(--color-muted-foreground)]">
             <Loader2 size={40} className="animate-spin text-[var(--color-primary)]" />
-            <p className="font-medium">Đang xử lý xác thực...</p>
+            <p className="font-medium">{t('VerifyEmailPage.processingVerification')}</p>
           </div>
         ) : (
           <div className="flex flex-col items-center gap-4">
             <div className="w-20 h-20 rounded-full bg-[var(--color-error-bg)] flex items-center justify-center">
               <XCircle className="text-[var(--color-error)]" size={40} />
             </div>
-            <p className="font-semibold text-[var(--color-error)]">Xác thực thất bại.</p>
-            <p className="text-sm text-[var(--color-muted-foreground)]">Mã xác thực không hợp lệ hoặc đã hết hạn.</p>
+            <p className="font-semibold text-[var(--color-error)]">{t('VerifyEmailPage.verificationFailed')}</p>
+            <p className="text-sm text-[var(--color-muted-foreground)]">{t('VerifyEmailPage.theVerificationCodeIsInvalidOr')}</p>
             <Link to="/verify-email" className="text-[var(--color-primary)] font-medium hover:underline mt-2">
-              Thử nhập lại mã OTP
+              {t('VerifyEmailPage.tryEnteringTheOtpAgain')}
             </Link>
           </div>
         )}
@@ -161,9 +163,9 @@ export default function VerifyEmailPage() {
 
   return (
     <div className="text-center w-full max-w-md mx-auto">
-      <h2 className="text-page-title mb-1">Xác thực tài khoản</h2>
+      <h2 className="text-page-title mb-1">{t('VerifyEmailPage.accountVerification')}</h2>
       <p className="text-[var(--color-muted-foreground)] text-sm mb-2">
-        Nhập mã OTP 6 ký tự đã được gửi đến email của bạn.
+        {t('VerifyEmailPage.enterThe6CharacterOtpSent')}
       </p>
       {contextData?.email && (
         <p className="text-[var(--color-primary)] font-semibold text-base mb-8 animate-in fade-in slide-in-from-top-2">{contextData.email}</p>
@@ -190,13 +192,13 @@ export default function VerifyEmailPage() {
         {verifyMutation.isPending && (
           <div className="flex items-center justify-center gap-2 text-[var(--color-primary)] font-medium animate-pulse">
             <Loader2 size={18} className="animate-spin" />
-            <span>Đang kiểm tra...</span>
+            <span>{t('VerifyEmailPage.checking')}</span>
           </div>
         )}
 
         {(errorMsg || isAutoError) && (
           <div className="p-3 rounded-control bg-[var(--color-error-bg)] border border-[var(--color-error-border)]">
-            <p className="text-[var(--color-error)] text-sm font-semibold">{errorMsg || 'Xác thực thất bại. Vui lòng thử lại.'}</p>
+            <p className="text-[var(--color-error)] text-sm font-semibold">{errorMsg || t('VerifyEmailPage.verificationFailedPleaseTryAgain')}</p>
           </div>
         )}
       </div>
@@ -205,11 +207,11 @@ export default function VerifyEmailPage() {
         {contextData?.email && (
           <Button variant="ghost" size="sm" type="button" onClick={handleResend} disabled={resendMutation.isPending}>
             {resendMutation.isPending && <Loader2 aria-hidden="true" className="animate-spin" />}
-            {resendMutation.isSuccess ? 'Đã gửi lại mã!' : 'Bạn không nhận được mã? Gửi lại ngay'}
+            {resendMutation.isSuccess ? t('VerifyEmailPage.codeResent') : t('VerifyEmailPage.didntReceiveACodeResendNow')}
           </Button>
         )}
         <Link to="/login" className="text-sm text-[var(--color-muted-foreground)] font-medium hover:text-[var(--color-foreground)] transition-colors">
-          Trở lại Đăng nhập
+          {t('VerifyEmailPage.backToSignIn')}
         </Link>
       </div>
     </div>

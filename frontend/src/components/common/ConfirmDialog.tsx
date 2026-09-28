@@ -1,6 +1,8 @@
 import { AlertTriangle } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogFooter } from '@/components/ui/dialog'
+import { useTranslation } from 'react-i18next'
+import i18n from 'i18next'
 
 interface ConfirmDialogProps {
   open: boolean
@@ -17,7 +19,8 @@ interface ConfirmDialogProps {
  * Nút xác nhận dùng màu phá huỷ để tách khỏi nút hành động chính thường ngày; đang xử lý
  * thì khoá Esc/bấm nền để không mất trạng thái.
  */
-export default function ConfirmDialog({ open, onClose, onConfirm, title, description, confirmLabel = 'Xác nhận', loading }: ConfirmDialogProps) {
+export default function ConfirmDialog({ open, onClose, onConfirm, title, description, confirmLabel = i18n.t('shared:ConfirmDialog.confirm'), loading }: ConfirmDialogProps) {
+  const { t } = useTranslation('shared')
   return (
     <Dialog
       open={open}
@@ -34,8 +37,8 @@ export default function ConfirmDialog({ open, onClose, onConfirm, title, descrip
       }
       footer={
         <DialogFooter
-          secondary={<Button variant="outline" onClick={onClose} disabled={loading}>Hủy</Button>}
-          primary={<Button variant="destructive" onClick={onConfirm} disabled={loading}>{loading ? 'Đang xử lý…' : confirmLabel}</Button>}
+          secondary={<Button variant="outline" onClick={onClose} disabled={loading}>{t('ConfirmDialog.cancel')}</Button>}
+          primary={<Button variant="destructive" onClick={onConfirm} disabled={loading}>{loading ? t('ConfirmDialog.processing') : confirmLabel}</Button>}
         />
       }
     >

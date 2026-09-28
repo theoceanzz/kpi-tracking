@@ -8,4 +8,7 @@ public class RejectKpiRequest {
 
     @NotBlank(message = "Reject reason is required")
     private String reason;
+
+    /** Bước người dùng đang thấy (chuỗi duyệt); lệch với bước hiện tại thì trả 409. */
+    private java.util.UUID expectedStepId;
 }

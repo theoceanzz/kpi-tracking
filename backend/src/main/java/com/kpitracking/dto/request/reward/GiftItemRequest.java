@@ -10,19 +10,19 @@ import lombok.Data;
 @Data
 public class GiftItemRequest {
 
-    @NotBlank(message = "Vui lòng nhập tên quà")
+    @NotBlank(message = "{validation.enterGiftName}")
     private String name;
 
     private String description;
 
     private String imageUrl;
 
-    @NotNull(message = "Vui lòng nhập số điểm cần để đổi")
-    @Min(value = 1, message = "Số điểm đổi quà phải lớn hơn 0")
+    @NotNull(message = "{validation.enterPointsNeededRedeem}")
+    @Min(value = 1, message = "{validation.redemptionPointsMustGreaterThan0}")
     private Integer pointCost;
 
     /** Bỏ qua khi {@link #unlimitedStock} bật. */
-    @Min(value = 0, message = "Tồn kho không được âm")
+    @Min(value = 0, message = "{validation.stockCannotNegative}")
     private Integer stockQuantity;
 
     private Boolean unlimitedStock;

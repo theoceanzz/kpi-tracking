@@ -3,6 +3,7 @@ import { MoreVertical } from 'lucide-react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Button } from '@/components/ui/button'
 import { cn } from '@/lib/utils'
+import { useTranslation } from 'react-i18next'
 
 export interface EntityCardMenuItem {
   label: string
@@ -35,6 +36,7 @@ const menuItem = 'flex h-9 w-full items-center gap-2.5 rounded-control px-2.5 te
  * và dừng nổi bọt để không mở thẻ khi bấm menu.
  */
 export default function EntityCard({ leading, title, description, meta, footerLeft, footerRight, onOpen, menu, className }: EntityCardProps) {
+  const { t } = useTranslation('shared')
   const onKey = (e: KeyboardEvent<HTMLDivElement>) => {
     if (!onOpen) return
     if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onOpen() }
@@ -64,13 +66,13 @@ export default function EntityCard({ leading, title, description, meta, footerLe
           <h3 className="truncate text-sm font-medium text-[var(--color-foreground)]" title={title}>{title}</h3>
           {description
             ? <p className="mt-0.5 truncate text-caption" title={description}>{description}</p>
-            : <p className="mt-0.5 text-caption text-[var(--color-subtle-foreground)]">Không có mô tả</p>}
+            : <p className="mt-0.5 text-caption text-[var(--color-subtle-foreground)]">{t('EntityCard.noDescription')}</p>}
         </div>
         {menu && menu.length > 0 && (
           <div onClick={e => e.stopPropagation()} onKeyDown={e => e.stopPropagation()} className="-mr-1.5 -mt-1">
             <Popover>
               <PopoverTrigger asChild>
-                <Button variant="ghost" size="icon-sm" aria-label="Thao tác" title="Thao tác"><MoreVertical aria-hidden="true" /></Button>
+                <Button variant="ghost" size="icon-sm" aria-label={t('EntityCard.actions')} title={t('EntityCard.actions')}><MoreVertical aria-hidden="true" /></Button>
               </PopoverTrigger>
               <PopoverContent align="end" className="w-48 p-1">
                 {normal.map(m => (

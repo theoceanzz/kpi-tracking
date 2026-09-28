@@ -1,3 +1,4 @@
+import { intlLocale } from '@/i18n/format'
 import { useEffect, useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { Loader2, AlertTriangle, UserX, Play } from 'lucide-react'
@@ -15,6 +16,7 @@ import {
 } from '@/components/ui/select'
 import { useProgramRunActions } from '../hooks/usePrograms'
 import { RewardProgramScope, type RewardProgram, type RewardProgramRun } from '../types'
+import { useTranslation } from 'react-i18next'
 
 interface RunPreviewModalProps {
   /** null = đóng. */
@@ -30,6 +32,7 @@ interface RunPreviewModalProps {
  * họ có thể xuống âm.
  */
 export default function RunPreviewModal({ program, onClose }: RunPreviewModalProps) {
+  const { t: tr } = useTranslation('rewards')
   const [targetId, setTargetId] = useState('')
   const [run, setRun] = useState<RewardProgramRun | null>(null)
 
@@ -91,10 +94,10 @@ export default function RunPreviewModal({ program, onClose }: RunPreviewModalPro
       size="xl"
       dismissible={!isIssuing}
       title={program.name}
-      description="Xem trước bảng xếp hạng rồi phát thưởng"
+      description={tr('RunPreviewModal.previewTheRankingAndThenAward')}
       footer={
         <DialogFooter
-          secondary={<Button variant="outline" onClick={onClose} disabled={isIssuing}>Đóng</Button>}
+          secondary={<Button variant="outline" onClick={onClose} disabled={isIssuing}>{tr('RunPreviewModal.close')}</Button>}
           primary={
             /* Luôn hiện nút phát, kể cả khi chưa xem trước — có vậy người dùng mới biết
                màn hình này còn một bước nữa. Chỉ có nút "Đóng" thì nó trông như màn hình
@@ -105,16 +108,16 @@ export default function RunPreviewModal({ program, onClose }: RunPreviewModalPro
                 disabled={!canIssue || isIssuing}
                 title={
                   !run
-                    ? 'Bấm "Xem trước" để tính bảng xếp hạng trước đã'
+                    ? tr('RunPreviewModal.clickPreviewToComputeTheRanking')
                     : run.items.length === 0
-                      ? 'Không có ai đủ điều kiện nhận thưởng'
+                      ? tr('RunPreviewModal.noOneIsEligibleForA')
                       : undefined
                 }
               >
                 {isIssuing && <Loader2 className="animate-spin" aria-hidden="true" />}
                 {canIssue
-                  ? `Phát ${run!.totalPoints.toLocaleString('vi-VN')} điểm`
-                  : 'Phát thưởng'}
+                  ? tr('RunPreviewModal.awardPoints', { value: run!.totalPoints.toLocaleString(intlLocale()) })
+                  : tr('RunPreviewModal.award')}
               </Button>
             )
           }
@@ -125,14 +128,14 @@ export default function RunPreviewModal({ program, onClose }: RunPreviewModalPro
         <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
           <div className="flex-1">
             <label className="text-label mb-1.5 block font-medium">
-              {isCycle ? 'Kỳ' : 'Đợt'} được xếp hạng
+              {isCycle ? tr('RunPreviewModal.aCycle') : tr('RunPreviewModal.aPeriod')} {tr('RunPreviewModal.ranked')}
             </label>
             {isFixed ? (
               // Chương trình gắn cứng thì không cho chọn: mục tiêu đã quyết lúc tạo.
               <div className="rounded-control bg-[var(--color-muted)] px-3 py-2 text-sm">
                 {program.fixedTargetName}
                 <span className="ml-2 text-xs text-[var(--color-muted-foreground)]">
-                  (chương trình này chỉ dành cho {isCycle ? 'kỳ' : 'đợt'} đó)
+                  {tr('RunPreviewModal.thisProgramIsOnlyForThat')} {isCycle ? tr('RunPreviewModal.cycle') : tr('RunPreviewModal.periods')} {tr('RunPreviewModal.text')}
                 </span>
               </div>
             ) : (
@@ -144,7 +147,7 @@ export default function RunPreviewModal({ program, onClose }: RunPreviewModalPro
                 }}
               >
                 <SelectTrigger className="w-full rounded-control border border-[var(--color-border)] bg-transparent px-3 py-2 text-sm">
-                  <SelectValue placeholder={`Chọn ${isCycle ? 'kỳ' : 'đợt'} đánh giá`} />
+                  <SelectValue placeholder={tr('RunPreviewModal.chooseEvaluation', { value: isCycle ? tr('RunPreviewModal.cycle2') : tr('RunPreviewModal.period') })} />
                 </SelectTrigger>
                 <SelectContent className="z-[1100]">
                   {options.map((o: any) => (
@@ -158,7 +161,7 @@ export default function RunPreviewModal({ program, onClose }: RunPreviewModalPro
           </div>
           <Button variant="outline" onClick={handlePreview} disabled={(!targetId && !isFixed) || isPreviewing}>
             {isPreviewing ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Play aria-hidden="true" />}
-            Xem trước
+            {tr('RunPreviewModal.preview')}
           </Button>
         </div>
 
@@ -166,8 +169,7 @@ export default function RunPreviewModal({ program, onClose }: RunPreviewModalPro
             xong tưởng đã xong việc. */}
         {!run && (
           <p className="text-xs text-[var(--color-muted-foreground)]">
-            <b>Bước 1:</b> xem trước để tính bảng xếp hạng · <b>Bước 2:</b> soát danh sách rồi
-            bấm Phát thưởng ở dưới. Chưa có điểm nào được phát cho tới bước 2.
+            <b>{tr('RunPreviewModal.step1')}</b> {tr('RunPreviewModal.previewToComputeTheRanking')} <b>{tr('RunPreviewModal.step2')}</b> {tr('RunPreviewModal.checkTheListAndThenClick')}
           </p>
         )}
 
@@ -176,13 +178,13 @@ export default function RunPreviewModal({ program, onClose }: RunPreviewModalPro
             đó. Cho sửa ở cả hai chỗ là hai đường làm cùng một việc, và người dùng sẽ
             không biết cái nào mới là luật thật. */}
         <div className="rounded-card border border-[var(--color-border)] px-4 py-3">
-          <div className="text-sm font-medium">Bậc thưởng áp dụng</div>
+          <div className="text-sm font-medium">{tr('RunPreviewModal.appliedRewardTiers')}</div>
           <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">
             {(program.tiers ?? [])
               .map((t) =>
                 t.fromRank === t.toRank
-                  ? `Hạng ${t.fromRank}: ${t.points}`
-                  : `Hạng ${t.fromRank} –${t.toRank}: ${t.points}`,
+                  ? tr('RunPreviewModal.rank', { fromRank: t.fromRank, points: t.points })
+                  : tr('RunPreviewModal.rank2', { fromRank: t.fromRank, toRank: t.toRank, points: t.points }),
               )
               .join(' · ')}
           </p>
@@ -192,35 +194,34 @@ export default function RunPreviewModal({ program, onClose }: RunPreviewModalPro
           <>
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
               <div className="rounded-card bg-[var(--color-muted)] px-4 py-3">
-                <div className="text-xs text-[var(--color-muted-foreground)]">Số người nhận</div>
+                <div className="text-xs text-[var(--color-muted-foreground)]">{tr('RunPreviewModal.recipients')}</div>
                 <div className="text-xl font-semibold">{run.items.length}</div>
               </div>
               <div className="rounded-card bg-[var(--color-muted)] px-4 py-3">
-                <div className="text-xs text-[var(--color-muted-foreground)]">Tổng điểm phát</div>
+                <div className="text-xs text-[var(--color-muted-foreground)]">{tr('RunPreviewModal.totalPointsAwarded')}</div>
                 <div className="text-xl font-semibold">
-                  {run.totalPoints.toLocaleString('vi-VN')}
+                  {run.totalPoints.toLocaleString(intlLocale())}
                 </div>
               </div>
               <div className="rounded-card bg-[var(--color-muted)] px-4 py-3">
-                <div className="text-xs text-[var(--color-muted-foreground)]">Bị loại</div>
+                <div className="text-xs text-[var(--color-muted-foreground)]">{tr('RunPreviewModal.excluded')}</div>
                 <div className="text-xl font-semibold">{run.skipped.length}</div>
               </div>
             </div>
 
             {run.items.length === 0 ? (
               <div className="rounded-card border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-4 py-3 text-sm">
-                Không có ai đủ điều kiện nhận thưởng. Kiểm tra lại bậc thưởng, điểm sàn, hoặc xem
-                danh sách bị loại bên dưới.
+                {tr('RunPreviewModal.noOneIsEligibleForA2')}
               </div>
             ) : (
               <div className="overflow-hidden rounded-card border border-[var(--color-border)]">
                 <table className="w-full text-sm">
                   <thead>
                     <tr className="bg-[var(--color-muted)] text-xs text-[var(--color-muted-foreground)]">
-                      <th className="px-3 py-2 text-left font-medium">Hạng</th>
-                      <th className="px-3 py-2 text-left font-medium">Nhân viên</th>
-                      <th className="px-3 py-2 text-right font-medium">Điểm số</th>
-                      <th className="px-3 py-2 text-right font-medium">Thưởng</th>
+                      <th className="px-3 py-2 text-left font-medium">{tr('RunPreviewModal.rank3')}</th>
+                      <th className="px-3 py-2 text-left font-medium">{tr('RunPreviewModal.employee')}</th>
+                      <th className="px-3 py-2 text-right font-medium">{tr('RunPreviewModal.score')}</th>
+                      <th className="px-3 py-2 text-right font-medium">{tr('RunPreviewModal.reward')}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-[var(--color-border)]">
@@ -239,7 +240,7 @@ export default function RunPreviewModal({ program, onClose }: RunPreviewModalPro
                           {it.metricValue ?? '—'}
                         </td>
                         <td className="px-3 py-2 text-right font-semibold tabular-nums text-[var(--color-success)]">
-                          +{it.points.toLocaleString('vi-VN')}
+                          +{it.points.toLocaleString(intlLocale())}
                         </td>
                       </tr>
                     ))}
@@ -254,7 +255,7 @@ export default function RunPreviewModal({ program, onClose }: RunPreviewModalPro
               <details className="rounded-card border border-[var(--color-border)]">
                 <summary className="cursor-pointer px-4 py-3 text-sm font-medium">
                   <UserX size={14} className="mr-1.5 inline" />
-                  {run.skipped.length} người không vào bảng xếp hạng
+                  {run.skipped.length} {tr('RunPreviewModal.peopleNotInTheRanking')}
                 </summary>
                 <div className="max-h-40 overflow-y-auto border-t border-[var(--color-border)] px-4 py-2">
                   {run.skipped.map((s) => (
@@ -271,14 +272,13 @@ export default function RunPreviewModal({ program, onClose }: RunPreviewModalPro
 
             {run.status === 'ISSUED' ? (
               <div className="rounded-card border border-[var(--color-success-border)] bg-[var(--color-success-bg)] px-4 py-3 text-sm">
-                Đã phát thưởng xong. Điểm đã vào ví của {run.recipientCount} nhân viên.
+                {tr('RunPreviewModal.awardingDoneThePointsAreNow')} {run.recipientCount} {tr('RunPreviewModal.employees')}
               </div>
             ) : (
               <div className="flex items-start gap-2 rounded-card border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-4 py-3 text-sm">
                 <AlertTriangle size={16} className="mt-0.5 flex-shrink-0 text-[var(--color-warning)]" />
                 <span>
-                  Phát thưởng ghi thẳng vào sổ cái của {run.items.length} nhân viên và chỉ hoàn tác
-                  được bằng cách thu hồi cả lần phát. Hãy soát lại danh sách trên trước khi bấm.
+                  {tr('RunPreviewModal.awardingWritesDirectlyIntoTheLedger')} {run.items.length} {tr('RunPreviewModal.employeesAndCanOnlyBeUndone')}
                 </span>
               </div>
             )}

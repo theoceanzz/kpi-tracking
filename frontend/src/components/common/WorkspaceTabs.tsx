@@ -10,6 +10,7 @@ import {
 import { createPortal } from 'react-dom'
 import type { TabDef } from '@/hooks/useTabParam'
 import { useTourTabScope } from '@/hooks/useTourScope'
+import { useTranslation } from 'react-i18next'
 
 export interface WorkspaceTabsValue {
   tabs: TabDef<string>[]
@@ -43,6 +44,7 @@ export function WorkspaceTabsProvider({
   setActiveTab,
   children,
 }: Omit<WorkspaceTabsValue, 'claim' | 'actionSlot' | 'setActionSlot'> & { children: ReactNode }) {
+  const { t } = useTranslation('shared')
   const claimCount = useRef(0)
   const [actionSlot, setActionSlot] = useState<HTMLElement | null>(null)
 
@@ -65,13 +67,13 @@ export function WorkspaceTabsProvider({
     const timer = setTimeout(() => {
       if (claimCount.current === 0) {
         console.warn(
-          `[WorkspaceTabs] Tab "${activeTab}" không render <WorkspaceHeader/> nên hàng tab cấp 2 không hiện ra. ` +
-            'Thêm <WorkspaceHeader/> vào đầu trang con.'
+          t('WorkspaceTabs.workspacetabsTabDoesNotRenderWorkspaceheader', { activeTab }) +
+            t('WorkspaceTabs.addWorkspaceheaderToTheTopOf')
         )
       }
     }, 0)
     return () => clearTimeout(timer)
-  }, [activeTab])
+  }, [activeTab, t])
 
   return (
     <WorkspaceTabsContext.Provider

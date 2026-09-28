@@ -1,3 +1,5 @@
+import { LocaleNumberInput } from '@/components/ui/number-input'
+import { intlLocale } from '@/i18n/format'
 import { useEffect, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -28,6 +30,11 @@ import {
   RewardTiePolicy,
   type RewardProgram,
 } from '../types'
+import { useTranslation } from 'react-i18next'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
+import { useFormDraft } from '@/hooks/useFormDraft'
+import DraftNotice from '@/components/common/DraftNotice'
 
 const DEFAULT_TIERS = [
   { fromRank: 1, toRank: 1, points: 500 },
@@ -47,23 +54,24 @@ interface ProgramFormModalProps {
  * <p>{@code MATRIX_RATING} còn phụ thuộc tổ chức có bật KPI định tính hay không, nên
  * được lọc thêm một lượt nữa lúc chạy — xem `availableMetrics`.
  */
-const METRICS_BY_SCOPE: Record<RewardProgramScope, { value: RewardRankingMetric; label: string }[]> = {
+const METRICS_BY_SCOPE = perLanguage((): Record<RewardProgramScope, { value: RewardRankingMetric; label: string }[]> => ({
   [RewardProgramScope.CYCLE]: [
-    { value: RewardRankingMetric.FINAL_SCORE, label: 'Điểm chốt kỳ' },
-    { value: RewardRankingMetric.MATRIX_RATING, label: 'Xếp loại (ma trận)' },
+    { value: RewardRankingMetric.FINAL_SCORE, label: i18n.t('rewards:ProgramFormModal.cycleFinalizedScore') },
+    { value: RewardRankingMetric.MATRIX_RATING, label: i18n.t('rewards:ProgramFormModal.ratingMatrix') },
   ],
   [RewardProgramScope.PERIOD]: [
-    { value: RewardRankingMetric.PERFORMANCE, label: 'Điểm hiệu suất đợt' },
-    { value: RewardRankingMetric.MATRIX_RATING, label: 'Xếp loại (ma trận)' },
+    { value: RewardRankingMetric.PERFORMANCE, label: i18n.t('rewards:ProgramFormModal.periodPerformanceScore') },
+    { value: RewardRankingMetric.MATRIX_RATING, label: i18n.t('rewards:ProgramFormModal.ratingMatrix') },
   ],
-}
+}))
 
 export default function ProgramFormModal({ open, onClose, editProgram }: ProgramFormModalProps) {
+  const { t: tr } = useTranslation('rewards')
   const isEdit = !!editProgram
   const hasIssued = (editProgram?.issuedRunCount ?? 0) > 0
 
-  const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<ProgramFormData>({
-    resolver: zodResolver(programSchema),
+  const formApi = useForm<ProgramFormData>({
+    resolver: zodResolver(programSchema()),
     defaultValues: {
       name: '', description: '', scope: RewardProgramScope.CYCLE, orgUnitId: '', fixedTargetId: '',
       metric: RewardRankingMetric.FINAL_SCORE, tiePolicy: RewardTiePolicy.SHARE_ALL,
@@ -71,6 +79,8 @@ export default function ProgramFormModal({ open, onClose, editProgram }: Program
       includeUnitHeads: true, enabled: true, autoTrigger: false, tiers: DEFAULT_TIERS,
     },
   })
+  const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = formApi
+  const draft = useFormDraft(formApi, { key: `reward-program:${editProgram?.id ?? 'new'}`, enabled: open })
 
   // Toàn bộ phần dưới là Select / thẻ bấm / TierEditor chứ không phải ô nhập, nên đọc
   // bằng watch và ghi bằng setValue.
@@ -91,7 +101,7 @@ export default function ProgramFormModal({ open, onClose, editProgram }: Program
   // Xếp loại ma trận chỉ có dữ liệu khi tổ chức ra được xếp loại (KPI định tính hoặc chấm
   // hạnh kiểm). Hiện nó lúc tắt cả hai sẽ dẫn tới chương trình luôn xếp hạng ra danh sách rỗng.
   const isCycle = scope === RewardProgramScope.CYCLE
-  const scopeWord = isCycle ? 'kỳ' : 'đợt'
+  const scopeWord = isCycle ? tr('ProgramFormModal.cycle') : tr('ProgramFormModal.periods')
 
   const { data: cycles } = useQuery({
     queryKey: ['kpiCycles', 'programForm', orgId],
@@ -117,7 +127,7 @@ export default function ProgramFormModal({ open, onClose, editProgram }: Program
   const hasMatrix = usesPerformanceMatrix(organization)
   const availableMetrics = useMemo(
     () =>
-      METRICS_BY_SCOPE[scope].filter(
+      METRICS_BY_SCOPE()[scope].filter(
         (m) => m.value !== RewardRankingMetric.MATRIX_RATING || hasMatrix,
       ),
     [scope, hasMatrix],
@@ -209,25 +219,26 @@ export default function ProgramFormModal({ open, onClose, editProgram }: Program
       onClose={onClose}
       size="lg"
       dismissible={!(isCreating || isUpdating)}
-      title={isEdit ? 'Sửa chương trình thưởng' : 'Tạo chương trình thưởng tự động'}
+      title={isEdit ? tr('ProgramFormModal.editRewardProgram') : tr('ProgramFormModal.createAnAutomaticRewardProgram')}
       footer={
         <DialogFooter
-          secondary={<Button variant="outline" onClick={onClose} disabled={isCreating || isUpdating}>Huỷ</Button>}
+          secondary={<Button variant="outline" onClick={onClose} disabled={isCreating || isUpdating}>{tr('ProgramFormModal.cancel')}</Button>}
           primary={
             <Button onClick={handleSubmit(onSubmit)} disabled={isCreating || isUpdating}>
               {(isCreating || isUpdating) && <Loader2 className="animate-spin" aria-hidden="true" />}
-              {isEdit ? 'Lưu' : 'Tạo chương trình'}
+              {isEdit ? tr('ProgramFormModal.save') : tr('ProgramFormModal.createProgram')}
             </Button>
           }
         />
       }
     >
+      <DraftNotice draft={draft} className="mb-4" />
       <div className="space-y-4">
         <div>
-          <label className="text-label mb-1.5 block font-medium">Tên chương trình</label>
+          <label className="text-label mb-1.5 block font-medium">{tr('ProgramFormModal.programName')}</label>
           <input
             {...register('name')}
-            placeholder="Ví dụ: Vinh danh Top 3 mỗi quý"
+            placeholder={tr('ProgramFormModal.eGHonorTheTop3')}
             className={inputCls}
           />
           {errors.name && <p className="mt-1 text-xs text-[var(--color-error)]">{errors.name.message}</p>}
@@ -237,7 +248,7 @@ export default function ProgramFormModal({ open, onClose, editProgram }: Program
             vào màn hình chạy mới tuỳ biến được, người dùng phải hiểu hai khái niệm rời
             nhau mới dùng nổi. */}
         <div>
-          <label className="text-label mb-2 block font-medium">Áp dụng cho</label>
+          <label className="text-label mb-2 block font-medium">{tr('ProgramFormModal.appliesTo')}</label>
           <div className="grid gap-2 sm:grid-cols-2">
             <button
               type="button"
@@ -248,9 +259,9 @@ export default function ProgramFormModal({ open, onClose, editProgram }: Program
                   : 'border-[var(--color-border)]'
               }`}
             >
-              <div className="font-medium">Mọi {scopeWord}</div>
+              <div className="font-medium">{tr('ProgramFormModal.every')} {scopeWord}</div>
               <div className="mt-0.5 text-xs text-[var(--color-muted-foreground)]">
-                Luật thường trực. Mỗi lần chạy bạn chọn {scopeWord} muốn phát.
+                {tr('ProgramFormModal.aStandingRuleEachRunYou')} {scopeWord} {tr('ProgramFormModal.toAward')}
               </div>
             </button>
             <button
@@ -266,9 +277,9 @@ export default function ProgramFormModal({ open, onClose, editProgram }: Program
                   : 'border-[var(--color-border)]'
               }`}
             >
-              <div className="font-medium">Một {scopeWord} cụ thể</div>
+              <div className="font-medium">{tr('ProgramFormModal.one')} {scopeWord} {tr('ProgramFormModal.specific')}</div>
               <div className="mt-0.5 text-xs text-[var(--color-muted-foreground)]">
-                Dùng cho đợt thưởng riêng, ví dụ tổng kết cuối năm.
+                {tr('ProgramFormModal.forAOneOffRewardE')}
               </div>
             </button>
           </div>
@@ -277,7 +288,7 @@ export default function ProgramFormModal({ open, onClose, editProgram }: Program
             <div className="mt-2">
               <Select value={fixedTargetId} onValueChange={v => setValue('fixedTargetId', v)}>
                 <SelectTrigger className={inputCls}>
-                  <SelectValue placeholder={`Chọn ${scopeWord}`} />
+                  <SelectValue placeholder={tr('ProgramFormModal.choose', { scopeWord })} />
                 </SelectTrigger>
                 <SelectContent className="z-[1100]">
                   {targetOptions.map((o: any) => (
@@ -293,7 +304,7 @@ export default function ProgramFormModal({ open, onClose, editProgram }: Program
 
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
-            <label className="text-label mb-1.5 block font-medium">Xếp hạng theo</label>
+            <label className="text-label mb-1.5 block font-medium">{tr('ProgramFormModal.rankBy')}</label>
             <Select
               value={scope}
               onValueChange={(v) => setValue('scope', v as RewardProgramScope)}
@@ -303,19 +314,19 @@ export default function ProgramFormModal({ open, onClose, editProgram }: Program
                 <SelectValue />
               </SelectTrigger>
               <SelectContent className="z-[1100]">
-                <SelectItem value={RewardProgramScope.CYCLE}>Kỳ đánh giá</SelectItem>
-                <SelectItem value={RewardProgramScope.PERIOD}>Đợt đánh giá</SelectItem>
+                <SelectItem value={RewardProgramScope.CYCLE}>{tr('ProgramFormModal.evaluationCycles')}</SelectItem>
+                <SelectItem value={RewardProgramScope.PERIOD}>{tr('ProgramFormModal.evaluationPeriods')}</SelectItem>
               </SelectContent>
             </Select>
             {hasIssued && (
               <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">
-                Đã phát thưởng nên không đổi được phạm vi.
+                {tr('ProgramFormModal.rewardsHaveBeenGivenSoThe')}
               </p>
             )}
           </div>
 
           <div>
-            <label className="text-label mb-1.5 block font-medium">Chỉ số xếp hạng</label>
+            <label className="text-label mb-1.5 block font-medium">{tr('ProgramFormModal.rankingMetric')}</label>
             <Select value={metric} onValueChange={(v) => setValue('metric', v as RewardRankingMetric)}>
               <SelectTrigger className={inputCls}>
                 <SelectValue />
@@ -330,14 +341,14 @@ export default function ProgramFormModal({ open, onClose, editProgram }: Program
             </Select>
             {!hasMatrix && (
               <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">
-                Bật KPI định tính hoặc Chấm hạnh kiểm ở Thiết lập công cụ để xếp hạng theo Xếp loại (ma trận).
+                {tr('ProgramFormModal.turnOnQualitativeKpisOrConduct')}
               </p>
             )}
           </div>
         </div>
 
         <div>
-          <label className="text-label mb-1.5 block font-medium">Phạm vi đơn vị</label>
+          <label className="text-label mb-1.5 block font-medium">{tr('ProgramFormModal.unitScope')}</label>
           <Select value={orgUnitId} onValueChange={v => setValue('orgUnitId', v)}>
             <SelectTrigger className={inputCls}>
               <SelectValue />
@@ -356,16 +367,15 @@ export default function ProgramFormModal({ open, onClose, editProgram }: Program
 
         {/* ── Bậc thưởng ── */}
         <div>
-          <label className="text-label mb-2 block font-medium">Bậc thưởng mặc định</label>
+          <label className="text-label mb-2 block font-medium">{tr('ProgramFormModal.defaultRewardTiers')}</label>
           <TierEditor tiers={tiers} onChange={t => setValue('tiers', t, { shouldValidate: true })} />
 
           {tierMsg ? (
             <p className="mt-2 text-xs text-[var(--color-error)]">{tierMsg}</p>
           ) : (
             <p className="mt-2 text-xs text-[var(--color-muted-foreground)]">
-              Nếu đủ người ở mọi hạng, một lần phát tốn tối đa{' '}
-              <b>{totalIfFull.toLocaleString('vi-VN')} điểm</b>. Bậc này chỉ là mặc định —
-              mỗi lần chạy bạn vẫn sửa được cho riêng kỳ/đợt đó.
+              {tr('ProgramFormModal.ifEveryRankIsFilledOne')}{' '}
+              <b>{totalIfFull.toLocaleString(intlLocale())} {tr('ProgramFormModal.points')}</b>{tr('ProgramFormModal.theseTiersAreOnlyDefaultsEach')}
             </p>
           )}
         </div>
@@ -373,51 +383,51 @@ export default function ProgramFormModal({ open, onClose, editProgram }: Program
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
             <label className="text-label mb-1.5 block font-medium">
-              Điểm sàn <span className="font-normal text-[var(--color-muted-foreground)]">(tuỳ chọn)</span>
+              {tr('ProgramFormModal.minimumScore')} <span className="font-normal text-[var(--color-muted-foreground)]">{tr('ProgramFormModal.optional')}</span>
             </label>
-            <input
+            <LocaleNumberInput
               type="number"
               {...register('minMetricValue', { setValueAs: numOrUndefined })}
-              placeholder="Không yêu cầu"
+              placeholder={tr('ProgramFormModal.noRequirement')}
               className={inputCls}
             />
             <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">
-              Dưới mức này thì không thưởng, dù xếp hạng cao.
+              {tr('ProgramFormModal.belowThisNoRewardIsGiven')}
             </p>
           </div>
           <div>
             <label className="text-label mb-1.5 block font-medium">
-              Trần điểm mỗi lần phát{' '}
-              <span className="font-normal text-[var(--color-muted-foreground)]">(tuỳ chọn)</span>
+              {tr('ProgramFormModal.pointCapPerRun')}{' '}
+              <span className="font-normal text-[var(--color-muted-foreground)]">{tr('ProgramFormModal.optional')}</span>
             </label>
-            <input
+            <LocaleNumberInput
               type="number"
               min={1}
               {...register('maxPointsPerRun', { setValueAs: numOrUndefined })}
-              placeholder="Không giới hạn"
+              placeholder={tr('ProgramFormModal.unlimited')}
               className={inputCls}
             />
             {errors.maxPointsPerRun && (
               <p className="mt-1 text-xs text-[var(--color-error)]">{errors.maxPointsPerRun.message}</p>
             )}
             <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">
-              Chặn cấu hình sai làm phát ra lượng điểm khổng lồ.
+              {tr('ProgramFormModal.preventsAMisconfigurationFromGivingOut')}
             </p>
           </div>
         </div>
 
         <div>
-          <label className="text-label mb-1.5 block font-medium">Khi có người đồng hạng</label>
+          <label className="text-label mb-1.5 block font-medium">{tr('ProgramFormModal.whenPeopleTie')}</label>
           <Select value={tiePolicy} onValueChange={(v) => setValue('tiePolicy', v as RewardTiePolicy)}>
             <SelectTrigger className={inputCls}>
               <SelectValue />
             </SelectTrigger>
             <SelectContent className="z-[1100]">
               <SelectItem value={RewardTiePolicy.SHARE_ALL}>
-                Cùng hạng cùng nhận (Top 3 có thể trả cho 4 người)
+                {tr('ProgramFormModal.sameRankSameRewardTop3')}
               </SelectItem>
               <SelectItem value={RewardTiePolicy.STRICT}>
-                Trả đúng số người (phá hoà theo thứ tự cố định)
+                {tr('ProgramFormModal.payExactlyThatManyPeopleTies')}
               </SelectItem>
             </SelectContent>
           </Select>
@@ -429,7 +439,7 @@ export default function ProgramFormModal({ open, onClose, editProgram }: Program
             {...register('includeUnitHeads')}
             className="rounded border-[var(--color-border)]"
           />
-          Tính cả trưởng/phó đơn vị vào bảng xếp hạng
+          {tr('ProgramFormModal.includeUnitHeadsDeputiesInThe')}
         </label>
 
         <label className="text-label flex cursor-pointer items-center gap-2">
@@ -438,7 +448,7 @@ export default function ProgramFormModal({ open, onClose, editProgram }: Program
             {...register('enabled')}
             className="rounded border-[var(--color-border)]"
           />
-          Đang bật
+          {tr('ProgramFormModal.on')}
         </label>
 
         <div className="rounded-card border border-[var(--color-border)] px-4 py-3">
@@ -449,10 +459,9 @@ export default function ProgramFormModal({ open, onClose, editProgram }: Program
               className="mt-0.5 rounded border-[var(--color-border)]"
             />
             <span>
-              <span className="font-medium">Tự động phát khi {scopeWord} kết thúc</span>
+              <span className="font-medium">{tr('ProgramFormModal.automaticallyAwardWhen')} {scopeWord} {tr('ProgramFormModal.ends')}</span>
               <span className="mt-0.5 block text-xs text-[var(--color-muted-foreground)]">
-                Hệ thống kiểm mỗi ngày; qua ngày kết thúc của {scopeWord} là phát luôn, không
-                cần ai bấm. Bạn vẫn phát tay sớm hơn được — phát rồi thì tự động sẽ bỏ qua.
+                {tr('ProgramFormModal.theSystemChecksDailyOncePast')} {scopeWord} {tr('ProgramFormModal.itAwardsWithoutAnyoneClickingYou')}
               </span>
             </span>
           </label>
@@ -463,9 +472,7 @@ export default function ProgramFormModal({ open, onClose, editProgram }: Program
             <div className="mt-2 flex items-start gap-2 rounded-control bg-[var(--color-warning-bg)] px-3 py-2 text-xs">
               <Info size={13} className="mt-0.5 flex-shrink-0 text-[var(--color-warning)]" />
               <span>
-                Điểm sẽ vào ví mà không ai soát trước. Nếu điểm đánh giá còn có thể thay đổi
-                sau ngày kết thúc, nên đặt <b>trần điểm mỗi lần phát</b> ở trên để giới hạn
-                thiệt hại khi cấu hình sai.
+                {tr('ProgramFormModal.pointsGoIntoWalletsWithoutAnyone')} <b>{tr('ProgramFormModal.pointCapPerRun2')}</b> {tr('ProgramFormModal.aboveToLimitTheDamageFrom')}
               </span>
             </div>
           )}
@@ -475,8 +482,7 @@ export default function ProgramFormModal({ open, onClose, editProgram }: Program
           <div className="flex items-start gap-2 rounded-card bg-[var(--color-muted)]/50 px-4 py-3 text-xs text-[var(--color-muted-foreground)]">
             <Info size={14} className="mt-0.5 flex-shrink-0" />
             <span>
-              Chương trình không tự chạy. Bạn chủ động bấm <b>Xem trước</b> cho một {scopeWord},
-              kiểm tra danh sách rồi mới <b>Phát thưởng</b>.
+              {tr('ProgramFormModal.theProgramDoesNotRunBy')} <b>{tr('ProgramFormModal.preview')}</b> {tr('ProgramFormModal.forA')} {scopeWord}{tr('ProgramFormModal.checkTheListAndOnlyThen')} <b>{tr('ProgramFormModal.award')}</b>.
             </span>
           </div>
         )}

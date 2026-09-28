@@ -9,6 +9,7 @@ import { useWorkflowNavigator } from '../../workflow/hooks/useWorkflowNavigator'
 import StepShell from '../StepShell'
 import { useKpiSetupFlow } from '../useKpiSetupFlow'
 import { Button } from '@/components/ui/button'
+import { useTranslation } from 'react-i18next'
 
 /**
  * Bước 4 — Xem lại và gửi duyệt. Đây là lúc "chốt đơn".
@@ -17,6 +18,7 @@ import { Button } from '@/components/ui/button'
  * để gửi — màn hình này khi đó chỉ tổng kết và kết thúc luồng.
  */
 export default function ReviewStep() {
+  const { t } = useTranslation('kpi')
   const navigate = useNavigate()
   const { goBack, periodId, orgUnitId, approvalEnabled } = useKpiSetupFlow()
   const { goToNext } = useWorkflowNavigator()
@@ -66,15 +68,15 @@ export default function ReviewStep() {
         </div>
 
         <div className="space-y-4">
-          <h3 className="text-page-title">Đã gửi duyệt</h3>
+          <h3 className="text-page-title">{t('ReviewStep.submittedForApproval')}</h3>
           <p className="font-medium leading-relaxed text-[var(--color-muted-foreground)]">
-            {items.length} chỉ tiêu của đợt <b>{periodName}</b> đã chuyển sang cấp trên phê duyệt.
+            {items.length} {t('ReviewStep.kpisOfThePeriod')} <b>{periodName}</b> {t('ReviewStep.haveBeenSentToTheManager')}
           </p>
         </div>
 
         <Button className="w-full" onClick={finish}>
           <Sparkles aria-hidden="true" className="text-[var(--color-warning)]" />
-          Tới bước tiếp theo
+          {t('ReviewStep.goToTheNextStep')}
         </Button>
       </div>
     )
@@ -82,17 +84,17 @@ export default function ReviewStep() {
 
   return (
     <StepShell
-      title={approvalEnabled ? 'Xem lại & gửi duyệt' : 'Xem lại & hoàn tất'}
+      title={approvalEnabled ? t('ReviewStep.reviewSubmitForApproval') : t('ReviewStep.reviewFinish')}
       description={
         approvalEnabled
-          ? 'Kiểm tra lần cuối trước khi chuyển toàn bộ chỉ tiêu sang cấp trên phê duyệt.'
-          : 'Tổ chức đã tắt bước duyệt chỉ tiêu nên các chỉ tiêu này có hiệu lực ngay.'
+          ? t('ReviewStep.checkOneLastTimeBeforeSending')
+          : t('ReviewStep.theOrganizationHasTurnedOffThe')
       }
       onBack={goBack}
       footer={
         <Button type="button" onClick={submit} disabled={bulkSubmit.isPending || items.length === 0}>
           {bulkSubmit.isPending ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Send aria-hidden="true" />}
-          {approvalEnabled ? `Gửi duyệt ${items.length} chỉ tiêu` : 'Hoàn tất'}
+          {approvalEnabled ? t('ReviewStep.submitKpisForApproval', { count: items.length }) : t('ReviewStep.finish')}
         </Button>
       }
     >
@@ -102,14 +104,14 @@ export default function ReviewStep() {
         </div>
       ) : items.length === 0 ? (
         <p className="py-10 text-center text-sm font-medium text-[var(--color-subtle-foreground)]">
-          Không còn chỉ tiêu NHÁP nào trong đợt này — có thể bạn đã gửi duyệt rồi.
+          {t('ReviewStep.noDraftKpisLeftInThis')}
         </p>
       ) : (
         <div className="space-y-6">
           <dl className="grid gap-4 sm:grid-cols-3">
-            <Summary label="Đợt" value={periodName ?? '—'} />
-            <Summary label="Đơn vị" value={unitName ?? '—'} />
-            <Summary label="Số chỉ tiêu" value={String(items.length)} />
+            <Summary label={t('ReviewStep.aPeriod')} value={periodName ?? '—'} />
+            <Summary label={t('ReviewStep.unit')} value={unitName ?? '—'} />
+            <Summary label={t('ReviewStep.numberOfKpis')} value={String(items.length)} />
           </dl>
 
           <ul className="divide-y divide-[var(--color-border)] overflow-hidden rounded-card border border-[var(--color-border)]">
@@ -118,7 +120,7 @@ export default function ReviewStep() {
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-medium text-[var(--color-foreground)]">{kpi.name}</span>
                   <span className="mt-0.5 block text-caption">
-                    {kpi.kpiType === 'QUALITATIVE' ? 'Định tính' : 'Định lượng'}
+                    {kpi.kpiType === 'QUALITATIVE' ? t('ReviewStep.qualitative') : t('ReviewStep.quantitative')}
                     {kpi.assigneeNames?.length > 0 && <> · {kpi.assigneeNames.join(', ')}</>}
                   </span>
                 </span>
@@ -128,7 +130,7 @@ export default function ReviewStep() {
           </ul>
 
           <div className="flex items-baseline justify-between rounded-card bg-[var(--color-muted)] px-5 py-4">
-            <span className="text-eyebrow">Tổng trọng số</span>
+            <span className="text-eyebrow">{t('ReviewStep.totalWeight')}</span>
             <span className={cn('text-xl font-semibold tabular-nums', Math.abs(total - 100) < 0.001 ? 'text-[var(--color-success)]' : 'text-[var(--color-error)]')}>
               {total.toFixed(1)}%
             </span>

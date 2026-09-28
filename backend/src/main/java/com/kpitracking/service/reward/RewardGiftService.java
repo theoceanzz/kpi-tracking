@@ -9,7 +9,9 @@ import com.kpitracking.enums.GiftItemStatus;
 import com.kpitracking.enums.GiftItemType;
 import com.kpitracking.enums.RedemptionStatus;
 import com.kpitracking.exception.BusinessException;
+import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.ResourceNotFoundException;
+import com.kpitracking.i18n.Terms;
 import com.kpitracking.repository.OrganizationRepository;
 import com.kpitracking.repository.RewardGiftItemRepository;
 import com.kpitracking.repository.RewardRedemptionRepository;
@@ -86,7 +88,7 @@ public class RewardGiftService {
     public GiftItemResponse create(GiftItemRequest request) {
         UUID orgId = context.getCurrentOrgId();
         Organization org = organizationRepository.findById(orgId)
-                .orElseThrow(() -> new ResourceNotFoundException("Tổ chức", "id", orgId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.organization"), "id", orgId));
 
         RewardGiftItem gift = RewardGiftItem.builder()
                 .organization(org)
@@ -142,9 +144,7 @@ public class RewardGiftService {
         if (stockChanged) {
             long pending = redemptionRepository.countByGiftItemIdAndStatus(id, RedemptionStatus.PENDING);
             if (pending > 0) {
-                throw new BusinessException("Không thể sửa tồn kho khi đang có " + pending
-                        + " yêu cầu đổi chờ xử lý — số tồn hiện tại đã trừ sẵn phần giữ chỗ cho các "
-                        + "yêu cầu đó. Hãy xử lý xong rồi sửa, hoặc chọn \"Không giới hạn số lượng\".");
+                throw new BusinessException(ErrorCode.STOCK_CANNOT_EDITED_WHILE_PENDING_REDEMPTION_REQUESTS, String.valueOf(pending));
             }
             gift.setStockByAdmin(request.getStockQuantity());
         }
@@ -171,16 +171,12 @@ public class RewardGiftService {
 
         long pending = redemptionRepository.countByGiftItemIdAndStatus(id, RedemptionStatus.PENDING);
         if (pending > 0) {
-            throw new BusinessException("Không thể xoá \"" + gift.getName() + "\" vì đang có "
-                    + pending + " yêu cầu đổi chờ xử lý. Hãy duyệt hoặc từ chối các yêu cầu đó trước, "
-                    + "hoặc bỏ chọn \"Đang bày bán\" để tạm ẩn quà khỏi cửa hàng.");
+            throw new BusinessException(ErrorCode.CANNOT_DELETE_BECAUSE_PENDING_REDEMPTION_REQUESTS, gift.getName(), String.valueOf(pending));
         }
 
         long total = redemptionRepository.countByGiftItemId(id);
         if (total > 0) {
-            throw new BusinessException("Không thể xoá \"" + gift.getName() + "\" vì đã có " + total
-                    + " lượt đổi trong lịch sử — xoá sẽ làm hỏng lịch sử đổi quà của nhân viên. "
-                    + "Hãy bỏ chọn \"Đang bày bán\" để ẩn quà khỏi cửa hàng thay vì xoá.");
+            throw new BusinessException(ErrorCode.CANNOT_DELETE_BECAUSE_REDEMPTIONS_HISTORY, gift.getName(), String.valueOf(total));
         }
 
         gift.setDeletedAt(Instant.now());
@@ -189,9 +185,9 @@ public class RewardGiftService {
 
     private RewardGiftItem load(UUID id) {
         RewardGiftItem gift = giftRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Quà tặng", "id", id));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.gift"), "id", id));
         if (!gift.getOrganization().getId().equals(context.getCurrentOrgId())) {
-            throw new BusinessException("Quà này không thuộc tổ chức của bạn.");
+            throw new BusinessException(ErrorCode.GIFT_OUTSIDE_ORGANIZATION);
         }
         return gift;
     }

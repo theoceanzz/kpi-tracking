@@ -32,6 +32,11 @@ public class EmailTemplate {
     @Column(name = "template_code", nullable = false, length = 64)
     private String templateCode;
 
+    /** Ngôn ngữ của bản tuỳ chỉnh — mỗi tổ chức chỉnh riêng từng ngôn ngữ (vi, en). */
+    @Column(name = "language", nullable = false, length = 10)
+    @Builder.Default
+    private String language = "vi";
+
     @Column(name = "subject", nullable = false, length = 500)
     private String subject;
 

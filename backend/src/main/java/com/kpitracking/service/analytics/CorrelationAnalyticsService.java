@@ -1,5 +1,6 @@
 package com.kpitracking.service.analytics;
 
+import com.kpitracking.i18n.ErrorMessages;
 import com.kpitracking.dto.response.stats.advanced.CorrelationResponses.BehaviorCompletionResponse;
 import com.kpitracking.dto.response.stats.advanced.CorrelationResponses.ScatterPoint;
 import com.kpitracking.entity.Organization;
@@ -45,8 +46,8 @@ public class CorrelationAnalyticsService {
         StatsTierResolver.TierScope scope = tierResolver.resolve(orgUnitId, periodIds);
 
         PerformanceMatrixResolver.Matrix matrix = loadMatrix(scope.orgId());
-        String xLabel = matrix != null ? matrix.colHeader() : "% Hoàn thành KPI";
-        String yLabel = matrix != null ? matrix.rowHeader() : "Điểm hành vi";
+        String xLabel = matrix != null ? matrix.colHeader() : ErrorMessages.text("analytics.matrix.colHeader", "");
+        String yLabel = matrix != null ? matrix.rowHeader() : ErrorMessages.text("analytics.matrix.rowHeader", "");
         List<Double> xDividers = matrix != null
                 ? PerformanceMatrixResolver.bandUpperBounds(matrix.cols()) : List.of();
         List<Double> yDividers = matrix != null

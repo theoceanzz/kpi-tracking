@@ -2,6 +2,7 @@ import { GitBranch, Scale } from 'lucide-react'
 import type { CycleApprovalStep, CycleCurve } from '@/types/kpi'
 import CycleBellCurveCard from './CycleBellCurveCard'
 import CycleApprovalTimeline from './CycleApprovalTimeline'
+import { useTranslation } from 'react-i18next'
 
 /**
  * Bell curve của kỳ và luồng duyệt theo cấp trên CÙNG MỘT HÀNG, mỗi cái một nửa, cỡ nhỏ.
@@ -21,15 +22,16 @@ export default function CycleInsightsCard({
   getScoreLabel: (s: number | null) => string
   onSelectUnit?: (orgUnitId: string) => void
 }) {
+  const { t } = useTranslation('kpi')
   const hasCurve = !!curve?.buckets?.length
   return (
     <div className={hasCurve ? 'grid gap-4 lg:grid-cols-[minmax(0,7fr)_minmax(0,5fr)] lg:items-start' : ''}>
       {hasCurve && curve && (
-        <Panel icon={<Scale size={15} aria-hidden="true" />} title="Bell curve của kỳ" hint={orgUnitName}>
+        <Panel icon={<Scale size={15} aria-hidden="true" />} title={t('CycleInsightsCard.cycleBellCurve')} hint={orgUnitName}>
           <CycleBellCurveCard bare compact curve={curve} orgUnitName={orgUnitName} />
         </Panel>
       )}
-      <Panel icon={<GitBranch size={15} aria-hidden="true" />} title="Luồng duyệt theo cấp" hint="Trưởng đơn vị → Giám đốc">
+      <Panel icon={<GitBranch size={15} aria-hidden="true" />} title={t('CycleInsightsCard.approvalFlowByLevel')} hint={t('CycleInsightsCard.unitHeadDirector')}>
         <CycleApprovalTimeline
           bare
           steps={chain}

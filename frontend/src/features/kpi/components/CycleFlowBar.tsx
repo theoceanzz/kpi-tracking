@@ -5,6 +5,7 @@ import { cn } from '@/lib/utils'
 import type { CycleApprovalStep, CycleUnitEvaluation } from '@/types/kpi'
 import type { CalibrationPlan } from '../api/kpiCycleEvaluationApi'
 import { Button } from '@/components/ui/button'
+import { useTranslation } from 'react-i18next'
 
 /**
  * Dải điều khiển DUY NHẤT của luồng đánh giá kỳ: bốn ô bước, mỗi ô tự mang trạng thái và nút
@@ -33,6 +34,7 @@ export default function CycleFlowBar({
   onGoUnitScore: () => void
   onGoCalibration: () => void
 }) {
+  const { t } = useTranslation('kpi')
   const status = summary.status
   const draft = status === 'DRAFT'
   const calibrating = status === 'CALIBRATING'
@@ -45,19 +47,19 @@ export default function CycleFlowBar({
 
   // ③: tóm tắt tình trạng khung trong một cụm từ.
   const frame = !plan || draft ? null
-    : !plan.configured ? { text: 'Không áp khung', tone: 'muted' as const }
-    : plan.blocked ? { text: `Vượt trần · ${plan.suggestions.filter(s => s.required).length} đề xuất`, tone: 'error' as const }
-    : plan.withinFrame ? { text: 'Trong khung', tone: 'success' as const }
-    : { text: `Lệch khung · ${plan.suggestions.length} đề xuất`, tone: 'warning' as const }
+    : !plan.configured ? { text: t('CycleFlowBar.noQuota'), tone: 'muted' as const }
+    : plan.blocked ? { text: t('CycleFlowBar.aboveTheCeilingSuggestions', { count: plan.suggestions.filter(s => s.required).length }), tone: 'error' as const }
+    : plan.withinFrame ? { text: t('CycleFlowBar.withinCurve'), tone: 'success' as const }
+    : { text: t('CycleFlowBar.outsideQuotaSuggestions', { count: plan.suggestions.length }), tone: 'warning' as const }
 
   return (
-    <ol className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4" aria-label="Các bước đánh giá kỳ">
+    <ol className="grid grid-cols-1 gap-2 sm:grid-cols-2 xl:grid-cols-4" aria-label={t('CycleFlowBar.cycleEvaluationSteps')}>
       {/* ① Chốt dữ liệu kỳ */}
       <Tile
-        n={1} state={draft ? 'current' : 'done'} label="Chốt dữ liệu kỳ"
+        n={1} state={draft ? 'current' : 'done'} label={t('CycleFlowBar.finalizeCycleData')}
         status={draft
-          ? 'Đóng đợt & hạnh kiểm, chụp điểm nền'
-          : [summary.calibratedByName, when(summary.calibratedAt)].filter(Boolean).join(' · ') || 'Đã chốt'}
+          ? t('CycleFlowBar.closePeriodsConductCaptureBaselineScores')
+          : [summary.calibratedByName, when(summary.calibratedAt)].filter(Boolean).join(' · ') || t('CycleFlowBar.finalized')}
         action={canFinalize && (
           draft ? (
             <Button
@@ -66,11 +68,11 @@ export default function CycleFlowBar({
               title={blockedFinalize ? chainStep?.blockedReason || undefined : undefined}
             >
               {isCalibrating ? <Loader2 className="animate-spin" aria-hidden="true" /> : <SlidersHorizontal aria-hidden="true" />}
-              Chốt dữ liệu
+              {t('CycleFlowBar.finalizeData')}
             </Button>
           ) : calibrating ? (
-            <Button variant="ghost" size="sm" onClick={() => onReopen(false)} disabled={isReopening} title="Quay về nháp: mở lại đánh giá đợt và hạnh kiểm">
-              <LockOpen aria-hidden="true" /> Mở lại
+            <Button variant="ghost" size="sm" onClick={() => onReopen(false)} disabled={isReopening} title={t('CycleFlowBar.backToDraftReopenPeriodEvaluations')}>
+              <LockOpen aria-hidden="true" /> {t('CycleFlowBar.reopen')}
             </Button>
           ) : null
         )}
@@ -78,65 +80,65 @@ export default function CycleFlowBar({
 
       {/* ② Chấm điểm phòng */}
       <Tile
-        n={2} state={draft ? 'todo' : calibrating ? 'current' : 'done'} label="Chấm điểm phòng"
+        n={2} state={draft ? 'todo' : calibrating ? 'current' : 'done'} label={t('CycleFlowBar.scoreTheDepartment')}
         status={draft
-          ? 'Sau khi chốt dữ liệu'
+          ? t('CycleFlowBar.afterDataIsFinalized')
           : summary.overrideScore != null
-            ? `${summary.overrideScore} · chấm tay (TB ${summary.autoScore ?? '—'})`
-            : `${summary.autoScore ?? '—'} · TB ${summary.memberCount} thành viên`}
+            ? t('CycleFlowBar.manualScoreAvg', { overrideScore: summary.overrideScore, value: summary.autoScore ?? '—' })
+            : t('CycleFlowBar.avgOfMembers', { value: summary.autoScore ?? '—', memberCount: summary.memberCount })}
         action={calibrating && canFinalize && (
-          <Button variant="outline" size="sm" onClick={onGoUnitScore}>Chấm</Button>
+          <Button variant="outline" size="sm" onClick={onGoUnitScore}>{t('CycleFlowBar.score')}</Button>
         )}
       />
 
       {/* ③ Hiệu chỉnh theo khung */}
       <Tile
-        n={3} state={draft ? 'todo' : calibrating ? 'current' : 'done'} label="Hiệu chỉnh theo khung"
-        status={frame ? frame.text : 'Bell curve → nắn điểm cá nhân'}
+        n={3} state={draft ? 'todo' : calibrating ? 'current' : 'done'} label={t('CycleFlowBar.calibrateToQuota')}
+        status={frame ? frame.text : t('CycleFlowBar.bellCurveAdjustIndividualScores')}
         statusTone={frame?.tone}
         action={!draft && (
           <Button variant={plan?.suggestions.length && calibrating ? 'default' : 'outline'} size="sm" onClick={onGoCalibration}>
-            {plan?.suggestions.length ? `Hiệu chỉnh (${plan.suggestions.length})` : 'Xem'}
+            {plan?.suggestions.length ? t('CycleFlowBar.calibrate', { length: plan.suggestions.length }) : t('CycleFlowBar.view')}
           </Button>
         )}
       />
 
       {/* ④ Khoá kết quả */}
       <Tile
-        n={4} state={finalized ? 'done' : calibrating ? 'next' : 'todo'} label="Khoá kết quả"
+        n={4} state={finalized ? 'done' : calibrating ? 'next' : 'todo'} label={t('CycleFlowBar.lockResults')}
         status={finalized
-          ? [summary.finalizedByName, when(summary.finalizedAt)].filter(Boolean).join(' · ') || 'Đã khoá'
-          : childTotal > 0 ? `${childLocked}/${childTotal} phòng con đã khoá` : 'Chụp snapshot, duyệt lên trên'}
+          ? [summary.finalizedByName, when(summary.finalizedAt)].filter(Boolean).join(' · ') || t('CycleFlowBar.locked')
+          : childTotal > 0 ? t('CycleFlowBar.childDepartmentsLocked', { childLocked, childTotal }) : t('CycleFlowBar.captureASnapshotSendUpFor')}
         action={canFinalize && (
           finalized ? (
             <div className="flex items-center gap-1">
               {childTotal > 0 && (
-                <Button variant="ghost" size="sm" onClick={() => onReopen(true)} disabled={isReopening || !chainStep?.canReopen} title="Mở khoá đơn vị này và mọi phòng con">
-                  <FolderLock aria-hidden="true" /> Cả cây
+                <Button variant="ghost" size="sm" onClick={() => onReopen(true)} disabled={isReopening || !chainStep?.canReopen} title={t('CycleFlowBar.unlockThisUnitAndAllChild')}>
+                  <FolderLock aria-hidden="true" /> {t('CycleFlowBar.wholeTree')}
                 </Button>
               )}
               <Button variant="outline" size="sm" onClick={() => onReopen(false)} disabled={isReopening || !chainStep?.canReopen} title={chainStep?.canReopen === false ? chainStep.blockedReason || undefined : undefined}>
-                <LockOpen aria-hidden="true" /> Mở khoá
+                <LockOpen aria-hidden="true" /> {t('CycleFlowBar.unlock')}
               </Button>
             </div>
           ) : calibrating ? (
             <div className="flex items-center gap-1">
               {childLocked > 0 && (
-                <Button variant="ghost" size="sm" onClick={() => onReopen(true)} disabled={isReopening} title={`Mở khoá ${childLocked} phòng con đang khoá kết quả`}>
-                  <FolderLock aria-hidden="true" /> Mở {childLocked} phòng con
+                <Button variant="ghost" size="sm" onClick={() => onReopen(true)} disabled={isReopening} title={t('CycleFlowBar.unlockChildDepartmentsWithLockedResults', { childLocked })}>
+                  <FolderLock aria-hidden="true" /> {t('CycleFlowBar.open')} {childLocked} {t('CycleFlowBar.childDepartments')}
                 </Button>
               )}
               <Button
                 size="sm" onClick={onFinalize}
                 disabled={blockedFinalize || !!plan?.blocked}
-                title={blockedFinalize ? chainStep?.blockedReason || undefined : plan?.blocked ? 'Còn mức vượt trần — hiệu chỉnh trước' : undefined}
+                title={blockedFinalize ? chainStep?.blockedReason || undefined : plan?.blocked ? t('CycleFlowBar.someLevelsAreAboveTheCeiling') : undefined}
               >
-                <Lock aria-hidden="true" /> Khoá
+                <Lock aria-hidden="true" /> {t('CycleFlowBar.lock')}
               </Button>
             </div>
           ) : childLocked > 0 ? (
-            <Button variant="ghost" size="sm" onClick={() => onReopen(true)} disabled={isReopening} title={`Mở khoá ${childLocked} phòng con đang khoá kết quả`}>
-              <FolderLock aria-hidden="true" /> Mở {childLocked} phòng con
+            <Button variant="ghost" size="sm" onClick={() => onReopen(true)} disabled={isReopening} title={t('CycleFlowBar.unlockChildDepartmentsWithLockedResults', { childLocked })}>
+              <FolderLock aria-hidden="true" /> {t('CycleFlowBar.open')} {childLocked} {t('CycleFlowBar.childDepartments')}
             </Button>
           ) : null
         )}

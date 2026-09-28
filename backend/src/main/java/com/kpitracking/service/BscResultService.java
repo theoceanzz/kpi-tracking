@@ -16,6 +16,8 @@ import com.kpitracking.repository.BscUnitResultItemRepository;
 import com.kpitracking.repository.EvaluationRepository;
 import com.kpitracking.repository.UserRepository;
 import com.kpitracking.event.BscEvents;
+import com.kpitracking.exception.ErrorCode;
+import com.kpitracking.i18n.Terms;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -52,7 +54,7 @@ public class BscResultService {
     @Transactional(readOnly = true)
     public BscWaterfallResponse waterfall(UUID evaluationId) {
         Evaluation e = evaluationRepository.findById(evaluationId)
-                .orElseThrow(() -> new ResourceNotFoundException("Đánh giá", "id", evaluationId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.evaluation"), "id", evaluationId));
 
         UUID orgId = organizationIdOf(e);
         UUID periodId = e.getKpiPeriod() != null ? e.getKpiPeriod().getId() : null;
@@ -122,7 +124,7 @@ public class BscResultService {
     @Transactional
     public BscWaterfallResponse override(UUID evaluationId, BscOverrideRequest request) {
         Evaluation e = evaluationRepository.findById(evaluationId)
-                .orElseThrow(() -> new ResourceNotFoundException("Đánh giá", "id", evaluationId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.evaluation"), "id", evaluationId));
         User actor = currentUserOrNull();
 
         if (request.getScore() == null) {
@@ -136,10 +138,10 @@ public class BscResultService {
             if (e.getRecognizedScore() != null) e.setScore(e.getRecognizedScore());
         } else {
             if (request.getReasonCode() == null || request.getReasonCode().isBlank()) {
-                throw new BusinessException("Ghi đè điểm bắt buộc phải có lý do");
+                throw new BusinessException(ErrorCode.SCORE_OVERRIDE_REQUIRES_REASON);
             }
             if (request.getScore() < 0) {
-                throw new BusinessException("Điểm ghi đè không được âm");
+                throw new BusinessException(ErrorCode.OVERRIDE_SCORE_CANNOT_NEGATIVE);
             }
             e.setOverrideScore(request.getScore());
             e.setOverrideReasonCode(request.getReasonCode().trim());

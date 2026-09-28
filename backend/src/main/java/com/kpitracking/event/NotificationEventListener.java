@@ -1,5 +1,6 @@
 package com.kpitracking.event;
 
+import com.kpitracking.i18n.LocalizedText;
 import com.kpitracking.entity.KpiCriteria;
 import com.kpitracking.entity.KpiSubmission;
 import com.kpitracking.entity.User;
@@ -10,6 +11,7 @@ import com.kpitracking.event.KpiEvents.KpiCriteriaApprovalRevertedEvent;
 import com.kpitracking.event.KpiEvents.KpiCriteriaSubmittedForApprovalEvent;
 import com.kpitracking.event.KpiEvents.KpiSubmittedEvent;
 import com.kpitracking.event.KpiEvents.SubmissionReviewedEvent;
+import com.kpitracking.event.KpiEvents.SubmissionReturnedEvent;
 import com.kpitracking.service.notification.NotificationDispatcher;
 import com.kpitracking.service.notification.NotificationRoutingService;
 import lombok.RequiredArgsConstructor;
@@ -44,6 +46,7 @@ public class NotificationEventListener {
 
     private final NotificationDispatcher dispatcher;
     private final NotificationRoutingService routing;
+    private final com.kpitracking.service.kpi.approval.KpiApprovalChainService approvalChain;
 
     private UUID getOrgId(KpiSubmission submission) {
         return submission.getOrgUnit().getOrgHierarchyLevel().getOrganization().getId();
@@ -63,8 +66,8 @@ public class NotificationEventListener {
         KpiCriteria kpi = submission.getKpiCriteria();
         User submitter = submission.getSubmittedBy();
 
-        String title = "Báo cáo KPI mới cần duyệt";
-        String message = String.format("Nhân viên %s vừa nộp báo cáo cho chỉ tiêu KPI '%s'. Giá trị đạt được: %s. Vui lòng vào hệ thống để kiểm tra và duyệt.",
+        LocalizedText title = LocalizedText.of("notif.kpi.submissionSubmitted.title");
+        LocalizedText message = LocalizedText.of("notif.kpi.submissionSubmitted.message",
                 submitter.getFullName(), kpi.getName(), submission.getActualValue());
 
         UUID orgId = getOrgId(submission);
@@ -99,21 +102,45 @@ public class NotificationEventListener {
         User submitter = submission.getSubmittedBy();
         User reviewer = submission.getReviewedBy();
         boolean approved = submission.getStatus() == SubmissionStatus.APPROVED;
-        String statusText = approved ? "chấp nhận" : "từ chối";
+        String outcome = approved ? "approved" : "rejected";
 
-        String title = "Báo cáo KPI đã được " + statusText;
-        String message = String.format("Báo cáo cho chỉ tiêu '%s' của bạn đã được %s bởi %s.",
-                submission.getKpiCriteria().getName(), statusText,
-                reviewer != null ? reviewer.getFullName() : "hệ thống");
-
-        if (submission.getReviewNote() != null) {
-            message += " Ghi chú: " + submission.getReviewNote();
-        }
+        LocalizedText title = LocalizedText.of("notif.kpi.submissionReviewed.title." + outcome);
+        Object note = submission.getReviewNote() != null
+                ? LocalizedText.of("notif.common.noteSuffix", submission.getReviewNote()) : "";
+        LocalizedText message = LocalizedText.of("notif.kpi.submissionReviewed.message." + outcome,
+                submission.getKpiCriteria().getName(),
+                reviewer != null ? reviewer.getFullName() : LocalizedText.of("notif.common.system"), note);
 
         dispatcher.dispatch(orgId, "submission_reviewed", submitter, submission.getOrgUnit(),
                 title, message, "REVIEW", submission.getId());
 
         escalateApprovedSubmission(submission, orgId, submitter, reviewer, approved);
+    }
+
+    private static final java.time.format.DateTimeFormatter DEADLINE =
+            java.time.format.DateTimeFormatter.ofPattern("HH:mm dd/MM/yyyy").withZone(java.time.ZoneId.of("Asia/Ho_Chi_Minh"));
+
+    /**
+     * Bài nộp bị trả lại (hoàn duyệt): báo người nộp kèm lý do và hạn nộp lại. Đi cả email — nhân
+     * viên phải biết để làm lại trước hạn, kể cả khi không mở hệ thống.
+     */
+    @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
+    @Async
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
+    public void handleSubmissionReturned(SubmissionReturnedEvent event) {
+        KpiSubmission submission = event.getSubmission();
+        log.info("Handling submission returned event for submission: {}", submission.getId());
+
+        User returnedBy = submission.getReturnedBy();
+        LocalizedText title = LocalizedText.of("notif.kpi.submissionReturned.title");
+        LocalizedText message = LocalizedText.of("notif.kpi.submissionReturned.message",
+                submission.getKpiCriteria().getName(),
+                returnedBy != null ? returnedBy.getFullName() : LocalizedText.of("notif.common.system"),
+                submission.getReturnReason() != null ? submission.getReturnReason() : "",
+                submission.getResubmitDeadline() != null ? DEADLINE.format(submission.getResubmitDeadline()) : "");
+
+        dispatcher.dispatchImmediate(getOrgId(submission), "submission_returned", submission.getSubmittedBy(),
+                submission.getOrgUnit(), title, message, "REVIEW", submission.getId());
     }
 
     /**
@@ -138,12 +165,11 @@ public class NotificationEventListener {
                 submission.getOrgUnit(), reviewer.getId(), "SUBMISSION:REVIEW", exclude);
         if (superiors.isEmpty()) return;
 
-        String title = "Báo cáo KPI đã được duyệt ở cấp dưới";
-        String message = String.format(
-                "%s đã duyệt báo cáo chỉ tiêu '%s' của %s. Giá trị đạt được: %s.",
+        LocalizedText title = LocalizedText.of("notif.kpi.submissionEscalated.title");
+        LocalizedText message = LocalizedText.of("notif.kpi.submissionEscalated.message",
                 reviewer.getFullName(),
                 submission.getKpiCriteria().getName(),
-                submitter != null ? submitter.getFullName() : "nhân viên",
+                submitter != null ? submitter.getFullName() : LocalizedText.of("notif.common.employee"),
                 submission.getActualValue());
 
         for (User superior : superiors) {
@@ -163,8 +189,8 @@ public class NotificationEventListener {
         User creator = kpi.getCreatedBy();
 
         // Toggle: kpi_approved — thông báo cho người tạo KPI
-        String approvedTitle = "Chỉ tiêu KPI đã được duyệt";
-        String approvedMessage = String.format("Chỉ tiêu KPI '%s' do bạn tạo đã được phê duyệt bởi %s.",
+        LocalizedText approvedTitle = LocalizedText.of("notif.kpi.approved.title");
+        LocalizedText approvedMessage = LocalizedText.of("notif.kpi.approved.message",
                 kpi.getName(), kpi.getApprovedBy().getFullName());
 
         dispatcher.dispatch(orgId, "kpi_approved", creator, kpi.getOrgUnit(),
@@ -172,10 +198,10 @@ public class NotificationEventListener {
 
         // Toggle: kpi_assigned — thông báo cho từng người được giao
         if (kpi.getAssignees() != null && !kpi.getAssignees().isEmpty()) {
-            String assignedTitle = "KPI mới được giao";
+            LocalizedText assignedTitle = LocalizedText.of("notif.kpi.assigned.title");
             for (User assignee : kpi.getAssignees()) {
                 if (!assignee.getId().equals(creator.getId())) {
-                    String assignedMessage = String.format("Bạn vừa được giao một chỉ tiêu KPI mới: '%s'.", kpi.getName());
+                    LocalizedText assignedMessage = LocalizedText.of("notif.kpi.assigned.message", kpi.getName());
                     dispatcher.dispatch(orgId, "kpi_assigned", assignee, kpi.getOrgUnit(),
                             assignedTitle, assignedMessage, "KPI_ASSIGNED", kpi.getId());
                 }
@@ -193,13 +219,11 @@ public class NotificationEventListener {
         UUID orgId = getOrgId(kpi);
         User creator = kpi.getCreatedBy();
 
-        String title = "Chỉ tiêu KPI bị từ chối";
-        String message = String.format("Chỉ tiêu KPI '%s' do bạn tạo đã bị từ chối bởi %s.",
-                kpi.getName(), kpi.getApprovedBy().getFullName());
-
-        if (kpi.getRejectReason() != null && !kpi.getRejectReason().isBlank()) {
-            message += " Lý do: " + kpi.getRejectReason();
-        }
+        LocalizedText title = LocalizedText.of("notif.kpi.rejected.title");
+        Object reason = kpi.getRejectReason() != null && !kpi.getRejectReason().isBlank()
+                ? LocalizedText.of("notif.common.reasonSuffix", kpi.getRejectReason()) : "";
+        LocalizedText message = LocalizedText.of("notif.kpi.rejected.message",
+                kpi.getName(), kpi.getApprovedBy().getFullName(), reason);
 
         dispatcher.dispatch(orgId, "kpi_rejected", creator, kpi.getOrgUnit(),
                 title, message, "KPI_REJECTED", kpi.getId());
@@ -212,11 +236,14 @@ public class NotificationEventListener {
         KpiCriteria kpi = event.getKpiCriteria();
         log.info("Handling KPI submitted for approval event for KPI: {}", kpi.getId());
 
+        // Chuỗi duyệt tự báo đúng người giữ bước (ApprovalChainNotificationListener).
+        if (approvalChain.isChainMode(kpi)) return;
+
         UUID orgId = getOrgId(kpi);
         User submitter = kpi.getCreatedBy();
 
-        String title = "Chỉ tiêu KPI mới cần phê duyệt";
-        String message = String.format("%s vừa gửi chỉ tiêu KPI '%s' để chờ phê duyệt. Vui lòng vào hệ thống để xem xét.",
+        LocalizedText title = LocalizedText.of("notif.approval.new.title.kpi");
+        LocalizedText message = LocalizedText.of("notif.kpi.submittedForApproval.message",
                 submitter.getFullName(), kpi.getName());
 
         // Cùng quy tắc một cấp như bản nộp: chỉ người duyệt gần nhất nhận, không rải lên
@@ -242,8 +269,8 @@ public class NotificationEventListener {
         UUID orgId = getOrgId(kpi);
         User creator = kpi.getCreatedBy();
 
-        String title = "Chỉ tiêu KPI bị hoàn duyệt";
-        String message = String.format("Chỉ tiêu KPI '%s' do bạn tạo đã bị hoàn duyệt (huỷ phê duyệt) bởi %s và cần được xem xét lại.",
+        LocalizedText title = LocalizedText.of("notif.kpi.approvalReverted.title");
+        LocalizedText message = LocalizedText.of("notif.kpi.approvalReverted.message",
                 kpi.getName(), event.getRevertedBy().getFullName());
 
         dispatcher.dispatch(orgId, "kpi_approval_reverted", creator, kpi.getOrgUnit(),

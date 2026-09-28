@@ -27,6 +27,8 @@ import com.kpitracking.repository.KpiPeriodRepository;
 import com.kpitracking.repository.OrgUnitRepository;
 import com.kpitracking.repository.UserRepository;
 import com.kpitracking.event.BscEvents;
+import com.kpitracking.exception.ErrorCode;
+import com.kpitracking.i18n.Terms;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -77,18 +79,18 @@ public class BscTreeService {
     @Transactional
     public ScorecardCoverageResponse cascade(UUID parentScorecardId, CascadeRequest request) {
         BscScorecard parent = scorecardRepository.findById(parentScorecardId)
-                .orElseThrow(() -> new ResourceNotFoundException("Bộ tiêu chí", "id", parentScorecardId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.scorecard"), "id", parentScorecardId));
         if (parent.getStatus() == BscScorecardStatus.LOCKED) {
-            throw new BusinessException("Bộ tiêu chí đã khoá — mở khoá trước khi phân rã");
+            throw new BusinessException(ErrorCode.SCORECARD_LOCKED);
         }
 
         BscScorecardPerspective parentItem = itemRepository.findById(request.getScorecardPerspectiveId())
-                .orElseThrow(() -> new ResourceNotFoundException("Chỉ tiêu", "id", request.getScorecardPerspectiveId()));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.kpi"), "id", request.getScorecardPerspectiveId()));
         if (!parentItem.getScorecard().getId().equals(parentScorecardId)) {
-            throw new BusinessException("Chỉ tiêu không thuộc bộ tiêu chí đang phân rã");
+            throw new BusinessException(ErrorCode.KPI_OUTSIDE_SCORECARD_BEING_CASCADED);
         }
         if (request.getTargets() == null || request.getTargets().isEmpty()) {
-            throw new BusinessException("Chưa chọn đơn vị nào để phân rã");
+            throw new BusinessException(ErrorCode.NO_UNIT_CHOSEN_CASCADE);
         }
 
         BscLinkType linkType = request.getLinkType() != null ? request.getLinkType() : BscLinkType.SUM;
@@ -98,7 +100,7 @@ public class BscTreeService {
 
         for (CascadeTargetRequest target : request.getTargets()) {
             OrgUnit unit = orgUnitRepository.findById(target.getOrgUnitId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Phòng ban", "id", target.getOrgUnitId()));
+                    .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.department"), "id", target.getOrgUnitId()));
             assertCascadeTarget(parent, unit);
 
             BscScorecard child = findOrCreateChild(parent, unit, orgId, actor);
@@ -175,8 +177,7 @@ public class BscTreeService {
             if (isDescendant(target, owner)) return;
         }
         String ownerNames = String.join(", ", owners.stream().map(OrgUnit::getName).toList());
-        throw new BusinessException("Chỉ giao được chỉ tiêu xuống đơn vị cấp dưới. \""
-                + target.getName() + "\" không nằm dưới " + ownerNames + ".");
+        throw new BusinessException(ErrorCode.KPIS_CAN_ONLY_ASSIGNED_DOWN_LOWER_UNITS, target.getName(), String.valueOf(ownerNames));
     }
 
     /** {@code target} có nằm DƯỚI {@code ancestor} không (không tính chính nó). */
@@ -244,7 +245,7 @@ public class BscTreeService {
     @Transactional(readOnly = true)
     public ScorecardCoverageResponse coverage(UUID scorecardId) {
         BscScorecard scorecard = scorecardRepository.findById(scorecardId)
-                .orElseThrow(() -> new ResourceNotFoundException("Bộ tiêu chí", "id", scorecardId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.scorecard"), "id", scorecardId));
 
         List<BscScorecardPerspective> rows = itemRepository.findByScorecardIdOrderByDisplayOrderAsc(scorecardId);
         List<UUID> rowIds = rows.stream().map(BscScorecardPerspective::getId).toList();
@@ -451,12 +452,12 @@ public class BscTreeService {
             return 0;
         }
         if (parentId.equals(scorecardId)) {
-            throw new BusinessException("Không thể gắn bộ tiêu chí vào chính nó");
+            throw new BusinessException(ErrorCode.SCORECARD_CANNOT_ATTACHED_ITSELF);
         }
 
         BscScorecard parent = load(parentId);
         if (!parent.getOrganization().getId().equals(child.getOrganization().getId())) {
-            throw new BusinessException("Bộ tiêu chí cấp trên phải thuộc cùng tổ chức");
+            throw new BusinessException(ErrorCode.PARENT_SCORECARD_MUST_BELONG_SAME_ORGANIZATION_2);
         }
         // Cha nằm trong nhánh con ⇒ nối vào là tạo vòng, cây thành danh sách vòng tròn và mọi hàm
         // duyệt đệ quy (dựng cây, tra thẻ công ty) sẽ chạy tới khi chạm guard rồi trả kết quả sai.
@@ -464,7 +465,7 @@ public class BscTreeService {
         int guard = 0;
         while (cur != null && guard++ < 100) {
             if (cur.getId().equals(scorecardId)) {
-                throw new BusinessException("Bộ tiêu chí cấp trên đang nằm dưới chính bộ tiêu chí này");
+                throw new BusinessException(ErrorCode.PARENT_SCORECARD_UNDER_VERY_SCORECARD);
             }
             cur = cur.getParentScorecard();
         }
@@ -539,17 +540,16 @@ public class BscTreeService {
         // dòng này thì trưởng đơn vị nào cũng trình được bộ tiêu chí của đơn vị khác.
         accessGuard.assertCanEdit(s);
         if (s.getStatus() != BscScorecardStatus.DRAFT) {
-            throw new BusinessException("Chỉ trình được bộ tiêu chí đang ở trạng thái nháp");
+            throw new BusinessException(ErrorCode.ONLY_DRAFT_SCORECARDS_CAN_SUBMITTED);
         }
         List<BscScorecardPerspective> rows = itemRepository.findByScorecardIdOrderByDisplayOrderAsc(scorecardId);
         if (rows.isEmpty()) {
-            throw new BusinessException("Bộ tiêu chí chưa có chỉ tiêu nào");
+            throw new BusinessException(ErrorCode.SCORECARD_NO_KPIS);
         }
         double total = rows.stream()
                 .mapToDouble(r -> r.getWeightPercentage() != null ? r.getWeightPercentage() : 0.0).sum();
         if (Math.abs(total - 100.0) > 0.01) {
-            throw new BusinessException("Tổng trọng số phải bằng 100% mới trình được (hiện tại: "
-                    + Math.round(total * 10) / 10.0 + "%)");
+            throw new BusinessException(ErrorCode.TOTAL_WEIGHT_MUST_100_PERCENT_SUBMIT, String.valueOf(Math.round(total * 10) / 10.0));
         }
         User actor = currentUserOrNull();
         s.setStatus(BscScorecardStatus.SUBMITTED);
@@ -576,7 +576,7 @@ public class BscTreeService {
     public BscScorecard approve(UUID scorecardId) {
         BscScorecard s = load(scorecardId);
         if (s.getStatus() != BscScorecardStatus.SUBMITTED) {
-            throw new BusinessException("Chỉ duyệt được bộ tiêu chí đang chờ duyệt");
+            throw new BusinessException(ErrorCode.ONLY_SCORECARDS_PENDING_APPROVAL_CAN_APPROVED);
         }
         User actor = currentUserOrNull();
         s.setStatus(BscScorecardStatus.ACTIVE);
@@ -592,11 +592,11 @@ public class BscTreeService {
     @Transactional
     public BscScorecard reject(UUID scorecardId, String reason) {
         if (reason == null || reason.isBlank()) {
-            throw new BusinessException("Vui lòng nhập lý do trả lại");
+            throw new BusinessException(ErrorCode.ENTER_REASON_RETURNING);
         }
         BscScorecard s = load(scorecardId);
         if (s.getStatus() != BscScorecardStatus.SUBMITTED) {
-            throw new BusinessException("Chỉ trả lại được bộ tiêu chí đang chờ duyệt");
+            throw new BusinessException(ErrorCode.ONLY_SCORECARDS_PENDING_APPROVAL_CAN_RETURNED);
         }
         // Người trình bị xoá khỏi thẻ ngay dưới đây, nên phải giữ lại trước để còn báo cho họ.
         UUID submitterId = idOf(s.getSubmittedBy());
@@ -618,7 +618,7 @@ public class BscTreeService {
     public BscScorecard activate(UUID scorecardId) {
         BscScorecard s = load(scorecardId);
         if (s.getStatus() != BscScorecardStatus.APPROVED && s.getStatus() != BscScorecardStatus.CLOSED) {
-            throw new BusinessException("Chỉ áp dụng được bộ tiêu chí đã duyệt hoặc đã đóng");
+            throw new BusinessException(ErrorCode.ONLY_APPROVED_CLOSED_SCORECARDS_CAN_APPLIED);
         }
         s.setStatus(BscScorecardStatus.ACTIVE);
         BscScorecard saved = scorecardRepository.save(s);
@@ -630,7 +630,7 @@ public class BscTreeService {
     public BscScorecard lock(UUID scorecardId) {
         BscScorecard s = load(scorecardId);
         if (s.getStatus() == BscScorecardStatus.DRAFT || s.getStatus() == BscScorecardStatus.SUBMITTED) {
-            throw new BusinessException("Bộ tiêu chí chưa được duyệt thì chưa khoá được");
+            throw new BusinessException(ErrorCode.SCORECARD_NOT_APPROVED_CANNOT_LOCKED);
         }
         s.setStatus(BscScorecardStatus.LOCKED);
         s.setLockedAt(Instant.now());
@@ -644,7 +644,7 @@ public class BscTreeService {
     public BscScorecard reopen(UUID scorecardId) {
         BscScorecard s = load(scorecardId);
         if (s.getStatus() != BscScorecardStatus.LOCKED && s.getStatus() != BscScorecardStatus.CLOSED) {
-            throw new BusinessException("Bộ tiêu chí không ở trạng thái khoá");
+            throw new BusinessException(ErrorCode.SCORECARD_NOT_LOCKED);
         }
         s.setStatus(BscScorecardStatus.ACTIVE);
         s.setLockedAt(null);
@@ -659,7 +659,7 @@ public class BscTreeService {
 
     private BscScorecard load(UUID id) {
         return scorecardRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Bộ tiêu chí", "id", id));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.scorecard"), "id", id));
     }
 
     /** Sự kiện chỉ mang ID — xem {@link BscEvents} để biết vì sao không truyền thẳng entity. */

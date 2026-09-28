@@ -1,5 +1,6 @@
 package com.kpitracking.workflow;
 
+import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.entity.User;
 import com.kpitracking.enums.KpiStatus;
 import com.kpitracking.exception.BusinessException;
@@ -56,7 +57,8 @@ class WorkflowEngineTest {
                 ctx(def, WorkflowAction.APPROVE_CRITERIA, KpiStatus.DRAFT), List.of()))
                 .isInstanceOf(BusinessException.class)
                 .hasMessageContaining("DRAFT")
-                .hasMessageContaining("PENDING_APPROVAL");
+                .hasMessageContaining("PENDING_APPROVAL")
+                .extracting("errorCode").isEqualTo(ErrorCode.STATUS_DOES_NOT_ALLOW_ACTION);
     }
 
     @Test
@@ -69,8 +71,8 @@ class WorkflowEngineTest {
         assertThatThrownBy(() -> engine.resolve(def.criteria(),
                 ctx(def, WorkflowAction.APPROVE_CRITERIA, KpiStatus.PENDING_APPROVAL), List.of()))
                 .isInstanceOf(BusinessException.class)
-                .hasMessageContaining("đã tắt bước")
-                .hasMessageContaining("Duyệt chỉ tiêu");
+                .hasMessageContaining("Duyệt chỉ tiêu")
+                .extracting("errorCode").isEqualTo(ErrorCode.ORGANIZATION_TURNED_OFF_STEP_KPI_FLOW_CONFIGURATION);
     }
 
     @Test
@@ -91,8 +93,8 @@ class WorkflowEngineTest {
     @DisplayName("Guard thẩm quyền từ chối thì ra 403, guard nghiệp vụ từ chối thì ra 422")
     void guardKindDecidesExceptionType() {
         WorkflowDefinition def = factory.buildDefault();
-        TransitionGuard forbid = c -> GuardResult.forbidden("không đủ thẩm quyền");
-        TransitionGuard reject = c -> GuardResult.reject("chưa đủ điều kiện");
+        TransitionGuard forbid = c -> GuardResult.forbidden(ErrorCode.GUARD_NOT_SUPERIOR, "duyệt", "chỉ tiêu");
+        TransitionGuard reject = c -> GuardResult.reject(ErrorCode.ONLY_APPROVED_KPIS_CAN_REVERTED);
 
         assertThatThrownBy(() -> engine.resolve(def.criteria(),
                 ctx(def, WorkflowAction.APPROVE_CRITERIA, KpiStatus.PENDING_APPROVAL), List.of(forbid)))
@@ -102,7 +104,7 @@ class WorkflowEngineTest {
                 ctx(def, WorkflowAction.APPROVE_CRITERIA, KpiStatus.PENDING_APPROVAL),
                 List.of(), List.of(reject)))
                 .isInstanceOf(BusinessException.class)
-                .hasMessage("chưa đủ điều kiện");
+                .extracting("errorCode").isEqualTo(ErrorCode.ONLY_APPROVED_KPIS_CAN_REVERTED);
     }
 
     @Test
@@ -115,7 +117,7 @@ class WorkflowEngineTest {
         List<String> order = new ArrayList<>();
         TransitionGuard authority = c -> {
             order.add("authority");
-            return GuardResult.forbidden("chặn");
+            return GuardResult.forbidden(ErrorCode.GUARD_ACTOR_UNKNOWN);
         };
 
         assertThatThrownBy(() -> engine.resolve(def.criteria(),
@@ -153,12 +155,12 @@ class WorkflowEngineTest {
                 .action(WorkflowAction.APPROVE_CRITERIA)
                 .currentStatus(KpiStatus.DRAFT)
                 .actor(actor)
-                .statusRejectionMessage("Chỉ có thể phê duyệt KPI ở trạng thái CHỜ PHÊ DUYỆT")
+                .statusRejectionCode(ErrorCode.ONLY_KPIS_PENDING_APPROVAL_STATUS_CAN_APPROVED)
                 .build();
 
         assertThatThrownBy(() -> engine.resolve(def.criteria(), ctx, List.of()))
                 .isInstanceOf(BusinessException.class)
-                .hasMessage("Chỉ có thể phê duyệt KPI ở trạng thái CHỜ PHÊ DUYỆT");
+                .extracting("errorCode").isEqualTo(ErrorCode.ONLY_KPIS_PENDING_APPROVAL_STATUS_CAN_APPROVED);
     }
 
     @Test

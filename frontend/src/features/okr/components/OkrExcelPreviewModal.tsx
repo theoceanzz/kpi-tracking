@@ -1,3 +1,4 @@
+import { LocaleDateInput } from '@/components/ui/date-input'
 import { useState, useEffect } from 'react'
 import { read, write, utils } from 'xlsx'
 import { Save, AlertCircle, Trash2, Plus, Check, ChevronDown, Loader2 } from 'lucide-react'
@@ -9,6 +10,9 @@ import { z } from 'zod'
 import { cn } from '@/lib/utils'
 import { useOrgUnitTree } from '../../orgunits/hooks/useOrgUnitTree'
 import { OrgUnitTreeResponse } from '@/types/orgUnit'
+import { useTranslation } from 'react-i18next'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
 interface OkrExcelPreviewModalProps {
   open: boolean
@@ -35,21 +39,22 @@ interface OkrRow {
 }
 
 // Basic format validation
-const rowSchema = z.object({
-  ObjectiveCode: z.string().min(1, 'Mã Mục tiêu là bắt buộc'),
-  ObjectiveName: z.string().min(1, 'Tên Mục tiêu là bắt buộc'),
+const rowSchema = perLanguage(() => (z.object({
+  ObjectiveCode: z.string().min(1, i18n.t('okr:OkrExcelPreviewModal.objectiveCodeIsRequired')),
+  ObjectiveName: z.string().min(1, i18n.t('okr:OkrExcelPreviewModal.objectiveNameIsRequired')),
   ObjectiveDescription: z.string().optional(),
   ObjectiveStartDate: z.string().optional(),
   ObjectiveEndDate: z.string().optional(),
-  KeyResultCode: z.string().min(1, 'Mã KR là bắt buộc'),
-  KeyResultName: z.string().min(1, 'Tên KR là bắt buộc'),
+  KeyResultCode: z.string().min(1, i18n.t('okr:OkrExcelPreviewModal.krCodeIsRequired')),
+  KeyResultName: z.string().min(1, i18n.t('okr:OkrExcelPreviewModal.krNameIsRequired')),
   KeyResultDescription: z.string().optional(),
   KeyResultTarget: z.string().optional(),
   KeyResultUnit: z.string().optional(),
-  OrgUnitCode: z.string().min(1, 'Mã phòng ban là bắt buộc'),
-})
+  OrgUnitCode: z.string().min(1, i18n.t('okr:OkrExcelPreviewModal.departmentCodeIsRequired')),
+})))
 
 export default function OkrExcelPreviewModal({ open, file, onClose, onImport, isImporting }: OkrExcelPreviewModalProps) {
+  const { t } = useTranslation('okr')
   const [data, setData] = useState<OkrRow[]>([])
   const [loading, setLoading] = useState(false)
   const { data: orgUnitTree } = useOrgUnitTree()
@@ -81,9 +86,9 @@ export default function OkrExcelPreviewModal({ open, file, onClose, onImport, is
       const buffer = await f.arrayBuffer()
       const wb = read(buffer, { cellDates: true })
       const sheetName = wb.SheetNames[0]
-      if (!sheetName) throw new Error('File Excel không có sheet nào')
+      if (!sheetName) throw new Error(t('OkrExcelPreviewModal.theExcelFileHasNoSheets'))
       const ws = wb.Sheets[sheetName]
-      if (!ws) throw new Error('Không tìm thấy sheet dữ liệu')
+      if (!ws) throw new Error(t('OkrExcelPreviewModal.dataSheetNotFound'))
       const rawData = utils.sheet_to_json<any>(ws)
 
       const formatExcelDate = (val: any) => {
@@ -150,14 +155,14 @@ export default function OkrExcelPreviewModal({ open, file, onClose, onImport, is
       const validated = validateAllRows(parsed)
 
       if (parsed.length === 0) {
-        toast.error('File không có dữ liệu hoặc sai định dạng.')
+        toast.error(t('OkrExcelPreviewModal.theFileHasNoDataOr'))
         onClose()
         return
       }
 
       setData(validated)
     } catch {
-      toast.error('Lỗi khi đọc file Excel')
+      toast.error(t('OkrExcelPreviewModal.errorReadingTheExcelFile'))
       onClose()
     } finally {
       setLoading(false)
@@ -165,7 +170,7 @@ export default function OkrExcelPreviewModal({ open, file, onClose, onImport, is
   }
 
   const validateRow = (row: OkrRow): OkrRow => {
-    const result = rowSchema.safeParse(row)
+    const result = rowSchema().safeParse(row)
     const errors: Record<string, string> = {}
     
     if (!result.success) {
@@ -178,7 +183,7 @@ export default function OkrExcelPreviewModal({ open, file, onClose, onImport, is
     }
 
     if (row.KeyResultTarget && isNaN(Number(row.KeyResultTarget))) {
-      errors['KeyResultTarget'] = 'Mục tiêu phải là số'
+      errors['KeyResultTarget'] = t('OkrExcelPreviewModal.targetMustBeANumber')
     }
 
     return { ...row, _errors: Object.keys(errors).length > 0 ? errors : undefined }
@@ -202,7 +207,7 @@ export default function OkrExcelPreviewModal({ open, file, onClose, onImport, is
       if (row.KeyResultCode) {
         const krCode = row.KeyResultCode.toLowerCase()
         if ((krCodeCounts.get(krCode) || 0) > 1) {
-          errors['KeyResultCode'] = 'Mã KR bị trùng lặp trong tệp tin'
+          errors['KeyResultCode'] = t('OkrExcelPreviewModal.duplicateKrCodeInTheFile')
         }
       }
 
@@ -266,12 +271,12 @@ export default function OkrExcelPreviewModal({ open, file, onClose, onImport, is
   const handleSave = () => {
     const hasErrors = data.some((r: OkrRow) => r._errors && Object.keys(r._errors).length > 0)
     if (hasErrors) {
-      toast.error('Vui lòng sửa các lỗi trong bảng trước khi import')
+      toast.error(t('OkrExcelPreviewModal.pleaseFixTheErrorsInThe'))
       return
     }
 
     if (data.length === 0) {
-      toast.error('Không có dữ liệu để import')
+      toast.error(t('OkrExcelPreviewModal.noDataToImport'))
       return
     }
 
@@ -295,7 +300,7 @@ export default function OkrExcelPreviewModal({ open, file, onClose, onImport, is
       
       const ws = utils.json_to_sheet(exportData)
       const wb = utils.book_new()
-      utils.book_append_sheet(wb, ws, 'Danh sách OKR')
+      utils.book_append_sheet(wb, ws, t('OkrExcelPreviewModal.okrList'))
       
       const wbout = write(wb, { type: 'array', bookType: 'xlsx' })
       const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
@@ -303,7 +308,7 @@ export default function OkrExcelPreviewModal({ open, file, onClose, onImport, is
       
       onImport(newFile)
     } catch {
-      toast.error('Lỗi khi tạo file import')
+      toast.error(t('OkrExcelPreviewModal.errorCreatingTheImportFile'))
     }
   }
 
@@ -317,15 +322,15 @@ export default function OkrExcelPreviewModal({ open, file, onClose, onImport, is
       onClose={onClose}
       size="full"
       dismissible={!isImporting}
-      title="Xem trước & Kiểm tra dữ liệu OKR"
+      title={t('OkrExcelPreviewModal.previewCheckOkrData')}
       description={`File: ${file?.name ?? ''}`}
       footer={
         <DialogFooter
-          note={<>Tổng cộng: <span className="font-medium text-[var(--color-foreground)] tabular-nums">{data.length}</span> dòng hợp lệ</>}
-          secondary={<Button variant="outline" onClick={onClose} disabled={isImporting}>Hủy bỏ</Button>}
+          note={<>{t('OkrExcelPreviewModal.total')} <span className="font-medium text-[var(--color-foreground)] tabular-nums">{data.length}</span> {t('OkrExcelPreviewModal.validRows')}</>}
+          secondary={<Button variant="outline" onClick={onClose} disabled={isImporting}>{t('OkrExcelPreviewModal.cancel')}</Button>}
           primary={
             <Button onClick={handleSave} disabled={isImporting || hasAnyErrors || data.length === 0}>
-              {isImporting ? <><Loader2 className="animate-spin" aria-hidden="true" /> Đang Import...</> : <><Save aria-hidden="true" /> Xác nhận Import</>}
+              {isImporting ? <><Loader2 className="animate-spin" aria-hidden="true" /> {t('OkrExcelPreviewModal.importing')}</> : <><Save aria-hidden="true" /> {t('OkrExcelPreviewModal.confirmImport')}</>}
             </Button>
           }
         />
@@ -334,7 +339,7 @@ export default function OkrExcelPreviewModal({ open, file, onClose, onImport, is
       {loading ? (
         <div className="flex flex-col items-center justify-center h-64 text-[var(--color-subtle-foreground)]">
           <div className="w-8 h-8 border-4 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin mb-4" />
-          <p className="font-medium text-sm">Đang đọc file...</p>
+          <p className="font-medium text-sm">{t('OkrExcelPreviewModal.readingTheFile')}</p>
         </div>
       ) : (
         <div className="space-y-4">
@@ -342,8 +347,8 @@ export default function OkrExcelPreviewModal({ open, file, onClose, onImport, is
             <div className="p-4 bg-[var(--color-error-bg)] text-[var(--color-error)] rounded-card flex items-start gap-3 border border-[var(--color-error-border)]">
               <AlertCircle size={20} className="shrink-0 mt-0.5" />
               <div>
-                <p className="text-sm font-medium">Phát hiện dữ liệu không hợp lệ</p>
-                <p className="text-xs mt-1">Vui lòng kiểm tra và sửa các ô được báo đỏ (trùng mã KR, thiếu trường bắt buộc...) trước khi tiến hành Import.</p>
+                <p className="text-sm font-medium">{t('OkrExcelPreviewModal.invalidDataDetected')}</p>
+                <p className="text-xs mt-1">{t('OkrExcelPreviewModal.pleaseCheckAndFixTheCells')}</p>
               </div>
             </div>
           )}
@@ -353,17 +358,17 @@ export default function OkrExcelPreviewModal({ open, file, onClose, onImport, is
               <table className="w-full text-sm text-left">
                 <thead className="text-eyebrow bg-[var(--color-muted)] border-b border-[var(--color-border)] sticky top-0 z-10">
                   <tr>
-                    <th className="px-4 py-3 w-12 text-center">STT</th>
-                    <th className="px-4 py-3 min-w-[150px]">Mã Mục tiêu <span className="text-[var(--color-error)]">*</span></th>
-                    <th className="px-4 py-3 min-w-[250px]">Tên Mục tiêu <span className="text-[var(--color-error)]">*</span></th>
-                    <th className="px-4 py-3 min-w-[150px]">Ngày bắt đầu</th>
-                    <th className="px-4 py-3 min-w-[150px]">Ngày kết thúc</th>
-                    <th className="px-4 py-3 min-w-[150px]">Mã KR <span className="text-[var(--color-error)]">*</span></th>
-                    <th className="px-4 py-3 min-w-[250px]">Tên KR <span className="text-[var(--color-error)]">*</span></th>
-                    <th className="px-4 py-3 min-w-[300px]">Phòng ban</th>
+                    <th className="px-4 py-3 w-12 text-center">{t('OkrExcelPreviewModal.rowNo')}</th>
+                    <th className="px-4 py-3 min-w-[150px]">{t('OkrExcelPreviewModal.objectiveCode')} <span className="text-[var(--color-error)]">*</span></th>
+                    <th className="px-4 py-3 min-w-[250px]">{t('OkrExcelPreviewModal.objectiveName')} <span className="text-[var(--color-error)]">*</span></th>
+                    <th className="px-4 py-3 min-w-[150px]">{t('OkrExcelPreviewModal.startDate')}</th>
+                    <th className="px-4 py-3 min-w-[150px]">{t('OkrExcelPreviewModal.endDate')}</th>
+                    <th className="px-4 py-3 min-w-[150px]">{t('OkrExcelPreviewModal.krCode')} <span className="text-[var(--color-error)]">*</span></th>
+                    <th className="px-4 py-3 min-w-[250px]">{t('OkrExcelPreviewModal.krName')} <span className="text-[var(--color-error)]">*</span></th>
+                    <th className="px-4 py-3 min-w-[300px]">{t('OkrExcelPreviewModal.department')}</th>
                     <th className="px-4 py-3 min-w-[180px]">Target KR</th>
-                    <th className="px-4 py-3 min-w-[150px]">Đơn vị KR</th>
-                    <th className="px-4 py-3 w-16 text-center">Xóa</th>
+                    <th className="px-4 py-3 min-w-[150px]">{t('OkrExcelPreviewModal.krUnit')}</th>
+                    <th className="px-4 py-3 w-16 text-center">{t('OkrExcelPreviewModal.delete')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--color-border)]">
@@ -399,7 +404,7 @@ export default function OkrExcelPreviewModal({ open, file, onClose, onImport, is
                         {row._errors?.ObjectiveName && <p className="text-xs text-[var(--color-error)] mt-1 font-medium px-1">{row._errors.ObjectiveName}</p>}
                       </td>
                       <td className="px-4 py-2">
-                        <input
+                        <LocaleDateInput
                           type="date"
                           value={row.ObjectiveStartDate || ''}
                           onChange={e => handleCellChange(row.id, 'ObjectiveStartDate', e.target.value)}
@@ -407,7 +412,7 @@ export default function OkrExcelPreviewModal({ open, file, onClose, onImport, is
                         />
                       </td>
                       <td className="px-4 py-2">
-                        <input
+                        <LocaleDateInput
                           type="date"
                           value={row.ObjectiveEndDate || ''}
                           onChange={e => handleCellChange(row.id, 'ObjectiveEndDate', e.target.value)}
@@ -450,15 +455,15 @@ export default function OkrExcelPreviewModal({ open, file, onClose, onImport, is
                               <span className="truncate max-w-[200px]">
                                 {(() => {
                                   const codes = (row.OrgUnitCode || '').split(',').map(c => c.trim()).filter(Boolean)
-                                  if (codes.length === 0) return 'Chọn phòng ban'
+                                  if (codes.length === 0) return t('OkrExcelPreviewModal.chooseDepartment')
                                   if (codes.length === 1) return allOrgUnits.find(u => u.code === codes[0])?.name || codes[0]
-                                  return `Đã chọn ${codes.length} đơn vị`
+                                  return t('OkrExcelPreviewModal.unitsSelected', { count: codes.length })
                                 })()}
                               </span>
                               <ChevronDown size={14} className="opacity-40 group-hover:opacity-70 transition-opacity ml-2 shrink-0" />
                             </button>
                           </PopoverTrigger>
-                          <PopoverContent className="z-[300] p-2 w-[300px] max-h-[300px] overflow-y-auto custom-scrollbar" align="start">
+                          <PopoverContent className="p-2 w-[300px] max-h-[300px] overflow-y-auto custom-scrollbar" align="start">
                             <div className="space-y-1">
                               {allOrgUnits.map((unit) => {
                                 const currentCodes = (row.OrgUnitCode || '').split(',').map(c => c.trim()).filter(Boolean)
@@ -524,12 +529,12 @@ export default function OkrExcelPreviewModal({ open, file, onClose, onImport, is
             </div>
             {data.length === 0 && (
               <div className="text-center py-12 text-[var(--color-muted-foreground)] text-sm">
-                Không có dòng dữ liệu nào
+                {t('OkrExcelPreviewModal.noDataRows')}
               </div>
             )}
             <div className="bg-[var(--color-muted)] border-t border-[var(--color-border)] p-3 flex justify-center">
               <Button variant="ghost" onClick={handleAddRow}>
-                <Plus aria-hidden="true" /> Thêm dòng mới
+                <Plus aria-hidden="true" /> {t('OkrExcelPreviewModal.addANewRow')}
               </Button>
             </div>
           </div>

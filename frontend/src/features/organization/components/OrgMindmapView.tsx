@@ -73,8 +73,10 @@ type AppNode = Node<CustomNodeData, 'custom'>;
 import { useNavigate } from 'react-router-dom';
 
 import { useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next'
 
 function CustomNode({ data }: NodeProps<AppNode>) {
+  const { t } = useTranslation('organization')
   const canAddChild = data.level < data.maxDepth;
   const navigate = useNavigate();
   const [openUp, setOpenUp] = useState(false);
@@ -128,7 +130,7 @@ function CustomNode({ data }: NodeProps<AppNode>) {
                   ? 'bg-[var(--color-info-solid)] border-[var(--color-info-border)] text-white scale-110' 
                   : 'bg-[var(--color-card)] border-[var(--color-border)] text-[var(--color-subtle-foreground)] opacity-0 group-hover:opacity-100 hover:text-[var(--color-muted-foreground)] hover:border-[var(--color-border-strong)] hover:bg-[var(--color-card)]'
               }`}
-              title="Thao tác"
+              title={t('OrgMindmapView.actions')}
             >
               <MoreVertical className={`w-4 h-4 transition-transform duration-300 ${isMenuOpen ? 'rotate-90' : ''}`} />
             </button>
@@ -139,12 +141,12 @@ function CustomNode({ data }: NodeProps<AppNode>) {
                     {canAddChild && (
                       <button type="button" className="flex h-9 w-full items-center gap-2.5 rounded-control px-2.5 text-left text-sm text-[var(--color-foreground)] transition-colors hover:bg-[var(--color-muted)] [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-[var(--color-muted-foreground)]" onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); data.onAddChild(data.id, data.name, data.level); }}>
                         <Plus aria-hidden="true" className="w-4 h-4 mr-2.5 text-[var(--color-info)] group-hover/item:scale-110 transition-transform" /> 
-                        <span className="font-medium">Thêm con</span>
+                        <span className="font-medium">{t('OrgMindmapView.addChild')}</span>
                       </button>
                     )}
                     <button type="button" className="flex h-9 w-full items-center gap-2.5 rounded-control px-2.5 text-left text-sm text-[var(--color-foreground)] transition-colors hover:bg-[var(--color-muted)] [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-[var(--color-muted-foreground)]" onClick={(e) => { e.stopPropagation(); setIsMenuOpen(false); data.onEdit(data.node); }}>
                       <Edit2 aria-hidden="true" className="w-4 h-4 mr-2.5 text-[var(--color-warning)] group-hover/item:scale-110 transition-transform" /> 
-                      <span className="font-medium">Sửa</span>
+                      <span className="font-medium">{t('OrgMindmapView.edit')}</span>
                     </button>
                     <div className="h-px bg-[var(--color-muted)] my-1 mx-2" />
                     <button 
@@ -153,7 +155,7 @@ function CustomNode({ data }: NodeProps<AppNode>) {
                       className={`flex items-center w-full px-4 py-2.5 text-sm text-left transition-colors group/item ${!data.hasChildren ? 'text-[var(--color-error)] hover:bg-[var(--color-error-bg)]' : 'text-[var(--color-subtle-foreground)] cursor-not-allowed'}`}
                     >
                       <Trash2 className={`w-4 h-4 mr-2.5 ${!data.hasChildren ? 'group-hover/item:scale-110 transition-transform' : ''}`} /> 
-                      <span className="font-medium">Xoá</span>
+                      <span className="font-medium">{t('OrgMindmapView.delete')}</span>
                     </button>
                   </div>
                 </div>

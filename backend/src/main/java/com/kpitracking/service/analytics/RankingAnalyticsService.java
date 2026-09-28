@@ -1,5 +1,6 @@
 package com.kpitracking.service.analytics;
 
+import com.kpitracking.i18n.ErrorMessages;
 import com.kpitracking.dto.response.stats.advanced.RankingResponses.*;
 import com.kpitracking.entity.KpiCycle;
 import com.kpitracking.entity.Organization;
@@ -45,7 +46,7 @@ public class RankingAnalyticsService {
         if (scope.isEmpty()) {
             return DeviationResponse.builder()
                     .rows(List.of()).baseline(0.0)
-                    .baselineLabel("So với trung bình phạm vi đang xem").unit("điểm")
+                    .baselineLabel(ErrorMessages.text("analytics.ranking.baseline", "")).unit(ErrorMessages.text("analytics.ranking.points", ""))
                     .anonymized(scope.anonymize()).build();
         }
 
@@ -78,8 +79,8 @@ public class RankingAnalyticsService {
         return DeviationResponse.builder()
                 .rows(rows)
                 .baseline(round1(baseline))
-                .baselineLabel("So với trung bình phạm vi đang xem")
-                .unit("điểm")
+                .baselineLabel(ErrorMessages.text("analytics.ranking.baseline", ""))
+                .unit(ErrorMessages.text("analytics.ranking.points", ""))
                 .anonymized(anonymize)
                 .build();
     }

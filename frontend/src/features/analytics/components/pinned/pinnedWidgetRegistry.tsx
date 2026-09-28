@@ -22,6 +22,7 @@ import {
   BscOverviewMetrics, BscUnitAttainmentWidget, BscItemAttainmentWidget, BscAttainmentTrendWidget,
   BscCascadeCoverageWidget, BscGateWidget, BscRankingWidget,
 } from './bscWidgets'
+import { useTranslation } from 'react-i18next'
 
 /**
  * Registry render biểu đồ ĐÃ GHIM ở trang chủ bằng ĐÚNG component + dữ liệu như trong tab thống kê,
@@ -73,39 +74,43 @@ function Fill({ children }: { children: React.ReactNode }) {
 }
 
 function PinnedSummaryTrend({ filter }: { filter?: PinnedFilter }) {
+  const { t } = useTranslation('analytics')
   const { from, to, onlyApproved, periodId, periodIdTo, groupBy } = useResolved(filter)
   const { data, isLoading } = useQuery({
     queryKey: ['pinned', 'summary-combo', from, to, onlyApproved, periodId, periodIdTo, groupBy],
     queryFn: () => orgUnitKpiApi.getComboChart({ from, to, onlyApproved, periodId, periodIdTo, groupBy }),
   })
-  return <Fill><AnalyticsComboChart data={data?.points ?? []} isLoading={isLoading} itemName="KPI đơn vị" fillHeight hideTitle /></Fill>
+  return <Fill><AnalyticsComboChart data={data?.points ?? []} isLoading={isLoading} itemName={t('pinnedWidgetRegistry.unitKpis')} fillHeight hideTitle /></Fill>
 }
 
 function PinnedSubTrend({ filter }: { filter?: PinnedFilter }) {
+  const { t } = useTranslation('analytics')
   const { from, to, onlyApproved, periodId, periodIdTo, groupBy } = useResolved(filter)
   const { data, isLoading } = useQuery({
     queryKey: ['pinned', 'subordinate-combo', from, to, onlyApproved, periodId, periodIdTo, groupBy],
     queryFn: () => statsApi.getSubordinateComboChart(from, to, onlyApproved, periodId, periodIdTo, groupBy),
   })
-  return <Fill><AnalyticsComboChart data={data?.points ?? []} isLoading={isLoading} itemName="mục tiêu đơn vị" fillHeight hideTitle /></Fill>
+  return <Fill><AnalyticsComboChart data={data?.points ?? []} isLoading={isLoading} itemName={t('pinnedWidgetRegistry.unitObjectives')} fillHeight hideTitle /></Fill>
 }
 
 function PinnedMyKpiTrend({ filter }: { filter?: PinnedFilter }) {
+  const { t } = useTranslation('analytics')
   const { from, to, onlyApproved, periodId, periodIdTo, groupBy } = useResolved(filter)
   const { data, isLoading } = useQuery({
     queryKey: ['pinned', 'personalKpi-combo', from, to, onlyApproved, periodId, periodIdTo, groupBy],
     queryFn: () => personalKpiApi.getComboChart({ from, to, onlyApproved, periodId, periodIdTo, groupBy }),
   })
-  return <Fill><AnalyticsComboChart data={data?.points ?? []} isLoading={isLoading} itemName="KPI của tôi" fillHeight hideTitle /></Fill>
+  return <Fill><AnalyticsComboChart data={data?.points ?? []} isLoading={isLoading} itemName={t('pinnedWidgetRegistry.myKpis')} fillHeight hideTitle /></Fill>
 }
 
 function PinnedMyObjTrend({ filter }: { filter?: PinnedFilter }) {
+  const { t } = useTranslation('analytics')
   const { from, to, onlyApproved, periodId, periodIdTo, groupBy } = useResolved(filter)
   const { data, isLoading } = useQuery({
     queryKey: ['pinned', 'personalObjective-combo', from, to, onlyApproved, periodId, periodIdTo, groupBy],
     queryFn: () => personalObjectiveApi.getComboChart({ from, to, onlyApproved, periodId, periodIdTo, groupBy }),
   })
-  return <Fill><AnalyticsComboChart data={data?.points ?? []} isLoading={isLoading} itemName="mục tiêu của tôi" fillHeight hideTitle /></Fill>
+  return <Fill><AnalyticsComboChart data={data?.points ?? []} isLoading={isLoading} itemName={t('pinnedWidgetRegistry.myObjectives')} fillHeight hideTitle /></Fill>
 }
 
 function PinnedUnitPerf({ filter }: { filter?: PinnedFilter }) {

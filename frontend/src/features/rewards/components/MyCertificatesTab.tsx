@@ -1,3 +1,4 @@
+import { intlDateLocale, intlLocale } from '@/i18n/format'
 import { useState } from 'react'
 import { Award, Printer } from 'lucide-react'
 import EmptyState from '@/components/common/EmptyState'
@@ -8,10 +9,11 @@ import CertificateModal from './certificate/CertificateModal'
 import { useMyAwards } from '../hooks/useCertificates'
 import type { RewardGrant } from '../types'
 import { Button } from '@/components/ui/button'
+import { useTranslation } from 'react-i18next'
 
 const fmtDate = (iso?: string | null) =>
   iso
-    ? new Date(iso).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
+    ? new Date(iso).toLocaleDateString(intlDateLocale(), { day: '2-digit', month: '2-digit', year: 'numeric' })
     : ''
 
 /**
@@ -22,6 +24,7 @@ const fmtDate = (iso?: string | null) =>
  * mỗi bản ghi chỉ còn phần của người đang xem.
  */
 export default function MyCertificatesTab() {
+  const { t } = useTranslation('rewards')
   const [page, setPage] = useState(0)
   const [printing, setPrinting] = useState<RewardGrant | null>(null)
   const size = 12
@@ -36,8 +39,8 @@ export default function MyCertificatesTab() {
     return (
       <div className="rounded-card border border-dashed border-[var(--color-border)]">
         <EmptyState
-          title="Bạn chưa có chứng nhận nào"
-          description="Chứng nhận chỉ có ở những lần thưởng được cấp trên kèm giấy khen — không phải lần thưởng điểm nào cũng có. Khi được trao, giấy khen sẽ hiện ở đây để bạn tải về hoặc in ra."
+          title={t('MyCertificatesTab.youHaveNoCertificatesYet')}
+          description={t('MyCertificatesTab.certificatesOnlyComeWithRewardsThe')}
         />
       </div>
     )
@@ -59,21 +62,21 @@ export default function MyCertificatesTab() {
                 </div>
                 <div className="text-right">
                   <div className="text-lg font-semibold text-[var(--color-success)]">
-                    +{(mine?.points ?? 0).toLocaleString('vi-VN')}
+                    +{(mine?.points ?? 0).toLocaleString(intlLocale())}
                   </div>
-                  <div className="text-xs text-[var(--color-muted-foreground)]">điểm</div>
+                  <div className="text-xs text-[var(--color-muted-foreground)]">{t('MyCertificatesTab.points')}</div>
                 </div>
               </div>
 
               <p className="mt-3 line-clamp-3 flex-1 text-sm">{award.reason}</p>
 
               <div className="mt-3 text-xs text-[var(--color-muted-foreground)]">
-                {award.grantorName} trao · {fmtDate(award.approvedAt ?? award.createdAt)}
+                {t('MyCertificatesTab.awardedBy', { name: award.grantorName })} · {fmtDate(award.approvedAt ?? award.createdAt)}
               </div>
 
               <Button variant="outline" className="mt-3" onClick={() => setPrinting(award)}>
                 <Printer aria-hidden="true" />
-                Xem & in chứng nhận
+                {t('MyCertificatesTab.viewPrintCertificate')}
               </Button>
             </div>
           )
@@ -88,7 +91,7 @@ export default function MyCertificatesTab() {
             totalElements={data?.totalElements ?? 0}
             size={size}
             onPageChange={setPage}
-            itemLabel="chứng nhận"
+            itemLabel={t('MyCertificatesTab.certificates')}
           />
         </div>
       )}

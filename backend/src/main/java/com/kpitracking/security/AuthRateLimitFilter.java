@@ -8,7 +8,8 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.http.HttpStatus;
+import com.kpitracking.exception.ErrorCode;
+import com.kpitracking.i18n.Messages;
 import org.springframework.http.MediaType;
 import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Component;
@@ -50,12 +51,15 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
     private final SlidingWindowCounter counter;
 
     private final org.springframework.beans.factory.ObjectProvider<com.kpitracking.security.audit.SecurityAuditService> audit;
+    private final Messages messages;
 
     public AuthRateLimitFilter(RateLimitProperties props, ObjectMapper objectMapper,
-                               org.springframework.beans.factory.ObjectProvider<com.kpitracking.security.audit.SecurityAuditService> audit) {
+                               org.springframework.beans.factory.ObjectProvider<com.kpitracking.security.audit.SecurityAuditService> audit,
+                               Messages messages) {
         this.props = props;
         this.objectMapper = objectMapper;
         this.audit = audit;
+        this.messages = messages;
         this.counter = new SlidingWindowCounter(Duration.ofSeconds(Math.max(props.getWindowSeconds(), 1)));
     }
 
@@ -90,9 +94,8 @@ public class AuthRateLimitFilter extends OncePerRequestFilter {
                 }
             }
             response.setHeader("Retry-After", String.valueOf(retryAfter));
-            com.kpitracking.logging.RequestIdResponseAdvice.writeError(response,
-                    HttpStatus.TOO_MANY_REQUESTS.value(),
-                    "Bạn thao tác quá nhanh. Vui lòng thử lại sau " + retryAfter + " giây.");
+            com.kpitracking.logging.RequestIdResponseAdvice.writeError(response, ErrorCode.RATE_LIMITED,
+                    messages.error(ErrorCode.RATE_LIMITED, retryAfter));
             return;
         }
 

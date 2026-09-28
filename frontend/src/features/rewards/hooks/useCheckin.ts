@@ -3,6 +3,7 @@ import { toast } from 'sonner'
 import { getApiErrorMessage } from '@/lib/apiError'
 import { checkinApi } from '../api/checkinApi'
 import type { CheckinConfigRequest } from '../types'
+import { useTranslation } from 'react-i18next'
 
 /** Lấy thông báo nghiệp vụ backend trả về; các lỗi này là câu tiếng Việt viết sẵn cho người dùng. */
 const errMsg = (error: unknown, fallback: string) =>
@@ -28,6 +29,7 @@ export const useMyCheckinStatus = (enabled = true) =>
   })
 
 export const useCheckin = () => {
+  const { t } = useTranslation('rewards')
   const qc = useQueryClient()
 
   return useMutation({
@@ -39,19 +41,20 @@ export const useCheckin = () => {
       qc.invalidateQueries({ queryKey: ['rewardWallet'] })
       qc.invalidateQueries({ queryKey: ['rewardTransactions'] })
 
-      toast.success(`Điểm danh thành công, +${status.todayPoints} điểm`, {
+      toast.success(t('useCheckin.checkedInSuccessfullyPoints', { todayPoints: status.todayPoints }), {
         description:
           status.streakLength > 1
-            ? `Bạn đang có chuỗi ${status.streakLength} ngày liên tiếp.`
+            ? t('useCheckin.youAreOnADayStreak', { count: status.streakLength })
             : undefined,
       })
     },
-    onError: (error) => toast.error(errMsg(error, 'Điểm danh thất bại')),
+    onError: (error) => toast.error(errMsg(error, t('useCheckin.checkInFailed'))),
   })
 }
 
 /** Cấu hình điểm danh của tổ chức — tab "Điểm danh" trong Quản lý thưởng điểm. */
 export const useCheckinConfig = () => {
+  const { t } = useTranslation('rewards')
   const qc = useQueryClient()
 
   const query = useQuery({
@@ -65,10 +68,10 @@ export const useCheckinConfig = () => {
       qc.setQueryData(['checkinConfig'], config)
       // Sếp cũng là người điểm danh: đổi cấu hình phải thấy ngay ở thẻ của chính mình.
       qc.invalidateQueries({ queryKey: ['checkinStatus'] })
-      toast.success('Đã lưu cấu hình điểm danh')
+      toast.success(t('useCheckin.checkInSettingsSaved'))
     },
     onError: (error) =>
-      toast.error(errMsg(error, 'Lưu cấu hình điểm danh thất bại'), { duration: 8000 }),
+      toast.error(errMsg(error, t('useCheckin.failedToSaveCheckInSettings')), { duration: 8000 }),
   })
 
   return {

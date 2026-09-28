@@ -60,7 +60,9 @@ public class AiTokenUsage {
         KPI_SUGGESTION,
         FOLLOWUP,
         /** Hỏi đáp về KeyGo/quy chế qua RAG. Tách khỏi CHAT để nhìn được tỉ lệ dùng của từng đường. */
-        HELP
+        HELP,
+        /** Tóm tắt nhận xét báo cáo đánh giá 360. */
+        FEEDBACK360
     }
 
     /** Ngày 1 của tháng hiện tại — khoá gộp dùng chung cho cả ghi lẫn đọc. */

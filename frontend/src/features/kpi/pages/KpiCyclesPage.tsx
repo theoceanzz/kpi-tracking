@@ -14,8 +14,11 @@ import { formatDateTime, FREQUENCY_MAP, cn } from '@/lib/utils'
 import type { KpiCycle, KpiCyclePayload, KpiPeriod, KpiFrequency, CycleEvaluationMode } from '@/types/kpi'
 import {
   CalendarRange, Plus, Pencil, Trash2, Layers, Calendar,
-  List, LayoutGrid, Check, AlertTriangle
+  List, LayoutGrid, Check, AlertTriangle, History
 } from 'lucide-react'
+import { CycleHistoryDialog } from '../components/CycleHistoryDialog'
+import { LockedBadge, LockedHint } from '../components/CycleLockHint'
+import { periodLockReason } from '../utils/cycleLockReason'
 import WorkspaceHeader from '@/components/common/WorkspaceHeader'
 import { useDebounce } from '@/hooks/useDebounce'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
@@ -26,6 +29,10 @@ import Pagination from '@/components/common/Pagination'
 import { Badge } from '@/components/ui/badge'
 import EntityCard from '@/components/common/EntityCard'
 import { ChoiceChip } from '@/components/ui/choice-chip'
+import { useTranslation } from 'react-i18next'
+import i18n from 'i18next'
+import { useStateDraft } from '@/hooks/useFormDraft'
+import DraftNotice from '@/components/common/DraftNotice'
 
 // Loại kỳ: Tháng / Quý / 6 Tháng / Năm — mẫu gợi ý, thời gian vẫn chỉnh tự do.
 const CYCLE_TYPES: KpiFrequency[] = ['MONTHLY', 'QUARTERLY', 'SEMI_ANNUALLY', 'YEARLY']
@@ -78,23 +85,26 @@ function inferCycleType(start: Date, end: Date): KpiFrequency {
  * một tên máy tự đặt trước đó — người dùng đã gõ tên riêng thì không được đụng vào.
  */
 function suggestCycleName(currentName: string, start: Date, type: KpiFrequency): string {
-  const isAutoName = !currentName || ['Tháng', 'Quý', '6 Tháng', 'Năm'].some(p => currentName.startsWith(p))
+  const isAutoName = !currentName || [i18n.t('kpi:KpiCyclesPage.month'), i18n.t('kpi:KpiCyclesPage.quarter'), i18n.t('kpi:KpiCyclesPage.halfYear'), i18n.t('kpi:KpiCyclesPage.year')].some(p => currentName.startsWith(p))
   if (!isAutoName) return currentName
 
   switch (type) {
-    case 'MONTHLY': return `Tháng ${format(start, 'MM/yyyy')}`
-    case 'QUARTERLY': return `Quý ${Math.floor(start.getMonth() / 3) + 1} / ${format(start, 'yyyy')}`
-    case 'SEMI_ANNUALLY': return `6 Tháng ${Math.floor(start.getMonth() / 6) + 1} / ${format(start, 'yyyy')}`
-    case 'YEARLY': return `Năm ${format(start, 'yyyy')}`
+    case 'MONTHLY': return i18n.t('kpi:KpiCyclesPage.month2', { start: format(start, 'MM/yyyy') })
+    case 'QUARTERLY': return i18n.t('kpi:KpiCyclesPage.q', { value: Math.floor(start.getMonth() / 3) + 1, start: format(start, 'yyyy') })
+    case 'SEMI_ANNUALLY': return i18n.t('kpi:KpiCyclesPage.h', { value: Math.floor(start.getMonth() / 6) + 1, start: format(start, 'yyyy') })
+    case 'YEARLY': return i18n.t('kpi:KpiCyclesPage.year2', { start: format(start, 'yyyy') })
     default: return currentName
   }
 }
 
 export default function KpiCyclesPage() {
+  const { t } = useTranslation('kpi')
   const suggestNextStep = useNextStepHint()
   const [showForm, setShowForm] = useState(false)
   const [editCycle, setEditCycle] = useState<KpiCycle | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
+  // Kỳ không khoá ở đây: chỉ khoá kết quả ở đơn vị gốc (màn Đánh giá kỳ) mới khoá kỳ.
+  const [historyTarget, setHistoryTarget] = useState<KpiCycle | null>(null)
 
   const [page, setPage] = useState(0)
   const [pageSize] = useState(10)
@@ -142,44 +152,44 @@ export default function KpiCyclesPage() {
     <div className="space-y-4">
         <WorkspaceHeader
           id="tour-cycles-header"
-          description="Một kỳ (Tháng/Quý/6 Tháng/Năm) gom nhiều đợt để đánh giá tổng thể."
+          description={t('KpiCyclesPage.aCycleMonthQuarterHalfYear')}
           stats={[
-            { label: 'Tổng số kỳ', value: stats.total },
-            { label: 'Đợt đã gom', value: stats.periods, icon: Layers },
+            { label: t('KpiCyclesPage.totalCycles'), value: stats.total },
+            { label: t('KpiCyclesPage.periodsGrouped'), value: stats.periods, icon: Layers },
           ]}
           actions={
             <Button onClick={() => { setEditCycle(null); setShowForm(true) }}>
-              <Plus aria-hidden="true" /> Tạo kỳ mới
+              <Plus aria-hidden="true" /> {t('KpiCyclesPage.createANewCycle')}
             </Button>
           }
         />
 
         <FilterBar
           id="tour-cycles-toolbar"
-          search={{ value: keyword, onChange: v => { setKeyword(v); setPage(0) }, placeholder: 'Tìm tên kỳ…' }}
+          search={{ value: keyword, onChange: v => { setKeyword(v); setPage(0) }, placeholder: t('KpiCyclesPage.searchCycleNames') }}
           overflowActiveCount={(startDateFilter ? 1 : 0) + (endDateFilter ? 1 : 0)}
           overflow={
             <div className="space-y-3">
               <div>
-                <label className="text-label mb-1 block">Bắt đầu từ ngày</label>
-                <DatePicker value={startDateFilter} onChange={(v) => { setStartDateFilter(v); setPage(0) }} onClear={() => { setStartDateFilter(''); setPage(0) }} placeholder="Từ ngày" className="w-full" />
+                <label className="text-label mb-1 block">{t('KpiCyclesPage.startingFrom')}</label>
+                <DatePicker value={startDateFilter} onChange={(v) => { setStartDateFilter(v); setPage(0) }} onClear={() => { setStartDateFilter(''); setPage(0) }} placeholder={t('KpiCyclesPage.fromDate')} className="w-full" />
               </div>
               <div>
-                <label className="text-label mb-1 block">Kết thúc trước ngày</label>
-                <DatePicker value={endDateFilter} onChange={(v) => { setEndDateFilter(v); setPage(0) }} onClear={() => { setEndDateFilter(''); setPage(0) }} placeholder="Đến ngày" className="w-full" />
+                <label className="text-label mb-1 block">{t('KpiCyclesPage.endingBefore')}</label>
+                <DatePicker value={endDateFilter} onChange={(v) => { setEndDateFilter(v); setPage(0) }} onClear={() => { setEndDateFilter(''); setPage(0) }} placeholder={t('KpiCyclesPage.toDate')} className="w-full" />
               </div>
             </div>
           }
           trailing={
-            <SegmentedControl ariaLabel="Dạng hiển thị" value={viewMode} onChange={setViewMode}
-              options={[{ value: 'TABLE', label: <List aria-hidden="true" />, title: 'Dạng bảng' }, { value: 'CARD', label: <LayoutGrid aria-hidden="true" />, title: 'Dạng thẻ' }]} />
+            <SegmentedControl ariaLabel={t('KpiCyclesPage.display')} value={viewMode} onChange={setViewMode}
+              options={[{ value: 'TABLE', label: <List aria-hidden="true" />, title: t('KpiCyclesPage.tableView') }, { value: 'CARD', label: <LayoutGrid aria-hidden="true" />, title: t('KpiCyclesPage.cardView') }]} />
           }
         >
           <Select value={cycleType} onValueChange={val => { setCycleType(val); setPage(0) }}>
-            <SelectTrigger className="w-full sm:w-auto sm:min-w-48" aria-label="Loại kỳ"><SelectValue placeholder="Tất cả loại kỳ" /></SelectTrigger>
+            <SelectTrigger className="w-full sm:w-auto sm:min-w-48" aria-label={t('KpiCyclesPage.cycleType')}><SelectValue placeholder={t('KpiCyclesPage.allCycleTypes')} /></SelectTrigger>
             <SelectContent>
-              <SelectItem value="ALL">Tất cả loại kỳ</SelectItem>
-              {CYCLE_TYPES.map(type => <SelectItem key={type} value={type}>{FREQUENCY_MAP[type]}</SelectItem>)}
+              <SelectItem value="ALL">{t('KpiCyclesPage.allCycleTypes')}</SelectItem>
+              {CYCLE_TYPES.map(type => <SelectItem key={type} value={type}>{FREQUENCY_MAP()[type]}</SelectItem>)}
             </SelectContent>
           </Select>
         </FilterBar>
@@ -191,9 +201,9 @@ export default function KpiCyclesPage() {
           <div className="rounded-card border border-dashed border-[var(--color-border)] bg-[var(--color-card)]">
             <EmptyState
               icon={CalendarRange}
-              title={keyword || cycleType !== 'ALL' || startDateFilter || endDateFilter ? 'Không tìm thấy kỳ phù hợp' : 'Chưa có kỳ đánh giá nào'}
-              description={keyword || cycleType !== 'ALL' || startDateFilter || endDateFilter ? 'Thử đổi từ khoá hoặc bỏ bớt bộ lọc.' : 'Tạo kỳ đầu tiên để gom các đợt lại đánh giá tổng hợp.'}
-              action={!(keyword || cycleType !== 'ALL' || startDateFilter || endDateFilter) ? <Button onClick={() => { setEditCycle(null); setShowForm(true) }}><Plus aria-hidden="true" /> Tạo kỳ mới</Button> : undefined}
+              title={keyword || cycleType !== 'ALL' || startDateFilter || endDateFilter ? t('KpiCyclesPage.noMatchingCycleFound') : t('KpiCyclesPage.noEvaluationCyclesYet')}
+              description={keyword || cycleType !== 'ALL' || startDateFilter || endDateFilter ? t('KpiCyclesPage.tryChangingTheKeywordOrRemoving') : t('KpiCyclesPage.createTheFirstCycleToGroup')}
+              action={!(keyword || cycleType !== 'ALL' || startDateFilter || endDateFilter) ? <Button onClick={() => { setEditCycle(null); setShowForm(true) }}><Plus aria-hidden="true" /> {t('KpiCyclesPage.createANewCycle')}</Button> : undefined}
             />
           </div>
         ) : viewMode === 'TABLE' ? (
@@ -201,30 +211,35 @@ export default function KpiCyclesPage() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-[var(--color-border)] bg-[var(--color-muted)]">
-                  <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">Tên kỳ</th>
-                  <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">Loại</th>
-                  <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">Bắt đầu</th>
-                  <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">Kết thúc</th>
-                  <th scope="col" className="px-4 py-2.5 text-right text-eyebrow">Số đợt</th>
-                  <th scope="col" className="px-3 py-2.5 text-right text-eyebrow">Hành động</th>
+                  <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">{t('KpiCyclesPage.cycleName')}</th>
+                  <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">{t('KpiCyclesPage.type')}</th>
+                  <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">{t('KpiCyclesPage.start')}</th>
+                  <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">{t('KpiCyclesPage.end')}</th>
+                  <th scope="col" className="px-4 py-2.5 text-right text-eyebrow">{t('KpiCyclesPage.periods')}</th>
+                  <th scope="col" className="px-3 py-2.5 text-right text-eyebrow">{t('KpiCyclesPage.actions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--color-border)]">
                 {data.content.map((cycle) => (
                   <tr key={cycle.id} className="transition-colors hover:bg-[var(--color-muted)]">
                     <td className="px-4 py-3">
-                      <p className="text-sm font-medium text-[var(--color-foreground)]">{cycle.name}</p>
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="text-sm font-medium text-[var(--color-foreground)]">{cycle.name}</p>
+                        {cycle.status === 'LOCKED' && <LockedBadge reason={lockedReason(cycle)} />}
+                      </div>
                       {cycle.description && <p className="line-clamp-1 text-caption">{cycle.description}</p>}
                     </td>
-                    <td className="px-4 py-3"><Badge variant="outline">{FREQUENCY_MAP[cycle.cycleType]}</Badge></td>
+                    <td className="px-4 py-3"><Badge variant="outline">{FREQUENCY_MAP()[cycle.cycleType]}</Badge></td>
                     <td className="px-4 py-3 text-sm tabular-nums text-[var(--color-muted-foreground)]">{cycle.startDate ? formatDateTime(cycle.startDate) : '—'}</td>
                     <td className="px-4 py-3 text-sm tabular-nums text-[var(--color-muted-foreground)]">{cycle.endDate ? formatDateTime(cycle.endDate) : '—'}</td>
                     <td className="px-4 py-3 text-right text-sm tabular-nums text-[var(--color-foreground)]">{cycle.periodCount}</td>
                     <td className="px-3 py-3 text-right">
-                      <div className="flex items-center justify-end gap-1">
-                        <Button variant="ghost" size="icon-sm" onClick={() => { setEditCycle(cycle); setShowForm(true) }} aria-label="Chỉnh sửa" title="Chỉnh sửa"><Pencil aria-hidden="true" /></Button>
-                        <Button variant="ghost" size="icon-sm" onClick={() => setDeleteId(cycle.id)} aria-label="Xoá" title="Xoá" className="text-[var(--color-muted-foreground)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]"><Trash2 aria-hidden="true" /></Button>
-                      </div>
+                      <CycleRowActions
+                        cycle={cycle}
+                        onEdit={() => { setEditCycle(cycle); setShowForm(true) }}
+                        onDelete={() => setDeleteId(cycle.id)}
+                        onHistory={() => setHistoryTarget(cycle)}
+                      />
                     </td>
                   </tr>
                 ))}
@@ -239,12 +254,16 @@ export default function KpiCyclesPage() {
                 leading={<CalendarRange />}
                 title={cycle.name}
                 description={cycle.description}
-                meta={<><Badge variant="outline">{FREQUENCY_MAP[cycle.cycleType]}</Badge><span>{cycle.periodCount} đợt</span></>}
-                footerLeft={<span>Từ {cycle.startDate ? formatDateTime(cycle.startDate).split(' ')[0] : '—'}</span>}
-                footerRight={<span>đến {cycle.endDate ? formatDateTime(cycle.endDate).split(' ')[0] : '—'}</span>}
-                menu={[
-                  { label: 'Chỉnh sửa', icon: <Pencil />, onClick: () => { setEditCycle(cycle); setShowForm(true) } },
-                  { label: 'Xoá', icon: <Trash2 />, destructive: true, onClick: () => setDeleteId(cycle.id) },
+                meta={<><Badge variant="outline">{FREQUENCY_MAP()[cycle.cycleType]}</Badge>{cycle.status === 'LOCKED' && <LockedBadge reason={lockedReason(cycle)} />}<span>{cycle.periodCount} {t('KpiCyclesPage.periods2')}</span></>}
+                footerLeft={<span>{t('KpiCyclesPage.from')} {cycle.startDate ? formatDateTime(cycle.startDate).split(' ')[0] : '—'}</span>}
+                footerRight={<span>{t('KpiCyclesPage.to')} {cycle.endDate ? formatDateTime(cycle.endDate).split(' ')[0] : '—'}</span>}
+                // Kỳ đã khoá: không có mục sửa/xoá (server cũng chặn), chỉ xem lịch sử.
+                menu={cycle.status === 'LOCKED' ? [
+                  { label: t('KpiCyclesPage.cycleHistory'), icon: <History />, onClick: () => setHistoryTarget(cycle) },
+                ] : [
+                  { label: t('KpiCyclesPage.edit'), icon: <Pencil />, onClick: () => { setEditCycle(cycle); setShowForm(true) } },
+                  { label: t('KpiCyclesPage.cycleHistory'), icon: <History />, onClick: () => setHistoryTarget(cycle) },
+                  { label: t('KpiCyclesPage.delete'), icon: <Trash2 />, destructive: true, onClick: () => setDeleteId(cycle.id) },
                 ]}
               />
             ))}
@@ -253,7 +272,7 @@ export default function KpiCyclesPage() {
         </div>
 
         {data && data.totalPages > 1 && (
-          <Pagination currentPage={page} totalPages={data.totalPages} totalElements={data.totalElements} size={pageSize} onPageChange={setPage} itemLabel="kỳ" />
+          <Pagination currentPage={page} totalPages={data.totalPages} totalElements={data.totalElements} size={pageSize} onPageChange={setPage} itemLabel={t('KpiCyclesPage.cycle')} />
         )}
 
         {showForm && (
@@ -273,15 +292,51 @@ export default function KpiCyclesPage() {
           />
         )}
 
+        {historyTarget && <CycleHistoryDialog cycle={historyTarget} onClose={() => setHistoryTarget(null)} />}
+
         <ConfirmDialog
           open={!!deleteId}
-          title="Xoá kỳ đánh giá này?"
-          description="Kỳ sẽ bị xoá vĩnh viễn. Các đợt đang thuộc kỳ này sẽ được gỡ khỏi kỳ (đợt không bị xoá). Bạn có chắc chắn?"
-          confirmLabel="Xoá vĩnh viễn"
+          title={t('KpiCyclesPage.deleteThisEvaluationCycle')}
+          description={t('KpiCyclesPage.theCycleWillBeDeletedPermanently')}
+          confirmLabel={t('KpiCyclesPage.deletePermanently')}
           onConfirm={handleDelete}
           onClose={() => setDeleteId(null)}
           loading={isDeleting}
         />
+    </div>
+  )
+}
+
+function lockedReason(cycle: KpiCycle): string {
+  const by = cycle.lockedByName ? i18n.t('kpi:KpiCyclesPage.by', { lockedByName: cycle.lockedByName }) : ''
+  const at = cycle.lockedAt ? i18n.t('kpi:KpiCyclesPage.at', { lockedAt: formatDateTime(cycle.lockedAt) }) : ''
+  return i18n.t('kpi:KpiCyclesPage.theCycleIsLockedOnlyViewing', { by, at })
+}
+
+interface CycleRowActionsProps {
+  cycle: KpiCycle
+  onEdit: () => void
+  onDelete: () => void
+  onHistory: () => void
+}
+
+/**
+ * Nút hành động một dòng kỳ. Không có nút khoá/mở lại: kỳ chỉ khoá khi khoá kết quả ở đơn vị gốc
+ * (màn Đánh giá kỳ) và mở lại khi mở khoá ở đó. Kỳ đã khoá thì sửa/xoá bị khoá kèm tooltip.
+ */
+function CycleRowActions({ cycle, onEdit, onDelete, onHistory }: CycleRowActionsProps) {
+  const { t } = useTranslation('kpi')
+  const locked = cycle.status === 'LOCKED'
+  const reason = locked ? t('KpiCyclesPage.theCycleIsLockedUnlockThe') : null
+  return (
+    <div className="flex items-center justify-end gap-1">
+      <LockedHint reason={reason}>
+        <Button variant="ghost" size="icon-sm" onClick={onEdit} disabled={locked} aria-label={t('KpiCyclesPage.edit')} title={locked ? undefined : t('KpiCyclesPage.edit')}><Pencil aria-hidden="true" /></Button>
+      </LockedHint>
+      <Button variant="ghost" size="icon-sm" onClick={onHistory} aria-label={t('KpiCyclesPage.cycleHistory')} title={t('KpiCyclesPage.cycleHistory')}><History aria-hidden="true" /></Button>
+      <LockedHint reason={reason}>
+        <Button variant="ghost" size="icon-sm" onClick={onDelete} disabled={locked} aria-label={t('KpiCyclesPage.delete')} title={locked ? undefined : t('KpiCyclesPage.delete')} className="text-[var(--color-muted-foreground)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]"><Trash2 aria-hidden="true" /></Button>
+      </LockedHint>
     </div>
   )
 }
@@ -292,11 +347,12 @@ export default function KpiCyclesPage() {
  * mình không sửa được thì khó chịu hơn là nhìn thấy ngay đây là số máy tự điền.
  */
 function DerivedDateBox({ value, hasPeriods }: { value: string; hasPeriods: boolean }) {
+  const { t } = useTranslation('kpi')
   return (
     <div className="w-full px-6 py-4 rounded-card border border-dashed border-[var(--color-border)] bg-[var(--color-muted)] text-sm font-medium">
       {hasPeriods && value
         ? <span className="text-[var(--color-foreground)]">{format(new Date(value), 'dd/MM/yyyy HH:mm')}</span>
-        : <span className="text-[var(--color-subtle-foreground)] font-medium">Tự điền theo đợt</span>}
+        : <span className="text-[var(--color-subtle-foreground)] font-medium">{t('KpiCyclesPage.autoFillFromPeriods')}</span>}
     </div>
   )
 }
@@ -310,6 +366,7 @@ interface CycleFormModalProps {
 }
 
 function CycleFormModal({ onClose, editCycle, organizationId, onSubmit, isSubmitting }: CycleFormModalProps) {
+  const { t } = useTranslation('kpi')
   const [formData, setFormData] = useState(() => {
     const start = editCycle?.startDate ? format(parseISO(editCycle.startDate), "yyyy-MM-dd'T'HH:mm") : format(new Date(), "yyyy-MM-dd'T'07:00")
     const type = (editCycle?.cycleType as KpiFrequency) || 'SEMI_ANNUALLY'
@@ -318,6 +375,7 @@ function CycleFormModal({ onClose, editCycle, organizationId, onSubmit, isSubmit
       : format(computeStandardEndDate(new Date(start), type), "yyyy-MM-dd'T'HH:mm")
     return { name: editCycle?.name || '', cycleType: type, startDate: start, endDate: end, description: editCycle?.description || '', evaluationMode: (editCycle?.evaluationMode as CycleEvaluationMode) || 'BOTH' }
   })
+  const draft = useStateDraft(formData, setFormData, { key: `kpi-cycle:${editCycle?.id ?? 'new'}`, enabled: true })
   const [showMismatchConfirm, setShowMismatchConfirm] = useState(false)
 
   /**
@@ -346,8 +404,12 @@ function CycleFormModal({ onClose, editCycle, organizationId, onSubmit, isSubmit
     return new Date(p.startDate).getTime() >= cycleStartMs && new Date(p.endDate).getTime() <= cycleEndMs
   }
 
+  // Đợt thuộc kỳ khác đã khoá / đợt đã đóng khi khoá kỳ thì không kéo sang kỳ này được (server cũng chặn).
+  const lockedElsewhere = (p: KpiPeriod) =>
+    (!!p.cycleId && p.cycleId !== editCycle?.id && p.cycleStatus === 'LOCKED') || (!!p.status && p.status !== 'ACTIVE')
+
   // Chọn đợt trước thì không có khoảng thời gian nào để lọc — mọi đợt có ngày đều chọn được.
-  const canPick = (p: KpiPeriod) => (isPeriodFirst ? !!(p.startDate && p.endDate) : fitsCycle(p))
+  const canPick = (p: KpiPeriod) => !lockedElsewhere(p) && (isPeriodFirst ? !!(p.startDate && p.endDate) : fitsCycle(p))
 
   // Đợt phù hợp lên trước, phần còn lại vẫn hiển thị (mờ) để biết vì sao không chọn được.
   const sortedPeriods = useMemo(() => {
@@ -459,13 +521,13 @@ function CycleFormModal({ onClose, editCycle, organizationId, onSubmit, isSubmit
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (isPeriodFirst && !selectedPeriodIds.length) {
-      toast.error('Hãy chọn ít nhất một đợt để suy ra thời gian kỳ')
+      toast.error(t('KpiCyclesPage.pleaseChooseAtLeastOnePeriod'))
       return
     }
     const start = new Date(formData.startDate).getTime()
     const end = endOfMinute(new Date(formData.endDate)).getTime()
     if (end <= start) {
-      toast.error('Thời gian kết thúc phải sau thời gian bắt đầu')
+      toast.error(t('KpiCyclesPage.theEndTimeMustBeAfter'))
       return
     }
     // Hỏi lại khi độ dài lệch chuẩn — nhưng chỉ ở đường gõ tay. Chọn đợt trước thì lệch
@@ -483,7 +545,7 @@ function CycleFormModal({ onClose, editCycle, organizationId, onSubmit, isSubmit
     ? differenceInCalendarDays(new Date(formData.endDate), new Date(formData.startDate)) + 1 : 0
   const standardDays = formData.startDate
     ? differenceInCalendarDays(computeStandardEndDate(new Date(formData.startDate), formData.cycleType), new Date(formData.startDate)) + 1 : 0
-  const mismatchDescription = `Bạn đã chọn ${selectedDays} ngày, trong khi loại kỳ "${FREQUENCY_MAP[formData.cycleType]}" tiêu chuẩn là ${standardDays} ngày. Bạn tự chịu trách nhiệm với khoảng thời gian đã chọn.`
+  const mismatchDescription = t('KpiCyclesPage.youChoseDaysWhileTheStandard', { selectedDays, value: FREQUENCY_MAP()[formData.cycleType], standardDays })
 
   return (
     <>
@@ -492,14 +554,14 @@ function CycleFormModal({ onClose, editCycle, organizationId, onSubmit, isSubmit
       onClose={onClose}
       size="md"
       dismissible={!isSubmitting}
-      title={editCycle ? 'Chỉnh sửa kỳ' : 'Tạo kỳ mới'}
-      description="Cấu hình kỳ đánh giá tổng hợp"
+      title={editCycle ? t('KpiCyclesPage.editCycle') : t('KpiCyclesPage.createANewCycle')}
+      description={t('KpiCyclesPage.configureTheCombinedEvaluationCycle')}
       footer={
         <DialogFooter
-          secondary={<Button variant="outline" onClick={onClose} disabled={isSubmitting}>Hủy</Button>}
+          secondary={<Button variant="outline" onClick={onClose} disabled={isSubmitting}>{t('KpiCyclesPage.cancel')}</Button>}
           primary={
             <Button type="submit" form="cycle-form-page" disabled={isSubmitting}>
-              {isSubmitting ? 'Đang lưu...' : 'Xác nhận'}
+              {isSubmitting ? t('KpiCyclesPage.saving') : t('KpiCyclesPage.confirm')}
             </Button>
           }
         />
@@ -508,11 +570,11 @@ function CycleFormModal({ onClose, editCycle, organizationId, onSubmit, isSubmit
       <div className="space-y-5">
       {/* Hai đường dựng kỳ. Đổi qua lại không mất dữ liệu đã nhập. */}
       <div className="space-y-2">
-        <span className="text-label block">Cách dựng kỳ</span>
+        <span className="text-label block">{t('KpiCyclesPage.howToBuildTheCycle')}</span>
         <div className="grid grid-cols-2 gap-2 p-1.5 rounded-card bg-[var(--color-muted)]">
           {([
-            { key: 'TIME_FIRST', icon: <Calendar size={14} />, label: 'Chọn thời gian trước' },
-            { key: 'PERIOD_FIRST', icon: <Layers size={14} />, label: 'Chọn đợt trước' },
+            { key: 'TIME_FIRST', icon: <Calendar size={14} />, label: t('KpiCyclesPage.chooseDatesFirst') },
+            { key: 'PERIOD_FIRST', icon: <Layers size={14} />, label: t('KpiCyclesPage.chooseAPeriodFirst') },
           ] as const).map(opt => (
             <ChoiceChip selected={mode === opt.key} variant="segment" className="py-2.5" key={opt.key} onClick={() => setMode(opt.key)}>
               {opt.icon}
@@ -522,51 +584,52 @@ function CycleFormModal({ onClose, editCycle, organizationId, onSubmit, isSubmit
         </div>
         <p className="text-caption font-medium ml-1 leading-relaxed">
           {isPeriodFirst
-            ? 'Chọn các đợt cần gom, thời gian kỳ tự ôm trọn từ đợt sớm nhất tới đợt muộn nhất.'
-            : 'Đặt thời gian kỳ trước, sau đó nhặt các đợt nằm trọn trong khoảng đó.'}
+            ? t('KpiCyclesPage.chooseThePeriodsToGroupThe')
+            : t('KpiCyclesPage.setTheCycleDatesFirstThen')}
         </p>
       </div>
 
       <form id="cycle-form-page" onSubmit={handleSubmit} className="space-y-5">
+        <DraftNotice draft={draft} />
         <div className="space-y-2">
-          <label className="text-label">Tên kỳ <span className="text-[var(--color-error)]">*</span></label>
-          <input value={formData.name} onChange={e => handleFieldChange('name', e.target.value)} required placeholder="Ví dụ: 6 Tháng đầu năm 2026"
+          <label className="text-label">{t('KpiCyclesPage.cycleName')} <span className="text-[var(--color-error)]">*</span></label>
+          <input value={formData.name} onChange={e => handleFieldChange('name', e.target.value)} required placeholder={t('KpiCyclesPage.eGFirstHalfOf2026')}
             className="w-full px-5 py-4 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] focus:ring-4 focus:ring-[var(--color-primary)]/15 focus:border-[var(--color-primary)]/50 outline-none text-sm font-medium transition-all placeholder:text-[var(--color-subtle-foreground)]"/>
         </div>
 
         <div className="space-y-2">
-          <label className="text-label">Loại kỳ <span className="text-[var(--color-error)]">*</span></label>
+          <label className="text-label">{t('KpiCyclesPage.cycleType')} <span className="text-[var(--color-error)]">*</span></label>
           <Select value={formData.cycleType} onValueChange={val => handleFieldChange('cycleType', val)}>
             <SelectTrigger className="w-full px-5 h-[56px] rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] text-sm font-medium shadow-sm focus:ring-4 focus:ring-[var(--color-primary)]/15">
-              <SelectValue placeholder="Chọn loại kỳ" />
+              <SelectValue placeholder={t('KpiCyclesPage.chooseCycleType')} />
             </SelectTrigger>
             <SelectContent className="rounded-card border-[var(--color-border)] p-2">
               {CYCLE_TYPES.map(type => (
-                <SelectItem key={type} value={type} className="rounded-card text-sm font-medium">{FREQUENCY_MAP[type]}</SelectItem>
+                <SelectItem key={type} value={type} className="rounded-card text-sm font-medium">{FREQUENCY_MAP()[type]}</SelectItem>
               ))}
             </SelectContent>
           </Select>
         </div>
 
         <div className="space-y-2">
-          <label className="text-label">Chế độ đánh giá cuối kỳ</label>
+          <label className="text-label">{t('KpiCyclesPage.endOfCycleEvaluationMode')}</label>
           <Select
             value={formData.evaluationMode}
             onValueChange={val => setFormData(p => ({ ...p, evaluationMode: val as CycleEvaluationMode }))}
             disabled={!enableQualitative}
           >
             <SelectTrigger className="w-full px-5 h-[56px] rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] text-sm font-medium shadow-sm focus:ring-4 focus:ring-[var(--color-primary)]/15 disabled:opacity-70">
-              <SelectValue placeholder="Chọn chế độ đánh giá" />
+              <SelectValue placeholder={t('KpiCyclesPage.chooseEvaluationMode')} />
             </SelectTrigger>
             <SelectContent className="rounded-card border-[var(--color-border)] p-2">
-              <SelectItem value="QUANTITATIVE" className="rounded-card text-sm font-medium">Định lượng</SelectItem>
-              {enableQualitative && <SelectItem value="QUALITATIVE" className="rounded-card text-sm font-medium">Định tính</SelectItem>}
-              {enableQualitative && <SelectItem value="BOTH" className="rounded-card text-sm font-medium">Cả hai</SelectItem>}
+              <SelectItem value="QUANTITATIVE" className="rounded-card text-sm font-medium">{t('KpiCyclesPage.quantitative')}</SelectItem>
+              {enableQualitative && <SelectItem value="QUALITATIVE" className="rounded-card text-sm font-medium">{t('KpiCyclesPage.qualitative')}</SelectItem>}
+              {enableQualitative && <SelectItem value="BOTH" className="rounded-card text-sm font-medium">{t('KpiCyclesPage.both')}</SelectItem>}
             </SelectContent>
           </Select>
           {!enableQualitative && (
             <p className="text-caption font-medium ml-1">
-              Tổ chức chưa bật KPI định tính nên kỳ chỉ đánh giá theo <span className="font-semibold text-[var(--color-muted-foreground)]">Định lượng</span>.
+              {t('KpiCyclesPage.theOrganizationHasNotEnabledQualitative')} <span className="font-semibold text-[var(--color-muted-foreground)]">{t('KpiCyclesPage.quantitative')}</span>.
             </p>
           )}
         </div>
@@ -577,7 +640,7 @@ function CycleFormModal({ onClose, editCycle, organizationId, onSubmit, isSubmit
         <div className="space-y-2">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <label className="text-label">Bắt đầu <span className="text-[var(--color-error)]">*</span></label>
+              <label className="text-label">{t('KpiCyclesPage.start')} <span className="text-[var(--color-error)]">*</span></label>
               {isPeriodFirst ? (
                 <DerivedDateBox value={formData.startDate} hasPeriods={selectedPeriodIds.length > 0} />
               ) : (
@@ -585,7 +648,7 @@ function CycleFormModal({ onClose, editCycle, organizationId, onSubmit, isSubmit
               )}
             </div>
             <div className="space-y-2">
-              <label className="text-label">Kết thúc <span className="text-[var(--color-error)]">*</span></label>
+              <label className="text-label">{t('KpiCyclesPage.end')} <span className="text-[var(--color-error)]">*</span></label>
               {isPeriodFirst ? (
                 <DerivedDateBox value={formData.endDate} hasPeriods={selectedPeriodIds.length > 0} />
               ) : (
@@ -596,8 +659,8 @@ function CycleFormModal({ onClose, editCycle, organizationId, onSubmit, isSubmit
           {isPeriodFirst && (
             <p className="text-caption font-medium ml-1 leading-relaxed">
               {selectedPeriodIds.length > 0
-                ? <>Suy ra từ {selectedPeriodIds.length} đợt đã chọn — dài <span className="font-semibold text-[var(--color-muted-foreground)]">{selectedDays} ngày</span>, gần nhất với loại kỳ <span className="font-semibold text-[var(--color-muted-foreground)]">{FREQUENCY_MAP[formData.cycleType]}</span> ({standardDays} ngày). Muốn tự chỉnh giờ/ngày thì đổi sang "Chọn thời gian trước".</>
-                : 'Chọn đợt ở trên để hệ thống điền thời gian kỳ.'}
+                ? <>{t('KpiCyclesPage.derivedFrom')} {selectedPeriodIds.length} {t('KpiCyclesPage.selectedPeriodsLength')} <span className="font-semibold text-[var(--color-muted-foreground)]">{selectedDays} {t('KpiCyclesPage.days')}</span>{t('KpiCyclesPage.closestToCycleType')} <span className="font-semibold text-[var(--color-muted-foreground)]">{FREQUENCY_MAP()[formData.cycleType]}</span> ({standardDays} {t('KpiCyclesPage.daysToAdjustTheTimeDate')}</>
+                : t('KpiCyclesPage.choosePeriodsAboveForTheSystem')}
             </p>
           )}
         </div>
@@ -606,28 +669,28 @@ function CycleFormModal({ onClose, editCycle, organizationId, onSubmit, isSubmit
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-3 ml-1">
             <label className="text-label">
-              Đợt trong kỳ
+              {t('KpiCyclesPage.periodsInTheCycle')}
               {selectedPeriodIds.length > 0 && (
                 <span className="ml-2 text-[var(--color-primary)]">({selectedPeriodIds.length})</span>
               )}
             </label>
             {eligiblePeriods.length > 0 && (
               <Button variant="ghost" type="button" onClick={toggleAllEligible}>
-                {allEligibleSelected ? 'Bỏ chọn tất cả' : `Chọn tất cả (${eligiblePeriods.length})`}
+                {allEligibleSelected ? t('KpiCyclesPage.deselectAll') : t('KpiCyclesPage.selectAll', { length: eligiblePeriods.length })}
               </Button>
             )}
           </div>
 
           <div className="rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] p-2 max-h-56 overflow-y-auto scrollbar-thin">
             {isLoadingPeriods ? (
-              <p className="px-3 py-4 text-caption text-center">Đang tải danh sách đợt...</p>
+              <p className="px-3 py-4 text-caption text-center">{t('KpiCyclesPage.loadingPeriods')}</p>
             ) : !sortedPeriods.length ? (
-              <p className="px-3 py-4 text-caption text-center">Chưa có đợt nào trong tổ chức.</p>
+              <p className="px-3 py-4 text-caption text-center">{t('KpiCyclesPage.theOrganizationHasNoPeriodsYet')}</p>
             ) : !eligiblePeriods.length ? (
               <p className="px-3 py-4 text-caption text-center">
                 {isPeriodFirst
-                  ? 'Các đợt hiện có đều thiếu ngày bắt đầu hoặc kết thúc.'
-                  : 'Không có đợt nào nằm trọn trong thời gian kỳ đã chọn.'}
+                  ? t('KpiCyclesPage.allExistingPeriodsAreMissingA')
+                  : t('KpiCyclesPage.noPeriodFallsEntirelyWithinThe')}
               </p>
             ) : sortedPeriods.map(period => {
               const eligible = canPick(period)
@@ -655,7 +718,7 @@ function CycleFormModal({ onClose, editCycle, organizationId, onSubmit, isSubmit
                     <span className="flex items-center gap-2">
                       <span className="text-xs font-semibold text-[var(--color-foreground)] truncate">{period.name}</span>
                       <span className="text-eyebrow shrink-0">
-                        {FREQUENCY_MAP[period.periodType]}
+                        {FREQUENCY_MAP()[period.periodType]}
                       </span>
                     </span>
                     <span className="block text-caption mt-0.5">
@@ -665,11 +728,12 @@ function CycleFormModal({ onClose, editCycle, organizationId, onSubmit, isSubmit
                     </span>
                     {!eligible ? (
                       <span className="block text-caption mt-0.5">
-                        {isPeriodFirst ? 'Đợt chưa có ngày bắt đầu/kết thúc' : 'Ngoài thời gian kỳ'}
+                        {lockedElsewhere(period) ? periodLockReason(period)
+                          : isPeriodFirst ? t('KpiCyclesPage.thePeriodHasNoStartEnd') : t('KpiCyclesPage.outsideTheCycleDates')}
                       </span>
                     ) : fromOtherCycle && (
                       <span className="flex items-center gap-1 text-xs font-medium text-[var(--color-warning)] mt-0.5">
-                        <AlertTriangle size={10} /> Đang thuộc kỳ "{period.cycleName}"{selected && ' — sẽ chuyển sang kỳ này'}
+                        <AlertTriangle size={10} /> {t('KpiCyclesPage.belongsToCycle')}{period.cycleName}"{selected && t('KpiCyclesPage.willMoveToThisCycle')}
                       </span>
                     )}
                   </span>
@@ -679,16 +743,16 @@ function CycleFormModal({ onClose, editCycle, organizationId, onSubmit, isSubmit
           </div>
           <p className="text-caption font-medium ml-1">
             {isPeriodFirst
-              ? 'Chọn đợt nào cũng được, kể cả đợt rời rạc — thời gian kỳ sẽ trải từ đợt sớm nhất tới đợt muộn nhất.'
-              : 'Chỉ chọn được đợt nằm trọn trong thời gian kỳ. Đổi thời gian kỳ sẽ tự bỏ các đợt không còn phù hợp.'}
+              ? t('KpiCyclesPage.anyPeriodsCanBeChosenEven')
+              : t('KpiCyclesPage.onlyPeriodsEntirelyWithinTheCycle')}
           </p>
         </div>
 
         </div>
 
         <div className="space-y-2">
-          <label className="text-label">Mô tả</label>
-          <textarea value={formData.description} onChange={e => setFormData(p => ({ ...p, description: e.target.value }))} rows={2} placeholder="Mục tiêu tổng thể của kỳ..."
+          <label className="text-label">{t('KpiCyclesPage.description')}</label>
+          <textarea value={formData.description} onChange={e => setFormData(p => ({ ...p, description: e.target.value }))} rows={2} placeholder={t('KpiCyclesPage.overallGoalOfTheCycle')}
             className="w-full px-5 py-4 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] focus:ring-4 focus:ring-[var(--color-primary)]/15 focus:border-[var(--color-primary)]/50 outline-none text-sm font-medium transition-all placeholder:text-[var(--color-subtle-foreground)] resize-none"/>
         </div>
         </form>
@@ -697,9 +761,9 @@ function CycleFormModal({ onClose, editCycle, organizationId, onSubmit, isSubmit
 
       <ConfirmDialog
         open={showMismatchConfirm}
-        title="Bạn có chắc chắn?"
+        title={t('KpiCyclesPage.areYouSure')}
         description={mismatchDescription}
-        confirmLabel="Vẫn lưu kỳ này"
+        confirmLabel={t('KpiCyclesPage.saveThisCycleAnyway')}
         onConfirm={async () => { setShowMismatchConfirm(false); await submitForm() }}
         onClose={() => setShowMismatchConfirm(false)}
         loading={isSubmitting}

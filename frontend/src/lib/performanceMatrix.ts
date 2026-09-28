@@ -1,3 +1,4 @@
+import i18n from 'i18next'
 /**
  * Ma trận xếp loại hiệu quả ở phía client: (điểm hành vi) × (% hoàn thành KPI) → xếp loại 1–5.
  *
@@ -60,4 +61,18 @@ export function resolveMatrixAxes(
   if (behavior == null) return { behavior: conductAsBehavior(conductScore, conductMax), completion }
   if (completion == null) return { behavior, completion: conductAsCompletion(conductScore, conductMax) }
   return { behavior, completion }
+}
+
+/**
+ * Nhãn ngắn cho nguồn của trục hành vi, để người chấm biết con số lấy từ đâu. Trục lấy từ đánh giá
+ * 360 (hoặc trộn hạnh kiểm + 360) do backend tính — xem BehaviorAxisResolver.
+ */
+export function behaviorSourceLabel(m: { behaviorFromConduct?: boolean; behaviorSource?: string | null }): string {
+  switch (m.behaviorSource) {
+    case 'FEEDBACK360': return ' (360)'
+    case 'BLENDED': return i18n.t('common:performanceMatrix.conduct360')
+    case 'CONDUCT': return i18n.t('common:performanceMatrix.conduct')
+    case 'QUALITATIVE': return ''
+    default: return m.behaviorFromConduct ? i18n.t('common:performanceMatrix.conduct') : ''
+  }
 }

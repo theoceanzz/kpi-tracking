@@ -1,6 +1,7 @@
 import axiosInstance from '@/lib/axios'
 import type { ApiResponse } from '@/types/api'
 import type { CycleUserEvaluation, CycleUnitEvaluation, CycleApprovalStep, SendEvaluationResult } from '@/types/kpi'
+import type { LockCyclePayload } from '../types/cycleLock'
 
 export const kpiCycleEvaluationApi = {
   /** Trạng thái chốt kỳ của mọi đơn vị trong phạm vi — thay cho việc gọi từng đơn vị một. */
@@ -50,9 +51,10 @@ export const kpiCycleEvaluationApi = {
       .get<ApiResponse<CycleApprovalStep[]>>(`/kpi-cycles/${cycleId}/evaluation/units/${orgUnitId}/chain`)
       .then((r) => r.data.data),
 
-  finalizeUnit: (cycleId: string, orgUnitId: string, comment: string) =>
+  /** `cycleLock` bắt buộc khi khoá ở đơn vị gốc mà kỳ còn mở — khoá kết quả gốc khoá luôn kỳ. */
+  finalizeUnit: (cycleId: string, orgUnitId: string, comment: string, cycleLock?: LockCyclePayload) =>
     axiosInstance
-      .post<ApiResponse<CycleUnitEvaluation>>(`/kpi-cycles/${cycleId}/evaluation/units/${orgUnitId}/finalize`, { comment })
+      .post<ApiResponse<CycleUnitEvaluation>>(`/kpi-cycles/${cycleId}/evaluation/units/${orgUnitId}/finalize`, { comment, cycleLock })
       .then((r) => r.data.data),
 
   /** Lùi một bước trạng thái; `cascade` mở luôn các đơn vị con đang khoá kết quả. */

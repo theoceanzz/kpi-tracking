@@ -3,6 +3,7 @@ import { toast } from 'sonner'
 import { getApiErrorMessage } from '@/lib/apiError'
 import { certificateApi } from '../api/certificateApi'
 import type { CertificateTemplateRequest } from '../types'
+import { useTranslation } from 'react-i18next'
 
 const errMsg = (error: any, fallback: string) => getApiErrorMessage(error, fallback)
 
@@ -24,6 +25,7 @@ export const useCertificateCatalog = (enabled = true) =>
 
 /** Danh mục cho màn hình QUẢN TRỊ: có cả mẫu đang tắt, kèm các thao tác sửa. */
 export const useCertificateTemplates = () => {
+  const { t } = useTranslation('rewards')
   const qc = useQueryClient()
 
   const query = useQuery({
@@ -41,9 +43,9 @@ export const useCertificateTemplates = () => {
     mutationFn: (data: CertificateTemplateRequest) => certificateApi.create(data),
     onSuccess: () => {
       invalidate()
-      toast.success('Đã lưu mẫu chứng nhận')
+      toast.success(t('useCertificates.certificateTemplateSaved'))
     },
-    onError: (error: any) => toast.error(errMsg(error, 'Lưu mẫu thất bại')),
+    onError: (error: any) => toast.error(errMsg(error, t('useCertificates.failedToSaveTemplate'))),
   })
 
   const updateMutation = useMutation({
@@ -51,18 +53,18 @@ export const useCertificateTemplates = () => {
       certificateApi.update(id, data),
     onSuccess: () => {
       invalidate()
-      toast.success('Đã cập nhật mẫu chứng nhận')
+      toast.success(t('useCertificates.certificateTemplateUpdated'))
     },
-    onError: (error: any) => toast.error(errMsg(error, 'Cập nhật mẫu thất bại')),
+    onError: (error: any) => toast.error(errMsg(error, t('useCertificates.failedToUpdateTemplate'))),
   })
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => certificateApi.delete(id),
     onSuccess: () => {
       invalidate()
-      toast.success('Đã xoá mẫu chứng nhận')
+      toast.success(t('useCertificates.certificateTemplateDeleted'))
     },
-    onError: (error: any) => toast.error(errMsg(error, 'Xoá mẫu thất bại')),
+    onError: (error: any) => toast.error(errMsg(error, t('useCertificates.failedToDeleteTemplate'))),
   })
 
   return {

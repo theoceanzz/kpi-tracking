@@ -12,6 +12,7 @@ import AttachmentChips from '@/features/evidence/AttachmentChips'
 import { formatNumber, cn } from '@/lib/utils'
 import { Dialog, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
+import { useTranslation } from 'react-i18next'
 
 interface StaffPerformanceDetailModalProps {
   open: boolean
@@ -25,6 +26,7 @@ interface StaffPerformanceDetailModalProps {
 export default function StaffPerformanceDetailModal({ 
   open, onClose, userId, userName, periodId, periodName
 }: StaffPerformanceDetailModalProps) {
+  const { t } = useTranslation('submissions')
   // Fetch all submissions
   const { data: submissions, isLoading: loadingSubs } = useQuery({
     queryKey: ['submissions', 'performance-detail', userId, periodId],
@@ -79,11 +81,11 @@ export default function StaffPerformanceDetailModal({
       description={
         <span className="flex flex-wrap items-center gap-x-4 gap-y-1">
           <span>{periodName}</span>
-          <span className="inline-flex items-center gap-1.5 tabular-nums"><Calendar size={13} aria-hidden="true" /> {submissionList.length} chỉ tiêu KPI</span>
-          <span className="inline-flex items-center gap-1.5 tabular-nums"><Award size={13} aria-hidden="true" /> Trọng số {totalWeight}%</span>
+          <span className="inline-flex items-center gap-1.5 tabular-nums"><Calendar size={13} aria-hidden="true" /> {submissionList.length} {t('StaffPerformanceDetailModal.kpis')}</span>
+          <span className="inline-flex items-center gap-1.5 tabular-nums"><Award size={13} aria-hidden="true" /> {t('StaffPerformanceDetailModal.weight')} {totalWeight}%</span>
         </span>
       }
-      footer={<DialogFooter primary={<Button onClick={onClose}>Đóng</Button>} />}
+      footer={<DialogFooter primary={<Button onClick={onClose}>{t('StaffPerformanceDetailModal.close')}</Button>} />}
     >
       <div className="space-y-6">
         {isLoading ? (
@@ -91,7 +93,7 @@ export default function StaffPerformanceDetailModal({
             <div className="relative">
                <Loader2 size={32} className="animate-spin text-[var(--color-primary)]" aria-hidden="true" />
             </div>
-            <p className="text-sm text-[var(--color-muted-foreground)]">Đang tải báo cáo chi tiết...</p>
+            <p className="text-sm text-[var(--color-muted-foreground)]">{t('StaffPerformanceDetailModal.loadingTheDetailedReport')}</p>
           </div>
         ) : submissionList.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-24 text-center space-y-6 bg-[var(--color-muted)] rounded-card border-2 border-dashed border-[var(--color-border)]">
@@ -99,8 +101,8 @@ export default function StaffPerformanceDetailModal({
                 <AlertCircle size={40} />
              </div>
              <div className="space-y-2">
-                <p className="text-xl font-semibold text-[var(--color-foreground)]">Chưa có bài nộp nào</p>
-                <p className="text-sm text-[var(--color-muted-foreground)] max-w-sm mx-auto">Nhân viên này chưa thực hiện nộp kết quả cho các chỉ tiêu trong đợt đánh giá hiện tại.</p>
+                <p className="text-xl font-semibold text-[var(--color-foreground)]">{t('StaffPerformanceDetailModal.noSubmissionsYet')}</p>
+                <p className="text-sm text-[var(--color-muted-foreground)] max-w-sm mx-auto">{t('StaffPerformanceDetailModal.thisEmployeeHasNotSubmittedResults')}</p>
              </div>
           </div>
         ) : (
@@ -113,7 +115,7 @@ export default function StaffPerformanceDetailModal({
                   </div>
                   <div>
                      <p className="text-4xl font-semibold text-[var(--color-foreground)] tracking-tighter mb-1">{completedCount}/{submissionList.length}</p>
-                     <p className="text-eyebrow">KPI Hoàn thành</p>
+                     <p className="text-eyebrow">{t('StaffPerformanceDetailModal.kpisCompleted')}</p>
                   </div>
                </div>
                
@@ -123,7 +125,7 @@ export default function StaffPerformanceDetailModal({
                   </div>
                   <div>
                      <p className="text-4xl font-semibold text-[var(--color-foreground)] tracking-tighter mb-1">{pendingCount}</p>
-                     <p className="text-eyebrow">Đang chờ duyệt</p>
+                     <p className="text-eyebrow">{t('StaffPerformanceDetailModal.pendingApproval')}</p>
                   </div>
                </div>
 
@@ -141,10 +143,10 @@ export default function StaffPerformanceDetailModal({
                         <p className="text-4xl font-semibold tracking-tighter">
                            {officialEval ? formatNumber(Math.round(officialEval.score ?? 0)) : formatNumber(Math.round(totalAutoScore))}
                         </p>
-                        <span className="text-xs font-medium opacity-60">Điểm số</span>
+                        <span className="text-xs font-medium opacity-60">{t('StaffPerformanceDetailModal.score')}</span>
                      </div>
                      <p className="text-eyebrow text-white/60">
-                        {officialEval ? 'Kết quả đánh giá chính thức' : 'Ghi nhận từ hệ thống'}
+                        {officialEval ? t('StaffPerformanceDetailModal.officialEvaluationResult') : t('StaffPerformanceDetailModal.recordedByTheSystem')}
                      </p>
                   </div>
                </div>
@@ -159,7 +161,7 @@ export default function StaffPerformanceDetailModal({
                   <div className="relative z-10">
                      <div className="flex items-center gap-3 mb-4">
                         <div className="w-1.5 h-6 bg-[var(--color-success-solid)] rounded-full" />
-                        <h4 className="text-sm font-medium text-[var(--color-success)]">Nhận xét từ {officialEval?.evaluatorRoleName || 'Quản lý'}</h4>
+                        <h4 className="text-sm font-medium text-[var(--color-success)]">{t('StaffPerformanceDetailModal.commentsFrom')} {officialEval?.evaluatorRoleName || t('StaffPerformanceDetailModal.manager')}</h4>
                      </div>
                      <p className="text-lg font-medium text-[var(--color-foreground)] italic leading-relaxed">
                         "{officialEval.comment}"
@@ -172,7 +174,7 @@ export default function StaffPerformanceDetailModal({
             <div className="space-y-6">
               <div className="flex items-center gap-3 px-2">
                  <div className="w-1 h-5 bg-[var(--color-primary)] rounded-full" />
-                 <h3 className="text-sm font-semibold text-[var(--color-foreground)]">Chi tiết chỉ tiêu đã nộp</h3>
+                 <h3 className="text-sm font-semibold text-[var(--color-foreground)]">{t('StaffPerformanceDetailModal.detailsOfSubmittedKpis')}</h3>
               </div>
               
               <div className="overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
@@ -187,7 +189,7 @@ export default function StaffPerformanceDetailModal({
                         </div>
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-semibold text-[var(--color-foreground)] leading-tight">{s.kpiCriteriaName}</p>
-                          <p className="text-eyebrow mt-0.5">Trọng số: {s.weight}%</p>
+                          <p className="text-eyebrow mt-0.5">{t('StaffPerformanceDetailModal.weight2')} {s.weight}%</p>
                           {s.note && (
                             <p className="text-caption font-medium mt-1 italic">"{s.note}"</p>
                           )}
@@ -209,7 +211,7 @@ export default function StaffPerformanceDetailModal({
                           s.status === 'REJECTED' ? 'bg-[var(--color-error-bg)] text-[var(--color-error)] dark:bg-[var(--color-error-bg)] dark:text-[var(--color-error)]' :
                           'bg-[var(--color-warning-bg)] text-[var(--color-warning)] dark:bg-[var(--color-warning-bg)] dark:text-[var(--color-warning)]'
                         )}>
-                          {s.status === 'APPROVED' ? 'Đã duyệt' : s.status === 'REJECTED' ? 'Từ chối' : 'Chờ duyệt'}
+                          {s.status === 'APPROVED' ? t('StaffPerformanceDetailModal.approved') : s.status === 'REJECTED' ? t('StaffPerformanceDetailModal.rejected') : t('StaffPerformanceDetailModal.pendingApproval2')}
                         </div>
                         <span className="text-base font-semibold text-[var(--color-subtle-foreground)]">{formatNumber(s.autoScore ?? 0)}</span>
                       </div>
@@ -222,10 +224,10 @@ export default function StaffPerformanceDetailModal({
                   <table className="w-full border-collapse min-w-[500px]">
                     <thead>
                       <tr className="bg-[var(--color-muted)] border-b border-[var(--color-border)]">
-                        <th className="text-eyebrow px-8 py-5 text-left">Nội dung KPI</th>
-                        <th className="text-eyebrow px-8 py-5 text-center">Kết quả nộp</th>
-                        <th className="text-eyebrow px-8 py-5 text-center">Trạng thái</th>
-                        <th className="text-eyebrow px-8 py-5 text-right">Điểm hệ thống</th>
+                        <th className="text-eyebrow px-8 py-5 text-left">{t('StaffPerformanceDetailModal.kpiContent')}</th>
+                        <th className="text-eyebrow px-8 py-5 text-center">{t('StaffPerformanceDetailModal.submittedResult')}</th>
+                        <th className="text-eyebrow px-8 py-5 text-center">{t('StaffPerformanceDetailModal.status')}</th>
+                        <th className="text-eyebrow px-8 py-5 text-right">{t('StaffPerformanceDetailModal.systemScore')}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[var(--color-border)]">
@@ -239,7 +241,7 @@ export default function StaffPerformanceDetailModal({
                               <div>
                                 <p className="text-sm font-semibold text-[var(--color-foreground)] group-hover:text-[var(--color-primary)] transition-colors">{s.kpiCriteriaName}</p>
                                 <div className="flex items-center gap-3 mt-1">
-                                  <p className="text-eyebrow">Trọng số: {s.weight}%</p>
+                                  <p className="text-eyebrow">{t('StaffPerformanceDetailModal.weight2')} {s.weight}%</p>
                                   {s.attachments && s.attachments.length > 0 && (
                                     <div className="flex items-center gap-2">
                                       <span className="text-caption">•</span>
@@ -270,7 +272,7 @@ export default function StaffPerformanceDetailModal({
                               s.status === 'REJECTED' ? 'bg-[var(--color-error-bg)] text-[var(--color-error)] dark:bg-[var(--color-error-bg)] dark:text-[var(--color-error)]' :
                               'bg-[var(--color-warning-bg)] text-[var(--color-warning)] dark:bg-[var(--color-warning-bg)] dark:text-[var(--color-warning)]'
                             )}>
-                              {s.status === 'APPROVED' ? 'Đã duyệt' : s.status === 'REJECTED' ? 'Từ chối' : 'Chờ duyệt'}
+                              {s.status === 'APPROVED' ? t('StaffPerformanceDetailModal.approved') : s.status === 'REJECTED' ? t('StaffPerformanceDetailModal.rejected') : t('StaffPerformanceDetailModal.pendingApproval2')}
                             </div>
                           </td>
                           <td className="px-8 py-6 text-right">

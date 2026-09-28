@@ -1,8 +1,10 @@
+import { intlLocale } from '@/i18n/format'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { getApiErrorMessage } from '@/lib/apiError'
 import { urboxApi } from '../api/urboxApi'
 import type { ImportUrboxGiftRequest } from '../types'
+import { useTranslation } from 'react-i18next'
 
 const errMsg = (error: any, fallback: string) => getApiErrorMessage(error, fallback)
 
@@ -43,6 +45,7 @@ export const useUrboxCatalog = (
   })
 
 export const useUrboxImport = () => {
+  const { t } = useTranslation('rewards')
   const qc = useQueryClient()
 
   const importMutation = useMutation({
@@ -53,11 +56,11 @@ export const useUrboxImport = () => {
       // Kho quà phải làm mới theo: món vừa nhập cần chuyển sang trạng thái "đã nhập",
       // nếu không quản trị viên sẽ bấm nhập lần nữa và nhận lỗi trùng.
       qc.invalidateQueries({ queryKey: ['urboxCatalog'] })
-      toast.success(`Đã thêm "${gift.name}" vào danh mục quà`, {
-        description: `Nhân viên đổi món này với ${gift.pointCost.toLocaleString('vi-VN')} điểm.`,
+      toast.success(t('useUrbox.addedToTheGiftCatalog', { name: gift.name }), {
+        description: t('useUrbox.employeesRedeemThisItemForPoints', { value: gift.pointCost.toLocaleString(intlLocale()) }),
       })
     },
-    onError: (error: any) => toast.error(errMsg(error, 'Nhập quà thất bại'), { duration: 6000 }),
+    onError: (error: any) => toast.error(errMsg(error, t('useUrbox.failedToImportGift')), { duration: 6000 }),
   })
 
   return {

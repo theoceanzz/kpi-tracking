@@ -5,6 +5,7 @@ import com.kpitracking.dto.response.kpi.CycleUserRankResponse;
 import com.kpitracking.entity.KpiCycle;
 import com.kpitracking.entity.OrgUnit;
 import com.kpitracking.enums.CycleUnitEvalStatus;
+import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.ForbiddenException;
 import com.kpitracking.repository.OrgUnitRepository;
 import com.kpitracking.security.PermissionChecker;
@@ -74,7 +75,7 @@ public class CycleFinalizeTool {
             Object rawUser = context.get("userId");
             UUID me = rawUser == null ? null : UUID.fromString(rawUser.toString());
             if ("send".equals(action) && (me == null || !permissionChecker.hasPermission(me, "CYCLE_EVAL:SEND"))) {
-                throw new ForbiddenException("Bạn không có quyền gửi kết quả đợt đánh giá (CYCLE_EVAL:SEND).");
+                throw new ForbiddenException(ErrorCode.NO_PERMISSION_SEND_EVALUATION_PERIOD_RESULTS);
             }
 
             CycleUnitEvaluationResponse unit = cycleEvaluationService.getUnitCycleSummary(cycle.getId(), u.id());

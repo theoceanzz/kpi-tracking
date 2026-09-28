@@ -1,6 +1,8 @@
 import { useState } from 'react'
 import { ChevronDown, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useTranslation } from 'react-i18next'
+import i18n from 'i18next'
 
 interface ThinkingSummaryProps {
   /** Thời gian trợ lý xử lý lượt này, tính bằng giây. */
@@ -11,12 +13,12 @@ interface ThinkingSummaryProps {
 
 /** "dưới 1 giây" / "12 giây" / "1 phút 5 giây" — người Việt đọc thẳng, không cần đơn vị viết tắt. */
 function formatDuration(seconds: number): string {
-  if (seconds < 1) return 'dưới 1 giây'
+  if (seconds < 1) return i18n.t('analytics:ThinkingSummary.under1Second')
   const total = Math.round(seconds)
-  if (total < 60) return `${total} giây`
+  if (total < 60) return i18n.t('analytics:ThinkingSummary.seconds', { total })
   const minutes = Math.floor(total / 60)
   const rest = total % 60
-  return rest === 0 ? `${minutes} phút` : `${minutes} phút ${rest} giây`
+  return rest === 0 ? i18n.t('analytics:ThinkingSummary.min', { minutes }) : i18n.t('analytics:ThinkingSummary.minS', { minutes, rest })
 }
 
 /**
@@ -29,6 +31,7 @@ function formatDuration(seconds: number): string {
  * người dùng kiểm chứng được trợ lý đã thực sự tra cứu những gì, thay vì phải tin lời nó.
  */
 export default function ThinkingSummary({ seconds, steps }: ThinkingSummaryProps) {
+  const { t } = useTranslation('analytics')
   const [open, setOpen] = useState(false)
   const expandable = !!steps?.length
 
@@ -45,7 +48,7 @@ export default function ThinkingSummary({ seconds, steps }: ThinkingSummaryProps
         )}
       >
         <Sparkles size={12} className="shrink-0" />
-        <span>Đã suy nghĩ {formatDuration(seconds)}</span>
+        <span>{t('ThinkingSummary.thoughtFor')} {formatDuration(seconds)}</span>
         {expandable && (
           <ChevronDown
             size={13}

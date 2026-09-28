@@ -1,10 +1,12 @@
 import { z } from 'zod'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
-export const submissionSchema = z.object({
-  kpiCriteriaId: z.string().min(1, 'Vui lòng chọn chỉ tiêu'),
+export const submissionSchema = perLanguage(() => (z.object({
+  kpiCriteriaId: z.string().min(1, i18n.t('submissions:submissionSchema.pleaseChooseAKpi')),
   // Optional so qualitative KPIs (no numeric value) can be submitted; the backend
   // still requires a value for quantitative KPIs.
-  actualValue: z.number().min(0, 'Giá trị không được âm').optional(),
+  actualValue: z.number().min(0, i18n.t('submissions:submissionSchema.theValueCannotBeNegative')).optional(),
   qualitativeLevelId: z.string().optional(),
   note: z.string().optional(),
   // periodStart/periodEnd cố ý KHÔNG có ở đây: form chưa bao giờ vẽ ô nhập cho chúng, nên chúng
@@ -13,9 +15,9 @@ export const submissionSchema = z.object({
   //
   // Cột period_start/period_end vẫn còn trong CSDL và vẫn hiện ở trang chi tiết báo cáo — đây chỉ
   // gỡ phần khai báo chết trong form.
-})
+})))
 
-export type SubmissionFormData = z.infer<typeof submissionSchema>
+export type SubmissionFormData = z.infer<ReturnType<typeof submissionSchema>>
 
 /**
  * Duyệt / trả lại bài nộp. Một biểu mẫu phục vụ cả hai nút, và ràng buộc đổi theo loại
@@ -25,12 +27,12 @@ export const createReviewSubmissionSchema = ({ isQualitative }: { isQualitative:
   z.object({
     mode: z.enum(['view', 'reject']),
     reviewNote: z.string(),
-    managerScore: z.number({ message: 'Điểm chốt cuối phải là số' }).min(0, 'Điểm không được âm').optional(),
+    managerScore: z.number({ message: i18n.t('submissions:submissionSchema.theFinalScoreMustBeA') }).min(0, i18n.t('submissions:submissionSchema.theScoreCannotBeNegative')).optional(),
     qualitativeLevelId: z.string().optional(),
   }).superRefine((data, ctx) => {
     if (data.mode === 'reject') {
       if (!data.reviewNote.trim()) {
-        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['reviewNote'], message: 'Vui lòng nhập lý do từ chối' })
+        ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['reviewNote'], message: i18n.t('submissions:submissionSchema.pleaseEnterTheRejectionReason') })
       }
       return
     }
@@ -39,7 +41,7 @@ export const createReviewSubmissionSchema = ({ isQualitative }: { isQualitative:
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['qualitativeLevelId'],
-        message: 'Vui lòng chọn mức đánh giá định tính',
+        message: i18n.t('submissions:submissionSchema.pleaseChooseAQualitativeEvaluationLevel'),
       })
     }
   })
@@ -61,14 +63,14 @@ export const createStaffEvaluationSchema = (
     individualScores: z.record(z.string(), z.number()),
     individualLevels: z.record(z.string(), z.string()),
     overallComment: z.string(),
-    finalScore: z.number({ message: 'Điểm chốt cuối phải là số' }).min(0, 'Điểm chốt cuối không được âm'),
+    finalScore: z.number({ message: i18n.t('submissions:submissionSchema.theFinalScoreMustBeA') }).min(0, i18n.t('submissions:submissionSchema.theFinalScoreCannotBeNegative')),
   }).superRefine((data, ctx) => {
     const ceiling = getScoreCeiling()
     if (ceiling > 0 && data.finalScore > ceiling) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['finalScore'],
-        message: `Điểm chốt cuối không được vượt quá ${ceiling}`,
+        message: i18n.t('submissions:submissionSchema.theFinalScoreCannotExceed', { ceiling }),
       })
     }
     const missing = qualitativeIds.filter(id => !data.individualLevels[id])
@@ -76,7 +78,7 @@ export const createStaffEvaluationSchema = (
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['individualLevels'],
-        message: `Còn ${missing.length} KPI định tính chưa chọn mức đánh giá`,
+        message: i18n.t('submissions:submissionSchema.qualitativeKpisHaveNoEvaluationLevel', { count: missing.length }),
       })
     }
   })

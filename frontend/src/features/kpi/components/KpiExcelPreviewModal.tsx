@@ -23,6 +23,9 @@ import { useObjectives } from '@/features/okr/hooks/useOkr'
 import { useBscPerspectives, useScorecards } from '@/features/bsc/hooks/useBsc'
 import { scorecardsForPeriod } from '@/features/bsc/utils/scorecardScope'
 import { ChoiceChip } from '@/components/ui/choice-chip'
+import { useTranslation } from 'react-i18next'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
 interface KpiExcelPreviewModalProps {
   open: boolean
@@ -56,37 +59,37 @@ interface KpiRow {
 
 const frequencyOptions = ['DAILY', 'WEEKLY', 'MONTHLY', 'QUARTERLY', 'SEMI_ANNUALLY', 'YEARLY', 'UNLIMITED']
 
-const kpiRowSchema = z.object({
-  Name: z.string().min(1, 'Tên chỉ tiêu là bắt buộc'),
+const kpiRowSchema = perLanguage(() => (z.object({
+  Name: z.string().min(1, i18n.t('kpi:KpiExcelPreviewModal.kpiNameIsRequired')),
   Description: z.string().optional().nullable(),
   Weight: z.string().refine(val => {
     const n = Number(val)
     return !isNaN(n) && n >= 1 && n <= 100
-  }, 'Trọng số phải từ 1-100'),
-  TargetValue: z.string().refine(val => !isNaN(Number(val)), 'Giá trị mục tiêu phải là số'),
-  MinimumValue: z.string().refine(val => !val || !isNaN(Number(val)), 'Giá trị tối thiểu phải là số').optional().nullable(),
-  Deadline: z.string().refine(val => !val || /^\d{1,2}\/\d{1,2}\/\d{4}( \d{1,2}:\d{2})?$/.test(val), 'Định dạng: dd/MM/yyyy hoặc dd/MM/yyyy HH:mm').optional().nullable(),
-  Unit: z.string().min(1, 'Đơn vị là bắt buộc'),
-  Frequency: z.string().refine(val => frequencyOptions.includes(val.toUpperCase()), 'Tần suất không hợp lệ'),
-  EmployeeCode: z.string().min(1, 'Mã nhân viên là bắt buộc'),
-  Period: z.string().min(1, 'Đợt KPI là bắt buộc'),
-  OrgUnit: z.string().min(1, 'Phòng ban là bắt buộc'),
-})
+  }, i18n.t('kpi:KpiExcelPreviewModal.weightMustBeBetween1And')),
+  TargetValue: z.string().refine(val => !isNaN(Number(val)), i18n.t('kpi:KpiExcelPreviewModal.targetValueMustBeANumber')),
+  MinimumValue: z.string().refine(val => !val || !isNaN(Number(val)), i18n.t('kpi:KpiExcelPreviewModal.minimumValueMustBeANumber')).optional().nullable(),
+  Deadline: z.string().refine(val => !val || /^\d{1,2}\/\d{1,2}\/\d{4}( \d{1,2}:\d{2})?$/.test(val), i18n.t('kpi:KpiExcelPreviewModal.formatDdMmYyyyOrDd')).optional().nullable(),
+  Unit: z.string().min(1, i18n.t('kpi:KpiExcelPreviewModal.unitIsRequired')),
+  Frequency: z.string().refine(val => frequencyOptions.includes(val.toUpperCase()), i18n.t('kpi:KpiExcelPreviewModal.invalidFrequency')),
+  EmployeeCode: z.string().min(1, i18n.t('kpi:KpiExcelPreviewModal.employeeCodeIsRequired')),
+  Period: z.string().min(1, i18n.t('kpi:KpiExcelPreviewModal.kpiPeriodIsRequired')),
+  OrgUnit: z.string().min(1, i18n.t('kpi:KpiExcelPreviewModal.departmentIsRequired')),
+})))
 
 // Qualitative KPIs have no numeric target/unit — those fields are not validated.
-const qualitativeKpiRowSchema = z.object({
-  Name: z.string().min(1, 'Tên chỉ tiêu là bắt buộc'),
+const qualitativeKpiRowSchema = perLanguage(() => (z.object({
+  Name: z.string().min(1, i18n.t('kpi:KpiExcelPreviewModal.kpiNameIsRequired')),
   Description: z.string().optional().nullable(),
   Weight: z.string().refine(val => {
     const n = Number(val)
     return !isNaN(n) && n >= 1 && n <= 100
-  }, 'Trọng số phải từ 1-100'),
-  Deadline: z.string().refine(val => !val || /^\d{1,2}\/\d{1,2}\/\d{4}( \d{1,2}:\d{2})?$/.test(val), 'Định dạng: dd/MM/yyyy hoặc dd/MM/yyyy HH:mm').optional().nullable(),
-  Frequency: z.string().refine(val => frequencyOptions.includes(val.toUpperCase()), 'Tần suất không hợp lệ'),
-  EmployeeCode: z.string().min(1, 'Mã nhân viên là bắt buộc'),
-  Period: z.string().min(1, 'Đợt KPI là bắt buộc'),
-  OrgUnit: z.string().min(1, 'Phòng ban là bắt buộc'),
-})
+  }, i18n.t('kpi:KpiExcelPreviewModal.weightMustBeBetween1And')),
+  Deadline: z.string().refine(val => !val || /^\d{1,2}\/\d{1,2}\/\d{4}( \d{1,2}:\d{2})?$/.test(val), i18n.t('kpi:KpiExcelPreviewModal.formatDdMmYyyyOrDd')).optional().nullable(),
+  Frequency: z.string().refine(val => frequencyOptions.includes(val.toUpperCase()), i18n.t('kpi:KpiExcelPreviewModal.invalidFrequency')),
+  EmployeeCode: z.string().min(1, i18n.t('kpi:KpiExcelPreviewModal.employeeCodeIsRequired')),
+  Period: z.string().min(1, i18n.t('kpi:KpiExcelPreviewModal.kpiPeriodIsRequired')),
+  OrgUnit: z.string().min(1, i18n.t('kpi:KpiExcelPreviewModal.departmentIsRequired')),
+})))
 
 const QUANTITATIVE_CRITICAL_FIELDS = ['Name', 'Weight', 'TargetValue', 'Unit', 'Frequency', 'EmployeeCode', 'Period']
 const QUALITATIVE_CRITICAL_FIELDS = ['Name', 'Weight', 'Frequency', 'EmployeeCode', 'Period']
@@ -95,6 +98,7 @@ const QUALITATIVE_CRITICAL_FIELDS = ['Name', 'Weight', 'Frequency', 'EmployeeCod
 const countsTowardWeight = (row: KpiRow) => row.IsBonusKpi !== 'true'
 
 export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onImport, isImporting }: KpiExcelPreviewModalProps) {
+  const { t } = useTranslation('kpi')
   const [data, setData] = useState<KpiRow[]>([])
   const [loading, setLoading] = useState(false)
   const { user } = useAuthStore()
@@ -102,7 +106,7 @@ export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onI
   // reviewer can correct it before importing.
   const [localKpiType, setLocalKpiType] = useState<KpiType>(kpiType ?? 'QUANTITATIVE')
   const isQualitative = localKpiType === 'QUALITATIVE'
-  const rowSchema = isQualitative ? qualitativeKpiRowSchema : kpiRowSchema
+  const rowSchema = isQualitative ? qualitativeKpiRowSchema() : kpiRowSchema()
   const criticalFields = isQualitative ? QUALITATIVE_CRITICAL_FIELDS : QUANTITATIVE_CRITICAL_FIELDS
   
   // Bulk settings state
@@ -287,9 +291,9 @@ export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onI
       const buffer = await f.arrayBuffer()
       const wb = read(buffer)
       const sheetName = wb.SheetNames[0]
-      if (!sheetName) throw new Error('File không có sheet nào')
+      if (!sheetName) throw new Error(t('KpiExcelPreviewModal.theFileHasNoSheets'))
       const ws = wb.Sheets[sheetName]
-      if (!ws) throw new Error('Không thể đọc dữ liệu từ sheet')
+      if (!ws) throw new Error(t('KpiExcelPreviewModal.couldNotReadDataFromThe'))
       const rawData = utils.sheet_to_json<any>(ws)
 
       const parsed: KpiRow[] = rawData.map((row, index) => {
@@ -318,7 +322,7 @@ export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onI
         const errors: Record<string, string> = {}
 
         // Smart Matching for Period
-        const oldPeriod = item.Period || 'Trống'
+        const oldPeriod = item.Period || t('KpiExcelPreviewModal.empty')
         const matchedPeriod = periodsData?.content?.find((p: any) => p.name.toLowerCase() === item.Period.toLowerCase())
         if (matchedPeriod) {
           item.Period = matchedPeriod.name
@@ -328,7 +332,7 @@ export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onI
         } else {
           item.Period = newestPeriod
           if (oldPeriod !== 'Trống') {
-            errors['Period'] = `Đợt '${oldPeriod}' không tồn tại trong hệ thống`
+            errors['Period'] = t('KpiExcelPreviewModal.periodDoesNotExistInThe', { oldPeriod })
           }
         }
 
@@ -352,21 +356,21 @@ export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onI
         if (matchedNames.length > 0) {
           if (enableOkr && matchedNames.length > 1) {
             item.OrgUnit = matchedNames[0] || ''
-            errors['OrgUnit'] = `Chế độ OKR chỉ cho phép 1 đơn vị. Đã tự động chọn đơn vị đầu tiên: ${matchedNames[0]}`
+            errors['OrgUnit'] = t('KpiExcelPreviewModal.okrModeAllowsOnly1Unit', { value: matchedNames[0] })
           } else {
             item.OrgUnit = matchedNames.join(', ')
           }
           
           if (unmatchedCodes.length > 0) {
-            const unmatchedMsg = `Đơn vị '${unmatchedCodes.join(', ')}' không tồn tại trong hệ thống`
+            const unmatchedMsg = t('KpiExcelPreviewModal.unitDoesNotExistInThe', { join: unmatchedCodes.join(', ') })
             errors['OrgUnit'] = errors['OrgUnit'] ? `${errors['OrgUnit']}. ${unmatchedMsg}` : unmatchedMsg
           }
         } else if (rawOrgValue) {
           item.OrgUnit = ''
-          errors['OrgUnit'] = `Đơn vị '${rawOrgValue}' không tồn tại trong hệ thống`
+          errors['OrgUnit'] = t('KpiExcelPreviewModal.unitDoesNotExistInThe2', { rawOrgValue })
         } else {
           item.OrgUnit = ''
-          errors['OrgUnit'] = `Phòng ban là bắt buộc`
+          errors['OrgUnit'] = t('KpiExcelPreviewModal.departmentIsRequired')
         }
 
         const rowWithFallback = validateRow(item)
@@ -377,14 +381,14 @@ export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onI
       })
 
       if (parsed.length === 0) {
-        toast.error('File không có dữ liệu hoặc sai định dạng.')
+        toast.error(t('KpiExcelPreviewModal.theFileHasNoDataOr'))
         onClose()
         return
       }
 
       setData(parsed)
     } catch {
-      toast.error('Lỗi khi đọc file Excel/CSV')
+      toast.error(t('KpiExcelPreviewModal.errorReadingTheExcelCsvFile'))
       onClose()
     } finally {
       setLoading(false)
@@ -412,7 +416,7 @@ export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onI
       const nonExistentCodes = codes.filter(code => !allUsers.some(u => u.employeeCode === code))
       
       if (nonExistentCodes.length > 0) {
-        errors['EmployeeCode'] = `Mã không tồn tại: ${nonExistentCodes.join(', ')}`
+        errors['EmployeeCode'] = t('KpiExcelPreviewModal.codeDoesNotExist', { join: nonExistentCodes.join(', ') })
       } else if (row.OrgUnit) {
         // 2. Check department mismatch — support comma-separated org units
         const orgNames = row.OrgUnit.split(',').map((s: string) => s.trim()).filter(Boolean)
@@ -424,7 +428,7 @@ export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onI
         })
 
         if (mismatchedCodes.length > 0) {
-          errors['EmployeeCode'] = `Nhân viên ${mismatchedCodes.join(', ')} không thuộc ${row.OrgUnit}`
+          errors['EmployeeCode'] = t('KpiExcelPreviewModal.employeeDoesNotBelongTo', { join: mismatchedCodes.join(', '), OrgUnit: row.OrgUnit })
         }
       }
     }
@@ -439,7 +443,7 @@ export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onI
         const periodLevel = TYPE_LEVEL[periodObj.periodType] || 0
         const kpiLevel = TYPE_LEVEL[row.Frequency.toUpperCase()] || 0
         if (kpiLevel > periodLevel) {
-          errors['Frequency'] = `Tần suất không phù hợp với đợt ${periodObj.periodType}`
+          errors['Frequency'] = t('KpiExcelPreviewModal.frequencyDoesNotMatchPeriod', { periodType: periodObj.periodType })
         }
       }
     }
@@ -448,26 +452,26 @@ export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onI
     if (enableOkr && row.ObjectiveCode) {
       const obj = objectives.find(o => o.code?.toLowerCase() === row.ObjectiveCode?.toLowerCase())
       if (!obj) {
-        errors['ObjectiveCode'] = `Mã mục tiêu không tồn tại`
+        errors['ObjectiveCode'] = t('KpiExcelPreviewModal.objectiveCodeDoesNotExist')
       } else {
         // Validation: OrgUnit mismatch check — support comma-separated org units
         if (row.OrgUnit && obj.orgUnitNames && obj.orgUnitNames.length > 0) {
           const orgNames = row.OrgUnit.split(',').map((s: string) => s.trim()).filter(Boolean)
           const anyMatch = orgNames.some(n => obj.orgUnitNames!.some(un => un.toLowerCase() === n.toLowerCase()))
           if (!anyMatch) {
-            errors['ObjectiveCode'] = `Mục tiêu này thuộc ${obj.orgUnitNames.join(', ')}, không khớp với đơn vị ${row.OrgUnit}`
+            errors['ObjectiveCode'] = t('KpiExcelPreviewModal.thisObjectiveBelongsToNotMatching', { join: obj.orgUnitNames.join(', '), OrgUnit: row.OrgUnit })
           }
         }
 
         if (row.KeyResultCode) {
           const kr = obj.keyResults?.find(k => k.code?.toLowerCase() === row.KeyResultCode?.toLowerCase())
           if (!kr) {
-            errors['KeyResultCode'] = `KR không thuộc mục tiêu này`
+            errors['KeyResultCode'] = t('KpiExcelPreviewModal.theKrDoesNotBelongTo')
           }
         }
       }
     } else if (enableOkr && row.KeyResultCode && !row.ObjectiveCode) {
-      errors['ObjectiveCode'] = `Cần nhập mã mục tiêu để tìm KR`
+      errors['ObjectiveCode'] = t('KpiExcelPreviewModal.anObjectiveCodeIsNeededTo')
     }
 
     // 4b. Check BSC perspective if enabled (match by code or name)
@@ -475,12 +479,12 @@ export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onI
       const val = row.Perspective.toLowerCase()
       const matched = perspectives.find((p: any) => p.code?.toLowerCase() === val || p.name?.toLowerCase() === val)
       if (!matched) {
-        errors['Perspective'] = `Hạng mục không tồn tại`
+        errors['Perspective'] = t('KpiExcelPreviewModal.itemDoesNotExist')
       } else {
         // Hạng mục phải nằm trong bộ tiêu chí của (đơn vị + đợt) của dòng này.
         const avail = availablePerspIdsForRow(row)
         if (avail && !avail.has(matched.id)) {
-          errors['Perspective'] = `Hạng mục không có trong bộ tiêu chí của đơn vị/đợt này`
+          errors['Perspective'] = t('KpiExcelPreviewModal.theItemIsNotInThis')
         }
       }
     }
@@ -495,7 +499,7 @@ export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onI
                !u.permissions?.includes('SUBMISSION:REVIEW')
       })
       if (nonLeaders.length > 0) {
-        errors['EmployeeCode'] = `Mô hình Thác nước đang bật: Chỉ có thể giao chỉ tiêu cho Lãnh đạo đơn vị để họ phân bổ tiếp. Mã không hợp lệ: ${nonLeaders.join(', ')}`
+        errors['EmployeeCode'] = t('KpiExcelPreviewModal.theWaterfallModelIsOnKpis', { join: nonLeaders.join(', ') })
       }
     }
 
@@ -545,7 +549,7 @@ export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onI
 
   const handleBulkApply = () => {
     if (!bulkFreq && !bulkPeriod && !bulkOrgUnits.length && !bulkEmpCode) {
-      toast.error('Vui lòng chọn ít nhất một giá trị để áp dụng')
+      toast.error(t('KpiExcelPreviewModal.pleaseChooseAtLeastOneValue'))
       return
     }
 
@@ -560,12 +564,12 @@ export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onI
       }
       return validateRow(updated)
     }))
-    toast.success('Đã áp dụng thông tin hàng loạt')
+    toast.success(t('KpiExcelPreviewModal.bulkInformationApplied'))
   }
 
   const handleSave = async () => {
     if (data.length === 0) {
-      toast.error('Không có dữ liệu để import')
+      toast.error(t('KpiExcelPreviewModal.noDataToImport'))
       return
     }
 
@@ -577,7 +581,7 @@ export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onI
     })
     
     if (invalidRows.length > 0) {
-      toast.error(`Còn ${invalidRows.length} dòng dữ liệu có lỗi nghiêm trọng. Vui lòng kiểm tra lại.`)
+      toast.error(t('KpiExcelPreviewModal.dataRowsStillHaveCriticalErrors', { count: invalidRows.length }))
       return
     }
 
@@ -625,7 +629,7 @@ export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onI
     if (invalidEmps.length > 0) {
       setLoading(false)
       const errorMsg = invalidEmps.map(v => `${v.name} / ${(v as any).orgName || ''} [${v.periodName}] (${v.total.toFixed(1)}%)`).join(', ')
-      toast.error(`Tổng trọng số mỗi nhân viên phải đạt 100%. Kiểm tra: ${errorMsg}`)
+      toast.error(t('KpiExcelPreviewModal.eachEmployeesTotalWeightMustReach', { errorMsg }))
       return
     }
 
@@ -645,7 +649,7 @@ export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onI
 
       onImport(newFile, localKpiType)
     } catch {
-      toast.error('Lỗi khi tạo file import')
+      toast.error(t('KpiExcelPreviewModal.errorCreatingTheImportFile'))
     } finally {
       setLoading(false)
     }
@@ -666,29 +670,29 @@ export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onI
       onClose={onClose}
       size="full"
       dismissible={!isImporting}
-      title="Xem trước & Kiểm tra Chỉ tiêu"
+      title={t('KpiExcelPreviewModal.previewCheckKpis')}
       description={`File: ${file?.name ?? ''}`}
       headerExtra={enableQualitative ? (
-        <div className="flex items-center gap-1 rounded-control border border-[var(--color-border)] bg-[var(--color-muted)] p-0.5" role="group" aria-label="Loại chỉ tiêu">
+        <div className="flex items-center gap-1 rounded-control border border-[var(--color-border)] bg-[var(--color-muted)] p-0.5" role="group" aria-label={t('KpiExcelPreviewModal.kpiType')}>
           <ChoiceChip selected={!isQualitative} variant="segment" size="sm" onClick={() => setLocalKpiType('QUANTITATIVE')} aria-pressed={!isQualitative}>
-            <BarChart3 aria-hidden="true" /> Định lượng
+            <BarChart3 aria-hidden="true" /> {t('KpiExcelPreviewModal.quantitative')}
           </ChoiceChip>
           <ChoiceChip selected={isQualitative} variant="segment" size="sm" onClick={() => setLocalKpiType('QUALITATIVE')} aria-pressed={isQualitative}>
-            <SlidersHorizontal aria-hidden="true" /> Định tính
+            <SlidersHorizontal aria-hidden="true" /> {t('KpiExcelPreviewModal.qualitative')}
           </ChoiceChip>
         </div>
       ) : (
         <span className="rounded-full bg-[var(--color-primary-soft)] px-2.5 py-0.5 text-xs font-medium text-[var(--color-primary)]">
-          {isQualitative ? 'KPI Định tính' : 'KPI Định lượng'}
+          {isQualitative ? t('KpiExcelPreviewModal.qualitativeKpis') : t('KpiExcelPreviewModal.quantitativeKpis')}
         </span>
       )}
       footer={
         <DialogFooter
-          note={<>Tổng cộng: <span className="font-medium text-[var(--color-foreground)] tabular-nums">{data.length}</span> chỉ tiêu sẵn sàng</>}
-          secondary={<Button variant="outline" onClick={onClose} disabled={isImporting}>Hủy bỏ</Button>}
+          note={<>{t('KpiExcelPreviewModal.total')} <span className="font-medium text-[var(--color-foreground)] tabular-nums">{data.length}</span> {t('KpiExcelPreviewModal.kpisReady')}</>}
+          secondary={<Button variant="outline" onClick={onClose} disabled={isImporting}>{t('KpiExcelPreviewModal.cancel')}</Button>}
           primary={
             <Button onClick={handleSave} disabled={isImporting || hasCriticalErrors || data.length === 0}>
-              {isImporting ? <><Loader2 className="animate-spin" aria-hidden="true" /> Đang Import...</> : <><Save aria-hidden="true" /> Xác nhận Import</>}
+              {isImporting ? <><Loader2 className="animate-spin" aria-hidden="true" /> {t('KpiExcelPreviewModal.importing')}</> : <><Save aria-hidden="true" /> {t('KpiExcelPreviewModal.confirmImport')}</>}
             </Button>
           }
         />
@@ -697,7 +701,7 @@ export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onI
       {loading ? (
         <div className="flex flex-col items-center justify-center h-64 text-[var(--color-subtle-foreground)]">
           <div className="w-10 h-10 border-4 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin mb-4" />
-          <p className="font-semibold text-sm">Đang phân tích dữ liệu...</p>
+          <p className="font-semibold text-sm">{t('KpiExcelPreviewModal.analyzingData')}</p>
         </div>
       ) : (
         <div className="space-y-6">
@@ -706,7 +710,7 @@ export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onI
             <div className="flex items-center justify-between">
               <h3 className="text-sm font-semibold text-[var(--color-foreground)] flex items-center gap-2">
                 <Scale size={18} className="text-[var(--color-primary)]" />
-                Trạng thái trọng số
+                {t('KpiExcelPreviewModal.weightStatus')}
               </h3>
             </div>
             
@@ -756,7 +760,7 @@ export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onI
             {/* Employee Weight Table */}
             <div className="mt-8 space-y-4">
               <button type="button" className="flex w-full items-center gap-3 rounded-card p-3 text-left transition-colors hover:bg-[var(--color-muted)] group" onClick={() => setIsEmpTableOpen(!isEmpTableOpen)}>
-                <h4 className="text-eyebrow group-hover:text-[var(--color-primary)] transition-colors px-1">Chi tiết trọng số theo nhân viên</h4>
+                <h4 className="text-eyebrow group-hover:text-[var(--color-primary)] transition-colors px-1">{t('KpiExcelPreviewModal.weightDetailsByEmployee')}</h4>
                 <div className="w-5 h-5 rounded-full bg-[var(--color-muted)] flex items-center justify-center text-[var(--color-subtle-foreground)] group-hover:bg-[var(--color-primary)] group-hover:text-[var(--color-primary-foreground)] transition-all">
                   {isEmpTableOpen ? <ChevronUp aria-hidden="true" /> : <ChevronDown aria-hidden="true" />}
                 </div>
@@ -768,12 +772,12 @@ export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onI
                     <table className="w-full text-sm text-left">
                       <thead className="text-eyebrow bg-[var(--color-muted)] border-b border-[var(--color-border)]">
                         <tr>
-                          <th className="px-6 py-4">Nhân viên</th>
-                          <th className="px-6 py-4">Đợt / Đơn vị</th>
-                          <th className="px-6 py-4 text-center">Hiện tại</th>
+                          <th className="px-6 py-4">{t('KpiExcelPreviewModal.employee')}</th>
+                          <th className="px-6 py-4">{t('KpiExcelPreviewModal.periodUnit')}</th>
+                          <th className="px-6 py-4 text-center">{t('KpiExcelPreviewModal.current')}</th>
                           <th className="px-6 py-4 text-center">Excel</th>
-                          <th className="px-6 py-4 text-center">Tổng cộng</th>
-                          <th className="px-6 py-4">Trạng thái</th>
+                          <th className="px-6 py-4 text-center">{t('KpiExcelPreviewModal.total2')}</th>
+                          <th className="px-6 py-4">{t('KpiExcelPreviewModal.status')}</th>
                         </tr>
                       </thead>
                       <tbody className="divide-y divide-[var(--color-border)]">
@@ -826,8 +830,8 @@ export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onI
             <div className="p-5 bg-[var(--color-error-bg)] text-[var(--color-error)] rounded-widget flex items-start gap-4 border border-[var(--color-error-border)] shadow-sm animate-in shake duration-500">
               <AlertCircle size={24} className="shrink-0 mt-0.5" />
               <div>
-                <p className="text-sm font-semibold">Phát hiện dữ liệu không hợp lệ</p>
-                <p className="text-xs mt-1 font-medium opacity-80">Vui lòng kiểm tra và sửa các ô được đánh dấu đỏ trước khi tiến hành Import chính thức.</p>
+                <p className="text-sm font-semibold">{t('KpiExcelPreviewModal.invalidDataDetected')}</p>
+                <p className="text-xs mt-1 font-medium opacity-80">{t('KpiExcelPreviewModal.pleaseCheckAndFixTheCells')}</p>
               </div>
             </div>
           )}
@@ -839,44 +843,44 @@ export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onI
                 <ListPlus size={20} />
               </div>
               <div>
-                <h3 className="text-sm font-semibold text-[var(--color-foreground)]">Thiết lập hàng loạt</h3>
-                <p className="text-eyebrow">Gán nhanh thông tin cho tất cả các dòng</p>
+                <h3 className="text-sm font-semibold text-[var(--color-foreground)]">{t('KpiExcelPreviewModal.bulkSettings')}</h3>
+                <p className="text-eyebrow">{t('KpiExcelPreviewModal.quicklyAssignInformationToAllRows')}</p>
               </div>
               </div>
 
             <div className="grid grid-cols-1 md:grid-cols-4 lg:grid-cols-5 gap-4">
               <div className="space-y-1.5">
-                <label className="text-label px-1">Tần suất</label>
+                <label className="text-label px-1">{t('KpiExcelPreviewModal.frequency')}</label>
                 <select 
                   value={bulkFreq}
                   onChange={e => setBulkFreq(e.target.value)}
                   className="w-full px-4 py-2.5 rounded-card bg-[var(--color-card)] border-none shadow-sm text-sm font-medium focus:ring-2 focus:ring-[var(--color-ring)]"
                 >
-                  <option value="">-- Chọn tần suất --</option>
+                  <option value="">{t('KpiExcelPreviewModal.chooseFrequency')}</option>
                   {frequencyOptions.map(opt => (
                     <option key={opt} value={opt}>
-                      {FREQUENCY_MAP[opt as keyof typeof FREQUENCY_MAP] || opt}
+                      {FREQUENCY_MAP()[opt as keyof ReturnType<typeof FREQUENCY_MAP>] || opt}
                     </option>
                   ))}
                 </select>
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-label px-1">Đợt KPI</label>
+                <label className="text-label px-1">{t('KpiExcelPreviewModal.kpiPeriod')}</label>
                 <select 
                   value={bulkPeriod}
                   onChange={e => setBulkPeriod(e.target.value)}
                   className="w-full px-4 py-2.5 rounded-card bg-[var(--color-card)] border-none shadow-sm text-sm font-medium focus:ring-2 focus:ring-[var(--color-ring)]"
                 >
-                  <option value="">-- Chọn đợt --</option>
+                  <option value="">{t('KpiExcelPreviewModal.choosePeriod')}</option>
                   {periodsData?.content?.map((p: any) => <option key={p.id} value={p.name}>{p.name}</option>)}
                 </select>
               </div>
 
               <div className="space-y-1.5">
                 <label className="text-label px-1 flex flex-col">
-                  <span>Phòng ban {bulkOrgUnits.length > 0 && <span className="text-[var(--color-primary)]">({bulkOrgUnits.length})</span>}</span>
-                  {enableOkr && <span className="text-xs text-[var(--color-primary)] italic lowercase font-medium">* Chỉ chọn 1 do đang bật OKR</span>}
+                  <span>{t('KpiExcelPreviewModal.department')} {bulkOrgUnits.length > 0 && <span className="text-[var(--color-primary)]">({bulkOrgUnits.length})</span>}</span>
+                  {enableOkr && <span className="text-xs text-[var(--color-primary)] italic lowercase font-medium">{t('KpiExcelPreviewModal.only1CanBeChosenBecause')}</span>}
                 </label>
                 <div className="relative" ref={bulkOrgDropdownRef}>
                   {isBulkOrgOpen && (
@@ -884,7 +888,7 @@ export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onI
                   )}
                   <button className="flex h-9 w-full items-center gap-2.5 rounded-control px-2.5 text-left text-sm text-[var(--color-foreground)] transition-colors hover:bg-[var(--color-muted)] [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-[var(--color-muted-foreground)]" type="button" onClick={() => setIsBulkOrgOpen(v => !v)}>
                     <span className={cn(bulkOrgUnits.length === 0 ? 'text-[var(--color-subtle-foreground)]' : 'text-[var(--color-foreground)]')}>
-                      {bulkOrgUnits.length === 0 ? '-- Chọn phòng ban --' : `${bulkOrgUnits.length} phòng ban đã chọn`}
+                      {bulkOrgUnits.length === 0 ? t('KpiExcelPreviewModal.chooseDepartment') : t('KpiExcelPreviewModal.departmentsSelected', { count: bulkOrgUnits.length })}
                     </span>
                     <ChevronDown aria-hidden="true" className={cn('text-[var(--color-subtle-foreground)] transition-transform', isBulkOrgOpen && 'rotate-180')} />
                   </button>
@@ -940,12 +944,12 @@ export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onI
               </div>
 
               <div className="space-y-1.5">
-                <label className="text-label px-1">Mã nhân viên (S)</label>
+                <label className="text-label px-1">{t('KpiExcelPreviewModal.employeeCodeS')}</label>
                 <div className="relative group/search">
                   <input 
                     value={bulkEmpCode}
                     onChange={e => setBulkEmpCode(e.target.value)}
-                    placeholder="Chọn hoặc nhập mã..."
+                    placeholder={t('KpiExcelPreviewModal.chooseOrEnterACode')}
                     className="w-full px-4 py-2.5 pl-10 rounded-card bg-[var(--color-card)] border-none shadow-sm text-sm font-semibold focus:ring-2 focus:ring-[var(--color-ring)]"
                   />
                   <Search size={14} className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--color-subtle-foreground)]" />
@@ -1018,7 +1022,7 @@ export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onI
                       ))
                     })()}
                     {allUsers.length === 0 && (
-                      <p className="p-3 text-center text-xs text-[var(--color-subtle-foreground)] font-medium">Không có dữ liệu nhân viên</p>
+                      <p className="p-3 text-center text-xs text-[var(--color-subtle-foreground)] font-medium">{t('KpiExcelPreviewModal.noEmployeeData')}</p>
                     )}
                   </div>
                 </div>
@@ -1026,7 +1030,7 @@ export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onI
 
               <div className="flex items-end">
                 <Button className="w-full" onClick={handleBulkApply}>
-                  Áp dụng tất cả
+                  {t('KpiExcelPreviewModal.applyToAll')}
                 </Button>
               </div>
             </div>
@@ -1037,27 +1041,27 @@ export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onI
               <table className="w-full text-sm text-left">
                 <thead className="text-eyebrow bg-[var(--color-muted)] border-b border-[var(--color-border)] sticky top-0 z-10">
                   <tr>
-                    <th className="px-5 py-4 w-12 text-center">STT</th>
-                    <th className="px-5 py-4 min-w-[200px]">Tên chỉ tiêu <span className="text-[var(--color-error)]">*</span></th>
-                    <th className="px-5 py-4 min-w-[150px]">Trọng số <span className="text-[var(--color-error)]">*</span></th>
-                    {!isQualitative && <th className="px-5 py-4 min-w-[150px]">Mục tiêu <span className="text-[var(--color-error)]">*</span></th>}
-                    {!isQualitative && <th className="px-5 py-4 min-w-[150px]">Tối thiểu <span className="text-[var(--color-error)]">*</span></th>}
-                    <th className="px-5 py-4 min-w-[160px]">Hạn chót riêng</th>
-                    {!isQualitative && <th className="px-5 py-4 min-w-[120px]">KPI Ngược</th>}
-                    <th className="px-5 py-4 min-w-[120px]">KPI Thưởng</th>
-                    {!isQualitative && <th className="px-5 py-4 min-w-[150px]">Đơn vị <span className="text-[var(--color-error)]">*</span></th>}
-                    <th className="px-5 py-4 min-w-[180px]">Tần suất <span className="text-[var(--color-error)]">*</span></th>
-                    <th className="px-5 py-4 min-w-[160px]">Mã nhân viên <span className="text-[var(--color-error)]">*</span></th>
-                    <th className="px-5 py-4 min-w-[220px]">Đợt KPI <span className="text-[var(--color-error)]">*</span></th>
-                    <th className="px-5 py-4 min-w-[300px]">Phòng ban / Đơn vị <span className="text-[var(--color-error)]">*</span></th>
+                    <th className="px-5 py-4 w-12 text-center">{t('KpiExcelPreviewModal.rowNo')}</th>
+                    <th className="px-5 py-4 min-w-[200px]">{t('KpiExcelPreviewModal.kpiName')} <span className="text-[var(--color-error)]">*</span></th>
+                    <th className="px-5 py-4 min-w-[150px]">{t('KpiExcelPreviewModal.weight')} <span className="text-[var(--color-error)]">*</span></th>
+                    {!isQualitative && <th className="px-5 py-4 min-w-[150px]">{t('KpiExcelPreviewModal.target')} <span className="text-[var(--color-error)]">*</span></th>}
+                    {!isQualitative && <th className="px-5 py-4 min-w-[150px]">{t('KpiExcelPreviewModal.minimum')} <span className="text-[var(--color-error)]">*</span></th>}
+                    <th className="px-5 py-4 min-w-[160px]">{t('KpiExcelPreviewModal.ownDeadline')}</th>
+                    {!isQualitative && <th className="px-5 py-4 min-w-[120px]">{t('KpiExcelPreviewModal.inverseKpi')}</th>}
+                    <th className="px-5 py-4 min-w-[120px]">{t('KpiExcelPreviewModal.bonusKpi')}</th>
+                    {!isQualitative && <th className="px-5 py-4 min-w-[150px]">{t('KpiExcelPreviewModal.unit')} <span className="text-[var(--color-error)]">*</span></th>}
+                    <th className="px-5 py-4 min-w-[180px]">{t('KpiExcelPreviewModal.frequency')} <span className="text-[var(--color-error)]">*</span></th>
+                    <th className="px-5 py-4 min-w-[160px]">{t('KpiExcelPreviewModal.employeeCode')} <span className="text-[var(--color-error)]">*</span></th>
+                    <th className="px-5 py-4 min-w-[220px]">{t('KpiExcelPreviewModal.kpiPeriod')} <span className="text-[var(--color-error)]">*</span></th>
+                    <th className="px-5 py-4 min-w-[300px]">{t('KpiExcelPreviewModal.departmentUnit')} <span className="text-[var(--color-error)]">*</span></th>
                     {enableOkr && (
                       <>
-                        <th className="px-5 py-4 min-w-[200px]">Mã Mục tiêu</th>
-                        <th className="px-5 py-4 min-w-[200px]">Mã KR</th>
+                        <th className="px-5 py-4 min-w-[200px]">{t('KpiExcelPreviewModal.objectiveCode')}</th>
+                        <th className="px-5 py-4 min-w-[200px]">{t('KpiExcelPreviewModal.krCode')}</th>
                       </>
                     )}
-                    {enableBsc && <th className="px-5 py-4 min-w-[200px]">Hạng mục BSC</th>}
-                    <th className="px-5 py-4 w-16 text-center">Xóa</th>
+                    {enableBsc && <th className="px-5 py-4 min-w-[200px]">{t('KpiExcelPreviewModal.bscItem')}</th>}
+                    <th className="px-5 py-4 w-16 text-center">{t('KpiExcelPreviewModal.delete')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--color-border)]">
@@ -1076,7 +1080,7 @@ export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onI
                               ? "border-[var(--color-error-border)] bg-[var(--color-error-bg)] focus:border-[var(--color-error-border)] focus:ring-2 focus:ring-[var(--color-error-solid)]" 
                               : "border-transparent hover:border-[var(--color-border)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-ring)] bg-transparent hover:bg-[var(--color-card)]"
                           )}
-                          placeholder="Nhập tên..."
+                          placeholder={t('KpiExcelPreviewModal.enterName')}
                         />
                         {row._errors?.Name && <p className="text-xs text-[var(--color-error)] mt-1 font-semibold px-2">{row._errors.Name}</p>}
                       </td>
@@ -1187,10 +1191,10 @@ export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onI
                             row._errors?.Frequency ? "border-[var(--color-error-border)] bg-[var(--color-error-bg)]" : "border-transparent hover:border-[var(--color-border)] focus:border-[var(--color-primary)]"
                           )}
                         >
-                          <option value="">-- Chọn --</option>
+                          <option value="">{t('KpiExcelPreviewModal.choose')}</option>
                           {frequencyOptions.map(opt => (
                             <option key={opt} value={opt}>
-                              {FREQUENCY_MAP[opt as keyof typeof FREQUENCY_MAP] || opt}
+                              {FREQUENCY_MAP()[opt as keyof ReturnType<typeof FREQUENCY_MAP>] || opt}
                             </option>
                           ))}
                         </select>
@@ -1205,7 +1209,7 @@ export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onI
                               "w-full px-4 py-2 pl-9 rounded-card border text-sm font-medium transition-all bg-transparent outline-none",
                               row._errors?.EmployeeCode ? "border-[var(--color-error-border)] bg-[var(--color-error-bg)]" : "border-transparent hover:border-[var(--color-border)] focus:border-[var(--color-primary)]"
                             )}
-                            placeholder="Chọn NV..."
+                            placeholder={t('KpiExcelPreviewModal.chooseEmployee')}
                           />
                           <User size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-subtle-foreground)]" />
                           
@@ -1339,7 +1343,7 @@ export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onI
                                 )}
                               >
                                 <span className={cn('truncate', !selectedOrgNames.length && 'text-[var(--color-subtle-foreground)] font-normal')}>
-                                  {selectedOrgNames.length ? selectedOrgNames.join(', ') : '-- Chọn --'}
+                                  {selectedOrgNames.length ? selectedOrgNames.join(', ') : t('KpiExcelPreviewModal.choose')}
                                 </span>
                                 <ChevronDown size={12} className="text-[var(--color-subtle-foreground)] shrink-0 ml-1" />
                               </button>
@@ -1356,7 +1360,7 @@ export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onI
                               onChange={e => handleCellChange(row.id, 'ObjectiveCode', e.target.value)}
                               className="w-full px-4 py-2 rounded-card border border-transparent hover:border-[var(--color-border)] focus:border-[var(--color-primary)] text-sm font-medium transition-all bg-transparent outline-none"
                             >
-                              <option value="">-- Trống --</option>
+                              <option value="">{t('KpiExcelPreviewModal.empty2')}</option>
                               {objectives.map((obj: any) => (
                                 <option key={obj.id} value={obj.code}>{obj.name} ({obj.code})</option>
                               ))}
@@ -1369,7 +1373,7 @@ export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onI
                               className="w-full px-4 py-2 rounded-card border border-transparent hover:border-[var(--color-border)] focus:border-[var(--color-primary)] text-sm font-medium transition-all bg-transparent outline-none"
                               disabled={!row.ObjectiveCode}
                             >
-                              <option value="">-- Trống --</option>
+                              <option value="">{t('KpiExcelPreviewModal.empty2')}</option>
                               {(() => {
                                 const selectedObj = objectives.find((obj: any) => obj.code === row.ObjectiveCode)
                                 if (!selectedObj || !selectedObj.keyResults) return null
@@ -1392,7 +1396,7 @@ export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onI
                             onChange={e => handleCellChange(row.id, 'Perspective', e.target.value)}
                             className="w-full px-4 py-2 rounded-card border border-transparent hover:border-[var(--color-border)] focus:border-[var(--color-primary)] text-sm font-medium transition-all bg-transparent outline-none"
                           >
-                            <option value="">-- Trống --</option>
+                            <option value="">{t('KpiExcelPreviewModal.empty2')}</option>
                             {(() => {
                               const avail = availablePerspIdsForRow(row)
                               const list = avail ? perspectives.filter((p: any) => avail.has(p.id)) : perspectives
@@ -1419,12 +1423,12 @@ export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onI
             </div>
             {data.length === 0 && (
               <div className="text-center py-20 text-[var(--color-subtle-foreground)] font-semibold italic">
-                Không có dữ liệu để hiển thị
+                {t('KpiExcelPreviewModal.noDataToDisplay')}
               </div>
             )}
             <div className="bg-[var(--color-muted)] border-t border-[var(--color-border)] p-4 flex justify-center">
               <Button variant="outline" onClick={handleAddRow}>
-                <Plus aria-hidden="true" /> Thêm dòng mới
+                <Plus aria-hidden="true" /> {t('KpiExcelPreviewModal.addANewRow')}
               </Button>
             </div>
           </div>
@@ -1487,6 +1491,7 @@ export default function KpiExcelPreviewModal({ open, file, kpiType, onClose, onI
 function UnitWeightStatus({ unitId, unitName, periodId, periodName, excelWeight }: { 
   unitId?: string, unitName: string, periodId?: string, periodName: string, excelWeight: number 
 }) {
+  const { t } = useTranslation('kpi')
   const { data: systemWeight = 0 } = useKpiTotalWeight(unitId, periodId)
   const total = systemWeight + excelWeight
   const isPerfect = Math.abs(total - 100) < 0.01
@@ -1510,19 +1515,19 @@ function UnitWeightStatus({ unitId, unitName, periodId, periodName, excelWeight 
             <Scale size={16} />
           </div>
           <div>
-            <p className="text-eyebrow leading-none">Phòng ban</p>
+            <p className="text-eyebrow leading-none">{t('KpiExcelPreviewModal.department')}</p>
             <p className="text-sm font-semibold text-[var(--color-foreground)] truncate max-w-[120px]">{unitName}</p>
           </div>
         </div>
         <div className="text-right">
-          <p className="text-eyebrow leading-none">Đợt</p>
+          <p className="text-eyebrow leading-none">{t('KpiExcelPreviewModal.aPeriod')}</p>
           <p className="text-caption">{periodName}</p>
         </div>
       </div>
 
       <div className="flex items-center justify-between gap-2 p-2.5 bg-[var(--color-card)] rounded-card border border-inherit">
         <div className="text-center flex-1">
-          <p className="text-eyebrow mb-0.5">Hiện tại</p>
+          <p className="text-eyebrow mb-0.5">{t('KpiExcelPreviewModal.current')}</p>
           <p className="text-sm font-semibold text-[var(--color-foreground)]">{systemWeight}%</p>
         </div>
         <Plus size={12} className="text-[var(--color-subtle-foreground)]" />
@@ -1532,7 +1537,7 @@ function UnitWeightStatus({ unitId, unitName, periodId, periodName, excelWeight 
         </div>
         <ArrowRight size={12} className="text-[var(--color-subtle-foreground)]" />
         <div className="text-center flex-1">
-          <p className="text-eyebrow mb-0.5">Tổng cộng</p>
+          <p className="text-eyebrow mb-0.5">{t('KpiExcelPreviewModal.total2')}</p>
           <p className={cn(
             "text-sm font-semibold",
             isPerfect ? "text-[var(--color-success)]" : isOver ? "text-[var(--color-error)]" : "text-[var(--color-warning)]"
@@ -1545,7 +1550,7 @@ function UnitWeightStatus({ unitId, unitName, periodId, periodName, excelWeight 
           "text-xs font-medium mt-2 text-center",
           isOver ? "text-[var(--color-error)]" : "text-[var(--color-warning)]"
         )}>
-          {isOver ? "Vượt quá 100% trọng số!" : `Còn thiếu ${(100 - total).toFixed(1)}% để đạt 100%`}
+          {isOver ? t('KpiExcelPreviewModal.weightExceeds100') : t('KpiExcelPreviewModal.shortOf100', { value: (100 - total).toFixed(1) })}
         </p>
       )}
     </div>
@@ -1555,6 +1560,7 @@ function UnitWeightStatus({ unitId, unitName, periodId, periodName, excelWeight 
 function EmployeeWeightRow({ userId, orgUnitId, fullName, empCode, unitName, periodId, periodName, excelWeight }: {
   userId?: string, orgUnitId?: string, fullName: string, empCode: string, unitName: string, periodId?: string, periodName: string, excelWeight: number
 }) {
+  const { t } = useTranslation('kpi')
   const { data: systemWeight = 0 } = useKpiTotalWeight(orgUnitId, periodId, userId)
   const total = systemWeight + excelWeight
   const isPerfect = Math.abs(total - 100) < 0.01
@@ -1604,11 +1610,11 @@ function EmployeeWeightRow({ userId, orgUnitId, fullName, empCode, unitName, per
               : "bg-[var(--color-warning-bg)] text-[var(--color-warning)] dark:bg-[var(--color-warning-bg)]"
         )}>
           {isPerfect ? (
-            <><Check size={10} /> Đạt 100%</>
+            <><Check size={10} /> {t('KpiExcelPreviewModal.n100Reached')}</>
           ) : isOver ? (
-            <><AlertCircle size={10} /> Vượt quá</>
+            <><AlertCircle size={10} /> {t('KpiExcelPreviewModal.over')}</>
           ) : (
-            <><Plus size={10} /> Thiếu {(100 - total).toFixed(1)}%</>
+            <><Plus size={10} /> {t('KpiExcelPreviewModal.short')} {(100 - total).toFixed(1)}%</>
           )}
         </div>
       </td>

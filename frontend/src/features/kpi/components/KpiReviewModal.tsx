@@ -19,6 +19,12 @@ import { Dialog, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import StatusBadge from '@/components/common/StatusBadge'
+import ApprovalChainPanel from './ApprovalChainPanel'
+import { useKpiApprovalChain, invalidateApprovalQueries } from '../hooks/useKpiApprovalChain'
+import { approveButtonLabel } from '../utils/approvalChainLabels'
+import { useTranslation } from 'react-i18next'
+import { useFormDraft } from '@/hooks/useFormDraft'
+import DraftNotice from '@/components/common/DraftNotice'
 
 interface KpiReviewModalProps {
   open: boolean
@@ -35,10 +41,13 @@ interface KpiReviewModalProps {
  * chuyển sang chế độ nhập lý do ngay trong thân hộp thoại, không mở hộp thoại thứ hai.
  */
 export default function KpiReviewModal({ open, onClose, kpi, onEdit, initialMode = 'view' }: KpiReviewModalProps) {
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<RejectKpiFormData>({
-    resolver: zodResolver(rejectKpiSchema),
+  const { t } = useTranslation('kpi')
+  const formApi = useForm<RejectKpiFormData>({
+    resolver: zodResolver(rejectKpiSchema()),
     defaultValues: { rejectReason: '' },
   })
+  const { register, handleSubmit, reset, formState: { errors } } = formApi
+  const draft = useFormDraft(formApi, { key: `kpi-review:${kpi?.id ?? ''}`, enabled: open && !!kpi })
   // Chế độ đang xem: người dùng bấm "Trả lại"/"Quay lại" thì ghi đè; đóng hộp thoại thì xoá ghi đè
   // để lần mở sau lại theo `initialMode` — không cần effect đồng bộ state.
   const [modeOverride, setModeOverride] = useState<'view' | 'reject' | null>(null)
@@ -59,52 +68,67 @@ export default function KpiReviewModal({ open, onClose, kpi, onEdit, initialMode
     [kpi, bscScorecards, orgUnitTreeData, org?.enableBsc]
   )
 
+  // Chuỗi duyệt: stepper + vị trí hiện tại tính cho người đang xem (ai giữ bước, bấm là chốt hay chuyển lên).
+  const { data: chain, isLoading: chainLoading } = useKpiApprovalChain(open ? kpi?.id : undefined)
+  const summary = chain?.current ?? kpi?.approval ?? null
+  const chainMode = chain?.chainMode ?? !!kpi?.approval
+
+  // Lỗi 409 = chuỗi đã đi tiếp (người khác vừa duyệt): tải lại để người dùng thấy trạng thái mới.
+  const onMutationError = (fallback: string) => (error: unknown) => {
+    toast.error(getApiErrorMessage(error, fallback))
+    invalidateApprovalQueries(qc)
+  }
+
   const revertApprovalMutation = useMutation({
     mutationFn: () => kpiApi.revertApproval(kpi!.id),
     onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['kpi-criteria'] })
-      toast.success('Đã hoàn duyệt, chỉ tiêu quay về trạng thái chờ duyệt')
+      invalidateApprovalQueries(qc)
+      toast.success(chainMode
+        ? t('KpiReviewModal.approvalRevertedTheKpiIsReturned')
+        : t('KpiReviewModal.approvalRevertedTheKpiIsBack'))
       close()
     },
-    onError: (error) => toast.error(getApiErrorMessage(error, 'Hoàn duyệt thất bại')),
+    onError: (error) => toast.error(getApiErrorMessage(error, t('KpiReviewModal.failedToRevertApproval'))),
   })
 
   const approveMutation = useMutation({
-    mutationFn: () => kpiApi.approve(kpi!.id),
-    onSuccess: () => { 
-      qc.invalidateQueries({ queryKey: ['kpi-criteria'] })
-      toast.success('Đã duyệt chỉ tiêu')
+    mutationFn: () => kpiApi.approve(kpi!.id, { expectedStepId: summary?.stepId }),
+    onSuccess: (res) => {
+      invalidateApprovalQueries(qc)
+      toast.success(res.message || t('KpiReviewModal.kpiApproved'))
       close()
     },
-    onError: (error) => toast.error(getApiErrorMessage(error, 'Duyệt chỉ tiêu thất bại')),
+    onError: onMutationError(t('KpiReviewModal.failedToApproveKpi')),
   })
 
   const rejectMutation = useMutation({
-    mutationFn: (data: RejectKpiFormData) => kpiApi.reject(kpi!.id, { reason: data.rejectReason }),
-    onSuccess: () => { 
-      qc.invalidateQueries({ queryKey: ['kpi-criteria'] })
-      toast.success('Đã trả lại chỉ tiêu để chỉnh sửa')
+    mutationFn: (data: RejectKpiFormData) =>
+      kpiApi.reject(kpi!.id, { reason: data.rejectReason, expectedStepId: summary?.stepId }),
+    onSuccess: () => {
+      invalidateApprovalQueries(qc)
+      toast.success(t('KpiReviewModal.kpiReturnedToItsCreatorFor'))
       close()
     },
-    onError: (error) => toast.error(getApiErrorMessage(error, 'Trả lại chỉ tiêu thất bại')),
+    onError: onMutationError(t('KpiReviewModal.failedToReturnKpi')),
   })
 
   if (!kpi) return null
 
   const isPending = approveMutation.isPending || rejectMutation.isPending || revertApprovalMutation.isPending
-  const isReviewable = kpi.status === 'PENDING_APPROVAL'
+  // Chuỗi duyệt: chỉ người đang giữ bước hiện tại thấy nút duyệt/trả lại; cấp trên và admin chỉ xem.
+  const isReviewable = kpi.status === 'PENDING_APPROVAL' && (!chainMode || !!summary?.canAct)
   const perspectiveColor = kpi.effectivePerspectiveColor || undefined
 
   const footer = isReviewable
     ? mode === 'reject'
       ? (
         <DialogFooter
-          note="Người tạo sẽ nhận thông báo kèm lý do."
-          secondary={<Button variant="outline" onClick={() => setMode('view')} disabled={isPending}>Quay lại</Button>}
+          note={t('KpiReviewModal.theKpiGoesBackToIts')}
+          secondary={<Button variant="outline" onClick={() => setMode('view')} disabled={isPending}>{t('KpiReviewModal.back')}</Button>}
           primary={
             <Button variant="destructive" onClick={handleSubmit(d => rejectMutation.mutate(d))} disabled={isPending}>
               {rejectMutation.isPending ? <Loader2 className="animate-spin" aria-hidden="true" /> : <XCircle aria-hidden="true" />}
-              Trả lại
+              {t('KpiReviewModal.return')}
             </Button>
           }
         />
@@ -112,14 +136,14 @@ export default function KpiReviewModal({ open, onClose, kpi, onEdit, initialMode
         <DialogFooter
           destructive={
             <Button variant="outline" onClick={() => setMode('reject')} disabled={isPending} className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)]">
-              <XCircle aria-hidden="true" /> Trả lại
+              <XCircle aria-hidden="true" /> {t('KpiReviewModal.return')}
             </Button>
           }
-          secondary={<Button variant="outline" onClick={close} disabled={isPending}>Đóng</Button>}
+          secondary={<Button variant="outline" onClick={close} disabled={isPending}>{t('KpiReviewModal.close')}</Button>}
           primary={
             <Button onClick={() => approveMutation.mutate()} disabled={isPending}>
               {approveMutation.isPending ? <Loader2 className="animate-spin" aria-hidden="true" /> : <CheckCircle aria-hidden="true" />}
-              Duyệt
+              {approveButtonLabel(summary)}
             </Button>
           }
         />
@@ -130,11 +154,11 @@ export default function KpiReviewModal({ open, onClose, kpi, onEdit, initialMode
           kpi.status === 'APPROVED' && canRevertApproval ? (
             <Button variant="outline" onClick={() => revertApprovalMutation.mutate()} disabled={isPending}>
               {revertApprovalMutation.isPending ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Undo2 aria-hidden="true" />}
-              Hoàn duyệt
+              {t('KpiReviewModal.revertApproval')}
             </Button>
           ) : undefined
         }
-        primary={<Button variant="outline" onClick={close}>Đóng</Button>}
+        primary={<Button variant="outline" onClick={close}>{t('KpiReviewModal.close')}</Button>}
       />
     )
 
@@ -145,28 +169,29 @@ export default function KpiReviewModal({ open, onClose, kpi, onEdit, initialMode
       size="lg"
       dismissible={!isPending}
       title={kpi.name}
-      description={`${kpi.orgUnitName ?? 'Chưa gắn đơn vị'} · ${kpi.kpiPeriod?.name ?? 'Chưa gắn đợt'}`}
+      description={`${kpi.orgUnitName ?? t('KpiReviewModal.noUnitLinked')} · ${kpi.kpiPeriod?.name ?? t('KpiReviewModal.noPeriodLinked')}`}
       headerExtra={
         <span className="flex items-center gap-2">
           <StatusBadge status={kpi.status} />
             {isReviewable && onEdit && (
-            <Button variant="ghost" size="sm" onClick={() => onEdit(kpi)} aria-label="Chỉnh sửa chỉ tiêu">
-              <Pencil aria-hidden="true" /> Sửa
+            <Button variant="ghost" size="sm" onClick={() => onEdit(kpi)} aria-label={t('KpiReviewModal.editKpi')}>
+              <Pencil aria-hidden="true" /> {t('KpiReviewModal.edit')}
             </Button>
           )}
         </span>
       }
       footer={footer}
               >
+      <DraftNotice draft={draft} className="mb-4" />
       <div className="space-y-6">
         {/* Nhãn phân loại */}
         {(kpi.kpiType === 'QUALITATIVE' || kpi.isReverseKpi || kpi.isBonusKpi || kpi.effectivePerspectiveName) && (
           <div className="flex flex-wrap items-center gap-1.5">
-            {kpi.kpiType === 'QUALITATIVE' && <Badge variant="outline">Định tính</Badge>}
-            {kpi.isReverseKpi && <Badge variant="warning">KPI ngược</Badge>}
-            {kpi.isBonusKpi && <Badge variant="success">KPI thưởng</Badge>}
+            {kpi.kpiType === 'QUALITATIVE' && <Badge variant="outline">{t('KpiReviewModal.qualitative')}</Badge>}
+            {kpi.isReverseKpi && <Badge variant="warning">{t('KpiReviewModal.inverseKpi')}</Badge>}
+            {kpi.isBonusKpi && <Badge variant="success">{t('KpiReviewModal.bonusKpi')}</Badge>}
             {kpi.effectivePerspectiveName && (
-              <Badge variant="outline" title={`Hạng mục BSC: ${kpi.effectivePerspectiveName}`}>
+              <Badge variant="outline" title={t('KpiReviewModal.bscItem', { effectivePerspectiveName: kpi.effectivePerspectiveName })}>
                 <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: perspectiveColor ?? 'var(--color-primary)' }} aria-hidden="true" />
                 {kpi.effectivePerspectiveName}
               </Badge>
@@ -181,47 +206,47 @@ export default function KpiReviewModal({ open, onClose, kpi, onEdit, initialMode
         {/* Số liệu chính */}
         <dl className="grid grid-cols-2 gap-px overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-border)] sm:grid-cols-3">
           {kpi.kpiType !== 'QUALITATIVE' && (
-            <Metric label="Mục tiêu" value={kpi.targetValue != null ? formatNumber(kpi.targetValue) : '—'} unit={kpi.unit} />
+            <Metric label={t('KpiReviewModal.target')} value={kpi.targetValue != null ? formatNumber(kpi.targetValue) : '—'} unit={kpi.unit} />
           )}
           {kpi.kpiType !== 'QUALITATIVE' && (
-            <Metric label="Tối thiểu" value={kpi.minimumValue != null ? formatNumber(kpi.minimumValue) : '0'} unit={kpi.unit} />
+            <Metric label={t('KpiReviewModal.minimum')} value={kpi.minimumValue != null ? formatNumber(kpi.minimumValue) : '0'} unit={kpi.unit} />
           )}
           <Metric
-            label={realWeight != null ? 'Trọng số thật' : 'Trọng số'}
+            label={realWeight != null ? t('KpiReviewModal.actualWeight') : t('KpiReviewModal.weight')}
             value={realWeight != null ? `${realWeight.toFixed(1)}%` : `${kpi.weight ?? '—'}%`}
-            hint={realWeight != null ? `Form ${kpi.weight}% × tỷ trọng hạng mục` : undefined}
+            hint={realWeight != null ? t('KpiReviewModal.formItemShare', { weight: kpi.weight }) : undefined}
           />
-          <Metric label="Tần suất" value={FREQUENCY_MAP[kpi.frequency as keyof typeof FREQUENCY_MAP] ?? kpi.frequency} />
-          <Metric label="Hạn riêng" value={formatDateTime(kpi.deadline)} />
-          <Metric label="Hạn đợt" value={formatDateTime(kpi.kpiPeriod?.endDate)} />
+          <Metric label={t('KpiReviewModal.frequency')} value={FREQUENCY_MAP()[kpi.frequency as keyof ReturnType<typeof FREQUENCY_MAP>] ?? kpi.frequency} />
+          <Metric label={t('KpiReviewModal.ownDeadline')} value={formatDateTime(kpi.deadline)} />
+          <Metric label={t('KpiReviewModal.periodDeadline')} value={formatDateTime(kpi.kpiPeriod?.endDate)} />
         </dl>
 
         {/* Người thực hiện */}
         <section>
-          <h3 className="text-eyebrow mb-2">Người thực hiện</h3>
+          <h3 className="text-eyebrow mb-2">{t('KpiReviewModal.performedBy')}</h3>
           {kpi.assigneeNames?.length ? (
             <div className="flex flex-wrap gap-1.5">
               {kpi.assigneeNames.map((name, i) => <Badge key={i} variant="secondary">{name}</Badge>)}
             </div>
           ) : (
-            <p className="text-caption">Chưa giao cho ai.</p>
+            <p className="text-caption">{t('KpiReviewModal.notAssignedToAnyone')}</p>
           )}
         </section>
 
         {/* Liên kết OKR */}
         {kpi.keyResultName && (
           <section className="rounded-card border border-[var(--color-border)] p-4">
-            <h3 className="text-eyebrow mb-3 flex items-center gap-1.5"><Target size={12} aria-hidden="true" /> Liên kết OKR</h3>
+            <h3 className="text-eyebrow mb-3 flex items-center gap-1.5"><Target size={12} aria-hidden="true" /> {t('KpiReviewModal.okrLink')}</h3>
             <dl className="space-y-2 text-sm">
               <div className="flex gap-3">
-                <dt className="w-28 shrink-0 text-[var(--color-muted-foreground)]">Mục tiêu</dt>
+                <dt className="w-28 shrink-0 text-[var(--color-muted-foreground)]">{t('KpiReviewModal.target')}</dt>
                 <dd className="min-w-0 text-[var(--color-foreground)]">
                   {kpi.objectiveCode && <span className="mr-1.5 font-mono text-xs text-[var(--color-muted-foreground)]">{kpi.objectiveCode}</span>}
                   {kpi.objectiveName || '—'}
                 </dd>
               </div>
               <div className="flex gap-3">
-                <dt className="w-28 shrink-0 text-[var(--color-muted-foreground)]">Kết quả then chốt</dt>
+                <dt className="w-28 shrink-0 text-[var(--color-muted-foreground)]">{t('KpiReviewModal.keyResult')}</dt>
                 <dd className="min-w-0 text-[var(--color-foreground)]">
                   {kpi.keyResultCode && <span className="mr-1.5 font-mono text-xs text-[var(--color-muted-foreground)]">{kpi.keyResultCode}</span>}
                   {kpi.keyResultName}
@@ -236,7 +261,7 @@ export default function KpiReviewModal({ open, onClose, kpi, onEdit, initialMode
           <section className="flex items-center gap-3 rounded-card border border-[var(--color-border)] p-4">
             <span className="h-8 w-1 shrink-0 rounded-full" style={{ backgroundColor: perspectiveColor ?? 'var(--color-primary)' }} aria-hidden="true" />
             <div className="min-w-0">
-              <h3 className="text-eyebrow flex items-center gap-1.5"><Layers size={12} aria-hidden="true" /> Hạng mục BSC</h3>
+              <h3 className="text-eyebrow flex items-center gap-1.5"><Layers size={12} aria-hidden="true" /> {t('KpiReviewModal.bscItem2')}</h3>
               <p className="mt-0.5 truncate text-sm font-medium text-[var(--color-foreground)]">{kpi.effectivePerspectiveName}</p>
             </div>
           </section>
@@ -245,7 +270,7 @@ export default function KpiReviewModal({ open, onClose, kpi, onEdit, initialMode
         {/* Lý do trả lại lần trước */}
         {kpi.rejectReason && (
           <section className="rounded-card border border-[var(--color-error-border)] bg-[var(--color-error-bg)] p-4">
-            <h3 className="text-eyebrow mb-1 text-[var(--color-error)]">Lý do trả lại lần trước</h3>
+            <h3 className="text-eyebrow mb-1 text-[var(--color-error)]">{t('KpiReviewModal.previousReturnReason')}</h3>
             <p className="text-sm leading-5 text-[var(--color-foreground)]">{kpi.rejectReason}</p>
           </section>
         )}
@@ -254,7 +279,7 @@ export default function KpiReviewModal({ open, onClose, kpi, onEdit, initialMode
         {isReviewable && mode === 'reject' && (
           <section className="rounded-card border border-[var(--color-error-border)] p-4">
             <label htmlFor="kpi-reject-reason" className="text-label block">
-              Lý do trả lại <span className="text-[var(--color-error)]" aria-hidden="true">*</span>
+              {t('KpiReviewModal.returnReason')} <span className="text-[var(--color-error)]" aria-hidden="true">*</span>
             </label>
             <textarea
               id="kpi-reject-reason"
@@ -263,14 +288,16 @@ export default function KpiReviewModal({ open, onClose, kpi, onEdit, initialMode
               autoFocus
               aria-invalid={!!errors.rejectReason}
               className="mt-1.5 w-full resize-none rounded-control border border-[var(--color-input)] bg-[var(--color-card)] px-3 py-2 text-sm text-[var(--color-foreground)] placeholder:text-[var(--color-muted-foreground)] focus:border-[var(--color-ring)] focus:outline-none focus:ring-2 focus:ring-[var(--color-ring)]"
-              placeholder="Nêu cụ thể cần sửa gì để người tạo chỉnh lại đúng."
+              placeholder={t('KpiReviewModal.stateSpecificallyWhatToFixSo')}
             />
             {errors.rejectReason && <p className="mt-1 text-caption text-[var(--color-error)]">{errors.rejectReason.message}</p>}
           </section>
         )}
 
+        {chainMode && <ApprovalChainPanel chain={chain} loading={chainLoading} />}
+
         <p className="text-caption tabular-nums">
-          Tạo lúc {formatDateTime(kpi.createdAt)}{kpi.createdByName ? ` · ${kpi.createdByName}` : ''}
+          {t('KpiReviewModal.createdAt')} {formatDateTime(kpi.createdAt)}{kpi.createdByName ? ` · ${kpi.createdByName}` : ''}
                   </p>
                 </div>
     </Dialog>

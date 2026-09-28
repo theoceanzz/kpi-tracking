@@ -14,7 +14,9 @@ import com.kpitracking.enums.SepayEventStatus;
 import com.kpitracking.enums.TopupOrderStatus;
 import com.kpitracking.event.WalletEvents;
 import com.kpitracking.exception.BusinessException;
+import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.ResourceNotFoundException;
+import com.kpitracking.i18n.Terms;
 import com.kpitracking.repository.OrganizationRepository;
 import com.kpitracking.repository.SepayWebhookEventRepository;
 import com.kpitracking.repository.TopupOrderRepository;
@@ -109,7 +111,7 @@ public class SepayReconcileService {
         User actor = context.getCurrentUser();
 
         SepayWebhookEvent event = eventRepository.findByIdForUpdate(eventId)
-                .orElseThrow(() -> new ResourceNotFoundException("Sự kiện SePay", "id", eventId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.sepayEvent"), "id", eventId));
 
         // Sự kiện của tổ chức khác thì coi như không tồn tại: id là UUID nên không
         // đoán được, nhưng nó vẫn đi qua đây được nếu ai đó chép lại từ nơi khác.
@@ -121,13 +123,13 @@ public class SepayReconcileService {
         // trong Cấu hình ví — lúc lưu, các sự kiện cũ được gán về tổ chức.
         UUID orgId = context.getCurrentOrgId();
         if (event.getOrganization() == null || !event.getOrganization().getId().equals(orgId)) {
-            throw new ResourceNotFoundException("Sự kiện SePay", "id", eventId);
+            throw new ResourceNotFoundException(Terms.of("resource.sepayEvent"), "id", eventId);
         }
 
         if (event.getResolvedAt() != null) {
-            throw new BusinessException("Sự kiện này đã được "
-                    + (event.getResolvedBy() != null ? event.getResolvedBy().getFullName() : "người khác")
-                    + " xử lý lúc " + event.getResolvedAt() + ".");
+            throw event.getResolvedBy() != null
+                    ? new BusinessException(ErrorCode.EVENT_HANDLED, event.getResolvedBy().getFullName(), String.valueOf(event.getResolvedAt()))
+                    : new BusinessException(ErrorCode.EVENT_HANDLED_BY_SOMEONE_ELSE, String.valueOf(event.getResolvedAt()));
         }
 
         CashTransaction tx = switch (request.getMode()) {
@@ -158,22 +160,21 @@ public class SepayReconcileService {
     private CashTransaction matchOrder(SepayWebhookEvent event,
                                        ResolveSepayEventRequest request, User actor) {
         if (request.getOrderId() == null) {
-            throw new BusinessException("Vui lòng chọn đơn nạp cần gán.");
+            throw new BusinessException(ErrorCode.CHOOSE_TOP_UP_ORDER_MATCH);
         }
         long received = requireReceivedAmount(event);
 
         TopupOrder order = orderRepository.findByIdForUpdate(request.getOrderId())
-                .orElseThrow(() -> new ResourceNotFoundException("Đơn nạp tiền", "id", request.getOrderId()));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.topUpOrder"), "id", request.getOrderId()));
 
         // Mã đơn là duy nhất TOÀN CỤC nên id đơn của tổ chức khác vẫn tra ra được ở
         // đây. Không có dòng này thì gán tay là một đường ghi có xuyên tổ chức.
         if (!order.getOrganization().getId().equals(context.getCurrentOrgId())) {
-            throw new ResourceNotFoundException("Đơn nạp tiền", "id", request.getOrderId());
+            throw new ResourceNotFoundException(Terms.of("resource.topUpOrder"), "id", request.getOrderId());
         }
 
         if (!order.isCreditable()) {
-            throw new BusinessException("Đơn " + order.getCode() + " đã được thanh toán. "
-                    + "Nếu đây là khoản tiền thứ hai thì hãy chọn 'Ghi có cho người dùng'.");
+            throw new BusinessException(ErrorCode.ORDER_PAID, order.getCode());
         }
 
         CashTransaction tx = cashWalletService.applyTransaction(
@@ -185,8 +186,7 @@ public class SepayReconcileService {
                         .sourceType(CashSourceType.SEPAY)
                         .sourceRefId(order.getId())
                         .idempotencyKey(CashWalletService.key("topup", order.getId()))
-                        .note("Gán tay giao dịch SePay vào đơn " + order.getCode()
-                                + ": " + request.getNote())
+                        .note(cashWalletService.noteFor(order.getUser().getId(), "ledger.sepayMatched", order.getCode(), request.getNote()))
                         .actor(actor)
                         .build());
 
@@ -213,7 +213,7 @@ public class SepayReconcileService {
     private CashTransaction creditUser(SepayWebhookEvent event,
                                        ResolveSepayEventRequest request, User actor) {
         if (request.getUserId() == null) {
-            throw new BusinessException("Vui lòng chọn người được ghi có.");
+            throw new BusinessException(ErrorCode.CHOOSE_PERSON_CREDIT);
         }
 
         long received = requireReceivedAmount(event);
@@ -222,7 +222,7 @@ public class SepayReconcileService {
         // Người nhận phải cùng tổ chức với khoản tiền: EmployeePicker chỉ hiện người
         // trong tổ chức, nhưng userId đi thẳng từ request nên không tin được.
         if (!orgId.equals(context.getCurrentOrgId())) {
-            throw new BusinessException("Người được ghi có không thuộc tổ chức của bạn.");
+            throw new BusinessException(ErrorCode.PERSON_CREDIT_OUTSIDE_ORGANIZATION);
         }
 
         return cashWalletService.applyTransaction(
@@ -234,8 +234,7 @@ public class SepayReconcileService {
                         .sourceType(CashSourceType.MANUAL)
                         .sourceRefId(event.getId())
                         .idempotencyKey(CashWalletService.key("sepay_resolve", event.getId()))
-                        .note("Ghi có tay từ giao dịch SePay #" + event.getSepayId()
-                                + ": " + request.getNote())
+                        .note(cashWalletService.noteFor(request.getUserId(), "ledger.sepayCredited", String.valueOf(event.getSepayId()), request.getNote()))
                         .actor(actor)
                         .build());
     }
@@ -250,8 +249,7 @@ public class SepayReconcileService {
     private long requireReceivedAmount(SepayWebhookEvent event) {
         Long amount = event.getTransferAmount();
         if (amount == null || amount <= 0) {
-            throw new BusinessException("Sự kiện này không có số tiền hợp lệ nên không ghi có được. "
-                    + "Nếu cần cộng tiền cho ai đó, hãy dùng chức năng điều chỉnh số dư.");
+            throw new BusinessException(ErrorCode.EVENT_NO_VALID_AMOUNT_CANNOT_CREDITED);
         }
         return amount;
     }

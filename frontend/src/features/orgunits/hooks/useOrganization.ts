@@ -3,8 +3,10 @@ import { organizationApi, UpdateOrganizationRequest } from '../api/organizationA
 import { invalidateOrgDerived } from '@/lib/queryClient'
 import { toast } from 'sonner'
 import { getApiErrorMessage } from '@/lib/apiError'
+import { useTranslation } from 'react-i18next'
 
 export function useOrganization(id?: string) {
+  const { t } = useTranslation('orgunits')
   const queryClient = useQueryClient()
 
   const query = useQuery({
@@ -17,10 +19,10 @@ export function useOrganization(id?: string) {
     mutationFn: (data: UpdateOrganizationRequest) => organizationApi.update(id!, data),
     onSuccess: () => {
       invalidateOrgDerived(queryClient)
-      toast.success('Cập nhật thông tin công ty thành công')
+      toast.success(t('useOrganization.companyInformationUpdatedSuccessfully'))
     },
     onError: (error: any) => {
-      toast.error(getApiErrorMessage(error, 'Có lỗi xảy ra khi cập nhật'))
+      toast.error(getApiErrorMessage(error, t('useOrganization.anErrorOccurredWhileUpdating')))
     }
   })
 

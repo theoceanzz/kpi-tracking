@@ -112,6 +112,7 @@ public class KeyGoToolProvider implements ToolProvider {
         Set<String> hidden = new java.util.HashSet<>();
         if (f == null || !f.conduct()) { hidden.add("get_conduct"); hidden.add("get_my_conduct"); }
         if (f == null || !f.reward()) { hidden.add("get_rewards"); hidden.add("review_reward_grants"); hidden.add("get_my_rewards"); }
+        if (f == null || !f.feedback360()) hidden.add("get_my_feedback360");
         return hidden;
     }
 

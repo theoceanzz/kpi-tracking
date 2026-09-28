@@ -1,10 +1,12 @@
 package com.kpitracking.service.reward;
 
+import com.kpitracking.i18n.ErrorMessages;
 import com.kpitracking.entity.OrgUnit;
 import com.kpitracking.entity.RewardProgram;
 import com.kpitracking.enums.RewardProgramScope;
 import com.kpitracking.enums.RewardRankingMetric;
 import com.kpitracking.exception.BusinessException;
+import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.repository.RewardRankingRepository;
 import com.kpitracking.service.EvaluationService;
 import lombok.Builder;
@@ -97,7 +99,7 @@ public class RewardRankingService {
             candidates.removeIf(u -> {
                 if (heads.contains(u.userId())) {
                     skipped.add(new SkippedUser(u.userId(), u.fullName(),
-                            "Là trưởng/phó đơn vị, chương trình này không tính"));
+                            ErrorMessages.text("reward.ranking.skip.unitHead", "")));
                     return true;
                 }
                 return false;
@@ -110,7 +112,7 @@ public class RewardRankingService {
             candidates.removeIf(u -> {
                 if (u.metricValue() == null || u.metricValue() < floor) {
                     skipped.add(new SkippedUser(u.userId(), u.fullName(),
-                            "Điểm " + fmtScore(u.metricValue()) + " thấp hơn mức sàn " + fmtScore(floor)));
+                            ErrorMessages.text("reward.ranking.skip.belowFloor", "", fmtScore(u.metricValue()), fmtScore(floor))));
                     return true;
                 }
                 return false;
@@ -127,8 +129,7 @@ public class RewardRankingService {
      */
     private RankingResult rankByCycle(RewardProgram program, UUID cycleId, UUID orgId, String pathPrefix) {
         if (program.getMetric() == RewardRankingMetric.PERFORMANCE) {
-            throw new BusinessException("Chỉ số \"Điểm hiệu suất đợt\" chỉ dùng được với chương trình "
-                    + "theo ĐỢT. Với chương trình theo KỲ, hãy chọn \"Điểm chốt kỳ\" hoặc \"Xếp loại\".");
+            throw new BusinessException(ErrorCode.PERIOD_PERFORMANCE_SCORE_METRIC_CAN_ONLY_USED);
         }
         String metric = program.getMetric() == RewardRankingMetric.MATRIX_RATING
                 ? "MATRIX_RATING" : "FINAL_SCORE";
@@ -166,8 +167,7 @@ public class RewardRankingService {
      */
     private RankingResult rankByPeriod(RewardProgram program, UUID periodId, UUID orgId, String pathPrefix) {
         if (program.getMetric() == RewardRankingMetric.FINAL_SCORE) {
-            throw new BusinessException("Chỉ số \"Điểm chốt kỳ\" chỉ dùng được với chương trình "
-                    + "theo KỲ. Với chương trình theo ĐỢT, hãy chọn \"Điểm hiệu suất đợt\".");
+            throw new BusinessException(ErrorCode.CYCLE_FINAL_SCORE_METRIC_CAN_ONLY_USED);
         }
 
         List<RankedUser> ranked = new ArrayList<>();
@@ -180,7 +180,7 @@ public class RewardRankingService {
             Double score = evaluationService.getEffectivePerformanceScore(userId, periodId);
             if (score == null) {
                 skipped.add(new SkippedUser(userId, fullName,
-                        "Chưa có bản đánh giá hợp lệ trong đợt này"));
+                        ErrorMessages.text("reward.ranking.skip.noEvaluation", "")));
                 continue;
             }
 

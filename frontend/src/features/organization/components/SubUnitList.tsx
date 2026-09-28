@@ -1,6 +1,7 @@
 import { ChevronRight, Building2 } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
 import { OrgUnitTreeResponse } from '../types/org-unit'
+import { useTranslation } from 'react-i18next'
 
 interface SubUnitListProps {
   units: OrgUnitTreeResponse[]
@@ -8,6 +9,7 @@ interface SubUnitListProps {
 
 /** Danh sách đơn vị con trực thuộc — mỗi dòng bấm được để đi xuống một cấp. */
 export function SubUnitList({ units }: SubUnitListProps) {
+  const { t } = useTranslation('organization')
   const navigate = useNavigate()
 
   if (units.length === 0) return null
@@ -15,8 +17,8 @@ export function SubUnitList({ units }: SubUnitListProps) {
   return (
     <section className="rounded-card border border-[var(--color-border)] bg-[var(--color-card)] p-5">
       <div className="flex items-center justify-between gap-3">
-        <h2 className="text-section-title">Đơn vị trực thuộc</h2>
-        <span className="text-caption tabular-nums">{units.length} đơn vị</span>
+        <h2 className="text-section-title">{t('SubUnitList.subUnits')}</h2>
+        <span className="text-caption tabular-nums">{units.length} {t('SubUnitList.unit')}</span>
       </div>
       <ul className="mt-3 grid grid-cols-1 gap-2 sm:grid-cols-2 lg:grid-cols-3">
         {units.map(child => (

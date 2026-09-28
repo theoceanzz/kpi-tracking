@@ -8,6 +8,7 @@ import { AXIS_COLORS, METRIC_COLORS } from '@/components/charts/chartPalette'
 import Histogram from '@/components/charts/primitives/Histogram'
 import { useScoreHistogram, useSelfVsManager } from '../../hooks/useAdvancedAnalytics'
 import type { AdvancedFilter } from '../../api/advancedAnalyticsApi'
+import { useTranslation } from 'react-i18next'
 
 /** Props chung cho mọi widget của tab, khớp chữ ký các section sẵn có trong SummaryTab. */
 export interface AdvancedWidgetProps {
@@ -54,7 +55,8 @@ function Empty({ children, height = 220 }: { children: React.ReactNode; height?:
 }
 
 function Loading({ height = 220 }: { height?: number }) {
-  return <div className="flex items-center justify-center text-slate-400 font-medium" style={{ height }}>Đang tải...</div>
+  const { t } = useTranslation('analytics')
+  return <div className="flex items-center justify-center text-slate-400 font-medium" style={{ height }}>{t('SummaryAdvanced.loading')}</div>
 }
 
 // ============================================================
@@ -62,23 +64,24 @@ function Loading({ height = 220 }: { height?: number }) {
 // ============================================================
 
 export function ScoreHistogramWidget(p: AdvancedWidgetProps) {
+  const { t } = useTranslation('analytics')
   const { data, isLoading } = useScoreHistogram(p.filter)
   return (
-    <Shell {...p} title={p.title ?? 'Phân phối điểm đánh giá'} icon={<BarChart3 size={20} className="text-slate-400" />}>
+    <Shell {...p} title={p.title ?? t('SummaryAdvanced.evaluationScoreDistribution')} icon={<BarChart3 size={20} className="text-slate-400" />}>
       {isLoading ? <Loading /> : !data || data.totalCount === 0 ? (
-        <Empty>Chưa có đánh giá nào trong phạm vi này</Empty>
+        <Empty>{t('SummaryAdvanced.noEvaluationsInThisScopeYet')}</Empty>
       ) : (
         <>
           <Histogram
             bins={data.bins}
             thresholds={data.levels}
-            marker={data.myScore != null ? { value: data.myScore, label: 'Bạn' } : null}
-            unit="điểm"
-            countLabel="Số đánh giá"
+            marker={data.myScore != null ? { value: data.myScore, label: t('SummaryAdvanced.you') } : null}
+            unit={t('SummaryAdvanced.points')}
+            countLabel={t('SummaryAdvanced.numberOfEvaluations')}
           />
           <p className="text-xs text-slate-400 font-medium text-center mt-2">
-            {data.totalCount} đánh giá · trung bình {data.averageScore ?? '-'} điểm
-            {data.anonymized ? ' · phân phối đã ẩn danh' : ''}
+            {data.totalCount} {t('SummaryAdvanced.evaluationsAverage')} {data.averageScore ?? '-'} {t('SummaryAdvanced.points')}
+            {data.anonymized ? t('SummaryAdvanced.anonymizedDistribution') : ''}
           </p>
         </>
       )}
@@ -91,14 +94,15 @@ export function ScoreHistogramWidget(p: AdvancedWidgetProps) {
 // ============================================================
 
 export function SelfVsManagerWidget(p: AdvancedWidgetProps) {
+  const { t } = useTranslation('analytics')
   const { data, isLoading } = useSelfVsManager(p.filter)
   const rows = data?.rows ?? []
   return (
-    <Shell {...p} title={p.title ?? 'Tự chấm so với quản lý chấm'} icon={<GitCompare size={20} className="text-slate-400" />}>
+    <Shell {...p} title={p.title ?? t('SummaryAdvanced.selfAssessmentVsManagerScore')} icon={<GitCompare size={20} className="text-slate-400" />}>
       {isLoading ? <Loading /> : rows.length === 0 ? (
         <Empty>
-          Chưa có kỳ nào mà cả đơn vị và quản lý đều đã chấm.<br />
-          Chênh lệch chỉ tính được khi có đủ cả hai điểm.
+          {t('SummaryAdvanced.noCycleYetWhereBothThe')}<br />
+          {t('SummaryAdvanced.theGapCanOnlyBeComputed')}
         </Empty>
       ) : (
         <>
@@ -106,7 +110,7 @@ export function SelfVsManagerWidget(p: AdvancedWidgetProps) {
             <BarChart data={rows} layout="vertical" margin={{ top: 8, right: 20, left: 8, bottom: 8 }}>
               <CartesianGrid stroke="var(--color-border)" horizontal={false} />
               <XAxis
-                label={xAxisLabel('Điểm')}
+                label={xAxisLabel(t('SummaryAdvanced.points2'))}
                 type="number" domain={[0, data?.axisMax ?? 100]}
                 axisLine={false} tickLine={false}
                 tick={{ fill: AXIS_COLORS.tick, fontSize: 11, fontWeight: 500 }}
@@ -123,15 +127,15 @@ export function SelfVsManagerWidget(p: AdvancedWidgetProps) {
           </ResponsiveContainer>
           <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 pt-2 text-xs font-medium text-[var(--color-muted-foreground)]">
             <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: METRIC_COLORS.completion.normal }} /> Tự chấm
+              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: METRIC_COLORS.completion.normal }} /> {t('SummaryAdvanced.selfScore')}
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: METRIC_COLORS.performance.normal }} /> Quản lý chấm
+              <span className="w-2 h-2 rounded-full" style={{ backgroundColor: METRIC_COLORS.performance.normal }} /> {t('SummaryAdvanced.managerScore')}
             </span>
             {data?.averageGap != null && (
               <span className="text-xs">
-                Chênh lệch trung bình {data.averageGap > 0 ? '+' : ''}{data.averageGap} điểm
-                {data.averageGap > 0 ? ' (đơn vị tự chấm cao hơn)' : data.averageGap < 0 ? ' (quản lý chấm cao hơn)' : ''}
+                {t('SummaryAdvanced.averageGap')} {data.averageGap > 0 ? '+' : ''}{data.averageGap} {t('SummaryAdvanced.points')}
+                {data.averageGap > 0 ? t('SummaryAdvanced.unitSelfAssessedHigher') : data.averageGap < 0 ? t('SummaryAdvanced.managerScoredHigher') : ''}
               </span>
             )}
           </div>
@@ -145,22 +149,23 @@ function GapTooltip({ active, payload }: {
   active?: boolean
   payload?: { payload: { name: string; selfScore: number; managerScore: number; gap: number; memberCount?: number } }[]
 }) {
+  const { t } = useTranslation('analytics')
   const d = payload?.[0]?.payload
   if (!active || !d) return null
   return (
     <div className="bg-[var(--color-card)] border border-[var(--color-border)] p-3.5 rounded-lg shadow-lg">
       <p className="font-semibold text-[var(--color-foreground)] mb-2">{d.name}</p>
       <div className="space-y-1 text-sm">
-        <p><span className="text-slate-500 font-medium">Tự chấm: </span><span className="font-semibold tabular-nums">{d.selfScore}</span></p>
-        <p><span className="text-slate-500 font-medium">Quản lý chấm: </span><span className="font-semibold tabular-nums">{d.managerScore}</span></p>
+        <p><span className="text-slate-500 font-medium">{t('SummaryAdvanced.selfAssessment')} </span><span className="font-semibold tabular-nums">{d.selfScore}</span></p>
+        <p><span className="text-slate-500 font-medium">{t('SummaryAdvanced.managerScore2')} </span><span className="font-semibold tabular-nums">{d.managerScore}</span></p>
         <p className="pt-1.5 border-t border-[var(--color-border)] mt-1.5">
-          <span className="text-slate-500 font-medium">Chênh lệch: </span>
+          <span className="text-slate-500 font-medium">{t('SummaryAdvanced.gap')} </span>
           <span className="font-semibold tabular-nums" style={{ color: d.gap > 0 ? '#f59e0b' : d.gap < 0 ? '#3b82f6' : '#64748b' }}>
             {d.gap > 0 ? '+' : ''}{d.gap}
           </span>
         </p>
         {d.memberCount != null && d.memberCount > 0 && (
-          <p className="text-xs text-slate-400">{d.memberCount} thành viên</p>
+          <p className="text-xs text-slate-400">{d.memberCount} {t('SummaryAdvanced.members')}</p>
         )}
       </div>
     </div>

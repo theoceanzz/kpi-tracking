@@ -1,4 +1,6 @@
 export type KpiStatus = 'DRAFT' | 'PENDING_APPROVAL' | 'APPROVED' | 'REJECTED' | 'INACTIVE' | 'EDIT' | 'EDITED' | 'REPLACED'
+  /** Không hoàn thành do khoá kỳ — không tính điểm, không thao tác được nữa. */
+  | 'CLOSED_BY_LOCK'
 export type KpiFrequency = 'DAILY' | 'WEEKLY' | 'MONTHLY' | 'QUARTERLY' | 'SEMI_ANNUALLY' | 'YEARLY' | 'UNLIMITED'
 export type KpiParentRelationType = 'DELEGATION' | 'DECOMPOSITION'
 export type KpiType = 'QUANTITATIVE' | 'QUALITATIVE'
@@ -13,7 +15,15 @@ export interface KpiPeriod {
   organizationId: string
   cycleId?: string | null
   cycleName?: string | null
+  /** Trạng thái kỳ chứa đợt — LOCKED thì mọi thao tác ghi bị chặn. */
+  cycleStatus?: KpiCycleStatus | null
+  status?: KpiPeriodStatus
+  sourcePeriodId?: string | null
+  transferredToCycleId?: string | null
 }
+
+export type KpiCycleStatus = 'OPEN' | 'LOCKED'
+export type KpiPeriodStatus = 'ACTIVE' | 'CLOSED_BY_LOCK' | 'TRANSFERRED' | 'CANCELLED'
 
 export type CycleEvaluationMode = 'QUANTITATIVE' | 'QUALITATIVE' | 'BOTH'
 /**
@@ -33,6 +43,12 @@ export interface KpiCycle {
   evaluationMode: CycleEvaluationMode
   organizationId: string
   periodCount: number
+  status?: KpiCycleStatus
+  lockedAt?: string | null
+  lockedByName?: string | null
+  reopenedAt?: string | null
+  reopenedByName?: string | null
+  reopenReason?: string | null
 }
 
 export type KpiCyclePayload = Partial<KpiCycle> & { periodIds?: string[] }
@@ -81,6 +97,10 @@ export interface CycleUserEvaluation {
   /** Điểm hạnh kiểm đã tính trọng số, trên thang gốc của phiếu. */
   conductScore: number | null
   conductMaxScore: number | null
+  /** Điểm 360 (thang 1..5) đi vào trục hành vi; null khi kỳ không dùng 360 để xếp loại. */
+  feedback360Score?: number | null
+  /** Nguồn của `behaviorScore`: QUALITATIVE | CONDUCT | FEEDBACK360 | BLENDED | NONE. */
+  behaviorSource?: 'QUALITATIVE' | 'CONDUCT' | 'FEEDBACK360' | 'BLENDED' | 'NONE' | null
   /** `matrixRating` được đặt tay lúc hiệu chỉnh theo khung (không suy từ hai trục). */
   ratingOverridden: boolean
   /** Điểm chốt kỳ tự tính chụp lúc "chốt dữ liệu kỳ" — null khi đơn vị chưa qua bước đó. */
@@ -126,6 +146,9 @@ export interface CycleCurve {
 }
 
 export interface CycleUnitEvaluation {
+  /** Đơn vị gốc (không có cấp cha): khoá kết quả ở đây = khoá luôn kỳ; mở khoá = mở lại kỳ. */
+  rootUnit?: boolean
+  cycleStatus?: KpiCycleStatus | null
   cycleId: string
   cycleName: string
   orgUnitId: string
@@ -277,6 +300,16 @@ export interface KpiCriteria {
   replacedById?: string | null
   replacedByName?: string | null
   replacementReason?: string | null
+  /** "KPI của tôi": bài nộp bị trả lại đang chờ nộp lại ⇒ hạn nộp lại (được nộp dù đợt đã hết hạn). */
+  resubmitDeadline?: string | null
+  /** Lý do người chấm trả lại bài nộp (đi cùng {@link resubmitDeadline}). */
+  returnReason?: string | null
+  /** "KPI của tôi": số bài nộp đã từng bị trả lại (kể cả đã nộp lại xong). */
+  returnCount?: number | null
+  lastReturnReason?: string | null
+  lastReturnedAt?: string | null
+  /** Vị trí trong chuỗi duyệt (tính cho người đang xem); null khi không đang chờ duyệt. */
+  approval?: import('./approvalChain').ApprovalSummary | null
 }
 
 // Matches BE: CreateKpiCriteriaRequest
@@ -330,6 +363,8 @@ export interface UpdateKpiRequest {
 // Matches BE: RejectKpiRequest
 export interface RejectKpiRequest {
   reason: string
+  /** Bước người dùng đang thấy; chuỗi đã đi tiếp thì BE trả 409. */
+  expectedStepId?: string | null
 }
 // Matches BE: ImportKpiResponse
 export interface ImportKpiResult {

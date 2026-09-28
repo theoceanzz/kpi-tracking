@@ -1,3 +1,4 @@
+import { LocaleNumberInput } from '@/components/ui/number-input'
 import { useState } from 'react'
 import { Loader2, ShieldAlert, PenLine, Undo2 } from 'lucide-react'
 import {
@@ -9,6 +10,9 @@ import { useWaterfall, useOverrideMutation } from '../hooks/useBscCascade'
 import { BscEmptyPerspectivePolicy } from '../types'
 import { Dialog } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
+import { useTranslation } from 'react-i18next'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
 interface BscWaterfallModalProps {
   open: boolean
@@ -17,14 +21,14 @@ interface BscWaterfallModalProps {
 }
 
 /** Lý do ghi đè: danh mục cố định để báo cáo gom nhóm được, kèm ô diễn giải tự do. */
-const REASON_CODES = [
-  { code: 'CALIBRATION', label: 'Hiệu chỉnh của hội đồng' },
-  { code: 'SPECIAL_CONTRIBUTION', label: 'Đóng góp đặc biệt ngoài KPI' },
-  { code: 'DATA_ISSUE', label: 'Số liệu nguồn sai/thiếu' },
-  { code: 'NEW_JOINER', label: 'Nhân sự mới / nghỉ dài ngày' },
-  { code: 'TRANSFER', label: 'Chuyển đơn vị giữa kỳ' },
-  { code: 'OTHER', label: 'Lý do khác' },
-]
+const REASON_CODES = perLanguage(() => ([
+  { code: 'CALIBRATION', label: i18n.t('bsc:BscWaterfallModal.committeeCalibration') },
+  { code: 'SPECIAL_CONTRIBUTION', label: i18n.t('bsc:BscWaterfallModal.specialContributionOutsideKpis') },
+  { code: 'DATA_ISSUE', label: i18n.t('bsc:BscWaterfallModal.sourceDataWrongMissing') },
+  { code: 'NEW_JOINER', label: i18n.t('bsc:BscWaterfallModal.newHireLongLeave') },
+  { code: 'TRANSFER', label: i18n.t('bsc:BscWaterfallModal.unitTransferMidCycle') },
+  { code: 'OTHER', label: i18n.t('bsc:BscWaterfallModal.otherReason') },
+]))
 
 const fmt = (v?: number | null, digits = 1) => (v == null ? '—' : v.toFixed(digits))
 
@@ -36,6 +40,7 @@ const fmt = (v?: number | null, digits = 1) => (v == null ? '—' : v.toFixed(di
  * điểm, chỉ hạ trần xếp loại — vẽ nó như một bước trừ điểm là mô tả sai mô hình.
  */
 export default function BscWaterfallModal({ open, onClose, evaluationId }: BscWaterfallModalProps) {
+  const { t } = useTranslation('bsc')
   const { data, isLoading } = useWaterfall(open && evaluationId ? evaluationId : undefined)
   const override = useOverrideMutation()
   const { hasPermission } = usePermission()
@@ -43,7 +48,7 @@ export default function BscWaterfallModal({ open, onClose, evaluationId }: BscWa
 
   const [editing, setEditing] = useState(false)
   const [score, setScore] = useState<string>('')
-  const [reasonCode, setReasonCode] = useState(REASON_CODES[0]!.code)
+  const [reasonCode, setReasonCode] = useState(REASON_CODES()[0]!.code)
   const [comment, setComment] = useState('')
 
   if (!open) return null
@@ -60,7 +65,7 @@ export default function BscWaterfallModal({ open, onClose, evaluationId }: BscWa
   const clearOverride = () => {
     if (!evaluationId) return
     // Huỷ ghi đè vẫn phải có lý do — nó cũng là một quyết định làm đổi điểm đã công bố.
-    override.mutate({ evaluationId, data: { score: null, reasonCode: 'OTHER', comment: 'Huỷ ghi đè' } })
+    override.mutate({ evaluationId, data: { score: null, reasonCode: 'OTHER', comment: t('BscWaterfallModal.cancelOverride') } })
   }
 
   return (
@@ -68,7 +73,7 @@ export default function BscWaterfallModal({ open, onClose, evaluationId }: BscWa
       open
       onClose={onClose}
       size="lg"
-      title="Diễn giải điểm BSC"
+      title={t('BscWaterfallModal.bscScoreBreakdown')}
       description={
         <>
           {data?.userName || '—'}
@@ -98,16 +103,13 @@ export default function BscWaterfallModal({ open, onClose, evaluationId }: BscWa
               return (
                 <div className="rounded-card border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] dark:border-[var(--color-warning-border)] dark:bg-[var(--color-warning-bg)] p-4">
                   <p className="text-xs font-semibold text-[var(--color-warning)] mb-1">
-                    {empty.length} hạng mục chưa có KPI nào: {empty.map(p => p.name).join(', ')}
+                    {empty.length} {t('BscWaterfallModal.itemsWithoutAnyKpi')} {empty.map(p => p.name).join(', ')}
                   </p>
                   <p className="text-xs font-medium text-[var(--color-warning)] leading-relaxed">
                     {renormalize
-                      ? <>Bộ tiêu chí đang để <b>bỏ qua hạng mục rỗng</b>, nên điểm chỉ tính trên{' '}
-                          <b>{fmt(presentWeight, 0)}%</b> trọng số có dữ liệu rồi quy về thang 100 — phần
-                          trọng số của các hạng mục rỗng không kéo điểm xuống. Muốn hạng mục rỗng bị tính
-                          0 điểm thì đổi chính sách sang <b>Tính 0 điểm</b> trong bộ tiêu chí.</>
-                      : <>Bộ tiêu chí đang để <b>tính hạng mục rỗng bằng 0</b>, nên các hạng mục trên đã
-                          kéo điểm xuống theo đúng trọng số của chúng.</>}
+                      ? <>{t('BscWaterfallModal.theScorecardIsSetTo')} <b>{t('BscWaterfallModal.skipEmptyItems')}</b>{t('BscWaterfallModal.soTheScoreIsComputedOnly')}{' '}
+                          <b>{fmt(presentWeight, 0)}%</b> {t('BscWaterfallModal.weightThatHasDataAndThen')} <b>{t('BscWaterfallModal.countAs0Points')}</b> {t('BscWaterfallModal.inTheScorecard')}</>
+                      : <>{t('BscWaterfallModal.theScorecardIsSetTo')} <b>{t('BscWaterfallModal.countEmptyItemsAs0')}</b>{t('BscWaterfallModal.soTheItemsAbovePulledThe')}</>}
                   </p>
                 </div>
               )
@@ -116,25 +118,25 @@ export default function BscWaterfallModal({ open, onClose, evaluationId }: BscWa
             {/* ── Chuỗi tính điểm ───────────────────────────── */}
             <div className="rounded-card border border-[var(--color-border)] overflow-hidden">
               <Step
-                label="Điểm gốc của nhân viên"
+                label={t('BscWaterfallModal.employeesRawScore')}
                 value={fmt(data.rawBscScore)}
-                hint="Điểm BSC tính từ KPI cá nhân"
+                hint={t('BscWaterfallModal.bscScoreComputedFromIndividualKpis')}
               />
               <Step
-                label={`Chặn trần ${fmt(data.recognizedCapPercent, 0)}`}
+                label={t('BscWaterfallModal.cap', { recognizedCapPercent: fmt(data.recognizedCapPercent, 0) })}
                 value={fmt(data.cappedScore)}
-                hint="Vượt trần thì cắt về trần"
+                hint={t('BscWaterfallModal.anythingAboveTheCapIsCut')}
                 muted={data.rawBscScore != null && data.cappedScore != null && data.rawBscScore <= data.cappedScore}
               />
               <Step
-                label="Điểm công nhận"
+                label={t('BscWaterfallModal.recognizedScore')}
                 value={fmt(data.recognizedScore)}
-                hint="MIN(điểm gốc, trần) — kết quả BSC của phòng/công ty không nhân vào điểm cá nhân"
+                hint={t('BscWaterfallModal.minRawScoreCapDepartmentCompany')}
                 strong
               />
               {data.overrideScore != null && (
                 <Step
-                  label="Điểm sau ghi đè"
+                  label={t('BscWaterfallModal.scoreAfterOverride')}
                   value={fmt(data.overrideScore)}
                   hint={`${data.overrideReasonCode || ''}${data.overrideComment ? ` — ${data.overrideComment}` : ''}`
                     + (data.overriddenByName ? ` · ${data.overriddenByName}` : '')}
@@ -145,7 +147,7 @@ export default function BscWaterfallModal({ open, onClose, evaluationId }: BscWa
             </div>
 
             <div className="flex items-baseline justify-between px-1">
-              <span className="text-eyebrow">Điểm cuối</span>
+              <span className="text-eyebrow">{t('BscWaterfallModal.finalScore')}</span>
               <span className="text-3xl font-semibold text-[var(--color-primary)]">{fmt(data.finalScore)}</span>
             </div>
 
@@ -156,25 +158,25 @@ export default function BscWaterfallModal({ open, onClose, evaluationId }: BscWa
                 : 'border-[var(--color-border)]')}>
               <div className="flex items-center gap-2 mb-1">
                 <ShieldAlert size={14} className={data.gatePassed === false ? 'text-[var(--color-error)]' : 'text-[var(--color-subtle-foreground)]'} />
-                <span className="text-xs font-semibold text-[var(--color-foreground)]">Hạng mục chặn</span>
+                <span className="text-xs font-semibold text-[var(--color-foreground)]">{t('BscWaterfallModal.gateItems')}</span>
               </div>
               {data.gatePassed === false ? (
                 <p className="text-xs font-medium text-[var(--color-error)]">
-                  Không đạt: {data.gateFailedItems}
+                  {t('BscWaterfallModal.notMet')} {data.gateFailedItems}
                   {data.gateCapRating != null && (
-                    <> · Trần xếp loại bị hạ xuống mức {data.gateCapRating}</>
+                    <> {t('BscWaterfallModal.ratingCapLoweredToLevel')} {data.gateCapRating}</>
                   )}
                   <span className="block mt-1 text-[var(--color-muted-foreground)] font-medium">
-                    Điểm số KHÔNG bị trừ — chỉ xếp loại bị giới hạn.
+                    {t('BscWaterfallModal.theScoreIsNotReducedOnly')}
                   </span>
                 </p>
               ) : (
                 <p className="text-caption">
-                  Không có hạng mục chặn nào bị trượt.
+                  {t('BscWaterfallModal.noGateItemWasMissed')}
                 </p>
               )}
               {data.matrixRating != null && (
-                <p className="text-caption mt-1">Xếp loại hiện tại: mức {data.matrixRating}</p>
+                <p className="text-caption mt-1">{t('BscWaterfallModal.currentRatingLevel')} {data.matrixRating}</p>
               )}
             </div>
 
@@ -184,11 +186,11 @@ export default function BscWaterfallModal({ open, onClose, evaluationId }: BscWa
                 data.linkedWeightSatisfied === false
                   ? 'border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] text-[var(--color-warning)] dark:border-[var(--color-warning-border)] dark:bg-[var(--color-warning-bg)] dark:text-[var(--color-warning)]'
                   : 'border-[var(--color-border)] text-[var(--color-subtle-foreground)]')}>
-                Trọng số KPI liên kết BSC: {fmt(data.linkedWeightPercent, 0)}%
-                {data.linkedWeightRequired != null && <> / tối thiểu {fmt(data.linkedWeightRequired, 0)}%</>}
+                {t('BscWaterfallModal.kpiWeightLinkedToBsc')} {fmt(data.linkedWeightPercent, 0)}%
+                {data.linkedWeightRequired != null && <> {t('BscWaterfallModal.minimum')} {fmt(data.linkedWeightRequired, 0)}%</>}
                 {data.linkedWeightSatisfied === false && (
                   <span className="block mt-0.5 font-medium">
-                    Phần lớn KPI của người này chưa bám vào chỉ tiêu BSC của phòng.
+                    {t('BscWaterfallModal.mostOfThisPersonsKpisAre')}
                   </span>
                 )}
               </div>
@@ -198,15 +200,15 @@ export default function BscWaterfallModal({ open, onClose, evaluationId }: BscWa
             {canOverride && (
               <div className="rounded-card border border-[var(--color-border)] p-4 space-y-3">
                 <div className="flex items-center justify-between">
-                  <span className="text-xs font-semibold text-[var(--color-foreground)]">Ghi đè điểm</span>
+                  <span className="text-xs font-semibold text-[var(--color-foreground)]">{t('BscWaterfallModal.overrideScore')}</span>
                   {!editing && (
                     <div className="flex gap-1">
                       <Button variant="ghost" size="sm" onClick={() => { setEditing(true); setScore(data.overrideScore?.toString() ?? '') }}>
-                        <PenLine aria-hidden="true" /> {data.overrideScore != null ? 'Sửa' : 'Ghi đè'}
+                        <PenLine aria-hidden="true" /> {data.overrideScore != null ? t('BscWaterfallModal.edit') : t('BscWaterfallModal.override')}
                       </Button>
                       {data.overrideScore != null && (
                         <Button variant="secondary" size="sm" onClick={clearOverride} disabled={override.isPending}>
-                          <Undo2 aria-hidden="true" /> Huỷ ghi đè
+                          <Undo2 aria-hidden="true" /> {t('BscWaterfallModal.cancelOverride')}
                         </Button>
                       )}
                     </div>
@@ -216,10 +218,10 @@ export default function BscWaterfallModal({ open, onClose, evaluationId }: BscWa
                 {editing && (
                   <div className="space-y-2">
                     <p className="text-caption">
-                      Ghi đè là hành vi ngoại lệ và phải giải trình được về sau, nên lý do là bắt buộc.
+                      {t('BscWaterfallModal.anOverrideIsAnExceptionThat')}
                     </p>
                     <div className="flex gap-2">
-                      <input type="number" step="any" value={score} onChange={e => setScore(e.target.value)}
+                      <LocaleNumberInput type="number" step="any" value={score} onChange={e => setScore(e.target.value)}
                         placeholder={fmt(data.recognizedScore)}
                         className="w-28 px-3 py-2 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)] text-sm font-semibold outline-none" />
                       <Select value={reasonCode} onValueChange={setReasonCode}>
@@ -227,17 +229,17 @@ export default function BscWaterfallModal({ open, onClose, evaluationId }: BscWa
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent className="z-[1100]">
-                          {REASON_CODES.map(r => <SelectItem key={r.code} value={r.code}>{r.label}</SelectItem>)}
+                          {REASON_CODES().map(r => <SelectItem key={r.code} value={r.code}>{r.label}</SelectItem>)}
                         </SelectContent>
                       </Select>
                     </div>
                     <textarea value={comment} onChange={e => setComment(e.target.value)} rows={2}
-                      placeholder="Diễn giải cụ thể..."
+                      placeholder={t('BscWaterfallModal.explainInDetail')}
                       className="w-full px-3 py-2 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)] text-xs font-medium outline-none" />
                     <div className="flex gap-2 justify-end">
-                      <Button variant="ghost" size="sm" onClick={() => setEditing(false)}>Huỷ</Button>
+                      <Button variant="ghost" size="sm" onClick={() => setEditing(false)}>{t('BscWaterfallModal.cancel')}</Button>
                       <Button size="sm" onClick={submitOverride} disabled={override.isPending}>
-                        {override.isPending ? 'Đang lưu...' : 'Lưu ghi đè'}
+                        {override.isPending ? t('BscWaterfallModal.saving') : t('BscWaterfallModal.saveOverride')}
                       </Button>
                     </div>
                   </div>
@@ -256,7 +258,7 @@ export default function BscWaterfallModal({ open, onClose, evaluationId }: BscWa
                       {p.isGate && (
                         <span className={cn('ml-1.5 text-xs font-medium',
                           p.gatePassed === false ? 'text-[var(--color-error)]' : 'text-[var(--color-subtle-foreground)]')}>
-                          · chặn
+                          {t('BscWaterfallModal.gate')}
                         </span>
                       )}
                     </span>
@@ -265,7 +267,7 @@ export default function BscWaterfallModal({ open, onClose, evaluationId }: BscWa
                       p.achievementPercent == null
                         ? 'text-xs font-medium text-[var(--color-warning)]'
                         : 'text-[var(--color-foreground)]')}>
-                      {p.achievementPercent == null ? 'chưa có KPI' : fmt(p.achievementPercent)}
+                      {p.achievementPercent == null ? t('BscWaterfallModal.noKpi') : fmt(p.achievementPercent)}
                     </span>
                   </div>
                 ))}

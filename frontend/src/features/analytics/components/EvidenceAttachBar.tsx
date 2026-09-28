@@ -6,6 +6,7 @@ import { formatBytes, screenEvidence } from '@/lib/attachmentPolicy'
 import { useFormAssistStore, type FormFileSink } from '@/store/formAssistStore'
 import { usePinnedFilesStore, attachPinnedTo } from '@/store/pinnedFilesStore'
 import { Button } from '@/components/ui/button'
+import { useTranslation } from 'react-i18next'
 
 interface EvidenceAttachBarProps {
   /** Chỗ nhận tệp của form đang mở. Chỉ dùng cho câu gợi ý — GHIM thì không cần form nào cả. */
@@ -31,6 +32,7 @@ function iconFor(file: File) {
  * <p>Tệp ghim vào biểu mẫu khi người dùng BẢO trợ lý đính, hoặc bấm nút ở {@link PinnedChips}.
  */
 export default function EvidenceAttachBar({ sink, disabled }: EvidenceAttachBarProps) {
+  const { t } = useTranslation('analytics')
   const inputRef = useRef<HTMLInputElement>(null)
   const pin = usePinnedFilesStore(s => s.pin)
   const pinned = usePinnedFilesStore(s => s.files)
@@ -47,8 +49,8 @@ export default function EvidenceAttachBar({ sink, disabled }: EvidenceAttachBarP
   }
 
   const title = sink
-    ? `Ghim tệp để đính vào mục ${sink.label} — ${sink.hint}`
-    : 'Ghim tệp. Mở biểu mẫu có mục đính kèm (ví dụ Gửi báo cáo KPI) rồi bảo trợ lý đính.'
+    ? t('EvidenceAttachBar.pinFilesToAttachTo', { label: sink.label, hint: sink.hint })
+    : t('EvidenceAttachBar.pinFilesOpenAFormWith')
 
   // Fragment chứ không phải div bọc: nút phải là con TRỰC TIẾP của hàng flex chứa ô nhập, nếu không
   // nó tự thành một cột riêng và lệch khỏi ô nhập.
@@ -65,7 +67,7 @@ export default function EvidenceAttachBar({ sink, disabled }: EvidenceAttachBarP
           '',
           'hover:text-[var(--color-ai)] hover:bg-[var(--color-ai-soft)]',
           'disabled:hover:text-[var(--color-subtle-foreground)] disabled:hover:bg-transparent',
-        )} type="button" onClick={() => inputRef.current?.click()} disabled={disabled} title={title} aria-label="Ghim tệp">
+        )} type="button" onClick={() => inputRef.current?.click()} disabled={disabled} title={title} aria-label={t('EvidenceAttachBar.pinFiles')}>
         <Paperclip aria-hidden="true" />
       </Button>
     </>
@@ -82,6 +84,7 @@ export default function EvidenceAttachBar({ sink, disabled }: EvidenceAttachBarP
  * trượt lời gọi tool, và không có nút thì người dùng gõ lại câu khác mà không hiểu vì sao chưa vào.
  */
 export function PinnedChips({ sink }: { sink?: FormFileSink }) {
+  const { t } = useTranslation('analytics')
   const files = usePinnedFilesStore(s => s.files)
   const unpin = usePinnedFilesStore(s => s.unpin)
   if (!files.length) return null
@@ -90,7 +93,7 @@ export function PinnedChips({ sink }: { sink?: FormFileSink }) {
     <div className="mb-2 flex flex-wrap items-center gap-1.5 animate-in fade-in slide-in-from-bottom-1 duration-300">
       <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--color-ai)]">
         <Pin size={12} />
-        Đang ghim
+        {t('EvidenceAttachBar.pinned')}
       </span>
       {files.map((file, i) => {
         const Icon = iconFor(file)
@@ -105,7 +108,7 @@ export function PinnedChips({ sink }: { sink?: FormFileSink }) {
             <button
               type="button"
               onClick={() => unpin(file)}
-              aria-label={`Bỏ ghim ${file.name}`}
+              aria-label={t('EvidenceAttachBar.unpin', { name: file.name })}
               className="shrink-0 rounded p-0.5 transition-colors hover:bg-black/10 dark:hover:bg-[var(--color-card)]/10"
             >
               <X size={11} />
@@ -118,8 +121,8 @@ export function PinnedChips({ sink }: { sink?: FormFileSink }) {
         onClick={() => attachPinnedTo(sink)}
         disabled={!sink}
         title={sink
-          ? `Đính ${files.length} tệp vào mục ${sink.label}`
-          : 'Mở biểu mẫu có mục đính kèm (ví dụ Gửi báo cáo KPI) trước'}
+          ? t('EvidenceAttachBar.attachFilesTo', { count: files.length, label: sink.label })
+          : t('EvidenceAttachBar.openAFormWithAnAttachment')}
         className={cn(
           'inline-flex items-center gap-1 rounded-control px-2 py-1 text-xs font-medium transition-colors',
           'bg-[var(--color-ai-solid)] text-white hover:brightness-110',
@@ -127,7 +130,7 @@ export function PinnedChips({ sink }: { sink?: FormFileSink }) {
         )}
       >
         <CornerDownRight size={11} />
-        Đính vào biểu mẫu
+        {t('EvidenceAttachBar.attachToForm')}
       </button>
     </div>
   )
@@ -140,6 +143,7 @@ export function PinnedChips({ sink }: { sink?: FormFileSink }) {
  * ứng, và thẻ sẽ đứng hình sai khi người dùng gỡ tệp ngay trên form.
  */
 export function AttachedChips({ sink }: { sink?: FormFileSink }) {
+  const { t } = useTranslation('analytics')
   const files = useFormAssistStore(s => s.attachedFiles)
   if (!sink || !files.length) return null
 
@@ -147,7 +151,7 @@ export function AttachedChips({ sink }: { sink?: FormFileSink }) {
     <div className="mb-2 flex flex-wrap items-center gap-1.5 animate-in fade-in slide-in-from-bottom-1 duration-300">
       <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--color-success)]">
         <CheckCircle2 size={12} />
-        Đã đính kèm vào {sink.label}
+        {t('EvidenceAttachBar.attachedTo')} {sink.label}
       </span>
       {files.map((file, i) => {
         const Icon = iconFor(file)
@@ -162,7 +166,7 @@ export function AttachedChips({ sink }: { sink?: FormFileSink }) {
             <button
               type="button"
               onClick={() => sink.remove(file)}
-              aria-label={`Bỏ ${file.name}`}
+              aria-label={t('EvidenceAttachBar.remove', { name: file.name })}
               className="shrink-0 rounded p-0.5 transition-colors hover:bg-black/10 dark:hover:bg-[var(--color-card)]/10"
             >
               <X size={11} />

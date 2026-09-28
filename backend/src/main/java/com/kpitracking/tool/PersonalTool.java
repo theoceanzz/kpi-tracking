@@ -59,6 +59,7 @@ public class PersonalTool {
     private final KpiPeriodRepository kpiPeriodRepository;
     private final CycleEvaluationTool cycleEvaluationTool;
     private final ToolSupport support;
+    private final com.kpitracking.service.feedback360.F360ReportService f360ReportService;
 
     @Tool(name = "get_my_kpis", value = "Các chỉ tiêu KPI CỦA TÔI (người đang hỏi): tên, kỳ, mục tiêu, trọng số, "
             + "hạn nộp, tiến độ, trạng thái nộp/duyệt. periodName để xem một kỳ; bỏ trống = mọi kỳ, mới nhất trước. "
@@ -187,6 +188,60 @@ public class PersonalTool {
             return support.respond(context, "get_my_conduct", Map.of("target", t.label(), "sheet", sheet));
         } catch (Exception e) {
             return support.toolError("get_my_conduct", e);
+        }
+    }
+
+    /**
+     * Báo cáo 360 đã CÔNG BỐ của chính người hỏi. Đi qua đúng hai hàm REST của màn "Của tôi"
+     * ({@code myReports}, {@code getReport}) — {@code getReport} tự chặn báo cáo chưa công bố, nên
+     * trợ lý không đọc sớm được thứ màn hình chưa cho xem. Chỉ trả điểm và tóm tắt, KHÔNG trả nguyên
+     * văn nhận xét: model không cần chúng để trả lời, và nhắc lại nguyên văn dễ lộ giọng người viết.
+     */
+    @Tool(name = "get_my_feedback360", value = "BÁO CÁO ĐÁNH GIÁ 360 CỦA TÔI (đã công bố): điểm người khác đánh giá, "
+            + "tự đánh giá, từng năng lực, điểm mù (tự đánh giá cao hơn người khác thấy), thế mạnh ẩn, câu được đánh giá "
+            + "cao nhất/thấp nhất và tóm tắt nhận xét. Lấy báo cáo mới nhất; nêu periodName = tên chiến dịch để chọn chiến dịch khác.")
+    public String getMyFeedback360(PersonalRequest request, InvocationParameters context) {
+        try {
+            var reports = f360ReportService.myReports();
+            if (reports.isEmpty()) {
+                return support.respond(context, "get_my_feedback360",
+                        Map.of("message", "Bạn chưa có báo cáo đánh giá 360 nào được công bố."));
+            }
+            var chosen = reports.get(0);
+            if (ToolSupport.notBlank(request.periodName())) {
+                String q = request.periodName().trim().toLowerCase(Locale.ROOT);
+                chosen = reports.stream().filter(r -> r.getCampaignName().toLowerCase(Locale.ROOT).contains(q))
+                        .findFirst().orElse(chosen);
+            }
+            var report = f360ReportService.getReport(chosen.getSubjectId());
+            var r = report.getResult();
+            Map<String, Object> out = new LinkedHashMap<>();
+            out.put("campaign", report.getCampaignName());
+            out.put("otherCampaigns", reports.stream().map(x -> x.getCampaignName()).toList());
+            if (r != null) {
+                out.put("scale", "1-" + r.getScaleMax());
+                out.put("othersScore", r.getOthersScore());
+                out.put("selfScore", r.getSelfScore());
+                out.put("responseCount", r.getResponseCount());
+                out.put("insufficient", r.getInsufficient());
+                out.put("competencies", r.getCompetencies().stream().map(c -> {
+                    Map<String, Object> m = new LinkedHashMap<>();
+                    m.put("name", c.getName());
+                    m.put("others", c.getOthers());
+                    m.put("self", c.getSelf());
+                    m.put("divergentOpinions", c.getDivergent());
+                    return m;
+                }).toList());
+                out.put("blindSpots", r.getBlindSpots().stream().map(g -> g.getName()).toList());
+                out.put("hiddenStrengths", r.getHiddenStrengths().stream().map(g -> g.getName()).toList());
+                out.put("topItems", r.getTop().stream().map(h -> h.getText()).toList());
+                out.put("bottomItems", r.getBottom().stream().map(h -> h.getText()).toList());
+            }
+            if (report.getAiSummary() != null) out.put("commentSummary", report.getAiSummary());
+            out.put("note", "Điểm đã qua ngưỡng ẩn danh; không có thông tin ai chấm gì.");
+            return support.respond(context, "get_my_feedback360", out);
+        } catch (Exception e) {
+            return support.toolError("get_my_feedback360", e);
         }
     }
 

@@ -1,11 +1,14 @@
 package com.kpitracking.service;
 
+import com.kpitracking.exception.BusinessException;
 import com.kpitracking.dto.response.submission.AttachmentResponse;
 import com.kpitracking.entity.KpiSubmission;
 import com.kpitracking.entity.SubmissionAttachment;
 import com.kpitracking.entity.User;
 import com.kpitracking.enums.StorageProvider;
+import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.ResourceNotFoundException;
+import com.kpitracking.i18n.Terms;
 import com.kpitracking.mapper.SubmissionMapper;
 import com.kpitracking.repository.KpiSubmissionRepository;
 import com.kpitracking.repository.SubmissionAttachmentRepository;
@@ -35,11 +38,12 @@ public class SubmissionAttachmentService {
     private final AttachmentPolicy attachmentPolicy;
     private final SubmissionMapper submissionMapper;
     private final PermissionChecker permissionChecker;
+    private final com.kpitracking.service.kpi.CycleStatusGuard cycleStatusGuard;
 
     private User getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         return userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "email", email));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.user"), "email", email));
     }
     
 
@@ -48,7 +52,8 @@ public class SubmissionAttachmentService {
         User currentUser = getCurrentUser();
 
         KpiSubmission submission = submissionRepository.findById(submissionId)
-                .orElseThrow(() -> new ResourceNotFoundException("Submission", "id", submissionId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.submission"), "id", submissionId));
+        cycleStatusGuard.assertWritable(submission.getKpiCriteria());
 
         if (!submission.getSubmittedBy().getId().equals(currentUser.getId())) {
             throw new com.kpitracking.exception.ForbiddenException("Only the original submitter can upload attachments");
@@ -56,7 +61,7 @@ public class SubmissionAttachmentService {
         if (submission.getStatus() != com.kpitracking.enums.SubmissionStatus.PENDING && 
             submission.getStatus() != com.kpitracking.enums.SubmissionStatus.DRAFT &&
             submission.getStatus() != com.kpitracking.enums.SubmissionStatus.REJECTED) {
-            throw new com.kpitracking.exception.BusinessException("Chỉ có thể tải tài liệu cho báo cáo ở trạng thái Chờ duyệt, Nháp hoặc Tự động từ chối");
+            throw new BusinessException(ErrorCode.DOCUMENTS_CAN_ONLY_UPLOADED_REPORTS_PENDING_APPROVAL);
         }
 
         // Kiểm TRƯỚC khi đụng tới nơi lưu trữ: một lô có tệp hỏng thì không tệp nào được đẩy lên,
@@ -96,7 +101,7 @@ public class SubmissionAttachmentService {
         User currentUser = getCurrentUser();
 
         KpiSubmission submission = submissionRepository.findById(submissionId)
-                .orElseThrow(() -> new ResourceNotFoundException("Submission", "id", submissionId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.submission"), "id", submissionId));
 
         boolean isSubmitter = submission.getSubmittedBy().getId().equals(currentUser.getId());
         // Quyền duyệt phải xét trên đúng đơn vị của bản nộp — quyền ở công ty khác không tính.
@@ -117,7 +122,8 @@ public class SubmissionAttachmentService {
     public void deleteAttachment(UUID attachmentId) {
         User currentUser = getCurrentUser();
         SubmissionAttachment attachment = attachmentRepository.findById(attachmentId)
-                .orElseThrow(() -> new ResourceNotFoundException("Attachment", "id", attachmentId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.attachment"), "id", attachmentId));
+        cycleStatusGuard.assertWritable(attachment.getSubmission().getKpiCriteria());
 
         if (!attachment.getUploadedBy().getId().equals(currentUser.getId())) {
              throw new com.kpitracking.exception.ForbiddenException("Only the user who uploaded the attachment can delete it");
@@ -126,7 +132,7 @@ public class SubmissionAttachmentService {
         if (attachment.getSubmission().getStatus() != com.kpitracking.enums.SubmissionStatus.PENDING &&
             attachment.getSubmission().getStatus() != com.kpitracking.enums.SubmissionStatus.DRAFT &&
             attachment.getSubmission().getStatus() != com.kpitracking.enums.SubmissionStatus.REJECTED) {
-             throw new com.kpitracking.exception.BusinessException("Chỉ có thể xóa tài liệu của báo cáo ở trạng thái Chờ duyệt, Nháp hoặc Tự động từ chối");
+             throw new BusinessException(ErrorCode.DOCUMENTS_CAN_ONLY_DELETED_REPORTS_PENDING_APPROVAL);
         }
 
         if (attachment.getStorageKey() != null) {

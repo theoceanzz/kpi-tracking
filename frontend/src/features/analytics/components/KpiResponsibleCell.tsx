@@ -1,5 +1,6 @@
 import { Building2 } from 'lucide-react'
 import { cn, getInitials } from '@/lib/utils'
+import { useTranslation } from 'react-i18next'
 
 /**
  * Ô "Đơn vị / Người đảm nhiệm" — phân biệt rõ:
@@ -15,11 +16,12 @@ export function KpiResponsibleCell({
   assigneeName?: string | null
   className?: string
 }) {
+  const { t } = useTranslation('analytics')
   if (assigneeName) {
     return (
       <div
         className={cn('inline-flex items-center gap-2 min-w-0', className)}
-        title={`Người đảm nhiệm: ${assigneeName}`}
+        title={t('KpiResponsibleCell.assignee', { assigneeName })}
       >
         <span className="flex items-center justify-center w-6 h-6 rounded-full bg-[var(--color-primary-soft)] text-[var(--color-primary)] text-xs font-semibold shrink-0">
           {getInitials(assigneeName)}
@@ -35,7 +37,7 @@ export function KpiResponsibleCell({
           'inline-flex items-center gap-1.5 px-2.5 py-1 rounded-control bg-[var(--color-muted)] text-caption',
           className,
         )}
-        title={`Đơn vị đảm nhiệm: ${orgUnitName}`}
+        title={t('KpiResponsibleCell.responsibleUnit', { orgUnitName })}
       >
         <Building2 size={12} className="shrink-0 text-[var(--color-subtle-foreground)]" />
         {orgUnitName}

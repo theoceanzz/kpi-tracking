@@ -4,6 +4,7 @@ import { ArrowRight, CalendarCheck, Flame, X } from 'lucide-react'
 import { useHasPermission } from '@/components/auth/PermissionGate'
 import { useMyCheckinStatus } from '../hooks/useCheckin'
 import { Button } from '@/components/ui/button'
+import { useTranslation } from 'react-i18next'
 
 /**
  * Ngày đã tắt nhắc, theo giờ Việt Nam (khớp với `today` backend trả về). Lưu NGÀY chứ
@@ -30,6 +31,7 @@ const readDismissed = () => {
  * luật cuối tuần không bị chép lại ở đây.
  */
 export default function CheckinReminderBanner() {
+  const { t } = useTranslation('rewards')
   const { hasPermission } = useHasPermission()
   const location = useLocation()
   const [dismissedOn, setDismissedOn] = useState(readDismissed)
@@ -62,20 +64,20 @@ export default function CheckinReminderBanner() {
         </span>
 
         <p className="min-w-0 flex-1 text-sm">
-          <span className="font-semibold">Bạn chưa điểm danh hôm nay</span>
+          <span className="font-semibold">{t('CheckinReminderBanner.youHaveNotCheckedInToday')}</span>
           <span className="text-[var(--color-muted-foreground)]">
             {' — '}
             {/* Nói con số cụ thể chứ không nói "nhận điểm": mốc thưởng chuỗi làm số này
                 đổi từng ngày, và một ngày +110 đáng để người ta dừng lại bấm. */}
-            điểm danh ngay để nhận <strong className="text-[var(--color-foreground)]">
-              +{status.nextPoints} điểm
+            {t('CheckinReminderBanner.checkInNowToGet')} <strong className="text-[var(--color-foreground)]">
+              +{status.nextPoints} {t('CheckinReminderBanner.points')}
             </strong>
             {streak > 0 && (
               <>
-                {' '}và giữ chuỗi{' '}
+                {' '}{t('CheckinReminderBanner.andKeepYourStreakOf')}{' '}
                 <strong className="inline-flex items-center gap-0.5 text-[var(--color-foreground)]">
                   <Flame size={13} className="text-[var(--color-warning)]" />
-                  {streak} ngày
+                  {streak} {t('CheckinReminderBanner.days')}
                 </strong>
               </>
             )}
@@ -88,12 +90,12 @@ export default function CheckinReminderBanner() {
           className="inline-flex flex-shrink-0 items-center gap-1.5 rounded-control bg-[var(--color-warning-solid)] px-3 py-1.5 text-sm font-semibold text-white transition-opacity hover:opacity-90"
         >
           {/* Nhãn rút gọn ở mobile — chữ đầy đủ sẽ đẩy nút x ra khỏi màn hình hẹp. */}
-          <span className="hidden sm:inline">Điểm danh ngay</span>
-          <span className="sm:hidden">Điểm danh</span>
+          <span className="hidden sm:inline">{t('CheckinReminderBanner.checkInNow')}</span>
+          <span className="sm:hidden">{t('CheckinReminderBanner.checkIns')}</span>
           <ArrowRight size={14} />
         </Link>
 
-        <Button variant="ghost" size="icon-sm" aria-label="Ẩn nhắc nhở hôm nay" onClick={dismiss} title="Ẩn nhắc nhở hôm nay">
+        <Button variant="ghost" size="icon-sm" aria-label={t('CheckinReminderBanner.hideTodaysReminder')} onClick={dismiss} title={t('CheckinReminderBanner.hideTodaysReminder')}>
           <X aria-hidden="true" />
         </Button>
       </div>

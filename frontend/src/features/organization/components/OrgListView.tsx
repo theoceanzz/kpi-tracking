@@ -12,15 +12,16 @@ interface OrgListViewProps {
 }
 
 export function OrgListView({ data, onAddChild, onEdit, onDelete, maxDepth }: OrgListViewProps) {
+  const { t } = useTranslation('organization')
   return (
     <div className="bg-[var(--color-card)] rounded-card shadow-sm border p-4 space-y-4">
       <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center gap-2">
-        <h2 className="text-section-title whitespace-nowrap">Danh sách tổ chức</h2>
+        <h2 className="text-section-title whitespace-nowrap">{t('OrgListView.organizationList')}</h2>
         <div className="relative w-full sm:w-auto">
           <Search className="w-4 h-4 absolute left-3 top-2.5 text-[var(--color-subtle-foreground)]" />
           <input
             type="text"
-            placeholder="Tìm kiếm..."
+            placeholder={t('OrgListView.search')}
             className="pl-9 pr-4 py-2 border rounded-control focus:ring-2 focus:ring-[var(--color-info-solid)] outline-none text-sm w-full sm:w-auto"
           />
         </div>
@@ -28,7 +29,7 @@ export function OrgListView({ data, onAddChild, onEdit, onDelete, maxDepth }: Or
       
       {data.length === 0 ? (
         <div className="border rounded-control px-4 py-8 text-center text-[var(--color-muted-foreground)]">
-          Chưa có dữ liệu
+          {t('OrgListView.noDataYet')}
         </div>
       ) : (
         <>
@@ -36,12 +37,12 @@ export function OrgListView({ data, onAddChild, onEdit, onDelete, maxDepth }: Or
             <table className="w-full text-sm text-left">
               <thead className="bg-[var(--color-muted)] border-b">
                 <tr>
-                  <th className="px-4 py-3 font-medium text-[var(--color-muted-foreground)]">Tên</th>
-                  <th className="px-4 py-3 font-medium text-[var(--color-muted-foreground)]">Mã</th>
-                  <th className="px-4 py-3 font-medium text-[var(--color-muted-foreground)]">Phân loại</th>
-                  <th className="px-4 py-3 font-medium text-[var(--color-muted-foreground)]">Cấp bậc</th>
-                  <th className="px-4 py-3 font-medium text-[var(--color-muted-foreground)]">Trạng thái</th>
-                  <th className="px-4 py-3 font-medium text-[var(--color-muted-foreground)] text-right">Thao tác</th>
+                  <th className="px-4 py-3 font-medium text-[var(--color-muted-foreground)]">{t('OrgListView.name')}</th>
+                  <th className="px-4 py-3 font-medium text-[var(--color-muted-foreground)]">{t('OrgListView.code')}</th>
+                  <th className="px-4 py-3 font-medium text-[var(--color-muted-foreground)]">{t('OrgListView.classification')}</th>
+                  <th className="px-4 py-3 font-medium text-[var(--color-muted-foreground)]">{t('OrgListView.level')}</th>
+                  <th className="px-4 py-3 font-medium text-[var(--color-muted-foreground)]">{t('OrgListView.status')}</th>
+                  <th className="px-4 py-3 font-medium text-[var(--color-muted-foreground)] text-right">{t('OrgListView.actions')}</th>
                 </tr>
               </thead>
               <tbody>
@@ -81,6 +82,7 @@ export function OrgListView({ data, onAddChild, onEdit, onDelete, maxDepth }: Or
 
 import { useRef } from 'react'
 import { Button } from '@/components/ui/button'
+import { useTranslation } from 'react-i18next'
 
 function TreeNodeRow({ 
   node, 
@@ -97,6 +99,7 @@ function TreeNodeRow({
   onDelete: (id: string) => void
   maxDepth: number
 }) {
+  const { t } = useTranslation('organization')
   const [isExpanded, setIsExpanded] = useState(true)
   const [openUp, setOpenUp] = useState(false)
   const menuRef = useRef<HTMLDivElement>(null)
@@ -139,7 +142,7 @@ function TreeNodeRow({
         </td>
         <td className="px-4 py-3 text-[var(--color-muted-foreground)]">Level {node.level}</td>
         <td className="px-4 py-3">
-          <span className="px-2 py-1 bg-[var(--color-success-bg)] text-[var(--color-success)] rounded-control text-xs font-medium">HOẠT ĐỘNG</span>
+          <span className="px-2 py-1 bg-[var(--color-success-bg)] text-[var(--color-success)] rounded-control text-xs font-medium">{t('OrgListView.active')}</span>
         </td>
         <td className="px-4 py-3 text-right">
           <div className="flex justify-end">
@@ -156,11 +159,11 @@ function TreeNodeRow({
                 <div className="py-2 text-left">
                   {canAddChild && (
                     <Button variant="ghost" className="w-full" onClick={() => onAddChild(node.id, node.name, node.level)}>
-                      <Plus aria-hidden="true" className="w-4 h-4 mr-2 text-[var(--color-info)]" /> Thêm con
+                      <Plus aria-hidden="true" className="w-4 h-4 mr-2 text-[var(--color-info)]" /> {t('OrgListView.addChild')}
                     </Button>
                   )}
                   <Button variant="ghost" className="w-full" onClick={() => onEdit(node)}>
-                    <Edit2 aria-hidden="true" className="w-4 h-4 mr-2 text-[var(--color-warning)]" /> Sửa
+                    <Edit2 aria-hidden="true" className="w-4 h-4 mr-2 text-[var(--color-warning)]" /> {t('OrgListView.edit')}
                   </Button>
                   <div className="h-px bg-[var(--color-muted)] my-1" />
                   <button 
@@ -168,7 +171,7 @@ function TreeNodeRow({
                     disabled={hasChildren}
                     className={`flex items-center w-full px-4 py-2 text-sm transition-colors ${!hasChildren ? 'text-[var(--color-error)] hover:bg-[var(--color-error-bg)]' : 'text-[var(--color-subtle-foreground)] cursor-not-allowed'}`}
                   >
-                    <Trash2 className="w-4 h-4 mr-2" /> Xoá
+                    <Trash2 className="w-4 h-4 mr-2" /> {t('OrgListView.delete')}
                   </button>
                 </div>
               </div>
@@ -201,6 +204,7 @@ function TreeNodeCard({
   onDelete: (id: string) => void
   maxDepth: number
 }) {
+  const { t } = useTranslation('organization')
   const [isExpanded, setIsExpanded] = useState(true)
   const [isMenuOpen, setIsMenuOpen] = useState(false)
   const navigate = useNavigate()
@@ -229,7 +233,7 @@ function TreeNodeCard({
                 <code className="text-xs font-mono bg-[var(--color-muted)] px-1.5 py-0.5 rounded border border-[var(--color-border)]">{node.code || '—'}</code>
                 <span className="text-eyebrow px-2 py-0.5 bg-[var(--color-muted)] text-[var(--color-foreground)] rounded">{node.type}</span>
                 <span className="text-caption">Level {node.level}</span>
-                <span className="px-2 py-0.5 bg-[var(--color-success-bg)] text-[var(--color-success)] rounded text-xs font-medium">HOẠT ĐỘNG</span>
+                <span className="px-2 py-0.5 bg-[var(--color-success-bg)] text-[var(--color-success)] rounded text-xs font-medium">{t('OrgListView.active')}</span>
               </div>
             </div>
           </div>
@@ -247,11 +251,11 @@ function TreeNodeCard({
                   <div className="py-2 text-left">
                     {canAddChild && (
                       <Button variant="ghost" className="w-full" onClick={() => { setIsMenuOpen(false); onAddChild(node.id, node.name, node.level) }}>
-                        <Plus aria-hidden="true" className="w-4 h-4 mr-2 text-[var(--color-info)]" /> Thêm con
+                        <Plus aria-hidden="true" className="w-4 h-4 mr-2 text-[var(--color-info)]" /> {t('OrgListView.addChild')}
                       </Button>
                     )}
                     <Button variant="ghost" className="w-full" onClick={() => { setIsMenuOpen(false); onEdit(node) }}>
-                      <Edit2 aria-hidden="true" className="w-4 h-4 mr-2 text-[var(--color-warning)]" /> Sửa
+                      <Edit2 aria-hidden="true" className="w-4 h-4 mr-2 text-[var(--color-warning)]" /> {t('OrgListView.edit')}
                     </Button>
                     <div className="h-px bg-[var(--color-muted)] my-1" />
                     <button
@@ -259,7 +263,7 @@ function TreeNodeCard({
                       disabled={hasChildren}
                       className={`flex items-center w-full px-4 py-2 text-sm transition-colors ${!hasChildren ? 'text-[var(--color-error)] hover:bg-[var(--color-error-bg)]' : 'text-[var(--color-subtle-foreground)] cursor-not-allowed'}`}
                     >
-                      <Trash2 className="w-4 h-4 mr-2" /> Xoá
+                      <Trash2 className="w-4 h-4 mr-2" /> {t('OrgListView.delete')}
                     </button>
                   </div>
                 </div>

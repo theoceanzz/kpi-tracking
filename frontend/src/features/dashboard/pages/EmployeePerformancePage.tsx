@@ -15,8 +15,10 @@ import { toast } from 'sonner'
 import { getApiErrorMessage } from '@/lib/apiError'
 import { reminderApi } from '../api/reminderApi'
 import type { KpiTask } from '@/types/stats'
+import { useTranslation } from 'react-i18next'
 
 export default function EmployeePerformancePage() {
+  const { t: tr } = useTranslation('dashboard')
   const { userId } = useParams<{ userId: string }>()
   const [page, setPage] = useState(0)
   const [remindingId, setRemindingId] = useState<string | null>(null)
@@ -40,9 +42,9 @@ export default function EmployeePerformancePage() {
     setRemindingId(taskId)
     try {
       await reminderApi.sendReminder(taskId, userId)
-      toast.success('Đã gửi thông báo nhắc nhở nộp KPI')
+      toast.success(tr('EmployeePerformancePage.kpiSubmissionReminderSent'))
     } catch (error) {
-      toast.error(getApiErrorMessage(error, 'Gửi nhắc nhở thất bại'))
+      toast.error(getApiErrorMessage(error, tr('EmployeePerformancePage.failedToSendReminder')))
     } finally {
       setRemindingId(null)
     }
@@ -51,16 +53,16 @@ export default function EmployeePerformancePage() {
   const handleRemindAll = async () => {
     const unfinishedTasks = tasks.filter(t => t.status !== 'APPROVED' && t.status !== 'PENDING' && t.status !== 'REJECTED')
     if (unfinishedTasks.length === 0) {
-      toast.info('Không có nhiệm vụ nào cần nhắc nhở')
+      toast.info(tr('EmployeePerformancePage.noTasksNeedAReminder'))
       return
     }
 
     setRemindingAll(true)
     try {
       await Promise.all(unfinishedTasks.map(t => reminderApi.sendReminder(t.id, userId!)))
-      toast.success(`Đã gửi nhắc nhở cho ${unfinishedTasks.length} nhiệm vụ`)
+      toast.success(tr('EmployeePerformancePage.sentRemindersForTasks', { count: unfinishedTasks.length }))
     } catch (error) {
-      toast.error(getApiErrorMessage(error, 'Gửi nhắc nhở hàng loạt thất bại'))
+      toast.error(getApiErrorMessage(error, tr('EmployeePerformancePage.failedToSendBulkReminders')))
     } finally {
       setRemindingAll(false)
     }
@@ -75,7 +77,7 @@ export default function EmployeePerformancePage() {
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex min-w-0 items-start gap-3">
           <Button asChild variant="outline" size="icon" className="shrink-0">
-            <Link to="/dashboard" aria-label="Về Tổng quan"><ChevronLeft aria-hidden="true" /></Link>
+            <Link to="/dashboard" aria-label={tr('EmployeePerformancePage.backToOverview')}><ChevronLeft aria-hidden="true" /></Link>
           </Button>
           <UserAvatar
             fullName={employee?.fullName}
@@ -84,36 +86,36 @@ export default function EmployeePerformancePage() {
             fallbackClassName="bg-[var(--color-primary-soft)] text-base font-semibold text-[var(--color-primary)]"
           />
           <div className="min-w-0">
-            <h1 className="text-page-title truncate">{employee?.fullName ?? 'Nhân sự'}</h1>
+            <h1 className="text-page-title truncate">{employee?.fullName ?? tr('EmployeePerformancePage.people')}</h1>
             <p className="mt-0.5 truncate text-sm text-[var(--color-muted-foreground)]">{employee?.email}</p>
           </div>
         </div>
         {remindable.length > 0 && (
           <Button variant="outline" className="shrink-0" onClick={handleRemindAll} disabled={remindingAll}>
-            <Bell aria-hidden="true" className={cn(remindingAll && 'animate-pulse')} /> Nhắc tất cả ({remindable.length})
+            <Bell aria-hidden="true" className={cn(remindingAll && 'animate-pulse')} /> {tr('EmployeePerformancePage.remindAll')}{remindable.length})
           </Button>
         )}
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
-        <StatCard label="Chỉ tiêu được giao" value={progress?.totalAssignedKpi ?? 0} icon={<Target />} color="indigo" />
-        <StatCard label="Tỷ lệ hoàn thành" value={`${completion}%`} icon={<TrendingUp />} color="emerald" />
-        <StatCard label="Điểm trung bình" value={progress?.averageScore ? Number(progress.averageScore).toFixed(1) : '—'} icon={<CheckCircle />} color="blue" />
-        <StatCard label="Bài đã duyệt" value={progress?.approvedSubmissions ?? 0} icon={<CheckCircle />} color="emerald" />
-        <StatCard label="Bài quá hạn" value={progress?.lateSubmissions ?? 0} icon={<AlertCircle />} color="red" highlight={(progress?.lateSubmissions ?? 0) > 0} />
+        <StatCard label={tr('EmployeePerformancePage.assignedKpis')} value={progress?.totalAssignedKpi ?? 0} icon={<Target />} color="indigo" />
+        <StatCard label={tr('EmployeePerformancePage.completionRate')} value={`${completion}%`} icon={<TrendingUp />} color="emerald" />
+        <StatCard label={tr('EmployeePerformancePage.averageScore')} value={progress?.averageScore ? Number(progress.averageScore).toFixed(1) : '—'} icon={<CheckCircle />} color="blue" />
+        <StatCard label={tr('EmployeePerformancePage.approvedSubmissions')} value={progress?.approvedSubmissions ?? 0} icon={<CheckCircle />} color="emerald" />
+        <StatCard label={tr('EmployeePerformancePage.overdueSubmissions')} value={progress?.lateSubmissions ?? 0} icon={<AlertCircle />} color="red" highlight={(progress?.lateSubmissions ?? 0) > 0} />
       </div>
 
       <section className="overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
         <div className="flex items-center justify-between gap-3 border-b border-[var(--color-border)] px-5 py-4">
           <div>
-            <h2 className="text-section-title">Tình trạng thực hiện KPI</h2>
-            <p className="mt-0.5 text-sm text-[var(--color-muted-foreground)]">Từng chỉ tiêu được giao, tiến độ nộp bài và hạn.</p>
+            <h2 className="text-section-title">{tr('EmployeePerformancePage.kpiExecutionStatus')}</h2>
+            <p className="mt-0.5 text-sm text-[var(--color-muted-foreground)]">{tr('EmployeePerformancePage.eachAssignedKpiSubmissionProgressAnd')}</p>
           </div>
-          <span className="text-caption tabular-nums">{tasksData?.totalElements ?? 0} chỉ tiêu</span>
+          <span className="text-caption tabular-nums">{tasksData?.totalElements ?? 0} {tr('EmployeePerformancePage.kpis')}</span>
         </div>
 
         {tasks.length === 0 ? (
-          <EmptyState icon={Target} title="Chưa được giao chỉ tiêu nào" description="Khi trưởng đơn vị giao và chỉ tiêu được duyệt, chúng sẽ hiện ở đây." />
+          <EmptyState icon={Target} title={tr('EmployeePerformancePage.noKpisAssignedYet')} description={tr('EmployeePerformancePage.onceTheUnitHeadAssignsKpis')} />
         ) : (
           <ul className="divide-y divide-[var(--color-border)]">
             {tasks.map((task: KpiTask) => {
@@ -130,7 +132,7 @@ export default function EmployeePerformancePage() {
                     </div>
                     <p className="mt-0.5 text-caption">
                       {task.periodName}
-                      {' · '}Hạn{' '}
+                      {' · '}{tr('EmployeePerformancePage.due')}{' '}
                       <span className={cn('tabular-nums', task.status === 'OVERDUE' && 'text-[var(--color-error)]')}>
                         {task.deadline ? formatDateTime(task.deadline).split(' ')[0] : '—'}
                       </span>
@@ -148,7 +150,7 @@ export default function EmployeePerformancePage() {
                   <div className="flex shrink-0 items-center justify-end">
                     {canRemind && (
                       <Button variant="outline" size="sm" onClick={() => handleRemind(task.id)} disabled={remindingId === task.id}>
-                        <Bell aria-hidden="true" className={cn(remindingId === task.id && 'animate-pulse')} /> Nhắc nhở
+                        <Bell aria-hidden="true" className={cn(remindingId === task.id && 'animate-pulse')} /> {tr('EmployeePerformancePage.remind')}
                       </Button>
                     )}
                   </div>
@@ -160,7 +162,7 @@ export default function EmployeePerformancePage() {
 
         {totalPages > 1 && (
           <div className="border-t border-[var(--color-border)] px-5 py-3">
-            <Pagination currentPage={page} totalPages={totalPages} totalElements={tasksData?.totalElements ?? 0} size={size} onPageChange={setPage} itemLabel="chỉ tiêu" />
+            <Pagination currentPage={page} totalPages={totalPages} totalElements={tasksData?.totalElements ?? 0} size={size} onPageChange={setPage} itemLabel={tr('EmployeePerformancePage.kpis')} />
           </div>
         )}
       </section>

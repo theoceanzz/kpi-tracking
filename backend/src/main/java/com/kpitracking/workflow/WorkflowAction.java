@@ -23,6 +23,8 @@ public enum WorkflowAction {
 
     APPROVE_SUBMISSION(WorkflowStage.SUBMISSION_REVIEW),
     REJECT_SUBMISSION(WorkflowStage.SUBMISSION_REVIEW),
+    /** Hoàn duyệt: trả bài nộp về để nhân viên làm lại bằng bài nộp mới. */
+    RETURN_SUBMISSION(WorkflowStage.SUBMISSION_REVIEW),
 
     CREATE_SELF_EVALUATION(WorkflowStage.SELF_EVALUATION),
     CREATE_EVALUATION(WorkflowStage.MANAGER_EVALUATION),

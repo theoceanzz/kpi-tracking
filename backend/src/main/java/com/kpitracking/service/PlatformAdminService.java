@@ -12,6 +12,7 @@ import java.util.Map;
 import com.kpitracking.dto.response.admin.PlatformAdminStatsResponse;
 import com.kpitracking.entity.Organization;
 import com.kpitracking.exception.ResourceNotFoundException;
+import com.kpitracking.i18n.Terms;
 import com.kpitracking.repository.OrganizationRepository;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -115,7 +116,7 @@ public class PlatformAdminService {
     @Transactional
     public OrganizationAdminResponse updateFeatures(UUID orgId, UpdateOrgFeaturesRequest req) {
         Organization org = organizationRepository.findById(orgId)
-                .orElseThrow(() -> new ResourceNotFoundException("Organization", "id", orgId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.organization"), "id", orgId));
         if (req.getEnableAi() != null) org.setEnableAi(req.getEnableAi());
         if (req.getEnableOkr() != null) org.setEnableOkr(req.getEnableOkr());
         if (req.getEnableWaterfall() != null) org.setEnableWaterfall(req.getEnableWaterfall());
@@ -125,7 +126,7 @@ public class PlatformAdminService {
     @Transactional
     public OrganizationAdminResponse updateStatus(UUID orgId, UpdateOrgStatusRequest req) {
         Organization org = organizationRepository.findById(orgId)
-                .orElseThrow(() -> new ResourceNotFoundException("Organization", "id", orgId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.organization"), "id", orgId));
         org.setStatus(req.getStatus());
         return toAdminResponse(organizationRepository.save(org));
     }
@@ -161,7 +162,7 @@ public class PlatformAdminService {
     @Transactional
     public OrganizationAdminResponse updateAiBudget(UUID orgId, Long monthlyTokenLimit) {
         Organization org = organizationRepository.findById(orgId)
-                .orElseThrow(() -> new ResourceNotFoundException("Tổ chức", "id", orgId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.organization"), "id", orgId));
         org.setAiMonthlyTokenLimit(monthlyTokenLimit != null ? monthlyTokenLimit : 0L);
         return toAdminResponse(organizationRepository.save(org));
     }

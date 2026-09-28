@@ -19,7 +19,7 @@ public class ConductScoreRequest {
     /** Người được chấm. Bỏ trống ở luồng tự đánh giá = chính mình. */
     private UUID userId;
 
-    @NotNull(message = "Phạm vi chấm (đợt/kỳ) không được để trống")
+    @NotNull(message = "{validation.scoringScope}")
     private ConductScope scope;
 
     /** Bắt buộc khi scope = PERIOD. */

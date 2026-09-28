@@ -3,6 +3,7 @@ import { adjustmentApi } from '../api/adjustmentApi'
 import type { AdjustmentStatus } from '@/types/adjustment'
 import { toast } from 'sonner'
 import { getApiErrorMessage } from '@/lib/apiError'
+import { useTranslation } from 'react-i18next'
 
 export function useKpiAdjustments(params: { 
   page?: number; 
@@ -21,15 +22,16 @@ export function useKpiAdjustments(params: {
 }
 
 export function useBulkReviewAdjustments() {
+  const { t } = useTranslation('kpi')
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: adjustmentApi.bulkReview,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['kpi-adjustments'] })
-      toast.success('Đã xử lý hàng loạt thành công')
+      toast.success(t('useKpiAdjustments.bulkActionCompletedSuccessfully'))
     },
     onError: (error) => {
-      toast.error(getApiErrorMessage(error, 'Xử lý hàng loạt thất bại'))
+      toast.error(getApiErrorMessage(error, t('useKpiAdjustments.bulkActionFailed')))
     }
   })
 }

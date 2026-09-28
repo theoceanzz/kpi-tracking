@@ -1,13 +1,16 @@
+import { behaviorSourceLabel } from '@/lib/performanceMatrix'
 import ExcelJS from 'exceljs'
 import { format, parseISO } from 'date-fns'
 import type { CycleUnitEvaluation, CycleUserEvaluation, CycleEvaluationMode } from '@/types/kpi'
 import { SCORING_POOL } from '@/lib/scoring'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
-const MODE_LABEL: Record<CycleEvaluationMode, string> = {
-  QUANTITATIVE: 'Định lượng',
-  QUALITATIVE: 'Định tính',
-  BOTH: 'Cả hai',
-}
+const MODE_LABEL = perLanguage((): Record<CycleEvaluationMode, string> => ({
+  QUANTITATIVE: i18n.t('kpi:cycleEvaluationExport.quantitative'),
+  QUALITATIVE: i18n.t('kpi:cycleEvaluationExport.qualitative'),
+  BOTH: i18n.t('kpi:cycleEvaluationExport.both'),
+}))
 
 const sanitize = (s: string) => (s || '').replace(/[\\/:*?"<>|]/g, '').replace(/\s+/g, '_').slice(0, 60)
 
@@ -47,7 +50,7 @@ export async function exportCycleEvaluationToExcel(
   }
 
   const wb = new ExcelJS.Workbook()
-  const ws = wb.addWorksheet('Đánh giá kỳ')
+  const ws = wb.addWorksheet(i18n.t('kpi:cycleEvaluationExport.cycleEvaluation'))
 
   const lastCol = showDim ? 8 : 6 // STT + Nhân viên + Đơn vị + 3 điểm (+ 2 cột trục ma trận)
   const colLetter = String.fromCharCode(64 + lastCol) // A=65
@@ -55,7 +58,7 @@ export async function exportCycleEvaluationToExcel(
   // 1. Tiêu đề
   ws.mergeCells(`A1:${colLetter}1`)
   const titleCell = ws.getCell('A1')
-  titleCell.value = `ĐÁNH GIÁ KỲ — ${(summary.cycleName || '').toUpperCase()}`
+  titleCell.value = i18n.t('kpi:cycleEvaluationExport.cycleEvaluation2', { toUpperCase: (summary.cycleName || '').toUpperCase() })
   titleCell.font = { name: 'Arial', size: 16, bold: true, color: { argb: 'FFFFFFFF' } }
   titleCell.alignment = { vertical: 'middle', horizontal: 'center' }
   titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF059669' } } // Emerald-600
@@ -63,23 +66,23 @@ export async function exportCycleEvaluationToExcel(
 
   // 2. Thông tin tổng hợp phòng ban
   const info: [string, string][] = [
-    ['Phòng ban', summary.orgUnitName || '—'],
-    ['Chế độ đánh giá', MODE_LABEL[summary.mode]],
-    ['Số thành viên', String(summary.memberCount)],
-    [isQual ? 'Mức chốt (TB phòng)' : 'Điểm chốt (TB phòng)', side(summary.managerScore)],
-    [isQual ? 'Mức tự đánh giá (TB)' : 'Điểm tự đánh giá (TB)', side(summary.selfScore)],
+    [i18n.t('kpi:cycleEvaluationExport.department'), summary.orgUnitName || '—'],
+    [i18n.t('kpi:cycleEvaluationExport.evaluationMode'), MODE_LABEL()[summary.mode]],
+    [i18n.t('kpi:cycleEvaluationExport.members'), String(summary.memberCount)],
+    [isQual ? i18n.t('kpi:cycleEvaluationExport.finalizedLevelDeptAverage') : i18n.t('kpi:cycleEvaluationExport.finalizedScoreDeptAverage'), side(summary.managerScore)],
+    [isQual ? i18n.t('kpi:cycleEvaluationExport.selfAssessedLevelAverage') : i18n.t('kpi:cycleEvaluationExport.selfAssessmentScoreAverage'), side(summary.selfScore)],
   ]
   if (showDim) {
-    info.push(['TB điểm hành vi', summary.behaviorScore != null ? `${summary.behaviorScore}/5` : '—'])
-    info.push(['TB xếp loại ma trận', summary.matrixRating != null ? `${summary.matrixRating}/5` : '—'])
+    info.push([i18n.t('kpi:cycleEvaluationExport.avgConductScore'), summary.behaviorScore != null ? `${summary.behaviorScore}/5` : '—'])
+    info.push([i18n.t('kpi:cycleEvaluationExport.avgMatrixRating'), summary.matrixRating != null ? `${summary.matrixRating}/5` : '—'])
   }
-  info.push(['Trạng thái', summary.status === 'FINALIZED' ? 'Đã chốt' : 'Bản nháp'])
+  info.push([i18n.t('kpi:cycleEvaluationExport.status'), summary.status === 'FINALIZED' ? i18n.t('kpi:cycleEvaluationExport.finalized') : i18n.t('kpi:cycleEvaluationExport.draft')])
   if (summary.status === 'FINALIZED') {
-    info.push(['Người chốt', summary.finalizedByName || '—'])
-    info.push(['Thời điểm chốt', summary.finalizedAt ? format(parseISO(summary.finalizedAt), 'dd/MM/yyyy HH:mm') : '—'])
+    info.push([i18n.t('kpi:cycleEvaluationExport.finalizedBy'), summary.finalizedByName || '—'])
+    info.push([i18n.t('kpi:cycleEvaluationExport.finalizedAt'), summary.finalizedAt ? format(parseISO(summary.finalizedAt), 'dd/MM/yyyy HH:mm') : '—'])
   }
-  if (summary.comment) info.push(['Nhận xét', summary.comment])
-  info.push(['Ngày xuất', format(new Date(), 'dd/MM/yyyy HH:mm')])
+  if (summary.comment) info.push([i18n.t('kpi:cycleEvaluationExport.comments'), summary.comment])
+  info.push([i18n.t('kpi:cycleEvaluationExport.exportDate'), format(new Date(), 'dd/MM/yyyy HH:mm')])
 
   info.forEach(([label, value]) => {
     const row = ws.addRow([label])
@@ -97,11 +100,11 @@ export async function exportCycleEvaluationToExcel(
   ws.addRow([])
 
   // 3. Bảng thành viên
-  const headers = ['STT', 'Nhân viên', 'Đơn vị',
-    isQual ? 'Mức tự đánh giá' : 'Nhân viên tự đánh giá',
-    isQual ? 'Mức QLTT' : 'Cán bộ QLTT đánh giá',
-    isQual ? 'Mức chốt kỳ' : 'Điểm chốt kỳ']
-  if (showDim) headers.push('Điểm hành vi', 'Xếp loại')
+  const headers = [i18n.t('kpi:cycleEvaluationExport.rowNo'), i18n.t('kpi:cycleEvaluationExport.employee'), i18n.t('kpi:cycleEvaluationExport.unit'),
+    isQual ? i18n.t('kpi:cycleEvaluationExport.selfAssessedLevel') : i18n.t('kpi:cycleEvaluationExport.employeeSelfAssessment'),
+    isQual ? i18n.t('kpi:cycleEvaluationExport.directManagerLevel') : i18n.t('kpi:cycleEvaluationExport.directManagersAssessment'),
+    isQual ? i18n.t('kpi:cycleEvaluationExport.cycleFinalizedLevel') : i18n.t('kpi:cycleEvaluationExport.cycleFinalizedScore')]
+  if (showDim) headers.push(i18n.t('kpi:cycleEvaluationExport.conductScore'), i18n.t('kpi:cycleEvaluationExport.rating'))
 
   const headerRow = ws.addRow(headers)
   headerRow.eachCell((cell) => {
@@ -124,7 +127,7 @@ export async function exportCycleEvaluationToExcel(
       // Nguồn của điểm hành vi đi kèm: đọc file mà không biết số ra từ KPI định tính hay
       // từ hạnh kiểm thì không giải thích được xếp loại cho ai.
       cells.push(m.behaviorScore != null
-        ? `${m.behaviorScore}/5${m.behaviorFromConduct ? ' (hạnh kiểm)' : ''}`
+        ? `${m.behaviorScore}/5${behaviorSourceLabel(m)}`
         : '—')
       cells.push(m.matrixRating != null ? `${m.matrixRating}/5` : '—')
     }
@@ -173,7 +176,7 @@ export async function exportCycleMemberDetailToExcel(
   }
 
   const wb = new ExcelJS.Workbook()
-  const ws = wb.addWorksheet('Chi tiết cá nhân')
+  const ws = wb.addWorksheet(i18n.t('kpi:cycleEvaluationExport.individualDetails'))
 
   const lastCol = showDim ? 7 : 4 // Đợt + (Định lượng, Định tính, Xếp loại) + %HT + Tự ĐG + QLTT
   const colLetter = String.fromCharCode(64 + lastCol)
@@ -181,7 +184,7 @@ export async function exportCycleMemberDetailToExcel(
   // 1. Tiêu đề
   ws.mergeCells(`A1:${colLetter}1`)
   const titleCell = ws.getCell('A1')
-  titleCell.value = `CHI TIẾT ĐÁNH GIÁ KỲ — ${(member.userName || '').toUpperCase()}`
+  titleCell.value = i18n.t('kpi:cycleEvaluationExport.cycleEvaluationDetails', { toUpperCase: (member.userName || '').toUpperCase() })
   titleCell.font = { name: 'Arial', size: 16, bold: true, color: { argb: 'FFFFFFFF' } }
   titleCell.alignment = { vertical: 'middle', horizontal: 'center' }
   titleCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FF059669' } }
@@ -189,36 +192,36 @@ export async function exportCycleMemberDetailToExcel(
 
   // 2. Thông tin tổng hợp của cá nhân
   const info: [string, string][] = [
-    ['Nhân viên', member.userName || '—'],
-    ['Đơn vị', member.orgUnitName || summary.orgUnitName || '—'],
-    ['Kỳ đánh giá', summary.cycleName || '—'],
-    ['Chế độ đánh giá', MODE_LABEL[member.mode]],
-    [isQual ? 'Mức tự đánh giá' : 'Nhân viên tự đánh giá', side(member.selfScore)],
-    [isQual ? 'Mức QLTT' : 'Cán bộ QLTT đánh giá', side(member.managerScore)],
+    [i18n.t('kpi:cycleEvaluationExport.employee'), member.userName || '—'],
+    [i18n.t('kpi:cycleEvaluationExport.unit'), member.orgUnitName || summary.orgUnitName || '—'],
+    [i18n.t('kpi:cycleEvaluationExport.evaluationCycles'), summary.cycleName || '—'],
+    [i18n.t('kpi:cycleEvaluationExport.evaluationMode'), MODE_LABEL()[member.mode]],
+    [isQual ? i18n.t('kpi:cycleEvaluationExport.selfAssessedLevel') : i18n.t('kpi:cycleEvaluationExport.employeeSelfAssessment'), side(member.selfScore)],
+    [isQual ? i18n.t('kpi:cycleEvaluationExport.directManagerLevel') : i18n.t('kpi:cycleEvaluationExport.directManagersAssessment'), side(member.managerScore)],
     [
-      isQual ? 'Mức chốt kỳ' : 'Điểm chốt kỳ',
+      isQual ? i18n.t('kpi:cycleEvaluationExport.cycleFinalizedLevel') : i18n.t('kpi:cycleEvaluationExport.cycleFinalizedScore'),
       member.finalScore != null && !isQual
-        ? `${member.finalScore} (${getScoreLabel(member.finalScore)})${member.finalScoreOverridden ? ' — đã chỉnh tay' : ''}`
-        : `${side(member.finalScore)}${member.finalScoreOverridden ? ' — đã chỉnh tay' : ''}`,
+        ? `${member.finalScore} (${getScoreLabel(member.finalScore)})${member.finalScoreOverridden ? i18n.t('kpi:cycleEvaluationExport.manuallyAdjusted') : ''}`
+        : `${side(member.finalScore)}${member.finalScoreOverridden ? i18n.t('kpi:cycleEvaluationExport.manuallyAdjusted') : ''}`,
     ],
   ]
   if (member.mode !== 'QUANTITATIVE' || member.behaviorScore != null || member.matrixRating != null) {
     if (member.mode !== 'QUANTITATIVE') {
-      info.push(['Mức định tính', member.qualScore != null ? `${member.qualScore}/5` : '—'])
+      info.push([i18n.t('kpi:cycleEvaluationExport.qualitativeLevel'), member.qualScore != null ? `${member.qualScore}/5` : '—'])
     }
-    info.push(['Điểm hành vi (trục ma trận)', member.behaviorScore != null
-      ? `${member.behaviorScore}/5${member.behaviorFromConduct ? ' — quy từ hạnh kiểm' : ''}`
+    info.push([i18n.t('kpi:cycleEvaluationExport.conductScoreMatrixAxis'), member.behaviorScore != null
+      ? `${member.behaviorScore}/5${behaviorSourceLabel(member)}`
       : '—'])
-    info.push(['Xếp loại ma trận', member.matrixRating != null ? `${member.matrixRating}/5` : '—'])
+    info.push([i18n.t('kpi:cycleEvaluationExport.matrixRating'), member.matrixRating != null ? `${member.matrixRating}/5` : '—'])
   }
   if (member.avgCompletionPercent != null) {
-    info.push(['TB % hoàn thành định lượng', `${Math.round(member.avgCompletionPercent)}%`])
+    info.push([i18n.t('kpi:cycleEvaluationExport.avgQuantitativeCompletion'), `${Math.round(member.avgCompletionPercent)}%`])
   }
-  info.push(['Trạng thái', member.locked ? `Đã khoá (chốt ở "${member.lockedByUnitName || '—'}")` : 'Chưa khoá'])
-  if (member.evaluatedByName) info.push(['Người chấm điểm kỳ', member.evaluatedByName])
-  if (member.evaluatedAt) info.push(['Thời điểm chấm', format(parseISO(member.evaluatedAt), 'dd/MM/yyyy HH:mm')])
-  if (member.comment) info.push(['Nhận xét', member.comment])
-  info.push(['Ngày xuất', format(new Date(), 'dd/MM/yyyy HH:mm')])
+  info.push([i18n.t('kpi:cycleEvaluationExport.status'), member.locked ? i18n.t('kpi:cycleEvaluationExport.lockedFinalizedAt', { value: member.lockedByUnitName || '—' }) : i18n.t('kpi:cycleEvaluationExport.notLocked')])
+  if (member.evaluatedByName) info.push([i18n.t('kpi:cycleEvaluationExport.cycleScorer'), member.evaluatedByName])
+  if (member.evaluatedAt) info.push([i18n.t('kpi:cycleEvaluationExport.scoredAt'), format(parseISO(member.evaluatedAt), 'dd/MM/yyyy HH:mm')])
+  if (member.comment) info.push([i18n.t('kpi:cycleEvaluationExport.comments'), member.comment])
+  info.push([i18n.t('kpi:cycleEvaluationExport.exportDate'), format(new Date(), 'dd/MM/yyyy HH:mm')])
 
   info.forEach(([label, value]) => {
     const row = ws.addRow([label])
@@ -235,16 +238,16 @@ export async function exportCycleMemberDetailToExcel(
   ws.addRow([])
 
   // 3. Bảng điểm từng đợt trong kỳ
-  const sectionRow = ws.addRow(['CHI TIẾT ĐIỂM TỪNG ĐỢT TRONG KỲ'])
+  const sectionRow = ws.addRow([i18n.t('kpi:cycleEvaluationExport.scoreDetailsForEachPeriodIn')])
   ws.mergeCells(`A${sectionRow.number}:${colLetter}${sectionRow.number}`)
   sectionRow.getCell(1).font = { name: 'Arial', size: 11, bold: true, color: { argb: 'FF059669' } }
 
   if (!member.periodBreakdown?.length) {
-    ws.addRow(['Kỳ này chưa có đợt nào được gán.']).getCell(1).font = { name: 'Arial', size: 10, italic: true }
+    ws.addRow([i18n.t('kpi:cycleEvaluationExport.noPeriodHasBeenAssignedTo')]).getCell(1).font = { name: 'Arial', size: 10, italic: true }
   } else {
-    const headers = ['Đợt']
-    if (showDim) headers.push('Định lượng', 'Định tính', 'Xếp loại')
-    headers.push('% hoàn thành', isQual ? 'Mức tự đánh giá' : 'Tự đánh giá', isQual ? 'Mức QLTT' : 'QLTT đánh giá')
+    const headers = [i18n.t('kpi:cycleEvaluationExport.aPeriod')]
+    if (showDim) headers.push(i18n.t('kpi:cycleEvaluationExport.quantitative'), i18n.t('kpi:cycleEvaluationExport.qualitative'), i18n.t('kpi:cycleEvaluationExport.rating'))
+    headers.push(i18n.t('kpi:cycleEvaluationExport.completion'), isQual ? i18n.t('kpi:cycleEvaluationExport.selfAssessedLevel') : i18n.t('kpi:cycleEvaluationExport.selfAssessment'), isQual ? i18n.t('kpi:cycleEvaluationExport.directManagerLevel') : i18n.t('kpi:cycleEvaluationExport.directManagerAssessment'))
 
     const headerRow = ws.addRow(headers)
     headerRow.eachCell((cell) => {

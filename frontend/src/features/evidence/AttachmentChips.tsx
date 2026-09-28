@@ -5,6 +5,8 @@ import { formatBytes } from '@/lib/attachmentPolicy'
 import type { Attachment } from '@/types/submission'
 import { Button } from '@/components/ui/button'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { useTranslation } from 'react-i18next'
+import i18n from 'i18next'
 
 function iconFor(a: Attachment) {
   const t = (a.contentType || '').toLowerCase()
@@ -20,7 +22,7 @@ function extOf(a: Attachment): string {
   const m = /\.([a-z0-9]{2,5})$/i.exec(a.fileName || '')
   if (m) return m[1]!.toUpperCase()
   const t = (a.contentType || '').split('/')[1]
-  return t ? t.toUpperCase().slice(0, 5) : 'TỆP'
+  return t ? t.toUpperCase().slice(0, 5) : i18n.t('evidence:AttachmentChips.files')
 }
 
 /**
@@ -32,6 +34,7 @@ function extOf(a: Attachment): string {
  * chỉ tốn một chip, mở ra mới thấy chi tiết, và tải là một nút có chữ "Tải".
  */
 export default function AttachmentChips({ files, className }: { files?: Attachment[] | null; className?: string }) {
+  const { t } = useTranslation('evidence')
   const [busyId, setBusyId] = useState<string | null>(null)
   if (!files?.length) return null
 
@@ -51,13 +54,13 @@ export default function AttachmentChips({ files, className }: { files?: Attachme
             'inline-flex items-center gap-1 rounded-control bg-[var(--color-primary)] px-2 py-0.5 text-[11px] font-semibold text-[var(--color-primary-foreground)] shadow-sm transition-opacity hover:opacity-90',
             className,
           )}
-          title="Xem và tải tệp đính kèm"
+          title={t('AttachmentChips.viewAndDownloadAttachments')}
         >
-          <Paperclip size={11} aria-hidden="true" /> {files.length} tệp <Download size={11} aria-hidden="true" className="opacity-80" />
+          <Paperclip size={11} aria-hidden="true" /> {files.length} {t('AttachmentChips.files2')} <Download size={11} aria-hidden="true" className="opacity-80" />
         </button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-[min(92vw,380px)] p-0">
-        <p className="text-eyebrow border-b border-[var(--color-border)] px-3 py-2">Minh chứng đính kèm · {files.length}</p>
+        <p className="text-eyebrow border-b border-[var(--color-border)] px-3 py-2">{t('AttachmentChips.evidenceAttached')} {files.length}</p>
         <ul className="custom-scrollbar max-h-72 divide-y divide-[var(--color-border)] overflow-y-auto">
           {files.map(a => {
             const Icon = iconFor(a)
@@ -76,10 +79,10 @@ export default function AttachmentChips({ files, className }: { files?: Attachme
                   <span className="block truncate text-sm font-medium text-[var(--color-foreground)]" title={a.fileName}>{a.fileName}</span>
                   <span className="text-caption block">{extOf(a)}{a.fileSize ? ` · ${formatBytes(a.fileSize)}` : ''}</span>
                 </span>
-                <Button variant="outline" size="sm" type="button" onClick={() => save(a)} disabled={busyId === a.id} aria-label={`Tải ${a.fileName}`}>
-                  {busyId === a.id ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Download aria-hidden="true" />} Tải
+                <Button variant="outline" size="sm" type="button" onClick={() => save(a)} disabled={busyId === a.id} aria-label={t('AttachmentChips.download', { fileName: a.fileName })}>
+                  {busyId === a.id ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Download aria-hidden="true" />} {t('AttachmentChips.download2')}
                 </Button>
-                <Button asChild variant="ghost" size="icon-sm" aria-label={`Mở ${a.fileName} ở tab mới`} title="Mở ở tab mới">
+                <Button asChild variant="ghost" size="icon-sm" aria-label={t('AttachmentChips.openInANewTab', { fileName: a.fileName })} title={t('AttachmentChips.openInANewTab2')}>
                   <a href={a.fileUrl} target="_blank" rel="noopener noreferrer"><ExternalLink aria-hidden="true" /></a>
                 </Button>
               </li>

@@ -5,6 +5,7 @@ import { useNotificationDots } from '@/hooks/useNotificationDots'
 import { useKpiWorkflow } from '../hooks/useKpiWorkflow'
 import { useWorkflowNavigator } from '../hooks/useWorkflowNavigator'
 import { stageIcon } from '../workflowStageIcons'
+import { useTranslation } from 'react-i18next'
 
 /**
  * Lối vào luồng KPI từ trang chủ.
@@ -16,6 +17,7 @@ import { stageIcon } from '../workflowStageIcons'
  * chỉ nhận lại trang 403.
  */
 export default function WorkflowStartCard({ className }: { className?: string }) {
+  const { t } = useTranslation('kpi')
   const navigate = useNavigate()
   const { enabledStages, isLoading } = useKpiWorkflow()
   const { firstReachableStage } = useWorkflowNavigator()
@@ -47,10 +49,10 @@ export default function WorkflowStartCard({ className }: { className?: string })
 
       <div className="min-w-0 flex-1">
         <p className="flex items-center gap-2 text-sm font-semibold text-[var(--color-foreground)]">
-          Bắt đầu thiết lập KPI
+          {t('WorkflowStartCard.startKpiSetup')}
           {waiting > 0 && (
             <span className="rounded-full bg-[var(--color-error-bg)] px-2 py-0.5 text-xs font-semibold text-[var(--color-error)] dark:bg-[var(--color-error-bg)] dark:text-[var(--color-error)]">
-              {waiting} việc chờ bạn
+              {waiting} {t('WorkflowStartCard.tasksWaitingOnYou')}
             </span>
           )}
         </p>

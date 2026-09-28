@@ -1,5 +1,6 @@
 package com.kpitracking.controller;
 
+import com.kpitracking.i18n.ErrorMessages;
 import com.kpitracking.dto.request.kpi.BatchUpdateWeightRequest;
 import com.kpitracking.dto.request.kpi.CreateKpiCriteriaRequest;
 import com.kpitracking.dto.request.kpi.CreateKpiFromBscRequest;
@@ -121,16 +122,28 @@ public class KpiCriteriaController {
         return ResponseEntity.ok(ApiResponse.success(response.size() + " KPIs submitted for approval", response));
     }
 
+    /**
+     * Duyệt. Ở chuỗi duyệt, quyền thao tác là "đang giữ bước hiện tại" (service kiểm), không phải
+     * một mã quyền toàn cục: người được admin gán lại có thể không mang KPI:APPROVE_CRITERIA. Luồng
+     * một cấp vẫn kiểm KPI:APPROVE_CRITERIA trong đơn vị qua HierarchyAuthorityGuard.
+     */
     @PostMapping("/{kpiId}/approve")
-    @PreAuthorize("hasAuthority('KPI:APPROVE_CRITERIA')")
-    @Operation(summary = "Approve KPI criteria")
-    public ResponseEntity<ApiResponse<KpiCriteriaResponse>> approveKpi(@PathVariable UUID kpiId) {
-        KpiCriteriaResponse response = kpiCriteriaService.approveKpi(kpiId);
-        return ResponseEntity.ok(ApiResponse.success("KPI approved successfully", response));
+    @PreAuthorize("isAuthenticated()")
+    @Operation(summary = "Approve KPI criteria (chain: approve & forward, or final approval)")
+    public ResponseEntity<ApiResponse<KpiCriteriaResponse>> approveKpi(
+            @PathVariable UUID kpiId,
+            @RequestBody(required = false) com.kpitracking.dto.request.kpi.approval.ApproveKpiRequest request) {
+        KpiCriteriaService.ApproveResult result = kpiCriteriaService.approveKpiWithOutcome(kpiId, request);
+        // Giao diện hiện nguyên câu này (nói rõ đã chuyển lên ai) nên phải dịch theo người gọi.
+        String message = result.outcome() == com.kpitracking.enums.ApprovalOutcome.FORWARDED
+                ? ErrorMessages.text("success.kpi.approvedForwarded", "", result.nextHolderNames() == null
+                        ? ErrorMessages.text("notif.bsc.actor.superior", "") : result.nextHolderNames())
+                : ErrorMessages.text("success.kpi.approved", "");
+        return ResponseEntity.ok(ApiResponse.success(message, result.response()));
     }
 
     @PostMapping("/{kpiId}/reject")
-    @PreAuthorize("hasAuthority('KPI:APPROVE_CRITERIA')")
+    @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Reject KPI criteria")
     public ResponseEntity<ApiResponse<KpiCriteriaResponse>> rejectKpi(
             @PathVariable UUID kpiId,
@@ -196,6 +209,17 @@ public class KpiCriteriaController {
             @RequestParam(required = false) UUID kpiPeriodId) {
         Double totalWeight = kpiCriteriaService.getTotalWeight(orgUnitId, userId, kpiPeriodId);
         return ResponseEntity.ok(ApiResponse.success(totalWeight != null ? totalWeight : 0.0));
+    }
+
+    @GetMapping("/weight-headroom")
+    @PreAuthorize("hasAuthority('KPI:CREATE')")
+    @Operation(summary = "Weight already used per org unit for a new KPI that is approved on creation")
+    public ResponseEntity<ApiResponse<KpiCriteriaService.WeightHeadroom>> getWeightHeadroom(
+            @RequestParam UUID kpiPeriodId,
+            @RequestParam(required = false) java.util.List<UUID> orgUnitIds,
+            @RequestParam(required = false) java.util.List<UUID> assigneeIds,
+            @RequestParam(required = false) UUID excludeKpiId) {
+        return ResponseEntity.ok(ApiResponse.success(kpiCriteriaService.getWeightHeadroom(kpiPeriodId, orgUnitIds, assigneeIds, excludeKpiId)));
     }
 
     @PostMapping("/{kpiId}/replace")

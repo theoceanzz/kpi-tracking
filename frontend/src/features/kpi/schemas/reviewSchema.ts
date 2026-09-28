@@ -1,11 +1,13 @@
 import { z } from 'zod'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
 /** Lý do từ chối là bắt buộc — nhân viên phải biết vì sao KPI bị trả lại. */
-export const rejectKpiSchema = z.object({
-  rejectReason: z.string().trim().min(1, 'Vui lòng nhập lý do từ chối'),
-})
+export const rejectKpiSchema = perLanguage(() => (z.object({
+  rejectReason: z.string().trim().min(1, i18n.t('kpi:reviewSchema.pleaseEnterTheRejectionReason')),
+})))
 
-export type RejectKpiFormData = z.infer<typeof rejectKpiSchema>
+export type RejectKpiFormData = z.infer<ReturnType<typeof rejectKpiSchema>>
 
 /**
  * Duyệt/từ chối yêu cầu điều chỉnh KPI. Cùng một biểu mẫu phục vụ hai nút, và ô % bù trừ
@@ -18,7 +20,7 @@ export const createAdjustmentReviewSchema = ({ needsCompensation }: { needsCompe
     compensationPercentage: z.string(),
   }).superRefine((data, ctx) => {
     if (data.reviewMode === 'reject' && !data.note.trim()) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['note'], message: 'Vui lòng nhập ghi chú lý do từ chối' })
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['note'], message: i18n.t('kpi:reviewSchema.pleaseEnterANoteWithThe') })
     }
     if (needsCompensation && data.reviewMode === 'approve') {
       const value = Number(data.compensationPercentage)
@@ -26,7 +28,7 @@ export const createAdjustmentReviewSchema = ({ needsCompensation }: { needsCompe
         ctx.addIssue({
           code: z.ZodIssueCode.custom,
           path: ['compensationPercentage'],
-          message: 'Tỷ lệ % bù trừ phải nằm trong khoảng 0 – 150',
+          message: i18n.t('kpi:reviewSchema.theCompensationMustBeBetween0'),
         })
       }
     }

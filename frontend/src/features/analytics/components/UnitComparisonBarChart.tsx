@@ -8,14 +8,17 @@ import { useSummaryComparison } from '../hooks/useAnalytics'
 import { usePerformanceScale } from '../hooks/usePerformanceScale'
 import type { UnitComparison } from '@/types/stats'
 import ChartTooltip from '@/components/charts/ChartTooltip'
+import { useTranslation } from 'react-i18next'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
 // Chú thích màu: 2 cột (hiệu suất, tiến độ) + 2 chỉ số trong tooltip (trễ hạn, không nộp).
-const UNIT_CHART_KEYS = [
-  { label: 'Hiệu suất', color: '#10b981' },
-  { label: 'Tiến độ', color: '#6366f1' },
-  { label: 'Trễ hạn', color: '#f59e0b' },
-  { label: 'Không nộp', color: '#f43f5e' },
-]
+const UNIT_CHART_KEYS = perLanguage(() => ([
+  { label: i18n.t('analytics:UnitComparisonBarChart.performance'), color: '#10b981' },
+  { label: i18n.t('analytics:UnitComparisonBarChart.progress'), color: '#6366f1' },
+  { label: i18n.t('analytics:UnitComparisonBarChart.overdue'), color: '#f59e0b' },
+  { label: i18n.t('analytics:UnitComparisonBarChart.notSubmitted'), color: '#f43f5e' },
+]))
 
 function UnitBarTooltip({ active, payload, perf }: any) {
   if (!active || !payload?.length) return null
@@ -46,7 +49,7 @@ function UnitBarTooltip({ active, payload, perf }: any) {
 function UnitChartLegend() {
   return (
     <div className="flex flex-wrap items-center justify-center gap-x-4 gap-y-1 px-2 text-xs font-semibold text-[var(--color-muted-foreground)]">
-      {UNIT_CHART_KEYS.map((k) => (
+      {UNIT_CHART_KEYS().map((k) => (
         <span key={k.label} className="flex items-center gap-1.5 whitespace-nowrap">
           <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: k.color }} />
           {k.label}
@@ -58,13 +61,14 @@ function UnitChartLegend() {
 
 /** Toggle Tốt nhất / Trì trệ. */
 function RankFilterToggle({ filter, onChange }: { filter: 'BEST' | 'WORST'; onChange: (f: 'BEST' | 'WORST') => void }) {
+  const { t } = useTranslation('analytics')
   return (
     <div className="flex bg-[var(--color-muted)] rounded-control p-0.5 gap-0.5">
       <ChoiceChip selected={filter === 'BEST'} variant="segment" size="sm" className="py-1" onClick={() => onChange('BEST')}>
-        <Trophy /> Tốt nhất
+        <Trophy /> {t('UnitComparisonBarChart.best')}
       </ChoiceChip>
       <ChoiceChip selected={filter === 'WORST'} variant="segment" size="sm" className="py-1" onClick={() => onChange('WORST')}>
-        <TrendingDown /> Trì trệ
+        <TrendingDown /> {t('UnitComparisonBarChart.stagnant')}
       </ChoiceChip>
     </div>
   )
@@ -72,16 +76,17 @@ function RankFilterToggle({ filter, onChange }: { filter: 'BEST' | 'WORST'; onCh
 
 /** Bộ chọn số lượng đơn vị hiển thị: Tất cả / Top 5 / Top 10. */
 function TopNSelect({ value, onChange }: { value: 'ALL' | '5' | '10'; onChange: (v: 'ALL' | '5' | '10') => void }) {
+  const { t } = useTranslation('analytics')
   return (
     <Select value={value} onValueChange={v => onChange(v as 'ALL' | '5' | '10')}>
       <SelectTrigger
         className="h-8 w-auto gap-1 px-2 bg-[var(--color-muted)] border-slate-200 dark:border-slate-700 rounded-lg text-xs font-semibold text-[var(--color-muted-foreground)]"
-        title="Số đơn vị hiển thị"
+        title={t('UnitComparisonBarChart.unitsShown')}
       >
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
-        <SelectItem value="ALL">Tất cả</SelectItem>
+        <SelectItem value="ALL">{t('UnitComparisonBarChart.all')}</SelectItem>
         <SelectItem value="5">Top 5</SelectItem>
         <SelectItem value="10">Top 10</SelectItem>
       </SelectContent>
@@ -110,6 +115,7 @@ export default function UnitComparisonBarChart({
   /** Dòng tóm tắt cấu hình do lưới cấp. */
   meta?: React.ReactNode
 }) {
+  const { t } = useTranslation('analytics')
   const [localFilter, setFilter] = useState<RankSide>('BEST')
   const [localTopN, setTopN] = useState<TopN>('ALL')
   const filter = rank ?? localFilter
@@ -148,7 +154,7 @@ export default function UnitComparisonBarChart({
         </div>
       )}
       {chartData.length === 0 ? (
-        <div className="flex-1 flex items-center justify-center text-slate-400 text-sm">Không có dữ liệu</div>
+        <div className="flex-1 flex items-center justify-center text-slate-400 text-sm">{t('UnitComparisonBarChart.noData')}</div>
       ) : (
         <div className="flex-1 min-h-0">
           <ResponsiveContainer width="100%" height="100%" minHeight={0}>
@@ -159,7 +165,7 @@ export default function UnitComparisonBarChart({
                 tick={{ fontSize: 11, fontWeight: 600, fill: '#64748b' }} tickMargin={8}
                 angle={chartData.length > 4 ? -25 : 0} textAnchor={chartData.length > 4 ? 'end' : 'middle'}
                 axisLine={false} tickLine={false} />
-              <YAxis yAxisId="pct" type="number" label={yAxisLabel('T\u1ec9 l\u1ec7 (%)')} domain={[0, 100]} tickFormatter={v => `${v}%`} width={38}
+              <YAxis yAxisId="pct" type="number" label={yAxisLabel(t('UnitComparisonBarChart.rate'))} domain={[0, 100]} tickFormatter={v => `${v}%`} width={38}
                 tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
               {/* Trục ẩn thang điểm cho cột Hiệu suất khi org dùng matrix (để cột không bị dí thấp). */}
               {perf.isMatrix && <YAxis yAxisId="perf" type="number" domain={[0, perf.axisMax]} hide />}

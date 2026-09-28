@@ -1,3 +1,5 @@
+import { LocaleDateInput } from '@/components/ui/date-input'
+import { intlLocale } from '@/i18n/format'
 import { useState, useMemo } from 'react'
 import ChartTooltip from '@/components/charts/ChartTooltip'
 import { useQuery } from '@tanstack/react-query'
@@ -34,6 +36,7 @@ import ObjectiveDrawer from './ObjectiveDrawer'
 import { QualitativeDistributionChart } from './QualitativeDistributionChart'
 import { QualitativeResultChip } from './QualitativeResultChip'
 import { yAxisLabel } from '@/components/charts/axisLabel'
+import { useTranslation } from 'react-i18next'
 
 // Bộ lọc thời gian trong drawer — đơn giản (đồng bộ với các drawer khác), không dùng chọn đợt/khoảng đợt.
 type DateFilterType = 'GLOBAL' | 'THIS_WEEK' | 'THIS_MONTH' | 'THIS_QUARTER' | '6_MONTHS' | 'THIS_YEAR' | 'CUSTOM'
@@ -53,7 +56,7 @@ function TrendTooltip({ active, payload, label }: any) {
             <div className="w-3 h-3 rounded-sm flex-shrink-0" style={{ backgroundColor: p.color }} />
             <span className="text-slate-500 font-medium min-w-[120px]">{p.name}:</span>
             <span className="font-semibold text-[var(--color-foreground)]">
-              {p.name.includes('%') ? `${Math.round(p.value)}%` : p.value?.toLocaleString('vi-VN')}
+              {p.name.includes('%') ? `${Math.round(p.value)}%` : p.value?.toLocaleString(intlLocale())}
             </span>
           </div>
         ))}
@@ -85,13 +88,14 @@ function BarTopLabel({ x, y, width, value }: any) {
 
 // ── BEST/WORST toggle header ──────────────────────────────────────────────────
 function RankToggle({ filter, onChange }: { filter: RankFilter; onChange: (f: RankFilter) => void }) {
+  const { t } = useTranslation('analytics')
   return (
     <div className="flex bg-[var(--color-muted)] rounded-control p-0.5 gap-0.5">
       <ChoiceChip selected={filter === 'BEST'} variant="segment" size="sm" className="py-1" onClick={() => onChange('BEST')}>
-        <Trophy /> Tốt nhất
+        <Trophy /> {t('OrgUnitKpiDrawer.best')}
       </ChoiceChip>
       <ChoiceChip selected={filter === 'WORST'} variant="segment" size="sm" className="py-1" onClick={() => onChange('WORST')}>
-        <TrendingDown /> Trì trệ
+        <TrendingDown /> {t('OrgUnitKpiDrawer.stagnant')}
       </ChoiceChip>
     </div>
   )
@@ -117,6 +121,7 @@ function AssigneeBarPanel({
   hoveredId: string | null
   onHoverChange: (id: string | null) => void
 }) {
+  const { t } = useTranslation('analytics')
   const chartData = useMemo(() => {
     return [...data]
       .sort((a, b) =>
@@ -135,7 +140,7 @@ function AssigneeBarPanel({
   const domain = Math.ceil(maxVal / 50) * 50
   const barSize = Math.max(20, Math.min(44, Math.floor(180 / Math.max(chartData.length, 1))))
 
-  if (!data.length) return <div className="h-[280px] flex items-center justify-center text-slate-400 text-sm">Không có dữ liệu</div>
+  if (!data.length) return <div className="h-[280px] flex items-center justify-center text-slate-400 text-sm">{t('OrgUnitKpiDrawer.noData')}</div>
 
   return (
     <div className="bg-[var(--color-card)]/60 rounded-lg border border-slate-200 dark:border-white/10 p-5 shadow-sm">
@@ -191,6 +196,7 @@ function SubmissionBarPanel({
   hoveredId: string | null
   onHoverChange: (id: string | null) => void
 }) {
+  const { t } = useTranslation('analytics')
   const chartData = useMemo(() => {
     return [...data]
       .sort((a, b) =>
@@ -208,7 +214,7 @@ function SubmissionBarPanel({
   const maxVal = Math.max(...chartData.map(d => d[dataKey] as number), 100)
   const domain = Math.ceil(maxVal / 50) * 50
 
-  if (!data.length) return <div className="h-[280px] flex items-center justify-center text-slate-400 text-sm">Không có dữ liệu</div>
+  if (!data.length) return <div className="h-[280px] flex items-center justify-center text-slate-400 text-sm">{t('OrgUnitKpiDrawer.noData')}</div>
 
   return (
     <div className="bg-[var(--color-card)]/60 rounded-lg border border-slate-200 dark:border-white/10 p-5 shadow-sm">
@@ -282,6 +288,7 @@ export default function OrgUnitKpiDrawer({
   globalPeriodId?: string
   globalPeriodIdTo?: string
 }) {
+  const { t } = useTranslation('analytics')
   const [dateFilterType, setDateFilterType] = useState<DateFilterType>('GLOBAL')
   const [customRange, setCustomRange] = useState<{ from: string; to: string }>({ from: '', to: '' })
   const [activeAssignees, setActiveAssignees] = useState<string[]>([])
@@ -343,15 +350,15 @@ export default function OrgUnitKpiDrawer({
     setActiveAssignees(prev => prev.includes(uid) ? prev.filter(x => x !== uid) : [...prev, uid])
 
   const kpiTypeBadge = data?.isBonusKpi
-    ? { label: 'KPI thưởng', cls: 'bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-500/30' }
+    ? { label: t('OrgUnitKpiDrawer.bonusKpi'), cls: 'bg-amber-100 dark:bg-amber-900/40 text-amber-600 dark:text-amber-400 border-amber-200 dark:border-amber-500/30' }
     : data?.isReverseKpi
-    ? { label: 'KPI ngược', cls: 'bg-indigo-100 dark:bg-indigo-900/40 text-[var(--color-primary)] dark:text-indigo-400 border-indigo-200 dark:border-[var(--color-primary)]/30' }
-    : { label: 'KPI thường', cls: 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)] border-slate-200 dark:border-slate-700' }
+    ? { label: t('OrgUnitKpiDrawer.inverseKpi'), cls: 'bg-indigo-100 dark:bg-indigo-900/40 text-[var(--color-primary)] dark:text-indigo-400 border-indigo-200 dark:border-[var(--color-primary)]/30' }
+    : { label: t('OrgUnitKpiDrawer.regularKpi'), cls: 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)] border-slate-200 dark:border-slate-700' }
 
   const customTitle = (
     <div className="flex items-center flex-wrap gap-2">
       <span className="text-base font-semibold text-[var(--color-foreground)] leading-snug">
-        {data?.kpiName || 'Chi tiết KPI'}
+        {data?.kpiName || t('OrgUnitKpiDrawer.kpiDetails')}
       </span>
       {data && (
         <span className={cn('inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold border flex-shrink-0', kpiTypeBadge.cls)}>
@@ -360,7 +367,7 @@ export default function OrgUnitKpiDrawer({
       )}
       {data?.isShared && (
         <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-[var(--color-primary)] dark:text-indigo-400 text-xs font-semibold border border-indigo-200 dark:border-[var(--color-primary)]/30 flex-shrink-0">
-          <Users size={10} /> KPI chung
+          <Users size={10} /> {t('OrgUnitKpiDrawer.sharedKpi')}
         </span>
       )}
     </div>
@@ -377,10 +384,10 @@ export default function OrgUnitKpiDrawer({
           {/* Thông tin KPI (trái) + nguồn thời gian (phải) */}
           <div className="flex flex-col sm:flex-row sm:justify-between sm:items-start gap-3">
             <div className="flex flex-wrap items-center gap-2">
-              {data?.periodName && <ContextBadge color="slate" label={`Đợt: ${data.periodName}`} />}
-              {data?.orgUnitName && <ContextBadge color="slate" label={`Phòng ban: ${data.orgUnitName}`} />}
-              {data?.weight != null && <ContextBadge color="slate" label={`Trọng số: ${data.weight}`} />}
-              {data?.unit && <ContextBadge color="slate" label={`Đơn vị đo: ${data.unit}`} />}
+              {data?.periodName && <ContextBadge color="slate" label={t('OrgUnitKpiDrawer.period', { periodName: data.periodName })} />}
+              {data?.orgUnitName && <ContextBadge color="slate" label={t('OrgUnitKpiDrawer.unit', { orgUnitName: data.orgUnitName })} />}
+              {data?.weight != null && <ContextBadge color="slate" label={t('OrgUnitKpiDrawer.weight', { weight: data.weight })} />}
+              {data?.unit && <ContextBadge color="slate" label={t('OrgUnitKpiDrawer.unitOfMeasure', { unit: data.unit })} />}
             </div>
             <div className="flex flex-col sm:flex-row sm:flex-wrap sm:justify-end items-stretch sm:items-center gap-2">
               <Select value={dateFilterType} onValueChange={(v) => setDateFilterType(v as DateFilterType)}>
@@ -388,21 +395,21 @@ export default function OrgUnitKpiDrawer({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="GLOBAL">Theo bộ lọc KPI đơn vị</SelectItem>
-                  <SelectItem value="THIS_WEEK">Tuần này</SelectItem>
-                  <SelectItem value="THIS_MONTH">Tháng này</SelectItem>
-                  <SelectItem value="THIS_QUARTER">Quý này</SelectItem>
-                  <SelectItem value="6_MONTHS">6 tháng qua</SelectItem>
-                  <SelectItem value="THIS_YEAR">Năm nay</SelectItem>
-                  <SelectItem value="CUSTOM">Tùy chỉnh</SelectItem>
+                  <SelectItem value="GLOBAL">{t('OrgUnitKpiDrawer.perTheUnitKpiFilter')}</SelectItem>
+                  <SelectItem value="THIS_WEEK">{t('OrgUnitKpiDrawer.thisWeek')}</SelectItem>
+                  <SelectItem value="THIS_MONTH">{t('OrgUnitKpiDrawer.thisMonth')}</SelectItem>
+                  <SelectItem value="THIS_QUARTER">{t('OrgUnitKpiDrawer.thisQuarter')}</SelectItem>
+                  <SelectItem value="6_MONTHS">{t('OrgUnitKpiDrawer.last6Months')}</SelectItem>
+                  <SelectItem value="THIS_YEAR">{t('OrgUnitKpiDrawer.thisYear')}</SelectItem>
+                  <SelectItem value="CUSTOM">{t('OrgUnitKpiDrawer.custom')}</SelectItem>
                 </SelectContent>
               </Select>
               {dateFilterType === 'CUSTOM' && (
                 <div className="flex items-center gap-2">
-                  <input type="date" className="h-8 bg-[var(--color-muted)] border border-slate-200 dark:border-slate-700 rounded-lg px-2 text-xs text-slate-700 dark:text-slate-300"
+                  <LocaleDateInput type="date" className="h-8 bg-[var(--color-muted)] border border-slate-200 dark:border-slate-700 rounded-lg px-2 text-xs text-slate-700 dark:text-slate-300"
                     value={customRange.from} onChange={(e) => setCustomRange(prev => ({ ...prev, from: e.target.value }))} />
                   <span className="text-slate-400">-</span>
-                  <input type="date" className="h-8 bg-[var(--color-muted)] border border-slate-200 dark:border-slate-700 rounded-lg px-2 text-xs text-slate-700 dark:text-slate-300"
+                  <LocaleDateInput type="date" className="h-8 bg-[var(--color-muted)] border border-slate-200 dark:border-slate-700 rounded-lg px-2 text-xs text-slate-700 dark:text-slate-300"
                     value={customRange.to} onChange={(e) => setCustomRange(prev => ({ ...prev, to: e.target.value }))} />
                 </div>
               )}
@@ -414,21 +421,21 @@ export default function OrgUnitKpiDrawer({
             <>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-2xl border border-indigo-100 dark:border-indigo-900/30">
-                  <p className="text-xs font-semibold text-[var(--color-primary)] mb-1.5">Mức kết quả</p>
+                  <p className="text-xs font-semibold text-[var(--color-primary)] mb-1.5">{t('OrgUnitKpiDrawer.resultLevel')}</p>
                   <QualitativeResultChip level={data?.qualitativeLevelName} />
                 </div>
                 <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-2xl border border-blue-100 dark:border-blue-900/30">
-                  <p className="text-xs font-semibold text-blue-500 mb-1">Tổng bài nộp</p>
+                  <p className="text-xs font-semibold text-blue-500 mb-1">{t('OrgUnitKpiDrawer.totalSubmissions')}</p>
                   <p className="text-xl font-semibold text-blue-700 dark:text-blue-400">{data?.topSubmissions?.length ?? 0}</p>
                 </div>
               </div>
               <div className="bg-[var(--color-card)] p-5 rounded-2xl border border-[var(--color-border)] shadow-sm">
-                <h3 className="text-sm font-semibold text-[var(--color-foreground)] mb-3">Phân bố mức đánh giá</h3>
+                <h3 className="text-sm font-semibold text-[var(--color-foreground)] mb-3">{t('OrgUnitKpiDrawer.evaluationLevelDistribution')}</h3>
                 <QualitativeDistributionChart distribution={data?.qualitativeDistribution} />
               </div>
               {(data?.topSubmissions?.length ?? 0) > 0 && (
                 <div className="bg-[var(--color-card)] p-5 rounded-2xl border border-[var(--color-border)] shadow-sm">
-                  <h3 className="text-sm font-semibold text-[var(--color-foreground)] mb-3">Bài nộp gần đây</h3>
+                  <h3 className="text-sm font-semibold text-[var(--color-foreground)] mb-3">{t('OrgUnitKpiDrawer.recentSubmissions')}</h3>
                   <div className="space-y-2">
                     {data!.topSubmissions.map((s, i) => (
                       <div key={i} className="flex items-center justify-between gap-3 rounded-lg border border-[var(--color-border)] px-3 py-2">
@@ -446,20 +453,20 @@ export default function OrgUnitKpiDrawer({
           {!isQual && (
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div className="bg-slate-50 dark:bg-slate-900/60 p-4 rounded-2xl border border-[var(--color-border)]">
-              <p className="text-xs font-medium text-slate-500 mb-1">Mục tiêu yêu cầu</p>
+              <p className="text-xs font-medium text-slate-500 mb-1">{t('OrgUnitKpiDrawer.requiredTarget')}</p>
               <p className="text-xl font-semibold text-[var(--color-foreground)]">
-                {data?.targetValue?.toLocaleString('vi-VN')} <span className="text-xs font-medium text-slate-500">{data?.unit}</span>
+                {data?.targetValue?.toLocaleString(intlLocale())} <span className="text-xs font-medium text-slate-500">{data?.unit}</span>
               </p>
             </div>
             <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-2xl border border-indigo-100 dark:border-indigo-900/30">
-              <p className="text-xs font-semibold text-[var(--color-primary)] mb-1">Lũy kế tổng</p>
+              <p className="text-xs font-semibold text-[var(--color-primary)] mb-1">{t('OrgUnitKpiDrawer.cumulativeTotal')}</p>
               <p className="text-xl font-semibold text-indigo-700 dark:text-indigo-400">
-                {data?.totalActualValue?.toLocaleString('vi-VN')} <span className="text-xs font-medium text-indigo-400">{data?.unit}</span>
+                {data?.totalActualValue?.toLocaleString(intlLocale())} <span className="text-xs font-medium text-indigo-400">{data?.unit}</span>
               </p>
-              <p className="text-xs font-semibold text-[var(--color-primary)] mt-1">Đạt {data?.totalProgress?.toFixed(1)}%</p>
+              <p className="text-xs font-semibold text-[var(--color-primary)] mt-1">{t('OrgUnitKpiDrawer.meets')} {data?.totalProgress?.toFixed(1)}%</p>
             </div>
             <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-2xl border border-blue-100 dark:border-blue-900/30">
-              <p className="text-xs font-semibold text-blue-500 mb-1">Tổng bài nộp</p>
+              <p className="text-xs font-semibold text-blue-500 mb-1">{t('OrgUnitKpiDrawer.totalSubmissions')}</p>
               <p className="text-xl font-semibold text-blue-700 dark:text-blue-400">{data?.topSubmissions?.length ?? 0}</p>
             </div>
           </div>
@@ -472,10 +479,10 @@ export default function OrgUnitKpiDrawer({
               <div className="mb-4">
                 <h3 className="text-lg font-semibold text-[var(--color-foreground)] flex items-center gap-2">
                   <Activity size={18} className="text-[var(--color-primary)]" />
-                  Xu hướng tiến độ theo thời gian
+                  {t('OrgUnitKpiDrawer.progressTrendOverTime')}
                 </h3>
                 <p className="text-sm text-slate-500 mt-1">
-                  So sánh lũy kế thực tế với mục tiêu theo từng mốc thời gian
+                  {t('OrgUnitKpiDrawer.comparesTheActualCumulativeValueWith')}
                 </p>
               </div>
 
@@ -504,14 +511,14 @@ export default function OrgUnitKpiDrawer({
               )}
 
               <div className="text-xs font-medium text-slate-400 dark:text-slate-500 mb-2 px-1">
-                <span>Đơn vị ({data.unit || ''})</span>
+                <span>{t('OrgUnitKpiDrawer.unit2')}{data.unit || ''})</span>
               </div>
               <div className="h-[320px]">
                 <ResponsiveContainer width="100%" height="100%">
                   <ComposedChart data={trendChartData} margin={{ top: 10, right: 10, left: 14, bottom: 5 }}>
                     <CartesianGrid stroke="var(--color-border)" vertical={false} />
                     <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} />
-                    <YAxis yAxisId="left" orientation="left" label={yAxisLabel('Giá trị đạt')} axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} />
+                    <YAxis yAxisId="left" orientation="left" label={yAxisLabel(t('OrgUnitKpiDrawer.achievedValue'))} axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} />
                     <Tooltip content={<TrendTooltip />} cursor={{ fill: '#94a3b8', opacity: 0.06 }} />
                     <Legend wrapperStyle={{ fontSize: '11px', fontWeight: 'bold' }} />
                     <Line yAxisId="left" type="step" dataKey="targetValue" name="Mục tiêu" stroke="#ef4444" strokeWidth={2} dot={false} strokeDasharray="5 5" />
@@ -538,13 +545,13 @@ export default function OrgUnitKpiDrawer({
                   <Users size={16} />
                 </div>
                 <div>
-                  <h3 className="text-sm font-semibold text-[var(--color-foreground)]">Top người đảm nhiệm</h3>
-                  <p className="text-xs text-[var(--color-muted-foreground)]">Tiến độ hoàn thành theo từng người thực hiện</p>
+                  <h3 className="text-sm font-semibold text-[var(--color-foreground)]">{t('OrgUnitKpiDrawer.topAssignees')}</h3>
+                  <p className="text-xs text-[var(--color-muted-foreground)]">{t('OrgUnitKpiDrawer.completionProgressByPerson')}</p>
                 </div>
               </div>
               <div className="grid grid-cols-1 gap-6">
                 <AssigneeBarPanel
-                  title="Tiến độ hoàn thành"
+                  title={t('OrgUnitKpiDrawer.completionProgress')}
                   dataKey="completionRate"
                   data={data.assigneeStats}
                   filter={assigneeCompFilter}
@@ -565,13 +572,13 @@ export default function OrgUnitKpiDrawer({
                   <ClipboardList size={16} />
                 </div>
                 <div>
-                  <h3 className="text-sm font-semibold text-[var(--color-foreground)]">Top bài nộp</h3>
-                  <p className="text-xs text-[var(--color-muted-foreground)]">Tiến độ đóng góp theo từng bài nộp</p>
+                  <h3 className="text-sm font-semibold text-[var(--color-foreground)]">{t('OrgUnitKpiDrawer.topSubmissions')}</h3>
+                  <p className="text-xs text-[var(--color-muted-foreground)]">{t('OrgUnitKpiDrawer.contributionProgressBySubmission')}</p>
                 </div>
               </div>
               <div className="grid grid-cols-1 gap-6">
                 <SubmissionBarPanel
-                  title="Tiến độ đóng góp"
+                  title={t('OrgUnitKpiDrawer.contributionProgress')}
                   dataKey="contributionProgress"
                   data={data.topSubmissions}
                   filter={subCompFilter}

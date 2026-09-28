@@ -8,8 +8,10 @@ import com.kpitracking.entity.UserRoleOrgUnit;
 import com.kpitracking.enums.EvidenceTargetType;
 import com.kpitracking.enums.StorageProvider;
 import com.kpitracking.exception.BusinessException;
+import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.ForbiddenException;
 import com.kpitracking.exception.ResourceNotFoundException;
+import com.kpitracking.i18n.Terms;
 import com.kpitracking.mapper.EvidenceAttachmentMapper;
 import com.kpitracking.repository.EvidenceAttachmentRepository;
 import com.kpitracking.repository.UserRepository;
@@ -99,11 +101,11 @@ public class EvidenceAttachmentService {
     public void delete(UUID id) {
         User me = currentUser();
         EvidenceAttachment a = repository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("EvidenceAttachment", "id", id));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.evidenceAttachment"), "id", id));
         Target t = resolve(a.getTargetType(), a.getTargetKey());
         boolean owner = a.getUploadedBy().getId().equals(me.getId());
         if (!owner && !permissionChecker.isGlobalAdminIn(me.getId(), t.unit().getId())) {
-            throw new ForbiddenException("Chỉ người tải lên mới xoá được tệp minh chứng này");
+            throw new ForbiddenException(ErrorCode.ONLY_UPLOADER_CAN_DELETE_EVIDENCE_FILE);
         }
         if (a.getStorageKey() != null) cloudinaryStorageService.deleteFile(a.getStorageKey(), a.getContentType());
         repository.delete(a);
@@ -118,16 +120,16 @@ public class EvidenceAttachmentService {
             case PERIOD_EVALUATION, CYCLE_EVALUATION -> 2;
             case CONDUCT_EVALUATION -> 3;
         };
-        if (parts.length != expected) throw new BusinessException("Khoá minh chứng không hợp lệ");
+        if (parts.length != expected) throw new BusinessException(ErrorCode.INVALID_EVIDENCE_KEY);
         UUID subjectId;
         try {
             for (int i = 0; i < parts.length; i++) if (i != 0 || type != EvidenceTargetType.CONDUCT_EVALUATION) UUID.fromString(parts[i]);
             subjectId = UUID.fromString(parts[parts.length - 1]);
         } catch (IllegalArgumentException e) {
-            throw new BusinessException("Khoá minh chứng không hợp lệ");
+            throw new BusinessException(ErrorCode.INVALID_EVIDENCE_KEY);
         }
         List<UserRoleOrgUnit> memberships = userRoleOrgUnitRepository.findByUserId(subjectId);
-        if (memberships.isEmpty()) throw new ResourceNotFoundException("User", "id", subjectId);
+        if (memberships.isEmpty()) throw new ResourceNotFoundException(Terms.of("resource.user"), "id", subjectId);
         OrgUnit unit = memberships.get(0).getOrgUnit();
         return new Target(subjectId, unit, unit.getOrgHierarchyLevel().getOrganization().getId());
     }
@@ -142,12 +144,12 @@ public class EvidenceAttachmentService {
         UUID unitId = t.unit().getId();
         if (permissionChecker.hasAnyPermissionInOrgUnit(me.getId(), unitId, perms)
                 || permissionChecker.isGlobalAdminIn(me.getId(), unitId)) return;
-        throw new ForbiddenException("Bạn không có quyền xem minh chứng của lượt chấm này");
+        throw new ForbiddenException(ErrorCode.NO_PERMISSION_VIEW_EVIDENCE_SCORING);
     }
 
     private User currentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         return userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "email", email));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.user"), "email", email));
     }
 }

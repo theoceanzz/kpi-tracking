@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import i18n from 'i18next'
 import { useNavigate } from 'react-router-dom'
 import { Users, Search, Building2, CalendarRange } from 'lucide-react'
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts'
@@ -27,6 +28,7 @@ import type { EmployeeDrillSummary } from '@/types/stats'
 import type { OrgUnitTreeResponse } from '@/types/orgUnit'
 import type { PinnedFilter } from './pinnedWidgetRegistry'
 import { xAxisLabel } from '@/components/charts/axisLabel'
+import { useTranslation } from 'react-i18next'
 
 /**
  * Widget của tab "So sánh giữa các đơn vị", dùng ở cả tab lẫn trang chủ.
@@ -64,6 +66,7 @@ interface DrillTooltipProps {
 }
 
 function DrillBarTooltip({ active, payload, perf }: DrillTooltipProps) {
+  const { t } = useTranslation('analytics')
   if (!active || !payload?.length) return null
   const name = payload[0]?.payload?.name || ''
   const val = payload[0]?.value ?? 0
@@ -73,7 +76,7 @@ function DrillBarTooltip({ active, payload, perf }: DrillTooltipProps) {
       <p className="font-semibold mb-1.5 break-words leading-tight">{name}</p>
       <p className="flex items-center gap-1.5">
         <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: pct >= 80 ? '#10b981' : pct >= 50 ? '#f59e0b' : '#ef4444' }} />
-        Hiệu suất: <span className="font-semibold ml-1">{perf.formatShort(val)}</span>
+        {t('drillWidgets.performance')} <span className="font-semibold ml-1">{perf.formatShort(val)}</span>
       </p>
     </div>
   )
@@ -96,12 +99,15 @@ function useDrillData(filter?: PinnedFilter) {
   return { ...query, unitId, from, to, periodId, periodIdTo }
 }
 
-const NoChildren = () => (
+const NoChildren = () => {
+                     const { t } = useTranslation('analytics')
+                     return (
   <div className="flex-1 min-h-[200px] flex flex-col items-center justify-center gap-3 text-slate-400">
     <Building2 size={32} className="text-slate-300" />
-    <p className="text-xs font-semibold">Không có đơn vị con trực thuộc</p>
+    <p className="text-xs font-semibold">{t('drillWidgets.noDirectChildUnits')}</p>
   </div>
 )
+                   }
 
 /** Cây đơn vị — thay cho thanh bên trái của tab Phân cấp. */
 export function DrillUnitTreeWidget({ filter }: { filter?: PinnedFilter }) {
@@ -123,23 +129,24 @@ export function DrillUnitTreeWidget({ filter }: { filter?: PinnedFilter }) {
 
 /** Thẻ tóm tắt đơn vị đang chọn: cấp, tên, số nhân sự, tổng KPI. */
 export function DrillUnitSummaryWidget({ filter }: { filter?: PinnedFilter }) {
+  const { t } = useTranslation('analytics')
   const { data } = useDrillData(filter)
-  if (!data) return <div className="flex-1 flex items-center justify-center text-sm text-slate-400">Chưa có dữ liệu đơn vị</div>
+  if (!data) return <div className="flex-1 flex items-center justify-center text-sm text-slate-400">{t('drillWidgets.noUnitDataYet')}</div>
   // Thẻ trung tính thay cho banner gradient: cùng vỏ với thẻ số liệu ở các tab khác.
   return (
     <div className="bg-[var(--color-card)] rounded-widget border border-[var(--color-border)] p-5 flex flex-wrap items-center justify-between gap-4">
       <div className="min-w-0">
-        <p className="text-xs font-medium text-slate-500">{data.levelName || 'Cấp đơn vị'}</p>
-        <h3 className="text-xl font-semibold text-[var(--color-foreground)] mt-0.5 truncate">{data.orgUnitName || 'Tất cả'}</h3>
+        <p className="text-xs font-medium text-slate-500">{data.levelName || t('drillWidgets.unitLevel')}</p>
+        <h3 className="text-xl font-semibold text-[var(--color-foreground)] mt-0.5 truncate">{data.orgUnitName || t('drillWidgets.all')}</h3>
       </div>
       <div className="flex items-center gap-8 shrink-0">
         <div>
           <p className="text-2xl font-semibold text-[var(--color-foreground)] leading-none">{data.memberCount}</p>
-          <p className="text-xs font-medium text-slate-500 mt-1">Nhân sự</p>
+          <p className="text-xs font-medium text-slate-500 mt-1">{t('drillWidgets.people')}</p>
         </div>
         <div>
           <p className="text-2xl font-semibold text-[var(--color-foreground)] leading-none">{data.totalKpi}</p>
-          <p className="text-xs font-medium text-slate-500 mt-1">KPI tổng</p>
+          <p className="text-xs font-medium text-slate-500 mt-1">{t('drillWidgets.totalKpis')}</p>
         </div>
       </div>
     </div>
@@ -159,6 +166,7 @@ export function DrillEmployeeTableWidget({ filter, viewControl, hideControls, me
   hideControls?: boolean
   meta?: React.ReactNode
 }) {
+  const { t: tr } = useTranslation('analytics')
   const { data } = useDrillData(filter)
   const perf = usePerformanceScale()
   const navigate = useNavigate()
@@ -188,7 +196,7 @@ export function DrillEmployeeTableWidget({ filter, viewControl, hideControls, me
   const paginated = filtered.slice(page * EMP_PAGE_SIZE, page * EMP_PAGE_SIZE + EMP_PAGE_SIZE)
 
   if (!employees?.length) {
-    return <div className="flex-1 flex items-center justify-center text-sm text-slate-400">Đơn vị này chưa có nhân sự trực thuộc</div>
+    return <div className="flex-1 flex items-center justify-center text-sm text-slate-400">{tr('drillWidgets.thisUnitHasNoDirectMembers')}</div>
   }
 
   return (
@@ -196,16 +204,16 @@ export function DrillEmployeeTableWidget({ filter, viewControl, hideControls, me
       {meta && <div className="pb-3">{meta}</div>}
       <div className="flex flex-wrap items-center justify-between gap-3 pb-3">
         <p className="text-xs font-medium text-slate-500 flex items-center gap-1.5">
-          <Users size={14} className="text-slate-400" /> {filtered.length} thành viên
+          <Users size={14} className="text-slate-400" /> {filtered.length} {tr('drillWidgets.members')}
           {!hideControls && <ViewToggleButtons view={view} onChange={setView} className="ml-2" />}
         </p>
         <div className="relative w-full sm:w-56">
           <input
             type="search"
-            placeholder="Tìm tên, email, vai trò..."
+            placeholder={tr('drillWidgets.searchNameEmailRole')}
             value={searchInput}
             onChange={e => setSearchInput(e.target.value)}
-            aria-label="Tìm thành viên"
+            aria-label={tr('drillWidgets.searchMembers')}
             className="w-full pl-9 pr-3 py-2 bg-[var(--color-muted)] border-none rounded-lg text-xs font-semibold focus:ring-2 focus:ring-[var(--color-primary)] transition-all"
           />
           <Search size={13} className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" />
@@ -215,7 +223,7 @@ export function DrillEmployeeTableWidget({ filter, viewControl, hideControls, me
       {view === 'chart' ? (
         <div className="flex-1 min-h-0 overflow-auto custom-scrollbar">
           {filtered.length === 0 ? (
-            <div className="py-12 text-center text-slate-400 text-xs">Không tìm thấy thành viên nào</div>
+            <div className="py-12 text-center text-slate-400 text-xs">{tr('drillWidgets.noMembersFound')}</div>
           ) : (
             <Lollipop
               data={filtered.map(emp => ({
@@ -225,7 +233,7 @@ export function DrillEmployeeTableWidget({ filter, viewControl, hideControls, me
                 value: emp.performanceRate ?? 0,
               }))}
               unit={` ${perf.unit}`}
-              valueLabel={`Hiệu suất (${perf.unit})`}
+              valueLabel={tr('drillWidgets.performance2', { unit: perf.unit })}
               domainMax={perf.axisMax}
               onSelect={d => { if (d.id) navigate(`/employees/${d.id}/performance`) }}
             />
@@ -236,11 +244,11 @@ export function DrillEmployeeTableWidget({ filter, viewControl, hideControls, me
         <table className="w-full text-sm">
           <thead className="sticky top-0 bg-[var(--color-card)] z-10">
             <tr className="text-xs font-medium text-slate-400 border-b border-[var(--color-border)]">
-              <th className="px-3 py-3 text-left">Họ tên &amp; Vai trò</th>
-              <th className="px-3 py-3 text-left hidden lg:table-cell">Đơn vị</th>
+              <th className="px-3 py-3 text-left">{tr('drillWidgets.fullNameRole')}</th>
+              <th className="px-3 py-3 text-left hidden lg:table-cell">{tr('drillWidgets.unit')}</th>
               <th className="px-3 py-3 text-center">KPI</th>
-              <th className="px-3 py-3 text-center">Tiến độ</th>
-              <th className="px-3 py-3 text-center">Hiệu suất</th>
+              <th className="px-3 py-3 text-center">{tr('drillWidgets.progress')}</th>
+              <th className="px-3 py-3 text-center">{tr('drillWidgets.performance3')}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-50 dark:divide-slate-800">
@@ -266,7 +274,7 @@ export function DrillEmployeeTableWidget({ filter, viewControl, hideControls, me
                   <td className="px-3 py-3 hidden lg:table-cell">
                     {emp.orgUnitId && emp.orgUnitId === data?.orgUnitId ? (
                       <span className="inline-flex items-center gap-1 text-xs font-semibold px-2 py-1 rounded-lg bg-indigo-50 text-[var(--color-primary)] dark:bg-indigo-900/30 dark:text-indigo-300">
-                        <Building2 size={11} /> Đơn vị hiện tại
+                        <Building2 size={11} /> {tr('drillWidgets.currentUnit')}
                       </span>
                     ) : (
                       <span className="text-xs font-semibold text-[var(--color-muted-foreground)]">{emp.orgUnitName || '-'}</span>
@@ -301,7 +309,7 @@ export function DrillEmployeeTableWidget({ filter, viewControl, hideControls, me
           </tbody>
         </table>
         {filtered.length === 0 && (
-          <div className="py-12 text-center text-slate-400 text-xs">Không tìm thấy kết quả phù hợp</div>
+          <div className="py-12 text-center text-slate-400 text-xs">{tr('drillWidgets.noMatchingResults')}</div>
         )}
       </div>
       )}
@@ -313,7 +321,7 @@ export function DrillEmployeeTableWidget({ filter, viewControl, hideControls, me
           onPageChange={setPage}
           totalElements={filtered.length}
           size={EMP_PAGE_SIZE}
-          itemLabel="thành viên"
+          itemLabel={tr('drillWidgets.members')}
         />
       )}
     </div>
@@ -322,6 +330,7 @@ export function DrillEmployeeTableWidget({ filter, viewControl, hideControls, me
 
 /** So sánh hiệu suất giữa các đơn vị con của đơn vị đang chọn. */
 export function DrillUnitCompareWidget({ filter }: { filter?: PinnedFilter }) {
+  const { t } = useTranslation('analytics')
   const { data } = useDrillData(filter)
   const perf = usePerformanceScale()
 
@@ -337,7 +346,7 @@ export function DrillUnitCompareWidget({ filter }: { filter?: PinnedFilter }) {
       <ResponsiveContainer width="100%" height="100%">
         <BarChart data={rows} layout="vertical" margin={{ top: 5, right: 55, left: 10, bottom: 30 }}>
           <CartesianGrid stroke="var(--color-border)" horizontal={false} vertical />
-          <XAxis type="number" domain={[0, perf.axisMax]} label={xAxisLabel(`Hiệu suất (${perf.unit})`)} tickFormatter={v => perf.formatShort(v)} tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
+          <XAxis type="number" domain={[0, perf.axisMax]} label={xAxisLabel(t('drillWidgets.performance2', { unit: perf.unit }))} tickFormatter={v => perf.formatShort(v)} tick={{ fontSize: 11, fill: '#64748b' }} axisLine={false} tickLine={false} />
           <YAxis dataKey="name" type="category" width={100} tick={{ fontSize: 11, fontWeight: 600, fill: '#64748b' }} axisLine={false} tickLine={false} />
           <Tooltip content={<DrillBarTooltip perf={perf} />} cursor={{ fill: '#94a3b8', opacity: 0.06 }} />
           <Bar
@@ -372,6 +381,7 @@ export function DrillClassificationWidget({ filter, part, view, cycleId: cyclePr
   hideControls?: boolean
   meta?: React.ReactNode
 }) {
+  const { t } = useTranslation('analytics')
   const unitId = useDrillUnit(filter)
   const { periodId, periodIdTo } = filter ?? {}
   const orgId = useAuthStore(s => s.user)?.memberships?.[0]?.organizationId
@@ -396,20 +406,20 @@ export function DrillClassificationWidget({ filter, part, view, cycleId: cyclePr
           <CalendarRange size={13} className="text-slate-400" />
           <Select value={cycleId || BY_PERIOD} onValueChange={v => setLocalCycle(v === BY_PERIOD ? '' : v)}>
             <SelectTrigger
-              aria-label="Phạm vi xếp loại"
+              aria-label={t('drillWidgets.ratingScope')}
               className="h-8 w-auto gap-1.5 px-2 rounded-lg bg-[var(--color-card)] border-[var(--color-border)] text-xs font-semibold text-[var(--color-muted-foreground)] focus:ring-2 focus:ring-emerald-500/30 focus:ring-offset-0"
-              title="Xếp loại theo kỳ dùng điểm chốt kỳ, bỏ qua bộ lọc đợt"
+              title={t('drillWidgets.cycleRatingsUseTheFinalizedCycle')}
             >
               <SelectValue />
             </SelectTrigger>
             <SelectContent className="text-xs">
-              <SelectItem value={BY_PERIOD} className="text-xs font-semibold">Theo đợt (bộ lọc đơn vị)</SelectItem>
+              <SelectItem value={BY_PERIOD} className="text-xs font-semibold">{t('drillWidgets.byPeriodUnitFilter')}</SelectItem>
               <ScopeSelectItems
                 items={cycles}
                 selectedId={cycleId}
-                noun="kỳ"
+                noun={t('drillWidgets.cycle')}
                 itemClassName="text-xs font-bold"
-                renderLabel={c => `Kỳ: ${c.name}`}
+                renderLabel={c => t('drillWidgets.cycle2', { name: c.name })}
               />
             </SelectContent>
           </Select>
@@ -457,18 +467,19 @@ export function DrillBoxplotWidget({ filter, meta }: { filter?: PinnedFilter; me
  */
 type MatrixView = 'cells' | 'scatter'
 function MatrixViewSelect({ view, onChange }: { view: MatrixView; onChange: (v: MatrixView) => void }) {
+  const { t } = useTranslation('analytics')
   return (
     <Select value={view} onValueChange={v => onChange(v as MatrixView)}>
       <SelectTrigger
         className="h-8 w-auto gap-1.5 px-2.5 bg-[var(--color-muted)] border-slate-200 dark:border-slate-700 rounded-lg text-xs font-medium text-[var(--color-muted-foreground)] shrink-0"
-        title="Cách xem dữ liệu ma trận"
+        title={t('drillWidgets.howToViewTheMatrixData')}
       >
-        <span className="text-slate-400 dark:text-slate-500">Xem:</span>
+        <span className="text-slate-400 dark:text-slate-500">{i18n.t('analytics:drillWidgets.viewLabel')}</span>
         <SelectValue />
       </SelectTrigger>
       <SelectContent>
-        <SelectItem value="cells">Ô ma trận</SelectItem>
-        <SelectItem value="scatter">Phân tán từng người</SelectItem>
+        <SelectItem value="cells">{t('drillWidgets.matrixCells')}</SelectItem>
+        <SelectItem value="scatter">{t('drillWidgets.scatterPerPerson')}</SelectItem>
       </SelectContent>
     </Select>
   )

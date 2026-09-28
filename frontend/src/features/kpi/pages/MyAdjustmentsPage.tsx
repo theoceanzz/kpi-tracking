@@ -14,6 +14,7 @@ import { usePageTitle } from '@/features/organization/hooks/usePageTitle'
 import AdjustmentKpiPickerModal from '../components/AdjustmentKpiPickerModal'
 import KpiAdjustmentModal from '../components/KpiAdjustmentModal'
 import type { KpiCriteria } from '@/types/kpi'
+import { useTranslation } from 'react-i18next'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -22,6 +23,7 @@ import type { KpiCriteria } from '@/types/kpi'
  * Chỉ chạy khi còn chờ duyệt; đã xử lý thì hiện dấu gạch để cột không trống.
  */
 function useTimeLeft(createdAt: string, active: boolean) {
+  const { t } = useTranslation('kpi')
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
     if (!active) return
@@ -30,10 +32,10 @@ function useTimeLeft(createdAt: string, active: boolean) {
   }, [active])
   if (!active) return null
   const diff = new Date(createdAt).getTime() + 24 * 60 * 60 * 1000 - now
-  if (diff <= 0) return { text: 'Quá hạn phản hồi', expired: true }
+  if (diff <= 0) return { text: t('MyAdjustmentsPage.responseOverdue'), expired: true }
   const h = Math.floor(diff / 3_600_000)
   const m = Math.floor((diff % 3_600_000) / 60_000)
-  return { text: h > 0 ? `Còn ${h} giờ ${m} phút` : `Còn ${m} phút`, expired: false }
+  return { text: h > 0 ? t('MyAdjustmentsPage.hMinLeft', { h, m }) : t('MyAdjustmentsPage.minLeft', { m }), expired: false }
 }
 
 function TimeLeft({ createdAt, status }: { createdAt: string; status: string }) {
@@ -48,15 +50,16 @@ function TimeLeft({ createdAt, status }: { createdAt: string; status: string }) 
 
 /** Tóm tắt "hiện tại → đề xuất" cho những trường thực sự đổi. */
 function ChangeSummary({ adj }: { adj: any }) {
-  if (adj.deactivationRequest) return <Badge variant="destructive">Xin dừng chỉ tiêu</Badge>
+  const { t } = useTranslation('kpi')
+  if (adj.deactivationRequest) return <Badge variant="destructive">{t('MyAdjustmentsPage.requestToStopTheKpi')}</Badge>
   const items: { label: string; from: string; to: string }[] = []
   if (adj.requestedTargetValue != null && adj.requestedTargetValue !== adj.currentTargetValue)
-    items.push({ label: 'Mục tiêu', from: formatNumber(adj.currentTargetValue ?? 0), to: formatNumber(adj.requestedTargetValue) })
+    items.push({ label: t('MyAdjustmentsPage.target'), from: formatNumber(adj.currentTargetValue ?? 0), to: formatNumber(adj.requestedTargetValue) })
   if (adj.requestedWeight != null && adj.requestedWeight !== adj.currentWeight)
-    items.push({ label: 'Trọng số', from: `${adj.currentWeight ?? 0}%`, to: `${adj.requestedWeight}%` })
+    items.push({ label: t('MyAdjustmentsPage.weight'), from: `${adj.currentWeight ?? 0}%`, to: `${adj.requestedWeight}%` })
   if (adj.requestedMinimumValue != null && adj.requestedMinimumValue !== adj.currentMinimumValue)
-    items.push({ label: 'Tối thiểu', from: formatNumber(adj.currentMinimumValue ?? 0), to: formatNumber(adj.requestedMinimumValue) })
-  if (items.length === 0) return <span className="text-caption">Không đổi số liệu</span>
+    items.push({ label: t('MyAdjustmentsPage.minimum'), from: formatNumber(adj.currentMinimumValue ?? 0), to: formatNumber(adj.requestedMinimumValue) })
+  if (items.length === 0) return <span className="text-caption">{t('MyAdjustmentsPage.noChangeInFigures')}</span>
   return (
     <ul className="space-y-0.5">
       {items.map(it => (
@@ -72,6 +75,7 @@ function ChangeSummary({ adj }: { adj: any }) {
 }
 
 export default function MyAdjustmentsPage() {
+  const { t } = useTranslation('kpi')
   const [page, setPage] = useState(0)
   const pageSize = 10
   const [pickerOpen, setPickerOpen] = useState(false)
@@ -79,7 +83,7 @@ export default function MyAdjustmentsPage() {
 
   const { data, isLoading } = useMyAdjustments({ page, size: pageSize })
   const adjustments = data?.content ?? []
-  const pageTitle = usePageTitle('my-adjustments', 'Điều chỉnh của tôi')
+  const pageTitle = usePageTitle('my-adjustments', t('MyAdjustmentsPage.myAdjustments'))
 
   const stats = useMemo(() => ({
     total: data?.totalElements ?? 0,
@@ -88,18 +92,18 @@ export default function MyAdjustmentsPage() {
   }), [data?.totalElements, adjustments])
 
   const columns = [
-    { key: 'status', header: 'Trạng thái', render: (adj: any) => <StatusBadge status={adj.status} />, className: 'w-32' },
+    { key: 'status', header: t('MyAdjustmentsPage.status'), render: (adj: any) => <StatusBadge status={adj.status} />, className: 'w-32' },
     {
-      key: 'kpi', header: 'Chỉ tiêu',
+      key: 'kpi', header: t('MyAdjustmentsPage.kpis'),
       render: (adj: any) => <p className="max-w-[260px] truncate font-medium text-[var(--color-foreground)]" title={adj.kpiCriteriaName}>{adj.kpiCriteriaName}</p>,
     },
-    { key: 'change', header: 'Thay đổi', render: (adj: any) => <ChangeSummary adj={adj} /> },
+    { key: 'change', header: t('MyAdjustmentsPage.change'), render: (adj: any) => <ChangeSummary adj={adj} /> },
     {
-      key: 'reason', header: 'Lý do',
+      key: 'reason', header: t('MyAdjustmentsPage.reason'),
       render: (adj: any) => <p className="max-w-[220px] truncate text-[var(--color-muted-foreground)]" title={adj.reason}>{adj.reason}</p>,
     },
     {
-      key: 'sent', header: 'Ngày gửi',
+      key: 'sent', header: t('MyAdjustmentsPage.sentOn'),
       render: (adj: any) => (
         <div className="whitespace-nowrap">
           <p className="tabular-nums">{formatDateTime(adj.createdAt).split(' ')[0]}</p>
@@ -108,10 +112,10 @@ export default function MyAdjustmentsPage() {
       ),
     },
     {
-      key: 'reply', header: 'Phản hồi',
+      key: 'reply', header: t('MyAdjustmentsPage.response'),
       render: (adj: any) => adj.reviewerNote
         ? <p className="max-w-[220px] truncate" title={adj.reviewerNote}>{adj.reviewerNote}</p>
-        : <span className="text-caption">{adj.status === 'PENDING' ? 'Đang chờ quản lý' : 'Không có nhận xét'}</span>,
+        : <span className="text-caption">{adj.status === 'PENDING' ? t('MyAdjustmentsPage.waitingForManager') : t('MyAdjustmentsPage.noComments')}</span>,
     },
   ]
 
@@ -120,15 +124,15 @@ export default function MyAdjustmentsPage() {
       <WorkspaceHeader
         id="tour-myadj-header"
         title={pageTitle}
-        description="Yêu cầu đổi mục tiêu, trọng số hoặc xin dừng chỉ tiêu bạn đã gửi. Quản lý trực tiếp có 24 giờ để phản hồi."
+        description={t('MyAdjustmentsPage.requestsYouSentToChangeThe')}
         stats={[
-          { label: 'Yêu cầu', value: stats.total, icon: ListChecks },
-          { label: 'Đang chờ', value: stats.pending, icon: Clock },
-          { label: 'Đã duyệt', value: stats.approved, icon: CheckCircle2 },
+          { label: t('MyAdjustmentsPage.request'), value: stats.total, icon: ListChecks },
+          { label: t('MyAdjustmentsPage.pending'), value: stats.pending, icon: Clock },
+          { label: t('MyAdjustmentsPage.approved'), value: stats.approved, icon: CheckCircle2 },
         ]}
         actions={
           <Button onClick={() => setPickerOpen(true)}>
-            <Send aria-hidden="true" /> Tạo yêu cầu điều chỉnh
+            <Send aria-hidden="true" /> {t('MyAdjustmentsPage.createAdjustmentRequest')}
           </Button>
         }
       />
@@ -140,11 +144,11 @@ export default function MyAdjustmentsPage() {
           <div className="rounded-card border border-dashed border-[var(--color-border)] bg-[var(--color-card)]">
             <EmptyState
               icon={History}
-              title="Chưa có yêu cầu nào"
-              description="Khi mục tiêu không còn phù hợp, hãy chọn chỉ tiêu và gửi đề nghị điều chỉnh cho quản lý."
+              title={t('MyAdjustmentsPage.noRequestsYet')}
+              description={t('MyAdjustmentsPage.whenATargetNoLongerFits')}
               action={
                 <Button onClick={() => setPickerOpen(true)}>
-                  <Settings2 aria-hidden="true" /> Chọn chỉ tiêu để điều chỉnh
+                  <Settings2 aria-hidden="true" /> {t('MyAdjustmentsPage.chooseAKpiToAdjust')}
                 </Button>
               }
             />
@@ -163,10 +167,10 @@ export default function MyAdjustmentsPage() {
                 <ChangeSummary adj={adj} />
                 <p className="text-caption">{adj.reason}</p>
                 <div className="flex items-center justify-between border-t border-[var(--color-border)] pt-2 text-xs">
-                  <span className="tabular-nums text-[var(--color-muted-foreground)]">Gửi {formatDateTime(adj.createdAt).split(' ')[0]}</span>
+                  <span className="tabular-nums text-[var(--color-muted-foreground)]">{t('MyAdjustmentsPage.send')} {formatDateTime(adj.createdAt).split(' ')[0]}</span>
                   <TimeLeft createdAt={adj.createdAt} status={adj.status} />
                 </div>
-                {adj.reviewerNote && <p className="text-xs text-[var(--color-foreground)]">Phản hồi: {adj.reviewerNote}</p>}
+                {adj.reviewerNote && <p className="text-xs text-[var(--color-foreground)]">{t('MyAdjustmentsPage.response2')} {adj.reviewerNote}</p>}
               </div>
             )}
           />
@@ -180,7 +184,7 @@ export default function MyAdjustmentsPage() {
           totalElements={data.totalElements}
           size={pageSize}
           onPageChange={setPage}
-          itemLabel="yêu cầu"
+          itemLabel={t('MyAdjustmentsPage.requests')}
         />
       )}
 

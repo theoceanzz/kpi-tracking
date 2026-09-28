@@ -7,6 +7,7 @@ import { formatCurrency } from '@/lib/utils'
 import { useUserCashTransactions } from '../hooks/useWallet'
 import CashLedgerTable from './CashLedgerTable'
 import type { CashWallet } from '../types'
+import { useTranslation } from 'react-i18next'
 
 interface UserLedgerModalProps {
   wallet: CashWallet | null
@@ -21,6 +22,7 @@ interface UserLedgerModalProps {
  * quy đổi và điều chỉnh làm nên số dư hiện tại.
  */
 export default function UserLedgerModal({ wallet, onClose }: UserLedgerModalProps) {
+  const { t } = useTranslation('wallet')
   const [page, setPage] = useState(0)
   const size = 20
 
@@ -45,9 +47,9 @@ export default function UserLedgerModal({ wallet, onClose }: UserLedgerModalProp
     >
       <div className="grid grid-cols-3 gap-px border-b border-[var(--color-border)] bg-[var(--color-border)]">
         {[
-          { label: 'Số dư', value: formatCurrency(wallet.balance) },
-          { label: 'Đã nạp', value: formatCurrency(wallet.lifetimeTopup) },
-          { label: 'Đã đổi ra điểm', value: formatCurrency(wallet.lifetimeConverted) },
+          { label: t('UserLedgerModal.balance'), value: formatCurrency(wallet.balance) },
+          { label: t('UserLedgerModal.toppedUp'), value: formatCurrency(wallet.lifetimeTopup) },
+          { label: t('UserLedgerModal.convertedToPoints'), value: formatCurrency(wallet.lifetimeConverted) },
         ].map((s) => (
           <div key={s.label} className="bg-[var(--color-card)] px-5 py-3">
             <p className="text-eyebrow">{s.label}</p>
@@ -62,8 +64,8 @@ export default function UserLedgerModal({ wallet, onClose }: UserLedgerModalProp
         ) : transactions.length === 0 ? (
           <div className="rounded-card border border-dashed border-[var(--color-border)]">
             <EmptyState
-              title="Chưa có giao dịch nào"
-              description="Ví này được tạo nhưng chưa phát sinh nạp tiền hay quy đổi."
+              title={t('UserLedgerModal.noTransactionsYet')}
+              description={t('UserLedgerModal.thisWalletWasCreatedButHas')}
             />
           </div>
         ) : (
@@ -77,7 +79,7 @@ export default function UserLedgerModal({ wallet, onClose }: UserLedgerModalProp
                   totalElements={data?.totalElements ?? 0}
                   size={size}
                   onPageChange={setPage}
-                  itemLabel="giao dịch"
+                  itemLabel={t('UserLedgerModal.transactions')}
                 />
               </div>
             )}

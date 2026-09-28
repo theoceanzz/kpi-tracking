@@ -11,6 +11,8 @@ import {
 } from 'lucide-react'
 import type { ReactNode } from 'react'
 import type { WorkflowStageCode } from './types'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
 /**
  * Biểu tượng cho từng bước — phần DUY NHẤT của danh mục bước còn nằm ở frontend.
@@ -37,18 +39,18 @@ export function stageIcon(code: WorkflowStageCode, size = 18): ReactNode {
 }
 
 /** Mô tả ngắn hiện trên sơ đồ luồng và bảng chi tiết của màn hình cấu hình. */
-export const STAGE_HINTS: Record<WorkflowStageCode, string> = {
-  CYCLE_SETUP: 'Tạo kỳ (tháng/quý/năm) để gom nhiều đợt KPI.',
-  PERIOD_SETUP: 'Tạo đợt KPI — mốc thời gian mà mọi hoạt động KPI bám vào.',
-  CRITERIA_DRAFT: 'Soạn và giao chỉ tiêu KPI cho đơn vị, cá nhân.',
-  CRITERIA_APPROVAL: 'Cấp trên duyệt chỉ tiêu trước khi có hiệu lực. Tắt bước này thì chỉ tiêu tạo ra là đã duyệt.',
-  CRITERIA_ADJUSTMENT: 'Cho phép xin điều chỉnh mục tiêu của chỉ tiêu đã duyệt.',
-  SUBMISSION: 'Nhân viên nộp báo cáo kết quả theo từng chỉ tiêu.',
-  SUBMISSION_REVIEW: 'Quản lý duyệt bản nộp. Tắt bước này thì bản nộp được duyệt tự động.',
-  SELF_EVALUATION: 'Nhân viên tự chấm điểm cuối đợt.',
-  MANAGER_EVALUATION: 'Quản lý chấm điểm nhân viên cuối đợt.',
-  CYCLE_EVALUATION: 'Tổng hợp và chốt kết quả đánh giá theo kỳ.',
-}
+export const STAGE_HINTS = perLanguage((): Record<WorkflowStageCode, string> => ({
+  CYCLE_SETUP: i18n.t('kpi:workflowStageIcons.createCyclesMonthQuarterYearTo'),
+  PERIOD_SETUP: i18n.t('kpi:workflowStageIcons.createKpiPeriodsTheTimeFrames'),
+  CRITERIA_DRAFT: i18n.t('kpi:workflowStageIcons.draftAndAssignKpisToUnits'),
+  CRITERIA_APPROVAL: i18n.t('kpi:workflowStageIcons.managersApproveKpisBeforeTheyTake'),
+  CRITERIA_ADJUSTMENT: i18n.t('kpi:workflowStageIcons.allowRequestingAdjustmentsToTheTarget'),
+  SUBMISSION: i18n.t('kpi:workflowStageIcons.employeesSubmitResultReportsForEach'),
+  SUBMISSION_REVIEW: i18n.t('kpi:workflowStageIcons.managersApproveSubmissionsIfThisStep'),
+  SELF_EVALUATION: i18n.t('kpi:workflowStageIcons.employeesSelfScoreAtTheEnd'),
+  MANAGER_EVALUATION: i18n.t('kpi:workflowStageIcons.managersScoreEmployeesAtTheEnd'),
+  CYCLE_EVALUATION: i18n.t('kpi:workflowStageIcons.summarizeAndFinalizeEvaluationResultsBy'),
+}))
 
 /**
  * Ai thường làm bước này — hiện dưới tên bước trên sơ đồ luồng.
@@ -57,15 +59,15 @@ export const STAGE_HINTS: Record<WorkflowStageCode, string> = {
  * tên vai trò; tổ chức tự đặt tên nên tên không đáng tin). Quyền thật để làm bước nằm ở
  * `actionPermission` do backend trả về.
  */
-export const STAGE_ACTORS: Record<WorkflowStageCode, string> = {
-  CYCLE_SETUP: 'Quản trị / Nhân sự',
-  PERIOD_SETUP: 'Quản trị / Nhân sự',
-  CRITERIA_DRAFT: 'Quản lý & nhân viên',
-  CRITERIA_APPROVAL: 'Cấp trên trực tiếp',
-  CRITERIA_ADJUSTMENT: 'Cấp trên trực tiếp',
-  SUBMISSION: 'Nhân viên',
-  SUBMISSION_REVIEW: 'Quản lý đơn vị',
-  SELF_EVALUATION: 'Nhân viên',
-  MANAGER_EVALUATION: 'Quản lý đơn vị',
-  CYCLE_EVALUATION: 'Ban giám đốc / Nhân sự',
-}
+export const STAGE_ACTORS = perLanguage((): Record<WorkflowStageCode, string> => ({
+  CYCLE_SETUP: i18n.t('kpi:workflowStageIcons.adminHr'),
+  PERIOD_SETUP: i18n.t('kpi:workflowStageIcons.adminHr'),
+  CRITERIA_DRAFT: i18n.t('kpi:workflowStageIcons.managersEmployees'),
+  CRITERIA_APPROVAL: i18n.t('kpi:workflowStageIcons.directManager'),
+  CRITERIA_ADJUSTMENT: i18n.t('kpi:workflowStageIcons.directManager'),
+  SUBMISSION: i18n.t('kpi:workflowStageIcons.employee'),
+  SUBMISSION_REVIEW: i18n.t('kpi:workflowStageIcons.unitManager'),
+  SELF_EVALUATION: i18n.t('kpi:workflowStageIcons.employee'),
+  MANAGER_EVALUATION: i18n.t('kpi:workflowStageIcons.unitManager'),
+  CYCLE_EVALUATION: i18n.t('kpi:workflowStageIcons.boardOfDirectorsHr'),
+}))

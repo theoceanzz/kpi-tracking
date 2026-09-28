@@ -1,4 +1,5 @@
 import { useMemo, useEffect, useRef, useState } from 'react'
+import i18n from 'i18next'
 import { Dialog, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -8,7 +9,7 @@ import { Checkbox } from '@/components/ui/checkbox'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { kpiSchema, type KpiFormData } from '../schemas/kpiSchema'
-import { useMutation, useQueryClient } from '@tanstack/react-query'
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { kpiApi } from '../api/kpiApi'
 import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
 import { useUsers } from '@/features/users/hooks/useUsers'
@@ -39,6 +40,9 @@ import { ChoiceChip } from '@/components/ui/choice-chip'
 import { Section } from '@/components/common/ScoreForm'
 import { Field, Hint, SourceCard, Stat, ToggleCard } from './KpiFormParts'
 import type { BscKpiPlanResponse } from '@/features/bsc/types'
+import { useTranslation } from 'react-i18next'
+import { useFormDraft } from '@/hooks/useFormDraft'
+import DraftNotice from '@/components/common/DraftNotice'
 
 interface KpiFormModalProps {
   open: boolean
@@ -92,9 +96,10 @@ interface KpiFormModalProps {
   defaultAssigneeIds?: string[]
 }
 
-const frequencyOptions = (['DAILY', 'WEEKLY', 'MONTHLY', 'QUARTERLY', 'SEMI_ANNUALLY', 'YEARLY', 'UNLIMITED'] as const).map(value => ({
+// Hàm chứ không phải hằng: gọi FREQUENCY_MAP() lúc nạp module thì bản dịch chưa tải xong, nhãn ra rỗng.
+const frequencyOptions = () => (['DAILY', 'WEEKLY', 'MONTHLY', 'QUARTERLY', 'SEMI_ANNUALLY', 'YEARLY', 'UNLIMITED'] as const).map(value => ({
   value,
-  label: FREQUENCY_MAP[value]
+  label: FREQUENCY_MAP()[value]
 }))
 
 const TYPE_LEVEL: Record<string, number> = {
@@ -153,6 +158,7 @@ export default function KpiFormModal({
   lockedPeriodId, defaultOrgUnitIds, compactOrgUnits = false, singleOrgUnit = false,
   defaultAssigneeIds, lockAssignees = false, onlyMyOrgUnits = false,
 }: KpiFormModalProps) {
+  const { t: tr } = useTranslation('kpi')
   const isInline = variant === 'inline'
   const isEdit = !!editKpi
   const qc = useQueryClient()
@@ -225,8 +231,8 @@ export default function KpiFormModal({
     [defaultOrgUnitIds, flatOrgUnits],
   )
 
-  const { register, handleSubmit, formState: { errors }, reset, watch, setValue, control, getValues } = useForm<KpiFormData>({
-    resolver: zodResolver(kpiSchema),
+  const formApi = useForm<KpiFormData>({
+    resolver: zodResolver(kpiSchema()),
     defaultValues: {
       kpiType: 'QUANTITATIVE', name: '', description: '',
       weight: undefined, targetValue: undefined, minimumValue: undefined,
@@ -236,6 +242,8 @@ export default function KpiFormModal({
       orgUnitIds: selectableDefaultUnitIds, orgUnitId: '',
     },
   })
+  const { register, handleSubmit, formState: { errors }, reset, watch, setValue, control, getValues } = formApi
+  const draft = useFormDraft(formApi, { key: `kpi-form:${editKpi ? `edit:${editKpi.id}` : parentKpi ? `child:${parentKpi.id}` : `new:${lockedPeriodId ?? ''}`}`, enabled: open })
 
   const formKpiPeriodId = watch('kpiPeriodId')
   const periodHasScorecard = scorecardsForPeriod(bscScorecards, formKpiPeriodId).length > 0
@@ -365,7 +373,7 @@ export default function KpiFormModal({
    * không nằm trong đó — khi ấy tên chính họ sẽ không tra ra.
    */
   const assigneeNames = selectedAssignees
-    .map(id => (id === user?.id ? (user?.fullName ?? 'Bạn') : (availableUsers.find(u => u.id === id)?.fullName ?? '')))
+    .map(id => (id === user?.id ? (user?.fullName ?? tr('KpiFormModal.you')) : (availableUsers.find(u => u.id === id)?.fullName ?? '')))
     .filter(Boolean)
 
   // Đẩy bối cảnh ra ngoài. So sánh bằng chuỗi JSON: `watch()` trả về mảng MỚI mỗi lần render, đưa
@@ -399,23 +407,23 @@ export default function KpiFormModal({
 
   const createMutation = useMutation({
     mutationFn: (data: KpiFormData) => kpiApi.create(data),
-    onSuccess: (created) => { toast.success('Tạo chỉ tiêu thành công'); afterCreate(created) },
-    onError: (err) => toast.error(getApiErrorMessage(err, 'Tạo chỉ tiêu thất bại')),
+    onSuccess: (created) => { toast.success(tr('KpiFormModal.kpiCreatedSuccessfully')); afterCreate(created) },
+    onError: (err) => toast.error(getApiErrorMessage(err, tr('KpiFormModal.failedToCreateKpi'))),
   })
 
   const splitMutation = useMutation({
     mutationFn: (data: Parameters<typeof kpiApi.createFromBsc>[0]) => kpiApi.createFromBsc(data),
     onSuccess: (created) => {
-      toast.success(`Đã tạo ${created?.length ?? 0} chỉ tiêu theo đợt từ hạng mục BSC`)
+      toast.success(tr('KpiFormModal.createdPeriodKpisFromTheBsc', { count: created?.length ?? 0 }))
       afterCreate(created)
     },
-    onError: (err) => toast.error(getApiErrorMessage(err, 'Tạo chỉ tiêu từ hạng mục BSC thất bại')),
+    onError: (err) => toast.error(getApiErrorMessage(err, tr('KpiFormModal.failedToCreateKpisFromThe'))),
   })
 
   const updateMutation = useMutation({
     mutationFn: (data: KpiFormData) => kpiApi.update(editKpi!.id, data),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['kpi-criteria'] }); toast.success('Cập nhật thành công'); onClose() },
-    onError: (err) => toast.error(getApiErrorMessage(err, 'Cập nhật chỉ tiêu thất bại')),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['kpi-criteria'] }); toast.success(tr('KpiFormModal.updatedSuccessfully')); onClose() },
+    onError: (err) => toast.error(getApiErrorMessage(err, tr('KpiFormModal.failedToUpdateKpi'))),
   })
 
   const formFrequency = watch('frequency')
@@ -426,10 +434,12 @@ export default function KpiFormModal({
   )
 
   const filteredFrequencyOptions = useMemo(() => {
-    if (!selectedPeriod) return frequencyOptions
+    if (!selectedPeriod) return frequencyOptions()
     const periodLevel = TYPE_LEVEL[selectedPeriod.periodType] || 0
-    return frequencyOptions.filter(opt => (TYPE_LEVEL[opt.value as any] || 0) <= periodLevel)
-  }, [selectedPeriod])
+    return frequencyOptions().filter(opt => (TYPE_LEVEL[opt.value as any] || 0) <= periodLevel)
+    // tr đổi khi đổi ngôn ngữ → nhãn dựng lại
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedPeriod, tr])
 
   useEffect(() => {
     if (!selectedPeriod) return
@@ -440,14 +450,14 @@ export default function KpiFormModal({
   // Hạn chót riêng phải nằm trong đợt; đổi đợt mà lệch ra ngoài thì xoá và báo.
   useEffect(() => {
     if (!formDeadline) return
-    if (!formKpiPeriodId) { setValue('deadline', undefined); toast.error('Đã xoá hạn chót riêng vì chưa chọn đợt KPI'); return }
+    if (!formKpiPeriodId) { setValue('deadline', undefined); toast.error(tr('KpiFormModal.removedTheOwnDeadlineBecauseNo')); return }
     if (selectedPeriod) {
       const t = new Date(formDeadline).getTime()
       const s = selectedPeriod.startDate ? new Date(selectedPeriod.startDate).getTime() : null
       const e = selectedPeriod.endDate ? new Date(selectedPeriod.endDate).getTime() : null
-      if ((s && t < s) || (e && t > e)) { setValue('deadline', undefined); toast.error('Đã xoá hạn chót riêng vì không còn nằm trong đợt KPI mới chọn') }
+      if ((s && t < s) || (e && t > e)) { setValue('deadline', undefined); toast.error(tr('KpiFormModal.removedTheOwnDeadlineBecauseIt')) }
     }
-  }, [formKpiPeriodId, selectedPeriod, formDeadline, setValue])
+  }, [formKpiPeriodId, selectedPeriod, formDeadline, setValue, tr])
 
   const filteredObjectives = useMemo(() => {
     if (!objectives || formOrgUnitIds.length === 0) return []
@@ -659,23 +669,23 @@ export default function KpiFormModal({
     if (source === 'BSC' && selectedPerspRow) {
       const cap = plan?.remainingValue ?? selectedPerspRow.targetValue ?? null
       if (t != null && cap != null && t > cap + 0.001) {
-        out.push(`Mục tiêu ${formatNumber(t)} vượt phần còn lại của hạng mục "${selectedPerspective?.name}" (${formatNumber(cap)}${selectedPerspRow.unit ? ` ${selectedPerspRow.unit}` : ''}). Điểm BSC chỉ tính tới mức của hạng mục.`)
+        out.push(tr('KpiFormModal.targetExceedsTheRemainderOfItem', { t: formatNumber(t), name: selectedPerspective?.name, cap: formatNumber(cap), value: selectedPerspRow.unit ? ` ${selectedPerspRow.unit}` : '' }))
       }
       if (selectedPerspRow.unit && watchedUnit && watchedUnit.trim().toLowerCase() !== selectedPerspRow.unit.trim().toLowerCase()) {
-        out.push(`Đơn vị tính "${watchedUnit}" khác hạng mục ("${selectedPerspRow.unit}") — số sẽ không cộng dồn được vào hạng mục.`)
+        out.push(tr('KpiFormModal.unitOfMeasureDiffersFromThe', { watchedUnit, unit: selectedPerspRow.unit }))
       }
     }
     if (source === 'OKR' && selectedKr) {
       const { kr } = selectedKr
       if (t != null && kr.targetValue != null && t > kr.targetValue + 0.001) {
-        out.push(`Mục tiêu ${formatNumber(t)} vượt mục tiêu của KR "${kr.name}" (${formatNumber(kr.targetValue)}${kr.unit ? ` ${kr.unit}` : ''}).`)
+        out.push(tr('KpiFormModal.targetExceedsTheTargetOfKr', { t: formatNumber(t), name: kr.name, targetValue: formatNumber(kr.targetValue), value: kr.unit ? ` ${kr.unit}` : '' }))
       }
       if (kr.unit && watchedUnit && watchedUnit.trim().toLowerCase() !== kr.unit.trim().toLowerCase()) {
-        out.push(`Đơn vị tính "${watchedUnit}" khác KR ("${kr.unit}") — tiến độ KR sẽ không cộng đúng.`)
+        out.push(tr('KpiFormModal.unitOfMeasureDiffersFromThe2', { watchedUnit, unit: kr.unit }))
       }
     }
     return out
-  }, [isQualitative, watchedTarget, watchedUnit, source, selectedPerspRow, selectedPerspective, plan, selectedKr])
+  }, [isQualitative, watchedTarget, watchedUnit, source, selectedPerspRow, selectedPerspective, plan, selectedKr, tr])
 
   const [userSearch, setUserSearch] = useState('')
 
@@ -702,21 +712,62 @@ export default function KpiFormModal({
   // ── Gửi ───────────────────────────────────────────────────────────────────
   const isReverse = !!watch('isReverseKpi')
   const isBonus = !!watch('isBonusKpi')
+  // Đợt thuộc kỳ đã có bộ tiêu chí BSC ⇒ KPI tính điểm phải gắn hạng mục (hoặc KR có Objective
+  // gắn hạng mục) — chặn ngay lúc tạo/sửa, khớp requirePerspectiveWhenBscEnabled ở backend.
+  const needsBscLink = !!enableBsc && periodHasScorecard && !isBonus && !isPendingApproval
+    && Number(watchedWeight) > 0 && (isQualitative || Number(watchedTarget) > 0)
+
+  // Chỉ tiêu mà lưu xong là CHỐT luôn, không qua chốt 100% lúc gửi duyệt ⇒ chặn vượt 100% ngay trên form:
+  //  - tạo mới bởi người tự duyệt (KPI:APPROVE_OWN): ra đời đã duyệt;
+  //  - sửa chỉ tiêu đã duyệt: sửa xong không ai duyệt lại.
+  // Backend chốt lại đúng con số này (requireWithinFullWeight).
+  const editsCommittedKpi = isEdit && !!editKpi && ['APPROVED', 'EDIT', 'EDITED'].includes(editKpi.status)
+  const headroomUnitIds = formOrgUnitIds.filter(id => id && id !== NONE)
+  const { data: headroom } = useQuery({
+    queryKey: ['kpi-weight-headroom', formKpiPeriodId, headroomUnitIds, selectedAssignees, editsCommittedKpi ? editKpi?.id : null],
+    queryFn: () => kpiApi.getWeightHeadroom({
+      kpiPeriodId: formKpiPeriodId, orgUnitIds: headroomUnitIds, assigneeIds: selectedAssignees,
+      excludeKpiId: editsCommittedKpi ? editKpi?.id : undefined,
+    }),
+    enabled: open && (!isEdit || editsCommittedKpi) && !!formKpiPeriodId && headroomUnitIds.length > 0,
+    staleTime: 30_000,
+  })
+  const isDecompositionChild = !!parentKpi && watch('parentRelationType') === 'DECOMPOSITION'
+  const addingWeight = realWeight ?? (watchedWeight != null && !Number.isNaN(Number(watchedWeight)) ? Number(watchedWeight) : 0)
+  // Sửa: chỉ chặn khi có thay đổi có thể làm tăng (trọng số tăng, đổi người / đơn vị) — sửa tên một chỉ
+  // tiêu của đơn vị vốn đã lệch thì không chặn, khớp WeightFootprint.grewOrMoved ở backend.
+  const sameSet = (a: string[], b: string[]) => a.length === b.length && a.every(x => b.includes(x))
+  const editGrewOrMoved = editsCommittedKpi && !!editKpi && (
+    Number(watchedWeight) > (editKpi.weight ?? 0) + 0.001
+    || !sameSet(selectedAssignees, editKpi.assigneeIds ?? [])
+    || !sameSet(headroomUnitIds, editKpi.orgUnitId ? [editKpi.orgUnitId] : headroomUnitIds)
+  )
+  const checksFullWeight = isEdit ? editGrewOrMoved : !!headroom?.selfApproved
+  const overFullWeight = checksFullWeight && headroom && !splitMode && !isBonus && !isDecompositionChild && addingWeight > 0
+    ? headroom.units.find(u => u.usedWeight + addingWeight > 100 + 0.001) ?? null
+    : null
+  const overFullWeightMessage = overFullWeight
+    ? tr(isEdit ? 'KpiFormModal.approvedEditExceedsFullWeight' : 'KpiFormModal.selfApprovedExceedsFullWeight', {
+      name: overFullWeight.orgUnitName,
+      used: formatNumber(round2(overFullWeight.usedWeight)),
+      left: formatNumber(round2(Math.max(0, 100 - overFullWeight.usedWeight))),
+    })
+    : undefined
 
   const submitSplit = () => {
     if (!selectedPerspRow) return
     const chosen = splitRows.filter(r => r.selected)
-    if (chosen.length === 0) { toast.error('Chọn ít nhất một đợt để chia'); return }
+    if (chosen.length === 0) { toast.error(tr('KpiFormModal.chooseAtLeastOnePeriodTo')); return }
     for (const r of chosen) {
-      if (r.targetValue == null || Number.isNaN(r.targetValue) || r.targetValue < 0) { toast.error(`Đợt "${r.periodName}": nhập mục tiêu`); return }
-      if (r.weight == null || Number.isNaN(r.weight) || r.weight <= 0 || r.weight > 100) { toast.error(`Đợt "${r.periodName}": trọng số phải trong 1–100`); return }
+      if (r.targetValue == null || Number.isNaN(r.targetValue) || r.targetValue < 0) { toast.error(tr('KpiFormModal.periodEnterTheTarget', { periodName: r.periodName })); return }
+      if (r.weight == null || Number.isNaN(r.weight) || r.weight <= 0 || r.weight > 100) { toast.error(tr('KpiFormModal.periodWeightMustBeBetween1', { periodName: r.periodName })); return }
       if (r.minimumValue != null && !Number.isNaN(r.minimumValue)) {
-        if (isReverse && r.minimumValue <= r.targetValue) { toast.error(`Đợt "${r.periodName}": KPI ngược thì ngưỡng tối đa phải lớn hơn mục tiêu`); return }
-        if (!isReverse && r.minimumValue > r.targetValue) { toast.error(`Đợt "${r.periodName}": tối thiểu không được lớn hơn mục tiêu`); return }
+        if (isReverse && r.minimumValue <= r.targetValue) { toast.error(tr('KpiFormModal.periodForAnInverseKpiThe', { periodName: r.periodName })); return }
+        if (!isReverse && r.minimumValue > r.targetValue) { toast.error(tr('KpiFormModal.periodTheMinimumCannotBeGreater', { periodName: r.periodName })); return }
       }
     }
-    if (formOrgUnitIds.length === 0) { toast.error('Chọn đơn vị thực hiện'); return }
-    if (selectedAssignees.length > 0 && formOrgUnitIds.length > 1) { toast.error('Giao đích danh thì mỗi lần chỉ chia cho một đơn vị'); return }
+    if (formOrgUnitIds.length === 0) { toast.error(tr('KpiFormModal.chooseTheImplementingUnit')); return }
+    if (selectedAssignees.length > 0 && formOrgUnitIds.length > 1) { toast.error(tr('KpiFormModal.whenAssigningToNamedPeopleYou')); return }
     splitMutation.mutate({
       scorecardPerspectiveId: selectedPerspRow.id,
       orgUnitIds: formOrgUnitIds,
@@ -742,15 +793,20 @@ export default function KpiFormModal({
     if (payload.keyResultId === '' || payload.keyResultId === 'NONE') payload.keyResultId = null
     if (payload.parentId === '') payload.parentId = null
     if (payload.perspectiveId === '' || payload.perspectiveId === 'NONE') payload.perspectiveId = null
+    if (needsBscLink && !payload.perspectiveId && !payload.keyResultId) {
+      toast.error(tr('KpiFormModal.thisPeriodBelongsToACycle'))
+      return
+    }
     if (payload.deadline && selectedPeriod) {
       const t = new Date(payload.deadline).getTime()
       const s = selectedPeriod.startDate ? new Date(selectedPeriod.startDate).getTime() : null
       const e = selectedPeriod.endDate ? new Date(selectedPeriod.endDate).getTime() : null
-      if ((s && t < s) || (e && t > e)) { toast.error('Hạn chót phải nằm trong khoảng thời gian của đợt KPI'); return }
+      if ((s && t < s) || (e && t > e)) { toast.error(tr('KpiFormModal.theDeadlineMustBeWithinThe')); return }
       payload.deadline = new Date(payload.deadline).toISOString()
     } else {
       delete payload.deadline
     }
+    if (overFullWeightMessage) { toast.error(overFullWeightMessage); return }
     if (isEdit) updateMutation.mutate(payload as any)
     else createMutation.mutate(payload as any)
   }
@@ -777,8 +833,8 @@ export default function KpiFormModal({
   const canPickSource = !isPendingApproval && (enableBsc || enableOkr)
   const krLocked = isEdit && !!editKpi?.keyResultId
   const showSplit = source === 'BSC' && !isEdit && !parentKpi && !!plan && plan.periods.length > 1 && !isQualitative
-  const targetLabel = isReverse ? 'Ngưỡng mục tiêu (càng thấp càng tốt)' : 'Mục tiêu mong muốn'
-  const minLabel = isReverse ? 'Ngưỡng tối đa chấp nhận' : 'Mục tiêu tối thiểu'
+  const targetLabel = isReverse ? tr('KpiFormModal.targetThresholdLowerIsBetter') : tr('KpiFormModal.desiredTarget')
+  const minLabel = isReverse ? tr('KpiFormModal.maximumAcceptableThreshold') : tr('KpiFormModal.minimumTarget')
   const submitting = isPending
   const sourceUnitLabel = source === 'BSC' ? selectedPerspRow?.unit : source === 'OKR' ? selectedKr?.kr?.unit : null
 
@@ -792,58 +848,62 @@ export default function KpiFormModal({
       {showTypeTabs && (
         <div className="grid grid-cols-2 gap-1 rounded-control bg-[var(--color-muted)] p-1">
           <ChoiceChip selected={!isQualitative} variant="segment" className="h-9" onClick={() => setValue('kpiType', 'QUANTITATIVE')}>
-            <BarChart3 /> Định lượng
+            <BarChart3 /> {tr('KpiFormModal.quantitative')}
           </ChoiceChip>
           <ChoiceChip selected={isQualitative} variant="segment" className="h-9" onClick={() => setValue('kpiType', 'QUALITATIVE')}>
-            <SlidersHorizontal /> Định tính
+            <SlidersHorizontal /> {tr('KpiFormModal.qualitative')}
           </ChoiceChip>
         </div>
       )}
       {isEdit && isQualitative && (
         <div className="flex items-center gap-2 rounded-card border border-[var(--color-success-border)] bg-[var(--color-success-bg)] px-3 py-2 text-xs font-medium text-[var(--color-success)]">
-          <SlidersHorizontal size={14} /> KPI Định tính — chấm điểm theo thang định tính khi duyệt
+          <SlidersHorizontal size={14} /> {tr('KpiFormModal.qualitativeKpiScoredOnTheQualitative')}
         </div>
       )}
 
       {/* ══ ① Bối cảnh ══════════════════════════════════════════════════════ */}
       {!isPendingApproval && (
-        <Section title="① Bối cảnh" hint={parentKpi ? 'KPI con nằm trong đợt và đơn vị của KPI cha' : 'Đợt và đơn vị quyết định bộ tiêu chí BSC / OKR áp dụng'}>
+        <Section title={tr('KpiFormModal.context')} hint={parentKpi ? tr('KpiFormModal.theChildKpiIsWithinThe') : tr('KpiFormModal.thePeriodAndUnitDetermineWhich')}>
           {/* Tách từ KPI cha: con số của cha là "nguồn" của KPI con — hiện ngay đầu để chia cho đúng. */}
           {parentKpi && (
-            <SourceCard color="#6366f1" title={`${parentRelationType === 'DELEGATION' ? 'Phân rã từ' : 'KPI con của'} "${parentKpi.name}"`} subtitle={parentKpi.assigneeNames?.length ? `Giao cho ${parentKpi.assigneeNames.join(', ')}` : null}>
-              <Stat label="Mục tiêu KPI cha" value={parentKpi.targetValue != null ? `${formatNumber(parentKpi.targetValue)}${parentKpi.unit ? ` ${parentKpi.unit}` : ''}` : '—'} />
-              <Stat label="Trọng số cha" value={`${parentKpi.weight ?? 0}%`} />
-              <Stat label="Đã chia cho KPI con" value={`${parentKpi.childrenWeightTotal ?? 0}%`} />
-              <Stat label="Còn lại" value={`${Math.max(0, (parentKpi.weight ?? 0) - (parentKpi.childrenWeightTotal ?? 0))}%`} hint={parentRelationType === 'DECOMPOSITION' ? 'Điền sẵn vào trọng số' : undefined} />
+            <SourceCard color="#6366f1" title={`${parentRelationType === 'DELEGATION' ? tr('KpiFormModal.cascadedFrom') : tr('KpiFormModal.childKpiOf')} "${parentKpi.name}"`} subtitle={parentKpi.assigneeNames?.length ? tr('KpiFormModal.assignedToNames', { names: parentKpi.assigneeNames.join(', ') }) : null}>
+              <Stat label={tr('KpiFormModal.parentKpiTarget')} value={parentKpi.targetValue != null ? `${formatNumber(parentKpi.targetValue)}${parentKpi.unit ? ` ${parentKpi.unit}` : ''}` : '—'} />
+              <Stat label={tr('KpiFormModal.parentWeight')} value={`${parentKpi.weight ?? 0}%`} />
+              <Stat label={tr('KpiFormModal.splitToChildKpis')} value={`${parentKpi.childrenWeightTotal ?? 0}%`} />
+              <Stat label={tr('KpiFormModal.remaining')} value={`${Math.max(0, (parentKpi.weight ?? 0) - (parentKpi.childrenWeightTotal ?? 0))}%`} hint={parentRelationType === 'DECOMPOSITION' ? tr('KpiFormModal.prefillTheWeight') : undefined} />
             </SourceCard>
           )}
           <div className="grid gap-4 sm:grid-cols-3">
             {lockedPeriodId ? (
-              <Field label="Đợt đánh giá">
+              <Field label={tr('KpiFormModal.evaluationPeriods')}>
                 <div className="flex h-9 items-center gap-2 rounded-control border border-[var(--color-border)] bg-[var(--color-muted)] px-3 text-sm">
                   <CalendarRange size={14} className="text-[var(--color-muted-foreground)]" aria-hidden="true" />
-                  <span className="truncate">{selectedPeriod?.name ?? 'Đợt đã chọn'}</span>
+                  <span className="truncate">{selectedPeriod?.name ?? tr('KpiFormModal.selectedPeriod')}</span>
                 </div>
               </Field>
             ) : (
-              <Field label="Đợt đánh giá" required error={errors.kpiPeriodId?.message}>
+              <Field label={tr('KpiFormModal.evaluationPeriods')} required error={errors.kpiPeriodId?.message}>
                 <Controller name="kpiPeriodId" control={control}
                   render={({ field }) => (
                     <Select value={field.value || ''} onValueChange={field.onChange}>
-                      <SelectTrigger aria-invalid={!!errors.kpiPeriodId}><SelectValue placeholder="Chọn đợt..." /></SelectTrigger>
+                      <SelectTrigger aria-invalid={!!errors.kpiPeriodId}><SelectValue placeholder={tr('KpiFormModal.choosePeriod')} /></SelectTrigger>
                       <SelectContent>
-                        {periodsData?.content.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
+                        {periodsData?.content.map(p => {
+                          // Đợt thuộc kỳ đã khoá / đã đóng khi khoá kỳ: không tạo KPI vào được (server chặn).
+                          const locked = p.cycleStatus === 'LOCKED' || (!!p.status && p.status !== 'ACTIVE')
+                          return <SelectItem key={p.id} value={p.id} disabled={locked}>{p.name}{locked && tr('KpiFormModal.locked')}</SelectItem>
+                        })}
                       </SelectContent>
                     </Select>
                   )}
                 />
               </Field>
             )}
-            <Field label="Tần suất chốt" required>
+            <Field label={tr('KpiFormModal.closingFrequency')} required>
               <Controller name="frequency" control={control}
                 render={({ field }) => (
                   <Select value={field.value || ''} onValueChange={field.onChange}>
-                    <SelectTrigger><SelectValue placeholder="Chọn tần suất..." /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder={tr('KpiFormModal.chooseFrequency')} /></SelectTrigger>
                     <SelectContent>
                       {filteredFrequencyOptions.map(opt => <SelectItem key={opt.value} value={opt.value}>{opt.label}</SelectItem>)}
                     </SelectContent>
@@ -851,10 +911,10 @@ export default function KpiFormModal({
                 )}
               />
             </Field>
-            <Field label="Hạn chót" hint={selectedPeriod ? `Trống = cuối đợt (${formatDateTime(selectedPeriod.endDate)})` : 'Chọn đợt trước'}>
+            <Field label={tr('KpiFormModal.deadline')} hint={selectedPeriod ? tr('KpiFormModal.emptyEndOfPeriod', { endDate: formatDateTime(selectedPeriod.endDate) }) : tr('KpiFormModal.chooseAPeriodFirst')}>
               <Controller name="deadline" control={control}
                 render={({ field }) => (
-                  <DateTimePicker value={field.value || ''} onChange={field.onChange} placeholder="Mặc định theo đợt"
+                  <DateTimePicker value={field.value || ''} onChange={field.onChange} placeholder={tr('KpiFormModal.defaultFromThePeriod')}
                     className={cn(!selectedPeriod && 'pointer-events-none opacity-50')} />
                 )}
               />
@@ -866,24 +926,24 @@ export default function KpiFormModal({
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <label className="text-label flex items-center gap-2">
-                  <LayoutGrid size={15} className="text-[var(--color-primary)]" aria-hidden="true" /> Đơn vị thực hiện
-                  {enableOkr && <span className="text-caption">· chế độ OKR: một đơn vị</span>}
+                  <LayoutGrid size={15} className="text-[var(--color-primary)]" aria-hidden="true" /> {tr('KpiFormModal.implementingUnit')}
+                  {enableOkr && <span className="text-caption">{tr('KpiFormModal.okrModeOneUnit')}</span>}
                 </label>
                 {compactOrgUnits ? (
                   <Button variant="ghost" size="sm" type="button" onClick={() => setOrgUnitsExpanded(v => !v)}>
-                    {orgUnitsExpanded ? 'Xong' : 'Đổi'}
+                    {orgUnitsExpanded ? tr('KpiFormModal.done') : tr('KpiFormModal.change')}
                   </Button>
                 ) : (
-                  <span className="text-caption">{formOrgUnitIds.length} đã chọn</span>
+                  <span className="text-caption">{formOrgUnitIds.length} {tr('KpiFormModal.selected')}</span>
                 )}
               </div>
               {compactOrgUnits && !orgUnitsExpanded && (
                 <div className="flex h-9 items-center gap-2 rounded-control border border-[var(--color-border)] bg-[var(--color-muted)] px-3 text-sm">
                   <LayoutGrid size={13} className="shrink-0 text-[var(--color-muted-foreground)]" />
                   <span className="truncate">
-                    {formOrgUnitIds.length === 0 ? 'Chưa chọn đơn vị'
-                      : formOrgUnitIds.length === 1 ? (flatOrgUnits.find(u => u.id === formOrgUnitIds[0])?.name ?? '1 đơn vị')
-                      : `${formOrgUnitIds.length} đơn vị`}
+                    {formOrgUnitIds.length === 0 ? tr('KpiFormModal.noUnitChosen')
+                      : formOrgUnitIds.length === 1 ? (flatOrgUnits.find(u => u.id === formOrgUnitIds[0])?.name ?? tr('KpiFormModal.n1Unit'))
+                      : tr('KpiFormModal.units', { count: formOrgUnitIds.length })}
                   </span>
                 </div>
               )}
@@ -909,9 +969,9 @@ export default function KpiFormModal({
           <div className="space-y-2">
             <div className="flex items-center justify-between">
               <label className="text-label flex items-center gap-2">
-                <Users size={15} className="text-[var(--color-primary)]" aria-hidden="true" /> Giao thực hiện
+                <Users size={15} className="text-[var(--color-primary)]" aria-hidden="true" /> {tr('KpiFormModal.assignTo')}
               </label>
-              {!isStaff && !lockAssignees && <span className="text-caption">{selectedAssignees.length} người · {totalMemberCount} khả dụng</span>}
+              {!isStaff && !lockAssignees && <span className="text-caption">{selectedAssignees.length} {tr('KpiFormModal.people')} {totalMemberCount} {tr('KpiFormModal.available')}</span>}
             </div>
             {/* `lockAssignees` dùng chung đúng thẻ gọn này với nhân viên: cả hai đều là "người nhận
                 chỉ là chính bạn", chỉ khác lý do — một bên do quyền, một bên do luồng. */}
@@ -919,7 +979,7 @@ export default function KpiFormModal({
               <div className="flex items-center gap-3 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] px-3 py-2.5">
                 <UserAvatar fullName={user?.fullName} avatarUrl={user?.avatarUrl} className="h-8 w-8 rounded-full" fallbackClassName="bg-[var(--color-primary-soft)] text-[var(--color-primary)] text-sm font-semibold" />
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-medium">{user?.fullName} <span className="text-[var(--color-primary)]">(bản thân)</span></p>
+                  <p className="truncate text-sm font-medium">{user?.fullName} <span className="text-[var(--color-primary)]">{tr('KpiFormModal.yourself')}</span></p>
                   <p className="truncate text-caption">{user?.email}</p>
                 </div>
                 <Check size={16} className="text-[var(--color-primary)]" aria-hidden="true" />
@@ -927,17 +987,17 @@ export default function KpiFormModal({
             ) : formOrgUnitIds.length > 0 ? (
               <div className="overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
                 <div className="flex flex-wrap items-center gap-2 border-b border-[var(--color-border)] p-2">
-                  <Input size="sm" placeholder="Tìm theo tên hoặc email…" value={userSearch} onChange={e => setUserSearch(e.target.value)} className="w-56" />
-                  <ChoiceChip selected={selectedRole === 'ALL'} size="sm" onClick={() => setSelectedRole('ALL')}>Tất cả</ChoiceChip>
+                  <Input size="sm" placeholder={tr('KpiFormModal.searchByNameOrEmail')} value={userSearch} onChange={e => setUserSearch(e.target.value)} className="w-56" />
+                  <ChoiceChip selected={selectedRole === 'ALL'} size="sm" onClick={() => setSelectedRole('ALL')}>{tr('KpiFormModal.all')}</ChoiceChip>
                   {availableRolesForFilter.map(role => (
                     <ChoiceChip key={role.id} selected={selectedRole === role.name} size="sm" onClick={() => setSelectedRole(role.name)}>{role.name}</ChoiceChip>
                   ))}
                 </div>
                 <div className="custom-scrollbar max-h-44 space-y-0.5 overflow-y-auto p-1.5">
                   {isLoadingUsers ? (
-                    <p className="flex items-center justify-center gap-2 py-8 text-caption"><Loader2 size={16} className="animate-spin" /> Đang tải nhân sự…</p>
+                    <p className="flex items-center justify-center gap-2 py-8 text-caption"><Loader2 size={16} className="animate-spin" /> {tr('KpiFormModal.loadingPeople')}</p>
                   ) : displayUsers.length === 0 ? (
-                    <p className="py-8 text-center text-caption">Không có nhân sự phù hợp</p>
+                    <p className="py-8 text-center text-caption">{tr('KpiFormModal.noMatchingPeople')}</p>
                   ) : displayUsers.map(u => {
                     const on = selectedAssignees.includes(u.id)
                     return (
@@ -958,7 +1018,7 @@ export default function KpiFormModal({
               </div>
             ) : (
               <p className="rounded-card border border-dashed border-[var(--color-border)] px-3 py-4 text-center text-caption">
-                Chọn đơn vị thực hiện để hiện danh sách nhân sự
+                {tr('KpiFormModal.chooseTheImplementingUnitToShow')}
               </p>
             )}
           </div>
@@ -967,26 +1027,29 @@ export default function KpiFormModal({
 
       {/* ══ ② Nguồn chỉ tiêu ═══════════════════════════════════════════════ */}
       {canPickSource && (
-        <Section title="② Nguồn chỉ tiêu" hint="Chọn nguồn trước — mục tiêu, đơn vị tính, trọng số sẽ điền sẵn ở bước ③">
+        <Section title={tr('KpiFormModal.kpiSource')} hint={tr('KpiFormModal.chooseTheSourceFirstTargetUnit')}>
           {/* KR đã gắn thì không gỡ được khi sửa (luật cũ của ô KR) — khoá luôn việc đổi nguồn. */}
-          <div className="flex flex-wrap gap-2" title={krLocked ? 'Chỉ tiêu đã gắn KR — không đổi nguồn khi sửa' : undefined}>
-            <ChoiceChip selected={source === 'FREE'} onClick={() => changeSource('FREE')} disabled={krLocked}><Unlink /> Tự do</ChoiceChip>
-            {enableBsc && <ChoiceChip selected={source === 'BSC'} onClick={() => changeSource('BSC')} disabled={krLocked}><LayoutGrid /> Hạng mục BSC</ChoiceChip>}
+          <div className="flex flex-wrap gap-2" title={krLocked ? tr('KpiFormModal.theKpiIsLinkedToA') : undefined}>
+            <ChoiceChip selected={source === 'FREE'} onClick={() => changeSource('FREE')} disabled={krLocked}><Unlink /> {tr('KpiFormModal.freeForm')}</ChoiceChip>
+            {enableBsc && <ChoiceChip selected={source === 'BSC'} onClick={() => changeSource('BSC')} disabled={krLocked}><LayoutGrid /> {tr('KpiFormModal.bscItem')}</ChoiceChip>}
             {enableOkr && (
               <ChoiceChip selected={source === 'OKR'} onClick={() => changeSource('OKR')}>
-                <Target /> Kết quả then chốt (OKR)
+                <Target /> {tr('KpiFormModal.keyResultOkr')}
               </ChoiceChip>
             )}
           </div>
+          {source === 'FREE' && needsBscLink && (
+            <Hint tone="warning">{tr('KpiFormModal.thisPeriodBelongsToACycle2')} <b>{tr('KpiFormModal.aBscScorecard')}</b> {tr('KpiFormModal.theKpiMustBeLinkedTo')} <b>{tr('KpiFormModal.bscItem')}</b> {tr('KpiFormModal.orAKrOfAnOkr')}</Hint>
+          )}
 
           {source === 'BSC' && (
             <div className="space-y-3">
               <Controller name="perspectiveId" control={control}
                 render={({ field }) => (
                   <Select key={`${field.value ?? 'NONE'}-${(perspectives || []).length}`} onValueChange={field.onChange} value={field.value || 'NONE'}>
-                    <SelectTrigger><SelectValue placeholder="Chọn hạng mục…" /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder={tr('KpiFormModal.chooseItem')} /></SelectTrigger>
                     <SelectContent className="max-h-[350px]">
-                      <SelectItem value="NONE">— Chưa chọn hạng mục —</SelectItem>
+                      <SelectItem value="NONE">{tr('KpiFormModal.noItemChosen')}</SelectItem>
                       {filteredGroupedPerspectives.map(group => (
                         <SelectGroup key={group.code}>
                           <SelectLabel>{group.name}</SelectLabel>
@@ -1006,23 +1069,23 @@ export default function KpiFormModal({
                 )}
               />
               {/* Vì sao danh sách trống — nói thẳng thiếu gì. */}
-              {availablePerspectiveIds && !formKpiPeriodId && <Hint tone="warning">Chọn <b>Đợt đánh giá</b> ở bước ① — hạng mục hiện theo bộ tiêu chí của đợt.</Hint>}
-              {availablePerspectiveIds && formKpiPeriodId && !periodHasScorecard && <Hint tone="warning">Đợt này <b>chưa có bộ tiêu chí BSC</b> — lập bộ tiêu chí cho đợt rồi mới chọn được hạng mục.</Hint>}
-              {availablePerspectiveIds && formKpiPeriodId && periodHasScorecard && !hasRealUnit && <Hint tone="warning">Chọn <b>Đơn vị thực hiện</b> ở bước ① — hạng mục hiện theo bộ tiêu chí của đơn vị.</Hint>}
-              {availablePerspectiveIds && periodHasScorecard && hasRealUnit && filteredGroupedPerspectives.length === 0 && <Hint tone="warning">Bộ tiêu chí của đơn vị này <b>chưa có hạng mục nào</b>.</Hint>}
-              {selectedPerspMissing && <Hint tone="warning">Hạng mục này <b>không có trong bộ tiêu chí</b> của đơn vị đã chọn ⇒ KPI sẽ không tính vào điểm BSC.</Hint>}
+              {availablePerspectiveIds && !formKpiPeriodId && <Hint tone="warning">{tr('KpiFormModal.choose')} <b>{tr('KpiFormModal.evaluationPeriods')}</b> {tr('KpiFormModal.inStepItemsShownFollowThe')}</Hint>}
+              {availablePerspectiveIds && formKpiPeriodId && !periodHasScorecard && <Hint tone="warning">{tr('KpiFormModal.thisPeriod')} <b>{tr('KpiFormModal.hasNoBscScorecardYet')}</b> {tr('KpiFormModal.buildAScorecardForThePeriod')}</Hint>}
+              {availablePerspectiveIds && formKpiPeriodId && periodHasScorecard && !hasRealUnit && <Hint tone="warning">{tr('KpiFormModal.choose')} <b>{tr('KpiFormModal.implementingUnit')}</b> {tr('KpiFormModal.inStepItemsShownFollowThe2')}</Hint>}
+              {availablePerspectiveIds && periodHasScorecard && hasRealUnit && filteredGroupedPerspectives.length === 0 && <Hint tone="warning">{tr('KpiFormModal.thisUnitsScorecard')} <b>{tr('KpiFormModal.hasNoItemsYet')}</b>.</Hint>}
+              {selectedPerspMissing && <Hint tone="warning">{tr('KpiFormModal.thisItem')} <b>{tr('KpiFormModal.isNotInTheScorecard')}</b> {tr('KpiFormModal.ofTheChosenUnitTheKpi')}</Hint>}
 
               {selectedPerspRow && selectedPerspective && (
                 <SourceCard color={selectedPerspective.color || '#94a3b8'} title={selectedPerspective.name} subtitle={effectiveScorecard?.name}>
-                  <Stat label="Mục tiêu hạng mục" value={selectedPerspRow.targetValue != null ? `${formatNumber(selectedPerspRow.targetValue)}${selectedPerspRow.unit ? ` ${selectedPerspRow.unit}` : ''}` : '—'} />
-                  <Stat label="Tối thiểu" value={selectedPerspRow.minimumValue != null ? formatNumber(selectedPerspRow.minimumValue) : '—'} />
-                  <Stat label="Trọng số hạng mục" value={`${selectedPerspRow.weightPercentage}%`} hint="100% chỉ tiêu = đủ hạng mục" />
+                  <Stat label={tr('KpiFormModal.itemTarget')} value={selectedPerspRow.targetValue != null ? `${formatNumber(selectedPerspRow.targetValue)}${selectedPerspRow.unit ? ` ${selectedPerspRow.unit}` : ''}` : '—'} />
+                  <Stat label={tr('KpiFormModal.minimum')} value={selectedPerspRow.minimumValue != null ? formatNumber(selectedPerspRow.minimumValue) : '—'} />
+                  <Stat label={tr('KpiFormModal.itemWeight')} value={`${selectedPerspRow.weightPercentage}%`} hint={tr('KpiFormModal.n100KpiFullItem')} />
                   {plan && (
-                    <Stat label="Còn chưa chia" value={plan.remainingValue != null ? formatNumber(plan.remainingValue) : '—'}
-                      hint={`${plan.periods.length} đợt · ${plan.periods.reduce((s, p) => s + p.kpiCount, 0)} KPI đã gắn`} />
+                    <Stat label={tr('KpiFormModal.notYetSplit')} value={plan.remainingValue != null ? formatNumber(plan.remainingValue) : '—'}
+                      hint={tr('KpiFormModal.periodsKpisLinked', { count: plan.periods.length, reduce: plan.periods.reduce((s, p) => s + p.kpiCount, 0) })} />
                   )}
                   {periodRowOfPlan && (
-                    <Stat label={`Trọng số còn trống · ${periodRowOfPlan.name}`} value={`${round2(100 - periodRowOfPlan.allocatedWeight)}%`} hint={`${periodRowOfPlan.kpiCount} KPI đã chiếm ${periodRowOfPlan.allocatedWeight}%`} />
+                    <Stat label={tr('KpiFormModal.availableWeight', { name: periodRowOfPlan.name })} value={`${round2(100 - periodRowOfPlan.allocatedWeight)}%`} hint={tr('KpiFormModal.kpisAlreadyTake', { kpiCount: periodRowOfPlan.kpiCount, allocatedWeight: periodRowOfPlan.allocatedWeight })} />
                   )}
                 </SourceCard>
               )}
@@ -1031,8 +1094,8 @@ export default function KpiFormModal({
                 <div className="rounded-card border border-[var(--color-border)] bg-[var(--color-muted)]">
                   <label className="flex cursor-pointer items-center justify-between gap-3 px-4 py-3">
                     <span className="min-w-0">
-                      <span className="flex items-center gap-2 text-sm font-medium"><SplitSquareHorizontal size={15} aria-hidden="true" /> Chia theo từng đợt trong kỳ</span>
-                      <span className="text-caption block">Hạng mục trải {plan!.periods.length} đợt — tạo một KPI cho mỗi đợt, phần còn lại chia đều. Tắt = chỉ tạo KPI cho đợt đã chọn ở bước ①.</span>
+                      <span className="flex items-center gap-2 text-sm font-medium"><SplitSquareHorizontal size={15} aria-hidden="true" /> {tr('KpiFormModal.splitAcrossEachPeriodInThe')}</span>
+                      <span className="text-caption block">{tr('KpiFormModal.theItemSpans')} {plan!.periods.length} {tr('KpiFormModal.periodsCreatesOneKpiPerPeriod')}</span>
                     </span>
                     <Switch checked={splitMode} onCheckedChange={setSplitMode} />
                   </label>
@@ -1051,9 +1114,9 @@ export default function KpiFormModal({
               <Controller name="keyResultId" control={control}
                 render={({ field }) => (
                   <Select onValueChange={field.onChange} value={field.value || 'NONE'} disabled={isEdit && !!editKpi?.keyResultId}>
-                    <SelectTrigger><SelectValue placeholder="Chọn kết quả then chốt…" /></SelectTrigger>
+                    <SelectTrigger><SelectValue placeholder={tr('KpiFormModal.chooseKeyResult')} /></SelectTrigger>
                     <SelectContent className="max-h-[350px]">
-                      <SelectItem value="NONE">— Chưa chọn KR —</SelectItem>
+                      <SelectItem value="NONE">{tr('KpiFormModal.noKrChosen')}</SelectItem>
                       {filteredObjectives.map(obj => (
                         <SelectGroup key={obj.id}>
                           <SelectLabel className="flex items-center justify-between gap-2"><span>OBJ: {obj.name}</span><Badge variant="outline">OKR</Badge></SelectLabel>
@@ -1069,13 +1132,13 @@ export default function KpiFormModal({
                   </Select>
                 )}
               />
-              {formOrgUnitIds.length === 0 && <Hint tone="warning">Chọn <b>Đơn vị thực hiện</b> ở bước ① — KR hiện theo mục tiêu của đơn vị.</Hint>}
-              {formOrgUnitIds.length > 0 && filteredObjectives.length === 0 && <Hint tone="warning">Đơn vị này chưa có mục tiêu OKR nào.</Hint>}
+              {formOrgUnitIds.length === 0 && <Hint tone="warning">{tr('KpiFormModal.choose')} <b>{tr('KpiFormModal.implementingUnit')}</b> {tr('KpiFormModal.inStepKrsShownFollowThe')}</Hint>}
+              {formOrgUnitIds.length > 0 && filteredObjectives.length === 0 && <Hint tone="warning">{tr('KpiFormModal.thisUnitHasNoOkrObjectives')}</Hint>}
               {selectedKr && (
                 <SourceCard color={inheritedPerspective?.color || '#8b5cf6'} title={selectedKr.kr.name} subtitle={`OBJ: ${selectedKr.obj.name}`}>
-                  <Stat label="Mục tiêu KR" value={selectedKr.kr.targetValue != null ? `${formatNumber(selectedKr.kr.targetValue)}${selectedKr.kr.unit ? ` ${selectedKr.kr.unit}` : ''}` : '—'} />
-                  <Stat label="Đã đạt" value={selectedKr.kr.currentValue != null ? `${formatNumber(selectedKr.kr.currentValue)} (${Math.round(selectedKr.kr.progress ?? 0)}%)` : '—'} />
-                  {inheritedPerspective && <Stat label="Hạng mục BSC kế thừa" value={inheritedPerspective.name} />}
+                  <Stat label={tr('KpiFormModal.krTarget')} value={selectedKr.kr.targetValue != null ? `${formatNumber(selectedKr.kr.targetValue)}${selectedKr.kr.unit ? ` ${selectedKr.kr.unit}` : ''}` : '—'} />
+                  <Stat label={tr('KpiFormModal.achieved')} value={selectedKr.kr.currentValue != null ? `${formatNumber(selectedKr.kr.currentValue)} (${Math.round(selectedKr.kr.progress ?? 0)}%)` : '—'} />
+                  {inheritedPerspective && <Stat label={tr('KpiFormModal.inheritedBscItem')} value={inheritedPerspective.name} />}
                 </SourceCard>
               )}
             </div>
@@ -1084,8 +1147,8 @@ export default function KpiFormModal({
       )}
 
       {/* ══ ③ Nội dung chỉ tiêu ═════════════════════════════════════════════ */}
-      <Section title={canPickSource || !isPendingApproval ? '③ Nội dung chỉ tiêu' : 'Nội dung chỉ tiêu'}
-        hint={source !== 'FREE' && !isEdit ? 'Đã điền sẵn từ nguồn — sửa chỗ nào thấy khác' : undefined}>
+      <Section title={canPickSource || !isPendingApproval ? tr('KpiFormModal.kpiContent') : tr('KpiFormModal.kpiContent2')}
+        hint={source !== 'FREE' && !isEdit ? tr('KpiFormModal.prefilledFromTheSourceEditAnything') : undefined}>
 
         {/* Hai công tắc đứng TRƯỚC các ô số: chúng đổi nhãn và ý nghĩa của những ô đó. */}
         {(!isQualitative || !parentKpi) && (
@@ -1093,19 +1156,19 @@ export default function KpiFormModal({
             {!isQualitative && (
               <Controller name="isReverseKpi" control={control} render={({ field }) => (
                 <ToggleCard on={!!field.value} onToggle={() => field.onChange(!field.value)} tone="warning"
-                  title="KPI ngược" desc="Giá trị càng thấp càng tốt — tỉ lệ lỗi, chi phí, thời gian xử lý" />
+                  title={tr('KpiFormModal.inverseKpi')} desc={tr('KpiFormModal.lowerIsBetterErrorRateCost')} />
               )} />
             )}
             {!parentKpi && (
               <Controller name="isBonusKpi" control={control} render={({ field }) => (
                 <ToggleCard on={!!field.value} onToggle={() => field.onChange(!field.value)} tone="success"
-                  title="KPI thưởng" desc="Không bắt buộc, không nằm trong 100% trọng số; làm được thì cộng thêm điểm" />
+                  title={tr('KpiFormModal.bonusKpi')} desc={tr('KpiFormModal.optionalNotPartOfThe100')} />
               )} />
             )}
           </div>
         )}
 
-        <Field label="Tên chỉ tiêu" required error={errors.name?.message}
+        <Field label={tr('KpiFormModal.kpiName')} required error={errors.name?.message}
           trailing={(canManageOrg || canReview) && !isEdit && (
             /* Gợi ý đi qua K.AI (22/09/2026): bấm là khung chat mở và tự hỏi; agent tra số liệu +
                tài liệu tổ chức rồi gọi tool điền form -> thẻ "Đề xuất điền form", bấm Điền là vào
@@ -1113,50 +1176,50 @@ export default function KpiFormModal({
                đã bỏ — một đường, một cách nhận. */
             <AiShortcutButton
               size="sm"
-              label="Gợi ý AI"
+              label={tr('KpiFormModal.aiSuggestion')}
               prompt={aiShortcuts.suggestKpis(aiUnitName)}
               focusUnitId={aiUnitId}
-              title="K.AI đọc số liệu đơn vị và tài liệu của công ty rồi đề xuất điền chỉ tiêu; bạn xem lại và bấm Điền trong khung chat"
+              title={tr('KpiFormModal.kAiReadsTheUnitsFigures')}
             />
           )}>
-          <Input {...register('name')} invalid={!!errors.name} placeholder="VD: Doanh thu tháng 10" />
+          <Input {...register('name')} invalid={!!errors.name} placeholder={tr('KpiFormModal.eGOctoberRevenue')} />
         </Field>
 
-        <Field label="Mô tả chi tiết">
-          <Textarea {...register('description')} rows={2} placeholder="Cung cấp ngữ cảnh và cách tính toán…" />
+        <Field label={tr('KpiFormModal.detailedDescription')}>
+          <Textarea {...register('description')} rows={2} placeholder={tr('KpiFormModal.provideContextAndHowItIs')} />
         </Field>
 
         {isQualitative ? (
-          <Hint tone="success">KPI định tính không có mục tiêu số. Khi duyệt bài nộp, quản lý chọn một mức trong thang định tính (Kém … Tốt) để chấm.</Hint>
+          <Hint tone="success">{tr('KpiFormModal.qualitativeKpisHaveNoNumericTarget')}</Hint>
         ) : !splitMode && (
           <div className="grid gap-4 sm:grid-cols-3">
             <Field label={targetLabel} required error={errors.targetValue?.message} prefilled={prefilledRef.current.targetValue !== undefined && watchedTarget === prefilledRef.current.targetValue}>
               <Input {...register('targetValue', { setValueAs: numOrUndef })} type="number" step="any" onWheel={e => (e.target as HTMLInputElement).blur()} invalid={!!errors.targetValue} placeholder="1000"
-                suffix={watchedUnit ? <span className="text-xs">{watchedUnit}</span> : undefined} />
+                suffix={<span className="text-xs">{watchedUnit}</span>} />
             </Field>
             <Field label={minLabel} required error={errors.minimumValue?.message}>
               <Input {...register('minimumValue', { setValueAs: numOrUndef })} type="number" step="any" onWheel={e => (e.target as HTMLInputElement).blur()} invalid={!!errors.minimumValue} placeholder="800"
-                suffix={watchedUnit ? <span className="text-xs">{watchedUnit}</span> : undefined} />
+                suffix={<span className="text-xs">{watchedUnit}</span>} />
             </Field>
-            <Field label="Đơn vị tính" required error={errors.unit?.message} prefilled={!!sourceUnitLabel && watchedUnit === sourceUnitLabel}>
-              <Input {...register('unit')} invalid={!!errors.unit} placeholder="VNĐ, %, KPI…" />
+            <Field label={tr('KpiFormModal.unitOfMeasure')} required error={errors.unit?.message} prefilled={!!sourceUnitLabel && watchedUnit === sourceUnitLabel}>
+              <Input {...register('unit')} invalid={!!errors.unit} placeholder={tr('KpiFormModal.vndKpi')} />
             </Field>
           </div>
         )}
 
         {!splitMode && (
           <Field
-            label={isBonus ? 'Điểm cộng thêm (%)' : 'Trọng số (%)'} required error={errors.weight?.message}
-            hint={isBonus ? 'KPI thưởng: con số này là phần cộng thêm, không nằm trong 100% của đơn vị'
-              : source === 'BSC' && selectedPerspRow ? `Trọng số trong hạng mục "${selectedPerspective?.name}" — tổng các KPI của hạng mục phải đủ 100%`
-              : parentKpi && watch('parentRelationType') === 'DECOMPOSITION' ? `Còn lại của KPI cha "${parentKpi.name}": ${Math.max(0, (parentKpi.weight ?? 0) - (parentKpi.childrenWeightTotal ?? 0))}%`
+            label={isBonus ? tr('KpiFormModal.bonusPoints') : tr('KpiFormModal.weight')} required error={errors.weight?.message ?? overFullWeightMessage}
+            hint={isBonus ? tr('KpiFormModal.bonusKpiThisFigureIsAn')
+              : source === 'BSC' && selectedPerspRow ? tr('KpiFormModal.weightWithinItemTheItemsKpis', { name: selectedPerspective?.name })
+              : parentKpi && watch('parentRelationType') === 'DECOMPOSITION' ? tr('KpiFormModal.remainingOfParentKpi', { name: parentKpi.name, max: Math.max(0, (parentKpi.weight ?? 0) - (parentKpi.childrenWeightTotal ?? 0)) })
               : undefined}
             prefilled={prefilledRef.current.weight !== undefined && watchedWeight === prefilledRef.current.weight}
           >
             <div className="flex flex-wrap items-center gap-3">
-              <Input {...register('weight', { setValueAs: numOrUndef })} type="number" step="any" min={0} max={100} onWheel={e => (e.target as HTMLInputElement).blur()} invalid={!!errors.weight} placeholder="25" suffix={<span className="text-xs">%</span>} className="w-36" />
+              <Input {...register('weight', { setValueAs: numOrUndef })} type="number" step="any" min={0} max={100} onWheel={e => (e.target as HTMLInputElement).blur()} invalid={!!errors.weight || !!overFullWeightMessage} placeholder="25" suffix={<span className="text-xs">%</span>} className="w-36" />
               {realWeight != null && (
-                <span className="text-caption">≈ <b className="text-[var(--color-primary)]">{realWeight.toFixed(1)}%</b> của đơn vị ({Number(watchedWeight)}% × {categoryWeightPct}% hạng mục)</span>
+                <span className="text-caption">≈ <b className="text-[var(--color-primary)]">{realWeight.toFixed(1)}%</b> {tr('KpiFormModal.ofTheUnit')}{Number(watchedWeight)}% × {categoryWeightPct}{tr('KpiFormModal.ofItem')}</span>
               )}
             </div>
           </Field>
@@ -1171,7 +1234,7 @@ export default function KpiFormModal({
         <div className="flex justify-end gap-2 border-t border-[var(--color-border)] pt-4">
           <Button type="submit" disabled={submitting}>
             {submitting && <Loader2 className="animate-spin" aria-hidden="true" />}
-            {submitLabel ?? (isEdit ? 'Lưu thay đổi' : splitMode ? `Tạo ${splitRows.filter(r => r.selected).length} chỉ tiêu theo đợt` : 'Tạo chỉ tiêu')}
+            {submitLabel ?? (isEdit ? tr('KpiFormModal.saveChanges') : splitMode ? tr('KpiFormModal.createPeriodKpis', { count: splitRows.filter(r => r.selected).length }) : tr('KpiFormModal.createKpi'))}
           </Button>
         </div>
       )}
@@ -1186,23 +1249,24 @@ export default function KpiFormModal({
       onClose={onClose}
       size="xl"
       dismissible={!isPending}
-      title={isEdit ? 'Sửa chỉ tiêu' : parentKpi ? (parentRelationType === 'DECOMPOSITION' ? 'Thêm KPI con' : 'Phân rã chỉ tiêu') : 'Tạo chỉ tiêu'}
-      description={isEdit ? 'Thay đổi có hiệu lực sau khi lưu; chỉ tiêu đã duyệt cần gửi duyệt lại.' : 'Chọn bối cảnh và nguồn trước, con số sẽ điền sẵn; sửa rồi gửi duyệt sau.'}
+      title={isEdit ? tr('KpiFormModal.editKpi') : parentKpi ? (parentRelationType === 'DECOMPOSITION' ? tr('KpiFormModal.addChildKpi') : tr('KpiFormModal.cascadeKpi')) : tr('KpiFormModal.createKpi')}
+      description={isEdit ? tr('KpiFormModal.changesTakeEffectAfterSavingApproved') : tr('KpiFormModal.chooseTheContextAndSourceFirst')}
       headerExtra={source !== 'FREE' && (
-        <Badge variant="info"><Link2 size={11} aria-hidden="true" /> {source === 'BSC' ? 'Theo hạng mục BSC' : 'Theo KR'}</Badge>
+        <Badge variant="info"><Link2 size={11} aria-hidden="true" /> {source === 'BSC' ? tr('KpiFormModal.byBscItem') : 'Theo KR'}</Badge>
       )}
       footer={
         <DialogFooter
-          secondary={<Button variant="outline" onClick={onClose} disabled={isPending}>Hủy</Button>}
+          secondary={<Button variant="outline" onClick={onClose} disabled={isPending}>{tr('KpiFormModal.cancel')}</Button>}
           primary={
             <Button type="submit" form="kpi-form" disabled={isPending}>
               {isPending && <Loader2 className="animate-spin" aria-hidden="true" />}
-              {submitLabel ?? (isEdit ? 'Lưu thay đổi' : splitMode ? `Tạo ${splitRows.filter(r => r.selected).length} chỉ tiêu theo đợt` : 'Tạo chỉ tiêu')}
+              {submitLabel ?? (isEdit ? tr('KpiFormModal.saveChanges') : splitMode ? tr('KpiFormModal.createPeriodKpis', { count: splitRows.filter(r => r.selected).length }) : tr('KpiFormModal.createKpi'))}
             </Button>
           }
         />
       }
     >
+      <DraftNotice draft={draft} className="mb-4" />
       {formBody}
     </Dialog>
   )
@@ -1212,6 +1276,7 @@ export default function KpiFormModal({
 function SplitTable({ rows, onChange, unit, isReverse, plan, unitCount }: {
   rows: SplitRow[]; onChange: (rows: SplitRow[]) => void; unit: string; isReverse: boolean; plan: BscKpiPlanResponse; unitCount: number
 }) {
+  const { t } = useTranslation('kpi')
   const patch = (i: number, p: Partial<SplitRow>) => onChange(rows.map((r, idx) => (idx === i ? { ...r, ...p } : r)))
   const chosen = rows.filter(r => r.selected)
   const planned = chosen.reduce((s, r) => s + (Number(r.targetValue) || 0), 0)
@@ -1219,7 +1284,7 @@ function SplitTable({ rows, onChange, unit, isReverse, plan, unitCount }: {
   const over = remaining != null && !isReverse && planned * unitCount > remaining + 0.001
 
   const splitEvenly = () => {
-    if (remaining == null) { toast.info('Hạng mục chưa đặt mục tiêu nên không chia tự động được'); return }
+    if (remaining == null) { toast.info(t('KpiFormModal.theItemHasNoTargetSo')); return }
     const idxs = rows.map((r, i) => (r.selected ? i : -1)).filter(i => i >= 0)
     if (!idxs.length) return
     const each = round2(remaining / unitCount / idxs.length)
@@ -1236,31 +1301,31 @@ function SplitTable({ rows, onChange, unit, isReverse, plan, unitCount }: {
     <div className="space-y-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="text-caption">
-          Tổng đã chia <b className={cn('tabular-nums', over ? 'text-[var(--color-error)]' : 'text-[var(--color-foreground)]')}>{formatNumber(planned)}</b>
-          {remaining != null && <> / còn {formatNumber(remaining)}{unit ? ` ${unit}` : ''}</>}
-          {unitCount > 1 && ` · × ${unitCount} đơn vị`}
+          {t('KpiFormModal.totalSplit')} <b className={cn('tabular-nums', over ? 'text-[var(--color-error)]' : 'text-[var(--color-foreground)]')}>{formatNumber(planned)}</b>
+          {remaining != null && <> {t('KpiFormModal.remaining2')} {formatNumber(remaining)}{unit ? ` ${unit}` : ''}</>}
+          {unitCount > 1 && t('KpiFormModal.units2', { unitCount })}
         </span>
-        <Button variant="outline" size="sm" type="button" onClick={splitEvenly}>Chia đều</Button>
+        <Button variant="outline" size="sm" type="button" onClick={splitEvenly}>{t('KpiFormModal.splitEvenly')}</Button>
       </div>
       <div className="overflow-x-auto rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-[var(--color-border)] bg-[var(--color-muted)] text-eyebrow">
               <th className="w-8 px-2 py-2" />
-              <th className="px-2 py-2 text-left">Đợt</th>
-              <th className="px-2 py-2 text-left">Tên KPI</th>
-              <th className="px-2 py-2 text-right">{isReverse ? 'Ngưỡng' : 'Mục tiêu'}</th>
-              <th className="px-2 py-2 text-right">{isReverse ? 'Tối đa' : 'Tối thiểu'}</th>
-              <th className="px-2 py-2 text-right">Trọng số</th>
+              <th className="px-2 py-2 text-left">{t('KpiFormModal.aPeriod')}</th>
+              <th className="px-2 py-2 text-left">{t('KpiFormModal.kpiName2')}</th>
+              <th className="px-2 py-2 text-right">{isReverse ? t('KpiFormModal.threshold') : t('KpiFormModal.target')}</th>
+              <th className="px-2 py-2 text-right">{isReverse ? t('KpiFormModal.maximum') : t('KpiFormModal.minimum')}</th>
+              <th className="px-2 py-2 text-right">{t('KpiFormModal.weight2')}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[var(--color-border)]">
             {rows.map((r, i) => (
               <tr key={r.kpiPeriodId} className={cn(!r.selected && 'opacity-50')}>
-                <td className="px-2 py-1.5"><Checkbox checked={r.selected} onCheckedChange={v => patch(i, { selected: !!v })} aria-label={`Chia cho ${r.periodName}`} /></td>
+                <td className="px-2 py-1.5"><Checkbox checked={r.selected} onCheckedChange={v => patch(i, { selected: !!v })} aria-label={i18n.t('kpi:KpiFormModal.splitFor', { name: r.periodName })} /></td>
                 <td className="px-2 py-1.5">
                   <span className="block font-medium">{r.periodName}</span>
-                  {r.kpiCount > 0 && <span className="text-caption block">{r.kpiCount} KPI · đã chiếm {r.allocatedWeight}%</span>}
+                  {r.kpiCount > 0 && <span className="text-caption block">{r.kpiCount} {t('KpiFormModal.kpisAlreadyTake2')} {r.allocatedWeight}%</span>}
                 </td>
                 <td className="px-2 py-1.5"><Input size="sm" value={r.name} onChange={e => patch(i, { name: e.target.value })} disabled={!r.selected} className="min-w-[180px]" /></td>
                 <td className="px-2 py-1.5"><Input size="sm" type="number" step="any" value={r.targetValue ?? ''} onChange={e => patch(i, { targetValue: numOrUndef(e.target.value) })} disabled={!r.selected} className="w-28" inputClassName="text-right tabular-nums" /></td>
@@ -1271,7 +1336,7 @@ function SplitTable({ rows, onChange, unit, isReverse, plan, unitCount }: {
           </tbody>
         </table>
       </div>
-      {over && <Hint tone="warning" icon={<AlertTriangle size={14} aria-hidden="true" />}>Tổng đã chia vượt phần còn lại của hạng mục — server sẽ từ chối khi tạo.</Hint>}
+      {over && <Hint tone="warning" icon={<AlertTriangle size={14} aria-hidden="true" />}>{t('KpiFormModal.theTotalSplitExceedsTheItems')}</Hint>}
     </div>
   )
 }

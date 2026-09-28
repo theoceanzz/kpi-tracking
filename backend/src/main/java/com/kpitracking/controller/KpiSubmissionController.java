@@ -4,6 +4,7 @@ import com.kpitracking.dto.request.submission.BulkReviewRequest;
 import com.kpitracking.dto.request.submission.CreateSubmissionRequest;
 import com.kpitracking.dto.request.submission.UpdateSubmissionRequest;
 import com.kpitracking.dto.request.submission.ReviewSubmissionRequest;
+import com.kpitracking.dto.request.submission.ReturnSubmissionRequest;
 import com.kpitracking.dto.response.ApiResponse;
 import com.kpitracking.dto.response.PageResponse;
 import com.kpitracking.dto.response.submission.AttachmentResponse;
@@ -85,6 +86,20 @@ public class KpiSubmissionController {
             @Valid @RequestBody ReviewSubmissionRequest request) {
         SubmissionResponse response = submissionService.reviewSubmission(submissionId, request);
         return ResponseEntity.ok(ApiResponse.success("Submission reviewed successfully", response));
+    }
+
+    /**
+     * Hoàn duyệt: trả bài nộp về để nhân viên làm lại bằng bài nộp mới trước hạn nộp lại. Quyền
+     * chi tiết (trong đơn vị, đứng trên người nộp) do service kiểm như khi duyệt.
+     */
+    @PostMapping("/{submissionId}/return")
+    @PreAuthorize("hasAuthority('SUBMISSION:REVIEW')")
+    @Operation(summary = "Return a submission to the employee for rework")
+    public ResponseEntity<ApiResponse<SubmissionResponse>> returnSubmission(
+            @PathVariable UUID submissionId,
+            @Valid @RequestBody ReturnSubmissionRequest request) {
+        SubmissionResponse response = submissionService.returnSubmission(submissionId, request);
+        return ResponseEntity.ok(ApiResponse.success(response));
     }
 
     @GetMapping("/my")

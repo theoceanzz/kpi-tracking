@@ -1,3 +1,4 @@
+import { intlDateLocale, intlLocale } from '@/i18n/format'
 import { useState } from 'react'
 import { Undo2 } from 'lucide-react'
 import { Dialog, DialogFooter } from '@/components/ui/dialog'
@@ -6,30 +7,33 @@ import ConfirmDialog from '@/components/common/ConfirmDialog'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import { useProgramRunActions, useProgramRuns } from '../hooks/usePrograms'
 import { RewardRunStatus, type RewardProgram, type RewardProgramRun } from '../types'
+import { useTranslation } from 'react-i18next'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
 interface ProgramRunsModalProps {
   program: RewardProgram | null
   onClose: () => void
 }
 
-const STATUS_STYLE: Record<RewardRunStatus, { label: string; className: string }> = {
+const STATUS_STYLE = perLanguage((): Record<RewardRunStatus, { label: string; className: string }> => ({
   [RewardRunStatus.PREVIEW]: {
-    label: 'Bản xem trước',
+    label: i18n.t('rewards:ProgramRunsModal.preview'),
     className: 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)]',
   },
   [RewardRunStatus.ISSUED]: {
-    label: 'Đã phát',
+    label: i18n.t('rewards:ProgramRunsModal.awarded'),
     className: 'bg-[var(--color-success-bg)] text-[var(--color-success)]',
   },
   [RewardRunStatus.REVERTED]: {
-    label: 'Đã thu hồi',
+    label: i18n.t('rewards:ProgramRunsModal.revoked'),
     className: 'bg-[var(--color-error-bg)] text-[var(--color-error)]',
   },
-}
+}))
 
 const fmtDate = (iso?: string | null) =>
   iso
-    ? new Date(iso).toLocaleDateString('vi-VN', {
+    ? new Date(iso).toLocaleDateString(intlDateLocale(), {
         day: '2-digit',
         month: '2-digit',
         year: 'numeric',
@@ -37,6 +41,7 @@ const fmtDate = (iso?: string | null) =>
     : '—'
 
 export default function ProgramRunsModal({ program, onClose }: ProgramRunsModalProps) {
+  const { t: tr } = useTranslation('rewards')
   const [reverting, setReverting] = useState<RewardProgramRun | null>(null)
 
   const { data: runs, isLoading } = useProgramRuns(program?.id)
@@ -50,15 +55,15 @@ export default function ProgramRunsModal({ program, onClose }: ProgramRunsModalP
       open
       onClose={onClose}
       size="lg"
-      title="Lịch sử phát thưởng"
+      title={tr('ProgramRunsModal.awardHistory')}
       description={program.name}
-      footer={<DialogFooter secondary={<Button variant="outline" onClick={onClose}>Đóng</Button>} />}
+      footer={<DialogFooter secondary={<Button variant="outline" onClick={onClose}>{tr('ProgramRunsModal.close')}</Button>} />}
     >
       {isLoading ? (
         <LoadingSkeleton type="table" rows={3} />
       ) : (runs ?? []).length === 0 ? (
         <p className="py-8 text-center text-sm text-[var(--color-muted-foreground)]">
-          Chương trình này chưa chạy lần nào.
+          {tr('ProgramRunsModal.thisProgramHasNeverRun')}
         </p>
       ) : (
         <div className="space-y-2">
@@ -71,22 +76,22 @@ export default function ProgramRunsModal({ program, onClose }: ProgramRunsModalP
                 <div className="flex items-center gap-2">
                   <span className="font-medium">{run.targetName ?? '—'}</span>
                   <span
-                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLE[run.status].className}`}
+                    className={`rounded-full px-2 py-0.5 text-xs font-medium ${STATUS_STYLE()[run.status].className}`}
                   >
-                    {STATUS_STYLE[run.status].label}
+                    {STATUS_STYLE()[run.status].label}
                   </span>
                 </div>
                 <div className="mt-0.5 text-xs text-[var(--color-muted-foreground)]">
                   {run.status === RewardRunStatus.ISSUED && (
                     <>
-                      Phát {fmtDate(run.executedAt)}
-                      {run.executedByName && ` bởi ${run.executedByName}`} ·{' '}
+                      {tr('ProgramRunsModal.awarded2')} {fmtDate(run.executedAt)}
+                      {run.executedByName && tr('ProgramRunsModal.by', { executedByName: run.executedByName })} ·{' '}
                     </>
                   )}
                   {run.status === RewardRunStatus.REVERTED && (
-                    <>Thu hồi {fmtDate(run.revertedAt)} · </>
+                    <>{tr('ProgramRunsModal.revoke')} {fmtDate(run.revertedAt)} · </>
                   )}
-                  {run.recipientCount} người · {run.totalPoints.toLocaleString('vi-VN')} điểm
+                  {run.recipientCount} {tr('ProgramRunsModal.people')} {run.totalPoints.toLocaleString(intlLocale())} {tr('ProgramRunsModal.points')}
                 </div>
                 {/* Bậc thưởng ĐÃ DÙNG của lần chạy đó, không phải bậc hiện tại của
                     chương trình — người xem lại lịch sử cần biết luật lúc ấy là gì. */}
@@ -95,8 +100,8 @@ export default function ProgramRunsModal({ program, onClose }: ProgramRunsModalP
                     {run.tiers
                       .map((t) =>
                         t.fromRank === t.toRank
-                          ? `Hạng ${t.fromRank}: ${t.points}`
-                          : `Hạng ${t.fromRank} –${t.toRank}: ${t.points}`,
+                          ? tr('ProgramRunsModal.rank', { fromRank: t.fromRank, points: t.points })
+                          : tr('ProgramRunsModal.rank2', { fromRank: t.fromRank, toRank: t.toRank, points: t.points }),
                       )
                       .join(' · ')}
                   </div>
@@ -106,7 +111,7 @@ export default function ProgramRunsModal({ program, onClose }: ProgramRunsModalP
               {run.status === RewardRunStatus.ISSUED && (
                 <Button variant="outline" size="sm" onClick={() => setReverting(run)}>
                   <Undo2 aria-hidden="true" />
-                  Thu hồi
+                  {tr('ProgramRunsModal.revoke')}
                 </Button>
               )}
             </div>
@@ -122,14 +127,14 @@ export default function ProgramRunsModal({ program, onClose }: ProgramRunsModalP
           if (reverting) await revert(reverting.id)
           setReverting(null)
         }}
-        title="Thu hồi cả lần phát này?"
+        title={tr('ProgramRunsModal.revokeThisWholeRun')}
         description={
           reverting
-            ? `Sẽ trừ lại ${reverting.totalPoints.toLocaleString('vi-VN')} điểm từ ${reverting.recipientCount} nhân viên. ` +
-              'Ai đã tiêu số điểm đó thì số dư sẽ xuống âm. Sau khi thu hồi, chương trình có thể phát lại cho cùng đợt/kỳ này.'
+            ? tr('ProgramRunsModal.pointsWillBeDeductedFromEmployees', { value: reverting.totalPoints.toLocaleString(intlLocale()), count: reverting.recipientCount }) +
+              tr('ProgramRunsModal.anyoneWhoHasSpentThosePoints')
             : ''
         }
-        confirmLabel={isReverting ? 'Đang thu hồi...' : 'Thu hồi'}
+        confirmLabel={isReverting ? tr('ProgramRunsModal.revoking') : tr('ProgramRunsModal.revoke')}
         loading={isReverting}
       />
     </>

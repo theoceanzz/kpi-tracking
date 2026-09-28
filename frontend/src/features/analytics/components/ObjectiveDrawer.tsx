@@ -2,6 +2,7 @@ import { Target, TrendingUp } from 'lucide-react'
 import React from 'react'
 import { Drawer } from '@/components/ui/dialog'
 import { Badge } from '@/components/ui/badge'
+import { useTranslation } from 'react-i18next'
 
 interface DrawerProps {
   isOpen: boolean
@@ -26,9 +27,10 @@ export default function ObjectiveDrawer({
   type,
   children,
 }: DrawerProps) {
+  const { t } = useTranslation('analytics')
   const typeBadge =
     type === 'OBJECTIVE' ? (
-      <Badge variant="secondary"><Target size={10} aria-hidden="true" /> Mục tiêu</Badge>
+      <Badge variant="secondary"><Target size={10} aria-hidden="true" /> {t('ObjectiveDrawer.target')}</Badge>
     ) : type === 'KR' ? (
       <Badge variant="secondary"><TrendingUp size={10} aria-hidden="true" /> Key Result</Badge>
     ) : type === 'KPI' ? (

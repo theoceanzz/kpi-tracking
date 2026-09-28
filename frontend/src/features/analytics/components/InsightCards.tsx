@@ -1,6 +1,7 @@
 import { AlertTriangle, TrendingDown, TrendingUp, ArrowUpRight, ArrowDownRight, Sparkles, ChevronRight, BarChart3 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { InsightCard, InsightType } from '../api/aiApi'
+import { useTranslation } from 'react-i18next'
 
 const TYPE_STYLES: Record<InsightType, { icon: typeof AlertTriangle; ring: string; chip: string; iconColor: string }> = {
   DEADLINE_RISK: {
@@ -49,6 +50,7 @@ interface Props {
 }
 
 export default function InsightCards({ insights, onSelectQuestion, selectedQuestion, loading }: Props) {
+  const { t } = useTranslation('analytics')
   if (loading) {
     return (
       <div className="space-y-2.5">
@@ -65,7 +67,7 @@ export default function InsightCards({ insights, onSelectQuestion, selectedQuest
     <div className="space-y-2.5">
       <div className="flex items-center gap-1.5 text-caption px-1">
         <Sparkles size={13} className="text-[var(--color-ai)]" aria-hidden="true" />
-        Phân tích nổi bật từ dữ liệu của bạn
+        {t('InsightCards.keyInsightsFromYourData')}
       </div>
 
       {insights.map(insight => {

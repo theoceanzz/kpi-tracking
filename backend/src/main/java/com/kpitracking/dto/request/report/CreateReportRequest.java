@@ -9,8 +9,8 @@ import java.util.UUID;
 @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
 public class CreateReportRequest {
 
-    @NotBlank(message = "Tên báo cáo không được để trống")
-    @Size(max = 255, message = "Tên không quá 255 ký tự")
+    @NotBlank(message = "{validation.reportNameCannotEmpty}")
+    @Size(max = 255, message = "{validation.nameCanMost255Characters}")
     private String name;
 
     private String description;

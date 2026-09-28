@@ -19,6 +19,7 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ChoiceChip } from '@/components/ui/choice-chip'
+import { useTranslation } from 'react-i18next'
 
 // Bộ chọn emoji khá nặng — nạp muộn để không phình bundle của những trang không dùng.
 const EmojiPicker = lazy(() => import('emoji-picker-react'))
@@ -51,6 +52,7 @@ export default function EmailEditor({
   /** Tên biến → mô tả, dùng cho nút chèn dữ liệu và các dropdown trong node. */
   variables: Record<string, string>
 }) {
+  const { t } = useTranslation('organization')
   const [openMenu, setOpenMenu] = useState<
     'color' | 'highlight' | 'size' | 'emoji' | 'variable' | 'insert' | 'link' | null
   >(null)
@@ -67,7 +69,7 @@ export default function EmailEditor({
       }),
       TextStyleKit,
       TextAlign.configure({ types: ['heading', 'paragraph'] }),
-      Placeholder.configure({ placeholder: 'Nhập nội dung email...' }),
+      Placeholder.configure({ placeholder: t('EmailEditor.enterTheEmailContent') }),
       ...emailNodeExtensions(variables),
     ],
     content: value || '',
@@ -144,7 +146,7 @@ export default function EmailEditor({
       }).run()
     } catch (err) {
       toast.error(
-        getApiErrorMessage(err, 'Tải ảnh lên thất bại'),
+        getApiErrorMessage(err, t('EmailEditor.imageUploadFailed')),
       )
     } finally {
       setUploading(false)
@@ -153,19 +155,19 @@ export default function EmailEditor({
 
   const INSERTABLES: { label: string; hint: string; icon: LucideIcon; run: () => void }[] = [
     {
-      label: 'Nút bấm', hint: 'Nút dẫn tới một đường link', icon: MousePointerClick,
+      label: t('EmailEditor.button'), hint: t('EmailEditor.aButtonLinkingToAUrl'), icon: MousePointerClick,
       run: () => insert({ type: 'emailButton' }),
     },
     {
-      label: 'Ô mã nổi bật', hint: 'Khung to hiển thị mã OTP', icon: KeyRound,
+      label: t('EmailEditor.highlightedCodeBox'), hint: t('EmailEditor.aLargeBoxShowingTheOtp'), icon: KeyRound,
       run: () => insert({ type: 'emailCode' }),
     },
     {
-      label: 'Bảng thông tin', hint: 'Các dòng nhãn – giá trị', icon: ListTree,
+      label: t('EmailEditor.infoTable'), hint: t('EmailEditor.labelValueRows'), icon: ListTree,
       run: () => insert({ type: 'emailInfo', attrs: { rows: [{ label: '', value: '' }] } }),
     },
     {
-      label: 'Khung nhấn mạnh', hint: 'Ô màu, gõ chữ được bên trong', icon: AlertTriangle,
+      label: t('EmailEditor.calloutBox'), hint: t('EmailEditor.aColoredBoxYouCanType'), icon: AlertTriangle,
       run: () => insert({
         type: 'emailAlert',
         attrs: { variant: 'warning' },
@@ -173,7 +175,7 @@ export default function EmailEditor({
       }),
     },
     {
-      label: 'Đường kẻ ngang', hint: 'Ngăn cách hai phần', icon: Minus,
+      label: t('EmailEditor.horizontalLine'), hint: t('EmailEditor.separatesTwoSections'), icon: Minus,
       run: () => { editor.chain().focus().setHorizontalRule().run(); setOpenMenu(null) },
     },
   ]
@@ -184,15 +186,15 @@ export default function EmailEditor({
       className="rounded-card border border-[var(--color-border)] bg-[var(--color-card)] transition-colors focus-within:border-[var(--color-primary)] focus-within:ring-2 focus-within:ring-[var(--color-ring)]"
     >
       {/* Thanh công cụ — dính trên đầu khi cuộn nội dung dài */}
-      <div className="sticky top-0 z-20 flex flex-wrap items-center gap-0.5 rounded-t-card border-b border-[var(--color-border)] bg-[var(--color-muted)] px-2 py-1.5" role="toolbar" aria-label="Công cụ soạn thảo">
-        <Tool icon={Bold} title="Đậm (Ctrl+B)" active={editor.isActive('bold')} onClick={() => editor.chain().focus().toggleBold().run()} />
-        <Tool icon={Italic} title="Nghiêng (Ctrl+I)" active={editor.isActive('italic')} onClick={() => editor.chain().focus().toggleItalic().run()} />
-        <Tool icon={UnderlineIcon} title="Gạch chân (Ctrl+U)" active={editor.isActive('underline')} onClick={() => editor.chain().focus().toggleUnderline().run()} />
-        <Tool icon={Strikethrough} title="Gạch ngang" active={editor.isActive('strike')} onClick={() => editor.chain().focus().toggleStrike().run()} />
+      <div className="sticky top-0 z-20 flex flex-wrap items-center gap-0.5 rounded-t-card border-b border-[var(--color-border)] bg-[var(--color-muted)] px-2 py-1.5" role="toolbar" aria-label={t('EmailEditor.editorToolbar')}>
+        <Tool icon={Bold} title={t('EmailEditor.boldCtrlB')} active={editor.isActive('bold')} onClick={() => editor.chain().focus().toggleBold().run()} />
+        <Tool icon={Italic} title={t('EmailEditor.italicCtrlI')} active={editor.isActive('italic')} onClick={() => editor.chain().focus().toggleItalic().run()} />
+        <Tool icon={UnderlineIcon} title={t('EmailEditor.underlineCtrlU')} active={editor.isActive('underline')} onClick={() => editor.chain().focus().toggleUnderline().run()} />
+        <Tool icon={Strikethrough} title={t('EmailEditor.strikethrough')} active={editor.isActive('strike')} onClick={() => editor.chain().focus().toggleStrike().run()} />
 
         <Divider />
 
-        <Menu open={openMenu === 'size'} onToggle={() => toggleMenu('size')} icon={Type} title="Cỡ chữ">
+        <Menu open={openMenu === 'size'} onToggle={() => toggleMenu('size')} icon={Type} title={t('EmailEditor.fontSize')}>
           <div className="w-36 p-1" role="menu">
             {FONT_SIZES.map(size => (
               <button type="button" role="menuitem" key={size}
@@ -205,16 +207,16 @@ export default function EmailEditor({
             <button type="button" role="menuitem"
               className="mt-1 flex h-9 w-full items-center rounded-control border-t border-[var(--color-border)] px-2.5 text-left text-sm text-[var(--color-foreground)] transition-colors hover:bg-[var(--color-muted)] focus-visible:bg-[var(--color-muted)] focus-visible:outline-none"
               onMouseDown={e => e.preventDefault()} onClick={() => { editor.chain().focus().unsetFontSize().run(); setOpenMenu(null) }}>
-              Mặc định
+              {t('EmailEditor.default')}
             </button>
           </div>
         </Menu>
 
-        <Tool icon={Heading2} title="Tiêu đề mục" active={editor.isActive('heading', { level: 2 })} onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} />
+        <Tool icon={Heading2} title={t('EmailEditor.sectionHeading')} active={editor.isActive('heading', { level: 2 })} onClick={() => editor.chain().focus().toggleHeading({ level: 2 }).run()} />
 
         <Divider />
 
-        <Menu open={openMenu === 'color'} onToggle={() => toggleMenu('color')} icon={Palette} title="Màu chữ">
+        <Menu open={openMenu === 'color'} onToggle={() => toggleMenu('color')} icon={Palette} title={t('EmailEditor.textColor')}>
           <div className="p-2 w-[168px]">
             <div className="grid grid-cols-4 gap-1.5">
               {TEXT_COLORS.map(color => (
@@ -224,19 +226,19 @@ export default function EmailEditor({
                   onClick={() => { editor.chain().focus().setColor(color).run(); setOpenMenu(null) }}
                   type="button"
                   title={color}
-                  aria-label={`Màu chữ ${color}`}
+                  aria-label={t('EmailEditor.textColor2', { color })}
                   className="h-8 w-8 rounded-control border border-[var(--color-border)] transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]"
                   style={{ backgroundColor: color }}
                 />
               ))}
             </div>
             <Button variant="outline" size="sm" className="mt-2 w-full" onMouseDown={e => e.preventDefault()} onClick={() => { editor.chain().focus().unsetColor().run(); setOpenMenu(null) }}>
-              Bỏ màu
+              {t('EmailEditor.removeColor')}
             </Button>
           </div>
         </Menu>
 
-        <Menu open={openMenu === 'highlight'} onToggle={() => toggleMenu('highlight')} icon={Highlighter} title="Màu nền chữ">
+        <Menu open={openMenu === 'highlight'} onToggle={() => toggleMenu('highlight')} icon={Highlighter} title={t('EmailEditor.highlightColor')}>
           <div className="p-2 w-[168px]">
             <div className="grid grid-cols-3 gap-1.5">
               {HIGHLIGHTS.map(color => (
@@ -246,38 +248,38 @@ export default function EmailEditor({
                   onClick={() => { editor.chain().focus().setBackgroundColor(color).run(); setOpenMenu(null) }}
                   type="button"
                   title={color}
-                  aria-label={`Màu nền ${color}`}
+                  aria-label={t('EmailEditor.highlight', { color })}
                   className="h-8 w-11 rounded-control border border-[var(--color-border)] transition-transform hover:scale-105 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]"
                   style={{ backgroundColor: color }}
                 />
               ))}
             </div>
             <Button variant="outline" size="sm" className="mt-2 w-full" onMouseDown={e => e.preventDefault()} onClick={() => { editor.chain().focus().unsetBackgroundColor().run(); setOpenMenu(null) }}>
-              Bỏ nền
+              {t('EmailEditor.removeHighlight')}
             </Button>
           </div>
         </Menu>
 
         <Divider />
 
-        <Tool icon={AlignLeft} title="Căn trái" active={editor.isActive({ textAlign: 'left' })} onClick={() => editor.chain().focus().setTextAlign('left').run()} />
-        <Tool icon={AlignCenter} title="Căn giữa" active={editor.isActive({ textAlign: 'center' })} onClick={() => editor.chain().focus().setTextAlign('center').run()} />
-        <Tool icon={AlignRight} title="Căn phải" active={editor.isActive({ textAlign: 'right' })} onClick={() => editor.chain().focus().setTextAlign('right').run()} />
+        <Tool icon={AlignLeft} title={t('EmailEditor.alignLeft')} active={editor.isActive({ textAlign: 'left' })} onClick={() => editor.chain().focus().setTextAlign('left').run()} />
+        <Tool icon={AlignCenter} title={t('EmailEditor.alignCenter')} active={editor.isActive({ textAlign: 'center' })} onClick={() => editor.chain().focus().setTextAlign('center').run()} />
+        <Tool icon={AlignRight} title={t('EmailEditor.alignRight')} active={editor.isActive({ textAlign: 'right' })} onClick={() => editor.chain().focus().setTextAlign('right').run()} />
 
         <Divider />
 
-        <Tool icon={List} title="Danh sách chấm" active={editor.isActive('bulletList')} onClick={() => editor.chain().focus().toggleBulletList().run()} />
-        <Tool icon={ListOrdered} title="Danh sách số" active={editor.isActive('orderedList')} onClick={() => editor.chain().focus().toggleOrderedList().run()} />
+        <Tool icon={List} title={t('EmailEditor.bulletedList')} active={editor.isActive('bulletList')} onClick={() => editor.chain().focus().toggleBulletList().run()} />
+        <Tool icon={ListOrdered} title={t('EmailEditor.numberedList')} active={editor.isActive('orderedList')} onClick={() => editor.chain().focus().toggleOrderedList().run()} />
         {/* Liên kết trong dòng — khác với khối "Nút bấm" (nút CTA căn giữa),
             đây là gắn link vào một đoạn chữ đang chọn. */}
         <span className="relative">
-          <ChoiceChip selected={openMenu === 'link' || editor.isActive('link')} className="w-8 px-0" title={editor.isActive('link') ? 'Sửa hoặc bỏ liên kết' : 'Gắn liên kết vào chữ đang chọn'} aria-label="Liên kết" onMouseDown={e => e.preventDefault()} onClick={openLinkMenu}>
+          <ChoiceChip selected={openMenu === 'link' || editor.isActive('link')} className="w-8 px-0" title={editor.isActive('link') ? t('EmailEditor.editOrRemoveLink') : t('EmailEditor.addALinkToTheSelected')} aria-label={t('EmailEditor.link')} onMouseDown={e => e.preventDefault()} onClick={openLinkMenu}>
             <Link2 aria-hidden="true" />
           </ChoiceChip>
           {openMenu === 'link' && (
             <span className="absolute top-full z-50 mt-1 block rounded-card border border-[var(--color-border)] bg-[var(--color-popover)] shadow-lg left-0 w-72 p-3">
               <span className="mb-1.5 block text-label">
-                Đường dẫn
+                {t('EmailEditor.breadcrumb')}
               </span>
               <input
                 autoFocus
@@ -288,15 +290,15 @@ export default function EmailEditor({
                   if (e.key === 'Escape') { e.preventDefault(); setOpenMenu(null) }
                 }}
                 placeholder="https://..."
-                aria-label="Đường dẫn"
+                aria-label={t('EmailEditor.breadcrumb')}
                 className="h-9 w-full rounded-control border border-[var(--color-border)] bg-[var(--color-card)] px-3 text-sm text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-subtle-foreground)] focus-visible:border-[var(--color-primary)] focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]"
               />
               <span className="mt-2.5 flex items-center gap-2">
                 <Button size="sm" className="flex-1" type="button" onClick={applyLink}>
-                  Áp dụng
+                  {t('EmailEditor.apply')}
                 </Button>
                 {editor.isActive('link') && (
-                  <Button variant="outline" size="icon-sm" className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]" aria-label="Bỏ liên kết" type="button" onClick={removeLink} title="Bỏ liên kết">
+                  <Button variant="outline" size="icon-sm" className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]" aria-label={t('EmailEditor.removeLink')} type="button" onClick={removeLink} title={t('EmailEditor.removeLink')}>
                     <Link2Off aria-hidden="true" />
                   </Button>
                 )}
@@ -307,14 +309,14 @@ export default function EmailEditor({
 
         <Tool
           icon={uploading ? Loader2 : ImageIcon}
-          title="Chèn ảnh"
+          title={t('EmailEditor.insertImage')}
           disabled={uploading}
           spin={uploading}
           onClick={pickImage}
         />
 
-        <Menu open={openMenu === 'emoji'} onToggle={() => toggleMenu('emoji')} icon={Smile} title="Chèn biểu tượng cảm xúc" wide>
-          <Suspense fallback={<div className="p-6 text-caption">Đang tải…</div>}>
+        <Menu open={openMenu === 'emoji'} onToggle={() => toggleMenu('emoji')} icon={Smile} title={t('EmailEditor.insertEmoji')} wide>
+          <Suspense fallback={<div className="p-6 text-caption">{t('EmailEditor.loading')}</div>}>
             <EmojiPicker
               lazyLoadEmojis
               width={320}
@@ -328,7 +330,7 @@ export default function EmailEditor({
         </Menu>
 
         {Object.keys(variables).length > 0 && (
-          <Menu open={openMenu === 'variable'} onToggle={() => toggleMenu('variable')} icon={Braces} title="Chèn dữ liệu hệ thống" wide>
+          <Menu open={openMenu === 'variable'} onToggle={() => toggleMenu('variable')} icon={Braces} title={t('EmailEditor.insertSystemData')} wide>
             <div className="custom-scrollbar max-h-64 w-64 overflow-y-auto p-1.5" role="menu">
               {Object.entries(variables).map(([name, desc]) => (
                 <button type="button" role="menuitem" className="flex w-full flex-col items-start rounded-control px-2.5 py-1.5 text-left transition-colors hover:bg-[var(--color-muted)] focus-visible:outline-none focus-visible:bg-[var(--color-muted)]" key={name} onMouseDown={e => e.preventDefault()} onClick={() => insert({ type: 'emailVariable', attrs: { name } })}>
@@ -342,13 +344,13 @@ export default function EmailEditor({
 
         <Divider />
 
-        <Tool icon={Undo2} title="Hoàn tác" onClick={() => editor.chain().focus().undo().run()} disabled={!editor.can().undo()} />
-        <Tool icon={Redo2} title="Làm lại" onClick={() => editor.chain().focus().redo().run()} disabled={!editor.can().redo()} />
+        <Tool icon={Undo2} title={t('EmailEditor.undo')} onClick={() => editor.chain().focus().undo().run()} disabled={!editor.can().undo()} />
+        <Tool icon={Redo2} title={t('EmailEditor.redo')} onClick={() => editor.chain().focus().redo().run()} disabled={!editor.can().redo()} />
 
         {/* Chèn khối đặc thù — đẩy sang phải cho nổi bật */}
         <span className="ml-auto relative">
           <ChoiceChip selected={openMenu === 'insert'} variant="solid" aria-haspopup="menu" aria-expanded={openMenu === 'insert'} onMouseDown={e => e.preventDefault()} onClick={() => toggleMenu('insert')}>
-            <Plus aria-hidden="true" /> Chèn khối
+            <Plus aria-hidden="true" /> {t('EmailEditor.insertBlock')}
           </ChoiceChip>
           {openMenu === 'insert' && (
             <span className="absolute top-full z-50 mt-1 block rounded-card border border-[var(--color-border)] bg-[var(--color-popover)] shadow-lg right-0 w-72 p-1.5" role="menu">
@@ -381,7 +383,7 @@ export default function EmailEditor({
       <div className="relative">
         <DragHandle editor={editor}>
           <div
-            title="Kéo để đổi vị trí khối"
+            title={t('EmailEditor.dragToMoveTheBlock')}
             className="-ml-1 flex h-6 w-6 cursor-grab items-center justify-center rounded-control text-[var(--color-subtle-foreground)] transition-colors hover:bg-[var(--color-primary-soft)] hover:text-[var(--color-primary)] active:cursor-grabbing"
           >
             <GripVertical size={16} aria-hidden="true" />

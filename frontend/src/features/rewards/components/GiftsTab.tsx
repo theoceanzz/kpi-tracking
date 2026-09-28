@@ -1,3 +1,4 @@
+import { intlLocale } from '@/i18n/format'
 import { useState } from 'react'
 import { Plus, Pencil, Trash2, ImageOff, EyeOff, PackageCheck, Zap, Store } from 'lucide-react'
 import DataTable from '@/components/common/DataTable'
@@ -11,8 +12,10 @@ import { useGiftsManage } from '../hooks/useGifts'
 import { useUrboxStatus } from '../hooks/useUrbox'
 import { GiftItemStatus, type GiftItem } from '../types'
 import { Button } from '@/components/ui/button'
+import { useTranslation } from 'react-i18next'
 
 export default function GiftsTab() {
+  const { t } = useTranslation('rewards')
   const [formOpen, setFormOpen] = useState(false)
   const [urboxOpen, setUrboxOpen] = useState(false)
   const [editing, setEditing] = useState<GiftItem | null>(null)
@@ -25,12 +28,12 @@ export default function GiftsTab() {
 
   const StockCell = ({ row }: { row: GiftItem }) =>
     row.unlimitedStock ? (
-      <span className="text-[var(--color-muted-foreground)]">Không giới hạn</span>
+      <span className="text-[var(--color-muted-foreground)]">{t('GiftsTab.unlimited')}</span>
     ) : (
       // Hết hàng tô đỏ để người quản lý thấy ngay món nào cần nhập thêm — quà hết mà
       // vẫn nằm trong cửa hàng chỉ làm nhân viên thất vọng.
       <span className={(row.stockQuantity ?? 0) === 0 ? 'font-medium text-[var(--color-error)]' : ''}>
-        {(row.stockQuantity ?? 0).toLocaleString('vi-VN')}
+        {(row.stockQuantity ?? 0).toLocaleString(intlLocale())}
       </span>
     )
 
@@ -38,13 +41,13 @@ export default function GiftsTab() {
     <div id="tour-gifts-root">
       <div id="tour-gifts-actions" className="mb-4 flex items-center justify-between gap-3">
         <span className="text-sm text-[var(--color-muted-foreground)]">
-          {(data ?? []).length > 0 && `${(data ?? []).length} món quà trong danh mục`}
+          {(data ?? []).length > 0 && t('GiftsTab.giftsInTheCatalog', { count: (data ?? []).length })}
         </span>
         <WorkspaceHeaderActions>
           {urbox?.enabled && (
             <Button variant="outline" onClick={() => setUrboxOpen(true)}>
               <Store aria-hidden="true" />
-              Kho quà UrBox
+              {t('GiftsTab.urboxGiftCatalog')}
             </Button>
           )}
           <Button onClick={() => {
@@ -52,7 +55,7 @@ export default function GiftsTab() {
               setFormOpen(true)
             }}>
             <Plus aria-hidden="true" />
-            Thêm quà
+            {t('GiftsTab.addGift')}
           </Button>
         </WorkspaceHeaderActions>
       </div>
@@ -62,15 +65,15 @@ export default function GiftsTab() {
       ) : (data ?? []).length === 0 ? (
         <div className="rounded-card border border-dashed border-[var(--color-border)]">
           <EmptyState
-            title="Danh mục quà đang trống"
-            description="Nhân viên tích được điểm nhưng chưa có gì để đổi. Thêm vài món quà để điểm thưởng có ý nghĩa."
+            title={t('GiftsTab.theGiftCatalogIsEmpty')}
+            description={t('GiftsTab.employeesEarnPointsButHaveNothing')}
             action={
               <Button onClick={() => {
                   setEditing(null)
                   setFormOpen(true)
                 }}>
                 <Plus aria-hidden="true" />
-                Thêm quà đầu tiên
+                {t('GiftsTab.addTheFirstGift')}
               </Button>
             }
           />
@@ -98,12 +101,12 @@ export default function GiftsTab() {
                     )}
                   </div>
                   <div className="text-sm text-[var(--color-primary)]">
-                    {row.pointCost.toLocaleString('vi-VN')} điểm
+                    {row.pointCost.toLocaleString(intlLocale())} {t('GiftsTab.points')}
                   </div>
                   <div className="text-xs text-[var(--color-muted-foreground)]">
-                    Tồn kho: {row.unlimitedStock ? 'không giới hạn' : (row.stockQuantity ?? 0)}
+                    {t('GiftsTab.stock')} {row.unlimitedStock ? t('GiftsTab.unlimited2') : (row.stockQuantity ?? 0)}
                     {' · '}
-                    {row.requiresDelivery ? 'cần trao tay' : 'nhận ngay'}
+                    {row.requiresDelivery ? t('GiftsTab.handedOverInPerson') : t('GiftsTab.receivedInstantly')}
                   </div>
                 </div>
               </div>
@@ -112,7 +115,7 @@ export default function GiftsTab() {
                     setEditing(row)
                     setFormOpen(true)
                   }}>
-                  Sửa
+                  {t('GiftsTab.edit')}
                 </Button>
                 <button
                   onClick={() => setDeleting(row)}
@@ -127,7 +130,7 @@ export default function GiftsTab() {
             {
               key: 'name',
               className: 'align-top',
-              header: 'Quà',
+              header: t('GiftsTab.gift'),
               render: (row) => (
                 <div className="flex items-center gap-3">
                   {row.imageUrl ? (
@@ -146,7 +149,7 @@ export default function GiftsTab() {
                       {row.name}
                       {row.status === GiftItemStatus.INACTIVE && (
                         <span
-                          title="Đang ẩn khỏi cửa hàng"
+                          title={t('GiftsTab.hiddenFromTheShop')}
                           className="text-[var(--color-muted-foreground)]"
                         >
                           <EyeOff size={13} />
@@ -159,7 +162,7 @@ export default function GiftsTab() {
                           <Store size={10} />
                           UrBox
                           {row.externalValue != null &&
-                            ` · ${row.externalValue.toLocaleString('vi-VN')} ₫`}
+                            ` · ${row.externalValue.toLocaleString(intlLocale())} ₫`}
                         </span>
                       )}
                     </div>
@@ -175,15 +178,15 @@ export default function GiftsTab() {
             {
               key: 'pointCost',
               className: 'text-right align-top',
-              header: 'Giá điểm',
+              header: t('GiftsTab.pointPrice'),
               render: (row) => (
-                <span className="font-semibold">{row.pointCost.toLocaleString('vi-VN')}</span>
+                <span className="font-semibold">{row.pointCost.toLocaleString(intlLocale())}</span>
               ),
             },
             {
               key: 'stock',
               className: 'text-right align-top',
-              header: 'Tồn kho',
+              header: t('GiftsTab.stock2'),
               render: (row) => (
                 <div>
                   <StockCell row={row} />
@@ -191,7 +194,7 @@ export default function GiftsTab() {
                       rồi mới nhận thông báo lỗi. */}
                   {!!row.pendingRedemptionCount && (
                     <div className="mt-0.5 whitespace-nowrap text-xs text-[var(--color-warning)]">
-                      {row.pendingRedemptionCount} đang giữ chỗ
+                      {row.pendingRedemptionCount} {t('GiftsTab.reserved')}
                     </div>
                   )}
                 </div>
@@ -200,32 +203,32 @@ export default function GiftsTab() {
             {
               key: 'requiresDelivery',
               className: 'align-top',
-              header: 'Cách nhận',
+              header: t('GiftsTab.howReceived'),
               render: (row) =>
                 row.requiresDelivery ? (
                   <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-[var(--color-info-bg)] px-2.5 py-1 text-xs font-medium text-[var(--color-info)]">
                     <PackageCheck size={12} />
-                    Cần trao tay
+                    {t('GiftsTab.handedOverInPerson2')}
                   </span>
                 ) : (
                   <span className="inline-flex items-center gap-1 whitespace-nowrap rounded-full bg-[var(--color-muted)] px-2.5 py-1 text-xs font-medium text-[var(--color-muted-foreground)]">
                     <Zap size={12} />
-                    Nhận ngay
+                    {t('GiftsTab.receivedInstantly2')}
                   </span>
                 ),
             },
             {
               key: 'status',
               className: 'align-top',
-              header: 'Trạng thái',
+              header: t('GiftsTab.status'),
               render: (row) =>
                 row.status === GiftItemStatus.ACTIVE ? (
                   <span className="inline-block rounded-full bg-[var(--color-success-bg)] px-2.5 py-1 text-xs font-medium text-[var(--color-success)]">
-                    Đang bày bán
+                    {t('GiftsTab.onSale')}
                   </span>
                 ) : (
                   <span className="inline-block rounded-full bg-[var(--color-muted)] px-2.5 py-1 text-xs font-medium text-[var(--color-muted-foreground)]">
-                    Đang ẩn
+                    {t('GiftsTab.hidden')}
                   </span>
                 ),
             },
@@ -246,12 +249,12 @@ export default function GiftsTab() {
                   </button>
                   <Button variant="ghost" size="icon-sm" className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]" aria-label={
                       row.pendingRedemptionCount
-                        ? 'Đang có yêu cầu đổi chờ xử lý — không xoá được'
-                        : 'Xoá'
+                        ? t('GiftsTab.thereArePendingRedemptionRequestsCannot')
+                        : t('GiftsTab.delete')
                     } onClick={() => setDeleting(row)} disabled={!!row.pendingRedemptionCount} title={
                       row.pendingRedemptionCount
-                        ? 'Đang có yêu cầu đổi chờ xử lý — không xoá được'
-                        : 'Xoá'
+                        ? t('GiftsTab.thereArePendingRedemptionRequestsCannot')
+                        : t('GiftsTab.delete')
                     }>
                     <Trash2 aria-hidden="true" />
                   </Button>
@@ -273,15 +276,15 @@ export default function GiftsTab() {
           if (deleting) await deleteGift(deleting.id)
           setDeleting(null)
         }}
-        title="Xoá quà tặng?"
+        title={t('GiftsTab.deleteGift')}
         description={
           deleting
-            ? `"${deleting.name}" sẽ bị xoá khỏi danh mục. Chỉ xoá được khi chưa có ai từng đổi món này — ` +
-              'nếu đã có lượt đổi, hãy bỏ chọn "Đang bày bán" để ẩn khỏi cửa hàng thay vì xoá, ' +
-              'để lịch sử của nhân viên không bị hỏng.'
+            ? t('GiftsTab.willBeRemovedFromTheCatalog', { name: deleting.name }) +
+              t('GiftsTab.ifItHasBeenRedeemedUntick') +
+              t('GiftsTab.soEmployeesHistoryIsNotBroken')
             : ''
         }
-        confirmLabel="Xoá"
+        confirmLabel={t('GiftsTab.delete')}
         loading={isDeleting}
       />
     </div>

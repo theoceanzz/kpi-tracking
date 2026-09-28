@@ -26,6 +26,9 @@ import { useQuery } from '@tanstack/react-query'
 import { evaluationApi } from '../api/evaluationApi'
 import { cn } from '@/lib/utils'
 import ConductInlineSheet, { type ConductSheetHandle } from '@/features/conduct/components/ConductInlineSheet'
+import { useTranslation } from 'react-i18next'
+import { useFormDraft } from '@/hooks/useFormDraft'
+import DraftNotice from '@/components/common/DraftNotice'
 
 interface EvaluationFormModalProps {
   open: boolean
@@ -44,6 +47,7 @@ interface EvaluationFormModalProps {
 }
 
 export default function EvaluationFormModal({ open, onClose, readOnly = false, initialPeriodId, variant = 'modal', onSaved }: EvaluationFormModalProps) {
+  const { t } = useTranslation('evaluations')
   const { user } = useAuthStore()
   /** Ô đang thật sự sửa được, cho trợ lý AI. Cập nhật bằng effect riêng bên dưới — điều kiện
    *  khoá điểm khai báo SAU chỗ đăng ký nên không đưa thẳng vào deps được. */
@@ -67,14 +71,16 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
     return periodsData.content.filter(p => assignedPeriodIds.has(p.id))
   }, [periodsData, assignedPeriodIds])
 
-  const { register, handleSubmit, reset, watch, setValue, getValues, formState } = useForm<EvaluationFormData>({
-    resolver: zodResolver(evaluationSchema),
+  const formApi = useForm<EvaluationFormData>({
+    resolver: zodResolver(evaluationSchema()),
     defaultValues: { 
       score: 0,
       userId: user?.id ?? '',
       kpiPeriodId: initialPeriodId || '',
     },
   })
+  const { register, handleSubmit, reset, watch, setValue, getValues, formState } = formApi
+  const draft = useFormDraft(formApi, { key: `evaluation-form:${initialPeriodId ?? 'default'}`, enabled: open && !readOnly })
 
   // Giới thiệu form này với trợ lý AI trong lúc nó đang mở. Truyền HÀM đọc/ghi chứ không truyền
   // dữ liệu: giá trị chỉ cần đúng tại thời điểm gửi câu hỏi.
@@ -228,7 +234,7 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
   const submitButton = (
     <Button type="submit" form="evaluation-form" disabled={busy || !selectedPeriodId}>
       {busy && <Loader2 className="animate-spin" aria-hidden="true" />}
-      Gửi đánh giá
+      {t('EvaluationFormModal.sendEvaluations')}
     </Button>
   )
 
@@ -242,19 +248,19 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
             Trước đây đợt và "kết quả đo lường" là hai khối rời nhau, còn điểm hệ thống hiện
             to gần bằng ô điểm bên dưới nên màn hình có HAI con số 68 cỡ lớn — người dùng
             không biết cái nào là điểm mình đang chấm. */}
-        <Section title="Bối cảnh" hint={filteredPeriods.length ? `${filteredPeriods.length} đợt bạn có KPI` : undefined}>
+        <Section title={t('EvaluationFormModal.context')} hint={filteredPeriods.length ? t('EvaluationFormModal.periodsInWhichYouHaveKpis', { count: filteredPeriods.length }) : undefined}>
           <div className="rounded-card border border-[var(--color-border)]">
             <ScoreRow
-              label={<>Đợt đánh giá {!readOnly && <span className="text-[var(--color-error)]">*</span>}</>}
-              hint="Đợt bạn có KPI"
+              label={<>{t('EvaluationFormModal.evaluationPeriods')} {!readOnly && <span className="text-[var(--color-error)]">*</span>}</>}
+              hint={t('EvaluationFormModal.periodsInWhichYouHaveKpis2')}
             >
               <Select
                 value={selectedPeriodId || undefined}
                 onValueChange={(v) => setValue('kpiPeriodId', v, { shouldValidate: true, shouldDirty: true })}
                 disabled={readOnly}
               >
-                <SelectTrigger className="w-full sm:max-w-xs" aria-label="Đợt đánh giá">
-                  <SelectValue placeholder="Lựa chọn kỳ đánh giá" />
+                <SelectTrigger className="w-full sm:max-w-xs" aria-label={t('EvaluationFormModal.evaluationPeriods')}>
+                  <SelectValue placeholder={t('EvaluationFormModal.chooseTheEvaluationCycle')} />
                 </SelectTrigger>
                 <SelectContent>
                   {filteredPeriods.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
@@ -284,17 +290,17 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
 
         {/* ── 2. Bạn tự chấm: cùng khuôn "nhãn | ô nhập" với phiếu chấm của quản lý ── */}
         {selectedPeriodId && (
-          <Section title="Bạn tự chấm" hint={readOnly ? 'Chế độ chỉ xem' : undefined}>
+          <Section title={t('EvaluationFormModal.yourSelfScore')} hint={readOnly ? t('EvaluationFormModal.viewOnlyMode') : undefined}>
             <div className="divide-y divide-[var(--color-border)] rounded-card border border-[var(--color-border)]">
               <ScoreRow
-                label={<>Điểm tự đánh giá {!readOnly && <span className="text-[var(--color-error)]">*</span>}</>}
-                hint={isBscOfficial ? 'Khoá theo điểm BSC chính thức'
-                  : noQuantScore ? `KPI toàn định tính · cố định ${SCORING_POOL}`
-                  : `Hệ thống tính ${trim(calculatedScore)}`}
+                label={<>{t('EvaluationFormModal.selfAssessmentScore')} {!readOnly && <span className="text-[var(--color-error)]">*</span>}</>}
+                hint={isBscOfficial ? t('EvaluationFormModal.lockedToTheOfficialBscScore')
+                  : noQuantScore ? t('EvaluationFormModal.allQualitativeKpisFixed', { SCORING_POOL })
+                  : t('EvaluationFormModal.systemComputed', { calculatedScore: trim(calculatedScore) })}
                 trailing={!readOnly && !scoreLocked && !noQuantScore && calculatedScore > 0 && displayScore !== calculatedScore && (
                   <Button variant="ghost" size="sm" type="button" onClick={handleApplyCalculatedScore}
-                          title="Lấy lại đúng điểm hệ thống tự tính">
-                    <Zap aria-hidden="true" /> Dùng {trim(calculatedScore)}
+                          title={t('EvaluationFormModal.restoreTheExactSystemComputedScore')}>
+                    <Zap aria-hidden="true" /> {t('EvaluationFormModal.use')} {trim(calculatedScore)}
                   </Button>
                 )}
               >
@@ -321,12 +327,12 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
                         ? 'bg-[var(--color-success-bg)] text-[var(--color-success)]'
                         : 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]',
                     )}>
-                      {displayScore > calculatedScore ? '+' : ''}{trim(displayScore - calculatedScore)} so với hệ thống
+                      {displayScore > calculatedScore ? '+' : ''}{trim(displayScore - calculatedScore)} {t('EvaluationFormModal.comparedWithTheSystem')}
                     </span>
                   )}
                   {!readOnly && (scoreLocked || noQuantScore) && (
                     <span className="text-caption inline-flex items-center gap-1">
-                      <Lock size={11} aria-hidden="true" /> không sửa tay
+                      <Lock size={11} aria-hidden="true" /> {t('EvaluationFormModal.notEditedManually')}
                     </span>
                   )}
                 </div>
@@ -342,12 +348,12 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
                         hasManuallyEditedScore.current = true
                         setValue('score', Number(e.target.value), { shouldValidate: true, shouldDirty: true })
                       }}
-                      aria-label="Kéo để chọn điểm tự đánh giá"
+                      aria-label={t('EvaluationFormModal.dragToChooseYourSelfAssessment')}
                       className="mt-3 h-1.5 w-full max-w-md cursor-pointer appearance-none rounded-full bg-[var(--color-border)]"
                     />
                     {bonusScore > 0 && (
                       <p className="text-caption mt-1.5">
-                        Đạt đủ KPI = {SCORING_POOL} điểm · KPI thưởng cộng thêm tối đa {trim(bonusScore)}
+                        {t('EvaluationFormModal.allKpisMet')} {SCORING_POOL} {t('EvaluationFormModal.pointsBonusKpisAddUpTo')} {trim(bonusScore)}
                       </p>
                     )}
                   </>
@@ -357,7 +363,7 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
               {/* Hạnh kiểm nằm CÙNG khối chấm: nó cũng là điểm người dùng tự cho, và là trục
                   hành vi của ma trận xếp loại — tách thành khối riêng thì hay bị bỏ quên. */}
               {org?.enableConduct && (
-                <ScoreRow label="Hạnh kiểm" hint="Trục hành vi · lưu khi gửi">
+                <ScoreRow label={t('EvaluationFormModal.conduct')} hint={t('EvaluationFormModal.conductAxisSavedOnSubmit')}>
                   <ConductInlineSheet
                     ref={conductRef}
                     hideActions
@@ -370,19 +376,19 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
         )}
 
         {/* ── 3. Minh chứng & ý kiến ──────────────────────────────────────────────── */}
-        <Section title="Minh chứng & ý kiến">
+        <Section title={t('EvaluationFormModal.evidenceComments')}>
           {selectedPeriodIdForEvidence && user?.id && (
             <EvidenceAttachments
               target={evidenceKey.period(selectedPeriodIdForEvidence, user.id)}
               readOnly={readOnly}
-              title="Minh chứng của bạn"
+              title={t('EvaluationFormModal.yourEvidence')}
             />
           )}
 
           <div className="space-y-2">
             <div className="flex items-center justify-between gap-2">
               <label className="text-label flex items-center gap-2" htmlFor="self-eval-comment">
-                <MessageSquare size={14} aria-hidden="true" /> Ý kiến cá nhân
+                <MessageSquare size={14} aria-hidden="true" /> {t('EvaluationFormModal.personalComments')}
               </label>
               <MicButton
                 disabled={readOnly}
@@ -395,12 +401,12 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
               {...register('comment')}
               rows={3}
               disabled={readOnly}
-              placeholder="Bạn thấy đợt này thế nào? Có khó khăn hay đề xuất gì không?"
+              placeholder={t('EvaluationFormModal.howWasThisPeriodForYou')}
             />
             {/* Thay cột mẹo bên phải: ba gạch đầu dòng chung chung + tấm thẻ tím "hãy trung
                 thực" chiếm 288px mà không nói được điều gì người dùng cần lúc đang chấm. */}
             <p className="text-caption">
-              Điểm này là cơ sở xếp loại khen thưởng của đợt; bản đã gửi xem lại được ở mục Lịch sử.
+              {t('EvaluationFormModal.thisScoreIsTheBasisFor')}
             </p>
           </div>
         </Section>
@@ -434,17 +440,18 @@ export default function EvaluationFormModal({ open, onClose, readOnly = false, i
       size="2xl"
       flush
       dismissible={!busy}
-      title={readOnly ? 'Tổng kết Hiệu suất' : 'Tự đánh giá của bạn'}
-      description={readOnly ? 'Xem lại kết quả nỗ lực của bạn trong đợt này.' : 'Hãy dành chút thời gian để phản ánh lại kết quả làm việc.'}
+      title={readOnly ? t('EvaluationFormModal.performanceSummary') : t('EvaluationFormModal.yourSelfAssessment')}
+      description={readOnly ? t('EvaluationFormModal.reviewTheResultsOfYourEffort') : t('EvaluationFormModal.takeAMomentToReflectOn')}
       footer={readOnly ? (
-        <DialogFooter primary={<Button onClick={onClose}>Đã hiểu & đóng</Button>} />
+        <DialogFooter primary={<Button onClick={onClose}>{t('EvaluationFormModal.gotItClose')}</Button>} />
       ) : (
         <DialogFooter
-          secondary={<Button variant="outline" onClick={onClose} disabled={busy}>Hủy bỏ</Button>}
+          secondary={<Button variant="outline" onClick={onClose} disabled={busy}>{t('EvaluationFormModal.cancel')}</Button>}
           primary={submitButton}
         />
       )}
     >
+      <DraftNotice draft={draft} className="mb-4" />
       {body}
     </Dialog>
   )
@@ -481,38 +488,39 @@ function MeasurementPanel({
   bscUnassigned: string[]
   readOnly: boolean
 }) {
+  const { t } = useTranslation('evaluations')
   const basis = isBscOfficial
-    ? 'Kỳ này chấm chính thức bằng BSC — ô điểm bên dưới khoá theo con số này.'
+    ? t('EvaluationFormModal.thisCycleIsOfficiallyScoredBy')
     : noQuantScore
-      ? 'KPI toàn định tính, không có phần định lượng để tính — hệ thống đề xuất trọn thang điểm.'
+      ? t('EvaluationFormModal.allKpisAreQualitativeWithNo')
       : completionPct != null
-        ? `Tính từ ${Math.round(completionPct)}% chỉ tiêu định lượng đã duyệt.`
-        : 'Tính từ kết quả các chỉ tiêu đã được duyệt.'
+        ? t('EvaluationFormModal.computedFromOfApprovedQuantitativeKpis', { completionPct: Math.round(completionPct) })
+        : t('EvaluationFormModal.computedFromTheResultsOfApproved')
 
   return (
     <div className="space-y-2.5">
       <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
         <RefStat
           tone="primary"
-          label={isBscOfficial ? 'BSC chính thức' : 'Hệ thống đề xuất'}
+          label={isBscOfficial ? t('EvaluationFormModal.officialBsc') : t('EvaluationFormModal.systemSuggestion')}
           value={<>{noQuantScore && !isBscOfficial ? '—' : trim(calculatedScore)}<span className="text-sm text-[var(--color-subtle-foreground)]">/{maxScore}</span></>}
         />
         <RefStat
-          label="Hoàn thành"
+          label={t('EvaluationFormModal.completed')}
           value={completionPct != null ? `${Math.round(completionPct)}%` : '—'}
         />
         <RefStat
-          label="Xếp loại"
+          label={t('EvaluationFormModal.rating')}
           value={matrixRating != null ? <>{matrixRating}<span className="text-sm text-[var(--color-subtle-foreground)]">/5</span></> : '—'}
         />
         {/* Điểm hệ thống vẫn hiện khi BSC đã thay nó: người dùng cần biết phần định lượng của
             mình ra bao nhiêu, dù nó không còn là điểm chính thức. */}
         {isBscOfficial ? (
-          <RefStat label="Hệ thống (không dùng)" value={trim(systemScore)} />
+          <RefStat label={t('EvaluationFormModal.systemNotUsed')} value={trim(systemScore)} />
         ) : bscScore != null ? (
           <RefStat label="BSC (song song)" value={trim(bscScore)} />
         ) : (
-          <RefStat label="Hành vi" value={behaviorScore != null ? <>{behaviorScore.toFixed(1)}<span className="text-sm text-[var(--color-subtle-foreground)]">/5</span></> : '—'} />
+          <RefStat label={t('EvaluationFormModal.conduct2')} value={behaviorScore != null ? <>{behaviorScore.toFixed(1)}<span className="text-sm text-[var(--color-subtle-foreground)]">/5</span></> : '—'} />
         )}
       </div>
 
@@ -523,9 +531,9 @@ function MeasurementPanel({
         <span>
           {basis}
           {matrixRating != null && (
-            <> Xếp loại tra từ hành vi {behaviorScore != null ? behaviorScore.toFixed(1) : '—'}/5 và mức hoàn thành {completionPct != null ? Math.round(completionPct) : 100}%.</>
+            <> {t('EvaluationFormModal.ratingLookedUpFromConduct')} {behaviorScore != null ? behaviorScore.toFixed(1) : '—'}{t('EvaluationFormModal.n5AndCompletionLevel')} {completionPct != null ? Math.round(completionPct) : 100}%.</>
           )}
-          {readOnly && ' Đây là bản tổng kết tự động sau khi tất cả chỉ tiêu đã được duyệt.'}
+          {readOnly && t('EvaluationFormModal.thisIsTheAutomaticSummaryAfter')}
         </span>
       </p>
 
@@ -533,20 +541,20 @@ function MeasurementPanel({
         <div className="flex items-start gap-2 rounded-card border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] p-2.5">
           <AlertTriangle size={14} className="mt-0.5 shrink-0 text-[var(--color-warning)]" aria-hidden="true" />
           <p className="text-xs font-medium leading-relaxed text-[var(--color-warning)]">
-            <b>{bscUnassigned.length} chỉ tiêu chưa gán hạng mục</b> nên không được tính vào điểm BSC: {bscUnassigned.join(', ')}.
-            {bscMode === BscScoringMode.OFFICIAL && ' Kỳ đang chấm chính thức — phải gán đủ mới chốt được đánh giá.'}
+            <b>{bscUnassigned.length} {t('EvaluationFormModal.kpisWithoutAnItem')}</b> {t('EvaluationFormModal.soTheyAreNotCountedIn')} {bscUnassigned.join(', ')}.
+            {bscMode === BscScoringMode.OFFICIAL && t('EvaluationFormModal.theCycleIsBeingScoredOfficially')}
           </p>
         </div>
       )}
 
       {/* Chi tiết BSC là thứ để TRA khi thắc mắc, không phải thứ đọc mỗi lần chấm → gập lại. */}
       {bscPerspectives.length > 0 && (
-        <Collapsible label="Chi tiết điểm BSC theo hạng mục" count={bscPerspectives.length} countLabel="hạng mục">
+        <Collapsible label={t('EvaluationFormModal.bscScoreDetailsByItem')} count={bscPerspectives.length} countLabel={t('EvaluationFormModal.items')}>
           <div className="space-y-1">
             <div className="text-eyebrow flex items-center gap-2">
-              <span className="flex-1">Hạng mục</span>
-              <span className="w-12 text-right">Đạt</span>
-              <span className="w-14 text-right">Trọng số</span>
+              <span className="flex-1">{t('EvaluationFormModal.item')}</span>
+              <span className="w-12 text-right">{t('EvaluationFormModal.meets')}</span>
+              <span className="w-14 text-right">{t('EvaluationFormModal.weight')}</span>
             </div>
             {bscPerspectives.map(p => {
               const color = p.color || '#8b5cf6'
@@ -564,7 +572,7 @@ function MeasurementPanel({
                           ? 'bg-[var(--color-error-bg)] text-[var(--color-error)]'
                           : 'bg-[var(--color-muted)] text-[var(--color-subtle-foreground)]',
                       )}>
-                        Chặn
+                        {t('EvaluationFormModal.gate')}
                       </span>
                     )}
                   </span>

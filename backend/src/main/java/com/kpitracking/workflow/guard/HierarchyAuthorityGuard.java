@@ -1,6 +1,8 @@
 package com.kpitracking.workflow.guard;
 
 import com.kpitracking.entity.User;
+import com.kpitracking.exception.ErrorCode;
+import com.kpitracking.i18n.Terms;
 import com.kpitracking.security.PermissionChecker;
 import com.kpitracking.workflow.engine.GuardResult;
 import lombok.RequiredArgsConstructor;
@@ -17,7 +19,7 @@ import java.util.UUID;
  *
  * <p>Dùng như một nhà máy sinh guard đã gắn sẵn tham số, để mỗi lời gọi tự đọc được:
  * <pre>{@code
- * hierarchyGuard.requiring("KPI:APPROVE_CRITERIA", "phê duyệt", "chỉ tiêu")
+ * hierarchyGuard.requiring("KPI:APPROVE_CRITERIA", "verb.approve", "noun.kpi")
  * }</pre>
  */
 @Component
@@ -28,8 +30,8 @@ public class HierarchyAuthorityGuard {
 
     /**
      * @param permissionCode quyền cần có trong đơn vị của bản ghi
-     * @param verb           động từ tiếng Việt của hành động ("phê duyệt", "từ chối", "hoàn duyệt")
-     * @param noun           danh từ chỉ đối tượng ("chỉ tiêu", "bản nộp")
+     * @param verb           key dịch của động từ ({@code verb.approve}, {@code verb.reject}, {@code verb.revertApproval})
+     * @param noun           key dịch của danh từ chỉ đối tượng ({@code noun.kpi})
      */
     public TransitionGuard requiring(String permissionCode, String verb, String noun) {
         return requiring(permissionCode, verb, noun, noun);
@@ -43,7 +45,7 @@ public class HierarchyAuthorityGuard {
     public TransitionGuard requiring(String permissionCode, String verb, String noun, String permissionNoun) {
         return ctx -> {
             User actor = ctx.getActor();
-            if (actor == null) return GuardResult.forbidden("Không xác định được người thực hiện");
+            if (actor == null) return GuardResult.forbidden(ErrorCode.GUARD_ACTOR_UNKNOWN);
 
             UUID actorId = actor.getId();
             UUID orgUnitId = ctx.getOrgUnitId();
@@ -52,7 +54,7 @@ public class HierarchyAuthorityGuard {
             if (orgUnitId != null && permissionChecker.isGlobalAdminIn(actorId, orgUnitId)) return GuardResult.ok();
 
             if (orgUnitId == null || !permissionChecker.hasPermissionInOrgUnit(actorId, permissionCode, orgUnitId)) {
-                return GuardResult.forbidden("Bạn không có quyền " + verb + " " + permissionNoun + " cho đơn vị này");
+                return GuardResult.forbidden(ErrorCode.GUARD_NO_PERMISSION_IN_UNIT, Terms.of(verb), Terms.of(permissionNoun));
             }
 
             UUID ownerId = ctx.getTargetOwnerId();
@@ -60,26 +62,23 @@ public class HierarchyAuthorityGuard {
 
             if (permissionChecker.isSuperiorTo(actorId, ownerId, orgUnitId)) return GuardResult.ok();
 
-            return GuardResult.forbidden(explain(actorId, ownerId, orgUnitId, verb, noun));
+            return GuardResult.forbidden(explain(actorId, ownerId, orgUnitId), Terms.of(verb), Terms.of(noun));
         };
     }
 
-    /**
-     * Nói rõ vì sao không đủ thẩm quyền. Giữ nguyên ba thông báo cũ để người dùng không thấy hệ
-     * thống bỗng đổi giọng sau refactor.
-     */
-    private String explain(UUID actorId, UUID ownerId, UUID orgUnitId, String verb, String noun) {
+    /** Nói rõ vì sao không đủ thẩm quyền: cấp bậc thấp hơn, cùng chức vụ, hay không phải cấp trên. */
+    private ErrorCode explain(UUID actorId, UUID ownerId, UUID orgUnitId) {
         int ownerLevel = permissionChecker.getMinLevelInOrgUnit(ownerId, orgUnitId);
         int ownerRank = permissionChecker.getMinRankInOrgUnit(ownerId, orgUnitId);
         int actorLevel = permissionChecker.getMinLevelInOrgUnit(actorId, orgUnitId);
         int actorRank = permissionChecker.getMinRankInOrgUnit(actorId, orgUnitId);
 
         if (actorLevel > ownerLevel) {
-            return "Bạn không thể " + verb + " " + noun + " của người có cấp bậc cao hơn bạn";
+            return ErrorCode.GUARD_OWNER_HIGHER_LEVEL;
         }
         if (actorLevel == ownerLevel && actorRank == ownerRank) {
-            return "Bạn không thể " + verb + " " + noun + " của người có cùng chức vụ";
+            return ErrorCode.GUARD_OWNER_SAME_POSITION;
         }
-        return "Bạn không đủ thẩm quyền để " + verb + " " + noun + " này";
+        return ErrorCode.GUARD_NOT_SUPERIOR;
     }
 }

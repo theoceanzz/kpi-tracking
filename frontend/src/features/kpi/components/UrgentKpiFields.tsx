@@ -13,6 +13,7 @@ import { useFixedPerspectives } from '@/features/bsc/hooks/useBsc'
 import type { ScorecardPerspectiveResponse } from '@/features/bsc/types'
 import { Field, Hint, SourceCard, Stat, ToggleCard } from './KpiFormParts'
 import type { NewKpiFields } from '../schemas/urgentTaskSchema'
+import { useTranslation } from 'react-i18next'
 
 type Source = 'FREE' | 'BSC' | 'OKR'
 
@@ -54,6 +55,7 @@ export function UrgentKpiFields<T extends NewKpiFields & FieldValues>({
   /** Phần bối cảnh riêng của tab (KPI cần thay thế / bảng trọng số), vẽ dưới tần suất + hạn chót. */
   contextSlot?: ReactNode
 }) {
+  const { t: tr } = useTranslation('kpi')
   const { register, watch, setValue, getValues, control, formState: { errors } } = form
   const f = (name: keyof NewKpiFields) => name as Path<T>
   const err = (name: keyof NewKpiFields) => (errors as any)?.[name]?.message as string | undefined
@@ -145,46 +147,46 @@ export function UrgentKpiFields<T extends NewKpiFields & FieldValues>({
     const t = targetStr?.trim() ? Number(targetStr) : null
     if (source === 'BSC' && selectedRow) {
       if (t != null && selectedRow.targetValue != null && t > selectedRow.targetValue + 0.001) {
-        out.push(`Mục tiêu ${formatNumber(t)} vượt mục tiêu hạng mục "${selectedPerspective?.name}" (${formatNumber(selectedRow.targetValue)}${selectedRow.unit ? ` ${selectedRow.unit}` : ''}).`)
+        out.push(tr('UrgentKpiFields.targetExceedsTheTargetOfItem', { t: formatNumber(t), name: selectedPerspective?.name, targetValue: formatNumber(selectedRow.targetValue), value: selectedRow.unit ? ` ${selectedRow.unit}` : '' }))
       }
       if (selectedRow.unit && unit && unit.trim().toLowerCase() !== selectedRow.unit.trim().toLowerCase()) {
-        out.push(`Đơn vị tính "${unit}" khác hạng mục ("${selectedRow.unit}") — số sẽ không cộng dồn được vào hạng mục.`)
+        out.push(tr('UrgentKpiFields.unitOfMeasureDiffersFromThe', { unit, unit2: selectedRow.unit }))
       }
     }
     if (source === 'OKR' && selectedKr) {
       const { kr } = selectedKr
       if (t != null && kr.targetValue != null && t > kr.targetValue + 0.001) {
-        out.push(`Mục tiêu ${formatNumber(t)} vượt mục tiêu KR "${kr.name}" (${formatNumber(kr.targetValue)}${kr.unit ? ` ${kr.unit}` : ''}).`)
+        out.push(tr('UrgentKpiFields.targetExceedsTheTargetOfKr', { t: formatNumber(t), name: kr.name, targetValue: formatNumber(kr.targetValue), value: kr.unit ? ` ${kr.unit}` : '' }))
       }
       if (kr.unit && unit && unit.trim().toLowerCase() !== kr.unit.trim().toLowerCase()) {
-        out.push(`Đơn vị tính "${unit}" khác KR ("${kr.unit}") — tiến độ KR sẽ không cộng đúng.`)
+        out.push(tr('UrgentKpiFields.unitOfMeasureDiffersFromThe2', { unit, unit2: kr.unit }))
       }
     }
     return out
-  }, [isQual, targetStr, source, selectedRow, selectedPerspective, selectedKr, unit])
+  }, [isQual, targetStr, source, selectedRow, selectedPerspective, selectedKr, unit, tr])
 
   const canPickSource = ctx.enableBsc || ctx.enableOkr
-  const targetLabel = isReverse ? 'Ngưỡng mục tiêu (càng thấp càng tốt)' : 'Mục tiêu mong muốn'
-  const minLabel = isReverse ? 'Ngưỡng tối đa chấp nhận' : 'Mục tiêu tối thiểu'
+  const targetLabel = isReverse ? tr('UrgentKpiFields.targetThresholdLowerIsBetter') : tr('UrgentKpiFields.desiredTarget')
+  const minLabel = isReverse ? tr('UrgentKpiFields.maximumAcceptableThreshold') : tr('UrgentKpiFields.minimumTarget')
 
   return (
     <>
       {/* ── ① phần chung của bối cảnh: tần suất, hạn chót, rồi phần riêng của tab ── */}
-      <Section title="① Bối cảnh" hint="Kỳ và đơn vị đã chọn ở trên">
+      <Section title={tr('UrgentKpiFields.context')} hint={tr('UrgentKpiFields.theCycleAndUnitChosenAbove')}>
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Tần suất chốt" required>
+          <Field label={tr('UrgentKpiFields.closingFrequency')} required>
             <Controller name={f('frequency')} control={control} render={({ field }) => (
               <Select value={(field.value as string) || ''} onValueChange={field.onChange}>
-                <SelectTrigger><SelectValue placeholder="Chọn tần suất…" /></SelectTrigger>
+                <SelectTrigger><SelectValue placeholder={tr('UrgentKpiFields.chooseFrequency')} /></SelectTrigger>
                 <SelectContent>
-                  {frequencyOptions.map(v => <SelectItem key={v} value={v}>{FREQUENCY_MAP[v]}</SelectItem>)}
+                  {frequencyOptions.map(v => <SelectItem key={v} value={v}>{FREQUENCY_MAP()[v]}</SelectItem>)}
                 </SelectContent>
               </Select>
             )} />
           </Field>
-          <Field label="Hạn chót" hint={ctx.period ? `Trống = cuối đợt (${formatDateTime(ctx.period.endDate)})` : undefined}>
+          <Field label={tr('UrgentKpiFields.deadline')} hint={ctx.period ? tr('UrgentKpiFields.emptyEndOfPeriod', { endDate: formatDateTime(ctx.period.endDate) }) : undefined}>
             <Controller name={f('deadline')} control={control} render={({ field }) => (
-              <DateTimePicker value={(field.value as string) || ''} onChange={field.onChange} placeholder="Mặc định theo đợt" className={cn(!ctx.period && 'pointer-events-none opacity-50')} />
+              <DateTimePicker value={(field.value as string) || ''} onChange={field.onChange} placeholder={tr('UrgentKpiFields.defaultFromThePeriod')} className={cn(!ctx.period && 'pointer-events-none opacity-50')} />
             )} />
           </Field>
         </div>
@@ -193,20 +195,20 @@ export function UrgentKpiFields<T extends NewKpiFields & FieldValues>({
 
       {/* ── ② Nguồn ── */}
       {canPickSource && (
-        <Section title="② Nguồn chỉ tiêu" hint="Chọn nguồn trước — mục tiêu, đơn vị tính điền sẵn ở bước ③">
+        <Section title={tr('UrgentKpiFields.kpiSource')} hint={tr('UrgentKpiFields.chooseTheSourceFirstTargetAnd')}>
           <div className="flex flex-wrap gap-2">
-            <ChoiceChip selected={source === 'FREE'} onClick={() => changeSource('FREE')}><Unlink /> Tự do</ChoiceChip>
-            {ctx.enableBsc && <ChoiceChip selected={source === 'BSC'} onClick={() => changeSource('BSC')}><LayoutGrid /> Hạng mục BSC</ChoiceChip>}
-            {ctx.enableOkr && <ChoiceChip selected={source === 'OKR'} onClick={() => changeSource('OKR')}><Target /> Kết quả then chốt (OKR)</ChoiceChip>}
+            <ChoiceChip selected={source === 'FREE'} onClick={() => changeSource('FREE')}><Unlink /> {tr('UrgentKpiFields.freeForm')}</ChoiceChip>
+            {ctx.enableBsc && <ChoiceChip selected={source === 'BSC'} onClick={() => changeSource('BSC')}><LayoutGrid /> {tr('UrgentKpiFields.bscItem')}</ChoiceChip>}
+            {ctx.enableOkr && <ChoiceChip selected={source === 'OKR'} onClick={() => changeSource('OKR')}><Target /> {tr('UrgentKpiFields.keyResultOkr')}</ChoiceChip>}
           </div>
 
           {source === 'BSC' && (
             <div className="space-y-3">
               <Controller name={f('perspectiveId')} control={control} render={({ field }) => (
                 <Select onValueChange={field.onChange} value={(field.value as string) || 'NONE'}>
-                  <SelectTrigger><SelectValue placeholder="Chọn hạng mục…" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={tr('UrgentKpiFields.chooseItem')} /></SelectTrigger>
                   <SelectContent className="max-h-[320px]">
-                    <SelectItem value="NONE">— Chưa chọn hạng mục —</SelectItem>
+                    <SelectItem value="NONE">{tr('UrgentKpiFields.noItemChosen')}</SelectItem>
                     {grouped.map(group => (
                       <SelectGroup key={group.code}>
                         <SelectLabel>{group.name}</SelectLabel>
@@ -225,13 +227,13 @@ export function UrgentKpiFields<T extends NewKpiFields & FieldValues>({
                 </Select>
               )} />
               {!!ctx.availablePerspectiveIds && grouped.length === 0 && (
-                <Hint tone="warning">Bộ tiêu chí của đơn vị này <b>chưa có hạng mục nào</b> (hoặc đợt chưa có bộ tiêu chí).</Hint>
+                <Hint tone="warning">{tr('UrgentKpiFields.thisUnitsScorecard')} <b>{tr('UrgentKpiFields.hasNoItemsYet')}</b> {tr('UrgentKpiFields.orThePeriodHasNoScorecard')}</Hint>
               )}
               {selectedRow && selectedPerspective && (
                 <SourceCard color={selectedPerspective.color || '#94a3b8'} title={selectedPerspective.name} subtitle={ctx.scorecardName}>
-                  <Stat label="Mục tiêu hạng mục" value={selectedRow.targetValue != null ? `${formatNumber(selectedRow.targetValue)}${selectedRow.unit ? ` ${selectedRow.unit}` : ''}` : '—'} />
-                  <Stat label="Tối thiểu" value={selectedRow.minimumValue != null ? formatNumber(selectedRow.minimumValue) : '—'} />
-                  <Stat label="Trọng số hạng mục" value={`${selectedRow.weightPercentage}%`} hint="100% chỉ tiêu = đủ hạng mục" />
+                  <Stat label={tr('UrgentKpiFields.itemTarget')} value={selectedRow.targetValue != null ? `${formatNumber(selectedRow.targetValue)}${selectedRow.unit ? ` ${selectedRow.unit}` : ''}` : '—'} />
+                  <Stat label={tr('UrgentKpiFields.minimum')} value={selectedRow.minimumValue != null ? formatNumber(selectedRow.minimumValue) : '—'} />
+                  <Stat label={tr('UrgentKpiFields.itemWeight')} value={`${selectedRow.weightPercentage}%`} hint={tr('UrgentKpiFields.n100KpiFullItem')} />
                 </SourceCard>
               )}
             </div>
@@ -241,9 +243,9 @@ export function UrgentKpiFields<T extends NewKpiFields & FieldValues>({
             <div className="space-y-3">
               <Controller name={f('keyResultId')} control={control} render={({ field }) => (
                 <Select onValueChange={field.onChange} value={(field.value as string) || 'NONE'}>
-                  <SelectTrigger><SelectValue placeholder="Chọn kết quả then chốt…" /></SelectTrigger>
+                  <SelectTrigger><SelectValue placeholder={tr('UrgentKpiFields.chooseKeyResult')} /></SelectTrigger>
                   <SelectContent className="max-h-[320px]">
-                    <SelectItem value="NONE">— Chưa chọn KR —</SelectItem>
+                    <SelectItem value="NONE">{tr('UrgentKpiFields.noKrChosen')}</SelectItem>
                     {(ctx.objectives || []).map((obj: any) => (
                       <SelectGroup key={obj.id}>
                         <SelectLabel className="flex items-center justify-between gap-2"><span>OBJ: {obj.name}</span><Badge variant="outline">OKR</Badge></SelectLabel>
@@ -258,12 +260,12 @@ export function UrgentKpiFields<T extends NewKpiFields & FieldValues>({
                   </SelectContent>
                 </Select>
               )} />
-              {(ctx.objectives || []).length === 0 && <Hint tone="warning">Đơn vị này chưa có mục tiêu OKR nào.</Hint>}
+              {(ctx.objectives || []).length === 0 && <Hint tone="warning">{tr('UrgentKpiFields.thisUnitHasNoOkrObjectives')}</Hint>}
               {selectedKr && (
                 <SourceCard color={selectedKr.obj.perspectiveColor || '#8b5cf6'} title={selectedKr.kr.name} subtitle={`OBJ: ${selectedKr.obj.name}`}>
-                  <Stat label="Mục tiêu KR" value={selectedKr.kr.targetValue != null ? `${formatNumber(selectedKr.kr.targetValue)}${selectedKr.kr.unit ? ` ${selectedKr.kr.unit}` : ''}` : '—'} />
-                  <Stat label="Đã đạt" value={selectedKr.kr.currentValue != null ? `${formatNumber(selectedKr.kr.currentValue)} (${Math.round(selectedKr.kr.progress ?? 0)}%)` : '—'} />
-                  {selectedKr.obj.perspectiveName && <Stat label="Hạng mục BSC kế thừa" value={selectedKr.obj.perspectiveName} />}
+                  <Stat label={tr('UrgentKpiFields.krTarget')} value={selectedKr.kr.targetValue != null ? `${formatNumber(selectedKr.kr.targetValue)}${selectedKr.kr.unit ? ` ${selectedKr.kr.unit}` : ''}` : '—'} />
+                  <Stat label={tr('UrgentKpiFields.achieved')} value={selectedKr.kr.currentValue != null ? `${formatNumber(selectedKr.kr.currentValue)} (${Math.round(selectedKr.kr.progress ?? 0)}%)` : '—'} />
+                  {selectedKr.obj.perspectiveName && <Stat label={tr('UrgentKpiFields.inheritedBscItem')} value={selectedKr.obj.perspectiveName} />}
                 </SourceCard>
               )}
             </div>
@@ -272,12 +274,12 @@ export function UrgentKpiFields<T extends NewKpiFields & FieldValues>({
       )}
 
       {/* ── ③ Nội dung ── */}
-      <Section title={canPickSource ? '③ Nội dung KPI mới' : 'Nội dung KPI mới'} hint={source !== 'FREE' ? 'Đã điền sẵn từ nguồn — sửa chỗ nào thấy khác' : undefined}>
+      <Section title={canPickSource ? tr('UrgentKpiFields.newKpiContent') : tr('UrgentKpiFields.newKpiContent2')} hint={source !== 'FREE' ? tr('UrgentKpiFields.prefilledFromTheSourceEditAnything') : undefined}>
         {ctx.enableQualitative && (
           <Controller name={f('kpiType')} control={control} render={({ field }) => (
             <div className="grid grid-cols-2 gap-1 rounded-control bg-[var(--color-muted)] p-1">
-              <ChoiceChip selected={field.value !== 'QUALITATIVE'} variant="segment" className="h-9" onClick={() => field.onChange('QUANTITATIVE')}><BarChart3 /> Định lượng</ChoiceChip>
-              <ChoiceChip selected={field.value === 'QUALITATIVE'} variant="segment" className="h-9" onClick={() => field.onChange('QUALITATIVE')}><SlidersHorizontal /> Định tính</ChoiceChip>
+              <ChoiceChip selected={field.value !== 'QUALITATIVE'} variant="segment" className="h-9" onClick={() => field.onChange('QUANTITATIVE')}><BarChart3 /> {tr('UrgentKpiFields.quantitative')}</ChoiceChip>
+              <ChoiceChip selected={field.value === 'QUALITATIVE'} variant="segment" className="h-9" onClick={() => field.onChange('QUALITATIVE')}><SlidersHorizontal /> {tr('UrgentKpiFields.qualitative')}</ChoiceChip>
             </div>
           )} />
         )}
@@ -285,33 +287,33 @@ export function UrgentKpiFields<T extends NewKpiFields & FieldValues>({
         <div className="flex flex-wrap gap-2">
           {!isQual && (
             <Controller name={f('isReverseKpi')} control={control} render={({ field }) => (
-              <ToggleCard on={!!field.value} onToggle={() => field.onChange(!field.value)} tone="warning" title="KPI ngược" desc="Giá trị càng thấp càng tốt — tỉ lệ lỗi, chi phí, thời gian xử lý" />
+              <ToggleCard on={!!field.value} onToggle={() => field.onChange(!field.value)} tone="warning" title={tr('UrgentKpiFields.inverseKpi')} desc={tr('UrgentKpiFields.lowerIsBetterErrorRateCost')} />
             )} />
           )}
           <Controller name={f('isBonusKpi')} control={control} render={({ field }) => (
-            <ToggleCard on={!!field.value} onToggle={() => field.onChange(!field.value)} tone="success" title="KPI thưởng" desc="Không bắt buộc, không nằm trong 100% trọng số; làm được thì cộng thêm điểm" />
+            <ToggleCard on={!!field.value} onToggle={() => field.onChange(!field.value)} tone="success" title={tr('UrgentKpiFields.bonusKpi')} desc={tr('UrgentKpiFields.optionalNotPartOfThe100')} />
           )} />
         </div>
 
-        <Field label="Tên KPI mới" required error={err('name')} prefilled={prefilledRef.current.name !== undefined && watch(f('name')) === prefilledRef.current.name}>
-          <Input {...register(f('name'))} invalid={!!err('name')} placeholder="VD: Xử lý yêu cầu khẩn cấp tháng 7" />
+        <Field label={tr('UrgentKpiFields.newKpiName')} required error={err('name')} prefilled={prefilledRef.current.name !== undefined && watch(f('name')) === prefilledRef.current.name}>
+          <Input {...register(f('name'))} invalid={!!err('name')} placeholder={tr('UrgentKpiFields.eGHandleUrgentRequestsIn')} />
         </Field>
-        <Field label="Mô tả chi tiết">
-          <Textarea {...register(f('description'))} rows={2} placeholder="Cung cấp ngữ cảnh và cách tính toán…" />
+        <Field label={tr('UrgentKpiFields.detailedDescription')}>
+          <Textarea {...register(f('description'))} rows={2} placeholder={tr('UrgentKpiFields.provideContextAndHowItIs')} />
         </Field>
 
         {isQual ? (
-          <Hint tone="success">KPI định tính không có mục tiêu số — quản lý chọn mức trong thang định tính khi duyệt.</Hint>
+          <Hint tone="success">{tr('UrgentKpiFields.qualitativeKpisHaveNoNumericTarget')}</Hint>
         ) : (
           <div className="grid gap-4 sm:grid-cols-3">
             <Field label={targetLabel} required error={err('targetValue')} prefilled={prefilledRef.current.targetValue !== undefined && targetStr === prefilledRef.current.targetValue}>
-              <Input {...register(f('targetValue'))} type="number" step="any" onWheel={e => (e.target as HTMLInputElement).blur()} invalid={!!err('targetValue')} placeholder="1000" suffix={unit ? <span className="text-xs">{unit}</span> : undefined} />
+              <Input {...register(f('targetValue'))} type="number" step="any" onWheel={e => (e.target as HTMLInputElement).blur()} invalid={!!err('targetValue')} placeholder="1000" suffix={<span className="text-xs">{unit}</span>} />
             </Field>
             <Field label={minLabel} required error={err('minimumValue')}>
-              <Input {...register(f('minimumValue'))} type="number" step="any" onWheel={e => (e.target as HTMLInputElement).blur()} invalid={!!err('minimumValue')} placeholder="800" suffix={unit ? <span className="text-xs">{unit}</span> : undefined} />
+              <Input {...register(f('minimumValue'))} type="number" step="any" onWheel={e => (e.target as HTMLInputElement).blur()} invalid={!!err('minimumValue')} placeholder="800" suffix={<span className="text-xs">{unit}</span>} />
             </Field>
-            <Field label="Đơn vị tính" required error={err('unit')} prefilled={prefilledRef.current.unit !== undefined && unit === prefilledRef.current.unit}>
-              <Input {...register(f('unit'))} invalid={!!err('unit')} placeholder="VNĐ, %, KPI…" />
+            <Field label={tr('UrgentKpiFields.unitOfMeasure')} required error={err('unit')} prefilled={prefilledRef.current.unit !== undefined && unit === prefilledRef.current.unit}>
+              <Input {...register(f('unit'))} invalid={!!err('unit')} placeholder={tr('UrgentKpiFields.vndKpi')} />
             </Field>
           </div>
         )}

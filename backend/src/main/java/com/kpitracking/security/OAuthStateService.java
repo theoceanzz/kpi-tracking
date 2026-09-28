@@ -2,6 +2,7 @@ package com.kpitracking.security;
 
 import com.kpitracking.config.JwtConfig;
 import com.kpitracking.exception.BusinessException;
+import com.kpitracking.exception.ErrorCode;
 import io.jsonwebtoken.Claims;
 import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.Jwts;
@@ -72,12 +73,12 @@ public class OAuthStateService {
         String orgRaw = claims.get(ORG_CLAIM, String.class);
 
         if (purposeRaw == null || orgRaw == null) {
-            throw new BusinessException("Phiên đăng nhập Lark không hợp lệ. Vui lòng thử lại.");
+            throw new BusinessException(ErrorCode.INVALID_LARK_SIGN_SESSION);
         }
         try {
             return new StateData(UUID.fromString(orgRaw), Purpose.valueOf(purposeRaw));
         } catch (IllegalArgumentException e) {
-            throw new BusinessException("Phiên đăng nhập Lark không hợp lệ. Vui lòng thử lại.");
+            throw new BusinessException(ErrorCode.INVALID_LARK_SIGN_SESSION);
         }
     }
 
@@ -104,7 +105,7 @@ public class OAuthStateService {
     public PendingConnection validatePendingConnection(String token) {
         Claims claims = parse(token);
         if (!PENDING_PURPOSE.equals(claims.get(PURPOSE_CLAIM, String.class))) {
-            throw new BusinessException("Phiên kết nối Lark không hợp lệ. Vui lòng thử lại.");
+            throw new BusinessException(ErrorCode.INVALID_LARK_CONNECTION_SESSION);
         }
         return new PendingConnection(
                 UUID.fromString(claims.get(ORG_CLAIM, String.class)),
@@ -122,8 +123,7 @@ public class OAuthStateService {
                     .getPayload();
         } catch (JwtException | IllegalArgumentException e) {
             log.warn("State Lark không hợp lệ: {}", e.getMessage());
-            throw new BusinessException(
-                    "Phiên đăng nhập Lark đã hết hạn hoặc không hợp lệ. Vui lòng thử lại.");
+            throw new BusinessException(ErrorCode.LARK_SIGN_SESSION_EXPIRED_INVALID);
         }
     }
 

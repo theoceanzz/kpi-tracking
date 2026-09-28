@@ -7,6 +7,7 @@ import { useEvaluations } from '@/features/evaluations/hooks/useEvaluations'
 import { useMySubmissions } from '@/features/submissions/hooks/useMySubmissions'
 import EvaluationFormModal from '@/features/evaluations/components/EvaluationFormModal'
 import { Button } from '@/components/ui/button'
+import { useTranslation } from 'react-i18next'
 
 /**
  * Các đợt người dùng đã tắt lời nhắc, lưu theo id đợt.
@@ -38,6 +39,7 @@ const readDismissed = (): string[] => {
  * nói ra rằng có đợt đang chờ, và im lặng khi đã bị tắt.
  */
 export default function CompletedPeriodEvaluationPrompt() {
+  const { t } = useTranslation('dashboard')
   const { user } = useAuthStore()
   const [open, setOpen] = useState(false)
   const [dismissed, setDismissed] = useState<string[]>(readDismissed)
@@ -90,12 +92,12 @@ export default function CompletedPeriodEvaluationPrompt() {
         </span>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-[var(--color-foreground)]">
-            Đợt “{completedPeriod.name}” đã hoàn tất — bạn chưa tự đánh giá
+            {t('CompletedPeriodEvaluationPrompt.period')}{completedPeriod.name}{t('CompletedPeriodEvaluationPrompt.isCompleteYouHaveNotSelf')}
           </p>
-          <p className="text-caption">Mọi chỉ tiêu của đợt đã được duyệt. Tự đánh giá để quản lý chấm tiếp.</p>
+          <p className="text-caption">{t('CompletedPeriodEvaluationPrompt.allKpisOfThePeriodHave')}</p>
         </div>
-        <Button size="sm" onClick={() => setOpen(true)}>Tự đánh giá ngay</Button>
-        <Button variant="ghost" size="icon-sm" onClick={dismiss} aria-label="Tắt lời nhắc cho đợt này" title="Tắt lời nhắc cho đợt này">
+        <Button size="sm" onClick={() => setOpen(true)}>{t('CompletedPeriodEvaluationPrompt.selfAssessNow')}</Button>
+        <Button variant="ghost" size="icon-sm" onClick={dismiss} aria-label={t('CompletedPeriodEvaluationPrompt.turnOffRemindersForThisPeriod')} title={t('CompletedPeriodEvaluationPrompt.turnOffRemindersForThisPeriod')}>
           <X aria-hidden="true" />
         </Button>
       </div>

@@ -1,3 +1,4 @@
+import { intlDateLocale } from '@/i18n/format'
 import { useState } from 'react'
 import { Award, Pencil, Plus, Star, Trash2 } from 'lucide-react'
 import EmptyState from '@/components/common/EmptyState'
@@ -10,20 +11,23 @@ import { resolveDesign, type CertificateData } from './certificate/presets'
 import { useCertificateTemplates } from '../hooks/useCertificates'
 import { CertificateTemplateStatus, type CertificateTemplate } from '../types'
 import { Button } from '@/components/ui/button'
+import { useTranslation } from 'react-i18next'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
 /** Dữ liệu giả cho ảnh thu nhỏ trong danh sách. */
-const THUMB_DATA: Omit<CertificateData, 'organizationName' | 'organizationLogoUrl'> = {
-  recipientName: 'Nguyễn Minh Anh',
+const THUMB_DATA = perLanguage((): Omit<CertificateData, 'organizationName' | 'organizationLogoUrl'> => ({
+  recipientName: i18n.t('rewards:CertificatesTab.nguyenMinhAnh'),
   points: 500,
-  reason: 'Hoàn thành xuất sắc nhiệm vụ được giao trong tháng.',
-  dateLabel: new Date().toLocaleDateString('vi-VN', {
+  reason: i18n.t('rewards:CertificatesTab.outstandingCompletionOfAssignedTasksThis'),
+  dateLabel: new Date().toLocaleDateString(intlDateLocale(), {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
   }),
-  grantorName: 'Trần Quốc Hưng',
-  orgUnitName: 'Phòng Kinh doanh',
-}
+  grantorName: i18n.t('rewards:CertificatesTab.tranQuocHung'),
+  orgUnitName: i18n.t('rewards:CertificatesTab.salesDepartment'),
+}))
 
 /**
  * Quản lý mẫu chứng nhận của tổ chức.
@@ -32,6 +36,7 @@ const THUMB_DATA: Omit<CertificateData, 'organizationName' | 'organizationLogoUr
  * in. Mẫu ở đây chỉ để công ty ghim lời văn, chữ ký và màu thương hiệu của mình.
  */
 export default function CertificatesTab() {
+  const { t: tr } = useTranslation('rewards')
   const [editing, setEditing] = useState<CertificateTemplate | null>(null)
   const [formOpen, setFormOpen] = useState(false)
   const [deleting, setDeleting] = useState<CertificateTemplate | null>(null)
@@ -48,14 +53,12 @@ export default function CertificatesTab() {
     <div id="tour-certificates-root">
       <div id="tour-certificates-intro" className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <p className="max-w-2xl text-sm text-[var(--color-muted-foreground)]">
-          Mẫu giấy khen dùng khi in chứng nhận cho nhân viên được thưởng. Chưa tạo mẫu nào thì
-          màn hình in vẫn có sẵn sáu thiết kế đẹp để chọn — mẫu ở đây là bản riêng của công ty
-          bạn, có logo, chữ ký và lời văn cố định.
+          {tr('CertificatesTab.certificateTemplatesUsedWhenPrintingCertificates')}
         </p>
         <WorkspaceHeaderActions>
           <Button onClick={openCreate}>
             <Plus aria-hidden="true" />
-            Tạo mẫu
+            {tr('CertificatesTab.createTemplate')}
           </Button>
         </WorkspaceHeaderActions>
       </div>
@@ -65,12 +68,12 @@ export default function CertificatesTab() {
       ) : templates.length === 0 ? (
         <div className="rounded-card border border-dashed border-[var(--color-border)]">
           <EmptyState
-            title="Chưa có mẫu riêng nào"
-            description="Tạo một mẫu để cố định logo, chữ ký của giám đốc và lời chứng nhận — lần sau ai in cũng ra đúng một kiểu."
+            title={tr('CertificatesTab.noCustomTemplatesYet')}
+            description={tr('CertificatesTab.createATemplateToFixThe')}
             action={
               <Button onClick={openCreate}>
                 <Award aria-hidden="true" />
-                Tạo mẫu đầu tiên
+                {tr('CertificatesTab.createTheFirstTemplate')}
               </Button>
             }
           />
@@ -103,13 +106,13 @@ export default function CertificatesTab() {
 
       <ConfirmDialog
         open={!!deleting}
-        title="Xoá mẫu chứng nhận?"
+        title={tr('CertificatesTab.deleteCertificateTemplate')}
         description={
           deleting
-            ? `Mẫu "${deleting.name}" sẽ không còn hiện ra khi in. Chứng nhận đã in trước đó không bị ảnh hưởng.`
+            ? tr('CertificatesTab.templateWillNoLongerAppearWhen', { name: deleting.name })
             : ''
         }
-        confirmLabel="Xoá mẫu"
+        confirmLabel={tr('CertificatesTab.deleteTemplate')}
         loading={isDeleting}
         onClose={() => setDeleting(null)}
         onConfirm={async () => {
@@ -135,6 +138,7 @@ function TemplateCard({
   onEdit: () => void
   onDelete: () => void
 }) {
+  const { t } = useTranslation('rewards')
   const design = resolveDesign(template)
   const inactive = template.status !== CertificateTemplateStatus.ACTIVE
 
@@ -146,7 +150,7 @@ function TemplateCard({
         <div className={`overflow-hidden rounded shadow ring-1 ring-black/10 ${inactive ? 'opacity-50' : ''}`}>
           <CertificateCanvas
             design={design}
-            data={{ ...THUMB_DATA, organizationName, organizationLogoUrl }}
+            data={{ ...THUMB_DATA(), organizationName, organizationLogoUrl }}
             scale={0.26}
           />
         </div>
@@ -158,16 +162,16 @@ function TemplateCard({
             <span className="truncate font-medium">{template.name}</span>
             {template.isDefault && (
               <span
-                title="Mẫu mặc định khi in"
+                title={t('CertificatesTab.defaultTemplateWhenPrinting')}
                 className="flex flex-shrink-0 items-center gap-1 rounded-full bg-[var(--color-warning-bg)] px-2 py-0.5 text-xs font-medium text-[var(--color-warning)]"
               >
                 <Star size={10} />
-                Mặc định
+                {t('CertificatesTab.default')}
               </span>
             )}
             {inactive && (
               <span className="flex-shrink-0 rounded-full bg-[var(--color-muted)] px-2 py-0.5 text-caption">
-                Đang tắt
+                {t('CertificatesTab.off')}
               </span>
             )}
           </div>
@@ -177,10 +181,10 @@ function TemplateCard({
         </div>
 
         <div className="flex flex-shrink-0 gap-1">
-          <Button variant="ghost" size="icon-sm" aria-label="Sửa mẫu" onClick={onEdit} title="Sửa mẫu">
+          <Button variant="ghost" size="icon-sm" aria-label={t('CertificatesTab.editTemplate')} onClick={onEdit} title={t('CertificatesTab.editTemplate')}>
             <Pencil aria-hidden="true" />
           </Button>
-          <Button variant="ghost" size="icon-sm" className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]" aria-label="Xoá mẫu" onClick={onDelete} title="Xoá mẫu">
+          <Button variant="ghost" size="icon-sm" className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]" aria-label={t('CertificatesTab.deleteTemplate')} onClick={onDelete} title={t('CertificatesTab.deleteTemplate')}>
             <Trash2 aria-hidden="true" />
           </Button>
         </div>

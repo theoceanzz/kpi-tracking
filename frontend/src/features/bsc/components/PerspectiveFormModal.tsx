@@ -1,3 +1,4 @@
+import { LocaleNumberInput } from '@/components/ui/number-input'
 import { useEffect, useMemo } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -22,6 +23,9 @@ import {
 } from '../schemas/perspectiveSchema'
 import { useCodeRule } from '@/features/orgunits/hooks/useCodeRules'
 import CodeField from '@/components/common/CodeField'
+import { useTranslation } from 'react-i18next'
+import { useFormDraft } from '@/hooks/useFormDraft'
+import DraftNotice from '@/components/common/DraftNotice'
 
 interface PerspectiveFormModalProps {
   isOpen: boolean
@@ -47,6 +51,7 @@ export default function PerspectiveFormModal({
   isOpen, onClose, organizationId, perspective, defaultFixedPerspective,
   showWeight, defaultWeight = 0, otherWeightTotal = 0, onWeightSubmit,
 }: PerspectiveFormModalProps) {
+  const { t } = useTranslation('bsc')
   const { data: allPerspectives } = useBscPerspectives(organizationId)
 
   // Ràng buộc trùng mã / trùng thứ tự phải đối chiếu danh sách hiện có, nên schema dựng lại
@@ -63,7 +68,7 @@ export default function PerspectiveFormModal({
     [allPerspectives, perspective?.id, codeRule.optional],
   )
 
-  const { register, handleSubmit, reset, control, watch, setValue, formState: { errors } } = useForm<PerspectiveFormValues>({
+  const formApi = useForm<PerspectiveFormValues>({
     resolver: zodResolver(schema),
     defaultValues: {
       code: '',
@@ -79,6 +84,8 @@ export default function PerspectiveFormModal({
       weightPercentage: 0,
     },
   })
+  const { register, handleSubmit, reset, control, watch, setValue, formState: { errors } } = formApi
+  const draft = useFormDraft(formApi, { key: `bsc-perspective:${perspective?.id ?? 'new'}`, enabled: isOpen })
 
   const { createPerspective, updatePerspective } = useBscMutations()
   const { data: fixedPerspectives } = useFixedPerspectives()
@@ -92,7 +99,7 @@ export default function PerspectiveFormModal({
   const hasOwnTarget = numOrNull(targetValue) != null && Number(targetValue) > 0
   const unitLabel = unitValue ? ` ${unitValue}` : ''
   const minimumLabel = numOrNull(minimumValue) != null
-    ? `, và = 0 nếu tổng thực đạt dưới ${minimumValue}${unitLabel}`
+    ? t('PerspectiveFormModal.and0IfTheActualTotal', { minimumValue, unitLabel })
     : ''
 
   // Phần còn thiếu để bộ tiêu chí đủ 100% (đã trừ các hạng mục khác đang bật).
@@ -175,27 +182,28 @@ export default function PerspectiveFormModal({
       onClose={onClose}
       size="md"
       dismissible={!isPending}
-      title={perspective ? 'Chỉnh sửa hạng mục' : 'Tạo hạng mục mới'}
-      description="BSC · Hạng mục"
+      title={perspective ? t('PerspectiveFormModal.editItem') : t('PerspectiveFormModal.createANewItem')}
+      description={t('PerspectiveFormModal.bscItem')}
       footer={
         <DialogFooter
-          secondary={<Button variant="outline" onClick={onClose} disabled={isPending}>Hủy</Button>}
+          secondary={<Button variant="outline" onClick={onClose} disabled={isPending}>{t('PerspectiveFormModal.cancel')}</Button>}
           primary={
             <Button type="submit" form="perspective-form" disabled={isPending}>
               {isPending && <Loader2 className="animate-spin" aria-hidden="true" />}
-              {perspective ? 'Lưu thay đổi' : 'Xác nhận tạo'}
+              {perspective ? t('PerspectiveFormModal.saveChanges') : t('PerspectiveFormModal.confirmCreate')}
             </Button>
           }
         />
       }
     >
+      <DraftNotice draft={draft} className="mb-4" />
       <form id="perspective-form" onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="sm:col-span-2 space-y-1.5">
-            <label className="text-label">Tên hạng mục <span className="text-[var(--color-error)]">*</span></label>
+            <label className="text-label">{t('PerspectiveFormModal.itemName')} <span className="text-[var(--color-error)]">*</span></label>
             <input
               {...register('name')}
-              placeholder="VD: Công tác giảng dạy"
+              placeholder={t('PerspectiveFormModal.eGTeaching')}
               className="w-full px-4 py-2.5 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)] text-sm font-medium focus:ring-4 focus:ring-[var(--color-ring)] focus:border-[var(--color-primary)] outline-none transition-all"
             />
             {errors.name && <p className="text-caption text-[var(--color-error)]">{errors.name.message}</p>}
@@ -211,7 +219,7 @@ export default function PerspectiveFormModal({
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-label">Lĩnh vực BSC <span className="text-[var(--color-error)]">*</span></label>
+          <label className="text-label">{t('PerspectiveFormModal.bscArea')} <span className="text-[var(--color-error)]">*</span></label>
           <Controller
             name="fixedPerspective"
             control={control}
@@ -226,7 +234,7 @@ export default function PerspectiveFormModal({
                 }}
               >
                 <SelectTrigger className="w-full h-10 rounded-card bg-[var(--color-muted)] border-[var(--color-border)] text-sm font-medium outline-none">
-                  <SelectValue placeholder="Chọn 1 trong 4 lĩnh vực cố định" />
+                  <SelectValue placeholder={t('PerspectiveFormModal.choose1OfThe4Fixed')} />
                 </SelectTrigger>
                 <SelectContent className={'z-[1100]'}>
                   {(fixedPerspectives || []).map(fp => (
@@ -241,15 +249,15 @@ export default function PerspectiveFormModal({
               </Select>
             )}
           />
-          <p className="text-caption ml-1">Hạng mục này thuộc lĩnh vực nào trong 4 lĩnh vực cố định của bộ tiêu chí.</p>
+          <p className="text-caption ml-1">{t('PerspectiveFormModal.whichOfTheScorecards4Fixed')}</p>
           {errors.fixedPerspective && <p className="text-caption text-[var(--color-error)]">{errors.fixedPerspective.message}</p>}
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-label">Mô tả</label>
+          <label className="text-label">{t('PerspectiveFormModal.description')}</label>
           <textarea
             {...register('description')}
-            placeholder="Nhóm các chỉ tiêu liên quan..."
+            placeholder={t('PerspectiveFormModal.groupsRelatedKpis')}
             rows={2}
             className="w-full px-4 py-2.5 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)] text-sm font-medium focus:ring-4 focus:ring-[var(--color-ring)] focus:border-[var(--color-primary)] outline-none transition-all resize-none"
           />
@@ -258,9 +266,9 @@ export default function PerspectiveFormModal({
         <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
           <div className="space-y-1.5">
             <label className="text-label ml-1 flex items-end gap-1 min-h-[26px] leading-tight">
-              <Target size={11} className="mb-[1px] shrink-0" /> Mục tiêu mong muốn <span className="text-[var(--color-error)]">*</span>
+              <Target size={11} className="mb-[1px] shrink-0" /> {t('PerspectiveFormModal.desiredTarget')} <span className="text-[var(--color-error)]">*</span>
             </label>
-            <input
+            <LocaleNumberInput
               type="number"
               step="any"
               min={0}
@@ -273,9 +281,9 @@ export default function PerspectiveFormModal({
           </div>
           <div className="space-y-1.5">
             <label className="text-label ml-1 flex items-end gap-1 min-h-[26px] leading-tight">
-              <Target size={11} className="mb-[1px] shrink-0" /> Kết quả tối thiểu <span className="text-[var(--color-error)]">*</span>
+              <Target size={11} className="mb-[1px] shrink-0" /> {t('PerspectiveFormModal.minimumResult')} <span className="text-[var(--color-error)]">*</span>
             </label>
-            <input
+            <LocaleNumberInput
               type="number"
               step="any"
               min={0}
@@ -287,10 +295,10 @@ export default function PerspectiveFormModal({
             {errors.minimumValue && <p className="text-caption text-[var(--color-error)]">{errors.minimumValue.message}</p>}
           </div>
           <div className="space-y-1.5">
-            <label className="text-label ml-1 flex items-end gap-1 min-h-[26px] leading-tight">Đơn vị tính <span className="text-[var(--color-error)]">*</span></label>
+            <label className="text-label ml-1 flex items-end gap-1 min-h-[26px] leading-tight">{t('PerspectiveFormModal.unitOfMeasure')} <span className="text-[var(--color-error)]">*</span></label>
             <input
               {...register('unit')}
-              placeholder="VNĐ, %, buổi..."
+              placeholder={t('PerspectiveFormModal.vndSessions')}
               className="w-full px-4 py-2.5 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)] text-sm font-medium focus:ring-4 focus:ring-[var(--color-ring)] focus:border-[var(--color-primary)] outline-none transition-all"
             />
             {errors.unit && <p className="text-caption text-[var(--color-error)]">{errors.unit.message}</p>}
@@ -302,21 +310,19 @@ export default function PerspectiveFormModal({
             : 'bg-[var(--color-muted)] border-[var(--color-border)] text-[var(--color-muted-foreground)]')}>
           {hasOwnTarget ? (
             <>
-              <b>Hạng mục này tự chấm theo mục tiêu của chính nó (kiểu OKR).</b> Điểm hạng mục ={' '}
-              tổng giá trị thực đạt của các KPI <b>định lượng</b> trong hạng mục ÷ {targetValue}
-              {unitLabel} × 100 (trần 150%){minimumLabel}. KPI định tính trong hạng mục không tham gia phép cộng này —
-              hãy đảm bảo các KPI cùng đơn vị tính.
+              <b>{t('PerspectiveFormModal.thisItemScoresItselfAgainstIts')}</b> {t('PerspectiveFormModal.itemScore')}{' '}
+              {t('PerspectiveFormModal.totalActualValueOfTheKpis')} <b>{t('PerspectiveFormModal.quantitative')}</b> {t('PerspectiveFormModal.inTheItem')} {targetValue}
+              {unitLabel} {t('PerspectiveFormModal.n100CappedAt150')}{minimumLabel}{t('PerspectiveFormModal.qualitativeKpisInTheItemAre')}
             </>
           ) : (
-            <>Bỏ trống mục tiêu ⇒ hạng mục chấm như cũ: trung bình có trọng số tỉ lệ đạt của các KPI con.
-              Điền mục tiêu ⇒ hạng mục tự chấm theo mục tiêu của chính nó giống OKR.</>
+            <>{t('PerspectiveFormModal.leaveTheTargetEmptyTheItem')}</>
           )}
         </div>
 
         <div className={cn('grid gap-4', showWeight ? 'grid-cols-2 sm:grid-cols-3' : 'grid-cols-2')}>
           <div className="space-y-1.5">
-            <label className="text-label">Thứ tự hiển thị <span className="text-[var(--color-error)]">*</span></label>
-            <input
+            <label className="text-label">{t('PerspectiveFormModal.displayOrder')} <span className="text-[var(--color-error)]">*</span></label>
+            <LocaleNumberInput
               type="number"
               min={0}
               step={1}
@@ -326,18 +332,18 @@ export default function PerspectiveFormModal({
             {errors.displayOrder && <p className="text-caption text-[var(--color-error)]">{errors.displayOrder.message}</p>}
           </div>
           <div className="space-y-1.5">
-            <label className="text-label">Trạng thái</label>
+            <label className="text-label">{t('PerspectiveFormModal.status')}</label>
             <Controller
               name="status"
               control={control}
               render={({ field }) => (
                 <Select value={field.value} onValueChange={field.onChange}>
                   <SelectTrigger className="w-full h-10 rounded-card bg-[var(--color-muted)] border-[var(--color-border)] text-sm font-medium outline-none">
-                    <SelectValue placeholder="Trạng thái" />
+                    <SelectValue placeholder={t('PerspectiveFormModal.status')} />
                   </SelectTrigger>
                   <SelectContent className={'z-[1100]'}>
-                    <SelectItem value={BscPerspectiveStatus.ACTIVE} className="text-sm font-medium text-[var(--color-success)]">Đang dùng</SelectItem>
-                    <SelectItem value={BscPerspectiveStatus.INACTIVE} className="text-sm font-medium text-[var(--color-muted-foreground)]">Tạm ẩn</SelectItem>
+                    <SelectItem value={BscPerspectiveStatus.ACTIVE} className="text-sm font-medium text-[var(--color-success)]">{t('PerspectiveFormModal.inUse')}</SelectItem>
+                    <SelectItem value={BscPerspectiveStatus.INACTIVE} className="text-sm font-medium text-[var(--color-muted-foreground)]">{t('PerspectiveFormModal.hidden')}</SelectItem>
                   </SelectContent>
                 </Select>
               )}
@@ -346,10 +352,10 @@ export default function PerspectiveFormModal({
           {showWeight && (
             <div className="space-y-1.5">
               <label className="text-label ml-1 flex items-center gap-1">
-                <Scale size={11} /> Trọng số (%)
+                <Scale size={11} /> {t('PerspectiveFormModal.weight')}
               </label>
               {/* Bỏ trống = 0 khi gửi, nên map về undefined để schema cho qua thay vì báo NaN. */}
-              <input
+              <LocaleNumberInput
                 type="number"
                 min={0}
                 max={100}
@@ -364,18 +370,18 @@ export default function PerspectiveFormModal({
 
         {showWeight && (
           <p className="text-caption ml-1">
-            Trọng số của hạng mục trong bộ tiêu chí đang mở — vẫn sửa lại được ở danh sách bên ngoài.
-            {' '}Tổng sau khi lưu: <span className={cn('font-semibold', Math.abs(totalAfterSave - 100) <= 0.01 ? 'text-[var(--color-success)]' : 'text-[var(--color-warning)]')}>{totalAfterSave}%</span>.
+            {t('PerspectiveFormModal.theItemsWeightInTheOpen')}
+            {' '}{t('PerspectiveFormModal.totalAfterSaving')} <span className={cn('font-semibold', Math.abs(totalAfterSave - 100) <= 0.01 ? 'text-[var(--color-success)]' : 'text-[var(--color-warning)]')}>{totalAfterSave}%</span>.
             {missingWeight > 0 && (
               <Button variant="ghost" className="ml-1" type="button" onClick={() => setValue('weightPercentage', missingWeight, { shouldValidate: true })}>
-                Dùng {missingWeight}% còn thiếu
+                {t('PerspectiveFormModal.use')} {missingWeight}{t('PerspectiveFormModal.remaining')}
               </Button>
             )}
           </p>
         )}
 
         <div className="space-y-1.5">
-          <label className="text-label">Màu sắc <span className="text-[var(--color-error)]">*</span></label>
+          <label className="text-label">{t('PerspectiveFormModal.color')} <span className="text-[var(--color-error)]">*</span></label>
           <input
             type="hidden"
             {...register('color')}
@@ -404,7 +410,7 @@ export default function PerspectiveFormModal({
                 outline: !PRESET_COLORS.includes(selectedColor || '') && /^#([0-9A-Fa-f]{6})$/.test(selectedColor || '') ? `2px solid ${selectedColor}` : 'none',
                 outlineOffset: '2px',
               }}
-              title="Chọn màu tùy ý"
+              title={t('PerspectiveFormModal.pickAnyColor')}
             >
               <Plus size={14} className="text-white drop-shadow" />
               <input

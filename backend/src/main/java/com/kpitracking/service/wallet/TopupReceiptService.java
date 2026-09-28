@@ -8,8 +8,10 @@ import com.kpitracking.entity.TopupReceiptCounter;
 import com.kpitracking.entity.User;
 import com.kpitracking.dto.response.PageResponse;
 import com.kpitracking.dto.response.wallet.TopupReceiptResponse;
+import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.ForbiddenException;
 import com.kpitracking.exception.ResourceNotFoundException;
+import com.kpitracking.i18n.Terms;
 import com.kpitracking.repository.TopupOrderRepository;
 import com.kpitracking.repository.TopupReceiptCounterRepository;
 import com.kpitracking.repository.TopupReceiptRepository;
@@ -69,7 +71,7 @@ public class TopupReceiptService {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public TopupReceipt issueFor(UUID orderId) {
         TopupOrder order = orderRepository.findById(orderId)
-                .orElseThrow(() -> new ResourceNotFoundException("Đơn nạp tiền", "id", orderId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.topUpOrder"), "id", orderId));
 
         return receiptRepository.findByTopupOrderId(orderId)
                 .orElseGet(() -> create(order));
@@ -259,13 +261,13 @@ public class TopupReceiptService {
     @Transactional(readOnly = true)
     public TopupReceiptResponse getByOrderId(UUID orderId) {
         TopupReceipt r = receiptRepository.findByTopupOrderId(orderId)
-                .orElseThrow(() -> new ResourceNotFoundException("Biên nhận thu tiền", "đơn nạp", orderId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.paymentReceipt"), Terms.of("field.topUpOrder"), orderId));
 
         User me = context.getCurrentUser();
         UUID receiptOrgId = r.getOrganization() != null ? r.getOrganization().getId() : null;
         if (!r.getUser().getId().equals(me.getId())
                 && !permissionChecker.hasPermissionInOrganization(me.getId(), "WALLET:VIEW", receiptOrgId)) {
-            throw new ForbiddenException("Bạn không có quyền xem biên nhận của người khác.");
+            throw new ForbiddenException(ErrorCode.NO_PERMISSION_VIEW_OTHER_PEOPLE_RECEIPTS);
         }
         return toResponse(r);
     }

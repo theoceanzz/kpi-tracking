@@ -9,8 +9,8 @@ import java.util.UUID;
 @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
 public class CreateDatasourceRequest {
 
-    @NotBlank(message = "Tên datasource không được để trống")
-    @Size(max = 255, message = "Tên không quá 255 ký tự")
+    @NotBlank(message = "{validation.dataSourceNameCannotEmpty}")
+    @Size(max = 255, message = "{validation.nameCanMost255Characters}")
     private String name;
 
     private String description;

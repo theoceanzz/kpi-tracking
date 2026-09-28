@@ -4,6 +4,7 @@ import { Input } from '@/components/ui/input'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { STAGE_HINTS } from '../../workflowStageIcons'
 import type { WorkflowStage, WorkflowStageCode } from '../../types'
+import { useTranslation } from 'react-i18next'
 
 interface Props {
   stage: WorkflowStage
@@ -28,12 +29,13 @@ export default function StageInspector({
   readOnly,
   onOption,
 }: Props) {
+  const { t } = useTranslation('kpi')
   const byCode = new Map(allStages.map(s => [s.code, s]))
   const requires = stage.requires.map(code => byCode.get(code)?.label ?? code)
 
   return (
     <div className="space-y-5">
-      <p className="text-sm leading-relaxed text-[var(--color-muted-foreground)]">{STAGE_HINTS[stage.code]}</p>
+      <p className="text-sm leading-relaxed text-[var(--color-muted-foreground)]">{STAGE_HINTS()[stage.code]}</p>
 
       {warning && (
         <p className="flex items-start gap-2 rounded-card border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] p-3 text-xs font-medium text-[var(--color-warning)]">
@@ -44,7 +46,7 @@ export default function StageInspector({
 
       {requires.length > 0 && (
         <div>
-          <p className="text-eyebrow mb-1.5">Cần bước</p>
+          <p className="text-eyebrow mb-1.5">{t('StageInspector.requiresStep')}</p>
           <div className="flex flex-wrap gap-1.5">
             {requires.map(label => (
               <span key={label} className="rounded-control bg-[var(--color-muted)] px-2 py-0.5 text-xs font-medium text-[var(--color-muted-foreground)]">
@@ -72,26 +74,51 @@ function StageOptions({
   readOnly: boolean
   onOption: (key: string, value: unknown) => void
 }) {
+  const { t } = useTranslation('kpi')
   const o = stage.options ?? {}
 
   if (stage.code === 'CRITERIA_APPROVAL') {
     return (
       <OptionBox>
-        <Check
-          label="Người có quyền tự duyệt thì chỉ tiêu họ tạo là đã duyệt ngay"
-          checked={o.allowSelfApprove !== false}
-          disabled={readOnly}
-          onChange={v => onOption('allowSelfApprove', v)}
-        />
         <Choice
-          label="Ai được duyệt"
-          value={String(o.approverMode ?? 'UNIT_HEAD')}
+          label={t('StageInspector.whoApproves')}
+          value={String(o.approverMode ?? 'CHAIN')}
           disabled={readOnly}
           onChange={v => onOption('approverMode', v)}
           options={[
-            { value: 'UNIT_HEAD', label: 'Cấp trên trực tiếp (mặc định)' },
-            { value: 'ANY_WITH_PERMISSION', label: 'Bất kỳ ai có quyền duyệt trong đơn vị' },
+            { value: 'CHAIN', label: t('StageInspector.hierarchicalApprovalChainDefault') },
+            { value: 'UNIT_HEAD', label: t('StageInspector.oneLevelDirectManagerPreviousWorkflow') },
+            { value: 'ANY_WITH_PERMISSION', label: t('StageInspector.oneLevelAnyoneWithApprovalPermission') },
           ]}
+        />
+        {String(o.approverMode ?? 'CHAIN') === 'CHAIN' && (
+          <>
+            <p className="text-caption">
+              {t('StageInspector.directUnitHeadParentHeadTop')}
+            </p>
+            <label className="text-label flex flex-col gap-1 text-[var(--color-muted-foreground)]">
+              {t('StageInspector.remindTheApproverWhenAStep')}
+              <Input
+                type="number"
+                min={1}
+                max={60}
+                size="sm"
+                disabled={readOnly}
+                value={Number(o.reminderAfterDays ?? 3)}
+                onChange={e => onOption('reminderAfterDays', Number(e.target.value))}
+                suffix={<span className="text-xs text-[var(--color-muted-foreground)]">{t('StageInspector.days')}</span>}
+                className="no-edit-hint w-32"
+              />
+            </label>
+          </>
+        )}
+        <Check
+          label={String(o.approverMode ?? 'CHAIN') === 'CHAIN'
+            ? t('StageInspector.ifTheTopApprovalLevelHas')
+            : t('StageInspector.forPeopleWithSelfApprovalPermission')}
+          checked={o.allowSelfApprove !== false}
+          disabled={readOnly}
+          onChange={v => onOption('allowSelfApprove', v)}
         />
       </OptionBox>
     )
@@ -100,8 +127,9 @@ function StageOptions({
   if (stage.code === 'CRITERIA_ADJUSTMENT') {
     return (
       <OptionBox>
+        <p className="text-caption">{t('StageInspector.onlyAppliesToTheOneLevel')}</p>
         <label className="text-label flex flex-col gap-1 text-[var(--color-muted-foreground)]">
-          Tự động từ chối sau
+          {t('StageInspector.autoRejectAfter')}
           <Input
             type="number"
             min={1}
@@ -110,7 +138,7 @@ function StageOptions({
             disabled={readOnly}
             value={Number(o.autoRejectAfterHours ?? 24)}
             onChange={e => onOption('autoRejectAfterHours', Number(e.target.value))}
-            suffix={<span className="text-xs text-[var(--color-muted-foreground)]">giờ</span>}
+            suffix={<span className="text-xs text-[var(--color-muted-foreground)]">{t('StageInspector.hours')}</span>}
             className="no-edit-hint w-32"
           />
         </label>
@@ -122,13 +150,13 @@ function StageOptions({
     return (
       <OptionBox>
         <Check
-          label="Cho phép lưu nháp trước khi nộp"
+          label={t('StageInspector.allowSavingDraftsBeforeSubmitting')}
           checked={o.allowDraft !== false}
           disabled={readOnly}
           onChange={v => onOption('allowDraft', v)}
         />
         <Check
-          label="Bắt buộc đính kèm minh chứng"
+          label={t('StageInspector.requireEvidenceAttachments')}
           checked={o.requireAttachment === true}
           disabled={readOnly}
           onChange={v => onOption('requireAttachment', v)}
@@ -141,13 +169,13 @@ function StageOptions({
     return (
       <OptionBox>
         <Choice
-          label="Chế độ duyệt"
+          label={t('StageInspector.approvalMode')}
           value={String(o.mode ?? 'MANUAL')}
           disabled={readOnly}
           onChange={v => onOption('mode', v)}
           options={[
-            { value: 'MANUAL', label: 'Quản lý duyệt thủ công (mặc định)' },
-            { value: 'AUTO_APPROVE', label: 'Tự động duyệt mọi bản nộp' },
+            { value: 'MANUAL', label: t('StageInspector.manualApprovalByTheManagerDefault') },
+            { value: 'AUTO_APPROVE', label: t('StageInspector.autoApproveEverySubmission') },
           ]}
         />
       </OptionBox>
@@ -158,9 +186,10 @@ function StageOptions({
 }
 
 function OptionBox({ children }: { children: React.ReactNode }) {
+  const { t } = useTranslation('kpi')
   return (
     <div>
-      <p className="text-eyebrow mb-1.5">Tuỳ chọn</p>
+      <p className="text-eyebrow mb-1.5">{t('StageInspector.options')}</p>
       <div className="flex flex-col gap-3 rounded-card bg-[var(--color-muted)] p-3">{children}</div>
     </div>
   )

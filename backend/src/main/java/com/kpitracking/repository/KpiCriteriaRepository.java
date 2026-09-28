@@ -292,6 +292,9 @@ public interface KpiCriteriaRepository extends JpaRepository<KpiCriteria, UUID> 
     @Query("SELECT k FROM KpiCriteria k WHERE k.orgUnit.id = :orgUnitId AND (:kpiPeriodId IS NULL OR k.kpiPeriod.id = :kpiPeriodId) AND k.status IN :statuses")
     List<KpiCriteria> findByOrgUnitIdAndKpiPeriodIdAndStatusIn(@Param("orgUnitId") UUID orgUnitId, @Param("kpiPeriodId") UUID kpiPeriodId, @Param("statuses") List<KpiStatus> statuses);
 
+    /** KPI cũ đang (hoặc đã) được thay bằng {@code replacementId}. */
+    List<KpiCriteria> findByReplacedById(UUID replacementId);
+
     @Query("SELECT k FROM KpiCriteria k WHERE k.orgUnit.id IN :orgUnitIds AND k.keyResult IS NULL AND k.status = 'APPROVED'")
     List<KpiCriteria> findApprovedWithoutKeyResultByOrgUnitIds(@Param("orgUnitIds") List<UUID> orgUnitIds);
 
@@ -357,4 +360,7 @@ public interface KpiCriteriaRepository extends JpaRepository<KpiCriteria, UUID> 
      */
     @Query("SELECT k FROM KpiCriteria k JOIN FETCH k.replacedBy rb WHERE rb.id IN :ids")
     java.util.List<KpiCriteria> findPredecessorsOf(@Param("ids") Collection<UUID> ids);
+
+    /** Mọi KPI (chưa xoá) của các đợt — dùng khi phân loại tiến độ đợt để khoá kỳ. */
+    List<KpiCriteria> findByKpiPeriodIdIn(java.util.Collection<UUID> kpiPeriodIds);
 }

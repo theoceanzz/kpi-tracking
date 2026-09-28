@@ -1,3 +1,5 @@
+import { LocaleNumberInput } from '@/components/ui/number-input'
+import { intlLocale } from '@/i18n/format'
 import { useMemo, useState } from 'react'
 import {
   ChevronDown, ChevronRight, GitBranch, Lock, ShieldAlert, Building2, Users, Search,
@@ -25,6 +27,9 @@ import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import EmptyState from '@/components/common/EmptyState'
 import { ChoiceChip } from '@/components/ui/choice-chip'
+import { useTranslation } from 'react-i18next'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
 interface BscScorecardTreeProps {
   organizationId?: string
@@ -45,28 +50,28 @@ interface BscScorecardTreeProps {
   onAddPerspective: (scorecard: ScorecardResponse, code: BscFixedPerspective) => void
 }
 
-const COVERAGE_META: Record<string, { label: string; className: string; hint: string }> = {
+const COVERAGE_META = perLanguage((): Record<string, { label: string; className: string; hint: string }> => ({
   NOT_CASCADED: {
-    label: 'Chưa giao',
+    label: i18n.t('bsc:BscScorecardTree.unassigned'),
     className: 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)]',
-    hint: 'Chưa đơn vị nào được giao chỉ tiêu này',
+    hint: i18n.t('bsc:BscScorecardTree.noUnitHasBeenAssignedThis'),
   },
   UNDER: {
-    label: 'Còn thiếu',
+    label: i18n.t('bsc:BscScorecardTree.shortBy'),
     className: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]',
-    hint: 'Tổng mức giao cho các đơn vị còn thấp hơn mục tiêu của cấp này',
+    hint: i18n.t('bsc:BscScorecardTree.theTotalAssignedToUnitsIs'),
   },
   OK: {
-    label: 'Đủ',
+    label: i18n.t('bsc:BscScorecardTree.complete'),
     className: 'bg-[var(--color-success-bg)] text-[var(--color-success)]',
-    hint: 'Tổng mức giao cho các đơn vị khớp mục tiêu của cấp này',
+    hint: i18n.t('bsc:BscScorecardTree.theTotalAssignedToUnitsMatches'),
   },
   OVER: {
-    label: 'Giao vượt',
+    label: i18n.t('bsc:BscScorecardTree.overAssigned'),
     className: 'bg-[var(--color-info-bg)] text-[var(--color-info)]',
-    hint: 'Tổng mức giao cho các đơn vị cao hơn mục tiêu — cố ý để dự phòng thì không sao',
+    hint: i18n.t('bsc:BscScorecardTree.theTotalAssignedToUnitsExceeds'),
   },
-}
+}))
 
 const num = (v?: number | null, d = 1) => (v == null ? '—' : v.toFixed(d))
 
@@ -97,6 +102,7 @@ export default function BscScorecardTree({
   organizationId, scorecards, fixedPerspectives, canPublish, canEditScorecard,
   onCascade, onEdit, onDelete, onTogglePublish, onAddPerspective,
 }: BscScorecardTreeProps) {
+  const { t } = useTranslation('bsc')
   const { hasPermission } = usePermission()
   const canManage = hasPermission('BSC:MANAGE')
   const canApprove = hasPermission('BSC:APPROVE')
@@ -136,14 +142,14 @@ export default function BscScorecardTree({
           <input
             value={query}
             onChange={e => setQuery(e.target.value)}
-            placeholder="Tìm bộ tiêu chí, đơn vị..."
-            aria-label="Tìm bộ tiêu chí"
+            placeholder={t('BscScorecardTree.searchScorecardsUnits')}
+            aria-label={t('BscScorecardTree.searchScorecards')}
             className="h-9 w-full rounded-control border border-[var(--color-border)] bg-[var(--color-card)] pl-9 pr-3 text-sm text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-subtle-foreground)] focus-visible:border-[var(--color-primary)] focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]"
           />
         </div>
 
         <p className="text-caption flex-1 min-w-[16rem]">
-          Bấm vào một bộ tiêu chí để mở hạng mục, độ phủ phân rã và kết quả của đợt.
+          {t('BscScorecardTree.clickAScorecardToOpenIts')}
         </p>
       </div>
 
@@ -157,15 +163,15 @@ export default function BscScorecardTree({
         <div className="rounded-card border border-dashed border-[var(--color-border)] bg-[var(--color-card)]">
           <EmptyState
             icon={Target}
-            title="Chưa có bộ tiêu chí nào"
-            description="Bấm “Bộ tiêu chí mới” để tạo bộ tiêu chí cho một kỳ (theo phòng ban hoặc toàn tổ chức). Ngay trong đó bạn thêm được hạng mục vào 4 lĩnh vực và chia trọng số cho đủ 100%."
+            title={t('BscScorecardTree.noScorecardsYet')}
+            description={t('BscScorecardTree.clickNewScorecardToCreateA')}
           />
         </div>
       )}
 
       {!isLoading && (tree || []).length > 0 && visible.length === 0 && (
         <div className="rounded-card border border-dashed border-[var(--color-border)] px-6 py-8 text-center">
-          <p className="text-sm text-[var(--color-muted-foreground)]">Không có bộ tiêu chí nào khớp “{query}”.</p>
+          <p className="text-sm text-[var(--color-muted-foreground)]">{t('BscScorecardTree.noScorecardMatches')}{query}”.</p>
         </div>
       )}
 
@@ -209,6 +215,7 @@ interface TreeNodeProps {
 }
 
 function TreeNode(props: TreeNodeProps) {
+  const { t } = useTranslation('bsc')
   const {
     node, depth, isRoot, expanded, onToggle, forceOpen, openId, onOpen,
     scorecardById, canEditNode,
@@ -234,7 +241,7 @@ function TreeNode(props: TreeNodeProps) {
 
         <div className="flex items-center gap-2 px-3 py-2.5">
           <Button variant="ghost" size="icon-sm" className={cn(node.children.length === 0 && 'invisible')}
-            onClick={() => onToggle(node.id)} title={childrenOpen ? 'Ẩn đơn vị con' : 'Hiện đơn vị con'} aria-label={childrenOpen ? 'Ẩn đơn vị con' : 'Hiện đơn vị con'}>
+            onClick={() => onToggle(node.id)} title={childrenOpen ? t('BscScorecardTree.hideChildUnits') : t('BscScorecardTree.showChildUnits')} aria-label={childrenOpen ? t('BscScorecardTree.hideChildUnits') : t('BscScorecardTree.showChildUnits')}>
             {childrenOpen ? <ChevronDown aria-hidden="true" /> : <ChevronRight aria-hidden="true" />}
           </Button>
 
@@ -251,30 +258,30 @@ function TreeNode(props: TreeNodeProps) {
               <span className={cn('inline-flex items-center rounded-control px-2 py-0.5 text-xs font-medium', status.badgeClass)}>
                 {status.label}
               </span>
-              {sc?.scoringMode === BscScoringMode.OFFICIAL && <Badge>Chính thức</Badge>}
+              {sc?.scoringMode === BscScoringMode.OFFICIAL && <Badge>{t('BscScorecardTree.official')}</Badge>}
             </div>
             <p className="text-caption truncate mt-0.5">
-              {isCompany ? 'BSC công ty' : node.orgUnitName || 'BSC đơn vị'}
+              {isCompany ? t('BscScorecardTree.companyBsc') : node.orgUnitName || t('BscScorecardTree.unitBsc')}
               {node.periodLabel ? ` · ${node.periodLabel}` : ''}
-              {' · '}{node.itemCount} hạng mục
-              {node.assignedCount > 0 && ` (${node.assignedCount} cấp trên giao, ${selfCount} tự thêm)`}
-              {node.gateCount > 0 && ` · ${node.gateCount} chặn`}
+              {' · '}{node.itemCount} {t('BscScorecardTree.items')}
+              {node.assignedCount > 0 && t('BscScorecardTree.assignedByParentAddedByUnit', { assignedCount: node.assignedCount, selfCount })}
+              {node.gateCount > 0 && t('BscScorecardTree.gate', { gateCount: node.gateCount })}
               {' · '}
               <span className={weightOk ? 'text-[var(--color-success)]' : 'text-[var(--color-error)]'}>
-                trọng số {num(node.totalWeight)}%
+                {t('BscScorecardTree.weights')} {num(node.totalWeight)}%
               </span>
             </p>
           </button>
 
           {!weightOk && (
-            <span title={`Tổng trọng số ${num(node.totalWeight)}% — phải đủ 100% mới trình duyệt được`}>
+            <span title={t('BscScorecardTree.totalWeightMustBeExactly100', { totalWeight: num(node.totalWeight) })}>
               <AlertTriangle size={14} className="text-[var(--color-warning)] shrink-0" />
             </span>
           )}
 
           {!canEdit && (
             // Vẫn xem được nội dung, chỉ không sửa. Nói lý do ngay ở đây để khỏi đi tìm nút đã bị ẩn.
-            <span title="Bộ tiêu chí của đơn vị khác — bạn xem được nhưng không sửa"
+            <span title={t('BscScorecardTree.anotherUnitsScorecardYouCanView')}
               className="text-[var(--color-subtle-foreground)] shrink-0"><Lock size={14} /></span>
           )}
 
@@ -284,7 +291,7 @@ function TreeNode(props: TreeNodeProps) {
 
           <Button variant={isDetailOpen ? 'secondary' : 'ghost'} size="icon-sm" className="shrink-0"
             onClick={() => onOpen(isDetailOpen ? null : node.id)}
-            title={isDetailOpen ? 'Đóng chi tiết' : 'Mở chi tiết'} aria-label={isDetailOpen ? 'Đóng chi tiết' : 'Mở chi tiết'}>
+            title={isDetailOpen ? t('BscScorecardTree.closeDetails') : t('BscScorecardTree.openDetails')} aria-label={isDetailOpen ? t('BscScorecardTree.closeDetails') : t('BscScorecardTree.openDetails')}>
             {isDetailOpen ? <ChevronDown aria-hidden="true" /> : <ChevronRight aria-hidden="true" />}
           </Button>
         </div>
@@ -308,6 +315,7 @@ function TreeNode(props: TreeNodeProps) {
 function NodeDetail({
   node, scorecard: sc, fixedPerspectives, canEdit, canManage, onCascade, onAddPerspective,
 }: TreeNodeProps & { scorecard?: ScorecardResponse; canEdit: boolean }) {
+  const { t: tr } = useTranslation('bsc')
   const [tab, setTab] = useState<'items' | 'coverage' | 'result'>('items')
 
   return (
@@ -317,9 +325,9 @@ function NodeDetail({
       {/* ── Ba mục chi tiết ───────────────────────────────────── */}
       <div className="flex w-fit flex-wrap gap-1 rounded-control bg-[var(--color-muted)] p-1" role="tablist">
         {([
-          { key: 'items' as const, label: 'Hạng mục & trọng số', icon: <Layers size={12} /> },
-          { key: 'coverage' as const, label: 'Độ phủ phân rã', icon: <ListTree size={12} /> },
-          { key: 'result' as const, label: 'Kết quả đợt', icon: <Calculator size={12} /> },
+          { key: 'items' as const, label: tr('BscScorecardTree.itemsWeights'), icon: <Layers size={12} /> },
+          { key: 'coverage' as const, label: tr('BscScorecardTree.cascadeCoverage'), icon: <ListTree size={12} /> },
+          { key: 'result' as const, label: tr('BscScorecardTree.periodResults'), icon: <Calculator size={12} /> },
         ]).map(t => (
           <ChoiceChip selected={tab === t.key} variant="segment" size="sm" key={t.key} onClick={() => setTab(t.key)} role="tab" aria-selected={tab === t.key}>
             {t.icon} {t.label}
@@ -352,15 +360,16 @@ function UnitResultTab({ scorecardId, periods, canManageUnit }: {
   periods: ScorecardPeriodResponse[]
   canManageUnit: boolean
 }) {
+  const { t } = useTranslation('bsc')
   const [periodId, setPeriodId] = useState(() => periods[periods.length - 1]?.id ?? '')
   const period = periods.find(p => p.id === periodId)
 
   if (periods.length === 0 || !periodId) {
     return (
       <div className="rounded-card border border-dashed border-[var(--color-border)] px-4 py-5 text-center">
-        <p className="text-caption">Bộ tiêu chí này chưa gắn đợt nào</p>
+        <p className="text-caption">{t('BscScorecardTree.thisScorecardIsNotLinkedTo')}</p>
         <p className="text-caption mt-1">
-          Mở <b>Sửa bộ tiêu chí</b> để gắn kỳ hoặc đợt, rồi quay lại đây tính kết quả.
+          {t('BscScorecardTree.open')} <b>{t('BscScorecardTree.editScorecard')}</b> {t('BscScorecardTree.toLinkACycleOrPeriod')}
         </p>
       </div>
     )
@@ -370,7 +379,7 @@ function UnitResultTab({ scorecardId, periods, canManageUnit }: {
     <UnitResultPanel
       scorecardId={scorecardId}
       kpiPeriodId={periodId}
-      periodName={period?.name || 'đợt này'}
+      periodName={period?.name || t('BscScorecardTree.thisPeriod')}
       periods={periods}
       onChangePeriod={setPeriodId}
       canManageUnit={canManageUnit}
@@ -388,6 +397,7 @@ function NodeActions({
   node, scorecard: sc, scorecardById, canEdit, canManage, canApprove, canPublish,
   onCascade, onEdit, onDelete, onTogglePublish,
 }: TreeNodeProps & { scorecard?: ScorecardResponse; canEdit: boolean }) {
+  const { t } = useTranslation('bsc')
   const {
     submitScorecard, approveScorecard, rejectScorecard, activateScorecard, lockScorecard, reopenScorecard,
     attachParent,
@@ -410,21 +420,21 @@ function NodeActions({
     // Sửa nội dung bộ tiêu chí
     [
       canEdit && sc && (
-        <IconAction key="edit" icon={<Edit2 aria-hidden="true" />} label="Sửa bộ tiêu chí" onClick={() => onEdit(sc)} />
+        <IconAction key="edit" icon={<Edit2 aria-hidden="true" />} label={t('BscScorecardTree.editScorecard')} onClick={() => onEdit(sc)} />
       ),
     ],
     // Dựng cây: giao chỉ tiêu xuống, gắn/gỡ nhánh
     [
       canManage && sc && (
-        <IconAction key="cascade" icon={<GitBranch aria-hidden="true" />} label="Phân rã xuống đơn vị"
+        <IconAction key="cascade" icon={<GitBranch aria-hidden="true" />} label={t('BscScorecardTree.cascadeToUnits')}
           onClick={() => onCascade(sc)} />
       ),
       canManage && isOrphan && (
-        <IconAction key="attach" icon={<Link2 aria-hidden="true" />} label="Gắn vào bộ tiêu chí cấp trên"
+        <IconAction key="attach" icon={<Link2 aria-hidden="true" />} label={t('BscScorecardTree.attachToAParentScorecard')}
           onClick={() => setAttachOpen(true)} />
       ),
       canManage && sc?.parentScorecardId && (
-        <IconAction key="detach" icon={<Unlink aria-hidden="true" />} label="Gỡ khỏi cây (thành bộ tiêu chí độc lập)"
+        <IconAction key="detach" icon={<Unlink aria-hidden="true" />} label={t('BscScorecardTree.detachFromTreeMakeItA')}
           pending={attachParent.isPending}
           onClick={() => attachParent.mutate({ scorecardId: sc.id, parentScorecardId: null })} />
       ),
@@ -432,34 +442,34 @@ function NodeActions({
     // Vòng đời trình – duyệt
     [
       canEdit && node.status === BscScorecardStatus.DRAFT && (
-        <IconAction key="submit" icon={<Send aria-hidden="true" />} label="Trình duyệt"
+        <IconAction key="submit" icon={<Send aria-hidden="true" />} label={t('BscScorecardTree.submitForApproval')}
           pending={submitScorecard.isPending}
           onClick={() => submitScorecard.mutate(node.id)} />
       ),
       canApprove && node.status === BscScorecardStatus.SUBMITTED && (
-        <IconAction key="approve" icon={<Check aria-hidden="true" />} label="Duyệt" accent="emerald"
+        <IconAction key="approve" icon={<Check aria-hidden="true" />} label={t('BscScorecardTree.approve')} accent="emerald"
           pending={approveScorecard.isPending}
           onClick={() => approveScorecard.mutate(node.id)} />
       ),
       canApprove && node.status === BscScorecardStatus.SUBMITTED && (
-        <IconAction key="reject" icon={<Undo2 aria-hidden="true" />} label="Trả lại để sửa" accent="amber"
+        <IconAction key="reject" icon={<Undo2 aria-hidden="true" />} label={t('BscScorecardTree.returnForChanges')} accent="amber"
           pending={rejectScorecard.isPending}
           onClick={() => setRejectOpen(true)} />
       ),
       // Duyệt là áp dụng luôn, nên nút này chỉ còn cho hai trường hợp: thẻ đã đóng muốn mở lại,
       // và thẻ cũ còn kẹt ở "Đã duyệt" từ thời luồng cũ.
       canApprove && (node.status === BscScorecardStatus.APPROVED || node.status === BscScorecardStatus.CLOSED) && (
-        <IconAction key="activate" icon={<Check aria-hidden="true" />} label="Áp dụng" accent="emerald"
+        <IconAction key="activate" icon={<Check aria-hidden="true" />} label={t('BscScorecardTree.apply')} accent="emerald"
           pending={activateScorecard.isPending}
           onClick={() => activateScorecard.mutate(node.id)} />
       ),
       canApprove && node.status === BscScorecardStatus.ACTIVE && (
-        <IconAction key="lock" icon={<Lock aria-hidden="true" />} label="Khoá bộ tiêu chí"
+        <IconAction key="lock" icon={<Lock aria-hidden="true" />} label={t('BscScorecardTree.lockScorecard')}
           pending={lockScorecard.isPending}
           onClick={() => lockScorecard.mutate(node.id)} />
       ),
       canApprove && node.status === BscScorecardStatus.LOCKED && (
-        <IconAction key="reopen" icon={<Undo2 aria-hidden="true" />} label="Mở khoá"
+        <IconAction key="reopen" icon={<Undo2 aria-hidden="true" />} label={t('BscScorecardTree.unlock')}
           pending={reopenScorecard.isPending}
           onClick={() => reopenScorecard.mutate(node.id)} />
       ),
@@ -469,14 +479,14 @@ function NodeActions({
       canPublish && sc && (
         <IconAction key="publish"
           icon={sc.scoringMode === BscScoringMode.SHADOW ? <ShieldCheck aria-hidden="true" /> : <Undo2 aria-hidden="true" />}
-          label={sc.scoringMode === BscScoringMode.SHADOW ? 'Chuyển chấm chính thức' : 'Đưa về chạy song song'}
+          label={sc.scoringMode === BscScoringMode.SHADOW ? t('BscScorecardTree.switchToOfficialScoring') : t('BscScorecardTree.returnToParallelMode')}
           onClick={() => onTogglePublish(sc)} />
       ),
     ],
     // Xoá — đứng riêng cuối hàng để không bấm nhầm khi đang thao tác việc khác
     [
       canEdit && sc && (
-        <IconAction key="delete" icon={<Trash2 aria-hidden="true" />} label="Xoá bộ tiêu chí" accent="red"
+        <IconAction key="delete" icon={<Trash2 aria-hidden="true" />} label={t('BscScorecardTree.deleteScorecard')} accent="red"
           onClick={() => onDelete(sc)} />
       ),
     ],
@@ -547,10 +557,11 @@ function PerspectivePanel({ scorecard: sc, fixedPerspectives, canEdit, onAddPers
   canEdit: boolean
   onAddPerspective: (s: ScorecardResponse, code: BscFixedPerspective) => void
 }) {
+  const { t } = useTranslation('bsc')
   if (!sc) {
     return (
       <div className="rounded-card border border-dashed border-[var(--color-border)] px-3 py-4 text-caption">
-        Không đọc được chi tiết bộ tiêu chí này (có thể nằm ngoài phạm vi của bạn).
+        {t('BscScorecardTree.couldNotReadThisScorecardsDetails')}
       </div>
     )
   }
@@ -562,10 +573,10 @@ function PerspectivePanel({ scorecard: sc, fixedPerspectives, canEdit, onAddPers
     <div className="space-y-3">
       <div className="flex items-center gap-2">
         <span className="text-eyebrow">
-          {sc.perspectives.length} hạng mục
+          {sc.perspectives.length} {t('BscScorecardTree.items')}
         </span>
         <Badge variant={weightOk ? 'success' : 'destructive'} className="tabular-nums">
-          Tổng trọng số {totalWeight.toFixed(1)}%
+          {t('BscScorecardTree.totalWeight')} {totalWeight.toFixed(1)}%
         </Badge>
       </div>
 
@@ -584,7 +595,7 @@ function PerspectivePanel({ scorecard: sc, fixedPerspectives, canEdit, onAddPers
                   nên phải ẩn theo cùng điều kiện, không thì mở nhánh của đơn vị khác vẫn thêm được. */}
               {canEdit && (
                 <Button variant="ghost" size="sm" className="ml-auto shrink-0" onClick={() => onAddPerspective(sc, fp.code)}>
-                  <PlusCircle aria-hidden="true" /> Thêm hạng mục
+                  <PlusCircle aria-hidden="true" /> {t('BscScorecardTree.addItem')}
                 </Button>
               )}
             </div>
@@ -601,11 +612,11 @@ function PerspectivePanel({ scorecard: sc, fixedPerspectives, canEdit, onAddPers
                     <span className="text-caption font-mono">{p.code}</span>
                     {(p.targetValue != null || p.minimumValue != null) && (
                       <span className="text-caption ml-2">
-                        {p.targetValue != null && <>Mục tiêu {p.targetValue}{p.unit ? ` ${p.unit}` : ''}</>}
+                        {p.targetValue != null && <>{t('BscScorecardTree.target')} {p.targetValue}{p.unit ? ` ${p.unit}` : ''}</>}
                         {p.targetValue != null && p.minimumValue != null && ' · '}
-                        {p.minimumValue != null && <>Tối thiểu {p.minimumValue}{p.unit ? ` ${p.unit}` : ''}</>}
+                        {p.minimumValue != null && <>{t('BscScorecardTree.minimum')} {p.minimumValue}{p.unit ? ` ${p.unit}` : ''}</>}
                         {p.targetValue != null && p.targetValue > 0 && (
-                          <span className="ml-1.5 text-[var(--color-primary)]" title="Hạng mục tự chấm theo mục tiêu của chính nó (kiểu OKR)">· tự chấm</span>
+                          <span className="ml-1.5 text-[var(--color-primary)]" title={t('BscScorecardTree.theItemScoresItselfAgainstIts')}>{t('BscScorecardTree.selfScored')}</span>
                         )}
                       </span>
                     )}
@@ -615,7 +626,7 @@ function PerspectivePanel({ scorecard: sc, fixedPerspectives, canEdit, onAddPers
               ))}
               {items.length === 0 && (
                 <div className="rounded-card border border-dashed border-[var(--color-border)] px-3 py-2 text-caption">
-                  Chưa có hạng mục nào thuộc lĩnh vực này.
+                  {t('BscScorecardTree.noItemsInThisAreaYet')}
                 </div>
               )}
             </div>
@@ -640,6 +651,7 @@ function CoveragePanel({ scorecardId, scorecard: sc, canCascade, onCascade }: {
   canCascade: boolean
   onCascade: (s: ScorecardResponse) => void
 }) {
+  const { t } = useTranslation('bsc')
   const { data, isLoading } = useScorecardCoverage(scorecardId)
 
   if (isLoading) {
@@ -653,9 +665,9 @@ function CoveragePanel({ scorecardId, scorecard: sc, canCascade, onCascade }: {
   if (!data || data.items.length === 0) {
     return (
       <div className="rounded-card border border-dashed border-[var(--color-border)] px-4 py-5 text-center">
-        <p className="text-caption">Chưa có chỉ tiêu nào để giao xuống</p>
+        <p className="text-caption">{t('BscScorecardTree.noKpisToAssignDownYet')}</p>
         <p className="text-caption mt-1">
-          Thêm hạng mục ở mục <b>Hạng mục &amp; trọng số</b> trước, rồi quay lại đây giao cho các đơn vị.
+          {t('BscScorecardTree.addItemsIn')} <b>{t('BscScorecardTree.itemsWeights')}</b> {t('BscScorecardTree.firstThenComeBackHereTo')}
         </p>
       </div>
     )
@@ -665,7 +677,7 @@ function CoveragePanel({ scorecardId, scorecard: sc, canCascade, onCascade }: {
   const done = data.okCount + data.overCount
   const cascadeButton = canCascade && sc && (
     <Button size="sm" onClick={() => onCascade(sc)}>
-      <GitBranch aria-hidden="true" /> Phân rã xuống đơn vị
+      <GitBranch aria-hidden="true" /> {t('BscScorecardTree.cascadeToUnits')}
     </Button>
   )
 
@@ -673,18 +685,16 @@ function CoveragePanel({ scorecardId, scorecard: sc, canCascade, onCascade }: {
     <div className="rounded-card border border-[var(--color-border)] overflow-hidden">
       <div className="px-3 py-2.5 bg-[var(--color-muted)] space-y-2">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="text-label">Độ phủ phân rã</span>
+          <span className="text-label">{t('BscScorecardTree.cascadeCoverage')}</span>
           <span className="text-caption tabular-nums">
-            {done}/{total} chỉ tiêu đã giao xuống đơn vị
+            {done}/{total} {t('BscScorecardTree.kpisAssignedToUnits')}
           </span>
           <span className="flex-1" />
           {cascadeButton}
         </div>
 
         <p className="text-caption leading-relaxed">
-          Phân rã = chia chỉ tiêu của cấp này thành mức đóng góp cho từng đơn vị cấp dưới
-          (VD: doanh thu 100 tỷ ⇒ phòng KD 60 tỷ, phòng Dự án 40 tỷ). Chỉ tiêu chưa giao thì cấp dưới
-          không có gì để bám vào, và KPI cá nhân cũng không liên kết được vào BSC.
+          {t('BscScorecardTree.cascadingSplittingThisLevelsKpiInto')}
         </p>
 
         {/* Thanh tiến độ: nhìn phát biết còn bao nhiêu việc, không phải đếm dòng. */}
@@ -704,7 +714,7 @@ function CoveragePanel({ scorecardId, scorecard: sc, canCascade, onCascade }: {
 
       <div className="divide-y divide-[var(--color-border)]">
         {data.items.map(item => {
-          const meta = COVERAGE_META[item.status] ?? COVERAGE_META.OK!
+          const meta = COVERAGE_META()[item.status] ?? COVERAGE_META().OK!
           const cascaded = item.cascadedValue ?? 0
           return (
             <div key={item.scorecardPerspectiveId} className="px-3 py-2.5">
@@ -716,15 +726,15 @@ function CoveragePanel({ scorecardId, scorecard: sc, canCascade, onCascade }: {
 
                 {item.targetValue != null ? (
                   <span className="text-caption tabular-nums text-right">
-                    {cascaded.toLocaleString('vi-VN')} / {item.targetValue.toLocaleString('vi-VN')}
+                    {cascaded.toLocaleString(intlLocale())} / {item.targetValue.toLocaleString(intlLocale())}
                     {item.unit ? ` ${item.unit}` : ''}
                     <span className="block text-caption">
-                      đã giao / mục tiêu
+                      {t('BscScorecardTree.assignedTarget')}
                     </span>
                   </span>
                 ) : (
                   <span className="text-caption text-right max-w-[10rem]">
-                    chỉ tiêu chưa đặt mục tiêu số
+                    {t('BscScorecardTree.kpisWithoutANumericTarget')}
                   </span>
                 )}
 
@@ -737,19 +747,19 @@ function CoveragePanel({ scorecardId, scorecard: sc, canCascade, onCascade }: {
 
               {item.children.length > 0 ? (
                 <div className="mt-1.5 ml-4 flex flex-wrap items-center gap-1">
-                  <span className="mr-0.5 text-caption">Đã giao cho</span>
+                  <span className="mr-0.5 text-caption">{t('BscScorecardTree.assignedTo')}</span>
                   {item.children.map(c => (
                     <span key={c.scorecardPerspectiveId}
                       className="rounded-control bg-[var(--color-muted)] px-2 py-0.5 text-xs font-medium text-[var(--color-muted-foreground)]">
                       {c.orgUnitName || c.scorecardName}
-                      {c.contributionValue != null && `: ${c.contributionValue.toLocaleString('vi-VN')}`}
+                      {c.contributionValue != null && `: ${c.contributionValue.toLocaleString(intlLocale())}`}
                       {c.linkType && c.linkType !== 'SUM' && ` · ${c.linkType}`}
                     </span>
                   ))}
                 </div>
               ) : (
                 <p className="mt-1 ml-4 text-caption">
-                  Chưa giao cho đơn vị nào.
+                  {t('BscScorecardTree.notAssignedToAnyUnitYet')}
                 </p>
               )}
             </div>
@@ -761,7 +771,7 @@ function CoveragePanel({ scorecardId, scorecard: sc, canCascade, onCascade }: {
 }
 
 function CoverageChip({ status, count }: { status: string; count: number }) {
-  const meta = COVERAGE_META[status] ?? COVERAGE_META.OK!
+  const meta = COVERAGE_META()[status] ?? COVERAGE_META().OK!
   return (
     <span title={meta.hint}
       className={cn('inline-flex cursor-help items-center rounded-control px-2 py-0.5 text-xs font-medium tabular-nums', meta.className)}>
@@ -786,6 +796,7 @@ function UnitResultPanel({ scorecardId, kpiPeriodId, periodName, periods, onChan
   onChangePeriod: (id: string) => void
   canManageUnit: boolean
 }) {
+  const { t } = useTranslation('bsc')
   const { data, isLoading } = useUnitResult(scorecardId, kpiPeriodId)
   const { recompute, finalize, reopen, setManualActual } = useUnitResultMutations()
   const isDraft = data?.status === BscUnitResultStatus.DRAFT
@@ -795,7 +806,7 @@ function UnitResultPanel({ scorecardId, kpiPeriodId, periodName, periods, onChan
     <div className="rounded-card border border-[var(--color-border)] overflow-hidden">
       {/* ── Đầu bảng: đợt đang xem + trạng thái + thao tác ───── */}
       <div className="px-3 py-2.5 bg-[var(--color-muted)] flex flex-wrap items-center gap-2">
-        <span className="text-label">Kết quả đợt</span>
+        <span className="text-label">{t('BscScorecardTree.periodResults')}</span>
         {periods.length > 1 ? (
           <Select value={kpiPeriodId} onValueChange={onChangePeriod}>
             <SelectTrigger className="h-8 w-auto min-w-48 text-sm"><SelectValue /></SelectTrigger>
@@ -808,25 +819,25 @@ function UnitResultPanel({ scorecardId, kpiPeriodId, periodName, periods, onChan
         )}
 
         {data && (
-          <Badge variant={isDraft ? 'secondary' : 'success'}>{isDraft ? 'Nháp' : 'Đã chốt'}</Badge>
+          <Badge variant={isDraft ? 'secondary' : 'success'}>{isDraft ? t('BscScorecardTree.draft') : t('BscScorecardTree.finalized')}</Badge>
         )}
 
         <span className="flex-1" />
 
         {canManageUnit && data && (
           <>
-            <Button variant="secondary" size="sm" onClick={() => recompute.mutate({ scorecardId, kpiPeriodId })} disabled={computing || !isDraft} title={isDraft ? 'Tính lại từ số liệu hiện tại' : 'Đã chốt — mở khoá trước khi tính lại'}>
+            <Button variant="secondary" size="sm" onClick={() => recompute.mutate({ scorecardId, kpiPeriodId })} disabled={computing || !isDraft} title={isDraft ? t('BscScorecardTree.recalculateFromCurrentFigures') : t('BscScorecardTree.finalizedUnlockBeforeRecalculating')}>
               {computing ? <Loader2 aria-hidden="true" className="animate-spin" /> : <RefreshCw aria-hidden="true" />}
-              Tính lại
+              {t('BscScorecardTree.recalculate')}
             </Button>
             {isDraft ? (
-              <Button size="sm" onClick={() => finalize.mutate({ scorecardId, kpiPeriodId })} disabled={finalize.isPending} title="Chốt con số này — sau khi chốt phải mở khoá mới sửa được">
+              <Button size="sm" onClick={() => finalize.mutate({ scorecardId, kpiPeriodId })} disabled={finalize.isPending} title={t('BscScorecardTree.finalizeTheseFiguresAfterFinalizingYou')}>
                 {finalize.isPending ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Check aria-hidden="true" />}
-                Chốt kết quả
+                {t('BscScorecardTree.finalizeResults')}
               </Button>
             ) : (
               <Button variant="secondary" size="sm" onClick={() => reopen.mutate({ scorecardId, kpiPeriodId })} disabled={reopen.isPending}>
-                <Undo2 aria-hidden="true" /> Mở khoá để sửa
+                <Undo2 aria-hidden="true" /> {t('BscScorecardTree.unlockToEdit')}
               </Button>
             )}
           </>
@@ -847,20 +858,19 @@ function UnitResultPanel({ scorecardId, kpiPeriodId, periodName, periods, onChan
           </div>
           <div>
             <p className="text-section-title">
-              Chưa tính kết quả cho {periodName}
+              {t('BscScorecardTree.resultsNotComputedFor')} {periodName}
             </p>
             <p className="text-caption mt-1 max-w-md">
-              Hệ thống cộng số liệu của từng chỉ tiêu trong bộ tiêu chí này rồi quy ra %đạt của đơn vị.
-              Tính bao nhiêu lần cũng được, con số chỉ cố định sau khi bấm chốt.
+              {t('BscScorecardTree.theSystemAddsUpTheFigures')}
             </p>
           </div>
           {canManageUnit ? (
             <Button size="sm" onClick={() => recompute.mutate({ scorecardId, kpiPeriodId })} disabled={computing}>
               {computing ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Calculator aria-hidden="true" />}
-              {computing ? 'Đang tính...' : 'Tính kết quả'}
+              {computing ? t('BscScorecardTree.computing') : t('BscScorecardTree.computeResults')}
             </Button>
           ) : (
-            <p className="text-caption">Chỉ người phụ trách BSC của đơn vị mới tính được.</p>
+            <p className="text-caption">{t('BscScorecardTree.onlyTheUnitsBscOwnerCan')}</p>
           )}
         </div>
       )}
@@ -869,32 +879,31 @@ function UnitResultPanel({ scorecardId, kpiPeriodId, periodName, periods, onChan
         <>
           <div className="flex items-baseline gap-3 border-b border-[var(--color-border)] px-4 py-3">
             <span className="text-stat text-[var(--color-foreground)]">{num(data.achievementPercent)}%</span>
-            <span className="text-caption">%đạt của đơn vị trong {periodName}</span>
+            <span className="text-caption">{t('BscScorecardTree.unitAchievementIn')} {periodName}</span>
           </div>
 
           {data.items.length > 0
             && data.items.every(i => i.measurementSource === BscMeasurementSource.ROLLUP && !i.kpiCount) && (
             <div className="border-b border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-3 py-2 text-xs text-[var(--color-warning)]">
-              Mọi chỉ tiêu đang lấy số <b>tự cộng từ KPI</b> mà chưa KPI nào gắn vào, nên chưa ra kết quả.
-              Mở <b>Sửa bộ tiêu chí</b>, bấm nút mục tiêu trên dòng chỉ tiêu rồi đổi <b>Nguồn kết quả đơn vị</b>
-              sang <b>Nhập tay</b> nếu muốn tự điền con số của cả đơn vị.
+              {t('BscScorecardTree.everyKpiIsTakingFiguresFrom')} <b>{t('BscScorecardTree.summedFromKpis')}</b> {t('BscScorecardTree.butNoKpiIsLinkedYet')} <b>{t('BscScorecardTree.editScorecard')}</b>{t('BscScorecardTree.clickTheTargetButtonOnThe')} <b>{t('BscScorecardTree.unitResultSource')}</b>
+              {i18n.t('bsc:BscScorecardTree.switchTo')} <b>{i18n.t('bsc:BscScorecardTree.manualEntry')}</b> {t('BscScorecardTree.ifYouWantToEnterThe')}
             </div>
           )}
 
           {data.gatePassed === false && (
             <div className="flex items-start gap-1.5 border-b border-[var(--color-error-border)] bg-[var(--color-error-bg)] px-3 py-2 text-xs font-medium text-[var(--color-error)]">
               <ShieldAlert size={12} className="mt-0.5 shrink-0" aria-hidden="true" />
-              <span>Chỉ tiêu chặn không đạt: {data.gateFailedItems}</span>
+              <span>{t('BscScorecardTree.gateKpisNotMet')} {data.gateFailedItems}</span>
             </div>
           )}
 
           {/* Tiêu đề cột: thiếu nó thì ba con số bên phải không ai đoán ra là gì. */}
           <div className="flex items-center gap-2 bg-[var(--color-muted)] px-3 py-1.5 text-eyebrow">
             <span className="w-2 shrink-0" />
-            <span className="flex-1">Chỉ tiêu</span>
-            <span className="w-32 text-right">Thực hiện / Mục tiêu</span>
-            <span className="w-12 text-right">Trọng số</span>
-            <span className="w-14 text-right">%Đạt</span>
+            <span className="flex-1">{t('BscScorecardTree.kpis')}</span>
+            <span className="w-32 text-right">{t('BscScorecardTree.actualTarget')}</span>
+            <span className="w-12 text-right">{t('BscScorecardTree.weight')}</span>
+            <span className="w-14 text-right">{t('BscScorecardTree.achieved')}</span>
           </div>
 
           <div className="divide-y divide-[var(--color-border)]">
@@ -905,7 +914,7 @@ function UnitResultPanel({ scorecardId, kpiPeriodId, periodName, periods, onChan
                   {item.name}
                   {item.isGate && (
                     <span className={cn('ml-1.5 text-xs font-medium',
-                      item.gatePassed === false ? 'text-[var(--color-error)]' : 'text-[var(--color-subtle-foreground)]')}>· chặn</span>
+                      item.gatePassed === false ? 'text-[var(--color-error)]' : 'text-[var(--color-subtle-foreground)]')}>{t('BscScorecardTree.gate2')}</span>
                   )}
                 </span>
 
@@ -918,25 +927,25 @@ function UnitResultPanel({ scorecardId, kpiPeriodId, periodName, periods, onChan
                     // chỉ tiêu mãi không có kết quả).
                     <span
                       title={item.measurementSource === BscMeasurementSource.CHILD_ROLLUP
-                        ? `Chỉ tiêu đã giao xuống cấp dưới — số này cộng từ kết quả của ${item.kpiCount ?? 0} đơn vị con.`
+                        ? t('BscScorecardTree.kpiAssignedToLowerLevelsThis', { value: item.kpiCount ?? 0 })
                         : item.kpiCount
-                          ? `Tự cộng từ ${item.kpiCount} KPI cá nhân gắn vào chỉ tiêu này.`
-                          : 'Chưa có KPI cá nhân nào gắn vào chỉ tiêu này nên không cộng ra số nào.'}
+                          ? t('BscScorecardTree.summedFromIndividualKpisLinkedTo', { count: item.kpiCount })
+                          : t('BscScorecardTree.noIndividualKpiIsLinkedTo')}
                       className={cn('cursor-help text-right text-sm font-medium leading-tight tabular-nums',
                         item.kpiCount || item.measurementSource === BscMeasurementSource.CHILD_ROLLUP
                           ? 'text-[var(--color-muted-foreground)]' : 'text-[var(--color-warning)]')}>
-                      {item.actualValue == null ? '—' : item.actualValue.toLocaleString('vi-VN')}
-                      {item.targetValue != null && ` / ${item.targetValue.toLocaleString('vi-VN')}`}
+                      {item.actualValue == null ? '—' : item.actualValue.toLocaleString(intlLocale())}
+                      {item.targetValue != null && ` / ${item.targetValue.toLocaleString(intlLocale())}`}
                       <span className="block text-caption">
                         {item.kpiCount ?? 0}{' '}
-                        {item.measurementSource === BscMeasurementSource.CHILD_ROLLUP ? 'đơn vị con' : 'KPI'} cộng lên
+                        {item.measurementSource === BscMeasurementSource.CHILD_ROLLUP ? t('BscScorecardTree.childUnits') : 'KPI'} {t('BscScorecardTree.rollUp')}
                       </span>
                     </span>
                   ) : (
                     <div className="text-right">
-                      <input type="number" step="any" defaultValue={item.actualValue ?? ''}
+                      <LocaleNumberInput type="number" step="any" defaultValue={item.actualValue ?? ''}
                         disabled={!canManageUnit || !isDraft}
-                        title={!isDraft ? 'Kết quả đã chốt — mở khoá mới sửa được' : undefined}
+                        title={!isDraft ? t('BscScorecardTree.resultsAreFinalizedUnlockToEdit') : undefined}
                         onBlur={e => {
                           const raw = e.target.value.trim()
                           const next = raw === '' ? null : Number(raw)
@@ -944,11 +953,11 @@ function UnitResultPanel({ scorecardId, kpiPeriodId, periodName, periods, onChan
                             setManualActual.mutate({ scorecardId, itemId: item.id, kpiPeriodId, actualValue: next })
                           }
                         }}
-                        placeholder="Nhập số"
-                        aria-label="Kết quả nhập tay"
+                        placeholder={t('BscScorecardTree.enterANumber')}
+                        aria-label={t('BscScorecardTree.manuallyEnteredResult')}
                         className="h-8 w-28 rounded-control border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-2 text-right text-sm tabular-nums text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-subtle-foreground)] focus-visible:border-[var(--color-primary)] focus-visible:ring-2 focus-visible:ring-[var(--color-ring)] disabled:opacity-50" />
                       <span className="mt-0.5 block text-caption">
-                        nhập tay{item.targetValue != null ? ` · mục tiêu ${item.targetValue.toLocaleString('vi-VN')}` : ''}
+                        {t('BscScorecardTree.manual')}{item.targetValue != null ? t('BscScorecardTree.target2', { value: item.targetValue.toLocaleString(intlLocale()) }) : ''}
                       </span>
                     </div>
                   )}
@@ -966,7 +975,7 @@ function UnitResultPanel({ scorecardId, kpiPeriodId, periodName, periods, onChan
             i.measurementSource === BscMeasurementSource.MANUAL
             || i.measurementSource === BscMeasurementSource.DATASOURCE) && (
             <p className="px-3 py-2 text-caption border-t border-[var(--color-border)]">
-              Sửa ô nhập tay xong thì bấm <b>Tính lại</b> để %đạt cập nhật theo số mới.
+              {t('BscScorecardTree.afterEditingTheManualFieldsClick')} <b>{t('BscScorecardTree.recalculate')}</b> {t('BscScorecardTree.soTheAchievementUpdatesToThe')}
             </p>
           )}
         </>

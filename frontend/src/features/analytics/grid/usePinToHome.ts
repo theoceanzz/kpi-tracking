@@ -5,6 +5,7 @@ import { dashboardLayoutApi, type DashboardLayoutItem } from '@/features/dashboa
 import { useHomeDashboardScope } from '@/features/dashboard/hooks/useHomeDashboardScope'
 import { ANALYTICS_WIDGET_IDS } from '@/features/dashboard/widgets/analyticsCatalog'
 import type { DashboardWidget } from '@/components/common/dashboard/ChartWrapper'
+import { useTranslation } from 'react-i18next'
 
 /** Id ô ở tab và ở danh mục trang chủ trùng nhau; hàm này chỉ còn là chỗ để ánh xạ nếu sau này lệch. */
 const homeIdOf = (i: string) => i
@@ -27,6 +28,7 @@ const parseLayout = (raw?: string | null): DashboardLayoutItem[] => {
  * lưới trang chủ vừa đúng nghĩa người dùng mong đợi, vừa bỏ được một hệ thống song song.
  */
 export function usePinToHome() {
+  const { t } = useTranslation('analytics')
   const scope = useHomeDashboardScope()
   const queryClient = useQueryClient()
 
@@ -55,9 +57,9 @@ export function usePinToHome() {
   const toggle = useCallback(async (w: DashboardWidget) => {
     if (!scope) return
     const id = homeIdOf(w.i)
-    if (!ANALYTICS_WIDGET_IDS.has(id)) {
+    if (!ANALYTICS_WIDGET_IDS().has(id)) {
       // Nói thẳng thay vì ghim rồi để nó biến mất im lặng ở trang chủ.
-      toast.error('Biểu đồ này chưa có bản dùng được ở trang tổng quan.')
+      toast.error(t('usePinToHome.thisChartHasNoVersionThat'))
       return
     }
 
@@ -71,11 +73,11 @@ export function usePinToHome() {
 
     try {
       await mutation.mutateAsync(next)
-      toast.success(already ? 'Đã bỏ ghim khỏi trang tổng quan' : 'Đã ghim vào trang tổng quan')
+      toast.success(already ? t('usePinToHome.unpinnedFromTheOverviewPage') : t('usePinToHome.pinnedToTheOverviewPage'))
     } catch {
-      toast.error('Không thể cập nhật trang tổng quan')
+      toast.error(t('usePinToHome.couldNotUpdateTheOverviewPage'))
     }
-  }, [scope, items, pinnedIds, mutation])
+  }, [scope, items, pinnedIds, mutation, t])
 
   return { enabled: !!scope, isPinned, toggle }
 }

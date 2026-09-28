@@ -1,3 +1,5 @@
+import { LocaleNumberInput } from '@/components/ui/number-input'
+import i18n from 'i18next'
 import {
   useEffect, useImperativeHandle, useLayoutEffect, useMemo, useRef, useState,
   type ReactNode, type Ref,
@@ -12,6 +14,7 @@ import { exportConductSheetToExcel } from '../utils/conductSheetExport'
 import { useConductSheet } from '../hooks/useConduct'
 import { CONDUCT_MIN_SCORE, fmt, num, useConductDraft, weighted } from '../hooks/useConductDraft'
 import { Button } from '@/components/ui/button'
+import { useTranslation } from 'react-i18next'
 
 /**
  * Phiếu hạnh kiểm nhúng thẳng vào modal chấm đợt và modal chốt kỳ — chấm người nào thì
@@ -56,6 +59,7 @@ export default function ConductInlineSheet({
   onLiveScore?: (total: number | null, max: number) => void
   ref?: Ref<ConductSheetHandle>
 }) {
+  const { t } = useTranslation('conduct')
   const {
     data: sheet, isLoading,
     saveSelf, isSavingSelf, saveManager, isSavingManager,
@@ -66,7 +70,7 @@ export default function ConductInlineSheet({
     return (
       <div className={cn('flex items-center gap-3 p-5 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)]', className)}>
         <Loader2 size={16} className="animate-spin text-[var(--color-primary)]" />
-        <span className="text-caption">Đang tải phiếu hạnh kiểm…</span>
+        <span className="text-caption">{t('ConductInlineSheet.loadingConductForm')}</span>
       </div>
     )
   }
@@ -112,6 +116,7 @@ function InlineSheet({
   isSavingSelf?: boolean
   isSavingManager?: boolean
 }) {
+  const { t } = useTranslation('conduct')
   // Nháp nằm ở đây (không phải trong phần thân gập được) để đầu phiếu hiện điểm ĐANG gõ:
   // gập lại vẫn theo dõi được mình đang ở mấy điểm.
   const { rowOf, set, comment, setComment, totals, totalWeight, dirty, collect, exportRows } =
@@ -161,7 +166,7 @@ function InlineSheet({
     try {
       await exportConductSheetToExcel(sheet, exportRows(), totals, comment)
     } catch {
-      toast.error('Không thể xuất phiếu hạnh kiểm ra Excel')
+      toast.error(t('ConductInlineSheet.couldNotExportTheConductForm'))
     }
   }
 
@@ -173,15 +178,15 @@ function InlineSheet({
         </div>
         <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold text-[var(--color-foreground)] flex items-center gap-2">
-            Chấm hạnh kiểm
+            {t('ConductInlineSheet.conductScoring')}
             {sheet.locked && (
               <span className="text-eyebrow inline-flex items-center gap-1 px-1.5 py-0.5 rounded-control bg-[var(--color-border)]" title={conductLockMessage(sheet)}>
-                <Lock aria-hidden="true" /> {sheet.lockStage === 'FINALIZED' ? 'Đã khoá kết quả' : 'Đã chốt dữ liệu'}
+                <Lock aria-hidden="true" /> {sheet.lockStage === 'FINALIZED' ? t('ConductInlineSheet.resultsLocked') : t('ConductInlineSheet.dataFinalized')}
               </span>
             )}
           </p>
           <p className="text-eyebrow truncate">
-            {[sheet.criteriaSetName, `thang ${fmt(min)}–${fmt(max)}`].filter(Boolean).join(' · ')}
+            {[sheet.criteriaSetName, i18n.t('conduct:ConductInlineSheet.scaleRange', { min: fmt(min), max: fmt(max) })].filter(Boolean).join(' · ')}
           </p>
         </div>
 
@@ -216,15 +221,13 @@ function InlineSheet({
 
           {!!sheet.prefilledFromPeriods && editable && (
             <Banner tone="slate" icon={Info}>
-              Điền sẵn bằng trung bình {sheet.prefilledFromPeriods} phiếu hạnh kiểm theo đợt trong kỳ — như điểm chốt kỳ
-              lấy TB các đợt. Sửa chỗ nào thấy khác rồi lưu; chưa lưu thì xếp loại vẫn dùng đúng số này.
+              {t('ConductInlineSheet.prefilledWithTheAverage')} {sheet.prefilledFromPeriods} {t('ConductInlineSheet.ofThePeriodConductFormsIn')}
             </Banner>
           )}
 
           {Math.abs(totalWeight - 100) > 0.01 && (
             <Banner tone="amber" icon={Info}>
-              Tổng trọng số của bộ tiêu chí đang là {fmt(totalWeight)}% (khác 100%) — điểm tổng sẽ không đạt đủ
-              thang {fmt(max)}. Sửa ở "Thiết lập công cụ › Thang điểm › Hạnh kiểm".
+              {t('ConductInlineSheet.theCriteriaSetsTotalWeightIs')} {fmt(totalWeight)}{t('ConductInlineSheet.not100TheTotalScoreWill')} {fmt(max)}{t('ConductInlineSheet.fixItInToolSetupScoring')}
             </Banner>
           )}
 
@@ -255,13 +258,13 @@ function InlineSheet({
                   {(dual || side === 'self') && (
                     <ScoreBlock
                       tone="self"
-                      label={dual ? 'Bạn tự đánh giá' : sheet.canScoreSelf ? 'Điểm bạn tự chấm' : 'Nhân viên tự đánh giá'}
+                      label={dual ? t('ConductInlineSheet.yourSelfAssessment') : sheet.canScoreSelf ? t('ConductInlineSheet.yourSelfScore') : t('ConductInlineSheet.employeeSelfAssessment')}
                       min={min}
                       max={max}
                       weight={item.weight}
                       score={d.selfScore}
                       note={d.selfEvidence}
-                      notePlaceholder="Nêu dẫn chứng cụ thể…"
+                      notePlaceholder={t('ConductInlineSheet.giveSpecificEvidence')}
                       editable={sheet.canScoreSelf}
                       onScore={v => set(item.position, { selfScore: v })}
                       onNote={v => set(item.position, { selfEvidence: v })}
@@ -271,13 +274,13 @@ function InlineSheet({
                   {(dual || side === 'manager') && (
                     <ScoreBlock
                       tone="manager"
-                      label={dual ? 'Cán bộ quản lý chấm' : 'Điểm bạn chấm'}
+                      label={dual ? t('ConductInlineSheet.managersScore') : t('ConductInlineSheet.yourScore')}
                       min={min}
                       max={max}
                       weight={item.weight}
                       score={d.managerScore}
                       note={d.managerComment}
-                      notePlaceholder="Nhận xét của cán bộ quản lý…"
+                      notePlaceholder={t('ConductInlineSheet.managersComments')}
                       editable={sheet.canScoreManager}
                       onScore={v => set(item.position, { managerScore: v })}
                       onNote={v => set(item.position, { managerComment: v })}
@@ -303,7 +306,7 @@ function InlineSheet({
             <AutoTextarea
               value={comment}
               onChange={setComment}
-              placeholder="Nhận xét chung cho cả phiếu…"
+              placeholder={t('ConductInlineSheet.generalCommentsForTheWholeForm')}
               className="min-h-[44px] px-4 py-3 rounded-card text-sm bg-[var(--color-card)] border-[var(--color-border)] focus:ring-[var(--color-ring)]"
             />
           )}
@@ -315,7 +318,7 @@ function InlineSheet({
                 chiếm hai dòng ở cuối một phiếu vốn đã dài. */}
             <div className="min-w-0 flex flex-wrap items-baseline gap-x-3 gap-y-1">
               <p className="text-eyebrow text-white/50">
-                Điểm hành vi đã tính trọng số
+                {t('ConductInlineSheet.weightedConductScore')}
               </p>
               <p className="text-lg font-semibold leading-none tabular-nums">
                 {fmt(myTotal)}
@@ -323,7 +326,7 @@ function InlineSheet({
                 {/* Điểm phía kia đứng cạnh để so, không cần thêm một khối riêng. */}
                 {(dual || otherTotal != null) && (
                   <span className="text-eyebrow ml-2 text-white/50">
-                    {side === 'manager' ? 'Tự ĐG' : 'QLTT'} {fmt(otherTotal)}
+                    {side === 'manager' ? t('ConductInlineSheet.self') : 'QLTT'} {fmt(otherTotal)}
                   </span>
                 )}
               </p>
@@ -331,32 +334,32 @@ function InlineSheet({
 
             <div className="ml-auto flex flex-wrap items-center gap-2">
               {showExport && (
-                <Button variant="secondary" size="sm" type="button" onClick={handleExport} title="Xuất phiếu ra Excel">
+                <Button variant="secondary" size="sm" type="button" onClick={handleExport} title={t('ConductInlineSheet.exportFormToExcel')}>
                   <FileSpreadsheet aria-hidden="true" />
-                  <span className="hidden sm:inline">Xuất Excel</span>
+                  <span className="hidden sm:inline">{t('ConductInlineSheet.exportExcel')}</span>
                 </Button>
               )}
               {!hideActions && sheet.canScoreSelf && (
                 <Button size="sm" type="button" onClick={() => onSaveSelf(collect('self'))} disabled={isSavingSelf}>
                   {isSavingSelf ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Save aria-hidden="true" />}
-                  Lưu tự đánh giá
+                  {t('ConductInlineSheet.saveSelfAssessment')}
                 </Button>
               )}
               {!hideActions && sheet.canScoreManager && (
                 <Button variant="secondary" size="sm" type="button" onClick={() => onSaveManager({ items: collect('manager'), comment })} disabled={isSavingManager}>
                   {isSavingManager ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Save aria-hidden="true" />}
-                  Lưu điểm hạnh kiểm
+                  {t('ConductInlineSheet.saveConductScore')}
                 </Button>
               )}
               {!editable && !sheet.locked && (
-                <p className="text-xs font-medium text-white/60">Bạn chỉ có quyền xem phiếu này.</p>
+                <p className="text-xs font-medium text-white/60">{t('ConductInlineSheet.youOnlyHavePermissionToView')}</p>
               )}
             </div>
           </div>
 
           {editable && done < sheet.items.length && (
             <p className="text-center text-caption">
-              Còn {sheet.items.length - done} tiêu chí chưa chấm — phiếu vẫn lưu được phần đang dở.
+              {t('ConductInlineSheet.remaining')} {sheet.items.length - done} {t('ConductInlineSheet.criteriaNotScoredTheFormCan')}
             </p>
           )}
         </div>
@@ -367,6 +370,7 @@ function InlineSheet({
 
 /** Biểu hiện của tiêu chí: dài nên chỉ mở hai dòng đầu, phần còn lại bấm mới xem. */
 function Expectations({ text }: { text?: string | null }) {
+  const { t } = useTranslation('conduct')
   const lines = useMemo(
     () => (text ?? '').split('\n').map(l => l.trim()).filter(Boolean),
     [text]
@@ -385,7 +389,7 @@ function Expectations({ text }: { text?: string | null }) {
       {lines.length > 2 && (
         <li>
           <Button variant="ghost" type="button" onClick={() => setExpanded(!expanded)}>
-            {expanded ? 'Thu gọn' : `+ ${lines.length - 2} biểu hiện khác`}
+            {expanded ? t('ConductInlineSheet.collapse') : t('ConductInlineSheet.moreIndicators', { value: lines.length - 2 })}
           </Button>
         </li>
       )}
@@ -408,6 +412,7 @@ function ScoreBlock({
   onScore: (v: string) => void
   onNote: (v: string) => void
 }) {
+  const { t } = useTranslation('conduct')
   const w = weighted(num(score), weight)
   const accent = tone === 'self'
     ? 'text-[var(--color-info)]'
@@ -426,7 +431,7 @@ function ScoreBlock({
         value={note}
         onChange={onNote}
         disabled={!editable}
-        placeholder={editable ? notePlaceholder : 'Chưa có nội dung'}
+        placeholder={editable ? notePlaceholder : t('ConductInlineSheet.noContentYet')}
         className={cn(
           'min-h-[36px] px-3 py-2 rounded-card text-xs',
           editable
@@ -456,6 +461,7 @@ function ScoreScale({
   editable: boolean
   onChange: (v: string) => void
 }) {
+  const { t } = useTranslation('conduct')
   const current = num(value)
   const useChips = Number.isInteger(min) && Number.isInteger(max) && max > min && max - min <= 6
 
@@ -470,7 +476,7 @@ function ScoreScale({
 
   if (!useChips) {
     return (
-      <input
+      <LocaleNumberInput
         type="number" min={min} max={max} step={0.5}
         value={value}
         onChange={e => onChange(e.target.value)}
@@ -499,7 +505,7 @@ function ScoreScale({
             type="button"
             disabled={!editable}
             aria-pressed={active}
-            title={editable ? (active ? 'Bấm lại để bỏ chấm' : `Chấm ${o}/${max}`) : undefined}
+            title={editable ? (active ? t('ConductInlineSheet.clickAgainToClearTheScore') : t('ConductInlineSheet.score', { o, max })) : undefined}
             onClick={() => onChange(active ? '' : String(o))}
             className={cn(
               'min-w-9 h-9 px-2.5 rounded-card text-sm font-semibold tabular-nums border transition-all',
@@ -521,7 +527,7 @@ function ScoreScale({
         )
       })}
       {editable && current == null && (
-        <span className="ml-1 text-caption">Chọn mức {min}–{max}</span>
+        <span className="ml-1 text-caption">{t('ConductInlineSheet.chooseLevel')} {min}–{max}</span>
       )}
     </div>
   )
@@ -529,8 +535,9 @@ function ScoreScale({
 
 /** Một dòng tham chiếu của phía còn lại — chỉ hiện khi phía đó đã chấm. */
 function OtherSide({ tone, score, note }: { tone: Side; score: number | null; note: string }) {
+  const { t } = useTranslation('conduct')
   if (score == null && !note.trim()) return null
-  const label = tone === 'self' ? 'Nhân viên tự chấm' : 'Quản lý chấm'
+  const label = tone === 'self' ? t('ConductInlineSheet.employeeSelfScore') : t('ConductInlineSheet.managerScore')
   return (
     <div className="flex items-start gap-2 px-3 py-2 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)]">
       <span className={cn(

@@ -1,4 +1,6 @@
 import { BscScorecardStatus } from '../types'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
 /**
  * Nhãn và màu của vòng đời bộ tiêu chí — NGUỒN DUY NHẤT cho mọi màn hình.
@@ -10,51 +12,51 @@ import { BscScorecardStatus } from '../types'
  *
  * <p>Thêm trạng thái mới thì `Record` bắt buộc khai đủ, trình biên dịch sẽ chỉ ra chỗ còn thiếu.
  */
-export const SCORECARD_STATUS_META: Record<
+export const SCORECARD_STATUS_META = perLanguage((): Record<
   BscScorecardStatus,
   { label: string; badgeClass: string; textClass: string }
-> = {
+> => ({
   [BscScorecardStatus.DRAFT]: {
-    label: 'Nháp',
+    label: i18n.t('bsc:scorecardStatus.draft'),
     badgeClass: 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300',
     textClass: 'text-slate-500',
   },
   [BscScorecardStatus.SUBMITTED]: {
-    label: 'Chờ duyệt',
+    label: i18n.t('bsc:scorecardStatus.pendingApproval'),
     badgeClass: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
     textClass: 'text-amber-600',
   },
   // Luồng hiện tại KHÔNG dừng ở đây nữa (duyệt là áp dụng luôn) — nhãn chỉ còn gặp ở thẻ cũ.
   [BscScorecardStatus.APPROVED]: {
-    label: 'Đã duyệt · chờ áp dụng',
+    label: i18n.t('bsc:scorecardStatus.approvedWaitingToApply'),
     badgeClass: 'bg-sky-100 text-sky-700 dark:bg-sky-900/30 dark:text-sky-400',
     textClass: 'text-sky-600',
   },
   [BscScorecardStatus.ACTIVE]: {
-    label: 'Đang áp dụng',
+    label: i18n.t('bsc:scorecardStatus.inEffect'),
     badgeClass: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
     textClass: 'text-emerald-600',
   },
   [BscScorecardStatus.CLOSED]: {
-    label: 'Đã đóng',
+    label: i18n.t('bsc:scorecardStatus.closed'),
     badgeClass: 'bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400',
     textClass: 'text-slate-500',
   },
   [BscScorecardStatus.LOCKED]: {
-    label: 'Đã khoá',
+    label: i18n.t('bsc:scorecardStatus.locked'),
     badgeClass: 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300',
     textClass: 'text-slate-600',
   },
   [BscScorecardStatus.ARCHIVED]: {
-    label: 'Lưu trữ',
+    label: i18n.t('bsc:scorecardStatus.archived'),
     badgeClass: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
     textClass: 'text-amber-600',
   },
-}
+}))
 
 /** Tra an toàn cho dữ liệu cũ mang trạng thái ngoài enum. */
 export const scorecardStatusMeta = (status?: BscScorecardStatus | null) =>
-  (status && SCORECARD_STATUS_META[status]) || SCORECARD_STATUS_META[BscScorecardStatus.DRAFT]
+  (status && SCORECARD_STATUS_META()[status]) || SCORECARD_STATUS_META()[BscScorecardStatus.DRAFT]
 
 /**
  * Ba trạng thái người duyệt CHỌN TAY được trong form.

@@ -14,6 +14,10 @@ export const adjustmentApi = {
   review: (id: string, data: ReviewAdjustmentRequest) =>
     axiosInstance.post<ApiResponse<KpiAdjustmentRequest>>(`/kpi-adjustments/${id}/review`, data).then((r) => r.data.data),
 
+  /** Yêu cầu điều chỉnh đang chờ ĐÚNG người gọi ở bước hiện tại của chuỗi duyệt. */
+  inbox: (params: { kpiPeriodId?: string } = {}) =>
+    axiosInstance.get<ApiResponse<KpiAdjustmentRequest[]>>('/kpi-adjustments/inbox', { params }).then((r) => r.data.data),
+
   getMy: (params: { page?: number; size?: number } = {}) =>
     axiosInstance.get<ApiResponse<PageResponse<KpiAdjustmentRequest>>>('/kpi-adjustments/my', { params }).then((r) => r.data.data),
 

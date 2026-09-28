@@ -169,6 +169,13 @@ public class KpiCriteria {
     @Column(name = "replacement_reason", columnDefinition = "TEXT")
     private String replacementReason;
 
+    /** Lúc KPI bị chốt CLOSED_BY_LOCK (khoá kỳ). */
+    @Column(name = "closed_at")
+    private Instant closedAt;
+
+    @Column(name = "closed_reason")
+    private String closedReason;
+
     @CreatedDate
     @Column(name = "created_at", updatable = false)
     private Instant createdAt;

@@ -73,6 +73,33 @@ public class KpiSubmission {
     @JoinColumn(name = "qualitative_level_id")
     private QualitativeLevel qualitativeLevel;
 
+    // ── Hoàn duyệt (trả lại để làm lại) — xem KpiSubmissionService#returnSubmission ──
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "returned_by")
+    private User returnedBy;
+
+    @Column(name = "returned_at")
+    private Instant returnedAt;
+
+    @Column(name = "return_reason", columnDefinition = "TEXT")
+    private String returnReason;
+
+    /** Hạn nộp lại. Trước hạn này nhân viên nộp được bài mới cho KPI dù đợt đã hết hạn. */
+    @Column(name = "resubmit_deadline")
+    private Instant resubmitDeadline;
+
+    /** Bài nộp mới thay cho bài bị trả lại này; {@code null} = đang chờ nộp lại. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "resubmission_id")
+    private KpiSubmission resubmission;
+
+    /** Bị trả lại và vẫn đang chờ nhân viên nộp bài mới (chưa nộp, chưa quá hạn). */
+    public boolean isAwaitingResubmission(Instant now) {
+        return status == SubmissionStatus.RETURNED && resubmission == null
+                && resubmitDeadline != null && !now.isAfter(resubmitDeadline);
+    }
+
     @OneToMany(mappedBy = "submission", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
     @Builder.Default
     private List<SubmissionAttachment> attachments = new ArrayList<>();

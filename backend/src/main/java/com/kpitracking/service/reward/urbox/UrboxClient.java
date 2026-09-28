@@ -3,6 +3,7 @@ package com.kpitracking.service.reward.urbox;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kpitracking.config.UrboxProperties;
 import com.kpitracking.exception.BusinessException;
+import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.service.reward.urbox.UrboxApiModels.*;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
@@ -145,8 +146,7 @@ public class UrboxClient {
                                  List<OrderLine> lines, String phone, String email,
                                  String fullName) {
         if (!props.isOrderConfigured()) {
-            throw new BusinessException("Kết nối UrBox chưa được cấu hình đầy đủ "
-                    + "(thiếu campaign_code). Liên hệ quản trị hệ thống.");
+            throw new BusinessException(ErrorCode.URBOX_CONNECTION_NOT_FULLY_CONFIGURED);
         }
 
         List<Map<String, Object>> dataBuy = lines.stream().map(OrderLine::toPayload).toList();
@@ -258,8 +258,7 @@ public class UrboxClient {
             return Base64.getEncoder().encodeToString(rsa.sign());
         } catch (Exception e) {
             log.error("Không ký được request UrBox: {}", e.getMessage());
-            throw new BusinessException("Không ký được yêu cầu gửi UrBox. "
-                    + "Kiểm tra lại private key trong cấu hình.");
+            throw new BusinessException(ErrorCode.COULD_NOT_SIGN_REQUEST_URBOX);
         }
     }
 
@@ -278,8 +277,7 @@ public class UrboxClient {
                       java.util.function.Consumer<MultiValueMap<String, String>> paramFiller,
                       ParameterizedTypeReference<UrboxEnvelope<T>> type) {
         if (!props.isConfigured()) {
-            throw new BusinessException("Kết nối kho quà UrBox chưa được bật. "
-                    + "Liên hệ quản trị hệ thống để cấu hình.");
+            throw new BusinessException(ErrorCode.URBOX_GIFT_INVENTORY_CONNECTION_NOT_ENABLED);
         }
 
         UrboxEnvelope<T> response;
@@ -306,20 +304,18 @@ public class UrboxClient {
             // chưa", và đoán mò câu đó tốn thời gian hơn nhiều so với một dòng log.
             log.error("UrBox {} trả HTTP {}: {}", maskedUrl(path), e.getStatusCode().value(),
                     abbreviate(e.getResponseBodyAsString()));
-            throw new BusinessException("Máy chủ UrBox trả lỗi HTTP "
-                    + e.getStatusCode().value() + " khi đọc kho quà"
-                    + (e.getStatusCode().value() == 404
-                    ? " — sai địa chỉ máy chủ, hoặc môi trường UrBox đang bảo trì." : "."));
+            throw new BusinessException(e.getStatusCode().value() == 404
+                    ? ErrorCode.URBOX_SERVER_RETURNED_HTTP_ERROR_WHILE_READING_NOT_FOUND
+                    : ErrorCode.URBOX_SERVER_RETURNED_HTTP_ERROR_WHILE_READING, String.valueOf(e.getStatusCode().value()));
         } catch (RestClientException e) {
             log.error("Không gọi được UrBox {}: {}", maskedUrl(path), e.getMessage());
-            throw new BusinessException("Không kết nối được tới kho quà UrBox. Thử lại sau ít phút.");
+            throw new BusinessException(ErrorCode.COULD_NOT_CONNECT_URBOX_GIFT_INVENTORY);
         }
 
         if (response == null || !response.ok()) {
             String detail = response == null ? "không có phản hồi" : response.msg();
             log.warn("UrBox {} trả lỗi: {}", path, detail);
-            throw new BusinessException("UrBox báo lỗi khi đọc kho quà"
-                    + (detail == null || detail.isBlank() ? "" : ": " + detail));
+            throw new BusinessException(ErrorCode.URBOX_REPORTED_ERROR_WHILE_READING_GIFT_INVENTORY, String.valueOf((detail == null || detail.isBlank() ? "" : ": " + detail)));
         }
         return response.data();
     }

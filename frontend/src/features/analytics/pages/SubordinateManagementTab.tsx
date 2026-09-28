@@ -19,24 +19,27 @@ import WidgetConfigPanel from '../grid/WidgetConfigPanel'
 import WidgetConfigSummary from '../grid/WidgetConfigSummary'
 import { SubordinateMetrics } from '../components/pinned/metricWidgets'
 import type { ViewerPosition } from '@/features/dashboard/hooks/useViewerPosition'
+import { useTranslation } from 'react-i18next'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
 /** Tên "report ẩn" của kho cũ — chỉ còn dùng để vớt bố cục một lần. */
 const LEGACY_REPORT_NAME = '__SUBORDINATE_DASHBOARD_CONFIG__'
 
-const DEFAULT_WIDGETS: DashboardWidget[] = [
+const DEFAULT_WIDGETS = perLanguage((): DashboardWidget[] => ([
   // Hàng thẻ chỉ số từng nằm NGOÀI lưới, bám nút khoảng thời gian trên đầu trang. Nút đó nay nằm
   // trong bảng cấu hình từng ô, nên hàng thẻ cũng là một ô — cùng id với danh mục trang chủ. Thẻ
   // kiểu ObjectiveMetricCard cao hơn thẻ icon-tròn nên ô này cần 5 hàng.
   // Tên ô là nguồn duy nhất (renderWidget lấy `w.title`, trang chủ đặt đúng chuỗi này); chữ đầu
   // mỗi ô khác nhau: Chỉ số / Diễn biến / Cây / Cơ cấu / Đơn vị con / Luồng.
-  { i: 'sub-metrics', type: 'STATS', title: 'Chỉ số mục tiêu đơn vị', x: 0, y: 0, w: 12, h: 5, visible: true },
-  { i: 'sub-trend', type: 'SUB_TREND', title: 'Diễn biến mục tiêu đơn vị qua các kỳ', x: 0, y: 5, w: 12, h: 15, visible: true },
-  { i: 'sub-detail', type: 'SUB_DETAIL', title: 'Cây mục tiêu và KR của đơn vị', x: 0, y: 20, w: 12, h: 20, visible: true },
-  { i: 'sub-member', type: 'SUB_MEMBER', title: 'Cơ cấu nhân sự theo vai trò', x: 0, y: 40, w: 12, h: 11, visible: true },
-  { i: 'sub-unit-perf', type: 'SUB_UNIT_PERF', title: 'Đơn vị con: hiệu suất, tiến độ, nộp bài', x: 0, y: 51, w: 12, h: 13, visible: true },
+  { i: 'sub-metrics', type: 'STATS', title: i18n.t('analytics:SubordinateManagementTab.unitObjectiveMetrics'), x: 0, y: 0, w: 12, h: 5, visible: true },
+  { i: 'sub-trend', type: 'SUB_TREND', title: i18n.t('analytics:SubordinateManagementTab.unitObjectivesAcrossCycles'), x: 0, y: 5, w: 12, h: 15, visible: true },
+  { i: 'sub-detail', type: 'SUB_DETAIL', title: i18n.t('analytics:SubordinateManagementTab.unitObjectiveAndKrTree'), x: 0, y: 20, w: 12, h: 20, visible: true },
+  { i: 'sub-member', type: 'SUB_MEMBER', title: i18n.t('analytics:SubordinateManagementTab.peopleByRole'), x: 0, y: 40, w: 12, h: 11, visible: true },
+  { i: 'sub-unit-perf', type: 'SUB_UNIT_PERF', title: i18n.t('analytics:SubordinateManagementTab.childUnitsPerformanceProgressSubmissions'), x: 0, y: 51, w: 12, h: 13, visible: true },
   // Mặc định ẩn: luồng OKR chỉ có nghĩa khi Key Result đã được phân bổ trọng số xuống đơn vị.
-  { i: 'sub-okr-flow', type: 'SUB_OKR_FLOW', title: 'Luồng phân bổ trọng số KR', x: 0, y: 64, w: 12, h: 13, visible: false },
-]
+  { i: 'sub-okr-flow', type: 'SUB_OKR_FLOW', title: i18n.t('analytics:SubordinateManagementTab.krWeightAllocationFlow'), x: 0, y: 64, w: 12, h: 13, visible: false },
+]))
 
 /**
  * Ô nào hiện mặc định cho ai. Ban giám đốc nhìn đơn vị so với nhau và luồng phân bổ; trưởng đơn
@@ -49,14 +52,14 @@ const POSITION_LAYOUT: Record<ViewerPosition, readonly string[]> = {
   STAFF: ['sub-metrics', 'sub-trend', 'sub-detail', 'sub-member'],
 }
 
-const GROUP_OF: Record<string, string> = {
-  'sub-metrics': 'Số liệu',
-  'sub-trend': 'Biểu đồ xu hướng',
-  'sub-detail': 'Từ bộ phận đến tổng thể',
-  'sub-member': 'Từ bộ phận đến tổng thể',
-  'sub-unit-perf': 'Biểu đồ so sánh',
-  'sub-okr-flow': 'Biểu đồ luồng',
-}
+const GROUP_OF = perLanguage((): Record<string, string> => ({
+  'sub-metrics': i18n.t('analytics:SubordinateManagementTab.figures'),
+  'sub-trend': i18n.t('analytics:SubordinateManagementTab.trendCharts'),
+  'sub-detail': i18n.t('analytics:SubordinateManagementTab.partToWhole'),
+  'sub-member': i18n.t('analytics:SubordinateManagementTab.partToWhole'),
+  'sub-unit-perf': i18n.t('analytics:SubordinateManagementTab.comparisonCharts'),
+  'sub-okr-flow': i18n.t('analytics:SubordinateManagementTab.flowCharts'),
+}))
 const PREVIEW_OF: Record<string, 'metricCard' | 'line' | 'treemap' | 'stackedBar' | 'groupedBar' | 'sankey'> = {
   'sub-metrics': 'metricCard',
   'sub-trend': 'line',
@@ -65,19 +68,20 @@ const PREVIEW_OF: Record<string, 'metricCard' | 'line' | 'treemap' | 'stackedBar
   'sub-unit-perf': 'groupedBar',
   'sub-okr-flow': 'sankey',
 }
-const DESC_OF: Record<string, string> = {
-  'sub-metrics': 'Một hàng số: tiến độ, hiệu suất, số mục tiêu hoàn thành, số rủi ro và tổng nhân sự.',
-  'sub-trend': 'Đơn vị đang lên hay xuống: tiến độ và hiệu suất qua từng kỳ, hoặc tỉ trọng mục tiêu mới/cũ.',
-  'sub-detail': 'Mục tiêu → kết quả then chốt → KPI của người thuộc quyền bạn, kèm tiến độ từng cấp.',
-  'sub-member': 'Mỗi đơn vị có bao nhiêu người ở vai trò nào.',
-  'sub-unit-perf': 'Đặt các đơn vị con cạnh nhau về hiệu suất, tiến độ và tỉ lệ nộp; chọn được top tốt nhất / trì trệ nhất.',
-  'sub-okr-flow': 'Trọng số của từng Key Result chảy xuống đơn vị nào, bao nhiêu.',
-}
-const CATALOG = DEFAULT_WIDGETS.map(t => ({
-  template: t, icon: null, groupLabel: GROUP_OF[t.i], preview: PREVIEW_OF[t.i], description: DESC_OF[t.i],
+const DESC_OF = perLanguage((): Record<string, string> => ({
+  'sub-metrics': i18n.t('analytics:SubordinateManagementTab.aRowOfFiguresProgressPerformance'),
+  'sub-trend': i18n.t('analytics:SubordinateManagementTab.isTheUnitGoingUpOr'),
+  'sub-detail': i18n.t('analytics:SubordinateManagementTab.objectivesKeyResultsKpisOfThe'),
+  'sub-member': i18n.t('analytics:SubordinateManagementTab.howManyPeopleEachUnitHas'),
+  'sub-unit-perf': i18n.t('analytics:SubordinateManagementTab.childUnitsSideBySideOn'),
+  'sub-okr-flow': i18n.t('analytics:SubordinateManagementTab.howMuchOfEachKeyResults'),
 }))
+const CATALOG = perLanguage(() => (DEFAULT_WIDGETS().map(t => ({
+  template: t, icon: null, groupLabel: GROUP_OF()[t.i], preview: PREVIEW_OF[t.i], description: DESC_OF()[t.i],
+}))))
 
 export default function SubordinateManagementTab() {
+  const { t } = useTranslation('analytics')
   const onlyApproved = false
   const { periods, cycles } = useAnalyticsScopeData()
   const unitOptions = useUnitOptions()
@@ -86,7 +90,7 @@ export default function SubordinateManagementTab() {
   const pageIntent = PAGE_DEFAULT_INTENT
 
   const pin = usePinToHome()
-  const grid = usePositionLayout(DEFAULT_WIDGETS, POSITION_LAYOUT, 'HEAD')
+  const grid = usePositionLayout(DEFAULT_WIDGETS(), POSITION_LAYOUT, 'HEAD')
   const dash = useAnalyticsGrid({
     scope: 'ANALYTICS_SUBORDINATE',
     defaultWidgets: grid.defaultWidgets,
@@ -133,9 +137,9 @@ export default function SubordinateManagementTab() {
           <AnalyticsComboChart
             data={chartQuery.data?.points ?? []}
             isLoading={chartQuery.isLoading}
-            itemName="mục tiêu đơn vị"
+            itemName={t('SubordinateManagementTab.unitObjectives')}
             title={w.title}
-            shareTitle="Cơ cấu mục tiêu đơn vị mới và cũ qua các kỳ"
+            shareTitle={t('SubordinateManagementTab.oldAndNewCompositionOfUnit')}
             fillHeight
             mode={widgetVariant(w) === 'area' ? 'share' : 'trend'}
             onModeChange={m => updateWidgetSettings(w.i, { v: m === 'share' ? 'area' : 'line' })}
@@ -178,13 +182,13 @@ export default function SubordinateManagementTab() {
       )
       default: return null
     }
-  }, [pageIntent, periods, cycles, unitOptions, onlyApproved, chartQuery.data, chartQuery.isLoading, summary, updateWidgetSettings])
+  }, [pageIntent, periods, cycles, unitOptions, onlyApproved, chartQuery.data, chartQuery.isLoading, summary, updateWidgetSettings, t])
 
   return (
     <div className="space-y-6 pb-20">
       {/* Tiêu đề + khoảng mặc định + thêm biểu đồ */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <h2 className="text-xl font-semibold text-[var(--color-foreground)]">Mục tiêu đơn vị tôi quản lý</h2>
+        <h2 className="text-xl font-semibold text-[var(--color-foreground)]">{t('SubordinateManagementTab.unitObjectivesIManage')}</h2>
         <div id="tour-analytics-customize" className="flex items-center gap-3 flex-wrap">
           <DashboardEditToolbar api={dash} />
         </div>
@@ -198,7 +202,7 @@ export default function SubordinateManagementTab() {
         <DashboardCustomizeChrome
           api={dash}
           renderWidget={renderWidget}
-          catalog={CATALOG}
+          catalog={CATALOG()}
           presets={grid.presets}
           recommendedIds={grid.recommendedIds}
           recommendedLabel={grid.recommendedLabel}

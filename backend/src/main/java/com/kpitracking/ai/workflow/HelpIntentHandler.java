@@ -1,5 +1,6 @@
 package com.kpitracking.ai.workflow;
 
+import com.kpitracking.ai.agent.AiLanguage;
 import com.kpitracking.ai.agent.help.HelpAgent;
 import com.kpitracking.ai.agent.help.HelpAgentFactory;
 import com.kpitracking.entity.AiTokenUsage;
@@ -52,7 +53,7 @@ public class HelpIntentHandler implements IntentHandler {
             AiTokenUsage.AiFeature previous = AiTokenUsageRecorder.currentFeature();
             try {
                 AiTokenUsageRecorder.setFeature(AiTokenUsage.AiFeature.HELP);
-                turn.getAgentState().setAnswer(helpAgent.answer(turn.getQuestion(), InvocationParameters.from(
+                turn.getAgentState().setAnswer(helpAgent.answer(AiLanguage.prefix(turn.getLanguage()) + turn.getQuestion(), InvocationParameters.from(
                         HelpAgentFactory.PARAM_ORG_ID, turn.getManager().orgId().toString())));
             } finally {
                 if (previous == null) AiTokenUsageRecorder.clearFeature();

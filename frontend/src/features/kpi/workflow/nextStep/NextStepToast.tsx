@@ -2,6 +2,7 @@ import { ArrowRight, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { stageIcon } from '../workflowStageIcons'
 import type { NextStepHint } from './nextStepHints'
+import { useTranslation } from 'react-i18next'
 
 interface Props {
   hint: NextStepHint
@@ -19,6 +20,7 @@ interface Props {
  * nói khác nhau.
  */
 export default function NextStepToast({ hint, durationMs, onGo, onDismiss }: Props) {
+  const { t } = useTranslation('kpi')
   return (
     <div
       role="status"
@@ -37,7 +39,7 @@ export default function NextStepToast({ hint, durationMs, onGo, onDismiss }: Pro
         </div>
 
         <div className="min-w-0 flex-1">
-          <p className="text-eyebrow">Bước tiếp theo</p>
+          <p className="text-eyebrow">{t('NextStepToast.nextStep')}</p>
           <p className="mt-0.5 text-sm font-semibold leading-snug text-[var(--color-foreground)]">{hint.title}</p>
           {hint.description && (
             <p className="mt-1 text-xs leading-relaxed text-[var(--color-muted-foreground)]">{hint.description}</p>
@@ -45,7 +47,7 @@ export default function NextStepToast({ hint, durationMs, onGo, onDismiss }: Pro
 
           <div className="mt-3 flex items-center justify-end gap-2">
             <Button variant="ghost" size="sm" onClick={onDismiss}>
-              Để sau
+              {t('NextStepToast.later')}
             </Button>
             <Button size="sm" onClick={onGo}>
               {hint.actionLabel}
@@ -57,7 +59,7 @@ export default function NextStepToast({ hint, durationMs, onGo, onDismiss }: Pro
         <button
           type="button"
           onClick={onDismiss}
-          aria-label="Đóng gợi ý"
+          aria-label={t('NextStepToast.dismissSuggestion')}
           className="-mr-1 -mt-1 flex h-7 w-7 shrink-0 items-center justify-center rounded-control text-[var(--color-subtle-foreground)] transition-colors hover:bg-[var(--color-muted)] hover:text-[var(--color-foreground)]"
         >
           <X size={15} />

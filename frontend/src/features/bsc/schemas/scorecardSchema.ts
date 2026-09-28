@@ -9,6 +9,8 @@ import {
   BscScorecardApplyScope,
   BscScorecardStatus,
 } from '../types'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
 /** Một dòng hạng mục trong bảng chia trọng số của bộ tiêu chí. */
 const weightRowSchema = z.object({
@@ -39,8 +41,8 @@ const weightRowSchema = z.object({
 
 export type WeightRow = z.infer<typeof weightRowSchema>
 
-export const scorecardSchema = z.object({
-  name: z.string().trim().min(1, 'Vui lòng nhập tên bộ tiêu chí'),
+export const scorecardSchema = perLanguage(() => (z.object({
+  name: z.string().trim().min(1, i18n.t('bsc:scorecardSchema.pleaseEnterTheScorecardName')),
   vision: z.string(),
   // Gắn thời gian: theo ĐỢT (tick nhiều đợt) hoặc theo KỲ (1 kỳ ⇒ mọi đợt trong kỳ tự áp dụng).
   applyScope: z.enum(BscScorecardApplyScope),
@@ -55,10 +57,10 @@ export const scorecardSchema = z.object({
   // Theo kỳ ⇒ đã chọn 1 kỳ; theo đợt ⇒ đã tick ít nhất 1 đợt.
   if (data.applyScope === BscScorecardApplyScope.CYCLE) {
     if (!data.cycleId) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['cycleId'], message: 'Vui lòng chọn kỳ áp dụng' })
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['cycleId'], message: i18n.t('bsc:scorecardSchema.pleaseChooseTheApplicableCycle') })
     }
   } else if (data.periodIds.length === 0) {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['periodIds'], message: 'Vui lòng chọn ít nhất một đợt áp dụng' })
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['periodIds'], message: i18n.t('bsc:scorecardSchema.pleaseChooseAtLeastOneApplicable') })
   }
 
   // Bỏ lựa chọn "toàn tổ chức" mơ hồ: công ty giờ là NODE GỐC trong cây đơn vị, chọn tường minh
@@ -67,13 +69,13 @@ export const scorecardSchema = z.object({
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       path: ['scopes'],
-      message: 'Vui lòng chọn đơn vị áp dụng (chọn đơn vị gốc nếu đây là BSC của cả công ty)',
+      message: i18n.t('bsc:scorecardSchema.pleaseChooseTheApplicableUnitChoose'),
     })
   }
 
   const enabled = data.rows.filter(r => r.enabled)
   if (enabled.length === 0) {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['rows'], message: 'Bộ tiêu chí cần ít nhất một hạng mục đang bật' })
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['rows'], message: i18n.t('bsc:scorecardSchema.theScorecardNeedsAtLeastOne') })
     return
   }
   // Mục tiêu riêng của từng dòng: sàn không được cao hơn mức cần đạt, nếu không hạng mục
@@ -83,7 +85,7 @@ export const scorecardSchema = z.object({
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['rows'],
-        message: `Hạng mục "${r.name}": kết quả tối thiểu (${r.minimumValue}) không được lớn hơn mục tiêu (${r.targetValue})`,
+        message: i18n.t('bsc:scorecardSchema.itemTheMinimumResultCannotBe', { name: r.name, minimumValue: r.minimumValue, targetValue: r.targetValue }),
       })
     }
   }
@@ -94,7 +96,7 @@ export const scorecardSchema = z.object({
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['rows'],
-        message: `Hạng mục chặn "${r.name}": chọn kiểu giới hạn xếp loại thì phải chỉ rõ mức trần`,
+        message: i18n.t('bsc:scorecardSchema.gateItemWhenChoosingToLimit', { name: r.name }),
       })
     }
   }
@@ -104,9 +106,9 @@ export const scorecardSchema = z.object({
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       path: ['rows'],
-      message: `Tổng trọng số các hạng mục đang bật phải đủ 100% (hiện tại ${total.toFixed(1)}%)`,
+      message: i18n.t('bsc:scorecardSchema.theTotalWeightOfEnabledItems', { value: total.toFixed(1) }),
     })
   }
-})
+})))
 
-export type ScorecardFormData = z.infer<typeof scorecardSchema>
+export type ScorecardFormData = z.infer<ReturnType<typeof scorecardSchema>>

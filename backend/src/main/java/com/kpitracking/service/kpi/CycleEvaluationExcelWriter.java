@@ -1,5 +1,9 @@
 package com.kpitracking.service.kpi;
 
+import java.util.Locale;
+import org.apache.poi.ss.usermodel.DataFormat;
+import com.kpitracking.i18n.SupportedLanguages;
+import com.kpitracking.i18n.ErrorMessages;
 import com.kpitracking.dto.response.kpi.CycleUserEvaluationResponse;
 import com.kpitracking.dto.response.kpi.CycleUserEvaluationResponse.PeriodBreakdown;
 import com.kpitracking.enums.CycleEvaluationMode;
@@ -38,28 +42,37 @@ public final class CycleEvaluationExcelWriter {
      */
     public static byte[] build(CycleUserEvaluationResponse eval, String cycleName, String unitName,
                                double scorePool, String scoreLabel) {
+        return build(eval, cycleName, unitName, scorePool, scoreLabel, SupportedLanguages.DEFAULT_LOCALE);
+    }
+
+    /**
+     * @param locale ngôn ngữ của người NHẬN tệp (nhãn, tiêu đề cột). Điểm và % ghi thành ô SỐ kèm định dạng
+     *               để Excel tự hiện dấu thập phân theo máy người mở và cộng/lọc được.
+     */
+    public static byte[] build(CycleUserEvaluationResponse eval, String cycleName, String unitName,
+                               double scorePool, String scoreLabel, Locale locale) {
         boolean isQual = eval.getMode() == CycleEvaluationMode.QUALITATIVE;
         // Chỉ chế độ "Cả hai" mới tách được hai trục định lượng/định tính theo từng đợt.
         boolean showDimensions = eval.getMode() == CycleEvaluationMode.BOTH;
         int lastCol = showDimensions ? 6 : 3;
 
         try (Workbook wb = new XSSFWorkbook(); ByteArrayOutputStream out = new ByteArrayOutputStream()) {
-            Sheet sheet = wb.createSheet("Chi tiết cá nhân");
+            Sheet sheet = wb.createSheet(t(locale, "export.cycleEval.sheet"));
             Styles styles = new Styles(wb);
             int r = 0;
 
             // Tiêu đề
             Row title = sheet.createRow(r);
             Cell titleCell = title.createCell(0);
-            titleCell.setCellValue("CHI TIẾT ĐÁNH GIÁ KỲ — "
-                    + (eval.getUserName() == null ? "" : eval.getUserName().toUpperCase()));
+            titleCell.setCellValue(t(locale, "export.cycleEval.title") + " — "
+                    + (eval.getUserName() == null ? "" : eval.getUserName().toUpperCase(locale)));
             titleCell.setCellStyle(styles.title);
             title.setHeightInPoints(26);
             sheet.addMergedRegion(new CellRangeAddress(r, r, 0, lastCol));
             r++;
 
             // Thông tin tổng hợp
-            for (String[] line : infoLines(eval, cycleName, unitName, scorePool, scoreLabel, isQual)) {
+            for (String[] line : infoLines(eval, cycleName, unitName, scorePool, scoreLabel, isQual, locale)) {
                 Row row = sheet.createRow(r);
                 Cell label = row.createCell(0);
                 label.setCellValue(line[0]);
@@ -75,26 +88,26 @@ public final class CycleEvaluationExcelWriter {
 
             Row section = sheet.createRow(r);
             Cell sectionCell = section.createCell(0);
-            sectionCell.setCellValue("CHI TIẾT ĐIỂM TỪNG ĐỢT TRONG KỲ");
+            sectionCell.setCellValue(t(locale, "export.cycleEval.section"));
             sectionCell.setCellStyle(styles.section);
             sheet.addMergedRegion(new CellRangeAddress(r, r, 0, lastCol));
             r++;
 
             List<PeriodBreakdown> rows = eval.getPeriodBreakdown();
             if (rows == null || rows.isEmpty()) {
-                sheet.createRow(r).createCell(0).setCellValue("Kỳ này chưa có đợt nào được gán.");
+                sheet.createRow(r).createCell(0).setCellValue(t(locale, "export.cycleEval.noPeriods"));
                 r++;
             } else {
                 List<String> headers = new ArrayList<>();
-                headers.add("Đợt");
+                headers.add(t(locale, "export.cycleEval.col.period"));
                 if (showDimensions) {
-                    headers.add("Định lượng");
-                    headers.add("Định tính");
-                    headers.add("Xếp loại");
+                    headers.add(t(locale, "export.cycleEval.col.quantitative"));
+                    headers.add(t(locale, "export.cycleEval.col.qualitative"));
+                    headers.add(t(locale, "export.cycleEval.col.rating"));
                 }
-                headers.add("% hoàn thành");
-                headers.add(isQual ? "Mức tự đánh giá" : "Tự đánh giá");
-                headers.add(isQual ? "Mức QLTT" : "QLTT đánh giá");
+                headers.add(t(locale, "export.cycleEval.col.completion"));
+                headers.add(isQual ? t(locale, "export.cycleEval.col.selfLevel") : t(locale, "export.cycleEval.col.self"));
+                headers.add(isQual ? t(locale, "export.cycleEval.col.managerLevel") : t(locale, "export.cycleEval.col.manager"));
 
                 Row headerRow = sheet.createRow(r);
                 for (int i = 0; i < headers.size(); i++) {
@@ -109,13 +122,13 @@ public final class CycleEvaluationExcelWriter {
                     int c = 0;
                     cell(row, c++, p.getPeriodName() == null ? "—" : p.getPeriodName(), styles.cellLeft);
                     if (showDimensions) {
-                        cell(row, c++, number(p.getQuantScore()), styles.cellCenter);
+                        numberCell(row, c++, p.getQuantScore(), styles.number);
                         cell(row, c++, outOfFive(p.getQualScore()), styles.cellCenter);
                         cell(row, c++, p.getMatrixRating() == null ? "—" : p.getMatrixRating() + "/5", styles.cellCenter);
                     }
-                    cell(row, c++, percent(p.getCompletionPercent()), styles.cellCenter);
-                    cell(row, c++, score(p.getSelfScore(), isQual, scorePool), styles.cellCenter);
-                    cell(row, c, score(p.getManagerScore(), isQual, scorePool), styles.cellCenter);
+                    percentCell(row, c++, p.getCompletionPercent(), styles.percent);
+                    scoreCell(row, c++, p.getSelfScore(), isQual, scorePool, styles);
+                    scoreCell(row, c, p.getManagerScore(), isQual, scorePool, styles);
                     r++;
                 }
             }
@@ -140,42 +153,65 @@ public final class CycleEvaluationExcelWriter {
     }
 
     private static List<String[]> infoLines(CycleUserEvaluationResponse eval, String cycleName, String unitName,
-                                            double scorePool, String scoreLabel, boolean isQual) {
+                                            double scorePool, String scoreLabel, boolean isQual, Locale locale) {
         List<String[]> info = new ArrayList<>();
-        info.add(new String[]{"Nhân viên", nullSafe(eval.getUserName())});
-        info.add(new String[]{"Đơn vị", nullSafe(eval.getOrgUnitName() != null ? eval.getOrgUnitName() : unitName)});
-        info.add(new String[]{"Kỳ đánh giá", nullSafe(cycleName)});
-        info.add(new String[]{"Chế độ đánh giá", modeLabel(eval.getMode())});
-        info.add(new String[]{isQual ? "Mức tự đánh giá" : "Nhân viên tự đánh giá",
+        info.add(new String[]{t(locale, "export.cycleEval.info.employee"), nullSafe(eval.getUserName())});
+        info.add(new String[]{t(locale, "export.cycleEval.info.unit"), nullSafe(eval.getOrgUnitName() != null ? eval.getOrgUnitName() : unitName)});
+        info.add(new String[]{t(locale, "export.cycleEval.info.cycle"), nullSafe(cycleName)});
+        info.add(new String[]{t(locale, "export.cycleEval.info.mode"), modeLabel(eval.getMode(), locale)});
+        info.add(new String[]{isQual ? t(locale, "export.cycleEval.col.selfLevel") : t(locale, "export.cycleEval.info.self"),
                 score(eval.getSelfScore(), isQual, scorePool)});
-        info.add(new String[]{isQual ? "Mức QLTT" : "Cán bộ QLTT đánh giá",
+        info.add(new String[]{isQual ? t(locale, "export.cycleEval.col.managerLevel") : t(locale, "export.cycleEval.info.manager"),
                 score(eval.getManagerScore(), isQual, scorePool)});
 
         String finalText = score(eval.getFinalScore(), isQual, scorePool);
         if (eval.getFinalScore() != null && !isQual && scoreLabel != null && !scoreLabel.isBlank()) {
             finalText = finalText + " (" + scoreLabel + ")";
         }
-        info.add(new String[]{isQual ? "Mức chốt kỳ" : "Điểm chốt kỳ", finalText});
+        info.add(new String[]{isQual ? t(locale, "export.cycleEval.info.finalLevel") : t(locale, "export.cycleEval.info.finalScore"), finalText});
 
         if (eval.getMode() != CycleEvaluationMode.QUANTITATIVE) {
-            info.add(new String[]{"Mức định tính", outOfFive(eval.getQualScore())});
-            info.add(new String[]{"Xếp loại ma trận",
+            info.add(new String[]{t(locale, "export.cycleEval.info.qualitative"), outOfFive(eval.getQualScore())});
+            info.add(new String[]{t(locale, "export.cycleEval.info.matrix"),
                     eval.getMatrixRating() == null ? "—" : eval.getMatrixRating() + "/5"});
         }
         if (eval.getAvgCompletionPercent() != null) {
-            info.add(new String[]{"TB % hoàn thành định lượng", percent(eval.getAvgCompletionPercent())});
+            info.add(new String[]{t(locale, "export.cycleEval.info.avgCompletion"), percent(eval.getAvgCompletionPercent())});
         }
         if (eval.getEvaluatedByName() != null) {
-            info.add(new String[]{"Người chấm điểm kỳ", eval.getEvaluatedByName()});
+            info.add(new String[]{t(locale, "export.cycleEval.info.evaluatedBy"), eval.getEvaluatedByName()});
         }
         if (eval.getEvaluatedAt() != null) {
-            info.add(new String[]{"Thời điểm chấm", DATE_TIME.format(eval.getEvaluatedAt().atZone(ZONE))});
+            info.add(new String[]{t(locale, "export.cycleEval.info.evaluatedAt"), DATE_TIME.format(eval.getEvaluatedAt().atZone(ZONE))});
         }
-        info.add(new String[]{"Nhận xét",
+        info.add(new String[]{t(locale, "export.cycleEval.info.comment"),
                 eval.getComment() != null && !eval.getComment().isBlank()
-                        ? eval.getComment() : "Không có nhận xét thêm."});
-        info.add(new String[]{"Ngày xuất", DATE_TIME.format(Instant.now().atZone(ZONE))});
+                        ? eval.getComment() : t(locale, "export.cycleEval.info.noComment")});
+        info.add(new String[]{t(locale, "export.cycleEval.info.exportedAt"), DATE_TIME.format(Instant.now().atZone(ZONE))});
         return info;
+    }
+
+    private static String t(Locale locale, String key) {
+        return ErrorMessages.text(locale, key, key);
+    }
+
+    private static void numberCell(Row row, int index, Double value, CellStyle style) {
+        Cell c = row.createCell(index);
+        if (value == null) c.setCellValue("—"); else c.setCellValue(value);
+        c.setCellStyle(style);
+    }
+
+    /** % lưu dạng 0–100 ⇒ ghi phân số để định dạng % của Excel hiện đúng. */
+    private static void percentCell(Row row, int index, Double value, CellStyle style) {
+        Cell c = row.createCell(index);
+        if (value == null) c.setCellValue("—"); else c.setCellValue(Math.round(value) / 100.0);
+        c.setCellStyle(style);
+    }
+
+    /** Định lượng: ô số. Định tính: "x/5" là chữ vì đó là mức trên thang, không phải số để cộng. */
+    private static void scoreCell(Row row, int index, Double value, boolean isQual, double scorePool, Styles styles) {
+        if (isQual || value == null) cell(row, index, score(value, isQual, scorePool), styles.cellCenter);
+        else numberCell(row, index, value, styles.number);
     }
 
     private static void cell(Row row, int index, String value, CellStyle style) {
@@ -208,12 +244,12 @@ public final class CycleEvaluationExcelWriter {
         return v == Math.rint(v) ? String.valueOf((long) v) : String.valueOf(v);
     }
 
-    private static String modeLabel(CycleEvaluationMode mode) {
+    private static String modeLabel(CycleEvaluationMode mode, Locale locale) {
         if (mode == null) return "—";
         return switch (mode) {
-            case QUANTITATIVE -> "Định lượng";
-            case QUALITATIVE -> "Định tính";
-            case BOTH -> "Cả hai";
+            case QUANTITATIVE -> t(locale, "export.cycleEval.col.quantitative");
+            case QUALITATIVE -> t(locale, "export.cycleEval.col.qualitative");
+            case BOTH -> t(locale, "export.cycleEval.mode.both");
         };
     }
 
@@ -240,6 +276,8 @@ public final class CycleEvaluationExcelWriter {
         final CellStyle tableHeader;
         final CellStyle cellLeft;
         final CellStyle cellCenter;
+        final CellStyle number;
+        final CellStyle percent;
 
         Styles(Workbook wb) {
             Font titleFont = wb.createFont();
@@ -288,6 +326,14 @@ public final class CycleEvaluationExcelWriter {
             cellCenter = wb.createCellStyle();
             cellCenter.setAlignment(HorizontalAlignment.CENTER);
             border(cellCenter);
+
+            DataFormat format = wb.createDataFormat();
+            number = wb.createCellStyle();
+            number.cloneStyleFrom(cellCenter);
+            number.setDataFormat(format.getFormat("0.##"));
+            percent = wb.createCellStyle();
+            percent.cloneStyleFrom(cellCenter);
+            percent.setDataFormat(format.getFormat("0%"));
         }
 
         private static void border(CellStyle style) {

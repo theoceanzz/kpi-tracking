@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import axiosInstance from '@/lib/axios'
 import { getApiErrorMessage } from '@/lib/apiError'
+import i18n from 'i18next'
 
 interface UploadTask {
   id: string
@@ -21,7 +22,7 @@ export const useUploadStore = create<UploadStore>((set, get) => ({
   tasks: [],
   addUpload: async (submissionId, files) => {
     const taskId = `${submissionId}-${Date.now()}`
-    const taskName = files.length > 1 ? `${files.length} tệp minh chứng` : (files[0]?.name || 'Tệp đính kèm')
+    const taskName = files.length > 1 ? i18n.t('common:uploadStore.evidenceFiles', { count: files.length }) : (files[0]?.name || i18n.t('common:uploadStore.attachment'))
     
     const newTask: UploadTask = {
       id: taskId,
@@ -59,7 +60,7 @@ export const useUploadStore = create<UploadStore>((set, get) => ({
       // Máy chủ nói RÕ vì sao: quá nặng, sai định dạng, hay quá số tệp. Bản trước nuốt sạch, người
       // dùng chỉ thấy "Lỗi tải lên" nên không biết phải sửa gì để thử lại.
       const message =
-        getApiErrorMessage(error, 'Tải lên thất bại')
+        getApiErrorMessage(error, i18n.t('common:uploadStore.uploadFailed'))
       set(state => ({
         tasks: state.tasks.map(t => t.id === taskId ? { ...t, status: 'error', message } : t)
       }))

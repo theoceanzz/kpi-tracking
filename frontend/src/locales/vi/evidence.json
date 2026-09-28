@@ -1,0 +1,31 @@
+{
+  "AttachmentChips": {
+    "download": "Tải {{fileName}}",
+    "download2": "Tải",
+    "evidenceAttached": "Minh chứng đính kèm ·",
+    "files": "TỆP",
+    "files2": "tệp",
+    "openInANewTab": "Mở {{fileName}} ở tab mới",
+    "openInANewTab2": "Mở ở tab mới",
+    "viewAndDownloadAttachments": "Xem và tải tệp đính kèm"
+  },
+  "EvidenceAttachments": {
+    "attachFiles": "Đính kèm tệp",
+    "chooseEvidenceFiles": "Chọn tệp minh chứng",
+    "couldNotDeleteTheFile": "Không xoá được tệp",
+    "couldNotUploadTheFile": "Không tải được tệp lên",
+    "delete": "Xoá {{fileName}}",
+    "deleteEvidenceFile": "Xoá tệp minh chứng?",
+    "deleteFile": "Xoá tệp",
+    "evidenceAttached": "Minh chứng đính kèm",
+    "fileDeleted": "Đã xoá tệp",
+    "filesAttached": "Đã đính kèm {{count}} tệp",
+    "n1FileAttached": "Đã đính kèm 1 tệp",
+    "noEvidenceAttached": "Không có minh chứng đính kèm.",
+    "noFilesYetAttachImagesPdfs": "Chưa có tệp nào. Đính kèm ảnh, PDF hoặc tài liệu làm bằng chứng cho lượt chấm này.",
+    "onlyMoreFilesCanBeAdded": "Chỉ thêm được {{room}} tệp nữa (tối đa {{MAX_ATTACHMENT_FILES}})",
+    "open": "Mở {{fileName}}",
+    "upToFilesPerScoring": "Tối đa {{MAX_ATTACHMENT_FILES}} tệp cho một lượt chấm",
+    "willBeRemovedFromThisScoring": "\"{{value}}\" sẽ bị xoá khỏi lượt chấm này. Không hoàn tác được."
+  }
+}

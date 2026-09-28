@@ -1,5 +1,6 @@
 package com.kpitracking.event;
 
+import com.kpitracking.i18n.LocalizedText;
 import com.kpitracking.entity.OrgUnit;
 import com.kpitracking.entity.RewardBudget;
 import com.kpitracking.entity.RewardGrant;
@@ -92,13 +93,12 @@ public class RewardNotificationEventListener {
         if (grant == null) return;
 
         int people = grantItemRepository.findByGrantId(grant.getId()).size();
-        String title = "Đề nghị thưởng cần duyệt";
-        String message = String.format(
-                "%s đề nghị thưởng %d điểm cho %d nhân viên. Lý do: %s. %s",
-                nameOf(event.actorId(), "Một cán bộ quản lý"),
+        LocalizedText title = LocalizedText.of("notif.reward.grantSubmitted.title");
+        LocalizedText message = LocalizedText.of("notif.reward.grantSubmitted.message",
+                nameOf(event.actorId(), LocalizedText.of("notif.reward.actor.aManager")),
                 grant.getTotalPoints(), people, reasonOf(grant),
                 grant.getApprovalReason() == null
-                        ? "Đề nghị này cần bạn duyệt."
+                        ? LocalizedText.of("notif.reward.grantSubmitted.needsYou")
                         : grant.getApprovalReason());
 
         Set<UUID> notified = new HashSet<>();
@@ -120,14 +120,12 @@ public class RewardNotificationEventListener {
         RewardGrant grant = findGrant(event.grantId());
         if (grant == null) return;
 
-        String message = String.format(
-                "Đề nghị thưởng %d điểm của bạn (lý do: %s) đã được %s duyệt. Điểm đã vào ví của "
-                + "những người được thưởng.%s",
+        LocalizedText message = LocalizedText.of("notif.reward.grantApproved.message",
                 grant.getTotalPoints(), reasonOf(grant),
-                nameOf(event.actorId(), "cấp trên"), noteSuffix(grant.getDecisionNote()));
+                nameOf(event.actorId(), LocalizedText.of("notif.bsc.actor.superior")), noteSuffix(grant.getDecisionNote()));
 
         dispatchTo(grant.getGrantor(), orgIdOf(grant), "reward_grant_approved",
-                "Đề nghị thưởng đã được duyệt", message, TYPE_GRANT, grant.getId(), false);
+                LocalizedText.of("notif.reward.grantApproved.title"), message, TYPE_GRANT, grant.getId(), false);
     }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
@@ -137,14 +135,12 @@ public class RewardNotificationEventListener {
         RewardGrant grant = findGrant(event.grantId());
         if (grant == null) return;
 
-        String message = String.format(
-                "Đề nghị thưởng %d điểm của bạn (lý do: %s) đã bị %s từ chối. Không có ai bị trừ "
-                + "hoặc được cộng điểm, và hạn mức của bạn được trả lại nguyên vẹn.%s",
+        LocalizedText message = LocalizedText.of("notif.reward.grantRejected.message",
                 grant.getTotalPoints(), reasonOf(grant),
-                nameOf(event.actorId(), "cấp trên"), noteSuffix(event.note()));
+                nameOf(event.actorId(), LocalizedText.of("notif.bsc.actor.superior")), noteSuffix(event.note()));
 
         dispatchTo(grant.getGrantor(), orgIdOf(grant), "reward_grant_rejected",
-                "Đề nghị thưởng bị từ chối", message, TYPE_GRANT, grant.getId(), false);
+                LocalizedText.of("notif.reward.grantRejected.title"), message, TYPE_GRANT, grant.getId(), false);
     }
 
     @TransactionalEventListener(phase = TransactionPhase.AFTER_COMMIT)
@@ -154,9 +150,8 @@ public class RewardNotificationEventListener {
         RewardGrant grant = findGrant(event.grantId());
         if (grant == null) return;
 
-        String message = String.format(
-                "%s đã rút lại đề nghị thưởng %d điểm (lý do: %s). Đề nghị này không còn chờ bạn duyệt nữa.",
-                nameOf(event.actorId(), "Người trao"), grant.getTotalPoints(), reasonOf(grant));
+        LocalizedText message = LocalizedText.of("notif.reward.grantCancelled.message",
+                nameOf(event.actorId(), LocalizedText.of("notif.reward.actor.grantor")), grant.getTotalPoints(), reasonOf(grant));
 
         Set<UUID> notified = new HashSet<>();
         if (event.actorId() != null) notified.add(event.actorId());
@@ -165,7 +160,7 @@ public class RewardNotificationEventListener {
         for (User approver : routing.nearestWithPermission(unit, "REWARD:APPROVE", notified)) {
             if (notified.add(approver.getId())) {
                 dispatcher.dispatch(orgIdOf(grant), "reward_grant_cancelled", approver, unit,
-                        "Đề nghị thưởng đã được rút lại", message, TYPE_GRANT, grant.getId());
+                        LocalizedText.of("notif.reward.grantCancelled.title"), message, TYPE_GRANT, grant.getId());
             }
         }
     }
@@ -182,19 +177,18 @@ public class RewardNotificationEventListener {
         if (grant == null) return;
 
         UUID orgId = orgIdOf(grant);
-        String grantorName = grant.getGrantor() != null
-                ? grant.getGrantor().getFullName() : "Ban lãnh đạo";
+        Object grantorName = grant.getGrantor() != null
+                ? grant.getGrantor().getFullName() : LocalizedText.of("notif.reward.actor.leadership");
 
         for (RewardGrantItem item : grantItemRepository.findByGrantId(grant.getId())) {
-            String message = String.format(
-                    "Bạn được %s thưởng %d điểm. Lý do: %s.%s",
+            LocalizedText message = LocalizedText.of("notif.reward.pointsReceived.message",
                     grantorName, item.getPoints(), reasonOf(grant),
                     Boolean.TRUE.equals(grant.getCertificateEnabled())
-                            ? " Kèm theo là một giấy chứng nhận, xem ở mục Phần thưởng của tôi."
+                            ? LocalizedText.of("notif.reward.pointsReceived.certificate")
                             : "");
 
             dispatchTo(item.getUser(), orgId, "reward_points_received",
-                    "Bạn được thưởng " + item.getPoints() + " điểm",
+                    LocalizedText.of("notif.reward.pointsReceived.title", item.getPoints()),
                     message, TYPE_POINT, grant.getId(), false);
         }
     }
@@ -214,17 +208,15 @@ public class RewardNotificationEventListener {
         if (grant == null) return;
 
         UUID orgId = orgIdOf(grant);
-        String actorName = nameOf(event.actorId(), "Quản trị viên");
+        Object actorName = nameOf(event.actorId(), LocalizedText.of("notif.reward.actor.admin"));
         List<RewardGrantItem> items = grantItemRepository.findByGrantId(grant.getId());
 
         for (RewardGrantItem item : items) {
-            String message = String.format(
-                    "%s đã thu hồi khoản thưởng %d điểm trước đó của bạn (lý do thưởng: %s). "
-                    + "Số điểm này đã được trừ khỏi ví.%s",
+            LocalizedText message = LocalizedText.of("notif.reward.grantRevoked.message",
                     actorName, item.getPoints(), reasonOf(grant), noteSuffix(event.note()));
 
             dispatchTo(item.getUser(), orgId, "reward_grant_revoked",
-                    "Khoản thưởng đã bị thu hồi", message, TYPE_POINT, grant.getId(), true);
+                    LocalizedText.of("notif.reward.grantRevoked.title"), message, TYPE_POINT, grant.getId(), true);
         }
 
         // Người trao cũng phải biết: hạn mức của họ vừa được trả lại và đề nghị họ đứng tên
@@ -232,10 +224,8 @@ public class RewardNotificationEventListener {
         if (grant.getGrantor() != null
                 && (event.actorId() == null || !grant.getGrantor().getId().equals(event.actorId()))) {
             dispatchTo(grant.getGrantor(), orgId, "reward_grant_revoked",
-                    "Đề nghị thưởng của bạn đã bị thu hồi",
-                    String.format("%s đã thu hồi đề nghị thưởng %d điểm cho %d nhân viên của bạn "
-                            + "(lý do: %s). Số điểm đã trừ lại khỏi ví người nhận và hạn mức của "
-                            + "bạn được hoàn.%s",
+                    LocalizedText.of("notif.reward.grantRevokedGrantor.title"),
+                    LocalizedText.of("notif.reward.grantRevokedGrantor.message",
                             actorName, grant.getTotalPoints(), items.size(),
                             reasonOf(grant), noteSuffix(event.note())),
                     TYPE_GRANT, grant.getId(), true);
@@ -253,19 +243,17 @@ public class RewardNotificationEventListener {
         RewardBudget budget = budgetRepository.findById(event.budgetId()).orElse(null);
         if (budget == null) return;
 
-        String title = event.updated() ? "Hạn mức thưởng của bạn đã thay đổi" : "Bạn được cấp hạn mức thưởng";
-        String message = String.format(
-                "%s hạn mức %d điểm, hiệu lực từ %s đến %s.%s Trong hạn mức này bạn thưởng cho "
-                + "nhân viên được duyệt ngay, vượt hạn mức thì đề nghị sẽ chuyển lên cấp trên duyệt.",
-                event.updated()
-                        ? nameOf(event.actorId(), "Cấp trên") + " đã điều chỉnh"
-                        : nameOf(event.actorId(), "Cấp trên") + " vừa cấp cho bạn",
+        String kind = event.updated() ? "updated" : "assigned";
+        LocalizedText title = LocalizedText.of("notif.reward.budget." + kind + ".title");
+        LocalizedText message = LocalizedText.of("notif.reward.budget.message",
+                LocalizedText.of("notif.reward.budget." + kind + ".lead",
+                        nameOf(event.actorId(), LocalizedText.of("notif.bsc.actor.superiorCapital"))),
                 budget.getAllocatedPoints(),
                 budget.getPeriodStart() == null ? "—" : budget.getPeriodStart().format(DATE),
                 budget.getPeriodEnd() == null ? "—" : budget.getPeriodEnd().format(DATE),
                 budget.getMaxPerAward() == null
                         ? ""
-                        : " Tối đa " + budget.getMaxPerAward() + " điểm mỗi lần thưởng cho một người.");
+                        : LocalizedText.of("notif.reward.budget.maxPerAward", budget.getMaxPerAward()));
 
         dispatchTo(budget.getGrantor(), budget.getOrganization().getId(), "reward_budget_assigned",
                 title, message, TYPE_GRANT, budget.getId(), false);
@@ -286,13 +274,11 @@ public class RewardNotificationEventListener {
         String programName = run.getProgram().getName();
 
         for (RewardProgramRunItem item : runItemRepository.findByRunIdOrderByOrderIndexAsc(run.getId())) {
-            String message = String.format(
-                    "Bạn đạt hạng %d của chương trình \"%s\" và được thưởng %d điểm. "
-                    + "Điểm đã vào ví thưởng của bạn.",
+            LocalizedText message = LocalizedText.of("notif.reward.programIssued.message",
                     item.getRank(), programName, item.getPoints());
 
             dispatchTo(item.getUser(), orgId, "reward_program_issued",
-                    "Bạn được thưởng từ chương trình " + programName,
+                    LocalizedText.of("notif.reward.programIssued.title", programName),
                     message, TYPE_POINT, run.getId(), false);
         }
     }
@@ -307,16 +293,14 @@ public class RewardNotificationEventListener {
 
         UUID orgId = run.getOrganization().getId();
         String programName = run.getProgram().getName();
-        String actorName = nameOf(event.actorId(), "Quản trị viên");
+        Object actorName = nameOf(event.actorId(), LocalizedText.of("notif.reward.actor.admin"));
 
         for (RewardProgramRunItem item : runItemRepository.findByRunIdOrderByOrderIndexAsc(run.getId())) {
-            String message = String.format(
-                    "%s đã thu hồi lần phát thưởng của chương trình \"%s\". %d điểm bạn nhận trước "
-                    + "đó đã được trừ khỏi ví. Chương trình có thể được tính và phát lại cho cùng đợt này.",
+            LocalizedText message = LocalizedText.of("notif.reward.programReverted.message",
                     actorName, programName, item.getPoints());
 
             dispatchTo(item.getUser(), orgId, "reward_program_reverted",
-                    "Thưởng chương trình đã bị thu hồi", message, TYPE_POINT, run.getId(), true);
+                    LocalizedText.of("notif.reward.programReverted.title"), message, TYPE_POINT, run.getId(), true);
         }
     }
 
@@ -333,12 +317,12 @@ public class RewardNotificationEventListener {
         // quà một việc đã xong là tạo hàng đợi giả.
         if (r == null || r.getStatus() != com.kpitracking.enums.RedemptionStatus.PENDING) return;
 
-        String message = String.format(
-                "%s vừa đặt đổi %d điểm lấy \"%s\"%s. Yêu cầu đang chờ được xử lý.",
+        LocalizedText message = LocalizedText.of("notif.reward.redemptionCreated.message",
                 r.getUser().getFullName(), r.getPointsSpent(), r.getGiftNameSnapshot(),
-                r.getQuantity() != null && r.getQuantity() > 1 ? " (số lượng " + r.getQuantity() + ")" : "");
+                r.getQuantity() != null && r.getQuantity() > 1
+                        ? LocalizedText.of("notif.reward.redemptionCreated.quantity", r.getQuantity()) : "");
 
-        notifyFulfillers(r, "reward_redemption_created", "Yêu cầu đổi quà mới", message,
+        notifyFulfillers(r, "reward_redemption_created", LocalizedText.of("notif.reward.redemptionCreated.title"), message,
                 Set.of(r.getUser().getId()));
     }
 
@@ -350,28 +334,25 @@ public class RewardNotificationEventListener {
         if (r == null) return;
 
         String gift = r.getGiftNameSnapshot();
-        String actor = nameOf(event.actorId(), "Bộ phận phần thưởng");
+        Object actor = nameOf(event.actorId(), LocalizedText.of("notif.reward.actor.rewardsTeam"));
         UUID orgId = r.getOrganization().getId();
 
         switch (r.getStatus()) {
             case APPROVED -> dispatchTo(r.getUser(), orgId, "reward_redemption_approved",
-                    "Yêu cầu đổi quà đã được duyệt",
-                    String.format("Yêu cầu đổi \"%s\" của bạn đã được %s duyệt và đang chuẩn bị trao.%s",
-                            gift, actor, noteSuffix(r.getNote())),
+                    LocalizedText.of("notif.reward.redemptionApproved.title"),
+                    LocalizedText.of("notif.reward.redemptionApproved.message", gift, actor, noteSuffix(r.getNote())),
                     TYPE_GIFT, r.getId(), false);
 
             case REJECTED -> dispatchTo(r.getUser(), orgId, "reward_redemption_rejected",
-                    "Yêu cầu đổi quà bị từ chối",
-                    String.format("Yêu cầu đổi \"%s\" của bạn đã bị %s từ chối. %d điểm đã được "
-                            + "hoàn lại vào ví thưởng của bạn.%s",
-                            gift, actor, r.getPointsSpent(), noteSuffix(r.getNote())),
+                    LocalizedText.of("notif.reward.redemptionRejected.title"),
+                    LocalizedText.of("notif.reward.redemptionRejected.message", gift, actor, r.getPointsSpent(), noteSuffix(r.getNote())),
                     TYPE_GIFT, r.getId(), false);
 
             case DELIVERED -> dispatchTo(r.getUser(), orgId, "reward_redemption_delivered",
-                    "Quà của bạn đã được trao",
-                    String.format("\"%s\" đã được trao cho bạn.%s%s", gift,
+                    LocalizedText.of("notif.reward.redemptionDelivered.title"),
+                    LocalizedText.of("notif.reward.redemptionDelivered.message", gift,
                             r.getExternalOrderId() != null && !r.getExternalOrderId().isBlank()
-                                    ? " Mã quà nằm trong mục Đổi quà của tôi."
+                                    ? LocalizedText.of("notif.reward.redemptionDelivered.codeHint")
                                     : "",
                             noteSuffix(r.getNote())),
                     TYPE_GIFT, r.getId(), false);
@@ -381,25 +362,23 @@ public class RewardNotificationEventListener {
             // quà hoặc nhà cung cấp đang có vấn đề chứ không phải sự cố của riêng một người.
             case FAILED -> {
                 dispatchTo(r.getUser(), orgId, "reward_redemption_failed",
-                        "Không xuất được quà, điểm đã hoàn lại",
-                        String.format("Rất tiếc, không xuất được \"%s\" nên yêu cầu của bạn đã dừng "
-                                + "và %d điểm đã được hoàn về ví thưởng.%s",
+                        LocalizedText.of("notif.reward.redemptionFailed.title"),
+                        LocalizedText.of("notif.reward.redemptionFailed.message",
                                 gift, r.getPointsSpent(), noteSuffix(r.getFulfillmentError())),
                         TYPE_GIFT, r.getId(), true);
 
-                notifyFulfillers(r, "reward_redemption_failed", "Xuất quà thất bại",
-                        String.format("Không xuất được \"%s\" cho %s: %s. Điểm đã hoàn và tồn kho đã trả lại.",
+                notifyFulfillers(r, "reward_redemption_failed", LocalizedText.of("notif.reward.redemptionFailedTeam.title"),
+                        LocalizedText.of("notif.reward.redemptionFailedTeam.message",
                                 gift, r.getUser().getFullName(),
-                                r.getFulfillmentError() == null ? "(không rõ lý do)" : r.getFulfillmentError()),
+                                r.getFulfillmentError() == null ? LocalizedText.of("notif.common.unknownReason") : r.getFulfillmentError()),
                         Set.of(r.getUser().getId()));
             }
 
             // Người đổi tự huỷ thì chính họ vừa bấm — báo lại cho họ là thừa. Bộ phận quà thì
             // cần biết vì yêu cầu đó vừa biến mất khỏi hàng đợi đang mở của họ.
             case CANCELLED -> notifyFulfillers(r, "reward_redemption_cancelled",
-                    "Yêu cầu đổi quà đã bị huỷ",
-                    String.format("%s đã huỷ yêu cầu đổi \"%s\". %d điểm đã hoàn lại và tồn kho đã trả về.",
-                            r.getUser().getFullName(), gift, r.getPointsSpent()),
+                    LocalizedText.of("notif.reward.redemptionCancelled.title"),
+                    LocalizedText.of("notif.reward.redemptionCancelled.message", r.getUser().getFullName(), gift, r.getPointsSpent()),
                     Set.of(r.getUser().getId()));
 
             default -> { /* PENDING: chưa chốt gì, không có tin gì để báo. */ }
@@ -411,8 +390,8 @@ public class RewardNotificationEventListener {
     // ============================================================
 
     /** Báo cho người có {@code GIFT:FULFILL} gần nhất tính từ đơn vị của người đổi quà. */
-    private void notifyFulfillers(RewardRedemption r, String eventCode, String title,
-                                  String message, Set<UUID> exclude) {
+    private void notifyFulfillers(RewardRedemption r, String eventCode, LocalizedText title,
+                                  LocalizedText message, Set<UUID> exclude) {
         OrgUnit unit = unitFor(r.getUser().getId(), r.getOrganization().getId());
         if (unit == null) return;
 
@@ -432,8 +411,8 @@ public class RewardNotificationEventListener {
      * <p>Nuốt mọi lỗi: việc nghiệp vụ đã commit từ trước, và một người nhận hỏng không được kéo
      * theo những người còn lại trong cùng vòng lặp.
      */
-    private void dispatchTo(User recipient, UUID orgId, String eventCode, String title,
-                            String message, String type, UUID referenceId, boolean immediate) {
+    private void dispatchTo(User recipient, UUID orgId, String eventCode, LocalizedText title,
+                            LocalizedText message, String type, UUID referenceId, boolean immediate) {
         if (recipient == null) return;
         try {
             OrgUnit unit = unitFor(recipient.getId(), orgId);
@@ -494,18 +473,19 @@ public class RewardNotificationEventListener {
         return grant.getOrganization().getId();
     }
 
-    private String nameOf(UUID userId, String fallback) {
+    /** Tên người (nguyên văn) hoặc cụm thay thế dịch được. */
+    private Object nameOf(UUID userId, LocalizedText fallback) {
         if (userId == null) return fallback;
-        return userRepository.findById(userId).map(User::getFullName).orElse(fallback);
+        return userRepository.findById(userId).<Object>map(User::getFullName).orElse(fallback);
     }
 
-    private static String reasonOf(RewardGrant grant) {
+    private static Object reasonOf(RewardGrant grant) {
         return grant.getReason() == null || grant.getReason().isBlank()
-                ? "(không ghi)" : grant.getReason();
+                ? LocalizedText.of("notif.common.noReason") : grant.getReason();
     }
 
     /** Ghi chú của người quyết định, chỉ thêm vào câu khi thật sự có. */
-    private static String noteSuffix(String note) {
-        return note == null || note.isBlank() ? "" : " Ghi chú: " + note;
+    private static Object noteSuffix(String note) {
+        return note == null || note.isBlank() ? "" : LocalizedText.of("notif.common.noteSuffix", note);
     }
 }

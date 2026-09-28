@@ -1,3 +1,4 @@
+import { intlLocale } from '@/i18n/format'
 import { useEffect, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -26,6 +27,7 @@ import { walletConfigSchema, type WalletConfigFormData } from '../schemas/wallet
 import type { WalletConfig, WalletConfigRequest } from '../types'
 import { Button } from '@/components/ui/button'
 import { ChoiceChip } from '@/components/ui/choice-chip'
+import { useTranslation } from 'react-i18next'
 
 const EMPTY: WalletConfigFormData = {
   pointExchangeRate: 1000,
@@ -174,10 +176,11 @@ function ChecklistRow({ done, label, hint }: { done: boolean; label: string; hin
 }
 
 export default function WalletConfigForm() {
+  const { t } = useTranslation('wallet')
   const { data, isLoading, updateConfig, isUpdating } = useWalletConfig()
 
   const { handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<WalletConfigFormData>({
-    resolver: zodResolver(walletConfigSchema),
+    resolver: zodResolver(walletConfigSchema()),
     defaultValues: EMPTY,
   })
 
@@ -207,10 +210,9 @@ export default function WalletConfigForm() {
         <div className="mb-6 flex items-start gap-3 rounded-card border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-5 py-4 text-sm">
           <AlertTriangle size={18} className="mt-0.5 flex-shrink-0 text-[var(--color-warning)]" />
           <div>
-            <p className="font-semibold">Chưa nhận được tiền</p>
+            <p className="font-semibold">{t('WalletConfigForm.moneyNotReceivedYet')}</p>
             <p className="mt-0.5 text-[var(--color-muted-foreground)]">
-              Thiếu số tài khoản hoặc mã ngân hàng nên nhân viên chưa tạo được đơn nạp. Đây là hai
-              trường bắt buộc để dựng mã VietQR.
+              {t('WalletConfigForm.theAccountNumberOrBankCode')}
             </p>
           </div>
         </div>
@@ -223,12 +225,10 @@ export default function WalletConfigForm() {
         <div className="mb-6 flex items-start gap-3 rounded-card border border-[var(--color-info-border)] bg-[var(--color-info-bg)] px-5 py-4 text-sm">
           <Info size={18} className="mt-0.5 flex-shrink-0 text-[var(--color-info)]" />
           <div>
-            <p className="font-semibold">Chưa nhận được giao dịch nào từ tài khoản này</p>
+            <p className="font-semibold">{t('WalletConfigForm.noTransactionsReceivedFromThisAccount')}</p>
             <p className="mt-0.5 text-[var(--color-muted-foreground)]">
-              Kiểm tra lại bên dashboard SePay: tài khoản{' '}
-              <span className="font-mono">{data.sepayAccountNumber}</span> đã được liên kết chưa, và
-              webhook đã trỏ về hệ thống chưa. Chuyển thử một khoản nhỏ là cách nhanh nhất để biết
-              cả chuỗi đã thông.
+              {t('WalletConfigForm.checkOnTheSepayDashboardWhether')}{' '}
+              <span className="font-mono">{data.sepayAccountNumber}</span> {t('WalletConfigForm.hasBeenLinkedAndWhetherThe')}
             </p>
           </div>
         </div>
@@ -242,24 +242,24 @@ export default function WalletConfigForm() {
           <Card
             icon={<Coins size={18} />}
             id="tour-wallet-rate"
-            title="Tỉ giá quy đổi"
-            subtitle="Số tiền nhân viên phải bỏ ra cho mỗi điểm thưởng"
+            title={t('WalletConfigForm.exchangeRate')}
+            subtitle={t('WalletConfigForm.theAmountEmployeesPayForEach')}
           >
             <div className="grid gap-5 sm:grid-cols-2">
               <Field
-                label="Số tiền đổi được 1 điểm"
-                hint="Giao dịch đã thực hiện giữ nguyên tỉ giá cũ trong lịch sử, nên đổi con số này không làm sai số liệu quá khứ."
+                label={t('WalletConfigForm.amountFor1Point')}
+                hint={t('WalletConfigForm.pastTransactionsKeepTheOldRate')}
               >
                 <NumberField
                   value={form.pointExchangeRate}
                   onChange={(v) => setValue('pointExchangeRate', v, { shouldValidate: true })}
-                  suffix="đ"
+                  suffix={t('WalletConfigForm.pts')}
                   maxDigits={9}
                 />
                 <div className="mt-2.5 flex flex-wrap gap-1.5">
                   {RATE_PRESETS.map((v) => (
                     <ChoiceChip selected={form.pointExchangeRate === v} variant="solid" className="py-1" key={v} onClick={() => setValue('pointExchangeRate', v, { shouldValidate: true })}>
-                      {v.toLocaleString('vi-VN')}đ
+                      {v.toLocaleString(intlLocale())}{t('WalletConfigForm.pts')}
                     </ChoiceChip>
                   ))}
                 </div>
@@ -269,13 +269,13 @@ export default function WalletConfigForm() {
                   quả của nó lên các mức nhân viên hay đổi. */}
               <div className="rounded-card bg-[var(--color-muted)]/40 p-4">
                 <div className="mb-2 text-eyebrow">
-                  Nhân viên sẽ thấy
+                  {t('WalletConfigForm.employeesWillSee')}
                 </div>
                 <ul className="space-y-1.5">
                   {PREVIEW_POINTS.map((p) => (
                     <li key={p} className="flex items-center gap-2 text-sm">
                       <span className="w-20 flex-shrink-0 font-semibold tabular-nums">
-                        {p.toLocaleString('vi-VN')} điểm
+                        {p.toLocaleString(intlLocale())} {t('WalletConfigForm.points')}
                       </span>
                       <ArrowRight size={13} className="flex-shrink-0 text-[var(--color-muted-foreground)]" />
                       <span className="truncate tabular-nums text-[var(--color-muted-foreground)]">
@@ -291,29 +291,29 @@ export default function WalletConfigForm() {
           <Card
             icon={<Timer size={18} />}
             id="tour-wallet-limits"
-            title="Hạn mức nạp"
-            subtitle="Giới hạn mỗi lần nạp và thời gian hiệu lực của mã QR"
+            title={t('WalletConfigForm.topUpLimits')}
+            subtitle={t('WalletConfigForm.limitPerTopUpAndThe')}
           >
             <div className="grid gap-5 sm:grid-cols-3">
-              <Field label="Tối thiểu mỗi lần">
+              <Field label={t('WalletConfigForm.minimumPerTopUp')}>
                 <NumberField
                   value={form.topupMinAmount}
                   onChange={(v) => setValue('topupMinAmount', v, { shouldValidate: true })}
-                  suffix="đ"
+                  suffix={t('WalletConfigForm.pts')}
                 />
               </Field>
-              <Field label="Tối đa mỗi lần">
+              <Field label={t('WalletConfigForm.maximumPerTopUp')}>
                 <NumberField
                   value={form.topupMaxAmount}
                   onChange={(v) => setValue('topupMaxAmount', v, { shouldValidate: true })}
-                  suffix="đ"
+                  suffix={t('WalletConfigForm.pts')}
                 />
               </Field>
-              <Field label="Hiệu lực của đơn">
+              <Field label={t('WalletConfigForm.orderValidity')}>
                 <NumberField
                   value={form.topupExpireMinutes}
                   onChange={(v) => setValue('topupExpireMinutes', v, { shouldValidate: true })}
-                  suffix="phút"
+                  suffix={t('WalletConfigForm.minutes')}
                   maxDigits={4}
                 />
               </Field>
@@ -321,7 +321,7 @@ export default function WalletConfigForm() {
 
             {rangeInvalid && (
               <p className="mt-4 rounded-card bg-[var(--color-error-bg)] px-4 py-2.5 text-sm text-[var(--color-error)]">
-                Số tiền tối đa đang nhỏ hơn tối thiểu.
+                {t('WalletConfigForm.theMaximumAmountIsLessThan')}
               </p>
             )}
             {(errors.pointExchangeRate || errors.topupMinAmount || errors.topupExpireMinutes) && (
@@ -334,19 +334,18 @@ export default function WalletConfigForm() {
 
             <p className="mt-4 flex items-start gap-2 text-xs leading-relaxed text-[var(--color-muted-foreground)]">
               <Info size={14} className="mt-0.5 flex-shrink-0" />
-              Hết hạn chỉ để dọn màn hình của nhân viên. Tiền về sau khi đơn hết hạn vẫn được ghi có
-              bình thường — hệ thống không bao giờ từ chối tiền đã vào tài khoản.
+              {t('WalletConfigForm.expiryOnlyClearsTheEmployeesScreen')}
             </p>
           </Card>
 
           <Card
             icon={<Building2 size={18} />}
             id="tour-wallet-bank"
-            title="Tài khoản nhận tiền"
-            subtitle="Dùng để dựng mã VietQR và đối chiếu giao dịch"
+            title={t('WalletConfigForm.receivingAccount')}
+            subtitle={t('WalletConfigForm.usedToBuildTheVietqrCode')}
           >
             <div className="grid gap-5 sm:grid-cols-2">
-              <Field label="Số tài khoản">
+              <Field label={t('WalletConfigForm.accountNumber')}>
                 <input
                   value={form.sepayAccountNumber ?? ''}
                   onChange={(e) => setValue('sepayAccountNumber', e.target.value, { shouldValidate: true })}
@@ -355,8 +354,8 @@ export default function WalletConfigForm() {
                 />
               </Field>
               <Field
-                label="Ngân hàng"
-                hint="Chọn trong danh sách chuẩn VietQR — gõ tay dễ sai tên viết tắt khiến mã QR trỏ nhầm ngân hàng."
+                label={t('WalletConfigForm.bank')}
+                hint={t('WalletConfigForm.chooseFromTheStandardVietqrList')}
               >
                 <BankSelect
                   value={form.sepayBankCode}
@@ -364,7 +363,7 @@ export default function WalletConfigForm() {
                 />
               </Field>
               <div className="sm:col-span-2">
-                <Field label="Tên chủ tài khoản">
+                <Field label={t('WalletConfigForm.accountHolderName')}>
                   <input
                     value={form.sepayAccountHolder ?? ''}
                     onChange={(e) => setValue('sepayAccountHolder', e.target.value, { shouldValidate: true })}
@@ -379,8 +378,8 @@ export default function WalletConfigForm() {
           <Card
             icon={<Receipt size={18} />}
             id="tour-wallet-receipt"
-            title="Biên nhận thu tiền"
-            subtitle="Chứng từ gửi cho nhân viên sau mỗi lần nạp thành công"
+            title={t('WalletConfigForm.paymentReceipt')}
+            subtitle={t('WalletConfigForm.documentsSentToEmployeesAfterEach')}
           >
             <label className="mb-5 flex cursor-pointer items-start gap-3">
               <input
@@ -390,27 +389,26 @@ export default function WalletConfigForm() {
                 className="mt-0.5 h-4 w-4 flex-shrink-0 accent-[var(--color-primary)]"
               />
               <span className="min-w-0">
-                <span className="block text-sm font-medium">Gửi biên nhận cho mỗi lần nạp</span>
+                <span className="block text-sm font-medium">{t('WalletConfigForm.sendAReceiptForEachTop')}</span>
                 <span className="block text-xs leading-relaxed text-[var(--color-muted-foreground)]">
-                  Tắt nếu đơn vị đã phát hành hoá đơn điện tử qua nhà cung cấp riêng và không muốn
-                  gửi hai loại giấy cho cùng một khoản.
+                  {t('WalletConfigForm.turnOffIfTheUnitAlready')}
                 </span>
               </span>
             </label>
 
             <div className="grid gap-5 sm:grid-cols-2">
               <Field
-                label="Tên đơn vị trên chứng từ"
-                hint="Tên pháp nhân theo giấy đăng ký kinh doanh. Bỏ trống thì dùng tên công ty đang lưu."
+                label={t('WalletConfigForm.organizationNameOnDocuments')}
+                hint={t('WalletConfigForm.theLegalEntityNamePerThe')}
               >
                 <input
                   value={form.legalName ?? ''}
                   onChange={(e) => setValue('legalName', e.target.value, { shouldValidate: true })}
-                  placeholder="CÔNG TY TNHH ABC"
+                  placeholder={t('WalletConfigForm.abcCompanyLimited')}
                   className={inputCls}
                 />
               </Field>
-              <Field label="Mã số thuế">
+              <Field label={t('WalletConfigForm.taxCode')}>
                 <input
                   value={form.taxCode ?? ''}
                   onChange={(e) => setValue('taxCode', e.target.value, { shouldValidate: true })}
@@ -422,11 +420,11 @@ export default function WalletConfigForm() {
                 )}
               </Field>
               <div className="sm:col-span-2">
-                <Field label="Địa chỉ đơn vị">
+                <Field label={t('WalletConfigForm.organizationAddress')}>
                   <input
                     value={form.businessAddress ?? ''}
                     onChange={(e) => setValue('businessAddress', e.target.value, { shouldValidate: true })}
-                    placeholder="Số 1, đường A, phường B, quận C, Hà Nội"
+                    placeholder={t('WalletConfigForm.no1StreetAWardB')}
                     className={inputCls}
                   />
                   {errors.businessAddress && (
@@ -434,7 +432,7 @@ export default function WalletConfigForm() {
                   )}
                 </Field>
               </div>
-              <Field label="Điện thoại liên hệ">
+              <Field label={t('WalletConfigForm.contactPhone')}>
                 <input
                   value={form.contactPhone ?? ''}
                   onChange={(e) => setValue('contactPhone', e.target.value, { shouldValidate: true })}
@@ -443,8 +441,8 @@ export default function WalletConfigForm() {
                 />
               </Field>
               <Field
-                label="Thuế suất áp cho khoản nạp"
-                hint="Mặc định 0%: nạp ví là khoản thu trước, nghĩa vụ thuế phát sinh khi nhân viên đổi điểm lấy quà. Đổi theo tư vấn của kế toán đơn vị."
+                label={t('WalletConfigForm.taxRateAppliedToTopUps')}
+                hint={t('WalletConfigForm.default0AWalletTopUp')}
               >
                 <NumberField
                   value={form.receiptVatRate}
@@ -454,8 +452,8 @@ export default function WalletConfigForm() {
                 />
               </Field>
               <Field
-                label="Tiền tố ký hiệu chứng từ"
-                hint={`Ký hiệu đầy đủ là tiền tố cộng năm lập, VD ${form.receiptSeriesPrefix || 'PT'}${new Date().getFullYear()}/00000001. Không đổi được sau khi đã phát chứng từ trong năm.`}
+                label={t('WalletConfigForm.documentNumberPrefix')}
+                hint={t('WalletConfigForm.theFullNumberIsThePrefix', { value: form.receiptSeriesPrefix || 'PT', getFullYear: new Date().getFullYear() })}
               >
                 <input
                   value={form.receiptSeriesPrefix ?? ''}
@@ -470,20 +468,20 @@ export default function WalletConfigForm() {
                   <p className="mt-1.5 text-xs text-[var(--color-error)]">{errors.receiptSeriesPrefix.message}</p>
                 )}
               </Field>
-              <Field label="Người/bộ phận lập chứng từ">
+              <Field label={t('WalletConfigForm.personDepartmentIssuingDocuments')}>
                 <input
                   value={form.receiptIssuerName ?? ''}
                   onChange={(e) => setValue('receiptIssuerName', e.target.value, { shouldValidate: true })}
-                  placeholder="Phòng Kế toán"
+                  placeholder={t('WalletConfigForm.accountingDepartment')}
                   className={inputCls}
                 />
               </Field>
               <div className="sm:col-span-2">
-                <Field label="Chức danh người lập">
+                <Field label={t('WalletConfigForm.issuersTitle')}>
                   <input
                     value={form.receiptIssuerTitle ?? ''}
                     onChange={(e) => setValue('receiptIssuerTitle', e.target.value, { shouldValidate: true })}
-                    placeholder="Kế toán trưởng"
+                    placeholder={t('WalletConfigForm.chiefAccountant')}
                     className={inputCls}
                   />
                 </Field>
@@ -495,10 +493,7 @@ export default function WalletConfigForm() {
             <p className="mt-5 flex items-start gap-2 rounded-card bg-[var(--color-warning-bg)] px-4 py-3 text-xs leading-relaxed text-[var(--color-warning)]">
               <AlertTriangle size={14} className="mt-0.5 flex-shrink-0" />
               <span>
-                Đây là <strong>biên nhận thu tiền</strong> mang đủ nội dung bắt buộc theo Điều 10
-                Nghị định 123/2020/NĐ-CP, <strong>không phải hoá đơn GTGT</strong>. Hoá đơn điện tử
-                có mã của cơ quan thuế phải phát hành qua tổ chức cung cấp dịch vụ hoá đơn đã đăng
-                ký. Bản in đã ghi rõ điều này để nhân viên không đem đi kê khai thuế.
+                {t('WalletConfigForm.thisIsA')} <strong>{t('WalletConfigForm.paymentReceipt2')}</strong> {t('WalletConfigForm.containingAllMandatoryContentUnderArticle')} <strong>{t('WalletConfigForm.notAVatInvoice')}</strong>{t('WalletConfigForm.eInvoicesWithATaxAuthority')}
               </span>
             </p>
           </Card>
@@ -507,18 +502,18 @@ export default function WalletConfigForm() {
         <aside className="min-w-0 space-y-6 xl:sticky xl:top-6 xl:self-start">
           <section className="rounded-widget border border-[var(--color-border)] bg-[var(--color-card)] p-6">
             <h3 className="mb-4 text-eyebrow">
-              Tình trạng thiết lập
+              {t('WalletConfigForm.setupStatus')}
             </h3>
             <ul className="space-y-3.5">
               <ChecklistRow
                 done={!!data?.enableCashWallet}
-                label="Đã bật tính năng ví tiền"
-                hint="Bật ở trang Công ty, tab tính năng."
+                label={t('WalletConfigForm.walletFeatureTurnedOn')}
+                hint={t('WalletConfigForm.turnOnInTheCompanyPage')}
               />
               <ChecklistRow
                 done={bankReady}
-                label="Đã có tài khoản nhận tiền"
-                hint="Thiếu thì nhân viên không tạo được đơn nạp."
+                label={t('WalletConfigForm.receivingAccountSet')}
+                hint={t('WalletConfigForm.withoutItEmployeesCannotCreateTop')}
               />
               {/* Ô duy nhất KHÔNG suy được từ dữ liệu trong KeyGo. Không có API nào của
                   SePay để hỏi xem tài khoản đã liên kết bên đó chưa, nên chỉ một giao
@@ -526,26 +521,26 @@ export default function WalletConfigForm() {
                   khoản đều đúng. */}
               <ChecklistRow
                 done={!!data?.lastWebhookAt}
-                label="Đã nhận giao dịch từ tài khoản này"
+                label={t('WalletConfigForm.transactionsReceivedFromThisAccount')}
                 hint={
                   data?.lastWebhookAt
-                    ? `Gần nhất lúc ${formatDateTime(data.lastWebhookAt)}.`
-                    : 'Chưa có giao dịch nào của tài khoản này về hệ thống. Nếu đã liên kết bên SePay mà ô này vẫn trống, nhiều khả năng số tài khoản gõ ở đây khác số đã liên kết.'
+                    ? t('WalletConfigForm.latestAt', { lastWebhookAt: formatDateTime(data.lastWebhookAt) })
+                    : t('WalletConfigForm.noTransactionFromThisAccountHas')
                 }
               />
               <ChecklistRow
                 done={!form.receiptEnabled || (!!form.taxCode?.trim() && !!form.businessAddress?.trim())}
-                label="Hồ sơ pháp nhân đủ để lập chứng từ"
+                label={t('WalletConfigForm.legalEntityProfileCompleteForIssuing')}
                 hint={
                   form.receiptEnabled
-                    ? 'Cần mã số thuế và địa chỉ đơn vị — hai nội dung bắt buộc trên chứng từ thu tiền.'
-                    : 'Đang tắt gửi biên nhận nên không cần khai.'
+                    ? t('WalletConfigForm.aTaxCodeAndOrganizationAddress')
+                    : t('WalletConfigForm.receiptsAreOffSoThisIs')
                 }
               />
               <ChecklistRow
                 done={form.pointExchangeRate > 0}
-                label="Đã đặt tỉ giá quy đổi"
-                hint={`Hiện ${formatCurrency(form.pointExchangeRate)} đổi được 1 điểm.`}
+                label={t('WalletConfigForm.exchangeRateSet')}
+                hint={t('WalletConfigForm.currentlyConvertsTo1Point', { pointExchangeRate: formatCurrency(form.pointExchangeRate) })}
               />
             </ul>
           </section>
@@ -554,19 +549,19 @@ export default function WalletConfigForm() {
               tạo một đơn nạp thật để kiểm tra mình gõ có đúng không. */}
           <section className="rounded-widget border border-dashed border-[var(--color-border)] bg-[var(--color-muted)]/20 p-6">
             <h3 className="mb-4 text-eyebrow">
-              Nhân viên sẽ thấy
+              {t('WalletConfigForm.employeesWillSee')}
             </h3>
             <dl className="space-y-2.5 text-sm">
               {[
                 {
-                  label: 'Ngân hàng',
+                  label: t('WalletConfigForm.bank'),
                   // Giá trị lưu có thể là mã BIN cũ; đổi về tên viết tắt cho dễ đối chiếu.
                   value: findBank(form.sepayBankCode)?.code ?? form.sepayBankCode?.trim(),
                   mono: false,
                 },
-                { label: 'Số tài khoản', value: form.sepayAccountNumber?.trim(), mono: true },
-                { label: 'Chủ tài khoản', value: form.sepayAccountHolder?.trim(), mono: false },
-                { label: 'Nội dung', value: 'NAPK7F3QA2X', mono: true },
+                { label: t('WalletConfigForm.accountNumber'), value: form.sepayAccountNumber?.trim(), mono: true },
+                { label: t('WalletConfigForm.accountHolder'), value: form.sepayAccountHolder?.trim(), mono: false },
+                { label: t('WalletConfigForm.description'), value: 'NAPK7F3QA2X', mono: true },
               ].map(({ label, value, mono }) => (
                 <div key={label} className="flex items-center justify-between gap-3">
                   <dt className="flex-shrink-0 text-[var(--color-muted-foreground)]">{label}</dt>
@@ -581,7 +576,7 @@ export default function WalletConfigForm() {
               ))}
             </dl>
             <p className="mt-4 text-xs leading-relaxed text-[var(--color-muted-foreground)]">
-              Nội dung chuyển khoản là mã sinh riêng cho từng đơn, đây chỉ là ví dụ.
+              {t('WalletConfigForm.theTransferDescriptionIsACode')}
             </p>
           </section>
 
@@ -589,26 +584,26 @@ export default function WalletConfigForm() {
             <div className="mb-4 flex items-center gap-2">
               <Webhook size={16} className="text-[var(--color-muted-foreground)]" />
               <h3 className="text-eyebrow">
-                Nối với SePay
+                {t('WalletConfigForm.connectToSepay')}
               </h3>
             </div>
             <ol className="space-y-3">
               {[
                 <>
-                  Liên kết đúng tài khoản{' '}
+                  {t('WalletConfigForm.linkExactlyTheAccount')}{' '}
                   <strong className="font-mono">{form.sepayAccountNumber?.trim() || '…'}</strong>{' '}
-                  ở mục <strong>Ngân hàng</strong> trên dashboard SePay
+                  {t('WalletConfigForm.inTheSection')} <strong>{t('WalletConfigForm.bank')}</strong> {t('WalletConfigForm.onTheSepayDashboard')}
                 </>,
                 <>
-                  Trỏ webhook về <code className="rounded bg-[var(--color-muted)] px-1 py-0.5 text-xs">/api/v1/webhooks/sepay</code>
+                  {t('WalletConfigForm.pointTheWebhookTo')} <code className="rounded bg-[var(--color-muted)] px-1 py-0.5 text-xs">/api/v1/webhooks/sepay</code>
                 </>,
                 <>
-                  Đặt tiền tố mã đối soát là <strong>NAP</strong>
+                  {t('WalletConfigForm.setTheReconciliationCodePrefixTo')} <strong>NAP</strong>
                 </>,
                 <>
-                  Đặt khoá API vào biến môi trường{' '}
+                  {t('WalletConfigForm.putTheApiKeyInThe')}{' '}
                   <code className="rounded bg-[var(--color-muted)] px-1 py-0.5 text-xs">SEPAY_WEBHOOK_API_KEY</code>{' '}
-                  của máy chủ
+                  {t('WalletConfigForm.ofTheServer')}
                 </>,
               ].map((step, i) => (
                 <li key={i} className="flex gap-3 text-xs leading-relaxed">
@@ -620,13 +615,10 @@ export default function WalletConfigForm() {
               ))}
             </ol>
             <p className="mt-4 text-xs leading-relaxed text-[var(--color-muted-foreground)]">
-              Bước 1 chỉ làm được trên SePay, KeyGo không có API để tự liên kết hộ. Số tài khoản ở
-              đây phải trùng số đã liên kết bên đó: lệch nhau thì mã QR trỏ vào một tài khoản SePay
-              không theo dõi — tiền đi thật mà không giao dịch nào về hệ thống.
+              {t('WalletConfigForm.step1CanOnlyBeDone')}
             </p>
             <p className="mt-3 text-xs leading-relaxed text-[var(--color-muted-foreground)]">
-              Khoá API cố ý không cấu hình ở đây: nó nằm ở máy chủ nên không lọt vào giao diện hay
-              nhật ký truy cập.
+              {t('WalletConfigForm.theApiKeyIsDeliberatelyNot')}
             </p>
           </section>
         </aside>
@@ -640,11 +632,11 @@ export default function WalletConfigForm() {
             <div className="flex flex-shrink-0 gap-2">
               <Button variant="outline" type="button" onClick={() => data && reset(toForm(data))}>
                 <RotateCcw aria-hidden="true" />
-                Hoàn tác
+                {t('WalletConfigForm.undo')}
               </Button>
               <Button type="button" onClick={handleSubmit(d => updateConfig(d as WalletConfigRequest))} disabled={isUpdating}>
                 {isUpdating ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Save aria-hidden="true" />}
-                Lưu cấu hình
+                {t('WalletConfigForm.saveSettings')}
               </Button>
             </div>
           </div>

@@ -1,3 +1,4 @@
+import { LocaleNumberInput } from '@/components/ui/number-input'
 import { useMemo, useState } from 'react'
 import { Loader2, Plus, Trash2, Info, Check, ChevronDown } from 'lucide-react'
 import {
@@ -12,6 +13,9 @@ import { BscLinkedWeightEnforce, type CascadePolicyResponse } from '../types'
 import { Dialog, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { ChoiceChip } from '@/components/ui/choice-chip'
+import { useTranslation } from 'react-i18next'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
 interface CascadePolicyModalProps {
   open: boolean
@@ -22,11 +26,11 @@ interface CascadePolicyModalProps {
 /** Ba phạm vi áp dụng, đúng bộ với bộ tiêu chí (chỉ thêm mức áp dụng cho toàn tổ chức). */
 type Scope = 'DEFAULT' | 'CYCLE' | 'PERIOD'
 
-const SCOPE_HINT: Record<Scope, string> = {
-  DEFAULT: 'Áp dụng cho MỌI kỳ và đợt chưa có chính sách riêng. Mỗi tổ chức chỉ có một bản như vậy.',
-  CYCLE: 'Chỉ áp dụng cho các đợt thuộc kỳ được chọn — trừ đợt nào có chính sách riêng của nó.',
-  PERIOD: 'Chỉ áp dụng cho đúng những đợt được tick, không ảnh hưởng các đợt khác trong cùng kỳ.',
-}
+const SCOPE_HINT = perLanguage((): Record<Scope, string> => ({
+  DEFAULT: i18n.t('bsc:CascadePolicyModal.appliesToEveryCycleAndPeriod'),
+  CYCLE: i18n.t('bsc:CascadePolicyModal.appliesOnlyToThePeriodsOf'),
+  PERIOD: i18n.t('bsc:CascadePolicyModal.appliesOnlyToExactlyTheTicked'),
+}))
 
 /** Bản nháp cho chính sách MỚI — trùng đúng hằng số mặc định của backend (120 / 60 / cảnh báo). */
 const blankPolicy = (): CascadePolicyResponse => ({
@@ -56,6 +60,7 @@ const scopeOf = (p: CascadePolicyResponse): Scope =>
  * mặc định là mất luôn mức mặc định của cả tổ chức.
  */
 export default function CascadePolicyModal({ open, onClose, organizationId }: CascadePolicyModalProps) {
+  const { t } = useTranslation('bsc')
   const { data: policies, isLoading } = useCascadePolicies(open ? organizationId : undefined)
   const { data: cyclesData } = useKpiCycles({ organizationId, size: 200, sortBy: 'startDate', direction: 'desc' })
   const { data: periodsData } = useKpiPeriods({ organizationId, size: 200, sortBy: 'startDate', direction: 'desc' })
@@ -69,13 +74,13 @@ export default function CascadePolicyModal({ open, onClose, organizationId }: Ca
     const groups = new Map<string, { label: string; items: typeof allPeriods }>()
     for (const p of allPeriods) {
       const key = p.cycleId || '__none__'
-      if (!groups.has(key)) groups.set(key, { label: p.cycleName || 'Không thuộc kỳ nào', items: [] })
+      if (!groups.has(key)) groups.set(key, { label: p.cycleName || t('CascadePolicyModal.notInAnyCycle'), items: [] })
       groups.get(key)!.items.push(p)
     }
     return [...groups.entries()]
       .sort((a, b) => (a[0] === '__none__' ? 1 : b[0] === '__none__' ? -1 : 0))
       .map(([, g]) => g)
-  }, [allPeriods])
+  }, [allPeriods, t])
 
   const [editingId, setEditingId] = useState<string | null>(null)
   /**
@@ -155,10 +160,10 @@ export default function CascadePolicyModal({ open, onClose, organizationId }: Ca
   const defaultTaken = others.some(p => scopeOf(p) === 'DEFAULT')
 
   const periodTriggerLabel = periodIds.length === 0
-    ? 'Chọn đợt áp dụng'
+    ? t('CascadePolicyModal.chooseApplicablePeriods')
     : periodIds.length === 1
-      ? (form?.periods?.[0]?.name || '1 đợt')
-      : `Đã chọn ${periodIds.length} đợt`
+      ? (form?.periods?.[0]?.name || t('CascadePolicyModal.n1Period'))
+      : t('CascadePolicyModal.periodsSelected', { count: periodIds.length })
 
   const canSave = !!form
     && (scope !== 'CYCLE' || !!form.kpiCycleId)
@@ -170,8 +175,8 @@ export default function CascadePolicyModal({ open, onClose, organizationId }: Ca
       onClose={close}
       size="lg"
       dismissible={!(createPolicy.isPending || updatePolicy.isPending || deletePolicy.isPending)}
-      title="Chính sách điểm BSC"
-      description="Trần điểm công nhận và ràng buộc KPI phải liên kết BSC"
+      title={t('CascadePolicyModal.bscScorePolicy')}
+      description={t('CascadePolicyModal.recognizedScoreCapAndTheRequirement')}
       footer={
         <DialogFooter
           destructive={!creating && selected && (
@@ -180,17 +185,17 @@ export default function CascadePolicyModal({ open, onClose, organizationId }: Ca
               className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]"
               onClick={() => deletePolicy.mutate(selected.id, { onSuccess: close })}
               disabled={deletePolicy.isPending}
-              title="Xoá chính sách này — phạm vi của nó quay về dùng bản rộng hơn"
+              title={t('CascadePolicyModal.deleteThisPolicyItsScopeFalls')}
             >
-              <Trash2 aria-hidden="true" /> Xoá
+              <Trash2 aria-hidden="true" /> {t('CascadePolicyModal.delete')}
             </Button>
           )}
-          secondary={<Button variant="outline" onClick={close}>Huỷ</Button>}
+          secondary={<Button variant="outline" onClick={close}>{t('CascadePolicyModal.cancel')}</Button>}
           primary={
             <Button onClick={save} disabled={!canSave || createPolicy.isPending || updatePolicy.isPending}>
               {(createPolicy.isPending || updatePolicy.isPending)
-                ? 'Đang lưu...'
-                : creating ? 'Tạo chính sách' : 'Lưu chính sách'}
+                ? t('CascadePolicyModal.saving')
+                : creating ? t('CascadePolicyModal.createPolicy') : t('CascadePolicyModal.savePolicy')}
             </Button>
           }
         />
@@ -212,7 +217,7 @@ export default function CascadePolicyModal({ open, onClose, organizationId }: Ca
               </ChoiceChip>
             ))}
             <ChoiceChip selected={creating} size="sm" className="py-1.5" onClick={() => pick(null)}>
-              <Plus /> Chính sách mới
+              <Plus /> {t('CascadePolicyModal.newPolicy')}
             </ChoiceChip>
           </div>
         )}
@@ -221,9 +226,8 @@ export default function CascadePolicyModal({ open, onClose, organizationId }: Ca
           <div className="rounded-card bg-[var(--color-muted)] px-4 py-3 flex items-start gap-2">
             <Info size={14} className="text-[var(--color-subtle-foreground)] shrink-0 mt-0.5" />
             <p className="text-caption leading-relaxed">
-              Chấm điểm một đợt, hệ thống tra từ hẹp tới rộng: <b>chính sách gắn đúng đợt</b> →
-              <b> chính sách của kỳ</b> chứa đợt đó → <b>chính sách mặc định</b> → nếu không có bản
-              nào thì dùng mức có sẵn <b>120 / 60 / chỉ cảnh báo</b>.
+              {t('CascadePolicyModal.whenScoringAPeriodTheSystem')} <b>{t('CascadePolicyModal.aPolicyAttachedToThatExact')}</b> →
+              <b> {t('CascadePolicyModal.thePolicyOfTheCycle')}</b> {t('CascadePolicyModal.containingThatPeriod')} <b>{t('CascadePolicyModal.theDefaultPolicy')}</b> {t('CascadePolicyModal.ifNoneExistsTheBuiltIn')} <b>{t('CascadePolicyModal.n12060WarningOnly')}</b>.
             </p>
           </div>
         )}
@@ -231,22 +235,22 @@ export default function CascadePolicyModal({ open, onClose, organizationId }: Ca
         {form && !isLoading && (
           <>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Field label="Tên chính sách">
+              <Field label={t('CascadePolicyModal.policyName')}>
                 <input value={form.name} onChange={e => patch({ name: e.target.value })}
                   placeholder={`VD: ${defaultName(form)}`}
                   className="w-full px-3 py-2 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)] text-sm font-medium outline-none focus:placeholder:text-transparent" />
               </Field>
 
-              <Field label="Áp dụng cho" hint={SCOPE_HINT[scope]}>
+              <Field label={t('CascadePolicyModal.appliesTo')} hint={SCOPE_HINT()[scope]}>
                 <div className="grid grid-cols-3 gap-1.5">
                   {([
-                    { key: 'DEFAULT' as const, label: 'Toàn tổ chức' },
-                    { key: 'CYCLE' as const, label: 'Một kỳ' },
-                    { key: 'PERIOD' as const, label: 'Một số đợt' },
+                    { key: 'DEFAULT' as const, label: t('CascadePolicyModal.organizationWide') },
+                    { key: 'CYCLE' as const, label: t('CascadePolicyModal.oneCycle') },
+                    { key: 'PERIOD' as const, label: t('CascadePolicyModal.somePeriods') },
                   ]).map(opt => (
                     <ChoiceChip selected={scope === opt.key} variant="solid" size="sm" key={opt.key} onClick={() => setScope(opt.key)} disabled={opt.key === 'DEFAULT' && defaultTaken && scope !== 'DEFAULT'} title={opt.key === 'DEFAULT' && defaultTaken
-                        ? 'Tổ chức đã có một chính sách áp dụng cho toàn bộ — sửa bản đó thay vì tạo thêm'
-                        : SCOPE_HINT[opt.key]}>
+                        ? t('CascadePolicyModal.theOrganizationAlreadyHasAnOrganization')
+                        : SCOPE_HINT()[opt.key]}>
                       {opt.label}
                     </ChoiceChip>
                   ))}
@@ -255,14 +259,14 @@ export default function CascadePolicyModal({ open, onClose, organizationId }: Ca
             </div>
 
             {scope === 'CYCLE' && (
-              <Field label="Kỳ áp dụng" hint="Mọi đợt thuộc kỳ này dùng chính sách, trừ đợt nào có bản riêng.">
+              <Field label={t('CascadePolicyModal.applicableCycles')} hint={t('CascadePolicyModal.everyPeriodInThisCycleUses')}>
                 <Select value={form.kpiCycleId || undefined}
                   onValueChange={v => patch({ kpiCycleId: v, periods: [] })}>
-                  <SelectTrigger className="w-full"><SelectValue placeholder="Chọn kỳ đánh giá" /></SelectTrigger>
+                  <SelectTrigger className="w-full"><SelectValue placeholder={t('CascadePolicyModal.chooseEvaluationCycle')} /></SelectTrigger>
                   <SelectContent className="z-[1100]">
                     {cycles.map(c => (
                       <SelectItem key={c.id} value={c.id} disabled={takenCycleIds.has(c.id)}>
-                        {c.name}{takenCycleIds.has(c.id) ? ' (đã có chính sách)' : ''}
+                        {c.name}{takenCycleIds.has(c.id) ? t('CascadePolicyModal.alreadyHasAPolicy') : ''}
                       </SelectItem>
                     ))}
                   </SelectContent>
@@ -271,8 +275,8 @@ export default function CascadePolicyModal({ open, onClose, organizationId }: Ca
             )}
 
             {scope === 'PERIOD' && (
-              <Field label="Đợt áp dụng (chọn nhiều)"
-                hint="Tick nhiều đợt để dùng chung một chính sách. Cần áp dụng cho cả kỳ thì chuyển sang &quot;Kỳ&quot;.">
+              <Field label={t('CascadePolicyModal.applicablePeriodsMultiple')}
+                hint={t('CascadePolicyModal.tickSeveralPeriodsToShareOne')}>
                 <Popover>
                   <PopoverTrigger asChild>
                     <Button variant="outline" className="w-full justify-between font-normal" type="button">
@@ -285,7 +289,7 @@ export default function CascadePolicyModal({ open, onClose, organizationId }: Ca
                   <PopoverContent align="start"
                     className="p-2 w-[var(--radix-popover-trigger-width)] max-h-[300px] overflow-y-auto custom-scrollbar z-[1100]">
                     {allPeriods.length === 0 && (
-                      <p className="px-3 py-2 text-caption">Chưa có đợt KPI nào</p>
+                      <p className="px-3 py-2 text-caption">{t('CascadePolicyModal.noKpiPeriodsYet')}</p>
                     )}
                     {periodGroups.map(g => (
                       <div key={g.label} className="mb-1 last:mb-0">
@@ -299,7 +303,7 @@ export default function CascadePolicyModal({ open, onClose, organizationId }: Ca
                             return (
                               <div key={p.id}
                                 onClick={() => { if (!taken) togglePeriod(p.id, p.name) }}
-                                title={taken ? 'Đợt này đã nằm trong một chính sách khác' : undefined}
+                                title={taken ? t('CascadePolicyModal.thisPeriodIsAlreadyCoveredBy') : undefined}
                                 className={cn('flex items-center gap-3 px-3 py-2 rounded-card transition-colors group',
                                   taken ? 'opacity-40 cursor-not-allowed' : 'cursor-pointer',
                                   isSelected
@@ -322,31 +326,30 @@ export default function CascadePolicyModal({ open, onClose, organizationId }: Ca
             )}
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-              <Field label="Trần điểm gốc %"
-                hint="Điểm công nhận = MIN(điểm gốc, trần này). Chặn một cá nhân bay khỏi thang điểm khi chỉ tiêu đặt dễ.">
+              <Field label={t('CascadePolicyModal.rawScoreCap')}
+                hint={t('CascadePolicyModal.recognizedScoreMinRawScoreThis')}>
                 <NumberBox value={form.recognizedCapPercent} onChange={v => patch({ recognizedCapPercent: v })} step={1} />
               </Field>
-              <Field label="KPI liên kết BSC %"
-                hint="Tối thiểu bao nhiêu % tổng trọng số KPI của một người phải gắn vào chỉ tiêu BSC của đơn vị.">
+              <Field label={t('CascadePolicyModal.bscLinkedKpi')}
+                hint={t('CascadePolicyModal.theMinimumOfAPersonsTotal')}>
                 <NumberBox value={form.minBscLinkedWeight} onChange={v => patch({ minBscLinkedWeight: v })} step={1} />
               </Field>
             </div>
 
-            <Field label="Mức áp dụng ràng buộc KPI liên kết BSC"
-              hint="Chỉ cảnh báo = hiện cảnh báo ở màn diễn giải điểm. Chặn = KHÔNG chốt được đánh giá của người chưa đủ tỉ lệ này, và chỉ chặn khi bộ tiêu chí đã chuyển sang chấm chính thức. Bật Chặn ngay kỳ đầu sẽ làm kẹt hàng loạt nhân viên chưa kịp gắn KPI vào BSC.">
+            <Field label={t('CascadePolicyModal.enforcementOfTheBscLinkedKpi')}
+              hint={t('CascadePolicyModal.warningOnlyShowsAWarningOn')}>
               <Select value={form.linkedWeightEnforce}
                 onValueChange={v => patch({ linkedWeightEnforce: v as BscLinkedWeightEnforce })}>
                 <SelectTrigger className="w-full sm:w-auto sm:min-w-64"><SelectValue /></SelectTrigger>
                 <SelectContent className="z-[1100]">
-                  <SelectItem value={BscLinkedWeightEnforce.WARN}>Chỉ cảnh báo</SelectItem>
-                  <SelectItem value={BscLinkedWeightEnforce.BLOCK}>Chặn không cho chốt</SelectItem>
+                  <SelectItem value={BscLinkedWeightEnforce.WARN}>{t('CascadePolicyModal.warningOnly')}</SelectItem>
+                  <SelectItem value={BscLinkedWeightEnforce.BLOCK}>{t('CascadePolicyModal.blockFinalization')}</SelectItem>
                 </SelectContent>
               </Select>
             </Field>
 
             <p className="text-caption">
-              Kết quả BSC của phòng ban và công ty KHÔNG nhân vào điểm của nhân viên — nhân viên
-              được chấm theo đúng KPI của mình, chỉ bị chặn trần ở con số bên trên.
+              {t('CascadePolicyModal.departmentAndCompanyBscResultsAre')}
             </p>
           </>
         )}
@@ -357,9 +360,9 @@ export default function CascadePolicyModal({ open, onClose, organizationId }: Ca
 
 /** Tên gợi ý khi người dùng để trống — đủ để phân biệt các bản trong danh sách. */
 function defaultName(p: CascadePolicyResponse): string {
-  if (p.kpiCycleId) return `Chính sách ${p.kpiCycleName || 'theo kỳ'}`
-  if (p.periods?.length) return `Chính sách ${p.periods.map(x => x.name).join(', ')}`
-  return 'Chính sách chung toàn tổ chức'
+  if (p.kpiCycleId) return i18n.t('bsc:CascadePolicyModal.policy', { value: p.kpiCycleName || i18n.t('bsc:CascadePolicyModal.byCycle') })
+  if (p.periods?.length) return i18n.t('bsc:CascadePolicyModal.policy2', { join: p.periods.map(x => x.name).join(', ') })
+  return i18n.t('bsc:CascadePolicyModal.organizationWidePolicy')
 }
 
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
@@ -378,7 +381,7 @@ function NumberBox({ value, onChange, step }: {
   step?: number
 }) {
   return (
-    <input type="number" step={step ?? 1} value={value ?? ''}
+    <LocaleNumberInput type="number" step={step ?? 1} value={value ?? ''}
       onChange={e => onChange(Number(e.target.value))}
       className="w-full px-3 py-2 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)] text-sm font-semibold text-right outline-none" />
   )

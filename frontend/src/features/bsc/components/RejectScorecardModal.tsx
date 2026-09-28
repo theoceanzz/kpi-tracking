@@ -2,6 +2,9 @@ import { useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import { Dialog, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
+import { useTranslation } from 'react-i18next'
+import { useStateDraft } from '@/hooks/useFormDraft'
+import DraftNotice from '@/components/common/DraftNotice'
 
 interface RejectScorecardModalProps {
   open: boolean
@@ -22,7 +25,9 @@ interface RejectScorecardModalProps {
 export default function RejectScorecardModal({
   open, onClose, scorecardName, pending, onSubmit,
 }: RejectScorecardModalProps) {
+  const { t } = useTranslation('bsc')
   const [reason, setReason] = useState('')
+  const draft = useStateDraft(reason, setReason, { key: `bsc-reject:${scorecardName}`, enabled: open })
   const trimmed = reason.trim()
 
   return (
@@ -31,23 +36,24 @@ export default function RejectScorecardModal({
       onClose={onClose}
       size="md"
       dismissible={!pending}
-      title="Trả lại để sửa"
+      title={t('RejectScorecardModal.returnForChanges')}
       description={<span className="block truncate" title={scorecardName}>{scorecardName}</span>}
       footer={
         <DialogFooter
-          secondary={<Button variant="outline" onClick={onClose} disabled={pending}>Huỷ</Button>}
+          secondary={<Button variant="outline" onClick={onClose} disabled={pending}>{t('RejectScorecardModal.cancel')}</Button>}
           primary={
             <Button variant="destructive" onClick={() => trimmed && onSubmit(trimmed)} disabled={!trimmed || pending}>
               {pending && <Loader2 className="animate-spin" aria-hidden="true" />}
-              Trả lại
+              {t('RejectScorecardModal.return')}
             </Button>
           }
         />
       }
     >
+      <DraftNotice draft={draft} className="mb-4" />
       <div className="space-y-1.5">
         <label htmlFor="reject-scorecard-reason" className="text-label block">
-          Lý do trả lại <span className="text-[var(--color-error)]">*</span>
+          {t('RejectScorecardModal.returnReason')} <span className="text-[var(--color-error)]">*</span>
         </label>
         <textarea
           id="reject-scorecard-reason"
@@ -55,11 +61,11 @@ export default function RejectScorecardModal({
           value={reason}
           onChange={e => setReason(e.target.value)}
           rows={4}
-          placeholder="Đơn vị cần biết phải sửa gì: hạng mục nào thiếu, chỉ tiêu nào chưa hợp lý..."
+          placeholder={t('RejectScorecardModal.theUnitNeedsToKnowWhat')}
           className="w-full resize-none rounded-control border border-[var(--color-border)] bg-[var(--color-card)] px-3 py-2 text-sm text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-subtle-foreground)] focus-visible:border-[var(--color-primary)] focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]"
         />
         <p className="text-caption">
-          Thẻ quay về trạng thái <b className="font-medium text-[var(--color-foreground)]">Nháp</b> để đơn vị sửa rồi trình lại.
+          {t('RejectScorecardModal.theScorecardReturnsToStatus')} <b className="font-medium text-[var(--color-foreground)]">{t('RejectScorecardModal.draft')}</b> {t('RejectScorecardModal.soTheUnitCanFixIt')}
         </p>
       </div>
     </Dialog>

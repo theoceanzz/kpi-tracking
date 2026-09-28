@@ -2,59 +2,63 @@ import { Link } from "react-router-dom";
 import { Check, Key, Minus } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { Eyebrow, Headline, Lead, MoreToggle, Reveal } from "./primitives";
+import { useTranslation } from 'react-i18next'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
 type Feature = { text: string; included: boolean | string };
 
-const PLANS: Array<{
+const PLANS = perLanguage((): Array<{
   tier: string;
   who: string;
   features: Feature[];
   cta: string;
   popular?: boolean;
-}> = [
+}> => ([
   {
     tier: "Standard",
-    who: "Nhóm nhỏ dưới 200 người, số hoá đánh giá cơ bản.",
+    who: i18n.t('landing:PricingSection.smallTeamsUnder200PeopleDigitizing'),
     features: [
-      { text: "SaaS dùng chung domain", included: true },
-      { text: "Phân quyền & quản trị người dùng", included: true },
-      { text: "Đánh giá KPI theo đợt & kỳ", included: true },
-      { text: "Hạnh kiểm & ma trận xếp loại", included: true },
-      { text: "Dashboard & báo cáo mặc định", included: true },
-      { text: "OKR, BSC, Thưởng, Ví", included: false },
+      { text: i18n.t('landing:PricingSection.sharedDomainSaas'), included: true },
+      { text: i18n.t('landing:PricingSection.permissionsUserManagement'), included: true },
+      { text: i18n.t('landing:PricingSection.kpiEvaluationByPeriodCycle'), included: true },
+      { text: i18n.t('landing:PricingSection.conductRatingMatrix'), included: true },
+      { text: i18n.t('landing:PricingSection.defaultDashboardsReports'), included: true },
+      { text: i18n.t('landing:PricingSection.okrBscRewardsWallet'), included: false },
     ],
-    cta: "Bắt đầu dùng thử",
+    cta: i18n.t('landing:PricingSection.startATrial'),
   },
   {
     tier: "Professional",
-    who: "Doanh nghiệp tầm trung dưới 500 người, quản trị OKR & KPI.",
+    who: i18n.t('landing:PricingSection.midSizedBusinessesUnder500People'),
     features: [
-      { text: "Mọi thứ ở Standard", included: true },
-      { text: "OKR, BSC, Thưởng & điểm danh", included: true },
-      { text: "Dashboard động, báo cáo tự tạo", included: true },
-      { text: "White label (logo riêng)", included: true },
-      { text: "Hỗ trợ SLA 24h", included: true },
-      { text: "Trợ lý K.AI · API / SSO Lark", included: "Tính phí riêng" },
+      { text: i18n.t('landing:PricingSection.everythingInStandard'), included: true },
+      { text: i18n.t('landing:PricingSection.okrBscRewardsCheckIns'), included: true },
+      { text: i18n.t('landing:PricingSection.dynamicDashboardsCustomReports'), included: true },
+      { text: i18n.t('landing:PricingSection.whiteLabelOwnLogo'), included: true },
+      { text: i18n.t('landing:PricingSection.n24hSlaSupport'), included: true },
+      { text: i18n.t('landing:PricingSection.kAiAssistantApiLarkSso'), included: i18n.t('landing:PricingSection.customPricing') },
     ],
-    cta: "Đăng ký ngay",
+    cta: i18n.t('landing:PricingSection.signUpNow'),
     popular: true,
   },
   {
     tier: "Enterprise",
-    who: "Tổ chức lớn trên 500 người, bảo mật cao, triển khai riêng.",
+    who: i18n.t('landing:PricingSection.largeOrganizationsOver500PeopleHigh'),
     features: [
-      { text: "Subdomain riêng hoặc onsite", included: true },
-      { text: "Tenant & database riêng biệt", included: true },
-      { text: "Trọn bộ module + Ví tiền (SePay)", included: true },
-      { text: "White label toàn diện", included: true },
+      { text: i18n.t('landing:PricingSection.ownSubdomainOrOnSite'), included: true },
+      { text: i18n.t('landing:PricingSection.separateTenantDatabase'), included: true },
+      { text: i18n.t('landing:PricingSection.allModulesWalletSepay'), included: true },
+      { text: i18n.t('landing:PricingSection.fullWhiteLabel'), included: true },
       { text: "SLA 12h · online meeting", included: true },
-      { text: "Tùy chỉnh luồng nghiệp vụ sâu", included: true },
+      { text: i18n.t('landing:PricingSection.deepBusinessFlowCustomization'), included: true },
     ],
-    cta: "Liên hệ chuyên viên",
+    cta: i18n.t('landing:PricingSection.contactASpecialist'),
   },
-];
+]));
 
 export function PricingSection() {
+  const { t } = useTranslation('landing')
   return (
     <section
       id="pricing"
@@ -66,23 +70,22 @@ export function PricingSection() {
       <div className="mx-auto max-w-[1440px]">
         <div className="mx-auto mb-12 max-w-2xl text-center sm:mb-16">
           <Reveal>
-            <Eyebrow className="justify-center">Bảng giá</Eyebrow>
+            <Eyebrow className="justify-center">{t('PricingSection.pricing')}</Eyebrow>
           </Reveal>
           <Reveal delay={100}>
             <Headline className="mt-4">
-              Chọn gói theo <em>quy mô</em> của bạn.
+              {t('PricingSection.chooseAPlanBy')} <em>{t('PricingSection.your')}</em> {t('PricingSection.size')}
             </Headline>
           </Reveal>
           <Reveal delay={200}>
             <Lead className="mx-auto mt-4 text-center">
-              Liên hệ để nhận báo giá chi tiết. AI Assistant / AI Insight tư vấn
-              theo nhu cầu thực tế.
+              {t('PricingSection.contactUsForADetailedQuote')}
             </Lead>
           </Reveal>
         </div>
 
         <div className="grid items-stretch gap-4 lg:grid-cols-3 lg:gap-6">
-          {PLANS.map((p, i) => (
+          {PLANS().map((p, i) => (
             <Reveal
               key={p.tier}
               delay={i * 120}
@@ -98,14 +101,14 @@ export function PricingSection() {
               >
                 {p.popular && (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2 rounded-full bg-gradient-to-r from-blue-600 to-sky-500 px-3 py-1 text-[10px] font-black uppercase tracking-widest text-white shadow-lg">
-                    Phổ biến nhất
+                    {t('PricingSection.mostPopular')}
                   </div>
                 )}
                 <div className="text-sm font-bold uppercase tracking-widest text-slate-400">
                   {p.tier}
                 </div>
                 <div className="mt-2 text-4xl font-black text-slate-900">
-                  Liên hệ
+                  {t('PricingSection.contact')}
                 </div>
                 <p className="mt-2 text-sm text-slate-500">{p.who}</p>
 
@@ -117,8 +120,8 @@ export function PricingSection() {
                 </ul>
                 <MoreToggle
                   className="flex-1"
-                  labelOpen="Xem đầy đủ"
-                  labelClose="Thu gọn"
+                  labelOpen={t('PricingSection.seeAll')}
+                  labelClose={t('PricingSection.collapse')}
                 >
                   <ul className="space-y-3 pt-3">
                     {p.features.slice(4).map((f) => (

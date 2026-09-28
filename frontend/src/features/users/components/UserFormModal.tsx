@@ -27,6 +27,11 @@ import type { User } from '@/types/user'
 
 import type { OrgUnitTreeResponse } from '@/features/organization/types/org-unit'
 import { useMemo } from 'react'
+import { useTranslation } from 'react-i18next'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
+import { useFormDraft } from '@/hooks/useFormDraft'
+import DraftNotice from '@/components/common/DraftNotice'
 
 interface UserFormModalProps {
   open: boolean
@@ -40,14 +45,15 @@ interface RoleOption {
   name: string
 }
 
-const statusOptions = [
-  { value: 'ACTIVE', label: 'Hoạt động' },
-  { value: 'INACTIVE', label: 'Ngưng hoạt động' },
-  { value: 'SUSPENDED', label: 'Tạm khóa' },
-] as const
+const statusOptions = perLanguage(() => ([
+  { value: 'ACTIVE', label: i18n.t('users:UserFormModal.active') },
+  { value: 'INACTIVE', label: i18n.t('users:UserFormModal.inactive') },
+  { value: 'SUSPENDED', label: i18n.t('users:UserFormModal.suspended') },
+] as const))
 
 
 export default function UserFormModal({ open, onClose, editUser }: UserFormModalProps) {
+  const { t } = useTranslation('users')
   const isEdit = !!editUser
   const qc = useQueryClient()
   const { hasPermission } = usePermission()
@@ -141,11 +147,11 @@ export default function UserFormModal({ open, onClose, editUser }: UserFormModal
       qc.invalidateQueries({ queryKey: ['organization-users'] })
       qc.invalidateQueries({ queryKey: ['org-unit-members'] })
       qc.invalidateQueries({ queryKey: ['stats'] })
-      toast.success('Cập nhật nhân sự thành công')
+      toast.success(t('UserFormModal.personUpdatedSuccessfully'))
       onClose()
     },
     onError: (error: any) => {
-      const errorMessage = getApiErrorMessage(error, 'Cập nhật thất bại')
+      const errorMessage = getApiErrorMessage(error, t('UserFormModal.updateFailed'))
       toast.error(errorMessage)
     },
   })
@@ -160,9 +166,10 @@ export default function UserFormModal({ open, onClose, editUser }: UserFormModal
 }
 
 function CreateUserForm({ onClose, onSubmit, isPending, canAssignRoles, dynamicRoles, flattenedUnits, orgTree }: { onClose: () => void; onSubmit: (data: UserFormData) => void; isPending: boolean; canAssignRoles: boolean; dynamicRoles: RoleOption[]; flattenedUnits: { id: string, name: string, level: number }[]; orgTree: OrgUnitTreeResponse[] }) {
+  const { t } = useTranslation('users')
   const [showPassword, setShowPassword] = useState(false)
-  const { register, handleSubmit, control, setValue, getValues, formState: { errors } } = useForm<UserFormData>({
-    resolver: zodResolver(userSchema),
+  const formApi = useForm<UserFormData>({
+    resolver: zodResolver(userSchema()),
     defaultValues: { 
       email: '', 
       fullName: '', 
@@ -172,6 +179,8 @@ function CreateUserForm({ onClose, onSubmit, isPending, canAssignRoles, dynamicR
       orgUnitId: orgTree?.[0]?.id || '' 
     },
   })
+  const { register, handleSubmit, control, setValue, getValues, formState: { errors } } = formApi
+  const draft = useFormDraft(formApi, { key: 'user-form:new', enabled: true })
 
   // Watch selected unit to filter roles by allowedRoles
   const selectedOrgUnitId = useWatch({ control, name: 'orgUnitId' })
@@ -225,21 +234,21 @@ function CreateUserForm({ onClose, onSubmit, isPending, canAssignRoles, dynamicR
 
   const strengthScore = [hasLength, hasUpper, hasLower, hasNumber, hasSpecial].filter(Boolean).length
 
-  let strengthLabel = 'Chưa nhập'
+  let strengthLabel = t('UserFormModal.notEntered')
   let strengthColor = 'bg-[var(--color-border)]'
   let strengthTextColor = 'text-[var(--color-subtle-foreground)]'
 
   if (pwd.length > 0) {
     if (strengthScore <= 2) {
-      strengthLabel = 'Yếu'
+      strengthLabel = t('UserFormModal.weak')
       strengthColor = 'bg-[var(--color-error-solid)]'
       strengthTextColor = 'text-[var(--color-error)]'
     } else if (strengthScore <= 3) {
-      strengthLabel = 'Trung bình'
+      strengthLabel = t('UserFormModal.medium')
       strengthColor = 'bg-[var(--color-warning-solid)]'
       strengthTextColor = 'text-[var(--color-warning)]'
     } else {
-      strengthLabel = 'Mạnh'
+      strengthLabel = t('UserFormModal.strong')
       strengthColor = 'bg-[var(--color-success-solid)]'
       strengthTextColor = 'text-[var(--color-success)]'
     }
@@ -263,27 +272,28 @@ function CreateUserForm({ onClose, onSubmit, isPending, canAssignRoles, dynamicR
       onClose={onClose}
       size="md"
       dismissible={!isPending}
-      title="Thêm nhân sự mới"
+      title={t('UserFormModal.addANewPerson')}
       footer={
         <DialogFooter
-          secondary={<Button variant="outline" onClick={onClose} disabled={isPending}>Hủy</Button>}
+          secondary={<Button variant="outline" onClick={onClose} disabled={isPending}>{t('UserFormModal.cancel')}</Button>}
           primary={
             <Button type="submit" form="create-user-form" disabled={isPending}>
               {isPending && <Loader2 className="animate-spin" aria-hidden="true" />}
-              Tạo mới
+              {t('UserFormModal.create')}
             </Button>
           }
         />
       }
     >
+      <DraftNotice draft={draft} className="mb-4" />
       <form id="create-user-form" onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div>
-          <label className="text-label block font-medium mb-1.5">Họ và tên <span className="text-[var(--color-error)]">*</span></label>
-          <Input {...register('fullName')} invalid={!!errors.fullName} placeholder="Nguyễn Văn A" />
+          <label className="text-label block font-medium mb-1.5">{t('UserFormModal.fullName')} <span className="text-[var(--color-error)]">*</span></label>
+          <Input {...register('fullName')} invalid={!!errors.fullName} placeholder={t('UserFormModal.johnDoe')} />
           {errors.fullName && <p className="text-[var(--color-error)] text-xs mt-1">{errors.fullName.message}</p>}
         </div>
         <div>
-          <label className="text-label block font-medium mb-1.5">Mã nhân viên</label>
+          <label className="text-label block font-medium mb-1.5">{t('UserFormModal.employeeCode')}</label>
           <Input {...register('employeeCode')} placeholder="VD: NV001" />
         </div>
         <div>
@@ -292,26 +302,26 @@ function CreateUserForm({ onClose, onSubmit, isPending, canAssignRoles, dynamicR
           {errors.email && <p className="text-[var(--color-error)] text-xs mt-1">{errors.email.message}</p>}
         </div>
         <div>
-          <label className="text-label block font-medium mb-1.5">Mật khẩu <span className="text-[var(--color-error)]">*</span></label>
+          <label className="text-label block font-medium mb-1.5">{t('UserFormModal.password')} <span className="text-[var(--color-error)]">*</span></label>
           <Input
             {...register('password')}
             type={showPassword ? 'text' : 'password'}
             invalid={!!errors.password}
-            placeholder="Tối thiểu 8 ký tự"
+            placeholder={t('UserFormModal.atLeast8Characters')}
             suffix={
               <>
                 <button
                   type="button"
                   onClick={generatePassword}
                   className="flex items-center gap-0.5 text-xs font-semibold text-[var(--color-primary)] hover:text-[var(--color-primary)]/80 transition-colors"
-                  title="Gợi ý Mật khẩu"
+                  title={t('UserFormModal.passwordSuggestion')}
                 >
-                  <Wand2 /> Gợi ý
+                  <Wand2 /> {t('UserFormModal.suggest')}
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowPassword(!showPassword)}
-                  aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                  aria-label={showPassword ? t('UserFormModal.hidePassword') : t('UserFormModal.showPassword')}
                   className="ml-1 flex items-center text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)] transition-colors"
                 >
                   {showPassword ? <EyeOff /> : <Eye />}
@@ -323,7 +333,7 @@ function CreateUserForm({ onClose, onSubmit, isPending, canAssignRoles, dynamicR
           {pwd && (
             <div className="mt-2.5 p-3 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)] animate-in fade-in slide-in-from-top-1 duration-200">
               <div className="text-eyebrow flex justify-between items-center mb-2">
-                <span className="text-[var(--color-subtle-foreground)]">Độ mạnh</span>
+                <span className="text-[var(--color-subtle-foreground)]">{t('UserFormModal.strength')}</span>
                 <span className={strengthTextColor}>{strengthLabel}</span>
               </div>
               <div className="h-1.5 w-full bg-[var(--color-border)] rounded-full overflow-hidden flex gap-1 mb-3">
@@ -336,19 +346,19 @@ function CreateUserForm({ onClose, onSubmit, isPending, canAssignRoles, dynamicR
               <div className="grid grid-cols-2 gap-y-2 gap-x-1 text-caption">
                 <div className="flex items-center gap-1.5">
                   <div className={cn("w-3.5 h-3.5 rounded-full flex items-center justify-center transition-colors", hasLength ? 'bg-[var(--color-success-solid)] text-white' : 'bg-[var(--color-border)] text-transparent')}><Check size={10} strokeWidth={3}/></div>
-                  <span className={hasLength ? "text-[var(--color-foreground)]" : ""}>8+ ký tự</span>
+                  <span className={hasLength ? "text-[var(--color-foreground)]" : ""}>{t('UserFormModal.n8Characters')}</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <div className={cn("w-3.5 h-3.5 rounded-full flex items-center justify-center transition-colors", hasUpper && hasLower ? 'bg-[var(--color-success-solid)] text-white' : 'bg-[var(--color-border)] text-transparent')}><Check size={10} strokeWidth={3}/></div>
-                  <span className={(hasUpper && hasLower) ? "text-[var(--color-foreground)]" : ""}>Hoa & thường</span>
+                  <span className={(hasUpper && hasLower) ? "text-[var(--color-foreground)]" : ""}>{t('UserFormModal.upperLowerCase')}</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <div className={cn("w-3.5 h-3.5 rounded-full flex items-center justify-center transition-colors", hasNumber ? 'bg-[var(--color-success-solid)] text-white' : 'bg-[var(--color-border)] text-transparent')}><Check size={10} strokeWidth={3}/></div>
-                  <span className={hasNumber ? "text-[var(--color-foreground)]" : ""}>Có chữ số</span>
+                  <span className={hasNumber ? "text-[var(--color-foreground)]" : ""}>{t('UserFormModal.containsDigits')}</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <div className={cn("w-3.5 h-3.5 rounded-full flex items-center justify-center transition-colors", hasSpecial ? 'bg-[var(--color-success-solid)] text-white' : 'bg-[var(--color-border)] text-transparent')}><Check size={10} strokeWidth={3}/></div>
-                  <span className={hasSpecial ? "text-[var(--color-foreground)]" : ""}>Ký tự đặc biệt</span>
+                  <span className={hasSpecial ? "text-[var(--color-foreground)]" : ""}>{t('UserFormModal.specialCharacters')}</span>
                 </div>
               </div>
             </div>
@@ -356,21 +366,21 @@ function CreateUserForm({ onClose, onSubmit, isPending, canAssignRoles, dynamicR
           {errors.password && <p className="text-[var(--color-error)] text-xs mt-1">{errors.password.message}</p>}
         </div>
         <div>
-          <label className="text-label block font-medium mb-1.5">Số điện thoại</label>
+          <label className="text-label block font-medium mb-1.5">{t('UserFormModal.phoneNumber')}</label>
           <Input {...register('phone')} invalid={!!errors.phone} placeholder="0912 345 678" />
           {errors.phone && <p className="text-[var(--color-error)] text-xs mt-1">{errors.phone.message}</p>}
         </div>
         <div>
-          <label className="text-label block font-medium mb-1.5">Đơn vị <span className="text-[var(--color-error)]">*</span></label>
+          <label className="text-label block font-medium mb-1.5">{t('UserFormModal.unit')} <span className="text-[var(--color-error)]">*</span></label>
           <Controller
             name="orgUnitId"
             control={control}
             render={({ field }) => (
               <Select onValueChange={field.onChange} value={field.value}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Chọn vai trò" />
+                  <SelectValue placeholder={t('UserFormModal.chooseRole')} />
                 </SelectTrigger>
-                <SelectContent className="max-h-[300px] z-[300]">
+                <SelectContent className="max-h-[300px]">
                   {flattenedUnits.map((unit) => (
                     <SelectItem key={unit.id} value={unit.id}>
                       <span className="flex items-center">
@@ -386,14 +396,14 @@ function CreateUserForm({ onClose, onSubmit, isPending, canAssignRoles, dynamicR
           {errors.orgUnitId && <p className="text-[var(--color-error)] text-xs mt-1">{errors.orgUnitId.message}</p>}
         </div>
         <div>
-          <label className="text-label block font-medium mb-1.5">Vai trò <span className="text-[var(--color-error)]">*</span></label>
+          <label className="text-label block font-medium mb-1.5">{t('UserFormModal.role')} <span className="text-[var(--color-error)]">*</span></label>
           <Controller
             name="role"
             control={control}
             render={({ field }) => (
               <Select onValueChange={field.onChange} value={field.value} disabled={!canAssignRoles}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Chọn vai trò" />
+                  <SelectValue placeholder={t('UserFormModal.chooseRole')} />
                 </SelectTrigger>
                 <SelectContent className="z-[1100]">
                   {filteredRoles.map((opt) => (
@@ -405,10 +415,10 @@ function CreateUserForm({ onClose, onSubmit, isPending, canAssignRoles, dynamicR
               </Select>
             )}
           />
-          {!canAssignRoles && <p className="text-xs text-[var(--color-warning)] mt-1 font-medium">Bạn không có quyền thay đổi vai trò hệ thống</p>}
+          {!canAssignRoles && <p className="text-xs text-[var(--color-warning)] mt-1 font-medium">{t('UserFormModal.youDoNotHavePermissionTo')}</p>}
           {filteredRoles.length === 0 && selectedOrgUnitId && (
             <p className="text-xs text-[var(--color-error)] mt-1 font-medium italic animate-pulse flex items-center gap-1">
-              <AlertCircle size={12} /> Đơn vị này chưa được thiết lập phạm vi vai trò. Hãy cấu hình ở mục "Sơ đồ tổ chức".
+              <AlertCircle size={12} /> {t('UserFormModal.thisUnitHasNoRoleScope')}
             </p>
           )}
         </div>
@@ -418,8 +428,9 @@ function CreateUserForm({ onClose, onSubmit, isPending, canAssignRoles, dynamicR
 }
 
 function EditUserForm({ editUser, onClose, onSubmit, isPending, canAssignRoles, dynamicRoles, flattenedUnits, orgTree, rolesData }: { editUser: User; onClose: () => void; onSubmit: (data: UpdateUserFormData) => void; isPending: boolean; canAssignRoles: boolean; dynamicRoles: RoleOption[]; flattenedUnits: { id: string, name: string, level: number }[]; orgTree: OrgUnitTreeResponse[]; rolesData: any[] }) {
-  const { register, handleSubmit, control, reset, formState: { errors } } = useForm<UpdateUserFormData>({
-    resolver: zodResolver(updateUserSchema),
+  const { t } = useTranslation('users')
+  const formApi = useForm<UpdateUserFormData>({
+    resolver: zodResolver(updateUserSchema()),
     defaultValues: { 
       email: editUser.email, 
       fullName: editUser.fullName, 
@@ -430,6 +441,8 @@ function EditUserForm({ editUser, onClose, onSubmit, isPending, canAssignRoles, 
       orgUnitId: getPrimaryMembership(editUser)?.orgUnitId || ''
     },
   })
+  const { register, handleSubmit, control, reset, formState: { errors } } = formApi
+  const draft = useFormDraft(formApi, { key: `user-form:${editUser.id}`, enabled: true })
 
   // Ensure form resets when editUser changes
   useEffect(() => {
@@ -492,27 +505,28 @@ function EditUserForm({ editUser, onClose, onSubmit, isPending, canAssignRoles, 
       onClose={onClose}
       size="md"
       dismissible={!isPending}
-      title="Chỉnh sửa nhân sự"
+      title={t('UserFormModal.editPerson')}
       footer={
         <DialogFooter
-          secondary={<Button variant="outline" onClick={onClose} disabled={isPending}>Hủy</Button>}
+          secondary={<Button variant="outline" onClick={onClose} disabled={isPending}>{t('UserFormModal.cancel')}</Button>}
           primary={
             <Button type="submit" form="edit-user-form" disabled={isPending}>
               {isPending && <Loader2 className="animate-spin" aria-hidden="true" />}
-              Cập nhật
+              {t('UserFormModal.update')}
             </Button>
           }
         />
       }
     >
+      <DraftNotice draft={draft} className="mb-4" />
       <form id="edit-user-form" onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div>
-          <label className="text-label block font-medium mb-1.5">Họ và tên</label>
+          <label className="text-label block font-medium mb-1.5">{t('UserFormModal.fullName')}</label>
           <Input {...register('fullName')} invalid={!!errors.fullName} />
           {errors.fullName && <p className="text-[var(--color-error)] text-xs mt-1">{errors.fullName.message}</p>}
         </div>
         <div>
-          <label className="text-label block font-medium mb-1.5">Mã nhân viên</label>
+          <label className="text-label block font-medium mb-1.5">{t('UserFormModal.employeeCode')}</label>
           <Input {...register('employeeCode')} />
         </div>
         <div>
@@ -521,21 +535,21 @@ function EditUserForm({ editUser, onClose, onSubmit, isPending, canAssignRoles, 
           {errors.email && <p className="text-[var(--color-error)] text-xs mt-1">{errors.email.message}</p>}
         </div>
         <div>
-          <label className="text-label block font-medium mb-1.5">Số điện thoại</label>
+          <label className="text-label block font-medium mb-1.5">{t('UserFormModal.phoneNumber')}</label>
           <Input {...register('phone')} invalid={!!errors.phone} placeholder="0912 345 678" />
           {errors.phone && <p className="text-[var(--color-error)] text-xs mt-1">{errors.phone.message}</p>}
         </div>
         <div>
-          <label className="text-label block font-medium mb-1.5">Đơn vị</label>
+          <label className="text-label block font-medium mb-1.5">{t('UserFormModal.unit')}</label>
           <Controller
             name="orgUnitId"
             control={control}
             render={({ field }) => (
               <Select onValueChange={field.onChange} value={field.value}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Chọn đơn vị" />
+                  <SelectValue placeholder={t('UserFormModal.chooseUnit')} />
                 </SelectTrigger>
-                <SelectContent className="max-h-[300px] z-[300]">
+                <SelectContent className="max-h-[300px]">
                   {flattenedUnits.map((unit) => (
                     <SelectItem key={unit.id} value={unit.id}>
                       <span className="flex items-center">
@@ -550,14 +564,14 @@ function EditUserForm({ editUser, onClose, onSubmit, isPending, canAssignRoles, 
           />
         </div>
         <div>
-          <label className="text-label block font-medium mb-1.5">Vai trò</label>
+          <label className="text-label block font-medium mb-1.5">{t('UserFormModal.role')}</label>
           <Controller
             name="role"
             control={control}
             render={({ field }) => (
               <Select onValueChange={field.onChange} value={field.value} disabled={!canAssignRoles}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Chọn vai trò" />
+                  <SelectValue placeholder={t('UserFormModal.chooseRole')} />
                 </SelectTrigger>
                 <SelectContent className="z-[1100]">
                   {filteredRoles.map((opt) => (
@@ -569,25 +583,25 @@ function EditUserForm({ editUser, onClose, onSubmit, isPending, canAssignRoles, 
               </Select>
             )}
           />
-          {!canAssignRoles && <p className="text-xs text-[var(--color-warning)] mt-1 font-medium">Bạn không có quyền thay đổi vai trò hệ thống</p>}
+          {!canAssignRoles && <p className="text-xs text-[var(--color-warning)] mt-1 font-medium">{t('UserFormModal.youDoNotHavePermissionTo')}</p>}
           {filteredRoles.length === 0 && selectedOrgUnitId && (
             <p className="text-xs text-[var(--color-error)] mt-1 font-medium italic animate-pulse flex items-center gap-1">
-              <AlertCircle size={12} /> Đơn vị này chưa được thiết lập phạm vi vai trò. Hãy cấu hình ở mục "Sơ đồ tổ chức".
+              <AlertCircle size={12} /> {t('UserFormModal.thisUnitHasNoRoleScope')}
             </p>
           )}
         </div>
         <div>
-          <label className="text-label block font-medium mb-1.5">Trạng thái</label>
+          <label className="text-label block font-medium mb-1.5">{t('UserFormModal.status')}</label>
           <Controller
             name="status"
             control={control}
             render={({ field }) => (
               <Select onValueChange={field.onChange} value={field.value}>
                 <SelectTrigger>
-                  <SelectValue placeholder="Trạng thái" />
+                  <SelectValue placeholder={t('UserFormModal.status')} />
                 </SelectTrigger>
                 <SelectContent className="z-[1100]">
-                  {statusOptions.map((opt) => (
+                  {statusOptions().map((opt) => (
                     <SelectItem key={opt.value} value={opt.value}>
                       {opt.label}
                     </SelectItem>

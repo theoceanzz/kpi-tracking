@@ -8,6 +8,7 @@ import type {
   RewardBudgetRequest,
   RewardGrantStatus,
 } from '../types'
+import { useTranslation } from 'react-i18next'
 
 const errMsg = (error: any, fallback: string) =>
   getApiErrorMessage(error, fallback)
@@ -76,6 +77,7 @@ export const useRewardGrants = (params: {
   page?: number
   size?: number
 }) => {
+  const { t } = useTranslation('rewards')
   const qc = useQueryClient()
 
   const query = useQuery({
@@ -90,24 +92,24 @@ export const useRewardGrants = (params: {
       // Hai kết cục rất khác nhau: điểm đã vào ví, hay mới chỉ gửi đi chờ duyệt.
       // Báo chung một câu "thành công" sẽ khiến người trao tưởng đã xong.
       if (grant.requiresApproval) {
-        toast.info('Đã gửi đề nghị, đang chờ cấp trên duyệt', {
+        toast.info(t('useRewards.proposalSentWaitingForManagerApproval'), {
           description: grant.approvalReason ?? undefined,
           duration: 6000,
         })
       } else {
         toast.success(
-          `Đã thưởng ${grant.totalPoints} điểm cho ${grant.recipients.length} nhân viên`,
+          t('useRewards.rewardedPointsToEmployees', { totalPoints: grant.totalPoints, count: grant.recipients.length }),
           {
             // Nói rõ giấy khen đã tới tay nhân viên chưa: người trao vừa tick "kèm giấy
             // khen" và cần biết việc đó có hiệu lực, thay vì phải mở lại đề nghị để kiểm.
             description: grant.certificateEnabled
-              ? 'Giấy khen đã sẵn sàng — bấm nút chứng nhận trên dòng vừa tạo để in.'
+              ? t('useRewards.theCertificateIsReadyClickThe')
               : undefined,
           }
         )
       }
     },
-    onError: (error: any) => toast.error(errMsg(error, 'Thưởng điểm thất bại')),
+    onError: (error: any) => toast.error(errMsg(error, t('useRewards.rewardFailed'))),
   })
 
   const approveMutation = useMutation({
@@ -115,9 +117,9 @@ export const useRewardGrants = (params: {
       rewardApi.approveGrant(id, data),
     onSuccess: () => {
       invalidateRewardData(qc)
-      toast.success('Đã duyệt và phát điểm thưởng')
+      toast.success(t('useRewards.approvedAndRewardPointsGiven'))
     },
-    onError: (error: any) => toast.error(errMsg(error, 'Duyệt đề nghị thất bại')),
+    onError: (error: any) => toast.error(errMsg(error, t('useRewards.failedToApproveProposal'))),
   })
 
   const rejectMutation = useMutation({
@@ -125,18 +127,18 @@ export const useRewardGrants = (params: {
       rewardApi.rejectGrant(id, data),
     onSuccess: () => {
       invalidateRewardData(qc)
-      toast.success('Đã từ chối đề nghị thưởng')
+      toast.success(t('useRewards.rewardProposalRejected'))
     },
-    onError: (error: any) => toast.error(errMsg(error, 'Từ chối đề nghị thất bại')),
+    onError: (error: any) => toast.error(errMsg(error, t('useRewards.failedToRejectProposal'))),
   })
 
   const cancelMutation = useMutation({
     mutationFn: (id: string) => rewardApi.cancelGrant(id),
     onSuccess: () => {
       invalidateRewardData(qc)
-      toast.success('Đã huỷ đề nghị thưởng')
+      toast.success(t('useRewards.rewardProposalCancelled'))
     },
-    onError: (error: any) => toast.error(errMsg(error, 'Huỷ đề nghị thất bại')),
+    onError: (error: any) => toast.error(errMsg(error, t('useRewards.failedToCancelProposal'))),
   })
 
   const revokeMutation = useMutation({
@@ -144,10 +146,10 @@ export const useRewardGrants = (params: {
       rewardApi.revokeGrant(id, data),
     onSuccess: () => {
       invalidateRewardData(qc)
-      toast.success('Đã thu hồi điểm thưởng')
+      toast.success(t('useRewards.rewardPointsRevoked'))
     },
     onError: (error: any) =>
-      toast.error(errMsg(error, 'Thu hồi thất bại'), { duration: 8000 }),
+      toast.error(errMsg(error, t('useRewards.revokeFailed')), { duration: 8000 }),
   })
 
   return {
@@ -176,6 +178,7 @@ export const useMyBudget = (enabled = true) =>
   })
 
 export const useRewardBudgets = () => {
+  const { t } = useTranslation('rewards')
   const qc = useQueryClient()
 
   const query = useQuery({
@@ -188,10 +191,10 @@ export const useRewardBudgets = () => {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['rewardBudgets'] })
       qc.invalidateQueries({ queryKey: ['rewardBudget'] })
-      toast.success('Đã cấp hạn mức điểm thưởng')
+      toast.success(t('useRewards.rewardPointBudgetGranted'))
     },
     onError: (error: any) =>
-      toast.error(errMsg(error, 'Cấp hạn mức thất bại'), { duration: 8000 }),
+      toast.error(errMsg(error, t('useRewards.failedToGrantBudget')), { duration: 8000 }),
   })
 
   const updateMutation = useMutation({
@@ -200,10 +203,10 @@ export const useRewardBudgets = () => {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['rewardBudgets'] })
       qc.invalidateQueries({ queryKey: ['rewardBudget'] })
-      toast.success('Đã cập nhật hạn mức')
+      toast.success(t('useRewards.quotaUpdated'))
     },
     onError: (error: any) =>
-      toast.error(errMsg(error, 'Cập nhật hạn mức thất bại'), { duration: 8000 }),
+      toast.error(errMsg(error, t('useRewards.failedToUpdateBudget')), { duration: 8000 }),
   })
 
   const deleteMutation = useMutation({
@@ -211,9 +214,9 @@ export const useRewardBudgets = () => {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['rewardBudgets'] })
       qc.invalidateQueries({ queryKey: ['rewardBudget'] })
-      toast.success('Đã xoá hạn mức')
+      toast.success(t('useRewards.budgetDeleted'))
     },
-    onError: (error: any) => toast.error(errMsg(error, 'Xoá hạn mức thất bại')),
+    onError: (error: any) => toast.error(errMsg(error, t('useRewards.failedToDeleteBudget'))),
   })
 
   return {

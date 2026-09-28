@@ -1,5 +1,6 @@
 package com.kpitracking.service;
 
+import com.kpitracking.i18n.ErrorMessages;
 import com.kpitracking.entity.Organization;
 import com.kpitracking.entity.RewardTransaction;
 import com.kpitracking.entity.RewardWallet;
@@ -7,7 +8,9 @@ import com.kpitracking.entity.User;
 import com.kpitracking.enums.RewardSourceType;
 import com.kpitracking.enums.RewardTransactionType;
 import com.kpitracking.exception.BusinessException;
+import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.ResourceNotFoundException;
+import com.kpitracking.i18n.Terms;
 import com.kpitracking.repository.OrganizationRepository;
 import com.kpitracking.repository.RewardTransactionRepository;
 import com.kpitracking.repository.RewardWalletRepository;
@@ -80,6 +83,17 @@ public class RewardWalletService {
     private final RewardTransactionRepository transactionRepository;
     private final OrganizationRepository organizationRepository;
     private final UserRepository userRepository;
+    private final com.kpitracking.i18n.UserLanguageResolver languageResolver;
+
+    /**
+     * Ghi chú bút toán viết theo ngôn ngữ của CHỦ VÍ: ghi chú được lưu lại và chỉ hiện trong lịch sử
+     * ví của chính họ, nên dịch lúc ghi là đủ (không cần cột dịch lúc đọc như thông báo).
+     */
+    public String noteFor(UUID userId, String key, Object... args) {
+        java.util.Locale locale = userRepository.findById(userId).map(languageResolver::effectiveLocale)
+                .orElse(com.kpitracking.i18n.SupportedLanguages.DEFAULT_LOCALE);
+        return ErrorMessages.text(locale, key, key, args);
+    }
 
     /**
      * Mô tả một bút toán. Gom tham số vào đây để lời gọi đọc được, không phải mười đối số.
@@ -157,7 +171,7 @@ public class RewardWalletService {
 
         // Khoá bi quan dòng ví. Đây là cơ chế chính chống đua ghi, không phải cột version.
         RewardWallet wallet = walletRepository.findByIdForUpdate(walletId)
-                .orElseThrow(() -> new ResourceNotFoundException("Ví điểm", "id", walletId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.pointWallet"), "id", walletId));
 
         int amount = entry.amount();
         int deltaEarned = 0, deltaSpent = 0, deltaExpired = 0;
@@ -174,8 +188,7 @@ public class RewardWalletService {
         // xuống âm: kẹp về 0 sẽ phá bất biến balanceAfter = trước + amount của sổ cái,
         // và làm sai lệch tổng đã nhận của người bị thu hồi.
         if (entry.type() == RewardTransactionType.SPEND && wallet.getBalance() + amount < 0) {
-            throw new BusinessException("Số dư điểm không đủ. Hiện có " + wallet.getBalance()
-                    + " điểm, cần " + Math.abs(amount) + " điểm.");
+            throw new BusinessException(ErrorCode.INSUFFICIENT_POINT_BALANCE, String.valueOf(wallet.getBalance()), String.valueOf(Math.abs(amount)));
         }
 
         wallet.applyDelta(amount, deltaEarned, deltaSpent, deltaExpired);
@@ -213,9 +226,9 @@ public class RewardWalletService {
         return walletRepository.findByOrganizationIdAndUserId(organizationId, userId)
                 .orElseGet(() -> {
                     Organization org = organizationRepository.findById(organizationId)
-                            .orElseThrow(() -> new ResourceNotFoundException("Tổ chức", "id", organizationId));
+                            .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.organization"), "id", organizationId));
                     User user = userRepository.findById(userId)
-                            .orElseThrow(() -> new ResourceNotFoundException("Người dùng", "id", userId));
+                            .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.user"), "id", userId));
                     return walletRepository.save(RewardWallet.builder()
                             .organization(org)
                             .user(user)

@@ -13,7 +13,9 @@ public interface EmailTemplateRepository extends JpaRepository<EmailTemplate, UU
 
     List<EmailTemplate> findByOrganizationId(UUID organizationId);
 
-    Optional<EmailTemplate> findByOrganizationIdAndTemplateCode(UUID organizationId, String templateCode);
+    List<EmailTemplate> findByOrganizationIdAndLanguage(UUID organizationId, String language);
 
-    void deleteByOrganizationIdAndTemplateCode(UUID organizationId, String templateCode);
+    Optional<EmailTemplate> findByOrganizationIdAndTemplateCodeAndLanguage(UUID organizationId, String templateCode, String language);
+
+    void deleteByOrganizationIdAndTemplateCodeAndLanguage(UUID organizationId, String templateCode, String language);
 }

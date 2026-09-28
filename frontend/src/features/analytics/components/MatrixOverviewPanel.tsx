@@ -3,6 +3,7 @@ import { ratingColor, hexAlpha } from '@/components/charts/chartPalette'
 import { Star, Target, Activity, Users, Grid3x3 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { MatrixOverview } from '../api/matrixAnalyticsApi'
+import { useTranslation } from 'react-i18next'
 
 /** Màu theo xếp loại 1..5 (đỏ → xanh). */
 const fmt1 = (v?: number | null) => (v == null ? '-' : (Math.round(v * 10) / 10).toString())
@@ -26,14 +27,15 @@ function EmptyState({ children }: { children: React.ReactNode }) {
 
 /** 4 thẻ chỉ số ma trận (luôn hiển thị). */
 export function MatrixMetricCards({ overview }: { overview?: MatrixOverview }) {
+  const { t } = useTranslation('analytics')
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
       <div className="bg-[var(--color-card)] rounded-2xl p-5 border border-[var(--color-border)] flex items-center gap-4">
         <div className="w-12 h-12 rounded-full flex items-center justify-center shrink-0" style={{ backgroundColor: `${ratingColor(overview?.averageRating)}22`, color: ratingColor(overview?.averageRating) }}><Star size={24} /></div>
         <div>
-          <p className="text-xs font-medium text-slate-500">Xếp loại trung bình</p>
+          <p className="text-xs font-medium text-slate-500">{t('MatrixOverviewPanel.averageRating')}</p>
           <p className="text-2xl font-semibold tabular-nums" style={{ color: ratingColor(overview?.averageRating) }}>{fmt2(overview?.averageRating)}<span className="text-sm text-slate-400">/5</span></p>
-          <p className="text-xs font-medium text-slate-400">{overview?.personCount ?? 0} nhân sự</p>
+          <p className="text-xs font-medium text-slate-400">{overview?.personCount ?? 0} {t('MatrixOverviewPanel.people')}</p>
         </div>
       </div>
       <div
@@ -42,22 +44,22 @@ export function MatrixMetricCards({ overview }: { overview?: MatrixOverview }) {
       >
         <div className="w-12 h-12 rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-[var(--color-primary)] dark:text-indigo-400 flex items-center justify-center shrink-0"><Target size={24} /></div>
         <div>
-          <p className="text-xs font-medium text-slate-500">% Hoàn thành KPI TB</p>
+          <p className="text-xs font-medium text-slate-500">{t('MatrixOverviewPanel.avgKpiCompletion')}</p>
           <p className="text-2xl font-semibold tabular-nums">{fmt1(overview?.averageCompletion)}%</p>
-          <p className="text-xs font-medium text-slate-400">ghi trên đánh giá (để xếp loại)</p>
+          <p className="text-xs font-medium text-slate-400">{t('MatrixOverviewPanel.recordedOnEvaluationsForRating')}</p>
         </div>
       </div>
       <div className="bg-[var(--color-card)] rounded-2xl p-5 border border-[var(--color-border)] flex items-center gap-4">
         <div className="w-12 h-12 rounded-full bg-teal-100 dark:bg-teal-900/40 text-teal-600 dark:text-teal-400 flex items-center justify-center shrink-0"><Activity size={24} /></div>
         <div>
-          <p className="text-xs font-medium text-slate-500">Điểm hành vi TB</p>
+          <p className="text-xs font-medium text-slate-500">{t('MatrixOverviewPanel.avgConductScore')}</p>
           <p className="text-2xl font-semibold tabular-nums">{fmt2(overview?.averageBehavior)}<span className="text-sm text-slate-400">/5</span></p>
         </div>
       </div>
       <div className="bg-[var(--color-card)] rounded-2xl p-5 border border-[var(--color-border)] flex items-center gap-4">
         <div className="w-12 h-12 rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-[var(--color-primary)] dark:text-indigo-400 flex items-center justify-center shrink-0"><Users size={24} /></div>
         <div>
-          <p className="text-xs font-medium text-slate-500">Nhân sự có xếp loại</p>
+          <p className="text-xs font-medium text-slate-500">{t('MatrixOverviewPanel.peopleWithARating')}</p>
           <p className="text-2xl font-semibold tabular-nums">{overview?.personCount ?? 0}</p>
         </div>
       </div>
@@ -76,9 +78,10 @@ export function MatrixDistHeatmap({ overview, viewToggle, heatmapSlot }: {
    */
   heatmapSlot?: React.ReactNode
 }) {
+  const { t } = useTranslation('analytics')
   const distData = useMemo(
-    () => (overview?.distribution || []).map(b => ({ name: `Loại ${b.rating}`, rating: b.rating, value: b.count })),
-    [overview]
+    () => (overview?.distribution || []).map(b => ({ name: t('MatrixOverviewPanel.rating', { rating: b.rating }), rating: b.rating, value: b.count })),
+    [overview, t]
   )
   const totalDist = distData.reduce((s, d) => s + d.value, 0)
   const heatmap = overview?.heatmap
@@ -92,8 +95,8 @@ export function MatrixDistHeatmap({ overview, viewToggle, heatmapSlot }: {
   if (overview && overview.personCount === 0) {
     return (
       <Card><EmptyState>
-        Chưa có đánh giá nào có xếp loại ma trận cho phạm vi/kỳ đang chọn.<br />
-        Cần đánh giá định tính + chấm điểm hành vi để có dữ liệu.
+        {t('MatrixOverviewPanel.noEvaluationWithAMatrixRating')}<br />
+        {t('MatrixOverviewPanel.qualitativeEvaluationsAndConductScoresAre')}
       </EmptyState></Card>
     )
   }
@@ -103,8 +106,8 @@ export function MatrixDistHeatmap({ overview, viewToggle, heatmapSlot }: {
       <div className="flex items-start justify-between gap-2">
         <SectionTitle icon={<Grid3x3 size={14} className="text-slate-400" />}>
           {heatmapSlot
-            ? (heatmap ? `${heatmap.rowHeader} × ${heatmap.colHeader}` : 'Tương quan hành vi × hoàn thành')
-            : (heatmap ? `Heatmap: ${heatmap.rowHeader} × ${heatmap.colHeader}` : 'Heatmap ma trận')}
+            ? (heatmap ? `${heatmap.rowHeader} × ${heatmap.colHeader}` : t('MatrixOverviewPanel.conductCompletionCorrelation'))
+            : (heatmap ? `Heatmap: ${heatmap.rowHeader} × ${heatmap.colHeader}` : t('MatrixOverviewPanel.matrixHeatmap'))}
         </SectionTitle>
         {viewToggle}
       </div>
@@ -116,7 +119,7 @@ export function MatrixDistHeatmap({ overview, viewToggle, heatmapSlot }: {
             <div key={d.rating} className="rounded-lg border border-[var(--color-border)] px-2 py-1.5 text-center">
               <div className="h-1 rounded-full" style={{ backgroundColor: ratingColor(d.rating) }} />
               <p className="text-lg font-semibold tabular-nums text-[var(--color-foreground)] mt-1">{d.value}</p>
-              <p className="text-xs text-slate-500">Loại {d.rating}</p>
+              <p className="text-xs text-slate-500">{t('MatrixOverviewPanel.type')} {d.rating}</p>
             </div>
           ))}
         </div>
@@ -146,10 +149,10 @@ export function MatrixDistHeatmap({ overview, viewToggle, heatmapSlot }: {
                           <div
                             className="w-full h-[52px] min-w-[64px] rounded-lg flex flex-col items-center justify-center border border-black/5"
                             style={{ backgroundColor: hexAlpha(color, alpha) }}
-                            title={`Xếp loại ${rating ?? '-'} · ${count} nhân sự`}
+                            title={t('MatrixOverviewPanel.ratingPeople', { value: rating ?? '-', count })}
                           >
                             <span className={cn('text-base font-semibold tabular-nums', count > 0 ? 'text-[var(--color-foreground)]' : 'text-slate-300 dark:text-slate-600')}>{count}</span>
-                            <span className="text-xs font-semibold" style={{ color }}>loại {rating ?? '-'}</span>
+                            <span className="text-xs font-semibold" style={{ color }}>{t('MatrixOverviewPanel.rating2')} {rating ?? '-'}</span>
                           </div>
                         </td>
                       )
@@ -159,13 +162,13 @@ export function MatrixDistHeatmap({ overview, viewToggle, heatmapSlot }: {
               </tbody>
             </table>
             <p className="text-xs text-slate-400 font-medium mt-2 text-center">
-              Số trong ô = số nhân sự rơi vào (điểm hành vi × % hoàn thành) đó · màu theo xếp loại của ô.
+              {t('MatrixOverviewPanel.theNumberInACellPeople')}
               <br />
               {/* Không nói rõ chỗ này thì người lọc nhiều đợt sẽ tự hỏi con số đang thuộc đợt nào. */}
-              Mỗi người tính một lần, lấy đánh giá của đợt gần nhất trong khoảng đang lọc.
+              {t('MatrixOverviewPanel.eachPersonIsCountedOnceUsing')}
             </p>
           </div>
-        ) : <EmptyState>Tổ chức chưa cấu hình ma trận xếp loại</EmptyState>)}
+        ) : <EmptyState>{t('MatrixOverviewPanel.theOrganizationHasNotConfiguredA')}</EmptyState>)}
     </Card>
   )
 }

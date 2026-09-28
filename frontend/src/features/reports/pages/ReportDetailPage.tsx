@@ -1,3 +1,4 @@
+import { intlLocale } from '@/i18n/format'
 import { useState, useMemo, useEffect, memo } from 'react'
 import { debounce } from 'lodash-es'
 import { useParams, useNavigate } from 'react-router-dom'
@@ -24,6 +25,9 @@ import { useDatasources, useDatasourceDataQueries } from '@/features/datasources
 import { useUsers } from '@/features/users/hooks/useUsers'
 import type { WidgetType, ReportWidget as ReportWidgetType, DsColumn } from '@/types/datasource'
 import type { User } from '@/types/user'
+import { useTranslation } from 'react-i18next'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
 const COLORS = ['#6366f1', '#8b5cf6', '#a855f7', '#ec4899', '#f43f5e', '#f97316', '#eab308', '#22c55e', '#14b8a6', '#06b6d4']
 const EMPTY_ARRAY: any[] = []
@@ -32,15 +36,15 @@ const USER_PARAMS = { page: 0, size: 1000 }
 
 const ResponsiveGridLayout = WidthProvider(Responsive)
 
-const WIDGET_TYPES: { value: WidgetType; label: string; icon: React.ReactNode }[] = [
-  { value: 'BAR', label: 'Biểu đồ cột', icon: <BarChart3 size={16} /> },
-  { value: 'LINE', label: 'Biểu đồ đường', icon: <LineChartIcon size={16} /> },
-  { value: 'PIE', label: 'Biểu đồ tròn', icon: <PieChartIcon size={16} /> },
-  { value: 'DONUT', label: 'Biểu đồ bánh mì', icon: <PieChartIcon size={16} /> },
-  { value: 'AREA', label: 'Biểu lộ vùng', icon: <AreaChartIcon size={16} /> },
-  { value: 'NUMBER_CARD', label: 'Thẻ số', icon: <Hash size={16} /> },
-  { value: 'TABLE', label: 'Bảng dữ liệu', icon: <Table2 size={16} /> },
-]
+const WIDGET_TYPES = perLanguage((): { value: WidgetType; label: string; icon: React.ReactNode }[] => ([
+  { value: 'BAR', label: i18n.t('reports:ReportDetailPage.barChart'), icon: <BarChart3 size={16} /> },
+  { value: 'LINE', label: i18n.t('reports:ReportDetailPage.lineChart'), icon: <LineChartIcon size={16} /> },
+  { value: 'PIE', label: i18n.t('reports:ReportDetailPage.pieChart'), icon: <PieChartIcon size={16} /> },
+  { value: 'DONUT', label: i18n.t('reports:ReportDetailPage.donutChart'), icon: <PieChartIcon size={16} /> },
+  { value: 'AREA', label: i18n.t('reports:ReportDetailPage.areaChart'), icon: <AreaChartIcon size={16} /> },
+  { value: 'NUMBER_CARD', label: i18n.t('reports:ReportDetailPage.numberCard'), icon: <Hash size={16} /> },
+  { value: 'TABLE', label: i18n.t('reports:ReportDetailPage.dataTable'), icon: <Table2 size={16} /> },
+]))
 
 type ChartConfig = {
   x_axis?: { column_id?: string; label?: string };
@@ -63,7 +67,7 @@ function processData(rawData: Record<string, unknown>[], config: ChartConfig, ty
   if (type === 'TABLE') return rawData
 
   const resolveVal = (val: any, col?: DsColumn) => {
-    if (val === null || val === undefined || val === '') return 'Chưa xác định'
+    if (val === null || val === undefined || val === '') return i18n.t('reports:ReportDetailPage.undefined')
     if (col?.dataType === 'USER') {
       const user = users.find(u => u.id === val)
       return user ? user.fullName : String(val)
@@ -145,13 +149,14 @@ function processData(rawData: Record<string, unknown>[], config: ChartConfig, ty
 }
 
 const ChartRenderer = memo(({ widget, rawData, allColumns, users }: { widget: ReportWidgetType; rawData: Record<string, unknown>[]; allColumns: DsColumn[]; users: User[] }) => {
+  const { t } = useTranslation('reports')
   let config: ChartConfig = {}
   try { config = JSON.parse(widget.chartConfig) } catch { /* ignore */ }
 
   const data = useMemo(() => processData(rawData, config, widget.widgetType, allColumns, users), [rawData, config, widget.widgetType, allColumns, users])
 
   if (!data || data.length === 0) {
-    return <div className="flex items-center justify-center h-full text-sm text-[var(--color-muted-foreground)]">Không có đủ dữ liệu để vẽ</div>
+    return <div className="flex items-center justify-center h-full text-sm text-[var(--color-muted-foreground)]">{t('ReportDetailPage.notEnoughDataToDraw')}</div>
   }
 
   const keys = Object.keys(rawData[0] || {})
@@ -159,7 +164,7 @@ const ChartRenderer = memo(({ widget, rawData, allColumns, users }: { widget: Re
   const yKey = config.y_axis?.label || keys[1] || 'y'
   // Trục ở đây do NGƯỜI DÙNG chọn lúc chạy, nên nhãn trục chính là tên cột/phép gộp họ đã chọn —
   // không có nhãn cố định nào đúng hơn thế.
-  const seriesName = config.agg_type === 'SUM' ? `Tổng ${yKey}` : 'Số lượng'
+  const seriesName = config.agg_type === 'SUM' ? t('ReportDetailPage.total', { yKey }) : t('ReportDetailPage.quantity')
 
   switch (widget.widgetType) {
     case 'BAR':
@@ -222,7 +227,7 @@ const ChartRenderer = memo(({ widget, rawData, allColumns, users }: { widget: Re
                      fontSize={10}
                      fontWeight={500}
                    >
-                     {`${name}: ${value.toLocaleString('vi-VN')} (${percent}%)`}
+                     {`${name}: ${value.toLocaleString(intlLocale())} (${percent}%)`}
                    </text>
                  );
               }}
@@ -238,8 +243,8 @@ const ChartRenderer = memo(({ widget, rawData, allColumns, users }: { widget: Re
                   return (
                     <div className="bg-[var(--color-card)] border border-[var(--color-border)] rounded-control p-3 text-xs">
                       <p className="font-semibold mb-1">{payload[0].name}</p>
-                      <p className="text-[var(--color-primary)] font-semibold">Giá trị: {val.toLocaleString('vi-VN')}</p>
-                      <p className="text-[var(--color-muted-foreground)]">Tỷ lệ: {percent}%</p>
+                      <p className="text-[var(--color-primary)] font-semibold">{t('ReportDetailPage.value')} {val.toLocaleString(intlLocale())}</p>
+                      <p className="text-[var(--color-muted-foreground)]">{t('ReportDetailPage.share')} {percent}%</p>
                     </div>
                   )
                 }
@@ -268,8 +273,8 @@ const ChartRenderer = memo(({ widget, rawData, allColumns, users }: { widget: Re
       const cardData = data[0] || { value: 0, key: '' }
       return (
         <div className="flex flex-col items-center justify-center h-full">
-          <span className="text-5xl font-semibold text-[var(--color-primary)]">{(Number(cardData.value) || 0).toLocaleString('vi-VN')}</span>
-          <span className="text-sm font-medium text-[var(--color-muted-foreground)] mt-2">{String(cardData.key || '')} ({config.agg_type === 'SUM' ? 'Tổng' : 'Số lượng'})</span>
+          <span className="text-5xl font-semibold text-[var(--color-primary)]">{(Number(cardData.value) || 0).toLocaleString(intlLocale())}</span>
+          <span className="text-sm font-medium text-[var(--color-muted-foreground)] mt-2">{String(cardData.key || '')} ({config.agg_type === 'SUM' ? t('ReportDetailPage.total2') : t('ReportDetailPage.quantity')})</span>
         </div>
       )
     }
@@ -308,6 +313,7 @@ const ChartRenderer = memo(({ widget, rawData, allColumns, users }: { widget: Re
 
 
 export default function ReportDetailPage() {
+  const { t } = useTranslation('reports')
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   const { data: report, isLoading } = useReport(id!)
@@ -361,7 +367,7 @@ export default function ReportDetailPage() {
   const handleAutoCreateWidget = (type: WidgetType) => {
     if (!id) return
     if (!report?.datasources || report.datasources.length === 0) {
-      alert("Vui lòng kết nối Nguồn dữ liệu ở mục [Nguồn dữ liệu] trước!")
+      alert(t('ReportDetailPage.pleaseConnectADataSourceIn'))
       return
     }
 
@@ -380,7 +386,7 @@ export default function ReportDetailPage() {
       data: {
         reportDatasourceId: firstRd.id,
         widgetType: type,
-        title: 'Biểu đồ',
+        title: t('ReportDetailPage.chart'),
         chartConfig: config,
         position: pos
       }
@@ -529,13 +535,13 @@ export default function ReportDetailPage() {
   const WidgetMenu = ({ widget }: { widget: ReportWidgetType }) => (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon-sm" aria-label="Thao tác" title="Thao tác"><MoreVertical aria-hidden="true" /></Button>
+        <Button variant="ghost" size="icon-sm" aria-label={t('ReportDetailPage.actions')} title={t('ReportDetailPage.actions')}><MoreVertical aria-hidden="true" /></Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-44 p-1">
-        <button type="button" onClick={() => openSettings(widget)} className={MENU_ITEM}><Settings aria-hidden="true" /> Cài đặt</button>
-        <button type="button" onClick={() => handleDuplicateWidget(widget)} className={MENU_ITEM}><Copy aria-hidden="true" /> Nhân bản</button>
+        <button type="button" onClick={() => openSettings(widget)} className={MENU_ITEM}><Settings aria-hidden="true" /> {t('ReportDetailPage.settings')}</button>
+        <button type="button" onClick={() => handleDuplicateWidget(widget)} className={MENU_ITEM}><Copy aria-hidden="true" /> {t('ReportDetailPage.duplicate')}</button>
         <div className="my-1 h-px bg-[var(--color-border)]" role="separator" />
-        <button type="button" onClick={() => setDeleteWidgetId(widget.id)} className={`${MENU_ITEM} text-[var(--color-error)] hover:bg-[var(--color-error-bg)] [&_svg]:text-[var(--color-error)]`}><Trash2 aria-hidden="true" /> Xoá biểu đồ</button>
+        <button type="button" onClick={() => setDeleteWidgetId(widget.id)} className={`${MENU_ITEM} text-[var(--color-error)] hover:bg-[var(--color-error-bg)] [&_svg]:text-[var(--color-error)]`}><Trash2 aria-hidden="true" /> {t('ReportDetailPage.deleteChart')}</button>
       </PopoverContent>
     </Popover>
   )
@@ -545,9 +551,9 @@ export default function ReportDetailPage() {
       <div className="mx-auto max-w-[1600px] rounded-card border border-dashed border-[var(--color-border)] bg-[var(--color-card)]">
         <EmptyState
           icon={BarChart3}
-          title="Không tìm thấy báo cáo"
-          description="Báo cáo này có thể đã bị xoá hoặc bạn không có quyền xem."
-          action={<Button variant="outline" onClick={() => navigate('/reports')}><ArrowLeft aria-hidden="true" /> Về danh sách</Button>}
+          title={t('ReportDetailPage.noReportFound')}
+          description={t('ReportDetailPage.thisReportMayHaveBeenDeleted')}
+          action={<Button variant="outline" onClick={() => navigate('/reports')}><ArrowLeft aria-hidden="true" /> {t('ReportDetailPage.backToList')}</Button>}
         />
       </div>
     )
@@ -560,23 +566,23 @@ export default function ReportDetailPage() {
       <div className="z-10 border-b border-[var(--color-border)] bg-[var(--color-card)] px-6 py-3">
         <div className="mx-auto flex max-w-[1400px] flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex min-w-0 items-center gap-3">
-            <Button variant="outline" size="icon" onClick={() => navigate('/reports')} aria-label="Quay lại" className="shrink-0"><ArrowLeft aria-hidden="true" /></Button>
+            <Button variant="outline" size="icon" onClick={() => navigate('/reports')} aria-label={t('ReportDetailPage.back')} className="shrink-0"><ArrowLeft aria-hidden="true" /></Button>
             <div className="min-w-0">
               <h1 className="text-page-title truncate">{report.name}</h1>
               <p className="truncate text-sm text-[var(--color-muted-foreground)]">
-                {report.description || 'Không có mô tả'} · <span className="tabular-nums">{report.widgets?.length ?? 0} biểu đồ</span>
+                {report.description || t('ReportDetailPage.noDescription')} · <span className="tabular-nums">{report.widgets?.length ?? 0} {t('ReportDetailPage.charts')}</span>
               </p>
             </div>
           </div>
           <div className="flex shrink-0 items-center gap-2">
-            <Button variant="outline" onClick={() => setShowAddDs(true)}><Database aria-hidden="true" /> Nguồn dữ liệu</Button>
+            <Button variant="outline" onClick={() => setShowAddDs(true)}><Database aria-hidden="true" /> {t('ReportDetailPage.dataSources')}</Button>
             <Popover open={dropdownOpen} onOpenChange={setDropdownOpen}>
               <PopoverTrigger asChild>
-                <Button><Plus aria-hidden="true" /> Thêm biểu đồ <ChevronDown aria-hidden="true" className="opacity-70" /></Button>
+                <Button><Plus aria-hidden="true" /> {t('ReportDetailPage.addChart')} <ChevronDown aria-hidden="true" className="opacity-70" /></Button>
               </PopoverTrigger>
               <PopoverContent align="end" className="w-56 p-1">
-                <p className="px-2.5 pb-1 pt-1.5 text-eyebrow">Thư viện khối</p>
-                {WIDGET_TYPES.map(wt => (
+                <p className="px-2.5 pb-1 pt-1.5 text-eyebrow">{t('ReportDetailPage.blockLibrary')}</p>
+                {WIDGET_TYPES().map(wt => (
                   <button key={wt.value} type="button" onClick={() => { handleAutoCreateWidget(wt.value); setDropdownOpen(false) }} className={MENU_ITEM}>
                     {wt.icon}
                     <span>{wt.label}</span>
@@ -595,12 +601,12 @@ export default function ReportDetailPage() {
           <div className="max-w-[1400px] mx-auto space-y-6">
             {report.datasources && report.datasources.length > 0 && (
               <div className="flex flex-wrap items-center gap-2">
-                <span className="text-caption">Nguồn đã kết nối:</span>
+                <span className="text-caption">{t('ReportDetailPage.connectedSources')}</span>
                 {report.datasources.map(rd => (
                   <Badge key={rd.id} variant="outline" className="gap-1.5 pr-1">
                     <Database size={12} aria-hidden="true" />
                     {rd.alias || rd.datasourceName}
-                    <button type="button" onClick={() => setRemoveDsId(rd.id)} aria-label={`Gỡ ${rd.alias || rd.datasourceName}`} className="ml-0.5 flex h-4 w-4 items-center justify-center rounded-full text-[var(--color-muted-foreground)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]">
+                    <button type="button" onClick={() => setRemoveDsId(rd.id)} aria-label={t('ReportDetailPage.remove', { value: rd.alias || rd.datasourceName })} className="ml-0.5 flex h-4 w-4 items-center justify-center rounded-full text-[var(--color-muted-foreground)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]">
                       <X size={11} aria-hidden="true" />
                     </button>
                   </Badge>
@@ -630,7 +636,7 @@ export default function ReportDetailPage() {
                     <div key={widget.id} className={`group relative overflow-visible rounded-widget border bg-[var(--color-card)] transition-colors ${activeWidgetId === widget.id ? 'border-[var(--color-primary)] ring-2 ring-[var(--color-ring)]' : 'border-[var(--color-border)]'}`}>
                       <div className="drag-handle flex cursor-move items-center justify-between border-b border-[var(--color-border)] px-4 py-2.5">
                         <div className="flex min-w-0 items-center gap-2 text-[var(--color-muted-foreground)] [&_svg]:size-4">
-                          {WIDGET_TYPES.find(w => w.value === widget.widgetType)?.icon}
+                          {WIDGET_TYPES().find(w => w.value === widget.widgetType)?.icon}
                           <h3 className="truncate text-section-title">{widget.title}</h3>
                         </div>
                         <div onMouseDown={e => e.stopPropagation()} onClick={e => e.stopPropagation()}>
@@ -641,8 +647,8 @@ export default function ReportDetailPage() {
                         <ChartRenderer widget={widget} rawData={dataMap[widget.reportDatasourceId] || EMPTY_ARRAY} allColumns={columnMap[widget.reportDatasourceId] || EMPTY_ARRAY} users={allUsers} />
                       </div>
                       <div className="flex h-10 items-center justify-between border-t border-[var(--color-border)] px-4 text-caption">
-                        <span className="mr-2 truncate">Dữ liệu: {widget.datasourceName}</span>
-                        <span className="shrink-0">{WIDGET_TYPES.find(w => w.value === widget.widgetType)?.label ?? widget.widgetType}</span>
+                        <span className="mr-2 truncate">{t('ReportDetailPage.data')} {widget.datasourceName}</span>
+                        <span className="shrink-0">{WIDGET_TYPES().find(w => w.value === widget.widgetType)?.label ?? widget.widgetType}</span>
                       </div>
                     </div>
                   ))}
@@ -653,7 +659,7 @@ export default function ReportDetailPage() {
                     <div key={widget.id} className="overflow-hidden rounded-widget border border-[var(--color-border)] bg-[var(--color-card)]">
                       <div className="flex items-center justify-between gap-2 border-b border-[var(--color-border)] px-4 py-2.5">
                         <div className="flex min-w-0 items-center gap-2 text-[var(--color-muted-foreground)] [&_svg]:size-4">
-                          {WIDGET_TYPES.find(w => w.value === widget.widgetType)?.icon}
+                          {WIDGET_TYPES().find(w => w.value === widget.widgetType)?.icon}
                           <h3 className="truncate text-section-title">{widget.title}</h3>
                         </div>
                         <WidgetMenu widget={widget} />
@@ -662,8 +668,8 @@ export default function ReportDetailPage() {
                         <ChartRenderer widget={widget} rawData={dataMap[widget.reportDatasourceId] || EMPTY_ARRAY} allColumns={columnMap[widget.reportDatasourceId] || EMPTY_ARRAY} users={allUsers} />
                       </div>
                       <div className="flex items-center justify-between border-t border-[var(--color-border)] px-4 py-2 text-caption">
-                        <span className="mr-2 truncate">Dữ liệu: {widget.datasourceName}</span>
-                        <span className="shrink-0">{WIDGET_TYPES.find(w => w.value === widget.widgetType)?.label ?? widget.widgetType}</span>
+                        <span className="mr-2 truncate">{t('ReportDetailPage.data')} {widget.datasourceName}</span>
+                        <span className="shrink-0">{WIDGET_TYPES().find(w => w.value === widget.widgetType)?.label ?? widget.widgetType}</span>
                       </div>
                     </div>
                   ))}
@@ -673,11 +679,11 @@ export default function ReportDetailPage() {
               <div className="rounded-card border border-dashed border-[var(--color-border)] bg-[var(--color-card)]">
                 <EmptyState
                   icon={BarChart3}
-                  title="Chưa có biểu đồ nào"
-                  description={report.datasources?.length ? 'Bấm "Thêm biểu đồ" để chọn loại khối; mỗi khối lấy dữ liệu từ một nguồn đã kết nối.' : 'Kết nối một nguồn dữ liệu trước, rồi thêm biểu đồ từ nguồn đó.'}
+                  title={t('ReportDetailPage.noChartsYet')}
+                  description={report.datasources?.length ? t('ReportDetailPage.clickAddChartToChooseA') : t('ReportDetailPage.connectADataSourceFirstThen')}
                   action={report.datasources?.length
-                    ? <Button onClick={() => setDropdownOpen(true)}><Plus aria-hidden="true" /> Thêm biểu đồ đầu tiên</Button>
-                    : <Button onClick={() => setShowAddDs(true)}><Database aria-hidden="true" /> Kết nối nguồn dữ liệu</Button>}
+                    ? <Button onClick={() => setDropdownOpen(true)}><Plus aria-hidden="true" /> {t('ReportDetailPage.addTheFirstChart')}</Button>
+                    : <Button onClick={() => setShowAddDs(true)}><Database aria-hidden="true" /> {t('ReportDetailPage.connectADataSource')}</Button>}
                 />
               </div>
             )}
@@ -689,24 +695,24 @@ export default function ReportDetailPage() {
           <div className="w-96 flex flex-col h-full">
             <div className="flex items-center justify-between border-b border-[var(--color-border)] px-5 py-4">
               <div className="min-w-0">
-                <h2 className="text-section-title">Cài đặt biểu đồ</h2>
+                <h2 className="text-section-title">{t('ReportDetailPage.chartSettings')}</h2>
                 <p className="truncate text-caption">{activeWidgetObject?.title}</p>
               </div>
-              <Button variant="ghost" size="icon-sm" onClick={() => setActiveWidgetId(null)} aria-label="Đóng"><X aria-hidden="true" /></Button>
+              <Button variant="ghost" size="icon-sm" onClick={() => setActiveWidgetId(null)} aria-label={t('ReportDetailPage.close')}><X aria-hidden="true" /></Button>
             </div>
 
             <div className="flex-1 overflow-y-auto p-5 space-y-6">
               {/* Basic config */}
               <div className="space-y-4">
-                <h3 className="text-eyebrow">Cơ bản</h3>
+                <h3 className="text-eyebrow">{t('ReportDetailPage.basic')}</h3>
                 <div>
-                  <label className="text-label block mb-1.5">Tiêu đề</label>
-                  <input value={drawerConfig.title} onChange={e => setDrawerConfig({...drawerConfig, title: e.target.value})} className="h-9 w-full rounded-control border border-[var(--color-border)] bg-[var(--color-card)] px-3 text-sm text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-subtle-foreground)] focus-visible:border-[var(--color-primary)] focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]" placeholder="VD: Doanh thu theo tháng" />
+                  <label className="text-label block mb-1.5">{t('ReportDetailPage.title')}</label>
+                  <input value={drawerConfig.title} onChange={e => setDrawerConfig({...drawerConfig, title: e.target.value})} className="h-9 w-full rounded-control border border-[var(--color-border)] bg-[var(--color-card)] px-3 text-sm text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-subtle-foreground)] focus-visible:border-[var(--color-primary)] focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]" placeholder={t('ReportDetailPage.eGRevenueByMonth')} />
                 </div>
                 <div>
-                  <label className="text-label block mb-1.5">Nguồn dữ liệu tham chiếu</label>
+                  <label className="text-label block mb-1.5">{t('ReportDetailPage.referencedDataSource')}</label>
                   <Select value={drawerConfig.reportDatasourceId} onValueChange={v => setDrawerConfig({...drawerConfig, reportDatasourceId: v})}>
-                    <SelectTrigger className="w-full" aria-label="Nguồn dữ liệu"><SelectValue placeholder="Chọn nguồn" /></SelectTrigger>
+                    <SelectTrigger className="w-full" aria-label={t('ReportDetailPage.dataSources')}><SelectValue placeholder={t('ReportDetailPage.chooseSource')} /></SelectTrigger>
                     <SelectContent>
                       {report.datasources?.map(rd => <SelectItem key={rd.id} value={rd.id}>{rd.alias || rd.datasourceName}</SelectItem>)}
                     </SelectContent>
@@ -716,13 +722,13 @@ export default function ReportDetailPage() {
 
               {/* Data Config */}
               <div className="space-y-4 pt-4 border-t border-[var(--color-border)]">
-                 <h3 className="text-eyebrow">Tham số biểu đồ</h3>
+                 <h3 className="text-eyebrow">{t('ReportDetailPage.chartParameters')}</h3>
 
                  {drawerColumns.length > 0 && activeWidgetObject?.widgetType !== 'NUMBER_CARD' && activeWidgetObject?.widgetType !== 'TABLE' && (
                     <div className="space-y-4">
                       <div className="rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] p-3">
                         <label className="text-label block mb-2">
-                          {activeWidgetObject?.widgetType === 'PIE' || activeWidgetObject?.widgetType === 'DONUT' ? 'Mỗi phần là gì?' : 'Trục X (Danh mục gom nhóm)'}
+                          {activeWidgetObject?.widgetType === 'PIE' || activeWidgetObject?.widgetType === 'DONUT' ? t('ReportDetailPage.whatIsEachSlice') : t('ReportDetailPage.xAxisGroupingCategory')}
                         </label>
                         <Select
                           value={drawerConfig.chartConfig.x_axis?.column_id || NONE}
@@ -734,7 +740,7 @@ export default function ReportDetailPage() {
                         >
                           <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                           <SelectContent>
-                            <SelectItem value={NONE}>Mặc định</SelectItem>
+                            <SelectItem value={NONE}>{t('ReportDetailPage.default')}</SelectItem>
                             {drawerColumns.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                           </SelectContent>
                         </Select>
@@ -742,7 +748,7 @@ export default function ReportDetailPage() {
 
                       <div className="rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] p-3">
                         <label className="text-label block mb-2">
-                          {activeWidgetObject?.widgetType === 'PIE' || activeWidgetObject?.widgetType === 'DONUT' ? 'Kích thước mỗi phần dựa trên gì?' : 'Trục Y (Đại lượng đo lường)'}
+                          {activeWidgetObject?.widgetType === 'PIE' || activeWidgetObject?.widgetType === 'DONUT' ? t('ReportDetailPage.whatIsEachSlicesSizeBased') : t('ReportDetailPage.yAxisMeasure')}
                         </label>
                         <Select
                           value={drawerConfig.chartConfig.y_axis?.column_id || NONE}
@@ -754,18 +760,18 @@ export default function ReportDetailPage() {
                         >
                           <SelectTrigger className="w-full mb-3"><SelectValue /></SelectTrigger>
                           <SelectContent>
-                            <SelectItem value={NONE}>Mặc định</SelectItem>
+                            <SelectItem value={NONE}>{t('ReportDetailPage.default')}</SelectItem>
                             {drawerColumns.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                           </SelectContent>
                         </Select>
 
-                        <label className="text-label block mb-2 text-[var(--color-muted-foreground)]">Phương pháp tính</label>
+                        <label className="text-label block mb-2 text-[var(--color-muted-foreground)]">{t('ReportDetailPage.calculationMethod')}</label>
                         <Select value={drawerConfig.chartConfig.agg_type || 'COUNT'} onValueChange={v => setDrawerConfig(prev => ({...prev, chartConfig: {...prev.chartConfig, agg_type: v as 'SUM' | 'COUNT' }}))}>
                           <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="COUNT">Số lượng bản ghi</SelectItem>
+                            <SelectItem value="COUNT">{t('ReportDetailPage.recordCount')}</SelectItem>
                             {drawerColumns.find(c => c.id === drawerConfig.chartConfig.y_axis?.column_id)?.dataType === 'NUMBER' && (
-                              <SelectItem value="SUM">Tổng giá trị</SelectItem>
+                              <SelectItem value="SUM">{t('ReportDetailPage.totalValue')}</SelectItem>
                             )}
                           </SelectContent>
                         </Select>
@@ -776,7 +782,7 @@ export default function ReportDetailPage() {
                  {drawerColumns.length > 0 && activeWidgetObject?.widgetType === 'NUMBER_CARD' && (
                     <div className="space-y-3 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] p-3">
                       <div>
-                        <label className="text-label block mb-2">Trường chỉ số</label>
+                        <label className="text-label block mb-2">{t('ReportDetailPage.metricField')}</label>
                         <Select
                           value={drawerConfig.chartConfig.y_axis?.column_id || NONE}
                           onValueChange={v => {
@@ -787,18 +793,18 @@ export default function ReportDetailPage() {
                         >
                           <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                           <SelectContent>
-                            <SelectItem value={NONE}>Mặc định</SelectItem>
+                            <SelectItem value={NONE}>{t('ReportDetailPage.default')}</SelectItem>
                             {drawerColumns.map(c => <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>)}
                           </SelectContent>
                         </Select>
                       </div>
                       <div>
-                        <label className="text-label block mb-2 text-[var(--color-muted-foreground)]">Phương pháp</label>
+                        <label className="text-label block mb-2 text-[var(--color-muted-foreground)]">{t('ReportDetailPage.method')}</label>
                         <Select value={drawerConfig.chartConfig.agg_type || 'COUNT'} onValueChange={v => setDrawerConfig(prev => ({...prev, chartConfig: {...prev.chartConfig, agg_type: v as 'SUM' | 'COUNT' }}))}>
                           <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="COUNT">Đếm tổng số bản ghi</SelectItem>
-                            <SelectItem value="SUM">Tổng cộng trường chỉ số</SelectItem>
+                            <SelectItem value="COUNT">{t('ReportDetailPage.countTotalRecords')}</SelectItem>
+                            <SelectItem value="SUM">{t('ReportDetailPage.sumOfTheMetricField')}</SelectItem>
                           </SelectContent>
                         </Select>
                       </div>
@@ -809,22 +815,22 @@ export default function ReportDetailPage() {
               {/* Sorting */}
               {activeWidgetObject?.widgetType !== 'TABLE' && activeWidgetObject?.widgetType !== 'NUMBER_CARD' && (
                  <div className="space-y-4 pt-4 border-t border-[var(--color-border)]">
-                   <h3 className="text-eyebrow">Sắp xếp</h3>
+                   <h3 className="text-eyebrow">{t('ReportDetailPage.order')}</h3>
                    <div className="flex gap-2">
                      <Select value={drawerConfig.chartConfig.sort_by || 'NONE'} onValueChange={v => setDrawerConfig(prev => ({...prev, chartConfig: {...prev.chartConfig, sort_by: v as any }}))}>
-                        <SelectTrigger className="flex-1" aria-label="Sắp xếp theo"><SelectValue /></SelectTrigger>
+                        <SelectTrigger className="flex-1" aria-label={t('ReportDetailPage.sortBy')}><SelectValue /></SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="NONE">Mặc định</SelectItem>
-                          <SelectItem value="X">Theo trục X</SelectItem>
-                          <SelectItem value="Y">Theo trục Y</SelectItem>
+                          <SelectItem value="NONE">{t('ReportDetailPage.default')}</SelectItem>
+                          <SelectItem value="X">{t('ReportDetailPage.byXAxis')}</SelectItem>
+                          <SelectItem value="Y">{t('ReportDetailPage.byYAxis')}</SelectItem>
                         </SelectContent>
                       </Select>
                       {drawerConfig.chartConfig.sort_by && drawerConfig.chartConfig.sort_by !== 'NONE' && (
                         <Select value={drawerConfig.chartConfig.sort_dir || 'ASC'} onValueChange={v => setDrawerConfig(prev => ({...prev, chartConfig: {...prev.chartConfig, sort_dir: v as any }}))}>
-                          <SelectTrigger className="w-28" aria-label="Chiều sắp xếp"><SelectValue /></SelectTrigger>
+                          <SelectTrigger className="w-28" aria-label={t('ReportDetailPage.sortDirection')}><SelectValue /></SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="ASC">Tăng dần</SelectItem>
-                            <SelectItem value="DESC">Giảm dần</SelectItem>
+                            <SelectItem value="ASC">{t('ReportDetailPage.ascending')}</SelectItem>
+                            <SelectItem value="DESC">{t('ReportDetailPage.descending')}</SelectItem>
                           </SelectContent>
                         </Select>
                       )}
@@ -834,8 +840,8 @@ export default function ReportDetailPage() {
             </div>
 
             <div className="flex items-center justify-end gap-2 border-t border-[var(--color-border)] px-5 py-3">
-               <Button variant="outline" onClick={() => setActiveWidgetId(null)}>Hủy</Button>
-               <Button onClick={handleSaveSettings} disabled={updateWidgetMut.isPending}>{updateWidgetMut.isPending ? 'Đang lưu…' : 'Lưu lại'}</Button>
+               <Button variant="outline" onClick={() => setActiveWidgetId(null)}>{t('ReportDetailPage.cancel')}</Button>
+               <Button onClick={handleSaveSettings} disabled={updateWidgetMut.isPending}>{updateWidgetMut.isPending ? t('ReportDetailPage.saving') : t('ReportDetailPage.save')}</Button>
             </div>
           </div>
         </div>
@@ -845,18 +851,18 @@ export default function ReportDetailPage() {
         open={!!deleteWidgetId}
         onClose={() => setDeleteWidgetId(null)}
         onConfirm={() => { if (deleteWidgetId) deleteWidgetMut.mutate(deleteWidgetId, { onSettled: () => setDeleteWidgetId(null) }) }}
-        title="Xoá biểu đồ này?"
-        description="Khối sẽ bị gỡ khỏi báo cáo. Dữ liệu ở nguồn không bị ảnh hưởng."
-        confirmLabel="Xoá biểu đồ"
+        title={t('ReportDetailPage.deleteThisChart')}
+        description={t('ReportDetailPage.theBlockWillBeRemovedFrom')}
+        confirmLabel={t('ReportDetailPage.deleteChart')}
         loading={deleteWidgetMut.isPending}
       />
       <ConfirmDialog
         open={!!removeDsId}
         onClose={() => setRemoveDsId(null)}
         onConfirm={() => { if (removeDsId) removeDsMut.mutate(removeDsId, { onSettled: () => setRemoveDsId(null) }) }}
-        title="Gỡ nguồn dữ liệu khỏi báo cáo?"
-        description="Các biểu đồ đang dùng nguồn này sẽ không còn dữ liệu để vẽ."
-        confirmLabel="Gỡ nguồn"
+        title={t('ReportDetailPage.removeTheDataSourceFromThe')}
+        description={t('ReportDetailPage.chartsUsingThisSourceWillNo')}
+        confirmLabel={t('ReportDetailPage.removeSource')}
         loading={removeDsMut.isPending}
       />
 
@@ -866,16 +872,16 @@ export default function ReportDetailPage() {
         onClose={() => setShowAddDs(false)}
         size="md"
         dismissible={!addDsMut.isPending}
-        title="Kết nối Nguồn dữ liệu"
+        title={t('ReportDetailPage.connectDataSource')}
         footer={
           <DialogFooter
-            secondary={<Button variant="outline" onClick={() => setShowAddDs(false)} disabled={addDsMut.isPending}>Hủy</Button>}
-            primary={<Button onClick={handleAddDatasource} disabled={!selectedDsId || addDsMut.isPending}>Kết nối nguồn</Button>}
+            secondary={<Button variant="outline" onClick={() => setShowAddDs(false)} disabled={addDsMut.isPending}>{t('ReportDetailPage.cancel')}</Button>}
+            primary={<Button onClick={handleAddDatasource} disabled={!selectedDsId || addDsMut.isPending}>{t('ReportDetailPage.connectSource')}</Button>}
           />
         }
       >
         {unlinkedDatasources.length === 0 ? (
-          <p className="py-4 text-sm text-[var(--color-muted-foreground)]">Tất cả datasource đã được kết nối hoặc chưa có datasource nào.</p>
+          <p className="py-4 text-sm text-[var(--color-muted-foreground)]">{t('ReportDetailPage.allDataSourcesAreAlreadyConnected')}</p>
         ) : (
           <div className="max-h-60 space-y-2 overflow-y-auto pr-1">
             {unlinkedDatasources.map(ds => (
@@ -893,7 +899,7 @@ export default function ReportDetailPage() {
                 <Database size={18} className="shrink-0 text-[var(--color-primary)]" aria-hidden="true" />
                 <div className="min-w-0 flex-1">
                   <div className="truncate font-medium">{ds.name}</div>
-                  <div className="mt-0.5 text-caption tabular-nums">{ds.columns?.length || 0} cột · {ds.rowCount} hàng dữ liệu</div>
+                  <div className="mt-0.5 text-caption tabular-nums">{ds.columns?.length || 0} {t('ReportDetailPage.columns')} {ds.rowCount} {t('ReportDetailPage.dataRows')}</div>
                 </div>
               </button>
             ))}

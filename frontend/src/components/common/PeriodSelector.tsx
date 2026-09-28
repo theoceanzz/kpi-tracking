@@ -1,3 +1,4 @@
+import { LocaleDateInput } from '@/components/ui/date-input'
 interface PeriodSelectorProps {
   value: string
   onChange: (value: string) => void
@@ -5,7 +6,7 @@ interface PeriodSelectorProps {
 
 export default function PeriodSelector({ value, onChange }: PeriodSelectorProps) {
   return (
-    <input
+    <LocaleDateInput
       type="month"
       value={value}
       onChange={(e) => onChange(e.target.value)}

@@ -1,5 +1,6 @@
 package com.kpitracking.service;
 
+import com.kpitracking.i18n.ErrorMessages;
 import com.kpitracking.dto.response.stats.PersonalObjectiveResponses.*;
 import com.kpitracking.entity.*;
 import com.kpitracking.enums.SubmissionStatus;
@@ -370,7 +371,7 @@ public class PersonalKpiAnalyticsService {
                             .fullName(assignee.getFullName())
                             .avatarUrl(assignee.getAvatarUrl())
                             .employeeCode(assignee.getEmployeeCode())
-                            .role("Thành viên")
+                            .role(ErrorMessages.text("analytics.memberRole", ""))
                             .department(kpi.getOrgUnit() != null ? kpi.getOrgUnit().getName() : "")
                             .actualValue(assigneeActual)
                             .progress(assigneeProgress)
@@ -482,7 +483,7 @@ public class PersonalKpiAnalyticsService {
                     pts.add(new IntervalPoint(
                             c.atStartOfDay(ZoneId.systemDefault()).toInstant(),
                             c.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant(),
-                            "Ng " + c.getDayOfMonth() + "/" + c.getMonthValue()));
+                            ErrorMessages.text("analytics.bucket.day", "", c.getDayOfMonth(), c.getMonthValue())));
             }
             case "Tuần" -> {
                 int w = 1;
@@ -491,7 +492,7 @@ public class PersonalKpiAnalyticsService {
                     pts.add(new IntervalPoint(
                             c.atStartOfDay(ZoneId.systemDefault()).toInstant(),
                             (next.isAfter(end) ? end.plusDays(1) : next).atStartOfDay(ZoneId.systemDefault()).toInstant(),
-                            "Tuần " + w));
+                            ErrorMessages.text("analytics.bucket.week", "", w)));
                 }
             }
             case "Tháng" -> {
@@ -502,7 +503,7 @@ public class PersonalKpiAnalyticsService {
                     pts.add(new IntervalPoint(
                             aS.atStartOfDay(ZoneId.systemDefault()).toInstant(),
                             aE.atStartOfDay(ZoneId.systemDefault()).toInstant(),
-                            "Tháng " + c.getMonthValue() + "/" + c.getYear()));
+                            ErrorMessages.text("analytics.bucket.month", "", c.getMonthValue(), c.getYear())));
                 }
             }
             case "Quý" -> {
@@ -514,7 +515,7 @@ public class PersonalKpiAnalyticsService {
                     pts.add(new IntervalPoint(
                             aS.atStartOfDay(ZoneId.systemDefault()).toInstant(),
                             aE.atStartOfDay(ZoneId.systemDefault()).toInstant(),
-                            "Quý " + ((c.getMonthValue() - 1) / 3 + 1) + "/" + c.getYear()));
+                            ErrorMessages.text("analytics.bucket.quarter", "", (c.getMonthValue() - 1) / 3 + 1, c.getYear())));
                 }
             }
             default -> {
@@ -525,7 +526,7 @@ public class PersonalKpiAnalyticsService {
                     pts.add(new IntervalPoint(
                             aS.atStartOfDay(ZoneId.systemDefault()).toInstant(),
                             aE.atStartOfDay(ZoneId.systemDefault()).toInstant(),
-                            "Năm " + c.getYear()));
+                            ErrorMessages.text("analytics.bucket.year", "", c.getYear())));
                 }
             }
         }

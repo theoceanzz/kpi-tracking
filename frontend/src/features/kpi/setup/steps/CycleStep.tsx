@@ -10,6 +10,7 @@ import { useKpiSetupFlow } from '../useKpiSetupFlow'
 import { WORKFLOW_PARAMS } from '../../workflow/hooks/useWorkflowNavigator'
 import { Button } from '@/components/ui/button'
 import { ChoiceChip } from '@/components/ui/choice-chip'
+import { useTranslation } from 'react-i18next'
 
 /** Hàng chọn đợt/kỳ: khối bo góc, chọn thì viền + nền xanh, rê chuột thì ngả sang primary. */
 const ROW_CLS =
@@ -27,6 +28,7 @@ type Mode = 'pick' | 'create'
  * được. Vì thế màn hình cho cả ba đường: chọn kỳ có sẵn, tạo kỳ mới, hoặc bỏ qua.
  */
 export default function CycleStep() {
+  const { t } = useTranslation('kpi')
   const { goNext, goBack, cycleId } = useKpiSetupFlow()
   const user = useAuthStore(s => s.user)
   const organizationId = user?.memberships?.[0]?.organizationId
@@ -47,20 +49,20 @@ export default function CycleStep() {
 
   return (
     <StepShell
-      title="Chọn hoặc tạo kỳ đánh giá"
-      description="Kỳ gom nhiều đợt để chấm điểm tổng thể cuối kỳ. Chưa cần thì bỏ qua — bạn gán đợt vào kỳ sau cũng được."
+      title={t('CycleStep.chooseOrCreateAnEvaluationCycle')}
+      description={t('CycleStep.aCycleGroupsSeveralPeriodsFor')}
       onBack={goBack}
-      backLabel="Về trang chủ"
+      backLabel={t('CycleStep.backToHome')}
       footer={
         <Button variant="outline" type="button" onClick={skip}>
           <SkipForward aria-hidden="true" />
-          Bỏ qua bước này
+          {t('CycleStep.skipThisStep')}
         </Button>
       }
     >
       <div className="mb-6 flex gap-2 rounded-card bg-[var(--color-muted)] p-1.5">
-        <ModeTab active={mode === 'pick'} onClick={() => setMode('pick')} label="Chọn kỳ có sẵn" />
-        <ModeTab active={mode === 'create'} onClick={() => setMode('create')} label="Tạo kỳ mới" icon={<Plus size={13} />} />
+        <ModeTab active={mode === 'pick'} onClick={() => setMode('pick')} label={t('CycleStep.chooseAnExistingCycle')} />
+        <ModeTab active={mode === 'create'} onClick={() => setMode('create')} label={t('CycleStep.createANewCycle')} icon={<Plus size={13} />} />
       </div>
 
       {mode === 'create' ? (
@@ -70,7 +72,7 @@ export default function CycleStep() {
           editCycle={null}
           organizationId={organizationId!}
           isSubmitting={isCreating}
-          submitLabel="Tạo kỳ & tiếp tục"
+          submitLabel={t('CycleStep.createCycleContinue')}
           onSubmit={async payload => {
             const created = await createCycle(payload)
             if (created?.id) pick(created.id)
@@ -83,8 +85,8 @@ export default function CycleStep() {
       ) : cycles.length === 0 ? (
         <div className="rounded-card border border-dashed border-[var(--color-border)] p-10 text-center">
           <CalendarRange className="mx-auto mb-3 text-[var(--color-subtle-foreground)]" size={28} />
-          <p className="text-sm font-medium text-[var(--color-muted-foreground)]">Chưa có kỳ nào</p>
-          <p className="mt-1 text-xs font-medium text-[var(--color-subtle-foreground)]">Tạo kỳ mới, hoặc bỏ qua để đi thẳng tới bước tạo đợt.</p>
+          <p className="text-sm font-medium text-[var(--color-muted-foreground)]">{t('CycleStep.noCyclesYet')}</p>
+          <p className="mt-1 text-xs font-medium text-[var(--color-subtle-foreground)]">{t('CycleStep.createANewCycleOrSkip')}</p>
         </div>
       ) : (
         <ul className="space-y-2">
@@ -112,11 +114,11 @@ export default function CycleStep() {
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-semibold text-[var(--color-foreground)]">{cycle.name}</span>
                     <span className="mt-0.5 block text-caption">
-                      {FREQUENCY_MAP[cycle.cycleType]}
+                      {FREQUENCY_MAP()[cycle.cycleType]}
                       {cycle.startDate && cycle.endDate && (
                         <> · {format(new Date(cycle.startDate), 'dd/MM/yyyy')} – {format(new Date(cycle.endDate), 'dd/MM/yyyy')}</>
                       )}
-                      {cycle.periodCount > 0 && <> · {cycle.periodCount} đợt</>}
+                      {cycle.periodCount > 0 && <> · {cycle.periodCount} {t('CycleStep.periods')}</>}
                     </span>
                   </span>
 

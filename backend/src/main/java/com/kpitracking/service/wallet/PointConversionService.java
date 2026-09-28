@@ -12,7 +12,9 @@ import com.kpitracking.enums.RewardSourceType;
 import com.kpitracking.enums.RewardTransactionType;
 import com.kpitracking.event.WalletEvents;
 import com.kpitracking.exception.BusinessException;
+import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.ResourceNotFoundException;
+import com.kpitracking.i18n.Terms;
 import com.kpitracking.repository.OrganizationRepository;
 import com.kpitracking.service.CashWalletService;
 import com.kpitracking.service.RewardWalletService;
@@ -83,11 +85,10 @@ public class PointConversionService {
         Organization org = loadOrg(orgId);
 
         if (!Boolean.TRUE.equals(org.getEnableCashWallet())) {
-            throw new BusinessException("Tổ chức của bạn chưa bật tính năng ví tiền.");
+            throw new BusinessException(ErrorCode.ORGANIZATION_NOT_ENABLED_WALLET_FEATURE);
         }
         if (!Boolean.TRUE.equals(org.getEnableReward())) {
-            throw new BusinessException("Tổ chức của bạn chưa bật tính năng điểm thưởng, "
-                    + "nên chưa thể quy đổi tiền sang điểm.");
+            throw new BusinessException(ErrorCode.ORGANIZATION_NOT_ENABLED_REWARD_POINTS_MONEY_CANNOT);
         }
 
         int points = request.getPoints();
@@ -106,8 +107,7 @@ public class PointConversionService {
                         .pointsGranted(points)
                         .rateSnapshot(rate)
                         .idempotencyKey(CashWalletService.key("convert", request.getRequestId()))
-                        .note("Đổi " + points + " điểm ở tỉ giá "
-                                + CashWalletService.formatVnd(rate) + "/điểm")
+                        .note(cashWalletService.noteFor(me.getId(), "ledger.cashConverted", points, rate))
                         .actor(me)
                         .build());
 
@@ -117,10 +117,7 @@ public class PointConversionService {
         // của yêu cầu này không, hay là kết quả cũ của một lần đổi khác cùng mã.
         if (!Objects.equals(cashTx.getPointsGranted(), points)
                 || !Objects.equals(cashTx.getRateSnapshot(), rate)) {
-            throw new BusinessException("Mã yêu cầu này đã được dùng cho một giao dịch quy đổi khác ("
-                    + cashTx.getPointsGranted() + " điểm ở tỉ giá "
-                    + CashWalletService.formatVnd(cashTx.getRateSnapshot())
-                    + "/điểm). Vui lòng tải lại trang và thử lại.");
+            throw new BusinessException(ErrorCode.REQUEST_ID_USED_ANOTHER_CONVERSION, String.valueOf(cashTx.getPointsGranted()), String.valueOf(CashWalletService.formatVnd(cashTx.getRateSnapshot())));
         }
 
         // Bước 2: cộng ví ĐIỂM. Khoá suy ra từ id bút toán tiền, nên khi gọi lại với
@@ -136,8 +133,7 @@ public class PointConversionService {
                 .externalSystem("CASH_WALLET")
                 .externalRef(cashTx.getId().toString())
                 .idempotencyKey(RewardWalletService.key("ext", "CASH_WALLET", cashTx.getId()))
-                .note("Quy đổi từ ví tiền: " + CashWalletService.formatVnd(cost)
-                        + " ở tỉ giá " + CashWalletService.formatVnd(rate) + "/điểm")
+                .note(rewardWalletService.noteFor(me.getId(), "ledger.pointsFromCash", cost, rate))
                 .actor(me)
                 .build());
 
@@ -161,7 +157,7 @@ public class PointConversionService {
 
     private Organization loadOrg(UUID orgId) {
         return organizationRepository.findById(orgId)
-                .orElseThrow(() -> new ResourceNotFoundException("Tổ chức", "id", orgId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.organization"), "id", orgId));
     }
 
     private int toIntSafe(long v) {

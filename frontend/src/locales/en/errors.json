@@ -1,0 +1,11 @@
+{
+  "ErrorPage": {
+    "aServerSideErrorOccurredWe": "A server-side error occurred. We are fixing it quickly.",
+    "back": "Back",
+    "backToHome": "Back to home",
+    "help": "Help",
+    "reportASystemError": "Report a system error",
+    "thePageYouAreLookingFor": "The page you are looking for does not exist or has moved to a new address.",
+    "youDoNotHaveAccessTo": "You do not have access to this resource. This is a restricted area."
+  }
+}

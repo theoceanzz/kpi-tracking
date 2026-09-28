@@ -1,8 +1,10 @@
 import { useState, type CSSProperties, type ReactNode } from 'react'
+import { fallbackTo, landingMedia } from '../landingMedia'
 import { Link } from 'react-router-dom'
 import { ArrowRight, ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useInView } from '../hooks/useInView'
+import i18n from 'i18next'
 
 /** Khối xuất hiện dần khi cuộn tới. `delay` tính bằng ms, `from` là hướng bay vào. */
 export function Reveal({
@@ -179,12 +181,14 @@ export function Screenshot({
   className?: string
   priority?: boolean
 }) {
+  const media = landingMedia(src)
   return (
     <GlassFrame className={cn('lp-shot overflow-hidden', className)}>
       <WindowBar title={title} />
       <div className="relative aspect-[16/10] overflow-hidden bg-slate-50">
         <img
-          src={src}
+          src={media.src}
+          onError={fallbackTo(media.fallback)}
           alt={alt}
           width={2560}
           height={1600}
@@ -201,8 +205,8 @@ export function Screenshot({
 /** Nút "Xem thêm / Thu gọn" + khối nội dung mở ra mượt. */
 export function MoreToggle({
   children,
-  labelOpen = 'Xem chi tiết',
-  labelClose = 'Thu gọn',
+  labelOpen = i18n.t('landing:primitives.viewDetails'),
+  labelClose = i18n.t('landing:primitives.collapse'),
   className,
 }: {
   children: ReactNode

@@ -6,6 +6,7 @@ import com.kpitracking.dto.response.reward.RewardWalletResponse;
 import com.kpitracking.entity.RewardTransaction;
 import com.kpitracking.entity.RewardWallet;
 import com.kpitracking.entity.User;
+import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.ForbiddenException;
 import com.kpitracking.repository.RewardTransactionRepository;
 import com.kpitracking.repository.RewardWalletRepository;
@@ -79,7 +80,7 @@ public class RewardQueryService {
         if (me.getId().equals(targetUserId)) return;
         UUID targetUnitId = context.getPrimaryOrgUnit(targetUserId).getId();
         if (!permissionChecker.hasPermissionInOrgUnit(me.getId(), "REWARD:VIEW", targetUnitId)) {
-            throw new ForbiddenException("Bạn không có quyền xem điểm thưởng của nhân viên này.");
+            throw new ForbiddenException(ErrorCode.NO_PERMISSION_VIEW_EMPLOYEE_REWARD_POINTS);
         }
     }
 

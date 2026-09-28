@@ -39,6 +39,8 @@ import {
   HeartHandshake,
   ArrowRightLeft,
 } from 'lucide-react'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
 /**
  * Cây điều hướng dùng chung cho Sidebar và tab "Thiết lập Sidebar".
@@ -100,6 +102,8 @@ export interface NavItem {
   rewardOnly?: boolean
   walletOnly?: boolean
   conductOnly?: boolean
+  /** Chỉ hiện khi tổ chức bật đánh giá 360. */
+  feedback360Only?: boolean
   /** Nhãn gốc trước khi bị ghi đè — Sidebar gán khi lọc cây. */
   originalLabel?: string
 }
@@ -111,15 +115,16 @@ export interface NavFeatureFlags {
   enableCashWallet?: boolean
   enableAi?: boolean
   enableConduct?: boolean
+  enableFeedback360?: boolean
 }
 
 /** Bộ ba quyền quản trị mà các route thiết lập cũ đòi ĐỦ cả ba. */
 const ADMIN_ALL = ['ORG:VIEW', 'USER:VIEW', 'ROLE:VIEW']
 
-export const navItems: NavItem[] = [
+export const navItems = perLanguage((): NavItem[] => ([
   {
     id: 'dashboard',
-    label: 'Tổng quan',
+    label: i18n.t('layout:navigation.overview'),
     path: '/dashboard',
     icon: <LayoutDashboard size={20} />,
     permission: 'DASHBOARD:VIEW',
@@ -127,46 +132,46 @@ export const navItems: NavItem[] = [
   },
   {
     id: 'setup',
-    label: 'Thiết lập',
+    label: i18n.t('layout:navigation.setup'),
     icon: <Settings size={20} />,
     children: [
       // Chín màn hình thiết lập công ty gom về MỘT dòng sidebar; chúng thành các mục
       // trong trang /company. Khách hàng nhìn menu bớt rối, mà không màn hình nào mất đi.
       {
         id: 'setup-company',
-        label: 'Thiết lập công ty',
+        label: i18n.t('layout:navigation.companySetup'),
         path: '/company',
         icon: <Building2 size={18} />,
         matchPrefix: true,
         labelKey: 'setup-company',
-        legacyKeys: ['Thiết lập công ty'],
+        legacyKeys: [i18n.t('layout:navigation.companySetup')],
         permission: 'COMPANY:VIEW',
         sections: [
-          { id: 'info', label: 'Thông tin công ty', icon: <Building2 size={18} />, permission: 'COMPANY:VIEW', legacyKeys: ['/company'], group: 'Tổ chức' , description: 'Tên, mã doanh nghiệp và các tính năng đang bật' },
-          { id: 'ranks', label: 'Cấp bậc công ty', icon: <Layers size={18} />, permission: 'COMPANY:VIEW', group: 'Tổ chức' , description: 'Các cấp trong công ty và chức danh quản lý tương ứng' },
-          { id: 'roles', label: 'Phân quyền vai trò', icon: <Shield size={18} />, permission: 'ROLE:VIEW', legacyKeys: ['/roles'], group: 'Con người' , description: 'Vai trò và quyền hạn kèm theo từng vai trò' },
-          { id: 'org-structure', label: 'Cơ cấu tổ chức', icon: <Network size={18} />, permission: 'ORG:VIEW', legacyKeys: ['/org-structure'], group: 'Con người' , description: 'Cây đơn vị, phòng ban và người phụ trách' },
-          { id: 'users', label: 'Quản lý nhân viên', icon: <Users size={18} />, permission: 'USER:VIEW', legacyKeys: ['/users'], group: 'Con người' , description: 'Danh sách nhân viên, thêm mới và phân công đơn vị' },
-          { id: 'delegations', label: 'Uỷ quyền chéo đơn vị', icon: <ArrowRightLeft size={18} />, permission: 'ROLE:ASSIGN', group: 'Con người' , description: 'Cho một người quản lý thêm đơn vị không nằm trong cây của họ' },
+          { id: 'info', label: i18n.t('layout:navigation.companyInformation'), icon: <Building2 size={18} />, permission: 'COMPANY:VIEW', legacyKeys: ['/company'], group: i18n.t('layout:navigation.organization') , description: i18n.t('layout:navigation.nameBusinessCodeAndEnabledFeatures') },
+          { id: 'ranks', label: i18n.t('layout:navigation.companyLevels'), icon: <Layers size={18} />, permission: 'COMPANY:VIEW', group: i18n.t('layout:navigation.organization') , description: i18n.t('layout:navigation.levelsInTheCompanyAndTheir') },
+          { id: 'roles', label: i18n.t('layout:navigation.rolePermissions'), icon: <Shield size={18} />, permission: 'ROLE:VIEW', legacyKeys: ['/roles'], group: i18n.t('layout:navigation.people') , description: i18n.t('layout:navigation.rolesAndThePermissionsAttachedTo') },
+          { id: 'org-structure', label: i18n.t('layout:navigation.organizationStructure'), icon: <Network size={18} />, permission: 'ORG:VIEW', legacyKeys: ['/org-structure'], group: i18n.t('layout:navigation.people') , description: i18n.t('layout:navigation.treeOfUnitsDepartmentsAndOwners') },
+          { id: 'users', label: i18n.t('layout:navigation.employeeManagement'), icon: <Users size={18} />, permission: 'USER:VIEW', legacyKeys: ['/users'], group: i18n.t('layout:navigation.people') , description: i18n.t('layout:navigation.employeeListAddingNewOnesAnd') },
+          { id: 'delegations', label: i18n.t('layout:navigation.crossUnitDelegation'), icon: <ArrowRightLeft size={18} />, permission: 'ROLE:ASSIGN', group: i18n.t('layout:navigation.people') , description: i18n.t('layout:navigation.letAPersonAlsoManageUnits') },
           // KHÔNG kế thừa khoá '/settings': nhãn cũ ở đó đặt tên cho CẢ trang cấu hình
           // bốn tab, gán vào riêng mục Sidebar là sai nghĩa.
-          { id: 'sidebar', label: 'Quản lý Sidebar', icon: <LayoutPanelLeft size={18} />, permission: 'COMPANY:UPDATE', group: 'Hệ thống' , description: 'Đổi tên mục trên sidebar và mục bên trong từng trang' },
-          { id: 'notifications', label: 'Thiết lập thông báo', icon: <Bell size={18} />, permission: 'COMPANY:UPDATE', group: 'Hệ thống' , description: 'Sự kiện nào gửi thông báo, và gửi qua kênh nào' },
-          { id: 'email', label: 'Thiết lập email', icon: <Mail size={18} />, permission: 'COMPANY:UPDATE', group: 'Hệ thống' , description: 'Nội dung mẫu của các email hệ thống gửi đi' },
-          { id: 'api', label: 'Thiết lập API', icon: <Link2 size={18} />, permission: 'COMPANY:UPDATE', group: 'Hệ thống' , description: 'Kết nối Lark và các tích hợp bên ngoài' },
-          { id: 'ai-docs', label: 'Tài liệu trợ lý AI', icon: <BookOpen size={18} />, permission: 'COMPANY:UPDATE', group: 'Hệ thống' , description: 'Quy chế, mô tả công việc và chiến lược của công ty mà trợ lý AI dùng để trả lời và gợi ý KPI' },
+          { id: 'sidebar', label: i18n.t('layout:navigation.sidebarManagement'), icon: <LayoutPanelLeft size={18} />, permission: 'COMPANY:UPDATE', group: i18n.t('layout:navigation.system') , description: i18n.t('layout:navigation.renameSidebarItemsAndTheItems') },
+          { id: 'notifications', label: i18n.t('layout:navigation.notificationSettings'), icon: <Bell size={18} />, permission: 'COMPANY:UPDATE', group: i18n.t('layout:navigation.system') , description: i18n.t('layout:navigation.whichEventsSendNotificationsAndThrough') },
+          { id: 'email', label: i18n.t('layout:navigation.emailSettings'), icon: <Mail size={18} />, permission: 'COMPANY:UPDATE', group: i18n.t('layout:navigation.system') , description: i18n.t('layout:navigation.templateContentOfTheEmailsThe') },
+          { id: 'api', label: i18n.t('layout:navigation.apiSettings'), icon: <Link2 size={18} />, permission: 'COMPANY:UPDATE', group: i18n.t('layout:navigation.system') , description: i18n.t('layout:navigation.larkConnectionAndExternalIntegrations') },
+          { id: 'ai-docs', label: i18n.t('layout:navigation.aiAssistantDocuments'), icon: <BookOpen size={18} />, permission: 'COMPANY:UPDATE', group: i18n.t('layout:navigation.system') , description: i18n.t('layout:navigation.companyRegulationsJobDescriptionsAndStrategy') },
           // Từng là dòng sidebar riêng `/kpi-workflow` (nhãn "Luồng KPI") — `legacyKeys` giữ lại
           // nhãn tổ chức đã đặt. Quyền là phép HOẶC: người cấu hình luồng (WORKFLOW:MANAGE) và
           // quản trị công ty (COMPANY:UPDATE) đều thấy; thiếu WORKFLOW:MANAGE thì mục tự chuyển
           // sang chỉ-xem.
-          { id: 'kpi-workflow', label: 'Thiết lập luồng xử lí', icon: <Workflow size={18} />, permission: ['WORKFLOW:MANAGE', 'COMPANY:UPDATE'], legacyKeys: ['/kpi-workflow'], group: 'Hệ thống' , description: 'Bật/tắt và sắp xếp các bước của luồng KPI mà tổ chức áp dụng' },
+          { id: 'kpi-workflow', label: i18n.t('layout:navigation.workflowSettings'), icon: <Workflow size={18} />, permission: ['WORKFLOW:MANAGE', 'COMPANY:UPDATE'], legacyKeys: ['/kpi-workflow'], group: i18n.t('layout:navigation.system') , description: i18n.t('layout:navigation.turnOnOffAndOrderThe') },
         ],
       },
       // Cùng cách gom như "Thiết lập công ty": cả bảng cấu hình lẫn các công cụ quản lý
       // về MỘT dòng sidebar.
       {
         id: 'setup-tools',
-        label: 'Thiết lập công cụ',
+        label: i18n.t('layout:navigation.toolSetup'),
         path: '/settings/tools',
         icon: <Wrench size={18} />,
         matchPrefix: true,
@@ -175,25 +180,25 @@ export const navItems: NavItem[] = [
         sections: [
           // Quyền của cụm cấu hình giữ đúng cổng cũ của route /settings/tools
           // (ORG:VIEW + USER:VIEW + ROLE:VIEW, đủ cả ba) — gộp trang không được nới quyền.
-          { id: 'modules', label: 'Module & tính năng', icon: <ToggleRight size={18} />, permission: ADMIN_ALL, requireAllPermissions: true, legacyKeys: ['/settings/modules'], group: 'Cấu hình', description: 'Bật/tắt OKR, BSC, KPI hành vi, thác nước, thưởng, ví' },
+          { id: 'modules', label: i18n.t('layout:navigation.modulesFeatures'), icon: <ToggleRight size={18} />, permission: ADMIN_ALL, requireAllPermissions: true, legacyKeys: ['/settings/modules'], group: i18n.t('layout:navigation.configuration'), description: i18n.t('layout:navigation.turnOnOffOkrBscBehavioral') },
           // Định lượng và định tính gộp một mục, hai tab bên trong — xem ScoringSettingsPage.
-          { id: 'scoring', label: 'Thang điểm', icon: <SlidersHorizontal size={18} />, permission: ADMIN_ALL, requireAllPermissions: true, legacyKeys: ['/settings/scoring', 'quantitative'], group: 'Cấu hình', description: 'Thang điểm định lượng và các mức đánh giá định tính' },
-          { id: 'matrix', label: 'Ma trận đánh giá', icon: <Grid3x3 size={18} />, permission: ADMIN_ALL, requireAllPermissions: true, group: 'Cấu hình', description: 'Ánh xạ điểm hành vi và % KPI sang xếp loại cuối cùng' },
-          { id: 'unit-class', label: 'Xếp loại đơn vị', icon: <Scale size={18} />, permission: ADMIN_ALL, requireAllPermissions: true, group: 'Cấu hình', description: 'Tiêu chuẩn xếp loại áp cho từng đơn vị' },
+          { id: 'scoring', label: i18n.t('layout:navigation.scoringScales'), icon: <SlidersHorizontal size={18} />, permission: ADMIN_ALL, requireAllPermissions: true, legacyKeys: ['/settings/scoring', 'quantitative'], group: i18n.t('layout:navigation.configuration'), description: i18n.t('layout:navigation.quantitativeScaleAndQualitativeEvaluationLevels') },
+          { id: 'matrix', label: i18n.t('layout:navigation.evaluationMatrix'), icon: <Grid3x3 size={18} />, permission: ADMIN_ALL, requireAllPermissions: true, group: i18n.t('layout:navigation.configuration'), description: i18n.t('layout:navigation.mapsConductScoreAndKpiTo') },
+          { id: 'unit-class', label: i18n.t('layout:navigation.unitRating'), icon: <Scale size={18} />, permission: ADMIN_ALL, requireAllPermissions: true, group: i18n.t('layout:navigation.configuration'), description: i18n.t('layout:navigation.ratingStandardsAppliedToEachUnit') },
           // Chỉ hiện khi tổ chức bật OKR hoặc BSC — xem `visible` ở ToolSettingsPage. Cây nav
           // không có cờ "bật A HOẶC B" nên vế đó do trang quyết định.
-          { id: 'code-rules', label: 'Quy tắc sinh mã', icon: <Hash size={18} />, permission: ADMIN_ALL, requireAllPermissions: true, group: 'Cấu hình', description: 'Mẫu mã tự sinh cho Mục tiêu, Kết quả then chốt và hạng mục BSC' },
+          { id: 'code-rules', label: i18n.t('layout:navigation.codeGenerationRules'), icon: <Hash size={18} />, permission: ADMIN_ALL, requireAllPermissions: true, group: i18n.t('layout:navigation.configuration'), description: i18n.t('layout:navigation.autoGeneratedCodePatternsForObjectives') },
 
           // Sáu công cụ quản lý. Quyền lấy đúng theo cổng route cũ của từng cái.
-          { id: 'kpi-cycles', label: 'Quản lý kỳ/đợt đánh giá', icon: <CalendarRange size={18} />, permission: ['KPI_CYCLE:CREATE', 'KPI_PERIOD:CREATE'], legacyKeys: ['/kpi-cycles', '/kpi-periods'], group: 'Công cụ', description: 'Kỳ đánh giá tổng hợp và các đợt bên trong mỗi kỳ' },
-          { id: 'okr', label: 'Quản lý OKR', icon: <Target size={18} />, permission: 'OKR:MANAGE', okrOnly: true, legacyKeys: ['/okr'], group: 'Công cụ', description: 'Mục tiêu và kết quả then chốt của toàn tổ chức' },
+          { id: 'kpi-cycles', label: i18n.t('layout:navigation.evaluationCyclePeriodManagement'), icon: <CalendarRange size={18} />, permission: ['KPI_CYCLE:CREATE', 'KPI_PERIOD:CREATE'], legacyKeys: ['/kpi-cycles', '/kpi-periods'], group: i18n.t('layout:navigation.tools'), description: i18n.t('layout:navigation.combinedEvaluationCyclesAndThePeriods') },
+          { id: 'okr', label: i18n.t('layout:navigation.okrManagement'), icon: <Target size={18} />, permission: 'OKR:MANAGE', okrOnly: true, legacyKeys: ['/okr'], group: i18n.t('layout:navigation.tools'), description: i18n.t('layout:navigation.objectivesAndKeyResultsOfThe') },
           // Trưởng đơn vị cũng vào đây — họ phải tự lập được BSC của phòng mình (kịch bản (b) và (c)
           // của mô hình phân rã). Vào rồi thì mỗi nút bên trong tự gác quyền của nó, và backend
           // chặn tiếp: người chỉ có MANAGE_UNIT không đụng được bộ tiêu chí của đơn vị khác.
-          { id: 'bsc', label: 'Quản lý BSC', icon: <LayoutGrid size={18} />, permission: ['BSC:MANAGE', 'BSC:MANAGE_UNIT'], bscOnly: true, legacyKeys: ['/bsc', 'Quản lý BSC'], group: 'Công cụ', description: 'Dựng bộ tiêu chí từng kỳ: hạng mục theo 4 lĩnh vực và trọng số' },
-          { id: 'rewards', label: 'Quản lý thưởng', icon: <Gift size={18} />, permission: ['REWARD:GRANT', 'REWARD:APPROVE', 'REWARD:CONFIG', 'REWARD:VIEW'], rewardOnly: true, legacyKeys: ['/rewards'], group: 'Công cụ', description: 'Đề nghị thưởng, hạn mức, điểm danh và quà tặng' },
-          { id: 'wallet', label: 'Quản lý ví', icon: <Landmark size={18} />, permission: ['WALLET:VIEW', 'WALLET:CONFIG', 'WALLET:RECONCILE'], walletOnly: true, legacyKeys: ['/wallet'], group: 'Công cụ', description: 'Số dư nhân sự, cấu hình nạp tiền và đối soát' },
-          { id: 'ai-quota', label: 'Quản lý token AI', icon: <Coins size={18} />, permission: 'AI_QUOTA:ALLOCATE', aiOnly: true, legacyKeys: ['/ai-quota'], group: 'Công cụ', description: 'Chia hạn mức token AI cho các đơn vị cấp dưới' },
+          { id: 'bsc', label: i18n.t('layout:navigation.bscManagement'), icon: <LayoutGrid size={18} />, permission: ['BSC:MANAGE', 'BSC:MANAGE_UNIT'], bscOnly: true, legacyKeys: ['/bsc', i18n.t('layout:navigation.bscManagement')], group: i18n.t('layout:navigation.tools'), description: i18n.t('layout:navigation.buildScorecardsPerCycleItemsAcross') },
+          { id: 'rewards', label: i18n.t('layout:navigation.rewardManagement'), icon: <Gift size={18} />, permission: ['REWARD:GRANT', 'REWARD:APPROVE', 'REWARD:CONFIG', 'REWARD:VIEW'], rewardOnly: true, legacyKeys: ['/rewards'], group: i18n.t('layout:navigation.tools'), description: i18n.t('layout:navigation.rewardProposalsBudgetsCheckInsAnd') },
+          { id: 'wallet', label: i18n.t('layout:navigation.walletManagement'), icon: <Landmark size={18} />, permission: ['WALLET:VIEW', 'WALLET:CONFIG', 'WALLET:RECONCILE'], walletOnly: true, legacyKeys: ['/wallet'], group: i18n.t('layout:navigation.tools'), description: i18n.t('layout:navigation.peopleBalancesTopUpConfigurationAnd') },
+          { id: 'ai-quota', label: i18n.t('layout:navigation.aiTokenManagement'), icon: <Coins size={18} />, permission: 'AI_QUOTA:ALLOCATE', aiOnly: true, legacyKeys: ['/ai-quota'], group: i18n.t('layout:navigation.tools'), description: i18n.t('layout:navigation.allocateAiTokenQuotasToLower') },
         ],
       },
     ],
@@ -201,17 +206,18 @@ export const navItems: NavItem[] = [
   // Năm màn hình vận hành KPI cũng gom về MỘT dòng, cùng khuôn với hai nhánh thiết lập.
   {
     id: 'performance',
-    label: 'Quản lý hiệu suất',
+    label: i18n.t('layout:navigation.performanceManagement'),
     path: '/performance',
     icon: <Gauge size={20} />,
     matchPrefix: true,
     labelKey: 'performance',
     sections: [
-      { id: 'kpi-criteria', label: 'Thiết lập chỉ tiêu', icon: <Target size={18} />, permission: 'KPI:VIEW', legacyKeys: ['/kpi-criteria'], group: 'Chỉ tiêu', description: 'Tạo và giao chỉ tiêu cho nhân viên, đơn vị' },
-      { id: 'kpi-criteria-pending', label: 'Phê duyệt chỉ tiêu', icon: <ClipboardCheck size={18} />, permission: 'KPI:APPROVE_CRITERIA', legacyKeys: ['/kpi-criteria/pending'], group: 'Chỉ tiêu', description: 'Hàng chờ duyệt chỉ tiêu do cấp dưới gửi lên' },
-      { id: 'kpi-adjustments-pending', label: 'Điều chỉnh chỉ tiêu', icon: <MessageSquare size={18} />, permission: 'KPI:APPROVE_ADJUSTMENT', legacyKeys: ['/kpi-adjustments/pending', '/kpi-criteria/adjustments'], group: 'Chỉ tiêu', description: 'Yêu cầu sửa chỉ tiêu giữa chừng chờ xử lý' },
-      { id: 'submissions-org-unit', label: 'Đánh giá đợt', icon: <ClipboardCheck size={18} />, permission: 'SUBMISSION:REVIEW', legacyKeys: ['/submissions/org-unit'], group: 'Đánh giá', description: 'Duyệt bài nộp và chấm điểm từng đợt' },
-      { id: 'cycle-evaluation', label: 'Đánh giá kỳ', icon: <Award size={18} />, permission: 'CYCLE_EVAL:VIEW', legacyKeys: ['/kpi-cycles/evaluation'], group: 'Đánh giá', description: 'Tổng hợp nhiều đợt thành kết quả của cả kỳ' },
+      { id: 'kpi-criteria', label: i18n.t('layout:navigation.kpiSetup'), icon: <Target size={18} />, permission: 'KPI:VIEW', legacyKeys: ['/kpi-criteria'], group: i18n.t('layout:navigation.kpis'), description: i18n.t('layout:navigation.createAndAssignKpisToEmployees') },
+      { id: 'kpi-criteria-pending', label: i18n.t('layout:navigation.kpiApproval'), icon: <ClipboardCheck size={18} />, permission: 'KPI:APPROVE_CRITERIA', legacyKeys: ['/kpi-criteria/pending'], group: i18n.t('layout:navigation.kpis'), description: i18n.t('layout:navigation.queueOfKpisSubmittedBySubordinates') },
+      { id: 'kpi-adjustments-pending', label: i18n.t('layout:navigation.kpiAdjustments'), icon: <MessageSquare size={18} />, permission: 'KPI:APPROVE_ADJUSTMENT', legacyKeys: ['/kpi-adjustments/pending', '/kpi-criteria/adjustments'], group: i18n.t('layout:navigation.kpis'), description: i18n.t('layout:navigation.pendingRequestsToChangeKpisMid') },
+      { id: 'submissions-org-unit', label: i18n.t('layout:navigation.periodEvaluation'), icon: <ClipboardCheck size={18} />, permission: 'SUBMISSION:REVIEW', legacyKeys: ['/submissions/org-unit'], group: i18n.t('layout:navigation.evaluation'), description: i18n.t('layout:navigation.approveSubmissionsAndScoreEachPeriod') },
+      { id: 'cycle-evaluation', label: i18n.t('layout:navigation.cycleEvaluation'), icon: <Award size={18} />, permission: 'CYCLE_EVAL:VIEW', legacyKeys: ['/kpi-cycles/evaluation'], group: i18n.t('layout:navigation.evaluation'), description: i18n.t('layout:navigation.combineSeveralPeriodsIntoTheWhole') },
+      { id: 'feedback360', label: i18n.t('layout:navigation.n360Feedback'), icon: <Users size={18} />, permission: ['FEEDBACK360:MANAGE', 'FEEDBACK360:VIEW'], feedback360Only: true, group: i18n.t('layout:navigation.evaluation'), description: i18n.t('layout:navigation.campaignsCollectingFeedbackFromManagersPeers') },
     ],
   },
   // Không gian cá nhân: công việc và ví của chính mình, gộp về MỘT dòng như ba nhánh
@@ -219,33 +225,34 @@ export const navItems: NavItem[] = [
   // sẽ giấu cả trang khi tổ chức chỉ bật ví mà tắt thưởng. Cờ để ở từng mục.
   {
     id: 'my-space',
-    label: 'Của tôi',
+    label: i18n.t('layout:navigation.mine'),
     path: '/me',
     icon: <UserCircle size={20} />,
     matchPrefix: true,
     sections: [
-      { id: 'my-kpi', label: 'KPI của tôi', icon: <ListChecks size={18} />, permission: 'KPI:VIEW_MY', legacyKeys: ['/my-kpi'], group: 'Công việc', description: 'Chỉ tiêu được giao và tiến độ hiện tại của bạn' },
+      { id: 'my-kpi', label: i18n.t('layout:navigation.myKpis'), icon: <ListChecks size={18} />, permission: 'KPI:VIEW_MY', legacyKeys: ['/my-kpi'], group: i18n.t('layout:navigation.work'), description: i18n.t('layout:navigation.yourAssignedKpisAndCurrentProgress') },
       // Hai mục "của tôi" cho OKR/BSC: cùng dữ liệu KPI của tôi nhưng xếp theo mục tiêu / hạng
       // mục, để ai cũng thấy mình đang góp vào đâu và còn phải nộp gì. Ẩn khi tổ chức tắt module.
       // Cùng quyền với KPI của tôi: trang dành cho người NHẬN KPI; giám đốc/ban lãnh đạo xem OKR/BSC
       // toàn công ty ở Phân tích và Thiết lập công cụ, không cần mục này.
-      { id: 'my-okr', label: 'OKR của tôi', icon: <Target size={18} />, permission: 'KPI:VIEW_MY', okrOnly: true, group: 'Công việc', description: 'Mục tiêu, kết quả then chốt bạn đang góp vào và việc cần nộp' },
-      { id: 'my-bsc', label: 'BSC của tôi', icon: <LayoutGrid size={18} />, permission: 'KPI:VIEW_MY', bscOnly: true, group: 'Công việc', description: 'Bộ tiêu chí của đơn vị bạn theo đợt và KPI của bạn trong từng hạng mục' },
-      { id: 'my-submissions', label: 'Báo cáo của tôi', icon: <FileText size={18} />, permission: 'SUBMISSION:VIEW_MY', legacyKeys: ['/submissions'], group: 'Công việc', description: 'Các bài nộp đã gửi và trạng thái duyệt' },
-      { id: 'evaluations', label: 'Đánh giá của tôi', icon: <Star size={18} />, permission: 'EVALUATION:VIEW_MY', legacyKeys: ['/evaluations'], group: 'Công việc', description: 'Điểm và xếp loại bạn nhận được qua từng đợt' },
-      { id: 'my-adjustments', label: 'Điều chỉnh của tôi', icon: <History size={18} />, permission: 'KPI:VIEW_MY', legacyKeys: ['/my-adjustments'], group: 'Công việc', description: 'Đề nghị sửa chỉ tiêu bạn đã gửi và kết quả xử lý' },
+      { id: 'my-okr', label: i18n.t('layout:navigation.myOkrs'), icon: <Target size={18} />, permission: 'KPI:VIEW_MY', okrOnly: true, group: i18n.t('layout:navigation.work'), description: i18n.t('layout:navigation.objectivesAndKeyResultsYouContribute') },
+      { id: 'my-bsc', label: i18n.t('layout:navigation.myBsc'), icon: <LayoutGrid size={18} />, permission: 'KPI:VIEW_MY', bscOnly: true, group: i18n.t('layout:navigation.work'), description: i18n.t('layout:navigation.yourUnitsScorecardByPeriodAnd') },
+      { id: 'my-submissions', label: i18n.t('layout:navigation.myReports'), icon: <FileText size={18} />, permission: 'SUBMISSION:VIEW_MY', legacyKeys: ['/submissions'], group: i18n.t('layout:navigation.work'), description: i18n.t('layout:navigation.submissionsYouSentAndTheirApproval') },
+      { id: 'evaluations', label: i18n.t('layout:navigation.myEvaluations'), icon: <Star size={18} />, permission: 'EVALUATION:VIEW_MY', legacyKeys: ['/evaluations'], group: i18n.t('layout:navigation.work'), description: i18n.t('layout:navigation.theScoresAndRatingsYouReceived') },
+      { id: 'my-adjustments', label: i18n.t('layout:navigation.myAdjustments'), icon: <History size={18} />, permission: 'KPI:VIEW_MY', legacyKeys: ['/my-adjustments'], group: i18n.t('layout:navigation.work'), description: i18n.t('layout:navigation.kpiChangeRequestsYouSentAnd') },
       // `KPI:VIEW_MY` chứ không phải `EVALUATION:VIEW_MY`: trưởng đơn vị KHÔNG có quyền
       // sau (xem UNIT_HEAD_PERSONAL_PERMS ở backend) nhưng vẫn phải tự chấm hạnh kiểm.
-      { id: 'my-conduct', label: 'Hạnh kiểm của tôi', icon: <HeartHandshake size={18} />, permission: 'KPI:VIEW_MY', conductOnly: true, group: 'Công việc', description: 'Tự chấm điểm hành vi và nêu dẫn chứng theo từng đợt, từng kỳ' },
-      { id: 'my-rewards', label: 'Điểm của tôi', icon: <Gift size={18} />, permission: 'REWARD:VIEW_MY', rewardOnly: true, legacyKeys: ['/rewards/me'], group: 'Ví', description: 'Số dư điểm thưởng, cửa hàng quà và lịch sử đổi' },
-      { id: 'my-cash-wallet', label: 'Ví của tôi', icon: <Wallet size={18} />, permission: 'WALLET:VIEW_MY', walletOnly: true, legacyKeys: ['/wallet/me'], group: 'Ví', description: 'Số dư tiền, nạp tiền và quy đổi sang điểm' },
+      { id: 'my-conduct', label: i18n.t('layout:navigation.myConduct'), icon: <HeartHandshake size={18} />, permission: 'KPI:VIEW_MY', conductOnly: true, group: i18n.t('layout:navigation.work'), description: i18n.t('layout:navigation.selfScoreYourConductAndGive') },
+      { id: 'my-feedback360', label: i18n.t('layout:navigation.my360Feedback'), icon: <Users size={18} />, permission: ['FEEDBACK360:VIEW_MY', 'KPI:VIEW_MY'], feedback360Only: true, group: i18n.t('layout:navigation.work'), description: i18n.t('layout:navigation.n360FormsToCompleteForColleagues') },
+      { id: 'my-rewards', label: i18n.t('layout:navigation.myPoints'), icon: <Gift size={18} />, permission: 'REWARD:VIEW_MY', rewardOnly: true, legacyKeys: ['/rewards/me'], group: i18n.t('layout:navigation.wallet'), description: i18n.t('layout:navigation.rewardPointBalanceGiftShopAnd') },
+      { id: 'my-cash-wallet', label: i18n.t('layout:navigation.myWallet'), icon: <Wallet size={18} />, permission: 'WALLET:VIEW_MY', walletOnly: true, legacyKeys: ['/wallet/me'], group: i18n.t('layout:navigation.wallet'), description: i18n.t('layout:navigation.cashBalanceTopUpsAndConversion') },
     ],
   },
   // Các góc nhìn phân tích cũng là mục trong trang, cùng khuôn với ba nhánh trên —
   // trước đây là một hàng tab riêng, lệch hẳn với phần còn lại của app.
   {
     id: 'analytics',
-    label: 'Thống kê',
+    label: i18n.t('layout:navigation.statistics'),
     path: '/analytics',
     icon: <TrendingUp size={20} />,
     permission: 'DASHBOARD:VIEW',
@@ -263,19 +270,19 @@ export const navItems: NavItem[] = [
       //
       // Hai mục cá nhân gác bằng SUBMISSION:CREATE: chỉ người NỘP báo cáo mới có kết quả riêng để
       // xem; sếp giao chỉ tiêu mà không nộp thì không có gì ở đây ngoài một trang trống.
-      { id: 'my-objectives', label: 'Mục tiêu của tôi', icon: <Target size={18} />, okrOnly: true, permission: 'SUBMISSION:CREATE', group: 'Cá nhân', description: 'Mục tiêu và kết quả then chốt bạn đang nhận, tiến độ từng cái', audience: 'Người nộp báo cáo' },
-      { id: 'my', label: 'Kết quả của tôi', icon: <TrendingUp size={18} />, permission: 'SUBMISSION:CREATE', group: 'Cá nhân', description: 'KPI bạn được giao, bài đã nộp và điểm được chấm, chỉ dữ liệu của riêng bạn', audience: 'Người nộp báo cáo' },
-      { id: 'subordinate', label: 'Mục tiêu đơn vị tôi quản lý', icon: <Users size={18} />, okrOnly: true, permission: ['KPI:VIEW', 'SUBMISSION:REVIEW'], group: 'Đơn vị', description: 'Mục tiêu (OKR) của đơn vị và từng nhân sự bạn quản lý', audience: 'Trưởng/phó đơn vị, ban giám đốc' },
-      { id: 'summary', label: 'Đơn vị tôi quản lý', icon: <LayoutDashboard size={18} />, permission: ['KPI:VIEW', 'SUBMISSION:REVIEW'], group: 'Đơn vị', description: 'Cả đơn vị bạn phụ trách đang ở đâu: chỉ số chung, xu hướng, xếp hạng nhân sự', audience: 'Trưởng/phó đơn vị, ban giám đốc' },
-      { id: 'drilldown', label: 'So sánh giữa các đơn vị', icon: <Building2 size={18} />, group: 'Đơn vị', description: 'Đặt các đơn vị cạnh nhau: xếp loại, ma trận, phân rã KPI, đi từ công ty xuống từng phòng', audience: 'Ban giám đốc, trưởng đơn vị có đơn vị con' },
+      { id: 'my-objectives', label: i18n.t('layout:navigation.myObjectives'), icon: <Target size={18} />, okrOnly: true, permission: 'SUBMISSION:CREATE', group: i18n.t('layout:navigation.personal'), description: i18n.t('layout:navigation.objectivesAndKeyResultsYouHold'), audience: i18n.t('layout:navigation.peopleWhoSubmitReports') },
+      { id: 'my', label: i18n.t('layout:navigation.myResults'), icon: <TrendingUp size={18} />, permission: 'SUBMISSION:CREATE', group: i18n.t('layout:navigation.personal'), description: i18n.t('layout:navigation.kpisAssignedToYouSubmissionsAnd'), audience: i18n.t('layout:navigation.peopleWhoSubmitReports') },
+      { id: 'subordinate', label: i18n.t('layout:navigation.unitObjectivesIManage'), icon: <Users size={18} />, okrOnly: true, permission: ['KPI:VIEW', 'SUBMISSION:REVIEW'], group: i18n.t('layout:navigation.unit'), description: i18n.t('layout:navigation.objectivesOkrOfTheUnitAnd'), audience: i18n.t('layout:navigation.unitHeadsDeputiesBoardOfDirectors') },
+      { id: 'summary', label: i18n.t('layout:navigation.unitsIManage'), icon: <LayoutDashboard size={18} />, permission: ['KPI:VIEW', 'SUBMISSION:REVIEW'], group: i18n.t('layout:navigation.unit'), description: i18n.t('layout:navigation.whereTheWholeUnitYouAre'), audience: i18n.t('layout:navigation.unitHeadsDeputiesBoardOfDirectors') },
+      { id: 'drilldown', label: i18n.t('layout:navigation.unitComparison'), icon: <Building2 size={18} />, group: i18n.t('layout:navigation.unit'), description: i18n.t('layout:navigation.unitsSideBySideRatingsMatrix'), audience: i18n.t('layout:navigation.boardOfDirectorsHeadsOfUnits') },
       // `labelKey` riêng vì `id: 'bsc'` trùng với mục "Quản lý BSC" bên Thiết lập công cụ.
       // Khoá lưu nhãn mặc định lấy theo id ⇒ hai mục dùng CHUNG một nhãn tuỳ chỉnh, đổi
       // tên mục này là đổi luôn mục kia. Giữ nguyên id để `?section=bsc` không đổi.
-      { id: 'bsc', labelKey: 'analytics-bsc', label: 'Thẻ điểm BSC', icon: <Gauge size={18} />, permission: 'BSC:MANAGE', bscOnly: true, group: 'Toàn công ty', description: 'Công ty có đi đúng chiến lược không: mức đạt thẻ điểm, hạng mục chặn, độ phủ phân rã', audience: 'Ban giám đốc' },
+      { id: 'bsc', labelKey: 'analytics-bsc', label: i18n.t('layout:navigation.bscScorecard'), icon: <Gauge size={18} />, permission: 'BSC:MANAGE', bscOnly: true, group: i18n.t('layout:navigation.wholeCompany'), description: i18n.t('layout:navigation.isTheCompanyOnStrategyScorecard'), audience: i18n.t('layout:navigation.boardOfDirectors') },
     ],
   },
   { id: 'ai-assistant', label: 'K.AI', path: '/ai-assistant', icon: <Bot size={20} />, permission: 'DASHBOARD:VIEW', end: true, aiOnly: true },
-]
+]))
 
 /** Mục nav có bị tắt bởi cờ tính năng của tổ chức không. */
 export function isFeatureEnabled(item: NavItem, flags: NavFeatureFlags): boolean {
@@ -285,6 +292,7 @@ export function isFeatureEnabled(item: NavItem, flags: NavFeatureFlags): boolean
   if (item.walletOnly && !flags.enableCashWallet) return false
   if (item.aiOnly && !flags.enableAi) return false
   if (item.conductOnly && !flags.enableConduct) return false
+  if (item.feedback360Only && !flags.enableFeedback360) return false
   return true
 }
 
@@ -294,7 +302,7 @@ export function navItemKey(item: NavItem): string {
 }
 
 /** Mọi path trong cây, phẳng. Mục trong trang không có path nên không tính. */
-export function flatNavPaths(items: NavItem[] = navItems): string[] {
+export function flatNavPaths(items: NavItem[] = navItems()): string[] {
   return items.flatMap(i => [
     ...(i.path ? [i.path] : []),
     ...(i.children ? flatNavPaths(i.children) : []),
@@ -302,7 +310,7 @@ export function flatNavPaths(items: NavItem[] = navItems): string[] {
 }
 
 /** Tìm mục nav theo id, xuyên cả nhóm con lẫn mục trong trang. */
-export function findNavItem(id: string, items: NavItem[] = navItems): NavItem | undefined {
+export function findNavItem(id: string, items: NavItem[] = navItems()): NavItem | undefined {
   for (const item of items) {
     if (item.id === id) return item
     const found = findNavItem(id, [...(item.children ?? []), ...(item.sections ?? [])])
@@ -362,19 +370,19 @@ export function collectNavLabelScopes(flags: NavFeatureFlags): NavLabelScope[] {
         pages.push({
           id: navItemKey(item),
           title: item.label,
-          hint: `Hiện trên lưới thẻ và hàng tab bên trong trang "${item.label}", không nằm trên sidebar.`,
+          hint: i18n.t('layout:navigation.shownOnTheCardGridAnd', { label: item.label }),
           entries: sections.map(toEntry),
         })
       }
     }
   }
-  walk(navItems)
+  walk(navItems())
 
   const scopes: NavLabelScope[] = [
     {
       id: '__sidebar__',
-      title: 'Thanh điều hướng',
-      hint: 'Các dòng hiện trực tiếp trên sidebar bên trái.',
+      title: i18n.t('layout:navigation.navigationBar'),
+      hint: i18n.t('layout:navigation.theRowsShownDirectlyOnThe'),
       entries: sidebar,
     },
     ...pages,

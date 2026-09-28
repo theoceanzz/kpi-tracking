@@ -1,6 +1,6 @@
+import { dateFnsLocale } from '@/i18n/format'
 import { useMemo, useState } from 'react'
 import { formatDistanceToNow, parseISO } from 'date-fns'
-import { vi } from 'date-fns/locale'
 import { Gift, Radio, Sparkles, Wallet, X } from 'lucide-react'
 import UserAvatar from '@/components/common/UserAvatar'
 import { useHasPermission } from '@/components/auth/PermissionGate'
@@ -8,6 +8,7 @@ import { cn, formatNumber } from '@/lib/utils'
 import { useRewardActivityFeed } from '../hooks/useRewards'
 import { RewardActivityType, type RewardActivity } from '../types'
 import { Button } from '@/components/ui/button'
+import { useTranslation } from 'react-i18next'
 
 /** Giây để một thẻ tin đi hết chiều ngang. Nhân với số thẻ ra thời lượng cả vòng. */
 const SECONDS_PER_ITEM = 6
@@ -81,7 +82,7 @@ const LOOKS: Record<RewardActivityType, Look> = {
 
 function timeAgo(iso: string) {
   try {
-    return formatDistanceToNow(parseISO(iso), { addSuffix: true, locale: vi })
+    return formatDistanceToNow(parseISO(iso), { addSuffix: true, locale: dateFnsLocale() })
   } catch {
     return ''
   }
@@ -92,6 +93,7 @@ function timeAgo(iso: string) {
  * người xem chỉ kịp bắt hai ba từ đầu, mà thứ họ tìm là "có phải tên mình không".
  */
 function Message({ item }: { item: RewardActivity }) {
+  const { t } = useTranslation('rewards')
   const name = <span className="font-semibold text-[var(--color-foreground)]">{item.userName}</span>
   const accent = LOOKS[item.type].accent
 
@@ -99,14 +101,14 @@ function Message({ item }: { item: RewardActivity }) {
     case RewardActivityType.POINTS_AWARDED:
       return (
         <>
-          {name} vừa nhận{' '}
-          <span className={cn('font-semibold', accent)}>+{formatNumber(item.points, 0)} điểm</span>
+          {name} {t('RewardActivityTicker.justReceived')}{' '}
+          <span className={cn('font-semibold', accent)}>+{formatNumber(item.points, 0)} {t('RewardActivityTicker.points')}</span>
           {item.actorName ? (
-            <> từ {item.actorName}</>
+            <> {t('RewardActivityTicker.from')} {item.actorName}</>
           ) : (
             // Không có người trao nghĩa là chương trình tự động phát — nói rõ ra, để
             // trống thì người xem tưởng dữ liệu bị thiếu.
-            <> từ chương trình thưởng tự động</>
+            <> {t('RewardActivityTicker.fromAnAutomaticRewardProgram')}</>
           )}
           {item.note && <span className="text-[var(--color-muted-foreground)]"> · {item.note}</span>}
         </>
@@ -114,17 +116,16 @@ function Message({ item }: { item: RewardActivity }) {
     case RewardActivityType.BUDGET_GRANTED:
       return (
         <>
-          {name} được cấp hạn mức{' '}
-          <span className={cn('font-semibold', accent)}>{formatNumber(item.points, 0)} điểm</span> để
-          thưởng cho nhân viên
+          {name} {t('RewardActivityTicker.wasGrantedABudgetOf')}{' '}
+          <span className={cn('font-semibold', accent)}>{formatNumber(item.points, 0)} {t('RewardActivityTicker.points')}</span> {t('RewardActivityTicker.toRewardEmployees')}
         </>
       )
     case RewardActivityType.GIFT_REDEEMED:
       return (
         <>
-          {name} vừa đổi{' '}
-          <span className={cn('font-semibold', accent)}>{item.giftName}</span> với{' '}
-          {formatNumber(item.points, 0)} điểm
+          {name} {t('RewardActivityTicker.justRedeemed')}{' '}
+          <span className={cn('font-semibold', accent)}>{item.giftName}</span> {t('RewardActivityTicker.with')}{' '}
+          {formatNumber(item.points, 0)} {t('RewardActivityTicker.points')}
         </>
       )
   }
@@ -178,6 +179,7 @@ function TickerItem({ item }: { item: RewardActivity }) {
  * vào là dừng ngay (xem {@code .reward-marquee-viewport:hover} ở index.css), và nút x tắt hẳn.
  */
 export default function RewardActivityTicker() {
+  const { t } = useTranslation('rewards')
   const { hasPermission } = useHasPermission()
   const { data } = useRewardActivityFeed(30, hasPermission('REWARD:VIEW_MY'))
   const [dismissedAt, setDismissedAt] = useState(readDismissed)
@@ -220,7 +222,7 @@ export default function RewardActivityTicker() {
       <span className="hidden flex-shrink-0 items-center gap-1.5 pr-1 sm:flex">
         <Radio size={13} className="text-[var(--color-warning)]" />
         <span className="text-eyebrow text-[var(--color-warning)]">
-          Bảng tin thưởng
+          {t('RewardActivityTicker.rewardFeed')}
         </span>
       </span>
 
@@ -257,7 +259,7 @@ export default function RewardActivityTicker() {
         <div className="pointer-events-none absolute inset-y-0 left-0 w-8 bg-gradient-to-r from-[var(--color-warning-bg)] to-transparent" />
       </div>
 
-      <Button variant="ghost" size="icon-sm" aria-label="Ẩn bảng tin" onClick={dismiss} title="Ẩn bảng tin">
+      <Button variant="ghost" size="icon-sm" aria-label={t('RewardActivityTicker.hideTheFeed')} onClick={dismiss} title={t('RewardActivityTicker.hideTheFeed')}>
         <X aria-hidden="true" />
       </Button>
     </div>

@@ -1,6 +1,8 @@
 import { useHasPermission } from '@/components/auth/PermissionGate'
 import { useAuthStore } from '@/store/authStore'
 import type { DashboardScope } from '../api/dashboardLayoutApi'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
 /**
  * Vị trí của người đang đăng nhập theo cách hệ thống nhìn: ban giám đốc, trưởng đơn vị, phó đơn
@@ -9,12 +11,12 @@ import type { DashboardScope } from '../api/dashboardLayoutApi'
  */
 export type ViewerPosition = DashboardScope
 
-export const POSITION_LABEL: Record<ViewerPosition, string> = {
-  DIRECTOR: 'Ban giám đốc',
-  HEAD: 'Trưởng đơn vị',
-  DEPUTY: 'Phó đơn vị',
-  STAFF: 'Nhân viên',
-}
+export const POSITION_LABEL = perLanguage((): Record<ViewerPosition, string> => ({
+  DIRECTOR: i18n.t('dashboard:useViewerPosition.boardOfDirectors'),
+  HEAD: i18n.t('dashboard:useViewerPosition.unitHead'),
+  DEPUTY: i18n.t('dashboard:useViewerPosition.deputyHead'),
+  STAFF: i18n.t('dashboard:useViewerPosition.employee'),
+}))
 
 /** Thứ tự hiện các bộ gợi ý: từ rộng tới hẹp. */
 export const POSITION_ORDER: ViewerPosition[] = ['DIRECTOR', 'HEAD', 'DEPUTY', 'STAFF']

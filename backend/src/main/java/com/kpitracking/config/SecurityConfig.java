@@ -1,5 +1,8 @@
 package com.kpitracking.config;
 
+import com.kpitracking.exception.ErrorCode;
+import com.kpitracking.i18n.Messages;
+import com.kpitracking.logging.RequestIdResponseAdvice;
 import com.kpitracking.security.AuthCookieService;
 import com.kpitracking.security.AuthRateLimitFilter;
 import com.kpitracking.security.JwtAuthenticationFilter;
@@ -22,6 +25,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.csrf.CsrfException;
 import org.springframework.security.web.csrf.CsrfFilter;
 import org.springframework.security.web.csrf.CsrfTokenRequestAttributeHandler;
 import org.springframework.security.web.util.matcher.AndRequestMatcher;
@@ -45,6 +49,7 @@ public class SecurityConfig {
     private final AuthRateLimitFilter authRateLimitFilter;
     private final UserDetailsService userDetailsService;
     private final CookieProperties cookieProperties;
+    private final Messages messages;
     private static final String CSRF_COOKIE = AuthCookieService.CSRF_COOKIE;
 
     /**
@@ -100,10 +105,17 @@ public class SecurityConfig {
                 .requireCsrfProtectionMatcher(csrfProtectionMatcher())
                 .ignoringRequestMatchers(PUBLIC_ENDPOINTS))
             .cors(cors -> cors.configurationSource(corsConfigurationSource()))
+            // Hai lỗi này sinh ra trong chuỗi filter, không tới GlobalExceptionHandler, nên tự ghi
+            // ApiResponse có mã + câu dịch. Trước đây 403 (CSRF) trả thân rỗng: frontend không có gì để hiện.
             .exceptionHandling(exceptions -> exceptions
                 .authenticationEntryPoint((request, response, authException) ->
-                    com.kpitracking.logging.RequestIdResponseAdvice.writeError(
-                            response, HttpServletResponse.SC_UNAUTHORIZED, "Unauthorized"))
+                    RequestIdResponseAdvice.writeError(response, ErrorCode.UNAUTHORIZED,
+                            messages.error(ErrorCode.UNAUTHORIZED)))
+                .accessDeniedHandler((request, response, deniedException) -> {
+                    ErrorCode code = deniedException instanceof CsrfException
+                            ? ErrorCode.CSRF_INVALID : ErrorCode.ACCESS_DENIED;
+                    RequestIdResponseAdvice.writeError(response, code, messages.error(code));
+                })
             )
             .sessionManagement(session ->
                 session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))

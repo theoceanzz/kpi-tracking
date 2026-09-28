@@ -684,3 +684,37 @@ textarea:not(:disabled, [readonly], :focus, .no-edit-hint) {
     -webkit-print-color-adjust: exact;
   }
 }
+
+/* In / xuất PDF báo cáo 360 (F360ReportPage). Cùng cách với in chứng nhận: chỉ áp khi body mang
+   class đang-in, để Ctrl+P ở trang khác không bị ảnh hưởng. Báo cáo nằm sâu trong layout nên ẩn
+   bằng visibility (display:none ở tổ tiên sẽ ẩn luôn báo cáo). */
+@media print {
+  body.f360-printing * {
+    visibility: hidden;
+  }
+
+  body.f360-printing .f360-print-root,
+  body.f360-printing .f360-print-root * {
+    visibility: visible;
+  }
+
+  body.f360-printing .f360-print-root {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100%;
+  }
+
+  body.f360-printing .f360-no-print {
+    display: none !important;
+  }
+
+  body.f360-printing .f360-print-root section,
+  body.f360-printing .f360-print-root table {
+    break-inside: avoid;
+  }
+
+  body.f360-printing * {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+}

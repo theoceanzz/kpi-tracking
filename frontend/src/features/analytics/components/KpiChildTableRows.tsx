@@ -1,3 +1,5 @@
+import { intlLocale } from '@/i18n/format'
+import i18n from 'i18next'
 import { Fragment, useState } from 'react'
 import { ChevronDown, ChevronRight, User } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -101,7 +103,7 @@ function KpiChildTr({
       </div>
       {node.targetValue != null && (
         <div className="text-caption mt-1">
-          {(node.actualValue ?? 0).toLocaleString('vi-VN')} / {node.targetValue.toLocaleString('vi-VN')} {node.unit ?? ''}
+          {(node.actualValue ?? 0).toLocaleString(intlLocale())} / {node.targetValue.toLocaleString(intlLocale())} {node.unit ?? ''}
         </div>
       )}
     </>
@@ -152,7 +154,7 @@ export function KpiChildTableRows({
   onSelect,
   variant,
   headingColSpan,
-  heading = 'KPI con',
+  heading = i18n.t('analytics:KpiChildList.childKpis'),
 }: {
   nodes: KpiChildNode[]
   onSelect?: (kpiId: string) => void

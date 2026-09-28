@@ -1,6 +1,7 @@
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { AXIS_COLORS, METRIC_COLORS } from '../chartPalette'
 import { xAxisLabel } from '../axisLabel'
+import { useTranslation } from 'react-i18next'
 
 export interface DumbbellDatum {
   id?: string
@@ -130,6 +131,7 @@ function DumbbellTooltip({ active, payload, fromLabel, toLabel, fromColor, toCol
   fromColor: string
   toColor: string
 }) {
+  const { t } = useTranslation('shared')
   const d = payload?.[0]?.payload
   if (!active || !d) return null
   const u = d.unit ? ` ${d.unit}` : ''
@@ -148,7 +150,7 @@ function DumbbellTooltip({ active, payload, fromLabel, toLabel, fromColor, toCol
           </div>
         ))}
         <p className="text-xs text-[var(--color-subtle-foreground)] pt-1.5 border-t border-[var(--color-border)] mt-1.5">
-          Còn cách {Math.abs(gap)}{u}
+          {t('DumbbellDotPlot.distanceToGo')} {Math.abs(gap)}{u}
         </p>
       </div>
     </div>

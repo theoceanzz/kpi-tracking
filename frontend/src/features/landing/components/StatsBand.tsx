@@ -1,12 +1,14 @@
 import { useCountUp } from '../hooks/useCountUp'
 import { useInView } from '../hooks/useInView'
 import { Reveal } from './primitives'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
-const TAGS = ['OKR', 'KPI', 'BSC', 'Hạnh kiểm', 'Thác nước chỉ tiêu', 'Đánh giá theo đợt', 'Thưởng & quà', 'Ví tiền', 'K.AI', 'Dashboard tùy biến', 'Nhập Excel', 'Đăng nhập Lark', 'White label']
+const TAGS = perLanguage(() => (['OKR', 'KPI', 'BSC', i18n.t('landing:StatsBand.conduct'), i18n.t('landing:StatsBand.kpiWaterfall'), i18n.t('landing:StatsBand.periodEvaluations'), i18n.t('landing:StatsBand.rewardsGifts'), i18n.t('landing:StatsBand.wallet'), 'K.AI', i18n.t('landing:StatsBand.customizableDashboard'), i18n.t('landing:StatsBand.excelImport'), i18n.t('landing:StatsBand.larkSignIn'), 'White label']))
 
 /** Dải chữ chạy ngang liệt kê module (như dòng credit cuối phim). */
 export function Marquee() {
-  const list = [...TAGS, ...TAGS]
+  const list = [...TAGS(), ...TAGS()]
   return (
     <div className="relative overflow-hidden border-y border-slate-200 bg-slate-50 py-4 [mask-image:linear-gradient(90deg,transparent,#000_8%,#000_92%,transparent)]">
       <div className="lp-marquee flex w-max gap-10 whitespace-nowrap">
@@ -21,12 +23,12 @@ export function Marquee() {
   )
 }
 
-const STATS = [
-  { to: 40, suffix: '%', label: 'Tăng năng suất đội ngũ' },
-  { to: 2, suffix: 'x', label: 'Tốc độ hoàn thành mục tiêu' },
-  { to: 95, suffix: '%', label: 'Tỷ lệ hài lòng người dùng' },
-  { to: 100, suffix: '%', label: 'Minh bạch dữ liệu đánh giá' },
-]
+const STATS = perLanguage(() => ([
+  { to: 40, suffix: '%', label: i18n.t('landing:StatsBand.higherTeamProductivity') },
+  { to: 2, suffix: 'x', label: i18n.t('landing:StatsBand.goalCompletionSpeed') },
+  { to: 95, suffix: '%', label: i18n.t('landing:StatsBand.userSatisfactionRate') },
+  { to: 100, suffix: '%', label: i18n.t('landing:StatsBand.transparentEvaluationData') },
+]))
 
 /** Bốn con số đếm lên khi cuộn tới. */
 export function StatsBand() {
@@ -34,7 +36,7 @@ export function StatsBand() {
   return (
     <section ref={ref} className="lp-section-alt px-5 py-16 sm:px-8 sm:py-20 lg:px-12">
       <div className="mx-auto grid max-w-[1440px] grid-cols-2 gap-6 lg:grid-cols-4">
-        {STATS.map((s, i) => (
+        {STATS().map((s, i) => (
           <Reveal key={s.label} delay={i * 100}>
             <Stat {...s} active={inView} />
           </Reveal>

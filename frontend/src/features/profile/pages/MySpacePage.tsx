@@ -12,6 +12,8 @@ import EvaluationsPage from '@/features/evaluations/pages/EvaluationsPage'
 import MyRewardsPage from '@/features/rewards/pages/MyRewardsPage'
 import MyWalletPage from '@/features/wallet/pages/MyWalletPage'
 import MyConductPage from '@/features/conduct/pages/MyConductPage'
+import MyF360Page from '@/features/feedback360/pages/MyF360Page'
+import { useTranslation } from 'react-i18next'
 
 /**
  * Không gian cá nhân: công việc của chính mình và ví của chính mình. Trước đây là hai
@@ -21,7 +23,8 @@ import MyConductPage from '@/features/conduct/pages/MyConductPage'
  * số dư tiền là hai thứ khác nhau, để lẫn với danh sách KPI là người dùng nhìn nhầm.
  */
 export default function MySpacePage() {
-  const pageTitle = usePageTitle('my-space', 'Của tôi')
+  const { t } = useTranslation('profile')
+  const pageTitle = usePageTitle('my-space', t('MySpacePage.mine'))
   const { counts } = useNotificationDots()
   const { user } = useAuthStore()
   const { data: org } = useOrganization(user?.memberships?.[0]?.organizationId)
@@ -31,7 +34,7 @@ export default function MySpacePage() {
       <SettingsSectionLayout
         navId="my-space"
         title={pageTitle}
-        subtitle="Chỉ tiêu, bài nộp, kết quả đánh giá và ví của riêng bạn"
+        subtitle={t('MySpacePage.yourOwnKpisSubmissionsEvaluationResults')}
         sections={[
           // Chỉ những mục có việc TỒN mới mang badge. "Đánh giá của tôi", "Điều chỉnh của
           // tôi" và "Hạnh kiểm của tôi" là nơi xem kết quả hoặc đang chờ người khác xử lý,
@@ -51,6 +54,7 @@ export default function MySpacePage() {
           { id: 'evaluations', render: () => <EvaluationsPage /> },
           { id: 'my-adjustments', render: () => <MyAdjustmentsPage /> },
           { id: 'my-conduct', visible: org?.enableConduct ?? false, render: () => <MyConductPage /> },
+          { id: 'my-feedback360', visible: org?.enableFeedback360 ?? false, render: () => <MyF360Page /> },
           {
             id: 'my-rewards',
             visible: org?.enableReward ?? false,

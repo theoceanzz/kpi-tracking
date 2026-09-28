@@ -1,14 +1,16 @@
 import { z } from 'zod'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
-export const walletConfigSchema = z.object({
-  pointExchangeRate: z.number({ message: 'Vui lòng nhập tỉ giá quy đổi' })
-    .min(1, 'Tỉ giá quy đổi phải lớn hơn 0'),
-  topupMinAmount: z.number({ message: 'Vui lòng nhập số tiền nạp tối thiểu' })
-    .min(0, 'Số tiền nạp tối thiểu không được âm'),
-  topupMaxAmount: z.number({ message: 'Vui lòng nhập số tiền nạp tối đa' })
-    .min(0, 'Số tiền nạp tối đa không được âm'),
-  topupExpireMinutes: z.number({ message: 'Vui lòng nhập thời hạn đơn nạp' })
-    .min(1, 'Thời hạn đơn nạp phải lớn hơn 0 phút'),
+export const walletConfigSchema = perLanguage(() => (z.object({
+  pointExchangeRate: z.number({ message: i18n.t('wallet:walletConfigSchema.pleaseEnterTheExchangeRate') })
+    .min(1, i18n.t('wallet:walletConfigSchema.theExchangeRateMustBeGreater')),
+  topupMinAmount: z.number({ message: i18n.t('wallet:walletConfigSchema.pleaseEnterTheMinimumTopUp') })
+    .min(0, i18n.t('wallet:walletConfigSchema.theMinimumTopUpCannotBe')),
+  topupMaxAmount: z.number({ message: i18n.t('wallet:walletConfigSchema.pleaseEnterTheMaximumTopUp') })
+    .min(0, i18n.t('wallet:walletConfigSchema.theMaximumTopUpCannotBe')),
+  topupExpireMinutes: z.number({ message: i18n.t('wallet:walletConfigSchema.pleaseEnterTheTopUpOrder') })
+    .min(1, i18n.t('wallet:walletConfigSchema.theTopUpOrderValidityMust')),
   sepayAccountNumber: z.string().nullable().optional(),
   sepayBankCode: z.string().nullable().optional(),
   sepayAccountHolder: z.string().nullable().optional(),
@@ -20,11 +22,11 @@ export const walletConfigSchema = z.object({
   contactPhone: z.string().nullable().optional(),
   receiptEnabled: z.boolean(),
   receiptSeriesPrefix: z.string()
-    .min(1, 'Tiền tố ký hiệu không được để trống')
-    .max(10, 'Tiền tố ký hiệu tối đa 10 ký tự'),
-  receiptVatRate: z.number({ message: 'Vui lòng nhập thuế suất' })
-    .min(0, 'Thuế suất không được âm')
-    .max(100, 'Thuế suất không vượt quá 100%'),
+    .min(1, i18n.t('wallet:walletConfigSchema.theNumberPrefixCannotBeEmpty'))
+    .max(10, i18n.t('wallet:walletConfigSchema.theNumberPrefixCanBeAt')),
+  receiptVatRate: z.number({ message: i18n.t('wallet:walletConfigSchema.pleaseEnterTheTaxRate') })
+    .min(0, i18n.t('wallet:walletConfigSchema.theTaxRateCannotBeNegative'))
+    .max(100, i18n.t('wallet:walletConfigSchema.theTaxRateCannotExceed100')),
   receiptIssuerName: z.string().nullable().optional(),
   receiptIssuerTitle: z.string().nullable().optional(),
 }).superRefine((data, ctx) => {
@@ -32,7 +34,7 @@ export const walletConfigSchema = z.object({
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       path: ['topupMaxAmount'],
-      message: 'Số tiền tối đa đang nhỏ hơn tối thiểu.',
+      message: i18n.t('wallet:walletConfigSchema.theMaximumAmountIsLessThan'),
     })
   }
 
@@ -42,16 +44,16 @@ export const walletConfigSchema = z.object({
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       path: ['taxCode'],
-      message: 'Mã số thuế là nội dung bắt buộc trên chứng từ thu tiền.',
+      message: i18n.t('wallet:walletConfigSchema.theTaxCodeIsRequiredOn'),
     })
   }
   if (data.receiptEnabled && !data.businessAddress?.trim()) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       path: ['businessAddress'],
-      message: 'Địa chỉ đơn vị là nội dung bắt buộc trên chứng từ thu tiền.',
+      message: i18n.t('wallet:walletConfigSchema.theOrganizationAddressIsRequiredOn'),
     })
   }
-})
+})))
 
-export type WalletConfigFormData = z.infer<typeof walletConfigSchema>
+export type WalletConfigFormData = z.infer<ReturnType<typeof walletConfigSchema>>

@@ -1,5 +1,7 @@
 import { useEffect, useRef } from 'react'
 import { cn } from '@/lib/utils'
+import { useTranslation } from 'react-i18next'
+import i18n from 'i18next'
 
 interface DataTableColumn<T> {
   key: string
@@ -46,9 +48,10 @@ interface DataTableProps<T> {
  * Dưới `md` chuyển sang danh sách thẻ: mỗi cột thành một cặp nhãn–giá trị.
  */
 export default function DataTable<T>({
-  columns, data, keyExtractor, onRowClick, emptyMessage = 'Chưa có dữ liệu', renderMobileCard,
+  columns, data, keyExtractor, onRowClick, emptyMessage = i18n.t('shared:DataTable.noDataYet'), renderMobileCard,
   selectable, selectedKeys, onSelectionChange, isRowSelectable,
 }: DataTableProps<T>) {
+  const { t } = useTranslation('shared')
   const selected = selectedKeys ?? new Set<string>()
   const selectableRows = selectable ? data.filter(r => isRowSelectable?.(r) ?? true) : []
   const selectableKeys = selectableRows.map(keyExtractor)
@@ -96,7 +99,7 @@ export default function DataTable<T>({
                     <input
                       ref={headRef}
                       type="checkbox"
-                      aria-label={allSelected ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
+                      aria-label={allSelected ? t('DataTable.deselectAll') : t('DataTable.selectAll')}
                       checked={allSelected}
                       onChange={toggleAll}
                       className={checkboxCls}
@@ -136,7 +139,7 @@ export default function DataTable<T>({
                       {canSelect && (
                         <input
                           type="checkbox"
-                          aria-label="Chọn hàng"
+                          aria-label={t('DataTable.selectRow')}
                           checked={isSelected}
                           onChange={() => toggleOne(key)}
                           className={checkboxCls}
@@ -174,7 +177,7 @@ export default function DataTable<T>({
               {canSelect && (
                 <label className="mb-3 flex items-center gap-2 text-caption" onClick={e => e.stopPropagation()}>
                   <input type="checkbox" checked={isSelected} onChange={() => toggleOne(key)} className={checkboxCls} />
-                  Chọn
+                  {t('DataTable.choose')}
                 </label>
               )}
             {renderMobileCard ? renderMobileCard(row) : (

@@ -1,5 +1,6 @@
 package com.kpitracking.service.analytics;
 
+import com.kpitracking.i18n.ErrorMessages;
 import com.kpitracking.dto.response.stats.advanced.CompositionResponses.*;
 import com.kpitracking.repository.KpiSubmissionRepository;
 import lombok.RequiredArgsConstructor;
@@ -29,10 +30,10 @@ public class CompositionAnalyticsService {
     private static final List<String> SUBMISSION_STATUSES = List.of("DRAFT", "PENDING", "REJECTED", "APPROVED");
 
     private static final Map<String, String> STATUS_LABELS = Map.of(
-            "DRAFT", "Nháp",
-            "PENDING", "Chờ duyệt",
-            "REJECTED", "Từ chối",
-            "APPROVED", "Đã duyệt");
+            "DRAFT", "analytics.composition.draft",
+            "PENDING", "analytics.composition.pending",
+            "REJECTED", "analytics.composition.rejected",
+            "APPROVED", "analytics.composition.approved");
 
     private static final Map<String, String> STATUS_COLORS = Map.of(
             "DRAFT", "#94a3b8",
@@ -125,7 +126,7 @@ public class CompositionAnalyticsService {
     private List<StatusMeta> statusMetas() {
         return SUBMISSION_STATUSES.stream()
                 .map(c -> StatusMeta.builder()
-                        .code(c).label(STATUS_LABELS.get(c)).color(STATUS_COLORS.get(c)).build())
+                        .code(c).label(ErrorMessages.text(STATUS_LABELS.get(c), "")).color(STATUS_COLORS.get(c)).build())
                 .toList();
     }
 

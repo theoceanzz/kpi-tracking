@@ -3,17 +3,22 @@ import { Link } from 'react-router-dom'
 import { ArrowRight, Menu, Phone, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { BrandLogo } from '@/components/common/BrandLogo'
+import LanguageSwitcher from '@/components/common/LanguageSwitcher'
+import { useTranslation } from 'react-i18next'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
-const LINKS = [
-  { href: '#story', label: 'Câu chuyện' },
-  { href: '#demo', label: 'Xem demo' },
-  { href: '#modules', label: 'Module' },
-  { href: '#pricing', label: 'Bảng giá' },
-  { href: '#contact', label: 'Liên hệ' },
-]
+const LINKS = perLanguage(() => ([
+  { href: '#story', label: i18n.t('landing:LandingNav.story') },
+  { href: '#demo', label: i18n.t('landing:LandingNav.demo') },
+  { href: '#modules', label: i18n.t('landing:LandingNav.modules') },
+  { href: '#pricing', label: i18n.t('landing:LandingNav.pricing') },
+  { href: '#contact', label: i18n.t('landing:LandingNav.contact') },
+]))
 
 /** Thanh điều hướng dạng viên thuốc nổi + thanh tiến độ cuộn ở mép trên. */
 export function LandingNav() {
+  const { t } = useTranslation('landing')
   const [scrolled, setScrolled] = useState(false)
   const [progress, setProgress] = useState(0)
   const [open, setOpen] = useState(false)
@@ -51,7 +56,7 @@ export function LandingNav() {
           </Link>
 
           <div className="hidden items-center gap-1 md:flex">
-            {LINKS.map((l) => (
+            {LINKS().map((l) => (
               <a
                 key={l.href}
                 href={l.href}
@@ -63,22 +68,26 @@ export function LandingNav() {
           </div>
 
           <div className="flex items-center gap-2">
+            {/* Trang giới thiệu luôn nền sáng, nên ghim màu sáng thay cho token theo theme. */}
+            <LanguageSwitcher
+              className="h-9 border-slate-200 bg-white/80 text-slate-700 backdrop-blur hover:bg-slate-50"
+            />
             <Link
               to="/login"
               className="hidden rounded-full px-4 py-2 text-sm font-semibold text-slate-600 transition-colors hover:text-slate-900 sm:block"
             >
-              Đăng nhập
+              {t('LandingNav.signIn')}
             </Link>
             <Link
               to="/login"
               className="group inline-flex items-center gap-1.5 rounded-full bg-blue-600 px-4 py-2 text-sm font-bold text-white shadow-lg shadow-blue-600/25 transition-all hover:bg-blue-700 hover:shadow-blue-600/40 active:scale-95"
             >
-              Dùng thử
+              {t('LandingNav.trial')}
               <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
             </Link>
             <button
               type="button"
-              aria-label="Mở menu"
+              aria-label={t('LandingNav.openMenu')}
               onClick={() => setOpen((v) => !v)}
               className="flex h-9 w-9 items-center justify-center rounded-full text-slate-700 hover:bg-slate-100 md:hidden"
             >
@@ -95,7 +104,7 @@ export function LandingNav() {
           open ? 'scale-100 opacity-100' : 'pointer-events-none scale-95 opacity-0',
         )}
       >
-        {LINKS.map((l) => (
+        {LINKS().map((l) => (
           <a
             key={l.href}
             href={l.href}
@@ -118,6 +127,7 @@ export function LandingNav() {
 
 /** Hai nút Zalo / Hotline nổi góc phải dưới (giữ nguyên số liên hệ). */
 export function FloatingContact() {
+  const { t } = useTranslation('landing')
   return (
     <div className="fixed bottom-5 right-5 z-[100] flex flex-col items-center gap-3 sm:bottom-8 sm:right-8">
       <a
@@ -135,13 +145,13 @@ export function FloatingContact() {
         </div>
         <div className="pointer-events-none absolute bottom-full right-0 mb-3 w-52 translate-y-3 rounded-2xl border border-slate-200 bg-white p-3 opacity-0 shadow-2xl transition-all group-hover:translate-y-0 group-hover:opacity-100">
           <img src="/zalo-qr.png" alt="Zalo QR" className="mb-2 w-full rounded-lg" />
-          <div className="text-center text-[10px] font-bold uppercase tracking-wider text-slate-400">Quét mã để nhắn tin</div>
+          <div className="text-center text-[10px] font-bold uppercase tracking-wider text-slate-400">{t('LandingNav.scanTheCodeToMessageUs')}</div>
         </div>
       </a>
       <a
         href="tel:0904871813"
         className="group relative flex items-center justify-center"
-        aria-label="Gọi hotline"
+        aria-label={t('LandingNav.callTheHotline')}
       >
         <div className="absolute inset-0 animate-ping rounded-full bg-emerald-500 opacity-25" />
         <div className="relative flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500 shadow-lg shadow-emerald-600/40 transition-all duration-300 group-hover:rotate-12 group-hover:scale-110 sm:h-14 sm:w-14">

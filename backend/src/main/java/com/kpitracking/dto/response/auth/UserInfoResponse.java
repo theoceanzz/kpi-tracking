@@ -22,4 +22,8 @@ public class UserInfoResponse {
     private Boolean requirePasswordChange;
     private Boolean hasSeenOnboarding;
     private Boolean isPlatformAdmin;
+    /** Ngôn ngữ người dùng tự chọn; null = chưa chọn. */
+    private String preferredLanguage;
+    /** Ngôn ngữ thực dùng: tự chọn → mặc định của tổ chức → vi. */
+    private String effectiveLanguage;
 }

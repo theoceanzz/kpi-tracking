@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { UserInfo } from '@/types/auth'
 import { queryClient } from '@/lib/queryClient'
+import { clearAllDrafts } from '@/lib/formDraft'
 
 /**
  * Store này KHÔNG giữ token. Access/refresh token nằm trong cookie HttpOnly do backend cấp,
@@ -31,6 +32,7 @@ export const useAuthStore = create<AuthState>()(
 
       logout: () => {
         queryClient.clear()
+        clearAllDrafts() // nháp form có thể chứa dữ liệu nhạy cảm — không để lại cho người dùng máy sau
         set({ user: null, isAuthenticated: false })
       },
     }),

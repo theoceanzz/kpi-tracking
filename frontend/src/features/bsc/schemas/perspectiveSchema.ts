@@ -1,5 +1,6 @@
 import { z } from 'zod'
 import { BscFixedPerspective, BscPerspectiveStatus, type PerspectiveResponse } from '../types'
+import i18n from 'i18next'
 
 const HEX_COLOR = /^#([0-9A-Fa-f]{6})$/
 // Cho phép chuỗi RỖNG: tổ chức bật sinh mã tự động thì ô mã bỏ trống là hợp lệ.
@@ -35,51 +36,51 @@ export const createPerspectiveSchema = (
 ) =>
   z.object({
     code: z.string()
-      .max(50, 'Mã tối đa 50 ký tự')
-      .regex(CODE_PATTERN, 'Mã chỉ gồm chữ, số và dấu gạch dưới (không dấu cách, không tiếng Việt)')
+      .max(50, i18n.t('bsc:perspectiveSchema.codeCanBeAtMost50'))
+      .regex(CODE_PATTERN, i18n.t('bsc:perspectiveSchema.codeMayOnlyContainLettersDigits'))
       .refine(
         v => !v.trim() || !RESERVED_CODES.includes(v.trim().toUpperCase()),
-        'Mã này trùng mã lĩnh vực cố định — hãy dùng mã khác',
+        i18n.t('bsc:perspectiveSchema.thisCodeMatchesAFixedArea'),
       )
       .refine(
         v => !v.trim() || !existing.some(p => p.code?.toLowerCase() === v.trim().toLowerCase() && p.id !== currentId),
-        'Mã này đã được dùng bởi hạng mục khác',
+        i18n.t('bsc:perspectiveSchema.thisCodeIsAlreadyUsedBy'),
       )
       .optional(),
-    name: z.string().min(1, 'Vui lòng nhập tên hạng mục'),
+    name: z.string().min(1, i18n.t('bsc:perspectiveSchema.pleaseEnterTheItemName')),
     description: z.string().optional(),
     // BẮT BUỘC: thiếu một trong ba thì dòng chỉ tiêu của đơn vị không quy ra %đạt được — nó chỉ
     // rơi về trung bình tỉ lệ đạt của các KPI con, và người xem kết quả không biết "80" là 80 gì.
-    targetValue: z.number({ message: 'Vui lòng nhập mục tiêu mong muốn' })
-      .min(0, 'Mục tiêu mong muốn không được âm'),
-    minimumValue: z.number({ message: 'Vui lòng nhập kết quả tối thiểu' })
-      .min(0, 'Kết quả tối thiểu không được âm'),
-    unit: z.string({ message: 'Vui lòng nhập đơn vị tính' })
+    targetValue: z.number({ message: i18n.t('bsc:perspectiveSchema.pleaseEnterTheDesiredTarget') })
+      .min(0, i18n.t('bsc:perspectiveSchema.theDesiredTargetCannotBeNegative')),
+    minimumValue: z.number({ message: i18n.t('bsc:perspectiveSchema.pleaseEnterTheMinimumResult') })
+      .min(0, i18n.t('bsc:perspectiveSchema.theMinimumResultCannotBeNegative')),
+    unit: z.string({ message: i18n.t('bsc:perspectiveSchema.pleaseEnterTheUnitOfMeasure') })
       .trim()
-      .min(1, 'Vui lòng nhập đơn vị tính')
-      .max(50, 'Đơn vị tính tối đa 50 ký tự'),
-    color: z.string().min(1, 'Vui lòng chọn màu sắc').regex(HEX_COLOR, 'Màu không hợp lệ'),
+      .min(1, i18n.t('bsc:perspectiveSchema.pleaseEnterTheUnitOfMeasure'))
+      .max(50, i18n.t('bsc:perspectiveSchema.unitOfMeasureCanBeAt')),
+    color: z.string().min(1, i18n.t('bsc:perspectiveSchema.pleaseChooseAColor')).regex(HEX_COLOR, i18n.t('bsc:perspectiveSchema.invalidColor')),
     icon: z.string().optional(),
-    displayOrder: z.number({ message: 'Vui lòng nhập thứ tự hiển thị' })
-      .int('Thứ tự phải là số nguyên')
-      .min(0, 'Thứ tự không được âm'),
+    displayOrder: z.number({ message: i18n.t('bsc:perspectiveSchema.pleaseEnterTheDisplayOrder') })
+      .int(i18n.t('bsc:perspectiveSchema.orderMustBeAnInteger'))
+      .min(0, i18n.t('bsc:perspectiveSchema.orderCannotBeNegative')),
     status: z.enum(BscPerspectiveStatus).optional(),
-    fixedPerspective: z.enum(BscFixedPerspective, { message: 'Vui lòng chọn lĩnh vực cho hạng mục' }),
+    fixedPerspective: z.enum(BscFixedPerspective, { message: i18n.t('bsc:perspectiveSchema.pleaseChooseAnAreaForThe') }),
     // Trọng số không thuộc hạng mục mà thuộc bộ tiêu chí — chỉ hiện khi mở từ modal bộ tiêu chí.
-    weightPercentage: z.number({ message: 'Trọng số phải trong khoảng 0 – 100' })
-      .min(0, 'Trọng số phải trong khoảng 0 – 100')
-      .max(100, 'Trọng số phải trong khoảng 0 – 100')
+    weightPercentage: z.number({ message: i18n.t('bsc:perspectiveSchema.weightMustBeBetween0And') })
+      .min(0, i18n.t('bsc:perspectiveSchema.weightMustBeBetween0And'))
+      .max(100, i18n.t('bsc:perspectiveSchema.weightMustBeBetween0And'))
       .optional(),
   }).superRefine((data, ctx) => {
     if (requireCode && !data.code?.trim()) {
-      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['code'], message: 'Vui lòng nhập mã' })
+      ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['code'], message: i18n.t('bsc:perspectiveSchema.pleaseEnterACode') })
     }
     // Tối thiểu là SÀN nên không được vượt mục tiêu; hạng mục không có cờ "KPI ngược".
     if (data.minimumValue != null && data.targetValue != null && data.minimumValue > data.targetValue) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['minimumValue'],
-        message: 'Kết quả tối thiểu không được lớn hơn mục tiêu mong muốn',
+        message: i18n.t('bsc:perspectiveSchema.theMinimumResultCannotBeGreater'),
       })
     }
     // Thứ tự hiển thị chỉ cần duy nhất TRONG CÙNG 1 lĩnh vực.
@@ -90,7 +91,7 @@ export const createPerspectiveSchema = (
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['displayOrder'],
-        message: 'Thứ tự này đã được dùng bởi hạng mục khác trong cùng lĩnh vực',
+        message: i18n.t('bsc:perspectiveSchema.thisOrderIsAlreadyUsedBy'),
       })
     }
   })
@@ -100,12 +101,12 @@ export type PerspectiveFormValues = z.infer<ReturnType<typeof createPerspectiveS
 /** Lĩnh vực cố định chỉ sửa được tên/màu/thứ tự — mã do backend giữ. */
 export const createFixedPerspectiveSchema = (usedOrders: number[] = []) =>
   z.object({
-    name: z.string().min(1, 'Vui lòng nhập tên lĩnh vực').max(100, 'Tên tối đa 100 ký tự'),
-    color: z.string().min(1, 'Vui lòng chọn màu sắc').regex(HEX_COLOR, 'Màu không hợp lệ'),
-    displayOrder: z.number({ message: 'Vui lòng nhập thứ tự hiển thị' })
-      .int('Thứ tự phải là số nguyên')
-      .min(0, 'Thứ tự không được âm')
-      .refine(v => !usedOrders.includes(v), 'Thứ tự này đã được dùng bởi lĩnh vực khác'),
+    name: z.string().min(1, i18n.t('bsc:perspectiveSchema.pleaseEnterTheAreaName')).max(100, i18n.t('bsc:perspectiveSchema.nameCanBeAtMost100')),
+    color: z.string().min(1, i18n.t('bsc:perspectiveSchema.pleaseChooseAColor')).regex(HEX_COLOR, i18n.t('bsc:perspectiveSchema.invalidColor')),
+    displayOrder: z.number({ message: i18n.t('bsc:perspectiveSchema.pleaseEnterTheDisplayOrder') })
+      .int(i18n.t('bsc:perspectiveSchema.orderMustBeAnInteger'))
+      .min(0, i18n.t('bsc:perspectiveSchema.orderCannotBeNegative'))
+      .refine(v => !usedOrders.includes(v), i18n.t('bsc:perspectiveSchema.thisOrderIsAlreadyUsedBy2')),
   })
 
 export type FixedPerspectiveFormValues = z.infer<ReturnType<typeof createFixedPerspectiveSchema>>

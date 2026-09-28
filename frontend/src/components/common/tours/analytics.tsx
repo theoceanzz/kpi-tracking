@@ -1,5 +1,7 @@
 import type { TourKey } from '@/store/tourStore'
 import type { TourDef } from './registry'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
 /**
  * Hướng dẫn cho "Phân tích" — dòng sidebar và sáu góc nhìn bên trong.
@@ -28,22 +30,21 @@ const warn = (text: string) => (
   </p>
 )
 
-const analyticsTours: Record<TourKey, TourDef> = {
+const analyticsTours = perLanguage((): Record<TourKey, TourDef> => ({
   /* ══════════ Cấp trang ══════════ */
   'analytics': {
     steps: [
       {
         target: '#tour-settings-nav',
-        title: '🔭 Ba cụm, ba tầm nhìn',
+        title: i18n.t('shared:analytics.threeGroupsThreeViews'),
         content: (
           <div className="space-y-2">
             <p>
-              <strong>Cá nhân</strong> là kết quả của riêng bạn — chỉ người nộp báo cáo mới có.{' '}
-              <strong>Đơn vị</strong> là đơn vị bạn quản lý, và so sánh đơn vị đó với các đơn vị khác.
+              <strong>{i18n.t('shared:analytics.personal')}</strong> {i18n.t('shared:analytics.isYourOwnResultsOnlyPeople')}{' '}
+              <strong>{i18n.t('shared:analytics.unit')}</strong> {i18n.t('shared:analytics.isTheUnitYouManageAnd')}
             </p>
             <p>
-              <strong>Toàn công ty</strong> là thẻ điểm BSC: công ty có đi đúng chiến lược không.
-              Dòng “Dành cho” trên mỗi thẻ nói mục đó có phải của bạn không.
+              <strong>{i18n.t('shared:analytics.wholeCompany')}</strong> {i18n.t('shared:analytics.isTheBscScorecardIsThe')}
             </p>
           </div>
         ),
@@ -51,16 +52,14 @@ const analyticsTours: Record<TourKey, TourDef> = {
       },
       {
         target: '#tour-settings-nav',
-        title: '🔀 Thấy OKR hay thấy KPI',
+        title: i18n.t('shared:analytics.seeOkrOrSeeKpi'),
         content: (
           <div className="space-y-2">
             <p>
-              Hai cụm đầu đổi theo cấu hình tổ chức: <strong>bật OKR</strong> thì xem theo mục tiêu
-              và kết quả then chốt; <strong>tắt OKR</strong> thì xem theo chỉ tiêu KPI.
+              {i18n.t('shared:analytics.theFirstTwoGroupsChangeWith')} <strong>{i18n.t('shared:analytics.okrOn')}</strong> {i18n.t('shared:analytics.showsObjectivesAndKeyResults')} <strong>{i18n.t('shared:analytics.okrOff')}</strong> {i18n.t('shared:analytics.showsKpis')}
             </p>
             <p className="text-caption">
-              Không phải hai bộ thẻ song song — mỗi lúc chỉ một cặp hiện ra, nên bạn sẽ không thấy đủ cả
-              bốn thẻ.
+              {i18n.t('shared:analytics.theyAreNotTwoParallelSets')}
             </p>
           </div>
         ),
@@ -68,14 +67,13 @@ const analyticsTours: Record<TourKey, TourDef> = {
       },
       {
         target: '#tour-settings-nav',
-        title: '📅 Mọi con số đều theo kỳ',
+        title: i18n.t('shared:analytics.everyFigureIsPerCycle'),
         content: (
           <div className="space-y-2">
             <p>
-              Trong mỗi góc nhìn đều có bộ chọn đợt hoặc kỳ. Số liệu chỉ có nghĩa khi bạn biết nó thuộc
-              khoảng thời gian nào.
+              {i18n.t('shared:analytics.eachViewHasAPeriodOr')}
             </p>
-            {warn('Thấy biểu đồ trống? Kiểm tra bộ chọn đợt trước khi kết luận là không có dữ liệu — thường là đang đứng ở một đợt chưa ai nộp gì.')}
+            {warn(i18n.t('shared:analytics.seeAnEmptyChartCheckThe'))}
           </div>
         ),
         placement: 'top',
@@ -88,26 +86,24 @@ const analyticsTours: Record<TourKey, TourDef> = {
     steps: [
       {
         target: '#tour-analytics-widgets',
-        title: '🗓️ Mỗi ô tự chọn khoảng thời gian',
+        title: i18n.t('shared:analytics.eachCardPicksItsOwnTime'),
         content: (
           <div className="space-y-2">
             <p>
-              Dưới tiêu đề mỗi ô có dòng chip cho biết ô đang theo <strong>khoảng thời gian nào</strong>.
-              Bấm vào đó để mở bảng cấu hình: chọn theo đợt, theo kỳ, hoặc khoảng ngày tự do cho riêng ô ấy.
+              {i18n.t('shared:analytics.underEachCardsTitleAChip')} <strong>{i18n.t('shared:analytics.timeRange')}</strong>{i18n.t('shared:analytics.theCardFollowsClickItTo')}
             </p>
-            {note('Chip tô đậm là ô đã đặt khoảng riêng; chip nhạt là đang theo mặc định.')}
+            {note(i18n.t('shared:analytics.aBoldChipMeansTheCard'))}
           </div>
         ),
         placement: 'top',
       },
       {
         target: '#tour-analytics-metrics',
-        title: '🎯 Mục tiêu của bạn đang tới đâu',
+        title: i18n.t('shared:analytics.whereYourObjectivesStand'),
         content: (
           <div className="space-y-2">
             <p>
-              Dãy ô này tóm tắt toàn bộ mục tiêu bạn đang nắm. Tiến độ của một mục tiêu là tổng hợp từ
-              các kết quả then chốt bên dưới nó, không nhập tay.
+              {i18n.t('shared:analytics.thisRowOfCardsSummarizesAll')}
             </p>
           </div>
         ),
@@ -115,28 +111,27 @@ const analyticsTours: Record<TourKey, TourDef> = {
       },
       {
         target: '#tour-analytics-widgets',
-        title: '📈 Xu hướng quan trọng hơn con số hôm nay',
+        title: i18n.t('shared:analytics.theTrendMattersMoreThanTodays'),
         content: (
           <div className="space-y-2">
             <p>
-              Biểu đồ xu hướng cho biết bạn đang tăng tốc hay chững lại. Đạt 60% ở giữa kỳ mà đường đi
-              ngang thì đáng lo hơn là 40% mà đang dốc lên.
+              {i18n.t('shared:analytics.trendChartsShowWhetherYouAre')}
             </p>
-            {note('Bảng "Cây mục tiêu và KR của đơn vị" bên dưới nối mục tiêu với các chỉ tiêu cụ thể đang đẩy nó đi.')}
+            {note(i18n.t('shared:analytics.theUnitObjectiveAndKrTree'))}
           </div>
         ),
         placement: 'top',
       },
       {
         target: '#tour-analytics-customize',
-        title: '🧱 Màn hình này sắp xếp lại được',
+        title: i18n.t('shared:analytics.thisScreenCanBeRearranged'),
         content: (
           <div className="space-y-2">
             <p>
-              Rê chuột lên một ô rồi nắm cụm chấm để kéo đổi vị trí, kéo mép để đổi cỡ; bấm{' '}
-              <strong>Thêm biểu đồ</strong> để lấy thêm từ thư viện. Mọi thay đổi tự lưu.
+              {i18n.t('shared:analytics.hoverOverACardAndGrab')}{' '}
+              <strong>{i18n.t('shared:analytics.addChart')}</strong> {i18n.t('shared:analytics.toAddMoreFromTheLibrary')}
             </p>
-            {note('Bố cục nhớ riêng cho tài khoản của bạn, không ảnh hưởng tới ai khác. Lỡ tay thì có nút đặt lại mặc định.')}
+            {note(i18n.t('shared:analytics.theLayoutIsRememberedForYour'))}
           </div>
         ),
         placement: 'bottom',
@@ -148,12 +143,11 @@ const analyticsTours: Record<TourKey, TourDef> = {
     steps: [
       {
         target: '#tour-analytics-metrics',
-        title: '👥 Mục tiêu của cả đơn vị',
+        title: i18n.t('shared:analytics.objectivesOfTheWholeUnit'),
         content: (
           <div className="space-y-2">
             <p>
-              Năm ô: tiến độ tổng quan, hiệu suất tổng quan, số mục tiêu đã hoàn thành, số mục tiêu đang
-              ở diện rủi ro, và tổng nhân sự thuộc phạm vi bạn quản lý.
+              {i18n.t('shared:analytics.fiveCardsOverallProgressOverallPerformance')}
             </p>
           </div>
         ),
@@ -161,37 +155,34 @@ const analyticsTours: Record<TourKey, TourDef> = {
       },
       {
         target: '#tour-analytics-metrics',
-        title: '🚨 Nhìn vào ô rủi ro trước',
+        title: i18n.t('shared:analytics.lookAtTheRiskCardFirst'),
         content: (
           <div className="space-y-2">
             <p>
-              Ô <strong>Mục tiêu rủi ro</strong> đã lọc sẵn phần tiến độ thấp và sắp hết hạn — đó là thứ
-              đáng xem đầu tiên mỗi tuần.
+              {i18n.t('shared:analytics.theCard')} <strong>{i18n.t('shared:analytics.atRiskObjectives')}</strong> {i18n.t('shared:analytics.alreadyFiltersForLowProgressAnd')}
             </p>
-            {warn('Mục tiêu vào diện rủi ro thường không tự thoát ra. Xử lý lúc còn nửa kỳ thì kịp; để tới cuối kỳ thì chỉ còn cách giải thích.')}
+            {warn(i18n.t('shared:analytics.objectivesThatFallIntoTheRisk'))}
           </div>
         ),
         placement: 'bottom',
       },
       {
         target: '#tour-analytics-widgets',
-        title: '🧑‍🤝‍🧑 Xuống tới từng người',
+        title: i18n.t('shared:analytics.downToEachPerson'),
         content: (
           <p>
-            Khối <strong>Cơ cấu nhân sự theo vai trò</strong> cho biết ai đang gánh mục tiêu nào, để
-            nhận ra người quá tải và người chưa được giao gì. Khối{' '}
-            <strong>Đơn vị con: hiệu suất, tiến độ, nộp bài</strong> so các đơn vị con với nhau.
+            {i18n.t('shared:analytics.theBlock')} <strong>{i18n.t('shared:analytics.peopleByRole')}</strong> {i18n.t('shared:analytics.showsWhoCarriesWhichObjectiveSo')}{' '}
+            <strong>{i18n.t('shared:analytics.childUnitsPerformanceProgressSubmissions')}</strong> {i18n.t('shared:analytics.comparesChildUnitsWithEachOther')}
           </p>
         ),
         placement: 'top',
       },
       {
         target: '#tour-analytics-widgets',
-        title: '⏱️ Đổi kỳ ngay trên từng ô',
+        title: i18n.t('shared:analytics.changeTheCycleRightOnEach'),
         content: (
           <p>
-            Mỗi ô tính theo khoảng thời gian ghi ở dòng chip dưới tiêu đề — bấm chip để đổi. So sánh hai
-            kỳ thì đổi khoảng rồi đọc lại cùng một ô, đừng so ô của kỳ này với ô của kỳ khác.
+            {i18n.t('shared:analytics.eachCardIsComputedOverThe')}
           </p>
         ),
         placement: 'top',
@@ -204,12 +195,11 @@ const analyticsTours: Record<TourKey, TourDef> = {
     steps: [
       {
         target: '#tour-analytics-metrics',
-        title: '📊 Kết quả của riêng bạn',
+        title: i18n.t('shared:analytics.yourOwnResults'),
         content: (
           <div className="space-y-2">
             <p>
-              Năm ô tóm tắt: chỉ tiêu đang đảm nhiệm, tiến độ, điểm số và tình trạng bài nộp qua các đợt
-              đã chấm.
+              {i18n.t('shared:analytics.fiveSummaryCardsKpisYouHold')}
             </p>
           </div>
         ),
@@ -217,13 +207,13 @@ const analyticsTours: Record<TourKey, TourDef> = {
       },
       {
         target: '#tour-analytics-widgets',
-        title: '🥧 Ba khối trả lời ba câu hỏi',
+        title: i18n.t('shared:analytics.threeBlocksAnswerThreeQuestions'),
         content: (
           <div className="space-y-2">
             <ul className="text-xs space-y-1.5 list-disc pl-4 text-[var(--color-muted-foreground)] font-medium">
-              <li><strong className="text-[var(--color-foreground)]">Danh sách KPI tôi đảm nhiệm:</strong> việc của tôi đang đọng ở khâu nào.</li>
-              <li><strong className="text-[var(--color-foreground)]">Tình trạng duyệt bài nộp:</strong> tôi có đang trễ bài nào không.</li>
-              <li><strong className="text-[var(--color-foreground)]">Điểm đánh giá qua các đợt:</strong> tôi đang tiến bộ hay đi xuống.</li>
+              <li><strong className="text-[var(--color-foreground)]">{i18n.t('shared:analytics.myKpiList')}</strong> {i18n.t('shared:analytics.whereMyWorkIsStuck')}</li>
+              <li><strong className="text-[var(--color-foreground)]">{i18n.t('shared:analytics.submissionApprovalStatus')}</strong> {i18n.t('shared:analytics.amILateOnAnySubmission')}</li>
+              <li><strong className="text-[var(--color-foreground)]">{i18n.t('shared:analytics.evaluationScoresAcrossPeriods')}</strong> {i18n.t('shared:analytics.amIImprovingOrDeclining')}</li>
             </ul>
           </div>
         ),
@@ -231,12 +221,11 @@ const analyticsTours: Record<TourKey, TourDef> = {
       },
       {
         target: '#tour-analytics-widgets',
-        title: '🧾 Đối chiếu trước khi thắc mắc',
+        title: i18n.t('shared:analytics.checkBeforeAsking'),
         content: (
           <div className="space-y-2">
             <p>
-              Ô <strong>Điểm đánh giá qua các đợt</strong> ghi lại điểm và nhận xét của từng đợt. Thấy điểm không
-              như mong đợi thì xem ở đây trước khi hỏi quản lý — thường lý do đã nằm sẵn trong nhận xét.
+              {i18n.t('shared:analytics.theCard')} <strong>{i18n.t('shared:analytics.evaluationScoresAcrossPeriods2')}</strong> {i18n.t('shared:analytics.recordsTheScoreAndCommentsOf')}
             </p>
           </div>
         ),
@@ -244,11 +233,10 @@ const analyticsTours: Record<TourKey, TourDef> = {
       },
       {
         target: '#tour-analytics-widgets',
-        title: '🗓️ Mỗi ô một khoảng thời gian',
+        title: i18n.t('shared:analytics.eachCardHasItsOwnTime'),
         content: (
           <p>
-            Đợt, kỳ hoặc khoảng ngày của từng ô ghi ở dòng chip dưới tiêu đề — bấm vào để đổi cho riêng ô
-            đó. Muốn xem lại một đợt cũ thì mở đúng ô muốn xem.
+            {i18n.t('shared:analytics.eachCardsPeriodCycleOrDate')}
           </p>
         ),
         placement: 'top',
@@ -260,12 +248,11 @@ const analyticsTours: Record<TourKey, TourDef> = {
     steps: [
       {
         target: '#tour-analytics-metrics',
-        title: '🏛️ Bức tranh của đơn vị bạn',
+        title: i18n.t('shared:analytics.thePictureOfYourUnit'),
         content: (
           <div className="space-y-2">
             <p>
-              Tổng hợp KPI của đơn vị bạn phụ trách: tiến độ chung, tỉ lệ trễ hạn, xếp hạng nhân sự và các
-              điểm rủi ro — tất cả theo khoảng thời gian đang lọc.
+              {i18n.t('shared:analytics.aKpiSummaryOfTheUnit')}
             </p>
           </div>
         ),
@@ -273,39 +260,36 @@ const analyticsTours: Record<TourKey, TourDef> = {
       },
       {
         target: '#tour-analytics-widgets',
-        title: '⚠️ Hai loại chậm, đừng nhầm',
+        title: i18n.t('shared:analytics.twoKindsOfSlowDoNot'),
         content: (
           <div className="space-y-2">
             <p>
-              Ô <strong>Đơn vị con: hiệu suất, tiến độ, nộp bài</strong> cho thấy cả một phòng ban đang chậm so với
-              kế hoạch.{' '}<strong>Xếp hạng nhân sự</strong> cho thấy một vài cá nhân kéo tụt phần còn lại.
+              {i18n.t('shared:analytics.theCard')} <strong>{i18n.t('shared:analytics.childUnitsPerformanceProgressSubmissions')}</strong> {i18n.t('shared:analytics.showsAWholeDepartmentBehindPlan')}{' '}<strong>{i18n.t('shared:analytics.peopleRanking')}</strong> {i18n.t('shared:analytics.showsAFewIndividualsPullingThe')}
             </p>
-            {note('Cách xử lý khác hẳn nhau: cái đầu là vấn đề mục tiêu đặt quá cao hoặc thiếu nguồn lực, cái sau là chuyện của từng người.')}
+            {note(i18n.t('shared:analytics.theFixesAreCompletelyDifferentThe'))}
           </div>
         ),
         placement: 'top',
       },
       {
         target: '#tour-analytics-customize',
-        title: '🧱 Tự chọn biểu đồ muốn xem',
+        title: i18n.t('shared:analytics.chooseTheChartsYouWantTo'),
         content: (
           <div className="space-y-2">
             <p>
-              <strong>Thêm biểu đồ</strong> lấy thêm từ thư viện; trên ô thì nắm cụm chấm để kéo thả, kéo
-              mép để đổi cỡ, menu góc phải để cấu hình, ghim hoặc xoá.
+              <strong>{i18n.t('shared:analytics.addChart')}</strong> {i18n.t('shared:analytics.addsMoreFromTheLibraryOn')}
             </p>
-            {note('Bố cục nhớ riêng cho tài khoản bạn, không ảnh hưởng tới người khác. Lỡ tay thì có nút đặt lại mặc định trong thư viện.')}
+            {note(i18n.t('shared:analytics.theLayoutIsRememberedForYour2'))}
           </div>
         ),
         placement: 'bottom',
       },
       {
         target: '#tour-analytics-widgets',
-        title: '🗓️ Đơn vị và khoảng thời gian nằm ở từng ô',
+        title: i18n.t('shared:analytics.unitAndTimeRangeLiveOn'),
         content: (
           <p>
-            Dòng chip dưới tiêu đề mỗi ô ghi ô đó đang xem <strong>đơn vị nào</strong>, <strong>khoảng
-            thời gian nào</strong>. Bấm vào để đổi cho riêng ô đó — không có bộ lọc chung cho cả trang.
+            {i18n.t('shared:analytics.theChipRowUnderEachCards')} <strong>{i18n.t('shared:analytics.unit2')}</strong>, <strong>{i18n.t('shared:analytics.timeRange')}</strong>{i18n.t('shared:analytics.theCardIsViewingClickIt')}
           </p>
         ),
         placement: 'top',
@@ -318,51 +302,46 @@ const analyticsTours: Record<TourKey, TourDef> = {
     steps: [
       {
         target: '#tour-drilldown-tree',
-        title: '🌳 Cây đơn vị bên trái',
+        title: i18n.t('shared:analytics.theUnitTreeOnTheLeft'),
         content: (
           <div className="space-y-2">
             <p>
-              Bắt đầu ở cấp cao nhất rồi bấm vào một đơn vị để đi xuống cấp dưới của nó — cứ thế tới tận
-              từng nhân sự.
+              {i18n.t('shared:analytics.startAtTheTopLevelAnd')}
             </p>
-            {note('Trên màn hình hẹp, cây nằm sau nút "Chọn đơn vị" ở đầu phần nội dung.')}
+            {note(i18n.t('shared:analytics.onNarrowScreensTheTreeIs'))}
           </div>
         ),
         placement: 'right',
       },
       {
         target: '#tour-drilldown-banner',
-        title: '📍 Bạn đang đứng ở đâu',
+        title: i18n.t('shared:analytics.whereYouAre'),
         content: (
           <p>
-            Dải màu ghi tên đơn vị đang chọn, cấp của nó, số nhân sự và tổng số KPI. Đây là mốc để biết
-            mọi con số bên dưới đang nói về phạm vi nào.
+            {i18n.t('shared:analytics.theColoredStripShowsTheSelected')}
           </p>
         ),
         placement: 'bottom',
       },
       {
         target: '#tour-drilldown-members',
-        title: '🔲 Phân bố quan trọng hơn trung bình',
+        title: i18n.t('shared:analytics.distributionMattersMoreThanTheAverage'),
         content: (
           <div className="space-y-2">
             <p>
-              Bảng thành viên và ma trận xếp loại cho thấy nhân sự phân bố ra sao giữa các hạng. Một đơn vị
-              điểm trung bình đẹp nhưng dồn hết vào hạng giữa là chuyện khác hẳn với đơn vị có cả người
-              xuất sắc lẫn người yếu.
+              {i18n.t('shared:analytics.theMemberTableAndRatingMatrix')}
             </p>
-            {warn('Đừng xếp hạng đơn vị chỉ bằng một con số trung bình — hình dạng của phân bố mới nói lên điều cần xử lý.')}
+            {warn(i18n.t('shared:analytics.doNotRankUnitsByAn'))}
           </div>
         ),
         placement: 'top',
       },
       {
         target: '#tour-drilldown-members',
-        title: '📋 Mang số liệu ra khỏi màn hình',
+        title: i18n.t('shared:analytics.takeFiguresOffTheScreen'),
         content: (
           <p>
-            Rê chuột lên ô, mở menu ở góc phải và chọn <strong>Sao chép ảnh</strong>: chụp lại đúng ô đang
-            xem để dán thẳng vào email hay slide họp, khỏi phải chụp màn hình rồi cắt.
+            {i18n.t('shared:analytics.hoverOverACardOpenThe')} <strong>{i18n.t('shared:analytics.copyImage')}</strong>{i18n.t('shared:analytics.capturesExactlyTheCardYouAre')}
           </p>
         ),
         placement: 'top',
@@ -374,28 +353,25 @@ const analyticsTours: Record<TourKey, TourDef> = {
     steps: [
       {
         target: '#tour-analytics-metrics',
-        title: '🧭 Sức khoẻ BSC của đợt',
+        title: i18n.t('shared:analytics.bscHealthOfThePeriod'),
         content: (
           <div className="space-y-2">
             <p>
-              Bốn con số của thẻ điểm trong đợt: <strong>mức đạt BSC</strong> so với mục tiêu 100%, số{' '}
-              <strong>thẻ điểm đơn vị</strong> đang áp dụng, bao nhiêu đơn vị <strong>qua hạng mục chặn</strong>,
-              và <strong>độ phủ phân rã</strong> — chỉ tiêu đã giao xuống đơn vị đủ hay thiếu.
+              {i18n.t('shared:analytics.fourScorecardFiguresForThePeriod')} <strong>{i18n.t('shared:analytics.bscAchievement')}</strong> {i18n.t('shared:analytics.againstThe100TargetTheNumber')}{' '}
+              <strong>{i18n.t('shared:analytics.unitScorecards')}</strong> {i18n.t('shared:analytics.inEffectHowManyUnits')} <strong>{i18n.t('shared:analytics.passTheGateItems')}</strong>{i18n.t('shared:analytics.and')} <strong>{i18n.t('shared:analytics.cascadeCoverage')}</strong> {i18n.t('shared:analytics.whetherKpisAssignedToUnitsAre')}
             </p>
-            {warn('Ô báo "chưa tính kết quả" nghĩa là đợt đó chưa bấm Tính lại ở tab Kết quả đợt của thẻ điểm. Số ở đây đọc kết quả đã tính, không tự bịa.')}
+            {warn(i18n.t('shared:analytics.aCardSayingResultsNotComputed'))}
           </div>
         ),
         placement: 'bottom',
       },
       {
         target: '#tour-bsc-balance',
-        title: '🏢 Mức đạt thẻ điểm của từng đơn vị',
+        title: i18n.t('shared:analytics.scorecardAchievementOfEachUnit'),
         content: (
           <div className="space-y-2">
             <p>
-              Mỗi đơn vị một chấm mức đạt, vạch đứng là mục tiêu 100%. Chấm <strong>đỏ</strong> là đơn vị không
-              qua cửa chặn dù tổng điểm có thể vẫn cao. Chuyển sang "Theo cây" trong bảng cấu hình để xem
-              đúng thứ tự công ty → phòng → team kèm trạng thái thẻ.
+              {i18n.t('shared:analytics.oneAchievementDotPerUnitThe')} <strong>{i18n.t('shared:analytics.red')}</strong> {i18n.t('shared:analytics.dotIsAUnitFailingThe')}
             </p>
           </div>
         ),
@@ -403,32 +379,31 @@ const analyticsTours: Record<TourKey, TourDef> = {
       },
       {
         target: '#tour-analytics-widgets',
-        title: '🎯 Chỉ tiêu, xu hướng và phân rã',
+        title: i18n.t('shared:analytics.kpisTrendsAndCascading'),
         content: (
           <div className="space-y-2">
             <p>
-              Ô <strong>Từng chỉ tiêu so với mục tiêu và sàn</strong> đặt thực tế cạnh mục tiêu và sàn của từng dòng trên thẻ điểm;{' '}
-              <strong>Diễn biến mức đạt</strong> vẽ mức đạt qua các đợt, tách được theo 4 lĩnh vực;{' '}
-              <strong>Độ phủ phân rã</strong> cho biết chỉ tiêu nào đã giao xuống đơn vị đủ, thiếu hay vượt.
+              {i18n.t('shared:analytics.theCard')} <strong>{i18n.t('shared:analytics.eachKpiAgainstTargetAndFloor')}</strong> {i18n.t('shared:analytics.putsActualsNextToTheTarget')}{' '}
+              <strong>{i18n.t('shared:analytics.achievementTrend')}</strong> {i18n.t('shared:analytics.plotsAchievementAcrossPeriodsSplittableBy')}{' '}
+              <strong>{i18n.t('shared:analytics.cascadeCoverage2')}</strong> {i18n.t('shared:analytics.showsWhichKpisAssignedToUnits')}
             </p>
-            {note('Mỗi ô tự chọn đơn vị và đợt trong bảng cấu hình. Ô "một đợt" lấy đợt muộn nhất có kết quả trong khoảng bạn chọn.')}
+            {note(i18n.t('shared:analytics.eachCardPicksItsOwnUnit'))}
           </div>
         ),
         placement: 'top',
       },
       {
         target: '#tour-analytics-metrics',
-        title: '🔧 Sửa thẻ điểm ở đâu',
+        title: i18n.t('shared:analytics.whereToEditScorecards'),
         content: (
           <p>
-            Ở đây chỉ xem kết quả. Muốn thêm bớt chỉ tiêu, đổi trọng số, phân rã xuống đơn vị hay tính lại
-            kết quả đợt thì sang "Thiết lập công cụ › Quản lý BSC".
+            {i18n.t('shared:analytics.thisIsViewOnlyToAdd')}
           </p>
         ),
         placement: 'bottom',
       },
     ],
   },
-}
+}))
 
 export default analyticsTours

@@ -1,5 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { toast } from 'sonner'
+import { useTranslation } from 'react-i18next'
+import { intlLocale } from '@/i18n/format'
 
 /**
  * Nhập bằng giọng nói, dùng Web Speech API có sẵn của trình duyệt.
@@ -85,6 +87,7 @@ export interface UseSpeechInputResult {
 }
 
 export function useSpeechInput({ onText, getBaseText }: UseSpeechInputOptions): UseSpeechInputResult {
+  const { t } = useTranslation('common')
   const [listening, setListening] = useState(false)
   /** Bị từ chối quyền thì thôi mời tới hết phiên — hỏi lại mỗi lần bấm chỉ làm phiền. */
   const [denied, setDenied] = useState(false)
@@ -130,7 +133,8 @@ export function useSpeechInput({ onText, getBaseText }: UseSpeechInputOptions): 
     if (!Ctor) return
 
     const recognition = new Ctor()
-    recognition.lang = 'vi-VN'
+    // Nhận diện theo ngôn ngữ giao diện đang chọn (vi-VN / en-US).
+    recognition.lang = intlLocale()
     // continuous: không đứt sau mỗi lần ngắt hơi. interimResults: chữ hiện NGAY khi đang nói —
     // đây chính là điều khiến phương án này đáng dùng so với việc chờ ghi âm xong rồi mới có chữ.
     recognition.continuous = true
@@ -158,14 +162,14 @@ export function useSpeechInput({ onText, getBaseText }: UseSpeechInputOptions): 
 
       if (event.error === 'not-allowed' || event.error === 'service-not-allowed') {
         setDenied(true)
-        toast.error('Trình duyệt chưa cho phép dùng micro. Hãy bật quyền micro cho trang này rồi tải lại.')
+        toast.error(t('useSpeechInput.theBrowserHasNotAllowedMicrophone'))
         return
       }
       if (event.error === 'network') {
-        toast.error('Không nối được tới dịch vụ nhận diện giọng nói. Kiểm tra kết nối mạng giúp mình nhé.')
+        toast.error(t('useSpeechInput.couldNotConnectToTheSpeech'))
         return
       }
-      toast.error('Nhận diện giọng nói gặp trục trặc, bạn thử lại giúp mình nhé.')
+      toast.error(t('useSpeechInput.speechRecognitionRanIntoAProblem'))
     }
 
     // Trình duyệt tự dừng sau một quãng im lặng. Không xử lý ở đây thì nút kẹt mãi ở trạng thái
@@ -183,7 +187,7 @@ export function useSpeechInput({ onText, getBaseText }: UseSpeechInputOptions): 
       // start() ném khi đang có một phiên chạy dở — coi như không có gì xảy ra.
       setListening(false)
     }
-  }, [listening, stop, emit])
+  }, [listening, stop, emit, t])
 
   // Rời trang giữa lúc đang nghe thì phải tắt micro. Dùng abort chứ không stop: stop còn cố phát
   // nốt kết quả cuối vào một component đã unmount.

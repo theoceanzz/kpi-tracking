@@ -2,9 +2,13 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { kpiCycleEvaluationApi } from '../api/kpiCycleEvaluationApi'
 import { toast } from 'sonner'
 import { getApiErrorMessage } from '@/lib/apiError'
+import type { LockCyclePayload } from '../types/cycleLock'
+import axios from 'axios'
+import { useTranslation } from 'react-i18next'
 
 /** Tổng hợp đánh giá phòng ban theo kỳ (kèm danh sách thành viên). */
 export const useUnitCycleSummary = (cycleId?: string, orgUnitId?: string) => {
+  const { t } = useTranslation('kpi')
   const qc = useQueryClient()
 
   const query = useQuery({
@@ -25,31 +29,51 @@ export const useUnitCycleSummary = (cycleId?: string, orgUnitId?: string) => {
     mutationFn: () => kpiCycleEvaluationApi.startCalibration(cycleId!, orgUnitId!),
     onSuccess: () => {
       invalidate()
-      toast.success('Đã chốt dữ liệu kỳ — giờ chấm điểm phòng và hiệu chỉnh theo khung')
+      toast.success(t('useCycleEvaluation.cycleDataFinalizedNowScoreThe'))
     },
-    onError: (error) => toast.error(getApiErrorMessage(error, 'Chốt dữ liệu kỳ thất bại')),
+    onError: (error) => toast.error(getApiErrorMessage(error, t('useCycleEvaluation.failedToFinalizeCycleData'))),
   })
 
+  const invalidateCycleLock = () => {
+    qc.invalidateQueries({ queryKey: ['kpiCycles'] })
+    qc.invalidateQueries({ queryKey: ['kpiPeriods'] })
+    qc.invalidateQueries({ queryKey: ['kpiCycleLockPreview'] })
+    qc.invalidateQueries({ queryKey: ['kpiCycleEvents'] })
+    qc.invalidateQueries({ queryKey: ['kpi-criteria'] })
+  }
+
   const finalizeMutation = useMutation({
-    mutationFn: (comment: string) => kpiCycleEvaluationApi.finalizeUnit(cycleId!, orgUnitId!, comment),
-    onSuccess: () => {
+    mutationFn: ({ comment, cycleLock }: { comment: string; cycleLock?: LockCyclePayload }) =>
+      kpiCycleEvaluationApi.finalizeUnit(cycleId!, orgUnitId!, comment, cycleLock),
+    onSuccess: (data) => {
       invalidate()
-      toast.success('Đã khoá kết quả đánh giá kỳ của phòng ban')
+      if (data.rootUnit) invalidateCycleLock()
+      toast.success(data.rootUnit
+        ? t('useCycleEvaluation.resultsLockedAndCycleLockedKpis', { cycleName: data.cycleName })
+        : t('useCycleEvaluation.theDepartmentsCycleEvaluationResultsAre'))
     },
-    onError: (error) => toast.error(getApiErrorMessage(error, 'Khoá kết quả thất bại')),
+    // 409 (dữ liệu đợt vừa đổi) do hộp thoại tự xử lý: tải lại danh sách đợt.
+    onError: (error) => {
+      if (axios.isAxiosError(error) && error.response?.status === 409) return
+      toast.error(getApiErrorMessage(error, t('useCycleEvaluation.failedToLockResults')))
+    },
   })
 
   const reopenMutation = useMutation({
     mutationFn: (cascade: boolean = false) => kpiCycleEvaluationApi.reopenUnit(cycleId!, orgUnitId!, cascade),
     onSuccess: (data, cascade) => {
       invalidate()
+      // Mở khoá kết quả ở đơn vị gốc cũng mở lại kỳ (khoá kỳ gộp vào khoá kết quả gốc).
+      const reopenedCycle = data.rootUnit && data.status === 'CALIBRATING'
+      if (reopenedCycle) invalidateCycleLock()
       toast.success(
         data.status === 'DRAFT'
-          ? 'Đã mở lại kỳ về nháp — đánh giá đợt và hạnh kiểm sửa được trở lại'
-          : cascade ? 'Đã mở khoá cả cây đơn vị, quay lại bước hiệu chỉnh' : 'Đã mở khoá, quay lại bước hiệu chỉnh',
+          ? t('useCycleEvaluation.theCycleIsBackToDraft')
+          : (cascade ? t('useCycleEvaluation.unlockedTheWholeUnitTreeBack') : t('useCycleEvaluation.unlockedBackToTheCalibrationStep'))
+            + (reopenedCycle ? t('useCycleEvaluation.theCycleHasBeenReopened') : ''),
       )
     },
-    onError: (error) => toast.error(getApiErrorMessage(error, 'Mở khoá thất bại')),
+    onError: (error) => toast.error(getApiErrorMessage(error, t('useCycleEvaluation.failedToUnlock'))),
   })
 
   const saveUserScoreMutation = useMutation({
@@ -64,9 +88,9 @@ export const useUnitCycleSummary = (cycleId?: string, orgUnitId?: string) => {
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: ['cycleUnitSummary', cycleId, orgUnitId] })
       qc.invalidateQueries({ queryKey: ['cycleCalibration', cycleId, orgUnitId] })
-      if (!vars.silent) toast.success('Đã lưu điểm chốt kỳ')
+      if (!vars.silent) toast.success(t('useCycleEvaluation.finalizedCycleScoreSaved'))
     },
-    onError: (error) => toast.error(getApiErrorMessage(error, 'Lưu điểm chốt kỳ thất bại')),
+    onError: (error) => toast.error(getApiErrorMessage(error, t('useCycleEvaluation.failedToSaveTheFinalizedCycle'))),
   })
 
   /**
@@ -92,10 +116,10 @@ export const useUnitCycleSummary = (cycleId?: string, orgUnitId?: string) => {
     onSuccess: ({ done, failed }) => {
       qc.invalidateQueries({ queryKey: ['cycleUnitSummary', cycleId, orgUnitId] })
       qc.invalidateQueries({ queryKey: ['cycleCalibration', cycleId, orgUnitId] })
-      if (failed.length) toast.warning(`Đã áp dụng ${done} đề xuất. Không lưu được: ${failed.join(', ')}`, { duration: 8000 })
-      else toast.success(`Đã áp dụng ${done} đề xuất hiệu chỉnh`)
+      if (failed.length) toast.warning(t('useCycleEvaluation.appliedSuggestionsCouldNotSave', { done, join: failed.join(', ') }), { duration: 8000 })
+      else toast.success(t('useCycleEvaluation.appliedCalibrationSuggestions', { done }))
     },
-    onError: (error) => toast.error(getApiErrorMessage(error, 'Áp dụng đề xuất thất bại')),
+    onError: (error) => toast.error(getApiErrorMessage(error, t('useCycleEvaluation.failedToApplySuggestions'))),
   })
 
   const saveUnitScoreMutation = useMutation({
@@ -103,25 +127,25 @@ export const useUnitCycleSummary = (cycleId?: string, orgUnitId?: string) => {
       kpiCycleEvaluationApi.saveUnitScore(cycleId!, orgUnitId!, { score, reason }),
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: ['cycleUnitSummary', cycleId, orgUnitId] })
-      toast.success(vars.score == null ? 'Đã bỏ chấm tay, quay lại TB thành viên' : 'Đã lưu điểm đơn vị')
+      toast.success(vars.score == null ? t('useCycleEvaluation.manualScoreRemovedBackToThe') : t('useCycleEvaluation.unitScoreSaved'))
     },
-    onError: (error) => toast.error(getApiErrorMessage(error, 'Lưu điểm đơn vị thất bại')),
+    onError: (error) => toast.error(getApiErrorMessage(error, t('useCycleEvaluation.failedToSaveTheUnitScore'))),
   })
 
   const sendEvaluationMutation = useMutation({
     mutationFn: (userIds: string[]) => kpiCycleEvaluationApi.sendEvaluation(cycleId!, orgUnitId!, userIds),
     onSuccess: (result) => {
       if (result.failed.length === 0) {
-        toast.success(`Đã gửi kết quả đánh giá cho ${result.sent} nhân viên`)
+        toast.success(t('useCycleEvaluation.sentEvaluationResultsToEmployees', { count: result.sent }))
       } else {
         // Gửi hàng loạt là bán phần: báo rõ ai hỏng thay vì chỉ nói "thành công".
         toast.warning(
-          `Đã gửi ${result.sent} email. Không gửi được cho: ${result.failed.join(', ')}`,
+          t('useCycleEvaluation.sentEmailsCouldNotSendTo', { sent: result.sent, join: result.failed.join(', ') }),
           { duration: 8000 },
         )
       }
     },
-    onError: (error) => toast.error(getApiErrorMessage(error, 'Gửi email thất bại')),
+    onError: (error) => toast.error(getApiErrorMessage(error, t('useCycleEvaluation.failedToSendEmail'))),
   })
 
   return {

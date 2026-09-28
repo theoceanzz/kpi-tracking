@@ -11,16 +11,16 @@ import java.util.UUID;
 @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
 public class KpiCycleRequest {
 
-    @NotBlank(message = "Tên kỳ không được để trống")
+    @NotBlank(message = "{validation.cycleNameCannotEmpty}")
     private String name;
 
-    @NotNull(message = "Loại kỳ không được để trống")
+    @NotNull(message = "{validation.cycleTypeCannotEmpty}")
     private KpiFrequency cycleType;
 
-    @NotNull(message = "Ngày bắt đầu không được để trống")
+    @NotNull(message = "{validation.startDateCannotEmpty}")
     private Instant startDate;
 
-    @NotNull(message = "Ngày kết thúc không được để trống")
+    @NotNull(message = "{validation.endDateCannotEmpty}")
     private Instant endDate;
 
     private String description;

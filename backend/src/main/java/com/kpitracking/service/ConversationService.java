@@ -8,8 +8,10 @@ import com.kpitracking.dto.response.ai.MessageResponse;
 import com.kpitracking.entity.Conversation;
 import com.kpitracking.entity.User;
 import com.kpitracking.exception.BusinessException;
+import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.ForbiddenException;
 import com.kpitracking.exception.ResourceNotFoundException;
+import com.kpitracking.i18n.Terms;
 import com.kpitracking.repository.ConversationMessageRepository;
 import com.kpitracking.repository.ConversationRepository;
 import com.kpitracking.repository.UserRepository;
@@ -60,7 +62,7 @@ public class ConversationService {
 
     @Transactional
     public void deleteConversation(UUID id) {
-        Conversation conversation = requireOwned(id, "Bạn không có quyền xóa cuộc trò chuyện này");
+        Conversation conversation = requireOwned(id, ErrorCode.NO_PERMISSION_DELETE_CONVERSATION);
         conversation.setDeletedAt(Instant.now());
         conversationRepository.save(conversation);
     }
@@ -68,11 +70,11 @@ public class ConversationService {
     /** Đổi tên và/hoặc ghim. Trường null trong request giữ nguyên giá trị cũ. */
     @Transactional
     public ConversationResponse updateConversation(UUID id, UpdateConversationRequest request) {
-        Conversation conversation = requireOwned(id, "Bạn không có quyền sửa cuộc trò chuyện này");
+        Conversation conversation = requireOwned(id, ErrorCode.NO_PERMISSION_EDIT_CONVERSATION);
         if (request.getTitle() != null) {
             String title = request.getTitle().trim();
             if (title.isEmpty()) {
-                throw new BusinessException("Tên cuộc trò chuyện không được để trống");
+                throw new BusinessException(ErrorCode.CONVERSATION_NAME_CANNOT_EMPTY);
             }
             conversation.setTitle(title.length() > 255 ? title.substring(0, 255) : title);
         }
@@ -91,19 +93,19 @@ public class ConversationService {
         User currentUser = getCurrentUser();
         int restored = conversationRepository.restore(id, currentUser.getId());
         if (restored == 0) {
-            throw new ResourceNotFoundException("Conversation", "id", id);
+            throw new ResourceNotFoundException(Terms.of("resource.conversation"), "id", id);
         }
         return conversationRepository.findById(id)
                 .map(this::toConversationResponse)
-                .orElseThrow(() -> new ResourceNotFoundException("Conversation", "id", id));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.conversation"), "id", id));
     }
 
-    private Conversation requireOwned(UUID id, String forbiddenMessage) {
+    private Conversation requireOwned(UUID id, ErrorCode forbiddenCode) {
         User currentUser = getCurrentUser();
         Conversation conversation = conversationRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Conversation", "id", id));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.conversation"), "id", id));
         if (!conversation.getUser().getId().equals(currentUser.getId())) {
-            throw new ForbiddenException(forbiddenMessage);
+            throw new ForbiddenException(forbiddenCode);
         }
         return conversation;
     }
@@ -112,10 +114,10 @@ public class ConversationService {
     public PageResponse<MessageResponse> getMessages(UUID conversationId, int page, int size) {
         User currentUser = getCurrentUser();
         Conversation conversation = conversationRepository.findById(conversationId)
-                .orElseThrow(() -> new ResourceNotFoundException("Conversation", "id", conversationId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.conversation"), "id", conversationId));
 
         if (!conversation.getUser().getId().equals(currentUser.getId())) {
-            throw new ForbiddenException("Bạn không có quyền xem cuộc trò chuyện này");
+            throw new ForbiddenException(ErrorCode.NO_PERMISSION_VIEW_CONVERSATION);
         }
 
         Page<com.kpitracking.entity.ConversationMessage> resultPage = messageRepository
@@ -134,7 +136,7 @@ public class ConversationService {
     private User getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         return userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "email", email));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.user"), "email", email));
     }
 
     private ConversationResponse toConversationResponse(Conversation conversation) {

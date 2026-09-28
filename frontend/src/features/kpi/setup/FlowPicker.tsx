@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils'
 import { useNotificationDots } from '@/hooks/useNotificationDots'
 import { useKpiSetupFlow } from './useKpiSetupFlow'
 import type { SetupFlowId } from './flows'
+import { useTranslation } from 'react-i18next'
 
 const FLOW_ICON: Record<SetupFlowId, React.ReactNode> = {
   SETUP: <Rocket size={22} />,
@@ -23,6 +24,7 @@ const FLOW_ICON: Record<SetupFlowId, React.ReactNode> = {
  * chọn là một cú nhấp vô nghĩa.
  */
 export default function FlowPicker() {
+  const { t } = useTranslation('kpi')
   const { flows, buildUrl, isLoading } = useKpiSetupFlow()
   const { counts } = useNotificationDots()
 
@@ -38,9 +40,9 @@ export default function FlowPicker() {
     return (
       <div className="rounded-card border border-dashed border-[var(--color-border)] p-12 text-center">
         <CheckCircle2 className="mx-auto mb-3 text-[var(--color-subtle-foreground)]" size={28} />
-        <p className="text-sm font-medium text-[var(--color-muted-foreground)]">Chưa có luồng nào dành cho bạn</p>
+        <p className="text-sm font-medium text-[var(--color-muted-foreground)]">{t('FlowPicker.noFlowAvailableForYouYet')}</p>
         <p className="mt-1 text-xs font-medium text-[var(--color-subtle-foreground)]">
-          Tài khoản của bạn chưa có quyền tham gia bước nào trong quy trình KPI.
+          {t('FlowPicker.yourAccountDoesNotYetHave')}
         </p>
       </div>
     )
@@ -55,10 +57,10 @@ export default function FlowPicker() {
     <div className="space-y-6 animate-in fade-in slide-in-from-bottom-2 duration-300">
       <div className="space-y-1">
         <h2 className="text-page-title">
-          Bạn muốn làm gì?
+          {t('FlowPicker.whatWouldYouLikeToDo')}
         </h2>
         <p className="text-sm font-medium text-[var(--color-muted-foreground)]">
-          Mỗi luồng dẫn bạn đi trọn một mạch công việc. Chọn xong vẫn quay lại đây được bất cứ lúc nào.
+          {t('FlowPicker.eachFlowTakesYouThroughOne')}
         </p>
       </div>
 

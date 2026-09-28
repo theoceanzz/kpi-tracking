@@ -25,6 +25,7 @@ import { useLinkedWeight } from '../hooks/useBscCascade'
 import { scorecardsForPeriod } from '../utils/scorecardScope'
 import { scorecardStatusMeta } from '../utils/scorecardStatus'
 import { BscScoringMode, type ScorecardPerspectiveResponse, type ScorecardResponse } from '../types'
+import { useTranslation } from 'react-i18next'
 
 /** Đợt đang chứa hôm nay; không có thì đợt gần nhất đã qua; không có nữa thì đợt đầu danh sách. */
 function pickDefaultPeriod(periods: { id: string; startDate: string | null; endDate: string | null }[]): string {
@@ -42,7 +43,8 @@ function pickDefaultPeriod(periods: { id: string; startDate: string | null; endD
  * — cùng cách tra như trang KPI của tôi tính trọng số thật.
  */
 export default function MyBscPage() {
-  const pageTitle = usePageTitle('my-bsc', 'BSC của tôi')
+  const { t } = useTranslation('bsc')
+  const pageTitle = usePageTitle('my-bsc', t('MyBscPage.myBsc'))
   const { user } = useAuthStore()
   const { hasPermission } = usePermission()
   const organizationId = user?.memberships?.[0]?.organizationId
@@ -122,12 +124,12 @@ export default function MyBscPage() {
     <div className="space-y-4">
       <WorkspaceHeader
         title={pageTitle}
-        description={`Bộ tiêu chí đang áp cho ${myUnitName ?? 'đơn vị của bạn'} trong đợt, từng hạng mục và KPI của bạn góp vào đó.`}
+        description={t('MyBscPage.theScorecardAppliedToInThe', { value: myUnitName ?? t('MyBscPage.yourUnit') })}
         stats={[
-          { label: 'Hạng mục', value: stats.items, icon: Layers },
-          { label: 'Bạn góp', value: stats.contributed, icon: LayoutGrid },
-          { label: 'KPI gắn BSC', value: stats.linked, icon: ListChecks },
-          { label: 'Cần nộp', value: stats.toSubmit, icon: Send },
+          { label: t('MyBscPage.item'), value: stats.items, icon: Layers },
+          { label: t('MyBscPage.youContribute'), value: stats.contributed, icon: LayoutGrid },
+          { label: t('MyBscPage.bscLinkedKpis'), value: stats.linked, icon: ListChecks },
+          { label: t('MyBscPage.toSubmit'), value: stats.toSubmit, icon: Send },
         ]}
       >
         {/* Nút phụ luôn ở hàng dưới, phải: hàng trên chỉ có số liệu để mọi vai trò nhìn cùng một bố cục. */}
@@ -135,12 +137,12 @@ export default function MyBscPage() {
           <div className="flex flex-wrap gap-2 sm:justify-end">
             {hasPermission('BSC:MANAGE') && (
               <Button asChild variant="outline">
-                <Link to="/analytics?section=bsc"><TrendingUp aria-hidden="true" /> Xem phân tích</Link>
+                <Link to="/analytics?section=bsc"><TrendingUp aria-hidden="true" /> {t('MyBscPage.viewAnalytics')}</Link>
               </Button>
             )}
             {canManage && (
               <Button asChild variant="outline">
-                <Link to="/settings/tools?section=bsc"><ExternalLink aria-hidden="true" /> Quản lý BSC</Link>
+                <Link to="/settings/tools?section=bsc"><ExternalLink aria-hidden="true" /> {t('MyBscPage.bscManagement')}</Link>
               </Button>
             )}
           </div>
@@ -149,7 +151,7 @@ export default function MyBscPage() {
 
       <FilterBar>
         <Select value={periodId} onValueChange={setPeriodId}>
-          <SelectTrigger className="w-full sm:w-auto sm:min-w-52" aria-label="Đợt"><SelectValue placeholder="Chọn đợt" /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-auto sm:min-w-52" aria-label={t('MyBscPage.aPeriod')}><SelectValue placeholder={t('MyBscPage.choosePeriod')} /></SelectTrigger>
           <SelectContent>
             {periods.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
           </SelectContent>
@@ -162,8 +164,8 @@ export default function MyBscPage() {
               : 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]',
           )}>
             {!linkedWeight.satisfied && <AlertTriangle size={13} aria-hidden="true" />}
-            {Math.round(linkedWeight.linkedPercent)}% trọng số KPI của bạn đã gắn BSC
-            {!linkedWeight.satisfied && ` · cần tối thiểu ${linkedWeight.minRequired}%`}
+            {Math.round(linkedWeight.linkedPercent)}{t('MyBscPage.ofYourKpiWeightLinkedTo')}
+            {!linkedWeight.satisfied && t('MyBscPage.atLeastRequired', { minRequired: linkedWeight.minRequired })}
           </span>
         )}
       </FilterBar>
@@ -174,9 +176,9 @@ export default function MyBscPage() {
         <div className="rounded-card border border-dashed border-[var(--color-border)] bg-[var(--color-card)]">
           <EmptyState
             icon={LayoutGrid}
-            title="Đợt này chưa có bộ tiêu chí cho đơn vị bạn"
-            description="Bộ tiêu chí BSC do tổ chức hoặc trưởng đơn vị dựng theo từng đợt. Chưa có thì KPI của bạn vẫn chấm bình thường, chỉ chưa quy về điểm BSC."
-            action={canManage ? <Button asChild><Link to="/settings/tools?section=bsc">Dựng bộ tiêu chí</Link></Button> : undefined}
+            title={t('MyBscPage.thisPeriodHasNoScorecardFor')}
+            description={t('MyBscPage.bscScorecardsAreBuiltPerPeriod')}
+            action={canManage ? <Button asChild><Link to="/settings/tools?section=bsc">{t('MyBscPage.buildAScorecard')}</Link></Button> : undefined}
           />
         </div>
       ) : (
@@ -187,12 +189,12 @@ export default function MyBscPage() {
               <h3 className="text-sm font-semibold text-[var(--color-foreground)]">{scorecard.name}</h3>
               <span className={cn('inline-flex items-center rounded-control px-2 py-0.5 text-xs font-medium', status.badgeClass)}>{status.label}</span>
               {scorecard.scoringMode === BscScoringMode.OFFICIAL
-                ? <Badge>Chấm chính thức</Badge>
-                : <Badge variant="secondary">Chạy song song</Badge>}
+                ? <Badge>{t('MyBscPage.officialScoring')}</Badge>
+                : <Badge variant="secondary">{t('MyBscPage.parallel')}</Badge>}
               <span className="ml-auto text-caption">
-                {scorecard.orgUnitName || 'Toàn tổ chức'}
-                {scorecard.orgUnitName && !(scorecard.orgUnits ?? []).some(u => u.id === myUnitId) && ' · kế thừa từ cấp trên'}
-                {' · '}tổng trọng số {scorecard.totalWeight}%
+                {scorecard.orgUnitName || t('MyBscPage.organizationWide')}
+                {scorecard.orgUnitName && !(scorecard.orgUnits ?? []).some(u => u.id === myUnitId) && t('MyBscPage.inheritedFromTheParent')}
+                {' · '}{t('MyBscPage.totalWeight')} {scorecard.totalWeight}%
               </span>
             </div>
             {scorecard.vision && <p className="mt-1 text-sm italic text-[var(--color-muted-foreground)]">“{scorecard.vision}”</p>}
@@ -203,7 +205,7 @@ export default function MyBscPage() {
               <div className="flex items-center gap-2 border-b border-[var(--color-border)] bg-[var(--color-muted)] px-4 py-2">
                 <span className="h-2.5 w-2.5 rounded-full" style={{ background: fp.color }} aria-hidden="true" />
                 <h4 className="text-label">{fp.name}</h4>
-                <span className="text-caption">{items.length} hạng mục · {items.reduce((a, p) => a + (p.weightPercentage || 0), 0)}%</span>
+                <span className="text-caption">{items.length} {t('MyBscPage.items')} {items.reduce((a, p) => a + (p.weightPercentage || 0), 0)}%</span>
               </div>
               <div className="divide-y divide-[var(--color-border)]">
                 {items.map(item => (
@@ -226,8 +228,9 @@ function ItemBlock({ item, kpis, onOpenKpi, now }: {
   onOpenKpi: (k: KpiCriteria) => void
   now: Date
 }) {
+  const { t } = useTranslation('bsc')
   const target = item.targetValue != null
-    ? `Mục tiêu ${item.targetValue}${item.unit ? ` ${item.unit}` : ''}${item.minimumValue != null ? ` · tối thiểu ${item.minimumValue}` : ''}`
+    ? t('MyBscPage.target', { targetValue: item.targetValue, value: item.unit ? ` ${item.unit}` : '', value2: item.minimumValue != null ? t('MyBscPage.minimum', { minimumValue: item.minimumValue }) : '' })
     : null
   return (
     <div className="px-4 py-3">
@@ -237,7 +240,7 @@ function ItemBlock({ item, kpis, onOpenKpi, now }: {
             <span className="mr-1.5 font-mono text-caption">{item.code}</span>{item.name}
           </p>
           <p className="text-caption">
-            {[target, item.isGate ? 'Hạng mục chặn' : null, item.origin === 'ASSIGNED' ? 'Cấp trên giao' : null].filter(Boolean).join(' · ')}
+            {[target, item.isGate ? t('MyBscPage.gateItems') : null, item.origin === 'ASSIGNED' ? t('MyBscPage.assignedByParent') : null].filter(Boolean).join(' · ')}
           </p>
         </div>
         <span className="shrink-0 text-sm font-medium tabular-nums text-[var(--color-foreground)]">{item.weightPercentage}%</span>
@@ -247,7 +250,7 @@ function ItemBlock({ item, kpis, onOpenKpi, now }: {
           {kpis.map(k => <MyKpiMiniRow key={k.id} kpi={k} onOpen={onOpenKpi} now={now} />)}
         </div>
       ) : (
-        <p className="mt-1.5 text-caption">Bạn chưa có KPI gắn vào hạng mục này.</p>
+        <p className="mt-1.5 text-caption">{t('MyBscPage.youHaveNoKpiLinkedTo')}</p>
       )}
     </div>
   )

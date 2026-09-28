@@ -1,3 +1,5 @@
+import { LocaleNumberInput } from '@/components/ui/number-input'
+import { intlLocale } from '@/i18n/format'
 import { useState, useEffect, useRef } from 'react'
 import { Link } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
@@ -31,6 +33,9 @@ import { toast } from 'sonner'
 import { getApiErrorMessage } from '@/lib/apiError'
 import { useAuth } from '@/hooks/useAuth'
 import type { UpdateOrganizationRequest } from '../api/organizationApi'
+import { useTranslation } from 'react-i18next'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
 /** Thông báo lỗi do backend trả về, lùi về câu mặc định nếu phản hồi không nói gì. */
 function apiErrorMessage(error: unknown, fallback: string) {
@@ -44,25 +49,25 @@ function apiErrorMessage(error: unknown, fallback: string) {
 
 /** Lĩnh vực hoạt động chọn sẵn. Không có "Khác" ở đây — đó là một lựa chọn của ô chọn,
  *  không phải một ngành nghề, nên nó là hằng riêng bên dưới. */
-const INDUSTRY_PRESETS = [
-  'Công nghệ thông tin',
-  'Tài chính - Ngân hàng',
-  'Bảo hiểm',
-  'Bất động sản',
-  'Xây dựng',
-  'Sản xuất - Công nghiệp',
-  'Bán lẻ - Thương mại',
-  'Logistics - Vận tải',
-  'Giáo dục - Đào tạo',
-  'Y tế - Dược phẩm',
-  'Du lịch - Khách sạn',
-  'Nông nghiệp - Thực phẩm',
-  'Năng lượng',
-  'Truyền thông - Quảng cáo',
-  'Dịch vụ chuyên nghiệp',
-] as const
+const INDUSTRY_PRESETS = perLanguage(() => ([
+  i18n.t('orgunits:CompanySections.informationTechnology'),
+  i18n.t('orgunits:CompanySections.financeBanking'),
+  i18n.t('orgunits:CompanySections.insurance'),
+  i18n.t('orgunits:CompanySections.realEstate'),
+  i18n.t('orgunits:CompanySections.construction'),
+  i18n.t('orgunits:CompanySections.manufacturingIndustry'),
+  i18n.t('orgunits:CompanySections.retailTrade'),
+  i18n.t('orgunits:CompanySections.logisticsTransportation'),
+  i18n.t('orgunits:CompanySections.educationTraining'),
+  i18n.t('orgunits:CompanySections.healthcarePharmaceuticals'),
+  i18n.t('orgunits:CompanySections.tourismHospitality'),
+  i18n.t('orgunits:CompanySections.agricultureFood'),
+  i18n.t('orgunits:CompanySections.energy'),
+  i18n.t('orgunits:CompanySections.mediaAdvertising'),
+  i18n.t('orgunits:CompanySections.professionalServices'),
+] as const))
 
-const isPresetIndustry = (value: string) => (INDUSTRY_PRESETS as readonly string[]).includes(value)
+const isPresetIndustry = (value: string) => (INDUSTRY_PRESETS() as readonly string[]).includes(value)
 
 const inputCls =
   'h-9 w-full rounded-control border border-[var(--color-border)] bg-[var(--color-card)] px-3 text-sm text-[var(--color-foreground)] outline-none transition-colors placeholder:text-[var(--color-subtle-foreground)] focus-visible:border-[var(--color-primary)] focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]'
@@ -74,6 +79,7 @@ const selectTriggerCls = 'w-full'
 
 /* ========== THÔNG TIN CÔNG TY ========== */
 export function CompanyInfoSection() {
+  const { t } = useTranslation('orgunits')
   const { user } = useAuthStore()
   const orgId = user?.memberships?.[0]?.organizationId
   const { data: org, isLoading } = useOrganization(orgId)
@@ -87,7 +93,7 @@ export function CompanyInfoSection() {
   const coverInputRef = useRef<HTMLInputElement>(null)
 
   const { register, handleSubmit, reset, control, formState: { errors } } = useForm<CompanyProfileFormData>({
-    resolver: zodResolver(companyProfileSchema),
+    resolver: zodResolver(companyProfileSchema()),
     defaultValues: {
       name: '', code: '', industryChoice: INDUSTRY_NONE, industryCustom: '',
       taxCode: '', employeeCount: '', description: '',
@@ -139,9 +145,9 @@ export function CompanyInfoSection() {
         onSuccess: () => {
           setIsEditing(false)
           refreshUser()
-          toast.success('Cập nhật hồ sơ doanh nghiệp thành công')
+          toast.success(t('CompanySections.companyProfileUpdatedSuccessfully'))
         },
-        onError: error => toast.error(apiErrorMessage(error, 'Không thể cập nhật hồ sơ')),
+        onError: error => toast.error(apiErrorMessage(error, t('CompanySections.couldNotUpdateTheProfile'))),
       }
     )
   }
@@ -159,11 +165,11 @@ export function CompanyInfoSection() {
     e.target.value = ''
     if (!file) return
     if (!file.type.startsWith('image/')) {
-      toast.error('Tập tin phải là ảnh')
+      toast.error(t('CompanySections.theFileMustBeAnImage'))
       return
     }
     if (file.size > 5 * 1024 * 1024) {
-      toast.error('Ảnh không được vượt quá 5MB')
+      toast.error(t('CompanySections.theImageMustNotExceed5mb'))
       return
     }
     setUploadingKind(kind)
@@ -172,9 +178,9 @@ export function CompanyInfoSection() {
       {
         onSuccess: () => {
           refreshUser()
-          toast.success(kind === 'cover' ? 'Đã cập nhật ảnh bìa' : 'Đã cập nhật logo')
+          toast.success(kind === 'cover' ? t('CompanySections.coverImageUpdated') : t('CompanySections.logoUpdated'))
         },
-        onError: error => toast.error(apiErrorMessage(error, 'Không thể tải ảnh lên')),
+        onError: error => toast.error(apiErrorMessage(error, t('CompanySections.couldNotUploadTheImage'))),
         onSettled: () => setUploadingKind(null),
       }
     )
@@ -196,19 +202,19 @@ export function CompanyInfoSection() {
       <section className="overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
         <div
           onClick={openPicker('cover')}
-          title="Bấm để đổi ảnh bìa"
+          title={t('CompanySections.clickToChangeTheCoverImage')}
           className={cn(
             'group relative h-40 sm:h-52 bg-[var(--color-muted)]',
             uploadingKind === null && 'cursor-pointer'
           )}
         >
           {org?.coverUrl ? (
-            <img src={org.coverUrl} alt="Ảnh bìa công ty" className="w-full h-full object-cover" />
+            <img src={org.coverUrl} alt={t('CompanySections.companyCoverImage')} className="w-full h-full object-cover" />
           ) : (
             <div className="w-full h-full flex flex-col items-center justify-center gap-2 text-[var(--color-subtle-foreground)] border-b border-dashed border-[var(--color-border)]">
               <ImageIcon size={28} />
               <span className="text-caption">
-                Ảnh bìa công ty, khuyến nghị 1200x300
+                {t('CompanySections.companyCoverImage1200x300Recommended')}
               </span>
             </div>
           )}
@@ -226,7 +232,7 @@ export function CompanyInfoSection() {
             disabled={uploadingKind !== null}
           >
             {uploadingKind === 'cover' ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Camera aria-hidden="true" />}
-            Đổi ảnh bìa
+            {t('CompanySections.changeCoverImage')}
           </Button>
         </div>
 
@@ -238,7 +244,7 @@ export function CompanyInfoSection() {
                   không lọt xuống đây, khỏi cần chặn nổi bọt như bên ảnh bìa. */}
               <div
                 onClick={openPicker('logo')}
-                title="Bấm để đổi logo"
+                title={t('CompanySections.clickToChangeTheLogo')}
                 className={cn(
 'group relative flex h-24 w-24 items-center justify-center overflow-hidden rounded-widget bg-[var(--color-primary)] text-4xl font-semibold text-[var(--color-primary-foreground)] ring-4 ring-[var(--color-card)]',
                   uploadingKind === null && 'cursor-pointer'
@@ -256,8 +262,8 @@ export function CompanyInfoSection() {
                 type="button"
                 onClick={() => logoInputRef.current?.click()}
                 disabled={uploadingKind !== null}
-                title="Đổi logo"
-                aria-label="Đổi logo"
+                title={t('CompanySections.changeLogo')}
+                aria-label={t('CompanySections.changeLogo')}
                 className="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full border-2 border-[var(--color-card)] bg-[var(--color-primary)] text-[var(--color-primary-foreground)] transition-colors hover:bg-[var(--color-primary-hover)] disabled:opacity-50"
               >
                 {uploadingKind === 'logo' ? <Loader2 size={13} className="animate-spin" aria-hidden="true" /> : <Camera size={13} aria-hidden="true" />}
@@ -271,18 +277,18 @@ export function CompanyInfoSection() {
                     {org?.name}
                   </h2>
                   <Badge variant={isActive ? 'success' : 'secondary'} className="shrink-0">
-                    {isActive ? 'Đang hoạt động' : org?.status}
+                    {isActive ? t('CompanySections.active') : org?.status}
                   </Badge>
                 </div>
                 <p className="mt-1 truncate text-sm text-[var(--color-muted-foreground)]">
-                  Mã DN {org?.code || 'N/A'}
-                  {foundedAt && <> · Thành lập {foundedAt}</>}
+                  {t('CompanySections.businessCode')} {org?.code || 'N/A'}
+                  {foundedAt && <> {t('CompanySections.founded')} {foundedAt}</>}
                 </p>
               </div>
 
               {!isEditing && (
                 <Button variant="outline" className="shrink-0" onClick={() => setIsEditing(true)}>
-                  <Edit3 aria-hidden="true" /> Chỉnh sửa hồ sơ
+                  <Edit3 aria-hidden="true" /> {t('CompanySections.editProfile')}
                 </Button>
               )}
             </div>
@@ -292,32 +298,32 @@ export function CompanyInfoSection() {
 
       <form onSubmit={handleSubmit(onSave)} className="space-y-5">
         {/* ── Định danh ── */}
-        <FieldCard title="Thông tin định danh">
+        <FieldCard title={t('CompanySections.identification')}>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-5 gap-y-4">
-            <Field label="Tên công ty" editing={isEditing} value={org?.name}>
+            <Field label={t('CompanySections.companyName')} editing={isEditing} value={org?.name}>
               <input
                 {...register('name')}
                 className={inputCls}
-                placeholder="Tên công ty"
+                placeholder={t('CompanySections.companyName')}
               />
               {errors.name && <FieldError>{errors.name.message}</FieldError>}
             </Field>
 
-            <Field label="Lĩnh vực hoạt động" editing={isEditing} value={org?.industry}>
+            <Field label={t('CompanySections.industry')} editing={isEditing} value={org?.industry}>
               <Controller
                 control={control}
                 name="industryChoice"
                 render={({ field }) => (
                   <Select value={field.value} onValueChange={field.onChange}>
                     <SelectTrigger className={selectTriggerCls}>
-                      <SelectValue placeholder="Chọn lĩnh vực hoạt động" />
+                      <SelectValue placeholder={t('CompanySections.chooseIndustry')} />
                     </SelectTrigger>
                     <SelectContent className="max-h-72">
-                      <SelectItem value={INDUSTRY_NONE}>Chưa cập nhật</SelectItem>
-                      {INDUSTRY_PRESETS.map(o => (
+                      <SelectItem value={INDUSTRY_NONE}>{t('CompanySections.notUpdated')}</SelectItem>
+                      {INDUSTRY_PRESETS().map(o => (
                         <SelectItem key={o} value={o}>{o}</SelectItem>
                       ))}
-                      <SelectItem value={INDUSTRY_OTHER}>Khác…</SelectItem>
+                      <SelectItem value={INDUSTRY_OTHER}>{t('CompanySections.other')}</SelectItem>
                     </SelectContent>
                   </Select>
                 )}
@@ -330,7 +336,7 @@ export function CompanyInfoSection() {
                   {...register('industryCustom')}
                   autoFocus
                   className={cn(inputCls, 'mt-2')}
-                  placeholder="Nhập lĩnh vực hoạt động"
+                  placeholder={t('CompanySections.enterIndustry')}
                 />
               )}
               {errors.industryCustom && <FieldError>{errors.industryCustom.message}</FieldError>}
@@ -340,7 +346,7 @@ export function CompanyInfoSection() {
                 phần đầu trang, bày lại lần nữa chỉ tổ chiếm chỗ. Nhưng vẫn phải sửa
                 được — trước khi đổi giao diện, đây là một trong hai ô sửa được. */}
             {isEditing && (
-              <Field label="Mã doanh nghiệp" editing value={org?.code}>
+              <Field label={t('CompanySections.businessCode2')} editing value={org?.code}>
                 <input
                   {...register('code')}
                   className={inputCls}
@@ -350,16 +356,16 @@ export function CompanyInfoSection() {
               </Field>
             )}
 
-            <Field label="Mã số thuế" editing={isEditing} value={org?.taxCode}>
+            <Field label={t('CompanySections.taxCode')} editing={isEditing} value={org?.taxCode}>
               <input {...register('taxCode')} className={inputCls} placeholder="VD: 0102345678" />
             </Field>
 
             <Field
-              label="Quy mô nhân sự"
+              label={t('CompanySections.companySize')}
               editing={isEditing}
-              value={org?.employeeCount != null ? `${org.employeeCount.toLocaleString('vi-VN')} nhân viên` : null}
+              value={org?.employeeCount != null ? t('CompanySections.employees', { count: org.employeeCount.toLocaleString(intlLocale()) }) : null}
             >
-              <input
+              <LocaleNumberInput
                 type="number"
                 min={0}
                 {...register('employeeCount')}
@@ -372,17 +378,17 @@ export function CompanyInfoSection() {
         </FieldCard>
 
         {/* ── Mô tả ── */}
-        <FieldCard title="Mô tả công ty">
+        <FieldCard title={t('CompanySections.companyDescription')}>
           {isEditing ? (
             <textarea
               {...register('description')}
               rows={4}
               className={cn(inputCls, 'resize-y leading-relaxed')}
-              placeholder="Giới thiệu ngắn về công ty"
+              placeholder={t('CompanySections.aShortIntroductionToTheCompany')}
             />
           ) : (
             <p className="text-sm leading-relaxed text-[var(--color-muted-foreground)]">
-              {org?.description || <span className="text-[var(--color-subtle-foreground)]">Chưa có mô tả</span>}
+              {org?.description || <span className="text-[var(--color-subtle-foreground)]">{t('CompanySections.noDescriptionYet')}</span>}
             </p>
           )}
         </FieldCard>
@@ -390,11 +396,11 @@ export function CompanyInfoSection() {
         {isEditing && (
           // Thanh lưu dính đáy: form trải nhiều thẻ, không ai muốn cuộn ngược lên tìm nút.
           <div className="sticky bottom-4 z-10 flex items-center justify-end gap-2 rounded-card border border-[var(--color-border)] bg-[var(--color-card)] px-4 py-3 shadow-lg">
-            <p className="mr-auto text-caption">Có thay đổi chưa lưu</p>
-            <Button variant="outline" onClick={() => { setIsEditing(false); reset() }} disabled={updateMutation.isPending}>Hủy</Button>
+            <p className="mr-auto text-caption">{t('CompanySections.unsavedChanges')}</p>
+            <Button variant="outline" onClick={() => { setIsEditing(false); reset() }} disabled={updateMutation.isPending}>{t('CompanySections.cancel')}</Button>
             <Button type="submit" disabled={updateMutation.isPending}>
               {updateMutation.isPending && <Loader2 className="animate-spin" aria-hidden="true" />}
-              {updateMutation.isPending ? 'Đang lưu…' : 'Lưu thay đổi'}
+              {updateMutation.isPending ? t('CompanySections.saving') : t('CompanySections.saveChanges')}
             </Button>
           </div>
         )}
@@ -405,20 +411,20 @@ export function CompanyInfoSection() {
       <section className="space-y-4 rounded-card border border-[var(--color-border)] bg-[var(--color-card)] p-5">
         <div className="flex items-center justify-between gap-4">
           <div>
-            <h3 className="text-section-title">Tính năng đang bật</h3>
-            <p className="text-caption">Bật/tắt ở Thiết lập công cụ, mục Tính năng.</p>
+            <h3 className="text-section-title">{t('CompanySections.enabledFeatures')}</h3>
+            <p className="text-caption">{t('CompanySections.turnOnOffInToolSetup')}</p>
           </div>
           <Button asChild variant="outline" size="sm" className="shrink-0">
-            <Link to="/settings/tools?section=modules">Quản lý tính năng</Link>
+            <Link to="/settings/tools?section=modules">{t('CompanySections.manageFeatures')}</Link>
           </Button>
         </div>
         <div className="flex flex-wrap gap-2">
-          <FeatureChip icon={SlidersHorizontal} label="KPI hành vi" enabled={org?.enableQualitative} />
+          <FeatureChip icon={SlidersHorizontal} label={t('CompanySections.behavioralKpis')} enabled={org?.enableQualitative} />
           <FeatureChip icon={LayoutGrid} label="BSC" enabled={org?.enableBsc} />
           <FeatureChip icon={Target} label="OKR" enabled={org?.enableOkr} />
           <FeatureChip icon={GitBranch} label="Waterfall" enabled={org?.enableWaterfall} />
-          <FeatureChip icon={Gift} label="Thưởng điểm" enabled={org?.enableReward} />
-          <FeatureChip icon={Wallet} label="Ví tiền" enabled={org?.enableCashWallet} />
+          <FeatureChip icon={Gift} label={t('CompanySections.rewardPoints')} enabled={org?.enableReward} />
+          <FeatureChip icon={Wallet} label={t('CompanySections.wallet')} enabled={org?.enableCashWallet} />
         </div>
       </section>
     </div>
@@ -441,6 +447,7 @@ function FieldCard({ title, children }: { title: string; children: React.ReactNo
 function Field({
   label, editing, value, children,
 }: { label: string; editing: boolean; value?: string | number | null; children: React.ReactNode }) {
+  const { t } = useTranslation('orgunits')
   return (
     <div className="space-y-1.5">
       <label className="text-label block">{label}</label>
@@ -448,7 +455,7 @@ function Field({
         <div className="space-y-1">{children}</div>
       ) : (
         <div className="flex h-9 items-center truncate rounded-control border border-[var(--color-border)] bg-[var(--color-muted)] px-3 text-sm text-[var(--color-foreground)]">
-          {value || <span className="text-[var(--color-subtle-foreground)]">Chưa cập nhật</span>}
+          {value || <span className="text-[var(--color-subtle-foreground)]">{t('CompanySections.notUpdated')}</span>}
         </div>
       )}
     </div>
@@ -461,6 +468,7 @@ function FieldError({ children }: { children: React.ReactNode }) {
 
 /* ========== CẤP BẬC ========== */
 export function CompanyHierarchySection() {
+  const { t } = useTranslation('orgunits')
   const { user } = useAuthStore()
   const orgId = user?.memberships?.[0]?.organizationId
   const { data: org, isLoading } = useOrganization(orgId)
@@ -470,7 +478,7 @@ export function CompanyHierarchySection() {
   const [isEditingHierarchy, setIsEditingHierarchy] = useState(false)
 
   const { register, control, handleSubmit, reset } = useForm<HierarchyLevelsFormData>({
-    resolver: zodResolver(hierarchyLevelsSchema),
+    resolver: zodResolver(hierarchyLevelsSchema()),
     defaultValues: { hierarchyLevels: [] },
   })
 
@@ -498,10 +506,10 @@ export function CompanyHierarchySection() {
       onSuccess: () => {
         setIsEditingHierarchy(false)
         refreshUser()
-        toast.success('Cập nhật cơ cấu tổ chức thành công')
+        toast.success(t('CompanySections.organizationStructureUpdatedSuccessfully'))
       },
       onError: (error: any) => {
-        const msg = getApiErrorMessage(error, 'Có lỗi xảy ra')
+        const msg = getApiErrorMessage(error, t('CompanySections.anErrorOccurred'))
         toast.error(msg)
       }
     })
@@ -516,14 +524,14 @@ export function CompanyHierarchySection() {
     <section id="tour-company-hierarchy" className="mx-auto max-w-3xl rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
       <div className="flex flex-col gap-3 border-b border-[var(--color-border)] px-5 py-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
-          <h3 className="text-section-title">Cấu trúc cấp bậc</h3>
+          <h3 className="text-section-title">{t('CompanySections.levelStructure')}</h3>
           <p className="mt-0.5 text-sm text-[var(--color-muted-foreground)]">
-            Thứ tự từ trên xuống: cấp 1 là toàn công ty, cấp cuối là đơn vị nhỏ nhất. Mỗi cấp có một chức danh quản lý.
+            {t('CompanySections.topDownOrderLevel1Is')}
           </p>
         </div>
         {!isEditingHierarchy && (
           <Button variant="outline" className="shrink-0" onClick={() => setIsEditingHierarchy(true)}>
-            <Edit3 aria-hidden="true" /> Chỉnh sửa
+            <Edit3 aria-hidden="true" /> {t('CompanySections.edit')}
           </Button>
         )}
       </div>
@@ -534,14 +542,14 @@ export function CompanyHierarchySection() {
           <form onSubmit={handleSubmit(onSaveHierarchy, toastFirstError)} className="space-y-4">
             <div className="flex items-start gap-2 rounded-card border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-4 py-3 text-sm text-[var(--color-warning)]">
               <Info size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
-              <span>Đổi cấu trúc ảnh hưởng tới danh mục đơn vị và vai trò đang gắn với từng cấp. Xoá một cấp không xoá đơn vị, nhưng đơn vị đó sẽ cần gán lại cấp.</span>
+              <span>{t('CompanySections.changingTheStructureAffectsTheUnit')}</span>
             </div>
 
             <div className="hidden grid-cols-[2rem_1fr_1fr_5.5rem] gap-3 px-1 sm:grid">
               <span className="text-eyebrow">#</span>
-              <span className="text-eyebrow">Tên cấp</span>
-              <span className="text-eyebrow">Chức danh quản lý</span>
-              <span className="sr-only">Sắp xếp</span>
+              <span className="text-eyebrow">{t('CompanySections.levelName')}</span>
+              <span className="text-eyebrow">{t('CompanySections.managerTitle')}</span>
+              <span className="sr-only">{t('CompanySections.order')}</span>
             </div>
 
             <ol className="space-y-2">
@@ -552,28 +560,28 @@ export function CompanyHierarchySection() {
                   </span>
                   <input type="hidden" {...register(`hierarchyLevels.${index}.id` as const)} />
                   <div>
-                    <label className="text-label mb-1 block sm:sr-only">Tên cấp</label>
+                    <label className="text-label mb-1 block sm:sr-only">{t('CompanySections.levelName')}</label>
                     <input
                       {...register(`hierarchyLevels.${index}.unitTypeName` as const)}
                       className={inputCls}
-                      placeholder="VD: Chi nhánh"
-                      aria-label={`Tên cấp ${index + 1}`}
+                      placeholder={t('CompanySections.eGBranch')}
+                      aria-label={t('CompanySections.levelName2', { value: index + 1 })}
                     />
                   </div>
                   <div className="col-start-2 sm:col-start-auto">
-                    <label className="text-label mb-1 block sm:sr-only">Chức danh quản lý</label>
+                    <label className="text-label mb-1 block sm:sr-only">{t('CompanySections.managerTitle')}</label>
                     <input
                       {...register(`hierarchyLevels.${index}.managerRoleLabel` as const)}
                       className={inputCls}
-                      placeholder="VD: Giám đốc"
-                      aria-label={`Chức danh quản lý cấp ${index + 1}`}
+                      placeholder={t('CompanySections.eGDirector')}
+                      aria-label={t('CompanySections.managerTitleOfLevel', { value: index + 1 })}
                     />
                   </div>
                   <div className="col-start-2 flex items-center gap-1 sm:col-start-auto sm:justify-end">
-                    <Button type="button" variant="ghost" size="icon-sm" disabled={index === 0} onClick={() => move(index, index - 1)} aria-label="Chuyển lên" title="Chuyển lên">
+                    <Button type="button" variant="ghost" size="icon-sm" disabled={index === 0} onClick={() => move(index, index - 1)} aria-label={t('CompanySections.moveUp')} title={t('CompanySections.moveUp')}>
                       <ArrowUp aria-hidden="true" />
                     </Button>
-                    <Button type="button" variant="ghost" size="icon-sm" disabled={index === fields.length - 1} onClick={() => move(index, index + 1)} aria-label="Chuyển xuống" title="Chuyển xuống">
+                    <Button type="button" variant="ghost" size="icon-sm" disabled={index === fields.length - 1} onClick={() => move(index, index + 1)} aria-label={t('CompanySections.moveDown')} title={t('CompanySections.moveDown')}>
                       <ArrowDown aria-hidden="true" />
                     </Button>
                     <Button
@@ -582,8 +590,8 @@ export function CompanyHierarchySection() {
                       size="icon-sm"
                       disabled={fields.length <= 2}
                       onClick={() => remove(index)}
-                      aria-label="Xoá cấp"
-                      title={fields.length <= 2 ? 'Cần ít nhất 2 cấp' : 'Xoá cấp'}
+                      aria-label={t('CompanySections.deleteLevel')}
+                      title={fields.length <= 2 ? t('CompanySections.atLeast2LevelsAreRequired') : t('CompanySections.deleteLevel')}
                       className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]"
                     >
                       <Trash2 aria-hidden="true" />
@@ -599,14 +607,14 @@ export function CompanyHierarchySection() {
               className="w-full border-dashed"
               onClick={() => append({ unitTypeName: '', managerRoleLabel: '' })}
             >
-              <Plus aria-hidden="true" /> Thêm cấp bậc
+              <Plus aria-hidden="true" /> {t('CompanySections.addLevel')}
             </Button>
 
             <div className="flex items-center justify-end gap-2 border-t border-[var(--color-border)] pt-4">
-              <Button type="button" variant="outline" onClick={() => { setIsEditingHierarchy(false); reset() }} disabled={saving}>Hủy</Button>
+              <Button type="button" variant="outline" onClick={() => { setIsEditingHierarchy(false); reset() }} disabled={saving}>{t('CompanySections.cancel')}</Button>
               <Button type="submit" disabled={saving}>
                 {saving && <Loader2 className="animate-spin" aria-hidden="true" />}
-                {saving ? 'Đang lưu…' : 'Lưu cấu trúc'}
+                {saving ? t('CompanySections.saving') : t('CompanySections.saveStructure')}
               </Button>
             </div>
           </form>
@@ -622,10 +630,10 @@ export function CompanyHierarchySection() {
                     {idx + 1}
                   </span>
                   <span className="min-w-0 flex-1 truncate text-sm font-medium text-[var(--color-foreground)]">{level.unitTypeName}</span>
-                  <span className="hidden text-caption sm:inline">Quản lý bởi</span>
+                  <span className="hidden text-caption sm:inline">{t('CompanySections.managedBy')}</span>
                   <Badge variant={level.managerRoleLabel ? 'outline' : 'secondary'} className="shrink-0">
                     <ShieldCheck size={12} aria-hidden="true" />
-                    {level.managerRoleLabel || (isLast ? 'Nhân viên' : 'Chưa đặt')}
+                    {level.managerRoleLabel || (isLast ? t('CompanySections.employee') : t('CompanySections.notSet'))}
                   </Badge>
                 </li>
               )
@@ -640,9 +648,10 @@ export function CompanyHierarchySection() {
 // Cờ tính năng là trạng thái BẬT/TẮT — dùng dạng viên thuốc có chấm sáng, xanh lá cho
 // mục đang bật để quét một lượt là biết ngay công ty đang dùng những gì.
 function FeatureChip({ icon: Icon, label, enabled }: { icon: any; label: string; enabled?: boolean }) {
+  const { t } = useTranslation('orgunits')
   return (
     <div
-      title={`${label}: ${enabled ? 'Đang bật' : 'Đang tắt'}`}
+      title={`${label}: ${enabled ? t('CompanySections.on') : t('CompanySections.off')}`}
       className={cn(
         'flex items-center gap-2 rounded-full border px-3 py-1 transition-colors',
         enabled

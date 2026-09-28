@@ -33,7 +33,10 @@ import java.util.function.Supplier;
 @RequiredArgsConstructor
 public class SoftDeletedRefs {
 
-    public static final String DELETED_SUFFIX = " (đã xoá)";
+    /** Hậu tố gắn sau tên bản ghi đã xoá mềm, theo ngôn ngữ người xem. */
+    public static String deletedSuffix() {
+        return com.kpitracking.i18n.ErrorMessages.text("label.deletedSuffix", " (đã xoá)");
+    }
 
     private final JdbcTemplate jdbc;
 
@@ -45,7 +48,7 @@ public class SoftDeletedRefs {
             return user.getFullName();
         } catch (EntityNotFoundException e) {
             String name = scalar("SELECT full_name FROM users WHERE id = ?", idOf(user, user::getId));
-            return name == null ? DELETED_SUFFIX.trim() : name + DELETED_SUFFIX;
+            return name == null ? deletedSuffix().trim() : name + deletedSuffix();
         }
     }
 
@@ -74,7 +77,7 @@ public class SoftDeletedRefs {
             return period.getName();
         } catch (EntityNotFoundException e) {
             String name = scalar("SELECT name FROM kpi_periods WHERE id = ?", idOf(period, period::getId));
-            return name == null ? DELETED_SUFFIX.trim() : name + DELETED_SUFFIX;
+            return name == null ? deletedSuffix().trim() : name + deletedSuffix();
         }
     }
 

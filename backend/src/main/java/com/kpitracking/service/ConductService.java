@@ -9,8 +9,10 @@ import com.kpitracking.entity.*;
 import com.kpitracking.enums.ConductScope;
 import com.kpitracking.enums.ConductStatus;
 import com.kpitracking.exception.BusinessException;
+import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.ForbiddenException;
 import com.kpitracking.exception.ResourceNotFoundException;
+import com.kpitracking.i18n.Terms;
 import com.kpitracking.repository.*;
 import com.kpitracking.security.PermissionChecker;
 import com.kpitracking.util.ConductAxisResolver;
@@ -126,7 +128,7 @@ public class ConductService {
         Organization org = requireOrg(organizationId);
         ConductCriteriaSet set = requireSet(org, setId);
         if (Boolean.TRUE.equals(set.getIsDefault())) {
-            throw new BusinessException("Không thể xoá bộ mặc định. Hãy đặt một bộ khác làm mặc định trước.");
+            throw new BusinessException(ErrorCode.DEFAULT_SET_CANNOT_DELETED);
         }
         set.getKpiCycleIds().clear();
         set.setDeletedAt(Instant.now());
@@ -228,9 +230,9 @@ public class ConductService {
 
     private ConductCriteriaSet requireSet(Organization org, UUID setId) {
         ConductCriteriaSet set = conductCriteriaSetRepository.findById(setId)
-                .orElseThrow(() -> new ResourceNotFoundException("Bộ tiêu chí hạnh kiểm", "id", setId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.conductCriteriaSet"), "id", setId));
         if (set.getOrganization() == null || !set.getOrganization().getId().equals(org.getId())) {
-            throw new ForbiddenException("Bộ tiêu chí này không thuộc tổ chức của bạn");
+            throw new ForbiddenException(ErrorCode.CRITERIA_SET_OUTSIDE_ORGANIZATION);
         }
         return set;
     }
@@ -238,10 +240,10 @@ public class ConductService {
     /** Tên bộ phải phân biệt được — hai bộ trùng tên thì không ai biết kỳ đang chấm theo bộ nào. */
     private String uniqueName(List<ConductCriteriaSet> sets, String rawName, UUID selfId) {
         String name = rawName == null ? "" : rawName.trim();
-        if (name.isEmpty()) throw new BusinessException("Tên bộ tiêu chí không được để trống");
+        if (name.isEmpty()) throw new BusinessException(ErrorCode.CRITERIA_SET_NAME_CANNOT_EMPTY);
         boolean taken = sets.stream()
                 .anyMatch(s -> !s.getId().equals(selfId) && s.getName().equalsIgnoreCase(name));
-        if (taken) throw new BusinessException("Đã có bộ tiêu chí tên \"" + name + "\"");
+        if (taken) throw new BusinessException(ErrorCode.CRITERIA_SET_NAMED_EXISTS, String.valueOf(name));
         return name;
     }
 
@@ -261,13 +263,12 @@ public class ConductService {
     /** Thay THẾ toàn bộ tiêu chí của một bộ; tổng trọng số phải bằng 100%. */
     private void replaceCriteria(Organization org, ConductCriteriaSet set, List<ConductCriteriaRequest> criteria) {
         if (criteria == null || criteria.isEmpty()) {
-            throw new BusinessException("Bộ \"" + set.getName() + "\" cần ít nhất một tiêu chí");
+            throw new BusinessException(ErrorCode.SET_NEEDS_LEAST_ONE_CRITERION, set.getName());
         }
         double total = criteria.stream()
                 .mapToDouble(c -> c.getWeight() != null ? c.getWeight() : 0.0).sum();
         if (Math.abs(total - 100.0) > 0.01) {
-            throw new BusinessException("Tổng trọng số của bộ \"" + set.getName()
-                    + "\" phải bằng 100% (hiện tại " + Math.round(total * 100.0) / 100.0 + "%)");
+            throw new BusinessException(ErrorCode.TOTAL_WEIGHT_SET_MUST_100_PERCENT, set.getName(), String.valueOf(Math.round(total * 100.0) / 100.0));
         }
 
         softDeleteCriteria(set);
@@ -300,7 +301,7 @@ public class ConductService {
     private void assignCycles(Organization org, ConductCriteriaSet set, List<UUID> cycleIds) {
         if (Boolean.TRUE.equals(set.getIsDefault())) {
             if (cycleIds != null && !cycleIds.isEmpty()) {
-                throw new BusinessException("Bộ mặc định đã áp cho mọi kỳ chưa gán, không cần chọn kỳ riêng");
+                throw new BusinessException(ErrorCode.DEFAULT_SET_APPLIES_EVERY_UNASSIGNED_CYCLE);
             }
             set.getKpiCycleIds().clear();
             conductCriteriaSetRepository.save(set);
@@ -310,9 +311,9 @@ public class ConductService {
         LinkedHashSet<UUID> wanted = new LinkedHashSet<>(cycleIds == null ? List.of() : cycleIds);
         for (UUID cycleId : wanted) {
             KpiCycle cycle = kpiCycleRepository.findById(cycleId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Kỳ đánh giá", "id", cycleId));
+                    .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.evaluationCycle"), "id", cycleId));
             if (cycle.getOrganization() == null || !cycle.getOrganization().getId().equals(org.getId())) {
-                throw new ForbiddenException("Kỳ \"" + cycle.getName() + "\" không thuộc tổ chức của bạn");
+                throw new ForbiddenException(ErrorCode.CYCLE_OUTSIDE_ORGANIZATION, cycle.getName());
             }
         }
 
@@ -366,11 +367,11 @@ public class ConductService {
         User current = getCurrentUser();
         UUID targetUserId = userId != null ? userId : current.getId();
         User target = userRepository.findById(targetUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Người dùng", "id", targetUserId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.user"), "id", targetUserId));
 
         Target t = resolveTarget(scope, kpiPeriodId, kpiCycleId);
         if (!targetUserId.equals(current.getId()) && !canEvaluate(current, target)) {
-            throw new ForbiddenException("Bạn không có quyền xem phiếu hạnh kiểm của nhân sự này");
+            throw new ForbiddenException(ErrorCode.NO_PERMISSION_VIEW_PERSON_CONDUCT_FORM);
         }
 
         ConductEvaluation entity = findSheet(targetUserId, t);
@@ -385,7 +386,7 @@ public class ConductService {
         User current = getCurrentUser();
         UUID targetUserId = request.getUserId() != null ? request.getUserId() : current.getId();
         if (!targetUserId.equals(current.getId())) {
-            throw new ForbiddenException("Chỉ chính chủ mới được nhập cột tự đánh giá");
+            throw new ForbiddenException(ErrorCode.ONLY_PERSON_THEMSELVES_MAY_FILL_SELF_ASSESSMENT);
         }
         Target t = resolveTarget(request.getScope(), request.getKpiPeriodId(), request.getKpiCycleId());
         assertNotLocked(current, t);
@@ -404,12 +405,12 @@ public class ConductService {
     public ConductSheetResponse saveManagerScores(ConductScoreRequest request) {
         User current = getCurrentUser();
         if (request.getUserId() == null) {
-            throw new BusinessException("Thiếu nhân sự được chấm hạnh kiểm");
+            throw new BusinessException(ErrorCode.MISSING_PERSON_SCORE_CONDUCT);
         }
         User target = userRepository.findById(request.getUserId())
-                .orElseThrow(() -> new ResourceNotFoundException("Người dùng", "id", request.getUserId()));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.user"), "id", request.getUserId()));
         if (!canScoreConduct(current, target)) {
-            throw new ForbiddenException("Chỉ trưởng đơn vị mới được chấm hạnh kiểm cho nhân sự này");
+            throw new ForbiddenException(ErrorCode.ONLY_UNIT_HEAD_MAY_SCORE_CONDUCT_PERSON);
         }
         Target t = resolveTarget(request.getScope(), request.getKpiPeriodId(), request.getKpiCycleId());
         assertNotLocked(target, t);
@@ -431,12 +432,12 @@ public class ConductService {
                                                         UUID kpiPeriodId, UUID kpiCycleId) {
         Target t = resolveTarget(scope, kpiPeriodId, kpiCycleId);
         OrgUnit unit = orgUnitRepository.findById(orgUnitId)
-                .orElseThrow(() -> new ResourceNotFoundException("Đơn vị", "id", orgUnitId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.unit"), "id", orgUnitId));
 
         User current = getCurrentUser();
         if (!permissionChecker.hasPermissionInOrgUnit(current.getId(), "EVALUATION:VIEW", orgUnitId)
                 && !permissionChecker.hasPermissionInOrgUnit(current.getId(), "EVALUATION:CREATE", orgUnitId)) {
-            throw new ForbiddenException("Bạn không có quyền xem hạnh kiểm của đơn vị này");
+            throw new ForbiddenException(ErrorCode.NO_PERMISSION_VIEW_UNIT_CONDUCT);
         }
 
         List<UserRoleOrgUnit> assignments = subtreeAssignments(unit);
@@ -673,14 +674,14 @@ public class ConductService {
 
     private Target resolveTarget(ConductScope scope, UUID kpiPeriodId, UUID kpiCycleId) {
         if (scope == ConductScope.PERIOD) {
-            if (kpiPeriodId == null) throw new BusinessException("Thiếu đợt đánh giá");
+            if (kpiPeriodId == null) throw new BusinessException(ErrorCode.MISSING_EVALUATION_PERIOD);
             KpiPeriod period = kpiPeriodRepository.findById(kpiPeriodId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Đợt đánh giá", "id", kpiPeriodId));
+                    .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.evaluationPeriod"), "id", kpiPeriodId));
             return new Target(scope, kpiPeriodId, null, period.getName(), period.getOrganization(), period, null);
         }
-        if (kpiCycleId == null) throw new BusinessException("Thiếu kỳ đánh giá");
+        if (kpiCycleId == null) throw new BusinessException(ErrorCode.MISSING_EVALUATION_CYCLE);
         KpiCycle cycle = kpiCycleRepository.findById(kpiCycleId)
-                .orElseThrow(() -> new ResourceNotFoundException("Kỳ đánh giá", "id", kpiCycleId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.evaluationCycle"), "id", kpiCycleId));
         return new Target(scope, null, kpiCycleId, cycle.getName(), cycle.getOrganization(), null, cycle);
     }
 
@@ -697,13 +698,13 @@ public class ConductService {
 
         Organization org = t.organization();
         if (!Boolean.TRUE.equals(org.getEnableConduct())) {
-            throw new BusinessException("Tổ chức chưa bật chấm hạnh kiểm");
+            throw new BusinessException(ErrorCode.ORGANIZATION_NOT_ENABLED_CONDUCT_SCORING);
         }
         ConductCriteriaSet set = resolveSet(t);
         List<ConductCriteria> criteria = set == null ? List.of()
                 : conductCriteriaRepository.findByCriteriaSetIdOrderByPositionAsc(set.getId());
         if (criteria.isEmpty()) {
-            throw new BusinessException("Kỳ này chưa có bộ tiêu chí hạnh kiểm nào được cấu hình");
+            throw new BusinessException(ErrorCode.NO_CONDUCT_CRITERIA_SET_CONFIGURED_CYCLE);
         }
 
         ConductEvaluation sheet = ConductEvaluation.builder()
@@ -745,9 +746,7 @@ public class ConductService {
                 boolean unchanged = score != null && score.equals(previous);
                 if (score != null && !unchanged
                         && (score < ConductConstants.MIN_SCORE || score > max)) {
-                    throw new BusinessException("Điểm tiêu chí \"" + item.getCriteriaName()
-                            + "\" phải nằm trong khoảng " + fmtScale(ConductConstants.MIN_SCORE)
-                            + " đến " + fmtScale(max));
+                    throw new BusinessException(ErrorCode.SCORE_CRITERION_MUST_BETWEEN, item.getCriteriaName(), String.valueOf(fmtScale(ConductConstants.MIN_SCORE)), String.valueOf(fmtScale(max)));
                 }
                 if (selfSide) {
                     item.setSelfScore(score);
@@ -831,8 +830,7 @@ public class ConductService {
     private void assertNotLocked(User user, Target t) {
         OrgUnit locking = lockingUnitFor(user, t);
         if (locking != null) {
-            throw new BusinessException("Đánh giá kỳ của đơn vị \"" + locking.getName()
-                    + "\" đã được chốt, không thể chấm hạnh kiểm. Hãy mở khoá ở đơn vị đó trước khi sửa.");
+            throw new BusinessException(ErrorCode.CYCLE_EVALUATION_UNIT_FINALIZED_CONDUCT_CANNOT_SCORED, locking.getName());
         }
     }
 
@@ -1052,12 +1050,12 @@ public class ConductService {
 
     private Organization requireOrg(UUID organizationId) {
         return organizationRepository.findById(organizationId)
-                .orElseThrow(() -> new ResourceNotFoundException("Tổ chức", "id", organizationId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.organization"), "id", organizationId));
     }
 
     private User getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         return userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("Người dùng", "email", email));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.user"), "email", email));
     }
 }

@@ -4,6 +4,8 @@ import { Upload, X, FileIcon, Eye } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { toast } from 'sonner'
 import MediaPreviewModal from '@/components/common/MediaPreviewModal'
+import { useTranslation } from 'react-i18next'
+import i18n from 'i18next'
 
 interface FileDropzoneProps {
   onFilesSelected: (files: File[]) => void
@@ -24,18 +26,19 @@ function rejectionReason(rejection: FileRejection, maxSize?: number): string {
   if (code === 'file-too-large') {
     const mb = maxSize ? (maxSize / 1024 / 1024).toFixed(0) : '?'
     const actual = (rejection.file.size / 1024 / 1024).toFixed(1)
-    return `"${rejection.file.name}" nặng ${actual}MB, vượt quá ${mb}MB`
+    return i18n.t('shared:FileDropzone.isMbExceedingMb', { name: rejection.file.name, actual, mb })
   }
   if (code === 'file-invalid-type') {
-    return `"${rejection.file.name}" không đúng định dạng được hỗ trợ`
+    return i18n.t('shared:FileDropzone.isNotASupportedFormat', { name: rejection.file.name })
   }
   if (code === 'too-many-files') {
-    return `"${rejection.file.name}" vượt quá số tệp cho phép`
+    return i18n.t('shared:FileDropzone.exceedsTheAllowedNumberOfFiles', { name: rejection.file.name })
   }
-  return `Không nhận được "${rejection.file.name}"`
+  return i18n.t('shared:FileDropzone.couldNotAccept', { name: rejection.file.name })
 }
 
 export default function FileDropzone({ onFilesSelected, files, onRemove, accept, maxFiles = 5, maxSize, hint, className }: FileDropzoneProps) {
+  const { t } = useTranslation('shared')
   const [previewFile, setPreviewFile] = useState<{ url: string, name: string, type: string } | null>(null)
   
   const onDrop = useCallback((accepted: File[], rejected: FileRejection[]) => {
@@ -44,11 +47,11 @@ export default function FileDropzone({ onFilesSelected, files, onRemove, accept,
     rejected.forEach(r => toast.error(rejectionReason(r, maxSize)))
 
     if (files.length + accepted.length > maxFiles) {
-       toast.error(`Chỉ được phép tải lên tối đa ${maxFiles} tệp`);
+       toast.error(t('FileDropzone.atMostFilesCanBeUploaded', { maxFiles }));
        return;
     }
     if (accepted.length) onFilesSelected(accepted)
-  }, [onFilesSelected, files, maxFiles, maxSize])
+  }, [onFilesSelected, files, maxFiles, maxSize, t])
 
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
@@ -81,10 +84,10 @@ export default function FileDropzone({ onFilesSelected, files, onRemove, accept,
           </div>
           <div className="space-y-1 text-center">
             <p className="text-sm font-semibold text-[var(--color-foreground)]">
-              {isDragActive ? 'Thả để tải lên' : files.length >= maxFiles ? 'Đã đạt giới hạn tệp' : 'Chọn tài liệu minh chứng'}
+              {isDragActive ? t('FileDropzone.dropToUpload') : files.length >= maxFiles ? t('FileDropzone.fileLimitReached') : t('FileDropzone.chooseEvidenceDocuments')}
             </p>
             <p className="text-eyebrow">
-              {hint ?? `Ảnh, PDF, Word, Excel (Tối đa ${maxFiles} tệp)`}
+              {hint ?? t('FileDropzone.imagesPdfWordExcelMaxFiles', { maxFiles })}
             </p>
           </div>
         </div>

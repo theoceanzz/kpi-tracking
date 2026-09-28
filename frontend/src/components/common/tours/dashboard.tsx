@@ -1,6 +1,8 @@
 import type { Step } from 'react-joyride'
 import type { TourKey } from '@/store/tourStore'
 import type { TourDef } from './registry'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
 /**
  * Hướng dẫn cho "Tổng quan".
@@ -29,18 +31,17 @@ const intro = (title: string, body: React.ReactNode): Step => ({
 })
 
 /** Ba bước chung: lưới widget → nút tuỳ chỉnh → thư viện widget. */
-const commonSteps: Step[] = [
+const commonSteps = perLanguage((): Step[] => ([
   {
     target: '#tour-dashboard-grid',
-    title: '🧩 Trang chủ là lưới widget của bạn',
+    title: i18n.t('shared:dashboard.theHomePageIsYourWidget'),
     content: (
       <div className="space-y-2">
         <p>
-          Mỗi ô ở đây là <strong>đúng biểu đồ và đúng số liệu</strong> bên trang Phân tích &amp; Thống kê,
-          không phải một bản dựng lại — nên con số hai nơi luôn khớp nhau.
+          {i18n.t('shared:dashboard.eachCardHereIs')} <strong>{i18n.t('shared:dashboard.exactlyTheChartAndExactlyThe')}</strong> {i18n.t('shared:dashboard.onTheAnalyticsStatisticsPageNot')}
         </p>
         <p className="text-caption">
-          Bố cục được lưu theo từng người và từng vai trò, nên bạn sắp thế nào thì lần sau mở ra vẫn thế.
+          {i18n.t('shared:dashboard.theLayoutIsSavedPerPerson')}
         </p>
       </div>
     ),
@@ -48,101 +49,94 @@ const commonSteps: Step[] = [
   },
   {
     target: '#tour-dashboard-customize',
-    title: '⚙️ Tuỳ chỉnh ngay trên thanh tiêu đề',
+    title: i18n.t('shared:dashboard.customizeRightOnTheTitleBar'),
     content: (
       <div className="space-y-2">
         <p>
-          Bấm <strong>Tuỳ chỉnh</strong> để vào chế độ chỉnh sửa: kéo-thả đổi chỗ, kéo cạnh đổi kích thước,
-          hoặc dùng các nút mũi tên ngay trên mỗi ô nếu bạn không dùng chuột.
+          {i18n.t('shared:dashboard.click')} <strong>{i18n.t('shared:dashboard.customize')}</strong> {i18n.t('shared:dashboard.toEnterEditModeDragAnd')}
         </p>
-        {note('Nhớ bấm Lưu — thoát bằng Huỷ sẽ bỏ hết thay đổi trong lượt chỉnh sửa đó.')}
+        {note(i18n.t('shared:dashboard.rememberToClickSaveLeavingWith'))}
       </div>
     ),
     placement: 'bottom',
   },
   {
     target: '#tour-dashboard-customize',
-    title: '➕ Thêm và bớt nội dung',
+    title: i18n.t('shared:dashboard.addAndRemoveContent'),
     content: (
       <div className="space-y-2">
         <p>
-          Trong chế độ chỉnh sửa, <strong>Thêm biểu đồ</strong> mở thư viện widget: bấm một thẻ để thêm,
-          bấm lại để gỡ. <strong>Ẩn/Hiện</strong> giữ widget lại nhưng tạm cất khỏi lưới.
+          {i18n.t('shared:dashboard.inEditMode')} <strong>{i18n.t('shared:dashboard.addChart')}</strong> {i18n.t('shared:dashboard.opensTheWidgetLibraryClickA')} <strong>{i18n.t('shared:dashboard.hideShow')}</strong> {i18n.t('shared:dashboard.keepsTheWidgetButTemporarilyPuts')}
         </p>
         <p className="text-caption">
-          Chưa biết bắt đầu từ đâu thì chọn một <strong>bố cục gợi ý</strong> ngay đầu thư viện, rồi sửa dần.
-          Lỡ tay vẫn còn nút Hoàn tác trong thông báo hiện ra.
+          {i18n.t('shared:dashboard.notSureWhereToStartChoose')} <strong>{i18n.t('shared:dashboard.suggestedLayout')}</strong> {i18n.t('shared:dashboard.atTheTopOfTheLibrary')}
         </p>
       </div>
     ),
     placement: 'bottom',
   },
-]
+]))
 
-const dashboardTours: Record<TourKey, TourDef> = {
+const dashboardTours = perLanguage((): Record<TourKey, TourDef> => ({
   'dashboard/director': {
-    title: 'Tổng quan (Giám đốc)',
+    title: i18n.t('shared:dashboard.overviewDirector'),
     steps: [
-      intro('📊 Bảng dành cho giám đốc', (
+      intro(i18n.t('shared:dashboard.theBoardForDirectors'), (
         <>
           <p>
-            Bạn thấy được cả widget cấp đơn vị (xu hướng KPI, hiệu suất từng đơn vị, rủi ro, xếp hạng)
-            lẫn widget cá nhân của chính bạn.
+            {i18n.t('shared:dashboard.youSeeBothUnitLevelWidgets')}
           </p>
-          {note('Muốn đi sâu hơn một ô nào đó? Mở mục Phân tích — cùng dữ liệu, thêm bộ lọc thời gian và đợt.')}
+          {note(i18n.t('shared:dashboard.wantToGoDeeperIntoA'))}
         </>
       )),
-      ...commonSteps,
+      ...commonSteps(),
     ],
   },
 
   'dashboard/head': {
-    title: 'Tổng quan (Trưởng đơn vị)',
+    title: i18n.t('shared:dashboard.overviewUnitHead'),
     steps: [
-      intro('👥 Bảng dành cho trưởng đơn vị', (
+      intro(i18n.t('shared:dashboard.theBoardForUnitHeads'), (
         <>
           <p>
-            Widget cấp đơn vị ở đây bám theo phạm vi bạn quản: tiến độ của phòng, ai đang trễ hạn,
-            và bảng xếp hạng nhân sự thuộc quyền bạn.
+            {i18n.t('shared:dashboard.unitLevelWidgetsHereFollowThe')}
           </p>
-          {note('Bài nộp và chỉ tiêu chờ duyệt nằm ở mục Quản lý hiệu suất trên thanh bên.')}
+          {note(i18n.t('shared:dashboard.submissionsAndKpisPendingApprovalAre'))}
         </>
       )),
-      ...commonSteps,
+      ...commonSteps(),
     ],
   },
 
   'dashboard/deputy': {
-    title: 'Tổng quan (Phó đơn vị)',
+    title: i18n.t('shared:dashboard.overviewDeputyHead'),
     steps: [
-      intro('🤝 Bảng dành cho phó đơn vị', (
+      intro(i18n.t('shared:dashboard.theBoardForDeputyHeads'), (
         <>
           <p>
-            Phó vừa quản một mảng vừa là người có KPI riêng, nên bố cục mặc định gồm cả một widget
-            cấp đơn vị và một widget cá nhân.
+            {i18n.t('shared:dashboard.aDeputyBothManagesAnArea')}
           </p>
-          {note('Muốn xem riêng kết quả của chính bạn? Dùng công tắc "Dashboard cá nhân" ở đầu trang.')}
+          {note(i18n.t('shared:dashboard.wantToSeeOnlyYourOwn'))}
         </>
       )),
-      ...commonSteps,
+      ...commonSteps(),
     ],
   },
 
   'dashboard/staff': {
-    title: 'Tổng quan (Cá nhân)',
+    title: i18n.t('shared:dashboard.overviewPersonal'),
     steps: [
-      intro('⭐ Bảng dành cho bạn', (
+      intro(i18n.t('shared:dashboard.theBoardForYou'), (
         <>
           <p>
-            Trang chủ hiện KPI bạn đang đảm nhiệm: xu hướng theo thời gian và bảng chi tiết từng
-            chỉ tiêu — bấm vào một dòng để xem toàn bộ bài nộp và điểm của nó.
+            {i18n.t('shared:dashboard.theHomePageShowsTheKpis')}
           </p>
-          {note('Nộp báo cáo và xem đánh giá của bạn nằm ở mục "Của tôi" trên thanh bên.')}
+          {note(i18n.t('shared:dashboard.submittingReportsAndViewingYourEvaluations'))}
         </>
       )),
-      ...commonSteps,
+      ...commonSteps(),
     ],
   },
-}
+}))
 
 export default dashboardTours

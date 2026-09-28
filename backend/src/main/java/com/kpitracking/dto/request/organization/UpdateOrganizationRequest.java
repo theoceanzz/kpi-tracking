@@ -35,6 +35,8 @@ public class UpdateOrganizationRequest {
     private Boolean enableQualitative;
     private Boolean enableBsc;
     private Boolean enableConduct;
+    private Boolean enableFeedback360;
+    private Boolean feedback360AffectsRating;
     private Boolean enableReward;
     private Boolean enableCashWallet;
 

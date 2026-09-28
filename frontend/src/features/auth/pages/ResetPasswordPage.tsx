@@ -9,8 +9,10 @@ import { getApiErrorMessage } from '@/lib/apiError'
 import { useSearchParams, Link, useNavigate } from 'react-router-dom'
 import { Loader2, Lock, ShieldCheck, Key, Eye, EyeOff, Wand2, Check, X } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { useTranslation } from 'react-i18next'
 
 export default function ResetPasswordPage() {
+  const { t } = useTranslation('auth')
   const [params] = useSearchParams()
   const urlToken = params.get('token') ?? ''
   const navigate = useNavigate()
@@ -20,7 +22,7 @@ export default function ResetPasswordPage() {
   const [showConfirmPassword, setShowConfirmPassword] = useState(false)
 
   const { register, handleSubmit, formState: { errors }, control, setValue } = useForm<ResetPasswordFormData>({
-    resolver: zodResolver(resetPasswordSchema),
+    resolver: zodResolver(resetPasswordSchema()),
     defaultValues: { token: urlToken, newPassword: '', confirmPassword: '' },
   })
 
@@ -35,21 +37,21 @@ export default function ResetPasswordPage() {
 
   const strengthScore = [hasLength, hasUpper, hasLower, hasNumber, hasSpecial].filter(Boolean).length
 
-  let strengthLabel = 'Chưa nhập'
+  let strengthLabel = t('ResetPasswordPage.notEntered')
   let strengthColor = 'bg-[var(--color-border)]'
   let strengthTextColor = 'text-[var(--color-subtle-foreground)]'
 
   if (pwd.length > 0) {
     if (strengthScore <= 2) {
-      strengthLabel = 'Yếu'
+      strengthLabel = t('ResetPasswordPage.weak')
       strengthColor = 'bg-[var(--color-error-solid)]'
       strengthTextColor = 'text-[var(--color-error)]'
     } else if (strengthScore <= 3) {
-      strengthLabel = 'Trung bình'
+      strengthLabel = t('ResetPasswordPage.medium')
       strengthColor = 'bg-[var(--color-warning-solid)]'
       strengthTextColor = 'text-[var(--color-warning)]'
     } else {
-      strengthLabel = 'Mạnh'
+      strengthLabel = t('ResetPasswordPage.strong')
       strengthColor = 'bg-[var(--color-success-solid)]'
       strengthTextColor = 'text-[var(--color-success)]'
     }
@@ -73,12 +75,12 @@ export default function ResetPasswordPage() {
       authApi.resetPassword({ token: data.token, newPassword: data.newPassword, confirmPassword: data.confirmPassword }),
     onSuccess: (_, variables) => { 
       setIsRedirecting(true)
-      toast.success('Cập nhật mật khẩu bảo mật diện rộng thành công!')
+      toast.success(t('ResetPasswordPage.passwordUpdatedSuccessfully'))
       setTimeout(() => navigate('/login', {
         state: { password: variables.newPassword }
       }), 2000) 
     },
-    onError: (error) => toast.error(getApiErrorMessage(error, 'Cập nhật mật khẩu thất bại, vui lòng xác minh lại mã khôi phục.')),
+    onError: (error) => toast.error(getApiErrorMessage(error, t('ResetPasswordPage.passwordUpdateFailedPleaseVerifyThe'))),
   })
 
   const inputCls = "h-10 w-full rounded-control border border-[var(--color-border)] bg-[var(--color-card)] pl-10 pr-12 text-sm text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-subtle-foreground)] focus-visible:border-[var(--color-primary)] focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]"
@@ -93,10 +95,10 @@ export default function ResetPasswordPage() {
           </div>
         </div>
         <div className="space-y-3">
-          <h2 className="text-page-title">Đặt lại mật khẩu thành công</h2>
+          <h2 className="text-page-title">{t('ResetPasswordPage.passwordResetSuccessfully')}</h2>
           <p className="text-[var(--color-muted-foreground)] text-sm">
-            Mật khẩu của bạn đã được cập nhật an toàn. <br/>
-            Đang chuyển hướng bạn đến trang đăng nhập...
+            {t('ResetPasswordPage.yourPasswordHasBeenUpdatedSecurely')} <br/>
+            {t('ResetPasswordPage.redirectingYouToTheSignIn')}
           </p>
         </div>
         <div className="flex justify-center gap-1.5">
@@ -116,13 +118,13 @@ export default function ResetPasswordPage() {
               <ShieldCheck className="text-[var(--color-primary)]" size={24} />
            </div>
         </div>
-        <h2 className="text-page-title mb-1">Đặt lại mật khẩu</h2>
-        <p className="text-sm text-[var(--color-muted-foreground)]">Thiết lập mật khẩu mới mạnh mẽ cho tài khoản của bạn.</p>
+        <h2 className="text-page-title mb-1">{t('ResetPasswordPage.resetPassword')}</h2>
+        <p className="text-sm text-[var(--color-muted-foreground)]">{t('ResetPasswordPage.setAStrongNewPasswordFor')}</p>
       </div>
 
       <form onSubmit={handleSubmit((data) => mutation.mutate(data))} className="space-y-6">
         <div className="space-y-2">
-          <label className="text-label block">Mã khôi phục (OTP) <span className="text-[var(--color-error)]">*</span></label>
+          <label className="text-label block">{t('ResetPasswordPage.recoveryCodeOtp')} <span className="text-[var(--color-error)]">*</span></label>
           <div className="relative">
              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <Key size={18} className="text-[var(--color-muted-foreground)]" />
@@ -134,28 +136,28 @@ export default function ResetPasswordPage() {
                type="text" 
                maxLength={6}
                className={inputCls + " uppercase tracking-widest"} 
-               placeholder="Nhập mã OTP 6 ký tự..." 
+               placeholder={t('ResetPasswordPage.enterThe6CharacterOtp')} 
              />
           </div>
           {errors.token && <p className="mt-1 text-xs text-[var(--color-error)]">{errors.token.message}</p>}
         </div>
 
         <div className="space-y-2">
-          <label className="text-label block">Thiết lập mật khẩu mới</label>
+          <label className="text-label block">{t('ResetPasswordPage.setANewPassword')}</label>
           <div className="relative">
              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <Lock size={18} className="text-[var(--color-muted-foreground)]" />
              </div>
-             <input {...register('newPassword')} type={showPassword ? 'text' : 'password'} className={inputCls + " pr-20 no-edit-hint"} placeholder="Nhập ít nhất 8 ký tự an toàn" />
+             <input {...register('newPassword')} type={showPassword ? 'text' : 'password'} className={inputCls + " pr-20 no-edit-hint"} placeholder={t('ResetPasswordPage.enterAtLeast8SecureCharacters')} />
              
              {/* Nút Gợi ý MK */}
              <button
               type="button"
               onClick={generatePassword}
               className="absolute inset-y-0 right-10 pr-1 flex items-center text-[var(--color-primary)] hover:text-[var(--color-primary)]/80 transition-colors text-xs font-semibold"
-              title="Gợi ý Mật khẩu"
+              title={t('ResetPasswordPage.passwordSuggestion')}
              >
-                <Wand2 size={16} className="mr-0.5"/> Gợi ý
+                <Wand2 size={16} className="mr-0.5"/> {t('ResetPasswordPage.suggest')}
              </button>
 
              {/* Nút bật tắt ẩn hiện */}
@@ -172,7 +174,7 @@ export default function ResetPasswordPage() {
           {pwd && (
             <div className="mt-2.5 p-3 rounded-control bg-[var(--color-muted)]/30 border border-[var(--color-border)]/50 animate-in fade-in slide-in-from-top-1">
               <div className="flex justify-between items-center text-xs font-medium mb-2">
-                 <span className="text-[var(--color-muted-foreground)]">Độ mạnh mật khẩu</span>
+                 <span className="text-[var(--color-muted-foreground)]">{t('ResetPasswordPage.passwordStrength')}</span>
                  <span className={strengthTextColor}>{strengthLabel}</span>
               </div>
               <div className="h-1.5 w-full bg-[var(--color-border)] rounded-full overflow-hidden flex gap-1 mb-3">
@@ -185,19 +187,19 @@ export default function ResetPasswordPage() {
               <div className="grid grid-cols-2 gap-y-2 gap-x-1 text-xs text-[var(--color-muted-foreground)]">
                 <div className="flex items-center gap-1.5">
                   <div className={`w-3.5 h-3.5 rounded-full flex items-center justify-center ${hasLength ? 'bg-[var(--color-success-solid)] text-white' : 'bg-[var(--color-border)] text-transparent'}`}><Check size={10} strokeWidth={3}/></div>
-                  <span className={hasLength ? "text-[var(--color-foreground)]" : ""}>8+ ký tự</span>
+                  <span className={hasLength ? "text-[var(--color-foreground)]" : ""}>{t('ResetPasswordPage.n8Characters')}</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <div className={`w-3.5 h-3.5 rounded-full flex items-center justify-center ${hasUpper && hasLower ? 'bg-[var(--color-success-solid)] text-white' : 'bg-[var(--color-border)] text-transparent'}`}><Check size={10} strokeWidth={3}/></div>
-                  <span className={(hasUpper && hasLower) ? "text-[var(--color-foreground)]" : ""}>Chữ HOA & thường</span>
+                  <span className={(hasUpper && hasLower) ? "text-[var(--color-foreground)]" : ""}>{t('ResetPasswordPage.upperLowerCase')}</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <div className={`w-3.5 h-3.5 rounded-full flex items-center justify-center ${hasNumber ? 'bg-[var(--color-success-solid)] text-white' : 'bg-[var(--color-border)] text-transparent'}`}><Check size={10} strokeWidth={3}/></div>
-                  <span className={hasNumber ? "text-[var(--color-foreground)]" : ""}>Có chữ số (0-9)</span>
+                  <span className={hasNumber ? "text-[var(--color-foreground)]" : ""}>{t('ResetPasswordPage.containsDigits09')}</span>
                 </div>
                 <div className="flex items-center gap-1.5">
                   <div className={`w-3.5 h-3.5 rounded-full flex items-center justify-center ${hasSpecial ? 'bg-[var(--color-success-solid)] text-white' : 'bg-[var(--color-border)] text-transparent'}`}><Check size={10} strokeWidth={3}/></div>
-                  <span className={hasSpecial ? "text-[var(--color-foreground)]" : ""}>Ký tự đặc biệt (!@#...)</span>
+                  <span className={hasSpecial ? "text-[var(--color-foreground)]" : ""}>{t('ResetPasswordPage.specialCharacters')}</span>
                 </div>
               </div>
             </div>
@@ -207,12 +209,12 @@ export default function ResetPasswordPage() {
         </div>
 
         <div className="space-y-2">
-          <label className="text-label block">Xác nhận lại mật khẩu</label>
+          <label className="text-label block">{t('ResetPasswordPage.confirmThePassword')}</label>
           <div className="relative">
              <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
                 <ShieldCheck size={18} className="text-[var(--color-muted-foreground)]" />
              </div>
-             <input {...register('confirmPassword')} type={showConfirmPassword ? 'text' : 'password'} className={inputCls + " pr-10 no-edit-hint"} placeholder="Nhập lại mật khẩu khớp chính xác" />
+             <input {...register('confirmPassword')} type={showConfirmPassword ? 'text' : 'password'} className={inputCls + " pr-10 no-edit-hint"} placeholder={t('ResetPasswordPage.reEnterTheExactSamePassword')} />
              
              {/* Nút bật tắt ẩn hiện */}
              <button
@@ -227,7 +229,7 @@ export default function ResetPasswordPage() {
           {confirmPwd && (
             <div className={`mt-2 p-2 rounded-control flex items-center gap-2 text-xs font-semibold animate-in fade-in slide-in-from-top-1 ${pwd === confirmPwd ? 'bg-[var(--color-success-bg)] text-[var(--color-success)]' : 'bg-[var(--color-error-bg)] text-[var(--color-error)]'}`}>
               {pwd === confirmPwd ? <Check size={14} className="text-[var(--color-success)]" /> : <X size={14} className="text-[var(--color-error)]" />}
-              <span>{pwd === confirmPwd ? '✓ Hai mật khẩu hoàn toàn khớp nhau' : '✗ Hai mật khẩu đang chưa trùng khớp'}</span>
+              <span>{pwd === confirmPwd ? t('ResetPasswordPage.theTwoPasswordsMatch') : t('ResetPasswordPage.theTwoPasswordsDoNotMatch')}</span>
             </div>
           )}
           {errors.confirmPassword && !confirmPwd && <p className="mt-1 text-xs text-[var(--color-error)]">{errors.confirmPassword.message}</p>}
@@ -235,13 +237,13 @@ export default function ResetPasswordPage() {
 
         <Button className="w-full mt-2" type="submit" disabled={mutation.isPending}>
           {mutation.isPending ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Lock aria-hidden="true" />}
-          Hoàn tất Cập nhật
+          {t('ResetPasswordPage.finishUpdate')}
         </Button>
       </form>
 
       <div className="mt-8 text-center text-sm">
         <Link to="/login" className="text-[var(--color-muted-foreground)] font-medium hover:text-[var(--color-foreground)] transition-colors">
-          Trở lại hệ thống chính
+          {t('ResetPasswordPage.backToTheMainSystem')}
         </Link>
       </div>
     </div>

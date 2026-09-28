@@ -10,6 +10,9 @@ import { FREQUENCY_MAP } from '@/lib/utils'
 import { toast } from 'sonner'
 import { CYCLE_TYPES, cycleStandardEnd as computeStandardEndDate } from '../utils/standardDuration'
 import type { KpiCycle, KpiFrequency, CycleEvaluationMode } from '@/types/kpi'
+import { useTranslation } from 'react-i18next'
+import { useStateDraft } from '@/hooks/useFormDraft'
+import DraftNotice from '@/components/common/DraftNotice'
 
 interface CycleFormModalProps {
   onClose: () => void
@@ -46,6 +49,7 @@ export default function CycleFormModal({
   variant = 'modal',
   submitLabel,
 }: CycleFormModalProps) {
+  const { t } = useTranslation('kpi')
   const isInline = variant === 'inline'
 
   const [formData, setFormData] = useState(() => {
@@ -57,6 +61,7 @@ export default function CycleFormModal({
     return { name: editCycle?.name || '', cycleType: type, startDate: start, endDate: end, description: editCycle?.description || '', evaluationMode: (editCycle?.evaluationMode as CycleEvaluationMode) || 'BOTH' }
   })
   const [showMismatchConfirm, setShowMismatchConfirm] = useState(false)
+  const draft = useStateDraft(formData, setFormData, { key: `kpi-cycle:${editCycle?.id ?? 'new'}`, enabled: true })
 
   // Không bật KPI định tính ⇒ chỉ được đánh giá theo Định lượng.
   //
@@ -78,10 +83,10 @@ export default function CycleFormModal({
         const startObj = new Date(start)
         next.endDate = format(computeStandardEndDate(startObj, type), "yyyy-MM-dd'T'HH:mm")
         if (!next.name || next.name.startsWith('Tháng') || next.name.startsWith('Quý') || next.name.startsWith('6 Tháng') || next.name.startsWith('Năm')) {
-          if (type === 'MONTHLY') next.name = `Tháng ${format(startObj, 'MM/yyyy')}`
-          else if (type === 'QUARTERLY') next.name = `Quý ${Math.floor(startObj.getMonth() / 3) + 1} / ${format(startObj, 'yyyy')}`
-          else if (type === 'SEMI_ANNUALLY') next.name = `6 Tháng ${Math.floor(startObj.getMonth() / 6) + 1} / ${format(startObj, 'yyyy')}`
-          else if (type === 'YEARLY') next.name = `Năm ${format(startObj, 'yyyy')}`
+          if (type === 'MONTHLY') next.name = t('CycleFormModal.month', { startObj: format(startObj, 'MM/yyyy') })
+          else if (type === 'QUARTERLY') next.name = t('CycleFormModal.q', { value: Math.floor(startObj.getMonth() / 3) + 1, startObj: format(startObj, 'yyyy') })
+          else if (type === 'SEMI_ANNUALLY') next.name = t('CycleFormModal.h', { value: Math.floor(startObj.getMonth() / 6) + 1, startObj: format(startObj, 'yyyy') })
+          else if (type === 'YEARLY') next.name = t('CycleFormModal.year', { startObj: format(startObj, 'yyyy') })
         }
       }
       return next
@@ -107,7 +112,7 @@ export default function CycleFormModal({
     const start = new Date(formData.startDate).getTime()
     const end = new Date(formData.endDate).getTime()
     if (end <= start) {
-      toast.error('Thời gian kết thúc phải sau thời gian bắt đầu')
+      toast.error(t('CycleFormModal.theEndTimeMustBeAfter'))
       return
     }
     const standardEnd = computeStandardEndDate(new Date(formData.startDate), formData.cycleType).getTime()
@@ -122,74 +127,75 @@ export default function CycleFormModal({
     ? differenceInCalendarDays(new Date(formData.endDate), new Date(formData.startDate)) + 1 : 0
   const standardDays = formData.startDate
     ? differenceInCalendarDays(computeStandardEndDate(new Date(formData.startDate), formData.cycleType), new Date(formData.startDate)) + 1 : 0
-  const mismatchDescription = `Bạn đã chọn ${selectedDays} ngày, trong khi loại kỳ "${FREQUENCY_MAP[formData.cycleType]}" tiêu chuẩn là ${standardDays} ngày. Bạn tự chịu trách nhiệm với khoảng thời gian đã chọn.`
+  const mismatchDescription = t('CycleFormModal.youChoseDaysWhileTheStandard', { selectedDays, value: FREQUENCY_MAP()[formData.cycleType], standardDays })
 
   const fields = (
     <form id="cycle-form" onSubmit={handleSubmit} className="space-y-5">
+      <DraftNotice draft={draft} />
       <div className="space-y-2">
-        <label className="text-label">Tên kỳ <span className="text-[var(--color-error)]">*</span></label>
-        <input value={formData.name} onChange={e => handleFieldChange('name', e.target.value)} required placeholder="Ví dụ: 6 Tháng đầu năm 2026"
+        <label className="text-label">{t('CycleFormModal.cycleName')} <span className="text-[var(--color-error)]">*</span></label>
+        <input value={formData.name} onChange={e => handleFieldChange('name', e.target.value)} required placeholder={t('CycleFormModal.eGFirstHalfOf2026')}
           className="w-full px-5 py-4 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] focus:ring-4 focus:ring-[var(--color-success-solid)] focus:border-[var(--color-success-border)] outline-none text-sm font-medium transition-all placeholder:text-[var(--color-subtle-foreground)]"/>
       </div>
 
       <div className="space-y-2">
-        <label className="text-label">Loại kỳ <span className="text-[var(--color-error)]">*</span></label>
+        <label className="text-label">{t('CycleFormModal.cycleType')} <span className="text-[var(--color-error)]">*</span></label>
         <Select value={formData.cycleType} onValueChange={val => handleFieldChange('cycleType', val)}>
           <SelectTrigger className="w-full px-5 h-[56px] rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] text-sm font-medium shadow-sm focus:ring-4 focus:ring-[var(--color-success-solid)]">
-            <SelectValue placeholder="Chọn loại kỳ" />
+            <SelectValue placeholder={t('CycleFormModal.chooseCycleType')} />
           </SelectTrigger>
           <SelectContent className="rounded-card border-[var(--color-border)] p-2">
             {CYCLE_TYPES.map(type => (
-              <SelectItem key={type} value={type} className="rounded-card text-sm font-medium">{FREQUENCY_MAP[type]}</SelectItem>
+              <SelectItem key={type} value={type} className="rounded-card text-sm font-medium">{FREQUENCY_MAP()[type]}</SelectItem>
             ))}
           </SelectContent>
         </Select>
       </div>
 
       <div className="space-y-2">
-        <label className="text-label">Chế độ đánh giá cuối kỳ</label>
+        <label className="text-label">{t('CycleFormModal.endOfCycleEvaluationMode')}</label>
         <Select
           value={formData.evaluationMode}
           onValueChange={val => setFormData(p => ({ ...p, evaluationMode: val as CycleEvaluationMode }))}
           disabled={!enableQualitative}
         >
           <SelectTrigger className="w-full px-5 h-[56px] rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] text-sm font-medium shadow-sm focus:ring-4 focus:ring-[var(--color-success-solid)] disabled:opacity-70">
-            <SelectValue placeholder="Chọn chế độ đánh giá" />
+            <SelectValue placeholder={t('CycleFormModal.chooseEvaluationMode')} />
           </SelectTrigger>
           <SelectContent className="rounded-card border-[var(--color-border)] p-2">
-            <SelectItem value="QUANTITATIVE" className="rounded-card text-sm font-medium">Định lượng</SelectItem>
-            {enableQualitative && <SelectItem value="QUALITATIVE" className="rounded-card text-sm font-medium">Định tính</SelectItem>}
-            {enableQualitative && <SelectItem value="BOTH" className="rounded-card text-sm font-medium">Cả hai</SelectItem>}
+            <SelectItem value="QUANTITATIVE" className="rounded-card text-sm font-medium">{t('CycleFormModal.quantitative')}</SelectItem>
+            {enableQualitative && <SelectItem value="QUALITATIVE" className="rounded-card text-sm font-medium">{t('CycleFormModal.qualitative')}</SelectItem>}
+            {enableQualitative && <SelectItem value="BOTH" className="rounded-card text-sm font-medium">{t('CycleFormModal.both')}</SelectItem>}
           </SelectContent>
         </Select>
         {!enableQualitative && (
           <p className="text-caption font-medium ml-1">
-            Tổ chức chưa bật KPI định tính nên kỳ chỉ đánh giá theo <span className="font-semibold text-[var(--color-muted-foreground)]">Định lượng</span>.
+            {t('CycleFormModal.theOrganizationHasNotEnabledQualitative')} <span className="font-semibold text-[var(--color-muted-foreground)]">{t('CycleFormModal.quantitative')}</span>.
           </p>
         )}
       </div>
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div className="space-y-2">
-          <label className="text-label">Bắt đầu <span className="text-[var(--color-error)]">*</span></label>
+          <label className="text-label">{t('CycleFormModal.start')} <span className="text-[var(--color-error)]">*</span></label>
           <DateTimePicker value={formData.startDate} onChange={val => handleFieldChange('startDate', val)} />
         </div>
         <div className="space-y-2">
-          <label className="text-label">Kết thúc <span className="text-[var(--color-error)]">*</span></label>
+          <label className="text-label">{t('CycleFormModal.end')} <span className="text-[var(--color-error)]">*</span></label>
           <DateTimePicker value={formData.endDate} onChange={val => handleFieldChange('endDate', val)} />
         </div>
       </div>
 
       <div className="space-y-2">
-        <label className="text-label">Mô tả</label>
-        <textarea value={formData.description} onChange={e => setFormData(p => ({ ...p, description: e.target.value }))} rows={2} placeholder="Mục tiêu tổng thể của kỳ..."
+        <label className="text-label">{t('CycleFormModal.description')}</label>
+        <textarea value={formData.description} onChange={e => setFormData(p => ({ ...p, description: e.target.value }))} rows={2} placeholder={t('CycleFormModal.overallGoalOfTheCycle')}
           className="w-full px-5 py-4 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] focus:ring-4 focus:ring-[var(--color-success-solid)] focus:border-[var(--color-success-border)] outline-none text-sm font-medium transition-all placeholder:text-[var(--color-subtle-foreground)] resize-none"/>
       </div>
 
       {isInline && (
         <div className="pt-2">
           <Button type="submit" className="w-full" disabled={isSubmitting}>
-            {isSubmitting ? 'Đang lưu...' : (submitLabel ?? 'Xác nhận')}
+            {isSubmitting ? t('CycleFormModal.saving') : (submitLabel ?? t('CycleFormModal.confirm'))}
           </Button>
         </div>
       )}
@@ -199,9 +205,9 @@ export default function CycleFormModal({
   const mismatchDialog = (
     <ConfirmDialog
       open={showMismatchConfirm}
-      title="Bạn có chắc chắn?"
+      title={t('CycleFormModal.areYouSure')}
       description={mismatchDescription}
-      confirmLabel="Vẫn lưu kỳ này"
+      confirmLabel={t('CycleFormModal.saveThisCycleAnyway')}
       onConfirm={async () => { setShowMismatchConfirm(false); await submitForm() }}
       onClose={() => setShowMismatchConfirm(false)}
       loading={isSubmitting}
@@ -224,14 +230,14 @@ export default function CycleFormModal({
       onClose={onClose}
       size="md"
       dismissible={!isSubmitting}
-      title={editCycle ? 'Chỉnh sửa kỳ' : 'Tạo kỳ mới'}
-      description="Cấu hình kỳ đánh giá tổng hợp"
+      title={editCycle ? t('CycleFormModal.editCycle') : t('CycleFormModal.createANewCycle')}
+      description={t('CycleFormModal.configureTheCombinedEvaluationCycle')}
       footer={
         <DialogFooter
-          secondary={<Button variant="outline" onClick={onClose} disabled={isSubmitting}>Hủy</Button>}
+          secondary={<Button variant="outline" onClick={onClose} disabled={isSubmitting}>{t('CycleFormModal.cancel')}</Button>}
           primary={
             <Button type="submit" form="cycle-form" disabled={isSubmitting}>
-              {isSubmitting ? 'Đang lưu...' : (submitLabel ?? 'Xác nhận')}
+              {isSubmitting ? t('CycleFormModal.saving') : (submitLabel ?? t('CycleFormModal.confirm'))}
             </Button>
           }
         />

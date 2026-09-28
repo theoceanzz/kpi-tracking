@@ -10,5 +10,6 @@ public interface UserMapper {
 
     @Mapping(target = "hasSeenOnboarding", source = "hasSeenOnboarding")
     @Mapping(target = "isPlatformAdmin", source = "isPlatformAdmin")
+    @Mapping(target = "effectiveLanguage", ignore = true)
     UserInfoResponse toUserInfoResponse(User user);
 }

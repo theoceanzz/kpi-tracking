@@ -1,3 +1,4 @@
+import { intlDateLocale } from '@/i18n/format'
 import { useState } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { platformAdminApi } from '../api/platformAdminApi'
@@ -12,13 +13,16 @@ import WorkspaceHeader from '@/components/common/WorkspaceHeader'
 import Pagination from '@/components/common/Pagination'
 import { Badge } from '@/components/ui/badge'
 import { Switch } from '@/components/ui/switch'
+import { useTranslation } from 'react-i18next'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
-const STATUS_LABELS: Record<string, string> = {
-  ACTIVE: 'Hoạt động',
-  PENDING: 'Chờ duyệt',
-  SUSPENDED: 'Tạm khóa',
-  ARCHIVED: 'Đã lưu trữ',
-}
+const STATUS_LABELS = perLanguage((): Record<string, string> => ({
+  ACTIVE: i18n.t('platformAdmin:PlatformAdminPage.active'),
+  PENDING: i18n.t('platformAdmin:PlatformAdminPage.pendingApproval'),
+  SUSPENDED: i18n.t('platformAdmin:PlatformAdminPage.suspended'),
+  ARCHIVED: i18n.t('platformAdmin:PlatformAdminPage.archived'),
+}))
 
 const STATUS_VARIANT: Record<string, 'success' | 'warning' | 'destructive' | 'secondary'> = {
   ACTIVE: 'success',
@@ -29,14 +33,17 @@ const STATUS_VARIANT: Record<string, 'success' | 'warning' | 'destructive' | 'se
 
 /** Nhãn Bật/Tắt của một tính năng. Mỗi tính năng một màu riêng để quét bảng theo cột cho nhanh. */
 function FeatureBadge({ on }: { on: boolean; color?: string }) {
-  return <Badge variant={on ? 'success' : 'secondary'}>{on ? 'Bật' : 'Tắt'}</Badge>
+  const { t } = useTranslation('platformAdmin')
+  return <Badge variant={on ? 'success' : 'secondary'}>{on ? t('PlatformAdminPage.on') : t('PlatformAdminPage.off')}</Badge>
 }
 
 function AiToggle({ org, onToggle }: { org: OrganizationAdminItem; onToggle: (id: string, val: boolean) => void }) {
-  return <Switch size="sm" checked={org.enableAi} onCheckedChange={v => onToggle(org.id, v)} aria-label={`${org.enableAi ? 'Tắt' : 'Bật'} AI cho ${org.name}`} />
+  const { t } = useTranslation('platformAdmin')
+  return <Switch size="sm" checked={org.enableAi} onCheckedChange={v => onToggle(org.id, v)} aria-label={t(org.enableAi ? 'PlatformAdminPage.turnOffAiFor' : 'PlatformAdminPage.turnOnAiFor', { name: org.name })} />
 }
 
 export default function PlatformAdminPage() {
+  const { t } = useTranslation('platformAdmin')
   const [page, setPage] = useState(0)
   const qc = useQueryClient()
 
@@ -57,7 +64,7 @@ export default function PlatformAdminPage() {
       qc.invalidateQueries({ queryKey: ['admin', 'organizations'] })
       qc.invalidateQueries({ queryKey: ['organization', variables.id] })
     },
-    onError: (error) => toast.error(getApiErrorMessage(error, 'Cập nhật thất bại')),
+    onError: (error) => toast.error(getApiErrorMessage(error, t('PlatformAdminPage.updateFailed'))),
   })
 
   const stats = statsRes?.data?.data
@@ -69,7 +76,7 @@ export default function PlatformAdminPage() {
 
   return (
     <div className="mx-auto max-w-[1600px] space-y-4">
-      <WorkspaceHeader title="Quản trị nền tảng" description="Thống kê toàn hệ thống, bật/tắt tính năng theo công ty và theo dõi ngân sách AI." />
+      <WorkspaceHeader title={t('PlatformAdminPage.platformAdministration')} description={t('PlatformAdminPage.systemWideStatisticsPerCompanyFeature')} />
 
       {/* Stats */}
       {loadingStats ? (
@@ -80,15 +87,15 @@ export default function PlatformAdminPage() {
         </div>
       ) : stats ? (
         <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 md:grid-cols-3 xl:grid-cols-4">
-          <StatCard label="Tổng công ty" value={stats.totalOrgs} sub={`Đang hoạt động: ${stats.orgsByStatus?.ACTIVE ?? 0}`} icon={<Building2 />} color="indigo" />
-          <StatCard label="Tổng người dùng" value={stats.totalUsers} sub={`Mới tháng này: +${stats.newUsersThisMonth}`} icon={<Users />} color="blue" />
-          <StatCard label="Tổng KPI" value={stats.totalKpiCriteria} icon={<Target />} color="emerald" />
-          <StatCard label="Nộp KPI tháng này" value={stats.totalSubmissionsThisMonth} icon={<FileText />} color="amber" />
-          <StatCard label="Công ty bật AI" value={stats.orgsWithAiEnabled} sub={`Tổng: ${stats.totalOrgs}`} icon={<Bot />} color="indigo" />
-          <StatCard label="Hội thoại AI" value={stats.totalAiConversations} icon={<TrendingUp />} color="purple" />
-          <StatCard label="Tin nhắn AI" value={stats.totalAiMessages} icon={<Bot />} color="blue" />
+          <StatCard label={t('PlatformAdminPage.totalCompanies')} value={stats.totalOrgs} sub={t('PlatformAdminPage.active2', { value: stats.orgsByStatus?.ACTIVE ?? 0 })} icon={<Building2 />} color="indigo" />
+          <StatCard label={t('PlatformAdminPage.totalUsers')} value={stats.totalUsers} sub={t('PlatformAdminPage.newThisMonth', { newUsersThisMonth: stats.newUsersThisMonth })} icon={<Users />} color="blue" />
+          <StatCard label={t('PlatformAdminPage.totalKpis')} value={stats.totalKpiCriteria} icon={<Target />} color="emerald" />
+          <StatCard label={t('PlatformAdminPage.kpiSubmissionsThisMonth')} value={stats.totalSubmissionsThisMonth} icon={<FileText />} color="amber" />
+          <StatCard label={t('PlatformAdminPage.companiesWithAiOn')} value={stats.orgsWithAiEnabled} sub={t('PlatformAdminPage.total', { totalOrgs: stats.totalOrgs })} icon={<Bot />} color="indigo" />
+          <StatCard label={t('PlatformAdminPage.aiConversations')} value={stats.totalAiConversations} icon={<TrendingUp />} color="purple" />
+          <StatCard label={t('PlatformAdminPage.aiMessages')} value={stats.totalAiMessages} icon={<Bot />} color="blue" />
           {stats.orgsByStatus?.PENDING != null && stats.orgsByStatus.PENDING > 0 && (
-            <StatCard label="Chờ phê duyệt" value={stats.orgsByStatus.PENDING} icon={<Building2 />} color="amber" highlight />
+            <StatCard label={t('PlatformAdminPage.pendingApproval2')} value={stats.orgsByStatus.PENDING} icon={<Building2 />} color="amber" highlight />
           )}
         </div>
       ) : null}
@@ -96,8 +103,8 @@ export default function PlatformAdminPage() {
       {/* Organizations table */}
       <div className="overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
         <div className="px-5 py-4 border-b border-[var(--color-border)] flex items-center justify-between">
-          <h2 className="text-section-title">Danh sách công ty</h2>
-          <span className="text-caption tabular-nums">{orgsPage?.totalElements ?? 0} công ty</span>
+          <h2 className="text-section-title">{t('PlatformAdminPage.companyList')}</h2>
+          <span className="text-caption tabular-nums">{orgsPage?.totalElements ?? 0} {t('PlatformAdminPage.companies')}</span>
         </div>
 
         {loadingOrgs ? (
@@ -117,16 +124,16 @@ export default function PlatformAdminPage() {
                       <p className="font-semibold text-[var(--color-foreground)] text-sm">{org.name}</p>
                       <p className="text-xs text-[var(--color-subtle-foreground)] font-mono mt-0.5">{org.code}</p>
                     </div>
-                    <Badge variant={STATUS_VARIANT[org.status] ?? 'secondary'}>{STATUS_LABELS[org.status] ?? org.status}</Badge>
+                    <Badge variant={STATUS_VARIANT[org.status] ?? 'secondary'}>{STATUS_LABELS()[org.status] ?? org.status}</Badge>
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-xs">
                     <div className="flex items-center justify-between bg-[var(--color-muted)] rounded-control px-3 py-2">
-                      <span className="text-[var(--color-muted-foreground)]">Người dùng</span>
+                      <span className="text-[var(--color-muted-foreground)]">{t('PlatformAdminPage.user')}</span>
                       <span className="font-semibold text-[var(--color-foreground)]">{org.userCount}</span>
                     </div>
                     <div className="flex items-center justify-between bg-[var(--color-muted)] rounded-control px-3 py-2">
-                      <span className="text-[var(--color-muted-foreground)]">Ngày tạo</span>
-                      <span className="font-medium text-[var(--color-muted-foreground)]">{new Date(org.createdAt).toLocaleDateString('vi-VN')}</span>
+                      <span className="text-[var(--color-muted-foreground)]">{t('PlatformAdminPage.createdOn')}</span>
+                      <span className="font-medium text-[var(--color-muted-foreground)]">{new Date(org.createdAt).toLocaleDateString(intlDateLocale())}</span>
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
@@ -143,19 +150,19 @@ export default function PlatformAdminPage() {
                       <FeatureBadge on={org.enableBsc} color="bg-[var(--color-primary-soft)] text-[var(--color-primary)]" />
                     </div>
                     <div className="flex items-center justify-between gap-2 bg-[var(--color-muted)] rounded-control px-2 py-2">
-                      <span className="text-xs text-[var(--color-muted-foreground)] whitespace-nowrap">Thác nước</span>
+                      <span className="text-xs text-[var(--color-muted-foreground)] whitespace-nowrap">{t('PlatformAdminPage.waterfall')}</span>
                       <FeatureBadge on={org.enableWaterfall} color="bg-[var(--color-info-bg)] text-[var(--color-info)]" />
                     </div>
                     <div className="flex items-center justify-between gap-2 bg-[var(--color-muted)] rounded-control px-2 py-2">
-                      <span className="text-xs text-[var(--color-muted-foreground)] whitespace-nowrap">KPI hành vi</span>
+                      <span className="text-xs text-[var(--color-muted-foreground)] whitespace-nowrap">{t('PlatformAdminPage.behavioralKpis')}</span>
                       <FeatureBadge on={org.enableQualitative} color="bg-[var(--color-success-bg)] text-[var(--color-success)]" />
                     </div>
                     <div className="flex items-center justify-between gap-2 bg-[var(--color-muted)] rounded-control px-2 py-2">
-                      <span className="text-xs text-[var(--color-muted-foreground)] whitespace-nowrap">Thưởng điểm</span>
+                      <span className="text-xs text-[var(--color-muted-foreground)] whitespace-nowrap">{t('PlatformAdminPage.rewardPoints')}</span>
                       <FeatureBadge on={org.enableReward} color="bg-[var(--color-warning-bg)] text-[var(--color-warning)]" />
                     </div>
                     <div className="flex items-center justify-between gap-2 bg-[var(--color-muted)] rounded-control px-2 py-2">
-                      <span className="text-xs text-[var(--color-muted-foreground)] whitespace-nowrap">Ví tiền</span>
+                      <span className="text-xs text-[var(--color-muted-foreground)] whitespace-nowrap">{t('PlatformAdminPage.wallet')}</span>
                       <FeatureBadge on={org.enableCashWallet} color="bg-[var(--color-info-bg)] text-[var(--color-info)]" />
                     </div>
                   </div>
@@ -168,18 +175,18 @@ export default function PlatformAdminPage() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-[var(--color-border)] bg-[var(--color-muted)]">
-                    <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">Tên công ty</th>
-                    <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">Mã</th>
-                    <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">Trạng thái</th>
-                    <th scope="col" className="px-4 py-2.5 text-right text-eyebrow">Người dùng</th>
+                    <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">{t('PlatformAdminPage.companyName')}</th>
+                    <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">{t('PlatformAdminPage.code')}</th>
+                    <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">{t('PlatformAdminPage.status')}</th>
+                    <th scope="col" className="px-4 py-2.5 text-right text-eyebrow">{t('PlatformAdminPage.user')}</th>
                     <th scope="col" className="px-4 py-2.5 text-center text-eyebrow">AI</th>
                     <th scope="col" className="px-4 py-2.5 text-center text-eyebrow hidden md:table-cell">OKR</th>
                     <th scope="col" className="px-4 py-2.5 text-center text-eyebrow hidden md:table-cell">BSC</th>
-                    <th scope="col" className="px-4 py-2.5 text-center text-eyebrow hidden md:table-cell">Thác nước</th>
-                    <th scope="col" className="px-4 py-2.5 text-center text-eyebrow hidden md:table-cell">KPI hành vi</th>
-                    <th scope="col" className="px-4 py-2.5 text-center text-eyebrow hidden md:table-cell">Thưởng điểm</th>
-                    <th scope="col" className="px-4 py-2.5 text-center text-eyebrow hidden md:table-cell">Ví tiền</th>
-                    <th scope="col" className="px-4 py-2.5 text-left text-eyebrow hidden lg:table-cell">Ngày tạo</th>
+                    <th scope="col" className="px-4 py-2.5 text-center text-eyebrow hidden md:table-cell">{t('PlatformAdminPage.waterfall')}</th>
+                    <th scope="col" className="px-4 py-2.5 text-center text-eyebrow hidden md:table-cell">{t('PlatformAdminPage.behavioralKpis')}</th>
+                    <th scope="col" className="px-4 py-2.5 text-center text-eyebrow hidden md:table-cell">{t('PlatformAdminPage.rewardPoints')}</th>
+                    <th scope="col" className="px-4 py-2.5 text-center text-eyebrow hidden md:table-cell">{t('PlatformAdminPage.wallet')}</th>
+                    <th scope="col" className="px-4 py-2.5 text-left text-eyebrow hidden lg:table-cell">{t('PlatformAdminPage.createdOn')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--color-border)]">
@@ -188,7 +195,7 @@ export default function PlatformAdminPage() {
                       <td className="px-4 py-3 font-medium text-[var(--color-foreground)]">{org.name}</td>
                       <td className="px-4 py-3 text-[var(--color-muted-foreground)] font-mono text-xs">{org.code}</td>
                       <td className="px-4 py-3">
-                        <Badge variant={STATUS_VARIANT[org.status] ?? 'secondary'}>{STATUS_LABELS[org.status] ?? org.status}</Badge>
+                        <Badge variant={STATUS_VARIANT[org.status] ?? 'secondary'}>{STATUS_LABELS()[org.status] ?? org.status}</Badge>
                       </td>
                       <td className="px-4 py-3 text-right text-[var(--color-muted-foreground)]">{org.userCount}</td>
                       <td className="px-4 py-3">
@@ -215,7 +222,7 @@ export default function PlatformAdminPage() {
                         <FeatureBadge on={org.enableCashWallet} color="bg-[var(--color-info-bg)] text-[var(--color-info)]" />
                       </td>
                       <td className="px-4 py-3 text-[var(--color-subtle-foreground)] text-xs hidden lg:table-cell">
-                        {new Date(org.createdAt).toLocaleDateString('vi-VN')}
+                        {new Date(org.createdAt).toLocaleDateString(intlDateLocale())}
                       </td>
                     </tr>
                   ))}
@@ -227,7 +234,7 @@ export default function PlatformAdminPage() {
 
         {orgsPage && orgsPage.totalPages > 1 && (
           <div className="border-t border-[var(--color-border)] px-5 py-3">
-            <Pagination currentPage={page} totalPages={orgsPage.totalPages} totalElements={orgsPage.totalElements} size={20} onPageChange={setPage} itemLabel="công ty" />
+            <Pagination currentPage={page} totalPages={orgsPage.totalPages} totalElements={orgsPage.totalElements} size={20} onPageChange={setPage} itemLabel={t('PlatformAdminPage.companies')} />
           </div>
         )}
       </div>

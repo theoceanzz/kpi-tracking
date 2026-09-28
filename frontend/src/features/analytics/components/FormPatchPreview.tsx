@@ -4,6 +4,7 @@ import { toast } from 'sonner'
 import type { FormPatch } from '../api/aiApi'
 import { useFormAssistStore } from '@/store/formAssistStore'
 import { Button } from '@/components/ui/button'
+import { useTranslation } from 'react-i18next'
 
 interface Props {
   patch: FormPatch
@@ -17,6 +18,7 @@ interface Props {
  * thể hiểu nhầm ý và ghi đè thứ người dùng đang gõ dở.
  */
 export default function FormPatchPreview({ patch }: Props) {
+  const { t } = useTranslation('analytics')
   const active = useFormAssistStore(s => s.active)
   const [skipped, setSkipped] = useState<Set<string>>(new Set())
   const [applied, setApplied] = useState(false)
@@ -41,14 +43,14 @@ export default function FormPatchPreview({ patch }: Props) {
   const apply = () => {
     chosen.forEach(e => active.setValue(e.field, e.value))
     setApplied(true)
-    toast.success(`Đã điền ${chosen.length} ô. Bạn kiểm tra lại rồi hãy lưu.`)
+    toast.success(t('FormPatchPreview.filledFieldsPleaseReviewThemBefore', { count: chosen.length }))
   }
 
   return (
     <div className="w-full mt-2 rounded-card border border-[var(--color-ai-line)] bg-[var(--color-ai-soft)] p-3">
       <div className="mb-2 flex items-center gap-1.5 text-sm font-medium text-[var(--color-ai)]">
         <PenLine className="h-4 w-4" />
-        Đề xuất điền form
+        {t('FormPatchPreview.suggestedFormEntries')}
       </div>
 
       <ul className="space-y-1.5">
@@ -81,11 +83,11 @@ export default function FormPatchPreview({ patch }: Props) {
       {applied ? (
         <div className="mt-2.5 flex items-center gap-1.5 text-sm text-[var(--color-success)]">
           <Check className="h-4 w-4" />
-          Đã điền vào form — bạn kiểm tra lại rồi hãy lưu
+          {t('FormPatchPreview.filledInTheFormPleaseReview')}
         </div>
       ) : (
         <Button variant="ghost" size="sm" className="mt-2.5" type="button" onClick={apply} disabled={chosen.length === 0}>
-          Điền {chosen.length} ô đã chọn
+          {t('FormPatchPreview.fill')} {chosen.length} {t('FormPatchPreview.selectedFields')}
         </Button>
       )}
     </div>

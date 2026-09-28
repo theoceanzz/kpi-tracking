@@ -6,11 +6,13 @@ import { useLarkLogin, LARK_STATE_KEY, LARK_PURPOSE_KEY } from '../hooks/useLark
 import { larkSettingApi } from '@/features/organization/api/lark-setting.api'
 import { useAuthStore } from '@/store/authStore'
 import { getApiErrorMessage } from '@/lib/apiError'
+import { useTranslation } from 'react-i18next'
 
 /** Nơi tab cấu hình đọc kết quả kết nối sau khi Lark chuyển hướng về. */
 export const LARK_CONNECT_RESULT_KEY = 'lark_connect_result'
 
 export default function LarkCallbackPage() {
+  const { t } = useTranslation('auth')
   const [params] = useSearchParams()
   const [error, setError] = useState('')
   const navigate = useNavigate()
@@ -21,7 +23,7 @@ export default function LarkCallbackPage() {
   const connectMutation = useMutation({
     mutationFn: ({ code, state }: { code: string; state: string }) => {
       const orgId = user?.memberships?.[0]?.organizationId
-      if (!orgId) throw new Error('Không xác định được tổ chức hiện tại')
+      if (!orgId) throw new Error(t('LarkCallbackPage.couldNotDetermineTheCurrentOrganization'))
       return larkSettingApi.connect(orgId, code, state)
     },
     onSuccess: (result) => {
@@ -29,7 +31,7 @@ export default function LarkCallbackPage() {
       navigate('/company?section=api')
     },
     onError: (err: any) => {
-      setError(getApiErrorMessage(err, 'Không kết nối được với Lark.'))
+      setError(getApiErrorMessage(err, t('LarkCallbackPage.couldNotConnectToLark')))
     },
   })
 
@@ -46,15 +48,15 @@ export default function LarkCallbackPage() {
     const purpose = sessionStorage.getItem(LARK_PURPOSE_KEY) ?? 'login'
 
     if (params.get('error')) {
-      setError(params.get('error_description') || 'Bạn đã huỷ đăng nhập bằng Lark.')
+      setError(params.get('error_description') || t('LarkCallbackPage.youCancelledSigningInWithLark'))
       return
     }
     if (!code || !state) {
-      setError('Thiếu tham số trả về từ Lark. Vui lòng thử lại.')
+      setError(t('LarkCallbackPage.missingParametersReturnedFromLarkPlease'))
       return
     }
     if (!expectedState || state !== expectedState) {
-      setError('Phiên đăng nhập không hợp lệ. Vui lòng thử lại.')
+      setError(t('LarkCallbackPage.invalidSignInSessionPleaseTry'))
       return
     }
 
@@ -67,7 +69,7 @@ export default function LarkCallbackPage() {
       larkLogin.mutate({ code, state })
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, [t])
 
   const apiError = larkLogin.error || connectMutation.error
   // Chuỗi rỗng khi chưa có lỗi: khối cảnh báo bên dưới chỉ hiện khi `message` có nội dung.
@@ -83,23 +85,23 @@ export default function LarkCallbackPage() {
             <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-card bg-[var(--color-error-bg)]">
               <XCircle size={28} className="text-[var(--color-error)]" />
             </div>
-            <h1 className="text-page-title text-[var(--color-foreground)]">Không thành công</h1>
+            <h1 className="text-page-title text-[var(--color-foreground)]">{t('LarkCallbackPage.unsuccessful')}</h1>
             <p className="mt-2 text-sm text-[var(--color-muted-foreground)]">{message}</p>
             <Link
               to={user ? '/company?section=api' : '/login'}
               className="mt-6 inline-flex w-full items-center justify-center rounded-card bg-[var(--color-primary)] py-3.5 font-semibold text-[var(--color-primary-foreground)] transition-all"
             >
-              {user ? 'Quay lại cài đặt' : 'Quay lại đăng nhập'}
+              {user ? t('LarkCallbackPage.backToSettings') : t('LarkCallbackPage.backToSignIn')}
             </Link>
           </div>
         ) : (
           <div className="">
             <Loader2 size={36} className="mx-auto animate-spin text-[var(--color-primary)]" />
             <h1 className="text-page-title mt-5 text-[var(--color-foreground)]">
-              Đang xác thực với Lark
+              {t('LarkCallbackPage.verifyingWithLark')}
             </h1>
             <p className="mt-2 text-sm text-[var(--color-muted-foreground)]">
-              Vui lòng đợi trong giây lát, đừng đóng trang này.
+              {t('LarkCallbackPage.pleaseWaitAMomentAndDo')}
             </p>
           </div>
         )}

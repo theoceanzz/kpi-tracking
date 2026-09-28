@@ -1,5 +1,7 @@
 package com.kpitracking.service;
 
+import com.kpitracking.exception.BusinessException;
+import com.kpitracking.exception.ForbiddenException;
 import com.kpitracking.dto.request.userrole.AssignRoleRequest;
 import com.kpitracking.dto.request.userrole.BulkAssignRoleRequest;
 import com.kpitracking.dto.response.userrole.UserRoleOrgUnitResponse;
@@ -8,7 +10,9 @@ import com.kpitracking.entity.Role;
 import com.kpitracking.entity.User;
 import com.kpitracking.entity.UserRoleOrgUnit;
 import com.kpitracking.exception.DuplicateResourceException;
+import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.ResourceNotFoundException;
+import com.kpitracking.i18n.Terms;
 import com.kpitracking.mapper.UserRoleOrgUnitMapper;
 import com.kpitracking.repository.OrgUnitRepository;
 import com.kpitracking.repository.RoleRepository;
@@ -49,7 +53,7 @@ public class UserRoleService {
                 && !permissionChecker.isGlobalAdminIn(me.getId(), orgUnitId)) {
             securityAudit.record(SecurityAuditEvent.ACCESS_DENIED, SecurityAuditService.BLOCKED,
                     "ORG_UNIT", String.valueOf(orgUnitId), "Gán/gỡ vai trò ngoài phạm vi quản lý");
-            throw new com.kpitracking.exception.ForbiddenException("Bạn không có quyền gán vai trò trong đơn vị này");
+            throw new ForbiddenException(ErrorCode.NO_PERMISSION_ASSIGN_ROLES_UNIT);
         }
         return me;
     }
@@ -57,29 +61,29 @@ public class UserRoleService {
     private User getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         return userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "email", email));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.user"), "email", email));
     }
 
     @Transactional
     public UserRoleOrgUnitResponse assignRole(AssignRoleRequest request) {
         requireAssignScope(request.getOrgUnitId());
         User user = userRepository.findById(request.getUserId())
-                .orElseThrow(() -> new ResourceNotFoundException("User", "id", request.getUserId()));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.user"), "id", request.getUserId()));
         Role role = roleRepository.findById(request.getRoleId())
-                .orElseThrow(() -> new ResourceNotFoundException("Role", "id", request.getRoleId()));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.role"), "id", request.getRoleId()));
         OrgUnit orgUnit = orgUnitRepository.findById(request.getOrgUnitId())
-                .orElseThrow(() -> new ResourceNotFoundException("OrgUnit", "id", request.getOrgUnitId()));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.organizationUnit"), "id", request.getOrgUnitId()));
 
         if (!orgUnit.getAllowedRoles().isEmpty() && !orgUnit.getAllowedRoles().contains(role)) {
             // Rank 2 is "Others/Staff" which should be allowed anywhere
             if (role.getRank() == null || role.getRank() != 2) {
-                throw new com.kpitracking.exception.BusinessException("Vai trò '" + role.getName() + "' không được phép gán trong đơn vị '" + orgUnit.getName() + "'");
+                throw new BusinessException(ErrorCode.ROLE_MAY_NOT_ASSIGNED_UNIT, role.getName(), orgUnit.getName());
             }
         }
 
         if (userRoleOrgUnitRepository.existsByUserIdAndRoleIdAndOrgUnitId(
                 request.getUserId(), request.getRoleId(), request.getOrgUnitId())) {
-            throw new DuplicateResourceException("Người dùng đã có vai trò này tại đơn vị này");
+            throw new DuplicateResourceException(ErrorCode.USER_ROLE_UNIT);
         }
 
         validateManagerRequirement(orgUnit, role);
@@ -104,14 +108,14 @@ public class UserRoleService {
     public List<UserRoleOrgUnitResponse> bulkAssignRole(BulkAssignRoleRequest request) {
         requireAssignScope(request.getOrgUnitId());
         Role role = roleRepository.findById(request.getRoleId())
-                .orElseThrow(() -> new ResourceNotFoundException("Role", "id", request.getRoleId()));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.role"), "id", request.getRoleId()));
         OrgUnit orgUnit = orgUnitRepository.findById(request.getOrgUnitId())
-                .orElseThrow(() -> new ResourceNotFoundException("OrgUnit", "id", request.getOrgUnitId()));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.organizationUnit"), "id", request.getOrgUnitId()));
 
         if (!orgUnit.getAllowedRoles().isEmpty() && !orgUnit.getAllowedRoles().contains(role)) {
             // Rank 2 is "Others/Staff" which should be allowed anywhere
             if (role.getRank() == null || role.getRank() != 2) {
-                throw new com.kpitracking.exception.BusinessException("Vai trò '" + role.getName() + "' không được phép gán trong đơn vị '" + orgUnit.getName() + "'");
+                throw new BusinessException(ErrorCode.ROLE_MAY_NOT_ASSIGNED_UNIT, role.getName(), orgUnit.getName());
             }
         }
 
@@ -122,7 +126,7 @@ public class UserRoleService {
 
         for (UUID userId : request.getUserIds()) {
             User user = userRepository.findById(userId)
-                    .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
+                    .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.user"), "id", userId));
 
             if (!userRoleOrgUnitRepository.existsByUserIdAndRoleIdAndOrgUnitId(userId, request.getRoleId(), request.getOrgUnitId())) {
                 UserRoleOrgUnit assignment = UserRoleOrgUnit.builder()
@@ -137,7 +141,7 @@ public class UserRoleService {
         }
 
         if (assignments.isEmpty()) {
-            throw new com.kpitracking.exception.BusinessException("Tất cả người dùng đã có vai trò này tại đơn vị này");
+            throw new BusinessException(ErrorCode.ALL_USERS_ROLE_UNIT);
         }
 
         List<UserRoleOrgUnit> saved = userRoleOrgUnitRepository.saveAll(assignments);
@@ -148,7 +152,7 @@ public class UserRoleService {
     public void revokeRole(UUID userId, UUID roleId, UUID orgUnitId) {
         requireAssignScope(orgUnitId);
         if (!userRoleOrgUnitRepository.existsByUserIdAndRoleIdAndOrgUnitId(userId, roleId, orgUnitId)) {
-            throw new ResourceNotFoundException("Không tìm thấy thông tin phân quyền của người dùng");
+            throw new ResourceNotFoundException(ErrorCode.USER_PERMISSION_INFORMATION_NOT_FOUND);
         }
         userRoleOrgUnitRepository.deleteByUserIdAndRoleIdAndOrgUnitId(userId, roleId, orgUnitId);
         securityAudit.record(SecurityAuditEvent.ROLE_ASSIGNED, SecurityAuditService.OK,
@@ -174,14 +178,14 @@ public class UserRoleService {
     @Transactional(readOnly = true)
     public List<UserRoleOrgUnitResponse> getUserRoles(UUID userId) {
         userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "id", userId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.user"), "id", userId));
         return mapper.toResponseList(userRoleOrgUnitRepository.findByUserId(userId));
     }
 
     @Transactional(readOnly = true)
     public List<UserRoleOrgUnitResponse> getUsersByOrgUnit(UUID orgUnitId) {
         orgUnitRepository.findById(orgUnitId)
-                .orElseThrow(() -> new ResourceNotFoundException("OrgUnit", "id", orgUnitId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.organizationUnit"), "id", orgUnitId));
         return mapper.toResponseList(userRoleOrgUnitRepository.findByOrgUnitId(orgUnitId));
     }
 
@@ -193,7 +197,7 @@ public class UserRoleService {
                 // Check if unit has any Manager (Rank 0)
                 boolean hasManager = userRoleOrgUnitRepository.existsByOrgUnitIdAndRoleRank(orgUnit.getId(), 0);
                 if (!hasManager) {
-                    throw new com.kpitracking.exception.BusinessException("Đơn vị '" + orgUnit.getName() + "' chưa có người quản lý (Cấp trưởng). Bạn phải chỉ định quản lý trước khi thêm nhân viên.");
+                    throw new BusinessException(ErrorCode.UNIT_NO_MANAGER_2, orgUnit.getName());
                 }
             }
         }
@@ -211,7 +215,7 @@ public class UserRoleService {
                 
                 if (exists) {
                     String rankName = (rank == 0) ? "Trưởng" : "Phó";
-                    throw new com.kpitracking.exception.BusinessException("Đơn vị '" + unit.getName() + "' đã có nhân sự đảm nhiệm vai trò " + rankName + ". Mỗi đơn vị chỉ được phép có tối đa một " + rankName.toLowerCase() + ".");
+                    throw new BusinessException(ErrorCode.UNIT_SOMEONE_ROLE, unit.getName(), String.valueOf(rankName), rankName.toLowerCase());
                 }
             }
         }

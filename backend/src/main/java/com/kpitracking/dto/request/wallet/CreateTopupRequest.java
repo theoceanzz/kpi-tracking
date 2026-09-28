@@ -7,7 +7,7 @@ import lombok.Data;
 @Data
 public class CreateTopupRequest {
 
-    @NotNull(message = "Vui lòng nhập số tiền muốn nạp")
-    @Positive(message = "Số tiền nạp phải lớn hơn 0")
+    @NotNull(message = "{validation.enterTopUpAmount}")
+    @Positive(message = "{validation.topUpAmountMustGreaterThan0}")
     private Long amount;
 }

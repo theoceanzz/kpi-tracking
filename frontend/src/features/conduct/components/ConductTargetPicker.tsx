@@ -7,6 +7,7 @@ import ScopeSelectItems from '@/components/common/ScopeSelectItems'
 import { pickCurrentOrNearest } from '@/components/common/dateScope'
 import type { ConductScope, ConductTarget } from '../api/conductApi'
 import { ChoiceChip } from '@/components/ui/choice-chip'
+import { useTranslation } from 'react-i18next'
 
 /**
  * Chọn chấm hạnh kiểm theo ĐỢT hay theo KỲ, rồi chọn đúng đợt/kỳ đó.
@@ -23,6 +24,7 @@ export default function ConductTargetPicker({
   value: ConductTarget
   onChange: (t: ConductTarget) => void
 }) {
+  const { t: tr } = useTranslation('conduct')
   const { data: cyclesData } = useKpiCycles({
     organizationId, size: 100, sortBy: 'startDate', direction: 'desc',
   })
@@ -66,14 +68,14 @@ export default function ConductTargetPicker({
   return (
     <div className="flex flex-wrap items-center gap-3">
       <div className="flex items-center gap-2">
-        {tab('PERIOD', 'Theo đợt', CalendarDays)}
-        {tab('CYCLE', 'Theo kỳ', CalendarRange)}
+        {tab('PERIOD', tr('ConductTargetPicker.byPeriod'), CalendarDays)}
+        {tab('CYCLE', tr('ConductTargetPicker.byCycle'), CalendarRange)}
       </div>
 
       {value.scope === 'PERIOD' ? (
         <Select value={value.periodId ?? ''} onValueChange={v => onChange({ scope: 'PERIOD', periodId: v, cycleId: null })}>
           <SelectTrigger className="w-auto min-w-[280px] h-10">
-            <SelectValue placeholder="Chọn đợt đánh giá" />
+            <SelectValue placeholder={tr('ConductTargetPicker.chooseEvaluationPeriod')} />
           </SelectTrigger>
           <SelectContent className="z-[1100]">
             <ScopeSelectItems
@@ -86,10 +88,10 @@ export default function ConductTargetPicker({
       ) : (
         <Select value={value.cycleId ?? ''} onValueChange={v => onChange({ scope: 'CYCLE', cycleId: v, periodId: null })}>
           <SelectTrigger className="w-auto min-w-[280px] h-10">
-            <SelectValue placeholder="Chọn kỳ đánh giá" />
+            <SelectValue placeholder={tr('ConductTargetPicker.chooseEvaluationCycle')} />
           </SelectTrigger>
           <SelectContent className="z-[1100]">
-            <ScopeSelectItems items={cycles} selectedId={value.cycleId ?? undefined} noun="kỳ" />
+            <ScopeSelectItems items={cycles} selectedId={value.cycleId ?? undefined} noun={tr('ConductTargetPicker.cycle')} />
           </SelectContent>
         </Select>
       )}

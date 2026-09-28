@@ -1,6 +1,8 @@
 import ExcelJS from 'exceljs'
 import { format } from 'date-fns'
 import type { ConductSheet, ConductStatus } from '../api/conductApi'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
 /**
  * Xuất phiếu hạnh kiểm ra Excel, dựng lại ĐÚNG khuôn phiếu giấy: hai tầng tiêu đề gộp ô,
@@ -22,11 +24,11 @@ export interface ConductExportRow {
   managerWeighted: number | null
 }
 
-const STATUS_LABEL: Record<ConductStatus, string> = {
-  DRAFT: 'Chưa chấm',
-  SELF_SUBMITTED: 'Đã tự đánh giá',
-  REVIEWED: 'Quản lý đã chấm',
-}
+const STATUS_LABEL = perLanguage((): Record<ConductStatus, string> => ({
+  DRAFT: i18n.t('conduct:conductSheetExport.notScored'),
+  SELF_SUBMITTED: i18n.t('conduct:conductSheetExport.selfAssessed'),
+  REVIEWED: i18n.t('conduct:conductSheetExport.managerScored'),
+}))
 
 const NAVY = 'FF1E3A6D'
 const sanitize = (s: string) => (s || '').replace(/[\\/:*?"<>|]/g, '').replace(/\s+/g, '_').slice(0, 60)
@@ -46,12 +48,12 @@ export async function exportConductSheetToExcel(
   comment: string,
 ) {
   const wb = new ExcelJS.Workbook()
-  const ws = wb.addWorksheet('Hạnh kiểm')
+  const ws = wb.addWorksheet(i18n.t('conduct:conductSheetExport.conduct'))
 
   // 1. Tiêu đề
   ws.mergeCells('A1:I1')
   const title = ws.getCell('A1')
-  title.value = 'ĐÁNH GIÁ XẾP LOẠI HÀNH VI THEO TRIẾT LÝ GIÁO DỤC'
+  title.value = i18n.t('conduct:conductSheetExport.conductRatingEvaluationByEducationalPhilosophy')
   title.font = { name: 'Arial', size: 15, bold: true, color: { argb: 'FFFFFFFF' } }
   title.alignment = { vertical: 'middle', horizontal: 'center' }
   title.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: NAVY } }
@@ -59,16 +61,16 @@ export async function exportConductSheetToExcel(
 
   // 2. Thông tin phiếu
   const info: [string, string][] = [
-    ['Người được đánh giá', sheet.userName || '—'],
-    [sheet.scope === 'PERIOD' ? 'Đợt đánh giá' : 'Kỳ đánh giá', sheet.targetName || '—'],
-    ['Trạng thái', STATUS_LABEL[sheet.status]],
-    ['Thang điểm mỗi tiêu chí', String(sheet.maxScore)],
+    [i18n.t('conduct:conductSheetExport.reviewee'), sheet.userName || '—'],
+    [sheet.scope === 'PERIOD' ? i18n.t('conduct:conductSheetExport.evaluationPeriods') : i18n.t('conduct:conductSheetExport.evaluationCycles'), sheet.targetName || '—'],
+    [i18n.t('conduct:conductSheetExport.status'), STATUS_LABEL()[sheet.status]],
+    [i18n.t('conduct:conductSheetExport.scaleForEachCriterion'), String(sheet.maxScore)],
   ]
-  if (sheet.evaluatorName) info.push(['Cán bộ quản lý chấm', sheet.evaluatorName])
+  if (sheet.evaluatorName) info.push([i18n.t('conduct:conductSheetExport.managersScore'), sheet.evaluatorName])
   if (sheet.locked) {
-    info.push(['Khoá', `Đơn vị "${sheet.lockedByUnitName ?? '—'}" đã chốt kỳ — phiếu chỉ để xem`])
+    info.push([i18n.t('conduct:conductSheetExport.lock'), i18n.t('conduct:conductSheetExport.unitHasFinalizedTheCycleThe', { value: sheet.lockedByUnitName ?? '—' })])
   }
-  info.push(['Ngày xuất', format(new Date(), 'dd/MM/yyyy HH:mm')])
+  info.push([i18n.t('conduct:conductSheetExport.exportDate'), format(new Date(), 'dd/MM/yyyy HH:mm')])
 
   info.forEach(([label, value]) => {
     const row = ws.addRow([])
@@ -86,15 +88,15 @@ export async function exportConductSheetToExcel(
 
   // 3. Tiêu đề bảng — hai tầng gộp ô như phiếu giấy
   const h1 = ws.addRow([
-    'STT', 'CÁC TIÊU CHÍ ĐỊNH TÍNH\n(Thái độ, hành vi…)', 'Trọng số',
-    'Điểm xếp loại hành vi', '', 'Điểm xếp loại hành vi', '',
-    'Điểm xếp loại đã tính đến trọng số', '',
+    i18n.t('conduct:conductSheetExport.rowNo'), i18n.t('conduct:conductSheetExport.qualitativeCriteriaAttitudeBehavior'), i18n.t('conduct:conductSheetExport.weight'),
+    i18n.t('conduct:conductSheetExport.conductRatingScore'), '', i18n.t('conduct:conductSheetExport.conductRatingScore'), '',
+    i18n.t('conduct:conductSheetExport.weightedRatingScore'), '',
   ])
   const h2 = ws.addRow([
     '', '', '',
-    'Do CBNV/giảng viên tự đánh giá', 'Dẫn chứng',
-    'Do CBQLTT đánh giá', 'Nhận xét của Cán bộ quản lý',
-    'Theo mức đánh giá của CBNV/giảng viên', 'Theo mức đánh giá của CBQLTT',
+    i18n.t('conduct:conductSheetExport.selfAssessedByStaffLecturer'), i18n.t('conduct:conductSheetExport.evidence'),
+    i18n.t('conduct:conductSheetExport.assessedByTheDirectManager'), i18n.t('conduct:conductSheetExport.managersComments'),
+    i18n.t('conduct:conductSheetExport.byTheStaffLecturersAssessmentLevel'), i18n.t('conduct:conductSheetExport.byTheDirectManagersAssessmentLevel'),
   ])
 
   ws.mergeCells(`A${h1.number}:A${h2.number}`)
@@ -158,14 +160,14 @@ export async function exportConductSheetToExcel(
     cur.alignment = { vertical: 'middle', horizontal: c <= 7 ? 'right' : 'center' }
     cur.border = thin
   }
-  totalRow.getCell(1).value = 'Điểm hành vi đã tính đến trọng số:'
+  totalRow.getCell(1).value = i18n.t('conduct:conductSheetExport.weightedConductScore')
   totalRow.height = 22
 
   // 6. Nhận xét chung
   if (comment?.trim()) {
     ws.addRow([])
     const noteRow = ws.addRow([])
-    noteRow.getCell(1).value = 'Nhận xét chung của cán bộ quản lý'
+    noteRow.getCell(1).value = i18n.t('conduct:conductSheetExport.managersGeneralComments')
     noteRow.getCell(1).font = { name: 'Arial', size: 10, bold: true, color: { argb: 'FF475569' } }
     ws.mergeCells(`A${noteRow.number}:I${noteRow.number}`)
 

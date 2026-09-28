@@ -1,5 +1,6 @@
 package com.kpitracking.service;
 
+import com.kpitracking.i18n.ErrorMessages;
 import com.kpitracking.dto.request.okr.KeyResultRequest;
 import com.kpitracking.dto.request.okr.ObjectiveRequest;
 import com.kpitracking.dto.request.okr.UnitWeightRequest;
@@ -23,6 +24,8 @@ import com.kpitracking.repository.ObjectiveRepository;
 import com.kpitracking.repository.OrgUnitRepository;
 import com.kpitracking.repository.OrganizationRepository;
 import com.kpitracking.enums.SubmissionStatus;
+import com.kpitracking.exception.ErrorCode;
+import com.kpitracking.i18n.Terms;
 import lombok.RequiredArgsConstructor;
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
@@ -66,7 +69,7 @@ public class OkrService {
     @Transactional
     public ObjectiveResponse createObjective(UUID organizationId, ObjectiveRequest request) {
         Organization organization = organizationRepository.findById(organizationId)
-                .orElseThrow(() -> new ResourceNotFoundException("Organization not found"));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.RESOURCE_NOT_FOUND, Terms.of("resource.organization")));
 
         // Đơn vị phải giải xong TRƯỚC khi cấp mã: mẫu mã của tổ chức có thể chứa {UNIT}.
         List<OrgUnit> orgUnits = resolveOrgUnits(request);
@@ -75,7 +78,7 @@ public class OkrService {
                 null, firstUnitCode(orgUnits));
 
         if (objectiveRepository.existsByOrganizationIdAndCode(organizationId, code)) {
-            throw new DuplicateResourceException("Mục tiêu", "mã", code);
+            throw new DuplicateResourceException(Terms.of("resource.objective"), Terms.of("field.code"), code);
         }
 
         Objective objective = Objective.builder()
@@ -96,13 +99,13 @@ public class OkrService {
     private com.kpitracking.entity.BscPerspective resolvePerspective(UUID perspectiveId) {
         if (perspectiveId == null) return null;
         return bscPerspectiveRepository.findById(perspectiveId)
-                .orElseThrow(() -> new ResourceNotFoundException("Hạng mục BSC", "id", perspectiveId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.bscItem"), "id", perspectiveId));
     }
 
     @Transactional
     public ObjectiveResponse updateObjective(UUID objectiveId, ObjectiveRequest request) {
         Objective objective = objectiveRepository.findById(objectiveId)
-                .orElseThrow(() -> new ResourceNotFoundException("Objective not found"));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.RESOURCE_NOT_FOUND, Terms.of("resource.objective")));
 
         // Mã sinh tự động và tổ chức không cho ghi đè ⇒ giữ nguyên mã cũ, bỏ qua giá trị gửi lên.
         String code = orgCodeRuleService.resolveOnUpdate(objective.getOrganization().getId(),
@@ -110,7 +113,7 @@ public class OkrService {
 
         if (objectiveRepository.existsByOrganizationIdAndCodeAndIdNot(
                 objective.getOrganization().getId(), code, objectiveId)) {
-            throw new DuplicateResourceException("Mục tiêu", "mã", code);
+            throw new DuplicateResourceException(Terms.of("resource.objective"), Terms.of("field.code"), code);
         }
 
         objective.setCode(code);
@@ -133,21 +136,21 @@ public class OkrService {
     @Transactional
     public void deleteObjective(UUID objectiveId) {
         Objective objective = objectiveRepository.findById(objectiveId)
-                .orElseThrow(() -> new ResourceNotFoundException("Objective not found"));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.RESOURCE_NOT_FOUND, Terms.of("resource.objective")));
         objectiveRepository.delete(objective);
     }
 
     @Transactional
     public KeyResultResponse createKeyResult(KeyResultRequest request) {
         Objective objective = objectiveRepository.findById(request.getObjectiveId())
-                .orElseThrow(() -> new ResourceNotFoundException("Objective not found"));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.RESOURCE_NOT_FOUND, Terms.of("resource.objective")));
 
         String code = orgCodeRuleService.resolveOnCreate(objective.getOrganization(), CodeType.KEY_RESULT,
                 request.getCode(), objective.getCode(), firstUnitCode(objective.getOrgUnits()));
 
         if (keyResultRepository.existsByObjectiveOrganizationIdAndCode(
                 objective.getOrganization().getId(), code)) {
-            throw new DuplicateResourceException("Kết quả then chốt", "mã", code);
+            throw new DuplicateResourceException(Terms.of("resource.keyResult"), Terms.of("field.code"), code);
         }
 
         KeyResult keyResult = KeyResult.builder()
@@ -168,14 +171,14 @@ public class OkrService {
     @Transactional
     public KeyResultResponse updateKeyResult(UUID keyResultId, KeyResultRequest request) {
         KeyResult keyResult = keyResultRepository.findById(keyResultId)
-                .orElseThrow(() -> new ResourceNotFoundException("Key Result not found"));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.RESOURCE_NOT_FOUND, Terms.of("resource.keyResult")));
 
         String code = orgCodeRuleService.resolveOnUpdate(keyResult.getObjective().getOrganization().getId(),
                 CodeType.KEY_RESULT, request.getCode(), keyResult.getCode());
 
         if (keyResultRepository.existsByObjectiveOrganizationIdAndCodeAndIdNot(
                 keyResult.getObjective().getOrganization().getId(), code, keyResultId)) {
-            throw new DuplicateResourceException("Kết quả then chốt", "mã", code);
+            throw new DuplicateResourceException(Terms.of("resource.keyResult"), Terms.of("field.code"), code);
         }
 
         keyResult.setCode(code);
@@ -194,7 +197,7 @@ public class OkrService {
     @Transactional
     public void deleteKeyResult(UUID keyResultId) {
         KeyResult keyResult = keyResultRepository.findById(keyResultId)
-                .orElseThrow(() -> new ResourceNotFoundException("Key Result not found"));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.RESOURCE_NOT_FOUND, Terms.of("resource.keyResult")));
         keyResultRepository.delete(keyResult);
     }
 
@@ -205,7 +208,7 @@ public class OkrService {
         List<OrgUnit> units = new ArrayList<>();
         for (UUID id : ids) {
             units.add(orgUnitRepository.findById(id)
-                    .orElseThrow(() -> new ResourceNotFoundException("OrgUnit not found: " + id)));
+                    .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.unit"), "id", id)));
         }
         return units;
     }
@@ -220,7 +223,7 @@ public class OkrService {
         if (weightRequests == null || weightRequests.isEmpty()) return;
         for (UnitWeightRequest w : weightRequests) {
             OrgUnit unit = orgUnitRepository.findById(w.getOrgUnitId())
-                    .orElseThrow(() -> new ResourceNotFoundException("OrgUnit not found: " + w.getOrgUnitId()));
+                    .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.unit"), "id", w.getOrgUnitId()));
             keyResult.getUnitWeights().add(KeyResultUnitWeight.builder()
                     .keyResult(keyResult)
                     .orgUnit(unit)
@@ -235,11 +238,11 @@ public class OkrService {
     public ImportOkrResponse importOkrs(UUID organizationId, MultipartFile file) {
         String filename = file.getOriginalFilename();
         if (filename == null || !filename.endsWith(".xlsx")) {
-            throw new BusinessException("Chỉ hỗ trợ tập tin định dạng .xlsx");
+            throw new BusinessException(ErrorCode.ONLY_2);
         }
 
         Organization organization = organizationRepository.findById(organizationId)
-                .orElseThrow(() -> new ResourceNotFoundException("Organization not found"));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.RESOURCE_NOT_FOUND, Terms.of("resource.organization")));
 
         List<String> errors = new ArrayList<>();
         int successfulImports = 0;
@@ -249,7 +252,7 @@ public class OkrService {
             Sheet sheet = workbook.getSheetAt(0);
             Row headerRow = sheet.getRow(0);
 
-            if (headerRow == null) throw new BusinessException("Tập tin Excel trống");
+            if (headerRow == null) throw new BusinessException(ErrorCode.EXCEL_FILE_EMPTY);
 
             int objCodeIdx = -1, objNameIdx = -1, objDescIdx = -1, objStartIdx = -1, objEndIdx = -1, objOrgUnitCodeIdx = -1, objPerspectiveIdx = -1;
             int krCodeIdx = -1, krNameIdx = -1, krDescIdx = -1, krTargetIdx = -1, krUnitIdx = -1;
@@ -271,7 +274,7 @@ public class OkrService {
             }
 
             if (objCodeIdx == -1 || objNameIdx == -1 || krCodeIdx == -1 || krNameIdx == -1) {
-                throw new BusinessException("Thiếu các cột bắt buộc: ObjectiveCode, ObjectiveName, KeyResultCode, KeyResultName");
+                throw new BusinessException(ErrorCode.MISSING_REQUIRED_COLUMNS_2);
             }
 
             Objective currentObjective = null;
@@ -352,7 +355,7 @@ public class OkrService {
                     }
 
                     if (currentObjective == null) {
-                        errors.add("Dòng " + (i + 1) + ": Thiếu thông tin Mục tiêu trước khi thêm Kết quả then chốt");
+                        errors.add(ErrorMessages.text("import.rowError", "", i + 1, ErrorMessages.text("import.okr.objectiveMissing", "")));
                         continue;
                     }
 
@@ -406,12 +409,12 @@ public class OkrService {
                     successfulImports++;
 
                 } catch (Exception e) {
-                    errors.add("Dòng " + (i + 1) + ": " + e.getMessage());
+                    errors.add(ErrorMessages.text("import.rowError", "", (i + 1), e.getMessage()));
                 }
             }
 
         } catch (Exception e) {
-            throw new BusinessException("Xử lý tập tin thất bại: " + e.getMessage());
+            throw new BusinessException(ErrorCode.FILE_PROCESSING_FAILED, e.getMessage());
         }
 
         return ImportOkrResponse.builder()

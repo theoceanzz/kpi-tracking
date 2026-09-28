@@ -1,6 +1,7 @@
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts'
 import { AXIS_COLORS, METRIC_COLORS } from '../chartPalette'
 import { yAxisLabel } from '../axisLabel'
+import { useTranslation } from 'react-i18next'
 
 export interface BoxplotDatum {
   name: string
@@ -121,11 +122,12 @@ function BoxTooltip({ active, payload, unit }: {
   payload?: { payload: BoxplotDatum }[]
   unit?: string
 }) {
+  const { t } = useTranslation('shared')
   const d = payload?.[0]?.payload
   if (!active || !d) return null
   const u = unit ? ` ${unit}` : ''
   const rows: [string, number][] = [
-    ['Cao nhất', d.max], ['Q3 (75%)', d.q3], ['Trung vị', d.median], ['Q1 (25%)', d.q1], ['Thấp nhất', d.min],
+    [t('Boxplot.highest'), d.max], ['Q3 (75%)', d.q3], [t('Boxplot.median'), d.median], ['Q1 (25%)', d.q1], [t('Boxplot.lowest'), d.min],
   ]
   return (
     <div className="bg-[var(--color-card)] border border-[var(--color-border)] p-3.5 rounded-card shadow-lg">
@@ -141,7 +143,7 @@ function BoxTooltip({ active, payload, unit }: {
         ))}
         {d.count != null && (
           <p className="text-xs text-[var(--color-subtle-foreground)] pt-1.5 border-t border-[var(--color-border)] mt-1.5">
-            {d.count} bản ghi
+            {d.count} {t('Boxplot.records')}
           </p>
         )}
       </div>

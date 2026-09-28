@@ -1,3 +1,5 @@
+import { intlLocale } from '@/i18n/format'
+import i18n from 'i18next'
 /**
  * Dòng phụ mô tả con số của một hạng mục BSC, dùng chung cho dropdown chọn hạng mục ở form KPI
  * và form OKR.
@@ -13,11 +15,11 @@ export function perspectiveHint(input: {
   weightPercentage?: number | null
 }): string | null {
   const { targetValue, minimumValue, unit, weightPercentage } = input
-  const withUnit = (v: number) => `${v.toLocaleString('vi-VN')}${unit ? ` ${unit}` : ''}`
+  const withUnit = (v: number) => `${v.toLocaleString(intlLocale())}${unit ? ` ${unit}` : ''}`
 
   const parts: string[] = []
   if (targetValue != null) parts.push(`MT ${withUnit(targetValue)}`)
-  if (minimumValue != null) parts.push(`sàn ${withUnit(minimumValue)}`)
+  if (minimumValue != null) parts.push(i18n.t('bsc:perspectiveHint.floor', { minimumValue: withUnit(minimumValue) }))
   if (weightPercentage != null) parts.push(`${weightPercentage}%`)
   return parts.length > 0 ? parts.join(' · ') : null
 }

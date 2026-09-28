@@ -12,7 +12,7 @@ import java.util.UUID;
 public class RewardRunPreviewRequest {
 
     /** Id của kỳ hoặc đợt, tuỳ phạm vi của chương trình. */
-    @NotNull(message = "Vui lòng chọn kỳ hoặc đợt để xếp hạng")
+    @NotNull(message = "{validation.chooseCyclePeriodRank}")
     private UUID targetId;
 
     /**

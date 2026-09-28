@@ -1,6 +1,8 @@
 import { ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import { useTranslation } from 'react-i18next'
+import i18n from 'i18next'
 
 interface PaginationProps {
   currentPage: number
@@ -16,7 +18,8 @@ interface PaginationProps {
  * là nút nền đặc màu chủ đạo; các nút khác là ghost. Kích thước 32px — đây là điều
  * khiển phụ, không cần to như nút hành động.
  */
-export default function Pagination({ currentPage, totalPages, onPageChange, totalElements, size, itemLabel = 'nhân sự' }: PaginationProps) {
+export default function Pagination({ currentPage, totalPages, onPageChange, totalElements, size, itemLabel = i18n.t('shared:Pagination.people') }: PaginationProps) {
+  const { t } = useTranslation('shared')
   const start = totalElements === 0 ? 0 : currentPage * size + 1
   const end = Math.min((currentPage + 1) * size, totalElements)
 
@@ -42,16 +45,16 @@ export default function Pagination({ currentPage, totalPages, onPageChange, tota
   return (
     <div className="flex flex-col items-center justify-between gap-3 border-t border-[var(--color-border)] px-4 py-3 sm:flex-row">
       <p className="text-caption tabular-nums">
-        Hiển thị <span className="font-medium text-[var(--color-foreground)]">{start}–{end}</span> trong{' '}
+        {t('Pagination.show')} <span className="font-medium text-[var(--color-foreground)]">{start}–{end}</span> {t('Pagination.of')}{' '}
         <span className="font-medium text-[var(--color-foreground)]">{totalElements}</span> {itemLabel}
       </p>
 
       {totalPages > 1 && (
-        <nav aria-label="Phân trang" className="flex items-center gap-0.5">
-          <Button variant="ghost" size="icon-sm" onClick={() => onPageChange(0)} disabled={isFirst} aria-label="Trang đầu">
+        <nav aria-label={t('Pagination.pagination')} className="flex items-center gap-0.5">
+          <Button variant="ghost" size="icon-sm" onClick={() => onPageChange(0)} disabled={isFirst} aria-label={t('Pagination.firstPage')}>
             <ChevronsLeft aria-hidden="true" />
           </Button>
-          <Button variant="ghost" size="icon-sm" onClick={() => onPageChange(currentPage - 1)} disabled={isFirst} aria-label="Trang trước">
+          <Button variant="ghost" size="icon-sm" onClick={() => onPageChange(currentPage - 1)} disabled={isFirst} aria-label={t('Pagination.previousPage')}>
             <ChevronLeft aria-hidden="true" />
           </Button>
 
@@ -64,7 +67,7 @@ export default function Pagination({ currentPage, totalPages, onPageChange, tota
                 type="button"
                 onClick={() => onPageChange(p)}
                 aria-current={currentPage === p ? 'page' : undefined}
-                aria-label={`Trang ${p + 1}`}
+                aria-label={t('Pagination.pageN', { page: p + 1 })}
                 className={cn(btn, currentPage === p ? active : inactive)}
               >
                 {p + 1}
@@ -72,10 +75,10 @@ export default function Pagination({ currentPage, totalPages, onPageChange, tota
             ))}
           </div>
 
-          <Button variant="ghost" size="icon-sm" onClick={() => onPageChange(currentPage + 1)} disabled={isLast} aria-label="Trang sau">
+          <Button variant="ghost" size="icon-sm" onClick={() => onPageChange(currentPage + 1)} disabled={isLast} aria-label={t('Pagination.nextPage')}>
             <ChevronRight aria-hidden="true" />
           </Button>
-          <Button variant="ghost" size="icon-sm" onClick={() => onPageChange(totalPages - 1)} disabled={isLast} aria-label="Trang cuối">
+          <Button variant="ghost" size="icon-sm" onClick={() => onPageChange(totalPages - 1)} disabled={isLast} aria-label={t('Pagination.lastPage')}>
             <ChevronsRight aria-hidden="true" />
           </Button>
         </nav>

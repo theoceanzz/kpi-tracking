@@ -47,6 +47,8 @@ public class AiTurn {
     private List<String> attachmentNames;
     /** Tên tệp người dùng đang GHIM ở ô chat — ứng viên để đính. */
     private List<String> pinnedFileNames;
+    /** Ngôn ngữ giao diện của người hỏi (lấy ở luồng request) — trợ lý trả lời bằng ngôn ngữ này. */
+    private String language = com.kpitracking.i18n.SupportedLanguages.DEFAULT;
 
     // ── dựng dần qua từng stage ──────────────────────────────────────────────
     private ManagerContext manager;
@@ -152,8 +154,14 @@ public class AiTurn {
 
     /** Id hội thoại chỉ khi lượt này thực sự có bộ nhớ; ngược lại null. */
     /** Các cờ tính năng của tổ chức mà bộ tool cần biết. {@code NONE} = mọi thứ tắt (an toàn khi thiếu). */
-    public record OrgFeatures(boolean conduct, boolean reward, boolean waterfall, boolean bsc, boolean okr) {
-        public static final OrgFeatures NONE = new OrgFeatures(false, false, false, false, false);
+    public record OrgFeatures(boolean conduct, boolean reward, boolean waterfall, boolean bsc, boolean okr,
+                              boolean feedback360) {
+        public static final OrgFeatures NONE = new OrgFeatures(false, false, false, false, false, false);
+
+        /** Giữ chữ ký 5 cờ cũ cho chỗ gọi không quan tâm tới 360. */
+        public OrgFeatures(boolean conduct, boolean reward, boolean waterfall, boolean bsc, boolean okr) {
+            this(conduct, reward, waterfall, bsc, okr, false);
+        }
     }
 
     public String memoryConversationId() {

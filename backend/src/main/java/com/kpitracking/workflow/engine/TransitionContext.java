@@ -40,12 +40,11 @@ public class TransitionContext<S extends Enum<S>> {
     private final UUID targetOwnerId;
 
     /**
-     * Thông báo riêng khi trạng thái hiện tại không nhận hành động này.
-     *
-     * <p>Có mặt để giữ nguyên câu chữ mà người dùng đang thấy ("Chỉ có thể phê duyệt KPI ở trạng
-     * thái CHỜ PHÊ DUYỆT"). Bỏ trống thì engine tự sinh câu mô tả kèm trạng thái hiện tại.
+     * Mã lỗi riêng khi trạng thái hiện tại không nhận hành động này (vd.
+     * {@code ONLY_KPIS_PENDING_APPROVAL_STATUS_CAN_APPROVED}). Bỏ trống thì engine dùng
+     * {@code STATUS_DOES_NOT_ALLOW_ACTION} kèm trạng thái hiện tại.
      */
-    private final String statusRejectionMessage;
+    private final com.kpitracking.exception.ErrorCode statusRejectionCode;
 
     public UUID actorId() {
         return actor == null ? null : actor.getId();

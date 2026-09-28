@@ -1,0 +1,129 @@
+{
+  "language": {
+    "label": "Ngôn ngữ",
+    "saveFailed": "Chưa lưu được lựa chọn ngôn ngữ, sẽ thử lại lần sau."
+  },
+  "errors": {
+    "generic": "Đã có lỗi xảy ra, vui lòng thử lại",
+    "network": "Không kết nối được tới máy chủ, vui lòng kiểm tra đường truyền",
+    "timeout": "Yêu cầu xử lý quá lâu và đã bị huỷ, vui lòng thử lại",
+    "fileTooLarge": "Tệp tin vượt quá dung lượng cho phép",
+    "serverUnavailable": "Máy chủ đang gặp sự cố, vui lòng thử lại sau",
+    "withRef": "{{message}} (mã: {{ref}})"
+  },
+  "numberInput": {
+    "placeholder": "vd: {{example}}",
+    "wrongDecimalSeparator": "Dùng dấu phẩy cho phần thập phân, ví dụ: {{example}}",
+    "invalid": "Số không hợp lệ, ví dụ: {{example}}"
+  },
+  "dateInput": {
+    "invalid": "Ngày không hợp lệ, nhập theo dạng {{pattern}}"
+  },
+  "attachmentPolicy": {
+    "exceedsTheFilesAllowed": "\"{{name}}\" vượt quá {{MAX_ATTACHMENT_FILES}} tệp cho phép.",
+    "hasAnUnsupportedFormat": "\"{{name}}\" không đúng định dạng. {{ATTACHMENT_TYPES_HINT}}.",
+    "imagesPdfWordExcelUpTo": "Ảnh, PDF, Word, Excel · tối đa {{MAX_ATTACHMENT_FILES}} tệp, {{value}}MB mỗi tệp",
+    "isEmptyPleaseChooseAFile": "\"{{name}}\" rỗng. Hãy chọn lại tệp có nội dung.",
+    "isExceedingPerFile": "\"{{name}}\" nặng {{size}}, vượt quá {{MAX_ATTACHMENT_BYTES}} mỗi tệp.",
+    "onlyImagesJpgPngWebpPdf": "Chỉ nhận ảnh (JPG, PNG, WebP), PDF, Word (DOC, DOCX) và Excel (XLS, XLSX)"
+  },
+  "formErrors": {
+    "pleaseCheckTheInformationYouEntered": "Vui lòng kiểm tra lại thông tin đã nhập"
+  },
+  "performanceExport": {
+    "avgScore": "Điểm TB",
+    "completion": "Hoàn thành (%)",
+    "department": "Phòng ban",
+    "departmentHeadScore": "Trưởng phòng chấm",
+    "detailedKpiPerformanceReport": "BÁO CÁO CHI TIẾT HIỆU SUẤT KPI",
+    "directorScore": "Giám đốc chấm",
+    "empCode": "Mã NV",
+    "employeeCode": "Mã Nhân viên",
+    "employeePerformanceReport": "BÁO CÁO HIỆU SUẤT NHÂN VIÊN",
+    "excellent": "Xuất sắc",
+    "execute": "Thực hiện",
+    "exportedOn": "Ngày xuất: {{value}}",
+    "fair": "Khá",
+    "fullName": "Họ và Tên",
+    "good": "Tốt",
+    "keyResult": "Kết quả then chốt (Key Result)",
+    "kpiName": "Tên KPI",
+    "kpis": "Chỉ tiêu",
+    "kpisMet": "KPI Đạt",
+    "managerScore": "Quản lý chấm",
+    "medium": "Trung bình",
+    "no": "Chưa có",
+    "noKpis": "--- Không có KPI ---",
+    "objective": "Mục tiêu (Objective)",
+    "position": "Chức vụ",
+    "rating": "Xếp loại",
+    "reportExportedOn": "Ngày xuất báo cáo: {{value}}",
+    "teamLeadScore": "Trưởng nhóm chấm",
+    "uom": "ĐVT",
+    "weight": "Trọng số",
+    "kpisAssigned": "KPI Giao"
+  },
+  "performanceMatrix": {
+    "conduct": " (hạnh kiểm)",
+    "conduct360": " (hạnh kiểm + 360)"
+  },
+  "personGrouping": {
+    "unassigned": "Chưa giao",
+    "unknownUnit": "Chưa rõ đơn vị"
+  },
+  "pinnedFilesStore": {
+    "noOpenFormHasAnAttachment": "Chưa mở biểu mẫu nào có mục đính kèm"
+  },
+  "scoring": {
+    "achievedWeight": " ⇒ đạt {{value}} × trọng số {{weightPercentage}}%",
+    "average": "TRUNG BÌNH",
+    "excellent": "XUẤT SẮC",
+    "fair": "KHÁ",
+    "good": "TỐT",
+    "minimum": " · tối thiểu {{minimumValue}}{{unit}}",
+    "noQuantitativeKpis": "chưa có KPI định lượng",
+    "notMet": "Không đạt",
+    "notScored": "Chưa chấm",
+    "selfScoredAgainstTheItemTarget": "{{name}} (tự chấm theo mục tiêu hạng mục): {{progress}}{{floor}}",
+    "weak": "YẾU",
+    "weight": " × trọng số {{weightPercentage}}%",
+    "weightedAverageOfChildKpisAchieved": "{{name}}: trung bình có trọng số các KPI con — đạt {{value}}",
+    "noKpis": "chưa có KPI"
+  },
+  "uploadStore": {
+    "attachment": "Tệp đính kèm",
+    "evidenceFiles": "{{count}} tệp minh chứng",
+    "uploadFailed": "Tải lên thất bại"
+  },
+  "useSpeechInput": {
+    "couldNotConnectToTheSpeech": "Không nối được tới dịch vụ nhận diện giọng nói. Kiểm tra kết nối mạng giúp mình nhé.",
+    "speechRecognitionRanIntoAProblem": "Nhận diện giọng nói gặp trục trặc, bạn thử lại giúp mình nhé.",
+    "theBrowserHasNotAllowedMicrophone": "Trình duyệt chưa cho phép dùng micro. Hãy bật quyền micro cho trang này rồi tải lại."
+  },
+  "utils": {
+    "approved": "Đã duyệt",
+    "beingEdited": "Đang sửa",
+    "closedByCycleLock": "Không hoàn thành do khoá kỳ",
+    "daily": "Hàng ngày",
+    "draft": "Bản nháp",
+    "edited": "Đã sửa",
+    "every6Months": "6 tháng",
+    "inactive": "Ngưng dùng",
+    "month": "Tháng {{month}}/{{year}}",
+    "monthly": "Hàng tháng",
+    "others": "{{value}}, {{value2}} + {{count}} người khác",
+    "pendingApproval": "Chờ duyệt",
+    "q": "Quý {{q}}/{{year}}",
+    "quarterly": "Hàng quý",
+    "rejected": "Từ chối",
+    "replaced": "Đã thay thế",
+    "unassigned": "Chưa giao",
+    "unlimited": "Không giới hạn",
+    "weekly": "Hàng tuần",
+    "yearly": "Hàng năm"
+  },
+  "formDraft": {
+    "restored": "Đã khôi phục dữ liệu bạn nhập dở lúc {{time}}.",
+    "discard": "Bỏ bản nháp"
+  }
+}

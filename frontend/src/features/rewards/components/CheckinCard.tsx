@@ -2,6 +2,7 @@ import { CalendarCheck, Check, Flame, Gift, Loader2 } from 'lucide-react'
 import { useCheckin, useMyCheckinStatus } from '../hooks/useCheckin'
 import type { CheckinDay, CheckinStatus } from '../types'
 import { Button } from '@/components/ui/button'
+import { useTranslation } from 'react-i18next'
 
 const WEEKDAY = ['CN', 'T2', 'T3', 'T4', 'T5', 'T6', 'T7']
 
@@ -17,6 +18,7 @@ const dayOfMonth = (iso: string) => Number(iso.split('-')[2])
  * và bỏ lỡ. Gộp hai cái sau lại thì nhân viên tưởng mình đã làm đứt chuỗi vào cuối tuần.
  */
 function DayDot({ day, isToday }: { day: CheckinDay; isToday: boolean }) {
+  const { t } = useTranslation('rewards')
   const base =
     'flex h-9 w-9 items-center justify-center rounded-card border text-xs font-semibold transition-colors'
   const cls = day.checkedIn
@@ -34,10 +36,10 @@ function DayDot({ day, isToday }: { day: CheckinDay; isToday: boolean }) {
         className={`${base} ${cls} ${isToday ? 'ring-2 ring-[var(--color-primary)] ring-offset-1 ring-offset-[var(--color-card)]' : ''}`}
         title={
           day.checkedIn
-            ? `Đã điểm danh, +${day.points} điểm`
+            ? t('CheckinCard.checkedInPoints', { points: day.points })
             : day.restDay
-              ? 'Ngày nghỉ — không tính vào chuỗi'
-              : 'Không điểm danh'
+              ? t('CheckinCard.dayOffNotCountedInThe')
+              : t('CheckinCard.noCheckIn')
         }
       >
         {day.checkedIn ? <Check size={15} strokeWidth={3} /> : dayOfMonth(day.date)}
@@ -48,6 +50,7 @@ function DayDot({ day, isToday }: { day: CheckinDay; isToday: boolean }) {
 
 /** Dải mốc thưởng của chu kỳ hiện tại: mốc nào đã qua, mốc nào sắp tới. */
 function StreakBonusStrip({ status }: { status: CheckinStatus }) {
+  const { t } = useTranslation('rewards')
   if (status.streakBonuses.length === 0) return null
 
   return (
@@ -66,7 +69,7 @@ function StreakBonusStrip({ status }: { status: CheckinStatus }) {
             }`}
           >
             <Gift size={12} />
-            Ngày {b.day}: +{b.points}
+            {t('CheckinCard.date')} {b.day}: +{b.points}
           </span>
         )
       })}
@@ -79,6 +82,7 @@ function StreakBonusStrip({ status }: { status: CheckinStatus }) {
  * hay dòng "đang tắt" cho nhân viên, vì đó là chuyện họ không làm gì được.
  */
 export default function CheckinCard() {
+  const { t } = useTranslation('rewards')
   const { data: status, isLoading } = useMyCheckinStatus()
   const { mutate: checkin, isPending } = useCheckin()
 
@@ -91,7 +95,7 @@ export default function CheckinCard() {
   // lần sắp tới, hiện ra cạnh con số chuỗi đã đạt sẽ thành hai số vênh nhau.
   const cycleLabel =
     status.checkedInToday && status.streakCycleDays
-      ? `chu kỳ ${status.streakDay}/${status.streakCycleDays}`
+      ? t('CheckinCard.cycle', { streakDay: status.streakDay, streakCycleDays: status.streakCycleDays })
       : null
 
   return (
@@ -100,7 +104,7 @@ export default function CheckinCard() {
         <div className="min-w-0">
           <div className="flex items-center gap-2 text-eyebrow">
             <CalendarCheck size={14} />
-            Điểm danh hàng ngày
+            {t('CheckinCard.dailyCheckIn')}
           </div>
 
           <div className="mt-2 flex flex-wrap items-baseline gap-x-3 gap-y-1">
@@ -109,7 +113,7 @@ export default function CheckinCard() {
                 size={22}
                 className={status.streakLength > 0 ? 'text-[var(--color-warning)]' : 'text-[var(--color-muted-foreground)]'}
               />
-              {status.streakLength} ngày
+              {status.streakLength} {t('CheckinCard.days')}
             </span>
             {cycleLabel && (
               <span className="text-sm text-[var(--color-muted-foreground)]">{cycleLabel}</span>
@@ -118,11 +122,11 @@ export default function CheckinCard() {
 
           <p className="mt-1 text-sm text-[var(--color-muted-foreground)]">
             {status.checkedInToday
-              ? `Hôm nay bạn đã nhận ${status.todayPoints} điểm. Tháng này: ${status.pointsThisMonth} điểm.`
+              ? t('CheckinCard.youReceivedPointsTodayThisMonth', { todayPoints: status.todayPoints, pointsThisMonth: status.pointsThisMonth })
               : status.canCheckin
-                ? `Điểm danh hôm nay để lên chuỗi ${status.nextStreakLength} ngày.`
+                ? t('CheckinCard.checkInTodayToReachA', { nextStreakLength: status.nextStreakLength })
                 : (status.blockedReason ??
-                  `Điểm danh mỗi ngày làm việc để nhận ${status.pointsPerDay} điểm và giữ chuỗi.`)}
+                  t('CheckinCard.checkInEveryWorkingDayTo', { pointsPerDay: status.pointsPerDay }))}
           </p>
         </div>
 
@@ -137,10 +141,10 @@ export default function CheckinCard() {
             <CalendarCheck aria-hidden="true" />
           )}
           {status.checkedInToday
-            ? 'Đã điểm danh'
+            ? t('CheckinCard.checkedIn')
             : status.canCheckin
-              ? `Điểm danh +${status.nextPoints}`
-              : 'Điểm danh'}
+              ? t('CheckinCard.checkIn', { nextPoints: status.nextPoints })
+              : t('CheckinCard.checkIns')}
         </Button>
       </div>
 
@@ -148,7 +152,7 @@ export default function CheckinCard() {
       {status.canCheckin && (status.nextBonusPoints ?? 0) > 0 && (
         <p className="mt-3 inline-flex items-center gap-1.5 rounded-control bg-[var(--color-warning-bg)] px-3 py-1.5 text-sm font-medium text-[var(--color-warning)]">
           <Gift size={14} />
-          Điểm danh hôm nay chạm mốc ngày {status.streakDay} — thưởng thêm {status.nextBonusPoints} điểm!
+          {t('CheckinCard.todaysCheckInHitsTheMilestone')} {status.streakDay} {t('CheckinCard.bonus')} {status.nextBonusPoints} {t('CheckinCard.points')}
         </p>
       )}
 

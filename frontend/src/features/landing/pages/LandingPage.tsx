@@ -1,4 +1,5 @@
-import { Navigate } from 'react-router-dom'
+import { useEffect } from 'react'
+import { Navigate, useLocation } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
 import '../landing.css'
 import { FloatingContact, LandingNav } from '../components/LandingNav'
@@ -18,6 +19,22 @@ import { LeadForm } from '../components/LeadForm'
  */
 export default function LandingPage() {
   const { isAuthenticated } = useAuthStore()
+  const { hash } = useLocation()
+
+  // Vào từ trang khác với /#contact: trình duyệt tìm anchor trước khi React render xong nên không cuộn,
+  // React Router cũng không tự cuộn theo hash → tự cuộn sau khi render. Cuộn lại lần nữa khi layout
+  // đã ổn định (ảnh/font/chương kể chuyện làm đổi chiều cao các section phía trên).
+  useEffect(() => {
+    if (!hash || isAuthenticated) return
+    const scroll = () => document.getElementById(decodeURIComponent(hash.slice(1)))?.scrollIntoView({ block: 'start' })
+    const raf = requestAnimationFrame(scroll)
+    const timer = window.setTimeout(scroll, 400)
+    return () => {
+      cancelAnimationFrame(raf)
+      window.clearTimeout(timer)
+    }
+  }, [hash, isAuthenticated])
+
   if (isAuthenticated) {
     return <Navigate to="/dashboard" replace />
   }

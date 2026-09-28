@@ -6,6 +6,8 @@ import ProtectedRoute from './ProtectedRoute'
 import PermissionRoute from './PermissionRoute'
 import PlatformAdminRoute from './PlatformAdminRoute'
 import LandingPage from '@/features/landing/pages/LandingPage'
+import F360RespondPage from '@/features/feedback360/pages/F360RespondPage'
+import F360ReportPage from '@/features/feedback360/pages/F360ReportPage'
 
 // Auth pages
 import LoginPage from '@/features/auth/pages/LoginPage'
@@ -122,7 +124,7 @@ export const router = createBrowserRouter([
           // Vận hành KPI gom về một trang; cổng route là phép HOẶC của năm quyền, còn
           // từng mục bên trong tự lọc lại theo đúng quyền cũ của nó.
           {
-            element: <PermissionRoute permission={['KPI:VIEW', 'KPI:APPROVE_CRITERIA', 'KPI:APPROVE_ADJUSTMENT', 'SUBMISSION:REVIEW', 'CYCLE_EVAL:VIEW']} />,
+            element: <PermissionRoute permission={['KPI:VIEW', 'KPI:APPROVE_CRITERIA', 'KPI:APPROVE_ADJUSTMENT', 'SUBMISSION:REVIEW', 'CYCLE_EVAL:VIEW', 'FEEDBACK360:MANAGE', 'FEEDBACK360:VIEW']} />,
             children: [
               { path: '/performance', element: <PerformancePage /> },
               // Route cũ giữ làm redirect cho link, bookmark và nút tắt trên dashboard.
@@ -210,6 +212,10 @@ export const router = createBrowserRouter([
           // Không gian cá nhân gom về một trang. Không gác quyền ở route: bốn mục công
           // việc vốn mở cho mọi vai trò, còn hai mục ví tự lọc theo quyền và cờ tính năng.
           { path: '/me', element: <MySpacePage /> },
+          // Phiếu 360 và báo cáo 360: không gác quyền ở route — người chấm không cần quyền riêng,
+          // và ai xem được báo cáo nào do backend quyết (F360AccessPolicy).
+          { path: '/feedback360/respond/:assignmentId', element: <F360RespondPage /> },
+          { path: '/feedback360/reports/:subjectId', element: <F360ReportPage /> },
           // Route cũ giữ làm redirect; RedirectToSection bê nguyên query nên link
           // /evaluations?action=self-eval&periodId=… vẫn chạy đúng.
           { path: '/my-kpi', element: <RedirectToSection to="/me" params={{ section: 'my-kpi' }} /> },

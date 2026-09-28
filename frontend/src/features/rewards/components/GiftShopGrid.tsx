@@ -1,3 +1,4 @@
+import { intlLocale } from '@/i18n/format'
 import { useState } from 'react'
 import { Gift, ImageOff, Coins, PackageX, PackageCheck, Zap, Wallet } from 'lucide-react'
 import EmptyState from '@/components/common/EmptyState'
@@ -9,6 +10,7 @@ import VoucherModal from './VoucherModal'
 import { useGiftShop } from '../hooks/useGifts'
 import type { GiftItem, Redemption } from '../types'
 import { Button } from '@/components/ui/button'
+import { useTranslation } from 'react-i18next'
 
 interface GiftShopGridProps {
   /** Số dư hiện tại, để hiện "thiếu bao nhiêu điểm" ngay trên thẻ quà. */
@@ -16,6 +18,7 @@ interface GiftShopGridProps {
 }
 
 export default function GiftShopGrid({ balance }: GiftShopGridProps) {
+  const { t } = useTranslation('rewards')
   const [redeeming, setRedeeming] = useState<GiftItem | null>(null)
   // Mã quà phải bật lên NGAY sau khi đổi. Bắt nhân viên tự mở lại lịch sử để tìm mã là
   // cách chắc chắn nhất để họ tưởng đổi hụt và gọi cho bộ phận hỗ trợ.
@@ -34,8 +37,8 @@ export default function GiftShopGrid({ balance }: GiftShopGridProps) {
     return (
       <div className="rounded-card border border-dashed border-[var(--color-border)]">
         <EmptyState
-          title="Cửa hàng chưa có quà nào"
-          description="Khi công ty thêm quà vào danh mục, bạn sẽ thấy chúng ở đây và dùng điểm để đổi."
+          title={t('GiftShopGrid.theShopHasNoGiftsYet')}
+          description={t('GiftShopGrid.whenTheCompanyAddsGiftsTo')}
         />
       </div>
     )
@@ -73,7 +76,7 @@ export default function GiftShopGrid({ balance }: GiftShopGridProps) {
                 {outOfStock && (
                   <span className="absolute left-3 top-3 inline-flex items-center gap-1 rounded-full bg-[var(--color-card)] px-2.5 py-1 text-xs font-medium shadow-sm">
                     <PackageX size={12} />
-                    Hết hàng
+                    {t('GiftShopGrid.outOfStock')}
                   </span>
                 )}
               </div>
@@ -86,7 +89,7 @@ export default function GiftShopGrid({ balance }: GiftShopGridProps) {
                   <div className="mb-1 flex flex-wrap items-center gap-x-2 text-xs text-[var(--color-muted-foreground)]">
                     {gift.externalBrand && <span className="font-medium">{gift.externalBrand}</span>}
                     {gift.externalValue != null && (
-                      <span>Trị giá {gift.externalValue.toLocaleString('vi-VN')} ₫</span>
+                      <span>{t('GiftShopGrid.value')} {gift.externalValue.toLocaleString(intlLocale())} ₫</span>
                     )}
                   </div>
                 )}
@@ -100,14 +103,14 @@ export default function GiftShopGrid({ balance }: GiftShopGridProps) {
                 <div className="mt-3 flex items-center gap-1.5 text-[var(--color-primary)]">
                   <Coins size={16} />
                   <span className="text-lg font-semibold">
-                    {gift.pointCost.toLocaleString('vi-VN')}
+                    {gift.pointCost.toLocaleString(intlLocale())}
                   </span>
-                  <span className="text-sm text-[var(--color-muted-foreground)]">điểm</span>
+                  <span className="text-sm text-[var(--color-muted-foreground)]">{t('GiftShopGrid.points')}</span>
                 </div>
 
                 <div className="mt-1 flex flex-wrap items-center gap-x-2 text-xs text-[var(--color-muted-foreground)]">
                   {!gift.unlimitedStock && gift.stockQuantity != null && gift.stockQuantity > 0 && (
-                    <span>Còn {gift.stockQuantity} phần</span>
+                    <span>{t('GiftShopGrid.remaining')} {gift.stockQuantity} {t('GiftShopGrid.units')}</span>
                   )}
                   {/* Cho nhân viên biết TRƯỚC khi đổi là phải chờ hay nhận luôn — không
                       nói thì họ đổi xong ngồi đợi mà không biết đợi cái gì. */}
@@ -115,40 +118,40 @@ export default function GiftShopGrid({ balance }: GiftShopGridProps) {
                     {gift.requiresDelivery ? (
                       <>
                         <PackageCheck size={11} />
-                        Nhận trực tiếp tại công ty
+                        {t('GiftShopGrid.pickUpAtTheCompany')}
                       </>
                     ) : gift.externalProvider ? (
                       <>
                         <Zap size={11} />
-                        Nhận mã voucher ngay
+                        {t('GiftShopGrid.getAVoucherCodeInstantly')}
                       </>
                     ) : (
                       <>
                         <Zap size={11} />
-                        Nhận ngay khi đổi
+                        {t('GiftShopGrid.receivedAsSoonAsRedeemed')}
                       </>
                     )}
                   </span>
-                  {gift.externalExpireText && <span>HSD {gift.externalExpireText}</span>}
+                  {gift.externalExpireText && <span>{t('GiftShopGrid.expires', { date: gift.externalExpireText })}</span>}
                 </div>
 
                 <div className="mt-4 flex-1" />
 
                 {blockedByPoints ? (
                   <div className="rounded-control bg-[var(--color-muted)] px-3 py-2 text-center text-sm text-[var(--color-muted-foreground)]">
-                    Còn thiếu {shortBy.toLocaleString('vi-VN')} điểm
+                    {t('GiftShopGrid.shortBy')} {shortBy.toLocaleString(intlLocale())} {t('GiftShopGrid.points')}
                   </div>
                 ) : (
                   <>
                     {cannotAfford && (
                       <p className="mb-2 flex items-center justify-center gap-1.5 text-xs text-[var(--color-warning)]">
                         <Wallet size={12} />
-                        Thiếu {shortBy.toLocaleString('vi-VN')} điểm — nạp thêm khi đổi
+                        {t('GiftShopGrid.short')} {shortBy.toLocaleString(intlLocale())} {t('GiftShopGrid.pointsTopUpWhenRedeeming')}
                       </p>
                     )}
                     <Button className="w-full" onClick={() => setRedeeming(gift)} disabled={outOfStock}>
                       <Gift aria-hidden="true" />
-                      {outOfStock ? 'Hết hàng' : 'Đổi quà'}
+                      {outOfStock ? t('GiftShopGrid.outOfStock') : t('GiftShopGrid.giftRedemption')}
                     </Button>
                   </>
                 )}

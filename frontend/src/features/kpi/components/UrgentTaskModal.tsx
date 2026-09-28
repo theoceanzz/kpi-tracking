@@ -33,6 +33,9 @@ import { ChoiceChip } from '@/components/ui/choice-chip'
 import { SegmentedControl } from '@/components/common/FilterBar'
 import { Field, Hint } from './KpiFormParts'
 import { UrgentKpiFields, type UrgentKpiContext } from './UrgentKpiFields'
+import { useTranslation } from 'react-i18next'
+import { useFormDraft } from '@/hooks/useFormDraft'
+import DraftNotice from '@/components/common/DraftNotice'
 
 interface UrgentTaskModalProps {
   open: boolean
@@ -53,6 +56,7 @@ function AssigneeSelector({ orgUnitId, selectedIds, onChange, hint, isStaff, cur
   isStaff?: boolean
   currentUser?: { id: string; fullName: string; email?: string | null; avatarUrl?: string | null }
 }) {
+  const { t } = useTranslation('kpi')
   const [selectedRole, setSelectedRole] = useState('ALL')
   const [userSearch, setUserSearch] = useState('')
 
@@ -90,15 +94,15 @@ function AssigneeSelector({ orgUnitId, selectedIds, onChange, hint, isStaff, cur
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <label className="text-label flex items-center gap-2"><Users size={15} className="text-[var(--color-primary)]" aria-hidden="true" /> Giao thực hiện</label>
-        {!isStaff && <span className="text-caption">{selectedIds.length} người</span>}
+        <label className="text-label flex items-center gap-2"><Users size={15} className="text-[var(--color-primary)]" aria-hidden="true" /> {t('UrgentTaskModal.assignTo')}</label>
+        {!isStaff && <span className="text-caption">{selectedIds.length} {t('UrgentTaskModal.people')}</span>}
       </div>
       {hint && <p className="text-caption">{hint}</p>}
       {isStaff && currentUser ? (
         <div className="flex items-center gap-3 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] px-3 py-2.5">
           <UserAvatar fullName={currentUser.fullName} avatarUrl={currentUser.avatarUrl} className="h-8 w-8 rounded-full" fallbackClassName="bg-[var(--color-primary-soft)] text-[var(--color-primary)] text-sm font-semibold" />
           <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-medium">{currentUser.fullName} <span className="text-[var(--color-primary)]">(bản thân)</span></p>
+            <p className="truncate text-sm font-medium">{currentUser.fullName} <span className="text-[var(--color-primary)]">{t('UrgentTaskModal.yourself')}</span></p>
             <p className="truncate text-caption">{currentUser.email}</p>
           </div>
           <Check size={16} className="text-[var(--color-primary)]" aria-hidden="true" />
@@ -106,17 +110,17 @@ function AssigneeSelector({ orgUnitId, selectedIds, onChange, hint, isStaff, cur
       ) : (
         <div className="overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
           <div className="flex flex-wrap items-center gap-2 border-b border-[var(--color-border)] p-2">
-            <Input size="sm" placeholder="Tìm theo tên hoặc email…" value={userSearch} onChange={e => setUserSearch(e.target.value)} className="w-56" />
-            <ChoiceChip selected={selectedRole === 'ALL'} size="sm" onClick={() => setSelectedRole('ALL')}>Tất cả</ChoiceChip>
+            <Input size="sm" placeholder={t('UrgentTaskModal.searchByNameOrEmail')} value={userSearch} onChange={e => setUserSearch(e.target.value)} className="w-56" />
+            <ChoiceChip selected={selectedRole === 'ALL'} size="sm" onClick={() => setSelectedRole('ALL')}>{t('UrgentTaskModal.all')}</ChoiceChip>
             {availableRoles.map(r => (
               <ChoiceChip key={r.name} selected={selectedRole === r.name} size="sm" onClick={() => setSelectedRole(r.name)}>{r.label}</ChoiceChip>
             ))}
           </div>
           <div className="custom-scrollbar max-h-44 space-y-0.5 overflow-y-auto p-1.5">
             {isLoading ? (
-              <p className="flex items-center justify-center gap-2 py-8 text-caption"><Loader2 size={16} className="animate-spin" /> Đang tải nhân sự…</p>
+              <p className="flex items-center justify-center gap-2 py-8 text-caption"><Loader2 size={16} className="animate-spin" /> {t('UrgentTaskModal.loadingPeople')}</p>
             ) : displayUsers.length === 0 ? (
-              <p className="py-8 text-center text-caption">Không có nhân sự phù hợp</p>
+              <p className="py-8 text-center text-caption">{t('UrgentTaskModal.noMatchingPeople')}</p>
             ) : displayUsers.map(u => {
               const on = selectedIds.includes(u.id)
               return (
@@ -143,14 +147,16 @@ function AssigneeSelector({ orgUnitId, selectedIds, onChange, hint, isStaff, cur
 // ─── Tab Thay thế ────────────────────────────────────────────────────────────
 
 function ReplaceTab({ kpiList, orgUnitId, ctx, onSuccess }: { kpiList: KpiCriteria[]; orgUnitId: string; ctx: UrgentKpiContext; onSuccess: () => void }) {
+  const { t } = useTranslation('kpi')
   const qc = useQueryClient()
   const { user: currentUser } = useAuthStore()
   const isStaff = currentUser?.memberships?.[0]?.roleRank === 2
 
   const form = useForm<ReplaceFormData>({
-    resolver: zodResolver(replaceKpiSchema),
+    resolver: zodResolver(replaceKpiSchema()),
     defaultValues: { replacedKpiId: '', replacementReason: '', ...NEW_KPI_DEFAULTS },
   })
+  const draft = useFormDraft(form, { key: `urgent-replace:${orgUnitId}`, enabled: true })
   const { register, handleSubmit, watch, setValue, control, reset, formState: { errors } } = form
 
   const replacedKpiId = watch('replacedKpiId')
@@ -186,29 +192,30 @@ function ReplaceTab({ kpiList, orgUnitId, ctx, onSuccess }: { kpiList: KpiCriter
       assignedToIds: data.assignedToIds.length > 0 ? data.assignedToIds : undefined,
     }),
     onSuccess: () => {
-      toast.success('KPI đã được thay thế thành công')
+      toast.success(t('UrgentTaskModal.kpiReplacedSuccessfully'))
       qc.invalidateQueries({ queryKey: ['kpi-criteria'] })
       qc.invalidateQueries({ queryKey: ['stats'] })
       reset()
       onSuccess()
     },
-    onError: (err) => toast.error(getApiErrorMessage(err, 'Thay thế KPI thất bại')),
+    onError: (err) => toast.error(getApiErrorMessage(err, t('UrgentTaskModal.failedToReplaceKpi'))),
   })
 
   const activeKpis = kpiList.filter(k => k.status !== 'REPLACED' && k.status !== 'INACTIVE')
 
   return (
     <form id="urgent-form" onSubmit={handleSubmit(d => mutate(d), toastFirstError)} className="flex flex-col gap-6">
+      <DraftNotice draft={draft} />
       <UrgentKpiFields
         form={form}
         ctx={ctx}
         contextSlot={
           <>
-            <Field label="KPI cần thay thế" required error={errors.replacedKpiId?.message}
-              hint={selectedKpi ? `Kế thừa trọng số ${selectedKpi.weight ?? 0}% · ${FREQUENCY_MAP[selectedKpi.frequency]}${selectedKpi.assigneeNames?.length ? ` · ${selectedKpi.assigneeNames.join(', ')}` : ''}` : 'KPI được chọn sẽ đánh dấu "Đã thay thế", không tính điểm; KPI mới kế thừa trọng số.'}>
+            <Field label={t('UrgentTaskModal.kpiToReplace')} required error={errors.replacedKpiId?.message}
+              hint={selectedKpi ? t('UrgentTaskModal.inheritsWeight', { value: selectedKpi.weight ?? 0, value2: FREQUENCY_MAP()[selectedKpi.frequency], value3: selectedKpi.assigneeNames?.length ? ` · ${selectedKpi.assigneeNames.join(', ')}` : '' }) : t('UrgentTaskModal.theChosenKpiWillBeMarked')}>
               <Controller name="replacedKpiId" control={control} render={({ field }) => (
                 <Select value={field.value} onValueChange={field.onChange}>
-                  <SelectTrigger aria-invalid={!!errors.replacedKpiId}><SelectValue placeholder="— Chọn KPI cần thay thế —" /></SelectTrigger>
+                  <SelectTrigger aria-invalid={!!errors.replacedKpiId}><SelectValue placeholder={t('UrgentTaskModal.chooseTheKpiToReplace')} /></SelectTrigger>
                   <SelectContent>
                     {activeKpis.map(k => (
                       <SelectItem key={k.id} value={k.id} extra={<span className="ml-auto pl-3 text-caption">{k.weight ?? 0}%</span>}>
@@ -219,16 +226,16 @@ function ReplaceTab({ kpiList, orgUnitId, ctx, onSuccess }: { kpiList: KpiCriter
                 </Select>
               )} />
             </Field>
-            <Field label="Lý do thay thế">
-              <Textarea {...register('replacementReason')} rows={2} placeholder="VD: Phát sinh công việc khẩn cấp từ khách hàng…" />
+            <Field label={t('UrgentTaskModal.replacementReason')}>
+              <Textarea {...register('replacementReason')} rows={2} placeholder={t('UrgentTaskModal.eGAnUrgentCustomerTask')} />
             </Field>
             <AssigneeSelector orgUnitId={orgUnitId} selectedIds={selectedAssignees} onChange={ids => setValue('assignedToIds', ids)}
               isStaff={isStaff} currentUser={currentUser ?? undefined}
-              hint={selectedKpi ? 'Đã chép người nhận từ KPI bị thay thế — sửa nếu cần.' : undefined} />
+              hint={selectedKpi ? t('UrgentTaskModal.recipientsCopiedFromTheReplacedKpi') : undefined} />
           </>
         }
       />
-      <UrgentFooter isPending={isPending} label="Thay thế KPI" onCancel={onSuccess} />
+      <UrgentFooter isPending={isPending} label={t('UrgentTaskModal.replaceKpi')} onCancel={onSuccess} />
     </form>
   )
 }
@@ -239,18 +246,20 @@ function AdjustTab({ kpiList, kpiPeriodId, orgUnitId, ctx, perspectiveWeightPct,
   kpiList: KpiCriteria[]; kpiPeriodId: string; orgUnitId: string; ctx: UrgentKpiContext
   perspectiveWeightPct?: Map<string, number>; onSuccess: () => void
 }) {
+  const { t } = useTranslation('kpi')
   const qc = useQueryClient()
   const { user: currentUser } = useAuthStore()
   const isStaff = currentUser?.memberships?.[0]?.roleRank === 2
   const adjustableKpis = kpiList.filter(k => k.status !== 'REPLACED' && k.status !== 'INACTIVE')
 
   const form = useForm<AdjustFormData>({
-    resolver: zodResolver(adjustKpiSchema),
+    resolver: zodResolver(adjustKpiSchema()),
     defaultValues: {
       weights: adjustableKpis.map(k => ({ kpiId: k.id, name: k.name, currentWeight: k.weight ?? 0, newWeight: k.weight ?? 0 })),
       weight: '', ...NEW_KPI_DEFAULTS,
     },
   })
+  const draft = useFormDraft(form, { key: `urgent-adjust:${orgUnitId}:${kpiPeriodId}`, enabled: true })
   const { register, handleSubmit, watch, setValue, control, formState: { errors } } = form
   const { fields } = useFieldArray({ control, name: 'weights' })
   const watchedWeights = watch('weights')
@@ -296,16 +305,16 @@ function AdjustTab({ kpiList, kpiPeriodId, orgUnitId, ctx, perspectiveWeightPct,
   const isPending = batchMutation.isPending || createMutation.isPending
 
   const onSubmit = async (data: AdjustFormData) => {
-    if (!isValid) { toast.error(`Tổng trọng số phải đúng 100% (hiện tại: ${formatNumber(totalAll)}%)`); return }
+    if (!isValid) { toast.error(t('UrgentTaskModal.theTotalWeightMustBeExactly', { totalAll: formatNumber(totalAll) })); return }
     try {
       if (adjustableKpis.length > 0) await batchMutation.mutateAsync(data)
       await createMutation.mutateAsync(data)
-      toast.success('Đã điều chỉnh trọng số và thêm KPI mới')
+      toast.success(t('UrgentTaskModal.weightsAdjustedAndNewKpiAdded'))
       qc.invalidateQueries({ queryKey: ['kpi-criteria'] })
       qc.invalidateQueries({ queryKey: ['stats'] })
       onSuccess()
     } catch (err: any) {
-      toast.error(getApiErrorMessage(err, 'Cập nhật trọng số thất bại'))
+      toast.error(getApiErrorMessage(err, t('UrgentTaskModal.failedToUpdateWeights')))
     }
   }
 
@@ -313,6 +322,7 @@ function AdjustTab({ kpiList, kpiPeriodId, orgUnitId, ctx, perspectiveWeightPct,
 
   return (
     <form id="urgent-form" onSubmit={handleSubmit(onSubmit, toastFirstError)} className="flex flex-col gap-6">
+      <DraftNotice draft={draft} />
       <UrgentKpiFields
         form={form}
         ctx={ctx}
@@ -321,9 +331,9 @@ function AdjustTab({ kpiList, kpiPeriodId, orgUnitId, ctx, perspectiveWeightPct,
             {adjustableKpis.length > 0 && (
               <div className="space-y-2">
                 <div className="flex items-center justify-between">
-                  <label className="text-label">Bớt trọng số KPI hiện có để chừa chỗ</label>
+                  <label className="text-label">{t('UrgentTaskModal.reduceTheWeightOfExistingKpis')}</label>
                   <span className={cn('text-xs font-semibold tabular-nums', isValid ? 'text-[var(--color-success)]' : 'text-[var(--color-warning)]')}>
-                    Tổng {formatNumber(totalAll)}% / 100%
+                    {t('UrgentTaskModal.total')} {formatNumber(totalAll)}% / 100%
                   </span>
                 </div>
                 <div className="overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
@@ -331,9 +341,9 @@ function AdjustTab({ kpiList, kpiPeriodId, orgUnitId, ctx, perspectiveWeightPct,
                     <thead>
                       <tr className="border-b border-[var(--color-border)] bg-[var(--color-muted)] text-eyebrow">
                         <th className="px-3 py-2 text-left">KPI</th>
-                        <th className="px-2 py-2 text-center">Trạng thái</th>
-                        <th className="px-2 py-2 text-right">Cũ</th>
-                        <th className="px-2 py-2 text-right">Mới</th>
+                        <th className="px-2 py-2 text-center">{t('UrgentTaskModal.status')}</th>
+                        <th className="px-2 py-2 text-right">{t('UrgentTaskModal.old')}</th>
+                        <th className="px-2 py-2 text-right">{t('UrgentTaskModal.new')}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[var(--color-border)]">
@@ -346,15 +356,15 @@ function AdjustTab({ kpiList, kpiPeriodId, orgUnitId, ctx, perspectiveWeightPct,
                           <tr key={field.id}>
                             <td className="max-w-[220px] truncate px-3 py-1.5 font-medium" title={kpi?.name}>{kpi?.name}</td>
                             <td className={cn('px-2 py-1.5 text-center text-xs font-semibold', kpi?.status === 'APPROVED' ? 'text-[var(--color-success)]' : 'text-[var(--color-warning)]')}>
-                              {kpi?.status === 'APPROVED' ? 'Đã duyệt' : kpi?.status === 'PENDING_APPROVAL' ? 'Chờ duyệt' : 'Nháp'}
+                              {kpi?.status === 'APPROVED' ? t('UrgentTaskModal.approved') : kpi?.status === 'PENDING_APPROVAL' ? t('UrgentTaskModal.pendingApproval') : t('UrgentTaskModal.draft')}
                             </td>
-                            <td className="px-2 py-1.5 text-right tabular-nums text-[var(--color-muted-foreground)]" title={usePct && realOld != null ? `Thật ${realOld.toFixed(1)}% (form ${formatNumber(kpi?.weight ?? 0)}% × %hạng mục)` : undefined}>
+                            <td className="px-2 py-1.5 text-right tabular-nums text-[var(--color-muted-foreground)]" title={usePct && realOld != null ? t('UrgentTaskModal.actualFormItem', { value: realOld.toFixed(1), value2: formatNumber(kpi?.weight ?? 0) }) : undefined}>
                               {usePct && realOld != null ? realOld.toFixed(1) : formatNumber(kpi?.weight ?? 0)}%
                             </td>
                             <td className="px-2 py-1.5">
                               <div className="flex flex-col items-end">
                                 <Input size="sm" type="number" step="0.1" min={0} max={100} {...register(`weights.${idx}.newWeight`, { valueAsNumber: true })} suffix={<span className="text-xs">%</span>} className="w-24" inputClassName="text-right tabular-nums" />
-                                {realNew != null && <span className="text-caption tabular-nums">thật {realNew.toFixed(1)}%</span>}
+                                {realNew != null && <span className="text-caption tabular-nums">{t('UrgentTaskModal.actual')} {realNew.toFixed(1)}%</span>}
                               </div>
                             </td>
                           </tr>
@@ -363,19 +373,19 @@ function AdjustTab({ kpiList, kpiPeriodId, orgUnitId, ctx, perspectiveWeightPct,
                     </tbody>
                   </table>
                 </div>
-                <p className="text-caption">Còn trống cho KPI mới: <b className="tabular-nums text-[var(--color-foreground)]">{formatNumber(remaining)}%</b>{usePct ? ' (trọng số thật)' : ''}</p>
+                <p className="text-caption">{t('UrgentTaskModal.availableForTheNewKpi')} <b className="tabular-nums text-[var(--color-foreground)]">{formatNumber(remaining)}%</b>{usePct ? t('UrgentTaskModal.actualWeight') : ''}</p>
               </div>
             )}
             <AssigneeSelector orgUnitId={orgUnitId} selectedIds={selectedAssignees} onChange={ids => setValue('assignedToIds', ids)} isStaff={isStaff} currentUser={currentUser ?? undefined} />
           </>
         }
         weightSlot={
-          <Field label="Trọng số KPI mới (%)" required error={errors.weight?.message}
-            hint={usePct && newPerspId ? `Thật ≈ ${newReal.toFixed(1)}% của đơn vị (× %hạng mục)` : `Cần đúng bằng phần còn trống: ${formatNumber(remaining)}%`}>
+          <Field label={t('UrgentTaskModal.newKpiWeight')} required error={errors.weight?.message}
+            hint={usePct && newPerspId ? t('UrgentTaskModal.actualOfTheUnitItem', { value: newReal.toFixed(1) }) : t('UrgentTaskModal.mustEqualExactlyTheAvailablePart', { remaining: formatNumber(remaining) })}>
             <div className="flex flex-wrap items-center gap-2">
               <Input type="number" step="any" min={0} max={100} {...register('weight')} invalid={!!errors.weight} suffix={<span className="text-xs">%</span>} className="w-36" placeholder={String(remaining)} />
               {remaining > 0 && String(watchedNewWeight) !== String(remaining) && (
-                <Button variant="ghost" size="sm" type="button" onClick={() => setValue('weight', remaining, { shouldValidate: true })}>Dùng {formatNumber(remaining)}%</Button>
+                <Button variant="ghost" size="sm" type="button" onClick={() => setValue('weight', remaining, { shouldValidate: true })}>{t('UrgentTaskModal.use')} {formatNumber(remaining)}%</Button>
               )}
             </div>
           </Field>
@@ -383,18 +393,19 @@ function AdjustTab({ kpiList, kpiPeriodId, orgUnitId, ctx, perspectiveWeightPct,
       />
       {!isValid && (
         <Hint tone="warning" icon={<AlertTriangle size={14} aria-hidden="true" />}>
-          Tổng trọng số sau điều chỉnh là {formatNumber(totalAll)}% — phải đúng 100% mới lưu được.
+          {t('UrgentTaskModal.theTotalWeightAfterAdjustingIs')} {formatNumber(totalAll)}{t('UrgentTaskModal.itMustBeExactly100To')}
         </Hint>
       )}
-      <UrgentFooter isPending={isPending} label="Lưu & thêm KPI" onCancel={onSuccess} />
+      <UrgentFooter isPending={isPending} label={t('UrgentTaskModal.saveAddKpi')} onCancel={onSuccess} />
     </form>
   )
 }
 
 function UrgentFooter({ isPending, label, onCancel }: { isPending: boolean; label: string; onCancel: () => void }) {
+  const { t } = useTranslation('kpi')
   return (
     <div className="flex justify-end gap-2 border-t border-[var(--color-border)] pt-4">
-      <Button variant="outline" type="button" onClick={onCancel} disabled={isPending}>Hủy</Button>
+      <Button variant="outline" type="button" onClick={onCancel} disabled={isPending}>{t('UrgentTaskModal.cancel')}</Button>
       <Button type="submit" disabled={isPending}>
         {isPending && <Loader2 aria-hidden="true" className="animate-spin" />} {label}
       </Button>
@@ -410,6 +421,7 @@ function UrgentFooter({ isPending, label, onCancel }: { isPending: boolean; labe
  * `UrgentKpiFields`, cùng thứ tự bối cảnh → nguồn → nội dung với form tạo chỉ tiêu.
  */
 export default function UrgentTaskModal({ open, onClose, kpiPeriodId: initPeriodId, orgUnitId: initOrgUnitId }: UrgentTaskModalProps) {
+  const { t } = useTranslation('kpi')
   const [tab, setTab] = useState<Tab>('replace')
   const [selectedPeriodId, setSelectedPeriodId] = useState(initPeriodId)
   const [selectedOrgUnitId, setSelectedOrgUnitId] = useState(initOrgUnitId)
@@ -529,27 +541,27 @@ export default function UrgentTaskModal({ open, onClose, kpiPeriodId: initPeriod
       open={open}
       onClose={onClose}
       size="xl"
-      title="Việc khẩn"
-      description="Chèn một KPI mới vào đơn vị đã đủ 100% trọng số: thay một KPI, hoặc bớt trọng số các KPI hiện có."
+      title={t('UrgentTaskModal.urgentTask')}
+      description={t('UrgentTaskModal.insertANewKpiIntoA')}
     >
       <div className="flex flex-col gap-5">
         {/* Kỳ + đơn vị: bối cảnh chung cho cả hai tab, và điều kiện 100% phải kiểm ở đây. */}
         <div className="grid gap-4 sm:grid-cols-2">
-          <Field label="Kỳ đánh giá" required>
+          <Field label={t('UrgentTaskModal.evaluationCycles')} required>
             <Select value={selectedPeriodId} onValueChange={setSelectedPeriodId}>
-              <SelectTrigger><CalendarRange size={14} className="shrink-0 text-[var(--color-muted-foreground)]" aria-hidden="true" /><SelectValue placeholder="Chọn kỳ…" /></SelectTrigger>
+              <SelectTrigger><CalendarRange size={14} className="shrink-0 text-[var(--color-muted-foreground)]" aria-hidden="true" /><SelectValue placeholder={t('UrgentTaskModal.chooseCycle')} /></SelectTrigger>
               <SelectContent>{periodsData?.content.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}</SelectContent>
             </Select>
           </Field>
-          <Field label="Đơn vị" required>
+          <Field label={t('UrgentTaskModal.unit')} required>
             {isStaff ? (
               <div className="flex h-9 items-center gap-2 rounded-control border border-[var(--color-border)] bg-[var(--color-muted)] px-3 text-sm">
                 <Building2 size={14} className="text-[var(--color-muted-foreground)]" aria-hidden="true" />
-                <span className="truncate">{flatOrgUnits.find(u => u.id === selectedOrgUnitId)?.name ?? 'Đơn vị của bạn'}</span>
+                <span className="truncate">{flatOrgUnits.find(u => u.id === selectedOrgUnitId)?.name ?? t('UrgentTaskModal.yourUnit')}</span>
               </div>
             ) : (
               <Select value={selectedOrgUnitId} onValueChange={setSelectedOrgUnitId}>
-                <SelectTrigger><Building2 size={14} className="shrink-0 text-[var(--color-muted-foreground)]" aria-hidden="true" /><SelectValue placeholder="Chọn đơn vị…" /></SelectTrigger>
+                <SelectTrigger><Building2 size={14} className="shrink-0 text-[var(--color-muted-foreground)]" aria-hidden="true" /><SelectValue placeholder={t('UrgentTaskModal.chooseUnit')} /></SelectTrigger>
                 <SelectContent className="max-h-72">{flatOrgUnits.map(u => <SelectItem key={u.id} value={u.id}>{u.levelLabel}</SelectItem>)}</SelectContent>
               </Select>
             )}
@@ -563,9 +575,9 @@ export default function UrgentTaskModal({ open, onClose, kpiPeriodId: initPeriod
               : 'border-[var(--color-error-border)] bg-[var(--color-error-bg)] text-[var(--color-error)]')}>
             <span className="flex items-center gap-1.5">
               {isLoadingWeight ? <Loader2 size={12} className="animate-spin" /> : weightIs100 ? <Check size={12} /> : <ShieldAlert size={12} />}
-              {isLoadingWeight ? 'Đang kiểm tra trọng số…'
-                : weightIs100 ? 'Tổng trọng số đã đủ 100% — chèn KPI mới bằng một trong hai cách dưới'
-                : <>Đơn vị chưa đủ <b>100%</b> trọng số — vào <b>Tạo chỉ tiêu</b> bổ sung cho đủ trước, việc khẩn chỉ dùng khi đã kín chỗ.</>}
+              {isLoadingWeight ? t('UrgentTaskModal.checkingWeights')
+                : weightIs100 ? t('UrgentTaskModal.theTotalWeightIsAlready100')
+                : <>{t('UrgentTaskModal.theUnitHasNotReached')} <b>100%</b> {t('UrgentTaskModal.weightGoTo')} <b>{t('UrgentTaskModal.createKpi')}</b> {t('UrgentTaskModal.toFillItUpFirstUrgent')}</>}
             </span>
             {!isLoadingWeight && <span className="shrink-0 text-sm font-semibold tabular-nums">{formatNumber(totalWeight ?? 0)}%</span>}
           </div>
@@ -573,22 +585,22 @@ export default function UrgentTaskModal({ open, onClose, kpiPeriodId: initPeriod
 
         {canWork && (
           <SegmentedControl<Tab>
-            ariaLabel="Cách chèn KPI"
+            ariaLabel={t('UrgentTaskModal.howToInsertTheKpi')}
             value={tab}
             onChange={setTab}
             options={[
-              { value: 'replace', label: <span className="inline-flex items-center gap-1.5"><ArrowLeftRight size={14} /> Thay một KPI</span>, title: 'KPI cũ đánh dấu Đã thay thế, KPI mới kế thừa trọng số' },
-              { value: 'adjust', label: <span className="inline-flex items-center gap-1.5"><SlidersHorizontal size={14} /> Bớt trọng số KPI hiện có</span>, title: 'Giảm trọng số vài KPI để chừa chỗ cho KPI mới' },
+              { value: 'replace', label: <span className="inline-flex items-center gap-1.5"><ArrowLeftRight size={14} /> {t('UrgentTaskModal.replaceAKpi')}</span>, title: t('UrgentTaskModal.theOldKpiIsMarkedReplaced') },
+              { value: 'adjust', label: <span className="inline-flex items-center gap-1.5"><SlidersHorizontal size={14} /> {t('UrgentTaskModal.reduceExistingKpiWeights')}</span>, title: t('UrgentTaskModal.reduceTheWeightOfAFew') },
             ]}
           />
         )}
 
         {!ready ? (
-          <p className="py-10 text-center text-sm text-[var(--color-muted-foreground)]">Chọn kỳ đánh giá và đơn vị để tiếp tục.</p>
+          <p className="py-10 text-center text-sm text-[var(--color-muted-foreground)]">{t('UrgentTaskModal.chooseAnEvaluationCycleAndUnit')}</p>
         ) : isLoadingWeight || isLoadingKpis ? (
-          <p className="flex items-center justify-center gap-2 py-10 text-caption"><Loader2 size={18} className="animate-spin text-[var(--color-primary)]" /> Đang tải…</p>
+          <p className="flex items-center justify-center gap-2 py-10 text-caption"><Loader2 size={18} className="animate-spin text-[var(--color-primary)]" /> {t('UrgentTaskModal.loading')}</p>
         ) : !weightIs100 ? null : kpiList.length === 0 ? (
-          <p className="py-10 text-center text-sm text-[var(--color-muted-foreground)]">Chưa có KPI nào trong kỳ này.</p>
+          <p className="py-10 text-center text-sm text-[var(--color-muted-foreground)]">{t('UrgentTaskModal.noKpisInThisCycleYet')}</p>
         ) : tab === 'replace' ? (
           <ReplaceTab key={`r-${selectedPeriodId}-${selectedOrgUnitId}`} kpiList={kpiList} orgUnitId={selectedOrgUnitId} ctx={ctx} onSuccess={onClose} />
         ) : (

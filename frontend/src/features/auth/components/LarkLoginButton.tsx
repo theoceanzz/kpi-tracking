@@ -1,5 +1,6 @@
 import { useNavigate } from 'react-router-dom'
 import { Button } from '@/components/ui/button'
+import { useTranslation } from 'react-i18next'
 
 function LarkIcon({ className }: { className?: string }) {
   return (
@@ -25,12 +26,13 @@ function LarkIcon({ className }: { className?: string }) {
  * Vì vậy nút này chuyển sang màn chọn công ty thay vì gọi thẳng API.
  */
 export default function LarkLoginButton() {
+  const { t } = useTranslation('auth')
   const navigate = useNavigate()
 
   return (
     <Button variant="outline" className="w-full" type="button" onClick={() => navigate('/auth/lark/select-company')}>
       <LarkIcon aria-hidden="true" className="h-5 w-5" />
-      Đăng nhập với Lark
+      {t('LarkLoginButton.signInWithLark')}
     </Button>
   )
 }

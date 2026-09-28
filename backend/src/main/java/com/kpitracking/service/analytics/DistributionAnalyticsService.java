@@ -1,5 +1,6 @@
 package com.kpitracking.service.analytics;
 
+import com.kpitracking.i18n.ErrorMessages;
 import com.kpitracking.dto.response.stats.advanced.DistributionResponses.*;
 import com.kpitracking.entity.Organization;
 import com.kpitracking.repository.EvaluationLevelRepository;
@@ -153,7 +154,7 @@ public class DistributionAnalyticsService {
 
         if (scope.unitIds().isEmpty() || scope.anonymize()) {
             return HeadcountPyramidResponse.builder()
-                    .rows(List.of()).leftLabel("Trưởng & Phó").rightLabel("Nhân viên")
+                    .rows(List.of()).leftLabel(ErrorMessages.text("analytics.distribution.managers", "")).rightLabel(ErrorMessages.text("analytics.distribution.staff", ""))
                     .totalHeadcount(0).build();
         }
 
@@ -162,7 +163,7 @@ public class DistributionAnalyticsService {
         int total = 0;
         for (Object[] r : userRoleOrgUnitRepository.headcountByLevelAndRank(scope.unitIds())) {
             int levelOrder = r[0] == null ? 0 : ((Number) r[0]).intValue();
-            String name = r[1] != null ? (String) r[1] : ("Cấp " + (levelOrder + 1));
+            String name = r[1] != null ? (String) r[1] : ErrorMessages.text("analytics.distribution.level", "", levelOrder + 1);
             int rank = r[2] == null ? 2 : ((Number) r[2]).intValue();
             int count = r[3] == null ? 0 : ((Number) r[3]).intValue();
 
@@ -175,8 +176,8 @@ public class DistributionAnalyticsService {
 
         return HeadcountPyramidResponse.builder()
                 .rows(new ArrayList<>(byLevel.values()))
-                .leftLabel("Trưởng & Phó")
-                .rightLabel("Nhân viên")
+                .leftLabel(ErrorMessages.text("analytics.distribution.managers", ""))
+                .rightLabel(ErrorMessages.text("analytics.distribution.staff", ""))
                 .totalHeadcount(total)
                 .build();
     }

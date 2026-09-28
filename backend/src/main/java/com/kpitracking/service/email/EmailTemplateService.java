@@ -1,8 +1,15 @@
 package com.kpitracking.service.email;
 
+import java.util.Locale;
+import com.kpitracking.i18n.SupportedLanguages;
+import com.kpitracking.i18n.ErrorMessages;
+import com.kpitracking.exception.BusinessException;
+import com.kpitracking.exception.ResourceNotFoundException;
 import com.kpitracking.dto.response.email.EmailTemplateResponse;
 import com.kpitracking.entity.EmailTemplate;
 import com.kpitracking.entity.Organization;
+import com.kpitracking.exception.ErrorCode;
+import com.kpitracking.i18n.Terms;
 import com.kpitracking.repository.EmailTemplateRepository;
 import com.kpitracking.service.email.EmailTemplateCatalog.TemplateDef;
 import lombok.RequiredArgsConstructor;
@@ -67,39 +74,54 @@ public class EmailTemplateService {
 
     /** Toàn bộ danh mục, mỗi mục kèm nội dung đang có hiệu lực của tổ chức. */
     @Transactional(readOnly = true)
-    public List<EmailTemplateResponse> listForOrg(UUID orgId) {
-        Map<String, EmailTemplate> custom = repository.findByOrganizationId(orgId).stream()
+    /**
+     * @param language ngôn ngữ của BẢN MAIL đang cấu hình (mỗi ngôn ngữ một bản tuỳ chỉnh). Nhãn, mô tả,
+     *                 nhóm trên màn hình cấu hình thì theo ngôn ngữ giao diện của người đang xem.
+     */
+    public List<EmailTemplateResponse> listForOrg(UUID orgId, String language) {
+        String lang = requireLanguage(language);
+        List<EmailTemplate> all = repository.findByOrganizationId(orgId);
+        Map<String, EmailTemplate> custom = all.stream().filter(t -> lang.equals(t.getLanguage()))
                 .collect(java.util.stream.Collectors.toMap(EmailTemplate::getTemplateCode, t -> t, (a, b) -> a));
 
         return EmailTemplateCatalog.all().stream()
-                .map(def -> toResponse(def, custom.get(def.getCode())))
+                .map(def -> toResponse(def, custom.get(def.getCode()), lang, disabledIn(all, def.getCode())))
                 .toList();
     }
 
     @Transactional(readOnly = true)
-    public EmailTemplateResponse getForOrg(UUID orgId, String code) {
+    public EmailTemplateResponse getForOrg(UUID orgId, String code, String language) {
+        String lang = requireLanguage(language);
         TemplateDef def = requireDef(code);
-        return toResponse(def, repository.findByOrganizationIdAndTemplateCode(orgId, code).orElse(null));
+        return toResponse(def, repository.findByOrganizationIdAndTemplateCodeAndLanguage(orgId, code, lang).orElse(null), lang,
+                disabledIn(repository.findByOrganizationId(orgId), code));
     }
 
-    private EmailTemplateResponse toResponse(TemplateDef def, EmailTemplate custom) {
+    /** Công tắc gửi dùng chung mọi ngôn ngữ: một bản nào đó đang tắt là loại mail đang tắt. */
+    private static boolean disabledIn(List<EmailTemplate> all, String code) {
+        return all.stream().anyMatch(t -> code.equals(t.getTemplateCode()) && Boolean.FALSE.equals(t.getEnabled()));
+    }
+
+    private EmailTemplateResponse toResponse(TemplateDef base, EmailTemplate custom, String language, boolean disabled) {
+        Locale uiLocale = ErrorMessages.currentLocale();
+        TemplateDef ui = EmailTemplateCatalog.localized(base, uiLocale);
+        TemplateDef def = EmailTemplateCatalog.localized(base, SupportedLanguages.toLocale(language));
         return EmailTemplateResponse.builder()
                 .code(def.getCode())
-                .label(def.getLabel())
-                .description(def.getDescription())
-                .group(def.getGroup())
+                .label(ui.getLabel())
+                .description(ui.getDescription())
+                .group(EmailTemplateCatalog.groupLabel(def.getGroup(), uiLocale))
                 .subject(custom != null ? custom.getSubject() : def.getDefaultSubject())
                 .body(custom != null ? custom.getBody() : def.getDefaultBody())
                 .fullHtml(custom != null && Boolean.TRUE.equals(custom.getFullHtml()))
                 // Loại mail không tự quản công tắc thì luôn báo là đang bật, khớp với
                 // hành vi thật ở render() thay vì phản ánh cờ cũ trong DB.
-                .enabled(!EmailTemplateCatalog.CONTROL_SELF.equals(def.getEnabledControl())
-                        || custom == null || Boolean.TRUE.equals(custom.getEnabled()))
+                .enabled(!EmailTemplateCatalog.CONTROL_SELF.equals(def.getEnabledControl()) || !disabled)
                 .enabledControl(def.getEnabledControl())
                 .customized(custom != null)
                 .defaultSubject(def.getDefaultSubject())
                 .defaultBody(def.getDefaultBody())
-                .variables(def.getVariables())
+                .variables(ui.getVariables())
                 .requiredVariables(def.getRequiredVariables())
                 .build();
     }
@@ -110,10 +132,10 @@ public class EmailTemplateService {
         String email = org.springframework.security.core.context.SecurityContextHolder
                 .getContext().getAuthentication().getName();
         var user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new com.kpitracking.exception.ResourceNotFoundException("Người dùng", "email", email));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.user"), "email", email));
         var roles = userRoleOrgUnitRepository.findByUserId(user.getId());
         if (roles.isEmpty()) {
-            throw new com.kpitracking.exception.ResourceNotFoundException("Tổ chức", "user", email);
+            throw new ResourceNotFoundException(Terms.of("resource.organization"), "user", email);
         }
         return roles.get(0).getOrgUnit().getOrgHierarchyLevel().getOrganization().getId();
     }
@@ -123,7 +145,7 @@ public class EmailTemplateService {
         String email = org.springframework.security.core.context.SecurityContextHolder
                 .getContext().getAuthentication().getName();
         return userRepository.findByEmail(email)
-                .orElseThrow(() -> new com.kpitracking.exception.ResourceNotFoundException("Người dùng", "email", email))
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.user"), "email", email))
                 .getId();
     }
 
@@ -135,19 +157,30 @@ public class EmailTemplateService {
      */
     @Transactional(readOnly = true)
     public RenderedEmail render(UUID orgId, String code, Map<String, String> variables) {
-        TemplateDef def = EmailTemplateCatalog.get(code);
+        return render(orgId, code, variables, SupportedLanguages.DEFAULT_LOCALE);
+    }
+
+    /** Sinh email theo ngôn ngữ người nhận: bản tuỳ chỉnh của tổ chức cho ngôn ngữ đó, không có thì mặc định của ngôn ngữ đó. */
+    @Transactional(readOnly = true)
+    public RenderedEmail render(UUID orgId, String code, Map<String, String> variables, Locale locale) {
+        String lang = SupportedLanguages.toLocale(locale == null ? null : locale.getLanguage()).getLanguage();
+        Locale mailLocale = SupportedLanguages.toLocale(lang);
+        TemplateDef def = EmailTemplateCatalog.get(code, mailLocale);
         if (def == null) {
-            throw new IllegalArgumentException("Không có loại email với mã: " + code);
+            throw new BusinessException(ErrorCode.NO_EMAIL_TYPE_CODE, String.valueOf(code));
         }
 
         EmailTemplate custom = orgId == null ? null
-                : repository.findByOrganizationIdAndTemplateCode(orgId, code).orElse(null);
+                : repository.findByOrganizationIdAndTemplateCodeAndLanguage(orgId, code, lang).orElse(null);
 
         // Chỉ tôn trọng cờ tắt với loại mail thực sự được phép tắt. Bản ghi cũ có thể
         // còn enabled=false từ trước khi phân quyền công tắc; để nguyên thì mail khôi
         // phục mật khẩu vẫn bị chặn bởi một nút không còn tồn tại trên giao diện.
-        if (custom != null && Boolean.FALSE.equals(custom.getEnabled())
-                && EmailTemplateCatalog.CONTROL_SELF.equals(def.getEnabledControl())) {
+        // Công tắc gửi là của LOẠI mail, không của từng bản ngôn ngữ: tắt ở bản nào cũng là tắt.
+        boolean disabled = orgId != null && EmailTemplateCatalog.CONTROL_SELF.equals(def.getEnabledControl())
+                && repository.findByOrganizationId(orgId).stream()
+                        .anyMatch(t -> code.equals(t.getTemplateCode()) && Boolean.FALSE.equals(t.getEnabled()));
+        if (disabled) {
             return new RenderedEmail(null, null, null, false);
         }
 
@@ -161,21 +194,22 @@ public class EmailTemplateService {
 
         String html = fullHtml
                 ? renderedBody
-                : EmailLayout.wrap(substitute(def.getHeaderTitle(), vars), renderedBody);
+                : EmailLayout.wrap(substitute(def.getHeaderTitle(), vars), renderedBody, mailLocale);
 
         return new RenderedEmail(renderedSubject, html, body, true);
     }
 
     /** Sinh bản xem trước bằng dữ liệu mẫu, dùng cho màn hình cấu hình. Không lưu gì. */
-    public RenderedEmail preview(String code, String subject, String body, boolean fullHtml) {
-        TemplateDef def = requireDef(code);
+    public RenderedEmail preview(String code, String subject, String body, boolean fullHtml, String language) {
+        Locale mailLocale = SupportedLanguages.toLocale(requireLanguage(language));
+        TemplateDef def = EmailTemplateCatalog.localized(requireDef(code), mailLocale);
         Map<String, String> sample = sampleVariables(def);
 
         // Lọc cả hai chế độ: bản xem trước là HTML CHƯA lưu nên chưa qua sanitize ở save().
         String renderedBody = sanitize(substitute(body, sample));
         String html = fullHtml
                 ? renderedBody
-                : EmailLayout.wrap(substitute(def.getHeaderTitle(), sample), renderedBody);
+                : EmailLayout.wrap(substitute(def.getHeaderTitle(), sample), renderedBody, mailLocale);
 
         String renderedSubject = substituteSubject(
                 subject != null && !subject.isBlank() ? subject : def.getDefaultSubject(), sample);
@@ -277,11 +311,6 @@ public class EmailTemplateService {
     // ─────────────────────────────── Cấu hình ───────────────────────────────
 
     @Transactional(readOnly = true)
-    public EmailTemplate findCustom(UUID orgId, String code) {
-        return repository.findByOrganizationIdAndTemplateCode(orgId, code).orElse(null);
-    }
-
-    @Transactional(readOnly = true)
     public List<EmailTemplate> findAllCustom(UUID orgId) {
         return repository.findByOrganizationId(orgId);
     }
@@ -292,16 +321,17 @@ public class EmailTemplateService {
      * trình soạn đọc ngược lại được nhờ các thuộc tính {@code data-email}.
      */
     @Transactional
-    public EmailTemplate save(UUID orgId, UUID actorId, String code, String subject,
+    public EmailTemplate save(UUID orgId, UUID actorId, String code, String language, String subject,
                               String body, boolean fullHtml, boolean enabled) {
-        TemplateDef def = requireDef(code);
+        String lang = requireLanguage(language);
+        TemplateDef def = EmailTemplateCatalog.localized(requireDef(code), SupportedLanguages.toLocale(lang));
         validateRequiredVariables(def, subject, body);
 
-        EmailTemplate entity = repository.findByOrganizationIdAndTemplateCode(orgId, code)
+        EmailTemplate entity = repository.findByOrganizationIdAndTemplateCodeAndLanguage(orgId, code, lang)
                 .orElseGet(() -> {
                     Organization org = new Organization();
                     org.setId(orgId);
-                    return EmailTemplate.builder().organization(org).templateCode(code).build();
+                    return EmailTemplate.builder().organization(org).templateCode(code).language(lang).build();
                 });
 
         entity.setSubject(subject != null && !subject.isBlank() ? subject.trim() : def.getDefaultSubject());
@@ -309,7 +339,12 @@ public class EmailTemplateService {
         entity.setFullHtml(fullHtml);
         entity.setEnabled(resolveEnabled(def, enabled));
         entity.setUpdatedBy(actorId);
-        return repository.save(entity);
+        EmailTemplate saved = repository.save(entity);
+        // Công tắc gửi dùng chung mọi ngôn ngữ của loại mail này.
+        repository.findByOrganizationId(orgId).stream()
+                .filter(t -> code.equals(t.getTemplateCode()) && !t.getId().equals(saved.getId()))
+                .forEach(t -> t.setEnabled(saved.getEnabled()));
+        return saved;
     }
 
     /**
@@ -320,9 +355,7 @@ public class EmailTemplateService {
         switch (def.getEnabledControl()) {
             case EmailTemplateCatalog.CONTROL_LOCKED:
                 if (!requested) {
-                    throw new IllegalArgumentException(
-                            "Không thể tắt \"" + def.getLabel() + "\". Tắt loại mail này thì người dùng "
-                                    + "không nhận được mã xác thực và sẽ mất quyền truy cập hệ thống.");
+                    throw new BusinessException(ErrorCode.CANNOT_TURNED_OFF, def.getLabel());
                 }
                 return true;
             case EmailTemplateCatalog.CONTROL_NOTIFICATION_SETTINGS:
@@ -336,9 +369,19 @@ public class EmailTemplateService {
 
     /** Xoá bản tuỳ chỉnh ⇒ quay về nội dung mặc định. */
     @Transactional
-    public void resetToDefault(UUID orgId, String code) {
+    public void resetToDefault(UUID orgId, String code, String language) {
         requireDef(code);
-        repository.deleteByOrganizationIdAndTemplateCode(orgId, code);
+        repository.deleteByOrganizationIdAndTemplateCodeAndLanguage(orgId, code, requireLanguage(language));
+    }
+
+    /** Ngôn ngữ của bản mail đang cấu hình; bỏ trống là tiếng Việt, mã lạ thì báo lỗi. */
+    private static String requireLanguage(String language) {
+        if (language == null || language.isBlank()) return SupportedLanguages.DEFAULT;
+        if (!SupportedLanguages.isSupported(language)) {
+            throw new com.kpitracking.exception.BusinessException(ErrorCode.UNSUPPORTED_LANGUAGE, language,
+                    String.join(", ", SupportedLanguages.ALL));
+        }
+        return language;
     }
 
     /**
@@ -347,7 +390,7 @@ public class EmailTemplateService {
      */
     private void validateRequiredVariables(TemplateDef def, String subject, String body) {
         if (body == null || body.isBlank()) {
-            throw new IllegalArgumentException("Nội dung email không được để trống");
+            throw new BusinessException(ErrorCode.EMAIL_CONTENT_CANNOT_EMPTY);
         }
         String combined = (subject == null ? "" : subject) + " " + body;
         List<String> missing = new ArrayList<>();
@@ -355,9 +398,7 @@ public class EmailTemplateService {
             if (!combined.contains("{{" + required + "}}")) missing.add("{{" + required + "}}");
         }
         if (!missing.isEmpty()) {
-            throw new IllegalArgumentException(
-                    "Template \"" + def.getLabel() + "\" bắt buộc phải chứa biến " + String.join(", ", missing)
-                            + ". Thiếu biến này email sẽ vô dụng với người nhận.");
+            throw new BusinessException(ErrorCode.TEMPLATE_MUST_CONTAIN_VARIABLE, def.getLabel(), String.join(", ", missing));
         }
     }
 
@@ -373,7 +414,7 @@ public class EmailTemplateService {
 
     private TemplateDef requireDef(String code) {
         TemplateDef def = EmailTemplateCatalog.get(code);
-        if (def == null) throw new IllegalArgumentException("Không có loại email với mã: " + code);
+        if (def == null) throw new BusinessException(ErrorCode.NO_EMAIL_TYPE_CODE, String.valueOf(code));
         return def;
     }
 }

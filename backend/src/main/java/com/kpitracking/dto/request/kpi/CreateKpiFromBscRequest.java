@@ -18,7 +18,7 @@ import java.util.UUID;
 @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
 public class CreateKpiFromBscRequest {
 
-    @NotNull(message = "Vui lòng chọn chỉ tiêu BSC cần chia")
+    @NotNull(message = "{validation.chooseBscKpiSplit}")
     private UUID scorecardPerspectiveId;
 
     /** Đơn vị nhận KPI; bỏ trống ⇒ các phòng ban của bộ tiêu chí. */
@@ -43,7 +43,7 @@ public class CreateKpiFromBscRequest {
 
     private Boolean isReverseKpi;
 
-    @NotEmpty(message = "Vui lòng chia chỉ tiêu cho ít nhất một đợt")
+    @NotEmpty(message = "{validation.splitKpiIntoLeastOnePeriod}")
     @Valid
     private List<BscKpiAllocationRequest> allocations;
 }

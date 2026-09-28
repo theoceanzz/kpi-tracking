@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useTranslation } from 'react-i18next'
 
 /**
  * Các khối dùng chung cho FORM CHẤM ĐIỂM (phiếu chốt kỳ, phiếu chấm đợt): nhóm có tiêu đề,
@@ -66,11 +67,12 @@ export function RefStat({ label, value, tone }: { label: string; value: ReactNod
 
 /** Một trục của ma trận kèm nguồn số — "4.5/5 · từ hạnh kiểm" thay vì một con số không rõ ở đâu ra. */
 export function AxisLine({ label, value, source }: { label: string; value: string | null; source: string | null }) {
+  const { t } = useTranslation('shared')
   return (
     <div className="flex items-baseline gap-1.5 text-xs">
       <dt className="text-[var(--color-muted-foreground)]">{label}</dt>
       <dd className="font-semibold tabular-nums text-[var(--color-foreground)]">{value ?? '—'}</dd>
-      {source && <span className="truncate text-[var(--color-subtle-foreground)]">· từ {source}</span>}
+      {source && <span className="truncate text-[var(--color-subtle-foreground)]">{t('ScoreForm.from')} {source}</span>}
     </div>
   )
 }

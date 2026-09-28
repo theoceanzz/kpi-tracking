@@ -6,6 +6,7 @@ import Boxplot from '@/components/charts/primitives/Boxplot'
 import FlowSankey from '@/components/charts/primitives/FlowSankey'
 import { useKpiCascade, useUnitBoxplot } from '../../hooks/useAdvancedAnalytics'
 import type { AdvancedFilter } from '../../api/advancedAnalyticsApi'
+import { useTranslation } from 'react-i18next'
 
 /**
  * Khung card thống nhất với các khối khác của tab So sánh các đơn vị. `bare` bỏ vỏ (khi nằm trong
@@ -53,21 +54,22 @@ function Empty({ children, height = 240 }: { children: React.ReactNode; height?:
 
 /** F1 — Luồng phân rã / uỷ quyền KPI giữa các đơn vị. */
 export function KpiCascadeSection({ filter, className, bare }: { filter: AdvancedFilter; className?: string; bare?: boolean }) {
+  const { t } = useTranslation('analytics')
   const { data, isLoading } = useKpiCascade(filter)
   return (
     <div className={cn(bare && 'flex-1 min-h-0 flex flex-col', className)}>
       <Panel
         bare={bare}
-        title="Luồng phân rã & uỷ quyền KPI"
+        title={t('DrillDownAdvanced.kpiCascadingDelegationFlow')}
         icon={<Network size={16} className="text-[var(--color-primary)]" />}
-        hint="Độ dày dải là tổng trọng số KPI chảy từ đơn vị này xuống đơn vị kia"
+        hint={t('DrillDownAdvanced.bandThicknessIsTheTotalKpi')}
       >
         {isLoading ? (
-          <Empty>Đang tải luồng KPI...</Empty>
+          <Empty>{t('DrillDownAdvanced.loadingKpiFlow')}</Empty>
         ) : !data || data.empty ? (
           <Empty>
-            Chưa có KPI nào được phân rã hoặc uỷ quyền xuống đơn vị khác.<br />
-            Luồng chỉ xuất hiện khi KPI con được tạo từ một KPI cha ở đơn vị trên.
+            {t('DrillDownAdvanced.noKpiHasBeenCascadedOr')}<br />
+            {t('DrillDownAdvanced.flowsAppearOnlyWhenAChild')}
           </Empty>
         ) : (
           <FlowSankey nodes={data.nodes} links={data.links} valueLabel={data.valueLabel} />
@@ -79,22 +81,23 @@ export function KpiCascadeSection({ filter, className, bare }: { filter: Advance
 
 /** D2 — Hộp phân tán điểm giữa các đơn vị con. */
 export function UnitBoxplotSection({ filter, className, bare }: { filter: AdvancedFilter; className?: string; bare?: boolean }) {
+  const { t } = useTranslation('analytics')
   const { data, isLoading } = useUnitBoxplot(filter)
   const boxes = data?.boxes ?? []
   return (
     <div className={cn(bare && 'flex-1 min-h-0 flex flex-col', className)}>
       <Panel
         bare={bare}
-        title="Phân tán điểm theo đơn vị"
+        title={t('DrillDownAdvanced.scoreSpreadByUnit')}
         icon={<BoxSelect size={16} className="text-sky-600" />}
-        hint="Hộp càng cao thì nội bộ đơn vị càng chênh lệch, điều mà điểm trung bình không cho thấy"
+        hint={t('DrillDownAdvanced.theTallerTheBoxTheLarger')}
       >
         {isLoading ? (
-          <Empty>Đang tải phân tán điểm...</Empty>
+          <Empty>{t('DrillDownAdvanced.loadingScoreSpread')}</Empty>
         ) : boxes.length === 0 ? (
-          <Empty>Chưa đủ dữ liệu đánh giá để dựng phân tán</Empty>
+          <Empty>{t('DrillDownAdvanced.notEnoughEvaluationDataToBuild')}</Empty>
         ) : (
-          <Boxplot data={boxes} unit="điểm" yLabel="Điểm đánh giá" height={Math.max(280, Math.min(boxes.length * 60, 420))} />
+          <Boxplot data={boxes} unit={t('DrillDownAdvanced.points')} yLabel={t('DrillDownAdvanced.evaluationScore')} height={Math.max(280, Math.min(boxes.length * 60, 420))} />
         )}
       </Panel>
     </div>

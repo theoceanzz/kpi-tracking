@@ -2,6 +2,8 @@ import { useMemo, useState, type MouseEvent, type ReactNode } from 'react'
 import { History, ChevronUp } from 'lucide-react'
 import { SelectItem, SelectSeparator } from '@/components/ui/select'
 import { splitByTime, type DatedScope } from './dateScope'
+import { useTranslation } from 'react-i18next'
+import i18n from 'i18next'
 
 interface ScopeSelectItemsProps<T extends DatedScope> {
   items: T[] | undefined
@@ -24,10 +26,11 @@ interface ScopeSelectItemsProps<T extends DatedScope> {
 export default function ScopeSelectItems<T extends DatedScope>({
   items,
   selectedId,
-  noun = 'đợt',
+  noun = i18n.t('shared:ScopeSelectItems.periods'),
   itemClassName,
   renderLabel,
 }: ScopeSelectItemsProps<T>) {
+  const { t } = useTranslation('shared')
   const [showPast, setShowPast] = useState(false)
   const { upcoming, past } = useMemo(() => splitByTime(items), [items])
 
@@ -60,7 +63,7 @@ export default function ScopeSelectItems<T extends DatedScope>({
           {upcoming.length > 0 && <SelectSeparator />}
           {showPast && (
             <div className="text-eyebrow px-2 py-1">
-              {noun} đã qua
+              {noun} {t('ScopeSelectItems.past')}
             </div>
           )}
           {visiblePast.map(item)}
@@ -69,18 +72,18 @@ export default function ScopeSelectItems<T extends DatedScope>({
 
       {upcoming.length === 0 && visiblePast.length === 0 && hiddenPastCount === 0 && (
         <div className="px-2 py-3 text-center text-xs font-semibold text-[var(--color-subtle-foreground)]">
-          Chưa có {noun} nào
+          {t('ScopeSelectItems.no')} {noun} {t('ScopeSelectItems.yet')}
         </div>
       )}
 
       {hiddenPastCount > 0 && (
         <button type="button" onClick={toggle} className={toggleClass}>
-          <History size={13} /> Xem {hiddenPastCount} {noun} đã qua
+          <History size={13} /> {t('ScopeSelectItems.showPast', { count: hiddenPastCount, noun })}
         </button>
       )}
       {showPast && past.length > 0 && (
         <button type="button" onClick={toggle} className={toggleClass}>
-          <ChevronUp size={13} /> Ẩn {noun} đã qua
+          <ChevronUp size={13} /> {t('ScopeSelectItems.hide')} {noun} {t('ScopeSelectItems.past')}
         </button>
       )}
     </>

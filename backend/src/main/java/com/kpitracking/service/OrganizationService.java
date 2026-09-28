@@ -1,5 +1,6 @@
 package com.kpitracking.service;
 
+import com.kpitracking.exception.ForbiddenException;
 import com.kpitracking.constant.EvaluationConstants;
 
 import com.kpitracking.constant.RolePermissionConstants;
@@ -13,7 +14,9 @@ import com.kpitracking.entity.*;
 import com.kpitracking.enums.OrganizationStatus;
 import com.kpitracking.exception.BusinessException;
 import com.kpitracking.exception.DuplicateResourceException;
+import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.ResourceNotFoundException;
+import com.kpitracking.i18n.Terms;
 import com.kpitracking.mapper.OrgHierarchyLevelMapper;
 import com.kpitracking.mapper.OrganizationMapper;
 import com.kpitracking.repository.OrgHierarchyLevelRepository;
@@ -52,6 +55,7 @@ public class OrganizationService {
     private final com.kpitracking.repository.QualitativeLevelRepository qualitativeLevelRepository;
     private final com.kpitracking.mapper.QualitativeLevelMapper qualitativeLevelMapper;
     private final ConductService conductService;
+    private final com.kpitracking.service.feedback360.F360TemplateService f360TemplateService;
     private final BscService bscService;
     private final CloudinaryStorageService cloudinaryStorageService;
     private final com.kpitracking.repository.UserRepository userRepository;
@@ -61,7 +65,7 @@ public class OrganizationService {
         String email = org.springframework.security.core.context.SecurityContextHolder
                 .getContext().getAuthentication().getName();
         return userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "email", email));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.user"), "email", email));
     }
 
     /** Whether qualitative KPIs are enabled for the given organization. */
@@ -76,7 +80,7 @@ public class OrganizationService {
     @Transactional
     public OrganizationResponse createOrganization(CreateOrganizationRequest request) {
         if (organizationRepository.existsByCode(request.getCode())) {
-            throw new DuplicateResourceException("Tổ chức", "code", request.getCode());
+            throw new DuplicateResourceException(Terms.of("resource.organization"), "code", request.getCode());
         }
 
         Organization organization = Organization.builder()
@@ -129,7 +133,7 @@ public class OrganizationService {
     @Transactional(readOnly = true)
     public OrganizationResponse getOrganization(UUID orgId) {
         Organization organization = organizationRepository.findById(orgId)
-                .orElseThrow(() -> new ResourceNotFoundException("Tổ chức", "id", orgId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.organization"), "id", orgId));
 
         return organizationMapper.toResponse(organization);
     }
@@ -152,14 +156,14 @@ public class OrganizationService {
     @Transactional
     public OrganizationResponse updateOrganization(UUID orgId, UpdateOrganizationRequest request) {
         Organization organization = organizationRepository.findById(orgId)
-                .orElseThrow(() -> new ResourceNotFoundException("Tổ chức", "id", orgId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.organization"), "id", orgId));
 
         if (request.getName() != null) {
             organization.setName(request.getName());
         }
         if (request.getCode() != null && !request.getCode().equals(organization.getCode())) {
             if (organizationRepository.existsByCode(request.getCode())) {
-                throw new DuplicateResourceException("Tổ chức", "code", request.getCode());
+                throw new DuplicateResourceException(Terms.of("resource.organization"), "code", request.getCode());
             }
             organization.setCode(request.getCode());
         }
@@ -192,9 +196,7 @@ public class OrganizationService {
             // Chấm luôn tối đa 100 (trọng số = điểm), thang điểm chỉ là mẫu số xếp loại — đặt
             // thấp hơn 100 thì ai hoàn thành đủ KPI cũng kịch/vượt trần, xếp loại mất ý nghĩa.
             if (request.getEvaluationMaxScore() < EvaluationService.SCORING_POOL) {
-                throw new BusinessException("Thang điểm tối đa phải từ "
-                        + (long) EvaluationService.SCORING_POOL + " trở lên, vì hoàn thành đủ 100% KPI đã là "
-                        + (long) EvaluationService.SCORING_POOL + " điểm.");
+                throw new BusinessException(ErrorCode.MAXIMUM_SCALE_MUST_MORE_SINCE_COMPLETING_100, String.valueOf((long) EvaluationService.SCORING_POOL), String.valueOf((long) EvaluationService.SCORING_POOL));
             }
             organization.setEvaluationMaxScore(request.getEvaluationMaxScore());
         }
@@ -206,8 +208,7 @@ public class OrganizationService {
         if (request.getEvaluationReminderDays() != null) {
             int days = request.getEvaluationReminderDays();
             if (days < 0 || days > 60) {
-                throw new com.kpitracking.exception.BusinessException(
-                        "Số ngày nhắc hạn đánh giá phải nằm trong khoảng 0 đến 60 (0 = tắt nhắc)");
+                throw new BusinessException(ErrorCode.NUMBER_EVALUATION_REMINDER_DAYS_MUST_BETWEEN_0);
             }
             organization.setEvaluationReminderDays(days);
         }
@@ -237,6 +238,21 @@ public class OrganizationService {
             if (Boolean.TRUE.equals(request.getEnableConduct())) {
                 conductService.ensureDefaultSet(organization);
             }
+        }
+
+        if (request.getEnableFeedback360() != null) {
+            organization.setEnableFeedback360(request.getEnableFeedback360());
+            // Cùng cách với hạnh kiểm: bật lần đầu thì dựng sẵn bộ câu hỏi mẫu để HR tạo được
+            // chiến dịch ngay; tắt rồi bật lại không ghi đè bộ đã tuỳ chỉnh.
+            if (Boolean.TRUE.equals(request.getEnableFeedback360())) {
+                f360TemplateService.ensureDefaultTemplate(organization);
+            }
+        }
+
+        if (request.getFeedback360AffectsRating() != null) {
+            // Chỉ là cửa cho phép: chiến dịch vẫn phải tự chọn chế độ ảnh hưởng điểm, và các kỳ
+            // đã chốt dữ liệu dùng điểm 360 đã chụp nên bật/tắt ở đây không làm đổi kết quả cũ.
+            organization.setFeedback360AffectsRating(request.getFeedback360AffectsRating());
         }
 
         // Thang điểm hạnh kiểm nay thuộc về TỪNG BỘ tiêu chí (mỗi kỳ một thang riêng được),
@@ -299,7 +315,7 @@ public class OrganizationService {
 
     private void syncHierarchyLevels(Organization organization, List<HierarchyLevelDTO> newLevels) {
         if (newLevels.size() < 2) {
-            throw new BusinessException("Cơ cấu tổ chức phải có ít nhất 2 cấp.");
+            throw new BusinessException(ErrorCode.ORGANIZATION_STRUCTURE_MUST_LEAST_2_LEVELS);
         }
 
         // Fetch all organization roles once to avoid repeated queries and flushes in loops
@@ -319,7 +335,7 @@ public class OrganizationService {
 
         for (OrgHierarchyLevel levelToRemove : toRemove) {
             if (orgUnitRepository.existsByOrgHierarchyLevelId(levelToRemove.getId())) {
-                throw new BusinessException("Không thể xóa cấp bậc '" + levelToRemove.getUnitTypeName() + "' vì đang có đơn vị sử dụng.");
+                throw new BusinessException(ErrorCode.LEVEL_CANNOT_DELETED_BECAUSE_UNITS_USING, levelToRemove.getUnitTypeName());
             }
             
             // Delete roles associated with this level AND rename them to avoid unique constraint violations
@@ -369,7 +385,7 @@ public class OrganizationService {
             if (dto.getId() != null) {
                 // Update existing
                 level = orgHierarchyLevelRepository.findById(dto.getId())
-                        .orElseThrow(() -> new ResourceNotFoundException("Cấp bậc", "id", dto.getId()));
+                        .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.level"), "id", dto.getId()));
                 
                 // If roleLevel changes, we need to update existing roles for this level
                 if (!level.getRoleLevel().equals(roleLevel)) {
@@ -521,7 +537,7 @@ public class OrganizationService {
     @Transactional
     public void deleteOrganization(UUID orgId) {
         Organization organization = organizationRepository.findById(orgId)
-                .orElseThrow(() -> new ResourceNotFoundException("Tổ chức", "id", orgId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.organization"), "id", orgId));
         organization.setStatus(OrganizationStatus.ARCHIVED);
         organizationRepository.save(organization);
     }
@@ -529,7 +545,7 @@ public class OrganizationService {
     @Transactional(readOnly = true)
     public List<HierarchyLevelResponse> getHierarchyLevels(UUID orgId) {
         organizationRepository.findById(orgId)
-                .orElseThrow(() -> new ResourceNotFoundException("Tổ chức", "id", orgId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.organization"), "id", orgId));
 
         return orgHierarchyLevelRepository.findByOrganizationIdOrderByLevelOrderAsc(orgId)
                 .stream()
@@ -540,11 +556,11 @@ public class OrganizationService {
     @Transactional(readOnly = true)
     public long countMembers(UUID orgId) {
         if (!organizationRepository.existsById(orgId)) {
-            throw new ResourceNotFoundException("Tổ chức", "id", orgId);
+            throw new ResourceNotFoundException(Terms.of("resource.organization"), "id", orgId);
         }
         // orgId do client gửi: chỉ thành viên của tổ chức mới được biết quy mô nhân sự.
         if (!permissionChecker.isMemberOfOrganization(getCurrentUser().getId(), orgId)) {
-            throw new com.kpitracking.exception.ForbiddenException("Bạn không thuộc tổ chức này");
+            throw new ForbiddenException(ErrorCode.DO_NOT_BELONG_ORGANIZATION_3);
         }
         return userRoleOrgUnitRepository.countUsersByOrganizationId(orgId);
     }
@@ -552,7 +568,7 @@ public class OrganizationService {
     @Transactional(readOnly = true)
     public long countMembersByOrgUnit(UUID orgUnitId) {
         com.kpitracking.entity.OrgUnit unit = orgUnitRepository.findById(orgUnitId)
-                .orElseThrow(() -> new ResourceNotFoundException("Đơn vị tổ chức", "id", orgUnitId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.organizationUnit"), "id", orgUnitId));
         UUID orgId = unit.getOrgHierarchyLevel().getOrganization().getId();
         return userRoleOrgUnitRepository.countUsersInSubtree(unit.getPath(), orgId);
     }
@@ -620,22 +636,22 @@ public class OrganizationService {
     public OrganizationResponse uploadBranding(UUID orgId, String kind, org.springframework.web.multipart.MultipartFile file)
             throws java.io.IOException {
         Organization organization = organizationRepository.findById(orgId)
-                .orElseThrow(() -> new ResourceNotFoundException("Tổ chức", "id", orgId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.organization"), "id", orgId));
 
         if (file == null || file.isEmpty()) {
-            throw new BusinessException("Chưa chọn tập tin ảnh");
+            throw new BusinessException(ErrorCode.NO_IMAGE_FILE_SELECTED);
         }
         String contentType = file.getContentType();
         if (contentType == null || !contentType.startsWith("image/")) {
-            throw new BusinessException("Tập tin phải là ảnh");
+            throw new BusinessException(ErrorCode.FILE_MUST_IMAGE);
         }
         if (file.getSize() > MAX_BRANDING_IMAGE_BYTES) {
-            throw new BusinessException("Ảnh không được vượt quá 5MB");
+            throw new BusinessException(ErrorCode.IMAGE_MUST_NOT_EXCEED_5MB);
         }
 
         boolean isCover = "cover".equalsIgnoreCase(kind);
         if (!isCover && !"logo".equalsIgnoreCase(kind)) {
-            throw new BusinessException("Loại ảnh không hợp lệ: " + kind);
+            throw new BusinessException(ErrorCode.INVALID_IMAGE_TYPE, String.valueOf(kind));
         }
 
         String url = cloudinaryStorageService.uploadFile(file, isCover ? "org-covers" : "org-logos").get("url");

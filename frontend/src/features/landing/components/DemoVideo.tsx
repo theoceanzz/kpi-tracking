@@ -1,15 +1,25 @@
 import { useEffect, useRef, useState, type CSSProperties } from 'react'
+import { fallbackTo, landingMedia } from '../landingMedia'
 import { cn } from '@/lib/utils'
 import { useInView } from '../hooks/useInView'
 import { Eyebrow, GlassFrame, Headline, Lead, Reveal } from './primitives'
+import { Trans, useTranslation } from 'react-i18next'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
-/** Đặt file video thật vào frontend/public/landing/keygo-demo.mp4 (+ poster) là tự dùng;
- *  chưa có file thì khung tự chạy "cuộn cảnh" từ ảnh chụp thật (Ken Burns) để trang không trống. */
-const VIDEO_SRC = '/landing/keygo-demo.mp4'
-const POSTER_SRC = '/landing/keygo-demo-poster.webp'
+/** Video thật ở frontend/public/landing/keygo-demo.mp4 (+ poster); bản tiếng Anh ở public/landing/en/ cùng tên.
+ *  Chưa có bản theo ngôn ngữ thì dùng bản gốc; không có cả hai thì khung tự chạy "cuộn cảnh" từ ảnh chụp thật
+ *  (Ken Burns) để trang không trống. */
+const VIDEO_FILE = 'keygo-demo.mp4'
+const POSTER_FILE = 'keygo-demo-poster.webp'
 
 export function DemoVideo() {
+  const { t } = useTranslation('landing')
   const [hasVideo, setHasVideo] = useState(true)
+  const video = landingMedia(VIDEO_FILE)
+  const poster = landingMedia(POSTER_FILE)
+  // Bản theo ngôn ngữ lỗi (chưa có tệp) thì thử bản gốc trước khi chuyển sang cuộn cảnh.
+  const [videoSrc, setVideoSrc] = useState(video.src)
   const videoRef = useRef<HTMLVideoElement>(null)
   const { ref, inView } = useInView<HTMLDivElement>({ threshold: 0.35, once: false })
 
@@ -29,10 +39,10 @@ export function DemoVideo() {
       </div>
       <div className="mx-auto max-w-[1440px]">
         <div className="mx-auto mb-12 max-w-2xl text-center sm:mb-16">
-          <Reveal><Eyebrow className="justify-center">Xem demo · 68 giây</Eyebrow></Reveal>
-          <Reveal delay={100}><Headline className="mt-4">Xem KeyGo <em>vận hành</em>.</Headline></Reveal>
+          <Reveal><Eyebrow className="justify-center">{t('DemoVideo.watchTheDemo68Seconds')}</Eyebrow></Reveal>
+          <Reveal delay={100}><Headline className="mt-4"><Trans t={t} i18nKey="DemoVideo.headline" components={{ em: <em /> }} /></Headline></Reveal>
           <Reveal delay={200}>
-            <Lead className="mx-auto mt-4 text-center">Từ đăng nhập đến trao thưởng và hỏi K.AI — 8 bước, quay trên hệ thống thật. Bật loa để nghe nhạc nền.</Lead>
+            <Lead className="mx-auto mt-4 text-center">{t('DemoVideo.fromSignInToGivingRewards')}</Lead>
           </Reveal>
         </div>
 
@@ -45,15 +55,15 @@ export function DemoVideo() {
                   // controls: thanh tua, âm lượng, toàn màn hình của trình duyệt — không tự vẽ để khỏi thiếu tính năng
                   <video
                     ref={videoRef}
-                    src={VIDEO_SRC}
-                    poster={POSTER_SRC}
+                    src={videoSrc}
+                    poster={videoSrc === video.src ? poster.src : poster.fallback}
                     controls
                     muted
                     loop
                     playsInline
                     preload="metadata"
                     controlsList="nodownload"
-                    onError={() => setHasVideo(false)}
+                    onError={() => (videoSrc !== video.fallback ? setVideoSrc(video.fallback) : setHasVideo(false))}
                     className="h-full w-full object-cover"
                   />
                 ) : (
@@ -70,31 +80,32 @@ export function DemoVideo() {
 
 /* ── Cuộn cảnh từ ảnh chụp thật (khi chưa có video) ─────────────────────── */
 
-const SCENES = [
-  { src: '/landing/kpi-cycles.webp', title: 'Tạo kỳ & đợt đánh giá', sub: 'Kỳ tháng / quý / năm · gom nhiều đợt', ms: 5000 },
-  { src: '/landing/evaluation-batch.webp', title: 'Chấm điểm từng đợt', sub: 'Duyệt bài nộp · chấm · xếp loại', ms: 5000 },
-  { src: '/landing/evaluation-period.webp', title: 'Chốt kết quả kỳ', sub: 'Luồng duyệt theo cấp · bell curve', ms: 5000 },
-  { src: '/landing/rewards.webp', title: 'Trao thưởng', sub: 'Điểm thưởng · quà tặng · chứng nhận', ms: 5400 },
-]
+const SCENES = perLanguage(() => ([
+  { src: 'kpi-cycles.webp', title: i18n.t('landing:DemoVideo.createEvaluationCyclesPeriods'), sub: i18n.t('landing:DemoVideo.monthQuarterYearCyclesGroupingSeveral'), ms: 5000 },
+  { src: 'evaluation-batch.webp', title: i18n.t('landing:DemoVideo.scoreEachPeriod'), sub: i18n.t('landing:DemoVideo.approveSubmissionsScoreRate'), ms: 5000 },
+  { src: 'evaluation-period.webp', title: i18n.t('landing:DemoVideo.finalizeCycleResults'), sub: i18n.t('landing:DemoVideo.approvalFlowByLevelBellCurve'), ms: 5000 },
+  { src: 'rewards.webp', title: i18n.t('landing:DemoVideo.giveRewards'), sub: i18n.t('landing:DemoVideo.rewardPointsGiftsCertificates'), ms: 5400 },
+]))
 
 function SceneReel({ active }: { active: boolean }) {
   const [idx, setIdx] = useState(0)
 
   useEffect(() => {
     if (!active) return
-    const scene = SCENES[idx]
-    const t = window.setTimeout(() => setIdx((i) => (i + 1) % SCENES.length), scene?.ms ?? 5000)
+    const scene = SCENES()[idx]
+    const t = window.setTimeout(() => setIdx((i) => (i + 1) % SCENES().length), scene?.ms ?? 5000)
     return () => window.clearTimeout(t)
   }, [active, idx])
 
-  const scene = SCENES[idx] ?? SCENES[0]!
+  const scene = SCENES()[idx] ?? SCENES()[0]!
 
   return (
     <div className="absolute inset-0 overflow-hidden">
       {/* Cảnh — key đổi để Ken Burns chạy lại từ đầu */}
       <div key={idx} className="lp-fade-in absolute inset-0">
         <img
-          src={scene.src}
+          src={landingMedia(scene.src).src}
+          onError={fallbackTo(landingMedia(scene.src).fallback)}
           alt={scene.title}
           className={cn('h-full w-full object-cover object-top', active && 'lp-kenburns')}
           style={{ '--lp-kb': `${scene.ms + 800}ms` } as CSSProperties}
@@ -111,7 +122,7 @@ function SceneReel({ active }: { active: boolean }) {
           <div className="text-xs text-slate-300 sm:text-sm">{scene.sub}</div>
         </div>
         <div className="flex gap-1.5">
-          {SCENES.map((s, i) => (
+          {SCENES().map((s, i) => (
             <button
               key={s.title}
               type="button"

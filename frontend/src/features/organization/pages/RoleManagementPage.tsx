@@ -1,3 +1,4 @@
+import { dateFnsLocale } from '@/i18n/format'
 import { useState, useMemo } from 'react'
 import { 
   Shield, 
@@ -29,14 +30,17 @@ import RolePermissionDrawer from '../components/RolePermissionDrawer'
 import HierarchyPermissionModal from '../components/HierarchyPermissionModal'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
 import { format } from 'date-fns'
-import { vi } from 'date-fns/locale'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { ChoiceChip } from '@/components/ui/choice-chip'
+import { useTranslation } from 'react-i18next'
+import { useStateDraft } from '@/hooks/useFormDraft'
+import DraftNotice from '@/components/common/DraftNotice'
 
 export default function RoleManagementPage() {
+  const { t } = useTranslation('organization')
   const { refreshUser } = useAuth()
   const [searchQuery, setSearchQuery] = useState('')
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -54,6 +58,7 @@ export default function RoleManagementPage() {
     level: 2,
     rank: 2
   })
+  const draft = useStateDraft(formData, setFormData, { key: `role:${editingRole?.id ?? 'new'}`, enabled: isModalOpen })
   
   const { data: roles = [], isLoading } = useRoles()
   const createMutation = useCreateRole()
@@ -64,7 +69,7 @@ export default function RoleManagementPage() {
   const orgId = user?.memberships?.[0]?.organizationId
   const { data: hierarchyLevels = [] } = useOrgHierarchyLevels(orgId)
 
-  const rawTitle = usePageTitle('roles', 'Phân quyền vai trò')
+  const rawTitle = usePageTitle('roles', t('RoleManagementPage.rolePermissions'))
 
   const filteredRoles = useMemo(() => {
     // Get unique role levels from organization hierarchy
@@ -88,7 +93,7 @@ export default function RoleManagementPage() {
   const getLevelInfo = (level: number | undefined) => {
     if (level === undefined) return { label: 'N/A', color: 'gray' }
     const hl = hierarchyLevels.find(l => l.roleLevel === level)
-    if (!hl) return { label: 'Khác', color: 'gray' }
+    if (!hl) return { label: t('RoleManagementPage.other'), color: 'gray' }
     
     // Determine relative position for colors
     const levels = [...new Set(hierarchyLevels.map(l => l.roleLevel))].sort((a, b) => a - b)
@@ -127,7 +132,7 @@ export default function RoleManagementPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!formData.name) {
-      toast.error('Vui lòng nhập tên vai trò')
+      toast.error(t('RoleManagementPage.pleaseEnterTheRoleName'))
       return
     }
 
@@ -139,8 +144,8 @@ export default function RoleManagementPage() {
         r.id !== editingRole?.id
       )
       if (duplicate) {
-        const rankName = formData.rank === 0 ? "TRƯỞNG" : "PHÓ"
-        toast.error(`Mỗi phân cấp chỉ được phép có tối đa 1 ${rankName}. Hiện tại đã có vai trò "${duplicate.name}" ở phân cấp này.`)
+        const rankName = formData.rank === 0 ? t('RoleManagementPage.head') : t('RoleManagementPage.deputy')
+        toast.error(t('RoleManagementPage.eachLevelMayHaveAtMost', { rankName, name: duplicate.name }))
         return
       }
     }
@@ -193,20 +198,20 @@ export default function RoleManagementPage() {
       <WorkspaceHeader
         id="tour-roles-header"
         title={rawTitle}
-        description="Vai trò và quyền hạn kèm theo từng vai trò. Quyền theo phân cấp áp cho mọi vai trò cùng cấp."
+        description={t('RoleManagementPage.rolesAndThePermissionsAttachedTo')}
         stats={[
-          { label: 'Vai trò', value: stats.total, icon: Layers },
-          { label: 'Hệ thống', value: stats.system, icon: Lock },
-          { label: 'Tuỳ chỉnh', value: stats.custom, icon: ShieldCheck },
-          { label: 'Cấp lãnh đạo', value: stats.highLevel, icon: Key },
+          { label: t('RoleManagementPage.role'), value: stats.total, icon: Layers },
+          { label: t('RoleManagementPage.system'), value: stats.system, icon: Lock },
+          { label: t('RoleManagementPage.customize'), value: stats.custom, icon: ShieldCheck },
+          { label: t('RoleManagementPage.leadershipLevel'), value: stats.highLevel, icon: Key },
         ]}
         actions={
           /* Hai nút đi chung một cụm để khi thiếu chỗ thì cùng xuống hàng, không tách mỗi nút một nơi quanh dãy số liệu. */
           <div className="flex flex-wrap items-center gap-2">
             <Button variant="outline" id="tour-roles-hierarchy-btn" onClick={() => setIsHierarchyModalOpen(true)}>
-              <Zap aria-hidden="true" /> Quyền theo phân cấp
+              <Zap aria-hidden="true" /> {t('RoleManagementPage.permissionsByHierarchy')}
             </Button>
-            <Button onClick={() => handleOpenModal()}><Plus aria-hidden="true" /> Thêm vai trò</Button>
+            <Button onClick={() => handleOpenModal()}><Plus aria-hidden="true" /> {t('RoleManagementPage.addRole')}</Button>
           </div>
         }
       />
@@ -221,7 +226,7 @@ export default function RoleManagementPage() {
             </div>
             <input
               type="text"
-              placeholder="Tìm kiếm theo tên vai trò hoặc định danh..."
+              placeholder={t('RoleManagementPage.searchByRoleNameOrIdentifier')}
               className="w-full pl-12 pr-6 py-2.5 bg-[var(--color-card)] border border-[var(--color-border)] rounded-card outline-none focus:ring-4 focus:ring-[var(--color-ring)] focus:border-[var(--color-primary)] transition-all font-medium text-sm shadow-sm"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
@@ -231,11 +236,11 @@ export default function RoleManagementPage() {
           <div className="flex items-center gap-3">
              <div className="text-eyebrow flex items-center gap-1.5 px-4 py-2 rounded-card bg-[var(--color-primary-soft)] text-[var(--color-primary)]">
                <Filter size={14} />
-               Phân loại
+               {t('RoleManagementPage.classification')}
              </div>
              <div className="h-8 w-px bg-[var(--color-border)] mx-1" />
              <div className="text-xs font-medium text-[var(--color-subtle-foreground)]">
-               Hiển thị <span className="text-[var(--color-foreground)]">{filteredRoles.length}</span> kết quả
+               {t('RoleManagementPage.show')} <span className="text-[var(--color-foreground)]">{filteredRoles.length}</span> {t('RoleManagementPage.results')}
              </div>
           </div>
         </div>
@@ -245,11 +250,11 @@ export default function RoleManagementPage() {
           <table className="w-full text-left border-collapse">
             <thead>
               <tr className="bg-[var(--color-muted)] text-eyebrow whitespace-nowrap">
-                <th className="px-6 py-4 border-b border-[var(--color-border)]">Thông tin vai trò</th>
-                <th className="px-6 py-4 border-b border-[var(--color-border)] text-center">Vị trí</th>
-                <th className="px-6 py-4 border-b border-[var(--color-border)]">Phân cấp hệ thống</th>
-                <th className="px-6 py-4 border-b border-[var(--color-border)]">Ngày tạo</th>
-                <th className="px-6 py-4 border-b border-[var(--color-border)] text-right">Quản lý</th>
+                <th className="px-6 py-4 border-b border-[var(--color-border)]">{t('RoleManagementPage.roleInformation')}</th>
+                <th className="px-6 py-4 border-b border-[var(--color-border)] text-center">{t('RoleManagementPage.position')}</th>
+                <th className="px-6 py-4 border-b border-[var(--color-border)]">{t('RoleManagementPage.systemHierarchy')}</th>
+                <th className="px-6 py-4 border-b border-[var(--color-border)]">{t('RoleManagementPage.createdOn')}</th>
+                <th className="px-6 py-4 border-b border-[var(--color-border)] text-right">{t('RoleManagementPage.manager')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--color-border)]">
@@ -260,7 +265,7 @@ export default function RoleManagementPage() {
                       <div className="w-16 h-16 border-4 border-[var(--color-border)] border-t-[var(--color-primary)] rounded-full animate-spin" />
                       <Shield className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[var(--color-primary)] w-6 h-6" />
                     </div>
-                    <p className="text-eyebrow text-[var(--color-muted-foreground)] mt-4 animate-pulse">Đang tải dữ liệu vai trò...</p>
+                    <p className="text-eyebrow text-[var(--color-muted-foreground)] mt-4 animate-pulse">{t('RoleManagementPage.loadingRoleData')}</p>
                   </td>
                 </tr>
               ) : filteredRoles.length === 0 ? (
@@ -271,8 +276,8 @@ export default function RoleManagementPage() {
                         <Shield size={40} />
                       </div>
                       <div>
-                        <p className="text-section-title text-[var(--color-muted-foreground)]">Không tìm thấy vai trò</p>
-                        <p className="text-[var(--color-subtle-foreground)] font-medium mt-1">Thử thay đổi từ khóa tìm kiếm của bạn.</p>
+                        <p className="text-section-title text-[var(--color-muted-foreground)]">{t('RoleManagementPage.noRoleFound')}</p>
+                        <p className="text-[var(--color-subtle-foreground)] font-medium mt-1">{t('RoleManagementPage.tryChangingYourSearchKeyword')}</p>
                       </div>
                     </div>
                   </td>
@@ -295,7 +300,7 @@ export default function RoleManagementPage() {
                              <span className="font-semibold text-[var(--color-foreground)] text-base whitespace-nowrap">{role.name}</span>
                              {role.isSystem && (
                                <span className="px-2 py-0.5 bg-[var(--color-primary-soft)] text-[var(--color-primary)] text-xs font-medium rounded-control border border-[var(--color-border)] flex items-center gap-1">
-                                 <Lock size={8} /> Hệ thống
+                                 <Lock size={8} /> {t('RoleManagementPage.system')}
                                </span>
                              )}
                            </div>
@@ -310,7 +315,7 @@ export default function RoleManagementPage() {
                         role.rank === 1 ? "bg-[var(--color-primary-soft)] text-[var(--color-primary)] border-[var(--color-border)]" :
                         "bg-[var(--color-muted)] text-[var(--color-subtle-foreground)] border-[var(--color-border)]"
                       )}>
-                        {role.rank === 0 ? 'Trưởng' : role.rank === 1 ? 'Phó' : 'Thành viên'}
+                        {role.rank === 0 ? t('RoleManagementPage.head2') : role.rank === 1 ? t('RoleManagementPage.deputy2') : t('RoleManagementPage.members')}
                       </div>
                     </td>
                     <td className="px-6 py-4">
@@ -336,7 +341,7 @@ export default function RoleManagementPage() {
                     <td className="px-6 py-4">
                        <div className="flex items-center gap-2 text-[var(--color-muted-foreground)] whitespace-nowrap">
                          <History size={14} className="text-[var(--color-subtle-foreground)]" />
-                         <span className="font-medium text-sm">{format(new Date(role.createdAt), 'dd MMM, yyyy', { locale: vi })}</span>
+                         <span className="font-medium text-sm">{format(new Date(role.createdAt), 'dd MMM, yyyy', { locale: dateFnsLocale() })}</span>
                        </div>
                     </td>
                     <td className="px-6 py-4 text-right">
@@ -363,7 +368,7 @@ export default function RoleManagementPage() {
                                   <div className="w-8 h-8 rounded-control bg-[var(--color-primary-soft)] text-[var(--color-primary)] flex items-center justify-center">
                                     <Key aria-hidden="true" />
                                   </div>
-                                  Phân quyền
+                                  {t('RoleManagementPage.permissions')}
                                 </button>
                                 
                                 <button type="button" className="flex w-full items-center gap-3 rounded-card p-3 text-left transition-colors hover:bg-[var(--color-muted)]" onClick={() => {
@@ -373,7 +378,7 @@ export default function RoleManagementPage() {
                                   <div className="w-8 h-8 rounded-control bg-[var(--color-muted)] text-[var(--color-muted-foreground)] flex items-center justify-center">
                                     <Edit2 aria-hidden="true" />
                                   </div>
-                                  Chỉnh sửa
+                                  {t('RoleManagementPage.edit')}
                                 </button>
 
                                 {!role.isSystem ? (
@@ -386,13 +391,13 @@ export default function RoleManagementPage() {
                                       <div className="w-8 h-8 rounded-control bg-[var(--color-error-bg)] text-[var(--color-error)] flex items-center justify-center">
                                         <Trash2 aria-hidden="true" />
                                       </div>
-                                      Xóa vai trò
+                                      {t('RoleManagementPage.deleteRole')}
                                     </button>
                                   </>
                                 ) : (
                                   <div className="text-eyebrow px-4 py-3 mt-1 border-t border-gray-50 bg-[var(--color-muted)] text-[var(--color-subtle-foreground)] flex items-center gap-2">
                                     <AlertCircle size={14} className="text-[var(--color-subtle-foreground)]" />
-                                    Hệ thống bảo vệ
+                                    {t('RoleManagementPage.systemProtected')}
                                   </div>
                                 )}
                               </div>
@@ -416,7 +421,7 @@ export default function RoleManagementPage() {
                 <div className="w-16 h-16 border-4 border-[var(--color-border)] border-t-[var(--color-primary)] rounded-full animate-spin" />
                 <Shield className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 text-[var(--color-primary)] w-6 h-6" />
               </div>
-              <p className="text-eyebrow text-[var(--color-muted-foreground)] mt-4 animate-pulse">Đang tải dữ liệu vai trò...</p>
+              <p className="text-eyebrow text-[var(--color-muted-foreground)] mt-4 animate-pulse">{t('RoleManagementPage.loadingRoleData')}</p>
             </div>
           ) : filteredRoles.length === 0 ? (
             <div className="px-8 py-20 text-center">
@@ -425,8 +430,8 @@ export default function RoleManagementPage() {
                   <Shield size={40} />
                 </div>
                 <div>
-                  <p className="text-section-title text-[var(--color-muted-foreground)]">Không tìm thấy vai trò</p>
-                  <p className="text-[var(--color-subtle-foreground)] font-medium mt-1">Thử thay đổi từ khóa tìm kiếm của bạn.</p>
+                  <p className="text-section-title text-[var(--color-muted-foreground)]">{t('RoleManagementPage.noRoleFound')}</p>
+                  <p className="text-[var(--color-subtle-foreground)] font-medium mt-1">{t('RoleManagementPage.tryChangingYourSearchKeyword')}</p>
                 </div>
               </div>
             </div>
@@ -449,7 +454,7 @@ export default function RoleManagementPage() {
                           <span className="font-semibold text-[var(--color-foreground)] text-sm truncate">{role.name}</span>
                           {role.isSystem && (
                             <span className="px-1.5 py-0.5 bg-[var(--color-primary-soft)] text-[var(--color-primary)] text-xs font-medium rounded-control border border-[var(--color-border)] flex items-center gap-0.5 shrink-0">
-                              <Lock size={7} /> Hệ thống
+                              <Lock size={7} /> {t('RoleManagementPage.system')}
                             </span>
                           )}
                         </div>
@@ -469,13 +474,13 @@ export default function RoleManagementPage() {
                                 <div className="w-8 h-8 rounded-control bg-[var(--color-primary-soft)] text-[var(--color-primary)] flex items-center justify-center">
                                   <Key aria-hidden="true" />
                                 </div>
-                                Phân quyền
+                                {t('RoleManagementPage.permissions')}
                               </button>
                               <button type="button" className="flex w-full items-center gap-3 rounded-card p-3 text-left transition-colors hover:bg-[var(--color-muted)]" onClick={() => { handleOpenModal(role); setActiveMenuId(null) }}>
                                 <div className="w-8 h-8 rounded-control bg-[var(--color-muted)] text-[var(--color-muted-foreground)] flex items-center justify-center">
                                   <Edit2 aria-hidden="true" />
                                 </div>
-                                Chỉnh sửa
+                                {t('RoleManagementPage.edit')}
                               </button>
                               {!role.isSystem ? (
                                 <>
@@ -484,13 +489,13 @@ export default function RoleManagementPage() {
                                     <div className="w-8 h-8 rounded-control bg-[var(--color-error-bg)] text-[var(--color-error)] flex items-center justify-center">
                                       <Trash2 aria-hidden="true" />
                                     </div>
-                                    Xóa vai trò
+                                    {t('RoleManagementPage.deleteRole')}
                                   </button>
                                 </>
                               ) : (
                                 <div className="text-eyebrow px-4 py-3 mt-1 border-t border-gray-50 bg-[var(--color-muted)] text-[var(--color-subtle-foreground)] flex items-center gap-2">
                                   <AlertCircle size={14} className="text-[var(--color-subtle-foreground)]" />
-                                  Hệ thống bảo vệ
+                                  {t('RoleManagementPage.systemProtected')}
                                 </div>
                               )}
                             </div>
@@ -506,7 +511,7 @@ export default function RoleManagementPage() {
                         role.rank === 1 ? "bg-[var(--color-primary-soft)] text-[var(--color-primary)] border-[var(--color-border)]" :
                         "bg-[var(--color-muted)] text-[var(--color-subtle-foreground)] border-[var(--color-border)]"
                       )}>
-                        {role.rank === 0 ? 'Trưởng' : role.rank === 1 ? 'Phó' : 'Thành viên'}
+                        {role.rank === 0 ? t('RoleManagementPage.head2') : role.rank === 1 ? t('RoleManagementPage.deputy2') : t('RoleManagementPage.members')}
                       </div>
                       <div className={cn(
 "text-eyebrow inline-flex items-center gap-1 px-2.5 py-0.5 rounded-control border",
@@ -522,7 +527,7 @@ export default function RoleManagementPage() {
                       </div>
                       <div className="flex items-center gap-1 text-[var(--color-subtle-foreground)] ml-auto">
                         <History size={11} className="text-[var(--color-subtle-foreground)]" />
-                        <span className="font-medium text-xs">{format(new Date(role.createdAt), 'dd MMM, yyyy', { locale: vi })}</span>
+                        <span className="font-medium text-xs">{format(new Date(role.createdAt), 'dd MMM, yyyy', { locale: dateFnsLocale() })}</span>
                       </div>
                     </div>
                   </div>
@@ -539,28 +544,29 @@ export default function RoleManagementPage() {
         onClose={() => setIsModalOpen(false)}
         size="md"
         dismissible={!(createMutation.isPending || updateMutation.isPending)}
-        title={editingRole ? 'Chỉnh sửa vai trò' : 'Tạo vai trò mới'}
-        description="Cấu hình tên gọi và vị trí trong cây phân cấp của tổ chức."
+        title={editingRole ? t('RoleManagementPage.editRole') : t('RoleManagementPage.createANewRole')}
+        description={t('RoleManagementPage.configureTheNameAndPositionIn')}
         footer={
           <DialogFooter
-            secondary={<Button variant="outline" onClick={() => setIsModalOpen(false)} disabled={createMutation.isPending || updateMutation.isPending}>Đóng</Button>}
+            secondary={<Button variant="outline" onClick={() => setIsModalOpen(false)} disabled={createMutation.isPending || updateMutation.isPending}>{t('RoleManagementPage.close')}</Button>}
             primary={
               <Button type="submit" form="role-form" disabled={createMutation.isPending || updateMutation.isPending}>
                 {(createMutation.isPending || updateMutation.isPending) && <Loader2 className="animate-spin" aria-hidden="true" />}
-                {editingRole ? 'Cập nhật thay đổi' : 'Xác nhận tạo mới'}
+                {editingRole ? t('RoleManagementPage.updateChanges') : t('RoleManagementPage.confirmCreate')}
               </Button>
             }
           />
         }
       >
         <form id="role-form" onSubmit={handleSubmit} className="space-y-4">
+          <DraftNotice draft={draft} />
           <div className="space-y-1.5">
-            <label htmlFor="role-name" className="text-label block">Tên định danh vai trò <span className="text-[var(--color-error)]">*</span></label>
+            <label htmlFor="role-name" className="text-label block">{t('RoleManagementPage.roleIdentifierName')} <span className="text-[var(--color-error)]">*</span></label>
             <input
               id="role-name"
               type="text"
               className="h-9 w-full rounded-control border border-[var(--color-border)] bg-[var(--color-card)] px-3 text-sm text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-subtle-foreground)] focus-visible:border-[var(--color-primary)] focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]"
-              placeholder="VD: Trưởng phòng Marketing"
+              placeholder={t('RoleManagementPage.eGMarketingDepartmentHead')}
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               required
@@ -569,10 +575,10 @@ export default function RoleManagementPage() {
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div className="space-y-1.5">
-              <label className="text-label block">Phân lớp quản lý <span className="text-[var(--color-error)]">*</span></label>
+              <label className="text-label block">{t('RoleManagementPage.managementTier')} <span className="text-[var(--color-error)]">*</span></label>
               <Select value={String(formData.level)} onValueChange={(val) => setFormData({ ...formData, level: Number(val) })} disabled={editingRole?.isSystem}>
-                <SelectTrigger className="w-full" aria-label="Phân lớp quản lý">
-                  <SelectValue placeholder="Chọn cấp độ" />
+                <SelectTrigger className="w-full" aria-label={t('RoleManagementPage.managementTier')}>
+                  <SelectValue placeholder={t('RoleManagementPage.chooseLevel')} />
                 </SelectTrigger>
                 <SelectContent className="z-[1100]">
                   {hierarchyLevels.map((lvl) => (
@@ -583,21 +589,21 @@ export default function RoleManagementPage() {
             </div>
 
             <div className="space-y-1.5">
-              <label className="text-label block">Định danh vị trí <span className="text-[var(--color-error)]">*</span></label>
+              <label className="text-label block">{t('RoleManagementPage.positionIdentifier')} <span className="text-[var(--color-error)]">*</span></label>
               <Select value={String(formData.rank)} onValueChange={(val) => setFormData({ ...formData, rank: Number(val) })} disabled={editingRole?.isSystem}>
-                <SelectTrigger className="w-full" aria-label="Định danh vị trí">
-                  <SelectValue placeholder="Chọn vị trí" />
+                <SelectTrigger className="w-full" aria-label={t('RoleManagementPage.positionIdentifier')}>
+                  <SelectValue placeholder={t('RoleManagementPage.choosePosition')} />
                 </SelectTrigger>
                 <SelectContent className="z-[1100]">
-                  <SelectItem value="0">Trưởng</SelectItem>
-                  <SelectItem value="1">Phó</SelectItem>
-                  <SelectItem value="2">Thành viên</SelectItem>
+                  <SelectItem value="0">{t('RoleManagementPage.head2')}</SelectItem>
+                  <SelectItem value="1">{t('RoleManagementPage.deputy2')}</SelectItem>
+                  <SelectItem value="2">{t('RoleManagementPage.members')}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
           </div>
           {editingRole?.isSystem && (
-            <p className="text-caption">Vai trò hệ thống: chỉ đổi được tên, phân lớp và vị trí đã cố định.</p>
+            <p className="text-caption">{t('RoleManagementPage.systemRoleOnlyTheNameCan')}</p>
           )}
         </form>
       </Dialog>
@@ -619,9 +625,9 @@ export default function RoleManagementPage() {
         open={deleteConfirm.isOpen}
         onClose={() => setDeleteConfirm({ isOpen: false, role: null })}
         onConfirm={handleConfirmDelete}
-        title="Xác nhận xoá vai trò"
-        description={`Bạn có chắc chắn muốn xoá vai trò "${deleteConfirm.role?.name}" khỏi hệ thống? Tất cả nhân sự thuộc vai trò này sẽ bị ảnh hưởng.`}
-        confirmLabel="Vẫn xoá vai trò"
+        title={t('RoleManagementPage.confirmRoleDeletion')}
+        description={t('RoleManagementPage.areYouSureYouWantTo', { name: deleteConfirm.role?.name })}
+        confirmLabel={t('RoleManagementPage.deleteRoleAnyway')}
         loading={deleteMutation.isPending}
       />
     </div>

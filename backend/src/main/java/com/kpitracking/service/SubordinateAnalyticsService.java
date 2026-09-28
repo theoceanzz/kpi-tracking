@@ -1,5 +1,6 @@
 package com.kpitracking.service;
 
+import com.kpitracking.i18n.ErrorMessages;
 import com.kpitracking.dto.response.stats.SubordinateDetailsResponses;
 import com.kpitracking.dto.response.stats.SubordinateStatsResponses;
 import com.kpitracking.dto.response.stats.SubordinateStatsResponses.*;
@@ -503,20 +504,20 @@ public class SubordinateAnalyticsService {
                         sumWeight += weight;
                     }
 
-                    String kpiStatus = "CHƯA NỘP";
+                    String kpiStatus = ErrorMessages.text("analytics.subStatus.notSubmitted", "");
                     boolean hasSubmissions = kpi.getSubmissions() != null && !kpi.getSubmissions().isEmpty();
                     if (kpi.getAssignees() == null || kpi.getAssignees().isEmpty()) {
-                        kpiStatus = "CHƯA ĐƯỢC GIAO";
+                        kpiStatus = ErrorMessages.text("analytics.subStatus.notAssigned", "");
                     } else if (hasSubmissions) {
                         kpiStatus = kpi.getSubmissions().stream()
                             .max(Comparator.comparing(KpiSubmission::getCreatedAt))
                             .map(s -> {
-                                if (s.getStatus() == SubmissionStatus.APPROVED) return "ĐÃ DUYỆT";
-                                if (s.getStatus() == SubmissionStatus.PENDING) return "CHỜ DUYỆT";
-                                if (s.getStatus() == SubmissionStatus.REJECTED) return "TỪ CHỐI";
+                                if (s.getStatus() == SubmissionStatus.APPROVED) return ErrorMessages.text("analytics.subStatus.approved", "");
+                                if (s.getStatus() == SubmissionStatus.PENDING) return ErrorMessages.text("analytics.subStatus.pending", "");
+                                if (s.getStatus() == SubmissionStatus.REJECTED) return ErrorMessages.text("analytics.subStatus.rejected", "");
                                 return s.getStatus().name();
                             })
-                            .orElse("CHƯA NỘP");
+                            .orElse(ErrorMessages.text("analytics.subStatus.notSubmitted", ""));
                     }
 
                     Double finalPerformance = (isBonus || isQual || !hasSubmissions) ? null : performance;
@@ -586,7 +587,7 @@ public class SubordinateAnalyticsService {
                                 .avatarUrl(assignee.getAvatarUrl())
                                 .fullName(assignee.getFullName())
                                 .employeeCode(assignee.getEmployeeCode() != null ? assignee.getEmployeeCode() : assignee.getEmail())
-                                .roleName("Thành viên")
+                                .roleName(ErrorMessages.text("analytics.memberRole", ""))
                                 .orgUnitName(kpi.getOrgUnit() != null ? kpi.getOrgUnit().getName() : "")
                                 .actualValue(assigneeActual)
                                 .progress(assigneeProgress)
@@ -1517,7 +1518,7 @@ public class SubordinateAnalyticsService {
                     double target = kpi.getTargetValue() != null ? kpi.getTargetValue() : 1.0;
                     double val = s.getActualValue() != null ? s.getActualValue() : 0.0;
                     double rate = KpiMetricsCalculator.percent(val, target, Boolean.TRUE.equals(kpi.getIsReverseKpi()));
-                    String note = s.getNote() != null && !s.getNote().trim().isEmpty() ? s.getNote() : "Bài nộp #" + s.getId().toString().substring(0,4);
+                    String note = s.getNote() != null && !s.getNote().trim().isEmpty() ? s.getNote() : ErrorMessages.text("analytics.submissionNumber", "", s.getId().toString().substring(0,4));
                     return ScopedDashboardResponse.TopItem.builder()
                             .id(s.getId().toString())
                             .name(note)
@@ -1639,7 +1640,7 @@ public class SubordinateAnalyticsService {
             while (!curr.isAfter(end)) {
                 Instant pStart = curr.atStartOfDay(ZoneId.systemDefault()).toInstant();
                 Instant pEnd = curr.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant();
-                String label = "Ng " + curr.getDayOfMonth() + "/" + curr.getMonthValue();
+                String label = ErrorMessages.text("analytics.bucket.day", "", curr.getDayOfMonth(), curr.getMonthValue());
                 intervalPoints.add(new IntervalPoint(pStart, pEnd, label));
                 curr = curr.plusDays(1);
             }
@@ -1650,7 +1651,7 @@ public class SubordinateAnalyticsService {
                 LocalDate next = curr.plusWeeks(1);
                 Instant pStart = curr.atStartOfDay(ZoneId.systemDefault()).toInstant();
                 Instant pEnd = (next.isAfter(end) ? end.plusDays(1) : next).atStartOfDay(ZoneId.systemDefault()).toInstant();
-                String label = "Tuần " + weekIdx;
+                String label = ErrorMessages.text("analytics.bucket.week", "", weekIdx);
                 intervalPoints.add(new IntervalPoint(pStart, pEnd, label));
                 curr = next;
                 weekIdx++;
@@ -1666,7 +1667,7 @@ public class SubordinateAnalyticsService {
                 Instant pStart = activeStart.atStartOfDay(ZoneId.systemDefault()).toInstant();
                 Instant pEnd = activeEnd.atStartOfDay(ZoneId.systemDefault()).toInstant();
                 
-                String label = "Tháng " + curr.getMonthValue() + "/" + curr.getYear();
+                String label = ErrorMessages.text("analytics.bucket.month", "", curr.getMonthValue(), curr.getYear());
                 intervalPoints.add(new IntervalPoint(pStart, pEnd, label));
                 curr = next;
             }
@@ -1682,7 +1683,7 @@ public class SubordinateAnalyticsService {
                 Instant pStart = activeStart.atStartOfDay(ZoneId.systemDefault()).toInstant();
                 Instant pEnd = activeEnd.atStartOfDay(ZoneId.systemDefault()).toInstant();
                 
-                String label = "Quý " + ((curr.getMonthValue() - 1) / 3 + 1) + "/" + curr.getYear();
+                String label = ErrorMessages.text("analytics.bucket.quarter", "", (curr.getMonthValue() - 1) / 3 + 1, curr.getYear());
                 intervalPoints.add(new IntervalPoint(pStart, pEnd, label));
                 curr = next;
             }
@@ -1697,7 +1698,7 @@ public class SubordinateAnalyticsService {
                 Instant pStart = activeStart.atStartOfDay(ZoneId.systemDefault()).toInstant();
                 Instant pEnd = activeEnd.atStartOfDay(ZoneId.systemDefault()).toInstant();
                 
-                String label = "Năm " + curr.getYear();
+                String label = ErrorMessages.text("analytics.bucket.year", "", curr.getYear());
                 intervalPoints.add(new IntervalPoint(pStart, pEnd, label));
                 curr = next;
             }

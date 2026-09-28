@@ -5,6 +5,7 @@ import type { CalibrationPlan, CalibrationSuggestion } from '../api/kpiCycleEval
 import { Button } from '@/components/ui/button'
 import { Dialog, DialogFooter } from '@/components/ui/dialog'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
+import { useTranslation } from 'react-i18next'
 
 /**
  * Bước 3 của luồng đánh giá kỳ: ĐỀ XUẤT HIỆU CHỈNH theo khung bell curve — hộp thoại mở từ
@@ -31,6 +32,7 @@ export default function CycleCalibrationDialog({
   onOpenMember: (userId: string) => void
   onClose: () => void
 }) {
+  const { t } = useTranslation('kpi')
   // Bỏ qua chỉ là ẩn tại chỗ trong phiên này — server tính lại sau mỗi lần áp dụng, người bị bỏ
   // qua có thể được đề xuất lại nếu vẫn là lựa chọn hợp lý.
   const [skipped, setSkipped] = useState<Set<string>>(new Set())
@@ -44,14 +46,14 @@ export default function CycleCalibrationDialog({
   const underSlots = plan && complete ? plan.slots.filter(s => s.under) : []
   const busy = applyingUserId != null || isApplyingAll
 
-  const summary = !plan ? 'Đang tính…' : !plan.configured
-    ? 'Đơn vị không áp khung bell curve nào — không có gì để hiệu chỉnh'
+  const summary = !plan ? t('CycleCalibrationDialog.computing') : !plan.configured
+    ? t('CycleCalibrationDialog.theUnitHasNoBellCurve')
     : plan.evaluated === 0
-      ? 'Chưa ai có điểm kỳ nên chưa có đề xuất'
+      ? t('CycleCalibrationDialog.noOneHasACycleScore')
       : visible.length === 0
-        ? (plan.withinFrame ? 'Phân bố đã nằm trong khung — có thể khoá kết quả' : 'Không còn đề xuất nào')
-        : [required.length && `${required.length} bắt buộc`, optional.length && `${optional.length} tuỳ chọn`]
-            .filter(Boolean).join(' · ') + ` · ${plan.evaluated}/${plan.headcount} người có điểm`
+        ? (plan.withinFrame ? t('CycleCalibrationDialog.theDistributionIsWithinTheQuota') : t('CycleCalibrationDialog.noSuggestionsLeft'))
+        : [required.length && t('CycleCalibrationDialog.required', { length: required.length }), optional.length && t('CycleCalibrationDialog.optional', { length: optional.length })]
+            .filter(Boolean).join(' · ') + t('CycleCalibrationDialog.peopleScored', { evaluated: plan.evaluated, headcount: plan.headcount })
 
   return (
     <Dialog
@@ -59,17 +61,17 @@ export default function CycleCalibrationDialog({
       onClose={onClose}
       size="lg"
       dismissible={!busy}
-      title="Hiệu chỉnh theo khung bell curve"
+      title={t('CycleCalibrationDialog.calibrateToTheBellCurveQuota')}
       description={summary}
       headerExtra={plan ? <FrameBadge plan={plan} /> : undefined}
       footer={
         <DialogFooter
-          secondary={<Button variant="outline" onClick={onClose} disabled={busy}>Đóng</Button>}
+          secondary={<Button variant="outline" onClick={onClose} disabled={busy}>{t('CycleCalibrationDialog.close')}</Button>}
           primary={canEdit && plan && visible.length > 0 && (
             <Button onClick={() => onApplyAll(required.length ? required : visible)} disabled={busy}
-              title={required.length ? 'Áp dụng mọi đề xuất bắt buộc một lượt' : 'Áp dụng mọi đề xuất một lượt'}>
+              title={required.length ? t('CycleCalibrationDialog.applyAllRequiredSuggestionsAtOnce') : t('CycleCalibrationDialog.applyAllSuggestionsAtOnce')}>
               {isApplyingAll ? <Loader2 className="animate-spin" aria-hidden="true" /> : <CheckCheck aria-hidden="true" />}
-              Áp dụng {required.length ? `${required.length} bắt buộc` : `tất cả (${visible.length})`}
+              {t('CycleCalibrationDialog.apply')} {required.length ? t('CycleCalibrationDialog.required', { length: required.length }) : t('CycleCalibrationDialog.all', { length: visible.length })}
             </Button>
           )}
         />
@@ -79,7 +81,7 @@ export default function CycleCalibrationDialog({
         <>
       {!plan.configured ? (
           <p className="text-caption">
-            Bật khung ở <b>Cấu hình → Xếp loại đơn vị → Bell curve</b> nếu muốn ép phân bố.
+            {t('CycleCalibrationDialog.turnOnTheQuotaIn')} <b>{t('CycleCalibrationDialog.settingsUnitRatingBellCurve')}</b> {t('CycleCalibrationDialog.ifYouWantToEnforceThe')}
           </p>
         ) : (
           <div className="space-y-4">
@@ -89,13 +91,13 @@ export default function CycleCalibrationDialog({
                 {overSlots.map(s => (
                   <li key={s.level} className="inline-flex items-center gap-1.5 rounded-control border border-[var(--color-error-border)] bg-[var(--color-error-bg)] px-2.5 py-1 text-xs font-semibold text-[var(--color-error)]">
                     <span className="h-2 w-2 rounded-full" style={{ background: s.color }} />
-                    {s.level} {s.currentCount}/{s.maxCount} · vượt {s.currentCount - s.maxCount}
+                    {s.level} {s.currentCount}/{s.maxCount} {t('CycleCalibrationDialog.over')} {s.currentCount - s.maxCount}
                   </li>
                 ))}
                 {underSlots.map(s => (
                   <li key={s.level} className="inline-flex items-center gap-1.5 rounded-control border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-2.5 py-1 text-xs font-semibold text-[var(--color-warning)]">
                     <span className="h-2 w-2 rounded-full" style={{ background: s.color }} />
-                    {s.level} {s.currentCount}/{s.minCount} · thiếu {s.minCount - s.currentCount}
+                    {s.level} {s.currentCount}/{s.minCount} {t('CycleCalibrationDialog.short')} {s.minCount - s.currentCount}
                   </li>
                 ))}
               </ul>
@@ -105,27 +107,27 @@ export default function CycleCalibrationDialog({
               <p className={cn('flex items-center gap-2 text-sm font-medium', plan.withinFrame && plan.evaluated > 0 ? 'text-[var(--color-success)]' : 'text-[var(--color-muted-foreground)]')}>
                 {plan.withinFrame && plan.evaluated > 0 && <CheckCircle2 size={16} aria-hidden="true" />}
                 {plan.evaluated === 0
-                  ? 'Chấm điểm kỳ cho thành viên trước, đề xuất sẽ xuất hiện ở đây.'
+                  ? t('CycleCalibrationDialog.scoreMembersForTheCycleFirst')
                   : plan.withinFrame
-                    ? 'Phân bố đã nằm trong khung — có thể khoá kết quả.'
+                    ? t('CycleCalibrationDialog.theDistributionIsWithinTheQuota2')
                     : plan.suggestions.length > 0
-                      ? 'Đã bỏ qua mọi đề xuất trong phiên này.'
-                      : 'Còn lệch khung nhưng không tìm được người nào dời được (đã khoá hoặc đã ở mức thấp nhất).'}
+                      ? t('CycleCalibrationDialog.allSuggestionsWereSkippedInThis')
+                      : t('CycleCalibrationDialog.stillOutsideTheQuotaButNo')}
               </p>
             ) : (
               <>
                 {required.length > 0 && (
                   <SuggestionGroup
-                    title="Cần làm để về khung" tone="error" items={required}
-                    hint={plan.mode === 'block' ? 'Khung đang CHẶN: chưa làm thì không khoá được' : 'Khung chỉ cảnh báo: khoá được nhưng nên cân nhắc'}
+                    title={t('CycleCalibrationDialog.requiredToGetWithinTheQuota')} tone="error" items={required}
+                    hint={plan.mode === 'block' ? t('CycleCalibrationDialog.theQuotaIsBlockingResultsCannot') : t('CycleCalibrationDialog.theQuotaIsWarningOnlyResults')}
                     canEdit={canEdit} busy={busy} applyingUserId={applyingUserId}
                     onApply={onApply} onApplyAll={onApplyAll} onSkip={skip} onOpenMember={onOpenMember}
                   />
                 )}
                 {optional.length > 0 && (
                   <SuggestionGroup
-                    title="Tuỳ chọn — lấp mức đang thiếu" tone="warning" items={optional}
-                    hint="Nâng người mạnh nhất của mức kề dưới lên; không bắt buộc"
+                    title={t('CycleCalibrationDialog.optionalFillTheLevelsThatAre')} tone="warning" items={optional}
+                    hint={t('CycleCalibrationDialog.moveUpTheStrongestPersonFrom')}
                     canEdit={canEdit} busy={busy} applyingUserId={applyingUserId}
                     onApply={onApply} onApplyAll={onApplyAll} onSkip={skip} onOpenMember={onOpenMember}
                   />
@@ -142,26 +144,27 @@ export default function CycleCalibrationDialog({
 }
 
 function FrameBadge({ plan }: { plan: CalibrationPlan }) {
+  const { t } = useTranslation('kpi')
   if (!plan.configured) return null
   const cls = 'text-eyebrow inline-flex items-center gap-1.5 whitespace-nowrap rounded-card border px-2.5 py-1'
   if (plan.evaluated === 0) {
-    return <span className={cn(cls, 'border-[var(--color-border)] bg-[var(--color-muted)] text-[var(--color-muted-foreground)]')}>Chưa có điểm</span>
+    return <span className={cn(cls, 'border-[var(--color-border)] bg-[var(--color-muted)] text-[var(--color-muted-foreground)]')}>{t('CycleCalibrationDialog.noScore')}</span>
   }
   if (plan.blocked) {
     return (
       <span className={cn(cls, 'border-[var(--color-error-border)] bg-[var(--color-error-bg)] text-[var(--color-error)]')}>
-        <ShieldAlert size={12} aria-hidden="true" /> Vượt trần
+        <ShieldAlert size={12} aria-hidden="true" /> {t('CycleCalibrationDialog.aboveTheCeiling')}
       </span>
     )
   }
   if (plan.withinFrame) {
     return (
       <span className={cn(cls, 'border-[var(--color-success-border)] bg-[var(--color-success-bg)] text-[var(--color-success)]')}>
-        <Check size={12} aria-hidden="true" /> Trong khung
+        <Check size={12} aria-hidden="true" /> {t('CycleCalibrationDialog.withinCurve')}
       </span>
     )
   }
-  return <span className={cn(cls, 'border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] text-[var(--color-warning)]')}>Lệch khung</span>
+  return <span className={cn(cls, 'border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] text-[var(--color-warning)]')}>{t('CycleCalibrationDialog.outsideQuota')}</span>
 }
 
 function SuggestionGroup({
@@ -179,6 +182,7 @@ function SuggestionGroup({
   onSkip: (userId: string) => void
   onOpenMember: (userId: string) => void
 }) {
+  const { t } = useTranslation('kpi')
   return (
     <div className="space-y-2">
       <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
@@ -188,7 +192,7 @@ function SuggestionGroup({
         </h4>
         {canEdit && items.length > 1 && (
           <Button variant="ghost" size="sm" onClick={() => onApplyAll(items)} disabled={busy}>
-            <CheckCheck aria-hidden="true" /> Áp dụng cả nhóm
+            <CheckCheck aria-hidden="true" /> {t('CycleCalibrationDialog.applyTheWholeGroup')}
           </Button>
         )}
       </div>
@@ -202,7 +206,7 @@ function SuggestionGroup({
                 type="button"
                 onClick={() => onOpenMember(s.userId)}
                 className="min-w-0 flex-1 text-left"
-                title="Mở phiếu chấm để tự chỉnh số khác"
+                title={t('CycleCalibrationDialog.openTheScoringFormToAdjust')}
               >
                 <p className="truncate text-sm font-medium text-[var(--color-foreground)] hover:underline">{s.userName}</p>
                 <p className="truncate text-caption">{s.reason}</p>
@@ -236,9 +240,9 @@ function SuggestionGroup({
                 <div className="flex items-center gap-0.5">
                   <Button variant="outline" size="sm" type="button" onClick={() => onApply(s)} disabled={busy}>
                     {mine ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Check aria-hidden="true" />}
-                    Áp dụng
+                    {t('CycleCalibrationDialog.apply')}
                   </Button>
-                  <Button variant="ghost" size="icon-sm" type="button" onClick={() => onSkip(s.userId)} disabled={busy} aria-label="Bỏ qua đề xuất này" title="Bỏ qua">
+                  <Button variant="ghost" size="icon-sm" type="button" onClick={() => onSkip(s.userId)} disabled={busy} aria-label={t('CycleCalibrationDialog.skipThisSuggestion')} title={t('CycleCalibrationDialog.skip')}>
                     <X aria-hidden="true" />
                   </Button>
                 </div>

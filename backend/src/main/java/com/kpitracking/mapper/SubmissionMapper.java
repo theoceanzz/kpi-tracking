@@ -31,6 +31,12 @@ public interface SubmissionMapper {
     @Mapping(source = "kpiCriteria.kpiPeriod", target = "kpiPeriod.name", qualifiedByName = "periodName")
     @Mapping(source = "attachments", target = "attachments")
     @Mapping(target = "isSubmittedByManager", ignore = true)
+    @Mapping(source = "returnedBy", target = "returnedById", qualifiedByName = "userId")
+    @Mapping(source = "returnedBy", target = "returnedByName", qualifiedByName = "userName")
+    @Mapping(source = "resubmission.id", target = "resubmissionId")
+    @Mapping(target = "resubmission", ignore = true)
+    @Mapping(target = "previousReturnReason", ignore = true)
+    @Mapping(target = "awaitingResubmission", expression = "java(submission.isAwaitingResubmission(java.time.Instant.now()))")
     SubmissionResponse toResponse(KpiSubmission submission);
 
     AttachmentResponse toAttachmentResponse(SubmissionAttachment attachment);

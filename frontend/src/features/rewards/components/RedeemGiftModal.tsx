@@ -1,3 +1,4 @@
+import { intlLocale } from '@/i18n/format'
 import { useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -17,6 +18,9 @@ import { TopupOrderStatus } from '@/features/wallet/types'
 import { useMyRedemptions } from '../hooks/useGifts'
 import { htmlToText } from '../utils/html'
 import type { GiftItem, Redemption } from '../types'
+import { useTranslation } from 'react-i18next'
+import { useFormDraft } from '@/hooks/useFormDraft'
+import DraftNotice from '@/components/common/DraftNotice'
 
 interface RedeemGiftModalProps {
   /** null = đóng. Truyền cả object để modal hiện được ảnh/giá mà không phải fetch lại. */
@@ -51,6 +55,7 @@ export default function RedeemGiftModal({
   canTopUp = false,
   onVoucherIssued,
 }: RedeemGiftModalProps) {
+  const { t } = useTranslation('rewards')
   const { redeem, isRedeeming } = useMyRedemptions()
 
   // Ví tiền chỉ đọc khi thực sự dùng được — không thì mỗi lần mở hộp thoại là một cú 403.
@@ -84,10 +89,12 @@ export default function RedeemGiftModal({
     [maxQty, maxByBalance, canBuyPoints],
   )
 
-  const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<RedeemGiftFormData>({
+  const formApi = useForm<RedeemGiftFormData>({
     resolver: zodResolver(schema),
     defaultValues: { quantity: 1, note: '' },
   })
+  const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = formApi
+  const draft = useFormDraft(formApi, { key: `redeem-gift:${gift?.id ?? ''}`, enabled: !!gift })
 
   // Số lượng chỉnh bằng hai nút +/- chứ không phải ô nhập.
   const quantity = watch('quantity')
@@ -183,26 +190,27 @@ export default function RedeemGiftModal({
         onClose={onClose}
         size="md"
         dismissible={!busy}
-        title="Đổi quà"
+        title={t('RedeemGiftModal.giftRedemption')}
         footer={
           <DialogFooter
-            secondary={<Button variant="outline" onClick={onClose} disabled={busy}>Huỷ</Button>}
+            secondary={<Button variant="outline" onClick={onClose} disabled={busy}>{t('RedeemGiftModal.cancel')}</Button>}
             primary={notEnough && canBuyPoints ? (
               <Button onClick={cashShort <= 0 ? buyPointsAndRedeem : () => setTopupOpen(true)} disabled={busy}>
                 {busy ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Wallet aria-hidden="true" />}
                 {cashShort <= 0
-                  ? `Dùng ${formatCurrency(cashNeeded)} & đổi quà`
-                  : `Nạp ${formatCurrency(topupAmount)} & đổi quà`}
+                  ? t('RedeemGiftModal.useRedeem', { cashNeeded: formatCurrency(cashNeeded) })
+                  : t('RedeemGiftModal.topUpRedeem', { topupAmount: formatCurrency(topupAmount) })}
               </Button>
             ) : (
               <Button onClick={handleSubmit(onSubmit)} disabled={notEnough || busy}>
                 {busy && <Loader2 className="animate-spin" aria-hidden="true" />}
-                {gift.requiresDelivery ? 'Gửi yêu cầu đổi' : isVoucher ? 'Đổi & lấy mã' : 'Đổi ngay'}
+                {gift.requiresDelivery ? t('RedeemGiftModal.sendRedemptionRequest') : isVoucher ? t('RedeemGiftModal.redeemGetCode') : t('RedeemGiftModal.redeemNow')}
               </Button>
             )}
           />
         }
       >
+        <DraftNotice draft={draft} className="mb-4" />
       <div className="space-y-5">
           <div className="flex gap-3">
             {gift.imageUrl && (
@@ -215,24 +223,24 @@ export default function RedeemGiftModal({
             <div className="min-w-0">
               <div className="font-semibold">{gift.name}</div>
               <div className="mt-0.5 text-sm text-[var(--color-primary)]">
-                {gift.pointCost.toLocaleString('vi-VN')} điểm / phần
+                {gift.pointCost.toLocaleString(intlLocale())} {t('RedeemGiftModal.pointsUnit')}
               </div>
               {/* UrBox yêu cầu hiện tên quà, MỆNH GIÁ và điều kiện sử dụng trước khi
                   người dùng bấm đổi — thiếu là nguồn khiếu nại lúc mang mã đi dùng. */}
               {gift.externalValue != null && (
                 <div className="mt-0.5 text-xs text-[var(--color-muted-foreground)]">
-                  Trị giá {gift.externalValue.toLocaleString('vi-VN')} ₫
+                  {t('RedeemGiftModal.value')} {gift.externalValue.toLocaleString(intlLocale())} ₫
                   {gift.externalBrand && ` · ${gift.externalBrand}`}
                 </div>
               )}
               {gift.externalExpireText && (
                 <div className="text-xs text-[var(--color-muted-foreground)]">
-                  Hạn sử dụng: {gift.externalExpireText}
+                  {t('RedeemGiftModal.validUntil')} {gift.externalExpireText}
                 </div>
               )}
               {!gift.unlimitedStock && gift.stockQuantity != null && (
                 <div className="mt-0.5 text-xs text-[var(--color-muted-foreground)]">
-                  Còn {gift.stockQuantity} phần
+                  {t('RedeemGiftModal.remaining')} {gift.stockQuantity} {t('RedeemGiftModal.units')}
                 </div>
               )}
             </div>
@@ -241,7 +249,7 @@ export default function RedeemGiftModal({
           {gift.externalTerms && (
             <details className="rounded-card border border-[var(--color-border)]">
               <summary className="cursor-pointer px-4 py-2.5 text-sm font-medium">
-                Điều kiện sử dụng
+                {t('RedeemGiftModal.termsOfUse')}
               </summary>
               <p className="max-h-56 overflow-y-auto whitespace-pre-line border-t border-[var(--color-border)] px-4 py-3 text-xs leading-relaxed text-[var(--color-muted-foreground)]">
                 {htmlToText(gift.externalTerms)}
@@ -250,7 +258,7 @@ export default function RedeemGiftModal({
           )}
 
           <div>
-            <label className="text-label mb-1.5 block font-medium">Số lượng</label>
+            <label className="text-label mb-1.5 block font-medium">{t('RedeemGiftModal.quantity')}</label>
             <div className="flex items-center gap-3">
               <button
                 type="button"
@@ -271,7 +279,7 @@ export default function RedeemGiftModal({
               </button>
               {maxQty < 2 && (
                 <span className="text-xs text-[var(--color-muted-foreground)]">
-                  {canBuyPoints || maxByStock < maxByBalance ? 'Chỉ còn 1 phần' : 'Điểm chỉ đủ 1 phần'}
+                  {canBuyPoints || maxByStock < maxByBalance ? t('RedeemGiftModal.only1UnitLeft') : t('RedeemGiftModal.pointsAreEnoughForOnly1')}
                 </span>
               )}
             </div>
@@ -282,25 +290,25 @@ export default function RedeemGiftModal({
 
           <div className="space-y-1 rounded-card bg-[var(--color-muted)] px-4 py-3 text-sm">
             <div className="flex justify-between">
-              <span className="text-[var(--color-muted-foreground)]">Số dư hiện tại</span>
-              <span className="tabular-nums">{balance.toLocaleString('vi-VN')}</span>
+              <span className="text-[var(--color-muted-foreground)]">{t('RedeemGiftModal.currentBalance')}</span>
+              <span className="tabular-nums">{balance.toLocaleString(intlLocale())}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-[var(--color-muted-foreground)]">Trừ khi đổi</span>
-              <span className="tabular-nums text-[var(--color-error)]">−{total.toLocaleString('vi-VN')}</span>
+              <span className="text-[var(--color-muted-foreground)]">{t('RedeemGiftModal.deductedOnRedemption')}</span>
+              <span className="tabular-nums text-[var(--color-error)]">−{total.toLocaleString(intlLocale())}</span>
             </div>
             <div className="flex justify-between border-t border-[var(--color-border)] pt-1 font-semibold">
               {notEnough ? (
                 <>
-                  <span>Còn thiếu</span>
+                  <span>{t('RedeemGiftModal.shortBy')}</span>
                   <span className="tabular-nums text-[var(--color-warning)]">
-                    {shortPoints.toLocaleString('vi-VN')}
+                    {shortPoints.toLocaleString(intlLocale())}
                   </span>
                 </>
               ) : (
                 <>
-                  <span>Còn lại</span>
-                  <span className="tabular-nums">{remaining.toLocaleString('vi-VN')}</span>
+                  <span>{t('RedeemGiftModal.remaining2')}</span>
+                  <span className="tabular-nums">{remaining.toLocaleString(intlLocale())}</span>
                 </>
               )}
             </div>
@@ -308,11 +316,11 @@ export default function RedeemGiftModal({
 
           <div>
             <label className="text-label mb-1.5 block font-medium">
-              Ghi chú <span className="font-normal text-[var(--color-muted-foreground)]">(tuỳ chọn)</span>
+              {t('RedeemGiftModal.notes')} <span className="font-normal text-[var(--color-muted-foreground)]">{t('RedeemGiftModal.optional')}</span>
             </label>
             <input
               {...register('note')}
-              placeholder="Ví dụ: cỡ áo L, giao tại văn phòng Hà Nội"
+              placeholder={t('RedeemGiftModal.eGTShirtSizeL')}
               className="w-full rounded-control border border-[var(--color-border)] bg-transparent px-3 py-2 text-sm"
             />
           </div>
@@ -323,20 +331,20 @@ export default function RedeemGiftModal({
             <div className="space-y-1.5 rounded-card border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-4 py-3 text-sm">
               <div className="flex items-center gap-2 font-semibold text-[var(--color-warning)]">
                 <Wallet size={16} />
-                Bạn còn thiếu {shortPoints.toLocaleString('vi-VN')} điểm
+                {t('RedeemGiftModal.youAreShortBy')} {shortPoints.toLocaleString(intlLocale())} {t('RedeemGiftModal.points')}
               </div>
               {cashShort <= 0 ? (
                 <p>
-                  Ví tiền của bạn còn <b>{formatCurrency(cashBalance)}</b>. Dùng{' '}
-                  <b>{formatCurrency(cashNeeded)}</b> đổi lấy{' '}
-                  {shortPoints.toLocaleString('vi-VN')} điểm là đổi được quà này ngay.
+                  {t('RedeemGiftModal.yourWalletHas')} <b>{formatCurrency(cashBalance)}</b>{t('RedeemGiftModal.use')}{' '}
+                  <b>{formatCurrency(cashNeeded)}</b> {t('RedeemGiftModal.toGet')}{' '}
+                  {shortPoints.toLocaleString(intlLocale())} {t('RedeemGiftModal.pointsAndRedeemThisGiftRight')}
                 </p>
               ) : (
                 <p>
-                  Nạp <b>{formatCurrency(topupAmount)}</b> vào ví rồi đổi sang{' '}
-                  {shortPoints.toLocaleString('vi-VN')} điểm để đổi quà này. Tỉ giá hiện tại{' '}
-                  {formatCurrency(rate)} đổi được 1 điểm
-                  {cashBalance > 0 && `, ví bạn đang có ${formatCurrency(cashBalance)}`}.
+                  {t('RedeemGiftModal.topUp')} <b>{formatCurrency(topupAmount)}</b> {t('RedeemGiftModal.toYourWalletAndConvertIt')}{' '}
+                  {shortPoints.toLocaleString(intlLocale())} {t('RedeemGiftModal.pointsToRedeemThisGiftThe')}{' '}
+                  {formatCurrency(rate)} {t('RedeemGiftModal.for1Point')}
+                  {cashBalance > 0 && t('RedeemGiftModal.yourWalletHas2', { cashBalance: formatCurrency(cashBalance) })}.
                 </p>
               )}
             </div>
@@ -348,18 +356,15 @@ export default function RedeemGiftModal({
               <span>
                 {gift.requiresDelivery ? (
                   <>
-                    Điểm được trừ ngay khi gửi yêu cầu, và bạn <b>nhận quà trực tiếp tại công ty</b>.
-                    Nếu bị từ chối hoặc bạn tự huỷ, điểm sẽ được hoàn lại đầy đủ.
+                    {t('RedeemGiftModal.pointsAreDeductedAsSoonAs')} <b>{t('RedeemGiftModal.receiveTheGiftInPersonAt')}</b>{t('RedeemGiftModal.ifItIsRejectedOrYou')}
                   </>
                 ) : isVoucher ? (
                   <>
-                    Mã voucher được xuất <b>ngay khi bạn bấm đổi</b> và hiện lên màn hình. Nếu nhà
-                    cung cấp không xuất được quà, điểm sẽ tự động hoàn lại vào ví của bạn.
+                    {t('RedeemGiftModal.theVoucherCodeIsIssued')} <b>{t('RedeemGiftModal.asSoonAsYouClickRedeem')}</b> {t('RedeemGiftModal.andShownOnScreenIfThe')}
                   </>
                 ) : (
                   <>
-                    Quà này <b>hoàn tất ngay khi đổi</b> — điểm bị trừ và quyền lợi được ghi nhận
-                    luôn, không cần chờ ai xử lý.
+                    {t('RedeemGiftModal.thisGift')} <b>{t('RedeemGiftModal.isCompletedAsSoonAsIt')}</b> {t('RedeemGiftModal.pointsAreDeductedAndTheBenefit')}
                   </>
                 )}
               </span>

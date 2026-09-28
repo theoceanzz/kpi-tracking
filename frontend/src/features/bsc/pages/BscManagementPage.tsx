@@ -15,6 +15,7 @@ import BscScorecardTree from '../components/BscScorecardTree'
 import CascadeModal from '../components/CascadeModal'
 import CascadePolicyModal from '../components/CascadePolicyModal'
 import { Button } from '@/components/ui/button'
+import { useTranslation } from 'react-i18next'
 
 /**
  * BSC chỉ còn MỘT luồng: bộ tiêu chí. Hạng mục không còn màn riêng mà được tạo/sửa ngay
@@ -34,6 +35,7 @@ import { Button } from '@/components/ui/button'
  * `perspective`, `fixedPerspective`), nên đừng đổi theo khi đọc code.
  */
 export default function BscManagementPage() {
+  const { t } = useTranslation('bsc')
   const { user } = useAuthStore()
   const organizationId = user?.memberships?.[0]?.organizationId
   const { data: scorecards, isLoading } = useScorecards(organizationId)
@@ -44,7 +46,7 @@ export default function BscManagementPage() {
 
   const { labelOf } = useNavLabels()
   const bscNavItem = findNavItem('bsc')
-  const pageTitle = bscNavItem ? labelOf(bscNavItem) : 'Quản lý BSC'
+  const pageTitle = bscNavItem ? labelOf(bscNavItem) : t('BscManagementPage.bscManagement')
 
   // `createFixed` khác undefined ⇒ mở luôn form tạo hạng mục cho lĩnh vực đó bên trong
   // modal bộ tiêu chí, để nút "Thêm hạng mục" trong cây đi thẳng tới việc cần làm.
@@ -110,7 +112,7 @@ export default function BscManagementPage() {
       <WorkspaceHeader
         id="tour-bsc-header"
         title={pageTitle}
-        description="Cây BSC công ty → phòng ban. Mở một nhánh để sửa hạng mục và trọng số, phân rã chỉ tiêu xuống cấp dưới và xem kết quả của đợt."
+        description={t('BscManagementPage.companyDepartmentBscTreeOpenA')}
         actions={
           <>
             <input type="file" className="hidden" ref={scorecardFileInputRef} accept=".xlsx" onChange={handleScorecardFileSelect} />
@@ -124,12 +126,12 @@ export default function BscManagementPage() {
               </Button>
             )}
             {canManageBsc && (
-              <Button variant="outline" onClick={() => setIsPolicyOpen(true)} title="Trần điểm công nhận và ràng buộc KPI phải liên kết BSC">
-                <Sliders aria-hidden="true" /> Chính sách
+              <Button variant="outline" onClick={() => setIsPolicyOpen(true)} title={t('BscManagementPage.recognizedScoreCapAndTheRequirement')}>
+                <Sliders aria-hidden="true" /> {t('BscManagementPage.policy')}
               </Button>
             )}
             <Button onClick={() => setScorecardModal({})}>
-              <Plus aria-hidden="true" /> Bộ tiêu chí mới
+              <Plus aria-hidden="true" /> {t('BscManagementPage.newScorecard')}
             </Button>
           </>
         }
@@ -171,8 +173,8 @@ export default function BscManagementPage() {
 
       <ConfirmDialog open={!!deleteScorecardId} onClose={() => setDeleteScorecardId(null)}
         onConfirm={() => { if (deleteScorecardId) deleteScorecard.mutate(deleteScorecardId); setDeleteScorecardId(null) }}
-        title="Xóa bộ tiêu chí" description="Bạn có chắc chắn muốn xóa bộ tiêu chí này? Các hạng mục vẫn được giữ lại để dùng cho bộ tiêu chí khác."
-        confirmLabel="Xóa" loading={deleteScorecard.isPending} />
+        title={t('BscManagementPage.deleteScorecard')} description={t('BscManagementPage.areYouSureYouWantTo')}
+        confirmLabel={t('BscManagementPage.delete')} loading={deleteScorecard.isPending} />
 
       <ConfirmDialog
         open={!!publishTarget}
@@ -184,11 +186,11 @@ export default function BscManagementPage() {
           }
           setPublishTarget(null)
         }}
-        title={publishTarget?.scoringMode === BscScoringMode.SHADOW ? 'Chuyển sang chấm điểm chính thức' : 'Đưa về chạy song song'}
+        title={publishTarget?.scoringMode === BscScoringMode.SHADOW ? t('BscManagementPage.switchToOfficialScoring') : t('BscManagementPage.returnToParallelMode')}
         description={publishTarget?.scoringMode === BscScoringMode.SHADOW
-          ? 'Từ giờ điểm BSC sẽ là ĐIỂM CHÍNH THỨC (thay điểm hệ thống) cho các đánh giá tính/chốt sau thời điểm này. Điểm BSC đã được tính sẵn từ trước nên KHÔNG có gì phải tính lại; các đánh giá đã chốt trước đó giữ nguyên. Lưu ý: khi ở chế độ chính thức, đánh giá sẽ bị chặn nếu còn KPI chưa gán hạng mục.'
-          : 'Đưa bộ tiêu chí về chế độ chạy song song: điểm BSC vẫn được tính & lưu để đối chiếu, nhưng điểm chính thức quay lại dùng điểm hệ thống cũ.'}
-        confirmLabel={publishTarget?.scoringMode === BscScoringMode.SHADOW ? 'Chuyển chính thức' : 'Đưa về song song'}
+          ? t('BscManagementPage.fromNowOnTheBscScore')
+          : t('BscManagementPage.returnTheScorecardToParallelMode')}
+        confirmLabel={publishTarget?.scoringMode === BscScoringMode.SHADOW ? t('BscManagementPage.makeOfficial') : t('BscManagementPage.returnToParallel')}
         loading={updateScoringMode.isPending}
       />
     </div>

@@ -1,3 +1,5 @@
+import { intlDateLocale, intlLocale } from '@/i18n/format'
+import i18n from 'i18next'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { Download, Loader2, Printer } from 'lucide-react'
@@ -29,6 +31,7 @@ import {
   type CertificateData,
 } from './presets'
 import { ChoiceChip } from '@/components/ui/choice-chip'
+import { useTranslation } from 'react-i18next'
 
 interface CertificateModalProps {
   /** null = đóng. */
@@ -49,7 +52,7 @@ const SELECT_CONTENT_Z = 'z-[1100]'
 
 const fmtDate = (iso?: string | null) =>
   iso
-    ? new Date(iso).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
+    ? new Date(iso).toLocaleDateString(intlDateLocale(), { day: '2-digit', month: '2-digit', year: 'numeric' })
     : ''
 
 /**
@@ -64,6 +67,7 @@ export default function CertificateModal({
   onClose,
   lockedRecipientId,
 }: CertificateModalProps) {
+  const { t: tr } = useTranslation('rewards')
   const { data: catalog, isLoading, isPending } = useCertificateCatalog(!!grant)
 
   const [picked, setPicked] = useState<PickedTemplate>('')
@@ -112,7 +116,7 @@ export default function CertificateModal({
       : undefined
     const preferred = chosenByGrantor ?? templates.find((t) => t.isDefault) ?? templates[0]
 
-    setPicked(preferred ? `tpl:${preferred.id}` : `preset:${DEFAULT_PRESET.key}`)
+    setPicked(preferred ? `tpl:${preferred.id}` : `preset:${DEFAULT_PRESET().key}`)
   }, [grant, catalog, picked, isPending])
 
   const template = useMemo(() => {
@@ -151,19 +155,19 @@ export default function CertificateModal({
       const items = chosen
         .map((r) => ({
           node: printRefs.current[r.userId],
-          fileName: `Chung-nhan-${toFileSlug(r.fullName)}-${toFileSlug(fmtDate(grant?.approvedAt ?? grant?.createdAt))}`,
+          fileName: `${i18n.t('rewards:CertificateModal.fileNamePrefix')}-${toFileSlug(r.fullName)}-${toFileSlug(fmtDate(grant?.approvedAt ?? grant?.createdAt))}`,
         }))
         .filter((i): i is { node: HTMLDivElement; fileName: string } => !!i.node)
 
       await downloadCertificateBatch(items, (done, total) => setProgress({ done, total }))
       toast.success(
-        items.length > 1 ? `Đã tải ${items.length} chứng nhận` : 'Đã tải chứng nhận'
+        items.length > 1 ? tr('CertificateModal.downloadedCertificates', { count: items.length }) : tr('CertificateModal.certificateDownloaded')
       )
     } catch (error) {
       console.error(error)
-      toast.error('Không tạo được ảnh chứng nhận', {
+      toast.error(tr('CertificateModal.couldNotCreateTheCertificateImage'), {
         description:
-          'Thường là do logo hoặc ảnh nền không cho phép tải chéo miền. Bạn vẫn in hoặc lưu PDF được bằng nút bên cạnh.',
+          tr('CertificateModal.thisIsUsuallyBecauseTheLogo'),
         duration: 7000,
       })
     } finally {
@@ -181,13 +185,13 @@ export default function CertificateModal({
       onClose={onClose}
       size="full"
       flush
-      title="Chứng nhận khen thưởng"
+      title={tr('CertificateModal.rewardCertificate')}
     >
       <div className="grid grid-cols-1 gap-0 lg:grid-cols-[320px_1fr]">
         {/* ── Cột trái: chọn mẫu và người nhận ── */}
         <div className="space-y-5 border-b border-[var(--color-border)] p-5 lg:border-b-0 lg:border-r">
           <div>
-            <div className="mb-2 text-sm font-medium">Mẫu chứng nhận</div>
+            <div className="mb-2 text-sm font-medium">{tr('CertificateModal.certificateTemplates')}</div>
             {isLoading ? (
               <div className="h-9 animate-pulse rounded-control bg-[var(--color-muted)]" />
             ) : lockedRecipientId ? (
@@ -201,23 +205,23 @@ export default function CertificateModal({
                 <SelectTrigger className="w-full rounded-control border-[var(--color-border)] bg-[var(--color-background)]">
                   {/* Có placeholder vì `picked` rỗng trong nhịp đầu, trước khi effect
                       chốt được mẫu ưu tiên — không có thì ô trống trơn một thoáng. */}
-                  <SelectValue placeholder="Chọn mẫu" />
+                  <SelectValue placeholder={tr('CertificateModal.chooseTemplate')} />
                 </SelectTrigger>
                 <SelectContent className={SELECT_CONTENT_Z}>
                   {!!catalog?.templates.length && (
                     <SelectGroup>
-                      <SelectLabel>Mẫu của công ty</SelectLabel>
+                      <SelectLabel>{tr('CertificateModal.companyTemplates')}</SelectLabel>
                       {catalog.templates.map((t) => (
                         <SelectItem key={t.id} value={`tpl:${t.id}`}>
                           {t.name}
-                          {t.isDefault ? ' (mặc định)' : ''}
+                          {t.isDefault ? tr('CertificateModal.default') : ''}
                         </SelectItem>
                       ))}
                     </SelectGroup>
                   )}
                   <SelectGroup>
-                    <SelectLabel>Mẫu dựng sẵn</SelectLabel>
-                    {CERTIFICATE_PRESETS.map((p) => (
+                    <SelectLabel>{tr('CertificateModal.builtInTemplates')}</SelectLabel>
+                    {CERTIFICATE_PRESETS().map((p) => (
                       <SelectItem key={p.key} value={`preset:${p.key}`}>
                         {p.name}
                       </SelectItem>
@@ -232,11 +236,11 @@ export default function CertificateModal({
           </div>
 
           <div>
-            <div className="mb-2 text-sm font-medium">Khổ giấy</div>
+            <div className="mb-2 text-sm font-medium">{tr('CertificateModal.paperSize')}</div>
             <div className="flex gap-1.5">
               {[
                 { key: CertificateOrientation.LANDSCAPE, label: 'Ngang' },
-                { key: CertificateOrientation.PORTRAIT, label: 'Dọc' },
+                { key: CertificateOrientation.PORTRAIT, label: tr('CertificateModal.portrait') },
               ].map((o) => (
                 <ChoiceChip selected={design.orientation === o.key} variant="solid" className="flex-1 py-2" key={o.key} onClick={() => setOrientation(o.key)}>
                   {o.label}
@@ -248,13 +252,13 @@ export default function CertificateModal({
           {recipients.length > 1 && (
             <div>
               <div className="mb-2 flex items-center justify-between text-sm font-medium">
-                <span>Người nhận ({selectedIds.length}/{recipients.length})</span>
+                <span>{tr('CertificateModal.recipients')}{selectedIds.length}/{recipients.length})</span>
                 <Button variant="ghost" size="sm" onClick={() =>
                     setSelectedIds(
                       selectedIds.length === recipients.length ? [] : recipients.map((r) => r.userId)
                     )
                   }>
-                  {selectedIds.length === recipients.length ? 'Bỏ chọn hết' : 'Chọn hết'}
+                  {selectedIds.length === recipients.length ? tr('CertificateModal.deselectAll') : tr('CertificateModal.selectAll')}
                 </Button>
               </div>
               <div className="max-h-56 space-y-1 overflow-y-auto rounded-control border border-[var(--color-border)] p-1.5">
@@ -277,13 +281,13 @@ export default function CertificateModal({
                     />
                     <span className="min-w-0 flex-1 truncate">{r.fullName}</span>
                     <span className="flex-shrink-0 text-xs text-[var(--color-muted-foreground)]">
-                      {r.points.toLocaleString('vi-VN')}đ
+                      {r.points.toLocaleString(intlLocale())}{tr('CertificateModal.pts')}
                     </span>
                   </label>
                 ))}
               </div>
               <p className="mt-2 text-xs text-[var(--color-muted-foreground)]">
-                Mỗi người một tờ riêng, in liền một lượt.
+                {tr('CertificateModal.oneSheetPerPersonPrintedIn')}
               </p>
             </div>
           )}
@@ -291,17 +295,16 @@ export default function CertificateModal({
           <div className="space-y-2 border-t border-[var(--color-border)] pt-4">
             <Button className="w-full" onClick={() => printCertificateArea(design.orientation)} disabled={!chosen.length}>
               <Printer aria-hidden="true" />
-              In / Lưu PDF
+              {tr('CertificateModal.printSavePdf')}
             </Button>
             <Button variant="outline" className="w-full" onClick={handleDownload} disabled={!chosen.length || busy === 'png'}>
               {busy === 'png' ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Download aria-hidden="true" />}
               {progress && progress.total > 1
-                ? `Đang tải ${progress.done}/${progress.total}…`
-                : 'Tải ảnh PNG'}
+                ? tr('CertificateModal.downloading', { done: progress.done, total: progress.total })
+                : tr('CertificateModal.downloadPngImage')}
             </Button>
             <p className="text-xs text-[var(--color-muted-foreground)]">
-              Trong hộp thoại in, chọn máy in là <strong>Lưu thành PDF</strong> nếu bạn muốn
-              một tệp PDF thay vì in ra giấy.
+              {tr('CertificateModal.inThePrintDialogChooseThe')} <strong>{tr('CertificateModal.saveAsPdf')}</strong> {tr('CertificateModal.ifYouWantAPdfFile')}
             </p>
           </div>
         </div>
@@ -312,7 +315,7 @@ export default function CertificateModal({
             <PreviewFrame design={design} data={buildData(previewRecipient)} />
           ) : (
             <p className="py-16 text-sm text-[var(--color-muted-foreground)]">
-              Chọn ít nhất một người nhận để xem trước.
+              {tr('CertificateModal.chooseAtLeastOneRecipientTo')}
             </p>
           )}
         </div>

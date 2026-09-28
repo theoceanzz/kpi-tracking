@@ -1,5 +1,10 @@
 package com.kpitracking.service.email;
 
+import com.kpitracking.i18n.ErrorMessages;
+import com.kpitracking.i18n.SupportedLanguages;
+
+import java.util.Locale;
+
 /**
  * Khung HTML chung của mọi email hệ thống (header gradient + thân + footer).
  * Tách riêng để cả mail dựng cứng lẫn mail sinh từ template tuỳ chỉnh dùng chung
@@ -9,10 +14,15 @@ public final class EmailLayout {
 
     private EmailLayout() {}
 
-    /** Bọc đoạn HTML thân mail vào khung chuẩn. */
+    /** Bọc đoạn HTML thân mail vào khung chuẩn (tiếng Việt). */
     public static String wrap(String title, String content) {
+        return wrap(title, content, SupportedLanguages.DEFAULT_LOCALE);
+    }
+
+    /** Bọc đoạn HTML thân mail vào khung chuẩn, chân thư theo ngôn ngữ người nhận. */
+    public static String wrap(String title, String content, Locale locale) {
         return "<!DOCTYPE html>" +
-               "<html><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width, initial-scale=1.0'>" +
+               "<html lang='" + locale.getLanguage() + "'><head><meta charset='UTF-8'><meta name='viewport' content='width=device-width, initial-scale=1.0'>" +
                "<style>" +
                "  body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background-color: #f8fafc; margin: 0; padding: 0; -webkit-font-smoothing: antialiased; }" +
                "  .wrapper { width: 100%; table-layout: fixed; background-color: #f8fafc; padding: 40px 0; }" +
@@ -38,8 +48,8 @@ public final class EmailLayout {
                "    <div class='header'><h1>" + title + "</h1></div>" +
                "    <div class='body'>" + content + "</div>" +
                "    <div class='footer'>" +
-               "      <p>© 2026 KeyGo Performance Tracking. Mọi quyền được bảo lưu.</p>" +
-               "      <p style='margin-top: 8px;'>Email này được gửi tự động, vui lòng không phản hồi.</p>" +
+               "      <p>" + ErrorMessages.text(locale, "email.footer.copyright", "") + "</p>" +
+               "      <p style='margin-top: 8px;'>" + ErrorMessages.text(locale, "email.footer.autoSent", "") + "</p>" +
                "    </div>" +
                "  </div>" +
                "</div>" +

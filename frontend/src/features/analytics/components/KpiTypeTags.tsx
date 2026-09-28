@@ -1,4 +1,5 @@
 import { cn } from '@/lib/utils'
+import { useTranslation } from 'react-i18next'
 
 type RelationType = 'DELEGATION' | 'DECOMPOSITION' | null | undefined
 
@@ -34,29 +35,30 @@ export function KpiTypeTags({
   isReplacement,
   className,
 }: KpiTypeTagsProps) {
+  const { t: tr } = useTranslation('analytics')
   const tags: Tag[] = []
 
   if (isQualitative) {
-    tags.push({ label: 'KPI định tính', className: 'bg-[var(--color-primary-soft)] text-[var(--color-primary)]' })
+    tags.push({ label: tr('KpiTypeTags.qualitativeKpi'), className: 'bg-[var(--color-primary-soft)] text-[var(--color-primary)]' })
   }
   if (isBonusKpi) {
-    tags.push({ label: 'KPI thưởng', className: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]' })
+    tags.push({ label: tr('KpiTypeTags.bonusKpi'), className: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]' })
   }
   if (isReverseKpi) {
-    tags.push({ label: 'KPI ngược', className: 'bg-[var(--color-error-bg)] text-[var(--color-error)]' })
+    tags.push({ label: tr('KpiTypeTags.inverseKpi'), className: 'bg-[var(--color-error-bg)] text-[var(--color-error)]' })
   }
   if (childRelationType === 'DECOMPOSITION') {
-    tags.push({ label: 'KPI cha', className: 'bg-[var(--color-primary-soft)] text-[var(--color-primary)]' })
+    tags.push({ label: tr('KpiTypeTags.parentKpi'), className: 'bg-[var(--color-primary-soft)] text-[var(--color-primary)]' })
   } else if (childRelationType === 'DELEGATION') {
-    tags.push({ label: 'KPI thác nước', className: 'bg-[var(--color-info-bg)] text-[var(--color-info)]' })
+    tags.push({ label: tr('KpiTypeTags.waterfallKpi'), className: 'bg-[var(--color-info-bg)] text-[var(--color-info)]' })
   }
   if (isReplacement) {
-    tags.push({ label: 'KPI thay thế', className: 'bg-[var(--color-border)] text-[var(--color-foreground)]' })
+    tags.push({ label: tr('KpiTypeTags.replacementKpi'), className: 'bg-[var(--color-border)] text-[var(--color-foreground)]' })
   }
   if (parentRelationType === 'DECOMPOSITION') {
-    tags.push({ label: 'KPI con', className: 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)]' })
+    tags.push({ label: tr('KpiTypeTags.childKpi'), className: 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)]' })
   } else if (parentRelationType === 'DELEGATION') {
-    tags.push({ label: 'KPI thác nước', className: 'bg-[var(--color-info-bg)] text-[var(--color-info)]' })
+    tags.push({ label: tr('KpiTypeTags.waterfallKpi'), className: 'bg-[var(--color-info-bg)] text-[var(--color-info)]' })
   }
 
   // Loại bỏ tag trùng nhãn (vd "KPI thác nước" có thể xuất hiện cả từ child lẫn parent).
@@ -64,7 +66,7 @@ export function KpiTypeTags({
   const uniqueTags = tags.filter((t) => (seen.has(t.label) ? false : (seen.add(t.label), true)))
 
   if (uniqueTags.length === 0) {
-    uniqueTags.push({ label: 'KPI thường', className: 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)]' })
+    uniqueTags.push({ label: tr('KpiTypeTags.regularKpi'), className: 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)]' })
   }
 
   return (

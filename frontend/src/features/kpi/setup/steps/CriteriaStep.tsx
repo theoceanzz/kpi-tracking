@@ -20,6 +20,8 @@ import StepShell from '../StepShell'
 import { useKpiSetupFlow } from '../useKpiSetupFlow'
 import type { KpiCriteria } from '@/types/kpi'
 import { Button } from '@/components/ui/button'
+import { useTranslation } from 'react-i18next'
+import i18n from 'i18next'
 
 /** Chỉ cần đúng ba trường này để tra tên; khai riêng để khỏi kéo cả kiểu OrgUnit đầy đủ vào đây. */
 interface UnitNode {
@@ -55,6 +57,7 @@ function findUnitName(nodes: UnitNode[] | undefined, id: string): string | undef
  * nên một con số không nói rõ nó thuộc về cặp nào thì không dùng được vào việc gì.
  */
 export default function CriteriaStep() {
+  const { t } = useTranslation('kpi')
   const { goNext, goBack, currentFlow, periodId: periodFromUrl, orgUnitId: unitFromUrl } = useKpiSetupFlow()
   const [, setSearchParams] = useSearchParams()
   const user = useAuthStore(s => s.user)
@@ -212,14 +215,14 @@ export default function CriteriaStep() {
    */
   const onContinue = () => {
     if (!ready) {
-      toast.error('Hãy chọn đợt và đơn vị thực hiện trước.')
+      toast.error(t('CriteriaStep.chooseThePeriodAndTheImplementing'))
       return
     }
     if (!isComplete) {
       toast.error(
         total > 100
-          ? `Tổng trọng số đang là ${total.toFixed(1)}%, vượt 100%. Hãy giảm bớt trước khi đi tiếp.`
-          : `Tổng trọng số mới đạt ${total.toFixed(1)}%, còn thiếu ${(100 - total).toFixed(1)}%. Hãy thêm chỉ tiêu cho đủ 100%.`,
+          ? t('CriteriaStep.theTotalWeightIsOver100', { value: total.toFixed(1) })
+          : t('CriteriaStep.theTotalWeightIsOnlyShort', { value: total.toFixed(1), value2: (100 - total).toFixed(1) }),
       )
       return
     }
@@ -236,14 +239,14 @@ export default function CriteriaStep() {
   return (
     <StepShell
       bare
-      title="Thêm chỉ tiêu cho đợt"
-      description="Thêm liên tục cho tới khi tổng trọng số của đơn vị đạt đúng 100%. Mỗi chỉ tiêu được lưu ngay khi bấm thêm."
+      title={t('CriteriaStep.addKpisForThePeriod')}
+      description={t('CriteriaStep.keepAddingUntilTheUnitsTotal')}
       onBack={goBack}
       // Nút KHÔNG bị vô hiệu hoá: bấm vào phải nói ra còn thiếu gì. Nút xám không giải thích được
       // vì sao nó xám, mà đây đúng là chỗ người dùng hay mắc kẹt nhất.
       footer={
         <Button type="button" variant={isComplete ? 'default' : 'secondary'} onClick={onContinue}>
-          Tiếp tục
+          {t('CriteriaStep.continue')}
           <ArrowRight aria-hidden="true" />
         </Button>
       }
@@ -256,8 +259,8 @@ export default function CriteriaStep() {
               <Target size={20} />
             </div>
             <div>
-              <h3 className="text-section-title">Chỉ tiêu mới</h3>
-              <p className="text-caption">Thêm xong, form tự dọn để bạn nhập tiếp</p>
+              <h3 className="text-section-title">{t('CriteriaStep.newKpi')}</h3>
+              <p className="text-caption">{t('CriteriaStep.afterAddingTheFormClearsSo')}</p>
             </div>
           </div>
 
@@ -267,7 +270,7 @@ export default function CriteriaStep() {
             keepOpenAfterCreate
             compactOrgUnits
             singleOrgUnit
-            submitLabel="Thêm chỉ tiêu"
+            submitLabel={t('CriteriaStep.addKpi')}
             lockedPeriodId={periodFromUrl ?? undefined}
             defaultOrgUnitIds={defaultUnitIds}
             defaultAssigneeIds={selfAssigneeIds}
@@ -284,42 +287,42 @@ export default function CriteriaStep() {
           <div className="overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-card)] shadow-sm">
             {/* Bối cảnh: trả lời "con số bên dưới là của ai" trước khi đưa ra con số nào. */}
             <div className="space-y-2.5 border-b border-[var(--color-border)] p-5">
-              <p className="text-eyebrow">Đang lập cho</p>
+              <p className="text-eyebrow">{t('CriteriaStep.creatingFor')}</p>
 
               <ContextRow
                 icon={<CalendarRange size={14} />}
-                label="Đợt"
+                label={t('CriteriaStep.aPeriod')}
                 value={periodName}
-                placeholder="Chọn đợt ở form bên trái"
+                placeholder={t('CriteriaStep.chooseThePeriodInTheForm')}
               />
               <ContextRow
                 icon={<Building2 size={14} />}
-                label="Đơn vị"
-                value={multipleUnits ? `${formCtx.orgUnitIds.length} đơn vị` : unitName}
-                placeholder="Chọn đơn vị thực hiện"
+                label={t('CriteriaStep.unit')}
+                value={multipleUnits ? t('CriteriaStep.units', { count: formCtx.orgUnitIds.length }) : unitName}
+                placeholder={t('CriteriaStep.chooseTheImplementingUnit')}
               />
               {/* Người thực hiện quyết định con số trọng số bên dưới (luật là "người cao nhất"),
                   nên phải nằm ngay trong phần nói "đang lập cho ai" — mọi luồng, không riêng luồng
                   tự giao. */}
               <ContextRow
                 icon={<Users size={14} />}
-                label="Người"
+                label={t('CriteriaStep.person')}
                 value={formatAssigneeNames(formCtx.assigneeNames)}
-                placeholder="Chọn người thực hiện"
+                placeholder={t('CriteriaStep.chooseTheAssignee')}
               />
             </div>
 
             {!ready ? (
               <p className="p-8 text-center text-xs font-medium leading-relaxed text-[var(--color-subtle-foreground)]">
                 {multipleUnits
-                  ? 'Bạn đang giao cho nhiều đơn vị cùng lúc. Mỗi đơn vị có mức 100% riêng, nên phần theo dõi trọng số chỉ hiện khi chọn đúng một đơn vị.'
-                  : 'Chọn đợt và đơn vị thực hiện, phần theo dõi trọng số sẽ hiện ở đây.'}
+                  ? t('CriteriaStep.youAreAssigningToSeveralUnits')
+                  : t('CriteriaStep.chooseThePeriodAndImplementingUnit')}
               </p>
             ) : (
               <>
                 <div className="flex items-center gap-3 border-b border-[var(--color-border)] px-5 py-4">
                   <ShoppingBasket size={18} className="text-[var(--color-subtle-foreground)]" />
-                  <h3 className="text-section-title flex-1 text-[var(--color-foreground)]">Chỉ tiêu của đơn vị</h3>
+                  <h3 className="text-section-title flex-1 text-[var(--color-foreground)]">{t('CriteriaStep.unitKpis')}</h3>
                   <span className="rounded-full bg-[var(--color-muted)] px-2.5 py-0.5 text-caption">
                     {items.length}
                   </span>
@@ -332,7 +335,7 @@ export default function CriteriaStep() {
                     </div>
                   ) : items.length === 0 ? (
                     <p className="p-6 text-center text-xs font-medium text-[var(--color-subtle-foreground)]">
-                      Đơn vị này chưa có chỉ tiêu nào trong đợt.
+                      {t('CriteriaStep.thisUnitHasNoKpisIn')}
                     </p>
                   ) : (
                     personGroups.map(group => {
@@ -362,8 +365,8 @@ export default function CriteriaStep() {
                               {!groupDone && group.id !== UNASSIGNED_ID && (
                                 <span className="font-medium text-[var(--color-subtle-foreground)]">
                                   {groupWeight > 100
-                                    ? ` · vượt ${formatNumber(groupWeight - 100)}%`
-                                    : ` · thiếu ${formatNumber(100 - groupWeight)}%`}
+                                    ? t('CriteriaStep.over', { value: formatNumber(groupWeight - 100) })
+                                    : t('CriteriaStep.short', { value: formatNumber(100 - groupWeight) })}
                                 </span>
                               )}
                             </span>
@@ -395,8 +398,8 @@ export default function CriteriaStep() {
                                         <span className="text-caption">
                                           {formatNumber(shown)}%
                                           {/* Bật BSC thì đây mới là con số backend đem cộng. */}
-                                          {realDiffers && <> → {formatNumber(real)}% thật</>}
-                                          {kpi.isBonusKpi && <> · thưởng, không tính vào 100%</>}
+                                          {realDiffers && <> → {formatNumber(real)}{t('CriteriaStep.actual')}</>}
+                                          {kpi.isBonusKpi && <> {t('CriteriaStep.bonusNotCountedToward100')}</>}
                                         </span>
                                       </span>
                                       <span className="mt-1 block truncate text-caption">
@@ -418,8 +421,8 @@ export default function CriteriaStep() {
                                           e.stopPropagation()
                                           deleteKpi(kpi.id)
                                         }}
-                                        title="Bỏ khỏi danh sách"
-                                        aria-label="Bỏ khỏi danh sách"
+                                        title={t('CriteriaStep.removeFromList')}
+                                        aria-label={t('CriteriaStep.removeFromList')}
                                         className="shrink-0 text-[var(--color-error)] opacity-0 hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)] group-hover:opacity-100 focus-visible:opacity-100"
                                       >
                                         <Trash2 aria-hidden="true" />
@@ -438,7 +441,7 @@ export default function CriteriaStep() {
 
                 <div className="border-t border-[var(--color-border)] p-5">
                   <div className="mb-2 flex items-baseline justify-between">
-                    <span className="text-eyebrow">Tổng trọng số</span>
+                    <span className="text-eyebrow">{t('CriteriaStep.totalWeight')}</span>
                     <span className={cn('text-lg font-semibold tabular-nums', isComplete ? 'text-[var(--color-success)]' : 'text-[var(--color-foreground)]')}>
                       {total.toFixed(1)}%
                     </span>
@@ -451,15 +454,15 @@ export default function CriteriaStep() {
                   </div>
                   <p className={cn('mt-2 text-xs font-medium', isComplete ? 'text-[var(--color-success)]' : total > 100 ? 'text-[var(--color-error)]' : 'text-[var(--color-subtle-foreground)]')}>
                     {isComplete
-                      ? 'Đủ 100% — sẵn sàng gửi duyệt'
+                      ? t('CriteriaStep.n100ReachedReadyToSubmitFor')
                       : total > 100
-                        ? `Vượt ${(total - 100).toFixed(1)}% — cần giảm bớt`
-                        : `Còn thiếu ${(100 - total).toFixed(1)}%`}
+                        ? t('CriteriaStep.overByReduceIt', { value: (total - 100).toFixed(1) })
+                        : t('CriteriaStep.remaining', { value: (100 - total).toFixed(1) })}
                   </p>
                   {/* Câu luật cố định, không phải cảnh báo có điều kiện: đây là thứ người dùng
                       không suy ra được từ danh sách, và nó đúng ở mọi lúc. */}
                   <p className="mt-2 text-xs font-medium leading-snug text-[var(--color-subtle-foreground)]">
-                    Tổng của đơn vị = phần chưa giao ai + người có tổng cao nhất.
+                    {t('CriteriaStep.unitTotalTheUnassignedPartThe')}
                   </p>
                 </div>
               </>
@@ -483,10 +486,10 @@ function describeKpi(kpi: KpiCriteria, enableBsc?: boolean): string {
   const parts: string[] = [
     kpi.targetValue != null
       ? `${formatNumber(kpi.targetValue)}${kpi.unit ? ` ${kpi.unit}` : ''}`
-      : 'Chưa đặt mục tiêu',
-    FREQUENCY_MAP[kpi.frequency] ?? kpi.frequency,
+      : i18n.t('kpi:CriteriaStep.noTargetSet'),
+    FREQUENCY_MAP()[kpi.frequency] ?? kpi.frequency,
   ]
-  if (kpi.effectiveDeadline) parts.push(`hạn ${formatDate(kpi.effectiveDeadline)}`)
+  if (kpi.effectiveDeadline) parts.push(i18n.t('kpi:CriteriaStep.due', { effectiveDeadline: formatDate(kpi.effectiveDeadline) }))
   if (enableBsc && kpi.effectivePerspectiveName) parts.push(kpi.effectivePerspectiveName)
   return parts.join(' · ')
 }

@@ -4,6 +4,7 @@ import { PerspectiveRequest, ScorecardRequest, BscScoringMode, FixedPerspectiveU
 import { useAuthStore } from '@/store/authStore'
 import { toast } from 'sonner'
 import { getApiErrorMessage } from '@/lib/apiError'
+import { useTranslation } from 'react-i18next'
 
 /**
  * Làm mới MỌI truy vấn của màn BSC sau một thao tác ghi.
@@ -63,22 +64,24 @@ export function useFixedPerspectives(organizationId?: string) {
 
 /** Sửa hiển thị (tên/màu/thứ tự) 1 lĩnh vực cố định theo org. */
 export function useFixedPerspectiveMutations() {
+  const { t } = useTranslation('bsc')
   const queryClient = useQueryClient()
   const updateFixedPerspective = useMutation({
     mutationFn: ({ organizationId, code, data }: { organizationId: string; code: string; data: FixedPerspectiveUpdateRequest }) =>
       bscApi.updateFixedPerspective(organizationId, code, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['bsc-fixed-perspectives'] })
-      toast.success('Cập nhật lĩnh vực thành công')
+      toast.success(t('useBsc.areaUpdatedSuccessfully'))
     },
     onError: (error: any) => {
-      toast.error(getApiErrorMessage(error, 'Cập nhật lĩnh vực thất bại'))
+      toast.error(getApiErrorMessage(error, t('useBsc.failedToUpdateArea')))
     },
   })
   return { updateFixedPerspective }
 }
 
 export function useBscMutations() {
+  const { t } = useTranslation('bsc')
   const invalidate = useBscInvalidator()
 
   const createPerspective = useMutation({
@@ -86,10 +89,10 @@ export function useBscMutations() {
       bscApi.createPerspective(organizationId, data),
     onSuccess: () => {
       invalidate()
-      toast.success('Tạo hạng mục thành công')
+      toast.success(t('useBsc.itemCreatedSuccessfully'))
     },
     onError: (error: any) => {
-      toast.error(getApiErrorMessage(error, 'Tạo hạng mục thất bại'))
+      toast.error(getApiErrorMessage(error, t('useBsc.failedToCreateItem')))
     },
   })
 
@@ -98,10 +101,10 @@ export function useBscMutations() {
       bscApi.updatePerspective(perspectiveId, data),
     onSuccess: () => {
       invalidate()
-      toast.success('Cập nhật hạng mục thành công')
+      toast.success(t('useBsc.itemUpdatedSuccessfully'))
     },
     onError: (error: any) => {
-      toast.error(getApiErrorMessage(error, 'Cập nhật hạng mục thất bại'))
+      toast.error(getApiErrorMessage(error, t('useBsc.failedToUpdateItem')))
     },
   })
 
@@ -109,10 +112,10 @@ export function useBscMutations() {
     mutationFn: (perspectiveId: string) => bscApi.deletePerspective(perspectiveId),
     onSuccess: () => {
       invalidate()
-      toast.success('Xóa hạng mục thành công')
+      toast.success(t('useBsc.itemDeletedSuccessfully'))
     },
     onError: (error: any) => {
-      toast.error(getApiErrorMessage(error, 'Xóa hạng mục thất bại'))
+      toast.error(getApiErrorMessage(error, t('useBsc.failedToDeleteItem')))
     },
   })
 
@@ -130,33 +133,34 @@ export function useScorecards(organizationId?: string) {
 }
 
 export function useScorecardMutations() {
+  const { t } = useTranslation('bsc')
   const invalidate = useBscInvalidator()
 
   const createScorecard = useMutation({
     mutationFn: ({ organizationId, data }: { organizationId: string; data: ScorecardRequest }) =>
       bscApi.createScorecard(organizationId, data),
-    onSuccess: () => { invalidate(); toast.success('Tạo bộ tiêu chí thành công') },
-    onError: (e: any) => toast.error(getApiErrorMessage(e, 'Tạo bộ tiêu chí thất bại')),
+    onSuccess: () => { invalidate(); toast.success(t('useBsc.scorecardCreatedSuccessfully')) },
+    onError: (e: any) => toast.error(getApiErrorMessage(e, t('useBsc.failedToCreateScorecard'))),
   })
 
   const updateScorecard = useMutation({
     mutationFn: ({ scorecardId, data }: { scorecardId: string; data: ScorecardRequest }) =>
       bscApi.updateScorecard(scorecardId, data),
-    onSuccess: () => { invalidate(); toast.success('Cập nhật bộ tiêu chí thành công') },
-    onError: (e: any) => toast.error(getApiErrorMessage(e, 'Cập nhật bộ tiêu chí thất bại')),
+    onSuccess: () => { invalidate(); toast.success(t('useBsc.scorecardUpdatedSuccessfully')) },
+    onError: (e: any) => toast.error(getApiErrorMessage(e, t('useBsc.failedToUpdateScorecard'))),
   })
 
   const deleteScorecard = useMutation({
     mutationFn: (scorecardId: string) => bscApi.deleteScorecard(scorecardId),
-    onSuccess: () => { invalidate(); toast.success('Xóa bộ tiêu chí thành công') },
-    onError: (e: any) => toast.error(getApiErrorMessage(e, 'Xóa bộ tiêu chí thất bại')),
+    onSuccess: () => { invalidate(); toast.success(t('useBsc.scorecardDeletedSuccessfully')) },
+    onError: (e: any) => toast.error(getApiErrorMessage(e, t('useBsc.failedToDeleteScorecard'))),
   })
 
   const updateScoringMode = useMutation({
     mutationFn: ({ scorecardId, mode }: { scorecardId: string; mode: BscScoringMode }) =>
       bscApi.updateScoringMode(scorecardId, mode),
-    onSuccess: () => { invalidate(); toast.success('Đã cập nhật chế độ chấm điểm') },
-    onError: (e: any) => toast.error(getApiErrorMessage(e, 'Cập nhật thất bại')),
+    onSuccess: () => { invalidate(); toast.success(t('useBsc.scoringModeUpdated')) },
+    onError: (e: any) => toast.error(getApiErrorMessage(e, t('useBsc.updateFailed'))),
   })
 
   const importScorecards = useMutation({
@@ -164,12 +168,12 @@ export function useScorecardMutations() {
       bscApi.importScorecards(organizationId, file),
     onSuccess: (data) => {
       invalidate()
-      toast.success(`Import thành công ${data.successfulImports} bộ tiêu chí`)
+      toast.success(t('useBsc.importedScorecardsSuccessfully', { count: data.successfulImports }))
       if (data.errors && data.errors.length > 0) {
-        toast.error(`${data.errors.length} lỗi: ${data.errors.slice(0, 3).join('; ')}`)
+        toast.error(t('useBsc.errors', { count: data.errors.length, join: data.errors.slice(0, 3).join('; ') }))
       }
     },
-    onError: (e: any) => toast.error(getApiErrorMessage(e, 'Import thất bại')),
+    onError: (e: any) => toast.error(getApiErrorMessage(e, t('useBsc.importFailed'))),
   })
 
   return { createScorecard, updateScorecard, deleteScorecard, updateScoringMode, importScorecards }

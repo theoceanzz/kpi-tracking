@@ -142,7 +142,7 @@ public class NotificationEmailDigestService {
         vars.put("so_thong_bao", String.valueOf(pending.size()));
         vars.put("khoang_thoi_gian", TIME_FORMAT.format(pending.get(0).getCreatedAt())
                 + " - " + TIME_FORMAT.format(pending.get(pending.size() - 1).getCreatedAt()));
-        vars.put("danh_sach_thong_bao", renderGroupedList(pending));
+        vars.put("danh_sach_thong_bao", renderGroupedList(pending, emailService.recipientLocale(first.getRecipientEmail())));
         return vars;
     }
 
@@ -151,7 +151,7 @@ public class NotificationEmailDigestService {
      * từng nhóm. Nhóm lại để người đọc thấy ngay "12 báo cáo chờ duyệt" là MỘT việc cần làm,
      * thay vì 12 dòng rời rạc trộn lẫn với các loại thông báo khác.
      */
-    private String renderGroupedList(List<NotificationEmailDigestItem> pending) {
+    private String renderGroupedList(List<NotificationEmailDigestItem> pending, java.util.Locale locale) {
         Map<String, List<NotificationEmailDigestItem>> byEvent = new LinkedHashMap<>();
         for (NotificationEmailDigestItem item : pending) {
             byEvent.computeIfAbsent(item.getEventCode(), k -> new ArrayList<>()).add(item);
@@ -162,7 +162,7 @@ public class NotificationEmailDigestService {
             List<NotificationEmailDigestItem> items = group.getValue();
             sb.append("<p style=\"margin:24px 0 8px;font-size:13px;font-weight:700;color:#1e293b;")
               .append("text-transform:uppercase;letter-spacing:0.04em;\">")
-              .append(escape(groupLabel(group.getKey())))
+              .append(escape(groupLabel(group.getKey(), locale)))
               .append(" (").append(items.size()).append(")</p>");
 
             for (NotificationEmailDigestItem item : items) {
@@ -180,8 +180,8 @@ public class NotificationEmailDigestService {
         return sb.toString();
     }
 
-    private String groupLabel(String eventCode) {
-        EmailTemplateCatalog.TemplateDef def = EmailTemplateCatalog.get(eventCode);
+    private String groupLabel(String eventCode, java.util.Locale locale) {
+        EmailTemplateCatalog.TemplateDef def = EmailTemplateCatalog.get(eventCode, locale);
         return def != null ? def.getLabel() : eventCode;
     }
 

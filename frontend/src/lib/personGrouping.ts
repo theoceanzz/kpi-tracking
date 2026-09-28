@@ -1,3 +1,5 @@
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 /**
  * Gom danh sách theo NGƯỜI để các màn hình KPI hiển thị lấy con người làm trung tâm:
  * mỗi người là một dòng chính, sổ xuống mới ra chỉ tiêu/đánh giá/yêu cầu của người đó.
@@ -19,7 +21,7 @@ export interface PersonGroup<T> extends PersonRef {
 
 /** Nhóm gom các bản ghi chưa gắn với ai — luôn nằm cuối danh sách. */
 export const UNASSIGNED_ID = '__UNASSIGNED__'
-export const UNASSIGNED_NAME = 'Chưa giao'
+export const UNASSIGNED_NAME = perLanguage(() => (i18n.t('common:personGrouping.unassigned')))
 
 /**
  * Gom `items` theo người.
@@ -49,7 +51,7 @@ export function groupByPerson<T>(items: T[], extract: (item: T) => PersonRef[]):
   items.forEach(item => {
     const people = extract(item).filter(p => p?.id)
     if (people.length === 0) {
-      push({ id: UNASSIGNED_ID, name: UNASSIGNED_NAME }, item)
+      push({ id: UNASSIGNED_ID, name: UNASSIGNED_NAME() }, item)
       return
     }
     people.forEach(p => push(p, item))
@@ -76,7 +78,7 @@ export interface UnitGroup<T> extends UnitRef {
 
 /** Nhóm gom các bản ghi không xác định được đơn vị — luôn nằm cuối danh sách. */
 export const UNKNOWN_UNIT_ID = '__NO_UNIT__'
-export const UNKNOWN_UNIT_NAME = 'Chưa rõ đơn vị'
+export const UNKNOWN_UNIT_NAME = perLanguage(() => (i18n.t('common:personGrouping.unknownUnit')))
 
 /**
  * Gom hai cấp: Đơn vị → Người. Mỗi bản ghi thuộc đúng một đơn vị, nhưng vẫn có thể nằm ở
@@ -96,7 +98,7 @@ export function groupByUnitThenPerson<T>(
 
   items.forEach(item => {
     const found = extractUnit(item)
-    const unit: UnitRef = found?.id ? found : { id: UNKNOWN_UNIT_ID, name: UNKNOWN_UNIT_NAME }
+    const unit: UnitRef = found?.id ? found : { id: UNKNOWN_UNIT_ID, name: UNKNOWN_UNIT_NAME() }
     const entry = byUnit.get(unit.id)
     if (entry) entry.items.push(item)
     else byUnit.set(unit.id, { unit, items: [item] })

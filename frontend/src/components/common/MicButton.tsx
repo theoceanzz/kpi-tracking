@@ -1,6 +1,7 @@
 import { Mic, Square } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useSpeechInput } from '@/hooks/useSpeechInput'
+import { useTranslation } from 'react-i18next'
 
 interface MicButtonProps {
   /** Chữ đọc được, đã nối sẵn với phần người dùng gõ dở. Cứ ghi thẳng vào ô. */
@@ -22,6 +23,7 @@ interface MicButtonProps {
  * nháy.
  */
 export function MicButton({ onText, getBaseText, disabled, className }: MicButtonProps) {
+  const { t } = useTranslation('shared')
   const { supported, listening, start } = useSpeechInput({ onText, getBaseText })
 
   if (!supported) return null
@@ -31,9 +33,9 @@ export function MicButton({ onText, getBaseText, disabled, className }: MicButto
       type="button"
       onClick={start}
       disabled={disabled}
-      aria-label={listening ? 'Dừng đọc' : 'Đọc bằng giọng nói'}
+      aria-label={listening ? t('MicButton.stopReading') : t('MicButton.readAloud')}
       aria-pressed={listening}
-      title={listening ? 'Đang nghe — bấm để dừng' : 'Đọc bằng giọng nói'}
+      title={listening ? t('MicButton.listeningClickToStop') : t('MicButton.readAloud')}
       className={cn(
         'relative inline-flex items-center justify-center rounded-control p-2 transition-colors',
         'disabled:opacity-40 disabled:cursor-not-allowed',

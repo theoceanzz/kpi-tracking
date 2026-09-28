@@ -1,5 +1,7 @@
 package com.kpitracking.service;
 
+import com.kpitracking.i18n.ErrorMessages;
+import com.kpitracking.exception.ForbiddenException;
 import com.kpitracking.dto.request.user.CreateUserRequest;
 import com.kpitracking.dto.request.user.UpdateUserRequest;
 import com.kpitracking.dto.response.PageResponse;
@@ -35,6 +37,8 @@ import java.time.Instant;
 
 import com.kpitracking.dto.response.user.ImportUserResponse;
 import com.kpitracking.exception.BusinessException;
+import com.kpitracking.exception.ErrorCode;
+import com.kpitracking.i18n.Terms;
 import org.apache.commons.csv.CSVFormat;
 import org.apache.commons.csv.CSVParser;
 import org.apache.commons.csv.CSVRecord;
@@ -60,11 +64,13 @@ public class UserService {
     private final OrgUnitRepository orgUnitRepository;
     private final RoleRepository roleRepository;
     private final PermissionChecker permissionChecker;
+    /** Người duyệt nghỉ việc / bị vô hiệu hoá: chuỗi duyệt đang chờ họ tự chuyển lên cấp trên. */
+    private final com.kpitracking.service.kpi.approval.KpiApprovalChainService approvalChain;
 
     private User getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         return userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("Người dùng", "email", email));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.user"), "email", email));
     }
 
 
@@ -121,12 +127,12 @@ public class UserService {
     @Transactional
     public UserResponse createUser(CreateUserRequest request) {
         if (userRepository.existsByEmailAndDeletedAtIsNull(request.getEmail())) {
-            throw new DuplicateResourceException("Email này đã tồn tại trong hệ thống: " + request.getEmail());
+            throw new DuplicateResourceException(ErrorCode.EMAIL_EXISTS_SYSTEM, request.getEmail());
         }
 
         if (request.getEmployeeCode() != null && !request.getEmployeeCode().isBlank()) {
             if (userRepository.existsByEmployeeCodeAndDeletedAtIsNull(request.getEmployeeCode().trim())) {
-                throw new BusinessException("Mã nhân viên '" + request.getEmployeeCode() + "' đã được sử dụng");
+                throw new BusinessException(ErrorCode.EMPLOYEE_CODE_USE, String.valueOf(request.getEmployeeCode()));
             }
         }
 
@@ -144,7 +150,7 @@ public class UserService {
 
         if (request.getOrgUnitId() != null && request.getRole() != null) {
             OrgUnit orgUnit = orgUnitRepository.findById(request.getOrgUnitId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Đơn vị", "id", request.getOrgUnitId()));
+                    .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.unit"), "id", request.getOrgUnitId()));
             
             UUID orgId = orgUnit.getOrgHierarchyLevel().getOrganization().getId();
             com.kpitracking.entity.Role role = resolveRole(request.getRole(), orgId);
@@ -274,7 +280,7 @@ public class UserService {
     public UserResponse getUserById(UUID userId) {
         User currentUser = getCurrentUser();
         User targetUser = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("Người dùng", "id", userId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.user"), "id", userId));
 
         if (!currentUser.getId().equals(userId) && !permissionChecker.isGlobalAdminOverUser(currentUser.getId(), userId)) {
             List<UserRoleOrgUnit> targetUserAssignments = userRoleOrgUnitRepository.findByUserId(userId);
@@ -284,7 +290,7 @@ public class UserService {
 
             
             if (!hasAccess) {
-                throw new com.kpitracking.exception.ForbiddenException("Bạn không có quyền xem thông tin người dùng này");
+                throw new ForbiddenException(ErrorCode.NO_PERMISSION_VIEW_USER_INFORMATION);
             }
         }
         return toResponse(targetUser);
@@ -294,7 +300,7 @@ public class UserService {
     public UserResponse updateUser(UUID userId, UpdateUserRequest request) {
         User currentUser = getCurrentUser();
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("Người dùng", "id", userId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.user"), "id", userId));
 
         if (!currentUser.getId().equals(userId) && !permissionChecker.isGlobalAdminOverUser(currentUser.getId(), userId)) {
             List<UserRoleOrgUnit> targetUserAssignments = userRoleOrgUnitRepository.findByUserId(userId);
@@ -302,7 +308,7 @@ public class UserService {
                     .anyMatch(a -> permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "USER:UPDATE", a.getOrgUnit().getId()));
             
             if (!hasAccess) {
-                throw new com.kpitracking.exception.ForbiddenException("Bạn không có quyền chỉnh sửa người dùng này");
+                throw new ForbiddenException(ErrorCode.NO_PERMISSION_EDIT_USER);
             }
         }
 
@@ -311,7 +317,7 @@ public class UserService {
         }
         if (request.getEmail() != null && !request.getEmail().equals(user.getEmail())) {
             if (userRepository.existsByEmailAndDeletedAtIsNull(request.getEmail())) {
-                throw new DuplicateResourceException("Người dùng", "email", request.getEmail());
+                throw new DuplicateResourceException(Terms.of("resource.user"), "email", request.getEmail());
             }
             user.setEmail(request.getEmail());
         }
@@ -321,12 +327,15 @@ public class UserService {
         if (request.getEmployeeCode() != null) {
             String code = request.getEmployeeCode().trim();
             if (!code.isBlank() && userRepository.existsByEmployeeCodeAndIdNotAndDeletedAtIsNull(code, userId)) {
-                throw new BusinessException("Mã nhân viên '" + code + "' đã được sử dụng bởi nhân sự khác");
+                throw new BusinessException(ErrorCode.EMPLOYEE_CODE_USED_ANOTHER_PERSON, String.valueOf(code));
             }
             user.setEmployeeCode(code);
         }
+        boolean deactivated = false;
         if (request.getStatus() != null) {
+            boolean wasPaused = user.isPausedAccount();
             user.setStatus(request.getStatus());
+            deactivated = !wasPaused && user.isPausedAccount();
         }
 
         if (request.getOrgUnitId() != null || request.getRole() != null) {
@@ -336,7 +345,7 @@ public class UserService {
 
             if (request.getOrgUnitId() != null) {
                 unit = orgUnitRepository.findById(request.getOrgUnitId())
-                        .orElseThrow(() -> new ResourceNotFoundException("Đơn vị", "id", request.getOrgUnitId()));
+                        .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.unit"), "id", request.getOrgUnitId()));
             } else if (!assignments.isEmpty()) {
                 unit = assignments.get(0).getOrgUnit();
             }
@@ -358,6 +367,9 @@ public class UserService {
         }
 
         user = userRepository.save(user);
+        if (deactivated) {
+            approvalChain.onApproverDeactivated(user);
+        }
         return toResponse(user);
     }
 
@@ -365,7 +377,7 @@ public class UserService {
     public void deleteUser(UUID userId) {
         User currentUser = getCurrentUser();
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("Người dùng", "id", userId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.user"), "id", userId));
 
         if (!permissionChecker.isGlobalAdminOverUser(currentUser.getId(), userId)) {
             List<UserRoleOrgUnit> targetUserAssignments = userRoleOrgUnitRepository.findByUserId(userId);
@@ -373,12 +385,13 @@ public class UserService {
                     .anyMatch(a -> permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "USER:DELETE", a.getOrgUnit().getId()));
             
             if (!hasAccess) {
-                throw new com.kpitracking.exception.ForbiddenException("Bạn không có quyền xoá người dùng này");
+                throw new ForbiddenException(ErrorCode.NO_PERMISSION_DELETE_USER);
             }
         }
 
         user.setDeletedAt(Instant.now());
         userRepository.save(user);
+        approvalChain.onApproverDeactivated(user);
     }
 
     private String generateRandomPassword() {
@@ -392,7 +405,7 @@ public class UserService {
     public ImportUserResponse importUsers(MultipartFile file, UUID orgUnitId) {
         String filename = file.getOriginalFilename();
         if (filename == null || (!filename.endsWith(".csv") && !filename.endsWith(".xlsx"))) {
-            throw new BusinessException("Chỉ hỗ trợ tập tin định dạng .csv và .xlsx");
+            throw new BusinessException(ErrorCode.ONLY_3);
         }
 
         List<String> errors = new ArrayList<>();
@@ -429,7 +442,7 @@ public class UserService {
                     Sheet sheet = workbook.getSheetAt(0);
                     Row headerRow = sheet.getRow(0);
 
-                    if (headerRow == null) throw new BusinessException("Tập tin Excel trống");
+                    if (headerRow == null) throw new BusinessException(ErrorCode.EXCEL_FILE_EMPTY);
 
                     int emailIdx = -1, nameIdx = -1, phoneIdx = -1, codeIdx = -1, roleIdx = -1, passIdx = -1, orgCodeIdx = -1;
                     for (int i = 0; i < headerRow.getLastCellNum(); i++) {
@@ -444,7 +457,7 @@ public class UserService {
                     }
 
                     if (emailIdx == -1 || nameIdx == -1) {
-                        throw new BusinessException("Thiếu các cột bắt buộc: Email, FullName");
+                        throw new BusinessException(ErrorCode.MISSING_REQUIRED_COLUMNS_4);
                     }
 
                     Set<String> orgCodesInFile = new HashSet<>();
@@ -480,10 +493,7 @@ public class UserService {
                             boolean hasManagerInDb = userRoleOrgUnitRepository.existsByOrgUnitIdAndRoleRank(unit.getId(), 0);
 
                             if (!hasManagerInFile && !hasManagerInDb) {
-                                throw new BusinessException(String.format(
-                                    "Đơn vị '%s' (%s) chưa có nhân sự đảm nhiệm vai trò Trưởng đơn vị (Rank 0). Vui lòng bổ sung quản lý trong tệp tin hoặc hệ thống.",
-                                    unit.getName(), unit.getCode()
-                                ));
+                                throw new BusinessException(ErrorCode.UNIT, unit.getName(), unit.getCode());
                             }
                         }
                     }
@@ -512,7 +522,7 @@ public class UserService {
                 }
             }
         } catch (Exception e) {
-            throw new BusinessException("Xử lý tập tin thất bại: " + e.getMessage());
+            throw new BusinessException(ErrorCode.FILE_PROCESSING_FAILED, e.getMessage());
         }
 
         return ImportUserResponse.builder()
@@ -532,8 +542,8 @@ public class UserService {
     }
 
     private List<UUID> processUserRow(String email, String fullName, String phone, String employeeCode, String roleIdStr, String password, String orgUnitCode, UUID orgUnitId) {
-        if (email == null || email.isBlank()) throw new BusinessException("Email là bắt buộc");
-        if (fullName == null || fullName.isBlank()) throw new BusinessException("Họ tên là bắt buộc");
+        if (email == null || email.isBlank()) throw new BusinessException(ErrorCode.EMAIL_REQUIRED);
+        if (fullName == null || fullName.isBlank()) throw new BusinessException(ErrorCode.FULL_NAME_REQUIRED);
 
         User user = createOrUpdateUserInternal(email, fullName, phone, employeeCode, password);
         UUID organizationId = orgUnitId; // Simplified, in processUserRow we might need to lookup the orgId from orgUnitId
@@ -570,7 +580,7 @@ public class UserService {
         // 2. Assign to Specific Unit (from Excel) with the selected Role
         if (orgUnitCode != null && !orgUnitCode.isBlank()) {
             OrgUnit specificUnit = orgUnitRepository.findByCode(orgUnitCode.trim())
-                    .orElseThrow(() -> new BusinessException("Mã đơn vị không tồn tại: " + orgUnitCode));
+                    .orElseThrow(() -> new BusinessException(ErrorCode.UNIT_CODE_DOES_NOT_EXIST, String.valueOf(orgUnitCode)));
             
             // Only assign if it's different from the default unit OR if we want to ensure the role is applied here
             // To be safe, if it's the same unit, the Role in Excel should override the Staff role
@@ -588,7 +598,7 @@ public class UserService {
             User user = existingUser.get();
             
             if (user.getStatus() == UserStatus.ACTIVE) {
-                throw new BusinessException("Email '" + email + "' đã tồn tại và đang hoạt động trên hệ thống. Không thể ghi đè nhân sự đang hoạt động.");
+                throw new BusinessException(ErrorCode.EMAIL_EXISTS_ACTIVE_SYSTEM, String.valueOf(email));
             }
 
             if (fullName != null && !fullName.isBlank()) user.setFullName(fullName);
@@ -596,7 +606,7 @@ public class UserService {
             if (employeeCode != null && !employeeCode.isBlank()) {
                 String code = employeeCode.trim();
                 if (userRepository.existsByEmployeeCodeAndIdNotAndDeletedAtIsNull(code, user.getId())) {
-                    throw new BusinessException("Mã nhân viên '" + code + "' đã được sử dụng bởi nhân sự khác (" + email + ")");
+                    throw new BusinessException(ErrorCode.EMPLOYEE_CODE_USED_ANOTHER_PERSON_2, String.valueOf(code), String.valueOf(email));
                 }
                 user.setEmployeeCode(code);
             }
@@ -612,7 +622,7 @@ public class UserService {
             if (employeeCode != null && !employeeCode.isBlank()) {
                 String code = employeeCode.trim();
                 if (userRepository.existsByEmployeeCodeAndDeletedAtIsNull(code)) {
-                    throw new BusinessException("Mã nhân viên '" + code + "' đã được sử dụng bởi nhân sự khác (" + email + ")");
+                    throw new BusinessException(ErrorCode.EMPLOYEE_CODE_USED_ANOTHER_PERSON_2, String.valueOf(code), String.valueOf(email));
                 }
             }
 
@@ -634,7 +644,7 @@ public class UserService {
 
     private void assignUserToUnitInternal(User user, com.kpitracking.entity.Role role, UUID orgUnitId) {
         OrgUnit unit = orgUnitRepository.findById(orgUnitId)
-                .orElseThrow(() -> new BusinessException("Đơn vị không tồn tại"));
+                .orElseThrow(() -> new BusinessException(ErrorCode.UNIT_DOES_NOT_EXIST));
         
         UUID orgId = unit.getOrgHierarchyLevel().getOrganization().getId();
         // Root unit (Level 0) always gets Staff role by default in bulk operations
@@ -666,12 +676,9 @@ public class UserService {
                 UserRoleOrgUnit first = existing.get(0);
                 String currentName = first.getUser().getFullName();
                 String currentRole = first.getRole().getName();
-                String rankName = (rank == 0) ? "Cấp Trưởng" : "Cấp Phó";
+                String rankName = ErrorMessages.text(rank == 0 ? "role.rank.head" : "role.rank.deputy", "");
                 
-                throw new BusinessException(String.format(
-                    "Đơn vị '%s' đã có %s đảm nhiệm vai trò %s (%s). Mỗi đơn vị chỉ được phép có tối đa một nhân sự ở cấp độ này.",
-                    first.getOrgUnit().getName(), currentName, currentRole, rankName
-                ));
+                throw new BusinessException(ErrorCode.UNIT_ROLE, first.getOrgUnit().getName(), String.valueOf(currentName), String.valueOf(currentRole), String.valueOf(rankName));
             }
         }
     }
@@ -680,12 +687,12 @@ public class UserService {
         if (identifier == null || identifier.isBlank()) {
             return roleRepository.findByOrganizationIdAndRank(organizationId, 2)
                     .stream().findFirst()
-                    .orElseThrow(() -> new BusinessException("Vai trò nhân viên mặc định (Rank 2) không tồn tại cho tổ chức này"));
+                    .orElseThrow(() -> new BusinessException(ErrorCode.DEFAULT_EMPLOYEE_ROLE));
         }
 
         if (identifier.matches("^[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}$")) {
             return roleRepository.findById(UUID.fromString(identifier))
-                    .orElseThrow(() -> new BusinessException("Mã vai trò (UUID) không tồn tại: " + identifier));
+                    .orElseThrow(() -> new BusinessException(ErrorCode.ROLE_CODE, String.valueOf(identifier)));
         }
 
         return resolveRole(identifier, organizationId);
@@ -695,20 +702,20 @@ public class UserService {
         if (roleName == null || roleName.isBlank()) {
             return roleRepository.findByOrganizationIdAndRank(organizationId, 2)
                     .stream().findFirst()
-                    .orElseThrow(() -> new BusinessException("Không tìm thấy vai trò nhân viên mặc định"));
+                    .orElseThrow(() -> new BusinessException(ErrorCode.DEFAULT_EMPLOYEE_ROLE_NOT_FOUND));
         }
         String name = roleName.trim();
 
         return roleRepository.findByNameAndOrganizationId(name, organizationId)
                 .or(() -> roleRepository.findByNameIgnoreCaseAndOrganizationId(name, organizationId))
-                .orElseThrow(() -> new BusinessException("Chức danh '" + name + "' không tồn tại trong hệ thống. Vui lòng nhập đúng tên vai trò đã thiết lập."));
+                .orElseThrow(() -> new BusinessException(ErrorCode.JOB_TITLE_DOES_NOT_EXIST_SYSTEM, String.valueOf(name)));
     }
 
     private void validateManagerRequirement(OrgUnit orgUnit, com.kpitracking.entity.Role role) {
         if (role.getRank() != null && role.getRank() == 2) {
             if (orgUnit.getParent() != null && orgUnit.getOrgHierarchyLevel() != null) {
                 if (!userRoleOrgUnitRepository.existsByOrgUnitIdAndRoleRank(orgUnit.getId(), 0)) {
-                    throw new BusinessException("Đơn vị '" + orgUnit.getName() + "' chưa có người quản lý (Cấp trưởng - Rank 0).");
+                    throw new BusinessException(ErrorCode.UNIT_NO_MANAGER, orgUnit.getName());
                 }
             }
         }
@@ -717,7 +724,7 @@ public class UserService {
     private UUID getCurrentUserOrgId() {
         User cur = getCurrentUser();
         List<UserRoleOrgUnit> assignments = userRoleOrgUnitRepository.findByUserId(cur.getId());
-        if (assignments.isEmpty()) throw new BusinessException("Người dùng hiện tại không thuộc tổ chức nào");
+        if (assignments.isEmpty()) throw new BusinessException(ErrorCode.CURRENT_USER_OUTSIDE_ORGANIZATION_2);
         return assignments.get(0).getOrgUnit().getOrgHierarchyLevel().getOrganization().getId();
     }
 }

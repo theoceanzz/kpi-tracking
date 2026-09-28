@@ -2,6 +2,7 @@ package com.kpitracking.logging;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kpitracking.dto.response.ApiResponse;
+import com.kpitracking.exception.ErrorCode;
 import jakarta.servlet.http.HttpServletResponse;
 import org.slf4j.MDC;
 import org.springframework.core.MethodParameter;
@@ -45,13 +46,18 @@ public class RequestIdResponseAdvice implements ResponseBodyAdvice<Object> {
         return body;
     }
 
-    /** Ghi thẳng một ApiResponse lỗi ra servlet response (cho filter / entry point ngoài MVC). */
-    public static void writeError(HttpServletResponse response, int status, String message) throws IOException {
-        response.setStatus(status);
+    /**
+     * Ghi thẳng một ApiResponse lỗi ra servlet response (cho filter / entry point ngoài MVC).
+     * {@code message} phải là câu đã dịch — lấy qua {@code Messages.error(code)}; ngôn ngữ trong filter
+     * đã được {@code LocaleContextFilter} đặt sẵn.
+     */
+    public static void writeError(HttpServletResponse response, ErrorCode code, String message) throws IOException {
+        response.setStatus(code.status().value());
         response.setContentType(MediaType.APPLICATION_JSON_VALUE);
         response.setCharacterEncoding("UTF-8");
         ApiResponse<Void> body = ApiResponse.<Void>builder()
                 .success(false)
+                .code(code.name())
                 .message(message)
                 .timestamp(Instant.now())
                 .requestId(MDC.get(MdcKeys.REQUEST_ID))
