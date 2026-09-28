@@ -3,6 +3,7 @@ import { kpiCycleApi } from '../api/kpiCycleApi'
 import type { KpiCyclePayload } from '@/types/kpi'
 import { toast } from 'sonner'
 import { getApiErrorMessage } from '@/lib/apiError'
+import { useTranslation } from 'react-i18next'
 
 interface UseKpiCyclesOptions {
   page?: number
@@ -18,6 +19,7 @@ interface UseKpiCyclesOptions {
 }
 
 export const useKpiCycles = (options: UseKpiCyclesOptions = {}) => {
+  const { t } = useTranslation('kpi')
   const qc = useQueryClient()
   const { enabled = true, ...params } = options
 
@@ -32,9 +34,9 @@ export const useKpiCycles = (options: UseKpiCyclesOptions = {}) => {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['kpiCycles'] })
       qc.invalidateQueries({ queryKey: ['kpiPeriods'] })
-      toast.success('Đã tạo kỳ đánh giá mới')
+      toast.success(t('useKpiCycles.newEvaluationCycleCreated'))
     },
-    onError: (error) => toast.error(getApiErrorMessage(error, 'Tạo kỳ đánh giá thất bại')),
+    onError: (error) => toast.error(getApiErrorMessage(error, t('useKpiCycles.failedToCreateEvaluationCycle'))),
   })
 
   const updateMutation = useMutation({
@@ -42,9 +44,9 @@ export const useKpiCycles = (options: UseKpiCyclesOptions = {}) => {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['kpiCycles'] })
       qc.invalidateQueries({ queryKey: ['kpiPeriods'] })
-      toast.success('Đã cập nhật kỳ đánh giá')
+      toast.success(t('useKpiCycles.evaluationCycleUpdated'))
     },
-    onError: (error) => toast.error(getApiErrorMessage(error, 'Cập nhật kỳ đánh giá thất bại')),
+    onError: (error) => toast.error(getApiErrorMessage(error, t('useKpiCycles.failedToUpdateEvaluationCycle'))),
   })
 
   const deleteMutation = useMutation({
@@ -52,9 +54,9 @@ export const useKpiCycles = (options: UseKpiCyclesOptions = {}) => {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['kpiCycles'] })
       qc.invalidateQueries({ queryKey: ['kpiPeriods'] })
-      toast.success('Đã xoá kỳ đánh giá')
+      toast.success(t('useKpiCycles.evaluationCycleDeleted'))
     },
-    onError: (error) => toast.error(getApiErrorMessage(error, 'Xoá kỳ đánh giá thất bại')),
+    onError: (error) => toast.error(getApiErrorMessage(error, t('useKpiCycles.failedToDeleteEvaluationCycle'))),
   })
 
   return {

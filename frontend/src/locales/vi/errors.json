@@ -1,0 +1,11 @@
+{
+  "ErrorPage": {
+    "aServerSideErrorOccurredWe": "Đã có lỗi xảy ra từ phía máy chủ. Chúng tôi đang nhanh chóng khắc phục.",
+    "back": "Quay lại",
+    "backToHome": "Về trang chủ",
+    "help": "Trợ giúp",
+    "reportASystemError": "Báo lỗi hệ thống",
+    "thePageYouAreLookingFor": "Trang bạn đang tìm kiếm không tồn tại hoặc đã được chuyển sang địa chỉ mới.",
+    "youDoNotHaveAccessTo": "Bạn không có quyền truy cập vào tài nguyên này. Đây là khu vực hạn chế."
+  }
+}

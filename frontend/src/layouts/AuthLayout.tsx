@@ -2,8 +2,11 @@ import { Outlet, Navigate, Link } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
 import { CheckCircle2 } from 'lucide-react'
 import { BrandLogo } from '@/components/common/BrandLogo'
+import LanguageSwitcher from '@/components/common/LanguageSwitcher'
+import { useTranslation } from 'react-i18next'
 
 export default function AuthLayout() {
+  const { t } = useTranslation('layout')
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
 
   if (isAuthenticated) {
@@ -26,15 +29,15 @@ export default function AuthLayout() {
           </h1>
           
           <p className="text-lg text-white/75 mb-12 leading-relaxed max-w-md">
-            Nền tảng quản trị mục tiêu & hiệu suất hiện đại
+            {t('AuthLayout.aModernGoalPerformanceManagementPlatform')}
           </p>
 
           <div className="space-y-4">
             {[
-              'Theo dõi hiệu suất theo thời gian thực',
-              'Tích hợp Trí tuệ Nhân tạo (AI)',
-              'Tự động hóa chu trình duyệt chỉ tiêu',
-              'Báo cáo tự động bằng đồ thị trực quan'
+              t('AuthLayout.trackPerformanceInRealTime'),
+              t('AuthLayout.builtInArtificialIntelligenceAi'),
+              t('AuthLayout.automatedKpiApprovalCycle'),
+              t('AuthLayout.automaticReportsWithVisualCharts')
             ].map((feature, idx) => (
                <div key={idx} className="flex items-center gap-3 text-white/90 font-medium bg-white/5 border border-white/15 w-fit px-4 py-2.5 rounded-full">
                   <CheckCircle2 size={18} className="text-white/80" aria-hidden="true" />
@@ -48,6 +51,10 @@ export default function AuthLayout() {
       {/* Right Pane - Form Area */}
       <div className="w-full lg:w-1/2 min-w-0 h-full flex flex-col items-center overflow-y-auto overflow-x-hidden px-6 py-12 sm:px-12 custom-scrollbar relative">
         <div className="absolute inset-0 bg-[var(--color-muted)] -z-10"></div>
+        {/* Chọn trước khi đăng nhập: lưu ở máy này, đăng nhập xong được đẩy lên tài khoản nếu tài khoản chưa chọn. */}
+        <div className="absolute right-4 top-4 sm:right-6">
+          <LanguageSwitcher />
+        </div>
         <div className="w-full max-w-md my-auto">
           {/* Logo for mobile only */}
           <Link to="/" className="lg:hidden flex justify-center mb-8 transition-transform" aria-label="KeyGo">

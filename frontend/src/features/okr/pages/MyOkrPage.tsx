@@ -22,12 +22,15 @@ import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import type { KpiCriteria } from '@/types/kpi'
 import { OkrStatus, type KeyResultResponse, type ObjectiveResponse } from '../types'
+import { useTranslation } from 'react-i18next'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
-const STATUS_LABEL: Record<OkrStatus, { label: string; variant: 'success' | 'secondary' | 'destructive' }> = {
-  [OkrStatus.ACTIVE]: { label: 'Đang chạy', variant: 'success' },
-  [OkrStatus.COMPLETED]: { label: 'Hoàn thành', variant: 'secondary' },
-  [OkrStatus.CANCELLED]: { label: 'Đã huỷ', variant: 'destructive' },
-}
+const STATUS_LABEL = perLanguage((): Record<OkrStatus, { label: string; variant: 'success' | 'secondary' | 'destructive' }> => ({
+  [OkrStatus.ACTIVE]: { label: i18n.t('okr:MyOkrPage.running'), variant: 'success' },
+  [OkrStatus.COMPLETED]: { label: i18n.t('okr:MyOkrPage.completed'), variant: 'secondary' },
+  [OkrStatus.CANCELLED]: { label: i18n.t('okr:MyOkrPage.cancelled'), variant: 'destructive' },
+}))
 
 type Scope = 'mine' | 'unit' | 'all'
 
@@ -37,7 +40,8 @@ type Scope = 'mine' | 'unit' | 'all'
  * để làm — cùng cách đọc trạng thái với KPI của tôi.
  */
 export default function MyOkrPage() {
-  const pageTitle = usePageTitle('my-okr', 'OKR của tôi')
+  const { t } = useTranslation('okr')
+  const pageTitle = usePageTitle('my-okr', t('MyOkrPage.myOkrs'))
   const { user } = useAuthStore()
   const organizationId = user?.memberships?.[0]?.organizationId
   const { data: tree } = useOrgUnitTree()
@@ -116,42 +120,42 @@ export default function MyOkrPage() {
     <div className="space-y-4">
       <WorkspaceHeader
         title={pageTitle}
-        description="Mục tiêu và kết quả then chốt mà KPI của bạn đang góp vào. Nộp bài ngay tại đây; xem biểu đồ ở Phân tích."
+        description={t('MyOkrPage.objectivesAndKeyResultsYourKpis')}
         stats={[
-          { label: 'Mục tiêu', value: stats.objectives, icon: Target },
-          { label: 'Kết quả then chốt', value: stats.krs, icon: TrendingUp },
-          { label: 'KPI gắn OKR', value: stats.linked, icon: ListChecks },
-          { label: 'Cần nộp', value: stats.toSubmit, icon: Send },
+          { label: t('MyOkrPage.target'), value: stats.objectives, icon: Target },
+          { label: t('MyOkrPage.keyResult'), value: stats.krs, icon: TrendingUp },
+          { label: t('MyOkrPage.okrLinkedKpis'), value: stats.linked, icon: ListChecks },
+          { label: t('MyOkrPage.toSubmit'), value: stats.toSubmit, icon: Send },
         ]}
       >
         {/* Nút phụ luôn ở hàng dưới, phải — cùng bố cục với BSC của tôi ở mọi vai trò. */}
         <div className="flex flex-wrap gap-2 sm:justify-end">
           <Button asChild variant="outline">
-            <Link to="/analytics?section=my-objectives"><TrendingUp aria-hidden="true" /> Xem phân tích</Link>
+            <Link to="/analytics?section=my-objectives"><TrendingUp aria-hidden="true" /> {t('MyOkrPage.viewAnalytics')}</Link>
           </Button>
           {hasPermission('OKR:MANAGE') && (
             <Button asChild variant="outline">
-              <Link to="/settings/tools?section=okr"><ExternalLink aria-hidden="true" /> Quản lý OKR</Link>
+              <Link to="/settings/tools?section=okr"><ExternalLink aria-hidden="true" /> {t('MyOkrPage.okrManagement')}</Link>
             </Button>
           )}
         </div>
       </WorkspaceHeader>
 
-      <FilterBar search={{ value: search, onChange: setSearch, placeholder: 'Tìm mục tiêu, kết quả then chốt…' }}>
+      <FilterBar search={{ value: search, onChange: setSearch, placeholder: t('MyOkrPage.searchObjectivesKeyResults') }}>
         <SegmentedControl<Scope>
-          ariaLabel="Phạm vi"
+          ariaLabel={t('MyOkrPage.scope')}
           value={effectiveScope}
           onChange={setScope}
           options={[
-            { value: 'mine', label: 'Tôi tham gia' },
-            { value: 'unit', label: 'Đơn vị tôi' },
-            { value: 'all', label: 'Toàn công ty' },
+            { value: 'mine', label: t('MyOkrPage.iParticipate') },
+            { value: 'unit', label: t('MyOkrPage.myUnit') },
+            { value: 'all', label: t('MyOkrPage.wholeCompany') },
           ]}
         />
         <Select value={periodId} onValueChange={setPeriodId}>
-          <SelectTrigger className="w-full sm:w-auto sm:min-w-44" aria-label="Đợt"><SelectValue placeholder="Đợt" /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-auto sm:min-w-44" aria-label={t('MyOkrPage.aPeriod')}><SelectValue placeholder={t('MyOkrPage.aPeriod')} /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="ALL">Tất cả các đợt</SelectItem>
+            <SelectItem value="ALL">{t('MyOkrPage.allPeriods')}</SelectItem>
             {periods.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
           </SelectContent>
         </Select>
@@ -163,11 +167,11 @@ export default function MyOkrPage() {
         <div className="rounded-card border border-dashed border-[var(--color-border)] bg-[var(--color-card)]">
           <EmptyState
             icon={Target}
-            title={effectiveScope === 'mine' ? 'Bạn chưa có KPI nào gắn vào OKR' : 'Không có mục tiêu nào khớp'}
+            title={effectiveScope === 'mine' ? t('MyOkrPage.youHaveNoKpisLinkedTo') : t('MyOkrPage.noMatchingObjectives')}
             description={effectiveScope === 'mine'
-              ? 'Khi chỉ tiêu của bạn được gắn vào một kết quả then chốt, mục tiêu đó sẽ hiện ở đây. Chuyển sang "Đơn vị tôi" để xem mục tiêu của đơn vị.'
-              : 'Thử đổi phạm vi, đợt hoặc từ khoá.'}
-            action={effectiveScope === 'mine' ? <Button variant="outline" onClick={() => setScope('unit')}>Xem mục tiêu đơn vị tôi</Button> : undefined}
+              ? t('MyOkrPage.whenYourKpisAreLinkedTo')
+              : t('MyOkrPage.tryChangingTheScopePeriodOr')}
+            action={effectiveScope === 'mine' ? <Button variant="outline" onClick={() => setScope('unit')}>{t('MyOkrPage.viewMyUnitsObjectives')}</Button> : undefined}
           />
         </div>
       ) : (
@@ -203,16 +207,17 @@ function ObjectiveCard({ objective: o, open, onToggle, kpisByKr, directKpis, isM
   onOpenKpi: (k: KpiCriteria) => void
   now: Date
 }) {
+  const { t } = useTranslation('okr')
   const progress = o.keyResults.length
     ? Math.round(o.keyResults.reduce((a, kr) => a + Math.min(100, kr.progress || 0), 0) / o.keyResults.length)
     : 0
   const myCount = o.keyResults.reduce((a, kr) => a + (kpisByKr.get(kr.id)?.length ?? 0), 0) + directKpis.length
-  const st = STATUS_LABEL[o.status] ?? STATUS_LABEL[OkrStatus.ACTIVE]
+  const st = STATUS_LABEL()[o.status] ?? STATUS_LABEL()[OkrStatus.ACTIVE]
 
   return (
     <section className="overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
       <div className="flex items-start gap-3 px-4 py-3">
-        <Button variant="ghost" size="icon-sm" className="mt-0.5 shrink-0" onClick={onToggle} aria-expanded={open} aria-label={open ? 'Thu gọn' : 'Mở rộng'}>
+        <Button variant="ghost" size="icon-sm" className="mt-0.5 shrink-0" onClick={onToggle} aria-expanded={open} aria-label={open ? t('MyOkrPage.collapse') : t('MyOkrPage.expand')}>
           {open ? <ChevronDown aria-hidden="true" /> : <ChevronRight aria-hidden="true" />}
         </Button>
         <div className="min-w-0 flex-1">
@@ -220,14 +225,14 @@ function ObjectiveCard({ objective: o, open, onToggle, kpisByKr, directKpis, isM
             {o.code && <span className="font-mono text-caption">{o.code}</span>}
             <h3 className="text-sm font-semibold text-[var(--color-foreground)]">{o.name}</h3>
             <Badge variant={st.variant}>{st.label}</Badge>
-            {myCount > 0 && <Badge>Bạn góp {myCount} KPI</Badge>}
-            {isMyUnit && myCount === 0 && <Badge variant="outline">Đơn vị tôi</Badge>}
+            {myCount > 0 && <Badge>{t('MyOkrPage.youContribute')} {myCount} KPI</Badge>}
+            {isMyUnit && myCount === 0 && <Badge variant="outline">{t('MyOkrPage.myUnit')}</Badge>}
           </div>
           <p className="mt-0.5 text-caption">
-            {[o.orgUnitNames?.join(', '), o.startDate && o.endDate ? `${o.startDate} → ${o.endDate}` : null, o.perspectiveName ? `Lĩnh vực ${o.perspectiveName}` : null].filter(Boolean).join(' · ')}
+            {[o.orgUnitNames?.join(', '), o.startDate && o.endDate ? `${o.startDate} → ${o.endDate}` : null, o.perspectiveName ? t('MyOkrPage.area', { perspectiveName: o.perspectiveName }) : null].filter(Boolean).join(' · ')}
           </p>
         </div>
-        <div className="flex w-40 shrink-0 items-center gap-2" title="Tiến độ trung bình các kết quả then chốt">
+        <div className="flex w-40 shrink-0 items-center gap-2" title={t('MyOkrPage.averageProgressOfKeyResults')}>
           <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[var(--color-muted)]">
             <div className="h-full rounded-full bg-[var(--color-primary)]" style={{ width: `${progress}%` }} />
           </div>
@@ -242,14 +247,14 @@ function ObjectiveCard({ objective: o, open, onToggle, kpisByKr, directKpis, isM
           ))}
           {directKpis.length > 0 && (
             <div className="px-4 py-2">
-              <p className="mb-1 text-label">KPI gắn thẳng mục tiêu</p>
+              <p className="mb-1 text-label">{t('MyOkrPage.kpisLinkedDirectlyToTheObjective')}</p>
               <div className="divide-y divide-[var(--color-border)] rounded-card border border-[var(--color-border)]">
                 {directKpis.map(k => <MyKpiMiniRow key={k.id} kpi={k} onOpen={onOpenKpi} now={now} />)}
               </div>
             </div>
           )}
           {o.keyResults.length === 0 && directKpis.length === 0 && (
-            <p className="px-4 py-3 text-caption">Mục tiêu này chưa có kết quả then chốt.</p>
+            <p className="px-4 py-3 text-caption">{t('MyOkrPage.thisObjectiveHasNoKeyResults')}</p>
           )}
         </div>
       )}
@@ -263,6 +268,7 @@ function KeyResultBlock({ kr, kpis, onOpenKpi, now }: {
   onOpenKpi: (k: KpiCriteria) => void
   now: Date
 }) {
+  const { t } = useTranslation('okr')
   const pct = Math.min(100, Math.round(kr.progress || 0))
   return (
     <div className="px-4 py-3">
@@ -273,7 +279,7 @@ function KeyResultBlock({ kr, kpis, onOpenKpi, now }: {
           </p>
           <p className="text-caption">
             {formatNumber(kr.currentValue)} / {formatNumber(kr.targetValue)}{kr.unit ? ` ${kr.unit}` : ''}
-            {kr.unitWeights?.length ? ` · ${kr.unitWeights.map(w => `${w.orgUnitName ?? 'Đơn vị'} ${w.weightPercentage}%`).join(', ')}` : ''}
+            {kr.unitWeights?.length ? ` · ${kr.unitWeights.map(w => `${w.orgUnitName ?? t('MyOkrPage.unit')} ${w.weightPercentage}%`).join(', ')}` : ''}
           </p>
         </div>
         <div className="flex w-40 shrink-0 items-center gap-2">
@@ -288,7 +294,7 @@ function KeyResultBlock({ kr, kpis, onOpenKpi, now }: {
           {kpis.map(k => <MyKpiMiniRow key={k.id} kpi={k} onOpen={onOpenKpi} now={now} />)}
         </div>
       ) : (
-        <p className="mt-1.5 text-caption">Bạn chưa có KPI gắn vào kết quả này.</p>
+        <p className="mt-1.5 text-caption">{t('MyOkrPage.youHaveNoKpisLinkedTo2')}</p>
       )}
     </div>
   )

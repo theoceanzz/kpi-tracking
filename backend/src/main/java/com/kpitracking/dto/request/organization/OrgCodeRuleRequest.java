@@ -8,10 +8,10 @@ import lombok.*;
 @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
 public class OrgCodeRuleRequest {
 
-    @NotNull(message = "Thiếu loại mã")
+    @NotNull(message = "{validation.codeTypeMissing}")
     private CodeType codeType;
 
-    @Size(max = 100, message = "Mẫu mã tối đa 100 ký tự")
+    @Size(max = 100, message = "{validation.codePatternCanMost100Characters}")
     private String pattern;
 
     private Boolean autoGenerate;

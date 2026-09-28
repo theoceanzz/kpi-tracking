@@ -16,6 +16,7 @@ import BscManagementPage from '@/features/bsc/pages/BscManagementPage'
 import RewardManagementPage from '@/features/rewards/pages/RewardManagementPage'
 import WalletAdminPage from '@/features/wallet/pages/WalletAdminPage'
 import AiQuotaPage from '@/features/organization/pages/AiQuotaPage'
+import { useTranslation } from 'react-i18next'
 
 /**
  * Thiết lập công cụ: các bảng cấu hình của tổ chức, cộng sáu công cụ quản lý mà trước
@@ -23,10 +24,11 @@ import AiQuotaPage from '@/features/organization/pages/AiQuotaPage'
  * lưới thẻ khi vào, mở một thẻ thì công cụ được trọn chiều cao.
  */
 export default function ToolSettingsPage() {
+  const { t } = useTranslation('orgunits')
   const { user } = useAuthStore()
   const orgId = user?.memberships?.[0]?.organizationId
   const { data: org, isLoading } = useOrganization(orgId)
-  const pageTitle = usePageTitle('setup-tools', 'Thiết lập công cụ')
+  const pageTitle = usePageTitle('setup-tools', t('ToolSettingsPage.toolSetup'))
   // Ba công cụ có hàng chờ thật; các mục còn lại là bảng cấu hình, không có việc tồn.
   const { counts } = useNotificationDots()
 
@@ -41,7 +43,7 @@ export default function ToolSettingsPage() {
       <SettingsSectionLayout
         navId="setup-tools"
         title={pageTitle}
-        subtitle="Tổ chức dùng những công cụ nào, chấm điểm ra sao, và nơi vận hành từng công cụ"
+        subtitle={t('ToolSettingsPage.whichToolsTheOrganizationUsesHow')}
         sections={[
           {
             id: 'modules',

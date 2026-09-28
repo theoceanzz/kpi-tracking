@@ -27,6 +27,37 @@ public class KpiAchievementCalculator {
 
     private final KpiCriteriaRepository kpiCriteriaRepository;
 
+    /** Cách tính điểm KPI bị chốt do khoá kỳ ({@link KpiStatus#CLOSED_BY_LOCK}). */
+    public enum ClosedByLockScoring {
+        /** Loại khỏi cả tử lẫn mẫu số trọng số — điểm đợt chia cho tổng trọng số thực có. */
+        EXCLUDE,
+        /** Giữ trọng số trong mẫu số, tỉ lệ đạt = 0. */
+        ZERO
+    }
+
+    /**
+     * NƠI DUY NHẤT quyết định KPI chốt do khoá kỳ được tính điểm ra sao. Đổi sang {@code ZERO} là
+     * mọi nơi dùng {@link #scoringStatuses}, {@link #countsTowardQuantitativeScore},
+     * {@link #countsTowardBscScore} và {@link #ratio} cùng đổi theo.
+     */
+    public static final ClosedByLockScoring CLOSED_BY_LOCK_SCORING = ClosedByLockScoring.EXCLUDE;
+
+    /**
+     * Danh sách trạng thái được nạp để tính điểm: {@code base} cộng thêm CLOSED_BY_LOCK khi đang
+     * tính 0 cho nó (loại hẳn thì không cần nạp).
+     */
+    public static List<KpiStatus> scoringStatuses(List<KpiStatus> base) {
+        if (CLOSED_BY_LOCK_SCORING != ClosedByLockScoring.ZERO || base.contains(KpiStatus.CLOSED_BY_LOCK)) return base;
+        List<KpiStatus> out = new java.util.ArrayList<>(base);
+        out.add(KpiStatus.CLOSED_BY_LOCK);
+        return java.util.Collections.unmodifiableList(out);
+    }
+
+    /** KPI chốt do khoá kỳ có bị loại khỏi điểm không. */
+    public static boolean excludedByLock(KpiCriteria kpi) {
+        return kpi.getStatus() == KpiStatus.CLOSED_BY_LOCK && CLOSED_BY_LOCK_SCORING == ClosedByLockScoring.EXCLUDE;
+    }
+
     /** Trần tỉ lệ đạt (150%) — vượt mức vẫn bị chặn để 1 KPI không kéo lệch toàn bộ điểm. */
     public static final double MAX_RATIO = 1.5;
 
@@ -106,6 +137,7 @@ public class KpiAchievementCalculator {
 
     /** Tỉ lệ đạt của KPI (0..1.5) tính từ các submission của user. */
     public double ratio(KpiCriteria kpi, UUID targetUserId, boolean enableWaterfall) {
+        if (kpi.getStatus() == KpiStatus.CLOSED_BY_LOCK) return 0.0;
         return ratioFromActual(kpi, actualValue(kpi, targetUserId, enableWaterfall));
     }
 
@@ -137,6 +169,7 @@ public class KpiAchievementCalculator {
      * và KPI định lượng thiếu target.
      */
     public boolean countsTowardBscScore(KpiCriteria kpi) {
+        if (excludedByLock(kpi)) return false;
         if (kpi.getStatus() == KpiStatus.INACTIVE && kpi.getCompensatedAchievementPercent() == null) return false;
         if (isDecompositionParent(kpi)) return false;
         if (Boolean.TRUE.equals(kpi.getIsBonusKpi())) return false;
@@ -150,6 +183,7 @@ public class KpiAchievementCalculator {
      * Trả null nếu KPI định tính chưa chấm/chưa cấu hình % ⇒ loại khỏi điểm.
      */
     public Double bscRatio(KpiCriteria kpi, UUID targetUserId, boolean enableWaterfall) {
+        if (kpi.getStatus() == KpiStatus.CLOSED_BY_LOCK) return 0.0;
         if (kpi.getKpiType() == com.kpitracking.enums.KpiType.QUALITATIVE) {
             return qualitativeRatio(kpi, targetUserId);
         }
@@ -167,6 +201,7 @@ public class KpiAchievementCalculator {
      * Loại: KPI huỷ mà không có bù, KPI cha phân rã, KPI không có target/weight hợp lệ.
      */
     public boolean countsTowardQuantitativeScore(KpiCriteria kpi) {
+        if (excludedByLock(kpi)) return false;
         if (kpi.getStatus() == KpiStatus.INACTIVE && kpi.getCompensatedAchievementPercent() == null) return false;
         if (isDecompositionParent(kpi)) return false;
         if (kpi.getKpiType() == com.kpitracking.enums.KpiType.QUALITATIVE) return false;

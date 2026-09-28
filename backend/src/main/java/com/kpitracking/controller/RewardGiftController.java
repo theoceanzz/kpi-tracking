@@ -1,8 +1,10 @@
 package com.kpitracking.controller;
 
+import com.kpitracking.exception.BusinessException;
 import com.kpitracking.dto.request.reward.GiftItemRequest;
 import com.kpitracking.dto.response.ApiResponse;
 import com.kpitracking.dto.response.reward.GiftItemResponse;
+import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.service.CloudinaryStorageService;
 import com.kpitracking.service.reward.RewardGiftService;
 import jakarta.validation.Valid;
@@ -71,14 +73,14 @@ public class RewardGiftController {
     public ResponseEntity<ApiResponse<Map<String, String>>> uploadImage(
             @RequestParam("file") MultipartFile file) throws IOException {
         if (file.isEmpty()) {
-            throw new IllegalArgumentException("Chưa chọn ảnh để tải lên");
+            throw new BusinessException(ErrorCode.NO_IMAGE_SELECTED_UPLOAD);
         }
         String contentType = file.getContentType();
         if (contentType == null || !contentType.startsWith("image/")) {
-            throw new IllegalArgumentException("Chỉ chấp nhận tệp ảnh");
+            throw new BusinessException(ErrorCode.ONLY_IMAGE_FILES_ACCEPTED);
         }
         if (file.getSize() > 5 * 1024 * 1024) {
-            throw new IllegalArgumentException("Ảnh không được vượt quá 5MB");
+            throw new BusinessException(ErrorCode.IMAGE_MUST_NOT_EXCEED_5MB_2);
         }
         String url = cloudinaryStorageService.uploadFile(file, "reward-gifts").get("url");
         return ResponseEntity.ok(ApiResponse.success(Map.of("url", url)));

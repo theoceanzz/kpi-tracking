@@ -10,8 +10,11 @@ import { toast } from 'sonner'
 import { getApiErrorMessage } from '@/lib/apiError'
 import {
   Loader2, CheckCircle, Target, Zap,
-  AlertCircle, Lock
+  AlertCircle, Lock, Undo2
 } from 'lucide-react'
+import { format } from 'date-fns'
+import { DateTimePicker } from '@/components/common/DateTimePicker'
+import StatusBadge from '@/components/common/StatusBadge'
 import { Dialog, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
@@ -34,6 +37,9 @@ import EvaluationFormModal from '@/features/evaluations/components/EvaluationFor
 import RewardPrompt from '@/features/rewards/components/RewardPrompt'
 import { useCanPromptReward } from '@/features/rewards/hooks/useCanPromptReward'
 import ConductInlineSheet, { type ConductSheetHandle } from '@/features/conduct/components/ConductInlineSheet'
+import { useTranslation } from 'react-i18next'
+import { useFormDraft } from '@/hooks/useFormDraft'
+import DraftNotice from '@/components/common/DraftNotice'
 
 interface StaffEvaluationModalProps {
   open: boolean
@@ -49,13 +55,14 @@ interface StaffEvaluationModalProps {
 export default function StaffEvaluationModal({
   open, onClose, userId, userName, periodId, periodName, readOnly = false, periodEnded = false
 }: StaffEvaluationModalProps) {
+  const { t } = useTranslation('submissions')
   const { user } = useAuthStore()
   const orgId = user?.memberships?.[0]?.organizationId
   const { data: org } = useOrganization(orgId)
   const { getScoreLabel, maxScore } = getScoringFunctions(org)
   const canPromptReward = useCanPromptReward()
   const qualitativeLevels = [...(org?.qualitativeLevels ?? [])].sort((a, b) => a.position - b.position)
-  const userRoleName = user?.memberships?.[0]?.roleName || 'Quản lý'
+  const userRoleName = user?.memberships?.[0]?.roleName || t('StaffEvaluationModal.manager')
   const qc = useQueryClient()
   // Trần điểm và danh sách KPI định tính chỉ có sau khi truy vấn trả về, tức là sau khi
   // form đã dựng — giữ trong ref để schema đọc lúc kiểm tra thay vì dựng lại schema.
@@ -69,13 +76,15 @@ export default function StaffEvaluationModal({
     [],
   )
 
-  const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<StaffEvaluationFormData>({
+  const formApi = useForm<StaffEvaluationFormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       individualScores: {}, individualLevels: {},
       overallComment: '', finalScore: 0,
     },
   })
+  const { register, handleSubmit, watch, setValue, formState: { errors } } = formApi
+  const draft = useFormDraft(formApi, { key: `staff-evaluation:${userId}:${periodId}`, enabled: open && !readOnly })
 
   // Cả bảng chấm tính lại theo từng ô vừa sửa (điểm hành vi, tổng điểm, xếp loại ma trận).
   const individualScores = watch('individualScores')
@@ -144,7 +153,11 @@ export default function StaffEvaluationModal({
   scoreCeilingRef.current = scoreCeiling
   const bonusScore = scorePreview?.bonusScore ?? 0
 
-  const submissionList = submissions?.content ?? []
+  // Bài đã trả lại (hoàn duyệt) là lịch sử: không chấm, không duyệt khi chốt — hiện ở mục riêng.
+  const allSubmissions = useMemo(() => submissions?.content ?? [], [submissions])
+  const submissionList = useMemo(() => allSubmissions.filter(s => s.status !== 'RETURNED'), [allSubmissions])
+  const returnedList = allSubmissions.filter(s => s.status === 'RETURNED')
+  const awaitingResubmission = returnedList.filter(s => s.awaitingResubmission)
   qualitativeIdsRef.current = submissionList.filter(s => s.kpiType === 'QUALITATIVE').map(s => s.id)
 
   // Full-qualitative: the staff member has only qualitative KPIs, so KPI completion defaults to
@@ -277,7 +290,7 @@ export default function StaffEvaluationModal({
       if (submissionList.length > 0) {
         reviewResults = await submissionApi.bulkReview({
           submissionIds: submissionList.map(s => s.id),
-          commonReview: { status: 'APPROVED', reviewNote: 'Phê duyệt tổng hợp qua bảng đánh giá' },
+          commonReview: { status: 'APPROVED', reviewNote: t('StaffEvaluationModal.consolidatedApprovalViaTheEvaluationSheet') },
           individualReviews: submissionList.map(s =>
             s.kpiType === 'QUALITATIVE'
               ? { submissionId: s.id, qualitativeLevelId: data.individualLevels[s.id] }
@@ -292,7 +305,7 @@ export default function StaffEvaluationModal({
         userId,
         kpiPeriodId: periodId,
         score: effectiveFinalScore,
-        comment: data.overallComment || `${userRoleName} đánh giá kết quả đợt ${periodName}`
+        comment: data.overallComment || t('StaffEvaluationModal.evaluatesTheResultsOfPeriod', { userRoleName, periodName })
       })
 
       // Cảnh báo khung bell curve đi kèm bản ghi vừa chốt (chế độ "chặn" đã ném lỗi ở trên).
@@ -306,20 +319,20 @@ export default function StaffEvaluationModal({
 
       const autoApproved = data?.reviewResults?.find(s => s.allChildrenApproved && s.parentSubmissionId)
       if (autoApproved) {
-        toast.success('Đã hoàn tất đánh giá và phê duyệt cho nhân viên')
+        toast.success(t('StaffEvaluationModal.evaluationAndApprovalCompletedForThe'))
         setShowAllApproved(true)
       } else {
         // Chốt xong mới mời thưởng, ngay tại đây — đây là lúc người chấm còn nhớ rõ
         // nhất vì sao nhân viên xứng đáng. Tổ chức tắt thưởng hoặc người chấm không có
         // quyền trao thì RewardPrompt ẩn và không bao giờ gọi onDone ⇒ phải tự đóng,
         // không thì modal đứng im sau khi chốt.
-        toast.success('Đã chốt đánh giá cho nhân viên')
+        toast.success(t('StaffEvaluationModal.evaluationFinalizedForTheEmployee'))
         if (canPromptReward) setJustEvaluated(true)
         else onClose()
       }
     },
     onError: (error) => {
-      toast.error(getApiErrorMessage(error, 'Lưu đánh giá thất bại'))
+      toast.error(getApiErrorMessage(error, t('StaffEvaluationModal.failedToSaveTheEvaluation')))
     }
   })
 
@@ -332,6 +345,22 @@ export default function StaffEvaluationModal({
   [submissionList])
   const canScore = isFullyApproved || !readOnly
 
+  // Hoàn duyệt: chỉ khi chưa cấp quản lý nào chốt đánh giá đợt cho người này (BE cũng chặn).
+  const [returnTarget, setReturnTarget] = useState<Submission | null>(null)
+  const canReturn = !readOnly && !justEvaluated && !myEval && priorManagerEvals.length === 0
+  const returnable = (s: Submission) => canReturn && ['PENDING', 'APPROVED', 'REJECTED'].includes(s.status)
+  const returnButton = (s: Submission) => returnable(s) && (
+    <Button
+      variant="ghost" size="icon-sm" type="button"
+      onClick={() => setReturnTarget(s)}
+      title={t('StaffEvaluationModal.returnForRework')}
+      aria-label={`${t('StaffEvaluationModal.returnForRework')}: ${s.kpiCriteriaName}`}
+      className="text-[var(--color-warning)] hover:bg-[var(--color-warning-bg)]"
+    >
+      <Undo2 aria-hidden="true" />
+    </Button>
+  )
+
   // Các ô của bảng KPI — hàm render (không phải component con) để ô nhập không bị dựng lại
   // và mất focus sau mỗi phím gõ. Mobile và desktop dùng chung nên chỉ có một bản.
   const kpiCell = (s: Submission) => (
@@ -342,7 +371,14 @@ export default function StaffEvaluationModal({
       <div className="min-w-0">
         <p className="text-sm font-semibold leading-snug text-[var(--color-foreground)]">{s.kpiCriteriaName}</p>
         <p className="text-caption mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1">
-          <span>Trọng số {s.weight}%</span>
+          {s.resubmission && (
+            <Badge variant="info" title={s.previousReturnReason
+              ? t('StaffEvaluationModal.previouslyReturnedReason', { reason: s.previousReturnReason })
+              : undefined}>
+              {t('StaffEvaluationModal.resubmittedSubmission')}
+            </Badge>
+          )}
+          <span>{t('StaffEvaluationModal.weight')} {s.weight}%</span>
           <AttachmentChips files={s.attachments} />
         </p>
         {s.note && <p className="text-caption mt-0.5 line-clamp-1 italic group-hover:line-clamp-none" title={s.note}>“{s.note}”</p>}
@@ -351,7 +387,7 @@ export default function StaffEvaluationModal({
   )
   const resultCell = (s: Submission) => s.kpiType === 'QUALITATIVE' ? (
     <span className="text-eyebrow inline-flex items-center gap-1 rounded-control border border-[var(--color-info-border)] bg-[var(--color-info-bg)] px-2 py-1 text-[var(--color-info)]">
-      ★ {s.qualitativeLevelName ?? 'Tự đánh giá'}
+      ★ {s.qualitativeLevelName ?? t('StaffEvaluationModal.selfAssessment')}
     </span>
   ) : (
     <span className="inline-flex items-center gap-1 rounded-control border border-[var(--color-border)] bg-[var(--color-muted)] px-2 py-1 text-xs tabular-nums">
@@ -370,12 +406,12 @@ export default function StaffEvaluationModal({
       onValueChange={v => setIndividualLevels({ ...individualLevels, [s.id]: v })}
       disabled={readOnly}
     >
-      <SelectTrigger className="w-44" aria-label="Mức định tính">
-        <SelectValue placeholder="— Chọn mức —" />
+      <SelectTrigger className="w-44" aria-label={t('StaffEvaluationModal.qualitativeLevel')}>
+        <SelectValue placeholder={t('StaffEvaluationModal.chooseLevel')} />
       </SelectTrigger>
       <SelectContent>
         {qualitativeLevels.filter(l => !!l.id).map(l => (
-          <SelectItem key={l.id} value={l.id as string}>{l.name} ({formatNumber(l.value)}đ)</SelectItem>
+          <SelectItem key={l.id} value={l.id as string}>{l.name} ({formatNumber(l.value)}{t('StaffEvaluationModal.pts')}</SelectItem>
         ))}
       </SelectContent>
     </Select>
@@ -386,7 +422,7 @@ export default function StaffEvaluationModal({
       onChange={e => setIndividualScores({ ...individualScores, [s.id]: Number(e.target.value) })}
       onWheel={e => e.currentTarget.blur()}
       disabled={readOnly}
-      aria-label={`Điểm ${s.kpiCriteriaName}`}
+      aria-label={t('StaffEvaluationModal.scoreFor', { kpiCriteriaName: s.kpiCriteriaName })}
       className="w-24"
       inputClassName="text-right font-semibold tabular-nums text-[var(--color-primary)]"
     />
@@ -398,12 +434,14 @@ export default function StaffEvaluationModal({
       open={open}
       onClose={onClose}
       size="xl"
-      dismissible={!submitMutation.isPending}
-      title={<>Đánh giá tổng hợp: <span className="text-[var(--color-primary)]">{userName}</span></>}
-      description={<>Kỳ đánh giá: <span className="font-medium text-[var(--color-foreground)]">{periodName}</span> · {submissionList.length} chỉ tiêu KPI</>}
+      // Đang mở hộp "Trả lại bài nộp" chồng lên thì Esc chỉ được đóng hộp đó — không kéo theo
+      // đóng cả phiếu chấm và mất phần điểm đang nhập dở.
+      dismissible={!submitMutation.isPending && !returnTarget}
+      title={<>{t('StaffEvaluationModal.overallEvaluation')} <span className="text-[var(--color-primary)]">{userName}</span></>}
+      description={<>{t('StaffEvaluationModal.evaluationCycle')} <span className="font-medium text-[var(--color-foreground)]">{periodName}</span> · {submissionList.length} {t('StaffEvaluationModal.kpis')}</>}
       headerExtra={isFullyApproved
-        ? <Badge variant="success">Đã phê duyệt</Badge>
-        : <Badge variant="warning">Đang chờ chấm điểm</Badge>}
+        ? <Badge variant="success">{t('StaffEvaluationModal.approved')}</Badge>
+        : <Badge variant="warning">{t('StaffEvaluationModal.waitingToBeScored')}</Badge>}
       footer={readOnly ? undefined : justEvaluated && canPromptReward ? (
         // Chốt đánh giá xong thì mời thưởng ngay tại chỗ, trước khi người dùng đóng modal
         // và quên mất. Đặt ở footer (ngoài vùng cuộn) chứ không ở cuối thân modal: thân
@@ -414,39 +452,51 @@ export default function StaffEvaluationModal({
           <RewardPrompt
             userId={userId}
             fullName={userName}
-            defaultReason={`Kết quả tốt trong đợt${periodName ? ` ${periodName}` : ''}`}
+            defaultReason={t('StaffEvaluationModal.goodResultsInThePeriod', { value: periodName ? ` ${periodName}` : '' })}
             onDone={onClose}
           />
         </div>
       ) : (
         <DialogFooter
-          note="Phê duyệt đồng loạt các bài nộp và lưu kết quả đánh giá chính thức vào hồ sơ nhân sự."
-          secondary={<Button variant="outline" onClick={onClose} disabled={submitMutation.isPending}>{justEvaluated ? 'Đóng' : 'Hủy bỏ'}</Button>}
+          note={t('StaffEvaluationModal.approveAllSubmissionsAtOnceAnd')}
+          secondary={<Button variant="outline" onClick={onClose} disabled={submitMutation.isPending}>{justEvaluated ? t('StaffEvaluationModal.close') : t('StaffEvaluationModal.cancel')}</Button>}
           primary={!justEvaluated && (
             <Button
               onClick={handleSubmit(data => submitMutation.mutate(data))}
-              disabled={submitMutation.isPending || (submissionList.length === 0 && !periodEnded)}
+              disabled={submitMutation.isPending || (submissionList.length === 0 && !periodEnded) || awaitingResubmission.length > 0}
+              title={awaitingResubmission.length > 0
+                ? t('StaffEvaluationModal.finalizeBlockedAwaitingResubmission', { count: awaitingResubmission.length })
+                : undefined}
             >
               {submitMutation.isPending ? <Loader2 className="animate-spin" aria-hidden="true" /> : <CheckCircle aria-hidden="true" />}
-              Phê duyệt & chốt đánh giá
+              {t('StaffEvaluationModal.approveFinalizeEvaluation')}
             </Button>
           )}
         />
       )}
     >
+      <DraftNotice draft={draft} className="mb-4" />
+      {!readOnly && awaitingResubmission.length > 0 && (
+        <div role="status" className="mb-4 flex items-start gap-2 rounded-card border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-4 py-3">
+          <AlertCircle size={16} className="mt-0.5 shrink-0 text-[var(--color-warning)]" aria-hidden="true" />
+          <p className="text-sm text-[var(--color-foreground)]">
+            {t('StaffEvaluationModal.finalizeBlockedAwaitingResubmission', { count: awaitingResubmission.length })}
+          </p>
+        </div>
+      )}
       <div className="space-y-6">
 
         {isLoading ? (
           <div className="flex flex-col items-center justify-center space-y-4 py-20">
             <Loader2 size={40} className="animate-spin text-[var(--color-primary)]" />
-            <p className="text-sm font-medium text-[var(--color-subtle-foreground)]">Đang tổng hợp dữ liệu KPI...</p>
+            <p className="text-sm font-medium text-[var(--color-subtle-foreground)]">{t('StaffEvaluationModal.aggregatingKpiData')}</p>
           </div>
-        ) : submissionList.length === 0 && !periodEnded ? (
+        ) : allSubmissions.length === 0 && !periodEnded ? (
           <div className="flex flex-col items-center justify-center space-y-4 rounded-card border-2 border-dashed border-[var(--color-border)] bg-[var(--color-muted)] py-20 text-center">
              <AlertCircle size={48} className="text-[var(--color-subtle-foreground)]" />
              <div className="space-y-1">
-                <p className="text-lg font-semibold text-[var(--color-foreground)]">Không tìm thấy bài nộp</p>
-                <p className="text-sm text-[var(--color-muted-foreground)]">Nhân viên này chưa có bài nộp nào trong đợt {periodName}. Bạn chỉ có thể chốt đánh giá sau khi đợt kết thúc.</p>
+                <p className="text-lg font-semibold text-[var(--color-foreground)]">{t('StaffEvaluationModal.noSubmissionFound')}</p>
+                <p className="text-sm text-[var(--color-muted-foreground)]">{t('StaffEvaluationModal.thisEmployeeHasNoSubmissionsIn')} {periodName}{t('StaffEvaluationModal.youCanOnlyFinalizeTheEvaluation')}</p>
              </div>
           </div>
         ) : (
@@ -455,15 +505,15 @@ export default function StaffEvaluationModal({
                 Bảng đọc + chấm từng KPI. Cột "chấm" dùng Select/Input chuẩn, ô chấm định lượng
                 đứng cạnh điểm hệ thống để thấy mình đang nâng/hạ bao nhiêu. */}
             <Section
-              title={`Chỉ tiêu KPI · ${submissionList.length}`}
-              hint={submissionList.length > 0 ? `Điểm hệ thống ${formatNumber(totalAutoScore)} · đã chấm ${formatNumber(totalManagerScore)}` : undefined}
+              title={t('StaffEvaluationModal.kpis2', { length: submissionList.length })}
+              hint={submissionList.length > 0 ? t('StaffEvaluationModal.systemScoreScored', { totalAutoScore: formatNumber(totalAutoScore), totalManagerScore: formatNumber(totalManagerScore) }) : undefined}
             >
               {submissionList.length === 0 ? (
                 <div className="flex items-start gap-3 rounded-card border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-4 py-3">
                   <AlertCircle size={18} className="mt-0.5 shrink-0 text-[var(--color-warning)]" />
                   <div className="text-sm text-[var(--color-warning)]">
-                    <p className="font-semibold">Nhân viên chưa làm trong đợt này</p>
-                    <p className="text-xs opacity-80">Không có bài nộp nào. Đợt đã kết thúc nên vẫn chốt được — điểm mặc định 0, chỉnh nếu cần.</p>
+                    <p className="font-semibold">{t('StaffEvaluationModal.theEmployeeDidNoWorkIn')}</p>
+                    <p className="text-xs opacity-80">{t('StaffEvaluationModal.noSubmissionsThePeriodHasEnded')}</p>
                   </div>
                 </div>
               ) : (
@@ -475,7 +525,10 @@ export default function StaffEvaluationModal({
                         {kpiCell(s)}
                         <div className="flex items-center justify-between gap-3">
                           {resultCell(s)}
-                          {canScore ? scoreInputCell(s) : systemScoreCell(s)}
+                          <span className="flex items-center gap-1">
+                            {canScore ? scoreInputCell(s) : systemScoreCell(s)}
+                            {returnButton(s)}
+                          </span>
                         </div>
                       </div>
                     ))}
@@ -484,10 +537,11 @@ export default function StaffEvaluationModal({
                   <table className="hidden w-full border-collapse sm:table">
                     <thead>
                       <tr className="border-b border-[var(--color-border)] bg-[var(--color-muted)]">
-                        <th className="text-eyebrow px-4 py-2.5 text-left">Chỉ tiêu KPI</th>
-                        <th className="text-eyebrow px-4 py-2.5 text-center">Kết quả / Mục tiêu</th>
-                        <th className="text-eyebrow px-4 py-2.5 text-right">Điểm hệ thống</th>
-                        {canScore && <th className="text-eyebrow px-4 py-2.5 text-right text-[var(--color-primary)]">{userRoleName} chấm</th>}
+                        <th className="text-eyebrow px-4 py-2.5 text-left">{t('StaffEvaluationModal.kpi')}</th>
+                        <th className="text-eyebrow px-4 py-2.5 text-center">{t('StaffEvaluationModal.resultTarget')}</th>
+                        <th className="text-eyebrow px-4 py-2.5 text-right">{t('StaffEvaluationModal.systemScore')}</th>
+                        {canScore && <th className="text-eyebrow px-4 py-2.5 text-right text-[var(--color-primary)]">{userRoleName} {t('StaffEvaluationModal.scored')}</th>}
+                        {canReturn && <th className="w-12 px-2 py-2.5"><span className="sr-only">{t('StaffEvaluationModal.returnForRework')}</span></th>}
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-[var(--color-border)]">
@@ -497,6 +551,7 @@ export default function StaffEvaluationModal({
                           <td className="px-4 py-3 text-center">{resultCell(s)}</td>
                           <td className="px-4 py-3 text-right">{systemScoreCell(s)}</td>
                           {canScore && <td className="px-4 py-3"><div className="flex justify-end">{scoreInputCell(s)}</div></td>}
+                          {canReturn && <td className="px-2 py-3 text-right">{returnButton(s)}</td>}
                         </tr>
                       ))}
                     </tbody>
@@ -505,19 +560,48 @@ export default function StaffEvaluationModal({
               )}
             </Section>
 
+            {/* ── Bài nộp đã trả lại (hoàn duyệt) — lịch sử, không chấm ── */}
+            {returnedList.length > 0 && (
+              <Section title={t('StaffEvaluationModal.returnedSubmissions', { count: returnedList.length })}>
+                <ul className="divide-y divide-[var(--color-border)] rounded-card border border-[var(--color-border)]">
+                  {returnedList.map(s => (
+                    <li key={s.id} className="space-y-1 px-4 py-3">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <span className="text-sm font-semibold text-[var(--color-foreground)]">{s.kpiCriteriaName}</span>
+                        <span className="flex items-center gap-2">
+                          {resultCell(s)}
+                          <StatusBadge status="RETURNED" />
+                          <Badge variant={s.awaitingResubmission ? 'warning' : s.resubmissionId ? 'success' : 'secondary'}>
+                            {s.awaitingResubmission
+                              ? t('StaffEvaluationModal.awaitingResubmission')
+                              : s.resubmissionId ? t('StaffEvaluationModal.resubmitted') : t('StaffEvaluationModal.resubmitOverdue')}
+                          </Badge>
+                        </span>
+                      </div>
+                      {s.returnReason && <p className="text-sm text-[var(--color-foreground)]">“{s.returnReason}”</p>}
+                      <p className="text-caption">
+                        {t('StaffEvaluationModal.returnedBy', { name: s.returnedByName ?? '—', at: formatDateTime(s.returnedAt) })}
+                        {s.resubmitDeadline && <> · {t('StaffEvaluationModal.resubmitBy', { deadline: formatDateTime(s.resubmitDeadline) })}</>}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
+              </Section>
+            )}
+
             {/* ── 2. Chấm điểm đợt ─────────────────────────────────────────────
                 Cùng khuôn "nhãn | ô nhập" với phiếu chốt kỳ: điểm cuối, hạnh kiểm, rồi xếp loại
                 là KẾT QUẢ ở hàng cuối. Thay cho tấm thẻ tím sticky chiếm nửa màn hình. */}
-            <Section title="Chấm điểm đợt" hint={readOnly ? 'Bạn đang ở chế độ chỉ xem' : undefined}>
+            <Section title={t('StaffEvaluationModal.scoreThePeriod')} hint={readOnly ? t('StaffEvaluationModal.youAreInViewOnlyMode') : undefined}>
               <div className="divide-y divide-[var(--color-border)] rounded-card border border-[var(--color-border)]">
                 <ScoreRow
-                  label={<>Điểm cuối đợt {!readOnly && <span className="text-[var(--color-error)]">*</span>}</>}
-                  hint={isBscOfficial ? 'Khoá theo điểm BSC chính thức'
-                    : isFullQualitative ? `Toàn định tính · cố định ${SCORING_POOL}`
-                    : `Đã chấm theo chỉ tiêu: ${formatNumber(totalManagerScore)}`}
+                  label={<>{t('StaffEvaluationModal.endOfPeriodScore')} {!readOnly && <span className="text-[var(--color-error)]">*</span>}</>}
+                  hint={isBscOfficial ? t('StaffEvaluationModal.lockedToTheOfficialBscScore')
+                    : isFullQualitative ? t('StaffEvaluationModal.allQualitativeFixed', { SCORING_POOL })
+                    : t('StaffEvaluationModal.scoredByKpi', { totalManagerScore: formatNumber(totalManagerScore) })}
                   trailing={!readOnly && !isBscOfficial && !isFullQualitative && finalScore !== totalManagerScore && (
-                    <Button variant="ghost" size="sm" type="button" onClick={handleResetFinalScore} title="Lấy tổng điểm đã chấm theo chỉ tiêu">
-                      <Zap aria-hidden="true" /> Dùng {formatNumber(totalManagerScore)}
+                    <Button variant="ghost" size="sm" type="button" onClick={handleResetFinalScore} title={t('StaffEvaluationModal.useTheTotalOfScoresGiven')}>
+                      <Zap aria-hidden="true" /> {t('StaffEvaluationModal.use')} {formatNumber(totalManagerScore)}
                     </Button>
                   )}
                 >
@@ -540,11 +624,11 @@ export default function StaffEvaluationModal({
                           ? 'bg-[var(--color-success-bg)] text-[var(--color-success)]'
                           : 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]'
                       )}>
-                        {finalScore > totalAutoScore ? '+' : ''}{formatNumber(finalScore - totalAutoScore)} so với hệ thống
+                        {finalScore > totalAutoScore ? '+' : ''}{formatNumber(finalScore - totalAutoScore)} {t('StaffEvaluationModal.comparedWithTheSystem')}
                       </span>
                     )}
                     {(isBscOfficial || isFullQualitative) && (
-                      <span className="text-caption inline-flex items-center gap-1"><Lock size={11} aria-hidden="true" /> không sửa tay</span>
+                      <span className="text-caption inline-flex items-center gap-1"><Lock size={11} aria-hidden="true" /> {t('StaffEvaluationModal.notEditedManually')}</span>
                     )}
                     {firstErrorMessage(errors) && (
                       <span className="text-xs font-medium text-[var(--color-error)]">{firstErrorMessage(errors)}</span>
@@ -556,26 +640,25 @@ export default function StaffEvaluationModal({
                         type="range" min={0} max={scoreCeiling} step={1}
                         value={finalScore}
                         onChange={e => { hasManuallyAdjustedFinal.current = true; setFinalScore(Number(e.target.value)) }}
-                        aria-label="Kéo để chọn điểm cuối đợt"
+                        aria-label={t('StaffEvaluationModal.dragToChooseTheEndOf')}
                         className="h-2 w-full cursor-pointer appearance-none rounded-full bg-[var(--color-border)] accent-[var(--color-success-solid)]"
                       />
                       <div className="text-eyebrow mt-1.5 flex justify-between">
                         <span>0</span>
                         <span>{Math.round(scoreCeiling / 2)}</span>
-                        <span>{scoreCeiling}{bonusScore > 0 && <span className="text-[var(--color-success)]"> (+{bonusScore} thưởng)</span>}</span>
+                        <span>{scoreCeiling}{bonusScore > 0 && <span className="text-[var(--color-success)]"> (+{bonusScore} {t('StaffEvaluationModal.bonus')}</span>}</span>
                       </div>
                     </div>
                   )}
                   {isBscOfficial && (
                     <p className="text-caption mt-2 leading-relaxed">
-                      Điểm BSC tính từ <b>kết quả thực đạt</b> (định lượng) và <b>mức được chấm</b> (định tính) — sửa ô chấm
-                      KPI định lượng không đổi điểm này, đổi mức KPI định tính thì có.
+                      {t('StaffEvaluationModal.bscScoreComputedFrom')} <b>{t('StaffEvaluationModal.actualResults')}</b> {t('StaffEvaluationModal.quantitativeAnd')} <b>{t('StaffEvaluationModal.levelsScored')}</b> {t('StaffEvaluationModal.qualitativeEditingAQuantitativeKpiScore')}
                     </p>
                   )}
                 </ScoreRow>
 
                 {showConduct && (
-                  <ScoreRow label="Hạnh kiểm" hint="Chấm theo đợt · trục hành vi khi không có KPI định tính">
+                  <ScoreRow label={t('StaffEvaluationModal.conduct')} hint={t('StaffEvaluationModal.periodScoringConductAxisWhenThere')}>
                     <ConductInlineSheet
                       ref={conductRef}
                       hideActions
@@ -587,7 +670,7 @@ export default function StaffEvaluationModal({
                 )}
 
                 {(hasQualitative || showConduct) && !!org?.performanceMatrix && (
-                  <ScoreRow label="Xếp loại ma trận" hint="Hành vi × % hoàn thành">
+                  <ScoreRow label={t('StaffEvaluationModal.matrixRating')} hint={t('StaffEvaluationModal.conductCompletion')}>
                     <div className="flex flex-wrap items-center gap-x-4 gap-y-1">
                       <span className={cn(
                         'text-2xl font-semibold leading-none tabular-nums',
@@ -598,21 +681,21 @@ export default function StaffEvaluationModal({
                       </span>
                       <dl className="flex flex-wrap gap-x-4 gap-y-0.5">
                         <AxisLine
-                          label="Hành vi"
+                          label={t('StaffEvaluationModal.conduct2')}
                           value={behaviorLive != null ? `${formatNumber(behaviorLive)}/5` : null}
-                          source={behaviorLive == null ? null : hasQualitative ? 'KPI định tính' : 'hạnh kiểm'}
+                          source={behaviorLive == null ? null : hasQualitative ? t('StaffEvaluationModal.qualitativeKpi') : t('StaffEvaluationModal.conduct3')}
                         />
                         <AxisLine
-                          label="% hoàn thành"
+                          label={t('StaffEvaluationModal.completion')}
                           value={completionPercent != null ? `${formatNumber(completionPercent)}%` : null}
-                          source={completionPercent == null ? null : isFullQualitative ? 'hạnh kiểm' : 'KPI định lượng'}
+                          source={completionPercent == null ? null : isFullQualitative ? t('StaffEvaluationModal.conduct3') : t('StaffEvaluationModal.quantitativeKpis')}
                         />
                       </dl>
                       {matrixLive == null && (
                         <span className="text-caption basis-full">
                           {behaviorLive == null
-                            ? `Chưa xếp loại được: thiếu điểm hành vi (${hasQualitative ? 'chọn mức cho KPI định tính' : 'chấm hạnh kiểm ở trên'}).`
-                            : 'Chưa xếp loại được: thiếu % hoàn thành KPI định lượng.'}
+                            ? t('StaffEvaluationModal.cannotRateYetMissingTheConduct', { value: hasQualitative ? t('StaffEvaluationModal.chooseLevelsForQualitativeKpis') : t('StaffEvaluationModal.scoreConductAbove') })
+                            : t('StaffEvaluationModal.cannotRateYetMissingTheQuantitative')}
                         </span>
                       )}
                     </div>
@@ -622,18 +705,18 @@ export default function StaffEvaluationModal({
             </Section>
 
             {/* ── 3. Nhận xét & minh chứng ───────────────────────────────────── */}
-            <Section title="Nhận xét & minh chứng">
+            <Section title={t('StaffEvaluationModal.commentsEvidence')}>
                 {priorManagerEvals.length > 0 && (
-                  <Collapsible label="Nhận xét của các cấp đã chấm" count={priorManagerEvals.length} countLabel="nhận xét">
+                  <Collapsible label={t('StaffEvaluationModal.commentsFromTheLevelsThatScored')} count={priorManagerEvals.length} countLabel={t('StaffEvaluationModal.comments')}>
                     <ul className="space-y-3">
                       {priorManagerEvals.map(e => (
                         <li key={e.id} className="text-sm">
                           <p className={cn('whitespace-pre-wrap', !e.comment && 'italic text-[var(--color-subtle-foreground)]')}>
-                            {e.comment || 'Chưa có nhận xét'}
+                            {e.comment || t('StaffEvaluationModal.noCommentsYet')}
                           </p>
                           <p className="text-caption mt-0.5">
-                            {e.evaluatorRoleName || 'Quản lý'} · {e.evaluatorName}
-                            {e.score != null && <> · {formatNumber(e.score)} điểm</>} · {formatDateTime(e.updatedAt)}
+                            {e.evaluatorRoleName || t('StaffEvaluationModal.manager')} · {e.evaluatorName}
+                            {e.score != null && <> · {formatNumber(e.score)} {t('StaffEvaluationModal.points')}</>} · {formatDateTime(e.updatedAt)}
                           </p>
                         </li>
                       ))}
@@ -644,20 +727,20 @@ export default function StaffEvaluationModal({
                 {(canScore && (!readOnly || myEval)) && (
                   <div className="space-y-2">
                     <label htmlFor="period-comment" className="text-label ml-1">
-                      Nhận xét của {userRoleName}
-                      {!readOnly && priorManagerEvals.length > 0 && <span className="text-caption ml-1">(riêng của bạn)</span>}
+                      {t('StaffEvaluationModal.commentsFrom')} {userRoleName}
+                      {!readOnly && priorManagerEvals.length > 0 && <span className="text-caption ml-1">{t('StaffEvaluationModal.yourOwn')}</span>}
                     </label>
                     <Textarea
                       id="period-comment"
                       {...register('overallComment')}
                       rows={3}
                       disabled={readOnly}
-                      placeholder={readOnly ? 'Chưa có nhận xét nào…' : 'Đánh giá tổng quát thái độ, nỗ lực và kết quả làm việc trong đợt này…'}
+                      placeholder={readOnly ? t('StaffEvaluationModal.noCommentsYet2') : t('StaffEvaluationModal.overallAssessmentOfAttitudeEffortAnd')}
                     />
                   </div>
                 )}
 
-                <EvidenceAttachments target={evidenceKey.period(periodId, userId)} readOnly={readOnly} title="Minh chứng chấm đợt" />
+                <EvidenceAttachments target={evidenceKey.period(periodId, userId)} readOnly={readOnly} title={t('StaffEvaluationModal.periodScoringEvidence')} />
             </Section>
           </>
         )}
@@ -670,11 +753,11 @@ export default function StaffEvaluationModal({
         open={showAllApproved}
         onClose={() => { setShowAllApproved(false); onClose() }}
         size="sm"
-        title="Đã chấm xong"
+        title={t('StaffEvaluationModal.scoringCompleted')}
         footer={
           <DialogFooter
-            secondary={<Button variant="outline" onClick={() => { setShowAllApproved(false); onClose() }}>Để sau</Button>}
-            primary={<Button onClick={() => { setShowAllApproved(false); setShowEvalForm(true) }}>Tự đánh giá ngay</Button>}
+            secondary={<Button variant="outline" onClick={() => { setShowAllApproved(false); onClose() }}>{t('StaffEvaluationModal.later')}</Button>}
+            primary={<Button onClick={() => { setShowAllApproved(false); setShowEvalForm(true) }}>{t('StaffEvaluationModal.selfAssessNow')}</Button>}
           />
         }
       >
@@ -682,9 +765,17 @@ export default function StaffEvaluationModal({
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-control bg-[var(--color-success-bg)]">
             <CheckCircle size={18} className="text-[var(--color-success)]" aria-hidden="true" />
           </span>
-          <p className="text-sm text-[var(--color-muted-foreground)]">Bạn đã duyệt hết KPI đã giao. Bạn có muốn tự đánh giá luôn không?</p>
+          <p className="text-sm text-[var(--color-muted-foreground)]">{t('StaffEvaluationModal.youHaveApprovedAllAssignedKpis')}</p>
         </div>
       </Dialog>
+
+      {returnTarget && (
+        <ReturnSubmissionDialog
+          submission={returnTarget}
+          userName={userName}
+          onClose={() => setReturnTarget(null)}
+        />
+      )}
 
       {/* Form tự đánh giá */}
       <EvaluationFormModal
@@ -693,5 +784,99 @@ export default function StaffEvaluationModal({
         initialPeriodId={periodId}
       />
     </>
+  )
+}
+
+/** Mặc định hạn nộp lại: 3 ngày nữa, 17:00 — đủ để nhân viên làm lại trong giờ làm việc. */
+function defaultResubmitDeadline(): string {
+  const d = new Date()
+  d.setDate(d.getDate() + 3)
+  return `${format(d, 'yyyy-MM-dd')}T17:00`
+}
+
+/**
+ * Hoàn duyệt một bài nộp: bắt buộc lý do và hạn nộp lại. Bài cũ thành lịch sử, nhân viên nhận
+ * thông báo và nộp bài mới trước hạn (kể cả khi đợt đã hết hạn).
+ */
+function ReturnSubmissionDialog({ submission, userName, onClose }: {
+  submission: Submission
+  userName: string
+  onClose: () => void
+}) {
+  const { t } = useTranslation('submissions')
+  const qc = useQueryClient()
+  const [reason, setReason] = useState('')
+  const [deadline, setDeadline] = useState(defaultResubmitDeadline)
+
+  const deadlineDate = deadline ? new Date(deadline) : null
+  const deadlineValid = !!deadlineDate && !Number.isNaN(deadlineDate.getTime())
+
+  const mutation = useMutation({
+    mutationFn: () => submissionApi.returnSubmission(submission.id, {
+      reason: reason.trim(),
+      resubmitDeadline: deadlineDate!.toISOString(),
+    }),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['submissions'] })
+      toast.success(t('StaffEvaluationModal.submissionReturned'))
+      onClose()
+    },
+    onError: (error) => toast.error(getApiErrorMessage(error, t('StaffEvaluationModal.failedToReturnSubmission'))),
+  })
+
+  return (
+    <Dialog
+      open
+      onClose={onClose}
+      size="md"
+      dismissible={!mutation.isPending}
+      title={t('StaffEvaluationModal.returnSubmissionTitle')}
+      description={t('StaffEvaluationModal.returnSubmissionDescription', { kpiName: submission.kpiCriteriaName, userName })}
+      footer={
+        <DialogFooter
+          note={t('StaffEvaluationModal.returnSubmissionNote')}
+          secondary={<Button variant="outline" onClick={onClose} disabled={mutation.isPending}>{t('StaffEvaluationModal.cancel')}</Button>}
+          primary={
+            <Button
+              onClick={() => {
+                // Kiểm "ở tương lai" lúc bấm (BE cũng kiểm) — không tính trong lúc render.
+                if (deadlineDate && deadlineDate.getTime() <= Date.now()) {
+                  toast.error(t('StaffEvaluationModal.resubmitDeadlineMustBeFuture'))
+                  return
+                }
+                mutation.mutate()
+              }}
+              disabled={mutation.isPending || !reason.trim() || !deadlineValid}
+            >
+              {mutation.isPending ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Undo2 aria-hidden="true" />}
+              {t('StaffEvaluationModal.returnConfirm')}
+            </Button>
+          }
+        />
+      }
+    >
+      <div className="space-y-4">
+        <div>
+          <label htmlFor="return-reason" className="text-label mb-1.5 block">
+            {t('StaffEvaluationModal.returnReason')} <span className="text-[var(--color-error)]" aria-hidden="true">*</span>
+          </label>
+          <Textarea
+            id="return-reason"
+            rows={3}
+            autoFocus
+            value={reason}
+            onChange={e => setReason(e.target.value)}
+            placeholder={t('StaffEvaluationModal.returnReasonPlaceholder')}
+          />
+        </div>
+        <div>
+          <p className="text-label mb-1.5">
+            {t('StaffEvaluationModal.resubmitDeadline')} <span className="text-[var(--color-error)]" aria-hidden="true">*</span>
+          </p>
+          <DateTimePicker value={deadline} onChange={setDeadline} />
+          <p className="text-caption mt-1">{t('StaffEvaluationModal.resubmitDeadlineHint')}</p>
+        </div>
+      </div>
+    </Dialog>
   )
 }

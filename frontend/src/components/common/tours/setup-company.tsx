@@ -1,5 +1,7 @@
 import type { TourKey } from '@/store/tourStore'
 import type { TourDef } from './registry'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
 /**
  * Hướng dẫn cho "Thiết lập công ty" — dòng sidebar và chín mục bên trong.
@@ -29,23 +31,22 @@ const danger = (text: string) => (
   </p>
 )
 
-const setupCompanyTours: Record<TourKey, TourDef> = {
+const setupCompanyTours = perLanguage((): Record<TourKey, TourDef> => ({
   /* ══════════ Cấp trang ══════════ */
   'setup-company': {
     steps: [
       {
         target: '#tour-settings-nav',
-        title: '🗂️ Ba cụm, ba câu hỏi',
+        title: i18n.t('shared:setup_company.threeGroupsThreeQuestions'),
         content: (
           <div className="space-y-2">
             <p>
-              <strong>Tổ chức</strong> — công ty này là ai, có mấy cấp.{' '}
-              <strong>Con người</strong> — ai làm ở đâu, được làm gì.{' '}
-              <strong>Hệ thống</strong> — app nói chuyện với nhân viên như thế nào.
+              <strong>{i18n.t('shared:setup_company.organization')}</strong> {i18n.t('shared:setup_company.whoThisCompanyIsAndHow')}{' '}
+              <strong>{i18n.t('shared:setup_company.people')}</strong> {i18n.t('shared:setup_company.whoWorksWhereAndWhatThey')}{' '}
+              <strong>{i18n.t('shared:setup_company.system')}</strong> {i18n.t('shared:setup_company.howTheAppTalksToEmployees')}
             </p>
             <p className="text-caption">
-              Bấm một thẻ để mở. Lưới sẽ thu lại thành hàng tab mảnh nhường chỗ cho nội dung, và đường dẫn
-              ghi lại mục đang xem nên bookmark được.
+              {i18n.t('shared:setup_company.clickACardToOpenIt')}
             </p>
           </div>
         ),
@@ -53,44 +54,41 @@ const setupCompanyTours: Record<TourKey, TourDef> = {
       },
       {
         target: '#tour-card-info',
-        title: '1️⃣ Khai báo nền',
+        title: i18n.t('shared:setup_company.n1BasicDeclarations'),
         content: (
           <div className="space-y-2">
             <p>
-              Tên, mã doanh nghiệp, rồi <strong>Cấp bậc công ty</strong> — công ty có mấy tầng và mỗi tầng gọi là
-              gì (Khối, Phòng, Tổ...).
+              {i18n.t('shared:setup_company.nameBusinessCodeThen')} <strong>{i18n.t('shared:setup_company.companyLevels')}</strong> {i18n.t('shared:setup_company.howManyTiersTheCompanyHas')}
             </p>
-            {warn('Cấp bậc quyết định hình dạng của cây đơn vị. Đặt trước khi dựng cơ cấu, đổi sau sẽ ảnh hưởng tới các đơn vị đã tạo.')}
+            {warn(i18n.t('shared:setup_company.levelsDecideTheShapeOfThe'))}
           </div>
         ),
         placement: 'bottom',
       },
       {
         target: '#tour-card-roles',
-        title: '2️⃣ Vai trò → Cơ cấu → Nhân viên',
+        title: i18n.t('shared:setup_company.n2RolesStructureEmployees'),
         content: (
           <div className="space-y-2">
             <p>
-              Cụm Con người có thứ tự đúng: tạo <strong>vai trò</strong> trước, dựng{' '}
-              <strong>cây đơn vị</strong> sau, rồi mới <strong>thêm nhân viên</strong> và gán họ vào hai
-              thứ đó.
+              {i18n.t('shared:setup_company.thePeopleGroupHasTheRight')} <strong>{i18n.t('shared:setup_company.roles')}</strong> {i18n.t('shared:setup_company.firstBuildThe')}{' '}
+              <strong>{i18n.t('shared:setup_company.unitTree')}</strong> {i18n.t('shared:setup_company.nextAndOnlyThen')} <strong>{i18n.t('shared:setup_company.addEmployees')}</strong> {i18n.t('shared:setup_company.andAssignThemToThoseTwo')}
             </p>
-            {note('Làm ngược thứ tự thì tới bước thêm nhân viên sẽ không có đơn vị hay vai trò nào để chọn.')}
+            {note(i18n.t('shared:setup_company.doItInTheWrongOrder'))}
           </div>
         ),
         placement: 'bottom',
       },
       {
         target: '#tour-card-sidebar',
-        title: '3️⃣ Cụm ít ai để ý',
+        title: i18n.t('shared:setup_company.n3TheGroupFewPeopleNotice'),
         content: (
           <div className="space-y-2">
             <p>
-              Bốn mục Hệ thống cho phép <strong>đổi tên mọi mục trên menu</strong> theo ngôn ngữ của công
-              ty bạn, chọn sự kiện nào gửi thông báo, sửa nội dung email hệ thống, và nối với Lark.
+              {i18n.t('shared:setup_company.theFourSystemSectionsLetYou')} <strong>{i18n.t('shared:setup_company.renameEveryMenuItem')}</strong> {i18n.t('shared:setup_company.inYourCompanysOwnTermsChoose')}
             </p>
             <p className="text-caption">
-              Không bắt buộc để chạy được, nhưng là phần làm app trông giống của riêng tổ chức bạn.
+              {i18n.t('shared:setup_company.notRequiredToRunButIt')}
             </p>
           </div>
         ),
@@ -104,29 +102,27 @@ const setupCompanyTours: Record<TourKey, TourDef> = {
     steps: [
       {
         target: '#tour-company-hero',
-        title: '🏢 Hồ sơ doanh nghiệp',
+        title: i18n.t('shared:setup_company.businessProfile'),
         content: (
           <div className="space-y-2">
             <p>
-              Tên và mã doanh nghiệp xuất hiện trên báo cáo xuất ra, trong email hệ thống gửi đi và trên
-              đầu các bản in. Bấm <strong>Chỉnh sửa hồ sơ</strong> ở góc phải để sửa chúng cùng lĩnh vực
-              hoạt động, mã số thuế, quy mô nhân sự và mô tả công ty.
+              {i18n.t('shared:setup_company.theBusinessNameAndCodeAppear')} <strong>{i18n.t('shared:setup_company.editProfile')}</strong> {i18n.t('shared:setup_company.inTheRightCornerToEdit')}
             </p>
-            {note('Logo và ảnh bìa đổi riêng bằng nút máy ảnh ngay trên ảnh, không cần vào chế độ sửa.')}
+            {note(i18n.t('shared:setup_company.theLogoAndCoverImageAre'))}
           </div>
         ),
         placement: 'bottom',
       },
       {
         target: '#tour-company-hero',
-        title: '🔎 Danh sách tính năng đang bật',
+        title: i18n.t('shared:setup_company.listOfEnabledFeatures'),
         content: (
           <div className="space-y-2">
             <p>
-              Thẻ cuối trang liệt kê những module tổ chức đang dùng. Đây chỉ là chỗ <strong>xem</strong>{' '}
-              — muốn bật tắt thì sang "Thiết lập công cụ › Module &amp; tính năng".
+              {i18n.t('shared:setup_company.theLastCardListsTheModules')} <strong>{i18n.t('shared:setup_company.view')}</strong>{' '}
+              {i18n.t('shared:setup_company.toTurnThemOnOffGo')}
             </p>
-            {note('Thấy một mục nào đó biến mất khỏi menu? Kiểm tra danh sách này trước tiên.')}
+            {note(i18n.t('shared:setup_company.someItemDisappearedFromTheMenu'))}
           </div>
         ),
         placement: 'bottom',
@@ -138,12 +134,11 @@ const setupCompanyTours: Record<TourKey, TourDef> = {
     steps: [
       {
         target: '#tour-company-hierarchy',
-        title: '🪜 Công ty bạn có mấy tầng',
+        title: i18n.t('shared:setup_company.howManyTiersYourCompanyHas'),
         content: (
           <div className="space-y-2">
             <p>
-              Mỗi dòng là một tầng trong cây đơn vị, xếp từ trên xuống. Bạn đặt tên loại đơn vị của tầng
-              đó (Khối, Chi nhánh, Phòng, Tổ...) và chức danh của người phụ trách.
+              {i18n.t('shared:setup_company.eachRowIsATierIn')}
             </p>
           </div>
         ),
@@ -151,12 +146,11 @@ const setupCompanyTours: Record<TourKey, TourDef> = {
       },
       {
         target: '#tour-company-hierarchy',
-        title: '🏷️ Gọi đúng tên của công ty bạn',
+        title: i18n.t('shared:setup_company.useYourCompanysOwnNames'),
         content: (
           <div className="space-y-2">
             <p>
-              Tên bạn đặt ở đây được dùng khắp app: lúc tạo đơn vị mới, trên báo cáo, trong bộ lọc. Đặt
-              đúng từ mà nhân viên vẫn nói hằng ngày thì không ai phải dịch trong đầu.
+              {i18n.t('shared:setup_company.theNamesYouSetHereAre')}
             </p>
           </div>
         ),
@@ -164,11 +158,11 @@ const setupCompanyTours: Record<TourKey, TourDef> = {
       },
       {
         target: '#tour-company-hierarchy',
-        title: '⏳ Đặt sớm, sửa muộn',
+        title: i18n.t('shared:setup_company.setEarlyChangeLate'),
         content: (
           <div className="space-y-2">
-            <p>Thêm hoặc bớt một tầng sẽ ảnh hưởng tới toàn bộ đơn vị đã tạo theo cấu trúc cũ.</p>
-            {warn('Nên chốt cấu trúc cấp bậc ngay khi khởi tạo tổ chức, trước khi dựng cây đơn vị và nhập nhân sự.')}
+            <p>{i18n.t('shared:setup_company.addingOrRemovingATierAffects')}</p>
+            {warn(i18n.t('shared:setup_company.finalizeTheLevelStructureAsSoon'))}
           </div>
         ),
         placement: 'bottom',
@@ -181,13 +175,12 @@ const setupCompanyTours: Record<TourKey, TourDef> = {
     steps: [
       {
         target: '#tour-roles-header',
-        title: '🛡️ Vai trò và quyền hạn',
+        title: i18n.t('shared:setup_company.rolesAndPermissions'),
         content: (
           <div className="space-y-2">
-            <p>Vai trò vừa là chức danh chuẩn hoá trong toàn công ty, vừa là bộ quyền đi kèm.</p>
+            <p>{i18n.t('shared:setup_company.aRoleIsBothAStandardized')}</p>
             <p className="text-caption">
-              Gán <strong>quyền (Permissions)</strong> cho vai trò, rồi gán vai trò cho người — không cấp
-              quyền lẻ cho từng cá nhân.
+              {i18n.t('shared:setup_company.assign')} <strong>{i18n.t('shared:setup_company.permissions')}</strong> {i18n.t('shared:setup_company.toRolesThenAssignRolesTo')}
             </p>
           </div>
         ),
@@ -195,31 +188,29 @@ const setupCompanyTours: Record<TourKey, TourDef> = {
       },
       {
         target: '#tour-roles-hierarchy-btn',
-        title: '📐 Sơ đồ phân cấp',
+        title: i18n.t('shared:setup_company.hierarchyChart'),
         content: (
           <p>
-            Mở sơ đồ để nhìn thứ bậc giữa các chức danh. Thứ bậc này quyết định luồng báo cáo và chuỗi
-            duyệt: ai duyệt của ai.
+            {i18n.t('shared:setup_company.openTheChartToSeeThe')}
           </p>
         ),
         placement: 'bottom',
       },
       {
         target: '#tour-roles-stats',
-        title: '📊 Ai đang ở vai nào',
-        content: <p>Số nhân sự đang được gán cho từng nhóm vai trò chính, để soát nhanh xem có ai bị bỏ sót.</p>,
+        title: i18n.t('shared:setup_company.whoHoldsWhichRole'),
+        content: <p>{i18n.t('shared:setup_company.theNumberOfPeopleAssignedTo')}</p>,
         placement: 'bottom',
       },
       {
         target: '#tour-roles-table',
-        title: '🔑 Cẩn trọng với quyền mạnh',
+        title: i18n.t('shared:setup_company.beCarefulWithPowerfulPermissions'),
         content: (
           <div className="space-y-2">
             <p>
-              Các quyền dạng <strong>quản trị</strong> và <strong>phê duyệt</strong> cho phép can thiệp
-              vào dữ liệu của người khác và đổi cấu hình toàn tổ chức.
+              {i18n.t('shared:setup_company.permissionsOfThe')} <strong>{i18n.t('shared:setup_company.administration')}</strong> {i18n.t('shared:setup_company.and')} <strong>{i18n.t('shared:setup_company.approval')}</strong> {i18n.t('shared:setup_company.typeAllowInterferingWithOtherPeoples')}
             </p>
-            {danger('Đừng cấp trọn bộ quyền quản trị cho một vai trò đông người chỉ để tiện — mọi thay đổi cấu hình sau đó sẽ khó truy ra ai làm.')}
+            {danger(i18n.t('shared:setup_company.doNotGrantTheFullAdministration'))}
           </div>
         ),
         placement: 'bottom',
@@ -231,13 +222,13 @@ const setupCompanyTours: Record<TourKey, TourDef> = {
     steps: [
       {
         target: '#tour-org-view-mode',
-        title: '👁️ Hai cách nhìn cùng một cây',
+        title: i18n.t('shared:setup_company.twoWaysToViewTheSame'),
         content: (
           <div className="space-y-2">
-            <p>Cùng dữ liệu, hai cách xem tuỳ việc bạn đang làm:</p>
+            <p>{i18n.t('shared:setup_company.sameDataTwoViewsDependingOn')}</p>
             <ul className="text-xs space-y-1 list-disc pl-4 text-[var(--color-muted-foreground)]">
-              <li><strong>Sơ đồ:</strong> nhìn tổng thể luồng quản lý và quan hệ giữa các đơn vị.</li>
-              <li><strong>Danh sách:</strong> tìm nhanh và sửa hàng loạt.</li>
+              <li><strong>{i18n.t('shared:setup_company.chart')}</strong> {i18n.t('shared:setup_company.seeTheOverallManagementFlowAnd')}</li>
+              <li><strong>{i18n.t('shared:setup_company.list')}</strong> {i18n.t('shared:setup_company.findQuicklyAndEditInBulk')}</li>
             </ul>
           </div>
         ),
@@ -245,28 +236,26 @@ const setupCompanyTours: Record<TourKey, TourDef> = {
       },
       {
         target: '#tour-org-content',
-        title: '🏗️ Dựng bộ máy',
+        title: i18n.t('shared:setup_company.buildTheOrganization'),
         content: (
           <div className="space-y-2">
             <p>
-              Tạo đơn vị, đặt nó dưới đơn vị cha, rồi gán <strong>người phụ trách</strong>. Số tầng bạn
-              được phép tạo lấy theo cấu trúc đã khai ở mục "Cấp bậc công ty".
+              {i18n.t('shared:setup_company.createAUnitPlaceItUnder')} <strong>{i18n.t('shared:setup_company.thePersonInCharge')}</strong>{i18n.t('shared:setup_company.theNumberOfTiersYouMay')}
             </p>
-            {warn('Đơn vị không có người phụ trách sẽ làm tắc chuỗi duyệt KPI của cả đơn vị đó — không ai nhận được việc cần duyệt.')}
+            {warn(i18n.t('shared:setup_company.aUnitWithoutAPersonIn'))}
           </div>
         ),
         placement: 'bottom',
       },
       {
         target: '#tour-org-content',
-        title: '🔗 Cây này quyết định nhiều thứ',
+        title: i18n.t('shared:setup_company.thisTreeDecidesALot'),
         content: (
           <div className="space-y-2">
             <p>
-              Đây không chỉ là sơ đồ để xem. Cây đơn vị quyết định ai thấy dữ liệu của ai, chỉ tiêu chảy
-              xuống theo đường nào, và báo cáo tổng hợp cộng dồn ra sao.
+              {i18n.t('shared:setup_company.thisIsNotJustAChart')}
             </p>
-            {note('Nhập cây đơn vị lớn bằng Excel thay vì tạo tay từng đơn vị — có nút nhập ngay trên màn hình này.')}
+            {note(i18n.t('shared:setup_company.importALargeUnitTreeFrom'))}
           </div>
         ),
         placement: 'bottom',
@@ -278,35 +267,34 @@ const setupCompanyTours: Record<TourKey, TourDef> = {
     steps: [
       {
         target: '#tour-users-header',
-        title: '👥 Toàn bộ tài khoản',
-        content: <p>Nơi tập trung quản lý mọi tài khoản người dùng của tổ chức.</p>,
+        title: i18n.t('shared:setup_company.allAccounts'),
+        content: <p>{i18n.t('shared:setup_company.theCentralPlaceToManageEvery')}</p>,
         placement: 'bottom',
       },
       {
         target: '#tour-users-import',
-        title: '📥 Nhập từ Excel',
+        title: i18n.t('shared:setup_company.importFromExcel'),
         content: (
           <p>
-            Với danh sách nhân sự lớn, dùng <strong>nhập từ Excel</strong> thay vì tạo tay. Tải file mẫu
-            trong hộp thoại để biết đúng thứ tự cột.
+            {i18n.t('shared:setup_company.forLargeStaffListsUse')} <strong>{i18n.t('shared:setup_company.importFromExcel2')}</strong> {i18n.t('shared:setup_company.insteadOfCreatingByHandDownload')}
           </p>
         ),
         placement: 'bottom',
       },
       {
         target: '#tour-users-add',
-        title: '➕ Thêm lẻ',
-        content: <p>Dùng cho người mới vào sau đợt nhập ban đầu.</p>,
+        title: i18n.t('shared:setup_company.addOneAtATime'),
+        content: <p>{i18n.t('shared:setup_company.forPeopleWhoJoinAfterThe')}</p>,
         placement: 'bottom',
       },
       {
         target: '#tour-users-filters',
-        title: '🔍 Tìm và lọc',
+        title: i18n.t('shared:setup_company.searchAndFilter'),
         content: (
           <div className="space-y-2">
-            <p>Lọc theo đơn vị, vai trò hoặc trạng thái tài khoản.</p>
+            <p>{i18n.t('shared:setup_company.filterByUnitRoleOrAccount')}</p>
             <p className="text-caption italic">
-              Mẹo: lọc theo trạng thái để soát các tài khoản đang bị khoá trước mỗi kỳ đánh giá.
+              {i18n.t('shared:setup_company.tipFilterByStatusToReview')}
             </p>
           </div>
         ),
@@ -314,15 +302,15 @@ const setupCompanyTours: Record<TourKey, TourDef> = {
       },
       {
         target: '#tour-users-table',
-        title: '📝 Chưa gán thì chưa dùng được',
+        title: i18n.t('shared:setup_company.notAssignedMeansNotUsableYet'),
         content: (
           <div className="space-y-2">
-            <p>Bấm vào từng người để hoàn thiện hồ sơ:</p>
+            <p>{i18n.t('shared:setup_company.clickEachPersonToCompleteTheir')}</p>
             <ul className="text-xs space-y-1 list-disc pl-4 text-[var(--color-muted-foreground)]">
-              <li>Gán vào <strong>đơn vị</strong> trong cây tổ chức.</li>
-              <li>Cấp <strong>vai trò</strong> đúng với công việc của họ.</li>
+              <li>{i18n.t('shared:setup_company.assignTo')} <strong>{i18n.t('shared:setup_company.unit')}</strong> {i18n.t('shared:setup_company.inTheOrganizationTree')}</li>
+              <li>{i18n.t('shared:setup_company.grant')} <strong>{i18n.t('shared:setup_company.roles')}</strong> {i18n.t('shared:setup_company.thatMatchesTheirWork')}</li>
             </ul>
-            {warn('Thiếu một trong hai thứ này thì người đó không nhận được chỉ tiêu và không xuất hiện trong bất kỳ báo cáo nào.')}
+            {warn(i18n.t('shared:setup_company.missingEitherOfTheseThePerson'))}
           </div>
         ),
         placement: 'bottom',
@@ -335,56 +323,53 @@ const setupCompanyTours: Record<TourKey, TourDef> = {
     steps: [
       {
         target: '#tour-sidebar-header',
-        title: '🏷️ Gọi mọi thứ theo tên của bạn',
+        title: i18n.t('shared:setup_company.callEverythingByYourNames'),
         content: (
           <div className="space-y-2">
             <p>
-              Đổi nhãn của bất kỳ mục nào trên menu và bên trong từng trang — "Chỉ tiêu" thành "Định mức",
-              "Đợt" thành "Tháng", tuỳ tổ chức bạn quen gọi thế nào.
+              {i18n.t('shared:setup_company.renameAnyItemOnTheMenu')}
             </p>
-            {note('Dòng phụ ngay dưới nhan đề đếm số mục đang được đổi tên — nhìn đó là biết công ty đã tuỳ biến tới đâu.')}
+            {note(i18n.t('shared:setup_company.theSubtitleRightUnderTheHeading'))}
           </div>
         ),
         placement: 'bottom',
       },
       {
         target: '#tour-sidebar-header',
-        title: '🔍 Tìm rồi mới sửa, và nhớ Lưu',
+        title: i18n.t('shared:setup_company.searchBeforeEditingAndRememberTo'),
         content: (
           <div className="space-y-2">
             <p>
-              Ô <strong>Tìm mục</strong> lọc theo cả nhãn mặc định lẫn nhãn bạn đã đặt. Sửa xong phải bấm
-              <strong> Lưu thay đổi</strong> ở ngay cạnh — mọi ô nhập được ghi cùng một lần.
+              {i18n.t('shared:setup_company.theCard')} <strong>{i18n.t('shared:setup_company.searchItems')}</strong> {i18n.t('shared:setup_company.filtersByBothTheDefaultLabels')}
+              <strong> {i18n.t('shared:setup_company.saveChanges')}</strong> {i18n.t('shared:setup_company.rightNextToItAllFields')}
             </p>
-            {warn('Rời màn hình khi chưa lưu là mất hết những gì vừa gõ, không có hộp thoại nhắc lại.')}
+            {warn(i18n.t('shared:setup_company.leavingTheScreenWithoutSavingLoses'))}
           </div>
         ),
         placement: 'bottom',
       },
       {
         target: '#tour-sidebar-note',
-        title: '📍 Chia theo NƠI mục hiện ra',
+        title: i18n.t('shared:setup_company.groupedByWhereTheItemAppears'),
         content: (
           <div className="space-y-2">
             <p>
-              Bảng chia thành từng khối: khối <strong>Thanh điều hướng</strong> là các dòng trên sidebar,
-              còn mỗi khối tiếp theo là các mục nằm bên trong một trang cụ thể.
+              {i18n.t('shared:setup_company.theTableIsSplitIntoBlocks')} <strong>{i18n.t('shared:setup_company.navigationBar')}</strong> {i18n.t('shared:setup_company.isTheSidebarRowsAndEach')}
             </p>
-            {note('Chia như vậy vì phần lớn màn hình giờ là mục trong trang — danh sách phẳng sẽ có hơn hai mươi dòng mà không biết dòng nào ở đâu.')}
+            {note(i18n.t('shared:setup_company.itIsSplitThisWayBecause'))}
           </div>
         ),
         placement: 'bottom',
       },
       {
         target: '#tour-sidebar-scope-sidebar',
-        title: '↩️ Đổi tên không đổi chức năng',
+        title: i18n.t('shared:setup_company.renamingDoesNotChangeFunction'),
         content: (
           <div className="space-y-2">
             <p>
-              Mỗi dòng hiện nhãn mặc định, cụm của nó, và khoá kỹ thuật in mờ bên dưới. Nhãn chỉ là cách
-              hiển thị: đổi tên không mất dữ liệu, không đổi quyền.
+              {i18n.t('shared:setup_company.eachRowShowsTheDefaultLabel')}
             </p>
-            {note('Xoá trống ô nhập là mục đó quay về nhãn mặc định — không cần nhớ tên gốc là gì.')}
+            {note(i18n.t('shared:setup_company.clearingAFieldReturnsThatItem'))}
           </div>
         ),
         placement: 'top',
@@ -396,12 +381,12 @@ const setupCompanyTours: Record<TourKey, TourDef> = {
     steps: [
       {
         target: '#tour-notif-header',
-        title: '🔔 Mặc định cho cả tổ chức',
+        title: i18n.t('shared:setup_company.defaultsForTheWholeOrganization'),
         content: (
           <div className="space-y-2">
             <p>
-              Thiết lập ở đây áp làm <strong>mặc định</strong> cho mọi nhân viên. Sửa xong nhớ bấm
-              <strong> Lưu cấu hình</strong> ở góc phải card này.
+              {i18n.t('shared:setup_company.settingsHereApplyAsThe')} <strong>{i18n.t('shared:setup_company.default')}</strong> {i18n.t('shared:setup_company.forEveryEmployeeAfterEditingRemember')}
+              <strong> {i18n.t('shared:setup_company.saveSettings')}</strong> {i18n.t('shared:setup_company.inTheRightCornerOfThis')}
             </p>
           </div>
         ),
@@ -409,26 +394,23 @@ const setupCompanyTours: Record<TourKey, TourDef> = {
       },
       {
         target: '#tour-notif-events',
-        title: '📨 Hai kênh, bật độc lập',
+        title: i18n.t('shared:setup_company.twoChannelsToggledIndependently'),
         content: (
           <div className="space-y-2">
             <p>
-              Mỗi dòng là một sự kiện — có chỉ tiêu cần duyệt, có bài nộp mới, sắp tới hạn nộp. Hai công
-              tắc bên phải là <strong>Email</strong> (thư vào hộp thư) và <strong>Hệ thống</strong> (chuông
-              trong app), bật tắt riêng từng cái.
+              {i18n.t('shared:setup_company.eachRowIsAnEventA')} <strong>Email</strong> {i18n.t('shared:setup_company.mailToTheInboxAnd')} <strong>{i18n.t('shared:setup_company.system')}</strong> {i18n.t('shared:setup_company.theInAppBellEachTurned')}
             </p>
-            {note('Việc gấp thì bật cả hai; việc lặp lại thường xuyên thì chỉ để chuông, kẻo hộp thư nhân viên đầy thư hệ thống rồi họ bỏ qua luôn thư quan trọng.')}
+            {note(i18n.t('shared:setup_company.turnOnBothForUrgentMatters'))}
           </div>
         ),
         placement: 'top',
       },
       {
         target: '#tour-notif-events',
-        title: '✉️ Nội dung thư ở mục khác',
+        title: i18n.t('shared:setup_company.mailContentIsInAnotherSection'),
         content: (
           <p>
-            Ở đây quyết định <strong>có gửi hay không</strong>. Còn <strong>gửi cái gì</strong> — tiêu đề
-            và nội dung thư — nằm ở mục "Thiết lập email" ngay bên cạnh.
+            {i18n.t('shared:setup_company.thisDecides')} <strong>{i18n.t('shared:setup_company.whetherToSend')}</strong>{i18n.t('shared:setup_company.asFor')} <strong>{i18n.t('shared:setup_company.whatToSend')}</strong> {i18n.t('shared:setup_company.theMailSubjectAndContentThat')}
           </p>
         ),
         placement: 'top',
@@ -440,12 +422,11 @@ const setupCompanyTours: Record<TourKey, TourDef> = {
     steps: [
       {
         target: '#tour-email-list',
-        title: '✉️ Danh mục thư, chia theo nhóm',
+        title: i18n.t('shared:setup_company.mailCatalogGrouped'),
         content: (
           <div className="space-y-2">
             <p>
-              Cột trái liệt kê mọi loại thư hệ thống gửi đi. Chấm tròn xanh nghĩa là mẫu đã được tuỳ chỉnh;
-              dấu ✕ nghĩa là loại thư đó đang tắt, hệ thống sẽ không gửi.
+              {i18n.t('shared:setup_company.theLeftColumnListsEveryType')}
             </p>
           </div>
         ),
@@ -453,42 +434,40 @@ const setupCompanyTours: Record<TourKey, TourDef> = {
       },
       {
         target: '#tour-email-subject',
-        title: '🧩 Biến được điền tự động',
+        title: i18n.t('shared:setup_company.automaticallyFilledVariables'),
         content: (
           <div className="space-y-2">
             <p>
-              Tiêu đề và nội dung dùng các <strong>biến</strong> được thay lúc gửi — tên người nhận, tên
-              đợt, đường dẫn tới việc cần xử lý. Danh sách biến dùng được hiện ngay cạnh ô soạn.
+              {i18n.t('shared:setup_company.theSubjectAndContentUse')} <strong>{i18n.t('shared:setup_company.variables')}</strong> {i18n.t('shared:setup_company.thatAreReplacedWhenSendingThe')}
             </p>
-            {warn('Vài biến là bắt buộc: thiếu chúng thì hệ thống từ chối lưu và báo đỏ ngay dưới ô soạn. Bỏ liên kết đặt lại mật khẩu đi là người nhận không còn cách nào làm xong việc thư đang yêu cầu.')}
+            {warn(i18n.t('shared:setup_company.someVariablesAreRequiredWithoutThem'))}
           </div>
         ),
         placement: 'top',
       },
       {
         target: '#tour-email-editor',
-        title: '🖊️ Soạn trực quan hoặc soạn HTML',
+        title: i18n.t('shared:setup_company.visualEditingOrHtmlEditing'),
         content: (
           <div className="space-y-2">
             <p>
-              Chuyển qua lại giữa trình soạn trực quan và chế độ HTML đầy đủ mà không mất nội dung — hai
-              chế độ dùng chung một chuỗi HTML.
+              {i18n.t('shared:setup_company.switchBetweenTheVisualEditorAnd')}
             </p>
-            {note('Ở chế độ HTML, thẻ script, iframe và các handler onclick bị loại bỏ khi lưu — đây là thư gửi ra ngoài nên không cho chạy mã.')}
+            {note(i18n.t('shared:setup_company.inHtmlModeScriptAndIframe'))}
           </div>
         ),
         placement: 'top',
       },
       {
         target: '#tour-email-actions',
-        title: '👁️ Xem trước, lưu, hoặc về mặc định',
+        title: i18n.t('shared:setup_company.previewSaveOrResetToDefault'),
         content: (
           <div className="space-y-2">
             <p>
-              <strong>Xem trước</strong> dựng thử thư với dữ liệu mẫu. <strong>Khôi phục mặc định</strong>
-              đưa mẫu về bản gốc — nút này mờ đi khi mẫu chưa từng bị sửa.
+              <strong>{i18n.t('shared:setup_company.preview')}</strong> {i18n.t('shared:setup_company.rendersATrialMailWithSample')} <strong>{i18n.t('shared:setup_company.restoreDefault')}</strong>
+              {i18n.t('shared:setup_company.returnsTheTemplateToTheOriginal')}
             </p>
-            {warn('Luôn xem trước trước khi lưu: thư đã gửi thì không rút lại được.')}
+            {warn(i18n.t('shared:setup_company.alwaysPreviewBeforeSavingSentMail'))}
           </div>
         ),
         placement: 'top',
@@ -500,12 +479,11 @@ const setupCompanyTours: Record<TourKey, TourDef> = {
     steps: [
       {
         target: '#tour-lark-status',
-        title: '🔗 Nối với Lark',
+        title: i18n.t('shared:setup_company.connectToLark'),
         content: (
           <div className="space-y-2">
             <p>
-              Dải trên cùng nói ngay trạng thái: đã bật đăng nhập bằng Lark chưa, và đang liên kết với tổ
-              chức Lark nào. Nối rồi thì nhân viên đăng nhập bằng tài khoản Lark, khỏi nhớ thêm mật khẩu.
+              {i18n.t('shared:setup_company.theTopStripShowsTheStatus')}
             </p>
           </div>
         ),
@@ -513,48 +491,46 @@ const setupCompanyTours: Record<TourKey, TourDef> = {
       },
       {
         target: '#tour-lark-credentials',
-        title: '🪜 Làm theo thứ tự các bước',
+        title: i18n.t('shared:setup_company.followTheStepsInOrder'),
         content: (
           <div className="space-y-2">
             <p>
-              Các bước đánh số và mở khoá dần: khai ứng dụng bên Lark → dán <strong>App ID</strong> và
-              <strong> App Secret</strong> vào đây → bấm <strong>Kiểm tra kết nối</strong>.
+              {i18n.t('shared:setup_company.theStepsAreNumberedAndUnlock')} <strong>App ID</strong> {i18n.t('shared:setup_company.and')}
+              <strong> App Secret</strong> {i18n.t('shared:setup_company.hereClick')} <strong>{i18n.t('shared:setup_company.checkConnection')}</strong>.
             </p>
-            {note('Có nút mở thẳng trang quản trị của Lark ở bước trước — làm song song hai cửa sổ sẽ nhanh hơn.')}
+            {note(i18n.t('shared:setup_company.thereIsAButtonInThe'))}
           </div>
         ),
         placement: 'top',
       },
       {
         target: '#tour-lark-connect',
-        title: '👤 Liên kết bằng chính tài khoản của bạn',
+        title: i18n.t('shared:setup_company.linkWithYourOwnAccount'),
         content: (
           <div className="space-y-2">
             <p>
-              Bấm <strong>Kết nối với Lark</strong>, đăng nhập một lần, hệ thống tự nhận diện công ty của
-              bạn rồi ghi nhớ — không phải nhập tay tên hay mã tổ chức.
+              {i18n.t('shared:setup_company.click')} <strong>{i18n.t('shared:setup_company.connectToLark2')}</strong>{i18n.t('shared:setup_company.signInOnceAndTheSystem')}
             </p>
-            {warn('Quyền vừa thêm bên Lark chỉ có hiệu lực sau khi phiên bản ứng dụng được duyệt. Thấy trạng thái "Added" là chưa đủ.')}
+            {warn(i18n.t('shared:setup_company.permissionsJustAddedOnLarkOnly'))}
           </div>
         ),
         placement: 'top',
       },
       {
         target: '#tour-lark-defaults',
-        title: '🗺️ Đơn vị và vai trò cho người mới',
+        title: i18n.t('shared:setup_company.unitAndRoleForNewPeople'),
         content: (
           <div className="space-y-2">
             <p>
-              Người từ Lark đăng nhập lần đầu sẽ được tạo tài khoản tự động và xếp vào đơn vị, vai trò khai
-              ở bước này. Từng người vẫn chỉnh lại được sau.
+              {i18n.t('shared:setup_company.peopleSigningInFromLarkFor')}
             </p>
-            {warn('Đặt mặc định quá rộng là người lạ đăng nhập một phát có ngay quyền xem dữ liệu cả đơn vị. Chọn vai trò hẹp nhất rồi nâng sau.')}
+            {warn(i18n.t('shared:setup_company.aDefaultThatIsTooBroad'))}
           </div>
         ),
         placement: 'top',
       },
     ],
   },
-}
+}))
 
 export default setupCompanyTours

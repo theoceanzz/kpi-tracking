@@ -12,6 +12,7 @@ import {
   type WalletConfig,
   type WalletConfigRequest,
 } from '../types'
+import { useTranslation } from 'react-i18next'
 
 const errMsg = (error: any, fallback: string) => getApiErrorMessage(error, fallback)
 
@@ -132,21 +133,22 @@ export const useTopupOrder = (id?: string) => {
 }
 
 export const useTopupActions = () => {
+  const { t } = useTranslation('wallet')
   const qc = useQueryClient()
 
   const createMutation = useMutation({
     mutationFn: (data: CreateTopupRequest) => walletApi.createTopup(data),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['topupOrders'] }),
-    onError: (error: any) => toast.error(errMsg(error, 'Tạo đơn nạp tiền thất bại')),
+    onError: (error: any) => toast.error(errMsg(error, t('useWallet.failedToCreateTheTopUp'))),
   })
 
   const cancelMutation = useMutation({
     mutationFn: (id: string) => walletApi.cancelTopup(id),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['topupOrders'] })
-      toast.success('Đã huỷ đơn nạp tiền')
+      toast.success(t('useWallet.topUpOrderCancelled'))
     },
-    onError: (error: any) => toast.error(errMsg(error, 'Huỷ đơn nạp thất bại')),
+    onError: (error: any) => toast.error(errMsg(error, t('useWallet.failedToCancelTheTopUp'))),
   })
 
   return {
@@ -167,15 +169,16 @@ export const useConversionQuote = (points: number) =>
   })
 
 export const useConversion = () => {
+  const { t } = useTranslation('wallet')
   const qc = useQueryClient()
 
   const mutation = useMutation({
     mutationFn: (data: ConvertToPointsRequest) => walletApi.convert(data),
     onSuccess: (quote) => {
       invalidateWalletData(qc)
-      toast.success(`Đã đổi thành công ${quote.points} điểm thưởng`)
+      toast.success(t('useWallet.convertedRewardPointsSuccessfully', { points: quote.points }))
     },
-    onError: (error: any) => toast.error(errMsg(error, 'Quy đổi thất bại'), { duration: 8000 }),
+    onError: (error: any) => toast.error(errMsg(error, t('useWallet.conversionFailed')), { duration: 8000 }),
   })
 
   return { convert: mutation.mutateAsync, isConverting: mutation.isPending }
@@ -184,6 +187,7 @@ export const useConversion = () => {
 // ── Cấu hình ─────────────────────────────────────────────────────
 
 export const useWalletConfig = (enabled = true) => {
+  const { t } = useTranslation('wallet')
   const qc = useQueryClient()
 
   const query = useQuery({
@@ -197,9 +201,9 @@ export const useWalletConfig = (enabled = true) => {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['walletConfig'] })
       qc.invalidateQueries({ queryKey: ['cashWallet'] })
-      toast.success('Đã lưu cấu hình ví tiền')
+      toast.success(t('useWallet.walletConfigurationSaved'))
     },
-    onError: (error: any) => toast.error(errMsg(error, 'Lưu cấu hình thất bại')),
+    onError: (error: any) => toast.error(errMsg(error, t('useWallet.failedToSaveTheConfiguration'))),
   })
 
   return {
@@ -254,6 +258,7 @@ export const useWalletReconcile = (enabled = true) =>
   })
 
 export const useReconcileActions = () => {
+  const { t } = useTranslation('wallet')
   const qc = useQueryClient()
 
   const resolveMutation = useMutation({
@@ -261,9 +266,9 @@ export const useReconcileActions = () => {
       walletApi.resolveSepayEvent(id, data),
     onSuccess: () => {
       invalidateWalletData(qc)
-      toast.success('Đã xử lý giao dịch SePay')
+      toast.success(t('useWallet.sepayTransactionHandled'))
     },
-    onError: (error: any) => toast.error(errMsg(error, 'Xử lý thất bại'), { duration: 8000 }),
+    onError: (error: any) => toast.error(errMsg(error, t('useWallet.handlingFailed')), { duration: 8000 }),
   })
 
   return {

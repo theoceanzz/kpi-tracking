@@ -7,7 +7,7 @@ import lombok.*;
 @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
 public class UpdateOrgAiBudgetRequest {
 
-    @NotNull(message = "Vui lòng nhập ngân sách token")
-    @Min(value = 0, message = "Ngân sách không được là số âm")
+    @NotNull(message = "{validation.enterTokenBudget}")
+    @Min(value = 0, message = "{validation.budgetCannotNegative}")
     private Long aiMonthlyTokenLimit;
 }

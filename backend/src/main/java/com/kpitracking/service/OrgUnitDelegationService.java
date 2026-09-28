@@ -1,5 +1,6 @@
 package com.kpitracking.service;
 
+import com.kpitracking.i18n.ErrorMessages;
 import com.kpitracking.dto.request.delegation.DelegationRequest;
 import com.kpitracking.dto.response.delegation.DelegationResponse;
 import com.kpitracking.entity.OrgHierarchyLevel;
@@ -9,8 +10,10 @@ import com.kpitracking.entity.Organization;
 import com.kpitracking.entity.User;
 import com.kpitracking.entity.UserRoleOrgUnit;
 import com.kpitracking.exception.BusinessException;
+import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.ForbiddenException;
 import com.kpitracking.exception.ResourceNotFoundException;
+import com.kpitracking.i18n.Terms;
 import com.kpitracking.repository.OrgUnitDelegationRepository;
 import com.kpitracking.repository.OrgUnitRepository;
 import com.kpitracking.repository.UserRepository;
@@ -54,7 +57,7 @@ public class OrgUnitDelegationService {
     private User currentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         return userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("Người dùng", "email", email));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.user"), "email", email));
     }
 
     @Transactional(readOnly = true)
@@ -77,12 +80,11 @@ public class OrgUnitDelegationService {
         User actor = currentUser();
 
         User delegate = userRepository.findById(request.getDelegateUserId())
-                .orElseThrow(() -> new ResourceNotFoundException("Người dùng", "id", request.getDelegateUserId()));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.user"), "id", request.getDelegateUserId()));
 
         List<UserRoleOrgUnit> delegateRoles = userRoleOrgUnitRepository.findByUserId(delegate.getId());
         if (delegateRoles.isEmpty()) {
-            throw new BusinessException("Người được uỷ quyền chưa có vai trò nào trong tổ chức — "
-                    + "uỷ quyền chỉ nới phạm vi của quyền sẵn có, không cấp quyền mới.");
+            throw new BusinessException(ErrorCode.DELEGATE_NO_ROLE_ORGANIZATION);
         }
 
         // Những đơn vị người này THỰC SỰ đứng đầu (trưởng/phó). Uỷ quyền là giao việc quản
@@ -92,8 +94,7 @@ public class OrgUnitDelegationService {
                 .filter(r -> r.getOrgUnit() != null)
                 .toList();
         if (managerRoles.isEmpty()) {
-            throw new BusinessException("Chỉ uỷ quyền được cho người đang là trưởng hoặc phó của một đơn vị. "
-                    + "Người này hiện chỉ có vai trò nhân viên.");
+            throw new BusinessException(ErrorCode.DELEGATION_CAN_ONLY_GIVEN_SOMEONE_WHO_HEAD);
         }
 
         // Cấp CAO NHẤT mà người này đang đứng đầu — dùng làm trần cho đơn vị được giao.
@@ -113,10 +114,10 @@ public class OrgUnitDelegationService {
         // Kiểm mốc thời gian một lần cho cả lô: chúng dùng chung cho mọi đơn vị được chọn.
         if (request.getStartsAt() != null && request.getExpiresAt() != null
                 && !request.getExpiresAt().isAfter(request.getStartsAt())) {
-            throw new BusinessException("Ngày hết hiệu lực phải sau ngày bắt đầu");
+            throw new BusinessException(ErrorCode.END_DATE_MUST_AFTER_START_DATE);
         }
         if (request.getExpiresAt() != null && request.getExpiresAt().isBefore(Instant.now())) {
-            throw new BusinessException("Ngày hết hiệu lực đã ở quá khứ");
+            throw new BusinessException(ErrorCode.END_DATE_PAST);
         }
 
         OrgUnit from = request.getFromOrgUnitId() != null
@@ -130,29 +131,27 @@ public class OrgUnitDelegationService {
         // và làm hỏng cả lô vì một lỗi hoàn toàn vô hại.
         for (UUID orgUnitId : new LinkedHashSet<>(request.getOrgUnitIds())) {
             OrgUnit target = orgUnitRepository.findById(orgUnitId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Đơn vị", "id", orgUnitId));
+                    .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.unit"), "id", orgUnitId));
 
             // Đơn vị đích phải thuộc đúng tổ chức trên đường dẫn: id đơn vị đến từ thân yêu
             // cầu nên nếu không đối chiếu, đây là một đường trao quyền xuyên tổ chức.
             Organization org = target.getOrgHierarchyLevel().getOrganization();
             if (!org.getId().equals(organizationId)) {
-                throw new BusinessException("Đơn vị \"" + target.getName() + "\" không thuộc tổ chức này");
+                throw new BusinessException(ErrorCode.UNIT_OUTSIDE_ORGANIZATION, target.getName());
             }
 
             // Người trao phải thật sự quản được đơn vị đích, nếu không thì đây là đường vòng
             // để tự trao cho mình quyền ở một phòng chẳng liên quan.
             if (!permissionChecker.isGlobalAdminOfOrganization(actor.getId(), organizationId)
                     && !permissionChecker.hasPermissionInOrgUnit(actor.getId(), "ROLE:ASSIGN", target.getId())) {
-                throw new ForbiddenException("Bạn không có quyền uỷ quyền quản lý đơn vị \""
-                        + target.getName() + "\"");
+                throw new ForbiddenException(ErrorCode.NO_PERMISSION_DELEGATE_MANAGEMENT_UNIT, target.getName());
             }
 
             // Uỷ quyền vào chính cây của mình là vô nghĩa: quyền đã tới đó sẵn theo thừa kế.
             boolean alreadyInScope = delegateRoles.stream()
                     .anyMatch(r -> r.getOrgUnit() != null && target.getPath().startsWith(r.getOrgUnit().getPath()));
             if (alreadyInScope) {
-                throw new BusinessException("Người này vốn đã quản lý được đơn vị \"" + target.getName()
-                        + "\" theo cây tổ chức — không cần uỷ quyền.");
+                throw new BusinessException(ErrorCode.PERSON_CAN_MANAGE_UNIT_THROUGH_ORGANIZATION_TREE, target.getName());
             }
 
             // ── TRẦN CẤP BẬC ──
@@ -170,18 +169,13 @@ public class OrgUnitDelegationService {
                         .filter(l -> delegateLevel.equals(l.getLevelOrder()))
                         .map(OrgHierarchyLevel::getUnitTypeName)
                         .findFirst()
-                        .orElse("đơn vị hiện tại");
-                throw new BusinessException(String.format(
-                        "Không uỷ quyền được: \"%s\" là cấp %s, cao hơn cấp %s mà %s đang phụ trách. "
-                                + "Chỉ giao được đơn vị ngang cấp hoặc thấp hơn.",
-                        target.getName(), targetLevel.getUnitTypeName(), delegateLevelName,
-                        delegate.getFullName()));
+                        .orElse(ErrorMessages.text("delegation.currentUnit", ""));
+                throw new BusinessException(ErrorCode.CANNOT_DELEGATE, target.getName(), targetLevel.getUnitTypeName(), String.valueOf(delegateLevelName), delegate.getFullName());
             }
 
             delegationRepository.findByDelegateUserIdAndOrgUnitId(delegate.getId(), target.getId())
                     .ifPresent(existing -> {
-                        throw new BusinessException("Người này đã được uỷ quyền quản lý đơn vị \""
-                                + target.getName() + "\". Hãy thu hồi bản cũ trước khi tạo bản mới.");
+                        throw new BusinessException(ErrorCode.PERSON_DELEGATED_MANAGEMENT_UNIT, target.getName());
                     });
 
             OrgUnitDelegation saved = delegationRepository.save(OrgUnitDelegation.builder()
@@ -206,13 +200,13 @@ public class OrgUnitDelegationService {
     @Transactional
     public void revoke(UUID id) {
         OrgUnitDelegation delegation = delegationRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Uỷ quyền", "id", id));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.delegation"), "id", id));
 
         User actor = currentUser();
         if (!permissionChecker.isGlobalAdminIn(actor.getId(), delegation.getOrgUnit().getId())
                 && !permissionChecker.hasPermissionInOrgUnit(actor.getId(), "ROLE:ASSIGN",
                         delegation.getOrgUnit().getId())) {
-            throw new ForbiddenException("Bạn không có quyền thu hồi uỷ quyền của đơn vị này");
+            throw new ForbiddenException(ErrorCode.NO_PERMISSION_REVOKE_DELEGATIONS_UNIT);
         }
 
         // Xoá mềm: uỷ quyền là dấu vết cần đối chiếu khi ai đó hỏi "sao người ngoài phòng

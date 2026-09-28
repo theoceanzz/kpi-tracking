@@ -113,10 +113,9 @@ public class KpiCycleEvaluationController {
     @PreAuthorize("hasAuthority('CYCLE_EVAL:FINALIZE')")
     public ResponseEntity<ApiResponse<CycleUnitEvaluationResponse>> finalizeUnit(
             @PathVariable UUID cycleId, @PathVariable UUID orgUnitId,
-            @RequestBody(required = false) Map<String, String> body) {
-        String comment = body != null ? body.get("comment") : null;
-        return ResponseEntity.ok(ApiResponse.success(
-                kpiCycleEvaluationService.finalizeUnitCycle(cycleId, orgUnitId, comment)));
+            @RequestBody(required = false) @jakarta.validation.Valid com.kpitracking.dto.request.kpi.FinalizeUnitRequest body) {
+        return ResponseEntity.ok(ApiResponse.success(kpiCycleEvaluationService.finalizeUnitCycle(
+                cycleId, orgUnitId, body != null ? body.getComment() : null, body != null ? body.getCycleLock() : null)));
     }
 
     /** Gửi kết quả đánh giá kỳ qua email cho các nhân viên được chọn. */

@@ -1,3 +1,4 @@
+import { LocaleNumberInput } from '@/components/ui/number-input'
 import { useMemo, useState } from 'react'
 import {
   ResponsiveContainer, ComposedChart, XAxis, YAxis, CartesianGrid, Tooltip, Area, Bar, Line, Cell,
@@ -10,18 +11,21 @@ import {
   bellTargets, defaultBellCurve, maxQuota, minQuota, r1, roundTo100, sumTargets,
 } from '../utils/bellCurve'
 import { Button } from '@/components/ui/button'
+import { useTranslation } from 'react-i18next'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
-const MODE_OPTS: { v: BellCurveMode; label: string }[] = [
-  { v: 'warn', label: 'Chỉ cảnh báo' },
-  { v: 'block', label: 'Chặn không cho chốt' },
-]
+const MODE_OPTS = perLanguage((): { v: BellCurveMode; label: string }[] => ([
+  { v: 'warn', label: i18n.t('orgunits:BellCurveEditor.warningOnly') },
+  { v: 'block', label: i18n.t('orgunits:BellCurveEditor.blockFinalization') },
+]))
 
-const PRESETS: { label: string; hint: string; shift: number; spread: number }[] = [
-  { label: 'Chuẩn', hint: 'Chuông cân, đỉnh ở mức giữa', shift: 0, spread: 4 },
-  { label: 'Siết', hint: 'Đỉnh lệch xuống, ít người mức cao', shift: -0.6, spread: 4 },
-  { label: 'Nới', hint: 'Đỉnh lệch lên, nhiều người mức cao', shift: 0.6, spread: 4 },
-  { label: 'Dàn đều', hint: 'Chuông bè, các mức gần bằng nhau', shift: 0, spread: 1.6 },
-]
+const PRESETS = perLanguage((): { label: string; hint: string; shift: number; spread: number }[] => ([
+  { label: i18n.t('orgunits:BellCurveEditor.standard'), hint: i18n.t('orgunits:BellCurveEditor.balancedBellPeakAtTheMiddle'), shift: 0, spread: 4 },
+  { label: i18n.t('orgunits:BellCurveEditor.strict'), hint: i18n.t('orgunits:BellCurveEditor.peakSkewedDownFewPeopleAt'), shift: -0.6, spread: 4 },
+  { label: i18n.t('orgunits:BellCurveEditor.lenient'), hint: i18n.t('orgunits:BellCurveEditor.peakSkewedUpManyPeopleAt'), shift: 0.6, spread: 4 },
+  { label: i18n.t('orgunits:BellCurveEditor.even'), hint: i18n.t('orgunits:BellCurveEditor.flatBellLevelsNearlyEqual'), shift: 0, spread: 1.6 },
+]))
 
 type ChartRow = {
   level: string
@@ -40,6 +44,7 @@ function CurveTooltip({ active, payload, headcount }: {
   payload?: { payload: ChartRow }[]
   headcount: number
 }) {
+  const { t } = useTranslation('orgunits')
   if (!active || !payload?.length) return null
   const d = payload[0]!.payload
   return (
@@ -47,9 +52,9 @@ function CurveTooltip({ active, payload, headcount }: {
       <p className="font-semibold text-[var(--color-foreground)] mb-1.5 flex items-center gap-1.5">
         <span className="w-2.5 h-2.5 rounded-full" style={{ background: d.color }} />{d.level}
       </p>
-      <p className="font-semibold text-[var(--color-muted-foreground)]">Mốc: {d.percent}%</p>
-      <p className="text-[var(--color-muted-foreground)]">Cho phép {d.min}%–{d.max}%</p>
-      <p className="text-[var(--color-muted-foreground)]">≈ {d.minPeople}–{d.maxPeople} người / {headcount}</p>
+      <p className="font-semibold text-[var(--color-muted-foreground)]">{t('BellCurveEditor.points')} {d.percent}%</p>
+      <p className="text-[var(--color-muted-foreground)]">{t('BellCurveEditor.allow')} {d.min}%–{d.max}%</p>
+      <p className="text-[var(--color-muted-foreground)]">≈ {d.minPeople}–{d.maxPeople} {t('BellCurveEditor.people')} {headcount}</p>
     </div>
   )
 }
@@ -69,6 +74,7 @@ export default function BellCurveEditor({
   levels: { name: string; color: string }[]
   onChange: (next: UnitClassBellCurve | undefined) => void
 }) {
+  const { t: tr } = useTranslation('orgunits')
   const levelNames = useMemo(() => levels.map(l => l.name), [levels])
   // Quy mô giả định để quy % ra số người — chỉ phục vụ xem trước, không lưu vào cấu hình.
   const [headcount, setHeadcount] = useState(20)
@@ -82,7 +88,7 @@ export default function BellCurveEditor({
   }, [bc?.targets, levelNames])
 
   const total = sumTargets(targets)
-  const activePreset = PRESETS.find(p =>
+  const activePreset = PRESETS().find(p =>
     bellTargets(levelNames, p.shift, p.spread).every(st => Math.abs((targets.find(t => t.level === st.level)?.percent ?? -1) - st.percent) < 0.01))
   const balanced = Math.abs(total - 100) < 0.5
   const tolerance = bc?.tolerance ?? 5
@@ -142,13 +148,13 @@ export default function BellCurveEditor({
     <div className="space-y-3">
       {/* Mẫu phân bố đặt TRƯỚC biểu đồ: đa số chỉ cần chọn một mẫu rồi chỉnh nhẹ. */}
       <div className="flex flex-wrap items-center gap-1.5">
-        <span className="mr-1 inline-flex items-center gap-1 text-label"><Wand2 size={14} aria-hidden="true" /> Mẫu phân bố</span>
-        {PRESETS.map(p => (
+        <span className="mr-1 inline-flex items-center gap-1 text-label"><Wand2 size={14} aria-hidden="true" /> {tr('BellCurveEditor.distributionTemplate')}</span>
+        {PRESETS().map(p => (
           <ChoiceChip key={p.label} selected={activePreset?.label === p.label} title={p.hint} onClick={() => patch({ targets: bellTargets(levelNames, p.shift, p.spread) })}>
             {p.label}
           </ChoiceChip>
         ))}
-        <span className="text-caption">{activePreset?.hint ?? 'Tuỳ chỉnh — kéo từng mức bên dưới, các mức còn lại tự cân cho đủ 100%'}</span>
+        <span className="text-caption">{activePreset?.hint ?? tr('BellCurveEditor.customDragEachLevelBelowThe')}</span>
       </div>
 
       {/* ── Biểu đồ: vẽ lại ngay theo từng lần kéo thanh trượt ── */}
@@ -185,16 +191,16 @@ export default function BellCurveEditor({
         {/* Quy mô giả định: % chỉ có nghĩa khi thấy nó ra bao nhiêu người. */}
         <div className="flex flex-wrap items-center gap-2 pt-2 border-t border-[var(--color-border)]">
           <span className="text-eyebrow inline-flex items-center gap-1">
-            <Users size={12} aria-hidden="true" /> Xem thử với
+            <Users size={12} aria-hidden="true" /> {tr('BellCurveEditor.previewWith')}
           </span>
-          <input
+          <LocaleNumberInput
             type="number" min={1} max={2000} value={headcount}
             onChange={e => setHeadcount(Math.min(2000, Math.max(1, Number(e.target.value) || 1)))}
-            aria-label="Số nhân sự giả định để xem thử hạn mức"
+            aria-label={tr('BellCurveEditor.assumedHeadcountToPreviewTheQuota')}
             className="w-16 h-8 px-2 rounded-control bg-[var(--color-card)] text-xs font-medium border border-[var(--color-border)] outline-none focus:ring-2 focus:ring-[var(--color-ring)]"
           />
-          <span className="text-caption">nhân sự</span>
-          <span className="text-caption max-sm:hidden">— số suất mỗi mức tính đúng như lúc hệ thống chặn</span>
+          <span className="text-caption">{tr('BellCurveEditor.people2')}</span>
+          <span className="text-caption max-sm:hidden">{tr('BellCurveEditor.slotsPerLevelAreComputedExactly')}</span>
         </div>
       </div>
 
@@ -215,20 +221,20 @@ export default function BellCurveEditor({
               <input
                 type="range" min={0} max={100} step={1} value={t.percent}
                 onChange={e => setPercent(t.level, Number(e.target.value))}
-                aria-label={`Tỷ lệ mục tiêu mức ${t.level}`}
+                aria-label={tr('BellCurveEditor.targetShareForLevel', { level: t.level })}
                 className="flex-1 min-w-[120px] max-sm:order-last max-sm:w-full max-sm:min-w-0 h-8 cursor-pointer"
               />
               <div className="flex items-center gap-1">
-                <input
+                <LocaleNumberInput
                   type="number" min={0} max={100} value={t.percent}
                   onChange={e => setPercent(t.level, Number(e.target.value))}
-                  aria-label={`Tỷ lệ mục tiêu mức ${t.level} (%)`}
+                  aria-label={tr('BellCurveEditor.targetShareForLevel2', { level: t.level })}
                   className="h-8 w-14 rounded-control border-none bg-[var(--color-muted)] px-2 text-sm font-medium tabular-nums text-[var(--color-foreground)] outline-none focus:ring-2 focus:ring-[var(--color-ring)]"
                 />
                 <span className="text-caption">%</span>
               </div>
-              <span className="w-[150px] max-sm:w-auto text-right text-caption tabular-nums" title={`Cho phép ${r1(min)}–${r1(max)}% (≈ ${minQuota(min, headcount)}–${maxQuota(max, headcount)} người)`}>
-                tối đa <b className="text-[var(--color-foreground)]">{maxQuota(max, headcount)}</b> / {headcount} người
+              <span className="w-[150px] max-sm:w-auto text-right text-caption tabular-nums" title={tr('BellCurveEditor.allowedPeople', { min: r1(min), max: r1(max), min2: minQuota(min, headcount), max2: maxQuota(max, headcount) })}>
+                {tr('BellCurveEditor.max')} <b className="text-[var(--color-foreground)]">{maxQuota(max, headcount)}</b> / {headcount} {tr('BellCurveEditor.people3')}
               </span>
             </div>
           )
@@ -238,9 +244,9 @@ export default function BellCurveEditor({
       {/* ── Tổng: khung chỉ có nghĩa khi các mức phủ đúng 100% nhân sự ── */}
       {!balanced && (
         <div className="flex flex-wrap items-center gap-2 rounded-card border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-3 py-2 text-xs font-medium text-[var(--color-warning)]">
-          <AlertTriangle size={13} aria-hidden="true" /> Tổng đang {total}% — phải bằng 100% mới lưu được
+          <AlertTriangle size={13} aria-hidden="true" /> {tr('BellCurveEditor.totalIs')} {total}{tr('BellCurveEditor.itMustEqual100ToSave')}
           <Button variant="outline" size="sm" className="ml-auto" type="button" onClick={normalize}>
-            Chuẩn hoá về 100%
+            {tr('BellCurveEditor.normalizeTo100')}
           </Button>
         </div>
       )}
@@ -248,47 +254,44 @@ export default function BellCurveEditor({
       {/* ── Tham số áp dụng ── */}
       <div className="grid gap-3 sm:grid-cols-3">
         <label className="flex flex-col gap-1">
-          <span className="text-label">Dung sai ± (điểm %)</span>
+          <span className="text-label">{tr('BellCurveEditor.tolerancePoints')}</span>
           <div className="flex items-center gap-1">
-            <input
+            <LocaleNumberInput
               type="number" min={0} max={50} value={tolerance}
               onChange={e => patch({ tolerance: Math.min(50, Math.max(0, Number(e.target.value) || 0)) })}
               className="w-full h-9 px-2 rounded-control bg-[var(--color-muted)] text-sm font-medium border-none outline-none focus:ring-2 focus:ring-[var(--color-ring)]"
             />
             <span className="text-caption">%</span>
           </div>
-          <span className="text-caption">Mỗi mức được chấm trong khoảng mốc ± dung sai.</span>
+          <span className="text-caption">{tr('BellCurveEditor.eachLevelMayBeScoredWithin')}</span>
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-label">Bỏ qua đơn vị dưới (người)</span>
+          <span className="text-label">{tr('BellCurveEditor.ignoreUnitsUnderPeople')}</span>
           <div className="flex items-center gap-1">
-            <input
+            <LocaleNumberInput
               type="number" min={0} max={500} value={bc?.minMembers ?? 5}
               onChange={e => patch({ minMembers: Math.min(500, Math.max(0, Number(e.target.value) || 0)) })}
               className="w-full h-9 px-2 rounded-control bg-[var(--color-muted)] text-sm font-medium border-none outline-none focus:ring-2 focus:ring-[var(--color-ring)]"
             />
-            <span className="text-caption">người</span>
+            <span className="text-caption">{tr('BellCurveEditor.people3')}</span>
           </div>
-          <span className="text-caption">Nhóm quá nhỏ thì tỷ lệ không có ý nghĩa.</span>
+          <span className="text-caption">{tr('BellCurveEditor.sharesAreMeaninglessForGroupsThat')}</span>
         </label>
         <label className="flex flex-col gap-1">
-          <span className="text-label">Khi chấm vượt trần</span>
+          <span className="text-label">{tr('BellCurveEditor.whenScoringAboveTheCeiling')}</span>
           <Select value={bc?.mode ?? 'warn'} onValueChange={v => patch({ mode: v as BellCurveMode })}>
             <SelectTrigger className="h-9 rounded-control bg-[var(--color-muted)] border-none text-sm font-medium">
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {MODE_OPTS.map(o => <SelectItem key={o.v} value={o.v}>{o.label}</SelectItem>)}
+              {MODE_OPTS().map(o => <SelectItem key={o.v} value={o.v}>{o.label}</SelectItem>)}
             </SelectContent>
           </Select>
         </label>
       </div>
 
       <p className="text-xs leading-relaxed text-[var(--color-subtle-foreground)]">
-        Hạn mức tính trên <b>tổng nhân sự</b> của đơn vị (gồm đơn vị con), không phải số người đã
-        chấm — nếu không thì người đầu tiên được chấm luôn chiếm 100%. Chế độ <b>chặn</b> chỉ chặn
-        đúng mức vừa chấm khi mức đó đã kín suất; thiếu người ở mức nào thì chỉ nhắc, vì giữa kỳ
-        chấm chưa xong không thể ép.
+        {tr('BellCurveEditor.theQuotaIsComputedOnThe')} <b>{tr('BellCurveEditor.totalHeadcount')}</b> {tr('BellCurveEditor.ofTheUnitIncludingChildUnits')} <b>{tr('BellCurveEditor.block')}</b> {tr('BellCurveEditor.modeOnlyBlocksTheLevelJust')}
       </p>
     </div>
   )

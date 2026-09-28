@@ -1,10 +1,12 @@
 import { SlidersHorizontal } from 'lucide-react'
 import { useDashboardFilter, type FilterScope } from '../../context/DashboardFilterContext'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
-const LABEL: Record<FilterScope, { title: string; hint: string }> = {
-  unit: { title: 'Bộ lọc đơn vị', hint: 'Lọc dữ liệu đồng bộ cho widget đơn vị, phân cấp và hạng mục' },
-  personal: { title: 'Bộ lọc cá nhân', hint: 'Lọc dữ liệu đồng bộ cho mọi widget "của tôi"' },
-}
+const LABEL = perLanguage((): Record<FilterScope, { title: string; hint: string }> => ({
+  unit: { title: i18n.t('dashboard:DashboardFilterWidget.unitFilter'), hint: i18n.t('dashboard:DashboardFilterWidget.filtersDataConsistentlyForUnitHierarchy') },
+  personal: { title: i18n.t('dashboard:DashboardFilterWidget.personalFilter'), hint: i18n.t('dashboard:DashboardFilterWidget.filtersDataConsistentlyForEveryMy') },
+}))
 
 /**
  * Thanh lọc thời gian trên lưới trang chủ — cùng bộ điều khiển với trang Phân tích.
@@ -14,7 +16,7 @@ const LABEL: Record<FilterScope, { title: string; hint: string }> = {
  */
 export function DashboardFilterWidget({ scope }: { scope: FilterScope }) {
   const { controls } = useDashboardFilter(scope)
-  const { title, hint } = LABEL[scope]
+  const { title, hint } = LABEL()[scope]
 
   return (
     <section

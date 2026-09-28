@@ -1,3 +1,4 @@
+import { LocaleDateInput } from '@/components/ui/date-input'
 import { useState, useEffect } from 'react'
 import { format, parseISO, differenceInCalendarDays } from 'date-fns'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
@@ -10,6 +11,9 @@ import { FREQUENCY_MAP } from '@/lib/utils'
 import { toast } from 'sonner'
 import { periodStandardEnd as computeStandardEndDate } from '../utils/standardDuration'
 import type { KpiPeriod, KpiFrequency } from '@/types/kpi'
+import { useTranslation } from 'react-i18next'
+import { useStateDraft } from '@/hooks/useFormDraft'
+import DraftNotice from '@/components/common/DraftNotice'
 
 interface PeriodFormModalProps {
   onClose: () => void
@@ -43,6 +47,7 @@ export default function PeriodFormModal({
   variant = 'modal',
   submitLabel,
 }: PeriodFormModalProps) {
+  const { t } = useTranslation('kpi')
   const isInline = variant === 'inline'
 
   const [formData, setFormData] = useState({
@@ -54,6 +59,7 @@ export default function PeriodFormModal({
     cycleId: editPeriod?.cycleId || initialCycleId || 'NONE',
   })
   const [showMismatchConfirm, setShowMismatchConfirm] = useState(false)
+  const draft = useStateDraft(formData, setFormData, { key: `kpi-period:${editPeriod?.id ?? `new:${initialCycleId ?? ''}`}`, enabled: true })
 
   // Danh sách kỳ để gán đợt vào (tuỳ chọn).
   const { data: cyclesData } = useKpiCycles({ organizationId, size: 100, sortBy: 'startDate', direction: 'desc' })
@@ -100,10 +106,10 @@ export default function PeriodFormModal({
         next.notificationDate = format(notificationDateObj, "yyyy-MM-dd'T'HH:mm")
 
         if (!next.name || next.name.includes('Tháng') || next.name.includes('Quý') || next.name.includes('6 Tháng') || next.name.includes('Năm')) {
-          if (type === 'MONTHLY') next.name = `Tháng ${format(startDateObj, 'MM/yyyy')}`
-          else if (type === 'QUARTERLY') next.name = `Quý ${Math.floor(startDateObj.getMonth() / 3) + 1} / ${format(startDateObj, 'yyyy')}`
-          else if (type === 'SEMI_ANNUALLY') next.name = `6 Tháng ${Math.floor(startDateObj.getMonth() / 6) + 1} / ${format(startDateObj, 'yyyy')}`
-          else if (type === 'YEARLY') next.name = `Năm ${format(startDateObj, 'yyyy')}`
+          if (type === 'MONTHLY') next.name = t('PeriodFormModal.month', { startDateObj: format(startDateObj, 'MM/yyyy') })
+          else if (type === 'QUARTERLY') next.name = t('PeriodFormModal.q', { value: Math.floor(startDateObj.getMonth() / 3) + 1, startDateObj: format(startDateObj, 'yyyy') })
+          else if (type === 'SEMI_ANNUALLY') next.name = t('PeriodFormModal.h', { value: Math.floor(startDateObj.getMonth() / 6) + 1, startDateObj: format(startDateObj, 'yyyy') })
+          else if (type === 'YEARLY') next.name = t('PeriodFormModal.year', { startDateObj: format(startDateObj, 'yyyy') })
         }
       }
       return next
@@ -130,13 +136,13 @@ export default function PeriodFormModal({
     const notification = formData.notificationDate ? new Date(formData.notificationDate).getTime() : null
 
     if (end <= start) {
-      toast.error('Thời gian kết thúc phải sau thời gian bắt đầu')
+      toast.error(t('PeriodFormModal.theEndTimeMustBeAfter'))
       return
     }
 
     if (notification) {
       if (notification <= start || notification >= end) {
-        toast.error('Thời gian thông báo phải nằm trong khoảng thời gian bắt đầu và kết thúc')
+        toast.error(t('PeriodFormModal.theNotificationTimeMustBeBetween'))
         return
       }
     }
@@ -147,7 +153,7 @@ export default function PeriodFormModal({
       const cycleEnd = new Date(selectedCycle.endDate).getTime()
       if (start < cycleStart || end > cycleEnd) {
         toast.error(
-          `Thời gian đợt phải nằm trong kỳ "${selectedCycle.name}" ` +
+          t('PeriodFormModal.thePeriodDatesMustBeWithin', { name: selectedCycle.name }) +
           `(${format(new Date(selectedCycle.startDate), 'dd/MM/yyyy')} – ${format(new Date(selectedCycle.endDate), 'dd/MM/yyyy')})`
         )
         return
@@ -169,31 +175,32 @@ export default function PeriodFormModal({
   const standardDays = formData.startDate
     ? differenceInCalendarDays(computeStandardEndDate(new Date(formData.startDate), formData.periodType), new Date(formData.startDate)) + 1
     : 0
-  const mismatchDescription = `Bạn đã chọn ${selectedDays} ngày, trong khi chu kỳ "${FREQUENCY_MAP[formData.periodType]}" tiêu chuẩn là ${standardDays} ngày. Hệ thống sẽ không tự kiểm tra lại — bạn tự chịu trách nhiệm với khoảng thời gian đã chọn.`
+  const mismatchDescription = t('PeriodFormModal.youChoseDaysWhileTheStandard', { selectedDays, value: FREQUENCY_MAP()[formData.periodType], standardDays })
 
   const fields = (
     <form id="period-form" onSubmit={handleSubmit} className="space-y-5">
+      <DraftNotice draft={draft} />
       <div className="space-y-2">
-        <label className="text-label">Tên đợt KPI <span className="text-[var(--color-error)]">*</span></label>
+        <label className="text-label">{t('PeriodFormModal.kpiPeriodName')} <span className="text-[var(--color-error)]">*</span></label>
         <input
           value={formData.name}
           onChange={e => handleFieldChange('name', e.target.value)}
           required
-          placeholder="Ví dụ: Tháng 05/2026"
+          placeholder={t('PeriodFormModal.eGMay2026')}
           className="w-full px-5 py-4 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] focus:ring-4 focus:ring-[var(--color-ring)] focus:border-[var(--color-primary)] outline-none text-sm font-medium transition-all placeholder:text-[var(--color-subtle-foreground)]"
         />
       </div>
 
       <div className="space-y-2">
-        <label className="text-label">Loại chu kỳ <span className="text-[var(--color-error)]">*</span></label>
+        <label className="text-label">{t('PeriodFormModal.periodType')} <span className="text-[var(--color-error)]">*</span></label>
         <Select value={formData.periodType} onValueChange={val => handleFieldChange('periodType', val)}>
           <SelectTrigger className="w-full px-5 h-[56px] rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] text-sm font-medium shadow-sm focus:ring-4 focus:ring-[var(--color-ring)]">
-            <SelectValue placeholder="Chọn loại chu kỳ" />
+            <SelectValue placeholder={t('PeriodFormModal.choosePeriodType')} />
           </SelectTrigger>
           <SelectContent className="rounded-card border-[var(--color-border)] p-2">
             {['DAILY', 'WEEKLY', 'MONTHLY', 'QUARTERLY', 'SEMI_ANNUALLY', 'YEARLY'].map(type => (
               <SelectItem key={type} value={type} className="rounded-card focus:bg-[var(--color-primary-soft)] text-sm font-medium">
-                {FREQUENCY_MAP[type as KpiFrequency]}
+                {FREQUENCY_MAP()[type as KpiFrequency]}
               </SelectItem>
             ))}
           </SelectContent>
@@ -201,13 +208,13 @@ export default function PeriodFormModal({
       </div>
 
       <div className="space-y-2">
-        <label className="text-label">Thuộc kỳ đánh giá (tuỳ chọn)</label>
+        <label className="text-label">{t('PeriodFormModal.evaluationCycleOptional')}</label>
         <Select value={formData.cycleId} onValueChange={val => setFormData(prev => ({ ...prev, cycleId: val }))}>
           <SelectTrigger className="w-full px-5 h-[56px] rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] text-sm font-medium shadow-sm focus:ring-4 focus:ring-[var(--color-ring)]">
-            <SelectValue placeholder="Không thuộc kỳ nào" />
+            <SelectValue placeholder={t('PeriodFormModal.notInAnyCycle')} />
           </SelectTrigger>
           <SelectContent className="rounded-card border-[var(--color-border)] p-2">
-            <SelectItem value="NONE" className="rounded-card text-sm font-medium text-[var(--color-muted-foreground)]">Không thuộc kỳ nào</SelectItem>
+            <SelectItem value="NONE" className="rounded-card text-sm font-medium text-[var(--color-muted-foreground)]">{t('PeriodFormModal.notInAnyCycle')}</SelectItem>
             {cycles.map(cycle => (
               <SelectItem key={cycle.id} value={cycle.id} className="rounded-card text-sm font-medium">{cycle.name}</SelectItem>
             ))}
@@ -215,7 +222,7 @@ export default function PeriodFormModal({
         </Select>
         {selectedCycle?.startDate && selectedCycle?.endDate && (
           <p className="text-caption font-medium ml-1">
-            Đợt phải nằm trong kỳ:{' '}
+            {t('PeriodFormModal.thePeriodMustBeWithinThe')}{' '}
             <span className="font-semibold text-[var(--color-muted-foreground)]">
               {format(new Date(selectedCycle.startDate), 'dd/MM/yyyy')} – {format(new Date(selectedCycle.endDate), 'dd/MM/yyyy')}
             </span>
@@ -226,42 +233,33 @@ export default function PeriodFormModal({
       <div className="space-y-6">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div className="space-y-2">
-            <label className="text-label">Bắt đầu <span className="text-[var(--color-error)]">*</span></label>
+            <label className="text-label">{t('PeriodFormModal.start')} <span className="text-[var(--color-error)]">*</span></label>
             <div className="sm:hidden">
               <DateTimePicker value={formData.startDate} onChange={val => handleFieldChange('startDate', val)} />
             </div>
             <div className="hidden sm:block relative">
-              <input type="datetime-local" value={formData.startDate} onChange={e => handleFieldChange('startDate', e.target.value)} required className="w-full px-5 py-4 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] focus:ring-4 focus:ring-[var(--color-ring)] focus:border-[var(--color-primary)] outline-none text-sm font-medium transition-all text-transparent"/>
-              <div className="absolute inset-0 left-5 flex items-center pointer-events-none text-sm font-medium text-[var(--color-foreground)]">
-                {formData.startDate ? format(new Date(formData.startDate), 'dd/MM/yyyy HH:mm') : ''}
-              </div>
+              <LocaleDateInput type="datetime-local" value={formData.startDate} onChange={e => handleFieldChange('startDate', e.target.value)} required className="w-full px-5 py-4 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] focus:ring-4 focus:ring-[var(--color-ring)] focus:border-[var(--color-primary)] outline-none text-sm font-medium transition-all"/>
             </div>
           </div>
 
           <div className="space-y-2">
-            <label className="text-label">Kết thúc <span className="text-[var(--color-error)]">*</span></label>
+            <label className="text-label">{t('PeriodFormModal.end')} <span className="text-[var(--color-error)]">*</span></label>
             <div className="sm:hidden">
               <DateTimePicker value={formData.endDate} onChange={val => handleFieldChange('endDate', val)} />
             </div>
             <div className="hidden sm:block relative">
-              <input type="datetime-local" value={formData.endDate} onChange={e => handleFieldChange('endDate', e.target.value)} required className="w-full px-5 py-4 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] focus:ring-4 focus:ring-[var(--color-ring)] focus:border-[var(--color-primary)] outline-none text-sm font-medium transition-all text-transparent"/>
-              <div className="absolute inset-0 left-5 flex items-center pointer-events-none text-sm font-medium text-[var(--color-foreground)]">
-                {formData.endDate ? format(new Date(formData.endDate), 'dd/MM/yyyy HH:mm') : ''}
-              </div>
+              <LocaleDateInput type="datetime-local" value={formData.endDate} onChange={e => handleFieldChange('endDate', e.target.value)} required className="w-full px-5 py-4 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] focus:ring-4 focus:ring-[var(--color-ring)] focus:border-[var(--color-primary)] outline-none text-sm font-medium transition-all"/>
             </div>
           </div>
         </div>
 
         <div className="space-y-2">
-          <label className="text-label">Thông báo nhắc nhở (Mặc định 50% thời gian)</label>
+          <label className="text-label">{t('PeriodFormModal.reminderNotificationDefault50OfThe')}</label>
           <div className="sm:hidden">
             <DateTimePicker value={formData.notificationDate} onChange={val => handleFieldChange('notificationDate', val)} />
           </div>
           <div className="hidden sm:block relative">
-            <input type="datetime-local" value={formData.notificationDate} onChange={e => handleFieldChange('notificationDate', e.target.value)} required className="w-full px-6 py-4 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] focus:ring-4 focus:ring-[var(--color-ring)] focus:border-[var(--color-primary)] outline-none text-sm font-medium transition-all text-transparent"/>
-            <div className="absolute inset-0 left-6 flex items-center pointer-events-none text-sm font-medium text-[var(--color-foreground)]">
-              {formData.notificationDate ? format(new Date(formData.notificationDate), 'dd/MM/yyyy HH:mm') : ''}
-            </div>
+            <LocaleDateInput type="datetime-local" value={formData.notificationDate} onChange={e => handleFieldChange('notificationDate', e.target.value)} required className="w-full px-6 py-4 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] focus:ring-4 focus:ring-[var(--color-ring)] focus:border-[var(--color-primary)] outline-none text-sm font-medium transition-all"/>
           </div>
         </div>
       </div>
@@ -269,7 +267,7 @@ export default function PeriodFormModal({
       {isInline && (
         <div className="pt-2">
           <Button type="submit" className="w-full" disabled={isSubmitting}>
-            {isSubmitting ? 'Đang lưu...' : (submitLabel ?? 'Xác nhận')}
+            {isSubmitting ? t('PeriodFormModal.saving') : (submitLabel ?? t('PeriodFormModal.confirm'))}
           </Button>
         </div>
       )}
@@ -279,9 +277,9 @@ export default function PeriodFormModal({
   const mismatchDialog = (
     <ConfirmDialog
       open={showMismatchConfirm}
-      title="Bạn có chắc chắn?"
+      title={t('PeriodFormModal.areYouSure')}
       description={mismatchDescription}
-      confirmLabel="Vẫn tạo đợt này"
+      confirmLabel={t('PeriodFormModal.createThisPeriodAnyway')}
       onConfirm={async () => { setShowMismatchConfirm(false); await submitForm() }}
       onClose={() => setShowMismatchConfirm(false)}
       loading={isSubmitting}
@@ -304,14 +302,14 @@ export default function PeriodFormModal({
       onClose={onClose}
       size="md"
       dismissible={!isSubmitting}
-      title={editPeriod ? 'Chỉnh sửa đợt' : 'Tạo đợt mới'}
-      description="Cấu hình chu kỳ đánh giá & thời gian"
+      title={editPeriod ? t('PeriodFormModal.editPeriod') : t('PeriodFormModal.createANewPeriod')}
+      description={t('PeriodFormModal.configureTheEvaluationPeriodDates')}
       footer={
         <DialogFooter
-          secondary={<Button variant="outline" onClick={onClose} disabled={isSubmitting}>Huỷ</Button>}
+          secondary={<Button variant="outline" onClick={onClose} disabled={isSubmitting}>{t('PeriodFormModal.cancel')}</Button>}
           primary={
             <Button type="submit" form="period-form" disabled={isSubmitting}>
-              {isSubmitting ? 'Đang lưu...' : (submitLabel ?? 'Xác nhận')}
+              {isSubmitting ? t('PeriodFormModal.saving') : (submitLabel ?? t('PeriodFormModal.confirm'))}
             </Button>
           }
         />

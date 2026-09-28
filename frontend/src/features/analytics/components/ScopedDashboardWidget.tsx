@@ -1,3 +1,5 @@
+import { LocaleDateInput } from '@/components/ui/date-input'
+import { intlLocale } from '@/i18n/format'
 import React, { useState, useCallback, useRef, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { statsApi } from '@/features/dashboard/api/statsApi'
@@ -45,6 +47,7 @@ import {
 import { METRIC_COLORS } from '@/components/charts/chartPalette'
 import type { ScopedDashboardResponse } from '@/types/stats'
 import { yAxisLabel, yAxisLabelRight } from '@/components/charts/axisLabel'
+import { useTranslation } from 'react-i18next'
 
 // Re-use the TopUnit shape from ScopedDashboardResponse directly
 type ScopedTopUnit = ScopedDashboardResponse['topUnits'][number]
@@ -93,6 +96,7 @@ function TopItemsDualChart({
   filterType: FilterType
   onFilterChange: (f: FilterType) => void
 }) {
+  const { t } = useTranslation('analytics')
   const [hoverIndex, setHoverIndex] = useState<number | null>(null)
   const hoverRef = useRef<number | null>(null)
 
@@ -135,7 +139,7 @@ function TopItemsDualChart({
           <FilterToggle value={filterType} onChange={onFilterChange} />
         </SectionHeader>
         <div className="flex-1 flex items-center justify-center text-sm text-[var(--color-muted-foreground)]">
-          Chưa có dữ liệu trong khoảng thời gian này
+          {t('ScopedDashboardWidget.noDataInThisTimeRange')}
         </div>
       </div>
     )
@@ -156,7 +160,7 @@ function TopItemsDualChart({
         {/* LEFT – Completion Rate */}
         <div className="flex flex-col">
           <div className="flex items-center justify-between mb-1">
-            <h4 className="text-xs font-semibold text-[var(--color-foreground)]">Tiến độ</h4>
+            <h4 className="text-xs font-semibold text-[var(--color-foreground)]">{t('ScopedDashboardWidget.progress')}</h4>
           </div>
           <div className="w-full h-[250px]">
             <ResponsiveContainer width="100%" height="100%">
@@ -188,7 +192,7 @@ function TopItemsDualChart({
                   axisLine={false}
                   tickLine={false}
                 >
-                  <Label value={title.includes('Key Result') ? 'Key Result' : title.includes('KPI') ? 'KPI' : 'Bài nộp'} angle={-90} position="insideLeft" style={{ textAnchor: 'middle', fill: '#64748b', fontSize: 11, fontWeight: 700 }} dx={-15} />
+                  <Label value={title.includes('Key Result') ? 'Key Result' : title.includes('KPI') ? 'KPI' : t('ScopedDashboardWidget.submissions')} angle={-90} position="insideLeft" style={{ textAnchor: 'middle', fill: '#64748b', fontSize: 11, fontWeight: 700 }} dx={-15} />
                 </YAxis>
                 <Tooltip content={<DualTooltip />} cursor={{ fill: '#94a3b8', opacity: 0.06 }} />
                 <Legend
@@ -234,7 +238,7 @@ function TopItemsDualChart({
         {/* RIGHT – Performance Rate */}
         <div className="flex flex-col">
           <div className="flex items-center justify-between mb-1">
-            <h4 className="text-xs font-semibold text-[var(--color-foreground)]">Hiệu suất</h4>
+            <h4 className="text-xs font-semibold text-[var(--color-foreground)]">{t('ScopedDashboardWidget.performance')}</h4>
           </div>
           <div className="w-full h-[250px]">
             <ResponsiveContainer width="100%" height="100%">
@@ -266,7 +270,7 @@ function TopItemsDualChart({
                   axisLine={false}
                   tickLine={false}
                 >
-                  <Label value={title.includes('Key Result') ? 'Key Result' : title.includes('KPI') ? 'KPI' : 'Bài nộp'} angle={-90} position="insideLeft" style={{ textAnchor: 'middle', fill: '#64748b', fontSize: 11, fontWeight: 700 }} dx={-15} />
+                  <Label value={title.includes('Key Result') ? 'Key Result' : title.includes('KPI') ? 'KPI' : t('ScopedDashboardWidget.submissions')} angle={-90} position="insideLeft" style={{ textAnchor: 'middle', fill: '#64748b', fontSize: 11, fontWeight: 700 }} dx={-15} />
                 </YAxis>
                 <Tooltip content={<DualTooltip />} cursor={{ fill: '#94a3b8', opacity: 0.06 }} />
                 <Legend
@@ -326,6 +330,7 @@ function TopUnitsDualChartScoped({
   filterType: FilterType
   onFilterChange: (f: FilterType) => void
 }) {
+  const { t } = useTranslation('analytics')
   const [hoverIndex, setHoverIndex] = useState<number | null>(null)
   const hoverRef = useRef<number | null>(null)
 
@@ -353,11 +358,11 @@ function TopUnitsDualChartScoped({
   if (sorted.length === 0) {
     return (
       <div className="bg-[var(--color-card)] border border-slate-200 dark:border-white/10 rounded-lg p-5 shadow-sm min-h-[320px] flex flex-col">
-        <SectionHeader title="Top Đơn vị phụ trách" icon={<Building2 size={18} />}>
+        <SectionHeader title={t('ScopedDashboardWidget.topResponsibleUnits')} icon={<Building2 size={18} />}>
           <FilterToggle value={filterType} onChange={onFilterChange} />
         </SectionHeader>
         <div className="flex-1 flex items-center justify-center text-sm text-[var(--color-muted-foreground)]">
-          Chưa có dữ liệu đơn vị
+          {t('ScopedDashboardWidget.noUnitDataYet')}
         </div>
       </div>
     )
@@ -370,7 +375,7 @@ function TopUnitsDualChartScoped({
 
   return (
     <div className="bg-[var(--color-card)] border border-slate-200 dark:border-white/10 rounded-lg p-5 shadow-sm">
-      <SectionHeader title="Top Đơn vị phụ trách" icon={<Building2 size={18} />}>
+      <SectionHeader title={t('ScopedDashboardWidget.topResponsibleUnits')} icon={<Building2 size={18} />}>
         <FilterToggle value={filterType} onChange={onFilterChange} />
       </SectionHeader>
 
@@ -378,7 +383,7 @@ function TopUnitsDualChartScoped({
         {/* LEFT – Completion Rate */}
         <div className="flex flex-col">
           <div className="flex items-center justify-between mb-1">
-            <h4 className="text-xs font-semibold text-[var(--color-foreground)]">Tiến độ đơn vị</h4>
+            <h4 className="text-xs font-semibold text-[var(--color-foreground)]">{t('ScopedDashboardWidget.unitProgress')}</h4>
           </div>
           <div className="w-full h-[250px]">
             <ResponsiveContainer width="100%" height="100%">
@@ -456,7 +461,7 @@ function TopUnitsDualChartScoped({
         {/* RIGHT — Performance Rate */}
         <div className="flex flex-col">
           <div className="flex items-center justify-between mb-1">
-            <h4 className="text-xs font-semibold text-[var(--color-foreground)]">Hiệu suất đơn vị</h4>
+            <h4 className="text-xs font-semibold text-[var(--color-foreground)]">{t('ScopedDashboardWidget.unitPerformance')}</h4>
           </div>
           <div className="w-full h-[250px]">
             <ResponsiveContainer width="100%" height="100%">
@@ -566,13 +571,14 @@ function FilterToggle({
   value: FilterType
   onChange: (f: FilterType) => void
 }) {
+  const { t } = useTranslation('analytics')
   return (
     <div className="flex bg-[var(--color-muted)] rounded-control p-0.5 gap-0.5">
       <ChoiceChip selected={value === 'BEST'} variant="segment" size="sm" className="py-1" onClick={() => onChange('BEST')}>
-        <Trophy /> Tốt nhất
+        <Trophy /> {t('ScopedDashboardWidget.best')}
       </ChoiceChip>
       <ChoiceChip selected={value === 'WORST'} variant="segment" size="sm" className="py-1" onClick={() => onChange('WORST')}>
-        <TrendingDown /> Trì trệ
+        <TrendingDown /> {t('ScopedDashboardWidget.stagnant')}
       </ChoiceChip>
     </div>
   )
@@ -581,11 +587,12 @@ function FilterToggle({
 // ─── Metric cards section ─────────────────────────────────────────────────────
 
 function MetricsBadge({ type }: { type: 'OBJECTIVE' | 'KR' | 'KPI' }) {
+  const { t } = useTranslation('analytics')
   if (type === 'OBJECTIVE') {
     return (
       <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-semibold bg-indigo-100 dark:bg-indigo-500/20 text-indigo-700 dark:text-indigo-300 border border-indigo-200 dark:border-[var(--color-primary)]/30">
         <Target size={10} />
-        Mục tiêu
+        {t('ScopedDashboardWidget.target')}
       </span>
     )
   }
@@ -612,6 +619,7 @@ function MetricsBadge({ type }: { type: 'OBJECTIVE' | 'KR' | 'KPI' }) {
  * Objective, Key Result or KPI inside the drawer.
  */
 export default function ScopedDashboardWidget({ type, id, dateRange: globalDateRange, onlyApproved = false, periodId, periodIdTo }: Props) {
+  const { t: tr } = useTranslation('analytics')
   const { user } = useAuthStore()
   const [itemsFilter, setItemsFilter] = useState<FilterType>('BEST')
   const [unitsFilter, setUnitsFilter] = useState<FilterType>('BEST')
@@ -714,7 +722,7 @@ export default function ScopedDashboardWidget({ type, id, dateRange: globalDateR
       <div className="w-full min-h-[400px] flex flex-col items-center justify-center mt-10">
         <Loader2 className="w-8 h-8 text-[var(--color-primary)] animate-spin mb-4" />
         <p className="text-[var(--color-muted-foreground)] font-medium">
-          Đang phân tích dữ liệu chuyên sâu...
+          {tr('ScopedDashboardWidget.analyzingDataInDepth')}
         </p>
       </div>
     )
@@ -726,13 +734,13 @@ export default function ScopedDashboardWidget({ type, id, dateRange: globalDateR
   const isQual = type === 'KPI' && metrics.kpiType === 'QUALITATIVE'
 
   // Child entity label used in metric cards
-  const childName = type === 'OBJECTIVE' ? 'Key Result' : type === 'KR' ? 'KPI' : 'Bài nộp'
+  const childName = type === 'OBJECTIVE' ? 'Key Result' : type === 'KR' ? 'KPI' : tr('ScopedDashboardWidget.submissions')
   const topItemsTitle =
     type === 'OBJECTIVE'
       ? 'Top Key Results'
       : type === 'KR'
       ? 'Top KPIs'
-      : 'Top Bài nộp'
+      : tr('ScopedDashboardWidget.topSubmissions')
 
   // Truncate long unit names to keep chart labels readable
   const unitChartData = (topUnits ?? []).map((u) => ({
@@ -746,8 +754,8 @@ export default function ScopedDashboardWidget({ type, id, dateRange: globalDateR
         <div className="flex items-center gap-2">
           <MetricsBadge type={type} />
           <span className="text-xs text-[var(--color-muted-foreground)]">
-            Phân tích chi tiết theo{' '}
-            {type === 'OBJECTIVE' ? 'Mục tiêu' : type === 'KR' ? 'Key Result' : 'KPI'}
+            {tr('ScopedDashboardWidget.detailedAnalysisBy')}{' '}
+            {type === 'OBJECTIVE' ? tr('ScopedDashboardWidget.target') : type === 'KR' ? 'Key Result' : 'KPI'}
           </span>
         </div>
         
@@ -760,25 +768,25 @@ export default function ScopedDashboardWidget({ type, id, dateRange: globalDateR
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="GLOBAL">Theo bộ lọc tổng quan mục tiêu</SelectItem>
-              <SelectItem value="THIS_WEEK">Tuần này</SelectItem>
-              <SelectItem value="THIS_MONTH">Tháng này</SelectItem>
-              <SelectItem value="THIS_QUARTER">Quý này</SelectItem>
-              <SelectItem value="6_MONTHS">6 tháng qua</SelectItem>
-              <SelectItem value="THIS_YEAR">Năm nay</SelectItem>
-              <SelectItem value="CUSTOM">Tùy chỉnh</SelectItem>
+              <SelectItem value="GLOBAL">{tr('ScopedDashboardWidget.perTheObjectivesOverviewFilter')}</SelectItem>
+              <SelectItem value="THIS_WEEK">{tr('ScopedDashboardWidget.thisWeek')}</SelectItem>
+              <SelectItem value="THIS_MONTH">{tr('ScopedDashboardWidget.thisMonth')}</SelectItem>
+              <SelectItem value="THIS_QUARTER">{tr('ScopedDashboardWidget.thisQuarter')}</SelectItem>
+              <SelectItem value="6_MONTHS">{tr('ScopedDashboardWidget.last6Months')}</SelectItem>
+              <SelectItem value="THIS_YEAR">{tr('ScopedDashboardWidget.thisYear')}</SelectItem>
+              <SelectItem value="CUSTOM">{tr('ScopedDashboardWidget.custom')}</SelectItem>
             </SelectContent>
           </Select>
           {dateFilterType === 'CUSTOM' && (
             <div className="flex items-center gap-2 px-2 border-l border-slate-200 dark:border-white/10">
-              <input 
+              <LocaleDateInput 
                 type="date" 
                 className="bg-transparent border-none outline-none text-slate-700 dark:text-slate-300 text-xs"
                 value={customRange.from}
                 onChange={(e) => setCustomRange(prev => ({ ...prev, from: e.target.value }))}
               />
               <span className="text-slate-400">-</span>
-              <input 
+              <LocaleDateInput 
                 type="date" 
                 className="bg-transparent border-none outline-none text-slate-700 dark:text-slate-300 text-xs"
                 value={customRange.to}
@@ -793,18 +801,18 @@ export default function ScopedDashboardWidget({ type, id, dateRange: globalDateR
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-2xl border border-indigo-100 dark:border-indigo-900/30">
-              <p className="text-xs font-semibold text-[var(--color-primary)] mb-1.5">Mức kết quả</p>
+              <p className="text-xs font-semibold text-[var(--color-primary)] mb-1.5">{tr('ScopedDashboardWidget.resultLevel')}</p>
               <QualitativeResultChip level={metrics.qualitativeLevelName} />
             </div>
             <div className="bg-blue-50 dark:bg-blue-900/20 p-4 rounded-2xl border border-blue-100 dark:border-blue-900/30">
-              <p className="text-xs font-semibold text-blue-500 mb-1">Số bài nộp đã chấm</p>
+              <p className="text-xs font-semibold text-blue-500 mb-1">{tr('ScopedDashboardWidget.scoredSubmissions')}</p>
               <p className="text-xl font-semibold text-blue-700 dark:text-blue-400">
                 {(metrics.qualitativeDistribution ?? []).reduce((s, d) => s + d.count, 0)}
               </p>
             </div>
           </div>
           <div className="bg-[var(--color-card)] rounded-2xl p-6 border border-[var(--color-border)]">
-            <h3 className="text-sm font-semibold text-[var(--color-foreground)] mb-3">Phân bố mức đánh giá</h3>
+            <h3 className="text-sm font-semibold text-[var(--color-foreground)] mb-3">{tr('ScopedDashboardWidget.evaluationLevelDistribution')}</h3>
             <QualitativeDistributionChart distribution={metrics.qualitativeDistribution} />
           </div>
         </>
@@ -813,29 +821,29 @@ export default function ScopedDashboardWidget({ type, id, dateRange: globalDateR
       {/* ── Section 1: 4 Metric Cards ── */}
       <div className="grid grid-cols-2 gap-3">
         <ObjectiveMetricCard
-          title={type === 'KPI' ? "Tiến độ đóng góp" : "Tiến độ hoàn thành"}
+          title={type === 'KPI' ? tr('ScopedDashboardWidget.contributionProgress') : tr('ScopedDashboardWidget.completionProgress')}
           value={`${metrics.completionRate.toFixed(1)}%`}
-          subtitle={`Trung bình ${childName}`}
+          subtitle={tr('ScopedDashboardWidget.average', { childName })}
           icon={<Target size={18} />}
         />
         <ObjectiveMetricCard
-          title="Hiệu suất trung bình"
+          title={tr('ScopedDashboardWidget.averagePerformance')}
           value={`${metrics.performanceRate.toFixed(1)}%`}
-          subtitle={`Trung bình ${childName}`}
+          subtitle={tr('ScopedDashboardWidget.average', { childName })}
           icon={<TrendingUp size={18} />}
         />
         <ObjectiveMetricCard
-          title={type === 'KPI' ? 'Mục tiêu cần đạt' : `${childName} hoàn thành`}
+          title={type === 'KPI' ? tr('ScopedDashboardWidget.targetToReach') : tr('ScopedDashboardWidget.completed', { childName })}
           value={type === 'KPI' && kpiDrawerData
-            ? `${kpiDrawerData.targetValue.toLocaleString('vi-VN')} ${kpiDrawerData.unit}`
+            ? `${kpiDrawerData.targetValue.toLocaleString(intlLocale())} ${kpiDrawerData.unit}`
             : `${metrics.completedCount}/${metrics.totalCount}`}
-          subtitle={type === 'KPI' ? '' : `Đạt 100% tiến độ`}
+          subtitle={type === 'KPI' ? '' : tr('ScopedDashboardWidget.n100ProgressReached')}
           icon={<CheckCircle2 size={18} className="text-emerald-500" />}
         />
         <ObjectiveMetricCard
-          title="Rủi ro"
+          title={tr('ScopedDashboardWidget.risk')}
           value={metrics.atRiskCount}
-          subtitle="Tiến độ thấp & sắp hết hạn"
+          subtitle={tr('ScopedDashboardWidget.lowProgressDueSoon')}
           icon={<AlertTriangle size={18} className="text-rose-500" />}
         />
       </div>
@@ -847,7 +855,7 @@ export default function ScopedDashboardWidget({ type, id, dateRange: globalDateR
             <TrendingUp size={16} />
           </div>
           <h3 className="font-semibold text-[var(--color-foreground)] text-sm">
-            Xu hướng theo thời gian
+            {tr('ScopedDashboardWidget.trendOverTime')}
           </h3>
         </div>
         <div className="w-full">
@@ -857,10 +865,10 @@ export default function ScopedDashboardWidget({ type, id, dateRange: globalDateR
               <div className="flex flex-col md:flex-row md:items-center justify-between mb-4 gap-4">
                 <div>
                   <p className="text-lg font-semibold text-[var(--color-foreground)] flex items-center gap-2">
-                    Xu hướng Bài nộp: Tiến độ & Hiệu suất
+                    {tr('ScopedDashboardWidget.submissionTrendProgressPerformance')}
 
                   </p>
-                  <p className="text-xs text-slate-500 mt-0.5">So sánh số lượng bài nộp đang chạy với tiến độ và hiệu suất đạt được</p>
+                  <p className="text-xs text-slate-500 mt-0.5">{tr('ScopedDashboardWidget.comparesTheNumberOfActiveSubmissions')}</p>
                 </div>
                 {/* Member Toggle Buttons */}
                 {kpiDrawerData?.chartData?.availableTeammates && kpiDrawerData.chartData.availableTeammates.length > 0 && (
@@ -884,8 +892,8 @@ export default function ScopedDashboardWidget({ type, id, dateRange: globalDateR
               </div>
 
               <div className="flex justify-between text-xs font-medium text-slate-400 dark:text-slate-500 mb-2 px-1">
-                <span>Đơn vị ({kpiDrawerData?.unit || ''})</span>
-                <span>Hiệu suất (%)</span>
+                <span>{tr('ScopedDashboardWidget.unit')}{kpiDrawerData?.unit || ''})</span>
+                <span>{tr('ScopedDashboardWidget.performance2')}</span>
               </div>
 
               <div className="h-[350px]">
@@ -893,8 +901,8 @@ export default function ScopedDashboardWidget({ type, id, dateRange: globalDateR
                   <ComposedChart data={kpiMemberChartData} margin={{ top: 10, right: 10, left: 0, bottom: 5 }}>
                     <CartesianGrid stroke="var(--color-border)" vertical={false} />
                     <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} />
-                    <YAxis yAxisId="left" orientation="left" label={yAxisLabel('Giá trị đạt')} axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} />
-                    <YAxis yAxisId="right" orientation="right" label={yAxisLabelRight('Tiến độ (%)')} axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} tickFormatter={(v) => `${Math.round(v)}%`} />
+                    <YAxis yAxisId="left" orientation="left" label={yAxisLabel(tr('ScopedDashboardWidget.achievedValue'))} axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} />
+                    <YAxis yAxisId="right" orientation="right" label={yAxisLabelRight(tr('ScopedDashboardWidget.progress2'))} axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} tickFormatter={(v) => `${Math.round(v)}%`} />
                     <Tooltip
                       content={({ active, payload, label }: any) => {
                         if (active && payload && payload.length) {
@@ -903,7 +911,7 @@ export default function ScopedDashboardWidget({ type, id, dateRange: globalDateR
                               <p className="font-semibold text-[var(--color-foreground)] mb-3">{label}</p>
                               <div className="space-y-2">
                                 {payload.map((p: any, i: number) => {
-                                  let valStr = p.value?.toLocaleString('vi-VN')
+                                  let valStr = p.value?.toLocaleString(intlLocale())
                                   if (p.name.includes('%')) {
                                     valStr = `${Math.round(p.value)}%`
                                   }
@@ -942,7 +950,7 @@ export default function ScopedDashboardWidget({ type, id, dateRange: globalDateR
                     {activeMembers.map((uid, idx) => {
                       const COLORS = ['#f59e0b', '#8b5cf6', '#ec4899', '#0ea5e9', '#14b8a6', '#10b981']
                       const color = COLORS[idx % COLORS.length]
-                      const name = kpiDrawerData?.chartData?.availableTeammates?.find(t => t.userId === uid)?.fullName || 'Thành viên'
+                      const name = kpiDrawerData?.chartData?.availableTeammates?.find(t => t.userId === uid)?.fullName || tr('ScopedDashboardWidget.members')
                       return (
                         <React.Fragment key={uid}>
                           <Line yAxisId="left" type="monotone" dataKey={`act_${uid}`} name={`Lũy kế - ${name}`} stroke={color} strokeWidth={2} dot={{ r: 3 }} activeDot={{ r: 5 }} />
@@ -956,7 +964,7 @@ export default function ScopedDashboardWidget({ type, id, dateRange: globalDateR
 
               {activeMembers.length === 0 && (
                 <div className="text-center text-xs text-slate-400 dark:text-slate-500 mt-3">
-                  ← Chọn thành viên ở trên để so sánh thêm đường xu hướng của họ
+                  {tr('ScopedDashboardWidget.chooseMembersAboveToCompareTheir')}
                 </div>
               )}
             </div>

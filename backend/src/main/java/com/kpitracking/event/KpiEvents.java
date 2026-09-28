@@ -30,6 +30,17 @@ public final class KpiEvents {
         }
     }
 
+    /** Người chấm trả lại (hoàn duyệt) một bài nộp để nhân viên làm lại — báo cho người nộp. */
+    @Getter
+    public static class SubmissionReturnedEvent extends ApplicationEvent {
+        private final KpiSubmission submission;
+
+        public SubmissionReturnedEvent(Object source, KpiSubmission submission) {
+            super(source);
+            this.submission = submission;
+        }
+    }
+
     @Getter
     public static class KpiCriteriaApprovedEvent extends ApplicationEvent {
         private final KpiCriteria kpiCriteria;

@@ -1,8 +1,10 @@
 import DataTable from '@/components/common/DataTable'
 import StatusBadge from '@/components/common/StatusBadge'
+import ApprovalStepHint from './ApprovalStepHint'
 import type { KpiCriteria } from '@/types/kpi'
 import { Trash2 } from 'lucide-react'
 import { formatAssigneeNames, FREQUENCY_MAP } from '@/lib/utils'
+import { useTranslation } from 'react-i18next'
 
 
 
@@ -14,8 +16,9 @@ interface KpiCriteriaTableProps {
 }
 
 export default function KpiCriteriaTable({ data, onAction, onDelete, enableOkr }: KpiCriteriaTableProps) {
+  const { t } = useTranslation('kpi')
   const columns = [
-    { key: 'name', header: 'Tên chỉ tiêu', render: (k: KpiCriteria) => (
+    { key: 'name', header: t('KpiCriteriaTable.kpiName'), render: (k: KpiCriteria) => (
       <div className="flex flex-col">
         <span className="font-semibold text-[var(--color-foreground)]">{k.name}</span>
         {enableOkr && k.keyResultName && (
@@ -26,13 +29,13 @@ export default function KpiCriteriaTable({ data, onAction, onDelete, enableOkr }
         )}
       </div>
     )},
-    { key: 'period', header: 'Đợt KPI', render: (k: KpiCriteria) => k.kpiPeriod?.name ?? '—' },
-    { key: 'orgUnit', header: 'Đơn vị', render: (k: KpiCriteria) => k.orgUnitName ?? '—' },
-    { key: 'target', header: 'Mục tiêu', render: (k: KpiCriteria) => k.targetValue != null ? `${k.targetValue} ${k.unit ?? ''}` : '—' },
-    { key: 'weight', header: 'Trọng số', render: (k: KpiCriteria) => k.weight != null ? `${k.weight}%` : '—' },
-    { key: 'frequency', header: 'Tần suất', render: (k: KpiCriteria) => FREQUENCY_MAP[k.frequency as keyof typeof FREQUENCY_MAP] ?? k.frequency },
-    { key: 'assignedTo', header: 'Giao cho', render: (k: KpiCriteria) => formatAssigneeNames(k.assigneeNames) },
-    { key: 'status', header: 'Trạng thái', render: (k: KpiCriteria) => <StatusBadge status={k.status} /> },
+    { key: 'period', header: t('KpiCriteriaTable.kpiPeriod'), render: (k: KpiCriteria) => k.kpiPeriod?.name ?? '—' },
+    { key: 'orgUnit', header: t('KpiCriteriaTable.unit'), render: (k: KpiCriteria) => k.orgUnitName ?? '—' },
+    { key: 'target', header: t('KpiCriteriaTable.target'), render: (k: KpiCriteria) => k.targetValue != null ? `${k.targetValue} ${k.unit ?? ''}` : '—' },
+    { key: 'weight', header: t('KpiCriteriaTable.weight'), render: (k: KpiCriteria) => k.weight != null ? `${k.weight}%` : '—' },
+    { key: 'frequency', header: t('KpiCriteriaTable.frequency'), render: (k: KpiCriteria) => FREQUENCY_MAP()[k.frequency as keyof ReturnType<typeof FREQUENCY_MAP>] ?? k.frequency },
+    { key: 'assignedTo', header: t('KpiCriteriaTable.assignedTo'), render: (k: KpiCriteria) => formatAssigneeNames(k.assigneeNames) },
+    { key: 'status', header: t('KpiCriteriaTable.status'), render: (k: KpiCriteria) => <><StatusBadge status={k.status} /><ApprovalStepHint kpi={k} /></> },
     ...(onDelete ? [{
       key: 'actions',
       header: '',
@@ -64,12 +67,12 @@ export default function KpiCriteriaTable({ data, onAction, onDelete, enableOkr }
       </div>
       <StatusBadge status={k.status} />
       <dl className="grid grid-cols-2 gap-2 text-sm pt-1 border-t border-[var(--color-border)]">
-        <div><dt className="text-xs text-[var(--color-muted-foreground)]">Đợt KPI</dt><dd>{k.kpiPeriod?.name ?? '—'}</dd></div>
-        <div><dt className="text-xs text-[var(--color-muted-foreground)]">Đơn vị</dt><dd>{k.orgUnitName ?? '—'}</dd></div>
-        <div><dt className="text-xs text-[var(--color-muted-foreground)]">Mục tiêu</dt><dd>{k.targetValue != null ? `${k.targetValue} ${k.unit ?? ''}` : '—'}</dd></div>
-        <div><dt className="text-xs text-[var(--color-muted-foreground)]">Trọng số</dt><dd>{k.weight != null ? `${k.weight}%` : '—'}</dd></div>
-        <div><dt className="text-xs text-[var(--color-muted-foreground)]">Tần suất</dt><dd>{FREQUENCY_MAP[k.frequency as keyof typeof FREQUENCY_MAP] ?? k.frequency}</dd></div>
-        <div><dt className="text-xs text-[var(--color-muted-foreground)]">Giao cho</dt><dd>{formatAssigneeNames(k.assigneeNames)}</dd></div>
+        <div><dt className="text-xs text-[var(--color-muted-foreground)]">{t('KpiCriteriaTable.kpiPeriod')}</dt><dd>{k.kpiPeriod?.name ?? '—'}</dd></div>
+        <div><dt className="text-xs text-[var(--color-muted-foreground)]">{t('KpiCriteriaTable.unit')}</dt><dd>{k.orgUnitName ?? '—'}</dd></div>
+        <div><dt className="text-xs text-[var(--color-muted-foreground)]">{t('KpiCriteriaTable.target')}</dt><dd>{k.targetValue != null ? `${k.targetValue} ${k.unit ?? ''}` : '—'}</dd></div>
+        <div><dt className="text-xs text-[var(--color-muted-foreground)]">{t('KpiCriteriaTable.weight')}</dt><dd>{k.weight != null ? `${k.weight}%` : '—'}</dd></div>
+        <div><dt className="text-xs text-[var(--color-muted-foreground)]">{t('KpiCriteriaTable.frequency')}</dt><dd>{FREQUENCY_MAP()[k.frequency as keyof ReturnType<typeof FREQUENCY_MAP>] ?? k.frequency}</dd></div>
+        <div><dt className="text-xs text-[var(--color-muted-foreground)]">{t('KpiCriteriaTable.assignedTo')}</dt><dd>{formatAssigneeNames(k.assigneeNames)}</dd></div>
       </dl>
     </div>
   )

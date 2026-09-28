@@ -2,7 +2,7 @@ import ExcelJS from 'exceljs'
 import { format } from 'date-fns'
 import { EmployeeKpiStats } from '@/types/stats'
 
-export async function exportPerformanceToExcel(data: EmployeeKpiStats[], title: string = 'BÁO CÁO HIỆU SUẤT NHÂN VIÊN') {
+export async function exportPerformanceToExcel(data: EmployeeKpiStats[], title: string = i18n.t('common:performanceExport.employeePerformanceReport')) {
   const workbook = new ExcelJS.Workbook()
   const worksheet = workbook.addWorksheet('Performance')
 
@@ -16,7 +16,7 @@ export async function exportPerformanceToExcel(data: EmployeeKpiStats[], title: 
 
   worksheet.mergeCells('A2', 'I2')
   const dateCell = worksheet.getCell('A2')
-  dateCell.value = `Ngày xuất báo cáo: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`
+  dateCell.value = i18n.t('common:performanceExport.reportExportedOn', { value: format(new Date(), 'dd/MM/yyyy HH:mm') })
   dateCell.font = { name: 'Arial', size: 10, italic: true }
   dateCell.alignment = { horizontal: 'right' }
 
@@ -25,14 +25,14 @@ export async function exportPerformanceToExcel(data: EmployeeKpiStats[], title: 
   // 2. Define Columns
   const headerRow = worksheet.addRow([
     'STT',
-    'Mã Nhân viên',
-    'Họ và Tên',
-    'Chức vụ',
-    'Phòng ban',
-    'KPI Giao',
-    'KPI Đạt',
-    'Điểm TB',
-    'Xếp loại'
+    i18n.t('common:performanceExport.employeeCode'),
+    i18n.t('common:performanceExport.fullName'),
+    i18n.t('common:performanceExport.position'),
+    i18n.t('common:performanceExport.department'),
+    i18n.t('common:performanceExport.kpisAssigned'),
+    i18n.t('common:performanceExport.kpisMet'),
+    i18n.t('common:performanceExport.avgScore'),
+    i18n.t('common:performanceExport.rating')
   ])
 
   // Style Header Row
@@ -51,14 +51,14 @@ export async function exportPerformanceToExcel(data: EmployeeKpiStats[], title: 
   // 3. Add Data Rows
   data.forEach((emp, index) => {
     const avgScore = emp.averageScore ?? 0
-    let rank = 'Trung bình'
+    let rank = i18n.t('common:performanceExport.medium')
     let rankColor = 'FF64748B' // Slate-500
 
-    if (avgScore >= 90) { rank = 'Xuất sắc'; rankColor = 'FF10B981'; }
-    else if (avgScore >= 80) { rank = 'Tốt'; rankColor = 'FF3B82F6'; }
-    else if (avgScore >= 70) { rank = 'Khá'; rankColor = 'FFF59E0B'; }
-    else if (avgScore > 0) { rank = 'Trung bình'; rankColor = 'FFEF4444'; }
-    else { rank = 'Chưa có'; rankColor = 'FF94A3B8'; }
+    if (avgScore >= 90) { rank = i18n.t('common:performanceExport.excellent'); rankColor = 'FF10B981'; }
+    else if (avgScore >= 80) { rank = i18n.t('common:performanceExport.good'); rankColor = 'FF3B82F6'; }
+    else if (avgScore >= 70) { rank = i18n.t('common:performanceExport.fair'); rankColor = 'FFF59E0B'; }
+    else if (avgScore > 0) { rank = i18n.t('common:performanceExport.medium'); rankColor = 'FFEF4444'; }
+    else { rank = i18n.t('common:performanceExport.no'); rankColor = 'FF94A3B8'; }
 
     const row = worksheet.addRow([
       index + 1,
@@ -115,11 +115,12 @@ export async function exportPerformanceToExcel(data: EmployeeKpiStats[], title: 
 }
 
 import { ExportDetailedPerformanceResponse } from '@/types/stats'
+import i18n from 'i18next'
 
 export async function exportDetailedPerformanceToExcel(
   data: ExportDetailedPerformanceResponse[], 
   userRoleLevel: number,
-  title: string = 'BÁO CÁO CHI TIẾT HIỆU SUẤT KPI',
+  title: string = i18n.t('common:performanceExport.detailedKpiPerformanceReport'),
   enableOkr: boolean = false
 ) {
   const workbook = new ExcelJS.Workbook()
@@ -139,7 +140,7 @@ export async function exportDetailedPerformanceToExcel(
 
   worksheet.mergeCells('A2', `${lastColLetter}2`)
   const dateCell = worksheet.getCell('A2')
-  dateCell.value = `Ngày xuất: ${format(new Date(), 'dd/MM/yyyy HH:mm')}`
+  dateCell.value = i18n.t('common:performanceExport.exportedOn', { value: format(new Date(), 'dd/MM/yyyy HH:mm') })
   dateCell.font = { name: 'Arial', size: 10, italic: true }
   dateCell.alignment = { horizontal: 'right' }
 
@@ -148,31 +149,31 @@ export async function exportDetailedPerformanceToExcel(
   // 2. Define Headers
   const baseHeaders = [
     'STT',
-    'Mã NV',
-    'Họ và Tên',
-    'Chức vụ',
-    'Phòng ban'
+    i18n.t('common:performanceExport.empCode'),
+    i18n.t('common:performanceExport.fullName'),
+    i18n.t('common:performanceExport.position'),
+    i18n.t('common:performanceExport.department')
   ]
 
   if (enableOkr) {
-    baseHeaders.push('Mục tiêu (Objective)', 'Kết quả then chốt (Key Result)')
+    baseHeaders.push(i18n.t('common:performanceExport.objective'), i18n.t('common:performanceExport.keyResult'))
   }
 
   baseHeaders.push(
-    'Tên KPI',
-    'Trọng số',
-    'ĐVT',
-    'Chỉ tiêu',
-    'Thực hiện',
-    'Hoàn thành (%)',
-    'Quản lý chấm'
+    i18n.t('common:performanceExport.kpiName'),
+    i18n.t('common:performanceExport.weight'),
+    i18n.t('common:performanceExport.uom'),
+    i18n.t('common:performanceExport.kpis'),
+    i18n.t('common:performanceExport.execute'),
+    i18n.t('common:performanceExport.completion'),
+    i18n.t('common:performanceExport.managerScore')
   )
 
   // Add hierarchical evaluation columns
   const evalHeaders: string[] = []
-  if (userRoleLevel >= 4 || userRoleLevel <= 2) evalHeaders.push('Trưởng nhóm chấm')
-  if (userRoleLevel <= 3) evalHeaders.push('Trưởng phòng chấm')
-  if (userRoleLevel <= 2) evalHeaders.push('Giám đốc chấm')
+  if (userRoleLevel >= 4 || userRoleLevel <= 2) evalHeaders.push(i18n.t('common:performanceExport.teamLeadScore'))
+  if (userRoleLevel <= 3) evalHeaders.push(i18n.t('common:performanceExport.departmentHeadScore'))
+  if (userRoleLevel <= 2) evalHeaders.push(i18n.t('common:performanceExport.directorScore'))
 
   const headerRow = worksheet.addRow([...baseHeaders, ...evalHeaders])
 
@@ -207,7 +208,7 @@ export async function exportDetailedPerformanceToExcel(
       }
 
       rowValues.push(
-        '--- Không có KPI ---',
+        i18n.t('common:performanceExport.noKpis'),
         0, '-', 0, 0, 0, 0,
         ...(evalHeaders.map(() => '---'))
       )

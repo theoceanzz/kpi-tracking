@@ -1,5 +1,6 @@
 package com.kpitracking.service.reward;
 
+import com.kpitracking.i18n.ErrorMessages;
 import com.kpitracking.dto.request.reward.CreateRewardGrantRequest;
 import com.kpitracking.dto.request.reward.GrantDecisionRequest;
 import com.kpitracking.dto.response.PageResponse;
@@ -15,7 +16,9 @@ import com.kpitracking.enums.UserStatus;
 import com.kpitracking.exception.BusinessException;
 import com.kpitracking.exception.ForbiddenException;
 import com.kpitracking.event.RewardEvents;
+import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.ResourceNotFoundException;
+import com.kpitracking.i18n.Terms;
 import com.kpitracking.repository.*;
 import com.kpitracking.security.PermissionChecker;
 import com.kpitracking.service.RewardWalletService;
@@ -80,7 +83,7 @@ public class RewardGrantService {
         User grantor = context.getCurrentUser();
         UUID orgId = context.getOrgIdOf(grantor.getId());
         Organization org = organizationRepository.findById(orgId)
-                .orElseThrow(() -> new ResourceNotFoundException("Tổ chức", "id", orgId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.organization"), "id", orgId));
 
         Map<UUID, Integer> pointsByUser = validateRecipients(request, grantor);
         int total = pointsByUser.values().stream().mapToInt(Integer::intValue).sum();
@@ -163,25 +166,21 @@ public class RewardGrantService {
                 RewardBudget nearest = all.get(0);
                 boolean notStarted = nearest.getPeriodStart().isAfter(today);
                 return notStarted
-                        ? "Hạn mức của bạn chưa tới ngày hiệu lực (bắt đầu từ "
-                          + fmt(nearest.getPeriodStart()) + ") nên đề nghị cần cấp trên duyệt."
-                        : "Hạn mức của bạn đã hết hiệu lực (đến " + fmt(nearest.getPeriodEnd())
-                          + ") nên đề nghị cần cấp trên duyệt. Hãy đề nghị cấp hạn mức cho kỳ hiện tại.";
+                        ? ErrorMessages.text("reward.approvalReason.notStarted", "", fmt(nearest.getPeriodStart()))
+                        : ErrorMessages.text("reward.approvalReason.expired", "", fmt(nearest.getPeriodEnd()));
             }
-            return "Bạn chưa được cấp hạn mức điểm thưởng nên đề nghị cần cấp trên duyệt.";
+            return ErrorMessages.text("reward.approvalReason.noQuota", "");
         }
         RewardBudget budget = budgetOpt.get();
 
         if (budget.getMaxPerAward() != null && maxPerPerson > budget.getMaxPerAward()) {
-            return "Vượt mức tối đa mỗi lần thưởng (" + maxPerPerson
-                    + " điểm/người, tối đa cho phép " + budget.getMaxPerAward() + " điểm).";
+            return ErrorMessages.text("reward.approvalReason.overMaxPerAward", "", maxPerPerson, budget.getMaxPerAward());
         }
 
         int used = grantRepository.sumUsedPointsByBudgetId(budget.getId());
         int remaining = budget.getAllocatedPoints() - used;
         if (total > remaining) {
-            return "Vượt hạn mức: đã dùng " + used + "/" + budget.getAllocatedPoints()
-                    + " điểm, còn " + remaining + " điểm nhưng đề nghị này cần " + total + " điểm.";
+            return ErrorMessages.text("reward.approvalReason.overQuota", "", used, budget.getAllocatedPoints(), remaining, total);
         }
         return null;
     }
@@ -200,8 +199,7 @@ public class RewardGrantService {
         List<CreateRewardGrantRequest.Recipient> recipients = request.getRecipients();
 
         if (recipients.size() > MAX_RECIPIENTS) {
-            throw new BusinessException("Mỗi lần thưởng tối đa " + MAX_RECIPIENTS
-                    + " nhân viên. Danh sách hiện có " + recipients.size() + " người.");
+            throw new BusinessException(ErrorCode.EACH_REWARD_CAN_GO_MOST_EMPLOYEES, String.valueOf(MAX_RECIPIENTS), String.valueOf(recipients.size()));
         }
 
         // Trùng người nhận: gom lại rồi báo bằng HỌ TÊN, không phải UUID.
@@ -216,18 +214,18 @@ public class RewardGrantService {
             String names = userRepository.findAllById(duplicated).stream()
                     .map(User::getFullName)
                     .collect(Collectors.joining(", "));
-            throw new BusinessException("Danh sách có nhân viên bị trùng: " + names);
+            throw new BusinessException(ErrorCode.LIST_DUPLICATE_EMPLOYEES, String.valueOf(names));
         }
 
         List<User> users = userRepository.findAllById(ids);
         if (users.size() != ids.size()) {
-            throw new BusinessException("Có nhân viên trong danh sách không còn tồn tại trong hệ thống.");
+            throw new BusinessException(ErrorCode.SOME_EMPLOYEES_LIST_NO_LONGER_EXIST_SYSTEM);
         }
         Map<UUID, User> userById = users.stream().collect(Collectors.toMap(User::getId, u -> u));
 
         for (User u : users) {
             if (u.getStatus() != UserStatus.ACTIVE) {
-                throw new BusinessException("Nhân viên " + u.getFullName() + " không còn hoạt động.");
+                throw new BusinessException(ErrorCode.EMPLOYEE_NO_LONGER_ACTIVE, u.getFullName());
             }
         }
 
@@ -256,7 +254,7 @@ public class RewardGrantService {
 
         List<UUID> baseUnitIds = permissionChecker.getOrgUnitsWithPermission(grantor.getId(), "REWARD:GRANT");
         if (baseUnitIds.isEmpty()) {
-            throw new ForbiddenException("Bạn không có quyền thưởng điểm cho nhân viên nào.");
+            throw new ForbiddenException(ErrorCode.NO_PERMISSION_REWARD_POINTS_EMPLOYEE);
         }
         List<String> basePaths = orgUnitRepository.findAllById(baseUnitIds).stream()
                 .map(OrgUnit::getPath)
@@ -269,8 +267,7 @@ public class RewardGrantService {
                     .filter(u -> u != null && u.getPath() != null)
                     .anyMatch(u -> basePaths.stream().anyMatch(p -> u.getPath().startsWith(p)));
             if (!inScope) {
-                throw new ForbiddenException(
-                        "Bạn không có quyền thưởng cho nhân viên " + entry.getValue().getFullName() + ".");
+                throw new ForbiddenException(ErrorCode.NO_PERMISSION_REWARD_EMPLOYEE, entry.getValue().getFullName());
             }
         }
     }
@@ -327,7 +324,7 @@ public class RewardGrantService {
         RewardGrant grant = loadPending(grantId);
         User me = context.getCurrentUser();
         if (!grant.getGrantor().getId().equals(me.getId())) {
-            throw new ForbiddenException("Chỉ người tạo đề nghị mới huỷ được đề nghị này.");
+            throw new ForbiddenException(ErrorCode.ONLY_CREATOR_PROPOSAL_CAN_CANCEL);
         }
         grant.setStatus(RewardGrantStatus.CANCELLED);
         grantRepository.save(grant);
@@ -346,7 +343,7 @@ public class RewardGrantService {
     @Transactional(readOnly = true)
     public RevokePreviewResponse previewRevoke(UUID grantId) {
         RewardGrant grant = grantRepository.findById(grantId)
-                .orElseThrow(() -> new ResourceNotFoundException("Đề nghị thưởng", "id", grantId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.rewardProposal"), "id", grantId));
         UUID orgId = grant.getOrganization().getId();
 
         List<RevokePreviewResponse.Item> items = grantItemRepository.findByGrantId(grantId).stream()
@@ -388,9 +385,9 @@ public class RewardGrantService {
     @Transactional
     public RewardGrantResponse revoke(UUID grantId, GrantDecisionRequest request) {
         RewardGrant grant = grantRepository.findById(grantId)
-                .orElseThrow(() -> new ResourceNotFoundException("Đề nghị thưởng", "id", grantId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.rewardProposal"), "id", grantId));
         if (grant.getStatus() != RewardGrantStatus.APPROVED) {
-            throw new BusinessException("Chỉ thu hồi được đề nghị đã duyệt và đã phát điểm.");
+            throw new BusinessException(ErrorCode.ONLY_APPROVED_PROPOSALS_WHOSE_POINTS_GRANTED_CAN);
         }
         User actor = context.getCurrentUser();
         assertCanApprove(grant, actor);
@@ -409,8 +406,7 @@ public class RewardGrantService {
                     .map(it -> it.getUser().getFullName())
                     .collect(Collectors.joining(", "));
             if (!shortOf.isEmpty()) {
-                throw new BusinessException("Không thể thu hồi vì các nhân viên sau đã tiêu số điểm này: "
-                        + shortOf + ". Thu hồi vẫn được nhưng số dư của họ sẽ âm — hãy xác nhận lại để tiếp tục.");
+                throw new BusinessException(ErrorCode.CANNOT_REVOKE_BECAUSE_FOLLOWING_EMPLOYEES_SPENT_POINTS, String.valueOf(shortOf));
             }
         }
 
@@ -424,7 +420,7 @@ public class RewardGrantService {
                     .sourceRefId(item.getId())
                     .reversalOfTransactionId(item.getTransactionId())
                     .idempotencyKey(RewardWalletService.key("grant_revoke", grantId, item.getUser().getId()))
-                    .note("Thu hồi thưởng: " + grant.getReason())
+                    .note(walletService.noteFor(item.getUser().getId(), "ledger.grantRevoked", grant.getReason()))
                     .actor(actor)
                     .build());
         }
@@ -459,9 +455,9 @@ public class RewardGrantService {
 
     private RewardGrant loadPending(UUID grantId) {
         RewardGrant grant = grantRepository.findById(grantId)
-                .orElseThrow(() -> new ResourceNotFoundException("Đề nghị thưởng", "id", grantId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.rewardProposal"), "id", grantId));
         if (grant.getStatus() != RewardGrantStatus.PENDING_APPROVAL) {
-            throw new BusinessException("Đề nghị này không còn ở trạng thái chờ duyệt.");
+            throw new BusinessException(ErrorCode.PROPOSAL_NO_LONGER_PENDING_APPROVAL);
         }
         return grant;
     }
@@ -474,7 +470,7 @@ public class RewardGrantService {
     private void assertCanApprove(RewardGrant grant, User approver) {
         if (!permissionChecker.hasPermissionInOrgUnit(
                 approver.getId(), "REWARD:APPROVE", grant.getOrgUnit().getId())) {
-            throw new ForbiddenException("Bạn không có quyền duyệt thưởng cho đơn vị này.");
+            throw new ForbiddenException(ErrorCode.NO_PERMISSION_APPROVE_REWARDS_UNIT);
         }
         // Tự duyệt đề nghị của chính mình sẽ vô hiệu hoá cơ chế hạn mức: ai vượt hạn
         // mức chỉ cần bấm duyệt là xong. Nhưng luật này KHÔNG áp cho người có
@@ -483,7 +479,7 @@ public class RewardGrantService {
         if (grant.getGrantor().getId().equals(approver.getId())
                 && !permissionChecker.hasPermission(approver.getId(), "REWARD:APPROVE_OWN")
                 && !permissionChecker.isGlobalAdminIn(approver.getId(), grant.getOrgUnit().getId())) {
-            throw new ForbiddenException("Bạn không thể tự duyệt đề nghị thưởng của chính mình.");
+            throw new ForbiddenException(ErrorCode.CANNOT_APPROVE_OWN_REWARD_PROPOSAL);
         }
     }
 
@@ -505,12 +501,10 @@ public class RewardGrantService {
 
         RewardCertificateTemplate template = certificateTemplateRepository
                 .findByIdAndOrganizationId(request.getCertificateTemplateId(), orgId)
-                .orElseThrow(() -> new BusinessException(
-                        "Mẫu chứng nhận đã chọn không còn tồn tại. Hãy chọn lại mẫu khác."));
+                .orElseThrow(() -> new BusinessException(ErrorCode.CHOSEN_CERTIFICATE_TEMPLATE_NO_LONGER_EXISTS));
 
         if (template.getStatus() != CertificateTemplateStatus.ACTIVE) {
-            throw new BusinessException("Mẫu chứng nhận \"" + template.getName()
-                    + "\" đang tắt nên không dùng để trao được. Hãy bật lại mẫu hoặc chọn mẫu khác.");
+            throw new BusinessException(ErrorCode.CERTIFICATE_TEMPLATE_TURNED_OFF_CANNOT_USED_AWARDS, template.getName());
         }
 
         return template.getId();
@@ -584,7 +578,7 @@ public class RewardGrantService {
     @Transactional(readOnly = true)
     public RewardGrantResponse getById(UUID grantId) {
         RewardGrant grant = grantRepository.findById(grantId)
-                .orElseThrow(() -> new ResourceNotFoundException("Đề nghị thưởng", "id", grantId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.rewardProposal"), "id", grantId));
         return toResponse(grant, grantItemRepository.findByGrantId(grantId));
     }
 

@@ -45,14 +45,23 @@ public class KpiAdjustmentController {
         return ResponseEntity.ok(ApiResponse.success("Bulk review completed successfully", null));
     }
 
+    /** Chuỗi duyệt: quyền là "đang giữ bước hiện tại" (service kiểm); luồng một cấp vẫn đòi KPI:APPROVE_ADJUSTMENT. */
     @PostMapping("/{requestId}/review")
-    @PreAuthorize("hasAuthority('KPI:APPROVE_ADJUSTMENT')")
+    @PreAuthorize("isAuthenticated()")
     @Operation(summary = "Approve or reject an adjustment request")
     public ResponseEntity<ApiResponse<AdjustmentRequestResponse>> reviewRequest(
             @PathVariable UUID requestId,
             @Valid @RequestBody ReviewAdjustmentRequest request) {
         AdjustmentRequestResponse response = adjustmentService.reviewRequest(requestId, request);
         return ResponseEntity.ok(ApiResponse.success("Adjustment request reviewed successfully", response));
+    }
+
+    /** Yêu cầu điều chỉnh đang chờ ĐÚNG người gọi ở bước hiện tại của chuỗi duyệt. */
+    @GetMapping("/inbox")
+    @PreAuthorize("isAuthenticated()")
+    public ResponseEntity<ApiResponse<java.util.List<AdjustmentRequestResponse>>> getInbox(
+            @RequestParam(required = false) UUID kpiPeriodId) {
+        return ResponseEntity.ok(ApiResponse.success(adjustmentService.getInbox(kpiPeriodId)));
     }
 
     @GetMapping("/my")

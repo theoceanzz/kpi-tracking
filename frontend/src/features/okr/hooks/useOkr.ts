@@ -3,6 +3,7 @@ import { okrApi } from '../api/okr.api'
 import { ObjectiveRequest, KeyResultRequest } from '../types'
 import { toast } from 'sonner'
 import { getApiErrorMessage } from '@/lib/apiError'
+import { useTranslation } from 'react-i18next'
 
 export function useObjectives(organizationId?: string) {
   return useQuery({
@@ -13,6 +14,7 @@ export function useObjectives(organizationId?: string) {
 }
 
 export function useOkrMutations() {
+  const { t } = useTranslation('okr')
   const queryClient = useQueryClient()
 
   const createObjectiveMutation = useMutation({
@@ -20,10 +22,10 @@ export function useOkrMutations() {
       okrApi.createObjective(organizationId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['objectives'] })
-      toast.success('Tạo mục tiêu thành công')
+      toast.success(t('useOkr.objectiveCreatedSuccessfully'))
     },
     onError: (error: any) => {
-      toast.error(getApiErrorMessage(error, 'Tạo mục tiêu thất bại'))
+      toast.error(getApiErrorMessage(error, t('useOkr.failedToCreateObjective')))
     }
   })
 
@@ -32,10 +34,10 @@ export function useOkrMutations() {
       okrApi.updateObjective(objectiveId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['objectives'] })
-      toast.success('Cập nhật mục tiêu thành công')
+      toast.success(t('useOkr.objectiveUpdatedSuccessfully'))
     },
     onError: (error: any) => {
-      toast.error(getApiErrorMessage(error, 'Cập nhật mục tiêu thất bại'))
+      toast.error(getApiErrorMessage(error, t('useOkr.failedToUpdateObjective')))
     }
   })
 
@@ -43,10 +45,10 @@ export function useOkrMutations() {
     mutationFn: (objectiveId: string) => okrApi.deleteObjective(objectiveId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['objectives'] })
-      toast.success('Xóa mục tiêu thành công')
+      toast.success(t('useOkr.objectiveDeletedSuccessfully'))
     },
     onError: (error: any) => {
-      toast.error(getApiErrorMessage(error, 'Xóa mục tiêu thất bại'))
+      toast.error(getApiErrorMessage(error, t('useOkr.failedToDeleteObjective')))
     }
   })
 
@@ -54,10 +56,10 @@ export function useOkrMutations() {
     mutationFn: (data: KeyResultRequest) => okrApi.createKeyResult(data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['objectives'] })
-      toast.success('Tạo kết quả then chốt thành công')
+      toast.success(t('useOkr.keyResultCreatedSuccessfully'))
     },
     onError: (error: any) => {
-      toast.error(getApiErrorMessage(error, 'Tạo kết quả then chốt thất bại'))
+      toast.error(getApiErrorMessage(error, t('useOkr.failedToCreateKeyResult')))
     }
   })
 
@@ -66,10 +68,10 @@ export function useOkrMutations() {
       okrApi.updateKeyResult(keyResultId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['objectives'] })
-      toast.success('Cập nhật kết quả then chốt thành công')
+      toast.success(t('useOkr.keyResultUpdatedSuccessfully'))
     },
     onError: (error: any) => {
-      toast.error(getApiErrorMessage(error, 'Cập nhật kết quả then chốt thất bại'))
+      toast.error(getApiErrorMessage(error, t('useOkr.failedToUpdateKeyResult')))
     }
   })
 
@@ -77,10 +79,10 @@ export function useOkrMutations() {
     mutationFn: (keyResultId: string) => okrApi.deleteKeyResult(keyResultId),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['objectives'] })
-      toast.success('Xóa kết quả then chốt thành công')
+      toast.success(t('useOkr.keyResultDeletedSuccessfully'))
     },
     onError: (error: any) => {
-      toast.error(getApiErrorMessage(error, 'Xóa kết quả then chốt thất bại'))
+      toast.error(getApiErrorMessage(error, t('useOkr.failedToDeleteKeyResult')))
     }
   })
 
@@ -89,13 +91,13 @@ export function useOkrMutations() {
       okrApi.importOkrs(organizationId, file),
     onSuccess: (data) => {
       queryClient.invalidateQueries({ queryKey: ['objectives'] })
-      toast.success(`Import thành công ${data.successfulImports}/${data.totalRows} dòng`)
+      toast.success(t('useOkr.importedRowsSuccessfully', { successfulImports: data.successfulImports, totalRows: data.totalRows }))
       if (data.errors && data.errors.length > 0) {
         console.error('Import errors:', data.errors)
       }
     },
     onError: (error: any) => {
-      toast.error(getApiErrorMessage(error, 'Import thất bại'))
+      toast.error(getApiErrorMessage(error, t('useOkr.importFailed')))
     }
   })
 

@@ -61,6 +61,8 @@ public class KpiAdjustmentReviewTool {
                     0, FETCH_LIMIT, AdjustmentStatus.PENDING, unit.id(), periodId);
 
             List<Item> items = page.getContent().stream()
+                    // Chuỗi duyệt: chỉ những yêu cầu đang chờ ĐÚNG người dùng ở bước hiện tại.
+                    .filter(a -> a.getApproval() == null || a.getApproval().isCanAct())
                     .map(a -> new Item(a.getId(), null,
                             nameOr(a.getRequesterName()) + " — " + a.getKpiCriteriaName(),
                             adjustmentDetail(a)))

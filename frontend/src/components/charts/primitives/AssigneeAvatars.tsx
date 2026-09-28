@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import i18n from 'i18next'
 
 export interface AssigneeBrief {
   userId: string
@@ -36,7 +37,7 @@ export function AssigneeAvatar({ name, url }: { name: string; url?: string | nul
  * <p>Từ hai người trở lên chỉ còn avatar: liệt kê tên sẽ làm tooltip cao quá, che mất chính biểu
  * đồ ở dưới. Trỏ chuột vào từng avatar vẫn xem được tên.
  */
-export function AssigneeAvatars({ people, label = 'Đảm nhiệm:' }: {
+export function AssigneeAvatars({ people, label = i18n.t('shared:AssigneeAvatars.assignees') }: {
   people: AssigneeBrief[]
   label?: string
 }) {

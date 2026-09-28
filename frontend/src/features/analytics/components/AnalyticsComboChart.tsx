@@ -7,6 +7,8 @@ import { TrendModeToggle } from '@/components/common/dashboard/TrendModeToggle'
 import { useTrendMode, type TrendMode } from '@/components/common/dashboard/useTrendMode'
 import ChartTooltip from '@/components/charts/ChartTooltip'
 import { yAxisLabel } from '@/components/charts/axisLabel'
+import { useTranslation } from 'react-i18next'
+import i18n from 'i18next'
 
 /** Màu KPI cũ / mới ở chế độ "Cơ cấu %". Chế độ xu hướng không còn vẽ số lượng thành hình riêng. */
 const OLD_COLOR = '#64748b'
@@ -59,6 +61,7 @@ interface AnalyticsComboChartProps {
 const noun = (name: string) => name.replace(/^[^\s]+/, w => (w === w.toUpperCase() ? w : w.toLowerCase()))
 
 const CustomTooltip = ({ active, payload, label, perf, itemName }: any) => {
+  const { t } = useTranslation('analytics')
   if (!active || !payload?.length) return null
   const row: ComboChartPoint | undefined = payload[0]?.payload
   return (
@@ -74,10 +77,10 @@ const CustomTooltip = ({ active, payload, label, perf, itemName }: any) => {
       }))}
       footer={row && (
         <>
-          Tính trên{' '}
+          {t('AnalyticsComboChart.basedOn')}{' '}
           <span className="font-semibold text-[var(--color-muted-foreground)] tabular-nums">{totalItems(row)}</span>
           {' '}{noun(String(itemName ?? ''))}{' '}
-          <span className="tabular-nums">({row.oldItems ?? 0} cũ · {row.newItems ?? 0} mới)</span>
+          <span className="tabular-nums">({row.oldItems ?? 0} {t('AnalyticsComboChart.old')} {row.newItems ?? 0} {t('AnalyticsComboChart.new')}</span>
         </>
       )}
     />
@@ -85,9 +88,10 @@ const CustomTooltip = ({ active, payload, label, perf, itemName }: any) => {
 }
 
 export default function AnalyticsComboChart({
-  data, isLoading, itemName = 'Mục tiêu', fillHeight = false,
+  data, isLoading, itemName = i18n.t('analytics:AnalyticsComboChart.target'), fillHeight = false,
   mode: modeProp, onModeChange, hideModeToggle, meta, title, shareTitle, hideTitle,
 }: AnalyticsComboChartProps) {
+  const { t } = useTranslation('analytics')
   // Khoá theo `itemName` vì component không có prop định danh. Gom theo ý nghĩa biểu đồ là đúng ý:
   // "KPI đảm nhiệm" ở tab của tôi và tab mục tiêu của tôi vốn là cùng một biểu đồ.
   const local = useTrendMode(`combo:${itemName}`)
@@ -100,7 +104,7 @@ export default function AnalyticsComboChart({
     return (
       <div className={`w-full ${fillHeight ? 'h-full' : 'h-[400px]'} flex flex-col items-center justify-center bg-[var(--color-muted)] rounded-2xl border border-[var(--color-border)]`}>
         <Loader2 className="w-8 h-8 animate-spin text-[var(--color-primary)] mb-4" />
-        <p className="text-slate-500 font-medium">Đang tải dữ liệu biểu đồ...</p>
+        <p className="text-slate-500 font-medium">{t('AnalyticsComboChart.loadingChartData')}</p>
       </div>
     )
   }
@@ -108,7 +112,7 @@ export default function AnalyticsComboChart({
   if (!data || data.length === 0) {
     return (
       <div className={`w-full ${fillHeight ? 'h-full' : 'h-[400px]'} flex items-center justify-center bg-[var(--color-muted)] rounded-2xl border border-[var(--color-border)]`}>
-        <p className="text-slate-500 font-medium">Không có dữ liệu trong thời gian này</p>
+        <p className="text-slate-500 font-medium">{t('AnalyticsComboChart.noDataInThisTimeRange')}</p>
       </div>
     )
   }
@@ -142,14 +146,14 @@ export default function AnalyticsComboChart({
           {!hideTitle && (
             <h3 className="text-base font-semibold text-[var(--color-foreground)]">
               {isShare
-                ? (shareTitle ?? `Cơ cấu ${itemName} mới và cũ qua các kỳ`)
-                : (title ?? `Diễn biến ${itemName} qua các kỳ`)}
+                ? (shareTitle ?? t('AnalyticsComboChart.oldAndNewCompositionAcrossCycles', { itemName }))
+                : (title ?? t('AnalyticsComboChart.overTheCycles', { itemName }))}
             </h3>
           )}
           <p className={`text-sm text-slate-500 ${hideTitle ? '' : 'mt-1'}`}>
             {isShare
-              ? `Mỗi mốc cao đúng 100%, cho thấy tỉ trọng ${noun(itemName)} mới so với cũ dịch chuyển ra sao qua thời gian`
-              : `Tiến độ và hiệu suất qua từng kỳ, cỡ chấm cho biết kỳ đó tính trên bao nhiêu ${noun(itemName)}`}
+              ? t('AnalyticsComboChart.eachColumnIsExactly100Showing', { itemName: noun(itemName) })
+              : t('AnalyticsComboChart.progressAndPerformanceByCycleDot', { itemName: noun(itemName) })}
           </p>
           {meta && <div className="mt-2">{meta}</div>}
         </div>
@@ -160,8 +164,8 @@ export default function AnalyticsComboChart({
         <div className={`flex-1 ${fillHeight ? 'min-h-0' : 'min-h-[380px]'}`}>
           <StackedComposition
             series={[
-              { code: 'old', label: `Số ${itemName} cũ`, color: OLD_COLOR },
-              { code: 'new', label: `Số ${itemName} mới`, color: NEW_COLOR },
+              { code: 'old', label: t('AnalyticsComboChart.oldCount', { itemName }), color: OLD_COLOR },
+              { code: 'new', label: t('AnalyticsComboChart.newCount', { itemName }), color: NEW_COLOR },
             ]}
             points={data.map(p => ({
               label: p.label,
@@ -169,7 +173,7 @@ export default function AnalyticsComboChart({
             }))}
             variant="area"
             normalize
-            yLabel="Tỉ trọng (%)"
+            yLabel={t('AnalyticsComboChart.share')}
             unit={noun(itemName)}
             height={fillHeight ? '100%' : 380}
           />
@@ -181,7 +185,7 @@ export default function AnalyticsComboChart({
             không cùng thang với tiến độ, mà trục ẩn thì không gắn nhãn vào đâu được. */}
         {perf.isMatrix && (
           <div className="flex justify-end text-xs font-medium text-slate-400 dark:text-slate-500 mb-2 px-1">
-            <span>Hiệu suất: điểm/{perf.maxScore}</span>
+            <span>{t('AnalyticsComboChart.performancePoints')}{perf.maxScore}</span>
           </div>
         )}
 
@@ -201,7 +205,7 @@ export default function AnalyticsComboChart({
               />
               <YAxis
                 yAxisId="left"
-                label={yAxisLabel(perf.isMatrix ? 'Tiến độ (%)' : 'Tỉ lệ (%)')}
+                label={yAxisLabel(perf.isMatrix ? t('AnalyticsComboChart.progress') : t('AnalyticsComboChart.rate'))}
                 axisLine={false}
                 tickLine={false}
                 tick={{ fill: '#64748B', fontSize: 12, fontWeight: 500 }}
@@ -242,12 +246,12 @@ export default function AnalyticsComboChart({
 
         {/* Custom legend rendered in normal flow so it never overlaps chart content on narrow screens */}
         <div className="flex flex-wrap items-center justify-center gap-x-5 gap-y-2 pt-4 text-xs font-medium text-[var(--color-muted-foreground)]">
-          <LegendItem color="#10b981" label="Xu hướng Tiến độ" />
-          <LegendItem color="#f59e0b" label="Xu hướng Hiệu suất" />
+          <LegendItem color="#10b981" label={t('AnalyticsComboChart.progressTrend')} />
+          <LegendItem color="#f59e0b" label={t('AnalyticsComboChart.performanceTrend')} />
           {/* Không có dòng này thì cỡ chấm chỉ là nhiễu thị giác. */}
           {!uniformSize && (
             <span className="text-slate-400 dark:text-slate-500">
-              Cỡ chấm = số {noun(itemName)} của kỳ đó
+              {t('AnalyticsComboChart.dotSizeNumberOf')} {noun(itemName)} {t('AnalyticsComboChart.inThatCycle')}
             </span>
           )}
         </div>

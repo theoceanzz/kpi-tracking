@@ -12,8 +12,10 @@ import com.kpitracking.entity.OrgUnit;
 import com.kpitracking.entity.Organization;
 import com.kpitracking.entity.User;
 import com.kpitracking.exception.BusinessException;
+import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.ForbiddenException;
 import com.kpitracking.exception.ResourceNotFoundException;
+import com.kpitracking.i18n.Terms;
 import com.kpitracking.repository.CashTransactionRepository;
 import com.kpitracking.repository.CashWalletRepository;
 import com.kpitracking.repository.OrgUnitRepository;
@@ -150,7 +152,7 @@ public class CashQueryService {
         Organization org = loadOrg(context.getCurrentOrgId());
 
         if (request.getTopupMaxAmount() < request.getTopupMinAmount()) {
-            throw new BusinessException("Số tiền nạp tối đa phải lớn hơn hoặc bằng số tiền tối thiểu.");
+            throw new BusinessException(ErrorCode.MAXIMUM_TOP_UP_AMOUNT_MUST_GREATER_THAN);
         }
 
         // Tỉ giá cũ vẫn đúng với lịch sử: mỗi bút toán quy đổi đã chụp lại
@@ -186,9 +188,7 @@ public class CashQueryService {
             String currentSeries = org.getReceiptSeriesPrefix() + java.time.Year.now(VN_ZONE).getValue();
             if (receiptCounterRepository.findByOrganizationIdAndSeries(org.getId(), currentSeries)
                     .filter(c -> c.getLastNumber() > 0).isPresent()) {
-                throw new BusinessException("Đã phát biên nhận với ký hiệu " + currentSeries
-                        + " trong năm nay nên chưa đổi được tiền tố. Ký hiệu sẽ tự đổi theo năm; "
-                        + "muốn dùng tiền tố mới thì đặt lại vào đầu năm sau.");
+                throw new BusinessException(ErrorCode.RECEIPTS_PREFIX_ISSUED_YEAR_PREFIX_CANNOT_CHANGED, String.valueOf(currentSeries));
             }
             org.setReceiptSeriesPrefix(prefix);
         }
@@ -222,7 +222,7 @@ public class CashQueryService {
         if (me.getId().equals(targetUserId)) return;
         UUID targetUnitId = context.getPrimaryOrgUnit(targetUserId).getId();
         if (!permissionChecker.hasPermissionInOrgUnit(me.getId(), "WALLET:VIEW", targetUnitId)) {
-            throw new ForbiddenException("Bạn không có quyền xem ví tiền của nhân viên này.");
+            throw new ForbiddenException(ErrorCode.NO_PERMISSION_VIEW_EMPLOYEE_WALLET);
         }
     }
 
@@ -238,7 +238,7 @@ public class CashQueryService {
 
     private Organization loadOrg(UUID orgId) {
         return organizationRepository.findById(orgId)
-                .orElseThrow(() -> new ResourceNotFoundException("Tổ chức", "id", orgId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.organization"), "id", orgId));
     }
 
     private CashWalletResponse toWalletResponse(CashWallet w, long rate) {

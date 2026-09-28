@@ -1,8 +1,10 @@
 import { z } from 'zod'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
-export const createReportSchema = z.object({
-  name: z.string().trim().min(1, 'Vui lòng nhập tên báo cáo'),
+export const createReportSchema = perLanguage(() => (z.object({
+  name: z.string().trim().min(1, i18n.t('reports:reportSchema.pleaseEnterTheReportName')),
   description: z.string(),
-})
+})))
 
-export type CreateReportFormData = z.infer<typeof createReportSchema>
+export type CreateReportFormData = z.infer<ReturnType<typeof createReportSchema>>

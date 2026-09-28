@@ -1,5 +1,6 @@
 import { Sankey, Tooltip, ResponsiveContainer, Layer, Rectangle } from 'recharts'
 import { AXIS_COLORS, NEUTRAL_COLOR } from '../chartPalette'
+import { useTranslation } from 'react-i18next'
 
 export interface SankeyNodeDatum {
   name: string
@@ -33,10 +34,11 @@ interface Props {
  * số lại để tránh lệch.
  */
 export default function FlowSankey({ nodes, links, valueLabel, height = 360 }: Props) {
+  const { t } = useTranslation('shared')
   if (!nodes.length || !links.length) {
     return (
       <div className="w-full flex items-center justify-center text-sm text-[var(--color-subtle-foreground)] font-medium" style={{ height }}>
-        Chưa có luồng nào trong phạm vi này
+        {t('FlowSankey.noFlowsInThisScopeYet')}
       </div>
     )
   }

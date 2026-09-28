@@ -1,9 +1,11 @@
 package com.kpitracking.service;
 
+import com.kpitracking.i18n.ErrorMessages;
 import com.kpitracking.dto.request.submission.BulkReviewRequest;
 import com.kpitracking.dto.request.submission.CreateSubmissionRequest;
 import com.kpitracking.dto.request.submission.UpdateSubmissionRequest;
 import com.kpitracking.dto.request.submission.ReviewSubmissionRequest;
+import com.kpitracking.dto.request.submission.ReturnSubmissionRequest;
 import com.kpitracking.dto.response.PageResponse;
 import com.kpitracking.dto.response.submission.SubmissionResponse;
 import com.kpitracking.entity.KpiCriteria;
@@ -14,9 +16,12 @@ import com.kpitracking.enums.KpiStatus;
 import com.kpitracking.enums.SubmissionStatus;
 import com.kpitracking.event.KpiEvents.KpiSubmittedEvent;
 import com.kpitracking.event.KpiEvents.SubmissionReviewedEvent;
+import com.kpitracking.event.KpiEvents.SubmissionReturnedEvent;
 import com.kpitracking.exception.BusinessException;
+import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.ForbiddenException;
 import com.kpitracking.exception.ResourceNotFoundException;
+import com.kpitracking.i18n.Terms;
 import com.kpitracking.mapper.SubmissionMapper;
 import com.kpitracking.repository.*;
 import com.kpitracking.security.PermissionChecker;
@@ -51,11 +56,13 @@ public class KpiSubmissionService {
     private final KpiAchievementCalculator achievementCalculator;
     private final com.kpitracking.workflow.KpiWorkflowConfigService workflowConfigService;
     private final com.kpitracking.workflow.engine.WorkflowEngine workflowEngine;
+    private final com.kpitracking.service.kpi.CycleStatusGuard cycleStatusGuard;
+    private final EvaluationRepository evaluationRepository;
 
     private User getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         return userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("Người dùng", "email", email));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.user"), "email", email));
     }
 
     /**
@@ -101,8 +108,9 @@ public class KpiSubmissionService {
     }
 
     /** Ghi chú kèm khi hệ thống tự duyệt thay người — để về sau còn biết vì sao bản nộp đã duyệt. */
-    private static final String AUTO_APPROVED_NOTE =
-            "Hệ thống tự động DUYỆT theo cấu hình luồng KPI của tổ chức (không có bước duyệt bản nộp).";
+    private static String autoApprovedNote() {
+        return ErrorMessages.text("submission.autoApproved", "");
+    }
 
     /**
      * Trạng thái đích của một lượt duyệt, do BẢNG CHUYỂN quyết định chứ không do client.
@@ -116,8 +124,7 @@ public class KpiSubmissionService {
         com.kpitracking.workflow.WorkflowAction action = switch (requested == null ? SubmissionStatus.PENDING : requested) {
             case APPROVED -> com.kpitracking.workflow.WorkflowAction.APPROVE_SUBMISSION;
             case REJECTED -> com.kpitracking.workflow.WorkflowAction.REJECT_SUBMISSION;
-            default -> throw new BusinessException(
-                    "Kết quả duyệt phải là ĐÃ DUYỆT hoặc TỪ CHỐI");
+            default -> throw new BusinessException(ErrorCode.APPROVAL_RESULT_MUST_APPROVED_REJECTED);
         };
 
         com.kpitracking.workflow.def.WorkflowDefinition definition = definitionOf(submission);
@@ -131,8 +138,7 @@ public class KpiSubmissionService {
                         .orgUnitId(submission.getOrgUnit().getId())
                         .target(submission)
                         .targetOwnerId(submission.getSubmittedBy() == null ? null : submission.getSubmittedBy().getId())
-                        .statusRejectionMessage(
-                                "Chỉ có thể phê duyệt các bản nộp đang ở trạng thái CHỜ DUYỆT, ĐÃ DUYỆT hoặc TỪ CHỐI (để ghi đè)")
+                        .statusRejectionCode(ErrorCode.SUBMISSION_STATUS_CANNOT_REVIEWED)
                         .build();
 
         // Chốt chặn thẩm quyền đã chạy ở requireCanReview ngay trước lời gọi này — luật ở đó có
@@ -146,40 +152,47 @@ public class KpiSubmissionService {
         User currentUser = getCurrentUser();
 
         KpiCriteria kpi = kpiCriteriaRepository.findById(request.getKpiCriteriaId())
-                .orElseThrow(() -> new ResourceNotFoundException("Chỉ tiêu KPI", "id", request.getKpiCriteriaId()));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.kpi"), "id", request.getKpiCriteriaId()));
+        // Giữ FOR SHARE trên kỳ tới lúc commit: khoá kỳ chạy song song phải chờ bài nộp này xong,
+        // còn bài nộp đến sau lúc khoá thì bị từ chối ở đây.
+        cycleStatusGuard.assertWritable(kpi);
 
         if (kpi.getStatus() == KpiStatus.INACTIVE) {
-            throw new BusinessException("Chỉ tiêu KPI này đã được dừng (huỷ bỏ) và không thể nộp báo cáo mới.");
+            throw new BusinessException(ErrorCode.KPI_STOPPED);
         }
         if (kpi.getStatus() != KpiStatus.APPROVED && kpi.getStatus() != KpiStatus.EDITED) {
-            throw new BusinessException("Chỉ có thể nộp báo cáo cho những chỉ tiêu KPI đã được PHÊ DUYỆT hoặc ĐÃ ĐIỀU CHỈNH");
+            throw new BusinessException(ErrorCode.REPORTS_CAN_ONLY_SUBMITTED_KPIS_APPROVED_ADJUSTED);
         }
 
         boolean isDecompositionParent = kpi.getChildren() != null && kpi.getChildren().stream()
                 .anyMatch(c -> c.getParentRelationType() == com.kpitracking.enums.KpiParentRelationType.DECOMPOSITION);
         if (isDecompositionParent) {
-            throw new BusinessException("KPI này đã được chia thành các KPI con. Vui lòng nộp báo cáo ở từng KPI con tương ứng.");
+            throw new BusinessException(ErrorCode.KPI_SPLIT_INTO_CHILD_KPIS);
         }
 
         boolean isAssignee = kpi.getAssignees().stream()
                 .anyMatch(u -> u.getId().equals(currentUser.getId()));
         if (!isAssignee) {
-            throw new ForbiddenException("Bạn không được giao thực hiện chỉ tiêu KPI này");
+            throw new ForbiddenException(ErrorCode.NOT_ASSIGNED_KPI);
         }
 
         // Quantitative KPIs require a numeric actual value; qualitative KPIs do not
         // (they are scored later by the reviewer picking a qualitative level).
         if (kpi.getKpiType() != com.kpitracking.enums.KpiType.QUALITATIVE && request.getActualValue() == null) {
-            throw new BusinessException("Vui lòng nhập giá trị thực tế cho chỉ tiêu định lượng.");
+            throw new BusinessException(ErrorCode.ENTER_ACTUAL_VALUE_QUANTITATIVE_KPIS);
         }
 
         // --- NEW: Period Open Check ---
         Instant now = Instant.now();
-        if (kpi.getKpiPeriod().getStartDate() != null && now.isBefore(kpi.getKpiPeriod().getStartDate())) {
-            throw new BusinessException("Kỳ đánh giá chưa bắt đầu. Bạn chỉ có thể nộp từ ngày " + kpi.getKpiPeriod().getStartDate());
-        }
-        if (kpi.getKpiPeriod().getEndDate() != null && now.isAfter(kpi.getKpiPeriod().getEndDate())) {
-            throw new BusinessException("Kỳ đánh giá đã kết thúc. Bạn không thể nộp báo cáo cho kỳ này nữa.");
+        // Bài bị trả lại (hoàn duyệt) còn trong hạn nộp lại ⇒ được nộp bài mới dù đợt đã hết hạn.
+        List<KpiSubmission> openReturns = openReturnsOf(kpi, currentUser.getId(), now);
+        if (openReturns.isEmpty()) {
+            if (kpi.getKpiPeriod().getStartDate() != null && now.isBefore(kpi.getKpiPeriod().getStartDate())) {
+                throw new BusinessException(ErrorCode.EVALUATION_PERIOD_NOT_STARTED, String.valueOf(kpi.getKpiPeriod().getStartDate()));
+            }
+            if (kpi.getKpiPeriod().getEndDate() != null && now.isAfter(kpi.getKpiPeriod().getEndDate())) {
+                throw new BusinessException(ErrorCode.EVALUATION_PERIOD_ENDED);
+            }
         }
 
 
@@ -188,13 +201,13 @@ public class KpiSubmissionService {
         java.time.LocalDate periodEnd = kpi.getKpiPeriod().getEndDate() != null ? kpi.getKpiPeriod().getEndDate().atZone(java.time.ZoneOffset.UTC).toLocalDate() : null;
 
         if (request.getPeriodStart() != null && periodStart != null && request.getPeriodStart().isBefore(periodStart)) {
-            throw new BusinessException("Ngày bắt đầu báo cáo không được trước ngày bắt đầu của kỳ đánh giá (" + periodStart + ")");
+            throw new BusinessException(ErrorCode.REPORT_START_DATE_CANNOT_BEFORE_START_DATE, String.valueOf(periodStart));
         }
         if (request.getPeriodEnd() != null && periodEnd != null && request.getPeriodEnd().isAfter(periodEnd)) {
-            throw new BusinessException("Ngày kết thúc báo cáo không được sau ngày kết thúc của kỳ đánh giá (" + periodEnd + ")");
+            throw new BusinessException(ErrorCode.REPORT_END_DATE_CANNOT_AFTER_END_DATE, String.valueOf(periodEnd));
         }
         if (request.getPeriodStart() != null && request.getPeriodEnd() != null && request.getPeriodEnd().isBefore(request.getPeriodStart())) {
-            throw new BusinessException("Ngày kết thúc không được trước ngày bắt đầu");
+            throw new BusinessException(ErrorCode.END_DATE_CANNOT_BEFORE_START_DATE);
         }
 
         Instant pStart = request.getPeriodStart() != null ? request.getPeriodStart().atStartOfDay(java.time.ZoneOffset.UTC).toInstant() : null;
@@ -216,32 +229,32 @@ public class KpiSubmissionService {
             }
 
             if (currentCount >= expected) {
-                throw new BusinessException("Bạn đã nộp đủ số lượng báo cáo cho chỉ tiêu này (" + currentCount + "/" + expected + ").");
+                throw new BusinessException(ErrorCode.SUBMITTED_FULL_NUMBER_REPORTS_KPI, String.valueOf(currentCount), String.valueOf(expected));
             }
         }
 
         if (kpi.getFrequency() == KpiFrequency.MONTHLY) {
             java.util.List<KpiSubmission> existing = submissionRepository.findByKpiCriteriaIdAndSubmittedByIdAndDeletedAtIsNull(kpi.getId(), currentUser.getId())
                     .stream()
-                    .filter(s -> s.getStatus() != SubmissionStatus.REJECTED)
+                    .filter(s -> s.getStatus() != SubmissionStatus.REJECTED && s.getStatus() != SubmissionStatus.RETURNED)
                     .toList();
             
             // Rule 1: Monthly KPI in Monthly Period -> Max 1 submission
             if (kpi.getKpiPeriod().getPeriodType() == KpiFrequency.MONTHLY && !existing.isEmpty()) {
-                throw new BusinessException("Bạn đã nộp báo cáo cho chỉ tiêu này trong tháng này.");
+                throw new BusinessException(ErrorCode.SUBMITTED_REPORT_KPI_MONTH);
             }
             
             // Rule 2: Monthly KPI in Quarterly Period -> Max 3 submissions (once per month)
             if (kpi.getKpiPeriod().getPeriodType() == KpiFrequency.QUARTERLY) {
                 if (existing.size() >= 3) {
-                    throw new BusinessException("Chỉ tiêu tháng này đã nộp đủ 3 lần báo cáo cho kỳ Quý.");
+                    throw new BusinessException(ErrorCode.MONTH_KPI_3_REPORTS_SUBMITTED_QUARTER_PERIOD);
                 }
                 
                 // Check for overlapping periods
                 if (pStart != null && pEnd != null) {
                     for (KpiSubmission s : existing) {
                         if (pStart.isBefore(s.getPeriodEnd()) && pEnd.isAfter(s.getPeriodStart())) {
-                            throw new BusinessException("Thời gian báo cáo bị trùng lặp với bản nộp trước đó (" + s.getPeriodStart() + " - " + s.getPeriodEnd() + ")");
+                            throw new BusinessException(ErrorCode.REPORT_PERIOD_OVERLAPS_PREVIOUS_SUBMISSION, String.valueOf(s.getPeriodStart()), String.valueOf(s.getPeriodEnd()));
                         }
                     }
                 }
@@ -263,10 +276,8 @@ public class KpiSubmissionService {
             if (achievementCalculator.breachesThreshold(kpi, request.getActualValue())) {
                 finalStatus = SubmissionStatus.REJECTED;
                 autoReviewNote = isInverse
-                        ? "Hệ thống tự động TỪ CHỐI do số liệu thực tế (" + request.getActualValue()
-                          + ") vượt quá mức tối đa cho phép (" + minVal + ")."
-                        : "Hệ thống tự động TỪ CHỐI do số liệu thực tế (" + request.getActualValue()
-                          + ") thấp hơn mức tối thiểu yêu cầu (" + minVal + ").";
+                        ? ErrorMessages.text("submission.autoRejected.aboveMax", "", request.getActualValue(), minVal)
+                        : ErrorMessages.text("submission.autoRejected.belowMin", "", request.getActualValue(), minVal);
                 reviewedAt = Instant.now();
             }
 
@@ -290,7 +301,7 @@ public class KpiSubmissionService {
                 kpi.getOrgUnit().getOrgHierarchyLevel().getOrganization().getId(), finalStatus);
         if (afterReviewMode != finalStatus) {
             finalStatus = afterReviewMode;
-            autoReviewNote = AUTO_APPROVED_NOTE;
+            autoReviewNote = autoApprovedNote();
             reviewedAt = Instant.now();
         }
 
@@ -301,7 +312,7 @@ public class KpiSubmissionService {
             selfLevel = submitOrg.getQualitativeLevels().stream()
                     .filter(l -> l.getId().equals(request.getQualitativeLevelId()))
                     .findFirst()
-                    .orElseThrow(() -> new BusinessException("Mức đánh giá định tính không hợp lệ."));
+                    .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_QUALITATIVE_EVALUATION_LEVEL));
         }
 
         KpiSubmission submission = KpiSubmission.builder()
@@ -320,10 +331,30 @@ public class KpiSubmissionService {
                 .build();
 
         submission = submissionRepository.save(submission);
+        if (finalStatus != SubmissionStatus.DRAFT) {
+            linkResubmission(openReturns, submission);
+        }
 
         eventPublisher.publishEvent(new KpiSubmittedEvent(this, submission));
 
         return submissionMapper.toResponse(submission);
+    }
+
+    /** Bài bị trả lại của người này cho KPI này mà vẫn đang chờ nộp lại, cũ trước. */
+    private List<KpiSubmission> openReturnsOf(KpiCriteria kpi, UUID userId, Instant now) {
+        return submissionRepository.findByKpiCriteriaIdAndSubmittedByIdAndDeletedAtIsNull(kpi.getId(), userId).stream()
+                .filter(s -> s.isAwaitingResubmission(now))
+                .sorted(java.util.Comparator.comparing(KpiSubmission::getReturnedAt,
+                        java.util.Comparator.nullsLast(java.util.Comparator.naturalOrder())))
+                .toList();
+    }
+
+    /** Bài mới vừa NỘP (không phải nháp) thay cho bài bị trả lại cũ nhất đang chờ. */
+    private void linkResubmission(List<KpiSubmission> openReturns, KpiSubmission resubmission) {
+        if (openReturns.isEmpty()) return;
+        KpiSubmission returned = openReturns.get(0);
+        returned.setResubmission(resubmission);
+        submissionRepository.save(returned);
     }
 
     private SubmissionResponse mapToResponse(KpiSubmission submission) {
@@ -337,7 +368,26 @@ public class KpiSubmissionService {
      */
     private List<SubmissionResponse> mapPageToResponse(Page<KpiSubmission> subPage) {
         java.util.Map<UUID, Boolean> managerMemo = new java.util.HashMap<>();
-        return subPage.getContent().stream().map(s -> mapToResponse(s, managerMemo)).toList();
+        List<SubmissionResponse> out = subPage.getContent().stream().map(s -> mapToResponse(s, managerMemo)).toList();
+        markResubmissions(out);
+        return out;
+    }
+
+    /** Đánh dấu bài nào là bài nộp lại (thay cho bài bị trả lại) — một truy vấn cho cả trang. */
+    private void markResubmissions(List<SubmissionResponse> responses) {
+        if (responses.isEmpty()) return;
+        java.util.Map<UUID, KpiSubmission> returnedByReplacement = new java.util.HashMap<>();
+        for (KpiSubmission r : submissionRepository.findByResubmissionIdIn(
+                responses.stream().map(SubmissionResponse::getId).toList())) {
+            returnedByReplacement.put(r.getResubmission().getId(), r);
+        }
+        for (SubmissionResponse res : responses) {
+            KpiSubmission returned = returnedByReplacement.get(res.getId());
+            if (returned != null) {
+                res.setResubmission(true);
+                res.setPreviousReturnReason(returned.getReturnReason());
+            }
+        }
     }
 
     private SubmissionResponse mapToResponse(KpiSubmission submission, java.util.Map<UUID, Boolean> managerMemo) {
@@ -409,18 +459,19 @@ public class KpiSubmissionService {
     public SubmissionResponse updateSubmission(UUID submissionId, UpdateSubmissionRequest request) {
         User currentUser = getCurrentUser();
         KpiSubmission submission = submissionRepository.findById(submissionId)
-                .orElseThrow(() -> new ResourceNotFoundException("Bản nộp", "id", submissionId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.submission"), "id", submissionId));
+        cycleStatusGuard.assertWritable(submission.getKpiCriteria());
 
         if (!submission.getSubmittedBy().getId().equals(currentUser.getId())) {
-            throw new ForbiddenException("Bạn không có quyền chỉnh sửa bản nộp này");
+            throw new ForbiddenException(ErrorCode.NO_PERMISSION_EDIT_SUBMISSION);
         }
 
         if (submission.getKpiCriteria().getStatus() == KpiStatus.INACTIVE) {
-            throw new BusinessException("Chỉ tiêu KPI này đã được dừng (huỷ bỏ) và không thể chỉnh sửa bản nộp.");
+            throw new BusinessException(ErrorCode.KPI_STOPPED_2);
         }
 
         if (submission.getStatus() != SubmissionStatus.DRAFT && submission.getStatus() != SubmissionStatus.REJECTED) {
-            throw new BusinessException("Chỉ có thể chỉnh sửa các bản nộp ở trạng thái NHÁP hoặc BỊ TỪ CHỐI");
+            throw new BusinessException(ErrorCode.ONLY_SUBMISSIONS_DRAFT_REJECTED_STATUS_CAN_EDITED);
         }
 
         if (request.getActualValue() != null) submission.setActualValue(request.getActualValue());
@@ -437,10 +488,12 @@ public class KpiSubmissionService {
         if (Boolean.FALSE.equals(request.getIsDraft()) && submission.getStatus() == SubmissionStatus.DRAFT) {
             KpiCriteria submitKpi = submission.getKpiCriteria();
             Instant nowSubmit = Instant.now();
-            if (submitKpi.getKpiPeriod() != null && submitKpi.getKpiPeriod().getEndDate() != null
+            List<KpiSubmission> openReturns = openReturnsOf(submitKpi, currentUser.getId(), nowSubmit);
+            if (openReturns.isEmpty() && submitKpi.getKpiPeriod() != null && submitKpi.getKpiPeriod().getEndDate() != null
                     && nowSubmit.isAfter(submitKpi.getKpiPeriod().getEndDate())) {
-                throw new BusinessException("Kỳ đánh giá đã kết thúc. Bạn không thể nộp báo cáo cho kỳ này nữa.");
+                throw new BusinessException(ErrorCode.EVALUATION_PERIOD_ENDED);
             }
+            linkResubmission(openReturns, submission);
 
             submission.setStatus(SubmissionStatus.PENDING);
 
@@ -454,10 +507,8 @@ public class KpiSubmissionService {
                 if (achievementCalculator.breachesThreshold(kpi, submission.getActualValue())) {
                     submission.setStatus(SubmissionStatus.REJECTED);
                     submission.setReviewNote(isInverse
-                            ? "Hệ thống tự động TỪ CHỐI do số liệu thực tế (" + submission.getActualValue()
-                              + ") vượt quá mức tối đa cho phép (" + minVal + ")."
-                            : "Hệ thống tự động TỪ CHỐI do số liệu thực tế (" + submission.getActualValue()
-                              + ") thấp hơn mức tối thiểu yêu cầu (" + minVal + ").");
+                            ? ErrorMessages.text("submission.autoRejected.aboveMax", "", submission.getActualValue(), minVal)
+                            : ErrorMessages.text("submission.autoRejected.belowMin", "", submission.getActualValue(), minVal));
                     submission.setReviewedAt(Instant.now());
                 }
 
@@ -476,14 +527,14 @@ public class KpiSubmissionService {
     public SubmissionResponse getSubmissionById(UUID submissionId) {
         User currentUser = getCurrentUser();
         KpiSubmission submission = submissionRepository.findById(submissionId)
-                .orElseThrow(() -> new ResourceNotFoundException("Bản nộp", "id", submissionId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.submission"), "id", submissionId));
 
         boolean isGlobalAdmin = permissionChecker.isGlobalAdminIn(currentUser.getId(), submission.getOrgUnit().getId());
         boolean hasReviewPermission = permissionChecker.hasAnyPermissionInOrgUnit(currentUser.getId(), submission.getOrgUnit().getId(), "SUBMISSION:REVIEW");
         boolean isSubmitter = submission.getSubmittedBy().getId().equals(currentUser.getId());
 
         if (!isGlobalAdmin && !hasReviewPermission && !isSubmitter) {
-            throw new ForbiddenException("Bạn không có quyền xem bản nộp này");
+            throw new ForbiddenException(ErrorCode.NO_PERMISSION_VIEW_SUBMISSION);
         }
 
         return mapToResponse(submission);
@@ -515,21 +566,20 @@ public class KpiSubmissionService {
         if (permissionChecker.isGlobalAdminIn(currentUser.getId(), unitId)) return;
 
         if (!permissionChecker.hasAnyPermissionInOrgUnit(currentUser.getId(), unitId, "SUBMISSION:REVIEW")) {
-            throw new ForbiddenException("Bạn không có quyền phê duyệt bản nộp của đơn vị này");
+            throw new ForbiddenException(ErrorCode.NO_PERMISSION_APPROVE_UNIT_SUBMISSIONS);
         }
 
         // Luật cấp bậc dùng chung ở PermissionChecker.isSuperiorTo — trước đây khối so sánh này
         // được chép nguyên văn ở đây và ở bốn chỗ khác, mỗi bản một bộ thông báo riêng.
         User submitter = submission.getSubmittedBy();
         if (!permissionChecker.isSuperiorTo(currentUser.getId(), submitter.getId(), unitId)) {
-            throw new ForbiddenException(
-                    "Bạn không thể phê duyệt bản nộp của người có cấp bậc hoặc chức vụ tương đương/cao hơn bạn");
+            throw new ForbiddenException(ErrorCode.CANNOT_APPROVE_SUBMISSIONS_SOMEONE_EQUIVALENT_HIGHER_RANK);
         }
 
         if (submission.getStatus() == SubmissionStatus.APPROVED && submission.getReviewedBy() != null) {
             User prevReviewer = submission.getReviewedBy();
             if (!permissionChecker.isSuperiorTo(currentUser.getId(), prevReviewer.getId(), unitId)) {
-                throw new BusinessException("Bản nộp này đã được cấp quản lý tương đương hoặc cao hơn phê duyệt.");
+                throw new BusinessException(ErrorCode.SUBMISSION_APPROVED_MANAGER_EQUIVALENT_HIGHER_LEVEL);
             }
         }
     }
@@ -539,7 +589,8 @@ public class KpiSubmissionService {
         User currentUser = getCurrentUser();
 
         KpiSubmission submission = submissionRepository.findById(submissionId)
-                .orElseThrow(() -> new ResourceNotFoundException("Bản nộp", "id", submissionId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.submission"), "id", submissionId));
+        cycleStatusGuard.assertWritable(submission.getKpiCriteria());
 
         requireCanReview(currentUser, submission);
 
@@ -645,9 +696,9 @@ public class KpiSubmissionService {
         parentSub.setAutoScore(autoScore);
 
         if (parentSub.getId() == null) {
-            parentSub.setNote("Tự động tổng hợp từ kết quả của nhân viên");
+            parentSub.setNote(ErrorMessages.text("submission.parentAggregated", ""));
         } else {
-            parentSub.setNote("Đã cập nhật tự động từ kết quả của nhân viên");
+            parentSub.setNote(ErrorMessages.text("submission.parentUpdated", ""));
         }
 
         return submissionRepository.save(parentSub);
@@ -660,7 +711,7 @@ public class KpiSubmissionService {
         com.kpitracking.entity.QualitativeLevel level = org.getQualitativeLevels().stream()
                 .filter(l -> l.getId().equals(levelId))
                 .findFirst()
-                .orElseThrow(() -> new BusinessException("Mức đánh giá định tính không hợp lệ."));
+                .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_QUALITATIVE_EVALUATION_LEVEL));
         double maxLevelValue = org.getQualitativeLevels().stream()
                 .mapToDouble(l -> l.getValue() != null ? l.getValue() : 0.0)
                 .max().orElse(0.0);
@@ -677,7 +728,10 @@ public class KpiSubmissionService {
 
         for (UUID id : request.getSubmissionIds()) {
             KpiSubmission submission = submissionRepository.findById(id)
-                    .orElseThrow(() -> new ResourceNotFoundException("Submission not found: " + id));
+                    .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.submission"), "id", id));
+            // Bài đã trả lại (hoàn duyệt) chỉ còn là lịch sử: phiếu chốt đánh giá không duyệt lại nó.
+            if (submission.getStatus() == SubmissionStatus.RETURNED) continue;
+            cycleStatusGuard.assertWritable(submission.getKpiCriteria());
 
             // Kiểm TỪNG bản một, không kiểm một lần cho cả lô: danh sách id do client gửi lên và
             // không có gì buộc chúng thuộc cùng một đơn vị. Kiểm theo bản đầu rồi cho qua phần còn
@@ -791,19 +845,101 @@ public class KpiSubmissionService {
     @Transactional
     public void deleteSubmission(UUID submissionId) {
         KpiSubmission submission = submissionRepository.findById(submissionId)
-                .orElseThrow(() -> new ResourceNotFoundException("Bản nộp", "id", submissionId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.submission"), "id", submissionId));
+        cycleStatusGuard.assertWritable(submission.getKpiCriteria());
 
         if (submission.getStatus() != SubmissionStatus.PENDING) {
-            throw new BusinessException("Chỉ có thể xóa các bản nộp đang ở trạng thái CHỜ DUYỆT");
+            throw new BusinessException(ErrorCode.ONLY_SUBMISSIONS_PENDING_APPROVAL_STATUS_CAN_DELETED);
         }
 
         User currentUser = getCurrentUser();
         if (!submission.getSubmittedBy().getId().equals(currentUser.getId())) {
-             throw new ForbiddenException("Chỉ người nộp mới có quyền xóa bản nộp này");
+             throw new ForbiddenException(ErrorCode.ONLY_SUBMITTER_MAY_DELETE_SUBMISSION);
         }
 
         submission.setDeletedAt(Instant.now());
         submissionRepository.save(submission);
+
+        // Đây là bài nộp thay cho một bài bị trả lại ⇒ bài đó lại "đang chờ nộp lại" (nếu còn hạn).
+        for (KpiSubmission returned : submissionRepository.findByResubmissionId(submission.getId())) {
+            returned.setResubmission(null);
+            submissionRepository.save(returned);
+        }
+    }
+
+    /**
+     * Hoàn duyệt: trả một bài nộp về để nhân viên làm lại KPI bằng một bài nộp MỚI.
+     *
+     * <p>Bài cũ không bị sửa hay xoá mà chuyển sang {@code RETURNED} — giữ làm lịch sử, không tính
+     * điểm, không tính vào số lần nộp. Nhân viên nộp bài mới trước {@code resubmitDeadline}, kể cả
+     * khi đợt đã hết hạn. Trong lúc chờ, đánh giá đợt của nhân viên chưa chốt được
+     * ({@code EvaluationService#createEvaluation}).
+     *
+     * <p>Chặn khi nhân viên đã có bản đánh giá đợt được chốt (của bất kỳ cấp quản lý nào): hiện chưa
+     * có cách mở lại đánh giá, trả lại lúc đó thì điểm đã chốt lệch với bài nộp mới.
+     */
+    @Transactional
+    public SubmissionResponse returnSubmission(UUID submissionId, ReturnSubmissionRequest request) {
+        User currentUser = getCurrentUser();
+        KpiSubmission submission = submissionRepository.findById(submissionId)
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.submission"), "id", submissionId));
+        KpiCriteria kpi = submission.getKpiCriteria();
+        cycleStatusGuard.assertWritable(kpi);
+
+        // Cùng cửa quyền với duyệt/từ chối: SUBMISSION:REVIEW trong đơn vị và đứng trên người nộp.
+        requireCanReview(currentUser, submission);
+
+        if (kpi.getStatus() != KpiStatus.APPROVED && kpi.getStatus() != KpiStatus.EDITED) {
+            throw new BusinessException(ErrorCode.SUBMISSION_RETURN_KPI_NOT_ACTIVE, kpi.getName());
+        }
+
+        Instant now = Instant.now();
+        if (request.getResubmitDeadline() == null || !request.getResubmitDeadline().isAfter(now)) {
+            throw new BusinessException(ErrorCode.RESUBMIT_DEADLINE_MUST_BE_IN_FUTURE);
+        }
+
+        User submitter = submission.getSubmittedBy();
+        com.kpitracking.entity.KpiPeriod period = kpi.getKpiPeriod();
+        if (period != null && evaluationRepository.findByUserIdAndKpiPeriodId(submitter.getId(), period.getId()).stream()
+                .anyMatch(e -> e.getEvaluator() != null && !e.getEvaluator().getId().equals(submitter.getId()))) {
+            throw new BusinessException(ErrorCode.SUBMISSION_RETURN_AFTER_EVALUATION_FINALIZED,
+                    submitter.getFullName(), period.getName());
+        }
+
+        // Trạng thái đích do bảng chuyển quyết định (chỉ từ CHỜ DUYỆT / ĐÃ DUYỆT / BỊ TỪ CHỐI).
+        com.kpitracking.workflow.def.WorkflowDefinition definition = definitionOf(submission);
+        SubmissionStatus next = workflowEngine.resolve(definition.submission(),
+                com.kpitracking.workflow.engine.TransitionContext.<SubmissionStatus>builder()
+                        .definition(definition)
+                        .action(com.kpitracking.workflow.WorkflowAction.RETURN_SUBMISSION)
+                        .currentStatus(submission.getStatus())
+                        .actor(currentUser)
+                        .orgUnitId(submission.getOrgUnit().getId())
+                        .target(submission)
+                        .targetOwnerId(submitter.getId())
+                        .statusRejectionCode(ErrorCode.SUBMISSION_CANNOT_BE_RETURNED_IN_STATUS)
+                        .build(),
+                List.of());
+
+        boolean wasApproved = submission.getStatus() == SubmissionStatus.APPROVED;
+        submission.setStatus(next);
+        submission.setReturnedBy(currentUser);
+        submission.setReturnedAt(now);
+        submission.setReturnReason(request.getReason().trim());
+        submission.setResubmitDeadline(request.getResubmitDeadline());
+        submission.setResubmission(null);
+        submission = submissionRepository.save(submission);
+
+        // Bài vừa trả lại từng được duyệt ⇒ KPI cha (chế độ thác nước) phải cộng lại, bỏ phần của nó.
+        if (wasApproved && kpi.getParent() != null) {
+            com.kpitracking.entity.Organization org = kpi.getOrgUnit().getOrgHierarchyLevel().getOrganization();
+            if (org != null && Boolean.TRUE.equals(org.getEnableWaterfall())) {
+                aggregateToParentKpi(kpi.getParent(), submission.getPeriodStart(), submission.getPeriodEnd());
+            }
+        }
+
+        eventPublisher.publishEvent(new SubmissionReturnedEvent(this, submission));
+        return mapToResponse(submission);
     }
 
     private int calculateExpected(KpiFrequency kpiFreq, KpiFrequency periodType) {

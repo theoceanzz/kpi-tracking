@@ -2,6 +2,7 @@ import { useMemo } from 'react'
 import { useAuthStore } from '@/store/authStore'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { usesPerformanceMatrix } from '@/lib/scoring'
+import { useTranslation } from 'react-i18next'
 
 /**
  * Thang đo "hiệu suất (đánh giá)" theo cấu hình org:
@@ -31,6 +32,7 @@ export interface PerformanceScale {
 const round1 = (v: number) => Math.round(v * 10) / 10
 
 export function usePerformanceScale(): PerformanceScale {
+  const { t } = useTranslation('analytics')
   const { user } = useAuthStore()
   const orgId = user?.memberships?.[0]?.organizationId
   const { data: org } = useOrganization(orgId)
@@ -49,21 +51,21 @@ export function usePerformanceScale(): PerformanceScale {
     }
     const format = (v?: number | null) => {
       if (v == null) return '-'
-      return isMatrix ? `${round1(v)}/${maxScore} điểm` : `${round1(v)}%`
+      return isMatrix ? t('usePerformanceScale.points', { v: round1(v), maxScore }) : `${round1(v)}%`
     }
     const formatShort = (v?: number | null) => {
       if (v == null) return '-'
-      return isMatrix ? `${round1(v)} điểm` : `${round1(v)}%`
+      return isMatrix ? t('usePerformanceScale.points2', { v: round1(v) }) : `${round1(v)}%`
     }
     const axisMax = isMatrix ? maxScore : 100
     return {
       isMatrix,
       maxScore,
-      unit: isMatrix ? 'điểm' : '%',
+      unit: isMatrix ? t('usePerformanceScale.points3') : '%',
       axisMax,
       format,
       formatShort,
       toPct: (v?: number | null) => (v == null || axisMax <= 0 ? 0 : (v / axisMax) * 100),
     }
-  }, [org?.enableQualitative, org?.enableConduct, org?.performanceMatrix])
+  }, [org?.enableQualitative, org?.enableConduct, org?.performanceMatrix, t])
 }

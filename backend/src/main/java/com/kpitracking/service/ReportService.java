@@ -6,7 +6,9 @@ import com.kpitracking.dto.response.report.*;
 import com.kpitracking.entity.*;
 import com.kpitracking.enums.ReportStatus;
 import com.kpitracking.exception.BusinessException;
+import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.ResourceNotFoundException;
+import com.kpitracking.i18n.Terms;
 import com.kpitracking.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -36,7 +38,7 @@ public class ReportService {
     private User getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         return userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("Người dùng", "email", email));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.user"), "email", email));
     }
 
     // ============================================================
@@ -50,13 +52,13 @@ public class ReportService {
         OrgUnit orgUnit;
         if (request.getOrgUnitId() != null) {
             orgUnit = orgUnitRepository.findById(request.getOrgUnitId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Đơn vị", "id", request.getOrgUnitId()));
+                    .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.unit"), "id", request.getOrgUnitId()));
         } else {
             var assignments = userRoleOrgUnitRepository.findByUserId(currentUser.getId());
             if (!assignments.isEmpty()) {
                 orgUnit = assignments.get(0).getOrgUnit();
             } else {
-                throw new BusinessException("Người dùng phải thuộc ít nhất một đơn vị");
+                throw new BusinessException(ErrorCode.USER_MUST_BELONG_LEAST_ONE_UNIT);
             }
         }
 
@@ -96,14 +98,14 @@ public class ReportService {
     @Transactional(readOnly = true)
     public ReportResponse getReportById(UUID id) {
         Report report = reportRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Báo cáo", "id", id));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.report"), "id", id));
         return toResponse(report);
     }
 
     @Transactional
     public ReportResponse updateReport(UUID id, UpdateReportRequest request) {
         Report report = reportRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Báo cáo", "id", id));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.report"), "id", id));
 
         if (request.getName() != null) report.setName(request.getName());
         if (request.getDescription() != null) report.setDescription(request.getDescription());
@@ -145,7 +147,7 @@ public class ReportService {
     private void updateWidgetFromRequest(ReportWidget widget, UpsertWidgetRequest request) {
         if (request.getReportDatasourceId() != null) {
             ReportDatasource rd = reportDatasourceRepository.findById(request.getReportDatasourceId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Report-Datasource link", "id", request.getReportDatasourceId()));
+                    .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.reportDataSourceLink"), "id", request.getReportDatasourceId()));
             widget.setReportDatasource(rd);
         } else {
             widget.setReportDatasource(null);
@@ -161,7 +163,7 @@ public class ReportService {
     @Transactional
     public void deleteReport(UUID id) {
         Report report = reportRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Báo cáo", "id", id));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.report"), "id", id));
         report.setDeletedAt(Instant.now());
         reportRepository.save(report);
     }
@@ -173,14 +175,14 @@ public class ReportService {
     @Transactional
     public ReportDatasourceResponse addDatasource(UUID reportId, AddReportDatasourceRequest request) {
         Report report = reportRepository.findById(reportId)
-                .orElseThrow(() -> new ResourceNotFoundException("Báo cáo", "id", reportId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.report"), "id", reportId));
 
         Datasource ds = datasourceRepository.findById(request.getDatasourceId())
-                .orElseThrow(() -> new ResourceNotFoundException("Datasource", "id", request.getDatasourceId()));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.dataSource"), "id", request.getDatasourceId()));
 
         // Check not already linked
         if (reportDatasourceRepository.findByReportIdAndDatasourceId(reportId, request.getDatasourceId()).isPresent()) {
-            throw new BusinessException("Datasource này đã được kết nối với báo cáo");
+            throw new BusinessException(ErrorCode.DATA_SOURCE_CONNECTED_REPORT);
         }
 
         ReportDatasource rd = ReportDatasource.builder()
@@ -196,7 +198,7 @@ public class ReportService {
     @Transactional
     public void removeDatasource(UUID reportDatasourceId) {
         if (!reportDatasourceRepository.existsById(reportDatasourceId)) {
-            throw new ResourceNotFoundException("Report-Datasource link", "id", reportDatasourceId);
+            throw new ResourceNotFoundException(Terms.of("resource.reportDataSourceLink"), "id", reportDatasourceId);
         }
         reportDatasourceRepository.deleteById(reportDatasourceId);
     }
@@ -208,10 +210,10 @@ public class ReportService {
     @Transactional
     public ReportWidgetResponse addWidget(UUID reportId, UpsertWidgetRequest request) {
         Report report = reportRepository.findById(reportId)
-                .orElseThrow(() -> new ResourceNotFoundException("Báo cáo", "id", reportId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.report"), "id", reportId));
 
         ReportDatasource rd = reportDatasourceRepository.findById(request.getReportDatasourceId())
-                .orElseThrow(() -> new ResourceNotFoundException("Report-Datasource link", "id", request.getReportDatasourceId()));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.reportDataSourceLink"), "id", request.getReportDatasourceId()));
 
         ReportWidget widget = ReportWidget.builder()
                 .report(report)
@@ -231,11 +233,11 @@ public class ReportService {
     @Transactional
     public ReportWidgetResponse updateWidget(UUID widgetId, UpsertWidgetRequest request) {
         ReportWidget widget = reportWidgetRepository.findById(widgetId)
-                .orElseThrow(() -> new ResourceNotFoundException("Widget", "id", widgetId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.widget"), "id", widgetId));
 
         if (request.getReportDatasourceId() != null) {
             ReportDatasource rd = reportDatasourceRepository.findById(request.getReportDatasourceId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Report-Datasource link", "id", request.getReportDatasourceId()));
+                    .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.reportDataSourceLink"), "id", request.getReportDatasourceId()));
             widget.setReportDatasource(rd);
         }
         if (request.getWidgetType() != null) widget.setWidgetType(request.getWidgetType());
@@ -252,7 +254,7 @@ public class ReportService {
     @Transactional
     public void deleteWidget(UUID widgetId) {
         if (!reportWidgetRepository.existsById(widgetId)) {
-            throw new ResourceNotFoundException("Widget", "id", widgetId);
+            throw new ResourceNotFoundException(Terms.of("resource.widget"), "id", widgetId);
         }
         reportWidgetRepository.deleteById(widgetId);
     }
@@ -269,11 +271,11 @@ public class ReportService {
     @Transactional
     public ReportWidgetResponse togglePinWidget(UUID widgetId) {
         ReportWidget widget = reportWidgetRepository.findById(widgetId)
-                .orElseThrow(() -> new ResourceNotFoundException("Widget", "id", widgetId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.widget"), "id", widgetId));
 
         User currentUser = getCurrentUser();
         if (!widget.getReport().getCreatedBy().getId().equals(currentUser.getId())) {
-            throw new BusinessException("Bạn không có quyền ghim biểu đồ này");
+            throw new BusinessException(ErrorCode.NO_PERMISSION_PIN_CHART);
         }
 
         widget.setPinned(!widget.isPinned());

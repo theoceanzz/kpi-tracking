@@ -1,3 +1,4 @@
+import { dateFnsLocale } from '@/i18n/format'
 import { useState } from 'react'
 import { useAuthStore } from '@/store/authStore'
 import { useObjectives, useOkrMutations } from '../hooks/useOkr'
@@ -14,17 +15,18 @@ import {
 import { cn } from '@/lib/utils'
 import { OkrStatus, ObjectiveResponse, KeyResultResponse } from '../types'
 import { format } from 'date-fns'
-import { vi } from 'date-fns/locale'
 import ObjectiveFormModal from '../components/ObjectiveFormModal'
 import KeyResultFormModal from '../components/KeyResultFormModal'
 import ImportOkrGuideModal from '../components/ImportOkrGuideModal'
 import OkrExcelPreviewModal from '../components/OkrExcelPreviewModal'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
 import { useRef } from 'react'
+import { useTranslation } from 'react-i18next'
 
 
 
 export default function OkrManagementPage() {
+  const { t } = useTranslation('okr')
   const { user } = useAuthStore()
   const organizationId = user?.memberships?.[0]?.organizationId
   const { data: objectives, isLoading } = useObjectives(organizationId)
@@ -35,7 +37,7 @@ export default function OkrManagementPage() {
   // điều hướng thì ba chỗ này hiện ba tên khác nhau.
   const { labelOf } = useNavLabels()
   const okrNavItem = findNavItem('okr')
-  const pageTitle = okrNavItem ? labelOf(okrNavItem) : 'Quản lý OKR'
+  const pageTitle = okrNavItem ? labelOf(okrNavItem) : t('OkrManagementPage.okrManagement')
 
 
   const fileInputRef = useRef<HTMLInputElement>(null)
@@ -120,7 +122,7 @@ export default function OkrManagementPage() {
       <WorkspaceHeader
         id="tour-okr-header"
         title={pageTitle}
-        description="Thiết lập mục tiêu chiến lược và đo lường kết quả then chốt."
+        description={t('OkrManagementPage.setStrategicObjectivesAndMeasureKey')}
         actions={
           /* Mobile: 2 nút chia đôi bề ngang, không tràn/đè; desktop giữ nguyên */
           <div className="flex flex-1 items-center gap-3">
@@ -133,10 +135,10 @@ export default function OkrManagementPage() {
               onChange={handleImport}
             />
             <Button variant="outline" className="flex-1 md:flex-none" onClick={() => setIsImportModalOpen(true)}>
-              <FileUp aria-hidden="true" /> Nhập Excel
+              <FileUp aria-hidden="true" /> {t('OkrManagementPage.excelImport')}
             </Button>
             <Button id="tour-okr-add-btn" className="flex-1 md:flex-none" onClick={handleAddObjective}>
-              <Plus aria-hidden="true" /> Mục tiêu mới
+              <Plus aria-hidden="true" /> {t('OkrManagementPage.newTarget')}
             </Button>
           </div>
         }
@@ -161,9 +163,9 @@ export default function OkrManagementPage() {
           <div className="rounded-card border border-dashed border-[var(--color-border)] bg-[var(--color-card)]">
             <EmptyState
               icon={Target}
-              title="Chưa có mục tiêu nào"
-              description="Tạo mục tiêu chiến lược đầu tiên, rồi thêm các kết quả then chốt và gắn KPI vào từng kết quả."
-              action={<Button onClick={handleAddObjective}><Plus aria-hidden="true" /> Mục tiêu mới</Button>}
+              title={t('OkrManagementPage.noObjectivesYet')}
+              description={t('OkrManagementPage.createTheFirstStrategicObjectiveThen')}
+              action={<Button onClick={handleAddObjective}><Plus aria-hidden="true" /> {t('OkrManagementPage.newTarget')}</Button>}
             />
           </div>
         )}
@@ -211,11 +213,11 @@ export default function OkrManagementPage() {
           }
           setDeleteTarget(null)
         }}
-        title={deleteTarget?.type === 'objective' ? 'Xóa Mục tiêu' : 'Xóa Kết quả then chốt'}
+        title={deleteTarget?.type === 'objective' ? t('OkrManagementPage.deleteObjective') : t('OkrManagementPage.deleteKeyResult')}
         description={deleteTarget?.type === 'objective'
-          ? 'Bạn có chắc chắn muốn xóa mục tiêu này? Tất cả các kết quả then chốt liên quan cũng sẽ bị xóa.'
-          : 'Bạn có chắc chắn muốn xóa kết quả then chốt này?'}
-        confirmLabel="Xóa"
+          ? t('OkrManagementPage.areYouSureYouWantTo')
+          : t('OkrManagementPage.areYouSureYouWantTo2')}
+        confirmLabel={t('OkrManagementPage.delete')}
         loading={deleteObjective.isPending || deleteKeyResult.isPending}
       />
     </div>
@@ -248,6 +250,7 @@ interface ObjectiveCardProps {
 }
 
 function ObjectiveCard({ objective, isExpanded, onToggle, onEdit, onDelete, onAddKR, onEditKR, onDeleteKR }: ObjectiveCardProps) {
+  const { t } = useTranslation('okr')
   const overallProgress = objective.keyResults.length > 0
     ? objective.keyResults.reduce((acc, kr) => acc + kr.progress, 0) / objective.keyResults.length
     : 0
@@ -268,13 +271,13 @@ function ObjectiveCard({ objective, isExpanded, onToggle, onEdit, onDelete, onAd
                     "text-eyebrow px-2 py-0.5 rounded-control whitespace-nowrap",
                     objective.status === OkrStatus.ACTIVE ? "bg-[var(--color-success-bg)] text-[var(--color-success)] dark:bg-[var(--color-success-bg)] dark:text-[var(--color-success)]" : "bg-[var(--color-muted)] text-[var(--color-muted-foreground)]"
                   )}>
-                    {objective.status === OkrStatus.ACTIVE ? 'Đang thực hiện' : objective.status === OkrStatus.COMPLETED ? 'Hoàn thành' : 'Hủy bỏ'}
+                    {objective.status === OkrStatus.ACTIVE ? t('OkrManagementPage.inProgress') : objective.status === OkrStatus.COMPLETED ? t('OkrManagementPage.completed') : t('OkrManagementPage.cancel')}
                   </span>
                   {objective.perspectiveName && (
                     <span
                       className="text-eyebrow inline-flex items-center gap-1 px-2 py-0.5 rounded-control whitespace-nowrap"
                       style={{ color: objective.perspectiveColor || '#8b5cf6', backgroundColor: `${objective.perspectiveColor || '#8b5cf6'}1a` }}
-                      title={`Hạng mục BSC: ${objective.perspectiveName}`}
+                      title={t('OkrManagementPage.bscItem', { perspectiveName: objective.perspectiveName })}
                     >
                       <span className="w-1.5 h-1.5 rounded-full" style={{ backgroundColor: objective.perspectiveColor || '#8b5cf6' }} />
                       {objective.perspectiveName}
@@ -282,9 +285,9 @@ function ObjectiveCard({ objective, isExpanded, onToggle, onEdit, onDelete, onAd
                   )}
                   <div className="flex items-center gap-1 text-eyebrow tracking-tight">
                     <Calendar size={11} />
-                    {objective.startDate ? format(new Date(objective.startDate), 'dd/MM/yyyy', { locale: vi }) : 'N/A'}
+                    {objective.startDate ? format(new Date(objective.startDate), 'dd/MM/yyyy', { locale: dateFnsLocale() }) : 'N/A'}
                     {' - '}
-                    {objective.endDate ? format(new Date(objective.endDate), 'dd/MM/yyyy', { locale: vi }) : 'N/A'}
+                    {objective.endDate ? format(new Date(objective.endDate), 'dd/MM/yyyy', { locale: dateFnsLocale() }) : 'N/A'}
                   </div>
                 </div>
                 {objective.orgUnitNames && objective.orgUnitNames.length > 0 && (
@@ -328,15 +331,15 @@ function ObjectiveCard({ objective, isExpanded, onToggle, onEdit, onDelete, onAd
                   </div>
                 </div>
                 <div className="flex items-center gap-1">
-                  <Button variant="ghost" size="icon-sm" onClick={(e) => { e.stopPropagation(); onEdit() }} aria-label="Sửa mục tiêu" title="Sửa"><Edit2 aria-hidden="true" /></Button>
-                  <Button variant="ghost" size="icon-sm" onClick={(e) => { e.stopPropagation(); onDelete() }} aria-label="Xoá mục tiêu" title="Xoá" className="text-[var(--color-muted-foreground)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]"><Trash2 aria-hidden="true" /></Button>
+                  <Button variant="ghost" size="icon-sm" onClick={(e) => { e.stopPropagation(); onEdit() }} aria-label={t('OkrManagementPage.editObjective')} title={t('OkrManagementPage.edit')}><Edit2 aria-hidden="true" /></Button>
+                  <Button variant="ghost" size="icon-sm" onClick={(e) => { e.stopPropagation(); onDelete() }} aria-label={t('OkrManagementPage.deleteObjective2')} title={t('OkrManagementPage.delete2')} className="text-[var(--color-muted-foreground)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]"><Trash2 aria-hidden="true" /></Button>
                 </div>
               </div>
               {/* Buttons — mobile only: hàng riêng cuối thẻ (trước đây absolute nên đè lên badge/tiêu đề).
                   Sửa & Xoá có nhãn, cao 44px và cách nhau 12px để không bấm nhầm. */}
               <div className="md:hidden flex items-center justify-end gap-3 pt-3 border-t border-[var(--color-border)]">
-                <Button variant="outline" onClick={(e) => { e.stopPropagation(); onEdit() }}><Edit2 aria-hidden="true" /> Sửa</Button>
-                <Button variant="outline" onClick={(e) => { e.stopPropagation(); onDelete() }} className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]"><Trash2 aria-hidden="true" /> Xoá</Button>
+                <Button variant="outline" onClick={(e) => { e.stopPropagation(); onEdit() }}><Edit2 aria-hidden="true" /> {t('OkrManagementPage.edit')}</Button>
+                <Button variant="outline" onClick={(e) => { e.stopPropagation(); onDelete() }} className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]"><Trash2 aria-hidden="true" /> {t('OkrManagementPage.delete2')}</Button>
               </div>
             </div>
           </div>
@@ -347,9 +350,9 @@ function ObjectiveCard({ objective, isExpanded, onToggle, onEdit, onDelete, onAd
         <div className="px-4 md:px-6 pb-4 md:pb-6 pt-2 border-t border-[var(--color-border)] bg-[var(--color-muted)] animate-in slide-in-from-top-2 duration-300">
           <div className="ml-0 md:ml-9 space-y-4">
             <div className="flex items-center justify-between gap-2">
-              <h4 className="text-eyebrow">Kết quả then chốt</h4>
+              <h4 className="text-eyebrow">{t('OkrManagementPage.keyResult')}</h4>
               <Button variant="ghost" size="sm" onClick={onAddKR} className="text-[var(--color-primary)] hover:text-[var(--color-primary)]">
-                <PlusCircle aria-hidden="true" /> Thêm kết quả
+                <PlusCircle aria-hidden="true" /> {t('OkrManagementPage.addResult')}
               </Button>
             </div>
 
@@ -365,7 +368,7 @@ function ObjectiveCard({ objective, isExpanded, onToggle, onEdit, onDelete, onAd
 
               {objective.keyResults.length === 0 && (
                 <div className="rounded-card border border-dashed border-[var(--color-border)] px-4 py-6 text-center text-sm text-[var(--color-muted-foreground)]">
-                  Chưa có kết quả then chốt nào. Thêm ít nhất một kết quả để đo được tiến độ mục tiêu.
+                  {t('OkrManagementPage.noKeyResultsYetAddAt')}
                 </div>
               )}
             </div>
@@ -383,6 +386,7 @@ interface KeyResultRowProps {
 }
 
 function KeyResultRow({ kr, onEdit, onDelete }: KeyResultRowProps) {
+  const { t } = useTranslation('okr')
   return (
     <div className="bg-[var(--color-card)] p-4 rounded-card border border-[var(--color-border)] flex flex-col md:flex-row md:items-center justify-between gap-3 md:gap-4 transition-all hover:border-[var(--color-border)]">
       <div className="flex items-start gap-3 flex-1 min-w-0">
@@ -400,8 +404,8 @@ function KeyResultRow({ kr, onEdit, onDelete }: KeyResultRowProps) {
                 <Clock size={10} /> {kr.periodName}
               </span>
             )}
-            <span>Mục tiêu: {kr.targetValue} {kr.unit}</span>
-            <span>Hiện tại: {kr.currentValue} {kr.unit}</span>
+            <span>{t('OkrManagementPage.target')} {kr.targetValue} {kr.unit}</span>
+            <span>{t('OkrManagementPage.current')} {kr.currentValue} {kr.unit}</span>
           </div>
           {kr.unitWeights && kr.unitWeights.length > 0 && (
             <div className="flex items-center gap-1.5 flex-wrap">
@@ -425,8 +429,8 @@ function KeyResultRow({ kr, onEdit, onDelete }: KeyResultRowProps) {
 
       {/* Buttons — mobile only: hàng riêng, 44px và cách nhau 12px */}
       <div className="md:hidden flex items-center justify-end gap-3 pt-3 border-t border-[var(--color-border)]">
-        <Button variant="outline" onClick={onEdit}><Edit2 aria-hidden="true" /> Sửa</Button>
-        <Button variant="outline" onClick={onDelete} className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]"><Trash2 aria-hidden="true" /> Xoá</Button>
+        <Button variant="outline" onClick={onEdit}><Edit2 aria-hidden="true" /> {t('OkrManagementPage.edit')}</Button>
+        <Button variant="outline" onClick={onDelete} className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]"><Trash2 aria-hidden="true" /> {t('OkrManagementPage.delete2')}</Button>
       </div>
 
       {/* Right side — desktop only */}
@@ -438,8 +442,8 @@ function KeyResultRow({ kr, onEdit, onDelete }: KeyResultRowProps) {
           </div>
         </div>
         <div className="flex items-center gap-1">
-          <Button variant="ghost" size="icon-sm" onClick={onEdit} aria-label="Sửa kết quả" title="Sửa"><Edit2 aria-hidden="true" /></Button>
-          <Button variant="ghost" size="icon-sm" onClick={onDelete} aria-label="Xoá kết quả" title="Xoá" className="text-[var(--color-muted-foreground)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]"><Trash2 aria-hidden="true" /></Button>
+          <Button variant="ghost" size="icon-sm" onClick={onEdit} aria-label={t('OkrManagementPage.editResult')} title={t('OkrManagementPage.edit')}><Edit2 aria-hidden="true" /></Button>
+          <Button variant="ghost" size="icon-sm" onClick={onDelete} aria-label={t('OkrManagementPage.deleteResult')} title={t('OkrManagementPage.delete2')} className="text-[var(--color-muted-foreground)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]"><Trash2 aria-hidden="true" /></Button>
         </div>
       </div>
     </div>

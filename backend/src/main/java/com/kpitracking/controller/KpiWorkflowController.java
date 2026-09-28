@@ -30,6 +30,7 @@ public class KpiWorkflowController {
     private final KpiWorkflowConfigService configService;
     private final WorkflowResponseAssembler assembler;
     private final PermissionChecker permissionChecker;
+    private final com.kpitracking.service.kpi.approval.ApprovalChainBackfillService backfillService;
 
     /** Luồng đang hiệu lực. Ai đăng nhập cũng đọc được vì menu và thanh tiến trình cần tới. */
     @GetMapping("/config")
@@ -44,6 +45,9 @@ public class KpiWorkflowController {
     public ResponseEntity<ApiResponse<WorkflowConfigResponse>> updateConfig(
             @RequestBody UpdateWorkflowConfigRequest request) {
         WorkflowConfig saved = configService.save(request.toConfig());
+        // Vừa chuyển sang chuỗi duyệt: KPI đang chờ theo luồng một cấp được lập chuỗi ngay (C12a),
+        // để chúng hiện trong hộp "chờ tôi duyệt" mà không phải đợi khởi động lại.
+        backfillService.backfillOrganization(configService.currentOrganizationId());
         return ResponseEntity.ok(ApiResponse.success("Đã cập nhật luồng KPI",
                 assembler.toResponse(saved, true, List.of())));
     }
@@ -60,6 +64,7 @@ public class KpiWorkflowController {
     @PreAuthorize("hasAuthority('WORKFLOW:MANAGE')")
     public ResponseEntity<ApiResponse<WorkflowConfigResponse>> resetConfig() {
         WorkflowConfig defaults = configService.reset();
+        backfillService.backfillOrganization(configService.currentOrganizationId());
         return ResponseEntity.ok(ApiResponse.success("Đã khôi phục luồng KPI mặc định",
                 assembler.toResponse(defaults, true, List.of())));
     }

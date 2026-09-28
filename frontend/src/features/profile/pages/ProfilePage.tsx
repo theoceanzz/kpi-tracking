@@ -16,7 +16,7 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { authApi } from '@/features/auth/api/authApi'
 import { userApi } from '@/features/users/api/userApi'
 import { toast } from 'sonner'
-import { getApiErrorMessage } from '@/lib/apiError'
+import { getApiErrorCode, getApiErrorMessage } from '@/lib/apiError'
 import {
   Building2, Shield,
   CheckCircle2, UserCircle2, Loader2, Pencil, X, Save,
@@ -25,9 +25,11 @@ import {
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ChoiceChip } from '@/components/ui/choice-chip'
+import { useTranslation } from 'react-i18next'
 
 
 export default function ProfilePage() {
+  const { t } = useTranslation('profile')
   const { user, setUser } = useAuthStore()
   const queryClient = useQueryClient()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -41,7 +43,7 @@ export default function ProfilePage() {
       return authApi.uploadAvatar(formData)
     },
     onSuccess: (updatedUser) => {
-      toast.success('Cập nhật ảnh đại diện thành công')
+      toast.success(t('ProfilePage.profilePictureUpdatedSuccessfully'))
       setUser(updatedUser)
       // Ảnh mới nằm trong cả những danh sách đã tải sẵn, không riêng gì store đăng nhập.
       // Không dọn cache thì sang danh sách nhân viên vẫn thấy ảnh cũ cho tới khi tải lại
@@ -50,13 +52,13 @@ export default function ProfilePage() {
       queryClient.invalidateQueries({ queryKey: ['organization-users'] })
       queryClient.invalidateQueries({ queryKey: ['org-unit-members'] })
     },
-    onError: (error) => toast.error(getApiErrorMessage(error, 'Tải ảnh lên thất bại')),
+    onError: (error) => toast.error(getApiErrorMessage(error, t('ProfilePage.imageUploadFailed'))),
   })
 
   const handleAvatarSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
-      if (file.size > 5 * 1024 * 1024) return toast.error('Kích thước file không vượt quá 5MB')
+      if (file.size > 5 * 1024 * 1024) return toast.error(t('ProfilePage.theFileSizeMustNotExceed'))
       uploadAvatarMutation.mutate(file)
     }
   }
@@ -72,8 +74,8 @@ export default function ProfilePage() {
             type="button"
             onClick={() => !uploadAvatarMutation.isPending && fileInputRef.current?.click()}
             disabled={uploadAvatarMutation.isPending}
-            aria-label="Đổi ảnh đại diện"
-            title="Đổi ảnh đại diện"
+            aria-label={t('ProfilePage.changeProfilePicture')}
+            title={t('ProfilePage.changeProfilePicture')}
             className="group relative block h-20 w-20 overflow-hidden rounded-card ring-2 ring-[var(--color-border)] focus-visible:outline-none focus-visible:ring-[var(--color-ring)]"
           >
             {user.avatarUrl ? (
@@ -99,9 +101,9 @@ export default function ProfilePage() {
           <h1 className="text-page-title truncate">{user.fullName}</h1>
           <p className="mt-1 truncate text-sm text-[var(--color-muted-foreground)]">{user.email}</p>
           <div className="mt-2 flex flex-wrap items-center gap-2">
-            <Badge variant="outline"><Shield size={12} aria-hidden="true" /> {user.memberships?.[0]?.roleName || user.roles?.[0] || 'Chưa có vai trò'}</Badge>
-            <Badge variant="outline"><Building2 size={12} aria-hidden="true" /> {user.memberships?.[0]?.orgUnitName || 'Chưa có đơn vị'}</Badge>
-            <Badge variant="success"><CheckCircle2 size={12} aria-hidden="true" /> Đang hoạt động</Badge>
+            <Badge variant="outline"><Shield size={12} aria-hidden="true" /> {user.memberships?.[0]?.roleName || user.roles?.[0] || t('ProfilePage.noRoleYet')}</Badge>
+            <Badge variant="outline"><Building2 size={12} aria-hidden="true" /> {user.memberships?.[0]?.orgUnitName || t('ProfilePage.noUnitYet')}</Badge>
+            <Badge variant="success"><CheckCircle2 size={12} aria-hidden="true" /> {t('ProfilePage.active')}</Badge>
           </div>
         </div>
       </section>
@@ -115,15 +117,15 @@ export default function ProfilePage() {
             active={currentTab === 'info'}
             onClick={() => setSearchParams({ tab: 'info' })}
             icon={UserCircle2}
-            label="Thông tin cá nhân"
-            description="Hồ sơ & liên hệ"
+            label={t('ProfilePage.personalInformation')}
+            description={t('ProfilePage.profileContact')}
           />
           <NavTab
             active={currentTab === 'security'}
             onClick={() => setSearchParams({ tab: 'security' })}
             icon={KeyRound}
-            label="Bảo mật"
-            description="Mật khẩu & xác thực"
+            label={t('ProfilePage.security')}
+            description={t('ProfilePage.passwordAuthentication')}
           />
         </div>
 
@@ -157,9 +159,10 @@ function NavTab({ active, onClick, icon: Icon, label, description }: {
 
 /* ========== Profile Info Tab ========== */
 function ProfileInfoTab({ user, onUserUpdate }: { user: any; onUserUpdate: (u: any) => void }) {
+  const { t } = useTranslation('profile')
   const [editing, setEditing] = useState(false)
   const { register, handleSubmit, reset, formState: { errors } } = useForm<ProfileInfoFormData>({
-    resolver: zodResolver(profileInfoSchema),
+    resolver: zodResolver(profileInfoSchema()),
     defaultValues: {
       fullName: user.fullName ?? '',
       phone: user.phone ?? '',
@@ -172,11 +175,11 @@ function ProfileInfoTab({ user, onUserUpdate }: { user: any; onUserUpdate: (u: a
       phone: data.phone || ''
     }),
     onSuccess: (updated) => {
-      toast.success('Hồ sơ đã được cập nhật')
+      toast.success(t('ProfilePage.profileUpdated'))
       onUserUpdate({ ...user, fullName: updated.fullName, phone: updated.phone })
       setEditing(false)
     },
-    onError: (error) => toast.error(getApiErrorMessage(error, 'Cập nhật hồ sơ thất bại')),
+    onError: (error) => toast.error(getApiErrorMessage(error, t('ProfilePage.profileUpdateFailed'))),
   })
 
   return (
@@ -184,12 +187,12 @@ function ProfileInfoTab({ user, onUserUpdate }: { user: any; onUserUpdate: (u: a
       {/* Header */}
       <div className="flex flex-col gap-3 border-b border-[var(--color-border)] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-section-title">Thông tin cá nhân</h2>
-          <p className="mt-0.5 text-sm text-[var(--color-muted-foreground)]">Họ tên và số điện thoại sửa được; email, đơn vị và chức vụ do quản trị viên cập nhật.</p>
+          <h2 className="text-section-title">{t('ProfilePage.personalInformation')}</h2>
+          <p className="mt-0.5 text-sm text-[var(--color-muted-foreground)]">{t('ProfilePage.fullNameAndPhoneNumberCan')}</p>
         </div>
         {!editing && (
           <Button variant="outline" className="shrink-0" onClick={() => setEditing(true)}>
-            <Pencil aria-hidden="true" /> Chỉnh sửa
+            <Pencil aria-hidden="true" /> {t('ProfilePage.edit')}
           </Button>
         )}
       </div>
@@ -198,17 +201,17 @@ function ProfileInfoTab({ user, onUserUpdate }: { user: any; onUserUpdate: (u: a
         {editing ? (
           <form onSubmit={handleSubmit((data) => updateMutation.mutate(data))} className="max-w-lg space-y-4">
             <div className="space-y-2">
-              <label className="text-label block">Họ và tên</label>
+              <label className="text-label block">{t('ProfilePage.fullName')}</label>
               <input
                 {...register('fullName')}
                 className="h-9 w-full rounded-control border border-[var(--color-border)] bg-[var(--color-card)] px-3 text-sm text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-subtle-foreground)] focus-visible:border-[var(--color-primary)] focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]"
-                placeholder="Nguyễn Văn A"
+                placeholder={t('ProfilePage.johnDoe')}
               />
               {errors.fullName && <p className="text-[var(--color-error)] text-xs mt-1">{(errors.fullName as any).message}</p>}
             </div>
 
             <div className="space-y-2">
-              <label className="text-label block">Số điện thoại</label>
+              <label className="text-label block">{t('ProfilePage.phoneNumber')}</label>
               <input
                 {...register('phone')}
                 className="h-9 w-full rounded-control border border-[var(--color-border)] bg-[var(--color-card)] px-3 text-sm text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-subtle-foreground)] focus-visible:border-[var(--color-primary)] focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]"
@@ -219,7 +222,7 @@ function ProfileInfoTab({ user, onUserUpdate }: { user: any; onUserUpdate: (u: a
 
             {/* Non-editable fields */}
             <div className="space-y-2">
-              <label className="text-label block">Email <span className="font-normal text-[var(--color-subtle-foreground)]">(không đổi được)</span></label>
+              <label className="text-label block">Email <span className="font-normal text-[var(--color-subtle-foreground)]">{t('ProfilePage.cannotBeChanged')}</span></label>
               <div className="flex h-9 items-center rounded-control border border-[var(--color-border)] bg-[var(--color-muted)] px-3 text-sm text-[var(--color-muted-foreground)]">
                 {user.email}
               </div>
@@ -227,24 +230,24 @@ function ProfileInfoTab({ user, onUserUpdate }: { user: any; onUserUpdate: (u: a
 
             <div className="flex items-center justify-end gap-2 border-t border-[var(--color-border)] pt-4">
               <Button variant="outline" type="button" onClick={() => { setEditing(false); reset() }} disabled={updateMutation.isPending}>
-                Hủy
+                {t('ProfilePage.cancel')}
               </Button>
               <Button type="submit" disabled={updateMutation.isPending}>
                 {updateMutation.isPending ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Save aria-hidden="true" />}
-                Lưu thay đổi
+                {t('ProfilePage.saveChanges')}
               </Button>
             </div>
           </form>
         ) : (
           <dl className="grid grid-cols-1 gap-x-6 gap-y-4 text-sm sm:grid-cols-2">
-            <InfoField label="Họ và tên" value={user.fullName} />
-            <InfoField label="Mã nhân viên" value={user.employeeCode || 'Chưa cập nhật'} />
+            <InfoField label={t('ProfilePage.fullName')} value={user.fullName} />
+            <InfoField label={t('ProfilePage.employeeCode')} value={user.employeeCode || t('ProfilePage.notUpdated')} />
             <InfoField label="Email" value={user.email} />
-            <InfoField label="Số điện thoại" value={formatPhoneNumber(user.phone) || 'Chưa cập nhật'} />
-            <InfoField label="Đơn vị" value={`${user.memberships?.[0]?.orgUnitName || 'Chưa cập nhật'}${user.memberships?.[0]?.unitTypeLabel ? ` (${user.memberships[0].unitTypeLabel})` : ''}`} />
-            <InfoField label="Mã đơn vị" value={user.memberships?.[0]?.orgUnitCode || 'Chưa cập nhật'} />
-            <InfoField label="Chức vụ" value={user.memberships?.[0]?.roleName || user.roles?.[0] || 'Chưa có'} />
-            <InfoField label="Trạng thái" value="Đang hoạt động" />
+            <InfoField label={t('ProfilePage.phoneNumber')} value={formatPhoneNumber(user.phone) || t('ProfilePage.notUpdated')} />
+            <InfoField label={t('ProfilePage.unit')} value={`${user.memberships?.[0]?.orgUnitName || t('ProfilePage.notUpdated')}${user.memberships?.[0]?.unitTypeLabel ? ` (${user.memberships[0].unitTypeLabel})` : ''}`} />
+            <InfoField label={t('ProfilePage.unitCode')} value={user.memberships?.[0]?.orgUnitCode || t('ProfilePage.notUpdated')} />
+            <InfoField label={t('ProfilePage.position')} value={user.memberships?.[0]?.roleName || user.roles?.[0] || t('ProfilePage.no')} />
+            <InfoField label={t('ProfilePage.status')} value="Đang hoạt động" />
           </dl>
         )}
       </div>
@@ -263,9 +266,10 @@ function InfoField({ label, value }: { label: string; value: string }) {
 
 /* ========== Security Tab ========== */
 function SecurityTab() {
+  const { t } = useTranslation('profile')
   const { user, setUser } = useAuthStore()
   const { register, handleSubmit, formState: { errors }, watch, control, setValue, reset, setError } = useForm<SecurityPasswordFormData>({
-    resolver: zodResolver(securityPasswordSchema),
+    resolver: zodResolver(securityPasswordSchema()),
     defaultValues: { currentPassword: '', newPassword: '', confirmPassword: '' },
   })
 
@@ -284,21 +288,21 @@ function SecurityTab() {
 
   const strengthScore = [hasLength, hasUpper, hasLower, hasNumber, hasSpecial].filter(Boolean).length
 
-  let strengthLabel = 'Chưa nhập'
+  let strengthLabel = t('ProfilePage.notEntered')
   let strengthColor = 'bg-[var(--color-border)]'
   let strengthTextColor = 'text-[var(--color-subtle-foreground)]'
 
   if (pwd.length > 0) {
     if (strengthScore <= 2) {
-      strengthLabel = 'Yếu'
+      strengthLabel = t('ProfilePage.weak')
       strengthColor = 'bg-[var(--color-error-solid)]'
       strengthTextColor = 'text-[var(--color-error)]'
     } else if (strengthScore <= 3) {
-      strengthLabel = 'Trung bình'
+      strengthLabel = t('ProfilePage.medium')
       strengthColor = 'bg-[var(--color-warning-solid)]'
       strengthTextColor = 'text-[var(--color-warning)]'
     } else {
-      strengthLabel = 'Mạnh'
+      strengthLabel = t('ProfilePage.strong')
       strengthColor = 'bg-[var(--color-success-solid)]'
       strengthTextColor = 'text-[var(--color-success)]'
     }
@@ -320,7 +324,7 @@ function SecurityTab() {
   const mutation = useMutation({
     mutationFn: (data: { currentPassword: string; newPassword: string; confirmPassword: string }) => authApi.changePassword(data),
     onSuccess: () => {
-      toast.success('Đổi mật khẩu bảo mật thành công')
+      toast.success(t('ProfilePage.passwordChangedSuccessfully'))
       if (user) {
         setUser({ ...user, requirePasswordChange: false })
       }
@@ -328,8 +332,9 @@ function SecurityTab() {
       setShowCurrent(false); setShowNew(false); setShowConfirm(false)
     },
     onError: (error: any) => {
-      const message = getApiErrorMessage(error, 'Đổi mật khẩu thất bại. Vui lòng thử lại.')
-      if (message.includes('Mật khẩu hiện tại')) {
+      const message = getApiErrorMessage(error, t('ProfilePage.passwordChangeFailedPleaseTryAgain'))
+      const code = getApiErrorCode(error)
+      if (code === 'CURRENT_PASSWORD_INCORRECT' || code === 'ENTER_CURRENT_PASSWORD') {
         setError('currentPassword', { type: 'manual', message: message })
       } else {
         toast.error(message)
@@ -343,8 +348,8 @@ function SecurityTab() {
     <div className="overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
       {/* Header */}
       <div className="border-b border-[var(--color-border)] px-5 py-4">
-        <h2 className="text-section-title">Bảo mật tài khoản</h2>
-        <p className="mt-0.5 text-sm text-[var(--color-muted-foreground)]">Đổi mật khẩu đăng nhập. Nên đổi định kỳ 3–6 tháng một lần.</p>
+        <h2 className="text-section-title">{t('ProfilePage.accountSecurity')}</h2>
+        <p className="mt-0.5 text-sm text-[var(--color-muted-foreground)]">{t('ProfilePage.changeYourSignInPasswordIt')}</p>
       </div>
 
       <div className="p-5">
@@ -354,7 +359,7 @@ function SecurityTab() {
             {/* Current Password */}
             <div className="space-y-2">
               <label className="text-label block">
-                Mật khẩu hiện tại
+                {t('ProfilePage.currentPassword')}
               </label>
               <div className="relative">
                 <input
@@ -377,14 +382,14 @@ function SecurityTab() {
             {/* New Password */}
             <div className="space-y-3">
               <label className="text-label block">
-                Mật khẩu mới
+                {t('ProfilePage.newPassword')}
               </label>
               <div className="relative">
                 <input
                   {...register('newPassword')}
                   type={showNew ? 'text' : 'password'}
                   className={inputCls + " pr-24 no-edit-hint"}
-                  placeholder="Nhập ít nhất 8 ký tự an toàn"
+                  placeholder={t('ProfilePage.enterAtLeast8SecureCharacters')}
                 />
 
                 {/* Suggestion Button */}
@@ -392,9 +397,9 @@ function SecurityTab() {
                   type="button"
                   onClick={generatePassword}
                   className="absolute inset-y-0 right-10 pr-1 flex items-center text-[var(--color-primary)] hover:text-[var(--color-primary)] transition-colors text-xs font-medium"
-                  title="Gợi ý Mật khẩu"
+                  title={t('ProfilePage.passwordSuggestion')}
                 >
-                  <Wand2 size={16} className="mr-0.5"/> Gợi ý
+                  <Wand2 size={16} className="mr-0.5"/> {t('ProfilePage.suggest')}
                 </button>
 
                 <button
@@ -410,7 +415,7 @@ function SecurityTab() {
               {pwd && watch('currentPassword') && pwd === watch('currentPassword') && (
                 <div className="mt-2.5 px-3 py-2 rounded-card flex items-center gap-2 text-xs font-medium bg-[var(--color-error-bg)] text-[var(--color-error)] border border-[var(--color-error-border)] animate-in fade-in slide-in-from-top-1 duration-200">
                   <AlertCircle size={14} />
-                  <span>Mật khẩu mới không được trùng với mật khẩu hiện tại</span>
+                  <span>{t('ProfilePage.theNewPasswordMustNotBe')}</span>
                 </div>
               )}
 
@@ -418,7 +423,7 @@ function SecurityTab() {
               {pwd && (
                 <div className="p-4 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)] animate-in fade-in slide-in-from-top-2 duration-300">
                   <div className="text-eyebrow flex justify-between items-center mb-2.5">
-                    <span className="text-[var(--color-subtle-foreground)]">Độ mạnh mật khẩu</span>
+                    <span className="text-[var(--color-subtle-foreground)]">{t('ProfilePage.passwordStrength')}</span>
                     <span className={cn("px-2 py-0.5 rounded-full bg-[var(--color-card)] shadow-sm", strengthTextColor)}>{strengthLabel}</span>
                   </div>
 
@@ -430,10 +435,10 @@ function SecurityTab() {
                   </div>
 
                   <div className="grid grid-cols-2 gap-y-2.5 gap-x-2 text-caption">
-                    <CheckItem condition={hasLength} label="8+ ký tự" />
-                    <CheckItem condition={hasUpper && hasLower} label="Hoa & thường" />
-                    <CheckItem condition={hasNumber} label="Có chữ số" />
-                    <CheckItem condition={hasSpecial} label="Ký tự đặc biệt" />
+                    <CheckItem condition={hasLength} label={t('ProfilePage.n8Characters')} />
+                    <CheckItem condition={hasUpper && hasLower} label={t('ProfilePage.upperLowerCase')} />
+                    <CheckItem condition={hasNumber} label={t('ProfilePage.containsDigits')} />
+                    <CheckItem condition={hasSpecial} label={t('ProfilePage.specialCharacters')} />
                   </div>
                 </div>
               )}
@@ -443,14 +448,14 @@ function SecurityTab() {
             {/* Confirm Password */}
             <div className="space-y-2">
               <label className="text-label block">
-                Xác nhận mật khẩu mới
+                {t('ProfilePage.confirmNewPassword')}
               </label>
               <div className="relative">
                 <input
                   {...register('confirmPassword')}
                   type={showConfirm ? 'text' : 'password'}
                   className={inputCls + " pr-12 no-edit-hint"}
-                  placeholder="Nhập lại mật khẩu khớp chính xác"
+                  placeholder={t('ProfilePage.reEnterTheExactSamePassword')}
                 />
                 <button
                   type="button"
@@ -469,7 +474,7 @@ function SecurityTab() {
                     : 'bg-[var(--color-error-bg)] text-[var(--color-error)] border border-[var(--color-error-border)]'
                 )}>
                   {pwd === confirmPwd ? <CheckCircle2 size={14} /> : <X size={14} />}
-                  <span>{pwd === confirmPwd ? 'Mật khẩu đã khớp nhau' : 'Hai mật khẩu chưa trùng khớp'}</span>
+                  <span>{pwd === confirmPwd ? t('ProfilePage.passwordsMatch') : t('ProfilePage.theTwoPasswordsDoNotMatch')}</span>
                 </div>
               )}
               {errors.confirmPassword && !confirmPwd && <p className="text-[var(--color-error)] text-xs font-medium pl-1">{errors.confirmPassword.message}</p>}
@@ -479,7 +484,7 @@ function SecurityTab() {
             <div className="pt-6 border-t border-[var(--color-border)]">
               <Button className="w-full md:w-auto" type="submit" disabled={mutation.isPending || (pwd.length > 0 && (pwd !== confirmPwd || pwd === watch('currentPassword') || strengthScore < 3))}>
                 {mutation.isPending ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Save aria-hidden="true" />}
-                Cập nhật bảo mật
+                {t('ProfilePage.updateSecurity')}
               </Button>
             </div>
           </form>

@@ -1,6 +1,8 @@
 package com.kpitracking.workflow.def;
 
 import com.kpitracking.exception.BusinessException;
+import com.kpitracking.exception.ErrorCode;
+import com.kpitracking.i18n.ErrorMessages;
 import com.kpitracking.workflow.StageDescriptor;
 import com.kpitracking.workflow.StageRegistry;
 import com.kpitracking.workflow.WorkflowStage;
@@ -31,7 +33,7 @@ public class WorkflowConfigValidator {
     public void validateOrThrow(WorkflowConfig config) {
         List<String> errors = validate(config);
         if (!errors.isEmpty()) {
-            throw new BusinessException("Cấu hình luồng KPI không hợp lệ: " + String.join("; ", errors));
+            throw new BusinessException(ErrorCode.INVALID_KPI_FLOW_CONFIGURATION, String.join("; ", errors));
         }
     }
 
@@ -46,7 +48,7 @@ public class WorkflowConfigValidator {
 
             // Luật 1: bước lõi không tắt được.
             if (!enabled && d.required()) {
-                errors.add("bước \"" + d.defaultLabel() + "\" là bước bắt buộc, không thể tắt");
+                errors.add(ErrorMessages.text("workflow.stageRequired", "stageRequired", d.defaultLabel()));
                 continue;
             }
 
@@ -54,8 +56,7 @@ public class WorkflowConfigValidator {
             if (enabled) {
                 for (WorkflowStage req : d.requires()) {
                     if (!config.isEnabled(req)) {
-                        errors.add("bước \"" + d.defaultLabel() + "\" cần bước \""
-                                + registry.get(req).defaultLabel() + "\" cũng được bật");
+                        errors.add(ErrorMessages.text("workflow.stageNeeds", "stageNeeds", d.defaultLabel(), registry.get(req).defaultLabel()));
                     }
                 }
             }
@@ -70,23 +71,27 @@ public class WorkflowConfigValidator {
         List<String> errors = new ArrayList<>();
 
         config.stage(WorkflowStage.CRITERIA_APPROVAL).ifPresent(sc -> {
-            String mode = sc.stringOption("approverMode", "UNIT_HEAD");
-            if (!List.of("UNIT_HEAD", "ANY_WITH_PERMISSION").contains(mode)) {
-                errors.add("cách chọn người duyệt không hợp lệ: " + mode);
+            String mode = sc.stringOption("approverMode", "CHAIN");
+            if (!List.of("CHAIN", "UNIT_HEAD", "ANY_WITH_PERMISSION").contains(mode)) {
+                errors.add(ErrorMessages.text("workflow.invalidApproverMode", "invalidApproverMode", mode));
+            }
+            int days = sc.intOption("reminderAfterDays", 3);
+            if (days < 1 || days > 60) {
+                errors.add(ErrorMessages.text("workflow.reminderDaysRange", "reminderDaysRange"));
             }
         });
 
         config.stage(WorkflowStage.CRITERIA_ADJUSTMENT).ifPresent(sc -> {
             int hours = sc.intOption("autoRejectAfterHours", 24);
             if (hours < 1 || hours > 720) {
-                errors.add("thời hạn tự động từ chối điều chỉnh phải trong khoảng 1 đến 720 giờ");
+                errors.add(ErrorMessages.text("workflow.autoRejectHoursRange", "autoRejectHoursRange"));
             }
         });
 
         config.stage(WorkflowStage.SUBMISSION_REVIEW).ifPresent(sc -> {
             String mode = sc.stringOption("mode", "MANUAL");
             if (!List.of("MANUAL", "AUTO_APPROVE", "AUTO_APPROVE_ON_TARGET_MET").contains(mode)) {
-                errors.add("chế độ duyệt bản nộp không hợp lệ: " + mode);
+                errors.add(ErrorMessages.text("workflow.invalidReviewMode", "invalidReviewMode", mode));
             }
         });
 

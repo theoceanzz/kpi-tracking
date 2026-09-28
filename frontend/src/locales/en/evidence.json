@@ -1,0 +1,32 @@
+{
+  "AttachmentChips": {
+    "download": "Download {{fileName}}",
+    "download2": "Download",
+    "evidenceAttached": "Evidence attached ·",
+    "files": "FILES",
+    "files2": "files",
+    "openInANewTab": "Open {{fileName}} in a new tab",
+    "openInANewTab2": "Open in a new tab",
+    "viewAndDownloadAttachments": "View and download attachments"
+  },
+  "EvidenceAttachments": {
+    "attachFiles": "Attach files",
+    "chooseEvidenceFiles": "Choose evidence files",
+    "couldNotDeleteTheFile": "Could not delete the file",
+    "couldNotUploadTheFile": "Could not upload the file",
+    "delete": "Delete {{fileName}}",
+    "deleteEvidenceFile": "Delete evidence file?",
+    "deleteFile": "Delete file",
+    "evidenceAttached": "Evidence attached",
+    "fileDeleted": "File deleted",
+    "filesAttached_one": "{{count}} file attached",
+    "filesAttached_other": "{{count}} files attached",
+    "n1FileAttached": "1 file attached",
+    "noEvidenceAttached": "No evidence attached.",
+    "noFilesYetAttachImagesPdfs": "No files yet. Attach images, PDFs or documents as evidence for this scoring.",
+    "onlyMoreFilesCanBeAdded": "Only {{room}} more files can be added (max {{MAX_ATTACHMENT_FILES}})",
+    "open": "Open {{fileName}}",
+    "upToFilesPerScoring": "Up to {{MAX_ATTACHMENT_FILES}} files per scoring",
+    "willBeRemovedFromThisScoring": "\"{{value}}\" will be removed from this scoring. This cannot be undone."
+  }
+}

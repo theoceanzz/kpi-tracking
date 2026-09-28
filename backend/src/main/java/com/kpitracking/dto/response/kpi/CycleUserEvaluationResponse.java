@@ -45,6 +45,10 @@ public class CycleUserEvaluationResponse {
     private Double conductScore;
     /** Thang điểm của phiếu hạnh kiểm — để giao diện hiện "4/5" chứ không chỉ "4". */
     private Double conductMaxScore;
+    /** Điểm 360 (thang 1..5) đi vào trục hành vi; null khi kỳ không có chiến dịch 360 ảnh hưởng điểm. */
+    private Double feedback360Score;
+    /** Nguồn của {@link #behaviorScore}: QUALITATIVE | CONDUCT | FEEDBACK360 | BLENDED | NONE. */
+    private String behaviorSource;
 
     /** true khi {@link #matrixRating} được ĐẶT TAY lúc hiệu chỉnh theo khung, không suy từ hai trục. */
     private boolean ratingOverridden;

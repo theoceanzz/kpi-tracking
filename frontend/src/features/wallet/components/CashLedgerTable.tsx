@@ -1,33 +1,38 @@
+import { intlLocale } from '@/i18n/format'
 import { ArrowDownToLine, Coins, SlidersHorizontal } from 'lucide-react'
 import { formatCurrency, formatDateTime } from '@/lib/utils'
 import { CashTransactionType, type CashTransaction } from '../types'
+import { useTranslation } from 'react-i18next'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
-const TYPE_META: Record<
+const TYPE_META = perLanguage((): Record<
   CashTransactionType,
   { label: string; icon: React.ReactNode; cls: string }
-> = {
+> => ({
   [CashTransactionType.TOPUP]: {
-    label: 'Nạp tiền',
+    label: i18n.t('wallet:CashLedgerTable.topUp'),
     icon: <ArrowDownToLine size={14} />,
     cls: 'bg-[var(--color-success-bg)] text-[var(--color-success)] dark:bg-[var(--color-success-bg)] dark:text-[var(--color-success)]',
   },
   [CashTransactionType.CONVERT]: {
-    label: 'Đổi ra điểm',
+    label: i18n.t('wallet:CashLedgerTable.convertedToPoints'),
     icon: <Coins size={14} />,
     cls: 'bg-[var(--color-info-bg)] text-[var(--color-info)] dark:bg-[var(--color-info-bg)] dark:text-[var(--color-info)]',
   },
   [CashTransactionType.ADJUST]: {
-    label: 'Điều chỉnh',
+    label: i18n.t('wallet:CashLedgerTable.adjust'),
     icon: <SlidersHorizontal size={14} />,
     cls: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)] dark:bg-[var(--color-warning-bg)] dark:text-[var(--color-warning)]',
   },
-}
+}))
 
 interface CashLedgerTableProps {
   data: CashTransaction[]
 }
 
 export default function CashLedgerTable({ data }: CashLedgerTableProps) {
+  const { t: tr } = useTranslation('wallet')
   return (
     // Bảng tiền có nhiều cột số dài; cho cuộn ngang TRONG khung thay vì để cả
     // trang trượt theo.
@@ -35,16 +40,16 @@ export default function CashLedgerTable({ data }: CashLedgerTableProps) {
       <table className="w-full min-w-[720px] text-sm">
         <thead className="bg-[var(--color-muted)]/50 text-left">
           <tr className="text-eyebrow">
-            <th className="px-4 py-3">Thời gian</th>
-            <th className="px-4 py-3">Loại</th>
-            <th className="px-4 py-3 text-right">Số tiền</th>
-            <th className="px-4 py-3 text-right">Số dư sau</th>
-            <th className="px-4 py-3">Diễn giải</th>
+            <th className="px-4 py-3">{tr('CashLedgerTable.time')}</th>
+            <th className="px-4 py-3">{tr('CashLedgerTable.type')}</th>
+            <th className="px-4 py-3 text-right">{tr('CashLedgerTable.amount')}</th>
+            <th className="px-4 py-3 text-right">{tr('CashLedgerTable.balanceAfter')}</th>
+            <th className="px-4 py-3">{tr('CashLedgerTable.explanation')}</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-[var(--color-border)]">
           {data.map((t) => {
-            const meta = TYPE_META[t.type]
+            const meta = TYPE_META()[t.type]
             const positive = t.amount > 0
             return (
               <tr key={t.id} className="hover:bg-[var(--color-muted)]/30">
@@ -76,13 +81,13 @@ export default function CashLedgerTable({ data }: CashLedgerTableProps) {
                       đổi, quan trọng hơn cả số tiền bị trừ. */}
                   {t.pointsGranted != null && (
                     <div className="mt-0.5 text-xs text-[var(--color-muted-foreground)]">
-                      Nhận {t.pointsGranted.toLocaleString('vi-VN')} điểm
-                      {t.rateSnapshot != null && ` · tỉ giá ${formatCurrency(t.rateSnapshot)}/điểm`}
+                      {tr('CashLedgerTable.received')} {t.pointsGranted.toLocaleString(intlLocale())} {tr('CashLedgerTable.points')}
+                      {t.rateSnapshot != null && tr('CashLedgerTable.ratePoint', { rateSnapshot: formatCurrency(t.rateSnapshot) })}
                     </div>
                   )}
                   {t.actorName && (
                     <div className="mt-0.5 text-xs text-[var(--color-muted-foreground)]">
-                      Thực hiện bởi {t.actorName}
+                      {tr('CashLedgerTable.performedBy')} {t.actorName}
                     </div>
                   )}
                 </td>

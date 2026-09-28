@@ -1,4 +1,5 @@
 import { z } from 'zod'
+import i18n from 'i18next'
 
 /**
  * Trần số lượng là giá trị nhỏ hơn giữa "tồn kho còn" và "số điểm mua nổi", đều là dữ
@@ -6,17 +7,17 @@ import { z } from 'zod'
  */
 export const createRedeemGiftSchema = ({ maxQty, maxAffordable }: { maxQty: number; maxAffordable: number }) =>
   z.object({
-    quantity: z.number({ message: 'Vui lòng nhập số lượng' })
-      .int('Số lượng phải là số nguyên')
-      .min(1, 'Số lượng phải lớn hơn 0')
-      .max(maxQty, `Chỉ đổi được tối đa ${maxQty} phần`),
+    quantity: z.number({ message: i18n.t('rewards:redeemGiftSchema.pleaseEnterAQuantity') })
+      .int(i18n.t('rewards:redeemGiftSchema.theQuantityMustBeAnInteger'))
+      .min(1, i18n.t('rewards:redeemGiftSchema.theQuantityMustBeGreaterThan'))
+      .max(maxQty, i18n.t('rewards:redeemGiftSchema.atMostUnitsCanBeRedeemed', { maxQty })),
     note: z.string(),
   }).superRefine((data, ctx) => {
     if (data.quantity > maxAffordable) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['quantity'],
-        message: 'Số điểm hiện có không đủ để đổi số lượng này',
+        message: i18n.t('rewards:redeemGiftSchema.yourCurrentPointsAreNotEnough'),
       })
     }
   })

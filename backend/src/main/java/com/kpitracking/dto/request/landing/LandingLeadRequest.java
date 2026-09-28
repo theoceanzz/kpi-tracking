@@ -10,25 +10,27 @@ import lombok.Data;
 @Data
 public class LandingLeadRequest {
 
-    @NotBlank(message = "Vui lòng nhập họ tên")
-    @Size(max = 120, message = "Họ tên tối đa 120 ký tự")
+    @NotBlank(message = "{validation.enterFullName}")
+    @Size(max = 120, message = "{validation.fullNameCanMost120Characters}")
     private String fullName;
 
-    @NotBlank(message = "Vui lòng nhập số điện thoại")
-    @Pattern(regexp = "^(\\+84|0)[0-9\\s.-]{8,14}$", message = "Số điện thoại không hợp lệ")
+    @NotBlank(message = "{validation.enterPhoneNumber}")
+    @Pattern(regexp = "^(\\+84|0)[0-9\\s.-]{8,14}$", message = "{validation.invalidPhoneNumber}")
     private String phone;
 
-    @Email(message = "Email không hợp lệ")
-    @Size(max = 160, message = "Email tối đa 160 ký tự")
+    // Bắt buộc: tài khoản demo chỉ được gửi riêng qua email này
+    @NotBlank(message = "{validation.enterEmailReceiveTrialAccount}")
+    @Email(message = "{validation.invalidEmail}")
+    @Size(max = 160, message = "{validation.emailCanMost160Characters}")
     private String email;
 
-    @Size(max = 200, message = "Tên công ty tối đa 200 ký tự")
+    @Size(max = 200, message = "{validation.companyNameCanMost200Characters}")
     private String company;
 
-    @Pattern(regexp = "^(<50|50-200|200-500|>500)?$", message = "Quy mô không hợp lệ")
+    @Pattern(regexp = "^(<50|50-200|200-500|>500)?$", message = "{validation.invalidCompanySize}")
     private String headcount;
 
-    @Size(max = 1000, message = "Ghi chú tối đa 1000 ký tự")
+    @Size(max = 1000, message = "{validation.notesCanMost1000Characters}")
     private String note;
 
     @Size(max = 60)

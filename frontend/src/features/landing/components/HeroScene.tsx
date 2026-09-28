@@ -1,9 +1,11 @@
 import { type CSSProperties } from 'react'
 import { ChevronDown, Sparkles } from 'lucide-react'
 import { GhostButton, PrimaryButton, Screenshot } from './primitives'
+import { useTranslation } from 'react-i18next'
 
 /** Cảnh mở màn: cực quang + lưới phối cảnh + tiêu đề trồi chữ + ảnh dashboard thật. */
 export function HeroScene() {
+  const { t } = useTranslation('landing')
   return (
     <section
       className="relative isolate overflow-hidden px-5 pb-16 pt-32 sm:px-8 sm:pt-40 lg:px-12 lg:pt-44"
@@ -23,20 +25,20 @@ export function HeroScene() {
           style={{ '--lp-delay': '0ms' } as CSSProperties}
         >
           <Sparkles className="h-3.5 w-3.5 shrink-0 text-amber-500" />
-          <span>Nền tảng OKR · KPI · BSC có trợ lý AI</span>
+          <span>{t('HeroScene.okrKpiBscPlatformWithAn')}</span>
         </div>
 
         {/* Mỗi câu một dòng. Dòng gradient dùng background-clip:text nên phải có padding
             dưới — không thì dấu nặng (ụ, ợ) nằm ngoài hộp và bị cắt. */}
         <h1 className="mx-auto max-w-5xl text-[38px] font-black leading-[1.15] tracking-tight text-slate-900 sm:text-6xl lg:text-[80px]">
           <span className="lp-word block pb-[0.08em]" style={{ '--lp-delay': '120ms' } as CSSProperties}>
-            Mục tiêu rõ ràng.
+            {t('HeroScene.clearGoals')}
           </span>
           <span
             className="lp-word lp-gradient-text block px-[0.05em] pb-[0.18em] -mb-[0.1em]"
             style={{ '--lp-delay': '300ms' } as CSSProperties}
           >
-            Hiệu suất nhìn thấy được.
+            {t('HeroScene.visiblePerformance')}
           </span>
         </h1>
 
@@ -44,7 +46,7 @@ export function HeroScene() {
           className="lp-word mx-auto mt-6 max-w-3xl text-base text-slate-600 sm:text-xl"
           style={{ '--lp-delay': '650ms' } as CSSProperties}
         >
-          Giao · đo · đánh giá · thưởng trên một màn hình. Hỏi K.AI thay vì chờ báo cáo.
+          {t('HeroScene.assignMeasureEvaluateRewardOnOne')}
         </p>
 
         <div
@@ -52,10 +54,10 @@ export function HeroScene() {
           style={{ '--lp-delay': '800ms' } as CSSProperties}
         >
           <PrimaryButton to="/login" size="lg" className="w-full sm:w-auto">
-            Trải nghiệm miễn phí
+            {t('HeroScene.tryItFree')}
           </PrimaryButton>
           <GhostButton href="#demo" size="lg" className="w-full sm:w-auto">
-            Xem KeyGo vận hành
+            {t('HeroScene.seeKeygoInAction')}
           </GhostButton>
         </div>
       </div>
@@ -64,8 +66,8 @@ export function HeroScene() {
       <div className="lp-frame-in relative mx-auto mt-16 max-w-[1440px] sm:mt-24">
         <div className="pointer-events-none absolute -inset-x-10 -bottom-10 top-1/3 -z-10 bg-[radial-gradient(ellipse_at_center,rgba(37,99,235,0.28),transparent_65%)] blur-2xl" />
         <Screenshot
-          src="/landing/dashboard.webp"
-          alt="Màn hình Tổng quan của KeyGo: chỉ số KPI đơn vị, bộ lọc, danh sách nhân sự cần can thiệp"
+          src="dashboard.webp"
+          alt={t('HeroScene.keygosOverviewScreenUnitKpiMetrics')}
           title="app.keygo.vn/dashboard"
           priority
         />
@@ -75,7 +77,7 @@ export function HeroScene() {
         href="#story"
         className="mx-auto mt-14 flex w-fit flex-col items-center gap-1 text-[11px] font-bold uppercase tracking-[0.3em] text-slate-400 transition-colors hover:text-slate-700"
       >
-        Cuộn để xem câu chuyện
+        {t('HeroScene.scrollToSeeTheStory')}
         <ChevronDown className="lp-scroll-hint h-5 w-5" />
       </a>
     </section>

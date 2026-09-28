@@ -156,6 +156,7 @@ public class AiController {
         AiTokenUsageRecorder.setFeature(AiTokenUsage.AiFeature.CHAT);
         try {
             AiTurn turn = new AiTurn(request.getMessage(), request.getConversationId(), request.getFocusUnitId());
+            turn.setLanguage(com.kpitracking.i18n.ErrorMessages.currentLocale().getLanguage());
             turn.setOpenFormId(request.getOpenFormId());
             turn.setOpenFormValues(request.getOpenFormValues());
             turn.setOpenFormFields(request.getOpenFormFields());

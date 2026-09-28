@@ -4,6 +4,7 @@ import com.kpitracking.dto.response.PageResponse;
 import com.kpitracking.dto.response.reward.RewardBudgetResponse;
 import com.kpitracking.dto.response.reward.RewardGrantResponse;
 import com.kpitracking.enums.RewardGrantStatus;
+import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.ForbiddenException;
 import com.kpitracking.security.PermissionChecker;
 import com.kpitracking.service.reward.RewardBudgetService;
@@ -64,7 +65,7 @@ public class RewardTool {
         Object rawUser = context.get("userId");
         UUID me = rawUser == null ? null : UUID.fromString(rawUser.toString());
         if (me == null || !permissionChecker.hasPermission(me, "REWARD:GRANT")) {
-            throw new ForbiddenException("Bạn không có quyền cấp thưởng nên không có ngân sách thưởng để xem.");
+            throw new ForbiddenException(ErrorCode.NO_PERMISSION_GRANT_REWARDS_NO_REWARD_BUDGET);
         }
         RewardBudgetResponse b = budgetService.getMyActiveBudget();
         if (b == null) {

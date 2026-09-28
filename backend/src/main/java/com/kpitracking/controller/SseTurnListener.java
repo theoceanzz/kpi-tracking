@@ -1,5 +1,6 @@
 package com.kpitracking.controller;
 
+import com.kpitracking.i18n.ErrorMessages;
 import com.kpitracking.dto.response.ai.AiChatResponse;
 import com.kpitracking.exception.AiQuotaExceededException;
 import com.kpitracking.exception.AiRateLimitException;
@@ -88,13 +89,13 @@ class SseTurnListener implements TurnListener {
      */
     private static String userMessageFor(Exception e) {
         if (e instanceof AiQuotaExceededException) {
-            return "Hệ thống AI đã đạt giới hạn sử dụng. Vui lòng thử lại sau ít phút.";
+            return ErrorMessages.text("error.AI_QUOTA_EXHAUSTED", "");
         }
         if (e instanceof AiTokenQuotaExceededException || e instanceof AiRateLimitException
                 || e instanceof ForbiddenException) {
             return e.getMessage();
         }
-        return "Xin lỗi, mình gặp trục trặc khi xử lý yêu cầu này. Bạn thử lại giúp mình nhé.";
+        return ErrorMessages.text("ai.failed", "");
     }
 
     private void send(String event, Object data) {

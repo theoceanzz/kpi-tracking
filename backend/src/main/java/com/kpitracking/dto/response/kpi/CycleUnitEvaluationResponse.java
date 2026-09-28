@@ -60,6 +60,14 @@ public class CycleUnitEvaluationResponse {
     private Instant finalizedAt;
 
     /**
+     * Đơn vị gốc (không có cấp cha). Khoá kết quả ở đơn vị gốc = KHOÁ LUÔN KỲ (kèm xử lý các đợt
+     * còn dở), mở khoá kết quả ở đó = mở lại kỳ.
+     */
+    private boolean rootUnit;
+    /** Trạng thái kỳ (OPEN | LOCKED). */
+    private com.kpitracking.enums.KpiCycleStatus cycleStatus;
+
+    /**
      * Phân bố mức của thành viên trong kỳ, đối chiếu với khung bell curve đang áp cho đơn vị.
      * Tính từ CHÍNH danh sách thành viên bên dưới nên con số luôn khớp bảng.
      */

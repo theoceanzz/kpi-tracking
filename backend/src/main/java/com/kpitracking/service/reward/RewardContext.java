@@ -4,6 +4,7 @@ import com.kpitracking.entity.OrgUnit;
 import com.kpitracking.entity.User;
 import com.kpitracking.entity.UserRoleOrgUnit;
 import com.kpitracking.exception.ResourceNotFoundException;
+import com.kpitracking.i18n.Terms;
 import com.kpitracking.repository.UserRepository;
 import com.kpitracking.repository.UserRoleOrgUnitRepository;
 import lombok.RequiredArgsConstructor;
@@ -32,7 +33,7 @@ public class RewardContext {
     public User getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         return userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("Người dùng", "email", email));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.user"), "email", email));
     }
 
     public UUID getCurrentOrgId() {
@@ -42,7 +43,7 @@ public class RewardContext {
     public UUID getOrgIdOf(UUID userId) {
         List<UserRoleOrgUnit> roles = userRoleOrgUnitRepository.findByUserId(userId);
         if (roles.isEmpty()) {
-            throw new ResourceNotFoundException("Tổ chức", "userId", userId);
+            throw new ResourceNotFoundException(Terms.of("resource.organization"), "userId", userId);
         }
         return roles.get(0).getOrgUnit().getOrgHierarchyLevel().getOrganization().getId();
     }
@@ -58,7 +59,7 @@ public class RewardContext {
                 .map(UserRoleOrgUnit::getOrgUnit)
                 .filter(u -> u != null && u.getPath() != null)
                 .min(Comparator.comparing(OrgUnit::getPath))
-                .orElseThrow(() -> new ResourceNotFoundException("Đơn vị của người dùng", "userId", userId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.userUnit"), "userId", userId));
     }
 
     /**

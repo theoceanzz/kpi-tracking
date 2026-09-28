@@ -1,6 +1,8 @@
 package com.kpitracking.service;
 
+import com.kpitracking.i18n.ErrorMessages;
 import com.kpitracking.exception.BusinessException;
+import com.kpitracking.exception.ErrorCode;
 import org.springframework.stereotype.Component;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -60,8 +62,7 @@ public class AttachmentPolicy {
         ALLOWED.put("xlsx", Set.of("application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"));
     }
 
-    private static final String ALLOWED_HINT =
-            "Chỉ nhận ảnh (JPG, PNG, WebP), PDF, Word (DOC, DOCX) và Excel (XLS, XLSX).";
+    private static final String ALLOWED_HINT_KEY = "attachment.allowedTypes";
 
     /**
      * Kiểm cả lô. Ném ngay ở tệp hỏng đầu tiên, nên tầng gọi phải gọi hàm này TRƯỚC khi đẩy bất kỳ
@@ -72,15 +73,12 @@ public class AttachmentPolicy {
      */
     public void validate(MultipartFile[] files, int alreadyAttached) {
         if (files == null || files.length == 0) {
-            throw new BusinessException("Chưa chọn tệp nào để đính kèm.");
+            throw new BusinessException(ErrorCode.NO_FILE_SELECTED_ATTACH);
         }
 
         int total = alreadyAttached + files.length;
         if (total > MAX_FILES_PER_SUBMISSION) {
-            throw new BusinessException(String.format(
-                    "Mỗi báo cáo chỉ đính kèm tối đa %d tệp. Báo cáo này đang có %d tệp, "
-                            + "bạn vừa chọn thêm %d. Hãy bớt bớt rồi thử lại.",
-                    MAX_FILES_PER_SUBMISSION, alreadyAttached, files.length));
+            throw new BusinessException(ErrorCode.EACH_REPORT_CAN_MOST_ATTACHMENTS, MAX_FILES_PER_SUBMISSION, alreadyAttached, files.length);
         }
 
         for (MultipartFile file : files) {
@@ -92,19 +90,17 @@ public class AttachmentPolicy {
         String name = safeFileName(file.getOriginalFilename());
 
         if (file.isEmpty()) {
-            throw new BusinessException("Tệp \"" + name + "\" rỗng. Hãy chọn lại tệp có nội dung.");
+            throw new BusinessException(ErrorCode.FILE_EMPTY, String.valueOf(name));
         }
 
         if (file.getSize() > MAX_FILE_BYTES) {
-            throw new BusinessException(String.format(
-                    "Tệp \"%s\" nặng %s, vượt quá giới hạn %s mỗi tệp.",
-                    name, humanSize(file.getSize()), humanSize(MAX_FILE_BYTES)));
+            throw new BusinessException(ErrorCode.FILE_EXCEEDING_PER_FILE_LIMIT, String.valueOf(name), String.valueOf(humanSize(file.getSize())), String.valueOf(humanSize(MAX_FILE_BYTES)));
         }
 
         String ext = extensionOf(name);
         Set<String> allowedTypes = ALLOWED.get(ext);
         if (allowedTypes == null) {
-            throw new BusinessException("Tệp \"" + name + "\" không được hỗ trợ. " + ALLOWED_HINT);
+            throw new BusinessException(ErrorCode.FILE_NOT_SUPPORTED, String.valueOf(name), String.valueOf(ErrorMessages.text(ALLOWED_HINT_KEY, "")));
         }
 
         // Kiểu MIME do client khai. Bỏ qua khi client không khai, hoặc khai kiểu "không biết": vài
@@ -114,13 +110,11 @@ public class AttachmentPolicy {
         if (declared != null && !declared.isBlank()
                 && !"application/octet-stream".equalsIgnoreCase(declared)
                 && !allowedTypes.contains(declared.toLowerCase(Locale.ROOT))) {
-            throw new BusinessException("Tệp \"" + name + "\" khai báo kiểu \"" + declared
-                    + "\" không khớp với phần mở rộng \"." + ext + "\". " + ALLOWED_HINT);
+            throw new BusinessException(ErrorCode.FILE_DECLARES_TYPE_DOES_NOT_MATCH_EXTENSION, String.valueOf(name), String.valueOf(declared), String.valueOf(ext), String.valueOf(ErrorMessages.text(ALLOWED_HINT_KEY, "")));
         }
 
         if (!signatureMatches(file, ext)) {
-            throw new BusinessException("Nội dung tệp \"" + name + "\" không đúng là định dạng \"."
-                    + ext + "\". Có thể tệp đã bị đổi phần mở rộng. " + ALLOWED_HINT);
+            throw new BusinessException(ErrorCode.CONTENT_FILE_NOT_REALLY, String.valueOf(name), String.valueOf(ext), String.valueOf(ErrorMessages.text(ALLOWED_HINT_KEY, "")));
         }
     }
 

@@ -5,6 +5,7 @@ import type { CycleUserEvaluation } from '@/types/kpi'
 import { Search, Mail, Loader2, AlertTriangle, Check, FileSpreadsheet } from 'lucide-react'
 import { Dialog, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
+import { useTranslation } from 'react-i18next'
 
 /**
  * Chọn nhân viên để gửi kết quả đánh giá kỳ qua email.
@@ -23,6 +24,7 @@ export default function SendEvaluationModal({
   isSending: boolean
   onSend: (userIds: string[]) => Promise<unknown>
 }) {
+  const { t } = useTranslation('kpi')
   // Component chỉ được mount khi modal mở (parent render có điều kiện), nên
   // lựa chọn tự reset mỗi lần mở — không cần effect dọn dẹp.
   const [search, setSearch] = useState('')
@@ -69,16 +71,16 @@ export default function SendEvaluationModal({
       size="lg"
       flush
       dismissible={!isSending}
-      title="Gửi kết quả đánh giá"
-      description={<>{cycleName ? <b className="font-medium text-[var(--color-foreground)]">{cycleName}</b> : 'Kỳ đánh giá'}{orgUnitName && <> · {orgUnitName}</>}</>}
+      title={t('SendEvaluationModal.sendEvaluationResults')}
+      description={<>{cycleName ? <b className="font-medium text-[var(--color-foreground)]">{cycleName}</b> : t('SendEvaluationModal.evaluationCycles')}{orgUnitName && <> · {orgUnitName}</>}</>}
       footer={
         <DialogFooter
-          note={<span className="flex items-center gap-1.5"><FileSpreadsheet size={13} className="shrink-0" aria-hidden="true" /> Mỗi người nhận kèm một tệp Excel bảng điểm chi tiết của riêng họ.</span>}
-          secondary={<Button variant="outline" onClick={onClose} disabled={isSending}>Huỷ</Button>}
+          note={<span className="flex items-center gap-1.5"><FileSpreadsheet size={13} className="shrink-0" aria-hidden="true" /> {t('SendEvaluationModal.eachRecipientGetsAnExcelFile')}</span>}
+          secondary={<Button variant="outline" onClick={onClose} disabled={isSending}>{t('SendEvaluationModal.cancel')}</Button>}
           primary={
             <Button onClick={handleSend} disabled={!selected.size || isSending}>
               {isSending ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Mail aria-hidden="true" />}
-              {isSending ? 'Đang gửi...' : `Gửi cho ${selected.size} người`}
+              {isSending ? t('SendEvaluationModal.sending') : t('SendEvaluationModal.sendToPeople', { count: selected.size })}
             </Button>
           }
         />
@@ -88,7 +90,7 @@ export default function SendEvaluationModal({
         <div className="flex items-start gap-2.5 mx-5 mt-4 p-3.5 rounded-card bg-[var(--color-warning-bg)] border border-[var(--color-warning-border)]">
           <AlertTriangle size={16} className="text-[var(--color-warning)] shrink-0 mt-0.5" />
           <p className="text-xs text-[var(--color-warning)] font-medium leading-relaxed">
-            Đơn vị này <b>chưa chốt kỳ</b>. Điểm gửi đi vẫn có thể thay đổi — nên chốt trước khi gửi cho nhân viên.
+            {t('SendEvaluationModal.thisUnit')} <b>{t('SendEvaluationModal.cycleNotFinalized')}</b>{t('SendEvaluationModal.theScoresSentMayStillChange')}
           </p>
         </div>
       )}
@@ -100,7 +102,7 @@ export default function SendEvaluationModal({
           <input
             value={search}
             onChange={e => setSearch(e.target.value)}
-            placeholder="Tìm nhân viên..."
+            placeholder={t('SendEvaluationModal.searchEmployees')}
             className="w-full pl-11 pr-4 py-3 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] text-sm font-medium focus:ring-4 focus:ring-[var(--color-success-solid)] focus:border-[var(--color-success-border)] outline-none transition-all placeholder:text-[var(--color-subtle-foreground)]"
           />
         </div>
@@ -112,11 +114,11 @@ export default function SendEvaluationModal({
             )}>
               {allFilteredSelected && <Check aria-hidden="true" className="text-white" strokeWidth={3} />}
             </span>
-            {allFilteredSelected ? 'Bỏ chọn tất cả' : 'Chọn tất cả'}
-            {search.trim() && <span className="normal-case font-semibold opacity-60">(trong kết quả tìm)</span>}
+            {allFilteredSelected ? t('SendEvaluationModal.deselectAll') : t('SendEvaluationModal.selectAll')}
+            {search.trim() && <span className="normal-case font-semibold opacity-60">{t('SendEvaluationModal.inSearchResults')}</span>}
           </Button>
           <span className="text-eyebrow whitespace-nowrap">
-            Đã chọn {selected.size}/{members.length}
+            {t('SendEvaluationModal.selected')} {selected.size}/{members.length}
           </span>
         </div>
       </div>
@@ -124,7 +126,7 @@ export default function SendEvaluationModal({
       {/* Danh sách */}
       <div className="px-5 pb-5">
         {filtered.length === 0 ? (
-          <p className="text-sm text-[var(--color-subtle-foreground)] italic text-center py-10">Không tìm thấy nhân viên phù hợp.</p>
+          <p className="text-sm text-[var(--color-subtle-foreground)] italic text-center py-10">{t('SendEvaluationModal.noMatchingEmployeesFound')}</p>
         ) : (
           <div className="space-y-1">
             {filtered.map(m => {
@@ -154,7 +156,7 @@ export default function SendEvaluationModal({
                   />
                   <span className="flex-1 min-w-0">
                     <span className="block text-sm font-medium text-[var(--color-foreground)] truncate">{m.userName}</span>
-                    <span className="block text-caption font-medium truncate">{m.orgUnitName || 'Nhân viên'}</span>
+                    <span className="block text-caption font-medium truncate">{m.orgUnitName || t('SendEvaluationModal.employee')}</span>
                   </span>
                   <span className="text-sm font-semibold text-[var(--color-success)] shrink-0">
                     {m.finalScore != null ? formatNumber(m.finalScore) : '—'}

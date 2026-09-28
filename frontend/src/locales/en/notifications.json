@@ -1,0 +1,51 @@
+{
+  "NotificationBell": {
+    "notifications": "Notifications",
+    "notificationsUnread": "Notifications, {{unreadCount}} unread"
+  },
+  "NotificationDropdown": {
+    "earlier": "Earlier",
+    "markAllAsRead": "Mark all as read",
+    "new": "new",
+    "noNotificationsYet": "No notifications yet",
+    "notifications": "Notifications",
+    "notificationsAboutKpisSubmissionsAndEvaluations": "Notifications about KPIs, submissions and evaluations will appear here.",
+    "today": "Today",
+    "unread": "Unread",
+    "viewAllNotifications": "View all notifications"
+  },
+  "NotificationsPage": {
+    "all": "All",
+    "allNotificationsHaveBeenRead": "All notifications have been read.",
+    "assignKpis": "Assign KPIs",
+    "bscKpiAssignment": "BSC KPI assignment",
+    "bscResults": "BSC results",
+    "bscScorecard": "BSC scorecard",
+    "cycleLock": "Cycle lock",
+    "evaluation": "Evaluation",
+    "filterNotifications": "Filter notifications",
+    "giftRedemption": "Gift redemption",
+    "kpiApproval": "KPI approval",
+    "markAllAsRead": "Mark all as read",
+    "n360Feedback": "360° feedback",
+    "new": "New",
+    "newReport": "New report",
+    "noNotificationsYet": "No notifications yet",
+    "notifications": "Notifications",
+    "notificationsAboutKpisSubmissionsAndEvaluations": "Notifications about KPIs, submissions and evaluations will appear here.",
+    "noUnreadNotificationsLeft": "No unread notifications left",
+    "readAt": "Read at",
+    "rewardPoints": "Reward points",
+    "rewardProposals": "Reward proposals",
+    "unread": "Unread",
+    "unreadNotifications_one": "{{count}} unread notification.",
+    "unreadNotifications_other": "{{count}} unread notifications.",
+    "updatedInRealTime": "Updated in real time",
+    "wallet": "Wallet",
+    "walletReconciliation": "Wallet reconciliation",
+    "youHaveReadAllNotifications": "You have read all notifications."
+  },
+  "useNotifications": {
+    "markedAllNotificationsAsRead": "Marked all notifications as read"
+  }
+}

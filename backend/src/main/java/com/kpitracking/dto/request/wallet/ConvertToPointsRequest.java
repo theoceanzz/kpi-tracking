@@ -8,8 +8,8 @@ import lombok.Data;
 @Data
 public class ConvertToPointsRequest {
 
-    @NotNull(message = "Vui lòng nhập số điểm muốn đổi")
-    @Positive(message = "Số điểm muốn đổi phải lớn hơn 0")
+    @NotNull(message = "{validation.enterPointsConvert}")
+    @Positive(message = "{validation.pointsConvertMustGreaterThan0}")
     private Integer points;
 
     /**
@@ -18,6 +18,6 @@ public class ConvertToPointsRequest {
      * lớp bảo vệ vô nghĩa, còn giữ cố định suốt vòng đời form thì đổi số điểm rồi
      * bấm sẽ nhận về kết quả của lần đổi trước.
      */
-    @NotBlank(message = "Thiếu mã yêu cầu")
+    @NotBlank(message = "{validation.requestIdMissing}")
     private String requestId;
 }

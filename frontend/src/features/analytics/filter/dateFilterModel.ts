@@ -21,6 +21,8 @@ import {
   format, parse,
 } from 'date-fns'
 import type { KpiFrequency, KpiPeriod, KpiCycle } from '@/types/kpi'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
 export type LegacyMode = 'THIS_WEEK' | 'THIS_MONTH' | 'THIS_QUARTER' | '6_MONTHS' | 'THIS_YEAR' | 'CUSTOM'
 export type PeriodMode = 'WHOLE_PERIOD' | 'BY_DAY' | 'BY_WEEK' | 'BY_MONTH' | 'BY_QUARTER' | 'CUSTOM'
@@ -71,14 +73,14 @@ export const DEFAULT_DATE_INTENT: Required<
   groupBy: 'TIME',
 }
 
-export const LEGACY_OPTIONS: { value: LegacyMode; label: string }[] = [
-  { value: 'THIS_WEEK', label: 'Tuần này' },
-  { value: 'THIS_MONTH', label: 'Tháng này' },
-  { value: 'THIS_QUARTER', label: 'Quý này' },
-  { value: '6_MONTHS', label: '6 tháng gần đây' },
-  { value: 'THIS_YEAR', label: 'Năm nay' },
-  { value: 'CUSTOM', label: 'Tùy chỉnh...' },
-]
+export const LEGACY_OPTIONS = perLanguage((): { value: LegacyMode; label: string }[] => ([
+  { value: 'THIS_WEEK', label: i18n.t('analytics:dateFilterModel.thisWeek') },
+  { value: 'THIS_MONTH', label: i18n.t('analytics:dateFilterModel.thisMonth') },
+  { value: 'THIS_QUARTER', label: i18n.t('analytics:dateFilterModel.thisQuarter') },
+  { value: '6_MONTHS', label: i18n.t('analytics:dateFilterModel.last6Months') },
+  { value: 'THIS_YEAR', label: i18n.t('analytics:dateFilterModel.thisYear') },
+  { value: 'CUSTOM', label: i18n.t('analytics:dateFilterModel.custom') },
+]))
 
 /** Các mức granularity khả dụng theo loại đợt (chưa gồm "Toàn đợt" và "Tùy chỉnh"). */
 export const PERIOD_GRANULARITY: Record<KpiFrequency, PeriodMode[]> = {
@@ -91,14 +93,14 @@ export const PERIOD_GRANULARITY: Record<KpiFrequency, PeriodMode[]> = {
   UNLIMITED: ['BY_MONTH', 'BY_QUARTER'],
 }
 
-export const PERIOD_MODE_LABEL: Record<PeriodMode, string> = {
-  WHOLE_PERIOD: 'Toàn đợt',
-  BY_DAY: 'Theo ngày',
-  BY_WEEK: 'Theo tuần',
-  BY_MONTH: 'Theo tháng',
-  BY_QUARTER: 'Theo quý',
-  CUSTOM: 'Tùy chỉnh...',
-}
+export const PERIOD_MODE_LABEL = perLanguage((): Record<PeriodMode, string> => ({
+  WHOLE_PERIOD: i18n.t('analytics:dateFilterModel.wholePeriod'),
+  BY_DAY: i18n.t('analytics:dateFilterModel.byDay'),
+  BY_WEEK: i18n.t('analytics:dateFilterModel.byWeek'),
+  BY_MONTH: i18n.t('analytics:dateFilterModel.byMonth'),
+  BY_QUARTER: i18n.t('analytics:dateFilterModel.byQuarter'),
+  CUSTOM: i18n.t('analytics:dateFilterModel.custom'),
+}))
 
 export const clamp = (d: Date, lo: Date | null, hi: Date | null) => {
   let t = d.getTime()

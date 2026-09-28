@@ -3,6 +3,7 @@ package com.kpitracking.service;
 import com.kpitracking.dto.response.scope.ScopeResponse;
 import com.kpitracking.enums.ScopeCode;
 import com.kpitracking.exception.ResourceNotFoundException;
+import com.kpitracking.i18n.Terms;
 import com.kpitracking.mapper.ScopeMapper;
 import com.kpitracking.repository.ScopeRepository;
 import lombok.RequiredArgsConstructor;
@@ -29,10 +30,10 @@ public class ScopeService {
         try {
             scopeCode = ScopeCode.valueOf(code.toUpperCase());
         } catch (IllegalArgumentException e) {
-            throw new ResourceNotFoundException("Scope", "code", code);
+            throw new ResourceNotFoundException(Terms.of("resource.scope"), "code", code);
         }
         return scopeRepository.findByCode(scopeCode)
                 .map(scopeMapper::toResponse)
-                .orElseThrow(() -> new ResourceNotFoundException("Scope", "code", code));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.scope"), "code", code));
     }
 }

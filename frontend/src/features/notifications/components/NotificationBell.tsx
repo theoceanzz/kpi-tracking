@@ -5,12 +5,14 @@ import { useState, useRef } from 'react'
 import NotificationDropdown from './NotificationDropdown'
 import { useOnClickOutside } from '@/hooks/useOnClickOutside'
 import { Button } from '@/components/ui/button'
+import { useTranslation } from 'react-i18next'
 
 /**
  * Chuông thông báo trên header. Số chưa đọc là huy hiệu nhỏ góc trên phải — không nhấp
  * nháy, không bóng: nó phải thấy được khi liếc qua chứ không được kéo mắt liên tục.
  */
 export default function NotificationBell() {
+  const { t } = useTranslation('notifications')
   useWebSocketNotifications()
   const { data: unreadCount } = useUnreadCount()
   const [open, setOpen] = useState(false)
@@ -22,7 +24,7 @@ export default function NotificationBell() {
 
   return (
     <div className="relative" ref={containerRef}>
-      <Button variant="secondary" type="button" onClick={() => setOpen(!open)} aria-label={hasUnread ? `Thông báo, ${unreadCount} chưa đọc` : 'Thông báo'} aria-expanded={open} aria-haspopup="dialog">
+      <Button variant="secondary" type="button" onClick={() => setOpen(!open)} aria-label={hasUnread ? t('NotificationBell.notificationsUnread', { unreadCount }) : t('NotificationBell.notifications')} aria-expanded={open} aria-haspopup="dialog">
         <Bell aria-hidden="true" />
         {hasUnread && (
           <span

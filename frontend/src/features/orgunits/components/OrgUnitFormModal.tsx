@@ -13,6 +13,9 @@ import { Loader2, Shield } from 'lucide-react'
 import { Dialog, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import type { OrgUnitResponse, OrgHierarchyLevelResponse } from '@/types/orgUnit'
+import { useTranslation } from 'react-i18next'
+import { useFormDraft } from '@/hooks/useFormDraft'
+import DraftNotice from '@/components/common/DraftNotice'
 
 interface OrgUnitFormModalProps {
   open: boolean
@@ -22,6 +25,7 @@ interface OrgUnitFormModalProps {
 }
 
 export default function OrgUnitFormModal({ open, onClose, editUnit, initialParentId }: OrgUnitFormModalProps) {
+  const { t } = useTranslation('orgunits')
   const isEdit = !!editUnit
   const qc = useQueryClient()
   const { user } = useAuthStore()
@@ -57,8 +61,8 @@ export default function OrgUnitFormModal({ open, onClose, editUnit, initialParen
   }
   const flatParents = useMemo(() => treeData ? flattenTree(treeData) : [], [treeData])
 
-  const { register, handleSubmit, formState: { errors }, reset, watch, setValue, getValues } = useForm<OrgUnitFormData>({
-    resolver: zodResolver(orgUnitSchema),
+  const formApi = useForm<OrgUnitFormData>({
+    resolver: zodResolver(orgUnitSchema()),
     values: editUnit ? {
       name: editUnit.name,
       code: editUnit.code ?? '',
@@ -78,6 +82,8 @@ export default function OrgUnitFormModal({ open, onClose, editUnit, initialParen
       roleIds: []
     },
   })
+  const { register, handleSubmit, formState: { errors }, reset, watch, setValue, getValues } = formApi
+  const draft = useFormDraft(formApi, { key: `org-unit-form:${editUnit?.id ?? `new:${initialParentId ?? ''}`}`, enabled: open })
 
   const watchParentId = watch('parentId')
   const isRoot = !watchParentId
@@ -128,12 +134,12 @@ export default function OrgUnitFormModal({ open, onClose, editUnit, initialParen
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['orgUnits'] })
-      toast.success('Tạo đơn vị thành công')
+      toast.success(t('OrgUnitFormModal.unitCreatedSuccessfully'))
       reset()
       onClose()
     },
     onError: (err: any) => {
-      toast.error(getApiErrorMessage(err, 'Tạo đơn vị thất bại'))
+      toast.error(getApiErrorMessage(err, t('OrgUnitFormModal.failedToCreateUnit')))
     },
   })
 
@@ -154,11 +160,11 @@ export default function OrgUnitFormModal({ open, onClose, editUnit, initialParen
     },
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['orgUnits'] })
-      toast.success('Cập nhật đơn vị thành công')
+      toast.success(t('OrgUnitFormModal.unitUpdatedSuccessfully'))
       onClose()
     },
     onError: (err: any) => {
-      toast.error(getApiErrorMessage(err, 'Cập nhật thất bại'))
+      toast.error(getApiErrorMessage(err, t('OrgUnitFormModal.updateFailed')))
     },
   })
 
@@ -218,30 +224,31 @@ export default function OrgUnitFormModal({ open, onClose, editUnit, initialParen
       onClose={onClose}
       size="md"
       dismissible={!isPending}
-      title={isEdit ? 'Chỉnh sửa đơn vị' : 'Thêm đơn vị mới'}
-      description="Thiết lập thông tin đơn vị tổ chức"
+      title={isEdit ? t('OrgUnitFormModal.editUnit') : t('OrgUnitFormModal.addANewUnit')}
+      description={t('OrgUnitFormModal.setUpOrganizationUnitInformation')}
       footer={
         <DialogFooter
-          secondary={<Button variant="outline" onClick={onClose} disabled={isPending}>Hủy</Button>}
+          secondary={<Button variant="outline" onClick={onClose} disabled={isPending}>{t('OrgUnitFormModal.cancel')}</Button>}
           primary={
             <Button type="submit" form="org-unit-form" disabled={isPending}>
               {isPending && <Loader2 className="animate-spin" aria-hidden="true" />}
-              {isEdit ? 'Cập nhật' : 'Tạo mới'}
+              {isEdit ? t('OrgUnitFormModal.update') : t('OrgUnitFormModal.create')}
             </Button>
           }
         />
       }
     >
+      <DraftNotice draft={draft} className="mb-4" />
       <form id="org-unit-form" onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="text-label block font-medium mb-1.5">Tên đơn vị <span className="text-[var(--color-error)]">*</span></label>
-            <input {...register('name')} className={inputCls} placeholder="VD: Phòng Kỹ thuật" />
+            <label className="text-label block font-medium mb-1.5">{t('OrgUnitFormModal.unitName')} <span className="text-[var(--color-error)]">*</span></label>
+            <input {...register('name')} className={inputCls} placeholder={t('OrgUnitFormModal.eGEngineeringDepartment')} />
             {errors.name && <p className="text-[var(--color-error)] text-xs mt-1">{errors.name.message}</p>}
           </div>
 
           <div>
-            <label className="text-label block font-medium mb-1.5">Mã bộ phận <span className="text-[var(--color-error)]">*</span></label>
+            <label className="text-label block font-medium mb-1.5">{t('OrgUnitFormModal.unitCode')} <span className="text-[var(--color-error)]">*</span></label>
             <input 
               {...register('code')} 
               disabled={isRoot && !isEdit}
@@ -253,9 +260,9 @@ export default function OrgUnitFormModal({ open, onClose, editUnit, initialParen
         </div>
 
         <div>
-          <label className="text-label block font-medium mb-1.5">Cấp bậc tổ chức <span className="text-[var(--color-error)]">*</span></label>
+          <label className="text-label block font-medium mb-1.5">{t('OrgUnitFormModal.organizationLevel')} <span className="text-[var(--color-error)]">*</span></label>
           <select {...register('orgHierarchyId')} className={inputCls}>
-            <option value="">— Chọn cấp bậc —</option>
+            <option value="">{t('OrgUnitFormModal.chooseLevel')}</option>
             {hierarchyLevels?.map((level: OrgHierarchyLevelResponse) => (
               <option key={level.id} value={level.id}>
                 {level.unitTypeName}{level.managerRoleLabel ? ` (${level.managerRoleLabel})` : ''}
@@ -267,9 +274,9 @@ export default function OrgUnitFormModal({ open, onClose, editUnit, initialParen
 
         {!isEdit && (
           <div>
-            <label className="text-label block font-medium mb-1.5">Đơn vị cha</label>
+            <label className="text-label block font-medium mb-1.5">{t('OrgUnitFormModal.parentUnit')}</label>
             <select {...register('parentId')} className={inputCls}>
-              <option value="">— Gốc (không có cha) —</option>
+              <option value="">{t('OrgUnitFormModal.rootNoParent')}</option>
               {flatParents.map(p => (
                 <option key={p.id} value={p.id}>{p.levelLabel}</option>
               ))}
@@ -285,22 +292,22 @@ export default function OrgUnitFormModal({ open, onClose, editUnit, initialParen
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label className="text-label block font-medium mb-1.5">Số điện thoại</label>
+            <label className="text-label block font-medium mb-1.5">{t('OrgUnitFormModal.phoneNumber')}</label>
             <input {...register('phone')} className={inputCls} placeholder="0912 345 678" />
             {errors.phone && <p className="text-[var(--color-error)] text-xs mt-1">{errors.phone.message}</p>}
           </div>
           <div>
-            <label className="text-label block font-medium mb-1.5">Địa chỉ</label>
-            <input {...register('address')} className={inputCls} placeholder="Tầng 5, Tòa A" />
+            <label className="text-label block font-medium mb-1.5">{t('OrgUnitFormModal.address')}</label>
+            <input {...register('address')} className={inputCls} placeholder={t('OrgUnitFormModal.n5thFloorBuildingA')} />
           </div>
         </div>
 
         <div className="pt-4 border-t border-[var(--color-border)]">
           <label className="text-label block mb-3 flex items-center gap-2">
             <Shield size={16} className="text-[var(--color-primary)]" />
-            Phạm vi vai trò được phép
+            {t('OrgUnitFormModal.allowedRoleScope')}
           </label>
-          <p className="text-caption mb-4 italic">Giới hạn các vai trò có thể gán cho thành viên trong đơn vị này. Nếu không chọn, sẽ không có vai trò nào được phép gán.</p>
+          <p className="text-caption mb-4 italic">{t('OrgUnitFormModal.limitsTheRolesThatCanBe')}</p>
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
             {filteredRoles.map((role: any) => (
               <label key={role.id} className="flex items-center p-3 rounded-card border border-[var(--color-border)] hover:bg-[var(--color-accent)] transition-all cursor-pointer group">
@@ -314,7 +321,7 @@ export default function OrgUnitFormModal({ open, onClose, editUnit, initialParen
                   <p className="text-sm font-medium text-[var(--color-foreground)] group-hover:text-[var(--color-primary)] transition-colors">
                     {role.name}
                   </p>
-                  <p className="text-caption">{role.isSystem ? 'Hệ thống' : 'Tùy chỉnh'}</p>
+                  <p className="text-caption">{role.isSystem ? t('OrgUnitFormModal.system') : t('OrgUnitFormModal.custom')}</p>
                 </div>
               </label>
             ))}

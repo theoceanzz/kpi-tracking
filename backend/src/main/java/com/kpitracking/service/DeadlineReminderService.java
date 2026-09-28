@@ -1,5 +1,6 @@
 package com.kpitracking.service;
 
+import com.kpitracking.i18n.LocalizedText;
 import com.kpitracking.entity.KpiCriteria;
 import com.kpitracking.entity.KpiReminder;
 import com.kpitracking.entity.User;
@@ -40,6 +41,10 @@ public class DeadlineReminderService {
           try {
             Instant effectiveDeadline = kpi.getEffectiveDeadline();
             if (kpi.getKpiPeriod() == null || kpi.getKpiPeriod().getStartDate() == null || effectiveDeadline == null) {
+                continue;
+            }
+            // Kỳ đã khoá: KPI không nộp được nữa, nhắc hạn chỉ gây nhiễu.
+            if (EvaluationReminderService.isClosedForReminders(kpi.getKpiPeriod())) {
                 continue;
             }
 
@@ -96,8 +101,8 @@ public class DeadlineReminderService {
         Integer percentage = kpi.getOrgUnit().getOrgHierarchyLevel().getOrganization().getKpiReminderPercentage();
         if (percentage == null) percentage = 50;
 
-        String title = "Nhắc nhở Deadline: " + kpi.getName();
-        String message = String.format("Bạn đã đi qua %d%% thời gian của đợt nộp KPI thứ %d cho chỉ tiêu '%s'. Vui lòng hoàn thành báo cáo sớm nhất có thể!", 
+        LocalizedText title = LocalizedText.of("notif.reminder.deadline.title", kpi.getName());
+        LocalizedText message = LocalizedText.of("notif.reminder.deadline.message",
                 percentage, batchNumber, kpi.getName());
 
         java.util.UUID orgId = kpi.getOrgUnit().getOrgHierarchyLevel().getOrganization().getId();

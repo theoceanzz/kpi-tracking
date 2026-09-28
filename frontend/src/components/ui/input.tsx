@@ -1,6 +1,8 @@
 import * as React from 'react'
 import { cva, type VariantProps } from 'class-variance-authority'
 import { cn } from '@/lib/utils'
+import { LocaleNumberInput } from './number-input'
+import { LocaleDateInput } from './date-input'
 
 /**
  * Ô nhập chuẩn của hệ thống (UX_PATTERNS.md §R17). Code mới dùng component này thay cho
@@ -35,7 +37,14 @@ export interface InputProps
     VariantProps<typeof inputVariants> {
   /** Icon/chữ nhỏ đứng trước nội dung (kính lúp, @, ký hiệu tiền). */
   prefix?: React.ReactNode
-  /** Đơn vị, nút mắt mật khẩu, nút xoá… đứng sau nội dung. Có suffix thì bút chì tự tắt. */
+  /**
+   * Đơn vị, nút mắt mật khẩu, nút xoá… đứng sau nội dung. Có suffix thì bút chì tự tắt.
+   *
+   * ⚠️ Đừng bật/tắt prefix/suffix (node ↔ undefined) trên ô đang `register` của react-hook-form:
+   * có/không phụ kiện là hai cây DOM khác nhau nên React tạo lại thẻ `<input>`, và giá trị vừa
+   * `setValue` rơi khỏi form dù ô vẫn hiện số. Suffix phụ thuộc dữ liệu (đơn vị tính) thì luôn
+   * truyền một node, có thể rỗng: `suffix={<span>{unit}</span>}`.
+   */
   suffix?: React.ReactNode
   /** Viền đỏ + `aria-invalid`; truyền `!!errors.field` từ react-hook-form. */
   invalid?: boolean
@@ -46,12 +55,21 @@ export interface InputProps
 const Input = React.forwardRef<HTMLInputElement, InputProps>(
   ({ className, inputClassName, size, prefix, suffix, invalid, type = 'text', ...props }, ref) => {
     const ariaInvalid = invalid ? true : props['aria-invalid']
+    // Số và ngày nhập theo ngôn ngữ đang chọn (docs/I18N_DESIGN.md §5): cùng props / onChange /
+    // register() như thẻ gốc, e.target.value vẫn là giá trị chuẩn (1000.5, 2026-09-26).
+    const Field = (
+      type === 'number'
+        ? LocaleNumberInput
+        : type === 'date' || type === 'datetime-local' || type === 'month'
+          ? LocaleDateInput
+          : 'input'
+    ) as 'input'
 
     // Không có phụ kiện: trả về đúng một thẻ <input>, không thêm DOM — codemod thay thế
     // <input> thô sang <Input> không làm đổi bố cục.
     if (prefix == null && suffix == null) {
       return (
-        <input
+        <Field
           ref={ref}
           type={type}
           aria-invalid={ariaInvalid}
@@ -67,6 +85,7 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
     return (
       <div
         data-disabled={props.disabled ? '' : undefined}
+        data-readonly={props.readOnly ? '' : undefined}
         aria-invalid={ariaInvalid}
         className={cn(
           inputVariants({ size }),
@@ -74,13 +93,17 @@ const Input = React.forwardRef<HTMLInputElement, InputProps>(
           'focus-within:border-[var(--color-ring)] focus-within:ring-2 focus-within:ring-[var(--color-ring)]',
           'aria-[invalid=true]:focus-within:ring-[var(--color-error-solid)]',
           'data-[disabled]:cursor-not-allowed data-[disabled]:opacity-50',
+          // `read-only:` của inputVariants khớp cả <div> (div luôn :read-only) nên khung bọc mọi ô
+          // có suffix từng bị tô xám như bị khoá. Trả về nền thường, chỉ xám khi input thật sự readOnly.
+          'read-only:bg-[var(--color-card)] read-only:text-[var(--color-foreground)]',
+          'data-[readonly]:bg-[var(--color-muted)] data-[readonly]:text-[var(--color-muted-foreground)]',
           className,
         )}
       >
         {prefix != null && (
           <span className="flex shrink-0 items-center text-[var(--color-muted-foreground)] [&_svg]:size-4">{prefix}</span>
         )}
-        <input
+        <Field
           ref={ref}
           type={type}
           aria-invalid={ariaInvalid}

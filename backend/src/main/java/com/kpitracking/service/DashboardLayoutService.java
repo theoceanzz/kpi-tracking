@@ -8,7 +8,9 @@ import com.kpitracking.entity.User;
 import com.kpitracking.entity.UserDashboardLayout;
 import com.kpitracking.enums.DashboardScope;
 import com.kpitracking.exception.BusinessException;
+import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.ResourceNotFoundException;
+import com.kpitracking.i18n.Terms;
 import com.kpitracking.repository.UserDashboardLayoutRepository;
 import com.kpitracking.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -32,7 +34,7 @@ public class DashboardLayoutService {
     private User getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         return userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("Người dùng", "email", email));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.user"), "email", email));
     }
 
     @Transactional(readOnly = true)
@@ -83,13 +85,13 @@ public class DashboardLayoutService {
         try {
             JsonNode node = objectMapper.readTree(raw);
             if (!node.isArray()) {
-                throw new BusinessException("Bố cục phải là một mảng JSON");
+                throw new BusinessException(ErrorCode.LAYOUT_MUST_JSON_ARRAY);
             }
             return objectMapper.writeValueAsString(node);
         } catch (BusinessException e) {
             throw e;
         } catch (Exception e) {
-            throw new BusinessException("Bố cục không phải JSON hợp lệ");
+            throw new BusinessException(ErrorCode.LAYOUT_NOT_VALID_JSON);
         }
     }
 }

@@ -77,4 +77,9 @@ public class AgentFactory {
     public FollowupAgent followupAgent(ChatModel chatModel) {
         return AiServices.builder(FollowupAgent.class).chatModel(chatModel).build();
     }
+
+    @Bean
+    public Feedback360SummaryAgent feedback360SummaryAgent(ChatModel chatModel) {
+        return AiServices.builder(Feedback360SummaryAgent.class).chatModel(chatModel).build();
+    }
 }

@@ -15,7 +15,7 @@ import type { KpiCriteria } from '@/types/kpi'
 import {
   Target, Plus, Send, Pencil, Trash2, MoreVertical, AlertCircle, Upload, Eye,
   LayoutGrid, List, ChevronDown, GitBranch, ListPlus, CornerDownRight,
-  ChevronsDownUp, ChevronsUpDown, Inbox, FileText, Clock, Loader2, Bot,
+  ChevronsDownUp, ChevronsUpDown, Inbox, FileText, Clock, Loader2, Bot, Lock
 } from 'lucide-react'
 import AiShortcutButton from '@/features/analytics/components/AiShortcutButton'
 import { aiShortcuts } from '@/features/analytics/aiShortcuts'
@@ -25,6 +25,7 @@ import WorkspaceHeader from '@/components/common/WorkspaceHeader'
 import FilterBar, { SegmentedControl } from '@/components/common/FilterBar'
 import BulkActionBar from '@/components/common/BulkActionBar'
 import StatusBadge from '@/components/common/StatusBadge'
+import ApprovalStepHint from '../components/ApprovalStepHint'
 import { Button } from '@/components/ui/button'
 import KpiTagChips from '../components/KpiTagChips'
 import KpiDetailModal from '../components/KpiDetailModal'
@@ -65,6 +66,9 @@ import { usePersonGroupCollapse } from '@/hooks/usePersonGroupCollapse'
 import { buildKpiRows } from '../utils/kpiTree'
 import { findDecompositionParentIds, sumWeightForPerson, totalWeightForUnit } from '../utils/realWeight'
 import { scorecardsForPeriod } from '@/features/bsc/utils/scorecardScope'
+import { LockedBadge } from '../components/CycleLockHint'
+import { kpiLockReason } from '../utils/cycleLockReason'
+import { useTranslation } from 'react-i18next'
 
 /** Số nhóm (đơn vị, hoặc người khi chỉ có một đơn vị) hiển thị mỗi trang. */
 const GROUP_PAGE_SIZE = 10
@@ -99,6 +103,7 @@ const KPI_TYPE_FILTERS: Record<KpiTypeFilterKey, KpiTypeFilterParams> = {
 }
 
 export default function KpiCriteriaPage() {
+  const { t: tr } = useTranslation('kpi')
   const [searchParams] = useSearchParams()
   const { goToNext, nextReachableStage } = useWorkflowNavigator()
   const suggestNextStep = useNextStepHint()
@@ -259,7 +264,7 @@ export default function KpiCriteriaPage() {
   const bulkDeleteMutation = useBulkDeleteKpi()
 
   const { data: customLabels = {} } = useSidebarSettings(organizationId!)
-  const rawTitle = (customLabels as Record<string, string>)['/kpi-criteria'] || 'Thiết lập chỉ tiêu'
+  const rawTitle = (customLabels as Record<string, string>)['/kpi-criteria'] || tr('KpiCriteriaPage.kpiSetup')
 
   const importMutation = useMutation({
     mutationFn: (vars: { file: File; kpiType: KpiType }) => kpiApi.importFile(vars.file, selectedPeriodId === 'ALL' ? undefined : selectedPeriodId, selectedOrgUnitId === 'ALL' ? undefined : selectedOrgUnitId, vars.kpiType),
@@ -268,13 +273,13 @@ export default function KpiCriteriaPage() {
       qc.invalidateQueries({ queryKey: ['stats'] })
       setActiveTab('ALL')
       setPage(0)
-      toast.success(`Import thành công ${result.successfulImports}/${result.totalRows} dòng`)
+      toast.success(tr('KpiCriteriaPage.importedRowsSuccessfully', { successfulImports: result.successfulImports, totalRows: result.totalRows }))
       if (result.errors.length > 0) {
         result.errors.forEach((e) => toast.error(e))
       }
     },
     onError: (error) => {
-      toast.error(getApiErrorMessage(error, 'Import thất bại'))
+      toast.error(getApiErrorMessage(error, tr('KpiCriteriaPage.importFailed')))
     },
   })
 
@@ -336,12 +341,12 @@ export default function KpiCriteriaPage() {
       filteredKpis,
       kpi => {
         const id = kpi.orgUnitId || kpi.orgUnitIds?.[0]
-        return id ? { id, name: kpi.orgUnitName || 'Đơn vị không tên' } : null
+        return id ? { id, name: kpi.orgUnitName || tr('KpiCriteriaPage.unnamedUnit') } : null
       },
       extractAssignees,
       unitOrder,
     ),
-    [filteredKpis, unitOrder]
+    [filteredKpis, unitOrder, tr]
   )
   const personGroups = useMemo(() => groupByPerson(filteredKpis, extractAssignees), [filteredKpis])
 
@@ -402,8 +407,9 @@ export default function KpiCriteriaPage() {
     setSelectedKpiIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])
   }
 
+  // KPI thuộc kỳ đã khoá không gửi duyệt được (server chặn) nên cũng không cho chọn.
   const isSelectableKpi = (k: KpiCriteria) =>
-    (k.status === 'DRAFT' || k.status === 'REJECTED') && k.createdById === user?.id
+    (k.status === 'DRAFT' || k.status === 'REJECTED') && k.createdById === user?.id && !kpiLockReason(k)
 
   /** Chọn/bỏ chọn toàn bộ KPI gửi duyệt được của riêng một người. */
   const toggleSelectPerson = (kpis: KpiCriteria[]) => {
@@ -468,11 +474,11 @@ export default function KpiCriteriaPage() {
     const weight = sumWeight(items)
     return (
       <>
-        <PersonGroupBadge label="chỉ tiêu" value={items.length} />
-        {draft > 0 && <PersonGroupBadge label="nháp" value={draft} tone="rose" />}
-        {pending > 0 && <PersonGroupBadge label="chờ duyệt" value={pending} tone="amber" />}
+        <PersonGroupBadge label={tr('KpiCriteriaPage.kpis')} value={items.length} />
+        {draft > 0 && <PersonGroupBadge label={tr('KpiCriteriaPage.draft')} value={draft} tone="rose" />}
+        {pending > 0 && <PersonGroupBadge label={tr('KpiCriteriaPage.pendingApproval')} value={pending} tone="amber" />}
         <PersonGroupBadge
-          label="trọng số"
+          label={tr('KpiCriteriaPage.weights')}
           value={`${formatNumber(weight)}%`}
           tone={Math.round(weight) === 100 ? 'emerald' : 'indigo'}
         />
@@ -491,15 +497,15 @@ export default function KpiCriteriaPage() {
     const unitWeight = totalWeightForUnit(unit.items, realWeightById, decompositionParentIds)
     return (
       <>
-        <PersonGroupBadge label="nhân sự" value={unit.people.length} tone="indigo" />
-        <PersonGroupBadge label="chỉ tiêu" value={unit.items.length} />
-        {pending > 0 && <PersonGroupBadge label="chờ duyệt" value={pending} tone="amber" />}
+        <PersonGroupBadge label={tr('KpiCriteriaPage.people')} value={unit.people.length} tone="indigo" />
+        <PersonGroupBadge label={tr('KpiCriteriaPage.kpis')} value={unit.items.length} />
+        {pending > 0 && <PersonGroupBadge label={tr('KpiCriteriaPage.pendingApproval')} value={pending} tone="amber" />}
         <PersonGroupBadge
-          label="tổng trọng số"
+          label={tr('KpiCriteriaPage.totalWeight')}
           value={`${formatNumber(unitWeight)}%`}
           tone={Math.round(unitWeight) === 100 ? 'emerald' : 'rose'}
         />
-        {offTarget > 0 && <PersonGroupBadge label="chưa đủ 100%" value={offTarget} tone="rose" />}
+        {offTarget > 0 && <PersonGroupBadge label={tr('KpiCriteriaPage.not100Yet')} value={offTarget} tone="rose" />}
       </>
     )
   }
@@ -510,8 +516,8 @@ export default function KpiCriteriaPage() {
     if (selectable.length === 0) return null
     const allSelected = selectable.every(k => selectedKpiIds.includes(k.id))
     return (
-      <Button variant={allSelected ? 'secondary' : 'outline'} size="sm" onClick={() => toggleSelectPerson(items)} title={`Chọn ${selectable.length} chỉ tiêu có thể gửi duyệt`} aria-pressed={allSelected}>
-        {allSelected ? 'Bỏ chọn' : `Chọn ${selectable.length}`}
+      <Button variant={allSelected ? 'secondary' : 'outline'} size="sm" onClick={() => toggleSelectPerson(items)} title={tr('KpiCriteriaPage.selectKpisThatCanBeSubmitted', { count: selectable.length })} aria-pressed={allSelected}>
+        {allSelected ? tr('KpiCriteriaPage.deselect') : tr('KpiCriteriaPage.select', { length: selectable.length })}
       </Button>
     )
   }
@@ -575,47 +581,47 @@ export default function KpiCriteriaPage() {
   }
 
   const overflowActive = (startDateFilter ? 1 : 0) + (endDateFilter ? 1 : 0) + (selectedPerspectiveId !== 'ALL' ? 1 : 0) + (selectedObjectiveId !== 'ALL' ? 1 : 0) + (selectedKeyResultId !== 'ALL' ? 1 : 0)
-  const TAB_LABELS: Record<string, string> = { ALL: 'Tất cả', DRAFT: 'Nháp', PENDING_APPROVAL: 'Chờ duyệt', APPROVED: 'Đã duyệt', REJECTED: 'Bị trả lại' }
+  const TAB_LABELS: Record<string, string> = { ALL: tr('KpiCriteriaPage.all'), DRAFT: tr('KpiCriteriaPage.draft2'), PENDING_APPROVAL: tr('KpiCriteriaPage.pendingApproval2'), APPROVED: tr('KpiCriteriaPage.approved'), REJECTED: tr('KpiCriteriaPage.returned') }
   const selectableCount = selectableKpis.length
 
   const groupToggle = (unitMode || personMode) && (
     <>
-      <Button variant="ghost" size="icon-sm" title="Mở tất cả nhóm" aria-label="Mở tất cả nhóm" onClick={() => { if (unitMode) unitCollapse.expandAll(visibleUnits.map(u => u.id)); else personCollapse.expandAll(visibleGroups.map(g => g.id)) }}><ChevronsUpDown aria-hidden="true" /></Button>
-      <Button variant="ghost" size="icon-sm" title="Thu gọn tất cả nhóm" aria-label="Thu gọn tất cả nhóm" onClick={() => { unitCollapse.collapseAll(); personCollapse.collapseAll() }}><ChevronsDownUp aria-hidden="true" /></Button>
+      <Button variant="ghost" size="icon-sm" title={tr('KpiCriteriaPage.expandAllGroups')} aria-label={tr('KpiCriteriaPage.expandAllGroups')} onClick={() => { if (unitMode) unitCollapse.expandAll(visibleUnits.map(u => u.id)); else personCollapse.expandAll(visibleGroups.map(g => g.id)) }}><ChevronsUpDown aria-hidden="true" /></Button>
+      <Button variant="ghost" size="icon-sm" title={tr('KpiCriteriaPage.collapseAllGroups')} aria-label={tr('KpiCriteriaPage.collapseAllGroups')} onClick={() => { unitCollapse.collapseAll(); personCollapse.collapseAll() }}><ChevronsDownUp aria-hidden="true" /></Button>
     </>
   )
 
-  const emptyTitle = search ? 'Không tìm thấy chỉ tiêu' : activeTab !== 'ALL' ? `Không có chỉ tiêu ${TAB_LABELS[activeTab]?.toLowerCase()}` : 'Chưa có chỉ tiêu nào'
-  const emptyDesc = search || activeTab !== 'ALL' ? 'Thử đổi bộ lọc hoặc xoá tìm kiếm.' : 'Tạo chỉ tiêu mới, nhập từ Excel, hoặc dùng trình thiết lập nhanh.'
+  const emptyTitle = search ? tr('KpiCriteriaPage.noKpisFound') : activeTab !== 'ALL' ? tr('KpiCriteriaPage.noKpis', { toLowerCase: TAB_LABELS[activeTab]?.toLowerCase() }) : tr('KpiCriteriaPage.noKpisYet')
+  const emptyDesc = search || activeTab !== 'ALL' ? tr('KpiCriteriaPage.tryChangingTheFiltersOrClearing') : tr('KpiCriteriaPage.createANewKpiImportFrom')
 
   return (
     <div className="mx-auto max-w-[1600px] space-y-4">
       <WorkspaceHeader
         id="tour-kpi-header"
         title={rawTitle}
-        description="Tạo, giao và gửi duyệt chỉ tiêu cho nhân sự, đơn vị. Tổng trọng số mỗi người phải đúng 100% mới gửi duyệt được."
+        description={tr('KpiCriteriaPage.createAssignAndSubmitKpisFor')}
         stats={[
-          { label: 'Chỉ tiêu', value: stats.total, icon: Target },
-          { label: 'Nháp', value: stats.draft, icon: FileText },
-          { label: 'Chờ duyệt', value: stats.pending, icon: Clock },
+          { label: tr('KpiCriteriaPage.kpis2'), value: stats.total, icon: Target },
+          { label: tr('KpiCriteriaPage.draft2'), value: stats.draft, icon: FileText },
+          { label: tr('KpiCriteriaPage.pendingApproval2'), value: stats.pending, icon: Clock },
         ]}
         /* Hàng trên: khối số liệu + nút chính "Tạo chỉ tiêu"; ba nút phụ xuống hàng dưới qua khe `children`. */
-        actions={<Button id="tour-kpi-add-btn" onClick={() => { setEditKpi(null); setShowForm(true) }}><Plus aria-hidden="true" /> Tạo chỉ tiêu</Button>}
+        actions={<Button id="tour-kpi-add-btn" onClick={() => { setEditKpi(null); setShowForm(true) }}><Plus aria-hidden="true" /> {tr('KpiCriteriaPage.createKpi')}</Button>}
       >
         <div className="flex flex-wrap gap-2 sm:justify-end">
-          <Button variant="outline" onClick={() => setShowImportGuide(true)}><Upload aria-hidden="true" /> Nhập Excel</Button>
+          <Button variant="outline" onClick={() => setShowImportGuide(true)}><Upload aria-hidden="true" /> {tr('KpiCriteriaPage.excelImport')}</Button>
           {selectedPeriodId && selectedOrgUnitId && (
-            <Button variant="outline" onClick={() => setShowUrgentModal(true)}><Zap aria-hidden="true" /> Việc khẩn</Button>
+            <Button variant="outline" onClick={() => setShowUrgentModal(true)}><Zap aria-hidden="true" /> {tr('KpiCriteriaPage.urgentTask')}</Button>
           )}
           {hasPermission('KPI:SUBMIT') && selectedOrgUnitId && (
             <AiShortcutButton
-              label="Gửi duyệt bằng K.AI"
+              label={tr('KpiCriteriaPage.submitWithKAi')}
               prompt={aiShortcuts.submitDraftKpis(
                 flatOrgUnits.find(u => u.id === selectedOrgUnitId)?.name ?? null,
                 periodsData?.content?.find(p => p.id === selectedPeriodId)?.name ?? null,
               )}
               focusUnitId={selectedOrgUnitId}
-              title="K.AI kiểm tra trọng số rồi liệt kê các KPI nháp của bạn để gửi duyệt — bạn xác nhận sau"
+              title={tr('KpiCriteriaPage.kAiChecksTheWeightsAnd')}
             />
           )}
         </div>
@@ -624,25 +630,25 @@ export default function KpiCriteriaPage() {
       {/* Hàng filter: đợt · loại · sắp xếp · [Bộ lọc phụ] … tìm kiếm · mở/đóng nhóm · dạng xem */}
       <FilterBar
         id="tour-kpi-toolbar"
-        search={{ value: search, onChange: v => { setSearch(v); setPage(0) }, placeholder: 'Tìm chỉ tiêu, nhân sự…' }}
+        search={{ value: search, onChange: v => { setSearch(v); setPage(0) }, placeholder: tr('KpiCriteriaPage.searchKpisPeople') }}
         overflowActiveCount={overflowActive}
         overflow={
           <div className="space-y-3">
     <div>
-              <p className="text-label mb-1.5">Khoảng ngày tạo</p>
+              <p className="text-label mb-1.5">{tr('KpiCriteriaPage.creationDateRange')}</p>
               <div className="flex items-center gap-2">
-                <DatePicker value={startDateFilter} onChange={(v) => { setStartDateFilter(v); setPage(0) }} onClear={() => { setStartDateFilter(''); setPage(0) }} placeholder="Từ ngày" className="flex-1" />
+                <DatePicker value={startDateFilter} onChange={(v) => { setStartDateFilter(v); setPage(0) }} onClear={() => { setStartDateFilter(''); setPage(0) }} placeholder={tr('KpiCriteriaPage.fromDate')} className="flex-1" />
                 <span className="text-caption">–</span>
-                <DatePicker value={endDateFilter} onChange={(v) => { setEndDateFilter(v); setPage(0) }} onClear={() => { setEndDateFilter(''); setPage(0) }} placeholder="Đến ngày" className="flex-1" />
+                <DatePicker value={endDateFilter} onChange={(v) => { setEndDateFilter(v); setPage(0) }} onClear={() => { setEndDateFilter(''); setPage(0) }} placeholder={tr('KpiCriteriaPage.toDate')} className="flex-1" />
                   </div>
                 </div>
                 {enableBsc && (
               <div>
-                <p className="text-label mb-1.5">Hạng mục BSC</p>
+                <p className="text-label mb-1.5">{tr('KpiCriteriaPage.bscItem')}</p>
                     <Select value={selectedPerspectiveId} onValueChange={val => { setSelectedPerspectiveId(val); setPage(0) }}>
-                  <SelectTrigger aria-label="Hạng mục BSC"><SelectValue placeholder="Tất cả hạng mục" /></SelectTrigger>
+                  <SelectTrigger aria-label={tr('KpiCriteriaPage.bscItem')}><SelectValue placeholder={tr('KpiCriteriaPage.allItems')} /></SelectTrigger>
                   <SelectContent className="z-[1100]">
-                    <SelectItem value="ALL">Tất cả hạng mục</SelectItem>
+                    <SelectItem value="ALL">{tr('KpiCriteriaPage.allItems')}</SelectItem>
                         {(bscPerspectives || []).map(p => (
                       <SelectItem key={p.id} value={p.id}>
                         <span className="flex items-center gap-2"><span className="h-2 w-2 shrink-0 rounded-full" style={{ backgroundColor: p.color || 'var(--color-primary)' }} aria-hidden="true" />{p.name}</span>
@@ -655,21 +661,21 @@ export default function KpiCriteriaPage() {
             {enableOkr && (
               <>
                 <div>
-                  <p className="text-label mb-1.5">Mục tiêu OKR</p>
+                  <p className="text-label mb-1.5">{tr('KpiCriteriaPage.okrObjective')}</p>
                   <Select value={selectedObjectiveId} onValueChange={(v) => { setSelectedObjectiveId(v); setSelectedKeyResultId('ALL'); setPage(0) }}>
-                    <SelectTrigger aria-label="Mục tiêu OKR"><SelectValue placeholder="Tất cả mục tiêu" /></SelectTrigger>
+                    <SelectTrigger aria-label={tr('KpiCriteriaPage.okrObjective')}><SelectValue placeholder={tr('KpiCriteriaPage.allObjectives')} /></SelectTrigger>
                     <SelectContent className="z-[1100]">
-                      <SelectItem value="ALL">Tất cả mục tiêu</SelectItem>
+                      <SelectItem value="ALL">{tr('KpiCriteriaPage.allObjectives')}</SelectItem>
                       {objectivesData?.map(obj => <SelectItem key={obj.id} value={obj.id}>{obj.code} · {obj.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
                 </div>
                 <div>
-                  <p className="text-label mb-1.5">Kết quả then chốt</p>
+                  <p className="text-label mb-1.5">{tr('KpiCriteriaPage.keyResult')}</p>
                   <Select value={selectedKeyResultId} onValueChange={(v) => { setSelectedKeyResultId(v); setPage(0) }} disabled={selectedObjectiveId === 'ALL'}>
-                    <SelectTrigger aria-label="Kết quả then chốt"><SelectValue placeholder="Tất cả kết quả" /></SelectTrigger>
+                    <SelectTrigger aria-label={tr('KpiCriteriaPage.keyResult')}><SelectValue placeholder={tr('KpiCriteriaPage.allResults')} /></SelectTrigger>
                     <SelectContent className="z-[1100]">
-                      <SelectItem value="ALL">Tất cả kết quả</SelectItem>
+                      <SelectItem value="ALL">{tr('KpiCriteriaPage.allResults')}</SelectItem>
                       {keyResults.map(kr => <SelectItem key={kr.id} value={kr.id}>{kr.code} · {kr.name}</SelectItem>)}
                     </SelectContent>
                   </Select>
@@ -677,72 +683,72 @@ export default function KpiCriteriaPage() {
               </>
             )}
             {overflowActive > 0 && (
-              <Button variant="ghost" size="sm" onClick={() => { setStartDateFilter(''); setEndDateFilter(''); setSelectedPerspectiveId('ALL'); setSelectedObjectiveId('ALL'); setSelectedKeyResultId('ALL'); setPage(0) }}>Xoá bộ lọc phụ</Button>
+              <Button variant="ghost" size="sm" onClick={() => { setStartDateFilter(''); setEndDateFilter(''); setSelectedPerspectiveId('ALL'); setSelectedObjectiveId('ALL'); setSelectedKeyResultId('ALL'); setPage(0) }}>{tr('KpiCriteriaPage.clearSecondaryFilters')}</Button>
             )}
           </div>
         }
         trailing={
           <>
             {groupToggle}
-            <SegmentedControl ariaLabel="Dạng hiển thị" value={viewMode} onChange={setViewMode}
-              options={[{ value: 'TABLE', label: <List aria-hidden="true" />, title: 'Dạng bảng' }, { value: 'CARD', label: <LayoutGrid aria-hidden="true" />, title: 'Dạng thẻ' }]} />
+            <SegmentedControl ariaLabel={tr('KpiCriteriaPage.display')} value={viewMode} onChange={setViewMode}
+              options={[{ value: 'TABLE', label: <List aria-hidden="true" />, title: tr('KpiCriteriaPage.tableView') }, { value: 'CARD', label: <LayoutGrid aria-hidden="true" />, title: tr('KpiCriteriaPage.cardView') }]} />
           </>
         }
       >
         <Select value={selectedPeriodId} onValueChange={val => { setSelectedPeriodId(val); setPage(0); resetGroups() }}>
-          <SelectTrigger className="w-full sm:w-auto sm:min-w-52" aria-label="Đợt đánh giá"><SelectValue placeholder="Đợt đánh giá" /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-auto sm:min-w-52" aria-label={tr('KpiCriteriaPage.evaluationPeriods')}><SelectValue placeholder={tr('KpiCriteriaPage.evaluationPeriods')} /></SelectTrigger>
           <SelectContent><ScopeSelectItems items={periodsData?.content} selectedId={selectedPeriodId} /></SelectContent>
         </Select>
 
         <Select value={kpiTypeFilter} onValueChange={val => { setKpiTypeFilter(val as KpiTypeFilterKey); setPage(0) }}>
-          <SelectTrigger className="w-full sm:w-auto sm:min-w-48" aria-label="Loại chỉ tiêu"><SelectValue placeholder="Loại chỉ tiêu" /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-auto sm:min-w-48" aria-label={tr('KpiCriteriaPage.kpiType')}><SelectValue placeholder={tr('KpiCriteriaPage.kpiType')} /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="ALL">Tất cả loại</SelectItem>
+            <SelectItem value="ALL">{tr('KpiCriteriaPage.allTypes')}</SelectItem>
             <SelectGroup>
-              <SelectLabel>Định lượng</SelectLabel>
-              <SelectItem value="QT_ALL">Tất cả định lượng</SelectItem>
-              <SelectItem value="QT_PARENT">KPI cha</SelectItem>
-              <SelectItem value="QT_NORMAL">KPI thường</SelectItem>
-              <SelectItem value="QT_BONUS">KPI thưởng</SelectItem>
-              <SelectItem value="QT_REVERSE">KPI ngược</SelectItem>
+              <SelectLabel>{tr('KpiCriteriaPage.quantitative')}</SelectLabel>
+              <SelectItem value="QT_ALL">{tr('KpiCriteriaPage.allQuantitative')}</SelectItem>
+              <SelectItem value="QT_PARENT">{tr('KpiCriteriaPage.parentKpi')}</SelectItem>
+              <SelectItem value="QT_NORMAL">{tr('KpiCriteriaPage.regularKpi')}</SelectItem>
+              <SelectItem value="QT_BONUS">{tr('KpiCriteriaPage.bonusKpi')}</SelectItem>
+              <SelectItem value="QT_REVERSE">{tr('KpiCriteriaPage.inverseKpi')}</SelectItem>
             </SelectGroup>
             {org?.enableQualitative && (
               <SelectGroup>
-                <SelectLabel>Định tính</SelectLabel>
-                <SelectItem value="QL_ALL">Tất cả định tính</SelectItem>
-                <SelectItem value="QL_PARENT">KPI cha</SelectItem>
-                <SelectItem value="QL_NORMAL">KPI thường</SelectItem>
-                <SelectItem value="QL_BONUS">KPI thưởng</SelectItem>
+                <SelectLabel>{tr('KpiCriteriaPage.qualitative')}</SelectLabel>
+                <SelectItem value="QL_ALL">{tr('KpiCriteriaPage.allQualitative')}</SelectItem>
+                <SelectItem value="QL_PARENT">{tr('KpiCriteriaPage.parentKpi')}</SelectItem>
+                <SelectItem value="QL_NORMAL">{tr('KpiCriteriaPage.regularKpi')}</SelectItem>
+                <SelectItem value="QL_BONUS">{tr('KpiCriteriaPage.bonusKpi')}</SelectItem>
               </SelectGroup>
             )}
                     </SelectContent>
                   </Select>
 
         <Select value={`${sortBy}-${sortDir}`} onValueChange={(val) => { const [field, dir] = val.split('-'); if (field && dir) { setSortBy(field); setSortDir(dir as 'asc' | 'desc'); setPage(0) } }}>
-          <SelectTrigger className="w-full sm:w-auto sm:min-w-44" aria-label="Sắp xếp"><SelectValue placeholder="Sắp xếp" /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-auto sm:min-w-44" aria-label={tr('KpiCriteriaPage.order')}><SelectValue placeholder={tr('KpiCriteriaPage.order')} /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="createdAt-desc">Mới nhất trước</SelectItem>
-            <SelectItem value="createdAt-asc">Cũ nhất trước</SelectItem>
-            <SelectItem value="name-asc">Tên A → Z</SelectItem>
-            <SelectItem value="name-desc">Tên Z → A</SelectItem>
-            <SelectItem value="weight-desc">Trọng số cao → thấp</SelectItem>
-            <SelectItem value="weight-asc">Trọng số thấp → cao</SelectItem>
-            <SelectItem value="targetValue-desc">Mục tiêu cao → thấp</SelectItem>
-            <SelectItem value="targetValue-asc">Mục tiêu thấp → cao</SelectItem>
+            <SelectItem value="createdAt-desc">{tr('KpiCriteriaPage.newestFirst')}</SelectItem>
+            <SelectItem value="createdAt-asc">{tr('KpiCriteriaPage.oldestFirst')}</SelectItem>
+            <SelectItem value="name-asc">{tr('KpiCriteriaPage.nameAZ')}</SelectItem>
+            <SelectItem value="name-desc">{tr('KpiCriteriaPage.nameZA')}</SelectItem>
+            <SelectItem value="weight-desc">{tr('KpiCriteriaPage.weightHighLow')}</SelectItem>
+            <SelectItem value="weight-asc">{tr('KpiCriteriaPage.weightLowHigh')}</SelectItem>
+            <SelectItem value="targetValue-desc">{tr('KpiCriteriaPage.targetHighLow')}</SelectItem>
+            <SelectItem value="targetValue-asc">{tr('KpiCriteriaPage.targetLowHigh')}</SelectItem>
           </SelectContent>
         </Select>
       </FilterBar>
 
       <div id="tour-kpi-tabs" className="flex flex-wrap items-center justify-between gap-3">
         <SegmentedControl
-          ariaLabel="Lọc theo trạng thái"
+          ariaLabel={tr('KpiCriteriaPage.filterByStatus')}
           value={activeTab}
           onChange={(t) => { setActiveTab(t as typeof activeTab); setPage(0) }}
           options={(['ALL', 'DRAFT', 'PENDING_APPROVAL', 'APPROVED', 'REJECTED'] as const).map(t => ({ value: t, label: TAB_LABELS[t] }))}
         />
         {hasPersonalDrafts && activeTab !== 'DRAFT' && (
           <Button variant="ghost" type="button" onClick={() => { setActiveTab('DRAFT'); setPage(0) }}>
-            <AlertCircle aria-hidden="true" /> {personalDraftsData?.totalElements} chỉ tiêu của bạn chưa gửi duyệt
+            <AlertCircle aria-hidden="true" /> {personalDraftsData?.totalElements} {tr('KpiCriteriaPage.ofYourKpisHaveNotBeen')}
                   </Button>
             )}
           </div>
@@ -750,7 +756,7 @@ export default function KpiCriteriaPage() {
           {hitFetchCap && (
         <div role="status" className="flex items-start gap-2 rounded-card border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-4 py-3">
           <AlertCircle size={16} className="mt-0.5 shrink-0 text-[var(--color-warning)]" aria-hidden="true" />
-          <p className="text-sm text-[var(--color-foreground)]">Chỉ hiển thị {GROUPING_FETCH_SIZE} chỉ tiêu gần nhất. Lọc theo đợt hoặc đơn vị để xem đủ.</p>
+          <p className="text-sm text-[var(--color-foreground)]">{tr('KpiCriteriaPage.showingOnly')} {GROUPING_FETCH_SIZE} {tr('KpiCriteriaPage.mostRecentKpisFilterByPeriod')}</p>
             </div>
           )}
 
@@ -758,7 +764,7 @@ export default function KpiCriteriaPage() {
               <LoadingSkeleton type="table" rows={8} />
           ) : filteredKpis.length === 0 ? (
         <div className="rounded-card border border-dashed border-[var(--color-border)] bg-[var(--color-card)]">
-          <EmptyState icon={Inbox} title={emptyTitle} description={emptyDesc} action={!search && activeTab === 'ALL' ? <Button onClick={() => { setEditKpi(null); setShowForm(true) }}><Plus aria-hidden="true" /> Tạo chỉ tiêu</Button> : undefined} />
+          <EmptyState icon={Inbox} title={emptyTitle} description={emptyDesc} action={!search && activeTab === 'ALL' ? <Button onClick={() => { setEditKpi(null); setShowForm(true) }}><Plus aria-hidden="true" /> {tr('KpiCriteriaPage.createKpi')}</Button> : undefined} />
             </div>
           ) : viewMode === 'TABLE' ? (
         <div id="tour-kpi-list" className="overflow-x-auto rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
@@ -767,16 +773,16 @@ export default function KpiCriteriaPage() {
               <tr className="border-b border-[var(--color-border)] bg-[var(--color-muted)]">
                 <th scope="col" className="w-10 px-3 py-2.5">
                   {selectableCount > 0 && (
-                    <input type="checkbox" aria-label={allSelectableSelected ? 'Bỏ chọn tất cả' : 'Chọn tất cả chỉ tiêu gửi duyệt được'} checked={allSelectableSelected} ref={el => { if (el) el.indeterminate = selectedKpiIds.length > 0 && !allSelectableSelected }} onChange={toggleSelectAll} className={CHECKBOX} />
+                    <input type="checkbox" aria-label={allSelectableSelected ? tr('KpiCriteriaPage.deselectAll') : tr('KpiCriteriaPage.selectAllKpisThatCanBe')} checked={allSelectableSelected} ref={el => { if (el) el.indeterminate = selectedKpiIds.length > 0 && !allSelectableSelected }} onChange={toggleSelectAll} className={CHECKBOX} />
                             )}
                       </th>
-                <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">Chỉ tiêu</th>
-                {enableOkr && <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">Mục tiêu / KR</th>}
-                {!personMode && <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">Giao cho</th>}
-                <th scope="col" className="px-4 py-2.5 text-right text-eyebrow">Mục tiêu</th>
-                <th scope="col" className="px-4 py-2.5 text-right text-eyebrow">Trọng số</th>
-                <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">Trạng thái</th>
-                <th scope="col" className="px-3 py-2.5 text-right text-eyebrow">Hành động</th>
+                <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">{tr('KpiCriteriaPage.kpis2')}</th>
+                {enableOkr && <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">{tr('KpiCriteriaPage.objectiveKr')}</th>}
+                {!personMode && <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">{tr('KpiCriteriaPage.assignedTo')}</th>}
+                <th scope="col" className="px-4 py-2.5 text-right text-eyebrow">{tr('KpiCriteriaPage.target')}</th>
+                <th scope="col" className="px-4 py-2.5 text-right text-eyebrow">{tr('KpiCriteriaPage.weight')}</th>
+                <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">{tr('KpiCriteriaPage.status')}</th>
+                <th scope="col" className="px-3 py-2.5 text-right text-eyebrow">{tr('KpiCriteriaPage.actions')}</th>
                     </tr>
                   </thead>
             <tbody className="divide-y divide-[var(--color-border)]">
@@ -842,19 +848,19 @@ export default function KpiCriteriaPage() {
 
       {filteredKpis.length > 0 && (unitMode || personMode) && (
         <div className="rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
-          <Pagination currentPage={groupPage} totalPages={totalGroupPages} onPageChange={setPage} totalElements={totalGroups} size={GROUP_PAGE_SIZE} itemLabel={unitMode ? 'đơn vị' : 'nhân sự'} />
+          <Pagination currentPage={groupPage} totalPages={totalGroupPages} onPageChange={setPage} totalElements={totalGroups} size={GROUP_PAGE_SIZE} itemLabel={unitMode ? tr('KpiCriteriaPage.unit') : tr('KpiCriteriaPage.people')} />
             </div>
           )}
 
-      <BulkActionBar count={selectedKpiIds.length} onClear={() => setSelectedKpiIds([])} itemLabel="chỉ tiêu">
+      <BulkActionBar count={selectedKpiIds.length} onClear={() => setSelectedKpiIds([])} itemLabel={tr('KpiCriteriaPage.kpis')}>
         {allSelectedAreDraft && (
           <Button variant="outline" onClick={() => setShowBulkDeleteConfirm(true)} disabled={bulkDeleteMutation.isPending} className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)]">
-            <Trash2 aria-hidden="true" /> Xoá
+            <Trash2 aria-hidden="true" /> {tr('KpiCriteriaPage.delete')}
           </Button>
               )}
         <Button onClick={() => setShowBulkConfirm(true)} disabled={bulkSubmitMutation.isPending}>
           {bulkSubmitMutation.isPending ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Send aria-hidden="true" />}
-          Gửi duyệt {selectedKpiIds.length} chỉ tiêu
+          {tr('KpiCriteriaPage.submitForApproval')} {selectedKpiIds.length} {tr('KpiCriteriaPage.kpis')}
         </Button>
       </BulkActionBar>
 
@@ -874,18 +880,18 @@ export default function KpiCriteriaPage() {
           open={!!submitKpiId} 
           onClose={() => setSubmitKpiId(null)} 
           onConfirm={() => submitKpiId && submitMutation.mutate(submitKpiId, { onSuccess: () => setSubmitKpiId(null) })} 
-        title="Gửi chỉ tiêu này để duyệt?"
-        description="Cấp quản lý sẽ nhận thông báo và phê duyệt. Sau khi gửi bạn không sửa được cho tới khi được trả lại."
-        confirmLabel="Gửi duyệt"
+        title={tr('KpiCriteriaPage.submitThisKpiForApproval')}
+        description={tr('KpiCriteriaPage.yourManagerWillBeNotifiedAnd')}
+        confirmLabel={tr('KpiCriteriaPage.submitForApproval')}
           loading={submitMutation.isPending} 
         />
         <ConfirmDialog 
           open={!!deleteKpi} 
           onClose={() => setDeleteKpi(null)} 
           onConfirm={() => deleteKpi && deleteMutation.mutate(deleteKpi.id, { onSuccess: () => setDeleteKpi(null) })} 
-        title="Xoá chỉ tiêu?"
-        description={`"${deleteKpi?.name}" sẽ bị xoá vĩnh viễn. Không hoàn tác được.`}
-        confirmLabel="Xoá"
+        title={tr('KpiCriteriaPage.deleteKpi')}
+        description={tr('KpiCriteriaPage.willBeDeletedPermanentlyThisCannot', { name: deleteKpi?.name })}
+        confirmLabel={tr('KpiCriteriaPage.delete')}
           loading={deleteMutation.isPending} 
         />
         <KpiDetailModal open={!!selectedKpi} onClose={() => setSelectedKpi(null)} kpi={selectedKpi} />
@@ -893,18 +899,18 @@ export default function KpiCriteriaPage() {
           open={showBulkConfirm} 
           onClose={() => setShowBulkConfirm(false)} 
           onConfirm={handleBulkSubmit} 
-        title={`Gửi duyệt ${selectedKpiIds.length} chỉ tiêu?`}
-        description="Tổng trọng số của mỗi nhân sự phải đúng 100%. Chỉ tiêu đã gửi không sửa được cho tới khi được trả lại."
-        confirmLabel="Gửi duyệt tất cả"
+        title={tr('KpiCriteriaPage.submitKpisForApproval', { count: selectedKpiIds.length })}
+        description={tr('KpiCriteriaPage.eachPersonsTotalWeightMustBe')}
+        confirmLabel={tr('KpiCriteriaPage.submitAll')}
           loading={bulkSubmitMutation.isPending} 
         />
         <ConfirmDialog
           open={showBulkDeleteConfirm}
           onClose={() => setShowBulkDeleteConfirm(false)}
           onConfirm={handleBulkDelete}
-        title={`Xoá ${selectedKpiIds.length} chỉ tiêu nháp?`}
-        description="Các bản nháp đã chọn sẽ bị xoá vĩnh viễn. Không hoàn tác được."
-          confirmLabel="Xoá tất cả"
+        title={tr('KpiCriteriaPage.deleteDraftKpis', { count: selectedKpiIds.length })}
+        description={tr('KpiCriteriaPage.theSelectedDraftsWillBeDeleted')}
+          confirmLabel={tr('KpiCriteriaPage.deleteAll')}
           loading={bulkDeleteMutation.isPending}
         />
         <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleImport} />
@@ -938,6 +944,7 @@ interface RowProps {
  * Thứ tự cố định: Xem · Phân rã · Thêm KPI con · — · Gửi duyệt · Sửa · Xoá.
  */
 function KpiRowMenu({ kpi, onView, onEdit, onDelete, onSubmit, onDelegate, onDecompose, enableWaterfall }: RowProps) {
+  const { t } = useTranslation('kpi')
   const user = useAuthStore(s => s.user)
   const { hasPermission } = usePermission()
   // "Phân rã bằng K.AI": trợ lý tính bảng chia theo nhân sự và chờ xác nhận — cùng điều kiện với
@@ -947,8 +954,10 @@ function KpiRowMenu({ kpi, onView, onEdit, onDelete, onSubmit, onDelegate, onDec
   const primaryAssigneeId = kpi.assigneeIds?.[0]
   const { data: assigneeWeight } = useKpiTotalWeight(undefined, kpi.kpiPeriodId, primaryAssigneeId)
   const canSubmit = Math.round(assigneeWeight ?? 0) === 100
-  const editable = kpi.status === 'DRAFT' || kpi.status === 'REJECTED'
-  const canDecompose = !kpi.parentId && (kpi.status === 'APPROVED' || kpi.status === 'DRAFT' || kpi.status === 'REJECTED') && (kpi.createdById === user?.id || kpi.assigneeIds?.includes(user?.id ?? ''))
+  // Kỳ đã khoá: mọi thao tác ghi ẩn đi, chỉ còn "Xem chi tiết" kèm dòng giải thích.
+  const lockReason = kpiLockReason(kpi)
+  const editable = !lockReason && (kpi.status === 'DRAFT' || kpi.status === 'REJECTED')
+  const canDecompose = !lockReason && !kpi.parentId && (kpi.status === 'APPROVED' || kpi.status === 'DRAFT' || kpi.status === 'REJECTED') && (kpi.createdById === user?.id || kpi.assigneeIds?.includes(user?.id ?? ''))
 
   const item = 'flex h-9 w-full items-center gap-2.5 rounded-control px-2.5 text-left text-sm text-[var(--color-foreground)] transition-colors hover:bg-[var(--color-muted)] [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-[var(--color-muted-foreground)]'
 
@@ -956,25 +965,28 @@ function KpiRowMenu({ kpi, onView, onEdit, onDelete, onSubmit, onDelegate, onDec
     <div onClick={e => e.stopPropagation()}>
       <Popover>
         <PopoverTrigger asChild>
-          <Button variant="ghost" size="icon-sm" aria-label="Thao tác" title="Thao tác"><MoreVertical aria-hidden="true" /></Button>
+          <Button variant="ghost" size="icon-sm" aria-label={t('KpiCriteriaPage.actions2')} title={t('KpiCriteriaPage.actions2')}><MoreVertical aria-hidden="true" /></Button>
         </PopoverTrigger>
         <PopoverContent align="end" className="w-56 p-1">
-          <button type="button" onClick={onView} className={item}><Eye aria-hidden="true" /> Xem chi tiết</button>
-          {enableWaterfall && kpi.status === 'APPROVED' && (
-            <button type="button" onClick={onDelegate} className={item}><GitBranch aria-hidden="true" /> Phân rã chỉ tiêu</button>
+          <button type="button" onClick={onView} className={item}><Eye aria-hidden="true" /> {t('KpiCriteriaPage.viewDetails')}</button>
+          {lockReason && (
+            <p className="flex items-start gap-2 px-2.5 py-2 text-caption"><Lock aria-hidden="true" className="mt-0.5 size-3.5 shrink-0" />{lockReason}</p>
           )}
-          {enableWaterfall && kpi.status === 'APPROVED' && aiAvailable && hasPermission('KPI:CREATE') && (
+          {!lockReason && enableWaterfall && kpi.status === 'APPROVED' && (
+            <button type="button" onClick={onDelegate} className={item}><GitBranch aria-hidden="true" /> {t('KpiCriteriaPage.cascadeKpi')}</button>
+          )}
+          {!lockReason && enableWaterfall && kpi.status === 'APPROVED' && aiAvailable && hasPermission('KPI:CREATE') && (
             <button
               type="button"
               onClick={() => askAi(aiShortcuts.decomposeKpi(kpi.name), { focusUnitId: kpi.orgUnitId ?? undefined })}
               className={item}
-              title="K.AI chia mục tiêu và trọng số xuống các đơn vị con theo tỉ lệ nhân sự, bạn xác nhận sau"
+              title={t('KpiCriteriaPage.kAiSplitsTheTargetAnd')}
             >
-              <Bot aria-hidden="true" className="!text-[var(--color-ai)]" /> Phân rã bằng K.AI
+              <Bot aria-hidden="true" className="!text-[var(--color-ai)]" /> {t('KpiCriteriaPage.cascadeWithKAi')}
             </button>
           )}
           {canDecompose && (
-            <button type="button" onClick={onDecompose} className={item}><ListPlus aria-hidden="true" /> Thêm KPI con</button>
+            <button type="button" onClick={onDecompose} className={item}><ListPlus aria-hidden="true" /> {t('KpiCriteriaPage.addChildKpi')}</button>
           )}
           {editable && (
             <>
@@ -982,20 +994,20 @@ function KpiRowMenu({ kpi, onView, onEdit, onDelete, onSubmit, onDelegate, onDec
               {kpi.createdById === user?.id && (
                 <button
                   type="button"
-                  onClick={() => { if (canSubmit) onSubmit(); else toast.error(`Tổng trọng số của nhân sự đang là ${Math.round(assigneeWeight ?? 0)}%. Cần đúng 100% mới gửi duyệt được.`) }}
+                  onClick={() => { if (canSubmit) onSubmit(); else toast.error(t('KpiCriteriaPage.thePersonsTotalWeightIsIt', { round: Math.round(assigneeWeight ?? 0) })) }}
                   aria-disabled={!canSubmit}
-                  title={!canSubmit ? `Trọng số hiện tại ${Math.round(assigneeWeight ?? 0)}% — cần đúng 100%` : undefined}
+                  title={!canSubmit ? t('KpiCriteriaPage.currentWeightMustBeExactly100', { round: Math.round(assigneeWeight ?? 0) }) : undefined}
                   className={cn(item, !canSubmit && 'text-[var(--color-muted-foreground)]')}
                 >
-                  <Send aria-hidden="true" /> <span className="flex-1">Gửi duyệt</span>
+                  <Send aria-hidden="true" /> <span className="flex-1">{t('KpiCriteriaPage.submitForApproval')}</span>
                   {!canSubmit && <AlertCircle aria-hidden="true" className="!text-[var(--color-warning)]" />}
                 </button>
               )}
               {(kpi.createdById === user?.id || hasPermission('KPI:UPDATE')) && (
-                <button type="button" onClick={onEdit} className={item}><Pencil aria-hidden="true" /> Sửa</button>
+                <button type="button" onClick={onEdit} className={item}><Pencil aria-hidden="true" /> {t('KpiCriteriaPage.edit')}</button>
               )}
               {(kpi.createdById === user?.id || hasPermission('KPI:DELETE')) && (
-                <button type="button" onClick={onDelete} className={cn(item, 'text-[var(--color-error)] hover:bg-[var(--color-error-bg)] [&_svg]:!text-[var(--color-error)]')}><Trash2 aria-hidden="true" /> Xoá</button>
+                <button type="button" onClick={onDelete} className={cn(item, 'text-[var(--color-error)] hover:bg-[var(--color-error-bg)] [&_svg]:!text-[var(--color-error)]')}><Trash2 aria-hidden="true" /> {t('KpiCriteriaPage.delete')}</button>
               )}
             </>
           )}
@@ -1006,8 +1018,9 @@ function KpiRowMenu({ kpi, onView, onEdit, onDelete, onSubmit, onDelegate, onDec
 }
 
 function WeightText({ kpi, real }: { kpi: KpiCriteria; real?: number | null }) {
+  const { t } = useTranslation('kpi')
   return (
-    <span className="tabular-nums" title={real != null ? `Trọng số thật = ${kpi.weight}% × tỷ trọng hạng mục` : undefined}>
+    <span className="tabular-nums" title={real != null ? t('KpiCriteriaPage.actualWeightItemShare', { weight: kpi.weight }) : undefined}>
       {real != null
         ? <><span className="font-medium text-[var(--color-foreground)]">{real.toFixed(1)}%</span><span className="text-caption"> / {kpi.weight}%</span></>
         : <span className="font-medium text-[var(--color-foreground)]">{kpi.weight}%</span>}
@@ -1016,17 +1029,18 @@ function WeightText({ kpi, real }: { kpi: KpiCriteria; real?: number | null }) {
 }
 
 function KpiTableRow(props: RowProps) {
+  const { t } = useTranslation('kpi')
   const { kpi, depth = 0, childCount = 0, isCollapsed, onToggleCollapse, onView, enableOkr, realWeight, selected, onToggleSelect, isSelectable, hideAssignee } = props
   const isChildRow = depth > 0
   return (
     <tr aria-selected={selected || undefined} className={cn('transition-colors', selected ? 'bg-[var(--color-primary-soft)]' : 'hover:bg-[var(--color-muted)]', isChildRow && !selected && 'bg-[var(--color-background)]')}>
       <td className="w-10 px-3 py-3">
-        {isSelectable && <input type="checkbox" aria-label="Chọn chỉ tiêu" checked={!!selected} onChange={onToggleSelect} className={CHECKBOX} />}
+        {isSelectable && <input type="checkbox" aria-label={t('KpiCriteriaPage.selectKpi')} checked={!!selected} onChange={onToggleSelect} className={CHECKBOX} />}
       </td>
       <td className="px-4 py-3">
         <div className="flex items-start gap-1.5" style={{ paddingLeft: isChildRow ? 24 : 0 }}>
           {!isChildRow && childCount > 0 && (
-            <Button variant="secondary" size="icon" className="mt-0.5 shrink-0" type="button" onClick={onToggleCollapse} aria-expanded={!isCollapsed} aria-label={isCollapsed ? 'Mở rộng KPI con' : 'Thu gọn KPI con'}>
+            <Button variant="secondary" size="icon" className="mt-0.5 shrink-0" type="button" onClick={onToggleCollapse} aria-expanded={!isCollapsed} aria-label={isCollapsed ? t('KpiCriteriaPage.expandChildKpis') : t('KpiCriteriaPage.collapseChildKpis')}>
               <ChevronDown aria-hidden="true" className={cn('transition-transform', isCollapsed && '-rotate-90')} />
             </Button>
           )}
@@ -1057,13 +1071,14 @@ function KpiTableRow(props: RowProps) {
         {kpi.kpiType === 'QUALITATIVE' ? <span className="text-caption">—</span> : <><span className="font-medium text-[var(--color-foreground)]">{formatNumber(kpi.targetValue || 0)}</span>{kpi.unit && <span className="text-caption"> {kpi.unit}</span>}</>}
       </td>
       <td className="px-4 py-3 text-right whitespace-nowrap"><WeightText kpi={kpi} real={realWeight} /></td>
-      <td className="px-4 py-3"><StatusBadge status={kpi.status} /></td>
+      <td className="px-4 py-3"><span className="flex flex-wrap items-center gap-1.5"><StatusBadge status={kpi.status} /><KpiLockBadge kpi={kpi} /></span><ApprovalStepHint kpi={kpi} /></td>
       <td className="px-3 py-2 text-right"><KpiRowMenu {...props} /></td>
     </tr>
   )
 }
 
 function KpiCard(props: RowProps) {
+  const { t } = useTranslation('kpi')
   const { kpi, depth = 0, childCount = 0, isCollapsed, onToggleCollapse, onView, enableOkr, realWeight, hideAssignee } = props
   const isChildRow = depth > 0
   return (
@@ -1073,9 +1088,9 @@ function KpiCard(props: RowProps) {
           <button className="max-w-full truncate text-left text-sm font-medium text-[var(--color-foreground)] transition-colors hover:text-[var(--color-primary)] hover:underline" type="button" onClick={onView}>{kpi.name}</button>
           <div className="mt-1"><KpiTagChips kpi={kpi} childCount={childCount} isChildRow={isChildRow} /></div>
         </div>
-        <StatusBadge status={kpi.status} />
+        <span className="flex flex-col items-end gap-1"><StatusBadge status={kpi.status} /><KpiLockBadge kpi={kpi} /><ApprovalStepHint kpi={kpi} className="max-w-[160px] truncate text-caption" /></span>
       </div>
-      {!hideAssignee && <p className="mt-2 truncate text-caption">{formatAssigneeNames(kpi.assigneeNames) || 'Chưa giao'}{kpi.orgUnitName ? ` · ${kpi.orgUnitName}` : ''}</p>}
+      {!hideAssignee && <p className="mt-2 truncate text-caption">{formatAssigneeNames(kpi.assigneeNames) || t('KpiCriteriaPage.unassigned')}{kpi.orgUnitName ? ` · ${kpi.orgUnitName}` : ''}</p>}
       {enableOkr && kpi.objectiveName && <p className="mt-1 truncate text-caption">OKR: {kpi.objectiveName}</p>}
       <div className="mt-3 flex items-center justify-between gap-3 border-t border-[var(--color-border)] pt-3">
         <div className="flex items-baseline gap-3 tabular-nums">
@@ -1084,11 +1099,18 @@ function KpiCard(props: RowProps) {
         </div>
         <div className="flex items-center gap-0.5">
           {!isChildRow && childCount > 0 && (
-            <Button variant="ghost" size="icon-sm" onClick={onToggleCollapse} aria-label="Mở/thu KPI con"><ChevronDown className={cn('transition-transform', isCollapsed && '-rotate-90')} aria-hidden="true" /></Button>
+            <Button variant="ghost" size="icon-sm" onClick={onToggleCollapse} aria-label={t('KpiCriteriaPage.expandCollapseChildKpis')}><ChevronDown className={cn('transition-transform', isCollapsed && '-rotate-90')} aria-hidden="true" /></Button>
       )}
           <KpiRowMenu {...props} />
         </div>
       </div>
     </div>
   )
+}
+
+/** Badge "Đã khoá" cho KPI thuộc kỳ đã khoá (KPI đã chốt thì chính trạng thái đã nói lên điều đó). */
+function KpiLockBadge({ kpi }: { kpi: KpiCriteria }) {
+  if (kpi.status === 'CLOSED_BY_LOCK') return null
+  const reason = kpiLockReason(kpi)
+  return reason ? <LockedBadge reason={reason} /> : null
 }

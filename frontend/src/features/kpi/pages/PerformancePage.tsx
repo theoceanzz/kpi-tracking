@@ -6,6 +6,10 @@ import KpiApprovalPage from './KpiApprovalPage'
 import KpiAdjustmentApprovalPage from './KpiAdjustmentApprovalPage'
 import CycleEvaluationPage from './CycleEvaluationPage'
 import OrgUnitSubmissionsPage from '@/features/submissions/pages/OrgUnitSubmissionsPage'
+import F360AdminPage from '@/features/feedback360/pages/F360AdminPage'
+import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
+import { useAuthStore } from '@/store/authStore'
+import { useTranslation } from 'react-i18next'
 
 /**
  * Vận hành KPI trong một trang: đặt chỉ tiêu, duyệt chỉ tiêu, xử lý điều chỉnh, rồi
@@ -15,15 +19,18 @@ import OrgUnitSubmissionsPage from '@/features/submissions/pages/OrgUnitSubmissi
  * cần xử lý phải theo lên tận thẻ và tab — bỏ đi là quản lý mất tín hiệu nhắc việc.
  */
 export default function PerformancePage() {
-  const pageTitle = usePageTitle('performance', 'Quản lý hiệu suất')
+  const { t } = useTranslation('kpi')
+  const pageTitle = usePageTitle('performance', t('PerformancePage.performanceManagement'))
   const { counts } = useNotificationDots()
+  const orgId = useAuthStore(s => s.user?.memberships?.[0]?.organizationId)
+  const { data: org } = useOrganization(orgId)
 
   return (
     <>
       <SettingsSectionLayout
         navId="performance"
         title={pageTitle}
-        subtitle="Đặt chỉ tiêu, phê duyệt và chấm điểm theo từng đợt, từng kỳ"
+        subtitle={t('PerformancePage.setKpisApproveAndScoreBy')}
         sections={[
           { id: 'kpi-criteria', render: () => <KpiCriteriaPage /> },
           {
@@ -42,6 +49,7 @@ export default function PerformancePage() {
             render: () => <OrgUnitSubmissionsPage />,
           },
           { id: 'cycle-evaluation', render: () => <CycleEvaluationPage /> },
+          { id: 'feedback360', visible: org?.enableFeedback360 ?? false, render: () => <F360AdminPage /> },
         ]}
       />
     </>

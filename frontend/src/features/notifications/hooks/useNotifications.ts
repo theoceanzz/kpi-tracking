@@ -1,6 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { notificationApi } from '../api/notificationApi'
 import { toast } from 'sonner'
+import { useTranslation } from 'react-i18next'
 
 export function useNotifications(size = 20, cursor?: string | null) {
   return useQuery({
@@ -27,12 +28,13 @@ export function useMarkAsRead() {
 }
 
 export function useMarkAllRead() {
+  const { t } = useTranslation('notifications')
   const qc = useQueryClient()
   return useMutation({
     mutationFn: () => notificationApi.markAllAsRead(),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['notifications'] })
-      toast.success('Đã đánh dấu tất cả thông báo là đã đọc')
+      toast.success(t('useNotifications.markedAllNotificationsAsRead'))
     }
   })
 }

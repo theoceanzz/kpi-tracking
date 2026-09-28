@@ -13,7 +13,9 @@ import com.kpitracking.enums.RewardRankingMetric;
 import com.kpitracking.enums.RewardRunStatus;
 import com.kpitracking.enums.RewardTiePolicy;
 import com.kpitracking.exception.BusinessException;
+import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.ResourceNotFoundException;
+import com.kpitracking.i18n.Terms;
 import com.kpitracking.repository.KpiCycleRepository;
 import com.kpitracking.repository.KpiPeriodRepository;
 import com.kpitracking.repository.OrgUnitRepository;
@@ -63,7 +65,7 @@ public class RewardProgramService {
     public RewardProgramResponse create(RewardProgramRequest request) {
         UUID orgId = context.getCurrentOrgId();
         Organization org = organizationRepository.findById(orgId)
-                .orElseThrow(() -> new ResourceNotFoundException("Tổ chức", "id", orgId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.organization"), "id", orgId));
 
         RewardProgram program = RewardProgram.builder()
                 .organization(org)
@@ -81,8 +83,7 @@ public class RewardProgramService {
         // phát cũ không còn giải thích được bằng cấu hình hiện tại — người xem lại lịch
         // sử sẽ thấy một đợt phát mà chương trình lại nói là chạy theo kỳ.
         if (program.getScope() != request.getScope() && hasIssuedRun(id)) {
-            throw new BusinessException("Không thể đổi phạm vi của chương trình đã từng phát thưởng. "
-                    + "Hãy tạo chương trình mới nếu muốn chạy theo phạm vi khác.");
+            throw new BusinessException(ErrorCode.SCOPE_PROGRAM_GRANTED_REWARDS_BEFORE_CANNOT_CHANGED);
         }
 
         apply(program, request);
@@ -97,9 +98,7 @@ public class RewardProgramService {
         // Xoá mềm sẽ khiến chúng không nạp được (entity có @SQLRestriction), làm hỏng
         // lịch sử phát thưởng.
         if (hasIssuedRun(id)) {
-            throw new BusinessException("Không thể xoá \"" + program.getName()
-                    + "\" vì đã có lần phát thưởng thực tế. Hãy TẮT chương trình để ngừng dùng — "
-                    + "lịch sử phát thưởng vẫn tra cứu được.");
+            throw new BusinessException(ErrorCode.CANNOT_DELETE_BECAUSE_ACTUALLY_GRANTED_REWARDS, program.getName());
         }
 
         program.setDeletedAt(Instant.now());
@@ -120,8 +119,7 @@ public class RewardProgramService {
         // lúc tắt cả hai sẽ ra bảng xếp hạng rỗng mà không rõ vì sao — chặn ngay lúc lưu.
         if (request.getMetric() == RewardRankingMetric.MATRIX_RATING
                 && !com.kpitracking.util.PerformanceMatrixResolver.usesMatrix(program.getOrganization())) {
-            throw new BusinessException("Chỉ số \"Xếp loại (ma trận)\" cần bật KPI định tính hoặc Chấm hạnh kiểm "
-                    + "cho tổ chức. Hãy bật ở Thiết lập công cụ, hoặc chọn chỉ số khác.");
+            throw new BusinessException(ErrorCode.RATING);
         }
 
         program.setName(request.getName());
@@ -141,7 +139,7 @@ public class RewardProgramService {
 
         if (request.getOrgUnitId() != null) {
             OrgUnit unit = orgUnitRepository.findById(request.getOrgUnitId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Đơn vị", "id", request.getOrgUnitId()));
+                    .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.unit"), "id", request.getOrgUnitId()));
             program.setOrgUnit(unit);
         } else {
             program.setOrgUnit(null);
@@ -152,7 +150,7 @@ public class RewardProgramService {
         try {
             program.setTiers(MAPPER.writeValueAsString(request.getTiers()));
         } catch (Exception e) {
-            throw new BusinessException("Không đọc được cấu hình bậc thưởng.");
+            throw new BusinessException(ErrorCode.COULD_NOT_READ_REWARD_TIER_CONFIGURATION);
         }
     }
 
@@ -173,33 +171,28 @@ public class RewardProgramService {
 
         if (request.getScope() == RewardProgramScope.CYCLE) {
             program.setKpiCycle(kpiCycleRepository.findById(request.getFixedTargetId())
-                    .orElseThrow(() -> new ResourceNotFoundException(
-                            "Kỳ đánh giá", "id", request.getFixedTargetId())));
+                    .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.evaluationCycle"), "id", request.getFixedTargetId())));
         } else {
             program.setKpiPeriod(kpiPeriodRepository.findById(request.getFixedTargetId())
-                    .orElseThrow(() -> new ResourceNotFoundException(
-                            "Đợt đánh giá", "id", request.getFixedTargetId())));
+                    .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.evaluationPeriod"), "id", request.getFixedTargetId())));
         }
     }
 
     public void validateTiers(List<RewardProgramRequest.Tier> tiers) {
         if (tiers == null || tiers.isEmpty()) {
-            throw new BusinessException("Cần ít nhất một bậc thưởng.");
+            throw new BusinessException(ErrorCode.LEAST_ONE_REWARD_TIER_REQUIRED);
         }
         List<RewardProgramRequest.Tier> sorted = new ArrayList<>(tiers);
         sorted.sort(Comparator.comparing(RewardProgramRequest.Tier::getFromRank));
 
         for (RewardProgramRequest.Tier t : sorted) {
             if (t.getToRank() < t.getFromRank()) {
-                throw new BusinessException("Bậc thưởng có hạng kết thúc (" + t.getToRank()
-                        + ") nhỏ hơn hạng bắt đầu (" + t.getFromRank() + ").");
+                throw new BusinessException(ErrorCode.REWARD_TIER_END_RANK, String.valueOf(t.getToRank()), String.valueOf(t.getFromRank()));
             }
         }
         for (int i = 1; i < sorted.size(); i++) {
             if (sorted.get(i).getFromRank() <= sorted.get(i - 1).getToRank()) {
-                throw new BusinessException("Hai bậc thưởng bị chồng nhau tại hạng "
-                        + sorted.get(i).getFromRank()
-                        + " — mỗi hạng chỉ được thuộc về đúng một bậc.");
+                throw new BusinessException(ErrorCode.TWO_REWARD_TIERS_OVERLAP_RANK, String.valueOf(sorted.get(i).getFromRank()));
             }
         }
     }
@@ -210,8 +203,7 @@ public class RewardProgramService {
             return MAPPER.readValue(program.getTiers(), new TypeReference<>() {});
         } catch (Exception e) {
             log.error("Cấu hình bậc thưởng hỏng, programId={}", program.getId(), e);
-            throw new BusinessException("Cấu hình bậc thưởng của chương trình \""
-                    + program.getName() + "\" bị lỗi. Hãy mở ra và lưu lại.");
+            throw new BusinessException(ErrorCode.REWARD_TIER_CONFIGURATION_PROGRAM_CORRUPTED, program.getName());
         }
     }
 
@@ -235,14 +227,14 @@ public class RewardProgramService {
         try {
             return MAPPER.writeValueAsString(tiers);
         } catch (Exception e) {
-            throw new BusinessException("Không lưu được cấu hình bậc thưởng.");
+            throw new BusinessException(ErrorCode.COULD_NOT_SAVE_REWARD_TIER_CONFIGURATION);
         }
     }
 
     public RewardProgram load(UUID id) {
         RewardProgram program = loadForSystem(id);
         if (!program.getOrganization().getId().equals(context.getCurrentOrgId())) {
-            throw new BusinessException("Chương trình này không thuộc tổ chức của bạn.");
+            throw new BusinessException(ErrorCode.PROGRAM_OUTSIDE_ORGANIZATION);
         }
         return program;
     }
@@ -256,7 +248,7 @@ public class RewardProgramService {
      */
     public RewardProgram loadForSystem(UUID id) {
         return programRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Chương trình thưởng", "id", id));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.rewardProgram"), "id", id));
     }
 
     public RewardProgramResponse toResponse(RewardProgram p) {

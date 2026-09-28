@@ -1,5 +1,6 @@
 package com.kpitracking.service;
 
+import com.kpitracking.i18n.ErrorMessages;
 import com.kpitracking.dto.response.stats.PersonalObjectiveResponses.*;
 import com.kpitracking.entity.*;
 import com.kpitracking.enums.SubmissionStatus;
@@ -421,7 +422,7 @@ public class PersonalObjectiveAnalyticsService {
                             .fullName(assignee.getFullName())
                             .avatarUrl(assignee.getAvatarUrl())
                             .employeeCode(assignee.getEmployeeCode())
-                            .role("Thành viên")
+                            .role(ErrorMessages.text("analytics.memberRole", ""))
                             .department(kpi.getOrgUnit() != null ? kpi.getOrgUnit().getName() : "")
                             .actualValue(assigneeActual)
                             .progress(assigneeProgress)
@@ -741,7 +742,7 @@ public class PersonalObjectiveAnalyticsService {
             while (!curr.isAfter(end)) {
                 Instant pStart = curr.atStartOfDay(ZoneId.systemDefault()).toInstant();
                 Instant pEnd = curr.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant();
-                String label = "Ng " + curr.getDayOfMonth() + "/" + curr.getMonthValue();
+                String label = ErrorMessages.text("analytics.bucket.day", "", curr.getDayOfMonth(), curr.getMonthValue());
                 intervalPoints.add(new IntervalPoint(pStart, pEnd, label));
                 curr = curr.plusDays(1);
             }
@@ -752,7 +753,7 @@ public class PersonalObjectiveAnalyticsService {
                 LocalDate next = curr.plusWeeks(1);
                 Instant pStart = curr.atStartOfDay(ZoneId.systemDefault()).toInstant();
                 Instant pEnd = (next.isAfter(end) ? end.plusDays(1) : next).atStartOfDay(ZoneId.systemDefault()).toInstant();
-                String label = "Tuần " + weekIdx;
+                String label = ErrorMessages.text("analytics.bucket.week", "", weekIdx);
                 intervalPoints.add(new IntervalPoint(pStart, pEnd, label));
                 curr = next;
                 weekIdx++;
@@ -768,7 +769,7 @@ public class PersonalObjectiveAnalyticsService {
                 Instant pStart = activeStart.atStartOfDay(ZoneId.systemDefault()).toInstant();
                 Instant pEnd = activeEnd.atStartOfDay(ZoneId.systemDefault()).toInstant();
                 
-                String label = "Tháng " + curr.getMonthValue() + "/" + curr.getYear();
+                String label = ErrorMessages.text("analytics.bucket.month", "", curr.getMonthValue(), curr.getYear());
                 intervalPoints.add(new IntervalPoint(pStart, pEnd, label));
                 curr = next;
             }
@@ -784,7 +785,7 @@ public class PersonalObjectiveAnalyticsService {
                 Instant pStart = activeStart.atStartOfDay(ZoneId.systemDefault()).toInstant();
                 Instant pEnd = activeEnd.atStartOfDay(ZoneId.systemDefault()).toInstant();
                 
-                String label = "Quý " + ((curr.getMonthValue() - 1) / 3 + 1) + "/" + curr.getYear();
+                String label = ErrorMessages.text("analytics.bucket.quarter", "", (curr.getMonthValue() - 1) / 3 + 1, curr.getYear());
                 intervalPoints.add(new IntervalPoint(pStart, pEnd, label));
                 curr = next;
             }
@@ -799,7 +800,7 @@ public class PersonalObjectiveAnalyticsService {
                 Instant pStart = activeStart.atStartOfDay(ZoneId.systemDefault()).toInstant();
                 Instant pEnd = activeEnd.atStartOfDay(ZoneId.systemDefault()).toInstant();
                 
-                String label = "Năm " + curr.getYear();
+                String label = ErrorMessages.text("analytics.bucket.year", "", curr.getYear());
                 intervalPoints.add(new IntervalPoint(pStart, pEnd, label));
                 curr = next;
             }

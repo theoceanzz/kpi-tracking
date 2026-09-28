@@ -1,3 +1,4 @@
+import { intlLocale } from '@/i18n/format'
 import { useLayoutEffect, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import {
@@ -6,6 +7,9 @@ import {
 } from '../chartPalette'
 import { labelOnFill } from '../axisLabel'
 import { AssigneeAvatars, type AssigneeBrief } from './AssigneeAvatars'
+import { useTranslation } from 'react-i18next'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
 export type KpiRelation = 'DECOMPOSITION' | 'DELEGATION' | null
 
@@ -233,6 +237,7 @@ function strokeFor(relation: KpiRelation, hovered: boolean) {
  * rời rạc trong khi chúng là một mục tiêu được chia xuống.
  */
 export default function HierarchicalTreemap({ nodes, height = 300, onSelect }: Props) {
+  const { t } = useTranslation('shared')
   const [hoveredId, setHoveredId] = useState<string | null>(null)
   const [tip, setTip] = useState<{ node: TreeNode; x: number; y: number } | null>(null)
 
@@ -270,7 +275,7 @@ export default function HierarchicalTreemap({ nodes, height = 300, onSelect }: P
     <div ref={wrapRef} className="w-full relative" style={{ height }}>
       {nodes.length === 0 ? (
         <div className="w-full h-full flex items-center justify-center text-sm text-slate-400 font-medium">
-          Chưa có dữ liệu để vẽ
+          {t('HierarchicalTreemap.noDataToDrawYet')}
         </div>
       ) : (
       <svg
@@ -395,7 +400,7 @@ function CellShape({ cell, hovered, clickable, onEnter, onClick }: {
           fill={KPI_KIND_COLORS[k]}
           stroke="#fff" strokeWidth={1.2}
         >
-          <title>{KPI_KIND_LABELS[k]}</title>
+          <title>{KPI_KIND_LABELS()[k]}</title>
         </rect>
       ))}
       {hovered && clickable && rect.w > 46 && rect.h > 36 && (
@@ -411,10 +416,10 @@ function CellShape({ cell, hovered, clickable, onEnter, onClick }: {
   )
 }
 
-const RELATION_LABEL: Record<string, string> = {
-  DECOMPOSITION: 'KPI con (phân rã)',
-  DELEGATION: 'KPI thác nước (giao xuống)',
-}
+const RELATION_LABEL = perLanguage((): Record<string, string> => ({
+  DECOMPOSITION: i18n.t('shared:HierarchicalTreemap.childKpiCascaded'),
+  DELEGATION: i18n.t('shared:HierarchicalTreemap.waterfallKpiAssignedDown'),
+}))
 
 /**
  * Tooltip của ô treemap.
@@ -430,6 +435,7 @@ function NodeTooltip({ node, x, y, clickable }: {
   y: number
   clickable: boolean
 }) {
+  const { t } = useTranslation('shared')
   const kids = node.children ?? []
   const value = nodeValue(node)
   const kinds = kindsOf(node)
@@ -468,44 +474,44 @@ function NodeTooltip({ node, x, y, clickable }: {
               className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full text-xs font-semibold text-white"
               style={{ backgroundColor: KPI_KIND_COLORS[k] }}
             >
-              {KPI_KIND_LABELS[k]}
+              {KPI_KIND_LABELS()[k]}
             </span>
           ))}
         </div>
       )}
       <div className="space-y-1 text-sm">
-        <Row label="Trọng số" value={String(Math.round(value * 10) / 10)} />
+        <Row label={t('HierarchicalTreemap.weight')} value={String(Math.round(value * 10) / 10)} />
         {node.achievement != null ? (
           <Row
-            label="Tiến độ"
+            label={t('HierarchicalTreemap.progress')}
             value={`${Math.round(node.achievement)}%`}
             color={achievementSurface(node.achievement)}
           />
         ) : (
           // Ô xám. Trước đây bỏ trống hẳn dòng này nên không có chỗ nào giải thích vì sao ô không
           // mang màu tiến độ nào.
-          <Row label="Tiến độ" value="Chưa có kết quả" color={achievementSurface(null)} />
+          <Row label={t('HierarchicalTreemap.progress')} value="Chưa có kết quả" color={achievementSurface(null)} />
         )}
         {/* Số liệu thô: bảng chi tiết từng là chỗ duy nhất xem được, giờ nằm ở đây. */}
         {node.targetValue != null && (
           <Row
-            label="Mục tiêu"
+            label={t('HierarchicalTreemap.target')}
             value={`${fmtNum(node.targetValue)}${node.unit ? ` ${node.unit}` : ''}`}
           />
         )}
         {node.actualValue != null && (
           <Row
-            label="Thực đạt"
+            label={t('HierarchicalTreemap.actual')}
             value={`${fmtNum(node.actualValue)}${node.unit ? ` ${node.unit}` : ''}`}
           />
         )}
-        {kids.length > 0 && <Row label="Chia xuống" value={`${kids.length} KPI con`} />}
-        {node.relation && <Row label="Quan hệ" value={RELATION_LABEL[node.relation] ?? node.relation} />}
+        {kids.length > 0 && <Row label={t('HierarchicalTreemap.splitDown')} value={i18n.t('shared:HierarchicalTreemap.childCount', { count: kids.length })} />}
+        {node.relation && <Row label={t('HierarchicalTreemap.relationship')} value={RELATION_LABEL()[node.relation] ?? node.relation} />}
       </div>
       <AssigneeAvatars people={node.assignees ?? []} />
       {node.replacedKpiName && (
         <div className="pt-2.5 mt-2.5 border-t border-[var(--color-border)]">
-          <p className="text-xs text-slate-500 font-medium">Thay thế KPI:</p>
+          <p className="text-xs text-slate-500 font-medium">{t('HierarchicalTreemap.replaceKpi')}</p>
           <p className="text-xs font-semibold text-[var(--color-foreground)] break-words">
             {node.replacedKpiName}
           </p>
@@ -518,7 +524,7 @@ function NodeTooltip({ node, x, y, clickable }: {
       )}
       {clickable && node.id && (
         <p className="text-xs font-semibold text-[var(--color-primary)] dark:text-indigo-400 pt-2.5 mt-2.5 border-t border-[var(--color-border)]">
-          Bấm để xem chi tiết →
+          {t('HierarchicalTreemap.clickToSeeDetails')}
         </p>
       )}
     </div>,
@@ -528,7 +534,7 @@ function NodeTooltip({ node, x, y, clickable }: {
 
 /** Bỏ số 0 thừa sau dấu phẩy: "80" chứ không phải "80.0". */
 function fmtNum(v: number): string {
-  return (Math.round(v * 100) / 100).toLocaleString('vi-VN')
+  return (Math.round(v * 100) / 100).toLocaleString(intlLocale())
 }
 
 function Row({ label, value, color }: { label: string; value: string; color?: string }) {

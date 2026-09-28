@@ -27,6 +27,8 @@ import com.kpitracking.repository.KpiCriteriaRepository;
 import com.kpitracking.repository.KpiPeriodRepository;
 import com.kpitracking.repository.UserRepository;
 import com.kpitracking.event.BscEvents;
+import com.kpitracking.exception.ErrorCode;
+import com.kpitracking.i18n.Terms;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.context.ApplicationEventPublisher;
@@ -151,9 +153,9 @@ public class BscCascadeService {
     @Transactional
     public BscUnitResult recompute(UUID scorecardId, UUID kpiPeriodId) {
         BscScorecard scorecard = scorecardRepository.findById(scorecardId)
-                .orElseThrow(() -> new ResourceNotFoundException("Bộ tiêu chí", "id", scorecardId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.scorecard"), "id", scorecardId));
         KpiPeriod period = kpiPeriodRepository.findById(kpiPeriodId)
-                .orElseThrow(() -> new ResourceNotFoundException("Đợt", "id", kpiPeriodId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.period"), "id", kpiPeriodId));
         // Tính lại ghi đè kết quả của đơn vị đó nên cũng phải gác phạm vi như khi sửa bộ tiêu chí.
         accessGuard.assertCanEdit(scorecard);
         // Suy từ tổ chức của chính bộ tiêu chí thay vì bắt caller truyền — cùng một tổ chức mà hai
@@ -169,7 +171,7 @@ public class BscCascadeService {
                         .build());
 
         if (result.getStatus() != BscUnitResultStatus.DRAFT) {
-            throw new BusinessException("Kết quả BSC của đợt này đã chốt — mở khoá trước khi tính lại");
+            throw new BusinessException(ErrorCode.BSC_RESULTS_PERIOD_FINALIZED);
         }
 
         // Giá trị nhập tay phải sống sót qua mỗi lần tính lại, nếu không người phụ trách phải
@@ -392,9 +394,9 @@ public class BscCascadeService {
     public BscUnitResult finalizeResult(UUID scorecardId, UUID kpiPeriodId) {
         User actor = currentUserOrNull();
         BscUnitResult result = unitResultRepository.findByScorecardIdAndKpiPeriodId(scorecardId, kpiPeriodId)
-                .orElseThrow(() -> new BusinessException("Chưa có kết quả BSC cho đợt này — hãy tính trước khi chốt"));
+                .orElseThrow(() -> new BusinessException(ErrorCode.NO_BSC_RESULTS_PERIOD));
         if (result.getAchievementPercent() == null) {
-            throw new BusinessException("Chưa tính được kết quả BSC (không có chỉ tiêu nào có số liệu) nên chưa chốt được");
+            throw new BusinessException(ErrorCode.BSC_RESULTS_COULD_NOT_COMPUTED);
         }
         result.setStatus(BscUnitResultStatus.FINALIZED);
         result.setFinalizedBy(actor);
@@ -409,7 +411,7 @@ public class BscCascadeService {
     @Transactional
     public BscUnitResult reopenResult(UUID scorecardId, UUID kpiPeriodId) {
         BscUnitResult result = unitResultRepository.findByScorecardIdAndKpiPeriodId(scorecardId, kpiPeriodId)
-                .orElseThrow(() -> new ResourceNotFoundException("Kết quả BSC đơn vị", "đợt", kpiPeriodId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.unitBscResult"), Terms.of("field.period"), kpiPeriodId));
         result.setStatus(BscUnitResultStatus.DRAFT);
         result.setFinalizedBy(null);
         result.setFinalizedAt(null);
@@ -420,21 +422,21 @@ public class BscCascadeService {
     @Transactional
     public BscUnitResult setManualActual(UUID scorecardId, UUID kpiPeriodId, UUID itemId, Double actual) {
         BscUnitResult result = unitResultRepository.findByScorecardIdAndKpiPeriodId(scorecardId, kpiPeriodId)
-                .orElseThrow(() -> new BusinessException("Chưa có kết quả BSC cho đợt này — hãy tính trước"));
+                .orElseThrow(() -> new BusinessException(ErrorCode.NO_BSC_RESULTS_PERIOD_2));
         if (result.getStatus() != BscUnitResultStatus.DRAFT) {
-            throw new BusinessException("Kết quả đã chốt — mở khoá trước khi sửa số liệu");
+            throw new BusinessException(ErrorCode.RESULTS_FINALIZED);
         }
         accessGuard.assertCanEdit(result.getScorecard());
         BscUnitResultItem item = unitResultItemRepository.findById(itemId)
-                .orElseThrow(() -> new ResourceNotFoundException("Dòng kết quả", "id", itemId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.resultRow"), "id", itemId));
         if (!item.getUnitResult().getId().equals(result.getId())) {
-            throw new BusinessException("Dòng kết quả không thuộc đợt đang sửa");
+            throw new BusinessException(ErrorCode.RESULT_ROW_OUTSIDE_PERIOD_BEING_EDITED);
         }
         if (item.getScorecardPerspective().getMeasurementSource() != BscMeasurementSource.ROLLUP) {
             item.setActualValue(actual);
             unitResultItemRepository.save(item);
         } else {
-            throw new BusinessException("Chỉ tiêu này đang lấy số liệu tự động từ KPI — đổi nguồn sang Nhập tay trước");
+            throw new BusinessException(ErrorCode.KPI_TAKES_FIGURES_AUTOMATICALLY_KPIS);
         }
         return recompute(scorecardId, kpiPeriodId);
     }

@@ -6,6 +6,8 @@ import {
   evaluationsSteps,
   myAdjustmentsSteps,
 } from './inherited'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
 /**
  * Hướng dẫn cho "Của tôi" — dòng sidebar, sáu mục, và các tab của hai mục ví.
@@ -27,21 +29,20 @@ const warn = (text: string) => (
   </p>
 )
 
-const mySpaceTours: Record<TourKey, TourDef> = {
+const mySpaceTours = perLanguage((): Record<TourKey, TourDef> => ({
   /* ══════════ Cấp trang ══════════ */
   'my-space': {
     steps: [
       {
         target: '#tour-settings-nav',
-        title: '👤 Mọi thứ của riêng bạn',
+        title: i18n.t('shared:my_space.everythingThatIsYours'),
         content: (
           <div className="space-y-2">
             <p>
-              Cụm <strong>Công việc</strong> là chỉ tiêu được giao, bài nộp đã gửi, kết quả đánh giá và
-              các yêu cầu điều chỉnh bạn đã tạo.
+              {i18n.t('shared:my_space.theGroup')} <strong>{i18n.t('shared:my_space.work')}</strong> {i18n.t('shared:my_space.isTheKpisAssignedToYou')}
             </p>
             <p>
-              Cụm <strong>Ví</strong> tách riêng vì đó là hai số dư khác nhau: điểm thưởng và tiền thật.
+              {i18n.t('shared:my_space.theGroup')} <strong>{i18n.t('shared:my_space.wallet')}</strong> {i18n.t('shared:my_space.isSeparateBecauseTheyAreTwo')}
             </p>
           </div>
         ),
@@ -49,13 +50,12 @@ const mySpaceTours: Record<TourKey, TourDef> = {
       },
       {
         target: '#tour-card-my-kpi',
-        title: '🔁 Vòng công việc của bạn',
+        title: i18n.t('shared:my_space.yourWorkLoop'),
         content: (
           <div className="space-y-2">
             <p>
-              Bốn thẻ của cụm Công việc chạy theo một vòng: nhận <strong>chỉ tiêu</strong> → nộp{' '}
-              <strong>báo cáo</strong> → nhận <strong>đánh giá</strong>. Chỉ tiêu không còn phù hợp thì
-              gửi <strong>đề nghị điều chỉnh</strong>.
+              {i18n.t('shared:my_space.theFourCardsOfTheWork')} <strong>{i18n.t('shared:my_space.kpis')}</strong> {i18n.t('shared:my_space.submit')}{' '}
+              <strong>{i18n.t('shared:my_space.reports')}</strong> {i18n.t('shared:my_space.receive')} <strong>{i18n.t('shared:my_space.evaluations')}</strong>{i18n.t('shared:my_space.ifAKpiNoLongerFits')} <strong>{i18n.t('shared:my_space.adjustmentRequest')}</strong>.
             </p>
           </div>
         ),
@@ -63,11 +63,11 @@ const mySpaceTours: Record<TourKey, TourDef> = {
       },
       {
         target: '#tour-settings-nav',
-        title: '🔴 Chấm đỏ là việc đang chờ bạn',
+        title: i18n.t('shared:my_space.aRedDotIsWorkWaiting'),
         content: (
           <div className="space-y-2">
-            <p>Thẻ nào có chấm đỏ nghĩa là ở đó có việc chưa xong — thường là bài nộp tới hạn.</p>
-            {note('Thẻ nào không thấy? Cụm Ví chỉ hiện khi tổ chức bật module thưởng hoặc ví tiền.')}
+            <p>{i18n.t('shared:my_space.aCardWithARedDot')}</p>
+            {note(i18n.t('shared:my_space.missingACardTheWalletGroup'))}
           </div>
         ),
         placement: 'top',
@@ -76,53 +76,49 @@ const mySpaceTours: Record<TourKey, TourDef> = {
   },
 
   /* ══════════ Cụm Công việc ══════════ */
-  'my-space/my-kpi': { steps: myKpiSteps },
-  'my-space/my-submissions': { steps: mySubmissionsSteps },
-  'my-space/evaluations': { steps: evaluationsSteps },
-  'my-space/my-adjustments': { steps: myAdjustmentsSteps },
+  'my-space/my-kpi': { steps: myKpiSteps() },
+  'my-space/my-submissions': { steps: mySubmissionsSteps() },
+  'my-space/evaluations': { steps: evaluationsSteps() },
+  'my-space/my-adjustments': { steps: myAdjustmentsSteps() },
 
   /* ══════════ Cụm Ví ══════════ */
   'my-space/my-rewards': {
     steps: [
       {
         target: '#tour-my-rewards-balance',
-        title: '🎁 Điểm thưởng của bạn',
+        title: i18n.t('shared:my_space.yourRewardPoints'),
         content: (
           <div className="space-y-2">
             <p>
-              Thẻ này là số dư điểm hiện có. Điểm tới từ ba nguồn: quản lý trao tay, chương trình tự động,
-              và điểm danh hằng ngày.
+              {i18n.t('shared:my_space.thisCardIsYourCurrentPoint')}
             </p>
-            {note('Bảng tin phía trên là hoạt động thưởng của cả tổ chức — xem người khác được ghi nhận vì việc gì.')}
+            {note(i18n.t('shared:my_space.theFeedAboveIsTheReward'))}
           </div>
         ),
         placement: 'bottom',
       },
       {
         target: '#tour-my-rewards-checkin',
-        title: '📅 Thẻ điểm danh nằm ngoài tab',
+        title: i18n.t('shared:my_space.theCheckInCardSitsOutside'),
         content: (
           <div className="space-y-2">
             <p>
-              Thẻ điểm danh đặt ngay dưới số dư, <strong>trên</strong> hàng tab — cố ý như vậy: nếu nó nằm
-              trong một tab thì hôm nào bạn không mở đúng tab đó là mất chuỗi.
+              {i18n.t('shared:my_space.theCheckInCardIsPlaced')} <strong>{i18n.t('shared:my_space.above')}</strong> {i18n.t('shared:my_space.theTabRowOnPurposeIf')}
             </p>
-            {warn('Chuỗi ngày liên tiếp bị đứt là mất luôn phần thưởng chuỗi, phải gây lại từ đầu.')}
+            {warn(i18n.t('shared:my_space.breakingADailyStreakLosesThe'))}
           </div>
         ),
         placement: 'bottom',
       },
       {
         target: '#tour-workspace-tabs',
-        title: '🗂️ Bốn tab: tiêu, xem, khoe, nhận',
+        title: i18n.t('shared:my_space.fourTabsSpendViewShowOff'),
         content: (
           <div className="space-y-2">
             <p>
-              <strong>Cửa hàng quà</strong> để đổi điểm, <strong>Lịch sử điểm</strong> để xem điểm đến và
-              đi từ đâu, <strong>Chứng nhận</strong> để tải giấy khen, <strong>Quà đã đổi</strong> để theo
-              dõi món đang chờ nhận.
+              <strong>{i18n.t('shared:my_space.giftShop')}</strong> {i18n.t('shared:my_space.toRedeemPoints')} <strong>{i18n.t('shared:my_space.pointHistory')}</strong> {i18n.t('shared:my_space.toSeeWherePointsComeFrom')} <strong>{i18n.t('shared:my_space.certificates')}</strong> {i18n.t('shared:my_space.toDownloadCertificates')} <strong>{i18n.t('shared:my_space.redeemedGifts')}</strong> {i18n.t('shared:my_space.toTrackItemsWaitingToBe')}
             </p>
-            {note('Con số trên mỗi tab là số bản ghi đang có trong tab đó.')}
+            {note(i18n.t('shared:my_space.theNumberOnEachTabIs'))}
           </div>
         ),
         placement: 'bottom',
@@ -131,32 +127,32 @@ const mySpaceTours: Record<TourKey, TourDef> = {
   },
 
   'my-space/my-rewards#shop': {
-    title: 'Cửa hàng quà',
+    title: i18n.t('shared:my_space.giftShop'),
     steps: [
       {
         target: '#tour-gift-shop-grid',
-        title: '🛍️ Đổi điểm lấy quà',
+        title: i18n.t('shared:my_space.redeemPointsForGifts'),
         content: (
           <div className="space-y-2">
             <p>
-              Mỗi thẻ hiện giá theo điểm và số lượng còn lại. Món chưa đủ điểm ghi rõ bạn còn{' '}
-              <strong>thiếu bao nhiêu</strong>, khỏi phải nhẩm.
+              {i18n.t('shared:my_space.eachCardShowsThePointPrice')}{' '}
+              <strong>{i18n.t('shared:my_space.short')}</strong>{i18n.t('shared:my_space.noMentalMathNeeded')}
             </p>
-            {note('Hết hàng và thiếu điểm là hai chuyện khác nhau: hết hàng thì chờ cũng vô ích, thiếu điểm thì tích thêm là đổi được.')}
+            {note(i18n.t('shared:my_space.outOfStockAndNotEnough'))}
           </div>
         ),
         placement: 'top',
       },
       {
         target: '#tour-gift-shop-grid',
-        title: '⚠️ Điểm trừ ngay lúc bấm',
+        title: i18n.t('shared:my_space.pointsAreDeductedTheMomentYou'),
         content: (
           <div className="space-y-2">
             <p>
-              Bấm đổi là điểm bị trừ ngay, trước khi quà được giao. Yêu cầu chuyển sang tab{' '}
-              <strong>Quà đã đổi</strong> chờ người phụ trách xác nhận.
+              {i18n.t('shared:my_space.clickingRedeemDeductsPointsImmediatelyBefore')}{' '}
+              <strong>{i18n.t('shared:my_space.redeemedGifts')}</strong> {i18n.t('shared:my_space.waitingForThePersonInCharge')}
             </p>
-            {warn('Không có nút hoàn lại. Cân nhắc trước khi bấm, nhất là với món giá cao.')}
+            {warn(i18n.t('shared:my_space.thereIsNoRefundButtonThink'))}
           </div>
         ),
         placement: 'top',
@@ -165,18 +161,17 @@ const mySpaceTours: Record<TourKey, TourDef> = {
   },
 
   'my-space/my-rewards#history': {
-    title: 'Lịch sử điểm',
+    title: i18n.t('shared:my_space.pointHistory'),
     steps: [
       {
         target: '#tour-my-rewards-history',
-        title: '🧾 Điểm đến và đi từ đâu',
+        title: i18n.t('shared:my_space.wherePointsComeFromAndGo'),
         content: (
           <div className="space-y-2">
             <p>
-              Từng dòng ghi rõ lý do, người trao và thời điểm. Đây là chỗ đối chiếu khi bạn thấy số dư
-              không khớp với những gì mình nhớ.
+              {i18n.t('shared:my_space.eachRowShowsTheReasonThe')}
             </p>
-            {note('Danh sách chia trang khi dài — dùng thanh phân trang ở cuối để lùi về các tháng trước.')}
+            {note(i18n.t('shared:my_space.longListsArePaginatedUseThe'))}
           </div>
         ),
         placement: 'top',
@@ -185,18 +180,17 @@ const mySpaceTours: Record<TourKey, TourDef> = {
   },
 
   'my-space/my-rewards#certificates': {
-    title: 'Chứng nhận',
+    title: i18n.t('shared:my_space.certificates'),
     steps: [
       {
         target: '#tour-my-certificates-grid',
-        title: '🏅 Giấy khen của bạn',
+        title: i18n.t('shared:my_space.yourCertificates'),
         content: (
           <div className="space-y-2">
             <p>
-              Không phải lần thưởng nào cũng có giấy khen — chỉ những lần cấp trên chọn kèm chứng nhận mới
-              hiện ở đây, để bạn tải về hoặc in ra.
+              {i18n.t('shared:my_space.notEveryRewardComesWithA')}
             </p>
-            {note('Công ty chưa dựng mẫu riêng thì màn hình in vẫn có sẵn vài thiết kế để chọn.')}
+            {note(i18n.t('shared:my_space.ifTheCompanyHasNotBuilt'))}
           </div>
         ),
         placement: 'top',
@@ -205,17 +199,17 @@ const mySpaceTours: Record<TourKey, TourDef> = {
   },
 
   'my-space/my-rewards#redemptions': {
-    title: 'Quà đã đổi',
+    title: i18n.t('shared:my_space.redeemedGifts'),
     steps: [
       {
         target: '#tour-my-rewards-redemptions',
-        title: '📦 Món đang chờ nhận',
+        title: i18n.t('shared:my_space.itemsWaitingToBeReceived'),
         content: (
           <div className="space-y-2">
             <p>
-              Trạng thái của từng lần đổi quà, từ lúc gửi yêu cầu tới lúc được xác nhận đã giao.
+              {i18n.t('shared:my_space.theStatusOfEachRedemptionFrom')}
             </p>
-            {note('Món nằm quá lâu ở trạng thái chờ thì nhắc người phụ trách thưởng — điểm của bạn đã bị trừ rồi.')}
+            {note(i18n.t('shared:my_space.ifAnItemStaysPendingToo'))}
           </div>
         ),
         placement: 'top',
@@ -227,25 +221,23 @@ const mySpaceTours: Record<TourKey, TourDef> = {
     steps: [
       {
         target: '#tour-my-wallet-balance',
-        title: '💰 Đây là tiền, không phải điểm',
+        title: i18n.t('shared:my_space.thisIsMoneyNotPoints'),
         content: (
           <div className="space-y-2">
             <p>
-              Ví giữ số dư tiền thật của bạn: nạp vào bằng chuyển khoản, và đổi được sang điểm thưởng theo
-              tỉ giá tổ chức đặt.
+              {i18n.t('shared:my_space.theWalletHoldsYourRealCash')}
             </p>
-            {warn('Chiều đổi chỉ có một: tiền ra điểm được, điểm về lại tiền thì không.')}
+            {warn(i18n.t('shared:my_space.conversionIsOneWayMoneyTo'))}
           </div>
         ),
         placement: 'bottom',
       },
       {
         target: '#tour-my-wallet-topup',
-        title: '➕ Nạp tiền ở đâu cũng được',
+        title: i18n.t('shared:my_space.topUpFromAnywhere'),
         content: (
           <p>
-            Nút <strong>Nạp tiền</strong> ở góc trên luôn có mặt, không phụ thuộc bạn đang mở tab nào. Bấm
-            là hiện mã QR chuyển khoản kèm nội dung cần ghi.
+            {i18n.t('shared:my_space.theButton')} <strong>{i18n.t('shared:my_space.topUp')}</strong> {i18n.t('shared:my_space.inTheTopCornerIsAlways')}
           </p>
         ),
         placement: 'bottom',
@@ -255,8 +247,7 @@ const mySpaceTours: Record<TourKey, TourDef> = {
         title: '🗂️ Ba tab',
         content: (
           <p>
-            <strong>Đổi sang điểm</strong> để quy đổi, <strong>Đơn nạp tiền</strong> để theo dõi lệnh nạp
-            đang chờ khớp, <strong>Lịch sử ví</strong> để tra mọi biến động.
+            <strong>{i18n.t('shared:my_space.convertToPoints')}</strong> {i18n.t('shared:my_space.toConvert')} <strong>{i18n.t('shared:my_space.topUpOrders')}</strong> {i18n.t('shared:my_space.toTrackTopUpsWaitingTo')} <strong>{i18n.t('shared:my_space.walletHistory')}</strong> {i18n.t('shared:my_space.toLookUpEveryMovement')}
           </p>
         ),
         placement: 'bottom',
@@ -265,18 +256,17 @@ const mySpaceTours: Record<TourKey, TourDef> = {
   },
 
   'my-space/my-cash-wallet#convert': {
-    title: 'Đổi sang điểm',
+    title: i18n.t('shared:my_space.convertToPoints'),
     steps: [
       {
         target: '#tour-my-wallet-convert',
-        title: '🔁 Quy đổi theo tỉ giá hiện hành',
+        title: i18n.t('shared:my_space.convertAtTheCurrentRate'),
         content: (
           <div className="space-y-2">
             <p>
-              Nhập số tiền muốn đổi, hệ thống hiện ngay số điểm nhận được. Tỉ giá do tổ chức đặt và có thể
-              thay đổi — số điểm tính theo tỉ giá tại đúng thời điểm bạn bấm đổi.
+              {i18n.t('shared:my_space.enterTheAmountYouWantTo')}
             </p>
-            {warn('Đổi xong thì không quay lại được. Đổi vừa đủ cho món quà định lấy, đừng đổi hết một lần.')}
+            {warn(i18n.t('shared:my_space.onceConvertedItCannotBeReversed'))}
           </div>
         ),
         placement: 'top',
@@ -285,29 +275,27 @@ const mySpaceTours: Record<TourKey, TourDef> = {
   },
 
   'my-space/my-cash-wallet#topups': {
-    title: 'Đơn nạp tiền',
+    title: i18n.t('shared:my_space.topUpOrders'),
     steps: [
       {
         target: '#tour-my-wallet-topups',
-        title: '🏦 Nạp bằng chuyển khoản',
+        title: i18n.t('shared:my_space.topUpByBankTransfer'),
         content: (
           <div className="space-y-2">
             <p>
-              Mỗi lệnh nạp có nội dung chuyển khoản riêng và một khoảng thời gian hiệu lực. Chuyển đúng nội
-              dung thì hệ thống tự khớp và cộng tiền, thường trong vài phút.
+              {i18n.t('shared:my_space.eachTopUpHasItsOwn')}
             </p>
-            {warn('Ghi sai nội dung chuyển khoản thì lệnh không tự khớp được, phải nhờ người quản trị đối soát tay.')}
+            {warn(i18n.t('shared:my_space.ifTheTransferDescriptionIsWrong'))}
           </div>
         ),
         placement: 'top',
       },
       {
         target: '#tour-my-wallet-topups',
-        title: '⏳ Mã QR có hạn',
+        title: i18n.t('shared:my_space.theQrCodeExpires'),
         content: (
           <p>
-            Đơn quá hạn thì tự huỷ — tạo đơn mới rồi chuyển lại. Đừng chuyển theo mã QR cũ đã hết hạn, tiền
-            sẽ rơi vào diện chờ đối soát tay.
+            {i18n.t('shared:my_space.overdueOrdersAreCancelledAutomaticallyCreate')}
           </p>
         ),
         placement: 'top',
@@ -316,15 +304,15 @@ const mySpaceTours: Record<TourKey, TourDef> = {
   },
 
   'my-space/my-cash-wallet#history': {
-    title: 'Lịch sử ví',
+    title: i18n.t('shared:my_space.walletHistory'),
     steps: [
       {
         target: '#tour-my-wallet-history',
-        title: '🧾 Mọi biến động số dư',
+        title: i18n.t('shared:my_space.everyBalanceMovement'),
         content: (
           <div className="space-y-2">
-            <p>Nạp, đổi sang điểm và các điều chỉnh khác, kèm thời điểm và lý do.</p>
-            {note('Đây là sổ gốc khi có khiếu nại: số dư hiện tại luôn bằng tổng các dòng ở đây.')}
+            <p>{i18n.t('shared:my_space.topUpsConversionsToPointsAnd')}</p>
+            {note(i18n.t('shared:my_space.thisIsTheSourceLedgerFor'))}
           </div>
         ),
         placement: 'top',
@@ -336,48 +324,45 @@ const mySpaceTours: Record<TourKey, TourDef> = {
     steps: [
       {
         target: '#tour-my-conduct-target',
-        title: '🤝 Tự chấm hạnh kiểm',
+        title: i18n.t('shared:my_space.selfScoreConduct'),
         content: (
           <div className="space-y-2">
             <p>
-              Chọn <strong>một đợt</strong> hoặc <strong>cả kỳ</strong> để mở phiếu. Chưa chọn thì chưa có
-              phiếu nào hiện ra.
+              {i18n.t('shared:my_space.choose')} <strong>{i18n.t('shared:my_space.onePeriod')}</strong> {i18n.t('shared:my_space.or')} <strong>{i18n.t('shared:my_space.theWholeCycle')}</strong> {i18n.t('shared:my_space.toOpenTheFormUntilYou')}
             </p>
-            {note('Các ô số liệu trên card cho biết điểm bạn tự chấm, điểm quản lý đã cho, thang điểm, và bộ tiêu chí đang áp cho kỳ này.')}
+            {note(i18n.t('shared:my_space.theFigureBoxesOnTheCard'))}
           </div>
         ),
         placement: 'bottom',
       },
       {
         target: '#tour-conduct-sheet',
-        title: '📝 Dẫn chứng quan trọng hơn điểm',
+        title: i18n.t('shared:my_space.evidenceMattersMoreThanTheScore'),
         content: (
           <div className="space-y-2">
             <p>
-              Mỗi tiêu chí có ô điểm và ô <strong>dẫn chứng</strong>. Quản lý chấm dựa trên dẫn chứng bạn
-              nêu, nên bỏ trống ô này là tự bỏ mất phần lập luận của mình.
+              {i18n.t('shared:my_space.eachCriterionHasAScoreField')} <strong>{i18n.t('shared:my_space.evidence')}</strong>{i18n.t('shared:my_space.fieldTheManagerScoresBasedOn')}
             </p>
-            {note('Cột trọng số cho biết tiêu chí nào nặng ký nhất — dồn dẫn chứng vào những tiêu chí đó trước.')}
+            {note(i18n.t('shared:my_space.theWeightColumnShowsWhichCriteria'))}
           </div>
         ),
         placement: 'top',
       },
       {
         target: '#tour-conduct-sheet-actions',
-        title: '💾 Lưu và xuất',
+        title: i18n.t('shared:my_space.saveAndExport'),
         content: (
           <div className="space-y-2">
             <p>
-              <strong>Lưu tự đánh giá</strong> ghi phần của bạn. <strong>Xuất Excel</strong> lấy nguyên
-              phiếu ra tệp để lưu hoặc in.
+              <strong>{i18n.t('shared:my_space.saveSelfAssessment')}</strong> {i18n.t('shared:my_space.savesYourPart')} <strong>{i18n.t('shared:my_space.exportExcel')}</strong> {i18n.t('shared:my_space.exportsTheWholeFormToA')}
             </p>
-            {warn('Đơn vị đã chốt đánh giá kỳ thì phiếu chuyển sang chỉ xem — lúc đó phải nhờ quản lý mở khoá ở mục Đánh giá kỳ.')}
+            {warn(i18n.t('shared:my_space.onceTheUnitHasFinalizedThe'))}
           </div>
         ),
         placement: 'top',
       },
     ],
   },
-}
+}))
 
 export default mySpaceTours

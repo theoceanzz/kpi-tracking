@@ -1,9 +1,11 @@
 import { useMemo } from 'react'
+import i18n from 'i18next'
 import { Scale, AlertTriangle, CheckCircle2 } from 'lucide-react'
 import CollapsibleCard from '@/components/common/CollapsibleCard'
 import BellCurveChart from '@/components/charts/BellCurveChart'
 import { cn } from '@/lib/utils'
 import type { CycleCurve } from '@/types/kpi'
+import { useTranslation } from 'react-i18next'
 
 /**
  * Bell curve của KỲ cho đơn vị đang xem: phân bố THỰC TẾ của thành viên đặt cạnh khung hạn mức
@@ -21,6 +23,7 @@ export default function CycleBellCurveCard({ curve, orgUnitName, defaultOpen = f
   /** Biểu đồ thấp hơn, chú giải gọn — cho ô nửa hàng cạnh luồng duyệt. */
   compact?: boolean
 }) {
+  const { t } = useTranslation('kpi')
   const rows = curve.buckets ?? []
   // Chưa chấm đủ người thì mức nào cũng "thiếu" — kêu lúc đó là kêu một câu vô nghĩa; chỉ
   // vượt trần mới đáng nói giữa chừng. Cùng luật với backend (bellCurveMessage).
@@ -31,14 +34,14 @@ export default function CycleBellCurveCard({ curve, orgUnitName, defaultOpen = f
   if (!rows.length) return null
 
   const headline = !curve.configured
-    ? 'Chưa áp khung — chỉ hiện phân bố thực tế'
+    ? t('CycleBellCurveCard.noQuotaAppliedShowingTheActual')
     : curve.evaluated === 0
-      ? 'Chưa ai có điểm kỳ'
+      ? t('CycleBellCurveCard.noOneHasACycleScore')
       : overs.length
-        ? `Vượt trần: ${overs.map(r => `${r.level} ${r.count}/${r.maxCount}`).join(' · ')}`
+        ? t('CycleBellCurveCard.aboveTheCeiling', { join: overs.map(r => `${r.level} ${r.count}/${r.maxCount}`).join(' · ') })
         : unders.length
-          ? `Dưới sàn: ${unders.map(r => `${r.level} ${r.count}/${r.minCount}`).join(' · ')}`
-          : complete ? 'Phân bố nằm trong khung' : `Chưa vượt trần · ${curve.evaluated}/${curve.headcount} người có điểm`
+          ? t('CycleBellCurveCard.belowTheFloor', { join: unders.map(r => `${r.level} ${r.count}/${r.minCount}`).join(' · ') })
+          : complete ? t('CycleBellCurveCard.theDistributionIsWithinTheQuota') : t('CycleBellCurveCard.notAboveTheCeilingPeopleScored', { evaluated: curve.evaluated, headcount: curve.headcount })
 
   const modeBadge = curve.configured && (
     <span className={cn(
@@ -47,7 +50,7 @@ export default function CycleBellCurveCard({ curve, orgUnitName, defaultOpen = f
         ? 'bg-[var(--color-error-bg)] text-[var(--color-error)] border-[var(--color-error-border)]'
         : 'bg-[var(--color-warning-bg)] text-[var(--color-warning)] border-[var(--color-warning-border)]',
     )}>
-      {curve.mode === 'block' ? 'Chặn khi vượt trần' : 'Chỉ cảnh báo'}
+      {curve.mode === 'block' ? t('CycleBellCurveCard.blockWhenAboveTheCeiling') : t('CycleBellCurveCard.warningOnly')}
     </span>
   )
   const toneCls = overs.length
@@ -63,8 +66,8 @@ export default function CycleBellCurveCard({ curve, orgUnitName, defaultOpen = f
           <p className={cn('text-sm', toneCls ?? 'text-[var(--color-muted-foreground)]', compact && 'text-xs')}>
             {headline}
             <span className="text-caption font-medium">
-              {curve.configured && curve.profileName ? ` · khung "${curve.profileName}" ±${curve.tolerance}%` : ''}
-              {` · ${curve.evaluated}/${curve.headcount} người có điểm`}
+              {curve.configured && curve.profileName ? i18n.t('kpi:CycleBellCurveCard.curveSuffix', { name: curve.profileName, tolerance: curve.tolerance }) : ''}
+              {t('CycleBellCurveCard.peopleScored', { evaluated: curve.evaluated, headcount: curve.headcount })}
             </span>
           </p>
           {!compact && modeBadge}
@@ -79,11 +82,11 @@ export default function CycleBellCurveCard({ curve, orgUnitName, defaultOpen = f
       id={id}
       defaultOpen={defaultOpen}
       icon={<Scale size={18} aria-hidden="true" />}
-      title={`Bell curve của kỳ${orgUnitName ? ` · ${orgUnitName}` : ''}`}
+      title={t('CycleBellCurveCard.cycleBellCurve', { value: orgUnitName ? ` · ${orgUnitName}` : '' })}
       summary={
         <span className={toneCls}>
           {headline}
-          {curve.configured && curve.profileName ? ` · khung "${curve.profileName}" ±${curve.tolerance}%` : ''}
+          {curve.configured && curve.profileName ? i18n.t('kpi:CycleBellCurveCard.curveSuffix', { name: curve.profileName, tolerance: curve.tolerance }) : ''}
         </span>
       }
       badge={modeBadge}
@@ -107,7 +110,7 @@ export default function CycleBellCurveCard({ curve, orgUnitName, defaultOpen = f
               {overs.length > 0 && (
                 <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
                   <dt className="inline-flex items-center gap-1 font-semibold text-[var(--color-error)]">
-                    <AlertTriangle size={12} aria-hidden="true" /> Vượt trần
+                    <AlertTriangle size={12} aria-hidden="true" /> {t('CycleBellCurveCard.aboveTheCeiling2')}
                   </dt>
                   {overs.map(r => (
                     <dd key={r.level} className="tabular-nums text-[var(--color-foreground)]">
@@ -119,7 +122,7 @@ export default function CycleBellCurveCard({ curve, orgUnitName, defaultOpen = f
               {unders.length > 0 && (
                 <div className="flex flex-wrap items-baseline gap-x-2 gap-y-0.5">
                   <dt className="inline-flex items-center gap-1 font-semibold text-[var(--color-warning)]">
-                    <AlertTriangle size={12} aria-hidden="true" /> Dưới sàn
+                    <AlertTriangle size={12} aria-hidden="true" /> {t('CycleBellCurveCard.belowTheFloor2')}
                   </dt>
                   {unders.map(r => (
                     <dd key={r.level} className="tabular-nums text-[var(--color-foreground)]">
@@ -131,11 +134,11 @@ export default function CycleBellCurveCard({ curve, orgUnitName, defaultOpen = f
             </dl>
           ) : curve.evaluated > 0 && complete ? (
             <p className="inline-flex items-center gap-1.5 text-xs font-semibold text-[var(--color-success)]">
-              <CheckCircle2 size={12} aria-hidden="true" /> Phân bố nằm trong khung
+              <CheckCircle2 size={12} aria-hidden="true" /> {t('CycleBellCurveCard.theDistributionIsWithinTheQuota')}
             </p>
           ) : (
             <p className="text-caption">
-              {curve.evaluated === 0 ? 'Chưa ai có điểm kỳ nên chưa đối chiếu được.' : `Còn ${curve.headcount - curve.evaluated} người chưa có điểm — sàn chỉ xét khi đã chấm đủ.`}
+              {curve.evaluated === 0 ? t('CycleBellCurveCard.noOneHasACycleScore2') : t('CycleBellCurveCard.peopleHaveNoScoreYetThe', { value: curve.headcount - curve.evaluated })}
             </p>
           )
         )}

@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { cn } from '@/lib/utils'
 import { Switch } from '@/components/ui/switch'
+import { useTranslation } from 'react-i18next'
 
 /**
  * Khối nhỏ dùng chung cho các form CHỈ TIÊU (tạo/sửa, việc khẩn): ô có nhãn, dòng nhắc, thẻ
@@ -11,12 +12,13 @@ import { Switch } from '@/components/ui/switch'
 export function Field({ label, required, hint, error, trailing, prefilled, children }: {
   label: ReactNode; required?: boolean; hint?: string; error?: string; trailing?: ReactNode; prefilled?: boolean; children: ReactNode
 }) {
+  const { t } = useTranslation('kpi')
   return (
     <div className="space-y-1.5">
       <div className="flex items-center justify-between gap-2">
         <label className="text-label flex items-center gap-1.5">
           {label}{required && <span className="text-[var(--color-error)]">*</span>}
-          {prefilled && <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-info)]">từ nguồn</span>}
+          {prefilled && <span className="text-[10px] font-semibold uppercase tracking-wide text-[var(--color-info)]">{t('KpiFormParts.fromSource')}</span>}
         </label>
         {trailing}
       </div>

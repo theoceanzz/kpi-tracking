@@ -81,4 +81,16 @@ public class KpiCriteriaResponse {
     private UUID replacedById;
     private String replacedByName;
     private String replacementReason;
+    /**
+     * "KPI của tôi": người xem có bài nộp bị trả lại đang chờ nộp lại ⇒ hạn nộp lại và lý do. Trước
+     * hạn này được nộp bài mới dù đợt đã hết hạn. {@code null} ở mọi danh sách khác.
+     */
+    private Instant resubmitDeadline;
+    private String returnReason;
+    /** "KPI của tôi": số bài nộp của người xem đã bị trả lại (kể cả đã nộp lại xong). */
+    private Integer returnCount;
+    private String lastReturnReason;
+    private Instant lastReturnedAt;
+    /** Vị trí trong chuỗi duyệt, tính cho người đang xem. {@code null} khi không đang chờ duyệt. */
+    private com.kpitracking.dto.response.kpi.approval.ApprovalSummaryResponse approval;
 }

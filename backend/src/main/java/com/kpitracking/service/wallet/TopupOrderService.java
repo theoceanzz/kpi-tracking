@@ -8,8 +8,10 @@ import com.kpitracking.entity.TopupOrder;
 import com.kpitracking.entity.User;
 import com.kpitracking.enums.TopupOrderStatus;
 import com.kpitracking.exception.BusinessException;
+import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.ForbiddenException;
 import com.kpitracking.exception.ResourceNotFoundException;
+import com.kpitracking.i18n.Terms;
 import com.kpitracking.repository.OrganizationRepository;
 import com.kpitracking.repository.TopupOrderRepository;
 import com.kpitracking.service.CashWalletService;
@@ -54,28 +56,24 @@ public class TopupOrderService {
         User me = context.getCurrentUser();
         UUID orgId = context.getOrgIdOf(me.getId());
         Organization org = organizationRepository.findById(orgId)
-                .orElseThrow(() -> new ResourceNotFoundException("Tổ chức", "id", orgId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.organization"), "id", orgId));
 
         assertWalletEnabled(org);
 
         if (org.getSepayAccountNumber() == null || org.getSepayAccountNumber().isBlank()
                 || org.getSepayBankCode() == null || org.getSepayBankCode().isBlank()) {
-            throw new BusinessException("Tổ chức chưa cấu hình tài khoản ngân hàng nhận tiền. "
-                    + "Vui lòng liên hệ quản trị viên.");
+            throw new BusinessException(ErrorCode.ORGANIZATION_NOT_CONFIGURED_RECEIVING_BANK_ACCOUNT);
         }
 
         long amount = request.getAmount();
         if (amount < org.getTopupMinAmount() || amount > org.getTopupMaxAmount()) {
-            throw new BusinessException("Số tiền nạp phải từ "
-                    + CashWalletService.formatVnd(org.getTopupMinAmount()) + " đến "
-                    + CashWalletService.formatVnd(org.getTopupMaxAmount()) + ".");
+            throw new BusinessException(ErrorCode.TOP_UP_AMOUNT_MUST_BETWEEN, String.valueOf(CashWalletService.formatVnd(org.getTopupMinAmount())), String.valueOf(CashWalletService.formatVnd(org.getTopupMaxAmount())));
         }
 
         long pending = orderRepository.countByOrganizationIdAndUserIdAndStatus(
                 orgId, me.getId(), TopupOrderStatus.PENDING);
         if (pending >= MAX_PENDING_ORDERS) {
-            throw new BusinessException("Bạn đang có " + pending + " đơn nạp chờ thanh toán. "
-                    + "Vui lòng hoàn tất hoặc huỷ bớt trước khi tạo đơn mới.");
+            throw new BusinessException(ErrorCode.TOP_UP_ORDERS_AWAITING_PAYMENT, String.valueOf(pending));
         }
 
         String code = generateUniqueCode();
@@ -125,10 +123,10 @@ public class TopupOrderService {
     @Transactional(readOnly = true)
     public TopupOrderResponse getById(UUID id) {
         TopupOrder order = orderRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Đơn nạp tiền", "id", id));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.topUpOrder"), "id", id));
         User me = context.getCurrentUser();
         if (!order.getUser().getId().equals(me.getId())) {
-            throw new ForbiddenException("Bạn không có quyền xem đơn nạp tiền này.");
+            throw new ForbiddenException(ErrorCode.NO_PERMISSION_VIEW_TOP_UP_ORDER);
         }
         return toResponse(order, order.getOrganization());
     }
@@ -146,18 +144,17 @@ public class TopupOrderService {
     @Transactional
     public TopupOrderResponse cancel(UUID id) {
         TopupOrder order = orderRepository.findByIdForUpdate(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Đơn nạp tiền", "id", id));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.topUpOrder"), "id", id));
 
         User me = context.getCurrentUser();
         if (!order.getUser().getId().equals(me.getId())) {
-            throw new ForbiddenException("Bạn không có quyền huỷ đơn nạp tiền này.");
+            throw new ForbiddenException(ErrorCode.NO_PERMISSION_CANCEL_TOP_UP_ORDER);
         }
         if (order.getStatus() == TopupOrderStatus.PAID) {
-            throw new BusinessException("Đơn này đã nhận được tiền nên không thể huỷ. "
-                    + "Số dư ví của bạn đã được cộng.");
+            throw new BusinessException(ErrorCode.ORDER_RECEIVED_MONEY_CANNOT_CANCELLED);
         }
         if (order.getStatus() != TopupOrderStatus.PENDING) {
-            throw new BusinessException("Chỉ huỷ được đơn đang chờ thanh toán.");
+            throw new BusinessException(ErrorCode.ONLY_ORDERS_AWAITING_PAYMENT_CAN_CANCELLED);
         }
 
         order.setStatus(TopupOrderStatus.CANCELLED);
@@ -167,7 +164,7 @@ public class TopupOrderService {
 
     private void assertWalletEnabled(Organization org) {
         if (!Boolean.TRUE.equals(org.getEnableCashWallet())) {
-            throw new BusinessException("Tổ chức của bạn chưa bật tính năng ví tiền.");
+            throw new BusinessException(ErrorCode.ORGANIZATION_NOT_ENABLED_WALLET_FEATURE);
         }
     }
 
@@ -178,7 +175,7 @@ public class TopupOrderService {
                 return code;
             }
         }
-        throw new BusinessException("Không sinh được mã đơn nạp, vui lòng thử lại.");
+        throw new BusinessException(ErrorCode.COULD_NOT_GENERATE_TOP_UP_ORDER_CODE);
     }
 
     TopupOrderResponse toResponse(TopupOrder o, Organization org) {

@@ -1,3 +1,5 @@
+import { LocaleNumberInput } from '@/components/ui/number-input'
+import { intlLocale } from '@/i18n/format'
 import { useState } from 'react'
 import { AlertTriangle, CalendarCheck, Gift, Info, Loader2, Plus, Trash2, Users } from 'lucide-react'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
@@ -5,6 +7,8 @@ import { useCheckinConfig } from '../hooks/useCheckin'
 import type { CheckinConfigRequest, StreakBonus } from '../types'
 import { Button } from '@/components/ui/button'
 import { ChoiceChip } from '@/components/ui/choice-chip'
+import { useTranslation } from 'react-i18next'
+import i18n from 'i18next'
 
 const numCls =
   'rounded-control border border-[var(--color-border)] bg-transparent px-3 py-2 text-sm tabular-nums outline-none focus:border-[var(--color-primary)]'
@@ -14,19 +18,19 @@ const numCls =
  * khi gõ thay vì sau khi bấm lưu.
  */
 function configError(form: CheckinConfigRequest): string | null {
-  if (!form.pointsPerDay || form.pointsPerDay < 1) return 'Số điểm mỗi lần điểm danh phải lớn hơn 0.'
+  if (!form.pointsPerDay || form.pointsPerDay < 1) return i18n.t('rewards:CheckinConfigTab.pointsPerCheckInMustBe')
   if (form.streakCycleDays != null && form.streakCycleDays < 2) {
-    return 'Chu kỳ chuỗi phải từ 2 ngày trở lên — chu kỳ 1 ngày khiến mọi mốc trúng lại mỗi ngày.'
+    return i18n.t('rewards:CheckinConfigTab.theStreakCycleMustBe2')
   }
 
   const seen = new Set<number>()
   for (const b of form.streakBonuses) {
-    if (!b.day || b.day < 1) return 'Ngày của mốc thưởng phải từ 1 trở lên.'
-    if (!b.points || b.points < 1) return 'Điểm thưởng của mốc phải lớn hơn 0.'
-    if (seen.has(b.day)) return `Có hai mốc thưởng cùng đặt ở ngày ${b.day}. Mỗi ngày chỉ một mốc.`
+    if (!b.day || b.day < 1) return i18n.t('rewards:CheckinConfigTab.theMilestoneDayMustBe1')
+    if (!b.points || b.points < 1) return i18n.t('rewards:CheckinConfigTab.milestoneBonusPointsMustBeGreater')
+    if (seen.has(b.day)) return i18n.t('rewards:CheckinConfigTab.twoMilestonesAreSetOnDay', { day: b.day })
     seen.add(b.day)
     if (form.streakCycleDays != null && b.day > form.streakCycleDays) {
-      return `Mốc ngày ${b.day} nằm ngoài chu kỳ ${form.streakCycleDays} ngày nên sẽ không bao giờ được trao.`
+      return i18n.t('rewards:CheckinConfigTab.theDayMilestoneIsOutsideThe', { day: b.day, streakCycleDays: form.streakCycleDays })
     }
   }
   return null
@@ -77,6 +81,7 @@ function StatTile({ icon, label, value }: { icon: React.ReactNode; label: string
 }
 
 export default function CheckinConfigTab() {
+  const { t } = useTranslation('rewards')
   const { data, isLoading, saveConfig, isSaving } = useCheckinConfig()
 
   // Bản nháp CHỈ tồn tại sau khi sếp sửa gì đó; trước đó form dẫn xuất thẳng từ dữ liệu
@@ -155,22 +160,20 @@ export default function CheckinConfigTab() {
       <div id="tour-checkin-note" className="flex items-start gap-2.5 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)]/40 px-4 py-3 text-sm">
         <Info size={16} className="mt-0.5 flex-shrink-0 text-[var(--color-muted-foreground)]" />
         <p className="text-[var(--color-muted-foreground)]">
-          Nhân viên tự bấm điểm danh mỗi ngày ở trang “Điểm thưởng của tôi” để nhận điểm. Điểm
-          vào thẳng ví của họ và không trừ vào hạn mức của quản lý nào — hãy cân nhắc mức điểm
-          theo số nhân sự.
+          {t('CheckinConfigTab.employeesCheckInThemselvesEveryDay')}
         </p>
       </div>
 
       <div id="tour-checkin-stats" className="grid gap-4 sm:grid-cols-2">
         <StatTile
           icon={<Users size={17} />}
-          label="Đã điểm danh hôm nay"
+          label={t('CheckinConfigTab.checkedInToday')}
           value={`${data?.checkedInToday ?? 0} người`}
         />
         <StatTile
           icon={<CalendarCheck size={17} />}
-          label="Điểm đã phát tháng này"
-          value={`${(data?.pointsThisMonth ?? 0).toLocaleString('vi-VN')} điểm`}
+          label={t('CheckinConfigTab.pointsGivenThisMonth')}
+          value={`${(data?.pointsThisMonth ?? 0).toLocaleString(intlLocale())} điểm`}
         />
       </div>
 
@@ -178,14 +181,14 @@ export default function CheckinConfigTab() {
         <Toggle
           checked={form.enabled}
           onChange={(v) => set({ enabled: v })}
-          label="Bật điểm danh hàng ngày"
-          hint="Tắt thì thẻ điểm danh biến mất khỏi màn hình nhân viên; lịch sử điểm đã phát vẫn giữ nguyên."
+          label={t('CheckinConfigTab.turnOnDailyCheckIn')}
+          hint={t('CheckinConfigTab.whenOffTheCheckInCard')}
         />
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <label className="text-label mb-1.5 block font-medium">Điểm mỗi lần điểm danh</label>
-            <input
+            <label className="text-label mb-1.5 block font-medium">{t('CheckinConfigTab.pointsPerCheckIn')}</label>
+            <LocaleNumberInput
               type="number"
               min={1}
               value={form.pointsPerDay}
@@ -195,12 +198,12 @@ export default function CheckinConfigTab() {
           </div>
 
           <div>
-            <label className="text-label mb-1.5 block font-medium">Chu kỳ chuỗi (ngày)</label>
-            <input
+            <label className="text-label mb-1.5 block font-medium">{t('CheckinConfigTab.streakCycleDays')}</label>
+            <LocaleNumberInput
               type="number"
               min={2}
               max={366}
-              placeholder="Để trống = không lặp"
+              placeholder={t('CheckinConfigTab.emptyNoRepeat')}
               value={form.streakCycleDays ?? ''}
               onChange={(e) =>
                 set({ streakCycleDays: e.target.value === '' ? null : Number(e.target.value) })
@@ -208,8 +211,7 @@ export default function CheckinConfigTab() {
               className={`w-full ${numCls}`}
             />
             <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">
-              Chuỗi đếm tới đây rồi quay về ngày 1, nhờ vậy các mốc thưởng lặp lại đều đặn. Để
-              trống thì mỗi mốc chỉ trúng đúng một lần.
+              {t('CheckinConfigTab.theStreakCountsUpToHere')}
             </p>
           </div>
         </div>
@@ -217,24 +219,24 @@ export default function CheckinConfigTab() {
         <Toggle
           checked={form.skipWeekends}
           onChange={(v) => set({ skipWeekends: v })}
-          label="Không tính thứ 7 và chủ nhật"
-          hint="Cuối tuần không điểm danh được và cũng không làm đứt chuỗi — thứ hai nối tiếp thứ sáu."
+          label={t('CheckinConfigTab.excludeSaturdaysAndSundays')}
+          hint={t('CheckinConfigTab.weekendsCannotBeCheckedInAnd')}
         />
       </div>
 
       <div className="space-y-4 rounded-card border border-[var(--color-border)] p-5">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div>
-            <h3 className="text-section-title">Mốc thưởng chuỗi</h3>
+            <h3 className="text-section-title">{t('CheckinConfigTab.streakMilestones')}</h3>
             <p className="text-xs text-[var(--color-muted-foreground)]">
               {trackDays
-                ? 'Bấm vào ngày trong dải bên dưới để thêm hoặc bỏ mốc thưởng.'
-                : 'Thưởng thêm khi chuỗi chạm đúng ngày đó. Bỏ trống nếu chỉ muốn điểm cơ bản.'}
+                ? t('CheckinConfigTab.clickADayInTheStrip')
+                : t('CheckinConfigTab.bonusWhenTheStreakHitsExactly')}
             </p>
           </div>
-          <Button variant="outline" size="sm" type="button" disabled={firstFreeDay == null} onClick={() => firstFreeDay != null && toggleBonusDay(firstFreeDay)} title={firstFreeDay == null ? 'Mọi ngày trong chu kỳ đều đã có mốc' : undefined}>
+          <Button variant="outline" size="sm" type="button" disabled={firstFreeDay == null} onClick={() => firstFreeDay != null && toggleBonusDay(firstFreeDay)} title={firstFreeDay == null ? t('CheckinConfigTab.everyDayInTheCycleAlready') : undefined}>
             <Plus aria-hidden="true" />
-            Thêm mốc
+            {t('CheckinConfigTab.addMilestone')}
           </Button>
         </div>
 
@@ -249,10 +251,10 @@ export default function CheckinConfigTab() {
               return (
                 <ChoiceChip selected={!(isBonus)} key={n} onClick={() => toggleBonusDay(n)} title={
                     isBonus
-                      ? `Ngày ${n}: ${form.pointsPerDay} điểm cơ bản + ${bonus} thưởng mốc. Bấm để bỏ mốc.`
-                      : `Ngày ${n}: ${form.pointsPerDay} điểm. Bấm để thêm mốc thưởng.`
+                      ? t('CheckinConfigTab.dayBasePointsMilestoneBonusClick', { n, pointsPerDay: form.pointsPerDay, bonus })
+                      : t('CheckinConfigTab.dayPointsClickToAddA', { n, pointsPerDay: form.pointsPerDay })
                   }>
-                  <span className="text-eyebrow">Ngày {n}</span>
+                  <span className="text-eyebrow">{t('CheckinConfigTab.date')} {n}</span>
                   <span
                     className={`text-base font-semibold tabular-nums ${isBonus ? '' : 'text-[var(--color-foreground)]'}`}
                   >
@@ -272,20 +274,19 @@ export default function CheckinConfigTab() {
                 cắt ở một con số tuỳ tiện làm sếp tưởng chuỗi dừng ở đó. */}
             {form.streakCycleDays == null && (
               <span className="flex h-[62px] items-center px-2 text-sm text-[var(--color-muted-foreground)]">
-                … không lặp lại
+                {t('CheckinConfigTab.noRepeat')}
               </span>
             )}
           </div>
         ) : (
           <p className="rounded-control border border-dashed border-[var(--color-border)] px-4 py-3 text-center text-xs text-[var(--color-muted-foreground)]">
-            Chu kỳ {form.streakCycleDays} ngày quá dài để vẽ thành dải — chỉnh trực tiếp ở danh
-            sách bên dưới.
+            {t('CheckinConfigTab.cycle')} {form.streakCycleDays} {t('CheckinConfigTab.daysIsTooLongToDraw')}
           </p>
         )}
 
         {form.streakBonuses.length === 0 ? (
           <p className="rounded-control border border-dashed border-[var(--color-border)] px-4 py-5 text-center text-sm text-[var(--color-muted-foreground)]">
-            Chưa có mốc nào — nhân viên nhận đều {form.pointsPerDay} điểm mỗi ngày.
+            {t('CheckinConfigTab.noMilestonesYetEmployeesGetA')} {form.pointsPerDay} {t('CheckinConfigTab.pointsPerDay')}
           </p>
         ) : (
           <div className="space-y-2">
@@ -298,35 +299,35 @@ export default function CheckinConfigTab() {
                 >
                   <span className="inline-flex h-7 items-center gap-1.5 rounded-control bg-[var(--color-warning-bg)] px-2.5 text-xs font-medium text-[var(--color-warning)]">
                     <Gift size={12} />
-                    Ngày
+                    {t('CheckinConfigTab.date')}
                   </span>
-                  <input
+                  <LocaleNumberInput
                     type="number"
                     min={1}
                     value={b.day}
                     onChange={(e) => setBonus(idx, { day: Number(e.target.value) })}
                     className={`w-16 text-center ${numCls}`}
                   />
-                  <span className="text-[var(--color-muted-foreground)]">thưởng thêm</span>
-                  <input
+                  <span className="text-[var(--color-muted-foreground)]">{t('CheckinConfigTab.bonus')}</span>
+                  <LocaleNumberInput
                     type="number"
                     min={1}
                     value={b.points}
                     onChange={(e) => setBonus(idx, { points: Number(e.target.value) })}
                     className={`w-24 text-center ${numCls}`}
                   />
-                  <span className="text-[var(--color-muted-foreground)]">điểm</span>
+                  <span className="text-[var(--color-muted-foreground)]">{t('CheckinConfigTab.points')}</span>
 
                   {/* Số thực nhận của ngày đó. Sếp nhập "thưởng thêm" nhưng cái nhân viên
                       thấy là tổng — không hiện ra thì lần nào cũng phải tự cộng. */}
                   <span className="text-xs text-[var(--color-muted-foreground)]">
-                    → hôm đó nhận{' '}
+                    {t('CheckinConfigTab.thatDayGets')}{' '}
                     <strong className="text-[var(--color-foreground)] tabular-nums">
-                      {(form.pointsPerDay + (b.points || 0)).toLocaleString('vi-VN')} điểm
+                      {(form.pointsPerDay + (b.points || 0)).toLocaleString(intlLocale())} {t('CheckinConfigTab.points')}
                     </strong>
                   </span>
 
-                  <Button variant="ghost" size="icon-sm" className="ml-auto text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]" aria-label="Xoá mốc này" type="button" onClick={() => set({ streakBonuses: form.streakBonuses.filter((_, i) => i !== idx) })} title="Xoá mốc này">
+                  <Button variant="ghost" size="icon-sm" className="ml-auto text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]" aria-label={t('CheckinConfigTab.deleteThisMilestone')} type="button" onClick={() => set({ streakBonuses: form.streakBonuses.filter((_, i) => i !== idx) })} title={t('CheckinConfigTab.deleteThisMilestone')}>
                     <Trash2 aria-hidden="true" />
                   </Button>
                 </div>
@@ -341,14 +342,14 @@ export default function CheckinConfigTab() {
           <div className="flex flex-wrap items-center gap-x-2 gap-y-1 rounded-card bg-[var(--color-muted)]/60 px-4 py-3 text-sm">
             <CalendarCheck size={15} className="text-[var(--color-muted-foreground)]" />
             <span className="text-[var(--color-muted-foreground)]">
-              Đi đủ chu kỳ {form.streakCycleDays} ngày, một người nhận
+              {t('CheckinConfigTab.overAFullCycleOf')} {form.streakCycleDays} {t('CheckinConfigTab.daysOnePersonGets')}
             </span>
             <strong className="text-base tabular-nums">
-              {cycleTotal.toLocaleString('vi-VN')} điểm
+              {cycleTotal.toLocaleString(intlLocale())} {t('CheckinConfigTab.points')}
             </strong>
             <span className="text-xs text-[var(--color-muted-foreground)]">
-              ({form.streakCycleDays} × {form.pointsPerDay.toLocaleString('vi-VN')} cơ bản
-              {bonusTotal > 0 && <> + {bonusTotal.toLocaleString('vi-VN')} thưởng mốc</>})
+              ({form.streakCycleDays} × {form.pointsPerDay.toLocaleString(intlLocale())} {t('CheckinConfigTab.base')}
+              {bonusTotal > 0 && <> + {bonusTotal.toLocaleString(intlLocale())} {t('CheckinConfigTab.milestoneBonus')}</>})
             </span>
           </div>
         )}
@@ -364,7 +365,7 @@ export default function CheckinConfigTab() {
       <div className="flex justify-end">
         <Button onClick={() => saveConfig(form)} disabled={!!error || isSaving}>
           {isSaving && <Loader2 aria-hidden="true" className="animate-spin" />}
-          Lưu cấu hình
+          {t('CheckinConfigTab.saveSettings')}
         </Button>
       </div>
     </div>

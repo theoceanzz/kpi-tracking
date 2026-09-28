@@ -202,8 +202,12 @@ const SelectItem = React.forwardRef<
     {/* Only the text passed here gets cloned into the closed trigger's SelectValue —
         keep it to a single concise line. Pass `extra` for richer subtext that should
         only appear in the open dropdown list, not duplicated into the trigger. */}
-    <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
-    {extra}
+    {/* Mục dài hơn trần bề ngang danh sách (28rem / mép màn hình) cắt "…", rê chuột xem đủ qua title.
+        Bọc NGOÀI ItemText nên phần sao chép lên ô chọn không mang theo lớp bọc này. */}
+    <span className="min-w-0 flex-1 truncate" title={textOf(children) || undefined}>
+      <SelectPrimitive.ItemText>{children}</SelectPrimitive.ItemText>
+    </span>
+    {extra != null && extra !== false && <span className="flex shrink-0">{extra}</span>}
   </SelectPrimitive.Item>
 ))
 SelectItem.displayName = SelectPrimitive.Item.displayName

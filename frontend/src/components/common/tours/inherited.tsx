@@ -1,4 +1,6 @@
 import { Step } from 'react-joyride'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
 /**
  * Nội dung hướng dẫn viết từ hồi mỗi màn hình còn là một dòng sidebar riêng.
@@ -18,26 +20,26 @@ import { Step } from 'react-joyride'
  */
 
 /* ─── KPI Criteria Page ─── */
-export const kpiCriteriaSteps: Step[] = [
+export const kpiCriteriaSteps = perLanguage((): Step[] => ([
   {
     target: '#tour-kpi-toolbar',
-    title: '🎯 Quản lý Chỉ tiêu Tập trung',
+    title: i18n.t('shared:inherited.centralizedKpiManagement'),
     content: (
       <div className="space-y-2">
-        <p>Đây là công cụ lọc mạnh mẽ giúp quản lý dễ dàng tìm kiếm và theo dõi KPI của bất kỳ nhân viên nào trong kỳ đánh giá.</p>
-        <p className="text-caption">Bạn có thể lọc theo phòng ban, trạng thái chỉ tiêu hoặc tìm đích danh một nhân viên cụ thể.</p>
+        <p>{i18n.t('shared:inherited.aPowerfulFilteringToolThatLets')}</p>
+        <p className="text-caption">{i18n.t('shared:inherited.youCanFilterByDepartmentKpi')}</p>
       </div>
     ),
     placement: 'bottom',
   },
   {
     target: '#tour-kpi-add-btn',
-    title: '✍️ Thiết lập Mục tiêu',
+    title: i18n.t('shared:inherited.setGoals'),
     content: (
       <div className="space-y-3">
-        <p>Bắt đầu giao KPI cho đội ngũ của bạn. Hãy ghi nhớ nguyên tắc <strong>SMART</strong> (Cụ thể, Đo lường được, Khả thi, Thực tế, Có thời hạn).</p>
+        <p>{i18n.t('shared:inherited.startAssigningKpisToYourTeam')} <strong>SMART</strong> {i18n.t('shared:inherited.specificMeasurableAchievableRelevantTimeBound')}</p>
         <div className="p-2 bg-[var(--color-warning-bg)] border-l-4 border-[var(--color-warning-border)] rounded text-xs text-[var(--color-warning)] font-medium">
-          ⚠️ QUAN TRỌNG: Hãy đảm bảo tổng trọng số (%) của các KPI cho một nhân viên phải đạt đúng 100% để hệ thống tính điểm chính xác.
+          {i18n.t('shared:inherited.importantMakeSureTheTotalWeight')}
         </div>
       </div>
     ),
@@ -45,11 +47,11 @@ export const kpiCriteriaSteps: Step[] = [
   },
   {
     target: '#tour-kpi-tabs',
-    title: '🔄 Luồng Phê duyệt',
+    title: i18n.t('shared:inherited.approvalFlow'),
     content: (
       <div className="space-y-2">
-        <p>Theo dõi sát sao trạng thái của từng KPI từ lúc khởi tạo cho đến khi hoàn thành.</p>
-        <p className="text-caption italic">💡 Ghi nhớ: Chỉ những KPI ở trạng thái <strong>Đã duyệt (Approved)</strong> mới chính thức có hiệu lực và được tính vào kết quả đánh giá cuối kỳ.</p>
+        <p>{i18n.t('shared:inherited.closelyTrackTheStatusOfEach')}</p>
+        <p className="text-caption italic">{i18n.t('shared:inherited.rememberOnlyKpisInThe')} <strong>{i18n.t('shared:inherited.approved')}</strong> {i18n.t('shared:inherited.statusOfficiallyTakeEffectAndCount')}</p>
       </div>
     ),
     placement: 'bottom',
@@ -59,68 +61,67 @@ export const kpiCriteriaSteps: Step[] = [
     // từng dòng, nên chỉ tồn tại lúc menu đang mở. Ngoài đời không bao giờ có neo đó và
     // TourHost lặng lẽ bỏ luôn bước này. Trỏ vào chính danh sách rồi chỉ đường tới menu.
     target: '#tour-kpi-list',
-    title: '🌿 Phân rã Mục tiêu (Delegate)',
+    title: i18n.t('shared:inherited.cascadeGoals'),
     content: (
       <div className="space-y-2">
         <p>
-          Mỗi dòng có menu <strong>“…”</strong> ở cuối. Trong đó, <strong>Phân rã chỉ tiêu</strong> là
-          phím tắt để <strong>ủy quyền/giao việc</strong> cho cấp dưới.
+          {i18n.t('shared:inherited.eachRowHasAMenu')} <strong>“…”</strong> {i18n.t('shared:inherited.atTheEndInIt')} <strong>{i18n.t('shared:inherited.cascadeKpi')}</strong> {i18n.t('shared:inherited.isAShortcutTo')} <strong>{i18n.t('shared:inherited.assignWork')}</strong> {i18n.t('shared:inherited.toSubordinates')}
         </p>
         <p className="text-xs bg-[var(--color-info-bg)] p-2 rounded-control text-[var(--color-info)] italic border-l-4 border-[var(--color-info-border)]">
-          Mẹo: Hệ thống sẽ tự động tạo một chỉ tiêu con liên kết với chỉ tiêu này, giúp việc theo dõi dòng chảy chỉ tiêu trở nên minh bạch và tự động hoàn toàn.
+          {i18n.t('shared:inherited.tipTheSystemAutomaticallyCreatesA')}
         </p>
         <p className="text-caption">
-          Chỉ hiện khi tổ chức bật <strong>thác nước</strong> và chỉ tiêu đã ở trạng thái <strong>Đã duyệt</strong>.
+          {i18n.t('shared:inherited.onlyShownWhenTheOrganizationHas')} <strong>{i18n.t('shared:inherited.waterfall')}</strong> {i18n.t('shared:inherited.andTheKpiIsInStatus')} <strong>{i18n.t('shared:inherited.approved2')}</strong>.
         </p>
       </div>
     ),
     placement: 'top',
   },
-]
+]))
 
 /* ─── My KPI Page ─── */
-export const myKpiSteps: Step[] = [
+export const myKpiSteps = perLanguage((): Step[] => ([
   {
     target: '#tour-my-kpi-toolbar',
-    title: '📝 Bảng Mục tiêu Cá nhân',
+    title: i18n.t('shared:inherited.personalObjectivesBoard'),
     content: (
       <div className="space-y-2">
-        <p>Chào mừng bạn! Mọi nhiệm vụ và mục tiêu bạn cần thực hiện trong kỳ này đều được tập trung tại đây.</p>
-        <p className="text-xs text-[var(--color-primary)] font-medium italic">💡 Hãy kiểm tra kỹ các "Mục tiêu (Target)" mà quản lý đã giao để lập kế hoạch triển khai hiệu quả.</p>
+        <p>{i18n.t('shared:inherited.welcomeAllTheTasksAndGoals')}</p>
+        <p className="text-xs text-[var(--color-primary)] font-medium italic">{i18n.t('shared:inherited.checkCarefullyTheTargetsYourManager')}</p>
       </div>
     ),
     placement: 'bottom',
   },
   {
     target: '#tour-my-kpi-table',
-    title: '🚀 Theo dõi & Thực hiện',
+    title: i18n.t('shared:inherited.trackExecute'),
     content: (
       <div className="space-y-3">
-        <p>Các thông số quan trọng bạn cần nắm vững để tối ưu điểm số:</p>
+        <p>{i18n.t('shared:inherited.theKeyParametersYouNeedTo')}</p>
         <ul className="text-xs space-y-2 list-disc pl-4 text-[var(--color-muted-foreground)] font-medium">
-          <li><strong className="text-[var(--color-foreground)]">Đơn vị:</strong> Cách thức đo lường kết quả (VNĐ, %, Giờ, Sản phẩm...).</li>
-          <li><strong className="text-[var(--color-foreground)]">Trọng số:</strong> Mức độ ảnh hưởng của mục tiêu này đến tổng điểm cuối kỳ của bạn.</li>
-          <li><strong className="text-[var(--color-foreground)]">Tiến độ:</strong> Nhấn nút <strong>"Nộp bài"</strong> ngay khi bạn hoàn thành một phần hoặc toàn bộ chỉ tiêu để cập nhật kết quả.</li>
+          <li><strong className="text-[var(--color-foreground)]">{i18n.t('shared:inherited.unitOfMeasure')}</strong> {i18n.t('shared:inherited.howTheResultIsMeasuredVnd')}</li>
+          <li><strong className="text-[var(--color-foreground)]">{i18n.t('shared:inherited.weight')}</strong> {i18n.t('shared:inherited.howMuchThisGoalAffectsYour')}</li>
+          <li><strong className="text-[var(--color-foreground)]">{i18n.t('shared:inherited.progress')}</strong> {i18n.t('shared:inherited.clickThe')} <strong>{i18n.t('shared:inherited.submit')}</strong> {i18n.t('shared:inherited.buttonAsSoonAsYouFinish')}</li>
         </ul>
         <p className="text-xs bg-[var(--color-warning-bg)] p-2 rounded-control text-[var(--color-warning)] italic border-l-4 border-[var(--color-warning-border)]">
-          Mẹo: Nếu mục tiêu không còn phù hợp với thực tế, hãy sử dụng tính năng "Yêu cầu điều chỉnh" để gửi đề xuất lên cấp trên.
+          {i18n.t('shared:inherited.tipIfAGoalNoLonger')}
         </p>
       </div>
     ),
     placement: 'bottom',
   },
-]
+]))
 
 /* ─── My Submissions Page ─── */
-export const mySubmissionsSteps: Step[] = [
+export const mySubmissionsSteps = perLanguage((): Step[] => ([
   {
     target: '#tour-my-sub-tabs',
-    title: '🚥 Trạng thái Bài nộp',
+    title: i18n.t('shared:inherited.submissionStatus'),
     content: (
       <div className="space-y-2">
-        <p>Theo dõi sát sao tiến độ phê duyệt từ cấp trên đối với các báo cáo kết quả của bạn.</p>
+        <p>{i18n.t('shared:inherited.closelyTrackYourManagersApprovalProgress')}</p>
         <p className="text-caption">
-          Nếu bài nộp bị <strong>Từ chối (Rejected)</strong>, hãy đọc kỹ phần phản hồi của quản lý để chỉnh sửa và gửi lại ngay lập tức.
+          {i18n.t('shared:inherited.ifASubmissionIs')} <strong>{i18n.t('shared:inherited.rejected')}</strong>{i18n.t('shared:inherited.readYourManagersFeedbackCarefullyThen')}
         </p>
       </div>
     ),
@@ -128,171 +129,171 @@ export const mySubmissionsSteps: Step[] = [
   },
   {
     target: '#tour-my-sub-list',
-    title: '📂 Nhật ký Công việc',
+    title: i18n.t('shared:inherited.workLog'),
     content: (
       <div className="space-y-2">
-        <p>Đây là kho lưu trữ toàn bộ lịch sử báo cáo và minh chứng bạn đã gửi đi.</p>
+        <p>{i18n.t('shared:inherited.thisIsTheArchiveOfThe')}</p>
         <p className="text-xs bg-[var(--color-primary-soft)] p-2 rounded-control text-[var(--color-primary)] italic">
-          💡 Bạn có thể sử dụng dữ liệu này để đối chiếu điểm số hoặc làm bằng chứng bảo vệ kết quả công việc khi kết thúc kỳ đánh giá.
+          {i18n.t('shared:inherited.youCanUseThisDataTo')}
         </p>
       </div>
     ),
     placement: 'bottom',
   },
-]
+]))
 
 /* ─── Org Unit Submissions (Approve) Page ─── */
-export const orgUnitSubmissionsSteps: Step[] = [
+export const orgUnitSubmissionsSteps = perLanguage((): Step[] => ([
   {
     target: '#tour-approve-stats',
-    title: '📊 Tổng quan Xét duyệt',
-    content: <p>Các số liệu tổng hợp giúp bạn nắm bắt nhanh khối lượng công việc đang chờ xử lý và tiến độ phê duyệt chung của toàn đơn vị.</p>,
+    title: i18n.t('shared:inherited.reviewOverview'),
+    content: <p>{i18n.t('shared:inherited.summaryFiguresToQuicklyGraspThe')}</p>,
     placement: 'bottom',
   },
   {
     target: '#tour-approve-toolbar',
-    title: '⚡ Lọc & Ưu tiên',
+    title: i18n.t('shared:inherited.filterPrioritize'),
     content: (
       <div className="space-y-2">
-        <p>Sử dụng bộ lọc để ưu tiên phê duyệt các báo cáo quan trọng hoặc các nhân sự có hạn chót gần nhất.</p>
-        <p className="text-caption italic">💡 Bạn có thể lọc nhanh theo từng phòng ban con để quản lý tập trung hơn.</p>
+        <p>{i18n.t('shared:inherited.useFiltersToPrioritizeApprovingImportant')}</p>
+        <p className="text-caption italic">{i18n.t('shared:inherited.youCanQuicklyFilterByEach')}</p>
       </div>
     ),
     placement: 'bottom',
   },
   {
     target: '#tour-approve-table',
-    title: '🔍 Đánh giá Công tâm',
+    title: i18n.t('shared:inherited.fairEvaluation'),
     content: (
       <div className="space-y-3">
-        <p>Khi phê duyệt bài nộp, hãy nhấn vào từng dòng để xem chi tiết <strong>Tài liệu minh chứng</strong> mà nhân viên đã đính kèm.</p>
+        <p>{i18n.t('shared:inherited.whenApprovingSubmissionsClickEachRow')} <strong>{i18n.t('shared:inherited.evidenceDocuments')}</strong> {i18n.t('shared:inherited.theEmployeeAttached')}</p>
         <div className="p-2 bg-[var(--color-info-bg)] border-l-4 border-[var(--color-info-border)] rounded text-xs text-[var(--color-info)] font-medium">
-          💡 Mẹo: Hãy để lại những lời nhận xét (Feedback) chân thành. Phản hồi tích cực hoặc góp ý xây dựng sẽ giúp nhân viên cải thiện hiệu suất rõ rệt trong các đợt tiếp theo.
+          {i18n.t('shared:inherited.tipLeaveSincereCommentsFeedbackPositive')}
         </div>
       </div>
     ),
     placement: 'bottom',
   },
-]
+]))
 
 /* ─── KPI Pending Approval Page ─── */
-export const kpiPendingSteps: Step[] = [
+export const kpiPendingSteps = perLanguage((): Step[] => ([
   {
     target: '#tour-pending-header',
-    title: '🤝 Xét duyệt Mục tiêu',
+    title: i18n.t('shared:inherited.reviewGoals'),
     content: (
       <div className="space-y-2">
-        <p>Đây là bước quan trọng nhất để đảm bảo nhân viên không đặt mục tiêu quá thấp hoặc quá xa rời thực tế.</p>
-        <p className="text-xs text-[var(--color-primary)] font-medium italic">💡 Hãy thống nhất và phê duyệt mục tiêu ngay từ đầu kỳ để nhân viên có lộ trình làm việc rõ ràng.</p>
+        <p>{i18n.t('shared:inherited.thisIsTheMostImportantStep')}</p>
+        <p className="text-xs text-[var(--color-primary)] font-medium italic">{i18n.t('shared:inherited.agreeOnAndApproveGoalsRight')}</p>
       </div>
     ),
     placement: 'bottom',
   },
   {
     target: '#tour-pending-toolbar',
-    title: '🏢 Lọc Theo Đơn vị',
-    content: <p>Duyệt theo từng phòng ban để đảm bảo tính công bằng và nhất quán về khối lượng công việc giữa các nhân sự có vị trí tương đương nhau.</p>,
+    title: i18n.t('shared:inherited.filterByUnit'),
+    content: <p>{i18n.t('shared:inherited.reviewDepartmentByDepartmentToEnsure')}</p>,
     placement: 'bottom',
   },
   {
     target: '#tour-pending-tabs',
-    title: '⚡ Xử lý Nhanh',
+    title: i18n.t('shared:inherited.quickHandling'),
     content: (
       <div className="space-y-2">
-        <p>Bạn có thể <strong>Phê duyệt hàng loạt</strong> các KPI đã đạt chuẩn để đẩy nhanh tiến độ thiết lập mục tiêu cho cả bộ phận.</p>
-        <p className="text-caption italic">Mẹo: Chỉ phê duyệt khi bạn đã chắc chắn các chỉ tiêu tuân thủ đúng định hướng của công ty.</p>
+        <p>{i18n.t('shared:inherited.youCan')} <strong>{i18n.t('shared:inherited.bulkApprove')}</strong> {i18n.t('shared:inherited.kpisThatMeetTheStandardTo')}</p>
+        <p className="text-caption italic">{i18n.t('shared:inherited.tipOnlyApproveWhenYouAre')}</p>
       </div>
     ),
     placement: 'bottom',
   },
-]
+]))
 
 /* ─── KPI Adjustment Approval Page ─── */
-export const kpiAdjustmentsSteps: Step[] = [
+export const kpiAdjustmentsSteps = perLanguage((): Step[] => ([
   {
     target: '#tour-adj-header',
-    title: '🔄 Kiểm soát Thay đổi',
+    title: i18n.t('shared:inherited.changeControl'),
     content: (
       <div className="space-y-2">
-        <p>Trong quá trình làm việc, nếu có những biến động khách quan từ thị trường hoặc tổ chức, nhân viên có thể gửi yêu cầu <strong>điều chỉnh số liệu</strong>.</p>
-        <p className="text-xs text-[var(--color-primary)] font-medium">⚠️ Bạn là người quyết định cuối cùng có chấp thuận các thay đổi này hay không.</p>
+        <p>{i18n.t('shared:inherited.duringTheWorkIfObjectiveChanges')} <strong>{i18n.t('shared:inherited.adjustFigures')}</strong>.</p>
+        <p className="text-xs text-[var(--color-primary)] font-medium">{i18n.t('shared:inherited.youMakeTheFinalDecisionOn')}</p>
       </div>
     ),
     placement: 'bottom',
   },
   {
     target: '#tour-adj-toolbar',
-    title: '🚥 Lọc Yêu cầu Cấp bách',
-    content: <p>Các yêu cầu điều chỉnh thường mang tính thời điểm. Hãy ưu tiên xử lý các mục có <strong>đếm ngược thời gian</strong> sắp hết để đảm bảo tính kỷ luật dữ liệu.</p>,
+    title: i18n.t('shared:inherited.filterUrgentRequests'),
+    content: <p>{i18n.t('shared:inherited.adjustmentRequestsAreUsuallyTimeSensitive')} <strong>{i18n.t('shared:inherited.countdown')}</strong> {i18n.t('shared:inherited.isAboutToRunOutTo')}</p>,
     placement: 'bottom',
   },
   {
     target: '#tour-adj-tabs',
-    title: '📎 Bằng chứng Thay đổi',
+    title: i18n.t('shared:inherited.evidenceForTheChange'),
     content: (
       <div className="space-y-2">
-        <p>Nhấn vào yêu cầu để xem <strong>Lý do chi tiết</strong> mà nhân viên đưa ra.</p>
+        <p>{i18n.t('shared:inherited.clickARequestToSeeThe')} <strong>{i18n.t('shared:inherited.detailedReason')}</strong> {i18n.t('shared:inherited.theEmployeeGave')}</p>
         <p className="text-xs bg-[var(--color-warning-bg)] p-2 rounded-control text-[var(--color-warning)] italic border-l-4 border-[var(--color-warning-border)]">
-          💡 Chỉ chấp thuận khi lý do thực sự hợp lý, khách quan và có minh chứng đi kèm nếu cần thiết.
+          {i18n.t('shared:inherited.onlyAcceptWhenTheReasonIs')}
         </p>
       </div>
     ),
     placement: 'bottom',
   },
-]
+]))
 
 /* ─── My Adjustments Page ─── */
-export const myAdjustmentsSteps: Step[] = [
+export const myAdjustmentsSteps = perLanguage((): Step[] => ([
   {
     target: '#tour-myadj-header',
-    title: '🔄 Yêu cầu của Bạn',
-    content: <p>Nơi lưu trữ và theo dõi trạng thái các mong muốn điều chỉnh mục tiêu mà bạn đã gửi lên cấp trên.</p>,
+    title: i18n.t('shared:inherited.yourRequests'),
+    content: <p>{i18n.t('shared:inherited.whereTheTargetAdjustmentRequestsYou')}</p>,
     placement: 'bottom',
   },
   {
     target: '#tour-myadj-table',
-    title: '⏳ Theo dõi Hạn xử lý',
+    title: i18n.t('shared:inherited.trackTheHandlingDeadline'),
     content: (
       <div className="space-y-3">
-        <p>Lưu ý: Mỗi yêu cầu chỉ có thời hạn <strong>24 giờ</strong> để quản lý phê duyệt.</p>
+        <p>{i18n.t('shared:inherited.noteEachRequestOnlyHas')} <strong>{i18n.t('shared:inherited.n24Hours')}</strong> {i18n.t('shared:inherited.forTheManagerToApprove')}</p>
         <div className="p-2 bg-[var(--color-error-bg)] border-l-4 border-[var(--color-error-border)] rounded text-xs text-[var(--color-error)] italic">
-          ⚠️ Nếu quá hạn, yêu cầu sẽ tự động bị đóng để đảm bảo tính kỷ luật của dữ liệu hệ thống. Nếu bị từ chối, hãy đọc kỹ nhận xét để bổ sung lý do thuyết phục hơn cho lần sau.
+          {i18n.t('shared:inherited.ifOverdueTheRequestClosesAutomatically')}
         </div>
       </div>
     ),
     placement: 'bottom',
   },
-]
+]))
 
 /* ─── Evaluations Page ─── */
-export const evaluationsSteps: Step[] = [
+export const evaluationsSteps = perLanguage((): Step[] => ([
   {
     target: '#tour-eval-header',
-    title: '📈 Kết quả Hiệu suất',
+    title: i18n.t('shared:inherited.performanceResults'),
     content: (
       <div className="space-y-2">
-        <p>Đây là "bảng điểm" cuối cùng phản ánh nỗ lực của bạn hoặc đội ngũ trong suốt kỳ đánh giá.</p>
-        <p className="text-xs text-[var(--color-primary)] font-medium italic">💡 Kết quả này là cơ sở quan trọng nhất cho các chính sách Khen thưởng, Thăng tiến và Đào tạo của công ty.</p>
+        <p>{i18n.t('shared:inherited.thisIsTheFinalScoreSheet')}</p>
+        <p className="text-xs text-[var(--color-primary)] font-medium italic">{i18n.t('shared:inherited.thisResultIsTheMostImportant')}</p>
       </div>
     ),
     placement: 'bottom',
   },
   {
     target: '#tour-eval-filters',
-    title: '📂 Tra cứu Lịch sử',
-    content: <p>Dễ dàng tra cứu lại kết quả từ nhiều kỳ trước đó để theo dõi <strong>biểu đồ tăng trưởng năng lực</strong> và sự tiến bộ của nhân viên theo thời gian.</p>,
+    title: i18n.t('shared:inherited.historyLookup'),
+    content: <p>{i18n.t('shared:inherited.easilyLookUpResultsFromMany')} <strong>{i18n.t('shared:inherited.competencyGrowthChart')}</strong> {i18n.t('shared:inherited.andEmployeesProgressOverTime')}</p>,
     placement: 'bottom',
   },
   {
     target: '#tour-eval-table',
-    title: '🏆 Bảng Xếp hạng',
+    title: i18n.t('shared:inherited.rankingBoard'),
     content: (
       <div className="space-y-2">
-        <p>Nhấn vào từng dòng để xem <strong>Chi tiết Đánh giá</strong>.</p>
-        <p className="text-caption italic">Tại đây bạn có thể đối chiếu sự chênh lệch giữa Điểm tự chấm của nhân viên và Điểm phê duyệt cuối cùng của quản lý.</p>
+        <p>{i18n.t('shared:inherited.clickEachRowToSeeThe')} <strong>{i18n.t('shared:inherited.evaluationDetails')}</strong>.</p>
+        <p className="text-caption italic">{i18n.t('shared:inherited.hereYouCanCompareTheGap')}</p>
       </div>
     ),
     placement: 'bottom',
   },
-]
+]))
 

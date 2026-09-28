@@ -1,4 +1,5 @@
 import axiosInstance from '@/lib/axios'
+import type { Language } from '@/i18n/languages'
 import type { ApiResponse } from '@/types/api'
 
 /** Matches BE: EmailTemplateResponse */
@@ -40,16 +41,20 @@ export interface SaveEmailTemplatePayload {
   enabled: boolean
 }
 
+/**
+ * `language` là ngôn ngữ của BẢN MAIL đang cấu hình — mỗi ngôn ngữ một bản tuỳ chỉnh riêng, người nhận
+ * nhận bản theo ngôn ngữ của họ. Không phải ngôn ngữ giao diện của người đang cấu hình.
+ */
 export const emailTemplateApi = {
-  list: () =>
-    axiosInstance.get<ApiResponse<EmailTemplate[]>>('/email-templates').then(r => r.data.data),
+  list: (language: Language) =>
+    axiosInstance.get<ApiResponse<EmailTemplate[]>>('/email-templates', { params: { language } }).then(r => r.data.data),
 
-  save: (code: string, payload: SaveEmailTemplatePayload) =>
-    axiosInstance.put<ApiResponse<EmailTemplate>>(`/email-templates/${code}`, payload).then(r => r.data.data),
+  save: (code: string, language: Language, payload: SaveEmailTemplatePayload) =>
+    axiosInstance.put<ApiResponse<EmailTemplate>>(`/email-templates/${code}`, payload, { params: { language } }).then(r => r.data.data),
 
   /** Xoá bản tuỳ chỉnh để quay về nội dung mặc định. */
-  reset: (code: string) =>
-    axiosInstance.delete<ApiResponse<EmailTemplate>>(`/email-templates/${code}`).then(r => r.data.data),
+  reset: (code: string, language: Language) =>
+    axiosInstance.delete<ApiResponse<EmailTemplate>>(`/email-templates/${code}`, { params: { language } }).then(r => r.data.data),
 
   /**
    * Tải ảnh lên Cloudinary, trả về URL để chèn vào nội dung.
@@ -67,9 +72,9 @@ export const emailTemplateApi = {
       .then(r => r.data.data.url)
   },
 
-  preview: (code: string, payload: SaveEmailTemplatePayload) =>
+  preview: (code: string, language: Language, payload: SaveEmailTemplatePayload) =>
     axiosInstance
       .post<ApiResponse<{ subject: string; html: string; source: string }>>(
-        `/email-templates/${code}/preview`, payload)
+        `/email-templates/${code}/preview`, payload, { params: { language } })
       .then(r => r.data.data),
 }

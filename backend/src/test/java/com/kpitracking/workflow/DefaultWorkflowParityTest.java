@@ -57,8 +57,22 @@ class DefaultWorkflowParityTest {
     }
 
     @Test
-    @DisplayName("Chỉ tiêu: hoàn duyệt chỉ áp dụng cho bản ĐÃ DUYỆT và đưa về CHỜ PHÊ DUYỆT")
+    @DisplayName("Chỉ tiêu (chuỗi duyệt, mặc định): hoàn duyệt bản ĐÃ DUYỆT trả về người tạo (BỊ TỪ CHỐI)")
     void revertCriteria() {
+        assertCriteria(WorkflowAction.REVERT_CRITERIA_APPROVAL,
+                EnumSet.of(KpiStatus.APPROVED), KpiStatus.REJECTED);
+    }
+
+    @Test
+    @DisplayName("Đường lùi UNIT_HEAD: hoàn duyệt giữ hành vi cũ — về CHỜ PHÊ DUYỆT")
+    void revertCriteriaUnitHeadFallback() {
+        com.kpitracking.workflow.def.WorkflowConfig override = com.kpitracking.workflow.def.WorkflowConfig.builder()
+                .stages(java.util.List.of(com.kpitracking.workflow.def.StageConfig.builder()
+                        .code(WorkflowStage.CRITERIA_APPROVAL).enabled(true)
+                        .options(new java.util.LinkedHashMap<>(java.util.Map.of("approverMode", "UNIT_HEAD")))
+                        .build()))
+                .build();
+        def = factory.build(override);
         assertCriteria(WorkflowAction.REVERT_CRITERIA_APPROVAL,
                 EnumSet.of(KpiStatus.APPROVED), KpiStatus.PENDING_APPROVAL);
     }
@@ -138,6 +152,10 @@ class DefaultWorkflowParityTest {
     void defaultOptionsMatchOldConstants() {
         assertThat(def.stageConfig(WorkflowStage.CRITERIA_APPROVAL)
                 .booleanOption("allowSelfApprove", false)).isTrue();
+        assertThat(def.stageConfig(WorkflowStage.CRITERIA_APPROVAL)
+                .stringOption("approverMode", "")).isEqualTo("CHAIN");
+        assertThat(def.stageConfig(WorkflowStage.CRITERIA_APPROVAL)
+                .intOption("reminderAfterDays", 0)).isEqualTo(3);
         assertThat(def.stageConfig(WorkflowStage.CRITERIA_ADJUSTMENT)
                 .intOption("autoRejectAfterHours", 0)).isEqualTo(24);
         assertThat(def.stageConfig(WorkflowStage.SUBMISSION_REVIEW)

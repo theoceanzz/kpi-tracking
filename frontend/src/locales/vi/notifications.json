@@ -1,0 +1,50 @@
+{
+  "NotificationBell": {
+    "notifications": "Thông báo",
+    "notificationsUnread": "Thông báo, {{unreadCount}} chưa đọc"
+  },
+  "NotificationDropdown": {
+    "earlier": "Trước đó",
+    "markAllAsRead": "Đọc tất cả",
+    "new": "mới",
+    "noNotificationsYet": "Chưa có thông báo",
+    "notifications": "Thông báo",
+    "notificationsAboutKpisSubmissionsAndEvaluations": "Thông báo về chỉ tiêu, bài nộp và đánh giá sẽ hiện ở đây.",
+    "today": "Hôm nay",
+    "unread": "Chưa đọc",
+    "viewAllNotifications": "Xem tất cả thông báo"
+  },
+  "NotificationsPage": {
+    "all": "Tất cả",
+    "allNotificationsHaveBeenRead": "Mọi thông báo đã được đọc.",
+    "assignKpis": "Giao chỉ tiêu",
+    "bscKpiAssignment": "Giao chỉ tiêu BSC",
+    "bscResults": "Kết quả BSC",
+    "bscScorecard": "Bộ tiêu chí BSC",
+    "cycleLock": "Khoá kỳ",
+    "evaluation": "Đánh giá",
+    "filterNotifications": "Lọc thông báo",
+    "giftRedemption": "Đổi quà",
+    "kpiApproval": "Duyệt chỉ tiêu",
+    "markAllAsRead": "Đọc tất cả",
+    "n360Feedback": "Đánh giá 360",
+    "new": "Mới",
+    "newReport": "Báo cáo mới",
+    "noNotificationsYet": "Chưa có thông báo",
+    "notifications": "Thông báo",
+    "notificationsAboutKpisSubmissionsAndEvaluations": "Thông báo về chỉ tiêu, bài nộp và đánh giá sẽ hiện ở đây.",
+    "noUnreadNotificationsLeft": "Không còn thông báo chưa đọc",
+    "readAt": "Đã đọc lúc",
+    "rewardPoints": "Điểm thưởng",
+    "rewardProposals": "Đề nghị thưởng",
+    "unread": "Chưa đọc",
+    "unreadNotifications": "{{count}} thông báo chưa đọc.",
+    "updatedInRealTime": "Cập nhật theo thời gian thực",
+    "wallet": "Ví tiền",
+    "walletReconciliation": "Đối soát ví",
+    "youHaveReadAllNotifications": "Bạn đã đọc hết thông báo."
+  },
+  "useNotifications": {
+    "markedAllNotificationsAsRead": "Đã đánh dấu tất cả thông báo là đã đọc"
+  }
+}

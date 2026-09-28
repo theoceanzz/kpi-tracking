@@ -1,3 +1,5 @@
+import { LocaleNumberInput } from '@/components/ui/number-input'
+import { intlLocale } from '@/i18n/format'
 import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -22,6 +24,9 @@ import { budgetSchema, type BudgetFormData, type ScopeMode } from '../schemas/bu
 import { numOrUndefined } from '../schemas/giftSchema'
 import type { RewardBudget } from '../types'
 import { ChoiceChip } from '@/components/ui/choice-chip'
+import { useTranslation } from 'react-i18next'
+import { useFormDraft } from '@/hooks/useFormDraft'
+import DraftNotice from '@/components/common/DraftNotice'
 
 interface BudgetFormModalProps {
   open: boolean
@@ -30,15 +35,18 @@ interface BudgetFormModalProps {
 }
 
 export default function BudgetFormModal({ open, onClose, editBudget }: BudgetFormModalProps) {
+  const { t } = useTranslation('rewards')
   const isEdit = !!editBudget
 
-  const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<BudgetFormData>({
-    resolver: zodResolver(budgetSchema),
+  const formApi = useForm<BudgetFormData>({
+    resolver: zodResolver(budgetSchema()),
     defaultValues: {
       grantorUserId: '', grantorLabel: '', scopeMode: 'CYCLE', kpiCycleId: '', kpiPeriodId: '',
       periodStart: '', periodEnd: '', allocatedPoints: undefined, maxPerAward: undefined, note: '',
     },
   })
+  const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = formApi
+  const draft = useFormDraft(formApi, { key: `reward-budget:${editBudget?.id ?? 'new'}`, enabled: open })
 
   // Người được cấp, cách khoanh thời gian và hai ô ngày không phải ô nhập thường
   // (picker / thẻ bấm) nên đọc bằng watch và ghi bằng setValue.
@@ -128,19 +136,20 @@ export default function BudgetFormModal({ open, onClose, editBudget }: BudgetFor
       onClose={onClose}
       size="lg"
       dismissible={!(isCreating || isUpdating)}
-      title={isEdit ? 'Sửa hạn mức thưởng' : 'Cấp hạn mức thưởng'}
+      title={isEdit ? t('BudgetFormModal.editRewardBudget') : t('BudgetFormModal.grantRewardBudget')}
       footer={
         <DialogFooter
-          secondary={<Button variant="outline" onClick={onClose} disabled={isCreating || isUpdating}>Huỷ</Button>}
+          secondary={<Button variant="outline" onClick={onClose} disabled={isCreating || isUpdating}>{t('BudgetFormModal.cancel')}</Button>}
           primary={
             <Button onClick={handleSubmit(onSubmit)} disabled={isCreating || isUpdating}>
               {(isCreating || isUpdating) && <Loader2 className="animate-spin" aria-hidden="true" />}
-              {isEdit ? 'Lưu' : 'Cấp hạn mức'}
+              {isEdit ? t('BudgetFormModal.save') : t('BudgetFormModal.grantBudget')}
             </Button>
           }
         />
       }
     >
+      <DraftNotice draft={draft} className="mb-4" />
       <div className="space-y-4">
         {/* Nói trước những gì bị khoá khi hạn mức đã dùng, thay vì để người dùng sửa
             xong bấm lưu rồi mới nhận lỗi. */}
@@ -148,16 +157,14 @@ export default function BudgetFormModal({ open, onClose, editBudget }: BudgetFor
           <div className="flex items-start gap-2 rounded-card border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-4 py-3 text-sm">
             <AlertTriangle size={16} className="mt-0.5 flex-shrink-0 text-[var(--color-warning)]" />
             <span>
-              Hạn mức này đã dùng <b>{editBudget!.usedPoints.toLocaleString('vi-VN')} điểm</b>. Bạn
-              không thể hạ tổng điểm xuống dưới mức đó, cũng không thu hẹp được khoảng hiệu lực
-              (chỉ mở rộng được). Muốn dừng quyền tự thưởng, hãy đặt tổng điểm bằng đúng{' '}
-              {editBudget!.usedPoints.toLocaleString('vi-VN')} để phần còn lại về 0.
+              {t('BudgetFormModal.thisBudgetHasUsed')} <b>{editBudget!.usedPoints.toLocaleString(intlLocale())} {t('BudgetFormModal.points')}</b>{t('BudgetFormModal.youCannotLowerTheTotalBelow')}{' '}
+              {editBudget!.usedPoints.toLocaleString(intlLocale())} {t('BudgetFormModal.soTheRemainderBecomes0')}
             </span>
           </div>
         )}
 
         <div>
-          <label className="text-label mb-1.5 block font-medium">Người được cấp hạn mức</label>
+          <label className="text-label mb-1.5 block font-medium">{t('BudgetFormModal.budgetRecipient')}</label>
           {isEdit ? (
             <div className="rounded-control bg-[var(--color-muted)] px-3 py-2 text-sm">
               {grantorLabel}
@@ -166,7 +173,7 @@ export default function BudgetFormModal({ open, onClose, editBudget }: BudgetFor
             <div className="flex items-center justify-between rounded-control bg-[var(--color-muted)] px-3 py-2 text-sm">
               {grantorLabel}
               <Button variant="ghost" size="sm" onClick={() => setValue('grantorUserId', '')}>
-                Đổi
+                {t('BudgetFormModal.change')}
               </Button>
             </div>
           ) : (
@@ -186,13 +193,13 @@ export default function BudgetFormModal({ open, onClose, editBudget }: BudgetFor
         </div>
 
         <div>
-          <label className="text-label mb-1.5 block font-medium">Khoảng hiệu lực</label>
+          <label className="text-label mb-1.5 block font-medium">{t('BudgetFormModal.validityRange')}</label>
           <div className="mb-2 flex flex-wrap gap-2 text-sm">
             {(
               [
-                ['CYCLE', 'Theo kỳ'],
-                ['PERIOD', 'Theo đợt'],
-                ['DATES', 'Chọn khoảng ngày'],
+                ['CYCLE', t('BudgetFormModal.byCycle')],
+                ['PERIOD', t('BudgetFormModal.byPeriod')],
+                ['DATES', t('BudgetFormModal.chooseDateRange')],
               ] as [ScopeMode, string][]
             ).map(([mode, label]) => (
               <ChoiceChip selected={scopeMode === mode} variant="solid" className="py-1.5" key={mode} onClick={() => setValue('scopeMode', mode, { shouldValidate: true })}>
@@ -204,7 +211,7 @@ export default function BudgetFormModal({ open, onClose, editBudget }: BudgetFor
           {scopeMode === 'CYCLE' && (
             <Select value={kpiCycleId} onValueChange={v => setValue('kpiCycleId', v, { shouldValidate: true })}>
               <SelectTrigger className={inputCls}>
-                <SelectValue placeholder="Chọn kỳ đánh giá" />
+                <SelectValue placeholder={t('BudgetFormModal.chooseEvaluationCycle')} />
               </SelectTrigger>
               {/* z-[1100]: SelectContent mặc định z-50, modal này z-[1000] */}
               <SelectContent className="z-[1100]">
@@ -220,7 +227,7 @@ export default function BudgetFormModal({ open, onClose, editBudget }: BudgetFor
           {scopeMode === 'PERIOD' && (
             <Select value={kpiPeriodId} onValueChange={v => setValue('kpiPeriodId', v, { shouldValidate: true })}>
               <SelectTrigger className={inputCls}>
-                <SelectValue placeholder="Chọn đợt đánh giá" />
+                <SelectValue placeholder={t('BudgetFormModal.chooseEvaluationPeriod')} />
               </SelectTrigger>
               <SelectContent className="z-[1100]">
                 {(periods?.content ?? []).map((p: any) => (
@@ -238,12 +245,12 @@ export default function BudgetFormModal({ open, onClose, editBudget }: BudgetFor
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className="text-label mb-1 block text-[var(--color-muted-foreground)]">
-                  Từ ngày
+                  {t('BudgetFormModal.fromDate')}
                 </label>
                 <DateField
                   value={periodStart}
                   onChange={v => setValue('periodStart', v, { shouldValidate: true })}
-                  placeholder="Chọn ngày"
+                  placeholder={t('BudgetFormModal.chooseDate')}
                   className={inputCls}
                   max={periodEnd || undefined}
                 />
@@ -253,12 +260,12 @@ export default function BudgetFormModal({ open, onClose, editBudget }: BudgetFor
               </div>
               <div>
                 <label className="text-label mb-1 block text-[var(--color-muted-foreground)]">
-                  Đến ngày
+                  {t('BudgetFormModal.toDate')}
                 </label>
                 <DateField
                   value={periodEnd}
                   onChange={v => setValue('periodEnd', v, { shouldValidate: true })}
-                  placeholder="Chọn ngày"
+                  placeholder={t('BudgetFormModal.chooseDate')}
                   className={inputCls}
                   min={periodStart || undefined}
                 />
@@ -275,16 +282,14 @@ export default function BudgetFormModal({ open, onClose, editBudget }: BudgetFor
             </p>
           )}
           <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">
-            Chọn kỳ hoặc đợt thì hệ thống tự lấy ngày bắt đầu/kết thúc của nó. Mỗi người tại
-            một thời điểm chỉ được có một hạn mức, nên khoảng này không được đè lên hạn mức
-            khác của cùng người đó — muốn thay thì sửa hạn mức cũ.
+            {t('BudgetFormModal.choosingACycleOrPeriodTakes')}
           </p>
         </div>
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label className="text-label mb-1.5 block font-medium">Tổng điểm được cấp</label>
-            <input
+            <label className="text-label mb-1.5 block font-medium">{t('BudgetFormModal.totalPointsGranted')}</label>
+            <LocaleNumberInput
               type="number"
               min={0}
               {...register('allocatedPoints', { setValueAs: numOrUndefined })}
@@ -295,11 +300,11 @@ export default function BudgetFormModal({ open, onClose, editBudget }: BudgetFor
             )}
           </div>
           <div>
-            <label className="text-label mb-1.5 block font-medium">Tối đa mỗi người/lần</label>
-            <input
+            <label className="text-label mb-1.5 block font-medium">{t('BudgetFormModal.maxPerPersonTime')}</label>
+            <LocaleNumberInput
               type="number"
               min={1}
-              placeholder="Không giới hạn"
+              placeholder={t('BudgetFormModal.unlimited')}
               {...register('maxPerAward', { setValueAs: numOrUndefined })}
               className={inputCls}
             />
@@ -310,7 +315,7 @@ export default function BudgetFormModal({ open, onClose, editBudget }: BudgetFor
         </div>
 
         <div>
-          <label className="text-label mb-1.5 block font-medium">Ghi chú</label>
+          <label className="text-label mb-1.5 block font-medium">{t('BudgetFormModal.notes')}</label>
           <input {...register('note')} className={inputCls} />
         </div>
       </div>

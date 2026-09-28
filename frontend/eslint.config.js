@@ -4,6 +4,7 @@ import reactHooks from 'eslint-plugin-react-hooks'
 import reactRefresh from 'eslint-plugin-react-refresh'
 import tseslint from 'typescript-eslint'
 import { defineConfig, globalIgnores } from 'eslint/config'
+import noVietnameseLiteral from './eslint-rules/no-vietnamese-literal.js'
 
 export default defineConfig([
   globalIgnores(['dist']),
@@ -19,5 +20,15 @@ export default defineConfig([
       ecmaVersion: 2020,
       globals: globals.browser,
     },
+  },
+  {
+    // Đa ngôn ngữ: chữ hiển thị nằm ở src/locales/, không viết cứng trong code (docs/I18N_DESIGN.md §4.2).
+    files: ['src/**/*.{ts,tsx}'],
+    ignores: [
+      // Tên riêng của ngân hàng theo VietQR — dữ liệu, không dịch.
+      'src/features/wallet/constants/banks.ts',
+    ],
+    plugins: { local: { rules: { 'no-vietnamese-literal': noVietnameseLiteral } } },
+    rules: { 'local/no-vietnamese-literal': 'error' },
   },
 ])

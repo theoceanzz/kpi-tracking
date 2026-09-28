@@ -9,6 +9,9 @@ import { cn } from '@/lib/utils'
 import { useRoles } from '../hooks/useUserRoles'
 import { useOrgUnitTree } from '../hooks/useOrganizationStructure'
 import { ChoiceChip } from '@/components/ui/choice-chip'
+import { useTranslation } from 'react-i18next'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
 interface OrgExcelPreviewModalProps {
   open: boolean
@@ -24,11 +27,11 @@ interface OrgExcelPreviewModalProps {
  * Ràng buộc từng dòng. Trùng mã trong tệp và mã cha có tồn tại hay không phải nhìn cả tệp
  * lẫn dữ liệu hệ thống, nên nằm ở `validateBatch` bên dưới chứ không ở đây.
  */
-const rowSchema = z.object({
-  Name: z.string().trim().min(1, 'Tên đơn vị là bắt buộc'),
-  Code: z.string().trim().min(1, 'Mã đơn vị là bắt buộc'),
-  Email: z.string().email('Email không hợp lệ').or(z.literal('')).optional(),
-})
+const rowSchema = perLanguage(() => (z.object({
+  Name: z.string().trim().min(1, i18n.t('organization:OrgExcelPreviewModal.unitNameIsRequired')),
+  Code: z.string().trim().min(1, i18n.t('organization:OrgExcelPreviewModal.unitCodeIsRequired')),
+  Email: z.string().email(i18n.t('organization:OrgExcelPreviewModal.invalidEmail')).or(z.literal('')).optional(),
+})))
 
 interface OrgUnitRow {
   id: string
@@ -51,6 +54,7 @@ export default function OrgExcelPreviewModal({
   orgId, 
   hierarchyLevels 
 }: OrgExcelPreviewModalProps) {
+  const { t } = useTranslation('organization')
   const [data, setData] = useState<OrgUnitRow[]>([])
   const [loading, setLoading] = useState(false)
   
@@ -86,7 +90,7 @@ export default function OrgExcelPreviewModal({
     return rows.map(row => {
       const errors: Record<string, string> = {}
 
-      const parsed = rowSchema.safeParse(row)
+      const parsed = rowSchema().safeParse(row)
       if (!parsed.success) {
         parsed.error.issues.forEach(issue => {
           const field = issue.path[0]
@@ -96,7 +100,7 @@ export default function OrgExcelPreviewModal({
       
       // Duplicated code in batch
       if (row.Code && rows.filter(r => r.Code === row.Code).length > 1) {
-        errors.Code = 'Mã đơn vị bị trùng lặp trong tệp tin'
+        errors.Code = t('OrgExcelPreviewModal.duplicateUnitCodeInTheFile')
       }
 
       // Existing code check
@@ -110,18 +114,18 @@ export default function OrgExcelPreviewModal({
         const parentExistsInBatch = batchCodes.has(row.ParentCode)
         
         if (!parentExistsInSystem && !parentExistsInBatch) {
-          errors.ParentCode = `Mã cha '${row.ParentCode}' không tồn tại trong hệ thống hoặc tệp tin`
+          errors.ParentCode = t('OrgExcelPreviewModal.parentCodeDoesNotExistIn', { ParentCode: row.ParentCode })
         }
 
         // Self-parenting
         if (row.ParentCode === row.Code) {
-          errors.ParentCode = 'Mã cha không thể trùng với mã đơn vị'
+          errors.ParentCode = t('OrgExcelPreviewModal.theParentCodeCannotBeThe')
         }
       }
 
       return { ...row, _errors: Object.keys(errors).length > 0 ? errors : undefined }
     })
-  }, [existingUnitsMap])
+  }, [existingUnitsMap, t])
 
   useEffect(() => {
     if (open && file) {
@@ -137,9 +141,9 @@ export default function OrgExcelPreviewModal({
       const buffer = await f.arrayBuffer()
       const wb = read(buffer)
       const sheetName = wb.SheetNames[0]
-      if (!sheetName) throw new Error('Excel không có sheet')
+      if (!sheetName) throw new Error(t('OrgExcelPreviewModal.theExcelFileHasNoSheets'))
       const ws = wb.Sheets[sheetName]
-      if (!ws) throw new Error('Không tìm thấy worksheet')
+      if (!ws) throw new Error(t('OrgExcelPreviewModal.worksheetNotFound'))
       const rawData = utils.sheet_to_json<any>(ws)
 
       const parsed: OrgUnitRow[] = rawData.map((row, index) => ({
@@ -154,14 +158,14 @@ export default function OrgExcelPreviewModal({
       }))
 
       if (parsed.length === 0) {
-        toast.error('File không có dữ liệu.')
+        toast.error(t('OrgExcelPreviewModal.theFileHasNoData'))
         onClose()
         return
       }
 
       setData(validateBatch(parsed))
     } catch {
-      toast.error('Lỗi khi đọc file Excel')
+      toast.error(t('OrgExcelPreviewModal.errorReadingTheExcelFile'))
       onClose()
     } finally {
       setLoading(false)
@@ -276,7 +280,7 @@ export default function OrgExcelPreviewModal({
       ])).join(',')
       return { ...row, RoleIds: newRoleIds }
     }))
-    toast.success('Đã chọn tất cả vai trò phù hợp cho các đơn vị')
+    toast.success(t('OrgExcelPreviewModal.selectedAllSuitableRolesForThe'))
   }
 
   const handleRemoveRow = (id: string) => {
@@ -286,7 +290,7 @@ export default function OrgExcelPreviewModal({
   const handleSave = () => {
     const hasErrors = data.some(r => r._errors && Object.keys(r._errors).length > 0)
     if (hasErrors) {
-      toast.error('Vui lòng sửa các lỗi trong bảng trước khi import')
+      toast.error(t('OrgExcelPreviewModal.pleaseFixTheErrorsInThe'))
       return
     }
 
@@ -305,7 +309,7 @@ export default function OrgExcelPreviewModal({
       
       onImport(newFile)
     } catch {
-      toast.error('Lỗi khi chuẩn bị dữ liệu import')
+      toast.error(t('OrgExcelPreviewModal.errorPreparingTheImportData'))
     }
   }
 
@@ -319,15 +323,15 @@ export default function OrgExcelPreviewModal({
       onClose={onClose}
       size="full"
       dismissible={!isImporting}
-      title="Xem trước & Thiết lập vai trò"
-      description={`Tổng cộng ${data.length} đơn vị sẽ được import`}
+      title={t('OrgExcelPreviewModal.previewSetUpRoles')}
+      description={t('OrgExcelPreviewModal.aTotalOfUnitsWillBe', { count: data.length })}
       footer={
         <DialogFooter
-          note={<><span className="font-medium text-[var(--color-foreground)] tabular-nums">{data.length}</span> đơn vị</>}
-          secondary={<Button variant="outline" onClick={onClose} disabled={isImporting}>Hủy bỏ</Button>}
+          note={<><span className="font-medium text-[var(--color-foreground)] tabular-nums">{data.length}</span> {t('OrgExcelPreviewModal.unit')}</>}
+          secondary={<Button variant="outline" onClick={onClose} disabled={isImporting}>{t('OrgExcelPreviewModal.cancel')}</Button>}
           primary={
             <Button onClick={handleSave} disabled={isImporting || data.length === 0 || hasAnyErrors}>
-              {isImporting ? <><Loader2 className="animate-spin" aria-hidden="true" /> Đang xử lý...</> : <><Save aria-hidden="true" /> Xác nhận & Import</>}
+              {isImporting ? <><Loader2 className="animate-spin" aria-hidden="true" /> {t('OrgExcelPreviewModal.processing')}</> : <><Save aria-hidden="true" /> {t('OrgExcelPreviewModal.confirmImport')}</>}
             </Button>
           }
         />
@@ -336,7 +340,7 @@ export default function OrgExcelPreviewModal({
       {loading ? (
         <div className="flex flex-col items-center justify-center h-64 text-[var(--color-subtle-foreground)]">
           <div className="w-8 h-8 border-4 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin mb-4" />
-          <p className="font-medium text-sm">Đang tải dữ liệu...</p>
+          <p className="font-medium text-sm">{t('OrgExcelPreviewModal.loadingData')}</p>
         </div>
       ) : (
         <div className="space-y-4">
@@ -344,8 +348,8 @@ export default function OrgExcelPreviewModal({
             <div className="p-4 bg-[var(--color-error-bg)] text-[var(--color-error)] rounded-card flex items-start gap-3 border border-[var(--color-error-border)]">
               <AlertCircle size={20} className="shrink-0 mt-0.5" />
               <div>
-                <p className="text-sm font-medium">Phát hiện dữ liệu không hợp lệ</p>
-                <p className="text-xs mt-1">Vui lòng kiểm tra các ô được tô đỏ. Mã đơn vị cha phải tồn tại trong hệ thống hoặc trong chính file import này.</p>
+                <p className="text-sm font-medium">{t('OrgExcelPreviewModal.invalidDataDetected')}</p>
+                <p className="text-xs mt-1">{t('OrgExcelPreviewModal.pleaseCheckTheCellsHighlightedIn')}</p>
               </div>
             </div>
           )}
@@ -355,27 +359,27 @@ export default function OrgExcelPreviewModal({
               <table className="w-full text-sm text-left border-collapse">
                 <thead className="text-eyebrow bg-[var(--color-muted)] border-b border-[var(--color-border)] sticky top-0 z-10">
                   <tr>
-                    <th className="px-4 py-3 w-12 text-center">STT</th>
-                    <th className="px-4 py-3 min-w-[200px]">Tên đơn vị <span className="text-[var(--color-error)]">*</span></th>
-                    <th className="px-4 py-3 min-w-[120px]">Mã đơn vị <span className="text-[var(--color-error)]">*</span></th>
-                    <th className="px-4 py-3 min-w-[120px]">Mã cha</th>
+                    <th className="px-4 py-3 w-12 text-center">{t('OrgExcelPreviewModal.rowNo')}</th>
+                    <th className="px-4 py-3 min-w-[200px]">{t('OrgExcelPreviewModal.unitName')} <span className="text-[var(--color-error)]">*</span></th>
+                    <th className="px-4 py-3 min-w-[120px]">{t('OrgExcelPreviewModal.unitCode')} <span className="text-[var(--color-error)]">*</span></th>
+                    <th className="px-4 py-3 min-w-[120px]">{t('OrgExcelPreviewModal.parentCode')}</th>
                     <th className="px-4 py-3 min-w-[400px]">
                       <div className="flex items-center justify-between">
-                        <span>Phạm vi vai trò (Lọc theo phân cấp)</span>
+                        <span>{t('OrgExcelPreviewModal.roleScopeFilteredByHierarchy')}</span>
                         <Button variant="ghost" size="sm" onClick={selectAllRolesForBatch}>
-                          <CheckSquare aria-hidden="true" /> Chọn cho tất cả dòng
+                          <CheckSquare aria-hidden="true" /> {t('OrgExcelPreviewModal.chooseForAllRows')}
                         </Button>
                       </div>
                     </th>
-                    <th className="px-4 py-3 min-w-[150px]">Thông tin khác</th>
-                    <th className="px-4 py-3 w-16 text-center">Xóa</th>
+                    <th className="px-4 py-3 min-w-[150px]">{t('OrgExcelPreviewModal.otherInformation')}</th>
+                    <th className="px-4 py-3 w-16 text-center">{t('OrgExcelPreviewModal.delete')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--color-border)]">
                   {data.map((row, index) => {
                     const calculatedLevel = getRowLevel(row, data)
                     const filteredRoles = getFilteredRoles(calculatedLevel)
-                    const unitTypeLabel = hierarchyLevels[calculatedLevel] || 'Cấp đơn vị'
+                    const unitTypeLabel = hierarchyLevels[calculatedLevel] || t('OrgExcelPreviewModal.unitLevel')
 
                     return (
                       <tr key={row.id} className="hover:bg-[var(--color-muted)] transition-colors group">
@@ -388,7 +392,7 @@ export default function OrgExcelPreviewModal({
                               "w-full px-3 py-1.5 rounded-control border transition-colors bg-transparent text-sm font-medium",
                               row._errors?.Name ? "border-[var(--color-error-border)] bg-[var(--color-error-bg)]" : "border-transparent hover:border-[var(--color-border-strong)] focus:border-[var(--color-primary)]"
                             )}
-                            placeholder="Tên đơn vị..."
+                            placeholder={t('OrgExcelPreviewModal.unitName2')}
                           />
                           <div className="px-2 py-0.5 mt-1 text-xs font-medium bg-[var(--color-primary-soft)] text-[var(--color-primary)] rounded inline-block">
                             {unitTypeLabel}
@@ -403,7 +407,7 @@ export default function OrgExcelPreviewModal({
                               "w-full px-3 py-1.5 rounded-control border transition-colors bg-transparent text-xs font-mono",
                               row._errors?.Code ? "border-[var(--color-error-border)] bg-[var(--color-error-bg)]" : "border-transparent hover:border-[var(--color-border-strong)] focus:border-[var(--color-primary)]"
                             )}
-                            placeholder="Mã..."
+                            placeholder={t('OrgExcelPreviewModal.code')}
                           />
                           {row._errors?.Code && <p className="text-xs text-[var(--color-error)] mt-1 font-medium">{row._errors.Code}</p>}
                         </td>
@@ -421,9 +425,9 @@ export default function OrgExcelPreviewModal({
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center justify-between mb-2">
-                            <span className="text-caption italic">Chọn vai trò được phép:</span>
+                            <span className="text-caption italic">{t('OrgExcelPreviewModal.chooseAllowedRoles')}</span>
                             <Button variant="ghost" size="sm" onClick={() => selectAllRolesForRow(row.id)}>
-                              <CheckSquare aria-hidden="true" /> Chọn tất cả
+                              <CheckSquare aria-hidden="true" /> {t('OrgExcelPreviewModal.selectAll')}
                             </Button>
                           </div>
                           <div className="flex flex-wrap gap-1.5 max-h-[120px] overflow-y-auto pr-2 scrollbar-thin">
@@ -437,7 +441,7 @@ export default function OrgExcelPreviewModal({
                               )
                             })}
                             {filteredRoles.length === 0 && (
-                              <p className="text-caption italic">Không có vai trò phù hợp cho cấp bậc này</p>
+                              <p className="text-caption italic">{t('OrgExcelPreviewModal.noSuitableRolesForThisLevel')}</p>
                             )}
                           </div>
                         </td>
@@ -456,7 +460,7 @@ export default function OrgExcelPreviewModal({
                             value={row.Phone}
                             onChange={e => handleCellChange(row.id, 'Phone', e.target.value)}
                             className="w-full px-2 py-0.5 rounded text-xs border border-transparent hover:border-[var(--color-border)] bg-transparent"
-                            placeholder="Số điện thoại..."
+                            placeholder={t('OrgExcelPreviewModal.phoneNumber')}
                           />
                         </td>
                         <td className="px-4 py-2 text-center">

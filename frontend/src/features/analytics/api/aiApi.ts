@@ -1,6 +1,8 @@
 import axiosInstance, { XSRF_COOKIE_NAME } from '@/lib/axios'
 import { ENV } from '@/config/env'
 import type { ApiResponse, PageResponse, PageParams } from '@/types/api'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
 export interface AiChatRequest {
   message: string
@@ -170,8 +172,17 @@ export const AI_TIMEOUT = 300000
 export interface StageEvent {
   /** Mã ổn định để đối chiếu: tên lớp công đoạn, hoặc "tool:<tên tool>". */
   code: string
-  /** Nhãn tiếng Việt để hiện cho người dùng, luôn ở dạng "Đang…". */
+  /** Nhãn hiện cho người dùng, luôn ở dạng "Đang…". Server gửi tiếng Việt; `localizeStage` dịch theo `code`. */
   label: string
+}
+
+/**
+ * Nhãn công đoạn do server gửi (tiếng Việt, luồng stream không mang ngôn ngữ người dùng). Dịch theo mã
+ * ổn định ở `analytics:aiStages.*`; mã chưa có bản dịch thì giữ nguyên nhãn server.
+ */
+function localizeStage(stage: StageEvent): StageEvent {
+  const key = stage.code.replace(':', '__')
+  return { ...stage, label: i18n.t(`analytics:aiStages.${key}`, { defaultValue: stage.label }) }
 }
 
 export interface ChatStreamHandlers {
@@ -224,12 +235,12 @@ export interface RagDocument {
   createdAt: string
 }
 
-export const RAG_SOURCE_LABELS: Record<RagDocument['source'], string> = {
-  GUIDE: 'Hướng dẫn KeyGo · toàn hệ thống',
-  REGULATION: 'Quy chế của tổ chức',
-  JOB_DESCRIPTION: 'Mô tả công việc / chức năng nhiệm vụ',
-  STRATEGY: 'Chiến lược, mục tiêu năm',
-}
+export const RAG_SOURCE_LABELS = perLanguage((): Record<RagDocument['source'], string> => ({
+  GUIDE: i18n.t('analytics:aiApi.keygoGuideSystemWide'),
+  REGULATION: i18n.t('analytics:aiApi.organizationRegulations'),
+  JOB_DESCRIPTION: i18n.t('analytics:aiApi.jobDescriptionsDutiesAndResponsibilities'),
+  STRATEGY: i18n.t('analytics:aiApi.strategyAndAnnualGoals'),
+}))
 
 /** Một đoạn đang nằm trong kho vector — đúng như trợ lý sẽ nhận (đã có [mục] chèn đầu). */
 export interface RagChunk {
@@ -320,11 +331,11 @@ export const aiApi = {
             continue // khung hỏng thì bỏ, không làm chết cả luồng
           }
 
-          if (event === 'stage') handlers.onStage?.(payload as StageEvent)
+          if (event === 'stage') handlers.onStage?.(localizeStage(payload as StageEvent))
           else if (event === 'token') handlers.onToken?.(payload.text ?? '')
           else if (event === 'done') handlers.onDone?.(payload as AiChatResponse)
           else if (event === 'error') {
-            handlers.onError?.(streamError(payload.message ?? 'Lỗi không xác định', payload.status ?? 500))
+            handlers.onError?.(streamError(payload.message ?? i18n.t('analytics:aiApi.unknownError'), payload.status ?? 500))
           }
         }
       }

@@ -124,6 +124,11 @@ public interface KpiCriteriaMapper {
 
 
     @Mapping(source = "organization.id", target = "organizationId")
+    @Mapping(source = "kpiCycle.id", target = "cycleId")
+    @Mapping(source = "kpiCycle.name", target = "cycleName")
+    @Mapping(source = "kpiCycle.status", target = "cycleStatus")
+    @Mapping(source = "sourcePeriod.id", target = "sourcePeriodId")
+    @Mapping(source = "transferredToCycle.id", target = "transferredToCycleId")
     KpiPeriodResponse toKpiPeriodResponse(KpiPeriod kpiPeriod);
 
     @org.mapstruct.Named("mapAssigneeNames")

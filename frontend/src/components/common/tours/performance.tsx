@@ -6,6 +6,8 @@ import {
   kpiAdjustmentsSteps,
   orgUnitSubmissionsSteps,
 } from './inherited'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
 /**
  * Hướng dẫn cho "Quản lý hiệu suất" — dòng sidebar và năm mục bên trong.
@@ -27,22 +29,20 @@ const warn = (text: string) => (
   </p>
 )
 
-const performanceTours: Record<TourKey, TourDef> = {
+const performanceTours = perLanguage((): Record<TourKey, TourDef> => ({
   /* ══════════ Cấp trang ══════════ */
   'performance': {
     steps: [
       {
         target: '#tour-settings-nav',
-        title: '📈 Vòng đời một chỉ tiêu',
+        title: i18n.t('shared:performance.theLifeCycleOfAKpi'),
         content: (
           <div className="space-y-2">
             <p>
-              Cụm <strong>Chỉ tiêu</strong> là phần đặt và duyệt: thiết lập chỉ tiêu, phê duyệt chỉ tiêu
-              cấp dưới gửi lên, và xử lý yêu cầu điều chỉnh giữa chừng.
+              {i18n.t('shared:performance.theGroup')} <strong>{i18n.t('shared:performance.kpis')}</strong> {i18n.t('shared:performance.isTheSettingAndApprovalPart')}
             </p>
             <p>
-              Cụm <strong>Đánh giá</strong> là phần chấm điểm: theo từng đợt, rồi tổng hợp thành kết quả
-              cả kỳ.
+              {i18n.t('shared:performance.theGroup')} <strong>{i18n.t('shared:performance.evaluation')}</strong> {i18n.t('shared:performance.isTheScoringPartByPeriod')}
             </p>
           </div>
         ),
@@ -50,26 +50,25 @@ const performanceTours: Record<TourKey, TourDef> = {
       },
       {
         target: '#tour-card-kpi-criteria',
-        title: '1️⃣ Đầu kỳ: đặt và chốt chỉ tiêu',
+        title: i18n.t('shared:performance.n1StartOfCycleSetAnd'),
         content: (
           <div className="space-y-2">
             <p>
-              Giao chỉ tiêu cho người và đơn vị, rồi duyệt những chỉ tiêu cấp dưới tự đề xuất. Xong bước
-              này thì cả kỳ mới có thứ để đo.
+              {i18n.t('shared:performance.assignKpisToPeopleAndUnits')}
             </p>
-            {warn('Chỉ tiêu chưa được duyệt thì không tính vào kết quả. Đầu kỳ nên soát hàng chờ duyệt cho sạch.')}
+            {warn(i18n.t('shared:performance.kpisNotYetApprovedDoNot'))}
           </div>
         ),
         placement: 'bottom',
       },
       {
         target: '#tour-card-submissions-org-unit',
-        title: '2️⃣ Cuối đợt: chấm điểm',
+        title: i18n.t('shared:performance.n2EndOfPeriodScoring'),
         content: (
           <div className="space-y-2">
             <p>
-              <strong>Đánh giá đợt</strong> là chấm từng bài nộp của một đợt. <strong>Đánh giá kỳ</strong>{' '}
-              gom nhiều đợt lại thành kết quả tổng hợp và xếp loại.
+              <strong>{i18n.t('shared:performance.periodEvaluation')}</strong> {i18n.t('shared:performance.isScoringEachSubmissionOfA')} <strong>{i18n.t('shared:performance.cycleEvaluation')}</strong>{' '}
+              {i18n.t('shared:performance.combinesSeveralPeriodsIntoASummary')}
             </p>
           </div>
         ),
@@ -77,11 +76,10 @@ const performanceTours: Record<TourKey, TourDef> = {
       },
       {
         target: '#tour-settings-nav',
-        title: '🔢 Số đỏ là việc đang chờ bạn',
+        title: i18n.t('shared:performance.aRedNumberIsWorkWaiting'),
         content: (
           <p>
-            Con số đỏ trên thẻ và trên tab là số việc trong hàng chờ của riêng bạn. Không có số nghĩa là
-            đang sạch.
+            {i18n.t('shared:performance.theRedNumberOnCardsAnd')}
           </p>
         ),
         placement: 'top',
@@ -90,90 +88,85 @@ const performanceTours: Record<TourKey, TourDef> = {
   },
 
   /* ══════════ Cụm Chỉ tiêu ══════════ */
-  'performance/kpi-criteria': { steps: kpiCriteriaSteps },
-  'performance/kpi-criteria-pending': { steps: kpiPendingSteps },
-  'performance/kpi-adjustments-pending': { steps: kpiAdjustmentsSteps },
+  'performance/kpi-criteria': { steps: kpiCriteriaSteps() },
+  'performance/kpi-criteria-pending': { steps: kpiPendingSteps() },
+  'performance/kpi-adjustments-pending': { steps: kpiAdjustmentsSteps() },
 
   /* ══════════ Cụm Đánh giá ══════════ */
-  'performance/submissions-org-unit': { steps: orgUnitSubmissionsSteps },
+  'performance/submissions-org-unit': { steps: orgUnitSubmissionsSteps() },
 
   'performance/cycle-evaluation': {
     steps: [
       {
         target: '#tour-cycleeval-toolbar',
-        title: '🎯 Chọn kỳ và đơn vị trước',
+        title: i18n.t('shared:performance.chooseTheCycleAndUnitFirst'),
         content: (
           <div className="space-y-2">
             <p>
-              Chưa chọn <strong>kỳ</strong> và <strong>đơn vị</strong> thì cả màn hình trống. Hai bộ chọn
-              này quyết định mọi con số bên dưới; ô tìm kiếm bên trái lọc trong danh sách đã chọn.
+              {i18n.t('shared:performance.withoutChoosingA')} <strong>{i18n.t('shared:performance.cycle')}</strong> {i18n.t('shared:performance.and')} <strong>{i18n.t('shared:performance.unit')}</strong> {i18n.t('shared:performance.theWholeScreenIsEmptyThese')}
             </p>
-            {note('Đánh giá đợt chấm từng lần nộp. Màn này gom các đợt trong một kỳ lại thành kết quả tổng hợp và xếp loại chính thức.')}
+            {note(i18n.t('shared:performance.periodEvaluationScoresEachSubmissionThis'))}
           </div>
         ),
         placement: 'bottom',
       },
       {
         target: '#tour-cycleeval-header',
-        title: '📊 Dãy chỉ số và xếp loại đơn vị',
+        title: i18n.t('shared:performance.metricRowAndUnitRating'),
         content: (
           <div className="space-y-2">
             <p>
-              Các ô chỉ số là điểm trung bình của cả đơn vị trong kỳ. Khối <strong>Xếp loại đơn vị</strong>
-              bên cạnh là kết quả cuối cùng cấp trên đọc — ghi rõ "tạm tính" hay "đã chốt".
+              {i18n.t('shared:performance.theMetricCardsAreTheAverage')} <strong>{i18n.t('shared:performance.unitRating')}</strong>
+              {i18n.t('shared:performance.nextToItIsTheFinal')}
             </p>
-            {note('TB xếp loại và TB định tính là đầu vào để xếp loại cả đơn vị theo tiêu chuẩn đặt ở "Thiết lập công cụ › Xếp loại đơn vị".')}
+            {note(i18n.t('shared:performance.avgRatingAndAvgQualitativeAre'))}
           </div>
         ),
         placement: 'bottom',
       },
       {
         target: '#tour-cycleeval-table',
-        title: '👤 Ba cột điểm, ba người chấm',
+        title: i18n.t('shared:performance.threeScoreColumnsThreeScorers'),
         content: (
           <div className="space-y-2">
             <ul className="text-xs space-y-1.5 list-disc pl-4 text-[var(--color-muted-foreground)] font-medium">
-              <li><strong className="text-[var(--color-foreground)]">Nhân viên tự đánh giá:</strong> điểm họ tự chấm.</li>
-              <li><strong className="text-[var(--color-foreground)]">Cán bộ QLTT đánh giá:</strong> điểm bạn cho.</li>
-              <li><strong className="text-[var(--color-foreground)]">Điểm chốt:</strong> kết quả được ghi nhận cho kỳ.</li>
+              <li><strong className="text-[var(--color-foreground)]">{i18n.t('shared:performance.employeeSelfAssessment')}</strong> {i18n.t('shared:performance.theScoreTheyGaveThemselves')}</li>
+              <li><strong className="text-[var(--color-foreground)]">{i18n.t('shared:performance.directManagerAssessment')}</strong> {i18n.t('shared:performance.theScoreYouGive')}</li>
+              <li><strong className="text-[var(--color-foreground)]">{i18n.t('shared:performance.finalizedScore')}</strong> {i18n.t('shared:performance.theResultRecordedForTheCycle')}</li>
             </ul>
-            {note('Để hai cột đầu lệch nhau nhiều mà không có nhận xét là nguồn khiếu nại phổ biến nhất. Ghi lý do vào ô nhận xét.')}
+            {note(i18n.t('shared:performance.lettingTheFirstTwoColumnsDiffer'))}
           </div>
         ),
         placement: 'top',
       },
       {
         target: '#tour-cycleeval-chain',
-        title: '🔒 Khoá theo cấp',
+        title: i18n.t('shared:performance.lockingByLevel'),
         content: (
           <div className="space-y-2">
             <p>
-              Dải này là chuỗi duyệt: trưởng đơn vị → các cấp trên → giám đốc. Cấp dưới chốt xong thì kết
-              quả bị <strong>khoá</strong>, cấp trên mới duyệt tiếp. Bấm vào một cấp để nhảy thẳng sang
-              đơn vị đó.
+              {i18n.t('shared:performance.thisStripIsTheApprovalChain')} <strong>{i18n.t('shared:performance.locked')}</strong>{i18n.t('shared:performance.andOnlyThenDoesTheNext')}
             </p>
-            {warn('Dòng bị khoá ghi rõ đơn vị nào đã khoá nó. Muốn sửa thì phải chọn đúng đơn vị đó rồi mở khoá — không sửa vòng qua được.')}
+            {warn(i18n.t('shared:performance.aLockedRowShowsWhichUnit'))}
           </div>
         ),
         placement: 'bottom',
       },
       {
         target: '#tour-cycleeval-actions',
-        title: '📤 Xuất, gửi, và chốt',
+        title: i18n.t('shared:performance.exportSendAndFinalize'),
         content: (
           <div className="space-y-2">
             <p>
-              <strong>Xuất Excel</strong> lấy nguyên bảng ra tệp. <strong>Gửi đánh giá</strong> email kết
-              quả cho từng nhân viên. <strong>Chốt đánh giá phòng ban</strong> khoá kỳ lại và chụp luôn
-              xếp loại đơn vị.
+              <strong>{i18n.t('shared:performance.exportExcel')}</strong> {i18n.t('shared:performance.exportsTheWholeTableToA')} <strong>{i18n.t('shared:performance.sendEvaluations')}</strong> {i18n.t('shared:performance.emailsTheResultsToEachEmployee')} <strong>{i18n.t('shared:performance.finalizeDepartmentEvaluation')}</strong> {i18n.t('shared:performance.locksTheCycleAndCapturesThe')}
             </p>
-            {warn('Mở khoá để sửa là ghi đè lên thứ cấp dưới đã ký. Chỉ làm khi thực sự có sai sót, và nên báo lại cho họ.')}
+            {warn(i18n.t('shared:performance.unlockingToEditOverwritesWhatThe'))}
           </div>
         ),
         placement: 'bottom',
       },
     ],
   },
-}
+}))
 
 export default performanceTours

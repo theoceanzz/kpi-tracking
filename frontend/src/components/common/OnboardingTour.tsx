@@ -3,6 +3,7 @@ import { useAuthStore } from '@/store/authStore'
 import { useEffect, useState, useMemo } from 'react'
 import { authApi } from '@/features/auth/api/authApi'
 import { X, ArrowRight } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 /* ========== PREMIUM CUSTOM TOOLTIP COMPONENT ========== */
 function WelcomeTooltip({
@@ -11,6 +12,7 @@ function WelcomeTooltip({
   closeProps,
   tooltipProps,
 }: TooltipRenderProps) {
+  const { t } = useTranslation('shared')
   return (
     <div
       {...tooltipProps}
@@ -48,7 +50,7 @@ function WelcomeTooltip({
             {...primaryProps}
             className="flex items-center gap-3 px-8 py-3 rounded-card bg-[var(--color-primary)] text-[var(--color-primary-foreground)] text-xs font-semibold uppercase tracking-wider shadow-lg hover:bg-[var(--color-primary-hover)] transition-all group"
           >
-            <span>Bắt đầu khám phá</span>
+            <span>{t('OnboardingTour.startExploring')}</span>
             <ArrowRight size={14} className="group-hover:translate-x-1 transition-transform" />
           </button>
         </div>
@@ -62,24 +64,25 @@ function WelcomeTooltip({
  * Hướng dẫn của từng màn hình do TourHost lo, chạy tập trung ở AppLayout.
  */
 export default function OnboardingTour() {
+  const { t } = useTranslation('shared')
   const { user } = useAuthStore()
   const [run, setRun] = useState(false)
 
   const steps: Step[] = useMemo(() => [
     {
       target: 'body',
-      title: `Chào mừng ${user?.fullName}!`,
+      title: t('OnboardingTour.welcome', { fullName: user?.fullName }),
       content: (
         <div className="space-y-4">
           <div className="w-16 h-16 bg-[var(--color-primary-soft)] rounded-card flex items-center justify-center text-3xl mb-2 animate-bounce">👋</div>
-          <p>Chào mừng bạn đến với <strong>Hệ thống Quản trị KPI</strong>.</p>
-          <p className="text-sm">Mỗi trang sẽ có hướng dẫn riêng khi bạn truy cập lần đầu. Bạn cũng có thể xem lại hướng dẫn bất kỳ lúc nào bằng nút <strong>💡</strong> trên thanh tiêu đề.</p>
+          <p>{t('OnboardingTour.welcomeTo')} <strong>{t('OnboardingTour.theKpiManagementSystem')}</strong>.</p>
+          <p className="text-sm">{t('OnboardingTour.eachPageHasItsOwnGuide')} <strong>💡</strong> {t('OnboardingTour.onTheTitleBar')}</p>
         </div>
       ),
       placement: 'center',
       disableBeacon: true,
     },
-  ], [user])
+  ], [user, t])
 
   useEffect(() => {
     if (user && !user.hasSeenOnboarding) {

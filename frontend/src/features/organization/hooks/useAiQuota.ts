@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { getApiErrorMessage } from '@/lib/apiError'
 import { aiQuotaApi, type AiQuotaAllocationParams } from '../api/ai-quota.api'
+import { useTranslation } from 'react-i18next'
 
 const KEYS = {
   me: ['ai-quota', 'me'] as const,
@@ -34,30 +35,32 @@ export function useAiQuotaAllocations(params: AiQuotaAllocationParams, enabled =
 }
 
 export function useSetAiQuotaLimit() {
+  const { t } = useTranslation('organization')
   const qc = useQueryClient()
   return useMutation({
     mutationFn: ({ userId, monthlyLimit }: { userId: string; monthlyLimit: number }) =>
       aiQuotaApi.setUserLimit(userId, monthlyLimit),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['ai-quota'] })
-      toast.success('Đã cập nhật hạn mức')
+      toast.success(t('useAiQuota.quotaUpdated'))
     },
     onError: (err: any) => {
-      toast.error(getApiErrorMessage(err, 'Không cập nhật được hạn mức'))
+      toast.error(getApiErrorMessage(err, t('useAiQuota.couldNotUpdateTheQuota')))
     },
   })
 }
 
 export function useSetAiDelegation() {
+  const { t } = useTranslation('organization')
   const qc = useQueryClient()
   return useMutation({
     mutationFn: (enabled: boolean) => aiQuotaApi.setDelegation(enabled),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['ai-quota'] })
-      toast.success('Đã cập nhật')
+      toast.success(t('useAiQuota.updated'))
     },
     onError: (err: any) => {
-      toast.error(getApiErrorMessage(err, 'Không cập nhật được'))
+      toast.error(getApiErrorMessage(err, t('useAiQuota.couldNotUpdate')))
     },
   })
 }

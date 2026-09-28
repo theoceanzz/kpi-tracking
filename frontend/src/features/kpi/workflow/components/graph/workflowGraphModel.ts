@@ -1,5 +1,7 @@
 import { MarkerType, Position, type Edge, type Node } from '@xyflow/react'
 import type { WorkflowStage, WorkflowStageCode } from '../../types'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
 /**
  * Mô hình sơ đồ của luồng KPI — hàm thuần, không React, để dựng nút và cạnh từ `WorkflowStage[]`.
@@ -29,9 +31,9 @@ export const SPINE: WorkflowStageCode[] = [
 ]
 
 /** Nhánh phụ treo ngoài xương sống, đặt ở DÒNG RIÊNG ngay dưới bước cha, cùng cột. */
-const SIDE_BRANCHES: { from: WorkflowStageCode; to: WorkflowStageCode; label: string }[] = [
-  { from: 'CRITERIA_APPROVAL', to: 'CRITERIA_ADJUSTMENT', label: 'khi cần điều chỉnh' },
-]
+const SIDE_BRANCHES = perLanguage((): { from: WorkflowStageCode; to: WorkflowStageCode; label: string }[] => ([
+  { from: 'CRITERIA_APPROVAL', to: 'CRITERIA_ADJUSTMENT', label: i18n.t('kpi:workflowGraphModel.whenAdjustmentsAreNeeded') },
+]))
 
 export interface StageOutcome {
   id: 'approve' | 'reject'
@@ -45,22 +47,22 @@ export interface StageOutcome {
  * Các kết quả của bước có quyết định. Mỗi dòng là một handle nguồn riêng trên nút, và cạnh "từ
  * chối" quay lui về bước ghi ở `backTo`.
  */
-export const OUTCOMES: Partial<Record<WorkflowStageCode, StageOutcome[]>> = {
+export const OUTCOMES = perLanguage((): Partial<Record<WorkflowStageCode, StageOutcome[]>> => ({
   CRITERIA_APPROVAL: [
-    { id: 'approve', label: 'Duyệt', tone: 'ok' },
-    { id: 'reject', label: 'Không duyệt', tone: 'bad', backTo: 'CRITERIA_DRAFT' },
+    { id: 'approve', label: i18n.t('kpi:workflowGraphModel.approve'), tone: 'ok' },
+    { id: 'reject', label: i18n.t('kpi:workflowGraphModel.notApproved'), tone: 'bad', backTo: 'CRITERIA_DRAFT' },
   ],
   SUBMISSION_REVIEW: [
-    { id: 'approve', label: 'Duyệt', tone: 'ok' },
-    { id: 'reject', label: 'Từ chối', tone: 'bad', backTo: 'SUBMISSION' },
+    { id: 'approve', label: i18n.t('kpi:workflowGraphModel.approve'), tone: 'ok' },
+    { id: 'reject', label: i18n.t('kpi:workflowGraphModel.rejected'), tone: 'bad', backTo: 'SUBMISSION' },
   ],
   // Điều chỉnh là vòng phụ: duyệt hay từ chối thì chỉ tiêu vẫn ở trạng thái đã duyệt, không đi
   // tiếp theo xương sống. Hai dòng chỉ để nói rõ bước này có quyết định.
   CRITERIA_ADJUSTMENT: [
-    { id: 'approve', label: 'Duyệt', tone: 'ok', backTo: null },
-    { id: 'reject', label: 'Từ chối', tone: 'bad', backTo: null },
+    { id: 'approve', label: i18n.t('kpi:workflowGraphModel.approve'), tone: 'ok', backTo: null },
+    { id: 'reject', label: i18n.t('kpi:workflowGraphModel.rejected'), tone: 'bad', backTo: null },
   ],
-}
+}))
 
 /* ── Kích thước cố định: để xếp lưới và để đặt handle theo từng dòng kết quả ── */
 export const NODE_WIDTH = 280
@@ -103,7 +105,7 @@ export function columnsForWidth(width: number): number {
 export const END_NODE_ID = '__end__'
 
 export function stageNodeHeight(code: WorkflowStageCode): number {
-  const rows = OUTCOMES[code]?.length ?? 0
+  const rows = OUTCOMES()[code]?.length ?? 0
   return rows === 0 ? NODE_HEADER_HEIGHT : NODE_HEADER_HEIGHT + OUTCOME_PADDING * 2 + rows * OUTCOME_ROW_HEIGHT
 }
 
@@ -176,7 +178,7 @@ function assignSlots(columns: number): Map<string, Slot> {
 
   // Bước 2: mỗi nhánh phụ chèn một dòng sau dòng của cha. Sắp theo dòng cha giảm dần để các lần
   // chèn không làm lệch chỉ số của nhau.
-  const insertedAfter = SIDE_BRANCHES
+  const insertedAfter = SIDE_BRANCHES()
     .map(b => ({ ...b, parentRow: rawRow.get(b.from) ?? 0 }))
     .sort((a, b) => b.parentRow - a.parentRow)
 
@@ -250,7 +252,7 @@ export function buildWorkflowGraph({ stages, columns, selected, warnings, readOn
     connectable: false,
     data: {
       stage,
-      outcomes: OUTCOMES[stage.code] ?? [],
+      outcomes: OUTCOMES()[stage.code] ?? [],
       selected: selected === stage.code,
       warning: warnings[stage.code],
       readOnly,
@@ -314,7 +316,7 @@ export function buildWorkflowGraph({ stages, columns, selected, warnings, readOn
     const next = enabledSpine[i + 1]!
     const from = slotOf(code)
     const to = slotOf(next)
-    const outcomes = OUTCOMES[code] ?? []
+    const outcomes = OUTCOMES()[code] ?? []
     const approve = outcomes.find(o => o.id === 'approve' && o.backTo === undefined)
 
     // Cùng dòng, liền kề: đoạn thẳng. Cùng dòng nhưng nhảy cóc qua bước tắt: vòng lên khe trên
@@ -360,7 +362,7 @@ export function buildWorkflowGraph({ stages, columns, selected, warnings, readOn
     }
   }
 
-  for (const b of SIDE_BRANCHES) {
+  for (const b of SIDE_BRANCHES()) {
     if (!isOn(b.from) || !isOn(b.to)) continue
     // Nhánh phụ nằm ngay dưới cha, cùng cột: từ handle đáy cha xuống thẳng handle đỉnh con.
     push(

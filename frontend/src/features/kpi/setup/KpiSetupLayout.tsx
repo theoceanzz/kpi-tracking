@@ -6,6 +6,7 @@ import WizardStepper from './WizardStepper'
 import { useKpiSetupFlow } from './useKpiSetupFlow'
 import { Button } from '@/components/ui/button'
 import AiAssistantWidget from '@/features/analytics/components/AiAssistantWidget'
+import { useTranslation } from 'react-i18next'
 
 /**
  * Khung của trình thiết lập KPI — một trang toàn màn hình, không sidebar, không header ứng dụng.
@@ -17,6 +18,7 @@ import AiAssistantWidget from '@/features/analytics/components/AiAssistantWidget
  * trang khác.
  */
 export default function KpiSetupLayout() {
+  const { t } = useTranslation('kpi')
   const navigate = useNavigate()
   const { currentFlow, steps, currentIndex, blockReason, goTo, isLoading } = useKpiSetupFlow()
   const [showExitConfirm, setShowExitConfirm] = useState(false)
@@ -39,12 +41,12 @@ export default function KpiSetupLayout() {
             </div>
             <div className="min-w-0">
               <p className="truncate text-sm font-semibold tracking-tight text-[var(--color-foreground)]">
-                {currentFlow?.label ?? 'Thiết lập KPI'}
+                {currentFlow?.label ?? t('KpiSetupLayout.kpiSetup')}
               </p>
               <p className="truncate text-caption">
                 {currentFlow && currentIndex >= 0
-                  ? `Bước ${currentIndex + 1} / ${steps.length} — ${steps[currentIndex]?.label}`
-                  : 'Chọn việc bạn muốn làm'}
+                  ? t('KpiSetupLayout.step', { value: currentIndex + 1, length: steps.length, label: steps[currentIndex]?.label })
+                  : t('KpiSetupLayout.chooseWhatYouWantToDo')}
               </p>
             </div>
           </div>
@@ -54,17 +56,17 @@ export default function KpiSetupLayout() {
             {currentFlow && (
               <Link
                 to="/kpi-setup"
-                title="Chọn luồng khác"
+                title={t('KpiSetupLayout.chooseAnotherFlow')}
                 className="flex items-center gap-2 rounded-card border border-[var(--color-border)] px-3 py-2 text-sm font-medium text-[var(--color-muted-foreground)] transition-colors hover:bg-[var(--color-muted)]"
               >
                 <LayoutGrid size={14} />
-                <span className="hidden sm:inline">Luồng khác</span>
+                <span className="hidden sm:inline">{t('KpiSetupLayout.otherFlow')}</span>
               </Link>
             )}
 
-            <Button variant="outline" type="button" onClick={() => setShowExitConfirm(true)} title="Thoát trình thiết lập">
+            <Button variant="outline" type="button" onClick={() => setShowExitConfirm(true)} title={t('KpiSetupLayout.exitTheSetupWizard')}>
               <X aria-hidden="true" />
-              <span className="hidden sm:inline">Thoát</span>
+              <span className="hidden sm:inline">{t('KpiSetupLayout.exit')}</span>
             </Button>
           </div>
         </div>
@@ -88,9 +90,9 @@ export default function KpiSetupLayout() {
 
       <ConfirmDialog
         open={showExitConfirm}
-        title="Thoát trình thiết lập?"
-        description="Những gì bạn đã tạo vẫn được giữ lại — kỳ và đợt đã lưu, các chỉ tiêu nằm ở trạng thái NHÁP trong trang Quản lý chỉ tiêu. Bạn quay lại làm tiếp bất cứ lúc nào."
-        confirmLabel="Thoát"
+        title={t('KpiSetupLayout.exitTheSetupWizard2')}
+        description={t('KpiSetupLayout.whatYouHaveCreatedIsKept')}
+        confirmLabel={t('KpiSetupLayout.exit')}
         onConfirm={() => navigate('/dashboard')}
         onClose={() => setShowExitConfirm(false)}
       />

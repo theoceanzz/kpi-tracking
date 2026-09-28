@@ -8,6 +8,7 @@ import {
 } from './emailNodeStyles'
 import { Button } from '@/components/ui/button'
 import { ChoiceChip } from '@/components/ui/choice-chip'
+import { useTranslation } from 'react-i18next'
 
 /**
  * Giao diện chỉnh sửa của từng node email bên trong trình soạn.
@@ -15,16 +16,17 @@ import { ChoiceChip } from '@/components/ui/choice-chip'
  */
 
 export function ButtonView({ node, updateAttributes, deleteNode }: NodeViewProps) {
+  const { t } = useTranslation('organization')
   return (
     <NodeViewWrapper>
-      <BlockShell label="Nút bấm" onDelete={deleteNode}>
+      <BlockShell label={t('emailNodeViews.button')} onDelete={deleteNode}>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          <LabeledInput label="Chữ trên nút" value={node.attrs.label} onChange={v => updateAttributes({ label: v })} />
-          <LabeledInput label="Đường dẫn" value={node.attrs.url} onChange={v => updateAttributes({ url: v })} />
+          <LabeledInput label={t('emailNodeViews.buttonText')} value={node.attrs.label} onChange={v => updateAttributes({ label: v })} />
+          <LabeledInput label={t('emailNodeViews.breadcrumb')} value={node.attrs.url} onChange={v => updateAttributes({ url: v })} />
         </div>
         <div className="mt-3 flex justify-center">
           <span className="inline-block px-6 py-2.5 rounded-control bg-[var(--color-info-solid)] text-white text-sm font-semibold">
-            {node.attrs.label || 'Nút bấm'}
+            {node.attrs.label || t('emailNodeViews.button')}
           </span>
         </div>
       </BlockShell>
@@ -33,20 +35,21 @@ export function ButtonView({ node, updateAttributes, deleteNode }: NodeViewProps
 }
 
 export function CodeView({ node, updateAttributes, deleteNode, extension }: NodeViewProps) {
+  const { t } = useTranslation('organization')
   const variables: Record<string, string> = extension.options.variables || {}
   return (
     <NodeViewWrapper>
-      <BlockShell label="Ô mã nổi bật" onDelete={deleteNode}>
+      <BlockShell label={t('emailNodeViews.highlightedCodeBox')} onDelete={deleteNode}>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-          <LabeledInput label="Nhãn phía trên" value={node.attrs.label} onChange={v => updateAttributes({ label: v })} />
+          <LabeledInput label={t('emailNodeViews.labelAbove')} value={node.attrs.label} onChange={v => updateAttributes({ label: v })} />
           <label className="block">
-            <span className="text-eyebrow">Giá trị hiển thị</span>
+            <span className="text-eyebrow">{t('emailNodeViews.displayedValue')}</span>
             <select
               value={node.attrs.value}
               onChange={e => updateAttributes({ value: e.target.value })}
               className={nodeInputClass}
             >
-              <option value="">— Chọn dữ liệu —</option>
+              <option value="">{t('emailNodeViews.chooseData')}</option>
               {Object.entries(variables).map(([name, desc]) => (
                 <option key={name} value={`{{${name}}}`}>{desc}</option>
               ))}
@@ -63,6 +66,7 @@ export function CodeView({ node, updateAttributes, deleteNode, extension }: Node
 }
 
 export function AlertView({ node, updateAttributes, deleteNode }: NodeViewProps) {
+  const { t } = useTranslation('organization')
   const variant = node.attrs.variant as string
   const custom = node.attrs.color as string | null
   const { color, bg } = resolveAlertColors(variant, custom)
@@ -70,7 +74,7 @@ export function AlertView({ node, updateAttributes, deleteNode }: NodeViewProps)
   return (
     <NodeViewWrapper>
       <BlockShell
-        label="Khung nhấn mạnh"
+        label={t('emailNodeViews.calloutBox')}
         onDelete={deleteNode}
         toolbar={
           <span className="flex items-center gap-1.5" contentEditable={false}>
@@ -78,7 +82,7 @@ export function AlertView({ node, updateAttributes, deleteNode }: NodeViewProps)
               <button
                 key={v}
                 type="button"
-                title={ALERT_LABEL[v]}
+                title={ALERT_LABEL()[v]}
                 // Chọn màu sẵn thì xoá màu tự chọn, nếu không nó vẫn đè lên.
                 onClick={() => updateAttributes({ variant: v, color: null })}
                 style={{ backgroundColor: ALERT_COLORS[v]?.color }}
@@ -95,7 +99,7 @@ export function AlertView({ node, updateAttributes, deleteNode }: NodeViewProps)
 
             {/* Màu tự chọn: input type=color mở bảng màu của hệ điều hành */}
             <label
-              title="Chọn màu khác"
+              title={t('emailNodeViews.chooseAnotherColor')}
               className={cn(
                 'relative w-5 h-5 rounded-full cursor-pointer transition-transform overflow-hidden',
                 custom
@@ -117,7 +121,7 @@ export function AlertView({ node, updateAttributes, deleteNode }: NodeViewProps)
             {custom && (
               <button
                 type="button"
-                title="Bỏ màu tự chọn"
+                title={t('emailNodeViews.removeCustomColor')}
                 onClick={() => updateAttributes({ color: null })}
                 className="p-0.5 rounded text-[var(--color-subtle-foreground)] hover:text-[var(--color-error)]"
               >
@@ -138,36 +142,37 @@ export function AlertView({ node, updateAttributes, deleteNode }: NodeViewProps)
 }
 
 export function InfoView({ node, updateAttributes, deleteNode, extension }: NodeViewProps) {
+  const { t } = useTranslation('organization')
   const rows: { label: string; value: string }[] = node.attrs.rows ?? []
   const variables: Record<string, string> = extension.options.variables || {}
   const setRows = (next: typeof rows) => updateAttributes({ rows: next })
 
   return (
     <NodeViewWrapper>
-      <BlockShell label="Bảng thông tin" onDelete={deleteNode}>
+      <BlockShell label={t('emailNodeViews.infoTable')} onDelete={deleteNode}>
         <div className="space-y-2">
           {rows.map((row, i) => (
             <div key={i} className="flex gap-2 items-center">
               <input
                 value={row.label}
                 onChange={e => setRows(rows.map((r, x) => x === i ? { ...r, label: e.target.value } : r))}
-                placeholder="Nhãn"
+                placeholder={t('emailNodeViews.label')}
                 className={cn(nodeInputClass, 'flex-1')}
               />
               <input
                 value={row.value}
                 onChange={e => setRows(rows.map((r, x) => x === i ? { ...r, value: e.target.value } : r))}
-                placeholder="Giá trị"
+                placeholder={t('emailNodeViews.value')}
                 className={cn(nodeInputClass, 'flex-1')}
               />
-              <Button variant="ghost" size="icon-sm" className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]" aria-label="Xoá dòng" type="button" title="Xoá dòng" onClick={() => setRows(rows.filter((_, x) => x !== i))}>
+              <Button variant="ghost" size="icon-sm" className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]" aria-label={t('emailNodeViews.deleteRow')} type="button" title={t('emailNodeViews.deleteRow')} onClick={() => setRows(rows.filter((_, x) => x !== i))}>
                 <Trash2 aria-hidden="true" />
               </Button>
             </div>
           ))}
           <div className="flex flex-wrap items-center gap-3">
             <Button variant="ghost" type="button" onClick={() => setRows([...rows, { label: '', value: '' }])}>
-              <Plus aria-hidden="true" /> Thêm dòng
+              <Plus aria-hidden="true" /> {t('emailNodeViews.addRow')}
             </Button>
             <select
               value=""
@@ -177,7 +182,7 @@ export function InfoView({ node, updateAttributes, deleteNode, extension }: Node
               }}
               className="text-eyebrow bg-transparent outline-none cursor-pointer"
             >
-              <option value="">+ Thêm dòng từ dữ liệu hệ thống</option>
+              <option value="">{t('emailNodeViews.addRowFromSystemData')}</option>
               {Object.entries(variables).map(([name, d]) => <option key={name} value={name}>{d}</option>)}
             </select>
           </div>
@@ -188,6 +193,7 @@ export function InfoView({ node, updateAttributes, deleteNode, extension }: Node
 }
 
 export function ImageView({ node, updateAttributes, deleteNode, selected }: NodeViewProps) {
+  const { t } = useTranslation('organization')
   const { src, alt, width, align } = node.attrs as {
     src: string; alt: string; width: number; align: string
   }
@@ -232,10 +238,10 @@ export function ImageView({ node, updateAttributes, deleteNode, selected }: Node
           contentEditable={false}
           className="flex flex-wrap items-center gap-2 px-3 py-1.5 border-b border-[var(--color-border)]"
         >
-          <span className="text-eyebrow text-[var(--color-primary)]">Ảnh</span>
+          <span className="text-eyebrow text-[var(--color-primary)]">{t('emailNodeViews.image')}</span>
 
           <span className="flex gap-1">
-            {IMAGE_PRESETS.map(p => (
+            {IMAGE_PRESETS().map(p => (
               <ChoiceChip selected={width === p.width} className="py-0.5" key={p.label} onClick={() => updateAttributes({ width: p.width })}>
                 {p.label}
               </ChoiceChip>
@@ -244,9 +250,9 @@ export function ImageView({ node, updateAttributes, deleteNode, selected }: Node
 
           <span className="flex gap-0.5">
             {([
-              ['left', AlignLeft, 'Căn trái'],
-              ['center', AlignCenter, 'Căn giữa'],
-              ['right', AlignRight, 'Căn phải'],
+              ['left', AlignLeft, t('emailNodeViews.alignLeft')],
+              ['center', AlignCenter, t('emailNodeViews.alignCenter')],
+              ['right', AlignRight, t('emailNodeViews.alignRight')],
             ] as const).map(([value, Icon, title]) => (
               <ChoiceChip selected={align === value} key={value} title={title} onClick={() => updateAttributes({ align: value })}>
                 <Icon />
@@ -256,7 +262,7 @@ export function ImageView({ node, updateAttributes, deleteNode, selected }: Node
 
           <span className="ml-auto flex items-center gap-2">
             <span className="text-caption tabular-nums">{width}px</span>
-            <Button variant="ghost" size="icon-sm" className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]" aria-label="Xoá ảnh" type="button" title="Xoá ảnh" onClick={deleteNode}>
+            <Button variant="ghost" size="icon-sm" className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]" aria-label={t('emailNodeViews.deleteImage')} type="button" title={t('emailNodeViews.deleteImage')} onClick={deleteNode}>
               <Trash2 aria-hidden="true" />
             </Button>
           </span>
@@ -275,7 +281,7 @@ export function ImageView({ node, updateAttributes, deleteNode, selected }: Node
             {/* Tay cầm đổi kích thước ở góc phải-dưới */}
             <span
               onPointerDown={startResize}
-              title="Kéo để đổi kích thước"
+              title={t('emailNodeViews.dragToResize')}
               className={cn(
                 'absolute -right-1.5 -bottom-1.5 w-4 h-4 rounded-full border-2 border-white bg-[var(--color-primary)] cursor-nwse-resize shadow',
                 dragging ? 'scale-125' : 'opacity-0 hover:opacity-100 group-hover:opacity-100',
@@ -289,7 +295,7 @@ export function ImageView({ node, updateAttributes, deleteNode, selected }: Node
           <input
             value={alt || ''}
             onChange={e => updateAttributes({ alt: e.target.value })}
-            placeholder="Mô tả ảnh (hiện khi mail client chặn ảnh)"
+            placeholder={t('emailNodeViews.imageDescriptionShownWhenTheMail')}
             className={cn(nodeInputClass, 'text-xs')}
           />
         </div>
@@ -335,6 +341,7 @@ function BlockShell({ label, onDelete, toolbar, children }: {
   toolbar?: React.ReactNode
   children: React.ReactNode
 }) {
+  const { t } = useTranslation('organization')
   return (
     <div className="my-3 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] overflow-hidden">
       <div
@@ -343,7 +350,7 @@ function BlockShell({ label, onDelete, toolbar, children }: {
       >
         <span className="text-eyebrow text-[var(--color-primary)] flex-1">{label}</span>
         {toolbar}
-        <Button variant="ghost" size="icon-sm" className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]" aria-label="Xoá khối" type="button" title="Xoá khối" onClick={onDelete}>
+        <Button variant="ghost" size="icon-sm" className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]" aria-label={t('emailNodeViews.deleteBlock')} type="button" title={t('emailNodeViews.deleteBlock')} onClick={onDelete}>
           <Trash2 aria-hidden="true" />
         </Button>
       </div>

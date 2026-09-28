@@ -7,7 +7,9 @@ import com.kpitracking.entity.Organization;
 import com.kpitracking.entity.User;
 import com.kpitracking.entity.UserRoleOrgUnit;
 import com.kpitracking.exception.BusinessException;
+import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.ResourceNotFoundException;
+import com.kpitracking.i18n.Terms;
 import com.kpitracking.repository.KpiWorkflowConfigRepository;
 import com.kpitracking.repository.OrganizationRepository;
 import com.kpitracking.repository.UserRepository;
@@ -80,7 +82,7 @@ public class KpiWorkflowConfigService {
     public WorkflowConfig save(WorkflowConfig incoming) {
         UUID organizationId = currentOrganizationId();
         if (organizationId == null) {
-            throw new BusinessException("Tài khoản chưa thuộc tổ chức nào nên không cấu hình được luồng KPI");
+            throw new BusinessException(ErrorCode.ACCOUNT_OUTSIDE_ORGANIZATION_KPI_FLOW_CANNOT_CONFIGURED);
         }
 
         // Trộn trước rồi mới kiểm: người dùng chỉ gửi phần họ đổi, mà luật phụ thuộc giữa các bước
@@ -92,7 +94,7 @@ public class KpiWorkflowConfigService {
         KpiWorkflowConfig entity = repository.findByOrganizationId(organizationId)
                 .orElseGet(() -> {
                     Organization org = organizationRepository.findById(organizationId)
-                            .orElseThrow(() -> new ResourceNotFoundException("Tổ chức", "id", organizationId));
+                            .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.organization"), "id", organizationId));
                     return KpiWorkflowConfig.builder().organization(org).build();
                 });
 
@@ -110,7 +112,7 @@ public class KpiWorkflowConfigService {
     public WorkflowConfig reset() {
         UUID organizationId = currentOrganizationId();
         if (organizationId == null) {
-            throw new BusinessException("Tài khoản chưa thuộc tổ chức nào nên không cấu hình được luồng KPI");
+            throw new BusinessException(ErrorCode.ACCOUNT_OUTSIDE_ORGANIZATION_KPI_FLOW_CANNOT_CONFIGURED);
         }
         repository.findByOrganizationId(organizationId).ifPresent(e -> {
             e.setDeletedAt(java.time.Instant.now());
@@ -130,7 +132,7 @@ public class KpiWorkflowConfigService {
     public User currentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         return userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("Người dùng", "email", email));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.user"), "email", email));
     }
 
     /**
@@ -171,7 +173,7 @@ public class KpiWorkflowConfigService {
         try {
             return objectMapper.writeValueAsString(config);
         } catch (JsonProcessingException e) {
-            throw new BusinessException("Không chuyển được cấu hình luồng KPI sang JSON");
+            throw new BusinessException(ErrorCode.COULD_NOT_CONVERT_KPI_FLOW_CONFIGURATION_JSON);
         }
     }
 }

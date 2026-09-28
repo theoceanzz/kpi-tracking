@@ -3,6 +3,7 @@ import { Building2, ChevronDown, UserX } from 'lucide-react'
 import UserAvatar from './UserAvatar'
 import { cn } from '@/lib/utils'
 import { UNASSIGNED_ID, UNKNOWN_UNIT_ID, type PersonRef, type UnitRef } from '@/lib/personGrouping'
+import { useTranslation } from 'react-i18next'
 
 interface PersonGroupHeaderProps {
   person: PersonRef
@@ -53,6 +54,7 @@ export function PersonGroupBadge({ label, value, tone = 'slate' }: {
 
 /** Phần ruột dùng chung cho cả biến thể hàng bảng lẫn biến thể thẻ. */
 function HeaderContent({ person, expanded, onToggle, badges, actions, isCurrentUser, indent }: PersonGroupHeaderProps) {
+  const { t } = useTranslation('shared')
   const isUnassigned = person.id === UNASSIGNED_ID
 
   return (
@@ -85,7 +87,7 @@ function HeaderContent({ person, expanded, onToggle, badges, actions, isCurrentU
             </span>
             {isCurrentUser && (
               <span className="text-eyebrow px-1.5 py-0.5 rounded-control bg-[var(--color-primary-soft)] text-[var(--color-primary)] shrink-0">
-                Bạn
+                {t('PersonGroupHeader.you')}
               </span>
             )}
           </div>
@@ -132,6 +134,7 @@ export function PersonGroupHeaderCard(props: PersonGroupHeaderProps) {
  * Đậm hơn header người để hai cấp không lẫn vào nhau.
  */
 function UnitHeaderContent({ unit, expanded, onToggle, badges, actions, isCurrentUnit }: UnitGroupHeaderProps) {
+  const { t } = useTranslation('shared')
   const isUnknown = unit.id === UNKNOWN_UNIT_ID
 
   return (
@@ -157,7 +160,7 @@ function UnitHeaderContent({ unit, expanded, onToggle, badges, actions, isCurren
           </span>
           {isCurrentUnit && (
             <span className="text-eyebrow px-1.5 py-0.5 rounded-control bg-[var(--color-primary-soft)] text-[var(--color-primary)] shrink-0">
-              Đơn vị của bạn
+              {t('PersonGroupHeader.yourUnit')}
             </span>
           )}
         </div>

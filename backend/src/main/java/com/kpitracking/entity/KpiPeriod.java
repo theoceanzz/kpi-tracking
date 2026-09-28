@@ -1,6 +1,7 @@
 package com.kpitracking.entity;
 
 import com.kpitracking.enums.KpiFrequency;
+import com.kpitracking.enums.KpiPeriodStatus;
 import jakarta.persistence.*;
 import lombok.*;
 import org.hibernate.annotations.SQLRestriction;
@@ -46,6 +47,27 @@ public class KpiPeriod {
 
     @Column(name = "notification_date")
     private Instant notificationDate;
+
+    /** Trạng thái lưu (đóng/chuyển/huỷ khi khoá kỳ). Tiến độ Hoàn thành/Đang dở thì tính, không lưu. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false)
+    @Builder.Default
+    private KpiPeriodStatus status = KpiPeriodStatus.ACTIVE;
+
+    /** Đợt bị tách khi khoá kỳ: kỳ nhận phần KPI dở. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "transferred_to_cycle_id")
+    private KpiCycle transferredToCycle;
+
+    /** Đợt sinh ra khi tách: đợt gốc ở kỳ cũ. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "source_period_id")
+    private KpiPeriod sourcePeriod;
+
+    /** Đợt được chuyển nguyên sang kỳ khác: kỳ trước lần chuyển gần nhất. */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "original_cycle_id")
+    private KpiCycle originalCycle;
 
     @CreatedDate
     @Column(name = "created_at", updatable = false)

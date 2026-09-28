@@ -1,6 +1,7 @@
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer, Cell } from 'recharts'
 import { AXIS_COLORS, NEUTRAL_COLOR, ratingColor } from '../chartPalette'
 import { xAxisLabel } from '../axisLabel'
+import { useTranslation } from 'react-i18next'
 
 export interface BulletDatum {
   id?: string
@@ -46,6 +47,7 @@ function achievement(d: BulletDatum): number {
  * <p>Vạch 100% là mục tiêu; vạch ngưỡng tối thiểu vẽ riêng cho từng dòng nên nằm trong shape.
  */
 export default function BulletChart({ data, valueLabel, height, onSelect }: Props) {
+  const { t } = useTranslation('shared')
   const rows = data.map(d => ({
     ...d,
     pct: achievement(d),
@@ -65,7 +67,7 @@ export default function BulletChart({ data, valueLabel, height, onSelect }: Prop
           tickLine={false}
           tick={{ fill: AXIS_COLORS.tick, fontSize: 11, fontWeight: 500 }}
           tickFormatter={(v: number) => `${v}%`}
-          label={xAxisLabel(valueLabel ?? 'Tiến độ (%)')}
+          label={xAxisLabel(valueLabel ?? t('BulletChart.progress'))}
         />
         <YAxis
           type="category"
@@ -111,6 +113,7 @@ function bandColor(pct: number): string {
 type Row = BulletDatum & { pct: number; minPct: number | null }
 
 function BulletTooltip({ active, payload }: { active?: boolean; payload?: { payload: Row }[] }) {
+  const { t } = useTranslation('shared')
   const d = payload?.[0]?.payload
   if (!active || !d) return null
   const u = d.unit ? ` ${d.unit}` : ''
@@ -120,13 +123,13 @@ function BulletTooltip({ active, payload }: { active?: boolean; payload?: { payl
       <p className="font-semibold text-[var(--color-foreground)]">{d.name}</p>
       {d.subText && <p className="text-xs text-slate-500 mb-2">{d.subText}</p>}
       <p className="font-semibold text-lg tabular-nums mb-2" style={{ color: bandColor(d.pct) }}>
-        {d.pct}% mục tiêu
+        {d.pct}{t('BulletChart.ofTarget')}
       </p>
       <div className="space-y-1 text-sm">
-        <Row label="Thực tế" value={`${r1(d.actual)}${u}`} />
-        <Row label="Mục tiêu" value={`${r1(d.target)}${u}`} />
-        {d.minimum != null && <Row label="Ngưỡng tối thiểu" value={`${r1(d.minimum)}${u}`} />}
-        {d.isReverse && <p className="text-xs text-amber-600 font-semibold pt-1">KPI ngược: càng thấp càng tốt</p>}
+        <Row label={t('BulletChart.actual')} value={`${r1(d.actual)}${u}`} />
+        <Row label={t('BulletChart.target')} value={`${r1(d.target)}${u}`} />
+        {d.minimum != null && <Row label={t('BulletChart.minimumThreshold')} value={`${r1(d.minimum)}${u}`} />}
+        {d.isReverse && <p className="text-xs text-amber-600 font-semibold pt-1">{t('BulletChart.inverseKpiLowerIsBetter')}</p>}
       </div>
     </div>
   )

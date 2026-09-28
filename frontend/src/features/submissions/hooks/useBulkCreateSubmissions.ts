@@ -2,6 +2,8 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { submissionApi } from '../api/submissionApi'
 import type { CreateSubmissionRequest } from '@/types/submission'
+import { useTranslation } from 'react-i18next'
+import i18n from 'i18next'
 
 export interface BulkSubmitResult {
   ok: number
@@ -11,7 +13,7 @@ export interface BulkSubmitResult {
 /** Thông điệp backend trả về, nếu đọc được. Lỗi mạng thì rơi về câu mặc định. */
 function apiErrorMessage(err: unknown): string {
   const message = (err as { response?: { data?: { message?: unknown } } })?.response?.data?.message
-  return typeof message === 'string' && message ? message : 'Nộp thất bại'
+  return typeof message === 'string' && message ? message : i18n.t('submissions:useBulkCreateSubmissions.submissionFailed')
 }
 
 /**
@@ -28,6 +30,7 @@ function apiErrorMessage(err: unknown): string {
  * song song thì các phép đếm `submissionCount` phía server chạy đua với nhau.
  */
 export function useBulkCreateSubmissions() {
+  const { t } = useTranslation('submissions')
   const qc = useQueryClient()
 
   return useMutation<BulkSubmitResult, Error, CreateSubmissionRequest[]>({
@@ -53,13 +56,13 @@ export function useBulkCreateSubmissions() {
       qc.invalidateQueries({ queryKey: ['stats'] })
 
       if (result.ok > 0 && result.failed.length === 0) {
-        toast.success(`Đã nộp ${result.ok} báo cáo`)
+        toast.success(t('useBulkCreateSubmissions.submittedReports', { count: result.ok }))
       } else if (result.ok > 0) {
-        toast.warning(`Nộp được ${result.ok}, còn ${result.failed.length} chỉ tiêu lỗi`)
+        toast.warning(t('useBulkCreateSubmissions.submittedKpisHadErrors', { ok: result.ok, length: result.failed.length }))
       } else {
-        toast.error(result.failed[0]?.message ?? 'Nộp thất bại')
+        toast.error(result.failed[0]?.message ?? t('useBulkCreateSubmissions.submissionFailed'))
       }
     },
-    onError: () => toast.error('Nộp báo cáo thất bại'),
+    onError: () => toast.error(t('useBulkCreateSubmissions.failedToSubmitReports')),
   })
 }

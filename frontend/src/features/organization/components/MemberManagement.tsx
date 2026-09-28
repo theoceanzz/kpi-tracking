@@ -24,6 +24,7 @@ import UserAvatar from '@/components/common/UserAvatar'
 import { toast } from 'sonner'
 import { getApiErrorMessage } from '@/lib/apiError'
 import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
+import { useTranslation } from 'react-i18next'
 
 
 interface MemberManagementProps {
@@ -53,6 +54,7 @@ interface ConfirmModalState {
 }
 
 export function MemberManagement({ orgUnitId }: MemberManagementProps) {
+  const { t } = useTranslation('organization')
   const [isExpanded, setIsExpanded] = useState(true)
   const [showAddModal, setShowAddModal] = useState(false)
   const [showManageModal, setShowManageModal] = useState<GroupedMember | null>(null)
@@ -192,7 +194,7 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
 
   const handleAddMember = async () => {
     if (!selectedRole) {
-      toast.error('Vui lòng chọn vai trò')
+      toast.error(t('MemberManagement.pleaseChooseARole'))
       return
     }
     
@@ -207,14 +209,14 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
       } else {
         // Bulk assignment for new members
         if (selectedUsers.length === 0) {
-          toast.error('Vui lòng chọn ít nhất một nhân sự')
+          toast.error(t('MemberManagement.pleaseChooseAtLeastOnePerson'))
           return
         }
 
         // Prevent bulk assigning manager/deputy roles
         const selectedRoleObj = roles.find(r => r.id === selectedRole)
         if (selectedRoleObj && (selectedRoleObj.rank === 0 || selectedRoleObj.rank === 1) && selectedUsers.length > 1) {
-            toast.error(`Mỗi đơn vị chỉ được phép có tối đa một ${selectedRoleObj.rank === 0 ? 'Trưởng' : 'Phó'}. Không thể gán hàng loạt.`)
+            toast.error(t('MemberManagement.eachUnitMayHaveAtMost', { value: selectedRoleObj.rank === 0 ? t('MemberManagement.head') : t('MemberManagement.deputy') }))
             return
         }
 
@@ -225,7 +227,7 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
         })
       }
       
-      toast.success('Gán vai trò thành công')
+      toast.success(t('MemberManagement.roleAssignedSuccessfully'))
       
       // Update local state for "instant" update in Manage Modal
       if (showManageModal) {
@@ -249,7 +251,7 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
         setSelectedUsers([])
       }
     } catch (error) {
-      toast.error(getApiErrorMessage(error, 'Không thể gán vai trò'))
+      toast.error(getApiErrorMessage(error, t('MemberManagement.couldNotAssignTheRole')))
     }
   }
 
@@ -267,7 +269,7 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
     const { userId, roleId, roleName } = confirmModal
     try {
         await revokeMutation.mutateAsync({ userId, roleId, orgUnitId })
-        toast.success(`Đã thu hồi vai trò ${roleName}`)
+        toast.success(t('MemberManagement.revokedRole', { roleName }))
         
         // Update local state for "instant" update
         if (showManageModal && showManageModal.userId === userId) {
@@ -278,7 +280,7 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
         }
         setConfirmModal(prev => ({ ...prev, isOpen: false }))
     } catch (error) {
-        toast.error(getApiErrorMessage(error, 'Không thể thu hồi vai trò'))
+        toast.error(getApiErrorMessage(error, t('MemberManagement.couldNotRevokeTheRole')))
     }
   }
 
@@ -286,15 +288,15 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
     try {
         if (selectedMemberIds.length > 0 && selectedMemberIds.length < groupedMembers.length) {
             await removeBulkMutation.mutateAsync({ userIds: selectedMemberIds, orgUnitId })
-            toast.success(`Đã xóa ${selectedMemberIds.length} nhân sự khỏi đơn vị`)
+            toast.success(t('MemberManagement.removedPeopleFromTheUnit', { count: selectedMemberIds.length }))
         } else {
             await removeAllMutation.mutateAsync(orgUnitId)
-            toast.success(`Đã xóa toàn bộ nhân sự khỏi đơn vị`)
+            toast.success(t('MemberManagement.removedAllPeopleFromTheUnit'))
         }
         setShowRemoveAllConfirm(false)
         setSelectedMemberIds([])
     } catch (error) {
-        toast.error(getApiErrorMessage(error, 'Không thể xoá nhân sự'))
+        toast.error(getApiErrorMessage(error, t('MemberManagement.couldNotRemovePeople')))
     }
   }
 
@@ -325,8 +327,8 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
             <Users className="w-4 h-4 md:w-6 md:h-6 text-[var(--color-info)]" />
           </div>
           <div className="min-w-0">
-            <h2 className="text-section-title md:text-lg text-[var(--color-foreground)] whitespace-nowrap">Quản lý nhân sự</h2>
-            <p className="text-eyebrow md:text-xs text-[var(--color-muted-foreground)] truncate">{groupedMembers.length} nhân viên • {members.length} phân quyền</p>
+            <h2 className="text-section-title md:text-lg text-[var(--color-foreground)] whitespace-nowrap">{t('MemberManagement.peopleManagement')}</h2>
+            <p className="text-eyebrow md:text-xs text-[var(--color-muted-foreground)] truncate">{groupedMembers.length} {t('MemberManagement.employees')} {members.length} {t('MemberManagement.permissions')}</p>
           </div>
         </div>
         <div className="flex items-center gap-2 shrink-0">
@@ -336,7 +338,7 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
                 setShowRemoveAllConfirm(true)
               }} disabled={removeAllMutation.isPending || removeBulkMutation.isPending}>
               <UserMinus aria-hidden="true" className="w-3.5 h-3.5 mr-1.5" />
-              {selectedMemberIds.length === groupedMembers.length ? 'Xóa toàn bộ' : `Xóa (${selectedMemberIds.length})`}
+              {selectedMemberIds.length === groupedMembers.length ? t('MemberManagement.removeAll') : t('MemberManagement.remove', { length: selectedMemberIds.length })}
             </Button>
           )}
           <Button size="sm" className="md:px-5 md:py-2.5 md:text-sm whitespace-nowrap" onClick={(e) => {
@@ -344,7 +346,7 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
               setShowAddModal(true)
             }}>
             <UserPlus aria-hidden="true" className="w-3.5 h-3.5 mr-1.5" />
-            Thêm nhân sự
+            {t('MemberManagement.addPeople')}
           </Button>
           {isExpanded ? <ChevronUp className="w-4 h-4 text-[var(--color-subtle-foreground)]" /> : <ChevronDown className="w-4 h-4 text-[var(--color-subtle-foreground)]" />}
         </div>
@@ -361,7 +363,7 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
               <div className="inline-flex items-center justify-center w-20 h-20 rounded-full bg-[var(--color-muted)] mb-4 border-2 border-dashed border-[var(--color-border)]">
                 <Users className="w-10 h-10 text-[var(--color-subtle-foreground)]" />
               </div>
-              <p className="text-[var(--color-muted-foreground)] font-semibold">Chưa có nhân sự nào trong đơn vị này</p>
+              <p className="text-[var(--color-muted-foreground)] font-semibold">{t('MemberManagement.noOneInThisUnitYet')}</p>
             </div>
           ) : (
             <>
@@ -383,9 +385,9 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
                         }}
                       />
                     </th>
-                    <th className="px-8 py-5">Nhân sự</th>
-                    <th className="px-8 py-5">Vai trò đảm nhiệm</th>
-                    <th className="px-8 py-5 text-right">Thao tác</th>
+                    <th className="px-8 py-5">{t('MemberManagement.people')}</th>
+                    <th className="px-8 py-5">{t('MemberManagement.rolesHeld')}</th>
+                    <th className="px-8 py-5 text-right">{t('MemberManagement.actions')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--color-border)]">
@@ -436,10 +438,10 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
                         </div>
                       </td>
                       <td className="px-8 py-5 text-right flex items-center justify-end space-x-2">
-                        <Button variant="ghost" size="icon" aria-label="Quản lý vai trò" onClick={() => {
+                        <Button variant="ghost" size="icon" aria-label={t('MemberManagement.manageRoles')} onClick={() => {
                              setSelectedRole(null)
                              setShowManageModal(member)
-                          }} title="Quản lý vai trò">
+                          }} title={t('MemberManagement.manageRoles')}>
                           <Settings2 aria-hidden="true" className="w-5 h-5" />
                         </Button>
                       </td>
@@ -477,7 +479,7 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
                         <p className="text-xs text-[var(--color-muted-foreground)] font-medium truncate">{member.userEmail}</p>
                       </div>
                     </label>
-                    <Button variant="ghost" size="icon-sm" className="shrink-0" aria-label="Quản lý vai trò" onClick={() => { setSelectedRole(null); setShowManageModal(member) }} title="Quản lý vai trò">
+                    <Button variant="ghost" size="icon-sm" className="shrink-0" aria-label={t('MemberManagement.manageRoles')} onClick={() => { setSelectedRole(null); setShowManageModal(member) }} title={t('MemberManagement.manageRoles')}>
                       <Settings2 aria-hidden="true" className="w-5 h-5" />
                     </Button>
                   </div>
@@ -510,18 +512,18 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
         onClose={() => { setShowAddModal(false); setShowManageModal(null); setSelectedRole(null); }}
         size="lg"
         dismissible={!(assignMutation.isPending || bulkAssignMutation.isPending)}
-        title={showManageModal ? `Quản lý vai trò: ${showManageModal.userFullName}` : 'Phân công nhân sự mới'}
-        description="Thiết lập các vai trò cụ thể cho nhân sự trong đơn vị này."
+        title={showManageModal ? t('MemberManagement.manageRoles2', { userFullName: showManageModal.userFullName }) : t('MemberManagement.assignNewPeople')}
+        description={t('MemberManagement.setSpecificRolesForPeopleIn')}
         footer={
           <DialogFooter
-            secondary={<Button variant="outline" onClick={() => { setShowAddModal(false); setShowManageModal(null); }}>Đóng</Button>}
+            secondary={<Button variant="outline" onClick={() => { setShowAddModal(false); setShowManageModal(null); }}>{t('MemberManagement.close')}</Button>}
             primary={
               <Button
                 disabled={(!showManageModal && selectedUsers.length === 0) || !selectedRole || assignMutation.isPending || bulkAssignMutation.isPending}
                 onClick={handleAddMember}
               >
                 {(assignMutation.isPending || bulkAssignMutation.isPending) && <Loader2 className="animate-spin" aria-hidden="true" />}
-                Xác nhận gán
+                {t('MemberManagement.confirmAssignment')}
               </Button>
             }
           />
@@ -530,12 +532,12 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
         <div className="space-y-6">
           {!showManageModal && (
               <div className="space-y-3">
-                  <label className="text-label pl-1">Chọn nhân sự từ hệ thống</label>
+                  <label className="text-label pl-1">{t('MemberManagement.choosePeopleFromTheSystem')}</label>
                   <div className="relative group">
                       <Search className="absolute left-4 top-3.5 w-5 h-5 text-[var(--color-subtle-foreground)] group-focus-within:text-[var(--color-info)] transition-colors" />
                       <input 
                           type="text"
-                          placeholder="Tìm theo tên hoặc email..."
+                          placeholder={t('MemberManagement.searchByNameOrEmail')}
                           className="w-full pl-12 pr-6 py-3.5 bg-[var(--color-muted)] border-none rounded-card outline-none focus:ring-2 focus:ring-[var(--color-info-solid)] transition-all text-sm font-medium placeholder:text-[var(--color-subtle-foreground)]"
                           value={searchQuery}
                           onChange={(e) => setSearchQuery(e.target.value)}
@@ -544,7 +546,7 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
                   
                   <div className="max-h-52 overflow-y-auto border border-[var(--color-border)] rounded-card bg-[var(--color-card)] divide-y scrollbar-hide">
                       {eligibleUsers.length === 0 ? (
-                          <p className="p-8 text-sm text-[var(--color-subtle-foreground)] text-center font-medium italic">Không tìm thấy người dùng phù hợp</p>
+                          <p className="p-8 text-sm text-[var(--color-subtle-foreground)] text-center font-medium italic">{t('MemberManagement.noMatchingUsersFound')}</p>
                       ) : (
                           eligibleUsers.map(user => {
                               const isSelected = selectedUsers.includes(user.id)
@@ -584,9 +586,9 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
                    {/* Global Status Toggle */}
                    <div className="p-4 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)] flex items-center justify-between gap-3">
                       <div className="min-w-0">
-                          <h4 className="text-sm font-semibold text-[var(--color-foreground)] leading-tight">Trạng thái tài khoản <span className="block sm:inline text-[var(--color-muted-foreground)] font-semibold">(Toàn hệ thống)</span></h4>
+                          <h4 className="text-sm font-semibold text-[var(--color-foreground)] leading-tight">{t('MemberManagement.accountStatus')} <span className="block sm:inline text-[var(--color-muted-foreground)] font-semibold">{t('MemberManagement.systemWide')}</span></h4>
                           <p className="text-caption font-medium mt-1">
-                              Vô hiệu hóa sẽ chặn quyền truy cập của người dùng này vào toàn bộ hệ thống.
+                              {t('MemberManagement.deactivatingBlocksThisUsersAccessTo')}
                           </p>
                       </div>
                       <button
@@ -600,11 +602,11 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
 
                    <div className="space-y-4">
                       <div className="flex items-center justify-between">
-                          <label className="text-label pl-1">Vai trò đang đảm nhiệm</label>
+                          <label className="text-label pl-1">{t('MemberManagement.currentRoles')}</label>
                           <div className="group relative">
                               <AlertTriangle className="w-4 h-4 text-[var(--color-warning)] cursor-help" />
                               <div className="absolute bottom-full right-0 mb-2 w-64 p-3 bg-[var(--color-foreground)] text-[var(--color-background)] text-xs rounded-card opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-10 shadow-xl font-medium leading-relaxed">
-                                  Lưu ý: "Thu hồi" chỉ gỡ vai trò tại đơn vị này. Để chặn hoàn toàn hãy dùng mục Trạng thái ở trên.
+                                  {t('MemberManagement.noteRevokeOnlyRemovesTheRole')}
                               </div>
                           </div>
                       </div>
@@ -628,14 +630,14 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
 
           <div className="space-y-3">
               <label className="text-label pl-1">
-                  {(showManageModal || selectedUserAssignments.length > 0) ? 'Bổ sung vai trò' : 'Vai trò khởi đầu'}
+                  {(showManageModal || selectedUserAssignments.length > 0) ? t('MemberManagement.addRole') : t('MemberManagement.initialRole')}
               </label>
               <div className="grid grid-cols-2 gap-3">
                   {filteredRoles.length === 0 && (
                       <div className="col-span-2 p-4 rounded-card bg-[var(--color-error-bg)] border border-[var(--color-error-border)] flex items-center gap-3 text-[var(--color-error)]">
                           <AlertTriangle className="w-5 h-5 shrink-0" />
                           <p className="text-xs font-medium italic">
-                              Đơn vị này chưa được thiết lập phạm vi vai trò. Vui lòng quay lại mục "Sơ đồ tổ chức" để cấu hình trước khi gán nhân sự.
+                              {t('MemberManagement.thisUnitHasNoRoleScope')}
                           </p>
                       </div>
                   )}
@@ -670,7 +672,7 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
                               <div className="flex-1 overflow-hidden">
                                   <p className="text-sm font-semibold text-[var(--color-foreground)] truncate">{role.name}</p>
                                   <p className="text-caption font-medium truncate">
-                                      {isRankTakenByOther ? 'Đã có người đảm nhiệm' : (selectedUsers.length > 1 && (role.rank === 0 || role.rank === 1)) ? 'Không thể gán hàng loạt' : ''}
+                                      {isRankTakenByOther ? t('MemberManagement.alreadyFilled') : (selectedUsers.length > 1 && (role.rank === 0 || role.rank === 1)) ? t('MemberManagement.bulkAssignmentNotPossible') : ''}
                                   </p>
                               </div>
                               {isRankTakenByOther && (
@@ -689,9 +691,9 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
         open={confirmModal.isOpen}
         onClose={() => setConfirmModal(prev => ({ ...prev, isOpen: false }))}
         onConfirm={handleConfirmedRemove}
-        title="Xác nhận thu hồi vai trò"
-        description={`Thu hồi vai trò "${confirmModal.roleName}" của ${confirmModal.userFullName}? Người này sẽ mất các quyền đi kèm vai trò trong đơn vị.`}
-        confirmLabel="Xác nhận xóa"
+        title={t('MemberManagement.confirmRevokingRole')}
+        description={t('MemberManagement.revokeRoleFromThisPersonWill', { roleName: confirmModal.roleName, userFullName: confirmModal.userFullName })}
+        confirmLabel={t('MemberManagement.confirmRemoval')}
         loading={revokeMutation.isPending}
       />
 
@@ -700,11 +702,11 @@ export function MemberManagement({ orgUnitId }: MemberManagementProps) {
         open={showRemoveAllConfirm}
         onClose={() => setShowRemoveAllConfirm(false)}
         onConfirm={handleRemoveAllFromUnit}
-        title={selectedMemberIds.length > 0 && selectedMemberIds.length < groupedMembers.length ? 'Xóa nhân sự đã chọn' : 'Xóa toàn bộ nhân sự'}
+        title={selectedMemberIds.length > 0 && selectedMemberIds.length < groupedMembers.length ? t('MemberManagement.removeSelectedPeople') : t('MemberManagement.removeAllPeople')}
         description={selectedMemberIds.length > 0 && selectedMemberIds.length < groupedMembers.length
-          ? `Thu hồi tất cả vai trò của ${selectedMemberIds.length} nhân viên đã chọn. Bạn có chắc chắn?`
-          : `Thu hồi tất cả vai trò của ${groupedMembers.length} nhân viên trong đơn vị này. Bạn có chắc chắn?`}
-        confirmLabel="Xác nhận xóa"
+          ? t('MemberManagement.revokeAllRolesOfSelectedEmployees', { count: selectedMemberIds.length })
+          : t('MemberManagement.revokeAllRolesOfEmployeesIn', { count: groupedMembers.length })}
+        confirmLabel={t('MemberManagement.confirmRemoval')}
         loading={removeAllMutation.isPending || removeBulkMutation.isPending}
       />
     </div>

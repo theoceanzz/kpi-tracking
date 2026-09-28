@@ -1,3 +1,4 @@
+import { LocaleNumberInput } from '@/components/ui/number-input'
 import { useState, useEffect, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -17,6 +18,9 @@ import { usePermission } from '@/hooks/usePermission'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import StaffEvaluationModal from './StaffEvaluationModal'
 import EvaluationFormModal from '@/features/evaluations/components/EvaluationFormModal'
+import { useTranslation } from 'react-i18next'
+import { useFormDraft } from '@/hooks/useFormDraft'
+import DraftNotice from '@/components/common/DraftNotice'
 
 interface ReviewModalProps {
   open: boolean
@@ -24,6 +28,7 @@ interface ReviewModalProps {
   submission: Submission | null
 }
 export default function ReviewModal({ open, onClose, submission }: ReviewModalProps) {
+  const { t } = useTranslation('submissions')
   const { user } = useAuth()
   const [showStaffEval, setShowStaffEval] = useState(false)
   const qc = useQueryClient()
@@ -42,10 +47,12 @@ export default function ReviewModal({ open, onClose, submission }: ReviewModalPr
   // dựng theo loại của bài nộp đang mở.
   const schema = useMemo(() => createReviewSubmissionSchema({ isQualitative }), [isQualitative])
 
-  const { register, handleSubmit, reset: resetForm, watch, setValue, formState: { errors } } = useForm<ReviewSubmissionFormData>({
+  const formApi = useForm<ReviewSubmissionFormData>({
     resolver: zodResolver(schema),
     defaultValues: { mode: 'view', reviewNote: '', managerScore: undefined, qualitativeLevelId: undefined },
   })
+  const { register, handleSubmit, reset: resetForm, watch, setValue, formState: { errors } } = formApi
+  const draft = useFormDraft(formApi, { key: `submission-review:${submission?.id ?? ''}`, enabled: open && !!submission })
 
   const mode = watch('mode')
   const selectedLevelId = watch('qualitativeLevelId')
@@ -78,7 +85,7 @@ export default function ReviewModal({ open, onClose, submission }: ReviewModalPr
     }),
     onSuccess: (data) => { 
       qc.invalidateQueries({ queryKey: ['submissions'] })
-      toast.success('Đã phê duyệt bài nộp')
+      toast.success(t('ReviewModal.submissionApproved'))
       reset()
       
       if (data.allChildrenApproved) {
@@ -87,14 +94,14 @@ export default function ReviewModal({ open, onClose, submission }: ReviewModalPr
         onClose()
       }
     },
-    onError: (error) => toast.error(getApiErrorMessage(error, 'Duyệt bài nộp thất bại')),
+    onError: (error) => toast.error(getApiErrorMessage(error, t('ReviewModal.failedToApproveSubmission'))),
   })
 
   const rejectMutation = useMutation({
     mutationFn: (data: ReviewSubmissionFormData) =>
       submissionApi.review(submission!.id, { status: 'REJECTED', reviewNote: data.reviewNote }),
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['submissions'] }); toast.success('Đã trả lại bài nộp'); reset(); onClose() },
-    onError: (error) => toast.error(getApiErrorMessage(error, 'Trả lại bài nộp thất bại')),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['submissions'] }); toast.success(t('ReviewModal.submissionReturned')); reset(); onClose() },
+    onError: (error) => toast.error(getApiErrorMessage(error, t('ReviewModal.failedToReturnSubmission'))),
   })
 
   const reset = () => resetForm({ mode: 'view', reviewNote: '', managerScore: undefined, qualitativeLevelId: undefined })
@@ -112,16 +119,16 @@ export default function ReviewModal({ open, onClose, submission }: ReviewModalPr
       onClose={() => { reset(); onClose() }}
       size="md"
       dismissible={!isPending}
-      title="Xét duyệt Bài nộp"
-      description={submission.status === 'PENDING' ? 'Đang chờ phê duyệt' : submission.status === 'APPROVED' ? 'Đã phê duyệt' : 'Đã từ chối'}
+      title={t('ReviewModal.reviewSubmission')}
+      description={submission.status === 'PENDING' ? t('ReviewModal.pendingApproval') : submission.status === 'APPROVED' ? t('ReviewModal.approved') : t('ReviewModal.declined')}
       footer={isReviewable ? (
         mode === 'reject' ? (
           <DialogFooter
-            secondary={<Button variant="outline" onClick={() => setMode('view')} disabled={isPending}>Quay lại</Button>}
+            secondary={<Button variant="outline" onClick={() => setMode('view')} disabled={isPending}>{t('ReviewModal.back')}</Button>}
             primary={
               <Button variant="destructive" onClick={handleSubmit(data => rejectMutation.mutate(data))} disabled={isPending}>
                 {rejectMutation.isPending ? <Loader2 className="animate-spin" aria-hidden="true" /> : <XCircle aria-hidden="true" />}
-                Xác nhận Từ chối
+                {t('ReviewModal.confirmRejection')}
               </Button>
             }
           />
@@ -134,7 +141,7 @@ export default function ReviewModal({ open, onClose, submission }: ReviewModalPr
                 onClick={() => { setMode('reject'); setValue('reviewNote', '') }}
                 disabled={isPending}
               >
-              <XCircle aria-hidden="true" /> Trả lại
+              <XCircle aria-hidden="true" /> {t('ReviewModal.return')}
             </Button>
           }
           primary={
@@ -142,18 +149,19 @@ export default function ReviewModal({ open, onClose, submission }: ReviewModalPr
               className="bg-[var(--color-success-solid)] text-white hover:bg-[var(--color-success-solid)]"
               onClick={handleSubmit(data => approveMutation.mutate(data))}
               disabled={isPending}
-              title={isQualitative && !selectedLevelId ? 'Vui lòng chọn mức đánh giá định tính' : undefined}
+              title={isQualitative && !selectedLevelId ? t('ReviewModal.pleaseChooseAQualitativeEvaluationLevel') : undefined}
             >
               {approveMutation.isPending ? <Loader2 className="animate-spin" aria-hidden="true" /> : <CheckCircle aria-hidden="true" />}
-              Phê duyệt
+              {t('ReviewModal.approve')}
             </Button>
           }
         />
       )
     ) : (
-      <DialogFooter secondary={<Button variant="outline" onClick={() => { reset(); onClose() }}>Đóng</Button>} />
+      <DialogFooter secondary={<Button variant="outline" onClick={() => { reset(); onClose() }}>{t('ReviewModal.close')}</Button>} />
     )}
   >
+      <DraftNotice draft={draft} className="mb-4" />
       <div className="space-y-5">
 
         {/* KPI Name */}
@@ -169,11 +177,11 @@ export default function ReviewModal({ open, onClose, submission }: ReviewModalPr
         {!isQualitative && (
         <div className="grid grid-cols-2 gap-3">
           <div className="p-4 rounded-card bg-[var(--color-primary-soft)] border border-[var(--color-border)] text-center">
-            <p className="text-eyebrow text-[var(--color-primary)] mb-1">Giá trị thực tế</p>
+            <p className="text-eyebrow text-[var(--color-primary)] mb-1">{t('ReviewModal.actualValue')}</p>
             <p className="text-3xl font-semibold text-[var(--color-primary)]">{formatNumber(submission.actualValue)}</p>
           </div>
           <div className="p-4 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)] text-center">
-            <p className="text-eyebrow mb-1">Mục tiêu</p>
+            <p className="text-eyebrow mb-1">{t('ReviewModal.target')}</p>
             <p className="text-3xl font-semibold text-[var(--color-muted-foreground)]">{submission.targetValue != null ? formatNumber(submission.targetValue) :'—'}</p>
           </div>
         </div>
@@ -182,16 +190,16 @@ export default function ReviewModal({ open, onClose, submission }: ReviewModalPr
         {/* Scoring Section */}
         <div className="space-y-3">
           <div className="flex items-center justify-between px-1">
-            <span className="text-eyebrow">Đánh giá điểm số</span>
+            <span className="text-eyebrow">{t('ReviewModal.scoreEvaluation')}</span>
             <div className="h-px flex-1 mx-4 bg-[var(--color-muted)]"/>
           </div>
 
           {isQualitative ? (
             /* Qualitative: pick a level from the org's qualitative scale */
             <div className="space-y-2">
-              <p className="text-xs font-medium text-[var(--color-muted-foreground)] px-1">Chọn mức đánh giá định tính:</p>
+              <p className="text-xs font-medium text-[var(--color-muted-foreground)] px-1">{t('ReviewModal.chooseAQualitativeEvaluationLevel')}</p>
               {qualitativeLevels.length === 0 ? (
-                <p className="text-xs font-medium text-[var(--color-warning)] px-1">Chưa cấu hình thang điểm định tính ở trang Công ty.</p>
+                <p className="text-xs font-medium text-[var(--color-warning)] px-1">{t('ReviewModal.theQualitativeScaleIsNotConfigured')}</p>
               ) : (
                 <div className="space-y-2">
                   {qualitativeLevels.map(level => {
@@ -217,7 +225,7 @@ export default function ReviewModal({ open, onClose, submission }: ReviewModalPr
                             {level.name}
                           </span>
                         </div>
-                        <span className="text-lg font-semibold text-[var(--color-muted-foreground)]">{formatNumber(level.value)} đ</span>
+                        <span className="text-lg font-semibold text-[var(--color-muted-foreground)]">{formatNumber(level.value)} {t('ReviewModal.pts')}</span>
                       </button>
                     )
                   })}
@@ -227,7 +235,7 @@ export default function ReviewModal({ open, onClose, submission }: ReviewModalPr
                 <p className="px-1 text-xs font-medium text-[var(--color-error)]">{errors.qualitativeLevelId.message}</p>
               )}
               {submission.managerScore != null && (
-                <p className="text-caption px-1">Điểm quy đổi hiện tại: <span className="text-[var(--color-success)]">{formatNumber(submission.managerScore)}</span></p>
+                <p className="text-caption px-1">{t('ReviewModal.currentConvertedScore')} <span className="text-[var(--color-success)]">{formatNumber(submission.managerScore)}</span></p>
               )}
             </div>
           ) : (
@@ -235,8 +243,8 @@ export default function ReviewModal({ open, onClose, submission }: ReviewModalPr
             {/* Auto Score Display */}
             <div className="p-4 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)] flex items-center justify-between">
               <div>
-                <p className="text-eyebrow mb-0.5">Điểm hệ thống</p>
-                <p className="mt-0.5 text-sm text-[var(--color-muted-foreground)]">Tự động tính</p>
+                <p className="text-eyebrow mb-0.5">{t('ReviewModal.systemScore')}</p>
+                <p className="mt-0.5 text-sm text-[var(--color-muted-foreground)]">{t('ReviewModal.computedAutomatically')}</p>
               </div>
               <div className="text-right">
                 <p className="text-2xl font-semibold text-[var(--color-foreground)]">{submission.autoScore != null ? formatNumber(submission.autoScore) :'0'}</p>
@@ -251,11 +259,11 @@ export default function ReviewModal({ open, onClose, submission }: ReviewModalPr
                 :"bg-[var(--color-muted)] border-[var(--color-border)]"
             )}>
               <div>
-                <p className="text-eyebrow text-[var(--color-primary)] mb-0.5">Điểm chốt cuối</p>
-                <p className="mt-0.5 text-sm text-[var(--color-muted-foreground)]">{user?.memberships?.[0]?.roleName || 'Quản lý'} chấm</p>
+                <p className="text-eyebrow text-[var(--color-primary)] mb-0.5">{t('ReviewModal.finalFinalizedScore')}</p>
+                <p className="mt-0.5 text-sm text-[var(--color-muted-foreground)]">{user?.memberships?.[0]?.roleName || t('ReviewModal.manager')} {t('ReviewModal.scored')}</p>
               </div>
               <div className="w-20">
-                <input
+                <LocaleNumberInput
                   type="number"
                   {...register('managerScore', { setValueAs: v => (v === '' || v == null ? undefined : Number(v)) })}
                   readOnly={!isReviewable}
@@ -271,7 +279,7 @@ export default function ReviewModal({ open, onClose, submission }: ReviewModalPr
         {progress !== null && (
           <div className="space-y-2">
             <div className="flex items-center justify-between text-xs font-medium">
-              <span className="text-[var(--color-muted-foreground)]">Tiến độ hoàn thành</span>
+              <span className="text-[var(--color-muted-foreground)]">{t('ReviewModal.completionProgress')}</span>
               <span className={progress >= 100 ? 'text-[var(--color-success)]' : progress >= 70 ? 'text-[var(--color-warning)]' : 'text-[var(--color-error)]'}>{progress}%</span>
             </div>
             <div className="h-2.5 rounded-full bg-[var(--color-muted)] overflow-hidden">
@@ -287,7 +295,7 @@ export default function ReviewModal({ open, onClose, submission }: ReviewModalPr
         {submission.note && (
           <div className="p-4 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)]">
             <div className="text-eyebrow flex items-center gap-1.5 mb-2">
-              <MessageSquare size={12} /> Ghi chú của người nộp
+              <MessageSquare size={12} /> {t('ReviewModal.submittersNotes')}
             </div>
             <p className="text-sm text-[var(--color-foreground)] leading-relaxed">{submission.note}</p>
           </div>
@@ -296,7 +304,7 @@ export default function ReviewModal({ open, onClose, submission }: ReviewModalPr
         {/* Review info (if already reviewed) */}
         {submission.reviewNote && (
           <div className="p-4 rounded-card bg-[var(--color-info-bg)] border border-[var(--color-info-border)]">
-            <p className="text-eyebrow text-[var(--color-info)] mb-1">Phản hồi người duyệt</p>
+            <p className="text-eyebrow text-[var(--color-info)] mb-1">{t('ReviewModal.approversResponse')}</p>
             <p className="text-sm text-[var(--color-info)]">{submission.reviewNote}</p>
             {submission.reviewedByName && (
               <p className="text-xs text-[var(--color-info)] mt-2 font-medium">— {submission.reviewedByName}, {submission.reviewedAt ? formatDateTime(submission.reviewedAt) : ''}</p>
@@ -308,7 +316,7 @@ export default function ReviewModal({ open, onClose, submission }: ReviewModalPr
         {submission.attachments?.length > 0 && (
           <div>
             <div className="text-eyebrow flex items-center gap-1.5 mb-3">
-              <Paperclip size={12} /> Tệp đính kèm ({submission.attachments.length})
+              <Paperclip size={12} /> {t('ReviewModal.attachments')}{submission.attachments.length})
             </div>
             <AttachmentList attachments={submission.attachments} />
           </div>
@@ -317,7 +325,7 @@ export default function ReviewModal({ open, onClose, submission }: ReviewModalPr
         {/* View Detailed Evaluation Button */}
         <Button variant="outline" className="w-full group" onClick={() => setShowStaffEval(true)}>
           <Info aria-hidden="true" className="group-hover:animate-bounce" />
-          <span className="text-sm font-medium">Xem chi tiết đợt đánh giá của nhân viên này</span>
+          <span className="text-sm font-medium">{t('ReviewModal.viewThisEmployeesPeriodEvaluationDetails')}</span>
         </Button>
 
         {/* Aggregated Evaluation Modal */}
@@ -337,8 +345,8 @@ export default function ReviewModal({ open, onClose, submission }: ReviewModalPr
           <div className="p-4 rounded-card bg-[var(--color-warning-bg)] border border-[var(--color-warning-border)] flex gap-3 animate-in slide-in-from-top-2 duration-300">
             <Info className="text-[var(--color-warning)] shrink-0" size={20} />
             <div className="text-xs font-medium text-[var(--color-warning)] leading-relaxed">
-              <span className="text-eyebrow block mb-1">Quyền hạn hạn chế</span>
-              Bản nộp này của cấp quản lý. Theo quy định, chỉ cấp trên có thẩm quyền tương ứng mới có quyền phê duyệt các báo cáo này.
+              <span className="text-eyebrow block mb-1">{t('ReviewModal.limitedPermissions')}</span>
+              {t('ReviewModal.thisSubmissionBelongsToAManager')}
             </div>
           </div>
         )}
@@ -350,13 +358,13 @@ export default function ReviewModal({ open, onClose, submission }: ReviewModalPr
               <div className="space-y-4">
                 <div>
                   <label className="text-label block mb-2 text-[var(--color-foreground)]">
-                    Lý do từ chối
+                    {t('ReviewModal.rejectionReason')}
                   </label>
                   <textarea
                     {...register('reviewNote')}
                     rows={3}
                     className="w-full px-4 py-3 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-error-solid)] focus:border-[var(--color-error-border)] resize-none transition-all"
-                    placeholder="Phản hồi chi tiết để nhân viên chỉnh sửa..."
+                    placeholder={t('ReviewModal.detailedFeedbackForTheEmployeeTo')}
                   />
                   {errors.reviewNote && (
                     <p className="mt-1 text-xs font-medium text-[var(--color-error)]">{errors.reviewNote.message}</p>
@@ -367,13 +375,13 @@ export default function ReviewModal({ open, onClose, submission }: ReviewModalPr
               <div className="space-y-4">
                 <div>
                   <label className="text-label block mb-2 text-[var(--color-foreground)]">
-                    Nhận xét <span className="text-[var(--color-subtle-foreground)] font-normal">(tùy chọn)</span>
+                    {t('ReviewModal.comments')} <span className="text-[var(--color-subtle-foreground)] font-normal">{t('ReviewModal.optional')}</span>
                   </label>
                   <textarea
                     {...register('reviewNote')}
                     rows={2}
                     className="w-full px-4 py-3 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-success-solid)] focus:border-[var(--color-success-border)] resize-none transition-all"
-                    placeholder="Ghi nhận kết quả công việc..."
+                    placeholder={t('ReviewModal.recognizeTheWorkResults')}
                   />
                 </div>
               </div>
@@ -388,11 +396,11 @@ export default function ReviewModal({ open, onClose, submission }: ReviewModalPr
         open={showAllApproved}
         onClose={() => { setShowAllApproved(false); onClose() }}
         size="sm"
-        title="Đã chấm xong"
+        title={t('ReviewModal.scoringCompleted')}
         footer={
           <DialogFooter
-            secondary={<Button variant="outline" onClick={() => { setShowAllApproved(false); onClose() }}>Để sau</Button>}
-            primary={<Button onClick={() => { setShowAllApproved(false); setShowEvalForm(true) }}>Tự đánh giá ngay</Button>}
+            secondary={<Button variant="outline" onClick={() => { setShowAllApproved(false); onClose() }}>{t('ReviewModal.later')}</Button>}
+            primary={<Button onClick={() => { setShowAllApproved(false); setShowEvalForm(true) }}>{t('ReviewModal.selfAssessNow')}</Button>}
           />
         }
       >
@@ -400,7 +408,7 @@ export default function ReviewModal({ open, onClose, submission }: ReviewModalPr
           <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-control bg-[var(--color-success-bg)]">
             <CheckCircle size={18} className="text-[var(--color-success)]" aria-hidden="true" />
           </span>
-          <p className="text-sm text-[var(--color-muted-foreground)]">Bạn đã duyệt hết KPI đã giao. Bạn có muốn tự đánh giá luôn không?</p>
+          <p className="text-sm text-[var(--color-muted-foreground)]">{t('ReviewModal.youHaveApprovedAllAssignedKpis')}</p>
         </div>
       </Dialog>
 

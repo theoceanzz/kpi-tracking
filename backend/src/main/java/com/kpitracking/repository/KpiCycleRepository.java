@@ -31,4 +31,36 @@ public interface KpiCycleRepository extends JpaRepository<KpiCycle, UUID>, JpaSp
             "ORDER BY c.startDate DESC")
     java.util.List<KpiCycle> findByOrganizationIdOrderByStartDateDesc(
             @org.springframework.data.repository.query.Param("orgId") UUID orgId);
+    // ── Khoá kỳ ──────────────────────────────────────────────────────────────
+    // Native + trả về cột vô hướng CÓ CHỦ Ý: nếu đọc qua entity thì Hibernate trả bản đã nằm
+    // trong persistence context (nạp từ trước khi chờ khoá) chứ không phải giá trị vừa đọc lại,
+    // và thao tác commit sau lúc kỳ khoá sẽ vẫn thấy OPEN.
+
+    /**
+     * Đọc trạng thái kỳ và GIỮ khoá chia sẻ tới hết transaction. Mọi thao tác ghi vào kỳ gọi
+     * cái này; thủ tục khoá kỳ ({@link #lockForUpdate}) phải chờ tất cả chúng commit, và ngược lại.
+     */
+    @org.springframework.data.jpa.repository.Query(value =
+            "SELECT status FROM kpi_cycles WHERE id = :id AND deleted_at IS NULL FOR SHARE", nativeQuery = true)
+    String lockStatusForShare(@org.springframework.data.repository.query.Param("id") UUID id);
+
+    /** Khoá độc quyền hàng kỳ tới hết transaction — mở đầu thủ tục khoá/gia hạn/mở lại. */
+    @org.springframework.data.jpa.repository.Query(value =
+            "SELECT status FROM kpi_cycles WHERE id = :id AND deleted_at IS NULL FOR UPDATE", nativeQuery = true)
+    String lockForUpdate(@org.springframework.data.repository.query.Param("id") UUID id);
+
+    /** Các kỳ CÙNG TỔ CHỨC + CÙNG LOẠI có khoảng thời gian giao với [start, end) — trừ chính nó. */
+    @org.springframework.data.jpa.repository.Query("SELECT c FROM KpiCycle c WHERE c.organization.id = :orgId "
+            + "AND c.cycleType = :type AND c.id <> :excludeId AND c.startDate IS NOT NULL AND c.endDate IS NOT NULL "
+            + "AND c.startDate < :end AND c.endDate > :start ORDER BY c.startDate ASC")
+    java.util.List<KpiCycle> findOverlapping(
+            @org.springframework.data.repository.query.Param("orgId") UUID orgId,
+            @org.springframework.data.repository.query.Param("type") com.kpitracking.enums.KpiFrequency type,
+            @org.springframework.data.repository.query.Param("excludeId") UUID excludeId,
+            @org.springframework.data.repository.query.Param("start") java.time.Instant start,
+            @org.springframework.data.repository.query.Param("end") java.time.Instant end);
+
+    /** Kỳ đích hợp lệ để chuyển đợt: cùng tổ chức + cùng loại + trạng thái cho trước. */
+    java.util.List<KpiCycle> findByOrganizationIdAndCycleTypeAndStatusOrderByStartDateAsc(
+            UUID organizationId, com.kpitracking.enums.KpiFrequency cycleType, com.kpitracking.enums.KpiCycleStatus status);
 }

@@ -1,6 +1,7 @@
 import { useState, type ReactNode } from 'react'
 import { ChevronDown } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useTranslation } from 'react-i18next'
 
 /**
  * Thẻ gập được: header luôn hiện (icon, tiêu đề, một dòng tóm tắt, huy hiệu), thân mở ra
@@ -26,6 +27,7 @@ export default function CollapsibleCard({
   className?: string
   children: ReactNode
 }) {
+  const { t } = useTranslation('shared')
   const [open, setOpen] = useState(defaultOpen)
   return (
     <section id={id} className={cn('overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-card)] scroll-mt-4', className)}>
@@ -49,7 +51,7 @@ export default function CollapsibleCard({
         <button
           type="button"
           onClick={() => setOpen(o => !o)}
-          aria-label={open ? 'Thu gọn' : 'Mở rộng'}
+          aria-label={open ? t('CollapsibleCard.collapse') : t('CollapsibleCard.expand')}
           className="flex h-8 w-8 shrink-0 items-center justify-center rounded-control text-[var(--color-muted-foreground)] transition-colors hover:bg-[var(--color-muted)]"
         >
           <ChevronDown size={16} aria-hidden="true" className={cn('transition-transform', open && 'rotate-180')} />

@@ -1,3 +1,4 @@
+import { LocaleNumberInput } from '@/components/ui/number-input'
 import { useState, useEffect, useMemo } from 'react'
 import { Save, Info, Loader2, Search, Bell, PanelLeft, FileText as FileIcon, RotateCcw } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -10,6 +11,9 @@ import { notificationApi, type NotificationConfigItem } from '@/features/notific
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { collectNavLabelScopes, type NavLabelEntry } from '@/config/navigation'
 import { Button } from '@/components/ui/button'
+import { useTranslation } from 'react-i18next'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
 /**
  * Hai khối cấu hình hệ thống, tách khỏi trang cũ để gắn vào menu trong trang
@@ -31,6 +35,7 @@ function savedLabelOf(entry: NavLabelEntry, saved: Record<string, string>): stri
  * phẳng không còn đọc được nữa nên ở đây tách thành từng khối theo nơi xuất hiện.
  */
 export function SidebarSettingsTab() {
+  const { t } = useTranslation('organization')
   const { user } = useAuthStore()
   const organizationId = user?.memberships?.[0]?.organizationId
   const { data: settings, isLoading } = useSidebarSettings(organizationId!)
@@ -53,6 +58,7 @@ export function SidebarSettingsTab() {
     enableCashWallet: org?.enableCashWallet || false,
     enableAi: org?.enableAi !== false,
     enableConduct: org?.enableConduct || false,
+    enableFeedback360: org?.enableFeedback360 || false,
   }), [org])
 
   const saved = useMemo(() => settings ?? {}, [settings])
@@ -90,7 +96,7 @@ export function SidebarSettingsTab() {
     updateMutation.mutate({ organizationId, settings: payload }, {
       onSuccess: () => {
         setDrafts({})
-        toast.success('Đã cập nhật nhãn điều hướng')
+        toast.success(t('SystemSettingsTabs.navigationLabelsUpdated'))
       },
     })
   }
@@ -120,10 +126,10 @@ export function SidebarSettingsTab() {
     <div className="space-y-4">
       <div id="tour-sidebar-header" className="rounded-card border border-[var(--color-border)] bg-[var(--color-card)] p-6 flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div className="min-w-0">
-            <h3 className="text-section-title">Tùy chỉnh nhãn điều hướng</h3>
+            <h3 className="text-section-title">{t('SystemSettingsTabs.customizeNavigationLabels')}</h3>
             <p className="mt-0.5 text-sm text-[var(--color-muted-foreground)]">
-              Đổi tên dòng trên sidebar và mục bên trong từng trang cho hợp thuật ngữ công ty
-              {customCount > 0 && <> · <span className="text-[var(--color-primary)] font-semibold">{customCount} mục đang đổi tên</span></>}
+              {t('SystemSettingsTabs.renameSidebarRowsAndTheItems')}
+              {customCount > 0 && <> · <span className="text-[var(--color-primary)] font-semibold">{customCount} {t('SystemSettingsTabs.itemsRenamed')}</span></>}
             </p>
           </div>
 
@@ -132,7 +138,7 @@ export function SidebarSettingsTab() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--color-subtle-foreground)]" size={16} />
             <input
               type="text"
-              placeholder="Tìm mục..."
+              placeholder={t('SystemSettingsTabs.searchItems')}
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               className="pl-10 pr-4 py-2 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] text-sm focus:ring-2 focus:ring-[var(--color-ring)] outline-none w-full md:w-56"
@@ -140,7 +146,7 @@ export function SidebarSettingsTab() {
           </div>
           <Button className="w-full md:w-auto" onClick={handleSave} disabled={updateMutation.isPending}>
             {updateMutation.isPending ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Save aria-hidden="true" />}
-            Lưu thay đổi
+            {t('SystemSettingsTabs.saveChanges')}
           </Button>
         </div>
       </div>
@@ -148,8 +154,7 @@ export function SidebarSettingsTab() {
       <div id="tour-sidebar-note" className="p-4 rounded-card bg-[var(--color-info-bg)] border border-[var(--color-info-border)] flex items-start gap-3">
         <Info size={18} className="text-[var(--color-info)] shrink-0 mt-0.5" />
         <p className="text-xs text-[var(--color-info)] font-medium leading-relaxed">
-          Phần lớn màn hình nay là <b>mục bên trong một trang</b> chứ không còn là dòng riêng trên sidebar —
-          chúng được xếp theo từng trang bên dưới. Để trống ô nhập là mục đó quay về tên mặc định.
+          {t('SystemSettingsTabs.mostScreensAreNow')} <b>{t('SystemSettingsTabs.itemsInsideAPage')}</b> {t('SystemSettingsTabs.ratherThanSeparateRowsOnThe')}
         </p>
       </div>
 
@@ -209,7 +214,7 @@ export function SidebarSettingsTab() {
                             : 'border-[var(--color-border)]'
                         )}
                       />
-                      <Button variant="ghost" size="icon-sm" className="shrink-0" aria-label="Về tên mặc định" type="button" onClick={() => handleChange(entry, '')} disabled={!value} title="Về tên mặc định">
+                      <Button variant="ghost" size="icon-sm" className="shrink-0" aria-label={t('SystemSettingsTabs.backToDefaultName')} type="button" onClick={() => handleChange(entry, '')} disabled={!value} title={t('SystemSettingsTabs.backToDefaultName')}>
                         <RotateCcw aria-hidden="true" />
                       </Button>
                     </div>
@@ -223,7 +228,7 @@ export function SidebarSettingsTab() {
 
       {visibleScopes.length === 0 && (
         <div className="rounded-card border border-dashed border-[var(--color-border)] bg-[var(--color-card)] p-8 text-center text-sm text-[var(--color-muted-foreground)]">
-          Không có mục nào khớp "{searchTerm}"
+          {t('SystemSettingsTabs.noItemMatches')}{searchTerm}"
         </div>
       )}
     </div>
@@ -231,58 +236,61 @@ export function SidebarSettingsTab() {
 }
 
 /* ========== NOTIFICATION SETTINGS TAB ========== */
-const EVENT_LABELS: Record<string, string> = {
-  kpi_submitted: 'Khi chỉ tiêu KPI được gửi chờ phê duyệt (dành cho người duyệt)',
-  kpi_assigned: 'Khi được giao chỉ tiêu mới',
-  kpi_approved: 'Khi chỉ tiêu được phê duyệt',
-  kpi_rejected: 'Khi chỉ tiêu bị từ chối',
-  kpi_approval_reverted: 'Khi phê duyệt chỉ tiêu bị hoàn lại',
-  submission_submitted: 'Khi nhân viên nộp báo cáo KPI (dành cho trưởng đơn vị trực tiếp)',
-  submission_reviewed: 'Khi bài nộp được chấm điểm',
-  submission_escalated: 'Khi cấp dưới đã duyệt xong báo cáo (báo lên cấp trên kế tiếp)',
-  reminder_deadline: 'Nhắc nhở sắp đến hạn nộp (24h)',
-  evaluation_period_due: 'Nhắc trưởng đơn vị khi đợt sắp đóng mà còn nhân sự chưa được chấm',
-  evaluation_cycle_due: 'Nhắc trưởng đơn vị khi kỳ sắp đóng mà đơn vị chưa chốt đánh giá',
-  evaluation_finalized: 'Khi có kết quả đánh giá đợt của mình (dành cho người được chấm)',
-  cycle_unit_finalized: 'Khi đơn vị cấp dưới chốt kỳ (dành cho cấp trên kế tiếp)',
-  bsc_scorecard_submitted: 'Khi đơn vị trình bộ tiêu chí BSC (dành cho người duyệt gần nhất)',
-  bsc_scorecard_approved: 'Khi bộ tiêu chí BSC được duyệt',
-  bsc_scorecard_rejected: 'Khi bộ tiêu chí BSC bị trả lại để sửa',
-  bsc_scorecard_activated: 'Khi bộ tiêu chí BSC được áp dụng để chấm',
-  bsc_scorecard_locked: 'Khi bộ tiêu chí BSC bị khoá hoặc được mở khoá',
-  bsc_cascaded: 'Khi được cấp trên giao chỉ tiêu BSC xuống đơn vị',
-  bsc_unit_result_finalized: 'Khi kết quả BSC của đơn vị trong một đợt được chốt',
-  bsc_score_overridden: 'Khi điểm BSC của cá nhân bị ghi đè hoặc huỷ ghi đè',
-  reward_grant_submitted: 'Khi có đề nghị thưởng vượt hạn mức cần duyệt (dành cho người duyệt gần nhất)',
-  reward_grant_approved: 'Khi đề nghị thưởng được cấp trên duyệt',
-  reward_grant_rejected: 'Khi đề nghị thưởng bị từ chối',
-  reward_grant_cancelled: 'Khi người trao rút lại đề nghị đang chờ duyệt (dành cho người duyệt)',
-  reward_points_received: 'Khi được thưởng điểm vào ví',
-  reward_grant_revoked: 'Khi một khoản thưởng đã phát bị thu hồi',
-  reward_budget_assigned: 'Khi được cấp hoặc được điều chỉnh hạn mức thưởng',
-  reward_program_issued: 'Khi chương trình thưởng tự động phát điểm cho người đạt hạng',
-  reward_program_reverted: 'Khi một lần phát thưởng của chương trình bị thu hồi',
-  reward_redemption_created: 'Khi nhân viên đặt đổi quà (dành cho bộ phận xử lý quà)',
-  reward_redemption_approved: 'Khi yêu cầu đổi quà được duyệt',
-  reward_redemption_rejected: 'Khi yêu cầu đổi quà bị từ chối và điểm được hoàn',
-  reward_redemption_delivered: 'Khi quà đã được trao hoặc mã quà đã xuất xong',
-  reward_redemption_failed: 'Khi không xuất được quà và điểm được hoàn lại',
-  reward_redemption_cancelled: 'Khi người đổi tự huỷ yêu cầu (dành cho bộ phận xử lý quà)',
-  wallet_topup_paid: 'Khi tiền chuyển khoản đã về và số dư ví được cộng',
-  wallet_topup_expired: 'Khi đơn nạp hết hạn mà chưa nhận được tiền',
-  wallet_topup_unmatched: 'Khi có tiền về không khớp đơn nào (dành cho người có quyền đối soát)',
-  wallet_converted: 'Khi đổi số dư ví tiền lấy điểm thưởng',
-}
+const EVENT_LABELS = perLanguage((): Record<string, string> => ({
+  kpi_submitted: i18n.t('organization:SystemSettingsTabs.whenAKpiIsSubmittedFor'),
+  kpi_approval_reminder: i18n.t('organization:SystemSettingsTabs.remindTheCurrentStepHolderWhen'),
+  kpi_assigned: i18n.t('organization:SystemSettingsTabs.whenAssignedANewKpi'),
+  kpi_approved: i18n.t('organization:SystemSettingsTabs.whenAKpiIsApproved'),
+  kpi_rejected: i18n.t('organization:SystemSettingsTabs.whenAKpiIsRejected'),
+  kpi_approval_reverted: i18n.t('organization:SystemSettingsTabs.whenAKpiApprovalIsReverted'),
+  submission_submitted: i18n.t('organization:SystemSettingsTabs.whenAnEmployeeSubmitsAKpi'),
+  submission_reviewed: i18n.t('organization:SystemSettingsTabs.whenASubmissionIsScored'),
+  submission_returned: i18n.t('organization:SystemSettingsTabs.whenASubmissionIsReturned'),
+  submission_escalated: i18n.t('organization:SystemSettingsTabs.whenASubordinateHasFinishedApproving'),
+  reminder_deadline: i18n.t('organization:SystemSettingsTabs.upcomingSubmissionDeadlineReminder24h'),
+  evaluation_period_due: i18n.t('organization:SystemSettingsTabs.remindUnitHeadsWhenAPeriod'),
+  evaluation_cycle_due: i18n.t('organization:SystemSettingsTabs.remindUnitHeadsWhenACycle'),
+  evaluation_finalized: i18n.t('organization:SystemSettingsTabs.whenYourPeriodEvaluationResultsAre'),
+  cycle_unit_finalized: i18n.t('organization:SystemSettingsTabs.whenALowerUnitFinalizesThe'),
+  bsc_scorecard_submitted: i18n.t('organization:SystemSettingsTabs.whenAUnitSubmitsABsc'),
+  bsc_scorecard_approved: i18n.t('organization:SystemSettingsTabs.whenABscScorecardIsApproved'),
+  bsc_scorecard_rejected: i18n.t('organization:SystemSettingsTabs.whenABscScorecardIsReturned'),
+  bsc_scorecard_activated: i18n.t('organization:SystemSettingsTabs.whenABscScorecardIsApplied'),
+  bsc_scorecard_locked: i18n.t('organization:SystemSettingsTabs.whenABscScorecardIsLocked'),
+  bsc_cascaded: i18n.t('organization:SystemSettingsTabs.whenTheParentAssignsBscKpis'),
+  bsc_unit_result_finalized: i18n.t('organization:SystemSettingsTabs.whenTheUnitsBscResultsFor'),
+  bsc_score_overridden: i18n.t('organization:SystemSettingsTabs.whenAnIndividualsBscScoreIs'),
+  reward_grant_submitted: i18n.t('organization:SystemSettingsTabs.whenARewardProposalExceedingThe'),
+  reward_grant_approved: i18n.t('organization:SystemSettingsTabs.whenARewardProposalIsApproved'),
+  reward_grant_rejected: i18n.t('organization:SystemSettingsTabs.whenARewardProposalIsRejected'),
+  reward_grant_cancelled: i18n.t('organization:SystemSettingsTabs.whenTheGiverWithdrawsAPending'),
+  reward_points_received: i18n.t('organization:SystemSettingsTabs.whenRewardPointsAreAddedTo'),
+  reward_grant_revoked: i18n.t('organization:SystemSettingsTabs.whenAGrantedRewardIsRevoked'),
+  reward_budget_assigned: i18n.t('organization:SystemSettingsTabs.whenARewardBudgetIsGranted'),
+  reward_program_issued: i18n.t('organization:SystemSettingsTabs.whenARewardProgramAutomaticallyAwards'),
+  reward_program_reverted: i18n.t('organization:SystemSettingsTabs.whenAProgramRewardRunIs'),
+  reward_redemption_created: i18n.t('organization:SystemSettingsTabs.whenAnEmployeeOrdersAGift'),
+  reward_redemption_approved: i18n.t('organization:SystemSettingsTabs.whenAGiftRedemptionRequestIs'),
+  reward_redemption_rejected: i18n.t('organization:SystemSettingsTabs.whenAGiftRedemptionRequestIs2'),
+  reward_redemption_delivered: i18n.t('organization:SystemSettingsTabs.whenTheGiftHasBeenHanded'),
+  reward_redemption_failed: i18n.t('organization:SystemSettingsTabs.whenTheGiftCouldNotBe'),
+  reward_redemption_cancelled: i18n.t('organization:SystemSettingsTabs.whenTheRedeemerCancelsTheirOwn'),
+  wallet_topup_paid: i18n.t('organization:SystemSettingsTabs.whenABankTransferArrivesAnd'),
+  wallet_topup_expired: i18n.t('organization:SystemSettingsTabs.whenATopUpOrderExpires'),
+  wallet_topup_unmatched: i18n.t('organization:SystemSettingsTabs.whenMoneyArrivesThatMatchesNo'),
+  wallet_converted: i18n.t('organization:SystemSettingsTabs.whenConvertingWalletCashBalanceInto'),
+}))
 
-const DEFAULT_SETTINGS: NotificationConfigItem[] = Object.keys(EVENT_LABELS).map(code => ({
+const DEFAULT_SETTINGS = perLanguage((): NotificationConfigItem[] => (Object.keys(EVENT_LABELS()).map(code => ({
   eventCode: code,
   emailEnabled: true,
   systemEnabled: true,
-}))
+}))))
 
 export function NotificationSettingsTab() {
+  const { t } = useTranslation('organization')
   const queryClient = useQueryClient()
-  const [settings, setSettings] = useState<NotificationConfigItem[]>(DEFAULT_SETTINGS)
+  const [settings, setSettings] = useState<NotificationConfigItem[]>(DEFAULT_SETTINGS())
 
   const { data: serverConfig, isLoading } = useQuery({
     queryKey: ['notification-config'],
@@ -299,10 +307,10 @@ export function NotificationSettingsTab() {
     mutationFn: () => notificationApi.saveNotificationConfig(settings),
     onSuccess: (data) => {
       queryClient.setQueryData(['notification-config'], data)
-      toast.success('Đã lưu cấu hình thông báo')
+      toast.success(t('SystemSettingsTabs.notificationSettingsSaved'))
     },
     onError: (error) => {
-      toast.error(getApiErrorMessage(error, 'Lưu cấu hình thông báo thất bại'))
+      toast.error(getApiErrorMessage(error, t('SystemSettingsTabs.failedToSaveNotificationSettings')))
     },
   })
 
@@ -317,13 +325,13 @@ export function NotificationSettingsTab() {
       <div className="overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
         <div id="tour-notif-header" className="px-5 py-4 border-b border-[var(--color-border)] flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="min-w-0">
-            <h3 className="text-section-title">Cấu hình thông báo</h3>
-              <p className="mt-0.5 text-sm text-[var(--color-muted-foreground)]">Thiết lập cách thức nhận thông báo của tổ chức</p>
+            <h3 className="text-section-title">{t('SystemSettingsTabs.notificationSettings')}</h3>
+              <p className="mt-0.5 text-sm text-[var(--color-muted-foreground)]">{t('SystemSettingsTabs.setUpHowTheOrganizationReceives')}</p>
           </div>
 
           <Button className="shrink-0" onClick={() => saveConfig()} disabled={isSaving}>
             {isSaving ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Save aria-hidden="true" />}
-            Lưu cấu hình
+            {t('SystemSettingsTabs.saveSettings')}
           </Button>
         </div>
 
@@ -331,7 +339,7 @@ export function NotificationSettingsTab() {
           <div className="p-4 rounded-card bg-[var(--color-info-bg)] border border-[var(--color-info-border)] flex items-start gap-3">
             <Info size={18} className="text-[var(--color-info)] shrink-0 mt-0.5" />
             <p className="text-xs text-[var(--color-info)] font-medium leading-relaxed">
-              Các thiết lập này sẽ áp dụng mặc định cho tất cả nhân viên trong tổ chức. Nhân viên có thể tùy chỉnh lại trong trang cá nhân của họ nếu được phép.
+              {t('SystemSettingsTabs.theseSettingsApplyByDefaultTo')}
             </p>
           </div>
 
@@ -345,9 +353,9 @@ export function NotificationSettingsTab() {
                 <div key={item.eventCode} className="py-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
                   <div>
                     <p className="text-sm font-medium text-[var(--color-foreground)]">
-                      {EVENT_LABELS[item.eventCode] ?? item.eventCode}
+                      {EVENT_LABELS()[item.eventCode] ?? item.eventCode}
                     </p>
-                    <p className="text-caption font-medium">Mã sự kiện: {item.eventCode}</p>
+                    <p className="text-caption font-medium">{t('SystemSettingsTabs.eventCode')} {item.eventCode}</p>
                   </div>
                   <div className="flex items-center gap-8">
                     <ToggleItem
@@ -356,7 +364,7 @@ export function NotificationSettingsTab() {
                       onClick={() => toggle(item.eventCode, 'emailEnabled')}
                     />
                     <ToggleItem
-                      label="Hệ thống"
+                      label={t('SystemSettingsTabs.system')}
                       active={item.systemEnabled}
                       onClick={() => toggle(item.eventCode, 'systemEnabled')}
                     />
@@ -379,6 +387,7 @@ export function NotificationSettingsTab() {
  * mà để 0 ngày thì không ai nhận được gì, và ngược lại.
  */
 function EvaluationReminderCard() {
+  const { t } = useTranslation('organization')
   const user = useAuthStore(s => s.user)
   const orgId = user?.memberships?.[0]?.organizationId
   const { data: org, updateOrganization, isUpdating } = useOrganization(orgId)
@@ -397,7 +406,7 @@ function EvaluationReminderCard() {
 
   const save = () => {
     if (invalid) {
-      toast.error('Số ngày nhắc phải nằm trong khoảng 0 đến 60')
+      toast.error(t('SystemSettingsTabs.theNumberOfReminderDaysMust'))
       return
     }
     updateOrganization({ evaluationReminderDays: parsed })
@@ -410,17 +419,16 @@ function EvaluationReminderCard() {
           <Bell size={20} />
         </div>
         <div className="min-w-0 flex-1">
-          <h3 className="text-section-title">Nhắc hạn đánh giá đợt / kỳ</h3>
+          <h3 className="text-section-title">{t('SystemSettingsTabs.periodCycleEvaluationDeadlineReminders')}</h3>
           <p className="text-xs font-medium text-[var(--color-muted-foreground)] leading-relaxed">
-            Nhắc trưởng đơn vị trước khi đợt hoặc kỳ đóng lại, nếu còn nhân sự chưa được chấm
-            hoặc đơn vị chưa chốt. Quá hạn mà vẫn còn tồn thì nhắc thêm một lần nữa.
+            {t('SystemSettingsTabs.remindUnitHeadsBeforeAPeriod')}
           </p>
         </div>
         <div className="flex items-end gap-2 shrink-0">
           <label className="flex flex-col gap-1.5">
-            <span className="text-eyebrow">Nhắc trước</span>
+            <span className="text-eyebrow">{t('SystemSettingsTabs.remindInAdvance')}</span>
             <div className="flex items-center gap-2">
-              <input
+              <LocaleNumberInput
                 type="number" min={0} max={60} value={days}
                 onChange={e => setDays(e.target.value)}
                 className={cn(
@@ -428,17 +436,17 @@ function EvaluationReminderCard() {
                   invalid ? 'border-[var(--color-error-border)]' : 'border-[var(--color-border)]',
                 )}
               />
-              <span className="text-caption">ngày</span>
+              <span className="text-caption">{t('SystemSettingsTabs.days')}</span>
             </div>
           </label>
           <Button onClick={save} disabled={isUpdating || !dirty}>
             {isUpdating ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Save aria-hidden="true" />}
-            Lưu
+            {t('SystemSettingsTabs.save')}
           </Button>
         </div>
       </div>
       <p className="mt-3 text-caption">
-        Đặt <b>0</b> để tắt hẳn nhắc hạn đánh giá.
+        {t('SystemSettingsTabs.setThe')} <b>0</b> {t('SystemSettingsTabs.toTurnOffEvaluationDeadlineReminders')}
       </p>
     </div>
   )

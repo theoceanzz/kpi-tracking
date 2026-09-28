@@ -1,12 +1,15 @@
 package com.kpitracking.service;
 
+import com.kpitracking.exception.ForbiddenException;
 import com.kpitracking.dto.request.notification.SaveNotificationConfigRequest;
 import com.kpitracking.dto.response.notification.NotificationConfigResponse;
 import com.kpitracking.entity.OrgNotificationConfig;
 import com.kpitracking.entity.Organization;
 import com.kpitracking.entity.UserRoleOrgUnit;
 import com.kpitracking.entity.User;
+import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.ResourceNotFoundException;
+import com.kpitracking.i18n.Terms;
 import com.kpitracking.repository.OrgNotificationConfigRepository;
 import com.kpitracking.repository.UserRepository;
 import com.kpitracking.repository.UserRoleOrgUnitRepository;
@@ -28,11 +31,16 @@ public class OrgNotificationConfigService {
 
     private static final List<String> ALL_EVENT_CODES = List.of(
             "kpi_submitted", "kpi_assigned", "kpi_approved", "kpi_rejected", "kpi_approval_reverted",
-            "submission_submitted", "submission_reviewed", "submission_escalated", "reminder_deadline",
+            // Chuỗi duyệt: nhắc người giữ bước khi chờ quá N ngày, và báo admin khi cần gán lại.
+            "kpi_approval_reminder",
+            "submission_submitted", "submission_reviewed", "submission_escalated", "submission_returned", "reminder_deadline",
             // Đánh giá đợt/kỳ. Trước đây cả mảng này không phát một thông báo nào: đợt hết
             // hạn trong im lặng, chốt xong người bị chấm cũng không hay biết.
             "evaluation_period_due", "evaluation_cycle_due",
             "evaluation_finalized", "cycle_unit_finalized",
+            // Khoá kỳ: cycle_locked chỉ đi chuông (diện rộng), cycle_kpi_affected đi cả email
+            // cho người có KPI bị chuyển kỳ/bị chốt và trưởng đơn vị của họ.
+            "cycle_locked", "cycle_kpi_affected",
             "bsc_scorecard_submitted", "bsc_scorecard_approved", "bsc_scorecard_rejected",
             "bsc_scorecard_activated", "bsc_scorecard_locked", "bsc_cascaded",
             "bsc_unit_result_finalized", "bsc_score_overridden",
@@ -44,7 +52,9 @@ public class OrgNotificationConfigService {
             "reward_redemption_delivered", "reward_redemption_failed", "reward_redemption_cancelled",
             // Ví tiền. Hai mã đầu đã chạy từ trước nhưng chưa từng có mặt trong danh sách này,
             // nghĩa là không tổ chức nào tắt được chúng dù giao diện cấu hình vẫn hứa là tắt được.
-            "wallet_topup_paid", "wallet_topup_expired", "wallet_topup_unmatched", "wallet_converted"
+            "wallet_topup_paid", "wallet_topup_expired", "wallet_topup_unmatched", "wallet_converted",
+            // Đánh giá 360
+            "f360_rate_request", "f360_reminder", "f360_report_released", "f360_nomination", "f360_declined"
     );
 
     private final OrgNotificationConfigRepository configRepository;
@@ -55,14 +65,14 @@ public class OrgNotificationConfigService {
     private User getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         return userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("Người dùng", "email", email));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.user"), "email", email));
     }
 
     private UUID getCurrentUserOrgId() {
         User user = getCurrentUser();
         List<UserRoleOrgUnit> roles = userRoleOrgUnitRepository.findByUserId(user.getId());
         if (roles.isEmpty()) {
-            throw new ResourceNotFoundException("Tổ chức", "user", user.getEmail());
+            throw new ResourceNotFoundException(Terms.of("resource.organization"), "user", user.getEmail());
         }
         return roles.get(0).getOrgUnit().getOrgHierarchyLevel().getOrganization().getId();
     }
@@ -100,7 +110,7 @@ public class OrgNotificationConfigService {
         UUID orgId = getCurrentUserOrgId();
         // Cấu hình thông báo là của cả tổ chức: nhân viên thường xem được nhưng không được sửa.
         if (!permissionChecker.hasPermissionInOrganization(getCurrentUser().getId(), "COMPANY:UPDATE", orgId)) {
-            throw new com.kpitracking.exception.ForbiddenException("Bạn không có quyền thay đổi cấu hình thông báo của tổ chức");
+            throw new ForbiddenException(ErrorCode.NO_PERMISSION_CHANGE_ORGANIZATION_NOTIFICATION_SETTINGS);
         }
         Organization org = new Organization();
         org.setId(orgId);

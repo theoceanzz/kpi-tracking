@@ -8,6 +8,7 @@ import SummaryTab from './SummaryTab'
 import MyObjectivesTab from './MyObjectivesTab'
 import BscAnalyticsTab from './BscAnalyticsTab'
 import SubordinateManagementTab from './SubordinateManagementTab'
+import { useTranslation } from 'react-i18next'
 
 /**
  * Các góc nhìn phân tích trong một trang: lưới thẻ để chọn, rồi hàng tab mảnh khi đã
@@ -17,8 +18,9 @@ import SubordinateManagementTab from './SubordinateManagementTab'
  * năng của tổ chức: bật OKR thì xem theo mục tiêu, tắt thì xem theo KPI.
  */
 export default function AnalyticsPage() {
+  const { t } = useTranslation('analytics')
   const { user } = useAuthStore()
-  const pageTitle = usePageTitle('analytics', 'Thống kê')
+  const pageTitle = usePageTitle('analytics', t('AnalyticsPage.statistics'))
 
   const organizationId = user?.memberships?.[0]?.organizationId
   const { data: org, isLoading: loadingOrg } = useOrganization(organizationId)
@@ -54,7 +56,7 @@ export default function AnalyticsPage() {
       <SettingsSectionLayout
         navId="analytics"
         title={pageTitle}
-        subtitle="Mỗi mục trả lời một câu hỏi khác nhau: bạn, đơn vị bạn, các đơn vị so với nhau, và chiến lược công ty"
+        subtitle={t('AnalyticsPage.eachSectionAnswersADifferentQuestion')}
         sections={[
           { id: 'my-objectives', visible: isOkr, render: () => <MyObjectivesTab /> },
           { id: 'my', visible: !isOkr, render: () => <MyStatsTab /> },

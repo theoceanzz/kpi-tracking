@@ -1,11 +1,15 @@
 package com.kpitracking.service;
 
+import com.kpitracking.i18n.ErrorMessages;
+import com.kpitracking.exception.ForbiddenException;
 import com.kpitracking.dto.response.PageResponse;
 import com.kpitracking.dto.response.stats.*;
 import com.kpitracking.entity.*;
 import com.kpitracking.enums.KpiStatus;
 import com.kpitracking.enums.SubmissionStatus;
+import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.ResourceNotFoundException;
+import com.kpitracking.i18n.Terms;
 import com.kpitracking.repository.*;
 import com.kpitracking.security.PermissionChecker;
 import com.kpitracking.service.analytics.KpiMetricsCalculator;
@@ -37,6 +41,8 @@ public class StatsService {
     private final PermissionChecker permissionChecker;
     private final EvaluationService evaluationService;
     private final OrganizationService organizationService;
+    private final com.kpitracking.service.kpi.approval.KpiApprovalChainService approvalChain;
+    private final com.kpitracking.service.kpi.approval.KpiApprovalViewService approvalView;
 
     /**
      * Hiệu suất ĐÁNH GIÁ của 1 đơn vị: không thác nước = TB đánh giá của mọi người trong đơn vị (subtree);
@@ -63,7 +69,7 @@ public class StatsService {
     private User getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         return userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "email", email));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.user"), "email", email));
     }
 
     private UUID getCurrentUserOrganizationId(User user) {
@@ -81,6 +87,12 @@ public class StatsService {
 
     private long countPendingKpiForApproval(User currentUser, UUID organizationId) {
         if (organizationId == null) return 0L;
+
+        // Chuỗi duyệt: "chờ tôi duyệt" là KPI đang ở bước do chính người này giữ, không phải mọi KPI
+        // chờ duyệt trong phạm vi — cấp trên chưa tới lượt thì không tính.
+        if (approvalChain.isChainMode(organizationId)) {
+            return approvalView.inboxCount(currentUser.getId(), com.kpitracking.enums.ApprovalSubjectType.CRITERIA);
+        }
 
         com.kpitracking.security.PermissionChecker.KpiVisibilityScope scope =
                 permissionChecker.getKpiVisibilityScope(currentUser.getId());
@@ -405,7 +417,7 @@ public class StatsService {
 
                 
                 if (!hasAccess) {
-                    throw new com.kpitracking.exception.ForbiddenException("Bạn không có quyền xem tiến độ của nhân viên này");
+                    throw new ForbiddenException(ErrorCode.NO_PERMISSION_VIEW_EMPLOYEE_PROGRESS);
                 }
             }
         }
@@ -423,7 +435,7 @@ public class StatsService {
         List<KpiCriteria> assignedCriteria = kpiCriteriaRepository.findByUserIdInAssignees(userId, activeStatuses, Pageable.unpaged()).getContent();
         List<KpiSubmission> mySubmissions = submissionRepository.findBySubmittedById(userId, Pageable.unpaged()).getContent()
                 .stream()
-                .filter(s -> s.getStatus() != SubmissionStatus.DRAFT)
+                .filter(s -> s.getStatus() != SubmissionStatus.DRAFT && s.getStatus() != SubmissionStatus.RETURNED)
                 .toList();
 
         List<KpiTaskResponse> allTasks = new ArrayList<>();
@@ -951,7 +963,7 @@ public class StatsService {
         List<Map<String, Long>> bucketRoles = new ArrayList<>();
         for (int i = 0; i < bucketCount; i++) bucketRoles.add(new java.util.LinkedHashMap<>());
         for (UserRoleOrgUnit uro : memberMap.values()) {
-            String roleName = uro.getRole() != null ? uro.getRole().getName() : "Khác";
+            String roleName = uro.getRole() != null ? uro.getRole().getName() : ErrorMessages.text("analytics.otherRole", "");
             // Đơn vị hiện tại: cộng mọi người (toàn bộ cây).
             bucketTotal[0]++;
             bucketRoles.get(0).merge(roleName, 1L, Long::sum);
@@ -965,7 +977,7 @@ public class StatsService {
         }
         // Tên bucket: current đứng đầu (có hậu tố "(hiện tại)"), sau đó các đơn vị con.
         String[] bucketNames = new String[bucketCount];
-        bucketNames[0] = targetUnit.getName() + " (hiện tại)";
+        bucketNames[0] = ErrorMessages.text("analytics.currentUnit", "", targetUnit.getName());
         for (int i = 0; i < childCount; i++) bucketNames[i + 1] = childUnits.get(i).getName();
 
         List<AnalyticsSummaryResponse.OrgDistribution> memberDist = new java.util.ArrayList<>();
@@ -1088,7 +1100,7 @@ public class StatsService {
         double currentCompletion = currentCnt > 0 ? Math.round(currentSumPct / currentCnt) : 0;
         int[] currentLM = lateMissedTotal(currentKpis, range);
         AnalyticsSummaryResponse.UnitComparison currentComp = AnalyticsSummaryResponse.UnitComparison.builder()
-            .unitName(targetUnit.getName() + " (hiện tại)")
+            .unitName(ErrorMessages.text("analytics.currentUnit", "", targetUnit.getName()))
             .performance(unitEvaluationPerformance(targetUnit, periodIds))
             .completionRate(currentCompletion)
             .lateCount(currentLM[0]).missedCount(currentLM[1]).totalExpected(currentLM[2])
@@ -1125,7 +1137,7 @@ public class StatsService {
         // KPI count data: current unit + children
         List<AnalyticsSummaryResponse.UnitKpiComparison> kpiCountData = new ArrayList<>();
         kpiCountData.add(new AnalyticsSummaryResponse.UnitKpiComparison(
-            targetUnit.getName() + " (hiện tại)",
+            ErrorMessages.text("analytics.currentUnit", "", targetUnit.getName()),
             kpiCriteriaRepository.countByOrgUnitIdInAndStatus(currentUnitOnly, KpiStatus.APPROVED),
             submissionRepository.countByOrgUnitIdInAndStatus(currentUnitOnly, SubmissionStatus.APPROVED)));
         descendantUnits.forEach(u -> {
@@ -1313,7 +1325,7 @@ public class StatsService {
             .min().orElse(0);
         List<AnalyticsSummaryResponse.RankingOption> opts = sortedOpts.stream().map(u -> {
             int depth = (int) u.getPath().chars().filter(c -> c == '/').count() - minSlashes;
-            String displayName = currentUserUnitIds.contains(u.getId()) ? u.getName() + " (hiện tại)" : u.getName();
+            String displayName = currentUserUnitIds.contains(u.getId()) ? ErrorMessages.text("analytics.currentUnit", "", u.getName()) : u.getName();
             return AnalyticsSummaryResponse.RankingOption.builder()
                 .id(u.getId()).name(displayName).depth(depth).build();
         }).collect(Collectors.toList());
@@ -1369,7 +1381,7 @@ public class StatsService {
     public List<ExportDetailedPerformanceResponse> getDetailedExportStats(UUID orgUnitId, UUID kpiPeriodId) {
         User currentUser = getCurrentUser();
         OrgUnit targetUnit = orgUnitId != null ? orgUnitRepository.findById(orgUnitId)
-                .orElseThrow(() -> new ResourceNotFoundException("OrgUnit", "id", orgUnitId)) : null;
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.organizationUnit"), "id", orgUnitId)) : null;
         
         if (targetUnit == null) {
             List<UserRoleOrgUnit> userRoles = userRoleOrgUnitRepository.findByUserId(currentUser.getId());

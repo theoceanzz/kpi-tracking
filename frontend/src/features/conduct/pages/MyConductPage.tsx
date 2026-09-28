@@ -11,12 +11,14 @@ import ConductSheetTable from '../components/ConductSheetTable'
 import ConductTargetPicker from '../components/ConductTargetPicker'
 import { useConductSheet } from '../hooks/useConduct'
 import type { ConductTarget } from '../api/conductApi'
+import { useTranslation } from 'react-i18next'
 
 /**
  * Tự đánh giá hạnh kiểm của chính mình theo đợt/kỳ. Cùng một bảng với màn quản lý chấm,
  * chỉ khác là ở đây server chỉ mở cột "CBNV/giảng viên tự đánh giá" và ô dẫn chứng.
  */
 export default function MyConductPage() {
+  const { t } = useTranslation('conduct')
   const user = useAuthStore(s => s.user)
   const orgId = user?.memberships?.[0]?.organizationId
   const { data: org } = useOrganization(orgId)
@@ -30,8 +32,8 @@ export default function MyConductPage() {
       <div className="rounded-card border border-dashed border-[var(--color-border)] bg-[var(--color-card)]">
         <EmptyState
           icon={HeartHandshake}
-          title="Tổ chức chưa bật chấm hạnh kiểm"
-          description="Quản trị viên bật tính năng này ở Thiết lập công cụ, mục Module & tính năng."
+          title={t('MyConductPage.theOrganizationHasNotEnabledConduct')}
+          description={t('MyConductPage.anAdministratorEnablesThisFeatureIn')}
         />
       </div>
     )
@@ -40,20 +42,20 @@ export default function MyConductPage() {
   return (
     <div className="mx-auto max-w-[1600px] space-y-4">
       <WorkspaceHeader
-        title="Hạnh kiểm của tôi"
-        description="Tự chấm điểm hành vi theo bộ tiêu chí của tổ chức và nêu dẫn chứng cho từng tiêu chí."
+        title={t('MyConductPage.myConduct')}
+        description={t('MyConductPage.selfScoreYourConductAgainstThe')}
         stats={
           sheet
             ? [
-                { label: 'Tự đánh giá', value: sheet.selfScore ?? '—', icon: HeartHandshake },
-                { label: 'Quản lý chấm', value: sheet.managerScore ?? '—' },
-                { label: 'Thang điểm', value: sheet.maxScore },
+                { label: t('MyConductPage.selfAssessment'), value: sheet.selfScore ?? '—', icon: HeartHandshake },
+                { label: t('MyConductPage.managerScore'), value: sheet.managerScore ?? '—' },
+                { label: t('MyConductPage.scoringScales'), value: sheet.maxScore },
                 // Kỳ nào chấm theo bộ nào là thứ dễ hiểu nhầm nhất khi mỗi kỳ một bộ.
-                ...(sheet.criteriaSetName ? [{ label: 'Bộ tiêu chí', value: sheet.criteriaSetName }] : []),
+                ...(sheet.criteriaSetName ? [{ label: t('MyConductPage.criteriaSet'), value: sheet.criteriaSetName }] : []),
               ]
             : undefined
         }
-        actions={<AiShortcutButton prompt={aiShortcuts.myConduct()} title="K.AI đọc phiếu hạnh kiểm của bạn: tự chấm, quản lý chấm, tiêu chí còn thiếu dẫn chứng" />}
+        actions={<AiShortcutButton prompt={aiShortcuts.myConduct()} title={t('MyConductPage.kAiReadsYourConductForm')} />}
       >
         <div id="tour-my-conduct-target" className="flex flex-wrap items-center gap-3">
           <ConductTargetPicker organizationId={orgId} value={target} onChange={setTarget} />
@@ -66,8 +68,8 @@ export default function MyConductPage() {
         <div className="rounded-card border border-dashed border-[var(--color-border)] bg-[var(--color-card)]">
           <EmptyState
             icon={HeartHandshake}
-            title="Chưa chọn đợt/kỳ"
-            description="Chọn một đợt hoặc một kỳ ở trên để mở phiếu chấm hạnh kiểm."
+            title={t('MyConductPage.noPeriodCycleSelected')}
+            description={t('MyConductPage.chooseAPeriodOrACycle')}
           />
         </div>
       )}

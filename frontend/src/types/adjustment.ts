@@ -28,6 +28,10 @@ export interface KpiAdjustmentRequest {
   reviewerNote: string | null
   createdAt: string
   updatedAt: string
+  /** % bù trừ do bước trung gian gợi ý (yêu cầu dừng KPI). */
+  suggestedCompensationPercent?: number | null
+  /** Vị trí trong chuỗi duyệt, tính cho người đang xem. */
+  approval?: import('./approvalChain').ApprovalSummary | null
 }
 
 export interface CreateAdjustmentRequest {
@@ -43,4 +47,5 @@ export interface ReviewAdjustmentRequest {
   status: AdjustmentStatus
   reviewerNote?: string
   compensationPercentage?: number
+  expectedStepId?: string | null
 }

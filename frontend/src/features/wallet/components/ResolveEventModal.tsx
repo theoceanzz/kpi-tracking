@@ -8,35 +8,43 @@ import EmployeePicker from '@/features/rewards/components/EmployeePicker'
 import { formatCurrency, formatDateTime } from '@/lib/utils'
 import { useReconcileActions } from '../hooks/useWallet'
 import { SepayResolveMode, type SepayEvent } from '../types'
+import { useTranslation } from 'react-i18next'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
+import { useFormDraft } from '@/hooks/useFormDraft'
+import DraftNotice from '@/components/common/DraftNotice'
 
 interface ResolveEventModalProps {
   event: SepayEvent | null
   onClose: () => void
 }
 
-const MODES: { key: SepayResolveMode; label: string; hint: string }[] = [
+const MODES = perLanguage((): { key: SepayResolveMode; label: string; hint: string }[] => ([
   {
     key: SepayResolveMode.MATCH_ORDER,
-    label: 'Gán vào đơn nạp',
-    hint: 'Người dùng ghi sai nội dung chuyển khoản nhưng xác định được đơn nào.',
+    label: i18n.t('wallet:ResolveEventModal.assignToTopUpOrder'),
+    hint: i18n.t('wallet:ResolveEventModal.theUserEnteredTheWrongTransfer'),
   },
   {
     key: SepayResolveMode.CREDIT_USER,
-    label: 'Ghi có cho người dùng',
-    hint: 'Không quy được về đơn nào — ví dụ người dùng chuyển khoản lần thứ hai.',
+    label: i18n.t('wallet:ResolveEventModal.creditTheUser'),
+    hint: i18n.t('wallet:ResolveEventModal.cannotBeTracedToAnyOrder'),
   },
   {
     key: SepayResolveMode.IGNORE,
-    label: 'Bỏ qua',
-    hint: 'Không phải tiền nạp ví, hoặc webhook về muộn sau khi đơn đã được gán tay.',
+    label: i18n.t('wallet:ResolveEventModal.skip'),
+    hint: i18n.t('wallet:ResolveEventModal.notAWalletTopUpOr'),
   },
-]
+]))
 
 export default function ResolveEventModal({ event, onClose }: ResolveEventModalProps) {
-  const { register, handleSubmit, watch, setValue, formState: { errors } } = useForm<ResolveEventFormData>({
-    resolver: zodResolver(resolveEventSchema),
+  const { t } = useTranslation('wallet')
+  const formApi = useForm<ResolveEventFormData>({
+    resolver: zodResolver(resolveEventSchema()),
     defaultValues: { mode: SepayResolveMode.CREDIT_USER, orderId: '', user: null, note: '' },
   })
+  const { register, handleSubmit, watch, setValue, formState: { errors } } = formApi
+  const draft = useFormDraft(formApi, { key: `wallet-resolve:${event?.id ?? ''}`, enabled: !!event })
 
   // Cách xử lý chọn bằng thẻ bấm, người ghi có chọn bằng EmployeePicker.
   const mode = watch('mode')
@@ -68,20 +76,21 @@ export default function ResolveEventModal({ event, onClose }: ResolveEventModalP
       onClose={onClose}
       size="md"
       dismissible={!isResolving}
-      title="Xử lý giao dịch SePay"
-      description={`Giao dịch #${event.sepayId} · ${formatDateTime(event.receivedAt)}`}
+      title={t('ResolveEventModal.handleSepayTransaction')}
+      description={t('ResolveEventModal.transaction', { sepayId: event.sepayId, receivedAt: formatDateTime(event.receivedAt) })}
       footer={
         <DialogFooter
-          secondary={<Button variant="outline" onClick={onClose} disabled={isResolving}>Đóng</Button>}
+          secondary={<Button variant="outline" onClick={onClose} disabled={isResolving}>{t('ResolveEventModal.close')}</Button>}
           primary={
             <Button onClick={handleSubmit(onSubmit)} disabled={isResolving}>
               {isResolving && <Loader2 className="animate-spin" aria-hidden="true" />}
-              Xác nhận xử lý
+              {t('ResolveEventModal.confirmHandling')}
             </Button>
           }
         />
       }
     >
+      <DraftNotice draft={draft} className="mb-4" />
       {/* Thông điệp của hệ thống chính là hướng dẫn chọn cách xử lý ở nhiều
           trường hợp, nên đặt lên đầu chứ không giấu dưới bảng. */}
       {event.errorMessage && (
@@ -93,15 +102,15 @@ export default function ResolveEventModal({ event, onClose }: ResolveEventModalP
 
       <div className="mb-4 rounded-card border border-[var(--color-border)] px-4 py-3 text-sm">
         <div className="flex justify-between gap-3 py-1">
-          <span className="text-[var(--color-muted-foreground)]">Số tiền thực nhận</span>
+          <span className="text-[var(--color-muted-foreground)]">{t('ResolveEventModal.amountActuallyReceived')}</span>
           <strong className="tabular-nums">{formatCurrency(event.transferAmount ?? 0)}</strong>
         </div>
         <div className="flex justify-between gap-3 py-1">
-          <span className="text-[var(--color-muted-foreground)]">Nội dung</span>
+          <span className="text-[var(--color-muted-foreground)]">{t('ResolveEventModal.description')}</span>
           <span className="max-w-[60%] truncate text-right">{event.content || '—'}</span>
         </div>
         <div className="flex justify-between gap-3 py-1">
-          <span className="text-[var(--color-muted-foreground)]">Ngân hàng</span>
+          <span className="text-[var(--color-muted-foreground)]">{t('ResolveEventModal.bank')}</span>
           <span>{event.gateway || '—'}</span>
         </div>
       </div>
@@ -109,13 +118,12 @@ export default function ResolveEventModal({ event, onClose }: ResolveEventModalP
       {/* KHÔNG có ô nhập số tiền: hệ thống luôn ghi có đúng số thực nhận. Một ô
           tự do sẽ phá chính sách đó ở đúng chỗ dễ gõ nhầm nhất. */}
       <p className="mb-4 text-xs text-[var(--color-muted-foreground)]">
-        Số tiền ghi có luôn bằng đúng số thực nhận ở trên và không sửa được — hệ thống không có
-        đường nào ghi một số tiền tuỳ ý vào ví.
+        {t('ResolveEventModal.theCreditedAmountAlwaysEqualsExactly')}
       </p>
 
-      <label className="text-label mb-1.5 block font-medium">Cách xử lý</label>
+      <label className="text-label mb-1.5 block font-medium">{t('ResolveEventModal.howToHandle')}</label>
       <div className="mb-4 space-y-2">
-        {MODES.map((m) => (
+        {MODES().map((m) => (
           <button
             key={m.key}
             type="button"
@@ -136,10 +144,10 @@ export default function ResolveEventModal({ event, onClose }: ResolveEventModalP
 
       {needsOrder && (
         <div className="mb-4">
-          <label className="text-label mb-1.5 block font-medium">Mã định danh đơn nạp</label>
+          <label className="text-label mb-1.5 block font-medium">{t('ResolveEventModal.topUpOrderIdentifier')}</label>
           <input
             {...register('orderId')}
-            placeholder="Dán ID đơn nạp cần gán"
+            placeholder={t('ResolveEventModal.pasteTheIdOfTheTop')}
             className="w-full rounded-card border border-[var(--color-border)] bg-[var(--color-background)] px-4 py-2.5 text-sm outline-none focus:border-[var(--color-primary)]"
           />
           {errors.orderId && <p className="mt-1 text-xs text-[var(--color-error)]">{errors.orderId.message}</p>}
@@ -148,12 +156,12 @@ export default function ResolveEventModal({ event, onClose }: ResolveEventModalP
 
       {needsUser && (
         <div className="mb-4">
-          <label className="text-label mb-1.5 block font-medium">Người được ghi có</label>
+          <label className="text-label mb-1.5 block font-medium">{t('ResolveEventModal.personToCredit')}</label>
           {user ? (
             <div className="flex items-center justify-between gap-3 rounded-card border border-[var(--color-border)] px-4 py-2.5">
               <span className="truncate text-sm font-semibold">{user.fullName}</span>
               <Button variant="ghost" size="sm" type="button" onClick={() => setValue('user', null, { shouldValidate: true })}>
-                Đổi
+                {t('ResolveEventModal.change')}
               </Button>
             </div>
           ) : (
@@ -164,12 +172,12 @@ export default function ResolveEventModal({ event, onClose }: ResolveEventModalP
       )}
 
       <label className="text-label mb-1.5 block font-medium">
-        Ghi chú xử lý <span className="text-[var(--color-error)]">*</span>
+        {t('ResolveEventModal.handlingNotes')} <span className="text-[var(--color-error)]">*</span>
       </label>
       <textarea
         {...register('note')}
         rows={3}
-        placeholder="Vì sao xử lý như vậy — người soát sổ về sau sẽ đọc dòng này"
+        placeholder={t('ResolveEventModal.whyItWasHandledThisWay')}
         className="w-full rounded-card border border-[var(--color-border)] bg-[var(--color-background)] px-4 py-2.5 text-sm outline-none focus:border-[var(--color-primary)]"
       />
       {errors.note && <p className="mt-1 text-xs text-[var(--color-error)]">{errors.note.message}</p>}

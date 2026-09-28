@@ -1,5 +1,6 @@
 package com.kpitracking.service;
 
+import com.kpitracking.i18n.ErrorMessages;
 import com.kpitracking.entity.AiTokenQuota;
 import com.kpitracking.entity.AiTokenUsage;
 import com.kpitracking.entity.User;
@@ -63,14 +64,11 @@ public class AiQuotaService {
         QuotaStatus status = getStatus(user.getId());
 
         if (status.spendable() <= 0) {
-            throw new AiTokenQuotaExceededException(
-                    "Bạn chưa được cấp hạn mức token AI cho tháng này. Vui lòng liên hệ quản lý của bạn.");
+            throw new AiTokenQuotaExceededException(ErrorMessages.text("ai.quota.none", ""));
         }
         if (status.used() >= status.spendable()) {
-            throw new AiTokenQuotaExceededException(String.format(
-                    "Bạn đã dùng hết hạn mức token AI tháng này (%s/%s token). "
-                            + "Hạn mức sẽ được làm mới vào đầu tháng sau, hoặc liên hệ quản lý để được cấp thêm.",
-                    format(status.used()), format(status.spendable())));
+            throw new AiTokenQuotaExceededException(ErrorMessages.text("ai.quota.used", "",
+                    status.used(), status.spendable()));
         }
     }
 

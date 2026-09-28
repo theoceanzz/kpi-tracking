@@ -1,6 +1,8 @@
 import { BotOff } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
 
 export default function AiDisabledPage() {
+  const { t } = useTranslation('analytics')
   return (
     <div className="relative min-h-full w-full flex items-center justify-center overflow-hidden bg-[var(--color-card)] font-sans">
       {/* Background blobs */}
@@ -17,13 +19,13 @@ export default function AiDisabledPage() {
         {/* Text */}
         <div className="space-y-3">
           <span className="inline-block text-eyebrow text-[var(--color-primary)]">
-            Tính năng bị tắt
+            {t('AiDisabledPage.featureDisabled')}
           </span>
           <h1 className="text-page-title text-4xl md:text-5xl text-[var(--color-foreground)]">
-            Trợ lý AI
+            {t('AiDisabledPage.aiAssistant')}
           </h1>
           <p className="text-lg text-[var(--color-muted-foreground)] leading-relaxed">
-            Tính năng Trợ lý AI Analytics chưa được kích hoạt cho tổ chức của bạn.
+            {t('AiDisabledPage.theAiAnalyticsAssistantHasNot')}
           </p>
         </div>
 
@@ -33,9 +35,9 @@ export default function AiDisabledPage() {
             <span className="text-white text-sm">💡</span>
           </div>
           <div>
-            <p className="text-sm font-medium text-[var(--color-foreground)] mb-1">Cần hỗ trợ?</p>
+            <p className="text-sm font-medium text-[var(--color-foreground)] mb-1">{t('AiDisabledPage.needHelp')}</p>
             <p className="text-sm text-[var(--color-muted-foreground)] leading-relaxed">
-              Vui lòng liên hệ quản trị viên của tổ chức để được kích hoạt tính năng này.
+              {t('AiDisabledPage.pleaseContactYourOrganizationsAdministratorTo')}
             </p>
           </div>
         </div>

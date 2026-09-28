@@ -9,6 +9,9 @@ import ResolveEventModal from './ResolveEventModal'
 import { SepayEventStatus, type SepayEvent } from '../types'
 import { Button } from '@/components/ui/button'
 import { ChoiceChip } from '@/components/ui/choice-chip'
+import { useTranslation } from 'react-i18next'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
 const STATUS_CLS: Record<SepayEventStatus, string> = {
   [SepayEventStatus.MATCHED]:
@@ -19,14 +22,15 @@ const STATUS_CLS: Record<SepayEventStatus, string> = {
   [SepayEventStatus.IGNORED]: 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)]',
 }
 
-const STATUS_LABEL: Record<SepayEventStatus, string> = {
-  [SepayEventStatus.MATCHED]: 'Đã khớp',
-  [SepayEventStatus.UNMATCHED]: 'Chưa khớp',
-  [SepayEventStatus.DUPLICATE]: 'Gửi trùng',
-  [SepayEventStatus.IGNORED]: 'Bỏ qua',
-}
+const STATUS_LABEL = perLanguage((): Record<SepayEventStatus, string> => ({
+  [SepayEventStatus.MATCHED]: i18n.t('wallet:SepayEventsTab.matched'),
+  [SepayEventStatus.UNMATCHED]: i18n.t('wallet:SepayEventsTab.unmatched'),
+  [SepayEventStatus.DUPLICATE]: i18n.t('wallet:SepayEventsTab.duplicate'),
+  [SepayEventStatus.IGNORED]: i18n.t('wallet:SepayEventsTab.skip'),
+}))
 
 export default function SepayEventsTab() {
+  const { t } = useTranslation('wallet')
   const [scope, setScope] = useState<'queue' | 'all'>('queue')
   const [page, setPage] = useState(0)
   const [selected, setSelected] = useState<SepayEvent | null>(null)
@@ -64,21 +68,17 @@ export default function SepayEventsTab() {
           <span>
             {notConfigured ? (
               <>
-                Chưa khai số tài khoản nhận tiền trong <strong>Cấu hình ví</strong>. Giao dịch về
-                tài khoản chưa khai không hiện ở đây, kể cả khi tiền đã về — hãy lưu đúng số tài
-                khoản đã liên kết trên SePay, các giao dịch cũ của tài khoản đó sẽ tự được gán về
-                công ty.
+                {t('SepayEventsTab.theReceivingAccountNumberHasNot')} <strong>{t('SepayEventsTab.walletConfiguration')}</strong>{t('SepayEventsTab.transactionsToAnUndeclaredAccountDo')}
               </>
             ) : reconcile.clean ? (
-              <>Sổ cái ví tiền cân đối, không có giao dịch nào chờ xử lý.</>
+              <>{t('SepayEventsTab.theWalletLedgerBalancesWithNo')}</>
             ) : (
               <>
-                <strong>{reconcile.unresolvedEventCount}</strong> giao dịch chưa khớp đơn,{' '}
-                <strong>{reconcile.amountMismatchCount}</strong> giao dịch lệch số tiền cần xác nhận
+                <strong>{reconcile.unresolvedEventCount}</strong> {t('SepayEventsTab.transactionsNotMatchedToAnOrder')}{' '}
+                <strong>{reconcile.amountMismatchCount}</strong> {t('SepayEventsTab.transactionsWithAmountMismatchesToConfirm')}
                 {reconcile.inconsistentWalletIds.length > 0 && (
                   <>
-                    , và <strong>{reconcile.inconsistentWalletIds.length}</strong> ví có số dư lệch
-                    so với sổ cái
+                    {t('SepayEventsTab.and')} <strong>{reconcile.inconsistentWalletIds.length}</strong> {t('SepayEventsTab.walletsWithABalanceOutOf')}
                   </>
                 )}
                 .
@@ -94,7 +94,7 @@ export default function SepayEventsTab() {
               setScope(s)
               setPage(0)
             }}>
-            {s === 'queue' ? 'Cần xử lý' : 'Toàn bộ lịch sử'}
+            {s === 'queue' ? t('SepayEventsTab.needsHandling') : t('SepayEventsTab.fullHistory')}
           </ChoiceChip>
         ))}
       </div>
@@ -104,13 +104,13 @@ export default function SepayEventsTab() {
       ) : events.length === 0 ? (
         <div className="rounded-card border border-dashed border-[var(--color-border)]">
           <EmptyState
-            title={scope === 'queue' ? 'Không có gì cần xử lý' : 'Chưa có giao dịch SePay nào'}
+            title={scope === 'queue' ? t('SepayEventsTab.nothingNeedsHandling') : t('SepayEventsTab.noSepayTransactionsYet')}
             description={
               notConfigured
-                ? 'Chưa khai số tài khoản nhận tiền nên chưa giao dịch nào được quy về công ty này. Vào Cấu hình ví lưu đúng số tài khoản đã liên kết trên SePay.'
+                ? t('SepayEventsTab.theReceivingAccountNumberHasNot2')
                 : scope === 'queue'
-                  ? 'Mọi giao dịch chuyển khoản đều đã được ghi có đúng người.'
-                  : 'Các callback từ SePay sẽ hiện ở đây ngay khi có tiền về.'
+                  ? t('SepayEventsTab.everyTransferHasBeenCreditedTo')
+                  : t('SepayEventsTab.callbacksFromSepayAppearHereAs')
             }
           />
         </div>
@@ -120,11 +120,11 @@ export default function SepayEventsTab() {
             <table className="w-full min-w-[900px] text-sm">
               <thead className="bg-[var(--color-muted)]/50 text-left">
                 <tr className="text-eyebrow">
-                  <th className="px-4 py-3">Nhận lúc</th>
-                  <th className="px-4 py-3 text-right">Số tiền</th>
-                  <th className="px-4 py-3">Nội dung</th>
-                  <th className="px-4 py-3">Trạng thái</th>
-                  <th className="px-4 py-3">Xử lý</th>
+                  <th className="px-4 py-3">{t('SepayEventsTab.receivedAt')}</th>
+                  <th className="px-4 py-3 text-right">{t('SepayEventsTab.amount')}</th>
+                  <th className="px-4 py-3">{t('SepayEventsTab.description')}</th>
+                  <th className="px-4 py-3">{t('SepayEventsTab.status')}</th>
+                  <th className="px-4 py-3">{t('SepayEventsTab.handle')}</th>
                   <th className="px-4 py-3" />
                 </tr>
               </thead>
@@ -141,7 +141,7 @@ export default function SepayEventsTab() {
                       <div className="truncate">{e.content || '—'}</div>
                       {e.matchedOrderCode && (
                         <div className="mt-0.5 truncate text-xs text-[var(--color-muted-foreground)]">
-                          Đơn {e.matchedOrderCode} · {e.matchedOrderUserName}
+                          {t('SepayEventsTab.order')} {e.matchedOrderCode} · {e.matchedOrderUserName}
                         </div>
                       )}
                     </td>
@@ -149,10 +149,10 @@ export default function SepayEventsTab() {
                       <span
                         className={`inline-block whitespace-nowrap rounded-full px-2.5 py-1 text-xs font-semibold ${STATUS_CLS[e.status]}`}
                       >
-                        {STATUS_LABEL[e.status]}
+                        {STATUS_LABEL()[e.status]}
                       </span>
                       {e.amountMismatch && (
-                        <div className="mt-1 text-xs text-[var(--color-warning)]">Lệch số tiền</div>
+                        <div className="mt-1 text-xs text-[var(--color-warning)]">{t('SepayEventsTab.amountMismatch')}</div>
                       )}
                     </td>
                     <td className="px-4 py-3 text-xs">
@@ -173,7 +173,7 @@ export default function SepayEventsTab() {
                     <td className="px-4 py-3 text-right">
                       {e.inQueue && (
                         <Button size="sm" className="whitespace-nowrap" type="button" onClick={() => setSelected(e)}>
-                          Xử lý
+                          {t('SepayEventsTab.handle')}
                         </Button>
                       )}
                     </td>
@@ -191,7 +191,7 @@ export default function SepayEventsTab() {
                 totalElements={data?.totalElements ?? 0}
                 size={size}
                 onPageChange={setPage}
-                itemLabel="giao dịch"
+                itemLabel={t('SepayEventsTab.transactions')}
               />
             </div>
           )}

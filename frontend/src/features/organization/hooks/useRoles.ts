@@ -2,6 +2,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { roleApi, CreateRoleRequest, UpdateRoleRequest } from '../api/role.api'
 import { toast } from 'sonner'
 import { getApiErrorMessage } from '@/lib/apiError'
+import { useTranslation } from 'react-i18next'
 
 export function useRoles() {
   return useQuery({
@@ -11,20 +12,22 @@ export function useRoles() {
 }
 
 export function useCreateRole() {
+  const { t } = useTranslation('organization')
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (payload: CreateRoleRequest) => roleApi.createRole(payload),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['roles'] })
-      toast.success('Thêm vai trò mới thành công')
+      toast.success(t('useRoles.newRoleAddedSuccessfully'))
     },
     onError: (error: any) => {
-      toast.error(getApiErrorMessage(error, 'Có lỗi xảy ra khi thêm vai trò'))
+      toast.error(getApiErrorMessage(error, t('useRoles.anErrorOccurredWhileAddingThe')))
     }
   })
 }
 
 export function useUpdateRole() {
+  const { t } = useTranslation('organization')
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: ({ roleId, payload }: { roleId: string; payload: UpdateRoleRequest }) => 
@@ -38,15 +41,16 @@ export function useUpdateRole() {
       queryClient.invalidateQueries({ queryKey: ['evaluations'] })
       queryClient.invalidateQueries({ queryKey: ['submissions'] })
       queryClient.invalidateQueries({ queryKey: ['auth-user'] }) // Refresh current user roles if needed
-      toast.success('Cập nhật vai trò thành công')
+      toast.success(t('useRoles.roleUpdatedSuccessfully'))
     },
     onError: (error: any) => {
-      toast.error(getApiErrorMessage(error, 'Có lỗi xảy ra khi cập nhật vai trò'))
+      toast.error(getApiErrorMessage(error, t('useRoles.anErrorOccurredWhileUpdatingThe')))
     }
   })
 }
 
 export function useDeleteRole() {
+  const { t } = useTranslation('organization')
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: (roleId: string) => roleApi.deleteRole(roleId),
@@ -59,10 +63,10 @@ export function useDeleteRole() {
       queryClient.invalidateQueries({ queryKey: ['evaluations'] })
       queryClient.invalidateQueries({ queryKey: ['submissions'] })
       queryClient.invalidateQueries({ queryKey: ['auth-user'] })
-      toast.success('Xoá vai trò thành công')
+      toast.success(t('useRoles.roleDeletedSuccessfully'))
     },
     onError: (error: any) => {
-      toast.error(getApiErrorMessage(error, 'Không thể xoá vai trò'))
+      toast.error(getApiErrorMessage(error, t('useRoles.couldNotDeleteTheRole')))
     }
   })
 }

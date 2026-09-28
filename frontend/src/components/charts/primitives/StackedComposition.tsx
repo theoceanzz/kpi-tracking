@@ -3,6 +3,7 @@ import {
 } from 'recharts'
 import { AXIS_COLORS } from '../chartPalette'
 import { xAxisLabel, yAxisLabel } from '../axisLabel'
+import { useTranslation } from 'react-i18next'
 
 export interface SeriesMeta {
   code: string
@@ -52,10 +53,11 @@ export default function StackedComposition({
   series, points, variant = 'area', normalize = false, step = false, unit = '', height = 300,
   rotateLabels = false, xLabel, yLabel,
 }: Props) {
+  const { t } = useTranslation('shared')
   if (!points.length) {
     return (
       <div className="w-full flex items-center justify-center text-sm text-[var(--color-subtle-foreground)] font-medium" style={{ height }}>
-        Chưa có dữ liệu trong phạm vi này
+        {t('StackedComposition.noDataInThisScopeYet')}
       </div>
     )
   }
@@ -177,6 +179,7 @@ function CompositionTooltip({ active, payload, label, series, normalize, unit }:
   normalize?: boolean
   unit?: string
 }) {
+  const { t } = useTranslation('shared')
   const row = payload?.[0]?.payload
   if (!active || !row) return null
   const total = Number(row['__total'] ?? 0)
@@ -199,7 +202,7 @@ function CompositionTooltip({ active, payload, label, series, normalize, unit }:
           )
         })}
         <p className="text-xs text-[var(--color-subtle-foreground)] pt-1.5 border-t border-[var(--color-border)] mt-1.5">
-          Tổng {total}{unit ? ` ${unit}` : ''}
+          {t('StackedComposition.total')} {total}{unit ? ` ${unit}` : ''}
         </p>
       </div>
     </div>

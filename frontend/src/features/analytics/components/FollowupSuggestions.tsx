@@ -3,14 +3,17 @@ import { ChevronRight, LayoutGrid, Users, Wrench } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { FollowupPools } from '../api/aiApi'
 import { Button } from '@/components/ui/button'
+import { useTranslation } from 'react-i18next'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
 type Pool = 'all' | 'technical' | 'management'
 
-const POOLS: { id: Pool; label: string; icon?: typeof Wrench }[] = [
-  { id: 'all', label: 'Tất cả' },
-  { id: 'technical', label: 'Kỹ thuật', icon: Wrench },
-  { id: 'management', label: 'Quản trị', icon: Users },
-]
+const POOLS = perLanguage((): { id: Pool; label: string; icon?: typeof Wrench }[] => ([
+  { id: 'all', label: i18n.t('analytics:FollowupSuggestions.all') },
+  { id: 'technical', label: i18n.t('analytics:FollowupSuggestions.technical'), icon: Wrench },
+  { id: 'management', label: i18n.t('analytics:FollowupSuggestions.management'), icon: Users },
+]))
 
 /** Lấy 3 câu trong nhóm. Xáo trộn theo hạt giống để cùng một nhóm luôn ra cùng bộ câu. */
 function pick3(arr: string[], seed: number): string[] {
@@ -55,6 +58,7 @@ interface Props {
 export default function FollowupSuggestions({
   pools, onSelectQuestion, selectedQuestion, onShowInsights,
 }: Props) {
+  const { t } = useTranslation('analytics')
   const [pool, setPool] = useState<Pool>('all')
 
   // Tính bằng useMemo chứ không phải useEffect + setState: bản trước gọi setState ngay trong effect
@@ -73,10 +77,10 @@ export default function FollowupSuggestions({
     <div className="mt-3 border-t border-[var(--color-ai-line)]/30 pt-2">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <span className="text-eyebrow text-[var(--color-ai)]">
-          Hỏi tiếp
+          {t('FollowupSuggestions.askMore')}
         </span>
         <div className="flex flex-wrap items-center gap-1">
-          {POOLS.map(({ id, label, icon: Icon }) => (
+          {POOLS().map(({ id, label, icon: Icon }) => (
             <button
               key={id}
               type="button"
@@ -129,7 +133,7 @@ export default function FollowupSuggestions({
 
       <Button variant="ghost" className="mt-1" type="button" onClick={onShowInsights}>
         <LayoutGrid aria-hidden="true" />
-        Xem insights khác
+        {t('FollowupSuggestions.seeOtherInsights')}
       </Button>
     </div>
   )

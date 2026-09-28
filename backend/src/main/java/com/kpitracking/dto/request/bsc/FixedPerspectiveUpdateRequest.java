@@ -9,11 +9,11 @@ import lombok.*;
 @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
 public class FixedPerspectiveUpdateRequest {
 
-    @NotBlank(message = "Tên lĩnh vực là bắt buộc")
-    @Size(max = 100, message = "Tên lĩnh vực tối đa 100 ký tự")
+    @NotBlank(message = "{validation.areaNameRequired}")
+    @Size(max = 100, message = "{validation.areaNameCanMost100Characters}")
     private String name;
 
-    @Pattern(regexp = "^#([0-9A-Fa-f]{6})$", message = "Màu không hợp lệ (định dạng #RRGGBB)")
+    @Pattern(regexp = "^#([0-9A-Fa-f]{6})$", message = "{validation.invalidColorHex}")
     private String color;
 
     private Integer displayOrder;

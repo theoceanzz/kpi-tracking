@@ -17,29 +17,29 @@ import lombok.Data;
 @Data
 public class CertificateTemplateRequest {
 
-    @NotBlank(message = "Vui lòng đặt tên cho mẫu chứng nhận")
-    @Size(max = 120, message = "Tên mẫu không được quá 120 ký tự")
+    @NotBlank(message = "{validation.nameCertificateTemplate}")
+    @Size(max = 120, message = "{validation.templateNameCanMost120Characters}")
     private String name;
 
-    @NotBlank(message = "Vui lòng chọn kiểu thiết kế")
+    @NotBlank(message = "{validation.chooseDesignStyle}")
     @Size(max = 40)
     private String preset;
 
     private CertificateOrientation orientation;
 
-    @Size(max = 120, message = "Dòng dẫn không được quá 120 ký tự")
+    @Size(max = 120, message = "{validation.leadLineCanMost120Characters}")
     private String eyebrow;
 
-    @NotBlank(message = "Vui lòng nhập tiêu đề chứng nhận")
-    @Size(max = 160, message = "Tiêu đề không được quá 160 ký tự")
+    @NotBlank(message = "{validation.enterCertificateTitle}")
+    @Size(max = 160, message = "{validation.titleCanMost160Characters}")
     private String title;
 
-    @Size(max = 255, message = "Dòng phụ đề không được quá 255 ký tự")
+    @Size(max = 255, message = "{validation.subtitleLineCanMost255Characters}")
     private String subtitle;
 
     private String body;
 
-    @Size(max = 255, message = "Dòng chân trang không được quá 255 ký tự")
+    @Size(max = 255, message = "{validation.footerLineCanMost255Characters}")
     private String footnote;
 
     @Size(max = 120)
@@ -57,13 +57,13 @@ public class CertificateTemplateRequest {
 
     // Cùng ràng buộc với CHECK ở DB — bắt ở đây để người dùng nhận được câu tiếng Việt
     // thay vì lỗi ràng buộc của Postgres.
-    @Pattern(regexp = "^#[0-9A-Fa-f]{6}$", message = "Màu nhấn phải ở dạng mã hex, ví dụ #C9A227")
+    @Pattern(regexp = "^#[0-9A-Fa-f]{6}$", message = "{validation.accentColorMustHexCodeExampleC9a227}")
     private String accentColor;
 
-    @Pattern(regexp = "^#[0-9A-Fa-f]{6}$", message = "Màu chữ phải ở dạng mã hex, ví dụ #1F2937")
+    @Pattern(regexp = "^#[0-9A-Fa-f]{6}$", message = "{validation.textColorMustHexCodeExample1f2937}")
     private String inkColor;
 
-    @Pattern(regexp = "^#[0-9A-Fa-f]{6}$", message = "Màu nền phải ở dạng mã hex, ví dụ #FFFBF2")
+    @Pattern(regexp = "^#[0-9A-Fa-f]{6}$", message = "{validation.backgroundColorMustHexCodeExampleFffbf2}")
     private String surfaceColor;
 
     private Boolean showLogo;

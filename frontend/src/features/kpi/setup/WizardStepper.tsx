@@ -2,6 +2,7 @@ import { Check, Lock } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import type { SetupStep } from './flows'
+import { useTranslation } from 'react-i18next'
 
 interface Props {
   steps: SetupStep[]
@@ -19,8 +20,9 @@ interface Props {
  * "Đợt" thành bước 1 chứ không phải bước 2 bị hụt.
  */
 export default function WizardStepper({ steps, currentIndex, blockReason, onJump }: Props) {
+  const { t } = useTranslation('kpi')
   return (
-    <nav aria-label="Các bước thiết lập" className="w-full">
+    <nav aria-label={t('WizardStepper.setupSteps')} className="w-full">
       {/* Đường tiến độ mảnh — mẫu duy nhất trong dự án, lấy từ PageTour để không lệch phong cách. */}
       <div className="mb-5 h-0.5 w-full overflow-hidden rounded-full bg-[var(--color-muted)]">
         <div

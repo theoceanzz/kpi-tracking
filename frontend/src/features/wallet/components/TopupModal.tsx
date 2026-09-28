@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
+import i18n from 'i18next'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { createTopupSchema, type TopupFormData } from '../schemas/topupSchema'
@@ -10,6 +11,7 @@ import NumberInput from '@/components/common/NumberInput'
 import { formatCurrency } from '@/lib/utils'
 import { useTopupActions, useTopupOrder } from '../hooks/useWallet'
 import { TopupOrderStatus, type TopupOrder, type WalletConfig } from '../types'
+import { useTranslation } from 'react-i18next'
 
 interface TopupModalProps {
   open: boolean
@@ -35,21 +37,22 @@ interface TopupModalProps {
 
 /** Nút chép chuỗi. `CopyButton` dùng chung của dự án chép ẢNH, không dùng được ở đây. */
 function CopyText({ value, label }: { value: string; label: string }) {
+  const { t } = useTranslation('wallet')
   const [copied, setCopied] = useState(false)
 
   const copy = async () => {
     try {
       await navigator.clipboard.writeText(value)
       setCopied(true)
-      toast.success(`Đã chép ${label}`)
+      toast.success(t('TopupModal.copied', { label }))
       setTimeout(() => setCopied(false), 2000)
     } catch {
-      toast.error('Trình duyệt không cho phép chép tự động, vui lòng chép tay')
+      toast.error(t('TopupModal.theBrowserDoesNotAllowAutomatic'))
     }
   }
 
   return (
-    <Button variant="secondary" type="button" onClick={copy} title={`Chép ${label}`}>
+    <Button variant="secondary" type="button" onClick={copy} title={t('TopupModal.copy', { label })}>
       {copied ? <Check aria-hidden="true" className="text-[var(--color-success)]" /> : <Copy aria-hidden="true" />}
     </Button>
   )
@@ -69,6 +72,7 @@ function InfoRow({ label, value, copyLabel }: { label: string; value: string; co
 
 /** Đồng hồ đếm ngược tới hạn của đơn. */
 function Countdown({ expiresAt }: { expiresAt: string }) {
+  const { t: tr } = useTranslation('wallet')
   const [left, setLeft] = useState(() => Date.parse(expiresAt) - Date.now())
 
   useEffect(() => {
@@ -81,7 +85,7 @@ function Countdown({ expiresAt }: { expiresAt: string }) {
     // Nói rõ để người vừa chuyển khoản xong không hoảng.
     return (
       <span className="text-[var(--color-warning)]">
-        Đã quá hạn hiển thị. Nếu bạn đã chuyển khoản, tiền vẫn sẽ được ghi có.
+        {tr('TopupModal.theDisplayTimeHasExpiredIf')}
       </span>
     )
   }
@@ -90,7 +94,7 @@ function Countdown({ expiresAt }: { expiresAt: string }) {
   const secs = Math.floor((left % 60000) / 1000)
   return (
     <span className="tabular-nums">
-      Còn {mins}:{String(secs).padStart(2, '0')} để chuyển khoản
+      {tr('TopupModal.remaining')} {mins}:{String(secs).padStart(2, '0')} {tr('TopupModal.toTransfer')}
     </span>
   )
 }
@@ -103,6 +107,7 @@ export default function TopupModal({
   resumeOrder,
   onPaid,
 }: TopupModalProps) {
+  const { t } = useTranslation('wallet')
   const [orderId, setOrderId] = useState<string | null>(null)
   const [created, setCreated] = useState<TopupOrder | null>(null)
 
@@ -152,9 +157,9 @@ export default function TopupModal({
 
   useEffect(() => {
     if (!paid) return
-    toast.success('Đã nhận được tiền, số dư ví của bạn đã được cộng')
+    toast.success(t('TopupModal.moneyReceivedYourWalletBalanceHas'))
     onPaidRef.current?.()
-  }, [paid])
+  }, [paid, t])
 
   if (!open) return null
 
@@ -175,33 +180,33 @@ export default function TopupModal({
       onClose={onClose}
       size="md"
       dismissible={!isCreating && !isCancelling}
-      title={order ? 'Chuyển khoản để nạp tiền' : 'Nạp tiền vào ví'}
+      title={order ? t('TopupModal.transferToTopUp') : t('TopupModal.topUpWallet')}
       description={order
-        ? 'Quét mã hoặc chuyển khoản thủ công theo thông tin bên dưới'
-        : 'Nhập số tiền bạn muốn nạp vào ví'}
+        ? t('TopupModal.scanTheCodeOrTransferManually')
+        : t('TopupModal.enterTheAmountYouWantTo')}
       footer={
         !order ? (
           <DialogFooter
             primary={
               <Button onClick={handleSubmit(onSubmit)} disabled={isCreating}>
                 {isCreating ? <Loader2 className="animate-spin" aria-hidden="true" /> : <QrCode aria-hidden="true" />}
-                Tạo mã chuyển khoản
+                {t('TopupModal.createTransferCode')}
               </Button>
             }
           />
         ) : paid ? (
-          <DialogFooter primary={<Button onClick={onClose}>Xong</Button>} />
+          <DialogFooter primary={<Button onClick={onClose}>{i18n.t('wallet:TopupModal.done')}</Button>} />
         ) : (
           <DialogFooter
-            secondary={<Button variant="outline" onClick={cancel} disabled={isCancelling}>Huỷ đơn</Button>}
-            primary={<Button onClick={onClose}>Đóng</Button>}
+            secondary={<Button variant="outline" onClick={cancel} disabled={isCancelling}>{t('TopupModal.cancelOrder')}</Button>}
+            primary={<Button onClick={onClose}>{t('TopupModal.close')}</Button>}
           />
         )
       }
     >
       {!order ? (
         <>
-          <label className="text-label mb-1.5 block font-medium">Số tiền</label>
+          <label className="text-label mb-1.5 block font-medium">{t('TopupModal.amount')}</label>
           <NumberInput
             value={amount}
             onChange={v => setValue('amount', v, { shouldValidate: true })}
@@ -212,7 +217,7 @@ export default function TopupModal({
             <p className="mt-2 text-xs text-[var(--color-error)]">{errors.amount.message}</p>
           ) : (
             <p className="mt-2 text-xs text-[var(--color-muted-foreground)]">
-              Từ {formatCurrency(min)} đến {formatCurrency(max)}
+              {t('TopupModal.from')} {formatCurrency(min)} {t('TopupModal.to')} {formatCurrency(max)}
             </p>
           )}
 
@@ -237,14 +242,13 @@ export default function TopupModal({
           <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-[var(--color-success-bg)] text-[var(--color-success)] ">
             <Check size={32} />
           </div>
-          <h3 className="text-section-title mt-4">Đã nhận được tiền</h3>
+          <h3 className="text-section-title mt-4">{t('TopupModal.moneyReceived')}</h3>
           <p className="mt-1 text-[var(--color-muted-foreground)]">
-            Ví của bạn được cộng {formatCurrency(order.paidAmount ?? order.amount)}
+            {t('TopupModal.yourWalletWasCredited')} {formatCurrency(order.paidAmount ?? order.amount)}
           </p>
           {order.paidAmount != null && order.paidAmount !== order.amount && (
             <p className="mt-2 rounded-card bg-[var(--color-warning-bg)] px-4 py-2.5 text-sm text-[var(--color-warning)]">
-              Số tiền thực nhận khác với số bạn đề nghị ({formatCurrency(order.amount)}). Ví đã
-              được cộng đúng số thực nhận.
+              {t('TopupModal.theAmountActuallyReceivedDiffersFrom')}{formatCurrency(order.amount)}{t('TopupModal.theWalletWasCreditedWithThe')}
             </p>
           )}
         </div>
@@ -254,37 +258,36 @@ export default function TopupModal({
             <div className="mb-4 flex justify-center">
               <img
                 src={order.qrUrl}
-                alt={`Mã QR chuyển khoản ${formatCurrency(order.amount)}`}
+                alt={t('TopupModal.transferQrCode', { amount: formatCurrency(order.amount) })}
                 className="h-56 w-56 rounded-card border border-[var(--color-border)] bg-[var(--color-card)] object-contain p-2"
               />
             </div>
           )}
 
           <div className="rounded-card border border-[var(--color-border)] px-4">
-            <InfoRow label="Số tiền" value={formatCurrency(order.amount)} />
+            <InfoRow label={t('TopupModal.amount')} value={formatCurrency(order.amount)} />
             <InfoRow
-              label="Số tài khoản"
+              label={t('TopupModal.accountNumber')}
               value={order.bankAccountNumber ?? '—'}
-              copyLabel="số tài khoản"
+              copyLabel={t('TopupModal.accountNumber2')}
             />
             {order.bankAccountHolder && (
-              <InfoRow label="Chủ tài khoản" value={order.bankAccountHolder} />
+              <InfoRow label={t('TopupModal.accountHolder')} value={order.bankAccountHolder} />
             )}
-            <InfoRow label="Ngân hàng" value={order.bankCode ?? '—'} />
-            <InfoRow label="Nội dung" value={order.code} copyLabel="nội dung chuyển khoản" />
+            <InfoRow label={t('TopupModal.bank')} value={order.bankCode ?? '—'} />
+            <InfoRow label={t('TopupModal.description')} value={order.code} copyLabel={t('TopupModal.transferDescription')} />
           </div>
 
           {/* Nội dung chuyển khoản là thứ duy nhất nối khoản tiền với đúng người.
               Ghi sai thì tiền vẫn về nhưng phải chờ kế toán xử lý tay. */}
           <p className="mt-3 rounded-card bg-[var(--color-warning-bg)] px-4 py-3 text-sm text-[var(--color-warning)]">
-            Nội dung chuyển khoản phải giữ nguyên <strong>{order.code}</strong>. Ghi sai sẽ khiến
-            tiền không tự vào ví và phải chờ kế toán xử lý tay.
+            {t('TopupModal.theTransferDescriptionMustBeKept')} <strong>{order.code}</strong>{t('TopupModal.aWrongDescriptionMeansTheMoney')}
           </p>
 
           <div className="mt-4 flex items-center justify-between gap-3 text-sm text-[var(--color-muted-foreground)]">
             <span className="flex items-center gap-1.5">
               <Loader2 size={14} className="animate-spin" />
-              Đang chờ chuyển khoản
+              {t('TopupModal.waitingForTransfer')}
             </span>
             <Countdown expiresAt={order.expiresAt} />
           </div>

@@ -7,10 +7,12 @@ import CashWalletsTab from '../components/CashWalletsTab'
 import SepayEventsTab from '../components/SepayEventsTab'
 import WalletConfigForm from '../components/WalletConfigForm'
 import { useWalletReconcile } from '../hooks/useWallet'
+import { useTranslation } from 'react-i18next'
 
 type TabKey = 'wallets' | 'config' | 'reconcile'
 
 export default function WalletAdminPage() {
+  const { t } = useTranslation('wallet')
   const { hasPermission } = useHasPermission()
   const canView = hasPermission('WALLET:VIEW')
   const canConfig = hasPermission('WALLET:CONFIG')
@@ -23,11 +25,11 @@ export default function WalletAdminPage() {
     : 0
 
   const { activeTab, setActiveTab, visibleTabs } = useTabParam<TabKey>([
-    { key: 'wallets', label: 'Số dư nhân sự', icon: Wallet, visible: canView },
-    { key: 'config', label: 'Cấu hình', icon: Settings, visible: canConfig },
+    { key: 'wallets', label: t('WalletAdminPage.peopleBalances'), icon: Wallet, visible: canView },
+    { key: 'config', label: t('WalletAdminPage.configuration'), icon: Settings, visible: canConfig },
     {
       key: 'reconcile',
-      label: 'Đối soát SePay',
+      label: t('WalletAdminPage.sepayReconciliation'),
       icon: ScrollText,
       badge: pending || undefined,
       visible: canReconcile,
@@ -41,7 +43,7 @@ export default function WalletAdminPage() {
       setActiveTab={key => setActiveTab(key as TabKey)}
     >
       <div className="space-y-5">
-        <WorkspaceHeader description="Số dư của nhân sự, tỉ giá quy đổi và đối soát giao dịch chuyển khoản." />
+        <WorkspaceHeader description={t('WalletAdminPage.peopleBalancesTheExchangeRateAnd')} />
 
         {activeTab === 'wallets' && <CashWalletsTab />}
         {activeTab === 'config' && <WalletConfigForm />}

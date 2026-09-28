@@ -1,5 +1,6 @@
 package com.kpitracking.service;
 
+import com.kpitracking.i18n.ErrorMessages;
 import com.kpitracking.config.LarkProperties;
 import com.kpitracking.dto.request.organization.UpdateLarkSettingsRequest;
 import com.kpitracking.dto.response.auth.LarkApiResponses.UserInfoData;
@@ -13,8 +14,10 @@ import com.kpitracking.entity.User;
 import com.kpitracking.entity.UserRoleOrgUnit;
 import com.kpitracking.enums.LarkConnectionMode;
 import com.kpitracking.exception.BusinessException;
+import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.ForbiddenException;
 import com.kpitracking.exception.ResourceNotFoundException;
+import com.kpitracking.i18n.Terms;
 import com.kpitracking.repository.OrgUnitRepository;
 import com.kpitracking.repository.OrganizationRepository;
 import com.kpitracking.repository.RoleRepository;
@@ -85,8 +88,7 @@ public class LarkSettingsService {
 
         if (request.getConnectionMode() != null) {
             if (request.getConnectionMode() == LarkConnectionMode.STORE) {
-                throw new BusinessException("Chế độ ứng dụng Lark dùng chung chưa được hỗ trợ. "
-                        + "Vui lòng dùng chế độ tự tạo ứng dụng.");
+                throw new BusinessException(ErrorCode.SHARED_LARK_APP_MODE_NOT_SUPPORTED);
             }
             org.setLarkConnectionMode(request.getConnectionMode());
         }
@@ -116,8 +118,7 @@ public class LarkSettingsService {
             if (Boolean.TRUE.equals(request.getLarkEnabled())) {
                 List<String> missing = findMissingRequirements(org);
                 if (!missing.isEmpty()) {
-                    throw new BusinessException("Chưa bật được đăng nhập Lark. Còn thiếu: "
-                            + String.join("; ", missing));
+                    throw new BusinessException(ErrorCode.LARK_SIGN_COULD_NOT_ENABLED, String.join("; ", missing));
                 }
             }
             org.setLarkEnabled(request.getLarkEnabled());
@@ -157,14 +158,14 @@ public class LarkSettingsService {
     public LarkConnectResultResponse connect(String code, String state) {
         OAuthStateService.StateData stateData = oAuthStateService.validateLarkState(state);
         if (stateData.purpose() != OAuthStateService.Purpose.CONNECT) {
-            throw new BusinessException("Phiên kết nối Lark không hợp lệ. Vui lòng thử lại.");
+            throw new BusinessException(ErrorCode.INVALID_LARK_CONNECTION_SESSION);
         }
 
         Organization org = loadAuthorized(stateData.organizationId());
         UserInfoData larkUser = larkAuthService.fetchLarkUser(org, code);
 
         if (larkUser.tenantKey() == null || larkUser.tenantKey().isBlank()) {
-            throw new BusinessException("Lark không trả về định danh tổ chức. Vui lòng thử lại.");
+            throw new BusinessException(ErrorCode.LARK_DID_NOT_RETURN_ORGANIZATION_IDENTIFIER);
         }
 
         // Tên và logo doanh nghiệp là tuỳ chọn (cần quyền tenant:tenant:readonly).
@@ -222,8 +223,7 @@ public class LarkSettingsService {
 
         organizationRepository.findByLarkTenantKeyHash(tenantHash).ifPresent(other -> {
             if (!other.getId().equals(org.getId())) {
-                throw new BusinessException("Tổ chức Lark này đã được liên kết với công ty "
-                        + other.getName() + " trong hệ thống.");
+                throw new BusinessException(ErrorCode.LARK_ORGANIZATION_LINKED_COMPANY_SYSTEM, other.getName());
             }
         });
 
@@ -285,13 +285,13 @@ public class LarkSettingsService {
             }
         }
         if (org.getLarkTenantKeyHash() == null) {
-            missing.add("xác minh tổ chức Lark");
+            missing.add(ErrorMessages.text("lark.missing.tenant", ""));
         }
         if (org.getLarkDefaultOrgUnit() == null) {
-            missing.add("đơn vị mặc định");
+            missing.add(ErrorMessages.text("lark.missing.defaultUnit", ""));
         }
         if (org.getLarkDefaultRole() == null) {
-            missing.add("vai trò mặc định");
+            missing.add(ErrorMessages.text("lark.missing.defaultRole", ""));
         }
         return missing;
     }
@@ -321,10 +321,10 @@ public class LarkSettingsService {
      */
     private Organization loadAuthorized(UUID orgId) {
         Organization org = organizationRepository.findById(orgId)
-                .orElseThrow(() -> new ResourceNotFoundException("Tổ chức", "id", orgId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.organization"), "id", orgId));
 
         if (!orgId.equals(getCurrentUserOrgId())) {
-            throw new ForbiddenException("Bạn không có quyền truy cập cấu hình của tổ chức này.");
+            throw new ForbiddenException(ErrorCode.NO_PERMISSION_ACCESS_ORGANIZATION_CONFIGURATION);
         }
         return org;
     }
@@ -332,30 +332,30 @@ public class LarkSettingsService {
     private UUID getCurrentUserOrgId() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("Người dùng", "email", email));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.user"), "email", email));
 
         List<UserRoleOrgUnit> assignments = userRoleOrgUnitRepository.findByUserId(user.getId());
         if (assignments.isEmpty()) {
-            throw new ForbiddenException("Người dùng hiện tại không thuộc tổ chức nào.");
+            throw new ForbiddenException(ErrorCode.CURRENT_USER_OUTSIDE_ORGANIZATION);
         }
         return assignments.get(0).getOrgUnit().getOrgHierarchyLevel().getOrganization().getId();
     }
 
     private OrgUnit loadOrgUnitInOrganization(UUID orgUnitId, Organization org) {
         OrgUnit unit = orgUnitRepository.findById(orgUnitId)
-                .orElseThrow(() -> new ResourceNotFoundException("Đơn vị", "id", orgUnitId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.unit"), "id", orgUnitId));
         UUID unitOrgId = unit.getOrgHierarchyLevel().getOrganization().getId();
         if (!unitOrgId.equals(org.getId())) {
-            throw new BusinessException("Đơn vị mặc định phải thuộc chính tổ chức này.");
+            throw new BusinessException(ErrorCode.DEFAULT_UNIT_MUST_BELONG_ORGANIZATION);
         }
         return unit;
     }
 
     private Role loadRoleInOrganization(UUID roleId, Organization org) {
         Role role = roleRepository.findById(roleId)
-                .orElseThrow(() -> new ResourceNotFoundException("Vai trò", "id", roleId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.role"), "id", roleId));
         if (role.getOrganization() == null || !role.getOrganization().getId().equals(org.getId())) {
-            throw new BusinessException("Vai trò mặc định phải thuộc chính tổ chức này.");
+            throw new BusinessException(ErrorCode.DEFAULT_ROLE_MUST_BELONG_ORGANIZATION);
         }
         return role;
     }

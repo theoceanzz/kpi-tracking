@@ -1,0 +1,31 @@
+{
+  "$comment": "Trạng thái đọc lại bản dịch theo từng namespace. Chỉ namespace 'reviewed' mới được nạp cho người dùng; 'draft' chỉ hiện khi VITE_I18N_SHOW_UNREVIEWED=true (để người review xem trong ngữ cảnh). Tiếng Việt là bản gốc nên không có mục ở đây. Xem docs/I18N_DESIGN.md §3.1.",
+  "en": {
+    "analytics": "reviewed",
+    "auth": "reviewed",
+    "bsc": "reviewed",
+    "common": "reviewed",
+    "conduct": "reviewed",
+    "dashboard": "reviewed",
+    "datasources": "reviewed",
+    "errors": "reviewed",
+    "evaluations": "reviewed",
+    "evidence": "reviewed",
+    "feedback360": "reviewed",
+    "kpi": "reviewed",
+    "landing": "reviewed",
+    "layout": "reviewed",
+    "notifications": "reviewed",
+    "okr": "reviewed",
+    "organization": "reviewed",
+    "orgunits": "reviewed",
+    "platformAdmin": "reviewed",
+    "profile": "reviewed",
+    "reports": "reviewed",
+    "rewards": "reviewed",
+    "shared": "reviewed",
+    "submissions": "reviewed",
+    "users": "reviewed",
+    "wallet": "reviewed"
+  }
+}

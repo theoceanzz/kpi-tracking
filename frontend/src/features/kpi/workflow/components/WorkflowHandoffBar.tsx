@@ -5,6 +5,7 @@ import { useKpiWorkflow } from '../hooks/useKpiWorkflow'
 import { useWorkflowNavigator, WORKFLOW_PARAMS } from '../hooks/useWorkflowNavigator'
 import type { WorkflowStageCode } from '../types'
 import { Button } from '@/components/ui/button'
+import { useTranslation } from 'react-i18next'
 
 /**
  * Lối quay lại sau khi hệ thống tự nhảy sang bước kế tiếp.
@@ -16,6 +17,7 @@ import { Button } from '@/components/ui/button'
  * Chỉ hiện khi URL có `?from=<mã bước>`, tức là chỉ ngay sau một lần nhảy tự động.
  */
 export default function WorkflowHandoffBar({ className }: { className?: string }) {
+  const { t } = useTranslation('kpi')
   const location = useLocation()
   const [searchParams, setSearchParams] = useSearchParams()
   const { byCode, stageForPath } = useKpiWorkflow()
@@ -61,20 +63,20 @@ export default function WorkflowHandoffBar({ className }: { className?: string }
       <CheckCircle2 size={16} className="shrink-0 text-[var(--color-success)]" />
 
       <p className="min-w-0 flex-1 text-xs font-medium text-[var(--color-success)]">
-        Đã xong bước <span className="font-semibold">{fromStage.label}</span>
+        {t('WorkflowHandoffBar.finishedStep')} <span className="font-semibold">{fromStage.label}</span>
         {currentStage && (
           <>
-            {' '}— bạn đang ở <span className="font-semibold">{currentStage.label}</span>
+            {' '}{t('WorkflowHandoffBar.youAreNowAt')} <span className="font-semibold">{currentStage.label}</span>
           </>
         )}
       </p>
 
       <Button variant="ghost" size="sm" className="shrink-0" type="button" onClick={goBack}>
         <ArrowLeft aria-hidden="true" />
-        Quay lại {fromStage.label.toLowerCase()}
+        {t('WorkflowHandoffBar.back')} {fromStage.label.toLowerCase()}
       </Button>
 
-      <Button variant="ghost" size="icon-sm" className="shrink-0" aria-label="Ẩn thông báo này" type="button" onClick={dismiss} title="Ẩn thông báo này">
+      <Button variant="ghost" size="icon-sm" className="shrink-0" aria-label={t('WorkflowHandoffBar.hideThisNotice')} type="button" onClick={dismiss} title={t('WorkflowHandoffBar.hideThisNotice')}>
         <X aria-hidden="true" />
       </Button>
     </div>

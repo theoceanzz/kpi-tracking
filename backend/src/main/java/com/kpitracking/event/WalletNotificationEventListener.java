@@ -1,5 +1,6 @@
 package com.kpitracking.event;
 
+import com.kpitracking.i18n.LocalizedText;
 import com.kpitracking.entity.OrgUnit;
 import com.kpitracking.entity.SepayWebhookEvent;
 import com.kpitracking.entity.TopupOrder;
@@ -83,21 +84,15 @@ public class WalletNotificationEventListener {
         User user = order.getUser();
         UUID orgId = order.getOrganization().getId();
 
-        String title = "Nạp tiền thành công";
-        StringBuilder message = new StringBuilder()
-                .append("Ví tiền của bạn đã được cộng ")
-                .append(CashWalletService.formatVnd(event.getPaidAmount()))
-                .append(" từ đơn nạp ").append(order.getCode()).append(".");
-
+        LocalizedText title = LocalizedText.of("notif.wallet.topupPaid.title");
         // Nói thẳng khi số tiền lệch: người dùng nhìn số dư không khớp với số mình
         // định chuyển mà không được giải thích sẽ nghĩ hệ thống tính sai.
-        if (event.getPaidAmount() != order.getAmount()) {
-            message.append(" Lưu ý: số tiền thực nhận khác với số đề nghị ban đầu (")
-                    .append(CashWalletService.formatVnd(order.getAmount()))
-                    .append("), và ví đã được cộng đúng số thực nhận.");
-        }
+        Object mismatch = event.getPaidAmount() != order.getAmount()
+                ? LocalizedText.of("notif.wallet.topupPaid.mismatch", order.getAmount()) : "";
+        LocalizedText message = LocalizedText.of("notif.wallet.topupPaid.message",
+                event.getPaidAmount(), order.getCode(), mismatch);
 
-        send(orgId, "wallet_topup_paid", user, title, message.toString(), order.getId());
+        send(orgId, "wallet_topup_paid", user, title, message, order.getId());
         sendReceipt(orgId, order, user);
     }
 
@@ -137,13 +132,10 @@ public class WalletNotificationEventListener {
         User user = event.getUser();
         UUID orgId = context.getOrgIdOf(user.getId());
 
-        String message = String.format(
-                "Bạn đã đổi %s từ ví tiền lấy %d điểm thưởng (tỉ giá %s/điểm).",
-                CashWalletService.formatVnd(event.getCost()),
-                event.getPoints(),
-                CashWalletService.formatVnd(event.getRate()));
+        LocalizedText message = LocalizedText.of("notif.wallet.converted.message",
+                event.getCost(), event.getPoints(), event.getRate());
 
-        send(orgId, "wallet_converted", user, "Đã quy đổi sang điểm thưởng", message, null);
+        send(orgId, "wallet_converted", user, LocalizedText.of("notif.wallet.converted.title"), message, null);
     }
 
     /**
@@ -161,14 +153,10 @@ public class WalletNotificationEventListener {
         TopupOrder order = orderRepository.findById(event.orderId()).orElse(null);
         if (order == null) return;
 
-        String message = String.format(
-                "Đơn nạp %s (%s) đã hết hạn vì chưa nhận được tiền. Mã QR của đơn này không còn "
-                + "hiệu lực — nếu vẫn muốn nạp, hãy tạo đơn mới để lấy mã mới. Trường hợp bạn đã "
-                + "chuyển khoản theo mã cũ, tiền không mất: hãy báo bộ phận hỗ trợ để được ghi có.",
-                order.getCode(), CashWalletService.formatVnd(order.getAmount()));
+        LocalizedText message = LocalizedText.of("notif.wallet.topupExpired.message", order.getCode(), order.getAmount());
 
         deliver(order.getOrganization().getId(), "wallet_topup_expired", order.getUser(),
-                "Đơn nạp tiền đã hết hạn", message, TYPE_WALLET, order.getId(), false);
+                LocalizedText.of("notif.wallet.topupExpired.title"), message, TYPE_WALLET, order.getId(), false);
     }
 
     /**
@@ -195,21 +183,19 @@ public class WalletNotificationEventListener {
             return;
         }
 
-        String message = String.format(
-                "Nhận được %s về tài khoản %s lúc %s nhưng chưa ghi có tự động được. Lý do: %s "
-                + "Nội dung chuyển khoản: \"%s\". Vào Đối soát ví tiền để gán đơn hoặc ghi có "
-                + "trực tiếp cho người chuyển.",
-                CashWalletService.formatVnd(e.getTransferAmount() == null ? 0L : e.getTransferAmount()),
-                nullTo(e.getAccountNumber(), "(không rõ)"),
-                e.getTransactionDate() == null ? "(không rõ thời điểm)" : DATETIME.format(e.getTransactionDate()),
-                nullTo(e.getErrorMessage(), "(không rõ)"),
+        LocalizedText unknown = LocalizedText.of("notif.common.unknown");
+        LocalizedText message = LocalizedText.of("notif.wallet.unmatched.message",
+                e.getTransferAmount() == null ? 0L : e.getTransferAmount(),
+                nullTo(e.getAccountNumber(), unknown),
+                e.getTransactionDate() == null ? LocalizedText.of("notif.common.unknownTime") : DATETIME.format(e.getTransactionDate()),
+                nullTo(e.getErrorMessage(), unknown),
                 nullTo(e.getContent(), ""));
 
         Set<UUID> notified = new HashSet<>();
         for (OrgUnit root : roots) {
             for (User handler : routing.nearestWithPermission(root, "WALLET:RECONCILE", notified)) {
                 if (notified.add(handler.getId())) {
-                    deliver(orgId, "wallet_topup_unmatched", handler, "Có tiền về chưa ghi có được",
+                    deliver(orgId, "wallet_topup_unmatched", handler, LocalizedText.of("notif.wallet.unmatched.title"),
                             message, TYPE_RECONCILE, e.getId(), true);
                 }
             }
@@ -224,12 +210,12 @@ public class WalletNotificationEventListener {
      * chuyển thêm lần nữa. Thông báo tiền bạc cũng thưa, không phải nguồn gây ngập hộp thư.
      */
     private void send(UUID orgId, String eventCode, User recipient,
-                      String title, String message, UUID referenceId) {
+                      LocalizedText title, LocalizedText message, UUID referenceId) {
         deliver(orgId, eventCode, recipient, title, message, TYPE_WALLET, referenceId, true);
     }
 
-    private void deliver(UUID orgId, String eventCode, User recipient, String title,
-                         String message, String type, UUID referenceId, boolean immediate) {
+    private void deliver(UUID orgId, String eventCode, User recipient, LocalizedText title,
+                         LocalizedText message, String type, UUID referenceId, boolean immediate) {
         if (recipient == null) return;
         try {
             OrgUnit orgUnit = context.getPrimaryOrgUnit(recipient.getId());
@@ -247,7 +233,7 @@ public class WalletNotificationEventListener {
         }
     }
 
-    private static String nullTo(String value, String fallback) {
+    private static Object nullTo(String value, Object fallback) {
         return value == null || value.isBlank() ? fallback : value;
     }
 }

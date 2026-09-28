@@ -60,6 +60,10 @@ public class CycleUserEvaluation {
     @Column(name = "baseline_rating")
     private Integer baselineRating;
 
+    /** Điểm 360 (thang 1..5) CHỤP lúc "chốt dữ liệu kỳ" — null khi kỳ không dùng 360 để xếp loại. */
+    @Column(name = "feedback360_score")
+    private Double feedback360Score;
+
     @Column(name = "comment")
     private String comment;
 

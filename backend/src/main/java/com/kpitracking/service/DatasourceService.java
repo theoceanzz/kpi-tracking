@@ -6,7 +6,9 @@ import com.kpitracking.dto.response.datasource.*;
 import com.kpitracking.entity.*;
 import com.kpitracking.enums.DatasourceStatus;
 import com.kpitracking.exception.BusinessException;
+import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.ResourceNotFoundException;
+import com.kpitracking.i18n.Terms;
 import com.kpitracking.repository.*;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -37,7 +39,7 @@ public class DatasourceService {
     private User getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         return userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("Người dùng", "email", email));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.user"), "email", email));
     }
 
     // ============================================================
@@ -51,13 +53,13 @@ public class DatasourceService {
         OrgUnit orgUnit;
         if (request.getOrgUnitId() != null) {
             orgUnit = orgUnitRepository.findById(request.getOrgUnitId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Đơn vị", "id", request.getOrgUnitId()));
+                    .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.unit"), "id", request.getOrgUnitId()));
         } else {
             List<UserRoleOrgUnit> assignments = userRoleOrgUnitRepository.findByUserId(currentUser.getId());
             if (!assignments.isEmpty()) {
                 orgUnit = assignments.get(0).getOrgUnit();
             } else {
-                throw new BusinessException("Người dùng phải thuộc ít nhất một đơn vị");
+                throw new BusinessException(ErrorCode.USER_MUST_BELONG_LEAST_ONE_UNIT);
             }
         }
 
@@ -101,7 +103,7 @@ public class DatasourceService {
     @Transactional(readOnly = true)
     public DatasourceResponse getDatasourceById(UUID id) {
         Datasource ds = datasourceRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Datasource", "id", id));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.dataSource"), "id", id));
         long rowCount = dsRowRepository.countByDatasourceId(id);
         return toResponse(ds, rowCount);
     }
@@ -109,7 +111,7 @@ public class DatasourceService {
     @Transactional
     public DatasourceResponse updateDatasource(UUID id, UpdateDatasourceRequest request) {
         Datasource ds = datasourceRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Datasource", "id", id));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.dataSource"), "id", id));
 
         if (request.getName() != null) ds.setName(request.getName());
         if (request.getDescription() != null) ds.setDescription(request.getDescription());
@@ -123,10 +125,10 @@ public class DatasourceService {
     @Transactional
     public void deleteDatasource(UUID id) {
         if (reportDatasourceRepository.existsByDatasourceId(id)) {
-            throw new BusinessException("Không thể xóa Nguồn dữ liệu vì đang được kết nối với Báo cáo. Vui lòng gỡ liên kết trong báo cáo trước.");
+            throw new BusinessException(ErrorCode.DATA_SOURCE_CANNOT_DELETED_BECAUSE_CONNECTED_REPORT);
         }
         Datasource ds = datasourceRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Datasource", "id", id));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.dataSource"), "id", id));
         ds.setDeletedAt(Instant.now());
         datasourceRepository.save(ds);
     }
@@ -138,7 +140,7 @@ public class DatasourceService {
     @Transactional
     public DsColumnResponse addColumn(UUID datasourceId, UpsertColumnRequest request) {
         Datasource ds = datasourceRepository.findById(datasourceId)
-                .orElseThrow(() -> new ResourceNotFoundException("Datasource", "id", datasourceId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.dataSource"), "id", datasourceId));
 
         int order = request.getColumnOrder() != null
                 ? request.getColumnOrder()
@@ -160,7 +162,7 @@ public class DatasourceService {
     @Transactional
     public DsColumnResponse updateColumn(UUID columnId, UpsertColumnRequest request) {
         DsColumn col = dsColumnRepository.findById(columnId)
-                .orElseThrow(() -> new ResourceNotFoundException("Cột", "id", columnId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.column"), "id", columnId));
 
         if (request.getName() != null) col.setName(request.getName());
         if (request.getDataType() != null) col.setDataType(request.getDataType());
@@ -175,7 +177,7 @@ public class DatasourceService {
     @Transactional
     public void deleteColumn(UUID columnId) {
         if (!dsColumnRepository.existsById(columnId)) {
-            throw new ResourceNotFoundException("Cột", "id", columnId);
+            throw new ResourceNotFoundException(Terms.of("resource.column"), "id", columnId);
         }
         dsColumnRepository.deleteById(columnId);
     }
@@ -193,7 +195,7 @@ public class DatasourceService {
     @Transactional
     public DsRowResponse addRow(UUID datasourceId, UpsertRowRequest request) {
         Datasource ds = datasourceRepository.findById(datasourceId)
-                .orElseThrow(() -> new ResourceNotFoundException("Datasource", "id", datasourceId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.dataSource"), "id", datasourceId));
 
         int order = dsRowRepository.findMaxRowOrder(datasourceId) + 1;
 
@@ -209,7 +211,7 @@ public class DatasourceService {
             for (Map.Entry<String, CellValueRequest> entry : request.getCells().entrySet()) {
                 UUID columnId = UUID.fromString(entry.getKey());
                 DsColumn col = dsColumnRepository.findById(columnId)
-                        .orElseThrow(() -> new ResourceNotFoundException("Cột", "id", columnId));
+                        .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.column"), "id", columnId));
 
                 DsCell cell = buildCell(row, col, entry.getValue());
                 cell = dsCellRepository.save(cell);
@@ -228,14 +230,14 @@ public class DatasourceService {
     @Transactional
     public DsRowResponse updateRow(UUID rowId, UpsertRowRequest request) {
         DsRow row = dsRowRepository.findById(rowId)
-                .orElseThrow(() -> new ResourceNotFoundException("Hàng", "id", rowId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.row"), "id", rowId));
 
         Map<String, CellValueResponse> cellMap = new LinkedHashMap<>();
         if (request.getCells() != null) {
             for (Map.Entry<String, CellValueRequest> entry : request.getCells().entrySet()) {
                 UUID columnId = UUID.fromString(entry.getKey());
                 DsColumn col = dsColumnRepository.findById(columnId)
-                        .orElseThrow(() -> new ResourceNotFoundException("Cột", "id", columnId));
+                        .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.column"), "id", columnId));
 
                 DsCell cell = dsCellRepository.findByRowIdAndColumnId(rowId, columnId)
                         .orElse(DsCell.builder().row(row).column(col).build());
@@ -263,7 +265,7 @@ public class DatasourceService {
     @Transactional
     public void deleteRow(UUID rowId) {
         if (!dsRowRepository.existsById(rowId)) {
-            throw new ResourceNotFoundException("Hàng", "id", rowId);
+            throw new ResourceNotFoundException(Terms.of("resource.row"), "id", rowId);
         }
         dsRowRepository.deleteById(rowId);
     }

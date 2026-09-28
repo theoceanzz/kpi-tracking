@@ -1,5 +1,7 @@
 package com.kpitracking.service;
 
+import com.kpitracking.i18n.ErrorMessages;
+import com.kpitracking.exception.ForbiddenException;
 import com.kpitracking.dto.request.orgunit.CreateOrgUnitRequest;
 import com.kpitracking.dto.request.orgunit.MoveOrgUnitRequest;
 import com.kpitracking.dto.request.orgunit.UpdateOrgUnitRequest;
@@ -35,6 +37,8 @@ import org.apache.poi.xssf.usermodel.XSSFWorkbook;
 import com.kpitracking.dto.response.orgunit.ImportOrgUnitResponse;
 import com.kpitracking.dto.response.orgunit.OrgUnitExcelResponse;
 import com.kpitracking.enums.OrgUnitStatus;
+import com.kpitracking.exception.ErrorCode;
+import com.kpitracking.i18n.Terms;
 
 @Service
 @RequiredArgsConstructor
@@ -57,14 +61,14 @@ public class OrgUnitService {
     @Transactional
     public OrgUnitResponse createOrgUnit(UUID orgId, CreateOrgUnitRequest request) {
         Organization organization = organizationRepository.findById(orgId)
-                .orElseThrow(() -> new ResourceNotFoundException("Tổ chức", "id", orgId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.organization"), "id", orgId));
 
         OrgUnit parent = null;
         int levelOrder = 1;
 
         if (request.getParentId() != null) {
             parent = orgUnitRepository.findByIdAndOrgHierarchyLevel_Organization_Id(request.getParentId(), orgId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Đơn vị cha", "id", request.getParentId()));
+                    .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.parentUnit"), "id", request.getParentId()));
             levelOrder = parent.getOrgHierarchyLevel().getLevelOrder() + 1;
         }
 
@@ -74,7 +78,7 @@ public class OrgUnitService {
                 .stream()
                 .filter(l -> l.getLevelOrder() == finalLevelOrder)
                 .findFirst()
-                .orElseThrow(() -> new BusinessException("Đã đạt giới hạn số lượng cấp bậc phân cấp của tổ chức"));
+                .orElseThrow(() -> new BusinessException(ErrorCode.ORGANIZATION_LIMIT_HIERARCHY_LEVELS_REACHED));
 
         if (!hierarchyLevel.getUnitTypeName().equals(request.getUnitTypeName())) {
             hierarchyLevel.setUnitTypeName(request.getUnitTypeName());
@@ -83,7 +87,7 @@ public class OrgUnitService {
 
         // 1. Kiểm tra trùng tên (Case-insensitive) trong cùng tổ chức
         if (orgUnitRepository.existsByNameIgnoreCaseAndOrgHierarchyLevel_Organization_IdAndDeletedAtIsNull(request.getName(), orgId)) {
-            throw new DuplicateResourceException("Thành phần tổ chức", "tên", request.getName());
+            throw new DuplicateResourceException(Terms.of("resource.organizationComponent"), Terms.of("field.name"), request.getName());
         }
 
         String code = request.getCode();
@@ -93,7 +97,7 @@ public class OrgUnitService {
 
         // 2. Kiểm tra trùng mã (Smart check: Nếu đã xóa thì KHÔI PHỤC, nếu đang dùng thì BÁO LỖI)
         if (orgUnitRepository.existsByCodeSmart(code, orgId)) {
-            throw new DuplicateResourceException("Thành phần tổ chức", "mã", code);
+            throw new DuplicateResourceException(Terms.of("resource.organizationComponent"), Terms.of("field.code"), code);
         }
 
         Optional<OrgUnit> deletedUnitOpt = orgUnitRepository.findDeletedByCodeSmart(code, orgId);
@@ -122,14 +126,14 @@ public class OrgUnitService {
 
         if (request.getEmail() != null && !request.getEmail().isBlank()) {
             if (orgUnitRepository.existsByEmailAndOrgHierarchyLevel_Organization_IdAndDeletedAtIsNull(request.getEmail(), orgId)) {
-                throw new DuplicateResourceException("Thành phần tổ chức", "email", request.getEmail());
+                throw new DuplicateResourceException(Terms.of("resource.organizationComponent"), "email", request.getEmail());
             }
             orgUnit.setEmail(request.getEmail());
         }
 
         if (request.getPhone() != null && !request.getPhone().isBlank()) {
             if (orgUnitRepository.existsByPhoneAndOrgHierarchyLevel_Organization_IdAndDeletedAtIsNull(request.getPhone(), orgId)) {
-                throw new DuplicateResourceException("Thành phần tổ chức", "số điện thoại", request.getPhone());
+                throw new DuplicateResourceException(Terms.of("resource.organizationComponent"), Terms.of("field.phoneNumber"), request.getPhone());
             }
             orgUnit.setPhone(request.getPhone());
         }
@@ -137,12 +141,12 @@ public class OrgUnitService {
 
         if (request.getProvinceId() != null) {
             Province province = provinceRepository.findById(request.getProvinceId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Tỉnh/Thành phố", "id", request.getProvinceId()));
+                    .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.provinceCity"), "id", request.getProvinceId()));
             orgUnit.setProvince(province);
         }
         if (request.getDistrictId() != null) {
             District district = districtRepository.findById(request.getDistrictId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Quận/Huyện", "id", request.getDistrictId()));
+                    .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.district"), "id", request.getDistrictId()));
             orgUnit.setDistrict(district);
         }
 
@@ -162,32 +166,32 @@ public class OrgUnitService {
     @Transactional
     public OrgUnitResponse updateOrgUnit(UUID orgId, UUID unitId, UpdateOrgUnitRequest request) {
         OrgUnit orgUnit = orgUnitRepository.findByIdAndOrgHierarchyLevel_Organization_Id(unitId, orgId)
-                .orElseThrow(() -> new ResourceNotFoundException("Đơn vị", "id", unitId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.unit"), "id", unitId));
 
         if (request.getName() != null && !request.getName().equalsIgnoreCase(orgUnit.getName())) {
             if (orgUnitRepository.existsByNameIgnoreCaseAndOrgHierarchyLevel_Organization_IdAndDeletedAtIsNull(request.getName(), orgId)) {
-                throw new DuplicateResourceException("Thành phần tổ chức", "tên", request.getName());
+                throw new DuplicateResourceException(Terms.of("resource.organizationComponent"), Terms.of("field.name"), request.getName());
             }
             orgUnit.setName(request.getName());
         }
 
         if (request.getCode() != null && !request.getCode().equals(orgUnit.getCode())) {
             if (orgUnitRepository.existsByCodeSmart(request.getCode(), orgId)) {
-                throw new DuplicateResourceException("Thành phần tổ chức", "mã", request.getCode());
+                throw new DuplicateResourceException(Terms.of("resource.organizationComponent"), Terms.of("field.code"), request.getCode());
             }
             orgUnit.setCode(request.getCode());
         }
 
         if (request.getEmail() != null && !request.getEmail().equals(orgUnit.getEmail())) {
             if (!request.getEmail().isBlank() && orgUnitRepository.existsByEmailAndOrgHierarchyLevel_Organization_IdAndDeletedAtIsNull(request.getEmail(), orgId)) {
-                throw new DuplicateResourceException("Thành phần tổ chức", "email", request.getEmail());
+                throw new DuplicateResourceException(Terms.of("resource.organizationComponent"), "email", request.getEmail());
             }
             orgUnit.setEmail(request.getEmail());
         }
 
         if (request.getPhone() != null && !request.getPhone().equals(orgUnit.getPhone())) {
             if (!request.getPhone().isBlank() && orgUnitRepository.existsByPhoneAndOrgHierarchyLevel_Organization_IdAndDeletedAtIsNull(request.getPhone(), orgId)) {
-                throw new DuplicateResourceException("Thành phần tổ chức", "số điện thoại", request.getPhone());
+                throw new DuplicateResourceException(Terms.of("resource.organizationComponent"), Terms.of("field.phoneNumber"), request.getPhone());
             }
             orgUnit.setPhone(request.getPhone());
         }
@@ -195,12 +199,12 @@ public class OrgUnitService {
 
         if (request.getProvinceId() != null) {
             Province province = provinceRepository.findById(request.getProvinceId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Tỉnh/Thành phố", "id", request.getProvinceId()));
+                    .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.provinceCity"), "id", request.getProvinceId()));
             orgUnit.setProvince(province);
         }
         if (request.getDistrictId() != null) {
             District district = districtRepository.findById(request.getDistrictId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Quận/Huyện", "id", request.getDistrictId()));
+                    .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.district"), "id", request.getDistrictId()));
             orgUnit.setDistrict(district);
         }
 
@@ -222,8 +226,8 @@ public class OrgUnitService {
                                 .filter(r -> r.getId().equals(oldRoleId))
                                 .findFirst()
                                 .orElse(null);
-                        String roleName = role != null ? role.getName() : "này";
-                        throw new BusinessException("Không thể bỏ vai trò '" + roleName + "' vì vẫn còn nhân viên đang giữ vai trò này trong đơn vị.");
+                        String roleName = role != null ? role.getName() : ErrorMessages.text("role.thisRole", "");
+                        throw new BusinessException(ErrorCode.CANNOT_REMOVE_ROLE_BECAUSE_EMPLOYEES_UNIT_HOLD, String.valueOf(roleName));
                     }
                     userRoleOrgUnitRepository.deleteByOrgUnitIdAndRoleId(unitId, oldRoleId);
                 }
@@ -249,16 +253,16 @@ public class OrgUnitService {
     @Transactional
     public void softDeleteOrgUnit(UUID orgId, UUID unitId) {
         OrgUnit orgUnit = orgUnitRepository.findByIdAndOrgHierarchyLevel_Organization_Id(unitId, orgId)
-                .orElseThrow(() -> new ResourceNotFoundException("Đơn vị", "id", unitId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.unit"), "id", unitId));
 
         // 1. Kiểm tra nếu có đơn vị con
         if (!orgUnit.getChildren().isEmpty()) {
-            throw new BusinessException("Không thể xóa đơn vị này vì vẫn còn các đơn vị con bên trong. Vui lòng xóa hoặc di chuyển các đơn vị con trước.");
+            throw new BusinessException(ErrorCode.UNIT_CANNOT_DELETED_BECAUSE_CHILD_UNITS);
         }
 
         // 2. Kiểm tra nếu có nhân viên đang gán vào đơn vị này
         if (userRoleOrgUnitRepository.existsByOrgUnitId(unitId)) {
-            throw new BusinessException("Không thể xóa đơn vị này vì vẫn còn nhân viên/chức vụ đang hoạt động. Vui lòng gỡ bỏ nhân viên khỏi đơn vị trước khi xóa.");
+            throw new BusinessException(ErrorCode.UNIT_CANNOT_DELETED_BECAUSE_ACTIVE_EMPLOYEES_POSITIONS);
         }
 
         orgUnit.setDeletedAt(Instant.now());
@@ -268,18 +272,18 @@ public class OrgUnitService {
     @Transactional
     public OrgUnitResponse moveOrgUnit(UUID orgId, UUID unitId, MoveOrgUnitRequest request) {
         OrgUnit orgUnit = orgUnitRepository.findByIdAndOrgHierarchyLevel_Organization_Id(unitId, orgId)
-                .orElseThrow(() -> new ResourceNotFoundException("Đơn vị", "id", unitId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.unit"), "id", unitId));
 
         if (request.getNewParentId() != null) {
             if (request.getNewParentId().equals(unitId)) {
-                throw new BusinessException("Không thể di chuyển đơn vị vào chính nó");
+                throw new BusinessException(ErrorCode.UNIT_CANNOT_MOVED_INTO_ITSELF);
             }
             OrgUnit newParent = orgUnitRepository.findByIdAndOrgHierarchyLevel_Organization_Id(request.getNewParentId(), orgId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Đơn vị cha mới", "id", request.getNewParentId()));
+                    .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.newParentUnit"), "id", request.getNewParentId()));
 
             // Check if newParent is a descendant of this node (would create cycle)
             if (newParent.getPath().startsWith(orgUnit.getPath())) {
-                throw new BusinessException("Không thể di chuyển đơn vị vào trong nhánh con của nó");
+                throw new BusinessException(ErrorCode.UNIT_CANNOT_MOVED_INTO_ONE_OWN_CHILD);
             }
             orgUnit.setParent(newParent);
         } else {
@@ -301,7 +305,7 @@ public class OrgUnitService {
     @Transactional(readOnly = true)
     public OrgUnitResponse getOrgUnit(UUID orgId, UUID unitId) {
         OrgUnit orgUnit = orgUnitRepository.findByIdAndOrgHierarchyLevel_Organization_Id(unitId, orgId)
-                .orElseThrow(() -> new ResourceNotFoundException("Đơn vị", "id", unitId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.unit"), "id", unitId));
         OrgUnitResponse response = orgUnitMapper.toResponse(orgUnit);
         populateExtraFields(orgUnit, response);
         return response;
@@ -310,19 +314,19 @@ public class OrgUnitService {
     private com.kpitracking.entity.User getCurrentUser() {
         String email = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getName();
         return userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "email", email));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.user"), "email", email));
     }
 
     @Transactional(readOnly = true)
     public List<OrgUnitTreeResponse> getOrgUnitTree(UUID orgId) {
         organizationRepository.findById(orgId)
-                .orElseThrow(() -> new ResourceNotFoundException("Tổ chức", "id", orgId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.organization"), "id", orgId));
 
         com.kpitracking.entity.User currentUser = getCurrentUser();
         
         // orgId đến từ client: quyền phải được xét trong đúng tổ chức đó, không phải "ở đâu đó".
         if (!permissionChecker.isMemberOfOrganization(currentUser.getId(), orgId)) {
-            throw new com.kpitracking.exception.ForbiddenException("Bạn không thuộc tổ chức này");
+            throw new ForbiddenException(ErrorCode.DO_NOT_BELONG_ORGANIZATION_3);
         }
 
         // 1. If user has ORG:VIEW (Global Admin/Director), show everything
@@ -346,7 +350,7 @@ public class OrgUnitService {
     @Transactional(readOnly = true)
     public List<OrgUnitTreeResponse> getSubtree(UUID orgId, UUID unitId) {
         OrgUnit root = orgUnitRepository.findByIdAndOrgHierarchyLevel_Organization_Id(unitId, orgId)
-                .orElseThrow(() -> new ResourceNotFoundException("Đơn vị", "id", unitId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.unit"), "id", unitId));
 
         List<OrgUnit> subtreeUnits = orgUnitRepository.findSubtree(root.getPath(), orgId);
         return buildTree(subtreeUnits);
@@ -355,7 +359,7 @@ public class OrgUnitService {
     @Transactional
     public OrgUnitResponse uploadLogo(UUID orgId, UUID unitId, MultipartFile file) throws IOException {
         OrgUnit orgUnit = orgUnitRepository.findByIdAndOrgHierarchyLevel_Organization_Id(unitId, orgId)
-                .orElseThrow(() -> new ResourceNotFoundException("Đơn vị", "id", unitId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.unit"), "id", unitId));
 
         String logoUrl = cloudinaryStorageService.uploadFile(file, "org-logos").get("url");
         orgUnit.setLogoUrl(logoUrl);
@@ -431,7 +435,7 @@ public class OrgUnitService {
     public ImportOrgUnitResponse importOrgUnits(UUID orgId, MultipartFile file) {
         String filename = file.getOriginalFilename();
         if (filename == null || (!filename.endsWith(".csv") && !filename.endsWith(".xlsx"))) {
-            throw new BusinessException("Chỉ hỗ trợ tập tin định dạng .csv và .xlsx");
+            throw new BusinessException(ErrorCode.ONLY_3);
         }
 
         List<String> errors = new ArrayList<>();
@@ -457,7 +461,7 @@ public class OrgUnitService {
                                     csvRecord.isMapped("RoleIds") ? csvRecord.get("RoleIds") : null);
                             successfulImports++;
                         } catch (Exception e) {
-                            errors.add("Dòng " + totalRows + ": " + e.getMessage());
+                            errors.add(ErrorMessages.text("import.rowError", "", totalRows, e.getMessage()));
                         }
                     }
                 }
@@ -466,7 +470,7 @@ public class OrgUnitService {
                     Sheet sheet = workbook.getSheetAt(0);
                     Row headerRow = sheet.getRow(0);
 
-                    if (headerRow == null) throw new BusinessException("Tập tin Excel trống");
+                    if (headerRow == null) throw new BusinessException(ErrorCode.EXCEL_FILE_EMPTY);
 
                     int nameIdx = -1, codeIdx = -1, parentCodeIdx = -1, emailIdx = -1, phoneIdx = -1, addrIdx = -1, roleIdsIdx = -1;
                     for (int i = 0; i < headerRow.getLastCellNum(); i++) {
@@ -481,7 +485,7 @@ public class OrgUnitService {
                     }
 
                     if (nameIdx == -1 || codeIdx == -1) {
-                        throw new BusinessException("Thiếu các cột bắt buộc: Name, Code");
+                        throw new BusinessException(ErrorCode.MISSING_REQUIRED_COLUMNS_3);
                     }
 
                     for (int i = 1; i <= sheet.getLastRowNum(); i++) {
@@ -500,13 +504,13 @@ public class OrgUnitService {
                                     roleIdsIdx != -1 ? getCellValueAsString(row.getCell(roleIdsIdx)) : null);
                             successfulImports++;
                         } catch (Exception e) {
-                            errors.add("Dòng " + totalRows + ": " + e.getMessage());
+                            errors.add(ErrorMessages.text("import.rowError", "", totalRows, e.getMessage()));
                         }
                     }
                 }
             }
         } catch (Exception e) {
-            throw new BusinessException("Xử lý tập tin thất bại: " + e.getMessage());
+            throw new BusinessException(ErrorCode.FILE_PROCESSING_FAILED, e.getMessage());
         }
 
         return ImportOrgUnitResponse.builder()
@@ -525,18 +529,18 @@ public class OrgUnitService {
     }
 
     private void processOrgUnitRow(UUID orgId, String name, String code, String parentCode, String email, String phone, String address, String roleIds) {
-        if (name == null || name.isBlank()) throw new BusinessException("Tên đơn vị là bắt buộc");
-        if (code == null || code.isBlank()) throw new BusinessException("Mã đơn vị là bắt buộc");
+        if (name == null || name.isBlank()) throw new BusinessException(ErrorCode.UNIT_NAME_REQUIRED);
+        if (code == null || code.isBlank()) throw new BusinessException(ErrorCode.UNIT_CODE_REQUIRED);
 
         Organization organization = organizationRepository.findById(orgId)
-                .orElseThrow(() -> new ResourceNotFoundException("Tổ chức", "id", orgId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.organization"), "id", orgId));
 
         OrgUnit parent = null;
         int levelOrder = 1;
 
         if (parentCode != null && !parentCode.isBlank()) {
             parent = orgUnitRepository.findByCodeSmart(parentCode.trim(), orgId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Đơn vị cha (Mã: " + parentCode + ")", "code", parentCode));
+                    .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.parentUnit"), Terms.of("field.code"), parentCode));
             levelOrder = parent.getOrgHierarchyLevel().getLevelOrder() + 1;
         }
 
@@ -546,7 +550,7 @@ public class OrgUnitService {
                 .stream()
                 .filter(l -> l.getLevelOrder() == finalLevelOrder)
                 .findFirst()
-                .orElseThrow(() -> new BusinessException("Đã đạt giới hạn số lượng cấp bậc phân cấp cho đơn vị '" + name + "'"));
+                .orElseThrow(() -> new BusinessException(ErrorCode.HIERARCHY_LEVEL_LIMIT_REACHED_UNIT, String.valueOf(name)));
 
         Optional<OrgUnit> existingUnitOpt = orgUnitRepository.findByCodeSmart(code, orgId);
         OrgUnit orgUnit;

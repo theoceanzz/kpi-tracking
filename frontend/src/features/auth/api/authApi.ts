@@ -50,4 +50,8 @@ export const authApi = {
   
   completeOnboarding: () =>
     axiosInstance.post<ApiResponse<void>>('/auth/me/onboarding').then((r) => r.data),
+
+  /** `language: null` = bỏ lựa chọn riêng, theo ngôn ngữ mặc định của tổ chức. Trả hồ sơ /auth/me mới. */
+  updateMyPreferences: (data: { language: string | null }) =>
+    axiosInstance.patch<ApiResponse<UserInfo>>('/users/me/preferences', data).then((r) => r.data.data),
 }

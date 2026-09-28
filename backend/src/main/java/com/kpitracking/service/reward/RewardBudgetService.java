@@ -9,7 +9,9 @@ import com.kpitracking.entity.RewardBudget;
 import com.kpitracking.entity.User;
 import com.kpitracking.event.RewardEvents;
 import com.kpitracking.exception.BusinessException;
+import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.ResourceNotFoundException;
+import com.kpitracking.i18n.Terms;
 import com.kpitracking.repository.KpiCycleRepository;
 import com.kpitracking.repository.KpiPeriodRepository;
 import com.kpitracking.repository.OrganizationRepository;
@@ -60,9 +62,9 @@ public class RewardBudgetService {
     public RewardBudgetResponse create(RewardBudgetRequest request) {
         UUID orgId = context.getCurrentOrgId();
         Organization org = organizationRepository.findById(orgId)
-                .orElseThrow(() -> new ResourceNotFoundException("Tổ chức", "id", orgId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.organization"), "id", orgId));
         User grantor = userRepository.findById(request.getGrantorUserId())
-                .orElseThrow(() -> new ResourceNotFoundException("Người dùng", "id", request.getGrantorUserId()));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.user"), "id", request.getGrantorUserId()));
 
         RewardBudget budget = RewardBudget.builder()
                 .organization(org)
@@ -79,8 +81,7 @@ public class RewardBudgetService {
         } catch (DataIntegrityViolationException ex) {
             // Exclusion constraint ex_reward_budgets_no_overlap. Dịch sang thông báo
             // người dùng hiểu được, thay vì để lộ tên ràng buộc của PostgreSQL.
-            throw new BusinessException("Người này đã có hạn mức trong khoảng thời gian trùng với khoảng bạn chọn. "
-                    + "Mỗi người tại một thời điểm chỉ được có một hạn mức — hãy sửa hạn mức cũ hoặc chọn khoảng khác.");
+            throw new BusinessException(ErrorCode.PERSON_QUOTA_TIME_RANGE_OVERLAPS_ONE_CHOSE);
         }
         eventPublisher.publishEvent(new RewardEvents.BudgetAssigned(
                 budget.getId(), context.getCurrentUser().getId(), false));
@@ -90,15 +91,14 @@ public class RewardBudgetService {
     @Transactional
     public RewardBudgetResponse update(UUID id, RewardBudgetRequest request) {
         RewardBudget budget = budgetRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Hạn mức thưởng", "id", id));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.rewardQuota"), "id", id));
 
         int used = grantRepository.sumUsedPointsByBudgetId(budget.getId());
 
         // Hạ hạn mức xuống dưới mức đã tiêu là một lệnh vô nghĩa: các đề nghị đã duyệt
         // không thể rút lại bằng cách sửa con số ở đây. Chặn sớm và nói rõ con số thật.
         if (request.getAllocatedPoints() < used) {
-            throw new BusinessException("Không thể hạ hạn mức xuống " + request.getAllocatedPoints()
-                    + " điểm vì đã sử dụng " + used + " điểm. Hãy thu hồi bớt đề nghị thưởng trước.");
+            throw new BusinessException(ErrorCode.CANNOT_LOWER_QUOTA_POINTS_BECAUSE_POINTS_USED, String.valueOf(request.getAllocatedPoints()), String.valueOf(used));
         }
 
         LocalDate oldStart = budget.getPeriodStart();
@@ -114,15 +114,13 @@ public class RewardBudgetService {
         // lại nói chúng không thuộc về hạn mức này. NỚI RỘNG thì vô hại nên vẫn cho.
         if (used > 0
                 && (budget.getPeriodStart().isAfter(oldStart) || budget.getPeriodEnd().isBefore(oldEnd))) {
-            throw new BusinessException("Không thể thu hẹp khoảng hiệu lực của hạn mức đã sử dụng "
-                    + used + " điểm — các đề nghị đã trao sẽ nằm ngoài khoảng mới. "
-                    + "Bạn chỉ có thể mở rộng khoảng (từ " + fmt(oldStart) + " – " + fmt(oldEnd) + ").");
+            throw new BusinessException(ErrorCode.CANNOT_NARROW_VALIDITY_RANGE_QUOTA_USED_POINTS, String.valueOf(used), String.valueOf(fmt(oldStart)), String.valueOf(fmt(oldEnd)));
         }
 
         try {
             budgetRepository.save(budget);
         } catch (DataIntegrityViolationException ex) {
-            throw new BusinessException("Khoảng thời gian mới bị trùng với một hạn mức khác của người này.");
+            throw new BusinessException(ErrorCode.NEW_TIME_RANGE_OVERLAPS_ANOTHER_QUOTA_PERSON);
         }
         eventPublisher.publishEvent(new RewardEvents.BudgetAssigned(
                 budget.getId(), context.getCurrentUser().getId(), true));
@@ -143,16 +141,12 @@ public class RewardBudgetService {
     @Transactional
     public void delete(UUID id) {
         RewardBudget budget = budgetRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Hạn mức thưởng", "id", id));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.rewardQuota"), "id", id));
 
         long grantCount = grantRepository.countByBudgetId(id);
         if (grantCount > 0) {
             int used = grantRepository.sumUsedPointsByBudgetId(id);
-            throw new BusinessException("Không thể xoá hạn mức của " + budget.getGrantor().getFullName()
-                    + " vì đã có " + grantCount + " đề nghị thưởng tính vào hạn mức này (đã dùng "
-                    + used + " điểm). Xoá sẽ làm sai sổ sách hạn mức. "
-                    + "Muốn dừng quyền tự thưởng, hãy hạ tổng điểm được cấp xuống còn " + used
-                    + " điểm, hoặc để hạn mức hết hiệu lực theo ngày.");
+            throw new BusinessException(ErrorCode.CANNOT_DELETE_QUOTA_BECAUSE_REWARD_PROPOSALS_COUNT, budget.getGrantor().getFullName(), String.valueOf(grantCount), String.valueOf(used), String.valueOf(used));
         }
 
         budget.setDeletedAt(Instant.now());
@@ -183,13 +177,13 @@ public class RewardBudgetService {
      */
     private void applyPeriod(RewardBudget budget, RewardBudgetRequest request) {
         if (request.getKpiCycleId() != null && request.getKpiPeriodId() != null) {
-            throw new BusinessException("Chỉ được gắn hạn mức vào kỳ HOẶC đợt, không phải cả hai.");
+            throw new BusinessException(ErrorCode.QUOTA_CAN_ATTACHED_CYCLE_PERIOD_NOT_BOTH);
         }
 
         if (request.getKpiCycleId() != null) {
             KpiCycle cycle = kpiCycleRepository.findById(request.getKpiCycleId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Kỳ đánh giá", "id", request.getKpiCycleId()));
-            applyRange(budget, cycle.getStartDate(), cycle.getEndDate(), "Kỳ", cycle.getName());
+                    .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.evaluationCycle"), "id", request.getKpiCycleId()));
+            applyRange(budget, cycle.getStartDate(), cycle.getEndDate(), Terms.of("label.cycle"), cycle.getName());
             budget.setKpiCycle(cycle);
             budget.setKpiPeriod(null);
             return;
@@ -197,18 +191,18 @@ public class RewardBudgetService {
 
         if (request.getKpiPeriodId() != null) {
             KpiPeriod period = kpiPeriodRepository.findById(request.getKpiPeriodId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Đợt đánh giá", "id", request.getKpiPeriodId()));
-            applyRange(budget, period.getStartDate(), period.getEndDate(), "Đợt", period.getName());
+                    .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.evaluationPeriod"), "id", request.getKpiPeriodId()));
+            applyRange(budget, period.getStartDate(), period.getEndDate(), Terms.of("label.period"), period.getName());
             budget.setKpiPeriod(period);
             budget.setKpiCycle(null);
             return;
         }
 
         if (request.getPeriodStart() == null || request.getPeriodEnd() == null) {
-            throw new BusinessException("Vui lòng chọn kỳ, đợt, hoặc nhập khoảng thời gian áp dụng hạn mức.");
+            throw new BusinessException(ErrorCode.CHOOSE_CYCLE_PERIOD_ENTER_TIME_RANGE_QUOTA);
         }
         if (request.getPeriodEnd().isBefore(request.getPeriodStart())) {
-            throw new BusinessException("Ngày kết thúc phải sau ngày bắt đầu.");
+            throw new BusinessException(ErrorCode.END_DATE_MUST_AFTER_START_DATE_2);
         }
         budget.setKpiCycle(null);
         budget.setKpiPeriod(null);
@@ -220,10 +214,9 @@ public class RewardBudgetService {
         return d.format(java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy"));
     }
 
-    private void applyRange(RewardBudget budget, Instant start, Instant end, String kind, String name) {
+    private void applyRange(RewardBudget budget, Instant start, Instant end, Object kind, String name) {
         if (start == null || end == null) {
-            throw new BusinessException(kind + " \"" + name
-                    + "\" chưa có ngày bắt đầu/kết thúc nên không dùng để khoanh hạn mức được.");
+            throw new BusinessException(ErrorCode.NO_START_END_DATE_CANNOT_USED_BOUND, kind, name);
         }
         budget.setPeriodStart(LocalDate.ofInstant(start, ZONE));
         budget.setPeriodEnd(LocalDate.ofInstant(end, ZONE));

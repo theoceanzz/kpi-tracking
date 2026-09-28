@@ -8,14 +8,14 @@ import lombok.Data;
 @Data
 public class ImportUrboxGiftRequest {
 
-    @NotBlank(message = "Thiếu mã quà UrBox")
+    @NotBlank(message = "{validation.urboxGiftCodeMissing}")
     private String urboxGiftId;
 
     /**
      * Số điểm nhân viên phải trả. Bỏ trống thì lấy giá gợi ý = mệnh giá chia tỉ giá quy
      * đổi của tổ chức, làm tròn lên.
      */
-    @Min(value = 1, message = "Số điểm đổi quà phải lớn hơn 0")
+    @Min(value = 1, message = "{validation.redemptionPointsMustGreaterThan0}")
     private Integer pointCost;
 
     /**
@@ -23,7 +23,7 @@ public class ImportUrboxGiftRequest {
      * quyết — đó cũng là mặc định hợp lý vì kho của họ không nằm trong tầm kiểm soát
      * của tổ chức.
      */
-    @Min(value = 0, message = "Tồn kho không được âm")
+    @Min(value = 0, message = "{validation.stockCannotNegative}")
     private Integer stockQuantity;
 
     /** Tên hiển thị riêng. Bỏ trống thì dùng nguyên tên UrBox. */

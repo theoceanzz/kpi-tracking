@@ -7,6 +7,7 @@ import com.kpitracking.dto.response.ai.AiQuotaOverviewResponse;
 import com.kpitracking.dto.response.ai.AiQuotaStatusResponse;
 import com.kpitracking.entity.User;
 import com.kpitracking.exception.ResourceNotFoundException;
+import com.kpitracking.i18n.Terms;
 import com.kpitracking.repository.UserRepository;
 import com.kpitracking.service.AiQuotaAllocationService;
 import com.kpitracking.service.AiQuotaService;
@@ -36,7 +37,7 @@ public class AiQuotaController {
     public ResponseEntity<ApiResponse<AiQuotaStatusResponse>> myQuota() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         User me = userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("Người dùng", "email", email));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.user"), "email", email));
 
         AiQuotaService.QuotaStatus s = aiQuotaService.getStatus(me.getId());
         return ResponseEntity.ok(ApiResponse.success(AiQuotaStatusResponse.builder()

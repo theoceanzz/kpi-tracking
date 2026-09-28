@@ -1,3 +1,4 @@
+import { intlDateLocale } from '@/i18n/format'
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -25,6 +26,11 @@ import {
   type CertificateData,
 } from './presets'
 import { ChoiceChip } from '@/components/ui/choice-chip'
+import { useTranslation } from 'react-i18next'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
+import { useFormDraft } from '@/hooks/useFormDraft'
+import DraftNotice from '@/components/common/DraftNotice'
 
 interface CertificateTemplateModalProps {
   open: boolean
@@ -42,18 +48,18 @@ interface CertificateTemplateModalProps {
  * <p>Phải là dữ liệu ĐẦY ĐỦ và dài gần bằng thực tế: soạn mẫu với tên ba chữ rồi mang in
  * cho người tên bảy chữ là cách chắc chắn nhất để phát hiện lỗi tràn chữ sau khi đã in.
  */
-const SAMPLE: Omit<CertificateData, 'organizationName' | 'organizationLogoUrl'> = {
-  recipientName: 'Nguyễn Thị Minh Anh',
+const SAMPLE = perLanguage((): Omit<CertificateData, 'organizationName' | 'organizationLogoUrl'> => ({
+  recipientName: i18n.t('rewards:CertificateTemplateModal.nguyenThiMinhAnh'),
   points: 500,
-  reason: 'Dẫn dắt nhóm hoàn thành dự án trước hạn hai tuần và chủ động kèm cặp thành viên mới.',
-  dateLabel: new Date().toLocaleDateString('vi-VN', {
+  reason: i18n.t('rewards:CertificateTemplateModal.ledTheTeamToFinishThe'),
+  dateLabel: new Date().toLocaleDateString(intlDateLocale(), {
     day: '2-digit',
     month: '2-digit',
     year: 'numeric',
   }),
-  grantorName: 'Trần Quốc Hưng',
-  orgUnitName: 'Phòng Kinh doanh',
-}
+  grantorName: i18n.t('rewards:CertificateTemplateModal.tranQuocHung'),
+  orgUnitName: i18n.t('rewards:CertificateTemplateModal.salesDepartment'),
+}))
 
 type ImageSlot = 'signature' | 'logo' | 'background'
 
@@ -64,19 +70,22 @@ export default function CertificateTemplateModal({
   organizationName,
   organizationLogoUrl,
 }: CertificateTemplateModalProps) {
+  const { t } = useTranslation('rewards')
   const isEdit = !!editTemplate
   const { createTemplate, updateTemplate, isCreating, isUpdating } = useCertificateTemplates()
 
-  const { handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<CertificateTemplateFormData>({
-    resolver: zodResolver(certificateTemplateSchema),
+  const formApi = useForm<CertificateTemplateFormData>({
+    resolver: zodResolver(certificateTemplateSchema()),
     defaultValues: {
-      name: '', preset: DEFAULT_PRESET.key, orientation: CertificateOrientation.LANDSCAPE,
+      name: '', preset: DEFAULT_PRESET().key, orientation: CertificateOrientation.LANDSCAPE,
       eyebrow: '', title: '', subtitle: '', body: '', footnote: '',
       signerName: '', signerTitle: '', signatureUrl: '', logoUrl: '', backgroundUrl: '',
       accentColor: '', inkColor: '', surfaceColor: '',
       showLogo: true, showPoints: true, showReason: true, isDefault: false, active: true,
     },
   })
+  const { handleSubmit, reset, watch, setValue, formState: { errors } } = formApi
+  const draft = useFormDraft(formApi, { key: `certificate-template:${editTemplate?.id ?? 'new'}`, enabled: open })
 
   // Bản xem trước bên phải vẽ lại theo TỪNG ký tự vừa gõ, và mọi ô ở đây là thành phần
   // tự vẽ (Toggle / ColorField / ImageField) chứ không phải input thuần, nên theo dõi cả
@@ -122,7 +131,7 @@ export default function CertificateTemplateModal({
 
     // Mẫu mới bắt đầu từ nguyên văn của thiết kế dựng sẵn, không phải từ ô trống: người
     // soạn sửa vài chữ là xong, thay vì phải tự nghĩ ra toàn bộ lời chứng nhận.
-    const base = DEFAULT_PRESET
+    const base = DEFAULT_PRESET()
     reset({
       name: '',
       preset: base.key,
@@ -198,11 +207,11 @@ export default function CertificateTemplateModal({
 
   const handleUpload = async (slot: ImageSlot, file: File) => {
     if (!file.type.startsWith('image/')) {
-      toast.error('Chỉ chấp nhận tệp ảnh')
+      toast.error(t('CertificateTemplateModal.onlyImageFilesAreAccepted'))
       return
     }
     if (file.size > 5 * 1024 * 1024) {
-      toast.error('Ảnh không được vượt quá 5MB')
+      toast.error(t('CertificateTemplateModal.theImageMustNotExceed5mb'))
       return
     }
     setUploading(slot)
@@ -212,7 +221,7 @@ export default function CertificateTemplateModal({
       if (slot === 'logo') setValue('logoUrl', url)
       if (slot === 'background') setValue('backgroundUrl', url)
     } catch (e: any) {
-      toast.error(getApiErrorMessage(e, 'Tải ảnh thất bại'))
+      toast.error(getApiErrorMessage(e, t('CertificateTemplateModal.imageUploadFailed')))
     } finally {
       setUploading(null)
     }
@@ -292,36 +301,37 @@ export default function CertificateTemplateModal({
       size="full"
       flush
       dismissible={!saving}
-      title={isEdit ? 'Sửa mẫu chứng nhận' : 'Tạo mẫu chứng nhận'}
+      title={isEdit ? t('CertificateTemplateModal.editCertificateTemplate') : t('CertificateTemplateModal.createCertificateTemplate')}
       footer={
         <DialogFooter
-          secondary={<Button variant="outline" onClick={onClose} disabled={saving}>Huỷ</Button>}
+          secondary={<Button variant="outline" onClick={onClose} disabled={saving}>{t('CertificateTemplateModal.cancel')}</Button>}
           primary={
             <Button onClick={handleSubmit(onSubmit)} disabled={saving}>
               {saving && <Loader2 className="animate-spin" aria-hidden="true" />}
-              {isEdit ? 'Lưu thay đổi' : 'Tạo mẫu'}
+              {isEdit ? t('CertificateTemplateModal.saveChanges') : t('CertificateTemplateModal.createTemplate')}
             </Button>
           }
         />
       }
     >
+      <DraftNotice draft={draft} className="mb-4" />
       <div className="grid flex-1 grid-cols-1 overflow-hidden lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]">
         {/* ── Cột trái: biểu mẫu ── */}
         <div className="space-y-6 border-b border-[var(--color-border)] p-5 lg:border-b-0 lg:border-r">
-          <Field label="Tên mẫu" hint="Chỉ hiện trong danh sách chọn, không in lên giấy">
+          <Field label={t('CertificateTemplateModal.templateName')} hint={t('CertificateTemplateModal.onlyShownInTheSelectionList')}>
             <input
               value={name}
               onChange={(e) => setValue('name', e.target.value, { shouldValidate: true })}
-              placeholder="VD: Nhân viên của tuần"
+              placeholder={t('CertificateTemplateModal.eGEmployeeOfTheWeek')}
               className="w-full rounded-control border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-sm"
             />
             {errors.name && <p className="mt-1 text-xs text-[var(--color-error)]">{errors.name.message}</p>}
           </Field>
 
           <div>
-            <div className="mb-2 text-sm font-medium">Kiểu thiết kế</div>
+            <div className="mb-2 text-sm font-medium">{t('CertificateTemplateModal.designStyle')}</div>
             <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-              {CERTIFICATE_PRESETS.map((p) => (
+              {CERTIFICATE_PRESETS().map((p) => (
                 <button
                   key={p.key}
                   onClick={() => handlePresetChange(p.key)}
@@ -341,11 +351,11 @@ export default function CertificateTemplateModal({
             </p>
           </div>
 
-          <Field label="Khổ giấy">
+          <Field label={t('CertificateTemplateModal.paperSize')}>
             <div className="flex gap-1.5">
               {[
                 { key: CertificateOrientation.LANDSCAPE, label: 'Ngang (A4)' },
-                { key: CertificateOrientation.PORTRAIT, label: 'Dọc (A4)' },
+                { key: CertificateOrientation.PORTRAIT, label: t('CertificateTemplateModal.portraitA4') },
               ].map((o) => (
                 <ChoiceChip selected={orientation === o.key} variant="solid" className="flex-1 py-2" key={o.key} onClick={() => setValue('orientation', o.key)}>
                   {o.label}
@@ -355,11 +365,11 @@ export default function CertificateTemplateModal({
           </Field>
 
           <div className="space-y-4 border-t border-[var(--color-border)] pt-5">
-            <div className="text-sm font-semibold">Nội dung in trên giấy</div>
+            <div className="text-sm font-semibold">{t('CertificateTemplateModal.contentPrintedOnPaper')}</div>
 
             <PlaceholderHelp />
 
-            <Field label="Dòng dẫn" hint="Chữ nhỏ phía trên tiêu đề">
+            <Field label={t('CertificateTemplateModal.leadInLine')} hint={t('CertificateTemplateModal.smallTextAboveTheTitle')}>
               <input
                 value={eyebrow}
                 onChange={(e) => setValue('eyebrow', e.target.value)}
@@ -367,7 +377,7 @@ export default function CertificateTemplateModal({
               />
             </Field>
 
-            <Field label="Tiêu đề">
+            <Field label={t('CertificateTemplateModal.title')}>
               <input
                 value={title}
                 onChange={(e) => setValue('title', e.target.value, { shouldValidate: true })}
@@ -376,7 +386,7 @@ export default function CertificateTemplateModal({
               {errors.title && <p className="mt-1 text-xs text-[var(--color-error)]">{errors.title.message}</p>}
             </Field>
 
-            <Field label="Phụ đề" hint="Dòng ngay trên tên người nhận">
+            <Field label={t('CertificateTemplateModal.subtitle')} hint={t('CertificateTemplateModal.theLineJustAboveTheRecipients')}>
               <input
                 value={subtitle}
                 onChange={(e) => setValue('subtitle', e.target.value)}
@@ -384,7 +394,7 @@ export default function CertificateTemplateModal({
               />
             </Field>
 
-            <Field label="Đoạn nội dung">
+            <Field label={t('CertificateTemplateModal.bodyParagraph')}>
               <textarea
                 value={body}
                 onChange={(e) => setValue('body', e.target.value)}
@@ -393,7 +403,7 @@ export default function CertificateTemplateModal({
               />
             </Field>
 
-            <Field label="Dòng chân trang" hint="Để trống nếu không cần, VD: số quyết định">
+            <Field label={t('CertificateTemplateModal.footerLine')} hint={t('CertificateTemplateModal.leaveEmptyIfNotNeededE')}>
               <input
                 value={footnote}
                 onChange={(e) => setValue('footnote', e.target.value)}
@@ -405,37 +415,37 @@ export default function CertificateTemplateModal({
               <Toggle
                 checked={showLogo}
                 onChange={v => setValue('showLogo', v)}
-                label="Hiện logo"
+                label={t('CertificateTemplateModal.showLogo')}
               />
               <Toggle
                 checked={showPoints}
                 onChange={v => setValue('showPoints', v)}
-                label="Hiện số điểm"
+                label={t('CertificateTemplateModal.showPoints')}
               />
               <Toggle
                 checked={showReason}
                 onChange={v => setValue('showReason', v)}
-                label="Hiện lý do"
+                label={t('CertificateTemplateModal.showReason')}
               />
             </div>
           </div>
 
           <div className="space-y-4 border-t border-[var(--color-border)] pt-5">
-            <div className="text-sm font-semibold">Người ký</div>
+            <div className="text-sm font-semibold">{t('CertificateTemplateModal.signer')}</div>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-              <Field label="Tên người ký" hint="Để trống = tên người trao thưởng">
+              <Field label={t('CertificateTemplateModal.signerName')} hint={t('CertificateTemplateModal.emptyTheNameOfThePerson')}>
                 <input
                   value={signerName}
                   onChange={(e) => setValue('signerName', e.target.value)}
-                  placeholder="VD: Trần Quốc Hưng"
+                  placeholder={t('CertificateTemplateModal.eGTranQuocHung')}
                   className="w-full rounded-control border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-sm"
                 />
               </Field>
-              <Field label="Chức danh">
+              <Field label={t('CertificateTemplateModal.title2')}>
                 <input
                   value={signerTitle}
                   onChange={(e) => setValue('signerTitle', e.target.value)}
-                  placeholder="VD: Giám đốc điều hành"
+                  placeholder={t('CertificateTemplateModal.eGChiefExecutiveOfficer')}
                   className="w-full rounded-control border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-sm"
                 />
               </Field>
@@ -443,22 +453,22 @@ export default function CertificateTemplateModal({
 
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <ImageField
-                label="Chữ ký / con dấu"
+                label={t('CertificateTemplateModal.signatureSeal')}
                 value={signatureUrl}
                 onChange={v => setValue('signatureUrl', v)}
                 onUpload={(f) => handleUpload('signature', f)}
                 uploading={uploading === 'signature'}
               />
               <ImageField
-                label="Logo riêng"
-                hint="Trống = logo công ty"
+                label={t('CertificateTemplateModal.customLogo')}
+                hint={t('CertificateTemplateModal.emptyCompanyLogo')}
                 value={logoUrl}
                 onChange={v => setValue('logoUrl', v)}
                 onUpload={(f) => handleUpload('logo', f)}
                 uploading={uploading === 'logo'}
               />
               <ImageField
-                label="Ảnh nền"
+                label={t('CertificateTemplateModal.backgroundImage')}
                 value={backgroundUrl}
                 onChange={v => setValue('backgroundUrl', v)}
                 onUpload={(f) => handleUpload('background', f)}
@@ -469,7 +479,7 @@ export default function CertificateTemplateModal({
 
           <div className="space-y-3 border-t border-[var(--color-border)] pt-5">
             <div className="flex items-center justify-between">
-              <div className="text-sm font-semibold">Màu sắc</div>
+              <div className="text-sm font-semibold">{t('CertificateTemplateModal.color')}</div>
               {(accentColor || inkColor || surfaceColor) && (
                 <Button variant="ghost" size="sm" onClick={() => {
                     setValue('accentColor', '')
@@ -477,25 +487,25 @@ export default function CertificateTemplateModal({
                     setValue('surfaceColor', '')
                   }}>
                   <RotateCcw aria-hidden="true" />
-                  Về màu gốc của mẫu
+                  {t('CertificateTemplateModal.backToTheTemplatesOriginalColors')}
                 </Button>
               )}
             </div>
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <ColorField
-                label="Màu nhấn"
+                label={t('CertificateTemplateModal.accentColor')}
                 value={accentColor}
                 fallback={getPreset(preset).colors.accent}
                 onChange={v => setValue('accentColor', v)}
               />
               <ColorField
-                label="Màu chữ"
+                label={t('CertificateTemplateModal.textColor')}
                 value={inkColor}
                 fallback={getPreset(preset).colors.ink}
                 onChange={v => setValue('inkColor', v)}
               />
               <ColorField
-                label="Màu nền"
+                label={t('CertificateTemplateModal.backgroundColor')}
                 value={surfaceColor}
                 fallback={getPreset(preset).colors.surface}
                 onChange={v => setValue('surfaceColor', v)}
@@ -507,14 +517,14 @@ export default function CertificateTemplateModal({
             <Toggle
               checked={isDefault}
               onChange={v => setValue('isDefault', v)}
-              label="Đặt làm mẫu mặc định"
-              hint="Được chọn sẵn khi mở màn hình in. Mỗi công ty chỉ một mẫu."
+              label={t('CertificateTemplateModal.makeDefaultTemplate')}
+              hint={t('CertificateTemplateModal.preselectedWhenOpeningThePrintScreen')}
             />
             <Toggle
               checked={active}
               onChange={v => setValue('active', v)}
-              label="Đang dùng"
-              hint="Tắt để giữ lại mẫu nhưng không cho chọn khi in."
+              label={t('CertificateTemplateModal.inUse')}
+              hint={t('CertificateTemplateModal.turnOffToKeepTheTemplate')}
             />
           </div>
         </div>
@@ -522,11 +532,11 @@ export default function CertificateTemplateModal({
         {/* ── Cột phải: xem trước ── */}
         <div className="bg-[var(--color-muted)] p-5">
           <div className="mb-3 text-xs text-[var(--color-muted-foreground)]">
-            Xem trước với dữ liệu mẫu — số liệu thật sẽ được điền lúc in.
+            {t('CertificateTemplateModal.previewWithSampleDataRealFigures')}
           </div>
           <EditorPreview
             design={design}
-            data={{ ...SAMPLE, organizationName, organizationLogoUrl }}
+            data={{ ...SAMPLE(), organizationName, organizationLogoUrl }}
           />
         </div>
       </div>
@@ -607,6 +617,7 @@ function ColorField({
   fallback: string
   onChange: (v: string) => void
 }) {
+  const { t } = useTranslation('rewards')
   return (
     <div>
       <div className="mb-1.5 text-xs font-medium">{label}</div>
@@ -618,7 +629,7 @@ function ColorField({
           className="h-9 w-9 flex-shrink-0 cursor-pointer rounded-control border border-[var(--color-border)] bg-transparent p-0.5"
         />
         <span className="min-w-0 truncate font-mono text-xs text-[var(--color-muted-foreground)]">
-          {value || 'Mặc định'}
+          {value || t('CertificateTemplateModal.default')}
         </span>
       </div>
     </div>
@@ -640,6 +651,7 @@ function ImageField({
   onUpload: (file: File) => void
   uploading: boolean
 }) {
+  const { t } = useTranslation('rewards')
   const inputRef = useRef<HTMLInputElement>(null)
 
   return (
@@ -657,7 +669,7 @@ function ImageField({
             <img src={value} alt="" className="max-h-full max-w-full object-contain p-1.5" />
             <button
               onClick={() => onChange('')}
-              title="Gỡ ảnh"
+              title={t('CertificateTemplateModal.removeImage')}
               className="absolute right-1 top-1 rounded-md bg-black/55 p-1 text-white hover:bg-black/75"
             >
               <Trash2 size={12} />
@@ -666,7 +678,7 @@ function ImageField({
         ) : (
           <Button variant="ghost" size="sm" onClick={() => inputRef.current?.click()}>
             <Upload aria-hidden="true" />
-            Tải ảnh
+            {t('CertificateTemplateModal.uploadImage')}
           </Button>
         )}
       </div>
@@ -687,20 +699,21 @@ function ImageField({
 
 /** Bảng chỗ giữ, bấm để chép nhanh. */
 function PlaceholderHelp() {
+  const { t } = useTranslation('rewards')
   return (
     <div className="rounded-card bg-[var(--color-muted)] p-3">
       <div className="mb-2 text-xs font-medium">
-        Chèn dữ liệu tự động — bấm để sao chép, rồi dán vào ô bất kỳ bên dưới
+        {t('CertificateTemplateModal.insertAutomaticDataClickToCopy')}
       </div>
       <div className="flex flex-wrap gap-1.5">
-        {CERTIFICATE_PLACEHOLDERS.map((p) => (
+        {CERTIFICATE_PLACEHOLDERS().map((p) => (
           <Button variant="outline" size="sm" key={p.token} onClick={() => {
               navigator.clipboard
                 ?.writeText(p.token)
-                .then(() => toast.success(`Đã sao chép ${p.token}`))
+                .then(() => toast.success(t('CertificateTemplateModal.copied', { token: p.token })))
                 // Trình duyệt chặn clipboard (thường vì không chạy HTTPS) — chỗ giữ vẫn
                 // hiện rõ trên nút nên người dùng gõ tay được, không cần doạ bằng lỗi đỏ.
-                .catch(() => toast.info(`Hãy gõ tay: ${p.token}`))
+                .catch(() => toast.info(t('CertificateTemplateModal.pleaseTypeItManually', { token: p.token })))
             }} title={p.label}>
             {p.token}
           </Button>

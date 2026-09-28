@@ -2,6 +2,7 @@ import { Node, mergeAttributes } from '@tiptap/core'
 import { ReactNodeViewRenderer } from '@tiptap/react'
 import { resolveAlertColors } from './emailNodeStyles'
 import { ButtonView, CodeView, AlertView, InfoView, VariableView, ImageView } from './emailNodeViews'
+import i18n from 'i18next'
 
 /**
  * Các khối đặc thù của email, khai báo thành node TipTap thay vì hệ thống khối tự viết.
@@ -25,7 +26,7 @@ export const EmailButton = Node.create({
   draggable: true,
 
   addAttributes: () => ({
-    label: { default: 'Bấm vào đây' },
+    label: { default: i18n.t('organization:emailNodes.clickHere') },
     url: { default: '{{link_he_thong}}' },
   }),
 
@@ -56,7 +57,7 @@ export const EmailCode = Node.create({
   draggable: true,
 
   addAttributes: () => ({
-    label: { default: 'Mã xác thực' },
+    label: { default: i18n.t('organization:emailNodes.verificationCode') },
     value: { default: '{{ma_otp}}' },
   }),
 

@@ -16,12 +16,12 @@ import java.util.UUID;
 @Data
 public class RewardProgramRequest {
 
-    @NotBlank(message = "Vui lòng nhập tên chương trình")
+    @NotBlank(message = "{validation.enterProgramName}")
     private String name;
 
     private String description;
 
-    @NotNull(message = "Vui lòng chọn phạm vi (theo đợt hay theo kỳ)")
+    @NotNull(message = "{validation.chooseScope}")
     private RewardProgramScope scope;
 
     /** Gốc phạm vi xếp hạng. Để trống = toàn tổ chức. */
@@ -37,7 +37,7 @@ public class RewardProgramRequest {
 
     private RewardRankWithin rankWithin;
 
-    @NotNull(message = "Vui lòng chọn chỉ số xếp hạng")
+    @NotNull(message = "{validation.chooseRankingMetric}")
     private RewardRankingMetric metric;
 
     private RewardTiePolicy tiePolicy;
@@ -46,12 +46,12 @@ public class RewardProgramRequest {
     private Double minMetricValue;
 
     /** Trần an toàn cho một lần phát. Để trống = không giới hạn. */
-    @Min(value = 1, message = "Trần điểm mỗi lần phát phải lớn hơn 0")
+    @Min(value = 1, message = "{validation.pointCapPerGrantMustGreaterThan0}")
     private Integer maxPointsPerRun;
 
     private Boolean includeUnitHeads;
 
-    @NotEmpty(message = "Vui lòng thiết lập ít nhất một bậc thưởng")
+    @NotEmpty(message = "{validation.setUpLeastOneRewardTier}")
     private List<Tier> tiers;
 
     private Boolean enabled;
@@ -72,16 +72,16 @@ public class RewardProgramRequest {
     @Data
     public static class Tier {
 
-        @NotNull(message = "Thiếu hạng bắt đầu")
-        @Min(value = 1, message = "Hạng bắt đầu phải từ 1")
+        @NotNull(message = "{validation.startRankMissing}")
+        @Min(value = 1, message = "{validation.startRankMustLeast1}")
         private Integer fromRank;
 
-        @NotNull(message = "Thiếu hạng kết thúc")
-        @Min(value = 1, message = "Hạng kết thúc phải từ 1")
+        @NotNull(message = "{validation.endRankMissing}")
+        @Min(value = 1, message = "{validation.endRankMustLeast1}")
         private Integer toRank;
 
-        @NotNull(message = "Thiếu số điểm thưởng")
-        @Min(value = 1, message = "Số điểm thưởng phải lớn hơn 0")
+        @NotNull(message = "{validation.rewardPointsMissing}")
+        @Min(value = 1, message = "{validation.rewardPointsMustGreaterThan0}")
         private Integer points;
     }
 }

@@ -3,6 +3,7 @@ package com.kpitracking.ai.rag;
 import com.kpitracking.entity.RagAsset;
 import com.kpitracking.exception.BusinessException;
 import com.kpitracking.entity.RagDocument;
+import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.repository.RagAssetRepository;
 import com.kpitracking.repository.RagDocumentRepository;
 import dev.langchain4j.data.document.Document;
@@ -55,7 +56,7 @@ public class RagIngestionService {
     public static String docxFileName(String originalName) {
         String name = originalName == null || originalName.isBlank() ? "tai-lieu.docx" : originalName;
         if (!name.toLowerCase(java.util.Locale.ROOT).endsWith(".docx")) {
-            throw new BusinessException("Hiện chỉ nhận tệp .docx");
+            throw new BusinessException(ErrorCode.ONLY);
         }
         return name;
     }

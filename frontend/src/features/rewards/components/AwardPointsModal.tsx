@@ -1,3 +1,4 @@
+import { LocaleNumberInput } from '@/components/ui/number-input'
 import { useEffect, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -19,6 +20,9 @@ import { useCertificateCatalog } from '../hooks/useCertificates'
 import type { RewardGrant } from '../types'
 import { Dialog, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
+import { useTranslation } from 'react-i18next'
+import { useFormDraft } from '@/hooks/useFormDraft'
+import DraftNotice from '@/components/common/DraftNotice'
 
 /** Xem ghi chú z-index của `SelectContent` ở EmployeePicker — modal này cũng là z-[1000]. */
 const SELECT_CONTENT_Z = 'z-[1100]'
@@ -48,12 +52,15 @@ export default function AwardPointsModal({
   presetUsers,
   onSuccess,
 }: AwardPointsModalProps) {
-  const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<AwardPointsFormData>({
-    resolver: zodResolver(awardPointsSchema),
+  const { t: tr } = useTranslation('rewards')
+  const formApi = useForm<AwardPointsFormData>({
+    resolver: zodResolver(awardPointsSchema()),
     defaultValues: {
       picked: [], points: undefined, reason: '', withCertificate: false, certificateTemplateId: '',
     },
   })
+  const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = formApi
+  const draft = useFormDraft(formApi, { key: `award-points:${(presetUsers ?? []).map(u => u.id).join(',')}`, enabled: open })
 
   // Danh sách người nhận và ô chọn mẫu giấy khen không phải ô nhập thường.
   const picked = watch('picked')
@@ -118,13 +125,13 @@ export default function AwardPointsModal({
     if (!budget) return null
     if (typeof points !== 'number' || points <= 0) return null
     if (budget.maxPerAward != null && points > budget.maxPerAward) {
-      return `Vượt mức tối đa ${budget.maxPerAward} điểm/người.`
+      return tr('AwardPointsModal.exceedsTheMaximumOfPointsPerson', { maxPerAward: budget.maxPerAward })
     }
     if (total > budget.remainingPoints) {
-      return `Hạn mức còn ${budget.remainingPoints} điểm nhưng đề nghị cần ${total} điểm.`
+      return tr('AwardPointsModal.theBudgetHasPointsLeftBut', { remainingPoints: budget.remainingPoints, total })
     }
     return null
-  }, [budget, points, total])
+  }, [budget, points, total, tr])
 
   // Có quyền tự duyệt thì dù chưa có hạn mức hay vượt hạn mức cũng phát ngay.
   const needsApproval = !canApproveOwn && (noBudget || !!overBudget)
@@ -138,17 +145,17 @@ export default function AwardPointsModal({
       // `useMyBudget` chỉ trả về hạn mức ĐANG hiệu lực, nên không có nghĩa là "chưa
       // từng được cấp" — có thể hạn mức đã hết hạn. Backend biết rõ hơn và sẽ trả về
       // lý do chính xác sau khi gửi; ở đây nói mở để không khẳng định sai.
-      const reason = overBudget ?? 'Bạn không có hạn mức nào đang hiệu lực.'
-      return { tone: 'warn' as const, text: `${reason} Đề nghị này sẽ cần cấp trên duyệt.` }
+      const reason = overBudget ?? tr('AwardPointsModal.youHaveNoActiveBudget')
+      return { tone: 'warn' as const, text: tr('AwardPointsModal.thisProposalWillNeedManagerApproval', { reason }) }
     }
     if (canApproveOwn && overBudget) {
       return {
         tone: 'info' as const,
-        text: `${overBudget} Bạn có quyền tự duyệt nên điểm vẫn được phát ngay.`,
+        text: tr('AwardPointsModal.youHaveSelfApprovalPermissionSo', { overBudget }),
       }
     }
     return null
-  }, [needsApproval, canApproveOwn, overBudget])
+  }, [needsApproval, canApproveOwn, overBudget, tr])
 
   if (!open) return null
 
@@ -176,29 +183,30 @@ export default function AwardPointsModal({
       onClose={onClose}
       size="lg"
       dismissible={!isCreating}
-      title="Thưởng điểm cho nhân viên"
+      title={tr('AwardPointsModal.rewardPointsToEmployees')}
       footer={
         <DialogFooter
-          secondary={<Button variant="outline" onClick={onClose} disabled={isCreating}>Huỷ</Button>}
+          secondary={<Button variant="outline" onClick={onClose} disabled={isCreating}>{tr('AwardPointsModal.cancel')}</Button>}
           primary={
             <Button onClick={handleSubmit(onSubmit)} disabled={isCreating}>
               {isCreating && <Loader2 className="animate-spin" aria-hidden="true" />}
-              {needsApproval ? 'Gửi đề nghị duyệt' : 'Thưởng ngay'}
+              {needsApproval ? tr('AwardPointsModal.sendForApproval') : tr('AwardPointsModal.rewardNow')}
             </Button>
           }
         />
       }
     >
+      <DraftNotice draft={draft} className="mb-4" />
       <div className="space-y-5">
         {budget ? (
           <div className="rounded-card bg-[var(--color-muted)] px-4 py-3 text-sm">
-            Hạn mức của bạn:{' '}
+            {tr('AwardPointsModal.yourBudget')}{' '}
             <span className="font-semibold">
-              còn {budget.remainingPoints}/{budget.allocatedPoints} điểm
+              {tr('AwardPointsModal.remaining')} {budget.remainingPoints}/{budget.allocatedPoints} {tr('AwardPointsModal.points')}
             </span>
             {budget.maxPerAward != null && (
               <span className="text-[var(--color-muted-foreground)]">
-                {' '}· tối đa {budget.maxPerAward} điểm/người mỗi lần
+                {' '}{tr('AwardPointsModal.max')} {budget.maxPerAward} {tr('AwardPointsModal.pointsPersonEachTime')}
               </span>
             )}
           </div>
@@ -208,12 +216,12 @@ export default function AwardPointsModal({
           // sẽ không lặp lại chuyện này.
           <div className="flex items-center gap-2 rounded-card bg-[var(--color-success-bg)] px-4 py-3 text-sm">
             <ShieldCheck size={16} className="flex-shrink-0 text-[var(--color-success)]" />
-            <span>Bạn thưởng được ngay, không bị giới hạn hạn mức.</span>
+            <span>{tr('AwardPointsModal.youCanRewardRightAwayWith')}</span>
           </div>
         ) : null}
 
         <div>
-          <label className="text-label mb-1.5 block font-medium">Chọn nhân viên</label>
+          <label className="text-label mb-1.5 block font-medium">{tr('AwardPointsModal.chooseEmployees')}</label>
 
           {picked.length > 0 && (
             <div className="mb-2 flex flex-wrap gap-2">
@@ -245,8 +253,8 @@ export default function AwardPointsModal({
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <label className="text-label mb-1.5 block font-medium">Số điểm mỗi người</label>
-            <input
+            <label className="text-label mb-1.5 block font-medium">{tr('AwardPointsModal.pointsPerPerson')}</label>
+            <LocaleNumberInput
               type="number"
               min={1}
               {...register('points', { setValueAs: numOrUndefined })}
@@ -256,26 +264,25 @@ export default function AwardPointsModal({
           </div>
           <div className="flex flex-col justify-end">
             <div className="rounded-control bg-[var(--color-muted)] px-3 py-2 text-sm">
-              Tổng cộng: <span className="font-semibold">{total} điểm</span>
+              {tr('AwardPointsModal.total')} <span className="font-semibold">{total} {tr('AwardPointsModal.points')}</span>
               <span className="text-[var(--color-muted-foreground)]">
-                {' '}({picked.length} người)
+                {' '}({picked.length} {tr('AwardPointsModal.people')}
               </span>
             </div>
           </div>
         </div>
 
         <div>
-          <label className="text-label mb-1.5 block font-medium">Lý do thưởng</label>
+          <label className="text-label mb-1.5 block font-medium">{tr('AwardPointsModal.rewardReason')}</label>
           <textarea
             {...register('reason')}
             rows={3}
-            placeholder="Ví dụ: Hoàn thành xuất sắc dự án ra mắt sản phẩm quý này"
+            placeholder={tr('AwardPointsModal.eGOutstandingWorkOnThis')}
             className="w-full rounded-control border border-[var(--color-border)] bg-transparent px-3 py-2 text-sm"
           />
           {errors.reason && <p className="mt-1 text-xs text-[var(--color-error)]">{errors.reason.message}</p>}
           <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">
-            Lý do được hiện trong lịch sử điểm của nhân viên, nên viết cụ thể. Nếu kèm giấy
-            khen, lý do này cũng được in lên đó.
+            {tr('AwardPointsModal.theReasonAppearsInTheEmployees')}
           </p>
         </div>
 
@@ -294,32 +301,31 @@ export default function AwardPointsModal({
             <span className="min-w-0">
               <span className="flex items-center gap-1.5 text-sm font-medium">
                 <Award size={15} className="text-[var(--color-warning)]" />
-                Kèm giấy khen
+                {tr('AwardPointsModal.attachACertificate')}
               </span>
               <span className="mt-0.5 block text-xs text-[var(--color-muted-foreground)]">
-                Nhân viên sẽ có một chứng nhận in được ở mục "Điểm thưởng của tôi". Không
-                bật thì lần thưởng này chỉ cộng điểm.
+                {tr('AwardPointsModal.theEmployeeWillGetAPrintable')}
               </span>
             </span>
           </label>
 
           {withCertificate && (
             <div className="mt-3 border-t border-[var(--color-border)] pt-3">
-              <label className="text-label mb-1.5 block font-medium">Mẫu chứng nhận</label>
+              <label className="text-label mb-1.5 block font-medium">{tr('AwardPointsModal.certificateTemplates')}</label>
 
               {certificateTemplates.length === 0 ? (
                 // Không dựng ô chọn rỗng: một dropdown chẳng có gì bên trong chỉ khiến
                 // người dùng bấm vào rồi tự hỏi mình làm sai chỗ nào.
                 <div className="rounded-control bg-[var(--color-muted)] px-3 py-2.5 text-xs">
                   <p className="text-[var(--color-muted-foreground)]">
-                    Công ty chưa có mẫu riêng nào — giấy khen sẽ in bằng thiết kế dựng sẵn.
+                    {tr('AwardPointsModal.theCompanyHasNoCustomTemplates')}
                   </p>
                   {canConfigureCertificates && (
                     <Link
                       to={CERTIFICATE_TAB_URL}
                       className="mt-1.5 inline-flex items-center gap-1 font-medium text-[var(--color-primary)] hover:underline"
                     >
-                      Tạo mẫu riêng có logo và chữ ký
+                      {tr('AwardPointsModal.createACustomTemplateWithLogo')}
                       <ExternalLink size={12} />
                     </Link>
                   )}
@@ -337,7 +343,7 @@ export default function AwardPointsModal({
                         một lựa chọn hứa hẹn thứ không tồn tại. */}
                     {orgDefaultTemplate && (
                       <SelectItem value={USE_ORG_DEFAULT}>
-                        Mẫu mặc định của công ty ({orgDefaultTemplate.name})
+                        {tr('AwardPointsModal.companyDefaultTemplate')}{orgDefaultTemplate.name})
                       </SelectItem>
                     )}
                     {certificateTemplates.map((t) => (
@@ -351,7 +357,7 @@ export default function AwardPointsModal({
 
               {certificateTemplates.length > 0 && (
                 <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">
-                  Bạn vẫn đổi được mẫu và khổ giấy ở màn hình in.
+                  {tr('AwardPointsModal.youCanStillChangeTheTemplate')}
                 </p>
               )}
             </div>

@@ -1,3 +1,5 @@
+import { LocaleDateInput } from '@/components/ui/date-input'
+import { intlLocale } from '@/i18n/format'
 import { useState } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Check, Coins, Loader2 } from 'lucide-react'
@@ -7,8 +9,9 @@ import { cn } from '@/lib/utils'
 import NumberInput from '@/components/common/NumberInput'
 import { platformAdminApi, type OrgAiUsage } from '../api/platformAdminApi'
 import { Button } from '@/components/ui/button'
+import { useTranslation } from 'react-i18next'
 
-const fmt = (n: number | null | undefined) => (n ?? 0).toLocaleString('vi-VN')
+const fmt = (n: number | null | undefined) => (n ?? 0).toLocaleString(intlLocale())
 
 /** YYYY-MM của tháng hiện tại. */
 function currentMonth() {
@@ -17,14 +20,15 @@ function currentMonth() {
 }
 
 function BudgetInput({ row, onSaved }: { row: OrgAiUsage; onSaved: () => void }) {
+  const { t } = useTranslation('platformAdmin')
   const [value, setValue] = useState(row.monthlyLimit ?? 0)
   const mutation = useMutation({
     mutationFn: (limit: number) => platformAdminApi.updateAiBudget(row.organizationId, limit),
     onSuccess: () => {
-      toast.success(`Đã cập nhật ngân sách cho ${row.organizationName}`)
+      toast.success(t('AiUsageSection.updatedTheBudgetFor', { organizationName: row.organizationName }))
       onSaved()
     },
-    onError: (err: any) => toast.error(getApiErrorMessage(err, 'Không cập nhật được ngân sách')),
+    onError: (err: any) => toast.error(getApiErrorMessage(err, t('AiUsageSection.couldNotUpdateTheBudget'))),
   })
 
   const dirty = value !== (row.monthlyLimit ?? 0)
@@ -45,6 +49,7 @@ function BudgetInput({ row, onSaved }: { row: OrgAiUsage; onSaved: () => void })
 }
 
 export default function AiUsageSection() {
+  const { t } = useTranslation('platformAdmin')
   const [month, setMonth] = useState(currentMonth())
   const qc = useQueryClient()
   const { data, isLoading } = useQuery({
@@ -60,12 +65,12 @@ export default function AiUsageSection() {
       <div className="flex flex-wrap items-center gap-3 border-b border-[var(--color-border)] p-5">
         <Coins size={18} className="text-[var(--color-primary)]" />
         <div className="min-w-0 flex-1">
-          <h3 className="text-section-title">Token AI theo công ty</h3>
+          <h3 className="text-section-title">{t('AiUsageSection.aiTokensByCompany')}</h3>
           <p className="text-xs text-[var(--color-muted-foreground)]">
-            Tổng đã tiêu trong tháng: <span className="font-semibold">{fmt(totalUsed)}</span> token
+            {t('AiUsageSection.totalUsedThisMonth')} <span className="font-semibold">{fmt(totalUsed)}</span> token
           </p>
         </div>
-        <input
+        <LocaleDateInput
           type="month"
           value={month}
           onChange={(e) => setMonth(e.target.value)}
@@ -78,17 +83,17 @@ export default function AiUsageSection() {
           <Loader2 size={22} className="animate-spin text-[var(--color-primary)]" />
         </div>
       ) : (data?.length ?? 0) === 0 ? (
-        <p className="py-12 text-center text-sm text-[var(--color-muted-foreground)]">Chưa có dữ liệu tiêu thụ.</p>
+        <p className="py-12 text-center text-sm text-[var(--color-muted-foreground)]">{t('AiUsageSection.noUsageDataYet')}</p>
       ) : (
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="border-b border-[var(--color-border)] bg-[var(--color-muted)] text-[var(--color-muted-foreground)]">
               <tr>
-                <th className="px-4 py-3 text-left font-medium">Công ty</th>
-                <th className="px-4 py-3 text-right font-medium">Đã tiêu</th>
-                <th className="px-4 py-3 text-right font-medium hidden sm:table-cell">Lượt gọi</th>
-                <th className="px-4 py-3 text-left font-medium">Mức dùng</th>
-                <th className="px-4 py-3 text-right font-medium">Ngân sách/tháng</th>
+                <th className="px-4 py-3 text-left font-medium">{t('AiUsageSection.company')}</th>
+                <th className="px-4 py-3 text-right font-medium">{t('AiUsageSection.used')}</th>
+                <th className="px-4 py-3 text-right font-medium hidden sm:table-cell">{t('AiUsageSection.calls')}</th>
+                <th className="px-4 py-3 text-left font-medium">{t('AiUsageSection.usage')}</th>
+                <th className="px-4 py-3 text-right font-medium">{t('AiUsageSection.budgetMonth')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--color-border)]">
@@ -106,7 +111,7 @@ export default function AiUsageSection() {
                     </td>
                     <td className="px-4 py-3">
                       {pct === null ? (
-                        <span className="text-xs text-[var(--color-subtle-foreground)]">Chưa cấp ngân sách</span>
+                        <span className="text-xs text-[var(--color-subtle-foreground)]">{t('AiUsageSection.noBudgetAllocated')}</span>
                       ) : (
                         <div className="flex items-center gap-2">
                           <div className="h-1.5 w-24 overflow-hidden rounded-full bg-[var(--color-border)]">

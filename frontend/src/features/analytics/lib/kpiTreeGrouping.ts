@@ -1,5 +1,6 @@
 import type { TreeNode } from '@/components/charts/primitives/HierarchicalTreemap'
 import type { OrgUnitKpiDetail } from '@/features/dashboard/api/orgUnitKpiApi'
+import i18n from 'i18next'
 
 export interface UnitGroup {
   id: string
@@ -69,7 +70,7 @@ export function toTreeNode(k: OrgUnitKpiDetail): TreeNode {
 export function groupKpisByPeriod(rows: OrgUnitKpiDetail[]): PeriodGroup[] {
   const byPeriod = new Map<string, OrgUnitKpiDetail[]>()
   rows.forEach(k => {
-    const key = k.periodName ?? 'Không rõ đợt'
+    const key = k.periodName ?? i18n.t('analytics:kpiTreeGrouping.unknownPeriod')
     if (!byPeriod.has(key)) byPeriod.set(key, [])
     byPeriod.get(key)!.push(k)
   })

@@ -30,6 +30,9 @@ import { useMutation, useQueryClient } from '@tanstack/react-query'
 import { evaluationApi } from '../api/evaluationApi'
 import { toast } from 'sonner'
 import { getApiErrorMessage } from '@/lib/apiError'
+import { useTranslation } from 'react-i18next'
+import { useFormDraft } from '@/hooks/useFormDraft'
+import DraftNotice from '@/components/common/DraftNotice'
 
 interface EvaluationDetailModalProps {
   open: boolean
@@ -40,6 +43,7 @@ interface EvaluationDetailModalProps {
 
 
 export default function EvaluationDetailModal({ open, onClose, evaluation }: EvaluationDetailModalProps) {
+  const { t } = useTranslation('evaluations')
   // Id đánh giá đang mở màn hình diễn giải điểm (waterfall + ghi đè).
   const [waterfallId, setWaterfallId] = useState<string | null>(null)
   const { user } = useAuthStore()
@@ -63,6 +67,10 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
   const scoreCeilingRef = useRef(0)
   const inlineSchema = useMemo(() => createInlineEvaluationSchema(() => scoreCeilingRef.current), [])
 
+  const formApi = useForm<InlineEvaluationFormData>({
+    resolver: zodResolver(inlineSchema),
+    defaultValues: { score: 0, comment: '' },
+  })
   const {
     register: registerInline,
     handleSubmit: handleInlineSubmit,
@@ -70,10 +78,8 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
     watch: watchInline,
     setValue: setInlineValue,
     formState: { errors: inlineErrors },
-  } = useForm<InlineEvaluationFormData>({
-    resolver: zodResolver(inlineSchema),
-    defaultValues: { score: 0, comment: '' },
-  })
+  } = formApi
+  const draft = useFormDraft(formApi, { key: `evaluation-detail:${evaluation?.id ?? ''}`, enabled: open && !!evaluation })
 
   // Thanh kéo điểm hiển thị lại theo từng nấc nên phải theo dõi giá trị.
   const inlineScore = watchInline('score')
@@ -103,10 +109,10 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
     }),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['evaluations'] })
-      toast.success('Đã lưu đánh giá thành công')
+      toast.success(t('EvaluationDetailModal.evaluationSavedSuccessfully'))
     },
     onError: (err) => {
-      toast.error(getApiErrorMessage(err, 'Lưu đánh giá thất bại'))
+      toast.error(getApiErrorMessage(err, t('EvaluationDetailModal.failedToSaveTheEvaluation')))
     }
   })
 
@@ -133,8 +139,8 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
     const evalUserLevel = mapLevel(rawEvalUserLevel)
     const evalUserRank = [evaluation.userRank, selfEval?.userRank, firstEval?.userRank].find(r => r != null) ?? 2
 
-    const roleLabel = evaluation.userRoleName || (selfEval?.evaluatorRoleName || (selfEval?.evaluatorRole === 'SELF' ? 'Nhân viên' : 'Thành viên'))
-    const verb = (evalUserLevel <= 1) ? 'tự nhận xét' : 'tự đánh giá'
+    const roleLabel = evaluation.userRoleName || (selfEval?.evaluatorRoleName || (selfEval?.evaluatorRole === 'SELF' ? t('EvaluationDetailModal.employee') : t('EvaluationDetailModal.members')))
+    const verb = (evalUserLevel <= 1) ? t('EvaluationDetailModal.selfReview') : t('EvaluationDetailModal.selfAssessment')
     let selfTitle = `${roleLabel} ${verb}`
 
     // Try to derive generic title from hierarchy levels for Managers (Rank 0, 1)
@@ -157,8 +163,8 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
         selfTitle = `${baseLabel} ${verb}`;
       } else if (evalUserRank === 1) {
         const phoSuffix = baseLabel.toLowerCase().startsWith('trưởng') 
-          ? baseLabel.replace(/Trưởng/i, 'Phó') 
-          : `Phó ${baseLabel}`;
+          ? baseLabel.replace(/Trưởng/i, t('EvaluationDetailModal.deputy')) 
+          : t('EvaluationDetailModal.deputy2', { baseLabel });
         selfTitle = `${phoSuffix} ${verb}`;
       }
     }
@@ -205,33 +211,33 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
 
       if (mappedRoleLevel === 0) {
         roleCode = 'CEO'
-        stepTitle = `${hl.managerRoleLabel || 'Cấp quản lý cao nhất'} Quyết định`
+        stepTitle = t('EvaluationDetailModal.decision', { value: hl.managerRoleLabel || t('EvaluationDetailModal.topManagementLevel') })
         icon = Star
         iconBg = "bg-[var(--color-warning-bg)]"
         iconColor = "text-[var(--color-warning)]"
       } else if (mappedRoleLevel === 1) {
         roleCode = 'REGIONAL_DIRECTOR'
-        stepTitle = `${hl.managerRoleLabel || 'Cấp quản lý vùng'} đánh giá`
+        stepTitle = t('EvaluationDetailModal.evaluation', { value: hl.managerRoleLabel || t('EvaluationDetailModal.regionalManagementLevel') })
         iconBg = "bg-[var(--color-primary-soft)]"
         iconColor = "text-[var(--color-primary)]"
       } else if (mappedRoleLevel === 2) {
         roleCode = 'DIRECTOR'
-        stepTitle = `${hl.managerRoleLabel || 'Quản lý cấp cao'} đánh giá`
+        stepTitle = t('EvaluationDetailModal.evaluation', { value: hl.managerRoleLabel || t('EvaluationDetailModal.seniorManager') })
         iconBg = "bg-[var(--color-info-bg)]"
         iconColor = "text-[var(--color-info)]"
       } else if (mappedRoleLevel === 3) {
         roleCode = 'DEPT_HEAD'
-        stepTitle = `${hl.managerRoleLabel || 'Quản lý đơn vị'} đánh giá`
+        stepTitle = t('EvaluationDetailModal.evaluation', { value: hl.managerRoleLabel || t('EvaluationDetailModal.unitManager') })
         iconBg = "bg-[var(--color-primary-soft)]"
         iconColor = "text-[var(--color-primary)]"
       } else if (mappedRoleLevel === 4) {
         roleCode = 'TEAM_LEADER'
-        stepTitle = `${hl.managerRoleLabel || 'Quản lý trực tiếp'} đánh giá`
+        stepTitle = t('EvaluationDetailModal.evaluation', { value: hl.managerRoleLabel || t('EvaluationDetailModal.directManager') })
         iconBg = "bg-[var(--color-success-bg)]"
         iconColor = "text-[var(--color-success)]"
       } else {
         roleCode = `LEVEL_${mappedRoleLevel}`
-        stepTitle = `${hl.managerRoleLabel || 'Cấp quản lý'} đánh giá`
+        stepTitle = t('EvaluationDetailModal.evaluation', { value: hl.managerRoleLabel || t('EvaluationDetailModal.managementLevel') })
       }
 
       const evalAtLevel = relatedData.content.find((e: any) => {
@@ -288,7 +294,7 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
       })
       
       const displayTitle = evalAtLevel?.evaluatorRoleName 
-        ? `${evalAtLevel.evaluatorRoleName.toUpperCase()} ĐÁNH GIÁ`
+        ? t('EvaluationDetailModal.evaluation2', { toUpperCase: evalAtLevel.evaluatorRoleName.toUpperCase() })
         : stepTitle;
 
       managerSteps.push({
@@ -308,7 +314,7 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
       steps[0],
       ...managerSteps.sort((a, b) => b.level - a.level)
     ]
-  }, [evaluation, org, relatedData])
+  }, [evaluation, org, relatedData, t])
 
   const layers = useMemo(() => {
     return {
@@ -372,9 +378,10 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
       open={open}
       onClose={onClose}
       size="lg"
-      title="Chi tiết Đánh giá"
+      title={t('EvaluationDetailModal.evaluationDetails')}
       description={evaluation.kpiPeriodName}
     >
+      <DraftNotice draft={draft} className="mb-4" />
       <div className="space-y-6">
 
         {/* Subject Info */}
@@ -390,7 +397,7 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
               <h4 className="text-lg font-semibold text-[var(--color-foreground)]">{evaluation.userName}</h4>
               <div className="flex items-center gap-2 mt-0.5 mb-1.5">
                 <span className="text-eyebrow px-1.5 py-0.5 rounded-control bg-[var(--color-info-bg)] text-[var(--color-info)] border border-[var(--color-info-border)]">
-                  {evaluation.userRoleName || 'NHÂN VIÊN'}
+                  {evaluation.userRoleName || t('EvaluationDetailModal.employee2')}
                 </span>
                 <span className="text-caption font-medium">{evaluation.orgUnitName}</span>
               </div>
@@ -402,7 +409,7 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
         </div>
 
         <div className="space-y-4">
-          <h4 className="text-sm font-medium text-[var(--color-subtle-foreground)]">Dòng thời gian đánh giá</h4>
+          <h4 className="text-sm font-medium text-[var(--color-subtle-foreground)]">{t('EvaluationDetailModal.evaluationTimeline')}</h4>
 
           {timelineSteps.map((step, idx) => (
             <EvalLayerCard
@@ -440,12 +447,12 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
           <div className="pt-4 border-t border-[var(--color-border)]">
             <Button className="w-full group" onClick={() => setShowStaffEval(true)}>
               <Target aria-hidden="true" className="group-hover:rotate-45 transition-transform" />
-              {(layers.directorEval || myEvalAtLevel) ? 'Xem Chi tiết bài nộp KPI' : 'Phê duyệt & Đánh giá bài nộp'} ({mySubmissions.content.length})
+              {(layers.directorEval || myEvalAtLevel) ? t('EvaluationDetailModal.viewKpiSubmissionDetails') : t('EvaluationDetailModal.approveEvaluateSubmission')} ({mySubmissions.content.length})
             </Button>
             <p className="text-caption mt-2 text-center italic font-medium">
               {(layers.directorEval || myEvalAtLevel)
-                ? 'Nhấn để xem lại danh sách chỉ tiêu KPI đã đánh giá.' 
-                : 'Nhấn để xem danh sách chỉ tiêu KPI và thực hiện đánh giá chính thức.'}
+                ? t('EvaluationDetailModal.clickToReviewTheListOf') 
+                : t('EvaluationDetailModal.clickToViewTheKpiList')}
             </p>
           </div>
         )}
@@ -455,7 +462,7 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
           <div className="pt-6 border-t border-[var(--color-border)] space-y-6">
             <div className="flex items-center justify-between">
               <h4 className="text-eyebrow flex items-center gap-2">
-                <Award size={14} className="text-[var(--color-primary)]" /> Thực hiện đánh giá
+                <Award size={14} className="text-[var(--color-primary)]" /> {t('EvaluationDetailModal.evaluate')}
               </h4>
             </div>
             
@@ -481,7 +488,7 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
                             : "bg-[var(--color-warning-bg)] text-[var(--color-warning)] border border-[var(--color-warning-border)] dark:bg-[var(--color-warning-bg)] dark:border-[var(--color-warning-border)]"
                         )}>
                           {inlineScore > layers.selfEval.score ? <TrendingUp size={10} /> : <Target size={10} />}
-                          {inlineScore > layers.selfEval.score ? '+' : ''}{Math.round(inlineScore - layers.selfEval.score)} so với tự đánh giá
+                          {inlineScore > layers.selfEval.score ? '+' : ''}{Math.round(inlineScore - layers.selfEval.score)} {t('EvaluationDetailModal.comparedWithTheSelfAssessment')}
                         </div>
                       )}
                     </div>
@@ -506,7 +513,7 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
                     </div>
                     {bonusScore > 0 && (
                       <p className="text-eyebrow text-center text-[var(--color-success)]">
-                        Đạt đủ KPI = {SCORING_POOL} điểm · thưởng thêm {bonusScore}
+                        {t('EvaluationDetailModal.allKpisMet')} {SCORING_POOL} {t('EvaluationDetailModal.pointsBonus')} {bonusScore}
                       </p>
                     )}
                   </div>
@@ -516,19 +523,19 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
               {/* Comment Area */}
               <div className="space-y-3">
                 <label className="text-label flex items-center gap-2 ml-2">
-                  <MessageSquare size={14} className="text-[var(--color-primary)]" /> Nhận xét đánh giá
+                  <MessageSquare size={14} className="text-[var(--color-primary)]" /> {t('EvaluationDetailModal.evaluationComments')}
                 </label>
                 <textarea
                   {...registerInline('comment')}
                   rows={3}
-                  placeholder="Ghi lại nhận xét chi tiết về nỗ lực và kết quả của nhân viên..."
+                  placeholder={t('EvaluationDetailModal.recordDetailedCommentsOnTheEmployees')}
                   className="w-full px-6 py-5 rounded-card border border-[var(--color-border)] bg-[var(--color-card)] text-sm font-medium focus:ring-4 focus:ring-[var(--color-ring)] focus:border-[var(--color-primary)] outline-none resize-none transition-all shadow-sm placeholder:text-[var(--color-subtle-foreground)]"
                 />
               </div>
 
               <Button className="w-full" onClick={handleInlineSubmit(data => inlineSubmitMutation.mutate(data))} disabled={inlineSubmitMutation.isPending}>
                 {inlineSubmitMutation.isPending ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Award aria-hidden="true" />}
-                Hoàn tất đánh giá
+                {t('EvaluationDetailModal.completeEvaluation')}
               </Button>
             </div>
           </div>
@@ -637,6 +644,7 @@ function EvalLayerCard({ title, icon: Icon, iconBg, iconColor, evaluation, lineA
   /** Mở màn hình diễn giải điểm BSC (điểm gốc, trần, hạng mục chặn, ghi đè). */
   onExplainBsc?: (evaluationId: string) => void;
 }) {
+  const { t } = useTranslation('evaluations')
 
   return (
     <TimelineStep
@@ -677,7 +685,7 @@ function EvalLayerCard({ title, icon: Icon, iconBg, iconColor, evaluation, lineA
                         ? "bg-[var(--color-success-bg)] text-[var(--color-success)] dark:bg-[var(--color-success-bg)]"
                         : "bg-[var(--color-warning-bg)] text-[var(--color-warning)] dark:bg-[var(--color-warning-bg)]"
                      )}>
-                       {evaluation.score! > (evaluation.systemScore ?? calculatedScore!) ? '+' : ''}{Math.round(evaluation.score! - (evaluation.systemScore ?? calculatedScore!))} so với điểm hệ thống
+                       {evaluation.score! > (evaluation.systemScore ?? calculatedScore!) ? '+' : ''}{Math.round(evaluation.score! - (evaluation.systemScore ?? calculatedScore!))} {t('EvaluationDetailModal.comparedWithTheSystemScore')}
                      </div>
                   )}
                 </div>
@@ -685,7 +693,7 @@ function EvalLayerCard({ title, icon: Icon, iconBg, iconColor, evaluation, lineA
 
               {evaluation.evaluatorName && (
                 <p className="shrink-0 text-right text-caption leading-relaxed">
-                  bởi<br />
+                  {t('EvaluationDetailModal.by')}<br />
                   <span className="text-[var(--color-muted-foreground)]">{evaluation.evaluatorName}</span>
                 </p>
               )}
@@ -696,8 +704,8 @@ function EvalLayerCard({ title, icon: Icon, iconBg, iconColor, evaluation, lineA
                 {evaluation.matrixRating != null && (
                   <DetailRow
                     icon={<Star size={13} className="text-[var(--color-info)] fill-current" />}
-                    label="Xếp loại theo ma trận"
-                    caption={`Tra từ hành vi ${evaluation.behaviorScore != null ? evaluation.behaviorScore.toFixed(1) : '—'}/5 và hoàn thành ${evaluation.kpiCompletionPercent != null ? Math.round(evaluation.kpiCompletionPercent) + '%' : '—'}`}
+                    label={t('EvaluationDetailModal.matrixRating')}
+                    caption={t('EvaluationDetailModal.lookedUpFromConduct5And', { value: evaluation.behaviorScore != null ? evaluation.behaviorScore.toFixed(1) : '—', value2: evaluation.kpiCompletionPercent != null ? Math.round(evaluation.kpiCompletionPercent) + '%' : '—' })}
                     value={<>{evaluation.matrixRating}<span className="text-xs text-[var(--color-subtle-foreground)]">/5</span></>}
                     valueClass="text-[var(--color-info)]"
                   />
@@ -707,10 +715,10 @@ function EvalLayerCard({ title, icon: Icon, iconBg, iconColor, evaluation, lineA
                 {conduct != null && (
                   <DetailRow
                     icon={<HeartHandshake size={13} className="text-[var(--color-success)]" />}
-                    label="Điểm hạnh kiểm"
+                    label={t('EvaluationDetailModal.conductScore')}
                     caption={[
-                      `Tự chấm ${conduct.selfScore != null ? formatNumber(conduct.selfScore) : '—'}`,
-                      `quản lý chấm ${conduct.managerScore != null ? formatNumber(conduct.managerScore) : '—'}`,
+                      t('EvaluationDetailModal.selfScore', { value: conduct.selfScore != null ? formatNumber(conduct.selfScore) : '—' }),
+                      t('EvaluationDetailModal.managerScore', { value: conduct.managerScore != null ? formatNumber(conduct.managerScore) : '—' }),
                     ].join(' · ')}
                     value={<>
                       {conduct.effectiveScore != null ? formatNumber(conduct.effectiveScore) : '—'}
@@ -724,18 +732,18 @@ function EvalLayerCard({ title, icon: Icon, iconBg, iconColor, evaluation, lineA
                 {evaluation.bscScore != null && (
                   <DetailRow
                     icon={<Layers size={13} className="text-[var(--color-primary)]" />}
-                    label="Điểm BSC"
-                    badge={evaluation.bscScoringMode === 'OFFICIAL' ? 'Chính thức' : 'Song song'}
+                    label={t('EvaluationDetailModal.bscScore')}
+                    badge={evaluation.bscScoringMode === 'OFFICIAL' ? t('EvaluationDetailModal.official') : t('EvaluationDetailModal.shadow')}
                     caption={evaluation.bscScoringMode === 'OFFICIAL'
-                      ? 'Đang là điểm chính thức của kỳ'
-                      : 'Chạy song song để đối chiếu — chưa thay điểm hệ thống'}
+                      ? t('EvaluationDetailModal.currentlyTheOfficialScoreOfThe')
+                      : t('EvaluationDetailModal.runningInParallelForComparisonNot')}
                     value={evaluation.bscScore.toFixed(1)}
                     valueClass="text-[var(--color-primary)]"
                     action={
                       // Điểm BSC đứng một mình không giải thích được vì sao ra con số đó —
                       // trần điểm và hạng mục chặn nằm ở màn hình diễn giải.
                       <Button variant="ghost" size="sm" className="shrink-0" type="button" onClick={e => { e.stopPropagation(); onExplainBsc?.(evaluation.id) }}>
-                        Diễn giải <ArrowUpRight aria-hidden="true" />
+                        {t('EvaluationDetailModal.explanation')} <ArrowUpRight aria-hidden="true" />
                       </Button>
                     }
                   >
@@ -748,7 +756,7 @@ function EvalLayerCard({ title, icon: Icon, iconBg, iconColor, evaluation, lineA
                             <span className="w-1.5 h-1.5 rounded-full shrink-0" style={{ backgroundColor: p.color || '#8b5cf6' }} />
                             {p.name}
                             <b className={cn('tabular-nums', p.achievementPercent == null && 'text-[var(--color-subtle-foreground)]')}>
-                              {p.achievementPercent != null ? `${p.achievementPercent.toFixed(0)}%` : 'chưa có'}
+                              {p.achievementPercent != null ? `${p.achievementPercent.toFixed(0)}%` : t('EvaluationDetailModal.none')}
                             </b>
                           </span>
                         ))}

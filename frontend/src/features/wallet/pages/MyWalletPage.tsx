@@ -19,10 +19,12 @@ import {
   useTopupConfig,
 } from '../hooks/useWallet'
 import type { TopupOrder } from '../types'
+import { useTranslation } from 'react-i18next'
 
 type TabKey = 'convert' | 'topups' | 'history'
 
 export default function MyWalletPage() {
+  const { t } = useTranslation('wallet')
   const [page, setPage] = useState(0)
   const [topupOpen, setTopupOpen] = useState(false)
   // Đơn đang mở lại để chuyển khoản tiếp. null = tạo đơn mới.
@@ -44,16 +46,16 @@ export default function MyWalletPage() {
   // MyRewardsPage. Tên tham số riêng để không đụng các mục khác trong trang "Của tôi".
   const { activeTab, setActiveTab, visibleTabs } = useTabParam<TabKey>(
     [
-      { key: 'convert', label: 'Đổi sang điểm', icon: Coins },
+      { key: 'convert', label: t('MyWalletPage.convertToPoints'), icon: Coins },
       {
         key: 'topups',
-        label: 'Đơn nạp tiền',
+        label: t('MyWalletPage.topUpOrders'),
         icon: Receipt,
         badge: topupPage?.totalElements || undefined,
       },
       {
         key: 'history',
-        label: 'Lịch sử ví',
+        label: t('MyWalletPage.walletHistory'),
         icon: History,
         badge: txPage?.totalElements || undefined,
       },
@@ -65,11 +67,11 @@ export default function MyWalletPage() {
     <div className="mx-auto max-w-[1600px] space-y-4">
       <WorkspaceHeader
         id="tour-my-wallet-header"
-        title="Ví của tôi"
-        description="Nạp tiền, đổi sang điểm thưởng và xem toàn bộ lịch sử giao dịch."
+        title={t('MyWalletPage.myWallet')}
+        description={t('MyWalletPage.topUpConvertToRewardPoints')}
         actions={
           <Button id="tour-my-wallet-topup" onClick={() => { setResumeOrder(null); setTopupOpen(true) }}>
-            <Plus aria-hidden="true" /> Nạp tiền
+            <Plus aria-hidden="true" /> {t('MyWalletPage.topUp')}
           </Button>
         }
       />
@@ -91,8 +93,8 @@ export default function MyWalletPage() {
           ) : topups.length === 0 ? (
             <div className="rounded-card border border-dashed border-[var(--color-border)]">
               <EmptyState
-                title="Chưa có đơn nạp nào"
-                description="Bấm Nạp tiền ở góc trên để tạo mã QR chuyển khoản."
+                title={t('MyWalletPage.noTopUpOrdersYet')}
+                description={t('MyWalletPage.clickTopUpInTheTop')}
               />
             </div>
           ) : (
@@ -114,8 +116,8 @@ export default function MyWalletPage() {
           ) : transactions.length === 0 ? (
             <div className="rounded-card border border-dashed border-[var(--color-border)]">
               <EmptyState
-                title="Chưa có giao dịch nào"
-                description="Mọi lần nạp tiền hoặc đổi điểm đều được ghi lại đầy đủ ở đây."
+                title={t('MyWalletPage.noTransactionsYet')}
+                description={t('MyWalletPage.everyTopUpOrPointConversion')}
               />
             </div>
           ) : (
@@ -129,7 +131,7 @@ export default function MyWalletPage() {
                     totalElements={txPage?.totalElements ?? 0}
                     size={size}
                     onPageChange={setPage}
-                    itemLabel="giao dịch"
+                    itemLabel={t('MyWalletPage.transactions')}
                   />
                 </div>
               )}

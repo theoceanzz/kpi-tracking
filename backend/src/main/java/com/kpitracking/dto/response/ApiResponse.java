@@ -10,6 +10,11 @@ import java.time.Instant;
 public class ApiResponse<T> {
 
     private boolean success;
+    /**
+     * Mã lỗi ổn định ({@code ErrorCode}), chỉ có ở phản hồi lỗi. Frontend dùng mã cho logic, còn câu hiển
+     * thị lấy nguyên văn từ {@link #message} (backend đã dịch theo {@code Accept-Language}).
+     */
+    private String code;
     private String message;
     private T data;
     private Instant timestamp;
@@ -47,6 +52,15 @@ public class ApiResponse<T> {
     public static <T> ApiResponse<T> error(String message) {
         return ApiResponse.<T>builder()
                 .success(false)
+                .message(message)
+                .timestamp(Instant.now())
+                .build();
+    }
+
+    public static <T> ApiResponse<T> error(String code, String message) {
+        return ApiResponse.<T>builder()
+                .success(false)
+                .code(code)
                 .message(message)
                 .timestamp(Instant.now())
                 .build();

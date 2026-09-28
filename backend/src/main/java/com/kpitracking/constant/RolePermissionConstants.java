@@ -13,12 +13,12 @@ public class RolePermissionConstants {
 
     public static final List<String> PERSONAL_PERMS = Arrays.asList(
             "KPI:VIEW_MY", "SUBMISSION:VIEW_MY", "EVALUATION:VIEW_MY", "STATS:VIEW_MY", "ADJUSTMENT:VIEW_MY",
-            "REWARD:VIEW_MY", "WALLET:VIEW_MY"
+            "REWARD:VIEW_MY", "WALLET:VIEW_MY", "FEEDBACK360:VIEW_MY"
     );
 
     public static final List<String> UNIT_HEAD_PERSONAL_PERMS = Arrays.asList(
             "KPI:VIEW_MY", "SUBMISSION:VIEW_MY", "STATS:VIEW_MY", "ADJUSTMENT:VIEW_MY",
-            "REWARD:VIEW_MY", "WALLET:VIEW_MY"
+            "REWARD:VIEW_MY", "WALLET:VIEW_MY", "FEEDBACK360:VIEW_MY"
     );
 
     // ----------------------------------------------------------------
@@ -58,7 +58,10 @@ public class RolePermissionConstants {
             // Ví tiền: giám đốc có đủ, gồm cả cấu hình tỉ giá/tài khoản ngân hàng và
             // quyền đối soát. WALLET:RECONCILE là đường duy nhất xử lý được tiền đã
             // về mà hệ thống chưa quy được về ai — không ai giữ nó thì tiền kẹt lại.
-            "WALLET:VIEW_MY", "WALLET:VIEW", "WALLET:CONFIG", "WALLET:RECONCILE"
+            "WALLET:VIEW_MY", "WALLET:VIEW", "WALLET:CONFIG", "WALLET:RECONCILE",
+            // Đánh giá 360: giám đốc điều hành chiến dịch. VIEW_MY vì giám đốc không nhận
+            // PERSONAL_PERMS nhưng vẫn có thể là người được đánh giá.
+            "FEEDBACK360:MANAGE", "FEEDBACK360:VIEW", "FEEDBACK360:VIEW_MY"
     );
 
     // ----------------------------------------------------------------
@@ -93,7 +96,9 @@ public class RolePermissionConstants {
             "GIFT:MANAGE", "GIFT:REDEEM", "GIFT:FULFILL",
             // Ví tiền: xem được ví nhân sự, KHÔNG có WALLET:CONFIG — khớp cách repo
             // đang tước quyền cấu hình của cấp phó ở REWARD:CONFIG.
-            "WALLET:VIEW_MY", "WALLET:VIEW", "WALLET:RECONCILE"
+            "WALLET:VIEW_MY", "WALLET:VIEW", "WALLET:RECONCILE",
+            // Đánh giá 360: xem báo cáo trong phạm vi, không cấu hình chiến dịch.
+            "FEEDBACK360:VIEW", "FEEDBACK360:VIEW_MY"
     );
 
     // ----------------------------------------------------------------
@@ -119,7 +124,9 @@ public class RolePermissionConstants {
             // Trao thưởng KHÔNG phải quyền phê duyệt. Giới hạn thật của trưởng đơn vị
             // là dòng reward_budgets của họ — không cấp hạn mức thì mọi đề nghị đều
             // phải qua duyệt.
-            "REWARD:VIEW", "REWARD:GRANT", "GIFT:REDEEM"
+            "REWARD:VIEW", "REWARD:GRANT", "GIFT:REDEEM",
+            // Đánh giá 360: trưởng đơn vị xem báo cáo của người trong đơn vị (không phải của chính mình).
+            "FEEDBACK360:VIEW"
     );
 
     // ----------------------------------------------------------------
@@ -140,7 +147,8 @@ public class RolePermissionConstants {
             // Phó đơn vị KHÔNG lập BSC: một đơn vị chỉ nên có MỘT người chịu trách nhiệm bộ tiêu
             // chí, hai người cùng sửa thì trọng số và chỉ tiêu đè lên nhau mà không ai biết.
             "BSC:VIEW", "OKR:VIEW",
-            "REWARD:VIEW", "REWARD:GRANT", "GIFT:REDEEM"
+            "REWARD:VIEW", "REWARD:GRANT", "GIFT:REDEEM",
+            "FEEDBACK360:VIEW"
     );
 
     // ----------------------------------------------------------------
@@ -183,6 +191,8 @@ public class RolePermissionConstants {
         if (isTopLevel) {
             if ("director".equals(archetype)) {
                 addIfAbsent(perms, SYSTEM_ONLY);  // full SYSTEM_ONLY
+                // Người duyệt cấp cao nhất của chuỗi duyệt KPI. Các vai trò khác bật ở màn cấu hình quyền.
+                addIfAbsent(perms, List.of("KPI:APPROVE_FINAL"));
             } else if ("deputy_director".equals(archetype)) {
                 // Phó cấp cao nhất: có SYSTEM_ONLY nhưng không có SYSTEM:ADMIN
                 SYSTEM_ONLY.stream()

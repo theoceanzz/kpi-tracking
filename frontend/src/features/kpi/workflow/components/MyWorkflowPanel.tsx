@@ -6,6 +6,7 @@ import { useHasPermission } from '@/components/auth/PermissionGate'
 import { useKpiWorkflow } from '../hooks/useKpiWorkflow'
 import { stageIcon, STAGE_HINTS } from '../workflowStageIcons'
 import { Button } from '@/components/ui/button'
+import { useTranslation } from 'react-i18next'
 
 /**
  * Thiết lập hiển thị của RIÊNG người đang đăng nhập.
@@ -19,6 +20,7 @@ import { Button } from '@/components/ui/button'
  * là một lựa chọn vô nghĩa.
  */
 export default function MyWorkflowPanel() {
+  const { t } = useTranslation('kpi')
   const user = useAuthStore(s => s.user)
   const { hasPermission } = useHasPermission()
   const { enabledStages } = useKpiWorkflow()
@@ -38,9 +40,9 @@ export default function MyWorkflowPanel() {
             <UserCog size={20} />
           </div>
           <div>
-            <h3 className="text-section-title">Hiển thị của tôi</h3>
+            <h3 className="text-section-title">{t('MyWorkflowPanel.myDisplay')}</h3>
             <p className="mt-0.5 text-sm text-[var(--color-muted-foreground)]">
-              Chỉ ảnh hưởng màn hình của bạn — không đổi gì với người khác
+              {t('MyWorkflowPanel.onlyAffectsYourScreenNothingChanges')}
             </p>
           </div>
         </div>
@@ -48,7 +50,7 @@ export default function MyWorkflowPanel() {
         {hiddenCount > 0 && (
           <Button variant="outline" type="button" onClick={() => reset(userId)}>
             <RotateCcw aria-hidden="true" />
-            Hiện lại tất cả
+            {t('MyWorkflowPanel.showAllAgain')}
           </Button>
         )}
       </div>
@@ -64,13 +66,13 @@ export default function MyWorkflowPanel() {
 
               <div className="min-w-0 flex-1">
                 <h4 className="font-semibold text-[var(--color-foreground)]">{stage.label}</h4>
-                <p className="mt-1 text-xs font-medium text-[var(--color-muted-foreground)]">{STAGE_HINTS[stage.code]}</p>
+                <p className="mt-1 text-xs font-medium text-[var(--color-muted-foreground)]">{STAGE_HINTS()[stage.code]}</p>
               </div>
 
               <button
                 type="button"
                 onClick={() => toggleStage(userId, stage.code)}
-                title={hidden ? 'Hiện lại bước này' : 'Ẩn bước này khỏi màn hình của tôi'}
+                title={hidden ? t('MyWorkflowPanel.showThisStepAgain') : t('MyWorkflowPanel.hideThisStepFromMyScreen')}
                 className={cn(
                   'text-eyebrow flex shrink-0 items-center gap-2 rounded-card px-3 py-2 transition-colors',
                   hidden
@@ -79,7 +81,7 @@ export default function MyWorkflowPanel() {
                 )}
               >
                 {hidden ? <EyeOff size={14} /> : <Eye size={14} />}
-                <span className="hidden sm:inline">{hidden ? 'Đang ẩn' : 'Đang hiện'}</span>
+                <span className="hidden sm:inline">{hidden ? t('MyWorkflowPanel.hidden') : t('MyWorkflowPanel.shown')}</span>
               </button>
             </div>
           )

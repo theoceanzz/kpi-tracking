@@ -2,6 +2,9 @@ import React from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Home, ArrowLeft, ShieldAlert, Ghost, Search, HelpCircle } from 'lucide-react';
 import { Button } from '@/components/ui/button'
+import { useTranslation } from 'react-i18next'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
 interface ErrorPageProps {
   code?: '403' | '404' | '500';
@@ -9,11 +12,11 @@ interface ErrorPageProps {
   message?: string;
 }
 
-const ERROR_CONFIG = {
+const ERROR_CONFIG = perLanguage(() => ({
   '403': {
     title: 'Access Denied',
     subTitle: '403 Forbidden',
-    message: 'Bạn không có quyền truy cập vào tài nguyên này. Đây là khu vực hạn chế.',
+    message: i18n.t('errors:ErrorPage.youDoNotHaveAccessTo'),
     icon: ShieldAlert,
     themeColor: 'text-[var(--color-error)]',
     iconColor: 'text-[var(--color-error)]',
@@ -23,7 +26,7 @@ const ERROR_CONFIG = {
   '404': {
     title: 'Page Not Found',
     subTitle: '404 Error',
-    message: 'Trang bạn đang tìm kiếm không tồn tại hoặc đã được chuyển sang địa chỉ mới.',
+    message: i18n.t('errors:ErrorPage.thePageYouAreLookingFor'),
     icon: Ghost,
     themeColor: 'text-[var(--color-info)]',
     iconColor: 'text-[var(--color-info)]',
@@ -33,18 +36,19 @@ const ERROR_CONFIG = {
   '500': {
     title: 'Internal Server Error',
     subTitle: '500 Error',
-    message: 'Đã có lỗi xảy ra từ phía máy chủ. Chúng tôi đang nhanh chóng khắc phục.',
+    message: i18n.t('errors:ErrorPage.aServerSideErrorOccurredWe'),
     icon: Search,
     themeColor: 'text-[var(--color-warning)]',
     iconColor: 'text-[var(--color-warning)]',
     bgColor: 'bg-[var(--color-warning-bg)]',
     darkBgColor: 'dark:bg-[var(--color-warning-bg)]'
   }
-};
+}));
 
 const ErrorPage: React.FC<ErrorPageProps> = ({ code = '404' }) => {
+  const { t } = useTranslation('errors')
   const navigate = useNavigate();
-  const config = ERROR_CONFIG[code] || ERROR_CONFIG['404'];
+  const config = ERROR_CONFIG()[code] || ERROR_CONFIG()['404'];
   const Icon = config.icon;
 
   return (
@@ -59,19 +63,19 @@ const ErrorPage: React.FC<ErrorPageProps> = ({ code = '404' }) => {
 
         <div className="mt-6 flex flex-col items-center justify-center gap-2 sm:flex-row">
           <Button variant="outline" className="w-full sm:w-auto" onClick={() => navigate(-1)}>
-            <ArrowLeft aria-hidden="true" /> Quay lại
+            <ArrowLeft aria-hidden="true" /> {t('ErrorPage.back')}
           </Button>
           <Button className="w-full sm:w-auto" onClick={() => navigate('/')}>
-            <Home aria-hidden="true" /> Về trang chủ
+            <Home aria-hidden="true" /> {t('ErrorPage.backToHome')}
           </Button>
         </div>
 
         <div className="mt-8 flex flex-wrap justify-center gap-6 border-t border-[var(--color-border)] pt-6">
           <a href="/help" className="flex items-center gap-1.5 text-sm text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)] hover:underline">
-            <HelpCircle size={15} aria-hidden="true" /> Trợ giúp
+            <HelpCircle size={15} aria-hidden="true" /> {t('ErrorPage.help')}
           </a>
           <a href="/report-issue" className="flex items-center gap-1.5 text-sm text-[var(--color-muted-foreground)] hover:text-[var(--color-foreground)] hover:underline">
-            <Search size={15} aria-hidden="true" /> Báo lỗi hệ thống
+            <Search size={15} aria-hidden="true" /> {t('ErrorPage.reportASystemError')}
           </a>
         </div>
       </div>

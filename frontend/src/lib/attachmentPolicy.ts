@@ -1,4 +1,6 @@
 import type { Accept } from 'react-dropzone'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
 /**
  * Bản soi gương của `com.kpitracking.service.AttachmentPolicy` phía máy chủ.
@@ -27,12 +29,10 @@ export const ATTACHMENT_ACCEPT: Accept = {
 }
 
 /** Câu nêu loại tệp nhận được, dùng khi từ chối. Cùng lời với ALLOWED_HINT phía máy chủ. */
-export const ATTACHMENT_TYPES_HINT =
-  'Chỉ nhận ảnh (JPG, PNG, WebP), PDF, Word (DOC, DOCX) và Excel (XLS, XLSX)'
+export const ATTACHMENT_TYPES_HINT = perLanguage(() => (i18n.t('common:attachmentPolicy.onlyImagesJpgPngWebpPdf')))
 
 /** Dòng gợi ý dưới vùng kéo thả. Dựng từ chính các hằng ở trên để câu chữ không trôi khỏi con số. */
-export const ATTACHMENT_HINT =
-  `Ảnh, PDF, Word, Excel · tối đa ${MAX_ATTACHMENT_FILES} tệp, ${MAX_ATTACHMENT_BYTES / 1024 / 1024}MB mỗi tệp`
+export const ATTACHMENT_HINT = perLanguage(() => (i18n.t('common:attachmentPolicy.imagesPdfWordExcelUpTo', { MAX_ATTACHMENT_FILES, value: MAX_ATTACHMENT_BYTES / 1024 / 1024 })))
 
 const ALLOWED_EXTENSIONS = ['jpg', 'jpeg', 'png', 'webp', 'pdf', 'doc', 'docx', 'xls', 'xlsx']
 
@@ -64,22 +64,22 @@ export function screenEvidence(incoming: File[], current: File[] = []): Screened
     const ext = file.name.includes('.') ? file.name.split('.').pop()!.toLowerCase() : ''
 
     if (!ALLOWED_EXTENSIONS.includes(ext)) {
-      rejected.push({ file, reason: `"${file.name}" không đúng định dạng. ${ATTACHMENT_TYPES_HINT}.` })
+      rejected.push({ file, reason: i18n.t('common:attachmentPolicy.hasAnUnsupportedFormat', { name: file.name, ATTACHMENT_TYPES_HINT: ATTACHMENT_TYPES_HINT() }) })
       continue
     }
     if (file.size > MAX_ATTACHMENT_BYTES) {
       rejected.push({
         file,
-        reason: `"${file.name}" nặng ${formatBytes(file.size)}, vượt quá ${formatBytes(MAX_ATTACHMENT_BYTES)} mỗi tệp.`,
+        reason: i18n.t('common:attachmentPolicy.isExceedingPerFile', { name: file.name, size: formatBytes(file.size), MAX_ATTACHMENT_BYTES: formatBytes(MAX_ATTACHMENT_BYTES) }),
       })
       continue
     }
     if (file.size === 0) {
-      rejected.push({ file, reason: `"${file.name}" rỗng. Hãy chọn lại tệp có nội dung.` })
+      rejected.push({ file, reason: i18n.t('common:attachmentPolicy.isEmptyPleaseChooseAFile', { name: file.name }) })
       continue
     }
     if (room <= 0) {
-      rejected.push({ file, reason: `"${file.name}" vượt quá ${MAX_ATTACHMENT_FILES} tệp cho phép.` })
+      rejected.push({ file, reason: i18n.t('common:attachmentPolicy.exceedsTheFilesAllowed', { name: file.name, MAX_ATTACHMENT_FILES }) })
       continue
     }
 

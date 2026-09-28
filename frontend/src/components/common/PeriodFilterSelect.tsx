@@ -1,6 +1,7 @@
 import { useKpiPeriods } from '@/features/kpi/hooks/useKpiPeriods'
 import { useAuthStore } from '@/store/authStore'
 import { cn } from '@/lib/utils'
+import { useTranslation } from 'react-i18next'
 
 interface PeriodFilterSelectProps {
   /** id của đợt đang chọn; undefined = "Tất cả các đợt". */
@@ -14,6 +15,7 @@ interface PeriodFilterSelectProps {
  * Mặc định hiển thị "Tất cả các đợt"; khi chọn một đợt sẽ trả về id của đợt đó.
  */
 export default function PeriodFilterSelect({ value, onChange, className }: PeriodFilterSelectProps) {
+  const { t } = useTranslation('shared')
   const user = useAuthStore(s => s.user)
   const organizationId = user?.memberships?.[0]?.organizationId
 
@@ -34,7 +36,7 @@ export default function PeriodFilterSelect({ value, onChange, className }: Perio
       value={value ?? ''}
       onChange={e => onChange(e.target.value || undefined)}
     >
-      <option value="">Tất cả các đợt</option>
+      <option value="">{t('PeriodFilterSelect.allPeriods')}</option>
       {periods.map(p => (
         <option key={p.id} value={p.id}>{p.name}</option>
       ))}

@@ -1,3 +1,5 @@
+import { LocaleDateInput } from '@/components/ui/date-input'
+import { intlDateLocale } from '@/i18n/format'
 import { useState, useRef, useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -15,22 +17,27 @@ import ConfirmDialog from '@/components/common/ConfirmDialog'
 import EmptyState from '@/components/common/EmptyState'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import { Button } from '@/components/ui/button'
+import { useTranslation } from 'react-i18next'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
+import { useFormDraft } from '@/hooks/useFormDraft'
+import DraftNotice from '@/components/common/DraftNotice'
 
 
-const DATA_TYPE_OPTIONS: { value: ColumnDataType; label: string; icon: React.ReactNode }[] = [
-  { value: 'TEXT', label: 'Văn bản', icon: <Type size={14} /> },
-  { value: 'NUMBER', label: 'Số', icon: <Hash size={14} /> },
-  { value: 'DATE', label: 'Ngày', icon: <Calendar size={14} /> },
-  { value: 'SELECT_ONE', label: 'Chọn một', icon: <CheckCircle2 size={14} /> },
-  { value: 'SELECT_MULTI', label: 'Chọn nhiều', icon: <ListChecks size={14} /> },
-  { value: 'USER', label: 'Người dùng', icon: <UserIcon size={14} /> },
+const DATA_TYPE_OPTIONS = perLanguage((): { value: ColumnDataType; label: string; icon: React.ReactNode }[] => ([
+  { value: 'TEXT', label: i18n.t('datasources:DatasourceDetailPage.text'), icon: <Type size={14} /> },
+  { value: 'NUMBER', label: i18n.t('datasources:DatasourceDetailPage.number'), icon: <Hash size={14} /> },
+  { value: 'DATE', label: i18n.t('datasources:DatasourceDetailPage.date'), icon: <Calendar size={14} /> },
+  { value: 'SELECT_ONE', label: i18n.t('datasources:DatasourceDetailPage.singleChoice'), icon: <CheckCircle2 size={14} /> },
+  { value: 'SELECT_MULTI', label: i18n.t('datasources:DatasourceDetailPage.multipleChoice'), icon: <ListChecks size={14} /> },
+  { value: 'USER', label: i18n.t('datasources:DatasourceDetailPage.user'), icon: <UserIcon size={14} /> },
   { value: 'URL', label: 'URL', icon: <Link2 size={14} /> },
-]
+]))
 
 const COLORS = ['#ef4444', '#f97316', '#eab308', '#22c55e', '#06b6d4', '#3b82f6', '#8b5cf6', '#d946ef', '#64748b']
 
 function getTypeIcon(type: ColumnDataType) {
-  const opt = DATA_TYPE_OPTIONS.find(o => o.value === type)
+  const opt = DATA_TYPE_OPTIONS().find(o => o.value === type)
   return opt?.icon || <Type size={14} />
 }
 
@@ -49,6 +56,7 @@ interface ColConfig {
 const generateId = () => Math.random().toString(36).substring(2, 9)
 
 export default function DatasourceDetailPage() {
+  const { t } = useTranslation('datasources')
   const { id } = useParams<{ id: string }>()
   const navigate = useNavigate()
   
@@ -68,11 +76,12 @@ export default function DatasourceDetailPage() {
   const [deleteCol, setDeleteCol] = useState<DsColumn | null>(null)
   const [deleteRowId, setDeleteRowId] = useState<string | null>(null)
 
-  const { register, handleSubmit: handleColumnSubmit, reset: resetColumn, watch: watchColumn, setValue: setColumnValue, formState: { errors: columnErrors } } =
-    useForm<AddColumnFormData>({
-      resolver: zodResolver(addColumnSchema),
+  const formApi = useForm<AddColumnFormData>({
+      resolver: zodResolver(addColumnSchema()),
       defaultValues: { name: '', type: 'TEXT', options: [], isMultiUser: false },
     })
+  const { register, handleSubmit: handleColumnSubmit, reset: resetColumn, watch: watchColumn, setValue: setColumnValue, formState: { errors: columnErrors } } = formApi
+  const draft = useFormDraft(formApi, { key: `datasource-column:${id ?? ''}`, enabled: showAddCol })
 
   // Kiểu cột, danh sách tag và công tắc "chọn nhiều" đều là điều khiển tự vẽ.
   const newColType = watchColumn('type')
@@ -118,13 +127,13 @@ export default function DatasourceDetailPage() {
   // --- Rendering Cells ---
   const renderCellDisplayValue = (row: typeof rows[0], col: DsColumn) => {
     const cell = row.cells?.[col.id]
-    if (!cell) return <span className="text-[var(--color-subtle-foreground)] italic">Trống</span>
+    if (!cell) return <span className="text-[var(--color-subtle-foreground)] italic">{t('DatasourceDetailPage.empty')}</span>
 
     const config: ColConfig = col.config ? JSON.parse(col.config) : {}
 
     switch (col.dataType) {
       case 'NUMBER': return <span>{cell.valueNumber?.toString()}</span>
-      case 'DATE': return <span>{cell.valueDate ? new Date(cell.valueDate).toLocaleDateString('vi-VN') : ''}</span>
+      case 'DATE': return <span>{cell.valueDate ? new Date(cell.valueDate).toLocaleDateString(intlDateLocale()) : ''}</span>
       
       case 'SELECT_ONE':
       case 'SELECT_MULTI': {
@@ -236,7 +245,7 @@ export default function DatasourceDetailPage() {
     if (col.dataType === 'DATE') {
       return (
         <div className="relative w-full h-full min-w-[120px]">
-          <input 
+          <LocaleDateInput 
             type="date" 
             value={draft}
             onChange={e => setDraft(e.target.value)}
@@ -276,7 +285,7 @@ export default function DatasourceDetailPage() {
             <Search size={14} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-[var(--color-subtle-foreground)]" />
             <input 
               value={search} onChange={e => setSearch(e.target.value)}
-              placeholder="Tìm user..." 
+              placeholder={t('DatasourceDetailPage.searchUsers')} 
               className="w-full pl-8 pr-3 py-1.5 bg-[var(--color-muted)] rounded-control text-xs outline-none border border-[var(--color-border)]" 
               autoFocus
             />
@@ -335,9 +344,9 @@ export default function DatasourceDetailPage() {
       <div className="mx-auto max-w-[1600px] rounded-card border border-dashed border-[var(--color-border)] bg-[var(--color-card)]">
         <EmptyState
           icon={Database}
-          title="Không tìm thấy nguồn dữ liệu"
-          description="Nguồn dữ liệu này có thể đã bị xoá hoặc bạn không có quyền xem."
-          action={<Button variant="outline" onClick={() => navigate('/datasources')}><ArrowLeft aria-hidden="true" /> Về danh sách</Button>}
+          title={t('DatasourceDetailPage.noDataSourceFound')}
+          description={t('DatasourceDetailPage.thisDataSourceMayHaveBeen')}
+          action={<Button variant="outline" onClick={() => navigate('/datasources')}><ArrowLeft aria-hidden="true" /> {t('DatasourceDetailPage.backToList')}</Button>}
         />
       </div>
     )
@@ -348,29 +357,29 @@ export default function DatasourceDetailPage() {
       {/* Header: tên sửa tại chỗ (bấm vào tên), cùng khuôn nút quay lại với các trang chi tiết khác */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
         <div className="flex min-w-0 items-start gap-3">
-          <Button variant="outline" size="icon" onClick={() => navigate('/datasources')} aria-label="Quay lại" className="shrink-0"><ArrowLeft aria-hidden="true" /></Button>
+          <Button variant="outline" size="icon" onClick={() => navigate('/datasources')} aria-label={t('DatasourceDetailPage.back')} className="shrink-0"><ArrowLeft aria-hidden="true" /></Button>
           <div className="min-w-0">
             <div className="flex flex-wrap items-center gap-2">
               {ds.icon && <span className="text-xl" aria-hidden="true">{ds.icon}</span>}
               {editingTitle ? (
                 <input
                   value={titleDraft} onChange={e => setTitleDraft(e.target.value)} onBlur={handleTitleSave} onKeyDown={e => e.key === 'Enter' && handleTitleSave()}
-                  aria-label="Tên nguồn dữ liệu"
+                  aria-label={t('DatasourceDetailPage.dataSourceName')}
                   className="h-9 rounded-control border border-[var(--color-primary)] bg-[var(--color-card)] px-3 text-lg font-semibold text-[var(--color-foreground)] outline-none ring-2 ring-[var(--color-ring)]" autoFocus
                 />
               ) : (
-                <button className="min-w-0 text-left" type="button" onClick={() => { setEditingTitle(true); setTitleDraft(ds.name) }} title="Bấm để đổi tên">
+                <button className="min-w-0 text-left" type="button" onClick={() => { setEditingTitle(true); setTitleDraft(ds.name) }} title={t('DatasourceDetailPage.clickToRename')}>
                   <h1 className="text-page-title truncate hover:text-[var(--color-primary)]">{ds.name}</h1>
                 </button>
               )}
               <Badge variant="outline">{ds.orgUnitName}</Badge>
             </div>
             <p className="mt-1 text-sm text-[var(--color-muted-foreground)]">
-              {ds.description || 'Không có mô tả'} · <span className="tabular-nums">{columns.length} cột · {rows.length} hàng</span>
+              {ds.description || t('DatasourceDetailPage.noDescription')} · <span className="tabular-nums">{columns.length} {t('DatasourceDetailPage.columns')} {rows.length} {t('DatasourceDetailPage.rows')}</span>
             </p>
           </div>
         </div>
-        <Button onClick={() => setShowAddCol(true)} className="shrink-0"><Plus aria-hidden="true" /> Thêm cột</Button>
+        <Button onClick={() => setShowAddCol(true)} className="shrink-0"><Plus aria-hidden="true" /> {t('DatasourceDetailPage.addColumn')}</Button>
       </div>
 
       {/* Spreadsheet */}
@@ -390,7 +399,7 @@ export default function DatasourceDetailPage() {
                       <Button
                         variant="ghost" size="icon-sm"
                         onClick={() => setDeleteCol(col)}
-                        aria-label={`Xoá cột ${col.name}`} title="Xoá cột"
+                        aria-label={t('DatasourceDetailPage.deleteColumn', { name: col.name })} title={t('DatasourceDetailPage.deleteColumn2')}
                         className="h-6 w-6 text-[var(--color-muted-foreground)] opacity-0 group-hover:opacity-100 focus-visible:opacity-100 hover:text-[var(--color-error)]"
                       >
                         <Trash2 aria-hidden="true" />
@@ -399,21 +408,21 @@ export default function DatasourceDetailPage() {
                   </th>
                 ))}
                 <th className="sticky top-0 z-20 w-12 border-b border-[var(--color-border)] bg-[var(--color-muted)] px-2 py-2">
-                  <Button variant="ghost" size="icon-sm" onClick={() => setShowAddCol(true)} aria-label="Thêm cột" title="Thêm cột"><Plus aria-hidden="true" /></Button>
+                  <Button variant="ghost" size="icon-sm" onClick={() => setShowAddCol(true)} aria-label={t('DatasourceDetailPage.addColumn')} title={t('DatasourceDetailPage.addColumn')}><Plus aria-hidden="true" /></Button>
                 </th>
               </tr>
             </thead>
             <tbody>
               {rowsLoading ? (
-                <tr><td colSpan={columns.length + 2} className="py-8 text-center text-sm text-[var(--color-muted-foreground)]">Đang tải…</td></tr>
+                <tr><td colSpan={columns.length + 2} className="py-8 text-center text-sm text-[var(--color-muted-foreground)]">{t('DatasourceDetailPage.loading')}</td></tr>
               ) : rows.length === 0 ? (
-                <tr><td colSpan={columns.length + 2} className="py-8 text-center text-sm text-[var(--color-muted-foreground)]">{columns.length === 0 ? 'Thêm cột đầu tiên để bắt đầu nhập liệu.' : 'Chưa có hàng nào. Bấm "Thêm hàng" ở cuối bảng.'}</td></tr>
+                <tr><td colSpan={columns.length + 2} className="py-8 text-center text-sm text-[var(--color-muted-foreground)]">{columns.length === 0 ? t('DatasourceDetailPage.addTheFirstColumnToStart') : t('DatasourceDetailPage.noRowsYetClickAddRow')}</td></tr>
               ) : (
                 rows.map((row, idx) => (
                   <tr key={row.id} className="hover:bg-[var(--color-muted)] transition-colors group/row">
                     <td className="px-3 py-2 text-xs text-[var(--color-subtle-foreground)] font-medium border-r border-b border-[var(--color-border)] text-center">
                       <span className="group-hover/row:hidden">{idx + 1}</span>
-                      <Button variant="ghost" size="icon-sm" className="hidden text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]" type="button" onClick={() => setDeleteRowId(row.id)} aria-label="Xoá hàng" title="Xoá hàng">
+                      <Button variant="ghost" size="icon-sm" className="hidden text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]" type="button" onClick={() => setDeleteRowId(row.id)} aria-label={t('DatasourceDetailPage.deleteRow')} title={t('DatasourceDetailPage.deleteRow')}>
                         <Trash2 aria-hidden="true" />
                       </Button>
                     </td>
@@ -443,7 +452,7 @@ export default function DatasourceDetailPage() {
         </div>
         
         <Button variant="outline" className="w-full" onClick={handleAddRow} disabled={addRowMut.isPending}>
-          <Plus aria-hidden="true" /> Thêm hàng mới
+          <Plus aria-hidden="true" /> {t('DatasourceDetailPage.addANewRow')}
         </Button>
       </div>
 
@@ -451,18 +460,18 @@ export default function DatasourceDetailPage() {
         open={!!deleteCol}
         onClose={() => setDeleteCol(null)}
         onConfirm={() => { if (deleteCol) deleteColumnMut.mutate(deleteCol.id, { onSettled: () => setDeleteCol(null) }) }}
-        title={`Xoá cột "${deleteCol?.name ?? ''}"?`}
-        description="Toàn bộ giá trị trong cột này ở mọi hàng sẽ bị xoá và không khôi phục được."
-        confirmLabel="Xoá cột"
+        title={t('DatasourceDetailPage.deleteColumn3', { value: deleteCol?.name ?? '' })}
+        description={t('DatasourceDetailPage.allValuesInThisColumnIn')}
+        confirmLabel={t('DatasourceDetailPage.deleteColumn2')}
         loading={deleteColumnMut.isPending}
       />
       <ConfirmDialog
         open={!!deleteRowId}
         onClose={() => setDeleteRowId(null)}
         onConfirm={() => { if (deleteRowId) deleteRowMut.mutate(deleteRowId, { onSettled: () => setDeleteRowId(null) }) }}
-        title="Xoá hàng này?"
-        description="Hàng dữ liệu sẽ bị xoá khỏi nguồn và các báo cáo đang dùng."
-        confirmLabel="Xoá hàng"
+        title={t('DatasourceDetailPage.deleteThisRow')}
+        description={t('DatasourceDetailPage.theDataRowWillBeRemoved')}
+        confirmLabel={t('DatasourceDetailPage.deleteRow')}
         loading={deleteRowMut.isPending}
       />
 
@@ -472,24 +481,25 @@ export default function DatasourceDetailPage() {
         onClose={() => setShowAddCol(false)}
         size="md"
         dismissible={!addColumnMut.isPending}
-        title="Tạo cột mới"
+        title={t('DatasourceDetailPage.createANewColumn')}
         footer={
           <DialogFooter
-            secondary={<Button variant="outline" onClick={() => setShowAddCol(false)} disabled={addColumnMut.isPending}>Hủy bỏ</Button>}
-            primary={<Button onClick={handleAddColumn} disabled={addColumnMut.isPending}>Tạo Cột</Button>}
+            secondary={<Button variant="outline" onClick={() => setShowAddCol(false)} disabled={addColumnMut.isPending}>{t('DatasourceDetailPage.cancel')}</Button>}
+            primary={<Button onClick={handleAddColumn} disabled={addColumnMut.isPending}>{t('DatasourceDetailPage.createColumn')}</Button>}
           />
         }
       >
+        <DraftNotice draft={draft} className="mb-4" />
         <div className="space-y-5">
           <div>
-            <label className="text-label block mb-1.5">Tên cột <span className="text-[var(--color-error)]">*</span></label>
-            <input {...register('name')} placeholder="Nhập tên cột..." className="w-full px-4 py-3 rounded-card bg-[var(--color-muted)] border-none outline-none ring-1 ring-[var(--color-border)] focus:ring-2 focus:ring-[var(--color-ring)] text-sm font-medium" autoFocus />
+            <label className="text-label block mb-1.5">{t('DatasourceDetailPage.columnName')} <span className="text-[var(--color-error)]">*</span></label>
+            <input {...register('name')} placeholder={t('DatasourceDetailPage.enterColumnName')} className="w-full px-4 py-3 rounded-card bg-[var(--color-muted)] border-none outline-none ring-1 ring-[var(--color-border)] focus:ring-2 focus:ring-[var(--color-ring)] text-sm font-medium" autoFocus />
             {columnErrors.name && <p className="mt-1 text-xs text-[var(--color-error)] font-medium">{columnErrors.name.message}</p>}
           </div>
           <div>
-            <label className="text-label block mb-1.5">Loại dữ liệu</label>
+            <label className="text-label block mb-1.5">{t('DatasourceDetailPage.dataType')}</label>
             <div className="grid grid-cols-2 gap-2 h-40 overflow-y-auto pr-1">
-              {DATA_TYPE_OPTIONS.map(opt => (
+              {DATA_TYPE_OPTIONS().map(opt => (
                 <button key={opt.value} onClick={() => setColumnValue('type', opt.value, { shouldValidate: true })} className={`flex items-center gap-2.5 px-3 py-2.5 rounded-card border text-sm font-semibold transition-all ${newColType === opt.value ? 'bg-[var(--color-primary-soft)] border-[var(--color-border)] text-[var(--color-primary)]' : 'border-[var(--color-border)] text-[var(--color-muted-foreground)] hover:bg-[var(--color-muted)]'}`}>
                   <div className={`p-1.5 rounded-control ${newColType === opt.value ? 'bg-[var(--color-primary-soft)]' : 'bg-[var(--color-muted)]'}`}>{opt.icon}</div>
                   {opt.label}
@@ -501,7 +511,7 @@ export default function DatasourceDetailPage() {
           {/* Option Builder for Select Types */}
           {(newColType === 'SELECT_ONE' || newColType === 'SELECT_MULTI') && (
             <div className="p-4 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)]">
-              <label className="text-label mb-3 flex justify-between">Tùy chọn Option <span>{newColOptions.length}</span></label>
+              <label className="text-label mb-3 flex justify-between">{t('DatasourceDetailPage.options')} <span>{newColOptions.length}</span></label>
               <div className="flex flex-wrap gap-2 mb-3">
                 {newColOptions.map(opt => (
                   <div key={opt.id} className="flex items-center gap-1.5 px-2 py-1 rounded-full text-xs font-medium text-white shadow-sm" style={{ backgroundColor: opt.color }}>
@@ -514,7 +524,7 @@ export default function DatasourceDetailPage() {
               <div className="flex items-center gap-2">
                 <input 
                   id="opt-draft"
-                  placeholder="Nhập tên tag..." 
+                  placeholder={t('DatasourceDetailPage.enterTagName')} 
                   className="flex-1 bg-[var(--color-card)] px-3 py-2 text-xs rounded-control border border-[var(--color-border)] outline-none focus:border-[var(--color-primary)]"
                   onKeyDown={e => {
                     if (e.key === 'Enter') {
@@ -533,7 +543,7 @@ export default function DatasourceDetailPage() {
                       setNewColOptions(p => [...p, { id: generateId(), label: val, color: COLORS[p.length % COLORS.length] || '#ef4444' }])
                       input.value = ''
                     }
-                  }}>Thêm</Button>
+                  }}>{t('DatasourceDetailPage.add')}</Button>
               </div>
             </div>
           )}
@@ -542,8 +552,8 @@ export default function DatasourceDetailPage() {
           {newColType === 'USER' && (
             <div className="p-4 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)] flex items-center justify-between cursor-pointer" onClick={() => setColumnValue('isMultiUser', !newColIsMultiUser)}>
               <div>
-                <div className="text-sm font-medium text-[var(--color-foreground)]">Cho phép chọn nhiều</div>
-                <div className="text-xs text-[var(--color-muted-foreground)] font-medium">Bật nếu một ô có thuộc tính nhiều nhân sự</div>
+                <div className="text-sm font-medium text-[var(--color-foreground)]">{t('DatasourceDetailPage.allowMultipleChoices')}</div>
+                <div className="text-xs text-[var(--color-muted-foreground)] font-medium">{t('DatasourceDetailPage.turnOnIfACellCan')}</div>
               </div>
               <div className={`w-10 h-6 rounded-full p-1 transition-colors ${newColIsMultiUser ? 'bg-[var(--color-primary)]' : 'bg-[var(--color-border)]'}`}>
                 <div className={`w-4 h-4 bg-white rounded-full transition-transform ${newColIsMultiUser ? 'translate-x-4' : 'translate-x-0'}`} />

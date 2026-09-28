@@ -7,6 +7,7 @@ import {
 } from '@/components/ui/select'
 import { cn } from '@/lib/utils'
 import type { ScorecardResponse } from '../types'
+import { useTranslation } from 'react-i18next'
 
 interface AttachParentModalProps {
   open: boolean
@@ -32,6 +33,7 @@ interface AttachParentModalProps {
 export default function AttachParentModal({
   open, onClose, scorecard, all, pending, onSubmit,
 }: AttachParentModalProps) {
+  const { t } = useTranslation('bsc')
   const [parentId, setParentId] = useState('')
   // Mặc định BẬT: gắn cây mà không nối chỉ tiêu thì quan hệ cha–con chỉ đổi cách vẽ, không đưa
   // được con số nào lên cấp trên — gần như chắc chắn không phải điều người dùng muốn.
@@ -59,15 +61,15 @@ export default function AttachParentModal({
       onClose={onClose}
       size="md"
       dismissible={!pending}
-      title="Gắn vào bộ tiêu chí cấp trên"
+      title={t('AttachParentModal.attachToAParentScorecard')}
       description={<span className="block truncate" title={scorecard.name}>{scorecard.name}</span>}
       footer={
         <DialogFooter
-          secondary={<Button variant="outline" onClick={onClose} disabled={pending}>Huỷ</Button>}
+          secondary={<Button variant="outline" onClick={onClose} disabled={pending}>{t('AttachParentModal.cancel')}</Button>}
           primary={
             <Button onClick={() => parentId && onSubmit(parentId, linkItems)} disabled={!parentId || pending}>
               {pending && <Loader2 className="animate-spin" aria-hidden="true" />}
-              Gắn vào cây
+              {t('AttachParentModal.attachToTree')}
             </Button>
           }
         />
@@ -76,21 +78,21 @@ export default function AttachParentModal({
       <div className="space-y-4">
         <div className="space-y-1.5">
           <label className="text-label block">
-            Bộ tiêu chí cấp trên
+            {t('AttachParentModal.parentScorecard')}
           </label>
           <Select value={parentId || undefined} onValueChange={setParentId}>
-            <SelectTrigger className="w-full"><SelectValue placeholder="Chọn bộ tiêu chí cấp trên" /></SelectTrigger>
+            <SelectTrigger className="w-full"><SelectValue placeholder={t('AttachParentModal.chooseAParentScorecard')} /></SelectTrigger>
             <SelectContent className="z-[1100]">
               {candidates.map(s => (
                 <SelectItem key={s.id} value={s.id}>
-                  {s.name}{s.orgUnitName ? ` · ${s.orgUnitName}` : ' · toàn tổ chức'}
+                  {s.name}{s.orgUnitName ? ` · ${s.orgUnitName}` : t('AttachParentModal.organizationWide')}
                 </SelectItem>
               ))}
             </SelectContent>
           </Select>
           {candidates.length === 0 && (
             <p className="text-caption text-[var(--color-warning)]">
-              Chưa có bộ tiêu chí nào khác để gắn vào.
+              {t('AttachParentModal.thereIsNoOtherScorecardTo')}
             </p>
           )}
         </div>
@@ -102,19 +104,16 @@ export default function AttachParentModal({
           </span>
           <span className="min-w-0">
             <span className="block text-xs font-semibold text-[var(--color-foreground)]">
-              Nối luôn các chỉ tiêu trùng hạng mục
+              {t('AttachParentModal.alsoLinkKpisWithTheSame')}
             </span>
             <span className="block text-caption leading-relaxed mt-0.5">
-              Chỉ tiêu nào của đơn vị trùng hạng mục với chỉ tiêu của cấp trên thì được nối lên dòng
-              đó: bảng <b>Độ phủ phân rã</b> đếm được, và kết quả của đơn vị <b>cộng lên</b> cấp trên.
-              Mục tiêu đơn vị tự đặt được lấy làm mức đóng góp; dòng vẫn do đơn vị giữ, không bị khoá.
+              {t('AttachParentModal.unitKpisWhoseItemMatchesA')} <b>{t('AttachParentModal.cascadeCoverage')}</b> {t('AttachParentModal.countsThemAndTheUnitsResults')} <b>{t('AttachParentModal.rollUp')}</b> {t('AttachParentModal.toTheParentTheUnitsOwn')}
             </span>
           </span>
         </button>
 
         <p className="text-caption leading-relaxed">
-          Bỏ tick thì chỉ nối <b>quan hệ cha–con</b> để thẻ nằm đúng nhánh trên cây — độ phủ của cấp
-          trên vẫn báo "chưa giao" và kết quả không cộng lên.
+          {t('AttachParentModal.untickToLinkOnlyThe')} <b>{t('AttachParentModal.parentChildRelationship')}</b> {t('AttachParentModal.soTheScorecardSitsOnThe')}
         </p>
       </div>
 

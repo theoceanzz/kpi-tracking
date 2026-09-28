@@ -1,3 +1,4 @@
+import { intlDateLocale } from '@/i18n/format'
 import { useState, useMemo, useEffect, Fragment } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
@@ -28,6 +29,7 @@ import {
 } from '@/components/common/PersonGroupHeader'
 import { groupByPerson, groupByUnitThenPerson, personGroupKey, type UnitGroup } from '@/lib/personGrouping'
 import { usePersonGroupCollapse } from '@/hooks/usePersonGroupCollapse'
+import { useTranslation } from 'react-i18next'
 
 /** Số nhóm (đơn vị, hoặc người khi chỉ có một đơn vị) hiển thị mỗi trang. */
 const GROUP_PAGE_SIZE = 10
@@ -37,6 +39,7 @@ const GROUPING_FETCH_SIZE = 1000
 
 
 export default function EvaluationsPage() {
+  const { t } = useTranslation('evaluations')
   const { user } = useAuthStore()
   const { hasPermission } = usePermission()
   
@@ -183,11 +186,11 @@ export default function EvaluationsPage() {
   const unitGroups = useMemo(
     () => groupByUnitThenPerson(
       evaluations,
-      ev => ev.orgUnitId ? { id: ev.orgUnitId, name: ev.orgUnitName || 'Đơn vị không tên' } : null,
+      ev => ev.orgUnitId ? { id: ev.orgUnitId, name: ev.orgUnitName || t('EvaluationsPage.unnamedUnit') } : null,
       extractPerson,
       unitOrder,
     ),
-    [evaluations, unitOrder]
+    [evaluations, unitOrder, t]
   )
   const personGroups = useMemo(() => groupByPerson(evaluations, extractPerson), [evaluations])
 
@@ -218,8 +221,8 @@ export default function EvaluationsPage() {
   /** Số liệu tóm tắt của một đơn vị. */
   const renderUnitBadges = (unit: UnitGroup<Evaluation>) => (
     <>
-      <PersonGroupBadge label="nhân sự" value={unit.people.length} tone="indigo" />
-      <PersonGroupBadge label="lượt đánh giá" value={unit.items.length} />
+      <PersonGroupBadge label={t('EvaluationsPage.people')} value={unit.people.length} tone="indigo" />
+      <PersonGroupBadge label={t('EvaluationsPage.evaluations')} value={unit.items.length} />
     </>
   )
 
@@ -232,12 +235,12 @@ export default function EvaluationsPage() {
 
   /** Nhãn vai trò người chấm — dùng chung cho bảng và bản mobile. */
   const evaluatorLabel = (ev: Evaluation) =>
-    ev.evaluatorRole === 'SELF' ? 'Tự đánh giá' :
+    ev.evaluatorRole === 'SELF' ? t('EvaluationsPage.selfAssessment') :
     ev.evaluatorRoleName ? (
       (ev.evaluatorRole === 'CEO' || ev.evaluatorRole === 'DIRECTOR' || ev.evaluatorRole === 'REGIONAL_DIRECTOR')
-        ? `${ev.evaluatorRoleName} chốt`
-        : `${ev.evaluatorRoleName} chấm`
-    ) : 'Quản lý chấm'
+        ? t('EvaluationsPage.finalized', { evaluatorRoleName: ev.evaluatorRoleName })
+        : t('EvaluationsPage.scored', { evaluatorRoleName: ev.evaluatorRoleName })
+    ) : t('EvaluationsPage.managerScore')
   /** Ô điểm + xếp loại — cùng công thức với trang Đánh giá đợt (P1). */
   const scoreChip = (raw: number | null | undefined, size: 'sm' | 'md' = 'sm') => {
     const score = raw ?? null
@@ -272,7 +275,7 @@ export default function EvaluationsPage() {
       <td className="px-4 py-3">{scoreChip(ev.score)}</td>
       <td className="px-4 py-3 whitespace-nowrap text-sm tabular-nums text-[var(--color-muted-foreground)]">{formatDateTime(ev.createdAt).split(' ')[0]}</td>
       <td className="px-3 py-2 text-right">
-        <Button variant="ghost" size="icon-sm" aria-label="Xem chi tiết" title="Xem chi tiết" onClick={e => { e.stopPropagation(); setDetailEval(ev) }}><Eye aria-hidden="true" /></Button>
+        <Button variant="ghost" size="icon-sm" aria-label={t('EvaluationsPage.viewDetails')} title={t('EvaluationsPage.viewDetails')} onClick={e => { e.stopPropagation(); setDetailEval(ev) }}><Eye aria-hidden="true" /></Button>
       </td>
     </tr>
   )
@@ -304,7 +307,7 @@ export default function EvaluationsPage() {
     const scored = sortWithinPerson(list).find(e => e.score != null)
     return (
       <>
-        <PersonGroupBadge label="lượt đánh giá" value={list.length} />
+        <PersonGroupBadge label={t('EvaluationsPage.evaluations')} value={list.length} />
         {scored?.score != null && scoreChip(scored.score)}
       </>
     )
@@ -312,20 +315,20 @@ export default function EvaluationsPage() {
 
   const tableColSpan = personMode ? 5 : 6
   const reminderDue = activePeriod && hasKpiInActivePeriod && !hasSelfEvalForActivePeriod && isNearDeadline
-  const emptyTitle = selectedKpiPeriodId !== 'ALL' ? 'Đợt này chưa có đánh giá' : canViewAll ? 'Chưa có đánh giá nào' : 'Bạn chưa có bản đánh giá nào'
-  const emptyDesc = canViewAll ? 'Đánh giá xuất hiện khi nhân sự tự đánh giá hoặc quản lý chấm điểm xong một đợt.' : 'Khi bạn tự đánh giá hoặc quản lý chấm xong, kết quả sẽ hiện ở đây.'
+  const emptyTitle = selectedKpiPeriodId !== 'ALL' ? t('EvaluationsPage.noEvaluationsForThisPeriodYet') : canViewAll ? t('EvaluationsPage.noEvaluationsYet') : t('EvaluationsPage.youHaveNoEvaluationsYet')
+  const emptyDesc = canViewAll ? t('EvaluationsPage.evaluationsAppearWhenAPersonSelf') : t('EvaluationsPage.onceYouSelfAssessOrYour')
 
   return (
     <div className="mx-auto max-w-[1600px] space-y-4">
       <WorkspaceHeader
         id="tour-eval-header"
-        title={canViewAll ? 'Đánh giá' : 'Đánh giá của tôi'}
-        description={canViewAll ? 'Kết quả tự đánh giá và điểm quản lý chấm của từng nhân sự theo đợt.' : 'Điểm và xếp loại bạn nhận được qua từng đợt, gồm cả bản tự đánh giá.'}
+        title={canViewAll ? t('EvaluationsPage.evaluation') : t('EvaluationsPage.myEvaluations')}
+        description={canViewAll ? t('EvaluationsPage.selfAssessmentResultsAndManagerScores') : t('EvaluationsPage.theScoresAndRatingsYouReceived')}
         stats={[
-          { label: 'Lượt đánh giá', value: stats.total, icon: ClipboardCheck },
-          { label: 'Điểm trung bình', value: stats.avgScore, icon: TrendingUp },
+          { label: t('EvaluationsPage.evaluations2'), value: stats.total, icon: ClipboardCheck },
+          { label: t('EvaluationsPage.averageScore'), value: stats.avgScore, icon: TrendingUp },
         ]}
-        actions={canCreate ? <Button onClick={() => setShowForm(true)}><Plus aria-hidden="true" /> Tự đánh giá</Button> : undefined}
+        actions={canCreate ? <Button onClick={() => setShowForm(true)}><Plus aria-hidden="true" /> {t('EvaluationsPage.selfAssessment')}</Button> : undefined}
       />
       
       {/* Nhắc hạn: chỉ khi sắp hết hạn, có KPI trong đợt và chưa tự đánh giá */}
@@ -334,43 +337,43 @@ export default function EvaluationsPage() {
           <div className="flex items-start gap-2">
             <AlertCircle size={16} className="mt-0.5 shrink-0 text-[var(--color-warning)]" aria-hidden="true" />
             <p className="text-sm text-[var(--color-foreground)]">
-              Cần tự đánh giá đợt <span className="font-medium">{activePeriod.name}</span> trước ngày{' '}
-              <span className="font-medium tabular-nums">{activePeriod.endDate ? new Date(activePeriod.endDate).toLocaleDateString('vi-VN') : '—'}</span>.
-              {!isPeriodCompleted && <span className="text-[var(--color-muted-foreground)]"> Nộp đủ báo cáo của đợt rồi mới đánh giá được.</span>}
+              {t('EvaluationsPage.selfAssessmentNeededForPeriod')} <span className="font-medium">{activePeriod.name}</span> {t('EvaluationsPage.before')}{' '}
+              <span className="font-medium tabular-nums">{activePeriod.endDate ? new Date(activePeriod.endDate).toLocaleDateString(intlDateLocale()) : '—'}</span>.
+              {!isPeriodCompleted && <span className="text-[var(--color-muted-foreground)]"> {t('EvaluationsPage.submitAllReportsOfThePeriod')}</span>}
           </p>
         </div>
           <Button size="sm" onClick={() => setShowForm(true)} disabled={!isPeriodCompleted}>
-            <Star aria-hidden="true" /> {isPeriodCompleted ? 'Tự đánh giá ngay' : 'Chưa đủ điều kiện'}
+            <Star aria-hidden="true" /> {isPeriodCompleted ? t('EvaluationsPage.selfAssessNow') : t('EvaluationsPage.notEligibleYet')}
           </Button>
         </div>
       )}
 
       <FilterBar id="tour-eval-filters">
         <Select value={selectedKpiPeriodId} onValueChange={val => { setSelectedKpiPeriodId(val); setPage(0); resetGroups() }}>
-          <SelectTrigger className="w-full sm:w-auto sm:min-w-52" aria-label="Đợt đánh giá"><SelectValue placeholder="Đợt đánh giá" /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-auto sm:min-w-52" aria-label={t('EvaluationsPage.evaluationPeriods')}><SelectValue placeholder={t('EvaluationsPage.evaluationPeriods')} /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="ALL">Tất cả các đợt</SelectItem>
+            <SelectItem value="ALL">{t('EvaluationsPage.allPeriods')}</SelectItem>
             {periods.map((p: any) => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
               </SelectContent>
             </Select>
         <Select value={`${sortBy}:${sortDir}`} onValueChange={v => { const [f, d] = v.split(':'); if (f && d) { setSortBy(f); setSortDir(d as 'asc' | 'desc'); setPage(0) } }}>
-          <SelectTrigger className="w-full sm:w-auto sm:min-w-44" aria-label="Sắp xếp"><SelectValue placeholder="Sắp xếp" /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-auto sm:min-w-44" aria-label={t('EvaluationsPage.order')}><SelectValue placeholder={t('EvaluationsPage.order')} /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="createdAt:desc">Mới nhất trước</SelectItem>
-            <SelectItem value="createdAt:asc">Cũ nhất trước</SelectItem>
-            <SelectItem value="score:desc">Điểm cao → thấp</SelectItem>
-            <SelectItem value="score:asc">Điểm thấp → cao</SelectItem>
+            <SelectItem value="createdAt:desc">{t('EvaluationsPage.newestFirst')}</SelectItem>
+            <SelectItem value="createdAt:asc">{t('EvaluationsPage.oldestFirst')}</SelectItem>
+            <SelectItem value="score:desc">{t('EvaluationsPage.scoreHighLow')}</SelectItem>
+            <SelectItem value="score:asc">{t('EvaluationsPage.scoreLowHigh')}</SelectItem>
           </SelectContent>
         </Select>
             {selectedKpiPeriodId !== 'ALL' && (
-          <Button variant="ghost" size="sm" onClick={() => { setSelectedKpiPeriodId('ALL'); setPage(0) }}>Xoá bộ lọc</Button>
+          <Button variant="ghost" size="sm" onClick={() => { setSelectedKpiPeriodId('ALL'); setPage(0) }}>{t('EvaluationsPage.clearFilters')}</Button>
             )}
       </FilterBar>
 
       {hitFetchCap && (
         <div role="status" className="flex items-start gap-2 rounded-card border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-4 py-3">
           <AlertCircle size={16} className="mt-0.5 shrink-0 text-[var(--color-warning)]" aria-hidden="true" />
-          <p className="text-sm text-[var(--color-foreground)]">Chỉ hiển thị {GROUPING_FETCH_SIZE} lượt gần nhất. Lọc theo đợt để xem đủ.</p>
+          <p className="text-sm text-[var(--color-foreground)]">{t('EvaluationsPage.showingOnly')} {GROUPING_FETCH_SIZE} {t('EvaluationsPage.mostRecentFilterByPeriodTo')}</p>
         </div>
       )}
 
@@ -378,7 +381,7 @@ export default function EvaluationsPage() {
         <LoadingSkeleton type="table" rows={6} />
       ) : evaluations.length === 0 ? (
         <div className="rounded-card border border-dashed border-[var(--color-border)] bg-[var(--color-card)]">
-          <EmptyState icon={Inbox} title={emptyTitle} description={emptyDesc} action={canCreate && !canViewAll ? <Button variant="outline" onClick={() => setShowForm(true)}><Plus aria-hidden="true" /> Tự đánh giá</Button> : undefined} />
+          <EmptyState icon={Inbox} title={emptyTitle} description={emptyDesc} action={canCreate && !canViewAll ? <Button variant="outline" onClick={() => setShowForm(true)}><Plus aria-hidden="true" /> {t('EvaluationsPage.selfAssessment')}</Button> : undefined} />
         </div>
       ) : (
         <>
@@ -386,12 +389,12 @@ export default function EvaluationsPage() {
             <table className="w-full">
               <thead>
                 <tr className="border-b border-[var(--color-border)] bg-[var(--color-muted)]">
-                  {!personMode && <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">Nhân sự</th>}
-                  <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">Đợt</th>
-                  <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">Người chấm</th>
-                  <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">Điểm · Xếp loại</th>
-                  <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">Ngày</th>
-                  <th scope="col" className="px-3 py-2.5 text-right text-eyebrow">Hành động</th>
+                  {!personMode && <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">{t('EvaluationsPage.people2')}</th>}
+                  <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">{t('EvaluationsPage.aPeriod')}</th>
+                  <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">{t('EvaluationsPage.scorer')}</th>
+                  <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">{t('EvaluationsPage.scoreRating')}</th>
+                  <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">{t('EvaluationsPage.date')}</th>
+                  <th scope="col" className="px-3 py-2.5 text-right text-eyebrow">{t('EvaluationsPage.actions')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--color-border)]">
@@ -450,7 +453,7 @@ export default function EvaluationsPage() {
 
           {(unitMode || personMode) && (
             <div className="rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
-              <Pagination currentPage={groupPage} totalPages={totalGroupPages} onPageChange={setPage} totalElements={totalGroups} size={GROUP_PAGE_SIZE} itemLabel={unitMode ? 'đơn vị' : 'nhân sự'} />
+              <Pagination currentPage={groupPage} totalPages={totalGroupPages} onPageChange={setPage} totalElements={totalGroups} size={GROUP_PAGE_SIZE} itemLabel={unitMode ? t('EvaluationsPage.unit') : t('EvaluationsPage.people')} />
         </div>
       )}
         </>

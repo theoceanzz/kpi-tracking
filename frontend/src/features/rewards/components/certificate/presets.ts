@@ -1,5 +1,8 @@
+import { intlLocale } from '@/i18n/format'
 import { CertificateOrientation } from '../../types'
 import type { CertificateTemplate } from '../../types'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
 /**
  * Bộ thiết kế chứng nhận dựng sẵn.
@@ -73,30 +76,30 @@ const SCRIPT = "'Great Vibes', 'Segoe Script', 'Brush Script MT', cursive"
  * <p>Tách thành hằng số riêng thay vì viết `CERTIFICATE_PRESETS[0]` ở khắp nơi: chỉ mục
  * mảng luôn có thể là `undefined` dưới mắt trình biên dịch, còn ở đây thì không.
  */
-export const DEFAULT_PRESET: CertificatePreset = {
+export const DEFAULT_PRESET = perLanguage((): CertificatePreset => ({
   key: 'CLASSIC_GOLD',
-  name: 'Cổ điển vàng đồng',
-  tagline: 'Khung viền đôi, huy hiệu nổi — trang trọng như giấy khen truyền thống.',
+  name: i18n.t('rewards:presets.classicGold'),
+  tagline: i18n.t('rewards:presets.doubleBorderRaisedBadgeAsFormal'),
   frame: 'GOLD_DOUBLE',
   align: 'CENTER',
   dark: false,
   colors: { surface: '#FFFDF5', ink: '#2A2318', accent: '#B08D2F' },
   fonts: { display: SERIF, body: SANS, name: SERIF },
   content: {
-    eyebrow: 'CHỨNG NHẬN',
-    title: 'NHÂN VIÊN XUẤT SẮC',
-    subtitle: 'Trân trọng trao tặng',
-    body: 'Vì những đóng góp nổi bật cho tập thể {{donVi}} và tinh thần làm việc đáng ghi nhận.',
+    eyebrow: i18n.t('rewards:presets.certificate'),
+    title: i18n.t('rewards:presets.outstandingEmployee'),
+    subtitle: i18n.t('rewards:presets.proudlyPresentedTo'),
+    body: i18n.t('rewards:presets.forOutstandingContributionsToAndA'),
     footnote: '',
   },
-}
+}))
 
-export const CERTIFICATE_PRESETS: CertificatePreset[] = [
-  DEFAULT_PRESET,
+export const CERTIFICATE_PRESETS = perLanguage((): CertificatePreset[] => ([
+  DEFAULT_PRESET(),
   {
     key: 'MODERN_GRADIENT',
-    name: 'Gradient hiện đại',
-    tagline: 'Khối màu chuyển sắc, chữ đậm dứt khoát — hợp công ty trẻ.',
+    name: i18n.t('rewards:presets.modernGradient'),
+    tagline: i18n.t('rewards:presets.gradientColorBlocksBoldDecisiveType'),
     frame: 'GRADIENT_ARC',
     align: 'LEFT',
     dark: false,
@@ -104,67 +107,67 @@ export const CERTIFICATE_PRESETS: CertificatePreset[] = [
     fonts: { display: SANS, body: SANS, name: SANS },
     content: {
       eyebrow: 'EMPLOYEE OF THE WEEK',
-      title: 'NHÂN VIÊN CỦA TUẦN',
-      subtitle: 'Xin chúc mừng',
-      body: 'Cảm ơn bạn vì một tuần làm việc tạo ra khác biệt thật sự cho cả đội.',
+      title: i18n.t('rewards:presets.employeeOfTheWeek'),
+      subtitle: i18n.t('rewards:presets.congratulations'),
+      body: i18n.t('rewards:presets.thankYouForAWeekOf'),
       footnote: '',
     },
   },
   {
     key: 'ELEGANT_NAVY',
-    name: 'Sang trọng xanh đêm',
-    tagline: 'Nền xanh đậm, chi tiết vàng đồng — dành cho dịp vinh danh lớn.',
+    name: i18n.t('rewards:presets.midnightLuxury'),
+    tagline: i18n.t('rewards:presets.deepBlueBackgroundWithGoldDetails'),
     frame: 'DECO_CORNERS',
     align: 'CENTER',
     dark: true,
     colors: { surface: '#0E1B33', ink: '#F3F6FF', accent: '#D8B25C' },
     fonts: { display: SERIF, body: SANS, name: SCRIPT },
     content: {
-      eyebrow: 'GIẤY KHEN',
-      title: 'CỐNG HIẾN XUẤT SẮC',
-      subtitle: 'Trân trọng vinh danh',
-      body: 'Ghi nhận sự tận tâm và những kết quả vượt mong đợi trong công việc.',
+      eyebrow: i18n.t('rewards:presets.certificateOfMerit'),
+      title: i18n.t('rewards:presets.outstandingDedication'),
+      subtitle: i18n.t('rewards:presets.proudlyHonoring'),
+      body: i18n.t('rewards:presets.recognizingDedicationAndResultsBeyondExpectation'),
       footnote: '',
     },
   },
   {
     key: 'MINIMAL_MONO',
-    name: 'Tối giản',
-    tagline: 'Một đường kẻ, chữ lớn, nhiều khoảng trắng — in đen trắng vẫn đẹp.',
+    name: i18n.t('rewards:presets.minimal'),
+    tagline: i18n.t('rewards:presets.oneLineLargeTypeLotsOf'),
     frame: 'HAIRLINE',
     align: 'LEFT',
     dark: false,
     colors: { surface: '#FFFFFF', ink: '#111827', accent: '#111827' },
     fonts: { display: SANS, body: SANS, name: SERIF },
     content: {
-      eyebrow: 'GHI NHẬN',
-      title: 'Cảm ơn vì đã tạo ra khác biệt',
+      eyebrow: i18n.t('rewards:presets.recognition'),
+      title: i18n.t('rewards:presets.thankYouForMakingADifference'),
       subtitle: '',
-      body: 'Đóng góp của bạn cho {{donVi}} đã được cả đội nhìn thấy và trân trọng.',
+      body: i18n.t('rewards:presets.yourContributionToHasBeenSeen'),
       footnote: '',
     },
   },
   {
     key: 'FESTIVE_CONFETTI',
-    name: 'Rực rỡ',
-    tagline: 'Kim tuyến và dải băng — vui, hợp trao trước cả phòng.',
+    name: i18n.t('rewards:presets.vibrant'),
+    tagline: i18n.t('rewards:presets.confettiAndRibbonsFunGreatFor'),
     frame: 'CONFETTI',
     align: 'CENTER',
     dark: false,
     colors: { surface: '#FFF8ED', ink: '#3B2A1A', accent: '#F97316' },
     fonts: { display: SANS, body: SANS, name: SERIF },
     content: {
-      eyebrow: 'CHÚC MỪNG',
-      title: 'NGÔI SAO CỦA THÁNG',
-      subtitle: 'Danh hiệu được trao cho',
-      body: 'Vì năng lượng và kết quả bạn mang lại cho cả {{donVi}} trong tháng vừa qua.',
+      eyebrow: i18n.t('rewards:presets.congratulations2'),
+      title: i18n.t('rewards:presets.starOfTheMonth'),
+      subtitle: i18n.t('rewards:presets.thisTitleIsAwardedTo'),
+      body: i18n.t('rewards:presets.forTheEnergyAndResultsYou'),
       footnote: '',
     },
   },
   {
     key: 'BOTANICAL_LAUREL',
-    name: 'Nguyệt quế',
-    tagline: 'Vòng nguyệt quế ôm lấy tên người nhận — cổ điển mà nhẹ nhàng.',
+    name: i18n.t('rewards:presets.laurel'),
+    tagline: i18n.t('rewards:presets.aLaurelWreathAroundTheRecipients'),
     frame: 'LAUREL',
     align: 'CENTER',
     dark: false,
@@ -172,13 +175,13 @@ export const CERTIFICATE_PRESETS: CertificatePreset[] = [
     fonts: { display: SERIF, body: SANS, name: SCRIPT },
     content: {
       eyebrow: 'VINH DANH',
-      title: 'THÀNH TÍCH NỔI BẬT',
-      subtitle: 'Xin trân trọng trao tặng',
-      body: 'Ghi nhận những nỗ lực bền bỉ và kết quả đáng tự hào trong thời gian qua.',
+      title: i18n.t('rewards:presets.outstandingAchievement'),
+      subtitle: i18n.t('rewards:presets.weProudlyPresentThisTo'),
+      body: i18n.t('rewards:presets.recognizingPersistentEffortAndResultsTo'),
       footnote: '',
     },
   },
-]
+]))
 
 /**
  * Tra preset theo khoá, LUÔN trả về một preset.
@@ -187,7 +190,7 @@ export const CERTIFICATE_PRESETS: CertificatePreset[] = [
  * người dùng cần in được tờ giấy khen, không cần biết danh mục thiết kế đã đổi.
  */
 export const getPreset = (key?: string | null): CertificatePreset =>
-  CERTIFICATE_PRESETS.find((p) => p.key === key) ?? DEFAULT_PRESET
+  CERTIFICATE_PRESETS().find((p) => p.key === key) ?? DEFAULT_PRESET()
 
 // ── Dữ liệu điền vào chứng nhận ──────────────────────────────────
 
@@ -204,15 +207,15 @@ export interface CertificateData {
 }
 
 /** Bảng chỗ giữ hiện cho người soạn mẫu, và cũng là bảng tra lúc thay. */
-export const CERTIFICATE_PLACEHOLDERS: { token: string; label: string }[] = [
-  { token: '{{ten}}', label: 'Tên người nhận' },
-  { token: '{{diem}}', label: 'Số điểm thưởng' },
-  { token: '{{lyDo}}', label: 'Lý do khen thưởng' },
-  { token: '{{ngay}}', label: 'Ngày trao' },
-  { token: '{{nguoiThuong}}', label: 'Người trao thưởng' },
-  { token: '{{donVi}}', label: 'Đơn vị' },
-  { token: '{{congTy}}', label: 'Tên công ty' },
-]
+export const CERTIFICATE_PLACEHOLDERS = perLanguage((): { token: string; label: string }[] => ([
+  { token: '{{ten}}', label: i18n.t('rewards:presets.recipientName') },
+  { token: '{{diem}}', label: i18n.t('rewards:presets.rewardPoints') },
+  { token: '{{lyDo}}', label: i18n.t('rewards:presets.rewardReason') },
+  { token: '{{ngay}}', label: i18n.t('rewards:presets.awardedOn') },
+  { token: '{{nguoiThuong}}', label: i18n.t('rewards:presets.awardedBy') },
+  { token: '{{donVi}}', label: i18n.t('rewards:presets.unit') },
+  { token: '{{congTy}}', label: i18n.t('rewards:presets.companyName') },
+]))
 
 /**
  * Thay chỗ giữ bằng dữ liệu thật.
@@ -226,7 +229,7 @@ export function fillPlaceholders(text: string | null | undefined, data: Certific
 
   const map: Record<string, string> = {
     '{{ten}}': data.recipientName,
-    '{{diem}}': data.points.toLocaleString('vi-VN'),
+    '{{diem}}': data.points.toLocaleString(intlLocale()),
     '{{lyDo}}': data.reason,
     '{{ngay}}': data.dateLabel,
     '{{nguoiThuong}}': data.grantorName,
@@ -291,7 +294,7 @@ export function resolveDesign(
     body: template ? (template.body ?? '') : preset.content.body,
     footnote: template ? (template.footnote ?? '') : preset.content.footnote,
     signerName: template?.signerName ?? '',
-    signerTitle: template?.signerTitle ?? 'Người trao thưởng',
+    signerTitle: template?.signerTitle ?? i18n.t('rewards:presets.awardedBy'),
     signatureUrl: template?.signatureUrl,
     logoUrl: template?.logoUrl,
     backgroundUrl: template?.backgroundUrl,

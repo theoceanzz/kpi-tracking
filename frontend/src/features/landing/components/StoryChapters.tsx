@@ -2,6 +2,7 @@ import { type ReactNode } from 'react'
 import { CheckCircle2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Eyebrow, Headline, MoreToggle, Reveal, Screenshot } from './primitives'
+import { useTranslation } from 'react-i18next'
 
 /**
  * Bốn chương của "bộ phim", mỗi chương một ảnh chụp thật của app.
@@ -9,44 +10,45 @@ import { Eyebrow, Headline, MoreToggle, Reveal, Screenshot } from './primitives'
  * nằm sau nút "Xem chi tiết" để người xem lướt nhanh vẫn hiểu hệ thống.
  */
 export function StoryChapters() {
+  const { t } = useTranslation('landing')
   return (
     <div id="story" className="scroll-mt-24">
       <Chapter
         no="01"
-        eyebrow="Đặt mục tiêu"
-        title={<>Một mục tiêu công ty, <em>phân rã</em> tới từng người.</>}
-        summary="Bật đúng các bước của luồng KPI; chỉ tiêu chảy từ ban giám đốc xuống phòng ban, xuống từng cá nhân."
-        detail="OKR, KPI và thẻ điểm cân bằng BSC trên cùng một trục. Ai cũng thấy mình đang góp vào điều gì. Cơ cấu tổ chức, OKR, BSC nhập từ Excel — xem trước rồi mới ghi."
-        bullets={['OKR · KPI · BSC', 'Thác nước chỉ tiêu theo cơ cấu', 'Nhập từ Excel, xem trước rồi mới ghi']}
-        shot={{ src: '/landing/kpi-workflow.webp', title: 'Luồng KPI · Thiết lập', alt: 'Màn hình Luồng KPI: chọn các bước quản lý kỳ, đợt, chỉ tiêu, duyệt' }}
+        eyebrow={t('StoryChapters.setGoals')}
+        title={<>{t('StoryChapters.oneCompanyGoal')} <em>{t('StoryChapters.cascaded')}</em> {t('StoryChapters.toEveryPerson')}</>}
+        summary={t('StoryChapters.turnOnExactlyTheStepsOf')}
+        detail={t('StoryChapters.okrKpiAndTheBalancedScorecard')}
+        bullets={['OKR · KPI · BSC', t('StoryChapters.kpiWaterfallAlongTheStructure'), t('StoryChapters.importFromExcelPreviewBeforeSaving')]}
+        shot={{ src: 'kpi-workflow.webp', title: t('StoryChapters.kpiFlowSetup'), alt: t('StoryChapters.theKpiFlowScreenChooseThe') }}
       />
       <Chapter
         no="02"
-        eyebrow="Đo lường & đánh giá"
-        title={<>Nhân viên nộp, quản lý duyệt, <em>hệ thống tổng hợp</em>.</>}
-        summary="Tự chấm kèm minh chứng, quản lý chấm từng đợt — nhiều đợt gộp thành kết quả cả kỳ."
-        detail="Có luồng xin điều chỉnh chỉ tiêu giữa kỳ. Chấm hạnh kiểm và ma trận xếp loại đi kèm, nên đo cả kết quả lẫn hành vi chứ không chỉ con số."
-        bullets={['Đánh giá theo đợt & theo kỳ', 'Minh chứng đính kèm, xin điều chỉnh giữa kỳ', 'Hạnh kiểm & ma trận xếp loại']}
-        shot={{ src: '/landing/evaluation-batch.webp', title: 'Quản lý hiệu suất · Đánh giá đợt', alt: 'Màn hình Đánh giá đợt: danh sách nhân sự, bài chờ duyệt, điểm và xếp loại' }}
+        eyebrow={t('StoryChapters.measureEvaluate')}
+        title={<>{t('StoryChapters.employeesSubmitManagersApprove')} <em>{t('StoryChapters.theSystemSummarizes')}</em>.</>}
+        summary={t('StoryChapters.selfScoringWithEvidenceManagersScoring')}
+        detail={t('StoryChapters.thereIsAFlowForRequesting')}
+        bullets={[t('StoryChapters.evaluationByPeriodByCycle'), t('StoryChapters.attachedEvidenceMidCycleAdjustmentRequests'), t('StoryChapters.conductRatingMatrix')]}
+        shot={{ src: 'evaluation-batch.webp', title: t('StoryChapters.performanceManagementPeriodEvaluation'), alt: t('StoryChapters.thePeriodEvaluationScreenPeopleList') }}
         flip
       />
       <Chapter
         no="03"
-        eyebrow="Nhìn thấy kết quả"
-        title={<>Kết quả kỳ <em>tự tổng hợp</em>, thưởng ngay khi có.</>}
-        summary="Điểm kỳ = trung bình các đợt + hạnh kiểm; luồng duyệt theo cấp và bell curve so sánh trong đơn vị."
-        detail="Dashboard kéo thả, ghim thẻ quan trọng lên đầu. Điểm thưởng, điểm danh, quà tặng và chứng nhận trao ngay khi chốt kết quả — ghi nhận đúng lúc, không chờ cuối năm. Export báo cáo một chạm."
-        bullets={['Dashboard tùy biến, ghim thẻ quan trọng', 'Thưởng, điểm danh, quà tặng, ví tiền', 'Export báo cáo một chạm']}
-        shot={{ src: '/landing/evaluation-period.webp', title: 'Quản lý hiệu suất · Đánh giá kỳ', alt: 'Màn hình Đánh giá kỳ: tổng hợp điểm, luồng duyệt theo cấp, bell curve của đơn vị' }}
+        eyebrow={t('StoryChapters.seeTheResults')}
+        title={<>{t('StoryChapters.cycleResults')} <em>{t('StoryChapters.summarizedAutomatically')}</em>{t('StoryChapters.rewardedRightAway')}</>}
+        summary={t('StoryChapters.cycleScoreAverageOfPeriodsConduct')}
+        detail={t('StoryChapters.dragAndDropDashboardsPinImportant')}
+        bullets={[t('StoryChapters.customizableDashboardsPinImportantCards'), t('StoryChapters.rewardsCheckInsGiftsWallet'), t('StoryChapters.oneClickReportExport')]}
+        shot={{ src: 'evaluation-period.webp', title: t('StoryChapters.performanceManagementCycleEvaluation'), alt: t('StoryChapters.theCycleEvaluationScreenScoreSummary') }}
       />
       <Chapter
         no="04"
-        eyebrow="Trợ lý K.AI"
-        title={<>Hỏi số liệu như <em>hỏi đồng nghiệp</em>.</>}
-        summary="K.AI đọc dữ liệu của chính tổ chức bạn: ai đang có nguy cơ, phòng nào cần can thiệp, duyệt gì đang chờ."
-        detail="Trả lời theo đúng quyền của người hỏi, điền hộ biểu mẫu đánh giá, gợi ý nhận xét. Chạy được với Ollama nội bộ, OpenAI hoặc Gemini — tự chọn mô hình."
-        bullets={['Hỏi đáp số liệu theo quyền của người hỏi', 'Điền hộ biểu mẫu KPI, gợi ý nhận xét', 'Tự chọn mô hình: nội bộ hoặc cloud']}
-        shot={{ src: '/landing/kai.webp', title: 'K.AI · Trợ lý dữ liệu', alt: 'Màn hình Trợ lý K.AI: gợi ý câu hỏi và phân tích nổi bật từ dữ liệu' }}
+        eyebrow={t('StoryChapters.kAiAssistant')}
+        title={<>{t('StoryChapters.askForFiguresLike')} <em>{t('StoryChapters.askingAColleague')}</em>.</>}
+        summary={t('StoryChapters.kAiReadsYourOwnOrganizations')}
+        detail={t('StoryChapters.answersWithinTheAskersPermissionsFills')}
+        bullets={[t('StoryChapters.dataQAWithinTheAskers'), t('StoryChapters.fillsInKpiFormsSuggestsComments'), t('StoryChapters.chooseYourModelInHouseOr')]}
+        shot={{ src: 'kai.webp', title: t('StoryChapters.kAiDataAssistant'), alt: t('StoryChapters.theKAiAssistantScreenSuggested') }}
         flip
       />
     </div>
@@ -72,6 +74,7 @@ function Chapter({
   shot: { src: string; title: string; alt: string }
   flip?: boolean
 }) {
+  const { t } = useTranslation('landing')
   return (
     <section className={cn('relative border-t border-slate-200 px-5 py-20 sm:px-8 sm:py-28 lg:px-12 lg:py-36', flip && 'lp-section-alt')}>
       <div className="lp-dots pointer-events-none absolute inset-0 -z-10 [mask-image:radial-gradient(ellipse_50%_60%_at_50%_50%,#000,transparent)]" />
@@ -80,7 +83,7 @@ function Chapter({
           <Reveal>
             <div className="mb-5 flex items-center gap-4">
               <span className="text-6xl font-black leading-none text-slate-900/[0.06] sm:text-7xl">{no}</span>
-              <Eyebrow>Chương {no} · {eyebrow}</Eyebrow>
+              <Eyebrow>{t('StoryChapters.chapter')} {no} · {eyebrow}</Eyebrow>
             </div>
           </Reveal>
           <Reveal delay={100}>

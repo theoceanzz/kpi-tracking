@@ -22,7 +22,7 @@ import java.util.UUID;
 @Data
 public class RewardBudgetRequest {
 
-    @NotNull(message = "Vui lòng chọn người được cấp hạn mức")
+    @NotNull(message = "{validation.choosePersonReceiveQuota}")
     private UUID grantorUserId;
 
     /** Nếu có, ngày hiệu lực lấy theo kỳ này. Không được truyền cùng {@link #kpiPeriodId}. */
@@ -35,12 +35,12 @@ public class RewardBudgetRequest {
 
     private LocalDate periodEnd;
 
-    @NotNull(message = "Vui lòng nhập số điểm được cấp")
-    @Min(value = 0, message = "Số điểm được cấp không được âm")
+    @NotNull(message = "{validation.enterGrantedPoints}")
+    @Min(value = 0, message = "{validation.grantedPointsCannotNegative}")
     private Integer allocatedPoints;
 
     /** Trần cho mỗi người nhận trong một lần thưởng. Để trống = không giới hạn. */
-    @Min(value = 1, message = "Mức tối đa mỗi lần thưởng phải lớn hơn 0")
+    @Min(value = 1, message = "{validation.maximumPerRewardMustGreaterThan0}")
     private Integer maxPerAward;
 
     private String note;

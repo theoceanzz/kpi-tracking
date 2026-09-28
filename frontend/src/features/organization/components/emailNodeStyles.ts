@@ -1,3 +1,5 @@
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 /**
  * Bảng màu và nhãn dùng chung giữa định nghĩa node email và giao diện soạn thảo.
  * Tách riêng để `emailNodes.ts` (không có JSX) và `emailNodeViews.tsx` (chỉ có
@@ -11,9 +13,9 @@ export const ALERT_COLORS: Record<string, { color: string; bg: string }> = {
   danger: { color: '#b91c1c', bg: '#fef2f2' },
 }
 
-export const ALERT_LABEL: Record<string, string> = {
-  info: 'Xanh dương', success: 'Xanh lá', warning: 'Vàng', danger: 'Đỏ',
-}
+export const ALERT_LABEL = perLanguage((): Record<string, string> => ({
+  info: i18n.t('organization:emailNodeStyles.blue'), success: i18n.t('organization:emailNodeStyles.green'), warning: i18n.t('organization:emailNodeStyles.yellow'), danger: i18n.t('organization:emailNodeStyles.red'),
+}))
 
 /** Thứ tự hiện các ô màu cơ bản trên thanh công cụ của khung nhấn mạnh. */
 export const ALERT_VARIANTS: string[] = ['info', 'success', 'warning', 'danger']
@@ -47,12 +49,12 @@ export const resolveAlertColors = (variant?: string | null, color?: string | nul
  */
 export const EMAIL_CONTENT_WIDTH = 520
 
-export const IMAGE_PRESETS: { label: string; width: number }[] = [
-  { label: 'Nhỏ', width: 160 },
-  { label: 'Vừa', width: 300 },
-  { label: 'Lớn', width: 420 },
-  { label: 'Hết khổ', width: EMAIL_CONTENT_WIDTH },
-]
+export const IMAGE_PRESETS = perLanguage((): { label: string; width: number }[] => ([
+  { label: i18n.t('organization:emailNodeStyles.small'), width: 160 },
+  { label: i18n.t('organization:emailNodeStyles.medium'), width: 300 },
+  { label: i18n.t('organization:emailNodeStyles.large'), width: 420 },
+  { label: i18n.t('organization:emailNodeStyles.fullWidth'), width: EMAIL_CONTENT_WIDTH },
+]))
 
 export const nodeInputClass =
   'w-full px-3 py-2 rounded-xl border border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-950 text-sm font-medium outline-none focus:ring-4 focus:ring-indigo-500/10 focus:border-indigo-500/50 transition-all'

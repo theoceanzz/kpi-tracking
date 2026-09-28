@@ -83,13 +83,18 @@ public class MyTasksTool {
                 PageResponse<KpiCriteriaResponse> page = kpiCriteriaService.getKpiCriteria(
                         0, FETCH_LIMIT, KpiStatus.PENDING_APPROVAL, unitId, null, null, periodId,
                         null, null, null, "createdAt", "asc", null, null, null, true, null, null, null, null);
-                return page.getContent().stream().map(k -> k.getName()
+                return page.getContent().stream()
+                        // Chuỗi duyệt: chỉ những chỉ tiêu đang chờ ĐÚNG người dùng ở bước hiện tại.
+                        .filter(k -> k.getApproval() == null || k.getApproval().isCanAct())
+                        .map(k -> k.getName()
                         + (k.getOrgUnitName() != null ? " — " + k.getOrgUnitName() : "")).toList();
             }));
             buckets.add(bucket("pendingAdjustments", "Yêu cầu điều chỉnh KPI chờ duyệt", "review_kpi_adjustments", userId, "KPI:APPROVE_ADJUSTMENT", () -> {
                 PageResponse<AdjustmentRequestResponse> page = adjustmentService.getAllRequests(
                         0, FETCH_LIMIT, AdjustmentStatus.PENDING, unitId, periodId);
-                return page.getContent().stream().map(a -> a.getRequesterName() + " — " + a.getKpiCriteriaName()).toList();
+                return page.getContent().stream()
+                        .filter(a -> a.getApproval() == null || a.getApproval().isCanAct())
+                        .map(a -> a.getRequesterName() + " — " + a.getKpiCriteriaName()).toList();
             }));
             buckets.add(bucket("nonSubmitters", "Người chưa nộp báo cáo", "send_reminders", userId, "REMINDER:SEND", () -> {
                 Map<String, Object> res = orgUnitStatisticService.getNonSubmitters(

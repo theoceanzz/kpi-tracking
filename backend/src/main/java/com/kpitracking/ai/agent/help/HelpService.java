@@ -38,7 +38,8 @@ public class HelpService {
         UUID orgId = currentUser.getCurrentOrgId();
         AiTokenUsageRecorder.setFeature(AiTokenUsage.AiFeature.HELP);
         try {
-            return new Answer(helpAgent.answer(question,
+            String language = com.kpitracking.i18n.ErrorMessages.currentLocale().getLanguage();
+            return new Answer(helpAgent.answer(com.kpitracking.ai.agent.AiLanguage.prefix(language) + question,
                     InvocationParameters.from(HelpAgentFactory.PARAM_ORG_ID, orgId.toString())));
         } finally {
             AiTokenUsageRecorder.clearFeature();

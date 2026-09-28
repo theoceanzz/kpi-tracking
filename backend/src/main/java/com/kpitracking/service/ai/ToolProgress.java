@@ -80,6 +80,7 @@ public final class ToolProgress {
             Map.entry("get_my_submissions", "Đang xem bài nộp của bạn"),
             Map.entry("get_my_score", "Đang tính điểm dự kiến của bạn"),
             Map.entry("get_my_conduct", "Đang xem phiếu hạnh kiểm của bạn"),
+            Map.entry("get_my_feedback360", "Đang xem báo cáo đánh giá 360 của bạn"),
             Map.entry("get_my_rewards", "Đang xem thưởng điểm của bạn"),
             // Tool này CHẠY THẬT chứ không chuẩn bị, nên nhãn phải nói đúng như vậy.
             Map.entry("confirm_pending_action", "Đang thực hiện thao tác bạn vừa xác nhận"));

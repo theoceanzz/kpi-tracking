@@ -11,6 +11,7 @@ import LarkSettingsTab from '@/features/organization/components/LarkSettingsTab'
 import AiDocumentsSettingsTab from '@/features/organization/components/AiDocumentsSettingsTab'
 import WorkflowSettingsTab from '@/features/kpi/workflow/components/WorkflowSettingsTab'
 import { useSearchParams } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 
 /**
  * Toàn bộ thiết lập cấp công ty trong MỘT trang. Trước đây là năm dòng sidebar riêng
@@ -18,7 +19,8 @@ import { useSearchParams } from 'react-router-dom'
  * bên trái ngắn, khách hàng đỡ phải quét nhiều mục mới tìm được thứ cần.
  */
 export default function CompanySettingsPage() {
-  const pageTitle = usePageTitle('setup-company', 'Thiết lập công ty')
+  const { t } = useTranslation('orgunits')
+  const pageTitle = usePageTitle('setup-company', t('CompanySettingsPage.companySetup'))
   const [, setSearchParams] = useSearchParams()
 
   const goToSection = (id: string) =>
@@ -33,7 +35,7 @@ export default function CompanySettingsPage() {
       <SettingsSectionLayout
         navId="setup-company"
         title={pageTitle}
-        subtitle="Thông tin, cơ cấu, con người và các thiết lập chung của tổ chức"
+        subtitle={t('CompanySettingsPage.theOrganizationsInformationStructurePeopleAnd')}
         sections={[
           { id: 'info', render: () => <CompanyInfoSection /> },
           { id: 'ranks', render: () => <CompanyHierarchySection /> },

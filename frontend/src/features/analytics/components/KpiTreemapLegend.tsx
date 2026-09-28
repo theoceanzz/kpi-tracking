@@ -7,6 +7,7 @@ import {
   RELATION_STROKE,
   type KpiKind,
 } from '@/components/charts/chartPalette'
+import { useTranslation } from 'react-i18next'
 
 /**
  * Chú giải cho treemap KPI: quan hệ, loại KPI, và thang màu tiến độ.
@@ -19,45 +20,46 @@ import {
  * kết quả. Gộp lại một hàng sẽ khiến người đọc tưởng chúng cùng một thang.
  */
 export function KpiTreemapLegend() {
+  const { t } = useTranslation('analytics')
   const kinds = Object.keys(KPI_KIND_COLORS) as KpiKind[]
 
   return (
     <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-caption">
-      <Group label="Quan hệ">
+      <Group label={t('KpiTreemapLegend.relationship')}>
         <span className="flex items-center gap-1.5">
           <span
             className="w-4 h-3.5 rounded-control border-2"
             style={{ borderColor: RELATION_STROKE.DECOMPOSITION }}
           />
-          Phân rã (cha, con)
+          {t('KpiTreemapLegend.cascadedParentChild')}
         </span>
         <span className="flex items-center gap-1.5">
           <span
             className="w-4 h-3.5 rounded-control border-2 border-dashed"
             style={{ borderColor: RELATION_STROKE.DELEGATION }}
           />
-          Thác nước
+          {t('KpiTreemapLegend.waterfall')}
         </span>
       </Group>
 
-      <Group label="Loại">
+      <Group label={t('KpiTreemapLegend.type')}>
         {kinds.map(k => (
           <span key={k} className="flex items-center gap-1.5">
             <span
               className="w-2.5 h-2.5 rounded-control ring-1 ring-white dark:ring-slate-900"
               style={{ backgroundColor: KPI_KIND_COLORS[k] }}
             />
-            {KPI_KIND_LABELS[k]}
+            {KPI_KIND_LABELS()[k]}
           </span>
         ))}
       </Group>
 
-      <Group label="Tiến độ">
+      <Group label={t('KpiTreemapLegend.progress')}>
         {/* Ô xám chiếm phần không nhỏ trong hình mà chú giải trước đây không hề nhắc tới, nên
             người xem không có chỗ nào tra ra nó nghĩa là gì. */}
         <span className="flex items-center gap-1.5">
           <span className="w-3.5 h-3.5 rounded-control" style={{ backgroundColor: NEUTRAL_COLOR }} />
-          <span>Chưa có kết quả</span>
+          <span>{t('KpiTreemapLegend.noResultsYet')}</span>
         </span>
         {/* Lấy màu qua chính `achievementSurface` chứ không chép lại bảng màu: chú giải mà lệch
             với ô thật thì còn tệ hơn không có chú giải. */}

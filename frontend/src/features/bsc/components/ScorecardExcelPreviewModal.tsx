@@ -11,6 +11,9 @@ import { useKpiPeriods } from '@/features/kpi/hooks/useKpiPeriods'
 import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { useTranslation } from 'react-i18next'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
 interface Props {
   open: boolean
@@ -24,12 +27,12 @@ interface Props {
  * Ràng buộc từng dòng. Trùng mã trong kỳ và tổng trọng số của kỳ phải nhìn cả tệp mới
  * biết, nên nằm ở `validateAll` bên dưới chứ không ở đây.
  */
-const rowSchema = z.object({
-  Period: z.string().trim().min(1, 'Bắt buộc'),
-  PerspectiveCode: z.string().trim().min(1, 'Bắt buộc'),
+const rowSchema = perLanguage(() => (z.object({
+  Period: z.string().trim().min(1, i18n.t('bsc:ScorecardExcelPreviewModal.required')),
+  PerspectiveCode: z.string().trim().min(1, i18n.t('bsc:ScorecardExcelPreviewModal.required')),
   Weight: z.union([z.string(), z.number()])
-    .refine(v => String(v ?? '').trim() !== '' && !isNaN(Number(v)), 'Phải là số'),
-})
+    .refine(v => String(v ?? '').trim() !== '' && !isNaN(Number(v)), i18n.t('bsc:ScorecardExcelPreviewModal.mustBeANumber')),
+})))
 
 interface Row {
   id: string
@@ -58,6 +61,7 @@ interface Row {
 }
 
 export default function ScorecardExcelPreviewModal({ open, file, onClose, onImport, isImporting }: Props) {
+  const { t } = useTranslation('bsc')
   const { user } = useAuthStore()
   const organizationId = user?.memberships?.[0]?.organizationId
   const { data: periodsData } = useKpiPeriods({ organizationId })
@@ -110,10 +114,10 @@ export default function ScorecardExcelPreviewModal({ open, file, onClose, onImpo
   }
   const unitLabel = (row: Row) => {
     const codes = (row.OrgUnitCodes || '').split(',').map(c => c.trim()).filter(Boolean)
-    if (codes.length === 0) return 'Chọn phòng ban'
-    if (codes.length >= flatOrgUnits.length && flatOrgUnits.length > 0) return 'Tất cả đơn vị'
+    if (codes.length === 0) return t('ScorecardExcelPreviewModal.chooseDepartment')
+    if (codes.length >= flatOrgUnits.length && flatOrgUnits.length > 0) return t('ScorecardExcelPreviewModal.allUnits')
     if (codes.length === 1) return flatOrgUnits.find(u => u.code === codes[0])?.name || codes[0]
-    return `Đã chọn ${codes.length} đơn vị`
+    return t('ScorecardExcelPreviewModal.unitsSelected', { count: codes.length })
   }
 
   useEffect(() => {
@@ -137,7 +141,7 @@ export default function ScorecardExcelPreviewModal({ open, file, onClose, onImpo
     })
     return rows.map(r => {
       const errors: Record<string, string> = {}
-      const parsed = rowSchema.safeParse(r)
+      const parsed = rowSchema().safeParse(r)
       if (!parsed.success) {
         parsed.error.issues.forEach(issue => {
           const field = issue.path[0]
@@ -148,15 +152,15 @@ export default function ScorecardExcelPreviewModal({ open, file, onClose, onImpo
       const codeVal = (r.PerspectiveCode || '').trim()
       // Hai luật dưới đây phải nhìn cả tệp / danh sách kỳ trên server nên không nằm trong schema.
       if (periodVal && periodNames.length > 0 && !periodNames.some(n => n.toLowerCase() === periodVal.toLowerCase())) {
-        errors['Period'] = 'Kỳ không tồn tại'
+        errors['Period'] = t('ScorecardExcelPreviewModal.cycleDoesNotExist')
       }
       if (codeVal && periodVal && (comboCounts.get(`${periodVal.toLowerCase()}##${codeVal.toLowerCase()}`) || 0) > 1) {
-        errors['PerspectiveCode'] = 'Mã hạng mục bị trùng trong kỳ'
+        errors['PerspectiveCode'] = t('ScorecardExcelPreviewModal.duplicateItemCodeInTheCycle')
       }
       const key = periodVal.toLowerCase()
       if (key) {
         const total = sums.get(key) || 0
-        if (Math.abs(total - 100) > 0.01) errors['Weight'] = `Tổng kỳ = ${total.toFixed(1)}% (cần 100%)`
+        if (Math.abs(total - 100) > 0.01) errors['Weight'] = t('ScorecardExcelPreviewModal.cycleTotal100Required', { value: total.toFixed(1) })
       }
       return { ...r, _errors: Object.keys(errors).length > 0 ? errors : undefined }
     })
@@ -201,10 +205,10 @@ export default function ScorecardExcelPreviewModal({ open, file, onClose, onImpo
           Color: (row['Color'] || '').toString().trim(),
         }
       }).filter(r => r.Period || r.PerspectiveCode)
-      if (parsed.length === 0) { toast.error('File không có dữ liệu hoặc sai định dạng.'); onClose(); return }
+      if (parsed.length === 0) { toast.error(t('ScorecardExcelPreviewModal.theFileHasNoDataOr')); onClose(); return }
       setData(validateAll(parsed))
     } catch {
-      toast.error('Lỗi khi đọc file Excel'); onClose()
+      toast.error(t('ScorecardExcelPreviewModal.errorReadingTheExcelFile')); onClose()
     } finally { setLoading(false) }
   }
 
@@ -222,8 +226,8 @@ export default function ScorecardExcelPreviewModal({ open, file, onClose, onImpo
   const periodCount = useMemo(() => new Set(data.map(r => (r.Period || '').trim().toLowerCase()).filter(Boolean)).size, [data])
 
   const save = () => {
-    if (hasErrors) { toast.error('Vui lòng sửa các lỗi trước khi import'); return }
-    if (data.length === 0) { toast.error('Không có dữ liệu'); return }
+    if (hasErrors) { toast.error(t('ScorecardExcelPreviewModal.pleaseFixTheErrorsBeforeImporting')); return }
+    if (data.length === 0) { toast.error(t('ScorecardExcelPreviewModal.noData')); return }
     try {
       const exportData = data.map(r => {
         const o: any = { Period: r.Period, ScorecardName: r.ScorecardName, PerspectiveCode: r.PerspectiveCode, Weight: r.Weight }
@@ -242,11 +246,11 @@ export default function ScorecardExcelPreviewModal({ open, file, onClose, onImpo
       })
       const ws = utils.json_to_sheet(exportData)
       const wb = utils.book_new()
-      utils.book_append_sheet(wb, ws, 'Bộ tiêu chí BSC')
+      utils.book_append_sheet(wb, ws, t('ScorecardExcelPreviewModal.bscScorecard'))
       const wbout = write(wb, { type: 'array', bookType: 'xlsx' })
       const blob = new Blob([wbout], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
       onImport(new File([blob], file?.name || 'import_scorecards.xlsx', { type: blob.type }))
-    } catch { toast.error('Lỗi khi tạo file import') }
+    } catch { toast.error(t('ScorecardExcelPreviewModal.errorCreatingTheImportFile')) }
   }
 
   if (!open) return null
@@ -261,28 +265,28 @@ export default function ScorecardExcelPreviewModal({ open, file, onClose, onImpo
       onClose={onClose}
       size="full"
       dismissible={!isImporting}
-      title="Xem trước & Kiểm tra bộ tiêu chí BSC"
+      title={t('ScorecardExcelPreviewModal.previewCheckBscScorecards')}
       description={`File: ${file?.name ?? ''}`}
       footer={
         <DialogFooter
-          note={<>Tổng cộng: <span className="font-medium text-[var(--color-foreground)] tabular-nums">{periodCount}</span> bộ tiêu chí ({data.length} dòng)</>}
-          secondary={<Button variant="outline" onClick={onClose} disabled={isImporting}>Hủy bỏ</Button>}
+          note={<>{t('ScorecardExcelPreviewModal.total')} <span className="font-medium text-[var(--color-foreground)] tabular-nums">{periodCount}</span> {t('ScorecardExcelPreviewModal.scorecards')}{data.length} {t('ScorecardExcelPreviewModal.rows')}</>}
+          secondary={<Button variant="outline" onClick={onClose} disabled={isImporting}>{t('ScorecardExcelPreviewModal.cancel')}</Button>}
           primary={
             <Button onClick={save} disabled={isImporting || hasErrors || data.length === 0}>
-              {isImporting ? <><Loader2 className="animate-spin" aria-hidden="true" /> Đang Import...</> : <><Save aria-hidden="true" /> Xác nhận Import</>}
+              {isImporting ? <><Loader2 className="animate-spin" aria-hidden="true" /> {t('ScorecardExcelPreviewModal.importing')}</> : <><Save aria-hidden="true" /> {t('ScorecardExcelPreviewModal.confirmImport')}</>}
             </Button>
           }
         />
       }
     >
       {loading ? (
-        <div className="flex flex-col items-center justify-center h-64 text-[var(--color-subtle-foreground)]"><div className="w-8 h-8 border-4 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin mb-4" /><p className="font-medium text-sm">Đang đọc file...</p></div>
+        <div className="flex flex-col items-center justify-center h-64 text-[var(--color-subtle-foreground)]"><div className="w-8 h-8 border-4 border-[var(--color-primary)] border-t-transparent rounded-full animate-spin mb-4" /><p className="font-medium text-sm">{t('ScorecardExcelPreviewModal.readingTheFile')}</p></div>
       ) : (
         <div className="space-y-4">
           {hasErrors && (
             <div className="p-4 bg-[var(--color-error-bg)] text-[var(--color-error)] rounded-card flex items-start gap-3 border border-[var(--color-error-border)]">
               <AlertCircle size={20} className="shrink-0 mt-0.5" />
-              <div><p className="text-sm font-medium">Phát hiện dữ liệu không hợp lệ</p><p className="text-xs mt-1">Kiểm tra các ô đỏ — đặc biệt tổng trọng số mỗi kỳ phải bằng 100%.</p></div>
+              <div><p className="text-sm font-medium">{t('ScorecardExcelPreviewModal.invalidDataDetected')}</p><p className="text-xs mt-1">{t('ScorecardExcelPreviewModal.checkTheRedCellsEspeciallyThe')}</p></div>
             </div>
           )}
 
@@ -291,18 +295,18 @@ export default function ScorecardExcelPreviewModal({ open, file, onClose, onImpo
               <table className="w-full text-sm text-left">
                 <thead className="text-eyebrow bg-[var(--color-muted)] border-b border-[var(--color-border)] sticky top-0 z-10">
                   <tr>
-                    <th className="px-4 py-3 w-12 text-center">STT</th>
-                    <th className="px-4 py-3 min-w-[180px]">Kỳ <span className="text-[var(--color-error)]">*</span></th>
-                    <th className="px-4 py-3 min-w-[170px]">Tên bộ tiêu chí <span className="text-[var(--color-error)]">*</span></th>
+                    <th className="px-4 py-3 w-12 text-center">{t('ScorecardExcelPreviewModal.rowNo')}</th>
+                    <th className="px-4 py-3 min-w-[180px]">{t('ScorecardExcelPreviewModal.aCycle')} <span className="text-[var(--color-error)]">*</span></th>
+                    <th className="px-4 py-3 min-w-[170px]">{t('ScorecardExcelPreviewModal.criteriaSetName')} <span className="text-[var(--color-error)]">*</span></th>
                     <th className="px-4 py-3 min-w-[180px]">Vision</th>
-                    <th className="px-4 py-3 min-w-[200px]">Phòng ban</th>
-                    <th className="px-4 py-3 min-w-[160px]">Mã hạng mục <span className="text-[var(--color-error)]">*</span></th>
-                    <th className="px-4 py-3 min-w-[180px]">Tên hạng mục</th>
-                    <th className="px-4 py-3 min-w-[110px]">Trọng số % <span className="text-[var(--color-error)]">*</span></th>
-                    <th className="px-4 py-3 min-w-[140px]">Trạng thái</th>
-                    <th className="px-4 py-3 min-w-[150px]">Chế độ điểm</th>
-                    <th className="px-4 py-3 min-w-[190px]">Hạng mục rỗng</th>
-                    <th className="px-4 py-3 w-16 text-center">Xóa</th>
+                    <th className="px-4 py-3 min-w-[200px]">{t('ScorecardExcelPreviewModal.department')}</th>
+                    <th className="px-4 py-3 min-w-[160px]">{t('ScorecardExcelPreviewModal.itemCode')} <span className="text-[var(--color-error)]">*</span></th>
+                    <th className="px-4 py-3 min-w-[180px]">{t('ScorecardExcelPreviewModal.itemName')}</th>
+                    <th className="px-4 py-3 min-w-[110px]">{t('ScorecardExcelPreviewModal.weight')} <span className="text-[var(--color-error)]">*</span></th>
+                    <th className="px-4 py-3 min-w-[140px]">{t('ScorecardExcelPreviewModal.status')}</th>
+                    <th className="px-4 py-3 min-w-[150px]">{t('ScorecardExcelPreviewModal.scoringMode')}</th>
+                    <th className="px-4 py-3 min-w-[190px]">{t('ScorecardExcelPreviewModal.emptyItems')}</th>
+                    <th className="px-4 py-3 w-16 text-center">{t('ScorecardExcelPreviewModal.delete')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--color-border)]">
@@ -312,9 +316,9 @@ export default function ScorecardExcelPreviewModal({ open, file, onClose, onImpo
                       <td className="px-4 py-2">
                         <Select value={matchPeriod(row.Period)} onValueChange={v => change(row.id, 'Period', v)}>
                           <SelectTrigger className={cn('h-9 rounded-control text-sm font-medium', row._errors?.Period ? 'border-[var(--color-error-border)] bg-[var(--color-error-bg)]' : 'border-[var(--color-border)]')}>
-                            <SelectValue placeholder="— Chọn kỳ —" />
+                            <SelectValue placeholder={t('ScorecardExcelPreviewModal.chooseCycle')} />
                           </SelectTrigger>
-                          <SelectContent className="z-[300] max-h-[260px]">
+                          <SelectContent className="max-h-[260px]">
                             {periodNames.map(n => <SelectItem key={n} value={n} className="text-sm font-medium">{n}</SelectItem>)}
                           </SelectContent>
                         </Select>
@@ -330,7 +334,7 @@ export default function ScorecardExcelPreviewModal({ open, file, onClose, onImpo
                               <ChevronDown size={14} className="opacity-40 group-hover:opacity-70 ml-2 shrink-0" />
                             </button>
                           </PopoverTrigger>
-                          <PopoverContent className="z-[300] p-2 w-[280px] max-h-[300px] overflow-y-auto custom-scrollbar" align="start">
+                          <PopoverContent className="p-2 w-[280px] max-h-[300px] overflow-y-auto custom-scrollbar" align="start">
                             <div className="space-y-1">
                               {flatOrgUnits.map(unit => {
                                 const codes = (row.OrgUnitCodes || '').split(',').map(c => c.trim()).filter(Boolean)
@@ -358,7 +362,7 @@ export default function ScorecardExcelPreviewModal({ open, file, onClose, onImpo
                       <td className="px-4 py-2">
                         <input value={row.PerspectiveName || ''}
                           onChange={e => change(row.id, 'PerspectiveName', e.target.value)}
-                          placeholder="Bỏ trống nếu mã đã có"
+                          placeholder={t('ScorecardExcelPreviewModal.leaveEmptyIfTheCodeExists')}
                           className={inputCls()} />
                       </td>
                       <td className="px-4 py-2">
@@ -367,21 +371,21 @@ export default function ScorecardExcelPreviewModal({ open, file, onClose, onImpo
                       </td>
                       <td className="px-4 py-2">
                         <select value={(row.Status || 'DRAFT').toUpperCase()} onChange={e => change(row.id, 'Status', e.target.value)} className={cn(inputCls(), 'pr-7')}>
-                          <option value="DRAFT">Nháp</option>
-                          <option value="ACTIVE">Áp dụng</option>
-                          <option value="ARCHIVED">Lưu trữ</option>
+                          <option value="DRAFT">{t('ScorecardExcelPreviewModal.draft')}</option>
+                          <option value="ACTIVE">{t('ScorecardExcelPreviewModal.apply')}</option>
+                          <option value="ARCHIVED">{t('ScorecardExcelPreviewModal.archived')}</option>
                         </select>
                       </td>
                       <td className="px-4 py-2">
                         <select value={(row.ScoringMode || 'SHADOW').toUpperCase()} onChange={e => change(row.id, 'ScoringMode', e.target.value)} className={cn(inputCls(), 'pr-7')}>
-                          <option value="SHADOW">Song song</option>
-                          <option value="OFFICIAL">Chính thức</option>
+                          <option value="SHADOW">{t('ScorecardExcelPreviewModal.shadow')}</option>
+                          <option value="OFFICIAL">{t('ScorecardExcelPreviewModal.official')}</option>
                         </select>
                       </td>
                       <td className="px-4 py-2">
                         <select value={(row.EmptyPolicy || 'RENORMALIZE').toUpperCase()} onChange={e => change(row.id, 'EmptyPolicy', e.target.value)} className={cn(inputCls(), 'pr-7')}>
-                          <option value="RENORMALIZE">Bỏ qua hạng mục rỗng</option>
-                          <option value="ZERO_FILL">Tính 0 điểm</option>
+                          <option value="RENORMALIZE">{t('ScorecardExcelPreviewModal.skipEmptyItems')}</option>
+                          <option value="ZERO_FILL">{t('ScorecardExcelPreviewModal.countAs0Points')}</option>
                         </select>
                       </td>
                       <td className="px-4 py-2 text-center"><button onClick={() => remove(row.id)} className="p-1.5 text-[var(--color-subtle-foreground)] hover:text-[var(--color-error)] hover:bg-[var(--color-error-bg)] dark:hover:bg-[var(--color-error-bg)] rounded-control transition-colors"><Trash2 size={16} /></button></td>
@@ -390,9 +394,9 @@ export default function ScorecardExcelPreviewModal({ open, file, onClose, onImpo
                 </tbody>
               </table>
             </div>
-            {data.length === 0 && <div className="text-center py-12 text-[var(--color-muted-foreground)] text-sm">Không có dòng dữ liệu nào</div>}
+            {data.length === 0 && <div className="text-center py-12 text-[var(--color-muted-foreground)] text-sm">{t('ScorecardExcelPreviewModal.noDataRows')}</div>}
             <div className="bg-[var(--color-muted)] border-t border-[var(--color-border)] p-3 flex justify-center">
-              <Button variant="ghost" onClick={add}><Plus aria-hidden="true" /> Thêm dòng mới</Button>
+              <Button variant="ghost" onClick={add}><Plus aria-hidden="true" /> {t('ScorecardExcelPreviewModal.addANewRow')}</Button>
             </div>
           </div>
         </div>

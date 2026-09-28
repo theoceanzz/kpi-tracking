@@ -1,5 +1,6 @@
 package com.kpitracking.workflow;
 
+import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.entity.User;
 import com.kpitracking.enums.KpiStatus;
 import com.kpitracking.security.PermissionChecker;
@@ -47,7 +48,7 @@ class HierarchyAuthorityGuardTest {
     void setUp() {
         permissionChecker = mock(PermissionChecker.class);
         factory = new HierarchyAuthorityGuard(permissionChecker);
-        guard = factory.requiring("KPI:APPROVE_CRITERIA", "phê duyệt", "chỉ tiêu", "chỉ tiêu KPI");
+        guard = factory.requiring("KPI:APPROVE_CRITERIA", "verb.approve", "noun.kpi");
 
         actor = user();
         owner = user();
@@ -76,7 +77,8 @@ class HierarchyAuthorityGuardTest {
         GuardResult r = guard.check(ctx());
         assertThat(r.denied()).isTrue();
         assertThat(r.kind()).isEqualTo(GuardResult.Kind.FORBIDDEN);
-        assertThat(r.message()).isEqualTo("Bạn không có quyền phê duyệt chỉ tiêu KPI cho đơn vị này");
+        assertThat(r.code()).isEqualTo(ErrorCode.GUARD_NO_PERMISSION_IN_UNIT);
+        assertThat(r.message()).isEqualTo("Bạn không có quyền phê duyệt chỉ tiêu cho đơn vị này");
     }
 
     @Test
@@ -86,8 +88,7 @@ class HierarchyAuthorityGuardTest {
         rank(owner, LEVEL_PHONG, RANK_TRUONG);
         when(permissionChecker.isSuperiorTo(actor.getId(), owner.getId(), unitId)).thenReturn(false);
 
-        assertThat(guard.check(ctx()).message())
-                .isEqualTo("Bạn không thể phê duyệt chỉ tiêu của người có cấp bậc cao hơn bạn");
+        assertThat(guard.check(ctx()).code()).isEqualTo(ErrorCode.GUARD_OWNER_HIGHER_LEVEL);
     }
 
     @Test
@@ -96,8 +97,7 @@ class HierarchyAuthorityGuardTest {
         rank(owner, LEVEL_PHONG, RANK_TRUONG);
         when(permissionChecker.isSuperiorTo(actor.getId(), owner.getId(), unitId)).thenReturn(false);
 
-        assertThat(guard.check(ctx()).message())
-                .isEqualTo("Bạn không thể phê duyệt chỉ tiêu của người có cùng chức vụ");
+        assertThat(guard.check(ctx()).code()).isEqualTo(ErrorCode.GUARD_OWNER_SAME_POSITION);
     }
 
     @Test
@@ -139,12 +139,12 @@ class HierarchyAuthorityGuardTest {
     @Test
     @DisplayName("Động từ và danh từ đi vào thông báo, nên mỗi hành động vẫn giữ đúng câu chữ cũ")
     void verbAndNounFlowIntoMessages() {
-        TransitionGuard revert = factory.requiring("KPI:REVERT_APPROVAL", "hoàn duyệt", "chỉ tiêu", "chỉ tiêu KPI");
+        TransitionGuard revert = factory.requiring("KPI:REVERT_APPROVAL", "verb.revertApproval", "noun.kpi");
         when(permissionChecker.hasPermissionInOrgUnit(actor.getId(), "KPI:REVERT_APPROVAL", unitId))
                 .thenReturn(false);
 
         assertThat(revert.check(ctx()).message())
-                .isEqualTo("Bạn không có quyền hoàn duyệt chỉ tiêu KPI cho đơn vị này");
+                .isEqualTo("Bạn không có quyền hoàn duyệt chỉ tiêu cho đơn vị này");
     }
 
     private TransitionContext<KpiStatus> ctx() {

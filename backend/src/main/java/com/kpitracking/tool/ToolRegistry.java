@@ -232,6 +232,7 @@ public class ToolRegistry {
             Map.entry("get_my_score", Group.PERSONAL),
             Map.entry("get_my_conduct", Group.PERSONAL),
             Map.entry("get_my_rewards", Group.PERSONAL),
+            Map.entry("get_my_feedback360", Group.PERSONAL),
             Map.entry("confirm_pending_action", Group.ACTION),
             Map.entry("suggest_kpi_form", Group.FORM),
             Map.entry("suggest_submission_form", Group.FORM),

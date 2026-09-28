@@ -2,10 +2,12 @@ import type { Submission } from '@/types/submission'
 import StatusBadge from '@/components/common/StatusBadge'
 import { formatDateTime } from '@/lib/utils'
 import { Link } from 'react-router-dom'
+import { useTranslation } from 'react-i18next'
 
 interface SubmissionCardProps { submission: Submission }
 
 export default function SubmissionCard({ submission }: SubmissionCardProps) {
+  const { t } = useTranslation('submissions')
   return (
     <Link
       to={`/submissions/${submission.id}`}
@@ -16,9 +18,9 @@ export default function SubmissionCard({ submission }: SubmissionCardProps) {
         <StatusBadge status={submission.status} />
       </div>
       <div className="text-xs text-[var(--color-muted-foreground)] space-y-1">
-        <p>Người nộp: {submission.submittedByName}</p>
-        <p>Giá trị: <span className="font-medium text-[var(--color-foreground)]">{submission.actualValue}</span>{submission.targetValue != null ? ` / ${submission.targetValue}` : ''}</p>
-        <p>Ngày nộp: {formatDateTime(submission.createdAt)}</p>
+        <p>{t('SubmissionCard.submittedBy')} {submission.submittedByName}</p>
+        <p>{t('SubmissionCard.value')} <span className="font-medium text-[var(--color-foreground)]">{submission.actualValue}</span>{submission.targetValue != null ? ` / ${submission.targetValue}` : ''}</p>
+        <p>{t('SubmissionCard.submittedOn')} {formatDateTime(submission.createdAt)}</p>
       </div>
     </Link>
   )

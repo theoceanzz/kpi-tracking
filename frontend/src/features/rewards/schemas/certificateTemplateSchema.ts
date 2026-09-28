@@ -1,12 +1,14 @@
 import { z } from 'zod'
 import { CertificateOrientation } from '../types'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
-export const certificateTemplateSchema = z.object({
-  name: z.string().trim().min(1, 'Vui lòng nhập tên mẫu'),
+export const certificateTemplateSchema = perLanguage(() => (z.object({
+  name: z.string().trim().min(1, i18n.t('rewards:certificateTemplateSchema.pleaseEnterTheTemplateName')),
   preset: z.string(),
   orientation: z.enum(CertificateOrientation),
   eyebrow: z.string(),
-  title: z.string().trim().min(1, 'Vui lòng nhập tiêu đề in trên giấy'),
+  title: z.string().trim().min(1, i18n.t('rewards:certificateTemplateSchema.pleaseEnterTheTitlePrintedOn')),
   subtitle: z.string(),
   body: z.string(),
   footnote: z.string(),
@@ -23,6 +25,6 @@ export const certificateTemplateSchema = z.object({
   showReason: z.boolean(),
   isDefault: z.boolean(),
   active: z.boolean(),
-})
+})))
 
-export type CertificateTemplateFormData = z.infer<typeof certificateTemplateSchema>
+export type CertificateTemplateFormData = z.infer<ReturnType<typeof certificateTemplateSchema>>

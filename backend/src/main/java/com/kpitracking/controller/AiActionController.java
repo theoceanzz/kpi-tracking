@@ -1,7 +1,9 @@
 package com.kpitracking.controller;
 
+import com.kpitracking.i18n.ErrorMessages;
 import com.kpitracking.dto.response.ApiResponse;
 import com.kpitracking.exception.ResourceNotFoundException;
+import com.kpitracking.i18n.Terms;
 import com.kpitracking.repository.UserRepository;
 import com.kpitracking.service.ai.action.PendingAction;
 import com.kpitracking.service.ai.action.PendingActionExecutor;
@@ -87,7 +89,7 @@ public class AiActionController {
             // Một câu cho cả ba trường hợp (không có / hết hạn / của người khác) là có chủ đích:
             // phân biệt chúng là nói cho người hỏi biết khoá nào có thật.
             return ResponseEntity.ok(ApiResponse.success(ConfirmResponse.builder()
-                    .text("Lời mời xác nhận này không còn hiệu lực. Bạn hỏi lại trợ lý giúp mình nhé.")
+                    .text(ErrorMessages.text("ai.confirmExpired", ""))
                     .succeeded(0).failed(0).failures(List.of())
                     .build()));
         }
@@ -95,7 +97,7 @@ public class AiActionController {
         PendingAction toRun = narrow(action, request == null ? null : request.getItemIds());
         if (toRun.isEmpty()) {
             return ResponseEntity.ok(ApiResponse.success(ConfirmResponse.builder()
-                    .text("Bạn chưa chọn mục nào nên mình không thực hiện gì cả.")
+                    .text(ErrorMessages.text("ai.nothingSelected", ""))
                     .succeeded(0).failed(0).failures(List.of())
                     .build()));
         }
@@ -122,7 +124,7 @@ public class AiActionController {
     private UUID currentUserId() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         return userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("Người dùng", "email", email))
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.user"), "email", email))
                 .getId();
     }
 }

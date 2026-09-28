@@ -1,3 +1,4 @@
+import { LocaleNumberInput } from '@/components/ui/number-input'
 import { useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowRight, CheckCircle2, Loader2, Lock, Paperclip, Send } from 'lucide-react'
@@ -11,6 +12,7 @@ import StepShell from '../StepShell'
 import { useKpiSetupFlow } from '../useKpiSetupFlow'
 import type { CreateSubmissionRequest } from '@/types/submission'
 import type { KpiCriteria } from '@/types/kpi'
+import { useTranslation } from 'react-i18next'
 
 /** Ô nhập của một dòng. Giữ giá trị dạng chuỗi để ô trống khác hẳn số 0. */
 interface Row {
@@ -34,6 +36,7 @@ const EMPTY_ROW: Row = { actualValue: '', qualitativeLevelId: '', note: '' }
  * trạng thái nửa vời khi tệp hỏng mà bản nộp đã tạo.
  */
 export default function SubmitStep() {
+  const { t } = useTranslation('kpi')
   const { goNext, goBack, isLast, periodId } = useKpiSetupFlow()
   const user = useAuthStore(s => s.user)
   const organizationId = user?.memberships?.[0]?.organizationId
@@ -104,8 +107,8 @@ export default function SubmitStep() {
 
   return (
     <StepShell
-      title="Nộp báo cáo"
-      description="Điền kết quả cho từng chỉ tiêu rồi nộp một lượt — không phải mở lần lượt từng cái."
+      title={t('SubmitStep.submitReport')}
+      description={t('SubmitStep.fillInTheResultsForEach')}
       onBack={goBack}
       footer={
         <div className="flex flex-wrap items-center gap-2">
@@ -114,7 +117,7 @@ export default function SubmitStep() {
             onClick={() => goNext()}
             className="flex items-center gap-2 rounded-xl px-4 py-2.5 text-xs font-black uppercase tracking-widest text-slate-500 transition-colors hover:bg-white hover:text-slate-800 dark:text-slate-400 dark:hover:bg-slate-900 dark:hover:text-white"
           >
-            {isLast ? 'Xong, về màn chọn luồng' : 'Bỏ qua, đi tiếp'}
+            {isLast ? t('SubmitStep.doneBackToFlowSelection') : t('SubmitStep.skipContinue')}
             <ArrowRight size={14} />
           </button>
           {pending.length > 0 && (
@@ -122,11 +125,11 @@ export default function SubmitStep() {
               type="button"
               disabled={filled.length === 0 || bulkSubmit.isPending}
               onClick={submitAll}
-              title={filled.length === 0 ? 'Điền kết quả cho ít nhất một chỉ tiêu' : undefined}
+              title={filled.length === 0 ? t('SubmitStep.fillInResultsForAtLeast') : undefined}
               className="flex items-center gap-2 rounded-xl bg-indigo-600 px-6 py-3 text-xs font-black uppercase tracking-widest text-white shadow-lg shadow-indigo-500/25 transition-all hover:bg-indigo-700 active:scale-95 disabled:cursor-not-allowed disabled:opacity-40 disabled:shadow-none"
             >
               {bulkSubmit.isPending ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
-              Nộp {filled.length} báo cáo
+              {t('SubmitStep.submit')} {filled.length} {t('SubmitStep.reports')}
             </button>
           )}
         </div>
@@ -142,7 +145,7 @@ export default function SubmitStep() {
             <CheckCircle2 size={30} />
           </div>
           <p className="max-w-md text-sm font-medium leading-relaxed text-slate-500 dark:text-slate-400">
-            Không có chỉ tiêu nào được giao cho bạn trong đợt này.
+            {t('SubmitStep.noKpisAreAssignedToYou')}
           </p>
         </div>
       ) : (
@@ -165,12 +168,12 @@ export default function SubmitStep() {
                     <p className="truncate text-sm font-black text-slate-900 dark:text-white">{kpi.name}</p>
                     <p className="mt-0.5 text-[11px] font-bold text-slate-400">
                       {kpi.targetValue != null
-                        ? `Mục tiêu ${formatNumber(kpi.targetValue)}${kpi.unit ? ` ${kpi.unit}` : ''}`
-                        : 'Chưa đặt mục tiêu'}
+                        ? t('SubmitStep.target', { targetValue: formatNumber(kpi.targetValue), value: kpi.unit ? ` ${kpi.unit}` : '' })
+                        : t('SubmitStep.noTargetSet')}
                       {' · '}
                       {formatNumber(kpi.weight ?? 0)}%
                       {kpi.expectedSubmissions > 1 && (
-                        <> · lượt {kpi.submissionCount + 1}/{kpi.expectedSubmissions}</>
+                        <> {t('SubmitStep.submissions')} {kpi.submissionCount + 1}/{kpi.expectedSubmissions}</>
                       )}
                       {/* Không lọc theo đợt (luồng Nộp báo cáo vào thẳng đây) thì phải nói rõ mỗi
                           dòng thuộc đợt nào, không thì các đợt lẫn vào nhau. */}
@@ -180,7 +183,7 @@ export default function SubmitStep() {
                   {/* Đính kèm tệp phải qua trang đầy đủ — xem ghi chú đầu file. */}
                   <Link
                     to={`/submissions/new?kpiId=${kpi.id}`}
-                    title="Mở trang đầy đủ để đính kèm tệp minh chứng"
+                    title={t('SubmitStep.openTheFullPageToAttach')}
                     className="shrink-0 rounded-lg p-1.5 text-slate-300 transition-colors hover:bg-slate-100 hover:text-indigo-600 dark:hover:bg-slate-800"
                   >
                     <Paperclip size={14} />
@@ -190,7 +193,7 @@ export default function SubmitStep() {
                 {kpi.kpiType === 'QUALITATIVE' ? (
                   qualitativeLevels.length === 0 ? (
                     <p className="text-[11px] font-bold text-amber-600 dark:text-amber-400">
-                      Tổ chức chưa cấu hình thang định tính nên chưa nộp được chỉ tiêu này.
+                      {t('SubmitStep.theOrganizationHasNotConfiguredThe')}
                     </p>
                   ) : (
                     <div className="flex flex-wrap gap-2">
@@ -209,7 +212,7 @@ export default function SubmitStep() {
                             )}
                           >
                             {level.name}
-                            <span className="ml-1.5 font-black text-slate-400">{formatNumber(level.value)}đ</span>
+                            <span className="ml-1.5 font-black text-slate-400">{formatNumber(level.value)}{t('SubmitStep.pts')}</span>
                           </button>
                         )
                       })}
@@ -217,12 +220,12 @@ export default function SubmitStep() {
                   )
                 ) : (
                   <div className="flex items-center gap-2">
-                    <input
+                    <LocaleNumberInput
                       type="number"
                       step="any"
                       value={row.actualValue}
                       onChange={e => patchRow(kpi.id, { actualValue: e.target.value })}
-                      placeholder="Kết quả đạt được"
+                      placeholder={t('SubmitStep.achievedResult')}
                       className="w-40 rounded-xl border border-slate-200 bg-white px-3 py-2 text-sm font-bold text-slate-900 outline-none transition-colors focus:border-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-white"
                     />
                     {kpi.unit && <span className="text-xs font-bold text-slate-400">{kpi.unit}</span>}
@@ -233,7 +236,7 @@ export default function SubmitStep() {
                   type="text"
                   value={row.note}
                   onChange={e => patchRow(kpi.id, { note: e.target.value })}
-                  placeholder="Ghi chú (không bắt buộc)"
+                  placeholder={t('SubmitStep.notesOptional')}
                   className="mt-2 w-full rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-medium text-slate-700 outline-none transition-colors focus:border-indigo-500 dark:border-slate-700 dark:bg-slate-800 dark:text-slate-200"
                 />
               </div>
@@ -243,7 +246,7 @@ export default function SubmitStep() {
           {blocked.length > 0 && (
             <div className="rounded-2xl border border-dashed border-slate-200 p-4 dark:border-slate-700">
               <p className="mb-3 text-[10px] font-black uppercase tracking-widest text-slate-400">
-                Chưa nộp được ({blocked.length})
+                {t('SubmitStep.couldNotSubmit')}{blocked.length})
               </p>
               <ul className="space-y-2">
                 {blocked.map(({ kpi, reason }) => (

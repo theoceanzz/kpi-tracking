@@ -10,28 +10,34 @@ import {
   Bell, CheckCheck, Send,
   FileSearch, ShieldCheck, Target,
   CheckCircle2, Layers, GitBranch, Calculator,
-  Award, Coins, Gift, Wallet, Scale, Inbox
+  Award, Coins, Gift, Wallet, Scale, Inbox, Users, Lock
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
 /** Cùng bảng màu theo nhóm nghiệp vụ với NotificationDropdown. */
-const typeConfig: Record<string, { icon: LucideIcon; color: string; label: string }> = {
-  SUBMISSION: { icon: Send, color: 'bg-[var(--color-info-bg)] text-[var(--color-info)]', label: 'Báo cáo mới' },
-  REVIEW: { icon: FileSearch, color: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]', label: 'Đánh giá' },
-  KPI_APPROVED: { icon: ShieldCheck, color: 'bg-[var(--color-success-bg)] text-[var(--color-success)]', label: 'Duyệt chỉ tiêu' },
-  KPI_ASSIGNED: { icon: Target, color: 'bg-[var(--color-primary-soft)] text-[var(--color-primary)]', label: 'Giao chỉ tiêu' },
-  BSC_SCORECARD: { icon: Layers, color: 'bg-[var(--color-primary-soft)] text-[var(--color-primary)]', label: 'Bộ tiêu chí BSC' },
-  BSC_ASSIGNED: { icon: GitBranch, color: 'bg-[var(--color-primary-soft)] text-[var(--color-primary)]', label: 'Giao chỉ tiêu BSC' },
-  BSC_RESULT: { icon: Calculator, color: 'bg-[var(--color-success-bg)] text-[var(--color-success)]', label: 'Kết quả BSC' },
-  REWARD_GRANT: { icon: Award, color: 'bg-[var(--color-info-bg)] text-[var(--color-info)]', label: 'Đề nghị thưởng' },
-  REWARD_POINT: { icon: Coins, color: 'bg-[var(--color-info-bg)] text-[var(--color-info)]', label: 'Điểm thưởng' },
-  REWARD_GIFT: { icon: Gift, color: 'bg-[var(--color-info-bg)] text-[var(--color-info)]', label: 'Đổi quà' },
-  WALLET: { icon: Wallet, color: 'bg-[var(--color-info-bg)] text-[var(--color-info)]', label: 'Ví tiền' },
-  WALLET_RECONCILE: { icon: Scale, color: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]', label: 'Đối soát ví' },
-}
-const DEFAULT_TYPE = { icon: Bell, color: 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)]', label: 'Thông báo' }
+const typeConfig = perLanguage((): Record<string, { icon: LucideIcon; color: string; label: string }> => ({
+  SUBMISSION: { icon: Send, color: 'bg-[var(--color-info-bg)] text-[var(--color-info)]', label: i18n.t('notifications:NotificationsPage.newReport') },
+  REVIEW: { icon: FileSearch, color: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]', label: i18n.t('notifications:NotificationsPage.evaluation') },
+  KPI_APPROVED: { icon: ShieldCheck, color: 'bg-[var(--color-success-bg)] text-[var(--color-success)]', label: i18n.t('notifications:NotificationsPage.kpiApproval') },
+  KPI_ASSIGNED: { icon: Target, color: 'bg-[var(--color-primary-soft)] text-[var(--color-primary)]', label: i18n.t('notifications:NotificationsPage.assignKpis') },
+  BSC_SCORECARD: { icon: Layers, color: 'bg-[var(--color-primary-soft)] text-[var(--color-primary)]', label: i18n.t('notifications:NotificationsPage.bscScorecard') },
+  BSC_ASSIGNED: { icon: GitBranch, color: 'bg-[var(--color-primary-soft)] text-[var(--color-primary)]', label: i18n.t('notifications:NotificationsPage.bscKpiAssignment') },
+  BSC_RESULT: { icon: Calculator, color: 'bg-[var(--color-success-bg)] text-[var(--color-success)]', label: i18n.t('notifications:NotificationsPage.bscResults') },
+  REWARD_GRANT: { icon: Award, color: 'bg-[var(--color-info-bg)] text-[var(--color-info)]', label: i18n.t('notifications:NotificationsPage.rewardProposals') },
+  REWARD_POINT: { icon: Coins, color: 'bg-[var(--color-info-bg)] text-[var(--color-info)]', label: i18n.t('notifications:NotificationsPage.rewardPoints') },
+  REWARD_GIFT: { icon: Gift, color: 'bg-[var(--color-info-bg)] text-[var(--color-info)]', label: i18n.t('notifications:NotificationsPage.giftRedemption') },
+  WALLET: { icon: Wallet, color: 'bg-[var(--color-info-bg)] text-[var(--color-info)]', label: i18n.t('notifications:NotificationsPage.wallet') },
+  FEEDBACK360: { icon: Users, color: 'bg-[var(--color-primary-soft)] text-[var(--color-primary)]', label: i18n.t('notifications:NotificationsPage.n360Feedback') },
+  KPI_CYCLE_LOCKED: { icon: Lock, color: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]', label: i18n.t('notifications:NotificationsPage.cycleLock') },
+  WALLET_RECONCILE: { icon: Scale, color: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]', label: i18n.t('notifications:NotificationsPage.walletReconciliation') },
+}))
+const DEFAULT_TYPE = perLanguage(() => ({ icon: Bell, color: 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)]', label: i18n.t('notifications:NotificationsPage.notifications') }))
 
 export default function NotificationsPage() {
+  const { t } = useTranslation('notifications')
   // KHÔNG mở kết nối WebSocket ở đây: NotificationBell trong AppLayout đã mở sẵn một cái và
   // luôn có mặt trên mọi trang. Gọi thêm lần nữa sẽ có hai kết nối, và mỗi thông báo về được
   // thêm hai lần vào danh sách kèm huy hiệu chưa đọc cộng hai.
@@ -61,15 +67,15 @@ export default function NotificationsPage() {
   const orderedNotifs = [...filteredNotifs].sort((a, b) => Number(isTopGroup(b)) - Number(isTopGroup(a)))
 
   const filters = [
-    { key: 'ALL' as const, label: 'Tất cả', count: notifications.length },
-    { key: 'UNREAD' as const, label: 'Chưa đọc', count: unreadCount },
+    { key: 'ALL' as const, label: t('NotificationsPage.all'), count: notifications.length },
+    { key: 'UNREAD' as const, label: t('NotificationsPage.unread'), count: unreadCount },
   ]
 
   return (
     <div className="mx-auto max-w-4xl">
       <PageHeader
-        title="Thông báo"
-        description={unreadCount > 0 ? `${unreadCount} thông báo chưa đọc.` : 'Bạn đã đọc hết thông báo.'}
+        title={t('NotificationsPage.notifications')}
+        description={unreadCount > 0 ? t('NotificationsPage.unreadNotifications', { count: unreadCount }) : t('NotificationsPage.youHaveReadAllNotifications')}
         action={
           <Button
             variant="outline"
@@ -77,14 +83,14 @@ export default function NotificationsPage() {
             disabled={unreadCount === 0 || markAllRead.isPending}
           >
             <CheckCheck aria-hidden="true" />
-            Đọc tất cả
+            {t('NotificationsPage.markAllAsRead')}
           </Button>
         }
       />
       
       {/* Bộ lọc */}
       <div className="mb-4 flex items-center justify-between">
-        <div className="flex items-center gap-1 rounded-control bg-[var(--color-muted)] p-1" role="tablist" aria-label="Lọc thông báo">
+        <div className="flex items-center gap-1 rounded-control bg-[var(--color-muted)] p-1" role="tablist" aria-label={t('NotificationsPage.filterNotifications')}>
           {filters.map(f => {
             const active = filter === f.key
             return (
@@ -109,7 +115,7 @@ export default function NotificationsPage() {
         </div>
         <p className="flex items-center gap-2 text-caption">
           <span aria-hidden="true" className="h-1.5 w-1.5 rounded-full bg-[var(--color-success-solid)]" />
-          Cập nhật theo thời gian thực
+          {t('NotificationsPage.updatedInRealTime')}
         </p>
         </div>
 
@@ -120,14 +126,14 @@ export default function NotificationsPage() {
         <div className="rounded-card border border-dashed border-[var(--color-border)] bg-[var(--color-card)]">
             <EmptyState 
             icon={Inbox}
-            title={filter === 'UNREAD' ? 'Không còn thông báo chưa đọc' : 'Chưa có thông báo'}
-            description={filter === 'UNREAD' ? 'Mọi thông báo đã được đọc.' : 'Thông báo về chỉ tiêu, bài nộp và đánh giá sẽ hiện ở đây.'}
+            title={filter === 'UNREAD' ? t('NotificationsPage.noUnreadNotificationsLeft') : t('NotificationsPage.noNotificationsYet')}
+            description={filter === 'UNREAD' ? t('NotificationsPage.allNotificationsHaveBeenRead') : t('NotificationsPage.notificationsAboutKpisSubmissionsAndEvaluations')}
             />
           </div>
         ) : (
         <div className="divide-y divide-[var(--color-border)] overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
             {orderedNotifs.map((n) => {
-            const config = typeConfig[n.type] || DEFAULT_TYPE
+            const config = typeConfig()[n.type] || DEFAULT_TYPE()
               const Icon = config.icon
               
               return (
@@ -160,7 +166,7 @@ export default function NotificationsPage() {
                       <span className="text-caption tabular-nums">{formatDateTime(n.createdAt)}</span>
                         {!n.isRead && (
                         <span className="rounded-control bg-[var(--color-primary)] px-1.5 py-0.5 text-xs font-medium leading-none text-[var(--color-primary-foreground)]">
-                             Mới
+                             {t('NotificationsPage.new')}
                         </span>
                         )}
                       </div>
@@ -172,7 +178,7 @@ export default function NotificationsPage() {
 
                   {n.isRead && n.readAt && (
                     <p className="mt-1.5 flex items-center gap-1.5 text-caption">
-                      <CheckCircle2 size={12} aria-hidden="true" /> Đã đọc lúc {formatDateTime(n.readAt)}
+                      <CheckCircle2 size={12} aria-hidden="true" /> {t('NotificationsPage.readAt')} {formatDateTime(n.readAt)}
                     </p>
                     )}
                   </div>

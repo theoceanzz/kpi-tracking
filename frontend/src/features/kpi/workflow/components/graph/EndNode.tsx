@@ -2,9 +2,11 @@ import { memo } from 'react'
 import { Handle, Position } from '@xyflow/react'
 import { CheckCircle2 } from 'lucide-react'
 import { END_NODE_HEIGHT, END_NODE_WIDTH } from './workflowGraphModel'
+import { useTranslation } from 'react-i18next'
 
 /** Nút kết thúc — chỉ để mắt thấy luồng có điểm dừng, không mang dữ liệu. */
 function EndNodeImpl() {
+  const { t } = useTranslation('kpi')
   return (
     <div
       style={{ width: END_NODE_WIDTH, height: END_NODE_HEIGHT }}
@@ -14,7 +16,7 @@ function EndNodeImpl() {
       <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-card bg-[var(--color-success-bg)] text-[var(--color-success)]">
         <CheckCircle2 size={16} />
       </span>
-      <span className="text-sm font-semibold text-[var(--color-foreground)]">Hoàn thành</span>
+      <span className="text-sm font-semibold text-[var(--color-foreground)]">{t('EndNode.completed')}</span>
     </div>
   )
 }

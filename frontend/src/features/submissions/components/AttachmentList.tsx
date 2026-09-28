@@ -3,16 +3,18 @@ import type { Attachment } from '@/types/submission'
 import { FileIcon, Download, Eye, ExternalLink, FileVideo, FileAudio } from 'lucide-react'
 import MediaPreviewModal from '@/components/common/MediaPreviewModal'
 import { downloadFile } from '@/lib/utils'
+import { useTranslation } from 'react-i18next'
 
 interface AttachmentListProps { attachments: Attachment[] }
 
 export default function AttachmentList({ attachments }: AttachmentListProps) {
+  const { t } = useTranslation('submissions')
   const [previewFile, setPreviewFile] = useState<Attachment | null>(null)
 
   if (attachments.length === 0) {
     return (
       <div className="p-8 border-2 border-dashed border-[var(--color-border)] rounded-card text-center">
-        <p className="text-sm text-[var(--color-subtle-foreground)] font-medium italic">Không có tài liệu minh chứng đính kèm</p>
+        <p className="text-sm text-[var(--color-subtle-foreground)] font-medium italic">{t('AttachmentList.noEvidenceDocumentsAttached')}</p>
       </div>
     )
   }
@@ -52,7 +54,7 @@ export default function AttachmentList({ attachments }: AttachmentListProps) {
                       type="button"
                       onClick={() => setPreviewFile(a)}
                       className="w-10 h-10 rounded-full bg-white text-[var(--color-primary)] flex items-center justify-center hover:bg-[var(--color-primary-soft)] transition-colors"
-                      title="Xem trước"
+                      title={t('AttachmentList.preview')}
                     >
                       <Eye size={18} />
                     </button>
@@ -62,7 +64,7 @@ export default function AttachmentList({ attachments }: AttachmentListProps) {
                     target="_blank" 
                     rel="noreferrer"
                     className="w-10 h-10 rounded-full bg-white text-[var(--color-foreground)] flex items-center justify-center hover:bg-[var(--color-muted)] transition-colors"
-                    title="Mở trong tab mới"
+                    title={t('AttachmentList.openInANewTab')}
                   >
                     <ExternalLink size={18} />
                   </a>
@@ -70,7 +72,7 @@ export default function AttachmentList({ attachments }: AttachmentListProps) {
                     type="button"
                     onClick={() => downloadFile(a.fileUrl, a.fileName)}
                     className="w-10 h-10 rounded-full bg-[var(--color-primary)] text-[var(--color-primary-foreground)] flex items-center justify-center hover:bg-[var(--color-primary-hover)] transition-colors"
-                    title="Tải về"
+                    title={t('AttachmentList.download')}
                   >
                     <Download size={18} />
                   </button>
@@ -100,14 +102,14 @@ export default function AttachmentList({ attachments }: AttachmentListProps) {
                 </h5>
                 <div className="flex items-center justify-between text-eyebrow tracking-tight">
                   <span>
-                    {isImage ? 'Ảnh' :
+                    {isImage ? t('AttachmentList.image') :
                      isPdf ? 'PDF' :
                      isVideo ? 'Video' :
                      isAudio ? 'Audio' :
                      a.fileName.toLowerCase().endsWith('.docx') || a.fileName.toLowerCase().endsWith('.doc') ? 'Word' :
                      a.fileName.toLowerCase().endsWith('.xlsx') || a.fileName.toLowerCase().endsWith('.xls') ? 'Excel' :
                      a.fileName.toLowerCase().endsWith('.pptx') || a.fileName.toLowerCase().endsWith('.ppt') ? 'PowerPoint' :
-                     'Tài liệu'}
+                     t('AttachmentList.documents')}
                   </span>
                   <span>{(a.fileSize / 1024).toFixed(1)} KB</span>
                 </div>

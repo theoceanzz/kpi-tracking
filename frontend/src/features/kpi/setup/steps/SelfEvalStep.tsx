@@ -1,6 +1,7 @@
 import EvaluationFormModal from '@/features/evaluations/components/EvaluationFormModal'
 import StepShell from '../StepShell'
 import { useKpiSetupFlow } from '../useKpiSetupFlow'
+import { useTranslation } from 'react-i18next'
 
 /**
  * Bước Tự đánh giá — nhúng thẳng form chấm điểm, không rời trang.
@@ -14,13 +15,14 @@ import { useKpiSetupFlow } from '../useKpiSetupFlow'
  * thường không có quyền đó nên bị đá về lưới thẻ của `/me`.
  */
 export default function SelfEvalStep() {
+  const { t } = useTranslation('kpi')
   const { goNext, goBack, periodId } = useKpiSetupFlow()
 
   return (
     <StepShell
       bare
-      title="Tự đánh giá"
-      description="Chấm điểm cho chính mình ở đợt vừa nộp. Hệ thống đã tính sẵn điểm gợi ý từ kết quả bạn nộp."
+      title={t('SelfEvalStep.selfAssessment')}
+      description={t('SelfEvalStep.scoreYourselfForThePeriodYou')}
       onBack={goBack}
     >
       <EvaluationFormModal

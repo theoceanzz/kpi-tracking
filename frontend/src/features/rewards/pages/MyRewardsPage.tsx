@@ -16,10 +16,12 @@ import MyCertificatesTab from '../components/MyCertificatesTab'
 import { useMyTransactions, useMyWallet } from '../hooks/useRewards'
 import { useMyRedemptions } from '../hooks/useGifts'
 import { useMyAwards } from '../hooks/useCertificates'
+import { useTranslation } from 'react-i18next'
 
 type TabKey = 'shop' | 'history' | 'certificates' | 'redemptions'
 
 export default function MyRewardsPage() {
+  const { t } = useTranslation('rewards')
   const [page, setPage] = useState(0)
   const size = 20
 
@@ -46,22 +48,22 @@ export default function MyRewardsPage() {
    */
   const { activeTab, setActiveTab, visibleTabs } = useTabParam<TabKey>(
     [
-      { key: 'shop', label: 'Cửa hàng quà', icon: Store, visible: canRedeem },
+      { key: 'shop', label: t('MyRewardsPage.giftShop'), icon: Store, visible: canRedeem },
       {
         key: 'history',
-        label: 'Lịch sử điểm',
+        label: t('MyRewardsPage.pointHistory'),
         icon: History,
         badge: txPage?.totalElements || undefined,
       },
       {
         key: 'certificates',
-        label: 'Chứng nhận',
+        label: t('MyRewardsPage.certificates'),
         icon: Award,
         badge: certificateCountPage?.totalElements || undefined,
       },
       {
         key: 'redemptions',
-        label: 'Quà đã đổi',
+        label: t('MyRewardsPage.redeemedGifts'),
         icon: PackageCheck,
         badge: redemptionPage?.totalElements || undefined,
         visible: canRedeem,
@@ -74,8 +76,8 @@ export default function MyRewardsPage() {
     <div className="mx-auto max-w-[1600px] space-y-4">
       <WorkspaceHeader
         id="tour-my-rewards-header"
-        title="Điểm thưởng của tôi"
-        description="Số dư điểm, điểm danh mỗi ngày, đổi quà và toàn bộ lịch sử giao dịch điểm."
+        title={t('MyRewardsPage.myRewardPoints')}
+        description={t('MyRewardsPage.pointBalanceDailyCheckInGift')}
       />
 
       <div id="tour-my-rewards-balance">
@@ -100,8 +102,8 @@ export default function MyRewardsPage() {
           ) : transactions.length === 0 ? (
             <div className="rounded-card border border-dashed border-[var(--color-border)]">
               <EmptyState
-                title="Chưa có giao dịch nào"
-                description="Mọi lần bạn được thưởng điểm hoặc dùng điểm đổi quà đều được ghi lại đầy đủ ở đây."
+                title={t('MyRewardsPage.noTransactionsYet')}
+                description={t('MyRewardsPage.everyTimeYouReceiveRewardPoints')}
               />
             </div>
           ) : (
@@ -115,7 +117,7 @@ export default function MyRewardsPage() {
                     totalElements={txPage?.totalElements ?? 0}
                     size={size}
                     onPageChange={setPage}
-                    itemLabel="giao dịch"
+                    itemLabel={t('MyRewardsPage.transactions')}
                   />
                 </div>
               )}
@@ -133,8 +135,8 @@ export default function MyRewardsPage() {
           ) : redemptions.length === 0 ? (
             <div className="rounded-card border border-dashed border-[var(--color-border)]">
               <EmptyState
-                title="Bạn chưa đổi quà nào"
-                description="Sang tab Cửa hàng quà để xem những gì bạn có thể đổi bằng số điểm đang có."
+                title={t('MyRewardsPage.youHaveNotRedeemedAnyGifts')}
+                description={t('MyRewardsPage.goToTheGiftShopTab')}
               />
             </div>
           ) : (

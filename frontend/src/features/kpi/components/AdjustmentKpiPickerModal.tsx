@@ -10,6 +10,7 @@ import { useMyAdjustments } from '../hooks/useMyAdjustments'
 import EmptyState from '@/components/common/EmptyState'
 import { cn, formatNumber } from '@/lib/utils'
 import type { KpiCriteria } from '@/types/kpi'
+import { useTranslation } from 'react-i18next'
 
 interface AdjustmentKpiPickerModalProps {
   onClose: () => void
@@ -17,6 +18,7 @@ interface AdjustmentKpiPickerModalProps {
 }
 
 export default function AdjustmentKpiPickerModal({ onClose, onSelect }: AdjustmentKpiPickerModalProps) {
+  const { t } = useTranslation('kpi')
   const [keyword, setKeyword] = useState('')
 
   const { data, isLoading } = useMyKpi({ page: 0, size: 200, sortBy: 'createdAt', sortDir: 'desc' })
@@ -47,8 +49,8 @@ export default function AdjustmentKpiPickerModal({ onClose, onSelect }: Adjustme
       onClose={onClose}
       size="lg"
       flush
-      title="Chọn chỉ tiêu cần điều chỉnh"
-      description="Chỉ hiện chỉ tiêu còn có thể điều chỉnh"
+      title={t('AdjustmentKpiPickerModal.chooseTheKpiToAdjust')}
+      description={t('AdjustmentKpiPickerModal.onlyKpisThatCanStillBe')}
     >
       <div className="sticky top-0 z-10 border-b border-[var(--color-border)] bg-[var(--color-card)] px-5 py-3">
         <div className="relative">
@@ -56,8 +58,8 @@ export default function AdjustmentKpiPickerModal({ onClose, onSelect }: Adjustme
           <input
             value={keyword}
             onChange={e => setKeyword(e.target.value)}
-            placeholder="Tìm theo tên chỉ tiêu..."
-            aria-label="Tìm chỉ tiêu"
+            placeholder={t('AdjustmentKpiPickerModal.searchByKpiName')}
+            aria-label={t('AdjustmentKpiPickerModal.searchKpis')}
             className="h-9 w-full rounded-control border border-[var(--color-border)] bg-[var(--color-card)] pl-9 pr-3 text-sm text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-subtle-foreground)] focus-visible:border-[var(--color-primary)] focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]"
           />
         </div>
@@ -70,11 +72,11 @@ export default function AdjustmentKpiPickerModal({ onClose, onSelect }: Adjustme
           </div>
         ) : filteredKpis.length === 0 ? (
           <EmptyState
-            title="Không có chỉ tiêu phù hợp"
+            title={t('AdjustmentKpiPickerModal.noSuitableKpi')}
             description={
               keyword
-                ? 'Không tìm thấy chỉ tiêu nào khớp với từ khoá.'
-                : 'Bạn không còn chỉ tiêu nào có thể xin điều chỉnh (đã nộp đủ báo cáo hoặc đợt đã kết thúc).'
+                ? t('AdjustmentKpiPickerModal.noKpiMatchesTheKeyword')
+                : t('AdjustmentKpiPickerModal.youHaveNoKpisLeftThat')
             }
           />
         ) : (
@@ -123,7 +125,7 @@ export default function AdjustmentKpiPickerModal({ onClose, onSelect }: Adjustme
 
                     {isPending ? (
                       <span className="text-eyebrow shrink-0 px-2 py-1 rounded-control bg-[var(--color-warning-bg)] text-[var(--color-warning)] border border-[var(--color-warning-border)]">
-                        Đang chờ duyệt
+                        {t('AdjustmentKpiPickerModal.pendingApproval')}
                       </span>
                     ) : (
                       <ChevronRight size={18} className="shrink-0 mt-1 text-[var(--color-subtle-foreground)] group-hover:text-[var(--color-primary)] transition-colors" />

@@ -9,6 +9,8 @@ import { Button } from '@/components/ui/button'
 import ConfirmDialog from '@/components/common/ConfirmDialog'
 import type { Attachment } from '@/types/submission'
 import { evidenceApi, type EvidenceTarget } from './evidenceApi'
+import { useTranslation } from 'react-i18next'
+import i18n from 'i18next'
 
 function iconFor(a: Attachment) {
   const t = a.contentType || ''
@@ -24,7 +26,7 @@ function iconFor(a: Attachment) {
  *
  * `readOnly`: chỉ xem (người được chấm xem minh chứng của người chấm, hoặc lượt đã khoá).
  */
-export default function EvidenceAttachments({ target, readOnly = false, title = 'Minh chứng đính kèm', compact = false, className }: {
+export default function EvidenceAttachments({ target, readOnly = false, title = i18n.t('evidence:EvidenceAttachments.evidenceAttached'), compact = false, className }: {
   target: EvidenceTarget
   readOnly?: boolean
   title?: string
@@ -32,6 +34,7 @@ export default function EvidenceAttachments({ target, readOnly = false, title = 
   compact?: boolean
   className?: string
 }) {
+  const { t } = useTranslation('evidence')
   const qc = useQueryClient()
   const key = ['evidence', target.targetType, target.targetKey]
   const { data: files = [], isLoading } = useQuery({ queryKey: key, queryFn: () => evidenceApi.list(target) })
@@ -42,14 +45,14 @@ export default function EvidenceAttachments({ target, readOnly = false, title = 
     mutationFn: (picked: File[]) => evidenceApi.upload(target, picked),
     onSuccess: added => {
       qc.setQueryData<Attachment[]>(key, prev => [...(prev ?? []), ...added])
-      toast.success(added.length === 1 ? 'Đã đính kèm 1 tệp' : `Đã đính kèm ${added.length} tệp`)
+      toast.success(added.length === 1 ? t('EvidenceAttachments.n1FileAttached') : t('EvidenceAttachments.filesAttached', { count: added.length }))
     },
-    onError: err => toast.error(getApiErrorMessage(err, 'Không tải được tệp lên')),
+    onError: err => toast.error(getApiErrorMessage(err, t('EvidenceAttachments.couldNotUploadTheFile'))),
   })
   const remove = useMutation({
     mutationFn: (id: string) => evidenceApi.remove(id),
-    onSuccess: (_, id) => { qc.setQueryData<Attachment[]>(key, prev => (prev ?? []).filter(a => a.id !== id)); toast.success('Đã xoá tệp') },
-    onError: err => toast.error(getApiErrorMessage(err, 'Không xoá được tệp')),
+    onSuccess: (_, id) => { qc.setQueryData<Attachment[]>(key, prev => (prev ?? []).filter(a => a.id !== id)); toast.success(t('EvidenceAttachments.fileDeleted')) },
+    onError: err => toast.error(getApiErrorMessage(err, t('EvidenceAttachments.couldNotDeleteTheFile'))),
   })
 
   const onPick = (list: FileList | null) => {
@@ -58,9 +61,9 @@ export default function EvidenceAttachments({ target, readOnly = false, title = 
     const screened = screenEvidence(Array.from(list), [])
     screened.rejected.forEach(r => toast.error(r.reason))
     const room = MAX_ATTACHMENT_FILES - files.length
-    if (room <= 0) { toast.error(`Tối đa ${MAX_ATTACHMENT_FILES} tệp cho một lượt chấm`); return }
+    if (room <= 0) { toast.error(t('EvidenceAttachments.upToFilesPerScoring', { MAX_ATTACHMENT_FILES })); return }
     const accepted = screened.accepted.slice(0, room)
-    if (accepted.length < screened.accepted.length) toast.warning(`Chỉ thêm được ${room} tệp nữa (tối đa ${MAX_ATTACHMENT_FILES})`)
+    if (accepted.length < screened.accepted.length) toast.warning(t('EvidenceAttachments.onlyMoreFilesCanBeAdded', { room, MAX_ATTACHMENT_FILES }))
     if (accepted.length) upload.mutate(accepted)
     if (inputRef.current) inputRef.current.value = ''
   }
@@ -76,14 +79,14 @@ export default function EvidenceAttachments({ target, readOnly = false, title = 
             {title}
             <span className="text-caption font-normal">{files.length}/{MAX_ATTACHMENT_FILES}</span>
           </h4>
-          {!readOnly && <p className="mt-0.5 text-caption">{ATTACHMENT_HINT}</p>}
+          {!readOnly && <p className="mt-0.5 text-caption">{ATTACHMENT_HINT()}</p>}
         </div>
         {canAdd && (
           <>
-            <input ref={inputRef} type="file" multiple className="hidden" onChange={e => onPick(e.target.files)} aria-label="Chọn tệp minh chứng" />
+            <input ref={inputRef} type="file" multiple className="hidden" onChange={e => onPick(e.target.files)} aria-label={t('EvidenceAttachments.chooseEvidenceFiles')} />
             <Button variant="outline" size="sm" type="button" onClick={() => inputRef.current?.click()} disabled={upload.isPending}>
               {upload.isPending ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Upload aria-hidden="true" />}
-              Đính kèm tệp
+              {t('EvidenceAttachments.attachFiles')}
             </Button>
           </>
         )}
@@ -92,7 +95,7 @@ export default function EvidenceAttachments({ target, readOnly = false, title = 
       {isLoading ? (
         <div className="mt-3 h-9 animate-pulse rounded-control bg-[var(--color-muted)]" />
       ) : files.length === 0 ? (
-        <p className="mt-2 text-caption">{readOnly ? 'Không có minh chứng đính kèm.' : 'Chưa có tệp nào. Đính kèm ảnh, PDF hoặc tài liệu làm bằng chứng cho lượt chấm này.'}</p>
+        <p className="mt-2 text-caption">{readOnly ? t('EvidenceAttachments.noEvidenceAttached') : t('EvidenceAttachments.noFilesYetAttachImagesPdfs')}</p>
       ) : (
         <ul className="mt-3 divide-y divide-[var(--color-border)] rounded-card border border-[var(--color-border)]">
           {files.map(a => {
@@ -104,11 +107,11 @@ export default function EvidenceAttachments({ target, readOnly = false, title = 
                   {a.fileName}
                 </a>
                 <span className="shrink-0 text-caption tabular-nums">{a.fileSize ? formatBytes(a.fileSize) : ''}</span>
-                <Button asChild variant="ghost" size="icon-sm" aria-label={`Mở ${a.fileName}`}>
+                <Button asChild variant="ghost" size="icon-sm" aria-label={t('EvidenceAttachments.open', { fileName: a.fileName })}>
                   <a href={a.fileUrl} target="_blank" rel="noopener noreferrer"><ExternalLink aria-hidden="true" /></a>
                 </Button>
                 {!readOnly && (
-                  <Button variant="ghost" size="icon-sm" type="button" className="text-[var(--color-muted-foreground)] hover:text-[var(--color-error)]" onClick={() => setPendingDelete(a)} aria-label={`Xoá ${a.fileName}`}>
+                  <Button variant="ghost" size="icon-sm" type="button" className="text-[var(--color-muted-foreground)] hover:text-[var(--color-error)]" onClick={() => setPendingDelete(a)} aria-label={t('EvidenceAttachments.delete', { fileName: a.fileName })}>
                     <X aria-hidden="true" />
                   </Button>
                 )}
@@ -122,9 +125,9 @@ export default function EvidenceAttachments({ target, readOnly = false, title = 
         open={!!pendingDelete}
         onClose={() => setPendingDelete(null)}
         onConfirm={() => { if (pendingDelete) remove.mutate(pendingDelete.id); setPendingDelete(null) }}
-        title="Xoá tệp minh chứng?"
-        description={`"${pendingDelete?.fileName ?? ''}" sẽ bị xoá khỏi lượt chấm này. Không hoàn tác được.`}
-        confirmLabel="Xoá tệp"
+        title={t('EvidenceAttachments.deleteEvidenceFile')}
+        description={t('EvidenceAttachments.willBeRemovedFromThisScoring', { value: pendingDelete?.fileName ?? '' })}
+        confirmLabel={t('EvidenceAttachments.deleteFile')}
         loading={remove.isPending}
       />
     </div>

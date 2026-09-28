@@ -2,6 +2,7 @@ import { Component, useEffect, useRef, useState, type ComponentProps, type React
 import { Responsive } from 'react-grid-layout/legacy'
 import { AlertCircle, RotateCcw } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import i18n from 'i18next'
 
 type ResponsiveProps = ComponentProps<typeof Responsive>
 
@@ -78,11 +79,11 @@ export class WidgetErrorBoundary extends Component<BoundaryProps, BoundaryState>
       >
         <AlertCircle size={22} aria-hidden="true" className="text-[var(--color-error)]" strokeWidth={1.75} />
         <div>
-          <p className="text-sm font-medium text-[var(--color-foreground)]">Không vẽ được "{this.props.title}"</p>
-          <p className="mt-1 text-caption">Các phần khác của trang không bị ảnh hưởng.</p>
+          <p className="text-sm font-medium text-[var(--color-foreground)]">{i18n.t('shared:StableGridLayout.couldNotDraw')}{this.props.title}"</p>
+          <p className="mt-1 text-caption">{i18n.t('shared:StableGridLayout.otherPartsOfThePageAre')}</p>
         </div>
         <Button variant="outline" size="sm" onClick={() => this.setState({ failed: false })}>
-          <RotateCcw aria-hidden="true" /> Thử lại
+          <RotateCcw aria-hidden="true" /> {i18n.t('shared:StableGridLayout.tryAgain')}
         </Button>
       </div>
     )

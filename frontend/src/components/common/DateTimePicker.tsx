@@ -6,6 +6,7 @@ import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover
 import { cn } from '@/lib/utils'
 import { useMediaQuery } from '@/hooks/useMediaQuery'
 import { Button } from '@/components/ui/button'
+import i18n from 'i18next'
 
 const DAY_PICKER_CLASS_NAMES = {
   months: 'flex flex-col',
@@ -40,7 +41,7 @@ interface DatePickerProps {
   onClear?: () => void
 }
 
-export function DatePicker({ value, onChange, placeholder = 'Chọn ngày', className, onClear }: DatePickerProps) {
+export function DatePicker({ value, onChange, placeholder = i18n.t('shared:DateTimePicker.chooseDate'), className, onClear }: DatePickerProps) {
   const [open, setOpen] = useState(false)
   const selectedDate = value ? parse(value, 'yyyy-MM-dd', new Date()) : undefined
   const validSelected = selectedDate && isValid(selectedDate) ? selectedDate : undefined
@@ -74,7 +75,7 @@ export function DatePicker({ value, onChange, placeholder = 'Chọn ngày', clas
         </button>
       </PopoverTrigger>
       <PopoverContent
-        className="w-auto p-3 z-[300] border-[var(--color-border)] shadow-2xl"
+        className="w-auto p-3 border-[var(--color-border)] shadow-2xl"
         align="start"
         collisionPadding={12}
         sideOffset={6}
@@ -104,7 +105,7 @@ interface DateTimePickerProps {
   className?: string
 }
 
-export function DateTimePicker({ value, onChange, placeholder = 'Chọn ngày giờ', className }: DateTimePickerProps) {
+export function DateTimePicker({ value, onChange, placeholder = i18n.t('shared:DateTimePicker.chooseDateAndTime'), className }: DateTimePickerProps) {
   const [open, setOpen] = useState(false)
   const isMobile = useMediaQuery('(max-width: 639px)')
 
@@ -180,7 +181,7 @@ export function DateTimePicker({ value, onChange, placeholder = 'Chọn ngày gi
       </PopoverTrigger>
 
       <PopoverContent
-        className="w-auto p-0 z-[300] border-[var(--color-border)] shadow-2xl"
+        className="w-auto p-0 border-[var(--color-border)] shadow-2xl"
         align="start"
         collisionPadding={12}
         sideOffset={6}
@@ -227,7 +228,7 @@ export function DateTimePicker({ value, onChange, placeholder = 'Chọn ngày gi
 
           <Button size="sm" className="ml-auto" type="button" onClick={() => setOpen(false)}>
             <Check aria-hidden="true" />
-            Xong
+            {i18n.t('shared:DateTimePicker.done')}
           </Button>
         </div>
       </PopoverContent>
@@ -258,7 +259,7 @@ interface DateFieldProps {
   max?: string
 }
 
-export function DateField({ value, onChange, placeholder = 'Chọn ngày', className, min, max }: DateFieldProps) {
+export function DateField({ value, onChange, placeholder = i18n.t('shared:DateTimePicker.chooseDate'), className, min, max }: DateFieldProps) {
   const [open, setOpen] = useState(false)
   const isMobile = useMediaQuery('(max-width: 639px)')
 

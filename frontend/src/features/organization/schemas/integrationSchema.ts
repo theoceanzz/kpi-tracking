@@ -1,12 +1,14 @@
 import { z } from 'zod'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
 /** Thông tin ứng dụng Lark tự dựng. App Secret để trống = giữ nguyên cái đã lưu. */
-export const larkCredentialsSchema = z.object({
-  appId: z.string().trim().min(1, 'Vui lòng nhập App ID'),
+export const larkCredentialsSchema = perLanguage(() => (z.object({
+  appId: z.string().trim().min(1, i18n.t('organization:integrationSchema.pleaseEnterTheAppId')),
   appSecret: z.string(),
-})
+})))
 
-export type LarkCredentialsFormData = z.infer<typeof larkCredentialsSchema>
+export type LarkCredentialsFormData = z.infer<ReturnType<typeof larkCredentialsSchema>>
 
 /**
  * Mỗi loại email có danh sách biến BẮT BUỘC riêng (do server trả về), nên schema dựng
@@ -14,8 +16,8 @@ export type LarkCredentialsFormData = z.infer<typeof larkCredentialsSchema>
  */
 export const createEmailTemplateSchema = (requiredVariables: string[] = []) =>
   z.object({
-    subject: z.string().trim().min(1, 'Vui lòng nhập tiêu đề email'),
-    body: z.string().trim().min(1, 'Vui lòng nhập nội dung email'),
+    subject: z.string().trim().min(1, i18n.t('organization:integrationSchema.pleaseEnterTheEmailSubject')),
+    body: z.string().trim().min(1, i18n.t('organization:integrationSchema.pleaseEnterTheEmailContent')),
     fullHtml: z.boolean(),
     enabled: z.boolean(),
   }).superRefine((data, ctx) => {
@@ -24,7 +26,7 @@ export const createEmailTemplateSchema = (requiredVariables: string[] = []) =>
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['body'],
-        message: `Thiếu biến bắt buộc: ${missing.map(v => `{{${v}}}`).join(', ')}`,
+        message: i18n.t('organization:integrationSchema.missingRequiredVariables', { join: missing.map(v => `{{${v}}}`).join(', ') }),
       })
     }
   })
@@ -41,14 +43,14 @@ export const createAiQuotaSchema = (
   { remainingToAllocate: number; currentLimit: number; takeover: boolean },
 ) =>
   z.object({
-    value: z.number({ message: 'Hạn mức phải là số' }).min(0, 'Hạn mức không được âm'),
+    value: z.number({ message: i18n.t('organization:integrationSchema.quotaMustBeANumber') }).min(0, i18n.t('organization:integrationSchema.quotaCannotBeNegative')),
   }).superRefine((data, ctx) => {
     const charge = takeover ? data.value : data.value - currentLimit
     if (charge > remainingToAllocate) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['value'],
-        message: 'Vượt quá phần hạn mức bạn còn có thể cấp',
+        message: i18n.t('organization:integrationSchema.exceedsTheQuotaYouCanStill'),
       })
     }
   })

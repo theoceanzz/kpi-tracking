@@ -14,6 +14,9 @@ import { usePinToHome } from '../grid/usePinToHome'
 import WidgetConfigPanel from '../grid/WidgetConfigPanel'
 import WidgetConfigSummary from '../grid/WidgetConfigSummary'
 import type { ViewerPosition } from '@/features/dashboard/hooks/useViewerPosition'
+import { useTranslation } from 'react-i18next'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
 /**
  * Tab "Thẻ điểm BSC": tổng quan cho người quản lý theo mô hình THẺ ĐIỂM — cây Công ty → Đơn vị,
@@ -24,18 +27,18 @@ import type { ViewerPosition } from '@/features/dashboard/hooks/useViewerPositio
  * chọn, ô xu hướng vẽ cả khoảng. Bảng xếp hạng nhân sự là ô duy nhất còn đọc điểm đánh giá cá nhân,
  * để ẩn mặc định.
  */
-const DEFAULT_WIDGETS: DashboardWidget[] = [
-  { i: 'bsc-overview', type: 'STATS', title: 'Sức khoẻ BSC của đợt', x: 0, y: 0, w: 12, h: 5, visible: true },
+const DEFAULT_WIDGETS = perLanguage((): DashboardWidget[] => ([
+  { i: 'bsc-overview', type: 'STATS', title: i18n.t('analytics:BscAnalyticsTab.bscHealthOfThePeriod'), x: 0, y: 0, w: 12, h: 5, visible: true },
   // Tên ô là nguồn duy nhất (renderWidget lấy `w.title`, trang chủ đặt đúng chuỗi này); chữ đầu
   // mỗi ô khác nhau — "Mức đạt BSC của các đơn vị" cạnh "Mức đạt từng chỉ tiêu" từng lẫn nhau.
-  { i: 'bsc-units', type: 'BSC_UNITS', title: 'Mức đạt thẻ điểm của từng đơn vị', x: 0, y: 5, w: 7, h: 11, visible: true },
-  { i: 'bsc-gates', type: 'BSC_GATES', title: 'Đơn vị vướng hạng mục chặn', x: 7, y: 5, w: 5, h: 11, visible: true },
-  { i: 'bsc-items', type: 'BSC_ITEMS', title: 'Từng chỉ tiêu so với mục tiêu và sàn', x: 0, y: 16, w: 12, h: 10, visible: true },
-  { i: 'bsc-trend', type: 'BSC_TREND', title: 'Diễn biến mức đạt qua các đợt', x: 0, y: 26, w: 7, h: 12, visible: true },
-  { i: 'bsc-cascade', type: 'BSC_CASCADE', title: 'Độ phủ phân rã chỉ tiêu', x: 7, y: 26, w: 5, h: 12, visible: true },
+  { i: 'bsc-units', type: 'BSC_UNITS', title: i18n.t('analytics:BscAnalyticsTab.scorecardAchievementOfEachUnit'), x: 0, y: 5, w: 7, h: 11, visible: true },
+  { i: 'bsc-gates', type: 'BSC_GATES', title: i18n.t('analytics:BscAnalyticsTab.unitsBlockedByGateItems'), x: 7, y: 5, w: 5, h: 11, visible: true },
+  { i: 'bsc-items', type: 'BSC_ITEMS', title: i18n.t('analytics:BscAnalyticsTab.eachKpiAgainstTargetAndFloor'), x: 0, y: 16, w: 12, h: 10, visible: true },
+  { i: 'bsc-trend', type: 'BSC_TREND', title: i18n.t('analytics:BscAnalyticsTab.achievementAcrossPeriods'), x: 0, y: 26, w: 7, h: 12, visible: true },
+  { i: 'bsc-cascade', type: 'BSC_CASCADE', title: i18n.t('analytics:BscAnalyticsTab.kpiCascadeCoverage'), x: 7, y: 26, w: 5, h: 12, visible: true },
   // Ẩn mặc định: điểm đánh giá cá nhân, có ích khi cần xem ai kéo điểm BSC của đơn vị.
-  { i: 'bsc-ranking', type: 'BSC_RANKING', title: 'Xếp hạng nhân sự theo điểm BSC', x: 0, y: 38, w: 12, h: 14, visible: false },
-]
+  { i: 'bsc-ranking', type: 'BSC_RANKING', title: i18n.t('analytics:BscAnalyticsTab.peopleRankingByBscScore'), x: 0, y: 38, w: 12, h: 14, visible: false },
+]))
 
 /**
  * Tab này gác bằng BSC:MANAGE nên gần như chỉ ban giám đốc mở; ai mở cũng cần trọn thẻ điểm.
@@ -46,15 +49,15 @@ const POSITION_LAYOUT: Record<ViewerPosition, readonly string[]> = {
   DIRECTOR: BSC_SET, HEAD: BSC_SET, DEPUTY: BSC_SET, STAFF: BSC_SET,
 }
 
-const GROUP_OF: Record<string, string> = {
-  'bsc-overview': 'Số liệu',
-  'bsc-units': 'Biểu đồ xếp hạng',
-  'bsc-gates': 'Số liệu',
-  'bsc-items': 'Biểu đồ so sánh',
-  'bsc-trend': 'Biểu đồ xu hướng',
-  'bsc-cascade': 'Biểu đồ so sánh',
-  'bsc-ranking': 'Biểu đồ xếp hạng',
-}
+const GROUP_OF = perLanguage((): Record<string, string> => ({
+  'bsc-overview': i18n.t('analytics:BscAnalyticsTab.figures'),
+  'bsc-units': i18n.t('analytics:BscAnalyticsTab.rankingCharts'),
+  'bsc-gates': i18n.t('analytics:BscAnalyticsTab.figures'),
+  'bsc-items': i18n.t('analytics:BscAnalyticsTab.comparisonCharts'),
+  'bsc-trend': i18n.t('analytics:BscAnalyticsTab.trendCharts'),
+  'bsc-cascade': i18n.t('analytics:BscAnalyticsTab.comparisonCharts'),
+  'bsc-ranking': i18n.t('analytics:BscAnalyticsTab.rankingCharts'),
+}))
 const PREVIEW_OF: Record<string, 'metricCard' | 'table' | 'line' | 'bullet' | 'lollipop' | 'bar'> = {
   'bsc-overview': 'metricCard',
   'bsc-units': 'lollipop',
@@ -64,26 +67,27 @@ const PREVIEW_OF: Record<string, 'metricCard' | 'table' | 'line' | 'bullet' | 'l
   'bsc-cascade': 'bar',
   'bsc-ranking': 'lollipop',
 }
-const DESC_OF: Record<string, string> = {
-  'bsc-overview': 'Mức đạt BSC của đợt, số thẻ điểm đơn vị, đơn vị qua cửa chặn, độ phủ phân rã.',
-  'bsc-units': 'Đơn vị nào đạt, đơn vị nào hụt: mỗi đơn vị một chấm so với mục tiêu 100%, đỏ là không qua cửa chặn.',
-  'bsc-gates': 'Đơn vị nào đang vướng chỉ tiêu chặn trong đợt, vướng ở chỉ tiêu nào.',
-  'bsc-items': 'Chỉ tiêu nào đạt, chỉ tiêu nào hụt: thực tế đặt cạnh mục tiêu và sàn của từng dòng trên thẻ điểm.',
-  'bsc-trend': 'Mức đạt đang lên hay xuống qua các đợt, tách được theo 4 lĩnh vực.',
-  'bsc-cascade': 'Từng chỉ tiêu đã phân rã xuống đơn vị đủ, thiếu hay vượt mục tiêu.',
-  'bsc-ranking': 'Nhân sự xếp theo điểm BSC hoặc điểm hệ thống, kèm điểm từng lĩnh vực.',
-}
-const CATALOG = DEFAULT_WIDGETS.map(t => ({
-  template: t, icon: null, groupLabel: GROUP_OF[t.i], preview: PREVIEW_OF[t.i], description: DESC_OF[t.i],
+const DESC_OF = perLanguage((): Record<string, string> => ({
+  'bsc-overview': i18n.t('analytics:BscAnalyticsTab.thePeriodsBscAchievementNumberOf'),
+  'bsc-units': i18n.t('analytics:BscAnalyticsTab.whichUnitsAchieveAndWhichFall'),
+  'bsc-gates': i18n.t('analytics:BscAnalyticsTab.whichUnitsAreBlockedByGate'),
+  'bsc-items': i18n.t('analytics:BscAnalyticsTab.whichKpisAreMetAndWhich'),
+  'bsc-trend': i18n.t('analytics:BscAnalyticsTab.whetherAchievementIsGoingUpOr'),
+  'bsc-cascade': i18n.t('analytics:BscAnalyticsTab.whetherEachKpiCascadedToUnits'),
+  'bsc-ranking': i18n.t('analytics:BscAnalyticsTab.peopleRankedByBscScoreOr'),
 }))
+const CATALOG = perLanguage(() => (DEFAULT_WIDGETS().map(t => ({
+  template: t, icon: null, groupLabel: GROUP_OF()[t.i], preview: PREVIEW_OF[t.i], description: DESC_OF()[t.i],
+}))))
 
 export default function BscAnalyticsTab() {
+  const { t } = useTranslation('analytics')
   const { periods, cycles } = useAnalyticsScopeData()
   const unitOptions = useUnitOptions()
   // Không còn bộ lọc cấp trang: đơn vị lẫn khoảng thời gian đều nằm trong cài đặt từng ô.
   const pageIntent = PAGE_DEFAULT_INTENT
   const pin = usePinToHome()
-  const grid = usePositionLayout(DEFAULT_WIDGETS, POSITION_LAYOUT, 'DIRECTOR')
+  const grid = usePositionLayout(DEFAULT_WIDGETS(), POSITION_LAYOUT, 'DIRECTOR')
   const dash = useAnalyticsGrid({ scope: 'ANALYTICS_BSC', defaultWidgets: grid.defaultWidgets })
 
   /*
@@ -152,7 +156,7 @@ export default function BscAnalyticsTab() {
     <div className="space-y-6 pb-12">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <h2 className="text-xl font-semibold text-[var(--color-foreground)] flex items-center gap-2">
-          <Gauge size={20} className="text-slate-400" /> Thẻ điểm BSC
+          <Gauge size={20} className="text-slate-400" /> {t('BscAnalyticsTab.bscScorecard')}
         </h2>
         <div id="tour-analytics-customize" className="flex items-center gap-3 flex-wrap">
           <DashboardEditToolbar api={dash} />
@@ -163,7 +167,7 @@ export default function BscAnalyticsTab() {
         <DashboardCustomizeChrome
           api={dash}
           renderWidget={renderWidget}
-          catalog={CATALOG}
+          catalog={CATALOG()}
           presets={grid.presets}
           recommendedIds={grid.recommendedIds}
           recommendedLabel={grid.recommendedLabel}
@@ -179,7 +183,7 @@ export default function BscAnalyticsTab() {
       </div>
 
       <p className="text-xs text-slate-500 flex items-center gap-1.5">
-        <Layers size={12} /> Số liệu đọc từ kết quả đợt đã tính của thẻ điểm (Quản lý BSC → Kết quả đợt); đợt chưa "Tính lại" thì ô báo chưa có kết quả.
+        <Layers size={12} /> {t('BscAnalyticsTab.figuresAreReadFromTheScorecards')}
       </p>
     </div>
   )

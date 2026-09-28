@@ -9,7 +9,9 @@ import com.kpitracking.entity.KpiPeriod;
 import com.kpitracking.entity.Organization;
 import com.kpitracking.enums.BscLinkedWeightEnforce;
 import com.kpitracking.exception.BusinessException;
+import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.ResourceNotFoundException;
+import com.kpitracking.i18n.Terms;
 import com.kpitracking.repository.BscCascadePolicyRepository;
 import com.kpitracking.repository.KpiCycleRepository;
 import com.kpitracking.repository.KpiPeriodRepository;
@@ -57,7 +59,7 @@ public class BscPolicyService {
     @Transactional
     public CascadePolicyResponse create(UUID organizationId, CascadePolicyRequest request) {
         Organization org = organizationRepository.findById(organizationId)
-                .orElseThrow(() -> new ResourceNotFoundException("Organization not found"));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.RESOURCE_NOT_FOUND, Terms.of("resource.organization")));
         validate(request);
 
         KpiCycle cycle = resolveCycle(request.getKpiCycleId());
@@ -78,7 +80,7 @@ public class BscPolicyService {
     @Transactional
     public CascadePolicyResponse update(UUID policyId, CascadePolicyRequest request) {
         BscCascadePolicy policy = policyRepository.findById(policyId)
-                .orElseThrow(() -> new ResourceNotFoundException("Chính sách hệ số", "id", policyId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.coefficientPolicy"), "id", policyId));
         validate(request);
         KpiCycle cycle = resolveCycle(request.getKpiCycleId());
         List<KpiPeriod> periods = resolvePeriods(request.getKpiPeriodIds());
@@ -99,7 +101,7 @@ public class BscPolicyService {
     @Transactional
     public void delete(UUID policyId) {
         BscCascadePolicy policy = policyRepository.findById(policyId)
-                .orElseThrow(() -> new ResourceNotFoundException("Chính sách hệ số", "id", policyId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.coefficientPolicy"), "id", policyId));
         // Soft delete: kết quả đã chốt vẫn trỏ tới chính sách này qua cascade_policy_id.
         policy.setDeletedAt(Instant.now());
         policyRepository.save(policy);
@@ -115,18 +117,18 @@ public class BscPolicyService {
 
     private void validate(CascadePolicyRequest r) {
         if (r.getRecognizedCapPercent() != null && r.getRecognizedCapPercent() <= 0) {
-            throw new BusinessException("Trần điểm công nhận phải lớn hơn 0");
+            throw new BusinessException(ErrorCode.RECOGNIZED_SCORE_CAP_MUST_GREATER_THAN_0);
         }
         if (r.getMinBscLinkedWeight() != null
                 && (r.getMinBscLinkedWeight() < 0 || r.getMinBscLinkedWeight() > 100)) {
-            throw new BusinessException("Tỉ trọng KPI liên kết BSC phải nằm trong khoảng 0–100%");
+            throw new BusinessException(ErrorCode.SHARE_BSC_LINKED_KPIS_MUST_BETWEEN_0);
         }
     }
 
     /** Gắn kỳ hay gắn đợt — chọn một, không nhập nhằng cả hai. */
     private void assertScopeSane(KpiCycle cycle, List<KpiPeriod> periods) {
         if (cycle != null && !periods.isEmpty()) {
-            throw new BusinessException("Chọn áp dụng theo KỲ hoặc theo ĐỢT, không chọn cả hai");
+            throw new BusinessException(ErrorCode.APPLY_CYCLE_PERIOD_NOT_BOTH);
         }
     }
 
@@ -145,8 +147,7 @@ public class BscPolicyService {
         for (KpiPeriod period : periods) {
             for (BscCascadePolicy p : policyRepository.findActiveByPeriod(organizationId, period.getId())) {
                 if (selfId != null && selfId.equals(p.getId())) continue;
-                throw new BusinessException("Đợt " + period.getName() + " đã nằm trong chính sách '"
-                        + p.getName() + "' — sửa chính sách đó thay vì tạo thêm");
+                throw new BusinessException(ErrorCode.PERIOD_COVERED_POLICY, period.getName(), p.getName());
             }
         }
         if (!periods.isEmpty()) return;
@@ -156,10 +157,7 @@ public class BscPolicyService {
                 : policyRepository.findActiveByCycle(organizationId, cycle.getId());
         for (BscCascadePolicy p : existing) {
             if (selfId != null && selfId.equals(p.getId())) continue;
-            throw new BusinessException(cycle == null
-                    ? "Tổ chức đã có chính sách mặc định ('" + p.getName() + "') — sửa chính sách đó thay vì tạo thêm"
-                    : "Kỳ " + cycle.getName() + " đã có chính sách riêng ('" + p.getName()
-                      + "') — sửa chính sách đó thay vì tạo thêm");
+            throw (cycle == null ? new BusinessException(ErrorCode.ORGANIZATION_DEFAULT_POLICY, p.getName()) : new BusinessException(ErrorCode.CYCLE_OWN_POLICY, cycle.getName(), p.getName()));
         }
     }
 
@@ -168,7 +166,7 @@ public class BscPolicyService {
         List<KpiPeriod> periods = new ArrayList<>();
         for (UUID id : periodIds) {
             periods.add(kpiPeriodRepository.findById(id)
-                    .orElseThrow(() -> new ResourceNotFoundException("Đợt KPI", "id", id)));
+                    .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.kpiPeriod"), "id", id)));
         }
         return periods;
     }
@@ -176,7 +174,7 @@ public class BscPolicyService {
     private KpiCycle resolveCycle(UUID cycleId) {
         if (cycleId == null) return null;
         return kpiCycleRepository.findById(cycleId)
-                .orElseThrow(() -> new ResourceNotFoundException("Kỳ đánh giá", "id", cycleId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.evaluationCycle"), "id", cycleId));
     }
 
     private List<ScorecardPeriodResponse> periodsOf(BscCascadePolicy p) {

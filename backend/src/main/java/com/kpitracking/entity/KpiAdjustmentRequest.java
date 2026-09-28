@@ -63,6 +63,14 @@ public class KpiAdjustmentRequest {
     @Column(name = "reviewer_note", columnDefinition = "TEXT")
     private String reviewerNote;
 
+    /**
+     * % bù trừ do một bước TRUNG GIAN của chuỗi duyệt gợi ý cho yêu cầu dừng KPI. Chỉ người duyệt
+     * cuối chốt con số thật (vào {@code KpiCriteria.compensatedAchievementPercent}); đây chỉ là
+     * giá trị điền sẵn cho họ.
+     */
+    @Column(name = "suggested_compensation_percent")
+    private Double suggestedCompensationPercent;
+
     @CreatedDate
     @Column(name = "created_at", updatable = false)
     private Instant createdAt;

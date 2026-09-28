@@ -18,6 +18,8 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import type { OrgUnitFilterDto } from '@/types/stats'
+import { useTranslation } from 'react-i18next'
+import i18n from 'i18next'
 
 interface Props {
   dateRange: { from: string | undefined; to: string | undefined }
@@ -57,8 +59,9 @@ function depthPrefix(depth: number): string {
 
 export default function ObjectiveDetailsWidget({
   dateRange, onlyApproved = false, periodId, periodIdTo, viewControl, orgUnitId: orgUnitProp, hideControls, meta,
-  title = 'Cây mục tiêu và KR của đơn vị',
+  title = i18n.t('analytics:ObjectiveDetailsWidget.unitObjectiveAndKrTree'),
 }: Props) {
+  const { t } = useTranslation('analytics')
   const [drawerState, setDrawerState] = useState<{
     isOpen: boolean;
     type: 'OBJECTIVE' | 'KR' | 'KPI';
@@ -172,7 +175,7 @@ export default function ObjectiveDetailsWidget({
   const rowCount = data?.content?.length ?? 0
   const totalElements = data?.totalElements ?? 0
   const fillerMessage = !isLoading && rowCount > 0 && rowCount < PAGE_SIZE
-    ? `Đã hiển thị tất cả ${totalElements} mục tiêu`
+    ? t('ObjectiveDetailsWidget.showingAllObjectives', { totalElements })
     : null
 
   return (
@@ -184,7 +187,7 @@ export default function ObjectiveDetailsWidget({
           </div>
           <h2 className="text-xl font-semibold text-[var(--color-foreground)]">{title}</h2>
         </div>
-        <p className="text-sm text-slate-500 ml-9">Theo dõi bảng dữ liệu phân cấp mục tiêu</p>
+        <p className="text-sm text-slate-500 ml-9">{t('ObjectiveDetailsWidget.trackTheObjectiveHierarchyTable')}</p>
         {meta && <div className="ml-9 mt-2">{meta}</div>}
       </div>
 
@@ -193,10 +196,10 @@ export default function ObjectiveDetailsWidget({
         {/* Card header */}
         <div className="p-6 border-b border-[var(--color-border)] flex items-center justify-between shrink-0">
           <h3 className="text-sm font-semibold text-[var(--color-foreground)]">
-            {view === 'chart' ? 'Bản đồ trọng số mục tiêu' : 'Bảng dữ liệu phân cấp'}
+            {view === 'chart' ? t('ObjectiveDetailsWidget.objectiveWeightMap') : t('ObjectiveDetailsWidget.hierarchyTable')}
           </h3>
           <div className="flex items-center gap-2">
-            <span className="text-xs font-medium text-slate-400">{totalElements} mục tiêu</span>
+            <span className="text-xs font-medium text-slate-400">{totalElements} {t('ObjectiveDetailsWidget.objectives')}</span>
             {!hideControls && <ViewToggleButtons view={view} onChange={setView} />}
           </div>
         </div>
@@ -207,10 +210,10 @@ export default function ObjectiveDetailsWidget({
           <div className="min-w-[220px]">
             <Select value={orgUnitId || ALL_UNITS} onValueChange={handleOrgUnitChange}>
               <SelectTrigger className="h-9 text-xs font-semibold bg-[var(--color-muted)] border-slate-200 dark:border-slate-700">
-                <SelectValue placeholder="Tất cả đơn vị" />
+                <SelectValue placeholder={t('ObjectiveDetailsWidget.allUnits')} />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={ALL_UNITS}>Tất cả đơn vị</SelectItem>
+                <SelectItem value={ALL_UNITS}>{t('ObjectiveDetailsWidget.allUnits')}</SelectItem>
                 {flatUnits.map(unit => (
                   <SelectItem key={unit.id} value={unit.id}>
                     {depthPrefix(unit.depth)}{unit.name}
@@ -227,7 +230,7 @@ export default function ObjectiveDetailsWidget({
           <div className="flex-1 min-h-0 flex items-center justify-center">
             <div className="flex flex-col items-center gap-3">
               <Loader2 className="w-8 h-8 text-[var(--color-primary)] animate-spin" />
-              <div className="text-sm font-medium text-slate-500">Đang tải chi tiết mục tiêu...</div>
+              <div className="text-sm font-medium text-slate-500">{t('ObjectiveDetailsWidget.loadingObjectiveDetails')}</div>
             </div>
           </div>
         ) : (
@@ -235,7 +238,7 @@ export default function ObjectiveDetailsWidget({
             {view === 'chart' ? (
               treemapLeaves.length === 0 ? (
                 <div className="flex-1 flex items-center justify-center text-sm text-slate-400 font-medium py-16">
-                  Chưa có Key Result nào có tiến độ để vẽ
+                  {t('ObjectiveDetailsWidget.noKeyResultWithProgressTo')}
                 </div>
               ) : (
                 <div className="p-4">
@@ -244,11 +247,11 @@ export default function ObjectiveDetailsWidget({
                     onSelect={d => { if (d.id) handleRowClick('KR', { id: d.id, name: d.name }) }}
                   />
                   <p className="text-xs text-slate-400 font-medium text-center mt-2">
-                    Mỗi ô là một Key Result, gom theo Mục tiêu · Diện tích = số KPI · Màu = tiến độ · Bấm để mở chi tiết
+                    {t('ObjectiveDetailsWidget.eachCellIsAKeyResult')}
                   </p>
                   {totalElements > CHART_FETCH_SIZE && (
                     <p className="text-xs text-amber-600 font-semibold text-center mt-1">
-                      Có {totalElements} mục tiêu, biểu đồ chỉ vẽ {CHART_FETCH_SIZE} mục đầu. Xem đủ ở chế độ bảng.
+                      {t('ObjectiveDetailsWidget.yes')} {totalElements} {t('ObjectiveDetailsWidget.objectivesTheChartOnlyDraws')} {CHART_FETCH_SIZE} {t('ObjectiveDetailsWidget.firstItemsSeeAllInTable')}
                     </p>
                   )}
                 </div>
@@ -277,7 +280,7 @@ export default function ObjectiveDetailsWidget({
               onPageChange={handlePageChange}
               totalElements={totalElements}
               size={PAGE_SIZE}
-              itemLabel="mục tiêu"
+              itemLabel={t('ObjectiveDetailsWidget.objectives')}
             />
           </div>
         )}
@@ -286,7 +289,7 @@ export default function ObjectiveDetailsWidget({
       <ObjectiveDrawer
         isOpen={drawerState.isOpen}
         onClose={closeDrawer}
-        title={drawerState.data?.name || 'Chi tiết'}
+        title={drawerState.data?.name || t('ObjectiveDetailsWidget.details')}
         type={drawerState.type}
       >
         {renderDrawerContent()}

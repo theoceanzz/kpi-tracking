@@ -1,4 +1,6 @@
 import { z } from 'zod'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
 /**
  * Hai giá trị canh gác của ô chọn lĩnh vực. Radix không nhận chuỗi rỗng làm value nên
@@ -7,9 +9,9 @@ import { z } from 'zod'
 export const INDUSTRY_NONE = '__none__'
 export const INDUSTRY_OTHER = '__other__'
 
-export const companyProfileSchema = z.object({
-  name: z.string().min(1, 'Tên công ty không được để trống'),
-  code: z.string().min(1, 'Mã doanh nghiệp không được để trống'),
+export const companyProfileSchema = perLanguage(() => (z.object({
+  name: z.string().min(1, i18n.t('orgunits:organizationSchema.theCompanyNameCannotBeEmpty')),
+  code: z.string().min(1, i18n.t('orgunits:organizationSchema.theBusinessCodeCannotBeEmpty')),
   /** Mục đang chọn trong ô chọn: một preset, hoặc một trong hai giá trị canh gác. */
   industryChoice: z.string(),
   /** Chỉ dùng khi chọn "Khác" — ngành nghề người dùng tự gõ. */
@@ -18,7 +20,7 @@ export const companyProfileSchema = z.object({
   // Ô trống = "chưa khai", không phải 0 nhân viên — nên vẫn giữ dạng chuỗi.
   employeeCount: z.string().refine(
     v => v.trim() === '' || Number(v) >= 0,
-    'Quy mô nhân sự không được âm',
+    i18n.t('orgunits:organizationSchema.companySizeCannotBeNegative'),
   ),
   description: z.string(),
 }).superRefine((data, ctx) => {
@@ -26,22 +28,22 @@ export const companyProfileSchema = z.object({
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       path: ['industryCustom'],
-      message: 'Nhập lĩnh vực hoạt động của công ty',
+      message: i18n.t('orgunits:organizationSchema.enterTheCompanysIndustry'),
     })
   }
-})
+})))
 
-export type CompanyProfileFormData = z.infer<typeof companyProfileSchema>
+export type CompanyProfileFormData = z.infer<ReturnType<typeof companyProfileSchema>>
 
-export const hierarchyLevelsSchema = z.object({
+export const hierarchyLevelsSchema = perLanguage(() => (z.object({
   hierarchyLevels: z.array(z.object({
     id: z.string().optional(),
-    unitTypeName: z.string().min(1, 'Tên cấp bậc không được để trống'),
+    unitTypeName: z.string().min(1, i18n.t('orgunits:organizationSchema.theLevelNameCannotBeEmpty')),
     managerRoleLabel: z.string(),
-  })).min(2, 'Cơ cấu tổ chức phải có ít nhất 2 cấp'),
-})
+  })).min(2, i18n.t('orgunits:organizationSchema.theOrganizationStructureMustHaveAt')),
+})))
 
-export type HierarchyLevelsFormData = z.infer<typeof hierarchyLevelsSchema>
+export type HierarchyLevelsFormData = z.infer<ReturnType<typeof hierarchyLevelsSchema>>
 
 /**
  * Thang điểm định lượng. Điểm mức không được vượt thang tối đa, nhưng thang tối đa nằm
@@ -51,29 +53,29 @@ export const createEvaluationLevelsSchema = (maxScore: number) =>
   z.object({
     evaluationLevels: z.array(z.object({
       id: z.string().optional(),
-      name: z.string().min(1, 'Tên mức không được để trống'),
-      threshold: z.number({ message: 'Điểm mức phải là số' })
-        .min(0, 'Điểm mức không được âm')
-        .max(maxScore, `Điểm mức không được vượt quá Thang điểm tối đa (${maxScore})`),
+      name: z.string().min(1, i18n.t('orgunits:organizationSchema.theLevelNameCannotBeEmpty2')),
+      threshold: z.number({ message: i18n.t('orgunits:organizationSchema.theLevelScoreMustBeA') })
+        .min(0, i18n.t('orgunits:organizationSchema.theLevelScoreCannotBeNegative'))
+        .max(maxScore, i18n.t('orgunits:organizationSchema.theLevelScoreCannotExceedThe', { maxScore })),
       color: z.string(),
-    })).min(1, 'Cần ít nhất 1 mức xếp loại'),
+    })).min(1, i18n.t('orgunits:organizationSchema.atLeast1RatingLevelIs')),
   })
 
 export type EvaluationLevelsFormData = z.infer<ReturnType<typeof createEvaluationLevelsSchema>>
 
-export const qualitativeLevelsSchema = z.object({
+export const qualitativeLevelsSchema = perLanguage(() => (z.object({
   qualitativeLevels: z.array(z.object({
     id: z.string().optional(),
-    name: z.string().trim().min(1, 'Tên mức không được để trống'),
-    value: z.number({ message: 'Giá trị mức phải là số' }),
-    position: z.number({ message: 'Vị trí phải là số' })
-      .int('Vị trí phải là số nguyên lớn hơn hoặc bằng 1')
-      .min(1, 'Vị trí phải là số nguyên lớn hơn hoặc bằng 1'),
-    scorePercent: z.number({ message: '% quy đổi BSC phải là số' })
-      .min(0, '% quy đổi BSC phải nằm trong khoảng 0–100')
-      .max(100, '% quy đổi BSC phải nằm trong khoảng 0–100'),
+    name: z.string().trim().min(1, i18n.t('orgunits:organizationSchema.theLevelNameCannotBeEmpty2')),
+    value: z.number({ message: i18n.t('orgunits:organizationSchema.theLevelValueMustBeA') }),
+    position: z.number({ message: i18n.t('orgunits:organizationSchema.positionMustBeANumber') })
+      .int(i18n.t('orgunits:organizationSchema.positionMustBeAnIntegerGreater'))
+      .min(1, i18n.t('orgunits:organizationSchema.positionMustBeAnIntegerGreater')),
+    scorePercent: z.number({ message: i18n.t('orgunits:organizationSchema.theBscConversionMustBeA') })
+      .min(0, i18n.t('orgunits:organizationSchema.theBscConversionMustBeBetween'))
+      .max(100, i18n.t('orgunits:organizationSchema.theBscConversionMustBeBetween')),
     color: z.string(),
-  })).min(1, 'Cần ít nhất 1 mức đánh giá'),
+  })).min(1, i18n.t('orgunits:organizationSchema.atLeast1EvaluationLevelIs')),
 }).superRefine((data, ctx) => {
   // Vị trí phải liên tục từ 1: 1, 2, 3, ..., n (không trùng, không nhảy cóc)
   const positions = data.qualitativeLevels.map(l => Number(l.position)).sort((a, b) => a - b)
@@ -81,12 +83,12 @@ export const qualitativeLevelsSchema = z.object({
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       path: ['qualitativeLevels'],
-      message: 'Vị trí phải liên tục từ 1 (ví dụ: 1, 2, 3, 4, 5)',
+      message: i18n.t('orgunits:organizationSchema.positionsMustBeConsecutiveFrom1'),
     })
   }
-})
+})))
 
-export type QualitativeLevelsFormData = z.infer<typeof qualitativeLevelsSchema>
+export type QualitativeLevelsFormData = z.infer<ReturnType<typeof qualitativeLevelsSchema>>
 
 const unitClassConditionSchema = z.object({
   level: z.string(),
@@ -127,8 +129,8 @@ const unitClassProfileSchema = z.object({
  * mở từng hồ sơ nên ô sai thường đang bị thu gọn, một câu nêu đích danh hồ sơ mới chỉ được
  * đường cho người dùng.
  */
-export const unitClassificationSchema = z.object({
-  profiles: z.array(unitClassProfileSchema).min(1, 'Cần ít nhất một hồ sơ'),
+export const unitClassificationSchema = perLanguage(() => (z.object({
+  profiles: z.array(unitClassProfileSchema).min(1, i18n.t('orgunits:organizationSchema.atLeastOneProfileIsRequired')),
 }).superRefine((data, ctx) => {
   const fail = (message: string) =>
     ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['profiles'], message })
@@ -137,20 +139,20 @@ export const unitClassificationSchema = z.object({
   // diện đã giữ bất biến này, kiểm lại ở đây chỉ để dữ liệu cũ không lọt qua.
   const defaults = data.profiles.filter(p => p.isDefault)
   if (defaults.length !== 1) {
-    fail(defaults.length ? 'Chỉ được một hồ sơ mặc định' : 'Cần một hồ sơ mặc định')
+    fail(defaults.length ? i18n.t('orgunits:organizationSchema.onlyOneDefaultProfileIsAllowed') : i18n.t('orgunits:organizationSchema.aDefaultProfileIsRequired'))
     return
   }
 
   const names = data.profiles.map(p => p.name.trim())
-  if (names.some(n => !n)) return fail('Tên hồ sơ không được để trống')
-  if (new Set(names).size !== names.length) return fail('Tên hồ sơ bị trùng')
+  if (names.some(n => !n)) return fail(i18n.t('orgunits:organizationSchema.theProfileNameCannotBeEmpty'))
+  if (new Set(names).size !== names.length) return fail(i18n.t('orgunits:organizationSchema.duplicateProfileName'))
 
   for (const p of data.profiles) {
-    if (!p.isDefault && p.orgUnitIds.length === 0) return fail(`Hồ sơ "${p.name}" chưa gán đơn vị nào`)
-    if (!p.rules.length) return fail(`Hồ sơ "${p.name}" cần ít nhất một mức xếp loại`)
-    if (p.rules.some(r => !r.levelName.trim())) return fail(`Hồ sơ "${p.name}": tên mức không được để trống`)
+    if (!p.isDefault && p.orgUnitIds.length === 0) return fail(i18n.t('orgunits:organizationSchema.profileIsNotAssignedToAny', { name: p.name }))
+    if (!p.rules.length) return fail(i18n.t('orgunits:organizationSchema.profileNeedsAtLeastOneRating', { name: p.name }))
+    if (p.rules.some(r => !r.levelName.trim())) return fail(i18n.t('orgunits:organizationSchema.profileTheLevelNameCannotBe', { name: p.name }))
     if (p.rules.some(r => r.conditions.some(c => !c.level || c.percent < 0 || c.percent > 100))) {
-      return fail(`Hồ sơ "${p.name}": điều kiện chưa hợp lệ (% phải 0–100 và chọn mức)`)
+      return fail(i18n.t('orgunits:organizationSchema.profileInvalidConditionMustBe0', { name: p.name }))
     }
 
     // Khung bell curve chỉ có nghĩa khi các mức phủ đúng 100% nhân sự: tổng 90% thì 10% còn lại
@@ -158,19 +160,19 @@ export const unitClassificationSchema = z.object({
     const bc = p.bellCurve
     if (bc?.enabled) {
       if (bc.targets.some(t => t.percent < 0 || t.percent > 100)) {
-        return fail(`Hồ sơ "${p.name}": tỷ lệ bell curve phải nằm trong 0–100%`)
+        return fail(i18n.t('orgunits:organizationSchema.profileBellCurveSharesMustBe', { name: p.name }))
       }
       const total = Math.round(bc.targets.reduce((a, t) => a + (t.percent || 0), 0) * 10) / 10
       if (Math.abs(total - 100) > 0.5) {
-        return fail(`Hồ sơ "${p.name}": tổng tỷ lệ bell curve phải bằng 100% (đang ${total}%)`)
+        return fail(i18n.t('orgunits:organizationSchema.profileBellCurveSharesMustTotal', { name: p.name, total }))
       }
       if (bc.tolerance < 0 || bc.tolerance > 50) {
-        return fail(`Hồ sơ "${p.name}": dung sai bell curve phải nằm trong 0–50%`)
+        return fail(i18n.t('orgunits:organizationSchema.profileBellCurveToleranceMustBe', { name: p.name }))
       }
-      if (bc.minMembers < 0) return fail(`Hồ sơ "${p.name}": quy mô tối thiểu không được âm`)
+      if (bc.minMembers < 0) return fail(i18n.t('orgunits:organizationSchema.profileTheMinimumSizeCannotBe', { name: p.name }))
     }
   }
-})
+})))
 
-export type UnitClassificationFormData = z.infer<typeof unitClassificationSchema>
+export type UnitClassificationFormData = z.infer<ReturnType<typeof unitClassificationSchema>>
 export type UnitClassProfileForm = z.infer<typeof unitClassProfileSchema>

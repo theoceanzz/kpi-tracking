@@ -1,15 +1,18 @@
+import { intlLocale } from '@/i18n/format'
 import { TrendingUp, ShoppingBag, AlertTriangle } from 'lucide-react'
 import BalanceHero from '@/components/common/BalanceHero'
 import type { RewardWallet } from '../types'
+import { useTranslation } from 'react-i18next'
 
 interface RewardBalanceCardProps {
   wallet?: RewardWallet
   loading?: boolean
 }
 
-const fmt = (n?: number) => (n ?? 0).toLocaleString('vi-VN')
+const fmt = (n?: number) => (n ?? 0).toLocaleString(intlLocale())
 
 export default function RewardBalanceCard({ wallet, loading }: RewardBalanceCardProps) {
+  const { t } = useTranslation('rewards')
   const balance = wallet?.balance ?? 0
   const isEmpty = balance === 0 && (wallet?.lifetimeEarned ?? 0) === 0
 
@@ -17,14 +20,14 @@ export default function RewardBalanceCard({ wallet, loading }: RewardBalanceCard
     <div className="space-y-3">
       <BalanceHero
         loading={loading}
-        label="Số dư điểm thưởng"
+        label={t('RewardBalanceCard.rewardPointBalance')}
         value={fmt(balance)}
-        unit="điểm"
+        unit={t('RewardBalanceCard.points')}
         negative={balance < 0}
-        hint={isEmpty ? 'Bạn sẽ nhận điểm khi được quản lý ghi nhận hoặc lọt top xếp hạng của đợt/kỳ.' : undefined}
+        hint={isEmpty ? t('RewardBalanceCard.youGetPointsWhenYourManager') : undefined}
         tiles={[
-          { label: 'Tổng đã nhận', value: fmt(wallet?.lifetimeEarned), icon: TrendingUp, tone: 'success' },
-          { label: 'Tổng đã dùng', value: fmt(wallet?.lifetimeSpent), icon: ShoppingBag, tone: 'info' },
+          { label: t('RewardBalanceCard.totalReceived'), value: fmt(wallet?.lifetimeEarned), icon: TrendingUp, tone: 'success' },
+          { label: t('RewardBalanceCard.totalUsed'), value: fmt(wallet?.lifetimeSpent), icon: ShoppingBag, tone: 'info' },
         ]}
       />
 
@@ -34,8 +37,7 @@ export default function RewardBalanceCard({ wallet, loading }: RewardBalanceCard
         <div className="flex items-start gap-2 rounded-card border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-4 py-3 text-sm text-[var(--color-warning)]">
           <AlertTriangle size={16} className="mt-0.5 flex-shrink-0" aria-hidden="true" />
           <span>
-            Số dư đang âm do một khoản thưởng đã được thu hồi sau khi bạn dùng điểm. Điểm thưởng
-            nhận thêm sẽ bù vào phần âm này trước.
+            {t('RewardBalanceCard.theBalanceIsNegativeBecauseA')}
           </span>
         </div>
       )}

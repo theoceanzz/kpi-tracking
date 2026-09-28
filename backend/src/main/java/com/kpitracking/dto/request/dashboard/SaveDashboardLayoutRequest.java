@@ -8,7 +8,7 @@ import lombok.*;
 @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
 public class SaveDashboardLayoutRequest {
 
-    @NotNull(message = "Vai trò bố cục không được để trống")
+    @NotNull(message = "{validation.layoutRoleCannotEmpty}")
     private DashboardScope scope;
 
     /**
@@ -19,7 +19,7 @@ public class SaveDashboardLayoutRequest {
      * kèm cấu hình đầy đủ vào khoảng 7KB, vẫn dưới trần cũ, nhưng cột là jsonb không giới hạn nên
      * không có lý do gì để trần chặt tới mức một người dùng nhiệt tình có thể chạm phải.
      */
-    @NotNull(message = "Bố cục không được để trống")
-    @Size(max = 100000, message = "Bố cục vượt quá giới hạn cho phép")
+    @NotNull(message = "{validation.layoutCannotEmpty}")
+    @Size(max = 100000, message = "{validation.layoutExceedsAllowedLimit}")
     private String layout;
 }

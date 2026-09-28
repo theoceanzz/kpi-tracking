@@ -1,71 +1,73 @@
 import { z } from 'zod'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
-export const loginSchema = z.object({
-  email: z.string().min(1, 'Vui lòng nhập email').email('Email không hợp lệ'),
-  password: z.string().min(1, 'Vui lòng nhập mật khẩu'),
-})
+export const loginSchema = perLanguage(() => (z.object({
+  email: z.string().min(1, i18n.t('auth:authSchema.pleaseEnterAnEmail')).email(i18n.t('auth:authSchema.invalidEmail')),
+  password: z.string().min(1, i18n.t('auth:authSchema.pleaseEnterAPassword')),
+})))
 
-export type LoginFormData = z.infer<typeof loginSchema>
+export type LoginFormData = z.infer<ReturnType<typeof loginSchema>>
 
-export const registerSchema = z.object({
-  organizationName: z.string().min(1, 'Vui lòng nhập tên tổ chức'),
-  organizationCode: z.string().min(1, 'Vui lòng nhập mã tổ chức'),
-  fullName: z.string().min(1, 'Vui lòng nhập họ tên'),
-  email: z.string().min(1, 'Vui lòng nhập email').email('Email không hợp lệ'),
-  password: z.string().min(8, 'Mật khẩu tối thiểu 8 ký tự'),
+export const registerSchema = perLanguage(() => (z.object({
+  organizationName: z.string().min(1, i18n.t('auth:authSchema.pleaseEnterTheOrganizationName')),
+  organizationCode: z.string().min(1, i18n.t('auth:authSchema.pleaseEnterTheOrganizationCode')),
+  fullName: z.string().min(1, i18n.t('auth:authSchema.pleaseEnterYourFullName')),
+  email: z.string().min(1, i18n.t('auth:authSchema.pleaseEnterAnEmail')).email(i18n.t('auth:authSchema.invalidEmail')),
+  password: z.string().min(8, i18n.t('auth:authSchema.passwordMustBeAtLeast8')),
   phone: z.string().optional(),
   hierarchyLevels: z.array(z.object({
-    unitTypeName: z.string().min(1, 'Vui lòng nhập tên cấp bậc'),
+    unitTypeName: z.string().min(1, i18n.t('auth:authSchema.pleaseEnterTheLevelName')),
     managerRoleLabel: z.string().optional(),
-  })).min(2, 'Cơ cấu tổ chức phải có ít nhất 2 cấp'),
-})
+  })).min(2, i18n.t('auth:authSchema.theOrganizationStructureMustHaveAt')),
+})))
 
-export type RegisterFormData = z.infer<typeof registerSchema>
+export type RegisterFormData = z.infer<ReturnType<typeof registerSchema>>
 
-export const forgotPasswordSchema = z.object({
-  email: z.string().min(1, 'Vui lòng cung cấp địa chỉ email').email('Email không hợp lệ'),
-})
+export const forgotPasswordSchema = perLanguage(() => (z.object({
+  email: z.string().min(1, i18n.t('auth:authSchema.pleaseProvideAnEmailAddress')).email(i18n.t('auth:authSchema.invalidEmail')),
+})))
 
-export type ForgotPasswordFormData = z.infer<typeof forgotPasswordSchema>
+export type ForgotPasswordFormData = z.infer<ReturnType<typeof forgotPasswordSchema>>
 
-export const resetPasswordSchema = z.object({
-  token: z.string().min(1, 'Vui lòng cung cấp mã OTP từ email'),
-  newPassword: z.string().min(1, 'Vui lòng nhập mật khẩu').min(8, 'Yêu cầu mức độ bảo mật tối thiểu 8 ký tự'),
-  confirmPassword: z.string().min(1, 'Vui lòng xác minh bảo mật'),
+export const resetPasswordSchema = perLanguage(() => (z.object({
+  token: z.string().min(1, i18n.t('auth:authSchema.pleaseProvideTheOtpCodeFrom')),
+  newPassword: z.string().min(1, i18n.t('auth:authSchema.pleaseEnterAPassword')).min(8, i18n.t('auth:authSchema.aMinimumOf8CharactersIs')),
+  confirmPassword: z.string().min(1, i18n.t('auth:authSchema.pleaseCompleteTheSecurityVerification')),
 }).refine(data => data.confirmPassword === data.newPassword, {
   path: ['confirmPassword'],
-  message: 'Hai mật khẩu cung cấp không đồng nhất',
-})
+  message: i18n.t('auth:authSchema.theTwoPasswordsDoNotMatch'),
+})))
 
-export type ResetPasswordFormData = z.infer<typeof resetPasswordSchema>
+export type ResetPasswordFormData = z.infer<ReturnType<typeof resetPasswordSchema>>
 
-export const changePasswordSchema = z.object({
-  currentPassword: z.string().min(1, 'Vui lòng nhập mật khẩu hiện tại'),
-  newPassword: z.string().min(1, 'Vui lòng nhập mật khẩu mới').min(8, 'Tối thiểu 8 ký tự'),
-  confirmPassword: z.string().min(1, 'Vui lòng xác nhận'),
+export const changePasswordSchema = perLanguage(() => (z.object({
+  currentPassword: z.string().min(1, i18n.t('auth:authSchema.pleaseEnterYourCurrentPassword')),
+  newPassword: z.string().min(1, i18n.t('auth:authSchema.pleaseEnterANewPassword')).min(8, i18n.t('auth:authSchema.atLeast8Characters')),
+  confirmPassword: z.string().min(1, i18n.t('auth:authSchema.pleaseConfirm')),
 }).superRefine((data, ctx) => {
   // Đổi sang đúng mật khẩu đang dùng thì backend vẫn nhận nhưng người dùng chẳng đổi được gì.
   if (data.newPassword && data.newPassword === data.currentPassword) {
     ctx.addIssue({
       code: z.ZodIssueCode.custom,
       path: ['newPassword'],
-      message: 'Mật khẩu mới không được trùng với mật khẩu cũ',
+      message: i18n.t('auth:authSchema.theNewPasswordMustBeDifferent'),
     })
   }
   if (data.confirmPassword !== data.newPassword) {
-    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['confirmPassword'], message: 'Mật khẩu không khớp' })
+    ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['confirmPassword'], message: i18n.t('auth:authSchema.passwordsDoNotMatch') })
   }
-})
+})))
 
-export type ChangePasswordFormData = z.infer<typeof changePasswordSchema>
+export type ChangePasswordFormData = z.infer<ReturnType<typeof changePasswordSchema>>
 
 /** Màn bắt buộc đổi mật khẩu lần đầu — không hỏi mật khẩu hiện tại. */
-export const forceChangePasswordSchema = z.object({
-  newPassword: z.string().min(1, 'Vui lòng nhập mật khẩu mới').min(8, 'Tối thiểu 8 ký tự'),
-  confirmPassword: z.string().min(1, 'Vui lòng xác nhận mật khẩu'),
+export const forceChangePasswordSchema = perLanguage(() => (z.object({
+  newPassword: z.string().min(1, i18n.t('auth:authSchema.pleaseEnterANewPassword')).min(8, i18n.t('auth:authSchema.atLeast8Characters')),
+  confirmPassword: z.string().min(1, i18n.t('auth:authSchema.pleaseConfirmThePassword')),
 }).refine(data => data.confirmPassword === data.newPassword, {
   path: ['confirmPassword'],
-  message: 'Mật khẩu không khớp',
-})
+  message: i18n.t('auth:authSchema.passwordsDoNotMatch'),
+})))
 
-export type ForceChangePasswordFormData = z.infer<typeof forceChangePasswordSchema>
+export type ForceChangePasswordFormData = z.infer<ReturnType<typeof forceChangePasswordSchema>>

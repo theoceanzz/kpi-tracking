@@ -16,6 +16,7 @@ import type { WidgetSettings } from './widgetSettings'
 import type { AutosaveStatus } from './useAutosave'
 import { CHART_CATEGORY_ORDER } from './chartCategories'
 import { WidgetErrorBoundary } from './StableGridLayout'
+import { useTranslation } from 'react-i18next'
 
 /** Bề rộng bảng cấu hình và khe giữa nó với lưới (`gap-4` ở JSX). */
 const PANEL_W = 320
@@ -109,13 +110,14 @@ export interface LayoutPreset {
 
 /** Trạng thái tự lưu — một dòng chữ mảnh, cố ý không dùng toast. */
 function SaveStatusLabel({ status, onRetry }: { status?: AutosaveStatus; onRetry?: () => void }) {
+  const { t } = useTranslation('shared')
   if (!status || status === 'idle') return null
   if (status === 'error') {
     return (
       <span className="flex items-center gap-1.5 text-xs font-semibold text-[var(--color-destructive)]" role="status">
-        <CloudOff size={14} aria-hidden="true" /> Chưa lưu được
+        <CloudOff size={14} aria-hidden="true" /> {t('DashboardCustomizeChrome.couldNotSave')}
         {onRetry && (
-          <button onClick={onRetry} className="underline underline-offset-2 hover:opacity-80 cursor-pointer">Thử lại</button>
+          <button onClick={onRetry} className="underline underline-offset-2 hover:opacity-80 cursor-pointer">{t('DashboardCustomizeChrome.tryAgain')}</button>
         )}
       </span>
     )
@@ -129,8 +131,8 @@ function SaveStatusLabel({ status, onRetry }: { status?: AutosaveStatus; onRetry
       aria-live="polite"
     >
       {status === 'saving'
-        ? <><Loader2 size={13} className="animate-spin" aria-hidden="true" /> Đang lưu…</>
-        : <><Check size={13} aria-hidden="true" /> Đã lưu</>}
+        ? <><Loader2 size={13} className="animate-spin" aria-hidden="true" /> {t('DashboardCustomizeChrome.saving')}</>
+        : <><Check size={13} aria-hidden="true" /> {t('DashboardCustomizeChrome.saved')}</>}
     </span>
   )
 }
@@ -143,6 +145,7 @@ function SaveStatusLabel({ status, onRetry }: { status?: AutosaveStatus; onRetry
  * cũng không còn nút "Lưu" — thả tay ra là lưu.
  */
 export function DashboardEditToolbar({ api }: { api: CustomizationApi }) {
+  const { t } = useTranslation('shared')
   const { setIsAddModalOpen, saveStatus, retrySave } = api
   return (
     <div className="flex items-center gap-3">
@@ -153,7 +156,7 @@ export function DashboardEditToolbar({ api }: { api: CustomizationApi }) {
         onClick={() => setIsAddModalOpen(true)}
         className="h-10 px-4 rounded-lg bg-[var(--color-primary)] text-white text-sm font-semibold flex items-center gap-2 shadow-sm hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900 transition-colors cursor-pointer"
       >
-        <Plus size={18} aria-hidden="true" /> Thêm biểu đồ
+        <Plus size={18} aria-hidden="true" /> {t('DashboardCustomizeChrome.addChart')}
       </button>
     </div>
   )
@@ -203,6 +206,7 @@ export default function DashboardCustomizeChrome({
   api, renderWidget, catalog, ready = true, presets, renderConfig, onTogglePin, isPinned, sidebar,
   recommendedIds, recommendedLabel,
 }: Props) {
+  const { t } = useTranslation('shared')
   const {
     widgets, isAddModalOpen, setIsAddModalOpen,
     gridLayouts, addWidget, deleteWidget, handleLayoutChange,
@@ -291,16 +295,16 @@ export default function DashboardCustomizeChrome({
 
     const groups = new Map<string, WidgetCatalogEntry[]>()
     matched.forEach(entry => {
-      const key = entry.groupLabel ?? 'Khác'
+      const key = entry.groupLabel ?? t('DashboardCustomizeChrome.other')
       if (!groups.has(key)) groups.set(key, [])
       groups.get(key)!.push(entry)
     })
 
-    const order = new Map<string, number>(CHART_CATEGORY_ORDER.map((g, idx) => [g, idx]))
+    const order = new Map<string, number>(CHART_CATEGORY_ORDER().map((g, idx) => [g, idx]))
     return [...groups.entries()].sort(
       (a, b) => (order.get(a[0]) ?? 900) - (order.get(b[0]) ?? 900) || a[0].localeCompare(b[0])
     )
-  }, [catalog, search, onlyRecommended, recommendedIds])
+  }, [catalog, search, onlyRecommended, recommendedIds, t])
 
   const closeConfig = useCallback(() => setConfigFor(null), [])
 
@@ -373,10 +377,10 @@ export default function DashboardCustomizeChrome({
     <div className="w-full rounded-2xl border border-[var(--color-border)] bg-[var(--color-card)] shadow-lg overflow-hidden flex flex-col max-h-[calc(100vh-8rem)]" style={{ width: pushing ? undefined : PANEL_W }}>
       <div className="flex items-center justify-between gap-3 px-5 py-4 border-b border-[var(--color-border)] shrink-0">
         <div className="min-w-0">
-          <p className="text-xs font-medium uppercase tracking-wide text-slate-500">Cấu hình biểu đồ</p>
+          <p className="text-xs font-medium uppercase tracking-wide text-slate-500">{t('DashboardCustomizeChrome.chartSettings')}</p>
           <p className="font-semibold text-sm truncate text-[var(--color-foreground)]">{configWidget.title}</p>
         </div>
-        <button onClick={closeConfig} aria-label="Đóng cấu hình" className="p-2 rounded-lg hover:bg-[var(--color-accent)] cursor-pointer shrink-0">
+        <button onClick={closeConfig} aria-label={t('DashboardCustomizeChrome.closeSettings')} className="p-2 rounded-lg hover:bg-[var(--color-accent)] cursor-pointer shrink-0">
           <X size={18} aria-hidden="true" />
         </button>
       </div>
@@ -407,18 +411,18 @@ export default function DashboardCustomizeChrome({
                     <LayoutGrid size={30} aria-hidden="true" strokeWidth={1.5} />
                   </div>
                   <div>
-                    <p className="font-semibold text-lg text-[var(--color-foreground)]">Chưa có biểu đồ nào</p>
+                    <p className="font-semibold text-lg text-[var(--color-foreground)]">{t('DashboardCustomizeChrome.noChartsYet')}</p>
                     <p className="mt-1 text-sm text-[var(--color-muted-foreground)] max-w-sm">
-                      Thêm nội dung bạn cần theo dõi, hoặc dùng một bố cục gợi ý để bắt đầu nhanh.
+                      {t('DashboardCustomizeChrome.addTheContentYouNeedTo')}
                     </p>
                   </div>
                   <div className="flex flex-wrap items-center justify-center gap-3">
                     <button onClick={() => setIsAddModalOpen(true)} className="min-h-[44px] px-5 rounded-lg bg-[var(--color-primary)] text-white font-semibold text-sm hover:brightness-110 flex items-center gap-2 cursor-pointer">
-                      <Plus size={16} aria-hidden="true" /> Thêm biểu đồ
+                      <Plus size={16} aria-hidden="true" /> {t('DashboardCustomizeChrome.addChart')}
                     </button>
                     {presets?.length ? (
                       <button onClick={() => setPendingPreset(presets[0] ?? null)} className="min-h-[44px] px-5 rounded-lg bg-[var(--color-muted)] font-semibold text-sm hover:bg-slate-200 dark:hover:bg-slate-700 flex items-center gap-2 cursor-pointer">
-                        <Sparkles size={16} aria-hidden="true" /> Dùng bố cục gợi ý
+                        <Sparkles size={16} aria-hidden="true" /> {t('DashboardCustomizeChrome.useASuggestedLayout')}
                       </button>
                     ) : null}
                   </div>
@@ -476,13 +480,13 @@ export default function DashboardCustomizeChrome({
       {/* ── Thư viện biểu đồ ──────────────────────────────────────────────── */}
       {isAddModalOpen && (
         <div className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/40" onClick={() => setIsAddModalOpen(false)}>
-          <div role="dialog" aria-modal="true" aria-label="Thư viện biểu đồ" className="w-full max-w-4xl max-h-[90vh] flex flex-col bg-[var(--color-card)] rounded-2xl shadow-lg p-5 sm:p-7" onClick={e => e.stopPropagation()}>
+          <div role="dialog" aria-modal="true" aria-label={t('DashboardCustomizeChrome.chartLibrary')} className="w-full max-w-4xl max-h-[90vh] flex flex-col bg-[var(--color-card)] rounded-2xl shadow-lg p-5 sm:p-7" onClick={e => e.stopPropagation()}>
             <div className="flex items-start justify-between gap-4 mb-5">
               <div className="min-w-0">
-                <h3 className="font-semibold text-xl">Thêm biểu đồ</h3>
-                <p className="text-xs font-medium text-slate-400 mt-1">Chọn theo nhóm số liệu bạn muốn trả lời</p>
+                <h3 className="font-semibold text-xl">{t('DashboardCustomizeChrome.addChart')}</h3>
+                <p className="text-xs font-medium text-slate-400 mt-1">{t('DashboardCustomizeChrome.chooseByTheGroupOfFigures')}</p>
               </div>
-              <button onClick={() => setIsAddModalOpen(false)} aria-label="Đóng" className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg cursor-pointer shrink-0"><X size={24} aria-hidden="true" /></button>
+              <button onClick={() => setIsAddModalOpen(false)} aria-label={t('DashboardCustomizeChrome.close')} className="p-2 hover:bg-slate-100 dark:hover:bg-slate-800 rounded-lg cursor-pointer shrink-0"><X size={24} aria-hidden="true" /></button>
             </div>
 
             <div className={cn('relative', recommendedIds && recommendedLabel ? 'mb-3' : 'mb-5')}>
@@ -491,16 +495,16 @@ export default function DashboardCustomizeChrome({
                 type="search"
                 value={search}
                 onChange={e => setSearch(e.target.value)}
-                placeholder="Tìm biểu đồ theo tên hoặc mô tả…"
-                aria-label="Tìm biểu đồ"
+                placeholder={t('DashboardCustomizeChrome.searchChartsByNameOrDescription')}
+                aria-label={t('DashboardCustomizeChrome.searchCharts')}
                 className="w-full min-h-[44px] pl-11 pr-4 rounded-lg bg-[var(--color-muted)] border border-slate-200 dark:border-slate-700 text-sm focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)]"
               />
             </div>
 
             {/* Lọc theo vị trí: mặc định vẫn là "Tất cả" để không giấu ô nào, chỉ là có lối tắt. */}
             {recommendedIds && recommendedLabel && (
-              <div className="flex flex-wrap items-center gap-2 mb-5" role="group" aria-label="Lọc theo vị trí">
-                <ChoiceChip selected={!onlyRecommended} onClick={() => setOnlyRecommended(false)}>Tất cả</ChoiceChip>
+              <div className="flex flex-wrap items-center gap-2 mb-5" role="group" aria-label={t('DashboardCustomizeChrome.filterByPosition')}>
+                <ChoiceChip selected={!onlyRecommended} onClick={() => setOnlyRecommended(false)}>{t('DashboardCustomizeChrome.all')}</ChoiceChip>
                 <ChoiceChip selected={onlyRecommended} onClick={() => setOnlyRecommended(true)}>
                   <Sparkles aria-hidden="true" /> {recommendedLabel}
                   <span className="tabular-nums opacity-70">{catalog.filter(c => recommendedIds.has(c.template.i)).length}</span>
@@ -511,7 +515,7 @@ export default function DashboardCustomizeChrome({
             {/* Bố cục gợi ý — lối tắt cho người không muốn tự dựng từng ô */}
             {presets?.length ? (
               <div className="mb-6">
-                <p className="text-xs font-medium uppercase tracking-wide text-slate-500 mb-3">Bố cục gợi ý</p>
+                <p className="text-xs font-medium uppercase tracking-wide text-slate-500 mb-3">{t('DashboardCustomizeChrome.suggestedLayouts')}</p>
                 <div className="flex flex-wrap gap-2">
                   {presets.map(p => (
                     <button
@@ -530,7 +534,7 @@ export default function DashboardCustomizeChrome({
             <div className="flex-1 min-h-0 flex gap-5">
               {/* Rãnh nhảy nhanh: 40 mục chia 8 nhóm thì cuộn mù, không biết còn gì phía dưới. */}
               {groupedCatalog.length > 2 && (
-                <nav className="hidden md:block w-44 shrink-0 overflow-y-auto custom-scrollbar pr-1" aria-label="Nhóm biểu đồ">
+                <nav className="hidden md:block w-44 shrink-0 overflow-y-auto custom-scrollbar pr-1" aria-label={t('DashboardCustomizeChrome.chartGroups')}>
                   <ul className="space-y-0.5 sticky top-0">
                     {groupedCatalog.map(([label, entries]) => (
                       <li key={label}>
@@ -555,8 +559,8 @@ export default function DashboardCustomizeChrome({
                 {groupedCatalog.length === 0 && (
                   <p className="text-center text-sm text-slate-400 py-12">
                     {search.trim()
-                      ? <>Không tìm thấy biểu đồ nào khớp “{search}”.</>
-                      : 'Không có ô nào trong bộ gợi ý này.'}
+                      ? <>{t('DashboardCustomizeChrome.noChartMatches')}{search}”.</>
+                      : t('DashboardCustomizeChrome.thisSuggestedSetHasNoCards')}
                   </p>
                 )}
                 {groupedCatalog.map(([groupLabel, entries]) => (
@@ -597,7 +601,7 @@ export default function DashboardCustomizeChrome({
                                 <span>{template.title}</span>
                                 {isRecommended && (
                                   <span className="inline-flex items-center gap-1 rounded-full bg-[var(--color-primary-soft)] px-2 py-0.5 text-[11px] font-medium text-[var(--color-primary)]">
-                                    <Sparkles size={11} aria-hidden="true" /> Gợi ý cho bạn
+                                    <Sparkles size={11} aria-hidden="true" /> {t('DashboardCustomizeChrome.suggestedForYou')}
                                   </span>
                                 )}
                               </p>
@@ -607,7 +611,7 @@ export default function DashboardCustomizeChrome({
                                 'text-xs font-medium mt-1.5',
                                 isAdded ? 'text-[var(--color-primary)] dark:text-indigo-400' : 'text-transparent'
                               )}>
-                                {isAdded ? 'Đã thêm · bấm để gỡ' : ' '}
+                                {isAdded ? t('DashboardCustomizeChrome.addedClickToRemove') : ' '}
                               </p>
                             </div>
                             {isAdded
@@ -627,13 +631,13 @@ export default function DashboardCustomizeChrome({
                 onClick={() => setConfirmReset(true)}
                 className="flex items-center gap-2 text-xs font-medium text-slate-500 hover:text-slate-900 dark:hover:text-white cursor-pointer"
               >
-                <RotateCcw size={14} aria-hidden="true" /> Đặt lại bố cục mặc định
+                <RotateCcw size={14} aria-hidden="true" /> {t('DashboardCustomizeChrome.resetToTheDefaultLayout')}
               </button>
               <button
                 onClick={() => setIsAddModalOpen(false)}
                 className="min-h-[44px] px-8 rounded-lg bg-[var(--color-primary)] text-white font-semibold text-sm hover:brightness-110 focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] focus-visible:ring-offset-2 dark:focus-visible:ring-offset-slate-900 transition-colors cursor-pointer"
               >
-                Xong
+                {t('DashboardCustomizeChrome.done')}
               </button>
             </div>
           </div>
@@ -642,9 +646,9 @@ export default function DashboardCustomizeChrome({
 
       <ConfirmDialog
         open={confirmReset}
-        title="Đặt lại bố cục mặc định?"
-        description="Bố cục bạn đang dùng sẽ bị thay thế hoàn toàn bằng bố cục mặc định. Sau khi đặt lại bạn vẫn có thể bấm Hoàn tác trong thông báo hiện ra."
-        confirmLabel="Đặt lại"
+        title={t('DashboardCustomizeChrome.resetToTheDefaultLayout2')}
+        description={t('DashboardCustomizeChrome.yourCurrentLayoutWillBeCompletely')}
+        confirmLabel={t('DashboardCustomizeChrome.reset')}
         onClose={() => setConfirmReset(false)}
         onConfirm={() => { setConfirmReset(false); resetLayout() }}
       />
@@ -652,9 +656,9 @@ export default function DashboardCustomizeChrome({
       {/* Áp preset là ghi đè toàn bộ — cùng chuẩn xác nhận với Đặt lại */}
       <ConfirmDialog
         open={!!pendingPreset}
-        title={`Áp dụng bố cục "${pendingPreset?.label}"?`}
-        description={`${pendingPreset?.description ?? ''} Bố cục hiện tại của bạn sẽ bị thay thế hoàn toàn. Sau khi áp dụng bạn vẫn có thể bấm Hoàn tác trong thông báo hiện ra.`}
-        confirmLabel="Áp dụng"
+        title={t('DashboardCustomizeChrome.applyLayout', { label: pendingPreset?.label })}
+        description={t('DashboardCustomizeChrome.yourCurrentLayoutWillBeCompletely2', { value: pendingPreset?.description ?? '' })}
+        confirmLabel={t('DashboardCustomizeChrome.apply')}
         onClose={() => setPendingPreset(null)}
         onConfirm={() => {
           const preset = pendingPreset
@@ -710,6 +714,7 @@ const GridCell = React.forwardRef<HTMLDivElement, GridCellProps>(function GridCe
   block, active, menuOpen, pinned, hasConfig, hasPin, hasMove, hasCycle, renderWidget, actions, registerNode,
   style, className, onMouseDown, onMouseUp, onTouchEnd, onTouchStart, children,
 }, ref) {
+  const { t } = useTranslation('shared')
   const ctx = useMemo(() => ({ openConfig: () => actions.openConfig(block.i) }), [actions, block.i])
   const setRefs = useCallback((el: HTMLDivElement | null) => {
     registerNode(block.i, el)
@@ -746,7 +751,7 @@ const GridCell = React.forwardRef<HTMLDivElement, GridCellProps>(function GridCe
       >
         <span
           className="drag-handle hidden md:flex cursor-move items-center justify-center w-8 h-8 rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm text-slate-400 hover:text-[var(--color-primary)]"
-          title="Kéo để di chuyển"
+          title={t('DashboardCustomizeChrome.dragToMove')}
           aria-hidden="true"
         >
           <GripVertical size={15} />
@@ -755,8 +760,8 @@ const GridCell = React.forwardRef<HTMLDivElement, GridCellProps>(function GridCe
         <Popover open={menuOpen} onOpenChange={o => actions.menu(block.i, o)}>
           <PopoverTrigger asChild>
             <button
-              aria-label={`Hành động cho "${block.title}"`}
-              title="Hành động"
+              aria-label={t('DashboardCustomizeChrome.actionsFor', { title: block.title })}
+              title={t('DashboardCustomizeChrome.actions')}
               className="w-8 h-8 flex items-center justify-center rounded-full bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-700 shadow-sm text-slate-500 hover:text-[var(--color-primary)] focus:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-primary)] cursor-pointer"
             >
               <MoreVertical size={16} aria-hidden="true" />
@@ -766,15 +771,15 @@ const GridCell = React.forwardRef<HTMLDivElement, GridCellProps>(function GridCe
           <PopoverContent align="end" className="w-56 p-1.5" role="menu">
             {hasConfig && (
               <MenuItem icon={<SlidersHorizontal size={15} />} onClick={() => actions.openConfig(block.i)}>
-                Cấu hình
+                {t('DashboardCustomizeChrome.configuration')}
               </MenuItem>
             )}
             <MenuItem icon={<Copy size={15} />} onClick={() => actions.copy(block.i)}>
-              Sao chép ảnh
+              {t('DashboardCustomizeChrome.copyImage')}
             </MenuItem>
             {hasPin && (
               <MenuItem icon={pinned ? <PinOff size={15} /> : <Pin size={15} />} onClick={() => actions.pin(block)}>
-                {pinned ? 'Bỏ ghim tổng quan' : 'Ghim tổng quan'}
+                {pinned ? t('DashboardCustomizeChrome.unpinFromOverview') : t('DashboardCustomizeChrome.pinToOverview')}
               </MenuItem>
             )}
 
@@ -785,17 +790,17 @@ const GridCell = React.forwardRef<HTMLDivElement, GridCellProps>(function GridCe
             {(hasMove || hasCycle) && <MenuSeparator />}
             {hasMove && (
               <>
-                <MenuItem icon={<ArrowUp size={15} />} onClick={() => actions.move(block.i, 'up')}>Đưa lên trên</MenuItem>
-                <MenuItem icon={<ArrowDown size={15} />} onClick={() => actions.move(block.i, 'down')}>Đưa xuống dưới</MenuItem>
+                <MenuItem icon={<ArrowUp size={15} />} onClick={() => actions.move(block.i, 'up')}>{t('DashboardCustomizeChrome.moveUp')}</MenuItem>
+                <MenuItem icon={<ArrowDown size={15} />} onClick={() => actions.move(block.i, 'down')}>{t('DashboardCustomizeChrome.moveDown')}</MenuItem>
               </>
             )}
             {hasCycle && (
-              <MenuItem icon={<MoveHorizontal size={15} />} onClick={() => actions.cycle(block.i)}>Đổi bề rộng</MenuItem>
+              <MenuItem icon={<MoveHorizontal size={15} />} onClick={() => actions.cycle(block.i)}>{t('DashboardCustomizeChrome.changeWidth')}</MenuItem>
             )}
 
             <MenuSeparator />
             <MenuItem icon={<Trash2 size={15} />} danger onClick={() => actions.remove(block.i)}>
-              Xoá khỏi trang
+              {t('DashboardCustomizeChrome.removeFromPage')}
             </MenuItem>
           </PopoverContent>
         </Popover>

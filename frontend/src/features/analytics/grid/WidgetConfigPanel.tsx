@@ -11,6 +11,7 @@ import {
   WIDGET_HAS_TABLE, WIDGET_HAS_UNIT, WIDGET_OPTIONS, WIDGET_VARIANTS, widgetVariant,
   type OptionField,
 } from './analyticsGrid'
+import { useTranslation } from 'react-i18next'
 
 /**
  * Nội dung bảng cấu hình của một ô: cách biểu diễn và bộ lọc riêng.
@@ -37,7 +38,8 @@ export default function WidgetConfigPanel({
    */
   extraFields?: OptionField[]
 }) {
-  const variants = WIDGET_VARIANTS[widget.i]
+  const { t } = useTranslation('analytics')
+  const variants = WIDGET_VARIANTS()[widget.i]
   const currentVariant = widgetVariant(widget)
   const custom = widget.s?.f
   const intent = custom ?? pageIntent
@@ -46,7 +48,7 @@ export default function WidgetConfigPanel({
   const asTable = widget.s?.table === true
 
   const hasUnit = WIDGET_HAS_UNIT.has(widget.i) && !!unitOptions
-  const fields = [...(WIDGET_OPTIONS[widget.i] ?? []), ...(extraFields ?? [])]
+  const fields = [...(WIDGET_OPTIONS()[widget.i] ?? []), ...(extraFields ?? [])]
   const setOption = (key: string, value: string) => {
     const o = { ...widget.s?.o, [key]: value }
     fields.find(f => f.key === key)?.clears?.forEach(k => { delete o[k] })
@@ -57,9 +59,9 @@ export default function WidgetConfigPanel({
     <div className="space-y-7">
       {hasTable && (
         <section>
-          <h4 className="text-xs font-medium uppercase tracking-wide text-slate-500 mb-3">Kiểu hiển thị</h4>
+          <h4 className="text-xs font-medium uppercase tracking-wide text-slate-500 mb-3">{t('WidgetConfigPanel.displayType')}</h4>
           <div className="grid grid-cols-2 gap-2">
-            {([['chart', 'Biểu đồ'], ['table', 'Bảng']] as const).map(([key, label]) => {
+            {([['chart', t('WidgetConfigPanel.chart')], ['table', t('WidgetConfigPanel.table')]] as const).map(([key, label]) => {
               const active = (key === 'table') === asTable
               return (
                 <button
@@ -82,14 +84,14 @@ export default function WidgetConfigPanel({
             })}
           </div>
           <p className="mt-2 text-xs font-medium text-slate-400 leading-relaxed">
-            Bảng giữ nguyên sắp xếp, lọc và phân trang; biểu đồ cho thấy toàn cảnh trong một cái liếc.
+            {t('WidgetConfigPanel.tablesKeepSortingFilteringAndPagination')}
           </p>
         </section>
       )}
 
       {variants?.length ? (
         <section>
-          <h4 className="text-xs font-medium uppercase tracking-wide text-slate-500 mb-3">Cách biểu diễn</h4>
+          <h4 className="text-xs font-medium uppercase tracking-wide text-slate-500 mb-3">{t('WidgetConfigPanel.representation')}</h4>
           <div className="grid grid-cols-2 gap-2">
             {variants.map(v => {
               const active = v.key === currentVariant
@@ -124,7 +126,7 @@ export default function WidgetConfigPanel({
 
       {fields.length > 0 && (
         <section>
-          <h4 className="text-xs font-medium uppercase tracking-wide text-slate-500 mb-3">Tuỳ chọn</h4>
+          <h4 className="text-xs font-medium uppercase tracking-wide text-slate-500 mb-3">{t('WidgetConfigPanel.options')}</h4>
           <div className="space-y-3">
             {fields.map(f => {
               const value = widget.s?.o?.[f.key] ?? f.default
@@ -159,7 +161,7 @@ export default function WidgetConfigPanel({
                       <SelectTrigger className="h-9 w-full">
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent className="z-[120]">
+                      <SelectContent>
                         {f.choices.map(c => (
                           <SelectItem key={c.value} value={c.value}>{c.label}</SelectItem>
                         ))}
@@ -176,14 +178,14 @@ export default function WidgetConfigPanel({
       {hasUnit && (
         <section>
           <div className="flex items-center justify-between gap-2 mb-3">
-            <h4 className="text-xs font-medium uppercase tracking-wide text-slate-500">Đơn vị</h4>
+            <h4 className="text-xs font-medium uppercase tracking-wide text-slate-500">{t('WidgetConfigPanel.unit')}</h4>
             {widget.s?.orgUnitId && (
               <button
                 type="button"
                 onClick={() => update({ orgUnitId: undefined })}
                 className="text-xs font-semibold text-[var(--color-primary)] hover:underline underline-offset-2 cursor-pointer"
               >
-                Tất cả
+                {t('WidgetConfigPanel.all')}
               </button>
             )}
           </div>
@@ -191,11 +193,11 @@ export default function WidgetConfigPanel({
             value={widget.s?.orgUnitId ?? ALL_UNITS}
             onValueChange={v => update({ orgUnitId: v === ALL_UNITS ? undefined : v })}
           >
-            <SelectTrigger className="h-9 w-full" aria-label="Đơn vị">
-              <SelectValue placeholder="Tất cả đơn vị" />
+            <SelectTrigger className="h-9 w-full" aria-label={t('WidgetConfigPanel.unit')}>
+              <SelectValue placeholder={t('WidgetConfigPanel.allUnits')} />
             </SelectTrigger>
-            <SelectContent className="z-[120]">
-              <SelectItem value={ALL_UNITS}>Tất cả đơn vị</SelectItem>
+            <SelectContent>
+              <SelectItem value={ALL_UNITS}>{t('WidgetConfigPanel.allUnits')}</SelectItem>
               {unitOptions!.map(u => (
                 <SelectItem key={u.id} value={u.id}>{u.label}</SelectItem>
               ))}
@@ -206,14 +208,14 @@ export default function WidgetConfigPanel({
 
       <section>
         <div className="flex items-center justify-between gap-2 mb-3">
-          <h4 className="text-xs font-medium uppercase tracking-wide text-slate-500">Khoảng thời gian</h4>
+          <h4 className="text-xs font-medium uppercase tracking-wide text-slate-500">{t('WidgetConfigPanel.timeRange')}</h4>
           {custom && (
             <button
               type="button"
               onClick={() => update({ f: undefined })}
               className="text-xs font-semibold text-[var(--color-primary)] hover:underline underline-offset-2 cursor-pointer"
             >
-              Về mặc định
+              {t('WidgetConfigPanel.resetToDefault')}
             </button>
           )}
         </div>
@@ -226,7 +228,7 @@ export default function WidgetConfigPanel({
               : 'bg-slate-50 text-slate-500 dark:bg-slate-800 dark:text-slate-400'
           )}
         >
-          {custom ? 'Biểu đồ này đang dùng khoảng riêng.' : `Đang theo mặc định: ${summarizeIntent(pageIntent, periods, cycles)}.`}
+          {custom ? t('WidgetConfigPanel.thisChartUsesItsOwnRange') : t('WidgetConfigPanel.followingTheDefault', { pageIntent: summarizeIntent(pageIntent, periods, cycles) })}
         </div>
 
         {/* Đụng vào bất kỳ ô nào là tách khỏi mặc định — không bắt bấm thêm một nút "tách riêng",

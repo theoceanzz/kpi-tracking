@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useTranslation } from 'react-i18next'
 
 /**
  * Khung modal / drawer chuẩn của KeyGo (UX_PATTERNS.md §P0).
@@ -56,6 +57,10 @@ interface ShellProps {
 function useDialogBehaviour(open: boolean, onClose: () => void, dismissible: boolean) {
   const panelRef = useRef<HTMLDivElement>(null)
   const restoreRef = useRef<HTMLElement | null>(null)
+  // onClose thường là hàm viết inline, đổi danh tính mỗi lần render. Nếu để nó trong deps thì mỗi
+  // phím gõ (state của form đổi → render lại) chạy lại effect và kéo focus về phần tử đầu tiên.
+  const onCloseRef = useRef(onClose)
+  useEffect(() => { onCloseRef.current = onClose }, [onClose])
 
   useEffect(() => {
     if (!open) return
@@ -75,7 +80,7 @@ function useDialogBehaviour(open: boolean, onClose: () => void, dismissible: boo
       // Phím gõ trong bong bóng K.AI (portal riêng, nằm trên hộp thoại) là của K.AI: Esc không
       // đóng hộp thoại, Tab không bị kéo về panel.
       if ((e.target as HTMLElement | null)?.closest?.('[data-ai-widget]')) return
-      if (e.key === 'Escape' && dismissible) { e.stopPropagation(); onClose() }
+      if (e.key === 'Escape' && dismissible) { e.stopPropagation(); onCloseRef.current() }
       // Giữ focus trong hộp thoại khi Tab qua đầu/cuối.
       if (e.key === 'Tab' && panelRef.current) {
         const nodes = panelRef.current.querySelectorAll<HTMLElement>(
@@ -94,7 +99,7 @@ function useDialogBehaviour(open: boolean, onClose: () => void, dismissible: boo
       window.clearTimeout(t)
       restoreRef.current?.focus?.()
     }
-  }, [open, onClose, dismissible])
+  }, [open, dismissible])
 
   return panelRef
 }
@@ -102,6 +107,7 @@ function useDialogBehaviour(open: boolean, onClose: () => void, dismissible: boo
 function Header({ title, description, headerExtra, onClose, titleId, descId }: {
   title: ReactNode; description?: ReactNode; headerExtra?: ReactNode; onClose: () => void; titleId: string; descId: string
 }) {
+  const { t } = useTranslation('shared')
   return (
     <div className="flex shrink-0 items-start gap-3 border-b border-[var(--color-border)] px-5 py-4">
       <div className="min-w-0 flex-1">
@@ -115,7 +121,7 @@ function Header({ title, description, headerExtra, onClose, titleId, descId }: {
         type="button"
         data-dialog-close
         onClick={onClose}
-        aria-label="Đóng"
+        aria-label={t('dialog.close')}
         className="-mr-1.5 -mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-control text-[var(--color-muted-foreground)] transition-colors hover:bg-[var(--color-muted)] hover:text-[var(--color-foreground)]"
       >
         <X size={18} />

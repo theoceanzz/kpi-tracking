@@ -9,7 +9,9 @@ import com.kpitracking.entity.User;
 import com.kpitracking.entity.UserRoleOrgUnit;
 import com.kpitracking.enums.UserStatus;
 import com.kpitracking.exception.BusinessException;
+import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.ResourceNotFoundException;
+import com.kpitracking.i18n.Terms;
 import com.kpitracking.repository.OrganizationRepository;
 import com.kpitracking.repository.UserRepository;
 import com.kpitracking.repository.UserRoleOrgUnitRepository;
@@ -56,8 +58,7 @@ public class LarkAuthService {
         Organization org = loadOrganization(organizationId);
 
         if (!Boolean.TRUE.equals(org.getLarkEnabled())) {
-            throw new BusinessException(
-                    "Tổ chức " + org.getName() + " chưa bật đăng nhập bằng Lark.");
+            throw new BusinessException(ErrorCode.ORGANIZATION_NOT_ENABLED_LARK_SIGN, org.getName());
         }
 
         LarkCredentials credentials = credentialResolver.resolve(org);
@@ -73,7 +74,7 @@ public class LarkAuthService {
     public AuthResponse loginWithLark(String code, String state, String deviceInfo) {
         OAuthStateService.StateData stateData = oAuthStateService.validateLarkState(state);
         if (stateData.purpose() != OAuthStateService.Purpose.LOGIN) {
-            throw new BusinessException("Phiên đăng nhập Lark không hợp lệ. Vui lòng thử lại.");
+            throw new BusinessException(ErrorCode.INVALID_LARK_SIGN_SESSION);
         }
 
         Organization org = loadOrganization(stateData.organizationId());
@@ -83,8 +84,7 @@ public class LarkAuthService {
 
         String email = larkUser.resolveEmail();
         if (email == null) {
-            throw new BusinessException("Không lấy được email từ Lark. Vui lòng kiểm tra quyền "
-                    + "contact:user.email:readonly của ứng dụng Lark.");
+            throw new BusinessException(ErrorCode.COULD_NOT_GET_EMAIL_LARK);
         }
 
         String openIdHash = dataProtection.blindIndex(larkUser.openId());
@@ -97,8 +97,7 @@ public class LarkAuthService {
         } else {
             ensureBelongsToOrganization(user, org);
             if (user.getStatus() != UserStatus.ACTIVE) {
-                throw new BusinessException(
-                        "Tài khoản chưa được kích hoạt. Trạng thái hiện tại: " + user.getStatus());
+                throw new BusinessException(ErrorCode.ACCOUNT_NOT_ACTIVATED, String.valueOf(user.getStatus()));
             }
         }
 
@@ -122,14 +121,12 @@ public class LarkAuthService {
     /** Chốt xác thực công ty: so trên HMAC, không giải mã gì trên đường nóng. */
     private void verifyTenant(Organization org, UserInfoData larkUser) {
         if (org.getLarkTenantKeyHash() == null) {
-            throw new BusinessException(
-                    "Tổ chức " + org.getName() + " chưa xác minh liên kết với Lark.");
+            throw new BusinessException(ErrorCode.ORGANIZATION_NOT_VERIFIED_LINK_LARK, org.getName());
         }
         if (larkUser.tenantKey() == null
                 || !dataProtection.matchesBlindIndex(larkUser.tenantKey(), org.getLarkTenantKeyHash())) {
             log.warn("Chặn đăng nhập Lark: tenant không khớp với tổ chức {}", org.getName());
-            throw new BusinessException(
-                    "Tài khoản Lark của bạn không thuộc " + org.getName() + ".");
+            throw new BusinessException(ErrorCode.LARK_ACCOUNT_OUTSIDE, org.getName());
         }
     }
 
@@ -147,8 +144,7 @@ public class LarkAuthService {
         boolean inThisOrg = memberships.stream().anyMatch(m -> org.getId().equals(
                 m.getOrgUnit().getOrgHierarchyLevel().getOrganization().getId()));
         if (!inThisOrg) {
-            throw new BusinessException("Email " + user.getEmail()
-                    + " đã thuộc một tổ chức khác trong hệ thống. Vui lòng liên hệ quản trị viên.");
+            throw new BusinessException(ErrorCode.EMAIL_BELONGS_ANOTHER_ORGANIZATION_SYSTEM, user.getEmail());
         }
     }
 
@@ -192,9 +188,7 @@ public class LarkAuthService {
      */
     private void requireDefaults(Organization org) {
         if (org.getLarkDefaultOrgUnit() == null || org.getLarkDefaultRole() == null) {
-            throw new BusinessException("Tổ chức " + org.getName()
-                    + " chưa cấu hình đơn vị và vai trò mặc định cho người dùng đăng nhập bằng Lark. "
-                    + "Vui lòng liên hệ quản trị viên.");
+            throw new BusinessException(ErrorCode.ORGANIZATION_NOT_CONFIGURED_DEFAULT_UNIT_ROLE_USERS, org.getName());
         }
     }
 
@@ -216,7 +210,7 @@ public class LarkAuthService {
 
     private Organization loadOrganization(UUID organizationId) {
         return organizationRepository.findById(organizationId)
-                .orElseThrow(() -> new ResourceNotFoundException("Tổ chức", "id", organizationId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.organization"), "id", organizationId));
     }
 
     private String generateRandomPassword() {

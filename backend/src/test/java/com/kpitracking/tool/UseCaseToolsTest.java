@@ -95,10 +95,12 @@ class UseCaseToolsTest {
     @DisplayName("tổ chức tắt hạnh kiểm/thưởng -> đúng các tool đó bị ẩn, kể cả bản cá nhân")
     void featureFlagsHideTools() {
         assertThat(KeyGoToolProvider.hiddenByFeatures(AiTurn.OrgFeatures.NONE))
-                .containsExactlyInAnyOrder("get_conduct", "get_my_conduct", "get_rewards", "review_reward_grants", "get_my_rewards");
-        assertThat(KeyGoToolProvider.hiddenByFeatures(new AiTurn.OrgFeatures(true, false, false, false, false)))
+                .containsExactlyInAnyOrder("get_conduct", "get_my_conduct", "get_rewards", "review_reward_grants", "get_my_rewards",
+                        "get_my_feedback360");
+        assertThat(KeyGoToolProvider.hiddenByFeatures(new AiTurn.OrgFeatures(true, false, false, false, false, true)))
                 .containsExactlyInAnyOrder("get_rewards", "review_reward_grants", "get_my_rewards");
-        assertThat(KeyGoToolProvider.hiddenByFeatures(new AiTurn.OrgFeatures(true, true, false, false, false))).isEmpty();
+        assertThat(KeyGoToolProvider.hiddenByFeatures(new AiTurn.OrgFeatures(true, true, false, false, false))).containsExactly("get_my_feedback360");
+        assertThat(KeyGoToolProvider.hiddenByFeatures(new AiTurn.OrgFeatures(true, true, false, false, false, true))).isEmpty();
     }
 
     @Nested

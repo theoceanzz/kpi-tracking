@@ -1,5 +1,6 @@
 package com.kpitracking.service;
 
+import com.kpitracking.i18n.ErrorMessages;
 import com.kpitracking.exception.AiRateLimitException;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
@@ -35,10 +36,10 @@ public class AiRateLimiter {
         if (userKey == null || userKey.isBlank()) return;
         long now = System.currentTimeMillis();
         if (!allow(minute, userKey, MINUTE_MS, perMinute, now)) {
-            throw new AiRateLimitException("Bạn gửi yêu cầu AI quá nhanh. Vui lòng thử lại sau ít phút.");
+            throw new AiRateLimitException(ErrorMessages.text("ai.rate.perMinute", ""));
         }
         if (!allow(day, userKey, DAY_MS, perDay, now)) {
-            throw new AiRateLimitException("Bạn đã đạt giới hạn số yêu cầu AI trong ngày. Vui lòng thử lại vào ngày mai.");
+            throw new AiRateLimitException(ErrorMessages.text("ai.rate.perDay", ""));
         }
     }
 

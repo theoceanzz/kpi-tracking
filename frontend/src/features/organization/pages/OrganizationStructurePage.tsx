@@ -1,3 +1,4 @@
+import { intlDateLocale } from '@/i18n/format'
 import { useState, useMemo, useCallback } from 'react'
 import { LayoutGrid, List as ListIcon, PlusCircle, Download, Upload, Loader2 } from 'lucide-react'
 import { useAuthStore } from '@/store/authStore'
@@ -19,12 +20,14 @@ import { Button } from '@/components/ui/button'
 import WorkspaceHeader from '@/components/common/WorkspaceHeader'
 import { SegmentedControl } from '@/components/common/FilterBar'
 import EmptyState from '@/components/common/EmptyState'
+import { useTranslation } from 'react-i18next'
 
 export function OrganizationStructurePage() {
+  const { t } = useTranslation('organization')
   const { user } = useAuthStore()
   const orgId = user?.memberships?.[0]?.organizationId // Getting organizationId from the first membership for a director
 
-  const pageTitle = usePageTitle('org-structure', 'Sơ đồ tổ chức')
+  const pageTitle = usePageTitle('org-structure', t('OrganizationStructurePage.organizationChart'))
 
   const { data: treeData = [], isLoading: isTreeLoading } = useOrgUnitTree(orgId)
   const { data: hierarchyLevelsData = [], isLoading: isLevelsLoading } = useOrgHierarchyLevels(orgId)
@@ -113,7 +116,7 @@ export function OrganizationStructurePage() {
       const data = await orgUnitApi.exportUnits(orgId)
 
       const workbook = new ExcelJS.Workbook()
-      const worksheet = workbook.addWorksheet("Sơ đồ tổ chức")
+      const worksheet = workbook.addWorksheet(t('OrganizationStructurePage.organizationChart'))
 
       // Define columns
       worksheet.columns = [
@@ -168,14 +171,14 @@ export function OrganizationStructurePage() {
       const url = window.URL.createObjectURL(blob)
       const anchor = document.createElement('a')
       anchor.href = url
-      anchor.download = `So_do_to_chuc_${new Date().toLocaleDateString('vi-VN').replace(/\//g, '-')}.xlsx`
+      anchor.download = `So_do_to_chuc_${new Date().toLocaleDateString(intlDateLocale()).replace(/\//g, '-')}.xlsx`
       anchor.click()
       window.URL.revokeObjectURL(url)
 
-      toast.success("Xuất file thành công")
+      toast.success(t('OrganizationStructurePage.fileExportedSuccessfully'))
     } catch (error) {
       console.error(error)
-      toast.error("Xuất file thất bại")
+      toast.error(t('OrganizationStructurePage.fileExportFailed'))
     } finally {
       setIsExporting(false)
     }
@@ -204,8 +207,8 @@ export function OrganizationStructurePage() {
   if (!orgId) {
     return (
       <div className="flex flex-col items-center justify-center p-12 bg-[var(--color-card)] rounded-card shadow-sm border text-center">
-        <h2 className="text-section-title mb-2">Lỗi truy cập</h2>
-        <p className="text-[var(--color-muted-foreground)]">Tài khoản của bạn không thuộc tổ chức nào.</p>
+        <h2 className="text-section-title mb-2">{t('OrganizationStructurePage.accessError')}</h2>
+        <p className="text-[var(--color-muted-foreground)]">{t('OrganizationStructurePage.yourAccountDoesNotBelongTo')}</p>
       </div>
     )
   }
@@ -222,25 +225,25 @@ export function OrganizationStructurePage() {
       <WorkspaceHeader
         id="tour-org-header"
         title={pageTitle}
-        description="Sơ đồ phân cấp phòng ban, chi nhánh. Bấm một đơn vị để xem thành viên và đơn vị trực thuộc."
+        description={t('OrganizationStructurePage.hierarchyChartOfDepartmentsAndBranches')}
         className="shrink-0"
         actions={
           <div className="flex flex-wrap items-center gap-2">
             <input type="file" ref={fileInputRef} className="hidden" accept=".xlsx,.xls,.csv" onChange={handleFileChange} />
             <Button variant="outline" onClick={() => setShowImportGuide(true)} disabled={importMutation.isPending}>
               {importMutation.isPending ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Upload aria-hidden="true" />}
-              Nhập Excel
+              {t('OrganizationStructurePage.excelImport')}
             </Button>
             <Button variant="outline" onClick={handleExport} disabled={isExporting}>
               {isExporting ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Download aria-hidden="true" />}
-              Xuất Excel
+              {t('OrganizationStructurePage.exportExcel')}
             </Button>
             {treeData.length > 0 && (
               <div id="tour-org-view-mode">
-                <SegmentedControl ariaLabel="Dạng hiển thị" value={viewMode} onChange={setViewMode}
+                <SegmentedControl ariaLabel={t('OrganizationStructurePage.display')} value={viewMode} onChange={setViewMode}
                   options={[
-                    { value: 'mindmap', label: <><LayoutGrid aria-hidden="true" /> Sơ đồ</>, title: 'Sơ đồ' },
-                    { value: 'list', label: <><ListIcon aria-hidden="true" /> Danh sách</>, title: 'Danh sách' },
+                    { value: 'mindmap', label: <><LayoutGrid aria-hidden="true" /> {t('OrganizationStructurePage.chart')}</>, title: t('OrganizationStructurePage.chart') },
+                    { value: 'list', label: <><ListIcon aria-hidden="true" /> {t('OrganizationStructurePage.list')}</>, title: t('OrganizationStructurePage.list') },
                   ]} />
               </div>
             )}
@@ -252,9 +255,9 @@ export function OrganizationStructurePage() {
         <div className="rounded-card border border-dashed border-[var(--color-border)] bg-[var(--color-card)]">
           <EmptyState
             icon={LayoutGrid}
-            title="Chưa có đơn vị nào"
-            description="Tạo đơn vị gốc (thường là tên công ty) rồi thêm các phòng ban, chi nhánh bên dưới."
-            action={<Button onClick={handleCreateRoot}><PlusCircle aria-hidden="true" /> Tạo đơn vị gốc</Button>}
+            title={t('OrganizationStructurePage.noUnitsYet')}
+            description={t('OrganizationStructurePage.createTheRootUnitUsuallyThe')}
+            action={<Button onClick={handleCreateRoot}><PlusCircle aria-hidden="true" /> {t('OrganizationStructurePage.createRootUnit')}</Button>}
           />
         </div>
       ) : (
@@ -312,9 +315,9 @@ export function OrganizationStructurePage() {
         open={deleteConfirm.isOpen}
         onClose={() => setDeleteConfirm({ isOpen: false, unitId: null })}
         onConfirm={handleConfirmDelete}
-        title="Xác nhận xoá"
-        description="Bạn có chắc chắn muốn xoá thành phần tổ chức này không? Hành động này không thể hoàn tác."
-        confirmLabel="Xoá ngay"
+        title={t('OrganizationStructurePage.confirmDeletion')}
+        description={t('OrganizationStructurePage.areYouSureYouWantTo')}
+        confirmLabel={t('OrganizationStructurePage.deleteNow')}
         loading={deleteMutation.isPending}
       />
     </div>

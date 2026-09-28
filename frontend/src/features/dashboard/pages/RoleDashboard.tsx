@@ -17,6 +17,7 @@ import {
   getAnalyticsCatalog, getAnalyticsDefaultLayout, getAnalyticsPresets, getAnalyticsWidgets,
   renderAnalyticsWidget, type OrgFlags, type ViewerScope,
 } from '../widgets/analyticsCatalog'
+import { useTranslation } from 'react-i18next'
 
 /** Vai trò → mục hướng dẫn tương ứng (mỗi vai một bài, đánh dấu đã-xem riêng). */
 const TOUR_SECTION: Record<DashboardScope, string> = {
@@ -66,6 +67,7 @@ function RoleDashboardGrid({ scope, organization }: {
   scope: DashboardScope
   organization: ReturnType<typeof useOrganization>['data']
 }) {
+  const { t } = useTranslation('dashboard')
   const { hasPermission } = useHasPermission()
 
   const flags = useMemo<OrgFlags>(() => ({
@@ -99,7 +101,7 @@ function RoleDashboardGrid({ scope, organization }: {
     <div className="max-w-[1600px] mx-auto space-y-6">
       <DashboardToolbarPortal>
         <div id="tour-dashboard-customize" className="flex items-center gap-2">
-          <AiShortcutButton size="sm" label="Việc cần làm" prompt={aiShortcuts.myTasks()} title="K.AI gom việc đang chờ bạn: bài nộp, chỉ tiêu, điều chỉnh, người chưa nộp, đợt chưa chốt" />
+          <AiShortcutButton size="sm" label={t('RoleDashboard.toDo')} prompt={aiShortcuts.myTasks()} title={t('RoleDashboard.kAiGathersTheWorkWaiting')} />
           <DashboardEditToolbar api={dash} />
         </div>
       </DashboardToolbarPortal>
@@ -114,7 +116,7 @@ function RoleDashboardGrid({ scope, organization }: {
           catalog={catalog}
           presets={presets}
           recommendedIds={recommendedIds}
-          recommendedLabel={`Gợi ý cho ${POSITION_LABEL[scope]}`}
+          recommendedLabel={t('RoleDashboard.suggestionsFor', { value: POSITION_LABEL()[scope] })}
           ready={!dash.isLoading}
           renderWidget={renderWidget}
         />
@@ -125,9 +127,10 @@ function RoleDashboardGrid({ scope, organization }: {
 }
 
 function DashboardSkeleton() {
+  const { t } = useTranslation('dashboard')
   return (
     <div className="max-w-[1600px] mx-auto space-y-4 animate-pulse" aria-busy="true" aria-live="polite">
-      <span className="sr-only">Đang tải trang chủ</span>
+      <span className="sr-only">{t('RoleDashboard.loadingTheHomePage')}</span>
       <div className="h-[420px] rounded-card bg-[var(--color-muted)]"/>
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
         <div className="h-56 rounded-card bg-[var(--color-muted)]"/>

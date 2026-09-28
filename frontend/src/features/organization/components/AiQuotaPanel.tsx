@@ -1,3 +1,4 @@
+import { intlLocale } from '@/i18n/format'
 import { useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -19,9 +20,12 @@ import {
 } from '../hooks/useAiQuota'
 import type { AiQuotaAllocation, AiQuotaStatusFilter } from '../api/ai-quota.api'
 import { Button } from '@/components/ui/button'
+import { useTranslation } from 'react-i18next'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
 const PAGE_SIZE = 10
-const fmt = (n: number | null | undefined) => (n ?? 0).toLocaleString('vi-VN')
+const fmt = (n: number | null | undefined) => (n ?? 0).toLocaleString(intlLocale())
 
 /**
  * Giá trị "không lọc". Radix Select cấm SelectItem có value là chuỗi rỗng — nó ném lỗi runtime
@@ -30,12 +34,12 @@ const fmt = (n: number | null | undefined) => (n ?? 0).toLocaleString('vi-VN')
  */
 const ALL = '__ALL__'
 
-const STATUS_OPTIONS: { value: string; label: string }[] = [
-  { value: ALL, label: 'Tất cả trạng thái' },
-  { value: 'UNALLOCATED', label: 'Chưa được cấp' },
-  { value: 'ALLOCATED', label: 'Đã cấp' },
-  { value: 'NEAR_LIMIT', label: 'Sắp hết (≥80%)' },
-]
+const STATUS_OPTIONS = perLanguage((): { value: string; label: string }[] => ([
+  { value: ALL, label: i18n.t('organization:AiQuotaPanel.allStatuses') },
+  { value: 'UNALLOCATED', label: i18n.t('organization:AiQuotaPanel.notAllocated') },
+  { value: 'ALLOCATED', label: i18n.t('organization:AiQuotaPanel.allocated') },
+  { value: 'NEAR_LIMIT', label: i18n.t('organization:AiQuotaPanel.runningOut80') },
+]))
 
 const triggerCls =
   'h-auto w-full py-2.5 rounded-card border-[var(--color-border)] bg-[var(--color-background)] text-sm font-normal sm:w-44'
@@ -56,6 +60,7 @@ function StatBox({ label, value, hint }: { label: string; value: string; hint?: 
  * bảng có thể rơi sang trang khác do sắp xếp theo tên.
  */
 function MyQuotaCard() {
+  const { t } = useTranslation('organization')
   const { data: mine } = useMyAiQuota()
   const myName = useAuthStore((s) => s.user?.fullName)
   if (!mine) return null
@@ -66,7 +71,7 @@ function MyQuotaCard() {
     <div className="rounded-card border border-[var(--color-primary)]/30 bg-[var(--color-primary)]/5 p-4">
       <div className="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
         <p className="flex items-center gap-1.5 text-xs font-medium text-[var(--color-primary)]">
-          <UserCircle2 size={14} /> Hạn mức AI của bạn
+          <UserCircle2 size={14} /> {t('AiQuotaPanel.yourAiQuota')}
         </p>
         {myName && (
           <p className="text-xs text-[var(--color-muted-foreground)]">{myName}</p>
@@ -75,7 +80,7 @@ function MyQuotaCard() {
 
       <p className="mt-1.5 text-2xl font-semibold text-[var(--color-foreground)]">
         {fmt(mine.monthlyLimit)}
-        <span className="ml-1 text-xs font-semibold text-[var(--color-muted-foreground)]">token/tháng</span>
+        <span className="ml-1 text-xs font-semibold text-[var(--color-muted-foreground)]">{t('AiQuotaPanel.tokensMonth')}</span>
       </p>
 
       <div className="mt-2 h-2 overflow-hidden rounded-full bg-[var(--color-muted)]">
@@ -89,13 +94,13 @@ function MyQuotaCard() {
       </div>
 
       <p className="mt-1.5 text-xs text-[var(--color-muted-foreground)]">
-        Đã dùng <span className="font-semibold text-[var(--color-foreground)]">{fmt(mine.used)}</span> · còn{' '}
+        {t('AiQuotaPanel.used')} <span className="font-semibold text-[var(--color-foreground)]">{fmt(mine.used)}</span> {t('AiQuotaPanel.remaining')}{' '}
         <span className="font-semibold text-[var(--color-foreground)]">{fmt(mine.remaining)}</span>
       </p>
 
       {mine.allocatedToOthers > 0 && (
         <p className="mt-1 text-caption">
-          Trong đó đã chia cho cấp dưới {fmt(mine.allocatedToOthers)} · bạn tự tiêu được{' '}
+          {t('AiQuotaPanel.ofWhichAllocatedToSubordinates')} {fmt(mine.allocatedToOthers)} {t('AiQuotaPanel.youCanUse')}{' '}
           {fmt(mine.spendable)}
         </p>
       )}
@@ -133,6 +138,7 @@ function LimitEditor({
   onSave: (userId: string, limit: number) => void
   saving: boolean
 }) {
+  const { t } = useTranslation('organization')
   // Giành quyền cấp thì toàn bộ hạn mức mới bị trừ vào túi mình, không phải phần chênh —
   // schema giữ đúng luật đó để nút Lưu không sáng lên rồi mới nhận lỗi từ server.
   const schema = useMemo(
@@ -188,19 +194,19 @@ function LimitEditor({
 
       {exceeds && (
         <p className="mt-1 text-right text-xs font-semibold text-[var(--color-error)]">
-          Thiếu {fmt(charge - remainingToAllocate)} token
-          {item.takeover && ' — giành lấy tính trọn hạn mức mới'}
+          {t('AiQuotaPanel.short')} {fmt(charge - remainingToAllocate)} token
+          {item.takeover && t('AiQuotaPanel.takingOverCountsTheFullNew')}
         </p>
       )}
 
       {!item.editable && item.allocatedByName && (
         <p className="mt-1 text-right text-caption">
-          Do {item.allocatedByName} cấp
+          {t('AiQuotaPanel.allocatedBy', { name: item.allocatedByName })}
         </p>
       )}
       {item.editable && item.takeover && (
         <p className="mt-1 text-right text-xs text-[var(--color-warning)]">
-          Do {item.allocatedByName} cấp · sửa là chuyển sang bạn cấp
+          {t('AiQuotaPanel.allocatedByEditable', { name: item.allocatedByName })}
         </p>
       )}
 
@@ -209,11 +215,11 @@ function LimitEditor({
         onClose={() => setConfirming(false)}
         onConfirm={commit}
         loading={saving}
-        title="Giành quyền cấp hạn mức?"
-        confirmLabel="Giành quyền cấp"
+        title={t('AiQuotaPanel.takeOverQuotaAllocation')}
+        confirmLabel={t('AiQuotaPanel.takeOverAllocation')}
         description={
-          `${fmt(item.monthlyLimit)} token đang do ${item.allocatedByName} cấp sẽ được trả về túi của họ, ` +
-          `và họ có thể chia lại cho người khác. Hạn mức mới ${fmt(value)} token sẽ trừ vào túi của bạn.`
+          t('AiQuotaPanel.theTokensAllocatedByWillBe', { monthlyLimit: fmt(item.monthlyLimit), allocatedByName: item.allocatedByName }) +
+          t('AiQuotaPanel.andTheyCanReallocateThemTo', { value: fmt(value) })
         }
       />
     </div>
@@ -221,9 +227,10 @@ function LimitEditor({
 }
 
 function YouBadge() {
+  const { t } = useTranslation('organization')
   return (
     <span className="text-eyebrow shrink-0 rounded-control bg-[var(--color-primary)] px-1.5 py-0.5 text-[var(--color-primary-foreground)]">
-      Bạn
+      {t('AiQuotaPanel.you')}
     </span>
   )
 }
@@ -238,6 +245,7 @@ function RoleBadge({ name }: { name: string | null }) {
 }
 
 export default function AiQuotaPanel() {
+  const { t } = useTranslation('organization')
   const { data: overview, isLoading } = useAiQuotaOverview()
   const canAllocate = !!overview?.canAllocate
   const myUserId = useAuthStore((s) => s.user?.id)
@@ -282,12 +290,12 @@ export default function AiQuotaPanel() {
       <div className="rounded-card border border-[var(--color-border)] bg-[var(--color-card)] p-8 text-center">
         <Coins size={32} className="mx-auto text-[var(--color-muted-foreground)]/40" />
         <p className="mt-3 text-sm font-medium text-[var(--color-foreground)]">
-          Bạn không có quyền phân bổ hạn mức token AI
+          {t('AiQuotaPanel.youDoNotHavePermissionTo')}
         </p>
         <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">
           {overview && !overview.subDelegationEnabled
-            ? 'Quản lý cấp cao nhất chưa bật cho phép cấp dưới tự phân bổ.'
-            : 'Chỉ quản lý đơn vị mới phân bổ được hạn mức.'}
+            ? t('AiQuotaPanel.theTopLevelManagerHasNot')
+            : t('AiQuotaPanel.onlyUnitManagersCanAllocateQuotas')}
         </p>
       </div>
     )
@@ -307,16 +315,16 @@ export default function AiQuotaPanel() {
       {/* Túi token dùng để phân bổ cho người khác */}
       <div id="tour-aiquota-pool" className="grid gap-3 sm:grid-cols-3">
         <StatBox
-          label={overview.isTopManager ? 'Ngân sách công ty' : 'Túi để phân bổ'}
+          label={overview.isTopManager ? t('AiQuotaPanel.companyBudget') : t('AiQuotaPanel.allocationPool')}
           value={fmt(overview.allocatablePool)}
           hint={
             overview.isTopManager
-              ? 'Tiền của cả công ty, không phải hạn mức riêng của bạn'
-              : 'Lấy từ hạn mức của bạn ở trên'
+              ? t('AiQuotaPanel.theWholeCompanysFundsNotYour')
+              : t('AiQuotaPanel.takenFromYourQuotaAbove')
           }
         />
-        <StatBox label="Đã phân bổ" value={fmt(overview.allocated)} />
-        <StatBox label="Còn lại có thể chia" value={fmt(overview.remainingToAllocate)} />
+        <StatBox label={t('AiQuotaPanel.allocated2')} value={fmt(overview.allocated)} />
+        <StatBox label={t('AiQuotaPanel.remainingToAllocate')} value={fmt(overview.remainingToAllocate)} />
       </div>
 
       {overview.allocatablePool === 0 && (
@@ -324,8 +332,8 @@ export default function AiQuotaPanel() {
           <AlertCircle size={15} className="mt-0.5 shrink-0 text-[var(--color-warning)]" />
           <p className="text-xs leading-relaxed text-[var(--color-warning)]">
             {overview.isTopManager
-              ? 'Công ty chưa được cấp ngân sách token AI. Vui lòng liên hệ quản trị hệ thống.'
-              : 'Bạn chưa được cấp hạn mức token. Vui lòng liên hệ quản lý cấp trên.'}
+              ? t('AiQuotaPanel.theCompanyHasNotBeenGiven')
+              : t('AiQuotaPanel.youHaveNotBeenGivenA')}
           </p>
         </div>
       )}
@@ -336,10 +344,10 @@ export default function AiQuotaPanel() {
           <Users size={18} className="shrink-0 text-[var(--color-primary)]" />
           <div className="min-w-0 flex-1">
             <p className="text-sm font-medium text-[var(--color-foreground)]">
-              Cho phép quản lý cấp dưới tự phân bổ
+              {t('AiQuotaPanel.allowLowerManagersToAllocateOn')}
             </p>
             <p className="mt-0.5 text-xs text-[var(--color-muted-foreground)]">
-              Khi bật, trưởng đơn vị có thể chia token cho nhân sự của họ — trừ vào chính hạn mức của họ.
+              {t('AiQuotaPanel.whenOnUnitHeadsCanAllocate')}
             </p>
           </div>
           <button
@@ -354,7 +362,7 @@ export default function AiQuotaPanel() {
             )}
           >
             {setDelegation.isPending && <Loader2 size={15} className="animate-spin" />}
-            {overview.subDelegationEnabled ? 'Đang bật — bấm để tắt' : 'Bật'}
+            {overview.subDelegationEnabled ? t('AiQuotaPanel.onClickToTurnOff') : t('AiQuotaPanel.on')}
           </button>
         </div>
       )}
@@ -370,7 +378,7 @@ export default function AiQuotaPanel() {
             <input
               value={keyword}
               onChange={(e) => setKeyword(e.target.value)}
-              placeholder="Tìm theo tên hoặc email..."
+              placeholder={t('AiQuotaPanel.searchByNameOrEmail')}
               className="w-full rounded-card border border-[var(--color-border)] bg-[var(--color-background)] py-2.5 pl-9 pr-3 text-sm outline-none focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/20"
             />
           </div>
@@ -380,7 +388,7 @@ export default function AiQuotaPanel() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value={ALL}>Tất cả vai trò</SelectItem>
+              <SelectItem value={ALL}>{t('AiQuotaPanel.allRoles')}</SelectItem>
               {(overview.availableRoles ?? []).map((r) => (
                 <SelectItem key={r} value={r}>
                   {r}
@@ -394,7 +402,7 @@ export default function AiQuotaPanel() {
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
-              {STATUS_OPTIONS.map((o) => (
+              {STATUS_OPTIONS().map((o) => (
                 <SelectItem key={o.value} value={o.value}>
                   {o.label}
                 </SelectItem>
@@ -409,7 +417,7 @@ export default function AiQuotaPanel() {
           </div>
         ) : rows.length === 0 ? (
           <p className="py-12 text-center text-sm text-[var(--color-muted-foreground)]">
-            Không có nhân sự nào khớp bộ lọc.
+            {t('AiQuotaPanel.noOneMatchesTheFilter')}
           </p>
         ) : (
           <>
@@ -418,11 +426,11 @@ export default function AiQuotaPanel() {
               <table className="w-full text-sm">
                 <thead className="border-b border-[var(--color-border)] bg-[var(--color-muted)]/40 text-[var(--color-muted-foreground)]">
                   <tr>
-                    <th className="px-4 py-3 text-left font-medium">Nhân sự</th>
-                    <th className="px-4 py-3 text-left font-medium">Vai trò</th>
-                    <th className="px-4 py-3 text-left font-medium">Đơn vị</th>
-                    <th className="px-4 py-3 text-left font-medium">Đã dùng</th>
-                    <th className="px-4 py-3 text-right font-medium">Hạn mức/tháng</th>
+                    <th className="px-4 py-3 text-left font-medium">{t('AiQuotaPanel.people')}</th>
+                    <th className="px-4 py-3 text-left font-medium">{t('AiQuotaPanel.role')}</th>
+                    <th className="px-4 py-3 text-left font-medium">{t('AiQuotaPanel.unit')}</th>
+                    <th className="px-4 py-3 text-left font-medium">{t('AiQuotaPanel.used')}</th>
+                    <th className="px-4 py-3 text-right font-medium">{t('AiQuotaPanel.quotaMonth')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--color-border)]">

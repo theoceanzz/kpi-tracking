@@ -10,7 +10,9 @@ import com.kpitracking.enums.RewardTiePolicy;
 import com.kpitracking.enums.RewardTransactionType;
 import com.kpitracking.event.RewardEvents;
 import com.kpitracking.exception.BusinessException;
+import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.ResourceNotFoundException;
+import com.kpitracking.i18n.Terms;
 import com.kpitracking.repository.*;
 import com.kpitracking.service.RewardWalletService;
 import lombok.RequiredArgsConstructor;
@@ -98,7 +100,7 @@ public class RewardProgramRunService {
         // request — nếu không, gọi API trực tiếp có thể phát nhầm sang kỳ khác.
         final UUID targetId = program.hasFixedTarget() ? program.fixedTargetId() : requestedTargetId;
         if (targetId == null) {
-            throw new BusinessException("Vui lòng chọn kỳ hoặc đợt để xếp hạng.");
+            throw new BusinessException(ErrorCode.CHOOSE_CYCLE_PERIOD_RANK);
         }
 
         assertNotIssued(program, targetId);
@@ -161,15 +163,14 @@ public class RewardProgramRunService {
     @Transactional
     public RewardProgramRunResponse issueAsSystem(UUID runId) {
         RewardProgramRun run = runRepository.findById(runId)
-                .orElseThrow(() -> new ResourceNotFoundException("Lần chạy chương trình", "id", runId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.programRun"), "id", runId));
         return issueInternal(run, null);
     }
 
     private RewardProgramRunResponse issueInternal(RewardProgramRun run, User actor) {
         UUID runId = run.getId();
         if (run.getStatus() != RewardRunStatus.PREVIEW) {
-            throw new BusinessException("Chỉ phát thưởng được từ bản xem trước. "
-                    + "Lần chạy này đang ở trạng thái " + run.getStatus() + ".");
+            throw new BusinessException(ErrorCode.REWARDS_CAN_ONLY_GRANTED_PREVIEW, String.valueOf(run.getStatus()));
         }
 
         RewardProgram program = run.getProgram();
@@ -182,17 +183,14 @@ public class RewardProgramRunService {
         Computed fresh = compute(program, targetId, program.getOrganization().getId(),
                 programService.readTiers(run.getTiers(), program));
         if (!fresh.hash().equals(run.getSnapshotHash())) {
-            throw new BusinessException("Bảng xếp hạng đã thay đổi so với lúc xem trước "
-                    + "(điểm đánh giá hoặc nhân sự có cập nhật). Vui lòng xem trước lại rồi phát.");
+            throw new BusinessException(ErrorCode.RANKING_CHANGED_SINCE_PREVIEW);
         }
 
         if (program.getMaxPointsPerRun() != null && fresh.totalPoints() > program.getMaxPointsPerRun()) {
-            throw new BusinessException("Tổng điểm phát (" + fresh.totalPoints()
-                    + ") vượt trần an toàn " + program.getMaxPointsPerRun()
-                    + " điểm/lần của chương trình. Hãy sửa bậc thưởng hoặc nâng trần.");
+            throw new BusinessException(ErrorCode.TOTAL_POINTS_GRANTED, String.valueOf(fresh.totalPoints()), String.valueOf(program.getMaxPointsPerRun()));
         }
         if (fresh.items().isEmpty()) {
-            throw new BusinessException("Không có ai đủ điều kiện nhận thưởng trong lần chạy này.");
+            throw new BusinessException(ErrorCode.NO_ONE_ELIGIBLE_REWARDS_RUN);
         }
 
         List<RewardProgramRunItem> items = runItemRepository.findByRunIdOrderByOrderIndexAsc(runId);
@@ -206,7 +204,7 @@ public class RewardProgramRunService {
                     .sourceType(RewardSourceType.AUTO_RANKING)
                     .sourceRefId(item.getId())
                     .idempotencyKey(RewardWalletService.key("run", runId, item.getUser().getId()))
-                    .note(program.getName() + " — hạng " + item.getRank())
+                    .note(walletService.noteFor(item.getUser().getId(), "ledger.programRank", program.getName(), item.getRank()))
                     .actor(actor)
                     .build());
             item.setTransactionId(tx.getId());
@@ -239,7 +237,7 @@ public class RewardProgramRunService {
     public RewardProgramRunResponse revert(UUID runId) {
         RewardProgramRun run = loadRun(runId);
         if (run.getStatus() != RewardRunStatus.ISSUED) {
-            throw new BusinessException("Chỉ thu hồi được lần chạy đã phát thưởng.");
+            throw new BusinessException(ErrorCode.ONLY_RUNS_GRANTED_REWARDS_CAN_REVOKED);
         }
 
         User actor = context.getCurrentUser();
@@ -255,7 +253,7 @@ public class RewardProgramRunService {
                     .sourceRefId(item.getId())
                     .reversalOfTransactionId(item.getTransactionId())
                     .idempotencyKey(RewardWalletService.key("run_revert", runId, item.getUser().getId()))
-                    .note("Thu hồi thưởng chương trình: " + run.getProgram().getName())
+                    .note(walletService.noteFor(item.getUser().getId(), "ledger.programReverted", run.getProgram().getName()))
                     .actor(actor)
                     .build());
         }
@@ -376,9 +374,8 @@ public class RewardProgramRunService {
                 : runRepository.existsByProgramIdAndKpiPeriodIdAndStatus(
                         program.getId(), targetId, RewardRunStatus.ISSUED);
         if (issued) {
-            throw new BusinessException("Chương trình này đã phát thưởng cho "
-                    + (program.getScope() == RewardProgramScope.CYCLE ? "kỳ" : "đợt")
-                    + " đó rồi. Muốn phát lại, hãy thu hồi lần phát cũ trước.");
+            throw new BusinessException(ErrorCode.PROGRAM_GRANTED_REWARDS,
+                    Terms.of(program.getScope() == RewardProgramScope.CYCLE ? "field.cycle" : "field.period"));
         }
     }
 
@@ -393,10 +390,10 @@ public class RewardProgramRunService {
     private void attachTarget(RewardProgramRun run, RewardProgram program, UUID targetId) {
         if (program.getScope() == RewardProgramScope.CYCLE) {
             run.setKpiCycle(kpiCycleRepository.findById(targetId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Kỳ đánh giá", "id", targetId)));
+                    .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.evaluationCycle"), "id", targetId)));
         } else {
             run.setKpiPeriod(kpiPeriodRepository.findById(targetId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Đợt đánh giá", "id", targetId)));
+                    .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.evaluationPeriod"), "id", targetId)));
         }
     }
 
@@ -406,9 +403,9 @@ public class RewardProgramRunService {
 
     private RewardProgramRun loadRun(UUID runId) {
         RewardProgramRun run = runRepository.findById(runId)
-                .orElseThrow(() -> new ResourceNotFoundException("Lần chạy chương trình", "id", runId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.programRun"), "id", runId));
         if (!run.getOrganization().getId().equals(context.getCurrentOrgId())) {
-            throw new BusinessException("Lần chạy này không thuộc tổ chức của bạn.");
+            throw new BusinessException(ErrorCode.RUN_OUTSIDE_ORGANIZATION);
         }
         return run;
     }

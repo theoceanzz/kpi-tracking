@@ -1,5 +1,6 @@
 import axiosInstance from '@/lib/axios'
 import type { ApiResponse } from '@/types/api'
+import i18n from 'i18next'
 
 /** Phiếu hạnh kiểm chấm theo ĐỢT hay theo KỲ. */
 export type ConductScope = 'PERIOD' | 'CYCLE'
@@ -112,10 +113,10 @@ export function conductLockMessage(sheet: Pick<ConductSheet, 'lockedByUnitName' 
   const unit = sheet.lockedByUnitName ? ` "${sheet.lockedByUnitName}"` : ''
   if (sheet.lockStage === 'FINALIZED') {
     return sheet.scope === 'CYCLE'
-      ? `Đơn vị${unit} đã khoá kết quả kỳ — bấm "Mở khoá" ở đơn vị đó để chấm lại.`
-      : `Đơn vị${unit} đã khoá kết quả kỳ. Phiếu theo đợt là đầu vào của điểm kỳ nên phải "Mở khoá" rồi "Mở lại" về nháp ở đơn vị đó.`
+      ? i18n.t('conduct:conductApi.unitHasLockedItsCycleResults', { unit })
+      : i18n.t('conduct:conductApi.unitHasLockedItsCycleResults2', { unit })
   }
-  return `Đơn vị${unit} đã chốt dữ liệu kỳ — phiếu theo đợt là đầu vào của điểm kỳ, điểm nền đã chụp từ nó. Muốn sửa, bấm "Mở lại" ở bước ① để về nháp.`
+  return i18n.t('conduct:conductApi.unitHasFinalizedTheCycleData', { unit })
 }
 
 export interface ConductSummaryRow {

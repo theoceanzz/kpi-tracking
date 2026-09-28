@@ -1,6 +1,7 @@
 import axiosInstance from '@/lib/axios'
 import type { ApiResponse, PageResponse } from '@/types/api'
 import type { KpiCycle, KpiCyclePayload } from '@/types/kpi'
+import type { CycleLockPreview, KpiCycleEvent } from '../types/cycleLock'
 
 export const kpiCycleApi = {
   getAll: (params: {
@@ -24,4 +25,11 @@ export const kpiCycleApi = {
 
   delete: (id: string) =>
     axiosInstance.delete<ApiResponse<void>>(`/kpi-cycles/${id}`).then((r) => r.data.data),
+
+  // ── Khoá kỳ ──
+  lockPreview: (id: string) =>
+    axiosInstance.get<ApiResponse<CycleLockPreview>>(`/kpi-cycles/${id}/lock-preview`).then((r) => r.data.data),
+
+  events: (id: string) =>
+    axiosInstance.get<ApiResponse<KpiCycleEvent[]>>(`/kpi-cycles/${id}/events`).then((r) => r.data.data),
 }

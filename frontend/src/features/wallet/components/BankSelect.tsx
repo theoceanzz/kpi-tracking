@@ -3,6 +3,7 @@ import { Check, ChevronDown, Search, X } from 'lucide-react'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { VIETQR_BANKS, bankLogoUrl, findBank, type BankOption } from '../constants/banks'
 import { ChoiceChip } from '@/components/ui/choice-chip'
+import { useTranslation } from 'react-i18next'
 
 /** Bỏ dấu để gõ "vietcom" hay "kỹ thương" đều ra kết quả. */
 const norm = (s: string) =>
@@ -47,6 +48,7 @@ interface Props {
 }
 
 export default function BankSelect({ value, onChange, className = '' }: Props) {
+  const { t } = useTranslation('wallet')
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const searchRef = useRef<HTMLInputElement>(null)
@@ -98,12 +100,12 @@ export default function BankSelect({ value, onChange, className = '' }: Props) {
               <>
                 <span className="block truncate font-semibold">{value}</span>
                 <span className="block truncate text-xs text-[var(--color-warning)]">
-                  Không có trong danh sách VietQR — chọn lại cho chắc
+                  {t('BankSelect.notInTheVietqrListChoose')}
                 </span>
               </>
             ) : (
               <span className="block truncate text-[var(--color-muted-foreground)]">
-                Chọn ngân hàng
+                {t('BankSelect.chooseBank')}
               </span>
             )}
           </span>
@@ -131,7 +133,7 @@ export default function BankSelect({ value, onChange, className = '' }: Props) {
             autoFocus
             value={query}
             onChange={(e) => setQuery(e.target.value)}
-            placeholder="Tìm theo tên hoặc mã BIN..."
+            placeholder={t('BankSelect.searchByNameOrBinCode')}
             className="no-edit-hint w-full bg-transparent py-3 pl-10 pr-9 text-sm outline-none"
           />
           {query && (
@@ -151,7 +153,7 @@ export default function BankSelect({ value, onChange, className = '' }: Props) {
         <div className="max-h-72 overflow-y-auto p-1.5">
           {results.length === 0 ? (
             <p className="px-3 py-6 text-center text-sm text-[var(--color-muted-foreground)]">
-              Không tìm thấy ngân hàng nào.
+              {t('BankSelect.noBankFound')}
             </p>
           ) : (
             results.map((b) => {

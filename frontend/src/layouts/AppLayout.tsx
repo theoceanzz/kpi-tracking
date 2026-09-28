@@ -4,6 +4,7 @@ import { useAuth } from '@/hooks/useAuth'
 import { LogOut, Menu } from 'lucide-react'
 import NotificationBell from '@/features/notifications/components/NotificationBell'
 import ThemeCustomizer from './components/ThemeCustomizer'
+import LanguageSwitcher from '@/components/common/LanguageSwitcher'
 import OnboardingTour from '@/components/common/OnboardingTour'
 import TourHost from '@/components/common/TourHost'
 import TourHelpButton from '@/components/common/TourHelpButton'
@@ -16,8 +17,10 @@ import { useState, useEffect } from 'react'
 import WorkflowHandoffBar from '@/features/kpi/workflow/components/WorkflowHandoffBar'
 import { Button } from '@/components/ui/button'
 import { BrandLogo } from '@/components/common/BrandLogo'
+import { useTranslation } from 'react-i18next'
 
 export default function AppLayout() {
+  const { t } = useTranslation('layout')
   const { user, logout, refreshUser } = useAuth()
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false)
   const location = useLocation()
@@ -58,7 +61,7 @@ export default function AppLayout() {
         {/* Header */}
         <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b border-[var(--color-border)] bg-[var(--color-card)] px-4 md:px-6">
           <div className="flex items-center gap-3 lg:hidden">
-            <Button variant="secondary" size="icon" onClick={() => setIsMobileMenuOpen(true)} aria-label="Mở menu">
+            <Button variant="secondary" size="icon" onClick={() => setIsMobileMenuOpen(true)} aria-label={t('AppLayout.openMenu')}>
               <Menu aria-hidden="true" />
             </Button>
             <Link to="/" className="flex items-center" aria-label="KeyGo">
@@ -81,9 +84,10 @@ export default function AppLayout() {
             <DashboardToolbarSlot />
             <TourHelpButton />
             <NotificationBell />
+            <LanguageSwitcher />
             <ThemeCustomizer />
 
-            <Button variant="ghost" size="icon" className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]" onClick={logout} aria-label="Đăng xuất" title="Đăng xuất">
+            <Button variant="ghost" size="icon" className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]" onClick={logout} aria-label={t('AppLayout.signOut')} title={t('AppLayout.signOut')}>
               <LogOut aria-hidden="true" />
             </Button>
           </div>

@@ -2,6 +2,7 @@ package com.kpitracking.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.kpitracking.i18n.ErrorMessages;
 import com.kpitracking.constant.EvaluationConstants;
 import com.kpitracking.dto.response.stats.UnitClassificationResponses.*;
 import com.kpitracking.entity.*;
@@ -482,66 +483,102 @@ public class UnitClassificationService {
         List<Integer> grades = matrix ? matrixGrades(org) : List.of();
         List<EvaluationLevel> thresholds = matrix ? List.of() : sortedLevels(org);
 
-        Set<UUID> touched = new HashSet<>();
+        // Người bị khoá (đơn vị con đã khoá kết quả) đứng yên: mức của họ giữ nguyên suất đang chiếm.
+        int n = levels.size();
+        int[] fixed = new int[n];
+        for (CalibrationMember m : all) {
+            int idx = levelIdx.getOrDefault(m.userId(), -1);
+            if (idx >= 0 && m.locked()) fixed[idx]++;
+        }
+        int[] hi = new int[n], loCeiling = new int[n], loFull = new int[n];
+        for (int i = 0; i < n; i++) {
+            hi[i] = Math.max(fixed[i], maxCount[i] != null ? maxCount[i] : evaluated);
+            loCeiling[i] = fixed[i];
+            // Sàn chỉ ép khi đã chấm đủ — giữa chừng mức nào cũng đang thiếu.
+            loFull[i] = Math.max(fixed[i], complete && minCount[i] != null ? minCount[i] : 0);
+        }
+
+        // Hai đích: chỉ gỡ trần (đề xuất BẮT BUỘC) và gỡ cả trần lẫn sàn (đề xuất đầy đủ).
+        int[] ceilingTarget = CalibrationTargets.targets(counts, loCeiling, hi, evaluated);
+        int[] fullTarget = CalibrationTargets.targets(counts, loFull, hi, evaluated);
+        Map<UUID, Integer> ceilingMoves = assignInOrder(all, levelIdx, ceilingTarget, fixed);
+        Map<UUID, Integer> fullMoves = assignInOrder(all, levelIdx, fullTarget, fixed);
+
+        String overLevels = slots.stream().filter(QuotaSlot::over)
+                .map(q -> q.level() + " " + q.currentCount() + "/" + q.maxCount())
+                .collect(Collectors.joining(", "));
         List<CalibrationSuggestion> out = new ArrayList<>();
-
-        // Lượt 1: vượt trần → hạ người yếu nhất xuống mức kề dưới.
-        for (int i = 0; i < levels.size() - 1; i++) {
-            if (maxCount[i] == null) continue;
-            int over = counts[i] - maxCount[i];
-            if (over <= 0) continue;
-            List<CalibrationMember> pool = candidates(all, levelIdx, i, touched, true);
-            String why = String.format("%s đang %d/%d suất (trần %.0f%% của %d người)",
-                    levels.get(i).name(), counts[i], maxCount[i],
-                    Math.min(100, targetByLevel.get(levels.get(i).name()) + bc.tolerance()), headcount);
-            for (CalibrationMember m : pool) {
-                if (over <= 0) break;
-                out.add(suggest(m, levels, i, i + 1, matrix, grades, thresholds, true, why));
-                touched.add(m.userId());
-                counts[i]--; counts[i + 1]++;
-                over--;
-            }
+        for (CalibrationMember m : all) {
+            Integer to = fullMoves.get(m.userId());
+            if (to == null) continue;
+            int from = levelIdx.get(m.userId());
+            boolean required = to.equals(ceilingMoves.get(m.userId()));
+            out.add(suggest(m, levels, from, to, matrix, grades, thresholds, required,
+                    moveReason(levels, targetByLevel, bc.tolerance(), counts, fullTarget, maxCount, minCount,
+                            from, to, headcount, required, overLevels)));
         }
-
-        // Lượt 2: dưới sàn → nâng người mạnh nhất của mức kề dưới lên. Chỉ khi đã chấm đủ,
-        // giữa chừng mức nào cũng đang thiếu, nhắc lúc đó là nhắc một câu vô nghĩa.
-        if (complete) {
-            for (int i = 0; i < levels.size() - 1; i++) {
-                if (minCount[i] == null) continue;
-                int under = minCount[i] - counts[i];
-                if (under <= 0) continue;
-                List<CalibrationMember> pool = candidates(all, levelIdx, i + 1, touched, false);
-                String why = String.format("%s mới %d/%d suất (sàn %.0f%% của %d người)",
-                        levels.get(i).name(), counts[i], minCount[i],
-                        Math.max(0, targetByLevel.get(levels.get(i).name()) - bc.tolerance()), headcount);
-                for (CalibrationMember m : pool) {
-                    if (under <= 0) break;
-                    // Không rút người của một mức đang sát sàn để lấp mức khác.
-                    if (minCount[i + 1] != null && counts[i + 1] - 1 < minCount[i + 1]) break;
-                    if (maxCount[i] != null && counts[i] + 1 > maxCount[i]) break;
-                    out.add(suggest(m, levels, i + 1, i, matrix, grades, thresholds, false, why));
-                    touched.add(m.userId());
-                    counts[i + 1]--; counts[i]++;
-                    under--;
-                }
-            }
-        }
+        // Bắt buộc trước, rồi theo mức nguồn cao → thấp cho dễ đọc.
+        out.sort(Comparator.comparing((CalibrationSuggestion c) -> !c.required())
+                .thenComparing(c -> indexOf.getOrDefault(c.fromLevel(), 0)));
 
         return new CalibrationPlan(true, bc.mode(), profile.name(), headcount, evaluated,
                 slots, withinFrame, blocked, out);
     }
 
-    /** Người ở mức {@code idx} còn dời được, sắp yếu nhất trước (hạ) hoặc mạnh nhất trước (nâng). */
-    private List<CalibrationMember> candidates(List<CalibrationMember> all, Map<UUID, Integer> levelIdx,
-                                               int idx, Set<UUID> touched, boolean weakestFirst) {
-        Comparator<CalibrationMember> byStrength = Comparator
-                .comparing((CalibrationMember m) -> m.matrixRating() != null ? m.matrixRating() : Integer.MIN_VALUE)
-                .thenComparing(m -> m.finalScore() != null ? m.finalScore() : Double.NEGATIVE_INFINITY);
-        return all.stream()
-                .filter(m -> levelIdx.getOrDefault(m.userId(), -1) == idx)
-                .filter(m -> !m.locked() && !touched.contains(m.userId()))
-                .sorted(weakestFirst ? byStrength : byStrength.reversed())
+    /**
+     * Xếp lại người CHƯA KHOÁ vào các mức theo đúng thứ tự mạnh → yếu (xếp loại ma trận, rồi điểm
+     * chốt kỳ), sao cho mức {@code i} có đúng {@code target[i]} người (trừ suất của người bị khoá).
+     * Giữ thứ tự là điều kiện công bằng: không ai bị xếp dưới một người yếu hơn mình. Trả về
+     * userId → mức mới, chỉ gồm người phải đổi mức.
+     */
+    static Map<UUID, Integer> assignInOrder(List<CalibrationMember> all, Map<UUID, Integer> levelIdx,
+                                             int[] target, int[] fixed) {
+        Comparator<CalibrationMember> strongestFirst = Comparator
+                .comparing((CalibrationMember m) -> levelIdx.getOrDefault(m.userId(), -1))
+                .thenComparing(m -> m.finalScore() != null ? -m.finalScore() : Double.POSITIVE_INFINITY);
+        List<CalibrationMember> movable = all.stream()
+                .filter(m -> levelIdx.getOrDefault(m.userId(), -1) >= 0 && !m.locked())
+                .sorted(strongestFirst)
                 .toList();
+        Map<UUID, Integer> moves = new HashMap<>();
+        int pos = 0;
+        for (int i = 0; i < target.length && pos < movable.size(); i++) {
+            int slots = Math.max(0, target[i] - fixed[i]);
+            for (int k = 0; k < slots && pos < movable.size(); k++, pos++) {
+                CalibrationMember m = movable.get(pos);
+                if (levelIdx.get(m.userId()) != i) moves.put(m.userId(), i);
+            }
+        }
+        // Còn dư người (đích không đủ chỗ vì khung bất khả thi) thì dồn vào mức cuối.
+        for (; pos < movable.size(); pos++) {
+            CalibrationMember m = movable.get(pos);
+            int last = target.length - 1;
+            if (levelIdx.get(m.userId()) != last) moves.put(m.userId(), last);
+        }
+        return moves;
+    }
+
+    /** Vì sao người này phải đổi mức — nói theo mức nguồn nếu nó vượt trần, ngược lại theo mức đích. */
+    private String moveReason(List<LevelDef> levels, Map<String, Double> targetByLevel, double tolerance,
+                              int[] counts, int[] target, Integer[] maxCount, Integer[] minCount,
+                              int from, int to, int headcount, boolean required, String overLevels) {
+        String fromName = levels.get(from).name();
+        if (maxCount[from] != null && counts[from] > maxCount[from]) {
+            return ErrorMessages.text("bellCurve.reason.overCap", "",
+                    fromName, counts[from], maxCount[from],
+                    Math.min(100, targetByLevel.get(fromName) + tolerance), headcount, target[from]);
+        }
+        String toName = levels.get(to).name();
+        if (required) {
+            // Mắt xích của dây chuyền gỡ trần: mức nguồn không vượt, nhưng phải nhường chỗ cho người dồn từ mức vượt.
+            return ErrorMessages.text("bellCurve.reason.chain", "", overLevels, fromName, toName);
+        }
+        if (minCount[to] != null && counts[to] < minCount[to]) {
+            return ErrorMessages.text("bellCurve.reason.underFloor", "",
+                    toName, counts[to], minCount[to],
+                    Math.max(0, targetByLevel.get(toName) - tolerance), headcount, target[to]);
+        }
+        return ErrorMessages.text("bellCurve.reason.byScore", "", fromName, target[from], toName, target[to]);
     }
 
     private CalibrationSuggestion suggest(CalibrationMember m, List<LevelDef> levels, int from, int to,
@@ -555,8 +592,9 @@ public class UnitClassificationService {
             double toThreshold = thresholds.get(to).getThreshold();
             if (to > from) {
                 // Hạ: rơi xuống ngay dưới ngưỡng của mức đang đứng, nhưng không thấp hơn sàn mức đích.
-                double fromThreshold = thresholds.get(from).getThreshold();
-                suggestedScore = Math.max(toThreshold, fromThreshold - 0.5);
+                // Hạ nhiều mức thì mốc là ngưỡng của mức ngay trên mức đích, không phải mức nguồn.
+                double aboveThreshold = thresholds.get(to - 1).getThreshold();
+                suggestedScore = Math.max(toThreshold, aboveThreshold - 0.5);
             } else {
                 suggestedScore = toThreshold; // Nâng: vừa chạm ngưỡng mức trên.
             }
@@ -646,9 +684,7 @@ public class UnitClassificationService {
     private String bellCurveMessage(OrgUnit unit, Profile profile, int headcount, int evaluated,
                                     List<QuotaSlot> slots, QuotaSlot hit, boolean blocked) {
         if (blocked) {
-            return String.format(
-                    "Vượt khung bell curve \"%s\": %s đã có %d/%d người ở mức %s (%.0f%% > trần %.0f%% trên %d nhân sự). "
-                    + "Hạ mức của người khác, hoặc nới khung ở Cấu hình → Xếp loại đơn vị.",
+            return ErrorMessages.text("bellCurve.blocked", "",
                     profile.name(), unit.getName(), hit.currentCount(), hit.maxCount(), hit.level(),
                     hit.currentPercent(), hit.maxPercent(), headcount);
         }
@@ -657,14 +693,13 @@ public class UnitClassificationService {
         boolean complete = evaluated >= headcount;
         List<String> issues = new ArrayList<>();
         for (QuotaSlot q : slots) {
-            if (q.over()) issues.add(String.format("%s %d/%d người (trần %.0f%%)",
+            if (q.over()) issues.add(ErrorMessages.text("bellCurve.issue.over", "",
                     q.level(), q.currentCount(), q.maxCount(), q.maxPercent()));
-            else if (complete && q.under()) issues.add(String.format("%s mới %d/%d người (sàn %.0f%%)",
+            else if (complete && q.under()) issues.add(ErrorMessages.text("bellCurve.issue.under", "",
                     q.level(), q.currentCount(), q.minCount(), q.minPercent()));
         }
         if (issues.isEmpty()) return null;
-        return "Lệch khung bell curve \"" + profile.name() + "\" của " + unit.getName()
-                + ": " + String.join("; ", issues) + ".";
+        return ErrorMessages.text("bellCurve.warning", "", profile.name(), unit.getName(), String.join("; ", issues));
     }
 
     /**

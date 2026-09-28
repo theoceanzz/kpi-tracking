@@ -24,8 +24,10 @@ import { usePageTitle } from '@/features/organization/hooks/usePageTitle'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { useRoles } from '@/features/organization/hooks/useRoles'
 import { Button } from '@/components/ui/button'
+import { useTranslation } from 'react-i18next'
 
 export default function UsersPage() {
+  const { t } = useTranslation('users')
   const [keyword, setKeyword] = useState('')
   const [roleFilter, setRoleFilter] = useState<string>('ALL')
   const [orgUnitFilter, setOrgUnitFilter] = useState<string>('ALL')
@@ -41,7 +43,7 @@ export default function UsersPage() {
   const fileRef = useRef<HTMLInputElement>(null)
   const user = useAuthStore(state => state.user)
   const organizationId = user?.memberships?.[0]?.organizationId
-  const pageTitle = usePageTitle('users', 'Quản lý nhân sự')
+  const pageTitle = usePageTitle('users', t('UsersPage.peopleManagement'))
   const { data: hierarchyLevels } = useOrgHierarchyLevels(organizationId)
   const { data: orgTree } = useOrgUnitTree(organizationId)
   const { data: allRoles } = useRoles()
@@ -143,10 +145,10 @@ export default function UsersPage() {
       qc.invalidateQueries({ queryKey: ['users'] });
       qc.invalidateQueries({ queryKey: ['organization-users'] });
       qc.invalidateQueries({ queryKey: ['stats'] });
-      toast.success('Đã xoá nhân sự');
+      toast.success(t('UsersPage.personDeleted'));
       setDeleteUser(null)
     },
-    onError: (error) => toast.error(getApiErrorMessage(error, 'Xoá người dùng thất bại')),
+    onError: (error) => toast.error(getApiErrorMessage(error, t('UsersPage.failedToDeleteUser'))),
   })
 
   const importMutation = useMutation({
@@ -161,7 +163,7 @@ export default function UsersPage() {
 
       // Only show success toast if at least one row was actually imported
       if (result.successfulImports > 0) {
-        toast.success(`Import thành công ${result.successfulImports}/${result.totalRows} dòng`)
+        toast.success(t('UsersPage.importedRowsSuccessfully', { successfulImports: result.successfulImports, totalRows: result.totalRows }))
       }
 
       // Handle errors more gracefully to avoid toast spam
@@ -171,13 +173,13 @@ export default function UsersPage() {
           result.errors.forEach((e) => toast.error(e))
         } else {
           // If many errors, show a summary and log details to console (or could show in a modal)
-          toast.error(`Phát hiện ${result.errors.length} lỗi trong quá trình import. Vui lòng kiểm tra lại dữ liệu.`)
+          toast.error(t('UsersPage.foundErrorsDuringImportPleaseCheck', { count: result.errors.length }))
           console.error('Import Errors:', result.errors)
         }
       }
     },
     onError: (error: any) => {
-      const errorMessage = getApiErrorMessage(error, 'Import thất bại')
+      const errorMessage = getApiErrorMessage(error, t('UsersPage.importFailed'))
       toast.error(errorMessage)
     },
   })
@@ -234,19 +236,19 @@ export default function UsersPage() {
       <WorkspaceHeader
         id="tour-users-header"
         title={pageTitle}
-        description="Toàn bộ nhân sự của tổ chức: đơn vị, chức danh và trạng thái tài khoản."
-        stats={[{ label: 'Nhân sự', value: data?.totalElements ?? 0, icon: Users }]}
+        description={t('UsersPage.allTheOrganizationsPeopleUnitsTitles')}
+        stats={[{ label: t('UsersPage.people'), value: data?.totalElements ?? 0, icon: Users }]}
         actions={
           <div className="flex flex-wrap gap-2">
             {canImport && (
               <Button variant="outline" id="tour-users-import" onClick={() => setShowImportGuide(true)} disabled={importMutation.isPending}>
                 {importMutation.isPending ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Upload aria-hidden="true" />}
-                Nhập Excel
+                {t('UsersPage.excelImport')}
               </Button>
             )}
             {canCreate && (
               <Button id="tour-users-add" onClick={() => { setEditUser(null); setShowForm(true) }}>
-                <Plus aria-hidden="true" /> Thêm nhân sự
+                <Plus aria-hidden="true" /> {t('UsersPage.addPeople')}
               </Button>
             )}
             <input ref={fileRef} type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleImport} />
@@ -254,16 +256,16 @@ export default function UsersPage() {
         }
       />
 
-      <FilterBar id="tour-users-filters" search={{ value: keyword, onChange: handleKeywordChange, placeholder: 'Tìm theo tên hoặc email…' }}>
+      <FilterBar id="tour-users-filters" search={{ value: keyword, onChange: handleKeywordChange, placeholder: t('UsersPage.searchByNameOrEmail') }}>
         <Select value={roleFilter} onValueChange={handleRoleChange}>
-          <SelectTrigger className="w-full sm:w-auto sm:min-w-44" aria-label="Chức danh"><SelectValue placeholder="Chức danh" /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-auto sm:min-w-44" aria-label={t('UsersPage.title')}><SelectValue placeholder={t('UsersPage.title')} /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="ALL">Mọi chức danh</SelectItem>
+            <SelectItem value="ALL">{t('UsersPage.allTitles')}</SelectItem>
             {assignableRoles.map(role => <SelectItem key={role.id} value={role.name}>{role.name}</SelectItem>)}
           </SelectContent>
         </Select>
         <Select value={orgUnitFilter} onValueChange={handleOrgUnitChange}>
-          <SelectTrigger className="w-full sm:w-auto sm:min-w-56" aria-label="Đơn vị"><SelectValue placeholder="Đơn vị" /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-auto sm:min-w-56" aria-label={t('UsersPage.unit')}><SelectValue placeholder={t('UsersPage.unit')} /></SelectTrigger>
           <SelectContent className="max-h-[300px]">
             {allUnits.filter(u => !!u.id).map((unit: OrgUnitTreeResponse) => (
               <SelectItem key={unit.id} value={unit.id}>{unit.name}</SelectItem>
@@ -271,10 +273,10 @@ export default function UsersPage() {
           </SelectContent>
         </Select>
         <Select value={sortOrder} onValueChange={(v) => handleSortChange(v as 'A-Z' | 'Z-A')}>
-          <SelectTrigger className="w-full sm:w-auto sm:min-w-36" aria-label="Sắp xếp"><SelectValue placeholder="Sắp xếp" /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-auto sm:min-w-36" aria-label={t('UsersPage.order')}><SelectValue placeholder={t('UsersPage.order')} /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="A-Z">Tên A → Z</SelectItem>
-            <SelectItem value="Z-A">Tên Z → A</SelectItem>
+            <SelectItem value="A-Z">{t('UsersPage.nameAZ')}</SelectItem>
+            <SelectItem value="Z-A">{t('UsersPage.nameZA')}</SelectItem>
           </SelectContent>
         </Select>
       </FilterBar>
@@ -320,9 +322,9 @@ export default function UsersPage() {
         open={!!deleteUser}
         onClose={() => setDeleteUser(null)}
         onConfirm={() => deleteUser && deleteMutation.mutate(deleteUser.id)}
-        title="Xoá nhân sự khỏi hệ thống?"
-        description={`"${deleteUser?.fullName}" sẽ không đăng nhập được nữa. Lịch sử KPI, bài nộp và đánh giá của người này vẫn được lưu.`}
-        confirmLabel="Xoá nhân sự"
+        title={t('UsersPage.deleteThePersonFromTheSystem')}
+        description={t('UsersPage.willNoLongerBeAbleTo', { fullName: deleteUser?.fullName })}
+        confirmLabel={t('UsersPage.deletePerson')}
         loading={deleteMutation.isPending}
       />
     </div>

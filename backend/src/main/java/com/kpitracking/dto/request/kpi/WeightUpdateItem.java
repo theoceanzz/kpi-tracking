@@ -10,11 +10,11 @@ import java.util.UUID;
 @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
 public class WeightUpdateItem {
 
-    @NotNull(message = "KPI ID là bắt buộc")
+    @NotNull(message = "{validation.kpiIdRequired}")
     private UUID kpiId;
 
-    @NotNull(message = "Trọng số là bắt buộc")
-    @Min(value = 0, message = "Trọng số không được âm")
-    @Max(value = 100, message = "Trọng số không được vượt quá 100")
+    @NotNull(message = "{validation.weightRequired}")
+    @Min(value = 0, message = "{validation.weightCannotNegative}")
+    @Max(value = 100, message = "{validation.weightCannotExceed100}")
     private Double weight;
 }

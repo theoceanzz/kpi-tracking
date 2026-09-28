@@ -13,7 +13,9 @@ import com.kpitracking.enums.RewardSourceType;
 import com.kpitracking.enums.RewardTransactionType;
 import com.kpitracking.event.RewardEvents;
 import com.kpitracking.exception.BusinessException;
+import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.ResourceNotFoundException;
+import com.kpitracking.i18n.Terms;
 import com.kpitracking.repository.RewardGiftItemRepository;
 import com.kpitracking.repository.RewardRedemptionRepository;
 import com.kpitracking.service.RewardWalletService;
@@ -77,12 +79,12 @@ public class RewardRedemptionTx {
         UUID orgId = context.getOrgIdOf(me.getId());
 
         RewardGiftItem gift = giftRepository.findById(request.getGiftItemId())
-                .orElseThrow(() -> new ResourceNotFoundException("Quà tặng", "id", request.getGiftItemId()));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.gift"), "id", request.getGiftItemId()));
         if (!gift.getOrganization().getId().equals(orgId)) {
-            throw new BusinessException("Quà này không thuộc tổ chức của bạn.");
+            throw new BusinessException(ErrorCode.GIFT_OUTSIDE_ORGANIZATION);
         }
         if (gift.getStatus() != GiftItemStatus.ACTIVE) {
-            throw new BusinessException("Quà \"" + gift.getName() + "\" hiện không còn được đổi.");
+            throw new BusinessException(ErrorCode.GIFT_CAN_NO_LONGER_REDEEMED, gift.getName());
         }
 
         int qty = request.getQuantity();
@@ -93,8 +95,7 @@ public class RewardRedemptionTx {
         if (!Boolean.TRUE.equals(gift.getUnlimitedStock())) {
             int affected = giftRepository.tryReserveStock(gift.getId(), qty);
             if (affected == 0) {
-                throw new BusinessException("Quà \"" + gift.getName()
-                        + "\" đã hết hàng hoặc không đủ số lượng bạn chọn.");
+                throw new BusinessException(ErrorCode.GIFT_OUT_STOCK_DOES_NOT_QUANTITY_CHOSE, gift.getName());
             }
         }
 
@@ -129,7 +130,7 @@ public class RewardRedemptionTx {
                 .sourceType(RewardSourceType.REDEMPTION)
                 .sourceRefId(redemption.getId())
                 .idempotencyKey(RewardWalletService.key("redeem", redemption.getId()))
-                .note("Đổi quà: " + gift.getName() + (qty > 1 ? " x" + qty : ""))
+                .note(walletService.noteFor(me.getId(), "ledger.redeemed", gift.getName(), qty > 1 ? " x" + qty : ""))
                 .actor(me)
                 .build());
 
@@ -154,8 +155,7 @@ public class RewardRedemptionTx {
     public RewardRedemption loadForDelivery(UUID id) {
         RewardRedemption r = load(id);
         if (r.getStatus() != RedemptionStatus.PENDING && r.getStatus() != RedemptionStatus.APPROVED) {
-            throw new BusinessException("Yêu cầu này không còn ở trạng thái chờ giao "
-                    + "(hiện đang " + r.getStatus() + ").");
+            throw new BusinessException(ErrorCode.REQUEST_NO_LONGER_AWAITING_DELIVERY, String.valueOf(r.getStatus()));
         }
         return r;
     }
@@ -217,7 +217,7 @@ public class RewardRedemptionTx {
             return r;
         }
 
-        refundAndRestore(r, r.getUser(), "Không xuất được quà: " + r.getGiftNameSnapshot());
+        refundAndRestore(r, r.getUser(), "ledger.redeemFailed");
         r.setStatus(RedemptionStatus.FAILED);
         r.setFulfillmentError(message);
         r.setHandledAt(Instant.now());
@@ -258,7 +258,7 @@ public class RewardRedemptionTx {
      * <p>Không mở transaction riêng: người gọi luôn đang ở trong một transaction, và phần
      * bù trừ này phải sống chết cùng việc đổi trạng thái.
      */
-    public void refundAndRestore(RewardRedemption r, User actor, String note) {
+    public void refundAndRestore(RewardRedemption r, User actor, String noteKey) {
         RewardTransaction refund = walletService.applyTransaction(RewardWalletService.LedgerEntry.builder()
                 .organizationId(r.getOrganization().getId())
                 .userId(r.getUser().getId())
@@ -268,7 +268,7 @@ public class RewardRedemptionTx {
                 .sourceRefId(r.getId())
                 .reversalOfTransactionId(r.getTransactionId())
                 .idempotencyKey(RewardWalletService.key("redeem_refund", r.getId()))
-                .note(note)
+                .note(walletService.noteFor(r.getUser().getId(), noteKey, r.getGiftNameSnapshot()))
                 .actor(actor)
                 .build());
         r.setRefundTransactionId(refund.getId());
@@ -287,7 +287,7 @@ public class RewardRedemptionTx {
      */
     private RewardRedemption load(UUID id) {
         RewardRedemption r = redemptionRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Yêu cầu đổi quà", "id", id));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.giftRedemptionRequest"), "id", id));
         r.getUser().getEmail();
         r.getGiftItem().getName();
         return r;

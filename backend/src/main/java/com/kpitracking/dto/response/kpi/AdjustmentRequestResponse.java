@@ -36,4 +36,8 @@ public class AdjustmentRequestResponse {
     private String reviewerNote;
     private Instant createdAt;
     private Instant updatedAt;
+    /** % bù trừ do bước trung gian gợi ý (yêu cầu dừng KPI) — điền sẵn cho người duyệt cuối. */
+    private Double suggestedCompensationPercent;
+    /** Vị trí trong chuỗi duyệt, tính cho người đang xem. {@code null} ở luồng một cấp cũ. */
+    private com.kpitracking.dto.response.kpi.approval.ApprovalSummaryResponse approval;
 }

@@ -11,6 +11,7 @@ import ObjectiveMetricCard from '../ObjectiveMetricCard'
 import { useSummaryStats } from '../../hooks/useAnalytics'
 import { usePerformanceScale } from '../../hooks/usePerformanceScale'
 import type { PinnedFilter } from './pinnedWidgetRegistry'
+import { useTranslation } from 'react-i18next'
 
 /**
  * Bốn hàng thẻ chỉ số của trang Phân tích, tách ra để đặt lên lưới trang chủ.
@@ -74,6 +75,7 @@ const Big = ({ children }: { children: React.ReactNode }) => (
  * trang chủ không có phạm vi đơn vị nên bỏ trống.
  */
 export function UnitKpiMetrics({ filter, orgUnitId }: { filter?: PinnedFilter; orgUnitId?: string }) {
+  const { t } = useTranslation('analytics')
   const perf = usePerformanceScale()
   const { from, to, periodId, periodIdTo } = filter ?? {}
   const onlyApproved = filter?.onlyApproved ?? false
@@ -86,20 +88,20 @@ export function UnitKpiMetrics({ filter, orgUnitId }: { filter?: PinnedFilter; o
 
   return (
     <MetricGrid cols={5}>
-      <StatTile icon={<TrendingUp size={22} />} tone="indigo" label="Tiến độ trung bình">
+      <StatTile icon={<TrendingUp size={22} />} tone="indigo" label={t('metricWidgets.averageProgress')}>
         <Big>{metrics?.averageProgress?.toFixed(1) ?? 0}%</Big>
       </StatTile>
-      <StatTile icon={<Target size={22} />} tone="emerald" label="Hiệu suất trung bình (đánh giá)">
+      <StatTile icon={<Target size={22} />} tone="emerald" label={t('metricWidgets.averagePerformanceEvaluations')}>
         <Big>{perf.format(metrics?.averagePerformance ?? 0)}</Big>
       </StatTile>
-      <StatTile icon={<CheckCircle size={22} />} tone="amber" label="Trạng thái KPI">
-        <p className="text-sm font-semibold tabular-nums">{metrics?.runningKpis ?? 0} Đang chạy</p>
-        <p className="text-sm font-semibold text-emerald-600 tabular-nums">{metrics?.completedKpis ?? 0} Hoàn thành</p>
+      <StatTile icon={<CheckCircle size={22} />} tone="amber" label={t('metricWidgets.kpiStatus')}>
+        <p className="text-sm font-semibold tabular-nums">{metrics?.runningKpis ?? 0} {t('metricWidgets.running')}</p>
+        <p className="text-sm font-semibold text-emerald-600 tabular-nums">{metrics?.completedKpis ?? 0} {t('metricWidgets.completed')}</p>
       </StatTile>
-      <StatTile icon={<AlertTriangle size={22} />} tone="red" label="KPI Rủi ro / Chậm">
+      <StatTile icon={<AlertTriangle size={22} />} tone="red" label={t('metricWidgets.atRiskLateKpis')}>
         <Big>{metrics?.riskKpis ?? 0}</Big>
       </StatTile>
-      <StatTile icon={<Users size={22} />} tone="teal" label="Tổng nhân sự">
+      <StatTile icon={<Users size={22} />} tone="teal" label={t('metricWidgets.totalMembers')}>
         <Big>{mainData?.totalMembers ?? '-'}</Big>
       </StatTile>
     </MetricGrid>
@@ -108,6 +110,7 @@ export function UnitKpiMetrics({ filter, orgUnitId }: { filter?: PinnedFilter; o
 
 /** Chỉ số KPI của tôi — hàng thẻ đầu tab "Kết quả của tôi". */
 export function MyKpiMetrics({ filter }: { filter?: PinnedFilter }) {
+  const { t } = useTranslation('analytics')
   const perf = usePerformanceScale()
   const { from, to, periodId, periodIdTo } = filter ?? {}
   const onlyApproved = filter?.onlyApproved ?? false
@@ -119,19 +122,19 @@ export function MyKpiMetrics({ filter }: { filter?: PinnedFilter }) {
 
   return (
     <MetricGrid cols={5}>
-      <StatTile icon={<Target size={20} />} tone="violet" label="Tổng KPI">
+      <StatTile icon={<Target size={20} />} tone="violet" label={t('metricWidgets.totalKpis')}>
         <Big>{(metrics?.runningKpis ?? 0) + (metrics?.completedKpis ?? 0)}</Big>
       </StatTile>
-      <StatTile icon={<TrendingUp size={20} />} tone="indigo" label="Tiến độ TB">
+      <StatTile icon={<TrendingUp size={20} />} tone="indigo" label={t('metricWidgets.avgProgress')}>
         <Big>{metrics?.averageProgress?.toFixed(1) ?? 0}%</Big>
       </StatTile>
-      <StatTile icon={<Target size={20} />} tone="emerald" label="Hiệu suất TB (đánh giá)">
+      <StatTile icon={<Target size={20} />} tone="emerald" label={t('metricWidgets.avgPerformanceEvaluations')}>
         <Big>{perf.format(metrics?.averagePerformance ?? 0)}</Big>
       </StatTile>
-      <StatTile icon={<CheckCircle size={20} />} tone="amber" label="Đang chạy / HT">
+      <StatTile icon={<CheckCircle size={20} />} tone="amber" label={t('metricWidgets.inProgressDone')}>
         <p className="text-base font-semibold tabular-nums">{metrics?.runningKpis ?? 0} / {metrics?.completedKpis ?? 0}</p>
       </StatTile>
-      <StatTile icon={<AlertTriangle size={20} />} tone="red" label="Rủi ro / Chậm">
+      <StatTile icon={<AlertTriangle size={20} />} tone="red" label={t('metricWidgets.atRiskLate')}>
         <Big>{metrics?.riskKpis ?? 0}</Big>
       </StatTile>
     </MetricGrid>
@@ -140,6 +143,7 @@ export function MyKpiMetrics({ filter }: { filter?: PinnedFilter }) {
 
 /** Chỉ số mục tiêu của tôi — hàng thẻ đầu tab "Mục tiêu của tôi". */
 export function MyObjectiveMetrics({ filter }: { filter?: PinnedFilter }) {
+  const { t } = useTranslation('analytics')
   const perf = usePerformanceScale()
   const { from, to, periodId, periodIdTo } = filter ?? {}
   const onlyApproved = filter?.onlyApproved ?? false
@@ -151,17 +155,17 @@ export function MyObjectiveMetrics({ filter }: { filter?: PinnedFilter }) {
 
   return (
     <MetricGrid cols={4}>
-      <StatTile icon={<TrendingUp size={22} />} tone="indigo" label="Tiến độ trung bình">
+      <StatTile icon={<TrendingUp size={22} />} tone="indigo" label={t('metricWidgets.averageProgress')}>
         <Big>{metrics?.averageProgress?.toFixed(1) ?? 0}%</Big>
       </StatTile>
-      <StatTile icon={<Target size={22} />} tone="emerald" label="Hiệu suất trung bình (đánh giá)">
+      <StatTile icon={<Target size={22} />} tone="emerald" label={t('metricWidgets.averagePerformanceEvaluations')}>
         <Big>{perf.format(metrics?.averagePerformance ?? 0)}</Big>
       </StatTile>
-      <StatTile icon={<CheckCircle size={22} />} tone="amber" label="Trạng thái KPI">
-        <p className="text-sm font-semibold tabular-nums">{metrics?.runningKpis ?? 0} Đang chạy</p>
-        <p className="text-sm font-semibold text-emerald-600 tabular-nums">{metrics?.completedKpis ?? 0} Hoàn thành</p>
+      <StatTile icon={<CheckCircle size={22} />} tone="amber" label={t('metricWidgets.kpiStatus')}>
+        <p className="text-sm font-semibold tabular-nums">{metrics?.runningKpis ?? 0} {t('metricWidgets.running')}</p>
+        <p className="text-sm font-semibold text-emerald-600 tabular-nums">{metrics?.completedKpis ?? 0} {t('metricWidgets.completed')}</p>
       </StatTile>
-      <StatTile icon={<AlertTriangle size={22} />} tone="red" label="KPI Rủi ro / Chậm">
+      <StatTile icon={<AlertTriangle size={22} />} tone="red" label={t('metricWidgets.atRiskLateKpis')}>
         <Big>{metrics?.riskKpis ?? 0}</Big>
       </StatTile>
     </MetricGrid>
@@ -170,6 +174,7 @@ export function MyObjectiveMetrics({ filter }: { filter?: PinnedFilter }) {
 
 /** Chỉ số mục tiêu đơn vị — hàng thẻ đầu tab "Mục tiêu đơn vị" (5 API độc lập, giữ nguyên). */
 export function SubordinateMetrics({ filter }: { filter?: PinnedFilter }) {
+  const { t } = useTranslation('analytics')
   const perf = usePerformanceScale()
   const { from, to, periodId, periodIdTo } = filter ?? {}
   const onlyApproved = filter?.onlyApproved ?? false
@@ -198,33 +203,33 @@ export function SubordinateMetrics({ filter }: { filter?: PinnedFilter }) {
   return (
     <MetricGrid cols={5}>
       <ObjectiveMetricCard
-        title="Tiến độ tổng quan"
+        title={t('metricWidgets.overallProgress')}
         value={completion.data?.value !== undefined ? `${completion.data.value.toFixed(1)}%` : '0%'}
         icon={<Target size={20} />}
         isLoading={completion.isLoading}
       />
       <ObjectiveMetricCard
-        title="Hiệu suất tổng quan"
+        title={t('metricWidgets.overallPerformance')}
         value={performance.data?.value !== undefined ? perf.format(performance.data.value) : perf.format(0)}
         icon={<TrendingUp size={20} />}
         isLoading={performance.isLoading}
       />
       <ObjectiveMetricCard
-        title="Mục tiêu hoàn thành"
+        title={t('metricWidgets.objectivesCompleted')}
         value={completedCount.data ? `${completedCount.data.completed}/${completedCount.data.total}` : '0/0'}
-        subtitle="trên tổng số MT"
+        subtitle={t('metricWidgets.outOfAllObjectives')}
         icon={<CheckCircle2 size={20} className="text-slate-400" />}
         isLoading={completedCount.isLoading}
       />
       <ObjectiveMetricCard
-        title="Mục tiêu rủi ro"
+        title={t('metricWidgets.atRiskObjectives')}
         value={atRisk.data?.count ?? 0}
-        subtitle="Tiến độ thấp & sắp hết hạn"
+        subtitle={t('metricWidgets.lowProgressDueSoon')}
         icon={<AlertTriangle size={20} className="text-red-500" />}
         isLoading={atRisk.isLoading}
       />
       <ObjectiveMetricCard
-        title="Tổng nhân sự"
+        title={t('metricWidgets.totalMembers')}
         value={personnel.data?.count ?? 0}
         icon={<Users size={20} />}
         isLoading={personnel.isLoading}

@@ -15,11 +15,11 @@ public class PerspectiveRequest {
      * Bỏ trống nếu tổ chức bật sinh mã tự động — backend cấp mã theo mẫu của tổ chức.
      * Vì vậy regex dùng {@code *} chứ không phải {@code +}: chuỗi rỗng phải qua được validate.
      */
-    @Size(max = 50, message = "Mã tối đa 50 ký tự")
-    @Pattern(regexp = "^[A-Za-z0-9_]*$", message = "Mã chỉ gồm chữ, số và dấu gạch dưới")
+    @Size(max = 50, message = "{validation.codeCanMost50Characters}")
+    @Pattern(regexp = "^[A-Za-z0-9_]*$", message = "{validation.codeMayOnlyContainLettersDigitsUnderscores}")
     private String code;
 
-    @NotBlank(message = "Vui lòng nhập tên lĩnh vực")
+    @NotBlank(message = "{validation.enterAreaName}")
     private String name;
 
     private String description;
@@ -31,19 +31,19 @@ public class PerspectiveRequest {
     private Double minimumValue;
 
     /** Đơn vị tính của mục tiêu/tối thiểu. */
-    @Size(max = 50, message = "Đơn vị tính tối đa 50 ký tự")
+    @Size(max = 50, message = "{validation.unitMeasureCanMost50Characters}")
     private String unit;
 
-    @Pattern(regexp = "^#([0-9A-Fa-f]{6})$", message = "Màu không hợp lệ")
+    @Pattern(regexp = "^#([0-9A-Fa-f]{6})$", message = "{validation.invalidColorHex}")
     private String color;
 
     private String icon;
 
-    @Min(value = 0, message = "Thứ tự không được âm")
+    @Min(value = 0, message = "{validation.orderCannotNegative}")
     private Integer displayOrder;
 
     private BscPerspectiveStatus status;
 
-    @NotNull(message = "Vui lòng chọn lĩnh vực cho hạng mục")
+    @NotNull(message = "{validation.chooseAreaItem}")
     private BscFixedPerspective fixedPerspective;
 }

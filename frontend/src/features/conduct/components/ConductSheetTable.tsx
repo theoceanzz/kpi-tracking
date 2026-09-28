@@ -1,3 +1,4 @@
+import { LocaleNumberInput } from '@/components/ui/number-input'
 import { Save, Loader2, Info, Lock, FileSpreadsheet } from 'lucide-react'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
@@ -7,6 +8,7 @@ import EvidenceAttachments from '@/features/evidence/EvidenceAttachments'
 import { evidenceKey } from '@/features/evidence/evidenceApi'
 import { CONDUCT_MIN_SCORE, EMPTY_DRAFT, fmt, num, useConductDraft, weighted } from '../hooks/useConductDraft'
 import { Button } from '@/components/ui/button'
+import { useTranslation } from 'react-i18next'
 
 /**
  * Phiếu "Đánh giá xếp loại hành vi theo triết lý giáo dục", dựng đúng theo bảng giấy:
@@ -30,6 +32,7 @@ export default function ConductSheetTable({
   isSavingSelf?: boolean
   isSavingManager?: boolean
 }) {
+  const { t } = useTranslation('conduct')
   const { draft, set, comment, setComment, totals, totalWeight, collect, exportRows } =
     useConductDraft(sheet)
 
@@ -41,7 +44,7 @@ export default function ConductSheetTable({
     try {
       await exportConductSheetToExcel(sheet, exportRows(), totals, comment)
     } catch {
-      toast.error('Không thể xuất phiếu hạnh kiểm ra Excel')
+      toast.error(t('ConductSheetTable.couldNotExportTheConductForm'))
     }
   }
 
@@ -78,8 +81,7 @@ export default function ConductSheetTable({
         <div className="flex items-start gap-3 p-4 rounded-card bg-[var(--color-warning-bg)] border border-[var(--color-warning-border)]">
           <Info size={16} className="text-[var(--color-warning)] shrink-0 mt-0.5" />
           <p className="text-xs font-medium text-[var(--color-warning)]">
-            Tổng trọng số của bộ tiêu chí đang là {fmt(totalWeight)}% (khác 100%) — điểm tổng sẽ không đạt
-            đủ thang {fmt(max)}. Hãy chỉnh lại ở phần thiết lập tiêu chí hạnh kiểm.
+            {t('ConductSheetTable.theCriteriaSetsTotalWeightIs')} {fmt(totalWeight)}{t('ConductSheetTable.not100TheTotalScoreWill')} {fmt(max)}{t('ConductSheetTable.pleaseAdjustItInTheConduct')}
           </p>
         </div>
       )}
@@ -89,27 +91,27 @@ export default function ConductSheetTable({
           <table className="w-full min-w-[1100px] border-collapse">
             <thead>
               <tr className="bg-[#1e3a6d]">
-                <th className={cn(th, 'w-12')} rowSpan={2}>STT</th>
+                <th className={cn(th, 'w-12')} rowSpan={2}>{t('ConductSheetTable.rowNo')}</th>
                 <th className={cn(th, 'w-[280px] text-left')} rowSpan={2}>
-                  Các tiêu chí định tính
+                  {t('ConductSheetTable.qualitativeCriteria')}
                   <span className="block text-xs font-medium normal-case tracking-normal text-white/60">
-                    (Thái độ, hành vi…)
+                    {t('ConductSheetTable.attitudeBehavior')}
                   </span>
                 </th>
-                <th className={cn(th, 'w-20')} rowSpan={2}>Trọng số</th>
-                <th className={th} colSpan={2}>Điểm xếp loại hành vi ({fmt(min)}–{fmt(max)})</th>
-                <th className={th} colSpan={2}>Điểm xếp loại hành vi ({fmt(min)}–{fmt(max)})</th>
+                <th className={cn(th, 'w-20')} rowSpan={2}>{t('ConductSheetTable.weight')}</th>
+                <th className={th} colSpan={2}>{t('ConductSheetTable.conductRatingScore')}{fmt(min)}–{fmt(max)})</th>
+                <th className={th} colSpan={2}>{t('ConductSheetTable.conductRatingScore')}{fmt(min)}–{fmt(max)})</th>
                 <th className={th} colSpan={2}>
-                  Điểm xếp loại đã tính đến trọng số
+                  {t('ConductSheetTable.weightedRatingScore')}
                 </th>
               </tr>
               <tr className="bg-[#1e3a6d]">
-                <th className={cn(th, 'w-24')}>Do CBNV/giảng viên tự đánh giá</th>
-                <th className={cn(th, 'w-[220px]')}>Dẫn chứng</th>
-                <th className={cn(th, 'w-24')}>Do CBQLTT đánh giá</th>
-                <th className={cn(th, 'w-[220px]')}>Nhận xét của Cán bộ quản lý</th>
-                <th className={cn(th, 'w-24')}>Theo mức đánh giá của CBNV/giảng viên</th>
-                <th className={cn(th, 'w-24')}>Theo mức đánh giá của CBQLTT</th>
+                <th className={cn(th, 'w-24')}>{t('ConductSheetTable.selfAssessedByStaffLecturer')}</th>
+                <th className={cn(th, 'w-[220px]')}>{t('ConductSheetTable.evidence')}</th>
+                <th className={cn(th, 'w-24')}>{t('ConductSheetTable.assessedByTheDirectManager')}</th>
+                <th className={cn(th, 'w-[220px]')}>{t('ConductSheetTable.managersComments')}</th>
+                <th className={cn(th, 'w-24')}>{t('ConductSheetTable.byTheStaffLecturersAssessmentLevel')}</th>
+                <th className={cn(th, 'w-24')}>{t('ConductSheetTable.byTheDirectManagersAssessmentLevel')}</th>
               </tr>
             </thead>
 
@@ -141,7 +143,7 @@ export default function ConductSheetTable({
                     </td>
 
                     <td className="px-3 py-4 text-center">
-                      <input
+                      <LocaleNumberInput
                         type="number"
                         min={min}
                         max={max}
@@ -159,13 +161,13 @@ export default function ConductSheetTable({
                         value={d.selfEvidence}
                         onChange={e => set(item.position, { selfEvidence: e.target.value })}
                         disabled={!sheet.canScoreSelf}
-                        placeholder={sheet.canScoreSelf ? 'Nêu dẫn chứng cụ thể…' : ''}
+                        placeholder={sheet.canScoreSelf ? t('ConductSheetTable.giveSpecificEvidence') : ''}
                         className={textAreaCls(sheet.canScoreSelf)}
                       />
                     </td>
 
                     <td className="px-3 py-4 text-center">
-                      <input
+                      <LocaleNumberInput
                         type="number"
                         min={min}
                         max={max}
@@ -183,7 +185,7 @@ export default function ConductSheetTable({
                         value={d.managerComment}
                         onChange={e => set(item.position, { managerComment: e.target.value })}
                         disabled={!sheet.canScoreManager}
-                        placeholder={sheet.canScoreManager ? 'Nhận xét của cán bộ quản lý…' : ''}
+                        placeholder={sheet.canScoreManager ? t('ConductSheetTable.managersComments2') : ''}
                         className={textAreaCls(sheet.canScoreManager)}
                       />
                     </td>
@@ -202,7 +204,7 @@ export default function ConductSheetTable({
             <tfoot>
               <tr className="bg-[#1e3a6d] text-white">
                 <td colSpan={7} className="px-4 py-3 text-right text-sm font-medium">
-                  Điểm hành vi đã tính đến trọng số (thang {fmt(max)}):
+                  {t('ConductSheetTable.weightedConductScoreScale')} {fmt(max)}):
                 </td>
                 <td className="px-3 py-3 text-center text-base font-semibold">{fmt(totals.self)}</td>
                 <td className="px-3 py-3 text-center text-base font-semibold">{fmt(totals.manager)}</td>
@@ -214,11 +216,11 @@ export default function ConductSheetTable({
 
       {sheet.canScoreManager && (
         <div className="space-y-2">
-          <p className="text-eyebrow">Nhận xét chung của cán bộ quản lý</p>
+          <p className="text-eyebrow">{t('ConductSheetTable.managersGeneralComments')}</p>
           <textarea
             value={comment}
             onChange={e => setComment(e.target.value)}
-            placeholder="Nhận xét chung cho cả phiếu…"
+            placeholder={t('ConductSheetTable.generalCommentsForTheWholeForm')}
             className="w-full min-h-[80px] px-4 py-3 rounded-card text-sm font-medium bg-[var(--color-card)] border border-[var(--color-border)] text-[var(--color-foreground)] outline-none focus:ring-2 focus:ring-[var(--color-ring)] resize-y"
           />
         </div>
@@ -230,28 +232,28 @@ export default function ConductSheetTable({
         <EvidenceAttachments
           target={evidenceKey.conduct(sheet.scope, (sheet.scope === 'CYCLE' ? sheet.kpiCycleId : sheet.kpiPeriodId) as string, sheet.userId)}
           readOnly={!!sheet.locked || (!sheet.canScoreSelf && !sheet.canScoreManager)}
-          title="Minh chứng hạnh kiểm"
+          title={t('ConductSheetTable.conductEvidence')}
         />
       )}
 
       <div id="tour-conduct-sheet-actions" className="flex flex-wrap items-center justify-end gap-3">
         <Button variant="outline" className="mr-auto" onClick={handleExport}>
-          <FileSpreadsheet aria-hidden="true" /> Xuất Excel
+          <FileSpreadsheet aria-hidden="true" /> {t('ConductSheetTable.exportExcel')}
         </Button>
         {sheet.canScoreSelf && (
           <Button onClick={() => onSaveSelf(collect('self'))} disabled={isSavingSelf}>
             {isSavingSelf ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Save aria-hidden="true" />}
-            Lưu tự đánh giá
+            {t('ConductSheetTable.saveSelfAssessment')}
           </Button>
         )}
         {sheet.canScoreManager && (
           <Button onClick={() => onSaveManager({ items: collect('manager'), comment })} disabled={isSavingManager}>
             {isSavingManager ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Save aria-hidden="true" />}
-            Lưu điểm quản lý
+            {t('ConductSheetTable.saveManagerScore')}
           </Button>
         )}
         {!sheet.canScoreSelf && !sheet.canScoreManager && !sheet.locked && (
-          <p className="text-caption">Bạn chỉ có quyền xem phiếu này.</p>
+          <p className="text-caption">{t('ConductSheetTable.youOnlyHavePermissionToView')}</p>
         )}
       </div>
     </div>

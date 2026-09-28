@@ -1,5 +1,6 @@
 package com.kpitracking.service;
 
+import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.dto.request.submission.BulkReviewRequest;
 import com.kpitracking.dto.response.submission.SubmissionResponse;
 import com.kpitracking.entity.KpiCriteria;
@@ -95,7 +96,9 @@ class KpiSubmissionReviewGuardTest {
         service = new KpiSubmissionService(
                 submissionRepository, null, null, userRepository, null, submissionMapper, events,
                 permissionChecker, null,
-                workflowConfig, new com.kpitracking.workflow.engine.WorkflowEngine(registry));
+                workflowConfig, new com.kpitracking.workflow.engine.WorkflowEngine(registry),
+                mock(com.kpitracking.service.kpi.CycleStatusGuard.class),
+                mock(com.kpitracking.repository.EvaluationRepository.class));
 
         // Đủ để một bản nộp HỢP LỆ chạy trọn vòng lặp, nhờ đó kiểm được rằng bản THỨ HAI cũng bị soi.
         when(submissionRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
@@ -188,7 +191,7 @@ class KpiSubmissionReviewGuardTest {
 
         assertThatThrownBy(() -> service.bulkReview(bulkOf(foreign)))
                 .isInstanceOf(ForbiddenException.class)
-                .hasMessageContaining("không có quyền phê duyệt bản nộp của đơn vị này");
+                .extracting("errorCode").isEqualTo(ErrorCode.NO_PERMISSION_APPROVE_UNIT_SUBMISSIONS);
 
         verify(submissionRepository, never()).save(any());
     }
@@ -221,7 +224,7 @@ class KpiSubmissionReviewGuardTest {
 
         assertThatThrownBy(() -> service.bulkReview(bulkOf(s)))
                 .isInstanceOf(ForbiddenException.class)
-                .hasMessageContaining("tương đương/cao hơn");
+                .extracting("errorCode").isEqualTo(ErrorCode.CANNOT_APPROVE_SUBMISSIONS_SOMEONE_EQUIVALENT_HIGHER_RANK);
     }
 
     @Test
@@ -250,7 +253,7 @@ class KpiSubmissionReviewGuardTest {
 
         assertThatThrownBy(() -> service.bulkReview(bulkOf(s)))
                 .isInstanceOf(BusinessException.class)
-                .hasMessageContaining("tương đương hoặc cao hơn phê duyệt");
+                .extracting("errorCode").isEqualTo(ErrorCode.SUBMISSION_APPROVED_MANAGER_EQUIVALENT_HIGHER_LEVEL);
     }
 
     @Test

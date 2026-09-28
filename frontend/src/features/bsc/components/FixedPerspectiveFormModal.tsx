@@ -1,3 +1,4 @@
+import { LocaleNumberInput } from '@/components/ui/number-input'
 import { useEffect, useMemo } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -7,6 +8,9 @@ import { Button } from '@/components/ui/button'
 import { FixedPerspectiveResponse } from '../types'
 import { useFixedPerspectiveMutations } from '../hooks/useBsc'
 import { createFixedPerspectiveSchema, type FixedPerspectiveFormValues } from '../schemas/perspectiveSchema'
+import { useTranslation } from 'react-i18next'
+import { useFormDraft } from '@/hooks/useFormDraft'
+import DraftNotice from '@/components/common/DraftNotice'
 
 interface FixedPerspectiveFormModalProps {
   isOpen: boolean
@@ -22,13 +26,16 @@ const PRESET_COLORS = ['#2563eb', '#f59e0b', '#10b981', '#8b5cf6', '#ef4444', '#
 export default function FixedPerspectiveFormModal({
   isOpen, onClose, organizationId, fixedPerspective, usedOrders = [],
 }: FixedPerspectiveFormModalProps) {
+  const { t } = useTranslation('bsc')
   // Thứ tự đã bị lĩnh vực khác chiếm là dữ liệu động, nên schema dựng theo ngữ cảnh.
   const schema = useMemo(() => createFixedPerspectiveSchema(usedOrders), [usedOrders])
 
-  const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<FixedPerspectiveFormValues>({
+  const formApi = useForm<FixedPerspectiveFormValues>({
     resolver: zodResolver(schema),
     defaultValues: { name: '', color: PRESET_COLORS[0], displayOrder: 0 },
   })
+  const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = formApi
+  const draft = useFormDraft(formApi, { key: `bsc-fixed-perspective:${fixedPerspective?.code ?? ''}`, enabled: isOpen })
 
   const { updateFixedPerspective } = useFixedPerspectiveMutations()
   const selectedColor = watch('color')
@@ -61,33 +68,34 @@ export default function FixedPerspectiveFormModal({
       onClose={onClose}
       size="md"
       dismissible={!isPending}
-      title={'Chỉnh sửa lĩnh vực'}
-      description="BSC · Lĩnh vực cố định"
+      title={t('FixedPerspectiveFormModal.editArea')}
+      description={t('FixedPerspectiveFormModal.bscFixedArea')}
       footer={
         <DialogFooter
-          secondary={<Button variant="outline" onClick={onClose} disabled={isPending}>Hủy</Button>}
+          secondary={<Button variant="outline" onClick={onClose} disabled={isPending}>{t('FixedPerspectiveFormModal.cancel')}</Button>}
           primary={
             <Button type="submit" form="fixed-perspective-form" disabled={isPending}>
               {isPending && <Loader2 className="animate-spin" aria-hidden="true" />}
-              {'Lưu thay đổi'}
+              {t('FixedPerspectiveFormModal.saveChanges')}
             </Button>
           }
         />
       }
     >
+      <DraftNotice draft={draft} className="mb-4" />
       <form id="fixed-perspective-form" onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="sm:col-span-2 space-y-1.5">
-            <label className="text-label">Tên lĩnh vực <span className="text-[var(--color-error)]">*</span></label>
+            <label className="text-label">{t('FixedPerspectiveFormModal.areaName')} <span className="text-[var(--color-error)]">*</span></label>
             <input
               {...register('name')}
-              placeholder="VD: Tài chính"
+              placeholder={t('FixedPerspectiveFormModal.eGFinancial')}
               className="w-full px-4 py-2.5 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)] text-sm font-medium focus:ring-4 focus:ring-[var(--color-ring)] focus:border-[var(--color-primary)] outline-none transition-all"
             />
             {errors.name && <p className="text-caption text-[var(--color-error)]">{errors.name.message}</p>}
           </div>
           <div className="space-y-1.5">
-            <label className="text-label">Mã</label>
+            <label className="text-label">{t('FixedPerspectiveFormModal.code')}</label>
             <div className="relative">
               <input
                 value={fixedPerspective.code}
@@ -96,13 +104,13 @@ export default function FixedPerspectiveFormModal({
               />
               <Lock size={14} className="absolute right-3 top-1/2 -translate-y-1/2 text-[var(--color-subtle-foreground)]" />
             </div>
-            <p className="text-caption ml-1">Mã cố định, không sửa được.</p>
+            <p className="text-caption ml-1">{t('FixedPerspectiveFormModal.fixedCodeCannotBeEdited')}</p>
           </div>
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-label">Thứ tự hiển thị <span className="text-[var(--color-error)]">*</span></label>
-          <input
+          <label className="text-label">{t('FixedPerspectiveFormModal.displayOrder')} <span className="text-[var(--color-error)]">*</span></label>
+          <LocaleNumberInput
             type="number"
             min={0}
             step={1}
@@ -113,7 +121,7 @@ export default function FixedPerspectiveFormModal({
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-label">Màu sắc <span className="text-[var(--color-error)]">*</span></label>
+          <label className="text-label">{t('FixedPerspectiveFormModal.color')} <span className="text-[var(--color-error)]">*</span></label>
           <input
             type="hidden"
             {...register('color')}
@@ -142,7 +150,7 @@ export default function FixedPerspectiveFormModal({
                 outline: !PRESET_COLORS.includes(selectedColor || '') && /^#([0-9A-Fa-f]{6})$/.test(selectedColor || '') ? `2px solid ${selectedColor}` : 'none',
                 outlineOffset: '2px',
               }}
-              title="Chọn màu tùy ý"
+              title={t('FixedPerspectiveFormModal.pickAnyColor')}
             >
               <Plus size={14} className="text-white drop-shadow" />
               <input

@@ -13,6 +13,9 @@ import {
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { ChoiceChip } from '@/components/ui/choice-chip'
+import { useTranslation } from 'react-i18next'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { DEFAULT_LANGUAGE, LANGUAGE_NAMES, SUPPORTED_LANGUAGES, isSupportedLanguage, type Language } from '@/i18n/languages'
 
 const serverMessage = (error: unknown, fallback: string) =>
   getApiErrorMessage(error, fallback)
@@ -25,10 +28,13 @@ export default function EmailTemplateSettingsTab({ onOpenNotificationSettings }:
   /** Chuyển sang tab Thiết lập thông báo — nơi quản việc bật/tắt gửi cho sự kiện KPI. */
   onOpenNotificationSettings?: () => void
 } = {}) {
+  const { t: tr } = useTranslation('organization')
   const qc = useQueryClient()
+  // Ngôn ngữ của bản mail đang soạn (mỗi ngôn ngữ một bản), không phải ngôn ngữ giao diện.
+  const [mailLanguage, setMailLanguage] = useState<Language>(DEFAULT_LANGUAGE)
   const { data: templates = [], isLoading } = useQuery({
-    queryKey: ['emailTemplates'],
-    queryFn: emailTemplateApi.list,
+    queryKey: ['emailTemplates', mailLanguage],
+    queryFn: () => emailTemplateApi.list(mailLanguage),
   })
 
   const [activeCode, setActiveCode] = useState<string | null>(null)
@@ -60,8 +66,8 @@ export default function EmailTemplateSettingsTab({ onOpenNotificationSettings }:
   // không mỗi lần refetch sẽ ghi đè những gì người dùng đang gõ dở.
   const loadedCode = useRef<string | null>(null)
   useEffect(() => {
-    if (!active || active.code === loadedCode.current) return
-    loadedCode.current = active.code
+    if (!active || `${mailLanguage}:${active.code}` === loadedCode.current) return
+    loadedCode.current = `${mailLanguage}:${active.code}`
     reset({
       subject: active.subject,
       body: active.body,
@@ -69,7 +75,7 @@ export default function EmailTemplateSettingsTab({ onOpenNotificationSettings }:
       enabled: active.enabled,
     })
     setPreview(null)
-  }, [active, reset])
+  }, [active, reset, mailLanguage])
 
   const payload = () => ({ subject, body, fullHtml, enabled })
 
@@ -92,16 +98,16 @@ export default function EmailTemplateSettingsTab({ onOpenNotificationSettings }:
   }, [templates])
 
   const saveMutation = useMutation({
-    mutationFn: (data: EmailTemplateFormData) => emailTemplateApi.save(active!.code, data),
+    mutationFn: (data: EmailTemplateFormData) => emailTemplateApi.save(active!.code, mailLanguage, data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['emailTemplates'] })
-      toast.success('Đã lưu template email')
+      toast.success(tr('EmailTemplateSettingsTab.emailTemplateSaved'))
     },
-    onError: (e) => toast.error(serverMessage(e, 'Lưu template thất bại')),
+    onError: (e) => toast.error(serverMessage(e, tr('EmailTemplateSettingsTab.failedToSaveTemplate'))),
   })
 
   const resetMutation = useMutation({
-    mutationFn: () => emailTemplateApi.reset(active!.code),
+    mutationFn: () => emailTemplateApi.reset(active!.code, mailLanguage),
     onSuccess: (fresh) => {
       qc.invalidateQueries({ queryKey: ['emailTemplates'] })
       reset({
@@ -111,15 +117,15 @@ export default function EmailTemplateSettingsTab({ onOpenNotificationSettings }:
         enabled: fresh.enabled,
       })
       setPreview(null)
-      toast.success('Đã khôi phục nội dung mặc định')
+      toast.success(tr('EmailTemplateSettingsTab.defaultContentRestored'))
     },
-    onError: (e) => toast.error(serverMessage(e, 'Khôi phục thất bại')),
+    onError: (e) => toast.error(serverMessage(e, tr('EmailTemplateSettingsTab.restoreFailed'))),
   })
 
   const previewMutation = useMutation({
-    mutationFn: () => emailTemplateApi.preview(active!.code, payload()),
+    mutationFn: () => emailTemplateApi.preview(active!.code, mailLanguage, payload()),
     onSuccess: (result) => setPreview(result.html),
-    onError: (e) => toast.error(serverMessage(e, 'Không tạo được bản xem trước')),
+    onError: (e) => toast.error(serverMessage(e, tr('EmailTemplateSettingsTab.couldNotCreateThePreview'))),
   })
 
   // Biến bắt buộc phải xuất hiện trong tiêu đề hoặc nội dung đang soạn. Cảnh báo hiện
@@ -142,6 +148,20 @@ export default function EmailTemplateSettingsTab({ onOpenNotificationSettings }:
       {/* Danh sách vài chục loại mail: khoá chiều cao theo khung nhìn và cuộn bên trong, dính khi
           cuộn trang — để cột trái không kéo cả trang dài gấp ba lần khung soạn thảo bên phải. */}
       <div id="tour-email-list" className="custom-scrollbar max-h-[calc(100dvh-7rem)] overflow-y-auto rounded-card border border-[var(--color-border)] bg-[var(--color-card)] p-3 lg:sticky lg:top-4">
+        <div className="mb-4 px-2 space-y-1.5">
+          <p className="text-eyebrow">{tr('EmailTemplateSettingsTab.emailLanguage')}</p>
+          <Select value={mailLanguage} onValueChange={(v) => { if (isSupportedLanguage(v)) setMailLanguage(v) }}>
+            <SelectTrigger aria-label={tr('EmailTemplateSettingsTab.emailLanguage')}>
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {SUPPORTED_LANGUAGES.map(lang => (
+                <SelectItem key={lang} value={lang}>{LANGUAGE_NAMES[lang]}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+          <p className="text-caption">{tr('EmailTemplateSettingsTab.emailLanguageHint')}</p>
+        </div>
         {groups.map(([group, items]) => (
           <div key={group} className="mb-4 last:mb-0">
             <p className="px-2 py-1.5 text-eyebrow">{group}</p>
@@ -152,12 +172,12 @@ export default function EmailTemplateSettingsTab({ onOpenNotificationSettings }:
                     <span className="block truncate text-sm font-medium">{t.label}</span>
                   </span>
                   {t.enabledControl === 'self' && !t.enabled && (
-                    <span title="Đang tắt gửi" className="shrink-0">
+                    <span title={tr('EmailTemplateSettingsTab.sendingOff')} className="shrink-0">
                       <X className="text-[var(--color-subtle-foreground)]" />
                     </span>
                   )}
                   {t.customized && t.enabled && (
-                    <span title="Đã tuỳ chỉnh" className="w-1.5 h-1.5 rounded-full bg-[var(--color-primary)] shrink-0" />
+                    <span title={tr('EmailTemplateSettingsTab.customized')} className="w-1.5 h-1.5 rounded-full bg-[var(--color-primary)] shrink-0" />
                   )}
                 </ChoiceChip>
               ))}
@@ -177,14 +197,14 @@ export default function EmailTemplateSettingsTab({ onOpenNotificationSettings }:
               <div className="min-w-0">
                 <h3 className="text-section-title text-[var(--color-foreground)] tracking-tight">{active.label}</h3>
                 <p className="text-xs text-[var(--color-muted-foreground)] font-medium mt-0.5">{active.description}</p>
-                <p className="text-caption font-medium mt-1">Mã: {active.code}</p>
+                <p className="text-caption font-medium mt-1">{tr('EmailTemplateSettingsTab.code')} {active.code}</p>
               </div>
             </div>
 
             {/* Công tắc chỉ hiện với loại mail tự quản việc bật/tắt. Xem enabledControl. */}
             {active.enabledControl === 'self' && (
               <label className="flex items-center gap-2 shrink-0 cursor-pointer">
-                <span className="text-eyebrow">Bật gửi</span>
+                <span className="text-eyebrow">{tr('EmailTemplateSettingsTab.sendingOn')}</span>
                 <button
                   onClick={() => setValue('enabled', !enabled)}
                   className={cn(
@@ -202,10 +222,10 @@ export default function EmailTemplateSettingsTab({ onOpenNotificationSettings }:
 
             {active.enabledControl === 'locked' && (
               <span
-                title="Tắt loại mail này sẽ khiến người dùng không nhận được mã xác thực và mất quyền truy cập hệ thống"
+                title={tr('EmailTemplateSettingsTab.turningThisEmailTypeOffMeans')}
                 className="text-eyebrow flex items-center gap-1.5 shrink-0 px-3 py-1.5 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)]"
               >
-                <Lock size={12} /> Luôn bật
+                <Lock size={12} /> {tr('EmailTemplateSettingsTab.alwaysOn')}
               </span>
             )}
           </div>
@@ -214,13 +234,12 @@ export default function EmailTemplateSettingsTab({ onOpenNotificationSettings }:
             <div className="flex items-start gap-2.5 p-3.5 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)]">
               <Info size={15} className="text-[var(--color-subtle-foreground)] shrink-0 mt-0.5" />
               <p className="text-xs text-[var(--color-muted-foreground)] font-medium leading-relaxed">
-                Ở đây chỉ sửa <b>nội dung</b> email. Việc bật/tắt gửi cho sự kiện này — cả qua email lẫn
-                chuông thông báo trong hệ thống — nằm ở tab{' '}
+                {tr('EmailTemplateSettingsTab.hereYouOnlyEditThe')} <b>{tr('EmailTemplateSettingsTab.content')}</b> {tr('EmailTemplateSettingsTab.ofTheEmailTurningSendingOn')}{' '}
                 {onOpenNotificationSettings ? (
                   <Button variant="ghost" onClick={onOpenNotificationSettings}>
-                    Thiết lập thông báo
+                    {tr('EmailTemplateSettingsTab.notificationSettings')}
                   </Button>
-                ) : <b>Thiết lập thông báo</b>}.
+                ) : <b>{tr('EmailTemplateSettingsTab.notificationSettings')}</b>}.
               </p>
             </div>
           )}
@@ -229,8 +248,7 @@ export default function EmailTemplateSettingsTab({ onOpenNotificationSettings }:
             <div className="flex items-start gap-2.5 p-3.5 rounded-card bg-[var(--color-warning-bg)] border border-[var(--color-warning-border)]">
               <Lock size={15} className="text-[var(--color-warning)] shrink-0 mt-0.5" />
               <p className="text-xs text-[var(--color-warning)] font-medium leading-relaxed">
-                Đây là email bảo mật nên <b>không thể tắt</b>. Nội dung vẫn sửa được, nhưng nếu ngừng gửi
-                thì không ai lấy được mã xác thực để đăng nhập hay khôi phục mật khẩu.
+                {tr('EmailTemplateSettingsTab.thisIsASecurityEmailSo')} <b>{tr('EmailTemplateSettingsTab.cannotBeTurnedOff')}</b>{tr('EmailTemplateSettingsTab.theContentCanStillBeEdited')}
               </p>
             </div>
           )}
@@ -239,14 +257,14 @@ export default function EmailTemplateSettingsTab({ onOpenNotificationSettings }:
             <div className="flex items-start gap-2.5 p-3.5 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)]">
               <Info size={15} className="text-[var(--color-subtle-foreground)] shrink-0 mt-0.5" />
               <p className="text-xs text-[var(--color-muted-foreground)] font-medium">
-                Loại email này đang <b>tắt</b> — hệ thống sẽ không gửi. Thông báo trong hệ thống vẫn hoạt động bình thường.
+                {tr('EmailTemplateSettingsTab.thisEmailTypeIs')} <b>{tr('EmailTemplateSettingsTab.off')}</b> {tr('EmailTemplateSettingsTab.theSystemWillNotSendIt')}
               </p>
             </div>
           )}
 
           {/* Tiêu đề */}
           <div id="tour-email-subject">
-            <label className="text-label">Tiêu đề email</label>
+            <label className="text-label">{tr('EmailTemplateSettingsTab.emailSubject')}</label>
             <input
               {...register('subject')}
               className="w-full mt-2 px-4 py-3 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] text-sm font-medium outline-none focus:ring-4 focus:ring-[var(--color-ring)] focus:border-[var(--color-primary)] transition-all"
@@ -258,11 +276,11 @@ export default function EmailTemplateSettingsTab({ onOpenNotificationSettings }:
           <div>
             <div className="flex items-center justify-between gap-3 mb-2">
               <label className="text-label">
-                {fullHtml ? 'Toàn bộ HTML' : 'Nội dung email'}
+                {fullHtml ? tr('EmailTemplateSettingsTab.fullHtml') : tr('EmailTemplateSettingsTab.emailContent')}
               </label>
               <button
                 onClick={toggleAdvanced}
-                title="Chế độ nâng cao dành cho người biết HTML: tự viết toàn bộ tài liệu, hệ thống không bọc khung header/footer"
+                title={tr('EmailTemplateSettingsTab.advancedModeForPeopleWhoKnow')}
                 className={cn(
                   'text-eyebrow flex items-center gap-1.5 px-2.5 py-1 rounded-control transition-colors',
                   fullHtml
@@ -270,7 +288,7 @@ export default function EmailTemplateSettingsTab({ onOpenNotificationSettings }:
                     : 'text-[var(--color-subtle-foreground)] hover:bg-[var(--color-muted)]',
                 )}
               >
-                <Code2 size={12} /> {fullHtml ? 'Nâng cao: bật' : 'Nâng cao'}
+                <Code2 size={12} /> {fullHtml ? tr('EmailTemplateSettingsTab.advancedOn') : tr('EmailTemplateSettingsTab.advanced')}
               </button>
             </div>
 
@@ -283,8 +301,7 @@ export default function EmailTemplateSettingsTab({ onOpenNotificationSettings }:
                   className="w-full px-4 py-3 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] text-[13px] font-mono leading-relaxed outline-none focus:ring-4 focus:ring-[var(--color-ring)] focus:border-[var(--color-primary)] transition-all resize-y"
                 />
                 <p className="text-caption font-medium mt-1.5 leading-relaxed">
-                  Bạn đang tự viết toàn bộ tài liệu HTML. Thẻ script, iframe và các handler onclick sẽ bị loại bỏ khi lưu.
-                  Tắt chế độ nâng cao để quay lại trình soạn trực quan.
+                  {tr('EmailTemplateSettingsTab.youAreWritingTheWholeHtml')}
                 </p>
               </>
             ) : (
@@ -296,8 +313,7 @@ export default function EmailTemplateSettingsTab({ onOpenNotificationSettings }:
             <div className="flex items-start gap-2.5 p-3.5 rounded-card bg-[var(--color-error-bg)] border border-[var(--color-error-border)]">
               <AlertTriangle size={15} className="text-[var(--color-error)] shrink-0 mt-0.5" />
               <p className="text-xs text-[var(--color-error)] font-medium leading-relaxed">
-                Thiếu biến bắt buộc: <b className="font-mono">{missingRequired.map(v => `{{${v}}}`).join(', ')}</b>.
-                Không có biến này email sẽ vô dụng với người nhận nên hệ thống sẽ từ chối lưu.
+                {tr('EmailTemplateSettingsTab.missingRequiredVariables')} <b className="font-mono">{missingRequired.map(v => `{{${v}}}`).join(', ')}</b>{tr('EmailTemplateSettingsTab.withoutTheseVariablesTheEmailIs')}
               </p>
             </div>
           )}
@@ -306,14 +322,14 @@ export default function EmailTemplateSettingsTab({ onOpenNotificationSettings }:
           <div id="tour-email-actions" className="flex flex-wrap items-center gap-3 pt-2 border-t border-[var(--color-border)]">
             <Button variant="outline" onClick={() => previewMutation.mutate()} disabled={previewMutation.isPending}>
               {previewMutation.isPending ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Eye aria-hidden="true" />}
-              Xem trước
+              {tr('EmailTemplateSettingsTab.preview')}
             </Button>
-            <Button variant="outline" onClick={() => resetMutation.mutate()} disabled={!active.customized || resetMutation.isPending} title={active.customized ? undefined : 'Template này đang dùng nội dung mặc định'}>
-              <RotateCcw aria-hidden="true" /> Khôi phục mặc định
+            <Button variant="outline" onClick={() => resetMutation.mutate()} disabled={!active.customized || resetMutation.isPending} title={active.customized ? undefined : tr('EmailTemplateSettingsTab.thisTemplateIsUsingTheDefault')}>
+              <RotateCcw aria-hidden="true" /> {tr('EmailTemplateSettingsTab.restoreDefault')}
             </Button>
             <Button className="ml-auto" onClick={handleSubmit(data => saveMutation.mutate(data))} disabled={saveMutation.isPending}>
               {saveMutation.isPending ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Save aria-hidden="true" />}
-              Lưu template
+              {tr('EmailTemplateSettingsTab.saveTemplate')}
             </Button>
           </div>
 
@@ -322,13 +338,13 @@ export default function EmailTemplateSettingsTab({ onOpenNotificationSettings }:
           {preview !== null && (
             <div className="space-y-2">
               <div className="flex items-center justify-between">
-                <label className="text-label">Bản xem trước</label>
+                <label className="text-label">{tr('EmailTemplateSettingsTab.preview2')}</label>
                 <button onClick={() => setPreview(null)} className="p-1.5 text-[var(--color-subtle-foreground)] hover:text-[var(--color-muted-foreground)] rounded-control">
                   <X size={14} />
                 </button>
               </div>
               <iframe
-                title="Xem trước email"
+                title={tr('EmailTemplateSettingsTab.previewEmail')}
                 sandbox=""
                 srcDoc={preview}
                 className="w-full h-[500px] rounded-card border border-[var(--color-border)] bg-[var(--color-card)]"

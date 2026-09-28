@@ -1,3 +1,5 @@
+import { LocaleNumberInput } from '@/components/ui/number-input'
+import { intlLocale } from '@/i18n/format'
 import { useEffect, useMemo, useState } from 'react'
 import {
   AlertTriangle,
@@ -23,6 +25,7 @@ import { useUrboxCatalog, useUrboxCategories, useUrboxImport, useUrboxStatus } f
 import { htmlToText } from '../utils/html'
 import type { UrboxGift } from '../types'
 import { getApiErrorMessage } from '@/lib/apiError'
+import { useTranslation } from 'react-i18next'
 
 interface UrboxCatalogModalProps {
   open: boolean
@@ -32,7 +35,7 @@ interface UrboxCatalogModalProps {
 const PAGE_SIZE = 24
 
 const fmtVnd = (value?: number | null) =>
-  value == null ? '—' : `${value.toLocaleString('vi-VN')} ₫`
+  value == null ? '—' : `${value.toLocaleString(intlLocale())} ₫`
 
 /**
  * Duyệt kho quà eVoucher UrBox và nhập món mình muốn vào danh mục của tổ chức.
@@ -41,6 +44,7 @@ const fmtVnd = (value?: number | null) =>
  * vào cửa hàng sẽ chôn vùi mấy món quà nội bộ mà công ty thật sự muốn trao.
  */
 export default function UrboxCatalogModal({ open, onClose }: UrboxCatalogModalProps) {
+  const { t } = useTranslation('rewards')
   const [search, setSearch] = useState('')
   const [debouncedSearch, setDebouncedSearch] = useState('')
   const [catId, setCatId] = useState<string>('')
@@ -113,8 +117,8 @@ export default function UrboxCatalogModal({ open, onClose }: UrboxCatalogModalPr
       size="full"
       flush
       className="h-[calc(100dvh-2rem)]"
-      title="Kho quà UrBox"
-      headerExtra={data?.totalResult ? <span className="text-sm text-[var(--color-muted-foreground)] tabular-nums">{data.totalResult} món</span> : undefined}
+      title={t('UrboxCatalogModal.urboxGiftCatalog')}
+      headerExtra={data?.totalResult ? <span className="text-sm text-[var(--color-muted-foreground)] tabular-nums">{data.totalResult} {t('UrboxCatalogModal.items')}</span> : undefined}
     >
       <div className="flex h-full min-h-0 flex-col">
         {/* Nói thẳng đây là môi trường thử — nếu không, quản trị viên sẽ tưởng mình vừa
@@ -123,8 +127,7 @@ export default function UrboxCatalogModal({ open, onClose }: UrboxCatalogModalPr
           <div className="flex items-start gap-2 border-b border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-6 py-2.5 text-sm text-[var(--color-warning)]">
             <AlertTriangle size={15} className="mt-0.5 flex-shrink-0" />
             <span>
-              Đang kết nối <b>môi trường thử (sandbox)</b> của UrBox. Quà đổi ra là mã thử
-              nghiệm, không dùng được ở cửa hàng thật.
+              {t('UrboxCatalogModal.connectedTo')} <b>{t('UrboxCatalogModal.theTestSandboxEnvironment')}</b> {t('UrboxCatalogModal.ofUrboxRedeemedGiftsAreTest')}
             </span>
           </div>
         )}
@@ -135,8 +138,8 @@ export default function UrboxCatalogModal({ open, onClose }: UrboxCatalogModalPr
             <input
               value={search}
               onChange={(e) => setSearch(e.target.value)}
-              placeholder="Tìm theo tên quà…"
-              aria-label="Tìm quà"
+              placeholder={t('UrboxCatalogModal.searchByGiftName')}
+              aria-label={t('UrboxCatalogModal.searchGifts')}
               className="h-9 w-full rounded-control border border-[var(--color-border)] bg-[var(--color-card)] pl-9 pr-3 text-sm text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-subtle-foreground)] focus-visible:border-[var(--color-primary)] focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]"
             />
           </div>
@@ -147,9 +150,9 @@ export default function UrboxCatalogModal({ open, onClose }: UrboxCatalogModalPr
               setPage(0)
             }}
           >
-            <SelectTrigger className="w-auto min-w-[200px]" aria-label="Danh mục"><SelectValue /></SelectTrigger>
+            <SelectTrigger className="w-auto min-w-[200px]" aria-label={t('UrboxCatalogModal.category')}><SelectValue /></SelectTrigger>
             <SelectContent className="z-[1100]">
-              <SelectItem value={ALL_CATEGORIES}>Tất cả danh mục</SelectItem>
+              <SelectItem value={ALL_CATEGORIES}>{t('UrboxCatalogModal.allCategories')}</SelectItem>
               {(categories ?? []).map((c) => (
                 <SelectItem key={c.id} value={c.id}>{c.name}</SelectItem>
               ))}
@@ -158,7 +161,7 @@ export default function UrboxCatalogModal({ open, onClose }: UrboxCatalogModalPr
           {isFetching && (
             <Loader2 size={16} className="animate-spin text-[var(--color-muted-foreground)]" aria-hidden="true" />
           )}
-          {data?.totalResult != null && <span className="ml-auto text-caption tabular-nums">{data.totalResult} món</span>}
+          {data?.totalResult != null && <span className="ml-auto text-caption tabular-nums">{data.totalResult} {t('UrboxCatalogModal.items')}</span>}
         </div>
 
         <div className="flex min-h-0 flex-1">
@@ -172,11 +175,11 @@ export default function UrboxCatalogModal({ open, onClose }: UrboxCatalogModalPr
               // không có nút này thì người dùng kẹt luôn cho tới khi đóng mở modal.
               <div className="space-y-3 rounded-card border border-[var(--color-error-border)] bg-[var(--color-error-bg)] px-4 py-3 text-sm text-[var(--color-error)]">
                 <p>
-                  {getApiErrorMessage(error, 'Không đọc được kho quà UrBox. Kiểm tra lại cấu hình kết nối.')}
+                  {getApiErrorMessage(error, t('UrboxCatalogModal.couldNotReadTheUrboxGift'))}
                 </p>
                 <Button variant="ghost" size="sm" onClick={() => refetch()} disabled={isFetching}>
                   {isFetching && <Loader2 aria-hidden="true" className="animate-spin" />}
-                  Thử lại
+                  {t('UrboxCatalogModal.tryAgain')}
                 </Button>
               </div>
             ) : isLoading ? (
@@ -184,8 +187,8 @@ export default function UrboxCatalogModal({ open, onClose }: UrboxCatalogModalPr
             ) : (data?.items ?? []).length === 0 ? (
               <div className="rounded-card border border-dashed border-[var(--color-border)]">
                 <EmptyState
-                  title="Không có quà nào khớp"
-                  description="Thử bỏ bớt bộ lọc hoặc tìm bằng từ khoá khác."
+                  title={t('UrboxCatalogModal.noMatchingGifts')}
+                  description={t('UrboxCatalogModal.tryRemovingSomeFiltersOrSearch')}
                 />
               </div>
             ) : (
@@ -231,16 +234,16 @@ export default function UrboxCatalogModal({ open, onClose }: UrboxCatalogModalPr
                           {gift.suggestedPointCost != null && (
                             <span className="inline-flex items-center gap-1 text-[var(--color-primary)]">
                               <Coins size={11} />
-                              {gift.suggestedPointCost.toLocaleString('vi-VN')} điểm
+                              {gift.suggestedPointCost.toLocaleString(intlLocale())} {t('UrboxCatalogModal.points')}
                             </span>
                           )}
                         </div>
                         <div className="mt-1 flex flex-wrap gap-1">
                           {gift.imported && (
-                            <Badge variant="success"><Check size={10} aria-hidden="true" /> Đã có trong danh mục</Badge>
+                            <Badge variant="success"><Check size={10} aria-hidden="true" /> {t('UrboxCatalogModal.alreadyInTheCatalog')}</Badge>
                           )}
                           {!gift.inStock && (
-                            <Badge variant="secondary"><PackageX size={10} aria-hidden="true" /> UrBox đang hết</Badge>
+                            <Badge variant="secondary"><PackageX size={10} aria-hidden="true" /> {t('UrboxCatalogModal.outOfStockAtUrbox')}</Badge>
                           )}
                         </div>
                       </div>
@@ -254,13 +257,13 @@ export default function UrboxCatalogModal({ open, onClose }: UrboxCatalogModalPr
               <div className="mt-4 flex items-center justify-center gap-3 text-sm">
                 <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(0, p - 1))} disabled={page === 0}>
                   <ChevronLeft aria-hidden="true" />
-                  Trước
+                  {t('UrboxCatalogModal.previous')}
                 </Button>
                 <span className="text-[var(--color-muted-foreground)]">
-                  Trang {page + 1} / {totalPages}
+                  {t('UrboxCatalogModal.pageOf', { page: page + 1, total: totalPages })}
                 </span>
                 <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(totalPages - 1, p + 1))} disabled={page >= totalPages - 1}>
-                  Sau
+                  {t('UrboxCatalogModal.next')}
                   <ChevronRight aria-hidden="true" />
                 </Button>
               </div>
@@ -273,7 +276,7 @@ export default function UrboxCatalogModal({ open, onClose }: UrboxCatalogModalPr
           {selected && (
             <aside className="flex w-full flex-shrink-0 flex-col border-l border-[var(--color-border)] lg:w-[340px]">
               <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4">
-                <p className="text-eyebrow">Thêm vào danh mục</p>
+                <p className="text-eyebrow">{t('UrboxCatalogModal.addToCatalog')}</p>
                 <div className="mt-1 text-sm font-medium text-[var(--color-foreground)]">{selected.name}</div>
                 <div className="mt-1 text-sm text-[var(--color-muted-foreground)]">
                   {[selected.brandName, selected.categoryName].filter(Boolean).join(' · ') || '—'}
@@ -281,22 +284,22 @@ export default function UrboxCatalogModal({ open, onClose }: UrboxCatalogModalPr
 
                 <dl className="mt-3 space-y-1.5 rounded-card bg-[var(--color-muted)] px-4 py-3 text-sm">
                   <div className="flex justify-between gap-3">
-                    <dt className="text-[var(--color-muted-foreground)]">Mệnh giá</dt>
+                    <dt className="text-[var(--color-muted-foreground)]">{t('UrboxCatalogModal.faceValue')}</dt>
                     <dd className="font-medium tabular-nums text-[var(--color-foreground)]">{fmtVnd(selected.value)}</dd>
                   </div>
                   <div className="flex justify-between gap-3">
-                    <dt className="text-[var(--color-muted-foreground)]">Hạn sử dụng</dt>
+                    <dt className="text-[var(--color-muted-foreground)]">{t('UrboxCatalogModal.expiry')}</dt>
                     <dd className="text-right">{selected.expireText || '—'}</dd>
                   </div>
                   <div className="flex justify-between gap-3">
-                    <dt className="text-[var(--color-muted-foreground)]">Dạng mã</dt>
+                    <dt className="text-[var(--color-muted-foreground)]">{t('UrboxCatalogModal.codeType')}</dt>
                     <dd className="text-right">{selected.codeDisplay || '—'}</dd>
                   </div>
                 </dl>
 
                 <div className="mt-4">
-                  <label className="text-label mb-1.5 block">Giá đổi (điểm)</label>
-                  <input
+                  <label className="text-label mb-1.5 block">{t('UrboxCatalogModal.redemptionPricePoints')}</label>
+                  <LocaleNumberInput
                     type="number"
                     min={1}
                     value={pointCost}
@@ -307,8 +310,7 @@ export default function UrboxCatalogModal({ open, onClose }: UrboxCatalogModalPr
                   />
                   {selected.suggestedPointCost != null && (
                     <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">
-                      Gợi ý {selected.suggestedPointCost.toLocaleString('vi-VN')} điểm, tính theo tỉ
-                      giá quy đổi của công ty.
+                      {t('UrboxCatalogModal.suggest')} {selected.suggestedPointCost.toLocaleString(intlLocale())} {t('UrboxCatalogModal.pointsBasedOnTheCompanysExchange')}
                     </p>
                   )}
                 </div>
@@ -321,21 +323,21 @@ export default function UrboxCatalogModal({ open, onClose }: UrboxCatalogModalPr
                     className="mt-0.5"
                   />
                   <span>
-                    Giới hạn số lượt đổi
+                    {t('UrboxCatalogModal.limitTheNumberOfRedemptions')}
                     <span className="block text-xs text-[var(--color-muted-foreground)]">
-                      Bỏ trống thì số lượng do kho UrBox quyết.
+                      {t('UrboxCatalogModal.leaveEmptyAndTheQuantityIs')}
                     </span>
                   </span>
                 </label>
                 {limitStock && (
-                  <input
+                  <LocaleNumberInput
                     type="number"
                     min={0}
                     value={stockQuantity}
                     onChange={(e) =>
                       setStockQuantity(e.target.value === '' ? '' : Number(e.target.value))
                     }
-                    placeholder="Số lượt tối đa"
+                    placeholder={t('UrboxCatalogModal.maxRedemptions')}
                     className="mt-2 h-9 w-full rounded-control border border-[var(--color-border)] bg-[var(--color-card)] px-3 text-sm text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-subtle-foreground)] focus-visible:border-[var(--color-primary)] focus-visible:ring-2 focus-visible:ring-[var(--color-ring)] tabular-nums"
                   />
                 )}
@@ -345,29 +347,27 @@ export default function UrboxCatalogModal({ open, onClose }: UrboxCatalogModalPr
                     100.000 mã nhưng đặt trả mã 225). Nói trước để người quản lý không
                     tưởng mình chọn nhầm khi nhân viên đổi hụt. */}
                 <p className="mt-4 rounded-card bg-[var(--color-muted)] px-3 py-2 text-xs leading-relaxed text-[var(--color-muted-foreground)]">
-                  Số lượng UrBox báo về chỉ mang tính tham khảo — quà đang hiện còn hàng
-                  vẫn có thể hết đúng lúc nhân viên đổi. Khi đó điểm được hoàn lại ngay và
-                  quà tự ẩn khỏi cửa hàng.
+                  {t('UrboxCatalogModal.theQuantityReportedByUrboxIs')}
                 </p>
 
                 {selected.terms && (
                   <div className="mt-4">
-                    <div className="mb-1 text-label">Điều kiện sử dụng</div>
+                    <div className="mb-1 text-label">{t('UrboxCatalogModal.termsOfUse')}</div>
                     <p className="max-h-48 overflow-y-auto whitespace-pre-line rounded-card border border-[var(--color-border)] px-3 py-2 text-xs leading-relaxed text-[var(--color-muted-foreground)]">
                       {htmlToText(selected.terms)}
                     </p>
                     <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">
-                      Nhân viên sẽ đọc đúng nội dung này trước khi bấm đổi.
+                      {t('UrboxCatalogModal.employeesWillReadExactlyThisContent')}
                     </p>
                   </div>
                 )}
               </div>
 
               <div className="flex gap-2 border-t border-[var(--color-border)] px-5 py-4">
-                <Button variant="outline" onClick={() => setSelected(null)}>Bỏ chọn</Button>
+                <Button variant="outline" onClick={() => setSelected(null)}>{t('UrboxCatalogModal.deselect')}</Button>
                 <Button className="flex-1" onClick={handleImport} disabled={isImporting || typeof pointCost !== 'number' || pointCost < 1}>
                   {isImporting && <Loader2 className="animate-spin" aria-hidden="true" />}
-                  Thêm vào danh mục
+                  {t('UrboxCatalogModal.addToCatalog')}
                 </Button>
               </div>
             </aside>

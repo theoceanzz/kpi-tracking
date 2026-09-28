@@ -1,6 +1,7 @@
 import FlowSankey from '@/components/charts/primitives/FlowSankey'
 import { useOkrFlow } from '../../hooks/useAdvancedAnalytics'
 import type { AdvancedFilter } from '../../api/advancedAnalyticsApi'
+import { useTranslation } from 'react-i18next'
 
 /**
  * F5 — Luồng phân bổ OKR: Mục tiêu → Key Result → Đơn vị.
@@ -10,12 +11,13 @@ import type { AdvancedFilter } from '../../api/advancedAnalyticsApi'
  * quá tải mà bảng lồng ba tầng rất khó cho thấy.
  */
 export function OkrFlowSection({ filter }: { filter: AdvancedFilter }) {
+  const { t } = useTranslation('analytics')
   const { data, isLoading } = useOkrFlow(filter)
 
   if (isLoading) {
     return (
       <div className="h-[300px] flex items-center justify-center text-[var(--color-subtle-foreground)] font-semibold">
-        Đang tải luồng OKR...
+        {t('OkrAdvanced.loadingOkrFlow')}
       </div>
     )
   }
@@ -23,8 +25,8 @@ export function OkrFlowSection({ filter }: { filter: AdvancedFilter }) {
   if (!data || data.empty) {
     return (
       <div className="h-[300px] flex items-center justify-center text-sm text-[var(--color-subtle-foreground)] font-medium text-center px-4">
-        Chưa có Key Result nào được phân bổ trọng số xuống đơn vị.<br />
-        Luồng xuất hiện khi Key Result được gán trọng số cho ít nhất một đơn vị.
+        {t('OkrAdvanced.noKeyResultHasHadWeight')}<br />
+        {t('OkrAdvanced.flowsAppearWhenAKeyResult')}
       </div>
     )
   }
@@ -33,7 +35,7 @@ export function OkrFlowSection({ filter }: { filter: AdvancedFilter }) {
     <div className="w-full">
       <FlowSankey nodes={data.nodes} links={data.links} valueLabel={data.valueLabel} height={340} />
       <p className="text-caption font-medium text-center mt-1">
-        Độ dày dải là trọng số phân bổ (%) · ba tầng: Mục tiêu → Key Result → Đơn vị thực hiện.
+        {t('OkrAdvanced.bandThicknessIsTheAllocatedWeight')}
       </p>
     </div>
   )

@@ -1,6 +1,7 @@
 import { create } from 'zustand'
 import { toast } from 'sonner'
 import type { FormFileSink } from './formAssistStore'
+import i18n from 'i18next'
 
 interface PinnedFilesState {
   /** Tệp người dùng đã ghim ở ô chat, CHƯA đính vào đâu cả. */
@@ -43,7 +44,7 @@ export const usePinnedFilesStore = create<PinnedFilesState>(set => ({
  */
 export function attachPinnedTo(sink: FormFileSink | undefined): string[] {
   if (!sink) {
-    toast.error('Chưa mở biểu mẫu nào có mục đính kèm')
+    toast.error(i18n.t('common:pinnedFilesStore.noOpenFormHasAnAttachment'))
     return []
   }
   const pinned = usePinnedFilesStore.getState().files

@@ -9,12 +9,12 @@ import lombok.*;
 @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
 public class ConductCriteriaRequest {
 
-    @NotBlank(message = "Tên tiêu chí không được để trống")
+    @NotBlank(message = "{validation.criterionNameCannotEmpty}")
     private String name;
 
     private String description;
 
-    @NotNull(message = "Trọng số không được để trống")
-    @DecimalMin(value = "0.0", inclusive = false, message = "Trọng số phải lớn hơn 0")
+    @NotNull(message = "{validation.weightCannotEmpty}")
+    @DecimalMin(value = "0.0", inclusive = false, message = "{validation.weightMustGreaterThan0}")
     private Double weight;
 }

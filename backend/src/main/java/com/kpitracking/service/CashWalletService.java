@@ -1,5 +1,6 @@
 package com.kpitracking.service;
 
+import com.kpitracking.i18n.ErrorMessages;
 import com.kpitracking.entity.CashTransaction;
 import com.kpitracking.entity.CashWallet;
 import com.kpitracking.entity.Organization;
@@ -7,7 +8,9 @@ import com.kpitracking.entity.User;
 import com.kpitracking.enums.CashSourceType;
 import com.kpitracking.enums.CashTransactionType;
 import com.kpitracking.exception.BusinessException;
+import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.ResourceNotFoundException;
+import com.kpitracking.i18n.Terms;
 import com.kpitracking.repository.CashTransactionRepository;
 import com.kpitracking.repository.CashWalletRepository;
 import com.kpitracking.repository.OrganizationRepository;
@@ -80,6 +83,17 @@ public class CashWalletService {
     private final CashTransactionRepository transactionRepository;
     private final OrganizationRepository organizationRepository;
     private final UserRepository userRepository;
+    private final com.kpitracking.i18n.UserLanguageResolver languageResolver;
+
+    /**
+     * Ghi chú bút toán viết theo ngôn ngữ của CHỦ VÍ: ghi chú được lưu lại và chỉ hiện trong lịch sử
+     * ví của chính họ, nên dịch lúc ghi là đủ (không cần cột dịch lúc đọc như thông báo).
+     */
+    public String noteFor(UUID userId, String key, Object... args) {
+        java.util.Locale locale = userRepository.findById(userId).map(languageResolver::effectiveLocale)
+                .orElse(com.kpitracking.i18n.SupportedLanguages.DEFAULT_LOCALE);
+        return ErrorMessages.text(locale, key, key, args);
+    }
 
     /**
      * Mô tả một bút toán. Gom tham số vào đây để lời gọi đọc được, không phải
@@ -164,7 +178,7 @@ public class CashWalletService {
 
         // Khoá bi quan dòng ví. Đây là cơ chế chính chống đua ghi, không phải cột version.
         CashWallet wallet = walletRepository.findByIdForUpdate(walletId)
-                .orElseThrow(() -> new ResourceNotFoundException("Ví tiền", "id", walletId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.wallet"), "id", walletId));
 
         long amount = entry.amount();
         long deltaTopup = 0L, deltaConverted = 0L;
@@ -178,8 +192,7 @@ public class CashWalletService {
         // Chặn âm ở MỌI đường, khác hẳn ví điểm. Không có nghiệp vụ nào của tiền
         // thật cần số dư âm, nên số dư âm luôn là lỗi chứ không phải trạng thái hợp lệ.
         if (wallet.getBalance() + amount < 0) {
-            throw new BusinessException("Số dư ví tiền không đủ. Hiện có "
-                    + formatVnd(wallet.getBalance()) + ", cần " + formatVnd(Math.abs(amount)) + ".");
+            throw new BusinessException(ErrorCode.INSUFFICIENT_WALLET_BALANCE, String.valueOf(formatVnd(wallet.getBalance())), String.valueOf(formatVnd(Math.abs(amount))));
         }
 
         wallet.applyDelta(amount, deltaTopup, deltaConverted);
@@ -216,9 +229,9 @@ public class CashWalletService {
         return walletRepository.findByOrganizationIdAndUserId(organizationId, userId)
                 .orElseGet(() -> {
                     Organization org = organizationRepository.findById(organizationId)
-                            .orElseThrow(() -> new ResourceNotFoundException("Tổ chức", "id", organizationId));
+                            .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.organization"), "id", organizationId));
                     User user = userRepository.findById(userId)
-                            .orElseThrow(() -> new ResourceNotFoundException("Người dùng", "id", userId));
+                            .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.user"), "id", userId));
                     return walletRepository.save(CashWallet.builder()
                             .organization(org)
                             .user(user)

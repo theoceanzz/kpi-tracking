@@ -23,6 +23,9 @@ import { ViewToggleButtons } from '@/components/common/dashboard/ViewToggleButto
 import { scorecardStatusMeta } from '@/features/bsc/utils/scorecardStatus'
 import type { BscScorecardStatus } from '@/features/bsc/types'
 import type { CoverageItemResponse } from '@/features/bsc/types'
+import { useTranslation } from 'react-i18next'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
 /**
  * Widget của tab "Thẻ điểm BSC", dùng ở cả tab lẫn trang chủ.
@@ -80,13 +83,14 @@ function useBscScope(filter?: PinnedFilter) {
 
 /** Đợt đang soi + tình trạng kết quả — dòng phụ cho tiêu đề ô. */
 function PeriodNote({ periodName, resultStatus, hasResult }: { periodName?: string | null; resultStatus?: string | null; hasResult: boolean }) {
+  const { t } = useTranslation('analytics')
   if (!periodName) return null
   return (
     <p className="text-xs font-medium text-slate-400">
-      Đợt: <span className="text-[var(--color-muted-foreground)]">{periodName}</span>
+      {t('bscWidgets.period')} <span className="text-[var(--color-muted-foreground)]">{periodName}</span>
       {!hasResult
-        ? <span className="ml-1.5 text-amber-600">· chưa tính kết quả</span>
-        : resultStatus === 'DRAFT' ? <span className="ml-1.5 text-amber-600">· kết quả nháp, chưa chốt</span> : null}
+        ? <span className="ml-1.5 text-amber-600">{t('bscWidgets.resultsNotComputed')}</span>
+        : resultStatus === 'DRAFT' ? <span className="ml-1.5 text-amber-600">{t('bscWidgets.draftResultsNotFinalized')}</span> : null}
     </p>
   )
 }
@@ -95,6 +99,7 @@ function PeriodNote({ periodName, resultStatus, hasResult }: { periodName?: stri
 
 /** Sức khoẻ BSC của đợt: %đạt thẻ gốc, thẻ đơn vị, hạng mục chặn, độ phủ phân rã. */
 export function BscOverviewMetrics({ filter }: { filter?: PinnedFilter }) {
+  const { t } = useTranslation('analytics')
   const scope = useBscScope(filter)
   const { data: o } = useBscOverview(scope)
   const mode = o?.scoringMode
@@ -104,7 +109,7 @@ export function BscOverviewMetrics({ filter }: { filter?: PinnedFilter }) {
   const cov = o?.coverage
 
   if (o && !o.scorecardId) {
-    return <EmptyState>Đợt {o.periodName ?? 'này'} chưa có thẻ điểm BSC nào. Tạo bộ tiêu chí ở Thiết lập công cụ → Quản lý BSC.</EmptyState>
+    return <EmptyState>{t('bscWidgets.aPeriod')} {o.periodName ?? t('bscWidgets.this')} {t('bscWidgets.hasNoBscScorecardYetCreate')}</EmptyState>
   }
 
   return (
@@ -117,47 +122,47 @@ export function BscOverviewMetrics({ filter }: { filter?: PinnedFilter }) {
               ? 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-300'
               : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-300'
           )}>
-            {mode === 'SHADOW' ? 'Chạy song song (SHADOW)' : 'Chính thức (OFFICIAL)'}
+            {mode === 'SHADOW' ? t('bscWidgets.runningInParallelShadow') : t('bscWidgets.officialOfficial')}
           </span>
         )}
         {o?.periodName && (
           <span className="text-xs font-medium text-slate-400">
-            Đợt {o.periodName}
+            {t('bscWidgets.aPeriod')} {o.periodName}
             {o.scorecardName ? ` · ${o.scorecardName}` : ''}
-            {o.resultStatus === 'DRAFT' ? ' · kết quả nháp' : o.achievementPercent == null ? ' · chưa tính kết quả' : ''}
+            {o.resultStatus === 'DRAFT' ? t('bscWidgets.draftResults') : o.achievementPercent == null ? t('bscWidgets.resultsNotComputed2') : ''}
           </span>
         )}
       </div>
       <div className="@container grid grid-flow-col auto-cols-[minmax(172px,1fr)] gap-3 overflow-x-auto custom-scrollbar pb-1">
-        <Tile icon={<Gauge size={22} />} label={o?.level === 'UNIT' ? 'Mức đạt BSC đơn vị' : 'Mức đạt BSC công ty'}>
+        <Tile icon={<Gauge size={22} />} label={o?.level === 'UNIT' ? t('bscWidgets.unitBscAchievement') : t('bscWidgets.companyBscAchievement')}>
           <p className={cn('text-2xl font-semibold tabular-nums', attainColor(o?.achievementPercent))}>{fmtPct(o?.achievementPercent)}</p>
-          <p className="text-xs font-medium text-slate-400">{o?.itemCount ?? 0} chỉ tiêu · mục tiêu 100%</p>
+          <p className="text-xs font-medium text-slate-400">{o?.itemCount ?? 0} {t('bscWidgets.kpiTarget100')}</p>
         </Tile>
-        <Tile icon={<Layers size={22} />} label="Thẻ điểm đơn vị">
+        <Tile icon={<Layers size={22} />} label={t('bscWidgets.unitScorecard')}>
           <p className="text-2xl font-semibold tabular-nums">{o?.unitScorecardCount ?? 0}</p>
           <p className="text-xs font-medium text-slate-400 truncate" title={statusEntries.map(([k, v]) => `${scorecardStatusMeta(k as BscScorecardStatus).label}: ${v}`).join(', ')}>
-            {active} đang áp dụng{pending ? ` · ${pending} chờ duyệt` : ''}
+            {active} {t('bscWidgets.inEffect')}{pending ? t('bscWidgets.pendingApproval', { pending }) : ''}
           </p>
         </Tile>
         <Tile
           icon={(o?.unitsGateFailed ?? 0) > 0 ? <ShieldAlert size={22} /> : <ShieldCheck size={22} />}
-          label="Qua hạng mục chặn"
+          label={t('bscWidgets.passedGateItems')}
           tone={(o?.unitsGateFailed ?? 0) > 0 ? 'red' : 'neutral'}
         >
           <p className="text-2xl font-semibold tabular-nums">
             {o?.unitsGatePassed ?? 0}<span className="text-base text-slate-400">/{o?.unitsWithResult ?? 0}</span>
           </p>
           <p className={cn('text-xs font-medium', (o?.unitsGateFailed ?? 0) > 0 ? 'text-rose-500' : 'text-slate-400')}>
-            {(o?.unitsGateFailed ?? 0) > 0 ? `${o?.unitsGateFailed} đơn vị không qua cửa` : 'Không đơn vị nào vướng cửa chặn'}
+            {(o?.unitsGateFailed ?? 0) > 0 ? t('bscWidgets.unitsFailedTheGate', { count: o?.unitsGateFailed }) : t('bscWidgets.noUnitIsBlockedByA')}
           </p>
         </Tile>
-        <Tile icon={<GitBranch size={22} />} label="Độ phủ phân rã">
+        <Tile icon={<GitBranch size={22} />} label={t('bscWidgets.cascadeCoverage')}>
           <p className="text-2xl font-semibold tabular-nums">
             {cov?.ok ?? 0}<span className="text-base text-slate-400">/{cov?.total ?? 0}</span>
           </p>
           <p className="text-xs font-medium text-slate-400 truncate">
-            {[cov?.under ? `${cov.under} thiếu` : null, cov?.over ? `${cov.over} vượt` : null, cov?.notCascaded ? `${cov.notCascaded} chưa phân rã` : null]
-              .filter(Boolean).join(' · ') || 'Mọi chỉ tiêu phân rã đủ'}
+            {[cov?.under ? t('bscWidgets.under', { under: cov.under }) : null, cov?.over ? t('bscWidgets.over', { over: cov.over }) : null, cov?.notCascaded ? t('bscWidgets.notCascaded', { notCascaded: cov.notCascaded }) : null]
+              .filter(Boolean).join(' · ') || t('bscWidgets.allKpisFullyCascaded')}
           </p>
         </Tile>
       </div>
@@ -193,6 +198,7 @@ export function BscUnitAttainmentWidget({ filter, variant = 'lollipop', meta }: 
   variant?: 'lollipop' | 'tree'
   meta?: React.ReactNode
 }) {
+  const { t } = useTranslation('analytics')
   const scope = useBscScope(filter)
   const { data: rows } = useBscUnitAttainment(scope)
   const { data: overview } = useBscOverview(scope)
@@ -205,37 +211,37 @@ export function BscUnitAttainmentWidget({ filter, variant = 'lollipop', meta }: 
     .map(r => ({
       id: r.scorecardId,
       name: r.orgUnitName ?? r.name,
-      subText: [r.parentScorecardName, r.gatePassed === false ? `Không qua cửa: ${r.gateFailedItems ?? ''}` : null].filter(Boolean).join(' · ') || undefined,
+      subText: [r.parentScorecardName, r.gatePassed === false ? t('bscWidgets.failedTheGate', { value: r.gateFailedItems ?? '' }) : null].filter(Boolean).join(' · ') || undefined,
       value: r.achievementPercent ?? 0,
       color: r.gatePassed === false ? '#f43f5e' : attainHex(r.achievementPercent),
-    })), [withResult])
+    })), [withResult, t])
 
   return (
     <div className="flex-1 min-h-0 flex flex-col gap-3">
       {meta}
       <PeriodNote periodName={overview?.periodName} resultStatus={overview?.resultStatus} hasResult={withResult.length > 0} />
       {list.length === 0 ? (
-        <EmptyState>Chưa có thẻ điểm nào cho đợt này.</EmptyState>
+        <EmptyState>{t('bscWidgets.noScorecardForThisPeriodYet')}</EmptyState>
       ) : children.length === 0 ? (
-        <EmptyState>Thẻ điểm gốc chưa phân rã xuống đơn vị nào. Gắn thẻ đơn vị ở Quản lý BSC.</EmptyState>
+        <EmptyState>{t('bscWidgets.theRootScorecardHasNotBeen')}</EmptyState>
       ) : variant === 'tree' ? (
         <div className="flex-1 min-h-0 overflow-auto custom-scrollbar">
           <UnitTreeTable rows={list} />
         </div>
       ) : withResult.length === 0 ? (
-        <EmptyState>Đợt này chưa có đơn vị nào tính kết quả BSC. Bấm "Tính lại" ở tab Kết quả đợt của thẻ điểm.</EmptyState>
+        <EmptyState>{t('bscWidgets.noUnitHasComputedBscResults')}</EmptyState>
       ) : (
         <div className="flex-1 min-h-0 overflow-auto custom-scrollbar">
           <Lollipop
             data={lollipop}
             unit="%"
-            valueLabel="Mức đạt BSC (%)"
-            reference={{ value: 100, label: 'Mục tiêu' }}
+            valueLabel={t('bscWidgets.bscAchievement')}
+            reference={{ value: 100, label: t('bscWidgets.target') }}
             domainMax={Math.max(120, ...lollipop.map(d => d.value))}
             height={Math.max(220, lollipop.length * 40 + 60)}
           />
           <p className="text-xs text-slate-500 text-center mt-2">
-            Chấm đỏ = không qua hạng mục chặn. {children.length - withResult.length > 0 ? `${children.length - withResult.length} đơn vị chưa tính kết quả.` : ''}
+            {t('bscWidgets.redDotFailedAGateItem')} {children.length - withResult.length > 0 ? t('bscWidgets.unitsHaveNoComputedResults', { count: children.length - withResult.length }) : ''}
           </p>
         </div>
       )}
@@ -244,15 +250,16 @@ export function BscUnitAttainmentWidget({ filter, variant = 'lollipop', meta }: 
 }
 
 function UnitTreeTable({ rows }: { rows: BscUnitAttainmentRow[] }) {
+  const { t } = useTranslation('analytics')
   return (
     <table className="w-full text-left">
       <thead className="bg-[var(--color-muted)] sticky top-0 z-10">
         <tr className="text-xs font-medium text-slate-500">
-          <th className="px-3 py-3">Thẻ điểm</th>
-          <th className="px-3 py-3 whitespace-nowrap">Trạng thái</th>
-          <th className="px-3 py-3 text-right whitespace-nowrap">Mức đạt</th>
-          <th className="px-3 py-3 whitespace-nowrap">Hạng mục chặn</th>
-          <th className="px-3 py-3 text-right whitespace-nowrap hidden lg:table-cell">Chỉ tiêu</th>
+          <th className="px-3 py-3">{t('bscWidgets.scorecard')}</th>
+          <th className="px-3 py-3 whitespace-nowrap">{t('bscWidgets.status')}</th>
+          <th className="px-3 py-3 text-right whitespace-nowrap">{t('bscWidgets.achievement')}</th>
+          <th className="px-3 py-3 whitespace-nowrap">{t('bscWidgets.gateItems')}</th>
+          <th className="px-3 py-3 text-right whitespace-nowrap hidden lg:table-cell">{t('bscWidgets.kpis')}</th>
         </tr>
       </thead>
       <tbody className="divide-y divide-[var(--color-border)]">
@@ -262,7 +269,7 @@ function UnitTreeTable({ rows }: { rows: BscUnitAttainmentRow[] }) {
               <div className="flex items-center gap-2" style={{ paddingLeft: r.depth * 16 }}>
                 {r.depth > 0 && <span className="w-3 h-px bg-[var(--color-border)] shrink-0" aria-hidden="true" />}
                 <div className="min-w-0">
-                  <p className="text-sm font-semibold text-[var(--color-foreground)] truncate">{r.orgUnitName ?? (r.level === 'COMPANY' ? 'Công ty' : r.name)}</p>
+                  <p className="text-sm font-semibold text-[var(--color-foreground)] truncate">{r.orgUnitName ?? (r.level === 'COMPANY' ? t('bscWidgets.company') : r.name)}</p>
                   <p className="text-xs text-slate-400 truncate">{r.name}</p>
                 </div>
               </div>
@@ -273,16 +280,16 @@ function UnitTreeTable({ rows }: { rows: BscUnitAttainmentRow[] }) {
               </span>
             </td>
             <td className={cn('px-3 py-2.5 text-right text-sm font-semibold tabular-nums', attainColor(r.achievementPercent))}>
-              {r.achievementPercent == null ? <span className="text-xs font-medium text-slate-400">chưa tính</span> : fmtPct(r.achievementPercent)}
+              {r.achievementPercent == null ? <span className="text-xs font-medium text-slate-400">{t('bscWidgets.notComputed')}</span> : fmtPct(r.achievementPercent)}
             </td>
             <td className="px-3 py-2.5">
               {r.gateCount === 0 ? <span className="text-xs text-slate-400">—</span>
-                : r.gatePassed == null ? <span className="text-xs text-slate-400">{r.gateCount} cửa · chưa tính</span>
-                : r.gatePassed ? <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600"><ShieldCheck size={13} /> Qua</span>
-                : <span className="inline-flex items-center gap-1 text-xs font-medium text-rose-600" title={r.gateFailedItems ?? ''}><ShieldAlert size={13} /> Không qua{r.gateFailedItems ? `: ${r.gateFailedItems}` : ''}</span>}
+                : r.gatePassed == null ? <span className="text-xs text-slate-400">{r.gateCount} {t('bscWidgets.gateNotComputed')}</span>
+                : r.gatePassed ? <span className="inline-flex items-center gap-1 text-xs font-medium text-emerald-600"><ShieldCheck size={13} /> {t('bscWidgets.passed')}</span>
+                : <span className="inline-flex items-center gap-1 text-xs font-medium text-rose-600" title={r.gateFailedItems ?? ''}><ShieldAlert size={13} /> {t('bscWidgets.failed')}{r.gateFailedItems ? `: ${r.gateFailedItems}` : ''}</span>}
             </td>
             <td className="px-3 py-2.5 text-right text-xs text-slate-500 tabular-nums whitespace-nowrap hidden lg:table-cell">
-              {r.itemCount}{r.assignedCount ? ` · ${r.assignedCount} giao xuống` : ''}
+              {r.itemCount}{r.assignedCount ? t('bscWidgets.assignedDown', { assignedCount: r.assignedCount }) : ''}
             </td>
           </tr>
         ))}
@@ -295,6 +302,7 @@ function UnitTreeTable({ rows }: { rows: BscUnitAttainmentRow[] }) {
 
 /** Thực tế / mục tiêu / sàn của từng chỉ tiêu trên thẻ điểm gốc, nhóm theo màu lĩnh vực. */
 export function BscItemAttainmentWidget({ filter, meta }: { filter?: PinnedFilter; meta?: React.ReactNode }) {
+  const { t } = useTranslation('analytics')
   const scope = useBscScope(filter)
   const { data } = useBscItemAttainment(scope)
   const items = data?.items ?? []
@@ -305,25 +313,25 @@ export function BscItemAttainmentWidget({ filter, meta }: { filter?: PinnedFilte
       {meta}
       <PeriodNote periodName={data?.periodName} resultStatus={data?.resultStatus} hasResult={scored.length > 0} />
       {!data?.scorecardId ? (
-        <EmptyState>Chưa có thẻ điểm cho phạm vi/đợt này.</EmptyState>
+        <EmptyState>{t('bscWidgets.noScorecardForThisScopePeriod')}</EmptyState>
       ) : items.length === 0 ? (
-        <EmptyState>Thẻ điểm {data.scorecardName} chưa có chỉ tiêu nào.</EmptyState>
+        <EmptyState>{t('bscWidgets.scorecard')} {data.scorecardName} {t('bscWidgets.hasNoKpisYet')}</EmptyState>
       ) : scored.length === 0 ? (
-        <EmptyState>Đợt {data.periodName} chưa tính kết quả cho thẻ {data.scorecardName}. Bấm "Tính lại" ở tab Kết quả đợt.</EmptyState>
+        <EmptyState>{t('bscWidgets.aPeriod')} {data.periodName} {t('bscWidgets.resultsNotComputedForScorecard')} {data.scorecardName}{t('bscWidgets.clickRecalculateOnThePeriodResults')}</EmptyState>
       ) : (
         <div className="flex-1 min-h-0 overflow-auto custom-scrollbar">
           <BulletChart
             height={Math.max(200, scored.length * 44 + 60)}
             data={scored.map(i => ({
               id: i.scorecardPerspectiveId,
-              name: i.name + (i.isGate ? ' (chặn)' : ''),
+              name: i.name + (i.isGate ? t('bscWidgets.gate') : ''),
               actual: i.actualValue ?? 0,
               target: i.targetValue ?? 0,
               minimum: i.minimumValue,
               unit: i.unit,
-              subText: [i.fixedPerspectiveName, i.weightPercentage != null ? `trọng số ${i.weightPercentage}%` : null, i.isGate ? `chặn tại ${i.gateMinPercent ?? 70}%` : null].filter(Boolean).join(' · '),
+              subText: [i.fixedPerspectiveName, i.weightPercentage != null ? t('bscWidgets.weight', { weightPercentage: i.weightPercentage }) : null, i.isGate ? t('bscWidgets.gateAt', { value: i.gateMinPercent ?? 70 }) : null].filter(Boolean).join(' · '),
             }))}
-            valueLabel="% đạt so với mục tiêu"
+            valueLabel={t('bscWidgets.achievedVsTarget')}
           />
           <ItemLegend items={scored} />
         </div>
@@ -333,13 +341,14 @@ export function BscItemAttainmentWidget({ filter, meta }: { filter?: PinnedFilte
 }
 
 function ItemLegend({ items }: { items: BscItemRow[] }) {
+  const { t } = useTranslation('analytics')
   const failed = items.filter(i => i.isGate && i.gatePassed === false)
   return (
     <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500">
-      <span className="inline-flex items-center gap-1"><Lock size={11} /> (chặn) = chỉ tiêu chặn: dưới sàn là cả thẻ không qua cửa</span>
+      <span className="inline-flex items-center gap-1"><Lock size={11} /> {t('bscWidgets.gateGateKpiBelowTheFloor')}</span>
       {failed.length > 0 && (
         <span className="inline-flex items-center gap-1 font-medium text-rose-600">
-          <ShieldAlert size={12} /> Không qua cửa: {failed.map(f => f.name).join(', ')}
+          <ShieldAlert size={12} /> {t('bscWidgets.failedTheGate2')} {failed.map(f => f.name).join(', ')}
         </span>
       )}
     </div>
@@ -354,6 +363,7 @@ export function BscAttainmentTrendWidget({ filter, variant = 'overall', meta }: 
   variant?: 'overall' | 'perspectives'
   meta?: React.ReactNode
 }) {
+  const { t } = useTranslation('analytics')
   const scope = useBscScope(filter)
   const { data } = useBscAttainmentTrend(scope)
   const points = useMemo(() => data?.points ?? [], [data?.points])
@@ -370,15 +380,15 @@ export function BscAttainmentTrendWidget({ filter, variant = 'overall', meta }: 
     <div className="flex-1 min-h-0 flex flex-col gap-3">
       {meta}
       {withResult.length < 2 ? (
-        <EmptyState>Cần từ 2 đợt có kết quả BSC trở lên để vẽ xu hướng{withResult.length === 1 ? ` (mới có ${withResult[0]!.label})` : ''}.</EmptyState>
+        <EmptyState>{t('bscWidgets.atLeast2PeriodsWithBsc')}{withResult.length === 1 ? t('bscWidgets.onlySoFar', { label: withResult[0]!.label }) : ''}.</EmptyState>
       ) : (
         <>
           <div className="flex-1 min-h-[220px]">
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={rows} margin={{ top: 8, right: 16, bottom: 30, left: 8 }}>
                 <CartesianGrid stroke="var(--color-border)" vertical={false} />
-                <XAxis dataKey="label" label={xAxisLabel('Đợt')} tick={{ fontSize: 11, fill: AXIS_COLORS.tick }} interval={rows.length > 8 ? Math.ceil(rows.length / 8) - 1 : 0} />
-                <YAxis domain={[0, (max: number) => Math.max(120, Math.ceil(max / 10) * 10)]} label={yAxisLabel('Mức đạt (%)')} tick={{ fontSize: 11, fill: AXIS_COLORS.tick }} width={48} />
+                <XAxis dataKey="label" label={xAxisLabel(t('bscWidgets.aPeriod'))} tick={{ fontSize: 11, fill: AXIS_COLORS.tick }} interval={rows.length > 8 ? Math.ceil(rows.length / 8) - 1 : 0} />
+                <YAxis domain={[0, (max: number) => Math.max(120, Math.ceil(max / 10) * 10)]} label={yAxisLabel(t('bscWidgets.achievement2'))} tick={{ fontSize: 11, fill: AXIS_COLORS.tick }} width={48} />
                 <ReferenceLine y={100} stroke="#94a3b8" strokeDasharray="4 4" label={{ value: 'Mục tiêu', position: 'insideTopRight', fontSize: 10, fill: '#94a3b8' }} />
                 <Tooltip content={<SeriesTooltip unit="%" />} />
                 {byPerspective && (data?.perspectives ?? []).map(ps => (
@@ -396,11 +406,11 @@ export function BscAttainmentTrendWidget({ filter, variant = 'overall', meta }: 
             </ResponsiveContainer>
           </div>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs text-slate-500 shrink-0">
-            <span className="inline-flex items-center gap-1.5"><span className="w-4 h-0.5 bg-[var(--color-primary)]" /> Mức đạt BSC</span>
+            <span className="inline-flex items-center gap-1.5"><span className="w-4 h-0.5 bg-[var(--color-primary)]" /> {t('bscWidgets.bscAchievement2')}</span>
             {byPerspective && (data?.perspectives ?? []).map(ps => (
               <span key={ps.code} className="inline-flex items-center gap-1.5"><span className="w-4 h-0.5" style={{ background: ps.color }} /> {ps.name}</span>
             ))}
-            <span className="inline-flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-rose-500" /> đợt không qua hạng mục chặn</span>
+            <span className="inline-flex items-center gap-1.5"><span className="w-2.5 h-2.5 rounded-full bg-rose-500" /> {t('bscWidgets.periodsFailingGateItems')}</span>
           </div>
         </>
       )}
@@ -410,12 +420,12 @@ export function BscAttainmentTrendWidget({ filter, variant = 'overall', meta }: 
 
 // ── 5. Độ phủ phân rã ─────────────────────────────────────────────────────
 
-const COVERAGE_LABEL: Record<string, { label: string; cls: string; bar: string }> = {
-  OK: { label: 'Đủ', cls: 'bg-[var(--color-success-bg)] text-[var(--color-success)]', bar: '#10b981' },
-  UNDER: { label: 'Thiếu', cls: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]', bar: '#f59e0b' },
-  OVER: { label: 'Vượt', cls: 'bg-[var(--color-info-bg)] text-[var(--color-info)]', bar: '#2563eb' },
-  NOT_CASCADED: { label: 'Chưa phân rã', cls: 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)]', bar: '#94a3b8' },
-}
+const COVERAGE_LABEL = perLanguage((): Record<string, { label: string; cls: string; bar: string }> => ({
+  OK: { label: i18n.t('analytics:bscWidgets.complete'), cls: 'bg-[var(--color-success-bg)] text-[var(--color-success)]', bar: '#10b981' },
+  UNDER: { label: i18n.t('analytics:bscWidgets.short'), cls: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]', bar: '#f59e0b' },
+  OVER: { label: i18n.t('analytics:bscWidgets.over2'), cls: 'bg-[var(--color-info-bg)] text-[var(--color-info)]', bar: '#2563eb' },
+  NOT_CASCADED: { label: i18n.t('analytics:bscWidgets.notCascaded2'), cls: 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)]', bar: '#94a3b8' },
+}))
 
 /**
  * Mỗi chỉ tiêu của thẻ gốc một thanh: phần đã phân rã xuống đơn vị so với mục tiêu. SHARED/SUPPORT
@@ -427,6 +437,7 @@ export function BscCascadeCoverageWidget({ filter, viewControl, hideControls, me
   hideControls?: boolean
   meta?: React.ReactNode
 }) {
+  const { t } = useTranslation('analytics')
   const scope = useBscScope(filter)
   const { data } = useBscCascadeCoverage(scope)
   const { view, setView } = useChartTableView('bsc-cascade', 'chart', viewControl)
@@ -441,17 +452,17 @@ export function BscCascadeCoverageWidget({ filter, viewControl, hideControls, me
         </div>
       )}
       {!data?.scorecardId ? (
-        <EmptyState>Chưa có thẻ điểm cho phạm vi/đợt này.</EmptyState>
+        <EmptyState>{t('bscWidgets.noScorecardForThisScopePeriod')}</EmptyState>
       ) : items.length === 0 ? (
-        <EmptyState>Thẻ điểm {data.scorecardName} chưa có chỉ tiêu nào.</EmptyState>
+        <EmptyState>{t('bscWidgets.scorecard')} {data.scorecardName} {t('bscWidgets.hasNoKpisYet')}</EmptyState>
       ) : (
         <>
           <div className="flex flex-wrap gap-1.5 shrink-0">
             {(['OK', 'UNDER', 'OVER', 'NOT_CASCADED'] as const).map(k => {
               const n = k === 'OK' ? data.okCount : k === 'UNDER' ? data.underCount : k === 'OVER' ? data.overCount : data.notCascadedCount
               return (
-                <span key={k} className={cn('text-xs font-medium px-2 py-0.5 rounded-full', COVERAGE_LABEL[k]!.cls)}>
-                  {COVERAGE_LABEL[k]!.label}: {n}
+                <span key={k} className={cn('text-xs font-medium px-2 py-0.5 rounded-full', COVERAGE_LABEL()[k]!.cls)}>
+                  {COVERAGE_LABEL()[k]!.label}: {n}
                 </span>
               )
             })}
@@ -466,10 +477,11 @@ export function BscCascadeCoverageWidget({ filter, viewControl, hideControls, me
 }
 
 function CoverageBars({ items }: { items: CoverageItemResponse[] }) {
+  const { t } = useTranslation('analytics')
   return (
     <div className="space-y-3">
       {items.map(it => {
-        const meta = COVERAGE_LABEL[it.status] ?? COVERAGE_LABEL.NOT_CASCADED!
+        const meta = COVERAGE_LABEL()[it.status] ?? COVERAGE_LABEL().NOT_CASCADED!
         const target = it.targetValue ?? 0
         const cascaded = it.cascadedValue ?? 0
         const pct = target > 0 ? Math.min(150, (cascaded / target) * 100) : 0
@@ -489,15 +501,15 @@ function CoverageBars({ items }: { items: CoverageItemResponse[] }) {
                   {pct > 100 && <div className="absolute inset-y-0 right-0 w-1 bg-[var(--color-info)]" />}
                 </div>
                 <p className="text-xs text-slate-500 mt-1 tabular-nums">
-                  Đã phân rã {fmt(cascaded)}{it.unit ? ` ${it.unit}` : ''} / mục tiêu {fmt(target)}{it.unit ? ` ${it.unit}` : ''} ({Math.round(pct)}%)
-                  {it.gap != null && it.status !== 'OK' ? ` · ${it.gap > 0 ? 'thiếu' : 'vượt'} ${fmt(Math.abs(it.gap))}` : ''}
-                  {` · ${it.children.length} đơn vị nhận`}
+                  {t('bscWidgets.cascaded')} {fmt(cascaded)}{it.unit ? ` ${it.unit}` : ''} {t('bscWidgets.target2')} {fmt(target)}{it.unit ? ` ${it.unit}` : ''} ({Math.round(pct)}%)
+                  {it.gap != null && it.status !== 'OK' ? ` · ${it.gap > 0 ? t('bscWidgets.under2') : t('bscWidgets.over3')} ${fmt(Math.abs(it.gap))}` : ''}
+                  {t('bscWidgets.receivingUnits', { count: it.children.length })}
                 </p>
               </>
             ) : (
               <p className="text-xs text-slate-500">
-                {it.children.length === 0 ? 'Chưa giao xuống đơn vị nào'
-                  : `Cùng chỉ tiêu cho ${it.children.length} đơn vị (${it.children.map(c => c.orgUnitName).filter(Boolean).slice(0, 4).join(', ')}${it.children.length > 4 ? '…' : ''})`}
+                {it.children.length === 0 ? t('bscWidgets.notAssignedToAnyUnitYet')
+                  : t('bscWidgets.sameKpiForUnits', { count: it.children.length, join: it.children.map(c => c.orgUnitName).filter(Boolean).slice(0, 4).join(', '), value: it.children.length > 4 ? '…' : '' })}
               </p>
             )}
           </div>
@@ -508,20 +520,21 @@ function CoverageBars({ items }: { items: CoverageItemResponse[] }) {
 }
 
 function CoverageTable({ items }: { items: CoverageItemResponse[] }) {
+  const { t } = useTranslation('analytics')
   return (
     <table className="w-full text-left">
       <thead className="bg-[var(--color-muted)] sticky top-0 z-10">
         <tr className="text-xs font-medium text-slate-500">
-          <th className="px-3 py-3">Chỉ tiêu</th>
-          <th className="px-3 py-3 text-right whitespace-nowrap">Mục tiêu</th>
-          <th className="px-3 py-3 text-right whitespace-nowrap">Đã phân rã</th>
-          <th className="px-3 py-3">Đơn vị nhận</th>
-          <th className="px-3 py-3">Tình trạng</th>
+          <th className="px-3 py-3">{t('bscWidgets.kpis')}</th>
+          <th className="px-3 py-3 text-right whitespace-nowrap">{t('bscWidgets.target')}</th>
+          <th className="px-3 py-3 text-right whitespace-nowrap">{t('bscWidgets.cascaded')}</th>
+          <th className="px-3 py-3">{t('bscWidgets.receivingUnit')}</th>
+          <th className="px-3 py-3">{t('bscWidgets.status2')}</th>
         </tr>
       </thead>
       <tbody className="divide-y divide-[var(--color-border)]">
         {items.map(it => {
-          const meta = COVERAGE_LABEL[it.status] ?? COVERAGE_LABEL.NOT_CASCADED!
+          const meta = COVERAGE_LABEL()[it.status] ?? COVERAGE_LABEL().NOT_CASCADED!
           return (
             <tr key={it.scorecardPerspectiveId}>
               <td className="px-3 py-2.5 text-sm font-semibold text-[var(--color-foreground)]">{it.name}</td>
@@ -543,6 +556,7 @@ function CoverageTable({ items }: { items: CoverageItemResponse[] }) {
 
 /** Đơn vị nào đang vướng cửa chặn trong đợt, vướng ở chỉ tiêu nào. */
 export function BscGateWidget({ filter, meta }: { filter?: PinnedFilter; meta?: React.ReactNode }) {
+  const { t } = useTranslation('analytics')
   const scope = useBscScope(filter)
   const { data: rows } = useBscUnitAttainment(scope)
   const { data: overview } = useBscOverview(scope)
@@ -555,9 +569,9 @@ export function BscGateWidget({ filter, meta }: { filter?: PinnedFilter; meta?: 
       {meta}
       <PeriodNote periodName={overview?.periodName} resultStatus={overview?.resultStatus} hasResult={judged.length > 0} />
       {list.length === 0 ? (
-        <EmptyState>Thẻ điểm trong phạm vi này chưa đặt chỉ tiêu chặn nào.</EmptyState>
+        <EmptyState>{t('bscWidgets.scorecardsInThisScopeHaveNo')}</EmptyState>
       ) : judged.length === 0 ? (
-        <EmptyState>Chưa tính kết quả đợt nên chưa biết đơn vị nào qua cửa.</EmptyState>
+        <EmptyState>{t('bscWidgets.periodResultsAreNotComputedYet')}</EmptyState>
       ) : (
         <>
           <div className="flex items-center gap-3 shrink-0">
@@ -567,12 +581,12 @@ export function BscGateWidget({ filter, meta }: { filter?: PinnedFilter; meta?: 
             </div>
             <div>
               <p className="text-2xl font-semibold tabular-nums">{judged.length - failed.length}<span className="text-base text-slate-400">/{judged.length}</span></p>
-              <p className="text-xs font-medium text-slate-500">thẻ điểm qua mọi cửa chặn</p>
+              <p className="text-xs font-medium text-slate-500">{t('bscWidgets.scorecardsPassingEveryGate')}</p>
             </div>
           </div>
           <div className="flex-1 min-h-0 overflow-auto custom-scrollbar">
             {failed.length === 0 ? (
-              <p className="text-sm text-emerald-600 font-medium">Không đơn vị nào vướng cửa chặn trong đợt này.</p>
+              <p className="text-sm text-emerald-600 font-medium">{t('bscWidgets.noUnitIsBlockedByA2')}</p>
             ) : (
               <ul className="divide-y divide-[var(--color-border)]">
                 {failed.map(r => (
@@ -580,7 +594,7 @@ export function BscGateWidget({ filter, meta }: { filter?: PinnedFilter; meta?: 
                     <ShieldAlert size={15} className="text-rose-500 mt-0.5 shrink-0" />
                     <div className="min-w-0">
                       <p className="text-sm font-semibold text-[var(--color-foreground)] truncate">{r.orgUnitName ?? r.name}</p>
-                      <p className="text-xs text-slate-500">Không qua: {r.gateFailedItems || 'chỉ tiêu chặn'} · mức đạt {fmtPct(r.achievementPercent)}</p>
+                      <p className="text-xs text-slate-500">{t('bscWidgets.failed2')} {r.gateFailedItems || t('bscWidgets.gateKpis')} {t('bscWidgets.achievement3')} {fmtPct(r.achievementPercent)}</p>
                     </div>
                   </li>
                 ))}
@@ -606,6 +620,7 @@ export function BscRankingWidget({ filter, sortBy: sortProp, viewControl, hideCo
   hideControls?: boolean
   meta?: React.ReactNode
 }) {
+  const { t } = useTranslation('analytics')
   const scope = useBscScope(filter)
   const [localSort, setSortBy] = useState<'bscScore' | 'systemScore'>('bscScore')
   const sortBy = sortProp ?? localSort
@@ -630,7 +645,7 @@ export function BscRankingWidget({ filter, sortBy: sortProp, viewControl, hideCo
         </div>
       )}
       {!hideControls && <div className="flex items-center gap-0.5 bg-[var(--color-muted)] rounded-control p-0.5 self-start shrink-0">
-        {([['bscScore', 'Điểm BSC'], ['systemScore', 'Điểm hệ thống']] as const).map(([k, lb]) => (
+        {([['bscScore', t('bscWidgets.bscScore')], ['systemScore', t('bscWidgets.systemScore')]] as const).map(([k, lb]) => (
           <ChoiceChip key={k} selected={sortBy === k} variant="segment" size="sm" onClick={() => setSortBy(k)}>
             {lb}
           </ChoiceChip>
@@ -640,7 +655,7 @@ export function BscRankingWidget({ filter, sortBy: sortProp, viewControl, hideCo
       {chartMode ? (
         <div className="flex-1 min-h-0 overflow-auto custom-scrollbar">
           {(ranking?.content?.length ?? 0) === 0 ? (
-            <EmptyState>Không có dữ liệu xếp hạng</EmptyState>
+            <EmptyState>{t('bscWidgets.noRankingData')}</EmptyState>
           ) : (
             <>
               <Lollipop
@@ -650,13 +665,13 @@ export function BscRankingWidget({ filter, sortBy: sortProp, viewControl, hideCo
                   subText: row.email ?? undefined,
                   value: (sortBy === 'bscScore' ? row.bscScore : row.systemScore) ?? 0,
                 }))}
-                unit=" điểm"
-                valueLabel={sortBy === 'bscScore' ? 'Điểm BSC (điểm)' : 'Điểm hệ thống (điểm)'}
+                unit={t('bscWidgets.points')}
+                valueLabel={sortBy === 'bscScore' ? t('bscWidgets.bscScorePoints') : t('bscWidgets.systemScorePoints')}
                 domainMax={100}
               />
               {(ranking?.totalElements ?? 0) > RANK_CHART_TOP_N && (
                 <p className="text-xs text-slate-500 text-center mt-2">
-                  Top {RANK_CHART_TOP_N} trong {ranking?.totalElements} nhân sự. Xem đủ ở chế độ bảng.
+                  {t('bscWidgets.topOfTotal', { n: RANK_CHART_TOP_N, total: ranking?.totalElements })} {t('bscWidgets.peopleSeeAllInTableView')}
                 </p>
               )}
             </>
@@ -668,10 +683,10 @@ export function BscRankingWidget({ filter, sortBy: sortProp, viewControl, hideCo
           <thead className="bg-[var(--color-muted)] sticky top-0 z-10">
             <tr className="text-xs font-medium text-slate-500">
               <th className="px-3 py-3 w-10">#</th>
-              <th className="px-3 py-3">Nhân sự</th>
-              <th className="px-3 py-3 text-right whitespace-nowrap">Điểm BSC</th>
-              <th className="px-3 py-3 text-right whitespace-nowrap">Điểm HT</th>
-              <th className="px-3 py-3 hidden lg:table-cell">Breakdown hạng mục</th>
+              <th className="px-3 py-3">{t('bscWidgets.people')}</th>
+              <th className="px-3 py-3 text-right whitespace-nowrap">{t('bscWidgets.bscScore')}</th>
+              <th className="px-3 py-3 text-right whitespace-nowrap">{t('bscWidgets.systemScore2')}</th>
+              <th className="px-3 py-3 hidden lg:table-cell">{t('bscWidgets.itemBreakdown')}</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-[var(--color-border)]">
@@ -704,7 +719,7 @@ export function BscRankingWidget({ filter, sortBy: sortProp, viewControl, hideCo
               </tr>
             ))}
             {!(ranking?.content?.length) && (
-              <tr><td colSpan={5} className="text-center py-8 text-slate-400 text-sm">Không có dữ liệu xếp hạng</td></tr>
+              <tr><td colSpan={5} className="text-center py-8 text-slate-400 text-sm">{t('bscWidgets.noRankingData')}</td></tr>
             )}
           </tbody>
         </table>
@@ -718,7 +733,7 @@ export function BscRankingWidget({ filter, sortBy: sortProp, viewControl, hideCo
           onPageChange={setPage}
           totalElements={ranking?.totalElements ?? 0}
           size={RANK_PAGE_SIZE}
-          itemLabel="nhân sự"
+          itemLabel={t('bscWidgets.people2')}
         />
       )}
     </div>

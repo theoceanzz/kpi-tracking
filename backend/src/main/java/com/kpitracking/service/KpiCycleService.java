@@ -1,11 +1,14 @@
 package com.kpitracking.service;
 
+import com.kpitracking.exception.BusinessException;
 import com.kpitracking.dto.request.kpi.KpiCycleRequest;
 import com.kpitracking.dto.response.PageResponse;
 import com.kpitracking.dto.response.kpi.KpiCycleResponse;
 import com.kpitracking.entity.KpiCycle;
 import com.kpitracking.entity.Organization;
+import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.ResourceNotFoundException;
+import com.kpitracking.i18n.Terms;
 import com.kpitracking.repository.KpiCycleRepository;
 import com.kpitracking.repository.KpiPeriodRepository;
 import com.kpitracking.repository.OrganizationRepository;
@@ -33,11 +36,19 @@ public class KpiCycleService {
     private final OrganizationRepository organizationRepository;
     private final UserRepository userRepository;
     private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
+    private final com.kpitracking.service.kpi.CycleStatusGuard cycleStatusGuard;
+
+    /**
+     * Luật "kỳ cùng loại không chồng lấn" cho thao tác tạo/sửa MỚI. Tắt được để bật dần trên prod
+     * sau khi đã chạy {@code backend/scripts/check_cycle_overlap.sql} và xử lý dữ liệu cũ.
+     */
+    @org.springframework.beans.factory.annotation.Value("${app.kpi.cycle-overlap-check:true}")
+    private boolean overlapCheckEnabled = true;
 
     private com.kpitracking.entity.User getCurrentUser() {
         String email = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getName();
         return userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("Người dùng", "email", email));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.user"), "email", email));
     }
 
     /** Chỉ cho sắp xếp theo cột đã biết; tên lạ (do client gửi) rơi về mặc định thay vì nổ 500. */
@@ -114,11 +125,13 @@ public class KpiCycleService {
             organizationId = getCurrentUserOrganizationId(getCurrentUser());
         }
         if (organizationId == null) {
-            throw new IllegalArgumentException("Không xác định được tổ chức của kỳ đánh giá");
+            throw new BusinessException(ErrorCode.COULD_NOT_DETERMINE_ORGANIZATION_EVALUATION_CYCLE);
         }
 
         Organization organization = organizationRepository.findById(organizationId)
-                .orElseThrow(() -> new ResourceNotFoundException("Tổ chức", "id", request.getOrganizationId()));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.organization"), "id", request.getOrganizationId()));
+
+        assertNoOverlap(organization.getId(), request.getCycleType(), null, request.getStartDate(), request.getEndDate());
 
         KpiCycle cycle = KpiCycle.builder()
                 .name(request.getName())
@@ -140,7 +153,18 @@ public class KpiCycleService {
         validateDates(request.getStartDate(), request.getEndDate());
 
         KpiCycle cycle = kpiCycleRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Kỳ đánh giá", "id", id));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.evaluationCycle"), "id", id));
+        // Kỳ đã khoá: không sửa thông tin/ngày, không gán thêm/gỡ đợt. Muốn sửa phải mở lại kỳ.
+        cycleStatusGuard.assertWritable(cycle);
+
+        // Chỉ kiểm tra chồng lấn khi ngày/loại thực sự đổi — kỳ cũ đang chồng lấn sẵn vẫn sửa tên được.
+        boolean rangeChanged = !java.util.Objects.equals(cycle.getStartDate(), request.getStartDate())
+                || !java.util.Objects.equals(cycle.getEndDate(), request.getEndDate())
+                || cycle.getCycleType() != request.getCycleType();
+        if (rangeChanged) {
+            assertNoOverlap(cycle.getOrganization().getId(), request.getCycleType(), cycle.getId(),
+                    request.getStartDate(), request.getEndDate());
+        }
 
         cycle.setName(request.getName());
         cycle.setCycleType(request.getCycleType());
@@ -153,7 +177,7 @@ public class KpiCycleService {
 
         if (request.getOrganizationId() != null && !request.getOrganizationId().equals(cycle.getOrganization().getId())) {
             Organization organization = organizationRepository.findById(request.getOrganizationId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Tổ chức", "id", request.getOrganizationId()));
+                    .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.organization"), "id", request.getOrganizationId()));
             cycle.setOrganization(organization);
         }
 
@@ -165,7 +189,8 @@ public class KpiCycleService {
     @Transactional
     public void deleteKpiCycle(UUID id) {
         KpiCycle cycle = kpiCycleRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Kỳ đánh giá", "id", id));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.evaluationCycle"), "id", id));
+        cycleStatusGuard.assertWritable(cycle);
         // Gỡ liên kết các đợt trước khi xoá mềm để tránh tham chiếu treo.
         kpiPeriodRepository.detachFromCycle(id);
         cycle.setDeletedAt(Instant.now());
@@ -193,14 +218,18 @@ public class KpiCycleService {
 
         for (UUID periodId : wanted) {
             com.kpitracking.entity.KpiPeriod period = kpiPeriodRepository.findById(periodId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Đợt KPI", "id", periodId));
+                    .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.kpiPeriod"), "id", periodId));
+            // Đợt đang thuộc một kỳ đã khoá thì không kéo sang kỳ khác được (chuyển đợt khi khoá
+            // kỳ đi qua thủ tục khoá, không qua đây).
+            if (period.getKpiCycle() != null && !period.getKpiCycle().getId().equals(cycle.getId())) {
+                cycleStatusGuard.assertWritable(period.getKpiCycle());
+            }
 
             // BusinessException chứ không IllegalArgumentException: đây là lỗi nghiệp vụ
             // người dùng sửa được, ném IllegalArgument thì rơi vào handler chung và họ chỉ
             // nhận được "Đã xảy ra lỗi không xác định" trong khi câu giải thích đã có sẵn.
             if (!period.getOrganization().getId().equals(cycle.getOrganization().getId())) {
-                throw new com.kpitracking.exception.BusinessException(
-                        "Đợt \"" + period.getName() + "\" không thuộc tổ chức của kỳ");
+                throw new BusinessException(ErrorCode.PERIOD_OUTSIDE_CYCLE_ORGANIZATION, period.getName());
             }
 
             Instant cycleStart = cycle.getStartDate();
@@ -208,8 +237,7 @@ public class KpiCycleService {
             if (cycleStart != null && cycleEnd != null
                     && period.getStartDate() != null && period.getEndDate() != null
                     && (period.getStartDate().isBefore(cycleStart) || period.getEndDate().isAfter(cycleEnd))) {
-                throw new com.kpitracking.exception.BusinessException(
-                        "Thời gian đợt \"" + period.getName() + "\" phải nằm trong thời gian của kỳ \"" + cycle.getName() + "\"");
+                throw new BusinessException(ErrorCode.DATES_PERIOD_MUST_WITHIN_DATES_CYCLE, period.getName(), cycle.getName());
             }
 
             period.setKpiCycle(cycle);
@@ -232,20 +260,33 @@ public class KpiCycleService {
                     : com.kpitracking.enums.CycleEvaluationMode.QUANTITATIVE;
         }
         if (!qualitativeEnabled && requested != com.kpitracking.enums.CycleEvaluationMode.QUANTITATIVE) {
-            throw new IllegalArgumentException(
-                    "Tổ chức chưa bật KPI định tính nên kỳ chỉ có thể đánh giá theo Định lượng");
+            throw new BusinessException(ErrorCode.ORGANIZATION_NOT_ENABLED_QUALITATIVE_KPIS_CYCLE_CAN);
         }
         return requested;
+    }
+
+    /** Kỳ cùng tổ chức + cùng loại không được có khoảng thời gian giao nhau. */
+    private void assertNoOverlap(UUID orgId, com.kpitracking.enums.KpiFrequency type, UUID excludeId,
+                                 Instant start, Instant end) {
+        if (!overlapCheckEnabled || start == null || end == null || type == null) return;
+        java.util.List<KpiCycle> overlaps = kpiCycleRepository.findOverlapping(
+                orgId, type, excludeId != null ? excludeId : new UUID(0L, 0L), start, end);
+        if (!overlaps.isEmpty()) {
+            KpiCycle o = overlaps.get(0);
+            java.time.format.DateTimeFormatter f = java.time.format.DateTimeFormatter.ofPattern("dd/MM/yyyy")
+                    .withZone(java.time.ZoneId.of("Asia/Ho_Chi_Minh"));
+            throw new BusinessException(ErrorCode.CYCLE_DATES_OVERLAP_CYCLE_SAME_TYPE, o.getName(), String.valueOf(f.format(o.getStartDate())), String.valueOf(f.format(o.getEndDate())));
+        }
     }
 
     private void validateDates(Instant start, Instant end) {
         if (start == null || end == null) return;
         if (!end.isAfter(start)) {
-            throw new IllegalArgumentException("Thời gian kết thúc phải sau thời gian bắt đầu");
+            throw new BusinessException(ErrorCode.END_TIME_MUST_AFTER_START_TIME);
         }
     }
 
-    private KpiCycleResponse toResponse(KpiCycle cycle) {
+    public KpiCycleResponse toResponse(KpiCycle cycle) {
         return KpiCycleResponse.builder()
                 .id(cycle.getId())
                 .name(cycle.getName())
@@ -256,6 +297,12 @@ public class KpiCycleService {
                 .evaluationMode(cycle.getEvaluationMode())
                 .organizationId(cycle.getOrganization().getId())
                 .periodCount(kpiCycleRepository.countPeriods(cycle.getId()))
+                .status(cycle.getStatus())
+                .lockedAt(cycle.getLockedAt())
+                .lockedByName(cycle.getLockedBy() != null ? cycle.getLockedBy().getFullName() : null)
+                .reopenedAt(cycle.getReopenedAt())
+                .reopenedByName(cycle.getReopenedBy() != null ? cycle.getReopenedBy().getFullName() : null)
+                .reopenReason(cycle.getReopenReason())
                 .build();
     }
 }

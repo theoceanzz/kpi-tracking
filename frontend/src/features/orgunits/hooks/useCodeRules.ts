@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { useAuthStore } from '@/store/authStore'
 import { codeRuleApi, type CodeType, type UpdateCodeRuleRequest } from '../api/codeRuleApi'
+import { useTranslation } from 'react-i18next'
 
 /** Quy tắc sinh mã của tổ chức (Mục tiêu, KR, hạng mục BSC). */
 export function useCodeRules(organizationId?: string) {
@@ -40,6 +41,7 @@ export function useCodeRule(codeType: CodeType, organizationId?: string) {
 }
 
 export function useUpdateCodeRules(organizationId?: string) {
+  const { t } = useTranslation('orgunits')
   const { user } = useAuthStore()
   const orgId = organizationId ?? user?.memberships?.[0]?.organizationId
   const queryClient = useQueryClient()
@@ -48,11 +50,11 @@ export function useUpdateCodeRules(organizationId?: string) {
     mutationFn: (rules: UpdateCodeRuleRequest[]) => codeRuleApi.update(orgId!, rules),
     onSuccess: data => {
       queryClient.setQueryData(['org-code-rules', orgId], data)
-      toast.success('Đã lưu quy tắc sinh mã')
+      toast.success(t('useCodeRules.codeGenerationRulesSaved'))
     },
     onError: (error: unknown) => {
       const message = (error as { response?: { data?: { message?: string } } })?.response?.data?.message
-      toast.error(message || 'Lưu quy tắc sinh mã thất bại')
+      toast.error(message || t('useCodeRules.failedToSaveTheCodeGeneration'))
     },
   })
 }

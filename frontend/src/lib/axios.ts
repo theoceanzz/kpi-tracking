@@ -1,6 +1,7 @@
 import axios from 'axios'
 import { ENV } from '@/config/env'
 import { useAuthStore } from '@/store/authStore'
+import { useLanguageStore } from '@/store/languageStore'
 
 export const XSRF_COOKIE_NAME = 'kg_csrf'
 
@@ -45,6 +46,8 @@ function dropStaleHostOnlyCsrfCookie() {
 
 axiosInstance.interceptors.request.use((config) => {
   dropStaleHostOnlyCsrfCookie()
+  // Backend dịch lỗi và nội dung theo header này (docs/I18N_DESIGN.md §6).
+  config.headers.set('Accept-Language', useLanguageStore.getState().language)
   return config
 })
 

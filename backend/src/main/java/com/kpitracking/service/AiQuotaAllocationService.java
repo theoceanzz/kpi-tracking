@@ -1,12 +1,15 @@
 package com.kpitracking.service;
 
+import com.kpitracking.i18n.ErrorMessages;
 import com.kpitracking.dto.response.PageResponse;
 import com.kpitracking.dto.response.ai.AiQuotaAllocationResponse;
 import com.kpitracking.dto.response.ai.AiQuotaOverviewResponse;
 import com.kpitracking.entity.*;
 import com.kpitracking.exception.BusinessException;
+import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.ForbiddenException;
 import com.kpitracking.exception.ResourceNotFoundException;
+import com.kpitracking.i18n.Terms;
 import com.kpitracking.repository.*;
 import com.kpitracking.security.PermissionChecker;
 import lombok.RequiredArgsConstructor;
@@ -187,14 +190,14 @@ public class AiQuotaAllocationService {
 
     @Transactional
     public void setUserLimit(UUID targetUserId, long newLimit) {
-        if (newLimit < 0) throw new BusinessException("Hạn mức không được là số âm.");
+        if (newLimit < 0) throw new BusinessException(ErrorCode.QUOTA_CANNOT_NEGATIVE);
 
         User me = currentUser();
         Organization org = organizationOf(me.getId());
         requireCanAllocate(me, org);
 
         User target = userRepository.findById(targetUserId)
-                .orElseThrow(() -> new ResourceNotFoundException("Người dùng", "id", targetUserId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.user"), "id", targetUserId));
 
         boolean isTopManager = permissionChecker.isGlobalAdmin(me.getId());
 
@@ -215,13 +218,7 @@ public class AiQuotaAllocationService {
         boolean takeover = quota != null && oldLimit > 0
                 && !Objects.equals(currentFunder, myAllocator);
         if (takeover && !canOverride(me, currentFunder, isTopManager)) {
-            throw new BusinessException(currentFunder == null
-                    ? "Hạn mức của người này được cấp thẳng từ ngân sách công ty. "
-                            + "Chỉ quản lý cấp cao nhất mới thay đổi được."
-                    : String.format(
-                            "Hạn mức của người này do %s cấp. Bạn không phải cấp trên của "
-                                    + "%s nên không thay đổi được.",
-                            funderName(currentFunder), funderName(currentFunder)));
+            throw (currentFunder == null ? new BusinessException(ErrorCode.PERSON_QUOTA_GRANTED_DIRECTLY_COMPANY_BUDGET) : new BusinessException(ErrorCode.PERSON_QUOTA_GRANTED, String.valueOf(funderName(currentFunder)), String.valueOf(funderName(currentFunder))));
         }
 
         // Hạ xuống dưới phần chính người đó đã chia cho cấp dưới là làm hỏng bất biến (2). Không
@@ -229,10 +226,7 @@ public class AiQuotaAllocationService {
         // phần đã chia đi.
         long theyAllocatedAway = quotaRepository.sumAllocatedBy(targetUserId);
         if (newLimit < theyAllocatedAway) {
-            throw new BusinessException(String.format(
-                    "Không thể đặt %s token: %s đã chia %s token cho cấp dưới. "
-                            + "Hãy thu hồi bớt phần đã chia trước.",
-                    num(newLimit), target.getFullName(), num(theyAllocatedAway)));
+            throw new BusinessException(ErrorCode.CANNOT_SET_TOKENS, String.valueOf(num(newLimit)), target.getFullName(), String.valueOf(num(theyAllocatedAway)));
         }
 
         // Sửa phần vốn đã của mình thì chỉ khoản tăng thêm mới tốn ngân sách. Giành lấy phần của
@@ -284,27 +278,23 @@ public class AiQuotaAllocationService {
     }
 
     private String funderName(UUID funderId) {
-        if (funderId == null) return "ngân sách công ty";
-        return userRepository.findById(funderId).map(User::getFullName).orElse("người khác");
+        if (funderId == null) return ErrorMessages.text("ai.allocation.companyBudget", "");
+        return userRepository.findById(funderId).map(User::getFullName).orElse(ErrorMessages.text("ai.allocation.someoneElse", ""));
     }
 
     /** Thông báo hết ngân sách phải chỉ ra được việc cần làm, nếu không người dùng sẽ bế tắc. */
     private String insufficientPoolMessage(User target, long charge, long remaining,
                                            boolean isTopManager, boolean takeover, UUID currentFunder) {
-        String pool = isTopManager ? "Ngân sách công ty" : "Hạn mức của bạn";
-        StringBuilder msg = new StringBuilder(String.format(
-                "%s chỉ còn %s token, không đủ %s token để cấp cho %s. ",
-                pool, num(remaining), num(charge), target.getFullName()));
+        String pool = isTopManager ? ErrorMessages.text("ai.allocation.companyBudgetCapital", "") : ErrorMessages.text("ai.allocation.yourQuota", "");
+        StringBuilder msg = new StringBuilder(ErrorMessages.text("ai.allocation.insufficient", "",
+                pool, remaining, charge, target.getFullName()));
 
         if (takeover) {
             // Giành lấy tính trọn hạn mức mới chứ không tính phần chênh, nên rất dễ chạm trần.
             // Người cấp cũ chính là chỗ nên thu hồi trước.
-            msg.append(String.format(
-                    "Hạn mức này đang do %s cấp và sẽ chuyển sang bạn cấp, nên tính trọn %s token. "
-                            + "Hãy hạ hạn mức của %s để giải phóng ngân sách trước.",
-                    funderName(currentFunder), num(charge), funderName(currentFunder)));
+            msg.append(ErrorMessages.text("ai.allocation.takeover", "", funderName(currentFunder), charge));
         } else {
-            msg.append("Hãy hạ hạn mức của người khác để giải phóng ngân sách trước.");
+            msg.append(ErrorMessages.text("ai.allocation.lowerOthers", ""));
         }
         return msg.toString();
     }
@@ -313,7 +303,7 @@ public class AiQuotaAllocationService {
     public void setSubDelegation(boolean enabled) {
         User me = currentUser();
         if (!permissionChecker.isGlobalAdmin(me.getId())) {
-            throw new ForbiddenException("Chỉ quản lý cấp cao nhất mới bật/tắt được quyền phân bổ của cấp dưới.");
+            throw new ForbiddenException(ErrorCode.ONLY_TOP_LEVEL_MANAGER_CAN_TURN_SUBORDINATES);
         }
         Organization org = organizationOf(me.getId());
         org.setAiAllowSubDelegation(enabled);
@@ -340,7 +330,7 @@ public class AiQuotaAllocationService {
 
     private void requireCanAllocate(User me, Organization org) {
         if (!canAllocate(me, org)) {
-            throw new ForbiddenException("Bạn không có quyền phân bổ hạn mức token AI.");
+            throw new ForbiddenException(ErrorCode.NO_PERMISSION_ALLOCATE_AI_TOKEN_QUOTAS);
         }
     }
 
@@ -351,20 +341,20 @@ public class AiQuotaAllocationService {
     private void requireTargetInScope(User me, User target, Organization org, boolean isTopManager) {
         List<UserRoleOrgUnit> targetAssignments = userRoleOrgUnitRepository.findByUserId(target.getId());
         if (targetAssignments.isEmpty()) {
-            throw new BusinessException("Người dùng này chưa thuộc đơn vị nào.");
+            throw new BusinessException(ErrorCode.USER_OUTSIDE_UNIT);
         }
 
         boolean sameOrg = targetAssignments.stream().anyMatch(a ->
                 a.getOrgUnit().getOrgHierarchyLevel().getOrganization().getId().equals(org.getId()));
         if (!sameOrg) {
-            throw new ForbiddenException("Người dùng này không thuộc tổ chức của bạn.");
+            throw new ForbiddenException(ErrorCode.USER_OUTSIDE_ORGANIZATION);
         }
         if (isTopManager) return;
 
         boolean inSubtree = targetAssignments.stream()
                 .anyMatch(a -> startsWithAny(a.getOrgUnit().getPath(), managedPaths(me)));
         if (!inSubtree) {
-            throw new ForbiddenException("Người dùng này không thuộc phạm vi quản lý của bạn.");
+            throw new ForbiddenException(ErrorCode.USER_OUTSIDE_MANAGEMENT_SCOPE);
         }
     }
 
@@ -421,13 +411,13 @@ public class AiQuotaAllocationService {
     private User currentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         return userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("Người dùng", "email", email));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.user"), "email", email));
     }
 
     private Organization organizationOf(UUID userId) {
         List<UserRoleOrgUnit> assignments = userRoleOrgUnitRepository.findByUserId(userId);
         if (assignments.isEmpty()) {
-            throw new ForbiddenException("Bạn không thuộc tổ chức nào.");
+            throw new ForbiddenException(ErrorCode.DO_NOT_BELONG_ORGANIZATION);
         }
         return assignments.get(0).getOrgUnit().getOrgHierarchyLevel().getOrganization();
     }

@@ -6,6 +6,9 @@ import com.kpitracking.dto.response.ApiResponse;
 import com.kpitracking.dto.response.PageResponse;
 import com.kpitracking.dto.response.user.UserResponse;
 import com.kpitracking.dto.response.user.ImportUserResponse;
+import com.kpitracking.dto.request.user.UpdateUserPreferencesRequest;
+import com.kpitracking.dto.response.auth.UserInfoResponse;
+import com.kpitracking.service.UserPreferenceService;
 import com.kpitracking.service.UserService;
 import org.springframework.http.MediaType;
 import org.springframework.web.multipart.MultipartFile;
@@ -27,6 +30,15 @@ import java.util.UUID;
 public class UserController {
 
     private final UserService userService;
+    private final UserPreferenceService userPreferenceService;
+
+    /** Không cần quyền riêng: chỉ sửa tuỳ chọn của chính người đang đăng nhập. */
+    @PatchMapping("/me/preferences")
+    @Operation(summary = "Update the current user's preferences (language)")
+    public ResponseEntity<ApiResponse<UserInfoResponse>> updateMyPreferences(
+            @RequestBody UpdateUserPreferencesRequest request) {
+        return ResponseEntity.ok(ApiResponse.success(userPreferenceService.updatePreferences(request)));
+    }
 
     @PostMapping
     @PreAuthorize("hasAuthority('USER:CREATE')")

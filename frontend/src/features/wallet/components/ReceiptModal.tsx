@@ -6,6 +6,7 @@ import { Dialog } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { walletApi } from '../api/walletApi'
 import { getApiErrorMessage } from '@/lib/apiError'
+import { useTranslation } from 'react-i18next'
 
 interface ReceiptModalProps {
   /** Đơn nạp cần xem biên nhận. */
@@ -21,6 +22,7 @@ interface ReceiptModalProps {
  * giống hệt nhau trên email và trên màn hình, và hai nơi cùng dựng là hai nơi có thể lệch.
  */
 export default function ReceiptModal({ orderId, onClose }: ReceiptModalProps) {
+  const { t } = useTranslation('wallet')
   const { data, isLoading, error } = useQuery({
     queryKey: ['topup-receipt', orderId],
     queryFn: () => walletApi.getTopupReceipt(orderId),
@@ -61,8 +63,8 @@ export default function ReceiptModal({ orderId, onClose }: ReceiptModalProps) {
       open
       onClose={onClose}
       size="lg"
-      title="Biên nhận thu tiền"
-      description={data ? `Số ${data.number}` : undefined}
+      title={t('ReceiptModal.paymentReceipt')}
+      description={data ? t('ReceiptModal.no', { number: data.number }) : undefined}
       headerExtra={data && (
         <Button variant="outline" size="sm" onClick={print}>
           <Printer aria-hidden="true" />
@@ -73,7 +75,7 @@ export default function ReceiptModal({ orderId, onClose }: ReceiptModalProps) {
       {isLoading && (
         <div className="flex items-center justify-center gap-2 py-12 text-sm text-[var(--color-muted-foreground)]">
           <Loader2 size={16} className="animate-spin" />
-          Đang tải chứng từ…
+          {t('ReceiptModal.loadingDocument')}
         </div>
       )}
 
@@ -83,7 +85,7 @@ export default function ReceiptModal({ orderId, onClose }: ReceiptModalProps) {
         <p className="rounded-card bg-[var(--color-warning-bg)] px-4 py-3 text-sm text-[var(--color-warning)]">
           {getApiErrorMessage(
             error,
-            'Đơn nạp này chưa có biên nhận. Có thể tiền về trước khi đơn vị bật tính năng biên nhận, hoặc đơn vị đã tắt gửi chứng từ.',
+            t('ReceiptModal.thisTopUpOrderHasNo'),
           )}
         </p>
       )}

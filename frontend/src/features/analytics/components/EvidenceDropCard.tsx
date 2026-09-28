@@ -6,6 +6,7 @@ import { cn } from '@/lib/utils'
 import type { FormFileSink } from '@/store/formAssistStore'
 import { usePinnedFilesStore } from '@/store/pinnedFilesStore'
 import { screenEvidence } from '@/lib/attachmentPolicy'
+import { useTranslation } from 'react-i18next'
 
 interface EvidenceDropCardProps {
   /** Chỗ nhận tệp của form đang mở. Vắng = chưa mở form nào nhận tệp. */
@@ -24,6 +25,7 @@ interface EvidenceDropCardProps {
  * cũng chẳng có chỗ nào để đi.
  */
 export default function EvidenceDropCard({ sink, disabled }: EvidenceDropCardProps) {
+  const { t } = useTranslation('analytics')
   const pin = usePinnedFilesStore(s => s.pin)
   const pinned = usePinnedFilesStore(s => s.files)
   // Trần tính CẢ tệp đang ghim lẫn tệp đã đính trên form — hai nguồn cùng chảy về một mục.
@@ -56,9 +58,9 @@ export default function EvidenceDropCard({ sink, disabled }: EvidenceDropCardPro
     return (
       <div className="mt-3 rounded-card border border-[var(--color-border)] px-4 py-4 text-center">
         <FolderOpen size={18} className="mx-auto mb-2 text-[var(--color-subtle-foreground)]" />
-        <p className="text-sm font-medium text-[var(--color-muted-foreground)]">Chưa mở biểu mẫu nào nhận tệp</p>
+        <p className="text-sm font-medium text-[var(--color-muted-foreground)]">{t('EvidenceDropCard.noOpenFormAcceptsFiles')}</p>
         <p className="mt-1 text-caption">
-          Ghim tệp vẫn được, nhưng phải mở màn hình Gửi báo cáo KPI thì mới đính vào đâu đó được.
+          {t('EvidenceDropCard.youCanStillPinFilesBut')}
         </p>
       </div>
     )
@@ -88,14 +90,14 @@ export default function EvidenceDropCard({ sink, disabled }: EvidenceDropCardPro
       </div>
       <p className="text-sm font-medium text-[var(--color-ai)]">
         {full
-          ? `Đã đủ ${sink?.maxFiles} tệp`
+          ? t('EvidenceDropCard.reachedFiles', { maxFiles: sink?.maxFiles })
           : isDragActive
-            ? 'Thả tệp vào đây'
-            : 'Kéo thả tệp vào đây để ghim'}
+            ? t('EvidenceDropCard.dropFilesHere')
+            : t('EvidenceDropCard.dragAndDropFilesHereTo')}
       </p>
       {!full && (
         <p className="text-eyebrow mt-1">
-          {sink?.hint ?? 'Ảnh, PDF, Word, Excel'}
+          {sink?.hint ?? t('EvidenceDropCard.imagesPdfWordExcel')}
         </p>
       )}
     </div>

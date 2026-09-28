@@ -1,5 +1,6 @@
 import WorkspaceHeader from '@/components/common/WorkspaceHeader'
 import AiQuotaPanel from '../components/AiQuotaPanel'
+import { useTranslation } from 'react-i18next'
 
 /**
  * Trang phân bổ hạn mức token AI.
@@ -9,11 +10,12 @@ import AiQuotaPanel from '../components/AiQuotaPanel'
  * USER:VIEW + ROLE:VIEW mà trưởng đơn vị không có.
  */
 export default function AiQuotaPage() {
+  const { t } = useTranslation('organization')
   return (
     <div className="space-y-5">
       <WorkspaceHeader
-        title="Hạn mức AI"
-        description="Chia hạn mức token AI hằng tháng cho nhân sự thuộc phạm vi quản lý của bạn."
+        title={t('AiQuotaPage.aiQuota')}
+        description={t('AiQuotaPage.allocateTheMonthlyAiTokenQuota')}
       />
 
       <AiQuotaPanel />

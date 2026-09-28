@@ -1,3 +1,4 @@
+import { intlLocale } from '@/i18n/format'
 import { useEffect, useLayoutEffect, useRef, useState } from 'react'
 
 /**
@@ -17,7 +18,7 @@ interface NumberInputProps {
   maxDigits?: number
 }
 
-const format = (n: number) => n.toLocaleString('vi-VN')
+const format = (n: number) => n.toLocaleString(intlLocale())
 const digitsOf = (s: string) => s.replace(/\D/g, '')
 
 /** Vị trí ký tự nằm ngay sau chữ số thứ n trong chuỗi đã định dạng. */

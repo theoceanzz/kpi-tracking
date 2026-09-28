@@ -8,6 +8,7 @@ import {
   type ConductSetInput,
   type ConductTarget,
 } from '../api/conductApi'
+import { useTranslation } from 'react-i18next'
 
 /** Đợt/kỳ đã chọn đủ để gọi API chưa — chưa chọn thì mọi query nằm im. */
 export const isTargetReady = (t: ConductTarget) =>
@@ -28,6 +29,7 @@ export function useConductConfig(organizationId?: string) {
  * vì invalidate rồi tải lại — nếu không, thẻ vừa sửa sẽ nháy về số cũ một nhịp.
  */
 export function useConductSets(organizationId?: string) {
+  const { t } = useTranslation('conduct')
   const qc = useQueryClient()
   const key = ['conduct', 'config', organizationId]
 
@@ -44,33 +46,33 @@ export function useConductSets(organizationId?: string) {
 
   const create = useMutation({
     mutationFn: (data: ConductSetInput) => conductApi.createSet(organizationId!, data),
-    onSuccess: onDone('Đã tạo bộ tiêu chí'),
-    onError: onFail('Không thể tạo bộ tiêu chí'),
+    onSuccess: onDone(t('useConduct.criteriaSetCreated')),
+    onError: onFail(t('useConduct.couldNotCreateTheCriteriaSet')),
   })
 
   const update = useMutation({
     mutationFn: ({ setId, data }: { setId: string; data: ConductSetInput }) =>
       conductApi.updateSet(organizationId!, setId, data),
-    onSuccess: onDone('Đã lưu bộ tiêu chí hạnh kiểm'),
-    onError: onFail('Không thể lưu bộ tiêu chí hạnh kiểm'),
+    onSuccess: onDone(t('useConduct.conductCriteriaSetSaved')),
+    onError: onFail(t('useConduct.couldNotSaveTheConductCriteria')),
   })
 
   const remove = useMutation({
     mutationFn: (setId: string) => conductApi.deleteSet(organizationId!, setId),
-    onSuccess: onDone('Đã xoá bộ tiêu chí'),
-    onError: onFail('Không thể xoá bộ tiêu chí'),
+    onSuccess: onDone(t('useConduct.criteriaSetDeleted')),
+    onError: onFail(t('useConduct.couldNotDeleteTheCriteriaSet')),
   })
 
   const markDefault = useMutation({
     mutationFn: (setId: string) => conductApi.markDefaultSet(organizationId!, setId),
-    onSuccess: onDone('Đã đặt bộ mặc định'),
-    onError: onFail('Không thể đặt bộ mặc định'),
+    onSuccess: onDone(t('useConduct.defaultSetUpdated')),
+    onError: onFail(t('useConduct.couldNotSetTheDefaultSet')),
   })
 
   const reset = useMutation({
     mutationFn: (setId?: string) => conductApi.resetSet(organizationId!, setId),
-    onSuccess: onDone('Đã đặt lại bộ tiêu chí mặc định'),
-    onError: onFail('Không thể đặt lại bộ tiêu chí'),
+    onSuccess: onDone(t('useConduct.resetTheDefaultCriteriaSet')),
+    onError: onFail(t('useConduct.couldNotResetTheCriteriaSet')),
   })
 
   return {
@@ -94,6 +96,7 @@ export function useConductSets(organizationId?: string) {
  * nhập, cột CBQLTT do quản lý nhập — server cũng chặn theo đúng ranh giới đó.
  */
 export function useConductSheet(target: ConductTarget, userId?: string) {
+  const { t } = useTranslation('conduct')
   const qc = useQueryClient()
   const enabled = isTargetReady(target)
   const key = ['conduct', 'sheet', ...targetKey(target), userId ?? 'me']
@@ -118,9 +121,9 @@ export function useConductSheet(target: ConductTarget, userId?: string) {
     mutationFn: (items: ConductScoreInput[]) => conductApi.saveSelf(target, items),
     onSuccess: () => {
       invalidate()
-      toast.success('Đã lưu phần tự đánh giá')
+      toast.success(t('useConduct.selfAssessmentSaved'))
     },
-    onError: (e: any) => toast.error(getApiErrorMessage(e, 'Không thể lưu phần tự đánh giá')),
+    onError: (e: any) => toast.error(getApiErrorMessage(e, t('useConduct.couldNotSaveTheSelfAssessment'))),
   })
 
   const saveManager = useMutation({
@@ -128,9 +131,9 @@ export function useConductSheet(target: ConductTarget, userId?: string) {
       conductApi.saveManager(target, userId!, items, comment),
     onSuccess: () => {
       invalidate()
-      toast.success('Đã lưu điểm hạnh kiểm')
+      toast.success(t('useConduct.conductScoreSaved'))
     },
-    onError: (e: any) => toast.error(getApiErrorMessage(e, 'Không thể lưu điểm hạnh kiểm')),
+    onError: (e: any) => toast.error(getApiErrorMessage(e, t('useConduct.couldNotSaveTheConductScore'))),
   })
 
   return {

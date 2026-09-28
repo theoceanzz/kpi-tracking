@@ -1,3 +1,4 @@
+import { intlDateLocale } from '@/i18n/format'
 import { useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -15,8 +16,12 @@ import { useDatasources } from '../hooks/useDatasources'
 import { useCreateDatasource, useDeleteDatasource } from '../hooks/useDatasourceMutations'
 import { createDatasourceSchema, type CreateDatasourceFormData } from '../schemas/datasourceSchema'
 import type { Datasource } from '@/types/datasource'
+import { useTranslation } from 'react-i18next'
+import { useFormDraft } from '@/hooks/useFormDraft'
+import DraftNotice from '@/components/common/DraftNotice'
 
 export default function DatasourcesPage() {
+  const { t } = useTranslation('datasources')
   const navigate = useNavigate()
   const [page, setPage] = useState(0)
   const [showCreate, setShowCreate] = useState(false)
@@ -31,10 +36,12 @@ export default function DatasourcesPage() {
     ds.name.toLowerCase().includes(search.toLowerCase())
   ) || []
 
-  const { register, handleSubmit, reset, formState: { errors } } = useForm<CreateDatasourceFormData>({
-    resolver: zodResolver(createDatasourceSchema),
+  const formApi = useForm<CreateDatasourceFormData>({
+    resolver: zodResolver(createDatasourceSchema()),
     defaultValues: { name: '', description: '' },
   })
+  const { register, handleSubmit, reset, formState: { errors } } = formApi
+  const draft = useFormDraft(formApi, { key: 'datasource:new', enabled: showCreate })
 
   const handleCreate = handleSubmit((data) => {
     createMutation.mutate({ name: data.name, description: data.description || undefined }, {
@@ -47,13 +54,13 @@ export default function DatasourcesPage() {
   return (
     <div className="mx-auto max-w-[1600px] space-y-4">
       <WorkspaceHeader
-        title="Nguồn dữ liệu"
-        description="Bảng dữ liệu nhập tay như Excel, dùng làm nguồn cho báo cáo thống kê."
-        stats={[{ label: 'Nguồn dữ liệu', value: data?.totalElements ?? 0, icon: Database }]}
-        actions={<Button onClick={() => setShowCreate(true)}><Plus aria-hidden="true" /> Tạo nguồn dữ liệu</Button>}
+        title={t('DatasourcesPage.dataSources')}
+        description={t('DatasourcesPage.manuallyEnteredTablesLikeExcelUsed')}
+        stats={[{ label: t('DatasourcesPage.dataSources'), value: data?.totalElements ?? 0, icon: Database }]}
+        actions={<Button onClick={() => setShowCreate(true)}><Plus aria-hidden="true" /> {t('DatasourcesPage.createDataSource')}</Button>}
       />
 
-      <FilterBar search={{ value: search, onChange: setSearch, placeholder: 'Tìm nguồn dữ liệu…' }} />
+      <FilterBar search={{ value: search, onChange: setSearch, placeholder: t('DatasourcesPage.searchDataSources') }} />
 
       {isLoading ? (
         <div className="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
@@ -63,9 +70,9 @@ export default function DatasourcesPage() {
         <div className="rounded-card border border-dashed border-[var(--color-border)] bg-[var(--color-card)]">
           <EmptyState
             icon={Database}
-            title={search ? 'Không tìm thấy nguồn dữ liệu' : 'Chưa có nguồn dữ liệu nào'}
-            description={search ? 'Thử từ khoá khác hoặc xoá tìm kiếm.' : 'Tạo nguồn dữ liệu đầu tiên rồi thêm cột và nhập liệu.'}
-            action={!search ? <Button onClick={() => setShowCreate(true)}><Plus aria-hidden="true" /> Tạo nguồn dữ liệu</Button> : undefined}
+            title={search ? t('DatasourcesPage.noDataSourceFound') : t('DatasourcesPage.noDataSourcesYet')}
+            description={search ? t('DatasourcesPage.tryAnotherKeywordOrClearThe') : t('DatasourcesPage.createTheFirstDataSourceThen')}
+            action={!search ? <Button onClick={() => setShowCreate(true)}><Plus aria-hidden="true" /> {t('DatasourcesPage.createDataSource')}</Button> : undefined}
           />
         </div>
       ) : (
@@ -76,13 +83,13 @@ export default function DatasourcesPage() {
               leading={ds.icon ? <span className="text-lg">{ds.icon}</span> : getTypeIcon(ds)}
               title={ds.name}
               description={ds.description}
-              meta={<><span className="flex items-center gap-1"><Table2 size={12} aria-hidden="true" /> {ds.columns?.length || 0} cột</span><span className="flex items-center gap-1"><BarChart3 size={12} aria-hidden="true" /> {ds.rowCount} hàng</span></>}
+              meta={<><span className="flex items-center gap-1"><Table2 size={12} aria-hidden="true" /> {ds.columns?.length || 0} {t('DatasourcesPage.columns')}</span><span className="flex items-center gap-1"><BarChart3 size={12} aria-hidden="true" /> {ds.rowCount} {t('DatasourcesPage.rows')}</span></>}
               footerLeft={ds.orgUnitName}
-              footerRight={new Date(ds.createdAt).toLocaleDateString('vi-VN')}
+              footerRight={new Date(ds.createdAt).toLocaleDateString(intlDateLocale())}
               onOpen={() => navigate(`/datasources/${ds.id}`)}
               menu={[
-                { label: 'Mở & chỉnh sửa', icon: <Edit />, onClick: () => navigate(`/datasources/${ds.id}`) },
-                { label: 'Xoá', icon: <Trash2 />, destructive: true, onClick: () => setDeleteId(ds.id) },
+                { label: t('DatasourcesPage.openEdit'), icon: <Edit />, onClick: () => navigate(`/datasources/${ds.id}`) },
+                { label: t('DatasourcesPage.delete'), icon: <Trash2 />, destructive: true, onClick: () => setDeleteId(ds.id) },
               ]}
             />
           ))}
@@ -90,16 +97,16 @@ export default function DatasourcesPage() {
       )}
 
       {data && data.totalPages > 1 && (
-        <Pagination currentPage={page} totalPages={data.totalPages} totalElements={data.totalElements} size={20} onPageChange={setPage} itemLabel="nguồn dữ liệu" />
+        <Pagination currentPage={page} totalPages={data.totalPages} totalElements={data.totalElements} size={20} onPageChange={setPage} itemLabel={t('DatasourcesPage.dataSources2')} />
       )}
 
       <ConfirmDialog
         open={!!deleteId}
         onClose={() => setDeleteId(null)}
         onConfirm={() => { if (deleteId) deleteMutation.mutate(deleteId, { onSettled: () => setDeleteId(null) }) }}
-        title="Xoá nguồn dữ liệu?"
-        description="Toàn bộ cột và dòng dữ liệu sẽ bị xoá. Báo cáo đang dùng nguồn này sẽ mất biểu đồ liên quan."
-        confirmLabel="Xoá nguồn dữ liệu"
+        title={t('DatasourcesPage.deleteDataSource')}
+        description={t('DatasourcesPage.allColumnsAndRowsWillBe')}
+        confirmLabel={t('DatasourcesPage.deleteDataSource2')}
         loading={deleteMutation.isPending}
       />
 
@@ -109,17 +116,18 @@ export default function DatasourcesPage() {
         onClose={() => setShowCreate(false)}
         size="md"
         dismissible={!createMutation.isPending}
-        title="Tạo Datasource mới"
+        title={t('DatasourcesPage.createANewDataSource')}
         footer={
           <DialogFooter
-            secondary={<Button variant="outline" onClick={() => setShowCreate(false)} disabled={createMutation.isPending}>Hủy</Button>}
-            primary={<Button onClick={handleCreate} disabled={createMutation.isPending}>{createMutation.isPending ? 'Đang tạo...' : 'Tạo'}</Button>}
+            secondary={<Button variant="outline" onClick={() => setShowCreate(false)} disabled={createMutation.isPending}>{t('DatasourcesPage.cancel')}</Button>}
+            primary={<Button onClick={handleCreate} disabled={createMutation.isPending}>{createMutation.isPending ? t('DatasourcesPage.creating') : t('DatasourcesPage.create')}</Button>}
           />
         }
       >
+        <DraftNotice draft={draft} className="mb-4" />
         <div className="space-y-4">
           <div>
-            <label className="text-label block font-medium mb-1.5">Tên datasource <span className="text-[var(--color-error)]">*</span></label>
+            <label className="text-label block font-medium mb-1.5">{t('DatasourcesPage.dataSourceName')} <span className="text-[var(--color-error)]">*</span></label>
             <input
               type="text"
               {...register('name')}
@@ -130,10 +138,10 @@ export default function DatasourcesPage() {
             {errors.name && <p className="mt-1 text-xs text-[var(--color-error)]">{errors.name.message}</p>}
           </div>
           <div>
-            <label className="text-label block font-medium mb-1.5">Mô tả</label>
+            <label className="text-label block font-medium mb-1.5">{t('DatasourcesPage.description')}</label>
             <textarea
               {...register('description')}
-              placeholder="Mô tả ngắn gọn..."
+              placeholder={t('DatasourcesPage.shortDescription')}
               rows={3}
               className="w-full px-3 py-2.5 rounded-control border border-[var(--color-border)] bg-[var(--color-card)] text-sm focus:outline-none focus:ring-2 focus:ring-[var(--color-primary)]/30 resize-none"
             />
