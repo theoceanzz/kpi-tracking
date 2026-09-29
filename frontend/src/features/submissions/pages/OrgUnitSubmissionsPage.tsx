@@ -26,7 +26,8 @@ import { usePermission } from '@/hooks/usePermission'
 import AiShortcutButton from '@/features/analytics/components/AiShortcutButton'
 import { aiShortcuts } from '@/features/analytics/aiShortcuts'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
-import { Users, Clock, ClipboardCheck, ArrowRight, Eye, PenLine, Inbox } from 'lucide-react'
+import { Users, Clock, ClipboardCheck, ArrowRight, Eye, PenLine, Inbox, Bot, Loader2 } from 'lucide-react'
+import { useAiReviewBatch } from '../hooks/useAiReview'
 import { useWorkflowNavigator } from '@/features/kpi/workflow/hooks/useWorkflowNavigator'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
@@ -94,6 +95,10 @@ export default function OrgUnitSubmissionsPage() {
   const rawTitle = (customLabels as Record<string, string>)['submissions-org-unit'] || (customLabels as Record<string, string>)['/submissions/org-unit'] || 'Đánh giá đợt'
 
   const { data: orgUnitTreeData } = useOrgUnitTree()
+  const aiBatch = useAiReviewBatch()
+  // "Tất cả" = cả cây: chạy lô từ đơn vị gốc; máy chủ vẫn chỉ xếp hàng người mình chấm được.
+  const aiBatchUnitId = selectedOrgUnitId === 'ALL' ? orgUnitTreeData?.[0]?.id : selectedOrgUnitId
+  const canAiBatch = !!org?.enableAi && !!org?.enableAiReview && hasPermission('AI_REVIEW:USE')
   const { data: periodsData } = useKpiPeriods({ organizationId: orgId })
 
   const flattenTree = (nodes: any[], level = 0): any[] => {
@@ -390,6 +395,17 @@ export default function OrgUnitSubmissionsPage() {
         ]}
         actions={
           <>
+            {canAiBatch && (
+              <Button
+                variant="outline"
+                disabled={!selectedPeriodId || !aiBatchUnitId || aiBatch.isPending}
+                title="AI đọc trước bài nộp của mọi người bạn chấm được trong đơn vị đang chọn (chạy nền, chỉ để tham khảo)"
+                onClick={() => aiBatch.mutate({ periodId: selectedPeriodId, orgUnitId: aiBatchUnitId! })}
+              >
+                {aiBatch.isPending ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Bot aria-hidden="true" />}
+                Nhờ AI xem trước cả đơn vị
+              </Button>
+            )}
             {hasPermission('SUBMISSION:REVIEW') && (
               <AiShortcutButton
                 label="Duyệt bằng K.AI"

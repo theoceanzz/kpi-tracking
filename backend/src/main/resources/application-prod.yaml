@@ -151,6 +151,34 @@ app:
       # Chọn biểu đồ minh hoạ cho câu trả lời có số liệu (ChartAgent, chạy song song với kiểm duyệt).
       # Tắt đi là câu trả lời chỉ còn bảng Markdown như trước.
       enabled: ${AI_CHARTS_ENABLED:true}
+    review:
+      # AI đọc bài nộp và đề xuất điểm khi quản lý chấm (đường riêng, không qua khung chat).
+      # Công tắc hệ thống; mỗi tổ chức còn phải tự bật cờ enable_ai_review (mặc định TẮT).
+      enabled: ${AI_REVIEW_ENABLED:true}
+      # Số chỉ tiêu gọi mô hình cùng lúc trong một lượt — trần để không đụng giới hạn tốc độ nhà cung cấp.
+      max-parallel: ${AI_REVIEW_MAX_PARALLEL:4}
+      # Cắt phần chữ của MỖI bài nộp ở độ dài này trước khi gửi cho mô hình.
+      note-max-chars: ${AI_REVIEW_NOTE_MAX_CHARS:4000}
+      # Chờ tối đa cho MỘT chỉ tiêu; quá giờ thì chỉ tiêu đó ghi lỗi, lượt vẫn xong.
+      timeout-seconds: ${AI_REVIEW_TIMEOUT_SECONDS:90}
+      # Số đoạn quy chế / mô tả công việc (kho RAG, nguồn REGULATION|JOB_DESCRIPTION) chèn làm căn cứ chấm.
+      max-excerpts: ${AI_REVIEW_MAX_EXCERPTS:5}
+      evidence:
+        # Đọc tệp minh chứng (Word/Excel/PDF; ảnh và PDF scan qua mô hình đọc ảnh). Tệp quá cỡ ghi "không đọc được".
+        max-bytes: ${AI_REVIEW_EVIDENCE_MAX_BYTES:10485760}
+        fetch-timeout-seconds: ${AI_REVIEW_EVIDENCE_FETCH_TIMEOUT:20}
+        # Chỉ tải minh chứng từ các máy này (phân tách dấu phẩy; trống = mọi máy).
+        allowed-hosts: ${AI_REVIEW_EVIDENCE_HOSTS:res.cloudinary.com}
+        # Cắt nội dung MỖI tệp ở độ dài này (có ghi "đã cắt").
+        max-chars-per-file: ${AI_REVIEW_EVIDENCE_MAX_CHARS:6000}
+    vision:
+      # Mô hình đọc ảnh (qua cùng base-url/api-key với app.ai.model) — chép chữ trong ảnh / PDF scan.
+      # Chữ lấy từ ảnh chỉ làm căn cứ tham khảo, không bao giờ dùng để tính điểm.
+      enabled: ${AI_VISION_ENABLED:true}
+      model: ${AI_VISION_MODEL:Qwen/Qwen3-VL-30B-A3B-Instruct}
+      timeout-seconds: ${AI_VISION_TIMEOUT_SECONDS:60}
+      max-tokens: ${AI_VISION_MAX_TOKENS:2000}
+      max-pdf-pages: ${AI_VISION_MAX_PDF_PAGES:3}
     hitl:
       # Trợ lý hỏi lại giữa lượt (tool ask_user / trùng tên đơn vị) rồi CHỜ người dùng bấm chọn.
       # Lượt giữ nguyên ngữ cảnh đã tra được trong lúc chờ, nên mỗi câu hỏi giữ một luồng streaming

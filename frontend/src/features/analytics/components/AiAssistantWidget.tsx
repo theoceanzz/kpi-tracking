@@ -7,6 +7,7 @@ import { aiApi, type InsightCard, type FollowupPools, type ClarificationOption, 
 import { useFormAssistStore } from '@/store/formAssistStore'
 import { useAiAssistantStore } from '@/store/aiAssistantStore'
 import { useAiAvailable } from '../hooks/useAiAvailable'
+import { useModalOpen } from '../hooks/useModalOpen'
 import EvidenceAttachBar, { AttachedChips, PinnedChips } from './EvidenceAttachBar'
 import { MicButton } from '@/components/common/MicButton'
 import { usePinnedFilesStore, attachPinnedTo } from '@/store/pinnedFilesStore'
@@ -71,6 +72,8 @@ export default function AiAssistantWidget() {
   const aiAvailable = useAiAvailable()
 
   const [isOpen, setIsOpen] = useState(false)
+  // Modal mở: nhấc nút lên khỏi footer của modal (footer không cuộn — nút chính ở góc phải bị che).
+  const modalOpen = useModalOpen()
   const [isMinimized, setIsMinimized] = useState(false)
   const [input, setInput] = useState('')
   // Tệp KHÔNG còn nằm ở đây nữa: nó đi thẳng vào form qua fileSink ngay lúc kẹp. Giữ một bản sao
@@ -407,7 +410,8 @@ export default function AiAssistantWidget() {
         onClick={() => setIsOpen(true)}
         aria-label="Mở K.AI"
         data-ai-widget
-        className="group fixed bottom-6 right-6 z-[1300] flex h-12 w-12 items-center justify-center rounded-full border border-[var(--color-ai-line)] bg-[var(--color-card)] text-[var(--color-ai)] shadow-lg transition-colors hover:bg-[var(--color-ai-soft)]"
+        className={cn('group fixed right-6 z-[1300] flex h-12 w-12 items-center justify-center rounded-full border border-[var(--color-ai-line)] bg-[var(--color-card)] text-[var(--color-ai)] shadow-lg transition-colors hover:bg-[var(--color-ai-soft)]',
+          modalOpen ? 'bottom-24' : 'bottom-6')}
       >
         <Bot size={22} />
         <span className="pointer-events-none absolute right-full mr-3 whitespace-nowrap rounded-control bg-[var(--color-foreground)] px-2.5 py-1.5 text-xs font-medium text-[var(--color-background)] opacity-0 transition-opacity group-hover:opacity-100">

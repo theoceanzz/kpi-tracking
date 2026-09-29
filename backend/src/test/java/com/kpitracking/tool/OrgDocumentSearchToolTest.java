@@ -1,5 +1,8 @@
 package com.kpitracking.tool;
 
+import com.kpitracking.ai.document.retrieve.DocumentRetrieverFactory;
+import com.kpitracking.ai.document.retrieve.DocumentSearchService;
+
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.kpitracking.repository.ConversationMessageRepository;
 import com.kpitracking.repository.KpiCriteriaRepository;
@@ -61,7 +64,8 @@ class OrgDocumentSearchToolTest {
                 mock(UserRepository.class), mock(KpiCriteriaRepository.class), mock(ConversationMessageRepository.class),
                 mock(OrgUnitStatisticService.class), mock(FollowupContextStore.class), new ObjectMapper());
         support.initToolMapper();
-        tool = new OrgDocumentSearchTool(support, store, embeddingModel, 4);
+        tool = new OrgDocumentSearchTool(support, new DocumentRetrieverFactory(store, embeddingModel),
+                new DocumentSearchService(), 4);
     }
 
     private InvocationParameters ctx() {

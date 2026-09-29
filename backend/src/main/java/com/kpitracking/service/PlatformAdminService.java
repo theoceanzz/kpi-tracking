@@ -119,6 +119,7 @@ public class PlatformAdminService {
         if (req.getEnableAi() != null) org.setEnableAi(req.getEnableAi());
         if (req.getEnableOkr() != null) org.setEnableOkr(req.getEnableOkr());
         if (req.getEnableWaterfall() != null) org.setEnableWaterfall(req.getEnableWaterfall());
+        if (req.getEnableAiReview() != null) org.setEnableAiReview(req.getEnableAiReview());
         return toAdminResponse(organizationRepository.save(org));
     }
 

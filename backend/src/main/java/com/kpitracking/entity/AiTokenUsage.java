@@ -62,7 +62,9 @@ public class AiTokenUsage {
         /** Chọn biểu đồ minh hoạ cho câu trả lời (ChartAgent). */
         CHART,
         /** Hỏi đáp về KeyGo/quy chế qua RAG. Tách khỏi CHAT để nhìn được tỉ lệ dùng của từng đường. */
-        HELP
+        HELP,
+        /** AI đọc bài nộp và đề xuất điểm khi quản lý chấm (đường riêng, không qua khung chat). */
+        SUBMISSION_REVIEW
     }
 
     /** Ngày 1 của tháng hiện tại — khoá gộp dùng chung cho cả ghi lẫn đọc. */

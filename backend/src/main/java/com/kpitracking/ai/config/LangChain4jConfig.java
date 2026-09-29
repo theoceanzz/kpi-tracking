@@ -1,7 +1,7 @@
 package com.kpitracking.ai.config;
 
-import com.kpitracking.ai.rag.E5EmbeddingModel;
-import com.kpitracking.ai.rag.RagVectorReader;
+import com.kpitracking.ai.document.store.E5EmbeddingModel;
+import com.kpitracking.ai.document.store.RagVectorReader;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import dev.langchain4j.data.segment.TextSegment;

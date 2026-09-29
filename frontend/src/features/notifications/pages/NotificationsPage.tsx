@@ -10,7 +10,7 @@ import {
   Bell, CheckCheck, Send,
   FileSearch, ShieldCheck, Target,
   CheckCircle2, Layers, GitBranch, Calculator,
-  Award, Coins, Gift, Wallet, Scale, Inbox
+  Award, Coins, Gift, Wallet, Scale, Inbox, FileText
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -28,6 +28,7 @@ const typeConfig: Record<string, { icon: LucideIcon; color: string; label: strin
   REWARD_GIFT: { icon: Gift, color: 'bg-[var(--color-info-bg)] text-[var(--color-info)]', label: 'Đổi quà' },
   WALLET: { icon: Wallet, color: 'bg-[var(--color-info-bg)] text-[var(--color-info)]', label: 'Ví tiền' },
   WALLET_RECONCILE: { icon: Scale, color: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]', label: 'Đối soát ví' },
+  AI_CRITERIA: { icon: FileText, color: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]', label: 'Quy chế chấm AI' },
 }
 const DEFAULT_TYPE = { icon: Bell, color: 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)]', label: 'Thông báo' }
 

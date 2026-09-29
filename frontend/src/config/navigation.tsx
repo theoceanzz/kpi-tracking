@@ -194,6 +194,7 @@ export const navItems: NavItem[] = [
           { id: 'rewards', label: 'Quản lý thưởng', icon: <Gift size={18} />, permission: ['REWARD:GRANT', 'REWARD:APPROVE', 'REWARD:CONFIG', 'REWARD:VIEW'], rewardOnly: true, legacyKeys: ['/rewards'], group: 'Công cụ', description: 'Đề nghị thưởng, hạn mức, điểm danh và quà tặng' },
           { id: 'wallet', label: 'Quản lý ví', icon: <Landmark size={18} />, permission: ['WALLET:VIEW', 'WALLET:CONFIG', 'WALLET:RECONCILE'], walletOnly: true, legacyKeys: ['/wallet'], group: 'Công cụ', description: 'Số dư nhân sự, cấu hình nạp tiền và đối soát' },
           { id: 'ai-quota', label: 'Quản lý token AI', icon: <Coins size={18} />, permission: 'AI_QUOTA:ALLOCATE', aiOnly: true, legacyKeys: ['/ai-quota'], group: 'Công cụ', description: 'Chia hạn mức token AI cho các đơn vị cấp dưới' },
+          { id: 'ai-review', label: 'AI đánh giá bài nộp', icon: <Bot size={18} />, permission: ['AI_REVIEW:CONFIG', 'AI_CRITERIA:MANAGE'], aiOnly: true, group: 'Công cụ', description: 'Bật AI đọc trước bài nộp khi chấm, áp quy chế chấm cho từng đơn vị' },
         ],
       },
     ],

@@ -2,7 +2,7 @@ import { useRef } from 'react'
 import { useNotifications, useMarkAllRead, useMarkAsRead } from '../hooks/useNotifications'
 import { formatDateTime } from '@/lib/utils'
 import { cn } from '@/lib/utils'
-import { CheckCheck, Bell, Send, FileSearch, ShieldCheck, Target, Inbox, Layers, GitBranch, Calculator, Award, Coins, Gift, Wallet, Scale } from 'lucide-react'
+import { CheckCheck, Bell, Send, FileSearch, FileText, ShieldCheck, Target, Inbox, Layers, GitBranch, Calculator, Award, Coins, Gift, Wallet, Scale } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Skeleton } from '@/components/ui/skeleton'
@@ -30,6 +30,7 @@ const typeConfig: Record<string, { icon: LucideIcon; color: string }> = {
   REWARD_GIFT: { icon: Gift, color: 'bg-[var(--color-info-bg)] text-[var(--color-info)]' },
   WALLET: { icon: Wallet, color: 'bg-[var(--color-info-bg)] text-[var(--color-info)]' },
   WALLET_RECONCILE: { icon: Scale, color: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]' },
+  AI_CRITERIA: { icon: FileText, color: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]' },
 }
 const DEFAULT_TYPE = { icon: Bell, color: 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)]' }
 

@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef, type ReactNode } from 'react'
+import AiReviewPanel from '@/features/submissions/components/AiReviewPanel'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery } from '@tanstack/react-query'
@@ -400,6 +401,10 @@ export default function EvaluationDetailModal({ open, onClose, evaluation }: Eva
             </div>
           </div>
         </div>
+
+        {/* AI đọc lại bài nộp của đợt đã chấm — đặt cạnh điểm đã chốt để quản lý so AI với người.
+            Chỉ đọc; tự ẩn khi tổ chức chưa bật hoặc người xem không có AI_REVIEW:USE. */}
+        <AiReviewPanel periodId={evaluation.kpiPeriodId} userId={evaluation.userId} />
 
         <div className="space-y-4">
           <h4 className="text-sm font-medium text-[var(--color-subtle-foreground)]">Dòng thời gian đánh giá</h4>

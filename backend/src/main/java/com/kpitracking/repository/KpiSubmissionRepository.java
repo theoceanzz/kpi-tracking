@@ -15,6 +15,16 @@ import java.util.UUID;
 @Repository
 public interface KpiSubmissionRepository extends JpaRepository<KpiSubmission, UUID> {
 
+    /**
+     * Những lần quản lý đã chấm chỉ tiêu CÙNG TÊN của một người ở các đợt KHÁC — "lịch sử chấm" để AI
+     * tham khảo mức quản lý thường chấm (AI đánh giá bài nộp, giai đoạn 3). Mới nhất trước.
+     */
+    @Query("SELECT s FROM KpiSubmission s JOIN FETCH s.kpiCriteria k JOIN FETCH k.kpiPeriod p "
+            + "WHERE s.submittedBy.id = :userId AND LOWER(k.name) = LOWER(:name) AND p.id <> :periodId "
+            + "AND (s.managerScore IS NOT NULL OR s.reviewNote IS NOT NULL) ORDER BY s.createdAt DESC")
+    java.util.List<KpiSubmission> findReviewedHistory(@Param("userId") UUID userId, @Param("name") String name,
+                                                      @Param("periodId") UUID periodId, Pageable pageable);
+
     @org.springframework.data.jpa.repository.Query("SELECT s FROM KpiSubmission s WHERE " +
            "(s.submittedBy.id = :currentUserId OR EXISTS (SELECT 1 FROM OrgUnit au WHERE s.orgUnit.path LIKE CONCAT(au.path, '%') AND au.id IN :allowedOrgUnitIds)) AND " +
            "(s.status = COALESCE(:status, s.status)) AND " +

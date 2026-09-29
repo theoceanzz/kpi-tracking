@@ -14,6 +14,7 @@ public interface OrganizationMapper {
     @Mapping(target = "enableQualitative", source = "enableQualitative")
     @Mapping(target = "enableBsc", source = "enableBsc")
     @Mapping(target = "enableConduct", source = "enableConduct")
+    @Mapping(target = "enableAiReview", source = "enableAiReview")
     // Thang điểm hạnh kiểm KHÔNG còn ở cấp tổ chức: mỗi bộ tiêu chí giữ thang riêng, lấy
     // qua /conduct/config. Trả kèm ở đây chỉ tạo ra một con số thứ hai để hiểu nhầm.
     @Mapping(target = "enableReward", source = "enableReward")

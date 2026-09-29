@@ -31,6 +31,11 @@ public class OrganizationResponse {
     /** Chấm hạnh kiểm theo bộ tiêu chí có trọng số. */
     private Boolean enableConduct;
     private Boolean enableReward;
+    /** AI đọc bài nộp và đề xuất điểm khi chấm (mặc định TẮT) + trọng số ba thành phần điểm đề xuất. */
+    private Boolean enableAiReview;
+    private Integer aiReviewWeightTarget;
+    private Integer aiReviewWeightQuality;
+    private Integer aiReviewWeightOnTime;
     private Boolean enableCashWallet;
     /** Số đồng đổi được 1 điểm. Giao diện dùng để hiện quy đổi mà không phải gọi thêm API cấu hình. */
     private Long pointExchangeRate;

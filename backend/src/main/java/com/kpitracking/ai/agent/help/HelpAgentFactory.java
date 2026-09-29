@@ -1,19 +1,14 @@
 package com.kpitracking.ai.agent.help;
 
-import com.kpitracking.ai.rag.RagIngestionService;
-import dev.langchain4j.data.segment.TextSegment;
+import com.kpitracking.ai.document.retrieve.DocumentRetrieverFactory;
+import com.kpitracking.ai.document.retrieve.RetrievalProfile;
 import dev.langchain4j.model.chat.ChatModel;
-import dev.langchain4j.model.embedding.EmbeddingModel;
-import dev.langchain4j.model.embedding.request.EmbeddingInputType;
 import dev.langchain4j.model.input.PromptTemplate;
 import dev.langchain4j.rag.DefaultRetrievalAugmentor;
 import dev.langchain4j.rag.RetrievalAugmentor;
 import dev.langchain4j.rag.content.injector.DefaultContentInjector;
 import dev.langchain4j.rag.content.retriever.ContentRetriever;
-import dev.langchain4j.rag.content.retriever.EmbeddingStoreContentRetriever;
 import dev.langchain4j.service.AiServices;
-import dev.langchain4j.store.embedding.EmbeddingStore;
-import dev.langchain4j.store.embedding.filter.MetadataFilterBuilder;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -34,7 +29,7 @@ import java.util.List;
 public class HelpAgentFactory {
 
     /** Khoá trong {@code InvocationParameters} mang tổ chức của người hỏi. */
-    public static final String PARAM_ORG_ID = "orgId";
+    public static final String PARAM_ORG_ID = DocumentRetrieverFactory.ORG_PARAM;
 
     @Value("${app.ai.rag.retrieval.max-results:6}") private int maxResults;
     @Value("${app.ai.rag.retrieval.min-score:0}") private double minScore;
@@ -44,25 +39,9 @@ public class HelpAgentFactory {
      * cùng số kết quả, cùng bộ lọc tổ chức. Cái người quản trị thấy là cái trợ lý nhận.
      */
     @Bean
-    public ContentRetriever helpContentRetriever(EmbeddingStore<TextSegment> store, EmbeddingModel embeddingModel) {
-        return EmbeddingStoreContentRetriever.builder()
-                .embeddingStore(store)
-                .embeddingModel(embeddingModel)
-                .embeddingInputType(EmbeddingInputType.QUERY)
-                .maxResults(maxResults)
-                // Hybrid trả điểm RRF (≤ ~0,033), không phải cosine — xem ghi chú trong application.yaml.
-                .minScore(minScore)
-                // Chốt chặn đa tổ chức. Không có orgId thì chỉ thấy tài liệu chung — an toàn hơn
-                // là thấy tất cả.
-                .dynamicFilter(query -> {
-                    Object org = query.metadata() == null || query.metadata().invocationParameters() == null
-                            ? null : query.metadata().invocationParameters().get(PARAM_ORG_ID);
-                    return org == null
-                            ? MetadataFilterBuilder.metadataKey("orgId").isEqualTo(RagIngestionService.GLOBAL_ORG)
-                            : MetadataFilterBuilder.metadataKey("orgId")
-                                    .isIn(RagIngestionService.GLOBAL_ORG, org.toString());
-                })
-                .build();
+    public ContentRetriever helpContentRetriever(DocumentRetrieverFactory retrievers) {
+        // Hồ sơ HELP: tài liệu chung + của tổ chức người hỏi; không có tổ chức thì chỉ tài liệu chung.
+        return retrievers.retriever(RetrievalProfile.HELP, maxResults, minScore);
     }
 
     @Bean

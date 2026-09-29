@@ -152,6 +152,11 @@ export interface OrganizationResponse {
   enableConduct?: boolean
   enableReward: boolean
   enableCashWallet: boolean
+  /** AI đọc bài nộp và đề xuất điểm khi chấm (mặc định TẮT). */
+  enableAiReview?: boolean
+  aiReviewWeightTarget?: number
+  aiReviewWeightQuality?: number
+  aiReviewWeightOnTime?: number
   /** Số đồng đổi được 1 điểm thưởng. */
   pointExchangeRate: number
   createdAt: string

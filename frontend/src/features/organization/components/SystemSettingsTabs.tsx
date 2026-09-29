@@ -253,6 +253,8 @@ const EVENT_LABELS: Record<string, string> = {
   bsc_cascaded: 'Khi được cấp trên giao chỉ tiêu BSC xuống đơn vị',
   bsc_unit_result_finalized: 'Khi kết quả BSC của đơn vị trong một đợt được chốt',
   bsc_score_overridden: 'Khi điểm BSC của cá nhân bị ghi đè hoặc huỷ ghi đè',
+  ai_criteria_change_requested: 'Khi cấp dưới đề nghị đổi quy chế chấm AI bạn đã áp (dành cho người đã áp / cấp trên)',
+  ai_criteria_change_decided: 'Khi đề nghị đổi quy chế chấm AI của bạn được đồng ý hoặc bị từ chối',
   reward_grant_submitted: 'Khi có đề nghị thưởng vượt hạn mức cần duyệt (dành cho người duyệt gần nhất)',
   reward_grant_approved: 'Khi đề nghị thưởng được cấp trên duyệt',
   reward_grant_rejected: 'Khi đề nghị thưởng bị từ chối',

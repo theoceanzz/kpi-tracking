@@ -1,7 +1,10 @@
 package com.kpitracking.controller;
 
-import com.kpitracking.ai.rag.RagIngestionService;
-import com.kpitracking.ai.rag.RagVectorReader;
+import com.kpitracking.ai.document.ingest.DocumentIngestionPipeline;
+import com.kpitracking.ai.document.model.FileRef;
+import com.kpitracking.ai.document.profile.DocumentKind;
+import com.kpitracking.ai.document.retrieve.DocumentSearchService;
+import com.kpitracking.ai.document.store.RagVectorReader;
 import com.kpitracking.dto.response.ApiResponse;
 import com.kpitracking.dto.response.ai.RagChunkResponse;
 import com.kpitracking.dto.response.ai.RagSearchHitResponse;
@@ -9,7 +12,6 @@ import com.kpitracking.entity.RagDocument;
 import com.kpitracking.exception.BusinessException;
 import com.kpitracking.repository.RagDocumentRepository;
 import com.kpitracking.service.reward.RewardContext;
-import dev.langchain4j.invocation.InvocationParameters;
 import dev.langchain4j.rag.content.retriever.ContentRetriever;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -47,7 +49,8 @@ import java.util.UUID;
 @Tag(name = "Platform Admin", description = "Bộ hướng dẫn KeyGo trong kho tri thức của trợ lý")
 public class PlatformRagController {
 
-    private final RagIngestionService ingestion;
+    private final DocumentIngestionPipeline ingestion;
+    private final DocumentSearchService search;
     private final RagDocumentRepository documents;
     private final RewardContext currentUser;
     private final RagVectorReader vectorReader;
@@ -60,16 +63,14 @@ public class PlatformRagController {
     }
 
     @PostMapping(value = "/documents", consumes = "multipart/form-data")
-    @Operation(summary = "Nạp bộ hướng dẫn KeyGo (.docx) — dùng chung cho mọi tổ chức")
+    @Operation(summary = "Nạp bộ hướng dẫn KeyGo (Word giữ ảnh + tiêu đề; PDF…) — dùng chung cho mọi tổ chức")
     public ResponseEntity<ApiResponse<RagDocument>> upload(
             @RequestParam("file") MultipartFile file,
             @RequestParam(value = "title", required = false) String title) throws IOException {
-        String name = RagIngestionService.docxFileName(file.getOriginalFilename());
-        try (var in = file.getInputStream()) {
-            RagDocument doc = ingestion.ingestDocx(in, name, RagIngestionService.titleOf(title, name),
-                    RagDocument.Source.GUIDE, null, currentUser.getCurrentUser().getId());
-            return ResponseEntity.ok(ApiResponse.success(doc));
-        }
+        String name = ingestion.checkUploadName(file.getOriginalFilename());
+        RagDocument doc = ingestion.ingest(FileRef.of(name, file.getBytes()), DocumentKind.GUIDE,
+                DocumentIngestionPipeline.titleOf(title, name), null, currentUser.getCurrentUser().getId());
+        return ResponseEntity.ok(ApiResponse.success(doc));
     }
 
     @GetMapping("/documents/{id}/chunks")
@@ -83,7 +84,7 @@ public class PlatformRagController {
     public ResponseEntity<ApiResponse<List<RagSearchHitResponse>>> search(@RequestParam("q") String q) {
         // Không có orgId: bộ lọc truy hồi lùi về chỉ tài liệu chung.
         return ResponseEntity.ok(ApiResponse.success(
-                RagQueries.search(helpContentRetriever, q, new InvocationParameters())));
+                search.search(helpContentRetriever, q, null)));
     }
 
     @DeleteMapping("/documents/{id}")

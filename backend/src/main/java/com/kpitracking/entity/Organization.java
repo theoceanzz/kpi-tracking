@@ -131,6 +131,27 @@ public class Organization {
     @Builder.Default
     private Double conductMaxScore = 4.0;
 
+    /**
+     * AI đọc bài nộp và đề xuất điểm khi quản lý chấm. Module mở rộng nên mặc định TẮT; AI chỉ gợi ý,
+     * điểm vào hồ sơ vẫn là con số quản lý bấm.
+     */
+    @Column(name = "enable_ai_review", nullable = false)
+    @Builder.Default
+    private Boolean enableAiReview = false;
+
+    /** Trọng số (%) của ba thành phần điểm đề xuất: đáp ứng mục tiêu / chất lượng / đúng hạn. Tổng = 100 (ràng buộc ở DB). */
+    @Column(name = "ai_review_weight_target", nullable = false)
+    @Builder.Default
+    private Integer aiReviewWeightTarget = 60;
+
+    @Column(name = "ai_review_weight_quality", nullable = false)
+    @Builder.Default
+    private Integer aiReviewWeightQuality = 30;
+
+    @Column(name = "ai_review_weight_on_time", nullable = false)
+    @Builder.Default
+    private Integer aiReviewWeightOnTime = 10;
+
     // Bộ tiêu chí hạnh kiểm KHÔNG map thành collection ở đây: nó được đọc/ghi qua
     // ConductCriteriaRepository, và một collection cascade+orphanRemoval nạp lười ở đây
     // chỉ tạo nguy cơ xoá nhầm tiêu chí vừa thêm khi lưu tổ chức.

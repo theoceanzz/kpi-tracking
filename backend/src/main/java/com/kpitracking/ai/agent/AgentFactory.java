@@ -82,4 +82,22 @@ public class AgentFactory {
     public ChartAgent chartAgent(ChatModel chatModel) {
         return AiServices.builder(ChartAgent.class).chatModel(chatModel).build();
     }
+
+    /** Agent thứ nhất của luồng AI đánh giá bài nộp: chất lượng nội dung của MỘT chỉ tiêu. */
+    @Bean
+    public CriterionReviewAgent criterionReviewAgent(ChatModel chatModel) {
+        return AiServices.builder(CriterionReviewAgent.class).chatModel(chatModel).build();
+    }
+
+    /** Bóc bộ tiêu chí chấm từ tài liệu tổ chức thành bảng — bước "máy bóc" (người xác nhận sau). */
+    @Bean
+    public CriteriaExtractionAgent criteriaExtractionAgent(ChatModel chatModel) {
+        return AiServices.builder(CriteriaExtractionAgent.class).chatModel(chatModel).build();
+    }
+
+    /** Agent thứ hai: tổng hợp kết quả đã kiểm thành tóm tắt chung + mức tin cậy. */
+    @Bean
+    public ReviewSummaryAgent reviewSummaryAgent(ChatModel chatModel) {
+        return AiServices.builder(ReviewSummaryAgent.class).chatModel(chatModel).build();
+    }
 }
