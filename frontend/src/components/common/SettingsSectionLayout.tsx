@@ -7,6 +7,7 @@ import { useStageVisible } from '@/features/kpi/workflow/hooks/useStageVisible'
 import { useNavLabels } from '@/features/organization/hooks/useNavLabels'
 import { findNavItem, type NavItem } from '@/config/navigation'
 import { useTourScope } from '@/hooks/useTourScope'
+import { useTranslation } from 'react-i18next'
 
 export interface SectionRenderer {
   /** Trùng với `id` của mục trong `sections` của cây nav. */
@@ -62,6 +63,7 @@ export default function SettingsSectionLayout({
   subtitle?: string
   eyebrow?: ReactNode
 }) {
+  const { t } = useTranslation('shared')
   const { hasPermission } = useHasPermission()
   const stageVisible = useStageVisible()
   const { labelOf } = useNavLabels()
@@ -118,8 +120,8 @@ export default function SettingsSectionLayout({
 
         {visible.length === 0 && (
           <div className="rounded-card border border-dashed border-[var(--color-border)] p-10 text-center">
-            <p className="text-sm font-medium text-[var(--color-foreground)]">Không có mục nào khả dụng với tài khoản của bạn ở trang này.</p>
-            <p className="mt-1 text-caption">Vai trò hiện tại chưa được cấp quyền, hoặc các tính năng liên quan đang tắt.</p>
+            <p className="text-sm font-medium text-[var(--color-foreground)]">{t('SettingsSectionLayout.noItemsAreAvailableToYour')}</p>
+            <p className="mt-1 text-caption">{t('SettingsSectionLayout.theCurrentRoleHasNoPermission')}</p>
           </div>
         )}
 
@@ -168,7 +170,7 @@ export default function SettingsSectionLayout({
                     {def.audience && (
                       <p className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-[var(--color-muted-foreground)]">
                         <Users size={12} aria-hidden="true" className="shrink-0" />
-                        <span><span className="text-[var(--color-subtle-foreground)]">Dành cho:</span> {def.audience}</span>
+                        <span><span className="text-[var(--color-subtle-foreground)]">{t('SettingsSectionLayout.for')}</span> {def.audience}</span>
                       </p>
                     )}
                   </button>

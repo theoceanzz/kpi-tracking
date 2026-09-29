@@ -1,5 +1,7 @@
 import type { WorkflowStageCode } from '../workflow/types'
 import type { NotificationCounts } from '@/hooks/useNotificationDots'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
 export type SetupFlowId = 'SETUP' | 'ASSIGN' | 'APPROVE' | 'REPORT' | 'EVALUATE'
 
@@ -91,17 +93,17 @@ export interface ResolvedFlow extends SetupFlow {
  *   ⇒ thấy đủ, và bước "chờ duyệt" tự biến mất vì chỉ tiêu họ tạo ra đã được duyệt sẵn
  *   (backend làm điều đó ở `InitialStatusStrategy`, không phải mẹo giao diện).
  */
-export const SETUP_FLOWS: SetupFlow[] = [
+export const SETUP_FLOWS = perLanguage((): SetupFlow[] => ([
   {
     id: 'SETUP',
-    label: 'Thiết lập kỳ & đợt',
-    description: 'Tạo khung thời gian để mọi chỉ tiêu bám vào',
+    label: i18n.t('kpi:flows.setUpCyclesPeriods'),
+    description: i18n.t('kpi:flows.createTheTimeFrameEveryKpi'),
     requiresAny: ['KPI_PERIOD:CREATE'],
     steps: [
       {
         id: 'cycle',
-        label: 'Kỳ',
-        hint: 'Gom nhiều đợt để đánh giá tổng thể. Bỏ qua được.',
+        label: i18n.t('kpi:flows.aCycle'),
+        hint: i18n.t('kpi:flows.groupsSeveralPeriodsForAnOverall'),
         kind: 'builtin',
         builtin: 'cycle',
         stage: 'CYCLE_SETUP',
@@ -109,8 +111,8 @@ export const SETUP_FLOWS: SetupFlow[] = [
       },
       {
         id: 'period',
-        label: 'Đợt',
-        hint: 'Mốc thời gian mà mọi chỉ tiêu bám vào',
+        label: i18n.t('kpi:flows.aPeriod'),
+        hint: i18n.t('kpi:flows.theTimeFrameEveryKpiIs'),
         kind: 'builtin',
         builtin: 'period',
         stage: 'PERIOD_SETUP',
@@ -120,27 +122,27 @@ export const SETUP_FLOWS: SetupFlow[] = [
 
   {
     id: 'ASSIGN',
-    label: 'Giao chỉ tiêu',
-    description: 'Soạn chỉ tiêu cho đợt rồi gửi đi duyệt',
+    label: i18n.t('kpi:flows.assignKpis'),
+    description: i18n.t('kpi:flows.draftKpisForThePeriodAnd'),
     requiresAny: ['KPI:CREATE'],
     // Có quyền tự duyệt thì chỉ tiêu vừa tạo đã có hiệu lực ngay, không có khoảng chờ nào ngăn
     // cách với việc nộp báo cáo — nên hai luồng nhập làm một mạch thay vì bắt quay ra chọn lại.
     mergedWhenHasAny: ['KPI:APPROVE_OWN'],
-    mergedLabel: 'Giao chỉ tiêu và nộp báo cáo cho bản thân',
-    mergedDescription: 'Tự đặt chỉ tiêu cho mình, nộp kết quả rồi tự chấm điểm — trọn vẹn trong một mạch',
+    mergedLabel: i18n.t('kpi:flows.assignKpisAndSubmitReportsFor'),
+    mergedDescription: i18n.t('kpi:flows.setYourOwnKpisSubmitResults'),
     steps: [
       {
         id: 'period',
-        label: 'Chọn đợt',
-        hint: 'Chỉ tiêu phải thuộc về một đợt',
+        label: i18n.t('kpi:flows.choosePeriod'),
+        hint: i18n.t('kpi:flows.aKpiMustBelongToA'),
         kind: 'builtin',
         builtin: 'period',
         stage: 'PERIOD_SETUP',
       },
       {
         id: 'criteria',
-        label: 'Chỉ tiêu',
-        hint: 'Thêm liên tục cho tới khi đủ 100% trọng số',
+        label: i18n.t('kpi:flows.kpis'),
+        hint: i18n.t('kpi:flows.keepAddingUntilTheWeightsTotal'),
         kind: 'builtin',
         builtin: 'criteria',
         stage: 'CRITERIA_DRAFT',
@@ -148,8 +150,8 @@ export const SETUP_FLOWS: SetupFlow[] = [
       },
       {
         id: 'review',
-        label: 'Gửi duyệt',
-        hint: 'Xem lại toàn bộ rồi gửi cấp trên',
+        label: i18n.t('kpi:flows.submitForApproval'),
+        hint: i18n.t('kpi:flows.reviewEverythingAndSendItTo'),
         kind: 'builtin',
         builtin: 'review',
         stage: 'CRITERIA_APPROVAL',
@@ -159,11 +161,11 @@ export const SETUP_FLOWS: SetupFlow[] = [
       },
       {
         id: 'waiting',
-        label: 'Chờ duyệt',
-        hint: 'Cấp trên đang xem xét. Bạn quay lại sau, không phải ngồi đợi ở đây.',
+        label: i18n.t('kpi:flows.pendingApproval'),
+        hint: i18n.t('kpi:flows.yourManagerIsReviewingComeBack'),
         kind: 'wait',
         route: '/kpi-criteria',
-        ctaLabel: 'Xem trạng thái chỉ tiêu',
+        ctaLabel: i18n.t('kpi:flows.viewKpiStatus'),
         stage: 'CRITERIA_APPROVAL',
         needs: ['period'],
         skipWhenHasAny: ['KPI:APPROVE_OWN'],
@@ -174,8 +176,8 @@ export const SETUP_FLOWS: SetupFlow[] = [
       // cùng một việc.
       {
         id: 'my-kpi',
-        label: 'Nộp báo cáo',
-        hint: 'Điền kết quả cho tất cả chỉ tiêu rồi nộp một lượt',
+        label: i18n.t('kpi:flows.submitReport'),
+        hint: i18n.t('kpi:flows.fillInResultsForAllKpis'),
         kind: 'builtin',
         builtin: 'submit',
         counter: 'myPendingTasks',
@@ -185,8 +187,8 @@ export const SETUP_FLOWS: SetupFlow[] = [
       },
       {
         id: 'self-eval',
-        label: 'Tự đánh giá',
-        hint: 'Chấm điểm cho chính mình khi đã nộp xong cả đợt',
+        label: i18n.t('kpi:flows.selfAssessment'),
+        hint: i18n.t('kpi:flows.scoreYourselfOnceTheWholePeriod'),
         kind: 'builtin',
         builtin: 'self-eval',
         stage: 'SELF_EVALUATION',
@@ -198,29 +200,29 @@ export const SETUP_FLOWS: SetupFlow[] = [
 
   {
     id: 'APPROVE',
-    label: 'Duyệt chỉ tiêu',
-    description: 'Xét duyệt chỉ tiêu và yêu cầu điều chỉnh của cấp dưới',
+    label: i18n.t('kpi:flows.kpiApproval'),
+    description: i18n.t('kpi:flows.reviewSubordinatesKpisAndAdjustmentRequests'),
     requiresAny: ['KPI:APPROVE_CRITERIA', 'KPI:APPROVE_ADJUSTMENT'],
     counter: 'pendingKpis',
     steps: [
       {
         id: 'pending-criteria',
-        label: 'Chỉ tiêu chờ duyệt',
-        hint: 'Duyệt hoặc từ chối từng chỉ tiêu cấp dưới gửi lên',
+        label: i18n.t('kpi:flows.kpisPendingApproval'),
+        hint: i18n.t('kpi:flows.approveOrRejectEachKpiSubmitted'),
         kind: 'action',
         route: '/kpi-criteria/pending',
-        ctaLabel: 'Mở màn duyệt chỉ tiêu',
+        ctaLabel: i18n.t('kpi:flows.openTheKpiApprovalScreen'),
         counter: 'pendingKpis',
         stage: 'CRITERIA_APPROVAL',
         requires: ['KPI:APPROVE_CRITERIA'],
       },
       {
         id: 'pending-adjustments',
-        label: 'Điều chỉnh chờ duyệt',
-        hint: 'Yêu cầu đổi mục tiêu của chỉ tiêu đã duyệt',
+        label: i18n.t('kpi:flows.adjustmentsPendingApproval'),
+        hint: i18n.t('kpi:flows.requestsToChangeTheTargetOf'),
         kind: 'action',
         route: '/kpi-adjustments/pending',
-        ctaLabel: 'Mở màn duyệt điều chỉnh',
+        ctaLabel: i18n.t('kpi:flows.openTheAdjustmentApprovalScreen'),
         counter: 'pendingAdjustments',
         stage: 'CRITERIA_ADJUSTMENT',
         requires: ['KPI:APPROVE_ADJUSTMENT'],
@@ -230,8 +232,8 @@ export const SETUP_FLOWS: SetupFlow[] = [
 
   {
     id: 'REPORT',
-    label: 'Nộp báo cáo',
-    description: 'Báo cáo kết quả cho từng chỉ tiêu rồi tự đánh giá',
+    label: i18n.t('kpi:flows.submitReport'),
+    description: i18n.t('kpi:flows.reportResultsForEachKpiAnd'),
     requiresAny: ['SUBMISSION:CREATE', 'KPI:VIEW_MY'],
     counter: 'myPendingTasks',
     // Đã nằm gọn trong luồng Giao chỉ tiêu với người có quyền tự duyệt — bày thêm thẻ riêng ở đây
@@ -240,8 +242,8 @@ export const SETUP_FLOWS: SetupFlow[] = [
     steps: [
       {
         id: 'my-kpi',
-        label: 'Nộp báo cáo',
-        hint: 'Điền kết quả cho tất cả chỉ tiêu rồi nộp một lượt',
+        label: i18n.t('kpi:flows.submitReport'),
+        hint: i18n.t('kpi:flows.fillInResultsForAllKpis'),
         kind: 'builtin',
         builtin: 'submit',
         counter: 'myPendingTasks',
@@ -249,8 +251,8 @@ export const SETUP_FLOWS: SetupFlow[] = [
       },
       {
         id: 'self-eval',
-        label: 'Tự đánh giá',
-        hint: 'Chấm điểm cho chính mình khi đã nộp xong cả đợt',
+        label: i18n.t('kpi:flows.selfAssessment'),
+        hint: i18n.t('kpi:flows.scoreYourselfOnceTheWholePeriod'),
         kind: 'builtin',
         builtin: 'self-eval',
         stage: 'SELF_EVALUATION',
@@ -260,8 +262,8 @@ export const SETUP_FLOWS: SetupFlow[] = [
 
   {
     id: 'EVALUATE',
-    label: 'Duyệt báo cáo & đánh giá',
-    description: 'Xét bản nộp của nhân viên rồi chấm điểm cuối đợt, cuối kỳ',
+    label: i18n.t('kpi:flows.approveReportsEvaluate'),
+    description: i18n.t('kpi:flows.reviewEmployeesSubmissionsAndScoreAt'),
     // KHÔNG dùng `EVALUATION:CREATE` làm điều kiện: nhân viên cũng có quyền đó, vì nó là quyền
     // dùng cho TỰ đánh giá. Lấy nó làm tín hiệu quản lý sẽ bày luồng này ra cho cả nhân viên.
     // `SUBMISSION:REVIEW` và `CYCLE_EVAL:FINALIZE` mới thật sự chỉ có ở cấp quản lý.
@@ -270,22 +272,22 @@ export const SETUP_FLOWS: SetupFlow[] = [
     steps: [
       {
         id: 'pending-submissions',
-        label: 'Báo cáo chờ duyệt',
-        hint: 'Xét bản nộp của nhân viên trong đơn vị',
+        label: i18n.t('kpi:flows.reportsPendingApproval'),
+        hint: i18n.t('kpi:flows.reviewTheSubmissionsOfEmployeesIn'),
         kind: 'action',
         route: '/submissions/org-unit',
-        ctaLabel: 'Mở màn phê duyệt',
+        ctaLabel: i18n.t('kpi:flows.openTheApprovalScreen'),
         counter: 'pendingSubmissions',
         stage: 'SUBMISSION_REVIEW',
         requires: ['SUBMISSION:REVIEW'],
       },
       {
         id: 'evaluate-staff',
-        label: 'Đánh giá nhân viên',
-        hint: 'Chấm điểm cuối đợt cho từng người',
+        label: i18n.t('kpi:flows.evaluateEmployees'),
+        hint: i18n.t('kpi:flows.scoreEachPersonAtTheEnd'),
         kind: 'action',
         route: '/evaluations',
-        ctaLabel: 'Mở trang đánh giá',
+        ctaLabel: i18n.t('kpi:flows.openTheEvaluationPage'),
         stage: 'MANAGER_EVALUATION',
         // Cùng lý do như trên: chấm điểm NGƯỜI KHÁC là việc của quản lý, và backend còn đòi thêm
         // người chấm phải là trưởng đơn vị. `SUBMISSION:REVIEW` là tín hiệu sát nhất mà frontend
@@ -294,14 +296,14 @@ export const SETUP_FLOWS: SetupFlow[] = [
       },
       {
         id: 'cycle-eval',
-        label: 'Đánh giá kỳ',
-        hint: 'Tổng hợp nhiều đợt rồi chốt kết quả của cả kỳ',
+        label: i18n.t('kpi:flows.cycleEvaluation'),
+        hint: i18n.t('kpi:flows.summarizeSeveralPeriodsAndFinalizeThe'),
         kind: 'action',
         route: '/kpi-cycles/evaluation',
-        ctaLabel: 'Mở đánh giá kỳ',
+        ctaLabel: i18n.t('kpi:flows.openCycleEvaluation'),
         stage: 'CYCLE_EVALUATION',
         requires: ['CYCLE_EVAL:VIEW'],
       },
     ],
   },
-]
+]))

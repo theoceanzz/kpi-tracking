@@ -18,4 +18,8 @@ public interface ConductEvaluationRepository extends JpaRepository<ConductEvalua
     List<ConductEvaluation> findByKpiPeriodIdAndUserIdIn(UUID kpiPeriodId, List<UUID> userIds);
 
     List<ConductEvaluation> findByKpiCycleIdAndUserIdIn(UUID kpiCycleId, List<UUID> userIds);
+
+    List<ConductEvaluation> findByUserIdAndKpiPeriodIdIn(UUID userId, List<UUID> kpiPeriodIds);
+
+    List<ConductEvaluation> findByUserIdInAndKpiPeriodIdIn(List<UUID> userIds, List<UUID> kpiPeriodIds);
 }

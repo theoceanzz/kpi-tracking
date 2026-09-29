@@ -13,6 +13,7 @@ import { Switch } from '@/components/ui/switch'
 import { stageIcon, STAGE_ACTORS } from '../workflowStageIcons'
 import WorkflowGraph from './graph/WorkflowGraph'
 import StageInspector from './graph/StageInspector'
+import { useTranslation } from 'react-i18next'
 
 /**
  * Cấu hình luồng KPI cho toàn tổ chức — vẽ thành sơ đồ nút–cạnh, chỉnh ngay trên sơ đồ.
@@ -29,6 +30,7 @@ import StageInspector from './graph/StageInspector'
  * công tắc vừa bấm rời khỏi con trỏ, muốn bật lại phải dò chuột.
  */
 export default function OrgWorkflowPanel() {
+  const { t } = useTranslation('kpi')
   const { stages, isLoading, canManage } = useKpiWorkflow()
   const updateMutation = useUpdateKpiWorkflow()
   const resetMutation = useResetKpiWorkflow()
@@ -74,12 +76,12 @@ export default function OrgWorkflowPanel() {
       if (!stage.enabled) continue
       for (const req of stage.requires) {
         if (byCode.get(req)?.enabled === false) {
-          out[stage.code] = `Bước "${stage.label}" cần bước "${byCode.get(req)?.label}" cũng được bật.`
+          out[stage.code] = t('OrgWorkflowPanel.stepRequiresStepToBeEnabled', { label: stage.label, label2: byCode.get(req)?.label })
         }
       }
     }
     return out
-  }, [draft])
+  }, [draft, t])
   const warnings = useMemo(() => Object.values(warningsByCode), [warningsByCode])
 
   const dirty = useMemo(() => JSON.stringify(draft) !== JSON.stringify(stages), [draft, stages])
@@ -151,11 +153,11 @@ export default function OrgWorkflowPanel() {
               {readOnly ? <Lock size={20} /> : <Workflow size={20} />}
             </div>
             <div>
-              <h3 className="text-section-title">Luồng của tổ chức</h3>
+              <h3 className="text-section-title">{t('OrgWorkflowPanel.organizationFlow')}</h3>
               <p className="mt-0.5 text-sm text-[var(--color-muted-foreground)]">
                 {readOnly
-                  ? 'Chỉ người có quyền cấu hình luồng mới sửa được. Bạn đang xem quy trình tổ chức đang áp dụng.'
-                  : <>Áp dụng cho <b>mọi người</b> — bật/tắt bước ở đây đổi cả luật nghiệp vụ. Bấm một bước để mở cài đặt.</>}
+                  ? t('OrgWorkflowPanel.onlyPeopleWithPermissionToConfigure')
+                  : <>{t('OrgWorkflowPanel.appliesTo')} <b>{t('OrgWorkflowPanel.everyone')}</b> {t('OrgWorkflowPanel.turningStepsOnOffHereChanges')}</>}
               </p>
             </div>
           </div>
@@ -167,11 +169,11 @@ export default function OrgWorkflowPanel() {
               <>
                 <Button variant="outline" onClick={() => resetMutation.mutate()} disabled={resetMutation.isPending}>
                   {resetMutation.isPending ? <Loader2 aria-hidden="true" className="animate-spin" /> : <RotateCcw aria-hidden="true" />}
-                  Đặt lại mặc định
+                  {t('OrgWorkflowPanel.resetToDefault')}
                 </Button>
                 <Button onClick={save} disabled={updateMutation.isPending || !dirty || warnings.length > 0}>
                   {updateMutation.isPending ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Save aria-hidden="true" />}
-                  Lưu thay đổi
+                  {t('OrgWorkflowPanel.saveChanges')}
                 </Button>
               </>
             )}
@@ -179,8 +181,8 @@ export default function OrgWorkflowPanel() {
               variant="outline"
               size="icon"
               onClick={() => setFullscreen((v) => !v)}
-              title={fullscreen ? 'Thoát toàn màn hình (Esc)' : 'Toàn màn hình'}
-              aria-label={fullscreen ? 'Thoát toàn màn hình' : 'Toàn màn hình'}
+              title={fullscreen ? t('OrgWorkflowPanel.exitFullScreenEsc') : t('OrgWorkflowPanel.fullScreen')}
+              aria-label={fullscreen ? t('OrgWorkflowPanel.exitFullScreen') : t('OrgWorkflowPanel.fullScreen')}
             >
               {fullscreen ? <Minimize2 aria-hidden="true" /> : <Maximize2 aria-hidden="true" />}
             </Button>
@@ -206,7 +208,7 @@ export default function OrgWorkflowPanel() {
         onClose={() => setSelected(null)}
         size="md"
         title={selectedStage?.label ?? ''}
-        description={selectedStage ? STAGE_ACTORS[selectedStage.code] : undefined}
+        description={selectedStage ? STAGE_ACTORS()[selectedStage.code] : undefined}
         headerExtra={
           selectedStage && (
             <span className="ml-1 flex items-center gap-2">
@@ -217,9 +219,9 @@ export default function OrgWorkflowPanel() {
                 selectedStage.required ? (
                   <span
                     className="flex items-center gap-1 rounded-control bg-[var(--color-muted)] px-1.5 py-1 text-[11px] font-medium text-[var(--color-muted-foreground)]"
-                    title="Bước lõi của luồng, không thể tắt"
+                    title={t('OrgWorkflowPanel.coreStepOfTheFlowCannot')}
                   >
-                    <Lock size={11} /> Bắt buộc
+                    <Lock size={11} /> {t('OrgWorkflowPanel.required')}
                   </span>
                 ) : (
                   <Switch size="sm" checked={selectedStage.enabled} onCheckedChange={() => toggle(selectedStage.code)} />

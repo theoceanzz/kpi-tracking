@@ -1,5 +1,6 @@
 package com.kpitracking.event;
 
+import com.kpitracking.i18n.LocalizedText;
 import com.kpitracking.entity.BscScorecard;
 import com.kpitracking.entity.BscUnitResult;
 import com.kpitracking.entity.Evaluation;
@@ -76,11 +77,9 @@ public class BscNotificationEventListener {
         BscScorecard s = find(event.scorecardId());
         if (s == null) return;
 
-        String actorName = nameOf(event.actorId(), "Đơn vị");
-        String title = "Bộ tiêu chí BSC cần duyệt";
-        String message = String.format(
-                "%s vừa trình bộ tiêu chí BSC '%s' (%s) để chờ duyệt. Vào hệ thống để xem và duyệt.",
-                actorName, s.getName(), scopeOf(s));
+        Object actorName = nameOf(event.actorId(), LocalizedText.of("notif.bsc.actor.unit"));
+        LocalizedText title = LocalizedText.of("notif.bsc.submitted.title");
+        LocalizedText message = LocalizedText.of("notif.bsc.submitted.message", actorName, s.getName(), scopeOf(s));
 
         Set<UUID> notified = new HashSet<>();
         if (event.actorId() != null) notified.add(event.actorId());
@@ -102,10 +101,9 @@ public class BscNotificationEventListener {
         BscScorecard s = find(event.scorecardId());
         if (s == null) return;
 
-        String title = "Bộ tiêu chí BSC đã được duyệt";
-        String message = String.format(
-                "Bộ tiêu chí BSC '%s' (%s) đã được %s duyệt và áp dụng — từ giờ KPI của đơn vị chấm theo bộ này.",
-                s.getName(), scopeOf(s), nameOf(event.actorId(), "cấp trên"));
+        LocalizedText title = LocalizedText.of("notif.bsc.approved.title");
+        LocalizedText message = LocalizedText.of("notif.bsc.approved.message",
+                s.getName(), scopeOf(s), nameOf(event.actorId(), LocalizedText.of("notif.bsc.actor.superior")));
 
         notifyOwners(s, event.actorId(), "bsc_scorecard_approved", title, message);
     }
@@ -117,11 +115,10 @@ public class BscNotificationEventListener {
         BscScorecard s = find(event.scorecardId());
         if (s == null) return;
 
-        String title = "Bộ tiêu chí BSC bị trả lại";
-        String message = String.format(
-                "Bộ tiêu chí BSC '%s' (%s) đã bị %s trả lại để sửa. Lý do: %s",
-                s.getName(), scopeOf(s), nameOf(event.actorId(), "cấp trên"),
-                event.reason() == null || event.reason().isBlank() ? "(không ghi)" : event.reason());
+        LocalizedText title = LocalizedText.of("notif.bsc.rejected.title");
+        LocalizedText message = LocalizedText.of("notif.bsc.rejected.message",
+                s.getName(), scopeOf(s), nameOf(event.actorId(), LocalizedText.of("notif.bsc.actor.superior")),
+                event.reason() == null || event.reason().isBlank() ? LocalizedText.of("notif.common.noReason") : event.reason());
 
         Set<UUID> notified = new HashSet<>();
         if (event.actorId() != null) notified.add(event.actorId());
@@ -138,10 +135,9 @@ public class BscNotificationEventListener {
         BscScorecard s = find(event.scorecardId());
         if (s == null) return;
 
-        String title = "Bộ tiêu chí BSC đã được áp dụng";
-        String message = String.format(
-                "Bộ tiêu chí BSC '%s' (%s) đã được %s áp dụng. Từ giờ KPI của đơn vị bám theo các chỉ tiêu trong bộ này.",
-                s.getName(), scopeOf(s), nameOf(event.actorId(), "cấp trên"));
+        LocalizedText title = LocalizedText.of("notif.bsc.activated.title");
+        LocalizedText message = LocalizedText.of("notif.bsc.activated.message",
+                s.getName(), scopeOf(s), nameOf(event.actorId(), LocalizedText.of("notif.bsc.actor.superior")));
 
         notifyUnitOwners(s, event.actorId(), "bsc_scorecard_activated", title, message);
     }
@@ -153,12 +149,10 @@ public class BscNotificationEventListener {
         BscScorecard s = find(event.scorecardId());
         if (s == null) return;
 
-        String title = event.locked() ? "Bộ tiêu chí BSC đã bị khoá" : "Bộ tiêu chí BSC đã được mở khoá";
-        String message = event.locked()
-                ? String.format("Bộ tiêu chí BSC '%s' (%s) đã được %s khoá — không sửa chỉ tiêu hay trọng số được nữa.",
-                        s.getName(), scopeOf(s), nameOf(event.actorId(), "cấp trên"))
-                : String.format("Bộ tiêu chí BSC '%s' (%s) đã được %s mở khoá để sửa lại.",
-                        s.getName(), scopeOf(s), nameOf(event.actorId(), "cấp trên"));
+        String state = event.locked() ? "locked" : "unlocked";
+        LocalizedText title = LocalizedText.of("notif.bsc." + state + ".title");
+        LocalizedText message = LocalizedText.of("notif.bsc." + state + ".message",
+                s.getName(), scopeOf(s), nameOf(event.actorId(), LocalizedText.of("notif.bsc.actor.superior")));
 
         notifyUnitOwners(s, event.actorId(), "bsc_scorecard_locked", title, message);
     }
@@ -175,7 +169,7 @@ public class BscNotificationEventListener {
         if (parent == null || event.assignments() == null) return;
 
         UUID orgId = orgIdOf(parent);
-        String actorName = nameOf(event.actorId(), "Cấp trên");
+        Object actorName = nameOf(event.actorId(), LocalizedText.of("notif.bsc.actor.superiorCapital"));
 
         for (BscEvents.CascadeAssignment target : event.assignments()) {
             OrgUnit unit = orgUnitRepository.findById(target.orgUnitId()).orElse(null);
@@ -185,11 +179,10 @@ public class BscNotificationEventListener {
                     : String.format("%,.0f%s", target.contributionValue(),
                             target.unit() == null || target.unit().isBlank() ? "" : " " + target.unit());
 
-            String title = "Được giao chỉ tiêu BSC mới";
-            String message = String.format(
-                    "%s vừa giao chỉ tiêu '%s' cho %s%s. Mở bộ tiêu chí của đơn vị để chia trọng số cho đủ 100%% rồi trình duyệt.",
+            LocalizedText title = LocalizedText.of("notif.bsc.cascaded.title");
+            LocalizedText message = LocalizedText.of("notif.bsc.cascaded.message",
                     actorName, event.itemName(), unit.getName(),
-                    amount == null ? "" : " với mức đóng góp " + amount);
+                    amount == null ? "" : LocalizedText.of("notif.bsc.cascaded.contribution", amount));
 
             Set<UUID> notified = new HashSet<>();
             if (event.actorId() != null) notified.add(event.actorId());
@@ -218,14 +211,13 @@ public class BscNotificationEventListener {
         BscScorecard s = find(event.scorecardId());
         if (s == null) return;
 
-        String periodName = result.getKpiPeriod() != null ? result.getKpiPeriod().getName() : "đợt đang xét";
+        Object periodName = result.getKpiPeriod() != null ? result.getKpiPeriod().getName() : LocalizedText.of("notif.bsc.currentPeriod");
         String achievement = result.getAchievementPercent() == null ? "—"
                 : String.format("%.1f%%", result.getAchievementPercent());
 
-        String title = "Kết quả BSC của đợt đã được chốt";
-        String message = String.format(
-                "Kết quả BSC của %s trong %s đã được %s chốt: %s. Muốn đổi thì phải mở khoá và tính lại.",
-                scopeOf(s), periodName, nameOf(event.actorId(), "cấp trên"), achievement);
+        LocalizedText title = LocalizedText.of("notif.bsc.resultFinalized.title");
+        LocalizedText message = LocalizedText.of("notif.bsc.resultFinalized.message",
+                scopeOf(s), periodName, nameOf(event.actorId(), LocalizedText.of("notif.bsc.actor.superior")), achievement);
 
         notifyUnitOwners(s, event.actorId(), "bsc_unit_result_finalized", title, message, TYPE_RESULT);
     }
@@ -245,15 +237,14 @@ public class BscNotificationEventListener {
         UUID orgId = organizationIdOf(e);
         if (orgId == null) return;
 
-        String periodName = e.getKpiPeriod() != null ? e.getKpiPeriod().getName() : "kỳ đang xét";
-        String actorName = nameOf(event.actorId(), "Quản lý");
+        Object periodName = e.getKpiPeriod() != null ? e.getKpiPeriod().getName() : LocalizedText.of("notif.bsc.currentCycle");
+        Object actorName = nameOf(event.actorId(), LocalizedText.of("notif.bsc.actor.manager"));
 
-        String title = event.cleared() ? "Điểm BSC đã huỷ ghi đè" : "Điểm BSC của bạn được điều chỉnh";
-        String message = event.cleared()
-                ? String.format("%s đã huỷ ghi đè điểm BSC %s của bạn — điểm quay về con số hệ thống tính.",
-                        actorName, periodName)
-                : String.format("%s đã điều chỉnh điểm BSC %s của bạn thành %.1f. Mở màn hình diễn giải điểm để xem lý do.",
-                        actorName, periodName, event.score() == null ? 0.0 : event.score());
+        LocalizedText title = LocalizedText.of(event.cleared() ? "notif.bsc.overrideCleared.title" : "notif.bsc.overridden.title");
+        LocalizedText message = event.cleared()
+                ? LocalizedText.of("notif.bsc.overrideCleared.message", actorName, periodName)
+                : LocalizedText.of("notif.bsc.overridden.message", actorName, periodName,
+                        String.format("%.1f", event.score() == null ? 0.0 : event.score()));
 
         dispatcher.dispatch(orgId, "bsc_score_overridden", e.getUser(), e.getOrgUnit(),
                 title, message, TYPE_RESULT, e.getId());
@@ -278,19 +269,20 @@ public class BscNotificationEventListener {
         return id == null ? null : userRepository.findById(id).orElse(null);
     }
 
-    private String nameOf(UUID userId, String fallback) {
-        return Optional.ofNullable(userOrNull(userId)).map(User::getFullName).orElse(fallback);
+    /** Tên người (nguyên văn) hoặc cụm thay thế dịch được khi không tìm thấy người. */
+    private Object nameOf(UUID userId, LocalizedText fallback) {
+        return Optional.<Object>ofNullable(userOrNull(userId)).map(u -> (Object) ((User) u).getFullName()).orElse(fallback);
     }
 
     /** "phòng Kinh doanh, phòng Marketing" hoặc "toàn tổ chức" — đủ để người đọc biết thư nói về đâu. */
-    private String scopeOf(BscScorecard s) {
+    private Object scopeOf(BscScorecard s) {
         List<OrgUnit> units = s.getOrgUnits();
-        String scope = units == null || units.isEmpty()
-                ? "toàn tổ chức"
+        Object scope = units == null || units.isEmpty()
+                ? LocalizedText.of("notif.bsc.wholeOrganization")
                 : String.join(", ", units.stream().map(OrgUnit::getName).toList());
         String period = s.getApplyScope() == BscScorecardApplyScope.CYCLE && s.getKpiCycle() != null
                 ? s.getKpiCycle().getName() : null;
-        return period == null ? scope : scope + " · " + period;
+        return period == null ? scope : LocalizedText.of("notif.bsc.scopeWithPeriod", scope, period);
     }
 
     /**
@@ -304,14 +296,14 @@ public class BscNotificationEventListener {
     }
 
     /** Báo ngược về người trình và chủ sở hữu thẻ (kết quả của việc họ vừa làm). */
-    private void notifyOwners(BscScorecard s, UUID actorId, String eventCode, String title, String message) {
+    private void notifyOwners(BscScorecard s, UUID actorId, String eventCode, LocalizedText title, LocalizedText message) {
         Set<UUID> notified = new HashSet<>();
         if (actorId != null) notified.add(actorId);
         dispatchToUsers(s, Arrays.asList(s.getSubmittedBy(), s.getOwner()), notified,
                 eventCode, title, message, TYPE_SCORECARD, s.getId());
     }
 
-    private void notifyUnitOwners(BscScorecard s, UUID actorId, String eventCode, String title, String message) {
+    private void notifyUnitOwners(BscScorecard s, UUID actorId, String eventCode, LocalizedText title, LocalizedText message) {
         notifyUnitOwners(s, actorId, eventCode, title, message, TYPE_SCORECARD);
     }
 
@@ -320,7 +312,7 @@ public class BscNotificationEventListener {
      * người phụ trách BSC của đơn vị (họ có thể không phải hai người trên).
      */
     private void notifyUnitOwners(BscScorecard s, UUID actorId, String eventCode,
-                                  String title, String message, String type) {
+                                  LocalizedText title, LocalizedText message, String type) {
         Set<UUID> notified = new HashSet<>();
         if (actorId != null) notified.add(actorId);
 
@@ -334,7 +326,7 @@ public class BscNotificationEventListener {
     }
 
     private void dispatchToUsers(BscScorecard s, List<User> recipients, Set<UUID> notified,
-                                 String eventCode, String title, String message,
+                                 String eventCode, LocalizedText title, LocalizedText message,
                                  String type, UUID referenceId) {
         List<OrgUnit> units = routingUnits(s);
         OrgUnit unit = units.isEmpty() ? null : units.get(0);

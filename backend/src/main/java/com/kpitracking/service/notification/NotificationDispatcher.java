@@ -2,6 +2,8 @@ package com.kpitracking.service.notification;
 
 import com.kpitracking.entity.OrgUnit;
 import com.kpitracking.entity.User;
+import com.kpitracking.i18n.LocalizedText;
+import com.kpitracking.i18n.UserLanguageResolver;
 import com.kpitracking.service.EmailService;
 import com.kpitracking.service.NotificationService;
 import com.kpitracking.service.OrgNotificationConfigService;
@@ -9,6 +11,7 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 
+import java.util.Locale;
 import java.util.UUID;
 
 /**
@@ -38,32 +41,52 @@ public class NotificationDispatcher {
     private final OrgNotificationConfigService configService;
     private final NotificationEmailDigestService digestService;
     private final EmailService emailService;
+    private final UserLanguageResolver languageResolver;
 
     /** Chuông ngay, email xếp hàng chờ gộp theo người nhận. */
     public void dispatch(UUID orgId, String eventCode, User recipient, OrgUnit orgUnit,
-                         String title, String message, String type, UUID referenceId) {
+                         LocalizedText title, LocalizedText message, String type, UUID referenceId) {
         deliver(orgId, eventCode, recipient, orgUnit, title, message, type, referenceId, false);
     }
 
     /** Chuông ngay, email cũng đi ngay — không gộp. */
     public void dispatchImmediate(UUID orgId, String eventCode, User recipient, OrgUnit orgUnit,
-                                  String title, String message, String type, UUID referenceId) {
+                                  LocalizedText title, LocalizedText message, String type, UUID referenceId) {
         deliver(orgId, eventCode, recipient, orgUnit, title, message, type, referenceId, true);
     }
 
+    /**
+     * Chỉ chuông, không email — kể cả khi tổ chức bật email cho mã này. Dành cho thông báo
+     * "để biết" gửi diện rộng (vd. khoá kỳ báo cho mọi người liên quan), nơi email chỉ nên đi tới
+     * người thực sự bị ảnh hưởng qua một mã sự kiện khác.
+     */
+    public void dispatchInAppOnly(UUID orgId, String eventCode, User recipient, OrgUnit orgUnit,
+                                  LocalizedText title, LocalizedText message, String type, UUID referenceId) {
+        if (recipient == null) return;
+        try {
+            if (configService.isSystemEnabled(orgId, eventCode)) {
+                notificationService.createNotification(orgUnit, recipient, title, message, type, referenceId);
+            }
+        } catch (Exception e) {
+            log.error("Không phát được thông báo {} cho người dùng {}", eventCode, recipient.getId(), e);
+        }
+    }
+
     private void deliver(UUID orgId, String eventCode, User recipient, OrgUnit orgUnit,
-                         String title, String message, String type, UUID referenceId, boolean immediate) {
+                         LocalizedText title, LocalizedText message, String type, UUID referenceId, boolean immediate) {
         if (recipient == null) return;
         try {
             if (configService.isSystemEnabled(orgId, eventCode)) {
                 notificationService.createNotification(orgUnit, recipient, title, message, type, referenceId);
             }
             if (configService.isEmailEnabled(orgId, eventCode)) {
+                // Email đi theo ngôn ngữ của NGƯỜI NHẬN, không theo request đang chạy.
+                Locale locale = languageResolver.effectiveLocale(recipient);
                 if (immediate) {
                     emailService.sendEventNotificationEmail(orgId, eventCode, recipient.getEmail(),
-                            recipient.getFullName(), title, message);
+                            recipient.getFullName(), title.render(locale), message.render(locale));
                 } else {
-                    digestService.enqueue(orgId, eventCode, recipient, title, message, referenceId);
+                    digestService.enqueue(orgId, eventCode, recipient, title.render(locale), message.render(locale), referenceId);
                 }
             }
         } catch (Exception e) {

@@ -1,6 +1,7 @@
 import { createContext, useContext, useMemo, useState, type ReactNode } from 'react'
 import { useAnalyticsDateFilter, type AnalyticsDateFilterValue } from '@/components/common/AnalyticsDateFilter'
 import type { PinnedFilter } from '@/features/analytics/components/pinned/pinnedWidgetRegistry'
+import { useTranslation } from 'react-i18next'
 
 /**
  * Bộ lọc thời gian của trang chủ — bản sao đúng cơ chế của trang Phân tích.
@@ -44,8 +45,9 @@ export function DashboardFilterProvider({ children }: { children: ReactNode }) {
 }
 
 function useCtx(): DashboardFilterValue {
+  const { t } = useTranslation('dashboard')
   const ctx = useContext(DashboardFilterContext)
-  if (!ctx) throw new Error('useDashboardFilter phải được dùng bên trong DashboardFilterProvider')
+  if (!ctx) throw new Error(t('DashboardFilterContext.usedashboardfilterMustBeUsedInsideDashboardfilte'))
   return ctx
 }
 

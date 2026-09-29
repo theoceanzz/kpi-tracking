@@ -30,6 +30,10 @@ public class OrganizationResponse {
     private Boolean enableBsc;
     /** Chấm hạnh kiểm theo bộ tiêu chí có trọng số. */
     private Boolean enableConduct;
+    /** Đánh giá 360 độ. */
+    private Boolean enableFeedback360;
+    /** Cho chiến dịch 360 đi vào xếp loại kỳ (trục hành vi của ma trận). */
+    private Boolean feedback360AffectsRating;
     private Boolean enableReward;
     /** AI đọc bài nộp và đề xuất điểm khi chấm (mặc định TẮT) + trọng số ba thành phần điểm đề xuất. */
     private Boolean enableAiReview;

@@ -1,3 +1,4 @@
+import { LocaleNumberInput } from '@/components/ui/number-input'
 import { useMemo, useRef, useState } from 'react'
 import {
   Plus, Trash2, Save, RotateCcw, Star, ChevronRight, ChevronDown,
@@ -12,9 +13,11 @@ import { Badge } from '@/components/ui/badge'
 import { Checkbox } from '@/components/ui/checkbox'
 import { useKpiCycles } from '@/features/kpi/hooks/useKpiCycles'
 import { useConductConfig, useConductSets } from '../hooks/useConduct'
+import { CONDUCT_MIN_SCORE } from '../hooks/useConductDraft'
 import type { ConductSet } from '../api/conductApi'
 import type { OrganizationResponse } from '@/features/orgunits/api/organizationApi'
 import { Button } from '@/components/ui/button'
+import { useTranslation } from 'react-i18next'
 
 /**
  * Các BỘ tiêu chí hạnh kiểm của tổ chức — cùng khuôn với hồ sơ luật của "xếp loại đơn vị":
@@ -53,7 +56,7 @@ const toDraft = (s: ConductSet): DraftSet => ({
   id: s.id,
   name: s.name,
   isDefault: s.isDefault,
-  maxScore: String(s.maxScore ?? 4),
+  maxScore: String(s.maxScore ?? 5),
   kpiCycleIds: [...(s.kpiCycleIds ?? [])],
   criteria: (s.criteria ?? []).map(c => ({
     name: c.name,
@@ -93,6 +96,7 @@ function IconButton({
 }
 
 export default function ConductConfigSection({ org }: { org: OrganizationResponse }) {
+  const { t } = useTranslation('conduct')
   const orgId = org?.id
   const { data: config, isLoading } = useConductConfig(orgId)
   const {
@@ -171,22 +175,22 @@ export default function ConductConfigSection({ org }: { org: OrganizationRespons
 
   const handleAdd = () => {
     const base = drafts.find(d => d.isDefault) ?? drafts[0]
-    addSet(`Bộ tiêu chí ${drafts.length + 1}`, base?.id ?? null)
+    addSet(t('ConductConfigSection.criteriaSet', { value: drafts.length + 1 }), base?.id ?? null)
   }
 
   const handleSave = (draft: DraftSet) => {
-    if (!draft.name.trim()) { toast.error('Tên bộ tiêu chí không được để trống'); return }
-    if (!draft.criteria.length) { toast.error(`Bộ "${draft.name}" cần ít nhất 1 tiêu chí`); return }
-    if (draft.criteria.some(c => !c.name.trim())) { toast.error('Tên tiêu chí không được để trống'); return }
+    if (!draft.name.trim()) { toast.error(t('ConductConfigSection.theCriteriaSetNameCannotBe')); return }
+    if (!draft.criteria.length) { toast.error(t('ConductConfigSection.setNeedsAtLeast1Criterion', { name: draft.name })); return }
+    if (draft.criteria.some(c => !c.name.trim())) { toast.error(t('ConductConfigSection.theCriterionNameCannotBeEmpty')); return }
     if (draft.criteria.some(c => !(Number(c.weight) > 0))) {
-      toast.error('Trọng số của mỗi tiêu chí phải lớn hơn 0'); return
+      toast.error(t('ConductConfigSection.eachCriterionsWeightMustBeGreater')); return
     }
     const total = totalWeight(draft.criteria)
     if (Math.abs(total - 100) > 0.01) {
-      toast.error(`Tổng trọng số phải bằng 100% (hiện tại ${total}%)`); return
+      toast.error(t('ConductConfigSection.theTotalWeightMustEqual100', { total })); return
     }
     const max = Number(draft.maxScore)
-    if (!(max > 0)) { toast.error('Thang điểm phải lớn hơn 0'); return }
+    if (!(max > CONDUCT_MIN_SCORE)) { toast.error(t('ConductConfigSection.theScaleMustBeGreaterThan', { CONDUCT_MIN_SCORE })); return }
 
     setSavingId(draft.id)
     updateSet({
@@ -215,12 +219,12 @@ export default function ConductConfigSection({ org }: { org: OrganizationRespons
     // Hạnh kiểm của mục Thang điểm. Tự dựng một đầu card khác ở đây là hàng tab biến mất.
     <div className="space-y-4">
       <WorkspaceHeader
-        description={`${drafts.length} bộ tiêu chí — gán theo kỳ, kỳ chưa gán dùng bộ mặc định.`}
+        description={t('ConductConfigSection.criteriaSetsAssignedByCycleUnassigned', { count: drafts.length })}
         actions={
           <>
             <HelpPopover />
-            <Button variant="outline" type="button" onClick={() => resetSet(undefined)} title="Đặt bộ mặc định về 4 tiêu chí × 25%">
-              <RotateCcw aria-hidden="true" /> Đặt lại bộ mặc định
+            <Button variant="outline" type="button" onClick={() => resetSet(undefined)} title={t('ConductConfigSection.resetTheDefaultSetTo4')}>
+              <RotateCcw aria-hidden="true" /> {t('ConductConfigSection.resetTheDefaultSet')}
             </Button>
           </>
         }
@@ -229,7 +233,7 @@ export default function ConductConfigSection({ org }: { org: OrganizationRespons
       {!hasDefault && (
         <p className="flex items-start gap-2 rounded-card bg-[var(--color-warning-bg)] px-3 py-2 text-xs font-medium text-[var(--color-warning)]">
           <AlertTriangle size={14} className="shrink-0 mt-px" aria-hidden="true" />
-          Chưa có bộ mặc định — các kỳ không được gán sẽ không mở được phiếu chấm.
+          {t('ConductConfigSection.noDefaultSetYetCyclesWithout')}
         </p>
       )}
 
@@ -251,7 +255,7 @@ export default function ConductConfigSection({ org }: { org: OrganizationRespons
             onPatch={p => patch(d.id, p)}
             onSave={() => handleSave(d)}
             onSetDefault={() => markDefaultSet(d.id)}
-            onDuplicate={() => addSet(`${d.name} (bản sao)`, d.id)}
+            onDuplicate={() => addSet(t('ConductConfigSection.copy', { name: d.name }), d.id)}
             onReset={() => resetSet(d.id)}
             onRemove={() => deleteSet(d.id)}
           />
@@ -260,7 +264,7 @@ export default function ConductConfigSection({ org }: { org: OrganizationRespons
 
       <Button variant="outline" className="w-full" id="tour-conduct-add-set" type="button" onClick={handleAdd} disabled={isCreating}>
         {isCreating ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Plus aria-hidden="true" />}
-        Thêm bộ tiêu chí
+        {t('ConductConfigSection.addCriteriaSet')}
       </Button>
     </div>
   )
@@ -268,17 +272,18 @@ export default function ConductConfigSection({ org }: { org: OrganizationRespons
 
 /** Phần giải thích dài — để sau nút "?" thay vì bày sẵn hai dòng chữ trên danh sách. */
 function HelpPopover() {
+  const { t } = useTranslation('conduct')
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="outline" size="icon" type="button" aria-label="Bộ tiêu chí hạnh kiểm hoạt động thế nào">
+        <Button variant="outline" size="icon" type="button" aria-label={t('ConductConfigSection.howConductCriteriaSetsWork')}>
           <HelpCircle aria-hidden="true" />
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-[320px] text-xs leading-relaxed text-[var(--color-muted-foreground)] space-y-2">
-        <p>Mỗi <b>bộ</b> là một cách chấm hạnh kiểm. Gán bộ cho <b>kỳ</b> nào thì mọi đợt trong kỳ đó chấm theo bộ ấy.</p>
-        <p>Kỳ không được gán dùng bộ <b>mặc định</b>. Một kỳ chỉ thuộc một bộ — gán sang bộ khác thì bộ cũ tự mất kỳ đó.</p>
-        <p>Điểm tổng = Σ(điểm × trọng số), nên <b>tổng trọng số phải bằng 100%</b>.</p>
+        <p>{t('ConductConfigSection.each')} <b>{t('ConductConfigSection.set')}</b> {t('ConductConfigSection.isOneWayOfScoringConduct')} <b>{t('ConductConfigSection.cycle')}</b> {t('ConductConfigSection.andEveryPeriodInThatCycle')}</p>
+        <p>{t('ConductConfigSection.unassignedCyclesUseTheSet')} <b>{t('ConductConfigSection.default')}</b>{t('ConductConfigSection.aCycleBelongsToOnlyOne')}</p>
+        <p>{t('ConductConfigSection.totalScoreScoreWeightSo')} <b>{t('ConductConfigSection.theTotalWeightMustEqual1002')}</b>.</p>
       </PopoverContent>
     </Popover>
   )
@@ -307,6 +312,7 @@ function SetCard({
   onReset: () => void
   onRemove: () => void
 }) {
+  const { t } = useTranslation('conduct')
   // Ô "biểu hiện cụ thể" gập theo từng tiêu chí: mở sẵn cả bốn thì thẻ dài gấp bốn lần và
   // nút Lưu bị đẩy khỏi màn hình.
   const [openDesc, setOpenDesc] = useState<Set<number>>(new Set())
@@ -344,12 +350,12 @@ function SetCard({
     )}>
       {/* ── Dòng tiêu đề: đóng thì là bản tóm tắt, mở thì là thanh công cụ của bộ ── */}
       <div className="flex items-center gap-2 p-2.5 max-sm:flex-wrap">
-        <Button variant="ghost" size="icon-sm" className="shrink-0" type="button" onClick={onToggle} aria-expanded={isOpen} aria-label={isOpen ? `Thu gọn bộ ${d.name}` : `Mở bộ ${d.name}`}>
+        <Button variant="ghost" size="icon-sm" className="shrink-0" type="button" onClick={onToggle} aria-expanded={isOpen} aria-label={isOpen ? t('ConductConfigSection.collapseSet', { name: d.name }) : t('ConductConfigSection.openSet', { name: d.name })}>
           {isOpen ? <ChevronDown aria-hidden="true" /> : <ChevronRight aria-hidden="true" />}
         </Button>
 
         {d.isDefault && (
-          <Badge className="gap-1 shrink-0 whitespace-nowrap"><Star size={11} className="fill-white" aria-hidden="true" /> Mặc định</Badge>
+          <Badge className="gap-1 shrink-0 whitespace-nowrap"><Star size={11} className="fill-white" aria-hidden="true" /> {t('ConductConfigSection.default2')}</Badge>
         )}
 
         {isOpen ? (
@@ -358,17 +364,17 @@ function SetCard({
           <input
             value={d.name}
             onChange={e => onPatch({ name: e.target.value })}
-            placeholder="Tên bộ tiêu chí"
-            aria-label="Tên bộ tiêu chí"
+            placeholder={t('ConductConfigSection.criteriaSetName')}
+            aria-label={t('ConductConfigSection.criteriaSetName')}
             className={cn(fieldCls, 'flex-1 min-w-[140px] max-w-xs font-semibold')}
           />
         ) : (
           <button className="flex h-9 w-full items-center gap-2.5 rounded-control px-2.5 text-left text-sm text-[var(--color-foreground)] transition-colors hover:bg-[var(--color-muted)] [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-[var(--color-muted-foreground)] flex-1 min-w-0" type="button" onClick={onToggle}>
-            <span className="font-semibold text-sm truncate">{d.name || 'Bộ tiêu chí'}</span>
+            <span className="font-semibold text-sm truncate">{d.name || t('ConductConfigSection.criteriaSet2')}</span>
             <span className="ml-auto flex items-center gap-2 shrink-0 text-caption max-sm:hidden">
-              <span>{d.criteria.length} tiêu chí</span>
+              <span>{d.criteria.length} {t('ConductConfigSection.criteria')}</span>
               <span className="text-[var(--color-subtle-foreground)]">·</span>
-              <span>thang {d.maxScore}</span>
+              <span>{t('ConductConfigSection.scaleRange', { min: CONDUCT_MIN_SCORE, max: d.maxScore })}</span>
               <span className="text-[var(--color-subtle-foreground)]">·</span>
               <span className={totalOff ? 'text-[var(--color-error)]' : 'text-[var(--color-success)]'}>{total}%</span>
               <span className="text-[var(--color-subtle-foreground)]">·</span>
@@ -380,13 +386,13 @@ function SetCard({
         {isOpen && (
           <div className="flex items-center gap-0.5 shrink-0 max-sm:w-full max-sm:justify-end">
             {!d.isDefault && (
-              <IconButton label="Đặt làm bộ mặc định" onClick={onSetDefault}><Star size={15} /></IconButton>
+              <IconButton label={t('ConductConfigSection.makeDefaultSet')} onClick={onSetDefault}><Star size={15} /></IconButton>
             )}
-            <IconButton label="Nhân bản bộ này" onClick={onDuplicate}><Copy size={15} /></IconButton>
-            <IconButton label="Đặt bộ này về 4 tiêu chí mặc định" onClick={onReset}><RotateCcw size={15} /></IconButton>
-            {canDelete && <IconButton label="Xoá bộ này" onClick={onRemove} danger><Trash2 size={15} /></IconButton>}
+            <IconButton label={t('ConductConfigSection.duplicateThisSet')} onClick={onDuplicate}><Copy size={15} /></IconButton>
+            <IconButton label={t('ConductConfigSection.resetThisSetToThe4')} onClick={onReset}><RotateCcw size={15} /></IconButton>
+            {canDelete && <IconButton label={t('ConductConfigSection.deleteThisSet')} onClick={onRemove} danger><Trash2 size={15} /></IconButton>}
             <Button size="sm" className="ml-1.5" type="button" onClick={onSave} disabled={isSaving}>
-              {isSaving ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Save aria-hidden="true" />} Lưu
+              {isSaving ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Save aria-hidden="true" />} {t('ConductConfigSection.save')}
             </Button>
           </div>
         )}
@@ -400,24 +406,24 @@ function SetCard({
           <div className="px-3 py-2.5 flex flex-wrap items-center gap-x-5 gap-y-2.5 border-b border-[var(--color-border)]">
             <div className="flex items-center gap-2 flex-wrap min-w-0">
               <span className="text-eyebrow inline-flex items-center gap-1 shrink-0">
-                <CalendarRange size={12} aria-hidden="true" /> Kỳ áp dụng
+                <CalendarRange size={12} aria-hidden="true" /> {t('ConductConfigSection.applicableCycles')}
               </span>
               {d.isDefault ? (
                 <span
                   className="text-caption"
-                  title="Bộ mặc định luôn áp cho mọi kỳ chưa gán — giới hạn nó theo kỳ sẽ làm các kỳ còn lại không chấm được"
+                  title={t('ConductConfigSection.theDefaultSetAlwaysAppliesTo')}
                 >
-                  Mọi kỳ chưa gán bộ riêng
+                  {t('ConductConfigSection.everyCycleWithoutItsOwnSet')}
                   {unassignedCount > 0 && (
-                    <span className="text-[var(--color-subtle-foreground)]"> ({unassignedCount} kỳ)</span>
+                    <span className="text-[var(--color-subtle-foreground)]"> ({unassignedCount} {t('ConductConfigSection.cycles')}</span>
                   )}
                 </span>
               ) : (
                 <>
                   {d.kpiCycleIds.map(id => (
                     <Badge key={id} variant="secondary" className="gap-1 pr-1 max-w-[180px]">
-                      <span className="truncate">{cycleNameById[id] ?? 'Kỳ'}</span>
-                      <Button variant="ghost" size="icon" className="shrink-0 text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]" type="button" onClick={() => onPatch({ kpiCycleIds: d.kpiCycleIds.filter(x => x !== id) })} aria-label={`Bỏ gán kỳ ${cycleNameById[id] ?? ''}`}>
+                      <span className="truncate">{cycleNameById[id] ?? t('ConductConfigSection.aCycle')}</span>
+                      <Button variant="ghost" size="icon" className="shrink-0 text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]" type="button" onClick={() => onPatch({ kpiCycleIds: d.kpiCycleIds.filter(x => x !== id) })} aria-label={t('ConductConfigSection.unassignCycle', { value: cycleNameById[id] ?? '' })}>
                         <X aria-hidden="true" />
                       </Button>
                     </Badge>
@@ -431,35 +437,44 @@ function SetCard({
                     })}
                   />
                   {d.kpiCycleIds.length === 0 && (
-                    <span className="text-xs font-medium text-[var(--color-warning)]">chưa gán kỳ nào</span>
+                    <span className="text-xs font-medium text-[var(--color-warning)]">{t('ConductConfigSection.noCyclesAssigned')}</span>
                   )}
                 </>
               )}
             </div>
 
-            <label className="flex items-center gap-2 shrink-0">
+            {/* Thang điểm phải trùng trần trục hành vi của ma trận xếp loại (mặc định 5): điểm
+                hạnh kiểm chính là thứ lấp trục đó khi tổ chức không chấm KPI định tính. Để thang
+                thấp hơn thì chấm kịch khung vẫn không bao giờ chạm được mức cao nhất của ma trận. */}
+            <label className="flex items-center gap-2 shrink-0" title={t('ConductConfigSection.theScaleForEachCriterionKeep')}>
               <span className="text-eyebrow inline-flex items-center gap-1">
-                <Scale size={12} aria-hidden="true" /> Thang điểm
+                <Scale size={12} aria-hidden="true" /> {t('ConductConfigSection.scoringScales')}
               </span>
-              <input
+              <span className="text-caption tabular-nums">{CONDUCT_MIN_SCORE} –</span>
+              <LocaleNumberInput
                 type="number"
-                min={1}
+                min={CONDUCT_MIN_SCORE + 1}
                 step={1}
                 value={d.maxScore}
                 onChange={e => onPatch({ maxScore: e.target.value })}
                 onWheel={e => e.currentTarget.blur()}
                 className={cn(fieldCls, 'w-16 text-center')}
               />
+              {Number(d.maxScore) !== 5 && (
+                <span className="text-xs font-medium text-[var(--color-warning)]" title={t('ConductConfigSection.theRatingMatrixRuns15')}>
+                  {t('ConductConfigSection.n15Matrix')}
+                </span>
+              )}
             </label>
 
             <div className="flex items-center gap-2 shrink-0 sm:ml-auto">
-              <span className="text-eyebrow">Tổng trọng số</span>
+              <span className="text-eyebrow">{t('ConductConfigSection.totalWeight')}</span>
               <span className={cn('text-base font-semibold tabular-nums', totalOff ? 'text-[var(--color-error)]' : 'text-[var(--color-success)]')}>
                 {total}%
               </span>
               {totalOff && (
-                <Button variant="ghost" size="sm" className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]" type="button" onClick={splitEvenly} title="Chia đều 100% cho các tiêu chí">
-                  Chia đều
+                <Button variant="ghost" size="sm" className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]" type="button" onClick={splitEvenly} title={t('ConductConfigSection.split100EvenlyAcrossCriteria')}>
+                  {t('ConductConfigSection.splitEvenly')}
                 </Button>
               )}
             </div>
@@ -479,19 +494,19 @@ function SetCard({
                     <input
                       value={row.name}
                       onChange={e => setCriteria(idx, { name: e.target.value })}
-                      placeholder="Tên tiêu chí"
-                      aria-label={`Tên tiêu chí ${idx + 1}`}
+                      placeholder={t('ConductConfigSection.criterionName')}
+                      aria-label={t('ConductConfigSection.criterionName2', { value: idx + 1 })}
                       className={cn(fieldCls, 'flex-1 min-w-[120px] bg-[var(--color-card)]')}
                     />
                     <div className="flex items-center gap-1 shrink-0">
-                      <input
+                      <LocaleNumberInput
                         type="number"
                         min={0}
                         step={1}
                         value={row.weight}
                         onChange={e => setCriteria(idx, { weight: e.target.value })}
                         onWheel={e => e.currentTarget.blur()}
-                        aria-label={`Trọng số tiêu chí ${idx + 1} (%)`}
+                        aria-label={t('ConductConfigSection.criterionWeight', { value: idx + 1 })}
                         className={cn(fieldCls, 'w-16 text-center bg-[var(--color-card)] tabular-nums')}
                       />
                       <span className="text-xs font-semibold text-[var(--color-subtle-foreground)]">%</span>
@@ -510,10 +525,10 @@ function SetCard({
                       )}
                     >
                       {descOpen ? <ChevronDown size={13} aria-hidden="true" /> : <ChevronRight size={13} aria-hidden="true" />}
-                      {lines.length ? `${lines.length} biểu hiện` : 'Thêm biểu hiện'}
+                      {lines.length ? t('ConductConfigSection.indicators', { count: lines.length }) : t('ConductConfigSection.addIndicator')}
                     </button>
                     <IconButton
-                      label={`Xoá tiêu chí ${row.name || idx + 1}`}
+                      label={t('ConductConfigSection.deleteCriterion', { value: row.name || idx + 1 })}
                       onClick={() => onPatch({ criteria: d.criteria.filter((_, i) => i !== idx) })}
                       danger
                     >
@@ -526,8 +541,8 @@ function SetCard({
                       <textarea
                         value={row.description}
                         onChange={e => setCriteria(idx, { description: e.target.value })}
-                        placeholder="Các biểu hiện cụ thể — mỗi dòng một ý"
-                        aria-label={`Biểu hiện cụ thể của tiêu chí ${idx + 1}`}
+                        placeholder={t('ConductConfigSection.specificIndicatorsOnePerLine')}
+                        aria-label={t('ConductConfigSection.specificIndicatorsOfCriterion', { value: idx + 1 })}
                         rows={4}
                         className="w-full px-3 py-2 rounded-control bg-[var(--color-card)] border border-[var(--color-border)] text-xs font-medium leading-relaxed outline-none focus:border-[var(--color-info-border)] focus:ring-2 focus:ring-[var(--color-info-solid)] resize-y"
                       />
@@ -538,7 +553,7 @@ function SetCard({
             })}
 
             <Button variant="outline" className="w-full" type="button" onClick={() => onPatch({ criteria: [...d.criteria, { name: '', description: '', weight: '0' }] })}>
-              <Plus aria-hidden="true" /> Thêm tiêu chí
+              <Plus aria-hidden="true" /> {t('ConductConfigSection.addCriterion')}
             </Button>
           </div>
         </div>
@@ -554,9 +569,10 @@ function CycleSummary({
   draft: DraftSet
   cycleNameById: Record<string, string>
 }) {
-  if (d.isDefault) return <span>mọi kỳ chưa gán</span>
-  if (d.kpiCycleIds.length === 0) return <span className="text-[var(--color-warning)]">chưa gán kỳ</span>
-  const names = d.kpiCycleIds.map(id => cycleNameById[id] ?? 'Kỳ')
+  const { t } = useTranslation('conduct')
+  if (d.isDefault) return <span>{t('ConductConfigSection.everyUnassignedCycle')}</span>
+  if (d.kpiCycleIds.length === 0) return <span className="text-[var(--color-warning)]">{t('ConductConfigSection.noCycleAssigned')}</span>
+  const names = d.kpiCycleIds.map(id => cycleNameById[id] ?? t('ConductConfigSection.aCycle'))
   return (
     <span className="max-w-[220px] truncate" title={names.join(', ')}>
       {names[0]}{names.length > 1 ? ` +${names.length - 1}` : ''}
@@ -574,6 +590,7 @@ function CyclePickerPopover({
   ownedBy: Record<string, string>
   onToggle: (id: string) => void
 }) {
+  const { t } = useTranslation('conduct')
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const shown = useMemo(() => {
@@ -588,7 +605,7 @@ function CyclePickerPopover({
           type="button"
           className="inline-flex items-center gap-1 h-7 px-2.5 rounded-full text-xs font-medium border border-dashed border-[var(--color-border-strong)] text-[var(--color-muted-foreground)] hover:border-[var(--color-info-border)] hover:text-[var(--color-info)] cursor-pointer"
         >
-          <Plus size={13} aria-hidden="true" /> Chọn kỳ
+          <Plus size={13} aria-hidden="true" /> {t('ConductConfigSection.chooseCycle')}
         </button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-[280px] p-0">
@@ -598,8 +615,8 @@ function CyclePickerPopover({
             <input
               value={query}
               onChange={e => setQuery(e.target.value)}
-              placeholder="Tìm kỳ…"
-              aria-label="Tìm kỳ đánh giá"
+              placeholder={t('ConductConfigSection.searchCycles')}
+              aria-label={t('ConductConfigSection.searchEvaluationCycles')}
               className="w-full h-8 pl-8 pr-2 rounded-control bg-[var(--color-muted)] text-xs border-none outline-none focus:ring-2 focus:ring-[var(--color-info-solid)]"
             />
           </div>
@@ -610,15 +627,15 @@ function CyclePickerPopover({
               <Checkbox checked={selected.includes(c.id)} onCheckedChange={() => onToggle(c.id)} />
               <span className="truncate text-[13px] font-medium text-[var(--color-foreground)]">{c.name}</span>
               {ownedBy[c.id] && !selected.includes(c.id) && (
-                <span className="ml-auto shrink-0 text-xs font-medium text-[var(--color-warning)] truncate max-w-[90px]" title={`Đang thuộc bộ"${ownedBy[c.id]}"`}>
+                <span className="ml-auto shrink-0 text-xs font-medium text-[var(--color-warning)] truncate max-w-[90px]" title={t('ConductConfigSection.belongsToSet', { value: ownedBy[c.id] })}>
                   {ownedBy[c.id]}
                 </span>
               )}
             </label>
-          )) : <p className="text-xs italic text-[var(--color-subtle-foreground)] p-2">Không tìm thấy kỳ.</p>}
+          )) : <p className="text-xs italic text-[var(--color-subtle-foreground)] p-2">{t('ConductConfigSection.noCycleFound')}</p>}
         </div>
         <div className="px-3 py-2 border-t border-[var(--color-border)] text-caption">
-          Một kỳ chỉ thuộc một bộ — chọn ở đây sẽ gỡ kỳ khỏi bộ đang giữ.
+          {t('ConductConfigSection.aCycleBelongsToOnlyOne2')}
         </div>
       </PopoverContent>
     </Popover>

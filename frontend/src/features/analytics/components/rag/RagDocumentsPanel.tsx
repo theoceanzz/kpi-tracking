@@ -1,3 +1,4 @@
+import { intlDateLocale } from '@/i18n/format'
 import { useRef, useState, type ReactNode } from 'react'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { Link } from 'react-router-dom'
@@ -7,6 +8,7 @@ import { Button } from '@/components/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
 import { getApiErrorMessage } from '@/lib/apiError'
 import { RAG_SOURCE_LABELS, type RagChunk, type RagDocument, type RagSearchHit } from '@/features/analytics/api/aiApi'
+import { useTranslation } from 'react-i18next'
 
 /** Các lời gọi mà panel cần — tổ chức và nền tảng đưa vào hai bộ endpoint khác nhau. */
 export interface RagDocumentsApi {
@@ -44,6 +46,7 @@ interface Props {
 const DOCUMENT_ACCEPT = '.docx,.doc,.pdf,.xlsx,.xls,.png,.jpg,.jpeg,.webp,.txt,.md'
 
 export default function RagDocumentsPanel({ api, scope, canManage, sourceOptions, title, description, emptyText, searchPlaceholder }: Props) {
+  const { t } = useTranslation('analytics')
   const queryClient = useQueryClient()
   const listKey = ['ai', 'rag-documents', scope]
   const { data: docs = [], isLoading } = useQuery({ queryKey: listKey, queryFn: api.list })
@@ -59,24 +62,24 @@ export default function RagDocumentsPanel({ api, scope, canManage, sourceOptions
     onSuccess: doc => {
       queryClient.invalidateQueries({ queryKey: listKey })
       if (doc.status === 'READY') {
-        toast.success(`Đã nạp "${doc.title}": ${doc.chunkCount} đoạn, ${doc.imageCount} ảnh`)
+        toast.success(t('RagDocumentsPanel.loadedChunksImages', { title: doc.title, chunkCount: doc.chunkCount, imageCount: doc.imageCount }))
       } else {
-        toast.error(`Nạp "${doc.title}" không thành công: ${doc.errorMessage ?? 'không rõ lý do'}`)
+        toast.error(t('RagDocumentsPanel.loadingFailed', { title: doc.title, value: doc.errorMessage ?? t('RagDocumentsPanel.unknownReason') }))
       }
       setFile(null)
       setDocTitle('')
       if (fileInput.current) fileInput.current.value = ''
     },
-    onError: err => toast.error(getApiErrorMessage(err, 'Không nạp được tài liệu.')),
+    onError: err => toast.error(getApiErrorMessage(err, t('RagDocumentsPanel.couldNotLoadTheDocument'))),
   })
 
   const remove = useMutation({
     mutationFn: (id: string) => api.remove(id),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: listKey })
-      toast.success('Đã xoá tài liệu khỏi kho tri thức')
+      toast.success(t('RagDocumentsPanel.removedTheDocumentFromTheKnowledge'))
     },
-    onError: err => toast.error(getApiErrorMessage(err, 'Không xoá được tài liệu.')),
+    onError: err => toast.error(getApiErrorMessage(err, t('RagDocumentsPanel.couldNotDeleteTheDocument'))),
   })
 
   const selectedHint = sourceOptions?.find(o => o.value === source)?.hint
@@ -96,7 +99,7 @@ export default function RagDocumentsPanel({ api, scope, canManage, sourceOptions
           onSubmit={e => {
             e.preventDefault()
             if (!file) {
-              toast.error('Bạn chưa chọn tệp')
+              toast.error(t('RagDocumentsPanel.youHaveNotSelectedAFile'))
               return
             }
             upload.mutate()
@@ -104,11 +107,11 @@ export default function RagDocumentsPanel({ api, scope, canManage, sourceOptions
         >
           <div className="mb-3 flex items-center gap-1.5 text-sm font-medium">
             <Upload className="h-4 w-4" />
-            Nạp tài liệu mới
+            {t('RagDocumentsPanel.loadANewDocument')}
           </div>
           <div className={`grid gap-3 ${sourceOptions ? 'sm:grid-cols-[1fr_1fr_auto]' : 'sm:grid-cols-2'}`}>
             <label className="text-label flex flex-col gap-1">
-              Tệp (Word, PDF, Excel, ảnh)
+              {t('RagDocumentsPanel.fileWordPdfExcelImage')}
               <input
                 ref={fileInput}
                 type="file"
@@ -118,18 +121,18 @@ export default function RagDocumentsPanel({ api, scope, canManage, sourceOptions
               />
             </label>
             <label className="text-label flex flex-col gap-1">
-              Tên hiển thị (tuỳ chọn)
+              {t('RagDocumentsPanel.displayNameOptional')}
               <input
                 type="text"
                 value={docTitle}
                 onChange={e => setDocTitle(e.target.value)}
-                placeholder={sourceOptions ? 'vd. Quy chế đánh giá 2026' : 'vd. Hướng dẫn sử dụng KeyGo'}
+                placeholder={sourceOptions ? t('RagDocumentsPanel.eGEvaluationRegulations2026') : t('RagDocumentsPanel.eGKeygoUserGuide')}
                 className="rounded-control border border-[var(--color-border)] bg-[var(--color-background)] px-2 py-1.5 text-sm"
               />
             </label>
             {sourceOptions && (
               <label className="text-label flex flex-col gap-1">
-                Loại
+                {t('RagDocumentsPanel.type')}
                 <Select value={source} onValueChange={v => setSource(v as RagDocument['source'])}>
                   <SelectTrigger className="min-w-56">
                     <SelectValue />
@@ -146,11 +149,11 @@ export default function RagDocumentsPanel({ api, scope, canManage, sourceOptions
           {selectedHint && <p className="mt-2 text-xs text-[var(--color-muted-foreground)]">{selectedHint}</p>}
           <div className="mt-3 flex items-center gap-3">
             <Button type="submit" disabled={upload.isPending || !file}>
-              {upload.isPending ? 'Đang nạp…' : 'Nạp vào kho tri thức'}
+              {upload.isPending ? t('RagDocumentsPanel.loading') : t('RagDocumentsPanel.loadIntoTheKnowledgeBase')}
             </Button>
             {upload.isPending && (
               <span className="text-xs text-[var(--color-muted-foreground)]">
-                Đang đọc mục, cất ảnh và tính vector — mất vài giây với tài liệu có ảnh.
+                {t('RagDocumentsPanel.readingSectionsStoringImagesAndComputing')}
               </span>
             )}
           </div>
@@ -159,7 +162,7 @@ export default function RagDocumentsPanel({ api, scope, canManage, sourceOptions
 
       <div className="rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
         {isLoading ? (
-          <p className="p-4 text-sm text-[var(--color-muted-foreground)]">Đang tải…</p>
+          <p className="p-4 text-sm text-[var(--color-muted-foreground)]">{t('RagDocumentsPanel.loading2')}</p>
         ) : docs.length === 0 ? (
           <p className="p-4 text-sm text-[var(--color-muted-foreground)]">{emptyText}</p>
         ) : (
@@ -174,10 +177,10 @@ export default function RagDocumentsPanel({ api, scope, canManage, sourceOptions
                       <StatusBadge status={d.status} />
                     </div>
                     <div className="mt-1 flex flex-wrap gap-x-3 text-xs text-[var(--color-muted-foreground)]">
-                      <span>{RAG_SOURCE_LABELS[d.source] ?? d.source}</span>
-                      <span>{d.chunkCount} đoạn</span>
-                      <span className="inline-flex items-center gap-1"><ImageIcon className="h-3 w-3" />{d.imageCount} ảnh</span>
-                      <span>{new Date(d.createdAt).toLocaleDateString('vi-VN')}</span>
+                      <span>{RAG_SOURCE_LABELS()[d.source] ?? d.source}</span>
+                      <span>{d.chunkCount} {t('RagDocumentsPanel.chunks')}</span>
+                      <span className="inline-flex items-center gap-1"><ImageIcon className="h-3 w-3" />{d.imageCount} {t('RagDocumentsPanel.images')}</span>
+                      <span>{new Date(d.createdAt).toLocaleDateString(intlDateLocale())}</span>
                     </div>
                     {d.status === 'FAILED' && d.errorMessage && (
                       <p className="mt-1 text-xs text-[var(--color-error)]">{d.errorMessage}</p>
@@ -188,7 +191,7 @@ export default function RagDocumentsPanel({ api, scope, canManage, sourceOptions
                       {d.status === 'READY' && (
                         <Button variant="outline" size="sm" type="button" onClick={() => setExpanded(expanded === d.id ? null : d.id)}>
                           {expanded === d.id ? <ChevronDown className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
-                          Xem đoạn
+                          {t('RagDocumentsPanel.viewChunks')}
                         </Button>
                       )}
                       <Button
@@ -198,7 +201,7 @@ export default function RagDocumentsPanel({ api, scope, canManage, sourceOptions
                         className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]"
                         disabled={remove.isPending}
                         onClick={() => {
-                          if (window.confirm(`Xoá "${d.title}" khỏi kho tri thức? Trợ lý sẽ không dùng tài liệu này nữa.`)) {
+                          if (window.confirm(t('RagDocumentsPanel.removeFromTheKnowledgeBaseThe', { title: d.title }))) {
                             remove.mutate(d.id)
                           }
                         }}
@@ -224,6 +227,7 @@ export default function RagDocumentsPanel({ api, scope, canManage, sourceOptions
  * hiện phần trăm giả.
  */
 function SearchBox({ scope, search, placeholder }: { scope: string; search: (q: string) => Promise<RagSearchHit[]>; placeholder: string }) {
+  const { t } = useTranslation('analytics')
   const [q, setQ] = useState('')
   const [asked, setAsked] = useState('')
   const { data: hits, isFetching, isError } = useQuery({
@@ -242,11 +246,10 @@ function SearchBox({ scope, search, placeholder }: { scope: string; search: (q: 
     >
       <div className="mb-3 flex items-center gap-1.5 text-sm font-medium">
         <Search className="h-4 w-4" />
-        Thử tìm trong kho tri thức
+        {t('RagDocumentsPanel.trySearchingTheKnowledgeBase')}
       </div>
       <p className="mb-2 text-xs text-[var(--color-muted-foreground)]">
-        Gõ một câu hỏi như người dùng sẽ hỏi. Kết quả là những đoạn trợ lý sẽ nhận được cho câu đó — cùng bộ truy hồi,
-        cùng giới hạn tổ chức.
+        {t('RagDocumentsPanel.typeAQuestionTheWayA')}
       </p>
       <div className="flex gap-2">
         <input
@@ -257,14 +260,14 @@ function SearchBox({ scope, search, placeholder }: { scope: string; search: (q: 
           className="min-w-0 flex-1 rounded-control border border-[var(--color-border)] bg-[var(--color-background)] px-2 py-1.5 text-sm"
         />
         <Button type="submit" variant="outline" disabled={!q.trim() || isFetching}>
-          {isFetching ? 'Đang tìm…' : 'Tìm'}
+          {isFetching ? t('RagDocumentsPanel.searching') : t('RagDocumentsPanel.search')}
         </Button>
       </div>
-      {isError && <p className="mt-2 text-xs text-[var(--color-error)]">Không tìm được — thử lại sau.</p>}
+      {isError && <p className="mt-2 text-xs text-[var(--color-error)]">{t('RagDocumentsPanel.searchFailedTryAgainLater')}</p>}
       {hits && asked && (
         <ol className="mt-3 space-y-2">
           {hits.length === 0 && (
-            <li className="text-xs text-[var(--color-muted-foreground)]">Không có đoạn nào — trợ lý sẽ trả lời "chưa có tài liệu".</li>
+            <li className="text-xs text-[var(--color-muted-foreground)]">{t('RagDocumentsPanel.noChunksTheAssistantWillAnswer')}</li>
           )}
           {hits.map((h, i) => (
             <HitRow key={`${h.docId}-${h.title}-${i}`} rank={i + 1} hit={h} />
@@ -276,6 +279,7 @@ function SearchBox({ scope, search, placeholder }: { scope: string; search: (q: 
 }
 
 function HitRow({ rank, hit }: { rank: number; hit: RagSearchHit }) {
+  const { t } = useTranslation('analytics')
   const [open, setOpen] = useState(false)
   return (
     <li className="rounded-control border border-[var(--color-border)] bg-[var(--color-background)] px-3 py-2 text-xs">
@@ -288,7 +292,7 @@ function HitRow({ rank, hit }: { rank: number; hit: RagSearchHit }) {
         </button>
         {hit.route && (
           <Link to={hit.route} className="inline-flex shrink-0 items-center gap-1 text-[var(--color-ai)] hover:underline">
-            Mở trang <ExternalLink className="h-3 w-3" />
+            {t('RagDocumentsPanel.openPage')} <ExternalLink className="h-3 w-3" />
           </Link>
         )}
       </div>
@@ -299,25 +303,26 @@ function HitRow({ rank, hit }: { rank: number; hit: RagSearchHit }) {
 
 /** Các đoạn của một tài liệu, đúng như đang nằm trong kho vector (có [mục] chèn đầu, có ảnh kèm). */
 function ChunkList({ scope, docId, load }: { scope: string; docId: string; load: (id: string) => Promise<RagChunk[]> }) {
+  const { t } = useTranslation('analytics')
   const { data: chunks, isLoading, isError } = useQuery({
     queryKey: ['ai', 'rag-chunks', scope, docId],
     queryFn: () => load(docId),
   })
-  if (isLoading) return <p className="mt-3 text-xs text-[var(--color-muted-foreground)]">Đang đọc kho vector…</p>
-  if (isError || !chunks) return <p className="mt-3 text-xs text-[var(--color-error)]">Không đọc được các đoạn của tài liệu này.</p>
+  if (isLoading) return <p className="mt-3 text-xs text-[var(--color-muted-foreground)]">{t('RagDocumentsPanel.readingTheVectorStore')}</p>
+  if (isError || !chunks) return <p className="mt-3 text-xs text-[var(--color-error)]">{t('RagDocumentsPanel.couldNotReadThisDocumentsChunks')}</p>
   return (
     <ol className="mt-3 max-h-[28rem] space-y-2 overflow-y-auto rounded-control border border-[var(--color-border)] bg-[var(--color-background)] p-2">
       {chunks.map((c, i) => (
         <li key={c.id} className="rounded-control border border-[var(--color-border)] px-3 py-2 text-xs">
           <div className="flex flex-wrap items-center gap-x-2 gap-y-0.5 text-[var(--color-muted-foreground)]">
-            <span className="rounded-control bg-[var(--color-muted)] px-1.5 py-0.5 font-medium">Đoạn {i + 1}</span>
-            <span>mục {c.order ?? '?'}{c.index != null && c.index > 0 ? ` · phần ${c.index + 1}` : ''}</span>
+            <span className="rounded-control bg-[var(--color-muted)] px-1.5 py-0.5 font-medium">{t('RagDocumentsPanel.chunk')} {i + 1}</span>
+            <span>{t('RagDocumentsPanel.items')} {c.order ?? '?'}{c.index != null && c.index > 0 ? t('RagDocumentsPanel.part', { value: c.index + 1 }) : ''}</span>
             {c.route && (
               <Link to={c.route} className="inline-flex items-center gap-1 text-[var(--color-ai)] hover:underline">
                 {c.route} <ExternalLink className="h-3 w-3" />
               </Link>
             )}
-            {c.roles && <span>vai trò: {c.roles}</span>}
+            {c.roles && <span>{t('RagDocumentsPanel.role')} {c.roles}</span>}
           </div>
           <p className="mt-1 whitespace-pre-wrap text-[var(--color-foreground)]">{c.text}</p>
           {c.images.length > 0 && (
@@ -336,12 +341,13 @@ function ChunkList({ scope, docId, load }: { scope: string; docId: string; load:
 }
 
 function StatusBadge({ status }: { status: RagDocument['status'] }) {
+  const { t } = useTranslation('analytics')
   const cls =
     status === 'READY'
       ? 'bg-[var(--color-success-bg)] text-[var(--color-success)]'
       : status === 'FAILED'
         ? 'bg-[var(--color-error-bg)] text-[var(--color-error)]'
         : 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]'
-  const label = status === 'READY' ? 'Sẵn sàng' : status === 'FAILED' ? 'Lỗi' : 'Đang nạp'
+  const label = status === 'READY' ? t('RagDocumentsPanel.ready') : status === 'FAILED' ? t('RagDocumentsPanel.error') : t('RagDocumentsPanel.loading3')
   return <span className={`rounded-control px-1.5 py-0.5 text-[10px] font-medium ${cls}`}>{label}</span>
 }

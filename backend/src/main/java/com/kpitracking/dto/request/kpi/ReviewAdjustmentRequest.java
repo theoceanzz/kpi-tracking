@@ -10,4 +10,6 @@ public class ReviewAdjustmentRequest {
     private AdjustmentStatus status;
     private String reviewerNote;
     private Double compensationPercentage;
+    /** Bước người dùng đang thấy (chuỗi duyệt); lệch với bước hiện tại thì trả 409. */
+    private java.util.UUID expectedStepId;
 }

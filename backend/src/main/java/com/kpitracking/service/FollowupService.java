@@ -2,6 +2,8 @@ package com.kpitracking.service;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.kpitracking.i18n.SupportedLanguages;
+import com.kpitracking.i18n.ErrorMessages;
 import com.kpitracking.dto.response.ai.FollowupResponse;
 import com.kpitracking.tool.FollowupContextStore;
 import com.kpitracking.tool.FollowupContextStore.ToolResult;
@@ -49,6 +51,11 @@ public class FollowupService {
      * @param conversationId khoá tra dữ liệu tool của lượt; {@code null} thì không có gì để neo
      */
     public FollowupResponse generate(String question, String conversationId) {
+        return generate(question, conversationId, com.kpitracking.i18n.SupportedLanguages.DEFAULT);
+    }
+
+    /** {@code language}: ngôn ngữ giao diện người hỏi — gợi ý câu hỏi tiếp theo viết bằng ngôn ngữ đó. */
+    public FollowupResponse generate(String question, String conversationId, String language) {
         // If the model is asking user to disambiguate, suppress follow-up questions
         // until they make a selection.
         if (followupContextStore.isDisambiguating(conversationId)) {
@@ -65,12 +72,12 @@ public class FollowupService {
             if (conversationId != null && !conversationId.isBlank()) {
                 return emptyPools();
             }
-            return fixedTemplates();
+            return fixedTemplates(language);
         }
 
         String dataContext = buildDataContext(toolData, question);
         try {
-            String raw = followupAgent.suggest(dataContext);
+            String raw = followupAgent.suggest(com.kpitracking.ai.agent.AiLanguage.prefix(language) + dataContext);
             FollowupResponse parsed = parse(raw);
             if (parsed != null
                     && parsed.getTechnical() != null && !parsed.getTechnical().isEmpty()
@@ -81,7 +88,7 @@ public class FollowupService {
         } catch (Exception e) {
             log.warn("Followup generation failed, using fixed templates: {}", e.getMessage());
         }
-        return fixedTemplates();
+        return fixedTemplates(language);
     }
 
     /** Compact, bounded rendering of the turn's tool outputs (+ the user's question for focus). */
@@ -140,22 +147,15 @@ public class FollowupService {
                 .build();
     }
 
-    private FollowupResponse fixedTemplates() {
+    /** Bộ câu gợi ý dự phòng, theo ngôn ngữ người hỏi ({@code followup.technical.N}, {@code followup.management.N}). */
+    private FollowupResponse fixedTemplates(String language) {
+        java.util.Locale locale = SupportedLanguages.toLocale(language);
+        java.util.function.Function<String, List<String>> pool = group -> java.util.stream.IntStream.rangeClosed(1, 5)
+                .mapToObj(i -> ErrorMessages.text(locale, "followup." + group + "." + i, ""))
+                .toList();
         return FollowupResponse.builder()
-                .technical(List.of(
-                        "Nguyên nhân chính của kết quả này là gì?",
-                        "Chỉ số nào kéo hiệu suất xuống nhiều nhất?",
-                        "Xu hướng thay đổi qua các kỳ ra sao?",
-                        "KPI nào đang chậm tiến độ nhất?",
-                        "So sánh kỳ này với kỳ trước thế nào?"
-                ))
-                .management(List.of(
-                        "Ai chịu trách nhiệm cho kết quả này?",
-                        "Cần ra quyết định gì để cải thiện?",
-                        "Đơn vị nào cần hỗ trợ thêm nguồn lực?",
-                        "So sánh các đơn vị với nhau thế nào?",
-                        "Hành động ưu tiên trong tuần tới là gì?"
-                ))
+                .technical(pool.apply("technical"))
+                .management(pool.apply("management"))
                 .build();
     }
 

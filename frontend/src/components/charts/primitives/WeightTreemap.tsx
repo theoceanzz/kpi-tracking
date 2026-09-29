@@ -3,6 +3,7 @@ import { Treemap, Tooltip, ResponsiveContainer } from 'recharts'
 import { achievementSurface, textOn } from '../chartPalette'
 import { labelOnFill } from '../axisLabel'
 import { AssigneeAvatars, type AssigneeBrief } from './AssigneeAvatars'
+import { useTranslation } from 'react-i18next'
 
 export interface TreemapLeaf {
   id?: string
@@ -37,6 +38,7 @@ interface Props {
  * biết còn một tầng dữ liệu nữa nằm bên dưới.
  */
 export default function WeightTreemap({ data, height = 380, onSelect }: Props) {
+  const { t } = useTranslation('shared')
   // Trạng thái rê chuột giữ ở đây chứ không ở từng ô: Recharts dựng lại `content` cho mọi ô nên
   // state cục bộ trong ô sẽ mất sau mỗi lần vẽ.
   const [hoveredId, setHoveredId] = useState<string | null>(null)
@@ -46,7 +48,7 @@ export default function WeightTreemap({ data, height = 380, onSelect }: Props) {
   const tree = hasGroups
     ? Object.entries(
         data.reduce<Record<string, TreemapLeaf[]>>((acc, d) => {
-          const k = d.group || 'Khác'
+          const k = d.group || t('WeightTreemap.other')
           ;(acc[k] ??= []).push(d)
           return acc
         }, {}),
@@ -171,6 +173,7 @@ function TreemapTooltip({ active, payload, clickable }: {
   payload?: { payload: TreemapLeaf & { value?: number } }[]
   clickable?: boolean
 }) {
+  const { t } = useTranslation('shared')
   const d = payload?.[0]?.payload
   if (!active || !d || !d.name) return null
   const people = d.assignees ?? []
@@ -181,13 +184,13 @@ function TreemapTooltip({ active, payload, clickable }: {
       <div className="space-y-1 text-sm">
         {d.size != null && (
           <div className="flex items-center gap-3">
-            <span className="text-[var(--color-muted-foreground)] font-medium min-w-[90px]">Trọng số:</span>
+            <span className="text-[var(--color-muted-foreground)] font-medium min-w-[90px]">{t('WeightTreemap.weight')}</span>
             <span className="font-bold text-[var(--color-foreground)] tabular-nums">{Math.round(d.size * 10) / 10}</span>
           </div>
         )}
         {d.achievement != null && (
           <div className="flex items-center gap-3">
-            <span className="text-[var(--color-muted-foreground)] font-medium min-w-[90px]">Tiến độ:</span>
+            <span className="text-[var(--color-muted-foreground)] font-medium min-w-[90px]">{t('WeightTreemap.progress')}</span>
             <span className="font-bold tabular-nums" style={{ color: achievementSurface(d.achievement) }}>
               {Math.round(d.achievement)}%
             </span>
@@ -197,7 +200,7 @@ function TreemapTooltip({ active, payload, clickable }: {
       <AssigneeAvatars people={people} />
       {clickable && d.id && (
         <p className="text-xs font-bold text-indigo-600 dark:text-indigo-400 pt-2.5 mt-2.5 border-t border-[var(--color-border)]">
-          Bấm để xem chi tiết →
+          {t('WeightTreemap.clickToSeeDetails')}
         </p>
       )}
     </div>

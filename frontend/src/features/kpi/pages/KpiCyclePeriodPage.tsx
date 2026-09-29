@@ -4,6 +4,7 @@ import { useHasPermission } from '@/components/auth/PermissionGate'
 import { WorkspaceTabsProvider } from '@/components/common/WorkspaceTabs'
 import KpiCyclesPage from './KpiCyclesPage'
 import KpiPeriodsPage from './KpiPeriodsPage'
+import { useTranslation } from 'react-i18next'
 
 type TabKey = 'cycles' | 'periods'
 
@@ -17,11 +18,12 @@ type TabKey = 'cycles' | 'periods'
  * `WorkspaceTabsProvider` — xem `components/common/WorkspaceHeader.tsx`.
  */
 export default function KpiCyclePeriodPage() {
+  const { t } = useTranslation('kpi')
   const { hasPermission } = useHasPermission()
 
   const { activeTab, setActiveTab, visibleTabs } = useTabParam<TabKey>([
-    { key: 'cycles', label: 'Kỳ đánh giá', icon: CalendarRange, visible: hasPermission('KPI_CYCLE:CREATE') },
-    { key: 'periods', label: 'Đợt đánh giá', icon: Layers, visible: hasPermission('KPI_PERIOD:CREATE') },
+    { key: 'cycles', label: t('KpiCyclePeriodPage.evaluationCycles'), icon: CalendarRange, visible: hasPermission('KPI_CYCLE:CREATE') },
+    { key: 'periods', label: t('KpiCyclePeriodPage.evaluationPeriods'), icon: Layers, visible: hasPermission('KPI_PERIOD:CREATE') },
   ])
 
   return (

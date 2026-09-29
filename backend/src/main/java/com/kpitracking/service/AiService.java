@@ -1,5 +1,6 @@
 package com.kpitracking.service;
 
+import com.kpitracking.i18n.ErrorMessages;
 import com.kpitracking.entity.Organization;
 import com.kpitracking.exception.ForbiddenException;
 import com.kpitracking.repository.OrganizationRepository;
@@ -9,6 +10,7 @@ import com.kpitracking.ai.workflow.KeyGoAssistant;
 import com.kpitracking.exception.AiQuotaExceededException;
 import com.kpitracking.exception.AiRateLimitException;
 import com.kpitracking.exception.AiTokenQuotaExceededException;
+import com.kpitracking.exception.ErrorCode;
 import org.springframework.security.core.context.SecurityContextHolder;
 import com.kpitracking.util.AiUtils;
 import lombok.extern.slf4j.Slf4j;
@@ -64,20 +66,19 @@ public class AiService {
             // Không phải trưởng/phó đơn vị nào -> lượt NHÂN VIÊN: chỉ dữ liệu của chính họ (nhóm PERSONAL).
             ctx = managerContextResolver.resolveMember();
             if (ctx == null) {
-                return "Bạn chưa thuộc đơn vị nào trong tổ chức nên trợ lý chưa có dữ liệu để trả lời. "
-                        + "Hãy liên hệ quản trị viên để được phân công.";
+                return ErrorMessages.text("ai.noUnit", "");
             }
             turn.setStaff(true);
         }
         Organization org = organizationRepository.findById(ctx.orgId()).orElse(null);
         if (org == null || Boolean.FALSE.equals(org.getEnableAi())) {
-            throw new ForbiddenException("Tính năng AI đã bị tắt cho tổ chức của bạn.");
+            throw new ForbiddenException(ErrorCode.AI_FEATURE_TURNED_OFF_ORGANIZATION);
         }
         turn.setManager(ctx);
         turn.setFeatures(new AiTurn.OrgFeatures(
                 Boolean.TRUE.equals(org.getEnableConduct()), Boolean.TRUE.equals(org.getEnableReward()),
                 Boolean.TRUE.equals(org.getEnableWaterfall()), Boolean.TRUE.equals(org.getEnableBsc()),
-                Boolean.TRUE.equals(org.getEnableOkr())));
+                Boolean.TRUE.equals(org.getEnableOkr()), Boolean.TRUE.equals(org.getEnableFeedback360())));
         return null;
     }
 
@@ -86,7 +87,9 @@ public class AiService {
      * gọi model, phục hồi lỗi — nằm trong chuỗi {@code KeyGoAssistant}.
      */
     public String processOrgUnitChat(String question, String conversationId, String focusUnitId) {
-        return processOrgUnitChat(new AiTurn(question, conversationId, focusUnitId));
+        AiTurn turn = new AiTurn(question, conversationId, focusUnitId);
+        turn.setLanguage(com.kpitracking.i18n.ErrorMessages.currentLocale().getLanguage());
+        return processOrgUnitChat(turn);
     }
 
     /**
@@ -105,8 +108,7 @@ public class AiService {
         } catch (Exception e) {
             if (AiUtils.isQuotaError(e)) throw new AiQuotaExceededException("quota exceeded", e);
             log.error("Chat AI thất bại (question='{}'): {}", turn.getQuestion(), e.getMessage(), e);
-            return "Xin lỗi, mình gặp trục trặc khi xử lý yêu cầu này (có thể do câu hỏi khá phức tạp). "
-                    + "Bạn thử hỏi ngắn gọn/cụ thể hơn — ví dụ nêu rõ tên các phòng/đơn vị cần so sánh — giúp mình nhé.";
+            return ErrorMessages.text("ai.failedComplex", "");
         }
     }
 

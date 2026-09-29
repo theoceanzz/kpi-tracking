@@ -6,6 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import type { KpiCriteria } from '@/types/kpi'
 import { kpiWorkState } from '../utils/myKpiStatus'
+import { useTranslation } from 'react-i18next'
 
 /**
  * Một dòng KPI của tôi khi đứng TRONG một nhóm (dưới kết quả then chốt, dưới hạng mục BSC):
@@ -17,16 +18,17 @@ export default function MyKpiMiniRow({ kpi, onOpen, now }: {
   onOpen?: (kpi: KpiCriteria) => void
   now?: Date
 }) {
+  const { t } = useTranslation('kpi')
   const s = kpiWorkState(kpi, now)
   const pct = Math.min(100, Math.round((s.submitted / s.expected) * 100))
 
   let action: React.ReactNode
-  if (s.done) action = <Badge variant="success"><CheckCircle2 size={12} aria-hidden="true" /> Đã xong</Badge>
-  else if (!s.started) action = <Badge variant="secondary">Chưa mở</Badge>
-  else if (s.ended) action = <Badge variant="destructive">Quá hạn</Badge>
+  if (s.done) action = <Badge variant="success"><CheckCircle2 size={12} aria-hidden="true" /> {t('MyKpiMiniRow.done')}</Badge>
+  else if (!s.started) action = <Badge variant="secondary">{t('MyKpiMiniRow.notOpen')}</Badge>
+  else if (s.ended) action = <Badge variant="destructive">{t('MyKpiMiniRow.overdue')}</Badge>
   else action = (
     <Button asChild size="sm" variant={s.overdue ? 'destructive' : 'default'}>
-      <Link to={`/submissions/new?kpiId=${kpi.id}`}><Send aria-hidden="true" /> Nộp bài</Link>
+      <Link to={`/submissions/new?kpiId=${kpi.id}`}><Send aria-hidden="true" /> {t('MyKpiMiniRow.submit')}</Link>
     </Button>
   )
 
@@ -42,17 +44,17 @@ export default function MyKpiMiniRow({ kpi, onOpen, now }: {
         )}
         <p className="text-caption">
           {kpi.kpiPeriod?.name}
-          {kpi.weight != null && ` · trọng số ${kpi.weight}%`}
+          {kpi.weight != null && t('MyKpiMiniRow.weight', { weight: kpi.weight })}
         </p>
       </div>
-      <div className="flex w-36 shrink-0 items-center gap-2" title={`Đã nộp ${s.submitted}/${s.expected} lần`}>
+      <div className="flex w-36 shrink-0 items-center gap-2" title={t('MyKpiMiniRow.submittedTimes', { submitted: s.submitted, expected: s.expected })}>
         <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-[var(--color-muted)]">
           <div className={cn('h-full rounded-full', s.done ? 'bg-[var(--color-success-solid)]' : s.overdue ? 'bg-[var(--color-error-solid)]' : 'bg-[var(--color-primary)]')} style={{ width: `${pct}%` }} />
         </div>
         <span className="text-caption tabular-nums">{s.submitted}/{s.expected}</span>
       </div>
       <span className={cn('w-24 shrink-0 text-caption tabular-nums', s.overdue && 'font-medium text-[var(--color-error)]')}>
-        {s.nextDeadline && !s.done ? `Hạn ${format(s.nextDeadline, 'dd/MM/yyyy')}` : ''}
+        {s.nextDeadline && !s.done ? t('MyKpiMiniRow.due', { nextDeadline: format(s.nextDeadline, 'dd/MM/yyyy') }) : ''}
       </span>
       <div className="shrink-0">{action}</div>
     </div>

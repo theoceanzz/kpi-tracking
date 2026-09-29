@@ -12,6 +12,9 @@ import { toast } from 'sonner'
 import { getApiErrorMessage } from '@/lib/apiError'
 import { useAllPermissions, useUpdateRolePermissions } from '../hooks/useRolePermissions'
 import { useRoles } from '../hooks/useRoles'
+import { useTranslation } from 'react-i18next'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
 
 interface HierarchyPermissionModalProps {
@@ -20,76 +23,77 @@ interface HierarchyPermissionModalProps {
   hierarchyLevels: any[]
 }
 
-const PERMISSION_DESCRIPTIONS: Record<string, string> = {
-  'DASHBOARD:VIEW': 'Cho phép xem các biểu đồ, số liệu thống kê tổng quan và các khung hiển thị trên trang tổng quan chính',
-  'COMPANY:VIEW': 'Cho phép xem thông tin hồ sơ công ty/tổ chức (tên, địa chỉ, logo, thông tin liên hệ...)',
-  'COMPANY:UPDATE': 'Cho phép chỉnh sửa, cập nhật thông tin hồ sơ công ty/tổ chức',
-  'COMPANY:DELETE': 'Cho phép xoá hoặc lưu trữ tổ chức khỏi hệ thống — chỉ dành cho quản trị cấp cao nhất',
-  'ORG:VIEW': 'Cho phép xem sơ đồ tổ chức, danh sách các đơn vị/phòng ban đầy đủ chi tiết',
-  'ORG:CREATE': 'Cho phép tạo mới đơn vị/phòng ban trong sơ đồ tổ chức',
-  'ORG:UPDATE': 'Cho phép chỉnh sửa thông tin đơn vị/phòng ban (tên, cấp bậc, trưởng đơn vị...)',
-  'ORG:DELETE': 'Cho phép xoá đơn vị/phòng ban khỏi sơ đồ tổ chức',
-  'ORG:VIEW_TREE': 'Cho phép xem cây sơ đồ tổ chức ở dạng rút gọn (dùng cho bộ lọc, chọn đơn vị nhanh)',
-  'USER:VIEW': 'Cho phép xem danh mục, hồ sơ chi tiết của nhân sự trong tổ chức',
-  'USER:CREATE': 'Cho phép thêm mới tài khoản/hồ sơ nhân sự vào hệ thống',
-  'USER:UPDATE': 'Cho phép chỉnh sửa thông tin cá nhân, chức vụ, đơn vị công tác của nhân sự',
-  'USER:DELETE': 'Cho phép xoá hoặc vô hiệu hoá tài khoản nhân sự',
-  'USER:IMPORT': 'Cho phép nhập danh sách nhân sự hàng loạt từ tệp Excel/CSV',
-  'USER:VIEW_LIST': 'Cho phép xem danh sách nhân sự ở dạng rút gọn, dùng để hiển thị trên trang tổng quan hoặc bộ lọc nhanh',
-  'ROLE:VIEW': 'Cho phép xem danh sách các vai trò hiện có trong tổ chức',
-  'ROLE:ASSIGN': 'Cho phép gán một hoặc nhiều vai trò cho người dùng cụ thể',
-  'ROLE:CREATE': 'Cho phép tạo mới vai trò cùng danh sách quyền đi kèm',
-  'ROLE:UPDATE': 'Cho phép chỉnh sửa tên, mô tả và danh sách quyền của vai trò đã có',
-  'ROLE:DELETE': 'Cho phép xoá vai trò khỏi hệ thống — chỉ áp dụng khi vai trò không còn người dùng nào sử dụng',
-  'PERMISSION:EDIT': 'Cho phép thiết lập chi tiết, bật/tắt từng quyền cụ thể cho vai trò — quyền quản trị nhạy cảm',
-  'PERMISSION:VIEW': 'Cho phép xem danh sách toàn bộ quyền hiện có trong hệ thống',
-  'KPI:VIEW': 'Cho phép xem danh mục, chi tiết các chỉ tiêu KPI đã thiết lập trong tổ chức',
-  'KPI:CREATE': 'Cho phép thiết lập mới chỉ tiêu KPI cho đơn vị/nhân sự',
-  'KPI:UPDATE': 'Cho phép chỉnh sửa nội dung, trọng số, mục tiêu của chỉ tiêu KPI đã tạo',
-  'KPI:DELETE': 'Cho phép xoá chỉ tiêu KPI khỏi hệ thống',
-  'KPI:APPROVE_CRITERIA': 'Cho phép phê duyệt chỉ tiêu KPI do cấp dưới đề xuất trước khi áp dụng',
-  'KPI:APPROVE_ADJUSTMENT': 'Cho phép phê duyệt yêu cầu điều chỉnh chỉ tiêu KPI trong quá trình thực hiện',
-  'KPI:APPROVE_OWN': 'Cho phép chỉ tiêu KPI tự tạo được duyệt ngay (tự động chuyển sang trạng thái đã duyệt khi tạo) mà không cần chờ người khác phê duyệt',
-  'KPI:VIEW_MY': 'Cho phép xem các chỉ tiêu KPI được giao cho chính bản thân người dùng',
-  'KPI:IMPORT': 'Cho phép nhập hàng loạt chỉ tiêu KPI từ tệp Excel/CSV',
-  'KPI:SUBMIT': 'Cho phép gửi chỉ tiêu KPI đã thiết lập đi để cấp trên phê duyệt',
-  'KPI:REJECT': 'Cho phép từ chối, trả lại chỉ tiêu KPI không hợp lệ kèm lý do',
-  'KPI_PERIOD:VIEW': 'Cho phép xem danh sách các kỳ đánh giá KPI (theo tháng/quý/năm)',
-  'KPI_PERIOD:CREATE': 'Cho phép tạo mới kỳ đánh giá KPI với thời gian bắt đầu/kết thúc xác định',
-  'KPI_PERIOD:UPDATE': 'Cho phép cập nhật thông tin, trạng thái của kỳ đánh giá KPI',
-  'KPI_PERIOD:DELETE': 'Cho phép xoá kỳ đánh giá KPI khỏi hệ thống',
-  'SUBMISSION:REVIEW': 'Cho phép duyệt/từ chối bài nộp kết quả KPI của nhân viên cấp dưới',
-  'SUBMISSION:REVIEW_KPI': 'Cho phép xem chi tiết bài nộp KPI của nhân viên để phục vụ việc đánh giá',
-  'SUBMISSION:CREATE': 'Cho phép nộp báo cáo kết quả thực hiện KPI cá nhân kèm minh chứng/tệp đính kèm',
-  'SUBMISSION:VIEW_MY': 'Cho phép xem lại lịch sử các bài nộp báo cáo KPI của chính bản thân',
-  'SUBMISSION:VIEW': 'Cho phép xem toàn bộ bản nộp KPI của tất cả nhân sự trong phạm vi quản lý',
-  'SUBMISSION:DELETE': 'Cho phép xoá bản nộp KPI đã được gửi lên hệ thống',
-  'SUBMISSION:UPDATE': 'Cho phép chỉnh sửa nội dung bản nộp KPI đã tồn tại',
-  'EVALUATION:VIEW': 'Cho phép xem kết quả đánh giá, xếp loại KPI của nhân sự trong phạm vi quản lý',
-  'EVALUATION:CREATE': 'Cho phép thực hiện đánh giá, chấm điểm và xếp loại kết quả KPI cho nhân viên',
-  'EVALUATION:UPDATE': 'Cho phép chỉnh sửa kết quả đánh giá KPI đã được lập trước đó',
-  'EVALUATION:DELETE': 'Cho phép xoá kết quả đánh giá KPI khỏi hệ thống',
-  'EVALUATION:VIEW_MY': 'Cho phép xem kết quả đánh giá KPI của chính bản thân người dùng',
-  'NOTIF:VIEW': 'Cho phép xem danh sách thông báo gửi đến tài khoản của mình',
-  'NOTIF:MANAGE': 'Cho phép quản lý, soạn và gửi thông báo hệ thống đến người dùng khác',
-  'AI:SUGGEST_KPI': 'Cho phép sử dụng tính năng trí tuệ nhân tạo để gợi ý nội dung, chỉ tiêu KPI tự động',
-  'POLICY:VIEW': 'Cho phép xem nội dung các chính sách, quy định nội bộ của tổ chức',
-  'POLICY:CREATE': 'Cho phép soạn thảo, tạo mới chính sách/quy định nội bộ',
-  'POLICY:UPDATE': 'Cho phép chỉnh sửa nội dung chính sách/quy định đã ban hành',
-  'POLICY:DELETE': 'Cho phép xoá chính sách/quy định khỏi hệ thống',
-  'POLICY:ASSIGN': 'Cho phép gán chính sách/quy định áp dụng cho từng vai trò cụ thể',
-  'STATS:VIEW_ORG': 'Cho phép xem số liệu thống kê, báo cáo tổng hợp theo từng đơn vị/phòng ban',
-  'STATS:VIEW_EMPLOYEE': 'Cho phép xem số liệu thống kê kết quả KPI chi tiết theo từng nhân viên',
-  'STATS:VIEW_MY': 'Cho phép xem tiến độ, số liệu thống kê KPI của chính bản thân người dùng',
-  'SYSTEM:ADMIN': 'Quyền quản trị toàn hệ thống, cho phép bỏ qua mọi giới hạn phạm vi đơn vị/tổ chức — chỉ cấp cho quản trị viên cao nhất',
-  'USER_ROLE:VIEW': 'Cho phép xem danh sách vai trò đang được gán cho từng người dùng',
-  'USER_ROLE:ASSIGN': 'Cho phép gán vai trò mới cho người dùng trong tổ chức',
-  'USER_ROLE:REVOKE': 'Cho phép thu hồi (gỡ bỏ) vai trò đã gán khỏi người dùng',
-  'ATTACHMENT:UPLOAD': 'Cho phép tải lên tệp đính kèm (minh chứng, tài liệu...) cho các bản nộp KPI',
-  'ATTACHMENT:DELETE': 'Cho phép xoá tệp đính kèm đã tải lên hệ thống',
-  'REMINDER:SEND': 'Cho phép gửi thông báo nhắc nhở nhân viên về tiến độ nộp/hoàn thành KPI',
-  'ADJUSTMENT:VIEW_MY': 'Cho phép xem các yêu cầu điều chỉnh chỉ tiêu KPI do chính bản thân gửi lên'
-};
+const PERMISSION_DESCRIPTIONS = perLanguage((): Record<string, string> => ({
+  'DASHBOARD:VIEW': i18n.t('organization:HierarchyPermissionModal.allowsViewingChartsOverviewStatisticsAnd'),
+  'COMPANY:VIEW': i18n.t('organization:HierarchyPermissionModal.allowsViewingTheCompanyOrganizationProfile'),
+  'COMPANY:UPDATE': i18n.t('organization:HierarchyPermissionModal.allowsEditingAndUpdatingTheCompany'),
+  'COMPANY:DELETE': i18n.t('organization:HierarchyPermissionModal.allowsDeletingOrArchivingTheOrganization'),
+  'ORG:VIEW': i18n.t('organization:HierarchyPermissionModal.allowsViewingTheOrganizationChartAnd'),
+  'ORG:CREATE': i18n.t('organization:HierarchyPermissionModal.allowsCreatingNewUnitsDepartmentsIn'),
+  'ORG:UPDATE': i18n.t('organization:HierarchyPermissionModal.allowsEditingUnitDepartmentInformationName'),
+  'ORG:DELETE': i18n.t('organization:HierarchyPermissionModal.allowsDeletingUnitsDepartmentsFromThe'),
+  'ORG:VIEW_TREE': i18n.t('organization:HierarchyPermissionModal.allowsViewingTheOrganizationTreeIn'),
+  'USER:VIEW': i18n.t('organization:HierarchyPermissionModal.allowsViewingTheDirectoryAndDetailed'),
+  'USER:CREATE': i18n.t('organization:HierarchyPermissionModal.allowsAddingNewUserAccountsProfiles'),
+  'USER:UPDATE': i18n.t('organization:HierarchyPermissionModal.allowsEditingPeoplesPersonalInformationPositions'),
+  'USER:DELETE': i18n.t('organization:HierarchyPermissionModal.allowsDeletingOrDeactivatingUserAccounts'),
+  'USER:IMPORT': i18n.t('organization:HierarchyPermissionModal.allowsImportingPeopleInBulkFrom'),
+  'USER:VIEW_LIST': i18n.t('organization:HierarchyPermissionModal.allowsViewingThePeopleListIn'),
+  'ROLE:VIEW': i18n.t('organization:HierarchyPermissionModal.allowsViewingTheListOfExisting'),
+  'ROLE:ASSIGN': i18n.t('organization:HierarchyPermissionModal.allowsAssigningOneOrMoreRoles'),
+  'ROLE:CREATE': i18n.t('organization:HierarchyPermissionModal.allowsCreatingNewRolesAlongWith'),
+  'ROLE:UPDATE': i18n.t('organization:HierarchyPermissionModal.allowsEditingTheNameDescriptionAnd'),
+  'ROLE:DELETE': i18n.t('organization:HierarchyPermissionModal.allowsDeletingRolesFromTheSystem'),
+  'PERMISSION:EDIT': i18n.t('organization:HierarchyPermissionModal.allowsConfiguringInDetailAndTurning'),
+  'PERMISSION:VIEW': i18n.t('organization:HierarchyPermissionModal.allowsViewingTheListOfAll'),
+  'KPI:VIEW': i18n.t('organization:HierarchyPermissionModal.allowsViewingTheListAndDetails'),
+  'KPI:CREATE': i18n.t('organization:HierarchyPermissionModal.allowsSettingUpNewKpisFor'),
+  'KPI:UPDATE': i18n.t('organization:HierarchyPermissionModal.allowsEditingTheContentWeightAnd'),
+  'KPI:DELETE': i18n.t('organization:HierarchyPermissionModal.allowsDeletingKpisFromTheSystem'),
+  'KPI:APPROVE_CRITERIA': i18n.t('organization:HierarchyPermissionModal.allowsApprovingKpisProposedBySubordinates'),
+  'KPI:APPROVE_ADJUSTMENT': i18n.t('organization:HierarchyPermissionModal.allowsApprovingKpiAdjustmentRequestsDuring'),
+  'KPI:APPROVE_OWN': i18n.t('organization:HierarchyPermissionModal.whenAPersonAtTheHighest'),
+  'KPI:APPROVE_FINAL': i18n.t('organization:HierarchyPermissionModal.finalApprovalOfKpisAndAdjustment'),
+  'KPI:VIEW_MY': i18n.t('organization:HierarchyPermissionModal.allowsViewingKpisAssignedToThe'),
+  'KPI:IMPORT': i18n.t('organization:HierarchyPermissionModal.allowsImportingKpisInBulkFrom'),
+  'KPI:SUBMIT': i18n.t('organization:HierarchyPermissionModal.allowsSubmittingConfiguredKpisToThe'),
+  'KPI:REJECT': i18n.t('organization:HierarchyPermissionModal.allowsRejectingAndReturningInvalidKpis'),
+  'KPI_PERIOD:VIEW': i18n.t('organization:HierarchyPermissionModal.allowsViewingTheListOfKpi'),
+  'KPI_PERIOD:CREATE': i18n.t('organization:HierarchyPermissionModal.allowsCreatingNewKpiEvaluationCycles'),
+  'KPI_PERIOD:UPDATE': i18n.t('organization:HierarchyPermissionModal.allowsUpdatingTheInformationAndStatus'),
+  'KPI_PERIOD:DELETE': i18n.t('organization:HierarchyPermissionModal.allowsDeletingKpiEvaluationCyclesFrom'),
+  'SUBMISSION:REVIEW': i18n.t('organization:HierarchyPermissionModal.allowsApprovingRejectingSubordinatesKpiResult'),
+  'SUBMISSION:REVIEW_KPI': i18n.t('organization:HierarchyPermissionModal.allowsViewingTheDetailsOfEmployees'),
+  'SUBMISSION:CREATE': i18n.t('organization:HierarchyPermissionModal.allowsSubmittingPersonalKpiResultReports'),
+  'SUBMISSION:VIEW_MY': i18n.t('organization:HierarchyPermissionModal.allowsReviewingTheHistoryOfOnes'),
+  'SUBMISSION:VIEW': i18n.t('organization:HierarchyPermissionModal.allowsViewingAllKpiSubmissionsOf'),
+  'SUBMISSION:DELETE': i18n.t('organization:HierarchyPermissionModal.allowsDeletingKpiSubmissionsThatHave'),
+  'SUBMISSION:UPDATE': i18n.t('organization:HierarchyPermissionModal.allowsEditingTheContentOfExisting'),
+  'EVALUATION:VIEW': i18n.t('organization:HierarchyPermissionModal.allowsViewingKpiEvaluationResultsAnd'),
+  'EVALUATION:CREATE': i18n.t('organization:HierarchyPermissionModal.allowsEvaluatingScoringAndRatingEmployees'),
+  'EVALUATION:UPDATE': i18n.t('organization:HierarchyPermissionModal.allowsEditingPreviouslyCreatedKpiEvaluation'),
+  'EVALUATION:DELETE': i18n.t('organization:HierarchyPermissionModal.allowsDeletingKpiEvaluationResultsFrom'),
+  'EVALUATION:VIEW_MY': i18n.t('organization:HierarchyPermissionModal.allowsViewingTheUsersOwnKpi'),
+  'NOTIF:VIEW': i18n.t('organization:HierarchyPermissionModal.allowsViewingTheListOfNotifications'),
+  'NOTIF:MANAGE': i18n.t('organization:HierarchyPermissionModal.allowsManagingComposingAndSendingSystem'),
+  'AI:SUGGEST_KPI': i18n.t('organization:HierarchyPermissionModal.allowsUsingArtificialIntelligenceFeaturesTo'),
+  'POLICY:VIEW': i18n.t('organization:HierarchyPermissionModal.allowsViewingTheOrganizationsInternalPolicies'),
+  'POLICY:CREATE': i18n.t('organization:HierarchyPermissionModal.allowsDraftingAndCreatingInternalPolicies'),
+  'POLICY:UPDATE': i18n.t('organization:HierarchyPermissionModal.allowsEditingTheContentOfIssued'),
+  'POLICY:DELETE': i18n.t('organization:HierarchyPermissionModal.allowsDeletingPoliciesRegulationsFromThe'),
+  'POLICY:ASSIGN': i18n.t('organization:HierarchyPermissionModal.allowsAssigningPoliciesRegulationsToSpecific'),
+  'STATS:VIEW_ORG': i18n.t('organization:HierarchyPermissionModal.allowsViewingStatisticsAndSummaryReports'),
+  'STATS:VIEW_EMPLOYEE': i18n.t('organization:HierarchyPermissionModal.allowsViewingDetailedKpiResultStatistics'),
+  'STATS:VIEW_MY': i18n.t('organization:HierarchyPermissionModal.allowsViewingTheUsersOwnKpi2'),
+  'SYSTEM:ADMIN': i18n.t('organization:HierarchyPermissionModal.systemWideAdministrationPermissionThatBypasses'),
+  'USER_ROLE:VIEW': i18n.t('organization:HierarchyPermissionModal.allowsViewingTheListOfRoles'),
+  'USER_ROLE:ASSIGN': i18n.t('organization:HierarchyPermissionModal.allowsAssigningNewRolesToUsers'),
+  'USER_ROLE:REVOKE': i18n.t('organization:HierarchyPermissionModal.allowsRevokingRemovingAssignedRolesFrom'),
+  'ATTACHMENT:UPLOAD': i18n.t('organization:HierarchyPermissionModal.allowsUploadingAttachmentsEvidenceDocumentsFor'),
+  'ATTACHMENT:DELETE': i18n.t('organization:HierarchyPermissionModal.allowsDeletingUploadedAttachmentsFromThe'),
+  'REMINDER:SEND': i18n.t('organization:HierarchyPermissionModal.allowsSendingRemindersToEmployeesAbout'),
+  'ADJUSTMENT:VIEW_MY': i18n.t('organization:HierarchyPermissionModal.allowsViewingKpiAdjustmentRequestsOne')
+}));
 
 // Define core permission codes for easier mapping - strictly following V2 Seed Data logic
 const PERMS = {
@@ -124,6 +128,7 @@ const PERMS = {
 }
 
 export default function HierarchyPermissionModal({ isOpen, onClose, hierarchyLevels }: HierarchyPermissionModalProps) {
+  const { t } = useTranslation('organization')
   const { data: allPermissions = [] } = useAllPermissions()
   const { data: roles = [] } = useRoles()
   const updateMutation = useUpdateRolePermissions()
@@ -148,12 +153,12 @@ export default function HierarchyPermissionModal({ isOpen, onClose, hierarchyLev
   const groupedPermissions = useMemo(() => {
     const groups: Record<string, string[]> = {}
     allPermissions.forEach(p => {
-      const resource = p.resource || 'CHƯA PHÂN LOẠI'
+      const resource = p.resource || t('HierarchyPermissionModal.unclassified')
       if (!groups[resource]) groups[resource] = []
       if (!groups[resource].includes(p.code)) groups[resource].push(p.code)
     })
     return groups
-  }, [allPermissions])
+  }, [allPermissions, t])
 
   const displayRoles = useMemo(() => {
     const activeRoleLevels = Array.from(new Set(hierarchyLevels.map(l => l.roleLevel))).sort((a, b) => a - b)
@@ -179,11 +184,11 @@ export default function HierarchyPermissionModal({ isOpen, onClose, hierarchyLev
         } else {
           // Fallback labels based on hierarchy info
           if (rank === 0) {
-            label = isTop ? (lvl.managerRoleLabel || 'GIÁM ĐỐC') : `TRƯỞNG ${lvl.unitTypeName}`
+            label = isTop ? (lvl.managerRoleLabel || t('HierarchyPermissionModal.director')) : t('HierarchyPermissionModal.headOf', { unitTypeName: lvl.unitTypeName })
           } else if (rank === 1) {
-            label = `PHÓ ${isTop ? (lvl.managerRoleLabel || 'GIÁM ĐỐC') : lvl.unitTypeName}`
+            label = t('HierarchyPermissionModal.deputy', { value: isTop ? (lvl.managerRoleLabel || t('HierarchyPermissionModal.director2')) : lvl.unitTypeName })
           } else {
-            label = 'NHÂN VIÊN'
+            label = t('HierarchyPermissionModal.employee')
           }
         }
         
@@ -196,7 +201,7 @@ export default function HierarchyPermissionModal({ isOpen, onClose, hierarchyLev
       })
     })
     return result
-  }, [roles, hierarchyLevels])
+  }, [roles, hierarchyLevels, t])
 
   const handleApply = async () => {
     setIsApplying(true)
@@ -238,10 +243,10 @@ export default function HierarchyPermissionModal({ isOpen, onClose, hierarchyLev
           successCount++
         }
       }
-      toast.success(`Đã cập nhật quyền hạn cho ${successCount} vai trò theo phân cấp thực tế của công ty.`)
+      toast.success(t('HierarchyPermissionModal.updatedPermissionsForRolesAccordingTo', { count: successCount }))
       onClose()
     } catch (err) {
-      toast.error(getApiErrorMessage(err, 'Áp dụng quyền hạn thất bại.'))
+      toast.error(getApiErrorMessage(err, t('HierarchyPermissionModal.failedToApplyPermissions')))
     } finally {
       setIsApplying(false)
     }
@@ -253,16 +258,16 @@ export default function HierarchyPermissionModal({ isOpen, onClose, hierarchyLev
       onClose={onClose}
       size="full"
       dismissible={!isApplying}
-      title="Thiết lập Quyền theo Phân cấp"
-      description={<>Mô hình tổ chức: <span className="font-medium text-[var(--color-foreground)]">{hierarchyCount} cấp</span></>}
+      title={t('HierarchyPermissionModal.setUpPermissionsByHierarchy')}
+      description={<>{t('HierarchyPermissionModal.organizationModel')} <span className="font-medium text-[var(--color-foreground)]">{hierarchyCount} {t('HierarchyPermissionModal.level')}</span></>}
       footer={
         <DialogFooter
-          note="Thay thế toàn bộ thiết lập quyền hiện tại của các vai trò. Hãy kiểm tra kỹ trước khi áp dụng."
-          secondary={<Button variant="outline" onClick={onClose} disabled={isApplying}>Hủy bỏ</Button>}
+          note={t('HierarchyPermissionModal.replacesAllCurrentPermissionSettingsOf')}
+          secondary={<Button variant="outline" onClick={onClose} disabled={isApplying}>{t('HierarchyPermissionModal.cancel')}</Button>}
           primary={
             <Button onClick={handleApply} disabled={isApplying}>
               {isApplying ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Zap aria-hidden="true" />}
-              {isApplying ? 'Đang thiết lập...' : 'Xác nhận áp dụng cho toàn công ty'}
+              {isApplying ? t('HierarchyPermissionModal.settingUp') : t('HierarchyPermissionModal.confirmApplyingToTheWholeCompany')}
             </Button>
           }
         />
@@ -273,20 +278,20 @@ export default function HierarchyPermissionModal({ isOpen, onClose, hierarchyLev
         <div className="space-y-6">
           <div className="flex items-center justify-between px-2">
              <h4 className="text-eyebrow flex items-center gap-2">
-               <Zap size={14} className="text-[var(--color-warning)]" /> Ma trận quyền hạn chi tiết
+               <Zap size={14} className="text-[var(--color-warning)]" /> {t('HierarchyPermissionModal.detailedPermissionMatrix')}
              </h4>
              <div className="hidden sm:flex items-center gap-6">
                <div className="flex items-center gap-2">
                   <div className="w-3 h-3 rounded-full bg-[var(--color-success-solid)]" />
-                  <span className="text-caption">Đầy đủ</span>
+                  <span className="text-caption">{t('HierarchyPermissionModal.full')}</span>
                </div>
                <div className="flex items-center gap-2">
                   <div className="w-3 h-3 rounded-full bg-[var(--color-warning-solid)]" />
-                  <span className="text-caption">Một phần</span>
+                  <span className="text-caption">{t('HierarchyPermissionModal.partial')}</span>
                </div>
                <div className="flex items-center gap-2">
                   <X size={12} className="text-[var(--color-subtle-foreground)]" />
-                  <span className="text-caption">Không có</span>
+                  <span className="text-caption">{t('HierarchyPermissionModal.none')}</span>
                </div>
              </div>
           </div>
@@ -302,7 +307,7 @@ export default function HierarchyPermissionModal({ isOpen, onClose, hierarchyLev
                       <span className="text-eyebrow text-[var(--color-foreground)] truncate">{resource}</span>
                     </div>
                     <div className="w-[250px] shrink-0 text-left text-eyebrow tracking-tighter pl-4 border-l border-[var(--color-border)] ml-2">
-                      Mô tả chi tiết quyền hạn
+                      {t('HierarchyPermissionModal.detailedPermissionDescriptions')}
                     </div>
                     <div className="flex items-center gap-2">
                       {displayRoles.map(r => (
@@ -320,7 +325,7 @@ export default function HierarchyPermissionModal({ isOpen, onClose, hierarchyLev
                           <span className="text-caption font-medium">{code.split(':')[1]} action</span>
                         </div>
                         <div className="w-[250px] shrink-0 text-left text-caption font-medium leading-tight pr-6 border-l border-[var(--color-border)] pl-4 ml-2">
-                          {allPermissions.find(p => p.code === code)?.description || PERMISSION_DESCRIPTIONS[code] || 'Mô tả đang được cập nhật...'}
+                          {allPermissions.find(p => p.code === code)?.description || PERMISSION_DESCRIPTIONS()[code] || t('HierarchyPermissionModal.descriptionIsBeingUpdated')}
                         </div>
                         <div className="flex items-center gap-2">
                           {displayRoles.map(r => {

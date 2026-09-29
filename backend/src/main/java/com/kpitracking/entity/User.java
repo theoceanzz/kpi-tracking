@@ -95,6 +95,13 @@ public class User {
     private Boolean isPlatformAdmin = false;
 
     /**
+     * Ngôn ngữ người dùng tự chọn ({@code SupportedLanguages}). Null = chưa chọn → theo ngôn ngữ mặc định
+     * của tổ chức. Đừng đọc thẳng cột này để gửi email/thông báo: dùng {@code UserLanguageResolver}.
+     */
+    @Column(name = "preferred_language", length = 10)
+    private String preferredLanguage;
+
+    /**
      * Tài khoản đã bị tạm dừng (INACTIVE) hoặc tạm khóa (SUSPENDED) ở trang Quản lý tài khoản.
      * Mọi danh sách nhân sự ngoài trang đó phải bỏ những người này — cùng một quy tắc với
      * {@code deletedAt}: xoá mềm và tạm dừng đều là "không còn làm việc trong hệ thống".

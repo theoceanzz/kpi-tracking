@@ -1,3 +1,5 @@
+import { LocaleDateInput } from '@/components/ui/date-input'
+import { intlLocale } from '@/i18n/format'
 import React, { useState, useMemo } from 'react'
 import { yAxisLabel, yAxisLabelRight } from '@/components/charts/axisLabel'
 
@@ -16,6 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { useTranslation } from 'react-i18next'
 
 type DateFilterType = 'GLOBAL' | 'THIS_WEEK' | 'THIS_MONTH' | 'THIS_QUARTER' | '6_MONTHS' | 'THIS_YEAR' | 'CUSTOM'
 
@@ -26,7 +29,7 @@ function DrawerChartTooltip({ active, payload, label }: any) {
         <p className="font-semibold text-[var(--color-foreground)] mb-3">{label}</p>
         <div className="space-y-2">
           {payload.map((p: any, i: number) => {
-            let valStr = p.value?.toLocaleString('vi-VN')
+            let valStr = p.value?.toLocaleString(intlLocale())
             if (p.name.includes('%')) {
               valStr = `${Math.round(p.value)}%`
             }
@@ -46,6 +49,7 @@ function DrawerChartTooltip({ active, payload, label }: any) {
 }
 
 export default function MyObjectiveDrawer({ kpiId, onClose, globalFrom, globalTo, globalPeriodId, globalPeriodIdTo }: { kpiId: string, onClose: () => void, globalFrom?: string, globalTo?: string, globalPeriodId?: string, globalPeriodIdTo?: string }) {
+  const { t: tr } = useTranslation('analytics')
   const [dateFilterType, setDateFilterType] = useState<DateFilterType>('GLOBAL')
   const [customRange, setCustomRange] = useState<{ from: string; to: string }>({ from: '', to: '' })
   const [activeTeammates, setActiveTeammates] = useState<string[]>([]) // Array of selected teammate user IDs
@@ -112,11 +116,11 @@ export default function MyObjectiveDrawer({ kpiId, onClose, globalFrom, globalTo
     <div className="flex flex-col gap-1">
       <div className="flex items-center flex-wrap gap-2">
         <span className="text-base font-semibold text-[var(--color-foreground)] leading-snug">
-          {data?.kpiName || 'Chi tiết KPI'}
+          {data?.kpiName || tr('MyObjectiveDrawer.kpiDetails')}
         </span>
         {data?.shared && (
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-[var(--color-primary)] dark:text-indigo-400 text-xs font-semibold border border-indigo-200 dark:border-[var(--color-primary)]/30 flex-shrink-0">
-            <Users size={10} /> Mục tiêu chung
+            <Users size={10} /> {tr('MyObjectiveDrawer.sharedObjective')}
           </span>
         )}
       </div>
@@ -150,26 +154,26 @@ export default function MyObjectiveDrawer({ kpiId, onClose, globalFrom, globalTo
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent className="min-w-[220px]">
-                  <SelectItem value="GLOBAL">Theo bộ lọc tổng quan mục tiêu</SelectItem>
-                  <SelectItem value="THIS_WEEK">Tuần này</SelectItem>
-                  <SelectItem value="THIS_MONTH">Tháng này</SelectItem>
-                  <SelectItem value="THIS_QUARTER">Quý này</SelectItem>
-                  <SelectItem value="6_MONTHS">6 tháng qua</SelectItem>
-                  <SelectItem value="THIS_YEAR">Năm nay</SelectItem>
-                  <SelectItem value="CUSTOM">Tùy chỉnh</SelectItem>
+                  <SelectItem value="GLOBAL">{tr('MyObjectiveDrawer.perTheObjectivesOverviewFilter')}</SelectItem>
+                  <SelectItem value="THIS_WEEK">{tr('MyObjectiveDrawer.thisWeek')}</SelectItem>
+                  <SelectItem value="THIS_MONTH">{tr('MyObjectiveDrawer.thisMonth')}</SelectItem>
+                  <SelectItem value="THIS_QUARTER">{tr('MyObjectiveDrawer.thisQuarter')}</SelectItem>
+                  <SelectItem value="6_MONTHS">{tr('MyObjectiveDrawer.last6Months')}</SelectItem>
+                  <SelectItem value="THIS_YEAR">{tr('MyObjectiveDrawer.thisYear')}</SelectItem>
+                  <SelectItem value="CUSTOM">{tr('MyObjectiveDrawer.custom')}</SelectItem>
                 </SelectContent>
               </Select>
 
               {dateFilterType === 'CUSTOM' && (
                 <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2 px-2 border-t sm:border-t-0 sm:border-l border-slate-200 dark:border-white/10 pt-2 sm:pt-0">
-                  <input 
+                  <LocaleDateInput 
                     type="date" 
                     className="bg-transparent border-none outline-none text-slate-700 dark:text-slate-300 text-xs w-full sm:w-auto"
                     value={customRange.from}
                     onChange={(e) => setCustomRange(prev => ({ ...prev, from: e.target.value }))}
                   />
                   <span className="hidden sm:inline text-slate-400">-</span>
-                  <input 
+                  <LocaleDateInput 
                     type="date" 
                     className="bg-transparent border-none outline-none text-slate-700 dark:text-slate-300 text-xs w-full sm:w-auto"
                     value={customRange.to}
@@ -183,26 +187,26 @@ export default function MyObjectiveDrawer({ kpiId, onClose, globalFrom, globalTo
           {/* Metrics Grid */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="bg-slate-50 dark:bg-slate-900/60 p-4 rounded-2xl border border-[var(--color-border)]">
-              <p className="text-xs font-medium text-slate-500 mb-1">Mục tiêu yêu cầu</p>
-              <p className="text-xl font-semibold text-[var(--color-foreground)]">{data?.targetValue?.toLocaleString('vi-VN')}</p>
+              <p className="text-xs font-medium text-slate-500 mb-1">{tr('MyObjectiveDrawer.requiredTarget')}</p>
+              <p className="text-xl font-semibold text-[var(--color-foreground)]">{data?.targetValue?.toLocaleString(intlLocale())}</p>
             </div>
             <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-2xl border border-indigo-100 dark:border-indigo-900/30">
-              <p className="text-xs font-semibold text-[var(--color-primary)] mb-1">Cá nhân: Lũy kế</p>
-              <p className="text-xl font-semibold text-indigo-700 dark:text-indigo-400">{data?.myActualValue?.toLocaleString('vi-VN')}</p>
-              <p className="text-xs font-semibold text-[var(--color-primary)] mt-1">Đạt {data?.myProgress?.toFixed(1)}%</p>
+              <p className="text-xs font-semibold text-[var(--color-primary)] mb-1">{tr('MyObjectiveDrawer.individualCumulative')}</p>
+              <p className="text-xl font-semibold text-indigo-700 dark:text-indigo-400">{data?.myActualValue?.toLocaleString(intlLocale())}</p>
+              <p className="text-xs font-semibold text-[var(--color-primary)] mt-1">{tr('MyObjectiveDrawer.meets')} {data?.myProgress?.toFixed(1)}%</p>
             </div>
             {data?.shared && (
               <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-2xl border border-indigo-100 dark:border-indigo-900/30">
-                <p className="text-xs font-semibold text-[var(--color-primary)] mb-1">Nhóm: Lũy kế tổng</p>
-                <p className="text-xl font-semibold text-indigo-700 dark:text-indigo-400">{data?.totalActualValue?.toLocaleString('vi-VN')}</p>
-                <p className="text-xs font-semibold text-[var(--color-primary)] mt-1">Đạt {data?.totalProgress?.toFixed(1)}%</p>
+                <p className="text-xs font-semibold text-[var(--color-primary)] mb-1">{tr('MyObjectiveDrawer.groupCumulativeTotal')}</p>
+                <p className="text-xl font-semibold text-indigo-700 dark:text-indigo-400">{data?.totalActualValue?.toLocaleString(intlLocale())}</p>
+                <p className="text-xs font-semibold text-[var(--color-primary)] mt-1">{tr('MyObjectiveDrawer.meets')} {data?.totalProgress?.toFixed(1)}%</p>
               </div>
             )}
             <div className="bg-emerald-50 dark:bg-emerald-900/20 p-4 rounded-2xl border border-emerald-100 dark:border-emerald-900/30">
-              <p className="text-xs font-semibold text-emerald-500 mb-1">Hiệu suất cá nhân</p>
+              <p className="text-xs font-semibold text-emerald-500 mb-1">{tr('MyObjectiveDrawer.individualPerformance')}</p>
               <p className="text-xl font-semibold text-emerald-700 dark:text-emerald-400">{data?.myPerformance?.toFixed(1)}%</p>
               {data?.shared && (
-                <p className="text-xs font-semibold text-emerald-500 mt-1">Nhóm: {data?.teamPerformance?.toFixed(1)}%</p>
+                <p className="text-xs font-semibold text-emerald-500 mt-1">{tr('MyObjectiveDrawer.group')} {data?.teamPerformance?.toFixed(1)}%</p>
               )}
             </div>
           </div>
@@ -212,7 +216,7 @@ export default function MyObjectiveDrawer({ kpiId, onClose, globalFrom, globalTo
             <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
               <h3 className="text-sm font-semibold flex items-center gap-2">
                 <Activity size={18} className="text-[var(--color-primary)]" />
-                Biểu đồ phân tích chuyên sâu
+                {tr('MyObjectiveDrawer.inDepthAnalysisChart')}
               </h3>
               {/* Custom Legend for Teammates */}
               {data?.shared && data.chartData.availableTeammates && data.chartData.availableTeammates.length > 0 && (
@@ -237,8 +241,8 @@ export default function MyObjectiveDrawer({ kpiId, onClose, globalFrom, globalTo
 
             {/* Nhãn đơn vị đo nằm ngang ở phía trên */}
             <div className="flex justify-between text-xs font-medium text-slate-400 dark:text-slate-500 mb-2 px-1">
-              <span>Đơn vị ({data?.unit || ''})</span>
-              <span>Hiệu suất (%)</span>
+              <span>{tr('MyObjectiveDrawer.unit')}{data?.unit || ''})</span>
+              <span>{tr('MyObjectiveDrawer.performance')}</span>
             </div>
 
             <div className="h-[350px]">
@@ -249,7 +253,7 @@ export default function MyObjectiveDrawer({ kpiId, onClose, globalFrom, globalTo
                   <YAxis 
                     yAxisId="left" 
                     orientation="left" 
-                    label={yAxisLabel('Giá trị đạt')}
+                    label={yAxisLabel(tr('MyObjectiveDrawer.achievedValue'))}
                     axisLine={false} 
                     tickLine={false} 
                     tick={{fontSize: 11, fill: '#64748b'}}
@@ -257,7 +261,7 @@ export default function MyObjectiveDrawer({ kpiId, onClose, globalFrom, globalTo
                   <YAxis 
                     yAxisId="right" 
                     orientation="right" 
-                    label={yAxisLabelRight('Tiến độ (%)')}
+                    label={yAxisLabelRight(tr('MyObjectiveDrawer.progress'))}
                     axisLine={false} 
                     tickLine={false} 
                     tick={{fontSize: 11, fill: '#64748b'}}
@@ -300,7 +304,7 @@ export default function MyObjectiveDrawer({ kpiId, onClose, globalFrom, globalTo
             <div className="bg-[var(--color-card)] rounded-2xl p-6 border border-[var(--color-border)]">
               <h3 className="text-sm font-semibold mb-6 flex items-center gap-2">
                 <Target size={18} className="text-[var(--color-primary)]" />
-                Mức độ đóng góp của từng thành viên
+                {tr('MyObjectiveDrawer.contributionOfEachMember')}
               </h3>
               <div className="space-y-4">
                 {contributions.map((c, i) => (
@@ -311,7 +315,7 @@ export default function MyObjectiveDrawer({ kpiId, onClose, globalFrom, globalTo
                         {c.fullName}
                       </span>
                       <div className="text-right">
-                        <span className="text-xs text-slate-500 mr-2">{c.actualValue?.toLocaleString('vi-VN')}</span>
+                        <span className="text-xs text-slate-500 mr-2">{c.actualValue?.toLocaleString(intlLocale())}</span>
                         <span className="text-xs font-semibold text-[var(--color-primary)] dark:text-indigo-400">{c.contributionPercentage?.toFixed(1)}%</span>
                       </div>
                     </div>

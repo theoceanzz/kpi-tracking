@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { ChoiceChip } from '@/components/ui/choice-chip'
+import { useTranslation } from 'react-i18next'
 
 interface FilterBarProps {
   /** Các bộ lọc chính, theo thứ tự cố định của nhóm pattern (đợt → đơn vị → trạng thái…). */
@@ -28,6 +29,7 @@ interface FilterBarProps {
  * Mỗi ô con tự đặt bề rộng (`w-48`, `w-56`…) để cột filter thẳng hàng giữa các trang.
  */
 export default function FilterBar({ children, search, overflow, overflowActiveCount = 0, trailing, id, className }: FilterBarProps) {
+  const { t } = useTranslation('shared')
   const [open, setOpen] = useState(false)
   return (
     <div id={id} className={cn('flex flex-wrap items-center gap-2', className)}>
@@ -37,7 +39,7 @@ export default function FilterBar({ children, search, overflow, overflowActiveCo
           <PopoverTrigger asChild>
             <Button variant="outline" aria-expanded={open}>
               <SlidersHorizontal aria-hidden="true" />
-              Bộ lọc
+              {t('FilterBar.filters')}
               {overflowActiveCount > 0 && (
                 <span className="rounded-full bg-[var(--color-primary)] px-1.5 text-xs font-medium leading-4 text-[var(--color-primary-foreground)] tabular-nums">
                   {overflowActiveCount}
@@ -56,14 +58,14 @@ export default function FilterBar({ children, search, overflow, overflowActiveCo
           type="search"
           value={search.value}
           onChange={e => search.onChange(e.target.value)}
-          placeholder={search.placeholder ?? 'Tìm kiếm…'}
-          aria-label={search.placeholder ?? 'Tìm kiếm'}
+          placeholder={search.placeholder ?? t('FilterBar.search')}
+          aria-label={search.placeholder ?? t('FilterBar.search2')}
           prefix={<Search aria-hidden="true" />}
           suffix={search.value ? (
             <button
               type="button"
               onClick={() => search.onChange('')}
-              aria-label="Xoá tìm kiếm"
+              aria-label={t('FilterBar.clearSearch')}
               className="flex h-5 w-5 items-center justify-center rounded-sm hover:bg-[var(--color-muted)] hover:text-[var(--color-foreground)] [&_svg]:size-3.5"
             >
               <X />

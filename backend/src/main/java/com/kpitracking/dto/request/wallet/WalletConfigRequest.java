@@ -10,20 +10,20 @@ import lombok.Data;
 public class WalletConfigRequest {
 
     /** Số đồng đổi được 1 điểm. */
-    @NotNull(message = "Vui lòng nhập tỉ giá quy đổi")
-    @Positive(message = "Tỉ giá quy đổi phải lớn hơn 0")
+    @NotNull(message = "{validation.enterConversionRate}")
+    @Positive(message = "{validation.conversionRateMustGreaterThan0}")
     private Long pointExchangeRate;
 
-    @NotNull(message = "Vui lòng nhập số tiền nạp tối thiểu")
-    @Positive(message = "Số tiền nạp tối thiểu phải lớn hơn 0")
+    @NotNull(message = "{validation.enterMinimumTopUpAmount}")
+    @Positive(message = "{validation.minimumTopUpAmountMustGreaterThan0}")
     private Long topupMinAmount;
 
-    @NotNull(message = "Vui lòng nhập số tiền nạp tối đa")
-    @Positive(message = "Số tiền nạp tối đa phải lớn hơn 0")
+    @NotNull(message = "{validation.enterMaximumTopUpAmount}")
+    @Positive(message = "{validation.maximumTopUpAmountMustGreaterThan0}")
     private Long topupMaxAmount;
 
-    @NotNull(message = "Vui lòng nhập thời gian hiệu lực của đơn nạp")
-    @Positive(message = "Thời gian hiệu lực phải lớn hơn 0 phút")
+    @NotNull(message = "{validation.enterValidityTimeTopUpOrders}")
+    @Positive(message = "{validation.validityTimeMustGreaterThan0Minutes}")
     private Integer topupExpireMinutes;
 
     private String sepayAccountNumber;
@@ -57,8 +57,8 @@ public class WalletConfigRequest {
      * Thuế suất % áp cho khoản nạp ví. Mặc định 0 — nạp ví là khoản thu trước, nghĩa vụ thuế
      * phát sinh khi nhân viên đổi điểm lấy quà.
      */
-    @Min(value = 0, message = "Thuế suất không được nhỏ hơn 0%")
-    @Max(value = 100, message = "Thuế suất không được lớn hơn 100%")
+    @Min(value = 0, message = "{validation.taxRateCannotLessThan0Percent}")
+    @Max(value = 100, message = "{validation.taxRateCannotGreaterThan100Percent}")
     private Integer receiptVatRate;
 
     private String receiptIssuerName;

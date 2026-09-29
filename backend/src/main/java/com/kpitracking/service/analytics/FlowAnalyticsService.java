@@ -1,5 +1,6 @@
 package com.kpitracking.service.analytics;
 
+import com.kpitracking.i18n.ErrorMessages;
 import com.kpitracking.dto.response.stats.advanced.FlowResponses.SankeyLink;
 import com.kpitracking.dto.response.stats.advanced.FlowResponses.SankeyNode;
 import com.kpitracking.dto.response.stats.advanced.FlowResponses.SankeyResponse;
@@ -45,7 +46,7 @@ public class FlowAnalyticsService {
     public SankeyResponse getKpiCascade(UUID orgUnitId, Collection<UUID> periodIds) {
         StatsTierResolver.TierScope scope = tierResolver.resolve(orgUnitId, periodIds);
         if (scope.unitIds().isEmpty() || scope.anonymize()) {
-            return empty("Tổng trọng số");
+            return empty(ErrorMessages.text("analytics.flow.totalWeight", ""));
         }
 
         SankeyBuilder b = new SankeyBuilder();
@@ -58,10 +59,10 @@ public class FlowAnalyticsService {
             if (weight <= 0) continue;
             long count = r[4] == null ? 0 : ((Number) r[4]).longValue();
             String rel = r[2] == null ? "" : String.valueOf(r[2]);
-            String relLabel = "DELEGATION".equals(rel) ? "Uỷ quyền" : "Phân rã";
+            String relLabel = "DELEGATION".equals(rel) ? ErrorMessages.text("analytics.flow.delegated", "") : ErrorMessages.text("analytics.flow.cascaded", "");
             b.link(parent, 0, child, 1, weight, relLabel + " · " + count + " KPI");
         }
-        return b.build("Tổng trọng số");
+        return b.build(ErrorMessages.text("analytics.flow.totalWeight", ""));
     }
 
     // ============================================================
@@ -77,7 +78,7 @@ public class FlowAnalyticsService {
     public SankeyResponse getKpiLifecycle(UUID orgUnitId, Collection<UUID> periodIds) {
         StatsTierResolver.TierScope scope = tierResolver.resolve(orgUnitId, periodIds);
         if (scope.unitIds().isEmpty()) {
-            return empty("Số KPI");
+            return empty(ErrorMessages.text("analytics.flow.kpiCount", ""));
         }
 
         Map<KpiStatus, Long> counts = new LinkedHashMap<>();
@@ -85,7 +86,7 @@ public class FlowAnalyticsService {
             if (r[0] == null) continue;
             counts.put((KpiStatus) r[0], r[1] == null ? 0L : ((Number) r[1]).longValue());
         }
-        if (counts.isEmpty()) return empty("Số KPI");
+        if (counts.isEmpty()) return empty(ErrorMessages.text("analytics.flow.kpiCount", ""));
 
         long draft = get(counts, KpiStatus.DRAFT);
         long pending = get(counts, KpiStatus.PENDING_APPROVAL);
@@ -99,26 +100,26 @@ public class FlowAnalyticsService {
         // Đây là ảnh chụp tại một thời điểm, không phải nhật ký chuyển trạng thái — hệ thống
         // không lưu lịch sử chuyển trạng thái của KPI nên không dựng được luồng thật sự.
         long total = draft + pending + approved + rejected + edit + inactive + replaced;
-        if (total == 0) return empty("Số KPI");
+        if (total == 0) return empty(ErrorMessages.text("analytics.flow.kpiCount", ""));
 
         SankeyBuilder b = new SankeyBuilder();
-        String root = "Tổng KPI";
-        if (draft > 0) b.link(root, 0, "Nháp", 1, draft, "Chưa gửi duyệt");
+        String root = ErrorMessages.text("analytics.flow.totalKpis", "");
+        if (draft > 0) b.link(root, 0, ErrorMessages.text("analytics.flow.draft", ""), 1, draft, ErrorMessages.text("analytics.flow.notSubmitted", ""));
         long submitted = pending + approved + rejected + edit + inactive + replaced;
         if (submitted > 0) {
-            b.link(root, 0, "Đã gửi duyệt", 1, submitted, null);
-            if (pending > 0) b.link("Đã gửi duyệt", 1, "Chờ duyệt", 2, pending, "Đang tồn đọng");
-            if (rejected > 0) b.link("Đã gửi duyệt", 1, "Bị từ chối", 2, rejected, null);
-            if (edit > 0) b.link("Đã gửi duyệt", 1, "Đang/đã chỉnh sửa", 2, edit, null);
+            b.link(root, 0, ErrorMessages.text("analytics.flow.submitted", ""), 1, submitted, null);
+            if (pending > 0) b.link(ErrorMessages.text("analytics.flow.submitted", ""), 1, ErrorMessages.text("analytics.flow.pending", ""), 2, pending, ErrorMessages.text("analytics.flow.backlog", ""));
+            if (rejected > 0) b.link(ErrorMessages.text("analytics.flow.submitted", ""), 1, ErrorMessages.text("analytics.flow.rejected", ""), 2, rejected, null);
+            if (edit > 0) b.link(ErrorMessages.text("analytics.flow.submitted", ""), 1, ErrorMessages.text("analytics.flow.editing", ""), 2, edit, null);
             long settled = approved + inactive + replaced;
             if (settled > 0) {
-                b.link("Đã gửi duyệt", 1, "Đã duyệt", 2, settled, null);
-                if (approved > 0) b.link("Đã duyệt", 2, "Đang hiệu lực", 3, approved, null);
-                if (replaced > 0) b.link("Đã duyệt", 2, "Bị thay thế", 3, replaced, "Có bản KPI mới thay");
-                if (inactive > 0) b.link("Đã duyệt", 2, "Ngừng theo dõi", 3, inactive, null);
+                b.link(ErrorMessages.text("analytics.flow.submitted", ""), 1, ErrorMessages.text("analytics.flow.approved", ""), 2, settled, null);
+                if (approved > 0) b.link(ErrorMessages.text("analytics.flow.approved", ""), 2, ErrorMessages.text("analytics.flow.active", ""), 3, approved, null);
+                if (replaced > 0) b.link(ErrorMessages.text("analytics.flow.approved", ""), 2, ErrorMessages.text("analytics.flow.replaced", ""), 3, replaced, ErrorMessages.text("analytics.flow.replacedHint", ""));
+                if (inactive > 0) b.link(ErrorMessages.text("analytics.flow.approved", ""), 2, ErrorMessages.text("analytics.flow.inactive", ""), 3, inactive, null);
             }
         }
-        return b.build("Số KPI");
+        return b.build(ErrorMessages.text("analytics.flow.kpiCount", ""));
     }
 
     // ============================================================
@@ -129,7 +130,7 @@ public class FlowAnalyticsService {
     public SankeyResponse getOkrFlow(UUID orgUnitId, Collection<UUID> periodIds) {
         StatsTierResolver.TierScope scope = tierResolver.resolve(orgUnitId, periodIds);
         if (scope.unitIds().isEmpty() || scope.anonymize()) {
-            return empty("Trọng số phân bổ");
+            return empty(ErrorMessages.text("analytics.flow.allocatedWeight", ""));
         }
 
         SankeyBuilder b = new SankeyBuilder();
@@ -144,7 +145,7 @@ public class FlowAnalyticsService {
             b.link(obj, 0, krKey, 1, w, null);
             b.link(krKey, 1, unit, 2, w, null);
         }
-        return b.build("Trọng số phân bổ");
+        return b.build(ErrorMessages.text("analytics.flow.allocatedWeight", ""));
     }
 
     // ============================================================

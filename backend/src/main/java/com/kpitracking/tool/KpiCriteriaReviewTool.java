@@ -62,6 +62,8 @@ public class KpiCriteriaReviewTool {
                     null, null, null, "createdAt", "asc", null, null, null, true, null, null, null, null);
 
             List<Item> items = page.getContent().stream()
+                    // Chuỗi duyệt: chỉ những chỉ tiêu đang chờ ĐÚNG người dùng ở bước hiện tại.
+                    .filter(k -> k.getApproval() == null || k.getApproval().isCanAct())
                     .map(k -> new Item(k.getId(), null,
                             k.getName(),
                             detailOf(k)))

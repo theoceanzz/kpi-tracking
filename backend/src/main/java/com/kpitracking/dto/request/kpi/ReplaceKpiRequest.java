@@ -18,7 +18,7 @@ public class ReplaceKpiRequest {
 
     private KpiType kpiType;
 
-    @NotBlank(message = "Tên KPI thay thế là bắt buộc")
+    @NotBlank(message = "{validation.replacementKpiNameRequired}")
     @Size(max = 255)
     private String name;
 
@@ -32,7 +32,7 @@ public class ReplaceKpiRequest {
 
     private String unit;
 
-    @NotNull(message = "Tần suất là bắt buộc")
+    @NotNull(message = "{validation.frequencyRequired}")
     private KpiFrequency frequency;
 
     private List<UUID> assignedToIds;

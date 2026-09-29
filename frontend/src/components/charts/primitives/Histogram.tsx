@@ -1,6 +1,7 @@
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer } from 'recharts'
 import { AXIS_COLORS, METRIC_COLORS, NEUTRAL_COLOR } from '../chartPalette'
 import { yAxisLabel } from '../axisLabel'
+import { useTranslation } from 'react-i18next'
 
 export interface HistogramBinDatum {
   label: string
@@ -36,12 +37,13 @@ interface Props {
  * ngay sát ngưỡng xếp loại.
  */
 export default function Histogram({ bins, thresholds = [], marker, unit = '', countLabel, height = 300 }: Props) {
+  const { t: tr } = useTranslation('shared')
   const total = bins.reduce((s, b) => s + b.count, 0)
 
   if (total === 0) {
     return (
       <div className="w-full flex items-center justify-center text-sm text-slate-400 font-medium" style={{ height }}>
-        Chưa có dữ liệu để dựng phân phối
+        {tr('Histogram.noDataToBuildTheDistribution')}
       </div>
     )
   }
@@ -69,7 +71,7 @@ export default function Histogram({ bins, thresholds = [], marker, unit = '', co
           axisLine={false}
           tickLine={false}
           tick={{ fill: AXIS_COLORS.tick, fontSize: 11, fontWeight: 500 }}
-          label={yAxisLabel(countLabel ?? 'Số lượng')}
+          label={yAxisLabel(countLabel ?? tr('Histogram.quantity'))}
         />
         <Tooltip cursor={{ fill: 'rgba(148,163,184,0.12)' }} content={<HistTooltip total={total} unit={unit} />} />
 
@@ -103,6 +105,7 @@ function HistTooltip({ active, payload, total, unit }: {
   total: number
   unit?: string
 }) {
+  const { t } = useTranslation('shared')
   const d = payload?.[0]?.payload
   if (!active || !d) return null
   const pct = total > 0 ? Math.round(d.count * 1000 / total) / 10 : 0
@@ -112,7 +115,7 @@ function HistTooltip({ active, payload, total, unit }: {
         {d.label}{unit ? ` ${unit}` : ''}
       </p>
       <p className="font-semibold text-lg text-[var(--color-foreground)] tabular-nums">{d.count}</p>
-      <p className="text-xs text-slate-400 font-medium">{pct}% tổng số</p>
+      <p className="text-xs text-slate-400 font-medium">{pct}{t('Histogram.ofTotal')}</p>
     </div>
   )
 }

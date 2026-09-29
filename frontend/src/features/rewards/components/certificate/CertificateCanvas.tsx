@@ -1,3 +1,4 @@
+import { intlLocale } from '@/i18n/format'
 import { forwardRef } from 'react'
 import { CertificateOrientation } from '../../types'
 import {
@@ -7,6 +8,7 @@ import {
   type CertificateData,
   type ResolvedDesign,
 } from './presets'
+import { useTranslation } from 'react-i18next'
 
 /**
  * Tờ chứng nhận, vẽ đúng kích thước in thật (A4 ở 96dpi).
@@ -29,6 +31,7 @@ interface CertificateCanvasProps {
 
 const CertificateCanvas = forwardRef<HTMLDivElement, CertificateCanvasProps>(
   ({ design, data, scale = 1 }, ref) => {
+    const { t: tr } = useTranslation('rewards')
     const page = CERTIFICATE_PAGE[design.orientation] ?? CERTIFICATE_PAGE[CertificateOrientation.LANDSCAPE]
     const { preset, ink, accent, surface } = design
     const portrait = design.orientation === CertificateOrientation.PORTRAIT
@@ -289,7 +292,7 @@ const CertificateCanvas = forwardRef<HTMLDivElement, CertificateCanvasProps>(
                     color: soft(0.45),
                   }}
                 >
-                  Ngày trao
+                  {tr('CertificateCanvas.awardedOn')}
                 </div>
                 <div style={{ marginTop: 4, fontSize: t(15), fontWeight: 600 }}>{data.dateLabel}</div>
               </div>
@@ -458,6 +461,7 @@ function PointsBadge({
   size: number
   marginTop: number
 }) {
+  const { t } = useTranslation('rewards')
   return (
     <div
       style={{
@@ -475,9 +479,9 @@ function PointsBadge({
     >
       <StarIcon size={Math.round(size * 1.1)} color={accent} />
       <span style={{ fontSize: Math.round(size * 1.35), fontWeight: 800, letterSpacing: '-0.01em' }}>
-        {points.toLocaleString('vi-VN')}
+        {points.toLocaleString(intlLocale())}
       </span>
-      <span style={{ fontSize: size, fontWeight: 600, opacity: 0.85 }}>điểm thưởng</span>
+      <span style={{ fontSize: size, fontWeight: 600, opacity: 0.85 }}>{t('CertificateCanvas.rewardPoints')}</span>
     </div>
   )
 }

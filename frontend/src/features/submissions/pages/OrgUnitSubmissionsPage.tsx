@@ -29,6 +29,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Users, Clock, ClipboardCheck, ArrowRight, Eye, PenLine, Inbox, Bot, Loader2 } from 'lucide-react'
 import { useAiReviewBatch } from '../hooks/useAiReview'
 import { useWorkflowNavigator } from '@/features/kpi/workflow/hooks/useWorkflowNavigator'
+import { useTranslation } from 'react-i18next'
+import i18n from 'i18next'
 
 /* eslint-disable @typescript-eslint/no-explicit-any */
 
@@ -40,7 +42,7 @@ import { useWorkflowNavigator } from '@/features/kpi/workflow/hooks/useWorkflowN
 function roleLabelFor(emp: any, evaluation: any, selectedOrgUnitId: string): string {
   if (evaluation?.userRoleName) return evaluation.userRoleName
   const memberships = [...(emp.memberships || [])]
-  if (memberships.length === 0) return 'Nhân viên'
+  if (memberships.length === 0) return i18n.t('submissions:OrgUnitSubmissionsPage.employee')
   const levels = memberships.map((m: any) => m.levelOrder ?? m.roleLevel ?? 0)
   const minLevel = Math.min(...levels)
   const hasDeeperLevel = levels.some(l => l > minLevel)
@@ -63,10 +65,11 @@ function roleLabelFor(emp: any, evaluation: any, selectedOrgUnitId: string): str
     if (levelA !== levelB) return levelB - levelA
     return 0
   })[0]
-  return best?.roleName || 'Nhân viên'
+  return best?.roleName || i18n.t('submissions:OrgUnitSubmissionsPage.employee')
 }
 
 export default function OrgUnitSubmissionsPage() {
+  const { t } = useTranslation('submissions')
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(0)
   const [pageSize] = useState(10)
@@ -92,7 +95,7 @@ export default function OrgUnitSubmissionsPage() {
   const isManager = useMemo(() => user?.memberships?.some(m => m.roleRank === 0), [user])
 
   const { data: customLabels = {} } = useSidebarSettings(orgId!)
-  const rawTitle = (customLabels as Record<string, string>)['submissions-org-unit'] || (customLabels as Record<string, string>)['/submissions/org-unit'] || 'Đánh giá đợt'
+  const rawTitle = (customLabels as Record<string, string>)['submissions-org-unit'] || (customLabels as Record<string, string>)['/submissions/org-unit'] || t('OrgUnitSubmissionsPage.periodEvaluation')
 
   const { data: orgUnitTreeData } = useOrgUnitTree()
   const aiBatch = useAiReviewBatch()
@@ -348,9 +351,9 @@ export default function OrgUnitSubmissionsPage() {
         </span>
       )
     }
-    if (hasSubmissionByUserId.has(emp.id)) return <Badge variant="warning">Chưa chấm</Badge>
-    if (isPeriodEnded) return <Badge variant="destructive">Chưa nộp</Badge>
-    return <Badge variant="secondary">Chưa đánh giá</Badge>
+    if (hasSubmissionByUserId.has(emp.id)) return <Badge variant="warning">{t('OrgUnitSubmissionsPage.notScored')}</Badge>
+    if (isPeriodEnded) return <Badge variant="destructive">{t('OrgUnitSubmissionsPage.notSubmitted')}</Badge>
+    return <Badge variant="secondary">{t('OrgUnitSubmissionsPage.notEvaluated')}</Badge>
   }
         
   const renderEvaluator = (evaluation: any) => {
@@ -358,7 +361,7 @@ export default function OrgUnitSubmissionsPage() {
     return (
       <div className="min-w-0">
         <p className="truncate text-sm text-[var(--color-foreground)]" title={evaluation.evaluatorName}>{evaluation.evaluatorName}</p>
-        <p className="text-caption">{evaluation.evaluatorRole === 'SELF' ? 'Tự chấm' : evaluation.evaluatorRoleName || 'Quản lý'}</p>
+        <p className="text-caption">{evaluation.evaluatorRole === 'SELF' ? t('OrgUnitSubmissionsPage.selfScore') : evaluation.evaluatorRoleName || t('OrgUnitSubmissionsPage.manager')}</p>
                 </div>
     )
   }
@@ -367,7 +370,7 @@ export default function OrgUnitSubmissionsPage() {
     if (!periodChosen) return null
     if (evaluation) {
       return (
-        <Button variant="ghost" size="icon-sm" aria-label="Xem đánh giá" title="Xem đánh giá" onClick={e => { e.stopPropagation(); setDetailEval(evaluation) }}>
+        <Button variant="ghost" size="icon-sm" aria-label={t('OrgUnitSubmissionsPage.viewEvaluation')} title={t('OrgUnitSubmissionsPage.viewEvaluation')} onClick={e => { e.stopPropagation(); setDetailEval(evaluation) }}>
           <Eye aria-hidden="true" />
         </Button>
       )
@@ -375,7 +378,7 @@ export default function OrgUnitSubmissionsPage() {
     if (isManager) {
       return (
         <Button variant="outline" size="sm" onClick={e => { e.stopPropagation(); setStaffEvalUser(emp) }}>
-          <PenLine aria-hidden="true" /> Chấm điểm
+          <PenLine aria-hidden="true" /> {t('OrgUnitSubmissionsPage.score')}
         </Button>
       )
     }
@@ -387,11 +390,11 @@ export default function OrgUnitSubmissionsPage() {
       <WorkspaceHeader
         id="tour-approve-stats"
         title={rawTitle}
-        description="Duyệt bài nộp và chấm điểm từng nhân sự trong đợt. Người còn bài chờ duyệt xếp lên đầu."
+        description={t('OrgUnitSubmissionsPage.approveSubmissionsAndScoreEachPerson')}
         stats={[
-          { label: 'Nhân sự', value: stats.totalEmployees, icon: Users },
-          { label: 'Bài chờ duyệt', value: stats.totalPending, icon: Clock },
-          { label: 'Đã đánh giá', value: stats.totalEvaluated, icon: ClipboardCheck },
+          { label: t('OrgUnitSubmissionsPage.people'), value: stats.totalEmployees, icon: Users },
+          { label: t('OrgUnitSubmissionsPage.pendingSubmissions'), value: stats.totalPending, icon: Clock },
+          { label: t('OrgUnitSubmissionsPage.evaluated'), value: stats.totalEvaluated, icon: ClipboardCheck },
         ]}
         actions={
           <>
@@ -408,18 +411,18 @@ export default function OrgUnitSubmissionsPage() {
             )}
             {hasPermission('SUBMISSION:REVIEW') && (
               <AiShortcutButton
-                label="Duyệt bằng K.AI"
+                label={t('OrgUnitSubmissionsPage.approveWithKAi')}
                 prompt={aiShortcuts.reviewSubmissions(aiUnitName, aiPeriodName)}
                 focusUnitId={aiUnitId}
-                title="K.AI liệt kê các bài chờ duyệt của đơn vị/kỳ đang chọn và chờ bạn xác nhận"
+                title={t('OrgUnitSubmissionsPage.kAiListsThePendingSubmissions')}
               />
             )}
             {hasPermission('REMINDER:SEND') && (
               <AiShortcutButton
-                label="Nhắc nộp bằng K.AI"
+                label={t('OrgUnitSubmissionsPage.remindWithKAi')}
                 prompt={aiShortcuts.remindNonSubmitters(aiUnitName, aiPeriodName)}
                 focusUnitId={aiUnitId}
-                title="K.AI lập danh sách người chưa nộp và chờ bạn xác nhận trước khi gửi nhắc"
+                title={t('OrgUnitSubmissionsPage.kAiListsThePeopleWho')}
               />
             )}
           </>
@@ -428,18 +431,18 @@ export default function OrgUnitSubmissionsPage() {
 
       <FilterBar
         id="tour-approve-toolbar"
-        search={{ value: search, onChange: v => { setSearch(v); setPage(0) }, placeholder: 'Tìm nhân viên…' }}
+        search={{ value: search, onChange: v => { setSearch(v); setPage(0) }, placeholder: t('OrgUnitSubmissionsPage.searchEmployees') }}
       >
               {canManageOrg && (
                   <Select value={selectedOrgUnitId} onValueChange={val => { setSelectedOrgUnitId(val); setPage(0) }}>
-            <SelectTrigger className="w-full sm:w-auto sm:min-w-64" aria-label="Đơn vị"><SelectValue placeholder="Chọn đơn vị" /></SelectTrigger>
+            <SelectTrigger className="w-full sm:w-auto sm:min-w-64" aria-label={t('OrgUnitSubmissionsPage.unit')}><SelectValue placeholder={t('OrgUnitSubmissionsPage.chooseUnit')} /></SelectTrigger>
             <SelectContent>
               {flatOrgUnits.map(unit => <SelectItem key={unit.id} value={unit.id}>{unit.levelLabel}</SelectItem>)}
                     </SelectContent>
                   </Select>
         )}
         <Select value={selectedPeriodId} onValueChange={val => { setSelectedPeriodId(val); setPage(0) }}>
-          <SelectTrigger className="w-full sm:w-auto sm:min-w-64" aria-label="Đợt đánh giá"><SelectValue placeholder="Đợt đánh giá" /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-auto sm:min-w-64" aria-label={t('OrgUnitSubmissionsPage.evaluationPeriods')}><SelectValue placeholder={t('OrgUnitSubmissionsPage.evaluationPeriods')} /></SelectTrigger>
           <SelectContent>
             <ScopeSelectItems items={periodsData?.content} selectedId={selectedPeriodId} />
           </SelectContent>
@@ -447,7 +450,7 @@ export default function OrgUnitSubmissionsPage() {
       </FilterBar>
 
       {isPeriodEnded && (
-        <p role="status" className="text-caption">Đợt này đã kết thúc — nhân sự chưa nộp được đánh dấu "Chưa nộp".</p>
+        <p role="status" className="text-caption">{t('OrgUnitSubmissionsPage.thisPeriodHasEndedPeopleWho')}</p>
               )}
 
         {isLoading ? (
@@ -456,8 +459,8 @@ export default function OrgUnitSubmissionsPage() {
         <div className="rounded-card border border-dashed border-[var(--color-border)] bg-[var(--color-card)]">
             <EmptyState 
             icon={Inbox}
-            title={search ? 'Không tìm thấy nhân viên' : 'Đơn vị chưa có nhân sự'}
-            description={search ? 'Thử từ khoá khác hoặc xoá tìm kiếm.' : 'Chọn đơn vị khác, hoặc thêm nhân sự ở Thiết lập công ty.'}
+            title={search ? t('OrgUnitSubmissionsPage.noEmployeesFound') : t('OrgUnitSubmissionsPage.theUnitHasNoMembersYet')}
+            description={search ? t('OrgUnitSubmissionsPage.tryAnotherKeywordOrClearThe') : t('OrgUnitSubmissionsPage.chooseAnotherUnitOrAddPeople')}
             />
           </div>
         ) : (
@@ -467,16 +470,16 @@ export default function OrgUnitSubmissionsPage() {
                 <thead>
                 <tr className="border-b border-[var(--color-border)] bg-[var(--color-muted)]">
                   <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">
-                    <SortHeader field="fullName" active={sortActive} dir={sortDir} onToggle={handleSort}>Nhân sự</SortHeader>
+                    <SortHeader field="fullName" active={sortActive} dir={sortDir} onToggle={handleSort}>{t('OrgUnitSubmissionsPage.people')}</SortHeader>
                     </th>
                   <th scope="col" className="px-4 py-2.5 text-right text-eyebrow">
-                    <SortHeader field="pending" active={sortActive} dir={sortDir} onToggle={handleSort} className="ml-auto">Bài chờ duyệt</SortHeader>
+                    <SortHeader field="pending" active={sortActive} dir={sortDir} onToggle={handleSort} className="ml-auto">{t('OrgUnitSubmissionsPage.pendingSubmissions')}</SortHeader>
                     </th>
                   <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">
-                    <SortHeader field="score" active={sortActive} dir={sortDir} onToggle={handleSort}>Điểm · Xếp loại</SortHeader>
+                    <SortHeader field="score" active={sortActive} dir={sortDir} onToggle={handleSort}>{t('OrgUnitSubmissionsPage.scoreRating')}</SortHeader>
                     </th>
-                  <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">Người chấm</th>
-                  <th scope="col" className="px-3 py-2.5 text-right text-eyebrow">Hành động</th>
+                  <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">{t('OrgUnitSubmissionsPage.scorer')}</th>
+                  <th scope="col" className="px-3 py-2.5 text-right text-eyebrow">{t('OrgUnitSubmissionsPage.actions')}</th>
                   </tr>
                 </thead>
               <tbody className="divide-y divide-[var(--color-border)]">
@@ -497,7 +500,7 @@ export default function OrgUnitSubmissionsPage() {
                         </td>
                       <td className="px-4 py-3 text-right tabular-nums">
                         {pendingCount > 0
-                          ? <Badge variant="warning">{pendingCount} chờ duyệt</Badge>
+                          ? <Badge variant="warning">{pendingCount} {t('OrgUnitSubmissionsPage.pendingApproval')}</Badge>
                           : <span className="text-caption">0</span>}
                         </td>
                       <td className="px-4 py-3">{renderScore(emp, evaluation)}</td>
@@ -515,14 +518,14 @@ export default function OrgUnitSubmissionsPage() {
                 const pendingCount = pendingByUserId[emp.id] || 0
                 const evaluation = evaluationsByUserId[emp.id]
                 return (
-                <div key={emp.id} onClick={() => handleRowClick(emp)} className="rounded-card border border-[var(--color-border)] bg-[var(--color-card)] p-4">
+                <div key={emp.id} onClick={() => handleRowClick(emp)} className="cursor-pointer rounded-card border border-[var(--color-border)] bg-[var(--color-card)] p-4">
                   <div className="flex items-center gap-3">
                     <UserAvatar fullName={emp.fullName} avatarUrl={emp.avatarUrl} className="h-9 w-9 rounded-control" fallbackClassName="bg-[var(--color-primary-soft)] text-xs font-semibold text-[var(--color-primary)]" />
                     <div className="min-w-0 flex-1">
                       <p className="truncate text-sm font-medium text-[var(--color-foreground)]">{emp.fullName}</p>
                       <p className="truncate text-caption">{roleLabelFor(emp, evaluation, selectedOrgUnitId)}</p>
                         </div>
-                    {pendingCount > 0 && <Badge variant="warning">{pendingCount} chờ</Badge>}
+                    {pendingCount > 0 && <Badge variant="warning">{pendingCount} {t('OrgUnitSubmissionsPage.pending')}</Badge>}
                       </div>
                   <div className="mt-3 flex items-center justify-between gap-3 border-t border-[var(--color-border)] pt-3">
                     {renderScore(emp, evaluation)}
@@ -534,7 +537,7 @@ export default function OrgUnitSubmissionsPage() {
             </div>
 
           <div className="rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
-            <Pagination currentPage={safePage} totalPages={totalPages} onPageChange={setPage} totalElements={sortedEmployees.length} size={pageSize} itemLabel="nhân sự" />
+            <Pagination currentPage={safePage} totalPages={totalPages} onPageChange={setPage} totalElements={sortedEmployees.length} size={pageSize} itemLabel={t('OrgUnitSubmissionsPage.people2')} />
           </div>
         </>
         )}
@@ -559,7 +562,7 @@ export default function OrgUnitSubmissionsPage() {
         {nextAfterReview && (
           <div className="flex justify-end pt-2">
           <Button onClick={() => goToNext('SUBMISSION_REVIEW', { periodId: selectedPeriodId }, { openCreate: false })}>
-            Tiếp theo: {nextAfterReview.label} <ArrowRight aria-hidden="true" />
+            {t('OrgUnitSubmissionsPage.next')} {nextAfterReview.label} <ArrowRight aria-hidden="true" />
           </Button>
           </div>
         )}

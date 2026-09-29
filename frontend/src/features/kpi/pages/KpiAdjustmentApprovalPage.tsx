@@ -13,6 +13,11 @@ import { Button } from '@/components/ui/button'
 import { Dialog, DialogFooter } from '@/components/ui/dialog'
 import KpiAdjustmentReviewModal from '../components/KpiAdjustmentReviewModal'
 import { useKpiAdjustments, useBulkReviewAdjustments } from '../hooks/useKpiAdjustments'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
+import { adjustmentApi } from '../api/adjustmentApi'
+import { useApprovalChainMode } from '../workflow/hooks/useKpiWorkflow'
+import { approveButtonLabel, stepPositionLabel } from '../utils/approvalChainLabels'
+import { invalidateApprovalQueries } from '../hooks/useKpiApprovalChain'
 import { cn, formatNumber } from '@/lib/utils'
 import type { KpiAdjustmentRequest, AdjustmentStatus } from '@/types/adjustment'
 import {
@@ -37,6 +42,11 @@ import {
 } from '@/components/common/PersonGroupHeader'
 import { groupByPerson, groupByUnitThenPerson, personGroupKey, type UnitGroup } from '@/lib/personGrouping'
 import { usePersonGroupCollapse } from '@/hooks/usePersonGroupCollapse'
+import { useTranslation } from 'react-i18next'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
+import { useStateDraft } from '@/hooks/useFormDraft'
+import DraftNotice from '@/components/common/DraftNotice'
 
 /** Số nhóm (đơn vị, hoặc người khi chỉ có một đơn vị) hiển thị mỗi trang. */
 const GROUP_PAGE_SIZE = 10
@@ -47,6 +57,7 @@ const REVIEW_WINDOW_MS = 24 * 60 * 60 * 1000
 
 /** Thời gian còn lại để xử lý — cập nhật mỗi phút là đủ, không cần đếm giây. */
 function useTimeLeft(createdAt: string, active: boolean) {
+  const { t: tr } = useTranslation('kpi')
   const [now, setNow] = useState(() => Date.now())
   useEffect(() => {
     if (!active) return
@@ -55,13 +66,22 @@ function useTimeLeft(createdAt: string, active: boolean) {
   }, [active])
   const diff = new Date(createdAt).getTime() + REVIEW_WINDOW_MS - now
   if (!active) return null
-  if (diff <= 0) return { expired: true, label: 'Quá hạn' }
+  if (diff <= 0) return { expired: true, label: tr('KpiAdjustmentApprovalPage.overdue') }
   const h = Math.floor(diff / 3_600_000), m = Math.floor((diff % 3_600_000) / 60_000)
-  return { expired: false, label: h > 0 ? `Còn ${h} giờ ${m} phút` : `Còn ${m} phút` }
+  return { expired: false, label: h > 0 ? tr('KpiAdjustmentApprovalPage.hMinLeft', { h, m }) : tr('KpiAdjustmentApprovalPage.minLeft', { m }) }
 }
 
-function Deadline({ request }: { request: KpiAdjustmentRequest }) {
-  const t = useTimeLeft(request.createdAt, request.status === 'PENDING')
+function Deadline({ request, chainMode }: { request: KpiAdjustmentRequest; chainMode: boolean }) {
+  // Chuỗi duyệt không tự từ chối sau 24h: hiện vị trí trong chuỗi thay cho đồng hồ đếm ngược.
+  const t = useTimeLeft(request.createdAt, request.status === 'PENDING' && !chainMode)
+  if (chainMode) {
+    if (request.status !== 'PENDING' || !request.approval) return <span className="text-caption">—</span>
+    return (
+      <span className="block max-w-[200px] truncate text-[13px] text-[var(--color-muted-foreground)]" title={stepPositionLabel(request.approval)}>
+        {stepPositionLabel(request.approval)}
+      </span>
+    )
+  }
   if (!t) return <span className="text-caption">—</span>
   return (
     <span className={cn('text-[13px] tabular-nums', t.expired ? 'font-medium text-[var(--color-error)]' : 'text-[var(--color-muted-foreground)]')}>
@@ -72,17 +92,18 @@ function Deadline({ request }: { request: KpiAdjustmentRequest }) {
 
 /** Tóm tắt thay đổi trên một dòng: "Mục tiêu 120 → 100 · Trọng số 20% → 15%". */
 function ChangeSummary({ request }: { request: KpiAdjustmentRequest }) {
+  const { t } = useTranslation('kpi')
   if (request.deactivationRequest) {
-    return <span className="text-sm text-[var(--color-error)]">Ngưng KPI{request.compensationPercentage != null ? ` · bù ${request.compensationPercentage}%` : ''}</span>
+    return <span className="text-sm text-[var(--color-error)]">{t('KpiAdjustmentApprovalPage.deactivateKpi')}{request.compensationPercentage != null ? t('KpiAdjustmentApprovalPage.compensation', { compensationPercentage: request.compensationPercentage }) : ''}</span>
   }
   const parts: { label: string; from: string; to: string }[] = []
   if (request.kpiType !== 'QUALITATIVE' && request.requestedTargetValue != null && request.requestedTargetValue !== request.currentTargetValue)
-    parts.push({ label: 'Mục tiêu', from: formatNumber(request.currentTargetValue), to: formatNumber(request.requestedTargetValue) })
+    parts.push({ label: t('KpiAdjustmentApprovalPage.target'), from: formatNumber(request.currentTargetValue), to: formatNumber(request.requestedTargetValue) })
   if (request.requestedWeight != null && request.requestedWeight !== request.currentWeight)
-    parts.push({ label: 'Trọng số', from: `${request.currentWeight}%`, to: `${request.requestedWeight}%` })
+    parts.push({ label: t('KpiAdjustmentApprovalPage.weight'), from: `${request.currentWeight}%`, to: `${request.requestedWeight}%` })
   if (request.kpiType !== 'QUALITATIVE' && request.requestedMinimumValue != null && request.requestedMinimumValue !== request.currentMinimumValue)
-    parts.push({ label: 'Tối thiểu', from: formatNumber(request.currentMinimumValue ?? 0), to: formatNumber(request.requestedMinimumValue) })
-  if (parts.length === 0) return <span className="text-caption">Không đổi số liệu</span>
+    parts.push({ label: t('KpiAdjustmentApprovalPage.minimum'), from: formatNumber(request.currentMinimumValue ?? 0), to: formatNumber(request.requestedMinimumValue) })
+  if (parts.length === 0) return <span className="text-caption">{t('KpiAdjustmentApprovalPage.noChangeInFigures')}</span>
   return (
     <span className="flex flex-wrap gap-x-3 gap-y-0.5 text-sm tabular-nums">
       {parts.map(p => (
@@ -96,12 +117,13 @@ function ChangeSummary({ request }: { request: KpiAdjustmentRequest }) {
       }
       
 function RequestTags({ request }: { request: KpiAdjustmentRequest }) {
+  const { t } = useTranslation('kpi')
   return (
     <div className="flex flex-wrap items-center gap-1">
-      {request.deactivationRequest ? <Badge variant="destructive">Ngưng KPI</Badge> : <Badge variant="warning">Điều chỉnh số liệu</Badge>}
-      {request.kpiType === 'QUALITATIVE' && <Badge variant="outline">Định tính</Badge>}
+      {request.deactivationRequest ? <Badge variant="destructive">{t('KpiAdjustmentApprovalPage.deactivateKpi')}</Badge> : <Badge variant="warning">{t('KpiAdjustmentApprovalPage.adjustFigures')}</Badge>}
+      {request.kpiType === 'QUALITATIVE' && <Badge variant="outline">{t('KpiAdjustmentApprovalPage.qualitative')}</Badge>}
       {request.perspectiveName && (
-        <Badge variant="outline" title={`Hạng mục BSC: ${request.perspectiveName}`}>
+        <Badge variant="outline" title={t('KpiAdjustmentApprovalPage.bscItem', { perspectiveName: request.perspectiveName })}>
           <span className="h-1.5 w-1.5 rounded-full" style={{ backgroundColor: request.perspectiveColor || 'var(--color-primary)' }} aria-hidden="true" />
           {request.perspectiveName}
         </Badge>
@@ -111,17 +133,21 @@ function RequestTags({ request }: { request: KpiAdjustmentRequest }) {
 }
 
 /** Ba nút hành động của một hàng — cùng vị trí, cùng icon với trang Phê duyệt chỉ tiêu. */
-function RowActions({ request, onView, onApprove, onReject, busy }: {
+function RowActions({ request, onView, onApprove, onReject, busy, canAct }: {
   request: KpiAdjustmentRequest; onView: () => void; onApprove: () => void; onReject: () => void; busy: boolean
+  /** Người xem đang giữ bước hiện tại (luồng một cấp: mọi yêu cầu chờ duyệt trong phạm vi). */
+  canAct: boolean
 }) {
-  const pending = request.status === 'PENDING'
+  const { t } = useTranslation('kpi')
+  const pending = canAct
+  const approveLabel = approveButtonLabel(request.approval)
   return (
     <div className="flex items-center justify-end gap-0.5">
-      <Button variant="ghost" size="icon-sm" onClick={onView} aria-label="Xem chi tiết" title="Xem chi tiết"><Eye aria-hidden="true" /></Button>
+      <Button variant="ghost" size="icon-sm" onClick={onView} aria-label={t('KpiAdjustmentApprovalPage.viewDetails')} title={t('KpiAdjustmentApprovalPage.viewDetails')}><Eye aria-hidden="true" /></Button>
       {pending && (
         <>
-          <Button variant="ghost" size="icon-sm" onClick={onApprove} disabled={busy} aria-label="Duyệt" title="Duyệt" className="text-[var(--color-success)] hover:bg-[var(--color-success-bg)]"><CheckCircle aria-hidden="true" /></Button>
-          <Button variant="ghost" size="icon-sm" onClick={onReject} disabled={busy} aria-label="Từ chối" title="Từ chối" className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)]"><XCircle aria-hidden="true" /></Button>
+          <Button variant="ghost" size="icon-sm" onClick={onApprove} disabled={busy} aria-label={approveLabel} title={approveLabel} className="text-[var(--color-success)] hover:bg-[var(--color-success-bg)]"><CheckCircle aria-hidden="true" /></Button>
+          <Button variant="ghost" size="icon-sm" onClick={onReject} disabled={busy} aria-label={t('KpiAdjustmentApprovalPage.rejected')} title={t('KpiAdjustmentApprovalPage.rejected')} className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)]"><XCircle aria-hidden="true" /></Button>
         </>
       )}
     </div>
@@ -132,7 +158,7 @@ const CHECKBOX = 'h-4 w-4 cursor-pointer rounded-sm border border-[var(--color-b
 
 type AdjustmentTab = AdjustmentStatus | 'ALL'
 const ADJUSTMENT_TABS: AdjustmentTab[] = ['PENDING', 'APPROVED', 'REJECTED', 'ALL']
-const TAB_LABELS: Record<AdjustmentTab, string> = { PENDING: 'Chờ xử lý', APPROVED: 'Đã duyệt', REJECTED: 'Đã từ chối', ALL: 'Tất cả' }
+const TAB_LABELS = perLanguage((): Record<AdjustmentTab, string> => ({ PENDING: i18n.t('kpi:KpiAdjustmentApprovalPage.pending'), APPROVED: i18n.t('kpi:KpiAdjustmentApprovalPage.approved'), REJECTED: i18n.t('kpi:KpiAdjustmentApprovalPage.declined'), ALL: i18n.t('kpi:KpiAdjustmentApprovalPage.all') }))
 
 // `?tab=` dùng chung query string với các mục khác của /performance, nên phải lọc:
 // tab của trang duyệt chỉ tiêu lọt sang đây sẽ thành bộ lọc rỗng.
@@ -140,6 +166,7 @@ const readTab = (raw: string | null): AdjustmentTab =>
   ADJUSTMENT_TABS.includes(raw as AdjustmentTab) ? (raw as AdjustmentTab) : 'PENDING'
 
 export default function KpiAdjustmentApprovalPage() {
+  const { t } = useTranslation('kpi')
   const [searchParams, setSearchParams] = useSearchParams()
 
   const [activeTab, setActiveTab] = useState<AdjustmentTab>(() => readTab(searchParams.get('tab')))
@@ -183,6 +210,7 @@ export default function KpiAdjustmentApprovalPage() {
   )
 
   const bulkReviewMutation = useBulkReviewAdjustments()
+  const chainMode = useApprovalChainMode()
 
   useEffect(() => {
     const tab = readTab(searchParams.get('tab'))
@@ -207,7 +235,7 @@ export default function KpiAdjustmentApprovalPage() {
 
   // Data for Adjustment Requests — tải trọn phạm vi đang lọc (không phân trang ở server) để
   // gom nhóm theo người yêu cầu cho đủ; phân trang lại theo NGƯỜI ở phía dưới.
-  const { data: adjustmentData, isLoading } = useKpiAdjustments(
+  const { data: adjustmentData, isLoading: listLoading } = useKpiAdjustments(
     {
       page: 0,
       size: GROUPING_FETCH_SIZE,
@@ -218,7 +246,18 @@ export default function KpiAdjustmentApprovalPage() {
     }
   )
 
-  const items = adjustmentData?.content ?? []
+  // Chuỗi duyệt: tab "Chờ duyệt" chỉ gồm yêu cầu đang chờ ĐÚNG người xem ở bước hiện tại.
+  const inboxActive = chainMode && activeTab === 'PENDING'
+  const { data: inboxData, isLoading: inboxLoading } = useQuery({
+    queryKey: ['kpi-adjustments', 'inbox', selectedPeriodId],
+    queryFn: () => adjustmentApi.inbox({ kpiPeriodId: selectedPeriodId === 'ALL' ? undefined : selectedPeriodId }),
+    enabled: chainMode,
+  })
+  const items = inboxActive ? (inboxData ?? []) : (adjustmentData?.content ?? [])
+  /** Người xem có được duyệt/từ chối yêu cầu này không. */
+  const canActOn = (r: KpiAdjustmentRequest) => r.status === 'PENDING' && (!chainMode || !!r.approval?.canAct)
+  const isLoading = inboxActive ? inboxLoading : listLoading
+  const qc = useQueryClient()
   const totalElements = items.length
   const hitFetchCap = items.length >= GROUPING_FETCH_SIZE
 
@@ -230,11 +269,11 @@ export default function KpiAdjustmentApprovalPage() {
   const unitGroups = useMemo(
     () => groupByUnitThenPerson(
       items,
-      req => req.orgUnitId ? { id: req.orgUnitId, name: req.orgUnitName || 'Đơn vị không tên' } : null,
+      req => req.orgUnitId ? { id: req.orgUnitId, name: req.orgUnitName || t('KpiAdjustmentApprovalPage.unnamedUnit') } : null,
       extractRequester,
       unitOrder,
     ),
-    [items, unitOrder]
+    [items, unitOrder, t]
   )
   const personGroups = useMemo(() => groupByPerson(items, extractRequester), [items])
 
@@ -303,9 +342,9 @@ export default function KpiAdjustmentApprovalPage() {
     const pending = unit.items.filter(r => r.status === 'PENDING').length
     return (
       <>
-        <PersonGroupBadge label="nhân sự" value={unit.people.length} tone="indigo" />
-        <PersonGroupBadge label="yêu cầu" value={unit.items.length} />
-        {pending > 0 && <PersonGroupBadge label="đợi xử lý" value={pending} tone="amber" />}
+        <PersonGroupBadge label={t('KpiAdjustmentApprovalPage.people')} value={unit.people.length} tone="indigo" />
+        <PersonGroupBadge label={t('KpiAdjustmentApprovalPage.requests')} value={unit.items.length} />
+        {pending > 0 && <PersonGroupBadge label={t('KpiAdjustmentApprovalPage.waitingToBeHandled')} value={pending} tone="amber" />}
       </>
     )
   }
@@ -317,27 +356,27 @@ export default function KpiAdjustmentApprovalPage() {
     const rejected = list.filter(r => r.status === 'REJECTED').length
     return (
       <>
-        <PersonGroupBadge label="yêu cầu" value={list.length} />
-        {pending > 0 && <PersonGroupBadge label="đợi xử lý" value={pending} tone="amber" />}
-        {approved > 0 && <PersonGroupBadge label="chấp thuận" value={approved} tone="emerald" />}
-        {rejected > 0 && <PersonGroupBadge label="từ chối" value={rejected} tone="rose" />}
+        <PersonGroupBadge label={t('KpiAdjustmentApprovalPage.requests')} value={list.length} />
+        {pending > 0 && <PersonGroupBadge label={t('KpiAdjustmentApprovalPage.waitingToBeHandled')} value={pending} tone="amber" />}
+        {approved > 0 && <PersonGroupBadge label={t('KpiAdjustmentApprovalPage.approve')} value={approved} tone="emerald" />}
+        {rejected > 0 && <PersonGroupBadge label={t('KpiAdjustmentApprovalPage.rejects')} value={rejected} tone="rose" />}
       </>
     )
   }
 
   /** Chọn nhanh toàn bộ yêu cầu đang chờ (duyệt hàng loạt được) của riêng một người. */
   const renderPersonSelectAction = (list: KpiAdjustmentRequest[]) => {
-    const ids = list.filter(r => r.status === 'PENDING' && !r.deactivationRequest).map(r => r.id)
+    const ids = list.filter(r => canActOn(r) && !r.deactivationRequest).map(r => r.id)
     if (ids.length === 0) return null
     const allSelected = ids.every(id => selectedIds.includes(id))
     return (
       <Button
         variant={allSelected ? 'secondary' : 'outline'} size="sm"
         onClick={() => setSelectedIds(prev => allSelected ? prev.filter(id => !ids.includes(id)) : Array.from(new Set([...prev, ...ids])))}
-        title={`Chọn ${ids.length} yêu cầu đang chờ của người này`}
+        title={t('KpiAdjustmentApprovalPage.selectThisPersonsPendingRequests', { count: ids.length })}
         aria-pressed={allSelected}
       >
-        {allSelected ? 'Bỏ chọn' : `Chọn ${ids.length}`}
+        {allSelected ? t('KpiAdjustmentApprovalPage.deselect') : t('KpiAdjustmentApprovalPage.select', { length: ids.length })}
       </Button>
     )
   }
@@ -347,14 +386,14 @@ export default function KpiAdjustmentApprovalPage() {
   const keyResults = selectedObjective?.keyResults || []
 
   const { data: customLabels = {} } = useSidebarSettings(organizationId!)
-  const rawTitle = (customLabels as Record<string, string>)['/kpi-criteria/adjustments'] || 'Điều chỉnh chỉ tiêu'
+  const rawTitle = (customLabels as Record<string, string>)['/kpi-criteria/adjustments'] || t('KpiAdjustmentApprovalPage.kpiAdjustments')
 
   const toggleSelect = (id: string) => {
     setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id])
   }
   
   const toggleSelectAll = () => {
-    const pendingItems = items.filter(i => i.status === 'PENDING' && !i.deactivationRequest)
+    const pendingItems = items.filter(i => canActOn(i) && !i.deactivationRequest)
     const pendingIds = pendingItems.map(i => i.id)
     const allPendingSelected = pendingIds.length > 0 && pendingIds.every(id => selectedIds.includes(id))
 
@@ -367,18 +406,18 @@ export default function KpiAdjustmentApprovalPage() {
 
   const handleBulkReview = (status: AdjustmentStatus) => {
     if (status === 'REJECTED' && !bulkNote.trim()) {
-      toast.error('Vui lòng nhập lý do từ chối')
+      toast.error(t('KpiAdjustmentApprovalPage.pleaseEnterTheRejectionReason'))
       return
     }
 
     bulkReviewMutation.mutate({ ids: selectedIds, status, reviewerNote: bulkNote }, {
       onSuccess: () => {
-        toast.success(`Đã ${status === 'APPROVED' ? 'duyệt' : 'từ chối'} ${selectedIds.length} yêu cầu`)
+        toast.success(t('KpiAdjustmentApprovalPage.doneRequests', { value: status === 'APPROVED' ? t('KpiAdjustmentApprovalPage.approve3') : t('KpiAdjustmentApprovalPage.reject2'), length: selectedIds.length }))
         setSelectedIds([])
         setBulkNote('')
       },
       onError: (error) => {
-        toast.error(getApiErrorMessage(error, 'Xử lý hàng loạt thất bại'))
+        toast.error(getApiErrorMessage(error, t('KpiAdjustmentApprovalPage.bulkActionFailed')))
       }
     })
   }
@@ -395,34 +434,50 @@ export default function KpiAdjustmentApprovalPage() {
     const all = allAdjustmentsData?.content ?? []
     return {
       total: all.length,
-      pending: all.filter(k => k.status === 'PENDING').length,
+      pending: chainMode ? (inboxData?.length ?? 0) : all.filter(k => k.status === 'PENDING').length,
       approved: all.filter(k => k.status === 'APPROVED').length,
       rejected: all.filter(k => k.status === 'REJECTED').length,
     }
-  }, [allAdjustmentsData])
+  }, [allAdjustmentsData, chainMode, inboxData])
 
   const [reviewMode, setReviewMode] = useState<'view' | 'approve' | 'reject'>('view')
   const [bulkRejectOpen, setBulkRejectOpen] = useState(false)
+  const bulkNoteDraft = useStateDraft(bulkNote, setBulkNote, { key: 'adjustment-bulk-reject', enabled: bulkRejectOpen })
   const busy = bulkReviewMutation.isPending
   const openReview = (r: KpiAdjustmentRequest, mode: 'view' | 'approve' | 'reject' = 'view') => { setReviewMode(mode); setReviewAdjustment(r) }
-  const approveOne = (id: string) =>
+  const approveOne = (id: string) => {
+    // Chuỗi duyệt: duyệt từng yêu cầu kèm bước đang thấy, để BE trả 409 nếu chuỗi đã đi tiếp.
+    const req = items.find(i => i.id === id)
+    if (chainMode && req) {
+      adjustmentApi.review(id, { status: 'APPROVED', reviewerNote: '', expectedStepId: req.approval?.stepId ?? null })
+        .then(() => {
+          toast.success(req.approval?.actionKind === 'FORWARDED'
+            ? t('KpiAdjustmentApprovalPage.approvedAndForwardedTo', { value: req.approval.nextHolderNames || t('KpiAdjustmentApprovalPage.manager') })
+            : t('KpiAdjustmentApprovalPage.requestApproved'))
+          setSelectedIds(prev => prev.filter(x => x !== id))
+        })
+        .catch(error => toast.error(getApiErrorMessage(error, t('KpiAdjustmentApprovalPage.failedToApproveRequest'))))
+        .finally(() => invalidateApprovalQueries(qc))
+      return
+    }
     bulkReviewMutation.mutate({ ids: [id], status: 'APPROVED', reviewerNote: '' }, {
-      onSuccess: () => { toast.success('Đã duyệt yêu cầu'); setSelectedIds(prev => prev.filter(x => x !== id)) },
-      onError: (error) => toast.error(getApiErrorMessage(error, 'Duyệt yêu cầu thất bại')),
+      onSuccess: () => { toast.success(t('KpiAdjustmentApprovalPage.requestApproved')); setSelectedIds(prev => prev.filter(x => x !== id)) },
+      onError: (error) => toast.error(getApiErrorMessage(error, t('KpiAdjustmentApprovalPage.failedToApproveRequest'))),
     })
+  }
 
-  const selectableIds = items.filter(i => i.status === 'PENDING' && !i.deactivationRequest).map(i => i.id)
+  const selectableIds = items.filter(i => canActOn(i) && !i.deactivationRequest).map(i => i.id)
   const allSelected = selectableIds.length > 0 && selectableIds.every(id => selectedIds.includes(id))
   const someSelected = selectedIds.length > 0 && !allSelected
   const showFeedbackCol = activeTab !== 'PENDING'
 
   const renderRow = (request: KpiAdjustmentRequest) => {
     const isSelected = selectedIds.includes(request.id)
-    const canSelect = request.status === 'PENDING' && !request.deactivationRequest
+    const canSelect = canActOn(request) && !request.deactivationRequest
   return (
       <tr key={request.id} aria-selected={isSelected || undefined} className={cn('transition-colors', isSelected ? 'bg-[var(--color-primary-soft)]' : 'hover:bg-[var(--color-muted)]')}>
         <td className="w-10 px-3 py-3">
-          {canSelect && <input type="checkbox" aria-label="Chọn yêu cầu" checked={isSelected} onChange={() => toggleSelect(request.id)} className={CHECKBOX} />}
+          {canSelect && <input type="checkbox" aria-label={t('KpiAdjustmentApprovalPage.selectRequest')} checked={isSelected} onChange={() => toggleSelect(request.id)} className={CHECKBOX} />}
         </td>
         <td className="px-4 py-3">
           <div className="min-w-0 max-w-[320px]">
@@ -449,10 +504,10 @@ export default function KpiAdjustmentApprovalPage() {
               : <span className="text-caption">—</span>}
                           </td>
                         )}
-        <td className="px-4 py-3 whitespace-nowrap"><Deadline request={request} /></td>
+        <td className="px-4 py-3 whitespace-nowrap"><Deadline request={request} chainMode={chainMode} /></td>
         <td className="px-4 py-3"><StatusBadge status={request.status} /></td>
         <td className="px-3 py-2 text-right">
-          <RowActions request={request} busy={busy} onView={() => openReview(request)} onApprove={() => request.deactivationRequest ? openReview(request, 'approve') : approveOne(request.id)} onReject={() => openReview(request, 'reject')} />
+          <RowActions request={request} busy={busy} canAct={canActOn(request)} onView={() => openReview(request)} onApprove={() => request.deactivationRequest ? openReview(request, 'approve') : approveOne(request.id)} onReject={() => openReview(request, 'reject')} />
                         </td>
                       </tr>
                     )
@@ -460,11 +515,11 @@ export default function KpiAdjustmentApprovalPage() {
 
   const renderCard = (request: KpiAdjustmentRequest) => {
     const isSelected = selectedIds.includes(request.id)
-    const canSelect = request.status === 'PENDING' && !request.deactivationRequest
+    const canSelect = canActOn(request) && !request.deactivationRequest
                     return (
       <div key={request.id} className={cn('rounded-card border bg-[var(--color-card)] p-4', isSelected ? 'border-[var(--color-primary)] bg-[var(--color-primary-soft)]' : 'border-[var(--color-border)]')}>
         <div className="flex items-start gap-3">
-          {canSelect && <input type="checkbox" aria-label="Chọn yêu cầu" checked={isSelected} onChange={() => toggleSelect(request.id)} className={cn(CHECKBOX, 'mt-0.5')} />}
+          {canSelect && <input type="checkbox" aria-label={t('KpiAdjustmentApprovalPage.selectRequest')} checked={isSelected} onChange={() => toggleSelect(request.id)} className={cn(CHECKBOX, 'mt-0.5')} />}
           <div className="min-w-0 flex-1">
             <button className="max-w-full truncate text-left text-sm font-medium text-[var(--color-foreground)] transition-colors hover:text-[var(--color-primary)] hover:underline" type="button" onClick={() => openReview(request)}>{request.kpiCriteriaName}</button>
             <div className="mt-1"><RequestTags request={request} /></div>
@@ -475,74 +530,74 @@ export default function KpiAdjustmentApprovalPage() {
         <div className="mt-2"><ChangeSummary request={request} /></div>
         <p className="mt-2 line-clamp-2 text-sm text-[var(--color-muted-foreground)]">{request.reason}</p>
         <div className="mt-3 flex items-center justify-between gap-3 border-t border-[var(--color-border)] pt-3">
-          <Deadline request={request} />
-          <RowActions request={request} busy={busy} onView={() => openReview(request)} onApprove={() => request.deactivationRequest ? openReview(request, 'approve') : approveOne(request.id)} onReject={() => openReview(request, 'reject')} />
+          <Deadline request={request} chainMode={chainMode} />
+          <RowActions request={request} busy={busy} canAct={canActOn(request)} onView={() => openReview(request)} onApprove={() => request.deactivationRequest ? openReview(request, 'approve') : approveOne(request.id)} onReject={() => openReview(request, 'reject')} />
       </div>
     </div>
   )
 }
 
   const viewToggle = (
-    <SegmentedControl ariaLabel="Dạng hiển thị" value={viewMode} onChange={setViewMode}
-      options={[{ value: 'list', label: <List aria-hidden="true" />, title: 'Dạng bảng' }, { value: 'card', label: <LayoutGrid aria-hidden="true" />, title: 'Dạng thẻ' }]} />
+    <SegmentedControl ariaLabel={t('KpiAdjustmentApprovalPage.display')} value={viewMode} onChange={setViewMode}
+      options={[{ value: 'list', label: <List aria-hidden="true" />, title: t('KpiAdjustmentApprovalPage.tableView') }, { value: 'card', label: <LayoutGrid aria-hidden="true" />, title: t('KpiAdjustmentApprovalPage.cardView') }]} />
   )
   const groupToggle = (unitMode || personMode) && (
     <>
-      <Button variant="ghost" size="icon-sm" title="Mở tất cả nhóm" aria-label="Mở tất cả nhóm" onClick={() => { if (unitMode) unitCollapse.expandAll(visibleUnits.map(u => u.id)); else personCollapse.expandAll(visibleGroups.map(g => g.id)) }}><ChevronsUpDown aria-hidden="true" /></Button>
-      <Button variant="ghost" size="icon-sm" title="Thu gọn tất cả nhóm" aria-label="Thu gọn tất cả nhóm" onClick={() => { unitCollapse.collapseAll(); personCollapse.collapseAll() }}><ChevronsDownUp aria-hidden="true" /></Button>
+      <Button variant="ghost" size="icon-sm" title={t('KpiAdjustmentApprovalPage.expandAllGroups')} aria-label={t('KpiAdjustmentApprovalPage.expandAllGroups')} onClick={() => { if (unitMode) unitCollapse.expandAll(visibleUnits.map(u => u.id)); else personCollapse.expandAll(visibleGroups.map(g => g.id)) }}><ChevronsUpDown aria-hidden="true" /></Button>
+      <Button variant="ghost" size="icon-sm" title={t('KpiAdjustmentApprovalPage.collapseAllGroups')} aria-label={t('KpiAdjustmentApprovalPage.collapseAllGroups')} onClick={() => { unitCollapse.collapseAll(); personCollapse.collapseAll() }}><ChevronsDownUp aria-hidden="true" /></Button>
     </>
   )
 
-  const emptyTitle = activeTab === 'PENDING' ? 'Không có yêu cầu nào chờ xử lý'
-    : activeTab === 'APPROVED' ? 'Chưa có yêu cầu nào được duyệt'
-    : activeTab === 'REJECTED' ? 'Chưa có yêu cầu nào bị từ chối' : 'Không có yêu cầu điều chỉnh'
-  const emptyDesc = selectedPeriodId === 'ALL' ? 'Khi nhân sự đề nghị sửa chỉ tiêu giữa đợt, yêu cầu sẽ hiện ở đây.' : 'Thử chọn đợt khác hoặc bỏ bộ lọc.'
+  const emptyTitle = activeTab === 'PENDING' ? t('KpiAdjustmentApprovalPage.noRequestsPending')
+    : activeTab === 'APPROVED' ? t('KpiAdjustmentApprovalPage.noRequestsApprovedYet')
+    : activeTab === 'REJECTED' ? t('KpiAdjustmentApprovalPage.noRequestsRejectedYet') : t('KpiAdjustmentApprovalPage.noAdjustmentRequests')
+  const emptyDesc = selectedPeriodId === 'ALL' ? t('KpiAdjustmentApprovalPage.whenPeopleAskToChangeA') : t('KpiAdjustmentApprovalPage.tryChoosingAnotherPeriodOrClearing')
   
   return (
     <div className="mx-auto max-w-[1600px] space-y-4">
       <WorkspaceHeader
         id="tour-adj-header"
         title={rawTitle}
-        description="Xử lý đề nghị sửa mục tiêu, trọng số hoặc ngưng chỉ tiêu giữa đợt. Mỗi yêu cầu có 24 giờ để xử lý."
+        description={t('KpiAdjustmentApprovalPage.handleRequestsToChangeTheTarget')}
         stats={[
-          { label: 'Chờ xử lý', value: stats.pending, icon: Clock },
-          { label: 'Đã duyệt', value: stats.approved, icon: CheckCircle },
-          { label: 'Đã từ chối', value: stats.rejected, icon: Undo2 },
+          { label: t('KpiAdjustmentApprovalPage.pending'), value: stats.pending, icon: Clock },
+          { label: t('KpiAdjustmentApprovalPage.approved'), value: stats.approved, icon: CheckCircle },
+          { label: t('KpiAdjustmentApprovalPage.declined'), value: stats.rejected, icon: Undo2 },
         ]}
         actions={hasPermission('KPI:APPROVE_ADJUSTMENT') && (
           <AiShortcutButton
-            label="Duyệt bằng K.AI"
+            label={t('KpiAdjustmentApprovalPage.approveWithKAi')}
             prompt={aiShortcuts.reviewAdjustments()}
-            title="K.AI liệt kê các yêu cầu điều chỉnh đang chờ và chờ bạn xác nhận"
+            title={t('KpiAdjustmentApprovalPage.kAiListsThePendingAdjustment')}
           />
         )}
       />
 
       <FilterBar
         id="tour-adj-toolbar"
-        search={{ value: search, onChange: v => { setSearch(v); setPage(0) }, placeholder: 'Tìm chỉ tiêu, người yêu cầu…' }}
+        search={{ value: search, onChange: v => { setSearch(v); setPage(0) }, placeholder: t('KpiAdjustmentApprovalPage.searchKpisRequesters') }}
         trailing={<>{groupToggle}{viewToggle}</>}
       >
         <Select value={selectedPeriodId} onValueChange={(v) => { setSelectedPeriodId(v); setPage(0); resetGroups() }}>
-          <SelectTrigger className="w-full sm:w-auto sm:min-w-52" aria-label="Đợt đánh giá"><SelectValue placeholder="Đợt đánh giá" /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-auto sm:min-w-52" aria-label={t('KpiAdjustmentApprovalPage.evaluationPeriods')}><SelectValue placeholder={t('KpiAdjustmentApprovalPage.evaluationPeriods')} /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="ALL">Tất cả các đợt</SelectItem>
+            <SelectItem value="ALL">{t('KpiAdjustmentApprovalPage.allPeriods')}</SelectItem>
             {periodsData?.content.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
           </SelectContent>
         </Select>
         {enableOkr && (
           <>
             <Select value={selectedObjectiveId} onValueChange={(v) => { setSelectedObjectiveId(v); setSelectedKeyResultId('ALL'); setPage(0) }}>
-              <SelectTrigger className="w-full sm:w-auto sm:min-w-56" aria-label="Mục tiêu OKR"><SelectValue placeholder="Mục tiêu" /></SelectTrigger>
+              <SelectTrigger className="w-full sm:w-auto sm:min-w-56" aria-label={t('KpiAdjustmentApprovalPage.okrObjective')}><SelectValue placeholder={t('KpiAdjustmentApprovalPage.target')} /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="ALL">Tất cả mục tiêu</SelectItem>
+                <SelectItem value="ALL">{t('KpiAdjustmentApprovalPage.allObjectives')}</SelectItem>
                 {objectivesData?.map(obj => <SelectItem key={obj.id} value={obj.id}>{obj.code} · {obj.name}</SelectItem>)}
               </SelectContent>
             </Select>
             <Select value={selectedKeyResultId} onValueChange={(v) => { setSelectedKeyResultId(v); setPage(0) }} disabled={selectedObjectiveId === 'ALL'}>
-              <SelectTrigger className="w-full sm:w-auto sm:min-w-56" aria-label="Kết quả then chốt"><SelectValue placeholder="Kết quả then chốt" /></SelectTrigger>
+              <SelectTrigger className="w-full sm:w-auto sm:min-w-56" aria-label={t('KpiAdjustmentApprovalPage.keyResult')}><SelectValue placeholder={t('KpiAdjustmentApprovalPage.keyResult')} /></SelectTrigger>
               <SelectContent>
-                <SelectItem value="ALL">Tất cả kết quả</SelectItem>
+                <SelectItem value="ALL">{t('KpiAdjustmentApprovalPage.allResults')}</SelectItem>
                 {keyResults.map(kr => <SelectItem key={kr.id} value={kr.id}>{kr.code} · {kr.name}</SelectItem>)}
               </SelectContent>
             </Select>
@@ -552,14 +607,14 @@ export default function KpiAdjustmentApprovalPage() {
 
       <div id="tour-adj-tabs" className="flex items-center justify-between gap-3">
         <SegmentedControl
-          ariaLabel="Lọc theo trạng thái"
+          ariaLabel={t('KpiAdjustmentApprovalPage.filterByStatus')}
           value={activeTab}
           onChange={handleTabChange}
           options={ADJUSTMENT_TABS.map(tab => ({
             value: tab,
             label: (
               <>
-                {TAB_LABELS[tab]}
+                {TAB_LABELS()[tab]}
                 <span className="text-[var(--color-muted-foreground)] tabular-nums">
                   {tab === 'ALL' ? stats.total : tab === 'PENDING' ? stats.pending : tab === 'APPROVED' ? stats.approved : stats.rejected}
                 </span>
@@ -567,13 +622,13 @@ export default function KpiAdjustmentApprovalPage() {
             ),
           }))}
         />
-        {!isLoading && items.length > 0 && !(unitMode || personMode) && <p className="text-caption tabular-nums">{totalElements} yêu cầu</p>}
+        {!isLoading && items.length > 0 && !(unitMode || personMode) && <p className="text-caption tabular-nums">{totalElements} {t('KpiAdjustmentApprovalPage.requests')}</p>}
       </div>
 
       {hitFetchCap && (
         <div role="status" className="flex items-start gap-2 rounded-card border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-4 py-3">
           <AlertCircle size={16} className="mt-0.5 shrink-0 text-[var(--color-warning)]" aria-hidden="true" />
-          <p className="text-sm text-[var(--color-foreground)]">Chỉ hiển thị {GROUPING_FETCH_SIZE} yêu cầu gần nhất. Lọc theo đợt để xem đủ.</p>
+          <p className="text-sm text-[var(--color-foreground)]">{t('KpiAdjustmentApprovalPage.showingOnly')} {GROUPING_FETCH_SIZE} {t('KpiAdjustmentApprovalPage.mostRecentRequestsFilterByPeriod')}</p>
         </div>
       )}
 
@@ -590,17 +645,17 @@ export default function KpiAdjustmentApprovalPage() {
               <tr className="border-b border-[var(--color-border)] bg-[var(--color-muted)]">
                 <th scope="col" className="w-10 px-3 py-2.5">
                   {selectableIds.length > 0 && (
-                    <input type="checkbox" aria-label={allSelected ? 'Bỏ chọn tất cả' : 'Chọn tất cả yêu cầu chờ xử lý'} checked={allSelected} ref={el => { if (el) el.indeterminate = someSelected }} onChange={toggleSelectAll} className={CHECKBOX} />
+                    <input type="checkbox" aria-label={allSelected ? t('KpiAdjustmentApprovalPage.deselectAll') : t('KpiAdjustmentApprovalPage.selectAllPendingRequests')} checked={allSelected} ref={el => { if (el) el.indeterminate = someSelected }} onChange={toggleSelectAll} className={CHECKBOX} />
                   )}
                 </th>
-                <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">Chỉ tiêu</th>
-                {!personMode && <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">Người yêu cầu</th>}
-                <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">Thay đổi</th>
-                <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">Lý do</th>
-                {showFeedbackCol && <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">Phản hồi</th>}
-                <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">Hạn xử lý</th>
-                <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">Trạng thái</th>
-                <th scope="col" className="px-3 py-2.5 text-right text-eyebrow">Hành động</th>
+                <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">{t('KpiAdjustmentApprovalPage.kpis')}</th>
+                {!personMode && <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">{t('KpiAdjustmentApprovalPage.requester')}</th>}
+                <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">{t('KpiAdjustmentApprovalPage.change')}</th>
+                <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">{t('KpiAdjustmentApprovalPage.reason')}</th>
+                {showFeedbackCol && <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">{t('KpiAdjustmentApprovalPage.response')}</th>}
+                <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">{t('KpiAdjustmentApprovalPage.handlingDeadline')}</th>
+                <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">{t('KpiAdjustmentApprovalPage.status')}</th>
+                <th scope="col" className="px-3 py-2.5 text-right text-eyebrow">{t('KpiAdjustmentApprovalPage.actions')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-[var(--color-border)]">
@@ -634,17 +689,17 @@ export default function KpiAdjustmentApprovalPage() {
 
       {items.length > 0 && (unitMode || personMode) && (
         <div className="rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
-          <Pagination currentPage={groupPage} totalPages={totalPages} onPageChange={setPage} totalElements={totalGroups} size={GROUP_PAGE_SIZE} itemLabel={unitMode ? 'đơn vị' : 'nhân sự'} />
+          <Pagination currentPage={groupPage} totalPages={totalPages} onPageChange={setPage} totalElements={totalGroups} size={GROUP_PAGE_SIZE} itemLabel={unitMode ? t('KpiAdjustmentApprovalPage.unit') : t('KpiAdjustmentApprovalPage.people')} />
         </div>
       )}
 
-      <BulkActionBar count={selectedIds.length} onClear={() => { setSelectedIds([]); setBulkNote('') }} itemLabel="yêu cầu">
+      <BulkActionBar count={selectedIds.length} onClear={() => { setSelectedIds([]); setBulkNote('') }} itemLabel={t('KpiAdjustmentApprovalPage.requests')}>
         <Button variant="outline" onClick={() => setBulkRejectOpen(true)} disabled={busy} className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)]">
-          <XCircle aria-hidden="true" /> Từ chối…
+          <XCircle aria-hidden="true" /> {t('KpiAdjustmentApprovalPage.reject')}
         </Button>
         <Button onClick={() => handleBulkReview('APPROVED')} disabled={busy}>
           {busy ? <Loader2 className="animate-spin" aria-hidden="true" /> : <CheckCircle aria-hidden="true" />}
-          Duyệt {selectedIds.length} yêu cầu
+          {t('KpiAdjustmentApprovalPage.approve2')} {selectedIds.length} {t('KpiAdjustmentApprovalPage.requests')}
         </Button>
       </BulkActionBar>
 
@@ -654,27 +709,28 @@ export default function KpiAdjustmentApprovalPage() {
         onClose={() => setBulkRejectOpen(false)}
         size="sm"
         dismissible={!busy}
-        title={`Từ chối ${selectedIds.length} yêu cầu`}
-        description="Một lý do chung sẽ gửi tới tất cả người yêu cầu đã chọn."
+        title={t('KpiAdjustmentApprovalPage.rejectRequests', { count: selectedIds.length })}
+        description={t('KpiAdjustmentApprovalPage.oneSharedReasonWillBeSent')}
         footer={
           <DialogFooter
-            secondary={<Button variant="outline" onClick={() => setBulkRejectOpen(false)} disabled={busy}>Hủy</Button>}
+            secondary={<Button variant="outline" onClick={() => setBulkRejectOpen(false)} disabled={busy}>{t('KpiAdjustmentApprovalPage.cancel')}</Button>}
             primary={
               <Button variant="destructive" disabled={busy || !bulkNote.trim()} onClick={() => { handleBulkReview('REJECTED'); setBulkRejectOpen(false) }}>
-                {busy ? <Loader2 className="animate-spin" aria-hidden="true" /> : <XCircle aria-hidden="true" />} Từ chối
+                {busy ? <Loader2 className="animate-spin" aria-hidden="true" /> : <XCircle aria-hidden="true" />} {t('KpiAdjustmentApprovalPage.rejected')}
               </Button>
             }
           />
         }
       >
-        <label htmlFor="bulk-reject-note" className="text-label block">Lý do từ chối <span className="text-[var(--color-error)]" aria-hidden="true">*</span></label>
+        <DraftNotice draft={bulkNoteDraft} className="mb-4" />
+        <label htmlFor="bulk-reject-note" className="text-label block">{t('KpiAdjustmentApprovalPage.rejectionReason')} <span className="text-[var(--color-error)]" aria-hidden="true">*</span></label>
         <textarea
           id="bulk-reject-note"
           value={bulkNote}
           onChange={e => setBulkNote(e.target.value)}
           rows={3}
           className="mt-1.5 w-full resize-none rounded-control border border-[var(--color-input)] bg-[var(--color-card)] px-3 py-2 text-sm text-[var(--color-foreground)] placeholder:text-[var(--color-muted-foreground)] focus:border-[var(--color-ring)] focus:outline-none focus:ring-2 focus:ring-[var(--color-ring)]"
-          placeholder="Nêu rõ vì sao không chấp nhận các điều chỉnh này."
+          placeholder={t('KpiAdjustmentApprovalPage.explainWhyTheseAdjustmentsAreNot')}
         />
       </Dialog>
 

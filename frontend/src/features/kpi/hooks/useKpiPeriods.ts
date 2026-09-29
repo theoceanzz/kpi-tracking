@@ -3,6 +3,7 @@ import { kpiPeriodApi } from '../api/kpiPeriodApi'
 import type { KpiPeriod } from '@/types/kpi'
 import { toast } from 'sonner'
 import { getApiErrorMessage } from '@/lib/apiError'
+import { useTranslation } from 'react-i18next'
 
 interface UseKpiPeriodsOptions {
   page?: number
@@ -17,6 +18,7 @@ interface UseKpiPeriodsOptions {
 }
 
 export const useKpiPeriods = (options: UseKpiPeriodsOptions = {}) => {
+  const { t } = useTranslation('kpi')
   const qc = useQueryClient()
 
   const query = useQuery({
@@ -29,9 +31,9 @@ export const useKpiPeriods = (options: UseKpiPeriodsOptions = {}) => {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['kpiPeriods'] })
       qc.invalidateQueries({ queryKey: ['kpiCycles'] })
-      toast.success('Đã tạo đợt KPI mới')
+      toast.success(t('useKpiPeriods.newKpiPeriodCreated'))
     },
-    onError: (error) => toast.error(getApiErrorMessage(error, 'Tạo đợt KPI thất bại')),
+    onError: (error) => toast.error(getApiErrorMessage(error, t('useKpiPeriods.failedToCreateKpiPeriod'))),
   })
 
   const updateMutation = useMutation({
@@ -39,9 +41,9 @@ export const useKpiPeriods = (options: UseKpiPeriodsOptions = {}) => {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['kpiPeriods'] })
       qc.invalidateQueries({ queryKey: ['kpiCycles'] })
-      toast.success('Đã cập nhật đợt KPI')
+      toast.success(t('useKpiPeriods.kpiPeriodUpdated'))
     },
-    onError: (error) => toast.error(getApiErrorMessage(error, 'Cập nhật đợt KPI thất bại')),
+    onError: (error) => toast.error(getApiErrorMessage(error, t('useKpiPeriods.failedToUpdateKpiPeriod'))),
   })
 
   const deleteMutation = useMutation({
@@ -49,9 +51,9 @@ export const useKpiPeriods = (options: UseKpiPeriodsOptions = {}) => {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['kpiPeriods'] })
       qc.invalidateQueries({ queryKey: ['kpiCycles'] })
-      toast.success('Đã xoá đợt KPI')
+      toast.success(t('useKpiPeriods.kpiPeriodDeleted'))
     },
-    onError: (error) => toast.error(getApiErrorMessage(error, 'Xoá đợt KPI thất bại')),
+    onError: (error) => toast.error(getApiErrorMessage(error, t('useKpiPeriods.failedToDeleteKpiPeriod'))),
   })
 
   return {

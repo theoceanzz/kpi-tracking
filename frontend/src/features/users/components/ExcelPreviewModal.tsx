@@ -12,6 +12,9 @@ import { useOrgHierarchyLevels, useOrgUnitTree } from '@/features/organization/h
 import { OrgUnitTreeResponse } from '@/features/organization/types/org-unit'
 import { useRoles } from '@/features/organization/hooks/useRoles'
 import { usePermission } from '@/hooks/usePermission'
+import { useTranslation } from 'react-i18next'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
 interface ExcelPreviewModalProps {
   open: boolean
@@ -33,17 +36,18 @@ interface UserRow {
   _errors?: Record<string, string>
 }
 
-const rowSchema = z.object({
-  Email: z.string().email('Email không hợp lệ').min(1, 'Bắt buộc'),
-  FullName: z.string().min(1, 'Bắt buộc'),
+const rowSchema = perLanguage(() => (z.object({
+  Email: z.string().email(i18n.t('users:ExcelPreviewModal.invalidEmail')).min(1, i18n.t('users:ExcelPreviewModal.required')),
+  FullName: z.string().min(1, i18n.t('users:ExcelPreviewModal.required')),
   Phone: z.string().optional().nullable(),
   EmployeeCode: z.string().optional().nullable(),
-  Role: z.string().min(1, 'Bắt buộc'),
-  Password: z.string().min(6, 'Tối thiểu 6 ký tự').optional().or(z.literal('')),
+  Role: z.string().min(1, i18n.t('users:ExcelPreviewModal.required')),
+  Password: z.string().min(6, i18n.t('users:ExcelPreviewModal.atLeast6Characters')).optional().or(z.literal('')),
   OrgUnitCode: z.string().optional().nullable(),
-})
+})))
 
 export default function ExcelPreviewModal({ open, file, onClose, onImport, isImporting }: ExcelPreviewModalProps) {
+  const { t } = useTranslation('users')
   const [data, setData] = useState<UserRow[]>([])
   const [loading, setLoading] = useState(false)
   const user = useAuthStore(state => state.user)
@@ -162,21 +166,21 @@ export default function ExcelPreviewModal({ open, file, onClose, onImport, isImp
       const validated = validateAllRows(parsed)
 
       if (parsed.length === 0) {
-        toast.error('File không có dữ liệu hoặc sai định dạng.')
+        toast.error(t('ExcelPreviewModal.theFileHasNoDataOr'))
         onClose()
         return
       }
 
       setData(validated)
     } catch {
-      toast.error('Lỗi khi đọc file Excel')
+      toast.error(t('ExcelPreviewModal.errorReadingTheExcelFile'))
       onClose()
     } finally {
       setLoading(false)
     }
   }
   const validateRow = (row: UserRow): UserRow => {
-    const result = rowSchema.safeParse(row)
+    const result = rowSchema().safeParse(row)
     const errors: Record<string, string> = {}
     
     if (!result.success) {
@@ -209,13 +213,13 @@ export default function ExcelPreviewModal({ open, file, onClose, onImport, isImp
     }
 
     if (!row.OrgUnitCode || !validUnitCodes.has(row.OrgUnitCode)) {
-      const oldCode = row.OrgUnitCode || 'Trống'
+      const oldCode = row.OrgUnitCode || t('ExcelPreviewModal.empty')
       // Fallback to root unit if not matched or missing
       if (orgTree && orgTree.length > 0) {
         row.OrgUnitCode = orgTree[0]?.code
-        errors['OrgUnitCode'] = `Mã đơn vị '${oldCode}' không tồn tại, đã tự động gán vào '${orgTree[0]?.name}'`
+        errors['OrgUnitCode'] = t('ExcelPreviewModal.unitCodeDoesNotExistAutomatically', { oldCode, name: orgTree[0]?.name })
       } else {
-        errors['OrgUnitCode'] = `Mã đơn vị '${oldCode}' không tồn tại trong hệ thống`
+        errors['OrgUnitCode'] = t('ExcelPreviewModal.unitCodeDoesNotExistIn', { oldCode })
       }
     }
     
@@ -251,7 +255,7 @@ export default function ExcelPreviewModal({ open, file, onClose, onImport, isImp
     }
 
     if (!roleObj) {
-      const oldRole = row.Role || 'Trống'
+      const oldRole = row.Role || t('ExcelPreviewModal.empty')
       // Fallback to the lowest role in hierarchy if not found
       if (rolesData && rolesData.length > 0) {
         const sortedRoles = [...rolesData].sort((a, b) => {
@@ -262,10 +266,10 @@ export default function ExcelPreviewModal({ open, file, onClose, onImport, isImp
         });
         roleObj = sortedRoles[0];
         if (roleObj) {
-          errors['Role'] = `Chức danh '${oldRole}' không tồn tại, đã tự động gán vai trò '${roleObj.name}'`
+          errors['Role'] = t('ExcelPreviewModal.titleDoesNotExistAutomaticallyAssigned', { oldRole, name: roleObj.name })
         }
       } else {
-        errors['Role'] = `Chức danh '${oldRole}' không tồn tại trong hệ thống`
+        errors['Role'] = t('ExcelPreviewModal.titleDoesNotExistInThe', { oldRole })
       }
     }
 
@@ -273,7 +277,7 @@ export default function ExcelPreviewModal({ open, file, onClose, onImport, isImp
       const isDirectorSystem = user?.memberships?.some(m => m.roleName === 'DIRECTOR_SYSTEM')
       if (!isDirectorSystem) {
         if (roleObj.level < currentUserLevel || (roleObj.level === currentUserLevel && roleObj.rank !== undefined && roleObj.rank <= currentUserRank)) {
-          errors['Role'] = `Bạn không có quyền gán vai trò ngang hoặc cao hơn mình (${roleObj.name})`
+          errors['Role'] = t('ExcelPreviewModal.youDoNotHavePermissionTo', { name: roleObj.name })
         }
       }
     }
@@ -289,7 +293,7 @@ export default function ExcelPreviewModal({ open, file, onClose, onImport, isImp
       const isRoleAllowed = roleObj ? allowedIds.has(roleObj.id) : false
       
       if (!isRoleAllowed) {
-        errors['Role'] = `Vai trò ${roleObj ? roleObj.name : row.Role} không được phép gán trong đơn vị ${selectedNode.name}`
+        errors['Role'] = t('ExcelPreviewModal.roleIsNotAllowedInUnit', { value: roleObj ? roleObj.name : row.Role, name: selectedNode.name })
       }
     }
 
@@ -338,15 +342,15 @@ export default function ExcelPreviewModal({ open, file, onClose, onImport, isImp
         if (roleObj.rank === 0 || roleObj.rank === 1) {
           const key = `${row.OrgUnitCode}-${roleObj.rank}`
           if ((managerCounts.get(key) || 0) > 1) {
-            const rankName = roleObj.rank === 0 ? 'Trưởng đơn vị' : 'Phó đơn vị'
-            errors['Role'] = `Đơn vị này đang được gán nhiều hơn một ${rankName} trong tệp tin`
+            const rankName = roleObj.rank === 0 ? t('ExcelPreviewModal.unitHead') : t('ExcelPreviewModal.deputyHead')
+            errors['Role'] = t('ExcelPreviewModal.thisUnitIsAssignedMoreThan', { rankName })
           }
         }
 
         if (roleObj.rank === 1 || roleObj.rank === 2) {
           const rootCode = orgTree && orgTree.length > 0 ? orgTree[0]?.code : null
           if (!unitsWithManager.has(row.OrgUnitCode) && row.OrgUnitCode !== rootCode) {
-            errors['OrgUnitCode'] = 'Đơn vị cần có 1 Trưởng đơn vị đảm nhiệm (Rank 0) trong danh sách import'
+            errors['OrgUnitCode'] = t('ExcelPreviewModal.theUnitNeeds1UnitHead')
           }
         }
       }
@@ -355,7 +359,7 @@ export default function ExcelPreviewModal({ open, file, onClose, onImport, isImp
       if (row.EmployeeCode && row.EmployeeCode.trim()) {
         const code = row.EmployeeCode.trim().toLowerCase()
         if ((codeCounts.get(code) || 0) > 1) {
-          errors['EmployeeCode'] = 'Mã nhân viên bị trùng lặp trong tệp tin'
+          errors['EmployeeCode'] = t('ExcelPreviewModal.duplicateEmployeeCodeInTheFile')
         }
       }
 
@@ -391,12 +395,12 @@ export default function ExcelPreviewModal({ open, file, onClose, onImport, isImp
   const handleSave = () => {
     const hasErrors = data.some((r: UserRow) => r._errors && Object.keys(r._errors).length > 0)
     if (hasErrors) {
-      toast.error('Vui lòng sửa các lỗi trong bảng trước khi import')
+      toast.error(t('ExcelPreviewModal.pleaseFixTheErrorsInThe'))
       return
     }
 
     if (data.length === 0) {
-      toast.error('Không có dữ liệu để import')
+      toast.error(t('ExcelPreviewModal.noDataToImport'))
       return
     }
 
@@ -416,7 +420,7 @@ export default function ExcelPreviewModal({ open, file, onClose, onImport, isImp
       
       onImport(newFile)
     } catch {
-      toast.error('Lỗi khi tạo file import')
+      toast.error(t('ExcelPreviewModal.errorCreatingTheImportFile'))
     }
   }
 
@@ -435,15 +439,15 @@ export default function ExcelPreviewModal({ open, file, onClose, onImport, isImp
       onClose={onClose}
       size="full"
       dismissible={!isImporting}
-      title="Xem trước & Kiểm tra dữ liệu"
+      title={t('ExcelPreviewModal.previewCheckData')}
       description={`File: ${file?.name ?? ''}`}
       footer={
         <DialogFooter
-          note={<>Tổng cộng: <span className="font-medium text-[var(--color-foreground)] tabular-nums">{data.length}</span> dòng hợp lệ</>}
-          secondary={<Button variant="outline" onClick={onClose} disabled={isImporting}>Hủy bỏ</Button>}
+          note={<>{t('ExcelPreviewModal.total')} <span className="font-medium text-[var(--color-foreground)] tabular-nums">{data.length}</span> {t('ExcelPreviewModal.validRows')}</>}
+          secondary={<Button variant="outline" onClick={onClose} disabled={isImporting}>{t('ExcelPreviewModal.cancel')}</Button>}
           primary={
             <Button onClick={handleSave} disabled={isImporting || hasCriticalErrors || data.length === 0}>
-              {isImporting ? <><Loader2 className="animate-spin" aria-hidden="true" /> Đang Import...</> : <><Save aria-hidden="true" /> Xác nhận Import</>}
+              {isImporting ? <><Loader2 className="animate-spin" aria-hidden="true" /> {t('ExcelPreviewModal.importing')}</> : <><Save aria-hidden="true" /> {t('ExcelPreviewModal.confirmImport')}</>}
             </Button>
           }
         />
@@ -452,7 +456,7 @@ export default function ExcelPreviewModal({ open, file, onClose, onImport, isImp
       {loading ? (
         <div className="flex flex-col items-center justify-center h-64 text-[var(--color-subtle-foreground)]">
           <div className="w-8 h-8 border-4 border-[var(--color-info-border)] border-t-transparent rounded-full animate-spin mb-4" />
-          <p className="font-medium text-sm">Đang đọc file...</p>
+          <p className="font-medium text-sm">{t('ExcelPreviewModal.readingTheFile')}</p>
         </div>
       ) : (
         <div className="space-y-4">
@@ -460,8 +464,8 @@ export default function ExcelPreviewModal({ open, file, onClose, onImport, isImp
             <div className="p-4 bg-[var(--color-error-bg)] text-[var(--color-error)] rounded-card flex items-start gap-3 border border-[var(--color-error-border)]">
               <AlertCircle size={20} className="shrink-0 mt-0.5" />
               <div>
-                <p className="text-sm font-medium">Phát hiện dữ liệu không hợp lệ</p>
-                <p className="text-xs mt-1">Vui lòng kiểm tra và sửa các ô được tô đỏ trước khi tiến hành Import.</p>
+                <p className="text-sm font-medium">{t('ExcelPreviewModal.invalidDataDetected')}</p>
+                <p className="text-xs mt-1">{t('ExcelPreviewModal.pleaseCheckAndFixTheCells')}</p>
               </div>
             </div>
           )}
@@ -471,15 +475,15 @@ export default function ExcelPreviewModal({ open, file, onClose, onImport, isImp
               <table className="w-full text-sm text-left">
                 <thead className="text-eyebrow bg-[var(--color-muted)] border-b border-[var(--color-border)] text-[var(--color-muted-foreground)] sticky top-0 z-10">
                   <tr>
-                    <th className="px-4 py-3 w-12 text-center bg-[var(--color-muted)]">STT</th>
+                    <th className="px-4 py-3 w-12 text-center bg-[var(--color-muted)]">{t('ExcelPreviewModal.rowNo')}</th>
                     <th className="px-4 py-3 min-w-[250px] bg-[var(--color-muted)]">Email <span className="text-[var(--color-error)]">*</span></th>
-                    <th className="px-4 py-3 min-w-[220px] bg-[var(--color-muted)]">Họ Tên <span className="text-[var(--color-error)]">*</span></th>
-                    <th className="px-4 py-3 min-w-[150px] bg-[var(--color-muted)]">Số điện thoại</th>
-                    <th className="px-4 py-3 min-w-[150px] bg-[var(--color-muted)]">Mã NV</th>
-                    <th className="px-4 py-3 min-w-[200px] bg-[var(--color-muted)]">Chức danh <span className="text-[var(--color-error)]">*</span></th>
-                    <th className="px-4 py-3 min-w-[200px] bg-[var(--color-muted)]">Mật khẩu</th>
-                    <th className="px-4 py-3 min-w-[300px] bg-[var(--color-muted)]">Phòng ban / Đơn vị</th>
-                    <th className="px-4 py-3 w-16 text-center bg-[var(--color-muted)]">Xóa</th>
+                    <th className="px-4 py-3 min-w-[220px] bg-[var(--color-muted)]">{t('ExcelPreviewModal.fullName')} <span className="text-[var(--color-error)]">*</span></th>
+                    <th className="px-4 py-3 min-w-[150px] bg-[var(--color-muted)]">{t('ExcelPreviewModal.phoneNumber')}</th>
+                    <th className="px-4 py-3 min-w-[150px] bg-[var(--color-muted)]">{t('ExcelPreviewModal.empCode')}</th>
+                    <th className="px-4 py-3 min-w-[200px] bg-[var(--color-muted)]">{t('ExcelPreviewModal.title')} <span className="text-[var(--color-error)]">*</span></th>
+                    <th className="px-4 py-3 min-w-[200px] bg-[var(--color-muted)]">{t('ExcelPreviewModal.password')}</th>
+                    <th className="px-4 py-3 min-w-[300px] bg-[var(--color-muted)]">{t('ExcelPreviewModal.departmentUnit')}</th>
+                    <th className="px-4 py-3 w-16 text-center bg-[var(--color-muted)]">{t('ExcelPreviewModal.delete')}</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[var(--color-border)]">
@@ -498,7 +502,7 @@ export default function ExcelPreviewModal({ open, file, onClose, onImport, isImp
                               ? "border-[var(--color-error-border)] bg-[var(--color-error-bg)] focus:border-[var(--color-error-border)] focus:ring-1 focus:ring-[var(--color-error-solid)]" 
                               : "border-transparent hover:border-[var(--color-border-strong)] focus:border-[var(--color-info-border)] focus:ring-1 focus:ring-[var(--color-info-solid)] bg-transparent hover:bg-[var(--color-card)] focus:bg-[var(--color-card)]"
                           )}
-                          placeholder="Nhập email..."
+                          placeholder={t('ExcelPreviewModal.enterEmail')}
                         />
                         {row._errors?.Email && <p className="text-xs text-[var(--color-error)] mt-1 font-medium px-1">{row._errors.Email}</p>}
                       </td>
@@ -512,7 +516,7 @@ export default function ExcelPreviewModal({ open, file, onClose, onImport, isImp
                               ? "border-[var(--color-error-border)] bg-[var(--color-error-bg)] focus:border-[var(--color-error-border)] focus:ring-1 focus:ring-[var(--color-error-solid)]" 
                               : "border-transparent hover:border-[var(--color-border-strong)] focus:border-[var(--color-info-border)] focus:ring-1 focus:ring-[var(--color-info-solid)] bg-transparent hover:bg-[var(--color-card)] focus:bg-[var(--color-card)]"
                           )}
-                          placeholder="Nhập họ tên..."
+                          placeholder={t('ExcelPreviewModal.enterFullName')}
                         />
                         {row._errors?.FullName && <p className="text-xs text-[var(--color-error)] mt-1 font-medium px-1">{row._errors.FullName}</p>}
                       </td>
@@ -521,7 +525,7 @@ export default function ExcelPreviewModal({ open, file, onClose, onImport, isImp
                           value={row.Phone}
                           onChange={e => handleCellChange(row.id, 'Phone', e.target.value)}
                           className="w-full px-3 py-1.5 rounded-control border border-transparent hover:border-[var(--color-border-strong)] focus:border-[var(--color-info-border)] focus:ring-1 focus:ring-[var(--color-info-solid)] bg-transparent hover:bg-[var(--color-card)] focus:bg-[var(--color-card)] text-sm transition-colors"
-                          placeholder="Trống..."
+                          placeholder={t('ExcelPreviewModal.empty2')}
                         />
                       </td>
                       <td className="px-4 py-2">
@@ -534,7 +538,7 @@ export default function ExcelPreviewModal({ open, file, onClose, onImport, isImp
                               ? "border-[var(--color-error-border)] bg-[var(--color-error-bg)] focus:border-[var(--color-error-border)] focus:ring-1 focus:ring-[var(--color-error-solid)]" 
                               : "border-transparent hover:border-[var(--color-border-strong)] focus:border-[var(--color-info-border)] focus:ring-1 focus:ring-[var(--color-info-solid)] bg-transparent hover:bg-[var(--color-card)] focus:bg-[var(--color-card)]"
                           )}
-                          placeholder="Trống..."
+                          placeholder={t('ExcelPreviewModal.empty2')}
                         />
                         {row._errors?.EmployeeCode && <p className="text-xs text-[var(--color-error)] mt-1 font-medium px-1">{row._errors.EmployeeCode}</p>}
                       </td>
@@ -569,7 +573,7 @@ export default function ExcelPreviewModal({ open, file, onClose, onImport, isImp
                                 <option value={row.Role} className="hidden">
                                   {(() => {
                                     const r = rolesData?.find((x: any) => x.id === row.Role || x.name === row.Role);
-                                    return r ? r.name : 'Chọn chức danh...';
+                                    return r ? r.name : t('ExcelPreviewModal.chooseTitle');
                                   })()}
                                 </option>
                               )}
@@ -586,7 +590,7 @@ export default function ExcelPreviewModal({ open, file, onClose, onImport, isImp
                           if (hasNoRoles) {
                             return (
                               <p className="text-xs text-[var(--color-error)] mt-1 font-medium italic px-1 flex items-center gap-1">
-                                <AlertCircle size={10} /> Đơn vị này chưa được thiết lập phạm vi vai trò. Hãy cấu hình ở mục "Sơ đồ tổ chức".
+                                <AlertCircle size={10} /> {t('ExcelPreviewModal.thisUnitHasNoRoleScope')}
                               </p>
                             )
                           }
@@ -604,7 +608,7 @@ export default function ExcelPreviewModal({ open, file, onClose, onImport, isImp
                               ? "border-[var(--color-error-border)] bg-[var(--color-error-bg)] text-[var(--color-error)]" 
                               : "border-[var(--color-border)] hover:border-[var(--color-info-border)] focus:border-[var(--color-info-border)] focus:ring-4 focus:ring-[var(--color-info-solid)]"
                           )}
-                          placeholder="Tự động sinh..."
+                          placeholder={t('ExcelPreviewModal.autoGenerate')}
                         />
                         {row._errors?.Password && <p className="text-xs text-[var(--color-error)] mt-1 font-medium px-1">{row._errors.Password}</p>}
                       </td>
@@ -647,12 +651,12 @@ export default function ExcelPreviewModal({ open, file, onClose, onImport, isImp
             </div>
             {data.length === 0 && (
               <div className="text-center py-12 text-[var(--color-muted-foreground)] text-sm">
-                Không có dòng dữ liệu nào
+                {t('ExcelPreviewModal.noDataRows')}
               </div>
             )}
             <div className="bg-[var(--color-muted)] border-t border-[var(--color-border)] p-3 flex justify-center">
               <Button variant="ghost" onClick={handleAddRow}>
-                <Plus aria-hidden="true" /> Thêm dòng mới
+                <Plus aria-hidden="true" /> {t('ExcelPreviewModal.addANewRow')}
               </Button>
             </div>
           </div>

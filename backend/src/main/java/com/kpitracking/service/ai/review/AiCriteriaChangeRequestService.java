@@ -9,6 +9,7 @@ import com.kpitracking.entity.User;
 import com.kpitracking.exception.BusinessException;
 import com.kpitracking.exception.ForbiddenException;
 import com.kpitracking.exception.ResourceNotFoundException;
+import com.kpitracking.i18n.LocalizedText;
 import com.kpitracking.repository.AiCriteriaChangeRequestRepository;
 import com.kpitracking.repository.AiCriteriaSetRepository;
 import com.kpitracking.repository.OrgUnitRepository;
@@ -38,7 +39,6 @@ public class AiCriteriaChangeRequestService {
     static final String EVENT_REQUESTED = "ai_criteria_change_requested";
     static final String EVENT_DECIDED = "ai_criteria_change_decided";
     static final String TYPE = "AI_CRITERIA";
-    private static final String WHERE = "Thiết lập công cụ → AI đánh giá bài nộp";
 
     private final AiCriteriaSetService sets;
     private final AiCriteriaSetRepository setRepository;
@@ -100,11 +100,12 @@ public class AiCriteriaChangeRequestService {
                 .build());
         if (approver != null) {
             String role = permissions.getBestRoleNameInOrgUnit(me.getId(), unitId);
-            dispatcher.dispatch(orgId, EVENT_REQUESTED, approver, unit, "Đề nghị đổi quy chế chấm AI",
-                    String.format("%s%s đề nghị áp «%s» cho %s thay «%s».%s Xem và quyết định ở %s.",
-                            me.getFullName(), role == null ? "" : " (" + role + ")", proposed.getTitle(),
-                            unit.getName(), current.getTitle(),
-                            r.getNote() == null ? "" : " Ghi chú: " + r.getNote() + ".", WHERE),
+            dispatcher.dispatch(orgId, EVENT_REQUESTED, approver, unit,
+                    LocalizedText.of("notif.aiCriteria.requested.title"),
+                    LocalizedText.of("notif.aiCriteria.requested.message", me.getFullName(),
+                            role == null ? "" : LocalizedText.of("notif.aiCriteria.roleSuffix", role),
+                            proposed.getTitle(), unit.getName(), current.getTitle(),
+                            r.getNote() == null ? "" : LocalizedText.of("notif.aiCriteria.noteSuffix", r.getNote())),
                     TYPE, r.getId());
         }
         return toResponse(r);
@@ -206,13 +207,14 @@ public class AiCriteriaChangeRequestService {
         User requester = userRepository.findById(r.getRequestedBy()).orElse(null);
         OrgUnit unit = orgUnitRepository.findById(r.getOrgUnitId()).orElse(null);
         if (requester == null || unit == null) return;
-        String decider = r.getDecidedBy() == null ? "Cấp trên"
-                : userRepository.findById(r.getDecidedBy()).map(User::getFullName).orElse("Cấp trên");
-        String title = approved ? "Đề nghị quy chế chấm AI đã được đồng ý" : "Đề nghị quy chế chấm AI bị từ chối";
-        String message = approved
-                ? String.format("%s đồng ý: %s từ nay áp «%s».", decider, unit.getName(), proposed.getTitle())
-                : String.format("%s từ chối áp «%s» cho %s%s", decider, proposed.getTitle(), unit.getName(),
-                        r.getDecisionNote() == null ? "." : ": " + r.getDecisionNote());
+        Object decider = r.getDecidedBy() == null ? null
+                : userRepository.findById(r.getDecidedBy()).map(User::getFullName).orElse(null);
+        if (decider == null) decider = LocalizedText.of("notif.aiCriteria.actor.superior");
+        LocalizedText title = LocalizedText.of(approved ? "notif.aiCriteria.approved.title" : "notif.aiCriteria.rejected.title");
+        LocalizedText message = approved
+                ? LocalizedText.of("notif.aiCriteria.approved.message", decider, unit.getName(), proposed.getTitle())
+                : LocalizedText.of("notif.aiCriteria.rejected.message", decider, proposed.getTitle(), unit.getName(),
+                        r.getDecisionNote() == null ? "" : LocalizedText.of("notif.aiCriteria.reasonSuffix", r.getDecisionNote()));
         dispatcher.dispatch(r.getOrganizationId(), EVENT_DECIDED, requester, unit, title, message, TYPE, r.getId());
     }
 

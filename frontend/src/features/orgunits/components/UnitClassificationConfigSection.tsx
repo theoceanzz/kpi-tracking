@@ -1,3 +1,4 @@
+import { LocaleNumberInput } from '@/components/ui/number-input'
 import { useEffect, useMemo, useState } from 'react'
 import { ratingColor } from '@/components/charts/chartPalette'
 import { useForm } from 'react-hook-form'
@@ -34,12 +35,15 @@ import {
 } from '../api/organizationApi'
 import { Button } from '@/components/ui/button'
 import { ChoiceChip } from '@/components/ui/choice-chip'
+import { useTranslation } from 'react-i18next'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
-const SCOPE_OPTS: { v: UnitClassScope; label: string }[] = [
-  { v: 'this', label: 'đúng mức' },
-  { v: 'orAbove', label: 'trở lên' },
-  { v: 'orBelow', label: 'trở xuống' },
-]
+const SCOPE_OPTS = perLanguage((): { v: UnitClassScope; label: string }[] => ([
+  { v: 'this', label: i18n.t('orgunits:UnitClassificationConfigSection.exactlyLevel') },
+  { v: 'orAbove', label: i18n.t('orgunits:UnitClassificationConfigSection.orAbove') },
+  { v: 'orBelow', label: i18n.t('orgunits:UnitClassificationConfigSection.orBelow') },
+]))
 const OP_OPTS: { v: UnitClassOp; label: string }[] = [
   { v: 'gte', label: '≥' }, { v: 'lte', label: '≤' }, { v: 'gt', label: '>' }, { v: 'lt', label: '<' }, { v: 'eq', label: '=' },
 ]
@@ -66,7 +70,7 @@ function matrixGrades(org: OrganizationResponse): number[] {
  */
 function memberLevels(org: OrganizationResponse): { name: string; color: string }[] {
   if (usesPerformanceMatrix(org)) {
-    return matrixGrades(org).map(n => ({ name: `Loại ${n}`, color: ratingColor(n) }))
+    return matrixGrades(org).map(n => ({ name: i18n.t('orgunits:UnitClassificationConfigSection.type', { n }), color: ratingColor(n) }))
   }
   return [...(org.evaluationLevels ?? [])].sort((a, b) => b.threshold - a.threshold)
     .map(l => ({ name: l.name, color: l.color ?? '#64748b' }))
@@ -81,7 +85,7 @@ function presetFor(org: OrganizationResponse): UnitClassRule[] {
       conditions: i === lv.length - 1 ? [] : [{ level: l.name, scope: 'orAbove', op: 'gte', percent: 50 }],
     }))
   }
-  return JSON.parse(JSON.stringify(PRESET_UNIT_RULES_SCORE.rules))
+  return JSON.parse(JSON.stringify(PRESET_UNIT_RULES_SCORE().rules))
 }
 
 /** Rule hợp lệ với thang hiện tại thì giữ, không thì nạp preset của thang. */
@@ -100,7 +104,7 @@ const newKey = () => `p${Date.now()}_${_seq++}`
 function initialProfiles(org: OrganizationResponse): EditProfile[] {
   const levelNames = memberLevels(org).map(l => l.name)
   const fallback = (): EditProfile[] => [
-    { _key: newKey(), name: 'Mặc định', isDefault: true, orgUnitIds: [], kpiCycleIds: [], rules: presetFor(org) },
+    { _key: newKey(), name: i18n.t('orgunits:UnitClassificationConfigSection.default'), isDefault: true, orgUnitIds: [], kpiCycleIds: [], rules: presetFor(org) },
   ]
   if (!org.unitClassificationRules) return fallback()
   try {
@@ -108,7 +112,7 @@ function initialProfiles(org: OrganizationResponse): EditProfile[] {
     if (Array.isArray(parsed?.profiles) && parsed.profiles.length) {
       const profs: EditProfile[] = parsed.profiles.map((p: UnitClassProfile) => ({
         _key: newKey(),
-        name: p.name || 'Hồ sơ',
+        name: p.name || i18n.t('orgunits:UnitClassificationConfigSection.profile'),
         isDefault: !!p.isDefault,
         orgUnitIds: Array.isArray(p.orgUnitIds) ? p.orgUnitIds : [],
         // Hồ sơ lưu trước khi có tính năng gắn kỳ → không có trường này → áp cho mọi kỳ.
@@ -121,7 +125,7 @@ function initialProfiles(org: OrganizationResponse): EditProfile[] {
       return normalizeDefaults(profs)
     }
     if (Array.isArray(parsed?.rules) && parsed.rules.length) {
-      return [{ _key: newKey(), name: 'Mặc định', isDefault: true, orgUnitIds: [], kpiCycleIds: [], rules: rulesForScale(org, parsed.rules) }]
+      return [{ _key: newKey(), name: i18n.t('orgunits:UnitClassificationConfigSection.default'), isDefault: true, orgUnitIds: [], kpiCycleIds: [], rules: rulesForScale(org, parsed.rules) }]
     }
   } catch { /* fallthrough */ }
   return fallback()
@@ -173,19 +177,20 @@ function filterTree(nodes: OrgUnitTreeResponse[], low: string): OrgUnitTreeRespo
 
 
 function HelpPopover() {
+  const { t } = useTranslation('orgunits')
   return (
     <Popover>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon" className="shrink-0" type="button" aria-label="Hồ sơ xếp loại đơn vị hoạt động thế nào" title="Cách hoạt động">
+        <Button variant="ghost" size="icon" className="shrink-0" type="button" aria-label={t('UnitClassificationConfigSection.howUnitRatingProfilesWork')} title={t('UnitClassificationConfigSection.howItWorks')}>
           <HelpCircle aria-hidden="true" />
         </Button>
       </PopoverTrigger>
       <PopoverContent align="end" className="w-[320px] text-xs leading-relaxed text-[var(--color-muted-foreground)] space-y-2">
-        <p>Mỗi <b>hồ sơ</b> là một cách xếp loại. Gán cho đơn vị nào thì <b>đơn vị con kế thừa</b>, trừ khi đơn vị con có hồ sơ riêng.</p>
-        <p>Đơn vị không được gán dùng hồ sơ <b>mặc định</b>. Mỗi tổ chức có đúng một hồ sơ mặc định và nó luôn áp cho <b>mọi kỳ</b> — giới hạn nó theo kỳ sẽ làm các kỳ còn lại không có hồ sơ nào.</p>
-        <p>Hồ sơ gắn <b>kỳ</b> chỉ có hiệu lực trong kỳ đó và <b>ghi đè</b> hồ sơ áp cho mọi kỳ.</p>
-        <p>Trong một hồ sơ, đơn vị nhận <b>mức cao nhất</b> thoả <b>tất cả</b> điều kiện, xét từ trên xuống. Mức cuối không điều kiện là mặc định.</p>
-        <p>Tab <b>Bell curve</b> là chuyện ngược lại: nó khống chế <b>tỷ lệ % người</b> mà đơn vị được chấm ở mỗi mức. Vượt trần thì hệ thống cảnh báo, hoặc chặn không cho chốt đánh giá.</p>
+        <p>{t('UnitClassificationConfigSection.each')} <b>{t('UnitClassificationConfigSection.profile2')}</b> {t('UnitClassificationConfigSection.isOneWayOfRatingAssign')} <b>{t('UnitClassificationConfigSection.itsChildUnitsInheritIt')}</b>{t('UnitClassificationConfigSection.unlessAChildUnitHasIts')}</p>
+        <p>{t('UnitClassificationConfigSection.unassignedUnitsUseTheProfile')} <b>{t('UnitClassificationConfigSection.default2')}</b>{t('UnitClassificationConfigSection.eachOrganizationHasExactlyOneDefault')} <b>{t('UnitClassificationConfigSection.everyCycle')}</b> {t('UnitClassificationConfigSection.limitingItByCycleWouldLeave')}</p>
+        <p>{t('UnitClassificationConfigSection.aProfileAttachedToA')} <b>{t('UnitClassificationConfigSection.cycle')}</b> {t('UnitClassificationConfigSection.onlyAppliesInThatCycleAnd')} <b>{t('UnitClassificationConfigSection.overrides')}</b> {t('UnitClassificationConfigSection.theProfileThatAppliesToEvery')}</p>
+        <p>{t('UnitClassificationConfigSection.withinAProfileTheUnitGets')} <b>{t('UnitClassificationConfigSection.highestLevel')}</b> {t('UnitClassificationConfigSection.thatSatisfies')} <b>{t('UnitClassificationConfigSection.all')}</b> {t('UnitClassificationConfigSection.conditionsCheckedFromTopToBottom')}</p>
+        <p>Tab <b>Bell curve</b> {t('UnitClassificationConfigSection.isTheOppositeItLimitsThe')} <b>{t('UnitClassificationConfigSection.ofPeople')}</b> {t('UnitClassificationConfigSection.theUnitMayScoreAtEach')}</p>
       </PopoverContent>
     </Popover>
   )
@@ -194,6 +199,7 @@ function HelpPopover() {
 
 /** Cấu hình NHIỀU HỒ SƠ luật xếp loại đơn vị, mỗi hồ sơ gán cho (các) đơn vị (đơn vị con kế thừa). */
 export default function UnitClassificationConfigSection({ org }: { org: OrganizationResponse }) {
+  const { t } = useTranslation('orgunits')
   const update = useUpdateOrganization(org.id)
   const { data: tree } = useOrgUnitTree()
   const { data: cyclesData } = useKpiCycles({ organizationId: org.id, size: 100, sortBy: 'startDate', direction: 'desc' })
@@ -215,7 +221,7 @@ export default function UnitClassificationConfigSection({ org }: { org: Organiza
   }, [tree])
 
   const { handleSubmit, reset: resetForm, watch, setValue, formState } = useForm<UnitClassificationFormData>({
-    resolver: zodResolver(unitClassificationSchema),
+    resolver: zodResolver(unitClassificationSchema()),
     defaultValues: { profiles: initialProfiles(org) },
   })
 
@@ -253,7 +259,7 @@ export default function UnitClassificationConfigSection({ org }: { org: Organiza
   const [pickUnitsFor, setPickUnitsFor] = useState<string | null>(null)
   const addProfile = () => {
     const key = newKey()
-    setProfiles(ps => [...ps, { _key: key, name: `Hồ sơ đơn vị ${ps.length}`, isDefault: false, orgUnitIds: [], kpiCycleIds: [], rules: presetFor(org) }])
+    setProfiles(ps => [...ps, { _key: key, name: t('UnitClassificationConfigSection.unitProfile', { length: ps.length }), isDefault: false, orgUnitIds: [], kpiCycleIds: [], rules: presetFor(org) }])
     setSelectedKey(key)
     setPickUnitsFor(key)
   }
@@ -281,12 +287,12 @@ export default function UnitClassificationConfigSection({ org }: { org: Organiza
     return m
   }
 
-  const applyPreset = (key: string) => { patchProfile(key, { rules: presetFor(org) }); toast.success('Đã nạp mẫu gợi ý') }
+  const applyPreset = (key: string) => { patchProfile(key, { rules: presetFor(org) }); toast.success(t('UnitClassificationConfigSection.suggestedTemplateLoaded')) }
   const reset = () => {
     const next = initialProfiles(org)
     resetForm({ profiles: next })
     setSelectedKey(next[0]?._key ?? '')
-    toast.success('Đã đặt lại')
+    toast.success(t('UnitClassificationConfigSection.reset'))
   }
 
   const save = handleSubmit((data) => {
@@ -300,8 +306,8 @@ export default function UnitClassificationConfigSection({ org }: { org: Organiza
       bellCurve: p.bellCurve as UnitClassBellCurve | undefined,
     }))
     update.mutate({ unitClassificationRules: JSON.stringify({ profiles: payload }) }, {
-      onSuccess: () => { toast.success('Đã lưu luật xếp loại đơn vị'); resetForm(data) },
-      onError: (error) => toast.error(getApiErrorMessage(error, 'Không thể lưu luật xếp loại đơn vị')),
+      onSuccess: () => { toast.success(t('UnitClassificationConfigSection.unitRatingRulesSaved')); resetForm(data) },
+      onError: (error) => toast.error(getApiErrorMessage(error, t('UnitClassificationConfigSection.couldNotSaveTheUnitRating'))),
     })
   }, toastFirstError)
 
@@ -311,19 +317,19 @@ export default function UnitClassificationConfigSection({ org }: { org: Organiza
     <section className="overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
       <div id="tour-unitclass-header" className="flex flex-col gap-3 border-b border-[var(--color-border)] px-5 py-4 sm:flex-row sm:items-start sm:justify-between">
         <div className="min-w-0">
-          <h3 className="text-section-title">Xếp loại đơn vị</h3>
+          <h3 className="text-section-title">{t('UnitClassificationConfigSection.unitRating')}</h3>
           <p className="mt-0.5 text-sm text-[var(--color-muted-foreground)]">
-            Mỗi <b>hồ sơ</b> = một bộ luật xếp loại + một khung bell curve. Gán hồ sơ cho <b>từng đơn vị</b> (đơn vị con kế thừa) và/hoặc <b>từng kỳ</b> để mỗi phòng ban có luật riêng; đơn vị chưa gán dùng hồ sơ mặc định.
+            {t('UnitClassificationConfigSection.each')} <b>{t('UnitClassificationConfigSection.profile2')}</b> {t('UnitClassificationConfigSection.aSetOfRatingRulesA')} <b>{t('UnitClassificationConfigSection.eachUnit')}</b> {t('UnitClassificationConfigSection.childUnitsInheritAndOr')} <b>{t('UnitClassificationConfigSection.eachCycle')}</b> {t('UnitClassificationConfigSection.soEachDepartmentHasItsOwn')}
           </p>
         </div>
         <div className="flex shrink-0 items-center gap-2">
-          {dirty && <span className="text-caption text-[var(--color-warning)]">Có thay đổi chưa lưu</span>}
+          {dirty && <span className="text-caption text-[var(--color-warning)]">{t('UnitClassificationConfigSection.unsavedChanges')}</span>}
           <HelpPopover />
           <Button variant="outline" type="button" onClick={reset} disabled={!dirty}>
-            <RotateCcw aria-hidden="true" /> Đặt lại
+            <RotateCcw aria-hidden="true" /> {t('UnitClassificationConfigSection.reset2')}
           </Button>
           <Button type="button" onClick={save} disabled={update.isPending}>
-            {update.isPending ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Save aria-hidden="true" />} Lưu
+            {update.isPending ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Save aria-hidden="true" />} {t('UnitClassificationConfigSection.save')}
           </Button>
         </div>
       </div>
@@ -331,7 +337,7 @@ export default function UnitClassificationConfigSection({ org }: { org: Organiza
       {/* Chú thích thang mức: hàng mảnh riêng, dính ngay dưới nhan đề vì nó là bảng tra
           dùng suốt lúc soạn điều kiện bên dưới. */}
       <div id="tour-unitclass-levels" className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-[var(--color-border)] bg-[var(--color-muted)] px-5 py-2">
-        <span className="text-eyebrow">Thang mức (cao → thấp)</span>
+        <span className="text-eyebrow">{t('UnitClassificationConfigSection.levelScaleHighLow')}</span>
         {levels.map(l => (
           <span key={l.name} className="inline-flex items-center gap-1 text-caption">
             <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ background: l.color }} aria-hidden="true" />{l.name}
@@ -342,14 +348,14 @@ export default function UnitClassificationConfigSection({ org }: { org: Organiza
       <div className="grid lg:grid-cols-[260px_minmax(0,1fr)]">
         {/* ── Cột trái: danh sách hồ sơ ─────────────────────────────── */}
         <div className="border-b border-[var(--color-border)] bg-[var(--color-muted)]/40 p-3 lg:border-b-0 lg:border-r">
-          <p className="px-2 pb-2 text-eyebrow">Hồ sơ ({profiles.length})</p>
+          <p className="px-2 pb-2 text-eyebrow">{t('UnitClassificationConfigSection.profiles')}{profiles.length})</p>
           <ul id="tour-unitclass-profiles" className="space-y-1">
             {profiles.map(p => {
               const active = p._key === selected?._key
               const assigned = p.orgUnitIds.map(id => unitNameById[id]).filter(Boolean) as string[]
               const scope = p.isDefault
-                ? 'Đơn vị chưa gán · mọi kỳ'
-                : `${assigned.length ? `${assigned.length} đơn vị` : 'Chưa gán đơn vị'} · ${p.kpiCycleIds.length ? `${p.kpiCycleIds.length} kỳ` : 'mọi kỳ'}`
+                ? t('UnitClassificationConfigSection.unassignedUnitsEveryCycle')
+                : `${assigned.length ? t('UnitClassificationConfigSection.units', { count: assigned.length }) : t('UnitClassificationConfigSection.noUnitAssigned')} · ${p.kpiCycleIds.length ? t('UnitClassificationConfigSection.cycles', { count: p.kpiCycleIds.length }) : t('UnitClassificationConfigSection.everyCycle')}`
               return (
                 <li key={p._key}>
                   <button
@@ -364,14 +370,14 @@ export default function UnitClassificationConfigSection({ org }: { org: Organiza
                     )}
                   >
                     <span className="flex w-full items-center gap-2">
-                      <span className="truncate text-sm font-medium text-[var(--color-foreground)]">{p.name || 'Hồ sơ'}</span>
-                      {p.isDefault && <Star size={12} className="ml-auto shrink-0 fill-current text-[var(--color-primary)]" aria-label="Mặc định" />}
+                      <span className="truncate text-sm font-medium text-[var(--color-foreground)]">{p.name || t('UnitClassificationConfigSection.profile')}</span>
+                      {p.isDefault && <Star size={12} className="ml-auto shrink-0 fill-current text-[var(--color-primary)]" aria-label={t('UnitClassificationConfigSection.default')} />}
                     </span>
                     <span className={cn('mt-0.5 text-caption', !p.isDefault && p.orgUnitIds.length === 0 && 'text-[var(--color-warning)]')}>
                       {scope}
                     </span>
                     <span className="mt-0.5 flex items-center gap-2 text-caption">
-                      <span>{p.rules.length} mức</span>
+                      <span>{p.rules.length} {t('UnitClassificationConfigSection.levels')}</span>
                       {p.bellCurve?.enabled && <span className="inline-flex items-center gap-1 text-[var(--color-primary)]"><Scale size={10} aria-hidden="true" /> bell curve</span>}
                     </span>
                   </button>
@@ -380,7 +386,7 @@ export default function UnitClassificationConfigSection({ org }: { org: Organiza
             })}
           </ul>
           <Button variant="outline" className="mt-2 w-full border-dashed" id="tour-unitclass-add" type="button" onClick={addProfile}>
-            <Plus aria-hidden="true" /> Thêm hồ sơ cho đơn vị
+            <Plus aria-hidden="true" /> {t('UnitClassificationConfigSection.addAProfileForAUnit')}
           </Button>
           <ProfileCoverage profiles={profiles} tree={tree ?? []} cycleNameById={cycleNameById} />
         </div>
@@ -455,6 +461,7 @@ function ProfileEditor({
   onApplyPreset: () => void
   onRemove: () => void
 }) {
+  const { t } = useTranslation('orgunits')
   // Giữ riêng ý định "chỉ một số kỳ" — nếu suy từ độ dài mảng thì vừa bấm sang chế độ đó
   // (chưa kịp chọn kỳ nào) là giao diện lập tức nhảy ngược về "Mọi kỳ".
   const [cycleScope, setCycleScope] = useState<'all' | 'some'>(p.kpiCycleIds.length ? 'some' : 'all')
@@ -467,22 +474,22 @@ function ProfileEditor({
         <input
           value={p.name}
           onChange={e => onPatch({ name: e.target.value })}
-          placeholder="Tên hồ sơ"
-          aria-label="Tên hồ sơ xếp loại"
+          placeholder={t('UnitClassificationConfigSection.profileName')}
+          aria-label={t('UnitClassificationConfigSection.ratingProfileName')}
           className="h-9 min-w-[160px] flex-1 rounded-control border border-[var(--color-input)] bg-[var(--color-card)] px-3 text-sm font-medium text-[var(--color-foreground)] outline-none focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-ring)] sm:max-w-sm"
         />
         {p.isDefault ? (
-          <Badge className="gap-1 shrink-0"><Star size={11} className="fill-current" aria-hidden="true" /> Hồ sơ mặc định</Badge>
+          <Badge className="gap-1 shrink-0"><Star size={11} className="fill-current" aria-hidden="true" /> {t('UnitClassificationConfigSection.defaultProfile')}</Badge>
         ) : (
           <Button variant="outline" size="sm" type="button" onClick={onSetDefault}>
-            <Star aria-hidden="true" /> Đặt làm mặc định
+            <Star aria-hidden="true" /> {t('UnitClassificationConfigSection.makeDefault')}
           </Button>
         )}
-        <Button variant="outline" size="sm" type="button" onClick={onApplyPreset} title="Thay toàn bộ luật bằng mẫu gợi ý của thang hiện tại">
-          <Wand2 aria-hidden="true" /> Nạp mẫu
+        <Button variant="outline" size="sm" type="button" onClick={onApplyPreset} title={t('UnitClassificationConfigSection.replaceAllRulesWithTheSuggested')}>
+          <Wand2 aria-hidden="true" /> {t('UnitClassificationConfigSection.loadTemplate')}
         </Button>
         {canDelete && (
-          <Button variant="ghost" size="icon-sm" type="button" className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]" onClick={() => setConfirmRemove(true)} aria-label="Xoá hồ sơ này" title="Xoá hồ sơ">
+          <Button variant="ghost" size="icon-sm" type="button" className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]" onClick={() => setConfirmRemove(true)} aria-label={t('UnitClassificationConfigSection.deleteThisProfile')} title={t('UnitClassificationConfigSection.deleteProfile')}>
             <Trash2 aria-hidden="true" />
           </Button>
         )}
@@ -491,36 +498,36 @@ function ProfileEditor({
         open={confirmRemove}
         onClose={() => setConfirmRemove(false)}
         onConfirm={() => { setConfirmRemove(false); onRemove() }}
-        title={`Xoá hồ sơ "${p.name || 'Hồ sơ'}"?`}
-        description="Đơn vị đang gán hồ sơ này sẽ dùng hồ sơ mặc định. Thay đổi chỉ có hiệu lực sau khi bấm Lưu."
-        confirmLabel="Xoá hồ sơ"
+        title={t('UnitClassificationConfigSection.deleteProfile2', { value: p.name || t('UnitClassificationConfigSection.profile3') })}
+        description={t('UnitClassificationConfigSection.unitsAssignedToThisProfileWill')}
+        confirmLabel={t('UnitClassificationConfigSection.deleteProfile')}
       />
 
       {/* ── Áp dụng cho ────────────────────────────────────────────── */}
       <Block
-        title="Áp dụng cho"
+        title={t('UnitClassificationConfigSection.appliesTo')}
         description={p.isDefault
-          ? 'Hồ sơ mặc định áp cho mọi đơn vị chưa gán hồ sơ khác, trong mọi kỳ.'
-          : 'Chọn đơn vị (đơn vị con kế thừa). Gắn kỳ nếu chỉ muốn luật này hiệu lực trong một số kỳ.'}
+          ? t('UnitClassificationConfigSection.theDefaultProfileAppliesToEvery')
+          : t('UnitClassificationConfigSection.chooseUnitsChildUnitsInheritAttach')}
         action={p.isDefault ? (
           <Button variant="outline" size="sm" type="button" onClick={onAddUnitProfile}>
-            <Plus aria-hidden="true" /> Tạo hồ sơ riêng cho một đơn vị
+            <Plus aria-hidden="true" /> {t('UnitClassificationConfigSection.createASeparateProfileForA')}
           </Button>
         ) : undefined}
       >
         {p.isDefault && (
           <p className="text-caption">
-            Phòng ban nào cần luật hoặc bell curve khác thì tạo hồ sơ riêng và gán đơn vị đó; các đơn vị còn lại vẫn theo hồ sơ này.
+            {t('UnitClassificationConfigSection.forDepartmentsThatNeedDifferentRules')}
           </p>
         )}
         {!p.isDefault && (
           <div className="space-y-2.5">
             <div className="flex flex-wrap items-center gap-1.5">
-              <span className="mr-1 inline-flex items-center gap-1 text-label"><Building2 size={14} aria-hidden="true" /> Đơn vị</span>
+              <span className="mr-1 inline-flex items-center gap-1 text-label"><Building2 size={14} aria-hidden="true" /> {t('UnitClassificationConfigSection.unit')}</span>
               {p.orgUnitIds.map(id => (
                 <Badge key={id} variant="secondary" className="gap-1 pr-1 max-w-[220px]">
-                  <span className="truncate">{unitNameById[id] ?? 'Đơn vị'}</span>
-                  <button type="button" className="rounded-sm p-0.5 text-[var(--color-muted-foreground)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]" onClick={() => onPatch({ orgUnitIds: p.orgUnitIds.filter(x => x !== id) })} aria-label={`Bỏ gán đơn vị ${unitNameById[id] ?? ''}`}>
+                  <span className="truncate">{unitNameById[id] ?? t('UnitClassificationConfigSection.unit')}</span>
+                  <button type="button" className="rounded-sm p-0.5 text-[var(--color-muted-foreground)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]" onClick={() => onPatch({ orgUnitIds: p.orgUnitIds.filter(x => x !== id) })} aria-label={t('UnitClassificationConfigSection.unassignUnit', { value: unitNameById[id] ?? '' })}>
                     <X size={12} aria-hidden="true" />
                   </button>
                 </Badge>
@@ -536,14 +543,14 @@ function ProfileEditor({
                 })}
               />
               {p.orgUnitIds.length === 0 && (
-                <span className="text-xs font-medium text-[var(--color-warning)]">Chưa gán đơn vị nào — hồ sơ này chưa có tác dụng.</span>
+                <span className="text-xs font-medium text-[var(--color-warning)]">{t('UnitClassificationConfigSection.noUnitAssignedThisProfileHas')}</span>
               )}
             </div>
 
             <div className="flex flex-wrap items-center gap-1.5">
-              <span className="mr-1 inline-flex items-center gap-1 text-label"><CalendarRange size={14} aria-hidden="true" /> Kỳ</span>
-              <div className="inline-flex gap-0.5 rounded-control bg-[var(--color-muted)] p-0.5" role="group" aria-label="Phạm vi kỳ">
-                {([['all', 'Mọi kỳ'], ['some', 'Một số kỳ']] as const).map(([mode, label]) => (
+              <span className="mr-1 inline-flex items-center gap-1 text-label"><CalendarRange size={14} aria-hidden="true" /> {t('UnitClassificationConfigSection.aCycle')}</span>
+              <div className="inline-flex gap-0.5 rounded-control bg-[var(--color-muted)] p-0.5" role="group" aria-label={t('UnitClassificationConfigSection.cycleScope')}>
+                {([['all', t('UnitClassificationConfigSection.everyCycle2')], ['some', t('UnitClassificationConfigSection.someCycles')]] as const).map(([mode, label]) => (
                   <ChoiceChip key={mode} variant="segment" size="sm" selected={cycleScope === mode} onClick={() => { setCycleScope(mode); if (mode === 'all') onPatch({ kpiCycleIds: [] }) }}>
                     {label}
                   </ChoiceChip>
@@ -553,8 +560,8 @@ function ProfileEditor({
                 <>
                   {p.kpiCycleIds.map(id => (
                     <Badge key={id} variant="secondary" className="gap-1 pr-1 max-w-[220px]">
-                      <span className="truncate">{cycleNameById[id] ?? 'Kỳ'}</span>
-                      <button type="button" className="rounded-sm p-0.5 text-[var(--color-muted-foreground)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]" onClick={() => onPatch({ kpiCycleIds: p.kpiCycleIds.filter(x => x !== id) })} aria-label={`Bỏ gán kỳ ${cycleNameById[id] ?? ''}`}>
+                      <span className="truncate">{cycleNameById[id] ?? t('UnitClassificationConfigSection.aCycle')}</span>
+                      <button type="button" className="rounded-sm p-0.5 text-[var(--color-muted-foreground)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]" onClick={() => onPatch({ kpiCycleIds: p.kpiCycleIds.filter(x => x !== id) })} aria-label={t('UnitClassificationConfigSection.unassignCycle', { value: cycleNameById[id] ?? '' })}>
                         <X size={12} aria-hidden="true" />
                       </button>
                     </Badge>
@@ -567,7 +574,7 @@ function ProfileEditor({
                     })}
                   />
                   {p.kpiCycleIds.length === 0 && (
-                    <span className="text-xs font-medium text-[var(--color-warning)]">Chưa chọn kỳ — lưu bây giờ thì vẫn hiểu là mọi kỳ.</span>
+                    <span className="text-xs font-medium text-[var(--color-warning)]">{t('UnitClassificationConfigSection.noCycleChosenSavingNowStill')}</span>
                   )}
                 </>
               )}
@@ -578,30 +585,30 @@ function ProfileEditor({
 
       {/* ── Luật xếp loại + thử nhanh ───────────────────────────────── */}
       <Block
-        title="Luật xếp loại"
-        description="Xét từ trên xuống, đơn vị nhận mức đầu tiên thoả tất cả điều kiện. Mức cuối không cần điều kiện."
+        title={t('UnitClassificationConfigSection.ratingRules')}
+        description={t('UnitClassificationConfigSection.checkedFromTopToBottomThe')}
       >
         <RuleLadder rules={p.rules} levels={levels} levelNames={levelNames} onChange={rules => onPatch({ rules })} />
       </Block>
 
       {/* ── Bell curve ─────────────────────────────────────────────── */}
       <Block
-        title="Khung bell curve"
-        description="Giới hạn tỷ lệ % nhân sự mà đơn vị được chấm ở mỗi mức. Khác luật xếp loại ở trên: luật xếp loại ĐƠN VỊ, khung này giới hạn cách chấm NHÂN SỰ."
+        title={i18n.t('orgunits:UnitClassificationConfigSection.bellCurveTitle')}
+        description={t('UnitClassificationConfigSection.limitsTheOfPeopleTheUnit')}
         action={
           <label className="flex items-center gap-2 text-sm text-[var(--color-foreground)]">
             <Switch
               checked={!!p.bellCurve?.enabled}
               onCheckedChange={(on: boolean) => onPatch({ bellCurve: on ? { ...(p.bellCurve ?? defaultBellCurve(levelNames)), enabled: true } : p.bellCurve ? { ...p.bellCurve, enabled: false } : undefined })}
-              aria-label="Bật khung bell curve"
+              aria-label={t('UnitClassificationConfigSection.turnOnTheBellCurveQuota')}
             />
-            {p.bellCurve?.enabled ? 'Đang bật' : 'Đang tắt'}
+            {p.bellCurve?.enabled ? t('UnitClassificationConfigSection.on') : t('UnitClassificationConfigSection.off')}
           </label>
         }
       >
         {p.bellCurve?.enabled
           ? <BellCurveEditor value={p.bellCurve} levels={levels} onChange={bellCurve => onPatch({ bellCurve })} />
-          : <p className="text-caption">Bật để đặt hạn mức cho từng mức. Tắt thì đơn vị chấm bao nhiêu người ở mức nào cũng được.</p>}
+          : <p className="text-caption">{t('UnitClassificationConfigSection.turnOnToSetAQuota')}</p>}
       </Block>
     </div>
   )
@@ -641,6 +648,7 @@ function RuleLadder({
   levelNames: string[]
   onChange: (rules: UnitClassRule[]) => void
 }) {
+  const { t: tr } = useTranslation('orgunits')
   const colorOf = (name: string) => levels.find(l => l.name === name)?.color ?? '#64748b'
 
   // Thử nhanh: gõ số người mỗi mức, thấy ngay đơn vị rơi vào mức nào — luật viết bằng % cộng
@@ -672,7 +680,7 @@ function RuleLadder({
   }
   const addRule = () => {
     const used = new Set(rules.map(r => r.levelName))
-    const pick = levelNames.find(n => !used.has(n)) ?? levelNames[0] ?? 'Mức mới'
+    const pick = levelNames.find(n => !used.has(n)) ?? levelNames[0] ?? tr('UnitClassificationConfigSection.newLevel')
     onChange([...rules, { levelName: pick, color: colorOf(pick), conditions: [] }])
   }
   const removeRule = (i: number) => onChange(rules.filter((_, idx) => idx !== i))
@@ -693,24 +701,24 @@ function RuleLadder({
               )}
             >
               <div className="flex flex-wrap items-center gap-2">
-                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--color-muted)] text-xs font-semibold tabular-nums text-[var(--color-muted-foreground)]" aria-label={`Ưu tiên ${ri + 1}`}>{ri + 1}</span>
-                <span className="text-sm text-[var(--color-muted-foreground)]">Đơn vị được xếp</span>
+                <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[var(--color-muted)] text-xs font-semibold tabular-nums text-[var(--color-muted-foreground)]" aria-label={tr('UnitClassificationConfigSection.priority', { value: ri + 1 })}>{ri + 1}</span>
+                <span className="text-sm text-[var(--color-muted-foreground)]">{tr('UnitClassificationConfigSection.theUnitIsRated')}</span>
                 <Select value={r.levelName} onValueChange={v => patchRule(ri, { levelName: v, color: colorOf(v) })}>
-                  <SelectTrigger className="h-8 w-auto min-w-[8rem] rounded-control border-none bg-[var(--color-muted)] px-2 text-sm font-semibold" style={{ color: r.color }} aria-label="Mức xếp loại">
+                  <SelectTrigger className="h-8 w-auto min-w-[8rem] rounded-control border-none bg-[var(--color-muted)] px-2 text-sm font-semibold" style={{ color: r.color }} aria-label={tr('UnitClassificationConfigSection.ratingLevel')}>
                     <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: r.color }} aria-hidden="true" />
-                    <SelectValue placeholder="Chọn mức" />
+                    <SelectValue placeholder={tr('UnitClassificationConfigSection.chooseLevel')} />
                   </SelectTrigger>
                   <SelectContent>
                     {levels.map(l => <SelectItem key={l.name} value={l.name}>{l.name}</SelectItem>)}
                     {!levelNames.includes(r.levelName) && r.levelName && <SelectItem value={r.levelName}>{r.levelName}</SelectItem>}
                   </SelectContent>
                 </Select>
-                <span className="text-sm text-[var(--color-muted-foreground)]">{r.conditions.length ? 'khi' : '— luôn đúng (mức rơi về)'}</span>
-                {hit && <Badge className="ml-1">Khớp với ví dụ</Badge>}
+                <span className="text-sm text-[var(--color-muted-foreground)]">{r.conditions.length ? 'khi' : tr('UnitClassificationConfigSection.alwaysTrueFallbackLevel')}</span>
+                {hit && <Badge className="ml-1">{tr('UnitClassificationConfigSection.matchesTheExample')}</Badge>}
                 <div className="ml-auto flex items-center gap-0.5">
-                  <Button variant="ghost" size="icon-sm" type="button" onClick={() => moveRule(ri, -1)} disabled={ri === 0} aria-label={`Đưa mức ${r.levelName} lên trên`} title="Lên"><ArrowUp aria-hidden="true" /></Button>
-                  <Button variant="ghost" size="icon-sm" type="button" onClick={() => moveRule(ri, 1)} disabled={ri === rules.length - 1} aria-label={`Đưa mức ${r.levelName} xuống dưới`} title="Xuống"><ArrowDown aria-hidden="true" /></Button>
-                  <Button variant="ghost" size="icon-sm" type="button" className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]" onClick={() => removeRule(ri)} aria-label={`Xoá mức ${r.levelName}`} title="Xoá mức"><Trash2 aria-hidden="true" /></Button>
+                  <Button variant="ghost" size="icon-sm" type="button" onClick={() => moveRule(ri, -1)} disabled={ri === 0} aria-label={tr('UnitClassificationConfigSection.moveLevelUp', { levelName: r.levelName })} title={tr('UnitClassificationConfigSection.up')}><ArrowUp aria-hidden="true" /></Button>
+                  <Button variant="ghost" size="icon-sm" type="button" onClick={() => moveRule(ri, 1)} disabled={ri === rules.length - 1} aria-label={tr('UnitClassificationConfigSection.moveLevelDown', { levelName: r.levelName })} title={tr('UnitClassificationConfigSection.down')}><ArrowDown aria-hidden="true" /></Button>
+                  <Button variant="ghost" size="icon-sm" type="button" className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]" onClick={() => removeRule(ri)} aria-label={tr('UnitClassificationConfigSection.deleteLevel', { levelName: r.levelName })} title={tr('UnitClassificationConfigSection.deleteLevel2')}><Trash2 aria-hidden="true" /></Button>
                 </div>
               </div>
 
@@ -718,63 +726,63 @@ function RuleLadder({
                 <ul className="mt-2 space-y-1.5 pl-8">
                   {r.conditions.map((c, ci) => (
                     <li key={ci} className="flex flex-wrap items-center gap-1.5 text-sm text-[var(--color-muted-foreground)]">
-                      <span className="w-6 text-xs">{ci === 0 ? '' : 'và'}</span>
+                      <span className="w-6 text-xs">{ci === 0 ? '' : tr('UnitClassificationConfigSection.and')}</span>
                       <Select value={c.op} onValueChange={v => patchCond(ri, ci, { op: v as UnitClassOp })}>
-                        <SelectTrigger className={miniSelect} aria-label="Phép so sánh"><SelectValue /></SelectTrigger>
+                        <SelectTrigger className={miniSelect} aria-label={tr('UnitClassificationConfigSection.comparison')}><SelectValue /></SelectTrigger>
                         <SelectContent>{OP_OPTS.map(o => <SelectItem key={o.v} value={o.v}>{o.label}</SelectItem>)}</SelectContent>
                       </Select>
                       <span className="inline-flex items-center gap-1">
-                        <input
+                        <LocaleNumberInput
                           type="number" min={0} max={100} value={c.percent}
                           onChange={e => patchCond(ri, ci, { percent: Number(e.target.value) })}
-                          aria-label="Tỷ lệ phần trăm"
+                          aria-label={tr('UnitClassificationConfigSection.percentage')}
                           className="h-8 w-14 rounded-control border-none bg-[var(--color-muted)] px-2 text-xs font-medium tabular-nums text-[var(--color-foreground)] outline-none focus:ring-2 focus:ring-[var(--color-ring)]"
                         />
                         <span>%</span>
                       </span>
-                      <span>nhân sự đạt</span>
+                      <span>{tr('UnitClassificationConfigSection.peopleReaching')}</span>
                       <Select value={c.level} onValueChange={v => patchCond(ri, ci, { level: v })}>
-                        <SelectTrigger className={miniSelect} aria-label="Mức của nhân sự"><SelectValue /></SelectTrigger>
+                        <SelectTrigger className={miniSelect} aria-label={tr('UnitClassificationConfigSection.peoplesLevel')}><SelectValue /></SelectTrigger>
                         <SelectContent>
                           {levelNames.map(l => <SelectItem key={l} value={l}>{l}</SelectItem>)}
                           {!levelNames.includes(c.level) && c.level && <SelectItem value={c.level}>{c.level}</SelectItem>}
                         </SelectContent>
                       </Select>
                       <Select value={c.scope} onValueChange={v => patchCond(ri, ci, { scope: v as UnitClassScope })}>
-                        <SelectTrigger className={miniSelect} aria-label="Phạm vi mức"><SelectValue /></SelectTrigger>
-                        <SelectContent>{SCOPE_OPTS.map(o => <SelectItem key={o.v} value={o.v}>{o.label}</SelectItem>)}</SelectContent>
+                        <SelectTrigger className={miniSelect} aria-label={tr('UnitClassificationConfigSection.levelRange')}><SelectValue /></SelectTrigger>
+                        <SelectContent>{SCOPE_OPTS().map(o => <SelectItem key={o.v} value={o.v}>{o.label}</SelectItem>)}</SelectContent>
                       </Select>
-                      <Button variant="ghost" size="icon-sm" type="button" className="text-[var(--color-muted-foreground)] hover:text-[var(--color-error)]" onClick={() => removeCond(ri, ci)} aria-label={`Xoá điều kiện ${ci + 1} của mức ${r.levelName}`} title="Xoá điều kiện"><X aria-hidden="true" /></Button>
+                      <Button variant="ghost" size="icon-sm" type="button" className="text-[var(--color-muted-foreground)] hover:text-[var(--color-error)]" onClick={() => removeCond(ri, ci)} aria-label={tr('UnitClassificationConfigSection.deleteConditionOfLevel', { value: ci + 1, levelName: r.levelName })} title={tr('UnitClassificationConfigSection.deleteCondition')}><X aria-hidden="true" /></Button>
                     </li>
                   ))}
                 </ul>
               )}
               <Button variant="ghost" size="sm" type="button" className="mt-1.5 ml-6 text-[var(--color-primary)]" onClick={() => addCond(ri)}>
-                <Plus aria-hidden="true" /> {r.conditions.length ? 'Thêm điều kiện' : 'Thêm điều kiện cho mức này'}
+                <Plus aria-hidden="true" /> {r.conditions.length ? tr('UnitClassificationConfigSection.addCondition') : tr('UnitClassificationConfigSection.addAConditionForThisLevel')}
               </Button>
             </li>
           )
         })}
         <li>
           <Button variant="outline" size="sm" className="w-full border-dashed" type="button" onClick={addRule}>
-            <Plus aria-hidden="true" /> Thêm mức xếp loại
+            <Plus aria-hidden="true" /> {tr('UnitClassificationConfigSection.addRatingLevel')}
           </Button>
         </li>
       </ol>
 
       {/* Thử nhanh */}
       <aside className="h-fit rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] p-3 xl:sticky xl:top-4">
-        <p className="text-label">Thử nhanh</p>
-        <p className="mt-0.5 text-caption">Gõ số người ở mỗi mức của một đơn vị giả định, luật khớp sẽ được đánh dấu.</p>
+        <p className="text-label">{tr('UnitClassificationConfigSection.quickTest')}</p>
+        <p className="mt-0.5 text-caption">{tr('UnitClassificationConfigSection.enterTheNumberOfPeopleAt')}</p>
         <div className="mt-3 space-y-1.5">
           {levels.map(l => (
             <label key={l.name} className="flex items-center gap-2">
               <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ background: l.color }} aria-hidden="true" />
               <span className="min-w-0 flex-1 truncate text-sm text-[var(--color-foreground)]">{l.name}</span>
-              <input
+              <LocaleNumberInput
                 type="number" min={0} max={9999} value={counts[l.name] ?? 0}
                 onChange={e => setCounts(prev => ({ ...prev, [l.name]: Math.max(0, Number(e.target.value) || 0) }))}
-                aria-label={`Số người ở mức ${l.name}`}
+                aria-label={tr('UnitClassificationConfigSection.peopleAtLevel', { name: l.name })}
                 className="h-8 w-16 rounded-control border border-[var(--color-input)] bg-[var(--color-card)] px-2 text-right text-sm tabular-nums text-[var(--color-foreground)] outline-none focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-ring)]"
               />
               <span className="w-10 text-right text-caption tabular-nums">{total ? Math.round(((counts[l.name] ?? 0) * 100) / total) : 0}%</span>
@@ -782,7 +790,7 @@ function RuleLadder({
           ))}
         </div>
         <div className="mt-3 flex items-center justify-between border-t border-[var(--color-border)] pt-3">
-          <span className="text-caption">{total} người</span>
+          <span className="text-caption">{total} {tr('UnitClassificationConfigSection.people')}</span>
           {result && (
             <span className="inline-flex items-center gap-1.5 rounded-control bg-[var(--color-card)] px-2.5 py-1 text-sm font-semibold" style={{ color: colorOf(result.level) }}>
               <span className="h-2.5 w-2.5 rounded-full" style={{ background: colorOf(result.level) }} aria-hidden="true" />
@@ -791,7 +799,7 @@ function RuleLadder({
           )}
         </div>
         {result && result.index === -1 && (
-          <p className="mt-2 text-caption">Không luật nào khớp → về mức thấp nhất của thang.</p>
+          <p className="mt-2 text-caption">{tr('UnitClassificationConfigSection.noRuleMatchesFallsToThe')}</p>
         )}
       </aside>
     </div>
@@ -806,6 +814,7 @@ function CyclePickerPopover({
   selected: string[]
   onToggle: (id: string) => void
 }) {
+  const { t } = useTranslation('orgunits')
   const [open, setOpen] = useState(false)
   const [query, setQuery] = useState('')
   const shown = useMemo(() => {
@@ -817,7 +826,7 @@ function CyclePickerPopover({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <button className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border border-dashed border-[var(--color-border-strong)] text-[var(--color-muted-foreground)] hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]">
-          <Plus size={13} /> Chọn kỳ
+          <Plus size={13} /> {t('UnitClassificationConfigSection.chooseCycle')}
         </button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-[280px] p-0">
@@ -827,7 +836,7 @@ function CyclePickerPopover({
             <input
               value={query}
               onChange={e => setQuery(e.target.value)}
-              placeholder="Tìm kỳ…"
+              placeholder={t('UnitClassificationConfigSection.searchCycles')}
               className="w-full h-8 pl-8 pr-2 rounded-control bg-[var(--color-muted)] text-xs border-none outline-none focus:ring-2 focus:ring-[var(--color-ring)]"
             />
           </div>
@@ -838,10 +847,10 @@ function CyclePickerPopover({
               <Checkbox checked={selected.includes(c.id)} onCheckedChange={() => onToggle(c.id)} />
               <span className="truncate text-[13px] font-medium text-[var(--color-foreground)]">{c.name}</span>
             </label>
-          )) : <p className="text-xs italic text-[var(--color-subtle-foreground)] p-2">Không tìm thấy kỳ.</p>}
+          )) : <p className="text-xs italic text-[var(--color-subtle-foreground)] p-2">{t('UnitClassificationConfigSection.noCycleFound')}</p>}
         </div>
         <div className="px-3 py-2 border-t border-[var(--color-border)] text-caption">
-          Không chọn kỳ nào = áp cho mọi kỳ.
+          {t('UnitClassificationConfigSection.noCycleChosenAppliesToEvery')}
         </div>
       </PopoverContent>
     </Popover>
@@ -859,6 +868,7 @@ function UnitPickerPopover({
   defaultOpen?: boolean
   onOpened?: () => void
 }) {
+  const { t } = useTranslation('orgunits')
   // Mở sẵn theo cờ từ cha (hồ sơ vừa tạo, component mount mới nên chỉ cần trạng thái khởi tạo);
   // báo lại cho cha để cờ không dính sang lần render sau.
   const [open, setOpen] = useState(!!defaultOpen)
@@ -884,13 +894,13 @@ function UnitPickerPopover({
     return (
       <div key={n.id}>
         <div className="flex items-center rounded-control pr-1.5 hover:bg-[var(--color-muted)]" style={{ paddingLeft: depth * 14 }}>
-          <Button variant="ghost" size="icon-sm" className="shrink-0" onClick={() => { if (hasKids) toggleNode(n.id) }} aria-label={hasKids ? 'Mở/thu nhánh' : undefined}>
+          <Button variant="ghost" size="icon-sm" className="shrink-0" onClick={() => { if (hasKids) toggleNode(n.id) }} aria-label={hasKids ? t('UnitClassificationConfigSection.expandCollapseBranch') : undefined}>
             {hasKids ? (openNode ? <ChevronDown aria-hidden="true" /> : <ChevronRight aria-hidden="true" />) : <span className="inline-block w-[14px]" />}
           </Button>
           <label className={cn('flex-1 min-w-0 flex items-center gap-2 py-1.5', disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer')}>
             <Checkbox checked={checked} disabled={disabled} onCheckedChange={() => onToggle(n.id)} />
             <span className="truncate text-[13px] font-medium text-[var(--color-foreground)]">{n.name}</span>
-            {owner && !checked && <span className="ml-auto shrink-0 text-xs font-medium text-[var(--color-warning)]">đã gán: {owner}</span>}
+            {owner && !checked && <span className="ml-auto shrink-0 text-xs font-medium text-[var(--color-warning)]">{t('UnitClassificationConfigSection.assigned')} {owner}</span>}
           </label>
         </div>
         {hasKids && openNode && <div>{n.children.map(c => renderNode(c, depth + 1))}</div>}
@@ -902,7 +912,7 @@ function UnitPickerPopover({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
         <button className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-medium border border-dashed border-[var(--color-border-strong)] text-[var(--color-muted-foreground)] hover:border-[var(--color-primary)] hover:text-[var(--color-primary)]">
-          <Plus size={13} /> Chọn đơn vị
+          <Plus size={13} /> {t('UnitClassificationConfigSection.chooseUnit')}
         </button>
       </PopoverTrigger>
       <PopoverContent align="start" className="w-[300px] p-0">
@@ -912,16 +922,16 @@ function UnitPickerPopover({
             <input
               value={query}
               onChange={e => setQuery(e.target.value)}
-              placeholder="Tìm đơn vị…"
+              placeholder={t('UnitClassificationConfigSection.searchUnits')}
               className="w-full h-8 pl-8 pr-2 rounded-control bg-[var(--color-muted)] text-xs border-none outline-none focus:ring-2 focus:ring-[var(--color-ring)]"
             />
           </div>
         </div>
         <div className="max-h-64 overflow-auto p-1.5">
-          {shown.length ? shown.map(n => renderNode(n, 0)) : <p className="text-xs italic text-[var(--color-subtle-foreground)] p-2">Không tìm thấy đơn vị.</p>}
+          {shown.length ? shown.map(n => renderNode(n, 0)) : <p className="text-xs italic text-[var(--color-subtle-foreground)] p-2">{t('UnitClassificationConfigSection.noUnitFound')}</p>}
         </div>
         <div className="px-3 py-2 border-t border-[var(--color-border)] text-caption">
-          Chọn đơn vị cha sẽ áp cho cả đơn vị con.
+          {t('UnitClassificationConfigSection.choosingAParentUnitAlsoApplies')}
         </div>
       </PopoverContent>
     </Popover>
@@ -940,6 +950,7 @@ function ProfileCoverage({ profiles, tree, cycleNameById }: {
   tree: OrgUnitTreeResponse[]
   cycleNameById: Record<string, string>
 }) {
+  const { t } = useTranslation('orgunits')
   const [open, setOpen] = useState(false)
   const rows = useMemo(() => {
     const out: { id: string; name: string; depth: number; profile: EditProfile | undefined; inherited: boolean }[] = []
@@ -962,7 +973,7 @@ function ProfileCoverage({ profiles, tree, cycleNameById }: {
     <div className="mt-3 border-t border-[var(--color-border)] pt-3">
       <button type="button" onClick={() => setOpen(o => !o)} aria-expanded={open} className="flex w-full items-center gap-1.5 px-2 text-left text-caption hover:text-[var(--color-foreground)]">
         {open ? <ChevronDown size={14} aria-hidden="true" /> : <ChevronRight size={14} aria-hidden="true" />}
-        Đơn vị nào đang dùng hồ sơ nào
+        {t('UnitClassificationConfigSection.whichUnitUsesWhichProfile')}
       </button>
       {open && (
         <div className="custom-scrollbar mt-2 max-h-72 overflow-y-auto rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
@@ -970,7 +981,7 @@ function ProfileCoverage({ profiles, tree, cycleNameById }: {
             {rows.map(r => (
               <li key={r.id} className="flex items-center gap-2 px-2.5 py-1.5 text-xs" style={{ paddingLeft: 10 + r.depth * 12 }}>
                 <span className="min-w-0 flex-1 truncate text-[var(--color-foreground)]">{r.name}</span>
-                <span className={cn('shrink-0 truncate max-w-[9rem]', r.profile?.isDefault ? 'text-[var(--color-muted-foreground)]' : 'font-medium text-[var(--color-primary)]')} title={r.inherited ? 'Kế thừa từ đơn vị cha' : undefined}>
+                <span className={cn('shrink-0 truncate max-w-[9rem]', r.profile?.isDefault ? 'text-[var(--color-muted-foreground)]' : 'font-medium text-[var(--color-primary)]')} title={r.inherited ? t('UnitClassificationConfigSection.inheritedFromTheParentUnit') : undefined}>
                   {r.profile?.name ?? '—'}{r.inherited ? ' ↑' : ''}
                 </span>
               </li>
@@ -978,7 +989,7 @@ function ProfileCoverage({ profiles, tree, cycleNameById }: {
           </ul>
           {cycleScoped.length > 0 && (
             <p className="border-t border-[var(--color-border)] px-2.5 py-1.5 text-caption">
-              Riêng theo kỳ: {cycleScoped.map(p => `${p.name} (${p.kpiCycleIds.map(id => cycleNameById[id] ?? 'kỳ').join(', ')})`).join(' · ')}
+              {t('UnitClassificationConfigSection.perCycle')} {cycleScoped.map(p => `${p.name} (${p.kpiCycleIds.map(id => cycleNameById[id] ?? t('UnitClassificationConfigSection.cycle')).join(', ')})`).join(' · ')}
             </p>
           )}
         </div>

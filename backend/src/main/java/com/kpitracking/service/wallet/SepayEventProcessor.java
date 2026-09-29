@@ -169,9 +169,9 @@ public class SepayEventProcessor {
                 .sourceType(CashSourceType.SEPAY)
                 .sourceRefId(order.getId())
                 .idempotencyKey(CashWalletService.key("topup", order.getId()))
-                .note("Nạp tiền qua SePay, mã " + order.getCode()
-                        + (mismatch ? " (lệch so với số đề nghị "
-                            + CashWalletService.formatVnd(order.getAmount()) + ")" : ""))
+                .note(mismatch
+                        ? cashWalletService.noteFor(order.getUser().getId(), "ledger.sepayTopupMismatch", order.getCode(), order.getAmount())
+                        : cashWalletService.noteFor(order.getUser().getId(), "ledger.sepayTopup", order.getCode()))
                 .build());
 
         order.setStatus(TopupOrderStatus.PAID);

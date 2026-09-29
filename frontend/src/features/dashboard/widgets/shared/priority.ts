@@ -1,4 +1,6 @@
 import { Activity, Eye, Flame, type LucideIcon } from 'lucide-react'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
 /**
  * Ba mức ưu tiên dùng chung cho hai widget "việc cần xử lý": việc của chính mình
@@ -15,7 +17,7 @@ export type Priority = 'URGENT' | 'REVIEW' | 'MONITOR'
 
 export const PRIORITY_ORDER: Record<Priority, number> = { URGENT: 0, REVIEW: 1, MONITOR: 2 }
 
-export const PRIORITY_META: Record<Priority, {
+export const PRIORITY_META = perLanguage((): Record<Priority, {
   label: string
   hint: string
   icon: LucideIcon
@@ -25,26 +27,26 @@ export const PRIORITY_META: Record<Priority, {
   chip: string
   /** Vạch màu bên trái dòng + thanh tiến độ. */
   bar: string
-}> = {
+}> => ({
   URGENT: {
-    label: 'Cần gấp', hint: 'Xử lý ngay trong hôm nay', icon: Flame,
+    label: i18n.t('dashboard:priority.urgent'), hint: i18n.t('dashboard:priority.handleToday'), icon: Flame,
     dot: 'bg-red-500',
     chip: 'bg-red-50 text-red-600 border-red-200 dark:bg-red-500/10 dark:text-red-400 dark:border-red-500/30',
     bar: 'bg-red-500',
   },
   REVIEW: {
-    label: 'Cần xem xét', hint: 'Nên xử lý trong tuần', icon: Eye,
+    label: i18n.t('dashboard:priority.needsReview'), hint: i18n.t('dashboard:priority.handleThisWeek'), icon: Eye,
     dot: 'bg-amber-500',
     chip: 'bg-amber-50 text-amber-600 border-amber-200 dark:bg-amber-500/10 dark:text-amber-400 dark:border-amber-500/30',
     bar: 'bg-amber-500',
   },
   MONITOR: {
-    label: 'Theo dõi', hint: 'Chưa nghiêm trọng, cần quan sát', icon: Activity,
+    label: i18n.t('dashboard:priority.watch'), hint: i18n.t('dashboard:priority.notSeriousYetKeepAnEye'), icon: Activity,
     dot: 'bg-sky-500',
     chip: 'bg-sky-50 text-sky-600 border-sky-200 dark:bg-sky-500/10 dark:text-sky-400 dark:border-sky-500/30',
     bar: 'bg-sky-500',
   },
-}
+}))
 
 export type PriorityFilter = 'ALL' | Priority
 

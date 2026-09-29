@@ -10,6 +10,8 @@ import { orgUnitKpiApi, type MemberRiskRow } from '../../api/orgUnitKpiApi'
 import { PRIORITY_META, PRIORITY_ORDER, countByPriority, type Priority, type PriorityFilter } from './priority'
 import { PriorityChip, PriorityTabs, ShowMoreButton } from './PriorityParts'
 import { Button } from '@/components/ui/button'
+import { useTranslation } from 'react-i18next'
+import i18n from 'i18next'
 
 const PAGE_SIZE = 5
 const ALL_UNITS = '__ALL__'
@@ -40,13 +42,13 @@ function classify(r: MemberRiskRow): FocusRow | null {
 
   const build = (priority: Priority, reason: string): FocusRow => ({ ...r, priority, reason })
 
-  if (p <= 0 && !late) return build('URGENT', 'Chưa ghi nhận kết quả nào trong đợt/kỳ đang chọn.')
-  if (mostlyLate) return build('URGENT', 'Phần lớn chỉ tiêu đều nộp sau hạn của đợt.')
-  if (late && p < 50) return build('URGENT', 'Vừa nộp trễ hạn vừa hụt tiến độ, cần can thiệp ngay.')
-  if (p < 30) return build('URGENT', 'Tiến độ gần như đứng yên dù đợt đang chạy.')
-  if (late) return build('REVIEW', 'Có chỉ tiêu nộp sau hạn — cần siết lại lịch nộp.')
-  if (p < 60) return build('REVIEW', 'Tiến độ còn cách khá xa mục tiêu của đợt.')
-  if (p < 80) return build('MONITOR', 'Tiến độ hơi chậm, chưa có chỉ tiêu nào nộp trễ.')
+  if (p <= 0 && !late) return build('URGENT', i18n.t('dashboard:TeamFocusWidget.noResultsRecordedInTheSelected'))
+  if (mostlyLate) return build('URGENT', i18n.t('dashboard:TeamFocusWidget.mostKpisAreSubmittedAfterThe'))
+  if (late && p < 50) return build('URGENT', i18n.t('dashboard:TeamFocusWidget.bothLateAndBehindOnProgress'))
+  if (p < 30) return build('URGENT', i18n.t('dashboard:TeamFocusWidget.progressHasAlmostStalledWhileThe'))
+  if (late) return build('REVIEW', i18n.t('dashboard:TeamFocusWidget.someKpisWereSubmittedLateTighten'))
+  if (p < 60) return build('REVIEW', i18n.t('dashboard:TeamFocusWidget.progressIsStillQuiteFarFrom'))
+  if (p < 80) return build('MONITOR', i18n.t('dashboard:TeamFocusWidget.progressIsALittleSlowNo'))
   return null
 }
 
@@ -62,6 +64,7 @@ function classify(r: MemberRiskRow): FocusRow | null {
  * <p>Bộ lọc đợt/kỳ của trang chủ lái cả bảng lẫn phần chi tiết bung ra, nên hai bên luôn khớp số.
  */
 export function TeamFocusWidget() {
+  const { t } = useTranslation('dashboard')
   const { from, to, periodId, periodIdTo } = useDashboardFilter('unit')
   const [filter, setFilter] = useState<PriorityFilter>('ALL')
   const [visible, setVisible] = useState(PAGE_SIZE)
@@ -114,7 +117,7 @@ export function TeamFocusWidget() {
 
   return (
     <WidgetShell
-      title="Nhân sự cần can thiệp"
+      title={t('TeamFocusWidget.peopleNeedingIntervention')}
       icon={<TriangleAlert size={17} />}
       isLoading={isLoading && !data}
       error={error}
@@ -130,7 +133,7 @@ export function TeamFocusWidget() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value={ALL_UNITS}>Tất cả đơn vị</SelectItem>
+                <SelectItem value={ALL_UNITS}>{t('TeamFocusWidget.allUnits')}</SelectItem>
                 {units.map(u => (
                   // `code` chính là id đơn vị; tiền tố gạch cho thấy bậc trong cây, giống bảng bên Phân tích
                   <SelectItem key={u.code} value={u.code}>{'-'.repeat(u.depth ?? 0)}{u.name}</SelectItem>
@@ -142,7 +145,7 @@ export function TeamFocusWidget() {
             to="/performance?section=submissions-org-unit"
             className="inline-flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-control bg-[var(--color-primary)] px-3 text-[13px] font-medium text-[var(--color-primary-foreground)] transition-colors hover:bg-[var(--color-primary-hover)]"
           >
-            Trung tâm duyệt <ExternalLink size={11} aria-hidden="true" />
+            {t('TeamFocusWidget.approvalCenter')} <ExternalLink size={11} aria-hidden="true" />
           </Link>
         </>
       }
@@ -155,8 +158,8 @@ export function TeamFocusWidget() {
           <input
             value={search}
             onChange={e => { setSearch(e.target.value); setVisible(PAGE_SIZE) }}
-            placeholder="Tìm nhân sự, đơn vị, lý do…"
-            aria-label="Tìm trong danh sách nhân sự cần can thiệp"
+            placeholder={t('TeamFocusWidget.searchPeopleUnitsReasons')}
+            aria-label={t('TeamFocusWidget.searchTheListOfPeopleNeeding')}
             className="w-full h-9 pl-9 pr-3 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)] focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-ring)] outline-none text-xs font-semibold transition-all"
           />
         </div>
@@ -168,12 +171,12 @@ export function TeamFocusWidget() {
             </div>
             <p className="text-sm text-[var(--color-muted-foreground)] max-w-xs leading-relaxed">
               {members.length === 0
-                ? 'Chưa có nhân sự nào được giao chỉ tiêu trong đợt/kỳ đang chọn.'
+                ? t('TeamFocusWidget.noOneHasBeenAssignedKpis')
                 : rows.length === 0
-                  ? 'Toàn bộ nhân sự trong phạm vi của bạn đang bám đúng tiến độ.'
+                  ? t('TeamFocusWidget.everyoneInYourScopeIsOn')
                   : search.trim()
-                    ? 'Không có nhân sự nào khớp từ khoá đang tìm.'
-                    : 'Không có nhân sự nào ở mức ưu tiên này.'}
+                    ? t('TeamFocusWidget.noOneMatchesTheSearchKeyword')
+                    : t('TeamFocusWidget.noOneAtThisPriorityLevel')}
             </p>
           </div>
         ) : (
@@ -202,7 +205,7 @@ export function TeamFocusWidget() {
         {/* Mẫu số của bức tranh: bao nhiêu người KHÔNG nằm trong danh sách trên */}
         {members.length > 0 && (
           <p className="text-eyebrow shrink-0 text-center">
-            {healthy} / {members.length} nhân sự đang bám đúng tiến độ
+            {healthy} / {members.length} {t('TeamFocusWidget.peopleOnTrack')}
           </p>
         )}
       </div>
@@ -217,7 +220,8 @@ function FocusRowItem({ row, periodId, periodIdTo, expanded, onToggle }: {
   expanded: boolean
   onToggle: () => void
 }) {
-  const meta = PRIORITY_META[row.priority]
+  const { t } = useTranslation('dashboard')
+  const meta = PRIORITY_META()[row.priority]
 
   return (
     <li className="relative rounded-card border border-[var(--color-border)] bg-[var(--color-card)] overflow-hidden">
@@ -237,7 +241,7 @@ function FocusRowItem({ row, periodId, periodIdTo, expanded, onToggle }: {
             <PriorityChip priority={row.priority} />
             <p className="text-sm font-medium text-[var(--color-foreground)] truncate">{row.fullName}</p>
             <span className="text-eyebrow truncate">
-              · {row.orgUnitName || 'Chưa gán đơn vị'}
+              · {row.orgUnitName || t('TeamFocusWidget.noUnitAssigned')}
             </span>
           </div>
 
@@ -252,19 +256,19 @@ function FocusRowItem({ row, periodId, periodIdTo, expanded, onToggle }: {
         </div>
 
         <div className="hidden sm:flex items-center gap-5 shrink-0 border-l border-[var(--color-border)] pl-4">
-          <Metric label="Tiến độ TB" value={`${row.avgProgress.toFixed(1)}%`} />
-          <Metric label="Trễ hạn" value={`${row.overdueCount}/${row.totalKpis}`} highlight={row.overdueCount > 0} />
+          <Metric label={t('TeamFocusWidget.avgProgress')} value={`${row.avgProgress.toFixed(1)}%`} />
+          <Metric label={t('TeamFocusWidget.overdue')} value={`${row.overdueCount}/${row.totalKpis}`} highlight={row.overdueCount > 0} />
         </div>
 
-        <Button size="icon" className="shrink-0" onClick={onToggle} aria-expanded={expanded} aria-label={`Chi tiết của ${row.fullName}`}>
+        <Button size="icon" className="shrink-0" onClick={onToggle} aria-expanded={expanded} aria-label={t('TeamFocusWidget.detailsFor', { fullName: row.fullName })}>
           <ChevronDown aria-hidden="true" className={cn('transition-transform', expanded && 'rotate-180')} />
         </Button>
       </div>
 
       {/* Trên màn hẹp hai chỉ số xuống dòng riêng thay vì bị cắt mất */}
       <div className="sm:hidden flex items-center gap-5 px-4 pb-3 pl-4">
-        <Metric label="Tiến độ TB" value={`${row.avgProgress.toFixed(1)}%`} />
-        <Metric label="Trễ hạn" value={`${row.overdueCount}/${row.totalKpis}`} highlight={row.overdueCount > 0} />
+        <Metric label={t('TeamFocusWidget.avgProgress')} value={`${row.avgProgress.toFixed(1)}%`} />
+        <Metric label={t('TeamFocusWidget.overdue')} value={`${row.overdueCount}/${row.totalKpis}`} highlight={row.overdueCount > 0} />
       </div>
 
       {expanded && <OverdueDetail row={row} periodId={periodId} periodIdTo={periodIdTo} />}
@@ -288,6 +292,7 @@ function Metric({ label, value, highlight }: { label: string; value: string; hig
 
 /** Đúng những chỉ tiêu làm nên con số "trễ hạn" của dòng trên — thứ không hiện ở bất kỳ đâu khác. */
 function OverdueDetail({ row, periodId, periodIdTo }: { row: FocusRow; periodId?: string; periodIdTo?: string }) {
+  const { t } = useTranslation('dashboard')
   const { data, isFetching } = useQuery({
     queryKey: ['dashboard', 'team-focus', 'overdue', row.userId, periodId, periodIdTo],
     queryFn: () => orgUnitKpiApi.getMemberOverdueKpis(row.userId, { periodId, periodIdTo, everyKpi: true }),
@@ -298,11 +303,11 @@ function OverdueDetail({ row, periodId, periodIdTo }: { row: FocusRow; periodId?
     <div className="mx-3 mb-3 ml-4 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] p-3 space-y-2">
       {isFetching ? (
         <p className="text-caption flex items-center gap-2">
-          <Loader2 size={12} className="animate-spin" aria-hidden="true" /> Đang tải chi tiết…
+          <Loader2 size={12} className="animate-spin" aria-hidden="true" /> {t('TeamFocusWidget.loadingDetails')}
         </p>
       ) : kpis.length === 0 ? (
         <p className="text-caption">
-          Không có chỉ tiêu nào nộp sau hạn — vấn đề nằm ở tiến độ, không ở lịch nộp.
+          {t('TeamFocusWidget.noKpisSubmittedLateTheProblem')}
         </p>
       ) : (
         <ul className="space-y-1.5">
@@ -312,8 +317,8 @@ function OverdueDetail({ row, periodId, periodIdTo }: { row: FocusRow; periodId?
               <li key={k.kpiId} className="flex items-baseline justify-between gap-3">
                 <span className="text-xs font-medium text-[var(--color-foreground)] truncate">{k.kpiName}</span>
                 <span className="text-caption whitespace-nowrap tabular-nums">
-                  hạn {formatDate(k.deadline)}
-                  {last?.submittedAt ? ` · nộp ${formatDate(last.submittedAt)}` : ''}
+                  {t('TeamFocusWidget.due')} {formatDate(k.deadline)}
+                  {last?.submittedAt ? t('TeamFocusWidget.submitted', { submittedAt: formatDate(last.submittedAt) }) : ''}
                 </span>
               </li>
             )
@@ -325,7 +330,7 @@ function OverdueDetail({ row, periodId, periodIdTo }: { row: FocusRow; periodId?
         to={`/employees/${row.userId}/performance`}
         className="inline-flex items-center gap-1.5 text-[13px] font-medium text-[var(--color-primary)] hover:underline"
       >
-        <UserRoundSearch size={12} aria-hidden="true" /> Xem hồ sơ hiệu suất
+        <UserRoundSearch size={12} aria-hidden="true" /> {t('TeamFocusWidget.viewPerformanceProfile')}
       </Link>
     </div>
   )

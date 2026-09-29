@@ -1,5 +1,6 @@
 package com.kpitracking.controller;
 
+import com.kpitracking.i18n.ErrorMessages;
 import com.kpitracking.dto.request.auth.LarkCallbackRequest;
 import com.kpitracking.dto.request.organization.UpdateLarkSettingsRequest;
 import com.kpitracking.dto.response.ApiResponse;
@@ -40,7 +41,7 @@ public class LarkSettingsController {
             @PathVariable UUID orgId,
             @Valid @RequestBody UpdateLarkSettingsRequest request) {
         return ResponseEntity.ok(ApiResponse.success(
-                "Đã lưu cấu hình Lark", larkSettingsService.updateSettings(orgId, request)));
+                ErrorMessages.text("success.lark.saved", ""), larkSettingsService.updateSettings(orgId, request)));
     }
 
     @PostMapping("/test")
@@ -77,6 +78,6 @@ public class LarkSettingsController {
     @Operation(summary = "Huỷ liên kết Lark")
     public ResponseEntity<ApiResponse<LarkSettingsResponse>> disconnect(@PathVariable UUID orgId) {
         return ResponseEntity.ok(ApiResponse.success(
-                "Đã huỷ liên kết Lark", larkSettingsService.disconnect(orgId)));
+                ErrorMessages.text("success.lark.disconnected", ""), larkSettingsService.disconnect(orgId)));
     }
 }

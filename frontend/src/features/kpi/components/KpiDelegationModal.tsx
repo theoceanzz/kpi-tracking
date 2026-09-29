@@ -18,6 +18,9 @@ import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { useObjectives } from '@/features/okr/hooks/useOkr'
 import { Select, SelectContent, SelectGroup, SelectItem, SelectLabel, SelectTrigger, SelectValue } from '@/components/ui/select'
 import KpiDetailModal from './KpiDetailModal'
+import { useTranslation } from 'react-i18next'
+import { useFormDraft } from '@/hooks/useFormDraft'
+import DraftNotice from '@/components/common/DraftNotice'
 
 interface KpiDelegationModalProps {
   open: boolean
@@ -26,6 +29,7 @@ interface KpiDelegationModalProps {
 }
 
 export default function KpiDelegationModal({ open, onClose, kpi }: KpiDelegationModalProps) {
+  const { t } = useTranslation('kpi')
   const qc = useQueryClient()
   const { user } = useAuthStore()
 
@@ -36,8 +40,8 @@ export default function KpiDelegationModal({ open, onClose, kpi }: KpiDelegation
   const enableOkr = org?.enableOkr
   const { data: objectives } = useObjectives(enableOkr ? organizationId : undefined)
 
-  const { handleSubmit, reset, watch, setValue, control } = useForm<KpiFormData>({
-    resolver: zodResolver(kpiDelegationSchema),
+  const formApi = useForm<KpiFormData>({
+    resolver: zodResolver(kpiDelegationSchema()),
     defaultValues: {
       kpiType: kpi.kpiType ?? 'QUANTITATIVE',
       name: kpi.name,
@@ -47,6 +51,8 @@ export default function KpiDelegationModal({ open, onClose, kpi }: KpiDelegation
       parentId: kpi.parentId
     },
   })
+  const { handleSubmit, reset, watch, setValue, control } = formApi
+  const draft = useFormDraft(formApi, { key: `kpi-delegation:${kpi?.id ?? ''}`, enabled: open && !!kpi })
 
   const [userSearch, setUserSearch] = useState('')
   const [showDetail, setShowDetail] = useState(false)
@@ -104,11 +110,11 @@ export default function KpiDelegationModal({ open, onClose, kpi }: KpiDelegation
     mutationFn: (data: KpiFormData) => kpiApi.update(kpi.id, data),
     onSuccess: () => { 
       qc.invalidateQueries({ queryKey: ['kpi-criteria'] })
-      toast.success('Giao việc thành công')
+      toast.success(t('KpiDelegationModal.workAssignedSuccessfully'))
       onClose() 
     },
     onError: (err) => {
-      toast.error(getApiErrorMessage(err, 'Giao việc thất bại'))
+      toast.error(getApiErrorMessage(err, t('KpiDelegationModal.failedToAssignWork')))
     },
   })
 
@@ -142,38 +148,39 @@ export default function KpiDelegationModal({ open, onClose, kpi }: KpiDelegation
       onClose={onClose}
       size="md"
       dismissible={!updateMutation.isPending}
-      title="Giao việc & Ủy quyền"
-      description="Phân bổ chỉ tiêu cho nhân sự cấp dưới"
+      title={t('KpiDelegationModal.assignWork')}
+      description={t('KpiDelegationModal.allocateKpisToSubordinates')}
       footer={
         <DialogFooter
-          secondary={<Button variant="outline" onClick={onClose} disabled={updateMutation.isPending}>Đóng</Button>}
+          secondary={<Button variant="outline" onClick={onClose} disabled={updateMutation.isPending}>{t('KpiDelegationModal.close')}</Button>}
           primary={!isAlreadyDelegated && (
             <Button type="submit" form="kpi-delegation-form" disabled={updateMutation.isPending || selectedAssignees.length === 0}>
               {updateMutation.isPending ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Check aria-hidden="true" />}
-              Xác nhận Giao việc
+              {t('KpiDelegationModal.confirmAssignment')}
             </Button>
           )}
         />
       }
     >
+      <DraftNotice draft={draft} className="mb-4" />
       <form id="kpi-delegation-form" onSubmit={handleSubmit(onSubmit)} className="space-y-5">
         {/* 1. Assignees Section */}
         <div className="bg-[var(--color-primary-soft)] p-6 rounded-widget border border-[var(--color-border)] shadow-sm space-y-4">
           <div className="flex items-center justify-between">
-            <label className="text-label">Người thực hiện</label>
+            <label className="text-label">{t('KpiDelegationModal.performedBy')}</label>
             <span className="text-xs font-medium text-[var(--color-primary)] bg-[var(--color-primary-soft)] px-3 py-1 rounded-full border border-[var(--color-border)] shadow-sm">
               {kpi.hasChildren && kpi.delegatedToNames && kpi.delegatedToNames.length > 0 
-                ? `Đã giao cho: ${kpi.delegatedToNames.join(', ')}`
+                ? t('KpiDelegationModal.assignedTo', { join: kpi.delegatedToNames.join(', ') })
                 : delegatedStaffCount > 0 
-                  ? `Đã chọn ${delegatedStaffCount} nhân sự`
-                  : 'Chưa giao cho ai'}
+                  ? t('KpiDelegationModal.peopleSelected', { count: delegatedStaffCount })
+                  : t('KpiDelegationModal.notAssignedToAnyone')}
             </span>
           </div>
           
           {isAlreadyDelegated && (
             <div className="mb-2 px-3 py-2 bg-[var(--color-warning-bg)] border border-[var(--color-warning-border)] rounded-card flex items-center gap-2">
               <div className="w-1.5 h-1.5 rounded-full bg-[var(--color-warning-solid)]"/>
-              <p className="text-xs font-medium text-[var(--color-warning)] tracking-tight">Chỉ tiêu đã được giao việc. Danh sách người thực hiện đã được khóa.</p>
+              <p className="text-xs font-medium text-[var(--color-warning)] tracking-tight">{t('KpiDelegationModal.theKpiHasBeenAssignedThe')}</p>
             </div>
           )}
 
@@ -181,7 +188,7 @@ export default function KpiDelegationModal({ open, onClose, kpi }: KpiDelegation
             <div className="p-3 bg-[var(--color-muted)] border-b border-[var(--color-border)]">
               <input 
                 type="text" 
-                placeholder="Tìm theo tên hoặc email..." 
+                placeholder={t('KpiDelegationModal.searchByNameOrEmail')} 
                 value={userSearch} 
                 onChange={e => setUserSearch(e.target.value)}
                 className="w-full bg-transparent text-xs font-medium outline-none placeholder:text-[var(--color-subtle-foreground)]"
@@ -231,7 +238,7 @@ export default function KpiDelegationModal({ open, onClose, kpi }: KpiDelegation
           <div className="bg-[var(--color-primary-soft)] p-5 rounded-widget border border-[var(--color-border)] space-y-3">
              <div className="flex items-center gap-2 text-[var(--color-primary)]">
                <Target size={18} />
-               <span className="text-sm font-medium">OKR Chiến lược</span>
+               <span className="text-sm font-medium">{t('KpiDelegationModal.strategicOkr')}</span>
              </div>
              <Controller
                name="keyResultId"
@@ -246,10 +253,10 @@ export default function KpiDelegationModal({ open, onClose, kpi }: KpiDelegation
                      "w-full rounded-card border-[var(--color-border)] bg-[var(--color-card)] focus:ring-[var(--color-ring)] transition-all h-10",
                      (!!kpi.keyResultId || isAlreadyDelegated) && "bg-[var(--color-muted)] cursor-not-allowed opacity-70"
                    )}>
-                     <SelectValue placeholder="-- Không liên kết --" />
+                     <SelectValue placeholder={t('KpiDelegationModal.notLinked')} />
                    </SelectTrigger>
                    <SelectContent className="rounded-card border-[var(--color-border)] max-h-[300px]">
-                     <SelectItem value="NONE" className="font-medium">-- Không liên kết --</SelectItem>
+                     <SelectItem value="NONE" className="font-medium">{t('KpiDelegationModal.notLinked')}</SelectItem>
                      {filteredObjectives.map(obj => (
                        <SelectGroup key={obj.id}>
                          <SelectLabel className="text-eyebrow px-2 py-1.5 text-[var(--color-primary)] bg-[var(--color-primary-soft)] rounded-control my-1">
@@ -277,28 +284,28 @@ export default function KpiDelegationModal({ open, onClose, kpi }: KpiDelegation
            <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                  <Info size={16} className="text-[var(--color-subtle-foreground)] group-hover/info:text-[var(--color-primary)] transition-colors" />
-                 <span className="text-eyebrow group-hover/info:text-[var(--color-primary)] transition-colors">Thông tin chỉ tiêu gốc</span>
+                 <span className="text-eyebrow group-hover/info:text-[var(--color-primary)] transition-colors">{t('KpiDelegationModal.originalKpiInformation')}</span>
               </div>
               <div className="text-eyebrow text-[var(--color-primary)] bg-[var(--color-primary-soft)] px-2 py-0.5 rounded-full opacity-0 group-hover/info:opacity-100 transition-all transform translate-x-2 group-hover/info:translate-x-0">
-                 Xem chi tiết
+                 {t('KpiDelegationModal.viewDetails')}
               </div>
            </div>
            <div className="grid grid-cols-1 gap-4">
               <div className="space-y-1">
-                 <p className="text-eyebrow">Tên chỉ tiêu</p>
+                 <p className="text-eyebrow">{t('KpiDelegationModal.kpiName')}</p>
                  <p className="text-sm font-medium text-[var(--color-foreground)] group-hover/info:text-[var(--color-primary)] dark:group-hover/info:text-[var(--color-primary)] transition-colors">{kpi.name}</p>
               </div>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                  <div className="space-y-1">
-                    <p className="text-eyebrow">Mục tiêu</p>
+                    <p className="text-eyebrow">{t('KpiDelegationModal.target')}</p>
                     <p className="text-sm font-semibold text-[var(--color-primary)]">{kpi.targetValue} {kpi.unit}</p>
                  </div>
                  <div className="space-y-1">
-                    <p className="text-eyebrow">Trọng số</p>
+                    <p className="text-eyebrow">{t('KpiDelegationModal.weight')}</p>
                     <p className="text-sm font-semibold text-[var(--color-primary)]">{kpi.weight}%</p>
                  </div>
                  <div className="space-y-1">
-                    <p className="text-eyebrow">Kỳ đánh giá</p>
+                    <p className="text-eyebrow">{t('KpiDelegationModal.evaluationCycles')}</p>
                     <p className="text-sm font-medium text-[var(--color-muted-foreground)]">{periodsData?.content.find(p => p.id === kpi.kpiPeriodId)?.name || '...'}</p>
                  </div>
               </div>

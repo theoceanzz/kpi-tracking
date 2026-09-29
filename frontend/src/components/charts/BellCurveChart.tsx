@@ -6,6 +6,7 @@ import { AlertTriangle, CheckCircle2, Info } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { yAxisLabel } from '@/components/charts/axisLabel'
 import type { CycleCurve, CycleCurveBucket } from '@/types/kpi'
+import { useTranslation } from 'react-i18next'
 
 type Row = {
   level: string
@@ -39,11 +40,14 @@ function toRow(b: CycleCurveBucket): Row {
   }
 }
 
-function CurveTooltip({ active, payload, headcount }: {
+function CurveTooltip({ active, payload, headcount, complete }: {
   active?: boolean
   payload?: { payload: Row }[]
   headcount: number
+  /** Đã chấm đủ người chưa — chưa đủ thì "dưới sàn" là chuyện đương nhiên, không nói. */
+  complete: boolean
 }) {
+  const { t } = useTranslation('shared')
   if (!active || !payload?.length) return null
   const d = payload[0]!.payload
   return (
@@ -52,17 +56,17 @@ function CurveTooltip({ active, payload, headcount }: {
         <span className="w-2.5 h-2.5 rounded-full" style={{ background: d.color }} />{d.level}
       </p>
       <p className="font-semibold text-[var(--color-muted-foreground)]">
-        Thực tế: {d.count}/{headcount} người ({d.percent}%)
+        {t('BellCurveChart.actual')} {d.count}/{headcount} {t('BellCurveChart.people')}{d.percent}%)
       </p>
       {d.target != null ? (
         <>
-          <p className="text-[var(--color-muted-foreground)]">Khung: {d.target}% (cho phép {d.min}%–{d.max}%)</p>
-          <p className="text-[var(--color-muted-foreground)]">≈ {d.minCount}–{d.maxCount} người</p>
-          {d.over && <p className="font-semibold text-[var(--color-error)] mt-1">Vượt trần {d.count - (d.maxCount ?? 0)} người</p>}
-          {d.under && <p className="font-semibold text-[var(--color-warning)] mt-1">Dưới sàn {(d.minCount ?? 0) - d.count} người</p>}
+          <p className="text-[var(--color-muted-foreground)]">{t('BellCurveChart.curveLabel')} {d.target}{t('BellCurveChart.allowed')} {d.min}%–{d.max}%)</p>
+          <p className="text-[var(--color-muted-foreground)]">≈ {d.minCount}–{d.maxCount} {t('BellCurveChart.people2')}</p>
+          {d.over && <p className="font-semibold text-[var(--color-error)] mt-1">{t('BellCurveChart.aboveTheCeiling')} {d.count - (d.maxCount ?? 0)} {t('BellCurveChart.people2')}</p>}
+          {complete && d.under && <p className="font-semibold text-[var(--color-warning)] mt-1">{t('BellCurveChart.belowTheFloor')} {(d.minCount ?? 0) - d.count} {t('BellCurveChart.people2')}</p>}
         </>
       ) : (
-        <p className="text-[var(--color-subtle-foreground)] italic">Mức này không nằm trong khung</p>
+        <p className="text-[var(--color-subtle-foreground)] italic">{t('BellCurveChart.thisLevelIsNotInThe')}</p>
       )}
     </div>
   )
@@ -78,16 +82,22 @@ function CurveTooltip({ active, payload, headcount }: {
  *
  * <p>Chưa cấu hình khung thì chỉ có cột thực tế + một dòng chỉ chỗ bật khung.
  */
-export default function BellCurveChart({ curve, height = 260, compact = false, className }: {
+export default function BellCurveChart({ curve, height = 260, compact = false, showIssues = true, className }: {
   curve: CycleCurve
   /** Chiều cao vùng vẽ (px). `'100%'` để lấp đầy vật chứa có chiều cao xác định. */
   height?: number | '100%'
   /** Bỏ dòng hướng dẫn bật khung và chip cảnh báo — dùng khi ô lưới hẹp. */
   compact?: boolean
+  /** Tắt khi thẻ bọc ngoài đã tự tóm tắt lệch khung (đánh giá kỳ) — khỏi nói hai lần. */
+  showIssues?: boolean
   className?: string
 }) {
+  const { t } = useTranslation('shared')
   const rows = useMemo(() => [...(curve.buckets ?? [])].reverse().map(toRow), [curve.buckets])
-  const issues = useMemo(() => rows.filter(r => r.over || r.under), [rows])
+  // Chưa chấm đủ người thì mức nào cũng "thiếu" — kêu lúc đó là kêu một câu vô nghĩa; chỉ
+  // vượt trần mới đáng nói giữa chừng. Cùng luật với backend (bellCurveMessage).
+  const complete = curve.evaluated >= curve.headcount
+  const issues = useMemo(() => rows.filter(r => r.over || (complete && r.under)), [rows, complete])
   const hasBand = rows.some(r => r.band)
 
   if (!rows.length) return null
@@ -98,8 +108,7 @@ export default function BellCurveChart({ curve, height = 260, compact = false, c
         <div className="flex items-start gap-2 rounded-card bg-[var(--color-muted)] px-4 py-3 text-caption">
           <Info size={14} className="mt-0.5 shrink-0" aria-hidden="true" />
           <span>
-            Đơn vị này <b>chưa áp khung bell curve</b> nào — biểu đồ chỉ hiện phân bố thực tế.
-            Bật khung ở <b>Cấu hình → Xếp loại đơn vị → tab Bell curve</b> để có hạn mức đối chiếu.
+            {t('BellCurveChart.thisUnit')} <b>{t('BellCurveChart.hasNoBellCurveQuota')}</b> {t('BellCurveChart.theChartOnlyShowsTheActual')} <b>{t('BellCurveChart.settingsUnitRatingBellCurveTab')}</b> {t('BellCurveChart.toHaveAQuotaToCompare')}
           </span>
         </div>
       )}
@@ -114,10 +123,10 @@ export default function BellCurveChart({ curve, height = 260, compact = false, c
               tickFormatter={(v: string) => (v.length > 9 ? `${v.slice(0, 8)}…` : v)}
             />
             <YAxis
-              tickLine={false} axisLine={false} width={48} unit="%" label={yAxisLabel('% người')}
+              tickLine={false} axisLine={false} width={48} unit="%" label={yAxisLabel(t('BellCurveChart.ofPeople'))}
               tick={{ fontSize: 11, fontWeight: 500, fill: '#94a3b8' }}
             />
-            <Tooltip content={<CurveTooltip headcount={curve.headcount} />} cursor={{ fill: 'rgba(99,102,241,0.06)' }} />
+            <Tooltip content={<CurveTooltip headcount={curve.headcount} complete={complete} />} cursor={{ fill: 'rgba(99,102,241,0.06)' }} />
             {/* Dải cho phép vẽ trước để nằm dưới cột thực tế. */}
             {hasBand && (
               <Area dataKey="band" stroke="none" fill="#6366f1" fillOpacity={0.12} isAnimationActive={false} />
@@ -142,22 +151,22 @@ export default function BellCurveChart({ curve, height = 260, compact = false, c
       {/* Chú giải: cột = thực tế, đường đứt = khung. */}
       <div className="flex flex-wrap items-center gap-x-4 gap-y-1.5 text-caption shrink-0">
         <span className="inline-flex items-center gap-1.5">
-          <span className="w-3 h-2.5 rounded-sm bg-[var(--color-border)]" aria-hidden="true" /> Thực tế
+          <span className="w-3 h-2.5 rounded-sm bg-[var(--color-border)]" aria-hidden="true" /> {t('BellCurveChart.actual2')}
         </span>
         {curve.configured && (
           <>
             <span className="inline-flex items-center gap-1.5">
-              <span className="w-4 h-0.5 bg-[var(--color-primary)]" aria-hidden="true" /> Khung mục tiêu
+              <span className="w-4 h-0.5 bg-[var(--color-primary)]" aria-hidden="true" /> {t('BellCurveChart.targetQuota')}
             </span>
             <span className="inline-flex items-center gap-1.5">
-              <span className="w-3 h-2.5 rounded-sm bg-[var(--color-primary-soft)]" aria-hidden="true" /> Dải cho phép
+              <span className="w-3 h-2.5 rounded-sm bg-[var(--color-primary-soft)]" aria-hidden="true" /> {t('BellCurveChart.allowedBand')}
             </span>
           </>
         )}
-        <span className="ml-auto">% tính trên tổng {curve.headcount} nhân sự</span>
+        <span className="ml-auto">{t('BellCurveChart.ofTotal')} {curve.headcount} {t('BellCurveChart.people3')}</span>
       </div>
 
-      {curve.configured && !compact && (
+      {curve.configured && showIssues && !compact && (
         issues.length ? (
           <div className="flex flex-wrap gap-2 shrink-0">
             {issues.map(r => (
@@ -171,27 +180,27 @@ export default function BellCurveChart({ curve, height = 260, compact = false, c
                 )}
               >
                 <AlertTriangle size={12} aria-hidden="true" />
-                {r.level}: {r.count} người
-                {r.over ? ` · vượt trần ${r.maxCount}` : ` · dưới sàn ${r.minCount}`}
+                {r.level}: {r.count} {t('BellCurveChart.people2')}
+                {r.over ? t('BellCurveChart.aboveCeiling', { maxCount: r.maxCount }) : t('BellCurveChart.belowFloor', { minCount: r.minCount })}
               </span>
             ))}
           </div>
         ) : (
           <div className="self-start inline-flex items-center gap-1.5 px-3 py-1.5 rounded-card text-xs font-medium bg-[var(--color-success-bg)] text-[var(--color-success)] border border-[var(--color-success-border)]">
-            <CheckCircle2 size={12} aria-hidden="true" /> Phân bố nằm trong khung
+            <CheckCircle2 size={12} aria-hidden="true" /> {t('BellCurveChart.theDistributionIsWithinTheQuota')}
           </div>
         )
       )}
       {/* Ô hẹp: gói cảnh báo thành một dòng ngắn thay vì dãy chip. */}
-      {curve.configured && compact && (
+      {curve.configured && showIssues && compact && (
         issues.length ? (
           <p className="text-xs font-medium text-[var(--color-error)] shrink-0">
             <AlertTriangle size={12} className="inline -mt-0.5 mr-1" aria-hidden="true" />
-            {issues.map(r => `${r.level}: ${r.count} người${r.over ? ` (trần ${r.maxCount})` : ` (sàn ${r.minCount})`}`).join(' · ')}
+            {issues.map(r => t('BellCurveChart.people4', { level: r.level, count: r.count, value: r.over ? t('BellCurveChart.ceiling', { maxCount: r.maxCount }) : t('BellCurveChart.floor', { minCount: r.minCount }) })).join(' · ')}
           </p>
         ) : (
           <p className="text-xs font-medium text-[var(--color-success)] shrink-0">
-            <CheckCircle2 size={12} className="inline -mt-0.5 mr-1" aria-hidden="true" /> Phân bố nằm trong khung
+            <CheckCircle2 size={12} className="inline -mt-0.5 mr-1" aria-hidden="true" /> {t('BellCurveChart.theDistributionIsWithinTheQuota')}
           </p>
         )
       )}

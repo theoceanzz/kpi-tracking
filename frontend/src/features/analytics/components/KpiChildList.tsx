@@ -1,3 +1,5 @@
+import { intlLocale } from '@/i18n/format'
+import i18n from 'i18next'
 import { useState } from 'react'
 import { ChevronDown, ChevronRight, User } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -180,7 +182,7 @@ function KpiChildRow({ node, depth, onSelect }: { node: KpiChildNode; depth: num
               </div>
               {node.targetValue != null && (
                 <div className="text-caption mt-1">
-                  {(node.actualValue ?? 0).toLocaleString('vi-VN')} / {node.targetValue.toLocaleString('vi-VN')} {node.unit ?? ''}
+                  {(node.actualValue ?? 0).toLocaleString(intlLocale())} / {node.targetValue.toLocaleString(intlLocale())} {node.unit ?? ''}
                 </div>
               )}
             </>
@@ -210,7 +212,7 @@ function KpiChildRow({ node, depth, onSelect }: { node: KpiChildNode; depth: num
  */
 export function KpiChildList({
   nodes,
-  heading = 'KPI con',
+  heading = i18n.t('analytics:KpiChildList.childKpis'),
   onSelect,
 }: {
   nodes: KpiChildNode[]

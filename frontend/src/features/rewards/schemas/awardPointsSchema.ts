@@ -1,4 +1,6 @@
 import { z } from 'zod'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
 /** Người được chọn để trao điểm — giữ tên để hiện chip, id để gửi lên. */
 const pickedEmployeeSchema = z.object({
@@ -7,12 +9,12 @@ const pickedEmployeeSchema = z.object({
   email: z.string().optional(),
 })
 
-export const awardPointsSchema = z.object({
-  picked: z.array(pickedEmployeeSchema).min(1, 'Vui lòng chọn ít nhất một người nhận'),
-  points: z.number({ message: 'Vui lòng nhập số điểm' }).min(1, 'Số điểm phải lớn hơn 0'),
-  reason: z.string().trim().min(1, 'Vui lòng nhập lý do thưởng'),
+export const awardPointsSchema = perLanguage(() => (z.object({
+  picked: z.array(pickedEmployeeSchema).min(1, i18n.t('rewards:awardPointsSchema.pleaseChooseAtLeastOneRecipient')),
+  points: z.number({ message: i18n.t('rewards:awardPointsSchema.pleaseEnterTheNumberOfPoints') }).min(1, i18n.t('rewards:awardPointsSchema.pointsMustBeGreaterThan0')),
+  reason: z.string().trim().min(1, i18n.t('rewards:awardPointsSchema.pleaseEnterTheRewardReason')),
   withCertificate: z.boolean(),
   certificateTemplateId: z.string(),
-})
+})))
 
-export type AwardPointsFormData = z.infer<typeof awardPointsSchema>
+export type AwardPointsFormData = z.infer<ReturnType<typeof awardPointsSchema>>

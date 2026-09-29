@@ -5,8 +5,10 @@ import { Sun, Moon, Palette, Check, Pipette, Info } from 'lucide-react'
 import { useOnClickOutside } from '@/hooks/useOnClickOutside'
 import { Button } from '@/components/ui/button'
 import { ChoiceChip } from '@/components/ui/choice-chip'
+import { useTranslation } from 'react-i18next'
 
 export default function ThemeCustomizer() {
+  const { t } = useTranslation('layout')
   const { isDark, setDark, primaryColor, setPrimaryColor } = useThemeStore()
   const [isOpen, setIsOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -17,24 +19,24 @@ export default function ThemeCustomizer() {
 
   return (
     <div className="relative" ref={containerRef}>
-      <Button variant="secondary" size="icon" type="button" onClick={() => setIsOpen(!isOpen)} aria-label="Tùy chỉnh giao diện" aria-expanded={isOpen} aria-haspopup="dialog" title="Tùy chỉnh giao diện">
+      <Button variant="secondary" size="icon" type="button" onClick={() => setIsOpen(!isOpen)} aria-label={t('ThemeCustomizer.customizeAppearance')} aria-expanded={isOpen} aria-haspopup="dialog" title={t('ThemeCustomizer.customizeAppearance')}>
         <Palette aria-hidden="true" />
       </Button>
 
       {isOpen && (
         <div
           role="dialog"
-          aria-label="Tùy chỉnh giao diện"
+          aria-label={t('ThemeCustomizer.customizeAppearance')}
           className="absolute right-0 top-11 z-50 w-72 rounded-card border border-[var(--color-border)] bg-[var(--color-popover)] p-4 shadow-lg animate-in fade-in-0 motion-reduce:animate-none"
         >
           <div className="space-y-5">
             {/* Chế độ sáng / tối */}
             <div className="space-y-2">
-              <p className="text-eyebrow">Chế độ</p>
+              <p className="text-eyebrow">{t('ThemeCustomizer.mode')}</p>
               <div className="grid grid-cols-2 gap-1 rounded-control bg-[var(--color-muted)] p-1">
                 {([
-                  { dark: false, label: 'Sáng', Icon: Sun },
-                  { dark: true, label: 'Tối', Icon: Moon },
+                  { dark: false, label: t('ThemeCustomizer.light'), Icon: Sun },
+                  { dark: true, label: t('ThemeCustomizer.dark'), Icon: Moon },
                 ] as const).map(({ dark, label, Icon }) => {
                   const active = isDark === dark
                   return (
@@ -48,7 +50,7 @@ export default function ThemeCustomizer() {
 
             {/* Màu chủ đạo */}
             <div className="space-y-2">
-              <p className="text-eyebrow">Màu chủ đạo</p>
+              <p className="text-eyebrow">{t('ThemeCustomizer.primaryColor')}</p>
               <div className="grid grid-cols-8 gap-1">
                 {THEME_COLORS.map((color) => {
                   const active = primaryColor.toLowerCase() === color.value.toLowerCase()
@@ -75,7 +77,7 @@ export default function ThemeCustomizer() {
               {/* Màu tự chọn */}
               <label className="text-label relative mt-2 flex h-9 items-center gap-2 rounded-control border border-[var(--color-input)] bg-[var(--color-card)] px-3 text-[var(--color-muted-foreground)] focus-within:border-[var(--color-ring)] focus-within:ring-2 focus-within:ring-[var(--color-ring)]">
                 <Pipette size={14} aria-hidden="true" />
-                <span className="flex-1">{isPreset ? 'Màu tùy chỉnh' : primaryColor.toUpperCase()}</span>
+                <span className="flex-1">{isPreset ? t('ThemeCustomizer.customColor') : primaryColor.toUpperCase()}</span>
                 <span
                   aria-hidden="true"
                   className="h-4 w-4 rounded-sm border border-[var(--color-border)]"
@@ -83,7 +85,7 @@ export default function ThemeCustomizer() {
                 />
                 <input
                   type="color"
-                  aria-label="Chọn màu tùy chỉnh"
+                  aria-label={t('ThemeCustomizer.chooseACustomColor')}
                   value={primaryColor}
                   onChange={(e) => setPrimaryColor(e.target.value)}
                   className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
@@ -96,14 +98,14 @@ export default function ThemeCustomizer() {
               {isVioletLike(primaryColor) && (
                 <p className="flex items-start gap-1.5 text-caption">
                   <Info size={13} className="mt-0.5 shrink-0" aria-hidden="true" />
-                  Màu tím trùng với nhận diện của K.AI, nên khu vực trợ lý sẽ dùng màu lam để phân biệt.
+                  {t('ThemeCustomizer.purpleMatchesKAisBrandingSo')}
                 </p>
               )}
                 </div>
               </div>
 
           <p className="mt-4 border-t border-[var(--color-border)] pt-3 text-caption">
-            Thiết lập được lưu trên trình duyệt này.
+            {t('ThemeCustomizer.settingsAreSavedInThisBrowser')}
               </p>
           </div>
       )}

@@ -17,7 +17,9 @@ import com.kpitracking.enums.KpiStatus;
 import com.kpitracking.enums.UserStatus;
 import com.kpitracking.enums.KpiType;
 import com.kpitracking.exception.BusinessException;
+import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.ResourceNotFoundException;
+import com.kpitracking.i18n.Terms;
 import com.kpitracking.repository.BscScorecardPerspectiveRepository;
 import com.kpitracking.repository.KpiCriteriaRepository;
 import com.kpitracking.repository.UserRoleOrgUnitRepository;
@@ -133,8 +135,7 @@ public class BscKpiPlanService {
         Map<UUID, KpiPeriod> periodsInScope = sortedPeriodsOf(scorecard).stream()
                 .collect(Collectors.toMap(KpiPeriod::getId, Function.identity(), (a, b) -> a));
         if (periodsInScope.isEmpty()) {
-            throw new BusinessException("Bộ tiêu chí " + scorecard.getName() + " chưa gắn đợt nào — "
-                    + "hãy gắn kỳ hoặc đợt cho bộ tiêu chí trước khi chia chỉ tiêu thành KPI.");
+            throw new BusinessException(ErrorCode.SCORECARD_NOT_LINKED_PERIOD, scorecard.getName());
         }
 
         List<UUID> targetUnitIds = resolveTargetUnits(request, scorecard);
@@ -161,8 +162,7 @@ public class BscKpiPlanService {
                 for (UUID unitId : targetUnitIds) {
                     List<UUID> members = activeMemberIdsOf(unitId);
                     if (members.isEmpty()) {
-                        throw new BusinessException("Đơn vị được chọn chưa có nhân sự nào để giao — "
-                                + "hãy thêm người vào đơn vị, hoặc giao đích danh cho người cụ thể.");
+                        throw new BusinessException(ErrorCode.CHOSEN_UNIT_NO_PEOPLE_ASSIGN);
                     }
                     created.add(kpiCriteriaService.createKpiCriteria(
                             allocationRequest(request, row, period, allocation, name, unit,
@@ -223,9 +223,9 @@ public class BscKpiPlanService {
 
     private BscScorecardPerspective loadRow(UUID scorecardPerspectiveId) {
         BscScorecardPerspective row = scorecardPerspectiveRepository.findById(scorecardPerspectiveId)
-                .orElseThrow(() -> new ResourceNotFoundException("Chỉ tiêu BSC", "id", scorecardPerspectiveId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.bscKpi"), "id", scorecardPerspectiveId));
         if (row.getPerspective() == null || row.getScorecard() == null) {
-            throw new BusinessException("Chỉ tiêu BSC này thiếu hạng mục hoặc bộ tiêu chí gốc");
+            throw new BusinessException(ErrorCode.BSC_KPI_MISSING_ITEM_ROOT_SCORECARD);
         }
         return row;
     }
@@ -267,8 +267,7 @@ public class BscKpiPlanService {
 
         if (requested.isEmpty()) {
             if (scorecardUnits.isEmpty()) {
-                throw new BusinessException("Bộ tiêu chí " + scorecard.getName() + " áp dụng cho toàn tổ chức "
-                        + "nên không suy ra được đơn vị nhận KPI — hãy chọn đơn vị thực hiện.");
+                throw new BusinessException(ErrorCode.SCORECARD_APPLIES_ORGANIZATION_WIDE_UNIT_RECEIVING_KPI, scorecard.getName());
             }
             return scorecardUnits;
         }
@@ -279,8 +278,7 @@ public class BscKpiPlanService {
                 if (!allowed.contains(id)) {
                     String names = scorecard.getOrgUnits().stream().map(OrgUnit::getName)
                             .collect(Collectors.joining(", "));
-                    throw new BusinessException("Đơn vị được chọn nằm ngoài phạm vi bộ tiêu chí "
-                            + scorecard.getName() + " (" + names + ") nên KPI sẽ không được tính vào kết quả BSC.");
+                    throw new BusinessException(ErrorCode.CHOSEN_UNIT_OUTSIDE_SCOPE_SCORECARD, scorecard.getName(), String.valueOf(names));
                 }
             }
         }
@@ -292,13 +290,13 @@ public class BscKpiPlanService {
         for (BscKpiAllocationRequest allocation : allocations) {
             KpiPeriod period = periodsInScope.get(allocation.getKpiPeriodId());
             if (period == null) {
-                throw new BusinessException("Đợt được chọn không thuộc phạm vi áp dụng của bộ tiêu chí này");
+                throw new BusinessException(ErrorCode.CHOSEN_PERIOD_NOT_WITHIN_SCOPE_SCORECARD);
             }
             if (!seen.add(allocation.getKpiPeriodId())) {
-                throw new BusinessException("Đợt " + period.getName() + " bị chia hai lần trong cùng một lần tạo");
+                throw new BusinessException(ErrorCode.PERIOD_SPLIT_TWICE_SAME_CREATION, period.getName());
             }
             if (allocation.getWeight() == null || allocation.getWeight() <= 0) {
-                throw new BusinessException("Đợt " + period.getName() + ": trọng số phải lớn hơn 0");
+                throw new BusinessException(ErrorCode.PERIOD, period.getName());
             }
         }
     }
@@ -330,10 +328,9 @@ public class BscKpiPlanService {
                 .sum() * Math.max(unitCount, 1);
 
         if (already + adding > target + 0.001) {
-            throw new BusinessException("Tổng mục tiêu chia cho các đợt (" + round1(already + adding)
-                    + ") vượt mục tiêu của hạng mục " + row.getPerspective().getName() + " ("
-                    + round1(target) + (already > 0 ? "; đã chia trước đó: " + round1(already) : "")
-                    + "). Hãy giảm bớt ở một trong các đợt.");
+            throw already > 0
+                    ? new BusinessException(ErrorCode.TOTAL_TARGET_SPLIT_ACROSS_PERIODS_WITH_PRIOR, String.valueOf(round1(already + adding)), row.getPerspective().getName(), String.valueOf(round1(target)), String.valueOf(round1(already)))
+                    : new BusinessException(ErrorCode.TOTAL_TARGET_SPLIT_ACROSS_PERIODS, String.valueOf(round1(already + adding)), row.getPerspective().getName(), String.valueOf(round1(target)));
         }
     }
 

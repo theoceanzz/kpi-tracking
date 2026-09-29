@@ -348,6 +348,33 @@ table, dd {
   font-variant-numeric: tabular-nums;
 }
 
+/* ── Con trỏ bàn tay ở MỌI thứ bấm được ──────────────────────────────────────
+   Tailwind v4 bỏ luật `cursor: pointer` cho <button> mà v3 vẫn thêm, nên nút của cả ứng dụng
+   quay về con trỏ mũi tên của trình duyệt — nhìn không khác gì chữ thường, người dùng không
+   biết chỗ nào bấm được. Đặt lại một chỗ thay vì rắc `cursor-pointer` vào từng component.
+
+   Dùng `:where()` nên độ ưu tiên bằng 0: chỗ nào cần khác (kéo thả, resize, ô chỉ đọc) chỉ
+   cần một class Tailwind là đè được. Phần tử đang khoá thì trả về mũi tên, để "bấm không ăn"
+   nhìn ra ngay từ con trỏ. */
+@layer base {
+  :where(button, [role="button"], [role="tab"], [role="option"], [role="menuitem"], [role="switch"],
+         summary, label[for], select, a[href]):not(:disabled):not([aria-disabled="true"]):not([data-disabled]) {
+    cursor: pointer;
+  }
+
+  :where(button, [role="button"], [role="tab"], [role="option"], [role="menuitem"], [role="switch"],
+         select, input):disabled,
+  :where([role="button"], [role="tab"], [role="option"], [role="menuitem"], [role="switch"])[aria-disabled="true"],
+  :where(button, [role="button"], [role="tab"], [role="option"], [role="menuitem"])[data-disabled] {
+    cursor: not-allowed;
+  }
+
+  /* Ô chọn / ô đánh dấu: chuột phải thành bàn tay kể cả khi bấm vào nhãn đi kèm. */
+  :where(input[type="checkbox"], input[type="radio"], input[type="range"], input[type="file"], input[type="color"]):not(:disabled) {
+    cursor: pointer;
+  }
+}
+
 /* Focus nhìn thấy được bằng bàn phím ở mọi thành phần tương tác, cùng một kiểu. */
 :where(button, a, input, select, textarea, [role="button"], [tabindex]):focus-visible {
   outline: 2px solid var(--color-ring);
@@ -366,9 +393,10 @@ table, dd {
   outline: none;
 }
 
-/* Ô nhập chuẩn (Input / Textarea — components/ui): cùng lý do, focus là MỘT lớp viền đổi màu + quầng
-   mờ đặt trong component. Không tắt outline chung ở đây thì ô có đơn vị ("%") hiện thêm một khung
-   vuông quanh thẻ <input> bên trong vòng focus của khung bọc; ô thường hiện vòng ring + outline cách 2px. */
+/* Ô nhập chuẩn (Input / Textarea — components/ui): focus là MỘT lớp viền đổi màu + quầng mờ đặt trong
+   component. Luật outline chung phía trên nằm ngoài @layer nên `outline-none` của Tailwind không đè được —
+   phải tắt ở đây, không thì ô có đơn vị ("%") hiện thêm khung vuông quanh thẻ <input> bên trong khung
+   bọc (.field-shell), còn ô thường hiện quầng + outline cách 2px. */
 .field:focus-visible,
 .field-shell :focus-visible {
   outline: none;
@@ -662,6 +690,40 @@ textarea:not(:disabled, [readonly], :focus, .no-edit-hint) {
 
   /* Nền màu là toàn bộ thiết kế của mấy mẫu tối — trình duyệt mặc định bỏ nền khi in. */
   body.certificate-printing * {
+    print-color-adjust: exact;
+    -webkit-print-color-adjust: exact;
+  }
+}
+
+/* In / xuất PDF báo cáo 360 (F360ReportPage). Cùng cách với in chứng nhận: chỉ áp khi body mang
+   class đang-in, để Ctrl+P ở trang khác không bị ảnh hưởng. Báo cáo nằm sâu trong layout nên ẩn
+   bằng visibility (display:none ở tổ tiên sẽ ẩn luôn báo cáo). */
+@media print {
+  body.f360-printing * {
+    visibility: hidden;
+  }
+
+  body.f360-printing .f360-print-root,
+  body.f360-printing .f360-print-root * {
+    visibility: visible;
+  }
+
+  body.f360-printing .f360-print-root {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100%;
+  }
+
+  body.f360-printing .f360-no-print {
+    display: none !important;
+  }
+
+  body.f360-printing .f360-print-root section,
+  body.f360-printing .f360-print-root table {
+    break-inside: avoid;
+  }
+
+  body.f360-printing * {
     print-color-adjust: exact;
     -webkit-print-color-adjust: exact;
   }

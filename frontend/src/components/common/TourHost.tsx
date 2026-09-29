@@ -4,6 +4,7 @@ import { X, ArrowRight, ArrowLeft } from 'lucide-react'
 import { useTourStore, type TourKey } from '@/store/tourStore'
 import { useAuthStore } from '@/store/authStore'
 import { availableTourChain, getTour } from './tours'
+import { useTranslation } from 'react-i18next'
 
 /* ========== TOOLTIP ========== */
 function CustomTooltip({
@@ -17,6 +18,7 @@ function CustomTooltip({
   closeProps,
   tooltipProps,
 }: TooltipRenderProps) {
+  const { t } = useTranslation('shared')
   return (
     <div
       {...tooltipProps}
@@ -32,7 +34,7 @@ function CustomTooltip({
       <div className="shrink-0 px-5 pt-5 pb-3 space-y-2">
         <div className="flex items-start justify-between">
           <div className="text-eyebrow flex items-center gap-2 px-2.5 py-0.5 rounded-full bg-[var(--color-primary-soft)] text-[var(--color-primary)] w-fit">
-            <span>Bước {index + 1}</span>
+            <span>{t('TourHost.step')} {index + 1}</span>
             <span className="opacity-30">/</span>
             <span className="opacity-60">{size}</span>
           </div>
@@ -62,7 +64,7 @@ function CustomTooltip({
           {...skipProps}
           className="text-eyebrow hover:text-[var(--color-muted-foreground)] transition-colors"
         >
-          BỎ QUA
+          {t('TourHost.skip')}
         </button>
 
         <div className="flex items-center gap-2">
@@ -78,7 +80,7 @@ function CustomTooltip({
             {...primaryProps}
             className="text-eyebrow flex items-center gap-2 px-5 py-2 rounded-card bg-[var(--color-primary)] text-[var(--color-primary-foreground)] shadow-lg hover:bg-[var(--color-primary-hover)] transition-all group"
           >
-            <span>{isLastStep ? 'XONG' : 'TIẾP TỤC'}</span>
+            <span>{isLastStep ? 'XONG' : t('TourHost.continue')}</span>
             {!isLastStep && <ArrowRight size={12} className="group-hover:translate-x-1 transition-transform" />}
           </button>
         </div>

@@ -1,6 +1,7 @@
 import type { KpiCriteria, KpiPeriod } from '@/types/kpi'
 import type { WorkflowStage, WorkflowStageCode } from '../types'
 import type { WorkflowContext } from '../hooks/useWorkflowNavigator'
+import i18n from 'i18next'
 
 /** Việc vừa làm xong, kèm KẾT QUẢ của nó — kết quả mới là thứ quyết định có gợi ý hay không. */
 export type NextStepEvent =
@@ -57,9 +58,9 @@ export function resolveNextStepHint(event: NextStepEvent, ctx: NextStepContext):
       if (!stage) return null
       return {
         stage: 'SUBMISSION',
-        title: `Nộp báo cáo cho «${kpi.name}»`,
-        description: 'Chỉ tiêu đã có hiệu lực và được giao cho bạn.',
-        actionLabel: 'Nộp ngay',
+        title: i18n.t('kpi:nextStepHints.submitTheReportFor', { name: kpi.name }),
+        description: i18n.t('kpi:nextStepHints.theKpiIsInEffectAnd'),
+        actionLabel: i18n.t('kpi:nextStepHints.submitNow'),
         to: `/submissions/new?kpiId=${kpi.id}`,
       }
     }
@@ -69,9 +70,9 @@ export function resolveNextStepHint(event: NextStepEvent, ctx: NextStepContext):
       if (!stage) return null
       return {
         stage: 'CRITERIA_DRAFT',
-        title: `Giao chỉ tiêu cho đợt «${event.period.name}»`,
-        description: 'Đợt đã sẵn sàng, chưa có chỉ tiêu nào bám vào.',
-        actionLabel: 'Giao chỉ tiêu',
+        title: i18n.t('kpi:nextStepHints.assignKpisForPeriod', { name: event.period.name }),
+        description: i18n.t('kpi:nextStepHints.thePeriodIsReadyButNo'),
+        actionLabel: i18n.t('kpi:nextStepHints.assignKpis'),
         to: ctx.buildUrl(stage, { periodId: event.period.id }, 'PERIOD_SETUP', true),
       }
     }
@@ -81,9 +82,9 @@ export function resolveNextStepHint(event: NextStepEvent, ctx: NextStepContext):
       if (!stage) return null
       return {
         stage: 'PERIOD_SETUP',
-        title: `Tạo đợt cho kỳ «${event.cycle.name}»`,
-        description: 'Kỳ cần ít nhất một đợt để chỉ tiêu bám vào.',
-        actionLabel: 'Tạo đợt',
+        title: i18n.t('kpi:nextStepHints.createPeriodsForCycle', { name: event.cycle.name }),
+        description: i18n.t('kpi:nextStepHints.theCycleNeedsAtLeastOne'),
+        actionLabel: i18n.t('kpi:nextStepHints.createPeriod'),
         to: ctx.buildUrl(stage, { cycleId: event.cycle.id }, 'CYCLE_SETUP', true),
       }
     }

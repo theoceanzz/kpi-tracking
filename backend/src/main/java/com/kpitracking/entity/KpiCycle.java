@@ -1,6 +1,7 @@
 package com.kpitracking.entity;
 
 import com.kpitracking.enums.CycleEvaluationMode;
+import com.kpitracking.enums.KpiCycleStatus;
 import com.kpitracking.enums.KpiFrequency;
 import jakarta.persistence.*;
 import lombok.*;
@@ -54,6 +55,29 @@ public class KpiCycle {
     @Builder.Default
     private CycleEvaluationMode evaluationMode = CycleEvaluationMode.BOTH;
 
+    /** OPEN → LOCKED (khoá kỳ) → OPEN (mở lại). Xem {@link KpiCycleStatus}. */
+    @Enumerated(EnumType.STRING)
+    @Column(name = "status", nullable = false)
+    @Builder.Default
+    private KpiCycleStatus status = KpiCycleStatus.OPEN;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "locked_by")
+    private User lockedBy;
+
+    @Column(name = "locked_at")
+    private Instant lockedAt;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "reopened_by")
+    private User reopenedBy;
+
+    @Column(name = "reopened_at")
+    private Instant reopenedAt;
+
+    @Column(name = "reopen_reason")
+    private String reopenReason;
+
     @CreatedDate
     @Column(name = "created_at", updatable = false)
     private Instant createdAt;
@@ -64,4 +88,8 @@ public class KpiCycle {
 
     @Column(name = "deleted_at")
     private Instant deletedAt;
+
+    public boolean isLocked() {
+        return status == KpiCycleStatus.LOCKED;
+    }
 }

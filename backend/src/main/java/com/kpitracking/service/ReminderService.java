@@ -1,5 +1,7 @@
 package com.kpitracking.service;
 
+import com.kpitracking.i18n.ErrorMessages;
+import com.kpitracking.i18n.LocalizedText;
 import com.kpitracking.dto.request.notification.SendKpiReminderRequest;
 import com.kpitracking.entity.KpiCriteria;
 import com.kpitracking.entity.KpiReminder;
@@ -7,8 +9,10 @@ import com.kpitracking.entity.OrgUnit;
 import com.kpitracking.entity.User;
 import com.kpitracking.entity.UserRoleOrgUnit;
 import com.kpitracking.exception.BusinessException;
+import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.ForbiddenException;
 import com.kpitracking.exception.ResourceNotFoundException;
+import com.kpitracking.i18n.Terms;
 import com.kpitracking.repository.KpiCriteriaRepository;
 import com.kpitracking.repository.KpiReminderRepository;
 import com.kpitracking.repository.OrgUnitRepository;
@@ -46,18 +50,21 @@ public class ReminderService {
     @Transactional
     public void sendReminder(UUID kpiCriteriaId, UUID userId) {
         KpiCriteria criteria = kpiCriteriaRepository.findById(kpiCriteriaId)
-                .orElseThrow(() -> new ResourceNotFoundException("KPI", "id", kpiCriteriaId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.kpi"), "id", kpiCriteriaId));
+        // Kỳ đã khoá: KPI không còn nộp được nên nhắc là vô nghĩa.
+        if (criteria.getKpiPeriod() != null && criteria.getKpiPeriod().getKpiCycle() != null
+                && criteria.getKpiPeriod().getKpiCycle().isLocked()) {
+            throw com.kpitracking.service.kpi.CycleStatusGuard.lockedError(criteria.getKpiPeriod().getKpiCycle().getName());
+        }
 
         User employee = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("Nhân viên", "id", userId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.employee"), "id", userId));
 
         // Chuông hiện ngay, email xếp hàng chờ gộp: quản lý thường bấm nhắc lần lượt cho
         // vài chỉ tiêu của cùng một người, gửi rời thì nhân viên nhận liền mấy lá thư
         // trong một phút.
-        String title = "Nhắc nhở nộp báo cáo KPI";
-        String message = String.format(
-                "Bạn nhận được lời nhắc nộp báo cáo cho chỉ tiêu KPI: %s thuộc đợt %s. " +
-                "Vui lòng đăng nhập hệ thống để cập nhật kết quả thực hiện.",
+        LocalizedText title = LocalizedText.of("notif.reminder.submit.title");
+        LocalizedText message = LocalizedText.of("notif.reminder.submit.message",
                 criteria.getName(), criteria.getKpiPeriod().getName());
         java.util.UUID orgId = criteria.getOrgUnit().getOrgHierarchyLevel().getOrganization().getId();
         dispatcher.dispatch(orgId, "reminder_deadline", employee, criteria.getOrgUnit(),
@@ -82,23 +89,26 @@ public class ReminderService {
     public void sendProgressReminder(SendKpiReminderRequest request) {
         User sender = getCurrentUser();
         User recipient = userRepository.findById(request.getUserId())
-                .orElseThrow(() -> new ResourceNotFoundException("Nhân viên", "id", request.getUserId()));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.employee"), "id", request.getUserId()));
 
         if (recipient.getEmail() == null || recipient.getEmail().isBlank()) {
-            throw new BusinessException("Nhân sự này chưa có email nên không gửi được");
+            throw new BusinessException(ErrorCode.PERSON_NO_EMAIL_CANNOT_SENT);
         }
 
         OrgUnit recipientUnit = requireManageable(sender, recipient);
+        java.util.Locale recipientLocale = emailService.recipientLocale(recipient.getEmail());
 
         emailService.sendDirect(
                 recipient.getEmail(),
                 request.getSubject(),
-                EmailLayout.wrap("Nhắc tiến độ KPI", toHtmlParagraphs(request.getBody())),
+                EmailLayout.wrap(ErrorMessages.text(recipientLocale, "email.progressReminder.header", ""),
+                        toHtmlParagraphs(request.getBody()), recipientLocale),
                 sender.getEmail(),
                 sender.getFullName());
 
-        notificationService.createNotification(recipientUnit, recipient, request.getSubject(),
-                String.format("%s vừa gửi cho bạn một lời nhắc về tiến độ KPI qua email.", sender.getFullName()),
+        notificationService.createNotification(recipientUnit, recipient,
+                LocalizedText.of("notif.common.verbatim", request.getSubject()),
+                LocalizedText.of("notif.reminder.progress.message", sender.getFullName()),
                 "KPI_REMINDER", null);
     }
 
@@ -110,7 +120,7 @@ public class ReminderService {
         List<UUID> rootIds = permissionChecker.getOrgUnitsWithPermission(sender.getId(), "DASHBOARD:VIEW");
         UUID orgId = organizationIdOf(sender);
         if (rootIds.isEmpty() || orgId == null) {
-            throw new ForbiddenException("Bạn không có quyền gửi nhắc nhở cho nhân sự này");
+            throw new ForbiddenException(ErrorCode.NO_PERMISSION_SEND_REMINDERS_PERSON);
         }
 
         Set<UUID> allowedUnitIds = orgUnitRepository.findAllInSubtrees(rootIds, orgId).stream()
@@ -121,13 +131,13 @@ public class ReminderService {
                 .map(UserRoleOrgUnit::getOrgUnit)
                 .filter(unit -> allowedUnitIds.contains(unit.getId()))
                 .findFirst()
-                .orElseThrow(() -> new ForbiddenException("Bạn không có quyền gửi nhắc nhở cho nhân sự này"));
+                .orElseThrow(() -> new ForbiddenException(ErrorCode.NO_PERMISSION_SEND_REMINDERS_PERSON));
     }
 
     private User getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         return userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "email", email));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.user"), "email", email));
     }
 
     private UUID organizationIdOf(User user) {

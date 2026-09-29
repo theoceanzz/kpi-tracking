@@ -1,5 +1,7 @@
 package com.kpitracking.service;
 
+import com.kpitracking.i18n.ErrorMessages;
+import com.kpitracking.i18n.LocalizedText;
 import com.kpitracking.dto.request.kpi.CreateKpiCriteriaRequest;
 import com.kpitracking.dto.request.kpi.RejectKpiRequest;
 import com.kpitracking.dto.request.kpi.UpdateKpiCriteriaRequest;
@@ -18,8 +20,10 @@ import com.kpitracking.event.KpiEvents.KpiCriteriaRejectedEvent;
 import com.kpitracking.event.KpiEvents.KpiCriteriaApprovalRevertedEvent;
 import com.kpitracking.event.KpiEvents.KpiCriteriaSubmittedForApprovalEvent;
 import com.kpitracking.exception.BusinessException;
+import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.ForbiddenException;
 import com.kpitracking.exception.ResourceNotFoundException;
+import com.kpitracking.i18n.Terms;
 import com.kpitracking.repository.KpiCriteriaRepository;
 import com.kpitracking.repository.KpiPeriodRepository;
 import com.kpitracking.repository.OrgUnitRepository;
@@ -75,6 +79,11 @@ public class KpiCriteriaService {
     private final com.kpitracking.workflow.KpiWorkflowConfigService workflowConfigService;
     private final com.kpitracking.workflow.engine.WorkflowEngine workflowEngine;
     private final com.kpitracking.workflow.guard.HierarchyAuthorityGuard hierarchyGuard;
+    /** Chặn mọi thao tác ghi vào KPI thuộc kỳ đã khoá (xem CycleStatusGuard). */
+    private final com.kpitracking.service.kpi.CycleStatusGuard cycleStatusGuard;
+    /** Chuỗi duyệt theo phân cấp (approverMode = CHAIN). */
+    private final com.kpitracking.service.kpi.approval.KpiApprovalChainService approvalChain;
+    private final com.kpitracking.service.kpi.approval.KpiApprovalViewService approvalView;
 
     private static final List<KpiStatus> WEIGHT_COUNTED_STATUSES = java.util.Arrays.asList(
             KpiStatus.DRAFT,
@@ -100,7 +109,7 @@ public class KpiCriteriaService {
     private User getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         return userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("Người dùng", "email", email));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.user"), "email", email));
     }
 
     private UUID getCurrentUserOrganizationId(User user) {
@@ -126,11 +135,11 @@ public class KpiCriteriaService {
     private KpiStatus resolveCriteriaTransition(
             KpiCriteria kpi, User actor,
             com.kpitracking.workflow.WorkflowAction action,
-            String permissionCode, String verb, String statusRejectionMessage,
+            String permissionCode, String verb, ErrorCode statusRejectionCode,
             List<com.kpitracking.workflow.guard.TransitionGuard> invariants) {
 
-        return resolveCriteriaTransition(kpi, actor, action, statusRejectionMessage,
-                List.of(hierarchyGuard.requiring(permissionCode, verb, "chỉ tiêu", "chỉ tiêu KPI")),
+        return resolveCriteriaTransition(kpi, actor, action, statusRejectionCode,
+                List.of(hierarchyGuard.requiring(permissionCode, verb, "noun.kpi")),
                 invariants);
     }
 
@@ -144,7 +153,7 @@ public class KpiCriteriaService {
     private KpiStatus resolveCriteriaTransition(
             KpiCriteria kpi, User actor,
             com.kpitracking.workflow.WorkflowAction action,
-            String statusRejectionMessage,
+            ErrorCode statusRejectionCode,
             List<com.kpitracking.workflow.guard.TransitionGuard> authorityGuards,
             List<com.kpitracking.workflow.guard.TransitionGuard> invariants) {
 
@@ -160,7 +169,7 @@ public class KpiCriteriaService {
                         .orgUnitId(kpi.getOrgUnit().getId())
                         .target(kpi)
                         .targetOwnerId(kpi.getCreatedBy() == null ? null : kpi.getCreatedBy().getId())
-                        .statusRejectionMessage(statusRejectionMessage)
+                        .statusRejectionCode(statusRejectionCode)
                         .build();
 
         return workflowEngine.resolve(definition.criteria(), ctx, authorityGuards, invariants);
@@ -180,7 +189,7 @@ public class KpiCriteriaService {
 
     private void requireStageEnabled(KpiCriteria kpi, com.kpitracking.workflow.WorkflowStage stage) {
         if (!workflowConfigService.definitionFor(organizationIdOf(kpi)).isStageEnabled(stage)) {
-            throw new BusinessException("Tổ chức đã tắt bước duyệt chỉ tiêu trong cấu hình luồng KPI");
+            throw new BusinessException(ErrorCode.ORGANIZATION_TURNED_OFF_KPI_APPROVAL_STEP_KPI);
         }
     }
 
@@ -199,6 +208,8 @@ public class KpiCriteriaService {
             return KpiStatus.APPROVED;
         }
 
+        // Cả chuỗi duyệt lẫn luồng một cấp: người có KPI:APPROVE_OWN tạo chỉ tiêu là đã duyệt ngay.
+        // Chuỗi duyệt chỉ dành cho chỉ tiêu của người KHÔNG có quyền tự duyệt.
         boolean allowSelfApprove = definition
                 .stageConfig(com.kpitracking.workflow.WorkflowStage.CRITERIA_APPROVAL)
                 .booleanOption("allowSelfApprove", true);
@@ -215,12 +226,13 @@ public class KpiCriteriaService {
         KpiStatus initialStatus = initialCriteriaStatus(getCurrentUserOrganizationId(currentUser), currentUser);
 
         com.kpitracking.entity.KpiPeriod kpiPeriod = kpiPeriodRepository.findById(request.getKpiPeriodId())
-                .orElseThrow(() -> new ResourceNotFoundException("Kỳ đánh giá (Đợt)", "id", request.getKpiPeriodId()));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.evaluationCycle"), "id", request.getKpiPeriodId()));
+        cycleStatusGuard.assertWritable(kpiPeriod);
 
         validateDeadlineWithinPeriod(request.getDeadline(), kpiPeriod);
 
         if (request.getFrequency().ordinal() > kpiPeriod.getPeriodType().ordinal()) {
-            throw new BusinessException("Tần suất đánh giá (Tháng/Quý/Năm) phải nhỏ hơn hoặc bằng loại kỳ đánh giá (Đợt).");
+            throw new BusinessException(ErrorCode.EVALUATION_FREQUENCY);
         }
 
         List<UUID> targetOrgUnitIds = new ArrayList<>();
@@ -233,7 +245,7 @@ public class KpiCriteriaService {
             if (!assignments.isEmpty()) {
                 targetOrgUnitIds.add(assignments.get(0).getOrgUnit().getId());
             } else {
-                throw new BusinessException("Người dùng phải thuộc ít nhất một đơn vị để tạo KPI");
+                throw new BusinessException(ErrorCode.USER_MUST_BELONG_LEAST_ONE_UNIT_CREATE);
             }
         }
 
@@ -248,23 +260,25 @@ public class KpiCriteriaService {
 
         for (UUID assigneeId : assigneeIds) {
             User assignee = userRepository.findById(assigneeId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Người dùng (người được giao)", "id", assigneeId));
+                    .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.user"), "id", assigneeId));
             assignees.add(assignee);
         }
 
         KpiCriteria lastKpi = null;
         for (UUID orgUnitId : targetOrgUnitIds) {
             OrgUnit orgUnit = orgUnitRepository.findById(orgUnitId)
-                    .orElseThrow(() -> new ResourceNotFoundException("Đơn vị", "id", orgUnitId));
+                    .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.unit"), "id", orgUnitId));
 
             // Permission check: only users with KPI:CREATE in the target OrgUnit can create
             if (!permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "KPI:CREATE", orgUnit.getId())) {
-                throw new ForbiddenException("Bạn không có quyền tạo chỉ tiêu cho đơn vị " + orgUnit.getName());
+                throw new ForbiddenException(ErrorCode.NO_PERMISSION_CREATE_KPIS_UNIT, orgUnit.getName());
             }
 
             validateWaterfallAssignment(currentUser, orgUnit, assignees);
 
             KpiCriteria kpi = buildKpiEntity(request, orgUnit, assignees, currentUser, initialStatus, kpiPeriod);
+            requirePerspectiveWhenBscEnabled(kpi, "when.beforeCreate");
+            if (initialStatus == KpiStatus.APPROVED) requireWithinFullWeight(kpi);
             kpi = kpiCriteriaRepository.save(kpi);
 
             if (initialStatus == KpiStatus.APPROVED) {
@@ -279,10 +293,10 @@ public class KpiCriteriaService {
     private void validateDeadlineWithinPeriod(Instant deadline, com.kpitracking.entity.KpiPeriod period) {
         if (deadline == null) return;
         if (period.getStartDate() != null && deadline.isBefore(period.getStartDate())) {
-            throw new BusinessException("Hạn chót (deadline) không được trước ngày bắt đầu của kỳ đánh giá.");
+            throw new BusinessException(ErrorCode.DEADLINE_CANNOT_BEFORE_START_DATE_EVALUATION_PERIOD);
         }
         if (period.getEndDate() != null && deadline.isAfter(period.getEndDate())) {
-            throw new BusinessException("Hạn chót (deadline) không được sau ngày kết thúc của kỳ đánh giá.");
+            throw new BusinessException(ErrorCode.DEADLINE_CANNOT_AFTER_END_DATE_EVALUATION_PERIOD);
         }
     }
 
@@ -292,7 +306,7 @@ public class KpiCriteriaService {
         boolean isQualitative = kpiType == com.kpitracking.enums.KpiType.QUALITATIVE;
 
         if (isQualitative && (request.getWeight() == null || request.getWeight() <= 0)) {
-            throw new BusinessException("KPI định tính cần có trọng số (weight) lớn hơn 0.");
+            throw new BusinessException(ErrorCode.QUALITATIVE_KPIS_NEED_WEIGHT_GREATER_THAN_0);
         }
 
         if (!isQualitative) {
@@ -322,7 +336,7 @@ public class KpiCriteriaService {
 
         if (request.getParentId() != null) {
             KpiCriteria parent = kpiCriteriaRepository.findById(request.getParentId())
-                    .orElseThrow(() -> new ResourceNotFoundException("KPI Cha", "id", request.getParentId()));
+                    .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.parentKpi"), "id", request.getParentId()));
 
             com.kpitracking.enums.KpiParentRelationType relationType = request.getParentRelationType() != null
                     ? request.getParentRelationType()
@@ -333,7 +347,7 @@ public class KpiCriteriaService {
                 boolean isParentAssignee = parent.getAssignees() != null && parent.getAssignees().stream().anyMatch(a -> a.getId().equals(creator.getId()));
                 if (!isParentOwner && !isParentAssignee
                         && !permissionChecker.isGlobalAdminIn(creator.getId(), parent.getOrgUnit() != null ? parent.getOrgUnit().getId() : null)) {
-                    throw new ForbiddenException("Bạn chỉ có thể chia nhỏ KPI do chính mình tạo hoặc được giao thực hiện");
+                    throw new ForbiddenException(ErrorCode.CAN_ONLY_SPLIT_KPIS_CREATED_YOURSELF_ASSIGNED);
                 }
 
                 double siblingWeight = parent.getChildren() != null ? parent.getChildren().stream()
@@ -344,8 +358,7 @@ public class KpiCriteriaService {
                 double parentWeight = parent.getWeight() != null ? parent.getWeight() : 0.0;
 
                 if (siblingWeight + newWeight > parentWeight + 0.001) {
-                    throw new BusinessException("Tổng trọng số các KPI con (" + (siblingWeight + newWeight) +
-                            "%) vượt quá trọng số KPI cha (" + parentWeight + "%)");
+                    throw new BusinessException(ErrorCode.TOTAL_WEIGHT_CHILD_KPIS, String.valueOf((siblingWeight + newWeight)), String.valueOf(parentWeight));
                 }
             }
 
@@ -355,7 +368,7 @@ public class KpiCriteriaService {
 
         if (request.getKeyResultId() != null) {
             com.kpitracking.entity.KeyResult kr = keyResultRepository.findById(request.getKeyResultId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Key Result", "id", request.getKeyResultId()));
+                    .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.keyResult"), "id", request.getKeyResultId()));
             
             // Validation: KPI OrgUnit must match one of the KeyResult Objective's OrgUnits
             if (orgUnit != null && kr.getObjective() != null && !kr.getObjective().getOrgUnits().isEmpty()) {
@@ -365,8 +378,7 @@ public class KpiCriteriaService {
                     String unitNames = kr.getObjective().getOrgUnits().stream()
                             .map(com.kpitracking.entity.OrgUnit::getName)
                             .collect(java.util.stream.Collectors.joining(", "));
-                    throw new BusinessException("Chỉ tiêu KPI phải thuộc cùng đơn vị với Kết quả then chốt (OKR) được liên kết. " +
-                            "(Đơn vị KPI: " + orgUnit.getName() + ", Đơn vị OKR: " + unitNames + ")");
+                    throw new BusinessException(ErrorCode.KPI_MUST_BELONG_SAME_UNIT_LINKED_KEY, orgUnit.getName(), String.valueOf(unitNames));
                 }
             }
             kpi.setKeyResult(kr);
@@ -374,7 +386,7 @@ public class KpiCriteriaService {
 
         if (request.getPerspectiveId() != null) {
             com.kpitracking.entity.BscPerspective perspective = bscPerspectiveRepository.findById(request.getPerspectiveId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Hạng mục BSC", "id", request.getPerspectiveId()));
+                    .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.bscItem"), "id", request.getPerspectiveId()));
             kpi.setPerspective(perspective);
         }
 
@@ -420,7 +432,7 @@ public class KpiCriteriaService {
         if (scorecardPerspectiveId == null) return;
         com.kpitracking.entity.BscScorecardPerspective row = bscScorecardPerspectiveRepository
                 .findById(scorecardPerspectiveId)
-                .orElseThrow(() -> new ResourceNotFoundException("Chỉ tiêu BSC", "id", scorecardPerspectiveId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.bscKpi"), "id", scorecardPerspectiveId));
         kpi.setScorecardPerspective(row);
         kpi.setPerspective(row.getPerspective());
     }
@@ -474,8 +486,11 @@ public class KpiCriteriaService {
                 pageable
         );
 
+        List<KpiCriteriaResponse> content = kpiPage.getContent().stream().map(kpiCriteriaMapper::toResponse).toList();
+        approvalView.enrichCriteria(content, currentUser.getId());
+
         return PageResponse.<KpiCriteriaResponse>builder()
-                .content(kpiPage.getContent().stream().map(kpiCriteriaMapper::toResponse).toList())
+                .content(content)
                 .page(kpiPage.getNumber())
                 .size(kpiPage.getSize())
                 .totalElements(kpiPage.getTotalElements())
@@ -488,18 +503,22 @@ public class KpiCriteriaService {
     public KpiCriteriaResponse getKpiCriteriaById(UUID kpiId) {
         User currentUser = getCurrentUser();
         KpiCriteria kpi = kpiCriteriaRepository.findById(kpiId)
-                .orElseThrow(() -> new ResourceNotFoundException("Chỉ tiêu KPI", "id", kpiId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.kpi"), "id", kpiId));
         
         boolean isCreator = kpi.getCreatedBy().getId().equals(currentUser.getId());
         boolean isAssignee = kpi.getAssignees().stream().anyMatch(a -> a.getId().equals(currentUser.getId()));
         boolean isSameUnit = !userRoleOrgUnitRepository.findByUserIdAndOrgUnitId(currentUser.getId(), kpi.getOrgUnit().getId()).isEmpty();
 
         boolean canView = isCreator || isAssignee || (isSameUnit && kpi.getStatus() == KpiStatus.APPROVED);
-        if (!canView) {
-            throw new ForbiddenException("Bạn không có quyền xem KPI này");
+        // Người đang giữ bước duyệt (thường ở đơn vị cấp trên) phải mở được chỉ tiêu mình đang duyệt.
+        KpiCriteriaResponse response = kpiCriteriaMapper.toResponse(kpi);
+        approvalView.enrichCriteria(List.of(response), currentUser.getId());
+        boolean isHolder = response.getApproval() != null && response.getApproval().isCanAct();
+        if (!canView && !isHolder) {
+            throw new ForbiddenException(ErrorCode.NO_PERMISSION_VIEW_KPI);
         }
 
-        return kpiCriteriaMapper.toResponse(kpi);
+        return response;
     }
 
     /**
@@ -512,14 +531,16 @@ public class KpiCriteriaService {
     public KpiCriteriaResponse decomposeInto(UUID parentId, UUID childUnitId, Double targetValue, Double weight,
                                              com.kpitracking.enums.KpiParentRelationType relation) {
         KpiCriteria parent = kpiCriteriaRepository.findById(parentId)
-                .orElseThrow(() -> new ResourceNotFoundException("Chỉ tiêu cha", "id", parentId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.parentKpi"), "id", parentId));
         OrgUnit child = orgUnitRepository.findById(childUnitId)
-                .orElseThrow(() -> new ResourceNotFoundException("Đơn vị", "id", childUnitId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.unit"), "id", childUnitId));
         CreateKpiCriteriaRequest req = new CreateKpiCriteriaRequest();
         req.setName(parent.getName() + " — " + child.getName());
         req.setKpiType(parent.getKpiType());
-        req.setDescription((relation == com.kpitracking.enums.KpiParentRelationType.DELEGATION ? "Uỷ quyền" : "Phân rã")
-                + " từ \"" + parent.getName() + "\" của " + (parent.getOrgUnit() != null ? parent.getOrgUnit().getName() : ""));
+        // Mô tả sinh sẵn cho KPI con — viết theo ngôn ngữ của người thao tác, người dùng sửa tự do sau đó.
+        req.setDescription(ErrorMessages.text(relation == com.kpitracking.enums.KpiParentRelationType.DELEGATION
+                        ? "kpi.childDescription.delegated" : "kpi.childDescription.cascaded", "",
+                parent.getName(), parent.getOrgUnit() != null ? parent.getOrgUnit().getName() : ""));
         req.setWeight(weight);
         req.setTargetValue(targetValue);
         req.setUnit(parent.getUnit());
@@ -542,7 +563,7 @@ public class KpiCriteriaService {
     public List<KpiCriteriaResponse> getChildren(UUID kpiId) {
         User currentUser = getCurrentUser();
         KpiCriteria kpi = kpiCriteriaRepository.findById(kpiId)
-                .orElseThrow(() -> new ResourceNotFoundException("Chỉ tiêu KPI", "id", kpiId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.kpi"), "id", kpiId));
 
         boolean isCreator = kpi.getCreatedBy().getId().equals(currentUser.getId());
         boolean isAssignee = kpi.getAssignees().stream().anyMatch(a -> a.getId().equals(currentUser.getId()));
@@ -550,7 +571,7 @@ public class KpiCriteriaService {
 
         boolean canView = isCreator || isAssignee || (isSameUnit && kpi.getStatus() == KpiStatus.APPROVED);
         if (!canView) {
-            throw new ForbiddenException("Bạn không có quyền xem KPI này");
+            throw new ForbiddenException(ErrorCode.NO_PERMISSION_VIEW_KPI);
         }
 
         return kpiCriteriaRepository.findByParentId(kpiId).stream()
@@ -562,13 +583,14 @@ public class KpiCriteriaService {
     public KpiCriteriaResponse updateKpiCriteria(UUID kpiId, UpdateKpiCriteriaRequest request) {
         User currentUser = getCurrentUser();
         KpiCriteria kpi = kpiCriteriaRepository.findById(kpiId)
-                .orElseThrow(() -> new ResourceNotFoundException("Chỉ tiêu KPI", "id", kpiId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.kpi"), "id", kpiId));
+        cycleStatusGuard.assertWritable(kpi);
 
         boolean canUpdate = permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "KPI:UPDATE", kpi.getOrgUnit().getId());
         boolean isCreator = kpi.getCreatedBy().getId().equals(currentUser.getId());
 
         if (!isCreator && !canUpdate) {
-            throw new ForbiddenException("Bạn không có quyền chỉnh sửa KPI này");
+            throw new ForbiddenException(ErrorCode.NO_PERMISSION_EDIT_KPI);
         }
 
         Organization org = kpi.getOrgUnit().getOrgHierarchyLevel().getOrganization();
@@ -579,13 +601,15 @@ public class KpiCriteriaService {
             if (enableWaterfall) {
                 // Waterfall ON: Only allow managers to update approved KPIs (for delegation)
                 if (!canApprove) {
-                    throw new BusinessException("Chỉ cấp quản lý mới có quyền điều chỉnh KPI đã duyệt trong mô hình Thác nước.");
+                    throw new BusinessException(ErrorCode.ONLY_MANAGERS_MAY_ADJUST_APPROVED_KPIS_WATERFALL);
                 }
             } else {
                 // Waterfall OFF: Strict block - no one can update approved KPIs
-                throw new BusinessException("Chỉ có thể cập nhật KPI ở trạng thái NHÁP, CHỜ PHÊ DUYỆT hoặc BỊ TỪ CHỐI.");
+                throw new BusinessException(ErrorCode.ONLY_KPIS_DRAFT_PENDING_APPROVAL_REJECTED_STATUS);
             }
         }
+
+        WeightFootprint before = WeightFootprint.of(kpi);
 
         if (request.getName() != null) kpi.setName(request.getName());
         if (request.getDescription() != null) kpi.setDescription(request.getDescription());
@@ -614,7 +638,8 @@ public class KpiCriteriaService {
 
         if (request.getKpiPeriodId() != null) {
             com.kpitracking.entity.KpiPeriod kpiPeriod = kpiPeriodRepository.findById(request.getKpiPeriodId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Kỳ đánh giá (Đợt)", "id", request.getKpiPeriodId()));
+                    .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.evaluationCycle"), "id", request.getKpiPeriodId()));
+            cycleStatusGuard.assertWritable(kpiPeriod);
             kpi.setKpiPeriod(kpiPeriod);
             if (request.getDeadline() != null) {
                 validateDeadlineWithinPeriod(request.getDeadline(), kpiPeriod);
@@ -623,18 +648,18 @@ public class KpiCriteriaService {
 
         if (request.getFrequency() != null) {
             if (request.getFrequency().ordinal() > kpi.getKpiPeriod().getPeriodType().ordinal()) {
-                throw new BusinessException("Tần suất đánh giá (Tháng/Quý/Năm) phải nhỏ hơn hoặc bằng loại kỳ đánh giá (Đợt).");
+                throw new BusinessException(ErrorCode.EVALUATION_FREQUENCY);
             }
             kpi.setFrequency(request.getFrequency());
         }
 
         if (request.getOrgUnitId() != null) {
             OrgUnit orgUnit = orgUnitRepository.findById(request.getOrgUnitId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Đơn vị", "id", request.getOrgUnitId()));
+                    .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.unit"), "id", request.getOrgUnitId()));
             
             // Check if user has permission to move KPI to this new OrgUnit
             if (!permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "KPI:CREATE", orgUnit.getId())) {
-                throw new ForbiddenException("Bạn không có quyền tạo/chuyển KPI cho đơn vị mới này");
+                throw new ForbiddenException(ErrorCode.NO_PERMISSION_CREATE_MOVE_KPIS_NEW_UNIT);
             }
             kpi.setOrgUnit(orgUnit);
         }
@@ -666,7 +691,7 @@ public class KpiCriteriaService {
                     if (id.equals(currentUser.getId())) continue;
 
                     User staff = userRepository.findById(id)
-                            .orElseThrow(() -> new ResourceNotFoundException("Nhân viên", "id", id));
+                            .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.employee"), "id", id));
 
                     // Check if a child KPI already exists for this staff to avoid duplicates
                     boolean exists = kpiCriteriaRepository.existsByParentAndAssigneesContains(kpi, staff);
@@ -698,7 +723,7 @@ public class KpiCriteriaService {
                 java.util.List<User> assignees = new java.util.ArrayList<>();
                 for (UUID id : assigneeIds) {
                     assignees.add(userRepository.findById(id)
-                            .orElseThrow(() -> new ResourceNotFoundException("Người dùng", "id", id)));
+                            .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.user"), "id", id)));
                 }
                 kpi.setAssignees(assignees);
                 validateWaterfallAssignment(currentUser, kpi.getOrgUnit(), assignees);
@@ -706,13 +731,13 @@ public class KpiCriteriaService {
         } else if (request.getAssignedToId() != null) {
             // Legacy single ID handling
             User assignee = userRepository.findById(request.getAssignedToId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Người dùng", "id", request.getAssignedToId()));
+                    .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.user"), "id", request.getAssignedToId()));
             kpi.setAssignees(java.util.List.of(assignee));
         }
 
         if (request.getKeyResultId() != null) {
             com.kpitracking.entity.KeyResult kr = keyResultRepository.findById(request.getKeyResultId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Key Result", "id", request.getKeyResultId()));
+                    .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.keyResult"), "id", request.getKeyResultId()));
             kpi.setKeyResult(kr);
         } else if (request.getKeyResultId() == null && request.getName() != null) {
             // Keep existing keyResult if not provided in the update
@@ -720,7 +745,7 @@ public class KpiCriteriaService {
 
         if (request.getPerspectiveId() != null) {
             com.kpitracking.entity.BscPerspective perspective = bscPerspectiveRepository.findById(request.getPerspectiveId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Hạng mục BSC", "id", request.getPerspectiveId()));
+                    .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.bscItem"), "id", request.getPerspectiveId()));
             kpi.setPerspective(perspective);
         }
 
@@ -728,21 +753,55 @@ public class KpiCriteriaService {
 
         if (request.getParentId() != null) {
             KpiCriteria parent = kpiCriteriaRepository.findById(request.getParentId())
-                    .orElseThrow(() -> new ResourceNotFoundException("KPI Cha", "id", request.getParentId()));
+                    .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.parentKpi"), "id", request.getParentId()));
             kpi.setParent(parent);
             if (request.getParentRelationType() != null) {
                 kpi.setParentRelationType(request.getParentRelationType());
             }
         }
 
+        requirePerspectiveWhenBscEnabled(kpi, "when.beforeSave");
+        if (COMMITTED_WITHOUT_APPROVAL.contains(kpi.getStatus()) && before.grewOrMoved(kpi)) requireWithinFullWeight(kpi);
         kpi = kpiCriteriaRepository.save(kpi);
         return kpiCriteriaMapper.toResponse(kpi);
+    }
+
+    /**
+     * Trạng thái mà trọng số đã tính vào 100% và sửa xong KHÔNG phải duyệt lại — sửa ở đây là chốt luôn,
+     * nên phải tự chốt "không vượt 100%". PENDING_APPROVAL không nằm đây: sửa xong vẫn còn người duyệt.
+     */
+    private static final java.util.Set<KpiStatus> COMMITTED_WITHOUT_APPROVAL = java.util.EnumSet.of(
+            KpiStatus.APPROVED, KpiStatus.EDIT, KpiStatus.EDITED);
+
+    /**
+     * Những gì quyết định chỉ tiêu cộng bao nhiêu vào 100% của đơn vị nào. Chỉ chốt khi một trong số đó đổi
+     * theo hướng có thể làm tăng — sửa tên / mô tả một chỉ tiêu của đơn vị vốn đã lệch thì không bị chặn.
+     */
+    private record WeightFootprint(double weight, UUID orgUnitId, UUID kpiPeriodId, java.util.Set<UUID> assigneeIds, boolean bonus) {
+        static WeightFootprint of(KpiCriteria kpi) {
+            return new WeightFootprint(
+                    kpi.getWeight() != null ? kpi.getWeight() : 0.0,
+                    kpi.getOrgUnit() != null ? kpi.getOrgUnit().getId() : null,
+                    kpi.getKpiPeriod() != null ? kpi.getKpiPeriod().getId() : null,
+                    kpi.getAssignees() == null ? java.util.Set.of()
+                            : kpi.getAssignees().stream().map(User::getId).collect(java.util.stream.Collectors.toSet()),
+                    Boolean.TRUE.equals(kpi.getIsBonusKpi()));
+        }
+
+        boolean grewOrMoved(KpiCriteria after) {
+            WeightFootprint now = of(after);
+            return now.weight > weight + 0.001
+                    || (bonus && !now.bonus)
+                    || !java.util.Objects.equals(now.orgUnitId, orgUnitId)
+                    || !java.util.Objects.equals(now.kpiPeriodId, kpiPeriodId)
+                    || !now.assigneeIds.equals(assigneeIds);
+        }
     }
     @Transactional
     public KpiCriteriaResponse submitForApproval(UUID kpiId) {
         List<KpiCriteriaResponse> results = bulkSubmitForApproval(java.util.List.of(kpiId));
         if (results.isEmpty()) {
-            throw new BusinessException("Không thể gửi duyệt chỉ tiêu này. Vui lòng kiểm tra quyền sở hữu hoặc trạng thái của chỉ tiêu.");
+            throw new BusinessException(ErrorCode.KPI_CANNOT_SUBMITTED_APPROVAL);
         }
         return results.get(0);
     }
@@ -756,7 +815,7 @@ public class KpiCriteriaService {
 
         // Check if any of the KPIs exist and find orgUnit/period for weight validation
         KpiCriteria firstKpi = kpiCriteriaRepository.findById(kpiIds.get(0))
-                .orElseThrow(() -> new ResourceNotFoundException("Chỉ tiêu KPI", "id", kpiIds.get(0)));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.kpi"), "id", kpiIds.get(0)));
 
         // Bước duyệt chỉ tiêu bị tắt thì không có gì để gửi duyệt. Báo ngay một lần ở đây thay vì
         // để vòng lặp bên dưới bỏ qua từng bản rồi trả về danh sách rỗng không rõ nguyên nhân.
@@ -769,6 +828,8 @@ public class KpiCriteriaService {
         for (UUID kpiId : kpiIds) {
             KpiCriteria kpi = kpiCriteriaRepository.findById(kpiId).orElse(null);
             if (kpi == null) continue;
+            // Kỳ đã khoá thì báo rõ thay vì lặng lẽ bỏ qua như các bản không gửi được khác.
+            cycleStatusGuard.assertWritable(kpi);
             if (!kpi.getCreatedBy().getId().equals(currentUser.getId())) continue;
             // Trạng thái nào gửi duyệt được là do bảng chuyển quyết định, không còn là điều kiện
             // viết cứng ở đây.
@@ -787,8 +848,7 @@ public class KpiCriteriaService {
                         .sum() : 0.0;
                 double parentWeight = parent.getWeight() != null ? parent.getWeight() : 0.0;
                 if (Math.abs(siblingWeight - parentWeight) > 0.001) {
-                    throw new BusinessException("Tổng trọng số các KPI con của '" + parent.getName() + "' (" + siblingWeight +
-                            "%) phải bằng chính xác trọng số KPI cha (" + parentWeight + "%) trước khi gửi duyệt");
+                    throw new BusinessException(ErrorCode.TOTAL_WEIGHT_CHILD_KPIS_2, parent.getName(), String.valueOf(siblingWeight), String.valueOf(parentWeight));
                 }
             }
 
@@ -800,9 +860,24 @@ public class KpiCriteriaService {
             kpi.setSubmittedAt(Instant.now());
             kpi.setRejectReason(null);
             kpi = kpiCriteriaRepository.save(kpi);
+
+            if (approvalChain.isChainMode(kpi)) {
+                // Gửi (hoặc gửi lại sau khi bị từ chối) luôn lập chuỗi MỚI theo cơ cấu hiện tại, từ bước đầu.
+                var started = approvalChain.startCriteria(kpi, currentUser,
+                        com.kpitracking.enums.ApprovalEventAction.SUBMITTED, true);
+                if (started.selfApproved()) {
+                    markApproved(kpi, currentUser);
+                    kpi = kpiCriteriaRepository.save(kpi);
+                    eventPublisher.publishEvent(new KpiCriteriaApprovedEvent(this, kpi));
+                } else {
+                    eventPublisher.publishEvent(new KpiCriteriaSubmittedForApprovalEvent(this, kpi));
+                }
+            } else {
+                eventPublisher.publishEvent(new KpiCriteriaSubmittedForApprovalEvent(this, kpi));
+            }
             results.add(kpiCriteriaMapper.toResponse(kpi));
-            eventPublisher.publishEvent(new KpiCriteriaSubmittedForApprovalEvent(this, kpi));
         }
+        approvalView.enrichCriteria(results, currentUser.getId());
 
         return results;
     }
@@ -824,6 +899,8 @@ public class KpiCriteriaService {
         List<KpiCriteria> leftOut = new ArrayList<>();
         List<KpiCriteria> covered = new ArrayList<>();
         for (KpiCriteria kpi : counted) {
+            // KPI đang chờ bản thay thế: đếm bản thay (nằm trong lô hoặc đang chờ duyệt), không đếm cả hai.
+            if (hasPendingReplacement(kpi)) continue;
             if (batchIds.contains(kpi.getId()) || IN_APPROVAL_PIPELINE_STATUSES.contains(kpi.getStatus())) {
                 covered.add(kpi);
             } else {
@@ -840,43 +917,218 @@ public class KpiCriteriaService {
                     .mapToDouble(this::effectiveWeight).sum();
             String names = leftOut.stream().map(KpiCriteria::getName).limit(5).collect(java.util.stream.Collectors.joining(", "));
             if (leftOut.size() > 5) names += ", …";
-            throw new BusinessException(String.format(java.util.Locale.ROOT,
-                    "Gửi duyệt xong đơn vị mới đạt %s%% trọng số, chưa đủ 100%%. Còn %d chỉ tiêu nháp / bị từ chối chưa được chọn (%s%%): %s. Hãy chọn gửi cùng hoặc xoá bớt.",
-                    formatWeight(totalWeight), leftOut.size(), formatWeight(leftOutWeight), names));
+            throw new BusinessException(ErrorCode.AFTER_SUBMITTING_UNIT_ONLY_REACHES_PERCENT_WEIGHT, String.valueOf(formatWeight(totalWeight)), leftOut.size(), String.valueOf(formatWeight(leftOutWeight)), String.valueOf(names));
         }
-        throw new BusinessException("Tổng trọng số của đơn vị theo phân bổ nhân sự (cao nhất) phải bằng chính xác 100% trước khi gửi duyệt. Hiện tại: " + formatWeight(totalWeight) + "%");
+        throw new BusinessException(ErrorCode.UNIT_TOTAL_WEIGHT_HEADCOUNT_ALLOCATION, String.valueOf(formatWeight(totalWeight)));
+    }
+
+    /**
+     * Chốt "không vượt 100%" cho chỉ tiêu ra đời đã duyệt (người có KPI:APPROVE_OWN, hoặc tổ chức tắt
+     * bước duyệt), và cho chỉ tiêu ĐÃ DUYỆT bị sửa trọng số / đơn vị / người được giao. Cả hai không đi
+     * qua {@link #requireBatchCoversFullWeight} của bước gửi duyệt, nên không chặn ở đây thì đơn vị vượt
+     * 100% mà không ai hay. Chỉ tiêu đang sửa ({@code id} khác null) được trừ khỏi phần "đã dùng".
+     *
+     * <p>Chỉ cộng phần đã vào luồng duyệt ({@code IN_APPROVAL_PIPELINE_STATUSES}) — bản nháp chưa chắc
+     * được gửi, cùng lý do như chốt gửi duyệt. KPI thưởng và KPI con phân rã (trọng số cắt từ KPI cha,
+     * đã có chốt riêng) không tính.
+     */
+    private void requireWithinFullWeight(KpiCriteria newKpi) {
+        if (Boolean.TRUE.equals(newKpi.getIsBonusKpi())) return;
+        if (newKpi.getParent() != null
+                && newKpi.getParentRelationType() == com.kpitracking.enums.KpiParentRelationType.DECOMPOSITION) return;
+        if (newKpi.getOrgUnit() == null || newKpi.getKpiPeriod() == null) return;
+
+        List<UUID> assigneeIds = newKpi.getAssignees() == null ? List.of()
+                : newKpi.getAssignees().stream().map(User::getId).toList();
+        double used = usedWeightInUnit(newKpi.getOrgUnit().getId(), newKpi.getKpiPeriod().getId(), assigneeIds, newKpi.getId());
+        double adding = effectiveWeight(newKpi);
+        if (used + adding > 100.0 + 0.001) {
+            throw new BusinessException(newKpi.getId() == null
+                            ? ErrorCode.SELF_APPROVED_KPI_EXCEEDS_FULL_WEIGHT
+                            : ErrorCode.APPROVED_KPI_EDIT_EXCEEDS_FULL_WEIGHT,
+                    newKpi.getOrgUnit().getName(), formatWeight(used), formatWeight(adding),
+                    formatWeight(Math.max(0.0, 100.0 - used)));
+        }
+    }
+
+    /**
+     * Trọng số đã dùng mà một chỉ tiêu MỚI giao cho {@code assigneeIds} sẽ cộng thêm vào, theo đúng công
+     * thức {@link #totalWeightOfUnit}: KPI chưa giao + người cao nhất. Giao cho người cụ thể thì "người cao
+     * nhất" chỉ xét trong những người được giao; không giao ai thì KPI cộng thẳng vào phần chưa giao.
+     */
+    private double usedWeightInUnit(UUID orgUnitId, UUID kpiPeriodId, java.util.Collection<UUID> assigneeIds, UUID excludeKpiId) {
+        List<KpiCriteria> committed = kpiCriteriaRepository.findByOrgUnitIdAndKpiPeriodIdAndStatusIn(
+                orgUnitId, kpiPeriodId, new ArrayList<>(IN_APPROVAL_PIPELINE_STATUSES));
+        double unassigned = 0.0;
+        Map<UUID, Double> userWeights = new HashMap<>();
+        for (KpiCriteria kpi : committed) {
+            if (Boolean.TRUE.equals(kpi.getIsBonusKpi()) || hasDecompositionChildren(kpi) || hasPendingReplacement(kpi)) continue;
+            if (kpi.getId() != null && kpi.getId().equals(excludeKpiId)) continue;
+            double weight = effectiveWeight(kpi);
+            if (kpi.getAssignees() == null || kpi.getAssignees().isEmpty()) {
+                unassigned += weight;
+            } else {
+                for (User assignee : kpi.getAssignees()) userWeights.merge(assignee.getId(), weight, Double::sum);
+            }
+        }
+        double top = assigneeIds == null || assigneeIds.isEmpty()
+                ? userWeights.values().stream().max(Double::compare).orElse(0.0)
+                : assigneeIds.stream().mapToDouble(id -> userWeights.getOrDefault(id, 0.0)).max().orElse(0.0);
+        return unassigned + top;
+    }
+
+    /** Trọng số còn trống cho form tạo chỉ tiêu — cùng con số mà {@link #requireWithinFullWeight} chốt. */
+    public record WeightHeadroom(boolean selfApproved, List<UnitWeightUsage> units) {}
+
+    public record UnitWeightUsage(UUID orgUnitId, String orgUnitName, double usedWeight) {}
+
+    @Transactional(readOnly = true)
+    public WeightHeadroom getWeightHeadroom(UUID kpiPeriodId, List<UUID> orgUnitIds, List<UUID> assigneeIds, UUID excludeKpiId) {
+        User currentUser = getCurrentUser();
+        boolean selfApproved = initialCriteriaStatus(getCurrentUserOrganizationId(currentUser), currentUser) == KpiStatus.APPROVED;
+        // Sửa chỉ tiêu đã duyệt (excludeKpiId) thì luôn chốt 100%, không phụ thuộc quyền tự duyệt.
+        boolean checks = selfApproved || excludeKpiId != null;
+        List<UnitWeightUsage> units = new ArrayList<>();
+        if (checks && kpiPeriodId != null && orgUnitIds != null) {
+            for (UUID orgUnitId : orgUnitIds) {
+                // Chỉ đơn vị người này được tạo / sửa chỉ tiêu — không lộ số của đơn vị khác.
+                if (!permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "KPI:CREATE", orgUnitId)
+                        && !permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "KPI:UPDATE", orgUnitId)) continue;
+                OrgUnit unit = orgUnitRepository.findById(orgUnitId).orElse(null);
+                if (unit == null) continue;
+                units.add(new UnitWeightUsage(orgUnitId, unit.getName(), usedWeightInUnit(orgUnitId, kpiPeriodId, assigneeIds, excludeKpiId)));
+            }
+        }
+        return new WeightHeadroom(selfApproved, units);
     }
 
     private static String formatWeight(double weight) {
         return weight == Math.rint(weight) ? String.valueOf((long) weight) : String.valueOf(Math.round(weight * 100.0) / 100.0);
     }
 
+    /** Kết quả một lần duyệt: đã chốt, hay mới chuyển lên bước kế tiếp (và ai giữ bước đó). */
+    public record ApproveResult(KpiCriteriaResponse response,
+                                com.kpitracking.enums.ApprovalOutcome outcome,
+                                String nextHolderNames) {}
+
     @Transactional
     public KpiCriteriaResponse approveKpi(UUID kpiId) {
+        return approveKpiWithOutcome(kpiId, null).response();
+    }
+
+    @Transactional
+    public ApproveResult approveKpiWithOutcome(UUID kpiId,
+                                               com.kpitracking.dto.request.kpi.approval.ApproveKpiRequest request) {
         User currentUser = getCurrentUser();
         KpiCriteria kpi = kpiCriteriaRepository.findById(kpiId)
-                .orElseThrow(() -> new ResourceNotFoundException("Chỉ tiêu KPI", "id", kpiId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.kpi"), "id", kpiId));
+        cycleStatusGuard.assertWritable(kpi);
+
+        if (approvalChain.isChainMode(kpi)) {
+            return approveInChain(kpi, currentUser,
+                    request == null ? null : request.getExpectedStepId(),
+                    request == null ? null : request.getComment());
+        }
 
         // Bản tham chiếu bất biến cho lambda: biến kpi bị gán lại sau khi lưu nên không dùng
         // trực tiếp trong guard được.
         final KpiCriteria target = kpi;
         KpiStatus next = resolveCriteriaTransition(kpi, currentUser,
                 com.kpitracking.workflow.WorkflowAction.APPROVE_CRITERIA,
-                "KPI:APPROVE_CRITERIA", "phê duyệt",
-                "Chỉ có thể phê duyệt KPI ở trạng thái CHỜ PHÊ DUYỆT",
+                "KPI:APPROVE_CRITERIA", "verb.approve",
+                ErrorCode.ONLY_KPIS_PENDING_APPROVAL_STATUS_CAN_APPROVED,
                 List.of(
-                        ctx -> { requirePerspectiveWhenBscEnabled(target); return com.kpitracking.workflow.engine.GuardResult.ok(); },
+                        ctx -> { requirePerspectiveWhenBscEnabled(target, "when.beforeApprove"); return com.kpitracking.workflow.engine.GuardResult.ok(); },
                         ctx -> { requireCategoryWeightSum100OnApprove(target); return com.kpitracking.workflow.engine.GuardResult.ok(); }
                 ));
 
         kpi.setStatus(next);
         kpi.setApprovedBy(currentUser);
         kpi.setApprovedAt(Instant.now());
+        completeReplacementOf(kpi, currentUser);
         kpi = kpiCriteriaRepository.save(kpi);
+        // Tổ chức vừa chuyển về luồng một cấp: chuỗi cũ (nếu còn) không còn ý nghĩa.
+        approvalChain.cancelRunning(List.of(kpi.getId()), currentUser, LocalizedText.of("approvalEvent.reason.approvedSingleLevel"));
 
         eventPublisher.publishEvent(new KpiCriteriaApprovedEvent(this, kpi));
 
-        return kpiCriteriaMapper.toResponse(kpi);
+        return new ApproveResult(kpiCriteriaMapper.toResponse(kpi), com.kpitracking.enums.ApprovalOutcome.FINAL, null);
+    }
+
+    /**
+     * Duyệt theo chuỗi. Chỉ người đang giữ bước hiện tại được bấm (admin cũng không duyệt thay).
+     * Có quyền duyệt cuối (hoặc là bước cuối) ⇒ chạy đủ ràng buộc nghiệp vụ như luồng cũ rồi chốt
+     * APPROVED; không thì KPI vẫn CHỜ DUYỆT và chuỗi chuyển lên bước kế tiếp.
+     */
+    private ApproveResult approveInChain(KpiCriteria kpi, User actor, UUID expectedStepId, String comment) {
+        requireStageEnabled(kpi, com.kpitracking.workflow.WorkflowStage.CRITERIA_APPROVAL);
+        if (kpi.getStatus() != KpiStatus.PENDING_APPROVAL) {
+            throw new BusinessException(ErrorCode.ONLY_KPIS_PENDING_APPROVAL_STATUS_CAN_APPROVED);
+        }
+        var decision = approvalChain.authorize(ensureChain(kpi), actor, expectedStepId);
+
+        if (!decision.finalApproval()) {
+            approvalChain.approve(decision, actor, comment);
+            KpiCriteriaResponse response = kpiCriteriaMapper.toResponse(kpi);
+            approvalView.enrichCriteria(List.of(response), actor.getId());
+            String nextHolders = decision.flow().currentStep()
+                    .map(com.kpitracking.entity.KpiApprovalStep::approverNames).orElse(null);
+            return new ApproveResult(response, com.kpitracking.enums.ApprovalOutcome.FORWARDED, nextHolders);
+        }
+
+        final KpiCriteria target = kpi;
+        KpiStatus next = resolveCriteriaTransition(kpi, actor,
+                com.kpitracking.workflow.WorkflowAction.APPROVE_CRITERIA,
+                ErrorCode.ONLY_KPIS_PENDING_APPROVAL_STATUS_CAN_APPROVED,
+                List.of(),
+                List.of(
+                        ctx -> { requirePerspectiveWhenBscEnabled(target, "when.beforeApprove"); return com.kpitracking.workflow.engine.GuardResult.ok(); },
+                        ctx -> { requireCategoryWeightSum100OnApprove(target); return com.kpitracking.workflow.engine.GuardResult.ok(); }
+                ));
+        approvalChain.approve(decision, actor, comment);
+        kpi.setStatus(next);
+        markApproved(kpi, actor);
+        kpi = kpiCriteriaRepository.save(kpi);
+        eventPublisher.publishEvent(new KpiCriteriaApprovedEvent(this, kpi));
+        return new ApproveResult(kpiCriteriaMapper.toResponse(kpi), com.kpitracking.enums.ApprovalOutcome.FINAL, null);
+    }
+
+    /**
+     * Id flow đang chạy của chỉ tiêu. KPI đang chờ theo luồng cũ mà chưa được chuyển đổi (xem
+     * {@code ApprovalChainBackfillService}) thì lập chuỗi ngay tại đây, không thông báo, với người
+     * gửi là người tạo.
+     */
+    private UUID ensureChain(KpiCriteria kpi) {
+        return approvalChain.runningCriteriaFlowId(kpi.getId()).orElseGet(() ->
+                approvalChain.startCriteria(kpi, kpi.getCreatedBy(),
+                        com.kpitracking.enums.ApprovalEventAction.MIGRATED, false).flow().getId());
+    }
+
+    private void markApproved(KpiCriteria kpi, User approver) {
+        kpi.setStatus(KpiStatus.APPROVED);
+        kpi.setApprovedBy(approver);
+        kpi.setApprovedAt(Instant.now());
+        completeReplacementOf(kpi, approver);
+    }
+
+    /**
+     * Bản thay thế vừa được duyệt cuối ⇒ KPI cũ mới chính thức thành REPLACED (quyết định C8b).
+     * Trước đó KPI cũ vẫn chạy bình thường, để bản thay bị từ chối thì người thực hiện không mất cả hai.
+     */
+    private void completeReplacementOf(KpiCriteria replacement, User actor) {
+        if (replacement.getId() == null) return;
+        for (KpiCriteria old : kpiCriteriaRepository.findByReplacedById(replacement.getId())) {
+            if (old.getStatus() == KpiStatus.REPLACED) continue;
+            old.setStatus(KpiStatus.REPLACED);
+            kpiCriteriaRepository.save(old);
+            approvalChain.cancelRunning(List.of(old.getId()), actor,
+                    LocalizedText.of("approvalEvent.reason.replaced", replacement.getName()));
+        }
+    }
+
+    /** KPI đang chờ bản thay thế được duyệt: trọng số của nó do bản thay đảm nhận khi đếm 100%. */
+    private static boolean hasPendingReplacement(KpiCriteria kpi) {
+        return kpi.getReplacedBy() != null && kpi.getStatus() != KpiStatus.REPLACED;
     }
 
     /**
@@ -899,17 +1151,19 @@ public class KpiCriteriaService {
         String label = kpiName != null ? "'" + kpiName + "'" : "";
         if (isReverse) {
             if (minimum <= target) {
-                throw new BusinessException("KPI ngược " + label + ": Giá trị tối thiểu (" + minimum
-                        + ") phải LỚN HƠN mục tiêu (" + target + "). Với KPI ngược, giá trị tối thiểu là ngưỡng tệ nhất "
-                        + "chấp nhận được — cấu hình hiện tại khiến mọi bài nộp đều bị từ chối và KPI luôn 0 điểm.");
+                throw new BusinessException(ErrorCode.INVERSE_KPI, String.valueOf(label), String.valueOf(minimum), String.valueOf(target));
             }
         } else if (minimum > target) {
-            throw new BusinessException("KPI " + label + ": Giá trị tối thiểu (" + minimum
-                    + ") không được lớn hơn mục tiêu (" + target + ").");
+            throw new BusinessException(ErrorCode.KPI, String.valueOf(label), String.valueOf(minimum), String.valueOf(target));
         }
     }
 
-    private void requirePerspectiveWhenBscEnabled(KpiCriteria kpi) {
+    /**
+     * Chặn ngay từ lúc TẠO/SỬA (không đợi tới lúc duyệt): kỳ chứa đợt đã có bộ tiêu chí BSC thì KPI
+     * tính điểm phải gắn hạng mục, nếu không người tạo chỉ phát hiện khi cấp trên bấm duyệt.
+     * {@code when} là cụm "trước khi …" ghép vào thông báo lỗi.
+     */
+    private void requirePerspectiveWhenBscEnabled(KpiCriteria kpi, String whenKey) {
         Organization org = kpi.getOrgUnit().getOrgHierarchyLevel().getOrganization();
         if (org == null || !Boolean.TRUE.equals(org.getEnableBsc())) return;
         if (kpi.getKpiPeriod() == null) return;
@@ -917,8 +1171,7 @@ public class KpiCriteriaService {
         if (!achievementCalculator.countsTowardBscScore(kpi)) return;
         // KPI có thể suy lĩnh vực từ Objective cha (OKR) ⇒ dùng lĩnh vực HIỆU LỰC, không đòi gán trực tiếp.
         if (com.kpitracking.util.BscPerspectiveResolver.effectivePerspective(kpi) == null) {
-            throw new BusinessException("Kỳ '" + kpi.getKpiPeriod().getName() + "' đang áp dụng bộ tiêu chí BSC: "
-                    + "vui lòng gán hạng mục cho chỉ tiêu '" + kpi.getName() + "' (hoặc gán cho Mục tiêu OKR cha) trước khi phê duyệt");
+            throw new BusinessException(ErrorCode.CYCLE_USES_BSC_SCORECARD, kpi.getKpiPeriod().getName(), kpi.getName(), Terms.of(whenKey));
         }
     }
 
@@ -946,6 +1199,8 @@ public class KpiCriteriaService {
                         com.kpitracking.service.BscScoringService.ACTIVE_STATUSES)
                 .stream()
                 .filter(k -> !k.getId().equals(kpi.getId()))
+                // KPI cũ đang chờ chính bản này thay thế: bản này đảm nhận trọng số của nó.
+                .filter(k -> k.getReplacedBy() == null || !k.getReplacedBy().getId().equals(kpi.getId()))
                 .filter(achievementCalculator::countsTowardBscScore)
                 .filter(k -> categoryId.equals(com.kpitracking.util.BscPerspectiveResolver.effectivePerspectiveId(k)))
                 .mapToDouble(k -> k.getWeight() != null ? k.getWeight() : 0.0)
@@ -953,9 +1208,7 @@ public class KpiCriteriaService {
         double total = siblingSum + (kpi.getWeight() != null ? kpi.getWeight() : 0.0);
 
         if (Math.abs(total - 100.0) > 0.01) {
-            throw new BusinessException("Không thể phê duyệt: tổng trọng số các chỉ tiêu trong hạng mục '"
-                    + category.getName() + "' phải bằng 100% (hiện tại: " + round1(total) + "%). "
-                    + "Vui lòng điều chỉnh trọng số các chỉ tiêu cùng hạng mục cho đủ 100% trước khi duyệt.");
+            throw new BusinessException(ErrorCode.CANNOT_APPROVE, category.getName(), String.valueOf(round1(total)));
         }
     }
 
@@ -967,13 +1220,29 @@ public class KpiCriteriaService {
     public KpiCriteriaResponse rejectKpi(UUID kpiId, RejectKpiRequest request) {
         User currentUser = getCurrentUser();
         KpiCriteria kpi = kpiCriteriaRepository.findById(kpiId)
-                .orElseThrow(() -> new ResourceNotFoundException("Chỉ tiêu KPI", "id", kpiId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.kpi"), "id", kpiId));
+        cycleStatusGuard.assertWritable(kpi);
 
-        KpiStatus next = resolveCriteriaTransition(kpi, currentUser,
-                com.kpitracking.workflow.WorkflowAction.REJECT_CRITERIA,
-                "KPI:APPROVE_CRITERIA", "từ chối",
-                "Chỉ có thể từ chối KPI ở trạng thái CHỜ PHÊ DUYỆT",
-                List.of());
+        KpiStatus next;
+        if (approvalChain.isChainMode(kpi)) {
+            // Từ chối ở bất kỳ bước nào ⇒ về người tạo; gửi lại thì chạy lại chuỗi từ bước đầu.
+            requireStageEnabled(kpi, com.kpitracking.workflow.WorkflowStage.CRITERIA_APPROVAL);
+            if (kpi.getStatus() != KpiStatus.PENDING_APPROVAL) {
+                throw new BusinessException(ErrorCode.ONLY_KPIS_PENDING_APPROVAL_STATUS_CAN_REJECTED);
+            }
+            var decision = approvalChain.authorize(ensureChain(kpi), currentUser, request.getExpectedStepId());
+            next = resolveCriteriaTransition(kpi, currentUser,
+                    com.kpitracking.workflow.WorkflowAction.REJECT_CRITERIA,
+                    ErrorCode.ONLY_KPIS_PENDING_APPROVAL_STATUS_CAN_REJECTED, List.of(), List.of());
+            approvalChain.reject(decision, currentUser, request.getReason());
+        } else {
+            next = resolveCriteriaTransition(kpi, currentUser,
+                    com.kpitracking.workflow.WorkflowAction.REJECT_CRITERIA,
+                    "KPI:APPROVE_CRITERIA", "verb.reject",
+                    ErrorCode.ONLY_KPIS_PENDING_APPROVAL_STATUS_CAN_REJECTED,
+                    List.of());
+            approvalChain.cancelRunning(List.of(kpi.getId()), currentUser, LocalizedText.of("approvalEvent.reason.rejectedSingleLevel"));
+        }
 
         kpi.setStatus(next);
         kpi.setRejectReason(request.getReason());
@@ -989,17 +1258,22 @@ public class KpiCriteriaService {
     public KpiCriteriaResponse revertApproval(UUID kpiId) {
         User currentUser = getCurrentUser();
         KpiCriteria kpi = kpiCriteriaRepository.findById(kpiId)
-                .orElseThrow(() -> new ResourceNotFoundException("Chỉ tiêu KPI", "id", kpiId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.kpi"), "id", kpiId));
+        cycleStatusGuard.assertWritable(kpi);
 
         KpiStatus next = resolveCriteriaTransition(kpi, currentUser,
                 com.kpitracking.workflow.WorkflowAction.REVERT_CRITERIA_APPROVAL,
-                "KPI:REVERT_APPROVAL", "hoàn duyệt",
-                "Chỉ có thể hoàn duyệt KPI đang ở trạng thái ĐÃ DUYỆT",
+                "KPI:REVERT_APPROVAL", "verb.revertApproval",
+                ErrorCode.ONLY_APPROVED_KPIS_CAN_REVERTED,
                 List.of());
 
         kpi.setStatus(next);
         kpi.setApprovedBy(null);
         kpi.setApprovedAt(null);
+        if (next == KpiStatus.REJECTED) {
+            // Chuỗi duyệt (C11b): hoàn duyệt trả KPI về người tạo như một lần từ chối.
+            kpi.setRejectReason(ErrorMessages.text("kpi.rejectReason.reverted", "", currentUser.getFullName()));
+        }
         kpi = kpiCriteriaRepository.save(kpi);
 
         eventPublisher.publishEvent(new KpiCriteriaApprovalRevertedEvent(this, kpi, currentUser));
@@ -1011,16 +1285,29 @@ public class KpiCriteriaService {
     public void deleteKpiCriteria(UUID kpiId) {
         User currentUser = getCurrentUser();
         KpiCriteria kpi = kpiCriteriaRepository.findById(kpiId)
-                .orElseThrow(() -> new ResourceNotFoundException("Chỉ tiêu KPI", "id", kpiId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.kpi"), "id", kpiId));
+        cycleStatusGuard.assertWritable(kpi);
 
         boolean canDelete = permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "KPI:DELETE", kpi.getOrgUnit().getId());
         boolean isCreator = kpi.getCreatedBy().getId().equals(currentUser.getId());
 
         if (!isCreator && !canDelete) {
-            throw new ForbiddenException("Bạn không có quyền xoá KPI này");
+            throw new ForbiddenException(ErrorCode.NO_PERMISSION_DELETE_KPI);
         }
         kpi.setDeletedAt(Instant.now());
         kpiCriteriaRepository.save(kpi);
+        onDeleted(kpi, currentUser);
+    }
+
+    /** KPI bị xoá: dừng chuỗi duyệt của nó; nếu nó là bản thay thế đang chờ thì KPI cũ thôi chờ. */
+    private void onDeleted(KpiCriteria kpi, User actor) {
+        approvalChain.cancelRunning(List.of(kpi.getId()), actor, LocalizedText.of("approvalEvent.reason.kpiDeleted"));
+        for (KpiCriteria old : kpiCriteriaRepository.findByReplacedById(kpi.getId())) {
+            if (old.getStatus() == KpiStatus.REPLACED) continue;
+            old.setReplacedBy(null);
+            old.setReplacementReason(null);
+            kpiCriteriaRepository.save(old);
+        }
     }
 
     /** Xoá mềm nhiều chỉ tiêu trong một lượt; bỏ qua chỉ tiêu không còn tồn tại. */
@@ -1033,15 +1320,17 @@ public class KpiCriteriaService {
         for (UUID kpiId : kpiIds) {
             KpiCriteria kpi = kpiCriteriaRepository.findById(kpiId).orElse(null);
             if (kpi == null) continue;
+            cycleStatusGuard.assertWritable(kpi);
 
             boolean canDelete = permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "KPI:DELETE", kpi.getOrgUnit().getId());
             boolean isCreator = kpi.getCreatedBy().getId().equals(currentUser.getId());
             if (!isCreator && !canDelete) {
-                throw new ForbiddenException("Bạn không có quyền xoá KPI này");
+                throw new ForbiddenException(ErrorCode.NO_PERMISSION_DELETE_KPI);
             }
 
             kpi.setDeletedAt(Instant.now());
             kpiCriteriaRepository.save(kpi);
+            onDeleted(kpi, currentUser);
             deleted++;
         }
 
@@ -1075,10 +1364,40 @@ public class KpiCriteriaService {
                                          s.getStatus() == com.kpitracking.enums.SubmissionStatus.REJECTED))
                                 .count();
                         response.setSubmissionCount(userSubCount);
+
+                        // Bài bị trả lại (hoàn duyệt) còn hạn nộp lại: giao diện mở lại nút "Nộp bài"
+                        // dù đợt đã hết hạn, và hiện lý do người chấm ghi.
+                        Instant nowTs = Instant.now();
+                        kpi.getSubmissions().stream()
+                                .filter(s -> s.getDeletedAt() == null
+                                        && s.getSubmittedBy().getId().equals(currentUser.getId())
+                                        && s.isAwaitingResubmission(nowTs))
+                                .min(java.util.Comparator.comparing(com.kpitracking.entity.KpiSubmission::getResubmitDeadline))
+                                .ifPresent(s -> {
+                                    response.setResubmitDeadline(s.getResubmitDeadline());
+                                    response.setReturnReason(s.getReturnReason());
+                                });
+
+                        // Dấu vết lâu dài: KPI này đã từng bị trả lại bao nhiêu lần (kể cả khi đã nộp lại
+                        // xong) và lý do của lần gần nhất — để còn biết KPI nào từng phải làm lại.
+                        List<com.kpitracking.entity.KpiSubmission> returns = kpi.getSubmissions().stream()
+                                .filter(s -> s.getDeletedAt() == null
+                                        && s.getSubmittedBy().getId().equals(currentUser.getId())
+                                        && s.getStatus() == com.kpitracking.enums.SubmissionStatus.RETURNED)
+                                .toList();
+                        response.setReturnCount(returns.size());
+                        returns.stream()
+                                .filter(s -> s.getReturnedAt() != null)
+                                .max(java.util.Comparator.comparing(com.kpitracking.entity.KpiSubmission::getReturnedAt))
+                                .ifPresent(s -> {
+                                    response.setLastReturnReason(s.getReturnReason());
+                                    response.setLastReturnedAt(s.getReturnedAt());
+                                });
                     }
                     return response;
                 })
                 .toList();
+        approvalView.enrichCriteria(content, currentUser.getId());
 
         return PageResponse.<KpiCriteriaResponse>builder()
                 .content(content)
@@ -1186,7 +1505,7 @@ public class KpiCriteriaService {
             // or if it's the current user themselves
             if (!currentUser.getId().equals(userId)) {
                 User targetUser = userRepository.findById(userId)
-                        .orElseThrow(() -> new ResourceNotFoundException("Người dùng", "id", userId));
+                        .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.user"), "id", userId));
                 
                 // Simplified: if they have any permission in any of the target user's units
                 boolean hasPermission = false;
@@ -1199,7 +1518,7 @@ public class KpiCriteriaService {
                 }
                 
                 if (!hasPermission && !permissionChecker.isGlobalAdminOverUser(currentUser.getId(), targetUser.getId())) {
-                    throw new ForbiddenException("Bạn không có quyền xem thông tin trọng số của người dùng này");
+                    throw new ForbiddenException(ErrorCode.NO_PERMISSION_VIEW_USER_WEIGHT_INFORMATION);
                 }
             }
             // Tổng theo TRỌNG SỐ THẬT (form × %hạng_mục). Cần load KPI để nhân %hạng_mục (SQL SUM không làm được).
@@ -1219,7 +1538,7 @@ public class KpiCriteriaService {
 
         if (orgUnitId != null) {
             if (!permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "KPI:VIEW", orgUnitId)) {
-                throw new ForbiddenException("Bạn không có quyền xem thông tin trọng số của đơn vị này");
+                throw new ForbiddenException(ErrorCode.NO_PERMISSION_VIEW_UNIT_WEIGHT_INFORMATION);
             }
 
             return calculateTotalWeightByOrgUnit(orgUnitId, kpiPeriodId, WEIGHT_COUNTED_STATUSES);
@@ -1236,6 +1555,7 @@ public class KpiCriteriaService {
         java.util.Set<String> affectedUserPairs = new java.util.HashSet<>();
         com.kpitracking.entity.KpiPeriod kpiPeriod = kpiPeriodId != null ? 
                 kpiPeriodRepository.findById(kpiPeriodId).orElse(null) : null;
+        cycleStatusGuard.assertWritable(kpiPeriod);
         OrgUnit orgUnit = orgUnitId != null ? 
                 orgUnitRepository.findById(orgUnitId).orElse(null) : null;
         
@@ -1252,7 +1572,7 @@ public class KpiCriteriaService {
 
         String filename = file.getOriginalFilename();
         if (filename == null || (!filename.endsWith(".csv") && !filename.endsWith(".xlsx"))) {
-            throw new BusinessException("Chỉ hỗ trợ tập tin định dạng .csv và .xlsx");
+            throw new BusinessException(ErrorCode.ONLY_3);
         }
 
         List<String> errors = new ArrayList<>();
@@ -1285,7 +1605,7 @@ public class KpiCriteriaService {
                                 kpiPeriod, orgUnit, currentUser, affectedUserPairs, userOrgId, importKpiType);
                             successfulImports++;
                         } catch (Exception e) {
-                            errors.add("Dòng " + totalRows + ": " + e.getMessage());
+                            errors.add(ErrorMessages.text("import.rowError", "", totalRows, e.getMessage()));
                         }
                     }
                 }
@@ -1293,7 +1613,7 @@ public class KpiCriteriaService {
                 try (Workbook workbook = new XSSFWorkbook(file.getInputStream())) {
                     Sheet sheet = workbook.getSheetAt(0);
                     Row headerRow = sheet.getRow(0);
-                    if (headerRow == null) throw new BusinessException("File Excel trống");
+                    if (headerRow == null) throw new BusinessException(ErrorCode.EXCEL_FILE_EMPTY_2);
 
                     int nameIdx = -1, descIdx = -1, weightIdx = -1, targetIdx = -1, minIdx = -1, unitIdx = -1, freqIdx = -1, codeIdx = -1, namePeriodIdx = -1, nameOrgIdx = -1, krCodeIdx = -1, isReverseKpiIdx = -1, isBonusKpiIdx = -1, deadlineIdx = -1, perspectiveIdx = -1;
                     for (int i = 0; i < headerRow.getLastCellNum(); i++) {
@@ -1317,7 +1637,7 @@ public class KpiCriteriaService {
 
                     boolean requiresTarget = importKpiType != com.kpitracking.enums.KpiType.QUALITATIVE;
                     if (nameIdx == -1 || weightIdx == -1 || freqIdx == -1 || codeIdx == -1 || (requiresTarget && targetIdx == -1)) {
-                        throw new BusinessException("Thiếu các cột bắt buộc trong file Excel");
+                        throw new BusinessException(ErrorCode.REQUIRED_COLUMNS_MISSING_EXCEL_FILE);
                     }
 
                     for (int i = 1; i <= sheet.getLastRowNum(); i++) {
@@ -1345,21 +1665,21 @@ public class KpiCriteriaService {
                             );
                             successfulImports++;
                         } catch (Exception e) {
-                            errors.add("Dòng " + totalRows + ": " + e.getMessage());
+                            errors.add(ErrorMessages.text("import.rowError", "", totalRows, e.getMessage()));
                         }
                     }
                 }
             }
         } catch (Exception e) {
-            throw new BusinessException("Lỗi xử lý file: " + e.getMessage());
+            throw new BusinessException(ErrorCode.FILE_PROCESSING_ERROR, e.getMessage());
         }
 
         if (!errors.isEmpty()) {
             String errorMsg = errors.stream().limit(5).collect(java.util.stream.Collectors.joining("\n"));
             if (errors.size() > 5) {
-                errorMsg += "\n... và " + (errors.size() - 5) + " lỗi khác.";
+                errorMsg += "\n" + ErrorMessages.text("import.moreErrors", "", errors.size() - 5);
             }
-            throw new BusinessException("Lỗi dữ liệu các dòng trong file:\n" + errorMsg);
+            throw new BusinessException(ErrorCode.DATA_ERRORS_FILE_ROWS, String.valueOf(errorMsg));
         }
 
         // Post-import validation: Check total weight for all modified user-period-orgunit triplets
@@ -1383,10 +1703,7 @@ public class KpiCriteriaService {
             Double totalWeight = kpiCriteriaRepository.sumWeightByUserIdAndOrgUnitIdAndKpiPeriodIdAndStatusIn(uId, ouId, pId, WEIGHT_COUNTED_STATUSES);
 
             if (totalWeight == null || Math.abs(totalWeight - 100.0) > 0.001) {
-                throw new BusinessException("Lỗi Import: Nhân viên '" + (user != null ? user.getFullName() : uId) +
-                          "' trong đơn vị '" + (unit != null ? unit.getName() : ouId) +
-                          "' trong đợt '" + periodName + "' có tổng trọng số là " +
-                          (totalWeight != null ? totalWeight : 0) + "%. Quy tắc bắt buộc phải bằng chính xác 100%.");
+                throw new BusinessException(ErrorCode.IMPORT_ERROR, String.valueOf((user != null ? user.getFullName() : uId)), String.valueOf((unit != null ? unit.getName() : ouId)), String.valueOf(periodName), String.valueOf((totalWeight != null ? totalWeight : 0)));
             }
 
         }
@@ -1404,10 +1721,10 @@ public class KpiCriteriaService {
                               com.kpitracking.entity.KpiPeriod defaultPeriod, OrgUnit defaultUnit, User creator,
                               java.util.Set<String> affectedUserPairs, UUID organizationId, com.kpitracking.enums.KpiType kpiType) {
         boolean isQualitative = kpiType == com.kpitracking.enums.KpiType.QUALITATIVE;
-        if (name == null || name.isBlank()) throw new BusinessException("Tên chỉ tiêu là bắt buộc");
-        if (weight == null || weight.isBlank()) throw new BusinessException("Trọng số là bắt buộc");
+        if (name == null || name.isBlank()) throw new BusinessException(ErrorCode.KPI_NAME_REQUIRED);
+        if (weight == null || weight.isBlank()) throw new BusinessException(ErrorCode.WEIGHT_REQUIRED);
         // Qualitative KPIs have no numeric target.
-        if (!isQualitative && (target == null || target.isBlank())) throw new BusinessException("Chỉ tiêu (Target) là bắt buộc");
+        if (!isQualitative && (target == null || target.isBlank())) throw new BusinessException(ErrorCode.TARGET_REQUIRED);
 
         // Priority: Use the period name from Excel/Preview first if provided
         com.kpitracking.entity.KpiPeriod finalPeriod = null;
@@ -1427,8 +1744,9 @@ public class KpiCriteriaService {
         }
         
         if (finalPeriod == null) {
-            throw new BusinessException("Vui lòng chọn đợt KPI hoặc cung cấp tên đợt trong file Excel");
+            throw new BusinessException(ErrorCode.CHOOSE_KPI_PERIOD_PROVIDE_PERIOD_NAME_EXCEL);
         }
+        cycleStatusGuard.assertWritable(finalPeriod);
 
         Instant deadlineVal = parseImportDeadline(deadlineStr);
         validateDeadlineWithinPeriod(deadlineVal, finalPeriod);
@@ -1460,7 +1778,7 @@ public class KpiCriteriaService {
             if (defaultUnit != null) {
                 finalUnits.add(defaultUnit);
             } else {
-                throw new BusinessException("Vui lòng chọn đơn vị hoặc cung cấp tên đơn vị trong file Excel");
+                throw new BusinessException(ErrorCode.CHOOSE_UNIT_PROVIDE_UNIT_NAME_EXCEL_FILE);
             }
         }
 
@@ -1472,23 +1790,23 @@ public class KpiCriteriaService {
                 String trimmedCode = code.trim();
                 if (trimmedCode.isEmpty()) continue;
                 User user = userRepository.findByEmployeeCode(trimmedCode)
-                        .orElseThrow(() -> new BusinessException("Không tìm thấy nhân viên với mã: " + trimmedCode));
+                        .orElseThrow(() -> new BusinessException(ErrorCode.NO_EMPLOYEE_FOUND_CODE, String.valueOf(trimmedCode)));
                 assignees.add(user);
             }
         }
-        if (assignees.isEmpty()) throw new BusinessException("Vui lòng cung cấp ít nhất một mã nhân viên để giao chỉ tiêu");
+        if (assignees.isEmpty()) throw new BusinessException(ErrorCode.PROVIDE_LEAST_ONE_EMPLOYEE_CODE_ASSIGN_KPI);
 
         KpiFrequency frequency;
         try {
             frequency = KpiFrequency.valueOf(freq.toUpperCase());
         } catch (Exception e) {
-            throw new BusinessException("Tần suất '" + freq + "' không hợp lệ.");
+            throw new BusinessException(ErrorCode.FREQUENCY_INVALID, String.valueOf(freq));
         }
 
         // Validate frequency compatibility with period
         if (finalPeriod.getPeriodType() != null) {
             if (frequency.ordinal() > finalPeriod.getPeriodType().ordinal()) {
-                throw new BusinessException("Tần suất '" + freq + "' không phù hợp với loại đợt '" + finalPeriod.getPeriodType() + "'. Tần suất của chỉ tiêu không được lớn hơn loại đợt của kỳ KPI.");
+                throw new BusinessException(ErrorCode.FREQUENCY_DOES_NOT_FIT_PERIOD_TYPE, String.valueOf(freq), String.valueOf(finalPeriod.getPeriodType()));
             }
         }
 
@@ -1498,7 +1816,7 @@ public class KpiCriteriaService {
             weightVal = Double.parseDouble(weight);
             targetVal = isQualitative ? null : Double.parseDouble(target);
         } catch (NumberFormatException e) {
-            throw new BusinessException("Trọng số và Chỉ tiêu phải là định dạng số");
+            throw new BusinessException(ErrorCode.WEIGHT_TARGET_MUST_NUMBERS);
         }
 
         Double minVal = !isQualitative && min != null && !min.isBlank() ? Double.parseDouble(min) : null;
@@ -1509,7 +1827,7 @@ public class KpiCriteriaService {
         // Create one KpiCriteria per resolved org unit
         for (OrgUnit finalUnit : finalUnits) {
             if (!permissionChecker.hasPermissionInOrgUnit(creator.getId(), "KPI:CREATE", finalUnit.getId())) {
-                throw new ForbiddenException("Bạn không có quyền tạo KPI cho đơn vị: " + finalUnit.getName());
+                throw new ForbiddenException(ErrorCode.NO_PERMISSION_CREATE_KPIS_UNIT_2, finalUnit.getName());
             }
 
             validateWaterfallAssignment(creator, finalUnit, assignees);
@@ -1546,8 +1864,7 @@ public class KpiCriteriaService {
                             String unitNames = kr.getObjective().getOrgUnits().stream()
                                     .map(com.kpitracking.entity.OrgUnit::getName)
                                     .collect(java.util.stream.Collectors.joining(", "));
-                            throw new BusinessException("Lỗi liên kết OKR: Chỉ tiêu KPI ('" + finalUnit.getName() +
-                                    "') không cùng đơn vị với Kết quả then chốt ('" + unitNames + "')");
+                            throw new BusinessException(ErrorCode.OKR_LINK_ERROR, finalUnit.getName(), String.valueOf(unitNames));
                         }
                     }
                     kpi.setKeyResult(kr);
@@ -1566,6 +1883,7 @@ public class KpiCriteriaService {
                 kpi.setApprovedAt(Instant.now());
             }
 
+            requirePerspectiveWhenBscEnabled(kpi, "when.beforeImport");
             kpiCriteriaRepository.save(kpi);
 
             for (User assignee : assignees) {
@@ -1593,8 +1911,7 @@ public class KpiCriteriaService {
                         .anyMatch(a -> a.getRole().getRank() != null && a.getRole().getRank() == 0);
                 
                 if (!isAssigneeLeader) {
-                    throw new BusinessException("Trong chế độ Thác nước, chỉ có thể giao chỉ tiêu cho Lãnh đạo đơn vị (rank 0). " +
-                            "Nhân viên '" + assignee.getFullName() + "' không phải là lãnh đạo của đơn vị " + orgUnit.getName());
+                    throw new BusinessException(ErrorCode.WATERFALL_MODE_KPIS_CAN_ONLY_ASSIGNED_UNIT, assignee.getFullName(), orgUnit.getName());
                 }
             }
         }
@@ -1634,7 +1951,7 @@ public class KpiCriteriaService {
             // fall through to error
         }
 
-        throw new BusinessException("Deadline '" + raw + "' không đúng định dạng. Vui lòng dùng dd/MM/yyyy hoặc dd/MM/yyyy HH:mm.");
+        throw new BusinessException(ErrorCode.DEADLINE_INVALID_FORMAT, String.valueOf(raw));
     }
 
     @Transactional
@@ -1642,16 +1959,20 @@ public class KpiCriteriaService {
         User currentUser = getCurrentUser();
 
         KpiCriteria replacedKpi = kpiCriteriaRepository.findById(replacedKpiId)
-                .orElseThrow(() -> new ResourceNotFoundException("Chỉ tiêu KPI", "id", replacedKpiId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.kpi"), "id", replacedKpiId));
+        cycleStatusGuard.assertWritable(replacedKpi);
 
         boolean isCreator = replacedKpi.getCreatedBy().getId().equals(currentUser.getId());
         boolean canUpdate = permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "KPI:UPDATE", replacedKpi.getOrgUnit().getId());
         if (!isCreator && !canUpdate) {
-            throw new ForbiddenException("Bạn không có quyền thay thế KPI này");
+            throw new ForbiddenException(ErrorCode.NO_PERMISSION_REPLACE_KPI);
         }
 
         if (replacedKpi.getStatus() == KpiStatus.REPLACED || replacedKpi.getStatus() == KpiStatus.INACTIVE) {
-            throw new BusinessException("KPI này đã bị thay thế hoặc không còn hoạt động");
+            throw new BusinessException(ErrorCode.KPI_REPLACED_NO_LONGER_ACTIVE);
+        }
+        if (hasPendingReplacement(replacedKpi)) {
+            throw new BusinessException(ErrorCode.KPI_REPLACEMENT_PENDING_APPROVAL, replacedKpi.getReplacedBy().getName());
         }
 
         Double newWeight = request.getWeight() != null ? request.getWeight() : replacedKpi.getWeight();
@@ -1661,7 +1982,7 @@ public class KpiCriteriaService {
             newAssignees = new ArrayList<>();
             for (UUID id : request.getAssignedToIds()) {
                 newAssignees.add(userRepository.findById(id)
-                        .orElseThrow(() -> new ResourceNotFoundException("Người dùng", "id", id)));
+                        .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.user"), "id", id)));
             }
         } else {
             newAssignees = new ArrayList<>(replacedKpi.getAssignees());
@@ -1708,13 +2029,13 @@ public class KpiCriteriaService {
 
         if (request.getKeyResultId() != null) {
             com.kpitracking.entity.KeyResult kr = keyResultRepository.findById(request.getKeyResultId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Key Result", "id", request.getKeyResultId()));
+                    .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.keyResult"), "id", request.getKeyResultId()));
             newKpi.setKeyResult(kr);
         }
 
         if (request.getPerspectiveId() != null) {
             com.kpitracking.entity.BscPerspective perspective = bscPerspectiveRepository.findById(request.getPerspectiveId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Hạng mục BSC", "id", request.getPerspectiveId()));
+                    .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.bscItem"), "id", request.getPerspectiveId()));
             newKpi.setPerspective(perspective);
         }
 
@@ -1725,11 +2046,35 @@ public class KpiCriteriaService {
             newKpi.setSubmittedAt(Instant.now());
         }
 
+        requirePerspectiveWhenBscEnabled(newKpi, "when.beforeReplace");
         newKpi = kpiCriteriaRepository.save(newKpi);
 
-        replacedKpi.setStatus(KpiStatus.REPLACED);
+        boolean chain = approvalChain.isChainMode(replacedKpi);
+        if (chain && initialStatus == KpiStatus.PENDING_APPROVAL) {
+            // Bản thay thế đi đúng chuỗi duyệt và luật duyệt cuối như một chỉ tiêu mới.
+            var started = approvalChain.startCriteria(newKpi, currentUser,
+                    com.kpitracking.enums.ApprovalEventAction.SUBMITTED, true);
+            if (started.selfApproved()) {
+                initialStatus = KpiStatus.APPROVED;
+                newKpi.setStatus(KpiStatus.APPROVED);
+                newKpi.setApprovedBy(currentUser);
+                newKpi.setApprovedAt(Instant.now());
+                newKpi = kpiCriteriaRepository.save(newKpi);
+            }
+        }
+
+        // C8b: KPI cũ đang chạy (đã duyệt / đã điều chỉnh) chỉ thành REPLACED khi bản thay được
+        // duyệt cuối (completeReplacementOf). KPI cũ chưa chạy (nháp, bị từ chối, đang chờ) thì
+        // không có gì để mất, thay ngay như trước.
+        boolean deferReplace = chain && initialStatus != KpiStatus.APPROVED
+                && (replacedKpi.getStatus() == KpiStatus.APPROVED || replacedKpi.getStatus() == KpiStatus.EDITED);
         replacedKpi.setReplacedBy(newKpi);
         replacedKpi.setReplacementReason(request.getReplacementReason());
+        if (!deferReplace) {
+            replacedKpi.setStatus(KpiStatus.REPLACED);
+            approvalChain.cancelRunning(List.of(replacedKpi.getId()), currentUser,
+                    LocalizedText.of("approvalEvent.reason.replaced", newKpi.getName()));
+        }
         kpiCriteriaRepository.save(replacedKpi);
 
         if (initialStatus == KpiStatus.APPROVED) {
@@ -1745,23 +2090,40 @@ public class KpiCriteriaService {
     public List<KpiCriteriaResponse> batchUpdateWeights(com.kpitracking.dto.request.kpi.BatchUpdateWeightRequest request) {
         User currentUser = getCurrentUser();
         List<KpiCriteria> updated = new ArrayList<>();
+        Map<String, KpiCriteria> grownUnits = new java.util.LinkedHashMap<>();
 
         for (com.kpitracking.dto.request.kpi.WeightUpdateItem item : request.getUpdates()) {
             KpiCriteria kpi = kpiCriteriaRepository.findById(item.getKpiId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Chỉ tiêu KPI", "id", item.getKpiId()));
+                    .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.kpi"), "id", item.getKpiId()));
+            cycleStatusGuard.assertWritable(kpi);
 
             boolean isCreator = kpi.getCreatedBy().getId().equals(currentUser.getId());
             boolean canUpdate = permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "KPI:UPDATE", kpi.getOrgUnit().getId());
             if (!isCreator && !canUpdate) {
-                throw new ForbiddenException("Bạn không có quyền chỉnh sửa trọng số KPI: " + kpi.getName());
+                throw new ForbiddenException(ErrorCode.NO_PERMISSION_EDIT_WEIGHT_KPI, kpi.getName());
             }
 
             if (kpi.getStatus() == KpiStatus.REPLACED || kpi.getStatus() == KpiStatus.INACTIVE) {
-                throw new BusinessException("Không thể thay đổi trọng số KPI '" + kpi.getName() + "' đã bị thay thế hoặc ngưng hoạt động.");
+                throw new BusinessException(ErrorCode.CANNOT_CHANGE_WEIGHT_KPI_REPLACED_DEACTIVATED, kpi.getName());
             }
 
+            boolean grew = item.getWeight() != null && item.getWeight() > (kpi.getWeight() != null ? kpi.getWeight() : 0.0) + 0.001;
             kpi.setWeight(item.getWeight());
             updated.add(kpiCriteriaRepository.save(kpi));
+            if (grew && COMMITTED_WITHOUT_APPROVAL.contains(kpi.getStatus())
+                    && kpi.getOrgUnit() != null && kpi.getKpiPeriod() != null) {
+                grownUnits.putIfAbsent(kpi.getOrgUnit().getId() + ":" + kpi.getKpiPeriod().getId(), kpi);
+            }
+        }
+
+        // Chốt sau khi áp CẢ lô: lô thường vừa tăng chỉ tiêu này vừa giảm chỉ tiêu khác cho đủ 100%, xét từng
+        // dòng một thì dòng tăng đứng trước sẽ bị chặn oan. Vượt thì ném lỗi, giao dịch cuộn lại toàn bộ.
+        for (KpiCriteria sample : grownUnits.values()) {
+            double total = usedWeightInUnit(sample.getOrgUnit().getId(), sample.getKpiPeriod().getId(), List.of(), null);
+            if (total > 100.0 + 0.001) {
+                throw new BusinessException(ErrorCode.APPROVED_KPI_WEIGHTS_EXCEED_FULL_WEIGHT,
+                        sample.getOrgUnit().getName(), sample.getKpiPeriod().getName(), formatWeight(total));
+            }
         }
 
         return updated.stream().map(kpiCriteriaMapper::toResponse).toList();

@@ -3,6 +3,7 @@ package com.kpitracking.service;
 import com.kpitracking.entity.Organization;
 import com.kpitracking.enums.LarkConnectionMode;
 import com.kpitracking.exception.BusinessException;
+import com.kpitracking.exception.ErrorCode;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Component;
 
@@ -23,13 +24,12 @@ public class LarkCredentialResolver {
 
     public LarkCredentials resolve(Organization organization) {
         if (organization.getLarkConnectionMode() == LarkConnectionMode.STORE) {
-            throw new BusinessException("Chế độ ứng dụng Lark dùng chung chưa được hỗ trợ. "
-                    + "Vui lòng dùng chế độ tự tạo ứng dụng.");
+            throw new BusinessException(ErrorCode.SHARED_LARK_APP_MODE_NOT_SUPPORTED);
         }
 
         if (organization.getLarkAppId() == null || organization.getLarkAppId().isBlank()
                 || organization.getLarkAppSecret() == null || organization.getLarkAppSecret().isBlank()) {
-            throw new BusinessException("Tổ chức chưa cấu hình App ID / App Secret của Lark.");
+            throw new BusinessException(ErrorCode.ORGANIZATION_NOT_CONFIGURED_LARK_APP_ID_APP);
         }
         return new LarkCredentials(organization.getLarkAppId(), organization.getLarkAppSecret());
     }

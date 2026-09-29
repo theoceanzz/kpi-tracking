@@ -1,5 +1,6 @@
 package com.kpitracking.service;
 
+import com.kpitracking.i18n.ErrorMessages;
 import com.kpitracking.entity.*;
 import com.kpitracking.enums.*;
 import com.kpitracking.repository.*;
@@ -205,7 +206,8 @@ public class OrgUnitStatisticService {
             sumWeight += weight;
 
             if (kpi.getAssignees() != null) kpi.getAssignees().forEach(u -> users.add(u.getId()));
-            if (kpi.getKpiPeriod() != null) periods.add(kpi.getKpiPeriod().getId());
+            KpiPeriod livePeriod = resolveKpiPeriod(kpi);
+            if (livePeriod != null) periods.add(livePeriod.getId());
         }
 
         double avgProgress = sumWeight > 0 ? (sumWeightedCompletion / sumWeight) : 0.0;
@@ -870,7 +872,7 @@ public class OrgUnitStatisticService {
         out.put("children", rows);
         out.put("unitsWithoutShare", unitsWithoutShare);
         if (rows.isEmpty()) {
-            out.put("message", "Chỉ tiêu này chưa phân rã hay uỷ quyền xuống đơn vị nào.");
+            out.put("message", ErrorMessages.text("stats.notCascaded", ""));
         }
         return out;
     }
@@ -1428,15 +1430,15 @@ public class OrgUnitStatisticService {
                 if (overdue) {
                     entry.put("riskLevel", "HIGH");
                     entry.put("riskScore", 95);
-                    entry.put("cause", "KPI đã quá hạn deadline nhưng tiến độ chưa hoàn thành.");
+                    entry.put("cause", ErrorMessages.text("stats.risk.overdue", ""));
                 } else if (nearDeadline) {
                     entry.put("riskLevel", "HIGH");
                     entry.put("riskScore", 80);
-                    entry.put("cause", "Sắp đến deadline trong vòng 7 ngày nhưng tiến độ hiện tại dưới 50%.");
+                    entry.put("cause", ErrorMessages.text("stats.risk.dueSoon", ""));
                 } else {
                     entry.put("riskLevel", "MEDIUM");
                     entry.put("riskScore", 55);
-                    entry.put("cause", "KPI đã tạo hơn 30 ngày nhưng tiến độ dưới 30% (Trì trệ).");
+                    entry.put("cause", ErrorMessages.text("stats.risk.stagnant", ""));
                 }
                 entry.put("status", k.getStatus().toString());
                 riskList.add(entry);
@@ -1797,7 +1799,7 @@ public class OrgUnitStatisticService {
         if (periodIds.isEmpty()) {
             result.put("total", 0);
             result.put("nonSubmitters", List.of());
-            if (windowed) result.put("appliedScope", "không có đợt KPI nào phủ khoảng thời gian này");
+            if (windowed) result.put("appliedScope", ErrorMessages.text("stats.scope.noPeriod", ""));
             return result;
         }
 
@@ -1818,7 +1820,7 @@ public class OrgUnitStatisticService {
         // Phơi bày khung thời gian thực sự đã tính. Không nêu thời gian (EPOCH..now = mọi đợt) thì chỉ
         // ghi nhãn phạm vi, KHÔNG liệt kê 11+ đợt cho đỡ nhiễu.
         if (!windowed) {
-            result.put("appliedScope", "tất cả các đợt");
+            result.put("appliedScope", ErrorMessages.text("stats.scope.allPeriods", ""));
         } else {
             final int cap = 12;
             List<Map<String, Object>> appliedPeriods = kpiPeriodRepository.findAllById(periodIds).stream()

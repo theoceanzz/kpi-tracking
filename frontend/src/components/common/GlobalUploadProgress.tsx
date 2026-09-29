@@ -1,8 +1,10 @@
 import { useUploadStore } from '@/store/uploadStore'
 import { X, CheckCircle2, AlertCircle, Loader2, FileUp } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useTranslation } from 'react-i18next'
 
 export default function GlobalUploadProgress() {
+  const { t } = useTranslation('shared')
   const { tasks, removeTask } = useUploadStore()
 
   if (tasks.length === 0) return null
@@ -33,9 +35,9 @@ export default function GlobalUploadProgress() {
             
             <div className="flex-1 min-w-0">
               <p className="text-xs font-semibold text-[var(--color-foreground)] truncate uppercase tracking-tight">
-                {task.status === 'uploading' ? 'Đang tải lên...' : 
-                 task.status === 'completed' ? 'Tải lên hoàn tất' : 
-                 'Lỗi tải lên'}
+                {task.status === 'uploading' ? t('GlobalUploadProgress.uploading') : 
+                 task.status === 'completed' ? t('GlobalUploadProgress.uploadComplete') : 
+                 t('GlobalUploadProgress.uploadError')}
               </p>
               <p className="text-caption truncate mt-0.5">
                 {task.fileName}
@@ -66,7 +68,7 @@ export default function GlobalUploadProgress() {
               </span>
               {task.status === 'uploading' && (
                 <div className="text-eyebrow flex items-center gap-1 text-[var(--color-primary)]">
-                  <FileUp size={10} /> Đang xử lý
+                  <FileUp size={10} /> {t('GlobalUploadProgress.processing')}
                 </div>
               )}
             </div>

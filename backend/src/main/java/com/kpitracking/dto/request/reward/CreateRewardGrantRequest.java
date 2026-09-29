@@ -13,11 +13,11 @@ import java.util.UUID;
 @Data
 public class CreateRewardGrantRequest {
 
-    @NotEmpty(message = "Vui lòng chọn ít nhất một nhân viên để thưởng")
+    @NotEmpty(message = "{validation.chooseLeastOneEmployeeReward}")
     @Valid
     private List<Recipient> recipients;
 
-    @NotBlank(message = "Vui lòng nhập lý do thưởng")
+    @NotBlank(message = "{validation.enterRewardReason}")
     private String reason;
 
     /** Chỉ để giao diện điền nhanh; số điểm có thẩm quyền nằm ở từng người nhận. */
@@ -37,11 +37,11 @@ public class CreateRewardGrantRequest {
     @Data
     public static class Recipient {
 
-        @NotNull(message = "Thiếu thông tin nhân viên")
+        @NotNull(message = "{validation.employeeInformationMissing}")
         private UUID userId;
 
-        @NotNull(message = "Vui lòng nhập số điểm thưởng")
-        @Min(value = 1, message = "Số điểm thưởng phải lớn hơn 0")
+        @NotNull(message = "{validation.enterRewardPoints}")
+        @Min(value = 1, message = "{validation.rewardPointsMustGreaterThan0}")
         private Integer points;
     }
 }

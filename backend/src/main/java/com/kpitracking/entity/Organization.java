@@ -109,6 +109,11 @@ public class Organization {
     @Builder.Default
     private Boolean enableWaterfall = false;
 
+    /** Ngôn ngữ cho thành viên chưa tự chọn ngôn ngữ ({@code SupportedLanguages}). */
+    @Column(name = "default_language", nullable = false, length = 10)
+    @Builder.Default
+    private String defaultLanguage = "vi";
+
     @Column(name = "enable_ai")
     @Builder.Default
     private Boolean enableAi = true;
@@ -126,10 +131,20 @@ public class Organization {
     @Builder.Default
     private Boolean enableConduct = false;
 
-    /** Thang điểm mỗi tiêu chí hạnh kiểm (mặc định 4 như phiếu xếp loại hành vi). */
+    /** Đánh giá 360 độ (docs/FEEDBACK_360_DESIGN.md). Mặc định TẮT. */
+    @Column(name = "enable_feedback360", nullable = false)
+    @Builder.Default
+    private Boolean enableFeedback360 = false;
+
+    /** Cho phép chiến dịch 360 đi vào xếp loại kỳ (giai đoạn 3). Mặc định TẮT — 360 chỉ để phát triển. */
+    @Column(name = "feedback360_affects_rating", nullable = false)
+    @Builder.Default
+    private Boolean feedback360AffectsRating = false;
+
+    /** Thang điểm mỗi tiêu chí hạnh kiểm — mặc định 5, trùng trần trục hành vi của ma trận xếp loại. */
     @Column(name = "conduct_max_score")
     @Builder.Default
-    private Double conductMaxScore = 4.0;
+    private Double conductMaxScore = com.kpitracking.constant.ConductConstants.DEFAULT_MAX_SCORE;
 
     /**
      * AI đọc bài nộp và đề xuất điểm khi quản lý chấm. Module mở rộng nên mặc định TẮT; AI chỉ gợi ý,

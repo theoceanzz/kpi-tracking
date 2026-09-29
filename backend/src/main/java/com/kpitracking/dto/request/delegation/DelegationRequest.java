@@ -12,7 +12,7 @@ import java.util.UUID;
 public class DelegationRequest {
 
     /** Người được nới quyền. */
-    @NotNull(message = "Chọn người được uỷ quyền")
+    @NotNull(message = "{validation.chooseDelegate}")
     private UUID delegateUserId;
 
     /**
@@ -20,7 +20,7 @@ public class DelegationRequest {
      * đơn vị cùng lúc (sáp nhập tạm, kiêm nhiệm lúc ai đó đi vắng) — gửi từng cái một thì
      * hỏng giữa chừng sẽ để lại một nửa số uỷ quyền đã tạo.
      */
-    @NotEmpty(message = "Chọn ít nhất một đơn vị được uỷ quyền quản lý")
+    @NotEmpty(message = "{validation.chooseLeastOneUnitDelegateManagement}")
     private List<UUID> orgUnitIds;
 
     /** Bỏ trống = suy ra từ đơn vị chính của người được uỷ quyền. */

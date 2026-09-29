@@ -9,7 +9,7 @@ import java.util.List;
 @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
 public class BatchUpdateWeightRequest {
 
-    @NotEmpty(message = "Danh sách cập nhật trọng số không được trống")
+    @NotEmpty(message = "{validation.weightUpdateListCannotEmpty}")
     @Valid
     private List<WeightUpdateItem> updates;
 }

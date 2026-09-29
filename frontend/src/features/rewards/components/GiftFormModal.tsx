@@ -1,3 +1,4 @@
+import { LocaleNumberInput } from '@/components/ui/number-input'
 import { useEffect, useRef, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -10,6 +11,9 @@ import { giftSchema, numOrUndefined, type GiftFormData } from '../schemas/giftSc
 import { GiftItemStatus, type GiftItem } from '../types'
 import { Dialog, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
+import { useTranslation } from 'react-i18next'
+import { useFormDraft } from '@/hooks/useFormDraft'
+import DraftNotice from '@/components/common/DraftNotice'
 
 interface GiftFormModalProps {
   open: boolean
@@ -18,18 +22,21 @@ interface GiftFormModalProps {
 }
 
 export default function GiftFormModal({ open, onClose, editGift }: GiftFormModalProps) {
+  const { t } = useTranslation('rewards')
   const isEdit = !!editGift
   const fileRef = useRef<HTMLInputElement>(null)
 
   const [uploading, setUploading] = useState(false)
 
-  const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = useForm<GiftFormData>({
-    resolver: zodResolver(giftSchema),
+  const formApi = useForm<GiftFormData>({
+    resolver: zodResolver(giftSchema()),
     defaultValues: {
       name: '', description: '', imageUrl: '', pointCost: undefined,
       unlimitedStock: false, stockQuantity: undefined, active: true, requiresDelivery: true,
     },
   })
+  const { register, handleSubmit, reset, watch, setValue, formState: { errors } } = formApi
+  const draft = useFormDraft(formApi, { key: `reward-gift:${editGift?.id ?? 'new'}`, enabled: open })
 
   // Ảnh và hai lựa chọn dạng thẻ không phải ô nhập nên đọc/ghi qua watch + setValue.
   const imageUrl = watch('imageUrl')
@@ -58,18 +65,18 @@ export default function GiftFormModal({ open, onClose, editGift }: GiftFormModal
     // Kiểm ngay ở client để người dùng biết liền, backend vẫn kiểm lại vì đó mới là
     // ranh giới đáng tin.
     if (!file.type.startsWith('image/')) {
-      toast.error('Chỉ chấp nhận tệp ảnh')
+      toast.error(t('GiftFormModal.onlyImageFilesAreAccepted'))
       return
     }
     if (file.size > 5 * 1024 * 1024) {
-      toast.error('Ảnh không được vượt quá 5MB')
+      toast.error(t('GiftFormModal.theImageMustNotExceed5mb'))
       return
     }
     setUploading(true)
     try {
       setValue('imageUrl', await giftApi.uploadImage(file), { shouldValidate: true })
     } catch (e: any) {
-      toast.error(getApiErrorMessage(e, 'Tải ảnh thất bại'))
+      toast.error(getApiErrorMessage(e, t('GiftFormModal.imageUploadFailed')))
     } finally {
       setUploading(false)
     }
@@ -103,19 +110,20 @@ export default function GiftFormModal({ open, onClose, editGift }: GiftFormModal
       onClose={onClose}
       size="lg"
       dismissible={!(isCreating || isUpdating || uploading)}
-      title={isEdit ? 'Sửa quà tặng' : 'Thêm quà tặng'}
+      title={isEdit ? t('GiftFormModal.editGift') : t('GiftFormModal.addGift')}
       footer={
         <DialogFooter
-          secondary={<Button variant="outline" onClick={onClose} disabled={isCreating || isUpdating}>Huỷ</Button>}
+          secondary={<Button variant="outline" onClick={onClose} disabled={isCreating || isUpdating}>{t('GiftFormModal.cancel')}</Button>}
           primary={
             <Button onClick={handleSubmit(onSubmit)} disabled={isCreating || isUpdating || uploading}>
               {(isCreating || isUpdating) && <Loader2 className="animate-spin" aria-hidden="true" />}
-              {isEdit ? 'Lưu' : 'Thêm quà'}
+              {isEdit ? t('GiftFormModal.save') : t('GiftFormModal.addGift2')}
             </Button>
           }
         />
       }
     >
+      <DraftNotice draft={draft} className="mb-4" />
       <div className="space-y-4">
         {/* Giải thích trước cái gì ảnh hưởng và cái gì không: giá/tên đã được chụp
             snapshot lúc nhân viên đặt nên sửa không đụng tới yêu cầu đang chờ, còn
@@ -124,9 +132,8 @@ export default function GiftFormModal({ open, onClose, editGift }: GiftFormModal
           <div className="flex items-start gap-2 rounded-card border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-4 py-3 text-sm">
             <AlertTriangle size={16} className="mt-0.5 flex-shrink-0 text-[var(--color-warning)]" />
             <span>
-              Đang có <b>{editGift.pendingRedemptionCount} yêu cầu đổi chờ xử lý</b>. Sửa tên hay
-              giá điểm không ảnh hưởng tới các yêu cầu đó (đã chốt lúc nhân viên đặt), nhưng{' '}
-              <b>tồn kho tạm thời không sửa được</b> vì số hiện tại đã trừ sẵn phần giữ chỗ.
+              {t('GiftFormModal.thereAre')} <b>{editGift.pendingRedemptionCount} {t('GiftFormModal.pendingRedemptionRequests')}</b>{t('GiftFormModal.changingTheNameOrPointPrice')}{' '}
+              <b>{t('GiftFormModal.stockTemporarilyCannotBeEdited')}</b> {t('GiftFormModal.becauseTheCurrentNumberAlreadyHas')}
             </span>
           </div>
         )}
@@ -150,7 +157,7 @@ export default function GiftFormModal({ open, onClose, editGift }: GiftFormModal
             <div className="mt-2 flex gap-1">
               <Button variant="outline" size="sm" className="flex-1" type="button" onClick={() => fileRef.current?.click()} disabled={uploading}>
                 <Upload aria-hidden="true" />
-                Tải ảnh
+                {t('GiftFormModal.uploadImage')}
               </Button>
               {imageUrl && (
                 <button
@@ -177,16 +184,16 @@ export default function GiftFormModal({ open, onClose, editGift }: GiftFormModal
 
           <div className="min-w-0 flex-1 space-y-3">
             <div>
-              <label className="text-label mb-1.5 block font-medium">Tên quà</label>
+              <label className="text-label mb-1.5 block font-medium">{t('GiftFormModal.giftName')}</label>
               <input
                 {...register('name')}
-                placeholder="Ví dụ: Voucher cà phê 100.000đ"
+                placeholder={t('GiftFormModal.eG100000VndCoffee')}
                 className={inputCls}
               />
               {errors.name && <p className="mt-1 text-xs text-[var(--color-error)]">{errors.name.message}</p>}
             </div>
             <div>
-              <label className="text-label mb-1.5 block font-medium">Mô tả</label>
+              <label className="text-label mb-1.5 block font-medium">{t('GiftFormModal.description')}</label>
               <textarea {...register('description')} rows={2} className={inputCls} />
             </div>
           </div>
@@ -194,8 +201,8 @@ export default function GiftFormModal({ open, onClose, editGift }: GiftFormModal
 
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
-            <label className="text-label mb-1.5 block font-medium">Số điểm để đổi</label>
-            <input
+            <label className="text-label mb-1.5 block font-medium">{t('GiftFormModal.pointsToRedeem')}</label>
+            <LocaleNumberInput
               type="number"
               min={1}
               {...register('pointCost', { setValueAs: numOrUndefined })}
@@ -204,12 +211,12 @@ export default function GiftFormModal({ open, onClose, editGift }: GiftFormModal
             {errors.pointCost && <p className="mt-1 text-xs text-[var(--color-error)]">{errors.pointCost.message}</p>}
           </div>
           <div>
-            <label className="text-label mb-1.5 block font-medium">Tồn kho</label>
-            <input
+            <label className="text-label mb-1.5 block font-medium">{t('GiftFormModal.stock')}</label>
+            <LocaleNumberInput
               type="number"
               min={0}
               disabled={unlimitedStock || !!editGift?.pendingRedemptionCount}
-              placeholder={unlimitedStock ? 'Không giới hạn' : '0'}
+              placeholder={unlimitedStock ? t('GiftFormModal.unlimited') : '0'}
               {...register('stockQuantity', { setValueAs: numOrUndefined })}
               className={`${inputCls} disabled:opacity-50`}
             />
@@ -223,16 +230,16 @@ export default function GiftFormModal({ open, onClose, editGift }: GiftFormModal
             {...register('unlimitedStock')}
             className="rounded border-[var(--color-border)]"
           />
-          Không giới hạn số lượng
+          {t('GiftFormModal.unlimitedQuantity')}
           <span className="text-xs text-[var(--color-muted-foreground)]">
-            (dùng cho voucher điện tử, quà cấp phát không hạn chế)
+            {t('GiftFormModal.forEVouchersAndGiftsIssued')}
           </span>
         </label>
 
         {/* Quyết định luồng sau khi nhân viên đổi: cần trao tay thì có bước "đã giao",
             nhận ngay thì hoàn tất luôn, không tạo việc cho ai. */}
         <div>
-          <label className="text-label mb-2 block font-medium">Cách nhận quà</label>
+          <label className="text-label mb-2 block font-medium">{t('GiftFormModal.howTheGiftIsReceived')}</label>
           <div className="grid gap-2 sm:grid-cols-2">
             <button
               type="button"
@@ -243,10 +250,9 @@ export default function GiftFormModal({ open, onClose, editGift }: GiftFormModal
                   : 'border-[var(--color-border)]'
               }`}
             >
-              <div className="font-medium">Cần trao tay</div>
+              <div className="font-medium">{t('GiftFormModal.handedOverInPerson')}</div>
               <div className="mt-0.5 text-xs text-[var(--color-muted-foreground)]">
-                Áo, cốc, voucher giấy… Yêu cầu nằm ở tab chờ giao tới khi có người đánh
-                dấu đã trao.
+                {t('GiftFormModal.tShirtsMugsPaperVouchersThe')}
               </div>
             </button>
             <button
@@ -258,16 +264,15 @@ export default function GiftFormModal({ open, onClose, editGift }: GiftFormModal
                   : 'border-[var(--color-border)]'
               }`}
             >
-              <div className="font-medium">Nhận ngay</div>
+              <div className="font-medium">{t('GiftFormModal.receivedInstantly')}</div>
               <div className="mt-0.5 text-xs text-[var(--color-muted-foreground)]">
-                Ngày nghỉ phép, quyền lợi tự động… Đổi xong là hoàn tất, không ai phải xử lý.
+                {t('GiftFormModal.daysOffAutomaticBenefitsDoneAs')}
               </div>
             </button>
           </div>
           {!requiresDelivery && (
             <p className="mt-2 text-xs text-[var(--color-warning)]">
-              Nhân viên sẽ thấy “đã nhận” ngay lập tức — chỉ chọn khi quà thực sự đến tay họ
-              mà không cần ai làm gì.
+              {t('GiftFormModal.employeesWillSeeReceivedImmediatelyOnly')}
             </p>
           )}
         </div>
@@ -278,9 +283,9 @@ export default function GiftFormModal({ open, onClose, editGift }: GiftFormModal
             {...register('active')}
             className="rounded border-[var(--color-border)]"
           />
-          Đang bày bán
+          {t('GiftFormModal.onSale')}
           <span className="text-xs text-[var(--color-muted-foreground)]">
-            (tắt để ẩn khỏi cửa hàng mà không xoá)
+            {t('GiftFormModal.turnOffToHideFromThe')}
           </span>
         </label>
       </div>

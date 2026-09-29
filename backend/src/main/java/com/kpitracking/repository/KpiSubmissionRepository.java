@@ -473,10 +473,10 @@ public interface KpiSubmissionRepository extends JpaRepository<KpiSubmission, UU
             "ORDER BY s.created_at ASC LIMIT :limit", nativeQuery = true)
     java.util.List<Object[]> findReviewBottlenecks(@Param("limit") int limit);
 
-    @org.springframework.data.jpa.repository.Query("SELECT COUNT(DISTINCT s.kpiCriteria.id) FROM KpiSubmission s WHERE s.orgUnit.id IN :orgUnitIds AND s.status != 'DRAFT' AND s.deletedAt IS NULL")
+    @org.springframework.data.jpa.repository.Query("SELECT COUNT(DISTINCT s.kpiCriteria.id) FROM KpiSubmission s WHERE s.orgUnit.id IN :orgUnitIds AND s.status != 'DRAFT' AND s.status != 'RETURNED' AND s.deletedAt IS NULL")
     long countDistinctKpiCriteriaWithSubmissionsIn(@org.springframework.data.repository.query.Param("orgUnitIds") java.util.Collection<UUID> orgUnitIds);
 
-    @org.springframework.data.jpa.repository.Query("SELECT COUNT(DISTINCT CONCAT(s.kpiCriteria.id, '_', s.submittedBy.id)) FROM KpiSubmission s WHERE s.orgUnit.id IN :orgUnitIds AND s.status != 'DRAFT' AND s.deletedAt IS NULL")
+    @org.springframework.data.jpa.repository.Query("SELECT COUNT(DISTINCT CONCAT(s.kpiCriteria.id, '_', s.submittedBy.id)) FROM KpiSubmission s WHERE s.orgUnit.id IN :orgUnitIds AND s.status != 'DRAFT' AND s.status != 'RETURNED' AND s.deletedAt IS NULL")
     long countDistinctAssignmentsWithSubmissionsIn(@org.springframework.data.repository.query.Param("orgUnitIds") java.util.Collection<UUID> orgUnitIds);
 
     @org.springframework.data.jpa.repository.Query("SELECT COUNT(DISTINCT s.id) FROM KpiSubmission s JOIN UserRoleOrgUnit uro ON uro.user.id = s.submittedBy.id WHERE (uro.orgUnit.id IN :orgUnitIds OR EXISTS (SELECT 1 FROM OrgUnit au WHERE uro.orgUnit.path LIKE CONCAT(au.path, '%') AND au.id IN :orgUnitIds)) AND s.status = :status AND s.deletedAt IS NULL")
@@ -484,6 +484,23 @@ public interface KpiSubmissionRepository extends JpaRepository<KpiSubmission, UU
 
     @org.springframework.data.jpa.repository.Query("SELECT COUNT(DISTINCT s.id) FROM KpiSubmission s JOIN UserRoleOrgUnit uro ON uro.user.id = s.submittedBy.id WHERE (uro.orgUnit.id IN :orgUnitIds OR EXISTS (SELECT 1 FROM OrgUnit au WHERE uro.orgUnit.path LIKE CONCAT(au.path, '%') AND au.id IN :orgUnitIds)) AND s.status = :status AND s.submittedBy.id != :excludedUserId AND s.deletedAt IS NULL")
     long countBySubmittedByUserOrgUnitInAndStatusExcludingUser(@org.springframework.data.repository.query.Param("orgUnitIds") java.util.Collection<UUID> orgUnitIds, @org.springframework.data.repository.query.Param("status") SubmissionStatus status, @org.springframework.data.repository.query.Param("excludedUserId") UUID excludedUserId);
+
+    /**
+     * Bài nộp bị trả lại của một người trong một đợt mà vẫn đang chờ nộp lại (chưa có bài mới, chưa
+     * quá hạn nộp lại). Còn bài nào thì chưa chốt được đánh giá đợt của người đó.
+     */
+    @org.springframework.data.jpa.repository.Query("SELECT s FROM KpiSubmission s WHERE s.submittedBy.id = :userId " +
+            "AND s.kpiCriteria.kpiPeriod.id = :periodId AND s.status = com.kpitracking.enums.SubmissionStatus.RETURNED " +
+            "AND s.resubmission IS NULL AND s.resubmitDeadline >= :now AND s.deletedAt IS NULL")
+    java.util.List<KpiSubmission> findAwaitingResubmission(@org.springframework.data.repository.query.Param("userId") UUID userId,
+                                                          @org.springframework.data.repository.query.Param("periodId") UUID periodId,
+                                                          @org.springframework.data.repository.query.Param("now") java.time.Instant now);
+
+    /** Bài bị trả lại mà {@code resubmissionId} là bài nộp thay cho nó. */
+    java.util.List<KpiSubmission> findByResubmissionId(UUID resubmissionId);
+
+    /** Bài bị trả lại mà bài thay thế nằm trong danh sách — để đánh dấu "bài nộp lại" theo lô. */
+    java.util.List<KpiSubmission> findByResubmissionIdIn(java.util.Collection<UUID> resubmissionIds);
 
     // ===== Insight Engine & Time-series (subtree-scoped) =====
 

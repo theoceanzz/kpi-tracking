@@ -1,5 +1,6 @@
 package com.kpitracking.service;
 
+import com.kpitracking.i18n.LocalizedText;
 import com.kpitracking.entity.*;
 import com.kpitracking.enums.CycleUnitEvalStatus;
 import com.kpitracking.enums.KpiStatus;
@@ -99,7 +100,16 @@ public class EvaluationReminderService {
     // ĐỢT
     // ============================================================
 
+    /** Đợt thuộc kỳ đã khoá, hoặc đã đóng/chuyển/huỷ khi khoá kỳ. */
+    static boolean isClosedForReminders(KpiPeriod period) {
+        if (period == null) return true;
+        if (period.getStatus() != null && period.getStatus().isTerminal()) return true;
+        return period.getKpiCycle() != null && period.getKpiCycle().isLocked();
+    }
+
     private void remindPeriod(KpiPeriod period, Instant now) {
+        // Kỳ đã khoá / đợt đã đóng khi khoá kỳ: không còn chấm được nên không nhắc.
+        if (isClosedForReminders(period)) return;
         Organization org = period.getOrganization();
         String milestone = milestoneFor(org, period.getEndDate(), now);
         if (milestone == null) return;
@@ -138,17 +148,14 @@ public class EvaluationReminderService {
             int pending = entry.getValue().size();
             if (pending == 0) continue;
 
-            String title = OVERDUE.equals(milestone)
-                    ? "Quá hạn đánh giá đợt " + period.getName()
-                    : "Sắp đến hạn đánh giá đợt " + period.getName();
-            String message = String.format(
-                    "Đơn vị \"%s\" còn %d nhân sự chưa được chấm đánh giá đợt %s. %s",
+            boolean overdue = OVERDUE.equals(milestone);
+            LocalizedText title = LocalizedText.of(overdue ? "notif.evalReminder.period.overdue.title" : "notif.evalReminder.period.due.title",
+                    period.getName());
+            LocalizedText message = LocalizedText.of("notif.evalReminder.period.message",
                     unit.getName(), pending, period.getName(),
-                    OVERDUE.equals(milestone)
-                            ? "Đợt đã kết thúc " + humanizeAgo(period.getEndDate(), now)
-                                    + " — hãy chấm nốt để chốt được kết quả kỳ."
-                            : "Đợt kết thúc " + humanizeUntil(period.getEndDate(), now)
-                                    + ", hãy hoàn tất trước khi đóng đợt.");
+                    overdue
+                            ? LocalizedText.of("notif.evalReminder.period.overdue", humanizeAgo(period.getEndDate(), now))
+                            : LocalizedText.of("notif.evalReminder.period.due", humanizeUntil(period.getEndDate(), now)));
 
             notifyUnitLeaders(org, unit, "EVALUATION:CREATE", "evaluation_period_due",
                     "PERIOD", period.getId(), milestone, pending, title, message);
@@ -160,6 +167,7 @@ public class EvaluationReminderService {
     // ============================================================
 
     private void remindCycle(KpiCycle cycle, Instant now) {
+        if (cycle.isLocked()) return;
         Organization org = cycle.getOrganization();
         String milestone = milestoneFor(org, cycle.getEndDate(), now);
         if (milestone == null) return;
@@ -180,17 +188,14 @@ public class EvaluationReminderService {
             OrgUnit unit = orgUnitRepository.findById(unitId).orElse(null);
             if (unit == null) continue;
 
-            String title = OVERDUE.equals(milestone)
-                    ? "Quá hạn chốt kỳ " + cycle.getName()
-                    : "Sắp đến hạn chốt kỳ " + cycle.getName();
-            String message = String.format(
-                    "Đơn vị \"%s\" chưa chốt đánh giá kỳ %s. %s",
+            boolean overdue = OVERDUE.equals(milestone);
+            LocalizedText title = LocalizedText.of(overdue ? "notif.evalReminder.cycle.overdue.title" : "notif.evalReminder.cycle.due.title",
+                    cycle.getName());
+            LocalizedText message = LocalizedText.of("notif.evalReminder.cycle.message",
                     unit.getName(), cycle.getName(),
-                    OVERDUE.equals(milestone)
-                            ? "Kỳ đã kết thúc " + humanizeAgo(cycle.getEndDate(), now)
-                                    + " — cấp trên không chốt được khi đơn vị dưới còn treo."
-                            : "Kỳ kết thúc " + humanizeUntil(cycle.getEndDate(), now)
-                                    + ", hãy chấm điểm đơn vị và chốt đánh giá phòng ban.");
+                    overdue
+                            ? LocalizedText.of("notif.evalReminder.cycle.overdue", humanizeAgo(cycle.getEndDate(), now))
+                            : LocalizedText.of("notif.evalReminder.cycle.due", humanizeUntil(cycle.getEndDate(), now)));
 
             notifyUnitLeaders(org, unit, "CYCLE_EVAL:FINALIZE", "evaluation_cycle_due",
                     "CYCLE", cycle.getId(), milestone, 1, title, message);
@@ -208,7 +213,7 @@ public class EvaluationReminderService {
      */
     private void notifyUnitLeaders(Organization org, OrgUnit unit, String permissionCode,
                                    String eventCode, String scope, UUID targetId,
-                                   String milestone, int pendingCount, String title, String message) {
+                                   String milestone, int pendingCount, LocalizedText title, LocalizedText message) {
         if (org == null) return;
         Collection<User> recipients = findResponsible(unit, permissionCode);
         if (recipients.isEmpty()) {
@@ -284,16 +289,16 @@ public class EvaluationReminderService {
         return now.isBefore(endDate.plus(OVERDUE_GRACE)) ? OVERDUE : null;
     }
 
-    private String humanizeUntil(Instant endDate, Instant now) {
+    private LocalizedText humanizeUntil(Instant endDate, Instant now) {
         long hours = Duration.between(now, endDate).toHours();
-        if (hours < 1) return "trong chưa đầy một giờ nữa";
-        if (hours < 24) return "trong " + hours + " giờ nữa";
-        return "trong " + (hours / 24) + " ngày nữa";
+        if (hours < 1) return LocalizedText.of("notif.time.withinAnHour");
+        if (hours < 24) return LocalizedText.of("notif.time.inHours", hours);
+        return LocalizedText.of("notif.time.inDays", hours / 24);
     }
 
-    private String humanizeAgo(Instant endDate, Instant now) {
+    private LocalizedText humanizeAgo(Instant endDate, Instant now) {
         long hours = Duration.between(endDate, now).toHours();
-        if (hours < 24) return hours + " giờ trước";
-        return (hours / 24) + " ngày trước";
+        if (hours < 24) return LocalizedText.of("notif.time.hoursAgo", hours);
+        return LocalizedText.of("notif.time.daysAgo", hours / 24);
     }
 }

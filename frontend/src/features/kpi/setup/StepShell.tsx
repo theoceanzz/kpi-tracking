@@ -2,6 +2,7 @@ import type { ReactNode } from 'react'
 import { ArrowLeft } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import i18n from 'i18next'
 
 interface Props {
   title: string
@@ -21,7 +22,7 @@ interface Props {
  * Gom vào đây để bốn bước không mỗi cái một kiểu bo góc và khoảng cách — thứ dễ trôi nhất khi
  * bốn màn hình được viết ở bốn thời điểm khác nhau.
  */
-export default function StepShell({ title, description, children, footer, onBack, backLabel = 'Quay lại', bare }: Props) {
+export default function StepShell({ title, description, children, footer, onBack, backLabel = i18n.t('kpi:StepShell.back'), bare }: Props) {
   return (
     // Khung wizard rộng để bước Chỉ tiêu đủ chỗ dàn form hai cột; các bước còn lại là danh sách
     // hoặc form đơn nên tự thu hẹp lại, dòng chữ dài quá màn hình rất khó đọc.

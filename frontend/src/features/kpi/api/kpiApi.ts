@@ -4,6 +4,11 @@ import type { KpiCriteria, CreateKpiRequest, UpdateKpiRequest, RejectKpiRequest,
 import type { KpiStatus } from '@/types/kpi'
 import type { CreateKpiFromBscRequest } from '@/features/bsc/types'
 
+export interface WeightHeadroom {
+  selfApproved: boolean
+  units: { orgUnitId: string; orgUnitName: string; usedWeight: number }[]
+}
+
 export const kpiApi = {
   getAll: (params: { page?: number; size?: number; status?: KpiStatus; orgUnitId?: string; organizationId?: string; createdById?: string; assigneeId?: string; kpiPeriodId?: string; keyword?: string; startDate?: string; endDate?: string; sortBy?: string; sortDir?: string; objectiveId?: string; keyResultId?: string; perspectiveId?: string; approvalMode?: boolean; kpiNature?: 'PARENT_CHILD' | 'STANDALONE'; isBonusKpi?: boolean; isReverseKpi?: boolean; kpiType?: KpiType }) =>
     axiosInstance.get<ApiResponse<PageResponse<KpiCriteria>>>('/kpi-criteria', { params }).then((r) => r.data.data),
@@ -18,6 +23,12 @@ export const kpiApi = {
     axiosInstance.post<ApiResponse<KpiCriteria>>('/kpi-criteria', data).then((r) => r.data.data),
 
   /** Tạo một loạt KPI bằng cách chia mục tiêu của một chỉ tiêu BSC ra các đợt. */
+  /** Trọng số đã dùng mỗi đơn vị khi chỉ tiêu tạo ra được duyệt ngay (người tự duyệt) — form chặn vượt 100%. */
+  getWeightHeadroom: (params: { kpiPeriodId: string; orgUnitIds: string[]; assigneeIds: string[]; excludeKpiId?: string }) =>
+    axiosInstance.get<ApiResponse<WeightHeadroom>>('/kpi-criteria/weight-headroom', {
+      params: { kpiPeriodId: params.kpiPeriodId, orgUnitIds: params.orgUnitIds.join(','), assigneeIds: params.assigneeIds.join(',') || undefined, excludeKpiId: params.excludeKpiId },
+    }).then((r) => r.data.data),
+
   createFromBsc: (data: CreateKpiFromBscRequest) =>
     axiosInstance.post<ApiResponse<KpiCriteria[]>>('/kpi-criteria/from-bsc', data).then((r) => r.data.data),
 
@@ -36,8 +47,9 @@ export const kpiApi = {
   bulkSubmit: (ids: string[]) =>
     axiosInstance.post<ApiResponse<KpiCriteria[]>>('/kpi-criteria/bulk-submit', ids).then((r) => r.data.data),
 
-  approve: (id: string) =>
-    axiosInstance.post<ApiResponse<KpiCriteria>>(`/kpi-criteria/${id}/approve`).then((r) => r.data.data),
+  /** Chuỗi duyệt: `expectedStepId` là bước đang thấy — chuỗi đã đi tiếp thì BE trả 409. */
+  approve: (id: string, body?: { expectedStepId?: string | null; comment?: string }) =>
+    axiosInstance.post<ApiResponse<KpiCriteria>>(`/kpi-criteria/${id}/approve`, body ?? {}).then((r) => r.data),
 
   reject: (id: string, data: RejectKpiRequest) =>
     axiosInstance.post<ApiResponse<KpiCriteria>>(`/kpi-criteria/${id}/reject`, data).then((r) => r.data.data),

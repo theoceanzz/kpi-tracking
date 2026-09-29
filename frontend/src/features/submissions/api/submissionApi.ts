@@ -1,6 +1,6 @@
 import axiosInstance from '@/lib/axios'
 import type { ApiResponse, PageResponse } from '@/types/api'
-import type { Submission, CreateSubmissionRequest, UpdateSubmissionRequest, ReviewSubmissionRequest, Attachment } from '@/types/submission'
+import type { Submission, CreateSubmissionRequest, UpdateSubmissionRequest, ReviewSubmissionRequest, ReturnSubmissionRequest, Attachment } from '@/types/submission'
 import type { SubmissionStatus } from '@/types/submission'
 
 export const submissionApi = {
@@ -37,6 +37,10 @@ export const submissionApi = {
 
   update: (id: string, data: UpdateSubmissionRequest) =>
     axiosInstance.put<ApiResponse<Submission>>(`/submissions/${id}`, data).then((r) => r.data.data),
+
+  /** Hoàn duyệt: trả bài nộp về để nhân viên làm lại bằng bài nộp mới trước hạn nộp lại. */
+  returnSubmission: (id: string, data: ReturnSubmissionRequest) =>
+    axiosInstance.post<ApiResponse<Submission>>(`/submissions/${id}/return`, data).then((r) => r.data.data),
 
   review: (id: string, data: ReviewSubmissionRequest) =>
     axiosInstance.post<ApiResponse<Submission>>(`/submissions/${id}/review`, data).then((r) => r.data.data),

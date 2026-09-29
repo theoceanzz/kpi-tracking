@@ -14,15 +14,15 @@ public class UpsertWidgetRequest {
 
     private UUID reportDatasourceId;
 
-    @NotNull(message = "Loại widget không được để trống")
+    @NotNull(message = "{validation.widgetTypeCannotEmpty}")
     private WidgetType widgetType;
 
-    @NotBlank(message = "Tiêu đề widget không được để trống")
+    @NotBlank(message = "{validation.widgetTitleCannotEmpty}")
     private String title;
 
     private String description;
 
-    @NotNull(message = "Cấu hình biểu đồ không được để trống")
+    @NotNull(message = "{validation.chartConfigurationCannotEmpty}")
     private String chartConfig; // JSON string
 
     private String position; // JSON string {x, y, w, h}

@@ -1,10 +1,13 @@
 package com.kpitracking.service;
 
+import com.kpitracking.i18n.ErrorMessages;
 import com.kpitracking.config.JwtConfig;
 import com.kpitracking.entity.RefreshToken;
 import com.kpitracking.entity.User;
 import com.kpitracking.exception.BusinessException;
+import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.ResourceNotFoundException;
+import com.kpitracking.i18n.Terms;
 import com.kpitracking.repository.RefreshTokenRepository;
 import com.kpitracking.repository.UserRepository;
 import lombok.RequiredArgsConstructor;
@@ -25,12 +28,12 @@ public class RefreshTokenService {
 
     @Transactional
     public RefreshToken createOrUpdateRefreshToken(UUID userId, String deviceInfo) {
-        String device = (deviceInfo != null && !deviceInfo.isBlank()) ? deviceInfo : "Thiết bị không xác định";
+        String device = (deviceInfo != null && !deviceInfo.isBlank()) ? deviceInfo : ErrorMessages.text("session.unknownDevice", "");
         if (device.length() > 255) {
             device = device.substring(0, 255);
         }
         User user = userRepository.findById(userId)
-                .orElseThrow(() -> new ResourceNotFoundException("Người dùng", "id", userId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.user"), "id", userId));
 
         java.util.Optional<RefreshToken> existingTokenOpt = refreshTokenRepository.findByUserIdAndDeviceInfo(userId, device);
         
@@ -73,17 +76,17 @@ public class RefreshTokenService {
             }
         }
 
-        throw lastError != null ? lastError : new BusinessException("Thiếu mã làm mới.");
+        throw lastError != null ? lastError : new BusinessException(ErrorCode.REFRESH_TOKEN_MISSING);
     }
 
     @Transactional(readOnly = true)
     public RefreshToken verifyRefreshToken(String token) {
         RefreshToken refreshToken = refreshTokenRepository.findByTokenAndRevokedFalse(token)
-                .orElseThrow(() -> new BusinessException("Mã làm mới không hợp lệ hoặc đã bị thu hồi"));
+                .orElseThrow(() -> new BusinessException(ErrorCode.REFRESH_TOKEN_INVALID_REVOKED));
 
         if (refreshToken.getExpiresAt().isBefore(Instant.now())) {
             refreshTokenRepository.delete(refreshToken);
-            throw new BusinessException("Mã làm mới đã hết hạn. Vui lòng đăng nhập lại.");
+            throw new BusinessException(ErrorCode.REFRESH_TOKEN_EXPIRED);
         }
 
         return refreshToken;

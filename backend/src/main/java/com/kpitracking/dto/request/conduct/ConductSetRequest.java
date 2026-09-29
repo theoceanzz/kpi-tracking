@@ -17,11 +17,11 @@ import java.util.UUID;
 @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
 public class ConductSetRequest {
 
-    @NotBlank(message = "Tên bộ tiêu chí không được để trống")
+    @NotBlank(message = "{validation.criteriaSetNameCannotEmpty}")
     private String name;
 
     /** Thang điểm mỗi tiêu chí của riêng bộ này. */
-    @DecimalMin(value = "0.0", inclusive = false, message = "Thang điểm phải lớn hơn 0")
+    @DecimalMin(value = "0.0", inclusive = false, message = "{validation.scaleMustGreaterThan0}")
     private Double maxScore;
 
     /**

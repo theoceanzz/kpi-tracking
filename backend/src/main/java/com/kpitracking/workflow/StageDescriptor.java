@@ -1,5 +1,6 @@
 package com.kpitracking.workflow;
 
+import com.kpitracking.i18n.ErrorMessages;
 import java.util.List;
 import java.util.Set;
 
@@ -18,7 +19,8 @@ import java.util.Set;
  * @param requires         các bước phải còn bật thì bước này mới có nghĩa
  * @param required         true nghĩa là bước lõi, không tắt được
  * @param defaultOrder     thứ tự hiển thị mặc định
- * @param defaultLabel     nhãn mặc định (tổ chức đổi nhãn qua {@code sidebar_settings}, không qua đây)
+ * @param defaultLabel     nhãn mặc định tiếng Việt; bản dịch ở {@code stage.<MÃ>} trong messages*.properties
+ *                         (tổ chức đổi nhãn qua {@code sidebar_settings}, không qua đây)
  */
 public record StageDescriptor(
         WorkflowStage stage,
@@ -31,6 +33,12 @@ public record StageDescriptor(
         int defaultOrder,
         String defaultLabel
 ) {
+    /** Nhãn theo ngôn ngữ của request hiện tại. */
+    @Override
+    public String defaultLabel() {
+        return ErrorMessages.text("stage." + stage.name(), defaultLabel);
+    }
+
     /** Bước lõi thì không cho tắt — {@code WorkflowConfigValidator} dựa vào đây. */
     public boolean isOptional() {
         return !required;

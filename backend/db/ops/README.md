@@ -15,3 +15,5 @@ Lịch sử: đợt audit 2026-09-15 từng có `000`, `002`–`006` (index ch�
 `V1__init_schema.sql` (dev) và đã lên prod bằng `V8__reconcile_prod.sql` (2026-09-15).
 
 `010_fix_orphan_refs_2026-09.sql`: dọn KPI mồ côi (đợt đã xoá mềm) — preview trước, bỏ comment khối APPLY để chạy.
+
+`020_cycle_overlap_report.sql`: **chỉ đọc** — liệt kê các cặp kỳ cùng tổ chức + cùng loại đang chồng lấn. Chạy trên prod và xử lý hết trước khi bật `KPI_CYCLE_OVERLAP_CHECK=true` (luật chống chồng lấn khi tạo/sửa kỳ).

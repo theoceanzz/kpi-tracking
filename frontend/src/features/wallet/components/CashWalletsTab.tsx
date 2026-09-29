@@ -1,3 +1,4 @@
+import { intlLocale } from '@/i18n/format'
 import { useEffect, useMemo, useState } from 'react'
 import { AlertTriangle, ChevronRight, Coins, Search, Users, Wallet } from 'lucide-react'
 import Pagination from '@/components/common/Pagination'
@@ -16,6 +17,7 @@ import { formatCurrency } from '@/lib/utils'
 import { useCashWalletSummary, useCashWallets } from '../hooks/useWallet'
 import UserLedgerModal from './UserLedgerModal'
 import type { CashWallet } from '../types'
+import { useTranslation } from 'react-i18next'
 
 function StatCard({
   icon,
@@ -51,6 +53,7 @@ function StatCard({
 }
 
 export default function CashWalletsTab() {
+  const { t } = useTranslation('wallet')
   const [keyword, setKeyword] = useState('')
   const [unitId, setUnitId] = useState('')
   const [onlyInconsistent, setOnlyInconsistent] = useState(false)
@@ -116,26 +119,26 @@ export default function CashWalletsTab() {
       <div id="tour-cashwallets-stats" className="mb-6 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <StatCard
           icon={<Wallet size={13} />}
-          label="Đang giữ"
+          label={t('CashWalletsTab.holding')}
           value={formatCurrency(summary?.totalBalance)}
-          hint="Đã nạp nhưng chưa đổi thành điểm"
+          hint={t('CashWalletsTab.toppedUpButNotYetConverted')}
           tone="primary"
         />
         <StatCard
           icon={<Coins size={13} />}
-          label="Tổng đã nạp"
+          label={t('CashWalletsTab.totalToppedUp')}
           value={formatCurrency(summary?.totalTopup)}
         />
         <StatCard
           icon={<Coins size={13} />}
-          label="Đã đổi ra điểm"
+          label={t('CashWalletsTab.convertedToPoints')}
           value={formatCurrency(summary?.totalConverted)}
         />
         <StatCard
           icon={<Users size={13} />}
-          label="Số ví"
-          value={(summary?.walletCount ?? 0).toLocaleString('vi-VN')}
-          hint="Ví tạo khi nhân viên nạp lần đầu"
+          label={t('CashWalletsTab.wallets')}
+          value={(summary?.walletCount ?? 0).toLocaleString(intlLocale())}
+          hint={t('CashWalletsTab.walletCreatedWhenTheEmployeeFirst')}
         />
       </div>
 
@@ -148,8 +151,7 @@ export default function CashWalletsTab() {
           }}>
           <AlertTriangle aria-hidden="true" className="flex-shrink-0 text-[var(--color-error)]" />
           <span className="min-w-0 flex-1">
-            <strong>{broken} ví</strong> có số dư lệch so với sổ cái. Đây là lỗi dữ liệu tiền tệ,
-            không phải cảnh báo nghiệp vụ — cần kiểm tra ngay.
+            <strong>{broken} {t('CashWalletsTab.wallets2')}</strong> {t('CashWalletsTab.haveABalanceOutOfLine')}
           </span>
           <ChevronRight aria-hidden="true" className="flex-shrink-0 text-[var(--color-error)]" />
         </button>
@@ -168,7 +170,7 @@ export default function CashWalletsTab() {
               setPage(0)
             }}
             disabled={onlyInconsistent}
-            placeholder="Tìm theo tên hoặc email"
+            placeholder={t('CashWalletsTab.searchByNameOrEmail')}
             className="w-full rounded-card border border-[var(--color-border)] bg-[var(--color-background)] py-2.5 pl-9 pr-4 text-sm outline-none transition-colors focus:border-[var(--color-primary)] disabled:opacity-50"
           />
         </div>
@@ -185,7 +187,7 @@ export default function CashWalletsTab() {
           disabled={onlyInconsistent}
         >
           <SelectTrigger className="w-full rounded-card border border-[var(--color-border)] bg-[var(--color-background)] px-4 py-2.5 text-sm disabled:opacity-50 sm:w-auto sm:min-w-56">
-            <SelectValue placeholder="Chọn đơn vị" />
+            <SelectValue placeholder={t('CashWalletsTab.chooseUnit')} />
           </SelectTrigger>
           <SelectContent>
             {flatUnits.map((u) => (
@@ -205,7 +207,7 @@ export default function CashWalletsTab() {
             }}
             className="whitespace-nowrap rounded-full border border-[var(--color-error-border)] bg-[var(--color-error-bg)] px-4 py-1.5 text-sm font-semibold text-[var(--color-error)]"
           >
-            Đang lọc ví lệch sổ · Bỏ lọc
+            {t('CashWalletsTab.filteringWalletsOutOfBalanceClear')}
           </button>
         )}
       </div>
@@ -217,17 +219,17 @@ export default function CashWalletsTab() {
           <EmptyState
             title={
               onlyInconsistent
-                ? 'Không có ví nào lệch sổ'
+                ? t('CashWalletsTab.noWalletsOutOfBalance')
                 : narrowed
-                  ? 'Không tìm thấy ví nào'
-                  : 'Chưa có ví nào'
+                  ? t('CashWalletsTab.noWalletFound')
+                  : t('CashWalletsTab.noWalletsYet')
             }
             description={
               onlyInconsistent
-                ? 'Số dư của mọi ví đều khớp với tổng sổ cái.'
+                ? t('CashWalletsTab.everyWalletBalanceMatchesTheLedger')
                 : narrowed
-                  ? 'Thử bỏ bớt bộ lọc, hoặc nhân sự trong phạm vi này chưa ai nạp tiền lần nào.'
-                  : 'Ví được tạo tự động khi nhân viên nạp tiền lần đầu.'
+                  ? t('CashWalletsTab.tryRemovingSomeFiltersOrNobody')
+                  : t('CashWalletsTab.aWalletIsCreatedAutomaticallyWhen')
             }
           />
         </div>
@@ -237,11 +239,11 @@ export default function CashWalletsTab() {
             <table className="w-full min-w-[760px] text-sm">
               <thead className="bg-[var(--color-muted)]/50 text-left">
                 <tr className="text-eyebrow">
-                  <th className="px-4 py-3">Nhân viên</th>
-                  <th className="px-4 py-3 text-right">Số dư</th>
-                  <th className="px-4 py-3 text-right">Tổng đã nạp</th>
-                  <th className="px-4 py-3 text-right">Đã đổi ra điểm</th>
-                  <th className="px-4 py-3 text-right">Đổi được</th>
+                  <th className="px-4 py-3">{t('CashWalletsTab.employee')}</th>
+                  <th className="px-4 py-3 text-right">{t('CashWalletsTab.balance')}</th>
+                  <th className="px-4 py-3 text-right">{t('CashWalletsTab.totalToppedUp')}</th>
+                  <th className="px-4 py-3 text-right">{t('CashWalletsTab.convertedToPoints')}</th>
+                  <th className="px-4 py-3 text-right">{t('CashWalletsTab.convertible')}</th>
                   <th className="px-4 py-3" />
                 </tr>
               </thead>
@@ -269,7 +271,7 @@ export default function CashWalletsTab() {
                       {formatCurrency(w.lifetimeConverted)}
                     </td>
                     <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums">
-                      {w.convertiblePoints.toLocaleString('vi-VN')} điểm
+                      {w.convertiblePoints.toLocaleString(intlLocale())} {t('CashWalletsTab.points')}
                     </td>
                     <td className="px-4 py-3 text-right">
                       <ChevronRight size={16} className="ml-auto text-[var(--color-muted-foreground)]" />
@@ -288,7 +290,7 @@ export default function CashWalletsTab() {
                 totalElements={data?.totalElements ?? 0}
                 size={size}
                 onPageChange={setPage}
-                itemLabel="ví"
+                itemLabel={t('CashWalletsTab.wallets2')}
               />
             </div>
           )}

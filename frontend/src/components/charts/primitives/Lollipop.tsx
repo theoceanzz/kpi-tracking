@@ -1,6 +1,7 @@
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ReferenceLine, ResponsiveContainer } from 'recharts'
 import { AXIS_COLORS, METRIC_COLORS, NEUTRAL_COLOR } from '../chartPalette'
 import { xAxisLabel } from '../axisLabel'
+import { useTranslation } from 'react-i18next'
 
 export interface LollipopDatum {
   /** Khoá để trả về khi người dùng bấm (userId, orgUnitId…). */
@@ -41,6 +42,7 @@ interface Props {
  * xếp hạng đơn vị hoặc nhân sự — nơi số mục thường vượt xa số cột mà biểu đồ cột chịu được.
  */
 export default function Lollipop({ data, unit = '', valueLabel, reference, height, domainMax, yAxisWidth, onSelect }: Props) {
+  const { t } = useTranslation('shared')
   // Cao theo số mục để nhãn không chồng nhau; sàn 180px cho danh sách rất ngắn.
   const chartHeight = height ?? Math.max(180, data.length * 28 + 40)
   const max = domainMax ?? Math.max(...data.map(d => d.value), reference?.value ?? 0, 1)
@@ -56,7 +58,7 @@ export default function Lollipop({ data, unit = '', valueLabel, reference, heigh
           axisLine={false}
           tickLine={false}
           tick={{ fill: AXIS_COLORS.tick, fontSize: 11, fontWeight: 500 }}
-          label={xAxisLabel(valueLabel ?? (unit ? `Giá trị (${unit.trim()})` : 'Giá trị'))}
+          label={xAxisLabel(valueLabel ?? (unit ? t('Lollipop.value', { trim: unit.trim() }) : t('Lollipop.value2')))}
         />
         <YAxis
           type="category"

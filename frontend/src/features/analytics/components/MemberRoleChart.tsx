@@ -3,6 +3,7 @@ import { xAxisLabel } from '@/components/charts/axisLabel'
 import { ResponsiveContainer, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts'
 import { seriesColor } from '@/components/charts/chartPalette'
 import ChartTooltip from '@/components/charts/ChartTooltip'
+import { useTranslation } from 'react-i18next'
 
 type RoleDist = { unitName: string; roles: { roleName: string; count: number }[] }
 
@@ -19,6 +20,7 @@ function RoleTooltip({ active, payload, label }: {
   payload?: RoleTooltipEntry[]
   label?: string
 }) {
+  const { t } = useTranslation('analytics')
   if (!active || !payload?.length) return null
   const total = payload[0]?.payload?.__total ?? 0
   // Bỏ những vai trò không có ai: biểu đồ xếp chồng luôn truyền đủ mọi chuỗi vào payload, nên
@@ -31,7 +33,7 @@ function RoleTooltip({ active, payload, label }: {
     <ChartTooltip
       title={label}
       rows={rows}
-      footer={<>Tổng <span className="font-semibold text-[var(--color-muted-foreground)] tabular-nums">{total}</span> người</>}
+      footer={<>{t('MemberRoleChart.total')} <span className="font-semibold text-[var(--color-muted-foreground)] tabular-nums">{total}</span> {t('MemberRoleChart.people')}</>}
     />
   )
 }
@@ -68,6 +70,7 @@ function RoleSegment(props: any) {
  * Dữ liệu đã đếm MỖI NGƯỜI 1 LẦN ở đơn vị sâu nhất nên các đơn vị cộng lại = tổng thật (không trùng).
  */
 export default function MemberRoleChart({ data }: { data?: RoleDist[] }) {
+  const { t } = useTranslation('analytics')
   const dist = data ?? []
 
   const { chartData, roleNames, total } = useMemo(() => {
@@ -95,7 +98,7 @@ export default function MemberRoleChart({ data }: { data?: RoleDist[] }) {
   }, [dist])
 
   if (dist.length === 0) {
-    return <div className="flex-1 flex items-center justify-center text-[var(--color-subtle-foreground)] text-sm">Không có dữ liệu</div>
+    return <div className="flex-1 flex items-center justify-center text-[var(--color-subtle-foreground)] text-sm">{t('MemberRoleChart.noData')}</div>
   }
 
   return (
@@ -104,7 +107,7 @@ export default function MemberRoleChart({ data }: { data?: RoleDist[] }) {
         <ResponsiveContainer width="100%" height="100%" minHeight={0}>
           <BarChart data={chartData} layout="vertical" margin={{ top: 4, right: 48, left: 8, bottom: 24 }}>
             <CartesianGrid stroke="var(--color-border)" horizontal={false} />
-            <XAxis type="number" label={xAxisLabel('S\u1ed1 ng\u01b0\u1eddi')} allowDecimals={false} axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} />
+            <XAxis type="number" label={xAxisLabel(t('MemberRoleChart.numberOfPeople'))} allowDecimals={false} axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} />
             <YAxis dataKey="unitName" type="category" axisLine={false} tickLine={false} width={130}
               tick={{ fontSize: 11, fontWeight: 700, fill: '#64748b' }} />
             <Tooltip content={<RoleTooltip />} cursor={{ fill: '#94a3b8', opacity: 0.06 }} />
@@ -119,8 +122,8 @@ export default function MemberRoleChart({ data }: { data?: RoleDist[] }) {
 
       {/* Tổng + chú thích */}
       <div className="mt-2 pt-2 border-t border-[var(--color-border)] text-center">
-        <span className="text-xs font-medium">Tổng: <span className="text-[var(--color-foreground)]">{total}</span> người</span>
-        <p className="text-caption mt-0.5">Đơn vị hiện tại gồm toàn bộ nhân sự (kể cả đơn vị con) · mỗi người tính theo vai trò ở đơn vị sâu nhất</p>
+        <span className="text-xs font-medium">{t('MemberRoleChart.total2')} <span className="text-[var(--color-foreground)]">{total}</span> {t('MemberRoleChart.people')}</span>
+        <p className="text-caption mt-0.5">{t('MemberRoleChart.theCurrentUnitIncludesAllMembers')}</p>
       </div>
     </div>
   )

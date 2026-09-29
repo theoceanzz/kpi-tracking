@@ -40,7 +40,7 @@ public class WorkflowDefinitionFactory {
      * KpiCriteria. Nguồn: {@code KpiCriteriaService.bulkSubmitForApproval / approveKpi / rejectKpi /
      * revertApproval} và {@code KpiAdjustmentService.createRequest / reviewRequest}.
      */
-    private static List<Transition<KpiStatus>> defaultCriteriaTransitions() {
+    private static List<Transition<KpiStatus>> defaultCriteriaTransitions(boolean chain) {
         return List.of(
                 new Transition<>(WorkflowAction.SUBMIT_CRITERIA,
                         EnumSet.of(KpiStatus.DRAFT, KpiStatus.REJECTED), KpiStatus.PENDING_APPROVAL),
@@ -48,8 +48,10 @@ public class WorkflowDefinitionFactory {
                         EnumSet.of(KpiStatus.PENDING_APPROVAL), KpiStatus.APPROVED),
                 new Transition<>(WorkflowAction.REJECT_CRITERIA,
                         EnumSet.of(KpiStatus.PENDING_APPROVAL), KpiStatus.REJECTED),
+                // Chuỗi duyệt (C11b): hoàn duyệt trả KPI về người tạo như một lần từ chối; gửi lại
+                // thì chạy chuỗi mới từ bước đầu. Luồng một cấp giữ hành vi cũ (về CHỜ DUYỆT).
                 new Transition<>(WorkflowAction.REVERT_CRITERIA_APPROVAL,
-                        EnumSet.of(KpiStatus.APPROVED), KpiStatus.PENDING_APPROVAL),
+                        EnumSet.of(KpiStatus.APPROVED), chain ? KpiStatus.REJECTED : KpiStatus.PENDING_APPROVAL),
                 new Transition<>(WorkflowAction.REQUEST_ADJUSTMENT,
                         EnumSet.of(KpiStatus.APPROVED), KpiStatus.EDIT),
                 new Transition<>(WorkflowAction.APPROVE_ADJUSTMENT,
@@ -80,7 +82,12 @@ public class WorkflowDefinitionFactory {
                         SubmissionStatus.APPROVED),
                 new Transition<>(WorkflowAction.REJECT_SUBMISSION,
                         EnumSet.of(SubmissionStatus.PENDING, SubmissionStatus.APPROVED, SubmissionStatus.REJECTED),
-                        SubmissionStatus.REJECTED)
+                        SubmissionStatus.REJECTED),
+                // Hoàn duyệt (trả lại để làm lại): bài cũ thành lịch sử, nhân viên nộp bài MỚI.
+                // Không có đường nào ra khỏi RETURNED — bài đã trả lại không được duyệt/sửa nữa.
+                new Transition<>(WorkflowAction.RETURN_SUBMISSION,
+                        EnumSet.of(SubmissionStatus.PENDING, SubmissionStatus.APPROVED, SubmissionStatus.REJECTED),
+                        SubmissionStatus.RETURNED)
         );
     }
 
@@ -118,8 +125,12 @@ public class WorkflowDefinitionFactory {
         Map<String, Object> o = new LinkedHashMap<>();
         switch (stage) {
             case CRITERIA_APPROVAL -> {
-                // UNIT_HEAD = luật "người duyệt phải cấp/chức vụ cao hơn người tạo" đang chạy.
-                o.put("approverMode", "UNIT_HEAD");
+                // CHAIN = chuỗi duyệt theo cây đơn vị (trưởng trực tiếp → ... → cấp cao nhất), có quyền
+                // duyệt cuối KPI:APPROVE_FINAL. UNIT_HEAD = luồng một cấp cũ ("người duyệt phải cấp/
+                // chức vụ cao hơn người tạo"), giữ làm đường lùi — đổi qua lại bằng cấu hình.
+                o.put("approverMode", "CHAIN");
+                // Bước chờ quá N ngày thì nhắc người giữ bước (thay cho tự từ chối 24h của điều chỉnh).
+                o.put("reminderAfterDays", 3);
                 // Giữ đường tắt của quyền KPI:APPROVE_OWN: có quyền thì KPI tạo ra đã APPROVED.
                 o.put("allowSelfApprove", true);
             }
@@ -143,10 +154,16 @@ public class WorkflowDefinitionFactory {
         WorkflowConfig effective = merge(config);
         return new WorkflowDefinition(
                 effective,
-                StateMachine.of(enabledOnly(defaultCriteriaTransitions(), effective)),
+                StateMachine.of(enabledOnly(defaultCriteriaTransitions(isChain(effective)), effective)),
                 StateMachine.of(enabledOnly(defaultSubmissionTransitions(), effective)),
                 StateMachine.of(enabledOnly(defaultAdjustmentTransitions(), effective))
         );
+    }
+
+    private static boolean isChain(WorkflowConfig config) {
+        return config.stage(WorkflowStage.CRITERIA_APPROVAL)
+                .map(sc -> "CHAIN".equals(sc.stringOption("approverMode", "CHAIN")))
+                .orElse(true);
     }
 
     public WorkflowDefinition buildDefault() {

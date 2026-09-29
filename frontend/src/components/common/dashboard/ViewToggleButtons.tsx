@@ -2,6 +2,7 @@ import { BarChart3, Table2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { ChartTableView } from './useChartTableView'
 import { ChoiceChip } from '@/components/ui/choice-chip'
+import { useTranslation } from 'react-i18next'
 
 /**
  * Cặp nút chuyển biểu đồ ↔ bảng, đặt vào `extraHeaderContent` của ChartWrapper.
@@ -12,9 +13,10 @@ export function ViewToggleButtons({ view, onChange, className }: {
   onChange: (v: ChartTableView) => void
   className?: string
 }) {
+  const { t } = useTranslation('shared')
   const options = [
-    { value: 'chart' as const, icon: <BarChart3 size={14} />, title: 'Xem dạng biểu đồ' },
-    { value: 'table' as const, icon: <Table2 size={14} />, title: 'Xem dạng bảng' },
+    { value: 'chart' as const, icon: <BarChart3 size={14} />, title: t('ViewToggleButtons.chartView') },
+    { value: 'table' as const, icon: <Table2 size={14} />, title: t('ViewToggleButtons.tableView') },
   ]
   return (
     <div className={cn('flex items-center gap-0.5 bg-[var(--color-muted)] rounded-control p-0.5 shrink-0', className)}>

@@ -1,5 +1,6 @@
 package com.kpitracking.util;
 
+import com.kpitracking.i18n.ErrorMessages;
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 
@@ -44,7 +45,10 @@ public final class PerformanceMatrixResolver {
      */
     public static boolean usesMatrix(com.kpitracking.entity.Organization org) {
         return org != null && (Boolean.TRUE.equals(org.getEnableQualitative())
-                || Boolean.TRUE.equals(org.getEnableConduct()));
+                || Boolean.TRUE.equals(org.getEnableConduct())
+                // 360 ảnh hưởng xếp loại cũng cấp được trục hành vi (BehaviorAxisResolver).
+                || (Boolean.TRUE.equals(org.getEnableFeedback360())
+                    && Boolean.TRUE.equals(org.getFeedback360AffectsRating())));
     }
 
     /** Parse JSON cấu hình; trả {@code null} nếu thiếu/hỏng. */
@@ -68,8 +72,8 @@ public final class PerformanceMatrixResolver {
                 grid[r] = new int[rowCells.size()];
                 for (int c = 0; c < rowCells.size(); c++) grid[r][c] = rowCells.get(c).asInt();
             }
-            String rowHeader = root.hasNonNull("rowHeader") ? root.get("rowHeader").asText() : "Điểm hành vi";
-            String colHeader = root.hasNonNull("colHeader") ? root.get("colHeader").asText() : "% Hoàn thành KPI";
+            String rowHeader = root.hasNonNull("rowHeader") ? root.get("rowHeader").asText() : ErrorMessages.text("analytics.matrix.rowHeader", "");
+            String colHeader = root.hasNonNull("colHeader") ? root.get("colHeader").asText() : ErrorMessages.text("analytics.matrix.colHeader", "");
             return new Matrix(rowHeader, colHeader, rowLabels, colLabels, grid);
         } catch (Exception e) {
             return null;

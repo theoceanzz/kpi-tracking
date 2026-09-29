@@ -1,3 +1,4 @@
+import { intlDateLocale, intlLocale } from '@/i18n/format'
 import { useState } from 'react'
 import { Plus, Pencil, Trash2, AlertTriangle, Info } from 'lucide-react'
 import DataTable from '@/components/common/DataTable'
@@ -9,9 +10,12 @@ import BudgetFormModal from './BudgetFormModal'
 import { useRewardBudgets } from '../hooks/useRewards'
 import type { RewardBudget } from '../types'
 import { Button } from '@/components/ui/button'
+import { useTranslation } from 'react-i18next'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
 const fmtDate = (iso: string) =>
-  new Date(iso).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  new Date(iso).toLocaleDateString(intlDateLocale(), { day: '2-digit', month: '2-digit', year: 'numeric' })
 
 /**
  * Hạn mức chỉ có tác dụng khi HÔM NAY nằm trong khoảng hiệu lực. Không hiện trạng thái
@@ -27,13 +31,14 @@ const budgetPhase = (b: RewardBudget): 'active' | 'expired' | 'upcoming' => {
   return 'active'
 }
 
-const PHASE_BADGE: Record<ReturnType<typeof budgetPhase>, { label: string; className: string }> = {
-  active: { label: 'Đang hiệu lực', className: 'bg-[var(--color-success-bg)] text-[var(--color-success)]' },
-  upcoming: { label: 'Chưa bắt đầu', className: 'bg-[var(--color-info-bg)] text-[var(--color-info)]' },
-  expired: { label: 'Đã hết hiệu lực', className: 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)]' },
-}
+const PHASE_BADGE = perLanguage((): Record<ReturnType<typeof budgetPhase>, { label: string; className: string }> => ({
+  active: { label: i18n.t('rewards:BudgetsTab.inEffect'), className: 'bg-[var(--color-success-bg)] text-[var(--color-success)]' },
+  upcoming: { label: i18n.t('rewards:BudgetsTab.notStarted'), className: 'bg-[var(--color-info-bg)] text-[var(--color-info)]' },
+  expired: { label: i18n.t('rewards:BudgetsTab.expired'), className: 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)]' },
+}))
 
 export default function BudgetsTab() {
+  const { t } = useTranslation('rewards')
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<RewardBudget | null>(null)
   const [deleting, setDeleting] = useState<RewardBudget | null>(null)
@@ -47,8 +52,7 @@ export default function BudgetsTab() {
       <div id="tour-budgets-note" className="mb-4 flex items-start gap-2.5 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)]/40 px-4 py-3 text-sm">
         <Info size={16} className="mt-0.5 flex-shrink-0 text-[var(--color-muted-foreground)]" />
         <p className="text-[var(--color-muted-foreground)]">
-          Người có hạn mức được tự thưởng mà không cần duyệt. Vượt hạn mức hoặc vượt mức tối đa
-          mỗi lần thì đề nghị sẽ chuyển sang chờ duyệt.
+          {t('BudgetsTab.peopleWithABudgetCanReward')}
         </p>
       </div>
 
@@ -60,8 +64,8 @@ export default function BudgetsTab() {
               const total = (data ?? []).length
               const active = (data ?? []).filter((b) => budgetPhase(b) === 'active').length
               return active === total
-                ? `${total} hạn mức đang hiệu lực`
-                : `${active}/${total} hạn mức đang hiệu lực`
+                ? t('BudgetsTab.activeBudgets', { count: total })
+                : t('BudgetsTab.budgetsActive', { active, total })
             })()}
         </span>
         <WorkspaceHeaderActions>
@@ -70,7 +74,7 @@ export default function BudgetsTab() {
               setFormOpen(true)
             }}>
             <Plus aria-hidden="true" />
-            Cấp hạn mức
+            {t('BudgetsTab.grantBudget')}
           </Button>
         </WorkspaceHeaderActions>
       </div>
@@ -80,15 +84,15 @@ export default function BudgetsTab() {
       ) : (data ?? []).length === 0 ? (
         <div className="rounded-card border border-dashed border-[var(--color-border)]">
           <EmptyState
-            title="Chưa cấp hạn mức cho ai"
-            description="Khi chưa có hạn mức, mọi đề nghị thưởng của quản lý đều phải qua duyệt. Cấp hạn mức để họ tự chủ động ghi nhận nhân viên."
+            title={t('BudgetsTab.noBudgetsGrantedYet')}
+            description={t('BudgetsTab.withoutABudgetEveryManagerReward')}
             action={
               <Button onClick={() => {
                   setEditing(null)
                   setFormOpen(true)
                 }}>
                 <Plus aria-hidden="true" />
-                Cấp hạn mức đầu tiên
+                {t('BudgetsTab.grantTheFirstBudget')}
               </Button>
             }
           />
@@ -122,9 +126,9 @@ export default function BudgetsTab() {
                       làm đôi ("Kỳ: 6 Tháng" / "1 / 2026"). */}
                   <div>
                     <span
-                      className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${PHASE_BADGE[budgetPhase(row)].className}`}
+                      className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${PHASE_BADGE()[budgetPhase(row)].className}`}
                     >
-                      {PHASE_BADGE[budgetPhase(row)].label}
+                      {PHASE_BADGE()[budgetPhase(row)].label}
                     </span>
                   </div>
                   <div className="mt-1">
@@ -133,14 +137,14 @@ export default function BudgetsTab() {
                   {(row.kpiCycleName || row.kpiPeriodName) && (
                     <div className="text-xs text-[var(--color-muted-foreground)]">
                       {row.kpiCycleName
-                        ? `Theo kỳ: ${row.kpiCycleName}`
-                        : `Theo đợt: ${row.kpiPeriodName}`}
+                        ? t('BudgetsTab.byCycle', { kpiCycleName: row.kpiCycleName })
+                        : t('BudgetsTab.byPeriod', { kpiPeriodName: row.kpiPeriodName })}
                     </div>
                   )}
                   {row.cycleDatesOutOfSync && (
                     <div className="mt-1 flex items-center gap-1 text-xs text-[var(--color-warning)]">
                       <AlertTriangle size={12} />
-                      Ngày của {row.kpiPeriodName ? 'đợt' : 'kỳ'} đã thay đổi
+                      {t('BudgetsTab.datesOf')} {row.kpiPeriodName ? t('BudgetsTab.periods') : t('BudgetsTab.cycle')} {t('BudgetsTab.haveChanged')}
                     </div>
                   )}
                 </div>
@@ -148,8 +152,8 @@ export default function BudgetsTab() {
                 <div>
                   <div className="flex items-baseline justify-between text-sm">
                     <span className="font-medium tabular-nums">
-                      Đã dùng {row.usedPoints.toLocaleString('vi-VN')} /{' '}
-                      {row.allocatedPoints.toLocaleString('vi-VN')}
+                      {t('BudgetsTab.used')} {row.usedPoints.toLocaleString(intlLocale())} /{' '}
+                      {row.allocatedPoints.toLocaleString(intlLocale())}
                     </span>
                     <span className="text-xs text-[var(--color-muted-foreground)]">{pct}%</span>
                   </div>
@@ -163,10 +167,10 @@ export default function BudgetsTab() {
 
                 <div className="flex items-center justify-between border-t border-[var(--color-border)] pt-2.5 text-sm">
                   <span>
-                    Còn <span className="font-semibold">{row.remainingPoints.toLocaleString('vi-VN')}</span>
+                    {t('BudgetsTab.remaining')} <span className="font-semibold">{row.remainingPoints.toLocaleString(intlLocale())}</span>
                     <span className="text-[var(--color-muted-foreground)]">
-                      {' '}· tối đa/người{' '}
-                      {row.maxPerAward != null ? row.maxPerAward.toLocaleString('vi-VN') : '∞'}
+                      {' '}{t('BudgetsTab.maxPerson')}{' '}
+                      {row.maxPerAward != null ? row.maxPerAward.toLocaleString(intlLocale()) : '∞'}
                     </span>
                   </span>
                   <div className="flex gap-1">
@@ -194,7 +198,7 @@ export default function BudgetsTab() {
             {
               key: 'grantorName',
               className: 'align-top',
-              header: 'Người được cấp',
+              header: t('BudgetsTab.recipient'),
               render: (row) => (
                 <div>
                   <div className="font-medium">{row.grantorName}</div>
@@ -207,14 +211,14 @@ export default function BudgetsTab() {
             {
               key: 'period',
               className: 'align-top',
-              header: 'Hiệu lực',
+              header: t('BudgetsTab.validity'),
               render: (row) => (
                 <div>
                   <div className="mb-1">
                     <span
-                      className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${PHASE_BADGE[budgetPhase(row)].className}`}
+                      className={`inline-block rounded-full px-2.5 py-0.5 text-xs font-medium ${PHASE_BADGE()[budgetPhase(row)].className}`}
                     >
-                      {PHASE_BADGE[budgetPhase(row)].label}
+                      {PHASE_BADGE()[budgetPhase(row)].label}
                     </span>
                   </div>
                   <div
@@ -224,12 +228,12 @@ export default function BudgetsTab() {
                   </div>
                   {row.kpiCycleName && (
                     <div className="text-xs text-[var(--color-muted-foreground)]">
-                      Theo kỳ: {row.kpiCycleName}
+                      {t('BudgetsTab.byCycle2')} {row.kpiCycleName}
                     </div>
                   )}
                   {row.kpiPeriodName && (
                     <div className="text-xs text-[var(--color-muted-foreground)]">
-                      Theo đợt: {row.kpiPeriodName}
+                      {t('BudgetsTab.byPeriod2')} {row.kpiPeriodName}
                     </div>
                   )}
                   {/* Ngày kỳ/đợt đổi sau khi cấp hạn mức. Hệ thống cố ý không tự dịch
@@ -238,7 +242,7 @@ export default function BudgetsTab() {
                   {row.cycleDatesOutOfSync && (
                     <div className="mt-0.5 flex items-center gap-1 text-xs text-[var(--color-warning)]">
                       <AlertTriangle size={12} />
-                      Ngày của {row.kpiPeriodName ? 'đợt' : 'kỳ'} đã thay đổi
+                      {t('BudgetsTab.datesOf')} {row.kpiPeriodName ? t('BudgetsTab.periods') : t('BudgetsTab.cycle')} {t('BudgetsTab.haveChanged')}
                     </div>
                   )}
                 </div>
@@ -247,7 +251,7 @@ export default function BudgetsTab() {
             {
               key: 'usage',
               className: 'align-top',
-              header: 'Đã dùng',
+              header: t('BudgetsTab.used'),
               render: (row) => {
                 const pct =
                   row.allocatedPoints > 0
@@ -261,8 +265,8 @@ export default function BudgetsTab() {
                   <div className="min-w-[150px]">
                     <div className="flex items-baseline justify-between gap-2 text-sm">
                       <span className="font-medium tabular-nums">
-                        {row.usedPoints.toLocaleString('vi-VN')} /{' '}
-                        {row.allocatedPoints.toLocaleString('vi-VN')}
+                        {row.usedPoints.toLocaleString(intlLocale())} /{' '}
+                        {row.allocatedPoints.toLocaleString(intlLocale())}
                       </span>
                       <span className="text-xs text-[var(--color-muted-foreground)]">{pct}%</span>
                     </div>
@@ -278,20 +282,20 @@ export default function BudgetsTab() {
             },
             {
               key: 'remainingPoints',
-              header: 'Còn lại',
+              header: t('BudgetsTab.remaining2'),
               className: 'text-right align-top',
               render: (row) => (
                 <span className="font-semibold">
-                  {row.remainingPoints.toLocaleString('vi-VN')}
+                  {row.remainingPoints.toLocaleString(intlLocale())}
                 </span>
               ),
             },
             {
               key: 'maxPerAward',
-              header: 'Tối đa/người',
+              header: t('BudgetsTab.maxPerson2'),
               className: 'text-right align-top',
               render: (row) =>
-                row.maxPerAward != null ? row.maxPerAward.toLocaleString('vi-VN') : 'Không giới hạn',
+                row.maxPerAward != null ? row.maxPerAward.toLocaleString(intlLocale()) : t('BudgetsTab.unlimited'),
             },
             {
               key: 'actions',
@@ -310,12 +314,12 @@ export default function BudgetsTab() {
                   </button>
                   <Button variant="ghost" size="icon-sm" className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]" aria-label={
                       row.usedPoints > 0
-                        ? `Đã dùng ${row.usedPoints.toLocaleString('vi-VN')} điểm — không xoá được. Hạ tổng điểm xuống bằng mức đã dùng để dừng quyền tự thưởng.`
-                        : 'Xoá'
+                        ? t('BudgetsTab.pointsUsedCannotBeDeletedLower', { value: row.usedPoints.toLocaleString(intlLocale()) })
+                        : t('BudgetsTab.delete')
                     } onClick={() => setDeleting(row)} disabled={row.usedPoints > 0} title={
                       row.usedPoints > 0
-                        ? `Đã dùng ${row.usedPoints.toLocaleString('vi-VN')} điểm — không xoá được. Hạ tổng điểm xuống bằng mức đã dùng để dừng quyền tự thưởng.`
-                        : 'Xoá'
+                        ? t('BudgetsTab.pointsUsedCannotBeDeletedLower', { value: row.usedPoints.toLocaleString(intlLocale()) })
+                        : t('BudgetsTab.delete')
                     }>
                     <Trash2 aria-hidden="true" />
                   </Button>
@@ -339,15 +343,15 @@ export default function BudgetsTab() {
           if (deleting) await deleteBudget(deleting.id)
           setDeleting(null)
         }}
-        title="Xoá hạn mức?"
+        title={t('BudgetsTab.deleteTheBudget')}
         description={
           deleting
-            ? `${deleting.grantorName} sẽ không còn tự thưởng được — mọi đề nghị của họ sẽ phải qua duyệt. ` +
-              'Chỉ xoá được hạn mức chưa từng có đề nghị nào tính vào; nếu đã dùng, hãy hạ tổng điểm ' +
-              'xuống bằng mức đã dùng thay vì xoá, để sổ sách hạn mức không bị sai.'
+            ? t('BudgetsTab.willNoLongerBeAbleTo', { grantorName: deleting.grantorName }) +
+              t('BudgetsTab.onlyBudgetsThatNoProposalHas') +
+              t('BudgetsTab.toTheUsedAmountInsteadOf')
             : ''
         }
-        confirmLabel="Xoá"
+        confirmLabel={t('BudgetsTab.delete')}
         loading={isDeleting}
       />
     </div>

@@ -2,6 +2,7 @@ import { TrendingUp, Percent } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { TrendMode } from './useTrendMode'
 import { ChoiceChip } from '@/components/ui/choice-chip'
+import { useTranslation } from 'react-i18next'
 
 /**
  * Cặp nút chuyển xu hướng ↔ cơ cấu 100%, đặt trong header của biểu đồ xu hướng.
@@ -15,9 +16,10 @@ export function TrendModeToggle({ mode, onChange, className }: {
   onChange: (m: TrendMode) => void
   className?: string
 }) {
+  const { t } = useTranslation('shared')
   const options = [
-    { value: 'trend' as const, icon: <TrendingUp size={12} />, label: 'Xu hướng', title: 'Xem mức độ theo thời gian' },
-    { value: 'share' as const, icon: <Percent size={12} />, label: 'Cơ cấu %', title: 'Xem tỉ trọng thành phần, mỗi mốc cao đúng 100%' },
+    { value: 'trend' as const, icon: <TrendingUp size={12} />, label: t('TrendModeToggle.trend'), title: t('TrendModeToggle.seeTheLevelOverTime') },
+    { value: 'share' as const, icon: <Percent size={12} />, label: t('TrendModeToggle.composition'), title: t('TrendModeToggle.seeTheShareOfComponentsEach') },
   ]
   return (
     <div className={cn('flex items-center gap-0.5 bg-[var(--color-muted)] rounded-control p-0.5 shrink-0', className)}>

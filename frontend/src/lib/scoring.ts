@@ -1,5 +1,6 @@
 import { OrganizationResponse } from '@/features/orgunits/api/organizationApi'
 import type { PerspectiveScoreResponse } from '@/features/bsc/types'
+import i18n from 'i18next'
 
 /**
  * Pool điểm khi CHẤM: trọng số chính là điểm — KPI 25% đạt đủ ⇒ 25đ, đủ 100% ⇒ 100đ.
@@ -15,11 +16,11 @@ export function getScoringFunctions(org?: OrganizationResponse | null) {
   
   // Sort levels by threshold descending to check from highest to lowest
   const defaultLevels = [
-    { name: 'XUẤT SẮC', threshold: 90, color: '#10b981' },
-    { name: 'TỐT', threshold: 80, color: '#3b82f6' },
-    { name: 'KHÁ', threshold: 70, color: '#f59e0b' },
-    { name: 'TRUNG BÌNH', threshold: 50, color: '#6366f1' },
-    { name: 'YẾU', threshold: 0, color: '#ef4444' },
+    { name: i18n.t('common:scoring.excellent'), threshold: 90, color: '#10b981' },
+    { name: i18n.t('common:scoring.good'), threshold: 80, color: '#3b82f6' },
+    { name: i18n.t('common:scoring.fair'), threshold: 70, color: '#f59e0b' },
+    { name: i18n.t('common:scoring.average'), threshold: 50, color: '#6366f1' },
+    { name: i18n.t('common:scoring.weak'), threshold: 0, color: '#ef4444' },
   ]
   const levels = org?.evaluationLevels?.length 
     ? [...org.evaluationLevels].sort((a, b) => b.threshold - a.threshold)
@@ -68,9 +69,9 @@ export function getScoringFunctions(org?: OrganizationResponse | null) {
   }
 
   const getScoreLabel = (score: number | null) => {
-    if (score == null) return 'Chưa chấm'
+    if (score == null) return i18n.t('common:scoring.notScored')
     const level = getScoreLevel(score)
-    return level ? level.name : 'Không đạt'
+    return level ? level.name : i18n.t('common:scoring.notMet')
   }
 
   return { getScoreColor, getScoreBg, getScoreLabel, maxScore, levels }
@@ -105,11 +106,11 @@ export function describePerspectiveScore(p: PerspectiveScoreResponse): string {
   if (p.scoredByTarget) {
     const progress = p.actualValue != null && p.targetValue != null
       ? `${p.actualValue}${unit} / ${p.targetValue}${unit}`
-      : 'chưa có KPI định lượng'
-    const floor = p.minimumValue != null ? ` · tối thiểu ${p.minimumValue}${unit}` : ''
-    return `${p.name} (tự chấm theo mục tiêu hạng mục): ${progress}${floor}`
-      + ` ⇒ đạt ${achieved ?? '—'} × trọng số ${p.weightPercentage}%`
+      : i18n.t('common:scoring.noQuantitativeKpis')
+    const floor = p.minimumValue != null ? i18n.t('common:scoring.minimum', { minimumValue: p.minimumValue, unit }) : ''
+    return i18n.t('common:scoring.selfScoredAgainstTheItemTarget', { name: p.name, progress, floor })
+      + i18n.t('common:scoring.achievedWeight', { value: achieved ?? '—', weightPercentage: p.weightPercentage })
   }
-  return `${p.name}: trung bình có trọng số các KPI con — đạt ${achieved ?? 'chưa có KPI'}`
-    + ` × trọng số ${p.weightPercentage}%`
+  return i18n.t('common:scoring.weightedAverageOfChildKpisAchieved', { name: p.name, value: achieved ?? i18n.t('common:scoring.noKpis') })
+    + i18n.t('common:scoring.weight', { weightPercentage: p.weightPercentage })
 }

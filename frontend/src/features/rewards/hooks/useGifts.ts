@@ -1,9 +1,11 @@
+import { intlLocale } from '@/i18n/format'
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { getApiErrorMessage } from '@/lib/apiError'
 import { giftApi } from '../api/giftApi'
 import { RedemptionStatus } from '../types'
 import type { CreateRedemptionRequest, GiftItemRequest } from '../types'
+import { useTranslation } from 'react-i18next'
 
 const errMsg = (error: any, fallback: string) => getApiErrorMessage(error, fallback)
 
@@ -32,6 +34,7 @@ export const useGiftShop = (enabled = true) =>
 // ── Quản lý danh mục quà ─────────────────────────────────────────
 
 export const useGiftsManage = () => {
+  const { t } = useTranslation('rewards')
   const qc = useQueryClient()
 
   const query = useQuery({
@@ -43,27 +46,27 @@ export const useGiftsManage = () => {
     mutationFn: (data: GiftItemRequest) => giftApi.create(data),
     onSuccess: () => {
       invalidateGiftData(qc)
-      toast.success('Đã thêm quà tặng')
+      toast.success(t('useGifts.giftAdded'))
     },
-    onError: (error: any) => toast.error(errMsg(error, 'Thêm quà thất bại')),
+    onError: (error: any) => toast.error(errMsg(error, t('useGifts.failedToAddGift'))),
   })
 
   const updateMutation = useMutation({
     mutationFn: ({ id, data }: { id: string; data: GiftItemRequest }) => giftApi.update(id, data),
     onSuccess: () => {
       invalidateGiftData(qc)
-      toast.success('Đã cập nhật quà tặng')
+      toast.success(t('useGifts.giftUpdated'))
     },
-    onError: (error: any) => toast.error(errMsg(error, 'Cập nhật quà thất bại')),
+    onError: (error: any) => toast.error(errMsg(error, t('useGifts.failedToUpdateGift'))),
   })
 
   const deleteMutation = useMutation({
     mutationFn: (id: string) => giftApi.delete(id),
     onSuccess: () => {
       invalidateGiftData(qc)
-      toast.success('Đã xoá quà tặng')
+      toast.success(t('useGifts.giftDeleted'))
     },
-    onError: (error: any) => toast.error(errMsg(error, 'Xoá quà thất bại')),
+    onError: (error: any) => toast.error(errMsg(error, t('useGifts.failedToDeleteGift'))),
   })
 
   return {
@@ -80,6 +83,7 @@ export const useGiftsManage = () => {
 // ── Yêu cầu đổi quà của tôi ──────────────────────────────────────
 
 export const useMyRedemptions = (page = 0, size = 20) => {
+  const { t } = useTranslation('rewards')
   const qc = useQueryClient()
 
   const query = useQuery({
@@ -91,13 +95,13 @@ export const useMyRedemptions = (page = 0, size = 20) => {
     mutationFn: (data: CreateRedemptionRequest) => giftApi.redeem(data),
     onSuccess: (r) => {
       invalidateGiftData(qc)
-      const points = r.pointsSpent.toLocaleString('vi-VN')
+      const points = r.pointsSpent.toLocaleString(intlLocale())
 
       // Quà ngoài không xuất được: điểm đã tự hoàn, và phải nói rõ là hoàn rồi — nếu
       // không người dùng sẽ tưởng vừa mất điểm mà chẳng được gì.
       if (r.status === RedemptionStatus.FAILED) {
-        toast.error(`Chưa lấy được ${r.giftNameSnapshot}`, {
-          description: `${r.fulfillmentError ?? 'Nhà cung cấp không xuất được quà.'} ${points} điểm đã được hoàn lại vào ví của bạn.`,
+        toast.error(t('useGifts.couldNotGetYet', { giftNameSnapshot: r.giftNameSnapshot }), {
+          description: t('useGifts.pointsHaveBeenRefundedToYour', { value: r.fulfillmentError ?? t('useGifts.theProviderCouldNotIssueThe'), points }),
           duration: 8000,
         })
         return
@@ -105,17 +109,17 @@ export const useMyRedemptions = (page = 0, size = 20) => {
 
       // Đơn treo vì chưa rõ kết quả. KHÔNG nói "thất bại": quà có thể vẫn về.
       if (r.status === RedemptionStatus.PENDING && r.fulfillmentError) {
-        toast.warning(`Đang chờ xác nhận quà ${r.giftNameSnapshot}`, {
+        toast.warning(t('useGifts.waitingForConfirmationOfGift', { giftNameSnapshot: r.giftNameSnapshot }), {
           description:
-            'Nhà cung cấp chưa phản hồi. Yêu cầu đang được giữ lại và sẽ tự hoàn điểm nếu quà không xuất được.',
+            t('useGifts.theProviderHasNotRespondedYet'),
           duration: 8000,
         })
         return
       }
 
       if (r.vouchers?.length) {
-        toast.success(`Đã đổi ${r.giftNameSnapshot}`, {
-          description: `Đã trừ ${points} điểm. Mã quà đang hiện trên màn hình và luôn xem lại được ở mục "Quà đã đổi".`,
+        toast.success(t('useGifts.redeemed', { giftNameSnapshot: r.giftNameSnapshot }), {
+          description: t('useGifts.pointsDeductedTheGiftCodeIs', { points }),
           duration: 6000,
         })
         return
@@ -124,30 +128,30 @@ export const useMyRedemptions = (page = 0, size = 20) => {
       // Quà nhận ngay đã hoàn tất, không có "yêu cầu" nào đang chờ và cũng chẳng ai
       // từ chối được — nói như luồng chờ giao là nói sai với người dùng.
       if (r.status === RedemptionStatus.DELIVERED) {
-        toast.success(`Đã đổi ${r.giftNameSnapshot}`, {
-          description: `Đã trừ ${points} điểm. Quà đã được ghi nhận cho bạn.`,
+        toast.success(t('useGifts.redeemed', { giftNameSnapshot: r.giftNameSnapshot }), {
+          description: t('useGifts.pointsDeductedTheGiftHasBeen', { points }),
           duration: 5000,
         })
         return
       }
 
-      toast.success(`Đã gửi yêu cầu đổi ${r.giftNameSnapshot}`, {
+      toast.success(t('useGifts.sentARequestToRedeem', { giftNameSnapshot: r.giftNameSnapshot }), {
         // Nói rõ điểm đã trừ NGAY — nếu không người dùng sẽ tưởng bị trừ nhầm khi thấy
         // số dư giảm mà quà chưa nhận được.
-        description: `Đã trừ ${points} điểm. Bạn nhận quà trực tiếp tại công ty; nếu bị từ chối, điểm sẽ được hoàn lại.`,
+        description: t('useGifts.pointsDeductedYouWillReceiveThe', { points }),
         duration: 6000,
       })
     },
-    onError: (error: any) => toast.error(errMsg(error, 'Đổi quà thất bại'), { duration: 6000 }),
+    onError: (error: any) => toast.error(errMsg(error, t('useGifts.giftRedemptionFailed')), { duration: 6000 }),
   })
 
   const cancelMutation = useMutation({
     mutationFn: (id: string) => giftApi.cancelRedemption(id),
     onSuccess: () => {
       invalidateGiftData(qc)
-      toast.success('Đã huỷ yêu cầu và hoàn lại điểm')
+      toast.success(t('useGifts.requestCancelledAndPointsRefunded'))
     },
-    onError: (error: any) => toast.error(errMsg(error, 'Huỷ yêu cầu thất bại')),
+    onError: (error: any) => toast.error(errMsg(error, t('useGifts.failedToCancelTheRequest'))),
   })
 
   return {
@@ -166,6 +170,7 @@ export const useRedemptions = (params: {
   page?: number
   size?: number
 }) => {
+  const { t } = useTranslation('rewards')
   const qc = useQueryClient()
 
   const query = useQuery({
@@ -177,27 +182,27 @@ export const useRedemptions = (params: {
     mutationFn: ({ id, note }: { id: string; note?: string }) => giftApi.approveRedemption(id, note),
     onSuccess: () => {
       invalidateGiftData(qc)
-      toast.success('Đã duyệt yêu cầu đổi quà')
+      toast.success(t('useGifts.giftRedemptionRequestApproved'))
     },
-    onError: (error: any) => toast.error(errMsg(error, 'Duyệt thất bại')),
+    onError: (error: any) => toast.error(errMsg(error, t('useGifts.approvalFailed'))),
   })
 
   const rejectMutation = useMutation({
     mutationFn: ({ id, note }: { id: string; note?: string }) => giftApi.rejectRedemption(id, note),
     onSuccess: () => {
       invalidateGiftData(qc)
-      toast.success('Đã từ chối và hoàn lại điểm cho nhân viên')
+      toast.success(t('useGifts.rejectedAndPointsRefundedToThe'))
     },
-    onError: (error: any) => toast.error(errMsg(error, 'Từ chối thất bại')),
+    onError: (error: any) => toast.error(errMsg(error, t('useGifts.rejectionFailed'))),
   })
 
   const deliverMutation = useMutation({
     mutationFn: ({ id, note }: { id: string; note?: string }) => giftApi.deliverRedemption(id, note),
     onSuccess: () => {
       invalidateGiftData(qc)
-      toast.success('Đã đánh dấu giao quà')
+      toast.success(t('useGifts.markedTheGiftAsDelivered'))
     },
-    onError: (error: any) => toast.error(errMsg(error, 'Cập nhật thất bại')),
+    onError: (error: any) => toast.error(errMsg(error, t('useGifts.updateFailed'))),
   })
 
   return {

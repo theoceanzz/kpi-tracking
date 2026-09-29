@@ -1,5 +1,6 @@
 package com.kpitracking.service;
 
+import com.kpitracking.i18n.LocalizedText;
 import com.kpitracking.dto.request.evaluation.CreateEvaluationRequest;
 import com.kpitracking.dto.response.PageResponse;
 import com.kpitracking.dto.response.evaluation.EvaluationResponse;
@@ -32,6 +33,8 @@ import java.util.stream.Collectors;
 import com.kpitracking.enums.KpiStatus;
 import com.kpitracking.enums.SubmissionStatus;
 import com.kpitracking.entity.KpiSubmission;
+import com.kpitracking.exception.ErrorCode;
+import com.kpitracking.i18n.Terms;
 @Service
 @RequiredArgsConstructor
 public class EvaluationService {
@@ -52,6 +55,8 @@ public class EvaluationService {
     private final com.kpitracking.workflow.KpiWorkflowConfigService workflowConfigService;
     private final BscCascadeService bscCascadeService;
     private final ConductService conductService;
+    private final com.kpitracking.service.kpi.CycleLockChecker cycleLockChecker;
+    private final com.kpitracking.service.kpi.CycleStatusGuard cycleStatusGuard;
     private final com.kpitracking.service.notification.NotificationDispatcher notificationDispatcher;
 
     // Khung bell curve cần đọc lại phân bố xếp loại của cả đơn vị, mà UnitClassificationService
@@ -72,7 +77,7 @@ public class EvaluationService {
     private User getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         return userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("Người dùng", "email", email));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.user"), "email", email));
     }
 
     /**
@@ -85,9 +90,7 @@ public class EvaluationService {
                 : com.kpitracking.workflow.WorkflowStage.MANAGER_EVALUATION;
 
         if (!workflowConfigService.definitionFor(organizationId).isStageEnabled(stage)) {
-            throw new BusinessException(isSelfEval
-                    ? "Tổ chức đã tắt bước tự đánh giá trong cấu hình luồng KPI"
-                    : "Tổ chức đã tắt bước đánh giá nhân viên trong cấu hình luồng KPI");
+            throw new BusinessException(isSelfEval ? ErrorCode.ORGANIZATION_TURNED_OFF_SELF_ASSESSMENT_STEP_KPI : ErrorCode.ORGANIZATION_TURNED_OFF_EMPLOYEE_EVALUATION_STEP_KPI);
         }
     }
 
@@ -96,15 +99,18 @@ public class EvaluationService {
         User currentUser = getCurrentUser();
 
         User evaluatedUser = userRepository.findById(request.getUserId())
-                .orElseThrow(() -> new ResourceNotFoundException("Người dùng", "id", request.getUserId()));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.user"), "id", request.getUserId()));
 
         com.kpitracking.entity.KpiPeriod kpiPeriod = kpiPeriodRepository.findById(request.getKpiPeriodId())
-                .orElseThrow(() -> new ResourceNotFoundException("Kỳ đánh giá (Đợt)", "id", request.getKpiPeriodId()));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.evaluationCycle"), "id", request.getKpiPeriodId()));
+        // Kỳ đã khoá ⇒ không chấm/sửa đánh giá đợt nữa. Đợt bị TÁCH khi khoá (TRANSFERRED) vẫn giữ
+        // đánh giá cũ nhưng cũng đóng, nên dùng cùng một chốt.
+        cycleStatusGuard.assertWritable(kpiPeriod);
 
         // Get user's primary org unit for linking
         java.util.List<com.kpitracking.entity.UserRoleOrgUnit> evaluatedUserAssignments = userRoleOrgUnitRepository.findByUserId(evaluatedUser.getId());
         if (evaluatedUserAssignments.isEmpty()) {
-            throw new BusinessException("Người dùng chưa được phân bổ vào đơn vị nào");
+            throw new BusinessException(ErrorCode.USER_NOT_ASSIGNED_UNIT);
         }
         // Get authorized units considering hierarchy inheritance
         // Prioritize units where the viewer is actually a "Trưởng" (Rank 0)
@@ -116,14 +122,39 @@ public class EvaluationService {
                 .orElse(evaluatedUserAssignments.get(0).getOrgUnit());
         com.kpitracking.entity.Organization org = targetOrgUnit.getOrgHierarchyLevel().getOrganization();
 
+        // Kỳ chứa đợt này đã "chốt dữ liệu" ở đơn vị của người được chấm ⇒ đánh giá đợt là ĐẦU
+        // VÀO của điểm kỳ, đóng lại rồi. Đang hiệu chỉnh điểm kỳ mà bên dưới còn sửa được đợt thì
+        // điểm nền vừa chụp trôi mất, đề xuất theo khung thành nói dối.
+        if (kpiPeriod.getKpiCycle() != null) {
+            OrgUnit inputLock = cycleLockChecker.inputLockingUnitForUser(
+                    kpiPeriod.getKpiCycle().getId(), targetOrgUnit);
+            if (inputLock != null) {
+                throw new BusinessException(ErrorCode.CYCLE_FINALIZED_DATA_UNIT, kpiPeriod.getKpiCycle().getName(), inputLock.getName());
+            }
+        }
+
         double maxScore = org.getEvaluationMaxScore();
         double ceiling = scoreCeiling(evaluatedUser.getId(), kpiPeriod.getId(), maxScore);
         if (request.getScore() > ceiling) {
-            throw new BusinessException("Điểm số không được vượt quá " + fmt(ceiling)
-                    + (ceiling > maxScore ? " (thang điểm " + fmt(maxScore) + " + " + fmt(ceiling - maxScore) + " điểm KPI thưởng)" : ""));
+            throw ceiling > maxScore
+                    ? new BusinessException(ErrorCode.SCORE_CANNOT_EXCEED_WITH_BONUS, String.valueOf(fmt(ceiling)), String.valueOf(fmt(maxScore)), String.valueOf(fmt(ceiling - maxScore)))
+                    : new BusinessException(ErrorCode.SCORE_CANNOT_EXCEED, String.valueOf(fmt(ceiling)));
         }
 
         boolean isSelfEval = currentUser.getId().equals(evaluatedUser.getId());
+
+        // Bài nộp bị trả lại (hoàn duyệt) mà nhân viên chưa nộp lại và còn trong hạn ⇒ chưa chốt được.
+        // Quá hạn nộp lại mà vẫn không nộp thì mở khoá: KPI đó chấm như không có bài nộp.
+        if (!isSelfEval) {
+            java.util.List<com.kpitracking.entity.KpiSubmission> awaiting = kpiSubmissionRepository
+                    .findAwaitingResubmission(evaluatedUser.getId(), kpiPeriod.getId(), java.time.Instant.now());
+            if (!awaiting.isEmpty()) {
+                String names = awaiting.stream().map(s -> s.getKpiCriteria().getName()).distinct()
+                        .collect(java.util.stream.Collectors.joining(", "));
+                throw new BusinessException(ErrorCode.EVALUATION_BLOCKED_AWAITING_RESUBMISSION,
+                        String.valueOf(awaiting.size()), names);
+            }
+        }
         boolean canEvaluateOthers = permissionChecker.hasPermissionInOrgUnit(currentUser.getId(), "EVALUATION:CREATE", targetOrgUnit.getId());
 
         // Tổ chức có thể tắt riêng từng nhánh đánh giá. Chặn ở đây chứ không chỉ ẩn nút, nếu không
@@ -132,7 +163,7 @@ public class EvaluationService {
 
         if (!isSelfEval) {
             if (!canEvaluateOthers) {
-                throw new ForbiddenException("Bạn không có quyền tạo đánh giá cho người khác");
+                throw new ForbiddenException(ErrorCode.NO_PERMISSION_CREATE_EVALUATIONS_OTHER_PEOPLE);
             }
             
             if (targetOrgUnit != null) {
@@ -141,7 +172,7 @@ public class EvaluationService {
 
                 // 1. Chỉ cấp Trưởng (Rank 0) mới có quyền thực hiện đánh giá cho người khác
                 if (viewerRank > 0) {
-                    throw new ForbiddenException("Chỉ cấp Trưởng mới có quyền thực hiện đánh giá cho nhân viên.");
+                    throw new ForbiddenException(ErrorCode.ONLY_HEADS_MAY_EVALUATE_EMPLOYEES);
                 }
 
                 // 2. Kiểm tra quan hệ cấp trên - cấp dưới
@@ -157,7 +188,7 @@ public class EvaluationService {
                 });
 
                 if (!isSubordinate) {
-                    throw new ForbiddenException("Bạn chỉ có quyền đánh giá nhân viên cấp dưới trong sơ đồ tổ chức.");
+                    throw new ForbiddenException(ErrorCode.MAY_ONLY_EVALUATE_EMPLOYEES_BELOW_ORGANIZATION_CHART);
                 }
             }
         }
@@ -209,9 +240,7 @@ public class EvaluationService {
             // Khi kỳ đã chạy CHÍNH THỨC, bsc_score là điểm thật ⇒ dữ liệu phải đủ:
             // còn KPI chưa gán hạng mục thì chặn chốt điểm. Ở SHADOW chỉ cảnh báo (preview), không chặn.
             if (isOfficial && bscResult.getUnassignedKpiCount() > 0) {
-                throw new BusinessException("Không thể chốt đánh giá: còn "
-                        + bscResult.getUnassignedKpiCount() + " chỉ tiêu chưa gán hạng mục BSC ("
-                        + String.join(", ", bscResult.getUnassignedKpiNames()) + ")");
+                throw new BusinessException(ErrorCode.CANNOT_FINALIZE_EVALUATION, String.valueOf(bscResult.getUnassignedKpiCount()), String.join(", ", bscResult.getUnassignedKpiNames()));
             }
 
             // Ràng buộc trọng số KPI liên kết BSC (QĐ-8). Chính sách để BLOCK thì chặn THẬT ở đây,
@@ -225,11 +254,7 @@ public class EvaluationService {
                 var linkedWeight = bscCascadeService.checkLinkedWeight(
                         evaluatedUser.getId(), kpiPeriod.getId(), org.getId());
                 if (linkedWeight.enforced() && !linkedWeight.satisfied()) {
-                    throw new BusinessException(String.format(
-                            "Không thể chốt đánh giá: chỉ %.0f%% trọng số KPI của %s bám vào chỉ tiêu BSC, "
-                            + "trong khi chính sách yêu cầu tối thiểu %.0f%%. Gán thêm KPI vào chỉ tiêu BSC, "
-                            + "hoặc đổi chính sách điểm BSC sang mức \"Chỉ cảnh báo\".",
-                            linkedWeight.linkedPercent(), evaluatedUser.getFullName(), linkedWeight.minRequired()));
+                    throw new BusinessException(ErrorCode.CANNOT_FINALIZE_EVALUATION_2, linkedWeight.linkedPercent(), evaluatedUser.getFullName(), linkedWeight.minRequired());
                 }
             }
 
@@ -298,11 +323,11 @@ public class EvaluationService {
                     ? String.valueOf(Math.round(evaluation.getScore() * 100.0) / 100.0) : "—";
             notificationDispatcher.dispatch(org.getId(), "evaluation_finalized",
                     evaluatedUser, targetOrgUnit,
-                    "Kết quả đánh giá đợt " + kpiPeriod.getName(),
-                    String.format("%s đã chấm đánh giá đợt %s của bạn: %s điểm%s.",
+                    LocalizedText.of("notif.evaluation.finalized.title", kpiPeriod.getName()),
+                    LocalizedText.of("notif.evaluation.finalized.message",
                             currentUser.getFullName(), kpiPeriod.getName(), label,
                             evaluation.getMatrixRating() != null
-                                    ? " · xếp loại " + evaluation.getMatrixRating() + "/5" : ""),
+                                    ? LocalizedText.of("notif.evaluation.ratingSuffix", evaluation.getMatrixRating() + "/5") : ""),
                     "EVALUATION_RESULT", evaluation.getId());
         }
         return response;
@@ -314,7 +339,7 @@ public class EvaluationService {
         UUID targetUserId = userId != null ? userId : currentUser.getId();
 
         com.kpitracking.entity.KpiPeriod kpiPeriod = kpiPeriodRepository.findById(kpiPeriodId)
-                .orElseThrow(() -> new ResourceNotFoundException("Kỳ đánh giá (Đợt)", "id", kpiPeriodId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.evaluationCycle"), "id", kpiPeriodId));
 
         // Chỉ cần biết người này có thuộc đơn vị nào không — điểm chấm trên pool 100 chung,
         // không còn phụ thuộc thang điểm của tổ chức.
@@ -331,7 +356,7 @@ public class EvaluationService {
         UUID targetUserId = userId != null ? userId : currentUser.getId();
 
         kpiPeriodRepository.findById(kpiPeriodId)
-                .orElseThrow(() -> new ResourceNotFoundException("Kỳ đánh giá (Đợt)", "id", kpiPeriodId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.evaluationCycle"), "id", kpiPeriodId));
 
         java.util.List<com.kpitracking.entity.UserRoleOrgUnit> assignments = userRoleOrgUnitRepository.findByUserId(targetUserId);
         if (assignments.isEmpty()) {
@@ -422,8 +447,8 @@ public class EvaluationService {
      * Returns [Σ(ratio·weight) non-bonus, Σweight non-bonus, Σ(ratio·weight) bonus].
      */
     private double[] quantitativeParts(UUID userId, UUID kpiPeriodId) {
-        List<KpiStatus> activeKpiStatuses = Arrays.asList(
-                KpiStatus.APPROVED, KpiStatus.EDITED, KpiStatus.EDIT, KpiStatus.INACTIVE);
+        List<KpiStatus> activeKpiStatuses = KpiAchievementCalculator.scoringStatuses(Arrays.asList(
+                KpiStatus.APPROVED, KpiStatus.EDITED, KpiStatus.EDIT, KpiStatus.INACTIVE));
         List<KpiCriteria> kpis = kpiCriteriaRepository.findByUserIdInAssigneesAndKpiPeriodId(
                 userId, kpiPeriodId, activeKpiStatuses, Pageable.unpaged()).getContent();
         double[] parts = new double[3];
@@ -461,16 +486,22 @@ public class EvaluationService {
      * Returns null when there is no scored qualitative KPI.
      */
     private Double calculateBehaviorScore(UUID userId, UUID kpiPeriodId) {
-        List<KpiStatus> activeKpiStatuses = Arrays.asList(
-                KpiStatus.APPROVED, KpiStatus.EDITED, KpiStatus.EDIT, KpiStatus.INACTIVE);
+        List<KpiStatus> activeKpiStatuses = KpiAchievementCalculator.scoringStatuses(Arrays.asList(
+                KpiStatus.APPROVED, KpiStatus.EDITED, KpiStatus.EDIT, KpiStatus.INACTIVE));
         List<KpiCriteria> kpis = kpiCriteriaRepository.findByUserIdInAssigneesAndKpiPeriodId(
                 userId, kpiPeriodId, activeKpiStatuses, Pageable.unpaged()).getContent();
         double weightedSum = 0.0, totalWeight = 0.0;
         for (KpiCriteria kpi : kpis) {
             if (kpi.getKpiType() != com.kpitracking.enums.KpiType.QUALITATIVE) continue;
             if (kpi.getStatus() == KpiStatus.INACTIVE && kpi.getCompensatedAchievementPercent() == null) continue;
+            if (KpiAchievementCalculator.excludedByLock(kpi)) continue;
             double weight = kpi.getWeight() != null ? kpi.getWeight() : 0.0;
             if (weight <= 0) continue;
+            if (kpi.getStatus() == KpiStatus.CLOSED_BY_LOCK) {
+                // Chế độ tính 0: giữ trọng số, mức = 0.
+                totalWeight += weight;
+                continue;
+            }
             // Include PENDING so the behavior score (and matrix rating) can be previewed at
             // self-evaluation time, before the manager approves the qualitative submission.
             Double levelValue = kpi.getSubmissions().stream()
@@ -649,8 +680,10 @@ public class EvaluationService {
         if (selectedPeriodIds != null && !selectedPeriodIds.isEmpty()) {
             periodIds = new LinkedHashSet<>(selectedPeriodIds);
         } else {
+            // Đợt đã xoá mềm bị bỏ qua: ngay cả getId() trên proxy của nó cũng ném
+            // EntityNotFoundException (cùng luật với subtreePeriodsOrdered bên dưới).
             periodIds = kpiCriteriaRepository.findByOrgUnitIdInAndStatus(subtreeIds, KpiStatus.APPROVED).stream()
-                    .map(KpiCriteria::getKpiPeriod).filter(Objects::nonNull)
+                    .map(KpiCriteria::getKpiPeriod).filter(softDeletedRefs::periodAlive)
                     .map(KpiPeriod::getId).collect(Collectors.toCollection(LinkedHashSet::new));
         }
         if (periodIds.isEmpty()) return 0;
@@ -753,7 +786,7 @@ public class EvaluationService {
     @Transactional(readOnly = true)
     public EvaluationResponse getEvaluationById(UUID id) {
         Evaluation evaluation = evaluationRepository.findById(id)
-                .orElseThrow(() -> new com.kpitracking.exception.ResourceNotFoundException("Evaluation", "id", id));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.evaluation"), "id", id));
 
         com.kpitracking.entity.User currentUser = getCurrentUser();
         
@@ -786,7 +819,7 @@ public class EvaluationService {
         });
 
         if (!isSuperior) {
-            throw new com.kpitracking.exception.ForbiddenException("Bạn không có quyền xem bản đánh giá này vì không phải là cấp trên của nhân viên.");
+            throw new ForbiddenException(ErrorCode.NO_PERMISSION_VIEW_EVALUATION_BECAUSE_NOT_EMPLOYEE);
         }
 
         return enrichResponse(evaluation);

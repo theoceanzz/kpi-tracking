@@ -7,6 +7,8 @@ import com.kpitracking.entity.OrgCodeRule;
 import com.kpitracking.entity.Organization;
 import com.kpitracking.enums.CodeType;
 import com.kpitracking.exception.BusinessException;
+import com.kpitracking.exception.ErrorCode;
+import com.kpitracking.i18n.Terms;
 import com.kpitracking.exception.ResourceNotFoundException;
 import com.kpitracking.repository.BscPerspectiveRepository;
 import com.kpitracking.repository.KeyResultRepository;
@@ -75,11 +77,11 @@ public class OrgCodeRuleService {
     public List<OrgCodeRuleResponse> updateRules(UUID organizationId, List<OrgCodeRuleRequest> requests) {
         Organization organization = loadOrganization(organizationId);
         if (requests == null || requests.isEmpty()) {
-            throw new BusinessException("Không có quy tắc nào được gửi lên");
+            throw new BusinessException(ErrorCode.NO_RULES_WERE_SUBMITTED);
         }
 
         for (OrgCodeRuleRequest request : requests) {
-            if (request.getCodeType() == null) throw new BusinessException("Thiếu loại mã");
+            if (request.getCodeType() == null) throw new BusinessException(ErrorCode.MISSING_CODE_TYPE);
             CodeType type = request.getCodeType();
 
             OrgCodeRule rule = ruleRepository.findByOrganizationIdAndCodeType(organizationId, type)
@@ -143,8 +145,7 @@ public class OrgCodeRuleService {
         }
 
         if (requested == null) {
-            throw new BusinessException("Vui lòng nhập mã " + type.getLabel()
-                    + " (tổ chức đang tắt sinh mã tự động cho loại này)");
+            throw new BusinessException(ErrorCode.ENTER_CODE, type.getLabel());
         }
         return requested;
     }
@@ -186,7 +187,7 @@ public class OrgCodeRuleService {
         if (!matcher.find()) {
             // Mẫu không có ô số — chỉ gặp với dữ liệu cũ, validate đã chặn từ lúc lưu.
             if (taken.contains(rendered.toLowerCase(Locale.ROOT))) {
-                throw new BusinessException("Mã " + rendered + " đã tồn tại mà mẫu mã không có ô số thứ tự");
+                throw new BusinessException(ErrorCode.CODE_EXISTS_CODE_PATTERN_NO_SEQUENCE_FIELD, String.valueOf(rendered));
             }
             return checkLength(rendered, type);
         }
@@ -200,8 +201,7 @@ public class OrgCodeRuleService {
             String candidate = prefix + pad(next + attempt, width) + suffix;
             if (!taken.contains(candidate.toLowerCase(Locale.ROOT))) return checkLength(candidate, type);
         }
-        throw new BusinessException("Không cấp được mã mới cho " + type.getLabel()
-                + " theo mẫu " + pattern + " — mẫu đã dùng hết số thứ tự");
+        throw new BusinessException(ErrorCode.COULD_NOT_ISSUE_NEW_CODE_PATTERN, type.getLabel(), String.valueOf(pattern));
     }
 
     /** Số lớn nhất đã dùng trong các mã cùng tiền tố/hậu tố, cộng 1. Chưa có mã nào thì là 1. */
@@ -252,8 +252,7 @@ public class OrgCodeRuleService {
 
     private String checkLength(String code, CodeType type) {
         if (code.length() > MAX_CODE_LENGTH) {
-            throw new BusinessException("Mã sinh ra cho " + type.getLabel() + " dài " + code.length()
-                    + " ký tự, vượt giới hạn " + MAX_CODE_LENGTH + " — hãy rút ngắn mẫu mã");
+            throw new BusinessException(ErrorCode.CODE_GENERATED_CHARACTERS_LONG_EXCEEDING_LIMIT, type.getLabel(), String.valueOf(code.length()), String.valueOf(MAX_CODE_LENGTH));
         }
         return code;
     }
@@ -273,10 +272,10 @@ public class OrgCodeRuleService {
     private void validatePattern(CodeType type, String pattern) {
         String value = trimToNull(pattern);
         if (value == null) {
-            throw new BusinessException("Mẫu mã của " + type.getLabel() + " không được để trống");
+            throw new BusinessException(ErrorCode.CODE_PATTERN_CANNOT_EMPTY, type.getLabel());
         }
         if (value.length() > 100) {
-            throw new BusinessException("Mẫu mã của " + type.getLabel() + " tối đa 100 ký tự");
+            throw new BusinessException(ErrorCode.CODE_PATTERN_CAN_MOST_100_CHARACTERS, type.getLabel());
         }
 
         Matcher seq = SEQ_TOKEN.matcher(value);
@@ -287,26 +286,23 @@ public class OrgCodeRuleService {
             width = seq.group(1).length();
         }
         if (count == 0) {
-            throw new BusinessException("Mẫu mã của " + type.getLabel()
-                    + " phải có ô số thứ tự, ví dụ {###} cho số 3 chữ số");
+            throw new BusinessException(ErrorCode.CODE_PATTERN_MUST_SEQUENCE_FIELD_EXAMPLE_3, type.getLabel());
         }
         if (count > 1) {
-            throw new BusinessException("Mẫu mã của " + type.getLabel() + " chỉ được có MỘT ô số thứ tự");
+            throw new BusinessException(ErrorCode.CODE_PATTERN_MAY_ONLY_ONE_SEQUENCE_FIELD, type.getLabel());
         }
         if (width > 8) {
-            throw new BusinessException("Ô số thứ tự tối đa 8 chữ số");
+            throw new BusinessException(ErrorCode.SEQUENCE_FIELD_CAN_MOST_8_DIGITS);
         }
 
         String literal = SEQ_TOKEN.matcher(value).replaceAll("");
         for (String token : type.getTokens()) literal = literal.replace(token, "");
         if (literal.contains("{") || literal.contains("}")) {
-            throw new BusinessException("Mẫu mã của " + type.getLabel() + " chứa token không hỗ trợ. "
-                    + "Token dùng được: " + String.join(", ", type.getTokens()) + ", {###}");
+            throw new BusinessException(ErrorCode.CODE_PATTERN_CONTAINS_UNSUPPORTED_TOKEN, type.getLabel(), String.join(", ", type.getTokens()));
         }
         if (!literal.matches(type.getLiteralRegex())) {
             boolean underscoreOnly = "^[A-Za-z0-9_]*$".equals(type.getLiteralRegex());
-            throw new BusinessException("Phần chữ trong mẫu mã của " + type.getLabel() + " chỉ gồm chữ, số"
-                    + (underscoreOnly ? " và dấu gạch dưới" : " và các dấu - _ . /"));
+            throw new BusinessException(underscoreOnly ? ErrorCode.TEXT_PART_CODE_PATTERN_MAY_ONLY_CONTAIN_UNDERSCORE : ErrorCode.TEXT_PART_CODE_PATTERN_MAY_ONLY_CONTAIN, type.getLabel());
         }
     }
 
@@ -362,7 +358,7 @@ public class OrgCodeRuleService {
 
     private Organization loadOrganization(UUID organizationId) {
         return organizationRepository.findById(organizationId)
-                .orElseThrow(() -> new ResourceNotFoundException("Organization not found"));
+                .orElseThrow(() -> new ResourceNotFoundException(ErrorCode.RESOURCE_NOT_FOUND, Terms.of("resource.organization")));
     }
 
     private String nullToEmpty(String value) {

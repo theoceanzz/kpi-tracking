@@ -8,6 +8,7 @@ import com.kpitracking.entity.Organization;
 import com.kpitracking.entity.User;
 import com.kpitracking.exception.BusinessException;
 import com.kpitracking.exception.ForbiddenException;
+import com.kpitracking.i18n.LocalizedText;
 import com.kpitracking.repository.AiCriteriaChangeRequestRepository;
 import com.kpitracking.repository.AiCriteriaSetRepository;
 import com.kpitracking.repository.OrgUnitRepository;
@@ -21,6 +22,7 @@ import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -28,8 +30,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.ArgumentMatchers.contains;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -100,6 +101,11 @@ class AiCriteriaChangeRequestServiceTest {
         });
     }
 
+    /** Thông báo lưu dạng khoá dịch — so theo chữ tiếng Việt hiển thị ra (kiểm luôn khoá trong notifications.properties). */
+    private static LocalizedText rendered(String fragment) {
+        return argThat(t -> t != null && t.render(Locale.forLanguageTag("vi")).contains(fragment));
+    }
+
     private static User user(String name) {
         User u = new User();
         u.setId(UUID.randomUUID());
@@ -127,7 +133,8 @@ class AiCriteriaChangeRequestServiceTest {
         assertThat(r.getCurrentSetId()).isEqualTo(superiors.getId());
         assertThat(draft.getOrgUnitId()).isEqualTo(unitIt.getId());
         verify(dispatcher).dispatch(eq(org.getId()), eq(AiCriteriaChangeRequestService.EVENT_REQUESTED), eq(director),
-                eq(unitIt), anyString(), contains("Trưởng phòng IT (Trưởng phòng) đề nghị áp «Quy chế phòng IT» cho Phòng IT thay «Quy chế vận hành»"),
+                eq(unitIt), any(LocalizedText.class),
+                rendered("Trưởng phòng IT (Trưởng phòng) đề nghị áp «Quy chế phòng IT» cho Phòng IT thay «Quy chế vận hành»"),
                 eq("AI_CRITERIA"), eq(r.getId()));
     }
 
@@ -160,7 +167,7 @@ class AiCriteriaChangeRequestServiceTest {
         assertThat(r.getDecidedBy()).isEqualTo(director.getId());
         verify(sets).applyTo(draft, unitIt.getId(), director, true, head.getId());
         verify(dispatcher).dispatch(eq(org.getId()), eq(AiCriteriaChangeRequestService.EVENT_DECIDED), eq(head),
-                eq(unitIt), contains("đồng ý"), anyString(), eq("AI_CRITERIA"), eq(r.getId()));
+                eq(unitIt), rendered("đồng ý"), any(LocalizedText.class), eq("AI_CRITERIA"), eq(r.getId()));
     }
 
     @Test
@@ -177,7 +184,7 @@ class AiCriteriaChangeRequestServiceTest {
         assertThat(r.getStatus()).isEqualTo(AiCriteriaChangeRequest.REJECTED);
         verify(sets, never()).applyTo(any(), any(), any(), anyBoolean(), any());
         verify(dispatcher).dispatch(eq(org.getId()), eq(AiCriteriaChangeRequestService.EVENT_DECIDED), eq(head),
-                eq(unitIt), contains("từ chối"), contains("Giữ quy chế chung toàn chi nhánh"), eq("AI_CRITERIA"), eq(r.getId()));
+                eq(unitIt), rendered("từ chối"), rendered("— lý do: Giữ quy chế chung toàn chi nhánh"), eq("AI_CRITERIA"), eq(r.getId()));
     }
 
     @Test

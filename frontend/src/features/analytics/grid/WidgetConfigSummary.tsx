@@ -7,6 +7,7 @@ import type { KpiCycle, KpiPeriod } from '@/types/kpi'
 import {
   WIDGET_HAS_TABLE, WIDGET_HAS_UNIT, WIDGET_OPTIONS, WIDGET_VARIANTS, type OptionField, widgetVariant,
 } from './analyticsGrid'
+import { useTranslation } from 'react-i18next'
 
 /**
  * Một hàng chip nhỏ nói "ô này đang theo cấu hình gì" — để người xem biết mà không phải mở bảng
@@ -33,6 +34,7 @@ export default function WidgetConfigSummary({
   unitLabel?: string
   onOpen?: () => void
 }) {
+  const { t } = useTranslation('analytics')
   const custom = !!widget.s?.f
   const time = summarizeIntent(widget.s?.f ?? pageIntent, periods, cycles)
 
@@ -45,18 +47,18 @@ export default function WidgetConfigSummary({
   } else if (WIDGET_HAS_UNIT.has(widget.i)) {
     const id = widget.s?.orgUnitId
     const u = id ? unitOptions?.find(x => x.id === id) : undefined
-    const label = id ? (u?.name ?? u?.label ?? 'Một đơn vị') : 'Tất cả đơn vị'
+    const label = id ? (u?.name ?? u?.label ?? t('WidgetConfigSummary.oneUnit')) : t('WidgetConfigSummary.allUnits')
     chips.push({ icon: <Building2 size={11} />, text: label, strong: !!id })
   }
 
-  const variants = WIDGET_VARIANTS[widget.i]
+  const variants = WIDGET_VARIANTS()[widget.i]
   if (variants?.length) {
     const v = widgetVariant(widget)
     const label = variants.find(o => o.key === v)?.label
     if (label) chips.push({ icon: <SlidersHorizontal size={11} />, text: label })
   }
 
-  ;[...(WIDGET_OPTIONS[widget.i] ?? []), ...(extraFields ?? [])].forEach(f => {
+  ;[...(WIDGET_OPTIONS()[widget.i] ?? []), ...(extraFields ?? [])].forEach(f => {
     const val = widget.s?.o?.[f.key] ?? f.default
     const strong = val !== f.default
     // Giá trị đã lưu mà danh sách lựa chọn (tải từ API) chưa có/không còn: vẫn hiện mã thô để
@@ -67,7 +69,7 @@ export default function WidgetConfigSummary({
   })
 
   if (WIDGET_HAS_TABLE.has(widget.i) && widget.s?.table) {
-    chips.push({ icon: <Table2 size={11} />, text: 'Bảng' })
+    chips.push({ icon: <Table2 size={11} />, text: t('WidgetConfigSummary.table') })
   }
 
   return (
@@ -75,7 +77,7 @@ export default function WidgetConfigSummary({
       type="button"
       data-config-summary
       onClick={onOpen}
-      title="Mở cấu hình biểu đồ"
+      title={t('WidgetConfigSummary.openChartSettings')}
       className="flex flex-wrap items-center gap-1.5 text-left cursor-pointer group/summary"
     >
       {chips.map((c, i) => (

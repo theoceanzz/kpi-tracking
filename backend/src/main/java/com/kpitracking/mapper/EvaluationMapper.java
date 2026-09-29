@@ -9,10 +9,10 @@ import org.mapstruct.Mapping;
 @Mapper(componentModel = "spring", uses = SoftDeletedRefs.class)
 public interface EvaluationMapper {
 
-    @Mapping(source = "user.id", target = "userId")
+    @Mapping(source = "user", target = "userId", qualifiedByName = "userId")
     @Mapping(source = "user", target = "userName", qualifiedByName = "userName")
     @Mapping(target = "userAvatarUrl", expression = "java(com.kpitracking.mapper.SoftDeletedRefs.orNull(() -> evaluation.getUser() == null ? null : evaluation.getUser().getAvatarUrl()))")
-    @Mapping(source = "kpiPeriod.id", target = "kpiPeriodId")
+    @Mapping(source = "kpiPeriod", target = "kpiPeriodId", qualifiedByName = "periodId")
     @Mapping(source = "kpiPeriod", target = "kpiPeriodName", qualifiedByName = "periodName")
     @Mapping(source = "evaluator.id", target = "evaluatorId")
     @Mapping(source = "evaluator", target = "evaluatorName", qualifiedByName = "userName")

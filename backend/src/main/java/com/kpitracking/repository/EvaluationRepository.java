@@ -302,4 +302,7 @@ public interface EvaluationRepository extends JpaRepository<Evaluation, UUID> {
            "GROUP BY u.id, u.fullName, e.orgUnit.name")
     java.util.List<Object[]> avgScoreByUser(@Param("unitIds") java.util.Collection<UUID> unitIds,
                                             @Param("periodIds") java.util.Collection<UUID> periodIds);
+
+    /** Đánh giá (chưa xoá) của nhiều đợt — phân loại tiến độ khi khoá kỳ. */
+    java.util.List<Evaluation> findByKpiPeriodIdIn(java.util.Collection<UUID> kpiPeriodIds);
 }

@@ -26,6 +26,9 @@ import AiShortcutButton from '../components/AiShortcutButton'
 import { aiShortcuts } from '../aiShortcuts'
 import type { OrgUnitTreeResponse } from '@/types/orgUnit'
 import type { ViewerPosition } from '@/features/dashboard/hooks/useViewerPosition'
+import { useTranslation } from 'react-i18next'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
 /** Cắt cây tại đơn vị gốc (subtree) để không lộ đơn vị ngoài quyền drill của user. */
 function subtreeOf(nodes: OrgUnitTreeResponse[], rootId?: string): OrgUnitTreeResponse[] {
@@ -49,19 +52,19 @@ const BY_PERIOD = '__by_period__'
  * Ô mặc định, theo thứ tự đọc: đơn vị này → người của nó → đơn vị bên dưới. Id trùng danh mục
  * trang chủ để ghim được ngay. Ô nào cần quyền/cờ tổ chức được lọc ở component trước khi đưa vào lưới.
  */
-const DEFAULT_WIDGETS: DashboardWidget[] = [
-  { i: 'drill-summary', type: 'DRILL_SUMMARY', title: 'Đơn vị đang xem', x: 0, y: 0, w: 12, h: 3, visible: true },
+const DEFAULT_WIDGETS = perLanguage((): DashboardWidget[] => ([
+  { i: 'drill-summary', type: 'DRILL_SUMMARY', title: i18n.t('analytics:DrillDownTab.unitBeingViewed'), x: 0, y: 0, w: 12, h: 3, visible: true },
   // Tên ô là nguồn duy nhất (renderWidget lấy `w.title`, trang chủ đặt đúng chuỗi này); chữ đầu
   // mỗi ô khác nhau: Đơn vị đang xem / Phân bố / Luồng / Từng thành viên / Ma trận / Xếp loại /
   // Hiệu suất / Độ phân tán — "Xếp loại đơn vị" cạnh "Xếp loại đơn vị con" từng không phân biệt được.
-  { i: 'drill-classification', type: 'DRILL_CLASSIFICATION', title: 'Phân bố xếp loại nhân sự', x: 0, y: 3, w: 12, h: 12, visible: true },
-  { i: 'drill-cascade', type: 'DRILL_CASCADE', title: 'Luồng phân rã & uỷ quyền KPI', x: 0, y: 19, w: 12, h: 12, visible: true },
-  { i: 'drill-employees', type: 'DRILL_EMPLOYEES', title: 'Từng thành viên: hiệu suất, tiến độ, số KPI', x: 0, y: 31, w: 12, h: 16, visible: true },
-  { i: 'drill-matrix', type: 'DRILL_MATRIX', title: 'Ma trận hành vi × hoàn thành', x: 0, y: 47, w: 12, h: 18, visible: true },
-  { i: 'drill-children', type: 'DRILL_CHILDREN', title: 'Xếp loại của từng đơn vị con', x: 0, y: 65, w: 6, h: 12, visible: true },
-  { i: 'drill-compare', type: 'DRILL_COMPARE', title: 'Hiệu suất từng đơn vị con', x: 6, y: 65, w: 6, h: 12, visible: true },
-  { i: 'drill-boxplot', type: 'DRILL_BOXPLOT', title: 'Độ phân tán điểm trong từng đơn vị con', x: 0, y: 77, w: 12, h: 12, visible: false },
-]
+  { i: 'drill-classification', type: 'DRILL_CLASSIFICATION', title: i18n.t('analytics:DrillDownTab.peopleRatingDistribution'), x: 0, y: 3, w: 12, h: 12, visible: true },
+  { i: 'drill-cascade', type: 'DRILL_CASCADE', title: i18n.t('analytics:DrillDownTab.kpiCascadingDelegationFlow'), x: 0, y: 19, w: 12, h: 12, visible: true },
+  { i: 'drill-employees', type: 'DRILL_EMPLOYEES', title: i18n.t('analytics:DrillDownTab.eachMemberPerformanceProgressKpiCount'), x: 0, y: 31, w: 12, h: 16, visible: true },
+  { i: 'drill-matrix', type: 'DRILL_MATRIX', title: i18n.t('analytics:DrillDownTab.conductCompletionMatrix'), x: 0, y: 47, w: 12, h: 18, visible: true },
+  { i: 'drill-children', type: 'DRILL_CHILDREN', title: i18n.t('analytics:DrillDownTab.ratingOfEachChildUnit'), x: 0, y: 65, w: 6, h: 12, visible: true },
+  { i: 'drill-compare', type: 'DRILL_COMPARE', title: i18n.t('analytics:DrillDownTab.performanceOfEachChildUnit'), x: 6, y: 65, w: 6, h: 12, visible: true },
+  { i: 'drill-boxplot', type: 'DRILL_BOXPLOT', title: i18n.t('analytics:DrillDownTab.scoreSpreadWithinEachChildUnit'), x: 0, y: 77, w: 12, h: 12, visible: false },
+]))
 
 /**
  * Ô nào hiện mặc định cho ai. Ban giám đốc so các đơn vị con với nhau; trưởng/phó đơn vị nhìn
@@ -75,16 +78,16 @@ const POSITION_LAYOUT: Record<ViewerPosition, readonly string[]> = {
   STAFF: ['drill-summary', 'drill-classification'],
 }
 
-const GROUP_OF: Record<string, string> = {
-  'drill-summary': 'Số liệu',
-  'drill-classification': 'Biểu đồ phân phối',
-  'drill-cascade': 'Biểu đồ luồng',
-  'drill-employees': 'Biểu đồ xếp hạng',
-  'drill-matrix': 'Biểu đồ tương quan',
-  'drill-children': 'Biểu đồ so sánh',
-  'drill-compare': 'Biểu đồ so sánh',
-  'drill-boxplot': 'Biểu đồ phân phối',
-}
+const GROUP_OF = perLanguage((): Record<string, string> => ({
+  'drill-summary': i18n.t('analytics:DrillDownTab.figures'),
+  'drill-classification': i18n.t('analytics:DrillDownTab.distributionCharts'),
+  'drill-cascade': i18n.t('analytics:DrillDownTab.flowCharts'),
+  'drill-employees': i18n.t('analytics:DrillDownTab.rankingCharts'),
+  'drill-matrix': i18n.t('analytics:DrillDownTab.correlationCharts'),
+  'drill-children': i18n.t('analytics:DrillDownTab.comparisonCharts'),
+  'drill-compare': i18n.t('analytics:DrillDownTab.comparisonCharts'),
+  'drill-boxplot': i18n.t('analytics:DrillDownTab.distributionCharts'),
+}))
 const PREVIEW_OF: Record<string, 'metricCard' | 'stackedBar' | 'sankey' | 'lollipop' | 'heatmap' | 'bar' | 'boxplot' | 'table'> = {
   'drill-summary': 'metricCard',
   'drill-classification': 'bar',
@@ -95,16 +98,16 @@ const PREVIEW_OF: Record<string, 'metricCard' | 'stackedBar' | 'sankey' | 'lolli
   'drill-compare': 'bar',
   'drill-boxplot': 'boxplot',
 }
-const DESC_OF: Record<string, string> = {
-  'drill-summary': 'Cấp, tên đơn vị, số nhân sự và tổng KPI của đơn vị đang xem.',
-  'drill-classification': 'Đơn vị này xếp loại gì, và người trong đó dồn về mức nào: bell curve đặt cạnh khung hạn mức, hoặc tỉ trọng các mức qua các đợt.',
-  'drill-cascade': 'Trọng số KPI chảy từ đơn vị này xuống đơn vị nào, bao nhiêu.',
-  'drill-employees': 'Từng người trong đơn vị xếp cạnh nhau; sắp được theo hiệu suất, tiến độ hay số KPI.',
-  'drill-matrix': 'Ai vừa làm tốt vừa cư xử tốt, ai lệch: số người trong từng ô điểm hành vi × mức hoàn thành.',
-  'drill-children': 'Mỗi đơn vị ngay bên dưới đang xếp loại gì.',
-  'drill-compare': 'Hiệu suất của các đơn vị ngay bên dưới đặt cạnh nhau.',
-  'drill-boxplot': 'Điểm trong mỗi đơn vị con dồn đều hay phân tán rộng — hộp càng dài càng chênh lệch.',
-}
+const DESC_OF = perLanguage((): Record<string, string> => ({
+  'drill-summary': i18n.t('analytics:DrillDownTab.levelUnitNameHeadcountAndTotal'),
+  'drill-classification': i18n.t('analytics:DrillDownTab.whatThisUnitIsRatedAnd'),
+  'drill-cascade': i18n.t('analytics:DrillDownTab.howMuchKpiWeightFlowsFrom'),
+  'drill-employees': i18n.t('analytics:DrillDownTab.everyoneInTheUnitSideBy'),
+  'drill-matrix': i18n.t('analytics:DrillDownTab.whoDoesWellAndBehavesWell'),
+  'drill-children': i18n.t('analytics:DrillDownTab.whatEachUnitDirectlyBelowIs'),
+  'drill-compare': i18n.t('analytics:DrillDownTab.performanceOfTheUnitsDirectlyBelow'),
+  'drill-boxplot': i18n.t('analytics:DrillDownTab.whetherScoresInEachChildUnit'),
+}))
 
 /** Kỳ chọn trong cài đặt ô; sentinel "theo đợt" → không có kỳ. */
 const cycleOf = (w: DashboardWidget) => {
@@ -113,6 +116,7 @@ const cycleOf = (w: DashboardWidget) => {
 }
 
 export default function DrillDownTab() {
+  const { t: tr } = useTranslation('analytics')
   const [searchParams, setSearchParams] = useSearchParams()
   const selectedUnitId = searchParams.get('unitId') || undefined
 
@@ -127,12 +131,12 @@ export default function DrillDownTab() {
     sách này phải đúng từ đầu. Cả hai điều kiện đều đồng bộ (auth store; cờ tổ chức đã được
     AnalyticsPage chờ xong trước khi vẽ tab).
   */
-  const allowedWidgets = useMemo(() => DEFAULT_WIDGETS.filter(w =>
+  const allowedWidgets = useMemo(() => DEFAULT_WIDGETS().filter(w =>
     (canViewStats || (w.i !== 'drill-cascade' && w.i !== 'drill-boxplot')) &&
     (perf.isMatrix || w.i !== 'drill-matrix')
   ), [canViewStats, perf.isMatrix])
   const catalog = useMemo(() => allowedWidgets.map(t => ({
-    template: t, icon: null, groupLabel: GROUP_OF[t.i], preview: PREVIEW_OF[t.i], description: DESC_OF[t.i],
+    template: t, icon: null, groupLabel: GROUP_OF()[t.i], preview: PREVIEW_OF[t.i], description: DESC_OF()[t.i],
   })), [allowedWidgets])
 
   const pin = usePinToHome()
@@ -147,8 +151,8 @@ export default function DrillDownTab() {
   const treeNodes = useMemo(() => subtreeOf(tree || [], rootUnitId), [tree, rootUnitId])
   const treeSelectedId = selectedUnitId ?? rootUnitId
   const unitName = useMemo(
-    () => flattenUnitTree(treeNodes).find(u => u.id === treeSelectedId)?.name ?? rootData?.orgUnitName ?? 'Tất cả',
-    [treeNodes, treeSelectedId, rootData?.orgUnitName],
+    () => flattenUnitTree(treeNodes).find(u => u.id === treeSelectedId)?.name ?? rootData?.orgUnitName ?? tr('DrillDownTab.all'),
+    [treeNodes, treeSelectedId, rootData?.orgUnitName, tr],
   )
   const [mobileTreeOpen, setMobileTreeOpen] = useState(false)
   // Dưới `lg` cây đi vào drawer; báo cho lưới biết để nó không trừ bề rộng cột trái nữa.
@@ -172,12 +176,12 @@ export default function DrillDownTab() {
   // "Phạm vi xếp loại" là khái niệm khác khoảng thời gian (điểm chốt kỳ, bỏ qua bộ lọc đợt) nên là
   // một tuỳ chọn riêng của ô, danh sách kỳ lấy từ API → truyền động vào bảng cấu hình.
   const cycleFields = useMemo<OptionField[]>(() => [{
-    key: 'cycleId', label: 'Phạm vi xếp loại', kind: 'select', default: BY_PERIOD,
+    key: 'cycleId', label: tr('DrillDownTab.ratingScope'), kind: 'select', default: BY_PERIOD,
     choices: [
-      { value: BY_PERIOD, label: 'Theo đợt' },
-      ...cycles.map(c => ({ value: c.id, label: `Kỳ: ${c.name}` })),
+      { value: BY_PERIOD, label: tr('DrillDownTab.byPeriod') },
+      ...cycles.map(c => ({ value: c.id, label: tr('DrillDownTab.cycle', { name: c.name }) })),
     ],
-  }], [cycles])
+  }], [cycles, tr])
   const extraFieldsOf = useCallback(
     (i: string) => (i === 'drill-classification' || i === 'drill-children' ? cycleFields : undefined),
     [cycleFields],
@@ -262,9 +266,9 @@ export default function DrillDownTab() {
   return (
     <div className="space-y-6 pb-12">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <h2 className="text-xl font-semibold text-[var(--color-foreground)]">So sánh giữa các đơn vị</h2>
+        <h2 className="text-xl font-semibold text-[var(--color-foreground)]">{tr('DrillDownTab.unitComparison')}</h2>
         <div id="tour-analytics-customize" className="flex items-center gap-3 flex-wrap">
-          <AiShortcutButton size="sm" label="Lệch tự chấm" prompt={aiShortcuts.deviation()} title="K.AI chỉ ra đơn vị con tự chấm lệch với điểm quản lý chấm nhiều nhất" />
+          <AiShortcutButton size="sm" label={tr('DrillDownTab.selfAssessmentGap')} prompt={aiShortcuts.deviation()} title={tr('DrillDownTab.kAiPointsOutTheChild')} />
           <DashboardEditToolbar api={dash} />
         </div>
       </div>
@@ -277,7 +281,7 @@ export default function DrillDownTab() {
           onClick={() => setMobileTreeOpen(true)}
           className="lg:hidden w-full flex items-center justify-center gap-2 py-2.5 rounded-lg border border-[var(--color-border)] bg-[var(--color-card)] text-sm font-semibold text-[var(--color-primary)]"
         >
-          <Network size={16} /> Chọn đơn vị: {unitName}
+          <Network size={16} /> {tr('DrillDownTab.chooseUnit')} {unitName}
         </button>
 
         <div id="tour-analytics-widgets">
@@ -312,7 +316,7 @@ export default function DrillDownTab() {
           <div className="absolute inset-y-0 left-0 w-[85%] max-w-[340px] p-3">
             <div className="h-full flex flex-col">
               <div className="flex items-center justify-end mb-2">
-                <button onClick={() => setMobileTreeOpen(false)} aria-label="Đóng" className="p-2 rounded-lg bg-white dark:bg-slate-800 text-[var(--color-muted-foreground)] shadow-sm"><X size={18} /></button>
+                <button onClick={() => setMobileTreeOpen(false)} aria-label={tr('DrillDownTab.close')} className="p-2 rounded-lg bg-white dark:bg-slate-800 text-[var(--color-muted-foreground)] shadow-sm"><X size={18} /></button>
               </div>
               <div className="flex-1 min-h-0">
                 <OrgUnitTreeSidebar nodes={treeNodes} selectedId={treeSelectedId} onSelect={select} onAfterSelect={() => setMobileTreeOpen(false)} />

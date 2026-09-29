@@ -1,5 +1,6 @@
 import type { FieldErrors } from 'react-hook-form'
 import { toast } from 'sonner'
+import i18n from 'i18next'
 
 /**
  * Lấy thông báo lỗi đầu tiên trong cây lỗi của react-hook-form. Lỗi của mảng nằm lồng
@@ -21,5 +22,5 @@ export function firstErrorMessage(errors: unknown): string | undefined {
  * thay vì in thông báo dưới từng ô — không có nó thì bấm Lưu trông như không có phản ứng.
  */
 export const toastFirstError = (errors: FieldErrors) => {
-  toast.error(firstErrorMessage(errors) ?? 'Vui lòng kiểm tra lại thông tin đã nhập')
+  toast.error(firstErrorMessage(errors) ?? i18n.t('common:formErrors.pleaseCheckTheInformationYouEntered'))
 }

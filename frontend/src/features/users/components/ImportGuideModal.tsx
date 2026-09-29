@@ -2,6 +2,9 @@ import { Download, FileSpreadsheet, AlertTriangle, CheckCircle2, Info, FileText,
 import ExcelJS from 'exceljs'
 import { Dialog, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
+import { useTranslation } from 'react-i18next'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
 interface ImportGuideModalProps {
   open: boolean
@@ -9,27 +12,21 @@ interface ImportGuideModalProps {
   onSelectFile: () => void
 }
 
-const SAMPLE_CSV_CONTENT = `Email,FullName,EmployeeCode,Phone,Role,Password,OrgUnitCode
-hai@keyperson.com,Hải,KP001,0972867825,STAFF,Haikp123@,
-nghia@keyperson.com,Nghĩa,KP002,0325614226,STAFF,Nghiakp123@,
-xuan@keyperson.com,Xuân,KP003,0354744854,STAFF,Xuankp123@,HN01
-khoa@keyperson.com,Khoa,KP004,0342719583,STAFF,Khoakp123@,
-duc@keyperson.com,Đức,KP005,0972458591,STAFF,Duckp123@,HCM01
-phuonganh@keyperson.com,Phương Anh,KP006,0968078673,STAFF,Phuonganhkp123@,`
+const SAMPLE_CSV_CONTENT = perLanguage(() => (i18n.t('users:ImportGuideModal.emailFullnameEmployeecodePhoneRolePassword')))
 
-const COLUMNS = [
-  { name: 'Email', required: true, desc: 'Email đăng nhập, phải là duy nhất trong hệ thống', example: 'abc@company.com' },
-  { name: 'FullName', required: true, desc: 'Họ và tên đầy đủ', example: 'Nguyễn Văn A' },
-  { name: 'EmployeeCode', required: false, desc: 'Mã số nhân viên', example: 'NV001' },
-  { name: 'Phone', required: false, desc: 'Số điện thoại (có thể để trống)', example: '0901000001' },
-  { name: 'Role', required: false, desc: 'Vai trò: DIRECTOR, HEAD, DEPUTY, LEADER, STAFF (mặc định STAFF)', example: 'STAFF' },
-  { name: 'Password', required: false, desc: 'Mật khẩu đăng nhập (nếu trống sẽ tự động tạo)', example: '123456aA' },
-  { name: 'OrgUnitCode', required: false, desc: 'Mã đơn vị để gán nhân sự (vd: HN01). Nếu trống sẽ chỉ gán vào công ty.', example: 'HN01' },
-]
+const COLUMNS = perLanguage(() => ([
+  { name: 'Email', required: true, desc: i18n.t('users:ImportGuideModal.signInEmailMustBeUnique'), example: 'abc@company.com' },
+  { name: 'FullName', required: true, desc: i18n.t('users:ImportGuideModal.fullName'), example: i18n.t('users:ImportGuideModal.johnDoe') },
+  { name: 'EmployeeCode', required: false, desc: i18n.t('users:ImportGuideModal.employeeId'), example: 'NV001' },
+  { name: 'Phone', required: false, desc: i18n.t('users:ImportGuideModal.phoneNumberCanBeLeftEmpty'), example: '0901000001' },
+  { name: 'Role', required: false, desc: i18n.t('users:ImportGuideModal.roleDirectorHeadDeputyLeaderStaff'), example: 'STAFF' },
+  { name: 'Password', required: false, desc: i18n.t('users:ImportGuideModal.signInPasswordGeneratedAutomaticallyIf'), example: '123456aA' },
+  { name: 'OrgUnitCode', required: false, desc: i18n.t('users:ImportGuideModal.unitCodeToAssignThePerson'), example: 'HN01' },
+]))
 
 async function downloadTemplate(type: 'csv' | 'xlsx') {
   if (type === 'csv') {
-    const blob = new Blob(['\uFEFF' + SAMPLE_CSV_CONTENT], { type: 'text/csv;charset=utf-8;' })
+    const blob = new Blob(['\uFEFF' + SAMPLE_CSV_CONTENT()], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
@@ -41,7 +38,7 @@ async function downloadTemplate(type: 'csv' | 'xlsx') {
 
   // Professional XLSX using ExcelJS
   const workbook = new ExcelJS.Workbook()
-  const worksheet = workbook.addWorksheet('Danh sách nhân sự')
+  const worksheet = workbook.addWorksheet(i18n.t('users:ImportGuideModal.peopleList'))
 
   // Define columns
   worksheet.columns = [
@@ -56,12 +53,12 @@ async function downloadTemplate(type: 'csv' | 'xlsx') {
 
   // Add data rows
   const data = [
-    ['hai@keyperson.com', 'Hải', 'KP001', '0972867825', 'STAFF', 'Haikp123@', ''],
-    ['nghia@keyperson.com', 'Nghĩa', 'KP002', '0325614226', 'STAFF', 'Nghiakp123@', ''],
-    ['xuan@keyperson.com', 'Xuân', 'KP003', '0354744854', 'STAFF', 'Xuankp123@', 'HN01'],
+    ['hai@keyperson.com', i18n.t('users:ImportGuideModal.hai'), 'KP001', '0972867825', 'STAFF', 'Haikp123@', ''],
+    ['nghia@keyperson.com', i18n.t('users:ImportGuideModal.nghia'), 'KP002', '0325614226', 'STAFF', 'Nghiakp123@', ''],
+    ['xuan@keyperson.com', i18n.t('users:ImportGuideModal.xuan'), 'KP003', '0354744854', 'STAFF', 'Xuankp123@', 'HN01'],
     ['khoa@keyperson.com', 'Khoa', 'KP004', '0342719583', 'STAFF', 'Khoakp123@', ''],
-    ['duc@keyperson.com', 'Đức', 'KP005', '0972458591', 'STAFF', 'Duckp123@', 'HCM01'],
-    ['phuonganh@keyperson.com', 'Phương Anh', 'KP006', '0968078673', 'STAFF', 'Phuonganhkp123@', ''],
+    ['duc@keyperson.com', i18n.t('users:ImportGuideModal.duc'), 'KP005', '0972458591', 'STAFF', 'Duckp123@', 'HCM01'],
+    ['phuonganh@keyperson.com', i18n.t('users:ImportGuideModal.phuongAnh'), 'KP006', '0968078673', 'STAFF', 'Phuonganhkp123@', ''],
   ]
   worksheet.addRows(data)
 
@@ -93,12 +90,12 @@ async function downloadTemplate(type: 'csv' | 'xlsx') {
   })
 
   // Add Guide Sheet
-  const guideSheet = workbook.addWorksheet('Hướng dẫn chi tiết')
+  const guideSheet = workbook.addWorksheet(i18n.t('users:ImportGuideModal.detailedGuide'))
   guideSheet.columns = [
-    { header: 'Tên cột', key: 'name', width: 20 },
-    { header: 'Bắt buộc', key: 'req', width: 15 },
-    { header: 'Mô tả', key: 'desc', width: 50 },
-    { header: 'Ví dụ', key: 'ex', width: 25 },
+    { header: i18n.t('users:ImportGuideModal.columnName'), key: 'name', width: 20 },
+    { header: i18n.t('users:ImportGuideModal.required'), key: 'req', width: 15 },
+    { header: i18n.t('users:ImportGuideModal.description'), key: 'desc', width: 50 },
+    { header: i18n.t('users:ImportGuideModal.example'), key: 'ex', width: 25 },
   ]
   const guideHeader = guideSheet.getRow(1)
   guideHeader.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 12 }
@@ -106,8 +103,8 @@ async function downloadTemplate(type: 'csv' | 'xlsx') {
   guideHeader.alignment = { vertical: 'middle', horizontal: 'center' }
   guideHeader.height = 30
 
-  COLUMNS.forEach(c => {
-    const row = guideSheet.addRow([c.name, c.required ? 'CÓ' : 'KHÔNG', c.desc, c.example])
+  COLUMNS().forEach(c => {
+    const row = guideSheet.addRow([c.name, c.required ? i18n.t('users:ImportGuideModal.yes') : i18n.t('users:ImportGuideModal.no'), c.desc, c.example])
     row.font = { size: 11 }
     row.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true }
     row.eachCell(cell => {
@@ -119,13 +116,13 @@ async function downloadTemplate(type: 'csv' | 'xlsx') {
   })
 
   guideSheet.addRow([])
-  const noteTitleRow = guideSheet.addRow(['LƯU Ý CHUNG CHO IMPORT EXCEL & CSV'])
+  const noteTitleRow = guideSheet.addRow([i18n.t('users:ImportGuideModal.generalNotesForExcelCsvImport')])
   noteTitleRow.font = { bold: true, size: 12, color: { argb: 'FFDC2626' } }
-  guideSheet.addRow(['1. File mẫu này hỗ trợ import cả định dạng .xlsx và .csv.'])
-  guideSheet.addRow(['2. Nếu import bằng CSV, bạn vui lòng xuất dữ liệu từ tab "Danh sách nhân sự" ra file .csv (UTF-8).'])
-  guideSheet.addRow(['3. Email là duy nhất, không được trùng với tài khoản đã có trên hệ thống.'])
-  guideSheet.addRow(['4. Password có thể để trống. Hệ thống sẽ tự tạo mật khẩu mạnh và gửi email cho người dùng.'])
-  guideSheet.addRow(['5. OrgUnitCode là mã phòng ban. Nếu trống, nhân sự sẽ thuộc cấp toàn công ty.'])
+  guideSheet.addRow([i18n.t('users:ImportGuideModal.n1ThisSampleFileSupportsImporting')])
+  guideSheet.addRow([i18n.t('users:ImportGuideModal.n2IfImportingViaCsvPlease')])
+  guideSheet.addRow([i18n.t('users:ImportGuideModal.n3TheEmailIsUniqueAnd')])
+  guideSheet.addRow([i18n.t('users:ImportGuideModal.n4PasswordCanBeLeftEmpty')])
+  guideSheet.addRow([i18n.t('users:ImportGuideModal.n5OrgunitcodeIsTheDepartmentCode')])
 
   // Generate and download
   const buffer = await workbook.xlsx.writeBuffer()
@@ -138,35 +135,36 @@ async function downloadTemplate(type: 'csv' | 'xlsx') {
   URL.revokeObjectURL(url)
 }
 
-const STEPS = [
-  { num: '01', title: 'Tải file mẫu', desc: 'Nhấn nút bên dưới để tải về file CSV mẫu có sẵn header chuẩn.' },
-  { num: '02', title: 'Điền thông tin', desc: 'Mở file bằng Excel hoặc Google Sheets, điền thông tin nhân sự theo từng dòng.' },
-  { num: '03', title: 'Lưu & Upload', desc: 'Lưu file ở định dạng .csv hoặc .xlsx, sau đó nhấn "Chọn file & Import" bên dưới.' },
-]
+const STEPS = perLanguage(() => ([
+  { num: '01', title: i18n.t('users:ImportGuideModal.downloadSampleFile'), desc: i18n.t('users:ImportGuideModal.clickTheButtonBelowToDownload') },
+  { num: '02', title: i18n.t('users:ImportGuideModal.fillInTheInformation'), desc: i18n.t('users:ImportGuideModal.openTheFileInExcelOr') },
+  { num: '03', title: i18n.t('users:ImportGuideModal.saveUpload'), desc: i18n.t('users:ImportGuideModal.saveTheFileAsCsvOr') },
+]))
 
 
 
 export default function ImportGuideModal({ open, onClose, onSelectFile }: ImportGuideModalProps) {
+  const { t } = useTranslation('users')
   return (
     <Dialog
       open={open}
       onClose={onClose}
       size="lg"
-      title="Import Nhân sự Hàng loạt"
-      description="Hỗ trợ định dạng .csv và .xlsx"
+      title={t('ImportGuideModal.bulkPeopleImport')}
+      description={t('ImportGuideModal.supportsCsvAndXlsxFormats')}
       footer={
         <DialogFooter
-          secondary={<Button variant="outline" onClick={onClose}>Đóng</Button>}
-          primary={<Button onClick={() => { onSelectFile(); onClose() }}><FileSpreadsheet aria-hidden="true" /> Chọn file & Import</Button>}
+          secondary={<Button variant="outline" onClick={onClose}>{t('ImportGuideModal.close')}</Button>}
+          primary={<Button onClick={() => { onSelectFile(); onClose() }}><FileSpreadsheet aria-hidden="true" /> {t('ImportGuideModal.chooseFileImport')}</Button>}
         />
       }
     >
       <div className="space-y-6">
         {/* Steps */}
         <div>
-          <h3 className="text-eyebrow mb-3">Quy trình 3 bước</h3>
+          <h3 className="text-eyebrow mb-3">{t('ImportGuideModal.n3StepProcess')}</h3>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {STEPS.map((step) => (
+            {STEPS().map((step) => (
               <div key={step.num} className="p-4 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)] space-y-2">
                 <div className="w-8 h-8 rounded-control bg-[var(--color-primary-soft)] text-[var(--color-primary)] flex items-center justify-center text-xs font-semibold">
                   {step.num}
@@ -188,11 +186,11 @@ export default function ImportGuideModal({ open, onClose, onSelectFile }: Import
               </div>
               <div>
                 <p className="font-medium text-sm text-[var(--color-foreground)]">Template XLSX Pro</p>
-                <p className="text-xs text-[var(--color-muted-foreground)]">Có màu sắc, định dạng chuẩn</p>
+                <p className="text-xs text-[var(--color-muted-foreground)]">{t('ImportGuideModal.withColorsAndStandardFormatting')}</p>
               </div>
             </div>
             <Button className="w-full" onClick={() => downloadTemplate('xlsx')}>
-              <Download aria-hidden="true" /> Tải mẫu .XLSX
+              <Download aria-hidden="true" /> {t('ImportGuideModal.downloadXlsxTemplate')}
             </Button>
           </div>
 
@@ -203,32 +201,32 @@ export default function ImportGuideModal({ open, onClose, onSelectFile }: Import
                 <FileText size={20} />
               </div>
               <div>
-                <p className="font-medium text-sm text-[var(--color-foreground)]">Mẫu CSV cơ bản</p>
-                <p className="text-xs text-[var(--color-muted-foreground)]">Tương thích mọi thiết bị</p>
+                <p className="font-medium text-sm text-[var(--color-foreground)]">{t('ImportGuideModal.basicCsvTemplate')}</p>
+                <p className="text-xs text-[var(--color-muted-foreground)]">{t('ImportGuideModal.compatibleWithEveryDevice')}</p>
               </div>
             </div>
             <Button variant="outline" className="w-full" onClick={() => downloadTemplate('csv')}>
-              <Download aria-hidden="true" /> Tải mẫu .CSV
+              <Download aria-hidden="true" /> {t('ImportGuideModal.downloadCsvTemplate')}
             </Button>
           </div>
         </div>
 
         {/* Column Specification */}
         <div>
-          <h3 className="text-eyebrow mb-3">Cấu trúc cột dữ liệu</h3>
+          <h3 className="text-eyebrow mb-3">{t('ImportGuideModal.dataColumnStructure')}</h3>
           <div className="rounded-card border border-[var(--color-border)] overflow-hidden">
             <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>
                 <tr className="bg-[var(--color-muted)] border-b border-[var(--color-border)]">
-                  <th className="px-4 py-3 text-sm font-medium text-[var(--color-muted-foreground)]">Tên cột</th>
-                  <th className="px-4 py-3 text-sm font-medium text-[var(--color-muted-foreground)]">Bắt buộc</th>
-                  <th className="px-4 py-3 text-sm font-medium text-[var(--color-muted-foreground)] hidden sm:table-cell">Mô tả</th>
-                  <th className="px-4 py-3 text-sm font-medium text-[var(--color-muted-foreground)]">Ví dụ</th>
+                  <th className="px-4 py-3 text-sm font-medium text-[var(--color-muted-foreground)]">{t('ImportGuideModal.columnName')}</th>
+                  <th className="px-4 py-3 text-sm font-medium text-[var(--color-muted-foreground)]">{t('ImportGuideModal.required')}</th>
+                  <th className="px-4 py-3 text-sm font-medium text-[var(--color-muted-foreground)] hidden sm:table-cell">{t('ImportGuideModal.description')}</th>
+                  <th className="px-4 py-3 text-sm font-medium text-[var(--color-muted-foreground)]">{t('ImportGuideModal.example')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--color-border)]">
-                {COLUMNS.map((col) => (
+                {COLUMNS().map((col) => (
                   <tr key={col.name} className="hover:bg-[var(--color-muted)]">
                     <td className="px-4 py-3">
                       <code className="px-2 py-0.5 rounded-control bg-[var(--color-muted)] text-xs font-medium text-[var(--color-foreground)]">{col.name}</code>
@@ -236,10 +234,10 @@ export default function ImportGuideModal({ open, onClose, onSelectFile }: Import
                     <td className="px-4 py-3">
                       {col.required ? (
                         <span className="inline-flex items-center gap-1 text-xs font-medium text-[var(--color-error)]">
-                          <AlertTriangle size={12} /> Có
+                          <AlertTriangle size={12} /> {t('ImportGuideModal.yes2')}
                         </span>
                       ) : (
-                        <span className="text-xs font-medium text-[var(--color-subtle-foreground)]">Không</span>
+                        <span className="text-xs font-medium text-[var(--color-subtle-foreground)]">{t('ImportGuideModal.no2')}</span>
                       )}
                     </td>
                     <td className="px-4 py-3 text-xs text-[var(--color-muted-foreground)] hidden sm:table-cell">{col.desc}</td>
@@ -254,24 +252,24 @@ export default function ImportGuideModal({ open, onClose, onSelectFile }: Import
 
         {/* Important Notes */}
         <div className="space-y-3">
-          <h3 className="text-eyebrow">Lưu ý quan trọng</h3>
+          <h3 className="text-eyebrow">{t('ImportGuideModal.importantNotes')}</h3>
           <div className="space-y-2">
             <div className="flex items-start gap-3 p-3 rounded-card bg-[var(--color-warning-bg)] border border-[var(--color-warning-border)]">
               <Info size={16} className="text-[var(--color-warning)] mt-0.5 shrink-0" />
               <p className="text-xs text-[var(--color-warning)] leading-relaxed">
-                Mỗi <strong>Email</strong> phải là duy nhất. Nếu email đã tồn tại trong hệ thống, dòng đó sẽ bị bỏ qua và báo lỗi.
+                {t('ImportGuideModal.each')} <strong>Email</strong> {t('ImportGuideModal.mustBeUniqueIfTheEmail')}
               </p>
             </div>
             <div className="flex items-start gap-3 p-3 rounded-card bg-[var(--color-info-bg)] border border-[var(--color-info-border)]">
               <Info size={16} className="text-[var(--color-info)] mt-0.5 shrink-0" />
               <p className="text-xs text-[var(--color-info)] leading-relaxed">
-                Bạn có thể <strong>tự đặt mật khẩu</strong> trong file import. Nếu để trống, hệ thống sẽ tự động tạo ngẫu nhiên và gửi qua email cho nhân sự.
+                {t('ImportGuideModal.youCan')} <strong>{t('ImportGuideModal.setYourOwnPassword')}</strong> {t('ImportGuideModal.inTheImportFileIfLeft')}
               </p>
             </div>
             <div className="flex items-start gap-3 p-3 rounded-card bg-[var(--color-success-bg)] border border-[var(--color-success-border)]">
               <CheckCircle2 size={16} className="text-[var(--color-success)] mt-0.5 shrink-0" />
               <p className="text-xs text-[var(--color-success)] leading-relaxed">
-                Hỗ trợ cả hai định dạng <strong>.csv</strong> (khuyến nghị) và <strong>.xlsx</strong>. Nếu dùng Excel, lưu file dạng UTF-8 CSV để tránh lỗi font tiếng Việt.
+                {t('ImportGuideModal.bothFormatsAreSupported')} <strong>.csv</strong> {t('ImportGuideModal.recommendedAnd')} <strong>.xlsx</strong>{t('ImportGuideModal.ifUsingExcelSaveTheFile')}
               </p>
             </div>
           </div>

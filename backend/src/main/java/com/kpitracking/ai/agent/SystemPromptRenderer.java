@@ -60,7 +60,8 @@ public class SystemPromptRenderer {
                 .replace("{plan}", planBlock(turn))
                 .replace("{form}", formBlock(turn))
                 .replace("{evidence}", evidenceBlock(turn))
-                .replace("{denied}", deniedBlock(turn));
+                .replace("{denied}", deniedBlock(turn))
+                + AiLanguage.rule(turn.getLanguage());
     }
 
     /**

@@ -11,6 +11,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select'
+import { useTranslation } from 'react-i18next'
 
 /**
  * SelectContent render qua portal với z-50, trong khi modal của phần thưởng là z-[1000] —
@@ -49,6 +50,7 @@ export default function EmployeePicker({
   enabled = true,
   listClassName = 'max-h-44',
 }: EmployeePickerProps) {
+  const { t } = useTranslation('rewards')
   const [keyword, setKeyword] = useState('')
   const [orgUnitId, setOrgUnitId] = useState('')
   const debouncedKeyword = useDebounce(keyword, 500)
@@ -127,7 +129,7 @@ export default function EmployeePicker({
             chọn cái nào. */}
         <Select value={orgUnitId} onValueChange={setOrgUnitId}>
           <SelectTrigger className={inputCls}>
-            <SelectValue placeholder="Chọn đơn vị" />
+            <SelectValue placeholder={t('EmployeePicker.chooseUnit')} />
           </SelectTrigger>
           <SelectContent className={SELECT_CONTENT_Z}>
             {flatUnits.map((u) => (
@@ -146,7 +148,7 @@ export default function EmployeePicker({
           <input
             value={keyword}
             onChange={(e) => setKeyword(e.target.value)}
-            placeholder="Tìm theo tên hoặc email..."
+            placeholder={t('EmployeePicker.searchByNameOrEmail')}
             className={`${inputCls} pl-9`}
           />
         </div>
@@ -160,14 +162,14 @@ export default function EmployeePicker({
       >
         {isFetching && (
           <div className="px-3 py-4 text-center text-sm text-[var(--color-muted-foreground)]">
-            Đang tìm...
+            {t('EmployeePicker.searching')}
           </div>
         )}
         {!isFetching && candidates.length === 0 && (
           <div className="px-3 py-4 text-center text-sm text-[var(--color-muted-foreground)]">
             {orgUnitId || debouncedKeyword
-              ? 'Không có nhân viên nào khớp bộ lọc'
-              : 'Không tìm thấy nhân viên'}
+              ? t('EmployeePicker.noEmployeesMatchTheFilter')
+              : t('EmployeePicker.noEmployeesFound')}
           </div>
         )}
         {!isFetching &&

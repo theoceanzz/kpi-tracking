@@ -1,6 +1,8 @@
 import axiosInstance, { XSRF_COOKIE_NAME } from '@/lib/axios'
 import { ENV } from '@/config/env'
 import type { ApiResponse, PageResponse, PageParams } from '@/types/api'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
 export interface AiChatRequest {
   message: string
@@ -198,7 +200,7 @@ export const AI_TIMEOUT = 300000
 export interface StageEvent {
   /** Mã ổn định để đối chiếu: tên lớp công đoạn, hoặc "tool:<tên tool>". */
   code: string
-  /** Nhãn tiếng Việt để hiện cho người dùng, luôn ở dạng "Đang…". */
+  /** Nhãn hiện cho người dùng, luôn ở dạng "Đang…". Server gửi tiếng Việt; `localizeStage` dịch theo `code`. */
   label: string
 }
 
@@ -241,6 +243,15 @@ export interface AskAnswer {
   text?: string
 }
 
+/**
+ * Nhãn công đoạn do server gửi (tiếng Việt, luồng stream không mang ngôn ngữ người dùng). Dịch theo mã
+ * ổn định ở `analytics:aiStages.*`; mã chưa có bản dịch thì giữ nguyên nhãn server.
+ */
+function localizeStage(stage: StageEvent): StageEvent {
+  const key = stage.code.replace(':', '__')
+  return { ...stage, label: i18n.t(`analytics:aiStages.${key}`, { defaultValue: stage.label }) }
+}
+
 export interface ChatStreamHandlers {
   onStage?: (stage: StageEvent) => void
   /** Một mẩu chữ. Là BẢN XEM TRƯỚC chưa qua lọc — phải thay bằng nội dung của onDone. */
@@ -248,7 +259,27 @@ export interface ChatStreamHandlers {
   /** Trợ lý hỏi lại và đang chờ: hiện thẻ chọn. Không trả lời thì lượt tự kết thúc bằng câu hỏi. */
   onAsk?: (ask: AskUserEvent) => void
   onDone?: (response: AiChatResponse) => void
-  onError?: (message: string) => void
+  /**
+   * Lượt hỏng. Nhận NGUYÊN đối tượng lỗi chứ không phải chuỗi: nó mang cả mã HTTP mà đường JSON
+   * sẽ trả, nên màn chat phân nhánh 402/429 và `getApiErrorMessage` đọc được câu của backend.
+   * Trước đây chỉ truyền chuỗi rồi chỗ gọi bọc lại thành `new Error(message)` — một lỗi không
+   * phải của axios, và `getApiErrorMessage` bỏ qua nên người hết hạn mức token chỉ thấy
+   * "Lỗi không xác định" thay vì lý do thật.
+   */
+  onError?: (error: StreamError) => void
+}
+
+/**
+ * Lỗi của luồng SSE, đội đúng hình dạng lỗi axios (`isAxiosError` + `response.status/data`) để
+ * mọi chỗ bắt lỗi dùng chung một nhánh cho cả đường JSON lẫn đường streaming.
+ */
+export type StreamError = Error & { isAxiosError: true; response: { status: number; data?: unknown } }
+
+function streamError(message: string, status: number, data?: unknown): StreamError {
+  return Object.assign(new Error(message), {
+    isAxiosError: true as const,
+    response: { status, data: data ?? { message } },
+  })
 }
 
 /** Đọc cookie theo tên. Chỉ dùng cho cookie CSRF, vốn cố ý KHÔNG phải HttpOnly. */
@@ -273,12 +304,12 @@ export interface RagDocument {
   createdAt: string
 }
 
-export const RAG_SOURCE_LABELS: Record<RagDocument['source'], string> = {
-  GUIDE: 'Hướng dẫn KeyGo · toàn hệ thống',
-  REGULATION: 'Quy chế của tổ chức',
-  JOB_DESCRIPTION: 'Mô tả công việc / chức năng nhiệm vụ',
-  STRATEGY: 'Chiến lược, mục tiêu năm',
-}
+export const RAG_SOURCE_LABELS = perLanguage((): Record<RagDocument['source'], string> => ({
+  GUIDE: i18n.t('analytics:aiApi.keygoGuideSystemWide'),
+  REGULATION: i18n.t('analytics:aiApi.organizationRegulations'),
+  JOB_DESCRIPTION: i18n.t('analytics:aiApi.jobDescriptionsDutiesAndResponsibilities'),
+  STRATEGY: i18n.t('analytics:aiApi.strategyAndAnnualGoals'),
+}))
 
 /** Một đoạn đang nằm trong kho vector — đúng như trợ lý sẽ nhận (đã có [mục] chèn đầu). */
 export interface RagChunk {
@@ -334,9 +365,7 @@ export const aiApi = {
       // Dựng lỗi theo ĐÚNG hình dạng lỗi của axios ({ response: { status, data } }) để chỗ bắt lỗi
       // ở màn hình dùng chung được một nhánh cho cả hai đường — nhánh 429 đọc data.message.
       const data = await res.json().catch(() => undefined)
-      throw Object.assign(new Error(data?.message ?? 'Chat stream failed'), {
-        response: { status: res.status, data },
-      })
+      throw streamError(data?.message ?? 'Chat stream failed', res.status, data)
     }
 
     const reader = res.body.getReader()
@@ -371,11 +400,13 @@ export const aiApi = {
             continue // khung hỏng thì bỏ, không làm chết cả luồng
           }
 
-          if (event === 'stage') handlers.onStage?.(payload as StageEvent)
+          if (event === 'stage') handlers.onStage?.(localizeStage(payload as StageEvent))
           else if (event === 'token') handlers.onToken?.(payload.text ?? '')
           else if (event === 'ask') handlers.onAsk?.(payload as AskUserEvent)
           else if (event === 'done') handlers.onDone?.(payload as AiChatResponse)
-          else if (event === 'error') handlers.onError?.(payload.message ?? 'Lỗi không xác định')
+          else if (event === 'error') {
+            handlers.onError?.(streamError(payload.message ?? i18n.t('analytics:aiApi.unknownError'), payload.status ?? 500))
+          }
         }
       }
     } finally {

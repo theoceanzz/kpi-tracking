@@ -1,4 +1,5 @@
 import { cn } from '@/lib/utils'
+import { useTranslation } from 'react-i18next'
 
 /** Vòng tiến độ nhỏ dùng trong danh sách nhiệm vụ và lịch sử bài nộp. */
 export function ProgressCircle({ percentage, size = 32, strokeWidth = 3, color }: {
@@ -7,6 +8,7 @@ export function ProgressCircle({ percentage, size = 32, strokeWidth = 3, color }
   strokeWidth?: number
   color?: string
 }) {
+  const { t } = useTranslation('dashboard')
   const radius = (size - strokeWidth) / 2
   const circumference = radius * 2 * Math.PI
   const value = Math.min(Math.max(percentage, 0), 100)
@@ -25,7 +27,7 @@ export function ProgressCircle({ percentage, size = 32, strokeWidth = 3, color }
       className="relative inline-flex items-center justify-center shrink-0"
       style={{ width: size, height: size }}
       role="img"
-      aria-label={`Tiến độ ${Math.round(value)} phần trăm`}
+      aria-label={t('ProgressCircle.progressPercent', { value: Math.round(value) })}
     >
       <svg className="transform -rotate-90" width={size} height={size} aria-hidden="true">
         <circle className="text-[var(--color-muted)]" strokeWidth={strokeWidth} stroke="currentColor" fill="transparent" r={radius} cx={size / 2} cy={size / 2} />

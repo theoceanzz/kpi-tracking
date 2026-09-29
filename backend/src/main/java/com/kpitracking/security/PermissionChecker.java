@@ -176,6 +176,39 @@ public class PermissionChecker {
     }
 
     /**
+     * Vai trò của người này, gán tại đơn vị đích hoặc một đơn vị cha của nó, có TƯỜNG MINH quyền
+     * {@code permissionCode} không.
+     *
+     * <p>Khác {@link #hasPermissionInOrgUnit} ở hai chỗ, cả hai đều có chủ ý cho quyền duyệt cuối
+     * ({@code KPI:APPROVE_FINAL}):
+     * <ul>
+     *   <li>KHÔNG đi qua uỷ quyền chéo đơn vị ({@code OrgUnitDelegation}) — uỷ quyền đó có thời
+     *       hạn, còn duyệt cuối chỉ gắn với vai trò;</li>
+     *   <li>KHÔNG coi {@code SYSTEM:ADMIN} là có mọi quyền — tắt quyền này ở màn cấu hình quyền
+     *       phải là tắt thật, kể cả với vai trò quản trị.</li>
+     * </ul>
+     * Gán vai trò đã hết hạn không tính.
+     */
+    public boolean hasRolePermissionInOrgUnit(UUID userId, String permissionCode, UUID orgUnitId) {
+        List<UserRoleOrgUnit> assignments = userRoleOrgUnitRepository.findByUserId(userId);
+        if (assignments.isEmpty()) return false;
+
+        OrgUnit targetUnit = orgUnitRepository.findById(orgUnitId).orElse(null);
+        if (targetUnit == null) return false;
+
+        java.time.Instant now = java.time.Instant.now();
+        List<UserRoleOrgUnit> inScope = assignments.stream()
+                .filter(a -> a.getExpiresAt() == null || a.getExpiresAt().isAfter(now))
+                .filter(a -> targetUnit.getPath().startsWith(a.getOrgUnit().getPath()))
+                .toList();
+        if (inScope.isEmpty()) return false;
+
+        Map<UUID, Set<String>> rolePerms = getPermissionsByRole(inScope);
+        return inScope.stream()
+                .anyMatch(a -> rolePerms.getOrDefault(a.getRole().getId(), Collections.emptySet()).contains(permissionCode));
+    }
+
+    /**
      * Check if a user has any of the specific permission codes for a specific OrgUnit.
      */
     public boolean hasAnyPermissionInOrgUnit(UUID userId, UUID orgUnitId, String... permissionCodes) {

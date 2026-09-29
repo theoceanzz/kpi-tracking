@@ -1,12 +1,16 @@
 import { useState, type ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { Layers, Target, GitBranch, SlidersHorizontal, Gift, Wallet, ChevronDown, ArrowRight, AlertTriangle, HeartHandshake } from 'lucide-react'
+import { Layers, Target, GitBranch, SlidersHorizontal, Gift, Wallet, ChevronDown, ArrowRight, AlertTriangle, HeartHandshake, Users } from 'lucide-react'
 import { toast } from 'sonner'
 import { getApiErrorMessage } from '@/lib/apiError'
 import { cn } from '@/lib/utils'
 import { useUpdateOrganization } from '../hooks/useUpdateOrganization'
 import { Button } from '@/components/ui/button'
 import { Switch } from '@/components/ui/switch'
+import F360RatingToggle from '@/features/feedback360/components/F360RatingToggle'
+import { useTranslation } from 'react-i18next'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
 /**
  * Bật/tắt module của tổ chức.
@@ -25,6 +29,7 @@ type OrgFlagField =
   | 'enableOkr'
   | 'enableQualitative'
   | 'enableConduct'
+  | 'enableFeedback360'
   | 'enableBsc'
   | 'enableWaterfall'
   | 'enableReward'
@@ -65,28 +70,27 @@ function Steps({ items, tone }: { items: [string, string][]; tone: string }) {
   )
 }
 
-const MODULES: ModuleDef[] = [
+const MODULES = perLanguage((): ModuleDef[] => ([
   {
     field: 'enableOkr',
     icon: <Target size={18} />,
     tone: 'bg-[var(--color-primary-soft)] text-[var(--color-primary)]',
     title: 'OKR',
-    subtitle: 'Mục tiêu chiến lược và kết quả then chốt',
-    toastName: 'tính năng OKR',
+    subtitle: i18n.t('orgunits:ModuleSections.strategicObjectivesAndKeyResults'),
+    toastName: i18n.t('orgunits:ModuleSections.theOkrFeature'),
     manageTo: '/settings/tools?section=okr',
-    manageLabel: 'Quản lý OKR',
+    manageLabel: i18n.t('orgunits:ModuleSections.okrManagement'),
     detail: (
       <div className="space-y-3">
         <p>
-          Khi bật, bạn thiết lập các Mục tiêu chiến lược (Objectives) và Kết quả then chốt
-          (Key Results). KPI được liên kết trực tiếp vào Key Result để đo tiến độ thực hiện mục tiêu.
+          {i18n.t('orgunits:ModuleSections.whenOnYouSetStrategicObjectives')}
         </p>
         <Steps
           tone="text-[var(--color-primary)]"
           items={[
-            ['Objective (định tính)', 'Xác định các mục tiêu chiến lược của tổ chức.'],
-            ['Key Result (định lượng)', 'Chỉ số then chốt đo việc hoàn thành Objective.'],
-            ['KPI (vận hành)', 'Liên kết KPI vào Key Result để theo dõi tự động hàng ngày.'],
+            [i18n.t('orgunits:ModuleSections.objectiveQualitative'), i18n.t('orgunits:ModuleSections.defineTheOrganizationsStrategicObjectives')],
+            [i18n.t('orgunits:ModuleSections.keyResultQuantitative'), i18n.t('orgunits:ModuleSections.keyMetricsMeasuringTheCompletionOf')],
+            [i18n.t('orgunits:ModuleSections.kpiOperational'), i18n.t('orgunits:ModuleSections.linkKpisToKeyResultsFor')],
           ]}
         />
       </div>
@@ -96,17 +100,15 @@ const MODULES: ModuleDef[] = [
     field: 'enableQualitative',
     icon: <SlidersHorizontal size={18} />,
     tone: 'bg-[var(--color-success-bg)] text-[var(--color-success)]',
-    title: 'KPI hành vi',
-    subtitle: 'Chấm điểm bằng mức đánh giá thay vì con số',
-    toastName: 'KPI hành vi',
+    title: i18n.t('orgunits:ModuleSections.behavioralKpis'),
+    subtitle: i18n.t('orgunits:ModuleSections.scoreByEvaluationLevelInsteadOf'),
+    toastName: i18n.t('orgunits:ModuleSections.behavioralKpis'),
     manageTo: '/settings/tools?section=scoring&scoring=qualitative',
-    manageLabel: 'Thang điểm định tính',
+    manageLabel: i18n.t('orgunits:ModuleSections.qualitativeScale'),
     detail: (
       <p>
-        Dành cho KPI không đo được bằng con số. Loại này không chấm tự động — quản lý chọn một
-        mức trong <span className="font-semibold">Thang điểm định tính</span>. Khi tắt, hệ thống chỉ
-        hiển thị và tính điểm KPI định lượng; Ma trận đánh giá cũng ẩn theo, trừ khi bạn bật
-        <span className="font-semibold"> Chấm hạnh kiểm</span> để bù trục còn thiếu.
+        {i18n.t('orgunits:ModuleSections.forKpisThatCannotBeMeasured')} <span className="font-semibold">{i18n.t('orgunits:ModuleSections.qualitativeScale')}</span>{i18n.t('orgunits:ModuleSections.whenOffTheSystemOnlyShows')}
+        <span className="font-semibold"> {i18n.t('orgunits:ModuleSections.conductScoring')}</span> {i18n.t('orgunits:ModuleSections.toFillInTheMissingAxis')}
       </p>
     ),
   },
@@ -114,25 +116,41 @@ const MODULES: ModuleDef[] = [
     field: 'enableConduct',
     icon: <HeartHandshake size={18} />,
     tone: 'bg-[var(--color-error-bg)] text-[var(--color-error)]',
-    title: 'Chấm hạnh kiểm',
-    subtitle: 'Điểm hành vi theo bộ tiêu chí có trọng số',
-    toastName: 'chấm hạnh kiểm',
+    title: i18n.t('orgunits:ModuleSections.conductScoring'),
+    subtitle: i18n.t('orgunits:ModuleSections.conductScoreByWeightedCriteriaSet'),
+    toastName: i18n.t('orgunits:ModuleSections.conductScoring2'),
     manageTo: '/settings/tools?section=scoring&scoring=conduct',
-    manageLabel: 'Bộ tiêu chí hạnh kiểm',
+    manageLabel: i18n.t('orgunits:ModuleSections.conductCriteriaSets'),
     detail: (
       <div className="space-y-3">
         <p>
-          Mỗi đợt hoặc mỗi kỳ, nhân sự tự chấm và nêu dẫn chứng cho từng tiêu chí hành vi, cán bộ
-          quản lý trực tiếp chấm lại và nhận xét. Điểm hạnh kiểm ={' '}
-          <span className="font-semibold">Σ(điểm tiêu chí × trọng số)</span>. Mặc định là 4 tiêu chí —
-          Trung thực, Nhân ái, Trách nhiệm, Học tập suốt đời — mỗi tiêu chí 25%, sửa được tuỳ ý.
+          {i18n.t('orgunits:ModuleSections.eachPeriodOrCyclePeopleSelf')}{' '}
+          <span className="font-semibold">{i18n.t('orgunits:ModuleSections.criterionScoreWeight')}</span>{i18n.t('orgunits:ModuleSections.byDefaultThereAre4Criteria')}
         </p>
         <p>
-          Điểm này còn <span className="font-semibold">lấp trục còn thiếu của Ma trận đánh giá</span>:
-          tổ chức chỉ có KPI định lượng thì hạnh kiểm thành trục điểm hành vi; chỉ có KPI định tính
-          thì hạnh kiểm thành trục % hoàn thành. Có đủ cả hai loại KPI thì ma trận giữ nguyên hai
-          trục cũ, hạnh kiểm vẫn được chấm và lưu riêng.
+          {i18n.t('orgunits:ModuleSections.thisScoreAlso')} <span className="font-semibold">{i18n.t('orgunits:ModuleSections.fillsTheMissingAxisOfThe')}</span>{i18n.t('orgunits:ModuleSections.ifTheOrganizationHasOnlyQuantitative')}
         </p>
+      </div>
+    ),
+  },
+  {
+    field: 'enableFeedback360',
+    icon: <Users size={18} />,
+    tone: 'bg-[var(--color-info-bg)] text-[var(--color-info)]',
+    title: i18n.t('orgunits:ModuleSections.n360Feedback'),
+    subtitle: i18n.t('orgunits:ModuleSections.collectManagersPeersAndDirectReports'),
+    toastName: i18n.t('orgunits:ModuleSections.n360Feedback2'),
+    manageTo: '/performance?section=feedback360',
+    manageLabel: i18n.t('orgunits:ModuleSections.n360Campaign'),
+    detail: (
+      <div className="space-y-3">
+        <p>
+          {i18n.t('orgunits:ModuleSections.hrOpensA')} <span className="font-semibold">{i18n.t('orgunits:ModuleSections.campaigns')}</span>{i18n.t('orgunits:ModuleSections.choosesRevieweesTheSystemSuggestsRaters')}
+        </p>
+        <p>
+          {i18n.t('orgunits:ModuleSections.peerAndDirectReportFormsAre')} <span className="font-semibold">{i18n.t('orgunits:ModuleSections.anonymous')}</span>{i18n.t('orgunits:ModuleSections.groupsBelowTheThresholdDefault3')}
+        </p>
+        <F360RatingToggle />
       </div>
     ),
   },
@@ -140,16 +158,14 @@ const MODULES: ModuleDef[] = [
     field: 'enableBsc',
     icon: <Layers size={18} />,
     tone: 'bg-[var(--color-primary-soft)] text-[var(--color-primary)]',
-    title: 'Bộ tiêu chí (BSC)',
-    subtitle: 'Quản trị chiến lược theo 4 lĩnh vực',
-    toastName: 'bộ tiêu chí (BSC)',
+    title: i18n.t('orgunits:ModuleSections.scorecardBsc'),
+    subtitle: i18n.t('orgunits:ModuleSections.strategyManagementAcross4Areas'),
+    toastName: i18n.t('orgunits:ModuleSections.theScorecardBsc'),
     manageTo: '/settings/tools?section=bsc',
-    manageLabel: 'Quản lý BSC',
+    manageLabel: i18n.t('orgunits:ModuleSections.bscManagement'),
     detail: (
       <p>
-        Mỗi kỳ dựng một bộ tiêu chí gồm các hạng mục kèm trọng số, xếp theo 4 lĩnh vực cố định —
-        Tài chính, Khách hàng, Quy trình nội bộ, Học hỏi &amp; phát triển — rồi nhóm KPI theo
-        hạng mục để chấm điểm cân bằng giữa các lĩnh vực.
+        {i18n.t('orgunits:ModuleSections.eachCycleBuildsAScorecardOf')}
       </p>
     ),
   },
@@ -157,21 +173,20 @@ const MODULES: ModuleDef[] = [
     field: 'enableWaterfall',
     icon: <GitBranch size={18} />,
     tone: 'bg-[var(--color-info-bg)] text-[var(--color-info)]',
-    title: 'KPI thác nước',
-    subtitle: 'Phân rã chỉ tiêu xuống dưới, cộng dồn kết quả lên trên',
-    toastName: 'tính năng KPI Thác nước',
+    title: i18n.t('orgunits:ModuleSections.waterfallKpi'),
+    subtitle: i18n.t('orgunits:ModuleSections.cascadeKpisDownRollResultsUp'),
+    toastName: i18n.t('orgunits:ModuleSections.theWaterfallKpiFeature'),
     detail: (
       <div className="space-y-3">
         <p>
-          Cho phép trưởng đơn vị giao lại một phần hoặc toàn bộ chỉ tiêu của mình cho cấp dưới.
-          Kết quả của nhân viên tự động cộng dồn lên kết quả của cấp quản lý.
+          {i18n.t('orgunits:ModuleSections.letsUnitHeadsReassignPartOr')}
         </p>
         <Steps
           tone="text-[var(--color-info)]"
           items={[
-            ['Giao xuống', 'Trưởng đơn vị chia nhỏ 1 tỷ doanh số cho 3 nhân viên.'],
-            ['Thực hiện', 'Nhân viên nộp báo cáo kết quả phần việc được giao.'],
-            ['Cộng dồn', 'Hệ thống tự tổng hợp kết quả nhân viên cho trưởng đơn vị.'],
+            [i18n.t('orgunits:ModuleSections.assignDown'), i18n.t('orgunits:ModuleSections.theUnitHeadSplits1Billion')],
+            [i18n.t('orgunits:ModuleSections.execute'), i18n.t('orgunits:ModuleSections.employeesSubmitResultReportsForTheir')],
+            [i18n.t('orgunits:ModuleSections.rollUp'), i18n.t('orgunits:ModuleSections.theSystemAutomaticallySummarizesEmployeesResults')],
           ]}
         />
       </div>
@@ -181,17 +196,14 @@ const MODULES: ModuleDef[] = [
     field: 'enableReward',
     icon: <Gift size={18} />,
     tone: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]',
-    title: 'Thưởng điểm',
-    subtitle: 'Trao điểm ghi nhận, đổi quà',
-    toastName: 'tính năng thưởng điểm',
+    title: i18n.t('orgunits:ModuleSections.rewardPoints'),
+    subtitle: i18n.t('orgunits:ModuleSections.giveRecognitionPointsRedeemGifts'),
+    toastName: i18n.t('orgunits:ModuleSections.theRewardPointsFeature'),
     manageTo: '/settings/tools?section=rewards',
-    manageLabel: 'Quản lý thưởng',
+    manageLabel: i18n.t('orgunits:ModuleSections.rewardManagement'),
     detail: (
       <p>
-        Quản lý trao điểm cho nhân viên trong hạn mức được cấp; vượt hạn mức thì đề nghị chuyển
-        sang chờ duyệt. Điểm thưởng <span className="font-semibold">tách biệt hoàn toàn</span> với
-        điểm đánh giá KPI — không cộng vào kết quả đánh giá của bất kỳ ai. Tắt chỉ ẩn menu,
-        không xoá điểm đã phát; bật lại thấy nguyên số dư và lịch sử.
+        {i18n.t('orgunits:ModuleSections.managersGivePointsToEmployeesWithin')} <span className="font-semibold">{i18n.t('orgunits:ModuleSections.completelySeparate')}</span> {i18n.t('orgunits:ModuleSections.fromKpiEvaluationScoresTheyAre')}
       </p>
     ),
   },
@@ -199,21 +211,19 @@ const MODULES: ModuleDef[] = [
     field: 'enableCashWallet',
     icon: <Wallet size={18} />,
     tone: 'bg-[var(--color-info-bg)] text-[var(--color-info)]',
-    title: 'Ví tiền',
-    subtitle: 'Nạp tiền thật qua VietQR để đổi sang điểm',
-    toastName: 'tính năng ví tiền',
-    caution: 'Đây là tiền thật chuyển vào tài khoản ngân hàng công ty và không có đường rút ra.',
+    title: i18n.t('orgunits:ModuleSections.wallet'),
+    subtitle: i18n.t('orgunits:ModuleSections.topUpRealMoneyViaVietqr'),
+    toastName: i18n.t('orgunits:ModuleSections.theWalletFeature'),
+    caution: i18n.t('orgunits:ModuleSections.thisIsRealMoneyTransferredInto'),
     manageTo: '/settings/tools?section=wallet',
-    manageLabel: 'Quản lý ví',
+    manageLabel: i18n.t('orgunits:ModuleSections.walletManagement'),
     detail: (
       <p>
-        Nhân viên nạp tiền qua mã VietQR rồi tự đổi số dư sang điểm thưởng theo tỉ giá công ty
-        đặt. Cần cấu hình tài khoản ngân hàng ở trang Quản lý ví trước khi nhân viên nạp được.
-        Tắt chỉ ẩn menu và chặn tạo đơn nạp mới, không xoá số dư đã có.
+        {i18n.t('orgunits:ModuleSections.employeesTopUpViaAVietqr')}
       </p>
     ),
   },
-]
+]))
 
 /** Ranh giới cụm: từ "Thưởng điểm" trở đi là nhóm ghi nhận & thưởng. */
 const REWARD_GROUP_START: OrgFlagField = 'enableReward'
@@ -221,6 +231,7 @@ const REWARD_GROUP_START: OrgFlagField = 'enableReward'
 type OrgFlags = { id: string } & Partial<Record<OrgFlagField, boolean>>
 
 export function ModuleTogglesSection({ org }: { org: OrgFlags }) {
+  const { t } = useTranslation('orgunits')
   const updateMutation = useUpdateOrganization(org.id)
   const [openField, setOpenField] = useState<OrgFlagField | null>(null)
   const [savingField, setSavingField] = useState<OrgFlagField | null>(null)
@@ -243,7 +254,7 @@ export function ModuleTogglesSection({ org }: { org: OrgFlags }) {
     updateMutation.mutate({ [mod.field]: next }, {
       onSuccess: () => {
         setSavingField(null)
-        toast.success(`Đã ${next ? 'bật' : 'tắt'} ${mod.toastName}`)
+        toast.success(t('ModuleSections.text', { value: next ? t('ModuleSections.turnedOn') : t('ModuleSections.turnedOff'), toastName: mod.toastName }))
       },
       onError: (error) => {
         // Bỏ override để công tắc quay về đúng trạng thái máy chủ đang giữ —
@@ -254,7 +265,7 @@ export function ModuleTogglesSection({ org }: { org: OrgFlags }) {
           delete rest[mod.field]
           return rest
         })
-        toast.error(getApiErrorMessage(error, `Không thể cập nhật ${mod.toastName}`))
+        toast.error(getApiErrorMessage(error, t('ModuleSections.couldNotUpdate', { toastName: mod.toastName })))
       },
     })
   }
@@ -262,14 +273,14 @@ export function ModuleTogglesSection({ org }: { org: OrgFlags }) {
   return (
     <section className="mx-auto max-w-4xl overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
       <div className="border-b border-[var(--color-border)] px-5 py-4">
-        <h3 className="text-section-title">Module & tính năng</h3>
+        <h3 className="text-section-title">{t('ModuleSections.modulesFeatures')}</h3>
         <p className="mt-0.5 text-sm text-[var(--color-muted-foreground)]">
-          Tắt module nào thì mục menu và các bước liên quan cũng biến mất theo.
+          {t('ModuleSections.whenAModuleIsTurnedOff')}
         </p>
       </div>
 
       <div className="divide-y divide-[var(--color-border)]">
-        {MODULES.map(mod => {
+        {MODULES().map(mod => {
           const enabled = isEnabled(mod.field)
           const isOpen = openField === mod.field
 
@@ -277,7 +288,7 @@ export function ModuleTogglesSection({ org }: { org: OrgFlags }) {
             <div key={mod.field}>
               {mod.field === REWARD_GROUP_START && (
                 <div className="bg-[var(--color-muted)] px-5 py-2">
-                  <span className="text-eyebrow">Ghi nhận & thưởng</span>
+                  <span className="text-eyebrow">{t('ModuleSections.recognitionRewards')}</span>
                 </div>
               )}
 
@@ -299,7 +310,7 @@ export function ModuleTogglesSection({ org }: { org: OrgFlags }) {
 
                   <div className="flex items-center gap-4 pt-1">
                     <Button variant="ghost" size="sm" type="button" onClick={() => setOpenField(isOpen ? null : mod.field)} aria-expanded={isOpen}>
-                      Chi tiết
+                      {t('ModuleSections.details')}
                       <ChevronDown aria-hidden="true" className={cn('transition-transform', isOpen && 'rotate-180')} />
                     </Button>
 
@@ -329,7 +340,7 @@ export function ModuleTogglesSection({ org }: { org: OrgFlags }) {
                   checked={enabled}
                   onCheckedChange={() => handleToggle(mod)}
                   disabled={savingField === mod.field}
-                  aria-label={`${enabled ? 'Tắt' : 'Bật'} ${mod.title}`}
+                  aria-label={`${enabled ? t('ModuleSections.off') : t('ModuleSections.on')} ${mod.title}`}
                   className="mt-0.5"
                 />
               </div>

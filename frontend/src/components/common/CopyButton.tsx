@@ -3,6 +3,7 @@ import { Copy, Loader2 } from 'lucide-react'
 import { toBlob } from 'html-to-image'
 import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
+import { useTranslation } from 'react-i18next'
 
 interface CopyButtonProps {
   targetRef: React.RefObject<any>;
@@ -20,6 +21,7 @@ interface CopyButtonProps {
  * không lọc thì ảnh dán ra chỗ nào cũng dính hai cái nút.
  */
 export function useCopyImage() {
+  const { t } = useTranslation('shared')
   const [isCopying, setIsCopying] = useState(false)
 
   const copy = useCallback(async (node: HTMLElement | null) => {
@@ -37,20 +39,21 @@ export function useCopyImage() {
 
       if (blob) {
         await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })])
-        toast.success('Đã sao chép ảnh vào Clipboard!')
+        toast.success(t('CopyButton.imageCopiedToTheClipboard'))
       }
     } catch (err) {
       console.error('Failed to copy:', err)
-      toast.error('Không thể sao chép ảnh. Vui lòng thử lại.')
+      toast.error(t('CopyButton.couldNotCopyTheImagePlease'))
     } finally {
       setIsCopying(false)
     }
-  }, [])
+  }, [t])
 
   return { copy, isCopying }
 }
 
 export function CopyButton({ targetRef, className, label }: CopyButtonProps) {
+  const { t } = useTranslation('shared')
   const { copy, isCopying } = useCopyImage()
 
   const handleCopy = async (e: React.MouseEvent) => {
@@ -66,7 +69,7 @@ export function CopyButton({ targetRef, className, label }: CopyButtonProps) {
         "p-2 hover:bg-[var(--color-muted)] rounded-card text-[var(--color-subtle-foreground)] transition-all disabled:opacity-50 flex items-center gap-2 border border-transparent hover:border-[var(--color-border)]",
         className
       )}
-      title="Sao chép ảnh vào Clipboard"
+      title={t('CopyButton.copyImageToTheClipboard')}
     >
       {isCopying ? <Loader2 size={16} className="animate-spin text-[var(--color-primary)]" /> : <Copy size={16} />}
       {label && <span className="text-xs font-semibold uppercase tracking-tight">{label}</span>}

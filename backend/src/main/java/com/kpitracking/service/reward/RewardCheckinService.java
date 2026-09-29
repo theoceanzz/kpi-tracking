@@ -2,6 +2,7 @@ package com.kpitracking.service.reward;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.kpitracking.i18n.ErrorMessages;
 import com.kpitracking.dto.request.reward.RewardCheckinConfigRequest;
 import com.kpitracking.dto.request.reward.RewardCheckinConfigRequest.StreakBonus;
 import com.kpitracking.dto.response.reward.RewardCheckinConfigResponse;
@@ -14,7 +15,9 @@ import com.kpitracking.entity.User;
 import com.kpitracking.enums.RewardSourceType;
 import com.kpitracking.enums.RewardTransactionType;
 import com.kpitracking.exception.BusinessException;
+import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.ResourceNotFoundException;
+import com.kpitracking.i18n.Terms;
 import com.kpitracking.repository.OrganizationRepository;
 import com.kpitracking.repository.RewardCheckinConfigRepository;
 import com.kpitracking.repository.RewardCheckinRepository;
@@ -104,7 +107,7 @@ public class RewardCheckinService {
         RewardCheckinConfig config = configRepository.findByOrganizationId(orgId)
                 .orElseGet(() -> {
                     Organization org = organizationRepository.findById(orgId)
-                            .orElseThrow(() -> new ResourceNotFoundException("Tổ chức", "id", orgId));
+                            .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.organization"), "id", orgId));
                     return RewardCheckinConfig.builder().organization(org).build();
                 });
 
@@ -132,14 +135,11 @@ public class RewardCheckinService {
         Set<Integer> seen = new HashSet<>();
         for (StreakBonus b : bonuses) {
             if (!seen.add(b.getDay())) {
-                throw new BusinessException("Có hai mốc thưởng cùng đặt ở ngày " + b.getDay()
-                        + ". Mỗi ngày chỉ được một mốc.");
+                throw new BusinessException(ErrorCode.TWO_REWARD_MILESTONES_SET_DAY, String.valueOf(b.getDay()));
             }
             Integer cycle = request.getStreakCycleDays();
             if (cycle != null && b.getDay() > cycle) {
-                throw new BusinessException("Mốc thưởng ngày " + b.getDay()
-                        + " nằm ngoài chu kỳ " + cycle + " ngày nên sẽ không bao giờ được trao. "
-                        + "Hãy hạ ngày của mốc xuống tối đa " + cycle + ", hoặc nới chu kỳ.");
+                throw new BusinessException(ErrorCode.REWARD_MILESTONE_DAY_OUTSIDE_DAY_CYCLE_NEVER, String.valueOf(b.getDay()), String.valueOf(cycle), String.valueOf(cycle));
             }
         }
 
@@ -175,32 +175,31 @@ public class RewardCheckinService {
         UUID orgId = context.getOrgIdOf(me.getId());
 
         Organization org = organizationRepository.findById(orgId)
-                .orElseThrow(() -> new ResourceNotFoundException("Tổ chức", "id", orgId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.organization"), "id", orgId));
         if (!Boolean.TRUE.equals(org.getEnableReward())) {
-            throw new BusinessException("Tổ chức chưa bật tính năng điểm thưởng.");
+            throw new BusinessException(ErrorCode.ORGANIZATION_NOT_ENABLED_REWARD_POINTS);
         }
 
         RewardCheckinConfig config = loadConfig(orgId);
         if (!Boolean.TRUE.equals(config.getEnabled())) {
-            throw new BusinessException("Tổ chức chưa bật điểm danh hàng ngày.");
+            throw new BusinessException(ErrorCode.ORGANIZATION_NOT_ENABLED_DAILY_CHECK);
         }
 
         // Chặn ở đây chứ không chỉ ẩn nút: giao diện ẩn rồi thì gọi thẳng API vẫn cộng
         // được điểm, mà điểm danh có thể quy ra quà nên đây là chỗ tiêu tiền thật.
         if (context.isTopLeadership(me.getId())) {
-            throw new BusinessException("Lãnh đạo công ty không cần điểm danh.");
+            throw new BusinessException(ErrorCode.COMPANY_LEADERS_DO_NOT_NEED_CHECK);
         }
 
         LocalDate date = today();
         if (isRestDay(date, config)) {
-            throw new BusinessException("Hôm nay là ngày nghỉ nên không điểm danh được. "
-                    + "Chuỗi của bạn vẫn được giữ nguyên tới ngày làm việc tiếp theo.");
+            throw new BusinessException(ErrorCode.TODAY_DAY_OFF_CHECK_NOT_AVAILABLE);
         }
 
         // Lớp 1: đã có dòng của hôm nay. Xử lý gần như toàn bộ trường hợp thực tế
         // (bấm hai lần, mở hai tab) và cho được thông báo tử tế thay vì lỗi 409.
         if (checkinRepository.findByOrganizationIdAndUserIdAndCheckinDate(orgId, me.getId(), date).isPresent()) {
-            throw new BusinessException("Bạn đã điểm danh hôm nay rồi. Hẹn gặp lại vào ngày mai!");
+            throw new BusinessException(ErrorCode.CHECKED_TODAY);
         }
 
         Streak streak = computeStreak(orgId, me.getId(), date, config);
@@ -218,9 +217,8 @@ public class RewardCheckinService {
                 .sourceType(RewardSourceType.CHECKIN)
                 .idempotencyKey(RewardWalletService.key("checkin", me.getId(), date))
                 .note(bonus > 0
-                        ? "Điểm danh ngày " + fmt(date) + " — chuỗi " + streak.length()
-                          + " ngày, thưởng mốc +" + bonus
-                        : "Điểm danh ngày " + fmt(date))
+                        ? walletService.noteFor(me.getId(), "ledger.checkinBonus", fmt(date), streak.length(), bonus)
+                        : walletService.noteFor(me.getId(), "ledger.checkin", fmt(date)))
                 .actor(me)
                 .build());
 
@@ -361,10 +359,10 @@ public class RewardCheckinService {
     private static String blockedReason(boolean enabled, boolean exempt, boolean checkedIn, boolean restDay) {
         // Xét trước "tổ chức chưa bật": người được miễn cũng có enabled = false, nói họ
         // rằng tổ chức chưa bật là sai — tính năng vẫn đang chạy cho mọi người khác.
-        if (exempt) return "Lãnh đạo công ty không cần điểm danh.";
-        if (!enabled) return "Tổ chức chưa bật điểm danh hàng ngày.";
-        if (checkedIn) return "Bạn đã điểm danh hôm nay.";
-        if (restDay) return "Hôm nay là ngày nghỉ — chuỗi của bạn vẫn được giữ nguyên.";
+        if (exempt) return ErrorMessages.text("error.COMPANY_LEADERS_DO_NOT_NEED_CHECK", "");
+        if (!enabled) return ErrorMessages.text("error.ORGANIZATION_NOT_ENABLED_DAILY_CHECK", "");
+        if (checkedIn) return ErrorMessages.text("reward.checkin.alreadyToday", "");
+        if (restDay) return ErrorMessages.text("reward.checkin.restDay", "");
         return null;
     }
 
@@ -448,7 +446,7 @@ public class RewardCheckinService {
         try {
             return MAPPER.writeValueAsString(bonuses);
         } catch (Exception ex) {
-            throw new BusinessException("Không đọc được danh sách mốc thưởng chuỗi.");
+            throw new BusinessException(ErrorCode.COULD_NOT_READ_LIST_STREAK_REWARD_MILESTONES);
         }
     }
 

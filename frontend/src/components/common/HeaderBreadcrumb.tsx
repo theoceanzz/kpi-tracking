@@ -3,9 +3,10 @@ import { ArrowLeft, ChevronRight } from 'lucide-react'
 import { navItems, type NavItem } from '@/config/navigation'
 import { useNavLabels } from '@/features/organization/hooks/useNavLabels'
 import { Button } from '@/components/ui/button'
+import { useTranslation } from 'react-i18next'
 
 /** Mục nav sở hữu trang gộp đang mở (trang có `sections` và path khớp route hiện tại). */
-function findSectionOwner(pathname: string, items: NavItem[] = navItems): NavItem | undefined {
+function findSectionOwner(pathname: string, items: NavItem[] = navItems()): NavItem | undefined {
   for (const item of items) {
     if (item.sections && item.path === pathname) return item
     const found = item.children ? findSectionOwner(pathname, item.children) : undefined
@@ -24,6 +25,7 @@ function findSectionOwner(pathname: string, items: NavItem[] = navItems): NavIte
  * Không có mục nào đang mở (đang ở màn hình lưới thẻ) thì không hiện gì.
  */
 export default function HeaderBreadcrumb() {
+  const { t } = useTranslation('shared')
   const location = useLocation()
   const [searchParams, setSearchParams] = useSearchParams()
   const { labelOf } = useNavLabels()
@@ -42,11 +44,11 @@ export default function HeaderBreadcrumb() {
 
   return (
     <div className="flex items-center gap-3 min-w-0">
-      <Button variant="outline" size="icon" className="shrink-0" onClick={goBack} aria-label={`Quay lại ${labelOf(owner)}`} title={`Quay lại ${labelOf(owner)}`}>
+      <Button variant="outline" size="icon" className="shrink-0" onClick={goBack} aria-label={t('HeaderBreadcrumb.backTo', { owner: labelOf(owner) })} title={t('HeaderBreadcrumb.backTo', { owner: labelOf(owner) })}>
         <ArrowLeft aria-hidden="true" />
       </Button>
 
-      <nav aria-label="Đường dẫn" className="flex min-w-0 items-center gap-1.5 text-[13px]">
+      <nav aria-label={t('HeaderBreadcrumb.breadcrumb')} className="flex min-w-0 items-center gap-1.5 text-[13px]">
         <Button variant="ghost" className="shrink-0" onClick={goBack}>
           {labelOf(owner)}
         </Button>

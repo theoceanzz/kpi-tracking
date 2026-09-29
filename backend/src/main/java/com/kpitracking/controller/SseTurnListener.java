@@ -1,5 +1,6 @@
 package com.kpitracking.controller;
 
+import com.kpitracking.i18n.ErrorMessages;
 import com.kpitracking.dto.response.ai.AiChatResponse;
 import com.kpitracking.exception.AiQuotaExceededException;
 import com.kpitracking.exception.AiRateLimitException;
@@ -81,7 +82,21 @@ class SseTurnListener implements TurnListener {
 
     void failed(Exception e) {
         log.error("Lượt hỏi streaming thất bại: {}", e.getMessage(), e);
-        send("error", Map.of("message", userMessageFor(e)));
+        send("error", Map.of("message", userMessageFor(e), "status", statusFor(e)));
+    }
+
+    /**
+     * Mã HTTP mà ĐƯỜNG JSON sẽ trả cho đúng ngoại lệ này (xem {@code GlobalExceptionHandler}).
+     *
+     * <p>Kèm theo để client phân nhánh giống hệt hai đường: màn chat hiện câu riêng cho hết hạn mức
+     * (402) và gửi quá nhanh (429). Không có mã thì mọi lỗi rơi vào nhánh chung và người dùng chỉ
+     * thấy "đã có lỗi xảy ra" — đúng thứ đã xảy ra với người hết hạn mức token.
+     */
+    private static int statusFor(Exception e) {
+        if (e instanceof AiQuotaExceededException) return 402;
+        if (e instanceof AiTokenQuotaExceededException || e instanceof AiRateLimitException) return 429;
+        if (e instanceof ForbiddenException) return 403;
+        return 500;
     }
 
     /**
@@ -98,13 +113,13 @@ class SseTurnListener implements TurnListener {
      */
     private static String userMessageFor(Exception e) {
         if (e instanceof AiQuotaExceededException) {
-            return "Hệ thống AI đã đạt giới hạn sử dụng. Vui lòng thử lại sau ít phút.";
+            return ErrorMessages.text("error.AI_QUOTA_EXHAUSTED", "");
         }
         if (e instanceof AiTokenQuotaExceededException || e instanceof AiRateLimitException
                 || e instanceof ForbiddenException) {
             return e.getMessage();
         }
-        return "Xin lỗi, mình gặp trục trặc khi xử lý yêu cầu này. Bạn thử lại giúp mình nhé.";
+        return ErrorMessages.text("ai.failed", "");
     }
 
     private void send(String event, Object data) {

@@ -15,15 +15,17 @@ import {
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import { useTranslation } from 'react-i18next'
 
 export default function ForceChangePasswordPage() {
+  const { t } = useTranslation('auth')
   const navigate = useNavigate()
   const { user, setUser } = useAuthStore()
   // useAuth.logout gọi API để backend xoá cookie phiên; logout của store chỉ dọn state cục bộ.
   const { logout } = useAuth()
 
   const { register, handleSubmit, control, setValue } = useForm<ForceChangePasswordFormData>({
-    resolver: zodResolver(forceChangePasswordSchema),
+    resolver: zodResolver(forceChangePasswordSchema()),
     defaultValues: { newPassword: '', confirmPassword: '' },
   })
 
@@ -43,14 +45,14 @@ export default function ForceChangePasswordPage() {
   const mutation = useMutation({
     mutationFn: (data: any) => authApi.changePassword(data),
     onSuccess: () => {
-      toast.success('Mật khẩu đã được cập nhật thành công!')
+      toast.success(t('ForceChangePasswordPage.yourPasswordHasBeenUpdatedSuccessfully'))
       if (user) {
         setUser({ ...user, requirePasswordChange: false })
       }
       navigate('/dashboard', { replace: true })
     },
     onError: (error: any) => {
-      const message = getApiErrorMessage(error, 'Đổi mật khẩu thất bại. Vui lòng thử lại.')
+      const message = getApiErrorMessage(error, t('ForceChangePasswordPage.passwordChangeFailedPleaseTryAgain'))
       toast.error(message)
     },
   })
@@ -91,9 +93,9 @@ export default function ForceChangePasswordPage() {
               <ShieldCheck size={44} strokeWidth={1.5} />
             </div>
             <div className="space-y-2">
-              <h1 className="text-page-title text-[var(--color-foreground)]">Thiết lập mật khẩu mới</h1>
+              <h1 className="text-page-title text-[var(--color-foreground)]">{t('ForceChangePasswordPage.setANewPassword')}</h1>
               <p className="text-[var(--color-muted-foreground)] text-sm font-medium px-8 leading-relaxed">
-                Xin chào <span className="text-[var(--color-primary)] font-semibold">{user?.fullName}</span>. Vì đây là lần đầu bạn tham gia hệ thống, hãy đặt mật khẩu riêng để bảo vệ tài khoản của mình.
+                {t('ForceChangePasswordPage.hello')} <span className="text-[var(--color-primary)] font-semibold">{user?.fullName}</span>{t('ForceChangePasswordPage.sinceThisIsYourFirstTime')}
               </p>
             </div>
           </div>
@@ -103,7 +105,7 @@ export default function ForceChangePasswordPage() {
             <div className="space-y-5">
               {/* New Password */}
               <div className="space-y-2">
-                <label className="text-label tracking-widest ml-1">Mật khẩu cá nhân mới</label>
+                <label className="text-label tracking-widest ml-1">{t('ForceChangePasswordPage.newPersonalPassword')}</label>
                 <div className="relative group">
                   <div className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--color-subtle-foreground)] group-focus-within:text-[var(--color-primary)] transition-colors">
                     <Lock size={18} />
@@ -112,11 +114,11 @@ export default function ForceChangePasswordPage() {
                     {...register('newPassword')}
                     type={showNew ? 'text' : 'password'}
                     className="no-edit-hint w-full pl-12 pr-28 py-4 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] text-sm font-medium focus:outline-none focus:ring-4 focus:ring-[var(--color-ring)] focus:border-[var(--color-primary)] transition-all"
-                    placeholder="Đặt mật khẩu bảo mật của bạn"
+                    placeholder={t('ForceChangePasswordPage.setYourSecurePassword')}
                   />
                   <div className="absolute right-3 top-1/2 -translate-y-1/2 flex items-center gap-1">
                     <Button variant="ghost" size="sm" type="button" onClick={generatePassword}>
-                      <Wand2 aria-hidden="true" /> Gợi ý
+                      <Wand2 aria-hidden="true" /> {t('ForceChangePasswordPage.suggest')}
                     </Button>
                     <Button variant="ghost" type="button" onClick={() => setShowNew(!showNew)}>
                       {showNew ? <EyeOff aria-hidden="true" /> : <Eye aria-hidden="true" />}
@@ -128,12 +130,12 @@ export default function ForceChangePasswordPage() {
                 {pwd && (
                   <div className="mt-3 p-4 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)] animate-in fade-in slide-in-from-top-2 duration-300">
                     <div className="text-eyebrow flex justify-between items-center mb-3">
-                      <span className="text-[var(--color-subtle-foreground)]">Độ mạnh mật khẩu</span>
+                      <span className="text-[var(--color-subtle-foreground)]">{t('ForceChangePasswordPage.passwordStrength')}</span>
                       <span className={cn(
                         "px-2 py-0.5 rounded-full bg-[var(--color-card)] shadow-sm border border-[var(--color-border)]",
                         strengthScore <= 2 ? "text-[var(--color-error)]" : strengthScore <= 4 ? "text-[var(--color-warning)]" : "text-[var(--color-success)]"
                       )}>
-                        {strengthScore <= 2 ? "Yếu" : strengthScore <= 4 ? "Trung bình" : "Mạnh"}
+                        {strengthScore <= 2 ? t('ForceChangePasswordPage.weak') : strengthScore <= 4 ? t('ForceChangePasswordPage.medium') : t('ForceChangePasswordPage.strong')}
                       </span>
                     </div>
                     <div className="h-1.5 w-full bg-[var(--color-border)] rounded-full overflow-hidden flex gap-1">
@@ -155,7 +157,7 @@ export default function ForceChangePasswordPage() {
 
               {/* Confirm Password */}
               <div className="space-y-2">
-                <label className="text-label tracking-widest ml-1">Xác nhận mật khẩu</label>
+                <label className="text-label tracking-widest ml-1">{t('ForceChangePasswordPage.confirmPassword')}</label>
                 <div className="relative group">
                   <div className="absolute left-4 top-1/2 -translate-y-1/2 text-[var(--color-subtle-foreground)] group-focus-within:text-[var(--color-primary)] transition-colors">
                     <CheckCircle2 size={18} />
@@ -164,7 +166,7 @@ export default function ForceChangePasswordPage() {
                     {...register('confirmPassword')}
                     type={showConfirm ? 'text' : 'password'}
                     className="no-edit-hint w-full pl-12 pr-12 py-4 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] text-sm font-medium focus:outline-none focus:ring-4 focus:ring-[var(--color-ring)] focus:border-[var(--color-primary)] transition-all"
-                    placeholder="Nhập lại mật khẩu mới"
+                    placeholder={t('ForceChangePasswordPage.reEnterTheNewPassword')}
                   />
                   <button
                     type="button"
@@ -182,7 +184,7 @@ export default function ForceChangePasswordPage() {
                       : "bg-[var(--color-error-bg)] text-[var(--color-error)] border border-[var(--color-error-border)]"
                   )}>
                     {pwd === confirmPwd ? <Check size={14} /> : <X size={14} />}
-                    {pwd === confirmPwd ? "Mật khẩu đã trùng khớp" : "Mật khẩu chưa khớp nhau"}
+                    {pwd === confirmPwd ? t('ForceChangePasswordPage.passwordsMatch') : t('ForceChangePasswordPage.passwordsDoNotMatchYet')}
                   </div>
                 )}
               </div>
@@ -191,18 +193,18 @@ export default function ForceChangePasswordPage() {
             <div className="pt-4 flex flex-col gap-4">
               <Button className="w-full" type="submit" disabled={mutation.isPending || pwd !== confirmPwd || strengthScore < 3}>
                 {mutation.isPending ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Save aria-hidden="true" />}
-                Cập nhật & Bắt đầu sử dụng
+                {t('ForceChangePasswordPage.updateGetStarted')}
               </Button>
 
               <Button variant="ghost" className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]" type="button" onClick={logout}>
-                <LogOut aria-hidden="true" /> Thoát tài khoản
+                <LogOut aria-hidden="true" /> {t('ForceChangePasswordPage.signOut')}
               </Button>
             </div>
           </form>
         </div>
         
         <p className="mt-8 text-center text-[var(--color-subtle-foreground)] text-xs font-medium">
-          Hệ thống Quản trị KPI & Phân tích hiệu suất © 2026
+          {t('ForceChangePasswordPage.kpiManagementPerformanceAnalyticsSystem2026')}
         </p>
       </div>
     </div>

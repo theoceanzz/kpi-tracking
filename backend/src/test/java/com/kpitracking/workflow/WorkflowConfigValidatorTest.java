@@ -1,5 +1,6 @@
 package com.kpitracking.workflow;
 
+import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.BusinessException;
 import com.kpitracking.workflow.def.StageConfig;
 import com.kpitracking.workflow.def.WorkflowConfig;
@@ -69,7 +70,8 @@ class WorkflowConfigValidatorTest {
 
         assertThatThrownBy(() -> validator.validateOrThrow(config))
                 .isInstanceOf(BusinessException.class)
-                .hasMessageContaining("Duyệt điều chỉnh");
+                .hasMessageContaining("Duyệt điều chỉnh")
+                .extracting("errorCode").isEqualTo(ErrorCode.INVALID_KPI_FLOW_CONFIGURATION);
     }
 
     @Test

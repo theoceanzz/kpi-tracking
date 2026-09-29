@@ -1,5 +1,6 @@
 package com.kpitracking.service;
 
+import com.kpitracking.i18n.ErrorMessages;
 import com.kpitracking.dto.response.ai.InsightCardResponse;
 import com.kpitracking.dto.response.ai.InsightCardResponse.InsightContext;
 import com.kpitracking.entity.KpiPeriod;
@@ -84,9 +85,9 @@ public class InsightService {
         if (perf <= 0) return null;
         InsightContext c = InsightContext.builder()
                 .entityType("ORG_UNIT").metricKey("avg_performance").value(round(perf)).build();
-        return card(InsightType.SUMMARY, "Tổng quan",
-                String.format(Locale.US, "Đơn vị của bạn đang đạt hiệu suất đánh giá trung bình %.0f%%.", perf),
-                "Cho tôi tổng quan hiệu suất KPI của đơn vị và những điểm cần lưu ý.",
+        return card(InsightType.SUMMARY, ErrorMessages.text("insight.summary.title", ""),
+                ErrorMessages.text("insight.summary.text", "", perf),
+                ErrorMessages.text("insight.summary.ask", ""),
                 c);
     }
 
@@ -109,10 +110,10 @@ public class InsightService {
                     .entityType("PERIOD").entityId(p.getId().toString()).entityName(p.getName())
                     .metricKey("completion").value(round(completion)).periodLabel(p.getName())
                     .daysLeft(daysLeft).build();
-            out.add(card(InsightType.DEADLINE_RISK, "Nguy cơ trễ hạn",
-                    String.format(Locale.US, "Kỳ \"%s\" còn %d ngày nhưng mới đạt %.0f%% mục tiêu.",
+            out.add(card(InsightType.DEADLINE_RISK, ErrorMessages.text("insight.deadlineRisk.title", ""),
+                    ErrorMessages.text("insight.deadlineRisk.text", "",
                             p.getName(), daysLeft, completion),
-                    String.format(Locale.US, "Vì sao kỳ \"%s\" đang chậm tiến độ và cần ưu tiên xử lý gì?", p.getName()),
+                    ErrorMessages.text("insight.deadlineRisk.ask", "", p.getName()),
                     c));
         }
         return out;
@@ -141,19 +142,19 @@ public class InsightService {
                 .filter(up -> up.perf() < belowCut)
                 .sorted(Comparator.comparingDouble(UnitPerf::perf))
                 .limit(MAX_PER_UNIT_RULE)
-                .forEach(up -> out.add(card(InsightType.BELOW, "Hiệu suất thấp",
-                        String.format(Locale.US, "Đơn vị \"%s\" chỉ đạt hiệu suất đánh giá %.0f%%, dưới ngưỡng cảnh báo %.0f%%.",
+                .forEach(up -> out.add(card(InsightType.BELOW, ErrorMessages.text("insight.below.title", ""),
+                        ErrorMessages.text("insight.below.text", "",
                                 up.unit().getName(), up.perf(), belowCut),
-                        String.format(Locale.US, "Vì sao \"%s\" có hiệu suất thấp và ai chịu trách nhiệm?", up.unit().getName()),
+                        ErrorMessages.text("insight.below.ask", "", up.unit().getName()),
                         unitContext(up.unit(), up.perf()))));
 
         perfs.stream()
                 .filter(up -> up.perf() >= highCut)
                 .sorted(Comparator.comparingDouble(UnitPerf::perf).reversed())
                 .limit(MAX_PER_UNIT_RULE)
-                .forEach(up -> out.add(card(InsightType.EXCEED, "Hiệu suất cao",
-                        String.format(Locale.US, "Đơn vị \"%s\" đạt hiệu suất đánh giá cao: %.0f%%.", up.unit().getName(), up.perf()),
-                        String.format(Locale.US, "\"%s\" đã làm gì để đạt hiệu suất cao và có thể nhân rộng không?", up.unit().getName()),
+                .forEach(up -> out.add(card(InsightType.EXCEED, ErrorMessages.text("insight.exceed.title", ""),
+                        ErrorMessages.text("insight.exceed.text", "", up.unit().getName(), up.perf()),
+                        ErrorMessages.text("insight.exceed.ask", "", up.unit().getName()),
                         unitContext(up.unit(), up.perf()))));
         return out;
     }
@@ -176,15 +177,15 @@ public class InsightService {
                 .value(round(curPerf)).deltaPct(round(delta)).periodLabel(periodLabel).build();
 
         if (delta > SPIKE_THRESHOLD) {
-            return List.of(card(InsightType.SPIKE, "Tăng đột biến",
-                    String.format(Locale.US, "Hiệu suất kỳ %s tăng %.0f%% so với kỳ trước.", periodLabel, delta),
-                    String.format(Locale.US, "Yếu tố nào giúp hiệu suất kỳ %s tăng mạnh?", periodLabel),
+            return List.of(card(InsightType.SPIKE, ErrorMessages.text("insight.spike.title", ""),
+                    ErrorMessages.text("insight.spike.text", "", periodLabel, delta),
+                    ErrorMessages.text("insight.spike.ask", "", periodLabel),
                     c));
         }
         if (delta < DROP_THRESHOLD) {
-            return List.of(card(InsightType.DROP, "Sụt giảm",
-                    String.format(Locale.US, "Hiệu suất kỳ %s giảm %.0f%% so với kỳ trước.", periodLabel, Math.abs(delta)),
-                    String.format(Locale.US, "Điều gì khiến hiệu suất kỳ %s sụt giảm?", periodLabel),
+            return List.of(card(InsightType.DROP, ErrorMessages.text("insight.drop.title", ""),
+                    ErrorMessages.text("insight.drop.text", "", periodLabel, Math.abs(delta)),
+                    ErrorMessages.text("insight.drop.ask", "", periodLabel),
                     c));
         }
         return List.of();

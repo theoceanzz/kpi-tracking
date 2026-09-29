@@ -1,5 +1,6 @@
 package com.kpitracking.service;
 
+import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.BusinessException;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -58,9 +59,9 @@ class AttachmentPolicyTest {
                 file("virus.exe", "application/octet-stream", JPEG_HEAD),
         }, 0))
                 .isInstanceOf(BusinessException.class)
-                .hasMessageContaining("không được hỗ trợ")
                 // Nói không thôi thì người dùng phải đoán; thông điệp phải kèm cả danh sách nhận được.
-                .hasMessageContaining("PDF");
+                .hasMessageContaining("PDF")
+                .extracting("errorCode").isEqualTo(ErrorCode.FILE_NOT_SUPPORTED);
     }
 
     @Test
@@ -82,7 +83,7 @@ class AttachmentPolicyTest {
                 file("bang-chung.jpg", "image/jpeg", html),
         }, 0))
                 .isInstanceOf(BusinessException.class)
-                .hasMessageContaining("không đúng là định dạng");
+                .extracting("errorCode").isEqualTo(ErrorCode.CONTENT_FILE_NOT_REALLY);
     }
 
     @Test
@@ -92,7 +93,7 @@ class AttachmentPolicyTest {
                 file("bang-chung.jpg", "text/html", JPEG_HEAD),
         }, 0))
                 .isInstanceOf(BusinessException.class)
-                .hasMessageContaining("không khớp");
+                .extracting("errorCode").isEqualTo(ErrorCode.FILE_DECLARES_TYPE_DOES_NOT_MATCH_EXTENSION);
     }
 
     @Test
@@ -104,8 +105,8 @@ class AttachmentPolicyTest {
                 file("to.jpg", "image/jpeg", big),
         }, 0))
                 .isInstanceOf(BusinessException.class)
-                .hasMessageContaining("vượt quá giới hạn")
-                .hasMessageContaining("10.0 MB");
+                .hasMessageContaining("10.0 MB")
+                .extracting("errorCode").isEqualTo(ErrorCode.FILE_EXCEEDING_PER_FILE_LIMIT);
     }
 
     @Test
@@ -115,7 +116,7 @@ class AttachmentPolicyTest {
                 file("rong.jpg", "image/jpeg", new byte[0]),
         }, 0))
                 .isInstanceOf(BusinessException.class)
-                .hasMessageContaining("rỗng");
+                .extracting("errorCode").isEqualTo(ErrorCode.FILE_EMPTY);
     }
 
     @Test
@@ -128,7 +129,7 @@ class AttachmentPolicyTest {
         // 4 + 2 = 6. Chỉ đếm mảng gửi lên thì lô này lọt, và người dùng tải nhiều lần là vượt trần.
         assertThatThrownBy(() -> policy.validate(two, 4))
                 .isInstanceOf(BusinessException.class)
-                .hasMessageContaining("tối đa 5 tệp");
+                .extracting("errorCode").isEqualTo(ErrorCode.EACH_REPORT_CAN_MOST_ATTACHMENTS);
     }
 
     @Test

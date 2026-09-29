@@ -4,6 +4,7 @@ import UserAvatar from '@/components/common/UserAvatar'
 import type { User } from '@/types/user'
 import { Pencil, Trash2, MoreVertical, Shield, User as UserIcon, Mail, Phone, Building2 } from 'lucide-react'
 import { getHighestRole, cn, formatPhoneNumber } from '@/lib/utils'
+import { useTranslation } from 'react-i18next'
 
 
 
@@ -43,6 +44,7 @@ function getRoleStyle(roleName: string) {
 
 
 export default function UserTable({ users, orgUnitMap, rootUnitId, onRowClick, onDelete, canUpdate, canDelete }: UserTableProps) {
+  const { t } = useTranslation('users')
   const [openActionId, setOpenActionId] = useState<string | null>(null)
   
   // Close popover when clicking outside
@@ -58,8 +60,8 @@ export default function UserTable({ users, orgUnitMap, rootUnitId, onRowClick, o
     return (
        <div className="flex flex-col items-center justify-center rounded-card border border-dashed border-[var(--color-border)] bg-[var(--color-card)] p-12 text-center">
           <UserIcon size={32} className="mb-3 text-[var(--color-subtle-foreground)]" aria-hidden="true" />
-          <p className="text-sm font-medium text-[var(--color-foreground)]">Không có nhân sự phù hợp</p>
-          <p className="mt-1 text-caption">Thử đổi từ khoá hoặc bộ lọc.</p>
+          <p className="text-sm font-medium text-[var(--color-foreground)]">{t('UserTable.noMatchingPeople')}</p>
+          <p className="mt-1 text-caption">{t('UserTable.tryChangingTheKeywordOrFilters')}</p>
        </div>
     )
   }
@@ -72,14 +74,14 @@ export default function UserTable({ users, orgUnitMap, rootUnitId, onRowClick, o
       <table className="w-full min-w-[1000px] text-left border-collapse">
         <thead>
           <tr className="border-b border-[var(--color-border)] bg-[var(--color-muted)]">
-            <th scope="col" className="px-3 py-2.5 text-eyebrow whitespace-nowrap">Thông tin</th>
-            <th scope="col" className="px-3 py-2.5 text-eyebrow whitespace-nowrap">Mã NV</th>
-            <th scope="col" className="px-3 py-2.5 text-eyebrow whitespace-nowrap">Mã phòng ban</th>
-            <th scope="col" className="px-3 py-2.5 text-eyebrow whitespace-nowrap">Vai trò</th>
-            <th scope="col" className="px-3 py-2.5 text-eyebrow hidden md:table-cell whitespace-nowrap">Đơn vị</th>
-            <th scope="col" className="px-3 py-2.5 text-eyebrow hidden sm:table-cell whitespace-nowrap">Liên lạc</th>
-            <th scope="col" className="px-3 py-2.5 text-eyebrow whitespace-nowrap">Trạng thái</th>
-            {hasAnyAction && <th scope="col" className="px-3 py-2.5 text-right text-eyebrow whitespace-nowrap">Hành động</th>}
+            <th scope="col" className="px-3 py-2.5 text-eyebrow whitespace-nowrap">{t('UserTable.information')}</th>
+            <th scope="col" className="px-3 py-2.5 text-eyebrow whitespace-nowrap">{t('UserTable.empCode')}</th>
+            <th scope="col" className="px-3 py-2.5 text-eyebrow whitespace-nowrap">{t('UserTable.departmentCode')}</th>
+            <th scope="col" className="px-3 py-2.5 text-eyebrow whitespace-nowrap">{t('UserTable.role')}</th>
+            <th scope="col" className="px-3 py-2.5 text-eyebrow hidden md:table-cell whitespace-nowrap">{t('UserTable.unit')}</th>
+            <th scope="col" className="px-3 py-2.5 text-eyebrow hidden sm:table-cell whitespace-nowrap">{t('UserTable.contact')}</th>
+            <th scope="col" className="px-3 py-2.5 text-eyebrow whitespace-nowrap">{t('UserTable.status')}</th>
+            {hasAnyAction && <th scope="col" className="px-3 py-2.5 text-right text-eyebrow whitespace-nowrap">{t('UserTable.actions')}</th>}
           </tr>
         </thead>
         <tbody className="divide-y divide-[var(--color-border)]">
@@ -160,7 +162,7 @@ export default function UserTable({ users, orgUnitMap, rootUnitId, onRowClick, o
                         ))}
                      </div>
                   ) : (
-                     <span className="text-xs text-[var(--color-subtle-foreground)] italic font-medium">Chưa phân bổ</span>
+                     <span className="text-xs text-[var(--color-subtle-foreground)] italic font-medium">{t('UserTable.notAllocated')}</span>
                   )}
                 </td>
 
@@ -171,7 +173,7 @@ export default function UserTable({ users, orgUnitMap, rootUnitId, onRowClick, o
                         <Phone size={14} className="text-[var(--color-subtle-foreground)]" /> {formatPhoneNumber(u.phone)}
                      </div>
                   ) : (
-                     <span className="text-xs text-[var(--color-subtle-foreground)] italic font-medium">Chưa cung cấp</span>
+                     <span className="text-xs text-[var(--color-subtle-foreground)] italic font-medium">{t('UserTable.notProvided')}</span>
                   )}
                 </td>
 
@@ -203,7 +205,7 @@ export default function UserTable({ users, orgUnitMap, rootUnitId, onRowClick, o
                                   <div className="w-8 h-8 rounded-control bg-[var(--color-info-bg)] flex items-center justify-center shrink-0 transition-transform">
                                       <Pencil aria-hidden="true" className="text-[var(--color-info)]" />
                                   </div>
-                                  Chỉnh sửa hồ sơ
+                                  {t('UserTable.editProfile')}
                                 </button>
                               )}
 
@@ -214,7 +216,7 @@ export default function UserTable({ users, orgUnitMap, rootUnitId, onRowClick, o
                                   <div className="w-8 h-8 rounded-control bg-[var(--color-error-bg)] flex items-center justify-center shrink-0 transition-transform">
                                       <Trash2 aria-hidden="true" className="text-[var(--color-error)]" />
                                   </div>
-                                  Ngắt quyền hệ thống
+                                  {t('UserTable.revokeSystemAccess')}
                                 </button>
                               )}
                             </div>
@@ -278,7 +280,7 @@ export default function UserTable({ users, orgUnitMap, rootUnitId, onRowClick, o
                             <div className="w-8 h-8 rounded-control bg-[var(--color-info-bg)] flex items-center justify-center shrink-0 transition-transform">
                               <Pencil aria-hidden="true" className="text-[var(--color-info)]" />
                             </div>
-                            Chỉnh sửa hồ sơ
+                            {t('UserTable.editProfile')}
                           </button>
                         )}
                         {canUpdate && canDelete && <div className="h-px bg-[var(--color-muted)] mx-2 my-1" />}
@@ -287,7 +289,7 @@ export default function UserTable({ users, orgUnitMap, rootUnitId, onRowClick, o
                             <div className="w-8 h-8 rounded-control bg-[var(--color-error-bg)] flex items-center justify-center shrink-0 transition-transform">
                               <Trash2 aria-hidden="true" className="text-[var(--color-error)]" />
                             </div>
-                            Ngắt quyền hệ thống
+                            {t('UserTable.revokeSystemAccess')}
                           </button>
                         )}
                       </div>

@@ -10,6 +10,7 @@ import StepShell from '../StepShell'
 import { useKpiSetupFlow } from '../useKpiSetupFlow'
 import { WORKFLOW_PARAMS } from '../../workflow/hooks/useWorkflowNavigator'
 import { ChoiceChip } from '@/components/ui/choice-chip'
+import { useTranslation } from 'react-i18next'
 
 /** Hàng chọn đợt/kỳ: khối bo góc, chọn thì viền + nền xanh, rê chuột thì ngả sang primary. */
 const ROW_CLS =
@@ -27,6 +28,7 @@ type Mode = 'pick' | 'create'
  * không có đường bỏ qua ở đây.
  */
 export default function PeriodStep() {
+  const { t } = useTranslation('kpi')
   const { goNext, goBack, cycleId, periodId } = useKpiSetupFlow()
   const user = useAuthStore(s => s.user)
   const { hasPermission } = useHasPermission()
@@ -53,14 +55,14 @@ export default function PeriodStep() {
 
   return (
     <StepShell
-      title="Chọn hoặc tạo đợt KPI"
-      description="Đợt là mốc thời gian mà mọi chỉ tiêu bám vào. Không có đợt thì chưa giao được chỉ tiêu nào."
+      title={t('PeriodStep.chooseOrCreateAKpiPeriod')}
+      description={t('PeriodStep.aPeriodIsTheTimeFrame')}
       onBack={goBack}
     >
       {canCreate && (
         <div className="mb-6 flex gap-2 rounded-card bg-[var(--color-muted)] p-1.5">
-          <ModeTab active={mode === 'pick'} onClick={() => setMode('pick')} label="Chọn đợt có sẵn" />
-          <ModeTab active={mode === 'create'} onClick={() => setMode('create')} label="Tạo đợt mới" icon={<Plus size={13} />} />
+          <ModeTab active={mode === 'pick'} onClick={() => setMode('pick')} label={t('PeriodStep.chooseAnExistingPeriod')} />
+          <ModeTab active={mode === 'create'} onClick={() => setMode('create')} label={t('PeriodStep.createANewPeriod')} icon={<Plus size={13} />} />
         </div>
       )}
 
@@ -72,7 +74,7 @@ export default function PeriodStep() {
           organizationId={organizationId!}
           initialCycleId={cycleId}
           isSubmitting={isCreating}
-          submitLabel="Tạo đợt & tiếp tục"
+          submitLabel={t('PeriodStep.createPeriodContinue')}
           onSubmit={async payload => {
             const created = await createPeriod(payload)
             if (created?.id) pick(created.id)
@@ -85,8 +87,8 @@ export default function PeriodStep() {
       ) : periods.length === 0 ? (
         <div className="rounded-card border border-dashed border-[var(--color-border)] p-10 text-center">
           <Layers className="mx-auto mb-3 text-[var(--color-subtle-foreground)]" size={28} />
-          <p className="text-sm font-medium text-[var(--color-muted-foreground)]">Chưa có đợt nào</p>
-          <p className="mt-1 text-xs font-medium text-[var(--color-subtle-foreground)]">{canCreate ? 'Chuyển sang thẻ "Tạo đợt mới" để bắt đầu.':'Hãy nhờ quản lý tạo đợt trước khi bạn giao chỉ tiêu.'}</p>
+          <p className="text-sm font-medium text-[var(--color-muted-foreground)]">{t('PeriodStep.noPeriodsYet')}</p>
+          <p className="mt-1 text-xs font-medium text-[var(--color-subtle-foreground)]">{canCreate ? t('PeriodStep.switchToTheCreateNewPeriod'):t('PeriodStep.askYourManagerToCreateA')}</p>
         </div>
       ) : (
         <ul className="space-y-2">
@@ -114,11 +116,11 @@ export default function PeriodStep() {
                   <span className="min-w-0 flex-1">
                     <span className="block truncate text-sm font-semibold text-[var(--color-foreground)]">{period.name}</span>
                     <span className="mt-0.5 block text-caption">
-                      {FREQUENCY_MAP[period.periodType]}
+                      {FREQUENCY_MAP()[period.periodType]}
                       {period.startDate && period.endDate && (
                         <> · {format(new Date(period.startDate), 'dd/MM/yyyy')} – {format(new Date(period.endDate), 'dd/MM/yyyy')}</>
                       )}
-                      {period.cycleName && <> · thuộc kỳ {period.cycleName}</>}
+                      {period.cycleName && <> {t('PeriodStep.inCycle')} {period.cycleName}</>}
                     </span>
                   </span>
 

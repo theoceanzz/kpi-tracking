@@ -3,6 +3,9 @@ import { AlertTriangle, Check, ShieldCheck } from 'lucide-react'
 import { toast } from 'sonner'
 import { getApiErrorMessage } from '@/lib/apiError'
 import { aiApi, type PendingAction } from '../api/aiApi'
+import { useTranslation } from 'react-i18next'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
 interface Props {
   action: PendingAction
@@ -16,18 +19,18 @@ interface Props {
 }
 
 /** Nhãn tiếng Việt của từng loại việc, dùng cho câu cảnh báo. */
-const KIND_LABEL: Record<PendingAction['kind'], string> = {
-  SUBMISSION_REVIEW: 'bản nộp',
-  KPI_CRITERIA_REVIEW: 'chỉ tiêu KPI',
-  KPI_ADJUSTMENT_REVIEW: 'yêu cầu điều chỉnh',
-  SEND_REMINDER: 'lượt nhắc nhở',
-  KPI_SUBMIT: 'chỉ tiêu KPI gửi duyệt',
-  REWARD_GRANT_REVIEW: 'đề xuất thưởng',
-  CYCLE_FINALIZE: 'đợt đánh giá (chốt)',
-  CYCLE_REOPEN: 'đợt đánh giá (mở lại)',
-  CYCLE_SEND: 'đợt đánh giá (gửi kết quả)',
-  KPI_DECOMPOSE: 'đơn vị con nhận chỉ tiêu',
-}
+const KIND_LABEL = perLanguage((): Record<PendingAction['kind'], string> => ({
+  SUBMISSION_REVIEW: i18n.t('analytics:PendingActionCard.submissions'),
+  KPI_CRITERIA_REVIEW: i18n.t('analytics:PendingActionCard.kpis'),
+  KPI_ADJUSTMENT_REVIEW: i18n.t('analytics:PendingActionCard.adjustmentRequests'),
+  SEND_REMINDER: i18n.t('analytics:PendingActionCard.reminders'),
+  KPI_SUBMIT: i18n.t('analytics:PendingActionCard.kpisSubmittedForApproval'),
+  REWARD_GRANT_REVIEW: i18n.t('analytics:PendingActionCard.rewardProposals'),
+  CYCLE_FINALIZE: i18n.t('analytics:PendingActionCard.evaluationPeriodsFinalize'),
+  CYCLE_REOPEN: i18n.t('analytics:PendingActionCard.evaluationPeriodsReopen'),
+  CYCLE_SEND: i18n.t('analytics:PendingActionCard.evaluationPeriodsSendResults'),
+  KPI_DECOMPOSE: i18n.t('analytics:PendingActionCard.childUnitsReceivingTheKpi'),
+}))
 
 /**
  * Thẻ xác nhận một thao tác GHI do trợ lý đề nghị.
@@ -45,6 +48,7 @@ const KIND_LABEL: Record<PendingAction['kind'], string> = {
  * vì để người dùng bấm lần hai rồi nhận câu "không còn hiệu lực".
  */
 export default function PendingActionCard({ action, onDone, consumed }: Props) {
+  const { t } = useTranslation('analytics')
   const [skipped, setSkipped] = useState<Set<string>>(new Set())
   const [busy, setBusy] = useState(false)
   const [result, setResult] = useState<string | null>(null)
@@ -55,7 +59,7 @@ export default function PendingActionCard({ action, onDone, consumed }: Props) {
   )
 
   const isReject = action.decision === 'REJECT'
-  const what = KIND_LABEL[action.kind]
+  const what = KIND_LABEL()[action.kind]
 
   const toggle = (id: string) => {
     setSkipped(prev => {
@@ -75,11 +79,11 @@ export default function PendingActionCard({ action, onDone, consumed }: Props) {
       const res = await aiApi.confirmAction(action.id, chosen.map(i => i.id))
       setResult(res.text)
       onDone?.(res.text)
-      if (res.failed > 0) toast.warning(`${res.succeeded} mục xong, ${res.failed} mục không thực hiện được`)
+      if (res.failed > 0) toast.warning(t('PendingActionCard.itemsDoneItemsCouldNotBe', { succeeded: res.succeeded, failed: res.failed }))
       else toast.success(res.text)
     } catch (e) {
       const message =
-        getApiErrorMessage(e, 'Không thực hiện được. Bạn thử lại giúp mình nhé.')
+        getApiErrorMessage(e, t('PendingActionCard.couldNotCompleteItPleaseTry'))
       setResult(message)
       toast.error(message)
     } finally {
@@ -93,7 +97,7 @@ export default function PendingActionCard({ action, onDone, consumed }: Props) {
       <div className="mt-2 w-full rounded-control border border-[var(--color-border)] bg-[var(--color-muted)] p-3 text-sm">
         <div className="flex items-start gap-1.5 text-[var(--color-muted-foreground)] dark:text-[var(--color-subtle-foreground)]">
           <Check className="mt-0.5 h-4 w-4 shrink-0" />
-          <span>Đã xác nhận qua tin nhắn — xem kết quả ở câu trả lời bên dưới.</span>
+          <span>{t('PendingActionCard.confirmedViaMessageSeeTheResult')}</span>
         </div>
       </div>
     )
@@ -120,8 +124,8 @@ export default function PendingActionCard({ action, onDone, consumed }: Props) {
       <p className="mb-2 flex items-start gap-1.5 text-xs text-[var(--color-warning)]">
         <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
         <span>
-          Thao tác này {isReject ? 'từ chối' : 'thay đổi'} dữ liệu thật và{' '}
-          <strong>không hoàn tác được</strong>. Bạn xem lại danh sách rồi hãy xác nhận.
+          {t('PendingActionCard.thisAction')} {isReject ? t('PendingActionCard.rejects') : t('PendingActionCard.changes')} {t('PendingActionCard.realDataAnd')}{' '}
+          <strong>{t('PendingActionCard.cannotBeUndone')}</strong>{t('PendingActionCard.pleaseReviewTheListBeforeConfirming')}
         </span>
       </p>
 
@@ -152,7 +156,7 @@ export default function PendingActionCard({ action, onDone, consumed }: Props) {
 
       {action.note && (
         <p className="mt-2 text-xs italic text-[var(--color-muted-foreground)] dark:text-[var(--color-subtle-foreground)]">
-          Ghi chú sẽ lưu kèm: {action.note}
+          {t('PendingActionCard.theNoteWillBeSavedWith')} {action.note}
         </p>
       )}
 
@@ -165,8 +169,8 @@ export default function PendingActionCard({ action, onDone, consumed }: Props) {
         }`}
       >
         {busy
-          ? 'Đang thực hiện…'
-          : `Xác nhận ${isReject ? 'từ chối' : ''} ${chosen.length} ${what}`.replace(/\s+/g, ' ')}
+          ? t('PendingActionCard.working')
+          : t('PendingActionCard.confirm', { value: isReject ? t('PendingActionCard.reject') : '', length: chosen.length, what }).replace(/\s+/g, ' ')}
       </button>
     </div>
   )

@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { workflowApi } from '../api/workflowApi'
 import type { UpdateWorkflowConfigRequest, WorkflowStage, WorkflowStageCode } from '../types'
+import { useTranslation } from 'react-i18next'
 
 export const WORKFLOW_CONFIG_KEY = ['kpi-workflow', 'config']
 
@@ -85,32 +86,44 @@ export function useKpiWorkflow() {
   }
 }
 
+/**
+ * Tổ chức đang dùng chuỗi duyệt theo phân cấp (mặc định) hay luồng một cấp cũ. Chưa tải xong thì
+ * coi như chuỗi — khớp mặc định của backend.
+ */
+export function useApprovalChainMode(): boolean {
+  const { data } = useQuery({ queryKey: WORKFLOW_CONFIG_KEY, queryFn: workflowApi.getConfig, staleTime: 1000 * 60 * 30 })
+  const stage = data?.stages?.find((s) => s.code === 'CRITERIA_APPROVAL')
+  return String(stage?.options?.approverMode ?? 'CHAIN') === 'CHAIN'
+}
+
 export function useUpdateKpiWorkflow() {
+  const { t } = useTranslation('kpi')
   const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: (data: UpdateWorkflowConfigRequest) => workflowApi.updateConfig(data),
     onSuccess: (data) => {
       queryClient.setQueryData(WORKFLOW_CONFIG_KEY, data)
-      toast.success('Đã cập nhật luồng KPI')
+      toast.success(t('useKpiWorkflow.kpiFlowUpdated'))
     },
     onError: (error: unknown) => {
-      toast.error(apiMessage(error, 'Không lưu được cấu hình luồng KPI'))
+      toast.error(apiMessage(error, t('useKpiWorkflow.couldNotSaveTheKpiFlow')))
     },
   })
 }
 
 export function useResetKpiWorkflow() {
+  const { t } = useTranslation('kpi')
   const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: workflowApi.resetConfig,
     onSuccess: (data) => {
       queryClient.setQueryData(WORKFLOW_CONFIG_KEY, data)
-      toast.success('Đã khôi phục luồng KPI mặc định')
+      toast.success(t('useKpiWorkflow.defaultKpiFlowRestored'))
     },
     onError: (error: unknown) => {
-      toast.error(apiMessage(error, 'Không khôi phục được cấu hình mặc định'))
+      toast.error(apiMessage(error, t('useKpiWorkflow.couldNotRestoreTheDefaultConfiguration')))
     },
   })
 }

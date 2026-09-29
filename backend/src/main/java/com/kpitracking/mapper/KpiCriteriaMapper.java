@@ -35,13 +35,13 @@ public interface KpiCriteriaMapper {
     @Mapping(source = "orgUnit.id", target = "orgUnitId")
     @Mapping(source = "orgUnit.name", target = "orgUnitName")
     @Mapping(source = "assignees", target = "assignees")
-    @Mapping(source = "createdBy.id", target = "createdById")
+    @Mapping(source = "createdBy", target = "createdById", qualifiedByName = "userId")
     @Mapping(source = "createdBy", target = "createdByName", qualifiedByName = "userName")
     @Mapping(source = "approvedBy.id", target = "approvedById")
     @Mapping(source = "approvedBy", target = "approvedByName", qualifiedByName = "userName")
     @Mapping(source = "assignees", target = "assigneeIds", qualifiedByName = "mapAssigneeIds")
     @Mapping(source = "assignees", target = "assigneeNames", qualifiedByName = "mapAssigneeNames")
-    @Mapping(source = "kpiPeriod.id", target = "kpiPeriodId")
+    @Mapping(source = "kpiPeriod", target = "kpiPeriodId", qualifiedByName = "periodId")
     // Đợt đã xoá mềm -> null thay vì EntityNotFoundException khi map lồng.
     @Mapping(target = "kpiPeriod", expression = "java(SoftDeletedRefs.orNull(() -> toKpiPeriodResponse(kpiCriteria.getKpiPeriod())))")
     @Mapping(source = "keyResult.id", target = "keyResultId")
@@ -124,6 +124,11 @@ public interface KpiCriteriaMapper {
 
 
     @Mapping(source = "organization.id", target = "organizationId")
+    @Mapping(source = "kpiCycle.id", target = "cycleId")
+    @Mapping(source = "kpiCycle.name", target = "cycleName")
+    @Mapping(source = "kpiCycle.status", target = "cycleStatus")
+    @Mapping(source = "sourcePeriod.id", target = "sourcePeriodId")
+    @Mapping(source = "transferredToCycle.id", target = "transferredToCycleId")
     KpiPeriodResponse toKpiPeriodResponse(KpiPeriod kpiPeriod);
 
     @org.mapstruct.Named("mapAssigneeNames")

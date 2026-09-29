@@ -1,5 +1,6 @@
 package com.kpitracking.service;
 
+import com.kpitracking.i18n.ErrorMessages;
 import com.kpitracking.dto.response.stats.PersonalObjectiveResponses.*;
 import com.kpitracking.entity.*;
 import com.kpitracking.enums.SubmissionStatus;
@@ -26,6 +27,7 @@ public class PersonalObjectiveAnalyticsService {
     private final UserRepository userRepository;
     private final KpiCriteriaRepository kpiCriteriaRepository;
     private final EvaluationService evaluationService;
+    private final com.kpitracking.mapper.SoftDeletedRefs softDeletedRefs;
 
     private User getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
@@ -44,6 +46,9 @@ public class PersonalObjectiveAnalyticsService {
         User user = getCurrentUser();
         return kpiCriteriaRepository.findApprovedByAssigneeIdWithKeyResult(user.getId())
                 .stream()
+                // Đợt đã xoá mềm: proxy KpiPeriod ném EntityNotFoundException khi chạm getStartDate()
+                // ⇒ bỏ KPI đó khỏi thống kê thay vì đổ 500 cả trang (cùng lý do với thống kê đơn vị).
+                .filter(kpi -> kpi.getKpiPeriod() == null || softDeletedRefs.periodAlive(kpi.getKpiPeriod()))
                 // KPI thác nước (có parent) không tính tiến độ/hiệu suất cho người được giao.
                 // Kết quả của KPI con đã được tự động tổng hợp lên KPI cha
                 // (xem aggregateToParentKpi trong KpiSubmissionService) nên KPI cha sẽ phản ánh phần này.
@@ -417,7 +422,7 @@ public class PersonalObjectiveAnalyticsService {
                             .fullName(assignee.getFullName())
                             .avatarUrl(assignee.getAvatarUrl())
                             .employeeCode(assignee.getEmployeeCode())
-                            .role("Thành viên")
+                            .role(ErrorMessages.text("analytics.memberRole", ""))
                             .department(kpi.getOrgUnit() != null ? kpi.getOrgUnit().getName() : "")
                             .actualValue(assigneeActual)
                             .progress(assigneeProgress)
@@ -737,7 +742,7 @@ public class PersonalObjectiveAnalyticsService {
             while (!curr.isAfter(end)) {
                 Instant pStart = curr.atStartOfDay(ZoneId.systemDefault()).toInstant();
                 Instant pEnd = curr.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant();
-                String label = "Ng " + curr.getDayOfMonth() + "/" + curr.getMonthValue();
+                String label = ErrorMessages.text("analytics.bucket.day", "", curr.getDayOfMonth(), curr.getMonthValue());
                 intervalPoints.add(new IntervalPoint(pStart, pEnd, label));
                 curr = curr.plusDays(1);
             }
@@ -748,7 +753,7 @@ public class PersonalObjectiveAnalyticsService {
                 LocalDate next = curr.plusWeeks(1);
                 Instant pStart = curr.atStartOfDay(ZoneId.systemDefault()).toInstant();
                 Instant pEnd = (next.isAfter(end) ? end.plusDays(1) : next).atStartOfDay(ZoneId.systemDefault()).toInstant();
-                String label = "Tuần " + weekIdx;
+                String label = ErrorMessages.text("analytics.bucket.week", "", weekIdx);
                 intervalPoints.add(new IntervalPoint(pStart, pEnd, label));
                 curr = next;
                 weekIdx++;
@@ -764,7 +769,7 @@ public class PersonalObjectiveAnalyticsService {
                 Instant pStart = activeStart.atStartOfDay(ZoneId.systemDefault()).toInstant();
                 Instant pEnd = activeEnd.atStartOfDay(ZoneId.systemDefault()).toInstant();
                 
-                String label = "Tháng " + curr.getMonthValue() + "/" + curr.getYear();
+                String label = ErrorMessages.text("analytics.bucket.month", "", curr.getMonthValue(), curr.getYear());
                 intervalPoints.add(new IntervalPoint(pStart, pEnd, label));
                 curr = next;
             }
@@ -780,7 +785,7 @@ public class PersonalObjectiveAnalyticsService {
                 Instant pStart = activeStart.atStartOfDay(ZoneId.systemDefault()).toInstant();
                 Instant pEnd = activeEnd.atStartOfDay(ZoneId.systemDefault()).toInstant();
                 
-                String label = "Quý " + ((curr.getMonthValue() - 1) / 3 + 1) + "/" + curr.getYear();
+                String label = ErrorMessages.text("analytics.bucket.quarter", "", (curr.getMonthValue() - 1) / 3 + 1, curr.getYear());
                 intervalPoints.add(new IntervalPoint(pStart, pEnd, label));
                 curr = next;
             }
@@ -795,7 +800,7 @@ public class PersonalObjectiveAnalyticsService {
                 Instant pStart = activeStart.atStartOfDay(ZoneId.systemDefault()).toInstant();
                 Instant pEnd = activeEnd.atStartOfDay(ZoneId.systemDefault()).toInstant();
                 
-                String label = "Năm " + curr.getYear();
+                String label = ErrorMessages.text("analytics.bucket.year", "", curr.getYear());
                 intervalPoints.add(new IntervalPoint(pStart, pEnd, label));
                 curr = next;
             }

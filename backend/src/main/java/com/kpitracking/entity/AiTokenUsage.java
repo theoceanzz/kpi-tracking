@@ -64,7 +64,9 @@ public class AiTokenUsage {
         /** Hỏi đáp về KeyGo/quy chế qua RAG. Tách khỏi CHAT để nhìn được tỉ lệ dùng của từng đường. */
         HELP,
         /** AI đọc bài nộp và đề xuất điểm khi quản lý chấm (đường riêng, không qua khung chat). */
-        SUBMISSION_REVIEW
+        SUBMISSION_REVIEW,
+        /** Tóm tắt nhận xét báo cáo đánh giá 360. */
+        FEEDBACK360
     }
 
     /** Ngày 1 của tháng hiện tại — khoá gộp dùng chung cho cả ghi lẫn đọc. */

@@ -1,5 +1,7 @@
 import type { TourKey } from '@/store/tourStore'
 import type { TourDef } from './registry'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
 /**
  * Hướng dẫn cho "K.AI" — trang trợ lý toàn màn hình.
@@ -21,20 +23,19 @@ const warn = (text: string) => (
   </p>
 )
 
-const aiAssistantTours: Record<TourKey, TourDef> = {
+const aiAssistantTours = perLanguage((): Record<TourKey, TourDef> => ({
   'ai-assistant': {
     steps: [
       {
         target: 'body',
-        title: '🤖 Hỏi thẳng bằng tiếng Việt',
+        title: i18n.t('shared:ai_assistant.askInPlainLanguage'),
         content: (
           <div className="space-y-2">
             <p>
-              K.AI đọc được dữ liệu KPI trong phạm vi bạn có quyền xem. Hỏi như hỏi một đồng nghiệp:
-              "phòng nào đang chậm nhất kỳ này", "so sánh quý trước với quý này".
+              {i18n.t('shared:ai_assistant.kAiCanReadKpiData')}
             </p>
             <p className="text-caption">
-              Trợ lý chỉ thấy đúng những gì bạn được thấy — nó không vượt qua phân quyền.
+              {i18n.t('shared:ai_assistant.theAssistantSeesExactlyWhatYou')}
             </p>
           </div>
         ),
@@ -42,34 +43,32 @@ const aiAssistantTours: Record<TourKey, TourDef> = {
       },
       {
         target: 'body',
-        title: '💡 Gợi ý và hội thoại cũ',
+        title: i18n.t('shared:ai_assistant.suggestionsAndPastConversations'),
         content: (
           <div className="space-y-2">
             <p>
-              Các thẻ gợi ý ở đầu màn là những phát hiện trợ lý tự rút ra từ số liệu hiện tại — bấm vào
-              để hỏi sâu thêm. Cột bên trái lưu lại các cuộc hội thoại trước.
+              {i18n.t('shared:ai_assistant.theSuggestionCardsAtTheTop')}
             </p>
-            {note('Hội thoại được giữ theo mạch, nên hỏi tiếp "còn phòng B thì sao" mà không cần nhắc lại bối cảnh.')}
+            {note(i18n.t('shared:ai_assistant.conversationsKeepTheirThreadSoYou'))}
           </div>
         ),
         placement: 'center',
       },
       {
         target: 'body',
-        title: '🪙 Mỗi câu hỏi tốn hạn mức',
+        title: i18n.t('shared:ai_assistant.eachQuestionUsesQuota'),
         content: (
           <div className="space-y-2">
             <p>
-              Trợ lý dùng hạn mức token mà đơn vị bạn được chia hằng tháng. Hết hạn mức thì K.AI ngừng
-              trả lời cho tới kỳ sau hoặc tới khi được cấp thêm.
+              {i18n.t('shared:ai_assistant.theAssistantUsesTheTokenQuota')}
             </p>
-            {warn('Số liệu do trợ lý tóm tắt vẫn nên đối chiếu ở phần Phân tích trước khi đưa vào báo cáo chính thức.')}
+            {warn(i18n.t('shared:ai_assistant.figuresSummarizedByTheAssistantShould'))}
           </div>
         ),
         placement: 'center',
       },
     ],
   },
-}
+}))
 
 export default aiAssistantTours

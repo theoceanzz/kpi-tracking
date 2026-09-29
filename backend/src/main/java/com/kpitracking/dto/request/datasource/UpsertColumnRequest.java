@@ -12,10 +12,10 @@ public class UpsertColumnRequest {
 
     private UUID id; // null = create, present = update
 
-    @NotBlank(message = "Tên cột không được để trống")
+    @NotBlank(message = "{validation.columnNameCannotEmpty}")
     private String name;
 
-    @NotNull(message = "Kiểu dữ liệu không được để trống")
+    @NotNull(message = "{validation.dataTypeCannotEmpty}")
     private ColumnDataType dataType;
 
     private Integer columnOrder;

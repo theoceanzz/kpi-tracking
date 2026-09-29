@@ -4,6 +4,7 @@ import type { PageParams } from '@/types/api'
 import type { UpdateUserRequest } from '@/types/user'
 import { toast } from 'sonner'
 import { getApiErrorMessage } from '@/lib/apiError'
+import { useTranslation } from 'react-i18next'
 
 /**
  * Danh sách người dùng. `enabled` để hoãn gọi API cho tới khi thực sự cần — modal luôn được mount
@@ -21,6 +22,7 @@ export function useUsers(
 }
 
 export function useUpdateUser() {
+  const { t } = useTranslation('users')
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: ({ id, data }: { id: string; data: UpdateUserRequest }) => userApi.update(id, data),
@@ -29,10 +31,10 @@ export function useUpdateUser() {
       queryClient.invalidateQueries({ queryKey: ['org-unit-members'] })
       queryClient.invalidateQueries({ queryKey: ['organization-users'] })
       queryClient.invalidateQueries({ queryKey: ['stats'] })
-      toast.success('Cập nhật người dùng thành công')
+      toast.success(t('useUsers.userUpdatedSuccessfully'))
     },
     onError: (error: any) => {
-      toast.error(getApiErrorMessage(error, 'Cập nhật thất bại'))
+      toast.error(getApiErrorMessage(error, t('useUsers.updateFailed')))
     }
   })
 }

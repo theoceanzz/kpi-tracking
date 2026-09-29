@@ -1,3 +1,5 @@
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 /**
  * Bảng màu dùng chung cho biểu đồ.
  *
@@ -43,12 +45,12 @@ export const SUBMISSION_STATUS_COLORS: Record<string, string> = {
 }
 
 /** Nhãn tiếng Việt đi kèm, để mọi biểu đồ gọi cùng một tên cho cùng một trạng thái. */
-export const SUBMISSION_STATUS_LABELS: Record<string, string> = {
-  DRAFT: 'Nháp',
-  PENDING: 'Chờ duyệt',
-  APPROVED: 'Đã duyệt',
-  REJECTED: 'Từ chối',
-}
+export const SUBMISSION_STATUS_LABELS = perLanguage((): Record<string, string> => ({
+  DRAFT: i18n.t('shared:chartPalette.draft'),
+  PENDING: i18n.t('shared:chartPalette.pendingApproval'),
+  APPROVED: i18n.t('shared:chartPalette.approved'),
+  REJECTED: i18n.t('shared:chartPalette.rejected'),
+}))
 
 /** Màu theo xếp loại ma trận, tự lo trường hợp null và rating ngoài dải. */
 export function ratingColor(rating?: number | null): string {
@@ -168,13 +170,13 @@ export const KPI_KIND_COLORS = {
 
 export type KpiKind = keyof typeof KPI_KIND_COLORS
 
-export const KPI_KIND_LABELS: Record<KpiKind, string> = {
-  bonus: 'KPI thưởng',
-  qualitative: 'KPI định tính',
-  reverse: 'KPI ngược',
-  shared: 'KPI chung',
-  replaced: 'KPI thay thế',
-}
+export const KPI_KIND_LABELS = perLanguage((): Record<KpiKind, string> => ({
+  bonus: i18n.t('shared:chartPalette.bonusKpi'),
+  qualitative: i18n.t('shared:chartPalette.qualitativeKpi'),
+  reverse: i18n.t('shared:chartPalette.inverseKpi'),
+  shared: i18n.t('shared:chartPalette.sharedKpi'),
+  replaced: i18n.t('shared:chartPalette.replacementKpi'),
+}))
 
 /** Các bậc của thang tiến độ, để chú giải và `achievementSurface` không lệch nhau. */
 export const ACHIEVEMENT_BANDS: { label: string; from: number }[] = [

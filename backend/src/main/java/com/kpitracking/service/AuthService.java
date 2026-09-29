@@ -1,5 +1,6 @@
 package com.kpitracking.service;
 
+import com.kpitracking.i18n.ErrorMessages;
 import com.kpitracking.constant.EvaluationConstants;
 
 import com.kpitracking.constant.RolePermissionConstants;
@@ -12,7 +13,9 @@ import com.kpitracking.enums.OrganizationStatus;
 import com.kpitracking.enums.UserStatus;
 import com.kpitracking.exception.BusinessException;
 import com.kpitracking.exception.DuplicateResourceException;
+import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.ResourceNotFoundException;
+import com.kpitracking.i18n.Terms;
 import com.kpitracking.mapper.UserMapper;
 import com.kpitracking.repository.*;
 import com.kpitracking.security.JwtTokenProvider;
@@ -58,6 +61,7 @@ public class AuthService {
     private final LoginAttemptService loginAttemptService;
     private final SecurityAuditService securityAudit;
     private final com.kpitracking.security.DataProtection dataProtection;
+    private final com.kpitracking.i18n.UserLanguageResolver userLanguageResolver;
 
     /**
      * OTP đặt lại mật khẩu / xác thực email chỉ lưu dưới dạng HMAC (blind index) — cùng cơ chế
@@ -71,16 +75,16 @@ public class AuthService {
     @Transactional
     public AuthResponse register(RegisterRequest request, String userAgent) {
         if (organizationRepository.existsByName(request.getOrganizationName())) {
-            throw new DuplicateResourceException("Tổ chức", "tên", request.getOrganizationName());
+            throw new DuplicateResourceException(Terms.of("resource.organization"), Terms.of("field.name"), request.getOrganizationName());
         }
         if (organizationRepository.existsByCode(request.getOrganizationCode())) {
-            throw new DuplicateResourceException("Tổ chức", "mã", request.getOrganizationCode());
+            throw new DuplicateResourceException(Terms.of("resource.organization"), Terms.of("field.code"), request.getOrganizationCode());
         }
         if (userRepository.existsByEmailAndDeletedAtIsNull(request.getEmail())) {
-            throw new DuplicateResourceException("Người dùng", "email", request.getEmail());
+            throw new DuplicateResourceException(Terms.of("resource.user"), "email", request.getEmail());
         }
         if (request.getPhone() != null && !request.getPhone().trim().isEmpty() && userRepository.existsByPhoneAndDeletedAtIsNull(request.getPhone())) {
-            throw new DuplicateResourceException("Người dùng", "số điện thoại", request.getPhone());
+            throw new DuplicateResourceException(Terms.of("resource.user"), Terms.of("field.phoneNumber"), request.getPhone());
         }
 
         // 1. Create Organization
@@ -105,7 +109,7 @@ public class AuthService {
 
         // 2. Create Hierarchy Levels and root OrgUnit
         if (request.getHierarchyLevels() == null || request.getHierarchyLevels().size() < 2) {
-            throw new BusinessException("Cơ cấu tổ chức phải có ít nhất 2 cấp.");
+            throw new BusinessException(ErrorCode.ORGANIZATION_STRUCTURE_MUST_LEAST_2_LEVELS);
         }
 
         for (int i = 0; i < request.getHierarchyLevels().size(); i++) {
@@ -153,7 +157,7 @@ public class AuthService {
         int total = request.getHierarchyLevels().size();
         int topRoleLevel = mapRoleLevel(0, total);
         Role adminRole = roleRepository.findByLevelAndRankAndOrganizationId(topRoleLevel, 0, organization.getId())
-                .orElseThrow(() -> new BusinessException("Không thể khởi tạo vai trò quản trị cho tổ chức."));
+                .orElseThrow(() -> new BusinessException(ErrorCode.COULD_NOT_INITIALIZE_ADMINISTRATOR_ROLE_ORGANIZATION));
 
         // 5.1 Set default allowed roles for root unit: company head + deputy + staff
         int bottomRoleLevel = mapRoleLevel(total - 1, total);
@@ -174,7 +178,7 @@ public class AuthService {
                 .build();
         userRoleOrgUnitRepository.save(assignment);
 
-        emailService.sendWelcomeAndVerifyEmail(user.getEmail(), user.getFullName(), verifyToken);
+        emailService.sendWelcomeAndVerifyEmail(user.getEmail(), user.getFullName(), verifyToken, ErrorMessages.currentLocale());
 
         return AuthResponse.builder().accessToken("").refreshToken("").tokenType("Bearer").user(enrichUserInfo(userMapper.toUserInfoResponse(user))).requirePasswordChange(user.getRequirePasswordChange()).hasSeenOnboarding(Boolean.TRUE.equals(user.getHasSeenOnboarding())).build();
     }
@@ -207,14 +211,14 @@ public class AuthService {
                 request.getEmail(), null);
 
         User user = userRepository.findByEmail(request.getEmail())
-                .orElseThrow(() -> new ResourceNotFoundException("Người dùng", "email", request.getEmail()));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.user"), "email", request.getEmail()));
 
         if (user.getStatus() != UserStatus.ACTIVE) {
-            throw new BusinessException("Tài khoản chưa được kích hoạt. Trạng thái hiện tại: " + user.getStatus());
+            throw new BusinessException(ErrorCode.ACCOUNT_NOT_ACTIVATED, String.valueOf(user.getStatus()));
         }
 
         if (Boolean.FALSE.equals(user.getIsEmailVerified())) {
-            throw new BusinessException("Vui lòng xác thực email của bạn trước khi đăng nhập.");
+            throw new BusinessException(ErrorCode.VERIFY_EMAIL_BEFORE_SIGNING);
         }
 
         return issueAuthResponse(user, userAgent);
@@ -249,24 +253,24 @@ public class AuthService {
     public void changePassword(ChangePasswordRequest request) {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "email", email));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.user"), "email", email));
 
         // Skip current password check if it's the first login (forced change)
         if (Boolean.FALSE.equals(user.getRequirePasswordChange())) {
             if (request.getCurrentPassword() == null || request.getCurrentPassword().isBlank()) {
-                throw new BusinessException("Vui lòng nhập mật khẩu hiện tại.");
+                throw new BusinessException(ErrorCode.ENTER_CURRENT_PASSWORD);
             }
             if (!passwordEncoder.matches(request.getCurrentPassword(), user.getPassword())) {
-                throw new BusinessException("Mật khẩu hiện tại không chính xác.");
+                throw new BusinessException(ErrorCode.CURRENT_PASSWORD_INCORRECT);
             }
         }
 
         if (passwordEncoder.matches(request.getNewPassword(), user.getPassword())) {
-            throw new BusinessException("Mật khẩu mới không được giống mật khẩu cũ.");
+            throw new BusinessException(ErrorCode.NEW_PASSWORD_MUST_NOT_SAME_OLD_PASSWORD);
         }
 
         if (!request.getNewPassword().equals(request.getConfirmPassword())) {
-            throw new BusinessException("Mật khẩu mới và xác nhận mật khẩu không khớp");
+            throw new BusinessException(ErrorCode.NEW_PASSWORD_CONFIRMATION_DO_NOT_MATCH);
         }
 
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
@@ -298,13 +302,13 @@ public class AuthService {
         user.setResetPasswordTokenExpiry(Instant.now().plusSeconds(3600)); // 1 hour
         userRepository.save(user);
 
-        emailService.sendResetPasswordEmail(user.getEmail(), resetPasswordToken);
+        emailService.sendResetPasswordEmail(user.getEmail(), resetPasswordToken, ErrorMessages.currentLocale());
     }
 
     @Transactional
     public void resetPassword(ResetPasswordRequest request) {
         if (!request.getNewPassword().equals(request.getConfirmPassword())) {
-            throw new BusinessException("New password and confirm password do not match");
+            throw new BusinessException(ErrorCode.NEW_PASSWORD_CONFIRMATION_DO_NOT_MATCH);
         }
 
         User user = request.getToken() == null ? null
@@ -313,13 +317,13 @@ public class AuthService {
             // Không ghi token vào log: đó là thứ kẻ dò đang thử.
             securityAudit.recordAnonymous(SecurityAuditEvent.PASSWORD_RESET, SecurityAuditService.FAIL,
                     null, null, "Mã đặt lại không khớp người dùng nào");
-            throw new BusinessException("Mã đặt lại mật khẩu không hợp lệ");
+            throw new BusinessException(ErrorCode.INVALID_PASSWORD_RESET_CODE);
         }
 
         if (user.getResetPasswordTokenExpiry() != null && user.getResetPasswordTokenExpiry().isBefore(Instant.now())) {
             securityAudit.recordForEmail(SecurityAuditEvent.PASSWORD_RESET, SecurityAuditService.FAIL,
                     user.getEmail(), "Mã đặt lại đã hết hạn");
-            throw new BusinessException("Mã đặt lại mật khẩu đã hết hạn");
+            throw new BusinessException(ErrorCode.PASSWORD_RESET_CODE_EXPIRED);
         }
 
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
@@ -336,10 +340,10 @@ public class AuthService {
     public void verifyEmail(String token) {
         User user = (token == null ? java.util.Optional.<User>empty()
                 : userRepository.findByVerifyEmailToken(otpHash(token)))
-                .orElseThrow(() -> new BusinessException("Mã xác thực không hợp lệ"));
+                .orElseThrow(() -> new BusinessException(ErrorCode.INVALID_VERIFICATION_CODE));
 
         if (user.getVerifyEmailTokenExpiry() != null && user.getVerifyEmailTokenExpiry().isBefore(Instant.now())) {
-            throw new BusinessException("Mã xác thực đã hết hạn");
+            throw new BusinessException(ErrorCode.VERIFICATION_CODE_EXPIRED);
         }
 
         user.setIsEmailVerified(true);
@@ -363,7 +367,7 @@ public class AuthService {
         user.setVerifyEmailTokenExpiry(Instant.now().plusSeconds(86400)); // 24 hours
         userRepository.save(user);
 
-        emailService.sendVerifyEmail(user.getEmail(), verifyToken);
+        emailService.sendVerifyEmail(user.getEmail(), verifyToken, ErrorMessages.currentLocale());
     }
 
     @Transactional
@@ -381,7 +385,7 @@ public class AuthService {
     public UserInfoResponse getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "email", email));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.user"), "email", email));
         return enrichUserInfo(userMapper.toUserInfoResponse(user));
     }
 
@@ -429,7 +433,9 @@ public class AuthService {
                 .filter(a -> !a.startsWith("ROLE_"))
                 .distinct()
                 .collect(Collectors.toList()));
-        
+        response.setEffectiveLanguage(
+                userLanguageResolver.effectiveLanguage(response.getPreferredLanguage(), assignments));
+
         return response;
     }
 
@@ -437,7 +443,7 @@ public class AuthService {
     public UserInfoResponse uploadAvatar(org.springframework.web.multipart.MultipartFile file) {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "email", email));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.user"), "email", email));
 
         try {
             String avatarUrl = cloudinaryStorageService.uploadFile(file, "avatars").get("url");
@@ -445,7 +451,7 @@ public class AuthService {
             user = userRepository.save(user);
             return enrichUserInfo(userMapper.toUserInfoResponse(user));
         } catch (java.io.IOException e) {
-            throw new BusinessException("Failed to upload avatar: " + e.getMessage());
+            throw new BusinessException(ErrorCode.AVATAR_UPLOAD_FAILED, e.getMessage());
         }
     }
 
@@ -453,7 +459,7 @@ public class AuthService {
     public void completeOnboarding() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         User user = userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "email", email));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.user"), "email", email));
         user.setHasSeenOnboarding(true);
         userRepository.save(user);
     }

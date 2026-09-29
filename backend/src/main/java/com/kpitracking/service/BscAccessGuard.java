@@ -4,6 +4,7 @@ import com.kpitracking.entity.BscScorecard;
 import com.kpitracking.entity.OrgUnit;
 import com.kpitracking.entity.User;
 import com.kpitracking.exception.BusinessException;
+import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.repository.UserRepository;
 import com.kpitracking.security.PermissionChecker;
 import lombok.RequiredArgsConstructor;
@@ -75,19 +76,17 @@ public class BscAccessGuard {
 
         User me = currentUserOrNull();
         if (me == null) {
-            throw new BusinessException("Không xác định được người dùng hiện tại");
+            throw new BusinessException(ErrorCode.COULD_NOT_IDENTIFY_CURRENT_USER_2);
         }
         if (orgUnits == null || orgUnits.isEmpty()) {
-            throw new BusinessException("Bộ tiêu chí áp dụng cho toàn tổ chức chỉ người quản trị BSC "
-                    + "mới thao tác được. Hãy chọn đơn vị bạn phụ trách.");
+            throw new BusinessException(ErrorCode.ONLY_BSC_ADMINISTRATORS_CAN_WORK_ORGANIZATION_WIDE);
         }
         // Chỉ các đơn vị người này ĐƯỢC GÁN trực tiếp. Muốn quản BSC của đơn vị con thì phải được
         // gán vai trò ở đúng đơn vị đó — suy diễn theo cây sẽ âm thầm nới quyền rộng hơn dự tính.
         List<UUID> mine = permissionChecker.getEffectiveOrgUnitsWithPermission(me.getId(), "BSC:MANAGE_UNIT");
         for (OrgUnit unit : orgUnits) {
             if (!mine.contains(unit.getId())) {
-                throw new BusinessException("Bạn chỉ thao tác được với bộ tiêu chí của đơn vị mình phụ trách. "
-                        + "Đơn vị \"" + unit.getName() + "\" nằm ngoài phạm vi của bạn.");
+                throw new BusinessException(ErrorCode.CAN_ONLY_WORK_SCORECARDS_UNITS_MANAGE, unit.getName());
             }
         }
     }

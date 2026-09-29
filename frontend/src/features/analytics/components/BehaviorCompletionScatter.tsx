@@ -7,6 +7,7 @@ import { Loader2, EyeOff } from 'lucide-react'
 import { AXIS_COLORS, NEUTRAL_COLOR, ratingColor } from '@/components/charts/chartPalette'
 import { xAxisLabel, yAxisLabel } from '@/components/charts/axisLabel'
 import type { BehaviorCompletionResponse, ScatterPoint } from '../api/advancedAnalyticsApi'
+import { useTranslation } from 'react-i18next'
 
 interface Props {
   data?: BehaviorCompletionResponse
@@ -23,21 +24,22 @@ interface PointTooltipProps {
 }
 
 function PointTooltip({ active, payload, xLabel, yLabel }: PointTooltipProps) {
+  const { t } = useTranslation('analytics')
   const p = payload?.[0]?.payload
   if (!active || !p) return null
   const anonymous = !p.name
   return (
     <div className="bg-[var(--color-card)] border border-[var(--color-border)] p-4 rounded-lg shadow-md">
       <p className="font-semibold text-[var(--color-foreground)] mb-1">
-        {p.isSelf ? 'Bạn' : anonymous ? 'Một thành viên khác' : p.name}
+        {p.isSelf ? t('BehaviorCompletionScatter.you') : anonymous ? t('BehaviorCompletionScatter.anotherMember') : p.name}
       </p>
       {p.orgUnitName && <p className="text-xs text-slate-500 mb-3">{p.orgUnitName}</p>}
       <div className="space-y-1.5 text-sm">
         <Row label={xLabel} value={`${p.completion}%`} />
         <Row label={yLabel} value={String(p.behavior)} />
-        {p.kpiCount != null && <Row label="Số KPI đang gánh" value={`${p.kpiCount} KPI`} />}
+        {p.kpiCount != null && <Row label={t('BehaviorCompletionScatter.kpisBeingCarried')} value={`${p.kpiCount} KPI`} />}
         {p.rating != null && (
-          <Row label="Xếp loại" value={`${p.rating}/5`} color={ratingColor(p.rating)} />
+          <Row label={t('BehaviorCompletionScatter.rating')} value={`${p.rating}/5`} color={ratingColor(p.rating)} />
         )}
       </div>
     </div>
@@ -73,6 +75,7 @@ function Shell({ children, fillHeight }: { children: React.ReactNode; fillHeight
  * người khác về tới trình duyệt đã không còn tên.
  */
 export default function BehaviorCompletionScatter({ data, isLoading, fillHeight }: Props) {
+  const { t } = useTranslation('analytics')
   // Chấm của mình vẽ SAU cùng để luôn nằm trên các chấm khác, không bị che khuất.
   const ordered = useMemo(
     () => [...(data?.points ?? [])].sort((a, b) => Number(a.isSelf ?? false) - Number(b.isSelf ?? false)),
@@ -83,7 +86,7 @@ export default function BehaviorCompletionScatter({ data, isLoading, fillHeight 
     return (
       <Shell fillHeight={fillHeight}>
         <Loader2 className="w-8 h-8 animate-spin text-[var(--color-primary)] mb-4" />
-        <p className="text-slate-500 font-medium">Đang tải dữ liệu biểu đồ...</p>
+        <p className="text-slate-500 font-medium">{t('BehaviorCompletionScatter.loadingChartData')}</p>
       </Shell>
     )
   }
@@ -91,13 +94,13 @@ export default function BehaviorCompletionScatter({ data, isLoading, fillHeight 
   if (!ordered.length) {
     return (
       <Shell fillHeight={fillHeight}>
-        <p className="text-slate-500 font-medium">Chưa có đánh giá nào trong phạm vi này</p>
+        <p className="text-slate-500 font-medium">{t('BehaviorCompletionScatter.noEvaluationsInThisScopeYet')}</p>
       </Shell>
     )
   }
 
-  const xLabel = data?.xLabel ?? '% Hoàn thành KPI'
-  const yLabel = data?.yLabel ?? 'Điểm hành vi'
+  const xLabel = data?.xLabel ?? t('BehaviorCompletionScatter.kpiCompletion')
+  const yLabel = data?.yLabel ?? t('BehaviorCompletionScatter.conductScore')
 
   return (
     <div className={`w-full ${fillHeight ? 'h-full' : ''} flex flex-col`}>
@@ -105,10 +108,10 @@ export default function BehaviorCompletionScatter({ data, isLoading, fillHeight 
         <div className="flex items-center gap-3">
           {data?.anonymized && (
             <span className="inline-flex items-center gap-1 text-xs font-medium px-2.5 py-1 rounded-full bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400">
-              <EyeOff size={11} /> Người khác đã ẩn danh
+              <EyeOff size={11} /> {t('BehaviorCompletionScatter.otherPeopleAreAnonymized')}
             </span>
           )}
-          <p className="text-xs font-medium text-slate-400 dark:text-slate-500">{data?.totalCount ?? 0} đánh giá</p>
+          <p className="text-xs font-medium text-slate-400 dark:text-slate-500">{data?.totalCount ?? 0} {t('BehaviorCompletionScatter.evaluations')}</p>
         </div>
       </div>
 
@@ -176,7 +179,7 @@ export default function BehaviorCompletionScatter({ data, isLoading, fillHeight 
         {[1, 2, 3, 4, 5].map(r => (
           <span key={r} className="flex items-center gap-1.5">
             <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: ratingColor(r) }} />
-            <span>Xếp loại {r}</span>
+            <span>{t('BehaviorCompletionScatter.rating')} {r}</span>
           </span>
         ))}
       </div>

@@ -6,6 +6,7 @@ import {
   Award, Star, Check, Lock, LockOpen, ChevronDown, ChevronUp, Users, MessageSquare, Hourglass,
 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { useTranslation } from 'react-i18next'
 
 /**
  * Chuỗi duyệt đánh giá kỳ: Trưởng đơn vị chốt trước, rồi lần lượt lên các cấp trên
@@ -13,14 +14,17 @@ import { Button } from '@/components/ui/button'
  * đúng thứ tự duyệt thực tế nên render y nguyên từ trái sang phải.
  */
 export default function CycleApprovalTimeline({
-  steps, isLoading, getScoreColor, getScoreLabel, onSelectUnit,
+  steps, isLoading, getScoreColor, getScoreLabel, onSelectUnit, bare = false,
 }: {
   steps: CycleApprovalStep[]
   isLoading?: boolean
   getScoreColor: (s: number | null) => string
   getScoreLabel: (s: number | null) => string
   onSelectUnit?: (orgUnitId: string) => void
+  /** Không khung, không tiêu đề — thẻ bọc ngoài đã có. */
+  bare?: boolean
 }) {
+  const { t } = useTranslation('kpi')
   const [expanded, setExpanded] = useState(false)
 
   if (isLoading) {
@@ -35,24 +39,26 @@ export default function CycleApprovalTimeline({
   const doneCount = steps.filter(s => s.status === 'FINALIZED').length
 
   return (
-    <div className="overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
-      <div className="flex items-center justify-between gap-4 px-5 pt-5 pb-3">
+    <div className={cn(!bare && 'overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-card)]')}>
+      <div className={cn('flex items-center justify-between gap-4', bare ? 'pb-2' : 'px-5 pt-5 pb-3')}>
         <div className="flex items-center gap-2.5 min-w-0">
-          <span className="text-eyebrow">
-            Luồng duyệt theo cấp
-          </span>
+          {!bare && (
+            <span className="text-eyebrow">
+              {t('CycleApprovalTimeline.approvalFlowByLevel')}
+            </span>
+          )}
           <span className="inline-flex items-center px-2.5 py-0.5 rounded-control bg-[var(--color-muted)] text-caption border border-[var(--color-border)] whitespace-nowrap">
-            {doneCount}/{steps.length} đã chốt
+            {doneCount}/{steps.length} {t('CycleApprovalTimeline.locked')}
           </span>
         </div>
         <Button variant="ghost" size="sm" className="shrink-0" aria-expanded={expanded} onClick={() => setExpanded(v => !v)}>
           {expanded ? <ChevronUp aria-hidden="true" /> : <ChevronDown aria-hidden="true" />}
-          {expanded ? 'Thu gọn' : 'Chi tiết'}
+          {expanded ? t('CycleApprovalTimeline.collapse') : t('CycleApprovalTimeline.details')}
         </Button>
       </div>
 
       {/* Stepper ngang — luôn hiện. Cuộn trong khung riêng để trang không cuộn ngang. */}
-      <div className="overflow-x-auto px-5 pb-5">
+      <div className={cn('overflow-x-auto', bare ? 'pb-1' : 'px-5 pb-5')}>
         <div className="flex items-start min-w-max">
           {steps.map((step, idx) => {
             const done = step.status === 'FINALIZED'
@@ -102,11 +108,11 @@ export default function CycleApprovalTimeline({
                     ) : (
                       <>
                         <span className={cn('text-eyebrow block mt-1', text)}>
-                          Chờ chốt
+                          {step.status === 'CALIBRATING' ? t('CycleApprovalTimeline.calibrating') : t('CycleApprovalTimeline.waitingToLock')}
                         </span>
                         {step.childTotal > 0 && (
                           <span className="block text-caption">
-                            {step.childFinalized}/{step.childTotal} đơn vị con
+                            {step.childFinalized}/{step.childTotal} {t('CycleApprovalTimeline.childDepartmentsLocked')}
                           </span>
                         )}
                       </>
@@ -128,9 +134,9 @@ export default function CycleApprovalTimeline({
 
       {/* Panel dọc chi tiết */}
       {expanded && (
-        <div className="px-5 pb-2 pt-5 border-t border-[var(--color-border)]">
+        <div className={cn('pb-2 pt-5 border-t border-[var(--color-border)]', !bare && 'px-5')}>
           <h4 className="text-eyebrow mb-5">
-            Dòng thời gian chốt kỳ
+            {t('CycleApprovalTimeline.cycleFinalizationTimeline')}
           </h4>
           {steps.map((step, idx) => {
             const done = step.status === 'FINALIZED'
@@ -145,7 +151,7 @@ export default function CycleApprovalTimeline({
                 timeLabel={step.finalizedAt ? formatDateTime(step.finalizedAt) : null}
                 lineActive={done}
                 isLast={idx === steps.length - 1}
-                emptyLabel={step.blockedReason ? 'Chưa chốt' : 'Chờ chốt'}
+                emptyLabel={step.status === 'CALIBRATING' ? t('CycleApprovalTimeline.calibrating') : step.blockedReason ? t('CycleApprovalTimeline.notLocked') : t('CycleApprovalTimeline.waitingToLockResults')}
               >
                 {done ? (
                   <>
@@ -162,17 +168,17 @@ export default function CycleApprovalTimeline({
                         <div className="flex flex-wrap items-center gap-1.5 mt-1">
                           {step.memberCount != null && (
                             <span className="text-eyebrow inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full bg-[var(--color-muted)]">
-                              <Users size={10} /> {step.memberCount} thành viên
+                              <Users size={10} /> {step.memberCount} {t('CycleApprovalTimeline.members')}
                             </span>
                           )}
                           {step.matrixRating != null && (
                             <span className="text-eyebrow inline-flex items-center px-2.5 py-0.5 rounded-full bg-[var(--color-info-bg)] text-[var(--color-info)] dark:bg-[var(--color-info-bg)]">
-                              Xếp loại ma trận: {step.matrixRating}/5
+                              {t('CycleApprovalTimeline.matrixRating')} {step.matrixRating}/5
                             </span>
                           )}
                           {step.qualScore != null && (
                             <span className="text-eyebrow inline-flex items-center px-2.5 py-0.5 rounded-full bg-[var(--color-primary-soft)] text-[var(--color-primary)]">
-                              Định tính {step.qualScore}/5
+                              {t('CycleApprovalTimeline.qualitative')} {step.qualScore}/5
                             </span>
                           )}
                         </div>
@@ -180,7 +186,7 @@ export default function CycleApprovalTimeline({
 
                       {step.finalizedByName && (
                         <div className="text-right shrink-0 ml-auto">
-                          <p className="text-eyebrow">Chốt bởi</p>
+                          <p className="text-eyebrow">{t('CycleApprovalTimeline.finalizedBy')}</p>
                           <p className="text-caption">{step.finalizedByName}</p>
                           {step.finalizedByRoleName && (
                             <p className="text-caption">{step.finalizedByRoleName}</p>
@@ -209,19 +215,20 @@ export default function CycleApprovalTimeline({
 
 /** Lịch sử chốt/mở khoá của một đơn vị (mới nhất xuống dưới cùng). */
 function EventLog({ events }: { events: CycleApprovalStep['events'] }) {
+  const { t } = useTranslation('kpi')
   return (
     <div className="mt-4 pt-4 border-t border-[var(--color-border)] space-y-1.5">
-      <p className="text-eyebrow">Lịch sử</p>
+      <p className="text-eyebrow">{t('CycleApprovalTimeline.history')}</p>
       {events.map((ev, i) => (
         <div key={i} className="flex items-start gap-2 text-caption">
-          {ev.action === 'FINALIZE'
+          {ev.action !== 'REOPEN'
             ? <Lock size={11} className="mt-0.5 shrink-0 text-[var(--color-success)]" />
             : <LockOpen size={11} className="mt-0.5 shrink-0 text-[var(--color-warning)]" />}
           <span className="min-w-0">
             <b className="font-semibold text-[var(--color-muted-foreground)]">
-              {ev.action === 'FINALIZE' ? 'Chốt' : 'Mở khoá'}
+              {ev.action === 'FINALIZE' ? t('CycleApprovalTimeline.lockResults') : ev.action === 'CALIBRATE' ? t('CycleApprovalTimeline.finalizeData') : t('CycleApprovalTimeline.unlock')}
             </b>
-            {ev.actorName && <> bởi {ev.actorName}</>}
+            {ev.actorName && <> {t('CycleApprovalTimeline.by')} {ev.actorName}</>}
             {ev.actorRoleName && <span className="opacity-60"> ({ev.actorRoleName})</span>}
             <span className="opacity-60"> · {formatDateTime(ev.createdAt)}</span>
             {ev.comment && (

@@ -1,5 +1,7 @@
 package com.kpitracking.controller;
 
+import com.kpitracking.exception.BusinessException;
+import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.service.SidebarSettingService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
@@ -26,11 +28,11 @@ public class SidebarSettingController {
             @RequestBody Map<String, String> request) {
         
         if (request.size() > 50) {
-            throw new com.kpitracking.exception.BusinessException("Quá nhiều mục trong một lần cập nhật");
+            throw new BusinessException(ErrorCode.TOO_MANY_ITEMS_ONE_UPDATE);
         }
         request.forEach((key, value) -> {
             if (key == null || key.isBlank() || key.length() > 64 || (value != null && value.length() > 100)) {
-                throw new com.kpitracking.exception.BusinessException("Khoá hoặc nhãn không hợp lệ");
+                throw new BusinessException(ErrorCode.INVALID_KEY_LABEL);
             }
             sidebarSettingService.updateCustomLabel(organizationId, key, value);
         });

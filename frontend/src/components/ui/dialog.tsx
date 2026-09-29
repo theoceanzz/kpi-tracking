@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useTranslation } from 'react-i18next'
 
 /**
  * Khung modal / drawer chuẩn của KeyGo (UX_PATTERNS.md §P0).
@@ -14,13 +15,14 @@ import { cn } from '@/lib/utils'
  * đang tự dựng bằng `fixed inset-0` — khung này thay thế chúng dần mà không đổi cách gọi.
  */
 
-type Size = 'sm' | 'md' | 'lg' | 'xl' | 'full'
+type Size = 'sm' | 'md' | 'lg' | 'xl' | '2xl' | 'full'
 
 const DIALOG_WIDTH: Record<Size, string> = {
   sm: 'max-w-sm',    // xác nhận, nhập một trường
   md: 'max-w-lg',    // form 3–6 trường
   lg: 'max-w-2xl',   // form nhiều cột / bảng nhỏ
   xl: 'max-w-4xl',   // xem trước import, ma trận
+  '2xl': 'max-w-6xl', // phiếu chấm có dãy 6 thẻ số + bảng
   full: 'max-w-[min(96vw,1400px)]',
 }
 
@@ -29,6 +31,7 @@ const DRAWER_WIDTH: Record<Size, string> = {
   md: 'w-full sm:w-[480px]',
   lg: 'w-full sm:w-[640px]',
   xl: 'w-full sm:w-[800px]',
+  '2xl': 'w-full sm:w-[960px]',
   full: 'w-full sm:w-[min(96vw,1100px)]',
 }
 
@@ -113,6 +116,7 @@ function useDialogBehaviour(open: boolean, onClose: () => void, dismissible: boo
 function Header({ title, description, headerExtra, onClose, titleId, descId }: {
   title: ReactNode; description?: ReactNode; headerExtra?: ReactNode; onClose: () => void; titleId: string; descId: string
 }) {
+  const { t } = useTranslation('shared')
   return (
     <div className="flex shrink-0 items-start gap-3 border-b border-[var(--color-border)] px-5 py-4">
       <div className="min-w-0 flex-1">
@@ -126,7 +130,7 @@ function Header({ title, description, headerExtra, onClose, titleId, descId }: {
         type="button"
         data-dialog-close
         onClick={onClose}
-        aria-label="Đóng"
+        aria-label={t('dialog.close')}
         className="-mr-1.5 -mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-control text-[var(--color-muted-foreground)] transition-colors hover:bg-[var(--color-muted)] hover:text-[var(--color-foreground)]"
       >
         <X size={18} />

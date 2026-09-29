@@ -64,8 +64,8 @@ public class BscScoringService {
      * Trạng thái KPI được tính vào bộ tiêu chí. CŨNG dùng bởi KpiCriteriaService ⇒ số KPI
      * "được tính điểm" ở hai nơi khớp nhau.
      */
-    public static final List<KpiStatus> ACTIVE_STATUSES = Arrays.asList(
-            KpiStatus.APPROVED, KpiStatus.EDITED, KpiStatus.EDIT, KpiStatus.INACTIVE);
+    public static final List<KpiStatus> ACTIVE_STATUSES = KpiAchievementCalculator.scoringStatuses(Arrays.asList(
+            KpiStatus.APPROVED, KpiStatus.EDITED, KpiStatus.EDIT, KpiStatus.INACTIVE));
 
     /** Kết quả điểm BSC của một nhân viên trong một kỳ. */
     @Getter

@@ -2,6 +2,7 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
 import { getApiErrorMessage } from '@/lib/apiError'
 import { larkSettingApi, type UpdateLarkSettingsRequest } from '../api/lark-setting.api'
+import { useTranslation } from 'react-i18next'
 
 export function useLarkSettings(organizationId?: string) {
   return useQuery({
@@ -12,30 +13,33 @@ export function useLarkSettings(organizationId?: string) {
 }
 
 export function useUpdateLarkSettings(organizationId?: string) {
+  const { t } = useTranslation('organization')
   const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: (data: UpdateLarkSettingsRequest) => larkSettingApi.update(organizationId!, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['lark-settings', organizationId] })
-      toast.success('Đã lưu cấu hình Lark')
+      toast.success(t('useLarkSettings.larkConfigurationSaved'))
     },
     onError: (err: any) => {
-      toast.error(getApiErrorMessage(err, 'Không lưu được cấu hình Lark'))
+      toast.error(getApiErrorMessage(err, t('useLarkSettings.couldNotSaveTheLarkConfiguration')))
     },
   })
 }
 
 export function useTestLarkConnection(organizationId?: string) {
+  const { t } = useTranslation('organization')
   return useMutation({
     mutationFn: () => larkSettingApi.test(organizationId!),
     onError: (err: any) => {
-      toast.error(getApiErrorMessage(err, 'Không kiểm tra được kết nối'))
+      toast.error(getApiErrorMessage(err, t('useLarkSettings.couldNotCheckTheConnection')))
     },
   })
 }
 
 export function useConfirmLarkConnection(organizationId?: string) {
+  const { t } = useTranslation('organization')
   const queryClient = useQueryClient()
 
   return useMutation({
@@ -43,25 +47,26 @@ export function useConfirmLarkConnection(organizationId?: string) {
       larkSettingApi.confirmConnect(organizationId!, pendingToken),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['lark-settings', organizationId] })
-      toast.success('Đã liên kết với Lark')
+      toast.success(t('useLarkSettings.linkedToLark'))
     },
     onError: (err: any) => {
-      toast.error(getApiErrorMessage(err, 'Không liên kết được với Lark'))
+      toast.error(getApiErrorMessage(err, t('useLarkSettings.couldNotLinkToLark')))
     },
   })
 }
 
 export function useDisconnectLark(organizationId?: string) {
+  const { t } = useTranslation('organization')
   const queryClient = useQueryClient()
 
   return useMutation({
     mutationFn: () => larkSettingApi.disconnect(organizationId!),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['lark-settings', organizationId] })
-      toast.success('Đã huỷ liên kết Lark')
+      toast.success(t('useLarkSettings.larkLinkRemoved'))
     },
     onError: (err: any) => {
-      toast.error(getApiErrorMessage(err, 'Không huỷ được liên kết'))
+      toast.error(getApiErrorMessage(err, t('useLarkSettings.couldNotRemoveTheLink')))
     },
   })
 }

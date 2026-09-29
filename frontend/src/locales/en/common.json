@@ -1,0 +1,131 @@
+{
+  "language": {
+    "label": "Language",
+    "saveFailed": "Your language choice could not be saved. We will try again later."
+  },
+  "errors": {
+    "generic": "Something went wrong, please try again",
+    "network": "Cannot reach the server, please check your connection",
+    "timeout": "The request took too long and was cancelled, please try again",
+    "fileTooLarge": "The file exceeds the allowed size",
+    "serverUnavailable": "The server is having problems, please try again later",
+    "withRef": "{{message}} (ref: {{ref}})"
+  },
+  "numberInput": {
+    "placeholder": "e.g. {{example}}",
+    "wrongDecimalSeparator": "Use a dot for decimals, e.g. {{example}}",
+    "invalid": "Invalid number, e.g. {{example}}"
+  },
+  "dateInput": {
+    "invalid": "Invalid date, use the format {{pattern}}"
+  },
+  "attachmentPolicy": {
+    "exceedsTheFilesAllowed": "\"{{name}}\" exceeds the {{MAX_ATTACHMENT_FILES}} files allowed.",
+    "hasAnUnsupportedFormat": "\"{{name}}\" has an unsupported format. {{ATTACHMENT_TYPES_HINT}}.",
+    "imagesPdfWordExcelUpTo": "Images, PDF, Word, Excel · up to {{MAX_ATTACHMENT_FILES}} files, {{value}}MB per file",
+    "isEmptyPleaseChooseAFile": "\"{{name}}\" is empty. Please choose a file with content.",
+    "isExceedingPerFile": "\"{{name}}\" is {{size}}, exceeding {{MAX_ATTACHMENT_BYTES}} per file.",
+    "onlyImagesJpgPngWebpPdf": "Only images (JPG, PNG, WebP), PDF, Word (DOC, DOCX) and Excel (XLS, XLSX) are accepted"
+  },
+  "formErrors": {
+    "pleaseCheckTheInformationYouEntered": "Please check the information you entered"
+  },
+  "performanceExport": {
+    "avgScore": "Avg. score",
+    "completion": "Completion (%)",
+    "department": "Department",
+    "departmentHeadScore": "Department head score",
+    "detailedKpiPerformanceReport": "DETAILED KPI PERFORMANCE REPORT",
+    "directorScore": "Director score",
+    "empCode": "Emp. code",
+    "employeeCode": "Employee code",
+    "employeePerformanceReport": "EMPLOYEE PERFORMANCE REPORT",
+    "excellent": "Excellent",
+    "execute": "Execute",
+    "exportedOn": "Exported on: {{value}}",
+    "fair": "Fair",
+    "fullName": "Full name",
+    "good": "Good",
+    "keyResult": "Key Result",
+    "kpiName": "KPI name",
+    "kpis": "KPIs",
+    "kpisMet": "KPIs met",
+    "managerScore": "Manager score",
+    "medium": "Medium",
+    "no": "No",
+    "noKpis": "--- No KPIs ---",
+    "objective": "Objective",
+    "position": "Position",
+    "rating": "Rating",
+    "reportExportedOn": "Report exported on: {{value}}",
+    "teamLeadScore": "Team lead score",
+    "uom": "UoM",
+    "weight": "Weight",
+    "kpisAssigned": "KPIs assigned"
+  },
+  "performanceMatrix": {
+    "conduct": " (conduct)",
+    "conduct360": " (conduct + 360)"
+  },
+  "personGrouping": {
+    "unassigned": "Unassigned",
+    "unknownUnit": "Unknown unit"
+  },
+  "pinnedFilesStore": {
+    "noOpenFormHasAnAttachment": "No open form has an attachment field"
+  },
+  "scoring": {
+    "achievedWeight": " ⇒ achieved {{value}} × weight {{weightPercentage}}%",
+    "average": "AVERAGE",
+    "excellent": "EXCELLENT",
+    "fair": "FAIR",
+    "good": "GOOD",
+    "minimum": " · minimum {{minimumValue}}{{unit}}",
+    "noQuantitativeKpis": "no quantitative KPIs",
+    "notMet": "Not met",
+    "notScored": "Not scored",
+    "selfScoredAgainstTheItemTarget": "{{name}} (self-scored against the item target): {{progress}}{{floor}}",
+    "weak": "WEAK",
+    "weight": " × weight {{weightPercentage}}%",
+    "weightedAverageOfChildKpisAchieved": "{{name}}: weighted average of child KPIs — achieved {{value}}",
+    "noKpis": "no KPIs"
+  },
+  "uploadStore": {
+    "attachment": "Attachment",
+    "evidenceFiles_one": "{{count}} evidence file",
+    "evidenceFiles_other": "{{count}} evidence files",
+    "uploadFailed": "Upload failed"
+  },
+  "useSpeechInput": {
+    "couldNotConnectToTheSpeech": "Could not connect to the speech recognition service. Please check your network connection.",
+    "speechRecognitionRanIntoAProblem": "Speech recognition ran into a problem, please try again.",
+    "theBrowserHasNotAllowedMicrophone": "The browser has not allowed microphone access. Please enable microphone permission for this page and reload."
+  },
+  "utils": {
+    "approved": "Approved",
+    "beingEdited": "Being edited",
+    "closedByCycleLock": "Closed by cycle lock",
+    "daily": "Daily",
+    "draft": "Draft",
+    "edited": "Edited",
+    "every6Months": "Every 6 months",
+    "inactive": "Inactive",
+    "month": "Month {{month}}/{{year}}",
+    "monthly": "Monthly",
+    "others_one": "{{value}}, {{value2}} + {{count}} other",
+    "others_other": "{{value}}, {{value2}} + {{count}} others",
+    "pendingApproval": "Pending approval",
+    "q": "Q{{q}}/{{year}}",
+    "quarterly": "Quarterly",
+    "rejected": "Rejected",
+    "replaced": "Replaced",
+    "unassigned": "Unassigned",
+    "unlimited": "Unlimited",
+    "weekly": "Weekly",
+    "yearly": "Yearly"
+  },
+  "formDraft": {
+    "restored": "Restored the unsaved data you entered at {{time}}.",
+    "discard": "Discard draft"
+  }
+}

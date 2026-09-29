@@ -6,6 +6,7 @@ import { useKpiTotalWeight } from '../hooks/useKpiTotalWeight'
 import { useKpiWorkflow } from '../workflow/hooks/useKpiWorkflow'
 import { WORKFLOW_PARAMS } from '../workflow/hooks/useWorkflowNavigator'
 import { SETUP_FLOWS, type SetupFlow, type SetupFlowId, type SetupStep } from './flows'
+import { useTranslation } from 'react-i18next'
 
 /**
  * Trạng thái của trình thiết lập: người này đi được những luồng nào, đang ở luồng/bước nào.
@@ -19,6 +20,7 @@ import { SETUP_FLOWS, type SetupFlow, type SetupFlowId, type SetupStep } from '.
  * vì chỉ tiêu họ tạo ra đã được duyệt sẵn ngay từ backend.
  */
 export function useKpiSetupFlow() {
+  const { t } = useTranslation('kpi')
   const navigate = useNavigate()
   const { flowId, stepId } = useParams<{ flowId?: string; stepId?: string }>()
   const [searchParams] = useSearchParams()
@@ -41,7 +43,7 @@ export function useKpiSetupFlow() {
   /** Các luồng người này thật sự đi được — luồng không còn bước nào thì cũng bỏ luôn. */
   const flows = useMemo(
     () =>
-      SETUP_FLOWS.filter(f => f.requiresAny.some(p => hasPermission(p)))
+      SETUP_FLOWS().filter(f => f.requiresAny.some(p => hasPermission(p)))
         // Luồng đã được gộp vào luồng khác thì không hiện thẻ riêng nữa.
         .filter(f => !f.hiddenWhenHasAny?.some(p => hasPermission(p)))
         .map(f => {
@@ -97,12 +99,12 @@ export function useKpiSetupFlow() {
       const effectiveUnitId = pending && 'orgUnitId' in pending ? pending.orgUnitId : orgUnitId
 
       if (step.needs.includes('period') && !effectivePeriodId) {
-        return 'Hãy chọn hoặc tạo một đợt KPI ở bước trước đã.'
+        return t('useKpiSetupFlow.pleaseChooseOrCreateAKpi')
       }
 
       if (step.needs.includes('weight100')) {
         if (!effectiveUnitId) {
-          return 'Chưa có chỉ tiêu nào. Quay lại bước Chỉ tiêu để thêm cho tới khi đủ 100% trọng số.'
+          return t('useKpiSetupFlow.noKpisYetGoBackTo')
         }
         // Con số đã tải là của ĐƠN VỊ TRÊN URL. Người gọi đang chuyển sang một đơn vị khác thì nó
         // không nói gì về đơn vị đó — nhường lại cho phép kiểm tại chỗ của bước Chỉ tiêu, nơi có
@@ -112,14 +114,14 @@ export function useKpiSetupFlow() {
         // Đang tải thì KHÔNG chặn: chặn theo dữ liệu chưa về là từ chối nhầm người làm đúng.
         if (weightMatchesUnit && serverWeight != null && Math.abs(serverWeight - 100) > 0.001) {
           return serverWeight > 100
-            ? `Tổng trọng số đang là ${serverWeight.toFixed(1)}%, vượt 100%. Hãy giảm bớt ở bước Chỉ tiêu.`
-            : `Tổng trọng số mới đạt ${serverWeight.toFixed(1)}%, còn thiếu ${(100 - serverWeight).toFixed(1)}%. Hãy thêm chỉ tiêu cho đủ 100%.`
+            ? t('useKpiSetupFlow.theTotalWeightIsOver100', { value: serverWeight.toFixed(1) })
+            : t('useKpiSetupFlow.theTotalWeightIsOnlyShort', { value: serverWeight.toFixed(1), value2: (100 - serverWeight).toFixed(1) })
         }
       }
 
       return undefined
     },
-    [steps, periodId, orgUnitId, serverWeight],
+    [steps, periodId, orgUnitId, serverWeight, t],
   )
 
   /** Giữ nguyên mọi tham số bối cảnh khi đổi bước, chỉ ghi đè cái vừa có thêm. */

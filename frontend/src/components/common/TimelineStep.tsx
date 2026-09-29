@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import i18n from 'i18next'
 
 /**
  * Khung một bước trên dòng thời gian: đường nối dọc, node icon, hàng tiêu đề
@@ -11,7 +12,7 @@ import { cn } from '@/lib/utils'
  */
 export default function TimelineStep({
   title, icon: Icon, iconBg, iconColor, timeLabel, lineActive, isLast,
-  emptyLabel = 'Chưa có đánh giá', onClick, children,
+  emptyLabel = i18n.t('shared:TimelineStep.noEvaluationYet'), onClick, children,
 }: {
   title: string
   icon: LucideIcon

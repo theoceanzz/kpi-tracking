@@ -2,6 +2,7 @@ import { useEffect, useState, type ReactNode } from 'react'
 import type { LucideIcon } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useWorkspaceTabs } from './WorkspaceTabs'
+import { useTranslation } from 'react-i18next'
 
 export interface WorkspaceStat {
   label: string
@@ -44,6 +45,7 @@ export default function WorkspaceHeader({
   className,
   children,
 }: WorkspaceHeaderProps) {
+  const { t } = useTranslation('shared')
   const ctx = useWorkspaceTabs()
   const claim = ctx?.claim
   const publishSlot = ctx?.setActionSlot
@@ -83,7 +85,7 @@ export default function WorkspaceHeader({
       {showTabs && (
         <nav
           id="tour-workspace-tabs"
-          aria-label="Mục con"
+          aria-label={t('WorkspaceHeader.subSections')}
           className="flex items-stretch px-2 border-b border-[var(--color-border)] overflow-x-auto [scrollbar-width:none] [-ms-overflow-style:none] [&::-webkit-scrollbar]:hidden"
         >
           {tabs.map(tab => {

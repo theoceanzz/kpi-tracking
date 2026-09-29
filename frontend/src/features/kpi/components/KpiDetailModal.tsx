@@ -10,6 +10,9 @@ import { useScorecards } from '@/features/bsc/hooks/useBsc'
 import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
 import { scorecardsForPeriod } from '@/features/bsc/utils/scorecardScope'
 import { Button } from '@/components/ui/button'
+import ApprovalChainPanel from './ApprovalChainPanel'
+import { useKpiApprovalChain } from '../hooks/useKpiApprovalChain'
+import { useTranslation } from 'react-i18next'
 
 
 
@@ -22,7 +25,10 @@ interface KpiDetailModalProps {
 }
 
 export default function KpiDetailModal({ open, onClose, kpi }: KpiDetailModalProps) {
+  const { t } = useTranslation('kpi')
   const { data: children } = useKpiChildren(open && kpi?.hasChildren ? kpi.id : undefined)
+  // Người tạo luôn xem được KPI của mình đang ở bước nào, ai đang giữ, và lịch sử duyệt.
+  const { data: approvalChain, isLoading: chainLoading } = useKpiApprovalChain(open ? kpi?.id : undefined)
 
   // Trọng số THẬT = form × %hạng_mục (từ bộ tiêu chí của đơn vị KPI).
   const { user } = useAuthStore()
@@ -57,7 +63,7 @@ export default function KpiDetailModal({ open, onClose, kpi }: KpiDetailModalPro
 
   if (!open || !kpi) return null
 
-  const status = STATUS_CONFIG[kpi.status as keyof typeof STATUS_CONFIG] ?? STATUS_CONFIG['DRAFT']!
+  const status = STATUS_CONFIG()[kpi.status as keyof ReturnType<typeof STATUS_CONFIG>] ?? STATUS_CONFIG()['DRAFT']!
   const StatusIcon = status.icon
 
   const decompositionChildren = children?.filter(c => c.parentRelationType === 'DECOMPOSITION') ?? []
@@ -76,7 +82,7 @@ export default function KpiDetailModal({ open, onClose, kpi }: KpiDetailModalPro
               <Target size={24} />
             </div>
             <div>
-              <h3 className="text-section-title">Chi tiết Chỉ tiêu KPI</h3>
+              <h3 className="text-section-title">{t('KpiDetailModal.kpiDetails')}</h3>
               <div className={`text-eyebrow inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full border mt-1 ${status.bgColor} ${status.color}`}>
                 <StatusIcon size={10} /> {status.label}
               </div>
@@ -96,22 +102,22 @@ export default function KpiDetailModal({ open, onClose, kpi }: KpiDetailModalPro
           {/* Overview & Description */}
           <div className="space-y-4">
             <div>
-              <p className="text-eyebrow mb-2">Tên chỉ tiêu</p>
+              <p className="text-eyebrow mb-2">{t('KpiDetailModal.kpiName')}</p>
               <h4 className="text-2xl font-semibold text-[var(--color-foreground)] leading-tight">{kpi.name}</h4>
               {kpi.isReverseKpi && (
                 <span className="text-eyebrow inline-flex items-center gap-1 mt-2 px-2.5 py-1 rounded-full bg-[var(--color-warning-bg)] text-[var(--color-warning)] border border-[var(--color-warning-border)]">
-                  ↓ KPI Ngược
+                  {t('KpiDetailModal.inverseKpi')}
                 </span>
               )}
               {kpi.isBonusKpi && (
                 <span className="text-eyebrow inline-flex items-center gap-1 mt-2 ml-2 px-2.5 py-1 rounded-full bg-[var(--color-success-bg)] text-[var(--color-success)] border border-[var(--color-success-border)]">
-                  + KPI Thưởng
+                  {t('KpiDetailModal.bonusKpi')}
                 </span>
               )}
             </div>
             {kpi.description && (
               <div>
-                <p className="text-eyebrow mb-2">Mô tả chi tiết</p>
+                <p className="text-eyebrow mb-2">{t('KpiDetailModal.detailedDescription')}</p>
                 <div className="p-5 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)]">
                    <p className="text-sm text-[var(--color-muted-foreground)] leading-relaxed font-medium">
                      {kpi.description}
@@ -126,7 +132,7 @@ export default function KpiDetailModal({ open, onClose, kpi }: KpiDetailModalPro
             {kpi.kpiType !== 'QUALITATIVE' && (
             <MetricBox
               icon={Target}
-              label="Mục tiêu yêu cầu"
+              label={t('KpiDetailModal.requiredTarget')}
               value={kpi.targetValue != null ? formatNumber(kpi.targetValue) : '—'}
               unit={kpi.unit ?? ''}
               color="text-[var(--color-primary)]"
@@ -135,7 +141,7 @@ export default function KpiDetailModal({ open, onClose, kpi }: KpiDetailModalPro
             {kpi.kpiType !== 'QUALITATIVE' && (
             <MetricBox
               icon={BarChart3}
-              label="Tối thiểu"
+              label={t('KpiDetailModal.minimum')}
               value={kpi.minimumValue != null ? formatNumber(kpi.minimumValue) : '0'}
               unit={kpi.unit ?? ''}
               color="text-[var(--color-error)]"
@@ -143,25 +149,25 @@ export default function KpiDetailModal({ open, onClose, kpi }: KpiDetailModalPro
             )}
             <MetricBox
               icon={Award}
-              label={realWeight != null ? 'Trọng số thật (%)' : 'Trọng số (%)'}
+              label={realWeight != null ? t('KpiDetailModal.actualWeight') : t('KpiDetailModal.weight')}
               value={realWeight != null ? `${realWeight.toFixed(1)}% / ${kpi.weight}%` : `${kpi.weight ?? '—'}%`}
               color="text-[var(--color-info)]"
             />
             <MetricBox
               icon={Calendar}
-              label="Tần suất báo cáo"
-              value={FREQUENCY_MAP[kpi.frequency as keyof typeof FREQUENCY_MAP] ?? kpi.frequency}
+              label={t('KpiDetailModal.reportingFrequency')}
+              value={FREQUENCY_MAP()[kpi.frequency as keyof ReturnType<typeof FREQUENCY_MAP>] ?? kpi.frequency}
               color="text-[var(--color-primary)]"
             />
             <MetricBox
               icon={Clock}
-              label="Hạn chót KPI (riêng)"
+              label={t('KpiDetailModal.kpiDeadlineOwn')}
               value={formatDateTime(kpi.deadline)}
               color="text-[var(--color-warning)]"
             />
             <MetricBox
               icon={Calendar}
-              label="Hạn chót đợt đánh giá"
+              label={t('KpiDetailModal.evaluationPeriodDeadline')}
               value={formatDateTime(kpi.kpiPeriod?.endDate)}
               color="text-[var(--color-warning)]"
             />
@@ -171,24 +177,24 @@ export default function KpiDetailModal({ open, onClose, kpi }: KpiDetailModalPro
           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pt-4">
             <div className="space-y-4">
               <h5 className="text-sm font-medium text-[var(--color-subtle-foreground)] flex items-center gap-2">
-                <Building2 size={14} /> Thông tin đơn vị
+                <Building2 size={14} /> {t('KpiDetailModal.unitInformation')}
               </h5>
               <div className="space-y-3">
-                <InfoRow label="Phòng ban" value={kpi.orgUnitName ?? '—'} />
-                <InfoRow label="Đợt đánh giá" value={kpi.kpiPeriod?.name ?? '—'} />
+                <InfoRow label={t('KpiDetailModal.department')} value={kpi.orgUnitName ?? '—'} />
+                <InfoRow label={t('KpiDetailModal.evaluationPeriods')} value={kpi.kpiPeriod?.name ?? '—'} />
               </div>
             </div>
 
             <div className="space-y-4">
               <h5 className="text-sm font-medium text-[var(--color-subtle-foreground)] flex items-center gap-2">
-                <Users size={14} /> Người thực hiện
+                <Users size={14} /> {t('KpiDetailModal.performedBy')}
               </h5>
               <div className="flex flex-wrap gap-2">
                 {kpi.assigneeNames?.map((name, i) => (
                   <span key={i} className="px-3 py-1.5 rounded-card bg-[var(--color-muted)] text-xs font-medium text-[var(--color-foreground)] border border-[var(--color-border)]">
                     {name}
                   </span>
-                )) || <span className="text-xs text-[var(--color-subtle-foreground)]">Chưa được giao cho ai</span>}
+                )) || <span className="text-xs text-[var(--color-subtle-foreground)]">{t('KpiDetailModal.notAssignedToAnyoneYet')}</span>}
               </div>
             </div>
           </div>
@@ -198,7 +204,7 @@ export default function KpiDetailModal({ open, onClose, kpi }: KpiDetailModalPro
             <div className="space-y-4">
               <div className="flex items-center justify-between">
                 <h5 className="text-sm font-medium text-[var(--color-subtle-foreground)] flex items-center gap-2">
-                  <ListTree size={14} className="text-[var(--color-success)]" /> KPI con ({decompositionChildren.length})
+                  <ListTree size={14} className="text-[var(--color-success)]" /> {t('KpiDetailModal.childKpis')} ({decompositionChildren.length})
                 </h5>
                 <span className={cn(
                   "text-xs font-medium px-2 py-0.5 rounded-full",
@@ -206,12 +212,12 @@ export default function KpiDetailModal({ open, onClose, kpi }: KpiDetailModalPro
                     ? "bg-[var(--color-success-bg)] text-[var(--color-success)]"
                     : "bg-[var(--color-warning-bg)] text-[var(--color-warning)]"
                 )}>
-                  Tổng trọng số con: {decompositionWeightTotal}/{kpi.weight ?? 0}%
+                  {t('KpiDetailModal.totalChildWeight')} {decompositionWeightTotal}/{kpi.weight ?? 0}%
                 </span>
               </div>
               <div className="space-y-2">
                 {decompositionChildren.map(child => {
-                  const childStatus = STATUS_CONFIG[child.status as keyof typeof STATUS_CONFIG] ?? STATUS_CONFIG['DRAFT']!
+                  const childStatus = STATUS_CONFIG()[child.status as keyof ReturnType<typeof STATUS_CONFIG>] ?? STATUS_CONFIG()['DRAFT']!
                   return (
                     <div key={child.id} className="flex items-center justify-between gap-3 p-4 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)]">
                       <div className="min-w-0">
@@ -232,18 +238,18 @@ export default function KpiDetailModal({ open, onClose, kpi }: KpiDetailModalPro
           {kpi.keyResultName && (
             <div className="space-y-4">
               <h5 className="text-sm font-medium text-[var(--color-subtle-foreground)] flex items-center gap-2">
-                <Target size={14} className="text-[var(--color-primary)]" /> Liên kết OKR
+                <Target size={14} className="text-[var(--color-primary)]" /> {t('KpiDetailModal.okrLink')}
               </h5>
               <div className="space-y-4 p-6 rounded-card bg-[var(--color-primary-soft)] border border-[var(--color-border)]">
                 <div>
-                  <p className="text-eyebrow mb-1.5">Mục tiêu (Objective)</p>
+                  <p className="text-eyebrow mb-1.5">{t('KpiDetailModal.objective')}</p>
                   <p className="text-sm font-semibold text-[var(--color-primary)] leading-tight">
                     {kpi.objectiveCode && <span className="bg-[var(--color-primary-soft)] px-1.5 py-0.5 rounded mr-1.5">{kpi.objectiveCode}</span>}
                     {kpi.objectiveName || '—'}
                   </p>
                 </div>
                 <div className="pt-4 border-t border-[var(--color-border)]">
-                  <p className="text-eyebrow mb-1.5">Kết quả then chốt (Key Result)</p>
+                  <p className="text-eyebrow mb-1.5">{t('KpiDetailModal.keyResult')}</p>
                   <p className="text-sm font-medium text-[var(--color-primary)] leading-tight">
                     {kpi.keyResultCode && <span className="bg-[var(--color-primary-soft)] px-1.5 py-0.5 rounded mr-1.5">{kpi.keyResultCode}</span>}
                     {kpi.keyResultName}
@@ -257,7 +263,7 @@ export default function KpiDetailModal({ open, onClose, kpi }: KpiDetailModalPro
           {kpi.effectivePerspectiveName && (
             <div className="space-y-4">
               <h5 className="text-sm font-medium text-[var(--color-subtle-foreground)] flex items-center gap-2">
-                <Layers size={14} style={{ color: kpi.effectivePerspectiveColor || '#8b5cf6' }} /> Hạng mục BSC
+                <Layers size={14} style={{ color: kpi.effectivePerspectiveColor || '#8b5cf6' }} /> {t('KpiDetailModal.bscItem')}
               </h5>
               <div
                 className="flex items-center gap-3 p-6 rounded-card border"
@@ -268,7 +274,7 @@ export default function KpiDetailModal({ open, onClose, kpi }: KpiDetailModalPro
               >
                 <span className="w-3 h-10 rounded-full shrink-0" style={{ backgroundColor: kpi.effectivePerspectiveColor || '#8b5cf6' }} />
                 <div>
-                  <p className="text-eyebrow mb-1">Thuộc hạng mục</p>
+                  <p className="text-eyebrow mb-1">{t('KpiDetailModal.belongsToItem')}</p>
                   <p className="text-base font-semibold leading-tight" style={{ color: kpi.effectivePerspectiveColor || '#8b5cf6' }}>
                     {kpi.effectivePerspectiveName}
                   </p>
@@ -282,7 +288,7 @@ export default function KpiDetailModal({ open, onClose, kpi }: KpiDetailModalPro
              <div className="p-6 rounded-card bg-[var(--color-error-bg)] border border-[var(--color-error-border)]">
                 <div className="flex items-center gap-2 text-[var(--color-error)] mb-2">
                   <X size={18} className="shrink-0" />
-                  <span className="text-sm font-medium">Lý do từ chối</span>
+                  <span className="text-sm font-medium">{t('KpiDetailModal.rejectionReason')}</span>
                 </div>
                 <p className="text-sm font-medium text-[var(--color-error)] leading-relaxed">
                    {kpi.rejectReason}
@@ -290,16 +296,18 @@ export default function KpiDetailModal({ open, onClose, kpi }: KpiDetailModalPro
              </div>
           )}
 
+          {approvalChain?.chainMode && <ApprovalChainPanel chain={approvalChain} loading={chainLoading} />}
+
           {/* Audit Trail */}
           <div className="pt-8 border-t border-[var(--color-border)] flex flex-wrap gap-x-8 gap-y-4">
              <div className="flex items-center gap-2">
                 <Calendar size={14} className="text-[var(--color-subtle-foreground)]" />
-                <span className="text-eyebrow">Ngày tạo: {formatDateTime(kpi.createdAt)}</span>
+                <span className="text-eyebrow">{t('KpiDetailModal.createdOn')} {formatDateTime(kpi.createdAt)}</span>
              </div>
              {kpi.approvedByName && (
                <div className="flex items-center gap-2">
                   <CheckCircle2 size={14} className="text-[var(--color-success)]" />
-                  <span className="text-eyebrow">Duyệt bởi: {kpi.approvedByName}</span>
+                  <span className="text-eyebrow">{t('KpiDetailModal.approvedBy')} {kpi.approvedByName}</span>
                </div>
              )}
           </div>
@@ -308,7 +316,7 @@ export default function KpiDetailModal({ open, onClose, kpi }: KpiDetailModalPro
         {/* Footer Section */}
         <div className="px-8 py-6 bg-[var(--color-muted)] border-t border-[var(--color-border)] flex justify-end shrink-0">
           <Button variant="outline" onClick={onClose}>
-            Đóng
+            {t('KpiDetailModal.close')}
           </Button>
         </div>
       </div>

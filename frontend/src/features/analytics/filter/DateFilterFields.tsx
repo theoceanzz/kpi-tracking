@@ -1,3 +1,5 @@
+import { LocaleDateInput } from '@/components/ui/date-input'
+import i18n from 'i18next'
 import { useMemo, useState } from 'react'
 import { ChevronDown, ChevronUp, History, Search } from 'lucide-react'
 import { format, getQuarter, startOfWeek, endOfWeek } from 'date-fns'
@@ -22,6 +24,7 @@ import {
   type LegacyMode,
   type PeriodMode,
 } from './dateFilterModel'
+import { useTranslation } from 'react-i18next'
 
 /**
  * Các ô chọn của bộ lọc thời gian, KHÔNG giữ trạng thái.
@@ -48,6 +51,7 @@ export default function DateFilterFields({
   /** Ô chọn rộng bằng vật chứa (bảng cấu hình hẹp) thay vì bề rộng cố định theo nội dung. */
   fullWidth?: boolean
 }) {
+  const { t: tr } = useTranslation('analytics')
   const mode = value.mode ?? DEFAULT_DATE_INTENT.mode
   const legacyMode = value.legacyMode ?? DEFAULT_DATE_INTENT.legacyMode
   const periodMode = value.periodMode ?? DEFAULT_DATE_INTENT.periodMode
@@ -131,9 +135,9 @@ export default function DateFilterFields({
     <div className={cn('flex flex-col sm:flex-row items-stretch sm:items-center gap-3', className)}>
       {/* Toggle chế độ */}
       <div className="flex bg-[var(--color-muted)] rounded-lg p-0.5 gap-0.5 shrink-0 self-start sm:self-auto">
-        {modeBtn('SINGLE', 'Một đợt')}
-        {modeBtn('RANGE', 'Khoảng đợt')}
-        {modeBtn('CYCLE', 'Theo kỳ')}
+        {modeBtn('SINGLE', tr('DateFilterFields.onePeriod'))}
+        {modeBtn('RANGE', tr('DateFilterFields.periodRange'))}
+        {modeBtn('CYCLE', tr('DateFilterFields.byCycle'))}
       </div>
 
       {mode === 'SINGLE' ? (
@@ -143,10 +147,10 @@ export default function DateFilterFields({
             onValueChange={v => handlePeriodChange(v === 'ALL' ? undefined : v)}
           >
             <SelectTrigger className={cn(baseTrigger, fixed('md:min-w-[300px]'))}>
-              <SelectValue placeholder="Tất cả các đợt" />
+              <SelectValue placeholder={tr('DateFilterFields.allPeriods')} />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="ALL">Tất cả các đợt</SelectItem>
+              <SelectItem value="ALL">{tr('DateFilterFields.allPeriods')}</SelectItem>
               {periods.map(p => (
                 <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>
               ))}
@@ -163,7 +167,7 @@ export default function DateFilterFields({
               </SelectTrigger>
               <SelectContent>
                 {periodModeOptions(selectedPeriod).map(m => (
-                  <SelectItem key={m} value={m}>{PERIOD_MODE_LABEL[m]}</SelectItem>
+                  <SelectItem key={m} value={m}>{PERIOD_MODE_LABEL()[m]}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -173,7 +177,7 @@ export default function DateFilterFields({
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                {LEGACY_OPTIONS.map(o => (
+                {LEGACY_OPTIONS().map(o => (
                   <SelectItem key={o.value} value={o.value}>{o.label}</SelectItem>
                 ))}
               </SelectContent>
@@ -181,7 +185,7 @@ export default function DateFilterFields({
           )}
 
           {selectedPeriod && periodMode === 'BY_DAY' && (
-            <input
+            <LocaleDateInput
               type="date"
               className={baseTrigger}
               min={periodStart ? fmtInput(periodStart) : undefined}
@@ -202,7 +206,7 @@ export default function DateFilterFields({
                   const t = clamp(endOfWeek(ws, { weekStartsOn: 1 }), periodStart, periodEnd)
                   return (
                     <SelectItem key={i} value={i.toString()}>
-                      {`Tuần ${i + 1} (${format(f, 'dd/MM')} - ${format(t, 'dd/MM')})`}
+                      {tr('DateFilterFields.week', { value: i + 1, f: format(f, 'dd/MM'), t: format(t, 'dd/MM') })}
                     </SelectItem>
                   )
                 })}
@@ -217,7 +221,7 @@ export default function DateFilterFields({
               </SelectTrigger>
               <SelectContent>
                 {months.map((ms, i) => (
-                  <SelectItem key={i} value={i.toString()}>{`Tháng ${format(ms, 'MM/yyyy')}`}</SelectItem>
+                  <SelectItem key={i} value={i.toString()}>{tr('DateFilterFields.month', { ms: format(ms, 'MM/yyyy') })}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -230,7 +234,7 @@ export default function DateFilterFields({
               </SelectTrigger>
               <SelectContent>
                 {quarters.map((qs, i) => (
-                  <SelectItem key={i} value={i.toString()}>{`Quý ${getQuarter(qs)}/${format(qs, 'yyyy')}`}</SelectItem>
+                  <SelectItem key={i} value={i.toString()}>{tr('DateFilterFields.q', { qs: getQuarter(qs), qs2: format(qs, 'yyyy') })}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -238,7 +242,7 @@ export default function DateFilterFields({
 
           {((selectedPeriod && periodMode === 'CUSTOM') || (!selectedPeriod && legacyMode === 'CUSTOM')) && (
             <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-              <input
+              <LocaleDateInput
                 type="date"
                 className={baseTrigger}
                 min={periodStart ? fmtInput(periodStart) : undefined}
@@ -247,7 +251,7 @@ export default function DateFilterFields({
                 onChange={e => patch({ customFrom: e.target.value })}
               />
               <span className="hidden sm:inline text-slate-400">-</span>
-              <input
+              <LocaleDateInput
                 type="date"
                 className={baseTrigger}
                 min={periodStart ? fmtInput(periodStart) : undefined}
@@ -262,7 +266,7 @@ export default function DateFilterFields({
         <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
           <Select value={value.rangeFromId} onValueChange={handleRangeFrom}>
             <SelectTrigger className={cn(baseTrigger, fixed('md:min-w-[240px]'))}>
-              <SelectValue placeholder="Từ đợt..." />
+              <SelectValue placeholder={tr('DateFilterFields.fromPeriod')} />
             </SelectTrigger>
             <SelectContent>
               <ScopeSelectItems items={periods} selectedId={value.rangeFromId} />
@@ -271,7 +275,7 @@ export default function DateFilterFields({
           <span className="hidden sm:inline text-slate-400 self-center">→</span>
           <Select value={value.rangeToId} onValueChange={v => patch({ rangeToId: v })}>
             <SelectTrigger className={cn(baseTrigger, fixed('md:min-w-[240px]'))}>
-              <SelectValue placeholder="Đến đợt..." />
+              <SelectValue placeholder={tr('DateFilterFields.toPeriod')} />
             </SelectTrigger>
             <SelectContent>
               <ScopeSelectItems items={toOptions} selectedId={value.rangeToId} />
@@ -295,8 +299,8 @@ export default function DateFilterFields({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="TIME">Trục: theo thời gian</SelectItem>
-            <SelectItem value="PERIOD">Trục: theo đợt</SelectItem>
+            <SelectItem value="TIME">{tr('DateFilterFields.axisByTime')}</SelectItem>
+            <SelectItem value="PERIOD">{tr('DateFilterFields.axisByPeriod')}</SelectItem>
           </SelectContent>
         </Select>
       )}
@@ -316,6 +320,7 @@ function CyclePicker({
   onChange: (ids: string[]) => void
   triggerClass?: string
 }) {
+  const { t } = useTranslation('analytics')
   const [open, setOpen] = useState(false)
   const [showPast, setShowPast] = useState(false)
   const [q, setQ] = useState('')
@@ -332,7 +337,7 @@ function CyclePicker({
 
   const shown = searching ? visible.filter(c => c.name.toLowerCase().includes(q.trim().toLowerCase())) : visible
   const selNames = cycles.filter(c => selected.includes(c.id)).map(c => c.name)
-  const label = selNames.length === 0 ? 'Chọn kỳ...' : selNames.length === 1 ? selNames[0]! : `${selNames.length} kỳ đã chọn`
+  const label = selNames.length === 0 ? t('DateFilterFields.chooseCycles') : selNames.length === 1 ? selNames[0]! : t('DateFilterFields.cyclesSelected', { count: selNames.length })
   const toggle = (id: string) => onChange(selected.includes(id) ? selected.filter(x => x !== id) : [...selected, id])
 
   return (
@@ -351,7 +356,7 @@ function CyclePicker({
               <input
                 value={q}
                 onChange={e => setQ(e.target.value)}
-                placeholder="Tìm kỳ…"
+                placeholder={t('DateFilterFields.searchCycles')}
                 className="w-full h-8 pl-8 pr-2 rounded-lg bg-[var(--color-muted)] text-xs border-none outline-none focus:ring-2 focus:ring-[var(--color-primary)]"
               />
             </div>
@@ -364,7 +369,7 @@ function CyclePicker({
               <span className="truncate text-[13px] font-semibold text-[var(--color-foreground)]">{c.name}</span>
             </label>
           )) : hiddenPastCount === 0 && (
-            <p className="text-xs italic text-slate-400 p-2">Không có kỳ nào.</p>
+            <p className="text-xs italic text-slate-400 p-2">{t('DateFilterFields.noCycles')}</p>
           )}
 
           {hiddenPastCount > 0 && (
@@ -373,7 +378,7 @@ function CyclePicker({
               onClick={() => setShowPast(true)}
               className="mt-1 flex w-full items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium text-slate-500 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800/60 dark:hover:text-slate-100"
             >
-              <History size={13} /> Xem {hiddenPastCount} kỳ đã qua
+              <History size={13} /> {i18n.t('analytics:DateFilterFields.showPastCycles', { count: hiddenPastCount })}
             </button>
           )}
           {showPast && !searching && past.length > 0 && (
@@ -382,7 +387,7 @@ function CyclePicker({
               onClick={() => setShowPast(false)}
               className="mt-1 flex w-full items-center justify-center gap-1.5 rounded-lg px-2 py-1.5 text-xs font-medium text-slate-500 hover:bg-slate-50 hover:text-slate-900 dark:text-slate-400 dark:hover:bg-slate-800/60 dark:hover:text-slate-100"
             >
-              <ChevronUp size={13} /> Ẩn kỳ đã qua
+              <ChevronUp size={13} /> {t('DateFilterFields.hidePastCycles')}
             </button>
           )}
         </div>

@@ -3,6 +3,7 @@ import { orgUnitApi } from '../api/org-unit.api'
 import type { CreateOrgUnitRequest, UpdateOrgUnitRequest } from '../types/org-unit'
 import { toast } from 'sonner'
 import { getApiErrorMessage } from '@/lib/apiError'
+import { useTranslation } from 'react-i18next'
 
 export function useOrgUnitTree(orgId: string | undefined) {
   return useQuery({
@@ -30,6 +31,7 @@ export function useOrganization(orgId: string | undefined) {
 }
 
 export function useCreateOrgUnit() {
+  const { t } = useTranslation('organization')
   const queryClient = useQueryClient()
 
   return useMutation({
@@ -38,15 +40,16 @@ export function useCreateOrgUnit() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['orgUnits'] })
       queryClient.invalidateQueries({ queryKey: ['stats'] })
-      toast.success('Thêm thành phần tổ chức thành công')
+      toast.success(t('useOrganizationStructure.organizationUnitAddedSuccessfully'))
     },
     onError: (error: any) => {
-      toast.error(getApiErrorMessage(error, 'Có lỗi xảy ra khi tạo thành phần tổ chức'))
+      toast.error(getApiErrorMessage(error, t('useOrganizationStructure.anErrorOccurredWhileCreatingThe')))
     }
   })
 }
 
 export function useUpdateOrgUnit() {
+  const { t } = useTranslation('organization')
   const queryClient = useQueryClient()
 
   return useMutation({
@@ -59,10 +62,10 @@ export function useUpdateOrgUnit() {
       queryClient.invalidateQueries({ queryKey: ['organization-users'] })
       queryClient.invalidateQueries({ queryKey: ['users'] })
       queryClient.invalidateQueries({ queryKey: ['stats'] })
-      toast.success('Cập nhật thành công')
+      toast.success(t('useOrganizationStructure.updatedSuccessfully'))
     },
     onError: (error: any) => {
-      toast.error(getApiErrorMessage(error, 'Có lỗi xảy ra khi cập nhật thành phần'))
+      toast.error(getApiErrorMessage(error, t('useOrganizationStructure.anErrorOccurredWhileUpdatingThe')))
     }
   })
 }
@@ -100,6 +103,7 @@ export function useDistricts(provinceId: string | undefined) {
 }
 
 export function useUploadLogo() {
+  const { t } = useTranslation('organization')
   const queryClient = useQueryClient()
 
   return useMutation({
@@ -108,15 +112,16 @@ export function useUploadLogo() {
     onSuccess: (_, variables) => {
       queryClient.invalidateQueries({ queryKey: ['orgUnits'] })
       queryClient.invalidateQueries({ queryKey: ['orgUnits', 'detail', variables.orgId, variables.unitId] })
-      toast.success('Tải logo lên thành công')
+      toast.success(t('useOrganizationStructure.logoUploadedSuccessfully'))
     },
     onError: (error: any) => {
-      toast.error(getApiErrorMessage(error, 'Có lỗi xảy ra khi tải logo'))
+      toast.error(getApiErrorMessage(error, t('useOrganizationStructure.anErrorOccurredWhileUploadingThe')))
     }
   })
 }
 
 export function useDeleteOrgUnit() {
+  const { t } = useTranslation('organization')
   const queryClient = useQueryClient()
 
   return useMutation({
@@ -127,15 +132,16 @@ export function useDeleteOrgUnit() {
       queryClient.invalidateQueries({ queryKey: ['organization-users'] })
       queryClient.invalidateQueries({ queryKey: ['users'] })
       queryClient.invalidateQueries({ queryKey: ['stats'] })
-      toast.success('Xoá thành phần tổ chức thành công')
+      toast.success(t('useOrganizationStructure.organizationUnitDeletedSuccessfully'))
     },
     onError: (error: any) => {
-      toast.error(getApiErrorMessage(error, 'Hệ thống chặn chức năng hoặc có lỗi'))
+      toast.error(getApiErrorMessage(error, t('useOrganizationStructure.theSystemBlockedTheActionOr')))
     }
   })
 }
 
 export function useImportOrgUnits() {
+  const { t } = useTranslation('organization')
   const queryClient = useQueryClient()
 
   return useMutation({
@@ -147,19 +153,19 @@ export function useImportOrgUnits() {
       queryClient.invalidateQueries({ queryKey: ['stats'] })
       
       if (result.successfulImports > 0) {
-        toast.success(`Import thành công ${result.successfulImports}/${result.totalRows} đơn vị`)
+        toast.success(t('useOrganizationStructure.importedUnitsSuccessfully', { successfulImports: result.successfulImports, totalRows: result.totalRows }))
       }
       
       if (result.errors && result.errors.length > 0) {
         if (result.errors.length <= 5) {
           result.errors.forEach((e: string) => toast.error(e))
         } else {
-          toast.error(`Phát hiện ${result.errors.length} lỗi trong quá trình import.`)
+          toast.error(t('useOrganizationStructure.foundErrorsDuringImport', { count: result.errors.length }))
         }
       }
     },
     onError: (error: any) => {
-      toast.error(getApiErrorMessage(error, 'Import thất bại'))
+      toast.error(getApiErrorMessage(error, t('useOrganizationStructure.importFailed')))
     }
   })
 }

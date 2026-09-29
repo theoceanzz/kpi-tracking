@@ -6,6 +6,7 @@ import { dashboardLayoutApi, type DashboardLayoutItem, type LayoutScope } from '
 import type { DashboardWidget } from './ChartWrapper'
 import type { WidgetSettings } from './widgetSettings'
 import { useAutosave } from './useAutosave'
+import { useTranslation } from 'react-i18next'
 
 interface Options {
   /** Khu vực lưới — quyết định bố cục nào được đọc/ghi ở backend. */
@@ -53,6 +54,7 @@ const toLayoutItems = (widgets: DashboardWidget[], removedIds: string[]): Dashbo
  * mỗi lần bấm một nút bất kỳ.
  */
 export function useDashboardLayout({ scope, defaultWidgets, availableWidgets, legacyLoad }: Options) {
+  const { t } = useTranslation('shared')
   const queryClient = useQueryClient()
   const [isAddModalOpen, setIsAddModalOpen] = useState(false)
 
@@ -299,20 +301,20 @@ export function useDashboardLayout({ scope, defaultWidgets, availableWidgets, le
     toast.success(message, {
       duration: 10000,
       action: {
-        label: 'Hoàn tác',
+        label: t('useDashboardLayout.undo'),
         onClick: () => {
           const restore = undoSnapshot.current
           if (!restore) return
           setWidgets(restore.widgets)
           setRemovedIds(restore.removedIds)
           persist(restore.widgets, restore.removedIds)
-            .then(() => toast.success('Đã khôi phục bố cục trước đó'))
-            .catch((err) => toast.error(getApiErrorMessage(err, 'Không thể khôi phục bố cục')))
+            .then(() => toast.success(t('useDashboardLayout.previousLayoutRestored')))
+            .catch((err) => toast.error(getApiErrorMessage(err, t('useDashboardLayout.couldNotRestoreTheLayout'))))
           undoSnapshot.current = null
         },
       },
     })
-  }, [persist])
+  }, [persist, t])
 
   /** Xoá hẳn bố cục đã lưu ở server rồi rơi về preset. Nút xác nhận do Chrome hiển thị. */
   const resetLayout = useCallback(async () => {
@@ -323,14 +325,14 @@ export function useDashboardLayout({ scope, defaultWidgets, availableWidgets, le
     try {
       await dashboardLayoutApi.reset(scope)
       rememberSaved(null)
-      offerUndo('Đã đặt lại bố cục mặc định', snapshot)
+      offerUndo(t('useDashboardLayout.defaultLayoutRestored'), snapshot)
     } catch (err) {
       console.error(err)
       setWidgets(snapshot.widgets)
       setRemovedIds(snapshot.removedIds)
-      toast.error(getApiErrorMessage(err, 'Không thể đặt lại bố cục'))
+      toast.error(getApiErrorMessage(err, t('useDashboardLayout.couldNotResetTheLayout')))
     }
-  }, [defaultWidgets, offerUndo, rememberSaved, scope])
+  }, [defaultWidgets, offerUndo, rememberSaved, scope, t])
 
   /** Áp một bố cục gợi ý, ghi đè bố cục hiện tại. Nút xác nhận do Chrome hiển thị. */
   const applyPreset = useCallback(async (preset: DashboardWidget[]) => {
@@ -346,14 +348,14 @@ export function useDashboardLayout({ scope, defaultWidgets, availableWidgets, le
     setRemovedIds(nextRemoved)
     try {
       await persist(preset, nextRemoved)
-      offerUndo('Đã áp dụng bố cục gợi ý', snapshot)
+      offerUndo(t('useDashboardLayout.suggestedLayoutApplied'), snapshot)
     } catch (err) {
       console.error(err)
       setWidgets(snapshot.widgets)
       setRemovedIds(snapshot.removedIds)
-      toast.error(getApiErrorMessage(err, 'Không thể áp dụng bố cục'))
+      toast.error(getApiErrorMessage(err, t('useDashboardLayout.couldNotApplyTheLayout')))
     }
-  }, [defaultWidgets, offerUndo, persist])
+  }, [defaultWidgets, offerUndo, persist, t])
 
   /** Sắp xếp bằng bàn phím/chạm — bắt buộc theo WCAG 2.2 vì kéo-thả không được là cách duy nhất. */
   const moveWidget = useCallback((i: string, direction: 'up' | 'down') => {

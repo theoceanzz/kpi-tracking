@@ -1,8 +1,12 @@
 import { Outlet, Navigate, Link } from 'react-router-dom'
 import { useAuthStore } from '@/store/authStore'
-import { Target, CheckCircle2 } from 'lucide-react'
+import { CheckCircle2 } from 'lucide-react'
+import { BrandLogo } from '@/components/common/BrandLogo'
+import LanguageSwitcher from '@/components/common/LanguageSwitcher'
+import { useTranslation } from 'react-i18next'
 
 export default function AuthLayout() {
+  const { t } = useTranslation('layout')
   const isAuthenticated = useAuthStore((s) => s.isAuthenticated)
 
   if (isAuthenticated) {
@@ -15,11 +19,8 @@ export default function AuthLayout() {
       <div className="hidden lg:flex lg:w-1/2 h-full relative bg-[var(--color-primary-deep)] text-white overflow-hidden items-center justify-center flex-col p-12">
 
         <div className="relative z-10 max-w-xl w-full">
-          <Link to="/" className="flex items-center gap-3 mb-10 hover:opacity-80 transition-opacity">
-            <div className="w-10 h-10 rounded-card bg-white/10 flex items-center justify-center border border-white/20">
-              <Target className="text-white" size={24} />
-            </div>
-            <span className="font-semibold text-2xl tracking-tight text-white">KeyGo</span>
+          <Link to="/" className="mb-10 inline-flex items-center transition-opacity hover:opacity-80" aria-label="KeyGo">
+            <BrandLogo variant="white" className="h-12" />
           </Link>
 
           <h1 className="text-4xl md:text-5xl font-semibold tracking-tight leading-[1.1] mb-6">
@@ -28,15 +29,15 @@ export default function AuthLayout() {
           </h1>
           
           <p className="text-lg text-white/75 mb-12 leading-relaxed max-w-md">
-            Nền tảng quản trị mục tiêu & hiệu suất hiện đại
+            {t('AuthLayout.aModernGoalPerformanceManagementPlatform')}
           </p>
 
           <div className="space-y-4">
             {[
-              'Theo dõi hiệu suất theo thời gian thực',
-              'Tích hợp Trí tuệ Nhân tạo (AI)',
-              'Tự động hóa chu trình duyệt chỉ tiêu',
-              'Báo cáo tự động bằng đồ thị trực quan'
+              t('AuthLayout.trackPerformanceInRealTime'),
+              t('AuthLayout.builtInArtificialIntelligenceAi'),
+              t('AuthLayout.automatedKpiApprovalCycle'),
+              t('AuthLayout.automaticReportsWithVisualCharts')
             ].map((feature, idx) => (
                <div key={idx} className="flex items-center gap-3 text-white/90 font-medium bg-white/5 border border-white/15 w-fit px-4 py-2.5 rounded-full">
                   <CheckCircle2 size={18} className="text-white/80" aria-hidden="true" />
@@ -50,12 +51,15 @@ export default function AuthLayout() {
       {/* Right Pane - Form Area */}
       <div className="w-full lg:w-1/2 min-w-0 h-full flex flex-col items-center overflow-y-auto overflow-x-hidden px-6 py-12 sm:px-12 custom-scrollbar relative">
         <div className="absolute inset-0 bg-[var(--color-muted)] -z-10"></div>
+        {/* Chọn trước khi đăng nhập: lưu ở máy này, đăng nhập xong được đẩy lên tài khoản nếu tài khoản chưa chọn. */}
+        <div className="absolute right-4 top-4 sm:right-6">
+          <LanguageSwitcher />
+        </div>
         <div className="w-full max-w-md my-auto">
           {/* Logo for mobile only */}
-          <Link to="/" className="lg:hidden flex justify-center mb-8 transition-transform">
-            <div className="w-12 h-12 rounded-card bg-[var(--color-primary)] flex items-center justify-center shadow-lg">
-              <Target className="text-[var(--color-primary-foreground)]" size={26} />
-            </div>
+          <Link to="/" className="lg:hidden flex justify-center mb-8 transition-transform" aria-label="KeyGo">
+            <BrandLogo className="h-12 dark:hidden" />
+            <BrandLogo variant="white" className="hidden h-12 dark:block" />
           </Link>
           <Outlet />
         </div>

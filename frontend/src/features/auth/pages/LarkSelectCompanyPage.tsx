@@ -9,6 +9,7 @@ import { authApi } from '../api/authApi'
 import { cn } from '@/lib/utils'
 import { useDebounce } from '@/hooks/useDebounce'
 import { LARK_STATE_KEY, LARK_PURPOSE_KEY } from '../hooks/useLarkLogin'
+import { useTranslation } from 'react-i18next'
 
 const PAGE_SIZE = 10
 const LAST_COMPANY_KEY = 'lark_last_company'
@@ -70,6 +71,7 @@ function OrgAvatar({
 }
 
 export default function LarkSelectCompanyPage() {
+  const { t } = useTranslation('auth')
   const [keyword, setKeyword] = useState('')
   const debouncedKeyword = useDebounce(keyword, 400)
   const [selectingId, setSelectingId] = useState<string | null>(null)
@@ -129,7 +131,7 @@ export default function LarkSelectCompanyPage() {
     },
     onError: (err: any) => {
       setSelectingId(null)
-      toast.error(getApiErrorMessage(err, 'Không khởi tạo được đăng nhập Lark.'))
+      toast.error(getApiErrorMessage(err, t('LarkSelectCompanyPage.couldNotStartLarkSignIn')))
     },
   })
 
@@ -145,12 +147,12 @@ export default function LarkSelectCompanyPage() {
         className="inline-flex items-center gap-1.5 text-sm font-semibold text-[var(--color-muted-foreground)] hover:text-[var(--color-primary)] transition-colors"
       >
         <ArrowLeft size={16} />
-        Quay lại
+        {t('LarkSelectCompanyPage.back')}
       </Link>
 
-      <h1 className="text-page-title mt-5 text-[var(--color-foreground)]">Chọn công ty của bạn</h1>
+      <h1 className="text-page-title mt-5 text-[var(--color-foreground)]">{t('LarkSelectCompanyPage.chooseYourCompany')}</h1>
       <p className="mt-1.5 text-sm text-[var(--color-muted-foreground)]">
-        Bạn sẽ đăng nhập bằng tài khoản Lark của công ty này.
+        {t('LarkSelectCompanyPage.youWillSignInWithThis')}
       </p>
 
       {lastCompany && !keyword && (
@@ -158,9 +160,9 @@ export default function LarkSelectCompanyPage() {
           <OrgAvatar aria-hidden="true" name={lastCompany.name} avatarUrl={lastCompany.avatarUrl} highlighted />
           <div className="min-w-0 flex-1">
             <p className="truncate text-sm font-medium text-[var(--color-foreground)]">
-              Tiếp tục với {lastCompany.name}
+              {t('LarkSelectCompanyPage.continueWith')} {lastCompany.name}
             </p>
-            <p className="text-xs text-[var(--color-muted-foreground)]">Lần đăng nhập gần nhất</p>
+            <p className="text-xs text-[var(--color-muted-foreground)]">{t('LarkSelectCompanyPage.lastSignedIn')}</p>
           </div>
           {selectingId === lastCompany.id ? (
             <Loader2 aria-hidden="true" className="animate-spin text-[var(--color-primary)]" />
@@ -180,7 +182,7 @@ export default function LarkSelectCompanyPage() {
           autoFocus
           value={keyword}
           onChange={(e) => setKeyword(e.target.value)}
-          placeholder="Tìm theo tên công ty..."
+          placeholder={t('LarkSelectCompanyPage.searchByCompanyName')}
           className="h-10 w-full rounded-control border border-[var(--color-border)] bg-[var(--color-card)] pl-10 pr-3 text-sm text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-subtle-foreground)] focus-visible:border-[var(--color-primary)] focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]"
         />
       </div>
@@ -194,7 +196,7 @@ export default function LarkSelectCompanyPage() {
 
         {isError && (
           <p className="py-10 text-center text-sm text-[var(--color-error)]">
-            Không tải được danh sách công ty. Vui lòng thử lại.
+            {t('LarkSelectCompanyPage.couldNotLoadTheCompanyList')}
           </p>
         )}
 
@@ -202,12 +204,12 @@ export default function LarkSelectCompanyPage() {
           <div className="py-10 text-center">
             <Building2 size={32} className="mx-auto text-[var(--color-muted-foreground)]/40" />
             <p className="mt-3 text-sm font-semibold text-[var(--color-foreground)]">
-              {keyword ? 'Không tìm thấy công ty phù hợp' : 'Chưa có công ty nào bật đăng nhập Lark'}
+              {keyword ? t('LarkSelectCompanyPage.noMatchingCompanyFound') : t('LarkSelectCompanyPage.noCompanyHasEnabledLarkSign')}
             </p>
             <p className="mt-1 text-xs text-[var(--color-muted-foreground)]">
               {keyword
-                ? 'Thử từ khoá khác, hoặc liên hệ quản trị viên công ty bạn.'
-                : 'Quản trị viên cần kết nối Lark trong phần Cài đặt trước.'}
+                ? t('LarkSelectCompanyPage.tryAnotherKeywordOrContactYour')
+                : t('LarkSelectCompanyPage.anAdministratorMustConnectLarkIn')}
             </p>
           </div>
         )}

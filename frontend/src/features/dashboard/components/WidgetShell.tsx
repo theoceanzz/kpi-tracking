@@ -3,6 +3,7 @@ import { AlertCircle, RotateCcw } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
+import { useTranslation } from 'react-i18next'
 
 interface Props {
   title: string
@@ -31,11 +32,12 @@ interface Props {
 export function WidgetShell({
   title, icon, actions, isLoading, error, onRetry, isEmpty, emptyMessage, bare, children,
 }: Props) {
+  const { t } = useTranslation('dashboard')
   const body = (() => {
     if (isLoading) {
       return (
         <div className="flex flex-1 flex-col gap-3 py-1" aria-busy="true" aria-live="polite">
-          <span className="sr-only">Đang tải {title}</span>
+          <span className="sr-only">{t('WidgetShell.loading')} {title}</span>
           <Skeleton className="h-3 w-2/5" />
           <Skeleton className="min-h-[120px] flex-1" />
         </div>
@@ -45,10 +47,10 @@ export function WidgetShell({
       return (
         <div className="flex flex-1 flex-col items-center justify-center gap-3 px-4 py-8 text-center">
           <AlertCircle size={24} aria-hidden="true" className="text-[var(--color-error)]" strokeWidth={1.75} />
-          <p className="text-sm font-medium text-[var(--color-foreground)]">Không tải được dữ liệu</p>
+          <p className="text-sm font-medium text-[var(--color-foreground)]">{t('WidgetShell.couldNotLoadData')}</p>
           {onRetry && (
             <Button variant="outline" size="sm" onClick={onRetry}>
-              <RotateCcw aria-hidden="true" /> Thử lại
+              <RotateCcw aria-hidden="true" /> {t('WidgetShell.tryAgain')}
             </Button>
           )}
         </div>
@@ -58,7 +60,7 @@ export function WidgetShell({
       return (
         <div className="flex flex-1 items-center justify-center px-6 py-10 text-center">
           <p className="max-w-xs text-sm leading-relaxed text-[var(--color-muted-foreground)]">
-            {emptyMessage ?? 'Chưa có dữ liệu trong khoảng thời gian này.'}
+            {emptyMessage ?? t('WidgetShell.noDataInThisTimeRange')}
           </p>
         </div>
       )

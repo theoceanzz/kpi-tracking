@@ -1,6 +1,8 @@
 import { z } from 'zod'
 import { tierError } from '../components/TierEditor'
 import { RewardProgramScope, RewardRankingMetric, RewardTiePolicy } from '../types'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
 const tierSchema = z.object({
   fromRank: z.number(),
@@ -8,8 +10,8 @@ const tierSchema = z.object({
   points: z.number(),
 })
 
-export const programSchema = z.object({
-  name: z.string().min(1, 'Vui lòng nhập tên chương trình'),
+export const programSchema = perLanguage(() => (z.object({
+  name: z.string().min(1, i18n.t('rewards:programSchema.pleaseEnterTheProgramName')),
   description: z.string(),
   scope: z.enum(RewardProgramScope),
   orgUnitId: z.string(),
@@ -18,7 +20,7 @@ export const programSchema = z.object({
   metric: z.enum(RewardRankingMetric),
   tiePolicy: z.enum(RewardTiePolicy),
   minMetricValue: z.number().optional(),
-  maxPointsPerRun: z.number().min(1, 'Trần điểm mỗi lần phát phải lớn hơn 0').optional(),
+  maxPointsPerRun: z.number().min(1, i18n.t('rewards:programSchema.thePointCapPerRunMust')).optional(),
   includeUnitHeads: z.boolean(),
   enabled: z.boolean(),
   autoTrigger: z.boolean(),
@@ -30,6 +32,6 @@ export const programSchema = z.object({
   if (message) {
     ctx.addIssue({ code: z.ZodIssueCode.custom, path: ['tiers'], message })
   }
-})
+})))
 
-export type ProgramFormData = z.infer<typeof programSchema>
+export type ProgramFormData = z.infer<ReturnType<typeof programSchema>>

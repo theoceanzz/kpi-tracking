@@ -105,18 +105,18 @@ public final class EmailTemplateCatalog {
 
     // ── Bộ dựng HTML cho các khối đặc thù, khớp với node TipTap ở frontend ──
 
-    private static String button(String label, String url) {
+    static String button(String label, String url) {
         return "<p data-email=\"button\" style=\"text-align:center;margin:32px 0;\">"
                 + "<a href=\"" + url + "\" class=\"btn\">" + label + "</a></p>";
     }
 
-    private static String code(String label, String value) {
+    static String code(String label, String value) {
         return "<div data-email=\"code\" class=\"token-container\">"
                 + "<span class=\"token-label\">" + label + "</span>"
                 + "<div class=\"token-value\">" + value + "</div></div>";
     }
 
-    private static String alert(String variant, String text) {
+    static String alert(String variant, String text) {
         String color;
         String bg;
         switch (variant) {
@@ -132,7 +132,7 @@ public final class EmailTemplateCatalog {
     }
 
     /** rows: nhãn1, giá trị1, nhãn2, giá trị2… */
-    private static String info(String... rows) {
+    static String info(String... rows) {
         StringBuilder sb = new StringBuilder();
         StringBuilder json = new StringBuilder("[");
         int pairs = rows.length / 2;
@@ -230,12 +230,16 @@ public final class EmailTemplateCatalog {
                 "Khi chỉ tiêu KPI được phê duyệt.");
         registerNotification("kpi_rejected", "KPI bị từ chối",
                 "Khi chỉ tiêu KPI bị từ chối.");
+        registerNotification("kpi_approval_reminder", "Nhắc duyệt KPI quá hạn",
+                "Khi một bước duyệt chỉ tiêu / điều chỉnh KPI chờ quá số ngày cấu hình, hoặc cần admin gán lại người duyệt.");
         registerNotification("kpi_approval_reverted", "Thu hồi phê duyệt KPI",
                 "Khi phê duyệt của một chỉ tiêu KPI bị thu hồi.");
         registerNotification("submission_submitted", "Báo cáo KPI cần duyệt",
                 "Khi nhân viên nộp báo cáo kết quả cho một chỉ tiêu.");
         registerNotification("submission_reviewed", "Báo cáo KPI đã được duyệt",
                 "Khi báo cáo kết quả được cán bộ quản lý xem xét.");
+        registerNotification("submission_returned", "Báo cáo KPI bị trả lại để làm lại",
+                "Khi người chấm trả lại (hoàn duyệt) bài nộp để nhân viên nộp lại trước hạn.");
         registerNotification("submission_escalated", "Cấp dưới đã duyệt báo cáo",
                 "Báo lên cấp trên kế tiếp SAU KHI cấp duyệt trực tiếp đã chấp nhận báo cáo.");
         registerNotification("reminder_deadline", "Nhắc hạn nộp",
@@ -306,6 +310,24 @@ public final class EmailTemplateCatalog {
                 "Khi có tiền về nhưng không khớp đơn nào (dành cho người có quyền đối soát).");
         registerNotification("wallet_converted", "Đã quy đổi sang điểm",
                 "Khi người dùng đổi số dư ví tiền lấy điểm thưởng.");
+
+        // ───────────────────────── Khoá kỳ ─────────────────────────
+        registerNotification("cycle_locked", "Kỳ đánh giá đã khoá",
+                "Báo trong hệ thống cho người liên quan khi một kỳ được khoá (không gửi email).");
+        registerNotification("cycle_kpi_affected", "KPI bị chuyển kỳ / bị chốt khi khoá kỳ",
+                "Khi khoá kỳ làm KPI của nhân viên bị chuyển sang kỳ khác hoặc bị chốt không tính điểm — gửi người được giao và trưởng đơn vị.");
+
+        // ───────────────────────── Đánh giá 360 ─────────────────────────
+        registerNotification("f360_rate_request", "Mời đánh giá 360",
+                "Khi một người được mời chấm phiếu đánh giá 360, hoặc phiếu đã nộp được mở lại để sửa.");
+        registerNotification("f360_reminder", "Nhắc hạn đánh giá 360",
+                "Nhắc người chấm còn phiếu 360 chưa hoàn thành khi chiến dịch sắp hết hạn.");
+        registerNotification("f360_report_released", "Báo cáo 360 đã công bố",
+                "Khi kết quả đánh giá 360 của một người được công bố cho chính họ.");
+        registerNotification("f360_nomination", "Đề cử người đánh giá 360",
+                "Khi chiến dịch 360 mở đề cử cho người được đánh giá, hoặc khi có đề cử cần người duyệt.");
+        registerNotification("f360_declined", "Người chấm 360 từ chối",
+                "Báo người duyệt và người tạo chiến dịch khi một người chấm từ chối phiếu, để thay người.");
 
         registerDigest();
 
@@ -425,6 +447,35 @@ public final class EmailTemplateCatalog {
 
     public static TemplateDef get(String code) {
         return BY_CODE.get(code);
+    }
+
+    /** Nội dung mặc định theo ngôn ngữ; ngôn ngữ chưa có bản dịch thì dùng tiếng Việt. */
+    public static TemplateDef get(String code, java.util.Locale locale) {
+        TemplateDef def = BY_CODE.get(code);
+        return def == null ? null : localized(def, locale);
+    }
+
+    public static List<TemplateDef> all(java.util.Locale locale) {
+        return BY_CODE.values().stream().map(d -> localized(d, locale)).toList();
+    }
+
+    /** Nhãn nhóm hiển thị; {@link TemplateDef#getGroup()} vẫn là khoá nội bộ (tiếng Việt) để phân quyền công tắc. */
+    public static String groupLabel(String group, java.util.Locale locale) {
+        return isEnglish(locale) ? EmailTemplateCatalogEn.GROUPS.getOrDefault(group, group) : group;
+    }
+
+    static TemplateDef localized(TemplateDef def, java.util.Locale locale) {
+        if (!isEnglish(locale)) return def;
+        EmailTemplateCatalogEn.Text t = EmailTemplateCatalogEn.TEXTS.get(def.getCode());
+        if (t == null) return def;
+        Map<String, String> vars = new LinkedHashMap<>();
+        def.getVariables().forEach((k, v) -> vars.put(k, EmailTemplateCatalogEn.VARIABLES.getOrDefault(k, v)));
+        return new TemplateDef(def.getCode(), t.label(), t.description(), def.getGroup(), t.headerTitle(),
+                t.subject(), t.body(), vars, def.getRequiredVariables());
+    }
+
+    private static boolean isEnglish(java.util.Locale locale) {
+        return locale != null && "en".equals(locale.getLanguage());
     }
 
     public static boolean exists(String code) {

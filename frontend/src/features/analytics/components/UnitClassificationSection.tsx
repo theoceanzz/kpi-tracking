@@ -4,6 +4,7 @@ import type { UnitClassificationOverview } from '../api/unitClassificationApi'
 import StackedComposition from '@/components/charts/primitives/StackedComposition'
 import BellCurveChart from '@/components/charts/BellCurveChart'
 import { seriesColor } from '@/components/charts/chartPalette'
+import { useTranslation } from 'react-i18next'
 
 const fmt1 = (v?: number | null) => (v == null ? '-' : (Math.round(v * 10) / 10).toString())
 
@@ -28,6 +29,7 @@ export default function UnitClassificationSection({ overview, part, view = 'bell
   part?: 'unit' | 'children'
   view?: UnitClassificationView
 }) {
+  const { t: tr } = useTranslation('analytics')
   const dist = overview?.distribution ?? []
   const cls = overview?.classification
 
@@ -66,13 +68,13 @@ export default function UnitClassificationSection({ overview, part, view = 'bell
 
   // Nguồn của các con số: kỳ (số chốt kỳ) hoặc một đợt cụ thể. Phải nói ra, nếu không người xem
   // tưởng đang nhìn đợt mới nhất trong khi backend đã lùi về đợt gần nhất CÓ đánh giá.
-  const scopeLabel = overview?.cycleName ? `Kỳ ${overview.cycleName}` : overview?.currentPeriodName
+  const scopeLabel = overview?.cycleName ? tr('UnitClassificationSection.cycle', { cycleName: overview.cycleName }) : overview?.currentPeriodName
 
   if (overview && overview.evaluatedMembers === 0) {
     return (
       <div className="bg-[var(--color-card)] rounded-2xl border border-[var(--color-border)] p-6 text-center text-sm text-slate-400 font-medium">
-        Chưa có đánh giá nào để xếp loại đơn vị cho phạm vi/đợt/kỳ đang chọn.
-        {scopeLabel && <span className="block text-xs mt-1 text-slate-400">Đợt đang xét: {scopeLabel}</span>}
+        {tr('UnitClassificationSection.noEvaluationYetToRateUnits')}
+        {scopeLabel && <span className="block text-xs mt-1 text-slate-400">{tr('UnitClassificationSection.periodBeingReviewed')} {scopeLabel}</span>}
       </div>
     )
   }
@@ -83,7 +85,7 @@ export default function UnitClassificationSection({ overview, part, view = 'bell
         <>
         {scopeLabel && (
           <p className="text-xs font-medium text-slate-400">
-            Số liệu của: <span className="text-[var(--color-muted-foreground)]">{scopeLabel}</span>
+            {tr('UnitClassificationSection.figuresFor')} <span className="text-[var(--color-muted-foreground)]">{scopeLabel}</span>
           </p>
         )}
         {/* Badge xếp loại + biểu đồ đã chọn */}
@@ -95,14 +97,14 @@ export default function UnitClassificationSection({ overview, part, view = 'bell
               style={{ backgroundColor: cls ? `${cls.color}22` : '#94a3b822', color: cls?.color ?? '#94a3b8' }}>
               <Award size={26} />
             </div>
-            <p className="text-xs font-medium text-slate-400">Xếp loại đơn vị</p>
+            <p className="text-xs font-medium text-slate-400">{tr('UnitClassificationSection.unitRating')}</p>
             <p className="text-2xl font-semibold" style={{ color: cls?.color ?? '#64748b' }}>{cls?.level ?? '-'}</p>
             <p className="text-xs font-medium text-slate-400">
-              {overview?.evaluatedMembers ?? 0}/{overview?.totalMembers ?? 0} người có đánh giá
+              {overview?.evaluatedMembers ?? 0}/{overview?.totalMembers ?? 0} {tr('UnitClassificationSection.peopleEvaluated')}
               {overview?.currentPeriodName ? ` · ${overview.currentPeriodName}` : ''}
             </p>
             {overview?.appliedProfileName && (
-              <p className="text-xs font-semibold text-[var(--color-primary)] mt-0.5">Hồ sơ: {overview.appliedProfileName}</p>
+              <p className="text-xs font-semibold text-[var(--color-primary)] mt-0.5">{tr('UnitClassificationSection.profile')} {overview.appliedProfileName}</p>
             )}
             {/* Số người từng mức — tooltip của biểu đồ cũng có, nhưng đứng cạnh badge đọc nhanh hơn. */}
             <div className="mt-2 flex flex-wrap justify-center gap-x-3 gap-y-1">
@@ -118,13 +120,13 @@ export default function UnitClassificationSection({ overview, part, view = 'bell
           <div className="lg:col-span-2 rounded-2xl border border-[var(--color-border)] p-5 bg-[var(--color-card)] min-w-0">
             {view === 'trend' ? (
               <>
-                <h4 className="text-sm font-semibold mb-1">Tỉ trọng xếp loại qua các đợt</h4>
+                <h4 className="text-sm font-semibold mb-1">{tr('UnitClassificationSection.ratingShareAcrossPeriods')}</h4>
                 <p className="text-xs text-slate-500 font-medium mb-3">
-                  Mỗi đợt cao đúng 100%, cho thấy chất lượng nhân sự dịch chuyển giữa các mức ra sao, không bị chi phối bởi số người được đánh giá mỗi đợt
+                  {tr('UnitClassificationSection.eachPeriodIsExactly100Showing')}
                 </p>
                 {sharePoints.length > 1 ? (
                   <StackedComposition
-                    yLabel="Tỉ trọng (%)"
+                    yLabel={tr('UnitClassificationSection.share')}
                     series={shareSeries}
                     points={sharePoints}
                     variant="area"
@@ -133,23 +135,23 @@ export default function UnitClassificationSection({ overview, part, view = 'bell
                     rotateLabels={sharePoints.length > 6}
                   />
                 ) : (
-                  <p className="py-12 text-center text-sm text-slate-400 font-medium">Cần từ 2 đợt trở lên để thấy dịch chuyển.</p>
+                  <p className="py-12 text-center text-sm text-slate-400 font-medium">{tr('UnitClassificationSection.atLeast2PeriodsAreNeeded')}</p>
                 )}
               </>
             ) : (
               <>
                 <h4 className="text-sm font-semibold mb-1">
                   Bell curve
-                  {overview?.bellCurve?.configured && overview.bellCurve.profileName ? ` · hồ sơ "${overview.bellCurve.profileName}"` : ''}
+                  {overview?.bellCurve?.configured && overview.bellCurve.profileName ? tr('UnitClassificationSection.profile2', { profileName: overview.bellCurve.profileName }) : ''}
                   {overview?.bellCurve?.configured ? ` · dung sai ±${overview.bellCurve.tolerance}%` : ''}
                 </h4>
                 <p className="text-xs text-slate-500 font-medium mb-3">
-                  Phân bố thực tế theo mức đặt cạnh khung hạn mức của hồ sơ xếp loại — mức nào đang vượt trần hay dưới sàn thấy ngay
+                  {tr('UnitClassificationSection.actualDistributionByLevelNextTo')}
                 </p>
                 {overview?.bellCurve ? (
                   <BellCurveChart curve={overview.bellCurve} height={240} compact />
                 ) : (
-                  <p className="py-12 text-center text-sm text-slate-400 font-medium">Chưa có đợt nào để vẽ phân bố.</p>
+                  <p className="py-12 text-center text-sm text-slate-400 font-medium">{tr('UnitClassificationSection.noPeriodToDrawTheDistribution')}</p>
                 )}
               </>
             )}
@@ -162,7 +164,7 @@ export default function UnitClassificationSection({ overview, part, view = 'bell
       {showChildren && (overview?.children?.length ?? 0) > 0 && (
         <div className="rounded-2xl border border-[var(--color-border)] p-5 bg-[var(--color-card)]">
           <h4 className="text-sm font-semibold flex items-center gap-2 mb-4">
-            <Building2 size={16} className="text-[var(--color-primary)]" /> Xếp loại đơn vị con
+            <Building2 size={16} className="text-[var(--color-primary)]" /> {tr('UnitClassificationSection.childUnitRatings')}
           </h4>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
             {overview!.children.map(c => (
@@ -170,7 +172,7 @@ export default function UnitClassificationSection({ overview, part, view = 'bell
                 <div className="min-w-0">
                   <p className="text-[13px] font-semibold text-[var(--color-foreground)] truncate">{c.orgUnitName}</p>
                   <p className="text-xs font-medium text-slate-400">
-                    {c.evaluatedMembers} người đánh giá
+                    {c.evaluatedMembers} {tr('UnitClassificationSection.evaluators')}
                     {c.appliedProfileName ? ` · ${c.appliedProfileName}` : ''}
                   </p>
                 </div>

@@ -11,6 +11,8 @@ import { DashboardFilterWidget } from './shared/DashboardFilterWidget'
 import { MyTodoWidget } from './shared/MyTodoWidget'
 import { TeamFocusWidget } from './shared/TeamFocusWidget'
 import type { FilterScope } from '../context/DashboardFilterContext'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
 /**
  * Trang chủ của MỌI vai trò dùng chung đúng một bộ widget: toàn bộ nội dung của trang
@@ -49,14 +51,14 @@ export interface ViewerScope {
   canManageBsc: boolean
 }
 
-const GROUP = {
-  filter: 'Bộ lọc',
-  unit: 'Đơn vị',
-  personal: 'Cá nhân',
-  risk: 'Rủi ro & xếp hạng',
-  drill: 'So sánh giữa các đơn vị',
-  bsc: 'Thẻ điểm BSC',
-} as const
+const GROUP = perLanguage(() => ({
+  filter: i18n.t('dashboard:analyticsCatalog.filters'),
+  unit: i18n.t('dashboard:analyticsCatalog.unit'),
+  personal: i18n.t('dashboard:analyticsCatalog.personal'),
+  risk: i18n.t('dashboard:analyticsCatalog.riskRanking'),
+  drill: i18n.t('dashboard:analyticsCatalog.unitComparison'),
+  bsc: i18n.t('dashboard:analyticsCatalog.bscScorecard'),
+} as const))
 
 interface AnalyticsWidgetDef {
   /** Trùng `chartConfig.i` của tab thống kê — đây là khoá tra trong PINNED_REGISTRY. */
@@ -84,17 +86,17 @@ interface AnalyticsWidgetDef {
   render?: () => React.ReactNode
 }
 
-const ANALYTICS_WIDGETS: AnalyticsWidgetDef[] = [
+const ANALYTICS_WIDGETS = perLanguage((): AnalyticsWidgetDef[] => ([
   // ── Bộ lọc ─────────────────────────────────────────────────────────────
   {
-    i: 'filter-unit', title: 'Bộ lọc đơn vị', groupLabel: GROUP.filter, unitScope: true,
-    description: 'Chọn đợt/khoảng đợt/kỳ cho mọi widget cấp đơn vị, phân cấp và hạng mục.',
+    i: 'filter-unit', title: i18n.t('dashboard:analyticsCatalog.unitFilter'), groupLabel: GROUP().filter, unitScope: true,
+    description: i18n.t('dashboard:analyticsCatalog.chooseThePeriodPeriodRangeCycle'),
     icon: <SlidersHorizontal size={20} />, w: 12, h: 4,
     render: () => <DashboardFilterWidget scope="unit" />,
   },
   {
-    i: 'filter-personal', title: 'Bộ lọc cá nhân', groupLabel: GROUP.filter,
-    description: 'Chọn đợt/khoảng đợt/kỳ cho mọi widget "của tôi".',
+    i: 'filter-personal', title: i18n.t('dashboard:analyticsCatalog.personalFilter'), groupLabel: GROUP().filter,
+    description: i18n.t('dashboard:analyticsCatalog.chooseThePeriodPeriodRangeCycle2'),
     icon: <SlidersHorizontal size={20} />, w: 12, h: 4,
     filterScope: 'personal',
     render: () => <DashboardFilterWidget scope="personal" />,
@@ -102,191 +104,191 @@ const ANALYTICS_WIDGETS: AnalyticsWidgetDef[] = [
 
   // ── Đơn vị · bản KPI (tổ chức TẮT OKR) — tab "KPI đơn vị" ──
   {
-    i: 'unit-kpi-metrics', title: 'Chỉ số KPI đơn vị', groupLabel: GROUP.unit, okr: false, unitScope: true,
-    description: 'Tiến độ, hiệu suất, trạng thái KPI, số KPI rủi ro và tổng nhân sự.',
+    i: 'unit-kpi-metrics', title: i18n.t('dashboard:analyticsCatalog.unitKpiMetrics'), groupLabel: GROUP().unit, okr: false, unitScope: true,
+    description: i18n.t('dashboard:analyticsCatalog.progressPerformanceKpiStatusAtRisk'),
     icon: <Gauge size={20} />, w: 12, h: 5,
   },
   {
-    i: 'trend-chart', title: 'Diễn biến KPI đơn vị qua các kỳ', groupLabel: GROUP.unit, okr: false, unitScope: true,
-    description: 'Đơn vị đang lên hay xuống: tiến độ và hiệu suất qua từng kỳ, hoặc tỉ trọng KPI mới/cũ.',
+    i: 'trend-chart', title: i18n.t('dashboard:analyticsCatalog.unitKpisAcrossCycles'), groupLabel: GROUP().unit, okr: false, unitScope: true,
+    description: i18n.t('dashboard:analyticsCatalog.isTheUnitGoingUpOr'),
     icon: <TrendingUp size={20} />, w: 12, h: 15,
   },
   {
-    i: 'unit-perf', title: 'Đơn vị con: hiệu suất, tiến độ, nộp bài', groupLabel: GROUP.unit, okr: false, unitScope: true,
-    description: 'Đặt các đơn vị con cạnh nhau về hiệu suất, tiến độ và tỉ lệ nộp; chọn được top tốt nhất / trì trệ nhất.',
+    i: 'unit-perf', title: i18n.t('dashboard:analyticsCatalog.childUnitsPerformanceProgressSubmissions'), groupLabel: GROUP().unit, okr: false, unitScope: true,
+    description: i18n.t('dashboard:analyticsCatalog.childUnitsSideBySideOn'),
     icon: <BarChart3 size={20} />, w: 12, h: 13,
   },
   {
-    i: 'member-dist', title: 'Cơ cấu nhân sự theo vai trò', groupLabel: GROUP.unit, okr: false, unitScope: true,
-    description: 'Mỗi đơn vị có bao nhiêu người ở vai trò nào.',
+    i: 'member-dist', title: i18n.t('dashboard:analyticsCatalog.peopleByRole'), groupLabel: GROUP().unit, okr: false, unitScope: true,
+    description: i18n.t('dashboard:analyticsCatalog.howManyPeopleEachUnitHas'),
     icon: <Users size={20} />, w: 6, h: 11,
   },
 
   // ── Đơn vị · bản OKR (tổ chức BẬT OKR) — tab "Mục tiêu đơn vị" ──
   {
-    i: 'sub-metrics', title: 'Chỉ số mục tiêu đơn vị', groupLabel: GROUP.unit, okr: true, unitScope: true,
-    description: 'Tiến độ, hiệu suất, mục tiêu hoàn thành, mục tiêu rủi ro và tổng nhân sự.',
+    i: 'sub-metrics', title: i18n.t('dashboard:analyticsCatalog.unitObjectiveMetrics'), groupLabel: GROUP().unit, okr: true, unitScope: true,
+    description: i18n.t('dashboard:analyticsCatalog.progressPerformanceObjectivesCompletedAtRisk'),
     icon: <Gauge size={20} />, w: 12, h: 5,
   },
   {
-    i: 'sub-trend', title: 'Diễn biến mục tiêu đơn vị qua các kỳ', groupLabel: GROUP.unit, okr: true, unitScope: true,
-    description: 'Đơn vị đang lên hay xuống: tiến độ và hiệu suất qua từng kỳ, hoặc tỉ trọng mục tiêu mới/cũ.',
+    i: 'sub-trend', title: i18n.t('dashboard:analyticsCatalog.unitObjectivesAcrossCycles'), groupLabel: GROUP().unit, okr: true, unitScope: true,
+    description: i18n.t('dashboard:analyticsCatalog.isTheUnitGoingUpOr2'),
     icon: <TrendingUp size={20} />, w: 12, h: 15,
   },
   {
-    i: 'sub-detail', title: 'Cây mục tiêu và KR của đơn vị', groupLabel: GROUP.unit, okr: true, unitScope: true,
-    description: 'Mục tiêu → kết quả then chốt → KPI của người thuộc quyền bạn, kèm tiến độ từng cấp.',
+    i: 'sub-detail', title: i18n.t('dashboard:analyticsCatalog.unitObjectiveAndKrTree'), groupLabel: GROUP().unit, okr: true, unitScope: true,
+    description: i18n.t('dashboard:analyticsCatalog.objectivesKeyResultsKpisOfThe'),
     icon: <ListChecks size={20} />, w: 12, h: 20,
   },
   {
-    i: 'sub-unit-perf', title: 'Đơn vị con: hiệu suất, tiến độ, nộp bài', groupLabel: GROUP.unit, okr: true, unitScope: true,
-    description: 'Đặt các đơn vị con cạnh nhau về hiệu suất, tiến độ và tỉ lệ nộp; chọn được top tốt nhất / trì trệ nhất.',
+    i: 'sub-unit-perf', title: i18n.t('dashboard:analyticsCatalog.childUnitsPerformanceProgressSubmissions'), groupLabel: GROUP().unit, okr: true, unitScope: true,
+    description: i18n.t('dashboard:analyticsCatalog.childUnitsSideBySideOn'),
     icon: <BarChart3 size={20} />, w: 12, h: 13,
   },
   {
-    i: 'sub-member', title: 'Cơ cấu nhân sự theo vai trò', groupLabel: GROUP.unit, okr: true, unitScope: true,
-    description: 'Mỗi đơn vị có bao nhiêu người ở vai trò nào.',
+    i: 'sub-member', title: i18n.t('dashboard:analyticsCatalog.peopleByRole'), groupLabel: GROUP().unit, okr: true, unitScope: true,
+    description: i18n.t('dashboard:analyticsCatalog.howManyPeopleEachUnitHas'),
     icon: <Users size={20} />, w: 6, h: 11,
   },
 
   // ── Rủi ro & xếp hạng (chỉ có ở tab "KPI đơn vị") ──
   {
-    i: 'rank-table', title: 'Xếp hạng nhân sự', groupLabel: GROUP.risk, okr: false, unitScope: true,
-    description: 'Ai đứng đầu, ai đứng cuối theo điểm hiệu suất hoặc tiến độ, lọc được theo đơn vị.',
+    i: 'rank-table', title: i18n.t('dashboard:analyticsCatalog.peopleRanking'), groupLabel: GROUP().risk, okr: false, unitScope: true,
+    description: i18n.t('dashboard:analyticsCatalog.whoIsAtTheTopAnd'),
     icon: <Star size={20} />, w: 12, h: 13,
   },
   {
     // Không gắn cờ `okr`: widget này nói về NGƯỜI nên có mặt ở cả hai chế độ — nguồn của nó lấy
     // cả KPI gắn key result (xem `everyKpi` trong TeamFocusWidget).
-    i: 'team-focus', title: 'Nhân sự cần can thiệp', groupLabel: GROUP.risk, unitScope: true,
-    description: 'Chỉ những nhân sự đang có vấn đề trong đợt/kỳ đang chọn, xếp theo mức ưu tiên, bung ra xem đúng chỉ tiêu nộp trễ.',
+    i: 'team-focus', title: i18n.t('dashboard:analyticsCatalog.peopleNeedingIntervention'), groupLabel: GROUP().risk, unitScope: true,
+    description: i18n.t('dashboard:analyticsCatalog.onlyThePeopleWithProblemsIn'),
     icon: <UserRoundSearch size={20} />, w: 12, h: 17,
     render: () => <TeamFocusWidget />,
   },
 
   // ── Cá nhân · bản KPI (tổ chức TẮT OKR) — tab "Kết quả của tôi" ──
   {
-    i: 'mykpi-todo', title: 'Công việc cần làm', groupLabel: GROUP.personal, okr: false, filterScope: 'personal',
-    description: 'Chỉ tiêu đang chờ bạn trong đợt/kỳ đang chọn: bị từ chối, quá hạn, sắp đến hạn, chậm tiến độ — kèm nút xử lý.',
+    i: 'mykpi-todo', title: i18n.t('dashboard:analyticsCatalog.toDo'), groupLabel: GROUP().personal, okr: false, filterScope: 'personal',
+    description: i18n.t('dashboard:analyticsCatalog.kpisWaitingOnYouInThe'),
     icon: <ClipboardList size={20} />, w: 12, h: 16,
     render: () => <MyTodoWidget source="kpi" />,
   },
   {
-    i: 'mykpi-metrics', title: 'Chỉ số KPI của tôi', groupLabel: GROUP.personal, okr: false, filterScope: 'personal',
-    description: 'Tổng KPI, tiến độ, hiệu suất, đang chạy/hoàn thành và số KPI rủi ro.',
+    i: 'mykpi-metrics', title: i18n.t('dashboard:analyticsCatalog.myKpiMetrics'), groupLabel: GROUP().personal, okr: false, filterScope: 'personal',
+    description: i18n.t('dashboard:analyticsCatalog.totalKpisProgressPerformanceInProgress'),
     icon: <Gauge size={20} />, w: 12, h: 5,
   },
   {
-    i: 'mykpi-trend', title: 'Diễn biến KPI của tôi qua các kỳ', groupLabel: GROUP.personal, okr: false, filterScope: 'personal',
-    description: 'Bạn đang lên hay xuống: tiến độ và hiệu suất qua từng kỳ, hoặc tỉ trọng KPI mới/cũ.',
+    i: 'mykpi-trend', title: i18n.t('dashboard:analyticsCatalog.myKpisAcrossCycles'), groupLabel: GROUP().personal, okr: false, filterScope: 'personal',
+    description: i18n.t('dashboard:analyticsCatalog.areYouGoingUpOrDown'),
     icon: <TrendingUp size={20} />, w: 12, h: 15,
   },
 
   // ── Cá nhân · bản OKR (tổ chức BẬT OKR) — tab "Mục tiêu của tôi" ──
   {
-    i: 'myobj-todo', title: 'Công việc cần làm', groupLabel: GROUP.personal, okr: true, filterScope: 'personal',
-    description: 'KPI thuộc mục tiêu của bạn đang chờ xử lý trong đợt/kỳ đang chọn, xếp theo mức ưu tiên.',
+    i: 'myobj-todo', title: i18n.t('dashboard:analyticsCatalog.toDo'), groupLabel: GROUP().personal, okr: true, filterScope: 'personal',
+    description: i18n.t('dashboard:analyticsCatalog.kpisUnderYourObjectivesWaitingTo'),
     icon: <ClipboardList size={20} />, w: 12, h: 16,
     render: () => <MyTodoWidget source="objective" />,
   },
   {
-    i: 'myobj-metrics', title: 'Chỉ số mục tiêu của tôi', groupLabel: GROUP.personal, okr: true, filterScope: 'personal',
-    description: 'Tiến độ, hiệu suất, trạng thái KPI và số KPI rủi ro của bạn.',
+    i: 'myobj-metrics', title: i18n.t('dashboard:analyticsCatalog.myObjectiveMetrics'), groupLabel: GROUP().personal, okr: true, filterScope: 'personal',
+    description: i18n.t('dashboard:analyticsCatalog.yourProgressPerformanceKpiStatusAnd'),
     icon: <Gauge size={20} />, w: 12, h: 5,
   },
   {
-    i: 'myobj-trend', title: 'Diễn biến mục tiêu của tôi qua các kỳ', groupLabel: GROUP.personal, okr: true, filterScope: 'personal',
-    description: 'Bạn đang lên hay xuống: tiến độ và hiệu suất qua từng kỳ, hoặc tỉ trọng mục tiêu mới/cũ.',
+    i: 'myobj-trend', title: i18n.t('dashboard:analyticsCatalog.myObjectivesAcrossCycles'), groupLabel: GROUP().personal, okr: true, filterScope: 'personal',
+    description: i18n.t('dashboard:analyticsCatalog.areYouGoingUpOrDown2'),
     icon: <TrendingUp size={20} />, w: 12, h: 15,
   },
 
   // ── So sánh giữa các đơn vị — cây đơn vị + chi tiết đơn vị đang chọn (cùng component với tab) ──
   {
-    i: 'drill-tree', title: 'Cây đơn vị', groupLabel: GROUP.drill,
-    description: 'Chọn đơn vị để mọi ô So sánh giữa các đơn vị và Thẻ điểm BSC bám theo.',
+    i: 'drill-tree', title: i18n.t('dashboard:analyticsCatalog.unitTree'), groupLabel: GROUP().drill,
+    description: i18n.t('dashboard:analyticsCatalog.chooseAUnitForEveryUnit'),
     icon: <Network size={20} />, w: 4, h: 20,
   },
   {
-    i: 'drill-summary', title: 'Đơn vị đang xem', groupLabel: GROUP.drill,
-    description: 'Cấp, tên đơn vị, số nhân sự và tổng KPI của đơn vị đang chọn.',
+    i: 'drill-summary', title: i18n.t('dashboard:analyticsCatalog.unitBeingViewed'), groupLabel: GROUP().drill,
+    description: i18n.t('dashboard:analyticsCatalog.levelUnitNameHeadcountAndTotal'),
     icon: <Building2 size={20} />, w: 8, h: 4,
   },
   {
-    i: 'drill-classification', title: 'Phân bố xếp loại nhân sự', groupLabel: GROUP.drill,
-    description: 'Xếp loại theo phân bố người ở từng mức, và tỉ trọng qua các đợt.',
+    i: 'drill-classification', title: i18n.t('dashboard:analyticsCatalog.peopleRatingDistribution'), groupLabel: GROUP().drill,
+    description: i18n.t('dashboard:analyticsCatalog.ratingsByDistributionOfPeopleAt'),
     icon: <Award size={20} />, w: 12, h: 16,
   },
   {
-    i: 'drill-cascade', title: 'Luồng phân rã & uỷ quyền KPI', groupLabel: GROUP.drill,
-    description: 'Trọng số KPI chảy từ đơn vị này xuống đơn vị nào.',
+    i: 'drill-cascade', title: i18n.t('dashboard:analyticsCatalog.kpiCascadingDelegationFlow'), groupLabel: GROUP().drill,
+    description: i18n.t('dashboard:analyticsCatalog.whichUnitsTheKpiWeightFlows'),
     icon: <Network size={20} />, w: 12, h: 12,
   },
   {
-    i: 'drill-employees', title: 'Từng thành viên: hiệu suất, tiến độ, số KPI', groupLabel: GROUP.drill,
-    description: 'Từng người trong đơn vị: hiệu suất, tiến độ, số KPI; biểu đồ hoặc bảng.',
+    i: 'drill-employees', title: i18n.t('dashboard:analyticsCatalog.eachMemberPerformanceProgressKpiCount'), groupLabel: GROUP().drill,
+    description: i18n.t('dashboard:analyticsCatalog.eachPersonInTheUnitPerformance'),
     icon: <Users size={20} />, w: 8, h: 16,
   },
   {
-    i: 'drill-matrix', title: 'Ma trận hành vi × hoàn thành', groupLabel: GROUP.drill, qualitative: true,
-    description: 'Số người rơi vào từng ô điểm hành vi × hoàn thành, hoặc phân tán từng người.',
+    i: 'drill-matrix', title: i18n.t('dashboard:analyticsCatalog.conductCompletionMatrix'), groupLabel: GROUP().drill, qualitative: true,
+    description: i18n.t('dashboard:analyticsCatalog.theNumberOfPeopleInEach'),
     icon: <Grid3x3 size={20} />, w: 12, h: 18,
   },
   {
-    i: 'drill-children', title: 'Xếp loại của từng đơn vị con', groupLabel: GROUP.drill,
-    description: 'Xếp loại của các đơn vị ngay bên dưới đơn vị đang chọn.',
+    i: 'drill-children', title: i18n.t('dashboard:analyticsCatalog.ratingOfEachChildUnit'), groupLabel: GROUP().drill,
+    description: i18n.t('dashboard:analyticsCatalog.ratingsOfTheUnitsDirectlyBelow'),
     icon: <Building2 size={20} />, w: 6, h: 12,
   },
   {
-    i: 'drill-compare', title: 'Hiệu suất từng đơn vị con', groupLabel: GROUP.drill,
-    description: 'Hiệu suất các đơn vị con đặt cạnh nhau.',
+    i: 'drill-compare', title: i18n.t('dashboard:analyticsCatalog.performanceOfEachChildUnit'), groupLabel: GROUP().drill,
+    description: i18n.t('dashboard:analyticsCatalog.performanceOfChildUnitsSideBy'),
     icon: <BarChart3 size={20} />, w: 6, h: 12,
   },
   {
-    i: 'drill-boxplot', title: 'Độ phân tán điểm trong từng đơn vị con', groupLabel: GROUP.drill,
-    description: 'Điểm trong mỗi đơn vị con phân tán rộng hay hẹp.',
+    i: 'drill-boxplot', title: i18n.t('dashboard:analyticsCatalog.scoreSpreadWithinEachChildUnit'), groupLabel: GROUP().drill,
+    description: i18n.t('dashboard:analyticsCatalog.whetherScoresInEachChildUnit'),
     icon: <BarChart3 size={20} />, w: 12, h: 12,
   },
 
   // ── Thẻ điểm BSC (cùng component với tab; mô hình thẻ điểm) ──
   {
-    i: 'bsc-overview', title: 'Sức khoẻ BSC của đợt', groupLabel: GROUP.bsc, bsc: true,
-    description: 'Mức đạt BSC của đợt, số thẻ điểm đơn vị, đơn vị qua cửa chặn, độ phủ phân rã.',
+    i: 'bsc-overview', title: i18n.t('dashboard:analyticsCatalog.bscHealthOfThePeriod'), groupLabel: GROUP().bsc, bsc: true,
+    description: i18n.t('dashboard:analyticsCatalog.thePeriodsBscAchievementNumberOf'),
     icon: <Gauge size={20} />, w: 12, h: 6,
   },
   {
-    i: 'bsc-units', title: 'Mức đạt thẻ điểm của từng đơn vị', groupLabel: GROUP.bsc, bsc: true,
-    description: 'Đơn vị nào đạt, đơn vị nào hụt: mỗi đơn vị một chấm so với mục tiêu 100%, đỏ là không qua cửa chặn.',
+    i: 'bsc-units', title: i18n.t('dashboard:analyticsCatalog.scorecardAchievementOfEachUnit'), groupLabel: GROUP().bsc, bsc: true,
+    description: i18n.t('dashboard:analyticsCatalog.whichUnitsAchieveAndWhichFall'),
     icon: <BarChart3 size={20} />, w: 7, h: 11,
   },
   {
-    i: 'bsc-gates', title: 'Đơn vị vướng hạng mục chặn', groupLabel: GROUP.bsc, bsc: true,
-    description: 'Đơn vị nào đang vướng chỉ tiêu chặn trong đợt, vướng ở chỉ tiêu nào.',
+    i: 'bsc-gates', title: i18n.t('dashboard:analyticsCatalog.unitsBlockedByGateItems'), groupLabel: GROUP().bsc, bsc: true,
+    description: i18n.t('dashboard:analyticsCatalog.whichUnitsAreBlockedByGate'),
     icon: <ShieldCheck size={20} />, w: 5, h: 11,
   },
   {
-    i: 'bsc-items', title: 'Từng chỉ tiêu so với mục tiêu và sàn', groupLabel: GROUP.bsc, bsc: true,
-    description: 'Chỉ tiêu nào đạt, chỉ tiêu nào hụt: thực tế đặt cạnh mục tiêu và sàn của từng dòng trên thẻ điểm.',
+    i: 'bsc-items', title: i18n.t('dashboard:analyticsCatalog.eachKpiAgainstTargetAndFloor'), groupLabel: GROUP().bsc, bsc: true,
+    description: i18n.t('dashboard:analyticsCatalog.whichKpisAreMetAndWhich'),
     icon: <LayoutGrid size={20} />, w: 12, h: 10,
   },
   {
-    i: 'bsc-trend', title: 'Diễn biến mức đạt qua các đợt', groupLabel: GROUP.bsc, bsc: true,
-    description: 'Mức đạt đang lên hay xuống qua các đợt, tách được theo 4 lĩnh vực.',
+    i: 'bsc-trend', title: i18n.t('dashboard:analyticsCatalog.achievementAcrossPeriods'), groupLabel: GROUP().bsc, bsc: true,
+    description: i18n.t('dashboard:analyticsCatalog.whetherAchievementIsGoingUpOr'),
     icon: <TrendingUp size={20} />, w: 7, h: 12,
   },
   {
-    i: 'bsc-cascade', title: 'Độ phủ phân rã chỉ tiêu', groupLabel: GROUP.bsc, bsc: true,
-    description: 'Từng chỉ tiêu đã phân rã xuống đơn vị đủ, thiếu hay vượt mục tiêu.',
+    i: 'bsc-cascade', title: i18n.t('dashboard:analyticsCatalog.kpiCascadeCoverage'), groupLabel: GROUP().bsc, bsc: true,
+    description: i18n.t('dashboard:analyticsCatalog.whetherEachKpiCascadedToUnits'),
     icon: <Scale size={20} />, w: 5, h: 12,
   },
   {
-    i: 'bsc-ranking', title: 'Xếp hạng nhân sự theo điểm BSC', groupLabel: GROUP.bsc, bsc: true,
-    description: 'Nhân sự xếp theo điểm BSC hoặc điểm hệ thống, kèm điểm từng lĩnh vực.',
+    i: 'bsc-ranking', title: i18n.t('dashboard:analyticsCatalog.peopleRankingByBscScore'), groupLabel: GROUP().bsc, bsc: true,
+    description: i18n.t('dashboard:analyticsCatalog.peopleRankedByBscScoreOr'),
     icon: <Medal size={20} />, w: 12, h: 14,
   },
-]
+]))
 
 /** Mọi id trang chủ biết vẽ — nơi khác dùng để kiểm trước khi ghim một widget vào đây. */
-export const ANALYTICS_WIDGET_IDS: ReadonlySet<string> = new Set(ANALYTICS_WIDGETS.map(d => d.i))
+export const ANALYTICS_WIDGET_IDS = perLanguage((): ReadonlySet<string> => (new Set(ANALYTICS_WIDGETS().map(d => d.i))))
 
 const isAvailable = (d: AnalyticsWidgetDef, flags: OrgFlags, scope: ViewerScope): boolean => {
   if (d.okr !== undefined && d.okr !== flags.enableOkr) return false
@@ -303,12 +305,12 @@ const toWidget = (d: AnalyticsWidgetDef, x = 0, y = 0): DashboardWidget => ({
 
 /** Mọi widget vai trò này được phép có — dùng để hydrate bố cục đã lưu. */
 export function getAnalyticsWidgets(flags: OrgFlags, scope: ViewerScope): DashboardWidget[] {
-  return ANALYTICS_WIDGETS.filter(d => isAvailable(d, flags, scope)).map(d => toWidget(d))
+  return ANALYTICS_WIDGETS().filter(d => isAvailable(d, flags, scope)).map(d => toWidget(d))
 }
 
 /** Thư viện widget cho nút "Thêm biểu đồ". */
 export function getAnalyticsCatalog(flags: OrgFlags, scope: ViewerScope): WidgetCatalogEntry[] {
-  return ANALYTICS_WIDGETS
+  return ANALYTICS_WIDGETS()
     .filter(d => isAvailable(d, flags, scope))
     .map(d => ({ template: toWidget(d), icon: d.icon, description: d.description, groupLabel: d.groupLabel }))
 }
@@ -318,7 +320,7 @@ export function getAnalyticsCatalog(flags: OrgFlags, scope: ViewerScope): Widget
  * hoặc cờ tổ chức vừa đổi (bật OKR là nửa danh mục đổi sang cặp Mục tiêu).
  */
 export function renderAnalyticsWidget(i: string, flags: OrgFlags, scope: ViewerScope): React.ReactNode {
-  const def = ANALYTICS_WIDGETS.find(d => d.i === i)
+  const def = ANALYTICS_WIDGETS().find(d => d.i === i)
   if (!def || !isAvailable(def, flags, scope)) return null
   if (def.render) return def.render()
   return (
@@ -340,7 +342,7 @@ function layoutOf(ids: string[], flags: OrgFlags, scope: ViewerScope): Dashboard
   const wrap = () => { y += rowH; rowX = 0; rowH = 0 }
 
   ids.forEach(id => {
-    const def = ANALYTICS_WIDGETS.find(d => d.i === id)
+    const def = ANALYTICS_WIDGETS().find(d => d.i === id)
     if (!def || !isAvailable(def, flags, scope)) return
     if (rowX + def.w > 12) wrap()
     out.push(toWidget(def, rowX, y))
@@ -417,39 +419,39 @@ export function getAnalyticsPresets(flags: OrgFlags, scope: ViewerScope): Layout
   const raw: { key: string; label: string; description: string; ids: string[] }[] = [
     flags.enableOkr
       ? {
-          key: 'unit', label: 'Mục tiêu đơn vị tôi quản lý',
-          description: 'Đúng nội dung mục "Mục tiêu đơn vị tôi quản lý" bên Thống kê.',
+          key: 'unit', label: i18n.t('dashboard:analyticsCatalog.unitObjectivesIManage'),
+          description: i18n.t('dashboard:analyticsCatalog.exactlyTheContentOfUnitObjectives'),
           ids: ['filter-unit', 'sub-metrics', 'sub-trend', 'sub-detail', 'sub-member', 'sub-unit-perf'],
         }
       : {
-          key: 'unit', label: 'Đơn vị tôi quản lý',
-          description: 'Đúng nội dung mục "Đơn vị tôi quản lý" bên Thống kê.',
+          key: 'unit', label: i18n.t('dashboard:analyticsCatalog.unitsIManage'),
+          description: i18n.t('dashboard:analyticsCatalog.exactlyTheContentOfUnitsI'),
           ids: ['filter-unit', 'unit-kpi-metrics', 'trend-chart', 'unit-perf', 'member-dist', 'rank-table'],
         },
     flags.enableOkr
       ? {
-          key: 'personal', label: 'Mục tiêu của tôi',
-          description: 'Mục "Mục tiêu của tôi" bên Thống kê, kèm ô việc cần làm.',
+          key: 'personal', label: i18n.t('dashboard:analyticsCatalog.myObjectives'),
+          description: i18n.t('dashboard:analyticsCatalog.theMyObjectivesSectionInStatistics'),
           ids: ['filter-personal', 'myobj-todo', 'myobj-metrics', 'myobj-trend'],
         }
       : {
-          key: 'personal', label: 'Kết quả của tôi',
-          description: 'Mục "Kết quả của tôi" bên Thống kê, kèm ô việc cần làm.',
+          key: 'personal', label: i18n.t('dashboard:analyticsCatalog.myResults'),
+          description: i18n.t('dashboard:analyticsCatalog.theMyResultsSectionInStatistics'),
           ids: ['filter-personal', 'mykpi-todo', 'mykpi-metrics', 'mykpi-trend'],
         },
     {
-      key: 'drill', label: 'So sánh giữa các đơn vị',
-      description: 'Đúng nội dung mục "So sánh giữa các đơn vị" bên Thống kê: cây đơn vị và chi tiết đơn vị.',
+      key: 'drill', label: i18n.t('dashboard:analyticsCatalog.unitComparison'),
+      description: i18n.t('dashboard:analyticsCatalog.exactlyTheContentOfUnitComparison'),
       ids: ['filter-unit', 'drill-tree', 'drill-summary', 'drill-classification', 'drill-employees', 'drill-matrix', 'drill-children', 'drill-compare'],
     },
     {
-      key: 'bsc', label: 'Thẻ điểm BSC',
-      description: 'Đúng nội dung mục "Thẻ điểm BSC" bên Thống kê.',
+      key: 'bsc', label: i18n.t('dashboard:analyticsCatalog.bscScorecard'),
+      description: i18n.t('dashboard:analyticsCatalog.exactlyTheContentOfBscScorecard'),
       ids: ['filter-unit', 'bsc-overview', 'bsc-units', 'bsc-gates', 'bsc-items', 'bsc-trend', 'bsc-cascade'],
     },
     {
-      key: 'risk', label: 'Rủi ro',
-      description: 'Ai cần can thiệp trước, đơn vị và nhân sự đang trễ hạn, kèm bảng xếp hạng.',
+      key: 'risk', label: i18n.t('dashboard:analyticsCatalog.risk'),
+      description: i18n.t('dashboard:analyticsCatalog.whoNeedsInterventionFirstUnitsAnd'),
       ids: ['filter-unit', 'team-focus', 'rank-table'],
     },
   ]

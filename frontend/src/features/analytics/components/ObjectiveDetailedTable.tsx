@@ -12,6 +12,7 @@ import { KpiPeriodCell } from './KpiPeriodCell'
 import { KpiWeightPill } from './KpiWeightPill'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import { useTranslation } from 'react-i18next'
 
 type SortField = 'progress' | 'period'
 type SortDir = 'asc' | 'desc'
@@ -54,11 +55,12 @@ interface Props {
 }
 
 function MobileObjectiveCard({ obj, onRowClick }: { obj: ObjectiveDetailedDto; onRowClick: any }) {
+  const { t } = useTranslation('analytics')
   const pct = Math.round(obj.progress || 0)
   const formatDate = (d: string | null) => d ? format(new Date(d), 'dd/MM/yyyy') : '---'
 
   return (
-    <div className="p-4 border-b border-[var(--color-border)] space-y-3 active:bg-[var(--color-muted)] dark:active:bg-white/5 transition-colors" onClick={() => onRowClick('OBJECTIVE', obj)}>
+    <div className="cursor-pointer p-4 border-b border-[var(--color-border)] space-y-3 active:bg-[var(--color-muted)] dark:active:bg-white/5 transition-colors" onClick={() => onRowClick('OBJECTIVE', obj)}>
       <div className="flex items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
           <p className="font-medium text-sm text-[var(--color-foreground)] leading-tight">{obj.name}</p>
@@ -76,7 +78,7 @@ function MobileObjectiveCard({ obj, onRowClick }: { obj: ObjectiveDetailedDto; o
       <div className="flex flex-wrap items-center gap-2 text-caption font-medium">
         {(obj.periodCount ?? 0) > 1 ? (
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-[var(--color-primary-soft)] text-[var(--color-primary)] text-xs font-medium" title={obj.periodNames?.join(',')}>
-            <Layers size={11} /> Nhiều đợt ({obj.periodCount})
+            <Layers size={11} /> {t('ObjectiveDetailedTable.multiplePeriods')}{obj.periodCount})
           </span>
         ) : obj.periodCount === 1 && obj.periodNames?.[0] ? (
           <span className="font-semibold text-[var(--color-muted-foreground)]">{obj.periodNames[0]}</span>
@@ -89,7 +91,7 @@ function MobileObjectiveCard({ obj, onRowClick }: { obj: ObjectiveDetailedDto; o
       <div className="flex items-center gap-4 pt-1 border-t border-[var(--color-border)]">
         <div className="flex-1">
           <div className="flex items-center justify-between mb-1">
-            <span className="text-eyebrow">Tiến độ</span>
+            <span className="text-eyebrow">{t('ObjectiveDetailedTable.progress')}</span>
             <span className="text-xs font-semibold">{pct}%</span>
           </div>
           <div className="h-2 bg-[var(--color-muted)] rounded-full overflow-hidden">
@@ -102,6 +104,7 @@ function MobileObjectiveCard({ obj, onRowClick }: { obj: ObjectiveDetailedDto; o
 }
 
 export default function ObjectiveDetailedTable({ data, onRowClick, sortBy, sortDir, onToggleSort }: Props) {
+  const { t } = useTranslation('analytics')
   const [expandedObj, setExpandedObj] = useState<Record<string, boolean>>({})
   const [expandedKr, setExpandedKr] = useState<Record<string, boolean>>({})
   const [expandedKpi, setExpandedKpi] = useState<Record<string, boolean>>({})
@@ -129,12 +132,12 @@ export default function ObjectiveDetailedTable({ data, onRowClick, sortBy, sortD
 const DateRange = ({ start, end }: { start: string | null; end: string | null }) => (
   <div className="inline-flex flex-col gap-1 text-xs">
     <div className="flex items-center gap-1.5">
-      <span className="w-[26px] shrink-0 font-medium text-[var(--color-subtle-foreground)]">Từ</span>
+      <span className="w-[26px] shrink-0 font-medium text-[var(--color-subtle-foreground)]">{t('ObjectiveDetailedTable.from')}</span>
       <span className="font-semibold text-[var(--color-foreground)] tabular-nums">{formatDate(start)}</span>
     </div>
     <div className="w-full h-px bg-[var(--color-muted)]" />
     <div className="flex items-center gap-1.5">
-      <span className="w-[26px] shrink-0 font-medium text-[var(--color-primary)]">Đến</span>
+      <span className="w-[26px] shrink-0 font-medium text-[var(--color-primary)]">{t('ObjectiveDetailedTable.to')}</span>
       <span className="font-semibold text-[var(--color-foreground)] tabular-nums">{formatDate(end)}</span>
     </div>
   </div>
@@ -156,7 +159,7 @@ const ObjectivePeriodCell = ({ periodCount, periodNames, start, end }: {
     return (
       <div className="flex flex-col gap-1.5" title={periodNames?.join(', ')}>
         <span className="inline-flex w-fit items-center gap-1 px-2 py-0.5 rounded-full bg-[var(--color-primary-soft)] text-[var(--color-primary)] text-xs font-medium">
-          <Layers size={11} /> Nhiều đợt ({periodCount})
+          <Layers size={11} /> {t('ObjectiveDetailedTable.multiplePeriods')}{periodCount})
         </span>
         <DateRange start={start} end={end} />
       </div>
@@ -183,16 +186,16 @@ const ObjectivePeriodCell = ({ periodCount, periodNames, start, end }: {
         <table className="w-full text-sm text-left whitespace-nowrap">
           <thead className="bg-[var(--color-muted)]">
             <tr className="text-eyebrow">
-              <th className="px-6 py-4 w-[30%]">Tên Mục tiêu / Yếu tố</th>
-              <th className="px-6 py-4 w-[20%]">Đơn vị / Người đảm nhiệm</th>
-              <th className="px-6 py-4 w-[15%]" title="Sắp theo thời gian bắt đầu">
+              <th className="px-6 py-4 w-[30%]">{t('ObjectiveDetailedTable.objectiveFactorName')}</th>
+              <th className="px-6 py-4 w-[20%]">{t('ObjectiveDetailedTable.unitAssignee')}</th>
+              <th className="px-6 py-4 w-[15%]" title={t('ObjectiveDetailedTable.sortByStartTime')}>
                 <SortHeader field="period" active={sortBy} dir={sortDir} onToggle={onToggleSort} className="">
-                  Đợt
+                  {t('ObjectiveDetailedTable.aPeriod')}
                 </SortHeader>
               </th>
               <th className="px-6 py-4 w-[25%]">
                 <SortHeader field="progress" active={sortBy} dir={sortDir} onToggle={onToggleSort} className="">
-                  Tiến độ
+                  {t('ObjectiveDetailedTable.progress')}
                 </SortHeader>
               </th>
             </tr>
@@ -209,7 +212,7 @@ const ObjectivePeriodCell = ({ periodCount, periodNames, start, end }: {
               >
                 <td className="px-6 py-4 align-top whitespace-normal">
                   <div className="flex items-start gap-3">
-                    <Button variant="ghost" size="icon-sm" className="mt-0.5" aria-expanded={isObjExp} aria-label={isObjExp ? 'Thu gọn' : 'Mở rộng'} onClick={(e) => toggleObj(obj.id, e)}>
+                    <Button variant="ghost" size="icon-sm" className="mt-0.5" aria-expanded={isObjExp} aria-label={isObjExp ? t('ObjectiveDetailedTable.collapse') : t('ObjectiveDetailedTable.expand')} onClick={(e) => toggleObj(obj.id, e)}>
                       {isObjExp ? <ChevronDown aria-hidden="true" className="w-4 h-4" /> : <ChevronRight aria-hidden="true" className="w-4 h-4" />}
                     </Button>
                     <div>
@@ -229,8 +232,8 @@ const ObjectivePeriodCell = ({ periodCount, periodNames, start, end }: {
                   <ProgressBar 
                     value={obj.progress} 
                     subText={obj.completedKeyResults === obj.totalKeyResults 
-                      ? "Tất cả KR đã hoàn thành" 
-                      : `${obj.completedKeyResults} hoàn thành / ${obj.totalKeyResults - obj.completedKeyResults} chưa hoàn thành`} 
+                      ? t('ObjectiveDetailedTable.allKrsCompleted') 
+                      : t('ObjectiveDetailedTable.completedNotCompleted', { completedKeyResults: obj.completedKeyResults, value: obj.totalKeyResults - obj.completedKeyResults })} 
                   />
                 </td>
               </tr>
@@ -246,7 +249,7 @@ const ObjectivePeriodCell = ({ periodCount, periodNames, start, end }: {
                   >
                     <td className="px-6 py-4 align-top whitespace-normal pl-12">
                       <div className="flex items-start gap-3">
-                        <Button variant="ghost" size="icon-sm" className="mt-0.5" aria-expanded={isKrExp} aria-label={isKrExp ? 'Thu gọn' : 'Mở rộng'} onClick={(e) => toggleKr(kr.id, e)}>
+                        <Button variant="ghost" size="icon-sm" className="mt-0.5" aria-expanded={isKrExp} aria-label={isKrExp ? t('ObjectiveDetailedTable.collapse') : t('ObjectiveDetailedTable.expand')} onClick={(e) => toggleKr(kr.id, e)}>
                           {isKrExp ? <ChevronDown aria-hidden="true" className="w-3.5 h-3.5" /> : <ChevronRight aria-hidden="true" className="w-3.5 h-3.5" />}
                         </Button>
                         <div>
@@ -305,7 +308,7 @@ const ObjectivePeriodCell = ({ periodCount, periodNames, start, end }: {
                           <td className="px-6 py-4 align-top whitespace-normal pl-20">
                             <div className="flex items-start gap-3">
                               {isExpandable ? (
-                                <Button variant="ghost" size="icon-sm" className="mt-0.5" aria-expanded={!!isKpiExp} aria-label={isKpiExp ? 'Thu gọn' : 'Mở rộng'} onClick={(e) => {
+                                <Button variant="ghost" size="icon-sm" className="mt-0.5" aria-expanded={!!isKpiExp} aria-label={isKpiExp ? t('ObjectiveDetailedTable.collapse') : t('ObjectiveDetailedTable.expand')} onClick={(e) => {
                                     e.stopPropagation()
                                     toggleKpi(kpi.id, e)
                                   }}>
@@ -342,17 +345,17 @@ const ObjectivePeriodCell = ({ periodCount, periodNames, start, end }: {
                             {kpi.kpiType === 'QUALITATIVE' ? (
                               <div className="flex flex-col gap-1 min-w-[150px]">
                                 <QualitativeResultChip level={kpi.qualitativeLevelName} className="w-fit" />
-                                <div className="text-caption font-medium">{`${kpi.participants?.length || 0} người tham gia`}</div>
+                                <div className="text-caption font-medium">{t('ObjectiveDetailedTable.participants', { count: kpi.participants?.length || 0 })}</div>
                               </div>
                             ) : kpi.progress == null ? (
                               <div className="flex flex-col gap-1 min-w-[150px]">
-                                <span className="inline-flex w-fit items-center gap-1 px-2.5 py-1 rounded-full bg-[var(--color-warning-bg)] text-[var(--color-warning)] text-xs font-semibold">Thưởng</span>
-                                <div className="text-caption font-medium">{`${kpi.participants?.length || 0} người tham gia`}</div>
+                                <span className="inline-flex w-fit items-center gap-1 px-2.5 py-1 rounded-full bg-[var(--color-warning-bg)] text-[var(--color-warning)] text-xs font-semibold">{t('ObjectiveDetailedTable.reward')}</span>
+                                <div className="text-caption font-medium">{t('ObjectiveDetailedTable.participants', { count: kpi.participants?.length || 0 })}</div>
                               </div>
                             ) : (
                               <ProgressBar
                                 value={kpi.progress}
-                                subText={`${kpi.participants?.length || 0} người tham gia`}
+                                subText={t('ObjectiveDetailedTable.participants', { count: kpi.participants?.length || 0 })}
                               />
                             )}
                           </td>
@@ -376,7 +379,7 @@ const ObjectivePeriodCell = ({ periodCount, periodNames, start, end }: {
                                 {/* PARTICIPANTS SECTION */}
                                 <div className="text-eyebrow mb-3 ml-2 flex items-center gap-2">
                                   <span className="w-1.5 h-1.5 rounded-full bg-[var(--color-primary-soft)]"></span>
-                                  {kpi.childRelationType === 'DELEGATION' ? 'Người chịu trách nhiệm' : 'Các thành viên đảm nhiệm'}
+                                  {kpi.childRelationType === 'DELEGATION' ? t('ObjectiveDetailedTable.owner') : t('ObjectiveDetailedTable.assignedMembers')}
                                 </div>
                                 <div className="space-y-3">
                                   {kpi.participants!.map(p => {
@@ -393,7 +396,7 @@ const ObjectivePeriodCell = ({ periodCount, periodNames, start, end }: {
                                         >
                                           <div className="flex items-center gap-4 min-w-[280px]">
                                             {hasSubmissions ? (
-                                              <Button variant="ghost" size="icon-sm" aria-expanded={isParticipantExp} aria-label={isParticipantExp ? 'Thu gọn' : 'Mở rộng'}>
+                                              <Button variant="ghost" size="icon-sm" aria-expanded={isParticipantExp} aria-label={isParticipantExp ? t('ObjectiveDetailedTable.collapse') : t('ObjectiveDetailedTable.expand')}>
                                                 {isParticipantExp ? <ChevronDown aria-hidden="true" className="w-4 h-4" /> : <ChevronRight aria-hidden="true" className="w-4 h-4" />}
                                               </Button>
                                             ) : (
@@ -424,7 +427,7 @@ const ObjectivePeriodCell = ({ periodCount, periodNames, start, end }: {
                                             {kpi.kpiType === 'QUALITATIVE' ? (
                                               <div className="flex-1 flex items-center justify-end px-6">
                                                 <div className="flex flex-col items-end gap-1.5">
-                                                  <span className="text-eyebrow">Mức đánh giá</span>
+                                                  <span className="text-eyebrow">{t('ObjectiveDetailedTable.evaluationLevel')}</span>
                                                   <QualitativeResultChip level={p.qualitativeLevelName} />
                                                 </div>
                                               </div>
@@ -432,7 +435,7 @@ const ObjectivePeriodCell = ({ periodCount, periodNames, start, end }: {
                                             <>
                                             <div className="flex-1 max-w-[320px] px-6">
                                               <div className="text-eyebrow flex justify-between items-center mb-1">
-                                                <span>Tiến độ cá nhân</span>
+                                                <span>{t('ObjectiveDetailedTable.individualProgress')}</span>
                                                 <span className="font-semibold text-[var(--color-foreground)]">{Math.round(p.progress)}%</span>
                                               </div>
                                               <div className="h-2.5 w-full bg-[var(--color-muted)] rounded-full overflow-hidden border border-[var(--color-border)]">
@@ -453,7 +456,7 @@ const ObjectivePeriodCell = ({ periodCount, periodNames, start, end }: {
                                             </div>
 
                                             <div className="flex flex-col items-center justify-center ml-8 min-w-[80px]">
-                                              <span className="text-eyebrow mb-1">Hiệu suất</span>
+                                              <span className="text-eyebrow mb-1">{t('ObjectiveDetailedTable.performance')}</span>
                                               <span className="text-lg font-semibold text-[var(--color-primary)]">{Math.round(p.performance)}%</span>
                                             </div>
                                             </>
@@ -464,7 +467,7 @@ const ObjectivePeriodCell = ({ periodCount, periodNames, start, end }: {
                                         {/* Participant Submissions */}
                                         {isParticipantExp && hasSubmissions && (
                                           <div className="bg-[var(--color-muted)] p-4 pt-3 pb-5">
-                                            <div className="text-eyebrow mb-3 ml-12">Lịch sử bài nộp</div>
+                                            <div className="text-eyebrow mb-3 ml-12">{t('ObjectiveDetailedTable.submissionHistory')}</div>
                                             <div className="space-y-2.5 pl-12 pr-4">
                                               {p.submissions!.map(sub => {
                                                 const subProgress = (sub.actualValue / (kpi.targetValue || 1)) * 100;
@@ -478,7 +481,7 @@ const ObjectivePeriodCell = ({ periodCount, periodNames, start, end }: {
                                                     </div>
                                                     
                                                     <div className="min-w-[140px] pr-4">
-                                                      <div className="text-eyebrow mb-1">Thời gian nộp</div>
+                                                      <div className="text-eyebrow mb-1">{t('ObjectiveDetailedTable.submittedAt')}</div>
                                                       <div className="text-xs font-medium text-[var(--color-foreground)]">
                                                         {sub.createdAt ? format(new Date(sub.createdAt), 'HH:mm dd/MM/yyyy') : '---'}
                                                       </div>
@@ -486,14 +489,14 @@ const ObjectivePeriodCell = ({ periodCount, periodNames, start, end }: {
                                                     
                                                     {kpi.kpiType === 'QUALITATIVE' ? (
                                                       <div className="flex-1 px-5 border-x border-[var(--color-border)] flex items-center gap-2">
-                                                        <span className="text-eyebrow">Mức</span>
+                                                        <span className="text-eyebrow">{t('ObjectiveDetailedTable.level')}</span>
                                                         <QualitativeResultChip level={sub.qualitativeLevelName} />
                                                       </div>
                                                     ) : (
                                                     <>
                                                     <div className="flex-1 px-5 border-x border-[var(--color-border)]">
                                                       <div className="text-eyebrow flex justify-between items-center mb-1">
-                                                        <span>Đóng góp</span>
+                                                        <span>{t('ObjectiveDetailedTable.contribution')}</span>
                                                         <span className="font-semibold text-[var(--color-foreground)]">{subProgress.toFixed(1)}%</span>
                                                       </div>
                                                       <div className="h-1.5 w-full bg-[var(--color-muted)] rounded-full overflow-hidden">
@@ -512,14 +515,14 @@ const ObjectivePeriodCell = ({ periodCount, periodNames, start, end }: {
                                                     </div>
 
                                                     <div className="min-w-[120px] flex flex-col items-center justify-center px-4">
-                                                      <span className="text-eyebrow mb-1">Hiệu suất</span>
+                                                      <span className="text-eyebrow mb-1">{t('ObjectiveDetailedTable.performance')}</span>
                                                       <span className="text-sm font-medium text-[var(--color-primary)]">{subProgress.toFixed(1)}%</span>
                                                     </div>
                                                     </>
                                                     )}
 
                                                     <div className="min-w-[120px] flex justify-end pl-4">
-                                                      <StatusBadge status={sub.status === 'APPROVED' ? 'ĐÃ DUYỆT' : sub.status === 'PENDING' ? 'CHỜ DUYỆT' : sub.status === 'REJECTED' ? 'TỪ CHỐI' : sub.status} />
+                                                      <StatusBadge status={sub.status === 'APPROVED' ? t('ObjectiveDetailedTable.approved') : sub.status === 'PENDING' ? t('ObjectiveDetailedTable.pending') : sub.status === 'REJECTED' ? t('ObjectiveDetailedTable.rejected') : sub.status} />
                                                     </div>
                                                   </div>
                                                 )
@@ -549,7 +552,7 @@ const ObjectivePeriodCell = ({ periodCount, periodNames, start, end }: {
                   <div className="w-14 h-14 rounded-full bg-[var(--color-muted)] flex items-center justify-center text-[var(--color-subtle-foreground)] border border-[var(--color-border)] /5">
                     <ChevronDown className="w-6 h-6 opacity-50" />
                   </div>
-                  <p>Không có dữ liệu mục tiêu để hiển thị</p>
+                  <p>{t('ObjectiveDetailedTable.noObjectiveDataToDisplay')}</p>
                 </div>
               </td>
             </tr>

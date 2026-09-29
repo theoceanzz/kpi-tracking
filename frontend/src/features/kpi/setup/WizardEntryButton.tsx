@@ -1,6 +1,7 @@
 import { Link } from 'react-router-dom'
 import { Workflow } from 'lucide-react'
 import { cn } from '@/lib/utils'
+import { useTranslation } from 'react-i18next'
 
 /**
  * Lối vào trình thiết lập từ các trang quản lý.
@@ -10,6 +11,7 @@ import { cn } from '@/lib/utils'
  * đầu, khi người dùng cần được dẫn từ kỳ tới lúc gửi duyệt.
  */
 export default function WizardEntryButton({ className }: { className?: string }) {
+  const { t } = useTranslation('kpi')
   return (
     <Link
       to="/kpi-setup"
@@ -20,7 +22,7 @@ export default function WizardEntryButton({ className }: { className?: string })
       )}
     >
       <Workflow size={16} />
-      Thiết lập nhanh
+      {t('WizardEntryButton.quickSetup')}
     </Link>
   )
 }

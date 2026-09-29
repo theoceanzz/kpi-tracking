@@ -1,4 +1,4 @@
-export type SubmissionStatus = 'DRAFT' | 'PENDING' | 'APPROVED' | 'REJECTED'
+export type SubmissionStatus = 'DRAFT' | 'PENDING' | 'APPROVED' | 'REJECTED' | 'RETURNED'
 
 // Matches BE: SubmissionResponse
 export interface Submission {
@@ -32,6 +32,26 @@ export interface Submission {
   updatedAt: string
   parentSubmissionId?: string
   allChildrenApproved?: boolean
+  // Hoàn duyệt (trả lại để làm lại)
+  returnedById?: string | null
+  returnedByName?: string | null
+  returnedAt?: string | null
+  returnReason?: string | null
+  resubmitDeadline?: string | null
+  /** Bài nộp mới thay cho bài bị trả lại này. */
+  resubmissionId?: string | null
+  /** Bị trả lại, chưa nộp bài mới và chưa quá hạn nộp lại. */
+  awaitingResubmission?: boolean
+  /** Bài này là bài nộp lại (thay cho một bài bị trả lại). */
+  resubmission?: boolean
+  previousReturnReason?: string | null
+}
+
+// Matches BE: ReturnSubmissionRequest
+export interface ReturnSubmissionRequest {
+  reason: string
+  /** ISO instant */
+  resubmitDeadline: string
 }
 
 // Matches BE: AttachmentResponse

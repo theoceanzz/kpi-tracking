@@ -1,3 +1,5 @@
+import { LocaleDateInput } from '@/components/ui/date-input'
+import { intlLocale } from '@/i18n/format'
 import React, { useState, useMemo } from 'react'
 import { yAxisLabel, yAxisLabelRight } from '@/components/charts/axisLabel'
 
@@ -18,6 +20,7 @@ import {
   SelectValue,
 } from '@/components/ui/select'
 import { subDays, subMonths, startOfYear } from 'date-fns'
+import { useTranslation } from 'react-i18next'
 
 type DateFilterType = 'GLOBAL' | 'THIS_WEEK' | 'THIS_MONTH' | 'THIS_QUARTER' | '6_MONTHS' | 'THIS_YEAR' | 'CUSTOM'
 
@@ -28,7 +31,7 @@ function DrawerChartTooltip({ active, payload, label }: any) {
         <p className="font-semibold text-[var(--color-foreground)] mb-3">{label}</p>
         <div className="space-y-2">
           {payload.map((p: any, i: number) => {
-            const valStr = p.name.includes('%') ? `${Math.round(p.value)}%` : p.value?.toLocaleString('vi-VN')
+            const valStr = p.name.includes('%') ? `${Math.round(p.value)}%` : p.value?.toLocaleString(intlLocale())
             return (
               <div key={i} className="flex items-center gap-3 text-sm">
                 <div className="w-3 h-3 rounded-sm flex-shrink-0" style={{ backgroundColor: p.color }} />
@@ -59,6 +62,7 @@ export default function MyKpiDrawer({
   globalPeriodId?: string
   globalPeriodIdTo?: string
 }) {
+  const { t: tr } = useTranslation('analytics')
   const [dateFilterType, setDateFilterType] = useState<DateFilterType>('GLOBAL')
   const [customRange, setCustomRange] = useState<{ from: string; to: string }>({ from: '', to: '' })
   const [activeTeammates, setActiveTeammates] = useState<string[]>([])
@@ -126,11 +130,11 @@ export default function MyKpiDrawer({
     <div className="flex flex-col gap-1">
       <div className="flex items-center flex-wrap gap-2">
         <span className="text-base font-semibold text-[var(--color-foreground)] leading-snug">
-          {data?.kpiName || 'Chi tiết KPI'}
+          {data?.kpiName || tr('MyKpiDrawer.kpiDetails')}
         </span>
         {data?.shared && (
           <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-indigo-100 dark:bg-indigo-900/40 text-[var(--color-primary)] dark:text-indigo-400 text-xs font-semibold border border-indigo-200 dark:border-[var(--color-primary)]/30 flex-shrink-0">
-            <Users size={10} /> KPI chung
+            <Users size={10} /> {tr('MyKpiDrawer.sharedKpi')}
           </span>
         )}
       </div>
@@ -156,25 +160,25 @@ export default function MyKpiDrawer({
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="GLOBAL">Theo bộ lọc KPI của tôi</SelectItem>
-                  <SelectItem value="THIS_WEEK">Tuần này</SelectItem>
-                  <SelectItem value="THIS_MONTH">Tháng này</SelectItem>
-                  <SelectItem value="THIS_QUARTER">Quý này</SelectItem>
-                  <SelectItem value="6_MONTHS">6 tháng qua</SelectItem>
-                  <SelectItem value="THIS_YEAR">Năm nay</SelectItem>
-                  <SelectItem value="CUSTOM">Tùy chỉnh</SelectItem>
+                  <SelectItem value="GLOBAL">{tr('MyKpiDrawer.perMyKpiFilter')}</SelectItem>
+                  <SelectItem value="THIS_WEEK">{tr('MyKpiDrawer.thisWeek')}</SelectItem>
+                  <SelectItem value="THIS_MONTH">{tr('MyKpiDrawer.thisMonth')}</SelectItem>
+                  <SelectItem value="THIS_QUARTER">{tr('MyKpiDrawer.thisQuarter')}</SelectItem>
+                  <SelectItem value="6_MONTHS">{tr('MyKpiDrawer.last6Months')}</SelectItem>
+                  <SelectItem value="THIS_YEAR">{tr('MyKpiDrawer.thisYear')}</SelectItem>
+                  <SelectItem value="CUSTOM">{tr('MyKpiDrawer.custom')}</SelectItem>
                 </SelectContent>
               </Select>
               {dateFilterType === 'CUSTOM' && (
                 <div className="flex items-center gap-2 px-2 border-l border-slate-200 dark:border-white/10">
-                  <input
+                  <LocaleDateInput
                     type="date"
                     className="bg-transparent border-none outline-none text-slate-700 dark:text-slate-300 text-xs"
                     value={customRange.from}
                     onChange={e => setCustomRange(prev => ({ ...prev, from: e.target.value }))}
                   />
                   <span className="text-slate-400">-</span>
-                  <input
+                  <LocaleDateInput
                     type="date"
                     className="bg-transparent border-none outline-none text-slate-700 dark:text-slate-300 text-xs"
                     value={customRange.to}
@@ -189,13 +193,13 @@ export default function MyKpiDrawer({
             <>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-2xl border border-indigo-100 dark:border-indigo-900/30">
-                  <p className="text-xs font-semibold text-[var(--color-primary)] mb-1.5">Mức kết quả</p>
+                  <p className="text-xs font-semibold text-[var(--color-primary)] mb-1.5">{tr('MyKpiDrawer.resultLevel')}</p>
                   <QualitativeResultChip level={data?.qualitativeLevelName} />
                 </div>
               </div>
               <div className="bg-[var(--color-card)] rounded-2xl p-6 border border-[var(--color-border)]">
                 <h3 className="text-sm font-semibold flex items-center gap-2 mb-3">
-                  <Activity size={18} className="text-[var(--color-primary)]" /> Phân bố mức đánh giá
+                  <Activity size={18} className="text-[var(--color-primary)]" /> {tr('MyKpiDrawer.evaluationLevelDistribution')}
                 </h3>
                 <QualitativeDistributionChart distribution={data?.qualitativeDistribution} />
               </div>
@@ -205,26 +209,26 @@ export default function MyKpiDrawer({
           {/* Metrics Grid */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             <div className="bg-slate-50 dark:bg-slate-900/60 p-4 rounded-2xl border border-[var(--color-border)]">
-              <p className="text-xs font-medium text-slate-500 mb-1">Mục tiêu yêu cầu</p>
-              <p className="text-xl font-semibold text-[var(--color-foreground)]">{data?.targetValue?.toLocaleString('vi-VN')}</p>
+              <p className="text-xs font-medium text-slate-500 mb-1">{tr('MyKpiDrawer.requiredTarget')}</p>
+              <p className="text-xl font-semibold text-[var(--color-foreground)]">{data?.targetValue?.toLocaleString(intlLocale())}</p>
             </div>
             <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-2xl border border-indigo-100 dark:border-indigo-900/30">
-              <p className="text-xs font-semibold text-[var(--color-primary)] mb-1">Cá nhân: Lũy kế</p>
-              <p className="text-xl font-semibold text-indigo-700 dark:text-indigo-400">{data?.myActualValue?.toLocaleString('vi-VN')}</p>
-              <p className="text-xs font-semibold text-[var(--color-primary)] mt-1">Đạt {data?.myProgress?.toFixed(1)}%</p>
+              <p className="text-xs font-semibold text-[var(--color-primary)] mb-1">{tr('MyKpiDrawer.individualCumulative')}</p>
+              <p className="text-xl font-semibold text-indigo-700 dark:text-indigo-400">{data?.myActualValue?.toLocaleString(intlLocale())}</p>
+              <p className="text-xs font-semibold text-[var(--color-primary)] mt-1">{tr('MyKpiDrawer.meets')} {data?.myProgress?.toFixed(1)}%</p>
             </div>
             {data?.shared && (
               <div className="bg-indigo-50 dark:bg-indigo-900/20 p-4 rounded-2xl border border-indigo-100 dark:border-indigo-900/30">
-                <p className="text-xs font-semibold text-[var(--color-primary)] mb-1">Nhóm: Lũy kế tổng</p>
-                <p className="text-xl font-semibold text-indigo-700 dark:text-indigo-400">{data?.totalActualValue?.toLocaleString('vi-VN')}</p>
-                <p className="text-xs font-semibold text-[var(--color-primary)] mt-1">Đạt {data?.totalProgress?.toFixed(1)}%</p>
+                <p className="text-xs font-semibold text-[var(--color-primary)] mb-1">{tr('MyKpiDrawer.groupCumulativeTotal')}</p>
+                <p className="text-xl font-semibold text-indigo-700 dark:text-indigo-400">{data?.totalActualValue?.toLocaleString(intlLocale())}</p>
+                <p className="text-xs font-semibold text-[var(--color-primary)] mt-1">{tr('MyKpiDrawer.meets')} {data?.totalProgress?.toFixed(1)}%</p>
               </div>
             )}
             <div className="bg-emerald-50 dark:bg-emerald-900/20 p-4 rounded-2xl border border-emerald-100 dark:border-emerald-900/30">
-              <p className="text-xs font-semibold text-emerald-500 mb-1">Hiệu suất cá nhân</p>
+              <p className="text-xs font-semibold text-emerald-500 mb-1">{tr('MyKpiDrawer.individualPerformance')}</p>
               <p className="text-xl font-semibold text-emerald-700 dark:text-emerald-400">{data?.myPerformance?.toFixed(1)}%</p>
               {data?.shared && (
-                <p className="text-xs font-semibold text-emerald-500 mt-1">Nhóm: {data?.teamPerformance?.toFixed(1)}%</p>
+                <p className="text-xs font-semibold text-emerald-500 mt-1">{tr('MyKpiDrawer.group')} {data?.teamPerformance?.toFixed(1)}%</p>
               )}
             </div>
           </div>
@@ -234,7 +238,7 @@ export default function MyKpiDrawer({
             <div className="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-4">
               <h3 className="text-sm font-semibold flex items-center gap-2">
                 <Activity size={18} className="text-[var(--color-primary)]" />
-                Biểu đồ phân tích chuyên sâu
+                {tr('MyKpiDrawer.inDepthAnalysisChart')}
               </h3>
               {data?.shared && data.chartData.availableTeammates && data.chartData.availableTeammates.length > 0 && (
                 <div className="flex flex-wrap gap-2">
@@ -257,8 +261,8 @@ export default function MyKpiDrawer({
             </div>
 
             <div className="flex justify-between text-xs font-medium text-slate-400 dark:text-slate-500 mb-2 px-1">
-              <span>Đơn vị ({data?.unit || ''})</span>
-              <span>Hiệu suất (%)</span>
+              <span>{tr('MyKpiDrawer.unit')}{data?.unit || ''})</span>
+              <span>{tr('MyKpiDrawer.performance')}</span>
             </div>
 
             <div className="h-[350px]">
@@ -266,8 +270,8 @@ export default function MyKpiDrawer({
                 <ComposedChart data={chartData} margin={{ top: 10, right: 10, left: 0, bottom: 5 }}>
                   <CartesianGrid stroke="var(--color-border)" vertical={false} />
                   <XAxis dataKey="label" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} />
-                  <YAxis yAxisId="left" orientation="left" label={yAxisLabel('Gi\u00e1 tr\u1ecb \u0111\u1ea1t')} axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} />
-                  <YAxis yAxisId="right" orientation="right" label={yAxisLabelRight('Tiến độ (%)')} axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} tickFormatter={val => `${Math.round(val)}%`} />
+                  <YAxis yAxisId="left" orientation="left" label={yAxisLabel(tr('MyKpiDrawer.achievedValue'))} axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} />
+                  <YAxis yAxisId="right" orientation="right" label={yAxisLabelRight(tr('MyKpiDrawer.progress'))} axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: '#64748b' }} tickFormatter={val => `${Math.round(val)}%`} />
                   <Tooltip content={<DrawerChartTooltip />} cursor={{ fill: '#94a3b8', opacity: 0.06 }} />
                   <Legend wrapperStyle={{ fontSize: '11px', fontWeight: 'bold' }} />
 
@@ -301,7 +305,7 @@ export default function MyKpiDrawer({
             <div className="bg-[var(--color-card)] rounded-2xl p-6 border border-[var(--color-border)]">
               <h3 className="text-sm font-semibold mb-6 flex items-center gap-2">
                 <Target size={18} className="text-[var(--color-primary)]" />
-                Mức độ đóng góp của từng thành viên
+                {tr('MyKpiDrawer.contributionOfEachMember')}
               </h3>
               <div className="space-y-4">
                 {contributions.map((c, i) => (
@@ -312,7 +316,7 @@ export default function MyKpiDrawer({
                         {c.fullName}
                       </span>
                       <div className="text-right">
-                        <span className="text-xs text-slate-500 mr-2">{c.actualValue?.toLocaleString('vi-VN')}</span>
+                        <span className="text-xs text-slate-500 mr-2">{c.actualValue?.toLocaleString(intlLocale())}</span>
                         <span className="text-xs font-semibold text-[var(--color-primary)] dark:text-indigo-400">{c.contributionPercentage?.toFixed(1)}%</span>
                       </div>
                     </div>

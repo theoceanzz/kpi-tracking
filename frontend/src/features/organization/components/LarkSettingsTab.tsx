@@ -36,6 +36,7 @@ import {
 import { LARK_CONNECT_RESULT_KEY } from '@/features/auth/pages/LarkCallbackPage'
 import { LARK_PURPOSE_KEY, LARK_STATE_KEY } from '@/features/auth/hooks/useLarkLogin'
 import { Button } from '@/components/ui/button'
+import { useTranslation } from 'react-i18next'
 
 const LARK_CONSOLE_URL = 'https://open.larksuite.com/app'
 
@@ -96,6 +97,7 @@ function StepCard({
 
 /** Nút copy chữ. CopyButton ở components/common chỉ copy ảnh của một DOM ref nên không dùng được. */
 function CopyRow({ label, value }: { label: string; value: string }) {
+  const { t } = useTranslation('organization')
   const [copied, setCopied] = useState(false)
 
   const handleCopy = async () => {
@@ -104,7 +106,7 @@ function CopyRow({ label, value }: { label: string; value: string }) {
       setCopied(true)
       setTimeout(() => setCopied(false), 1500)
     } catch {
-      toast.error('Không sao chép được. Vui lòng chọn và copy thủ công.')
+      toast.error(t('LarkSettingsTab.couldNotCopyPleaseSelectAnd'))
     }
   }
 
@@ -116,7 +118,7 @@ function CopyRow({ label, value }: { label: string; value: string }) {
         </p>
         <p className="truncate font-mono text-xs text-[var(--color-foreground)]">{value}</p>
       </div>
-      <Button variant="secondary" className="shrink-0" type="button" onClick={handleCopy} title="Sao chép">
+      <Button variant="secondary" className="shrink-0" type="button" onClick={handleCopy} title={t('LarkSettingsTab.copy')}>
         {copied ? <Check aria-hidden="true" className="text-[var(--color-success)]" /> : <Copy aria-hidden="true" />}
       </Button>
     </div>
@@ -125,13 +127,14 @@ function CopyRow({ label, value }: { label: string; value: string }) {
 
 /** Logo doanh nghiệp Lark, rơi về icon toà nhà khi thiếu URL hoặc ảnh tải lỗi. */
 function TenantLogo({ url, size = 44 }: { url?: string | null; size?: number }) {
+  const { t } = useTranslation('organization')
   const [failed, setFailed] = useState(false)
 
   if (url && !failed) {
     return (
       <img
         src={url}
-        alt="Logo công ty"
+        alt={t('LarkSettingsTab.companyLogo')}
         onError={() => setFailed(true)}
         style={{ width: size, height: size }}
         className="shrink-0 rounded-card object-cover"
@@ -153,6 +156,7 @@ const inputCls =
   'w-full rounded-card border border-[var(--color-border)] bg-[var(--color-background)] px-3.5 py-2.5 text-sm outline-none transition-all focus:border-[var(--color-primary)] focus:ring-2 focus:ring-[var(--color-primary)]/20'
 
 export default function LarkSettingsTab() {
+  const { t } = useTranslation('organization')
   const user = useAuthStore((s) => s.user)
   const organizationId = user?.memberships?.[0]?.organizationId
 
@@ -166,7 +170,7 @@ export default function LarkSettingsTab() {
   const { data: roles } = useRoles()
 
   const { register, handleSubmit: handleCredentialsSubmit, setValue, formState: { errors } } = useForm<LarkCredentialsFormData>({
-    resolver: zodResolver(larkCredentialsSchema),
+    resolver: zodResolver(larkCredentialsSchema()),
     defaultValues: { appId: '', appSecret: '' },
   })
   const [pendingConnect, setPendingConnect] = useState<LarkConnectResult | null>(null)
@@ -208,7 +212,7 @@ export default function LarkSettingsTab() {
       window.location.href = res.authorizeUrl
     },
     onError: (err: any) => {
-      toast.error(getApiErrorMessage(err, 'Không mở được trang đăng nhập Lark.'))
+      toast.error(getApiErrorMessage(err, t('LarkSettingsTab.couldNotOpenTheLarkSign')))
     },
   })
 
@@ -248,18 +252,18 @@ export default function LarkSettingsTab() {
             {settings.larkEnabled && (
               <CheckCircle2 size={15} className="text-[var(--color-success)]" />
             )}
-            {settings.larkEnabled ? 'Đang bật đăng nhập bằng Lark' : 'Chưa bật đăng nhập bằng Lark'}
+            {settings.larkEnabled ? t('LarkSettingsTab.larkSignInIsOn') : t('LarkSettingsTab.larkSignInIsNotOn')}
           </p>
           {isVerified && (
             <p className="truncate text-xs text-[var(--color-muted-foreground)]">
-              Đã liên kết{settings.tenantName ? ` với ${settings.tenantName}` : ' với tổ chức Lark'}
+              {t('LarkSettingsTab.linked')}{settings.tenantName ? t('LarkSettingsTab.to', { tenantName: settings.tenantName }) : t('LarkSettingsTab.toALarkOrganization')}
             </p>
           )}
         </div>
         {isVerified && (
           <Button variant="outline" size="sm" className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]" type="button" onClick={() => disconnect.mutate()} disabled={disconnect.isPending}>
             {disconnect.isPending ? <Loader2 aria-hidden="true" className="animate-spin" /> : <Unlink aria-hidden="true" />}
-            Huỷ liên kết
+            {t('LarkSettingsTab.unlink')}
           </Button>
         )}
       </div>
@@ -268,13 +272,13 @@ export default function LarkSettingsTab() {
       {pendingConnect && (
         <div className="animate-in fade-in slide-in-from-top-1 rounded-card border-2 border-[var(--color-primary)] bg-[var(--color-primary)]/5 p-5">
           <h3 className="text-section-title">
-            Đây có đúng là công ty của bạn?
+            {t('LarkSettingsTab.isThisReallyYourCompany')}
           </h3>
           <div className="mt-4 flex items-center gap-3 rounded-card bg-[var(--color-background)] p-3.5">
             <TenantLogo url={pendingConnect.tenantAvatarUrl} />
             <div className="min-w-0">
               <p className="truncate text-sm font-medium text-[var(--color-foreground)]">
-                {pendingConnect.tenantName || 'Tổ chức Lark của bạn'}
+                {pendingConnect.tenantName || t('LarkSettingsTab.yourLarkOrganization')}
               </p>
               <p className="truncate text-xs text-[var(--color-muted-foreground)]">
                 {pendingConnect.userName}
@@ -287,10 +291,9 @@ export default function LarkSettingsTab() {
             <p className="mt-3 flex items-start gap-2 text-xs leading-relaxed text-[var(--color-muted-foreground)]">
               <AlertCircle size={14} className="mt-0.5 shrink-0" />
               <span>
-                Lần này không lấy được tên và logo từ Lark nên hệ thống sẽ{' '}
-                <span className="font-semibold text-[var(--color-foreground)]">giữ nguyên</span> giá
-                trị đang có. Muốn cập nhật lại, hãy bật quyền{' '}
-                <span className="font-mono">tenant:tenant:readonly</span> rồi phát hành phiên bản mới.
+                {t('LarkSettingsTab.thisTimeTheNameAndLogo')}{' '}
+                <span className="font-semibold text-[var(--color-foreground)]">{t('LarkSettingsTab.keep')}</span> {t('LarkSettingsTab.theCurrentValuesToRefreshThem')}{' '}
+                <span className="font-mono">tenant:tenant:readonly</span> {t('LarkSettingsTab.andThenPublishANewVersion')}
               </span>
             </p>
           )}
@@ -298,8 +301,8 @@ export default function LarkSettingsTab() {
           {pendingConnect.alreadyLinked && (
             <p className="mt-3 flex items-start gap-2 text-xs font-semibold text-[var(--color-error)]">
               <AlertCircle size={14} className="mt-0.5 shrink-0" />
-              Tổ chức Lark này đã được liên kết với công ty{' '}
-              {pendingConnect.alreadyLinkedOrganizationName}. Không thể liên kết thêm.
+              {t('LarkSettingsTab.thisLarkOrganizationIsAlreadyLinked')}{' '}
+              {pendingConnect.alreadyLinkedOrganizationName}{t('LarkSettingsTab.itCannotBeLinkedAgain')}
             </p>
           )}
 
@@ -310,10 +313,10 @@ export default function LarkSettingsTab() {
                 })
               }>
               {confirmConnection.isPending && <Loader2 aria-hidden="true" className="animate-spin" />}
-              Xác nhận liên kết
+              {t('LarkSettingsTab.confirmLink')}
             </Button>
             <Button variant="outline" type="button" onClick={() => setPendingConnect(null)}>
-              Huỷ
+              {t('LarkSettingsTab.cancel')}
             </Button>
           </div>
         </div>
@@ -323,15 +326,13 @@ export default function LarkSettingsTab() {
         <>
           <StepCard
             step={1}
-            title="Tạo ứng dụng trên Lark"
-            description="Cần tài khoản quản trị Lark. Vào Lark Developer Console, tạo một Custom App, đặt tên tuỳ ý (ví dụ: KeyGo)."
+            title={t('LarkSettingsTab.createAnAppOnLark')}
+            description={t('LarkSettingsTab.aLarkAdminAccountIsRequired')}
           >
             <div className="mb-3 flex items-start gap-2 rounded-card border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] p-3 dark:border-[var(--color-warning-border)] dark:bg-[var(--color-warning-bg)]">
               <AlertCircle size={15} className="mt-0.5 shrink-0 text-[var(--color-warning)]" />
               <p className="text-xs leading-relaxed text-[var(--color-warning)]">
-                Ứng dụng phải được tạo <span className="font-semibold">bên trong tổ chức Lark của chính
-                công ty này</span>. Nếu dùng ứng dụng của một tổ chức Lark khác, nhân viên sẽ bị Lark
-                chặn ngay khi đăng nhập — Custom App chỉ phục vụ đúng tổ chức đã tạo ra nó.
+                {t('LarkSettingsTab.theAppMustBeCreated')} <span className="font-semibold">{t('LarkSettingsTab.insideThisCompanysOwnLarkOrganization')}</span>{t('LarkSettingsTab.ifYouUseAnAppFrom')}
               </p>
             </div>
             <a
@@ -340,25 +341,24 @@ export default function LarkSettingsTab() {
               rel="noreferrer"
               className="inline-flex items-center gap-2 rounded-card border border-[var(--color-border)] px-4 py-2.5 text-sm font-medium text-[var(--color-foreground)] transition-colors hover:bg-[var(--color-muted)]/50"
             >
-              Mở Lark Developer Console
+              {t('LarkSettingsTab.openTheLarkDeveloperConsole')}
               <ExternalLink size={14} />
             </a>
           </StepCard>
 
           <StepCard
             step={2}
-            title="Khai báo trong ứng dụng Lark"
-            description="Sao chép các giá trị dưới đây và dán vào đúng mục trong Lark Console. Sau khi khai báo xong, vào mục Version Management để tạo phiên bản và publish ứng dụng."
+            title={t('LarkSettingsTab.configureInTheLarkApp')}
+            description={t('LarkSettingsTab.copyTheValuesBelowAndPaste')}
           >
             <div className="space-y-2">
-              <CopyRow label="Redirect URL (mục Security Settings)" value={settings.redirectUri} />
+              <CopyRow label={t('LarkSettingsTab.redirectUrlSecuritySettingsSection')} value={settings.redirectUri} />
               {settings.requiredScopes.map((scope) => (
-                <CopyRow key={scope} label="Quyền cần bật (mục Permissions & Scopes)" value={scope} />
+                <CopyRow key={scope} label={t('LarkSettingsTab.permissionsToEnablePermissionsScopesSection')} value={scope} />
               ))}
             </div>
             <p className="mt-3 text-xs text-[var(--color-muted-foreground)]">
-              Quyền <span className="font-mono">tenant:tenant:readonly</span> là tuỳ chọn, chỉ dùng để
-              hiển thị tên và logo công ty khi xác nhận.
+              {t('LarkSettingsTab.thePermission')} <span className="font-mono">tenant:tenant:readonly</span> {t('LarkSettingsTab.isOptionalAndOnlyUsedTo')}
             </p>
 
             <div className="mt-4 space-y-3 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)]/25 p-3.5">
@@ -366,13 +366,11 @@ export default function LarkSettingsTab() {
                 <Users size={15} className="mt-0.5 shrink-0 text-[var(--color-primary)]" />
                 <div>
                   <p className="text-xs font-medium text-[var(--color-foreground)]">
-                    Phạm vi sử dụng (Availability)
+                    {t('LarkSettingsTab.availability')}
                   </p>
                   <p className="mt-1 text-xs leading-relaxed text-[var(--color-muted-foreground)]">
-                    Mở mục <span className="font-semibold">Availability</span> và chọn{' '}
-                    <span className="font-semibold">toàn bộ nhân viên</span> (hoặc các phòng ban cần
-                    dùng KeyGo). Ai nằm ngoài phạm vi này sẽ bị Lark chặn ngay khi bấm đăng nhập, kèm
-                    thông báo <span className="font-mono">"You don't have the access"</span>.
+                    {t('LarkSettingsTab.openTheSection')} <span className="font-semibold">Availability</span> {t('LarkSettingsTab.andChoose')}{' '}
+                    <span className="font-semibold">{t('LarkSettingsTab.allEmployees')}</span> {t('LarkSettingsTab.orTheDepartmentsThatNeedKeygo')} <span className="font-mono">"You don't have the access"</span>.
                   </p>
                 </div>
               </div>
@@ -381,13 +379,10 @@ export default function LarkSettingsTab() {
                 <Rocket size={15} className="mt-0.5 shrink-0 text-[var(--color-primary)]" />
                 <div>
                   <p className="text-xs font-medium text-[var(--color-foreground)]">
-                    Phát hành phiên bản
+                    {t('LarkSettingsTab.publishAVersion')}
                   </p>
                   <p className="mt-1 text-xs leading-relaxed text-[var(--color-muted-foreground)]">
-                    Vào <span className="font-semibold">Version Management &amp; Release</span>, tạo
-                    phiên bản rồi xin phát hành và chờ quản trị viên doanh nghiệp duyệt. Quyền vừa
-                    thêm <span className="font-semibold">chưa có hiệu lực</span> cho tới khi phiên bản
-                    được duyệt — chỉ hiện trạng thái "Added" là chưa đủ.
+                    {t('LarkSettingsTab.goTo')} <span className="font-semibold">Version Management &amp; Release</span>{t('LarkSettingsTab.createAVersionRequestPublishingAnd')} <span className="font-semibold">{t('LarkSettingsTab.doNotTakeEffect')}</span> {t('LarkSettingsTab.untilTheVersionIsApprovedJust')}
                   </p>
                 </div>
               </div>
@@ -397,8 +392,8 @@ export default function LarkSettingsTab() {
           <StepCard
             id="tour-lark-credentials"
             step={3}
-            title="Nhập App ID và App Secret"
-            description="Lấy ở trang Credentials & Basic Info của ứng dụng vừa tạo."
+            title={t('LarkSettingsTab.enterTheAppIdAndApp')}
+            description={t('LarkSettingsTab.foundOnTheCredentialsBasicInfo')}
             done={hasCredentials}
           >
             <div className="grid gap-3 sm:grid-cols-2">
@@ -420,7 +415,7 @@ export default function LarkSettingsTab() {
                 <input
                   type="password"
                   {...register('appSecret')}
-                  placeholder={settings.hasAppSecret ? '•••••• (đã lưu, để trống nếu giữ nguyên)' : ''}
+                  placeholder={settings.hasAppSecret ? t('LarkSettingsTab.savedLeaveEmptyToKeepIt') : ''}
                   className={inputCls}
                 />
               </div>
@@ -434,12 +429,12 @@ export default function LarkSettingsTab() {
                   }, { onSuccess: () => setValue('appSecret', '') })
                 )} disabled={updateSettings.isPending}>
                 {updateSettings.isPending && <Loader2 aria-hidden="true" className="animate-spin" />}
-                Lưu
+                {t('LarkSettingsTab.save')}
               </Button>
 
               <Button variant="outline" type="button" onClick={() => testConnection.mutate()} disabled={testConnection.isPending || !hasCredentials}>
                 {testConnection.isPending && <Loader2 aria-hidden="true" className="animate-spin" />}
-                Kiểm tra kết nối
+                {t('LarkSettingsTab.checkConnection')}
               </Button>
             </div>
 
@@ -467,26 +462,24 @@ export default function LarkSettingsTab() {
       <StepCard
         id="tour-lark-connect"
         step={isCustomApp ? 4 : 1}
-        title="Liên kết công ty của bạn trên Lark"
-        description="Bạn sẽ đăng nhập Lark một lần. KeyGo tự nhận diện công ty của bạn và ghi nhớ, không cần nhập thủ công."
+        title={t('LarkSettingsTab.linkYourCompanyOnLark')}
+        description={t('LarkSettingsTab.youWillSignInToLark')}
         done={isVerified}
         disabled={isCustomApp && !hasCredentials}
       >
         <Button type="button" onClick={() => connectMutation.mutate()} disabled={connectMutation.isPending}>
           {connectMutation.isPending && <Loader2 aria-hidden="true" className="animate-spin" />}
-          {isVerified ? 'Liên kết lại' : 'Kết nối với Lark'}
+          {isVerified ? t('LarkSettingsTab.relink') : t('LarkSettingsTab.connectToLark')}
         </Button>
 
         {/* Đã liên kết nhưng Lark không trả tên -> ứng dụng thiếu quyền đọc thông tin doanh nghiệp */}
         {isVerified && !settings.tenantName && (
           <div className="mt-3 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)]/30 p-3">
             <p className="text-xs leading-relaxed text-[var(--color-muted-foreground)]">
-              Chưa lấy được tên và logo công ty từ Lark. Bật thêm quyền dưới đây trong ứng dụng Lark
-              rồi bấm <span className="font-semibold">Liên kết lại</span> để hiển thị đúng tên và
-              logo ở màn hình đăng nhập.
+              {t('LarkSettingsTab.couldNotGetTheCompanyName')} <span className="font-semibold">{t('LarkSettingsTab.relink')}</span> {t('LarkSettingsTab.toShowTheCorrectNameAnd')}
             </p>
             <div className="mt-2">
-              <CopyRow label="Quyền cần bật thêm" value="tenant:tenant:readonly" />
+              <CopyRow label={t('LarkSettingsTab.additionalPermissionToEnable')} value="tenant:tenant:readonly" />
             </div>
           </div>
         )}
@@ -495,24 +488,24 @@ export default function LarkSettingsTab() {
       <StepCard
         id="tour-lark-defaults"
         step={isCustomApp ? 5 : 2}
-        title="Đơn vị và vai trò cho người mới"
-        description="Nhân viên đăng nhập lần đầu bằng Lark sẽ được tạo tài khoản tự động và xếp vào đây. Bạn có thể điều chỉnh lại từng người sau."
+        title={t('LarkSettingsTab.unitAndRoleForNewPeople')}
+        description={t('LarkSettingsTab.employeesSigningInWithLarkFor')}
         done={hasDefaults}
         disabled={!isVerified}
       >
         <div className="grid gap-3 sm:grid-cols-2">
           <div>
             <label className="text-label mb-1.5 block text-[var(--color-foreground)]">
-              Đơn vị mặc định
+              {t('LarkSettingsTab.defaultUnit')}
             </label>
             <Select
               value={settings.defaultOrgUnitId ?? undefined}
               onValueChange={(v) => updateSettings.mutate({ defaultOrgUnitId: v })}
             >
               <SelectTrigger className={inputCls}>
-                <SelectValue placeholder="Chọn đơn vị" />
+                <SelectValue placeholder={t('LarkSettingsTab.chooseUnit')} />
               </SelectTrigger>
-              <SelectContent className="max-h-[300px] z-[300]">
+              <SelectContent className="max-h-[300px]">
                 {flattenedUnits.map((unit) => (
                   <SelectItem key={unit.id} value={unit.id}>
                     <span className="flex items-center">
@@ -527,16 +520,16 @@ export default function LarkSettingsTab() {
 
           <div>
             <label className="text-label mb-1.5 block text-[var(--color-foreground)]">
-              Vai trò mặc định
+              {t('LarkSettingsTab.defaultRole')}
             </label>
             <Select
               value={settings.defaultRoleId ?? undefined}
               onValueChange={(v) => updateSettings.mutate({ defaultRoleId: v })}
             >
               <SelectTrigger className={inputCls}>
-                <SelectValue placeholder="Chọn vai trò" />
+                <SelectValue placeholder={t('LarkSettingsTab.chooseRole')} />
               </SelectTrigger>
-              <SelectContent className="max-h-[300px] z-[300]">
+              <SelectContent className="max-h-[300px]">
                 {(roles ?? []).map((role: any) => (
                   <SelectItem key={role.id} value={role.id}>
                     {role.name}
@@ -550,15 +543,15 @@ export default function LarkSettingsTab() {
 
       <StepCard
         step={isCustomApp ? 6 : 3}
-        title="Bật đăng nhập bằng Lark"
-        description="Khi bật, công ty bạn sẽ xuất hiện ở màn hình chọn công ty và nhân viên có thể đăng nhập bằng Lark."
+        title={t('LarkSettingsTab.turnOnLarkSignIn')}
+        description={t('LarkSettingsTab.whenOnYourCompanyAppearsOn')}
         done={settings.larkEnabled}
         disabled={!canEnable && !settings.larkEnabled}
       >
         {!canEnable && !settings.larkEnabled ? (
           <p className="flex items-start gap-2 text-xs font-semibold text-[var(--color-warning)]">
             <Lock size={14} className="mt-0.5 shrink-0" />
-            Còn thiếu: {settings.missingRequirements.join('; ')}
+            {t('LarkSettingsTab.stillMissing')} {settings.missingRequirements.join('; ')}
           </p>
         ) : (
           <button
@@ -573,7 +566,7 @@ export default function LarkSettingsTab() {
             )}
           >
             {updateSettings.isPending && <Loader2 size={15} className="animate-spin" />}
-            {settings.larkEnabled ? 'Tắt đăng nhập bằng Lark' : 'Bật đăng nhập bằng Lark'}
+            {settings.larkEnabled ? t('LarkSettingsTab.turnOffLarkSignIn') : t('LarkSettingsTab.turnOnLarkSignIn')}
           </button>
         )}
       </StepCard>
@@ -588,23 +581,24 @@ export default function LarkSettingsTab() {
  * không quay về KeyGo — không có cách nào hiện thông báo cho họ, chỉ có thể dặn quản trị viên.
  */
 function TroubleshootingSection() {
+  const { t } = useTranslation('organization')
   const [open, setOpen] = useState(false)
 
   const items = [
     {
       symptom: '"You don\'t have the access to ..."',
-      cause: 'Nhân viên nằm ngoài phạm vi sử dụng của ứng dụng Lark.',
-      fix: 'Mở mục Availability trong Lark Console, thêm nhân viên hoặc phòng ban của họ, rồi phát hành lại phiên bản.',
+      cause: t('LarkSettingsTab.theEmployeeIsOutsideTheLark'),
+      fix: t('LarkSettingsTab.openAvailabilityInTheLarkConsole'),
     },
     {
-      symptom: 'Lark báo lỗi địa chỉ chuyển hướng (redirect)',
-      cause: 'Redirect URL khai trong Lark không khớp với URL của KeyGo.',
-      fix: 'Copy lại chính xác URL callback ở bước 2 và dán vào mục Security Settings.',
+      symptom: t('LarkSettingsTab.larkReportsARedirectAddressError'),
+      cause: t('LarkSettingsTab.theRedirectUrlDeclaredInLark'),
+      fix: t('LarkSettingsTab.copyTheCallbackUrlFromStep'),
     },
     {
-      symptom: '"Tài khoản Lark của bạn không thuộc ..."',
-      cause: 'Đây là thông báo của KeyGo. Nhân viên đăng nhập bằng một tổ chức Lark khác với tổ chức đã liên kết.',
-      fix: 'Trên màn hình đăng nhập Lark, chuyển sang đúng tổ chức của công ty. Nếu công ty đã đổi tổ chức Lark thì bấm "Liên kết lại" ở bước trên.',
+      symptom: t('LarkSettingsTab.yourLarkAccountDoesNotBelong'),
+      cause: t('LarkSettingsTab.thisIsAKeygoMessageThe'),
+      fix: t('LarkSettingsTab.onTheLarkSignInScreen'),
     },
   ]
 
@@ -613,7 +607,7 @@ function TroubleshootingSection() {
       <button className="flex h-9 w-full items-center gap-2.5 rounded-control px-2.5 text-left text-sm text-[var(--color-foreground)] transition-colors hover:bg-[var(--color-muted)] [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-[var(--color-muted-foreground)]" type="button" onClick={() => setOpen((v) => !v)}>
         <HelpCircle aria-hidden="true" className="shrink-0 text-[var(--color-muted-foreground)]" />
         <span className="flex-1 text-sm font-medium text-[var(--color-foreground)]">
-          Nhân viên không đăng nhập được?
+          {t('LarkSettingsTab.employeesCannotSignIn')}
         </span>
         <ChevronDown aria-hidden="true"
           className={cn(
@@ -631,7 +625,7 @@ function TroubleshootingSection() {
               className="rounded-card border border-[var(--color-border)] bg-[var(--color-muted)]/20 p-3.5"
             >
               <p className="text-xs font-medium text-[var(--color-foreground)]">
-                Nhân viên thấy: <span className="font-mono font-normal">{item.symptom}</span>
+                {t('LarkSettingsTab.theEmployeeSees')} <span className="font-mono font-normal">{item.symptom}</span>
               </p>
               <p className="mt-1.5 text-xs text-[var(--color-muted-foreground)]">{item.cause}</p>
               <p className="mt-1.5 text-xs font-semibold text-[var(--color-primary)]">

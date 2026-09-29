@@ -18,6 +18,9 @@ import {
   type DateFilterIntent, type ResolvedDateFilter,
 } from '../filter/dateFilterModel'
 import type { ChartShape } from '@/components/charts/ChartTypePreview'
+import { useTranslation } from 'react-i18next'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
 /**
  * Vớt bố cục từ kho CŨ của các tab Thống kê.
@@ -142,8 +145,8 @@ export function positionPresets(
     const names = ids.map(id => byId.get(id)?.title).filter(Boolean).join(' · ')
     return {
       key: `position-${positions.join('-')}`,
-      label: `Bộ cho ${positions.map(p => POSITION_LABEL[p]).join(', ')}${isMine ? ' · vị trí của bạn' : ''}`,
-      description: `${ids.length} ô: ${names}`,
+      label: i18n.t('analytics:analyticsGrid.setFor', { join: positions.map(p => POSITION_LABEL()[p]).join(', '), value: isMine ? i18n.t('analytics:analyticsGrid.yourPosition') : '' }),
+      description: i18n.t('analytics:analyticsGrid.cells', { count: ids.length, names }),
       widgets: layoutForPosition(all, ids),
     }
   })
@@ -161,14 +164,15 @@ export function usePositionLayout(
   byPosition: Record<ViewerPosition, readonly string[]>,
   fallback: ViewerPosition,
 ) {
+  const { t } = useTranslation('analytics')
   const position = useViewerPosition() ?? fallback
   return useMemo(() => ({
     position,
     defaultWidgets: layoutForPosition(all, byPosition[position]),
     presets: positionPresets(all, byPosition, position),
     recommendedIds: new Set(byPosition[position]) as ReadonlySet<string>,
-    recommendedLabel: `Gợi ý cho ${POSITION_LABEL[position]}`,
-  }), [all, byPosition, position])
+    recommendedLabel: t('analyticsGrid.suggestionsFor', { value: POSITION_LABEL()[position] }),
+  }), [all, byPosition, position, t])
 }
 
 /** Đợt và kỳ của tổ chức — nguồn để đổi ý định lọc thành khoảng thời gian thật. */
@@ -233,46 +237,46 @@ export interface ChartVariantOption {
  * `bieu-do-chuan` cấm ép 100% lên dữ liệu không cộng thành một tổng, nên tập lựa chọn phải bị
  * giới hạn theo bản chất dữ liệu chứ không phải theo sở thích.
  */
-const TREND_VARIANTS: ChartVariantOption[] = [
-  { key: 'line', label: 'Đường', shape: 'line', hint: 'Xem mức thay đổi qua từng mốc.' },
-  { key: 'area', label: 'Miền', shape: 'stackedArea', hint: 'Xem cơ cấu cũ/mới theo tỉ trọng %.' },
-]
+const TREND_VARIANTS = perLanguage((): ChartVariantOption[] => ([
+  { key: 'line', label: i18n.t('analytics:analyticsGrid.line'), shape: 'line', hint: i18n.t('analytics:analyticsGrid.seeTheChangeAtEachPoint') },
+  { key: 'area', label: i18n.t('analytics:analyticsGrid.area'), shape: 'stackedArea', hint: i18n.t('analytics:analyticsGrid.seeTheOldNewCompositionAs') },
+]))
 
 /** Ma trận xếp loại: đếm theo ô hay chấm từng người — cùng dữ liệu, hai câu hỏi. */
-const MATRIX_VARIANTS: ChartVariantOption[] = [
-  { key: 'cells', label: 'Ô ma trận', shape: 'heatmap', hint: 'Đếm số người mỗi ô, thấy mật độ.' },
-  { key: 'scatter', label: 'Phân tán từng người', shape: 'scatter', hint: 'Mỗi người một chấm, thấy ai lệch khỏi đám đông.' },
-]
+const MATRIX_VARIANTS = perLanguage((): ChartVariantOption[] => ([
+  { key: 'cells', label: i18n.t('analytics:analyticsGrid.matrixCells'), shape: 'heatmap', hint: i18n.t('analytics:analyticsGrid.countPeopleInEachCellTo') },
+  { key: 'scatter', label: i18n.t('analytics:analyticsGrid.scatterPerPerson'), shape: 'scatter', hint: i18n.t('analytics:analyticsGrid.oneDotPerPersonToSee') },
+]))
 
 /** Xu hướng %đạt BSC qua các đợt: chỉ đường tổng, hay tách theo 4 lĩnh vực. */
-const BSC_TREND_VARIANTS: ChartVariantOption[] = [
-  { key: 'overall', label: 'Tổng', shape: 'line', hint: '%đạt của thẻ điểm qua từng đợt.' },
-  { key: 'perspectives', label: 'Theo lĩnh vực', shape: 'line', hint: 'Mỗi lĩnh vực một đường, tổng vẽ đứt.' },
-]
+const BSC_TREND_VARIANTS = perLanguage((): ChartVariantOption[] => ([
+  { key: 'overall', label: i18n.t('analytics:analyticsGrid.total'), shape: 'line', hint: i18n.t('analytics:analyticsGrid.scorecardAchievementByPeriod') },
+  { key: 'perspectives', label: i18n.t('analytics:analyticsGrid.byArea'), shape: 'line', hint: i18n.t('analytics:analyticsGrid.oneLinePerAreaTotalDrawn') },
+]))
 
 /** Mức đạt đơn vị: xếp hạng lollipop, hay bảng đủ trạng thái thẻ và hạng mục chặn. */
-const BSC_UNIT_VARIANTS: ChartVariantOption[] = [
-  { key: 'lollipop', label: 'Xếp hạng', shape: 'lollipop', hint: 'Mỗi đơn vị một chấm %đạt, vạch 100% là mục tiêu.' },
-  { key: 'tree', label: 'Theo cây', shape: 'table', hint: 'Giữ thứ tự công ty → phòng → team, kèm trạng thái và hạng mục chặn.' },
-]
+const BSC_UNIT_VARIANTS = perLanguage((): ChartVariantOption[] => ([
+  { key: 'lollipop', label: i18n.t('analytics:analyticsGrid.ranking'), shape: 'lollipop', hint: i18n.t('analytics:analyticsGrid.oneAchievementDotPerUnitThe') },
+  { key: 'tree', label: i18n.t('analytics:analyticsGrid.asATree'), shape: 'table', hint: i18n.t('analytics:analyticsGrid.keepsTheCompanyDepartmentTeamOrder') },
+]))
 
 /** Xếp loại đơn vị: bell curve của đợt/kỳ đang xét, hay tỉ trọng các mức qua các đợt. */
-const CLASSIFICATION_VARIANTS: ChartVariantOption[] = [
-  { key: 'bell', label: 'Bell curve', shape: 'bar', hint: 'Phân bố thực tế đặt cạnh khung hạn mức đã cấu hình.' },
-  { key: 'trend', label: 'Qua các đợt', shape: 'stackedArea', hint: 'Tỉ trọng từng mức dịch chuyển qua các đợt.' },
-]
+const CLASSIFICATION_VARIANTS = perLanguage((): ChartVariantOption[] => ([
+  { key: 'bell', label: 'Bell curve', shape: 'bar', hint: i18n.t('analytics:analyticsGrid.actualDistributionNextToTheConfigured') },
+  { key: 'trend', label: i18n.t('analytics:analyticsGrid.acrossPeriods'), shape: 'stackedArea', hint: i18n.t('analytics:analyticsGrid.howTheShareOfEachLevel') },
+]))
 
 /** Ô nào cho chọn cách biểu diễn. Ô không có mặt ở đây thì bảng cấu hình chỉ hiện phần lọc. */
-export const WIDGET_VARIANTS: Record<string, ChartVariantOption[]> = {
-  'trend-chart': TREND_VARIANTS,
-  'sub-trend': TREND_VARIANTS,
-  'mykpi-trend': TREND_VARIANTS,
-  'myobj-trend': TREND_VARIANTS,
-  'drill-matrix': MATRIX_VARIANTS,
-  'drill-classification': CLASSIFICATION_VARIANTS,
-  'bsc-trend': BSC_TREND_VARIANTS,
-  'bsc-units': BSC_UNIT_VARIANTS,
-}
+export const WIDGET_VARIANTS = perLanguage((): Record<string, ChartVariantOption[]> => ({
+  'trend-chart': TREND_VARIANTS(),
+  'sub-trend': TREND_VARIANTS(),
+  'mykpi-trend': TREND_VARIANTS(),
+  'myobj-trend': TREND_VARIANTS(),
+  'drill-matrix': MATRIX_VARIANTS(),
+  'drill-classification': CLASSIFICATION_VARIANTS(),
+  'bsc-trend': BSC_TREND_VARIANTS(),
+  'bsc-units': BSC_UNIT_VARIANTS(),
+}))
 
 /* ── Tuỳ chọn riêng của từng loại biểu đồ ─────────────────────────────────── */
 
@@ -292,41 +296,41 @@ export interface OptionField {
   clears?: string[]
 }
 
-const RANK_FIELD: OptionField = {
-  key: 'rank', label: 'Hướng xếp', kind: 'pills', default: 'BEST',
-  choices: [{ value: 'BEST', label: 'Tốt nhất' }, { value: 'WORST', label: 'Trì trệ' }],
-}
-const TOPN_FIELD: OptionField = {
-  key: 'topN', label: 'Số đơn vị', kind: 'pills', default: 'ALL',
-  choices: [{ value: 'ALL', label: 'Tất cả' }, { value: '5', label: 'Top 5' }, { value: '10', label: 'Top 10' }],
-}
-const METRIC_FIELD: OptionField = {
-  key: 'metric', label: 'Xếp theo', kind: 'pills', default: 'performance',
-  choices: [{ value: 'performance', label: 'Hiệu suất' }, { value: 'avgProgress', label: 'Tiến độ TB' }],
-}
-const DIR_FIELD: OptionField = {
-  key: 'dir', label: 'Thứ tự', kind: 'pills', default: 'DESC',
-  choices: [{ value: 'DESC', label: 'Cao nhất' }, { value: 'ASC', label: 'Thấp nhất' }],
-}
-const SHARED_FIELD: OptionField = {
-  key: 'shared', label: 'Loại KPI', kind: 'pills', default: 'ALL',
-  choices: [{ value: 'ALL', label: 'Tất cả' }, { value: 'SHARED', label: 'Chung' }, { value: 'PERSONAL', label: 'Riêng' }],
-}
+const RANK_FIELD = perLanguage((): OptionField => ({
+  key: 'rank', label: i18n.t('analytics:analyticsGrid.sortDirection'), kind: 'pills', default: 'BEST',
+  choices: [{ value: 'BEST', label: i18n.t('analytics:analyticsGrid.best') }, { value: 'WORST', label: i18n.t('analytics:analyticsGrid.stagnant') }],
+}))
+const TOPN_FIELD = perLanguage((): OptionField => ({
+  key: 'topN', label: i18n.t('analytics:analyticsGrid.numberOfUnits'), kind: 'pills', default: 'ALL',
+  choices: [{ value: 'ALL', label: i18n.t('analytics:analyticsGrid.all') }, { value: '5', label: 'Top 5' }, { value: '10', label: 'Top 10' }],
+}))
+const METRIC_FIELD = perLanguage((): OptionField => ({
+  key: 'metric', label: i18n.t('analytics:analyticsGrid.sortBy'), kind: 'pills', default: 'performance',
+  choices: [{ value: 'performance', label: i18n.t('analytics:analyticsGrid.performance') }, { value: 'avgProgress', label: i18n.t('analytics:analyticsGrid.avgProgress') }],
+}))
+const DIR_FIELD = perLanguage((): OptionField => ({
+  key: 'dir', label: i18n.t('analytics:analyticsGrid.order'), kind: 'pills', default: 'DESC',
+  choices: [{ value: 'DESC', label: i18n.t('analytics:analyticsGrid.highest') }, { value: 'ASC', label: i18n.t('analytics:analyticsGrid.lowest') }],
+}))
+const SHARED_FIELD = perLanguage((): OptionField => ({
+  key: 'shared', label: i18n.t('analytics:analyticsGrid.kpiType'), kind: 'pills', default: 'ALL',
+  choices: [{ value: 'ALL', label: i18n.t('analytics:analyticsGrid.all') }, { value: 'SHARED', label: i18n.t('analytics:analyticsGrid.shared') }, { value: 'PERSONAL', label: i18n.t('analytics:analyticsGrid.own') }],
+}))
 
-const BSC_SORT_FIELD: OptionField = {
-  key: 'sort', label: 'Xếp theo', kind: 'pills', default: 'bscScore',
-  choices: [{ value: 'bscScore', label: 'Điểm BSC' }, { value: 'systemScore', label: 'Điểm hệ thống' }],
-}
+const BSC_SORT_FIELD = perLanguage((): OptionField => ({
+  key: 'sort', label: i18n.t('analytics:analyticsGrid.sortBy'), kind: 'pills', default: 'bscScore',
+  choices: [{ value: 'bscScore', label: i18n.t('analytics:analyticsGrid.bscScore') }, { value: 'systemScore', label: i18n.t('analytics:analyticsGrid.systemScore') }],
+}))
 
 /** Ô nào có tuỳ chọn gì. Ô không có mặt ở đây thì drawer không hiện mục "Tuỳ chọn". */
-export const WIDGET_OPTIONS: Record<string, OptionField[]> = {
-  'unit-perf': [RANK_FIELD, TOPN_FIELD],
-  'sub-unit-perf': [RANK_FIELD, TOPN_FIELD],
-  'rank-table': [METRIC_FIELD, DIR_FIELD],
-  'mykpi-detail': [SHARED_FIELD],
-  'myobj-detail': [SHARED_FIELD],
-  'bsc-ranking': [BSC_SORT_FIELD],
-}
+export const WIDGET_OPTIONS = perLanguage((): Record<string, OptionField[]> => ({
+  'unit-perf': [RANK_FIELD(), TOPN_FIELD()],
+  'sub-unit-perf': [RANK_FIELD(), TOPN_FIELD()],
+  'rank-table': [METRIC_FIELD(), DIR_FIELD()],
+  'mykpi-detail': [SHARED_FIELD()],
+  'myobj-detail': [SHARED_FIELD()],
+  'bsc-ranking': [BSC_SORT_FIELD()],
+}))
 
 /** Ô nào có chọn đơn vị. Danh sách đơn vị do tab cấp (`unitOptions`), drawer chỉ vẽ. */
 export const WIDGET_HAS_UNIT: ReadonlySet<string> = new Set([
@@ -345,7 +349,7 @@ export const widgetUnit = (widget: DashboardWidget | undefined): string | undefi
 
 /** Giá trị đang chọn của một tuỳ chọn, rơi về mặc định đã khai báo khi ô chưa đặt. */
 export function optionOf(widget: DashboardWidget | undefined, key: string): string | undefined {
-  const fields = widget ? WIDGET_OPTIONS[widget.i] : undefined
+  const fields = widget ? WIDGET_OPTIONS()[widget.i] : undefined
   const field = fields?.find(f => f.key === key)
   const chosen = widget?.s?.o?.[key]
   if (chosen !== undefined && field?.choices.some(c => c.value === chosen)) return chosen
@@ -383,7 +387,7 @@ export function tableViewControl(
 
 /** Cách biểu diễn đang chọn của một ô, rơi về lựa chọn đầu tiên khi chưa đặt. */
 export function widgetVariant(widget: DashboardWidget | undefined): string | undefined {
-  const options = widget ? WIDGET_VARIANTS[widget.i] : undefined
+  const options = widget ? WIDGET_VARIANTS()[widget.i] : undefined
   if (!options?.length) return undefined
   const chosen = widget?.s?.v
   return options.some(o => o.key === chosen) ? chosen : options[0]!.key

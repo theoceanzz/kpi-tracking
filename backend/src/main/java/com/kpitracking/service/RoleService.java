@@ -7,7 +7,9 @@ import com.kpitracking.entity.Role;
 import com.kpitracking.entity.User;
 import com.kpitracking.exception.BusinessException;
 import com.kpitracking.exception.DuplicateResourceException;
+import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.ResourceNotFoundException;
+import com.kpitracking.i18n.Terms;
 import com.kpitracking.mapper.RoleMapper;
 import com.kpitracking.repository.RoleRepository;
 import com.kpitracking.repository.UserRepository;
@@ -32,7 +34,7 @@ public class RoleService {
     private User getCurrentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         return userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("User", "email", email));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.user"), "email", email));
     }
 
     @Transactional
@@ -44,10 +46,10 @@ public class RoleService {
                 .stream()
                 .map(uro -> uro.getOrgUnit().getOrgHierarchyLevel().getOrganization().getId())
                 .findFirst()
-                .orElseThrow(() -> new BusinessException("User does not belong to any organization"));
+                .orElseThrow(() -> new BusinessException(ErrorCode.CURRENT_USER_OUTSIDE_ORGANIZATION_2));
 
         if (roleRepository.existsByNameIgnoreCaseAndOrganizationIdAndDeletedAtIsNull(request.getName(), orgId)) {
-            throw new DuplicateResourceException("Vai trò", "tên", request.getName());
+            throw new DuplicateResourceException(Terms.of("resource.role"), Terms.of("field.name"), request.getName());
         }
 
         Integer rank = request.getRank();
@@ -60,7 +62,7 @@ public class RoleService {
 
         if (rank != 2 && roleRepository.existsByLevelAndRankAndOrganizationIdAndDeletedAtIsNull(request.getLevel(), rank, orgId)) {
             String rankName = (rank == 0) ? "TRƯỞNG (Rank 0)" : "PHÓ (Rank 1)";
-            throw new BusinessException("Mỗi phân cấp chỉ được phép có tối đa 1 " + rankName);
+            throw new BusinessException(ErrorCode.EACH_HIERARCHY_LEVEL_MAY_MOST_1, String.valueOf(rankName));
         }
 
         Role role = Role.builder()
@@ -78,7 +80,7 @@ public class RoleService {
     @Transactional
     public RoleResponse updateRole(UUID roleId, UpdateRoleRequest request) {
         Role role = roleRepository.findById(roleId)
-                .orElseThrow(() -> new ResourceNotFoundException("Role", "id", roleId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.role"), "id", roleId));
 
         if (Boolean.TRUE.equals(role.getIsSystem())) {
             // Allow renaming system roles, but protect level/rank changes
@@ -86,13 +88,13 @@ public class RoleService {
             boolean rankChanged = request.getRank() != null && !request.getRank().equals(role.getRank());
             
             if (levelChanged || rankChanged) {
-                throw new BusinessException("Cannot modify hierarchy (level/rank) of system role: " + role.getName());
+                throw new BusinessException(ErrorCode.CANNOT_MODIFY_SYSTEM_ROLE_HIERARCHY, role.getName());
             }
         }
 
         if (request.getName() != null) {
             if (roleRepository.existsByNameIgnoreCaseAndOrganizationIdAndIdNotAndDeletedAtIsNull(request.getName(), role.getOrganization().getId(), roleId)) {
-                throw new DuplicateResourceException("Vai trò", "tên", request.getName());
+                throw new DuplicateResourceException(Terms.of("resource.role"), Terms.of("field.name"), request.getName());
             }
             role.setName(request.getName());
         }
@@ -112,7 +114,7 @@ public class RoleService {
 
         if (role.getRank() != 2 && roleRepository.existsByLevelAndRankAndOrganizationIdAndIdNotAndDeletedAtIsNull(role.getLevel(), role.getRank(), role.getOrganization().getId(), roleId)) {
             String rankName = (role.getRank() == 0) ? "TRƯỞNG (Rank 0)" : "PHÓ (Rank 1)";
-            throw new BusinessException("Mỗi phân cấp chỉ được phép có tối đa 1 " + rankName);
+            throw new BusinessException(ErrorCode.EACH_HIERARCHY_LEVEL_MAY_MOST_1, String.valueOf(rankName));
         }
 
         role = roleRepository.save(role);
@@ -122,15 +124,15 @@ public class RoleService {
     @Transactional
     public void deleteRole(UUID roleId) {
         Role role = roleRepository.findById(roleId)
-                .orElseThrow(() -> new ResourceNotFoundException("Role", "id", roleId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.role"), "id", roleId));
 
         if (Boolean.TRUE.equals(role.getIsSystem())) {
-            throw new BusinessException("Không thể xóa vai trò hệ thống: " + role.getName());
+            throw new BusinessException(ErrorCode.CANNOT_DELETE_SYSTEM_ROLE, role.getName());
         }
 
         // Kiểm tra xem có bất kỳ nhân viên nào đang giữ vai trò này không
         if (userRoleOrgUnitRepository.existsByRoleId(roleId)) {
-            throw new BusinessException("Không thể xóa vai trò '" + role.getName() + "' vì vẫn còn nhân viên đang giữ vai trò này trong tổ chức.");
+            throw new BusinessException(ErrorCode.CANNOT_DELETE_ROLE_BECAUSE_EMPLOYEES_ORGANIZATION_HOLD, role.getName());
         }
 
         role.setDeletedAt(Instant.now());
@@ -144,7 +146,7 @@ public class RoleService {
                 .stream()
                 .map(uro -> uro.getOrgUnit().getOrgHierarchyLevel().getOrganization().getId())
                 .findFirst()
-                .orElseThrow(() -> new BusinessException("User does not belong to any organization"));
+                .orElseThrow(() -> new BusinessException(ErrorCode.CURRENT_USER_OUTSIDE_ORGANIZATION_2));
                 
         return roleRepository.findAllByOrganizationIdAndDeletedAtIsNull(orgId).stream()
                 .map(roleMapper::toResponse)
@@ -154,7 +156,7 @@ public class RoleService {
     @Transactional(readOnly = true)
     public RoleResponse getRole(UUID roleId) {
         Role role = roleRepository.findById(roleId)
-                .orElseThrow(() -> new ResourceNotFoundException("Role", "id", roleId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.role"), "id", roleId));
         return roleMapper.toResponse(role);
     }
 }

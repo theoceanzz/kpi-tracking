@@ -1,13 +1,15 @@
 import { z } from 'zod'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
-export const evaluationSchema = z.object({
-  userId: z.string().min(1, 'Vui lòng chọn nhân viên'),
-  kpiPeriodId: z.string().min(1, 'Vui lòng chọn đợt KPI'),
-  score: z.number().min(0, 'Điểm tối thiểu 0'),
+export const evaluationSchema = perLanguage(() => (z.object({
+  userId: z.string().min(1, i18n.t('evaluations:evaluationSchema.pleaseChooseAnEmployee')),
+  kpiPeriodId: z.string().min(1, i18n.t('evaluations:evaluationSchema.pleaseChooseAKpiPeriod')),
+  score: z.number().min(0, i18n.t('evaluations:evaluationSchema.minimumScoreIs0')),
   comment: z.string().optional(),
-})
+})))
 
-export type EvaluationFormData = z.infer<typeof evaluationSchema>
+export type EvaluationFormData = z.infer<ReturnType<typeof evaluationSchema>>
 
 /**
  * Chấm nhanh ngay trong modal chi tiết.
@@ -18,8 +20,8 @@ export type EvaluationFormData = z.infer<typeof evaluationSchema>
  */
 export const createInlineEvaluationSchema = (getScoreCeiling: () => number) =>
   z.object({
-    score: z.number({ message: 'Vui lòng chấm điểm' })
-      .min(1, 'Vui lòng kéo thanh điểm lên trên 0'),
+    score: z.number({ message: i18n.t('evaluations:evaluationSchema.pleaseEnterAScore') })
+      .min(1, i18n.t('evaluations:evaluationSchema.pleaseDragTheScoreBarAbove')),
     comment: z.string(),
   }).superRefine((data, ctx) => {
     const ceiling = getScoreCeiling()
@@ -27,7 +29,7 @@ export const createInlineEvaluationSchema = (getScoreCeiling: () => number) =>
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
         path: ['score'],
-        message: `Điểm không được vượt quá ${ceiling}`,
+        message: i18n.t('evaluations:evaluationSchema.theScoreCannotExceed', { ceiling }),
       })
     }
   })

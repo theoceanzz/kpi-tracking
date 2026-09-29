@@ -1,6 +1,7 @@
 import { cn } from '@/lib/utils'
 import { CheckCircle2, AlertTriangle } from 'lucide-react'
 import type { UnitWeightBudget } from '@/features/dashboard/api/orgUnitKpiApi'
+import { useTranslation } from 'react-i18next'
 
 /** Mốc mà mỗi đơn vị phải chạm trước khi gửi duyệt chỉ tiêu. */
 const TARGET = 100
@@ -18,6 +19,7 @@ const EPS = 0.01
  * giao hết việc, thừa là giao quá tay — hai vấn đề khác nhau, xử lý khác nhau.
  */
 export function WeightBudgetStrip({ rows }: { rows: UnitWeightBudget[] }) {
+  const { t } = useTranslation('analytics')
   if (rows.length === 0) return null
 
   const off = rows.filter(r => Math.abs(r.totalWeight - TARGET) > EPS)
@@ -28,7 +30,7 @@ export function WeightBudgetStrip({ rows }: { rows: UnitWeightBudget[] }) {
     return (
       <div className="flex items-center gap-2 px-3 py-2 rounded-control bg-[var(--color-success-bg)] text-xs font-medium text-[var(--color-success)]">
         <CheckCircle2 size={14} className="shrink-0" />
-        {rows.length}/{rows.length} đơn vị đủ trọng số (100%)
+        {rows.length}/{rows.length} {t('WeightBudgetStrip.unitsWithFullWeight100')}
       </div>
     )
   }
@@ -42,9 +44,9 @@ export function WeightBudgetStrip({ rows }: { rows: UnitWeightBudget[] }) {
     <div className="rounded-card border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] p-3 space-y-2">
       <div className="flex items-center gap-1.5 text-xs font-semibold text-[var(--color-warning)]">
         <AlertTriangle size={13} className="shrink-0" />
-        {off.length}/{rows.length} đơn vị lệch trọng số
+        {off.length}/{rows.length} {t('WeightBudgetStrip.unitsWithWeightImbalance')}
         <span className="font-semibold text-[var(--color-muted-foreground)] normal-case">
-          tính theo phân bổ nhân sự cao nhất, đúng con số chặn lúc gửi duyệt
+          {t('WeightBudgetStrip.computedFromTheHighestHeadcountAllocation')}
         </span>
       </div>
 

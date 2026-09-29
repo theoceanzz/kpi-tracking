@@ -18,6 +18,7 @@ import java.util.UUID;
 public class KpiCycleController {
 
     private final KpiCycleService kpiCycleService;
+    private final com.kpitracking.service.KpiCycleLockService kpiCycleLockService;
 
     @GetMapping
     @PreAuthorize("isAuthenticated()")
@@ -57,5 +58,26 @@ public class KpiCycleController {
     public ResponseEntity<ApiResponse<Void>> deleteKpiCycle(@PathVariable UUID id) {
         kpiCycleService.deleteKpiCycle(id);
         return ResponseEntity.ok(ApiResponse.success(null));
+    }
+
+    // ── Khoá kỳ ──────────────────────────────────────────────────────────────
+
+    // Kỳ KHÔNG khoá/mở lại qua đây: chỉ khoá kết quả ở đơn vị gốc mới khoá kỳ (và mở khoá ở đó mới
+    // mở lại kỳ) — xem KpiCycleEvaluationController. Endpoint dưới phục vụ hộp thoại khoá kết quả.
+
+    /** Phân loại từng đợt + kỳ đích hợp lệ, để chọn cách xử lý các đợt dở trước khi khoá. */
+    @GetMapping("/{id}/lock-preview")
+    @PreAuthorize("hasAuthority('CYCLE_EVAL:FINALIZE')")
+    public ResponseEntity<ApiResponse<com.kpitracking.dto.response.kpi.lock.CycleLockPreviewResponse>> lockPreview(
+            @PathVariable UUID id) {
+        return ResponseEntity.ok(ApiResponse.success(kpiCycleLockService.preview(id)));
+    }
+
+    /** Lịch sử khoá / gia hạn / mở lại / xử lý đợt của kỳ. */
+    @GetMapping("/{id}/events")
+    @PreAuthorize("hasAuthority('KPI_CYCLE:VIEW')")
+    public ResponseEntity<ApiResponse<java.util.List<com.kpitracking.dto.response.kpi.lock.KpiCycleEventResponse>>> events(
+            @PathVariable UUID id) {
+        return ResponseEntity.ok(ApiResponse.success(kpiCycleLockService.events(id)));
     }
 }

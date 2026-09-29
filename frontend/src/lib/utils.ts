@@ -1,71 +1,79 @@
+import { dateFnsLocale, intlLocale } from '@/i18n/format'
 import { clsx, type ClassValue } from 'clsx'
 import { extendTailwindMerge } from 'tailwind-merge'
 import { format, parseISO } from 'date-fns'
-import { vi } from 'date-fns/locale'
 
 import { AlertCircle, CheckCircle2, XCircle, Clock, X } from 'lucide-react'
 import { KpiFrequency, KpiStatus } from '@/types/kpi'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
-export const FREQUENCY_MAP: Record<KpiFrequency, string> = {
-  DAILY: 'Hàng ngày',
-  WEEKLY: 'Hàng tuần',
-  MONTHLY: 'Hàng tháng',
-  QUARTERLY: 'Hàng quý',
-  SEMI_ANNUALLY: '6 tháng',
-  YEARLY: 'Hàng năm',
-  UNLIMITED: 'Không giới hạn',
-}
+export const FREQUENCY_MAP = perLanguage((): Record<KpiFrequency, string> => ({
+  DAILY: i18n.t('common:utils.daily'),
+  WEEKLY: i18n.t('common:utils.weekly'),
+  MONTHLY: i18n.t('common:utils.monthly'),
+  QUARTERLY: i18n.t('common:utils.quarterly'),
+  SEMI_ANNUALLY: i18n.t('common:utils.every6Months'),
+  YEARLY: i18n.t('common:utils.yearly'),
+  UNLIMITED: i18n.t('common:utils.unlimited'),
+}))
 
-export const STATUS_CONFIG: Record<KpiStatus, { label: string; color: string; bgColor: string; icon: any }> = {
+export const STATUS_CONFIG = perLanguage((): Record<KpiStatus, { label: string; color: string; bgColor: string; icon: any }> => ({
   DRAFT: { 
-    label: 'Bản nháp', 
+    label: i18n.t('common:utils.draft'), 
     color: 'text-slate-600 dark:text-slate-400', 
     bgColor: 'bg-slate-100 border-slate-200 dark:bg-slate-800 dark:border-slate-700', 
     icon: AlertCircle 
   },
   PENDING_APPROVAL: { 
-    label: 'Chờ duyệt', 
+    label: i18n.t('common:utils.pendingApproval'), 
     color: 'text-amber-600 dark:text-amber-400', 
     bgColor: 'bg-amber-100 border-amber-200 dark:bg-amber-900/30 dark:border-amber-900/40', 
     icon: Clock 
   },
   APPROVED: { 
-    label: 'Đã duyệt', 
+    label: i18n.t('common:utils.approved'), 
     color: 'text-emerald-600 dark:text-emerald-400', 
     bgColor: 'bg-emerald-100 border-emerald-200 dark:bg-emerald-900/30 dark:border-emerald-900/40', 
     icon: CheckCircle2 
   },
   REJECTED: { 
-    label: 'Từ chối', 
+    label: i18n.t('common:utils.rejected'), 
     color: 'text-red-600 dark:text-red-400', 
     bgColor: 'bg-red-100 border-red-200 dark:bg-red-900/30 dark:border-red-900/40', 
     icon: XCircle 
   },
   EDIT: { 
-    label: 'Đang sửa', 
+    label: i18n.t('common:utils.beingEdited'), 
     color: 'text-purple-600 dark:text-purple-400', 
     bgColor: 'bg-purple-100 border-purple-200 dark:bg-purple-900/30 dark:border-purple-900/40', 
     icon: AlertCircle 
   },
   EDITED: { 
-    label: 'Đã sửa', 
+    label: i18n.t('common:utils.edited'), 
     color: 'text-blue-600 dark:text-blue-400', 
     bgColor: 'bg-blue-100 border-blue-200 dark:bg-blue-900/30 dark:border-blue-900/40', 
     icon: CheckCircle2 
   },
   INACTIVE: {
-    label: 'Ngưng dùng',
+    label: i18n.t('common:utils.inactive'),
     color: 'text-slate-400',
     bgColor: 'bg-slate-50 border-slate-200',
     icon: X
   },
   REPLACED: {
-    label: 'Đã thay thế',
+    label: i18n.t('common:utils.replaced'),
     color: 'text-orange-600 dark:text-orange-400',
     bgColor: 'bg-orange-100 border-orange-200 dark:bg-orange-900/30 dark:border-orange-900/40',
     icon: X
+  },
+  CLOSED_BY_LOCK: {
+    label: i18n.t('common:utils.closedByCycleLock'),
+    color: 'text-slate-500 dark:text-slate-400',
+    bgColor: 'bg-slate-100 border-slate-200 dark:bg-slate-800 dark:border-slate-700',
+    icon: X
   }
-}
+}))
 
 /**
  * tailwind-merge không biết các utility chữ tự khai trong `index.css` (`text-caption`, `text-stat`…)
@@ -87,17 +95,17 @@ export function cn(...inputs: ClassValue[]) {
 export function formatPeriod(period: string): string {
   if (/^\d{4}-Q\d$/.test(period)) {
     const [year, q] = period.split('-Q')
-    return `Quý ${q}/${year}`
+    return i18n.t('common:utils.q', { q, year })
   }
   if (/^\d{4}-\d{2}$/.test(period)) {
     const [year, month] = period.split('-')
-    return `Tháng ${month}/${year}`
+    return i18n.t('common:utils.month', { month, year })
   }
   return period
 }
 
 export function formatNumber(value: number, maxDecimals: number = 2): string {
-  return new Intl.NumberFormat('vi-VN', {
+  return new Intl.NumberFormat(intlLocale(), {
     maximumFractionDigits: maxDecimals
   }).format(value)
 }
@@ -107,7 +115,7 @@ export function formatNumber(value: number, maxDecimals: number = 2): string {
  * hiện ".00" sau mỗi số tiền chỉ làm bảng khó đọc mà không thêm thông tin gì.
  */
 export function formatCurrency(value: number | null | undefined): string {
-  return new Intl.NumberFormat('vi-VN', {
+  return new Intl.NumberFormat(intlLocale(), {
     style: 'currency',
     currency: 'VND',
     maximumFractionDigits: 0,
@@ -118,14 +126,14 @@ export function formatDate(date: string | Date | null | undefined): string {
   if (!date) return '—'
   const d = typeof date === 'string' ? parseISO(date) : new Date(date)
   if (isNaN(d.getTime())) return '—'
-  return format(d, 'dd/MM/yyyy', { locale: vi })
+  return format(d, 'dd/MM/yyyy', { locale: dateFnsLocale() })
 }
 
 export function formatDateTime(date: string | Date | null | undefined): string {
   if (!date) return '—'
   const d = typeof date === 'string' ? parseISO(date) : new Date(date)
   if (isNaN(d.getTime())) return '—'
-  return format(d, 'dd/MM/yyyy HH:mm', { locale: vi })
+  return format(d, 'dd/MM/yyyy HH:mm', { locale: dateFnsLocale() })
 }
 
 
@@ -206,10 +214,10 @@ export function getHighestRole(user: { roles?: string[]; memberships?: Array<any
 }
 
 export function formatAssigneeNames(names: string[] | null | undefined): string {
-  if (!names || names.length === 0) return 'Chưa giao'
+  if (!names || names.length === 0) return i18n.t('common:utils.unassigned')
   if (names.length === 1) return names[0]!
   if (names.length === 2) return names.join(', ')
-  return `${names[0]!}, ${names[1]!} + ${names.length - 2} người khác`
+  return i18n.t('common:utils.others', { value: names[0]!, value2: names[1]!, count: names.length - 2 })
 }
 
 export async function downloadFile(url: string, fileName: string) {

@@ -12,6 +12,7 @@ import {
   outcomeHandleTop,
   type StageFlowNode,
 } from './workflowGraphModel'
+import { useTranslation } from 'react-i18next'
 
 /**
  * Thẻ một bước trên sơ đồ.
@@ -23,6 +24,7 @@ import {
  * `stopPropagation` để ReactFlow không nuốt cú bấm thành chọn nút.
  */
 function StageNodeImpl({ data }: NodeProps<StageFlowNode>) {
+  const { t } = useTranslation('kpi')
   const { stage, outcomes, selected, warning, readOnly, onToggle } = data
   const off = !stage.enabled
 
@@ -61,7 +63,7 @@ function StageNodeImpl({ data }: NodeProps<StageFlowNode>) {
             {warning && <AlertTriangle size={13} className="shrink-0 text-[var(--color-warning)]" />}
           </div>
           <p className="truncate text-xs font-medium text-[var(--color-muted-foreground)]">
-            {off ? 'Đã tắt' : STAGE_ACTORS[stage.code]}
+            {off ? t('StageNode.off') : STAGE_ACTORS()[stage.code]}
           </p>
         </div>
 
@@ -70,7 +72,7 @@ function StageNodeImpl({ data }: NodeProps<StageFlowNode>) {
             className="nodrag nopan shrink-0"
             onClick={e => e.stopPropagation()}
             onMouseDown={e => e.stopPropagation()}
-            title={stage.required ? 'Bước lõi của luồng, không thể tắt' : stage.enabled ? 'Tắt bước này' : 'Bật bước này'}
+            title={stage.required ? t('StageNode.coreStepOfTheFlowCannot') : stage.enabled ? t('StageNode.turnThisStepOff') : t('StageNode.turnThisStepOn')}
           >
             {stage.required ? (
               <Lock size={14} className="text-[var(--color-subtle-foreground)]" />

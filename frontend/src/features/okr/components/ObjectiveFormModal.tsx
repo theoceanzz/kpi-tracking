@@ -1,3 +1,4 @@
+import { LocaleDateInput } from '@/components/ui/date-input'
 import { useEffect, useMemo } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -24,6 +25,9 @@ import { perspectiveHint } from '@/features/bsc/utils/perspectiveHint'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { useCodeRule } from '@/features/orgunits/hooks/useCodeRules'
 import CodeField from '@/components/common/CodeField'
+import { useTranslation } from 'react-i18next'
+import { useFormDraft } from '@/hooks/useFormDraft'
+import DraftNotice from '@/components/common/DraftNotice'
 
 interface ObjectiveFormModalProps {
   isOpen: boolean
@@ -33,13 +37,14 @@ interface ObjectiveFormModalProps {
 }
 
 export default function ObjectiveFormModal({ isOpen, onClose, organizationId, objective }: ObjectiveFormModalProps) {
+  const { t } = useTranslation('okr')
   const today = format(new Date(), 'yyyy-MM-dd')
 
   // Mã do tổ chức quyết định: tự sinh (ô mã khoá lại) hay nhập tay như trước.
   const codeRule = useCodeRule('OBJECTIVE', organizationId)
   const schema = useMemo(() => createObjectiveSchema({ requireCode: !codeRule.optional }), [codeRule.optional])
 
-  const { register, handleSubmit, reset, control, watch, setValue, formState: { errors } } = useForm<ObjectiveFormData>({
+  const formApi = useForm<ObjectiveFormData>({
     resolver: zodResolver(schema),
     defaultValues: {
       code: '',
@@ -52,6 +57,8 @@ export default function ObjectiveFormModal({ isOpen, onClose, organizationId, ob
       perspectiveId: null,
     }
   })
+  const { register, handleSubmit, reset, control, watch, setValue, formState: { errors } } = formApi
+  const draft = useFormDraft(formApi, { key: `okr-objective:${objective?.id ?? 'new'}`, enabled: isOpen })
 
   const startDate = watch('startDate')
   const { data: orgUnitTree } = useOrgUnitTree()
@@ -65,14 +72,14 @@ export default function ObjectiveFormModal({ isOpen, onClose, organizationId, ob
       list.unshift({
         id: objective.perspectiveId,
         code: '',
-        name: objective.perspectiveName || 'Hạng mục',
+        name: objective.perspectiveName || t('ObjectiveFormModal.item'),
         color: objective.perspectiveColor || undefined,
         displayOrder: 0,
         status: 'ACTIVE' as any,
       })
     }
     return list
-  }, [perspectives, objective])
+  }, [perspectives, objective, t])
 
   const flattenOrgUnits = (units: OrgUnitTreeResponse[], level = 0): { id: string, name: string, level: number }[] => {
     return units.reduce((acc: any[], unit) => {
@@ -159,27 +166,28 @@ export default function ObjectiveFormModal({ isOpen, onClose, organizationId, ob
       onClose={onClose}
       size="md"
       dismissible={!isPending}
-      title={objective ? 'Chỉnh sửa mục tiêu' : 'Tạo mục tiêu mới'}
-      description="Cấu hình mục tiêu"
+      title={objective ? t('ObjectiveFormModal.editObjective') : t('ObjectiveFormModal.createANewObjective')}
+      description={t('ObjectiveFormModal.configureObjective')}
       footer={
         <DialogFooter
-          secondary={<Button variant="outline" onClick={onClose} disabled={isPending}>Hủy</Button>}
+          secondary={<Button variant="outline" onClick={onClose} disabled={isPending}>{t('ObjectiveFormModal.cancel')}</Button>}
           primary={
             <Button type="submit" form="objective-form" disabled={isPending}>
               {isPending && <Loader2 className="animate-spin" aria-hidden="true" />}
-              {objective ? 'Lưu thay đổi' : 'Xác nhận tạo'}
+              {objective ? t('ObjectiveFormModal.saveChanges') : t('ObjectiveFormModal.confirmCreate')}
             </Button>
           }
         />
       }
     >
+      <DraftNotice draft={draft} className="mb-4" />
       <form id="objective-form" onSubmit={handleSubmit(onSubmit)} className="space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div className="sm:col-span-2 space-y-1.5">
-            <label className="text-label">Tên mục tiêu <span className="text-[var(--color-error)]">*</span></label>
+            <label className="text-label">{t('ObjectiveFormModal.objectiveName')} <span className="text-[var(--color-error)]">*</span></label>
             <input
               {...register('name')}
-              placeholder="VD: Mở rộng thị trường..."
+              placeholder={t('ObjectiveFormModal.eGExpandTheMarket')}
               className="w-full px-4 py-2.5 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)] text-sm font-medium focus:ring-4 focus:ring-[var(--color-ring)] focus:border-[var(--color-primary)] outline-none transition-all"
             />
             {errors.name && <p className="text-xs font-medium text-[var(--color-error)] ml-1">{errors.name.message}</p>}
@@ -196,10 +204,10 @@ export default function ObjectiveFormModal({ isOpen, onClose, organizationId, ob
         </div>
 
         <div className="space-y-1.5">
-          <label className="text-label">Mô tả chi tiết</label>
+          <label className="text-label">{t('ObjectiveFormModal.detailedDescription')}</label>
           <textarea
             {...register('description')}
-            placeholder="Mô tả cụ thể mục tiêu cần đạt được..."
+            placeholder={t('ObjectiveFormModal.describeSpecificallyWhatTheObjectiveMust')}
             rows={2}
             className="w-full px-4 py-2.5 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)] text-sm font-medium focus:ring-4 focus:ring-[var(--color-ring)] focus:border-[var(--color-primary)] outline-none transition-all resize-none"
           />
@@ -207,9 +215,9 @@ export default function ObjectiveFormModal({ isOpen, onClose, organizationId, ob
 
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-1.5">
-            <label className="text-label">Ngày bắt đầu <span className="text-[var(--color-error)]">*</span></label>
+            <label className="text-label">{t('ObjectiveFormModal.startDate')} <span className="text-[var(--color-error)]">*</span></label>
             <div className="relative">
-              <input
+              <LocaleDateInput
                 type="date"
                 {...register('startDate')}
                 className="w-full px-4 py-2.5 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)] text-sm font-medium focus:ring-4 focus:ring-[var(--color-ring)] focus:border-[var(--color-primary)] outline-none transition-all text-transparent"
@@ -221,9 +229,9 @@ export default function ObjectiveFormModal({ isOpen, onClose, organizationId, ob
             {errors.startDate && <p className="text-xs font-medium text-[var(--color-error)] ml-1">{errors.startDate.message}</p>}
           </div>
           <div className="space-y-1.5">
-            <label className="text-label">Ngày kết thúc <span className="text-[var(--color-error)]">*</span></label>
+            <label className="text-label">{t('ObjectiveFormModal.endDate')} <span className="text-[var(--color-error)]">*</span></label>
             <div className="relative">
-              <input
+              <LocaleDateInput
                 type="date"
                 {...register('endDate')}
                 className="w-full px-4 py-2.5 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)] text-sm font-medium focus:ring-4 focus:ring-[var(--color-ring)] focus:border-[var(--color-primary)] outline-none transition-all text-transparent"
@@ -238,14 +246,14 @@ export default function ObjectiveFormModal({ isOpen, onClose, organizationId, ob
 
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-1.5">
-            <label className="text-label">Phòng ban</label>
+            <label className="text-label">{t('ObjectiveFormModal.department')}</label>
             <Popover>
               <PopoverTrigger asChild>
                 <Button variant="outline" className="w-full justify-between font-normal" type="button">
                   <span className="truncate">
-                    {selectedOrgUnitIds.length === 0 ? 'Chọn đơn vị' :
+                    {selectedOrgUnitIds.length === 0 ? t('ObjectiveFormModal.chooseUnit') :
                      selectedOrgUnitIds.length === 1 ? allOrgUnits.find(u => u.id === selectedOrgUnitIds[0])?.name :
-                     `Đã chọn ${selectedOrgUnitIds.length} đơn vị`}
+                     t('ObjectiveFormModal.unitsSelected', { count: selectedOrgUnitIds.length })}
                   </span>
                   <ChevronDown aria-hidden="true" className="shrink-0 opacity-50" />
                 </Button>
@@ -281,19 +289,19 @@ export default function ObjectiveFormModal({ isOpen, onClose, organizationId, ob
           </div>
 
           <div className="space-y-1.5">
-            <label className="text-label">Trạng thái</label>
+            <label className="text-label">{t('ObjectiveFormModal.status')}</label>
             <Controller
               name="status"
               control={control}
               render={({ field }) => (
                 <Select value={field.value} onValueChange={field.onChange}>
                   <SelectTrigger className="w-full h-10 rounded-card bg-[var(--color-muted)] border-[var(--color-border)] text-sm font-medium focus:ring-4 focus:ring-[var(--color-ring)] focus:border-[var(--color-primary)] outline-none transition-all">
-                    <SelectValue placeholder="Trạng thái" />
+                    <SelectValue placeholder={t('ObjectiveFormModal.status')} />
                   </SelectTrigger>
                   <SelectContent className="rounded-card border-[var(--color-border)]">
-                    <SelectItem value={OkrStatus.ACTIVE} className="text-sm font-medium text-[var(--color-success)]">Đang thực hiện</SelectItem>
-                    <SelectItem value={OkrStatus.COMPLETED} className="text-sm font-medium text-[var(--color-info)]">Hoàn thành</SelectItem>
-                    <SelectItem value={OkrStatus.CANCELLED} className="text-sm font-medium text-[var(--color-error)]">Hủy bỏ</SelectItem>
+                    <SelectItem value={OkrStatus.ACTIVE} className="text-sm font-medium text-[var(--color-success)]">{t('ObjectiveFormModal.inProgress')}</SelectItem>
+                    <SelectItem value={OkrStatus.COMPLETED} className="text-sm font-medium text-[var(--color-info)]">{t('ObjectiveFormModal.completed')}</SelectItem>
+                    <SelectItem value={OkrStatus.CANCELLED} className="text-sm font-medium text-[var(--color-error)]">{t('ObjectiveFormModal.cancel2')}</SelectItem>
                   </SelectContent>
                 </Select>
               )}
@@ -303,7 +311,7 @@ export default function ObjectiveFormModal({ isOpen, onClose, organizationId, ob
 
         {enableBsc && (
           <div className="space-y-1.5">
-            <label className="text-label">Hạng mục BSC</label>
+            <label className="text-label">{t('ObjectiveFormModal.bscItem')}</label>
             <Controller
               name="perspectiveId"
               control={control}
@@ -311,10 +319,10 @@ export default function ObjectiveFormModal({ isOpen, onClose, organizationId, ob
 
                 <Select key={`${field.value ?? 'NONE'}-${perspectiveOptions.length}`} value={field.value || 'NONE'} onValueChange={field.onChange}>
                   <SelectTrigger className="w-full h-10 rounded-card bg-[var(--color-muted)] border-[var(--color-border)] text-sm font-medium outline-none">
-                    <SelectValue placeholder="-- Chưa gán hạng mục --" />
+                    <SelectValue placeholder={t('ObjectiveFormModal.noItemAssigned')} />
                   </SelectTrigger>
                   <SelectContent className="rounded-card border-[var(--color-border)] max-h-[280px]">
-                    <SelectItem value="NONE" className="text-sm font-medium text-[var(--color-muted-foreground)]">-- Chưa gán hạng mục --</SelectItem>
+                    <SelectItem value="NONE" className="text-sm font-medium text-[var(--color-muted-foreground)]">{t('ObjectiveFormModal.noItemAssigned')}</SelectItem>
                     {perspectiveOptions.map(p => (
                       <SelectItem key={p.id} value={p.id} className="text-sm font-medium"
                         /* Mục tiêu ở đây là con số MẶC ĐỊNH của danh mục hạng mục. Mục tiêu
@@ -336,7 +344,7 @@ export default function ObjectiveFormModal({ isOpen, onClose, organizationId, ob
                 </Select>
               )}
             />
-            <p className="text-caption">KPI thuộc mục tiêu này sẽ tự kế thừa hạng mục (nếu KPI chưa gán trực tiếp).</p>
+            <p className="text-caption">{t('ObjectiveFormModal.kpisUnderThisObjectiveAutomaticallyInherit')}</p>
           </div>
         )}
       </form>

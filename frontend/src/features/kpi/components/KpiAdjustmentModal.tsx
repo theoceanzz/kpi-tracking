@@ -1,3 +1,4 @@
+import { LocaleNumberInput } from '@/components/ui/number-input'
 import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -16,15 +17,20 @@ import { Dialog, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import type { KpiCriteria } from '@/types/kpi'
 import { ChoiceChip } from '@/components/ui/choice-chip'
+import { useTranslation } from 'react-i18next'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
+import { useFormDraft } from '@/hooks/useFormDraft'
+import DraftNotice from '@/components/common/DraftNotice'
 
-const adjustmentSchema = z.object({
+const adjustmentSchema = perLanguage(() => (z.object({
   requestedTargetValue: z.any().optional(),
   requestedMinimumValue: z.any().optional(),
   deactivationRequest: z.boolean(),
-  reason: z.string().min(10, 'Lý do phải ít nhất 10 ký tự'),
-})
+  reason: z.string().min(10, i18n.t('kpi:KpiAdjustmentModal.theReasonMustBeAtLeast')),
+})))
 
-type AdjustmentFormData = z.infer<typeof adjustmentSchema>
+type AdjustmentFormData = z.infer<ReturnType<typeof adjustmentSchema>>
 
 interface KpiAdjustmentModalProps {
   open: boolean
@@ -33,15 +39,18 @@ interface KpiAdjustmentModalProps {
 }
 
 export default function KpiAdjustmentModal({ open, onClose, kpi }: KpiAdjustmentModalProps) {
+  const { t } = useTranslation('kpi')
   const qc = useQueryClient()
 
-  const { register, handleSubmit, formState: { errors }, reset, watch, setValue, getValues } = useForm<AdjustmentFormData>({
-    resolver: zodResolver(adjustmentSchema),
+  const formApi = useForm<AdjustmentFormData>({
+    resolver: zodResolver(adjustmentSchema()),
     defaultValues: {
       deactivationRequest: false,
       reason: '',
     }
   })
+  const { register, handleSubmit, formState: { errors }, reset, watch, setValue, getValues } = formApi
+  const draft = useFormDraft(formApi, { key: `kpi-adjustment:${kpi?.id ?? ''}`, enabled: open && !!kpi })
 
   const deactivationRequest = watch('deactivationRequest')
 
@@ -74,12 +83,12 @@ export default function KpiAdjustmentModal({ open, onClose, kpi }: KpiAdjustment
       qc.invalidateQueries({ queryKey: ['kpi-adjustments'] })
       qc.invalidateQueries({ queryKey: ['kpi-criteria'] })
       qc.invalidateQueries({ queryKey: ['my-kpi-adjustments'] })
-      toast.success('Gửi yêu cầu điều chỉnh thành công!')
+      toast.success(t('KpiAdjustmentModal.adjustmentRequestSentSuccessfully'))
       onClose()
       reset()
     },
     onError: (err) => {
-      toast.error(getApiErrorMessage(err, 'Gửi yêu cầu điều chỉnh thất bại'))
+      toast.error(getApiErrorMessage(err, t('KpiAdjustmentModal.failedToSendTheAdjustmentRequest')))
     }
   })
 
@@ -91,20 +100,21 @@ export default function KpiAdjustmentModal({ open, onClose, kpi }: KpiAdjustment
       onClose={onClose}
       size="md"
       dismissible={!mutation.isPending}
-      title="Xin điều chỉnh KPI"
+      title={t('KpiAdjustmentModal.requestKpiAdjustment')}
       description={<span className="block truncate" title={kpi.name}>{kpi.name}</span>}
       footer={
         <DialogFooter
-          secondary={<Button variant="outline" onClick={onClose} disabled={mutation.isPending}>Hủy bỏ</Button>}
+          secondary={<Button variant="outline" onClick={onClose} disabled={mutation.isPending}>{t('KpiAdjustmentModal.cancel')}</Button>}
           primary={
             <Button type="submit" form="kpi-adjustment-form" disabled={mutation.isPending}>
               {mutation.isPending ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Send aria-hidden="true" />}
-              Gửi yêu cầu điều chỉnh
+              {t('KpiAdjustmentModal.sendAdjustmentRequest')}
             </Button>
           }
         />
       }
     >
+      <DraftNotice draft={draft} className="mb-4" />
       <form
         onSubmit={handleSubmit(data => {
           const formattedData = {
@@ -121,18 +131,17 @@ export default function KpiAdjustmentModal({ open, onClose, kpi }: KpiAdjustment
         <div className="p-4 rounded-card bg-[var(--color-warning-bg)] border border-[var(--color-warning-border)] flex gap-3 items-start">
           <Info size={18} className="text-[var(--color-warning)] mt-0.5" />
           <p className="text-xs font-medium text-[var(--color-warning)] leading-relaxed">
-            Bạn có thể yêu cầu thay đổi mục tiêu, giá trị tối thiểu hoặc xin tạm dừng chỉ tiêu này. 
-            Yêu cầu sẽ được gửi tới quản lý trực tiếp phê duyệt.
+            {t('KpiAdjustmentModal.youCanRequestToChangeThe')}
           </p>
         </div>
 
         {/* Type Toggle */}
         <div className="flex p-1 bg-[var(--color-muted)] rounded-card">
           <ChoiceChip selected={!deactivationRequest} variant="segment" className="flex-1 py-2.5" onClick={() => reset({ ...watch(), deactivationRequest: false })}>
-            Thay đổi thông số
+            {t('KpiAdjustmentModal.changeFigures')}
           </ChoiceChip>
           <ChoiceChip selected={deactivationRequest} variant="segment" className="flex-1 py-2.5" onClick={() => reset({ ...watch(), deactivationRequest: true })}>
-            Xin dừng chỉ tiêu
+            {t('KpiAdjustmentModal.requestToStopTheKpi')}
           </ChoiceChip>
         </div>
 
@@ -142,10 +151,10 @@ export default function KpiAdjustmentModal({ open, onClose, kpi }: KpiAdjustment
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2 col-span-2">
               <label className="text-label flex items-center gap-2 text-[var(--color-muted-foreground)] tracking-widest">
-                <Target size={14} /> Mục tiêu mới
+                <Target size={14} /> {t('KpiAdjustmentModal.newTarget')}
               </label>
               <div className="relative">
-                <input
+                <LocaleNumberInput
                   type="number"
                   step="any"
                   {...register('requestedTargetValue', { valueAsNumber: true })}
@@ -159,10 +168,10 @@ export default function KpiAdjustmentModal({ open, onClose, kpi }: KpiAdjustment
 
             <div className="space-y-2 col-span-2">
               <label className="text-label flex items-center gap-2 text-[var(--color-muted-foreground)] tracking-widest">
-                <BarChart3 size={14} /> Tối thiểu mới
+                <BarChart3 size={14} /> {t('KpiAdjustmentModal.newMinimum')}
               </label>
               <div className="relative">
-                <input
+                <LocaleNumberInput
                   type="number"
                   step="any"
                   {...register('requestedMinimumValue', { valueAsNumber: true })}
@@ -178,7 +187,7 @@ export default function KpiAdjustmentModal({ open, onClose, kpi }: KpiAdjustment
           <div className="p-4 rounded-card bg-[var(--color-error-bg)] border border-[var(--color-error-border)] flex items-center gap-3 animate-in slide-in-from-top-2 duration-300">
             <X className="text-[var(--color-error)]" size={20} />
             <p className="text-sm font-semibold text-[var(--color-error)]">
-              Bạn đang yêu cầu <span className="underline">dừng</span> thực hiện chỉ tiêu này.
+              {t('KpiAdjustmentModal.youAreRequestingTo')} <span className="underline">{t('KpiAdjustmentModal.stop')}</span> {t('KpiAdjustmentModal.workingOnThisKpi')}
             </p>
           </div>
         )}
@@ -186,7 +195,7 @@ export default function KpiAdjustmentModal({ open, onClose, kpi }: KpiAdjustment
         <div className="space-y-2">
           <div className="flex items-center justify-between gap-2">
             <label className="text-label flex items-center gap-2 text-[var(--color-muted-foreground)] tracking-widest">
-              <MessageSquare size={14} /> Lý do điều chỉnh <span className="text-[var(--color-error)]">*</span>
+              <MessageSquare size={14} /> {t('KpiAdjustmentModal.adjustmentReason')} <span className="text-[var(--color-error)]">*</span>
             </label>
             {/* Đọc bằng giọng nói VẪN là lời của người dùng, nên chốt chặn guardGroundedText
                 phía máy chủ không liên quan — nó chỉ soi giá trị do AI tự đề xuất. */}
@@ -198,7 +207,7 @@ export default function KpiAdjustmentModal({ open, onClose, kpi }: KpiAdjustment
           <textarea
             {...register('reason')}
             rows={4}
-            placeholder="Giải trình cụ thể tại sao bạn cần điều chỉnh chỉ tiêu này..."
+            placeholder={t('KpiAdjustmentModal.explainSpecificallyWhyYouNeedTo')}
             className="w-full px-4 py-3 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] text-sm focus:ring-2 focus:ring-[var(--color-ring)] outline-none resize-none transition-all"
           />
           {errors.reason && <p className="text-[var(--color-error)] text-xs font-medium">{errors.reason.message}</p>}

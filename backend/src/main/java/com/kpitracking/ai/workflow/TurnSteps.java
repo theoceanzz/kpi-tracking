@@ -467,7 +467,7 @@ public class TurnSteps {
         if (state.escapeRequested() && !state.isEscapeUsed()) {
             state.setEscapeUsed(true);
             log.info("Mở rộng bộ công cụ và hỏi lại. Lý do model nêu: {}", state.getEscapeReason());
-            turn.progress("OBSERVE", "Đang mở thêm công cụ");
+            turn.progress("OBSERVE_WIDEN", "Đang mở thêm công cụ");
             state.setEscapeReason(null);
             state.setWidenTools(true);
             restart(scope, turn, state);
@@ -611,7 +611,7 @@ public class TurnSteps {
         AiTokenUsage.AiFeature previous = AiTokenUsageRecorder.currentFeature();
         try {
             AiTokenUsageRecorder.setFeature(AiTokenUsage.AiFeature.FOLLOWUP);
-            FollowupResponse pools = followupService.generate(topic(turn), turn.memoryConversationId());
+            FollowupResponse pools = followupService.generate(topic(turn), turn.memoryConversationId(), turn.getLanguage());
             if (pools != null && FollowupService.hasAny(pools)) turn.setFollowups(pools);
         } catch (Exception e) {
             log.warn("Sinh câu hỏi gợi ý lỗi ({}), bỏ qua gợi ý cho lượt này", e.getMessage());

@@ -5,12 +5,15 @@ import { useAuthStore } from '@/store/authStore'
 import { useTourStore, tourLevelOf, type TourKey } from '@/store/tourStore'
 import { availableTourChain, tourTitleOf } from './tours'
 import { Button } from '@/components/ui/button'
+import { useTranslation } from 'react-i18next'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
-const LEVEL_LABEL: Record<string, string> = {
-  page: 'Trang',
-  section: 'Mục',
+const LEVEL_LABEL = perLanguage((): Record<string, string> => ({
+  page: i18n.t('shared:TourHelpButton.page'),
+  section: i18n.t('shared:TourHelpButton.section'),
   tab: 'Tab',
-}
+}))
 
 /**
  * Nút xem lại hướng dẫn, đặt trên thanh header.
@@ -22,6 +25,7 @@ const LEVEL_LABEL: Record<string, string> = {
  * cho chọn xem lại tầng nào.
  */
 export default function TourHelpButton() {
+  const { t } = useTranslation('shared')
   const { user } = useAuthStore()
   const scope = useTourStore((s) => s.scope)
   const activeTour = useTourStore((s) => s.activeTour)
@@ -73,20 +77,20 @@ export default function TourHelpButton() {
             : hasUnseen
               ? 'text-[var(--color-warning)] bg-[var(--color-warning-bg)] animate-pulse'
               : 'hover:bg-[var(--color-accent)] hover:text-[var(--color-foreground)]'
-        )} onClick={handleClick} title={hasUnseen ? 'Màn hình này có hướng dẫn bạn chưa xem' : 'Xem lại hướng dẫn'} aria-label="Hướng dẫn sử dụng">
+        )} onClick={handleClick} title={hasUnseen ? t('TourHelpButton.thisScreenHasAGuideYou') : t('TourHelpButton.reviewGuide')} aria-label={t('TourHelpButton.userGuide')}>
         {hasUnseen ? <Lightbulb aria-hidden="true" /> : <CircleHelp aria-hidden="true" />}
       </Button>
 
       {open && (
         <div className="absolute right-0 mt-2 w-72 rounded-card border border-[var(--color-border)] bg-[var(--color-card)] shadow-xl overflow-hidden z-50 animate-in fade-in zoom-in-95 duration-150">
           <div className="text-eyebrow px-4 py-2.5 border-b border-[var(--color-border)]">
-            Hướng dẫn màn hình này
+            {t('TourHelpButton.guideForThisScreen')}
           </div>
 
           {chain.map((key) => (
             <button type="button" className="flex h-9 w-full items-center gap-2.5 rounded-control px-2.5 text-left text-sm text-[var(--color-foreground)] transition-colors hover:bg-[var(--color-muted)] [&_svg]:size-4 [&_svg]:shrink-0 [&_svg]:text-[var(--color-muted-foreground)]" key={key} onClick={() => play(key)}>
               <span className="text-eyebrow shrink-0 w-10">
-                {LEVEL_LABEL[tourLevelOf(key)]}
+                {LEVEL_LABEL()[tourLevelOf(key)]}
               </span>
               <span className="flex-1 min-w-0 truncate text-[13px] font-medium text-[var(--color-foreground)]">
                 {tourTitleOf(key)}
@@ -100,7 +104,7 @@ export default function TourHelpButton() {
               resetAll()
             }}>
             <RotateCcw aria-hidden="true" />
-            Đặt lại toàn bộ hướng dẫn
+            {t('TourHelpButton.resetAllGuides')}
           </button>
         </div>
       )}

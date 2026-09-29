@@ -2,11 +2,12 @@ import { useRef } from 'react'
 import { useNotifications, useMarkAllRead, useMarkAsRead } from '../hooks/useNotifications'
 import { formatDateTime } from '@/lib/utils'
 import { cn } from '@/lib/utils'
-import { CheckCheck, Bell, Send, FileSearch, FileText, ShieldCheck, Target, Inbox, Layers, GitBranch, Calculator, Award, Coins, Gift, Wallet, Scale } from 'lucide-react'
+import { CheckCheck, Bell, Send, FileSearch, ShieldCheck, Target, Inbox, Layers, GitBranch, Calculator, Award, Coins, Gift, Wallet, Scale, Users, Lock, FileText } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Button } from '@/components/ui/button'
+import { useTranslation } from 'react-i18next'
 
 interface NotificationDropdownProps {
   onClose: () => void
@@ -29,12 +30,15 @@ const typeConfig: Record<string, { icon: LucideIcon; color: string }> = {
   REWARD_POINT: { icon: Coins, color: 'bg-[var(--color-info-bg)] text-[var(--color-info)]' },
   REWARD_GIFT: { icon: Gift, color: 'bg-[var(--color-info-bg)] text-[var(--color-info)]' },
   WALLET: { icon: Wallet, color: 'bg-[var(--color-info-bg)] text-[var(--color-info)]' },
+  FEEDBACK360: { icon: Users, color: 'bg-[var(--color-primary-soft)] text-[var(--color-primary)]' },
+  KPI_CYCLE_LOCKED: { icon: Lock, color: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]' },
   WALLET_RECONCILE: { icon: Scale, color: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]' },
   AI_CRITERIA: { icon: FileText, color: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]' },
 }
 const DEFAULT_TYPE = { icon: Bell, color: 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)]' }
 
 export default function NotificationDropdown({ onClose }: NotificationDropdownProps) {
+  const { t } = useTranslation('notifications')
   const { data, isLoading } = useNotifications()
   const markAllRead = useMarkAllRead()
   const markRead = useMarkAsRead()
@@ -108,23 +112,23 @@ export default function NotificationDropdown({ onClose }: NotificationDropdownPr
   return (
     <div
       role="dialog"
-      aria-label="Thông báo"
+      aria-label={t('NotificationDropdown.notifications')}
       className="fixed left-4 right-4 top-14 z-50 overflow-hidden rounded-card border border-[var(--color-border)] bg-[var(--color-popover)] shadow-lg animate-in fade-in-0 motion-reduce:animate-none sm:absolute sm:left-auto sm:right-0 sm:top-11 sm:w-[380px]"
     >
         {/* Header */}
       <div className="flex h-12 items-center justify-between border-b border-[var(--color-border)] px-4">
           <div className="flex items-center gap-2">
-          <h3 className="text-section-title">Thông báo</h3>
+          <h3 className="text-section-title">{t('NotificationDropdown.notifications')}</h3>
             {unreadCount > 0 && (
             <span className="rounded-full bg-[var(--color-primary)] px-1.5 py-0.5 text-xs font-medium leading-none tabular-nums text-[var(--color-primary-foreground)]">
-                {unreadCount} mới
+                {unreadCount} {t('NotificationDropdown.new')}
               </span>
             )}
           </div>
           {unreadCount > 0 && (
             <Button variant="ghost" size="sm" type="button" onClick={() => markAllRead.mutate()} disabled={markAllRead.isPending}>
             <CheckCheck aria-hidden="true" />
-              Đọc tất cả
+              {t('NotificationDropdown.markAllAsRead')}
             </Button>
           )}
         </div>
@@ -148,21 +152,21 @@ export default function NotificationDropdown({ onClose }: NotificationDropdownPr
             <div className="mb-3 flex h-12 w-12 items-center justify-center rounded-card border border-[var(--color-border)] bg-[var(--color-muted)]">
               <Inbox size={22} strokeWidth={1.75} className="text-[var(--color-muted-foreground)]" aria-hidden="true" />
               </div>
-            <p className="text-sm font-medium text-[var(--color-foreground)]">Chưa có thông báo</p>
-            <p className="mt-1 text-caption">Thông báo về chỉ tiêu, bài nộp và đánh giá sẽ hiện ở đây.</p>
+            <p className="text-sm font-medium text-[var(--color-foreground)]">{t('NotificationDropdown.noNotificationsYet')}</p>
+            <p className="mt-1 text-caption">{t('NotificationDropdown.notificationsAboutKpisSubmissionsAndEvaluations')}</p>
             </div>
           ) : (
             <>
-              {renderSection('Chưa đọc', unreadNotifs)}
-              {renderSection('Hôm nay', todayNotifs)}
-              {renderSection('Trước đó', olderNotifs)}
+              {renderSection(t('NotificationDropdown.unread'), unreadNotifs)}
+              {renderSection(t('NotificationDropdown.today'), todayNotifs)}
+              {renderSection(t('NotificationDropdown.earlier'), olderNotifs)}
             <div className="border-t border-[var(--color-border)] p-2">
                 <Link 
                   to="/notifications"
                   onClick={onClose}
                 className="flex h-8 items-center justify-center rounded-control text-[13px] font-medium text-[var(--color-muted-foreground)] transition-colors hover:bg-[var(--color-muted)] hover:text-[var(--color-foreground)]"
                 >
-                  Xem tất cả thông báo
+                  {t('NotificationDropdown.viewAllNotifications')}
                 </Link>
               </div>
             </>

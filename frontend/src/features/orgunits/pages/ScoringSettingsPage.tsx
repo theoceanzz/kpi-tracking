@@ -3,6 +3,7 @@ import { useTabParam } from '@/hooks/useTabParam'
 import { WorkspaceTabsProvider } from '@/components/common/WorkspaceTabs'
 import { ScoringConfigSection, QualitativeConfigSection } from '../components/ScoringSections'
 import ConductConfigSection from '@/features/conduct/components/ConductConfigSection'
+import { useTranslation } from 'react-i18next'
 
 type TabKey = 'quantitative' | 'qualitative' | 'conduct'
 
@@ -35,11 +36,12 @@ export default function ScoringSettingsPage({
   enableQualitative,
   enableConduct,
 }: ScoringSectionProps & { enableQualitative: boolean; enableConduct: boolean }) {
+  const { t } = useTranslation('orgunits')
   const { activeTab, setActiveTab, visibleTabs } = useTabParam<TabKey>(
     [
-      { key: 'quantitative', label: 'Định lượng', icon: Target },
-      { key: 'qualitative', label: 'Định tính', icon: SlidersHorizontal, visible: enableQualitative },
-      { key: 'conduct', label: 'Hạnh kiểm', icon: HeartHandshake, visible: enableConduct },
+      { key: 'quantitative', label: t('ScoringSettingsPage.quantitative'), icon: Target },
+      { key: 'qualitative', label: t('ScoringSettingsPage.qualitative'), icon: SlidersHorizontal, visible: enableQualitative },
+      { key: 'conduct', label: t('ScoringSettingsPage.conduct'), icon: HeartHandshake, visible: enableConduct },
     ],
     { param: 'scoring' }
   )

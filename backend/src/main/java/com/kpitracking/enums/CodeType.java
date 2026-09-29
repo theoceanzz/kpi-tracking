@@ -42,7 +42,8 @@ public enum CodeType {
         this.literalRegex = literalRegex;
     }
 
-    public String getLabel() { return label; }
+    /** Nhãn theo ngôn ngữ của request hiện tại ({@code codeType.<MÃ>}); {@link #label} là bản tiếng Việt. */
+    public String getLabel() { return com.kpitracking.i18n.ErrorMessages.text("codeType." + name(), label); }
 
     public String getDefaultPattern() { return defaultPattern; }
 

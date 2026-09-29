@@ -10,6 +10,9 @@ import { personalKpiApi } from '../../api/personalKpiApi'
 import { personalObjectiveApi, type KpiDetail } from '../../api/personalObjectiveApi'
 import { PRIORITY_META, PRIORITY_ORDER, countByPriority, type Priority, type PriorityFilter } from './priority'
 import { PriorityChip, PriorityTabs, ShowMoreButton } from './PriorityParts'
+import { useTranslation } from 'react-i18next'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
 /** Số dòng hiện trước khi phải bấm "xem thêm". */
 const PAGE_SIZE = 5
@@ -26,14 +29,14 @@ const DAY = 86_400_000
  */
 type TodoState = 'REJECTED' | 'OVERDUE' | 'DUE_SOON' | 'BEHIND' | 'NOT_STARTED' | 'PENDING'
 
-const STATE_LABEL: Record<TodoState, string> = {
-  REJECTED: 'Bị từ chối',
-  OVERDUE: 'Quá hạn',
-  DUE_SOON: 'Sắp đến hạn',
-  BEHIND: 'Chậm tiến độ',
-  NOT_STARTED: 'Chưa bắt đầu',
-  PENDING: 'Chờ duyệt',
-}
+const STATE_LABEL = perLanguage((): Record<TodoState, string> => ({
+  REJECTED: i18n.t('dashboard:MyTodoWidget.rejected'),
+  OVERDUE: i18n.t('dashboard:MyTodoWidget.overdue'),
+  DUE_SOON: i18n.t('dashboard:MyTodoWidget.dueSoon'),
+  BEHIND: i18n.t('dashboard:MyTodoWidget.behindSchedule'),
+  NOT_STARTED: i18n.t('dashboard:MyTodoWidget.notStarted'),
+  PENDING: i18n.t('dashboard:MyTodoWidget.pendingApproval'),
+}))
 
 interface TodoItem {
   key: string
@@ -93,12 +96,12 @@ function toTodo(d: KpiDetail, now: number): TodoItem | null {
     levelName: d.qualitativeLevelName,
     elapsedPercent,
   }
-  const submitAction = { label: 'Nộp kết quả', to: `/submissions/new?kpiId=${d.kpiId}` }
+  const submitAction = { label: i18n.t('dashboard:MyTodoWidget.submitResults'), to: `/submissions/new?kpiId=${d.kpiId}` }
 
   if (latest?.status === 'REJECTED') {
     return {
       ...base, state: 'REJECTED', priority: 'URGENT',
-      action: { label: 'Sửa & nộp lại', to: `/submissions/edit/${latest.id}` },
+      action: { label: i18n.t('dashboard:MyTodoWidget.editResubmit'), to: `/submissions/edit/${latest.id}` },
     }
   }
 
@@ -130,7 +133,7 @@ function toTodo(d: KpiDetail, now: number): TodoItem | null {
   if (hasPending) {
     return {
       ...base, state: 'PENDING', priority: 'MONITOR',
-      action: { label: 'Xem bài nộp', to: '/me?section=my-submissions' },
+      action: { label: i18n.t('dashboard:MyTodoWidget.viewSubmission'), to: '/me?section=my-submissions' },
     }
   }
 
@@ -139,11 +142,11 @@ function toTodo(d: KpiDetail, now: number): TodoItem | null {
 
 /** "Quá hạn 3 ngày" / "Còn 5 ngày" — nói bằng chữ để không phải tự nhẩm từ ngày tháng. */
 function deadlineText(deadlineMs: number | null, now: number): string {
-  if (deadlineMs === null) return 'Đợt chưa đặt hạn'
+  if (deadlineMs === null) return i18n.t('dashboard:MyTodoWidget.periodHasNoDeadline')
   const days = Math.ceil((deadlineMs - now) / DAY)
-  if (days < 0) return `Quá hạn ${Math.abs(days)} ngày · ${formatDate(new Date(deadlineMs))}`
-  if (days === 0) return `Hết hạn hôm nay · ${formatDate(new Date(deadlineMs))}`
-  return `Còn ${days} ngày · ${formatDate(new Date(deadlineMs))}`
+  if (days < 0) return i18n.t('dashboard:MyTodoWidget.overdueDays', { count: Math.abs(days), value: formatDate(new Date(deadlineMs)) })
+  if (days === 0) return i18n.t('dashboard:MyTodoWidget.dueToday', { value: formatDate(new Date(deadlineMs)) })
+  return i18n.t('dashboard:MyTodoWidget.daysLeft', { count: days, value: formatDate(new Date(deadlineMs)) })
 }
 
 /**
@@ -158,6 +161,7 @@ function deadlineText(deadlineMs: number | null, now: number): string {
  * đợt/kỳ trên trang chủ lái widget này y hệt các widget "của tôi" còn lại.
  */
 export function MyTodoWidget({ source }: { source: 'kpi' | 'objective' }) {
+  const { t: tr } = useTranslation('dashboard')
   const { from, to, periodId, periodIdTo } = useDashboardFilter('personal')
   const now = useNow()
   const [filter, setFilter] = useState<PriorityFilter>('ALL')
@@ -199,7 +203,7 @@ export function MyTodoWidget({ source }: { source: 'kpi' | 'objective' }) {
 
   return (
     <WidgetShell
-      title="Công việc cần làm"
+      title={tr('MyTodoWidget.toDo')}
       icon={<ClipboardList size={17} />}
       isLoading={isLoading && !data}
       error={error}
@@ -209,7 +213,7 @@ export function MyTodoWidget({ source }: { source: 'kpi' | 'objective' }) {
           to="/me?section=my-kpi"
           className="inline-flex h-8 shrink-0 items-center gap-1.5 whitespace-nowrap rounded-control bg-[var(--color-primary)] px-3 text-[13px] font-medium text-[var(--color-primary-foreground)] transition-colors hover:bg-[var(--color-primary-hover)]"
         >
-          KPI của tôi <ExternalLink size={11} aria-hidden="true" />
+          {tr('MyTodoWidget.myKpis')} <ExternalLink size={11} aria-hidden="true" />
         </Link>
       }
     >
@@ -220,8 +224,8 @@ export function MyTodoWidget({ source }: { source: 'kpi' | 'objective' }) {
           <div className="flex-1 flex items-center justify-center text-center px-6 py-8">
             <p className="text-sm text-[var(--color-subtle-foreground)] max-w-xs leading-relaxed">
               {items.length === 0
-                ? 'Không có chỉ tiêu nào đang chờ bạn trong đợt/kỳ đang chọn.'
-                : 'Không có mục nào ở mức ưu tiên này.'}
+                ? tr('MyTodoWidget.noKpisAreWaitingOnYou')
+                : tr('MyTodoWidget.noItemsAtThisPriorityLevel')}
             </p>
           </div>
         ) : (
@@ -243,7 +247,8 @@ export function MyTodoWidget({ source }: { source: 'kpi' | 'objective' }) {
 }
 
 function TodoRow({ item, now }: { item: TodoItem; now: number }) {
-  const meta = PRIORITY_META[item.priority]
+  const { t } = useTranslation('dashboard')
+  const meta = PRIORITY_META()[item.priority]
   const overdue = item.state === 'OVERDUE' || item.state === 'REJECTED'
 
   return (
@@ -256,8 +261,8 @@ function TodoRow({ item, now }: { item: TodoItem; now: number }) {
               mức ưu tiên vẫn được đọc lên cho trình đọc màn hình. */}
           <PriorityChip
             priority={item.priority}
-            label={STATE_LABEL[item.state]}
-            srSuffix={` — mức ${meta.label}`}
+            label={STATE_LABEL()[item.state]}
+            srSuffix={t('MyTodoWidget.level', { label: meta.label })}
           />
           <p className="text-sm font-medium text-[var(--color-foreground)] truncate">{item.kpiName}</p>
         </div>
@@ -266,7 +271,7 @@ function TodoRow({ item, now }: { item: TodoItem; now: number }) {
           {item.periodName ? `${item.periodName} · ` : ''}
           <span className={cn(overdue && 'text-[var(--color-error)]')}>{deadlineText(item.deadlineMs, now)}</span>
           {item.state === 'BEHIND' && item.elapsedPercent !== null
-            ? ` · đợt đã trôi ${Math.round(item.elapsedPercent)}%`
+            ? t('MyTodoWidget.ofThePeriodElapsed', { elapsedPercent: Math.round(item.elapsedPercent) })
             : ''}
         </p>
 
@@ -285,7 +290,7 @@ function TodoRow({ item, now }: { item: TodoItem; now: number }) {
           {item.progress !== null ? `${Math.round(item.progress)}%` : (item.levelName ?? '—')}
         </p>
         <p className="text-eyebrow mt-1">
-          {item.progress !== null ? 'Tiến độ' : 'Kết quả'}
+          {item.progress !== null ? t('MyTodoWidget.progress') : t('MyTodoWidget.result')}
         </p>
       </div>
 

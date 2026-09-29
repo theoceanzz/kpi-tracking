@@ -18,4 +18,12 @@ public class KpiCycleResponse {
     private UUID organizationId;
     /** Số đợt đang thuộc kỳ này. */
     private long periodCount;
+
+    /** OPEN | LOCKED. */
+    private com.kpitracking.enums.KpiCycleStatus status;
+    private Instant lockedAt;
+    private String lockedByName;
+    private Instant reopenedAt;
+    private String reopenedByName;
+    private String reopenReason;
 }

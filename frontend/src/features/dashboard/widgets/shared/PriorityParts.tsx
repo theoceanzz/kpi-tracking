@@ -1,6 +1,7 @@
 import { cn } from '@/lib/utils'
 import { PRIORITY_META, type Priority, type PriorityFilter } from './priority'
 import { Button } from '@/components/ui/button'
+import { useTranslation } from 'react-i18next'
 
 /**
  * Hàng thẻ lọc theo mức ưu tiên, dùng chung cho hai widget "việc cần xử lý".
@@ -15,15 +16,16 @@ export function PriorityTabs({ counts, total, value, onChange }: {
   value: PriorityFilter
   onChange: (v: PriorityFilter) => void
 }) {
+  const { t: tr } = useTranslation('dashboard')
   const tabs: { key: PriorityFilter; label: string; count: number; hint: string; dot: string }[] = [
-    { key: 'ALL', label: 'Tất cả', count: total, hint: 'Toàn bộ mục đang mở', dot: 'bg-[var(--color-primary)]' },
+    { key: 'ALL', label: tr('PriorityParts.all'), count: total, hint: tr('PriorityParts.allOpenItems'), dot: 'bg-[var(--color-primary)]' },
     ...(['URGENT', 'REVIEW', 'MONITOR'] as Priority[]).map(p => ({
-      key: p, label: PRIORITY_META[p].label, count: counts[p], hint: PRIORITY_META[p].hint, dot: PRIORITY_META[p].dot,
+      key: p, label: PRIORITY_META()[p].label, count: counts[p], hint: PRIORITY_META()[p].hint, dot: PRIORITY_META()[p].dot,
     })),
   ]
 
   return (
-    <div role="tablist" aria-label="Lọc theo mức ưu tiên" className="grid grid-cols-2 sm:grid-cols-4 gap-2 shrink-0">
+    <div role="tablist" aria-label={tr('PriorityParts.filterByPriority')} className="grid grid-cols-2 sm:grid-cols-4 gap-2 shrink-0">
       {tabs.map(t => {
         const active = value === t.key
         return (
@@ -70,7 +72,7 @@ export function PriorityChip({ priority, label, srSuffix }: {
   /** Câu chỉ dành cho trình đọc màn hình — dùng khi màu là thứ duy nhất nói lên mức ưu tiên. */
   srSuffix?: string
 }) {
-  const meta = PRIORITY_META[priority]
+  const meta = PRIORITY_META()[priority]
   return (
     <span className={cn(
       'inline-flex items-center px-2 py-0.5 rounded-control border text-eyebrow shrink-0',
@@ -89,10 +91,11 @@ export function ShowMoreButton({ hidden, expanded, onMore, onLess }: {
   onMore: () => void
   onLess: () => void
 }) {
+  const { t } = useTranslation('dashboard')
   if (hidden <= 0 && !expanded) return null
   return (
     <Button variant="outline" className="w-full shrink-0" onClick={hidden > 0 ? onMore : onLess}>
-      {hidden > 0 ? `Xem thêm ${hidden} mục` : 'Thu gọn'}
+      {hidden > 0 ? t('PriorityParts.showMore', { hidden }) : t('PriorityParts.collapse')}
     </Button>
   )
 }

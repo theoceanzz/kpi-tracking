@@ -1,10 +1,13 @@
 package com.kpitracking.service;
 
+import com.kpitracking.exception.BusinessException;
 import com.kpitracking.dto.response.PageResponse;
 import com.kpitracking.dto.response.kpi.KpiPeriodResponse;
 import com.kpitracking.entity.KpiPeriod;
 import com.kpitracking.entity.Organization;
+import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.ResourceNotFoundException;
+import com.kpitracking.i18n.Terms;
 import com.kpitracking.repository.KpiPeriodRepository;
 import com.kpitracking.repository.OrganizationRepository;
 import com.kpitracking.repository.UserRepository;
@@ -33,11 +36,12 @@ public class KpiPeriodService {
     private final UserRepository userRepository;
     private final UserRoleOrgUnitRepository userRoleOrgUnitRepository;
     private final com.kpitracking.security.PermissionChecker permissionChecker;
+    private final com.kpitracking.service.kpi.CycleStatusGuard cycleStatusGuard;
 
     private com.kpitracking.entity.User getCurrentUser() {
         String email = org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication().getName();
         return userRepository.findByEmail(email)
-                .orElseThrow(() -> new ResourceNotFoundException("Người dùng", "email", email));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.user"), "email", email));
     }
 
     /** Chỉ cho sắp xếp theo cột đã biết; tên lạ (do client gửi) rơi về mặc định thay vì nổ 500. */
@@ -115,7 +119,7 @@ public class KpiPeriodService {
         validateDates(request.getStartDate(), request.getEndDate(), request.getNotificationDate());
         
         Organization organization = organizationRepository.findById(request.getOrganizationId())
-                .orElseThrow(() -> new ResourceNotFoundException("Tổ chức", "id", request.getOrganizationId()));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.organization"), "id", request.getOrganizationId()));
 
         Instant notificationDate = request.getNotificationDate();
         if (notificationDate == null && request.getStartDate() != null && request.getEndDate() != null) {
@@ -142,7 +146,9 @@ public class KpiPeriodService {
         validateDates(request.getStartDate(), request.getEndDate(), request.getNotificationDate());
 
         KpiPeriod period = kpiPeriodRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Đợt KPI", "id", id));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.kpiPeriod"), "id", id));
+        // Kỳ hiện tại đã khoá (hoặc đợt đã đóng khi khoá kỳ) ⇒ không sửa, không kéo sang kỳ khác.
+        cycleStatusGuard.assertWritable(period);
 
         period.setName(request.getName());
         period.setPeriodType(request.getPeriodType());
@@ -159,7 +165,7 @@ public class KpiPeriodService {
 
         if (request.getOrganizationId() != null && !request.getOrganizationId().equals(period.getOrganization().getId())) {
             Organization organization = organizationRepository.findById(request.getOrganizationId())
-                    .orElseThrow(() -> new ResourceNotFoundException("Tổ chức", "id", request.getOrganizationId()));
+                    .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.organization"), "id", request.getOrganizationId()));
             period.setOrganization(organization);
         }
 
@@ -171,12 +177,12 @@ public class KpiPeriodService {
         if (start == null || end == null) return;
         
         if (!end.isAfter(start)) {
-            throw new IllegalArgumentException("Thời gian kết thúc phải sau thời gian bắt đầu");
+            throw new BusinessException(ErrorCode.END_TIME_MUST_AFTER_START_TIME);
         }
         
         if (notification != null) {
             if (!notification.isAfter(start) || !notification.isBefore(end)) {
-                throw new IllegalArgumentException("Thời gian thông báo phải nằm trong khoảng thời gian bắt đầu và kết thúc");
+                throw new BusinessException(ErrorCode.NOTIFICATION_TIME_MUST_BETWEEN_START_END_TIMES);
             }
         }
     }
@@ -184,13 +190,13 @@ public class KpiPeriodService {
     @Transactional
     public void deleteKpiPeriod(UUID id) {
         KpiPeriod period = kpiPeriodRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Đợt KPI", "id", id));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.kpiPeriod"), "id", id));
+        cycleStatusGuard.assertWritable(period);
         // KPI vẫn trỏ tới đợt sau khi đợt bị xoá mềm -> mọi màn hình đọc KPI đó (dashboard, bài nộp,
         // đánh giá) ném EntityNotFoundException. Bắt xoá/chuyển KPI trước (prod 2026-09-15: 7 KPI mồ côi).
         long inUse = kpiCriteriaRepository.countByKpiPeriodId(id);
         if (inUse > 0) {
-            throw new com.kpitracking.exception.BusinessException(
-                    "Đợt này còn " + inUse + " KPI đang dùng. Hãy xoá hoặc chuyển các KPI đó sang đợt khác trước khi xoá đợt.");
+            throw new BusinessException(ErrorCode.PERIOD_KPIS_USE, String.valueOf(inUse));
         }
         period.setDeletedAt(java.time.Instant.now());
         kpiPeriodRepository.save(period);
@@ -203,14 +209,15 @@ public class KpiPeriodService {
     private com.kpitracking.entity.KpiCycle resolveCycle(UUID cycleId, Instant start, Instant end) {
         if (cycleId == null) return null;
         com.kpitracking.entity.KpiCycle cycle = kpiCycleRepository.findById(cycleId)
-                .orElseThrow(() -> new ResourceNotFoundException("Kỳ đánh giá", "id", cycleId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.evaluationCycle"), "id", cycleId));
+        // Không tạo đợt mới / chuyển đợt vào kỳ đã khoá.
+        cycleStatusGuard.assertWritable(cycle);
 
         Instant cycleStart = cycle.getStartDate();
         Instant cycleEnd = cycle.getEndDate();
         if (cycleStart != null && cycleEnd != null && start != null && end != null
                 && (start.isBefore(cycleStart) || end.isAfter(cycleEnd))) {
-            throw new IllegalArgumentException(
-                    "Thời gian đợt phải nằm trong thời gian của kỳ \"" + cycle.getName() + "\"");
+            throw new BusinessException(ErrorCode.PERIOD_DATES_MUST_WITHIN_DATES_CYCLE, cycle.getName());
         }
         return cycle;
     }
@@ -227,6 +234,10 @@ public class KpiPeriodService {
                 .organizationId(period.getOrganization().getId())
                 .cycleId(cycle != null ? cycle.getId() : null)
                 .cycleName(cycle != null ? cycle.getName() : null)
+                .cycleStatus(cycle != null ? cycle.getStatus() : null)
+                .status(period.getStatus())
+                .sourcePeriodId(period.getSourcePeriod() != null ? period.getSourcePeriod().getId() : null)
+                .transferredToCycleId(period.getTransferredToCycle() != null ? period.getTransferredToCycle().getId() : null)
                 .build();
     }
 }

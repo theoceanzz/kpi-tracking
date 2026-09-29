@@ -1,3 +1,4 @@
+import { intlLocale } from '@/i18n/format'
 import React, { useState, useRef, useEffect, useCallback } from 'react'
 import { createPortal } from 'react-dom'
 import { Bot, Send, X, Loader2, Minimize2, Maximize2, Expand, SquarePen } from 'lucide-react'
@@ -26,6 +27,9 @@ import InsightCards from './InsightCards'
 import FollowupSuggestions from './FollowupSuggestions'
 import { getApiErrorMessage } from '@/lib/apiError'
 import { Button } from '@/components/ui/button'
+import { useTranslation } from 'react-i18next'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
 interface Message {
   id: string
@@ -59,13 +63,14 @@ interface Message {
   askAnswer?: string | null
 }
 
-const WELCOME_MSG: Message = {
+const WELCOME_MSG = perLanguage((): Message => ({
   id: 'welcome',
   role: 'assistant',
-  content: 'Xin chào! Tôi có thể giúp gì cho bạn? (Ví dụ: "Có bao nhiêu thành viên trong phòng ban xyz?")',
-}
+  content: i18n.t('analytics:AiAssistantWidget.helloHowCanIHelpYou'),
+}))
 
 export default function AiAssistantWidget() {
+  const { t } = useTranslation('analytics')
   // Cùng phép tính với các nút "K.AI" trên trang (useAiAvailable): thuộc một đơn vị và tổ chức
   // chưa tắt AI. Từ 18/09/2026 backend nhận cả nhân viên (nhóm tool cá nhân) — chỉ người CHƯA thuộc
   // đơn vị nào mới không có gì để hỏi, ẩn nút với họ để khỏi tốn một lượt rate limit cho câu từ chối.
@@ -78,7 +83,7 @@ export default function AiAssistantWidget() {
   const [input, setInput] = useState('')
   // Tệp KHÔNG còn nằm ở đây nữa: nó đi thẳng vào form qua fileSink ngay lúc kẹp. Giữ một bản sao
   // ở ô chat là dựng danh sách thứ hai của cùng một thứ, mà hai bản thì sẽ lệch.
-  const [messages, setMessages] = useState<Message[]>([WELCOME_MSG])
+  const [messages, setMessages] = useState<Message[]>([WELCOME_MSG()])
   /**
    * Id các lời mời đã được chạy bằng cách NHẮN "xác nhận" thay vì bấm nút. Thẻ tương ứng phải tự
    * khoá lại — không có tập này thì người dùng vẫn thấy nút, bấm vào lại nhận "không còn hiệu lực".
@@ -168,7 +173,7 @@ export default function AiAssistantWidget() {
     conversationIdRef.current = null
     turnRef.current = 0
     activeInsightRef.current = null
-    setMessages([WELCOME_MSG])
+    setMessages([WELCOME_MSG()])
     setInput('')
     setShowInsights(true)
     loadInsights()
@@ -253,13 +258,14 @@ export default function AiAssistantWidget() {
           onStage: pushStage,
           onAsk: showAsk,
           onDone: r => { box.value = r },
-          onError: message => { throw new Error(message) },
+          // Ném NGUYÊN lỗi: nó đã mang mã HTTP và câu của backend (xem aiApi.streamError).
+          onError: err => { throw err },
         },
       )
       pendingAskRef.current = null
       const { seconds, steps } = endTurn()
       const response = box.value
-      if (!response) throw new Error('Luồng kết thúc mà không có câu trả lời')
+      if (!response) throw new Error(t('AiAssistantWidget.theStreamEndedWithoutAnAnswer'))
 
       // Trợ lý vừa bảo đính: chuyển tệp ghim sang biểu mẫu. Đi qua đúng hàm mà nút bấm dùng, nên
       // hai đường không thể lệch nhau về phép kiểm hay về việc dọn ghim.
@@ -314,12 +320,12 @@ export default function AiAssistantWidget() {
       const status = error?.response?.status
       let errorContent: string
       if (status === 402) {
-        errorContent = '⚠️ **Hệ thống AI đã đạt giới hạn token.** Vui lòng thử lại sau ít phút hoặc liên hệ quản trị viên.'
+        errorContent = t('AiAssistantWidget.theAiSystemHasReachedIts')
       } else if (status === 429) {
-        errorContent = `⚠️ ${getApiErrorMessage(error, 'Bạn gửi yêu cầu AI quá nhanh, vui lòng thử lại sau ít phút.')}`
+        errorContent = `⚠️ ${getApiErrorMessage(error, t('AiAssistantWidget.youAreSendingAiRequestsToo'))}`
       } else {
-        const errorDetail = getApiErrorMessage(error, 'Lỗi không xác định')
-        errorContent = `Xin lỗi, đã có lỗi xảy ra: ${errorDetail}`
+        const errorDetail = getApiErrorMessage(error, t('AiAssistantWidget.unknownError'))
+        errorContent = t('AiAssistantWidget.sorryAnErrorOccurred', { errorDetail })
       }
       setMessages(prev => [
         ...prev,
@@ -408,7 +414,7 @@ export default function AiAssistantWidget() {
     return createPortal(
       <button
         onClick={() => setIsOpen(true)}
-        aria-label="Mở K.AI"
+        aria-label={t('AiAssistantWidget.openKAi')}
         data-ai-widget
         className={cn('group fixed right-6 z-[1300] flex h-12 w-12 items-center justify-center rounded-full border border-[var(--color-ai-line)] bg-[var(--color-card)] text-[var(--color-ai)] shadow-lg transition-colors hover:bg-[var(--color-ai-soft)]',
           modalOpen ? 'bottom-24' : 'bottom-6')}
@@ -444,7 +450,7 @@ export default function AiAssistantWidget() {
           không nuốt mất sự kiện drop của chính vùng bên dưới. */}
       {isDragActive && (
         <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-[var(--color-ai-soft)]/90">
-          <p className="text-sm font-medium text-[var(--color-ai)]">Thả tệp vào đây để ghim</p>
+          <p className="text-sm font-medium text-[var(--color-ai)]">{t('AiAssistantWidget.dropFilesHereToPin')}</p>
         </div>
       )}
       {/* Header */}
@@ -463,10 +469,10 @@ export default function AiAssistantWidget() {
             <h3 className="text-section-title text-[var(--color-ai)]">K.AI</h3>
             <p className="truncate text-caption tabular-nums">
               {quota
-                ? `Còn ${quota.remaining.toLocaleString('vi-VN')}/${quota.spendable.toLocaleString('vi-VN')} token tháng này`
+                ? t('AiAssistantWidget.tokensLeftThisMonth', { value: quota.remaining.toLocaleString(intlLocale()), value2: quota.spendable.toLocaleString(intlLocale()) })
                 : conversationIdRef.current
-                  ? 'Đang trong cuộc trò chuyện'
-                  : 'Luôn sẵn sàng hỗ trợ'}
+                  ? t('AiAssistantWidget.inAConversation')
+                  : t('AiAssistantWidget.alwaysReadyToHelp')}
             </p>
           </div>
         </div>
@@ -476,7 +482,7 @@ export default function AiAssistantWidget() {
           <Button variant="secondary" size="icon" onClick={e => {
               e.stopPropagation()
               handleNewChat()
-            }} aria-label="Cuộc trò chuyện mới" title="Cuộc trò chuyện mới">
+            }} aria-label={t('AiAssistantWidget.newConversation')} title={t('AiAssistantWidget.newConversation')}>
             <SquarePen aria-hidden="true" />
           </Button>
 
@@ -485,21 +491,21 @@ export default function AiAssistantWidget() {
               e.stopPropagation()
               setIsOpen(false)
               navigate('/ai-assistant')
-            }} aria-label="Mở toàn màn hình" title="Mở toàn màn hình">
+            }} aria-label={t('AiAssistantWidget.openFullScreen')} title={t('AiAssistantWidget.openFullScreen')}>
             <Expand aria-hidden="true" />
           </Button>
 
           <Button variant="secondary" size="sm" onClick={e => {
               e.stopPropagation()
               setIsMinimized(!isMinimized)
-            }} aria-label={isMinimized ? 'Mở rộng' : 'Thu nhỏ'}>
+            }} aria-label={isMinimized ? t('AiAssistantWidget.expand') : t('AiAssistantWidget.minimize')}>
             {isMinimized ? <Maximize2 aria-hidden="true" /> : <Minimize2 aria-hidden="true" />}
           </Button>
 
           <Button variant="secondary" size="icon" onClick={e => {
               e.stopPropagation()
               setIsOpen(false)
-            }} aria-label="Đóng">
+            }} aria-label={t('AiAssistantWidget.close')}>
             <X aria-hidden="true" />
           </Button>
         </div>
@@ -516,7 +522,7 @@ export default function AiAssistantWidget() {
                      phân định lượt, mà không ăn mất chiều ngang của câu trả lời bên dưới. */
                   <div className="border-l-2 border-[var(--color-ai-line)] pl-3 py-0.5">
                     <div className="text-eyebrow text-[var(--color-ai)]">
-                      Bạn hỏi
+                      {t('AiAssistantWidget.youAsked')}
                     </div>
                     <div className="mt-0.5 text-sm whitespace-pre-wrap text-[var(--color-foreground)]">
                       {msg.content}
@@ -637,7 +643,7 @@ export default function AiAssistantWidget() {
                 value={input}
                 onChange={e => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Nhập câu hỏi..."
+                placeholder={t('AiAssistantWidget.typeAQuestion')}
                 className="ai-composer no-edit-hint scrollbar-hide w-full resize-none rounded-control border border-[var(--color-input)] bg-[var(--color-card)] px-3 py-2 pr-24 text-sm leading-6 text-[var(--color-foreground)] transition-[border-color,box-shadow] placeholder:text-[var(--color-muted-foreground)]"
                 rows={1}
                 style={{ minHeight: '44px', maxHeight: '120px' }}
@@ -651,13 +657,13 @@ export default function AiAssistantWidget() {
                   className="p-1.5"
                 />
                 <EvidenceAttachBar sink={fileSink} disabled={isLoading} />
-                <Button variant="ghost" size="icon-sm" onClick={handleSend} disabled={!input.trim() || isLoading} aria-label="Gửi">
+                <Button variant="ghost" size="icon-sm" onClick={handleSend} disabled={!input.trim() || isLoading} aria-label={t('AiAssistantWidget.send')}>
                   <Send aria-hidden="true" />
                 </Button>
               </div>
             </div>
             <p className="mt-2 text-center text-caption">
-              AI có thể cung cấp thông tin không chính xác. Hãy kiểm tra lại.
+              {t('AiAssistantWidget.aiMayProvideInaccurateInformationPlease')}
             </p>
           </div>
         </>

@@ -23,21 +23,25 @@ import { useAuthStore } from '@/store/authStore'
 import { usePageTitle } from '@/features/organization/hooks/usePageTitle'
 import EvaluationFormModal from '@/features/evaluations/components/EvaluationFormModal'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select'
+import { useTranslation } from 'react-i18next'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
 type TabKey = SubmissionStatus | ''
-const TABS: { key: TabKey; label: string }[] = [
-  { key: '', label: 'Tất cả' },
-  { key: 'DRAFT', label: 'Nháp' },
-  { key: 'PENDING', label: 'Chờ duyệt' },
-  { key: 'APPROVED', label: 'Đã duyệt' },
-  { key: 'REJECTED', label: 'Bị trả lại' },
-]
+const TABS = perLanguage((): { key: TabKey; label: string }[] => ([
+  { key: '', label: i18n.t('submissions:MySubmissionsPage.all') },
+  { key: 'DRAFT', label: i18n.t('submissions:MySubmissionsPage.draft') },
+  { key: 'PENDING', label: i18n.t('submissions:MySubmissionsPage.pendingApproval') },
+  { key: 'APPROVED', label: i18n.t('submissions:MySubmissionsPage.approved') },
+  { key: 'REJECTED', label: i18n.t('submissions:MySubmissionsPage.returned') },
+]))
 
 /** Phần trăm hoàn thành so với mục tiêu — cùng công thức cũ. */
 const pctOf = (actual: number, target: number | null) =>
   target ? Math.min(Math.round((actual / target) * 100), 100) : actual <= 100 ? actual : 0
 
 export default function MySubmissionsPage() {
+  const { t: tr } = useTranslation('submissions')
   const [activeTab, setActiveTab] = useState<TabKey>('')
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(0)
@@ -55,7 +59,7 @@ export default function MySubmissionsPage() {
   
   const { user } = useAuthStore()
   const orgId = user?.memberships?.[0]?.organizationId
-  const pageTitle = usePageTitle('my-submissions', 'Báo cáo của tôi')
+  const pageTitle = usePageTitle('my-submissions', tr('MySubmissionsPage.myReports'))
   const { data: periodsData } = useKpiPeriods({ organizationId: orgId })
   
   const qc = useQueryClient()
@@ -103,13 +107,13 @@ export default function MySubmissionsPage() {
           setFinishedPeriodId(periodId || null)
           setShowSuccess(true)
         } else {
-          toast.success('Đã gửi báo cáo để duyệt')
+          toast.success(tr('MySubmissionsPage.reportSubmittedForApproval'))
         }
       } else {
-        toast.success('Đã gửi báo cáo để duyệt')
+        toast.success(tr('MySubmissionsPage.reportSubmittedForApproval'))
       }
     },
-    onError: (error) => toast.error(getApiErrorMessage(error, 'Gửi duyệt thất bại'))
+    onError: (error) => toast.error(getApiErrorMessage(error, tr('MySubmissionsPage.failedToSubmitForApproval')))
   })
 
   const allItems = data?.content ?? []
@@ -136,13 +140,13 @@ export default function MySubmissionsPage() {
   const draftCount = countOf('DRAFT')
 
   const resultCell = (sub: (typeof allItems)[number]) => {
-    if (sub.kpiType === 'QUALITATIVE') return <Badge variant="outline">{sub.qualitativeLevelName ?? 'Định tính'}</Badge>
+    if (sub.kpiType === 'QUALITATIVE') return <Badge variant="outline">{sub.qualitativeLevelName ?? tr('MySubmissionsPage.qualitative')}</Badge>
     const pct = pctOf(sub.actualValue, sub.targetValue)
   return (
       <div className="flex items-center justify-end gap-3 tabular-nums">
         <span className="font-medium text-[var(--color-foreground)]">{formatNumber(sub.actualValue)}</span>
         {sub.targetValue != null && (
-          <span className="flex items-center gap-1.5 text-caption" title={`Mục tiêu ${formatNumber(sub.targetValue)}`}>
+          <span className="flex items-center gap-1.5 text-caption" title={tr('MySubmissionsPage.target', { targetValue: formatNumber(sub.targetValue) })}>
             <span className="h-1.5 w-16 overflow-hidden rounded-full bg-[var(--color-muted)]" aria-hidden="true">
               <span className={cn('block h-full rounded-full', pct >= 100 ? 'bg-[var(--color-success-solid)]' : 'bg-[var(--color-primary)]')} style={{ width: `${pct}%` }} />
             </span>
@@ -157,78 +161,78 @@ export default function MySubmissionsPage() {
     <div className="flex items-center justify-end gap-1">
       {sub.status === 'DRAFT' ? (
         <>
-          <Button asChild variant="ghost" size="icon-sm" aria-label="Sửa bản nháp" title="Sửa bản nháp">
+          <Button asChild variant="ghost" size="icon-sm" aria-label={tr('MySubmissionsPage.editDraft')} title={tr('MySubmissionsPage.editDraft')}>
             <Link to={`/submissions/edit/${sub.id}`}><Pencil aria-hidden="true" /></Link>
           </Button>
           <Button size="sm" onClick={() => { setPendingId(sub.id); setShowConfirm(true) }} disabled={submitMutation.isPending && submitMutation.variables === sub.id}>
-            {submitMutation.isPending && submitMutation.variables === sub.id ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Send aria-hidden="true" />} Gửi duyệt
+            {submitMutation.isPending && submitMutation.variables === sub.id ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Send aria-hidden="true" />} {tr('MySubmissionsPage.submitForApproval')}
           </Button>
         </>
       ) : (
-        <Button asChild variant="ghost" size="icon-sm" aria-label="Xem chi tiết" title="Xem chi tiết">
+        <Button asChild variant="ghost" size="icon-sm" aria-label={tr('MySubmissionsPage.viewDetails')} title={tr('MySubmissionsPage.viewDetails')}>
           <Link to={`/submissions/${sub.id}`}><Eye aria-hidden="true" /></Link>
         </Button>
       )}
           </div>
   )
 
-  const emptyTitle = search ? 'Không tìm thấy báo cáo' : activeTab === 'DRAFT' ? 'Không có bản nháp' : activeTab === 'PENDING' ? 'Không có báo cáo chờ duyệt' : activeTab === 'REJECTED' ? 'Không có báo cáo bị trả lại' : 'Bạn chưa nộp báo cáo nào'
-  const emptyDesc = search ? 'Thử từ khoá khác hoặc xoá tìm kiếm.' : 'Vào "KPI của tôi" để nộp báo cáo cho chỉ tiêu đang đảm nhận.'
+  const emptyTitle = search ? tr('MySubmissionsPage.noReportFound') : activeTab === 'DRAFT' ? tr('MySubmissionsPage.noDrafts') : activeTab === 'PENDING' ? tr('MySubmissionsPage.noReportsPendingApproval') : activeTab === 'REJECTED' ? tr('MySubmissionsPage.noReturnedReports') : tr('MySubmissionsPage.youHaveNotSubmittedAnyReports')
+  const emptyDesc = search ? tr('MySubmissionsPage.tryAnotherKeywordOrClearThe') : tr('MySubmissionsPage.goToMyKpisToSubmit')
 
   return (
     <div className="mx-auto max-w-[1600px] space-y-4">
       <WorkspaceHeader
         id="tour-my-sub-header"
         title={pageTitle}
-        description="Báo cáo kết quả bạn đã nộp cho từng chỉ tiêu và trạng thái duyệt của chúng."
+        description={tr('MySubmissionsPage.resultReportsYouSubmittedForEach')}
         stats={[
-          { label: 'Đã nộp', value: stats.total, icon: FileText },
-          { label: 'Chờ duyệt', value: stats.pending, icon: Clock },
-          { label: 'Đã duyệt', value: stats.approved, icon: CheckCircle2 },
+          { label: tr('MySubmissionsPage.submitted'), value: stats.total, icon: FileText },
+          { label: tr('MySubmissionsPage.pendingApproval'), value: stats.pending, icon: Clock },
+          { label: tr('MySubmissionsPage.approved'), value: stats.approved, icon: CheckCircle2 },
         ]}
         actions={
           <Button asChild>
-            <Link to="/submissions/new"><Plus aria-hidden="true" /> Nộp báo cáo</Link>
+            <Link to="/submissions/new"><Plus aria-hidden="true" /> {tr('MySubmissionsPage.submitReport')}</Link>
           </Button>
         }
       />
 
       <FilterBar
         id="tour-my-sub-toolbar"
-        search={{ value: search, onChange: v => { setSearch(v); setPage(0) }, placeholder: 'Tìm theo tên chỉ tiêu…' }}
+        search={{ value: search, onChange: v => { setSearch(v); setPage(0) }, placeholder: tr('MySubmissionsPage.searchByKpiName') }}
         trailing={
-          <SegmentedControl ariaLabel="Dạng hiển thị" value={viewMode} onChange={setViewMode}
-            options={[{ value: 'TABLE', label: 'Bảng' }, { value: 'CARD', label: 'Thẻ' }]} />
+          <SegmentedControl ariaLabel={tr('MySubmissionsPage.display')} value={viewMode} onChange={setViewMode}
+            options={[{ value: 'TABLE', label: tr('MySubmissionsPage.table') }, { value: 'CARD', label: tr('MySubmissionsPage.cards') }]} />
         }
           >
         <Select value={selectedPeriodId} onValueChange={v => { setSelectedPeriodId(v); setPage(0) }}>
-          <SelectTrigger className="w-full sm:w-auto sm:min-w-52" aria-label="Đợt đánh giá"><SelectValue placeholder="Đợt đánh giá" /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-auto sm:min-w-52" aria-label={tr('MySubmissionsPage.evaluationPeriods')}><SelectValue placeholder={tr('MySubmissionsPage.evaluationPeriods')} /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="ALL">Tất cả các đợt</SelectItem>
+            <SelectItem value="ALL">{tr('MySubmissionsPage.allPeriods')}</SelectItem>
             {periodsData?.content.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                 </SelectContent>
               </Select>
         <Select value={`${sortBy}:${sortDir}`} onValueChange={handleSortSelect}>
-          <SelectTrigger className="w-full sm:w-auto sm:min-w-44" aria-label="Sắp xếp"><SelectValue placeholder="Sắp xếp" /></SelectTrigger>
+          <SelectTrigger className="w-full sm:w-auto sm:min-w-44" aria-label={tr('MySubmissionsPage.order')}><SelectValue placeholder={tr('MySubmissionsPage.order')} /></SelectTrigger>
           <SelectContent>
-            <SelectItem value="createdAt:desc">Mới nhất trước</SelectItem>
-            <SelectItem value="createdAt:asc">Cũ nhất trước</SelectItem>
-            <SelectItem value="kpiCriteriaName:asc">Tên A → Z</SelectItem>
-            <SelectItem value="kpiCriteriaName:desc">Tên Z → A</SelectItem>
+            <SelectItem value="createdAt:desc">{tr('MySubmissionsPage.newestFirst')}</SelectItem>
+            <SelectItem value="createdAt:asc">{tr('MySubmissionsPage.oldestFirst')}</SelectItem>
+            <SelectItem value="kpiCriteriaName:asc">{tr('MySubmissionsPage.nameAZ')}</SelectItem>
+            <SelectItem value="kpiCriteriaName:desc">{tr('MySubmissionsPage.nameZA')}</SelectItem>
           </SelectContent>
         </Select>
       </FilterBar>
 
       <div id="tour-my-sub-tabs" className="flex items-center justify-between gap-3">
         <SegmentedControl
-          ariaLabel="Lọc theo trạng thái"
+          ariaLabel={tr('MySubmissionsPage.filterByStatus')}
           value={activeTab}
           onChange={(k) => { setActiveTab(k); setPage(0) }}
-          options={TABS.map(t => ({ value: t.key, label: <>{t.label}<span className="text-[var(--color-muted-foreground)] tabular-nums">{countOf(t.key)}</span></> }))}
+          options={TABS().map(t => ({ value: t.key, label: <>{t.label}<span className="text-[var(--color-muted-foreground)] tabular-nums">{countOf(t.key)}</span></> }))}
         />
         {draftCount > 0 && activeTab !== 'DRAFT' && (
           <Button variant="ghost" type="button" onClick={() => { setActiveTab('DRAFT'); setPage(0) }}>
-            {draftCount} bản nháp chưa gửi
+            {draftCount} {tr('MySubmissionsPage.unsentDrafts')}
                 </Button>
               )}
             </div>
@@ -238,7 +242,7 @@ export default function MySubmissionsPage() {
           <LoadingSkeleton type="table" rows={6} />
         ) : filteredItems.length === 0 ? (
           <div className="rounded-card border border-dashed border-[var(--color-border)] bg-[var(--color-card)]">
-            <EmptyState icon={Inbox} title={emptyTitle} description={emptyDesc} action={activeTab === '' && !search ? <Button asChild variant="outline"><Link to="/me?section=my-kpi">Xem KPI của tôi</Link></Button> : undefined} />
+            <EmptyState icon={Inbox} title={emptyTitle} description={emptyDesc} action={activeTab === '' && !search ? <Button asChild variant="outline"><Link to="/me?section=my-kpi">{tr('MySubmissionsPage.viewMyKpis')}</Link></Button> : undefined} />
           </div>
         ) : (
           <>
@@ -247,12 +251,12 @@ export default function MySubmissionsPage() {
                 <table className="w-full">
               <thead>
                     <tr className="border-b border-[var(--color-border)] bg-[var(--color-muted)]">
-                      <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">Chỉ tiêu</th>
-                      <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">Đợt</th>
-                      <th scope="col" className="px-4 py-2.5 text-right text-eyebrow">Kết quả</th>
-                      <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">Ngày nộp</th>
-                      <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">Trạng thái</th>
-                      <th scope="col" className="px-3 py-2.5 text-right text-eyebrow">Hành động</th>
+                      <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">{tr('MySubmissionsPage.kpis')}</th>
+                      <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">{tr('MySubmissionsPage.aPeriod')}</th>
+                      <th scope="col" className="px-4 py-2.5 text-right text-eyebrow">{tr('MySubmissionsPage.result')}</th>
+                      <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">{tr('MySubmissionsPage.submittedOn')}</th>
+                      <th scope="col" className="px-4 py-2.5 text-left text-eyebrow">{tr('MySubmissionsPage.status')}</th>
+                      <th scope="col" className="px-3 py-2.5 text-right text-eyebrow">{tr('MySubmissionsPage.actions')}</th>
                 </tr>
               </thead>
                   <tbody className="divide-y divide-[var(--color-border)]">
@@ -262,7 +266,7 @@ export default function MySubmissionsPage() {
                           <div className="min-w-0 max-w-[360px]">
                             <Link to={`/submissions/${sub.id}`} className="block max-w-full truncate text-sm font-medium text-[var(--color-foreground)] hover:underline underline-offset-4" title={sub.kpiCriteriaName}>{sub.kpiCriteriaName}</Link>
                             {sub.status === 'REJECTED' && sub.reviewNote
-                              ? <p className="mt-0.5 line-clamp-1 text-caption text-[var(--color-error)]" title={sub.reviewNote}>Lý do: {sub.reviewNote}</p>
+                              ? <p className="mt-0.5 line-clamp-1 text-caption text-[var(--color-error)]" title={sub.reviewNote}>{tr('MySubmissionsPage.reason')} {sub.reviewNote}</p>
                               : sub.note && <p className="mt-0.5 line-clamp-1 text-caption" title={sub.note}>{sub.note}</p>}
                       </div>
                     </td>
@@ -288,7 +292,7 @@ export default function MySubmissionsPage() {
                     </div>
                     <StatusBadge status={sub.status} />
                   </div>
-                  {sub.status === 'REJECTED' && sub.reviewNote && <p className="mt-2 line-clamp-2 text-caption text-[var(--color-error)]">Lý do: {sub.reviewNote}</p>}
+                  {sub.status === 'REJECTED' && sub.reviewNote && <p className="mt-2 line-clamp-2 text-caption text-[var(--color-error)]">{tr('MySubmissionsPage.reason')} {sub.reviewNote}</p>}
                   <div className="mt-3 flex items-center justify-between gap-3 border-t border-[var(--color-border)] pt-3">
                     {resultCell(sub)}
                     {rowActions(sub)}
@@ -302,7 +306,7 @@ export default function MySubmissionsPage() {
 
       {data && data.totalElements > pageSize && (
         <div className="rounded-card border border-[var(--color-border)] bg-[var(--color-card)]">
-          <Pagination currentPage={page} totalPages={data.totalPages} onPageChange={setPage} totalElements={data.totalElements} size={pageSize} itemLabel="báo cáo" />
+          <Pagination currentPage={page} totalPages={data.totalPages} onPageChange={setPage} totalElements={data.totalElements} size={pageSize} itemLabel={tr('MySubmissionsPage.reports')} />
         </div>
       )}
 
@@ -311,16 +315,16 @@ export default function MySubmissionsPage() {
         open={showConfirm}
         onClose={() => setShowConfirm(false)}
         size="sm"
-        title="Gửi báo cáo này để duyệt?"
-        description="Sau khi gửi, bạn không sửa được nữa cho tới khi quản lý trả lại."
+        title={tr('MySubmissionsPage.submitThisReportForApproval')}
+        description={tr('MySubmissionsPage.afterSubmittingYouCannotEditIt')}
         footer={
           <DialogFooter
-            secondary={<Button variant="outline" onClick={() => setShowConfirm(false)}>Hủy</Button>}
-            primary={<Button onClick={() => { if (pendingId) { submitMutation.mutate(pendingId); setShowConfirm(false) } }}><Send aria-hidden="true" /> Gửi duyệt</Button>}
+            secondary={<Button variant="outline" onClick={() => setShowConfirm(false)}>{tr('MySubmissionsPage.cancel')}</Button>}
+            primary={<Button onClick={() => { if (pendingId) { submitMutation.mutate(pendingId); setShowConfirm(false) } }}><Send aria-hidden="true" /> {tr('MySubmissionsPage.submitForApproval')}</Button>}
           />
         }
       >
-        <p className="text-sm text-[var(--color-muted-foreground)]">Quản lý trực tiếp sẽ nhận thông báo và chấm điểm báo cáo này.</p>
+        <p className="text-sm text-[var(--color-muted-foreground)]">{tr('MySubmissionsPage.yourDirectManagerWillBeNotified')}</p>
       </Dialog>
 
       {/* Nộp xong báo cáo cuối của đợt → mời tự đánh giá ngay, vì đây là bước kế tiếp trong luồng */}
@@ -328,16 +332,16 @@ export default function MySubmissionsPage() {
         open={showSuccess}
         onClose={() => setShowSuccess(false)}
         size="sm"
-        title="Đã nộp đủ báo cáo của đợt"
-        description="Bạn đã hoàn thành toàn bộ chỉ tiêu trong đợt này."
+        title={tr('MySubmissionsPage.allReportsForThePeriodAre')}
+        description={tr('MySubmissionsPage.youHaveCompletedAllKpisIn')}
         footer={
           <DialogFooter
-            secondary={<Button variant="outline" onClick={() => setShowSuccess(false)}>Để sau</Button>}
-            primary={<Button onClick={() => { setShowSuccess(false); setSelfEvalPeriodId(finishedPeriodId) }}><Star aria-hidden="true" /> Tự đánh giá ngay</Button>}
+            secondary={<Button variant="outline" onClick={() => setShowSuccess(false)}>{tr('MySubmissionsPage.later')}</Button>}
+            primary={<Button onClick={() => { setShowSuccess(false); setSelfEvalPeriodId(finishedPeriodId) }}><Star aria-hidden="true" /> {tr('MySubmissionsPage.selfAssessNow')}</Button>}
           />
         }
       >
-        <p className="text-sm text-[var(--color-muted-foreground)]">Bước tiếp theo là tự đánh giá kết quả của đợt để quản lý có căn cứ chấm điểm.</p>
+        <p className="text-sm text-[var(--color-muted-foreground)]">{tr('MySubmissionsPage.theNextStepIsToSelf')}</p>
       </Dialog>
 
       <EvaluationFormModal open={!!selfEvalPeriodId} onClose={() => setSelfEvalPeriodId(null)} initialPeriodId={selfEvalPeriodId ?? undefined} />

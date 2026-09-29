@@ -2,6 +2,9 @@ import { Download, FileSpreadsheet, AlertTriangle, CheckCircle2, Info, FileText,
 import ExcelJS from 'exceljs'
 import { Dialog, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
+import { useTranslation } from 'react-i18next'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
 interface OrgImportGuideModalProps {
   open: boolean
@@ -9,24 +12,20 @@ interface OrgImportGuideModalProps {
   onSelectFile: () => void
 }
 
-const SAMPLE_CSV_CONTENT = `Name,Code,ParentCode,Email,Phone,Address
-Khối Công nghệ,KPG-TECH,KPG,tech@keyperson.com,0325614226,Hà Nội
-Trung tâm Phát triển,KPG-TECH-DEV,KPG-TECH,dev@keyperson.com,0354744854,Hà Nội
-Trung tâm QA,KPG-TECH-QA,KPG-TECH,qa@keyperson.com,0342719583,Hà Nội
-Khối Kinh doanh,KPG-SALES,KPG,sales@keyperson.com,0972458591,Hà Nội`
+const SAMPLE_CSV_CONTENT = perLanguage(() => (i18n.t('organization:OrgImportGuideModal.nameCodeParentcodeEmailPhoneAddress')))
 
-const COLUMNS = [
-  { name: 'Name', required: true, desc: 'Tên đầy đủ của đơn vị tổ chức', example: 'Khối Công nghệ' },
-  { name: 'Code', required: true, desc: 'Mã đơn vị (duy nhất trong hệ thống)', example: 'KPG-TECH' },
-  { name: 'ParentCode', required: true, desc: 'Mã đơn vị cha (bắt buộc để xác định vị trí trong sơ đồ, bỏ trống nếu là đơn vị gốc)', example: 'KPG' },
-  { name: 'Email', required: false, desc: 'Email liên hệ của đơn vị', example: 'tech@company.com' },
-  { name: 'Phone', required: false, desc: 'Số điện thoại liên hệ', example: '0243123456' },
-  { name: 'Address', required: false, desc: 'Địa chỉ trụ sở đơn vị', example: 'Tầng 5, Tòa nhà A' },
-]
+const COLUMNS = perLanguage(() => ([
+  { name: 'Name', required: true, desc: i18n.t('organization:OrgImportGuideModal.fullNameOfTheOrganizationUnit'), example: i18n.t('organization:OrgImportGuideModal.technologyDivision') },
+  { name: 'Code', required: true, desc: i18n.t('organization:OrgImportGuideModal.unitCodeUniqueInTheSystem'), example: 'KPG-TECH' },
+  { name: 'ParentCode', required: true, desc: i18n.t('organization:OrgImportGuideModal.parentUnitCodeRequiredToPlace'), example: 'KPG' },
+  { name: 'Email', required: false, desc: i18n.t('organization:OrgImportGuideModal.unitContactEmail'), example: 'tech@company.com' },
+  { name: 'Phone', required: false, desc: i18n.t('organization:OrgImportGuideModal.contactPhoneNumber'), example: '0243123456' },
+  { name: 'Address', required: false, desc: i18n.t('organization:OrgImportGuideModal.unitHeadquartersAddress'), example: i18n.t('organization:OrgImportGuideModal.n5thFloorBuildingA') },
+]))
 
 async function downloadTemplate(type: 'csv' | 'xlsx') {
   if (type === 'csv') {
-    const blob = new Blob(['\uFEFF' + SAMPLE_CSV_CONTENT], { type: 'text/csv;charset=utf-8;' })
+    const blob = new Blob(['\uFEFF' + SAMPLE_CSV_CONTENT()], { type: 'text/csv;charset=utf-8;' })
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
@@ -37,7 +36,7 @@ async function downloadTemplate(type: 'csv' | 'xlsx') {
   }
 
   const workbook = new ExcelJS.Workbook()
-  const worksheet = workbook.addWorksheet('Sơ đồ tổ chức')
+  const worksheet = workbook.addWorksheet(i18n.t('organization:OrgImportGuideModal.organizationChart'))
 
   worksheet.columns = [
     { header: 'Name', key: 'Name', width: 30 },
@@ -49,10 +48,10 @@ async function downloadTemplate(type: 'csv' | 'xlsx') {
   ]
 
   const data = [
-    ['Khối Công nghệ', 'KPG-TECH', 'KPG', 'tech@keyperson.com', '0325614226', 'Hà Nội'],
-    ['Trung tâm Phát triển', 'KPG-TECH-DEV', 'KPG-TECH', 'dev@keyperson.com', '0354744854', 'Hà Nội'],
-    ['Trung tâm QA', 'KPG-TECH-QA', 'KPG-TECH', 'qa@keyperson.com', '0342719583', 'Hà Nội'],
-    ['Khối Kinh doanh', 'KPG-SALES', 'KPG', 'sales@keyperson.com', '0972458591', 'Hà Nội'],
+    [i18n.t('organization:OrgImportGuideModal.technologyDivision'), 'KPG-TECH', 'KPG', 'tech@keyperson.com', '0325614226', i18n.t('organization:OrgImportGuideModal.hanoi')],
+    [i18n.t('organization:OrgImportGuideModal.developmentCenter'), 'KPG-TECH-DEV', 'KPG-TECH', 'dev@keyperson.com', '0354744854', i18n.t('organization:OrgImportGuideModal.hanoi')],
+    [i18n.t('organization:OrgImportGuideModal.qaCenter'), 'KPG-TECH-QA', 'KPG-TECH', 'qa@keyperson.com', '0342719583', i18n.t('organization:OrgImportGuideModal.hanoi')],
+    [i18n.t('organization:OrgImportGuideModal.salesDivision'), 'KPG-SALES', 'KPG', 'sales@keyperson.com', '0972458591', i18n.t('organization:OrgImportGuideModal.hanoi')],
   ]
   worksheet.addRows(data)
 
@@ -77,12 +76,12 @@ async function downloadTemplate(type: 'csv' | 'xlsx') {
     })
   })
 
-  const guideSheet = workbook.addWorksheet('Hướng dẫn chi tiết')
+  const guideSheet = workbook.addWorksheet(i18n.t('organization:OrgImportGuideModal.detailedGuide'))
   guideSheet.columns = [
-    { header: 'Tên cột', key: 'name', width: 20 },
-    { header: 'Bắt buộc', key: 'req', width: 15 },
-    { header: 'Mô tả', key: 'desc', width: 50 },
-    { header: 'Ví dụ', key: 'ex', width: 25 },
+    { header: i18n.t('organization:OrgImportGuideModal.columnName'), key: 'name', width: 20 },
+    { header: i18n.t('organization:OrgImportGuideModal.required'), key: 'req', width: 15 },
+    { header: i18n.t('organization:OrgImportGuideModal.description'), key: 'desc', width: 50 },
+    { header: i18n.t('organization:OrgImportGuideModal.example'), key: 'ex', width: 25 },
   ]
   const guideHeader = guideSheet.getRow(1)
   guideHeader.font = { bold: true, color: { argb: 'FFFFFFFF' }, size: 12 }
@@ -90,8 +89,8 @@ async function downloadTemplate(type: 'csv' | 'xlsx') {
   guideHeader.alignment = { vertical: 'middle', horizontal: 'center' }
   guideHeader.height = 30
 
-  COLUMNS.forEach(c => {
-    const row = guideSheet.addRow([c.name, c.required ? 'CÓ' : 'KHÔNG', c.desc, c.example])
+  COLUMNS().forEach(c => {
+    const row = guideSheet.addRow([c.name, c.required ? i18n.t('organization:OrgImportGuideModal.yes') : i18n.t('organization:OrgImportGuideModal.no'), c.desc, c.example])
     row.font = { size: 11 }
     row.alignment = { vertical: 'middle', horizontal: 'left', wrapText: true }
     row.eachCell(cell => {
@@ -103,12 +102,12 @@ async function downloadTemplate(type: 'csv' | 'xlsx') {
   })
 
   guideSheet.addRow([])
-  const noteTitleRow = guideSheet.addRow(['LƯU Ý KHI IMPORT SƠ ĐỒ TỔ CHỨC'])
+  const noteTitleRow = guideSheet.addRow([i18n.t('organization:OrgImportGuideModal.notesForImportingTheOrganizationChart')])
   noteTitleRow.font = { bold: true, size: 12, color: { argb: 'FFDC2626' } }
-  guideSheet.addRow(['1. ParentCode phải là một Code đã tồn tại trong file hoặc trong hệ thống.'])
-  guideSheet.addRow(['2. Nếu một đơn vị không có ParentCode, nó sẽ được hiểu là đơn vị cấp cao nhất (Root).'])
-  guideSheet.addRow(['3. UnitTypeName sẽ được sử dụng để hiển thị loại cấp bậc trong sơ đồ.'])
-  guideSheet.addRow(['4. Nếu Code đã tồn tại, hệ thống sẽ cập nhật thông tin đơn vị đó thay vì tạo mới.'])
+  guideSheet.addRow([i18n.t('organization:OrgImportGuideModal.n1ParentcodeMustBeACode')])
+  guideSheet.addRow([i18n.t('organization:OrgImportGuideModal.n2IfAUnitHasNo')])
+  guideSheet.addRow([i18n.t('organization:OrgImportGuideModal.n3UnittypenameIsUsedToShow')])
+  guideSheet.addRow([i18n.t('organization:OrgImportGuideModal.n4IfTheCodeAlreadyExists')])
 
   const buffer = await workbook.xlsx.writeBuffer()
   const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' })
@@ -120,13 +119,14 @@ async function downloadTemplate(type: 'csv' | 'xlsx') {
   URL.revokeObjectURL(url)
 }
 
-const STEPS = [
-  { num: '01', title: 'Tải file mẫu', desc: 'Chọn định dạng CSV hoặc XLSX để tải về cấu trúc header chuẩn.' },
-  { num: '02', title: 'Thiết lập cây', desc: 'Định nghĩa quan hệ Cha-Con thông qua cột ParentCode để tạo sơ đồ.' },
-  { num: '03', title: 'Kiểm tra & Import', desc: 'Tải file lên hệ thống để tự động xây dựng cây thư mục tổ chức.' },
-]
+const STEPS = perLanguage(() => ([
+  { num: '01', title: i18n.t('organization:OrgImportGuideModal.downloadSampleFile'), desc: i18n.t('organization:OrgImportGuideModal.chooseCsvOrXlsxToDownload') },
+  { num: '02', title: i18n.t('organization:OrgImportGuideModal.setUpTheTree'), desc: i18n.t('organization:OrgImportGuideModal.defineParentChildRelationshipsViaThe') },
+  { num: '03', title: i18n.t('organization:OrgImportGuideModal.checkImport'), desc: i18n.t('organization:OrgImportGuideModal.uploadTheFileToBuildThe') },
+]))
 
 export default function OrgImportGuideModal({ open, onClose, onSelectFile }: OrgImportGuideModalProps) {
+  const { t } = useTranslation('organization')
   if (!open) return null
 
   return (
@@ -134,20 +134,20 @@ export default function OrgImportGuideModal({ open, onClose, onSelectFile }: Org
       open
       onClose={onClose}
       size="lg"
-      title="Import Sơ đồ Tổ chức"
-      description="Xây dựng cấu trúc phòng ban hàng loạt"
+      title={t('OrgImportGuideModal.importOrganizationChart')}
+      description={t('OrgImportGuideModal.buildTheDepartmentStructureInBulk')}
       footer={
         <DialogFooter
-          secondary={<Button variant="outline" onClick={onClose}>Đóng</Button>}
-          primary={<Button onClick={() => { onSelectFile(); onClose() }}><FileSpreadsheet aria-hidden="true" /> Chọn file & Import</Button>}
+          secondary={<Button variant="outline" onClick={onClose}>{t('OrgImportGuideModal.close')}</Button>}
+          primary={<Button onClick={() => { onSelectFile(); onClose() }}><FileSpreadsheet aria-hidden="true" /> {t('OrgImportGuideModal.chooseFileImport')}</Button>}
         />
       }
     >
       <div className="space-y-6">
         <div>
-          <h3 className="text-eyebrow mb-3">Các bước thực hiện</h3>
+          <h3 className="text-eyebrow mb-3">{t('OrgImportGuideModal.steps')}</h3>
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            {STEPS.map((step) => (
+            {STEPS().map((step) => (
               <div key={step.num} className="p-4 rounded-card bg-[var(--color-muted)] border border-[var(--color-border)] space-y-2">
                 <div className="w-8 h-8 rounded-control bg-[var(--color-primary-soft)] text-[var(--color-primary)] flex items-center justify-center text-xs font-semibold">
                   {step.num}
@@ -167,11 +167,11 @@ export default function OrgImportGuideModal({ open, onClose, onSelectFile }: Org
               </div>
               <div>
                 <p className="font-medium text-sm text-[var(--color-foreground)]">Template XLSX</p>
-                <p className="text-xs text-[var(--color-muted-foreground)]">Định dạng khuyến nghị</p>
+                <p className="text-xs text-[var(--color-muted-foreground)]">{t('OrgImportGuideModal.recommendedFormat')}</p>
               </div>
             </div>
             <Button className="w-full" onClick={() => downloadTemplate('xlsx')}>
-              <Download aria-hidden="true" /> Tải mẫu .XLSX
+              <Download aria-hidden="true" /> {t('OrgImportGuideModal.downloadXlsxTemplate')}
             </Button>
           </div>
 
@@ -181,30 +181,30 @@ export default function OrgImportGuideModal({ open, onClose, onSelectFile }: Org
                 <FileText size={20} />
               </div>
               <div>
-                <p className="font-medium text-sm text-[var(--color-foreground)]">Mẫu CSV</p>
-                <p className="text-xs text-[var(--color-muted-foreground)]">Đơn giản, gọn nhẹ</p>
+                <p className="font-medium text-sm text-[var(--color-foreground)]">{t('OrgImportGuideModal.csvTemplate')}</p>
+                <p className="text-xs text-[var(--color-muted-foreground)]">{t('OrgImportGuideModal.simpleAndLightweight')}</p>
               </div>
             </div>
             <Button variant="outline" className="w-full" onClick={() => downloadTemplate('csv')}>
-              <Download aria-hidden="true" /> Tải mẫu .CSV
+              <Download aria-hidden="true" /> {t('OrgImportGuideModal.downloadCsvTemplate')}
             </Button>
           </div>
         </div>
 
         <div>
-          <h3 className="text-eyebrow mb-3">Mô tả các cột</h3>
+          <h3 className="text-eyebrow mb-3">{t('OrgImportGuideModal.columnDescriptions')}</h3>
           <div className="rounded-card border border-[var(--color-border)] overflow-hidden">
             <div className="overflow-x-auto">
             <table className="w-full text-left">
               <thead>
                 <tr className="bg-[var(--color-muted)] border-b border-[var(--color-border)]">
-                  <th className="px-4 py-2.5 text-eyebrow">Cột</th>
-                  <th className="px-4 py-2.5 text-eyebrow">Bắt buộc</th>
-                  <th className="px-4 py-2.5 text-eyebrow">Ví dụ</th>
+                  <th className="px-4 py-2.5 text-eyebrow">{t('OrgImportGuideModal.theColumn')}</th>
+                  <th className="px-4 py-2.5 text-eyebrow">{t('OrgImportGuideModal.required')}</th>
+                  <th className="px-4 py-2.5 text-eyebrow">{t('OrgImportGuideModal.example')}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-[var(--color-border)]">
-                {COLUMNS.map((col) => (
+                {COLUMNS().map((col) => (
                   <tr key={col.name} className="hover:bg-[var(--color-muted)]">
                     <td className="px-4 py-3">
                       <code className="text-xs font-medium text-[var(--color-primary)]">{col.name}</code>
@@ -212,10 +212,10 @@ export default function OrgImportGuideModal({ open, onClose, onSelectFile }: Org
                     <td className="px-4 py-3 text-xs">
                       {col.required ? (
                         <span className="inline-flex items-center gap-1 text-[var(--color-error)] font-semibold">
-                          <AlertTriangle size={12} /> Có
+                          <AlertTriangle size={12} /> {t('OrgImportGuideModal.yes2')}
                         </span>
                       ) : (
-                        <span className="text-[var(--color-subtle-foreground)]">Không</span>
+                        <span className="text-[var(--color-subtle-foreground)]">{t('OrgImportGuideModal.no2')}</span>
                       )}
                     </td>
                     <td className="px-4 py-3 text-xs text-[var(--color-muted-foreground)]">{col.example}</td>
@@ -230,13 +230,13 @@ export default function OrgImportGuideModal({ open, onClose, onSelectFile }: Org
             <div className="flex items-start gap-3 p-3 rounded-card bg-[var(--color-success-bg)] border border-[var(--color-success-border)]">
               <CheckCircle2 size={16} className="text-[var(--color-success)] mt-0.5 shrink-0" />
               <p className="text-xs text-[var(--color-success)] leading-relaxed">
-                Cột <code>Code</code> của các đơn vị phải là duy nhất. Nếu hệ thống tìm thấy mã trùng, nó sẽ cập nhật thay vì tạo mới.
+                {t('OrgImportGuideModal.theColumn')} <code>Code</code> {t('OrgImportGuideModal.ofUnitsMustBeUniqueIf')}
               </p>
             </div>
             <div className="flex items-start gap-3 p-3 rounded-card bg-[var(--color-info-bg)] border border-[var(--color-info-border)]">
               <Info size={16} className="text-[var(--color-info)] mt-0.5 shrink-0" />
               <p className="text-xs text-[var(--color-info)] leading-relaxed">
-                Cột <code>ParentCode</code> rất quan trọng để hệ thống tự động sắp xếp các phòng ban vào đúng vị trí trên sơ đồ. Hãy đảm bảo mã đơn vị cha được nhập chính xác.
+                {t('OrgImportGuideModal.theColumn')} <code>ParentCode</code> {t('OrgImportGuideModal.isVeryImportantForTheSystem')}
               </p>
             </div>
       </div>

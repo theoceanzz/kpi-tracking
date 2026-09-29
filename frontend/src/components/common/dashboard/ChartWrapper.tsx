@@ -2,6 +2,7 @@ import React, { useRef } from 'react'
 import { Pin } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import type { WidgetSettings } from './widgetSettings'
+import { useTranslation } from 'react-i18next'
 
 /** Widget cấu hình được cho lưới dashboard tuỳ chỉnh (dùng chung nhiều tab thống kê). */
 export interface DashboardWidget {
@@ -23,7 +24,9 @@ export interface DashboardWidget {
  * Nút ghim rời — vẫn dùng ở thẻ đã ghim ngoài trang chủ. Trên lưới thì việc ghim nằm trong menu
  * của ô, không còn phơi thành một nút riêng.
  */
-export const PinButton = ({ widget, onTogglePin }: { widget: DashboardWidget, onTogglePin: (w: DashboardWidget) => void }) => (
+export const PinButton = ({ widget, onTogglePin }: { widget: DashboardWidget, onTogglePin: (w: DashboardWidget) => void }) => {
+                           const { t } = useTranslation('shared')
+                           return (
   <button
     onClick={() => onTogglePin(widget)}
     className={cn(
@@ -32,11 +35,12 @@ export const PinButton = ({ widget, onTogglePin }: { widget: DashboardWidget, on
         ? "bg-[var(--color-primary)] text-white shadow-sm dark:shadow-none"
         : "text-slate-400 hover:bg-slate-100 dark:hover:bg-slate-800"
     )}
-    title={widget.isPinned ? "Bỏ ghim khỏi trang chủ" : "Ghim vào trang chủ"}
+    title={widget.isPinned ? t('ChartWrapper.unpinFromHome') : t('ChartWrapper.pinToHome')}
   >
     <Pin size={16} fill={widget.isPinned ? "currentColor" : "none"} className={cn(widget.isPinned && "rotate-45")} />
   </button>
 )
+                         }
 
 /**
  * Bọc nội dung 1 widget: cấp card + tiêu đề. Chế độ `chromeless` giữ nguyên card/tiêu đề GỐC của

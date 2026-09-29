@@ -1,5 +1,7 @@
 import axiosInstance from '@/lib/axios'
 import type { ApiResponse } from '@/types/api'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
 export interface HierarchyLevel {
   id?: string
@@ -89,38 +91,38 @@ export interface UnitClassificationRules {
 }
 
 /** Preset khi KHÔNG dùng matrix (thang XUẤT SẮC/TỐT/KHÁ/TRUNG BÌNH/YẾU). Khớp backend EvaluationConstants. */
-export const PRESET_UNIT_RULES_SCORE: UnitClassificationRules = {
+export const PRESET_UNIT_RULES_SCORE = perLanguage((): UnitClassificationRules => ({
   rules: [
-    { levelName: 'XUẤT SẮC', color: '#10b981', conditions: [
-      { level: 'TỐT', scope: 'orAbove', op: 'gte', percent: 60 },
-      { level: 'YẾU', scope: 'this', op: 'lte', percent: 5 } ] },
-    { levelName: 'TỐT', color: '#3b82f6', conditions: [
-      { level: 'KHÁ', scope: 'orAbove', op: 'gte', percent: 70 },
-      { level: 'YẾU', scope: 'this', op: 'lte', percent: 10 } ] },
-    { levelName: 'KHÁ', color: '#f59e0b', conditions: [
-      { level: 'TRUNG BÌNH', scope: 'orAbove', op: 'gte', percent: 70 } ] },
-    { levelName: 'TRUNG BÌNH', color: '#6366f1', conditions: [
-      { level: 'YẾU', scope: 'this', op: 'lte', percent: 40 } ] },
-    { levelName: 'YẾU', color: '#ef4444', conditions: [] },
+    { levelName: i18n.t('orgunits:organizationApi.excellent'), color: '#10b981', conditions: [
+      { level: i18n.t('orgunits:organizationApi.good'), scope: 'orAbove', op: 'gte', percent: 60 },
+      { level: i18n.t('orgunits:organizationApi.weak'), scope: 'this', op: 'lte', percent: 5 } ] },
+    { levelName: i18n.t('orgunits:organizationApi.good'), color: '#3b82f6', conditions: [
+      { level: i18n.t('orgunits:organizationApi.fair'), scope: 'orAbove', op: 'gte', percent: 70 },
+      { level: i18n.t('orgunits:organizationApi.weak'), scope: 'this', op: 'lte', percent: 10 } ] },
+    { levelName: i18n.t('orgunits:organizationApi.fair'), color: '#f59e0b', conditions: [
+      { level: i18n.t('orgunits:organizationApi.average'), scope: 'orAbove', op: 'gte', percent: 70 } ] },
+    { levelName: i18n.t('orgunits:organizationApi.average'), color: '#6366f1', conditions: [
+      { level: i18n.t('orgunits:organizationApi.weak'), scope: 'this', op: 'lte', percent: 40 } ] },
+    { levelName: i18n.t('orgunits:organizationApi.weak'), color: '#ef4444', conditions: [] },
   ],
-}
+}))
 
 /** Preset khi CÓ matrix (thang định tính KÉM/YẾU/TRUNG BÌNH/KHÁ/TỐT). */
-export const PRESET_UNIT_RULES_MATRIX: UnitClassificationRules = {
+export const PRESET_UNIT_RULES_MATRIX = perLanguage((): UnitClassificationRules => ({
   rules: [
-    { levelName: 'TỐT', color: '#10b981', conditions: [
-      { level: 'KHÁ', scope: 'orAbove', op: 'gte', percent: 60 },
-      { level: 'YẾU', scope: 'orBelow', op: 'lte', percent: 5 } ] },
-    { levelName: 'KHÁ', color: '#3b82f6', conditions: [
-      { level: 'TRUNG BÌNH', scope: 'orAbove', op: 'gte', percent: 70 },
-      { level: 'KÉM', scope: 'this', op: 'lte', percent: 10 } ] },
-    { levelName: 'TRUNG BÌNH', color: '#6366f1', conditions: [
-      { level: 'TRUNG BÌNH', scope: 'orAbove', op: 'gte', percent: 50 } ] },
-    { levelName: 'YẾU', color: '#f59e0b', conditions: [
-      { level: 'KÉM', scope: 'this', op: 'lte', percent: 40 } ] },
-    { levelName: 'KÉM', color: '#ef4444', conditions: [] },
+    { levelName: i18n.t('orgunits:organizationApi.good'), color: '#10b981', conditions: [
+      { level: i18n.t('orgunits:organizationApi.fair'), scope: 'orAbove', op: 'gte', percent: 60 },
+      { level: i18n.t('orgunits:organizationApi.weak'), scope: 'orBelow', op: 'lte', percent: 5 } ] },
+    { levelName: i18n.t('orgunits:organizationApi.fair'), color: '#3b82f6', conditions: [
+      { level: i18n.t('orgunits:organizationApi.average'), scope: 'orAbove', op: 'gte', percent: 70 },
+      { level: i18n.t('orgunits:organizationApi.poor'), scope: 'this', op: 'lte', percent: 10 } ] },
+    { levelName: i18n.t('orgunits:organizationApi.average'), color: '#6366f1', conditions: [
+      { level: i18n.t('orgunits:organizationApi.average'), scope: 'orAbove', op: 'gte', percent: 50 } ] },
+    { levelName: i18n.t('orgunits:organizationApi.weak'), color: '#f59e0b', conditions: [
+      { level: i18n.t('orgunits:organizationApi.poor'), scope: 'this', op: 'lte', percent: 40 } ] },
+    { levelName: i18n.t('orgunits:organizationApi.poor'), color: '#ef4444', conditions: [] },
   ],
-}
+}))
 
 export interface OrganizationResponse {
   id: string
@@ -150,6 +152,10 @@ export interface OrganizationResponse {
   enableBsc: boolean
   /** Chấm hạnh kiểm theo bộ tiêu chí có trọng số. Thang điểm nằm ở TỪNG bộ (/conduct/config). */
   enableConduct?: boolean
+  /** Đánh giá 360 độ. */
+  enableFeedback360?: boolean
+  /** Cho chiến dịch 360 đi vào xếp loại kỳ. */
+  feedback360AffectsRating?: boolean
   enableReward: boolean
   enableCashWallet: boolean
   /** AI đọc bài nộp và đề xuất điểm khi chấm (mặc định TẮT). */
@@ -185,6 +191,8 @@ export interface UpdateOrganizationRequest {
   enableQualitative?: boolean
   enableBsc?: boolean
   enableConduct?: boolean
+  enableFeedback360?: boolean
+  feedback360AffectsRating?: boolean
   enableReward?: boolean
   enableCashWallet?: boolean
 }

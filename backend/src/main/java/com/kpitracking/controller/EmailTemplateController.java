@@ -1,8 +1,10 @@
 package com.kpitracking.controller;
 
+import com.kpitracking.exception.BusinessException;
 import com.kpitracking.dto.request.email.SaveEmailTemplateRequest;
 import com.kpitracking.dto.response.ApiResponse;
 import com.kpitracking.dto.response.email.EmailTemplateResponse;
+import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.service.email.EmailTemplateService;
 import com.kpitracking.service.CloudinaryStorageService;
 import lombok.RequiredArgsConstructor;
@@ -31,35 +33,39 @@ public class EmailTemplateController {
 
     @GetMapping
     @PreAuthorize("hasAuthority('NOTIF:MANAGE')")
-    public ResponseEntity<ApiResponse<List<EmailTemplateResponse>>> list() {
+    public ResponseEntity<ApiResponse<List<EmailTemplateResponse>>> list(
+            @RequestParam(name = "language", required = false) String language) {
         UUID orgId = emailTemplateService.getCurrentOrgId();
-        return ResponseEntity.ok(ApiResponse.success(emailTemplateService.listForOrg(orgId)));
+        return ResponseEntity.ok(ApiResponse.success(emailTemplateService.listForOrg(orgId, language)));
     }
 
     @GetMapping("/{code}")
     @PreAuthorize("hasAuthority('NOTIF:MANAGE')")
-    public ResponseEntity<ApiResponse<EmailTemplateResponse>> get(@PathVariable String code) {
+    public ResponseEntity<ApiResponse<EmailTemplateResponse>> get(
+            @PathVariable String code, @RequestParam(name = "language", required = false) String language) {
         UUID orgId = emailTemplateService.getCurrentOrgId();
-        return ResponseEntity.ok(ApiResponse.success(emailTemplateService.getForOrg(orgId, code)));
+        return ResponseEntity.ok(ApiResponse.success(emailTemplateService.getForOrg(orgId, code, language)));
     }
 
     @PutMapping("/{code}")
     @PreAuthorize("hasAuthority('NOTIF:MANAGE')")
     public ResponseEntity<ApiResponse<EmailTemplateResponse>> save(
-            @PathVariable String code, @RequestBody SaveEmailTemplateRequest request) {
+            @PathVariable String code, @RequestParam(name = "language", required = false) String language,
+            @RequestBody SaveEmailTemplateRequest request) {
         UUID orgId = emailTemplateService.getCurrentOrgId();
-        emailTemplateService.save(orgId, emailTemplateService.getCurrentUserId(), code,
+        emailTemplateService.save(orgId, emailTemplateService.getCurrentUserId(), code, language,
                 request.getSubject(), request.getBody(), request.isFullHtml(), request.isEnabled());
-        return ResponseEntity.ok(ApiResponse.success(emailTemplateService.getForOrg(orgId, code)));
+        return ResponseEntity.ok(ApiResponse.success(emailTemplateService.getForOrg(orgId, code, language)));
     }
 
     /** Xoá bản tuỳ chỉnh để quay về nội dung mặc định của hệ thống. */
     @DeleteMapping("/{code}")
     @PreAuthorize("hasAuthority('NOTIF:MANAGE')")
-    public ResponseEntity<ApiResponse<EmailTemplateResponse>> reset(@PathVariable String code) {
+    public ResponseEntity<ApiResponse<EmailTemplateResponse>> reset(
+            @PathVariable String code, @RequestParam(name = "language", required = false) String language) {
         UUID orgId = emailTemplateService.getCurrentOrgId();
-        emailTemplateService.resetToDefault(orgId, code);
-        return ResponseEntity.ok(ApiResponse.success(emailTemplateService.getForOrg(orgId, code)));
+        emailTemplateService.resetToDefault(orgId, code, language);
+        return ResponseEntity.ok(ApiResponse.success(emailTemplateService.getForOrg(orgId, code, language)));
     }
 
     /**
@@ -73,14 +79,14 @@ public class EmailTemplateController {
     public ResponseEntity<ApiResponse<Map<String, String>>> uploadImage(
             @RequestParam("file") MultipartFile file) throws IOException {
         if (file.isEmpty()) {
-            throw new IllegalArgumentException("Chưa chọn ảnh để tải lên");
+            throw new BusinessException(ErrorCode.NO_IMAGE_SELECTED_UPLOAD);
         }
         String contentType = file.getContentType();
         if (contentType == null || !contentType.startsWith("image/")) {
-            throw new IllegalArgumentException("Chỉ chấp nhận tệp ảnh");
+            throw new BusinessException(ErrorCode.ONLY_IMAGE_FILES_ACCEPTED);
         }
         if (file.getSize() > 5 * 1024 * 1024) {
-            throw new IllegalArgumentException("Ảnh không được vượt quá 5MB");
+            throw new BusinessException(ErrorCode.IMAGE_MUST_NOT_EXCEED_5MB_2);
         }
         String url = cloudinaryStorageService.uploadFile(file, "email-templates").get("url");
         return ResponseEntity.ok(ApiResponse.success(Map.of("url", url)));
@@ -90,9 +96,10 @@ public class EmailTemplateController {
     @PostMapping("/{code}/preview")
     @PreAuthorize("hasAuthority('NOTIF:MANAGE')")
     public ResponseEntity<ApiResponse<Map<String, String>>> preview(
-            @PathVariable String code, @RequestBody SaveEmailTemplateRequest request) {
+            @PathVariable String code, @RequestParam(name = "language", required = false) String language,
+            @RequestBody SaveEmailTemplateRequest request) {
         EmailTemplateService.RenderedEmail mail = emailTemplateService.preview(
-                code, request.getSubject(), request.getBody(), request.isFullHtml());
+                code, request.getSubject(), request.getBody(), request.isFullHtml(), language);
         return ResponseEntity.ok(ApiResponse.success(Map.of(
                 "subject", mail.subject() != null ? mail.subject() : "",
                 "html", mail.html() != null ? mail.html() : "",

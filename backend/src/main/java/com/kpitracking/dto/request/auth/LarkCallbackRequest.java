@@ -6,9 +6,9 @@ import lombok.*;
 @Getter @Setter @Builder @NoArgsConstructor @AllArgsConstructor
 public class LarkCallbackRequest {
 
-    @NotBlank(message = "Thiếu mã uỷ quyền từ Lark")
+    @NotBlank(message = "{validation.larkAuthorizationCodeMissing}")
     private String code;
 
-    @NotBlank(message = "Thiếu tham số state")
+    @NotBlank(message = "{validation.stateParameterMissing}")
     private String state;
 }

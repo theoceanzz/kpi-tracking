@@ -23,7 +23,7 @@ import java.util.UUID;
 @Data
 public class ResolveSepayEventRequest {
 
-    @NotNull(message = "Vui lòng chọn cách xử lý")
+    @NotNull(message = "{validation.chooseHowHandle}")
     private SepayResolveMode mode;
 
     /** Bắt buộc với MATCH_ORDER. */
@@ -32,6 +32,6 @@ public class ResolveSepayEventRequest {
     /** Bắt buộc với CREDIT_USER. */
     private UUID userId;
 
-    @NotBlank(message = "Vui lòng ghi rõ lý do xử lý")
+    @NotBlank(message = "{validation.stateReasonHandling}")
     private String note;
 }

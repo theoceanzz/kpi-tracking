@@ -1,5 +1,6 @@
 package com.kpitracking.service;
 
+import com.kpitracking.i18n.ErrorMessages;
 import com.kpitracking.config.LarkProperties;
 import com.kpitracking.dto.response.auth.LarkApiResponses.TokenResponse;
 import com.kpitracking.dto.response.auth.LarkApiResponses.UserInfoData;
@@ -16,6 +17,7 @@ import org.springframework.web.client.RestClientException;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import com.kpitracking.exception.ErrorCode;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
@@ -92,18 +94,18 @@ public class LarkOAuthClient {
         } catch (RestClientException e) {
             // Chỉ log lớp lỗi + thời gian; message của RestClientException có thể chứa body phản hồi.
             log.error("Lark oauth/token thất bại sau {} ms: {}", elapsedMs(start), e.getClass().getSimpleName());
-            throw new BusinessException("Không kết nối được tới Lark. Vui lòng thử lại sau.");
+            throw new BusinessException(ErrorCode.COULD_NOT_CONNECT_LARK);
         }
         log.info("Lark oauth/token xong sau {} ms, code={}", elapsedMs(start), response == null ? null : response.code());
 
         // Lark trả HTTP 200 kể cả khi lỗi -> phải kiểm tra field code
         if (response == null || response.code() != 0) {
-            String detail = response == null ? "không có phản hồi" : response.errorMessage();
+            String detail = response == null ? ErrorMessages.text("lark.noResponse", "") : response.errorMessage();
             log.error("Lark oauth/token trả lỗi: {}", detail);
-            throw new BusinessException("Lark từ chối yêu cầu đăng nhập (" + detail + ").");
+            throw new BusinessException(ErrorCode.LARK_REJECTED_SIGN_REQUEST, String.valueOf(detail));
         }
         if (response.accessToken() == null || response.accessToken().isBlank()) {
-            throw new BusinessException("Lark không trả về access token.");
+            throw new BusinessException(ErrorCode.LARK_DID_NOT_RETURN_ACCESS_TOKEN);
         }
         return response;
     }
@@ -119,16 +121,16 @@ public class LarkOAuthClient {
                     .body(UserInfoResponse.class);
         } catch (RestClientException e) {
             log.error("Không gọi được Lark user_info: {}", e.getMessage());
-            throw new BusinessException("Không kết nối được tới Lark. Vui lòng thử lại sau.");
+            throw new BusinessException(ErrorCode.COULD_NOT_CONNECT_LARK);
         }
 
         if (response == null || response.code() != 0) {
-            String detail = response == null ? "không có phản hồi" : response.msg();
+            String detail = response == null ? ErrorMessages.text("lark.noResponse", "") : response.msg();
             log.error("Lark user_info trả lỗi: {}", detail);
-            throw new BusinessException("Không lấy được thông tin tài khoản Lark (" + detail + ").");
+            throw new BusinessException(ErrorCode.COULD_NOT_GET_LARK_ACCOUNT_INFORMATION, String.valueOf(detail));
         }
         if (response.data() == null || response.data().openId() == null) {
-            throw new BusinessException("Lark không trả về định danh người dùng.");
+            throw new BusinessException(ErrorCode.LARK_DID_NOT_RETURN_USER_IDENTIFIER);
         }
         return response.data();
     }
@@ -150,17 +152,17 @@ public class LarkOAuthClient {
                     .body(AppTokenResponse.class);
         } catch (RestClientException e) {
             log.error("Không gọi được Lark app_access_token: {}", e.getMessage());
-            return new TestResult(false, "Không kết nối được tới Lark. Kiểm tra lại mạng của máy chủ.");
+            return new TestResult(false, ErrorMessages.text("lark.test.cannotConnect", ""));
         }
 
         if (response == null) {
-            return new TestResult(false, "Lark không phản hồi.");
+            return new TestResult(false, ErrorMessages.text("lark.test.noResponse", ""));
         }
         if (response.code() != 0) {
             log.warn("Lark từ chối credential: code={} msg={}", response.code(), response.msg());
             return new TestResult(false, describeError(response.code(), response.msg()));
         }
-        return new TestResult(true, "Kết nối thành công. App ID và App Secret hợp lệ.");
+        return new TestResult(true, ErrorMessages.text("lark.test.ok", ""));
     }
 
     /**
@@ -169,12 +171,10 @@ public class LarkOAuthClient {
      */
     private static String describeError(int code, String msg) {
         return switch (code) {
-            case 10003 -> "App ID không đúng. Kiểm tra lại giá trị copy từ trang "
-                    + "Credentials & Basic Info trên Lark Console.";
-            case 10014 -> "App Secret không đúng. Copy lại từ trang Credentials & Basic Info.";
-            case 99991672 -> "Ứng dụng Lark chưa được phát hành. Vào mục Version Management "
-                    + "để tạo phiên bản và publish trước.";
-            default -> "Lark báo lỗi: " + (msg == null || msg.isBlank() ? "mã " + code : msg);
+            case 10003 -> ErrorMessages.text("lark.test.badAppId", "");
+            case 10014 -> ErrorMessages.text("lark.test.badAppSecret", "");
+            case 99991672 -> ErrorMessages.text("lark.test.notPublished", "");
+            default -> ErrorMessages.text("lark.test.error", "", msg == null || msg.isBlank() ? ErrorMessages.text("lark.test.errorCode", "", String.valueOf(code)) : msg);
         };
     }
 

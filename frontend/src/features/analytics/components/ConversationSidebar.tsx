@@ -1,15 +1,17 @@
+import { dateFnsLocale } from '@/i18n/format'
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Plus, Search, PanelLeftClose, PanelLeftOpen, MoreVertical, Pin, PinOff, Pencil, Trash2, MessageSquare,
 } from 'lucide-react'
 import { formatDistanceToNow, differenceInCalendarDays } from 'date-fns'
-import { vi } from 'date-fns/locale'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import type { ConversationResponse } from '../api/aiApi'
+import { useTranslation } from 'react-i18next'
+import i18n from 'i18next'
 
 interface Props {
   conversations: ConversationResponse[]
@@ -32,10 +34,10 @@ type Group = { key: string; label: string; items: ConversationResponse[] }
 function groupConversations(list: ConversationResponse[]): Group[] {
   const now = new Date()
   const groups: Record<string, Group> = {
-    pinned: { key: 'pinned', label: 'Đã ghim', items: [] },
-    today: { key: 'today', label: 'Hôm nay', items: [] },
-    week: { key: 'week', label: '7 ngày qua', items: [] },
-    older: { key: 'older', label: 'Cũ hơn', items: [] },
+    pinned: { key: 'pinned', label: i18n.t('analytics:ConversationSidebar.pinned'), items: [] },
+    today: { key: 'today', label: i18n.t('analytics:ConversationSidebar.today'), items: [] },
+    week: { key: 'week', label: i18n.t('analytics:ConversationSidebar.last7Days'), items: [] },
+    older: { key: 'older', label: i18n.t('analytics:ConversationSidebar.older'), items: [] },
   }
   for (const c of list) {
     if (c.pinnedAt) { groups.pinned!.items.push(c); continue }
@@ -48,7 +50,7 @@ function groupConversations(list: ConversationResponse[]): Group[] {
 }
 
 function relative(iso: string) {
-  return formatDistanceToNow(new Date(iso), { addSuffix: true, locale: vi }).replace(/^khoảng /, '')
+  return formatDistanceToNow(new Date(iso), { addSuffix: true, locale: dateFnsLocale() }).replace(/^khoảng /, '')
 }
 
 /**
@@ -59,6 +61,7 @@ export default function ConversationSidebar({
   conversations, loading, activeId, collapsed, mobileOpen,
   onToggleCollapsed, onCloseMobile, onNew, onSelect, onRename, onTogglePin, onDelete,
 }: Props) {
+  const { t } = useTranslation('analytics')
   const [query, setQuery] = useState('')
   const [renamingId, setRenamingId] = useState<string | null>(null)
   const [draft, setDraft] = useState('')
@@ -96,29 +99,29 @@ export default function ConversationSidebar({
         {collapsed ? (
           <Tooltip>
             <TooltipTrigger asChild>
-              <Button variant="ghost" size="icon" className="hidden md:flex text-[var(--color-ai)] hover:bg-[var(--color-ai-soft)]" onClick={onNew} aria-label="Cuộc trò chuyện mới">
+              <Button variant="ghost" size="icon" className="hidden md:flex text-[var(--color-ai)] hover:bg-[var(--color-ai-soft)]" onClick={onNew} aria-label={t('ConversationSidebar.newConversation')}>
                 <Plus aria-hidden="true" />
               </Button>
             </TooltipTrigger>
-            <TooltipContent side="right">Cuộc trò chuyện mới</TooltipContent>
+            <TooltipContent side="right">{t('ConversationSidebar.newConversation')}</TooltipContent>
           </Tooltip>
         ) : (
           <Button
             onClick={onNew}
             className="h-11 flex-1 justify-center gap-2 bg-[var(--color-ai-soft)] text-[var(--color-ai)] hover:bg-[var(--color-ai-soft)] hover:brightness-95 dark:hover:brightness-125 shadow-none"
           >
-            <Plus aria-hidden="true" /> Cuộc trò chuyện mới
+            <Plus aria-hidden="true" /> {t('ConversationSidebar.newConversation')}
           </Button>
         )}
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" className="hidden md:flex shrink-0 text-[var(--color-muted-foreground)]" onClick={onToggleCollapsed} aria-label={collapsed ? 'Mở rộng cột hội thoại' : 'Thu gọn cột hội thoại'}>
+            <Button variant="ghost" size="icon" className="hidden md:flex shrink-0 text-[var(--color-muted-foreground)]" onClick={onToggleCollapsed} aria-label={collapsed ? t('ConversationSidebar.expandConversationColumn') : t('ConversationSidebar.collapseConversationColumn')}>
               {collapsed ? <PanelLeftOpen aria-hidden="true" /> : <PanelLeftClose aria-hidden="true" />}
             </Button>
           </TooltipTrigger>
-          <TooltipContent side="right">{collapsed ? 'Mở rộng' : 'Thu gọn'}</TooltipContent>
+          <TooltipContent side="right">{collapsed ? t('ConversationSidebar.expand') : t('ConversationSidebar.collapse')}</TooltipContent>
         </Tooltip>
-        <Button variant="ghost" size="icon" className="md:hidden shrink-0 text-[var(--color-muted-foreground)]" onClick={onCloseMobile} aria-label="Đóng danh sách hội thoại">
+        <Button variant="ghost" size="icon" className="md:hidden shrink-0 text-[var(--color-muted-foreground)]" onClick={onCloseMobile} aria-label={t('ConversationSidebar.closeConversationList')}>
           <PanelLeftClose aria-hidden="true" />
         </Button>
       </div>
@@ -131,8 +134,8 @@ export default function ConversationSidebar({
               type="search"
               value={query}
               onChange={e => setQuery(e.target.value)}
-              placeholder="Tìm kiếm hội thoại…"
-              aria-label="Tìm kiếm hội thoại"
+              placeholder={t('ConversationSidebar.searchConversations')}
+              aria-label={t('ConversationSidebar.searchConversations2')}
               className="h-11 w-full rounded-card border border-[var(--color-input)] bg-[var(--color-card)] pl-10 pr-3 text-sm text-[var(--color-foreground)] outline-none placeholder:text-[var(--color-muted-foreground)] hover:border-[var(--color-border-strong)] focus:border-[var(--color-ai-accent)] focus:ring-2 focus:ring-[var(--color-ai-accent)]"
             />
           </label>
@@ -149,14 +152,14 @@ export default function ConversationSidebar({
                   <button
                     type="button"
                     onClick={() => onSelect(c)}
-                    aria-label={c.title || 'Cuộc trò chuyện'}
+                    aria-label={c.title || t('ConversationSidebar.conversations')}
                     className={cn('flex h-9 w-9 items-center justify-center rounded-control transition-colors',
                       activeId === c.id ? 'bg-[var(--color-ai-soft)] text-[var(--color-ai)]' : 'text-[var(--color-muted-foreground)] hover:bg-[var(--color-muted)]')}
                   >
                     {c.pinnedAt ? <Pin size={15} aria-hidden="true" /> : <MessageSquare size={15} aria-hidden="true" />}
                   </button>
                 </TooltipTrigger>
-                <TooltipContent side="right" className="max-w-[220px] truncate">{c.title || 'Cuộc trò chuyện'}</TooltipContent>
+                <TooltipContent side="right" className="max-w-[220px] truncate">{c.title || t('ConversationSidebar.conversations')}</TooltipContent>
               </Tooltip>
             ))}
           </div>
@@ -170,8 +173,8 @@ export default function ConversationSidebar({
               <MessageSquare size={22} strokeWidth={1.75} className="text-[var(--color-muted-foreground)]" aria-hidden="true" />
             </div>
             <div>
-              <p className="text-sm font-medium text-[var(--color-foreground)]">{query ? 'Không có hội thoại nào khớp' : 'Chưa có cuộc trò chuyện'}</p>
-              <p className="mt-1 text-caption">{query ? 'Thử từ khoá khác.' : 'Bắt đầu hỏi để tạo mới.'}</p>
+              <p className="text-sm font-medium text-[var(--color-foreground)]">{query ? t('ConversationSidebar.noMatchingConversations') : t('ConversationSidebar.noConversationsYet')}</p>
+              <p className="mt-1 text-caption">{query ? t('ConversationSidebar.tryAnotherKeyword') : t('ConversationSidebar.startAskingToCreateOne')}</p>
             </div>
           </div>
         ) : (
@@ -200,7 +203,7 @@ export default function ConversationSidebar({
                                 if (e.key === 'Escape') { e.preventDefault(); setRenamingId(null) }
                               }}
                               onBlur={() => commitRename(c)}
-                              aria-label="Tên cuộc trò chuyện"
+                              aria-label={t('ConversationSidebar.conversationName')}
                               maxLength={255}
                               className="h-8 w-full rounded-control border border-[var(--color-ai-accent)] bg-[var(--color-card)] px-2 text-sm text-[var(--color-foreground)] outline-none ring-2 ring-[var(--color-ai-accent)]"
                             />
@@ -213,7 +216,7 @@ export default function ConversationSidebar({
                             className="flex w-full flex-col items-start rounded-card px-3 py-2 pr-10 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ai-accent)]"
                           >
                             <span className={cn('block w-full truncate text-sm', active ? 'font-medium text-[var(--color-foreground)]' : 'text-[var(--color-foreground)]')}>
-                              {c.title || 'Cuộc trò chuyện'}
+                              {c.title || t('ConversationSidebar.conversations')}
                             </span>
                             <span className="mt-0.5 flex items-center gap-1 text-caption">
                               {c.pinnedAt && <Pin size={10} aria-hidden="true" className="text-[var(--color-ai)]" />}
@@ -229,7 +232,7 @@ export default function ConversationSidebar({
                                 <PopoverTrigger asChild>
                                   <button
                                     type="button"
-                                    aria-label="Tùy chọn"
+                                    aria-label={t('ConversationSidebar.options')}
                                     aria-haspopup="menu"
                                     className={cn(
                                       'absolute right-2 top-1/2 flex h-7 w-7 -translate-y-1/2 items-center justify-center rounded-control text-[var(--color-muted-foreground)] transition-opacity hover:bg-[var(--color-card)] hover:text-[var(--color-foreground)] focus-visible:opacity-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ai-accent)] group-hover:opacity-100',
@@ -240,13 +243,13 @@ export default function ConversationSidebar({
                                   </button>
                                 </PopoverTrigger>
                               </TooltipTrigger>
-                              <TooltipContent side="right">Tùy chọn</TooltipContent>
+                              <TooltipContent side="right">{t('ConversationSidebar.options')}</TooltipContent>
                             </Tooltip>
                             <PopoverContent align="start" side="bottom" className="w-56 p-1.5" role="menu">
-                              <MenuItem icon={c.pinnedAt ? <PinOff /> : <Pin />} label={c.pinnedAt ? 'Bỏ ghim' : 'Ghim'} onClick={() => { setMenuId(null); onTogglePin(c) }} />
-                              <MenuItem icon={<Pencil />} label="Đổi tên" onClick={() => startRename(c)} />
+                              <MenuItem icon={c.pinnedAt ? <PinOff /> : <Pin />} label={c.pinnedAt ? t('ConversationSidebar.unpin') : 'Ghim'} onClick={() => { setMenuId(null); onTogglePin(c) }} />
+                              <MenuItem icon={<Pencil />} label={t('ConversationSidebar.rename')} onClick={() => startRename(c)} />
                               <div className="my-1.5 h-px bg-[var(--color-border)]" role="separator" />
-                              <MenuItem icon={<Trash2 />} label="Xóa" danger onClick={() => { setMenuId(null); onDelete(c) }} />
+                              <MenuItem icon={<Trash2 />} label={t('ConversationSidebar.delete')} danger onClick={() => { setMenuId(null); onDelete(c) }} />
                             </PopoverContent>
                           </Popover>
                         )}

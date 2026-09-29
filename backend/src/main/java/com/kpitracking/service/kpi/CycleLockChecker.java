@@ -25,10 +25,23 @@ public class CycleLockChecker {
 
     private final CycleUnitEvaluationRepository cycleUnitEvaluationRepository;
 
-    /** Các đơn vị đã CHỐT trong kỳ. */
+    /**
+     * Các đơn vị đã KHOÁ KẾT QUẢ trong kỳ (FINALIZED) — khoá điểm kỳ cá nhân và điểm đơn vị.
+     */
     public List<CycleUnitEvaluation> finalizedUnits(UUID cycleId) {
         return cycleUnitEvaluationRepository.findByKpiCycleId(cycleId).stream()
                 .filter(e -> e.getStatus() == CycleUnitEvalStatus.FINALIZED)
+                .toList();
+    }
+
+    /**
+     * Các đơn vị đã ĐÓNG ĐẦU VÀO trong kỳ (CALIBRATING hoặc FINALIZED) — khoá đánh giá đợt
+     * và hạnh kiểm, là những thứ điểm kỳ được tính ra từ đó. Bước hiệu chỉnh cần đầu vào
+     * đứng yên: đang nắn điểm cho vừa khung mà bên dưới vẫn sửa được đợt thì điểm nền trôi.
+     */
+    public List<CycleUnitEvaluation> inputLockedUnits(UUID cycleId) {
+        return cycleUnitEvaluationRepository.findByKpiCycleId(cycleId).stream()
+                .filter(e -> e.getStatus() != null && e.getStatus().inputsLocked())
                 .toList();
     }
 
@@ -63,9 +76,40 @@ public class CycleLockChecker {
         return null;
     }
 
-    /** Gộp hai bước hay đi cùng nhau: nạp danh sách đã chốt rồi tra khoá cho một nhân sự. */
+    /** Gộp hai bước hay đi cùng nhau: nạp danh sách đã khoá kết quả rồi tra khoá cho một nhân sự. */
     public OrgUnit lockingUnitForUser(UUID cycleId, OrgUnit userUnit) {
         if (cycleId == null || userUnit == null) return null;
         return lockingUnit(userUnit, finalizedUnits(cycleId));
+    }
+
+    /** Đơn vị đang khoá ĐẦU VÀO (đợt, hạnh kiểm) của một nhân sự — null nếu còn sửa được. */
+    public OrgUnit inputLockingUnitForUser(UUID cycleId, OrgUnit userUnit) {
+        CycleUnitEvaluation e = inputLockFor(cycleId, userUnit);
+        return e != null ? e.getOrgUnit() : null;
+    }
+
+    /**
+     * Bản ghi kỳ của đơn vị đang khoá đầu vào — kèm trạng thái, để giao diện nói đúng "mở ở
+     * đâu": CALIBRATING thì phải "mở lại về nháp", FINALIZED thì phải "mở khoá" trước rồi mới
+     * mở lại về nháp.
+     */
+    public CycleUnitEvaluation inputLockFor(UUID cycleId, OrgUnit userUnit) {
+        return firstLocking(inputLockedUnits(cycleId), cycleId, userUnit);
+    }
+
+    /** Như {@link #inputLockFor} nhưng chỉ tính đơn vị đã KHOÁ KẾT QUẢ (FINALIZED). */
+    public CycleUnitEvaluation resultLockFor(UUID cycleId, OrgUnit userUnit) {
+        return firstLocking(finalizedUnits(cycleId), cycleId, userUnit);
+    }
+
+    private CycleUnitEvaluation firstLocking(List<CycleUnitEvaluation> candidates, UUID cycleId, OrgUnit userUnit) {
+        if (cycleId == null || userUnit == null || userUnit.getPath() == null) return null;
+        for (CycleUnitEvaluation e : candidates) {
+            OrgUnit unit = e.getOrgUnit();
+            if (unit != null && unit.getPath() != null && userUnit.getPath().startsWith(unit.getPath())) {
+                return e;
+            }
+        }
+        return null;
     }
 }

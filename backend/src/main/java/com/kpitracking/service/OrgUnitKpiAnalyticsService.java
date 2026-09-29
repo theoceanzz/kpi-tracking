@@ -1,5 +1,6 @@
 package com.kpitracking.service;
 
+import com.kpitracking.i18n.ErrorMessages;
 import com.kpitracking.dto.response.stats.PersonalObjectiveResponses.*;
 import com.kpitracking.entity.*;
 import com.kpitracking.enums.SubmissionStatus;
@@ -34,6 +35,7 @@ public class OrgUnitKpiAnalyticsService {
     private final PermissionChecker permissionChecker;
     private final EvaluationService evaluationService;
     private final KpiCriteriaService kpiCriteriaService;
+    private final com.kpitracking.mapper.SoftDeletedRefs softDeletedRefs;
 
     /** ID MỌI nhân sự trong phạm vi (subtree) — để tính hiệu suất đánh giá cấp đơn vị (khớp thẻ Ma trận). */
     private java.util.Set<UUID> memberIdsInScope(UUID orgUnitId) {
@@ -122,9 +124,21 @@ public class OrgUnitKpiAnalyticsService {
     private List<KpiCriteria> approvedKpisForScope(List<OrgUnit> units, List<UUID> unitIds) {
         Organization org = units.isEmpty() ? null : units.get(0).getOrgHierarchyLevel().getOrganization();
         boolean okrOn = org != null && Boolean.TRUE.equals(org.getEnableOkr());
-        return okrOn
+        return withLivePeriod(okrOn
                 ? kpiCriteriaRepository.findApprovedWithoutKeyResultByOrgUnitIds(unitIds)
-                : kpiCriteriaRepository.findApprovedByOrgUnitIds(unitIds);
+                : kpiCriteriaRepository.findApprovedByOrgUnitIds(unitIds));
+    }
+
+    /**
+     * Bỏ KPI trỏ tới đợt đã XOÁ MỀM. {@code KpiPeriod} có {@code @SQLRestriction("deleted_at IS NULL")}
+     * nên proxy của đợt đã xoá khác null nhưng chạm {@code getStartDate()} là ném
+     * {@code EntityNotFoundException} — cả thẻ số liệu và biểu đồ của đơn vị đổ 500 vì một đợt cũ
+     * đã bị xoá (prod 2026-09-22). Đợt đã xoá thì KPI của nó cũng không còn gì để thống kê.
+     */
+    private List<KpiCriteria> withLivePeriod(List<KpiCriteria> kpis) {
+        return kpis.stream()
+                .filter(k -> k.getKpiPeriod() == null || softDeletedRefs.periodAlive(k.getKpiPeriod()))
+                .collect(Collectors.toList());
     }
 
     private List<KpiCriteria> getStandaloneKpis(UUID orgUnitId) {
@@ -149,9 +163,9 @@ public class OrgUnitKpiAnalyticsService {
      * OKR gần như toàn bộ KPI đều nằm dưới KeyResult, lọc theo bản đơn lẻ sẽ ra bảng rỗng.
      */
     private List<KpiCriteria> memberRiskSource(List<UUID> unitIds, boolean everyKpi) {
-        return everyKpi
+        return withLivePeriod(everyKpi
                 ? kpiCriteriaRepository.findApprovedByOrgUnitIds(unitIds)
-                : kpiCriteriaRepository.findApprovedWithoutKeyResultByOrgUnitIds(unitIds);
+                : kpiCriteriaRepository.findApprovedWithoutKeyResultByOrgUnitIds(unitIds));
     }
 
     /** Khi người dùng chọn (các) đợt cụ thể, chỉ giữ các KPI thuộc những đợt đó. */
@@ -1345,7 +1359,7 @@ public class OrgUnitKpiAnalyticsService {
             .min().orElse(0);
         return eligible.stream().map(u -> {
             int depth = (int) u.getPath().chars().filter(c -> c == '/').count() - minSlashes;
-            String displayName = currentUserUnitIds.contains(u.getId()) ? u.getName() + " (hiện tại)" : u.getName();
+            String displayName = currentUserUnitIds.contains(u.getId()) ? ErrorMessages.text("analytics.currentUnit", "", u.getName()) : u.getName();
             return FilterOption.builder().code(u.getId().toString()).name(displayName).depth(depth).build();
         }).toList();
     }
@@ -1426,7 +1440,7 @@ public class OrgUnitKpiAnalyticsService {
                     pts.add(new IntervalPoint(
                             c.atStartOfDay(ZoneId.systemDefault()).toInstant(),
                             c.plusDays(1).atStartOfDay(ZoneId.systemDefault()).toInstant(),
-                            "Ng " + c.getDayOfMonth() + "/" + c.getMonthValue()));
+                            ErrorMessages.text("analytics.bucket.day", "", c.getDayOfMonth(), c.getMonthValue())));
             }
             case "Tuần" -> {
                 int w = 1;
@@ -1435,7 +1449,7 @@ public class OrgUnitKpiAnalyticsService {
                     pts.add(new IntervalPoint(
                             c.atStartOfDay(ZoneId.systemDefault()).toInstant(),
                             (next.isAfter(end) ? end.plusDays(1) : next).atStartOfDay(ZoneId.systemDefault()).toInstant(),
-                            "Tuần " + w));
+                            ErrorMessages.text("analytics.bucket.week", "", w)));
                 }
             }
             case "Tháng" -> {
@@ -1446,7 +1460,7 @@ public class OrgUnitKpiAnalyticsService {
                     pts.add(new IntervalPoint(
                             aS.atStartOfDay(ZoneId.systemDefault()).toInstant(),
                             aE.atStartOfDay(ZoneId.systemDefault()).toInstant(),
-                            "Tháng " + c.getMonthValue() + "/" + c.getYear()));
+                            ErrorMessages.text("analytics.bucket.month", "", c.getMonthValue(), c.getYear())));
                 }
             }
             case "Quý" -> {
@@ -1458,7 +1472,7 @@ public class OrgUnitKpiAnalyticsService {
                     pts.add(new IntervalPoint(
                             aS.atStartOfDay(ZoneId.systemDefault()).toInstant(),
                             aE.atStartOfDay(ZoneId.systemDefault()).toInstant(),
-                            "Quý " + ((c.getMonthValue() - 1) / 3 + 1) + "/" + c.getYear()));
+                            ErrorMessages.text("analytics.bucket.quarter", "", (c.getMonthValue() - 1) / 3 + 1, c.getYear())));
                 }
             }
             default -> {
@@ -1469,7 +1483,7 @@ public class OrgUnitKpiAnalyticsService {
                     pts.add(new IntervalPoint(
                             aS.atStartOfDay(ZoneId.systemDefault()).toInstant(),
                             aE.atStartOfDay(ZoneId.systemDefault()).toInstant(),
-                            "Năm " + c.getYear()));
+                            ErrorMessages.text("analytics.bucket.year", "", c.getYear())));
                 }
             }
         }

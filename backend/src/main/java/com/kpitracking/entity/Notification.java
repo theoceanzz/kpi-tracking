@@ -32,6 +32,13 @@ public class Notification {
     @Column(name = "message", columnDefinition = "TEXT", nullable = false)
     private String message;
 
+    /** Bản dịch được của title/message ({@code LocalizedText} JSON); null ở dòng cũ. */
+    @Column(name = "title_i18n", columnDefinition = "TEXT")
+    private String titleI18n;
+
+    @Column(name = "message_i18n", columnDefinition = "TEXT")
+    private String messageI18n;
+
     @Column(name = "type")
     private String type;
 

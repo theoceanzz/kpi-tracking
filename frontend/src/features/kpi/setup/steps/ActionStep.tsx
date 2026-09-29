@@ -7,6 +7,7 @@ import { useKpiSetupFlow } from '../useKpiSetupFlow'
 import { WORKFLOW_PARAMS } from '../../workflow/hooks/useWorkflowNavigator'
 import type { SetupStep } from '../flows'
 import { Button } from '@/components/ui/button'
+import { useTranslation } from 'react-i18next'
 
 /**
  * Bước dẫn sang một màn hình có sẵn, kèm số việc đang chờ.
@@ -23,6 +24,7 @@ import { Button } from '@/components/ui/button'
  * có gì để làm ở đây, thay vì bày ra một nút giả vờ có việc.
  */
 export default function ActionStep({ step }: { step: SetupStep }) {
+  const { t } = useTranslation('kpi')
   const { goNext, goBack, isLast, periodId } = useKpiSetupFlow()
   const { counts } = useNotificationDots()
 
@@ -46,7 +48,7 @@ export default function ActionStep({ step }: { step: SetupStep }) {
       onBack={goBack}
       footer={
         <Button variant="outline" type="button" onClick={() => goNext()}>
-          {isLast ? 'Xong, về màn chọn luồng' : 'Bước tiếp theo'}
+          {isLast ? t('ActionStep.doneBackToFlowSelection') : t('ActionStep.nextStep')}
           <ArrowRight aria-hidden="true" />
         </Button>
       }
@@ -70,17 +72,17 @@ export default function ActionStep({ step }: { step: SetupStep }) {
             <p className="text-3xl font-semibold tabular-nums text-[var(--color-foreground)]">
               {pending}
               <span className="ml-2 align-middle text-sm font-medium text-[var(--color-subtle-foreground)]">
-                việc đang chờ
+                {t('ActionStep.pendingTasks')}
               </span>
             </p>
           )}
 
           <p className="text-sm font-medium leading-relaxed text-[var(--color-muted-foreground)]">
             {isWait
-              ? 'Bước này do người khác thực hiện. Bạn không cần ngồi đợi ở đây — rời đi và quay lại khi có thông báo, chỉ tiêu sẽ tự chuyển sang trạng thái đã duyệt.'
+              ? t('ActionStep.thisStepIsDoneBySomeone')
               : pending === 0
-                ? 'Không còn việc nào đang chờ bạn ở bước này.'
-                : 'Mở màn hình bên dưới để xử lý. Xong rồi quay lại đây đi tiếp.'}
+                ? t('ActionStep.nothingIsWaitingOnYouAt')
+                : t('ActionStep.openTheScreenBelowToHandle')}
           </p>
         </div>
 
@@ -89,7 +91,7 @@ export default function ActionStep({ step }: { step: SetupStep }) {
             to={target}
             className="flex items-center gap-2 rounded-card bg-[var(--color-primary)] px-7 py-3.5 text-sm font-medium text-[var(--color-primary-foreground)] transition-all hover:bg-[var(--color-primary-hover)]"
           >
-            {step.ctaLabel ?? 'Mở màn hình'}
+            {step.ctaLabel ?? t('ActionStep.openScreen')}
             <ExternalLink size={14} />
           </Link>
         )}

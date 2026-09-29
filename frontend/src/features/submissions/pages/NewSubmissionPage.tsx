@@ -1,3 +1,4 @@
+import { LocaleNumberInput } from '@/components/ui/number-input'
 import { useState, useEffect, useMemo, useRef } from 'react'
 import { useForm, Controller } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
@@ -34,8 +35,12 @@ import { useOrgUnitTree } from '@/features/orgunits/hooks/useOrgUnitTree'
 import EvaluationFormModal from '@/features/evaluations/components/EvaluationFormModal'
 import { scorecardsForPeriod } from '@/features/bsc/utils/scorecardScope'
 import { isSubmittableByUser } from '../utils/submittable'
+import { useTranslation } from 'react-i18next'
+import { useFormDraft } from '@/hooks/useFormDraft'
+import DraftNotice from '@/components/common/DraftNotice'
 
 export default function NewSubmissionPage() {
+  const { t } = useTranslation('submissions')
   const navigate = useNavigate()
   const { nextReachableStage } = useWorkflowNavigator()
   const nextAfterSubmission = nextReachableStage('SUBMISSION')
@@ -72,10 +77,13 @@ export default function NewSubmissionPage() {
     enabled: isEdit,
   })
 
-  const { register, handleSubmit, watch, setValue, reset, control, getValues, formState: { errors } } = useForm<SubmissionFormData>({
-    resolver: zodResolver(submissionSchema),
+  const formApi = useForm<SubmissionFormData>({
+    resolver: zodResolver(submissionSchema()),
     defaultValues: { kpiCriteriaId: preselectedKpiId },
   })
+  const { register, handleSubmit, watch, setValue, reset, control, getValues, formState: { errors } } = formApi
+  // Trang dài, lỡ bấm sang trang khác là mất cả ghi chú — giữ nháp như modal (file đính kèm thì không giữ được).
+  const draft = useFormDraft(formApi, { key: `submission:${id ?? 'new'}:${preselectedKpiId}`, enabled: true })
 
   // Giới thiệu form này với trợ lý AI. Đây là TRANG chứ không phải modal nên vòng đời gắn với
   // mount/unmount: rời trang là huỷ đăng ký, nếu không trợ lý tưởng form vẫn đang mở.
@@ -94,11 +102,11 @@ export default function NewSubmissionPage() {
       // Năng lực nhận tệp. Nhờ nó, tệp thả vào ô chat vào thẳng vùng minh chứng NGAY, không phải
       // chờ người dùng gõ thêm một câu nữa — và ô chat không cần biết gì về form báo cáo.
       fileSink: {
-        label: 'Tài liệu chứng minh',
+        label: t('NewSubmissionPage.supportingDocuments'),
         accept: ATTACHMENT_ACCEPT,
         maxSize: MAX_ATTACHMENT_BYTES,
         maxFiles: MAX_ATTACHMENT_FILES,
-        hint: ATTACHMENT_HINT,
+        hint: ATTACHMENT_HINT(),
         // Qua ref vì effect này cố ý chỉ chạy một lần; đọc thẳng `files` là đóng băng mảng rỗng
         // của lần render đầu, rồi tệp thứ hai ghi đè tệp thứ nhất.
         current: () => filesRef.current,
@@ -111,7 +119,7 @@ export default function NewSubmissionPage() {
       },
     })
     return () => unregister('submission_form')
-  }, [getValues, setValue])
+  }, [getValues, setValue, t])
 
   const [isInitialSyncDone, setIsInitialSyncDone] = useState(false)
 
@@ -222,7 +230,7 @@ export default function NewSubmissionPage() {
       // Handle background upload if there are files
       if (files.length > 0) {
         addUpload(sub.id, files)
-        toast.info('Đang bắt đầu tải lên tài liệu minh chứng...')
+        toast.info(t('NewSubmissionPage.startingToUploadEvidenceDocuments'))
       }
       
       if (!variables.isDraft) {
@@ -240,17 +248,17 @@ export default function NewSubmissionPage() {
         if (isAllFinished) {
           setShowSuccess(true)
         } else {
-          toast.success('Đã gửi báo cáo để duyệt')
+          toast.success(t('NewSubmissionPage.reportSubmittedForApproval'))
           // Về đúng nơi CÒN VIỆC để làm. Trước đây luôn về /submissions — danh sách những gì đã
           // nộp xong — nên người dùng phải tự tìm đường quay lại /my-kpi để nộp chỉ tiêu tiếp theo.
           navigate(`/my-kpi${periodId ? `?${WORKFLOW_PARAMS.period}=${periodId}` : ''}`)
         }
       } else {
-        toast.success('Đã lưu bản nháp')
+        toast.success(t('NewSubmissionPage.draftSaved'))
         navigate('/submissions')
       }
     },
-    onError: (err) => toast.error(getApiErrorMessage(err, 'Lưu bài nộp thất bại')),
+    onError: (err) => toast.error(getApiErrorMessage(err, t('NewSubmissionPage.failedToSaveTheSubmission'))),
   })
 
   if (loadingKpis || (isEdit && loadingExisting)) return <div className="mx-auto max-w-[1200px]"><LoadingSkeleton type="form" rows={6} /></div>
@@ -261,9 +269,9 @@ export default function NewSubmissionPage() {
       <div className="mx-auto max-w-[1200px] rounded-card border border-dashed border-[var(--color-border)] bg-[var(--color-card)]">
         <EmptyState
           icon={AlertCircle}
-          title="Không sửa được báo cáo này"
-          description="Báo cáo đã gửi duyệt hoặc đã được chấm. Chỉ bản nháp mới sửa được."
-          action={<Button variant="outline" onClick={() => navigate(-1)}><ArrowLeft aria-hidden="true" /> Quay lại</Button>}
+          title={t('NewSubmissionPage.thisReportCannotBeEdited')}
+          description={t('NewSubmissionPage.theReportHasBeenSubmittedFor')}
+          action={<Button variant="outline" onClick={() => navigate(-1)}><ArrowLeft aria-hidden="true" /> {t('NewSubmissionPage.back')}</Button>}
         />
       </div>
     )
@@ -275,11 +283,11 @@ export default function NewSubmissionPage() {
     <div className="mx-auto max-w-[1200px] space-y-4">
       {/* Header */}
       <div className="flex min-w-0 items-start gap-3">
-        <Button variant="outline" size="icon" onClick={() => navigate(-1)} aria-label="Quay lại" className="shrink-0"><ArrowLeft aria-hidden="true" /></Button>
+        <Button variant="outline" size="icon" onClick={() => navigate(-1)} aria-label={t('NewSubmissionPage.back')} className="shrink-0"><ArrowLeft aria-hidden="true" /></Button>
         <div className="min-w-0">
-          <h1 className="text-page-title">{isEdit ? 'Sửa báo cáo' : 'Nộp báo cáo'}</h1>
+          <h1 className="text-page-title">{isEdit ? t('NewSubmissionPage.editReport') : t('NewSubmissionPage.submitReport')}</h1>
           <p className="mt-1 text-sm text-[var(--color-muted-foreground)]">
-            {isEdit ? 'Bản nháp chưa gửi — sửa xong có thể lưu tiếp hoặc gửi duyệt.' : 'Chọn chỉ tiêu, nhập kết quả và đính kèm minh chứng. Có thể lưu nháp để gửi sau.'}
+            {isEdit ? t('NewSubmissionPage.unsentDraftAfterEditingYouCan') : t('NewSubmissionPage.chooseAKpiEnterTheResult')}
           </p>
         </div>
       </div>
@@ -287,21 +295,22 @@ export default function NewSubmissionPage() {
       <div className="grid grid-cols-1 items-start gap-4 lg:grid-cols-12">
         {/* Form */}
         <form className="space-y-4 lg:col-span-8" onSubmit={e => e.preventDefault()} noValidate>
+          <DraftNotice draft={draft} />
           <section className="space-y-5 rounded-card border border-[var(--color-border)] bg-[var(--color-card)] p-5">
             {/* Chỉ tiêu */}
             <div>
-              <label className="text-label block" htmlFor="sub-kpi">Chỉ tiêu <span className="text-[var(--color-error)]" aria-hidden="true">*</span></label>
+              <label className="text-label block" htmlFor="sub-kpi">{t('NewSubmissionPage.kpis')} <span className="text-[var(--color-error)]" aria-hidden="true">*</span></label>
                 <Controller
                   name="kpiCriteriaId"
                   control={control}
                   render={({ field }) => (
                   <Select onValueChange={field.onChange} value={field.value} disabled={isEdit}>
-                    <SelectTrigger id="sub-kpi" className="mt-1.5 w-full" aria-invalid={!!errors.kpiCriteriaId}><SelectValue placeholder="Chọn chỉ tiêu cần báo cáo" /></SelectTrigger>
+                    <SelectTrigger id="sub-kpi" className="mt-1.5 w-full" aria-invalid={!!errors.kpiCriteriaId}><SelectValue placeholder={t('NewSubmissionPage.chooseTheKpiToReportOn')} /></SelectTrigger>
                     <SelectContent>
                         {isEdit ? (
                         <SelectItem value={existingSubmission?.kpiCriteriaId || ''}>{existingSubmission?.kpiCriteriaName}</SelectItem>
                       ) : approvedKpis.map(k => (
-                        <SelectItem key={k.id} value={k.id} extra={k.targetValue != null ? <span className="ml-2 text-caption">Mục tiêu {formatNumber(k.targetValue)} {k.unit ?? ''}</span> : undefined}>
+                        <SelectItem key={k.id} value={k.id} extra={k.targetValue != null ? <span className="ml-2 text-caption">{t('NewSubmissionPage.target')} {formatNumber(k.targetValue)} {k.unit ?? ''}</span> : undefined}>
                           {k.name}
                           </SelectItem>
                       ))}
@@ -312,7 +321,7 @@ export default function NewSubmissionPage() {
               {errors.kpiCriteriaId && <p className="mt-1 text-caption text-[var(--color-error)]">{errors.kpiCriteriaId.message}</p>}
               {approvedKpis.length === 0 && !isEdit && (
                 <p role="status" className="mt-2 rounded-card border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-3 py-2 text-sm text-[var(--color-foreground)]">
-                  Bạn đã nộp đủ báo cáo dự kiến, hoặc chưa có chỉ tiêu nào được duyệt để báo cáo.
+                  {t('NewSubmissionPage.youHaveSubmittedAllExpectedReports')}
                 </p>
               )}
             </div>
@@ -320,10 +329,10 @@ export default function NewSubmissionPage() {
             {/* Kết quả */}
             {isQualitative ? (
               <fieldset>
-                <legend className="text-label">Mức tự đánh giá</legend>
-                <p className="mt-0.5 text-caption">Chọn mức bạn thấy phù hợp; quản lý sẽ xác nhận hoặc điều chỉnh khi chấm.</p>
+                <legend className="text-label">{t('NewSubmissionPage.selfAssessedLevel')}</legend>
+                <p className="mt-0.5 text-caption">{t('NewSubmissionPage.chooseTheLevelYouThinkFits')}</p>
                 {qualitativeLevels.length === 0 ? (
-                  <p className="mt-2 text-caption text-[var(--color-warning)]">Tổ chức chưa cấu hình thang điểm định tính (Thiết lập công cụ → Thang điểm).</p>
+                  <p className="mt-2 text-caption text-[var(--color-warning)]">{t('NewSubmissionPage.theOrganizationHasNotConfiguredThe')}</p>
                 ) : (
                   <div className="mt-2 grid grid-cols-1 gap-2 sm:grid-cols-2">
                     {qualitativeLevels.map(level => {
@@ -344,7 +353,7 @@ export default function NewSubmissionPage() {
                             <span className="h-2.5 w-2.5 shrink-0 rounded-full" style={{ backgroundColor: level.color }} aria-hidden="true" />
                             <span className={cn('truncate text-sm', active ? 'font-medium text-[var(--color-foreground)]' : 'text-[var(--color-foreground)]')}>{level.name}</span>
                           </span>
-                          <span className="shrink-0 text-caption tabular-nums">{formatNumber(level.value)} đ</span>
+                          <span className="shrink-0 text-caption tabular-nums">{formatNumber(level.value)} {t('NewSubmissionPage.pts')}</span>
                         </button>
                       )
                     })}
@@ -353,9 +362,9 @@ export default function NewSubmissionPage() {
               </fieldset>
             ) : (
               <div>
-                <label className="text-label block" htmlFor="sub-actual">Kết quả thực tế <span className="text-[var(--color-error)]" aria-hidden="true">*</span></label>
+                <label className="text-label block" htmlFor="sub-actual">{t('NewSubmissionPage.actualResult')} <span className="text-[var(--color-error)]" aria-hidden="true">*</span></label>
                 <div className="relative mt-1.5 w-full sm:w-72">
-                <input
+                <LocaleNumberInput
                     id="sub-actual"
                   {...register('actualValue', { valueAsNumber: true })}
                   type="number"
@@ -369,7 +378,7 @@ export default function NewSubmissionPage() {
                   {selectedKpi?.unit && <span className="pointer-events-none absolute inset-y-0 right-3 flex items-center text-caption">{selectedKpi.unit}</span>}
                   </div>
                 {selectedKpi?.targetValue != null && (
-                  <p className="mt-1 text-caption tabular-nums">Mục tiêu {formatNumber(selectedKpi.targetValue)}{selectedKpi.unit ? ` ${selectedKpi.unit}` : ''}{selectedKpi.minimumValue != null ? ` · tối thiểu ${formatNumber(selectedKpi.minimumValue)}` : ''}</p>
+                  <p className="mt-1 text-caption tabular-nums">{t('NewSubmissionPage.target')} {formatNumber(selectedKpi.targetValue)}{selectedKpi.unit ? ` ${selectedKpi.unit}` : ''}{selectedKpi.minimumValue != null ? t('NewSubmissionPage.minimum', { minimumValue: formatNumber(selectedKpi.minimumValue) }) : ''}</p>
                 )}
                 {errors.actualValue && <p className="mt-1 text-caption text-[var(--color-error)]">{errors.actualValue.message}</p>}
             </div>
@@ -378,18 +387,18 @@ export default function NewSubmissionPage() {
             {/* Giải trình */}
             <div>
                   <div className="flex items-center justify-between gap-2">
-                <label className="text-label" htmlFor="sub-note">Giải trình</label>
+                <label className="text-label" htmlFor="sub-note">{t('NewSubmissionPage.explanation')}</label>
                 {/* Ghi qua setValue chứ KHÔNG sửa DOM: sửa DOM thì React Hook Form không thấy. */}
                 <MicButton getBaseText={() => getValues('note') ?? ''} onText={text => setValue('note', text, { shouldValidate: true, shouldDirty: true })} />
                   </div>
-              <textarea id="sub-note" {...register('note')} rows={5} className={cn(inputCls, 'mt-1.5 resize-y py-2')} placeholder="Cách bạn đạt kết quả này, khó khăn gặp phải, việc cần hỗ trợ…" />
+              <textarea id="sub-note" {...register('note')} rows={5} className={cn(inputCls, 'mt-1.5 resize-y py-2')} placeholder={t('NewSubmissionPage.howYouReachedThisResultDifficulties')} />
               {errors.note && <p className="mt-1 text-caption text-[var(--color-error)]">{errors.note.message}</p>}
                </div>
 
             {/* Minh chứng */}
             <div>
-              <p className="text-label">Minh chứng</p>
-              <p className="mt-0.5 text-caption">Ảnh, PDF, Word, Excel — tăng độ tin cậy khi quản lý chấm.</p>
+              <p className="text-label">{t('NewSubmissionPage.evidence')}</p>
+              <p className="mt-0.5 text-caption">{t('NewSubmissionPage.imagesPdfWordExcelIncreasesCredibility')}</p>
               <div className="mt-1.5">
                     <FileDropzone
                       onFilesSelected={(acc) => setFiles(prev => [...prev, ...acc])}
@@ -398,21 +407,21 @@ export default function NewSubmissionPage() {
                       accept={ATTACHMENT_ACCEPT}
                       maxSize={MAX_ATTACHMENT_BYTES}
                       maxFiles={MAX_ATTACHMENT_FILES}
-                      hint={ATTACHMENT_HINT}
+                      hint={ATTACHMENT_HINT()}
                     />
                   </div>
                </div>
 
             {/* Nút: thứ tự cố định [Hủy] … [Lưu nháp] [Gửi duyệt] */}
             <div className="flex flex-col-reverse gap-2 border-t border-[var(--color-border)] pt-4 sm:flex-row sm:items-center">
-              <Button type="button" variant="ghost" onClick={() => navigate(-1)} disabled={mutation.isPending}>Hủy</Button>
+              <Button type="button" variant="ghost" onClick={() => navigate(-1)} disabled={mutation.isPending}>{t('NewSubmissionPage.cancel')}</Button>
               <div className="flex gap-2 sm:ml-auto">
                 <Button type="button" variant="outline" disabled={mutation.isPending} onClick={handleSubmit(data => mutation.mutate({ data, isDraft: true }))}>
-                  <Save aria-hidden="true" /> Lưu nháp
+                  <Save aria-hidden="true" /> {t('NewSubmissionPage.saveDraft')}
                 </Button>
                 <Button type="button" disabled={mutation.isPending} onClick={handleSubmit(data => { setPendingData(data); setShowConfirm(true) })}>
                   {mutation.isPending ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Send aria-hidden="true" />}
-                  {isEdit && existingSubmission?.status === 'DRAFT' ? 'Gửi duyệt' : 'Gửi báo cáo'}
+                  {isEdit && existingSubmission?.status === 'DRAFT' ? t('NewSubmissionPage.submitForApproval') : t('NewSubmissionPage.submitReport2')}
                 </Button>
               </div>
             </div>
@@ -423,29 +432,29 @@ export default function NewSubmissionPage() {
         <aside className="space-y-4 lg:col-span-4">
           {selectedKpi ? (
             <section className="rounded-card border border-[var(--color-border)] bg-[var(--color-card)] p-4">
-              <h2 className="text-eyebrow">Chỉ tiêu đang báo cáo</h2>
+              <h2 className="text-eyebrow">{t('NewSubmissionPage.kpiBeingReported')}</h2>
               <p className="mt-1 text-sm font-medium text-[var(--color-foreground)]">{selectedKpi.name}</p>
               {selectedKpi.description && <p className="mt-1 text-caption">{selectedKpi.description}</p>}
               <dl className="mt-3 divide-y divide-[var(--color-border)] text-sm">
-                {!isQualitative && <Ref label="Mục tiêu" value={selectedKpi.targetValue != null ? `${formatNumber(selectedKpi.targetValue)}${selectedKpi.unit ? ' ' + selectedKpi.unit : ''}` : '—'} />}
-                {!isQualitative && <Ref label="Tối thiểu" value={`${selectedKpi.minimumValue != null ? formatNumber(selectedKpi.minimumValue) : '0'}${selectedKpi.unit ? ' ' + selectedKpi.unit : ''}`} />}
-                <Ref label={realWeight != null ? 'Trọng số thật' : 'Trọng số'} value={realWeight != null ? `${realWeight.toFixed(1)}% / ${selectedKpi.weight}%` : `${selectedKpi.weight}%`} hint={realWeight != null ? `${selectedKpi.weight}% × tỷ trọng hạng mục` : undefined} />
-                <Ref label="Đợt đánh giá" value={selectedKpi.kpiPeriod?.name || 'Không giới hạn'} />
-                <Ref label="Đã nộp" value={`${selectedKpi.submissionCount || 0} / ${selectedKpi.expectedSubmissions || 1} lần`} />
+                {!isQualitative && <Ref label={t('NewSubmissionPage.target')} value={selectedKpi.targetValue != null ? `${formatNumber(selectedKpi.targetValue)}${selectedKpi.unit ? ' ' + selectedKpi.unit : ''}` : '—'} />}
+                {!isQualitative && <Ref label={t('NewSubmissionPage.minimum2')} value={`${selectedKpi.minimumValue != null ? formatNumber(selectedKpi.minimumValue) : '0'}${selectedKpi.unit ? ' ' + selectedKpi.unit : ''}`} />}
+                <Ref label={realWeight != null ? t('NewSubmissionPage.actualWeight') : t('NewSubmissionPage.weight')} value={realWeight != null ? `${realWeight.toFixed(1)}% / ${selectedKpi.weight}%` : `${selectedKpi.weight}%`} hint={realWeight != null ? t('NewSubmissionPage.itemShare', { weight: selectedKpi.weight }) : undefined} />
+                <Ref label={t('NewSubmissionPage.evaluationPeriods')} value={selectedKpi.kpiPeriod?.name || t('NewSubmissionPage.unlimited')} />
+                <Ref label={t('NewSubmissionPage.submitted')} value={`${selectedKpi.submissionCount || 0} / ${selectedKpi.expectedSubmissions || 1} lần`} />
               </dl>
             </section>
           ) : (
             <section className="rounded-card border border-dashed border-[var(--color-border)] bg-[var(--color-card)] p-4">
-              <p className="text-caption">Chọn chỉ tiêu để xem mục tiêu, trọng số và số lần đã nộp.</p>
+              <p className="text-caption">{t('NewSubmissionPage.chooseAKpiToSeeThe')}</p>
             </section>
           )}
 
           <section className="rounded-card border border-[var(--color-border)] bg-[var(--color-card)] p-4">
-            <h2 className="text-eyebrow">Lưu ý</h2>
+            <h2 className="text-eyebrow">{t('NewSubmissionPage.note')}</h2>
             <ul className="mt-2 list-disc space-y-1.5 pl-4 text-caption">
-              <li>{isQualitative ? 'Chỉ tiêu định tính không nhập số — hãy giải trình và đính kèm minh chứng.' : 'Kết quả nhập bằng số để hệ thống tính điểm tự động.'}</li>
-              <li>Bản nháp sửa được bất cứ lúc nào; sau khi gửi duyệt thì không.</li>
-              <li>Tối đa {MAX_ATTACHMENT_FILES} tệp minh chứng mỗi báo cáo.</li>
+              <li>{isQualitative ? t('NewSubmissionPage.qualitativeKpisDoNotTakeA') : t('NewSubmissionPage.resultsAreEnteredAsNumbersSo')}</li>
+              <li>{t('NewSubmissionPage.draftsCanBeEditedAtAny')}</li>
+              <li>{t('NewSubmissionPage.maximum')} {MAX_ATTACHMENT_FILES} {t('NewSubmissionPage.evidenceFilesPerReport')}</li>
             </ul>
           </section>
         </aside>
@@ -456,37 +465,37 @@ export default function NewSubmissionPage() {
         onClose={() => setShowConfirm(false)}
         size="sm"
         dismissible={!mutation.isPending}
-        title="Gửi báo cáo để duyệt?"
-        description="Sau khi gửi, bạn không sửa được nữa cho tới khi quản lý trả lại."
+        title={t('NewSubmissionPage.submitTheReportForApproval')}
+        description={t('NewSubmissionPage.afterSubmittingYouCannotEditIt')}
         footer={
           <DialogFooter
-            secondary={<Button variant="outline" onClick={() => setShowConfirm(false)} disabled={mutation.isPending}>Hủy</Button>}
+            secondary={<Button variant="outline" onClick={() => setShowConfirm(false)} disabled={mutation.isPending}>{t('NewSubmissionPage.cancel')}</Button>}
             primary={
               <Button disabled={mutation.isPending} onClick={() => { if (pendingData) { mutation.mutate({ data: pendingData, isDraft: false }); setShowConfirm(false) } }}>
-                <Send aria-hidden="true" /> Gửi duyệt
+                <Send aria-hidden="true" /> {t('NewSubmissionPage.submitForApproval')}
               </Button>
             }
           />
         }
               >
-        <p className="text-sm text-[var(--color-muted-foreground)]">Quản lý trực tiếp sẽ nhận thông báo và chấm điểm báo cáo này.</p>
+        <p className="text-sm text-[var(--color-muted-foreground)]">{t('NewSubmissionPage.yourDirectManagerWillBeNotified')}</p>
       </Dialog>
               
       <Dialog
         open={showSuccess}
         onClose={() => setShowSuccess(false)}
         size="sm"
-        title="Đã nộp đủ báo cáo của đợt"
-        description="Bạn đã hoàn thành toàn bộ chỉ tiêu trong đợt này."
+        title={t('NewSubmissionPage.allReportsForThePeriodAre')}
+        description={t('NewSubmissionPage.youHaveCompletedAllKpisIn')}
         footer={
           <DialogFooter
-            secondary={<Button variant="outline" onClick={() => navigate('/me?section=my-kpi')}>Về KPI của tôi</Button>}
-            primary={<Button onClick={() => { setShowSuccess(false); setSelfEvalPeriodId(selectedKpi?.kpiPeriod?.id ?? null) }}><Star aria-hidden="true" /> Tự đánh giá ngay</Button>}
+            secondary={<Button variant="outline" onClick={() => navigate('/me?section=my-kpi')}>{t('NewSubmissionPage.backToMyKpis')}</Button>}
+            primary={<Button onClick={() => { setShowSuccess(false); setSelfEvalPeriodId(selectedKpi?.kpiPeriod?.id ?? null) }}><Star aria-hidden="true" /> {t('NewSubmissionPage.selfAssessNow')}</Button>}
           />
         }
                 >
         <p className="text-sm text-[var(--color-muted-foreground)]">
-          {nextAfterSubmission ? `Bước tiếp theo trong luồng: ${nextAfterSubmission.label}.` : 'Bước tiếp theo là tự đánh giá kết quả của đợt để quản lý có căn cứ chấm điểm.'}
+          {nextAfterSubmission ? t('NewSubmissionPage.nextStepInTheFlow', { label: nextAfterSubmission.label }) : t('NewSubmissionPage.theNextStepIsToSelf')}
         </p>
       </Dialog>
 

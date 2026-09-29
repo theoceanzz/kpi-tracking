@@ -13,8 +13,10 @@ import com.kpitracking.entity.User;
 import com.kpitracking.enums.RedemptionStatus;
 import com.kpitracking.event.RewardEvents;
 import com.kpitracking.exception.BusinessException;
+import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.ForbiddenException;
 import com.kpitracking.exception.ResourceNotFoundException;
+import com.kpitracking.i18n.Terms;
 import com.kpitracking.repository.RewardRedemptionRepository;
 import com.kpitracking.security.PermissionChecker;
 import com.kpitracking.service.reward.fulfillment.RewardFulfillmentProvider;
@@ -123,7 +125,7 @@ public class RewardRedemptionService {
     public RedemptionResponse reject(UUID id, RedemptionDecisionRequest request) {
         RewardRedemption r = loadPending(id);
         User actor = assertCanFulfill();
-        tx.refundAndRestore(r, actor, "Từ chối đổi quà: " + r.getGiftNameSnapshot());
+        tx.refundAndRestore(r, actor, "ledger.redeemRejected");
 
         r.setStatus(RedemptionStatus.REJECTED);
         r.setHandledBy(actor);
@@ -140,16 +142,15 @@ public class RewardRedemptionService {
         RewardRedemption r = loadPending(id);
         User me = context.getCurrentUser();
         if (!r.getUser().getId().equals(me.getId())) {
-            throw new ForbiddenException("Chỉ người tạo yêu cầu mới huỷ được yêu cầu này.");
+            throw new ForbiddenException(ErrorCode.ONLY_CREATOR_REQUEST_CAN_CANCEL);
         }
         // Quà ngoài đã xuất mã thì không còn ở PENDING nên không rơi vào đây được. Ca
         // duy nhất còn PENDING là đơn treo vì chưa rõ kết quả — huỷ lúc đó có thể hoàn
         // điểm cho một voucher đã xuất, nên chặn lại và để người vận hành tra đơn.
         if (r.getFulfillmentError() != null) {
-            throw new BusinessException("Yêu cầu này đang chờ xác nhận từ nhà cung cấp quà "
-                    + "nên chưa huỷ được. Bộ phận hỗ trợ sẽ xử lý và hoàn điểm nếu quà không xuất được.");
+            throw new BusinessException(ErrorCode.REQUEST_WAITING_CONFIRMATION_GIFT_PROVIDER_CANNOT_CANCELLED);
         }
-        tx.refundAndRestore(r, me, "Huỷ đổi quà: " + r.getGiftNameSnapshot());
+        tx.refundAndRestore(r, me, "ledger.redeemCancelled");
 
         r.setStatus(RedemptionStatus.CANCELLED);
         r.setHandledAt(Instant.now());
@@ -182,8 +183,7 @@ public class RewardRedemptionService {
             // yêu cầu treo vì timeout.
             RewardRedemption settled = runFulfillment(r, external.get());
             if (settled.getStatus() == RedemptionStatus.PENDING) {
-                throw new BusinessException("Vẫn chưa lấy được quà từ nhà cung cấp: "
-                        + settled.getFulfillmentError());
+                throw new BusinessException(ErrorCode.GIFT_COULD_NOT_OBTAINED_PROVIDER, String.valueOf(settled.getFulfillmentError()));
             }
             return toManagerResponse(settled);
         }
@@ -194,14 +194,14 @@ public class RewardRedemptionService {
 
     private RewardRedemption loadPending(UUID id) {
         RewardRedemption r = redemptionRepository.findById(id)
-                .orElseThrow(() -> new ResourceNotFoundException("Yêu cầu đổi quà", "id", id));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.giftRedemptionRequest"), "id", id));
         // id do client gửi: yêu cầu của tổ chức khác coi như không tồn tại.
         UUID myOrgId = context.getCurrentOrgId();
         if (r.getOrganization() == null || !r.getOrganization().getId().equals(myOrgId)) {
-            throw new ResourceNotFoundException("Yêu cầu đổi quà", "id", id);
+            throw new ResourceNotFoundException(Terms.of("resource.giftRedemptionRequest"), "id", id);
         }
         if (r.getStatus() != RedemptionStatus.PENDING) {
-            throw new BusinessException("Yêu cầu này không còn ở trạng thái chờ xử lý.");
+            throw new BusinessException(ErrorCode.REQUEST_NO_LONGER_PENDING);
         }
         return r;
     }
@@ -209,7 +209,7 @@ public class RewardRedemptionService {
     private User assertCanFulfill() {
         User me = context.getCurrentUser();
         if (!permissionChecker.hasPermission(me.getId(), "GIFT:FULFILL")) {
-            throw new ForbiddenException("Bạn không có quyền xử lý yêu cầu đổi quà.");
+            throw new ForbiddenException(ErrorCode.NO_PERMISSION_HANDLE_REDEMPTION_REQUESTS);
         }
         return me;
     }

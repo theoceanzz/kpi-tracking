@@ -1,8 +1,11 @@
+import { LocaleNumberInput } from '@/components/ui/number-input'
+import { intlLocale } from '@/i18n/format'
 import { useState } from 'react'
 import { Gift, Loader2, X, Check } from 'lucide-react'
 import { useMyBudget, useRewardGrants } from '../hooks/useRewards'
 import { useCanPromptReward } from '../hooks/useCanPromptReward'
 import { Button } from '@/components/ui/button'
+import { useTranslation } from 'react-i18next'
 
 interface RewardPromptProps {
   userId: string
@@ -30,6 +33,7 @@ export default function RewardPrompt({
   defaultReason,
   onDone,
 }: RewardPromptProps) {
+  const { t } = useTranslation('rewards')
   const [expanded, setExpanded] = useState(false)
   const [done, setDone] = useState(false)
   const [points, setPoints] = useState<number | ''>('')
@@ -47,7 +51,7 @@ export default function RewardPrompt({
       <div className="flex items-center gap-2 rounded-card border border-[var(--color-success-border)] bg-[var(--color-success-bg)] px-4 py-3 text-sm">
         <Check size={16} className="flex-shrink-0 text-[var(--color-success)]" />
         <span>
-          Đã thưởng <b>{typeof points === 'number' ? points.toLocaleString('vi-VN') : ''} điểm</b> cho{' '}
+          {t('RewardPrompt.rewarded')} <b>{typeof points === 'number' ? points.toLocaleString(intlLocale()) : ''} {t('RewardPrompt.points')}</b> {t('RewardPrompt.to')}{' '}
           {fullName}.
         </span>
       </div>
@@ -70,14 +74,14 @@ export default function RewardPrompt({
       <div className="flex flex-wrap items-center justify-between gap-3 rounded-card border border-[var(--color-border)] bg-[var(--color-muted)]/40 px-4 py-3">
         <span className="flex items-center gap-2 text-sm">
           <Gift size={16} className="text-[var(--color-primary)]" />
-          Thưởng điểm cho <b>{fullName}</b>?
+          {t('RewardPrompt.rewardPointsTo')} <b>{fullName}</b>?
         </span>
         <div className="flex gap-2">
           <Button size="sm" type="button" onClick={() => setExpanded(true)}>
-            Có
+            {t('RewardPrompt.yes')}
           </Button>
           <Button variant="outline" size="sm" type="button" onClick={() => onDone?.()}>
-            Bỏ qua
+            {t('RewardPrompt.skip')}
           </Button>
         </div>
       </div>
@@ -91,7 +95,7 @@ export default function RewardPrompt({
       <div className="flex items-center justify-between">
         <span className="flex items-center gap-2 text-sm font-medium">
           <Gift size={16} className="text-[var(--color-primary)]" />
-          Thưởng điểm cho {fullName}
+          {t('RewardPrompt.rewardPointsTo')} {fullName}
         </span>
         <button
           type="button"
@@ -104,35 +108,34 @@ export default function RewardPrompt({
 
       {budget && (
         <div className="text-xs text-[var(--color-muted-foreground)]">
-          Hạn mức còn {budget.remainingPoints.toLocaleString('vi-VN')} điểm
-          {budget.maxPerAward != null && ` · tối đa ${budget.maxPerAward} điểm/người`}
+          {t('RewardPrompt.budgetRemaining')} {budget.remainingPoints.toLocaleString(intlLocale())} {t('RewardPrompt.points')}
+          {budget.maxPerAward != null && t('RewardPrompt.maxPointsPerson', { maxPerAward: budget.maxPerAward })}
         </div>
       )}
 
       <div className="flex flex-col gap-2 sm:flex-row">
-        <input
+        <LocaleNumberInput
           type="number"
           min={1}
           value={points}
           onChange={(e) => setPoints(e.target.value === '' ? '' : Number(e.target.value))}
-          placeholder="Số điểm"
+          placeholder={t('RewardPrompt.points2')}
           className="w-full rounded-control border border-[var(--color-border)] bg-[var(--color-card)] px-3 py-2 text-sm sm:w-32"
         />
         <input
           value={reason}
           onChange={(e) => setReason(e.target.value)}
-          placeholder="Lý do thưởng"
+          placeholder={t('RewardPrompt.rewardReason')}
           className="w-full flex-1 rounded-control border border-[var(--color-border)] bg-[var(--color-card)] px-3 py-2 text-sm"
         />
         <Button type="button" onClick={handleSubmit} disabled={!canSubmit || isCreating}>
           {isCreating && <Loader2 aria-hidden="true" className="animate-spin" />}
-          Thưởng
+          {t('RewardPrompt.reward')}
         </Button>
       </div>
 
       <p className="text-xs text-[var(--color-muted-foreground)]">
-        Lý do hiện trong lịch sử điểm của nhân viên. Vượt hạn mức thì đề nghị sẽ chuyển sang chờ
-        cấp trên duyệt.
+        {t('RewardPrompt.theReasonAppearsInTheEmployees')}
       </p>
     </div>
   )

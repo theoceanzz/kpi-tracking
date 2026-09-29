@@ -6,8 +6,10 @@ import { Building2, UserCircle } from 'lucide-react'
 import RoleDashboard from './RoleDashboard'
 import { ChoiceChip } from '@/components/ui/choice-chip'
 import { useHomeDashboardScope } from '../hooks/useHomeDashboardScope'
+import { useTranslation } from 'react-i18next'
 
 const DashboardPage = () => {
+  const { t } = useTranslation('dashboard')
   const { hasPermission } = useHasPermission()
   const [searchParams, setSearchParams] = useSearchParams()
   const view = searchParams.get('view')
@@ -57,8 +59,8 @@ const DashboardPage = () => {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-1.5 p-1.5 rounded-card bg-[var(--color-muted)] w-full sm:w-fit">
-        <ViewTab active={!isStaffView} onClick={() => setView('unit')} icon={<Building2 size={16} />} label="Tổng quan đơn vị" />
-        <ViewTab active={isStaffView} onClick={() => setView('staff')} icon={<UserCircle size={16} />} label="Dashboard cá nhân" />
+        <ViewTab active={!isStaffView} onClick={() => setView('unit')} icon={<Building2 size={16} />} label={t('DashboardPage.unitOverview')} />
+        <ViewTab active={isStaffView} onClick={() => setView('staff')} icon={<UserCircle size={16} />} label={t('DashboardPage.personalDashboard')} />
       </div>
       {dashboard}
     </div>

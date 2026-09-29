@@ -28,11 +28,14 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import ConversationSidebar from '../components/ConversationSidebar'
 import { useTourScope } from '@/hooks/useTourScope'
 import { getApiErrorMessage } from '@/lib/apiError'
+import { useTranslation } from 'react-i18next'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
 /** Tên gọi thân mật = từ cuối của họ tên ("Nguyễn Văn Minh" → "Minh"). */
 function givenName(fullName?: string | null): string {
   const parts = (fullName || '').trim().split(/\s+/).filter(Boolean)
-  return parts[parts.length - 1] || 'bạn'
+  return parts[parts.length - 1] || i18n.t('analytics:AiAssistantPage.you')
 }
 
 /**
@@ -42,19 +45,19 @@ function givenName(fullName?: string | null): string {
 function undoToast(message: string, onUndo: () => void) {
   toast(message, {
     duration: 6000,
-    action: { label: 'Hoàn tác', onClick: onUndo },
+    action: { label: i18n.t('analytics:AiAssistantPage.undo'), onClick: onUndo },
     style: { background: 'var(--color-ai-toast, #151a2d)', color: '#fff', border: 0, fontWeight: 500 },
     actionButtonStyle: { background: 'var(--color-ai-solid)', color: '#fff', fontWeight: 600, borderRadius: 8, padding: '0 12px', height: 32 },
   })
 }
 
 /** Gợi ý mở đầu cho màn hình trống — câu ngắn, bấm là gửi luôn. */
-const STARTER_PROMPTS = [
-  'Xem tổng quan hiệu suất công ty',
-  'Ai đang có nguy cơ nghỉ việc?',
-  'Duyệt các chỉ tiêu đang chờ',
-  'Phòng ban nào cần can thiệp?',
-]
+const STARTER_PROMPTS = perLanguage(() => ([
+  i18n.t('analytics:AiAssistantPage.viewCompanyPerformanceOverview'),
+  i18n.t('analytics:AiAssistantPage.whoIsAtRiskOfLeaving'),
+  i18n.t('analytics:AiAssistantPage.approvePendingKpis'),
+  i18n.t('analytics:AiAssistantPage.whichUnitsNeedIntervention'),
+]))
 
 interface Message {
   id: string
@@ -81,13 +84,14 @@ interface Message {
   askAnswer?: string | null
 }
 
-const WELCOME_MSG: Message = {
+const WELCOME_MSG = perLanguage((): Message => ({
   id: 'welcome',
   role: 'assistant',
-  content: 'Xin chào! Tôi có thể giúp gì cho bạn?\n\nBạn có thể hỏi tôi về:\n- **Tổng quan KPI** của tổ chức\n- **Hiệu suất** các phòng ban\n- **Phân tích xu hướng** theo thời gian\n- **So sánh** giữa các đơn vị',
-}
+  content: i18n.t('analytics:AiAssistantPage.helloHowCanIHelpYou'),
+}))
 
 export default function AiAssistantPage() {
+  const { t } = useTranslation('analytics')
   useTourScope('ai-assistant')
 
   const { user } = useAuthStore()
@@ -96,7 +100,7 @@ export default function AiAssistantPage() {
 
   const [input, setInput] = useState('')
   // Tệp KHÔNG còn nằm ở đây: nó đi thẳng vào form qua fileSink ngay lúc kẹp. Xem formAssistStore.
-  const [messages, setMessages] = useState<Message[]>([WELCOME_MSG])
+  const [messages, setMessages] = useState<Message[]>([WELCOME_MSG()])
   /**
    * Id các lời mời đã được chạy bằng cách NHẮN "xác nhận" thay vì bấm nút. Thẻ tương ứng phải tự
    * khoá lại — không có tập này thì người dùng vẫn thấy nút, bấm vào lại nhận "không còn hiệu lực".
@@ -228,7 +232,7 @@ export default function AiAssistantPage() {
     setConversationId(null)
     turnRef.current = 0
     activeInsightRef.current = null
-    setMessages([WELCOME_MSG])
+    setMessages([WELCOME_MSG()])
     setInput('')
     setShowInsights(true)
     loadInsights()
@@ -250,9 +254,9 @@ export default function AiAssistantPage() {
       const loaded: Message[] = data.content
         .filter(m => m.role === 'user' || m.role === 'assistant')
         .map(m => ({ id: m.id, role: m.role as 'user' | 'assistant', content: m.content }))
-      setMessages(loaded.length > 0 ? loaded : [WELCOME_MSG])
+      setMessages(loaded.length > 0 ? loaded : [WELCOME_MSG()])
     } catch {
-      setMessages([WELCOME_MSG])
+      setMessages([WELCOME_MSG()])
     } finally {
       setLoadingMessages(false)
       setTimeout(() => textareaRef.current?.focus(), 100)
@@ -264,7 +268,7 @@ export default function AiAssistantPage() {
    * lấy lại được (xoá mềm + endpoint restore), nên hộp xác nhận chỉ là một cú bấm thừa.
    */
   const handleDelete = async (conv: ConversationResponse) => {
-    const title = conv.title || 'Cuộc trò chuyện'
+    const title = conv.title || t('AiAssistantPage.conversations')
     const wasActive = conversationId === conv.id
     setConversations(prev => prev.filter(c => c.id !== conv.id))
     if (wasActive) handleNewChat()
@@ -272,16 +276,16 @@ export default function AiAssistantPage() {
       await aiApi.deleteConversation(conv.id)
     } catch (err) {
       setConversations(prev => [conv, ...prev])
-      toast.error(getApiErrorMessage(err, 'Không xoá được cuộc trò chuyện'))
+      toast.error(getApiErrorMessage(err, t('AiAssistantPage.couldNotDeleteTheConversation')))
       return
     }
-    undoToast(`Đã xóa cuộc trò chuyện "${title}".`, async () => {
+    undoToast(t('AiAssistantPage.deletedConversation', { title }), async () => {
       try {
         const restored = await aiApi.restoreConversation(conv.id)
         setConversations(prev => [restored, ...prev.filter(c => c.id !== restored.id)])
         if (wasActive) handleSelectConversation(restored)
       } catch (err) {
-        toast.error(getApiErrorMessage(err, 'Không khôi phục được cuộc trò chuyện'))
+        toast.error(getApiErrorMessage(err, t('AiAssistantPage.couldNotRestoreTheConversation')))
       }
     })
   }
@@ -295,12 +299,12 @@ export default function AiAssistantPage() {
       apply(await aiApi.updateConversation(conv.id, { title }))
     } catch (err) {
       apply(conv)
-      toast.error(getApiErrorMessage(err, 'Không đổi tên được'))
+      toast.error(getApiErrorMessage(err, t('AiAssistantPage.couldNotRename')))
       return
     }
-    undoToast(`Đã đổi tên thành "${title}".`, async () => {
-      try { apply(await aiApi.updateConversation(conv.id, { title: previous || 'Cuộc trò chuyện' })) }
-      catch (err) { toast.error(getApiErrorMessage(err, 'Không hoàn tác được')) }
+    undoToast(t('AiAssistantPage.renamedTo', { title }), async () => {
+      try { apply(await aiApi.updateConversation(conv.id, { title: previous || t('AiAssistantPage.conversations') })) }
+      catch (err) { toast.error(getApiErrorMessage(err, t('AiAssistantPage.couldNotUndo'))) }
     })
   }
 
@@ -315,9 +319,9 @@ export default function AiAssistantPage() {
         const idx = rest.findIndex(c => !c.pinnedAt && new Date(c.createdAt) < new Date(next.createdAt))
         return idx === -1 ? [...rest, next] : [...rest.slice(0, idx), next, ...rest.slice(idx)]
       })
-      toast.success(pinned ? 'Đã ghim cuộc trò chuyện.' : 'Đã bỏ ghim.')
+      toast.success(pinned ? t('AiAssistantPage.conversationPinned') : t('AiAssistantPage.unpinned'))
     } catch (err) {
-      toast.error(getApiErrorMessage(err, 'Không ghim được'))
+      toast.error(getApiErrorMessage(err, t('AiAssistantPage.couldNotPin')))
     }
   }
 
@@ -365,13 +369,14 @@ export default function AiAssistantPage() {
           onStage: pushStage,
           onAsk: showAsk,
           onDone: r => { box.value = r },
-          onError: message => { throw new Error(message) },
+          // Ném NGUYÊN lỗi: nó đã mang mã HTTP và câu của backend (xem aiApi.streamError).
+          onError: err => { throw err },
         },
       )
       pendingAskRef.current = null
       const { seconds, steps } = endTurn()
       const response = box.value
-      if (!response) throw new Error('Luồng kết thúc mà không có câu trả lời')
+      if (!response) throw new Error(t('AiAssistantPage.theStreamEndedWithoutAnAnswer'))
 
       if (response.attachFiles) attachPinnedTo(useFormAssistStore.getState().active?.fileSink)
 
@@ -418,11 +423,11 @@ export default function AiAssistantPage() {
       const status = error?.response?.status
       let errorContent: string
       if (status === 402) {
-        errorContent = '⚠️ **Hệ thống AI đã đạt giới hạn token.** Vui lòng thử lại sau ít phút hoặc liên hệ quản trị viên.'
+        errorContent = t('AiAssistantPage.theAiSystemHasReachedIts')
       } else if (status === 429) {
-        errorContent = `⚠️ ${getApiErrorMessage(error, 'Bạn gửi yêu cầu AI quá nhanh, vui lòng thử lại sau ít phút.')}`
+        errorContent = `⚠️ ${getApiErrorMessage(error, t('AiAssistantPage.youAreSendingAiRequestsToo'))}`
       } else {
-        const detail = getApiErrorMessage(error, 'Lỗi không xác định')
+        const detail = getApiErrorMessage(error, t('AiAssistantPage.unknownError'))
         errorContent = `⚠️ ${detail}`
       }
       setMessages(prev => [
@@ -515,7 +520,7 @@ export default function AiAssistantPage() {
           {/* Lớp phủ khi đang kéo tệp qua. pointer-events-none để nó không nuốt mất sự kiện drop. */}
           {isDragActive && (
             <div className="pointer-events-none absolute inset-0 z-10 flex items-center justify-center bg-[var(--color-ai-soft)]/90">
-              <p className="text-sm font-medium text-[var(--color-ai)]">Thả tệp vào đây để ghim</p>
+              <p className="text-sm font-medium text-[var(--color-ai)]">{t('AiAssistantPage.dropFilesHereToPin')}</p>
             </div>
           )}
 
@@ -527,7 +532,7 @@ export default function AiAssistantPage() {
                 size="icon"
                 className="-ml-1 shrink-0 text-[var(--color-muted-foreground)] md:hidden"
                 onClick={() => setMobileSidebarOpen(true)}
-                aria-label="Mở danh sách hội thoại"
+                aria-label={t('AiAssistantPage.openConversationList')}
               >
                 <MessageSquare aria-hidden="true" />
               </Button>
@@ -537,7 +542,7 @@ export default function AiAssistantPage() {
                 </div>
                 <span className="absolute -bottom-0.5 -right-0.5 h-3.5 w-3.5 rounded-full border-2 border-[var(--color-background)] bg-[var(--color-success-solid)]" aria-hidden="true" />
               </div>
-              <h1 className="text-page-title leading-tight text-[var(--color-foreground)]">Trợ lý K.AI</h1>
+              <h1 className="text-page-title leading-tight text-[var(--color-foreground)]">{t('AiAssistantPage.kAiAssistant')}</h1>
             </div>
           </header>
 
@@ -561,13 +566,13 @@ export default function AiAssistantPage() {
                 ) : isFresh ? (
                   <div className="flex min-h-[46vh] flex-col items-center justify-center px-2 text-center">
                     <h2 className="text-balance text-[28px] font-semibold leading-tight text-[var(--color-ai)] sm:text-[34px]">
-                      Chào {givenName(user?.fullName)},<br />hôm nay bạn muốn làm gì?
+                      {t('AiAssistantPage.hello')} {givenName(user?.fullName)},<br />{t('AiAssistantPage.whatWouldYouLikeToDo')}
                     </h2>
                     <p className="mt-4 max-w-md text-base text-[var(--color-muted-foreground)]">
-                      Hỏi Trợ lý K.AI bất cứ điều gì về hiệu suất, mục tiêu hay nhân sự của tổ chức — hoặc bắt đầu từ gợi ý bên dưới.
+                      {t('AiAssistantPage.askKAiAssistantAnythingAbout')}
                     </p>
                     <div className="mt-6 flex flex-wrap justify-center gap-2.5">
-                      {STARTER_PROMPTS.map(q => (
+                      {STARTER_PROMPTS().map(q => (
                         <button
                           key={q}
                           type="button"
@@ -588,7 +593,7 @@ export default function AiAssistantPage() {
                            Avatar cũ ăn 44px mỗi bên và chính nó tạo cảm giác "chatbot mặc định". */
                         <div className="border-l-2 border-[var(--color-ai-line)] pl-3 py-0.5">
                           <div className="text-eyebrow text-[var(--color-ai)]">
-                            Bạn hỏi
+                            {t('AiAssistantPage.youAsked')}
                           </div>
                           <div className="mt-0.5 text-sm whitespace-pre-wrap text-[var(--color-foreground)]">
                             {msg.content}
@@ -722,7 +727,7 @@ export default function AiAssistantPage() {
                   value={input}
                   onChange={handleInputChange}
                   onKeyDown={handleKeyDown}
-                  placeholder={conversationId ? 'Tiếp tục cuộc trò chuyện…' : 'Hỏi về KPI, mục tiêu, hiệu suất phòng ban…'}
+                  placeholder={conversationId ? t('AiAssistantPage.continueTheConversation') : t('AiAssistantPage.askAboutKpisGoalsUnitPerformance')}
                   disabled={loadingMessages}
                   rows={1}
                   className="no-edit-hint scrollbar-hide min-h-9 flex-1 resize-none bg-transparent py-1.5 text-base leading-6 placeholder:text-[var(--color-muted-foreground)] focus:outline-none disabled:opacity-50"
@@ -741,7 +746,7 @@ export default function AiAssistantPage() {
                   onClick={handleSend}
                   disabled={!input.trim() || isLoading || loadingMessages}
                   size="icon"
-                  aria-label="Gửi"
+                  aria-label={t('AiAssistantPage.send')}
                   className="h-10 w-10 shrink-0 rounded-card bg-[var(--color-ai-solid)] text-white hover:bg-[var(--color-ai)] hover:opacity-90"
                 >
                   {isLoading ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Send aria-hidden="true" />}
@@ -751,10 +756,10 @@ export default function AiAssistantPage() {
               <div className="flex items-center justify-between mt-1.5 px-1">
                 <div className="flex items-center gap-1.5 text-caption">
                   <Database size={12} aria-hidden="true" />
-                  Dữ liệu từ hệ thống KPI của tổ chức
+                  {t('AiAssistantPage.dataFromTheOrganizationsKpiSystem')}
                 </div>
                 <p className="text-caption">
-                  Shift + Enter để xuống dòng
+                  {t('AiAssistantPage.shiftEnterForANewLine')}
                 </p>
               </div>
             </div>

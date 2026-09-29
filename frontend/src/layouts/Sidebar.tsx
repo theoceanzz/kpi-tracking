@@ -5,7 +5,6 @@ import { useSidebarStore } from '@/store/sidebarStore'
 import { useState, useRef, useEffect } from 'react'
 import { useHasPermission } from '../components/auth/PermissionGate'
 import {
-  Target,
   X,
   MoreVertical,
   UserCircle,
@@ -31,6 +30,8 @@ import {
   type NavFeatureFlags,
 } from '@/config/navigation'
 import { Button } from '@/components/ui/button'
+import { BrandLogo } from '@/components/common/BrandLogo'
+import { useTranslation } from 'react-i18next'
 
 // Mọi path trong cây, phẳng — dùng để biết khi nào một path chỉ đang là TIỀN TỐ của
 // route hiện tại (ví dụ /submissions với /submissions/org-unit) thì không được sáng,
@@ -38,6 +39,7 @@ import { Button } from '@/components/ui/button'
 const ALL_NAV_PATHS = flatNavPaths()
 
 export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?: boolean; onCloseMobile?: () => void }) {
+  const { t } = useTranslation('layout')
   const { user } = useAuthStore()
   const { logout } = useAuth()
   const { isCollapsed, toggle: toggleSidebar } = useSidebarStore()
@@ -60,8 +62,9 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
   const enableReward = org?.enableReward
   const enableCashWallet = org?.enableCashWallet
   const enableConduct = org?.enableConduct
+  const enableFeedback360 = org?.enableFeedback360
 
-  const flags: NavFeatureFlags = { enableOkr, enableBsc, enableReward, enableCashWallet, enableAi, enableConduct }
+  const flags: NavFeatureFlags = { enableOkr, enableBsc, enableReward, enableCashWallet, enableAi, enableConduct, enableFeedback360 }
   const stageVisible = useStageVisible()
 
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({})
@@ -99,7 +102,7 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
         return item.path && isNavPathActive(item.path, item.matchPrefix) ? true : anyActive
       }, false)
 
-    expandActiveBranch(navItems)
+    expandActiveBranch(navItems())
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [location.pathname])
 
@@ -145,7 +148,7 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
       })
       .filter(Boolean) as NavItem[]
 
-  const filteredItems = filterNav(navItems)
+  const filteredItems = filterNav(navItems())
 
   useEffect(() => {
     function handleClickOutside(e: MouseEvent) {
@@ -243,10 +246,10 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
         )}>
           {isCollapsed && !isMobileOpen ? (
             <div className="relative group/toggle">
-              <Button variant="ghost" size="icon" onClick={toggleSidebar} aria-label="Mở thanh bên">
+              <Button variant="ghost" size="icon" onClick={toggleSidebar} aria-label={t('Sidebar.openSidebar')}>
                 <span className="relative flex h-8 w-8 items-center justify-center">
-                  <span className="absolute inset-0 flex items-center justify-center rounded-control bg-[var(--color-primary)] transition-opacity duration-150 group-hover/toggle:opacity-0">
-                    <Target aria-hidden="true" className="text-[var(--color-primary-foreground)]" size={18} />
+                  <span className="absolute inset-0 flex items-center justify-center transition-opacity duration-150 group-hover/toggle:opacity-0">
+                    <BrandLogo variant="icon" className="h-8 rounded-control" />
                   </span>
                   <PanelLeft aria-hidden="true"
                     className="relative opacity-0 group-hover/toggle:opacity-100 transition-opacity duration-150 text-[var(--color-foreground)]"
@@ -255,25 +258,21 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
               </Button>
               {/* Nằm ngoài <nav> nên không bị vùng cuộn cắt mất. */}
               <span className="pointer-events-none absolute left-full top-1/2 z-50 ml-2 -translate-y-1/2 whitespace-nowrap rounded-control bg-[var(--color-foreground)] px-2.5 py-1.5 text-xs font-medium text-[var(--color-background)] shadow-md opacity-0 transition-opacity duration-150 group-hover/toggle:opacity-100">
-                Mở thanh bên
+                {t('Sidebar.openSidebar')}
               </span>
             </div>
           ) : (
             <>
-              <Link to="/" className="flex min-w-0 items-center gap-2.5">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-control bg-[var(--color-primary)]">
-                  <Target className="text-[var(--color-primary-foreground)]" size={18} />
-                </div>
-                <span className="text-[15px] font-semibold tracking-tight text-[var(--color-foreground)]">
-                  KeyGo
-                </span>
+              <Link to="/" className="flex min-w-0 items-center" aria-label="KeyGo">
+                <BrandLogo className="h-8 dark:hidden" />
+                <BrandLogo variant="white" className="hidden h-8 dark:block" />
               </Link>
 
-              <Button variant="ghost" size="icon" className="hidden shrink-0 lg:flex" onClick={toggleSidebar} aria-label="Thu gọn thanh bên" title="Thu gọn thanh bên">
+              <Button variant="ghost" size="icon" className="hidden shrink-0 lg:flex" onClick={toggleSidebar} aria-label={t('Sidebar.collapseSidebar')} title={t('Sidebar.collapseSidebar')}>
                 <PanelLeft aria-hidden="true" />
               </Button>
 
-              <Button variant="ghost" size="icon" className="lg:hidden" onClick={onCloseMobile} aria-label="Đóng menu">
+              <Button variant="ghost" size="icon" className="lg:hidden" onClick={onCloseMobile} aria-label={t('Sidebar.closeMenu')}>
                 <X aria-hidden="true" />
               </Button>
             </>
@@ -476,11 +475,11 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
                   ? 'bg-[var(--color-primary-soft)] text-[var(--color-primary)]'
                   : 'text-[var(--color-muted-foreground)] hover:bg-[var(--color-muted)] hover:text-[var(--color-foreground)]'
               )}
-              title={isCollapsed ? 'Quản trị nền tảng' : ''}
+              title={isCollapsed ? t('Sidebar.platformAdministration') : ''}
             >
               <ShieldCheck size={20} className="shrink-0" />
               {(!isCollapsed || isMobileOpen) && (
-                <span className="truncate flex-1">Quản trị nền tảng</span>
+                <span className="truncate flex-1">{t('Sidebar.platformAdministration')}</span>
               )}
             </NavLink>
           )}
@@ -498,7 +497,7 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
                 className="flex h-9 items-center gap-2.5 px-3 text-sm transition-colors hover:bg-[var(--color-muted)]"
               >
                 <UserCircle size={16} className="text-[var(--color-muted-foreground)]" />
-                Hồ sơ cá nhân
+                {t('Sidebar.personalProfile')}
               </Link>
               <Link 
                 to="/profile?tab=security" 
@@ -506,12 +505,12 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
                 className="flex h-9 items-center gap-2.5 px-3 text-sm transition-colors hover:bg-[var(--color-muted)]"
               >
                 <KeyRound size={16} className="text-[var(--color-muted-foreground)]" />
-                Bảo mật & Mật khẩu
+                {t('Sidebar.securityPassword')}
               </Link>
               <div className="h-px bg-[var(--color-border)] my-1" />
               <Button variant="ghost" className="w-full text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]" onClick={() => { logout(); setUserMenuOpen(false) }}>
                 <LogOut aria-hidden="true" />
-                Đăng xuất
+                {t('Sidebar.signOut')}
               </Button>
             </div>
           )}
@@ -542,8 +541,8 @@ export default function Sidebar({ isMobileOpen, onCloseMobile }: { isMobileOpen?
                         // Just pick the first non-root one, or the first one
                         return ms.find(m => (m.levelOrder ?? 0) > 0) || ms[0];
                       })();
-                      if (user?.isPlatformAdmin) return 'Quản trị viên';
-                      return membership?.roleDisplayName || membership?.roleName || 'Thành viên';
+                      if (user?.isPlatformAdmin) return t('Sidebar.administrator');
+                      return membership?.roleDisplayName || membership?.roleName || t('Sidebar.members');
                     })()}
                   </p>
                 </div>

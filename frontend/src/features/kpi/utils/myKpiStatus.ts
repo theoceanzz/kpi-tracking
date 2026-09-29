@@ -17,6 +17,20 @@ export function getNextDeadline(kpi: KpiCriteria): Date | null {
   return new Date(start + (currentSub + 1) * subDuration)
 }
 
+/**
+ * Bài nộp của KPI này bị trả lại (hoàn duyệt) và vẫn còn hạn nộp lại — khi đó được nộp bài mới
+ * dù đợt đã hết hạn (backend: KpiSubmissionService#createSubmission).
+ */
+export function isResubmitOpen(kpi: KpiCriteria, now: Date = new Date()): boolean {
+  return !!kpi.resubmitDeadline && !isAfter(now, parseISO(kpi.resubmitDeadline))
+}
+
+/** Đợt đã hết hạn và KHÔNG có bài bị trả lại nào đang chờ nộp lại. */
+export function isSubmissionWindowClosed(kpi: KpiCriteria, now: Date = new Date()): boolean {
+  const ended = !!kpi.kpiPeriod?.endDate && isAfter(now, parseISO(kpi.kpiPeriod.endDate))
+  return ended && !isResubmitOpen(kpi, now)
+}
+
 export interface KpiWorkState {
   /** Đã nộp đủ số lần kỳ vọng. */
   done: boolean
@@ -41,7 +55,7 @@ export function kpiWorkState(kpi: KpiCriteria, now: Date = new Date()): KpiWorkS
   const submitted = kpi.submissionCount || 0
   const done = submitted >= expected
   const started = !kpi.kpiPeriod?.startDate || !isAfter(parseISO(kpi.kpiPeriod.startDate), now)
-  const ended = !!kpi.kpiPeriod?.endDate && isAfter(now, parseISO(kpi.kpiPeriod.endDate))
+  const ended = isSubmissionWindowClosed(kpi, now)
   const nextDeadline = getNextDeadline(kpi)
   const overdue = !done && !!nextDeadline && isAfter(now, nextDeadline)
   return { done, started, ended, overdue, nextDeadline, submitted, expected }

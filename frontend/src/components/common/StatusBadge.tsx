@@ -1,4 +1,6 @@
 import { cn } from '@/lib/utils'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
 type Variant = 'success' | 'warning' | 'error' | 'info' | 'default'
 
@@ -15,23 +17,25 @@ const variantStyles: Record<Variant, { badge: string; dot: string }> = {
   default: { badge: 'border-transparent bg-[var(--color-muted)] text-[var(--color-muted-foreground)]', dot: 'bg-[var(--color-subtle-foreground)]' },
 }
 
-const statusMap: Record<string, { variant: Variant; label: string }> = {
-  ACTIVE: { variant: 'success', label: 'Hoạt động' },
-  INACTIVE: { variant: 'default', label: 'Ngưng hoạt động' },
-  SUSPENDED: { variant: 'error', label: 'Tạm khóa' },
-  DRAFT: { variant: 'default', label: 'Nháp' },
-  PENDING: { variant: 'warning', label: 'Chờ duyệt' },
-  PENDING_APPROVAL: { variant: 'warning', label: 'Chờ duyệt' },
-  APPROVED: { variant: 'success', label: 'Đã duyệt' },
-  REJECTED: { variant: 'error', label: 'Từ chối' },
-  TRIAL: { variant: 'info', label: 'Dùng thử' },
-  EXPIRED: { variant: 'error', label: 'Hết hạn' },
-  OVERDUE: { variant: 'error', label: 'Quá hạn' },
-  NOT_STARTED: { variant: 'default', label: 'Chưa nộp' },
-  EDIT: { variant: 'warning', label: 'Đang yêu cầu chỉnh sửa' },
-  EDITED: { variant: 'info', label: 'Đã chỉnh sửa' },
-  REPLACED: { variant: 'default', label: 'Đã thay thế' },
-}
+const statusMap = perLanguage((): Record<string, { variant: Variant; label: string }> => ({
+  ACTIVE: { variant: 'success', label: i18n.t('shared:StatusBadge.active') },
+  INACTIVE: { variant: 'default', label: i18n.t('shared:StatusBadge.inactive') },
+  SUSPENDED: { variant: 'error', label: i18n.t('shared:StatusBadge.suspended') },
+  DRAFT: { variant: 'default', label: i18n.t('shared:StatusBadge.draft') },
+  PENDING: { variant: 'warning', label: i18n.t('shared:StatusBadge.pendingApproval') },
+  PENDING_APPROVAL: { variant: 'warning', label: i18n.t('shared:StatusBadge.pendingApproval') },
+  APPROVED: { variant: 'success', label: i18n.t('shared:StatusBadge.approved') },
+  REJECTED: { variant: 'error', label: i18n.t('shared:StatusBadge.rejected') },
+  RETURNED: { variant: 'warning', label: i18n.t('shared:StatusBadge.returnedForRework') },
+  TRIAL: { variant: 'info', label: i18n.t('shared:StatusBadge.trial') },
+  EXPIRED: { variant: 'error', label: i18n.t('shared:StatusBadge.expired') },
+  OVERDUE: { variant: 'error', label: i18n.t('shared:StatusBadge.overdue') },
+  NOT_STARTED: { variant: 'default', label: i18n.t('shared:StatusBadge.notSubmitted') },
+  EDIT: { variant: 'warning', label: i18n.t('shared:StatusBadge.editRequested') },
+  EDITED: { variant: 'info', label: i18n.t('shared:StatusBadge.edited') },
+  REPLACED: { variant: 'default', label: i18n.t('shared:StatusBadge.replaced') },
+  CLOSED_BY_LOCK: { variant: 'default', label: i18n.t('shared:StatusBadge.closedByCycleLock') },
+}))
 
 interface StatusBadgeProps {
   status: string
@@ -39,7 +43,7 @@ interface StatusBadgeProps {
 }
 
 export default function StatusBadge({ status, className }: StatusBadgeProps) {
-  const mapped = statusMap[status] ?? { variant: 'default' as Variant, label: status }
+  const mapped = statusMap()[status] ?? { variant: 'default' as Variant, label: status }
   const style = variantStyles[mapped.variant]
 
   return (

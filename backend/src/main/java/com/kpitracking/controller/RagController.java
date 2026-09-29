@@ -12,6 +12,7 @@ import com.kpitracking.dto.response.ai.RagChunkResponse;
 import com.kpitracking.dto.response.ai.RagSearchHitResponse;
 import com.kpitracking.entity.RagDocument;
 import com.kpitracking.exception.BusinessException;
+import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.ForbiddenException;
 import com.kpitracking.repository.RagDocumentRepository;
 import com.kpitracking.security.PermissionChecker;
@@ -75,7 +76,7 @@ public class RagController {
     @Operation(summary = "Hỏi đáp về cách dùng KeyGo và tài liệu của tổ chức")
     public ResponseEntity<ApiResponse<HelpService.Answer>> ask(@RequestBody AskRequest request) {
         if (request == null || request.getQuestion() == null || request.getQuestion().isBlank()) {
-            throw new BusinessException("Câu hỏi không được để trống");
+            throw new BusinessException(ErrorCode.QUESTION_CANNOT_EMPTY);
         }
         return ResponseEntity.ok(ApiResponse.success(helpService.ask(request.getQuestion().trim())));
     }
@@ -90,7 +91,7 @@ public class RagController {
         var user = requireOrgManager();
         RagDocument.Source kind = source == null ? RagDocument.Source.REGULATION : source;
         if (!kind.isOrganizationScoped()) {
-            throw new BusinessException("Bộ hướng dẫn KeyGo do quản trị nền tảng nạp ở trang Quản trị nền tảng");
+            throw new BusinessException(ErrorCode.KEYGO_GUIDE_LOADED_PLATFORM_ADMINISTRATOR_PLATFORM_ADMINISTRATION);
         }
         UUID orgId = currentUser.getCurrentOrgId();
         String name = ingestion.checkUploadName(file.getOriginalFilename());
@@ -158,13 +159,13 @@ public class RagController {
         UUID orgId = currentUser.getCurrentOrgId();
         return documents.findById(id)
                 .filter(d -> orgId.equals(d.getOrganizationId()))
-                .orElseThrow(() -> new BusinessException("Tài liệu không tồn tại"));
+                .orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_DOES_NOT_EXIST));
     }
 
     private com.kpitracking.entity.User requireOrgManager() {
         var user = currentUser.getCurrentUser();
         if (!permissionChecker.hasPermission(user.getId(), "COMPANY:UPDATE")) {
-            throw new ForbiddenException("Bạn không có quyền quản lý tài liệu của tổ chức");
+            throw new ForbiddenException(ErrorCode.NO_PERMISSION_MANAGE_ORGANIZATION_DOCUMENTS);
         }
         return user;
     }

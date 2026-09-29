@@ -3,6 +3,7 @@ package com.kpitracking.service.analytics;
 import com.kpitracking.entity.OrgUnit;
 import com.kpitracking.entity.User;
 import com.kpitracking.entity.UserRoleOrgUnit;
+import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.ForbiddenException;
 import com.kpitracking.repository.KpiPeriodRepository;
 import com.kpitracking.repository.OrgUnitRepository;
@@ -115,7 +116,7 @@ public class StatsTierResolver {
         if (permissionChecker.hasPermission(userId, PERM_ORG)) return Tier.ORG;
         if (permissionChecker.hasPermission(userId, PERM_EMPLOYEE)) return Tier.UNIT;
         if (permissionChecker.hasPermission(userId, PERM_MY)) return Tier.SELF;
-        throw new ForbiddenException("Bạn không có quyền xem thống kê");
+        throw new ForbiddenException(ErrorCode.NO_PERMISSION_VIEW_STATISTICS);
     }
 
     // ============================================================
@@ -179,6 +180,6 @@ public class StatsTierResolver {
     private User currentUser() {
         String email = SecurityContextHolder.getContext().getAuthentication().getName();
         return userRepository.findByEmail(email)
-                .orElseThrow(() -> new ForbiddenException("Không xác định được người dùng hiện tại"));
+                .orElseThrow(() -> new ForbiddenException(ErrorCode.COULD_NOT_IDENTIFY_CURRENT_USER));
     }
 }

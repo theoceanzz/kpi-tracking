@@ -4,25 +4,28 @@ import { formatCurrency, formatDateTime } from '@/lib/utils'
 import { TopupOrderStatus, type TopupOrder } from '../types'
 import ReceiptModal from './ReceiptModal'
 import { Button } from '@/components/ui/button'
+import { useTranslation } from 'react-i18next'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
-const STATUS_META: Record<TopupOrderStatus, { label: string; cls: string }> = {
+const STATUS_META = perLanguage((): Record<TopupOrderStatus, { label: string; cls: string }> => ({
   [TopupOrderStatus.PENDING]: {
-    label: 'Chờ chuyển khoản',
+    label: i18n.t('wallet:TopupHistoryTable.waitingForTransfer'),
     cls: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)] dark:bg-[var(--color-warning-bg)] dark:text-[var(--color-warning)]',
   },
   [TopupOrderStatus.PAID]: {
-    label: 'Đã nhận tiền',
+    label: i18n.t('wallet:TopupHistoryTable.moneyReceived'),
     cls: 'bg-[var(--color-success-bg)] text-[var(--color-success)] dark:bg-[var(--color-success-bg)] dark:text-[var(--color-success)]',
   },
   [TopupOrderStatus.EXPIRED]: {
-    label: 'Hết hạn',
+    label: i18n.t('wallet:TopupHistoryTable.expired'),
     cls: 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)]',
   },
   [TopupOrderStatus.CANCELLED]: {
-    label: 'Đã huỷ',
+    label: i18n.t('wallet:TopupHistoryTable.cancelled'),
     cls: 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)]',
   },
-}
+}))
 
 interface TopupHistoryTableProps {
   data: TopupOrder[]
@@ -34,6 +37,7 @@ interface TopupHistoryTableProps {
 }
 
 export default function TopupHistoryTable({ data, onResume }: TopupHistoryTableProps) {
+  const { t } = useTranslation('wallet')
   const [receiptOrderId, setReceiptOrderId] = useState<string | null>(null)
 
   return (
@@ -41,17 +45,17 @@ export default function TopupHistoryTable({ data, onResume }: TopupHistoryTableP
       <table className="w-full min-w-[680px] text-sm">
         <thead className="bg-[var(--color-muted)]/50 text-left">
           <tr className="text-eyebrow">
-            <th className="px-4 py-3">Thời gian</th>
-            <th className="px-4 py-3">Mã đơn</th>
-            <th className="px-4 py-3 text-right">Đề nghị</th>
-            <th className="px-4 py-3 text-right">Thực nhận</th>
-            <th className="px-4 py-3">Trạng thái</th>
-            <th className="px-4 py-3 text-right">Thao tác</th>
+            <th className="px-4 py-3">{t('TopupHistoryTable.time')}</th>
+            <th className="px-4 py-3">{t('TopupHistoryTable.orderCode')}</th>
+            <th className="px-4 py-3 text-right">{t('TopupHistoryTable.requested')}</th>
+            <th className="px-4 py-3 text-right">{t('TopupHistoryTable.actuallyReceived')}</th>
+            <th className="px-4 py-3">{t('TopupHistoryTable.status')}</th>
+            <th className="px-4 py-3 text-right">{t('TopupHistoryTable.actions')}</th>
           </tr>
         </thead>
         <tbody className="divide-y divide-[var(--color-border)]">
           {data.map((o) => {
-            const meta = STATUS_META[o.status]
+            const meta = STATUS_META()[o.status]
             const mismatch = o.paidAmount != null && o.paidAmount !== o.amount
             return (
               <tr key={o.id} className="hover:bg-[var(--color-muted)]/30">
@@ -78,7 +82,7 @@ export default function TopupHistoryTable({ data, onResume }: TopupHistoryTableP
                   {/* Đơn đã huỷ hoặc hết hạn VẪN có thể nhận tiền về sau — webhook
                       cố ý ghi có cho chúng. Không được để người dùng tưởng là mất tiền. */}
                   {mismatch && (
-                    <div className="mt-1 text-xs text-[var(--color-warning)]">Lệch so với số đề nghị</div>
+                    <div className="mt-1 text-xs text-[var(--color-warning)]">{t('TopupHistoryTable.differsFromTheRequestedAmount')}</div>
                   )}
                 </td>
                 <td className="px-4 py-3 text-right">
@@ -87,7 +91,7 @@ export default function TopupHistoryTable({ data, onResume }: TopupHistoryTableP
                   {o.status === TopupOrderStatus.PAID && (
                     <Button variant="outline" size="sm" className="whitespace-nowrap" type="button" onClick={() => setReceiptOrderId(o.id)}>
                       <Receipt aria-hidden="true" />
-                      Biên nhận
+                      {t('TopupHistoryTable.receipt')}
                     </Button>
                   )}
                   {/* Đơn còn chờ thì mở lại được mã QR cũ để chuyển tiếp — cùng một mã đơn,
@@ -95,7 +99,7 @@ export default function TopupHistoryTable({ data, onResume }: TopupHistoryTableP
                   {o.status === TopupOrderStatus.PENDING && onResume && (
                     <Button variant="ghost" size="sm" className="whitespace-nowrap" type="button" onClick={() => onResume(o)}>
                       <QrCode aria-hidden="true" />
-                      Chuyển khoản tiếp
+                      {t('TopupHistoryTable.continueTransfer')}
                     </Button>
                   )}
                 </td>

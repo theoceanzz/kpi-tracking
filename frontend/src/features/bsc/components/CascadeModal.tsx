@@ -1,3 +1,5 @@
+import { LocaleNumberInput } from '@/components/ui/number-input'
+import { intlLocale } from '@/i18n/format'
 import { useMemo, useState } from 'react'
 import { Loader2, AlertTriangle, Check } from 'lucide-react'
 import {
@@ -11,6 +13,9 @@ import { BscLinkType, type ScorecardResponse, type ScorecardPerspectiveResponse 
 import { Dialog, DialogFooter } from '@/components/ui/dialog'
 import { Button } from '@/components/ui/button'
 import { ChoiceChip } from '@/components/ui/choice-chip'
+import { useTranslation } from 'react-i18next'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
 interface CascadeModalProps {
   open: boolean
@@ -18,12 +23,12 @@ interface CascadeModalProps {
   scorecard: ScorecardResponse | null
 }
 
-const LINK_LABELS: Record<BscLinkType, { label: string; hint: string }> = {
-  [BscLinkType.SUM]: { label: 'Cộng dồn', hint: 'Đóng góp của các đơn vị cộng lại thành kết quả của chỉ tiêu cha' },
-  [BscLinkType.SHARED]: { label: 'Dùng chung', hint: 'Nhiều đơn vị cùng chịu trách nhiệm một chỉ tiêu — không cộng dồn' },
-  [BscLinkType.SUPPORT]: { label: 'Hỗ trợ', hint: 'Đơn vị hỗ trợ, không mang con số đóng góp nào' },
-  [BscLinkType.CUSTOM]: { label: 'Công thức riêng', hint: 'Hệ thống không tự suy diễn — người cấu hình tự chịu trách nhiệm' },
-}
+const LINK_LABELS = perLanguage((): Record<BscLinkType, { label: string; hint: string }> => ({
+  [BscLinkType.SUM]: { label: i18n.t('bsc:CascadeModal.rollUp'), hint: i18n.t('bsc:CascadeModal.unitContributionsAddUpToThe') },
+  [BscLinkType.SHARED]: { label: i18n.t('bsc:CascadeModal.shared'), hint: i18n.t('bsc:CascadeModal.severalUnitsAreJointlyResponsibleFor') },
+  [BscLinkType.SUPPORT]: { label: i18n.t('bsc:CascadeModal.supporting'), hint: i18n.t('bsc:CascadeModal.aSupportingUnitCarryingNoContribution') },
+  [BscLinkType.CUSTOM]: { label: i18n.t('bsc:CascadeModal.customFormula'), hint: i18n.t('bsc:CascadeModal.theSystemDoesNotInferAnything') },
+}))
 
 interface TargetRow {
   orgUnitId: string
@@ -42,6 +47,7 @@ interface TargetRow {
  * là thứ người giao việc cần biết trước khi bấm lưu — thiếu hay vượt đều là quyết định có chủ ý.
  */
 export default function CascadeModal({ open, onClose, scorecard }: CascadeModalProps) {
+  const { t } = useTranslation('bsc')
   const { data: orgUnitTreeData } = useOrgUnitTree()
   const { cascade } = useCascadeMutations()
 
@@ -168,8 +174,8 @@ export default function CascadeModal({ open, onClose, scorecard }: CascadeModalP
     // đủ 100% nên cũng không trình duyệt được.
     const missingWeight = selected.filter(r => r.weight.trim() === '' || Number(r.weight) <= 0)
     if (missingWeight.length > 0) {
-      toast.error('Nhập trọng số cho: ' + missingWeight.map(r => r.name).join(', ')
-        + '. Đơn vị không tự sửa được trọng số của chỉ tiêu cấp trên giao.')
+      toast.error(t('CascadeModal.enterWeightsFor') + missingWeight.map(r => r.name).join(', ')
+        + t('CascadeModal.unitsCannotEditTheWeightOf'))
       return
     }
     cascade.mutate({
@@ -192,15 +198,15 @@ export default function CascadeModal({ open, onClose, scorecard }: CascadeModalP
       onClose={onClose}
       size="lg"
       dismissible={!cascade.isPending}
-      title="Phân rã chỉ tiêu xuống đơn vị"
+      title={t('CascadeModal.cascadeKpiToUnits')}
       description={<span className="block truncate" title={scorecard.name}>{scorecard.name}</span>}
       footer={
         <DialogFooter
-          secondary={<Button variant="outline" onClick={onClose} disabled={cascade.isPending}>Huỷ</Button>}
+          secondary={<Button variant="outline" onClick={onClose} disabled={cascade.isPending}>{t('CascadeModal.cancel')}</Button>}
           primary={
             <Button onClick={submit} disabled={!selectedItem || selected.length === 0 || cascade.isPending}>
               {cascade.isPending && <Loader2 className="animate-spin" aria-hidden="true" />}
-              {assigned.size > 0 ? 'Cập nhật' : 'Phân rã'} cho {selected.length} đơn vị
+              {assigned.size > 0 ? t('CascadeModal.update') : t('CascadeModal.cascade')} {t('CascadeModal.forUnits', { count: selected.length })}
             </Button>
           }
         />
@@ -209,12 +215,12 @@ export default function CascadeModal({ open, onClose, scorecard }: CascadeModalP
       <div className="space-y-4">
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div className="space-y-1.5">
-            <label className="text-label">Chỉ tiêu cần giao</label>
+            <label className="text-label">{t('CascadeModal.kpiToAssign')}</label>
             {/* value rỗng bị Radix hiểu là "đã chọn giá trị rỗng" nên nó nuốt luôn placeholder —
                 truyền undefined mới ra được ô có chữ gợi ý khi bộ tiêu chí chưa có chỉ tiêu nào. */}
             <Select value={selectedItem?.id ?? undefined}
               onValueChange={v => { setItemId(v); setRows({}) }}>
-              <SelectTrigger className="w-full"><SelectValue placeholder="Chưa có chỉ tiêu nào" /></SelectTrigger>
+              <SelectTrigger className="w-full"><SelectValue placeholder={t('CascadeModal.noKpisYet')} /></SelectTrigger>
               <SelectContent className="z-[1100]">
                 {items.map(i => (
                   <SelectItem key={i.id} value={i.id}>
@@ -225,16 +231,16 @@ export default function CascadeModal({ open, onClose, scorecard }: CascadeModalP
             </Select>
           </div>
           <div className="space-y-1.5">
-            <label className="text-label">Loại liên kết</label>
+            <label className="text-label">{t('CascadeModal.linkType')}</label>
             <Select value={linkType} onValueChange={v => setLinkType(v as BscLinkType)}>
               <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
               <SelectContent className="z-[1100]">
-                {Object.entries(LINK_LABELS).map(([value, meta]) => (
+                {Object.entries(LINK_LABELS()).map(([value, meta]) => (
                   <SelectItem key={value} value={value}>{meta.label}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
-            <p className="text-caption ml-1">{LINK_LABELS[linkType].hint}</p>
+            <p className="text-caption ml-1">{LINK_LABELS()[linkType].hint}</p>
           </div>
         </div>
 
@@ -245,10 +251,10 @@ export default function CascadeModal({ open, onClose, scorecard }: CascadeModalP
               : 'bg-[var(--color-warning-bg)] text-[var(--color-warning)] dark:bg-[var(--color-warning-bg)] dark:text-[var(--color-warning)]')}>
             {gap != null && Math.abs(gap) <= Math.max(0.01, Math.abs(parentTarget!) * 0.01)
               ? <Check size={14} /> : <AlertTriangle size={14} />}
-            Đã phân bổ {totalContribution.toLocaleString('vi-VN')} / {parentTarget!.toLocaleString('vi-VN')}
+            {t('CascadeModal.allocated')} {totalContribution.toLocaleString(intlLocale())} / {parentTarget!.toLocaleString(intlLocale())}
             {selectedItem?.unit ? ` ${selectedItem.unit}` : ''}
             {gap != null && Math.abs(gap) > 0.009 && (
-              <span>· {gap > 0 ? `còn thiếu ${gap.toLocaleString('vi-VN')}` : `vượt ${Math.abs(gap).toLocaleString('vi-VN')}`}</span>
+              <span>· {gap > 0 ? t('CascadeModal.short', { value: gap.toLocaleString(intlLocale()) }) : t('CascadeModal.over', { value: Math.abs(gap).toLocaleString(intlLocale()) })}</span>
             )}
           </div>
         )}
@@ -258,15 +264,15 @@ export default function CascadeModal({ open, onClose, scorecard }: CascadeModalP
               thì biến mất ngay khi người dùng gõ chữ đầu tiên — lúc đó không còn gì nói ô nào là gì. */}
           <div className="flex items-center gap-3 px-4 py-2 bg-[var(--color-muted)] sticky top-0 z-10">
             <span className="w-4 shrink-0" />
-            <span className="text-eyebrow flex-1">Đơn vị</span>
+            <span className="text-eyebrow flex-1">{t('CascadeModal.unit2')}</span>
             <span className="text-eyebrow w-24 text-right">
-              Đóng góp{selectedItem?.unit ? ` (${selectedItem.unit})` : ''}
+              {t('CascadeModal.contribution')}{selectedItem?.unit ? ` (${selectedItem.unit})` : ''}
             </span>
-            <span className="text-eyebrow w-20 text-right">Trọng số %</span>
+            <span className="text-eyebrow w-20 text-right">{t('CascadeModal.weight')}</span>
           </div>
           {targetUnits.length === 0 && (
             <div className="px-4 py-6 text-center text-caption">
-              Đơn vị này không có đơn vị cấp dưới nào để giao chỉ tiêu.
+              {t('CascadeModal.thisUnitHasNoLowerUnits')}
             </div>
           )}
           {targetUnits.map(u => {
@@ -280,15 +286,15 @@ export default function CascadeModal({ open, onClose, scorecard }: CascadeModalP
                 <span className="flex-1 text-sm font-medium text-[var(--color-foreground)] truncate"
                   style={{ paddingLeft: u.level * 12 }}>
                   {u.name}
-                  {isOwn && <span className="ml-1.5 text-caption">· đơn vị của thẻ này</span>}
+                  {isOwn && <span className="ml-1.5 text-caption">{t('CascadeModal.thisScorecardsUnit')}</span>}
                 </span>
                 {r.selected && (
                   <>
-                    <input type="number" step="any" value={r.contribution}
+                    <LocaleNumberInput type="number" step="any" value={r.contribution}
                       onChange={e => patch(u, { contribution: e.target.value })}
                       placeholder="0"
                       className="w-24 px-2 py-1.5 rounded-control bg-[var(--color-muted)] border border-[var(--color-border)] text-xs font-medium text-right outline-none focus:placeholder:text-transparent" />
-                    <input type="number" step="0.1" value={r.weight}
+                    <LocaleNumberInput type="number" step="0.1" value={r.weight}
                       onChange={e => patch(u, { weight: e.target.value })}
                       placeholder="0"
                       className="w-20 px-2 py-1.5 rounded-control bg-[var(--color-muted)] border border-[var(--color-border)] text-xs font-medium text-right outline-none focus:placeholder:text-transparent" />
@@ -300,9 +306,7 @@ export default function CascadeModal({ open, onClose, scorecard }: CascadeModalP
         </div>
 
         <p className="text-caption">
-          Đơn vị nhận chỉ tiêu ở dạng <b>khoá</b>: trưởng đơn vị không sửa được mục tiêu và trọng số,
-          chỉ gắn KPI con vào. Vì vậy <b>trọng số phải nhập ngay ở đây</b> — để trống thì chỉ tiêu nằm im ở 0%
-          và đơn vị không bao giờ gom đủ 100% để trình duyệt.
+          {t('CascadeModal.unitsReceiveTheKpiAs')} <b>{t('CascadeModal.locked')}</b>{t('CascadeModal.theUnitHeadCannotEditThe')} <b>{t('CascadeModal.theWeightMustBeEnteredHere')}</b> {t('CascadeModal.ifLeftEmptyTheKpiStays')}
         </p>
       </div>
     </Dialog>

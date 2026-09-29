@@ -1,3 +1,4 @@
+import { intlDateLocale, intlLocale } from '@/i18n/format'
 import { useState } from 'react'
 import { Gift, Check, X as XIcon, Undo2, Ban, Award } from 'lucide-react'
 import DataTable from '@/components/common/DataTable'
@@ -16,28 +17,32 @@ import { useRewardGrants } from '../hooks/useRewards'
 import { RewardApprovalMode, RewardGrantStatus, type RewardGrant } from '../types'
 import { Button } from '@/components/ui/button'
 import { ChoiceChip } from '@/components/ui/choice-chip'
+import { useTranslation } from 'react-i18next'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
-const STATUS_STYLE: Record<RewardGrantStatus, { label: string; className: string }> = {
+const STATUS_STYLE = perLanguage((): Record<RewardGrantStatus, { label: string; className: string }> => ({
   [RewardGrantStatus.PENDING_APPROVAL]: {
-    label: 'Chờ duyệt',
+    label: i18n.t('rewards:GrantsTab.pendingApproval'),
     className: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]',
   },
   [RewardGrantStatus.APPROVED]: {
-    label: 'Đã thưởng',
+    label: i18n.t('rewards:GrantsTab.rewarded'),
     className: 'bg-[var(--color-success-bg)] text-[var(--color-success)]',
   },
-  [RewardGrantStatus.REJECTED]: { label: 'Từ chối', className: 'bg-[var(--color-error-bg)] text-[var(--color-error)]' },
+  [RewardGrantStatus.REJECTED]: { label: i18n.t('rewards:GrantsTab.rejected'), className: 'bg-[var(--color-error-bg)] text-[var(--color-error)]' },
   [RewardGrantStatus.CANCELLED]: {
-    label: 'Đã huỷ',
+    label: i18n.t('rewards:GrantsTab.cancelled'),
     className: 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)]',
   },
-  [RewardGrantStatus.REVOKED]: { label: 'Đã thu hồi', className: 'bg-[var(--color-error-bg)] text-[var(--color-error)]' },
-}
+  [RewardGrantStatus.REVOKED]: { label: i18n.t('rewards:GrantsTab.revoked'), className: 'bg-[var(--color-error-bg)] text-[var(--color-error)]' },
+}))
 
 const fmtDate = (iso: string) =>
-  new Date(iso).toLocaleDateString('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' })
+  new Date(iso).toLocaleDateString(intlDateLocale(), { day: '2-digit', month: '2-digit', year: 'numeric' })
 
 export default function GrantsTab() {
+  const { t } = useTranslation('rewards')
   const [page, setPage] = useState(0)
   const [status, setStatus] = useState<RewardGrantStatus | ''>('')
   const [awardOpen, setAwardOpen] = useState(false)
@@ -68,7 +73,7 @@ export default function GrantsTab() {
         {/* Xuống dòng chứ KHÔNG cuộn ngang: chip nằm ngoài khung nhìn thì người dùng
             không biết là có, tệ hơn hẳn so với việc vùng lọc cao thêm một dòng. */}
         <div id="tour-grants-filters" className="flex flex-wrap gap-1.5">
-          {([['', 'Tất cả'], ...Object.entries(STATUS_STYLE).map(([k, v]) => [k, v.label])] as [
+          {([['', t('GrantsTab.all')], ...Object.entries(STATUS_STYLE()).map(([k, v]) => [k, v.label])] as [
             string,
             string,
           ][]).map(([key, label]) => (
@@ -85,15 +90,15 @@ export default function GrantsTab() {
           <WorkspaceHeaderActions>
             {canApprove && (
               <AiShortcutButton
-                label="Duyệt bằng K.AI"
+                label={t('GrantsTab.approveWithKAi')}
                 prompt={aiShortcuts.reviewRewardGrants()}
-                title="K.AI liệt kê các đề xuất thưởng đang chờ và chờ bạn xác nhận"
+                title={t('GrantsTab.kAiListsThePendingReward')}
               />
             )}
             {canGrant && (
               <Button onClick={() => setAwardOpen(true)}>
                 <Gift aria-hidden="true" />
-                Thưởng điểm
+                {t('GrantsTab.rewardPoints')}
               </Button>
             )}
           </WorkspaceHeaderActions>
@@ -105,17 +110,17 @@ export default function GrantsTab() {
       ) : (data?.content ?? []).length === 0 ? (
         <div className="rounded-card border border-dashed border-[var(--color-border)]">
           <EmptyState
-            title={status ? 'Không có đề nghị nào ở trạng thái này' : 'Chưa có đề nghị thưởng nào'}
+            title={status ? t('GrantsTab.noProposalsInThisStatus') : t('GrantsTab.noRewardProposalsYet')}
             description={
               status
-                ? 'Thử chọn trạng thái khác để xem các đề nghị đã có.'
-                : 'Ghi nhận đóng góp của nhân viên bằng điểm thưởng — họ có thể dùng điểm để đổi quà.'
+                ? t('GrantsTab.tryChoosingAnotherStatusToSee')
+                : t('GrantsTab.recognizeEmployeesContributionsWithRewardPoints')
             }
             action={
               !status && canGrant ? (
                 <Button onClick={() => setAwardOpen(true)}>
                   <Gift aria-hidden="true" />
-                  Thưởng điểm ngay
+                  {t('GrantsTab.rewardPointsNow')}
                 </Button>
               ) : undefined
             }
@@ -141,14 +146,14 @@ export default function GrantsTab() {
                     </div>
                   </div>
                   <span
-                    className={`flex-shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_STYLE[row.status].className}`}
+                    className={`flex-shrink-0 rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_STYLE()[row.status].className}`}
                   >
-                    {STATUS_STYLE[row.status].label}
+                    {STATUS_STYLE()[row.status].label}
                   </span>
                 </div>
 
                 <div className="text-sm">
-                  <span className="text-[var(--color-muted-foreground)]">Người nhận: </span>
+                  <span className="text-[var(--color-muted-foreground)]">{t('GrantsTab.recipients')} </span>
                   {row.recipients.map((r) => r.fullName).join(', ')}
                 </div>
 
@@ -162,36 +167,36 @@ export default function GrantsTab() {
 
                 <div className="flex items-center justify-between border-t border-[var(--color-border)] pt-2.5">
                   <span className="text-lg font-semibold">
-                    {row.totalPoints.toLocaleString('vi-VN')}
+                    {row.totalPoints.toLocaleString(intlLocale())}
                     <span className="ml-1 text-xs font-normal text-[var(--color-muted-foreground)]">
-                      điểm
+                      {t('GrantsTab.points')}
                     </span>
                   </span>
                   <div className="flex gap-1">
                     {row.status === RewardGrantStatus.PENDING_APPROVAL && canApprove && (
                       <>
                         <Button variant="ghost" size="sm" onClick={() => approveGrant({ id: row.id })} disabled={isApproving}>
-                          Duyệt
+                          {t('GrantsTab.approve')}
                         </Button>
                         <Button variant="ghost" size="sm" className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]" onClick={() => rejectGrant({ id: row.id })} disabled={isRejecting}>
-                          Từ chối
+                          {t('GrantsTab.rejected')}
                         </Button>
                       </>
                     )}
                     {row.status === RewardGrantStatus.PENDING_APPROVAL &&
                       row.grantorUserId === user?.id && (
                         <Button variant="outline" size="sm" onClick={() => cancelGrant(row.id)}>
-                          Huỷ
+                          {t('GrantsTab.cancel')}
                         </Button>
                       )}
                     {row.status === RewardGrantStatus.APPROVED && row.certificateEnabled && (
                       <Button variant="outline" size="sm" onClick={() => setCertifying(row)}>
-                        Chứng nhận
+                        {t('GrantsTab.certificates')}
                       </Button>
                     )}
                     {row.status === RewardGrantStatus.APPROVED && canApprove && (
                       <Button variant="outline" size="sm" onClick={() => setRevoking(row)}>
-                        Thu hồi
+                        {t('GrantsTab.revoke')}
                       </Button>
                     )}
                   </div>
@@ -202,7 +207,7 @@ export default function GrantsTab() {
               {
                 key: 'createdAt',
                 className: 'align-top',
-                header: 'Ngày',
+                header: t('GrantsTab.date'),
                 render: (row) => (
                   <span className="whitespace-nowrap text-[var(--color-muted-foreground)]">
                     {fmtDate(row.createdAt)}
@@ -212,7 +217,7 @@ export default function GrantsTab() {
               {
                 key: 'grantorName',
                 className: 'align-top',
-                header: 'Người thưởng',
+                header: t('GrantsTab.givenBy'),
                 render: (row) => (
                   <div>
                     <div className="font-medium">{row.grantorName}</div>
@@ -225,10 +230,10 @@ export default function GrantsTab() {
               {
                 key: 'recipients',
                 className: 'align-top',
-                header: 'Người nhận',
+                header: t('GrantsTab.recipient'),
                 render: (row) => (
                   <div>
-                    <div>{row.recipients.length} nhân viên</div>
+                    <div>{t('GrantsTab.employeeCount', { count: row.recipients.length })}</div>
                     <div className="text-xs text-[var(--color-muted-foreground)]">
                       {row.recipients
                         .slice(0, 3)
@@ -242,36 +247,36 @@ export default function GrantsTab() {
               {
                 key: 'reason',
                 className: 'align-top',
-                header: 'Lý do',
+                header: t('GrantsTab.reason'),
                 render: (row) => <span className="line-clamp-2">{row.reason}</span>,
               },
               {
                 key: 'totalPoints',
-                header: 'Tổng điểm',
+                header: t('GrantsTab.totalPoints'),
                 className: 'text-right align-top',
                 render: (row) => (
                   <span className="font-semibold">
-                    {row.totalPoints.toLocaleString('vi-VN')}
+                    {row.totalPoints.toLocaleString(intlLocale())}
                   </span>
                 ),
               },
               {
                 key: 'status',
                 className: 'align-top',
-                header: 'Trạng thái',
+                header: t('GrantsTab.status'),
                 render: (row) => (
                   <div>
                     <span
-                      className={`inline-block rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_STYLE[row.status].className}`}
+                      className={`inline-block rounded-full px-2.5 py-1 text-xs font-medium ${STATUS_STYLE()[row.status].className}`}
                     >
-                      {STATUS_STYLE[row.status].label}
+                      {STATUS_STYLE()[row.status].label}
                     </span>
                     {/* Phân biệt "tự duyệt trong hạn mức" với "được cấp trên duyệt" —
                         hai chuyện rất khác nhau khi rà soát sau này. */}
                     {row.status === RewardGrantStatus.APPROVED &&
                       row.approvalMode === RewardApprovalMode.MANUAL && (
                         <div className="mt-0.5 text-xs text-[var(--color-muted-foreground)]">
-                          {row.approverName} duyệt
+                          {row.approverName} {t('GrantsTab.approve2')}
                         </div>
                       )}
                     {row.status === RewardGrantStatus.PENDING_APPROVAL && row.approvalReason && (
@@ -290,17 +295,17 @@ export default function GrantsTab() {
                   <div className="flex justify-end gap-1">
                     {row.status === RewardGrantStatus.PENDING_APPROVAL && canApprove && (
                       <>
-                        <Button variant="ghost" size="icon-sm" aria-label="Duyệt" onClick={() => approveGrant({ id: row.id })} disabled={isApproving} title="Duyệt">
+                        <Button variant="ghost" size="icon-sm" aria-label={t('GrantsTab.approve')} onClick={() => approveGrant({ id: row.id })} disabled={isApproving} title={t('GrantsTab.approve')}>
                           <Check aria-hidden="true" />
                         </Button>
-                        <Button variant="ghost" size="icon-sm" className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]" aria-label="Từ chối" onClick={() => rejectGrant({ id: row.id })} disabled={isRejecting} title="Từ chối">
+                        <Button variant="ghost" size="icon-sm" className="text-[var(--color-error)] hover:bg-[var(--color-error-bg)] hover:text-[var(--color-error)]" aria-label={t('GrantsTab.rejected')} onClick={() => rejectGrant({ id: row.id })} disabled={isRejecting} title={t('GrantsTab.rejected')}>
                           <XIcon aria-hidden="true" />
                         </Button>
                       </>
                     )}
                     {row.status === RewardGrantStatus.PENDING_APPROVAL &&
                       row.grantorUserId === user?.id && (
-                        <Button variant="ghost" size="icon-sm" aria-label="Huỷ đề nghị" onClick={() => cancelGrant(row.id)} title="Huỷ đề nghị">
+                        <Button variant="ghost" size="icon-sm" aria-label={t('GrantsTab.cancelProposal')} onClick={() => cancelGrant(row.id)} title={t('GrantsTab.cancelProposal')}>
                           <Ban aria-hidden="true" />
                         </Button>
                       )}
@@ -308,12 +313,12 @@ export default function GrantsTab() {
                         là vô nghĩa) và người trao đã tick kèm giấy khen lúc thưởng.
                         Không gắn quyền riêng — ai xem được lượt thưởng thì in được. */}
                     {row.status === RewardGrantStatus.APPROVED && row.certificateEnabled && (
-                      <Button variant="ghost" size="icon-sm" aria-label="In chứng nhận" onClick={() => setCertifying(row)} title="In chứng nhận">
+                      <Button variant="ghost" size="icon-sm" aria-label={t('GrantsTab.printCertificate')} onClick={() => setCertifying(row)} title={t('GrantsTab.printCertificate')}>
                         <Award aria-hidden="true" />
                       </Button>
                     )}
                     {row.status === RewardGrantStatus.APPROVED && canApprove && (
-                      <Button variant="ghost" size="icon-sm" aria-label="Thu hồi" onClick={() => setRevoking(row)} title="Thu hồi">
+                      <Button variant="ghost" size="icon-sm" aria-label={t('GrantsTab.revoke')} onClick={() => setRevoking(row)} title={t('GrantsTab.revoke')}>
                         <Undo2 aria-hidden="true" />
                       </Button>
                     )}
@@ -331,7 +336,7 @@ export default function GrantsTab() {
                 totalElements={data?.totalElements ?? 0}
                 size={size}
                 onPageChange={setPage}
-                itemLabel="đề nghị"
+                itemLabel={t('GrantsTab.proposals')}
               />
             </div>
           )}

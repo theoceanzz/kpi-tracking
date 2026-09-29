@@ -10,6 +10,7 @@ import com.kpitracking.dto.response.ai.RagChunkResponse;
 import com.kpitracking.dto.response.ai.RagSearchHitResponse;
 import com.kpitracking.entity.RagDocument;
 import com.kpitracking.exception.BusinessException;
+import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.repository.RagDocumentRepository;
 import com.kpitracking.service.reward.RewardContext;
 import dev.langchain4j.rag.content.retriever.ContentRetriever;
@@ -98,6 +99,6 @@ public class PlatformRagController {
     private RagDocument globalDocument(UUID id) {
         return documents.findById(id)
                 .filter(d -> d.getOrganizationId() == null)
-                .orElseThrow(() -> new BusinessException("Tài liệu không tồn tại"));
+                .orElseThrow(() -> new BusinessException(ErrorCode.DOCUMENT_DOES_NOT_EXIST));
     }
 }

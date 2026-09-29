@@ -1,8 +1,10 @@
 package com.kpitracking.service.analytics;
 
+import com.kpitracking.exception.BusinessException;
 import com.kpitracking.entity.KpiPeriod;
 import com.kpitracking.entity.User;
 import com.kpitracking.entity.UserRoleOrgUnit;
+import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.repository.KpiPeriodRepository;
 import com.kpitracking.repository.UserRepository;
 import com.kpitracking.repository.UserRoleOrgUnitRepository;
@@ -121,11 +123,11 @@ public class AnalyticsPeriodHelper {
      */
     public KpiPeriod resolveOrgScoped(UUID periodId) {
         KpiPeriod period = kpiPeriodRepository.findById(periodId)
-                .orElseThrow(() -> new IllegalArgumentException("Không tìm thấy đợt KPI"));
+                .orElseThrow(() -> new BusinessException(ErrorCode.KPI_PERIOD_NOT_FOUND));
         UUID orgId = currentUserOrgId();
         if (orgId != null && period.getOrganization() != null
                 && !orgId.equals(period.getOrganization().getId())) {
-            throw new IllegalArgumentException("Đợt KPI không thuộc tổ chức của bạn");
+            throw new BusinessException(ErrorCode.KPI_PERIOD_OUTSIDE_ORGANIZATION_2);
         }
         return period;
     }

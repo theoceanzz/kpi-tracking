@@ -9,7 +9,9 @@ import com.kpitracking.entity.User;
 import com.kpitracking.enums.CertificateOrientation;
 import com.kpitracking.enums.CertificateTemplateStatus;
 import com.kpitracking.exception.BusinessException;
+import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.ResourceNotFoundException;
+import com.kpitracking.i18n.Terms;
 import com.kpitracking.repository.OrganizationRepository;
 import com.kpitracking.repository.RewardCertificateTemplateRepository;
 import lombok.RequiredArgsConstructor;
@@ -58,12 +60,11 @@ public class RewardCertificateService {
         User me = context.getCurrentUser();
         UUID orgId = context.getOrgIdOf(me.getId());
         Organization org = organizationRepository.findById(orgId)
-                .orElseThrow(() -> new ResourceNotFoundException("Tổ chức", "id", orgId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.organization"), "id", orgId));
 
         String name = request.getName().trim();
         if (templateRepository.existsByOrganizationIdAndNameIgnoreCase(orgId, name)) {
-            throw new BusinessException("Đã có mẫu tên " + quote(name) + " trong tổ chức. "
-                    + "Hãy đặt tên khác để còn phân biệt được khi chọn mẫu lúc in.");
+            throw new BusinessException(ErrorCode.TEMPLATE_NAMED_EXISTS_ORGANIZATION, String.valueOf(quote(name)));
         }
 
         RewardCertificateTemplate template = RewardCertificateTemplate.builder()
@@ -93,8 +94,7 @@ public class RewardCertificateService {
 
         String name = request.getName().trim();
         if (templateRepository.existsByOrganizationIdAndNameIgnoreCaseAndIdNot(orgId, name, id)) {
-            throw new BusinessException("Đã có mẫu tên " + quote(name) + " trong tổ chức. "
-                    + "Hãy đặt tên khác để còn phân biệt được khi chọn mẫu lúc in.");
+            throw new BusinessException(ErrorCode.TEMPLATE_NAMED_EXISTS_ORGANIZATION, String.valueOf(quote(name)));
         }
 
         template.setName(name);
@@ -169,7 +169,7 @@ public class RewardCertificateService {
 
     private CertificateCatalogResponse toCatalog(UUID orgId, List<RewardCertificateTemplate> templates) {
         Organization org = organizationRepository.findById(orgId)
-                .orElseThrow(() -> new ResourceNotFoundException("Tổ chức", "id", orgId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.organization"), "id", orgId));
         return CertificateCatalogResponse.builder()
                 .organizationName(org.getName())
                 .organizationLogoUrl(org.getLogoUrl())
@@ -179,7 +179,7 @@ public class RewardCertificateService {
 
     private RewardCertificateTemplate load(UUID id, UUID orgId) {
         return templateRepository.findByIdAndOrganizationId(id, orgId)
-                .orElseThrow(() -> new ResourceNotFoundException("Mẫu chứng nhận", "id", id));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.certificateTemplate"), "id", id));
     }
 
     private CertificateTemplateResponse toResponse(RewardCertificateTemplate t) {

@@ -1,5 +1,11 @@
 package com.kpitracking.service;
 
+import java.util.Locale;
+import com.kpitracking.i18n.UserLanguageResolver;
+import com.kpitracking.i18n.SupportedLanguages;
+import com.kpitracking.i18n.ErrorMessages;
+import com.kpitracking.exception.BusinessException;
+import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.service.email.EmailTemplateService;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -28,6 +34,8 @@ public class EmailService {
 
     private final JavaMailSender mailSender;
     private final EmailTemplateService templateService;
+    private final com.kpitracking.repository.UserRepository userRepository;
+    private final UserLanguageResolver languageResolver;
 
     @Value("${app.mail.from}")
     private String fromEmail;
@@ -62,8 +70,17 @@ public class EmailService {
     /** Như trên nhưng kèm tệp — VD bảng điểm Excel gửi cùng kết quả đánh giá kỳ. */
     public boolean sendTemplated(UUID orgId, String templateCode, String to, Map<String, String> variables,
                                  java.util.List<Attachment> attachments) {
+        return sendTemplated(orgId, templateCode, to, variables, attachments, recipientLocale(to));
+    }
+
+    /**
+     * Bản chỉ rõ ngôn ngữ. Dùng khi người nhận chính là người đang thao tác (quên mật khẩu, xác thực
+     * email): họ đang đọc màn hình ở ngôn ngữ nào thì thư đi bằng ngôn ngữ đó, kể cả khi chưa có tài khoản.
+     */
+    public boolean sendTemplated(UUID orgId, String templateCode, String to, Map<String, String> variables,
+                                 java.util.List<Attachment> attachments, Locale locale) {
         try {
-            EmailTemplateService.RenderedEmail mail = templateService.render(orgId, templateCode, variables);
+            EmailTemplateService.RenderedEmail mail = templateService.render(orgId, templateCode, variables, locale);
             if (!mail.enabled()) {
                 log.debug("Template {} đang tắt ở tổ chức {}, bỏ qua gửi tới {}", templateCode, orgId, to);
                 return false;
@@ -99,7 +116,7 @@ public class EmailService {
             log.info("Đã gửi thư người dùng soạn tới: {}", to);
         } catch (Exception e) {
             log.error("Không gửi được thư tới {}: {}", to, e.getMessage());
-            throw new com.kpitracking.exception.BusinessException("Không gửi được email: " + e.getMessage());
+            throw new BusinessException(ErrorCode.COULD_NOT_SEND_EMAIL, e.getMessage());
         }
     }
 
@@ -124,6 +141,21 @@ public class EmailService {
         log.info("HTML Email sent successfully to: {}", to);
     }
 
+    /**
+     * Ngôn ngữ của người nhận: người dùng có trong hệ thống thì theo {@link UserLanguageResolver} (tự chọn →
+     * mặc định tổ chức → tiếng Việt); địa chỉ ngoài hệ thống thì tiếng Việt. Không dùng ngôn ngữ của request
+     * đang chạy — người gửi và người nhận thường khác nhau.
+     */
+    public Locale recipientLocale(String email) {
+        if (email == null) return SupportedLanguages.DEFAULT_LOCALE;
+        try {
+            return userRepository.findByEmail(email).map(languageResolver::effectiveLocale)
+                    .orElse(SupportedLanguages.DEFAULT_LOCALE);
+        } catch (Exception e) {
+            return SupportedLanguages.DEFAULT_LOCALE;
+        }
+    }
+
     private static Map<String, String> vars(String... pairs) {
         Map<String, String> m = new LinkedHashMap<>();
         for (int i = 0; i + 1 < pairs.length; i += 2) m.put(pairs[i], pairs[i + 1]);
@@ -132,30 +164,23 @@ public class EmailService {
 
     // ─────────────────────────── Mail tài khoản & bảo mật ───────────────────────────
 
+    /** {@code locale}: ngôn ngữ màn hình người dùng đang dùng lúc bấm (lấy ở luồng request, trước khi chạy nền). */
     @Async
-    public void sendResetPasswordEmail(String to, String resetPasswordToken) {
-        sendResetPasswordEmail(null, to, resetPasswordToken);
+    public void sendResetPasswordEmail(String to, String resetPasswordToken, Locale locale) {
+        sendTemplated(null, "auth_reset_password", to, vars("ma_otp", resetPasswordToken, "email", to),
+                java.util.List.of(), locale);
     }
 
     @Async
-    public void sendResetPasswordEmail(UUID orgId, String to, String resetPasswordToken) {
-        sendTemplated(orgId, "auth_reset_password", to, vars("ma_otp", resetPasswordToken, "email", to));
+    public void sendVerifyEmail(String to, String verifyEmailToken, Locale locale) {
+        sendTemplated(null, "auth_verify_email", to, vars("ma_otp", verifyEmailToken, "email", to),
+                java.util.List.of(), locale);
     }
 
     @Async
-    public void sendVerifyEmail(String to, String verifyEmailToken) {
-        sendVerifyEmail(null, to, verifyEmailToken);
-    }
-
-    @Async
-    public void sendVerifyEmail(UUID orgId, String to, String verifyEmailToken) {
-        sendTemplated(orgId, "auth_verify_email", to, vars("ma_otp", verifyEmailToken, "email", to));
-    }
-
-    @Async
-    public void sendWelcomeAndVerifyEmail(String to, String fullName, String verifyEmailToken) {
+    public void sendWelcomeAndVerifyEmail(String to, String fullName, String verifyEmailToken, Locale locale) {
         sendTemplated(null, "auth_welcome_verify", to,
-                vars("ten_nguoi_nhan", fullName, "ma_otp", verifyEmailToken, "email", to));
+                vars("ten_nguoi_nhan", fullName, "ma_otp", verifyEmailToken, "email", to), java.util.List.of(), locale);
     }
 
     @Async
@@ -183,8 +208,12 @@ public class EmailService {
      */
     @Async
     public void sendNotificationEmail(String to, String title, String message) {
+        Locale locale = recipientLocale(to);
         sendEmail(to, title, com.kpitracking.service.email.EmailLayout.wrap(
-                "Thông báo Hệ thống", "<p>Xin chào,</p><p>" + message + "</p>"));
+                ErrorMessages.text(locale, "email.notification.header", ""),
+                "<p>" + ErrorMessages.text(locale, "email.notification.greeting", "") + "</p><p>"
+                        + org.springframework.web.util.HtmlUtils.htmlEscape(message == null ? "" : message, "UTF-8")
+                        + "</p>", locale));
     }
 
     /** Mail thông báo theo đúng mã sự kiện ⇒ dùng template mà tổ chức đã cấu hình. */

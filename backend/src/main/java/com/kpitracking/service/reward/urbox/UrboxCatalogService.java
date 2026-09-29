@@ -12,7 +12,9 @@ import com.kpitracking.entity.RewardGiftItem;
 import com.kpitracking.enums.GiftItemStatus;
 import com.kpitracking.enums.GiftItemType;
 import com.kpitracking.exception.BusinessException;
+import com.kpitracking.exception.ErrorCode;
 import com.kpitracking.exception.ResourceNotFoundException;
+import com.kpitracking.i18n.Terms;
 import com.kpitracking.repository.OrganizationRepository;
 import com.kpitracking.repository.RewardGiftItemRepository;
 import com.kpitracking.service.reward.RewardContext;
@@ -71,7 +73,7 @@ public class UrboxCatalogService {
                                            Integer page, Integer perPage) {
         UUID orgId = context.getCurrentOrgId();
         Organization org = organizationRepository.findById(orgId)
-                .orElseThrow(() -> new ResourceNotFoundException("Tổ chức", "id", orgId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.organization"), "id", orgId));
         Set<String> alreadyImported = importedSkus(orgId);
 
         int size = perPage == null || perPage < 1 ? 24 : Math.min(perPage, 100);
@@ -133,17 +135,16 @@ public class UrboxCatalogService {
     public GiftItemResponse importGift(ImportUrboxGiftRequest request) {
         UUID orgId = context.getCurrentOrgId();
         Organization org = organizationRepository.findById(orgId)
-                .orElseThrow(() -> new ResourceNotFoundException("Tổ chức", "id", orgId));
+                .orElseThrow(() -> new ResourceNotFoundException(Terms.of("resource.organization"), "id", orgId));
 
         if (giftRepository.existsByOrganizationIdAndExternalProviderAndExternalSku(
                 orgId, UrboxFulfillmentProvider.PROVIDER, request.getUrboxGiftId())) {
-            throw new BusinessException("Món quà này đã có trong danh mục của bạn. "
-                    + "Hãy sửa giá điểm ở danh mục thay vì nhập lại.");
+            throw new BusinessException(ErrorCode.GIFT_CATALOG);
         }
 
         UrboxGift gift = client.getGiftDetail(request.getUrboxGiftId());
         if (gift == null || gift.id() == null) {
-            throw new BusinessException("Không tìm thấy quà này trong kho UrBox của bạn.");
+            throw new BusinessException(ErrorCode.GIFT_NOT_FOUND_URBOX_INVENTORY);
         }
 
         long rate = org.getPointExchangeRate() == null || org.getPointExchangeRate() <= 0
@@ -153,7 +154,7 @@ public class UrboxCatalogService {
                 ? request.getPointCost()
                 : suggestPointCost(value, rate);
         if (pointCost == null || pointCost < 1) {
-            throw new BusinessException("Không suy được giá điểm cho quà này. Hãy nhập số điểm cụ thể.");
+            throw new BusinessException(ErrorCode.COULD_NOT_DERIVE_POINT_PRICE_GIFT);
         }
 
         boolean unlimited = request.getStockQuantity() == null;

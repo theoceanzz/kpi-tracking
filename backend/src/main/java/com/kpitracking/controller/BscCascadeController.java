@@ -1,5 +1,6 @@
 package com.kpitracking.controller;
 
+import com.kpitracking.i18n.ErrorMessages;
 import com.kpitracking.dto.request.bsc.BscOverrideRequest;
 import com.kpitracking.dto.request.bsc.CascadePolicyRequest;
 import com.kpitracking.dto.request.bsc.CascadeRequest;
@@ -98,11 +99,12 @@ public class BscCascadeController {
             @RequestParam(value = "parentScorecardId", required = false) UUID parentScorecardId,
             @RequestParam(value = "linkItems", defaultValue = "true") boolean linkItems) {
         int linked = treeService.attachParent(scorecardId, parentScorecardId, linkItems);
+        // Giao diện hiện nguyên câu này (nói rõ nối được mấy chỉ tiêu) nên phải dịch theo người gọi.
         String message = parentScorecardId == null
-                ? "Đã gỡ bộ tiêu chí khỏi cây"
+                ? ErrorMessages.text("success.bsc.detached", "")
                 : linked > 0
-                    ? "Đã gắn vào bộ tiêu chí cấp trên và nối " + linked + " chỉ tiêu trùng hạng mục"
-                    : "Đã gắn vào bộ tiêu chí cấp trên (không có chỉ tiêu nào trùng hạng mục để nối)";
+                    ? ErrorMessages.text("success.bsc.attachedLinked", "", linked)
+                    : ErrorMessages.text("success.bsc.attachedNoLink", "");
         return ResponseEntity.ok(ApiResponse.success(message, bscService.getScorecardById(scorecardId)));
     }
 

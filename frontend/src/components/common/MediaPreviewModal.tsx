@@ -3,6 +3,7 @@ import { useState, useEffect } from 'react'
 import { cn, downloadFile } from '@/lib/utils'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
+import { useTranslation } from 'react-i18next'
 
 interface MediaPreviewModalProps {
   url: string
@@ -13,6 +14,7 @@ interface MediaPreviewModalProps {
 }
 
 export default function MediaPreviewModal({ url, fileName, contentType, isOpen, onClose }: MediaPreviewModalProps) {
+  const { t } = useTranslation('shared')
   const [isZoomed, setIsZoomed] = useState(false)
   
   // Close on ESC key
@@ -26,7 +28,7 @@ export default function MediaPreviewModal({ url, fileName, contentType, isOpen, 
 
   const handleShare = () => {
     navigator.clipboard.writeText(url)
-    toast.success('Đã sao chép liên kết vào bộ nhớ tạm')
+    toast.success(t('MediaPreviewModal.linkCopiedToTheClipboard'))
   }
 
   if (!isOpen) return null
@@ -39,12 +41,12 @@ export default function MediaPreviewModal({ url, fileName, contentType, isOpen, 
   const isLocalFile = url.startsWith('blob:')
 
   return (
-    <div role="dialog" aria-modal="true" aria-label={`Xem trước ${fileName}`} className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/90 animate-in fade-in duration-200 motion-reduce:animate-none">
+    <div role="dialog" aria-modal="true" aria-label={t('MediaPreviewModal.preview', { fileName })} className="fixed inset-0 z-[1000] flex items-center justify-center bg-black/90 animate-in fade-in duration-200 motion-reduce:animate-none">
       {/* Header / Toolbar */}
       <div className="absolute top-0 left-0 right-0 h-16 flex items-center justify-between px-6 bg-black/60 z-20">
         <div className="flex flex-col">
           <h3 className="text-section-title text-white truncate max-w-[200px] md:max-w-md">{fileName}</h3>
-          <span className="text-eyebrow text-white/60">Xem trước minh chứng</span>
+          <span className="text-eyebrow text-white/60">{t('MediaPreviewModal.evidencePreview')}</span>
         </div>
 
         <div className="flex items-center gap-2">
@@ -52,7 +54,7 @@ export default function MediaPreviewModal({ url, fileName, contentType, isOpen, 
             type="button"
             onClick={() => downloadFile(url, fileName)}
             className="p-2.5 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
-            title="Tải về" aria-label="Tải về"
+            title={t('MediaPreviewModal.download')} aria-label={t('MediaPreviewModal.download')}
           >
             <Download size={18} />
           </button>
@@ -60,7 +62,7 @@ export default function MediaPreviewModal({ url, fileName, contentType, isOpen, 
             type="button"
             onClick={handleShare}
             className="p-2.5 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
-            title="Chia sẻ liên kết" aria-label="Chia sẻ liên kết"
+            title={t('MediaPreviewModal.shareLink')} aria-label={t('MediaPreviewModal.shareLink')}
           >
             <Share2 size={18} />
           </button>
@@ -69,7 +71,7 @@ export default function MediaPreviewModal({ url, fileName, contentType, isOpen, 
               type="button"
               onClick={() => setIsZoomed(!isZoomed)}
               className="p-2.5 rounded-full bg-white/10 hover:bg-white/20 text-white transition-colors"
-              title={isZoomed ? "Thu nhỏ" : "Phóng to"}
+              title={isZoomed ? t('MediaPreviewModal.minimize') : t('MediaPreviewModal.zoomIn')}
             >
               {isZoomed ? <Minimize2 size={18} /> : <Maximize2 size={18} />}
             </button>
@@ -78,7 +80,7 @@ export default function MediaPreviewModal({ url, fileName, contentType, isOpen, 
             type="button"
             onClick={onClose}
             className="p-2.5 rounded-full bg-white/10 hover:bg-[var(--color-error-solid)] text-white transition-colors ml-2"
-            title="Đóng" aria-label="Đóng"
+            title={t('MediaPreviewModal.close')} aria-label={t('MediaPreviewModal.close')}
           >
             <X size={18} />
           </button>
@@ -119,7 +121,7 @@ export default function MediaPreviewModal({ url, fileName, contentType, isOpen, 
             autoPlay
             className="max-w-full max-h-full rounded-control shadow-2xl"
           >
-            Trình duyệt của bạn không hỗ trợ phát video.
+            {t('MediaPreviewModal.yourBrowserDoesNotSupportVideo')}
           </video>
         ) : isAudio ? (
           <div className="bg-white/5 p-12 rounded-widget border border-white/10 flex flex-col items-center text-center max-w-md w-full">
@@ -128,7 +130,7 @@ export default function MediaPreviewModal({ url, fileName, contentType, isOpen, 
             </div>
             <h4 className="text-white text-lg font-semibold mb-6 truncate max-w-full">{fileName}</h4>
             <audio src={url} controls autoPlay className="w-full">
-              Trình duyệt của bạn không hỗ trợ phát âm thanh.
+              {t('MediaPreviewModal.yourBrowserDoesNotSupportAudio')}
             </audio>
           </div>
         ) : isOfficeDoc ? (
@@ -137,12 +139,12 @@ export default function MediaPreviewModal({ url, fileName, contentType, isOpen, 
               <div className="w-20 h-20 rounded-card bg-[var(--color-warning-solid)] flex items-center justify-center text-white mb-6">
                 <FileText size={40} />
               </div>
-              <h4 className="text-white text-lg font-semibold mb-2">Chưa thể xem trước nội dung</h4>
+              <h4 className="text-white text-lg font-semibold mb-2">{t('MediaPreviewModal.cannotPreviewTheContentYet')}</h4>
               <p className="text-white/60 text-sm mb-8 leading-relaxed">
-                Các tệp tin tài liệu (Word/Excel) chỉ có thể xem trước sau khi bạn đã nộp báo cáo lên hệ thống.
+                {t('MediaPreviewModal.documentFilesWordExcelCanOnly')}
               </p>
               <div className="bg-white/10 p-4 rounded-card text-xs text-white/80 font-medium italic border border-white/5 w-full">
-                Mẹo: Bạn có thể tải tệp về để kiểm tra nhanh trước khi gửi.
+                {t('MediaPreviewModal.tipYouCanDownloadTheFile')}
               </div>
             </div>
           ) : (
@@ -157,10 +159,10 @@ export default function MediaPreviewModal({ url, fileName, contentType, isOpen, 
             <div className="w-20 h-20 rounded-card bg-[var(--color-primary-soft)] flex items-center justify-center text-[var(--color-primary)] mb-6">
               <Download size={40} />
             </div>
-            <h4 className="text-white text-lg font-semibold mb-2">Định dạng không hỗ trợ xem trước</h4>
-            <p className="text-white/60 text-sm mb-8">Bạn có thể tải tệp này về máy để xem nội dung chi tiết.</p>
+            <h4 className="text-white text-lg font-semibold mb-2">{t('MediaPreviewModal.previewNotSupportedForThisFormat')}</h4>
+            <p className="text-white/60 text-sm mb-8">{t('MediaPreviewModal.youCanDownloadThisFileTo')}</p>
             <Button variant="ghost" className="w-full" type="button" onClick={() => downloadFile(url, fileName)}>
-              <Download aria-hidden="true" /> Tải tệp về máy
+              <Download aria-hidden="true" /> {t('MediaPreviewModal.downloadFile')}
             </Button>
           </div>
         )}

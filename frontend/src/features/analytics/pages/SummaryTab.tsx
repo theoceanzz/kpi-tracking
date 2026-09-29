@@ -48,6 +48,9 @@ import WidgetConfigPanel from '../grid/WidgetConfigPanel'
 import WidgetConfigSummary from '../grid/WidgetConfigSummary'
 import AiShortcutButton from '../components/AiShortcutButton'
 import { aiShortcuts } from '../aiShortcuts'
+import { useTranslation } from 'react-i18next'
+import i18n from 'i18next'
+import { perLanguage } from '@/i18n/perLanguage'
 
 /** Tên "report ẩn" của kho cũ — chỉ còn dùng để vớt bố cục một lần. */
 const LEGACY_REPORT_NAME = '__SUMMARY_DASHBOARD_CONFIG__'
@@ -67,11 +70,11 @@ const ALL_UNITS = '__ALL__'
 
 type SummaryWidget = DashboardWidget
 
-const DEFAULT_SUMMARY_WIDGETS: SummaryWidget[] = [
+const DEFAULT_SUMMARY_WIDGETS = perLanguage((): SummaryWidget[] => ([
   // Hàng thẻ chỉ số từng nằm NGOÀI lưới, bám hai bộ chọn (đơn vị, khoảng thời gian) trên đầu trang.
   // Hai bộ chọn đó nay nằm trong bảng cấu hình của từng ô, nên hàng thẻ cũng phải là một ô — cùng id
   // với danh mục trang chủ để ghim được ngay.
-  { i: 'unit-kpi-metrics', type: 'STATS', title: 'Chỉ số KPI đơn vị', x: 0, y: 0, w: 12, h: 4, visible: true },
+  { i: 'unit-kpi-metrics', type: 'STATS', title: i18n.t('analytics:SummaryTab.unitKpiMetrics'), x: 0, y: 0, w: 12, h: 4, visible: true },
   // Thứ tự đọc: xu hướng chung → so sánh giữa các đơn vị → chi tiết từng KPI → nhân sự.
   // Chiều cao tính ra pixel là `48h − 16` (rowHeight 32 + margin 16), nên mỗi đơn vị `h` đắt 48px —
   // đây là chỗ dễ vô tình làm trang dài gấp đôi nhất.
@@ -79,18 +82,18 @@ const DEFAULT_SUMMARY_WIDGETS: SummaryWidget[] = [
   // vì đó mới là thứ phân biệt các ô — "Xu hướng…: tiến độ & hiệu suất" đứng cạnh "Hiệu suất &
   // tiến độ đơn vị" từng làm người dùng tưởng ô nào cũng phải xem. Chuỗi này là nguồn duy nhất:
   // `renderWidget` lấy `w.title`, danh mục trang chủ đặt đúng bằng chuỗi này.
-  { i: 'trend-chart', type: 'TREND_CHART', title: 'Diễn biến KPI đơn vị qua các kỳ', x: 0, y: 4, w: 12, h: 11, visible: true },
-  { i: 'unit-perf', type: 'UNIT_PERFORMANCE', title: 'Đơn vị con: hiệu suất, tiến độ, nộp bài', x: 0, y: 15, w: 12, h: 11, visible: true },
-  { i: 'kpi-detail', type: 'KPI_DETAIL', title: 'Từng KPI: trọng số và tiến độ', x: 0, y: 26, w: 12, h: 14, visible: true },
+  { i: 'trend-chart', type: 'TREND_CHART', title: i18n.t('analytics:SummaryTab.unitKpisAcrossCycles'), x: 0, y: 4, w: 12, h: 11, visible: true },
+  { i: 'unit-perf', type: 'UNIT_PERFORMANCE', title: i18n.t('analytics:SummaryTab.childUnitsPerformanceProgressSubmissions'), x: 0, y: 15, w: 12, h: 11, visible: true },
+  { i: 'kpi-detail', type: 'KPI_DETAIL', title: i18n.t('analytics:SummaryTab.eachKpiWeightAndProgress'), x: 0, y: 26, w: 12, h: 14, visible: true },
   // Hai khối nhân sự xếp CẠNH nhau: cả hai đều là danh sách dọc nên chịu được nửa chiều ngang,
   // và đọc cùng nhau mới trả lời được "đơn vị nào đông người mà xếp hạng lại thấp".
-  { i: 'member-dist', type: 'MEMBER_DIST', title: 'Cơ cấu nhân sự theo vai trò', x: 0, y: 40, w: 6, h: 10, visible: true },
-  { i: 'rank-table', type: 'RANKING_TABLE', title: 'Xếp hạng nhân sự', x: 6, y: 40, w: 6, h: 10, visible: true },
+  { i: 'member-dist', type: 'MEMBER_DIST', title: i18n.t('analytics:SummaryTab.peopleByRole'), x: 0, y: 40, w: 6, h: 10, visible: true },
+  { i: 'rank-table', type: 'RANKING_TABLE', title: i18n.t('analytics:SummaryTab.peopleRanking'), x: 6, y: 40, w: 6, h: 10, visible: true },
   // Biểu đồ chuyên sâu — mặc định ẩn để lưới không phình ra với người chỉ cần vài chỉ số quen thuộc;
   // bật lại bất cứ lúc nào qua "Tuỳ chỉnh → Ẩn/Hiện".
-  { i: 'score-histogram', type: 'SCORE_HISTOGRAM', title: 'Phân phối điểm đánh giá của đơn vị', x: 0, y: 50, w: 6, h: 12, visible: false },
-  { i: 'self-vs-manager', type: 'SELF_VS_MANAGER', title: 'Tự chấm so với quản lý chấm', x: 6, y: 50, w: 6, h: 12, visible: false },
-]
+  { i: 'score-histogram', type: 'SCORE_HISTOGRAM', title: i18n.t('analytics:SummaryTab.unitEvaluationScoreDistribution'), x: 0, y: 50, w: 6, h: 12, visible: false },
+  { i: 'self-vs-manager', type: 'SELF_VS_MANAGER', title: i18n.t('analytics:SummaryTab.selfAssessmentVsManagerScore'), x: 6, y: 50, w: 6, h: 12, visible: false },
+]))
 
 /**
  * Ô nào hiện mặc định cho ai (theo thứ tự trên lưới). Bật cả tám cho mọi người thì ai cũng thấy
@@ -116,16 +119,16 @@ const POSITION_LAYOUT: Record<ViewerPosition, readonly string[]> = {
  * enum sẵn có. Khi tải lên, loại thật suy lại từ `chartConfig.i` nên giá trị lưu không ảnh hưởng
  * hiển thị — nhờ vậy thêm biểu đồ mới không cần migration DB.
  */
-const GROUP_OF: Record<string, string> = {
-  'unit-kpi-metrics': 'Số liệu',
-  'trend-chart': 'Biểu đồ xu hướng',
-  'unit-perf': 'Biểu đồ so sánh',
-  'self-vs-manager': 'Biểu đồ so sánh',
-  'kpi-detail': 'Từ bộ phận đến tổng thể',
-  'member-dist': 'Từ bộ phận đến tổng thể',
-  'score-histogram': 'Biểu đồ phân phối',
-  'rank-table': 'Biểu đồ xếp hạng',
-}
+const GROUP_OF = perLanguage((): Record<string, string> => ({
+  'unit-kpi-metrics': i18n.t('analytics:SummaryTab.figures'),
+  'trend-chart': i18n.t('analytics:SummaryTab.trendCharts'),
+  'unit-perf': i18n.t('analytics:SummaryTab.comparisonCharts'),
+  'self-vs-manager': i18n.t('analytics:SummaryTab.comparisonCharts'),
+  'kpi-detail': i18n.t('analytics:SummaryTab.partToWhole'),
+  'member-dist': i18n.t('analytics:SummaryTab.partToWhole'),
+  'score-histogram': i18n.t('analytics:SummaryTab.distributionCharts'),
+  'rank-table': i18n.t('analytics:SummaryTab.rankingCharts'),
+}))
 const PREVIEW_OF: Record<string, 'line' | 'groupedBar' | 'treemap' | 'stackedBar' | 'histogram' | 'lollipop' | 'metricCard'> = {
   'unit-kpi-metrics': 'metricCard',
   'trend-chart': 'line',
@@ -136,32 +139,33 @@ const PREVIEW_OF: Record<string, 'line' | 'groupedBar' | 'treemap' | 'stackedBar
   'score-histogram': 'histogram',
   'rank-table': 'lollipop',
 }
-const DESC_OF: Record<string, string> = {
-  'unit-kpi-metrics': 'Một hàng số: tiến độ, hiệu suất, trạng thái KPI, số KPI rủi ro và tổng nhân sự.',
-  'trend-chart': 'Đơn vị đang lên hay xuống: tiến độ và hiệu suất qua từng kỳ, hoặc tỉ trọng KPI mới/cũ.',
-  'unit-perf': 'Đặt các đơn vị con cạnh nhau về hiệu suất, tiến độ và tỉ lệ nộp; chọn được top tốt nhất / trì trệ nhất.',
-  'kpi-detail': 'KPI nào nặng, KPI nào chậm: trọng số và tiến độ từng KPI, lồng theo quan hệ cha con.',
-  'member-dist': 'Mỗi đơn vị có bao nhiêu người ở vai trò nào.',
-  'rank-table': 'Ai đứng đầu, ai đứng cuối theo điểm hiệu suất hoặc tiến độ.',
-  'score-histogram': 'Điểm đánh giá trong đơn vị dồn về đâu — hình dạng phân phối và các ngưỡng xếp loại.',
-  'self-vs-manager': 'Chênh lệch giữa điểm nhân sự tự chấm và điểm quản lý chấm, theo từng kỳ.',
-}
-const SUMMARY_CATALOG = DEFAULT_SUMMARY_WIDGETS.map(t => ({
+const DESC_OF = perLanguage((): Record<string, string> => ({
+  'unit-kpi-metrics': i18n.t('analytics:SummaryTab.aRowOfFiguresProgressPerformance'),
+  'trend-chart': i18n.t('analytics:SummaryTab.isTheUnitGoingUpOr'),
+  'unit-perf': i18n.t('analytics:SummaryTab.childUnitsSideBySideOn'),
+  'kpi-detail': i18n.t('analytics:SummaryTab.whichKpisAreHeavyAndWhich'),
+  'member-dist': i18n.t('analytics:SummaryTab.howManyPeopleEachUnitHas'),
+  'rank-table': i18n.t('analytics:SummaryTab.whoIsAtTheTopAnd'),
+  'score-histogram': i18n.t('analytics:SummaryTab.whereEvaluationScoresInTheUnit'),
+  'self-vs-manager': i18n.t('analytics:SummaryTab.theGapBetweenMembersSelfAssessment'),
+}))
+const SUMMARY_CATALOG = perLanguage(() => (DEFAULT_SUMMARY_WIDGETS().map(t => ({
   template: t,
   icon: null,
-  groupLabel: GROUP_OF[t.i],
+  groupLabel: GROUP_OF()[t.i],
   preview: PREVIEW_OF[t.i],
-  description: DESC_OF[t.i],
-}))
+  description: DESC_OF()[t.i],
+}))))
 
 export default function SummaryTab() {
+  const { t } = useTranslation('analytics')
   const onlyApproved = false
   const { periods, cycles } = useAnalyticsScopeData()
   // Không còn bộ lọc cấp trang: đơn vị lẫn khoảng thời gian đều nằm trong cài đặt từng ô. "Mặc định"
   // chỉ còn là hằng số cho ô chưa đặt gì.
   const pageIntent = PAGE_DEFAULT_INTENT
   const pin = usePinToHome()
-  const grid = usePositionLayout(DEFAULT_SUMMARY_WIDGETS, POSITION_LAYOUT, 'HEAD')
+  const grid = usePositionLayout(DEFAULT_SUMMARY_WIDGETS(), POSITION_LAYOUT, 'HEAD')
   const dash = useAnalyticsGrid({
     scope: 'ANALYTICS_SUMMARY',
     defaultWidgets: grid.defaultWidgets,
@@ -265,9 +269,9 @@ export default function SummaryTab() {
             <p className="text-xs text-[var(--color-muted-foreground)] font-medium flex items-center gap-1.5">
               <MousePointerClick size={13} className="text-[var(--color-primary)] shrink-0" />
               <span>
-                Bấm vào một ô để mở chi tiết KPI
+                {t('SummaryTab.clickACellToOpenThe')}
                 <span className="text-slate-300 dark:text-slate-600 mx-1.5">│</span>
-                Diện tích ô = trọng số, màu = tiến độ, ô lồng = KPI được chia xuống
+                {t('SummaryTab.cellAreaWeightColorProgressNested')}
               </span>
             </p>
             <KpiTreemapLegend />
@@ -275,10 +279,10 @@ export default function SummaryTab() {
         )}
         <div className="flex-1 overflow-auto custom-scrollbar min-h-0 space-y-3 pr-1">
           {isAllocLoading ? (
-            <div className="py-16 text-center text-slate-400 font-medium">Đang tải...</div>
+            <div className="py-16 text-center text-slate-400 font-medium">{t('SummaryTab.loading')}</div>
           ) : periods.length === 0 ? (
             <div className="py-16 text-center text-slate-400 font-medium italic">
-              Không có KPI nào được đặt trọng số trong khoảng thời gian đang lọc
+              {t('SummaryTab.noKpiWithAWeightIn')}
             </div>
           ) : periods.map(period => {
             // Chỉ để đếm ở tiêu đề; không còn dựng thành khung bọc quanh KPI.
@@ -298,8 +302,8 @@ export default function SummaryTab() {
                       <span className="truncate">{period.name}</span>
                     </h4>
                     <span className="text-xs font-medium text-slate-400 shrink-0 tabular-nums">
-                      {period.trees.length > 0 && `${period.trees.length} cây phân cấp · `}
-                      {units.length} đơn vị · {period.kpiCount} KPI
+                      {period.trees.length > 0 && t('SummaryTab.hierarchies', { count: period.trees.length })}
+                      {units.length} {t('SummaryTab.units')} {period.kpiCount} KPI
                     </span>
                   </div>
                 </button>
@@ -327,17 +331,17 @@ export default function SummaryTab() {
 
         {skipped > 0 && (
           <p className="text-xs text-slate-400 font-medium text-center shrink-0">
-            {skipped} KPI chưa đặt trọng số nên không có diện tích để vẽ. Xem chúng ở trang Quản lý chỉ tiêu.
+            {skipped} {t('SummaryTab.kpisWithoutAWeightHaveNo')}
           </p>
         )}
         {truncated && (
           <p className="text-xs text-amber-600 font-semibold text-center shrink-0">
-            Khoảng lọc này có {allocPage?.totalElements} KPI, biểu đồ chỉ vẽ {ALLOC_FETCH_SIZE} mục đầu. Thu hẹp bộ lọc để xem đủ.
+            {t('SummaryTab.thisFilterRangeHas')} {allocPage?.totalElements} {t('SummaryTab.kpisTheChartOnlyDraws')} {ALLOC_FETCH_SIZE} {t('SummaryTab.firstItemsNarrowTheFilterTo')}
           </p>
         )}
       </div>
     )
-  }, [allocPage, expandedPeriods, weightBudget, isAllocLoading])
+  }, [allocPage, expandedPeriods, weightBudget, isAllocLoading, t])
 
   /*
     `useCallback` là bắt buộc chứ không phải tối ưu tuỳ hứng: lưới cache phần tử từng ô theo
@@ -372,9 +376,9 @@ export default function SummaryTab() {
           <AnalyticsComboChart
             data={chartData?.points || []}
             isLoading={isChartLoading}
-            itemName="KPI đơn vị"
+            itemName={t('SummaryTab.unitKpis')}
             title={widget.title}
-            shareTitle="Cơ cấu KPI đơn vị mới và cũ qua các kỳ"
+            shareTitle={t('SummaryTab.oldAndNewCompositionOfUnit')}
             fillHeight
             mode={widgetVariant(widget) === 'area' ? 'share' : 'trend'}
             onModeChange={m => set({ v: m === 'share' ? 'area' : 'line' })}
@@ -428,16 +432,16 @@ export default function SummaryTab() {
       )
       default: return null
     }
-  }, [pageIntent, periods, cycles, unitOptions, updateWidgetSettings, onlyApproved, chartData, isChartLoading, allocPage, mainData, renderKpiByPeriodBody])
+  }, [pageIntent, periods, cycles, unitOptions, updateWidgetSettings, onlyApproved, chartData, isChartLoading, allocPage, mainData, renderKpiByPeriodBody, t])
 
   if (isMainLoading && !mainData) return <AnalyticsTabSkeleton variant="default" className="p-6" />
 
   return (
     <div className="space-y-8 pb-12">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <h2 className="text-xl font-semibold text-[var(--color-foreground)]">Đơn vị tôi quản lý</h2>
+        <h2 className="text-xl font-semibold text-[var(--color-foreground)]">{t('SummaryTab.unitsIManage')}</h2>
         <div id="tour-analytics-customize" className="flex items-center gap-3 flex-wrap">
-          <AiShortcutButton size="sm" label="Biến động hạng" prompt={aiShortcuts.rankDelta()} title="K.AI so hạng các đơn vị con giữa hai đợt đánh giá gần nhất" />
+          <AiShortcutButton size="sm" label={t('SummaryTab.rankChanges')} prompt={aiShortcuts.rankDelta()} title={t('SummaryTab.kAiComparesTheRanksOf')} />
           <DashboardEditToolbar api={dash} />
         </div>
       </div>
@@ -452,7 +456,7 @@ export default function SummaryTab() {
         <DashboardCustomizeChrome
           api={dash}
           renderWidget={renderWidgetContent}
-          catalog={SUMMARY_CATALOG}
+          catalog={SUMMARY_CATALOG()}
           ready={!!mainData}
           presets={grid.presets}
           recommendedIds={grid.recommendedIds}
@@ -539,7 +543,7 @@ function UnitSelectItem({ o }: { o: { code: string; name: string; depth?: number
 }
 
 export function EmployeeRankingTableSection({
-  title = 'Xếp hạng nhân sự',
+  title = i18n.t('analytics:SummaryTab.peopleRanking'),
   orgUnitId, from, to, onlyApproved, periodId, periodIdTo, bare, viewControl,
   unitId, metric, dir, onSortChange, hideControls, meta,
 }: {
@@ -557,6 +561,7 @@ export function EmployeeRankingTableSection({
   /** Dòng tóm tắt cấu hình do lưới cấp. */
   meta?: React.ReactNode
 }) {
+  const { t } = useTranslation('analytics')
   const [localUnitId, setRankingUnitId] = useState<string | undefined>(undefined)
   const [localSf, setSf] = useState<'performance' | 'avgProgress'>('performance')
   const [localSd, setSd] = useState<'ASC' | 'DESC'>('DESC')
@@ -603,14 +608,14 @@ export function EmployeeRankingTableSection({
           <table className="w-full min-w-[700px]">
             <thead>
               <tr className="text-left text-xs font-medium text-slate-400 border-b border-[var(--color-border)]">
-                <th className="px-6 py-4">Hạng</th>
-                <th className="px-6 py-4">Nhân viên</th>
-                <th className="px-6 py-4">Đơn vị</th>
+                <th className="px-6 py-4">{t('SummaryTab.rank')}</th>
+                <th className="px-6 py-4">{t('SummaryTab.employee')}</th>
+                <th className="px-6 py-4">{t('SummaryTab.unit')}</th>
                 <th className="px-6 py-4 text-center cursor-pointer hover:text-[var(--color-primary)]" onClick={() => handleSort('avgProgress')}>
-                  Tiến độ trung bình {sortIcon('avgProgress')}
+                  {t('SummaryTab.averageProgress')} {sortIcon('avgProgress')}
                 </th>
                 <th className="px-6 py-4 text-center cursor-pointer hover:text-[var(--color-primary)]" onClick={() => handleSort('performance')}>
-                  Hiệu suất {sortIcon('performance')}
+                  {t('SummaryTab.performance')} {sortIcon('performance')}
                 </th>
               </tr>
             </thead>
@@ -663,15 +668,15 @@ export function EmployeeRankingTableSection({
             </tbody>
           </table>
           {pagedRankings.length === 0 && !isFetching && (
-            <div className="py-16 text-center text-slate-400 font-medium italic">Không có dữ liệu xếp hạng</div>
+            <div className="py-16 text-center text-slate-400 font-medium italic">{t('SummaryTab.noRankingData')}</div>
           )}
         </div>
 
         <div className="md:hidden divide-y divide-slate-50 dark:divide-slate-800">
           {isFetching ? (
-            <div className="p-6 text-sm text-slate-400">Đang tải...</div>
+            <div className="p-6 text-sm text-slate-400">{t('SummaryTab.loading')}</div>
           ) : pagedRankings.length === 0 ? (
-            <div className="py-16 text-center text-slate-400 font-medium italic">Không có dữ liệu xếp hạng</div>
+            <div className="py-16 text-center text-slate-400 font-medium italic">{t('SummaryTab.noRankingData')}</div>
           ) : (
             pagedRankings.map((item, i) => {
               const globalRank = rankPage * RANK_PAGE_SIZE + i
@@ -709,7 +714,7 @@ export function EmployeeRankingTableSection({
                       perf.toPct(item.performance) >= 80 ? "bg-emerald-50 text-emerald-600" :
                       perf.toPct(item.performance) >= 50 ? "bg-amber-50 text-amber-600" :
                       "bg-red-50 text-red-600"
-                    )}>Hiệu suất {perf.formatShort(item.performance)}</span>
+                    )}>{t('SummaryTab.performance')} {perf.formatShort(item.performance)}</span>
                   </div>
                 </div>
               )
@@ -717,7 +722,7 @@ export function EmployeeRankingTableSection({
           )}
         </div>
         {totalRankPages > 1 && (
-          <Pagination currentPage={rankPage} totalPages={totalRankPages} onPageChange={setRankPage} totalElements={totalRankElements} size={RANK_PAGE_SIZE} itemLabel="nhân viên" />
+          <Pagination currentPage={rankPage} totalPages={totalRankPages} onPageChange={setRankPage} totalElements={totalRankElements} size={RANK_PAGE_SIZE} itemLabel={t('SummaryTab.employees')} />
         )}
       </div>
   )
@@ -726,7 +731,7 @@ export function EmployeeRankingTableSection({
     <div className="flex-1 flex flex-col gap-3 min-h-0">
       {!hideControls && (
       <div className="flex items-center gap-1.5 px-1">
-        {([['performance', `Hiệu suất (${perf.unit})`], ['avgProgress', 'Tiến độ trung bình (%)']] as const).map(([v, label]) => (
+        {([['performance', t('SummaryTab.performance2', { unit: perf.unit })], ['avgProgress', t('SummaryTab.averageProgress2')]] as const).map(([v, label]) => (
           <button
             key={v}
             onClick={() => handleSort(v)}
@@ -742,7 +747,7 @@ export function EmployeeRankingTableSection({
         ))}
         <span className="w-px h-4 bg-slate-200 dark:bg-slate-700 mx-1" />
         {/* Bảng xếp hạng sinh ra để xem hai đầu, không phải để lật từng trang ở giữa. */}
-        {([['DESC', 'Cao nhất'], ['ASC', 'Thấp nhất']] as const).map(([v, label]) => (
+        {([['DESC', t('SummaryTab.highest')], ['ASC', t('SummaryTab.lowest')]] as const).map(([v, label]) => (
           <button
             key={v}
             onClick={() => setSd(v)}
@@ -759,9 +764,9 @@ export function EmployeeRankingTableSection({
       </div>
       )}
       {isChartFetching ? (
-        <div className="py-16 text-center text-slate-400 font-medium">Đang tải...</div>
+        <div className="py-16 text-center text-slate-400 font-medium">{t('SummaryTab.loading')}</div>
       ) : chartRankings.length === 0 ? (
-        <div className="py-16 text-center text-slate-400 font-medium italic">Không có dữ liệu xếp hạng</div>
+        <div className="py-16 text-center text-slate-400 font-medium italic">{t('SummaryTab.noRankingData')}</div>
       ) : (
         <Lollipop
           data={chartRankings.map(item => ({
@@ -771,14 +776,14 @@ export function EmployeeRankingTableSection({
             value: sf === 'performance' ? item.performance : item.avgProgress,
           }))}
           unit={sf === 'performance' ? ` ${perf.unit}` : '%'}
-          valueLabel={sf === 'performance' ? `Hiệu suất (${perf.unit})` : 'Tiến độ (%)'}
+          valueLabel={sf === 'performance' ? t('SummaryTab.performance2', { unit: perf.unit }) : t('SummaryTab.progress')}
           domainMax={sf === 'performance' ? perf.axisMax : 100}
           onSelect={d => { if (d.id) navigate(`/employees/${d.id}/performance`) }}
         />
       )}
       {chartTotal > CHART_TOP_N && (
         <p className="text-xs text-slate-400 font-medium text-center">
-          {sd === 'DESC' ? `${CHART_TOP_N} người cao nhất` : `${CHART_TOP_N} người thấp nhất`} trong {chartTotal} nhân sự. Xem đủ ở chế độ bảng.
+          {sd === 'DESC' ? t('SummaryTab.topPeople', { CHART_TOP_N }) : t('SummaryTab.bottomPeople', { CHART_TOP_N })} {t('SummaryTab.of')} {chartTotal} {t('SummaryTab.peopleSeeAllInTableView')}
         </p>
       )}
     </div>
@@ -804,7 +809,7 @@ export function EmployeeRankingTableSection({
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value={ALL_UNITS}>Tất cả đơn vị</SelectItem>
+            <SelectItem value={ALL_UNITS}>{t('SummaryTab.allUnits')}</SelectItem>
             {(data?.rankingOptions || []).map((opt: any) => (
               <UnitSelectItem key={opt.id} o={{ code: opt.id, name: opt.name, depth: opt.depth }} />
             ))}

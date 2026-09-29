@@ -100,4 +100,10 @@ public class AgentFactory {
     public ReviewSummaryAgent reviewSummaryAgent(ChatModel chatModel) {
         return AiServices.builder(ReviewSummaryAgent.class).chatModel(chatModel).build();
     }
+
+    /** Tóm tắt nhận xét báo cáo đánh giá 360. */
+    @Bean
+    public Feedback360SummaryAgent feedback360SummaryAgent(ChatModel chatModel) {
+        return AiServices.builder(Feedback360SummaryAgent.class).chatModel(chatModel).build();
+    }
 }

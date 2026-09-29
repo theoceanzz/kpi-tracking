@@ -1,6 +1,7 @@
 import type { Step } from 'react-joyride'
 import { navItems, type NavItem } from '@/config/navigation'
 import { splitTourKey, type TourKey } from '@/store/tourStore'
+import i18n from 'i18next'
 
 export interface TourDef {
   /**
@@ -18,20 +19,38 @@ export interface TourDef {
  * kiểm được độ phủ (xem `warnMissingTours` bên dưới), và nút "Xem lại hướng dẫn" trên
  * header liệt kê được các tầng mà không phải đi hỏi từng trang.
  */
-export const tourRegistry: Record<TourKey, TourDef> = {}
+type TourSource = () => Record<TourKey, TourDef>
 
-/** Nạp một cụm bài hướng dẫn vào registry. Mỗi file trong thư mục này gọi một lần. */
-export function registerTours(entries: Record<TourKey, TourDef>) {
-  for (const [key, def] of Object.entries(entries)) {
-    if (import.meta.env.DEV && tourRegistry[key]) {
-      console.warn(`[tours] Khoá "${key}" bị đăng ký hai lần — bài sau ghi đè bài trước.`)
+const sources: TourSource[] = []
+let cache: { lang: string | undefined; count: number; value: Record<TourKey, TourDef> } | null = null
+
+/**
+ * Bài hướng dẫn có chữ đã dịch, nên phải dựng lại mỗi khi đổi ngôn ngữ: registry giữ các HÀM dựng
+ * (getter) và chỉ gộp lại khi ngôn ngữ đổi hoặc có cụm mới được đăng ký.
+ */
+export function tourRegistry(): Record<TourKey, TourDef> {
+  const lang = i18n.language
+  if (cache && cache.lang === lang && cache.count === sources.length) return cache.value
+  const value: Record<TourKey, TourDef> = {}
+  for (const source of sources) {
+    for (const [key, def] of Object.entries(source())) {
+      if (import.meta.env.DEV && value[key]) {
+        console.warn(`[tours] Khoá "${key}" bị đăng ký hai lần — bài sau ghi đè bài trước.`)
+      }
+      value[key] = def
     }
-    tourRegistry[key] = def
   }
+  cache = { lang, count: sources.length, value }
+  return value
+}
+
+/** Nạp một cụm bài hướng dẫn vào registry. Mỗi file trong thư mục này gọi một lần, truyền getter. */
+export function registerTours(source: TourSource) {
+  sources.push(source)
 }
 
 export function getTour(key: TourKey | null | undefined): TourDef | undefined {
-  return key ? tourRegistry[key] : undefined
+  return key ? tourRegistry()[key] : undefined
 }
 
 export function hasTour(key: TourKey | null | undefined): boolean {
@@ -40,7 +59,7 @@ export function hasTour(key: TourKey | null | undefined): boolean {
 
 /* ─── Nhãn ─── */
 
-function findPageItem(navId: string, items: NavItem[] = navItems): NavItem | undefined {
+function findPageItem(navId: string, items: NavItem[] = navItems()): NavItem | undefined {
   for (const item of items) {
     if (item.id === navId) return item
     const found = item.children ? findPageItem(navId, item.children) : undefined
@@ -57,7 +76,7 @@ function findPageItem(navId: string, items: NavItem[] = navItems): NavItem | und
  * khác nhau (`bsc`). Tra toàn cây sẽ lấy nhầm nhãn của mục kia.
  */
 export function tourTitleOf(key: TourKey): string {
-  const explicit = tourRegistry[key]?.title
+  const explicit = tourRegistry()[key]?.title
   if (explicit) return explicit
 
   const { navId, sectionId } = splitTourKey(key)
@@ -94,7 +113,7 @@ export function warnMissingTours() {
 
       // Dashboard chia bài theo vai trò nên không có bài nào mang đúng khoá `dashboard`.
       const hasAnyVariant =
-        hasTour(item.id) || Object.keys(tourRegistry).some((k) => k.startsWith(`${item.id}/`))
+        hasTour(item.id) || Object.keys(tourRegistry()).some((k) => k.startsWith(`${item.id}/`))
       if (!hasAnyVariant) missing.push(item.id)
 
       for (const section of item.sections ?? []) {
@@ -103,11 +122,11 @@ export function warnMissingTours() {
       }
     }
   }
-  walk(navItems)
+  walk(navItems())
 
   if (missing.length) {
     console.warn(
-      `[tours] ${missing.length} mục điều hướng chưa có hướng dẫn:\n  ` + missing.join('\n  ')
+      i18n.t('shared:registry.toursNavigationItemsHaveNoGuide', { count: missing.length }) + missing.join('\n  ')
     )
   }
 }

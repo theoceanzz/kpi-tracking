@@ -31,6 +31,11 @@ public class CycleUnitEvaluationResponse {
     /** TB mức định tính (0..5) và TB xếp loại ma trận (1..5) của thành viên. */
     private Double qualScore;
     private Double matrixRating;
+    /**
+     * TB trục HÀNH VI (0..5) của thành viên — mức định tính nếu có, còn không thì điểm hạnh
+     * kiểm đã quy đổi. Kỳ chạy chế độ Định lượng không có {@link #qualScore} nhưng vẫn có số này.
+     */
+    private Double behaviorScore;
     private int memberCount;
 
     /** true khi các con số trên là snapshot lúc chốt, không phải tính lại. */
@@ -48,8 +53,19 @@ public class CycleUnitEvaluationResponse {
     /** Thông tin chốt (nếu đã lưu). */
     private CycleUnitEvalStatus status;
     private String comment;
+    /** Người bấm "chốt dữ liệu kỳ" và thời điểm — null khi còn nháp. */
+    private String calibratedByName;
+    private Instant calibratedAt;
     private String finalizedByName;
     private Instant finalizedAt;
+
+    /**
+     * Đơn vị gốc (không có cấp cha). Khoá kết quả ở đơn vị gốc = KHOÁ LUÔN KỲ (kèm xử lý các đợt
+     * còn dở), mở khoá kết quả ở đó = mở lại kỳ.
+     */
+    private boolean rootUnit;
+    /** Trạng thái kỳ (OPEN | LOCKED). */
+    private com.kpitracking.enums.KpiCycleStatus cycleStatus;
 
     /**
      * Phân bố mức của thành viên trong kỳ, đối chiếu với khung bell curve đang áp cho đơn vị.
