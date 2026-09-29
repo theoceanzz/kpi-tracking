@@ -54,6 +54,15 @@ interface ShellProps {
 function useDialogBehaviour(open: boolean, onClose: () => void, dismissible: boolean) {
   const panelRef = useRef<HTMLDivElement>(null)
   const restoreRef = useRef<HTMLElement | null>(null)
+  // `onClose` / `dismissible` đọc qua ref: nơi dùng hay truyền hàm tạo mới mỗi lần render. Để chúng
+  // trong deps thì MỖI phím gõ vào ô trong hộp thoại (state nằm cùng component) làm effect chạy lại
+  // và focus bị kéo về phần tử đầu tiên — gõ được một chữ là mất con trỏ.
+  const onCloseRef = useRef(onClose)
+  const dismissibleRef = useRef(dismissible)
+  useEffect(() => {
+    onCloseRef.current = onClose
+    dismissibleRef.current = dismissible
+  })
 
   useEffect(() => {
     if (!open) return
@@ -73,7 +82,11 @@ function useDialogBehaviour(open: boolean, onClose: () => void, dismissible: boo
       // Phím gõ trong bong bóng K.AI (portal riêng, nằm trên hộp thoại) là của K.AI: Esc không
       // đóng hộp thoại, Tab không bị kéo về panel.
       if ((e.target as HTMLElement | null)?.closest?.('[data-ai-widget]')) return
-      if (e.key === 'Escape' && dismissible) { e.stopPropagation(); onClose() }
+      // Esc khi đang mở danh sách chọn / popover / menu (portal Radix, focus nằm trong đó) chỉ đóng lớp đó —
+      // Radix tự đóng nó, hộp thoại không được đóng theo.
+      if (e.key === 'Escape'
+        && (e.target as HTMLElement | null)?.closest?.('[data-radix-popper-content-wrapper],[role="listbox"],[role="menu"]')) return
+      if (e.key === 'Escape' && dismissibleRef.current) { e.stopPropagation(); onCloseRef.current() }
       // Giữ focus trong hộp thoại khi Tab qua đầu/cuối.
       if (e.key === 'Tab' && panelRef.current) {
         const nodes = panelRef.current.querySelectorAll<HTMLElement>(
@@ -92,7 +105,7 @@ function useDialogBehaviour(open: boolean, onClose: () => void, dismissible: boo
       window.clearTimeout(t)
       restoreRef.current?.focus?.()
     }
-  }, [open, onClose, dismissible])
+  }, [open])
 
   return panelRef
 }

@@ -2,6 +2,7 @@ import { useState, type ReactNode } from 'react'
 import { Search, SlidersHorizontal, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
+import { Input } from '@/components/ui/input'
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { ChoiceChip } from '@/components/ui/choice-chip'
 
@@ -50,30 +51,28 @@ export default function FilterBar({ children, search, overflow, overflowActiveCo
         </Popover>
       )}
       {search && (
-        <label className={cn('relative ml-auto flex h-9 w-full items-center', search.className ?? 'sm:w-64')}>
-          <Search size={16} aria-hidden="true" className="pointer-events-none absolute left-3 text-[var(--color-muted-foreground)]" />
-          <input
-            type="search"
-            value={search.value}
-            onChange={e => search.onChange(e.target.value)}
-            placeholder={search.placeholder ?? 'Tìm kiếm…'}
-            aria-label={search.placeholder ?? 'Tìm kiếm'}
-            className={cn('h-9 w-full rounded-control border border-[var(--color-input)] bg-[var(--color-card)] pl-9 text-sm',
-              // Chỉ chừa chỗ cho nút xoá khi có chữ — không thì placeholder bị cắt oan.
-              search.value ? 'pr-8' : 'pr-3',
-              ' text-[var(--color-foreground)] transition-colors placeholder:text-[var(--color-muted-foreground)] hover:border-[var(--color-border-strong)] focus:border-[var(--color-ring)] focus:outline-none focus:ring-2 focus:ring-[var(--color-ring)]')}
-          />
-          {search.value && (
+        // Ô nhập chuẩn (focus một lớp); nút xoá chỉ hiện khi có chữ — không thì placeholder bị cắt oan.
+        <Input
+          type="search"
+          value={search.value}
+          onChange={e => search.onChange(e.target.value)}
+          placeholder={search.placeholder ?? 'Tìm kiếm…'}
+          aria-label={search.placeholder ?? 'Tìm kiếm'}
+          prefix={<Search aria-hidden="true" />}
+          suffix={search.value ? (
             <button
               type="button"
               onClick={() => search.onChange('')}
               aria-label="Xoá tìm kiếm"
-              className="absolute right-2 flex h-5 w-5 items-center justify-center rounded-sm text-[var(--color-muted-foreground)] hover:bg-[var(--color-muted)] hover:text-[var(--color-foreground)]"
+              className="flex h-5 w-5 items-center justify-center rounded-sm hover:bg-[var(--color-muted)] hover:text-[var(--color-foreground)] [&_svg]:size-3.5"
             >
-              <X size={14} />
+              <X />
             </button>
-          )}
-        </label>
+          ) : undefined}
+          className={cn('ml-auto w-full', search.className ?? 'sm:w-64')}
+          // Nút xoá riêng ở trên — ẩn nút ✕ mặc định của trình duyệt cho ô type="search" để khỏi hai nút.
+          inputClassName="[&::-webkit-search-cancel-button]:appearance-none"
+        />
       )}
       {trailing && <div className={cn('flex items-center gap-1', !search && 'ml-auto')}>{trailing}</div>}
     </div>

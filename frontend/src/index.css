@@ -330,8 +330,17 @@ body {
   text-rendering: optimizeLegibility;
 }
 
-* {
-  border-color: var(--color-border);
+/* Màu viền mặc định. PHẢI nằm trong @layer base: Tailwind v4 đặt mọi class vào @layer, còn CSS ngoài
+   layer luôn thắng — để ngoài thì mọi `border-[var(--color-…)]`, `divide-…`, `border-transparent` của
+   cả app bị đè về màu xám (đã xảy ra từ khi lên v4: viền đỏ ô sai, viền cảnh báo, viền chọn đều mất). */
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-border);
+  }
 }
 
 /* Bảng số liệu: mọi con số trong <table> và <dd> xếp thẳng cột. */
@@ -354,6 +363,14 @@ table, dd {
 }
 .ai-composer:focus-visible,
 .ai-composer textarea:focus-visible {
+  outline: none;
+}
+
+/* Ô nhập chuẩn (Input / Textarea — components/ui): cùng lý do, focus là MỘT lớp viền đổi màu + quầng
+   mờ đặt trong component. Không tắt outline chung ở đây thì ô có đơn vị ("%") hiện thêm một khung
+   vuông quanh thẻ <input> bên trong vòng focus của khung bọc; ô thường hiện vòng ring + outline cách 2px. */
+.field:focus-visible,
+.field-shell :focus-visible {
   outline: none;
 }
 
