@@ -38,6 +38,7 @@ import { isSubmittableByUser } from '../utils/submittable'
 import { useTranslation } from 'react-i18next'
 import { useFormDraft } from '@/hooks/useFormDraft'
 import DraftNotice from '@/components/common/DraftNotice'
+import AiSelfCheckPanel from '../components/AiSelfCheckPanel'
 
 export default function NewSubmissionPage() {
   const { t } = useTranslation('submissions')
@@ -167,6 +168,10 @@ export default function NewSubmissionPage() {
 
   const selectedKpiId = watch('kpiCriteriaId')
   const selectedKpi = myKpiData?.content?.find(k => k.id === selectedKpiId)
+  // Dấu vân tay của bài đang soạn: khối AI tự soi so với lúc bấm để biết kết quả đang hiện có còn là của bản này.
+  const [wActual, wLevel, wNote] = watch(['actualValue', 'qualitativeLevelId', 'note'])
+  const selfCheckSignature = JSON.stringify([wActual ?? null, wLevel ?? null, wNote ?? '',
+    files.map(f => `${f.name}:${f.size}:${f.lastModified}`)])
 
   // Chép lại ĐÚNG các điều kiện đang dùng để vẽ ô bên dưới — không viết logic mới, vì hai bên
   // lệch nhau là quay về đúng lỗi này: trợ lý điền một ô không tồn tại trên màn hình.
@@ -412,6 +417,25 @@ export default function NewSubmissionPage() {
                   </div>
                </div>
 
+            {/* AI soi bài: đặt sau phần viết + đính kèm, ngay trước nút gửi — đúng lúc người nộp cần. Cùng khung
+                với khối AI ở màn chấm của quản lý. */}
+            {selectedKpi && (
+              <AiSelfCheckPanel
+                key={selectedKpi.id}
+                kpiCriteriaId={selectedKpi.id}
+                kpiName={selectedKpi.name}
+                submissionId={isEdit ? id : undefined}
+                files={files}
+                signature={selfCheckSignature}
+                getDraft={() => {
+                  const v = getValues()
+                  return isQualitative
+                    ? { qualitativeLevelId: v.qualitativeLevelId ?? null, note: v.note ?? null }
+                    : { actualValue: v.actualValue ?? null, note: v.note ?? null }
+                }}
+              />
+            )}
+
             {/* Nút: thứ tự cố định [Hủy] … [Lưu nháp] [Gửi duyệt] */}
             <div className="flex flex-col-reverse gap-2 border-t border-[var(--color-border)] pt-4 sm:flex-row sm:items-center">
               <Button type="button" variant="ghost" onClick={() => navigate(-1)} disabled={mutation.isPending}>{t('NewSubmissionPage.cancel')}</Button>
@@ -448,6 +472,7 @@ export default function NewSubmissionPage() {
               <p className="text-caption">{t('NewSubmissionPage.chooseAKpiToSeeThe')}</p>
             </section>
           )}
+
 
           <section className="rounded-card border border-[var(--color-border)] bg-[var(--color-card)] p-4">
             <h2 className="text-eyebrow">{t('NewSubmissionPage.note')}</h2>

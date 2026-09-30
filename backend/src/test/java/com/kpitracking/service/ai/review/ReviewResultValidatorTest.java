@@ -56,6 +56,46 @@ class ReviewResultValidatorTest {
     }
 
     @Test
+    @DisplayName("căn cứ: mã mô hình chọn -> đoạn gốc của bộ tiêu chí; giữ cả khi nhận xét bị bỏ; mã lạ bị bỏ")
+    void resolvesBasisFromRefs() {
+        ReviewContext withSet = new ReviewContext(ctx.organizationId(), ctx.kpiPeriodId(), ctx.periodName(),
+                ctx.userId(), ctx.userName(), ctx.criteria(), ctx.scale(), List.of(), ctx.weights(), List.of(),
+                new ReviewContext.CriteriaSet(java.util.UUID.randomUUID(), 1, "Quy chế", List.of(
+                        new ReviewContext.CriteriaRow("Task hoàn thành", "≥ 10 task", 20.0, null, null, "TIEU_CHI",
+                                "Điều 4. Mỗi tháng hoàn thành tối thiểu 10 task.", true, null))),
+                List.of());
+        ReviewResults.CriterionAssessment a = new ReviewResults.CriterionAssessment("Hoàn thành 12 task",
+                new ReviewResults.Quality("TỐT", "Có số liệu", List.of("vượt 200% chỉ tiêu quý")),
+                null, null, null, List.of(), List.of("Thiếu minh chứng"), List.of(), List.of("TC1", "TC7"));
+
+        var r = validator.validate(withSet, c, a);
+
+        assertThat(r.qualityLevel()).isNull();   // trích dẫn bịa -> bỏ mức
+        assertThat(r.basis()).singleElement().satisfies(b -> {
+            assertThat(b.ref()).isEqualTo("TC1");
+            assertThat(b.excerpt()).isEqualTo("Điều 4. Mỗi tháng hoàn thành tối thiểu 10 task.");
+        });
+    }
+
+    @Test
+    @DisplayName("tự soi: điểm mạnh chỉ giữ khi có câu trích thật trong bài; thiếu / gợi ý giữ nguyên")
+    void selfCheckKeepsOnlyGroundedStrengths() {
+        var grounded = validator.validateSelfCheck(ctx, c, new ReviewResults.SelfCheckAssessment("Bài nêu số task",
+                List.of("Có số liệu cụ thể"), List.of("đã hoàn thành 12 task"), List.of("Thiếu danh sách task"),
+                List.of("Đính kèm bảng task"), List.of()));
+        assertThat(grounded.strengths()).containsExactly("Có số liệu cụ thể");
+        assertThat(grounded.evidenceQuotes()).containsExactly("đã hoàn thành 12 task");
+
+        var invented = validator.validateSelfCheck(ctx, c, new ReviewResults.SelfCheckAssessment("Bài tốt",
+                List.of("Vượt chỉ tiêu"), List.of("vượt 200% chỉ tiêu quý"), List.of("Thiếu danh sách task"),
+                List.of("Đính kèm bảng task"), List.of("TC1")));
+        assertThat(invented.strengths()).isEmpty();
+        assertThat(invented.evidenceQuotes()).isEmpty();
+        assertThat(invented.gaps()).containsExactly("Thiếu danh sách task");
+        assertThat(invented.basis()).isEmpty();   // không có bộ tiêu chí -> không có gì để trích
+    }
+
+    @Test
     @DisplayName("trích dẫn xê dịch hoa/thường, dấu câu, khoảng trắng -> vẫn nhận là có thật")
     void toleratesSmallQuoteDrift() {
         var r = validator.validate(ctx, c, assessment("KHÁ", List.of("“Đã  hoàn thành 12 TASK.”"), null, null, null));

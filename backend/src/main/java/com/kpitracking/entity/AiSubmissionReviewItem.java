@@ -2,6 +2,8 @@ package com.kpitracking.entity;
 
 import jakarta.persistence.*;
 import lombok.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import org.springframework.data.annotation.CreatedDate;
 import org.springframework.data.jpa.domain.support.AuditingEntityListener;
 
@@ -69,6 +71,14 @@ public class AiSubmissionReviewItem {
     /** Lỗi riêng của chỉ tiêu này — một chỉ tiêu lỗi không làm hỏng cả lượt. */
     @Column(name = "error_message", columnDefinition = "TEXT")
     private String errorMessage;
+
+    /**
+     * Căn cứ của nhận xét (dòng bộ tiêu chí / đoạn quy chế, kèm đoạn văn gốc) — mảng JSON
+     * {@code ReviewResults.Basis}, bản chụp lúc chấm: sửa bộ tiêu chí sau đó không đổi lời giải thích cũ.
+     */
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "basis_citations", columnDefinition = "jsonb")
+    private String basisCitations;
 
     @Column(name = "manager_score", precision = 6, scale = 2)
     private BigDecimal managerScore;

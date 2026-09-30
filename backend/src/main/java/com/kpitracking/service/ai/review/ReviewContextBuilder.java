@@ -145,6 +145,27 @@ public class ReviewContextBuilder {
                 conductSource.forPeriod(org, period));
     }
 
+    /**
+     * Ngữ cảnh cho luồng nhân viên TỰ SOI: đúng MỘT chỉ tiêu, bài là bản đang soạn (chưa lưu, chưa nộp). Không có
+     * thang chất lượng, lịch sử chấm hay tỉ lệ đạt — luồng này không chọn mức, không tính số.
+     */
+    @Transactional(readOnly = true)
+    public ReviewContext buildDraft(Organization org, UUID userId, UUID kpiCriteriaId, ReviewContext.Submission draft) {
+        KpiCriteria kpi = kpiCriteriaRepository.findById(kpiCriteriaId).orElseThrow();
+        User user = userRepository.findById(userId).orElse(null);
+        KpiPeriod period = kpi.getKpiPeriod();
+        ReviewContext.Submission sub = new ReviewContext.Submission(draft.id(), cut(draft.note()), draft.actualValue(),
+                draft.qualitativeLevel(), draft.status(), draft.submittedAt(), draft.attachments(), draft.evidence());
+        ReviewContext.Criterion c = new ReviewContext.Criterion(kpi.getId(), kpi.getName(), cut(kpi.getDescription()),
+                kpi.getKpiType() == KpiType.QUALITATIVE, kpi.getUnit(), kpi.getTargetValue(), kpi.getMinimumValue(),
+                Boolean.TRUE.equals(kpi.getIsReverseKpi()), kpi.getWeight() == null ? 0.0 : kpi.getWeight(),
+                kpi.getEffectiveDeadline(), null, List.of(sub), List.of());
+        return new ReviewContext(org.getId(), period == null ? null : period.getId(),
+                period == null ? null : period.getName(), userId, user == null ? null : user.getFullName(),
+                List.of(c), List.of(), List.of(), settingsResolver.resolve(org, userId).weights(),
+                List.of(), settingsResolver.criteriaSetFor(org.getId(), userId), List.of());
+    }
+
     /** Lần quản lý đã chấm chỉ tiêu cùng tên ở đợt trước — tham khảo, không vào điểm. */
     private List<ReviewContext.HistoryEntry> history(UUID userId, String kpiName, UUID kpiPeriodId) {
         if (kpiName == null) return List.of();

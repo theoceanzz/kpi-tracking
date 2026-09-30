@@ -34,4 +34,6 @@ public class AiSubmissionReviewItemResponse {
     private List<String> gaps;
     private List<String> suggestions;
     private String errorMessage;
+    /** Căn cứ (điều khoản / đoạn quy chế) kèm đoạn văn gốc — rỗng với lượt chấm trước khi có tính năng này. */
+    private List<AiReviewBasisResponse> basis;
 }

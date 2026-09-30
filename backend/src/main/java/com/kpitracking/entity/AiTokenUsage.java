@@ -65,6 +65,8 @@ public class AiTokenUsage {
         HELP,
         /** AI đọc bài nộp và đề xuất điểm khi quản lý chấm (đường riêng, không qua khung chat). */
         SUBMISSION_REVIEW,
+        /** Nhân viên tự nhờ AI soi bài trước khi nộp — tính vào hạn mức của chính nhân viên. */
+        SUBMISSION_SELF_CHECK,
         /** Tóm tắt nhận xét báo cáo đánh giá 360. */
         FEEDBACK360
     }

@@ -63,6 +63,7 @@ public class ReviewRecorder {
                     .gaps(AiSubmissionReviewMapper.join(r.gaps()))
                     .suggestions(AiSubmissionReviewMapper.join(r.suggestions()))
                     .errorMessage(r.error())
+                    .basisCitations(ReviewBasis.toJson(r.basis()))
                     .build());
         }
         review.setOverallSummary(run.getSummary());

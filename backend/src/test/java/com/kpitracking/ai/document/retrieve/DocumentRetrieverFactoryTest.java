@@ -3,7 +3,6 @@ package com.kpitracking.ai.document.retrieve;
 import dev.langchain4j.store.embedding.filter.Filter;
 import dev.langchain4j.store.embedding.filter.comparison.IsEqualTo;
 import dev.langchain4j.store.embedding.filter.comparison.IsIn;
-import dev.langchain4j.store.embedding.filter.comparison.IsNotIn;
 import dev.langchain4j.store.embedding.filter.logical.And;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -46,20 +45,24 @@ class DocumentRetrieverFactoryTest {
     }
 
     @Test
-    @DisplayName("chấm bài: quy chế đang áp cho đơn vị khác bị loại (DOC_ID not in); danh sách rỗng → bộ lọc như cũ")
-    void excludedDocumentsFilteredOut() {
-        String other = UUID.randomUUID().toString();
+    @DisplayName("chấm bài: CHỈ tài liệu trong danh sách cho phép (DOC_ID in); rỗng → không đọc gì; null → như cũ")
+    void onlyAllowedDocuments() {
+        String mine = UUID.randomUUID().toString();
 
-        Filter f = DocumentRetrieverFactory.filterFor(RetrievalProfile.SUBMISSION_REVIEW, org, List.of(other));
+        Filter f = DocumentRetrieverFactory.filterFor(RetrievalProfile.SUBMISSION_REVIEW, org, List.of(mine));
 
         And and = (And) f;
-        assertThat(and.right()).isInstanceOf(IsNotIn.class);
-        assertThat(((IsNotIn) and.right()).key()).isEqualTo("docId");
-        assertThat(((IsNotIn) and.right()).comparisonValues()).map(Object::toString).containsExactly(other);
+        assertThat(and.right()).isInstanceOf(IsIn.class);
+        assertThat(((IsIn) and.right()).key()).isEqualTo("docId");
+        assertThat(((IsIn) and.right()).comparisonValues()).map(Object::toString).containsExactly(mine);
         // Chốt chặn tổ chức vẫn nằm ở vế trái.
         assertThat(((And) and.left()).left()).isInstanceOf(IsEqualTo.class);
 
-        assertThat(DocumentRetrieverFactory.filterFor(RetrievalProfile.SUBMISSION_REVIEW, org, List.of()))
+        And none = (And) DocumentRetrieverFactory.filterFor(RetrievalProfile.SUBMISSION_REVIEW, org, List.of());
+        assertThat(none.right()).isInstanceOf(IsEqualTo.class);
+        assertThat(((IsEqualTo) none.right()).comparisonValue()).isEqualTo(DocumentRetrieverFactory.NOBODY);
+
+        assertThat(DocumentRetrieverFactory.filterFor(RetrievalProfile.SUBMISSION_REVIEW, org, null))
                 .isEqualTo(DocumentRetrieverFactory.filterFor(RetrievalProfile.SUBMISSION_REVIEW, org));
     }
 

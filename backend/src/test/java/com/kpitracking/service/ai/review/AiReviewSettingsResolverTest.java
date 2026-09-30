@@ -6,7 +6,9 @@ import com.kpitracking.entity.OrgUnit;
 import com.kpitracking.entity.Organization;
 import com.kpitracking.entity.UserRoleOrgUnit;
 import com.kpitracking.repository.AiCriteriaSetItemRepository;
+import com.kpitracking.entity.RagDocument;
 import com.kpitracking.repository.AiCriteriaSetRepository;
+import com.kpitracking.repository.RagDocumentRepository;
 import com.kpitracking.repository.AiReviewUnitSettingRepository;
 import com.kpitracking.repository.OrgUnitRepository;
 import com.kpitracking.repository.UserRoleOrgUnitRepository;
@@ -29,6 +31,7 @@ class AiReviewSettingsResolverTest {
 
     private AiReviewUnitSettingRepository unitSettings;
     private AiCriteriaSetRepository sets;
+    private RagDocumentRepository ragDocs;
     private AiReviewSettingsResolver resolver;
 
     private final Organization org = new Organization();
@@ -55,8 +58,9 @@ class AiReviewSettingsResolverTest {
         sets = mock(AiCriteriaSetRepository.class);
         UserRoleOrgUnitRepository assignments = mock(UserRoleOrgUnitRepository.class);
         OrgUnitRepository units = mock(OrgUnitRepository.class);
+        ragDocs = mock(RagDocumentRepository.class);
         resolver = new AiReviewSettingsResolver(unitSettings, sets, mock(AiCriteriaSetItemRepository.class),
-                assignments, units);
+                assignments, units, ragDocs);
 
         org.setId(UUID.randomUUID());
         org.setEnableAi(true);
@@ -121,23 +125,45 @@ class AiReviewSettingsResolverTest {
         assertThat(resolver.criteriaSetFor(org.getId(), staffId)).isNull();
     }
 
+    private RagDocument doc(UUID id, String title) {
+        return RagDocument.builder().id(id).organizationId(org.getId()).source(RagDocument.Source.REGULATION)
+                .title(title).status(RagDocument.Status.READY).build();
+    }
+
     @Test
-    @DisplayName("trích quy chế: bỏ tài liệu kho của bộ đang áp cho đơn vị khác, giữ của bộ đã chọn (kể cả khi dùng chung)")
-    void regulationDocsOfOtherUnitsExcluded() {
+    @DisplayName("trích quy chế: CHỈ tài liệu của bộ đã chọn (kể cả bộ nhân bản dùng chung) + tài liệu nạp tay")
+    void regulationDocsAllowList() {
         UUID mine = UUID.randomUUID();
         UUID other = UUID.randomUUID();
+        UUID manual = UUID.randomUUID();
         AiCriteriaSet chosen = AiCriteriaSet.builder().id(UUID.randomUUID()).organizationId(org.getId())
                 .orgUnitId(dept.getId()).status(AiCriteriaSet.CONFIRMED).ragDocumentId(mine).build();
         AiCriteriaSet sharedClone = AiCriteriaSet.builder().id(UUID.randomUUID()).organizationId(org.getId())
                 .orgUnitId(UUID.randomUUID()).status(AiCriteriaSet.CONFIRMED).ragDocumentId(mine).build();
         AiCriteriaSet otherUnit = AiCriteriaSet.builder().id(UUID.randomUUID()).organizationId(org.getId())
                 .orgUnitId(UUID.randomUUID()).status(AiCriteriaSet.CONFIRMED).ragDocumentId(other).build();
-        when(sets.findByOrganizationIdAndStatus(org.getId(), AiCriteriaSet.CONFIRMED))
-                .thenReturn(List.of(chosen, sharedClone, otherUnit));
+        when(sets.findByOrganizationIdOrderByCreatedAtDesc(org.getId())).thenReturn(List.of(chosen, sharedClone, otherUnit));
+        RagDocument pending = doc(UUID.randomUUID(), "Đang nạp");
+        pending.setStatus(RagDocument.Status.PENDING);
+        when(ragDocs.findByOrganizationIdOrderByCreatedAtDesc(org.getId())).thenReturn(List.of(
+                doc(mine, "Quy chế phòng"), doc(other, "Quy chế đơn vị khác"), doc(manual, "Sổ tay nạp tay"), pending));
 
-        assertThat(resolver.regulationDocsNotFor(org.getId(), chosen.getId())).containsExactly(other.toString());
-        // Người chưa có bộ nào áp: mọi quy chế gắn bộ tiêu chí đều bị loại (chỉ còn tài liệu nạp tay).
-        assertThat(resolver.regulationDocsNotFor(org.getId(), null))
-                .containsExactlyInAnyOrder(mine.toString(), other.toString());
+        assertThat(resolver.regulationDocsFor(org.getId(), chosen.getId()))
+                .containsExactlyInAnyOrder(mine.toString(), manual.toString());
+        // Người chưa có bộ nào áp: chỉ còn tài liệu nạp tay dùng chung.
+        assertThat(resolver.regulationDocsFor(org.getId(), null)).containsExactly(manual.toString());
+    }
+
+    @Test
+    @DisplayName("đoạn mồ côi trong kho vector (không còn trong rag_documents) không bao giờ vào danh sách cho phép")
+    void orphanChunksNeverAllowed() {
+        // Ca 29/09: DB dựng lại, kho vector còn giữ đoạn của "Quy_dinh_van_hanh_IT-OPS-2026" cũ. Danh sách cho phép
+        // lấy từ rag_documents nên tài liệu đó (không có dòng nào) tự nhiên bị loại — không cần biết id của nó.
+        AiCriteriaSet chosen = AiCriteriaSet.builder().id(UUID.randomUUID()).organizationId(org.getId())
+                .status(AiCriteriaSet.CONFIRMED).build();   // bộ chưa có tài liệu kho
+        when(sets.findByOrganizationIdOrderByCreatedAtDesc(org.getId())).thenReturn(List.of(chosen));
+        when(ragDocs.findByOrganizationIdOrderByCreatedAtDesc(org.getId())).thenReturn(List.of());
+
+        assertThat(resolver.regulationDocsFor(org.getId(), chosen.getId())).isEmpty();
     }
 }

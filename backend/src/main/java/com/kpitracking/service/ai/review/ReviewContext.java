@@ -172,11 +172,22 @@ public record ReviewContext(
     /** Bộ tiêu chí tổ chức đã xác nhận: phiên bản và các dòng. */
     public record CriteriaSet(UUID id, int version, String title, List<CriteriaRow> rows) {}
 
-    /** @param kind TIEU_CHI (căn cứ chấm) · THANG_MUC (thang xếp loại) · THAM_KHAO (quy định liên quan) */
+    /**
+     * @param kind            TIEU_CHI (căn cứ chấm) · THANG_MUC (thang xếp loại) · THAM_KHAO (quy định liên quan)
+     * @param sourceExcerpt   đoạn văn GỐC trong tài liệu quy chế mà dòng này bóc ra — không gửi cho mô hình, chỉ
+     *                        dùng để trích dẫn khi giải thích kết quả ({@link ReviewBasis})
+     * @param excerptVerified đoạn gốc có thật trong tài liệu (máy đã đối chiếu)
+     * @param topic           chủ đề (chương / phụ lục) của dòng trong tài liệu
+     */
     public record CriteriaRow(String name, String description, Double weight, String scaleLevels, String scope,
-                              String kind) {
+                              String kind, String sourceExcerpt, boolean excerptVerified, String topic) {
         public CriteriaRow(String name, String description, Double weight, String scaleLevels, String scope) {
             this(name, description, weight, scaleLevels, scope, "TIEU_CHI");
+        }
+
+        public CriteriaRow(String name, String description, Double weight, String scaleLevels, String scope,
+                           String kind) {
+            this(name, description, weight, scaleLevels, scope, kind, null, false, null);
         }
     }
 

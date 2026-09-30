@@ -49,28 +49,27 @@ public class ReviewDocumentSource {
      * tả từng chỉ tiêu, cộng một câu về cách chấm điểm).
      */
     public List<ReviewContext.Excerpt> excerpts(UUID organizationId, List<String> queries) {
-        return excerpts(organizationId, queries, List.of());
+        return excerpts(organizationId, queries, null);
     }
 
     /**
-     * Trích cho bài của MỘT người: bỏ quy chế đang áp cho đơn vị khác (mỗi đơn vị một quy chế), giữ quy chế của
-     * bộ {@code chosenSetId} đã chọn cho người đó.
+     * Trích cho bài của MỘT người: chỉ quy chế của bộ {@code chosenSetId} đã chọn cho người đó (mỗi đơn vị một quy
+     * chế) và tài liệu nạp tay dùng chung — xem {@link AiReviewSettingsResolver#regulationDocsFor}.
      */
     public List<ReviewContext.Excerpt> excerptsFor(UUID organizationId, List<String> queries, UUID chosenSetId) {
-        return excerpts(organizationId, queries, settingsResolver.regulationDocsNotFor(organizationId, chosenSetId));
+        return excerpts(organizationId, queries, settingsResolver.regulationDocsFor(organizationId, chosenSetId));
     }
 
     /**
-     * @param excludeDocIds tài liệu kho không được trích — quy chế đang áp cho đơn vị KHÁC đơn vị người được chấm
-     *                      ({@link AiReviewSettingsResolver#regulationDocsNotFor})
+     * @param onlyDocIds tài liệu kho DUY NHẤT được trích ({@code null} = mọi tài liệu của tổ chức, rỗng = không trích)
      */
-    public List<ReviewContext.Excerpt> excerpts(UUID organizationId, List<String> queries, List<String> excludeDocIds) {
+    public List<ReviewContext.Excerpt> excerpts(UUID organizationId, List<String> queries, List<String> onlyDocIds) {
         List<ReviewContext.Excerpt> out = new ArrayList<>();
         Set<String> seen = new LinkedHashSet<>();
         for (String q : queries) {
             if (q == null || q.isBlank() || out.size() >= maxExcerpts) continue;
             try {
-                for (RagSearchHitResponse h : search.search(retriever, q, organizationId, excludeDocIds)) {
+                for (RagSearchHitResponse h : search.search(retriever, q, organizationId, onlyDocIds)) {
                     String text = h.text() == null ? "" : h.text().strip();
                     if (text.isEmpty() || !seen.add(text)) continue;
                     String section = h.parent() != null && !h.parent().isBlank() ? h.parent() + " › " + h.title() : h.title();

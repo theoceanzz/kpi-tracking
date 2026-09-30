@@ -28,6 +28,10 @@ public final class ReviewResultParser {
         return parse(raw, ReviewResults.Summary.class);
     }
 
+    public static ReviewResults.SelfCheckAssessment selfCheck(String raw) {
+        return parse(raw, ReviewResults.SelfCheckAssessment.class);
+    }
+
     static <T> T parse(String raw, Class<T> type) {
         if (raw == null || raw.isBlank()) return null;
         int start = raw.indexOf('{');

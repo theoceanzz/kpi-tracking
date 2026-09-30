@@ -19,6 +19,9 @@ LUẬT BẮT BUỘC:
 4. "chatLuong.muc" PHẢI là đúng một tên mức trong THANG CHẤT LƯỢNG được cấp (chép nguyên văn). Bài nộp
    quá ít chữ để đánh giá thì để "muc": null và nói rõ trong "canBoSung".
 5. Thiếu dữ liệu thì nói thiếu — không lấp bằng câu chung chung kiểu "cần cố gắng hơn".
+5b. "canCu": mã trong ngoặc vuông ([TC1], [QC2]…) của các dòng BỘ TIÊU CHÍ / TRÍCH ĐOẠN QUY CHẾ mà bạn đã dựa
+   vào để chọn mức và nhận xét — tối đa 4 mã, chỉ ghi mã có trong dữ liệu được cấp, không chép lại nội dung dòng.
+   Không có căn cứ nào phù hợp thì để [].
 6. Nhận xét về BÀI NỘP, không về con người. Không suy diễn thái độ, năng lực hay tính cách.
 7. Viết tiếng Việt, ngắn gọn. "tomTat" 1-3 câu. Mỗi danh sách tối đa 4 ý.
 8. Trả về ĐÚNG MỘT khối JSON theo mẫu dưới, không thêm lời dẫn, không rào ```.
@@ -36,5 +39,6 @@ MẪU JSON:
   "diemDeXuat": null,
   "diemManh": ["..."],
   "canBoSung": ["điều bài nộp còn thiếu để quản lý đánh giá chắc chắn hơn"],
-  "goiYChinhSua": ["gợi ý cụ thể nhân viên có thể bổ sung / sửa"]
+  "goiYChinhSua": ["gợi ý cụ thể nhân viên có thể bổ sung / sửa"],
+  "canCu": ["TC1"]
 }

@@ -1,11 +1,13 @@
 import { useState } from 'react'
-import { AlertTriangle, ChevronDown, FileWarning, Loader2, Quote, RefreshCw, Sparkles } from 'lucide-react'
+import { AlertTriangle, ChevronDown, Loader2, RefreshCw, Sparkles } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { useHasPermission } from '@/components/auth/PermissionGate'
 import { useAuthStore } from '@/store/authStore'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
 import { useAiReview, useRequestAiReview } from '../hooks/useAiReview'
+import AiBasisList from './AiBasisList'
+import { AiItemDetail, AiPanelShell, Bullets, QuoteList, UnreadableFiles } from './AiReviewParts'
 import type { AiReview, AiReviewConfidence, AiReviewItem } from '../api/aiReviewApi'
 
 interface Props {
@@ -45,48 +47,39 @@ export default function AiReviewPanel({ periodId, userId }: Props) {
   const running = review?.status === 'QUEUED' || review?.status === 'RUNNING' || requestMutation.isPending
 
   return (
-    <section className="rounded-card border border-[var(--color-ai-line)] bg-[var(--color-card)]">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-[var(--color-border)] px-4 py-3">
-        <div className="flex items-center gap-2">
-          <Sparkles size={16} className="text-[var(--color-ai)]" aria-hidden="true" />
-          <h3 className="text-sm font-semibold text-[var(--color-foreground)]">AI đọc trước bài nộp</h3>
-          <span className="rounded-control border border-[var(--color-warning-border)] bg-[var(--color-warning-bg)] px-2 py-0.5 text-xs font-medium text-[var(--color-warning)]">
-            {review?.disclaimer ?? DISCLAIMER}
-          </span>
-        </div>
-        {review?.status === 'DONE' || review?.status === 'FAILED' ? (
-          <Button size="sm" variant="outline" disabled={running}
-                  onClick={() => requestMutation.mutate({ rerunId: review.id })}>
-            <RefreshCw aria-hidden="true" /> Chạy lại
-          </Button>
-        ) : !running && (
-          <Button size="sm" disabled={isLoading} onClick={() => requestMutation.mutate({})}>
-            <Sparkles aria-hidden="true" /> Nhờ AI xem trước
-          </Button>
-        )}
-      </header>
-
-      <div className="px-4 py-3">
-        {running ? (
-          <p className="flex items-center gap-2 text-sm text-[var(--color-muted-foreground)]">
-            <Loader2 size={16} className="animate-spin" aria-hidden="true" />
-            AI đang đọc bài nộp… Bạn có thể đóng màn này, kết quả vẫn được giữ.
-          </p>
-        ) : !review ? (
-          <p className="text-sm text-[var(--color-muted-foreground)]">
-            AI đọc phần chữ nhân viên đã viết, tóm tắt, nhận xét chất lượng và đề xuất điểm cho từng chỉ tiêu.
-            % đáp ứng và đúng hạn do hệ thống tính; điểm chính thức vẫn là điểm bạn chấm.
-          </p>
-        ) : review.status === 'FAILED' ? (
-          <p className="flex items-start gap-2 text-sm text-[var(--color-error)]">
-            <AlertTriangle size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
-            {review.errorMessage ?? 'AI chưa phân tích được lượt này.'}
-          </p>
-        ) : (
-          <ReviewResult review={review} />
-        )}
-      </div>
-    </section>
+    <AiPanelShell
+      title="AI đọc trước bài nộp"
+      chip={review?.disclaimer ?? DISCLAIMER}
+      action={review?.status === 'DONE' || review?.status === 'FAILED' ? (
+        <Button size="sm" variant="outline" disabled={running}
+                onClick={() => requestMutation.mutate({ rerunId: review.id })}>
+          <RefreshCw aria-hidden="true" /> Chạy lại
+        </Button>
+      ) : !running && (
+        <Button size="sm" disabled={isLoading} onClick={() => requestMutation.mutate({})}>
+          <Sparkles aria-hidden="true" /> Nhờ AI xem trước
+        </Button>
+      )}
+    >
+      {running ? (
+        <p className="flex items-center gap-2 text-sm text-[var(--color-muted-foreground)]">
+          <Loader2 size={16} className="animate-spin" aria-hidden="true" />
+          AI đang đọc bài nộp… Bạn có thể đóng màn này, kết quả vẫn được giữ.
+        </p>
+      ) : !review ? (
+        <p className="text-sm text-[var(--color-muted-foreground)]">
+          AI đọc phần chữ nhân viên đã viết, tóm tắt, nhận xét chất lượng và đề xuất điểm cho từng chỉ tiêu.
+          % đáp ứng và đúng hạn do hệ thống tính; điểm chính thức vẫn là điểm bạn chấm.
+        </p>
+      ) : review.status === 'FAILED' ? (
+        <p className="flex items-start gap-2 text-sm text-[var(--color-error)]">
+          <AlertTriangle size={16} className="mt-0.5 shrink-0" aria-hidden="true" />
+          {review.errorMessage ?? 'AI chưa phân tích được lượt này.'}
+        </p>
+      ) : (
+        <ReviewResult review={review} />
+      )}
+    </AiPanelShell>
   )
 }
 
@@ -120,17 +113,8 @@ function ReviewResult({ review }: { review: AiReview }) {
         </p>
       )}
 
-      {review.unreadableFiles.length > 0 && (
-        <div className="flex items-start gap-2 text-xs text-[var(--color-muted-foreground)]">
-          <FileWarning size={14} className="mt-0.5 shrink-0" aria-hidden="true" />
-          <div>
-            <p>AI không đọc được {review.unreadableFiles.length} tệp — hãy tự mở xem:</p>
-            <ul className="mt-0.5 list-disc pl-4">
-              {review.unreadableFiles.map((f, i) => <li key={i}>{f}</li>)}
-            </ul>
-          </div>
-        </div>
-      )}
+      <UnreadableFiles label={`AI không đọc được ${review.unreadableFiles.length} tệp — hãy tự mở xem:`}
+                       files={review.unreadableFiles} />
 
       <ul className="divide-y divide-[var(--color-border)] rounded-control border border-[var(--color-border)]">
         {review.items.map(item => <ItemRow key={item.id} item={item} />)}
@@ -142,7 +126,7 @@ function ReviewResult({ review }: { review: AiReview }) {
 function ItemRow({ item }: { item: AiReviewItem }) {
   const [open, setOpen] = useState(false)
   const hasDetail = !!(item.qualityComment || item.evidenceQuotes.length || item.strengths.length
-    || item.gaps.length || item.suggestions.length || item.summary)
+    || item.gaps.length || item.suggestions.length || item.summary || item.basis?.length)
 
   return (
     <li>
@@ -186,37 +170,18 @@ function ItemRow({ item }: { item: AiReviewItem }) {
       )}
 
       {open && (
-        <div className="space-y-2 bg-[var(--color-muted)] px-3 py-3 text-sm">
+        <AiItemDetail>
           {item.summary && <p className="text-[var(--color-foreground)]">{item.summary}</p>}
           {item.qualityComment && (
             <p><span className="font-medium">Nhận xét chất lượng: </span>{item.qualityComment}</p>
           )}
-          {item.evidenceQuotes.length > 0 && (
-            <div className="space-y-1">
-              {item.evidenceQuotes.map((q, i) => (
-                <p key={i} className="flex items-start gap-1.5 text-xs italic text-[var(--color-muted-foreground)]">
-                  <Quote size={12} className="mt-0.5 shrink-0" aria-hidden="true" /> {q}
-                </p>
-              ))}
-            </div>
-          )}
+          <QuoteList quotes={item.evidenceQuotes} />
           <Bullets title="Điểm mạnh" items={item.strengths} />
           <Bullets title="Cần bổ sung" items={item.gaps} />
           <Bullets title="Gợi ý chỉnh sửa" items={item.suggestions} />
-        </div>
+          <AiBasisList basis={item.basis} />
+        </AiItemDetail>
       )}
     </li>
-  )
-}
-
-function Bullets({ title, items }: { title: string; items: string[] }) {
-  if (!items.length) return null
-  return (
-    <div>
-      <p className="font-medium text-[var(--color-foreground)]">{title}</p>
-      <ul className="mt-0.5 list-disc space-y-0.5 pl-5 text-[var(--color-muted-foreground)]">
-        {items.map((s, i) => <li key={i}>{s}</li>)}
-      </ul>
-    </div>
   )
 }

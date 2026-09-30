@@ -25,22 +25,21 @@ public class DocumentSearchService {
      * @param organizationId tổ chức của người hỏi; {@code null} = không biết (hồ sơ HELP chỉ thấy tài liệu chung)
      */
     public List<RagSearchHitResponse> search(ContentRetriever retriever, String query, UUID organizationId) {
-        return search(retriever, query, organizationId, List.of());
+        return search(retriever, query, organizationId, null);
     }
 
     /**
-     * @param excludeDocIds tài liệu kho KHÔNG được đọc lần này (vd quy chế đang áp cho đơn vị khác khi chấm bài của
-     *                      một người) — xem {@link DocumentRetrieverFactory#EXCLUDE_DOCS_PARAM}
+     * @param onlyDocIds tài liệu kho DUY NHẤT được đọc lần này ({@code null} = không giới hạn, rỗng = không đọc gì)
+     *                   — xem {@link DocumentRetrieverFactory#ONLY_DOCS_PARAM}
      */
     public List<RagSearchHitResponse> search(ContentRetriever retriever, String query, UUID organizationId,
-                                             List<String> excludeDocIds) {
+                                             List<String> onlyDocIds) {
         if (query == null || query.isBlank()) return List.of();
+        if (onlyDocIds != null && onlyDocIds.isEmpty()) return List.of();   // không tài liệu nào được đọc
         String q = query.strip();
         Map<String, Object> values = new java.util.HashMap<>();
         if (organizationId != null) values.put(DocumentRetrieverFactory.ORG_PARAM, organizationId.toString());
-        if (excludeDocIds != null && !excludeDocIds.isEmpty()) {
-            values.put(DocumentRetrieverFactory.EXCLUDE_DOCS_PARAM, List.copyOf(excludeDocIds));
-        }
+        if (onlyDocIds != null) values.put(DocumentRetrieverFactory.ONLY_DOCS_PARAM, List.copyOf(onlyDocIds));
         InvocationParameters params = values.isEmpty() ? new InvocationParameters() : InvocationParameters.from(values);
         Metadata metadata = Metadata.builder()
                 .chatMessage(UserMessage.from(q))

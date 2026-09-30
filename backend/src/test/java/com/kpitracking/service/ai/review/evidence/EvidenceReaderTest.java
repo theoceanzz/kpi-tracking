@@ -174,11 +174,11 @@ class EvidenceReaderTest {
     }
 
     @Test
-    @DisplayName("tệp dài: cắt ở trần và ghi đã đọc bao nhiêu")
+    @DisplayName("tệp dài: rút về trần (giữ đầu + cuối) và ghi đã đọc bao nhiêu")
     void capsLongFiles() throws Exception {
         EvidenceText t = reader.readBytes("dai.docx", docx("x".repeat(500)), 100);
 
         assertThat(t.truncated()).isTrue();
-        assertThat(t.text()).contains("[đã cắt: đọc 100/");
+        assertThat(t.text()).contains("[… đã lược đoạn giữa: đọc 100/");
     }
 }

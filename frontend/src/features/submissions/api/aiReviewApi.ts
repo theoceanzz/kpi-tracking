@@ -25,6 +25,64 @@ export interface AiReviewItem {
   gaps: string[]
   suggestions: string[]
   errorMessage?: string | null
+  /** Căn cứ kèm đoạn văn gốc (rỗng với lượt chấm cũ). */
+  basis?: AiReviewBasis[]
+}
+
+/**
+ * Một căn cứ của nhận xét AI: dòng bộ tiêu chí (`CRITERIA`) hoặc đoạn quy chế trong kho (`REGULATION`). `excerpt`
+ * là đoạn văn GỐC do hệ thống tra — không phải chữ mô hình viết.
+ */
+export interface AiReviewBasis {
+  ref: string
+  kind: 'CRITERIA' | 'REGULATION'
+  title?: string | null
+  source?: string | null
+  excerpt?: string | null
+  /** Đoạn gốc khớp tài liệu (máy đối chiếu hoặc người duyệt đã xác nhận dòng). */
+  verified: boolean
+}
+
+/**
+ * Nhân viên tự nhờ AI soi bài trước khi nộp. Cố ý không có mức chất lượng hay điểm; chỉ chính chủ đọc được.
+ */
+export interface AiSelfCheck {
+  id: string
+  kpiCriteriaId: string
+  kpiSubmissionId?: string | null
+  status: AiReviewStatus
+  /** Trả lại lần soi trước cho đúng bài này — không tốn token. */
+  reused: boolean
+  summary?: string | null
+  evidenceQuotes: string[]
+  strengths: string[]
+  gaps: string[]
+  suggestions: string[]
+  basis: AiReviewBasis[]
+  unreadableFiles: string[]
+  filesRead?: number | null
+  filesTotal?: number | null
+  /** Phiên bản bộ tiêu chí đã dùng (null = đơn vị chưa có bộ tiêu chí xác nhận). */
+  criteriaSetVersion?: number | null
+  createdAt: string
+  finishedAt?: string | null
+}
+
+/** `reason`: AI_OFF / REVIEW_OFF / UNIT_OFF (chưa bật — ẩn hẳn), NO_QUOTA / QUOTA_USED (khoá nút, nêu lý do). */
+export interface AiSelfCheckAvailability {
+  available: boolean
+  reason?: 'AI_OFF' | 'REVIEW_OFF' | 'UNIT_OFF' | 'NO_QUOTA' | 'QUOTA_USED' | null
+  remainingTokens: number
+}
+
+/** Bài đang soạn trên form nộp bài — gửi kèm tệp chưa tải lên. */
+export interface AiSelfCheckDraft {
+  kpiCriteriaId: string
+  submissionId?: string
+  actualValue?: number | null
+  qualitativeLevelId?: string | null
+  note?: string | null
+  files: File[]
 }
 
 /** Một lượt AI đọc bài nộp của một nhân viên trong một đợt. Chỉ để THAM KHẢO. */
@@ -304,4 +362,33 @@ export interface AiCriteriaSetMeta {
   orgUnitId: string | null
   /** Ghi chú cho người duyệt (khi gửi đề nghị). */
   note?: string | null
+}
+
+const SELF = '/ai/self-checks'
+
+/** Nhân viên tự nhờ AI soi bài trước khi nộp — tính vào hạn mức token của chính người dùng. */
+export const aiSelfCheckApi = {
+  /** Gửi bài đang soạn (chạy nền). Bài y hệt lần trước thì trả kết quả cũ, không tốn token. */
+  start: (d: AiSelfCheckDraft) => {
+    const form = new FormData()
+    form.append('kpiCriteriaId', d.kpiCriteriaId)
+    if (d.submissionId) form.append('submissionId', d.submissionId)
+    if (d.actualValue != null && !Number.isNaN(d.actualValue)) form.append('actualValue', String(d.actualValue))
+    if (d.qualitativeLevelId) form.append('qualitativeLevelId', d.qualitativeLevelId)
+    if (d.note) form.append('note', d.note)
+    d.files.forEach(f => form.append('files', f))
+    return axiosInstance.post<ApiResponse<AiSelfCheck>>(SELF, form, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }).then(r => r.data.data)
+  },
+
+  get: (id: string) => axiosInstance.get<ApiResponse<AiSelfCheck>>(`${SELF}/${id}`).then(r => r.data.data),
+
+  /** Lần soi mới nhất của mình cho một chỉ tiêu, hoặc `null`. */
+  latest: (kpiCriteriaId: string) =>
+    axiosInstance.get<ApiResponse<AiSelfCheck | null>>(`${SELF}/latest`, { params: { kpiCriteriaId } })
+      .then(r => r.data.data),
+
+  availability: () =>
+    axiosInstance.get<ApiResponse<AiSelfCheckAvailability>>(`${SELF}/availability`).then(r => r.data.data),
 }

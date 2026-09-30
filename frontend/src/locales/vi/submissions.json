@@ -400,5 +400,41 @@
   "useReviewSubmission": {
     "failedToProcessTheSubmission": "Xử lý bài nộp thất bại",
     "submissionProcessed": "Đã xử lý bài nộp"
+  },
+  "AiSelfCheckPanel": {
+    "title": "AI soi bài trước khi nộp",
+    "privateNote": "Chỉ bạn xem được · không ảnh hưởng điểm",
+    "intro": "AI đọc giải trình và minh chứng bạn đang soạn, chỉ ra chỗ còn thiếu so với chỉ tiêu và quy chế của đơn vị.",
+    "askAi": "Nhờ AI soi bài",
+    "checkAgain": "Soi lại",
+    "running": "AI đang đọc bài và minh chứng…",
+    "tokensLeft": "Còn {{tokens}} token AI tháng này",
+    "noQuota": "Bạn chưa được cấp token AI nên chưa dùng được. Nhờ quản lý cấp hạn mức AI cho bạn.",
+    "quotaUsed": "Bạn đã dùng hết token AI của tháng này.",
+    "couldNotStart": "Không nhờ AI soi bài được lúc này.",
+    "failed": "AI chưa soi được lần này. Bạn thử lại sau ít phút.",
+    "checkedAt": "Lần soi lúc {{time}}",
+    "filesRead": "đã đọc {{read}}/{{total}} tệp minh chứng",
+    "stale": "Bạn đã sửa bài sau lần soi này — bấm “Soi lại” để AI đọc bản mới.",
+    "reused": "Bài không đổi so với lần soi trước — hiện lại kết quả cũ, không tốn token.",
+    "noFindings": "AI không thấy điểm nào cần góp ý.",
+    "strengths": "Điểm tốt",
+    "gaps": "Còn thiếu",
+    "suggestions": "Nên sửa / bổ sung",
+    "unreadable": "AI không đọc được {{count}} tệp — hãy tự mở xem lại:",
+    "criteriaSetVersion": "theo bộ tiêu chí phiên bản {{version}}",
+    "couldNotCheckFeature": "Chưa kiểm tra được tính năng AI soi bài — máy chủ chưa phản hồi.",
+    "retry": "Thử lại",
+    "kpi": "Chỉ tiêu"
+  },
+  "AiBasisList": {
+    "basis": "Căn cứ",
+    "criteriaRow": "Dòng quy chế",
+    "regulationPassage": "Đoạn quy chế",
+    "matchesTheDocument": "Khớp tài liệu",
+    "notMatched": "Chưa đối chiếu",
+    "notMatchedHint": "Chưa tìm thấy nguyên văn đoạn này trong tài liệu gốc — đây là nội dung đã chuẩn hoá của dòng quy chế.",
+    "showFullPassage": "Xem đủ đoạn gốc",
+    "collapse": "Thu gọn"
   }
 }

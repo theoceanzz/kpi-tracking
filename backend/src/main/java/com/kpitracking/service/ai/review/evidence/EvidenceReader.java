@@ -16,7 +16,8 @@ import java.io.IOException;
  * ba luật của tài liệu phân tích mục 7.3:
  * <ol>
  *   <li><b>Không im lặng</b> — tệp nào không đọc được vẫn trả {@link EvidenceText} kèm lý do;</li>
- *   <li><b>Cắt có kiểm soát</b> — mỗi tệp tối đa {@code max-chars-per-file}, ghi rõ đã đọc tới đâu;</li>
+ *   <li><b>Cắt có kiểm soát</b> — mỗi tệp tối đa {@code max-chars-per-file}; tệp dài được rút theo cấu trúc
+ *       ({@link EvidenceCondenser}: lược bảng trước, rồi đoạn giữa) và ghi rõ chỗ đã lược;</li>
  *   <li><b>Không trộn vào kho chung</b> — chữ bóc ra chỉ sống trong lượt phân tích (loại tài liệu
  *       {@code EVIDENCE} không nạp kho tri thức).</li>
  * </ol>
@@ -65,18 +66,13 @@ public class EvidenceReader {
             ParsedDocument doc = reader.read(FileRef.of(fileName, bytes));
             EvidenceText.Source source = doc.source() == ParsedDocument.TextSource.IMAGE
                     ? EvidenceText.Source.IMAGE : EvidenceText.Source.TEXT;
-            return cap(fileName, doc.plainText(), source, maxChars);
+            EvidenceCondenser.Result r = EvidenceCondenser.condense(doc.blocks(), doc.note(), maxChars);
+            return EvidenceText.read(fileName, r.text(), source, r.truncated() || doc.truncated());
         } catch (DocumentParser.Unparseable u) {
             return EvidenceText.unreadable(fileName, u.getMessage());
         } catch (Exception e) {
             log.warn("Không bóc được chữ từ {}: {}", fileName, e.toString());
             return EvidenceText.unreadable(fileName, "tệp hỏng hoặc được bảo vệ bằng mật khẩu");
         }
-    }
-
-    private static EvidenceText cap(String fileName, String text, EvidenceText.Source source, int max) {
-        if (text.length() <= max) return EvidenceText.read(fileName, text, source, false);
-        String cut = text.substring(0, max) + "\n… [đã cắt: đọc " + max + "/" + text.length() + " ký tự]";
-        return EvidenceText.read(fileName, cut, source, true);
     }
 }

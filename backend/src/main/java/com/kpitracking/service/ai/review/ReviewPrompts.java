@@ -6,6 +6,7 @@ import java.time.ZoneId;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 /**
  * Dựng khối dữ liệu gửi cho hai agent. Ghép chuỗi bằng mã, KHÔNG qua engine template: chữ nhân viên gõ
@@ -14,7 +15,7 @@ import java.util.Locale;
 public final class ReviewPrompts {
 
     /** Ghi vào cột {@code prompt_version} mỗi lượt — đổi prompt thì tăng số để so được trước/sau. */
-    public static final String PROMPT_VERSION = "v4";
+    public static final String PROMPT_VERSION = "v6";
 
     /** Trần chữ của khối bộ tiêu chí / trích đoạn quy chế — ngữ cảnh chung, không được lấn phần bài nộp. */
     static final int MAX_SHARED_CHARS = 3500;
@@ -34,18 +35,7 @@ public final class ReviewPrompts {
             sb.append('\n');
         }
 
-        sb.append("\n## CHỈ TIÊU\n");
-        sb.append("- Tên: ").append(c.name()).append('\n');
-        if (c.description() != null && !c.description().isBlank()) sb.append("- Mô tả: ").append(c.description()).append('\n');
-        sb.append("- Loại: ").append(c.qualitative() ? "định tính" : "định lượng").append('\n');
-        if (!c.qualitative()) {
-            if (c.targetValue() != null) sb.append("- Mục tiêu: ").append(num(c.targetValue())).append(unit(c)).append('\n');
-            if (c.minimumValue() != null) sb.append("- Ngưỡng tối thiểu: ").append(num(c.minimumValue())).append(unit(c)).append('\n');
-            if (c.reverse()) sb.append("- Chỉ tiêu NGƯỢC: càng thấp càng tốt\n");
-        }
-        sb.append("- Trọng số: ").append(num(c.weight())).append("%\n");
-        if (c.deadline() != null) sb.append("- Hạn: ").append(DATE.format(c.deadline())).append('\n');
-
+        appendCriterion(sb, c);
         appendCriteriaSet(sb, ctx.criteriaSet());
         appendExcerpts(sb, ctx.excerpts());
         appendHistory(sb, c.history());
@@ -67,11 +57,50 @@ public final class ReviewPrompts {
     }
 
     /**
+     * Khối cho {@code SubmissionSelfCheckAgent}: bài CHƯA NỘP người dùng đang soạn. Không có thang chất lượng
+     * (agent này không chọn mức) và không có lịch sử chấm của quản lý.
+     */
+    public static String selfCheckBlock(ReviewContext ctx, ReviewContext.Criterion c) {
+        StringBuilder sb = new StringBuilder();
+        appendCriterion(sb, c);
+        appendCriteriaSet(sb, ctx.criteriaSet());
+        appendExcerpts(sb, ctx.excerpts());
+
+        sb.append("\n## BÀI ĐANG SOẠN (chưa nộp)\n");
+        for (ReviewContext.Submission s : c.submissions()) {
+            if (s.actualValue() != null) sb.append("- Giá trị thực đạt định khai: ").append(num(s.actualValue())).append(unit(c)).append('\n');
+            if (s.qualitativeLevel() != null) sb.append("- Mức người nộp tự chọn: ").append(s.qualitativeLevel()).append('\n');
+            sb.append("- Nội dung người nộp viết:\n");
+            sb.append(s.note() == null || s.note().isBlank() ? "(trống)" : s.note()).append("\n");
+            appendEvidence(sb, s);
+        }
+        return sb.toString();
+    }
+
+    private static void appendCriterion(StringBuilder sb, ReviewContext.Criterion c) {
+        sb.append("\n## CHỈ TIÊU\n");
+        sb.append("- Tên: ").append(c.name()).append('\n');
+        if (c.description() != null && !c.description().isBlank()) sb.append("- Mô tả: ").append(c.description()).append('\n');
+        sb.append("- Loại: ").append(c.qualitative() ? "định tính" : "định lượng").append('\n');
+        if (!c.qualitative()) {
+            if (c.targetValue() != null) sb.append("- Mục tiêu: ").append(num(c.targetValue())).append(unit(c)).append('\n');
+            if (c.minimumValue() != null) sb.append("- Ngưỡng tối thiểu: ").append(num(c.minimumValue())).append(unit(c)).append('\n');
+            if (c.reverse()) sb.append("- Chỉ tiêu NGƯỢC: càng thấp càng tốt\n");
+        }
+        sb.append("- Trọng số: ").append(num(c.weight())).append("%\n");
+        if (c.deadline() != null) sb.append("- Hạn: ").append(DATE.format(c.deadline())).append('\n');
+    }
+
+    /**
      * Minh chứng của một bài nộp: chữ đã bóc (tin được), chữ chép từ ẢNH (có thể sai — chỉ tham khảo), và
      * tệp không đọc được (ghi tên + lý do để mô hình không giả định nội dung của nó).
      */
     private static void appendEvidence(StringBuilder sb, ReviewContext.Submission s) {
         if (s.attachments().isEmpty()) return;
+        // Nêu thẳng danh sách tệp ĐÃ đính kèm: chỉ có khối nội dung thì mô hình từng kết luận "chưa đính kèm tệp"
+        // khi bài viết nhắc tới chính tệp đó.
+        sb.append("- Tệp minh chứng đã đính kèm (").append(s.attachments().size()).append("): ")
+          .append(String.join(", ", s.attachmentNames())).append('\n');
         if (s.evidence().isEmpty()) {
             sb.append("- Tệp minh chứng (CHƯA đọc nội dung): ").append(String.join(", ", s.attachmentNames())).append('\n');
             return;
@@ -84,34 +113,32 @@ public final class ReviewPrompts {
             }
             boolean image = e.source() == EvidenceText.Source.IMAGE;
             sb.append("- Nội dung tệp «").append(e.fileName()).append("» ")
-              .append(image ? "(CHÉP TỪ ẢNH bằng máy — có thể sai, chỉ tham khảo)" : "(bóc từ tệp)").append(":\n")
-              .append(e.text()).append('\n');
+              .append(image ? "(CHÉP TỪ ẢNH bằng máy — có thể sai, chỉ tham khảo)" : "(bóc từ tệp)");
+            // Nhãn dữ liệu: phần bị lược vẫn có trong tệp — không được coi là bài thiếu.
+            if (e.truncated()) sb.append(" (tệp dài — đã lược bớt bảng / đoạn giữa; phần lược có thể còn nội dung)");
+            sb.append(":\n").append(e.text()).append('\n');
         }
     }
 
-    /** Bộ tiêu chí tổ chức đã xác nhận — căn cứ để đánh giá chất lượng. */
     /**
-     * Nhóm dòng của bộ tiêu chí đưa vào prompt chấm, theo thứ tự ưu tiên (bị cắt ở cuối khi quá dài).
-     * NHIEM_VU không đưa ở đây — bước "regulations" đã trích đúng đoạn nhiệm vụ liên quan từ kho tri thức;
-     * THUONG không dùng để chấm bài nộp.
+     * Bộ tiêu chí đã xác nhận, chia theo loại dòng ({@link ReviewBasis#KIND_HEADINGS}: thứ tự ưu tiên, bị cắt ở cuối
+     * khi quá dài) — căn cứ để chọn mức chất lượng, không phải bài nộp. Mỗi dòng mang mã {@code [TCn]} để mô hình
+     * chỉ ra đã dựa vào dòng nào. NHIEM_VU không đưa ở đây — bước "regulations" đã trích đúng đoạn nhiệm vụ liên
+     * quan từ kho tri thức; THUONG không dùng để chấm bài nộp.
      */
-    private static final List<String[]> KIND_HEADINGS = List.of(
-            new String[]{"TIEU_CHI", "Căn cứ chấm"},
-            new String[]{"THANG_MUC", "Thang xếp loại"},
-            new String[]{"THAM_KHAO", "Quy định khác của tổ chức (tham khảo)"});
-
-    /** Bộ tiêu chí đã xác nhận, chia theo loại dòng — căn cứ để chọn mức chất lượng, không phải bài nộp. */
     private static void appendCriteriaSet(StringBuilder sb, ReviewContext.CriteriaSet set) {
         if (set == null || set.rows().isEmpty()) return;
+        Map<String, ReviewContext.CriteriaRow> refs = ReviewBasis.criteriaRefs(set);
         StringBuilder b = new StringBuilder();
         b.append("\n## BỘ TIÊU CHÍ CHẤM CỦA TỔ CHỨC (").append(set.title()).append(", phiên bản ").append(set.version()).append(")\n");
-        for (String[] kh : KIND_HEADINGS) {
-            List<ReviewContext.CriteriaRow> rows = set.rows().stream()
-                    .filter(r -> kh[0].equals(r.kind() == null ? "TIEU_CHI" : r.kind())).toList();
+        for (String[] kh : ReviewBasis.KIND_HEADINGS) {
+            List<Map.Entry<String, ReviewContext.CriteriaRow>> rows = refs.entrySet().stream()
+                    .filter(en -> kh[0].equals(ReviewBasis.kindOf(en.getValue()))).toList();
             if (rows.isEmpty()) continue;
             b.append("### ").append(kh[1]).append('\n');
-            for (ReviewContext.CriteriaRow r : rows) {
-                b.append("- ").append(r.name());
+            for (Map.Entry<String, ReviewContext.CriteriaRow> en : rows) {
+                ReviewContext.CriteriaRow r = en.getValue();
+                b.append("- [").append(en.getKey()).append("] ").append(r.name());
                 if (r.weight() != null) b.append(" (").append(num(r.weight())).append("%)");
                 if (r.description() != null && !r.description().isBlank()) b.append(": ").append(r.description());
                 b.append('\n');
@@ -127,8 +154,9 @@ public final class ReviewPrompts {
     private static void appendExcerpts(StringBuilder sb, List<ReviewContext.Excerpt> excerpts) {
         if (excerpts == null || excerpts.isEmpty()) return;
         StringBuilder b = new StringBuilder("\n## TRÍCH ĐOẠN QUY CHẾ / MÔ TẢ CÔNG VIỆC CỦA TỔ CHỨC (căn cứ, không phải bài nộp)\n");
-        for (ReviewContext.Excerpt e : excerpts) {
-            b.append("- [").append(e.document());
+        for (Map.Entry<String, ReviewContext.Excerpt> en : ReviewBasis.excerptRefs(excerpts).entrySet()) {
+            ReviewContext.Excerpt e = en.getValue();
+            b.append("- [").append(en.getKey()).append("] [").append(e.document());
             if (e.section() != null && !e.section().isBlank()) b.append(" › ").append(e.section());
             b.append("] ").append(e.text()).append('\n');
         }

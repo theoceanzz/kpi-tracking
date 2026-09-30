@@ -54,6 +54,38 @@ class ReviewPromptsTest {
     }
 
     @Test
+    @DisplayName("khối tự soi: bài đang soạn + căn cứ, KHÔNG có thang chất lượng hay lịch sử chấm của quản lý")
+    void selfCheckBlockHasNoScaleNorHistory() {
+        ReviewContext.Criterion c = criterionWithFiles();
+        ReviewContext ctx = new ReviewContext(UUID.randomUUID(), UUID.randomUUID(), "Tháng 9/2026", UUID.randomUUID(),
+                "An", List.of(c), ReviewScoreCalculator.DEFAULT_SCALE, List.of(), ReviewFixtures.W,
+                List.of(new ReviewContext.Excerpt("Quy chế 2026", "Điều 3", "Sản phẩm phải có minh chứng")),
+                null, List.of());
+
+        String block = ReviewPrompts.selfCheckBlock(ctx, c);
+
+        assertThat(block)
+                .contains("BÀI ĐANG SOẠN").contains("đã xong module thanh toán").contains("Hoàn thành 14 đầu việc")
+                .contains("Tệp minh chứng đã đính kèm (3): bao-cao.docx, anh.png, video.mp4")
+                .contains("[QC1]").contains("Sản phẩm phải có minh chứng")
+                .doesNotContain("THANG CHẤT LƯỢNG").doesNotContain("LỊCH SỬ CHẤM").doesNotContain("điểm quản lý");
+    }
+
+    @Test
+    @DisplayName("tệp đã lược bớt: prompt ghi rõ phần lược vẫn có trong tệp (không coi là bài thiếu)")
+    void labelsCondensedEvidence() {
+        ReviewContext.Submission sub = new ReviewContext.Submission(UUID.randomUUID(), null, null, null, "DRAFT", null,
+                List.of(new ReviewContext.Attachment("bao-cao.docx", null)),
+                List.of(EvidenceText.read("bao-cao.docx", "Nguyên nhân: …\n[… bảng còn 12 dòng, đã lược]",
+                        EvidenceText.Source.TEXT, true)));
+        ReviewContext.Criterion c = new ReviewContext.Criterion(UUID.randomUUID(), "Tính năng mới", null, false, "cái",
+                10.0, 5.0, false, 25, null, null, List.of(sub));
+
+        assertThat(ReviewPrompts.selfCheckBlock(ReviewFixtures.context(c), c))
+                .contains("«bao-cao.docx» (bóc từ tệp) (tệp dài — đã lược bớt bảng / đoạn giữa; phần lược có thể còn nội dung)");
+    }
+
+    @Test
     @DisplayName("khối tổng hợp: có tiêu chí hạnh kiểm khi tổ chức bật; không bật thì không có mục đó")
     void summaryDigestCarriesConductOnlyWhenEnabled() {
         ReviewContext.Criterion c = criterionWithFiles();

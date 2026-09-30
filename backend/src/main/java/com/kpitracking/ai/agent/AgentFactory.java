@@ -101,6 +101,12 @@ public class AgentFactory {
         return AiServices.builder(ReviewSummaryAgent.class).chatModel(chatModel).build();
     }
 
+    /** Nhân viên nhờ AI soi bài của một chỉ tiêu trước khi nộp — chỉ nhận xét, không mức, không điểm. */
+    @Bean
+    public SubmissionSelfCheckAgent submissionSelfCheckAgent(ChatModel chatModel) {
+        return AiServices.builder(SubmissionSelfCheckAgent.class).chatModel(chatModel).build();
+    }
+
     /** Tóm tắt nhận xét báo cáo đánh giá 360. */
     @Bean
     public Feedback360SummaryAgent feedback360SummaryAgent(ChatModel chatModel) {

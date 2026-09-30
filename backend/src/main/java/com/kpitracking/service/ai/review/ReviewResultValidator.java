@@ -24,6 +24,7 @@ import java.util.UUID;
  *   <li>Quá nửa chỉ tiêu không có dữ liệu -> mức tin cậy {@code THAP}.</li>
  * </ul>
  * "Cần bổ sung" và "gợi ý" được giữ không cần trích dẫn: chúng thường nói về thứ KHÔNG có trong bài.
+ * Căn cứ (điều khoản / đoạn quy chế) do {@link ReviewBasis} tra từ mã mô hình chọn — mã lạ bị bỏ.
  */
 @Component
 @RequiredArgsConstructor
@@ -76,15 +77,45 @@ public class ReviewResultValidator {
         }
 
         String level = grounded && a.chatLuong() != null ? levelInScale(a.chatLuong().muc(), ctx) : null;
-        String comment = grounded && a.chatLuong() != null ? blankToNull(a.chatLuong().nhanXet()) : null;
+        String comment = grounded && a.chatLuong() != null ? prose(ctx, a.chatLuong().nhanXet()) : null;
         Double qualityPercent = calculator.qualityPercent(level, ReviewScoreCalculator.scaleOf(ctx));
 
         return new ReviewResults.CriterionResult(c.kpiCriteriaId(), lastSubmissionId(c),
-                blankToNull(a.tomTat()), level, comment, quotes,
+                prose(ctx, a.tomTat()), level, comment, quotes,
                 calculator.achievementPercent(c), calculator.onTimePercent(c),
                 calculator.suggestedScore(c, qualityPercent, ctx.weights()),
-                grounded ? cap(a.diemManh()) : List.of(),
-                cap(a.canBoSung()), cap(a.goiYChinhSua()), null);
+                grounded ? prose(ctx, a.diemManh()) : List.of(),
+                prose(ctx, a.canBoSung()), prose(ctx, a.goiYChinhSua()), null,
+                // Giữ cả khi nhận xét bị bỏ: căn cứ là chữ gốc do mã tra, vẫn giải thích được "cần bổ sung".
+                ReviewBasis.resolve(ctx, a.canCu()));
+    }
+
+    /**
+     * Kiểm phần nhân viên tự soi: cùng luật trích dẫn với luồng quản lý (điểm mạnh không có câu trích thật thì bỏ),
+     * còn mức và số thì luồng này không có để kiểm.
+     */
+    public ReviewResults.SelfCheckResult validateSelfCheck(ReviewContext ctx, ReviewContext.Criterion c,
+                                                          ReviewResults.SelfCheckAssessment a) {
+        String haystack = normalize(c.allNotes());
+        List<String> quotes = new ArrayList<>();
+        if (a.trichDan() != null) {
+            for (String q : a.trichDan()) {
+                if (q != null && !q.isBlank() && haystack.contains(normalize(q))) quotes.add(q.strip());
+            }
+        }
+        boolean grounded = !quotes.isEmpty();
+        return new ReviewResults.SelfCheckResult(prose(ctx, a.tomTat()), cap(quotes),
+                grounded ? prose(ctx, a.diemManh()) : List.of(),
+                prose(ctx, a.canBoSung()), prose(ctx, a.goiYChinhSua()), ReviewBasis.resolve(ctx, a.canCu()));
+    }
+
+    /** Chữ mô hình viết (không phải câu trích nguyên văn): mã căn cứ lỡ lọt vào câu đổi thành tên điều khoản. */
+    private static String prose(ReviewContext ctx, String text) {
+        return blankToNull(ReviewBasis.humanizeRefs(text, ctx));
+    }
+
+    private static List<String> prose(ReviewContext ctx, List<String> items) {
+        return cap(ReviewBasis.humanizeRefs(items, ctx));
     }
 
     /** Mức tin cậy cuối: lấy của mô hình (nếu hợp lệ) nhưng hạ xuống THAP khi quá nửa chỉ tiêu thiếu dữ liệu. */

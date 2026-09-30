@@ -28,10 +28,14 @@ public class DocumentRetrieverFactory {
     /** Khoá trong {@code InvocationParameters} mang tổ chức của người hỏi. */
     public static final String ORG_PARAM = "orgId";
     /**
-     * Khoá tuỳ chọn: danh sách id tài liệu KHÔNG được đọc lần này. Dùng khi chấm bài: quy chế đang áp cho đơn vị
-     * KHÁC (mỗi đơn vị một quy chế) không được trích vào bài của người thuộc đơn vị này.
+     * Khoá tuỳ chọn: danh sách id tài liệu DUY NHẤT được đọc lần này (danh sách rỗng = không đọc gì). Dùng khi chấm
+     * bài: chỉ quy chế áp cho đơn vị người đó + tài liệu nạp tay dùng chung.
+     *
+     * <p>Là danh sách CHO PHÉP, không phải danh sách chặn: kho vector có thể còn đoạn "mồ côi" của tài liệu đã xoá
+     * (hoặc DB dựng lại mà kho vector giữ nguyên) — chặn theo danh sách thì chúng vẫn lọt. Lỗi 29/09: quy chế IT-OPS
+     * cũ hiện trong kết quả của Phòng Truyền thông.
      */
-    public static final String EXCLUDE_DOCS_PARAM = "excludeDocIds";
+    public static final String ONLY_DOCS_PARAM = "onlyDocIds";
     /** Giá trị không tổ chức nào có — bộ lọc "không đọc gì". */
     static final String NOBODY = "-";
 
@@ -48,7 +52,7 @@ public class DocumentRetrieverFactory {
                 .embeddingInputType(EmbeddingInputType.QUERY)
                 .maxResults(maxResults)
                 .minScore(minScore)
-                .dynamicFilter(query -> filterFor(profile, orgOf(query), excludedOf(query)))
+                .dynamicFilter(query -> filterFor(profile, orgOf(query), onlyOf(query)))
                 .build();
     }
 
@@ -57,18 +61,23 @@ public class DocumentRetrieverFactory {
                 ? null : query.metadata().invocationParameters().get(ORG_PARAM);
     }
 
-    static java.util.Collection<?> excludedOf(Query query) {
-        if (query.metadata() == null || query.metadata().invocationParameters() == null) return java.util.List.of();
-        Object v = query.metadata().invocationParameters().get(EXCLUDE_DOCS_PARAM);
-        return v instanceof java.util.Collection<?> c ? c : java.util.List.of();
+    /** Danh sách cho phép của lần đọc này, hoặc {@code null} khi không giới hạn theo tài liệu. */
+    static java.util.Collection<?> onlyOf(Query query) {
+        if (query.metadata() == null || query.metadata().invocationParameters() == null) return null;
+        Object v = query.metadata().invocationParameters().get(ONLY_DOCS_PARAM);
+        return v instanceof java.util.Collection<?> c ? c : null;
     }
 
-    /** Như {@link #filterFor(RetrievalProfile, Object)} rồi bỏ các tài liệu {@code excludeDocIds}. */
-    static Filter filterFor(RetrievalProfile profile, Object org, java.util.Collection<?> excludeDocIds) {
+    /**
+     * Như {@link #filterFor(RetrievalProfile, Object)} rồi CHỈ giữ các tài liệu {@code onlyDocIds}.
+     * {@code null} = không giới hạn; rỗng = không đọc gì.
+     */
+    static Filter filterFor(RetrievalProfile profile, Object org, java.util.Collection<?> onlyDocIds) {
         Filter base = filterFor(profile, org);
-        if (excludeDocIds == null || excludeDocIds.isEmpty()) return base;
+        if (onlyDocIds == null) return base;
+        if (onlyDocIds.isEmpty()) return base.and(MetadataFilterBuilder.metadataKey(RagMetadata.DOC_ID).isEqualTo(NOBODY));
         return base.and(MetadataFilterBuilder.metadataKey(RagMetadata.DOC_ID)
-                .isNotIn(excludeDocIds.stream().map(Object::toString).toList()));
+                .isIn(onlyDocIds.stream().map(Object::toString).toList()));
     }
 
     /** Bộ lọc tổ chức + loại tài liệu cho một hồ sơ truy hồi — MỌI lần đọc kho đi qua đây. */
