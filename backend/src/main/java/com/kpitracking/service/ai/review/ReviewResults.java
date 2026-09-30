@@ -87,7 +87,8 @@ public final class ReviewResults {
             List<String> gaps,
             List<String> suggestions,
             String error,
-            List<Basis> basis) {
+            List<Basis> basis,
+            ReviewScoreCalculator.Points points) {
 
         public CriterionResult(UUID kpiCriteriaId, UUID kpiSubmissionId, String summary, String qualityLevel,
                                String qualityComment, List<String> evidenceQuotes,
@@ -95,7 +96,8 @@ public final class ReviewResults {
                                java.math.BigDecimal suggestedScore, List<String> strengths, List<String> gaps,
                                List<String> suggestions, String error) {
             this(kpiCriteriaId, kpiSubmissionId, summary, qualityLevel, qualityComment, evidenceQuotes,
-                    achievementPercent, onTimePercent, suggestedScore, strengths, gaps, suggestions, error, List.of());
+                    achievementPercent, onTimePercent, suggestedScore, strengths, gaps, suggestions, error, List.of(),
+                    ReviewScoreCalculator.Points.NONE);
         }
     }
 

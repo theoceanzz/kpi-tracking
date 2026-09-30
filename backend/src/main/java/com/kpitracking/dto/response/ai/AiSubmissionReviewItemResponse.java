@@ -36,4 +36,23 @@ public class AiSubmissionReviewItemResponse {
     private String errorMessage;
     /** Căn cứ (điều khoản / đoạn quy chế) kèm đoạn văn gốc — rỗng với lượt chấm trước khi có tính năng này. */
     private List<AiReviewBasisResponse> basis;
+
+    // ── Điểm gợi ý trên THANG ĐIỂM ĐÁNH GIÁ, chia ba phần (null với lượt cũ / chỉ tiêu định tính) ──
+    private BigDecimal maxPoints;
+    private BigDecimal targetPoints;
+    private BigDecimal qualityPoints;
+    private BigDecimal onTimePoints;
+    private BigDecimal systemPoints;
+
+    // ── Số để giao diện dựng lý do từng phần (điền lúc đọc, không lưu) ──
+    /** Chỉ tiêu định tính: điểm nằm trên THANG HÀNH VI riêng (không cộng vào điểm đánh giá 100). */
+    private Boolean qualitative;
+    private Double targetValue;
+    private String unit;
+    /** Giá trị thực đạt khai ở bài nộp mới nhất của chỉ tiêu. */
+    private Double actualValue;
+    /** Định tính: mức người nộp tự đánh giá ở bài mới nhất. */
+    private String selfLevel;
+    /** Định tính: mức gần nhất với điểm AI gợi ý trên thang hành vi. */
+    private String suggestedLevel;
 }

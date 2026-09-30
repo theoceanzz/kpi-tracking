@@ -93,7 +93,9 @@ class SubmissionReviewServiceTest {
 
         service = new SubmissionReviewService(contextBuilder, resolver, workflow, recorder, reviewRepository,
                 mock(AiSubmissionReviewItemRepository.class), mock(KpiCriteriaRepository.class), organizationRepository,
-                userRepository, assignments, mapper, rateLimiter, quota, events, orgUnits);
+                userRepository, assignments, mapper, rateLimiter, quota, events, orgUnits,
+                mock(com.kpitracking.repository.KpiSubmissionRepository.class),
+                mock(com.kpitracking.repository.QualitativeLevelRepository.class));
         when(resolver.resolve(any(), any())).thenReturn(
                 new AiReviewSettingsResolver.Effective(true, new ReviewContext.Weights(60, 30, 10), null, "công ty"));
 
@@ -115,6 +117,16 @@ class SubmissionReviewServiceTest {
         });
         SecurityContextHolder.getContext().setAuthentication(
                 new UsernamePasswordAuthenticationToken("head@demo.com", null, List.of()));
+    }
+
+    @Test
+    @DisplayName("mức gợi ý cho định tính: mức có % gần nhất với điểm hành vi; bằng nhau thì lấy mức thấp hơn")
+    void nearestLevel() {
+        var scale = ReviewScoreCalculator.DEFAULT_SCALE;   // KÉM 0 · YẾU 20 · TRUNG BÌNH 50 · KHÁ 75 · TỐT 100
+        assertThat(SubmissionReviewService.nearestLevel(scale, 92.5)).isEqualTo("TỐT");
+        assertThat(SubmissionReviewService.nearestLevel(scale, 81)).isEqualTo("KHÁ");
+        assertThat(SubmissionReviewService.nearestLevel(scale, 87.5)).isEqualTo("KHÁ");   // cách đều 75 và 100
+        assertThat(SubmissionReviewService.nearestLevel(scale, 5)).isEqualTo("KÉM");
     }
 
     @AfterEach

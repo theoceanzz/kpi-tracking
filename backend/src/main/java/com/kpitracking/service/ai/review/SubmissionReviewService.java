@@ -74,6 +74,8 @@ public class SubmissionReviewService {
     private final AiQuotaService aiQuotaService;
     private final ApplicationEventPublisher events;
     private final com.kpitracking.repository.OrgUnitRepository orgUnitRepository;
+    private final com.kpitracking.repository.KpiSubmissionRepository kpiSubmissionRepository;
+    private final com.kpitracking.repository.QualitativeLevelRepository qualitativeLevelRepository;
 
     /** Trần số người một lần chạy theo lô — lô lớn hơn thì chia nhỏ theo đơn vị con. */
     static final int MAX_BATCH = 100;
@@ -232,16 +234,105 @@ public class SubmissionReviewService {
         Map<UUID, KpiCriteria> kpis = new HashMap<>();
         kpiCriteriaRepository.findAllById(items.stream().map(i -> i.getKpiCriteriaId()).distinct().toList())
                 .forEach(k -> kpis.put(k.getId(), k));
+        // Giá trị thực đạt của bài nộp mới nhất — để giao diện ghi lý do phần "đạt chỉ tiêu" (vd "8/10 cái").
+        Map<UUID, Double> actual = new HashMap<>();
+        // Định tính: mức người nộp tự đánh giá — căn cứ phần "đạt chỉ tiêu" trên thang hành vi.
+        Map<UUID, String> selfLevel = new HashMap<>();
+        kpiSubmissionRepository.findAllById(items.stream().map(i -> i.getKpiSubmissionId())
+                        .filter(java.util.Objects::nonNull).distinct().toList())
+                .forEach(s -> {
+                    actual.put(s.getId(), s.getActualValue());
+                    if (s.getQualitativeLevel() != null) selfLevel.put(s.getId(), s.getQualitativeLevel().getName());
+                });
+        List<ReviewContext.QualityLevel> scale = qualityScale(review.getOrganizationId());
         r.setItems(items.stream().map(i -> {
             AiSubmissionReviewItemResponse ir = mapper.toItemResponse(i);
             KpiCriteria k = kpis.get(i.getKpiCriteriaId());
             if (k != null) {
                 ir.setKpiCriteriaName(k.getName());
                 ir.setWeight(k.getWeight());
+                ir.setQualitative(k.getKpiType() == com.kpitracking.enums.KpiType.QUALITATIVE);
+                ir.setTargetValue(k.getTargetValue());
+                ir.setUnit(k.getUnit());
+            }
+            if (i.getKpiSubmissionId() != null) {
+                ir.setActualValue(actual.get(i.getKpiSubmissionId()));
+                ir.setSelfLevel(selfLevel.get(i.getKpiSubmissionId()));
+            }
+            if (Boolean.TRUE.equals(i.getQualitative()) && i.getMaxPoints() != null && i.getSuggestedScore() != null
+                    && i.getMaxPoints().signum() > 0) {
+                ir.setSuggestedLevel(nearestLevel(scale,
+                        i.getSuggestedScore().doubleValue() * 100.0 / i.getMaxPoints().doubleValue()));
             }
             return ir;
         }).toList());
+        // Tổng đợt — hai thang tách nhau như hệ thống: định lượng → điểm đánh giá 100; định tính → điểm hành vi 100.
+        // Chỉ lượt kiểu mới (có điểm tối đa); lượt cũ để null.
+        var quantitative = items.stream()
+                .filter(i -> i.getMaxPoints() != null && !Boolean.TRUE.equals(i.getQualitative())).toList();
+        if (!quantitative.isEmpty()) {
+            r.setSuggestedTotal(sum(quantitative.stream().map(i -> i.getSuggestedScore()).toList(), false));
+            r.setSystemTotal(sum(quantitative.stream().map(i -> i.getSystemPoints()).toList(), true));
+        }
+        var behavior = items.stream()
+                .filter(i -> i.getMaxPoints() != null && Boolean.TRUE.equals(i.getQualitative())).toList();
+        if (!behavior.isEmpty()) {
+            java.math.BigDecimal total = sum(behavior.stream().map(i -> i.getSuggestedScore()).toList(), true);
+            r.setBehaviorSuggestedTotal(total);
+            r.setBehaviorSuggestedLevel(nearestLevel(scale, total.doubleValue()));
+        }
+        weightsOf(review.getCriteriaSnapshot(), r);
         return r;
+    }
+
+    private static final com.fasterxml.jackson.databind.ObjectMapper JSON = new com.fasterxml.jackson.databind.ObjectMapper();
+
+    /** Trọng số đã dùng, đọc từ ảnh chụp lúc chấm ({@code ReviewRecorder.snapshot}: "weights": {target, quality, onTime}). */
+    private static void weightsOf(String snapshot, AiSubmissionReviewResponse r) {
+        if (snapshot == null || snapshot.isBlank()) return;
+        try {
+            var w = JSON.readTree(snapshot).path("weights");
+            if (w.isMissingNode() || w.isNull()) return;
+            r.setWeightTarget(w.path("target").asInt());
+            r.setWeightQuality(w.path("quality").asInt());
+            r.setWeightOnTime(w.path("onTime").asInt());
+        } catch (Exception e) {
+            log.debug("Không đọc được trọng số từ ảnh chụp: {}", e.getMessage());
+        }
+    }
+
+    /** Thang chất lượng của tổ chức (xếp từ kém tới tốt), hoặc thang mặc định khi chưa cấu hình. */
+    private List<ReviewContext.QualityLevel> qualityScale(UUID organizationId) {
+        List<ReviewContext.QualityLevel> levels = qualitativeLevelRepository
+                .findByOrganizationIdOrderByPositionAsc(organizationId).stream()
+                .map(l -> new ReviewContext.QualityLevel(l.getName(), l.getScorePercent(),
+                        l.getPosition() == null ? 0 : l.getPosition()))
+                .toList();
+        return levels.isEmpty() ? ReviewScoreCalculator.DEFAULT_SCALE : levels;
+    }
+
+    /** Mức có % gần nhất với điểm (thang 100); bằng nhau thì lấy mức thấp hơn (gợi ý thận trọng). */
+    static String nearestLevel(List<ReviewContext.QualityLevel> scale, double percent) {
+        String best = null;
+        double bestGap = Double.MAX_VALUE;
+        for (int i = 0; i < scale.size(); i++) {
+            ReviewContext.QualityLevel l = scale.get(i);
+            double p = l.scorePercent() != null ? l.scorePercent() : (i + 1) * 100.0 / scale.size();
+            double gap = Math.abs(p - percent);
+            if (gap < bestGap) {
+                bestGap = gap;
+                best = l.name();
+            }
+        }
+        return best;
+    }
+
+    /** Cộng các số có mặt; {@code capAt100}: điểm hệ thống của đợt có trần 100 (như {@code EvaluationService}). */
+    private static java.math.BigDecimal sum(List<java.math.BigDecimal> values, boolean capAt100) {
+        java.math.BigDecimal total = values.stream().filter(java.util.Objects::nonNull)
+                .reduce(java.math.BigDecimal.ZERO, java.math.BigDecimal::add);
+        java.math.BigDecimal hundred = java.math.BigDecimal.valueOf(100);
+        return capAt100 && total.compareTo(hundred) > 0 ? hundred.setScale(2) : total.setScale(2, java.math.RoundingMode.HALF_UP);
     }
 
     // ── chạy nền ──────────────────────────────────────────────────────────

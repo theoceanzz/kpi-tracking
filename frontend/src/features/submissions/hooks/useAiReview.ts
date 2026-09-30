@@ -1,5 +1,6 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
 import { toast } from 'sonner'
+import i18n from 'i18next'
 import { getApiErrorMessage } from '@/lib/apiError'
 import {
   aiCriteriaSetApi, aiReviewApi, type AiCriteriaSetItem, type AiCriteriaSetMeta, type AiReview, type AiReviewSettings,
@@ -60,9 +61,9 @@ export function useUpdateAiReviewSettings() {
       qc.setQueryData(['ai-review-settings'], data)
       // Cờ nằm cả trên thông tin tổ chức — làm mới để màn chấm hiện/ẩn nút ngay.
       qc.invalidateQueries({ queryKey: ['organization'] })
-      toast.success('Đã lưu cấu hình AI đánh giá bài nộp.')
+      toast.success(i18n.t('submissions:AiReviewSettings.saved'))
     },
-    onError: err => toast.error(getApiErrorMessage(err, 'Không lưu được cấu hình.')),
+    onError: err => toast.error(getApiErrorMessage(err, i18n.t('submissions:AiReviewSettings.saveFailed'))),
   })
 }
 
@@ -106,9 +107,9 @@ export function useSaveAiReviewUnitSetting() {
       aiReviewApi.saveUnitSetting(orgUnitId, body),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['ai-review-unit-settings'] })
-      toast.success('Đã lưu cấu hình riêng của đơn vị.')
+      toast.success(i18n.t('submissions:AiUnitWeights.saved'))
     },
-    onError: err => toast.error(getApiErrorMessage(err, 'Không lưu được cấu hình đơn vị.')),
+    onError: err => toast.error(getApiErrorMessage(err, i18n.t('submissions:AiUnitWeights.saveFailed'))),
   })
 }
 
@@ -118,9 +119,9 @@ export function useDeleteAiReviewUnitSetting() {
     mutationFn: (orgUnitId: string) => aiReviewApi.deleteUnitSetting(orgUnitId),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['ai-review-unit-settings'] })
-      toast.success('Đơn vị đã theo lại cấu hình cấp trên.')
+      toast.success(i18n.t('submissions:AiUnitWeights.removed'))
     },
-    onError: err => toast.error(getApiErrorMessage(err, 'Không bỏ được cấu hình đơn vị.')),
+    onError: err => toast.error(getApiErrorMessage(err, i18n.t('submissions:AiUnitWeights.removeFailed'))),
   })
 }
 

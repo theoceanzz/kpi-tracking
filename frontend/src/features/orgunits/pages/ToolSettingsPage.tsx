@@ -18,7 +18,6 @@ import RewardManagementPage from '@/features/rewards/pages/RewardManagementPage'
 import WalletAdminPage from '@/features/wallet/pages/WalletAdminPage'
 import AiQuotaPage from '@/features/organization/pages/AiQuotaPage'
 import AiReviewSettingsSection from '@/features/submissions/components/AiReviewSettingsSection'
-import AiReviewUnitSettingsSection from '@/features/submissions/components/AiReviewUnitSettingsSection'
 import AiCriteriaSetSection from '@/features/submissions/components/AiCriteriaSetSection'
 import AiReviewReportSection from '@/features/submissions/components/AiReviewReportSection'
 import { useTranslation } from 'react-i18next'
@@ -119,7 +118,6 @@ export default function ToolSettingsPage() {
             render: () => (
               <div className="mx-auto max-w-5xl space-y-5">
                 {canConfigAi && <AiReviewSettingsSection />}
-                {canConfigAi && <AiReviewUnitSettingsSection />}
                 <AiCriteriaSetSection />
                 {canConfigAi && <AiReviewReportSection />}
               </div>

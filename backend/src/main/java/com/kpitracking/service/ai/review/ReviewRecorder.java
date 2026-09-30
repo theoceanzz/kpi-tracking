@@ -47,6 +47,8 @@ public class ReviewRecorder {
     @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void complete(ReviewRun run, String modelName, Instant startedAt) {
         AiSubmissionReview review = reviewRepository.findById(run.getReviewId()).orElseThrow();
+        java.util.Set<UUID> qualitative = new java.util.HashSet<>();
+        for (ReviewContext.Criterion c : run.getContext().criteria()) if (c.qualitative()) qualitative.add(c.kpiCriteriaId());
         for (ReviewResults.CriterionResult r : run.getResults()) {
             itemRepository.save(AiSubmissionReviewItem.builder()
                     .reviewId(review.getId())
@@ -59,6 +61,12 @@ public class ReviewRecorder {
                     .achievementPercent(r.achievementPercent())
                     .onTimePercent(r.onTimePercent())
                     .suggestedScore(r.suggestedScore())
+                    .maxPoints(r.points().max())
+                    .targetPoints(r.points().target())
+                    .qualityPoints(r.points().quality())
+                    .onTimePoints(r.points().onTime())
+                    .systemPoints(r.points().system())
+                    .qualitative(qualitative.contains(r.kpiCriteriaId()))
                     .strengths(AiSubmissionReviewMapper.join(r.strengths()))
                     .gaps(AiSubmissionReviewMapper.join(r.gaps()))
                     .suggestions(AiSubmissionReviewMapper.join(r.suggestions()))

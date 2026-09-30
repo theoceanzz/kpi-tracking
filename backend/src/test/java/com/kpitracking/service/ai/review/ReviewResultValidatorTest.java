@@ -38,8 +38,13 @@ class ReviewResultValidatorTest {
 
         assertThat(r.achievementPercent()).isEqualByComparingTo("50.00");
         assertThat(r.onTimePercent()).isEqualByComparingTo("100.00");
-        // 20 × (0,6·50 + 0,3·100 + 0,1·100) / 100 = 14
-        assertThat(r.suggestedScore()).isEqualByComparingTo("14.00");
+        // Chỉ tiêu duy nhất -> chiếm cả 100 điểm đánh giá: 60×50% + 30×100% + 10×100% = 70
+        assertThat(r.suggestedScore()).isEqualByComparingTo("70.00");
+        assertThat(r.points().max()).isEqualByComparingTo("100.00");
+        assertThat(r.points().target()).isEqualByComparingTo("30.00");
+        assertThat(r.points().quality()).isEqualByComparingTo("30.00");
+        assertThat(r.points().onTime()).isEqualByComparingTo("10.00");
+        assertThat(r.points().system()).isEqualByComparingTo("50.00");
     }
 
     @Test
@@ -113,12 +118,15 @@ class ReviewResultValidatorTest {
     }
 
     @Test
-    @DisplayName("điểm luôn nằm trong [0, trọng số]")
+    @DisplayName("điểm luôn nằm trong [0, điểm tối đa của chỉ tiêu trên thang đánh giá]")
     void scoreClamped() {
         var big = criterion(5, 1.5, deadline, submission("đã hoàn thành 12 task", Instant.parse("2026-09-10T00:00:00Z")));
-        var r = validator.validate(context(big), big, assessment("TỐT", List.of("đã hoàn thành 12 task"), null, null, null));
+        var r = validator.validate(context(big, criterion(15, 1.0, deadline)), big,
+                assessment("TỐT", List.of("đã hoàn thành 12 task"), null, null, null));
 
-        assertThat(r.suggestedScore().doubleValue()).isBetween(0.0, 5.0);
+        // 5 / (5 + 15) × 100 = 25 điểm tối đa; vượt mục tiêu 150% vẫn không vượt 25.
+        assertThat(r.points().max()).isEqualByComparingTo("25.00");
+        assertThat(r.suggestedScore().doubleValue()).isBetween(0.0, 25.0);
     }
 
     @Test

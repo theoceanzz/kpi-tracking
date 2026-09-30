@@ -56,8 +56,34 @@ public class AiSubmissionReviewItem {
     @Column(name = "on_time_percent", precision = 6, scale = 2)
     private BigDecimal onTimePercent;
 
+    /** Điểm gợi ý trên THANG ĐIỂM ĐÁNH GIÁ (từ V30; lượt cũ ở thang trọng số thô, khi đó {@code maxPoints} null). */
     @Column(name = "suggested_score", precision = 6, scale = 2)
     private BigDecimal suggestedScore;
+
+    /** Điểm tối đa của chỉ tiêu trên thang đánh giá, rồi ba phần chia theo trọng số — xem {@code ReviewScoreCalculator.points}. */
+    @Column(name = "max_points", precision = 6, scale = 2)
+    private BigDecimal maxPoints;
+
+    @Column(name = "target_points", precision = 6, scale = 2)
+    private BigDecimal targetPoints;
+
+    @Column(name = "quality_points", precision = 6, scale = 2)
+    private BigDecimal qualityPoints;
+
+    @Column(name = "on_time_points", precision = 6, scale = 2)
+    private BigDecimal onTimePoints;
+
+    /** Điểm hệ thống của chỉ tiêu trên cùng thang (tỉ lệ đạt × tối đa) — để so với điểm AI. */
+    @Column(name = "system_points", precision = 6, scale = 2)
+    private BigDecimal systemPoints;
+
+    /**
+     * Chỉ tiêu định tính: điểm nằm trên THANG HÀNH VI riêng (không cộng vào điểm đánh giá 100 của định lượng) —
+     * báo cáo lệch AI–quản lý bỏ qua các dòng này.
+     */
+    @Column(name = "qualitative", nullable = false)
+    @Builder.Default
+    private Boolean qualitative = false;
 
     @Column(name = "strengths", columnDefinition = "TEXT")
     private String strengths;

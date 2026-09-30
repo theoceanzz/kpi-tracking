@@ -15,7 +15,7 @@ import java.util.Map;
 public final class ReviewPrompts {
 
     /** Ghi vào cột {@code prompt_version} mỗi lượt — đổi prompt thì tăng số để so được trước/sau. */
-    public static final String PROMPT_VERSION = "v6";
+    public static final String PROMPT_VERSION = "v7";
 
     /** Trần chữ của khối bộ tiêu chí / trích đoạn quy chế — ngữ cảnh chung, không được lấn phần bài nộp. */
     static final int MAX_SHARED_CHARS = 3500;

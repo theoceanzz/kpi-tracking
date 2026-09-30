@@ -27,6 +27,25 @@ export interface AiReviewItem {
   errorMessage?: string | null
   /** Căn cứ kèm đoạn văn gốc (rỗng với lượt chấm cũ). */
   basis?: AiReviewBasis[]
+  /**
+   * Điểm gợi ý chia ba phần theo trọng số: định lượng trên THANG ĐIỂM ĐÁNH GIÁ, định tính trên THANG HÀNH VI riêng
+   * (100 chia theo trọng số các chỉ tiêu định tính). `null` với lượt cũ.
+   */
+  maxPoints?: number | null
+  targetPoints?: number | null
+  qualityPoints?: number | null
+  onTimePoints?: number | null
+  /** Điểm hệ thống của chỉ tiêu trên cùng thang — để so. */
+  systemPoints?: number | null
+  qualitative?: boolean | null
+  targetValue?: number | null
+  unit?: string | null
+  /** Thực đạt khai ở bài nộp mới nhất. */
+  actualValue?: number | null
+  /** Định tính: mức người nộp tự đánh giá. */
+  selfLevel?: string | null
+  /** Định tính: mức gần nhất với điểm AI gợi ý trên thang hành vi. */
+  suggestedLevel?: string | null
 }
 
 /**
@@ -96,6 +115,17 @@ export interface AiReview {
   missingData: string[]
   unreadableFiles: string[]
   items: AiReviewItem[]
+  /** Điểm đánh giá AI gợi ý cho cả đợt (thang 100); `null` với lượt cũ. */
+  suggestedTotal?: number | null
+  /** Điểm đánh giá hệ thống cùng thang (trần 100). */
+  systemTotal?: number | null
+  /** Điểm hành vi AI gợi ý (thang 100, các chỉ tiêu định tính) và mức gần nhất. */
+  behaviorSuggestedTotal?: number | null
+  behaviorSuggestedLevel?: string | null
+  /** Trọng số (%) đã dùng cho lượt này. */
+  weightTarget?: number | null
+  weightQuality?: number | null
+  weightOnTime?: number | null
   errorMessage?: string | null
   /** Phiên bản bộ tiêu chí đã dùng (null = chưa có bộ tiêu chí xác nhận). */
   criteriaSetVersion?: number | null

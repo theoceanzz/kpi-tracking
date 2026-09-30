@@ -113,6 +113,9 @@ class AiReviewAdminServiceTest {
         for (double s : suggested) its.add(AiSubmissionReviewItem.builder()
                 .kpiSubmissionId(UUID.randomUUID()).suggestedScore(BigDecimal.valueOf(s)).build());
         its.add(AiSubmissionReviewItem.builder().suggestedScore(null).build());   // chỉ tiêu lỗi: không cộng
+        // Định tính nằm trên thang hành vi riêng — không cộng vào điểm đánh giá để so với quản lý.
+        if (suggested.length > 0) its.add(AiSubmissionReviewItem.builder().kpiSubmissionId(UUID.randomUUID())
+                .suggestedScore(BigDecimal.valueOf(92.5)).qualitative(true).build());
         when(items.findAllByReviewId(r.getId())).thenReturn(its);
 
         List<Evaluation> evs = new java.util.ArrayList<>();

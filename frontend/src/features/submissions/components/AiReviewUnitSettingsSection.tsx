@@ -1,131 +1,105 @@
 import { useState } from 'react'
-import { Building2, Loader2, Plus, Trash2 } from 'lucide-react'
+import { useTranslation } from 'react-i18next'
+import { Loader2, Pencil, Plus, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
-import { Input } from '@/components/ui/input'
-import { Switch } from '@/components/ui/switch'
 import { Badge } from '@/components/ui/badge'
-import { HintOn, InfoHint } from '@/components/common/InfoHint'
-import AiUnitSelect from './AiUnitSelect'
-import {
-  useAiReviewUnitSettings, useDeleteAiReviewUnitSetting, useSaveAiReviewUnitSetting,
-} from '../hooks/useAiReview'
-import type { AiReviewSettings, AiReviewUnitSetting } from '../api/aiReviewApi'
-
-const WEIGHT_KEYS = [
-  { key: 'weightTarget', label: 'Đáp ứng' },
-  { key: 'weightQuality', label: 'Chất lượng' },
-  { key: 'weightOnTime', label: 'Đúng hạn' },
-] as const
-
-const DEFAULT: AiReviewSettings = { enabled: true, weightTarget: 60, weightQuality: 30, weightOnTime: 10 }
+import ConfirmDialog from '@/components/common/ConfirmDialog'
+import AiUnitWeightDialog from './AiUnitWeightDialog'
+import type { AiWeights } from './aiWeights'
+import { useAiReviewUnitSettings, useDeleteAiReviewUnitSetting } from '../hooks/useAiReview'
+import type { AiReviewUnitSetting } from '../api/aiReviewApi'
 
 /**
- * Riêng theo đơn vị. Luật: công ty tắt thì mọi cấp tắt; công ty bật thì đơn vị GẦN NHẤT có cấu
- * hình riêng quyết (áp cả đơn vị con); không có thì theo công ty.
+ * Trọng số riêng theo đơn vị — phần dưới của thẻ "AI gợi ý điểm khi chấm" (không còn là thẻ riêng: hai thẻ cùng ba
+ * ô % làm người dùng tưởng có hai cấu hình). Luật: công ty tắt thì mọi đơn vị tắt; công ty bật thì đơn vị GẦN NHẤT
+ * có dòng ở đây quyết (áp cả đơn vị con); không có thì dùng trọng số mặc định.
  */
-export default function AiReviewUnitSettingsSection() {
+export default function AiReviewUnitSettingsSection({ companyWeights, companyEnabled }: {
+  companyWeights: AiWeights
+  companyEnabled: boolean
+}) {
+  const { t } = useTranslation('submissions')
   const { data: rows = [], isLoading } = useAiReviewUnitSettings()
-  const save = useSaveAiReviewUnitSetting()
   const remove = useDeleteAiReviewUnitSetting()
-  const [editing, setEditing] = useState<{ orgUnitId: string | null; body: AiReviewSettings; isNew: boolean } | null>(null)
-
-  const startNew = () => setEditing({ orgUnitId: null, body: DEFAULT, isNew: true })
-  const startEdit = (r: AiReviewUnitSetting) => setEditing({
-    orgUnitId: r.orgUnitId, isNew: false,
-    body: { enabled: r.enabled, weightTarget: r.weightTarget, weightQuality: r.weightQuality, weightOnTime: r.weightOnTime },
-  })
-
-  const total = editing ? editing.body.weightTarget + editing.body.weightQuality + editing.body.weightOnTime : 100
+  const [dialog, setDialog] = useState<{ row?: AiReviewUnitSetting } | null>(null)
+  const [removing, setRemoving] = useState<AiReviewUnitSetting | null>(null)
   const taken = new Set(rows.map(r => r.orgUnitId))
 
   return (
-    <div className="space-y-4 rounded-card border border-[var(--color-border)] bg-[var(--color-card)] p-5">
-      <div className="flex items-start justify-between gap-4">
-        <div className="flex items-start gap-3">
-          <Building2 size={20} className="mt-0.5 text-[var(--color-ai)]" aria-hidden="true" />
-          <div>
-            <p className="flex items-center gap-1.5 text-sm font-semibold text-[var(--color-foreground)]">
-              Riêng theo đơn vị
-              <InfoHint>
-                Đơn vị không có cấu hình riêng sẽ theo đơn vị cha gần nhất, rồi theo công ty. Công ty tắt thì mọi đơn vị
-                đều tắt.
-              </InfoHint>
-            </p>
-            <p className="text-sm text-[var(--color-muted-foreground)]">Tắt hoặc đổi cách tính cho một đơn vị (gồm cả đơn vị con).</p>
-          </div>
+    <div className="space-y-3">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-sm font-medium text-[var(--color-foreground)]">{t('AiUnitWeights.title')}</p>
+          <p className="text-sm text-[var(--color-muted-foreground)]">{t('AiUnitWeights.description')}</p>
+          {!companyEnabled && (
+            <p className="mt-1 text-xs text-[var(--color-warning)]">{t('AiUnitWeights.companyOff')}</p>
+          )}
         </div>
-        {!editing && (
-          <Button variant="outline" size="sm" onClick={startNew}><Plus aria-hidden="true" /> Thêm đơn vị</Button>
-        )}
+        <Button variant="outline" size="sm" onClick={() => setDialog({})}>
+          <Plus aria-hidden="true" /> {t('AiUnitWeights.add')}
+        </Button>
       </div>
 
       {isLoading ? (
         <div className="flex justify-center py-4"><Loader2 className="animate-spin text-[var(--color-muted-foreground)]" /></div>
-      ) : rows.length === 0 && !editing ? (
-        <p className="text-sm text-[var(--color-muted-foreground)]">Chưa có — mọi đơn vị theo cấu hình chung.</p>
+      ) : rows.length === 0 ? (
+        <p className="rounded-control border border-dashed border-[var(--color-border)] px-3 py-3 text-sm text-[var(--color-muted-foreground)]">
+          {t('AiUnitWeights.empty')}
+        </p>
       ) : (
         <ul className="divide-y divide-[var(--color-border)] rounded-control border border-[var(--color-border)]">
           {rows.map(r => (
-            <li key={r.orgUnitId} className="flex flex-wrap items-center gap-3 px-3 py-2 text-sm">
+            <li key={r.orgUnitId} className="flex flex-wrap items-center gap-x-3 gap-y-1 px-3 py-2 text-sm">
               <span className="min-w-0 flex-1 truncate font-medium">{r.orgUnitName ?? r.orgUnitId}</span>
-              <Badge variant={r.enabled ? 'success' : 'secondary'}>{r.enabled ? 'Bật' : 'Tắt'}</Badge>
-              <HintOn hint="Đạt chỉ tiêu / Chất lượng / Đúng hạn (%)"
-                      className="text-xs text-[var(--color-muted-foreground)] underline decoration-dotted underline-offset-2">
-                {r.weightTarget}/{r.weightQuality}/{r.weightOnTime}
-              </HintOn>
-              <Button variant="ghost" size="sm" onClick={() => startEdit(r)}>Sửa</Button>
-              <Button variant="ghost" size="icon-sm" aria-label={`Bỏ cấu hình riêng của ${r.orgUnitName ?? ''}`}
-                      disabled={remove.isPending} onClick={() => remove.mutate(r.orgUnitId)}>
-                <Trash2 aria-hidden="true" />
-              </Button>
+              <Badge variant={r.enabled ? 'secondary' : 'warning'}>
+                {r.enabled ? t('AiUnitWeights.ownWeights') : t('AiUnitWeights.aiOff')}
+              </Badge>
+              {r.enabled && (
+                <span className="basis-full text-xs text-[var(--color-muted-foreground)] sm:basis-auto">
+                  {t('AiUnitWeights.summary', { target: r.weightTarget, quality: r.weightQuality, onTime: r.weightOnTime })}
+                </span>
+              )}
+              <span className="ml-auto flex gap-1">
+                <Button variant="ghost" size="sm" onClick={() => setDialog({ row: r })}>
+                  <Pencil aria-hidden="true" /> {t('AiUnitWeights.edit')}
+                </Button>
+                <Button variant="ghost" size="icon-sm" aria-label={t('AiUnitWeights.removeAria', { unit: r.orgUnitName ?? '' })}
+                        onClick={() => setRemoving(r)}>
+                  <Trash2 aria-hidden="true" />
+                </Button>
+              </span>
             </li>
           ))}
         </ul>
       )}
 
-      {editing && (
-        <div className="space-y-3 rounded-control border border-[var(--color-border)] bg-[var(--color-muted)]/40 p-4">
-          <div className="flex flex-wrap items-center gap-3">
-            {editing.isNew ? (
-              <AiUnitSelect value={editing.orgUnitId} exclude={taken} className="w-full sm:w-72"
-                            onChange={id => setEditing({ ...editing, orgUnitId: id })} />
-            ) : (
-              <span className="text-sm font-medium">{rows.find(r => r.orgUnitId === editing.orgUnitId)?.orgUnitName}</span>
-            )}
-            <label className="ml-auto flex items-center gap-2 text-sm">
-              Bật
-              <Switch checked={editing.body.enabled}
-                      onCheckedChange={enabled => setEditing({ ...editing, body: { ...editing.body, enabled } })} />
-            </label>
-          </div>
-          <div className="grid gap-3 sm:grid-cols-3">
-            {WEIGHT_KEYS.map(w => (
-              <label key={w.key} className="space-y-1">
-                <span className="text-label">{w.label}</span>
-                <Input type="number" min={0} max={100} value={editing.body[w.key]} invalid={total !== 100}
-                       suffix={<span className="text-xs text-[var(--color-muted-foreground)]">%</span>}
-                       onChange={e => setEditing({
-                         ...editing,
-                         body: { ...editing.body, [w.key]: Math.max(0, Math.min(100, Number(e.target.value) || 0)) },
-                       })} />
-              </label>
-            ))}
-          </div>
-          <div className="flex items-center justify-between gap-2">
-            <p className={total === 100 ? 'text-xs text-[var(--color-muted-foreground)]' : 'text-xs text-[var(--color-error)]'}>
-              Tổng: {total}% {total !== 100 && '— phải bằng 100%'}
-            </p>
-            <div className="flex gap-2">
-              <Button variant="outline" size="sm" onClick={() => setEditing(null)}>Hủy</Button>
-              <Button size="sm" disabled={!editing.orgUnitId || total !== 100 || save.isPending}
-                      onClick={() => save.mutate({ orgUnitId: editing.orgUnitId!, body: editing.body },
-                        { onSuccess: () => setEditing(null) })}>
-                {save.isPending && <Loader2 className="animate-spin" aria-hidden="true" />} Lưu
-              </Button>
-            </div>
-          </div>
-        </div>
+      {dialog && (
+        <AiUnitWeightDialog
+          unit={dialog.row && {
+            id: dialog.row.orgUnitId,
+            name: dialog.row.orgUnitName ?? dialog.row.orgUnitId,
+            enabled: dialog.row.enabled,
+            weights: {
+              weightTarget: dialog.row.weightTarget,
+              weightQuality: dialog.row.weightQuality,
+              weightOnTime: dialog.row.weightOnTime,
+            },
+          }}
+          companyWeights={companyWeights}
+          taken={taken}
+          onClose={() => setDialog(null)}
+        />
       )}
+
+      <ConfirmDialog
+        open={!!removing}
+        onClose={() => setRemoving(null)}
+        onConfirm={() => removing && remove.mutate(removing.orgUnitId, { onSuccess: () => setRemoving(null) })}
+        title={t('AiUnitWeights.removeTitle')}
+        description={t('AiUnitWeights.removeDescription', { unit: removing?.orgUnitName ?? '' })}
+        confirmLabel={t('AiUnitWeights.removeConfirm')}
+        loading={remove.isPending}
+      />
     </div>
   )
 }
