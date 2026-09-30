@@ -135,7 +135,9 @@ public class AiReviewAdminService {
             if (branch != null && (unit == null || !unit.getPath().startsWith(branch))) continue;
 
             List<AiSubmissionReviewItem> items = itemRepository.findAllByReviewId(r.getId());
+            // Chỉ phần định lượng (thang điểm đánh giá 100) — định tính nằm trên thang hành vi riêng, cộng vào là sai thang.
             double ai = items.stream()
+                    .filter(i -> !Boolean.TRUE.equals(i.getQualitative()))
                     .map(AiSubmissionReviewItem::getSuggestedScore).filter(Objects::nonNull)
                     .mapToDouble(java.math.BigDecimal::doubleValue).sum();
             // Không có bài nộp nào thì AI không có gì để chấm (điểm 0 là "thiếu dữ liệu", không phải nhận định)
