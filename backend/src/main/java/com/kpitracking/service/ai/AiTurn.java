@@ -109,10 +109,43 @@ public class AiTurn {
     /** Lời mời vừa được chạy trong lượt này — để client tắt thẻ xác nhận cũ. */
     private String consumedActionId;
     /**
+     * Biểu đồ minh hoạ cho câu trả lời (ChartAgent chọn, ChartSpecValidator duyệt). Rỗng ở lượt không
+     * có số liệu đáng vẽ — đó là trường hợp thường gặp, không phải lỗi.
+     */
+    private java.util.List<com.kpitracking.dto.response.ai.ChartSpec> charts;
+
+    /**
+     * Lựa chọn kèm theo khi lượt kết thúc bằng một câu hỏi (hết giờ, bỏ qua, hoặc đường JSON không
+     * hỏi lại được). Client vẽ thành nút bấm; bấm = gửi một lượt mới với {@code value}.
+     */
+    private java.util.List<Choice> clarificationOptions;
+
+    /** Một lựa chọn bấm được kèm câu hỏi. */
+    public record Choice(String label, String value) {}
+
+    /** Câu hỏi giữa lượt mà người dùng VỪA trả lời, và lựa chọn của họ — để dựng khối prompt vòng sau. */
+    private String answeredQuestion;
+    private String answeredValue;
+
+    /**
+     * Lượt này có kênh để hỏi lại người dùng không. Chỉ đường streaming (SSE) mới có: nó giữ kết nối
+     * mở suốt lượt nên câu hỏi tới được màn hình và câu trả lời quay về được. Đường JSON hỏi xong là
+     * treo vô ích — ở đó lượt kết thúc bằng câu hỏi kèm lựa chọn, như trước khi có HITL.
+     */
+    public boolean canAsk() {
+        return listener != null && listener != TurnListener.NOOP;
+    }
+    /**
      * Tên đơn vị của thẻ Insight người dùng bấm, nếu có. {@code TurnSteps.context} gắn khi nó đã nạp
      * đơn vị để kiểm {@code focusUnitId} — không tốn thêm truy vấn nào.
      */
     private String focusUnitName;
+    /**
+     * Cây đơn vị trong phạm vi người hỏi, mỗi dòng "Tên — cấp (thuộc Cha)". Nạp một lần ở bước
+     * ngữ cảnh để trợ lý biết đơn vị nào CÓ THẬT: hỏi về đơn vị không tồn tại thì nói thẳng là không
+     * có, thay vì hỏi người dùng "tên đầy đủ" (đo được 23/09 với "phòng vận hành").
+     */
+    private java.util.List<String> scopeUnits = java.util.List.of();
     /** Các câu hỏi gợi ý tiếp theo do {@code FollowupStage} sinh; null ở lượt không có gợi ý. */
     private FollowupResponse followups;
     /**

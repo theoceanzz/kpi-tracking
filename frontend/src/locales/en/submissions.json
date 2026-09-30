@@ -402,5 +402,41 @@
   "useReviewSubmission": {
     "failedToProcessTheSubmission": "Failed to process the submission",
     "submissionProcessed": "Submission processed"
+  },
+  "AiSelfCheckPanel": {
+    "title": "AI check before submitting",
+    "privateNote": "Only you can see this · it does not affect your score",
+    "intro": "The AI reads the explanation and evidence you are preparing and points out what is missing against the KPI and your unit's rules.",
+    "askAi": "Ask AI to check",
+    "checkAgain": "Check again",
+    "running": "The AI is reading your report and evidence…",
+    "tokensLeft": "{{tokens}} AI tokens left this month",
+    "noQuota": "You have not been given any AI tokens yet. Ask your manager to allocate an AI quota to you.",
+    "quotaUsed": "You have used all your AI tokens for this month.",
+    "couldNotStart": "Could not ask the AI to check right now.",
+    "failed": "The AI could not check your report this time. Please try again in a few minutes.",
+    "checkedAt": "Checked at {{time}}",
+    "filesRead": "read {{read}}/{{total}} evidence files",
+    "stale": "You have edited the report since this check — click “Check again” for the AI to read the new version.",
+    "reused": "Your report has not changed since the last check — showing the previous result, no tokens used.",
+    "noFindings": "The AI found nothing to point out.",
+    "strengths": "Strengths",
+    "gaps": "Missing",
+    "suggestions": "Suggested edits",
+    "unreadable": "The AI could not read {{count}} file(s) — please check them yourself:",
+    "criteriaSetVersion": "using criteria set version {{version}}",
+    "couldNotCheckFeature": "Could not check the AI check feature — the server did not respond.",
+    "retry": "Retry",
+    "kpi": "KPI"
+  },
+  "AiBasisList": {
+    "basis": "Basis",
+    "criteriaRow": "Rule item",
+    "regulationPassage": "Regulation passage",
+    "matchesTheDocument": "Matches the document",
+    "notMatched": "Not verified",
+    "notMatchedHint": "This exact passage was not found in the source document — this is the normalized text of the rule item.",
+    "showFullPassage": "Show the full passage",
+    "collapse": "Collapse"
   }
 }

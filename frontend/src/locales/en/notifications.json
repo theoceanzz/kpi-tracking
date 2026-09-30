@@ -43,7 +43,8 @@
     "updatedInRealTime": "Updated in real time",
     "wallet": "Wallet",
     "walletReconciliation": "Wallet reconciliation",
-    "youHaveReadAllNotifications": "You have read all notifications."
+    "youHaveReadAllNotifications": "You have read all notifications.",
+    "aiScoringRules": "AI scoring rules"
   },
   "useNotifications": {
     "markedAllNotificationsAsRead": "Marked all notifications as read"

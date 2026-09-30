@@ -1,10 +1,12 @@
 package com.kpitracking.controller;
 
-import com.kpitracking.ai.agent.help.HelpAgentFactory;
 import com.kpitracking.ai.agent.help.HelpService;
-import com.kpitracking.ai.rag.LocalRagImageStore;
-import com.kpitracking.ai.rag.RagIngestionService;
-import com.kpitracking.ai.rag.RagVectorReader;
+import com.kpitracking.ai.document.store.LocalRagImageStore;
+import com.kpitracking.ai.document.ingest.DocumentIngestionPipeline;
+import com.kpitracking.ai.document.model.FileRef;
+import com.kpitracking.ai.document.profile.DocumentKind;
+import com.kpitracking.ai.document.retrieve.DocumentSearchService;
+import com.kpitracking.ai.document.store.RagVectorReader;
 import com.kpitracking.dto.response.ApiResponse;
 import com.kpitracking.dto.response.ai.RagChunkResponse;
 import com.kpitracking.dto.response.ai.RagSearchHitResponse;
@@ -15,7 +17,6 @@ import com.kpitracking.exception.ForbiddenException;
 import com.kpitracking.repository.RagDocumentRepository;
 import com.kpitracking.security.PermissionChecker;
 import com.kpitracking.service.reward.RewardContext;
-import dev.langchain4j.invocation.InvocationParameters;
 import dev.langchain4j.rag.content.retriever.ContentRetriever;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -48,7 +49,7 @@ import java.util.UUID;
  * không phải quản trị công ty.
  *
  * <p>Riêng "thử tìm" chạy trên đúng những gì trợ lý thấy cho tổ chức này: tài liệu chung + của tổ
- * chức — xem {@link RagQueries}.
+ * chức — cùng bộ truy hồi {@code helpContentRetriever}.
  */
 @RestController
 @RequestMapping("/api/v1/ai")
@@ -56,7 +57,8 @@ import java.util.UUID;
 @Tag(name = "AI Knowledge", description = "Kho tri thức của trợ lý: tài liệu của tổ chức và hỏi đáp")
 public class RagController {
 
-    private final RagIngestionService ingestion;
+    private final DocumentIngestionPipeline ingestion;
+    private final DocumentSearchService search;
     private final RagDocumentRepository documents;
     private final HelpService helpService;
     private final RewardContext currentUser;
@@ -80,7 +82,7 @@ public class RagController {
     }
 
     @PostMapping(value = "/rag/documents", consumes = "multipart/form-data")
-    @Operation(summary = "Nạp một tài liệu .docx của tổ chức vào kho tri thức")
+    @Operation(summary = "Nạp một tài liệu của tổ chức (Word, PDF, Excel, ảnh) vào kho tri thức")
     public ResponseEntity<ApiResponse<RagDocument>> upload(
             @RequestParam("file") MultipartFile file,
             @RequestParam(value = "source", required = false) RagDocument.Source source,
@@ -92,12 +94,11 @@ public class RagController {
             throw new BusinessException(ErrorCode.KEYGO_GUIDE_LOADED_PLATFORM_ADMINISTRATOR_PLATFORM_ADMINISTRATION);
         }
         UUID orgId = currentUser.getCurrentOrgId();
-        String name = RagIngestionService.docxFileName(file.getOriginalFilename());
-        try (var in = file.getInputStream()) {
-            RagDocument doc = ingestion.ingestDocx(in, name, RagIngestionService.titleOf(title, name),
-                    kind, orgId, user.getId());
-            return ResponseEntity.ok(ApiResponse.success(doc));
-        }
+        String name = ingestion.checkUploadName(file.getOriginalFilename());
+        // Loại tài liệu (quy chế / mô tả công việc / chiến lược) chọn phương án cắt mục + nạp — xem DocumentProfile.
+        RagDocument doc = ingestion.ingest(FileRef.of(name, file.getBytes()), DocumentKind.of(kind),
+                DocumentIngestionPipeline.titleOf(title, name), orgId, user.getId());
+        return ResponseEntity.ok(ApiResponse.success(doc));
     }
 
     @GetMapping("/rag/assets/{name}")
@@ -140,9 +141,8 @@ public class RagController {
     @Operation(summary = "Thử tìm trong kho tri thức bằng bộ truy hồi của trợ lý")
     public ResponseEntity<ApiResponse<List<RagSearchHitResponse>>> search(@RequestParam("q") String q) {
         requireOrgManager();
-        InvocationParameters params = InvocationParameters.from(
-                HelpAgentFactory.PARAM_ORG_ID, currentUser.getCurrentOrgId().toString());
-        return ResponseEntity.ok(ApiResponse.success(RagQueries.search(helpContentRetriever, q, params)));
+        return ResponseEntity.ok(ApiResponse.success(
+                search.search(helpContentRetriever, q, currentUser.getCurrentOrgId())));
     }
 
     @DeleteMapping("/rag/documents/{id}")

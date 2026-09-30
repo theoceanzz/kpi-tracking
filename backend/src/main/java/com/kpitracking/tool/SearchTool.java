@@ -4,6 +4,7 @@ import com.kpitracking.service.OrgUnitStatisticService;
 import com.kpitracking.tool.OrgUnitStatisticToolRequests.SearchRequest;
 import lombok.RequiredArgsConstructor;
 import dev.langchain4j.invocation.InvocationParameters;
+import com.kpitracking.service.ai.agent.AgentState;
 import dev.langchain4j.agent.tool.Tool;
 import org.springframework.stereotype.Component;
 
@@ -123,6 +124,21 @@ public class SearchTool {
                 }
             }
 
+            // Tên người dùng nêu mà KHÔNG CÓ trong dữ liệu: nói rõ để model trả lời thẳng "không có",
+            // thay vì "0 kết quả" khiến nó đi hỏi người dùng tên khác (đo được 23/09: "phòng vận hành").
+            AgentState found = AgentState.from(context);
+            if (("org_unit".equals(entityType) || "user".equals(entityType)) && ToolSupport.notBlank(request.keyword())) {
+                if (results.isEmpty()) {
+                    if (found != null) found.setNotFoundName(request.keyword().trim());
+                    result.put("note", "Không có " + spec.label() + " nào tên '" + request.keyword().trim()
+                            + "' trong phạm vi của người hỏi. Trả lời thẳng là không tồn tại"
+                            + ("org_unit".equals(entityType) ? " và nêu các đơn vị có thật (danh sách đơn vị trong phạm vi ở phần ngữ cảnh)" : "")
+                            + ". KHÔNG hỏi lại người dùng.");
+                } else if (found != null) {
+                    found.setNotFoundName(null);
+                }
+            }
+
             if (spec.guardType() != null) {
                 // Xét TỪNG nhóm trùng tên riêng. Gộp mọi nhóm thành một khối phẳng là cách bản
                 // trước làm, và nó khiến chốt chặn arm nhầm nhóm — xem ToolSupport.duplicateNameGroups.
@@ -161,7 +177,8 @@ public class SearchTool {
                 if (!mustAsk.isEmpty()) {
                     support.armDisambiguation(spec.guardType(), support.collectIds(mustAsk), context);
                     return support.returnAmbiguous("search", spec.label(), spec.arrayKey(), mustAsk,
-                            spec.aggregateHint(), context);
+                            spec.aggregateHint(), context,
+                            support.matchOptions(mustAsk, spec.nameKey(), spec.labelKeys()));
                 }
                 if (!hints.isEmpty()) result.put("contextualChoice", String.join(" ", hints));
             }

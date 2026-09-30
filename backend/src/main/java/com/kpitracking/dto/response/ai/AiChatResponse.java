@@ -72,6 +72,12 @@ public class AiChatResponse {
      */
     private String consumedActionId;
 
+    /**
+     * Biểu đồ minh hoạ cho câu trả lời: client dựng bằng bộ biểu đồ có sẵn của KeyGo. Vắng ở lượt
+     * không có số liệu đáng vẽ.
+     */
+    private List<ChartSpec> charts;
+
     @Data
     @Builder
     @NoArgsConstructor

@@ -51,6 +51,30 @@ class SseTurnListener implements TurnListener {
         send("token", Map.of("text", chunk));
     }
 
+    @Override
+    public void ask(com.kpitracking.service.ai.hitl.PendingQuestion q) {
+        // Client vẽ thẻ hỏi rồi POST /ai/turns/{turnId}/answer; lượt đang CHỜ trên luồng nền, kết
+        // nối SSE này vẫn mở nên trả lời xong là chữ chạy tiếp ngay.
+        // Người dùng LUÔN tự nhập được, nên không gửi cờ allowFreeText nữa.
+        send("ask", Map.of(
+                "turnId", q.turnId(),
+                "questionId", q.questionId(),
+                "questions", q.items().stream()
+                        .map(item -> Map.of(
+                                "question", item.question(),
+                                "multiSelect", item.multiSelect(),
+                                "options", item.options().stream()
+                                        .map(o -> {
+                                            Map<String, Object> m = new java.util.LinkedHashMap<>();
+                                            m.put("value", o.value());
+                                            m.put("label", o.label());
+                                            if (o.description() != null) m.put("description", o.description());
+                                            return m;
+                                        })
+                                        .toList()))
+                        .toList()));
+    }
+
     /** Câu trả lời chính thức — client phải THAY bản xem trước bằng nội dung này. */
     void done(AiChatResponse response) {
         send("done", response);

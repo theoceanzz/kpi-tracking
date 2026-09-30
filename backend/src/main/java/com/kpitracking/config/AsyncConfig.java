@@ -30,4 +30,22 @@ public class AsyncConfig implements AsyncConfigurer {
         executor.initialize();
         return executor;
     }
+
+    /**
+     * Luồng riêng cho AI đánh giá bài nộp. Mỗi lượt gọi mô hình nhiều lần và chạy hàng chục giây; dùng chung
+     * pool @Async thì một lần chạy theo lô cả đơn vị chặn luôn thông báo và email. Hai luồng: đủ để lô chạy
+     * dần, không dồn nhà cung cấp mô hình quá giới hạn tốc độ.
+     */
+    @org.springframework.context.annotation.Bean("aiReviewExecutor")
+    public Executor aiReviewExecutor() {
+        ThreadPoolTaskExecutor executor = new ThreadPoolTaskExecutor();
+        executor.setThreadNamePrefix("ai-review-");
+        executor.setCorePoolSize(2);
+        executor.setMaxPoolSize(2);
+        executor.setQueueCapacity(1000);
+        executor.setTaskDecorator(new MdcTaskDecorator());
+        executor.setWaitForTasksToCompleteOnShutdown(false);
+        executor.initialize();
+        return executor;
+    }
 }

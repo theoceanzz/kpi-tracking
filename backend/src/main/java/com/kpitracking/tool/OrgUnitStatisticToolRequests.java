@@ -252,6 +252,51 @@ public final class OrgUnitStatisticToolRequests {
 
     /** Tham số của tool `get_delegations`. */
     @JsonInclude(JsonInclude.Include.NON_NULL)
+    /**
+     * ask_user: câu hỏi giữa lượt. Một câu ({@code question} + {@code options} + {@code multiSelect})
+     * hoặc vài câu một lượt ({@code questions}, tối đa 3). Lựa chọn không bắt buộc — người dùng luôn
+     * tự nhập được.
+     */
+    @com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown = true)
+    public record AskUserRequest(
+            @JsonProperty(required = false) String question,
+            @JsonProperty(required = false) List<Choice> options,
+            @JsonProperty(required = false) Boolean multiSelect,
+            @JsonProperty(required = false) List<Question> questions
+    ) {
+        /** Dạng một câu — cách gọi thường gặp nhất. */
+        public AskUserRequest(String question, List<Choice> options, Boolean multiSelect) {
+            this(question, options, multiSelect, null);
+        }
+
+        /** Một câu trong thẻ nhiều câu. */
+        @com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown = true)
+        public record Question(
+                String question,
+                @JsonProperty(required = false) List<Choice> options,
+                @JsonProperty(required = false) Boolean multiSelect
+        ) {}
+
+        /**
+         * Một lựa chọn: label cho người đọc, value gửi lại cho model, description để phân biệt.
+         *
+         * <p>Dễ tính với những gì model gửi sai, vì mỗi lần sai là một vòng gọi tool vứt đi (đo
+         * được cả hai kiểu): gửi thẳng một chuỗi thay vì object, và đặt tên trường là {@code option}
+         * hay {@code name} thay vì {@code label}.
+         */
+        @com.fasterxml.jackson.annotation.JsonIgnoreProperties(ignoreUnknown = true)
+        public record Choice(
+                @JsonProperty(required = false) String value,
+                @com.fasterxml.jackson.annotation.JsonAlias({"option", "name", "text", "title"}) String label,
+                @JsonProperty(required = false) String description
+        ) {
+            @com.fasterxml.jackson.annotation.JsonCreator
+            public static Choice ofText(String label) {
+                return new Choice(null, label, null);
+            }
+        }
+    }
+
     /** get_org_documents: một câu tìm, vd "nhiệm vụ và mục tiêu của Phòng IT". */
     public record OrgDocumentSearchRequest(String query) {}
 

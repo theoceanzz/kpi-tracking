@@ -91,6 +91,7 @@ public class ToolRegistry {
     private final RewardTool rewardTool;
     private final PersonalTool personalTool;
     private final OrgDocumentSearchTool orgDocumentSearchTool;
+    private final AskUserTool askUserTool;
     private final EscapeHatchTool escapeHatchTool;
     private final EvidenceRequestTool evidenceRequestTool;
     private final AttachFilesTool attachFilesTool;
@@ -122,7 +123,8 @@ public class ToolRegistry {
         // request_evidence_upload cũng ở CORE: người dùng có thể xin gửi minh chứng ở BẤT KỲ lượt
         // nào, kể cả khi chưa mở biểu mẫu báo cáo nào. Đặt ở nhóm khác là có lượt model không
         // được trao nó, và nó quay lại từ chối — đúng lỗi mà tool này sinh ra để chữa.
-        m.put(Group.CORE, List.of(searchTool, escapeHatchTool, evidenceRequestTool, attachFilesTool));
+        // ask_user ở CORE: mọi lượt (kể cả nhân viên) đều có thể cần hỏi lại một câu để làm tiếp.
+        m.put(Group.CORE, List.of(searchTool, escapeHatchTool, evidenceRequestTool, attachFilesTool, askUserTool));
         m.put(Group.LOOKUP, List.of(orgUnitTool, peopleTool, delegationTool));
         // get_my_tasks ở KPI chứ không ở CORE: đặt ở CORE là mọi lượt (kể cả điền form) thấy thêm một
         // tool — đo được form-fill tụt 21/21 -> 19/21 ngay lần đầu. Router đã được dặn 'việc đang chờ -> KPI'.
@@ -201,6 +203,7 @@ public class ToolRegistry {
      */
     private static final Map<String, Group> GROUP_BY_TOOL_NAME = Map.ofEntries(
             Map.entry("search", Group.CORE),
+            Map.entry("ask_user", Group.CORE),
             Map.entry("get_my_tasks", Group.KPI),
             Map.entry("need_other_tools", Group.CORE),
             Map.entry("request_evidence_upload", Group.CORE),
@@ -364,7 +367,7 @@ public class ToolRegistry {
                 KpiAdjustmentReviewTool.class, ReminderTool.class, KpiSubmitTool.class,
                 CycleEvaluationTool.class, MyTasksTool.class, RewardGrantReviewTool.class, CycleFinalizeTool.class,
                 KpiDecomposeTool.class, DelegationTool.class, ConductTool.class, RewardTool.class, PersonalTool.class,
-                OrgDocumentSearchTool.class,
+                OrgDocumentSearchTool.class, AskUserTool.class,
                 EscapeHatchTool.class, EvidenceRequestTool.class, AttachFilesTool.class,
                 KpiFormFillTool.class,
                 SubmissionFormFillTool.class, EvaluationFormFillTool.class,

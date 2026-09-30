@@ -78,8 +78,23 @@ public class ResponseSanitizingAdvisor {
      */
     public static final String CELL_LINE_BREAK = "\u2028";
 
+    /**
+     * Biểu đồ model tự viết bằng mermaid — cả khối rào lẫn dạng một dòng trong dấu huyền. Client
+     * không vẽ mermaid nên người dùng chỉ thấy một dòng mã (đo được 23/09 với "cho tôi biểu đồ tròn
+     * đi"); biểu đồ thật do ChartAgent dựng từ số liệu tool, hiện ngay dưới câu trả lời.
+     */
+    private static final Pattern MERMAID_FENCE = Pattern.compile("(?s)```\\s*mermaid\\b.*?```\\s*");
+    private static final Pattern MERMAID_INLINE = Pattern.compile("`\\s*mermaid\\b[^`]*`");
+
+    static String stripMermaid(String text) {
+        String out = MERMAID_FENCE.matcher(text).replaceAll("");
+        out = MERMAID_INLINE.matcher(out).replaceAll("");
+        return out;
+    }
+
     private String sanitize(String result) {
         if (result == null) return "";
+        result = stripMermaid(result);
         result = repairTableRows(result);
         String[] lines = result.split("\n", -1);
         for (int i = 0; i < lines.length; i++) {

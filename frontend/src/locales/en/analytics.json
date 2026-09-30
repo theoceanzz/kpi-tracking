@@ -858,7 +858,6 @@
     "eGEvaluationRegulations2026": "e.g. Evaluation regulations 2026",
     "eGKeygoUserGuide": "e.g. KeyGo user guide",
     "error": "Error",
-    "fileDocx": "File (.docx)",
     "images": "images",
     "items": "items",
     "loadANewDocument": "Load a new document",
@@ -884,8 +883,9 @@
     "type": "Type",
     "typeAQuestionTheWayA": "Type a question the way a user would ask it. The results are the chunks the assistant would receive for that question — same retriever, same organization scope.",
     "viewChunks": "View chunks",
-    "youHaveNotSelectedADocx": "You have not selected a .docx file",
-    "unknownReason": "unknown reason"
+    "unknownReason": "unknown reason",
+    "youHaveNotSelectedAFile": "You have not selected a file",
+    "fileWordPdfExcelImage": "File (Word, PDF, Excel, image)"
   },
   "ScopedDashboardWidget": {
     "achievedValue": "Achieved value",
