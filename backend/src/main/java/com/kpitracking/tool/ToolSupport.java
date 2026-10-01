@@ -23,6 +23,7 @@ import org.springframework.stereotype.Component;
 import java.util.*;
 import java.util.regex.Pattern;
 import com.kpitracking.service.ai.agent.AgentState;
+import com.kpitracking.service.ai.hitl.PendingQuestion;
 
 /**
  * Phần dùng chung của mọi tool AI: đọc ngữ cảnh, kiểm phạm vi/quyền, resolve tên → ID, hỏi làm rõ
@@ -190,6 +191,17 @@ public class ToolSupport {
         return email != null ? email.toString() : null;
     }
 
+    /**
+     * Id người đang hỏi. {@code InvocationParameters.get()} là generic nên
+     * {@code String.valueOf(ctx.get("userId"))} chọn nhầm bản {@code valueOf(char[])} và ném
+     * ClassCastException — đọc ra Object rồi mới đổi.
+     */
+    public UUID getUserId(InvocationParameters context) {
+        Object raw = context == null ? null : context.get("userId");
+        if (raw == null) return null;
+        return raw instanceof UUID u ? u : UUID.fromString(raw.toString());
+    }
+
     public String getConversationId(InvocationParameters context) {
         if (context == null) return null;
         Object id = context.get("conversationId");
@@ -204,6 +216,8 @@ public class ToolSupport {
         OrgUnit target = orgUnitRepository.findById(targetUnitId)
                 .orElseThrow(() -> new RuntimeException("Đơn vị không tồn tại: " + targetUnitId));
         if (!target.getPath().startsWith(contextPath)) {
+            AgentState state = AgentState.from(context);
+            if (state != null) state.setScopeDenied(true);
             throw new SecurityException("Không có quyền truy cập đơn vị này. Bạn chỉ có thể truy cập đơn vị của mình và các đơn vị con.");
         }
     }
@@ -298,11 +312,80 @@ public class ToolSupport {
         return options;
     }
 
+    /** Nhiều hơn năm lựa chọn thì thẻ hỏi thành danh sách để đọc — lúc đó để model hỏi bằng lời. */
+    private static final int MAX_ASK_OPTIONS = 5;
+
+    /**
+     * Hỏi NGAY GIỮA LƯỢT xem người dùng muốn nói tới bản nào, thay vì kết thúc lượt bằng một câu hỏi.
+     *
+     * <p>Đây là chỗ hỏi-làm-rõ trùng tên gặp human-in-the-loop: câu hỏi hiện thành thẻ bấm được,
+     * người dùng chọn một cái, rồi lượt chạy tiếp với NGUYÊN những gì đã tra được. Đường cũ (model
+     * viết câu hỏi, lượt kết thúc, client vẽ pill) vẫn nguyên vẹn cho đường JSON và cho lượt không
+     * hỏi lại được — nên bỏ qua im lặng ở đây là hành vi đúng, không phải lỗi.
+     *
+     * @return {@code true} khi đã đặt câu hỏi (model phải DỪNG, hệ thống sẽ gọi lại nó)
+     */
+    public boolean askToChoose(InvocationParameters context, String question,
+                               List<FollowupContextStore.ClarificationOption> options) {
+        // Một lựa chọn thì không có gì để chọn; không lựa chọn nào nghĩa là không tìm thấy —
+        // hỏi "bạn muốn cái nào?" giữa một danh sách rỗng là vô nghĩa.
+        if (options == null || options.size() < 2) return false;
+        AgentState state = AgentState.from(context);
+        if (state == null || state.getTurn() == null || !state.getTurn().canAsk()) return false;
+        // Một lượt chỉ chờ MỘT câu hỏi: tool thứ hai trong cùng vòng giữ nguyên đường cũ, và lượt đã
+        // hỏi-đã-được-trả-lời thì không hỏi thêm lần nữa.
+        if (state.getPendingQuestion() != null || state.getTurn().getAnsweredQuestion() != null) return false;
+
+        List<PendingQuestion.Option> choices = new ArrayList<>();
+        for (FollowupContextStore.ClarificationOption o : options) {
+            if (choices.size() >= MAX_ASK_OPTIONS) break;
+            choices.add(new PendingQuestion.Option(o.getValue(), o.getLabel(), null));
+        }
+        // Trùng tên thì chỉ MỘT bản đúng -> chọn một.
+        state.setPendingQuestion(PendingQuestion.single(UUID.randomUUID().toString(),
+                state.getTurn().getTurnId(), getUserId(context), question, choices, false));
+        return true;
+    }
+
+    /** Ghi lại cái tên tra không ra, để {@code ask_user} không hỏi vòng quanh một tiền đề sai. */
+    private static void markNotFound(InvocationParameters context, String name) {
+        AgentState state = AgentState.from(context);
+        if (state != null) state.setNotFoundName(name);
+    }
+
+    /** Lời dặn thay cho câu "hãy hỏi người dùng" khi câu hỏi ĐÃ được gửi đi và đang chờ trả lời. */
+    private static final String ASKED_MESSAGE =
+            "Đã gửi câu hỏi chọn lựa tới người dùng. DỪNG tại đây — không gọi thêm tool, không viết "
+            + "câu trả lời; hệ thống sẽ gọi lại bạn kèm lựa chọn của họ.";
+
+    /**
+     * Đổi các bản trùng tên thành lựa chọn bấm được, dùng chính các trường phân biệt mà
+     * {@code SearchTool} khai: nhãn là tên kèm phần khác nhau, còn giá trị gửi lại là TÊN — đúng
+     * thứ các tool nhận qua {@code unitName}/{@code userName}.
+     */
+    public List<FollowupContextStore.ClarificationOption> matchOptions(List<Map<String, Object>> results,
+                                                                      String nameKey, String... labelKeys) {
+        List<FollowupContextStore.ClarificationOption> options = new ArrayList<>();
+        if (results == null || nameKey == null) return options;
+        for (Map<String, Object> row : results) {
+            Object rawName = row.get(nameKey);
+            if (rawName == null || rawName.toString().isBlank()) continue;
+            String name = rawName.toString();
+            List<String> extra = distinguishingValues(row, results, labelKeys);
+            String label = extra.isEmpty() ? name : name + " (" + String.join(" — ", extra) + ")";
+            options.add(new FollowupContextStore.ClarificationOption(label, name));
+        }
+        return options;
+    }
+
     /** Envelope hỏi làm rõ khi một tên người khớp nhiều/không thấy. */
     public Map<String, Object> userClarification(String query, List<Map<String, Object>> pool,
                                                  InvocationParameters context) {
         String convId = getConversationId(context);
-        if (convId != null) followupContextStore.markDisambiguating(convId, userOptions(pool));
+        List<FollowupContextStore.ClarificationOption> options = userOptions(pool);
+        if (convId != null) followupContextStore.markDisambiguating(convId, options);
+        boolean asked = askToChoose(context, "Tên '" + query + "' khớp nhiều người. Bạn muốn nói tới ai?", options);
+        if (pool.isEmpty()) markNotFound(context, query);
         Map<String, Object> group = new LinkedHashMap<>();
         group.put("query", query);
         group.put("reason", pool.isEmpty() ? "not_found" : "ambiguous");
@@ -310,7 +393,10 @@ public class ToolSupport {
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("needsClarification", true);
         out.put("ambiguous", java.util.List.of(group));
-        out.put("message", "Tên '" + query + "' khớp NHIỀU người (hoặc không tìm thấy). Hãy hỏi người "
+        out.put("message", asked ? ASKED_MESSAGE
+                : pool.isEmpty() ? "Không có ai tên '" + query + "' trong tổ chức. Trả lời thẳng là không "
+                        + "tìm thấy người này. KHÔNG hỏi lại người dùng."
+                : "Tên '" + query + "' khớp NHIỀU người. Hãy hỏi người "
                 + "dùng chọn RÕ người nào (nêu đơn vị/chức vụ để phân biệt) rồi gọi lại. "
                 + "TUYỆT ĐỐI không tự chọn giúp.");
         return out;
@@ -378,7 +464,11 @@ public class ToolSupport {
     /** Envelope yêu cầu làm rõ khi 1 tên đơn vị khớp nhiều/không thấy (cho các tool 1 đơn vị). */
     public Map<String, Object> unitClarification(String query, List<Map<String, Object>> pool, InvocationParameters context) {
         String convId = getConversationId(context);
-        if (convId != null) followupContextStore.markDisambiguating(convId, unitOptions(pool));
+        List<FollowupContextStore.ClarificationOption> options = unitOptions(pool);
+        if (convId != null) followupContextStore.markDisambiguating(convId, options);
+        boolean asked = askToChoose(context,
+                "Tên đơn vị '" + query + "' khớp nhiều đơn vị. Bạn muốn xem đơn vị nào?", options);
+        if (pool.isEmpty()) markNotFound(context, query);
         Map<String, Object> group = new LinkedHashMap<>();
         group.put("query", query);
         group.put("reason", pool.isEmpty() ? "not_found" : "ambiguous");
@@ -386,7 +476,11 @@ public class ToolSupport {
         Map<String, Object> out = new LinkedHashMap<>();
         out.put("needsClarification", true);
         out.put("ambiguous", java.util.List.of(group));
-        out.put("message", "Tên đơn vị '" + query + "' khớp NHIỀU đơn vị (hoặc không tìm thấy). Hãy hỏi người dùng "
+        out.put("message", asked ? ASKED_MESSAGE
+                : pool.isEmpty() ? "Không có đơn vị nào tên '" + query + "' trong phạm vi của người hỏi. "
+                        + "Trả lời thẳng là đơn vị này không tồn tại và nêu các đơn vị có thật (danh sách "
+                        + "đơn vị trong phạm vi ở phần ngữ cảnh). KHÔNG hỏi lại người dùng."
+                : "Tên đơn vị '" + query + "' khớp NHIỀU đơn vị. Hãy hỏi người dùng "
                 + "chọn RÕ đơn vị (nêu đơn vị cha/cấp để phân biệt) rồi gọi lại với tên cụ thể.");
         return out;
     }
@@ -709,6 +803,17 @@ public class ToolSupport {
     public String returnAmbiguous(String toolName, String entityLabel, String arrayKey,
                                   List<Map<String, Object>> results, String aggregateHint,
                                   InvocationParameters context) throws Exception {
+        return returnAmbiguous(toolName, entityLabel, arrayKey, results, aggregateHint, context, List.of());
+    }
+
+    /**
+     * @param askOptions các lựa chọn bấm được; có thì lượt HỎI THẲNG người dùng giữa lượt
+     *                   ({@link #askToChoose}) thay vì kết thúc bằng một câu hỏi
+     */
+    public String returnAmbiguous(String toolName, String entityLabel, String arrayKey,
+                                  List<Map<String, Object>> results, String aggregateHint,
+                                  InvocationParameters context,
+                                  List<FollowupContextStore.ClarificationOption> askOptions) throws Exception {
         // Đây là đường ra THỨ HAI của một tool chạy thành công — nó KHÔNG đi qua respond(), nên
         // phải tự ghi nhận. Bỏ sót chỗ này khiến AnswerValidator tưởng lượt đó không lấy được dữ
         // liệu nào rồi chặn nhầm chính câu hỏi làm rõ hợp lệ (đã đo được: 4 câu bị chặn oan).
@@ -718,7 +823,15 @@ public class ToolSupport {
 
         String convId = getConversationId(context);
         if (convId != null) {
-            followupContextStore.markDisambiguating(convId);
+            followupContextStore.markDisambiguating(convId, askOptions);
+        }
+        if (askToChoose(context, "Có nhiều " + entityLabel + " trùng tên. Bạn muốn nói tới mục nào?", askOptions)) {
+            Map<String, Object> asked = new LinkedHashMap<>();
+            asked.put("status", "NEEDS_DISAMBIGUATION");
+            asked.put("message", ASKED_MESSAGE);
+            asked.put("count", results.size());
+            asked.put(arrayKey, results);
+            return toolMapper.writeValueAsString(asked);
         }
         return ambiguousEnvelope(entityLabel, arrayKey, results, aggregateHint);
     }
@@ -792,6 +905,9 @@ public class ToolSupport {
         // của một lượt nên im lặng ở đây nhìn không khác gì treo máy.
         ToolProgress.announce(context, toolName);
         String json = toolMapper.writeValueAsString(withScopeNote(context, payload));
+        // Giữ lại cho bước dựng biểu đồ (ChartAgent) — số vẽ ra phải là số tool vừa trả về.
+        AgentState payloadState = AgentState.from(context);
+        if (payloadState != null) payloadState.recordPayload(toolName, json);
         String conversationId = getConversationId(context);
         if (conversationId != null) {
             followupContextStore.append(conversationId, toolName, json);

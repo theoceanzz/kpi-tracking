@@ -44,6 +44,8 @@ public class OrgNotificationConfigService {
             "bsc_scorecard_submitted", "bsc_scorecard_approved", "bsc_scorecard_rejected",
             "bsc_scorecard_activated", "bsc_scorecard_locked", "bsc_cascaded",
             "bsc_unit_result_finalized", "bsc_score_overridden",
+            // Quy chế chấm AI theo đơn vị: cấp dưới đề nghị đổi tài liệu cấp trên đã áp.
+            "ai_criteria_change_requested", "ai_criteria_change_decided",
             // Điểm thưởng
             "reward_grant_submitted", "reward_grant_approved", "reward_grant_rejected",
             "reward_grant_cancelled", "reward_points_received", "reward_grant_revoked",

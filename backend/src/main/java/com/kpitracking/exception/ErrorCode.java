@@ -86,6 +86,12 @@ public enum ErrorCode {
     // AiService
     AI_FEATURE_TURNED_OFF_ORGANIZATION(HttpStatus.FORBIDDEN),
 
+    // AI đánh giá bài nộp / nhân viên tự soi bài (SubmissionSelfCheckService)
+    AI_REVIEW_NOT_ENABLED(HttpStatus.FORBIDDEN),
+    AI_REVIEW_UNIT_DISABLED(HttpStatus.FORBIDDEN),
+    AI_SELF_CHECK_NOTHING_TO_READ(HttpStatus.UNPROCESSABLE_ENTITY),
+    AI_SELF_CHECK_TOO_MANY_FILES(HttpStatus.BAD_REQUEST),
+
     // AttachmentPolicy
     NO_FILE_SELECTED_ATTACH(HttpStatus.UNPROCESSABLE_ENTITY),
     EACH_REPORT_CAN_MOST_ATTACHMENTS(HttpStatus.UNPROCESSABLE_ENTITY),

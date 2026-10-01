@@ -1,4 +1,5 @@
 import { useState, useMemo, useEffect, useRef } from 'react'
+import AiReviewPanel from './AiReviewPanel'
 import { useForm } from 'react-hook-form'
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
@@ -501,6 +502,10 @@ export default function StaffEvaluationModal({
           </div>
         ) : (
           <>
+            {/* AI đọc trước bài nộp — chỉ tham khảo, không tự điền điểm; tự ẩn khi tổ chức chưa bật. Hiện cả
+                khi xem lại đợt đã chấm: khối này chỉ đọc, và đặt cạnh điểm đã chốt là cách quản lý so AI với người. */}
+            {periodId && userId && <AiReviewPanel periodId={periodId} userId={userId} />}
+
             {/* ── 1. Chỉ tiêu KPI ─────────────────────────────────────────────
                 Bảng đọc + chấm từng KPI. Cột "chấm" dùng Select/Input chuẩn, ô chấm định lượng
                 đứng cạnh điểm hệ thống để thấy mình đang nâng/hạ bao nhiêu. */}

@@ -155,6 +155,8 @@ export const router = createBrowserRouter([
                   'ORG:VIEW', 'KPI_CYCLE:CREATE', 'KPI_PERIOD:CREATE', 'OKR:MANAGE', 'BSC:MANAGE',
                   'REWARD:GRANT', 'REWARD:APPROVE', 'REWARD:CONFIG', 'REWARD:VIEW',
                   'WALLET:VIEW', 'WALLET:CONFIG', 'WALLET:RECONCILE', 'AI_QUOTA:ALLOCATE',
+                  // Quản lý đơn vị áp quy chế chấm AI cho đơn vị mình (mục "AI đánh giá bài nộp").
+                  'AI_REVIEW:CONFIG', 'AI_CRITERIA:MANAGE',
                 ]}
               />
             ),

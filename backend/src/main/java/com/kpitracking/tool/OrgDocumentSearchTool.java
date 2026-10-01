@@ -1,23 +1,16 @@
 package com.kpitracking.tool;
 
+import com.kpitracking.ai.document.retrieve.DocumentRetrieverFactory;
+import com.kpitracking.ai.document.retrieve.DocumentSearchService;
+import com.kpitracking.ai.document.retrieve.RetrievalProfile;
 import com.kpitracking.dto.response.ai.DocumentSourceResponse;
 import com.kpitracking.dto.response.ai.RagSearchHitResponse;
-import com.kpitracking.enums.DocumentCategory;
 import com.kpitracking.service.ai.agent.AgentState;
-import com.kpitracking.service.document.DocumentAccessResolver;
 import com.kpitracking.tool.OrgUnitStatisticToolRequests.OrgDocumentSearchRequest;
 import dev.langchain4j.agent.tool.Tool;
-import dev.langchain4j.data.message.UserMessage;
-import dev.langchain4j.data.segment.TextSegment;
-import dev.langchain4j.invocation.InvocationContext;
 import dev.langchain4j.invocation.InvocationParameters;
-import dev.langchain4j.model.embedding.EmbeddingModel;
-import dev.langchain4j.model.embedding.request.EmbeddingInputType;
+import dev.langchain4j.rag.content.Content;
 import dev.langchain4j.rag.content.retriever.ContentRetriever;
-import dev.langchain4j.rag.content.retriever.EmbeddingStoreContentRetriever;
-import dev.langchain4j.rag.query.Metadata;
-import dev.langchain4j.rag.query.Query;
-import dev.langchain4j.store.embedding.EmbeddingStore;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Component;
 
@@ -33,41 +26,27 @@ import java.util.UUID;
  * <p>Thay cho agent gợi ý KPI riêng (bỏ 22/09/2026): trước đây tài liệu này chỉ đi vào prompt của
  * {@code KpiSuggestionAgent} qua {@code RetrievalAugmentor}; nay gợi ý KPI đi qua đường điền form
  * của agent chính ({@code suggest_kpi_form}), nên tài liệu phải là một TOOL để agent chính tự tra.
- * Lọc bắt buộc theo QUYỀN của người hỏi ({@link DocumentAccessResolver}, cùng bộ lọc fail-closed với trợ lý
- * hỏi đáp — docs/DOCUMENTS_DESIGN.md §6.3) và chỉ hai danh mục — quy chế nói về cách chấm, không nói về việc
- * phải làm; bộ hướng dẫn KeyGo thì càng không. Nhờ lọc theo quyền, mô tả công việc của phòng mà người hỏi
- * không thuộc về không lọt vào gợi ý KPI.
+ *
+ * <p>Hồ sơ {@link RetrievalProfile#KPI_CONTEXT}: chỉ mô tả công việc + chiến lược — quy chế nói về cách chấm, không
+ * nói về việc phải làm; bộ hướng dẫn KeyGo thì càng không. Đọc theo QUYỀN của người hỏi (bộ lọc fail-closed ở
+ * {@link DocumentRetrieverFactory}, docs/DOCUMENTS_DESIGN.md §6.3): mô tả công việc của phòng mà người hỏi không
+ * thuộc về, hay tài liệu cá nhân của người khác, không lọt vào gợi ý KPI.
  */
 @Component
 public class OrgDocumentSearchTool {
 
-    private static final List<DocumentCategory> CATEGORIES = List.of(
-            DocumentCategory.JOB_DESCRIPTION, DocumentCategory.STRATEGY);
-    private static final String PARAM_ORG = "organizationId";
     private static final String PARAM_USER = "userId";
     private static final int MAX_TEXT = 700;
 
     private final ToolSupport support;
     private final ContentRetriever retriever;
+    private final DocumentSearchService search;
 
-    public OrgDocumentSearchTool(ToolSupport support, EmbeddingStore<TextSegment> store, EmbeddingModel embeddingModel,
-                                 DocumentAccessResolver accessResolver,
+    public OrgDocumentSearchTool(ToolSupport support, DocumentRetrieverFactory retrievers, DocumentSearchService search,
                                  @Value("${app.ai.rag.org-documents.max-results:4}") int maxResults) {
         this.support = support;
-        this.retriever = EmbeddingStoreContentRetriever.builder()
-                .embeddingStore(store)
-                .embeddingModel(embeddingModel)
-                .embeddingInputType(EmbeddingInputType.QUERY)
-                .maxResults(maxResults)
-                .minScore(0.0) // hybrid trả điểm RRF, không phải cosine
-                .dynamicFilter(query -> {
-                    var p = query.metadata() == null ? null : query.metadata().invocationParameters();
-                    // Không biết tổ chức/người hỏi thì resolver trả quyền rỗng → bộ lọc không khớp đoạn nào.
-                    UUID org = p == null ? null : asUuid(p.get(PARAM_ORG));
-                    UUID user = p == null ? null : asUuid(p.get(PARAM_USER));
-                    return accessResolver.resolve(user, org).toVectorFilter(CATEGORIES);
-                })
-                .build();
+        this.search = search;
+        this.retriever = retrievers.retriever(RetrievalProfile.KPI_CONTEXT, maxResults, 0.0);
     }
 
     @Tool(name = "get_org_documents", value =
@@ -83,17 +62,9 @@ public class OrgDocumentSearchTool {
                 throw new IllegalArgumentException("Cần query — vd 'nhiệm vụ và mục tiêu của Phòng IT'.");
             }
             UUID orgId = support.getOrgId(context);
-            Object userId = context == null ? null : context.get(PARAM_USER);
-            Map<String, Object> p = new java.util.HashMap<>();
-            p.put(PARAM_ORG, orgId);
-            if (userId != null) p.put(PARAM_USER, userId);
-            InvocationParameters params = InvocationParameters.from(p);
-            Metadata metadata = Metadata.builder()
-                    .chatMessage(UserMessage.from(q.strip()))
-                    .invocationContext(InvocationContext.builder().invocationParameters(params).build())
-                    .build();
-            List<dev.langchain4j.rag.content.Content> found = retriever.retrieve(Query.from(q.strip(), metadata));
-            // Chip nguồn: tài liệu mà công cụ vừa đọc cho lượt này (đã qua bộ lọc quyền ở trên).
+            UUID userId = asUuid(context == null ? null : context.get(PARAM_USER));
+            List<Content> found = search.retrieve(retriever, q, orgId, userId, null);
+            // Chip nguồn: tài liệu mà công cụ vừa đọc cho lượt này (đã qua bộ lọc quyền).
             AgentState state = AgentState.from(context);
             if (state != null) {
                 state.addSources(found.stream()

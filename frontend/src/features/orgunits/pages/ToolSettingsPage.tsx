@@ -2,6 +2,7 @@ import SettingsSectionLayout from '@/components/common/SettingsSectionLayout'
 import { usePageTitle } from '@/features/organization/hooks/usePageTitle'
 import { useAuthStore } from '@/store/authStore'
 import { useNotificationDots } from '@/hooks/useNotificationDots'
+import { useHasPermission } from '@/components/auth/PermissionGate'
 import { useOrganization } from '../hooks/useOrganization'
 import LoadingSkeleton from '@/components/common/LoadingSkeleton'
 import { usesPerformanceMatrix } from '@/lib/scoring'
@@ -16,6 +17,9 @@ import BscManagementPage from '@/features/bsc/pages/BscManagementPage'
 import RewardManagementPage from '@/features/rewards/pages/RewardManagementPage'
 import WalletAdminPage from '@/features/wallet/pages/WalletAdminPage'
 import AiQuotaPage from '@/features/organization/pages/AiQuotaPage'
+import AiReviewSettingsSection from '@/features/submissions/components/AiReviewSettingsSection'
+import AiCriteriaSetSection from '@/features/submissions/components/AiCriteriaSetSection'
+import AiReviewReportSection from '@/features/submissions/components/AiReviewReportSection'
 import { useTranslation } from 'react-i18next'
 
 /**
@@ -31,6 +35,9 @@ export default function ToolSettingsPage() {
   const pageTitle = usePageTitle('setup-tools', t('ToolSettingsPage.toolSetup'))
   // Ba công cụ có hàng chờ thật; các mục còn lại là bảng cấu hình, không có việc tồn.
   const { counts } = useNotificationDots()
+  // Quản lý đơn vị chỉ áp quy chế chấm cho đơn vị mình; các thẻ cấp công ty dành cho người cấu hình AI.
+  const { hasPermission } = useHasPermission()
+  const canConfigAi = hasPermission('AI_REVIEW:CONFIG')
 
   // Thang định tính chỉ có nghĩa khi tổ chức bật KPI hành vi.
   const enableQualitative = org?.enableQualitative ?? false
@@ -104,6 +111,18 @@ export default function ToolSettingsPage() {
             render: () => <WalletAdminPage />,
           },
           { id: 'ai-quota', visible: org.enableAi !== false, render: () => <AiQuotaPage /> },
+          {
+            id: 'ai-review',
+            visible: org.enableAi !== false,
+            badge: counts.pendingAiCriteria || null,
+            render: () => (
+              <div className="mx-auto max-w-5xl space-y-5">
+                {canConfigAi && <AiReviewSettingsSection />}
+                <AiCriteriaSetSection />
+                {canConfigAi && <AiReviewReportSection />}
+              </div>
+            ),
+          },
         ]}
       />
     </>

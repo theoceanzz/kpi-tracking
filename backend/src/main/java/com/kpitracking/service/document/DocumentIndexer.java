@@ -1,9 +1,11 @@
 package com.kpitracking.service.document;
 
-import com.kpitracking.ai.rag.DocumentParser;
-import com.kpitracking.ai.rag.DocxSectionWalker;
-import com.kpitracking.ai.rag.RagIngestionService;
+import com.kpitracking.ai.document.ingest.DocumentIngestionPipeline;
+import com.kpitracking.ai.document.model.FileRef;
+import com.kpitracking.ai.document.parse.DocumentParser;
+import com.kpitracking.ai.document.profile.DocumentKind;
 import com.kpitracking.entity.Document;
+import com.kpitracking.enums.DocumentCategory;
 import com.kpitracking.enums.DocumentAiStatus;
 import com.kpitracking.enums.DocumentScope;
 import com.kpitracking.event.DocumentIndexRequestedEvent;
@@ -32,8 +34,8 @@ import java.util.concurrent.RejectedExecutionException;
  * Nạp tài liệu vào kho tri thức, chạy nền (docs/DOCUMENTS_DESIGN.md §5.2).
  *
  * <p>Luồng: giành quyền nạp ({@code PENDING/FAILED → INDEXING}, 0 dòng = đã có luồng khác) → đọc tệp gốc →
- * {@link DocumentParser} → {@link RagIngestionService#indexSections} (xoá vector cũ rồi nạp) → CHỐT: khoá dòng,
- * so với ảnh chụp lúc bắt đầu.
+ * {@link DocumentIngestionPipeline#indexLibraryDocument} (cùng đường nạp với kho tri thức: đọc theo định dạng, cắt
+ * mục theo loại tài liệu, xoá vector cũ rồi nạp) → CHỐT: khoá dòng, so với ảnh chụp lúc bắt đầu.
  *
  * <p>Bước chốt là thứ giữ kho vector đúng quyền khi người dùng thao tác TRONG LÚC đang nạp:
  * <ul>
@@ -54,12 +56,12 @@ public class DocumentIndexer {
 
     private final DocumentRepository documents;
     private final DocumentStorage storage;
-    private final RagIngestionService ingestion;
+    private final DocumentIngestionPipeline ingestion;
     private final DocumentSettings settings;
     private final TransactionTemplate tx;
     private final ThreadPoolTaskExecutor executor;
 
-    public DocumentIndexer(DocumentRepository documents, DocumentStorage storage, RagIngestionService ingestion,
+    public DocumentIndexer(DocumentRepository documents, DocumentStorage storage, DocumentIngestionPipeline ingestion,
                            DocumentSettings settings, PlatformTransactionManager txManager) {
         this.documents = documents;
         this.storage = storage;
@@ -109,7 +111,7 @@ public class DocumentIndexer {
 
         LocalizedText error = null;
         DocumentAiStatus outcome;
-        RagIngestionService.Indexed result = null;
+        DocumentIngestionPipeline.Indexed result = null;
         try {
             long othersChunks = documents.sumChunks(doc.getOrganizationId()) - doc.getAiChunkCount();
             if (othersChunks >= settings.getOrgMaxChunks()) {
@@ -118,12 +120,11 @@ public class DocumentIndexer {
             } else {
                 byte[] bytes = read(doc);
                 boolean withImages = doc.getScope() == DocumentScope.COMPANY;
-                List<DocxSectionWalker.Section> sections = DocumentParser.parse(
-                        bytes, DocumentPolicy.extensionOf(doc.getFileName()), doc.getTitle(), withImages);
-                result = ingestion.indexSections(documentId, sections, baseMetadata(doc), withImages);
+                result = ingestion.indexLibraryDocument(documentId, FileRef.of(doc.getFileName(), bytes),
+                        kindOf(doc.getCategory()), doc.getTitle(), baseMetadata(doc), withImages);
                 outcome = DocumentAiStatus.READY;
             }
-        } catch (DocumentParser.NoTextException e) {
+        } catch (DocumentParser.Unparseable e) {
             error = LocalizedText.of("document.aiError.noText");
             outcome = DocumentAiStatus.UNSUPPORTED;
         } catch (StorageReadException e) {
@@ -155,7 +156,7 @@ public class DocumentIndexer {
     }
 
     /** Bước chốt — xem javadoc của lớp. */
-    private void finish(UUID id, String snapshot, DocumentAiStatus outcome, RagIngestionService.Indexed result,
+    private void finish(UUID id, String snapshot, DocumentAiStatus outcome, DocumentIngestionPipeline.Indexed result,
                         LocalizedText error) {
         UUID[] legacyToDelete = new UUID[1];
         boolean[] redo = new boolean[1];
@@ -200,8 +201,21 @@ public class DocumentIndexer {
     }
 
     /**
+     * Loại tài liệu của đường nạp (quyết định cách cắt mục và {@code source} trong metadata — hồ sơ truy hồi lọc theo
+     * {@code source}: gợi ý KPI chỉ đọc mô tả công việc/chiến lược, chấm bài đọc quy chế/mô tả công việc).
+     */
+    public static DocumentKind kindOf(DocumentCategory category) {
+        return switch (category) {
+            case REGULATION -> DocumentKind.REGULATION;
+            case JOB_DESCRIPTION -> DocumentKind.JOB_DESCRIPTION;
+            case STRATEGY -> DocumentKind.STRATEGY;
+            default -> DocumentKind.GENERIC;
+        };
+    }
+
+    /**
      * Metadata chung của mọi đoạn — đúng những khoá bộ lọc quyền đọc (§4.2). Thiếu khoá nào thì
-     * {@code RagIngestionService.requireScope} từ chối nạp.
+     * {@code RagMetadata.requireScope} từ chối nạp.
      */
     static Map<String, Object> baseMetadata(Document doc) {
         Map<String, Object> m = new LinkedHashMap<>();
@@ -209,7 +223,7 @@ public class DocumentIndexer {
         m.put(DocumentAccess.KEY_SCOPE, doc.getScope().name());
         if (doc.getScope() == DocumentScope.UNIT) m.put(DocumentAccess.KEY_UNIT, doc.getOrgUnitId().toString());
         if (doc.getScope() == DocumentScope.PERSONAL) m.put(DocumentAccess.KEY_OWNER, doc.getOwnerUserId().toString());
-        m.put(DocumentAccess.KEY_CATEGORY, doc.getCategory().name());
+        m.put("category", doc.getCategory().name());
         m.put("docTitle", doc.getTitle());
         m.put("version", doc.getVersion());
         return m;

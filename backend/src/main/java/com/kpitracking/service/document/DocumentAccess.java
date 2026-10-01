@@ -1,13 +1,12 @@
 package com.kpitracking.service.document;
 
+import com.kpitracking.ai.document.ingest.RagMetadata;
 import com.kpitracking.entity.Document;
-import com.kpitracking.enums.DocumentCategory;
 import com.kpitracking.enums.DocumentScope;
 import dev.langchain4j.store.embedding.filter.Filter;
 import org.springframework.data.jpa.domain.Specification;
 
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.List;
 import java.util.Set;
 import java.util.UUID;
@@ -36,13 +35,13 @@ public record DocumentAccess(
         boolean canUploadPersonal) {
 
     /** Giá trị {@code orgId}/{@code scope} của bộ hướng dẫn chung trong kho vector. */
-    public static final String GLOBAL = "GLOBAL";
+    public static final String GLOBAL = RagMetadata.GLOBAL_ORG;
 
-    public static final String KEY_ORG = "orgId";
-    public static final String KEY_SCOPE = "scope";
-    public static final String KEY_UNIT = "unitId";
-    public static final String KEY_OWNER = "ownerId";
-    public static final String KEY_CATEGORY = "category";
+    // Một nguồn cho tên khoá metadata: RagMetadata của đường nạp.
+    public static final String KEY_ORG = RagMetadata.ORG_ID;
+    public static final String KEY_SCOPE = RagMetadata.SCOPE;
+    public static final String KEY_UNIT = RagMetadata.UNIT_ID;
+    public static final String KEY_OWNER = RagMetadata.OWNER_ID;
 
     /** Không biết là ai → không đọc gì của tổ chức nào. */
     public static DocumentAccess none(UUID orgId, UUID userId) {
@@ -101,13 +100,6 @@ public record DocumentAccess(
         }
         Filter org = metadataKey(KEY_ORG).isEqualTo(orgId.toString()).and(orgBranches());
         return includeGlobal ? global.or(org) : org;
-    }
-
-    /** Như {@link #toVectorFilter(boolean)} không kèm bộ hướng dẫn, và chỉ trong các danh mục cho trước. */
-    public Filter toVectorFilter(Collection<DocumentCategory> categories) {
-        if (!member || categories.isEmpty()) return nothing();
-        List<String> names = categories.stream().map(Enum::name).toList();
-        return toVectorFilter(false).and(metadataKey(KEY_CATEGORY).isIn(names));
     }
 
     private Filter orgBranches() {

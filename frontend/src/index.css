@@ -330,8 +330,17 @@ body {
   text-rendering: optimizeLegibility;
 }
 
-* {
-  border-color: var(--color-border);
+/* Màu viền mặc định. PHẢI nằm trong @layer base: Tailwind v4 đặt mọi class vào @layer, còn CSS ngoài
+   layer luôn thắng — để ngoài thì mọi `border-[var(--color-…)]`, `divide-…`, `border-transparent` của
+   cả app bị đè về màu xám (đã xảy ra từ khi lên v4: viền đỏ ô sai, viền cảnh báo, viền chọn đều mất). */
+@layer base {
+  *,
+  ::after,
+  ::before,
+  ::backdrop,
+  ::file-selector-button {
+    border-color: var(--color-border);
+  }
 }
 
 /* Bảng số liệu: mọi con số trong <table> và <dd> xếp thẳng cột. */
@@ -372,14 +381,6 @@ table, dd {
   outline-offset: 2px;
 }
 
-/* Ô nhập có prefix/suffix (`Input` bọc trong .input-shell): khung bọc đã vẽ ring bằng
-   focus-within, ô bên trong mà ăn thêm rule trên thì thành hai viền lồng nhau. Rule này
-   nằm ngoài @layer nên `outline-none` của Tailwind (trong @layer utilities) không đè được —
-   phải tắt ở đúng đây. */
-.input-shell > :where(input, textarea):focus-visible {
-  outline: none;
-}
-
 /* Ô soạn K.AI: MỘT lớp focus (viền đổi màu + quầng mờ) và không nhận outline chung ở trên.
    Đặt ngoài @layer như luật kia vì `focus:outline-none` của Tailwind nằm trong @layer utilities
    nên không bao giờ thắng được nó — đo được: ô chat từng hiện cả ring teal lẫn outline tím. */
@@ -389,6 +390,15 @@ table, dd {
 }
 .ai-composer:focus-visible,
 .ai-composer textarea:focus-visible {
+  outline: none;
+}
+
+/* Ô nhập chuẩn (Input / Textarea — components/ui): focus là MỘT lớp viền đổi màu + quầng mờ đặt trong
+   component. Luật outline chung phía trên nằm ngoài @layer nên `outline-none` của Tailwind không đè được —
+   phải tắt ở đây, không thì ô có đơn vị ("%") hiện thêm khung vuông quanh thẻ <input> bên trong khung
+   bọc (.field-shell), còn ô thường hiện quầng + outline cách 2px. */
+.field:focus-visible,
+.field-shell :focus-visible {
   outline: none;
 }
 

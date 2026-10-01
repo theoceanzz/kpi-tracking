@@ -876,7 +876,9 @@
     "whenTheParentAssignsBscKpis": "When the parent assigns BSC KPIs down to the unit",
     "whenTheRedeemerCancelsTheirOwn": "When the redeemer cancels their own request (for the gift handling team)",
     "whenTheUnitsBscResultsFor": "When the unit's BSC results for a period are finalized",
-    "whenYourPeriodEvaluationResultsAre": "When your period evaluation results are available (for the person scored)"
+    "whenYourPeriodEvaluationResultsAre": "When your period evaluation results are available (for the person scored)",
+    "whenASubordinateRequestsChangingAiRules": "When a lower unit requests changing the AI scoring rules you applied (for the applier / superior)",
+    "whenYourAiRulesRequestIsDecided": "When your request to change AI scoring rules is approved or rejected"
   },
   "useAiQuota": {
     "couldNotUpdate": "Could not update",

@@ -96,6 +96,29 @@ export interface DocumentSource {
   legacy: boolean
 }
 
+/** Token màu do trợ lý chọn; client giải ra mã màu theo theme (xem colorTokens.ts). */
+export type ChartColorToken = string
+
+/** Một biểu đồ trợ lý đề nghị cho câu trả lời — client dựng bằng bộ biểu đồ có sẵn của KeyGo. */
+export interface ChatChart {
+  id: string
+  type: 'bar' | 'groupedBar' | 'stackedBar' | 'stacked100' | 'lollipop' | 'line' | 'area'
+      | 'bullet' | 'donut' | 'histogram' | 'metricCards'
+  title: string
+  subtitle?: string
+  unit?: string
+  xLabel?: string
+  yLabel?: string
+  categoryKey: string
+  series: { key: string; label: string; color?: ChartColorToken; role?: 'actual' | 'target' | 'minimum' }[]
+  data: Record<string, string | number | null>[]
+  reference?: { value: number; label?: string }
+  valueFormat?: 'number' | 'percent' | 'score5' | 'currency'
+  palette?: 'series' | 'rating' | 'achievement' | 'status' | 'metric'
+  highlight?: string[]
+  note?: string
+}
+
 export interface AiChatResponse {
   text: string
   /** Chỉ có ở lượt trợ lý hỏi lại; lượt trả lời bình thường sẽ vắng field này. */
@@ -129,6 +152,11 @@ export interface AiChatResponse {
   consumedActionId?: string
   /** Tài liệu của tổ chức đã đọc ở lượt này. Vắng khi không tra tài liệu nào. */
   sources?: DocumentSource[]
+  /**
+   * Biểu đồ minh hoạ cho câu trả lời có số liệu. Vắng ở lượt không có gì đáng vẽ — trường hợp
+   * thường gặp, không phải lỗi.
+   */
+  charts?: ChatChart[]
 }
 
 export interface ConversationResponse {
@@ -188,6 +216,45 @@ export interface StageEvent {
   label: string
 }
 
+/** Một lựa chọn trong thẻ hỏi giữa lượt. */
+export interface AskOption {
+  /** Giá trị gửi lại cho trợ lý khi người dùng chọn (có thể là tên hoặc id). */
+  value: string
+  /** Chữ người dùng đọc. */
+  label: string
+  /** Dòng phụ để phân biệt hai lựa chọn trùng tên. */
+  description?: string
+}
+
+/**
+ * Một câu trong thẻ hỏi. Người dùng LUÔN tự nhập được; `options` (nếu có) để bấm chọn — một hoặc
+ * nhiều tuỳ `multiSelect`.
+ */
+export interface AskQuestion {
+  question: string
+  options: AskOption[]
+  multiSelect: boolean
+}
+
+/**
+ * Trợ lý hỏi lại GIỮA LƯỢT và đang chờ trả lời.
+ *
+ * <p>Khác `options` của câu trả lời (lượt đã xong, bấm = gửi một lượt MỚI): ở đây lượt còn đang
+ * chạy trên chính kết nối này và giữ nguyên mọi thứ nó đã tra được — trả lời xong nó làm tiếp.
+ * Một thẻ có thể gom vài câu (tối đa 3), trả lời một lần.
+ */
+export interface AskUserEvent {
+  turnId: string
+  questionId: string
+  questions: AskQuestion[]
+}
+
+/** Câu trả lời cho một câu hỏi của thẻ: lựa chọn đã bấm + chữ tự nhập. */
+export interface AskAnswer {
+  values: string[]
+  text?: string
+}
+
 /**
  * Nhãn công đoạn do server gửi (tiếng Việt, luồng stream không mang ngôn ngữ người dùng). Dịch theo mã
  * ổn định ở `analytics:aiStages.*`; mã chưa có bản dịch thì giữ nguyên nhãn server.
@@ -201,6 +268,8 @@ export interface ChatStreamHandlers {
   onStage?: (stage: StageEvent) => void
   /** Một mẩu chữ. Là BẢN XEM TRƯỚC chưa qua lọc — phải thay bằng nội dung của onDone. */
   onToken?: (text: string) => void
+  /** Trợ lý hỏi lại và đang chờ: hiện thẻ chọn. Không trả lời thì lượt tự kết thúc bằng câu hỏi. */
+  onAsk?: (ask: AskUserEvent) => void
   onDone?: (response: AiChatResponse) => void
   /**
    * Lượt hỏng. Nhận NGUYÊN đối tượng lỗi chứ không phải chuỗi: nó mang cả mã HTTP mà đường JSON
@@ -345,6 +414,7 @@ export const aiApi = {
 
           if (event === 'stage') handlers.onStage?.(localizeStage(payload as StageEvent))
           else if (event === 'token') handlers.onToken?.(payload.text ?? '')
+          else if (event === 'ask') handlers.onAsk?.(payload as AskUserEvent)
           else if (event === 'done') handlers.onDone?.(payload as AiChatResponse)
           else if (event === 'error') {
             handlers.onError?.(streamError(payload.message ?? i18n.t('analytics:aiApi.unknownError'), payload.status ?? 500))
@@ -357,6 +427,22 @@ export const aiApi = {
       reader.cancel().catch(() => {})
     }
   },
+
+  /**
+   * Trả lời câu hỏi trợ lý đặt giữa lượt. Lượt đang chờ trên kết nối SSE đã mở — không có phản hồi
+   * nào ở đây ngoài "đã nhận"; câu trả lời cuối vẫn về qua `onDone` của luồng đó.
+   *
+   * <p>`answers` theo đúng thứ tự câu hỏi trong thẻ; bỏ trống = bỏ qua (lượt kết thúc bằng một dòng
+   * ngắn, không lặp câu hỏi).
+   */
+  answerTurn: (turnId: string, questionId: string, answers?: AskAnswer[] | null) =>
+    axiosInstance
+      .post<ApiResponse<boolean>>(`/ai/turns/${turnId}/answer`, {
+        questionId,
+        answers: answers ?? null,
+        cancelled: !answers,
+      })
+      .then(res => res.data.data === true),
 
   /**
    * Xác nhận và chạy một thao tác trợ lý đã chuẩn bị.

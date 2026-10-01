@@ -1,7 +1,7 @@
 package com.kpitracking.service.document;
 
-import com.kpitracking.ai.rag.RagIngestionService;
-import com.kpitracking.ai.rag.RagVectorReader;
+import com.kpitracking.ai.document.ingest.DocumentIngestionPipeline;
+import com.kpitracking.ai.document.store.RagVectorReader;
 import com.kpitracking.dto.request.document.UpdateDocumentRequest;
 import com.kpitracking.dto.response.PageResponse;
 import com.kpitracking.dto.response.ai.RagChunkResponse;
@@ -73,7 +73,7 @@ public class DocumentService {
     private final DocumentSettings settings;
     private final DocumentMapper mapper;
     private final ApplicationEventPublisher events;
-    private final RagIngestionService ingestion;
+    private final DocumentIngestionPipeline ingestion;
     private final RagVectorReader vectorReader;
     private final RagDocumentRepository legacyDocuments;
     private final UserRepository users;
@@ -85,7 +85,7 @@ public class DocumentService {
 
     public DocumentService(DocumentRepository documents, DocumentAccessResolver accessResolver, DocumentStorage storage,
                            DocumentSettings settings, DocumentMapper mapper, ApplicationEventPublisher events,
-                           RagIngestionService ingestion, RagVectorReader vectorReader,
+                           DocumentIngestionPipeline ingestion, RagVectorReader vectorReader,
                            RagDocumentRepository legacyDocuments, UserRepository users, OrgUnitRepository orgUnits,
                            PermissionChecker permissionChecker, SecurityAuditService audit, RewardContext currentUser,
                            PlatformTransactionManager txManager) {

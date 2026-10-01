@@ -127,7 +127,9 @@
     "workflowSettings": "Workflow settings",
     "yourAssignedKpisAndCurrentProgress": "Your assigned KPIs and current progress",
     "yourUnitsScorecardByPeriodAnd": "Your unit's scorecard by period and your KPIs in each item",
-    "documents": "Documents"
+    "documents": "Documents",
+    "aiSubmissionReview": "AI submission review",
+    "aiReadsSubmissionsAndAppliesRules": "Let AI pre-read submissions when scoring, and apply scoring rules per unit"
   },
   "Sidebar": {
     "administrator": "Administrator",

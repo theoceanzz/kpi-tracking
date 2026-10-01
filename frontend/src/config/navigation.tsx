@@ -199,6 +199,7 @@ export const navItems = perLanguage((): NavItem[] => ([
           { id: 'rewards', label: i18n.t('layout:navigation.rewardManagement'), icon: <Gift size={18} />, permission: ['REWARD:GRANT', 'REWARD:APPROVE', 'REWARD:CONFIG', 'REWARD:VIEW'], rewardOnly: true, legacyKeys: ['/rewards'], group: i18n.t('layout:navigation.tools'), description: i18n.t('layout:navigation.rewardProposalsBudgetsCheckInsAnd') },
           { id: 'wallet', label: i18n.t('layout:navigation.walletManagement'), icon: <Landmark size={18} />, permission: ['WALLET:VIEW', 'WALLET:CONFIG', 'WALLET:RECONCILE'], walletOnly: true, legacyKeys: ['/wallet'], group: i18n.t('layout:navigation.tools'), description: i18n.t('layout:navigation.peopleBalancesTopUpConfigurationAnd') },
           { id: 'ai-quota', label: i18n.t('layout:navigation.aiTokenManagement'), icon: <Coins size={18} />, permission: 'AI_QUOTA:ALLOCATE', aiOnly: true, legacyKeys: ['/ai-quota'], group: i18n.t('layout:navigation.tools'), description: i18n.t('layout:navigation.allocateAiTokenQuotasToLower') },
+          { id: 'ai-review', label: i18n.t('layout:navigation.aiSubmissionReview'), icon: <Bot size={18} />, permission: ['AI_REVIEW:CONFIG', 'AI_CRITERIA:MANAGE'], aiOnly: true, group: i18n.t('layout:navigation.tools'), description: i18n.t('layout:navigation.aiReadsSubmissionsAndAppliesRules') },
         ],
       },
     ],

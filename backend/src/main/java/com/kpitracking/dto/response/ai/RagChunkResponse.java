@@ -1,6 +1,6 @@
 package com.kpitracking.dto.response.ai;
 
-import com.kpitracking.ai.rag.RagIngestionService;
+import com.kpitracking.ai.document.ingest.RagMetadata;
 
 import java.util.Arrays;
 import java.util.List;
@@ -42,9 +42,9 @@ public record RagChunkResponse(
         }
     }
 
-    /** Danh sách ghép bằng {@code RagIngestionService.SEP} lúc nạp (kho chỉ nhận metadata phẳng). */
+    /** Danh sách ghép bằng {@code RagMetadata.SEP} lúc nạp (kho chỉ nhận metadata phẳng). */
     static List<String> split(String joined) {
         if (joined == null || joined.isBlank()) return List.of();
-        return Arrays.stream(joined.split(Pattern.quote(RagIngestionService.SEP))).toList();
+        return Arrays.stream(joined.split(Pattern.quote(RagMetadata.SEP))).toList();
     }
 }

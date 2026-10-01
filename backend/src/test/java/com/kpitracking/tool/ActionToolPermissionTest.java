@@ -56,6 +56,7 @@ class ActionToolPermissionTest {
                 new KpiDecomposeTool(null, null, null, null, null),
                 mock(DelegationTool.class), mock(ConductTool.class), mock(RewardTool.class), mock(PersonalTool.class),
                 mock(OrgDocumentSearchTool.class),
+                mock(AskUserTool.class),
                 mock(EscapeHatchTool.class), mock(EvidenceRequestTool.class),
                 mock(AttachFilesTool.class), mock(KpiFormFillTool.class),
                 mock(SubmissionFormFillTool.class), mock(EvaluationFormFillTool.class),

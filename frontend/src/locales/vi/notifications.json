@@ -42,7 +42,8 @@
     "updatedInRealTime": "Cập nhật theo thời gian thực",
     "wallet": "Ví tiền",
     "walletReconciliation": "Đối soát ví",
-    "youHaveReadAllNotifications": "Bạn đã đọc hết thông báo."
+    "youHaveReadAllNotifications": "Bạn đã đọc hết thông báo.",
+    "aiScoringRules": "Quy chế chấm AI"
   },
   "useNotifications": {
     "markedAllNotificationsAsRead": "Đã đánh dấu tất cả thông báo là đã đọc"

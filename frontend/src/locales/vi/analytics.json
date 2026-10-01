@@ -848,7 +848,6 @@
     "eGEvaluationRegulations2026": "vd. Quy chế đánh giá 2026",
     "eGKeygoUserGuide": "vd. Hướng dẫn sử dụng KeyGo",
     "error": "Lỗi",
-    "fileDocx": "Tệp (.docx)",
     "images": "ảnh",
     "items": "mục",
     "loadANewDocument": "Nạp tài liệu mới",
@@ -874,8 +873,9 @@
     "type": "Loại",
     "typeAQuestionTheWayA": "Gõ một câu hỏi như người dùng sẽ hỏi. Kết quả là những đoạn trợ lý sẽ nhận được cho câu đó — cùng bộ truy hồi, cùng giới hạn tổ chức.",
     "viewChunks": "Xem đoạn",
-    "youHaveNotSelectedADocx": "Bạn chưa chọn tệp .docx",
-    "unknownReason": "không rõ lý do"
+    "unknownReason": "không rõ lý do",
+    "youHaveNotSelectedAFile": "Bạn chưa chọn tệp",
+    "fileWordPdfExcelImage": "Tệp (Word, PDF, Excel, ảnh)"
   },
   "ScopedDashboardWidget": {
     "achievedValue": "Giá trị đạt",

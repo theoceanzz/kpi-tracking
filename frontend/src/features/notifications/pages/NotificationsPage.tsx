@@ -10,7 +10,7 @@ import {
   Bell, CheckCheck, Send,
   FileSearch, ShieldCheck, Target,
   CheckCircle2, Layers, GitBranch, Calculator,
-  Award, Coins, Gift, Wallet, Scale, Inbox, Users, Lock
+  Award, Coins, Gift, Wallet, Scale, Inbox, Users, Lock, FileText
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
@@ -33,6 +33,7 @@ const typeConfig = perLanguage((): Record<string, { icon: LucideIcon; color: str
   FEEDBACK360: { icon: Users, color: 'bg-[var(--color-primary-soft)] text-[var(--color-primary)]', label: i18n.t('notifications:NotificationsPage.n360Feedback') },
   KPI_CYCLE_LOCKED: { icon: Lock, color: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]', label: i18n.t('notifications:NotificationsPage.cycleLock') },
   WALLET_RECONCILE: { icon: Scale, color: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]', label: i18n.t('notifications:NotificationsPage.walletReconciliation') },
+  AI_CRITERIA: { icon: FileText, color: 'bg-[var(--color-warning-bg)] text-[var(--color-warning)]', label: i18n.t('notifications:NotificationsPage.aiScoringRules') },
 }))
 const DEFAULT_TYPE = perLanguage(() => ({ icon: Bell, color: 'bg-[var(--color-muted)] text-[var(--color-muted-foreground)]', label: i18n.t('notifications:NotificationsPage.notifications') }))
 

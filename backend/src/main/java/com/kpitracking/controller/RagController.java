@@ -1,10 +1,12 @@
 package com.kpitracking.controller;
 
-import com.kpitracking.ai.agent.help.HelpAgentFactory;
 import com.kpitracking.ai.agent.help.HelpService;
-import com.kpitracking.ai.rag.LocalRagImageStore;
-import com.kpitracking.ai.rag.RagIngestionService;
-import com.kpitracking.ai.rag.RagVectorReader;
+import com.kpitracking.ai.document.store.LocalRagImageStore;
+import com.kpitracking.ai.document.ingest.DocumentIngestionPipeline;
+import com.kpitracking.ai.document.model.FileRef;
+import com.kpitracking.ai.document.profile.DocumentKind;
+import com.kpitracking.ai.document.retrieve.DocumentSearchService;
+import com.kpitracking.ai.document.store.RagVectorReader;
 import com.kpitracking.dto.response.ApiResponse;
 import com.kpitracking.dto.response.ai.RagChunkResponse;
 import com.kpitracking.dto.response.ai.RagSearchHitResponse;
@@ -17,7 +19,6 @@ import com.kpitracking.exception.ForbiddenException;
 import com.kpitracking.repository.RagDocumentRepository;
 import com.kpitracking.security.PermissionChecker;
 import com.kpitracking.service.reward.RewardContext;
-import dev.langchain4j.invocation.InvocationParameters;
 import dev.langchain4j.rag.content.retriever.ContentRetriever;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
@@ -50,7 +51,7 @@ import java.util.UUID;
  * không phải quản trị công ty.
  *
  * <p>Riêng "thử tìm" chạy trên đúng những gì trợ lý thấy cho tổ chức này: tài liệu chung + của tổ
- * chức — xem {@link RagQueries}.
+ * chức — cùng bộ truy hồi {@code helpContentRetriever}.
  */
 @RestController
 @RequestMapping("/api/v1/ai")
@@ -58,7 +59,8 @@ import java.util.UUID;
 @Tag(name = "AI Knowledge", description = "Kho tri thức của trợ lý: tài liệu của tổ chức và hỏi đáp")
 public class RagController {
 
-    private final RagIngestionService ingestion;
+    private final DocumentIngestionPipeline ingestion;
+    private final DocumentSearchService search;
     private final DocumentService documentService;
     private final RagDocumentRepository documents;
     private final HelpService helpService;
@@ -139,9 +141,8 @@ public class RagController {
     public ResponseEntity<ApiResponse<List<RagSearchHitResponse>>> search(@RequestParam("q") String q) {
         requireOrgManager();
         // Chạy với quyền của CHÍNH người thử: họ thấy đúng những gì trợ lý sẽ đưa cho họ.
-        InvocationParameters params = HelpAgentFactory.params(
-                currentUser.getCurrentOrgId(), currentUser.getCurrentUser().getId());
-        return ResponseEntity.ok(ApiResponse.success(RagQueries.search(helpContentRetriever, q, params)));
+        return ResponseEntity.ok(ApiResponse.success(search.search(helpContentRetriever, q,
+                currentUser.getCurrentOrgId(), currentUser.getCurrentUser().getId(), null)));
     }
 
     @DeleteMapping("/rag/documents/{id}")

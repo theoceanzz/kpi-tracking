@@ -34,7 +34,7 @@ interface Props {
 
 /**
  * Kho tri thức của trợ lý — một panel cho hai cửa: tài liệu của tổ chức (Thiết lập công ty) và bộ
- * hướng dẫn KeyGo chung (Quản trị nền tảng). Cùng ba việc: nạp .docx, xem danh sách/xoá, và hai
+ * hướng dẫn KeyGo chung (Quản trị nền tảng). Cùng ba việc: nạp tài liệu (Word, PDF, Excel, ảnh), xem danh sách/xoá, và hai
  * cửa sổ nhìn vào kho vector — "Thử tìm" chạy đúng bộ truy hồi của trợ lý với một câu hỏi, "Xem
  * đoạn" liệt kê các đoạn của một tài liệu đúng như đang nằm trong kho. Không có hai cửa sổ đó thì
  * lỗi "trợ lý trả lời sai" chỉ đoán được, không nhìn được.
@@ -42,6 +42,9 @@ interface Props {
  * <p>Nạp là đồng bộ và mất vài giây (đọc mục, cất ảnh, tính vector tại chỗ); trạng thái READY /
  * FAILED hiện ngay sau khi xong, kèm lý do nếu hỏng.
  */
+/** Định dạng kho tri thức đọc được — khớp ParserRegistry phía máy chủ (Word giữ tiêu đề + ảnh; PDF scan / ảnh qua mô hình đọc ảnh). */
+const DOCUMENT_ACCEPT = '.docx,.doc,.pdf,.xlsx,.xls,.png,.jpg,.jpeg,.webp,.txt,.md'
+
 export default function RagDocumentsPanel({ api, scope, canManage, sourceOptions, title, description, emptyText, searchPlaceholder }: Props) {
   const { t } = useTranslation('analytics')
   const queryClient = useQueryClient()
@@ -96,7 +99,7 @@ export default function RagDocumentsPanel({ api, scope, canManage, sourceOptions
           onSubmit={e => {
             e.preventDefault()
             if (!file) {
-              toast.error(t('RagDocumentsPanel.youHaveNotSelectedADocx'))
+              toast.error(t('RagDocumentsPanel.youHaveNotSelectedAFile'))
               return
             }
             upload.mutate()
@@ -108,11 +111,11 @@ export default function RagDocumentsPanel({ api, scope, canManage, sourceOptions
           </div>
           <div className={`grid gap-3 ${sourceOptions ? 'sm:grid-cols-[1fr_1fr_auto]' : 'sm:grid-cols-2'}`}>
             <label className="text-label flex flex-col gap-1">
-              {t('RagDocumentsPanel.fileDocx')}
+              {t('RagDocumentsPanel.fileWordPdfExcelImage')}
               <input
                 ref={fileInput}
                 type="file"
-                accept=".docx"
+                accept={DOCUMENT_ACCEPT}
                 className="rounded-control border border-[var(--color-border)] bg-[var(--color-background)] px-2 py-1.5 text-sm file:mr-2 file:rounded-control file:border-0 file:bg-[var(--color-muted)] file:px-2 file:py-1 file:text-xs"
                 onChange={e => setFile(e.target.files?.[0] ?? null)}
               />
