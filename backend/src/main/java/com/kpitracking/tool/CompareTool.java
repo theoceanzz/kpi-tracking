@@ -74,10 +74,25 @@ public class CompareTool {
             if (!clarify.isEmpty()) {
                 String convId = support.getConversationId(context);
                 if (convId != null) followupContextStore.markDisambiguating(convId);
+                // Chỉ MỘT tên chưa rõ thì hỏi thẳng giữa lượt cho người dùng bấm; từ hai tên trở lên
+                // thì một thẻ hỏi không diễn đạt được, để model gộp thành một câu hỏi như trước.
+                boolean asked = false;
+                if (clarify.size() == 1) {
+                    @SuppressWarnings("unchecked")
+                    List<Map<String, Object>> pool =
+                            (List<Map<String, Object>>) clarify.get(0).get("options");
+                    asked = support.askToChoose(context,
+                            "Tên đơn vị '" + clarify.get(0).get("query") + "' khớp nhiều đơn vị. "
+                                    + "Bạn muốn so sánh đơn vị nào?",
+                            support.unitOptions(pool));
+                }
                 Map<String, Object> out = new LinkedHashMap<>();
                 out.put("needsClarification", true);
                 out.put("ambiguous", clarify);
-                out.put("message", "Một số tên đơn vị khớp NHIỀU đơn vị (hoặc không tìm thấy). Hãy hỏi người dùng "
+                out.put("message", asked
+                        ? "Đã gửi câu hỏi chọn lựa tới người dùng. DỪNG tại đây — không gọi thêm tool, "
+                          + "không viết câu trả lời; hệ thống sẽ gọi lại bạn kèm lựa chọn của họ."
+                        : "Một số tên đơn vị khớp NHIỀU đơn vị (hoặc không tìm thấy). Hãy hỏi người dùng "
                         + "chọn RÕ từng đơn vị (liệt kê đủ lựa chọn kèm đơn vị cha/cấp để phân biệt) trong MỘT câu hỏi, "
                         + "rồi gọi lại compare_org_units với tên cụ thể đã chọn.");
                 return support.respond(context, "compare_org_units", out);

@@ -3,11 +3,12 @@ package com.kpitracking.ai.workflow;
 import com.kpitracking.ai.agent.AiLanguage;
 import com.kpitracking.ai.agent.help.HelpAgent;
 import com.kpitracking.ai.agent.help.HelpAgentFactory;
+import com.kpitracking.ai.agent.help.HelpService;
 import com.kpitracking.entity.AiTokenUsage;
 import com.kpitracking.service.AiTokenUsageRecorder;
 import com.kpitracking.service.ai.AiTurn;
 import dev.langchain4j.agentic.scope.AgenticScope;
-import dev.langchain4j.invocation.InvocationParameters;
+import dev.langchain4j.service.Result;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
@@ -53,8 +54,10 @@ public class HelpIntentHandler implements IntentHandler {
             AiTokenUsage.AiFeature previous = AiTokenUsageRecorder.currentFeature();
             try {
                 AiTokenUsageRecorder.setFeature(AiTokenUsage.AiFeature.HELP);
-                turn.getAgentState().setAnswer(helpAgent.answer(AiLanguage.prefix(turn.getLanguage()) + turn.getQuestion(), InvocationParameters.from(
-                        HelpAgentFactory.PARAM_ORG_ID, turn.getManager().orgId().toString())));
+                Result<String> result = helpAgent.answer(AiLanguage.prefix(turn.getLanguage()) + turn.getQuestion(),
+                        HelpAgentFactory.params(turn.getManager().orgId(), turn.getManager().userId()));
+                turn.getAgentState().setAnswer(result.content());
+                turn.getAgentState().addSources(HelpService.sourcesOf(result));
             } finally {
                 if (previous == null) AiTokenUsageRecorder.clearFeature();
                 else AiTokenUsageRecorder.setFeature(previous);

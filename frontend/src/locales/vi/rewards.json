@@ -136,8 +136,9 @@
     "rewardCertificate": "Chứng nhận khen thưởng",
     "saveAsPdf": "Lưu thành PDF",
     "selectAll": "Chọn hết",
-    "thisIsUsuallyBecauseTheLogo": "Thường là do logo hoặc ảnh nền không cho phép tải chéo miền. Bạn vẫn in hoặc lưu PDF được bằng nút bên cạnh.",
-    "fileNamePrefix": "Chung-nhan"
+    "thisIsUsuallyBecauseTheLogo": "Trình duyệt trên máy này không dựng được ảnh. Bạn vẫn in hoặc lưu PDF được bằng nút In / Lưu PDF.",
+    "fileNamePrefix": "Chung-nhan",
+    "someImagesSkipped": "Một số ảnh (logo, chữ ký hoặc ảnh nền) không tải được nên đã bị bỏ khỏi ảnh PNG. Kiểm tra lại mạng hoặc tải lại ảnh trong mẫu chứng nhận."
   },
   "CertificatesTab": {
     "certificateTemplatesUsedWhenPrintingCertificates": "Mẫu giấy khen dùng khi in chứng nhận cho nhân viên được thưởng. Chưa tạo mẫu nào thì màn hình in vẫn có sẵn sáu thiết kế đẹp để chọn — mẫu ở đây là bản riêng của công ty bạn, có logo, chữ ký và lời văn cố định.",
@@ -213,7 +214,15 @@
     "title2": "Chức danh",
     "tranQuocHung": "Trần Quốc Hưng",
     "turnOffToKeepTheTemplate": "Tắt để giữ lại mẫu nhưng không cho chọn khi in.",
-    "uploadImage": "Tải ảnh"
+    "uploadImage": "Tải ảnh",
+    "showOrgName": "Hiện tên công ty",
+    "showOrgNameHint": "Tắt khi logo đã có sẵn tên công ty",
+    "autoRemoveBackground": "Tự tách nền logo và chữ ký khi tải lên",
+    "autoRemoveBackgroundHint": "Xoá nền trắng / đồng màu để ảnh không hiện thành một khối trên chứng nhận",
+    "removeBackground": "Tách nền ảnh này",
+    "backgroundRemoved": "Đã tách nền ảnh",
+    "backgroundAlreadyTransparent": "Ảnh này đã có nền trong suốt",
+    "backgroundNotRemovable": "Không tìm thấy nền đồng màu để tách — hãy dùng ảnh PNG nền trong suốt"
   },
   "certificateTemplateSchema": {
     "pleaseEnterTheTemplateName": "Vui lòng nhập tên mẫu",

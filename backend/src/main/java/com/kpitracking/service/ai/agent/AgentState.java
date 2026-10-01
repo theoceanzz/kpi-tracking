@@ -55,8 +55,66 @@ public class AgentState {
      */
     private final List<String> succeeded = new CopyOnWriteArrayList<>();
 
+    /**
+     * Kết quả JSON của các tool đã chạy TRONG LƯỢT NÀY — nguồn duy nhất để dựng biểu đồ.
+     *
+     * <p>Khác {@code FollowupContextStore} (gom theo HỘI THOẠI, sống 30 phút, để trả lời câu hỏi nối
+     * tiếp): ở đây phải là đúng số của lượt đang trả lời, nếu không biểu đồ sẽ vẽ số của câu hỏi
+     * trước. Cắt bớt vì payload lớn không dùng để vẽ mà chỉ làm phình prompt.
+     */
+    private final List<ToolPayload> payloads = new CopyOnWriteArrayList<>();
+
+    private static final int MAX_PAYLOADS = 12;
+    private static final int MAX_PAYLOAD_CHARS = 8_000;
+
+    /** Một kết quả tool: tên và JSON nguyên văn. */
+    public record ToolPayload(String tool, String json) {}
+
+    /**
+     * Kết quả tool của lượt TRƯỚC trong cùng hội thoại, chép ra trước khi {@code startTurn} xoá.
+     * Chỉ dùng cho một việc: người dùng nối tiếp "cho tôi biểu đồ tròn đi" — lượt đó không gọi tool
+     * nào, số liệu nằm ở lượt trước. KHÔNG dùng cho kiểm duyệt câu trả lời.
+     */
+    @Setter
+    private List<ToolPayload> priorPayloads = List.of();
+
+    /**
+     * Cái tên người dùng nêu mà tra không ra gì ở lượt này (vd "phòng vận hành"), hoặc {@code null}.
+     * Khi đã biết là KHÔNG CÓ thì câu trả lời đúng là nói thẳng như vậy — {@code ask_user} bị chặn,
+     * vì hỏi "bạn muốn đơn vị nào?" với một tiền đề sai là đẩy người dùng vào vòng hỏi-đáp vô ích
+     * (đo được 23/09, H04). Tra lại mà ra kết quả thì xoá.
+     */
+    @Setter
+    private String notFoundName;
+
+    /**
+     * Một tool ở lượt này đã bị từ chối vì đơn vị nằm NGOÀI phạm vi người hỏi. Từ lúc đó câu trả
+     * lời đúng là nói lại lời từ chối — {@code ask_user} bị chặn (đo được ở D15: bị từ chối xong
+     * model tra thêm một lần rồi hỏi ngược "bạn muốn chốt cho đơn vị nào?").
+     */
+    @Setter
+    private boolean scopeDenied;
+
     /** Các ID đang chờ người dùng chọn, theo loại thực thể — thay ThreadLocal của guard tên trùng. */
     private final Map<String, Set<UUID>> armed = new ConcurrentHashMap<>();
+
+    /**
+     * Tài liệu của tổ chức mà lượt này đã đọc (nhánh hỏi đáp + công cụ {@code get_org_documents}), mỗi tài liệu
+     * một lần, theo thứ tự gặp. Client vẽ thành chip nguồn. Chỉ gồm đoạn đã qua bộ lọc quyền của người hỏi.
+     */
+    private final List<com.kpitracking.dto.response.ai.DocumentSourceResponse> sources = new CopyOnWriteArrayList<>();
+
+    /** Tối đa bấy nhiêu chip — nhiều hơn là nhiễu, model cũng không dùng hết. */
+    private static final int MAX_SOURCES = 6;
+
+    /** Thêm nguồn, bỏ trùng theo {@code docId}. */
+    public synchronized void addSources(java.util.Collection<com.kpitracking.dto.response.ai.DocumentSourceResponse> found) {
+        if (found == null) return;
+        for (var s : found) {
+            if (s == null || sources.size() >= MAX_SOURCES) continue;
+            if (sources.stream().noneMatch(x -> x.docId().equals(s.docId()))) sources.add(s);
+        }
+    }
 
     /** Câu trả lời cuối cùng, đặt khi model thôi gọi tool. */
     @Setter
@@ -160,6 +218,29 @@ public class AgentState {
     /** Ghi một tool đã chạy xong. Gọi từ {@code ToolSupport.respond} và {@code FormFillSupport.finish}. */
     public void recordSuccess(String toolName) {
         succeeded.add(toolName);
+    }
+
+    /**
+     * Câu hỏi tool vừa đặt cho người dùng và lượt đang chờ trả lời (human-in-the-loop). Bước
+     * {@code TurnSteps.awaitUserAnswer} nhặt rồi xoá.
+     */
+    @Setter
+    private com.kpitracking.service.ai.hitl.PendingQuestion pendingQuestion;
+
+    /** Câu người dùng vừa trả lời cho {@link #pendingQuestion}; {@code null} = chưa/không trả lời. */
+    @Setter
+    private String userAnswer;
+
+    /** Bỏ mọi chốt chặn tên trùng — gọi sau khi người dùng đã chọn rõ, để vòng sau không hỏi lại. */
+    public void disarmAll() {
+        armed.clear();
+    }
+
+    /** Ghi kết quả JSON của một tool để bước dựng biểu đồ đọc lại. Payload quá dài thì cắt. */
+    public void recordPayload(String toolName, String json) {
+        if (json == null || payloads.size() >= MAX_PAYLOADS) return;
+        payloads.add(new ToolPayload(toolName,
+                json.length() > MAX_PAYLOAD_CHARS ? json.substring(0, MAX_PAYLOAD_CHARS) : json));
     }
 
     /** Có tool nào chạy xong không — thay {@code ToolCallTracker.anyCalled()}. */

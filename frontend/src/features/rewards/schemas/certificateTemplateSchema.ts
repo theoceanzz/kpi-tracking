@@ -21,6 +21,7 @@ export const certificateTemplateSchema = perLanguage(() => (z.object({
   inkColor: z.string(),
   surfaceColor: z.string(),
   showLogo: z.boolean(),
+  showOrgName: z.boolean(),
   showPoints: z.boolean(),
   showReason: z.boolean(),
   isDefault: z.boolean(),

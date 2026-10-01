@@ -24,6 +24,7 @@ import { budgetSchema, type BudgetFormData, type ScopeMode } from '../schemas/bu
 import { numOrUndefined } from '../schemas/giftSchema'
 import type { RewardBudget } from '../types'
 import { ChoiceChip } from '@/components/ui/choice-chip'
+import { useCreatePeriodCycleOption } from '@/components/common/CreatePeriodCycleOption'
 import { useTranslation } from 'react-i18next'
 import { useFormDraft } from '@/hooks/useFormDraft'
 import DraftNotice from '@/components/common/DraftNotice'
@@ -36,6 +37,8 @@ interface BudgetFormModalProps {
 
 export default function BudgetFormModal({ open, onClose, editBudget }: BudgetFormModalProps) {
   const { t } = useTranslation('rewards')
+  const createCycle = useCreatePeriodCycleOption('cycle')
+  const createPeriod = useCreatePeriodCycleOption('period')
   const isEdit = !!editBudget
 
   const formApi = useForm<BudgetFormData>({
@@ -209,7 +212,7 @@ export default function BudgetFormModal({ open, onClose, editBudget }: BudgetFor
           </div>
 
           {scopeMode === 'CYCLE' && (
-            <Select value={kpiCycleId} onValueChange={v => setValue('kpiCycleId', v, { shouldValidate: true })}>
+            <Select value={kpiCycleId} onValueChange={createCycle.wrap(v => setValue('kpiCycleId', v, { shouldValidate: true }))}>
               <SelectTrigger className={inputCls}>
                 <SelectValue placeholder={t('BudgetFormModal.chooseEvaluationCycle')} />
               </SelectTrigger>
@@ -220,12 +223,13 @@ export default function BudgetFormModal({ open, onClose, editBudget }: BudgetFor
                     {c.name}
                   </SelectItem>
                 ))}
+                {createCycle.item}
               </SelectContent>
             </Select>
           )}
 
           {scopeMode === 'PERIOD' && (
-            <Select value={kpiPeriodId} onValueChange={v => setValue('kpiPeriodId', v, { shouldValidate: true })}>
+            <Select value={kpiPeriodId} onValueChange={createPeriod.wrap(v => setValue('kpiPeriodId', v, { shouldValidate: true }))}>
               <SelectTrigger className={inputCls}>
                 <SelectValue placeholder={t('BudgetFormModal.chooseEvaluationPeriod')} />
               </SelectTrigger>
@@ -235,6 +239,7 @@ export default function BudgetFormModal({ open, onClose, editBudget }: BudgetFor
                     {p.name}
                   </SelectItem>
                 ))}
+                {createPeriod.item}
               </SelectContent>
             </Select>
           )}

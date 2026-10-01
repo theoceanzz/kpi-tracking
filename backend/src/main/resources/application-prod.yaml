@@ -133,6 +133,24 @@ cloudinary:
   api-secret: ${CLOUDINARY_API_SECRET:your-api-secret}
 
 app:
+  # ── Thư viện tài liệu 3 phạm vi, tri thức cho K.AI (docs/DOCUMENTS_DESIGN.md) ──
+  documents:
+    # local = đĩa máy chủ (dev; container không gắn volume thì mất tệp khi khởi động lại)
+    # cloudinary = Cloudinary chế độ authenticated (riêng tư, không URL công khai) — dùng cho prod.
+    storage: ${DOCUMENTS_STORAGE:cloudinary}
+    storage-dir: ${DOCUMENTS_STORAGE_DIR:data/documents}
+    quota:
+      personal-mb: ${DOCUMENTS_QUOTA_PERSONAL_MB:200}
+      unit-mb: ${DOCUMENTS_QUOTA_UNIT_MB:1024}
+      company-mb: ${DOCUMENTS_QUOTA_COMPANY_MB:5120}
+      # Trần số đoạn vector của một tổ chức — cũng là mốc đã đo độ trễ tìm chính xác (§6.6).
+      org-max-chunks: ${DOCUMENTS_ORG_MAX_CHUNKS:200000}
+    # Tài liệu cá nhân của người bị vô hiệu hoá tự xoá mềm sau N ngày; tệp của tài liệu đã xoá giữ thêm N ngày.
+    disabled-user-retention-days: ${DOCUMENTS_DISABLED_USER_RETENTION_DAYS:90}
+    deleted-file-retention-days: ${DOCUMENTS_DELETED_FILE_RETENTION_DAYS:30}
+    index:
+      # Luồng nạp song song (1–2). Model E5 chạy CPU ngay trên server app.
+      concurrency: ${DOCUMENTS_INDEX_CONCURRENCY:1}
   ai:
     # Sáu công tắc của chuỗi công đoạn AI. MẶC ĐỊNH TRONG MÃ NGUỒN CỦA BỐN CÁI ĐẦU LÀ
     # false — không khai báo ở đây là production chạy THIẾU router / planning / validation /
@@ -147,6 +165,43 @@ app:
       # Đối chiếu tool đã lên kế hoạch với tool thực sự chạy, thiếu thì hỏi lại ĐÚNG một lần.
       # Chỉ có tác dụng khi planning.enabled=true.
       enforce: ${AI_PLANNING_ENFORCE:true}
+    charts:
+      # Chọn biểu đồ minh hoạ cho câu trả lời có số liệu (ChartAgent, chạy song song với kiểm duyệt).
+      # Tắt đi là câu trả lời chỉ còn bảng Markdown như trước.
+      enabled: ${AI_CHARTS_ENABLED:true}
+    review:
+      # AI đọc bài nộp và đề xuất điểm khi quản lý chấm (đường riêng, không qua khung chat).
+      # Công tắc hệ thống; mỗi tổ chức còn phải tự bật cờ enable_ai_review (mặc định TẮT).
+      enabled: ${AI_REVIEW_ENABLED:true}
+      # Số chỉ tiêu gọi mô hình cùng lúc trong một lượt — trần để không đụng giới hạn tốc độ nhà cung cấp.
+      max-parallel: ${AI_REVIEW_MAX_PARALLEL:4}
+      # Cắt phần chữ của MỖI bài nộp ở độ dài này trước khi gửi cho mô hình.
+      note-max-chars: ${AI_REVIEW_NOTE_MAX_CHARS:4000}
+      # Chờ tối đa cho MỘT chỉ tiêu; quá giờ thì chỉ tiêu đó ghi lỗi, lượt vẫn xong.
+      timeout-seconds: ${AI_REVIEW_TIMEOUT_SECONDS:90}
+      # Số đoạn quy chế / mô tả công việc (kho RAG, nguồn REGULATION|JOB_DESCRIPTION) chèn làm căn cứ chấm.
+      max-excerpts: ${AI_REVIEW_MAX_EXCERPTS:5}
+      evidence:
+        # Đọc tệp minh chứng (Word/Excel/PDF; ảnh và PDF scan qua mô hình đọc ảnh). Tệp quá cỡ ghi "không đọc được".
+        max-bytes: ${AI_REVIEW_EVIDENCE_MAX_BYTES:10485760}
+        fetch-timeout-seconds: ${AI_REVIEW_EVIDENCE_FETCH_TIMEOUT:20}
+        # Chỉ tải minh chứng từ các máy này (phân tách dấu phẩy; trống = mọi máy).
+        allowed-hosts: ${AI_REVIEW_EVIDENCE_HOSTS:res.cloudinary.com}
+        # Cắt nội dung MỖI tệp ở độ dài này (có ghi "đã cắt").
+        max-chars-per-file: ${AI_REVIEW_EVIDENCE_MAX_CHARS:6000}
+    vision:
+      # Mô hình đọc ảnh (qua cùng base-url/api-key với app.ai.model) — chép chữ trong ảnh / PDF scan.
+      # Chữ lấy từ ảnh chỉ làm căn cứ tham khảo, không bao giờ dùng để tính điểm.
+      enabled: ${AI_VISION_ENABLED:true}
+      model: ${AI_VISION_MODEL:Qwen/Qwen3-VL-30B-A3B-Instruct}
+      timeout-seconds: ${AI_VISION_TIMEOUT_SECONDS:60}
+      max-tokens: ${AI_VISION_MAX_TOKENS:2000}
+      max-pdf-pages: ${AI_VISION_MAX_PDF_PAGES:3}
+    hitl:
+      # Trợ lý hỏi lại giữa lượt (tool ask_user / trùng tên đơn vị) rồi CHỜ người dùng bấm chọn.
+      # Lượt giữ nguyên ngữ cảnh đã tra được trong lúc chờ, nên mỗi câu hỏi giữ một luồng streaming
+      # tới khi hết số giây này. Để dưới 300s: client bỏ cuộc ở đó, SSE đóng ở 330s.
+      wait-seconds: ${AI_HITL_WAIT_SECONDS:180}
     followups:
       # Câu hỏi gợi ý sau mỗi câu trả lời. Tắt đi là MẤT tính năng, không phải "về trạng thái cũ".
       enabled: ${AI_FOLLOWUPS_ENABLED:true}
@@ -176,6 +231,9 @@ app:
       reasoning-effort: ${AI_REASONING_EFFORT:medium}
 
     rag:
+      # KHÔNG bật khi chưa đánh giá riêng: với index ANN (HNSW/IVFFlat), lọc theo quyền chạy SAU top-K
+      # và có thể trả thiếu/0 kết quả. App từ chối khởi động nếu thấy index ANN (docs/DOCUMENTS_DESIGN.md §6.6).
+      allow-ann-index: ${RAG_ALLOW_ANN_INDEX:false}
       # Kho vector trên pgvector. Prod dùng MỘT DB: image kpitracking-db là pgvector/pgvector:pg15
       # (thay thế trực tiếp postgres:15) nên ba giá trị dưới trỏ về đúng DB ứng dụng.
       vector-store:

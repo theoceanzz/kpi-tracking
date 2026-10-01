@@ -32,6 +32,7 @@ import { ChoiceChip } from '@/components/ui/choice-chip'
 import { useTranslation } from 'react-i18next'
 import i18n from 'i18next'
 import { useStateDraft } from '@/hooks/useFormDraft'
+import { useCreateFromLink } from '@/components/common/CreatePeriodCycleOption'
 import DraftNotice from '@/components/common/DraftNotice'
 
 // Loại kỳ: Tháng / Quý / 6 Tháng / Năm — mẫu gợi ý, thời gian vẫn chỉnh tự do.
@@ -103,6 +104,8 @@ export default function KpiCyclesPage() {
   const [showForm, setShowForm] = useState(false)
   const [editCycle, setEditCycle] = useState<KpiCycle | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
+  // Đến từ mục "+ Tạo kỳ mới" trong một ô chọn: mở sẵn form, tạo xong quay về trang cũ.
+  const { returnAfterCreate, cancelReturn } = useCreateFromLink('cycle', () => { setEditCycle(null); setShowForm(true) })
   // Kỳ không khoá ở đây: chỉ khoá kết quả ở đơn vị gốc (màn Đánh giá kỳ) mới khoá kỳ.
   const [historyTarget, setHistoryTarget] = useState<KpiCycle | null>(null)
 
@@ -277,7 +280,7 @@ export default function KpiCyclesPage() {
 
         {showForm && (
           <CycleFormModal
-            onClose={() => setShowForm(false)}
+            onClose={() => { setShowForm(false); cancelReturn() }}
             editCycle={editCycle}
             organizationId={organizationId!}
             onSubmit={async (payload) => {
@@ -285,7 +288,7 @@ export default function KpiCyclesPage() {
                 await updateCycle({ id: editCycle.id, data: payload })
               } else {
                 const created = await createCycle(payload)
-                suggestNextStep({ type: 'CYCLE_CREATED', cycle: created })
+                if (!returnAfterCreate()) suggestNextStep({ type: 'CYCLE_CREATED', cycle: created })
               }
             }}
             isSubmitting={isCreating || isUpdating}

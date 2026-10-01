@@ -2,6 +2,7 @@ package com.kpitracking.ai.workflow;
 
 import com.kpitracking.ai.agent.PlanParser;
 import com.kpitracking.ai.agent.PlannerAgent;
+import com.kpitracking.ai.agent.ChartAgent;
 import com.kpitracking.ai.agent.RouterAgent;
 import com.kpitracking.ai.memory.ConversationMemoryStore;
 import com.kpitracking.ai.memory.TurnChatMemory;
@@ -17,7 +18,13 @@ import com.kpitracking.service.ai.AiTurn;
 import com.kpitracking.service.ai.PlanStep;
 import com.kpitracking.service.ai.ToolProgress;
 import com.kpitracking.service.ai.agent.AgentState;
+import com.kpitracking.service.ai.hitl.PendingQuestionStore;
+import com.kpitracking.service.ai.hitl.PendingQuestion;
+import com.kpitracking.service.ai.hitl.TextQuestionDetector;
+import com.kpitracking.service.ai.chart.ChartCandidateDetector;
+import com.kpitracking.service.ai.chart.ChartSpecValidator;
 import com.kpitracking.dto.response.ai.FollowupResponse;
+import com.kpitracking.dto.response.ai.ChartSpec;
 import com.kpitracking.tool.FollowupContextStore;
 import com.kpitracking.tool.ToolRegistry;
 import com.kpitracking.tool.ToolRegistry.Group;
@@ -34,6 +41,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
@@ -76,11 +84,17 @@ public class TurnSteps {
     private final PlannerAgent plannerAgent;
     private final FollowupService followupService;
     private final AnswerValidator validator;
+    private final ChartAgent chartAgent;
+    private final ChartCandidateDetector chartDetector;
+    private final ChartSpecValidator chartValidator;
+    private final PendingQuestionStore questions;
 
     @Value("${app.ai.tool-routing.enabled:true}") boolean routingEnabled;
     @Value("${app.ai.planning.enabled:true}") boolean planningEnabled;
     @Value("${app.ai.planning.enforce:true}") boolean planEnforce;
     @Value("${app.ai.followups.enabled:true}") boolean followupsEnabled;
+    @Value("${app.ai.charts.enabled:true}") boolean chartsEnabled;
+    @Value("${app.ai.hitl.wait-seconds:180}") int hitlWaitSeconds;
 
     public static AiTurn turnOf(AgenticScope scope) {
         Object t = scope.readState(TURN);
@@ -103,11 +117,20 @@ public class TurnSteps {
         turn.setTurnId(String.valueOf(scope.memoryId()));
         scope.writeState(QUESTION, turn.getQuestion());
         ManagerContext ctx = turn.getManager();
-        if (turn.isHasMemory()) followupContextStore.startTurn(turn.getConversationId());
+        // Chép kết quả tool của lượt trước TRƯỚC khi startTurn xoá: câu nối tiếp "cho tôi biểu đồ tròn
+        // đi" không gọi tool nào, số liệu để vẽ nằm ở đây. (AgentState chưa có ở chỗ này — gắn vào sau.)
+        List<AgentState.ToolPayload> prior = List.of();
+        if (turn.isHasMemory()) {
+            prior = followupContextStore.get(turn.getConversationId()).stream()
+                    .map(r -> new AgentState.ToolPayload(r.getToolName(), r.getJson()))
+                    .toList();
+            followupContextStore.startTurn(turn.getConversationId());
+        }
         log.info("Xử lý lượt hỏi cho orgUnitId={}, conversationId={}",
                 ctx.orgUnitId(), turn.isHasMemory() ? turn.getConversationId() : "không");
 
         turn.setEffectiveUnitId(resolveEffectiveUnit(turn, ctx));
+        if (!turn.isStaff()) turn.setScopeUnits(scopeUnits(ctx));
 
         Map<String, Object> toolCtx = new HashMap<>();
         toolCtx.put("orgUnitId", turn.getEffectiveUnitId());
@@ -126,6 +149,7 @@ public class TurnSteps {
         if (turn.getPinnedFileNames() != null) toolCtx.put("pinnedFileNames", turn.getPinnedFileNames());
 
         AgentState state = new AgentState(turn);
+        state.setPriorPayloads(prior);
         turn.setAgentState(state);
         toolCtx.put(AgentState.CONTEXT_KEY, state);
         turn.setToolCtx(toolCtx);
@@ -188,6 +212,8 @@ public class TurnSteps {
 
     /** Khoá trong scope giữ ý định đã chọn ({@code IntentHandler.intent()} hoặc {@code null}). */
     public static final String INTENT = "intent";
+    /** Khoá scope nhận câu trả lời của người dùng từ bước human-in-the-loop. */
+    public static final String USER_ANSWER = "userAnswer";
 
     /** Tập lùi về CHỈ gồm nhóm ĐỌC — "không chắc" thì tuyệt đối không phải lúc trao tool GHI. */
     private static final Set<Group> READ_GROUPS = Set.of(Group.LOOKUP, Group.KPI, Group.INSIGHT, Group.BSC, Group.OKR);
@@ -332,6 +358,64 @@ public class TurnSteps {
         turn.progress("MODEL", "Đang tra cứu dữ liệu");
     }
 
+    /** Tool {@code ask_user} vừa đặt câu hỏi và lượt chưa có câu trả lời nào. */
+    public boolean hasPendingQuestion(AgenticScope scope) {
+        AgentState state = turnOf(scope).getAgentState();
+        // Đọc đầu ra của agent TRƯỚC: ở lượt streaming, lời gọi tool chạy trên luồng phát chữ và
+        // node agent trả về trước khi tool kịp chạy. Kiểm mà không chặn chờ ở đây thì lúc nào cũng
+        // thấy "chưa có câu hỏi" rồi đi thẳng tới finish (đo được: ask_user chạy nhưng không ai hỏi).
+        Object answer = scope.readState(ANSWER);
+        if (answer != null) state.setAnswer(answer.toString());
+        if (state.getPendingQuestion() == null) promoteTextQuestion(turnOf(scope), state);
+        return state.getPendingQuestion() != null && state.getUserAnswer() == null;
+    }
+
+    /**
+     * Model HỎI BẰNG CHỮ thay vì gọi {@code ask_user} (vd "Bạn muốn mục tiêu tối thiểu là bao nhiêu?
+     * - 99% - 99.5%"): biến nó thành thẻ hỏi giữa lượt, để người dùng bấm/nhập rồi lượt chạy tiếp
+     * thay vì phải gõ lại một câu hỏi mới.
+     *
+     * <p>Cùng các chốt với {@code ask_user}: chỉ lượt có kênh hỏi (SSE), chỉ một lần/lượt, không khi
+     * vừa bị từ chối vì phạm vi hay vừa tra không ra (lúc đó câu trả lời đúng là nói thẳng), và không
+     * khi đã có đề xuất điền form / lời mời xác nhận (đó là câu trả lời, không phải câu hỏi).
+     */
+    void promoteTextQuestion(AiTurn turn, AgentState state) {
+        if (!turn.canAsk() || turn.getAnsweredQuestion() != null) return;
+        if (state.isScopeDenied() || state.getNotFoundName() != null) return;
+        if (state.getFormPatch() != null && !state.getFormPatch().isEmpty()) return;
+        if (state.getPendingAction() != null && !state.getPendingAction().isEmpty()) return;
+        PendingQuestion.Item item = TextQuestionDetector.detect(state.getAnswer());
+        if (item == null) return;
+        log.info("Câu hỏi viết bằng chữ -> thẻ hỏi giữa lượt: {}", item.question());
+        state.setPendingQuestion(new PendingQuestion(UUID.randomUUID().toString(), turn.getTurnId(),
+                turn.getManager() == null ? null : turn.getManager().userId(), List.of(item)));
+    }
+
+    /**
+     * Bước HUMAN-IN-THE-LOOP: phát câu hỏi ra kênh của lượt rồi CHỜ người dùng trả lời.
+     *
+     * <p>Chặn trên luồng của lượt cho tới khi client POST câu trả lời hoặc hết
+     * {@code app.ai.hitl.wait-seconds}. Đường JSON (listener NOOP) không có kênh nào để hỏi nên trả
+     * {@code null} ngay lập tức — lượt kết thúc bằng chính câu hỏi kèm các lựa chọn, đúng hành vi cũ.
+     */
+    public Object awaitUserAnswer(AgenticScope scope) {
+        AiTurn turn = turnOf(scope);
+        AgentState state = turn.getAgentState();
+        PendingQuestion q = state.getPendingQuestion();
+        if (q == null) return null;
+        if (!turn.canAsk()) {
+            log.info("Lượt không có kênh hỏi lại (JSON) — kết thúc bằng câu hỏi. question='{}'", q.question());
+            return null;
+        }
+        turn.progress("ASK", "Đang chờ bạn trả lời");
+        CompletableFuture<String> slot = questions.register(q);
+        turn.getListener().ask(q);
+        String answer = questions.await(q, slot, hitlWaitSeconds);
+        state.setUserAnswer(answer);
+        log.info("Người dùng {} câu hỏi giữa lượt: {}", answer == null ? "KHÔNG trả lời" : "đã trả lời", q.question());
+        return answer;
+    }
+
     /**
      * {@code ObserveNode} cũ. {@code true} = phải gọi agent chính THÊM một vòng.
      *
@@ -347,6 +431,27 @@ public class TurnSteps {
         state.setAnswer(answer == null ? null : answer.toString());
         turn.setMissingPlannedTools(null);
         if (state.isBudgetExhausted()) return false;
+        // Người dùng vừa trả lời câu hỏi giữa lượt: hỏi lại model với lựa chọn đó. Không tính vào
+        // ngân sách nhắc kế hoạch / nới tool — đây là lượt người dùng CHỦ ĐỘNG tiếp sức.
+        if (state.getPendingQuestion() != null && state.getUserAnswer() != null) {
+            PendingQuestion answered = state.getPendingQuestion();
+            turn.setAnsweredQuestion(answered.question());
+            turn.setAnsweredValue(state.getUserAnswer());
+            state.setPendingQuestion(null);
+            state.setUserAnswer(null);
+            // Người dùng đã chọn rõ nên chốt chặn tên trùng không còn nghĩa; giữ nó là vòng sau
+            // ăn lại lỗi "có nhiều bản trùng tên" rồi hỏi lần hai.
+            state.disarmAll();
+            // Hội thoại không còn chờ người dùng chọn nữa — nếu giữ, câu trả lời cuối vẫn kèm hàng
+            // nút "chọn đơn vị nào" cho đúng câu hỏi vừa được trả lời.
+            followupContextStore.clearDisambiguating(turn.getConversationId());
+            turn.progress("OBSERVE", "Đang làm tiếp theo lựa chọn của bạn");
+            restart(scope, turn, state);
+            return true;
+        }
+        // Đã hỏi mà không có câu trả lời (hết giờ, bỏ qua, hoặc đường JSON): dừng, để finish dựng
+        // câu trả lời từ chính câu hỏi.
+        if (state.getPendingQuestion() != null) return false;
         if (state.getFormPatch() != null && !state.getFormPatch().isEmpty()) return false;
         if (state.getPendingAction() != null && !state.getPendingAction().isEmpty()) return false;
 
@@ -395,6 +500,22 @@ public class TurnSteps {
     public void finish(AgenticScope scope) {
         AiTurn turn = turnOf(scope);
         AgentState state = turn.getAgentState();
+        // Đã hỏi mà không nhận được trả lời (đường JSON, hết giờ, người dùng bỏ qua): câu trả lời
+        // của lượt CHÍNH LÀ câu hỏi đó, kèm các lựa chọn để client vẽ nút bấm như trước khi có HITL.
+        PendingQuestion unanswered = state.getPendingQuestion();
+        if (unanswered != null && state.getUserAnswer() == null) {
+            if (turn.canAsk()) {
+                // Lượt SSE: câu hỏi đã hiện thành thẻ ngay phía trên. Lặp nó lần nữa làm câu trả lời
+                // (kèm hàng nút) là hỏi người dùng hai lần cùng một câu — đo được 23/09.
+                state.setAnswer(SKIPPED_ANSWER);
+                return;
+            }
+            state.setAnswer(questionAsAnswer(unanswered));
+            turn.setClarificationOptions(unanswered.options().stream()
+                    .map(o -> new AiTurn.Choice(o.label(), o.value()))
+                    .toList());
+            return;
+        }
         String raw = state.getAnswer();
         String result = raw == null ? null : new ResponseSanitizingAdvisor(TOOL_NAMES).sanitizeText(raw);
         if (result == null || result.isBlank()) {
@@ -409,6 +530,46 @@ public class TurnSteps {
                 log.warn("Không ghi được bộ nhớ hội thoại ({}), bỏ qua", e.getMessage());
             }
         }
+    }
+
+    /** Trần dòng của khối cây đơn vị — đủ cho một chi nhánh, không đủ để phình prompt ở tổ chức lớn. */
+    static final int MAX_SCOPE_UNITS = 40;
+
+    /** Cây đơn vị trong phạm vi người hỏi, gọn thành từng dòng; lỗi thì rỗng (chỉ là ngữ cảnh thêm). */
+    private List<String> scopeUnits(ManagerContext ctx) {
+        try {
+            return orgUnitRepository.findSubtree(ctx.orgUnitPath(), ctx.orgId()).stream()
+                    .sorted(java.util.Comparator.comparing(u -> u.getPath() == null ? "" : u.getPath()))
+                    .limit(MAX_SCOPE_UNITS)
+                    .map(u -> {
+                        String level = u.getOrgHierarchyLevel() == null ? null : u.getOrgHierarchyLevel().getUnitTypeName();
+                        String parent = u.getParent() == null ? null : u.getParent().getName();
+                        return u.getName()
+                                + (level == null ? "" : " — " + level)
+                                + (parent == null ? "" : " (thuộc " + parent + ")");
+                    })
+                    .toList();
+        } catch (Exception e) {
+            log.warn("Không nạp được cây đơn vị cho prompt ({}), bỏ qua", e.getMessage());
+            return List.of();
+        }
+    }
+
+    /** Lượt SSE dừng vì người dùng bỏ qua hoặc hết giờ: nói ngắn, không lặp câu hỏi đã nằm trên thẻ. */
+    static final String SKIPPED_ANSWER = "Mình dừng ở đây vì chưa có lựa chọn. Bạn gõ lại câu hỏi kèm tên cụ "
+            + "thể là mình làm tiếp ngay.";
+
+    /** Câu hỏi giữa lượt, viết thành câu trả lời khi lượt phải dừng mà chưa có lựa chọn của người dùng. */
+    static String questionAsAnswer(PendingQuestion q) {
+        StringBuilder sb = new StringBuilder(q.question().strip());
+        if (!q.options().isEmpty()) {
+            sb.append("\n");
+            for (PendingQuestion.Option o : q.options()) {
+                sb.append("\n- **").append(o.label()).append("**");
+                if (o.description() != null && !o.description().isBlank()) sb.append(" — ").append(o.description());
+            }
+        }
+        return sb.toString();
     }
 
     static String fallbackAnswer(AgentState state) {
@@ -458,6 +619,58 @@ public class TurnSteps {
             if (previous == null) AiTokenUsageRecorder.clearFeature(); else AiTokenUsageRecorder.setFeature(previous);
         }
     }
+
+    /**
+     * Chọn biểu đồ minh hoạ, chạy SONG SONG với bước kiểm duyệt (cùng khuôn {@link #followups}).
+     *
+     * <p>Ba cổng trước khi tốn một lời gọi model: bật cờ, lượt có tool chạy thành công, và payload có
+     * hình dạng vẽ được ({@code ChartCandidateDetector}). Lỗi ở đây KHÔNG được làm hỏng lượt — biểu
+     * đồ là phần thêm, câu trả lời (kèm bảng) đã đủ dùng.
+     */
+    public void charts(AgenticScope scope) {
+        AiTurn turn = turnOf(scope);
+        AgentState state = turn.getAgentState();
+        if (!chartsEnabled || scope.readState(INTENT) != null) return;
+        if (state.getFormPatch() != null || state.getPendingAction() != null) return;
+        // Lượt kết thúc bằng một CÂU HỎI (hỏi lại giữa lượt mà không ai trả lời): câu trả lời là
+        // câu hỏi đó, nên vẽ biểu đồ minh hoạ cho nó là minh hoạ cho thứ chưa được hỏi xong.
+        if (state.getPendingQuestion() != null) return;
+        List<AgentState.ToolPayload> source = chartSource(turn, state);
+        if (source.isEmpty()) return;
+        turn.progress("CHART", "Đang chọn biểu đồ minh hoạ");
+        AiTokenUsage.AiFeature previous = AiTokenUsageRecorder.currentFeature();
+        try {
+            AiTokenUsageRecorder.setFeature(AiTokenUsage.AiFeature.CHART);
+            String raw = chartAgent.choose(turn.getQuestion(), state.getAnswer(),
+                    chartDetector.payloadsAsPrompt(source, MAX_CHART_PAYLOAD_CHARS));
+            List<ChartSpec> charts = chartValidator.validate(ChartAgent.parse(raw), source);
+            if (!charts.isEmpty()) {
+                turn.setCharts(charts);
+                log.debug("Biểu đồ cho lượt: {}", charts.stream().map(ChartSpec::getType).toList());
+            }
+        } catch (Exception e) {
+            log.warn("Chọn biểu đồ lỗi ({}), bỏ qua biểu đồ cho lượt này", e.getMessage());
+        } finally {
+            if (previous == null) AiTokenUsageRecorder.clearFeature(); else AiTokenUsageRecorder.setFeature(previous);
+        }
+    }
+
+    /**
+     * Payload để vẽ: của chính lượt này nếu vẽ được; nếu không, và người dùng xin THẲNG một biểu đồ
+     * ("cho tôi biểu đồ tròn đi"), thì của lượt trước. Rỗng = không vẽ.
+     */
+    List<AgentState.ToolPayload> chartSource(AiTurn turn, AgentState state) {
+        if (state.anyToolSucceeded() && chartDetector.hasCandidate(state.getPayloads())) return state.getPayloads();
+        if (!ChartCandidateDetector.isChartRequest(turn.getQuestion())) return List.of();
+        // Người dùng đã xin THẲNG một biểu đồ: không đòi payload phải có sẵn một mảng — số liệu hay
+        // nằm rải ở nhiều lời gọi (vd get_kpi hai lần, mỗi lần một phòng). Để ChartAgent quyết; lưới
+        // "không bịa số" của ChartSpecValidator vẫn áp trên đúng các payload này.
+        if (!state.getPayloads().isEmpty()) return state.getPayloads();
+        return state.getPriorPayloads();
+    }
+
+    /** Trần payload đưa vào prompt chọn biểu đồ — đủ cho vài bảng, không đủ để phình prompt. */
+    private static final int MAX_CHART_PAYLOAD_CHARS = 12_000;
 
     private static String topic(AiTurn turn) {
         String unit = turn.getFocusUnitName();

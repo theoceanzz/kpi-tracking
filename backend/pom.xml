@@ -166,6 +166,19 @@
             <artifactId>poi-ooxml</artifactId>
             <version>${poi.version}</version>
         </dependency>
+        <!-- Bộ đọc định dạng Office nhị phân cũ (.doc) — AI đọc tệp minh chứng khi đánh giá bài nộp -->
+        <dependency>
+            <groupId>org.apache.poi</groupId>
+            <artifactId>poi-scratchpad</artifactId>
+            <version>${poi.version}</version>
+        </dependency>
+
+        <!-- Đọc chữ PDF (và vẽ trang PDF scan thành ảnh cho mô hình thị giác) — AI đánh giá bài nộp -->
+        <dependency>
+            <groupId>org.apache.pdfbox</groupId>
+            <artifactId>pdfbox</artifactId>
+            <version>3.0.7</version>
+        </dependency>
 
         <!-- Apache Commons CSV -->
         <dependency>

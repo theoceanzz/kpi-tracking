@@ -149,6 +149,11 @@ final class EmailTemplateCatalogEn {
         notification("bsc_unit_result_finalized", "Period BSC results finalized", "When a unit's BSC results for a period are finalized.");
         notification("bsc_score_overridden", "BSC score overridden", "When an individual's BSC score is adjusted manually or the override is removed.");
 
+        notification("ai_criteria_change_requested", "AI scoring rules change request",
+                "When a lower unit requests changing the AI scoring rules you applied (for the applier / superior).");
+        notification("ai_criteria_change_decided", "AI scoring rules request decided",
+                "When your request to change the AI scoring rules is approved or rejected.");
+
         notification("reward_grant_submitted", "Reward proposal needs approval", "When a reward proposal above the quota is submitted (for the nearest approver).");
         notification("reward_grant_approved", "Reward proposal approved", "When the level above approves the grantor's reward proposal.");
         notification("reward_grant_rejected", "Reward proposal rejected", "When the level above rejects a reward proposal, with a note.");

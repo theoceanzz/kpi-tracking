@@ -6,6 +6,7 @@ import { bscApi } from '@/features/bsc/api/bscApi'
 import { rewardApi } from '@/features/rewards/api/rewardApi'
 import { giftApi } from '@/features/rewards/api/giftApi'
 import { walletApi } from '@/features/wallet/api/walletApi'
+import { aiCriteriaSetApi } from '@/features/submissions/api/aiReviewApi'
 import { BscScorecardStatus } from '@/features/bsc/types'
 import { RewardGrantStatus, RedemptionStatus } from '@/features/rewards/types'
 import { TopupOrderStatus } from '@/features/wallet/types'
@@ -29,6 +30,8 @@ export interface NotificationCounts {
   pendingRewards: number
   /** Giao dịch SePay chưa khớp hoặc lệch số tiền, đang chờ đối soát. */
   pendingWallet: number
+  /** Đề nghị đổi quy chế chấm AI cấp dưới gửi lên, chờ mình quyết. */
+  pendingAiCriteria: number
 }
 
 export function useNotificationDots() {
@@ -127,6 +130,15 @@ export function useNotificationDots() {
     refetchInterval: 60000,
   })
 
+  // Cùng khoá với `usePendingAiCriteriaRequests` của thẻ "Bộ tiêu chí chấm".
+  const { data: aiCriteriaRequests } = useQuery({
+    queryKey: ['ai-criteria-requests'],
+    queryFn: aiCriteriaSetApi.pendingRequests,
+    enabled: !!user && (hasPermission('AI_CRITERIA:MANAGE') || hasPermission('AI_REVIEW:CONFIG')),
+    refetchInterval: 60000,
+    retry: false,
+  })
+
   const counts: NotificationCounts = {
     pendingKpis: overviewAllUnits?.pendingKpiForApproval || 0,
     pendingSubmissions: overviewMyUnit?.pendingSubmissions || 0,
@@ -140,6 +152,7 @@ export function useNotificationDots() {
     pendingScorecards: (scorecards || []).filter(sc => sc.status === BscScorecardStatus.SUBMITTED).length,
     pendingRewards: (pendingGrants?.totalElements || 0) + (pendingRedemptions?.totalElements || 0),
     pendingWallet: reconcile ? reconcile.unresolvedEventCount + reconcile.amountMismatchCount : 0,
+    pendingAiCriteria: aiCriteriaRequests?.length || 0,
   }
 
   return { counts }

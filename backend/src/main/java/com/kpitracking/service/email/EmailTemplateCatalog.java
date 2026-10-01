@@ -263,6 +263,12 @@ public final class EmailTemplateCatalog {
         registerNotification("bsc_score_overridden", "Điểm BSC bị ghi đè",
                 "Khi điểm BSC của một cá nhân được điều chỉnh thủ công hoặc huỷ ghi đè.");
 
+        // ───────────────────────── Quy chế chấm AI ─────────────────────────
+        registerNotification("ai_criteria_change_requested", "Đề nghị đổi quy chế chấm AI",
+                "Khi đơn vị cấp dưới đề nghị đổi quy chế chấm AI bạn đã áp (dành cho người đã áp / cấp trên).");
+        registerNotification("ai_criteria_change_decided", "Kết quả đề nghị quy chế chấm AI",
+                "Khi đề nghị đổi quy chế chấm AI của bạn được đồng ý hoặc bị từ chối.");
+
         // ───────────────────────── Thông báo điểm thưởng ─────────────────────────
         registerNotification("reward_grant_submitted", "Đề nghị thưởng cần duyệt",
                 "Khi một đề nghị thưởng vượt hạn mức được trình lên (dành cho người duyệt gần nhất).");

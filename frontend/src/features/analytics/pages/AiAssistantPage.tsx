@@ -4,7 +4,8 @@ import { toast } from 'sonner'
 import { cn } from '@/lib/utils'
 import { useAuthStore } from '@/store/authStore'
 import { useOrganization } from '@/features/orgunits/hooks/useOrganization'
-import { aiApi, type ConversationResponse, type InsightCard, type FollowupPools, type ClarificationOption, type PendingAction, type AiChatResponse } from '../api/aiApi'
+import { aiApi, type ConversationResponse, type InsightCard, type FollowupPools, type ClarificationOption, type PendingAction, type AiChatResponse, type ChatChart, type AskUserEvent, type DocumentSource } from '../api/aiApi'
+import SourceChips from '@/features/documents/components/SourceChips'
 import InsightCards from '../components/InsightCards'
 import AiDisabledPage from '../components/AiDisabledPage'
 import FollowupSuggestions from '../components/FollowupSuggestions'
@@ -14,6 +15,8 @@ import { usePinnedFilesStore, attachPinnedTo } from '@/store/pinnedFilesStore'
 import { useChatFileDrop } from '../hooks/useChatFileDrop'
 import EvidenceDropCard from '../components/EvidenceDropCard'
 import PendingActionCard from '../components/PendingActionCard'
+import ChatChartCard from '../components/chart/ChatChartCard'
+import AskUserCard from '../components/AskUserCard'
 import { useFormAssistStore } from '@/store/formAssistStore'
 import { useAiAssistantStore } from '@/store/aiAssistantStore'
 import ThinkingSummary from '../components/ThinkingSummary'
@@ -74,6 +77,14 @@ interface Message {
   evidenceRequest?: boolean
   /** Trợ lý đề nghị một thao tác GHI và chờ xác nhận. */
   pendingAction?: PendingAction
+  /** Tài liệu của tổ chức K.AI đã đọc để trả lời — chip nguồn. Vắng ở tin nhắn tải từ lịch sử. */
+  sources?: DocumentSource[]
+  /** Biểu đồ minh hoạ cho câu trả lời này. */
+  charts?: ChatChart[]
+  /** Trợ lý hỏi lại giữa lượt và đang chờ: thẻ chọn, trả lời xong lượt chạy tiếp. */
+  ask?: AskUserEvent
+  /** Lựa chọn đã gửi cho `ask` ({@code null} = bỏ qua); có giá trị thì thẻ khoá lại. */
+  askAnswer?: string | null
 }
 
 const WELCOME_MSG = perLanguage((): Message => ({
@@ -198,6 +209,25 @@ export default function AiAssistantPage() {
     activeInsightRef.current = null
     void sendRef.current?.(pendingAsk.prompt, null, { focusUnitId: pendingAsk.focusUnitId })
   }, [pendingAsk, isLoading, takeAsk])
+
+  /**
+   * Trợ lý hỏi lại giữa lượt: thêm thẻ chọn vào khung chat. Lượt VẪN chạy trên kết nối SSE —
+   * trả lời xong nó làm tiếp, câu trả lời cuối về như thường.
+   */
+  const pendingAskRef = useRef<AskUserEvent | null>(null)
+  const showAsk = (ask: AskUserEvent) => {
+    pendingAskRef.current = ask
+    setMessages(prev => [...prev, { id: `ask-${ask.questionId}`, role: 'assistant', content: '', ask }])
+  }
+  const recordAskAnswer = (questionId: string, value: string | null) => {
+    pendingAskRef.current = null
+    setMessages(prev => prev.map(m => (m.ask?.questionId === questionId ? { ...m, askAnswer: value } : m)))
+  }
+  // Rời trang trong lúc trợ lý đang chờ: báo huỷ để máy chủ thả luồng ra ngay.
+  useEffect(() => () => {
+    const ask = pendingAskRef.current
+    if (ask) void aiApi.answerTurn(ask.turnId, ask.questionId).catch(() => {})
+  }, [])
 
   if (org && org.enableAi === false) return <AiDisabledPage />
 
@@ -340,11 +370,13 @@ export default function AiAssistantPage() {
         },
         {
           onStage: pushStage,
+          onAsk: showAsk,
           onDone: r => { box.value = r },
           // Ném NGUYÊN lỗi: nó đã mang mã HTTP và câu của backend (xem aiApi.streamError).
           onError: err => { throw err },
         },
       )
+      pendingAskRef.current = null
       const { seconds, steps } = endTurn()
       const response = box.value
       if (!response) throw new Error(t('AiAssistantPage.theStreamEndedWithoutAnAnswer'))
@@ -378,6 +410,8 @@ export default function AiAssistantPage() {
           followups: response.followups,
           evidenceRequest: response.evidenceRequest,
           pendingAction: response.pendingAction,
+          sources: response.sources,
+          charts: response.charts?.length ? response.charts : undefined,
 
         },
       ])
@@ -598,7 +632,25 @@ export default function AiAssistantPage() {
                           </div>
                         )}
 
+                        {/* Tài liệu của tổ chức đã đọc để trả lời */}
+                        {msg.role === 'assistant' && msg.sources && !msg.typing && (
+                          <SourceChips sources={msg.sources} />
+                        )}
+
                         {/* Vùng thả minh chứng, khi trợ lý vừa mời người dùng gửi tài liệu */}
+
+                        {/* Trợ lý hỏi lại GIỮA lượt: bấm chọn rồi lượt chạy tiếp trên cùng kết nối */}
+                        {msg.role === 'assistant' && msg.ask && (
+                          <AskUserCard
+                            ask={msg.ask}
+                            answered={msg.askAnswer}
+                            onAnswered={value => recordAskAnswer(msg.ask!.questionId, value)}
+                          />
+                        )}
+
+                        {msg.role === 'assistant' && msg.charts?.map(c => (
+                          <ChatChartCard key={c.id} chart={c} />
+                        ))}
 
                         {msg.role === 'assistant' && msg.pendingAction && (
                           <PendingActionCard

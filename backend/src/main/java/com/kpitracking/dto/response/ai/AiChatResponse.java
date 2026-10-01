@@ -72,6 +72,18 @@ public class AiChatResponse {
      */
     private String consumedActionId;
 
+    /**
+     * Tài liệu của tổ chức mà K.AI đã đọc để trả lời lượt này — client vẽ thành chip bấm mở tài liệu.
+     * Vắng ở lượt không tra tài liệu nào (bộ hướng dẫn chung không tính).
+     */
+    private List<DocumentSourceResponse> sources;
+
+    /**
+     * Biểu đồ minh hoạ cho câu trả lời: client dựng bằng bộ biểu đồ có sẵn của KeyGo. Vắng ở lượt
+     * không có số liệu đáng vẽ.
+     */
+    private List<ChartSpec> charts;
+
     @Data
     @Builder
     @NoArgsConstructor

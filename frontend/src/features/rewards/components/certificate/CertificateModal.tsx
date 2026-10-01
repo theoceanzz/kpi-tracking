@@ -159,10 +159,19 @@ export default function CertificateModal({
         }))
         .filter((i): i is { node: HTMLDivElement; fileName: string } => !!i.node)
 
-      await downloadCertificateBatch(items, (done, total) => setProgress({ done, total }))
+      const { missingImages } = await downloadCertificateBatch(
+        items,
+        `${i18n.t('rewards:CertificateModal.fileNamePrefix')}-${toFileSlug(fmtDate(grant?.approvedAt ?? grant?.createdAt))}-${items.length}`,
+        (done, total) => setProgress({ done, total })
+      )
       toast.success(
         items.length > 1 ? tr('CertificateModal.downloadedCertificates', { count: items.length }) : tr('CertificateModal.certificateDownloaded')
       )
+      // Ảnh vẫn ra, chỉ thiếu logo / chữ ký / nền không đọc được — nói rõ để người dùng
+      // không phát hiện ra lúc đã đem đi trao.
+      if (missingImages > 0) {
+        toast.warning(tr('CertificateModal.someImagesSkipped'), { duration: 7000 })
+      }
     } catch (error) {
       console.error(error)
       toast.error(tr('CertificateModal.couldNotCreateTheCertificateImage'), {

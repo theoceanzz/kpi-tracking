@@ -8,4 +8,6 @@ public class UpdateOrgFeaturesRequest {
     private Boolean enableAi;
     private Boolean enableOkr;
     private Boolean enableWaterfall;
+    /** AI đánh giá bài nộp — trọng số do tổ chức tự đặt ở màn cấu hình của họ. */
+    private Boolean enableAiReview;
 }

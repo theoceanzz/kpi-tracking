@@ -104,6 +104,11 @@ public class RewardCertificateTemplate {
     @Builder.Default
     private Boolean showLogo = true;
 
+    /** Tắt khi logo đã chứa sẵn tên công ty — in thêm dòng tên thành lặp chữ. */
+    @Column(name = "show_org_name", nullable = false)
+    @Builder.Default
+    private Boolean showOrgName = true;
+
     @Column(name = "show_points", nullable = false)
     @Builder.Default
     private Boolean showPoints = true;

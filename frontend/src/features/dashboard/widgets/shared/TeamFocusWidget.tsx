@@ -30,9 +30,9 @@ interface FocusRow extends MemberRiskRow {
 /**
  * Xếp một thành viên vào mức ưu tiên, hoặc `null` nếu người đó đang ổn.
  *
- * <p>`overdueCount` của API là số chỉ tiêu mà bài nộp cuối CÙNG rơi sau hạn của đợt — tức là
- * nộp trễ, không phải "chưa nộp". Người chưa nộp gì cả không rơi vào đó mà lộ ra ở tiến độ
- * bằng 0, nên hai tín hiệu này phải xét cùng nhau.
+ * <p>`overdueCount` của API là số chỉ tiêu TRỄ HẠN: đã quá hạn mà chưa nộp, hoặc bài nộp cuối
+ * rơi sau hạn — cùng nghĩa "quá hạn" với hồ sơ hiệu suất của nhân viên. Người chưa tới hạn mà
+ * chưa nộp gì thì không trễ, chỉ lộ ra ở tiến độ bằng 0, nên hai tín hiệu phải xét cùng nhau.
  */
 function classify(r: MemberRiskRow): FocusRow | null {
   if (r.totalKpis <= 0) return null
@@ -228,6 +228,13 @@ function FocusRowItem({ row, periodId, periodIdTo, expanded, onToggle }: {
       <span className={cn('absolute left-0 top-3 bottom-3 w-1 rounded-full', meta.bar)} aria-hidden="true" />
 
       <div className="flex items-center gap-3 p-3 pl-4">
+        {/* Bấm thẳng vào người là sang hồ sơ hiệu suất — không phải bung chi tiết rồi cuộn qua cả
+            danh sách chỉ tiêu trễ để tìm đường dẫn ở cuối. Nút mũi tên bên phải vẫn chỉ bung chi tiết. */}
+        <Link
+          to={`/employees/${row.userId}/performance`}
+          title={t('TeamFocusWidget.viewPerformanceProfile')}
+          className="group flex min-w-0 flex-1 items-center gap-3 rounded-control focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[var(--color-ring)]"
+        >
         {row.avatarUrl
           ? <img src={row.avatarUrl} alt="" className="w-9 h-9 rounded-full object-cover shrink-0" />
           : (
@@ -239,7 +246,7 @@ function FocusRowItem({ row, periodId, periodIdTo, expanded, onToggle }: {
         <div className="min-w-0 flex-1 space-y-1.5">
           <div className="flex items-center gap-2 min-w-0">
             <PriorityChip priority={row.priority} />
-            <p className="text-sm font-medium text-[var(--color-foreground)] truncate">{row.fullName}</p>
+            <p className="text-sm font-medium text-[var(--color-foreground)] truncate group-hover:text-[var(--color-primary)] group-hover:underline">{row.fullName}</p>
             <span className="text-eyebrow truncate">
               · {row.orgUnitName || t('TeamFocusWidget.noUnitAssigned')}
             </span>
@@ -254,6 +261,7 @@ function FocusRowItem({ row, periodId, periodIdTo, expanded, onToggle }: {
             />
           </div>
         </div>
+        </Link>
 
         <div className="hidden sm:flex items-center gap-5 shrink-0 border-l border-[var(--color-border)] pl-4">
           <Metric label={t('TeamFocusWidget.avgProgress')} value={`${row.avgProgress.toFixed(1)}%`} />
@@ -290,7 +298,7 @@ function Metric({ label, value, highlight }: { label: string; value: string; hig
   )
 }
 
-/** Đúng những chỉ tiêu làm nên con số "trễ hạn" của dòng trên — thứ không hiện ở bất kỳ đâu khác. */
+/** Đúng những chỉ tiêu làm nên con số "trễ hạn" của dòng trên (quá hạn chưa nộp hoặc nộp sau hạn). */
 function OverdueDetail({ row, periodId, periodIdTo }: { row: FocusRow; periodId?: string; periodIdTo?: string }) {
   const { t } = useTranslation('dashboard')
   const { data, isFetching } = useQuery({
@@ -318,7 +326,7 @@ function OverdueDetail({ row, periodId, periodIdTo }: { row: FocusRow; periodId?
                 <span className="text-xs font-medium text-[var(--color-foreground)] truncate">{k.kpiName}</span>
                 <span className="text-caption whitespace-nowrap tabular-nums">
                   {t('TeamFocusWidget.due')} {formatDate(k.deadline)}
-                  {last?.submittedAt ? t('TeamFocusWidget.submitted', { submittedAt: formatDate(last.submittedAt) }) : ''}
+                  {last?.submittedAt ? t('TeamFocusWidget.submitted', { submittedAt: formatDate(last.submittedAt) }) : t('TeamFocusWidget.notSubmitted')}
                 </span>
               </li>
             )

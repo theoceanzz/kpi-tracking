@@ -31,6 +31,7 @@ import { periodLockReason } from '../utils/cycleLockReason'
 import { PERIOD_STATUS_LABEL } from '../types/cycleLock'
 import { useTranslation } from 'react-i18next'
 import { useStateDraft } from '@/hooks/useFormDraft'
+import { useCreateFromLink, useCreatePeriodCycleOption } from '@/components/common/CreatePeriodCycleOption'
 import DraftNotice from '@/components/common/DraftNotice'
 
 export default function KpiPeriodsPage() {
@@ -39,6 +40,8 @@ export default function KpiPeriodsPage() {
   const [showForm, setShowForm] = useState(false)
   const [editPeriod, setEditPeriod] = useState<KpiPeriod | null>(null)
   const [deleteId, setDeleteId] = useState<string | null>(null)
+  // Đến từ mục "+ Tạo đợt mới" trong một ô chọn: mở sẵn form, tạo xong quay về trang cũ.
+  const { returnAfterCreate, cancelReturn } = useCreateFromLink('period', () => { setEditPeriod(null); setShowForm(true) })
 
   const [page, setPage] = useState(0)
   const [pageSize] = useState(10)
@@ -238,7 +241,7 @@ export default function KpiPeriodsPage() {
         {/* Form Modal */}
         {showForm && (
           <PeriodFormModal
-            onClose={() => setShowForm(false)}
+            onClose={() => { setShowForm(false); cancelReturn() }}
             editPeriod={editPeriod}
             organizationId={organizationId!}
             onSubmit={async (payload) => {
@@ -246,7 +249,7 @@ export default function KpiPeriodsPage() {
                 await updatePeriod({ id: editPeriod.id, data: payload })
               } else {
                 const created = await createPeriod(payload)
-                suggestNextStep({ type: 'PERIOD_CREATED', period: created })
+                if (!returnAfterCreate()) suggestNextStep({ type: 'PERIOD_CREATED', period: created })
               }
             }}
             isSubmitting={isCreating || isUpdating}
@@ -320,6 +323,7 @@ function PeriodFormModal({ onClose, editPeriod, organizationId, onSubmit, isSubm
   // Danh sách kỳ để gán đợt vào (tuỳ chọn).
   const { data: cyclesData } = useKpiCycles({ organizationId, size: 100, sortBy: 'startDate', direction: 'desc' })
   const cycles = cyclesData?.content || []
+  const createCycle = useCreatePeriodCycleOption('cycle')
   const selectedCycle = formData.cycleId !== 'NONE' ? cycles.find(c => c.id === formData.cycleId) : undefined
 
   // Auto calculate end date on mount if creating new
@@ -482,7 +486,7 @@ function PeriodFormModal({ onClose, editPeriod, organizationId, onSubmit, isSubm
 
         <div className="space-y-2">
           <label className="text-label">{t('KpiPeriodsPage.evaluationCycleOptional')}</label>
-          <Select value={formData.cycleId} onValueChange={val => setFormData(prev => ({ ...prev, cycleId: val }))}>
+          <Select value={formData.cycleId} onValueChange={createCycle.wrap(val => setFormData(prev => ({ ...prev, cycleId: val })))}>
             <SelectTrigger className="w-full px-5 h-[56px] rounded-card border border-[var(--color-border)] bg-[var(--color-muted)] text-sm font-medium shadow-sm focus:ring-4 focus:ring-[var(--color-primary)]/15">
               <SelectValue placeholder={t('KpiPeriodsPage.notInAnyCycle')} />
             </SelectTrigger>
@@ -493,6 +497,7 @@ function PeriodFormModal({ onClose, editPeriod, organizationId, onSubmit, isSubm
                   {cycle.name}{cycle.status === 'LOCKED' && t('KpiPeriodsPage.locked')}
                 </SelectItem>
               ))}
+              {createCycle.item}
             </SelectContent>
           </Select>
           {selectedCycle?.startDate && selectedCycle?.endDate && (

@@ -41,4 +41,10 @@ public interface TurnListener {
      * cắt đôi qua hai mẩu sẽ lọt lưới. Client PHẢI thay bản xem trước bằng văn bản ở sự kiện kết thúc.
      */
     default void token(String chunk) {}
+
+    /**
+     * Trợ lý hỏi người dùng giữa lượt và sẽ CHỜ trả lời. Đường JSON không cài (mặc định rỗng) nên
+     * lượt ở đó kết thúc ngay với câu hỏi trong câu trả lời — hành vi cũ, không phá tương thích.
+     */
+    default void ask(com.kpitracking.service.ai.hitl.PendingQuestion question) {}
 }

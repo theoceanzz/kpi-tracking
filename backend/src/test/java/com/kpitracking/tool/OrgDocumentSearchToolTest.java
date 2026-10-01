@@ -1,14 +1,18 @@
 package com.kpitracking.tool;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.kpitracking.ai.document.retrieve.DocumentRetrieverFactory;
+import com.kpitracking.ai.document.retrieve.DocumentSearchService;
 import com.kpitracking.repository.ConversationMessageRepository;
 import com.kpitracking.repository.KpiCriteriaRepository;
 import com.kpitracking.repository.OrgUnitRepository;
 import com.kpitracking.repository.UserRepository;
 import com.kpitracking.repository.UserRoleOrgUnitRepository;
 import com.kpitracking.service.OrgUnitStatisticService;
-import com.kpitracking.service.ai.agent.AgentState;
 import com.kpitracking.service.ai.AiTurn;
+import com.kpitracking.service.ai.agent.AgentState;
+import com.kpitracking.service.document.DocumentAccess;
+import com.kpitracking.service.document.DocumentAccessResolver;
 import com.kpitracking.tool.OrgUnitStatisticToolRequests.OrgDocumentSearchRequest;
 import dev.langchain4j.data.document.Metadata;
 import dev.langchain4j.data.embedding.Embedding;
@@ -21,16 +25,16 @@ import dev.langchain4j.store.embedding.EmbeddingMatch;
 import dev.langchain4j.store.embedding.EmbeddingSearchRequest;
 import dev.langchain4j.store.embedding.EmbeddingSearchResult;
 import dev.langchain4j.store.embedding.EmbeddingStore;
-import dev.langchain4j.store.embedding.filter.comparison.IsEqualTo;
-import dev.langchain4j.store.embedding.filter.comparison.IsIn;
-import dev.langchain4j.store.embedding.filter.logical.And;
+import dev.langchain4j.store.embedding.filter.Filter;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.UUID;
 
 import static org.assertj.core.api.Assertions.assertThat;
@@ -40,14 +44,19 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 /**
- * {@code get_org_documents}: lọc BẮT BUỘC theo tổ chức của lượt và chỉ hai loại tài liệu; rỗng thì
- * nói rõ để model dựa vào số liệu KPI thay vì im lặng.
+ * {@code get_org_documents}: hồ sơ KPI_CONTEXT (chỉ mô tả công việc + chiến lược), đọc theo QUYỀN của người hỏi
+ * (bộ lọc fail-closed của {@link DocumentRetrieverFactory}); rỗng thì nói rõ để model dựa vào số liệu KPI; tài
+ * liệu đã đọc thành chip nguồn của lượt.
  */
 class OrgDocumentSearchToolTest {
 
     private EmbeddingStore<TextSegment> store;
     private OrgDocumentSearchTool tool;
+    private DocumentAccessResolver resolver;
+    private AgentState state;
     private final UUID orgId = UUID.randomUUID();
+    private final UUID userId = UUID.randomUUID();
+    private final UUID myUnit = UUID.randomUUID();
 
     @BeforeEach
     @SuppressWarnings("unchecked")
@@ -61,23 +70,34 @@ class OrgDocumentSearchToolTest {
                 mock(UserRepository.class), mock(KpiCriteriaRepository.class), mock(ConversationMessageRepository.class),
                 mock(OrgUnitStatisticService.class), mock(FollowupContextStore.class), new ObjectMapper());
         support.initToolMapper();
-        tool = new OrgDocumentSearchTool(support, store, embeddingModel, 4);
+        resolver = mock(DocumentAccessResolver.class);
+        when(resolver.resolve(userId, orgId)).thenReturn(
+                new DocumentAccess(orgId, userId, true, Set.of(myUnit), Set.of(), Set.of(myUnit), false, true));
+        tool = new OrgDocumentSearchTool(support, new DocumentRetrieverFactory(store, embeddingModel, resolver),
+                new DocumentSearchService(), 4);
     }
 
     private InvocationParameters ctx() {
         AiTurn turn = new AiTurn("q", null, null);
-        AgentState st = new AgentState(turn);
+        state = new AgentState(turn);
         return new InvocationParameters(Map.of(
                 "orgUnitId", UUID.randomUUID().toString(), "organizationId", orgId.toString(),
-                "orgUnitPath", "/cty/", "userId", UUID.randomUUID(), "conversationId", "conv-1", AgentState.CONTEXT_KEY, st));
+                "orgUnitPath", "/cty/", "userId", userId, "conversationId", "conv-1", AgentState.CONTEXT_KEY, state));
+    }
+
+    private static Metadata meta(Object... kv) {
+        Map<String, Object> m = new HashMap<>();
+        for (int i = 0; i < kv.length; i += 2) m.put((String) kv[i], kv[i + 1]);
+        return Metadata.from(m);
     }
 
     @Test
-    @DisplayName("bộ lọc = orgId của lượt AND source IN (JOB_DESCRIPTION, STRATEGY); kết quả gọn: tài liệu, mục, đoạn")
-    void filtersByOrgAndSourceAndCompactsHits() {
+    @DisplayName("bộ lọc theo quyền người hỏi + chỉ JD/chiến lược; kết quả gọn; tài liệu đã đọc thành chip nguồn")
+    void filtersByAccessAndSourceAndRecordsSources() {
         TextSegment seg = TextSegment.from("Phòng IT chịu trách nhiệm uptime hệ thống 99,5 %",
-                Metadata.from(Map.of("docTitle", "Mô tả công việc Phòng IT", "parent", "2. Nhiệm vụ", "title", "2.1 Vận hành",
-                        "orgId", orgId.toString(), "source", "JOB_DESCRIPTION")));
+                meta("docTitle", "Mô tả công việc Phòng IT", "parent", "2. Nhiệm vụ", "title", "2.1 Vận hành",
+                        "orgId", orgId.toString(), "scope", "COMPANY", "source", "JOB_DESCRIPTION",
+                        "docId", "jd-it", "version", 1));
         when(store.search(any())).thenReturn(new EmbeddingSearchResult<>(List.of(new EmbeddingMatch<>(0.03, "id-1", null, seg))));
 
         String out = tool.searchOrgDocuments(new OrgDocumentSearchRequest("nhiệm vụ và mục tiêu của Phòng IT"), ctx());
@@ -87,12 +107,27 @@ class OrgDocumentSearchToolTest {
         ArgumentCaptor<EmbeddingSearchRequest> req = ArgumentCaptor.forClass(EmbeddingSearchRequest.class);
         verify(store).search(req.capture());
         assertThat(req.getValue().maxResults()).isEqualTo(4);
-        assertThat(req.getValue().filter()).isInstanceOf(And.class);
-        And and = (And) req.getValue().filter();
-        assertThat(and.left()).isInstanceOf(IsEqualTo.class);
-        assertThat(((IsEqualTo) and.left()).comparisonValue()).isEqualTo(orgId.toString());
-        assertThat(and.right()).isInstanceOf(IsIn.class);
-        assertThat(((IsIn) and.right()).comparisonValues()).map(Object::toString).containsExactlyInAnyOrder("JOB_DESCRIPTION", "STRATEGY");
+        verify(resolver).resolve(userId, orgId);
+
+        Filter f = req.getValue().filter();
+        String org = orgId.toString();
+        // Lọt: JD công ty, chiến lược của đơn vị mình.
+        assertThat(f.test(meta("orgId", org, "scope", "COMPANY", "source", "JOB_DESCRIPTION"))).isTrue();
+        assertThat(f.test(meta("orgId", org, "scope", "UNIT", "unitId", myUnit.toString(), "source", "STRATEGY"))).isTrue();
+        // Chặn: quy chế (không phải việc phải làm), JD của phòng khác, tài liệu cá nhân người khác, thiếu scope,
+        // tổ chức khác, bộ hướng dẫn chung.
+        assertThat(f.test(meta("orgId", org, "scope", "COMPANY", "source", "REGULATION"))).isFalse();
+        assertThat(f.test(meta("orgId", org, "scope", "UNIT", "unitId", UUID.randomUUID().toString(), "source", "JOB_DESCRIPTION"))).isFalse();
+        assertThat(f.test(meta("orgId", org, "scope", "PERSONAL", "ownerId", UUID.randomUUID().toString(), "source", "JOB_DESCRIPTION"))).isFalse();
+        assertThat(f.test(meta("orgId", org, "source", "JOB_DESCRIPTION"))).isFalse();
+        assertThat(f.test(meta("orgId", UUID.randomUUID().toString(), "scope", "COMPANY", "source", "JOB_DESCRIPTION"))).isFalse();
+        assertThat(f.test(meta("orgId", "GLOBAL", "scope", "GLOBAL", "source", "JOB_DESCRIPTION"))).isFalse();
+
+        assertThat(state.getSources()).singleElement().satisfies(src -> {
+            assertThat(src.docId()).isEqualTo("jd-it");
+            assertThat(src.title()).isEqualTo("Mô tả công việc Phòng IT");
+            assertThat(src.section()).isEqualTo("2. Nhiệm vụ › 2.1 Vận hành");
+        });
     }
 
     @Test

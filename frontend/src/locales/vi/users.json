@@ -191,7 +191,8 @@
     "role": "Vai trò",
     "status": "Trạng thái",
     "tryChangingTheKeywordOrFilters": "Thử đổi từ khoá hoặc bộ lọc.",
-    "unit": "Đơn vị"
+    "unit": "Đơn vị",
+    "deletePersonalDocuments": "Xoá tài liệu cá nhân"
   },
   "useUsers": {
     "updateFailed": "Cập nhật thất bại",

@@ -126,7 +126,10 @@
     "work": "Công việc",
     "workflowSettings": "Thiết lập luồng xử lí",
     "yourAssignedKpisAndCurrentProgress": "Chỉ tiêu được giao và tiến độ hiện tại của bạn",
-    "yourUnitsScorecardByPeriodAnd": "Bộ tiêu chí của đơn vị bạn theo đợt và KPI của bạn trong từng hạng mục"
+    "yourUnitsScorecardByPeriodAnd": "Bộ tiêu chí của đơn vị bạn theo đợt và KPI của bạn trong từng hạng mục",
+    "documents": "Tài liệu",
+    "aiSubmissionReview": "AI đánh giá bài nộp",
+    "aiReadsSubmissionsAndAppliesRules": "Bật AI đọc trước bài nộp khi chấm, áp quy chế chấm cho từng đơn vị"
   },
   "Sidebar": {
     "administrator": "Quản trị viên",

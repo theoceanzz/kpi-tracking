@@ -24,6 +24,16 @@ class ResponseSanitizingAdvisorTest {
     // ════════════════════════════════════════════════════════════════════════
 
     @Test
+    @DisplayName("biểu đồ mermaid model tự viết bị bỏ — client không vẽ được, chỉ hiện một dòng mã")
+    void stripsMermaidCharts() {
+        String inline = "Biểu đồ tròn\n`mermaid pie title Tổng số KPI \"Phòng IT\": 25 \"Phòng Truyền Thông\": 24`\nPhòng IT chiếm 51 %.";
+        String fenced = "Trước\n```mermaid\npie title X\n\"A\": 1\n```\nSau";
+
+        assertThat(ResponseSanitizingAdvisor.stripMermaid(inline)).doesNotContain("mermaid").contains("Phòng IT chiếm 51 %.");
+        assertThat(ResponseSanitizingAdvisor.stripMermaid(fenced)).doesNotContain("mermaid").contains("Trước").contains("Sau");
+    }
+
+    @Test
     @DisplayName("gạch đầu dòng trong ô bảng thành nhiều DÒNG, không phải chuỗi nối bằng ' / '")
     void bulletsInsideTableCellBecomeLineBreaks() {
         String answer = """

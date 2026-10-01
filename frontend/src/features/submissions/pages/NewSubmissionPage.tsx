@@ -38,6 +38,7 @@ import { isSubmittableByUser } from '../utils/submittable'
 import { useTranslation } from 'react-i18next'
 import { useFormDraft } from '@/hooks/useFormDraft'
 import DraftNotice from '@/components/common/DraftNotice'
+import AiSelfCheckPanel from '../components/AiSelfCheckPanel'
 
 export default function NewSubmissionPage() {
   const { t } = useTranslation('submissions')
@@ -81,7 +82,7 @@ export default function NewSubmissionPage() {
     resolver: zodResolver(submissionSchema()),
     defaultValues: { kpiCriteriaId: preselectedKpiId },
   })
-  const { register, handleSubmit, watch, setValue, reset, control, getValues, formState: { errors } } = formApi
+  const { register, handleSubmit, watch, setValue, setError, setFocus, reset, control, getValues, formState: { errors } } = formApi
   // Trang dài, lỡ bấm sang trang khác là mất cả ghi chú — giữ nháp như modal (file đính kèm thì không giữ được).
   const draft = useFormDraft(formApi, { key: `submission:${id ?? 'new'}:${preselectedKpiId}`, enabled: true })
 
@@ -167,6 +168,10 @@ export default function NewSubmissionPage() {
 
   const selectedKpiId = watch('kpiCriteriaId')
   const selectedKpi = myKpiData?.content?.find(k => k.id === selectedKpiId)
+  // Dấu vân tay của bài đang soạn: khối AI tự soi so với lúc bấm để biết kết quả đang hiện có còn là của bản này.
+  const [wActual, wLevel, wNote] = watch(['actualValue', 'qualitativeLevelId', 'note'])
+  const selfCheckSignature = JSON.stringify([wActual ?? null, wLevel ?? null, wNote ?? '',
+    files.map(f => `${f.name}:${f.size}:${f.lastModified}`)])
 
   // Chép lại ĐÚNG các điều kiện đang dùng để vẽ ô bên dưới — không viết logic mới, vì hai bên
   // lệch nhau là quay về đúng lỗi này: trợ lý điền một ô không tồn tại trên màn hình.
@@ -212,6 +217,20 @@ export default function NewSubmissionPage() {
   }, [enableBsc, bscScorecards, orgUnitTreeData, selectedKpi])
 
   const { addUpload } = useUploadStore()
+
+  /**
+   * Schema không biết KPI đang chọn là định lượng hay định tính, nên ràng buộc "phải nhập kết
+   * quả" kiểm tra ở đây. Backend cũng đòi giá trị cho KPI định lượng ở CẢ bản nháp, nên áp cho
+   * cả hai nút — để trống mà bấm thì báo ngay dưới ô thay vì chờ lỗi từ máy chủ.
+   */
+  const withRequiredValue = (next: (data: SubmissionFormData) => void) => (data: SubmissionFormData) => {
+    if (!isQualitative && (data.actualValue == null || Number.isNaN(data.actualValue))) {
+      setError('actualValue', { type: 'required', message: t('NewSubmissionPage.pleaseEnterTheActualResult') })
+      setFocus('actualValue')
+      return
+    }
+    next(data)
+  }
 
   const mutation = useMutation({
     mutationFn: async ({ data, isDraft }: { data: SubmissionFormData, isDraft: boolean }) => {
@@ -366,7 +385,11 @@ export default function NewSubmissionPage() {
                 <div className="relative mt-1.5 w-full sm:w-72">
                 <LocaleNumberInput
                     id="sub-actual"
-                  {...register('actualValue', { valueAsNumber: true })}
+                  {...register('actualValue', {
+                    // Ô trống phải thành `undefined` chứ không phải NaN như `valueAsNumber` —
+                    // NaN lọt xuống zod và hiện nguyên câu tiếng Anh "expected number, received NaN".
+                    setValueAs: (v: unknown) => (v === '' || v == null ? undefined : Number(v)),
+                  })}
                   type="number"
                   step="any"
                     inputMode="decimal"
@@ -412,14 +435,33 @@ export default function NewSubmissionPage() {
                   </div>
                </div>
 
+            {/* AI soi bài: đặt sau phần viết + đính kèm, ngay trước nút gửi — đúng lúc người nộp cần. Cùng khung
+                với khối AI ở màn chấm của quản lý. */}
+            {selectedKpi && (
+              <AiSelfCheckPanel
+                key={selectedKpi.id}
+                kpiCriteriaId={selectedKpi.id}
+                kpiName={selectedKpi.name}
+                submissionId={isEdit ? id : undefined}
+                files={files}
+                signature={selfCheckSignature}
+                getDraft={() => {
+                  const v = getValues()
+                  return isQualitative
+                    ? { qualitativeLevelId: v.qualitativeLevelId ?? null, note: v.note ?? null }
+                    : { actualValue: v.actualValue ?? null, note: v.note ?? null }
+                }}
+              />
+            )}
+
             {/* Nút: thứ tự cố định [Hủy] … [Lưu nháp] [Gửi duyệt] */}
             <div className="flex flex-col-reverse gap-2 border-t border-[var(--color-border)] pt-4 sm:flex-row sm:items-center">
               <Button type="button" variant="ghost" onClick={() => navigate(-1)} disabled={mutation.isPending}>{t('NewSubmissionPage.cancel')}</Button>
               <div className="flex gap-2 sm:ml-auto">
-                <Button type="button" variant="outline" disabled={mutation.isPending} onClick={handleSubmit(data => mutation.mutate({ data, isDraft: true }))}>
+                <Button type="button" variant="outline" disabled={mutation.isPending} onClick={handleSubmit(withRequiredValue(data => mutation.mutate({ data, isDraft: true })))}>
                   <Save aria-hidden="true" /> {t('NewSubmissionPage.saveDraft')}
                 </Button>
-                <Button type="button" disabled={mutation.isPending} onClick={handleSubmit(data => { setPendingData(data); setShowConfirm(true) })}>
+                <Button type="button" disabled={mutation.isPending} onClick={handleSubmit(withRequiredValue(data => { setPendingData(data); setShowConfirm(true) }))}>
                   {mutation.isPending ? <Loader2 className="animate-spin" aria-hidden="true" /> : <Send aria-hidden="true" />}
                   {isEdit && existingSubmission?.status === 'DRAFT' ? t('NewSubmissionPage.submitForApproval') : t('NewSubmissionPage.submitReport2')}
                 </Button>
@@ -448,6 +490,7 @@ export default function NewSubmissionPage() {
               <p className="text-caption">{t('NewSubmissionPage.chooseAKpiToSeeThe')}</p>
             </section>
           )}
+
 
           <section className="rounded-card border border-[var(--color-border)] bg-[var(--color-card)] p-4">
             <h2 className="text-eyebrow">{t('NewSubmissionPage.note')}</h2>

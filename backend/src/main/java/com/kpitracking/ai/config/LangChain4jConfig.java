@@ -1,7 +1,8 @@
 package com.kpitracking.ai.config;
 
-import com.kpitracking.ai.rag.E5EmbeddingModel;
-import com.kpitracking.ai.rag.RagVectorReader;
+import com.kpitracking.ai.document.store.E5EmbeddingModel;
+import com.kpitracking.ai.document.store.RagVectorReader;
+import com.kpitracking.ai.document.store.VectorStoreSchemaInitializer;
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import dev.langchain4j.data.segment.TextSegment;
@@ -157,6 +158,19 @@ public class LangChain4jConfig {
     @Bean
     public RagVectorReader ragVectorReader() {
         return new RagVectorReader(vectorDataSource(), embeddingTable);
+    }
+
+    /** Cho phép index ANN trên bảng vector — MẶC ĐỊNH KHÔNG (docs/DOCUMENTS_DESIGN.md §6.6). */
+    @Value("${app.ai.rag.allow-ann-index:false}") private boolean allowAnnIndex;
+
+    /**
+     * Gắn scope cho vector cũ, index biểu thức orgId/scope, chốt chặn index ANN — chạy lúc khởi động
+     * ({@link VectorStoreSchemaInitializer}). Không qua Flyway vì bảng vector nằm ngoài Flyway.
+     */
+    @Bean
+    public VectorStoreSchemaInitializer vectorStoreSchemaInitializer(EmbeddingStore<TextSegment> embeddingStore) {
+        // Nhận embeddingStore chỉ để chắc bảng đã được langchain4j tạo trước.
+        return new VectorStoreSchemaInitializer(vectorDataSource(), embeddingTable, allowAnnIndex);
     }
 
     private HikariDataSource vectorDataSource;

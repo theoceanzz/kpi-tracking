@@ -39,7 +39,10 @@
     { "id": "A30", "q": "Ai đang được uỷ quyền quản lý thêm đơn vị nào trong chi nhánh?", "tools": ["get_delegations"], "groups": ["LOOKUP"], "expect": [] },
     { "id": "A31", "q": "Hạnh kiểm Phòng IT đợt vừa rồi thế nào, ai chưa tự chấm?", "_note": "Cần enable_conduct=true ở Demo Company (đo 18/09 sau khi bật tạm trong DB dev). Tổ chức tắt thì tool không được trao và câu này không đo được.", "tools": ["get_conduct"], "groups": ["CONDUCT"], "expect": [] },
     { "id": "A32", "q": "Có đề xuất thưởng điểm nào đang chờ tôi duyệt không?", "_note": "Cần enable_reward=true (bật tạm khi đo). Seed không có đề xuất -> tool trả rỗng, câu trả lời phải nói không có, không bịa.", "tools": ["get_rewards"], "groups": ["REWARD"], "expect": ["không|Không|chưa"] },
-    { "id": "A33", "q": "Xem tổng quan hiệu suất công ty", "_note": "Đo được 22/09: model chuyển nguyên chữ 'Công ty' vào unitName rồi hỏi lại 'không tìm thấy đơn vị Công ty' — lạc ngữ cảnh. resolveUnit nay coi 'công ty / toàn tổ chức / đơn vị tôi' là phạm vi của người hỏi (đơn vị hiệu lực) khi không có đơn vị nào mang tên đó.", "tools": [], "toolsAny": [["get_analytics", "get_kpi", "get_people"]], "groups": [], "reject": ["không tìm thấy đơn vị", "trùng tên", "cho biết tên đầy đủ"], "expect": ["Hà Nội|Chi nhánh|hiệu suất|tiến độ"] }
+    { "id": "A33", "q": "Xem tổng quan hiệu suất công ty", "_note": "Đo được 22/09: model chuyển nguyên chữ 'Công ty' vào unitName rồi hỏi lại 'không tìm thấy đơn vị Công ty' — lạc ngữ cảnh. resolveUnit nay coi 'công ty / toàn tổ chức / đơn vị tôi' là phạm vi của người hỏi (đơn vị hiệu lực) khi không có đơn vị nào mang tên đó.", "tools": [], "toolsAny": [["get_analytics", "get_kpi", "get_people"]], "groups": [], "reject": ["không tìm thấy đơn vị", "trùng tên", "cho biết tên đầy đủ"], "expect": ["Hà Nội|Chi nhánh|hiệu suất|tiến độ"] },
+    { "id": "A34", "q": "Xếp hạng các đơn vị con theo hiệu suất", "_note": "Dữ liệu nhiều hạng mục có số — ChartAgent phải chọn biểu đồ so sánh, không để nguyên bảng Markdown.", "tools": [], "toolsAny": [["rank", "get_analytics", "compare_org_units"]], "groups": [], "expectChart": "bar|lollipop|groupedBar", "expect": [] },
+    { "id": "A35", "q": "Xu hướng hiệu suất 3 kỳ gần nhất của Phòng IT", "_note": "Dữ liệu theo THỜI GIAN — phải ra đường/diện tích chứ không phải cột.", "tools": [], "toolsAny": [["get_analytics"]], "groups": [], "expectChart": "line|area", "expect": [] },
+    { "id": "A36", "q": "Phòng IT có bao nhiêu người?", "_note": "MỘT con số thì không có gì để so sánh — vẽ biểu đồ ở đây là vẽ thừa.", "tools": [], "toolsAny": [["get_people", "get_org_unit"]], "groups": [], "expectChart": false, "expect": ["2|3|4|5"] }
   ],
 
   "groupB": [
@@ -173,5 +176,24 @@
      "why": "Câu hỏi về người khác — phải từ chối, không liệt kê ai.",
      "reject": ["TeamLead", "Deputy Lead", "chưa nộp:"], "expect": ["không|chỉ|của bạn|quản lý"]},
     {"id": "E08", "as": "staff", "q": "Làm sao để nộp báo cáo KPI?", "_note": "Nhánh HELP mở cho mọi người dùng — nhân viên vẫn hỏi được cách dùng.", "tools": [], "groups": [], "expect": ["Nộp báo cáo|nộp báo cáo|Nộp"]}
+  ],
+
+  "_docH": "Nhóm H chỉ chạy được với --stream: hỏi-lại-giữa-lượt cần một kênh để hỏi, mà chỉ SSE mới có. Bộ đo tự huỷ câu hỏi ngay khi nhận được, trừ ca có autoAnswer.",
+  "groupH": [
+    {"id": "H01", "q": "Team có bao nhiêu người?",
+     "why": "Cùng câu với D03 nhưng ĐƯỜNG KHÁC: trên luồng streaming, 4 đơn vị chứa chữ 'Team' phải thành THẺ HỎI giữa lượt (bấm chọn được) chứ không phải câu hỏi kết thúc lượt. Bộ đo huỷ ngay, nên lượt kết thúc bằng chính câu hỏi kèm lựa chọn.",
+     "expectAsk": ["Backend", "Frontend"], "expect": [], "reject": ["Bạn muốn xem đơn vị nào"]},
+    {"id": "H02", "q": "So sánh Team với Phong Truyen Thong",
+     "why": "Đường HỎI LÀM RÕ của tool (compare_org_units), khác H01 vốn do model tự gọi ask_user: một trong hai tên khớp nhiều đơn vị, nên chính tool đặt câu hỏi và lượt dừng chờ. Viết Phòng Truyền Thông không dấu để câu hỏi không tự lộ đáp án cho vế kia.",
+     "expectAsk": ["Backend", "Frontend"], "expect": [], "reject": []},
+    {"id": "H03", "q": "Team có bao nhiêu người?", "autoAnswer": 0,
+     "why": "Ca CHỨNG MINH của cả luồng: bộ đo trả lời tự động bằng lựa chọn ĐẦU TIÊN, rồi câu trả lời cuối phải mang số người của đúng team đó (mỗi team 3 người) — tức vòng sau đã dùng lựa chọn và KHÔNG hỏi lại lần hai.",
+     "expectAsk": ["Backend", "Frontend"], "expect": ["3"], "reject": ["khớp NHIỀU|Bạn muốn (nói tới|xem)"]},
+    {"id": "H04", "q": "Thống kê cho tôi hiệu suất phòng vận hành",
+     "why": "Đo 23/09: đơn vị KHÔNG tồn tại -> trợ lý hỏi trống 'cung cấp tên đầy đủ', trả lời xong lại hỏi lại, bỏ qua thì lặp câu hỏi lần ba. Phải nói thẳng là không có đơn vị này (khối ĐƠN VỊ TRONG PHẠM VI + message not_found), không thẻ hỏi.",
+     "expectAsk": false, "expect": ["không có|không tồn tại|không tìm thấy"], "reject": ["tên đầy đủ"]},
+    {"id": "H05", "q": "So sánh hiệu suất vài team giúp tôi",
+     "why": "CHỌN NHIỀU: 'vài team' là quyết định của người dùng — thẻ phải cho tick nhiều team (multiSelect); bộ đo chọn hai lựa chọn đầu rồi câu trả lời cuối phải so sánh đúng các team đó.",
+     "autoAnswer": [0, 1], "expectAsk": ["Team"], "expectMulti": true, "expect": ["Team"], "reject": ["Bạn muốn so sánh"]}
   ]
 }

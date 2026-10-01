@@ -54,7 +54,8 @@ import java.util.concurrent.Executors;
 public class KeyGoAssistant {
 
     /** Trần số vòng của agent chính: một lần trả lời + hỏi lại vì thiếu vế + hỏi lại vì mở thêm tool. */
-    static final int MAX_ROUNDS = 3;
+    // 3 vòng của agent + 1 vòng dành cho lượt người dùng trả lời câu hỏi giữa chừng.
+    static final int MAX_ROUNDS = 4;
 
     private final TurnSteps steps;
     private final AssistantAgent assistantAgent;
@@ -77,9 +78,23 @@ public class KeyGoAssistant {
             conditional.subAgents(intent, scope -> intent.equals(scope.readState(TurnSteps.INTENT)),
                     AgenticServices.agentAction(h.step()::accept));
         }
+        // Human-in-the-loop của mô-đun agentic: bước này CHỜ người dùng trả lời câu hỏi mà tool
+        // ask_user (hoặc phép hỏi làm rõ tên trùng) vừa đặt. responseProvider là hàm chặn trên luồng
+        // của lượt — chọn cách đồng bộ vì kết nối SSE vẫn mở, người dùng đang nhìn khung chat.
+        Object askUser = AgenticServices.humanInTheLoopBuilder()
+                .description("Hỏi người dùng một câu có lựa chọn rồi chờ họ trả lời")
+                .outputKey(TurnSteps.USER_ANSWER)
+                .responseProvider(steps::awaitUserAnswer)
+                .build();
+        // Chỉ chạy khi thực sự có câu hỏi đang chờ; lượt bình thường đi thẳng qua.
+        Object askIfNeeded = AgenticServices.conditionalBuilder()
+                .name("ask-user")
+                .subAgents("ask", steps::hasPendingQuestion, askUser)
+                .build();
+
         Object assistantLoop = AgenticServices.loopBuilder()
                 .name("assistant-loop")
-                .subAgents(AgenticServices.agentAction(steps::prepareRound), assistantAgent)
+                .subAgents(AgenticServices.agentAction(steps::prepareRound), assistantAgent, askIfNeeded)
                 .maxIterations(MAX_ROUNDS)
                 // Mặc định mô-đun kiểm điều kiện thoát sau MỖI sub-agent — tức ngay sau prepareRound,
                 // khi chưa có câu trả lời nào: vòng lặp thoát mà agent chưa hề chạy (đo được: câu
@@ -92,7 +107,10 @@ public class KeyGoAssistant {
         Object tail = AgenticServices.parallelBuilder()
                 .name("tail")
                 .subAgents(AgenticServices.agentAction(steps::validate),
-                        AgenticServices.agentAction(steps::followups))
+                        AgenticServices.agentAction(steps::followups),
+                        // Chọn biểu đồ: cùng đuôi song song vì nó chỉ đọc kết quả tool + câu trả lời,
+                        // không phụ thuộc hai việc kia và không được phép kéo dài lượt.
+                        AgenticServices.agentAction(steps::charts))
                 .executor(parallelExecutor)
                 .build();
 
@@ -155,6 +173,7 @@ public class KeyGoAssistant {
                 turn.setConsumedActionId(state.getConsumedActionId());
                 turn.setEvidenceRequested(state.isEvidenceRequested());
                 turn.setFilesAttached(state.isFilesAttached());
+                turn.setSources(List.copyOf(state.getSources()));
             }
         }
     }

@@ -263,6 +263,7 @@ export interface ResolvedDesign {
   logoUrl?: string | null
   backgroundUrl?: string | null
   showLogo: boolean
+  showOrgName: boolean
   showPoints: boolean
   showReason: boolean
 }
@@ -299,6 +300,7 @@ export function resolveDesign(
     logoUrl: template?.logoUrl,
     backgroundUrl: template?.backgroundUrl,
     showLogo: template?.showLogo ?? true,
+    showOrgName: template?.showOrgName ?? true,
     showPoints: template?.showPoints ?? true,
     showReason: template?.showReason ?? true,
   }

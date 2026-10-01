@@ -125,5 +125,11 @@
   "formDraft": {
     "restored": "Đã khôi phục dữ liệu bạn nhập dở lúc {{time}}.",
     "discard": "Bỏ bản nháp"
+  },
+  "createPeriodCycle": {
+    "newPeriod": "Tạo đợt mới",
+    "newCycle": "Tạo kỳ mới",
+    "periodCreatedBack": "Đã tạo đợt — đã quay lại trang trước, mở lại form để chọn đợt vừa tạo.",
+    "cycleCreatedBack": "Đã tạo kỳ — đã quay lại trang trước, mở lại form để chọn kỳ vừa tạo."
   }
 }

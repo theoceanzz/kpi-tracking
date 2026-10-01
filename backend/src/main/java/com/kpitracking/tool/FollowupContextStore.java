@@ -137,6 +137,20 @@ public class FollowupContextStore {
         return b != null ? b.clarificationOptions : List.of();
     }
 
+    /**
+     * Người dùng ĐÃ chọn ngay giữa lượt (human-in-the-loop) nên cuộc hội thoại không còn chờ gì:
+     * bỏ cờ và bỏ luôn các lựa chọn. Không dọn thì câu trả lời cuối vẫn kèm một hàng nút "chọn đơn
+     * vị nào" cho câu hỏi vừa được trả lời xong.
+     */
+    public void clearDisambiguating(String conversationId) {
+        if (conversationId == null) return;
+        Bucket b = store.get(conversationId);
+        if (b == null) return;
+        b.disambiguating = false;
+        b.clarificationOptions = List.of();
+        b.updatedAt = Instant.now().toEpochMilli();
+    }
+
     /** Check if this conversation is awaiting user disambiguation. */
     public boolean isDisambiguating(String conversationId) {
         if (conversationId == null) return false;

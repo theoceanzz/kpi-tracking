@@ -199,6 +199,7 @@ export const navItems = perLanguage((): NavItem[] => ([
           { id: 'rewards', label: i18n.t('layout:navigation.rewardManagement'), icon: <Gift size={18} />, permission: ['REWARD:GRANT', 'REWARD:APPROVE', 'REWARD:CONFIG', 'REWARD:VIEW'], rewardOnly: true, legacyKeys: ['/rewards'], group: i18n.t('layout:navigation.tools'), description: i18n.t('layout:navigation.rewardProposalsBudgetsCheckInsAnd') },
           { id: 'wallet', label: i18n.t('layout:navigation.walletManagement'), icon: <Landmark size={18} />, permission: ['WALLET:VIEW', 'WALLET:CONFIG', 'WALLET:RECONCILE'], walletOnly: true, legacyKeys: ['/wallet'], group: i18n.t('layout:navigation.tools'), description: i18n.t('layout:navigation.peopleBalancesTopUpConfigurationAnd') },
           { id: 'ai-quota', label: i18n.t('layout:navigation.aiTokenManagement'), icon: <Coins size={18} />, permission: 'AI_QUOTA:ALLOCATE', aiOnly: true, legacyKeys: ['/ai-quota'], group: i18n.t('layout:navigation.tools'), description: i18n.t('layout:navigation.allocateAiTokenQuotasToLower') },
+          { id: 'ai-review', label: i18n.t('layout:navigation.aiSubmissionReview'), icon: <Bot size={18} />, permission: ['AI_REVIEW:CONFIG', 'AI_CRITERIA:MANAGE'], aiOnly: true, group: i18n.t('layout:navigation.tools'), description: i18n.t('layout:navigation.aiReadsSubmissionsAndAppliesRules') },
         ],
       },
     ],
@@ -281,6 +282,9 @@ export const navItems = perLanguage((): NavItem[] => ([
       { id: 'bsc', labelKey: 'analytics-bsc', label: i18n.t('layout:navigation.bscScorecard'), icon: <Gauge size={18} />, permission: 'BSC:MANAGE', bscOnly: true, group: i18n.t('layout:navigation.wholeCompany'), description: i18n.t('layout:navigation.isTheCompanyOnStrategyScorecard'), audience: i18n.t('layout:navigation.boardOfDirectors') },
     ],
   },
+  // Thư viện tài liệu 3 phạm vi (tri thức cho K.AI). Không gắn aiOnly: tài liệu vẫn xem/tải được khi tổ chức
+  // tắt AI. Mọi người đăng nhập đều có ít nhất tab Công ty; tab nào hiện do backend quyết.
+  { id: 'documents', label: i18n.t('layout:navigation.documents'), path: '/documents', icon: <BookOpen size={20} />, permission: 'DASHBOARD:VIEW', end: true },
   { id: 'ai-assistant', label: 'K.AI', path: '/ai-assistant', icon: <Bot size={20} />, permission: 'DASHBOARD:VIEW', end: true, aiOnly: true },
 ]))
 

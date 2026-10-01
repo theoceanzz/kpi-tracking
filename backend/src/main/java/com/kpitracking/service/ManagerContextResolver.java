@@ -62,6 +62,20 @@ public class ManagerContextResolver {
         }
     }
 
+    /**
+     * Chỉ id của người đang đăng nhập, không kèm ngữ cảnh đơn vị. Dùng ở chỗ chỉ cần biết "ai đang
+     * gọi" — vd nhận câu trả lời cho câu hỏi human-in-the-loop, nơi người trả lời phải đúng là
+     * người được hỏi.
+     */
+    public UUID currentUserId() {
+        try {
+            String email = SecurityContextHolder.getContext().getAuthentication().getName();
+            return userRepository.findByEmail(email).map(User::getId).orElse(null);
+        } catch (Exception e) {
+            return null;
+        }
+    }
+
     public ManagerContext resolve() {
         try {
             String email = SecurityContextHolder.getContext().getAuthentication().getName();

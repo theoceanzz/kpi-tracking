@@ -871,7 +871,9 @@
     "whenTheParentAssignsBscKpis": "Khi được cấp trên giao chỉ tiêu BSC xuống đơn vị",
     "whenTheRedeemerCancelsTheirOwn": "Khi người đổi tự huỷ yêu cầu (dành cho bộ phận xử lý quà)",
     "whenTheUnitsBscResultsFor": "Khi kết quả BSC của đơn vị trong một đợt được chốt",
-    "whenYourPeriodEvaluationResultsAre": "Khi có kết quả đánh giá đợt của mình (dành cho người được chấm)"
+    "whenYourPeriodEvaluationResultsAre": "Khi có kết quả đánh giá đợt của mình (dành cho người được chấm)",
+    "whenASubordinateRequestsChangingAiRules": "Khi cấp dưới đề nghị đổi quy chế chấm AI bạn đã áp (dành cho người đã áp / cấp trên)",
+    "whenYourAiRulesRequestIsDecided": "Khi đề nghị đổi quy chế chấm AI của bạn được đồng ý hoặc bị từ chối"
   },
   "useAiQuota": {
     "couldNotUpdate": "Không cập nhật được",

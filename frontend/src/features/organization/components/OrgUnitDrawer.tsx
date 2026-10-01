@@ -34,8 +34,6 @@ export type DrawerMode = 'create-root' | 'create-child' | 'edit'
  */
 const NONE = '__NONE__'
 
-/** Dropdown phải nổi trên drawer (z-[200]), nếu không sẽ bị lớp phủ che mất. */
-const dropdownCls = 'z-[300]'
 
 const triggerCls =
   'w-full text-sm font-normal ' +
@@ -407,7 +405,7 @@ export function OrgUnitDrawer({ orgId, drawerState, onClose, hierarchyLevels }: 
                   <SelectTrigger className={cn(triggerCls, 'font-semibold')}>
                     <SelectValue />
                   </SelectTrigger>
-                  <SelectContent className={dropdownCls}>
+                  <SelectContent>
                     <SelectItem value="ACTIVE">{t('OrgUnitDrawer.active')}</SelectItem>
                     <SelectItem value="TRIAL">{t('OrgUnitDrawer.trialNew')}</SelectItem>
                     <SelectItem value="INACTIVE">{t('OrgUnitDrawer.pausedStopped')}</SelectItem>
@@ -474,7 +472,7 @@ export function OrgUnitDrawer({ orgId, drawerState, onClose, hierarchyLevels }: 
                       <SelectTrigger className={triggerCls}>
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent className={dropdownCls}>
+                      <SelectContent>
                         <SelectItem value={NONE}>{t('OrgUnitDrawer.chooseProvinceCity')}</SelectItem>
                         {provinces.map(p => <SelectItem key={p.id} value={p.id}>{p.name}</SelectItem>)}
                       </SelectContent>
@@ -496,7 +494,7 @@ export function OrgUnitDrawer({ orgId, drawerState, onClose, hierarchyLevels }: 
                       <SelectTrigger className={triggerCls}>
                         <SelectValue />
                       </SelectTrigger>
-                      <SelectContent className={dropdownCls}>
+                      <SelectContent>
                         <SelectItem value={NONE}>{t('OrgUnitDrawer.chooseDistrict')}</SelectItem>
                         {districts.map(d => <SelectItem key={d.id} value={d.id}>{d.name}</SelectItem>)}
                       </SelectContent>

@@ -260,6 +260,8 @@ const EVENT_LABELS = perLanguage((): Record<string, string> => ({
   bsc_cascaded: i18n.t('organization:SystemSettingsTabs.whenTheParentAssignsBscKpis'),
   bsc_unit_result_finalized: i18n.t('organization:SystemSettingsTabs.whenTheUnitsBscResultsFor'),
   bsc_score_overridden: i18n.t('organization:SystemSettingsTabs.whenAnIndividualsBscScoreIs'),
+  ai_criteria_change_requested: i18n.t('organization:SystemSettingsTabs.whenASubordinateRequestsChangingAiRules'),
+  ai_criteria_change_decided: i18n.t('organization:SystemSettingsTabs.whenYourAiRulesRequestIsDecided'),
   reward_grant_submitted: i18n.t('organization:SystemSettingsTabs.whenARewardProposalExceedingThe'),
   reward_grant_approved: i18n.t('organization:SystemSettingsTabs.whenARewardProposalIsApproved'),
   reward_grant_rejected: i18n.t('organization:SystemSettingsTabs.whenARewardProposalIsRejected'),
